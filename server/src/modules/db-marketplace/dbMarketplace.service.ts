@@ -355,6 +355,9 @@ export async function viewerCanSeeListing(
       if (listing.buyerExternalCompanyId && listing.buyerExternalCompanyId !== opts.externalCompanyId) {
         if (listing.status === 'PENDING_SELLER' || listing.status === 'CONFIRMED') return false;
       }
+      if (!(await isActiveExternalCompanyOnTenant(tenantId, opts.externalCompanyId))) {
+        return false;
+      }
       if (listing.visibility === 'ALL') {
         if (listing.status === 'OPEN' && listing.platformSuspendedAt) return false;
         return listing.status === 'OPEN' || listing.status === 'PENDING_SELLER' || listing.status === 'CONFIRMED';
@@ -370,11 +373,43 @@ export async function viewerCanSeeListing(
   }
   if (listing.status !== 'OPEN' && listing.status !== 'PENDING_SELLER') return false;
   if (listing.status === 'OPEN' && listing.platformSuspendedAt) return false;
-  if (listing.visibility === 'ALL') return true;
-  for (const a of listing.audiences) {
-    if (a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId === tenantId) return true;
+
+  if (opts?.externalCompanyId) {
+    return false;
   }
-  return false;
+
+  if (!(await hasActivePartnershipWith(listing.tenantId, tenantId))) {
+    return false;
+  }
+  if (listing.visibility === 'ALL') return true;
+  return listing.audiences.some(
+    (a) => a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId === tenantId,
+  );
+}
+
+async function hasActivePartnershipWith(sellerTenantId: string, viewerTenantId: string): Promise<boolean> {
+  const row = await prisma.tenantPartnership.findFirst({
+    where: {
+      status: 'ACTIVE',
+      OR: [
+        { tenantLowId: sellerTenantId, tenantHighId: viewerTenantId },
+        { tenantLowId: viewerTenantId, tenantHighId: sellerTenantId },
+      ],
+    },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+async function isActiveExternalCompanyOnTenant(
+  tenantId: string,
+  externalCompanyId: string,
+): Promise<boolean> {
+  const row = await prisma.externalCompany.findFirst({
+    where: { id: externalCompanyId, tenantId, isActive: true },
+    select: { id: true },
+  });
+  return Boolean(row);
 }
 
 function resolveListRole(
@@ -407,6 +442,23 @@ function resolveListRoleForViewer(
   return resolveListRole(tenantId, listing);
 }
 
+function partnerTenantPartnershipWhere(viewerTenantId: string): Prisma.TenantWhereInput {
+  return {
+    OR: [
+      {
+        partnershipsAsLow: {
+          some: { tenantHighId: viewerTenantId, status: 'ACTIVE' },
+        },
+      },
+      {
+        partnershipsAsHigh: {
+          some: { tenantLowId: viewerTenantId, status: 'ACTIVE' },
+        },
+      },
+    ],
+  };
+}
+
 function buildExternalPartnerListWhere(
   tenantId: string,
   tab: DbMarketplaceListTab,
@@ -416,7 +468,7 @@ function buildExternalPartnerListWhere(
     { visibility: 'ALL' },
     {
       visibility: 'SELECTED',
-      audiences: { some: { externalCompanyId } },
+      audiences: { some: { externalCompanyId, audienceKind: 'EXTERNAL_COMPANY' } },
     },
   ];
   switch (tab) {
@@ -460,11 +512,12 @@ function buildListWhere(
       return {
         tenantId: { not: tenantId },
         status: { in: ['OPEN', 'PENDING_SELLER'] },
+        tenant: partnerTenantPartnershipWhere(tenantId),
         OR: [
           { visibility: 'ALL' },
           {
             visibility: 'SELECTED',
-            audiences: { some: { partnerTenantId: tenantId } },
+            audiences: { some: { partnerTenantId: tenantId, audienceKind: 'PARTNER_TENANT' } },
           },
         ],
       };
@@ -522,11 +575,18 @@ export async function listDbMarketplaceListings(
 
   const filtered =
     tab === 'available'
-      ? rows.filter((r) =>
-          viewerCanSeeListing(tenantId, r, {
-            externalCompanyId: opts?.viewerExternalCompanyId,
-          }),
+      ? (
+          await Promise.all(
+            rows.map(async (r) => ({
+              row: r,
+              ok: await viewerCanSeeListing(tenantId, r, {
+                externalCompanyId: opts?.viewerExternalCompanyId,
+              }),
+            })),
+          )
         )
+          .filter((x) => x.ok)
+          .map((x) => x.row)
       : rows;
 
   const buyerCtx = resolveBuyerContextForViewer(tenantId, opts);
@@ -564,7 +624,7 @@ export async function listDbMarketplaceListings(
       return bTime - aTime;
     });
 
-  return { items, total: tab === 'available' ? total : total, limit, offset };
+  return { items, total, limit, offset };
 }
 
 export async function getDbMarketplaceListingById(

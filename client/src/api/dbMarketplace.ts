@@ -105,6 +105,8 @@ export type DbMarketplaceMaskedItem = {
   betweenScheduleSlot: string | null;
   specialNotes: string | null;
   memo: string | null;
+  scheduleMemo: string | null;
+  source: string | null;
   moveInDate: string | null;
   moveInDateUndecided: boolean;
   role: 'SELLER' | 'BUYER' | 'VIEWER';

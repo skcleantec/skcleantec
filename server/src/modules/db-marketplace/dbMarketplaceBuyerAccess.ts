@@ -5,6 +5,31 @@ export type DbMarketplaceBuyerContext =
   | { kind: 'PARTNER_TENANT'; tenantId: string; userId: string }
   | { kind: 'EXTERNAL_COMPANY'; tenantId: string; userId: string; externalCompanyId: string };
 
+async function hasActivePartnership(sellerTenantId: string, buyerTenantId: string): Promise<boolean> {
+  const row = await prisma.tenantPartnership.findFirst({
+    where: {
+      status: 'ACTIVE',
+      OR: [
+        { tenantLowId: sellerTenantId, tenantHighId: buyerTenantId },
+        { tenantLowId: buyerTenantId, tenantHighId: sellerTenantId },
+      ],
+    },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+async function isActiveExternalCompany(
+  tenantId: string,
+  externalCompanyId: string,
+): Promise<boolean> {
+  const row = await prisma.externalCompany.findFirst({
+    where: { id: externalCompanyId, tenantId, isActive: true },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
 export async function assertBuyerCanViewListing(
   listing: {
     tenantId: string;
@@ -30,26 +55,22 @@ export async function assertBuyerCanViewListing(
     if (buyer.tenantId === listing.tenantId) {
       throw new DbMarketplaceError('자사 DB는 구매할 수 없습니다.', 400);
     }
+    if (!(await hasActivePartnership(listing.tenantId, buyer.tenantId))) {
+      throw new DbMarketplaceError('연결된 파트너만 구매할 수 있습니다.', 400);
+    }
     if (listing.visibility === 'ALL') return;
     const allowed = listing.audiences.some(
       (a) => a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId === buyer.tenantId,
     );
     if (!allowed) throw new DbMarketplaceError('노출 대상에 포함되지 않은 업체입니다.', 403);
-    const partnership = await prisma.tenantPartnership.findFirst({
-      where: {
-        status: 'ACTIVE',
-        OR: [
-          { tenantLowId: listing.tenantId, tenantHighId: buyer.tenantId },
-          { tenantHighId: listing.tenantId, tenantLowId: buyer.tenantId },
-        ],
-      },
-    });
-    if (!partnership) throw new DbMarketplaceError('연결된 파트너만 구매할 수 있습니다.', 400);
     return;
   }
 
   if (buyer.tenantId !== listing.tenantId) {
     throw new DbMarketplaceError('타업체는 자사 마켓 DB만 구매할 수 있습니다.', 403);
+  }
+  if (!(await isActiveExternalCompany(listing.tenantId, buyer.externalCompanyId))) {
+    throw new DbMarketplaceError('등록된 타업체만 구매할 수 있습니다.', 403);
   }
   if (listing.visibility === 'ALL') return;
   const allowed = listing.audiences.some(

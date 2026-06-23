@@ -23,6 +23,7 @@ import {
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { ModalCloseButton } from './ModalCloseButton';
+import { DbMarketplaceCleaningDetailCard } from './DbMarketplaceCleaningDetailCard';
 import { DB_MARKETPLACE_HOLD_MINUTES } from '@shared/dbMarketplacePolicy';
 
 type Props = {
@@ -356,9 +357,7 @@ export function DbMarketplaceListingDetailModal({
               </p>
             </div>
           ) : (
-            <p className="text-[11px] text-gray-500">
-              확정 전에는 시·구 주소와 표시금액만 확인할 수 있습니다.
-            </p>
+            <DbMarketplaceCleaningDetailCard row={d} />
           )}
 
           {showQna ? (

@@ -40,6 +40,8 @@ export type MarketplaceListingMaskedDto = {
   betweenScheduleSlot: string | null;
   specialNotes: string | null;
   memo: string | null;
+  scheduleMemo: string | null;
+  source: string | null;
   moveInDate: string | null;
   moveInDateUndecided: boolean;
   role: 'SELLER' | 'BUYER' | 'VIEWER';
@@ -64,6 +66,8 @@ const INQUIRY_MASK_SELECT = {
   betweenScheduleSlot: true,
   specialNotes: true,
   memo: true,
+  scheduleMemo: true,
+  source: true,
   moveInDate: true,
   moveInDateUndecided: true,
   serviceBalanceAmount: true,
@@ -129,6 +133,8 @@ export function buildMaskedListingDto(input: {
     betweenScheduleSlot: input.inquiry.betweenScheduleSlot,
     specialNotes: input.inquiry.specialNotes,
     memo: input.inquiry.memo,
+    scheduleMemo: input.inquiry.scheduleMemo,
+    source: input.inquiry.source,
     moveInDate: input.inquiry.moveInDate?.toISOString() ?? null,
     moveInDateUndecided: input.inquiry.moveInDateUndecided,
     role: input.role,
@@ -172,6 +178,8 @@ export const INQUIRY_FULL_SELECT = {
   specialNotes: true,
   memo: true,
   consultationMemo: true,
+  scheduleMemo: true,
+  source: true,
   moveInDate: true,
   moveInDateUndecided: true,
   serviceTotalAmount: true,
@@ -207,6 +215,8 @@ export type MarketplaceListingFullInquiryDto = {
   specialNotes: string | null;
   memo: string | null;
   consultationMemo: string | null;
+  scheduleMemo: string | null;
+  source: string | null;
   moveInDate: string | null;
   moveInDateUndecided: boolean;
   serviceTotalAmount: number | null;
@@ -245,6 +255,8 @@ export function buildFullInquiryDto(
     specialNotes: inquiry.specialNotes,
     memo: inquiry.memo,
     consultationMemo: inquiry.consultationMemo,
+    scheduleMemo: inquiry.scheduleMemo,
+    source: inquiry.source,
     moveInDate: inquiry.moveInDate?.toISOString() ?? null,
     moveInDateUndecided: inquiry.moveInDateUndecided,
     serviceTotalAmount: inquiry.serviceTotalAmount,

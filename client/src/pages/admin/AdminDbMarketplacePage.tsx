@@ -10,6 +10,10 @@ import {
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { DbMarketplaceListingDetailModal } from '../../components/admin/DbMarketplaceListingDetailModal';
 import {
+  formatMarketplaceCleaningSummary,
+  formatMarketplaceSchedule,
+} from '../../utils/dbMarketplaceDisplay';
+import {
   clampListPage,
   parseInquiryListPageSize,
   parseListPage,
@@ -42,21 +46,8 @@ const STATUS_CLASS: Record<string, string> = {
   EXPIRED: 'bg-gray-100 text-gray-700',
 };
 
-function formatPreferredDate(iso: string | null): string {
-  if (!iso) return '-';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '-';
-  return d.toLocaleDateString('ko-KR');
-}
-
 function cleaningSummary(row: DbMarketplaceMaskedItem): string {
-  const parts: string[] = [];
-  if (row.propertyType) parts.push(row.propertyType);
-  if (row.isOneRoom) parts.push('원룸');
-  else if (row.roomCount != null) parts.push(`방 ${row.roomCount}`);
-  if (row.areaPyeong != null) parts.push(`${row.areaPyeong}평`);
-  if (row.areaBasis) parts.push(row.areaBasis);
-  return parts.join(' · ') || '-';
+  return formatMarketplaceCleaningSummary(row);
 }
 
 function MarketplaceRowCard({
@@ -79,10 +70,7 @@ function MarketplaceRowCard({
             <span className="ml-2 font-normal text-gray-500">{row.addressRegion}</span>
           </p>
           <p className="mt-1 text-fluid-xs text-gray-600">{cleaningSummary(row)}</p>
-          <p className="mt-1 text-fluid-xs text-gray-500">
-            예약 {formatPreferredDate(row.preferredDate)}
-            {row.preferredTime ? ` · ${row.preferredTime}` : ''}
-          </p>
+          <p className="mt-1 text-fluid-xs text-gray-500">{formatMarketplaceSchedule(row)}</p>
         </div>
         <div className="text-right shrink-0">
           <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_CLASS[row.status] ?? ''}`}>
@@ -248,7 +236,7 @@ export function AdminDbMarketplacePage() {
                 <th className="px-2 py-2 text-center">고객</th>
                 <th className="px-2 py-2 text-center">지역</th>
                 <th className="px-2 py-2 text-center">청소 요약</th>
-                <th className="px-2 py-2 text-center">예약일</th>
+                <th className="px-2 py-2 text-center">일정</th>
                 <th className="px-2 py-2 text-center">표시금액</th>
                 <th className="px-2 py-2 text-center">판매 업체</th>
                 <th className="px-2 py-2 text-center">상태</th>
@@ -270,7 +258,7 @@ export function AdminDbMarketplacePage() {
                   <td className="px-2 py-2 text-center truncate" title={cleaningSummary(row)}>
                     {cleaningSummary(row)}
                   </td>
-                  <td className="px-2 py-2 text-center">{formatPreferredDate(row.preferredDate)}</td>
+                  <td className="px-2 py-2 text-center">{formatMarketplaceSchedule(row)}</td>
                   <td className="px-2 py-2 text-right tabular-nums">
                     {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
                   </td>
