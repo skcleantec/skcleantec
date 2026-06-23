@@ -1,4 +1,4 @@
-export type HelpRole = 'admin' | 'crew';
+export type HelpRole = 'admin' | 'team';
 
 export type HelpScreenEntry = {
   role: HelpRole;

@@ -273,9 +273,9 @@ export const TEAM_PAGES: PageDef[] = [
     role: 'team',
     module: '정산',
     moduleOrder: 4,
-    title: '외부 정산',
+    title: '타업체 정산',
     path: '/team/settlement',
-    hint: '팀장 본인의 정산 내역 확인.',
+    hint: '타업체(EXTERNAL_PARTNER) 계정 전용. 담당 현장 수수료·정산완료·미수금을 기간별로 확인.',
     waitSelector: '[class*="settlement"], [class*="payroll"], main',
   },
   {

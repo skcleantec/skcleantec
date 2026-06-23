@@ -20,7 +20,7 @@ export function HelpSidebar({
   onModuleClick,
   className = '',
 }: HelpSidebarProps) {
-  const roles: HelpRole[] = ['admin', 'crew'];
+  const roles: HelpRole[] = ['admin', 'team'];
 
   return (
     <aside className={`flex flex-col bg-slate-900 text-white ${className}`}>

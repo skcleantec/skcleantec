@@ -8,11 +8,8 @@ import {
   filterHelpEntries,
   groupHelpByModule,
   HELP_ROLE_LABELS,
+  parseHelpRole,
 } from '../utils/helpContent';
-
-function parseHelpRole(raw: string | null): HelpRole {
-  return raw === 'crew' ? 'crew' : 'admin';
-}
 
 export function HelpPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -126,7 +123,7 @@ export function HelpPage() {
           <div className="mb-5 space-y-3">
             <div className="lg:hidden">
               <div className="flex rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200" role="tablist">
-                {(['admin', 'crew'] as HelpRole[]).map((r) => (
+                {(['admin', 'team'] as HelpRole[]).map((r) => (
                   <button
                     key={r}
                     type="button"
@@ -153,6 +150,12 @@ export function HelpPage() {
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-fluid-sm text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
               />
             </label>
+
+            {!loading && !error ? (
+              <p className="text-fluid-xs text-slate-500">
+                {HELP_ROLE_LABELS[role]} · {query.trim() ? `검색 ${filtered.length}건` : `총 ${filtered.length}화면`}
+              </p>
+            ) : null}
 
             <HelpMobileModuleSelect
               modules={moduleNames}

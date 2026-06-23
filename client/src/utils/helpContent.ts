@@ -4,8 +4,12 @@ export const HELP_DATA_URL = '/help/data.json';
 
 export const HELP_ROLE_LABELS: Record<HelpRole, string> = {
   admin: '관리자',
-  crew: '크루',
+  team: '팀장',
 };
+
+export function parseHelpRole(raw: string | null): HelpRole {
+  return raw === 'admin' ? 'admin' : 'team';
+}
 
 export function slugifyHelpModule(module: string): string {
   return module
