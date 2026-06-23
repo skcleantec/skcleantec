@@ -52,6 +52,7 @@ import platformTenantsRoutes from './modules/platform/platformTenants.routes.js'
 import platformSupportAccessRoutes from './modules/platform/platformSupportAccess.routes.js';
 import platformTenantPartnershipsRoutes from './modules/platform/platformTenantPartnerships.routes.js';
 import platformDbMarketplaceRoutes from './modules/db-marketplace/platformDbMarketplace.routes.js';
+import helpRoutes from './modules/help/help.routes.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
 
@@ -114,6 +115,7 @@ app.use('/api/admin/tenant-staff-access', tenantStaffAccessRoutes);
 app.use('/api/admin/tenant-subscription', tenantSubscriptionRoutes);
 app.use('/api/admin/e-contracts', eContractAdminRoutes);
 app.use('/api/e-contract', eContractPublicRoutes);
+app.use('/api/help', helpRoutes);
 mountCustomModuleRoutes(app);
 
 // C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙

@@ -10,6 +10,7 @@ import {
   HELP_ROLE_LABELS,
   parseHelpRole,
 } from '../utils/helpContent';
+import { checkHelpEditPermission } from '../api/help';
 
 export function HelpPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -17,6 +18,7 @@ export function HelpPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<string | null>(null);
+  const [canEdit, setCanEdit] = useState(false);
 
   const role = parseHelpRole(searchParams.get('role'));
   const query = searchParams.get('q') ?? '';
@@ -25,9 +27,13 @@ export function HelpPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchHelpContent()
-      .then((data) => {
-        if (!cancelled) setEntries(data);
+
+    Promise.all([fetchHelpContent(), checkHelpEditPermission()])
+      .then(([data, permission]) => {
+        if (!cancelled) {
+          setEntries(data);
+          setCanEdit(permission.canEdit);
+        }
       })
       .catch((e) => {
         if (!cancelled) {
@@ -38,9 +44,16 @@ export function HelpPage() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  const refreshEntries = useCallback(() => {
+    fetchHelpContent()
+      .then(setEntries)
+      .catch(() => {});
   }, []);
 
   const filtered = useMemo(() => filterHelpEntries(entries, role, query), [entries, role, query]);
@@ -201,7 +214,12 @@ export function HelpPage() {
                   </div>
                   <div className="space-y-4">
                     {group.items.map((entry) => (
-                      <HelpScreenCard key={`${entry.path}-${entry.title}`} entry={entry} />
+                      <HelpScreenCard
+                        key={`${entry.path}-${entry.title}`}
+                        entry={entry}
+                        canEdit={canEdit}
+                        onUpdated={refreshEntries}
+                      />
                     ))}
                   </div>
                 </section>
