@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
+import { prisma } from '../../lib/prisma.js';
 import {
   countDbListingDrafts,
   DbMarketplaceError,
@@ -14,6 +15,10 @@ import {
   upsertDbListingDraft,
   withdrawDbListing,
 } from './dbMarketplace.service.js';
+import {
+  confirmDbListingBuyer,
+  confirmDbListingSeller,
+} from './dbMarketplaceConfirm.service.js';
 
 const router = Router();
 
@@ -99,6 +104,49 @@ router.post('/:id/withdraw', async (req, res) => {
   try {
     const row = await withdrawDbListing(tenantId, listingId);
     res.json({ listing: serializeSellerListing(row) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/buyer-confirm', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const peek = await prisma.inquiryDbListing.findFirst({
+      where: { id: listingId },
+      select: { tenantId: true },
+    });
+    if (peek?.tenantId === tenantId) {
+      res.status(400).json({ error: '자사 DB는 이 경로로 구매할 수 없습니다.' });
+      return;
+    }
+    const listing = await confirmDbListingBuyer(listingId, {
+      kind: 'PARTNER_TENANT',
+      tenantId,
+      userId: auth.userId,
+    });
+    res.json({ listing: serializeSellerListing(listing) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/seller-confirm', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const result = await confirmDbListingSeller(tenantId, auth.userId, listingId);
+    res.json({
+      listing: serializeSellerListing(result.listing),
+      targetInquiryId: result.targetInquiryId,
+    });
   } catch (e) {
     if (mapError(res, e)) return;
     throw e;

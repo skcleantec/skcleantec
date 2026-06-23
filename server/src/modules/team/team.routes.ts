@@ -10,6 +10,7 @@ import inquiryConsultationPhotosTeamRoutes from '../inquiry-consultation-photos/
 import inquiryExtraChargesTeamRoutes from '../inquiry-extra-charges/inquiryExtraCharges.team.routes.js';
 import inquiryAdditionalReceiptsTeamRoutes from '../inquiry-additional-receipts/inquiryAdditionalReceipts.team.routes.js';
 import inquiryInspectionTeamRoutes from '../inquiry-inspection/inquiryInspection.team.routes.js';
+import dbMarketplaceTeamRoutes from '../db-marketplace/dbMarketplace.team.routes.js';
 import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
 import {
   attachInspectionSummaries,
@@ -410,6 +411,7 @@ router.use('/inquiries/:inquiryId/inspection', inquiryInspectionTeamRoutes);
 router.use('/inquiries/:inquiryId/consultation-photos', inquiryConsultationPhotosTeamRoutes);
 router.use('/inquiries/:inquiryId/extra-charges', inquiryExtraChargesTeamRoutes);
 router.use('/inquiries/:inquiryId/additional-receipts', inquiryAdditionalReceiptsTeamRoutes);
+router.use('/db-marketplace', dbMarketplaceTeamRoutes);
 
 /** 팀장: 접수 상세를 열어 확인한 것으로 표시 — 메뉴 미확인 배정 수 감소 */
 router.post('/inquiries/:id/detail-viewed', async (req, res) => {

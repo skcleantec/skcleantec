@@ -25,7 +25,43 @@ export type DbMarketplaceSellerListing = {
   status: DbMarketplaceListingStatus;
   visibility: 'ALL' | 'SELECTED';
   publishedAt: string | null;
+  buyerKind?: 'PARTNER_TENANT' | 'EXTERNAL_COMPANY' | null;
+  buyerTenantId?: string | null;
+  buyerExternalCompanyId?: string | null;
+  buyerName?: string | null;
+  buyerConfirmedAt?: string | null;
+  sellerConfirmedAt?: string | null;
   audiences: DbMarketplaceAudienceItem[];
+};
+
+export type DbMarketplaceFullInquiry = {
+  id: string;
+  inquiryNumber: string | null;
+  customerName: string;
+  customerPhone: string;
+  customerPhone2: string | null;
+  address: string;
+  addressDetail: string | null;
+  propertyType: string | null;
+  areaPyeong: number | null;
+  preferredDate: string | null;
+  preferredTime: string | null;
+  specialNotes: string | null;
+  memo: string | null;
+  serviceTotalAmount: number | null;
+  serviceDepositAmount: number | null;
+  serviceBalanceAmount: number | null;
+  status: string;
+};
+
+export type DbMarketplaceListingDetail = DbMarketplaceMaskedItem & {
+  inquiryId: string;
+  buyerKind: 'PARTNER_TENANT' | 'EXTERNAL_COMPANY' | null;
+  buyerName: string | null;
+  buyerConfirmedAt: string | null;
+  sellerConfirmedAt: string | null;
+  inquiryFull: DbMarketplaceFullInquiry | null;
+  targetInquiryId: string | null;
 };
 
 export type DbMarketplaceMaskedItem = {
@@ -156,10 +192,33 @@ export async function listDbMarketplace(
 export async function getDbMarketplaceListing(
   token: string,
   listingId: string,
-): Promise<DbMarketplaceMaskedItem> {
+): Promise<DbMarketplaceListingDetail> {
   const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}`, {
     headers: headers(token),
   });
-  const data = await parseJson<{ item: DbMarketplaceMaskedItem }>(res);
+  const data = await parseJson<{ item: DbMarketplaceListingDetail }>(res);
   return data.item;
+}
+
+export async function confirmDbMarketplaceBuyer(
+  token: string,
+  listingId: string,
+): Promise<DbMarketplaceSellerListing> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/buyer-confirm`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
+  return data.listing;
+}
+
+export async function confirmDbMarketplaceSeller(
+  token: string,
+  listingId: string,
+): Promise<{ listing: DbMarketplaceSellerListing; targetInquiryId: string | null }> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/seller-confirm`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  return parseJson(res);
 }

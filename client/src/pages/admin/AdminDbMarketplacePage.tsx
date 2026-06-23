@@ -7,6 +7,7 @@ import {
   type DbMarketplaceMaskedItem,
 } from '../../api/dbMarketplace';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import { DbMarketplaceListingDetailModal } from '../../components/admin/DbMarketplaceListingDetailModal';
 import {
   clampListPage,
   parseInquiryListPageSize,
@@ -53,9 +54,19 @@ function cleaningSummary(row: DbMarketplaceMaskedItem): string {
   return parts.join(' · ') || '-';
 }
 
-function MarketplaceRowCard({ row }: { row: DbMarketplaceMaskedItem }) {
+function MarketplaceRowCard({
+  row,
+  onOpen,
+}: {
+  row: DbMarketplaceMaskedItem;
+  onOpen: () => void;
+}) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:bg-gray-50"
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-fluid-sm font-semibold text-slate-900">
@@ -78,7 +89,7 @@ function MarketplaceRowCard({ row }: { row: DbMarketplaceMaskedItem }) {
           <p className="text-[11px] text-gray-500">{row.sellerTenantName}</p>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -93,6 +104,7 @@ export function AdminDbMarketplacePage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRow, setSelectedRow] = useState<DbMarketplaceMaskedItem | null>(null);
 
   const offset = (page - 1) * pageSize;
 
@@ -205,7 +217,11 @@ export function AdminDbMarketplacePage() {
             </thead>
             <tbody>
               {items.map((row) => (
-                <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+                <tr
+                  key={row.id}
+                  className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                  onClick={() => setSelectedRow(row)}
+                >
                   <td className="px-2 py-2 text-center truncate" title={row.customerNameMasked}>
                     {row.customerNameMasked}
                   </td>
@@ -235,7 +251,7 @@ export function AdminDbMarketplacePage() {
 
         <div className="mt-4 space-y-3 lg:hidden">
           {items.map((row) => (
-            <MarketplaceRowCard key={row.id} row={row} />
+            <MarketplaceRowCard key={row.id} row={row} onOpen={() => setSelectedRow(row)} />
           ))}
         </div>
 
@@ -250,6 +266,14 @@ export function AdminDbMarketplacePage() {
           />
         ) : null}
       </div>
+
+      {selectedRow ? (
+        <DbMarketplaceListingDetailModal
+          row={selectedRow}
+          onClose={() => setSelectedRow(null)}
+          onChanged={load}
+        />
+      ) : null}
     </div>
   );
 }

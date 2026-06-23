@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getToken } from '../../stores/auth';
 import {
+  confirmDbMarketplaceSeller,
   getDbListingByInquiry,
   publishDbMarketplaceListing,
   updateDbMarketplaceAudience,
@@ -156,6 +157,21 @@ export function InquiryDbMarketplaceSellPanel({ inquiryId, serviceBalanceAmount,
     }
   };
 
+  const sellerConfirm = async () => {
+    if (!token || !listing) return;
+    if (!window.confirm('구매자에게 DB 인계를 확정할까요? 확정 후 취소·환불할 수 없습니다.')) return;
+    setBusy(true);
+    try {
+      const result = await confirmDbMarketplaceSeller(token, listing.id);
+      setListing(result.listing);
+      alert('인계가 완료되었습니다.');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '인계 확정 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const partnerOptions = partnerships.map((p) => ({
     id: p.partner.id,
     name: p.partner.name,
@@ -181,6 +197,24 @@ export function InquiryDbMarketplaceSellPanel({ inquiryId, serviceBalanceAmount,
             ? ` · 표시금액 ${listing.displayAmount.toLocaleString('ko-KR')}원`
             : ''}
         </p>
+      ) : null}
+
+      {listing?.buyerName ? (
+        <p className="text-[11px] text-amber-800">
+          구매 신청: {listing.buyerName}
+          {listing.buyerConfirmedAt ? ' (구매자 확정 완료)' : ''}
+        </p>
+      ) : null}
+
+      {listing?.status === 'PENDING_SELLER' ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void sellerConfirm()}
+          className="w-full rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+        >
+          인계 확정
+        </button>
       ) : null}
 
       {canEdit ? (

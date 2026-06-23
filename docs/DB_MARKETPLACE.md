@@ -75,9 +75,10 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 
 ### Phase 2 — 양쪽 확정·이동
 
-- [ ] buyer-confirm / seller-confirm
-- [ ] share 또는 타업체 배정 + 미수금
-- [ ] 확정 후 full detail
+- [x] buyer-confirm / seller-confirm
+- [x] share 또는 타업체 배정 (정산은 기존 share·external 집계)
+- [x] 확정 후 full detail API
+- [x] 타업체 buyer-confirm (`/api/team/db-marketplace`)
 
 ### Phase 3 — 타업체 GNB·UX
 

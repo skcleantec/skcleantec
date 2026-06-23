@@ -122,3 +122,122 @@ export function listingStatusSortRank(status: string): number {
   if (status === 'CONFIRMED') return 3;
   return 4;
 }
+
+export const INQUIRY_FULL_SELECT = {
+  id: true,
+  inquiryNumber: true,
+  customerName: true,
+  nickname: true,
+  customerPhone: true,
+  customerPhone2: true,
+  customerEmail: true,
+  address: true,
+  addressDetail: true,
+  propertyType: true,
+  areaPyeong: true,
+  areaBasis: true,
+  exclusiveAreaSqm: true,
+  isOneRoom: true,
+  roomCount: true,
+  bathroomCount: true,
+  balconyCount: true,
+  kitchenCount: true,
+  buildingType: true,
+  preferredDate: true,
+  preferredTime: true,
+  preferredTimeDetail: true,
+  betweenScheduleSlot: true,
+  specialNotes: true,
+  memo: true,
+  consultationMemo: true,
+  moveInDate: true,
+  moveInDateUndecided: true,
+  serviceTotalAmount: true,
+  serviceDepositAmount: true,
+  serviceBalanceAmount: true,
+  status: true,
+} as const;
+
+export type MarketplaceListingFullInquiryDto = {
+  id: string;
+  inquiryNumber: string | null;
+  customerName: string;
+  nickname: string | null;
+  customerPhone: string;
+  customerPhone2: string | null;
+  customerEmail: string | null;
+  address: string;
+  addressDetail: string | null;
+  propertyType: string | null;
+  areaPyeong: number | null;
+  areaBasis: string | null;
+  exclusiveAreaSqm: number | null;
+  isOneRoom: boolean;
+  roomCount: number | null;
+  bathroomCount: number | null;
+  balconyCount: number | null;
+  kitchenCount: number | null;
+  buildingType: string | null;
+  preferredDate: string | null;
+  preferredTime: string | null;
+  preferredTimeDetail: string | null;
+  betweenScheduleSlot: string | null;
+  specialNotes: string | null;
+  memo: string | null;
+  consultationMemo: string | null;
+  moveInDate: string | null;
+  moveInDateUndecided: boolean;
+  serviceTotalAmount: number | null;
+  serviceDepositAmount: number | null;
+  serviceBalanceAmount: number | null;
+  status: string;
+};
+
+export function buildFullInquiryDto(
+  inquiry: Pick<Inquiry, keyof typeof INQUIRY_FULL_SELECT>,
+): MarketplaceListingFullInquiryDto {
+  return {
+    id: inquiry.id,
+    inquiryNumber: inquiry.inquiryNumber,
+    customerName: inquiry.customerName,
+    nickname: inquiry.nickname,
+    customerPhone: inquiry.customerPhone,
+    customerPhone2: inquiry.customerPhone2,
+    customerEmail: inquiry.customerEmail,
+    address: inquiry.address,
+    addressDetail: inquiry.addressDetail,
+    propertyType: inquiry.propertyType,
+    areaPyeong: inquiry.areaPyeong,
+    areaBasis: inquiry.areaBasis,
+    exclusiveAreaSqm: inquiry.exclusiveAreaSqm,
+    isOneRoom: inquiry.isOneRoom,
+    roomCount: inquiry.roomCount,
+    bathroomCount: inquiry.bathroomCount,
+    balconyCount: inquiry.balconyCount,
+    kitchenCount: inquiry.kitchenCount,
+    buildingType: inquiry.buildingType,
+    preferredDate: inquiry.preferredDate?.toISOString() ?? null,
+    preferredTime: inquiry.preferredTime,
+    preferredTimeDetail: inquiry.preferredTimeDetail,
+    betweenScheduleSlot: inquiry.betweenScheduleSlot,
+    specialNotes: inquiry.specialNotes,
+    memo: inquiry.memo,
+    consultationMemo: inquiry.consultationMemo,
+    moveInDate: inquiry.moveInDate?.toISOString() ?? null,
+    moveInDateUndecided: inquiry.moveInDateUndecided,
+    serviceTotalAmount: inquiry.serviceTotalAmount,
+    serviceDepositAmount: inquiry.serviceDepositAmount,
+    serviceBalanceAmount: inquiry.serviceBalanceAmount,
+    status: inquiry.status,
+  };
+}
+
+export type MarketplaceListingDetailDto = MarketplaceListingMaskedDto & {
+  inquiryId: string;
+  buyerKind: string | null;
+  buyerName: string | null;
+  buyerConfirmedAt: string | null;
+  sellerConfirmedAt: string | null;
+  inquiryFull: MarketplaceListingFullInquiryDto | null;
+  targetInquiryId: string | null;
+};

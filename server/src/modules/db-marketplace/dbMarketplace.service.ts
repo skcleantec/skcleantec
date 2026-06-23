@@ -12,8 +12,11 @@ import {
 } from '../../lib/dbMarketplaceAmount.js';
 import {
   buildMaskedListingDto,
+  buildFullInquiryDto,
+  INQUIRY_FULL_SELECT,
   INQUIRY_MASK_SELECT,
   listingStatusSortRank,
+  type MarketplaceListingDetailDto,
 } from './dbMarketplaceListing.dto.js';
 
 export class DbMarketplaceError extends Error {
@@ -272,14 +275,34 @@ async function viewerCanSeeListing(
     tenantId: string;
     status: InquiryDbListingStatus;
     visibility: InquiryDbListingVisibility;
+    buyerTenantId?: string | null;
+    buyerExternalCompanyId?: string | null;
     audiences: Array<{
       audienceKind: InquiryDbListingAudienceKind;
       partnerTenantId: string | null;
       externalCompanyId: string | null;
     }>;
   },
+  opts?: { externalCompanyId?: string | null },
 ): Promise<boolean> {
-  if (listing.tenantId === tenantId) return true;
+  if (listing.tenantId === tenantId) {
+    if (opts?.externalCompanyId) {
+      if (listing.status !== 'OPEN' && listing.status !== 'PENDING_SELLER' && listing.status !== 'CONFIRMED') {
+        return false;
+      }
+      if (listing.buyerExternalCompanyId && listing.buyerExternalCompanyId !== opts.externalCompanyId) {
+        if (listing.status === 'PENDING_SELLER' || listing.status === 'CONFIRMED') return false;
+      }
+      if (listing.visibility === 'ALL') return listing.status === 'OPEN' || listing.status === 'PENDING_SELLER' || listing.status === 'CONFIRMED';
+      return listing.audiences.some(
+        (a) => a.audienceKind === 'EXTERNAL_COMPANY' && a.externalCompanyId === opts.externalCompanyId,
+      );
+    }
+    return true;
+  }
+  if (listing.buyerTenantId === tenantId && (listing.status === 'PENDING_SELLER' || listing.status === 'CONFIRMED')) {
+    return true;
+  }
   if (listing.status !== 'OPEN' && listing.status !== 'PENDING_SELLER') return false;
   if (listing.visibility === 'ALL') return true;
   for (const a of listing.audiences) {
@@ -339,11 +362,26 @@ export async function listDbMarketplaceListings(
   tabRaw: unknown,
   limitRaw: unknown,
   offsetRaw: unknown,
+  opts?: { viewerExternalCompanyId?: string | null },
 ) {
   const tab = parseTab(tabRaw);
   const limit = Math.min(Math.max(Number(limitRaw) || 30, 1), 100);
   const offset = Math.max(Number(offsetRaw) || 0, 0);
-  const where = buildListWhere(tenantId, tab);
+  let where = buildListWhere(tenantId, tab);
+
+  if (opts?.viewerExternalCompanyId && tab === 'available') {
+    where = {
+      tenantId,
+      status: { in: ['OPEN', 'PENDING_SELLER'] },
+      OR: [
+        { visibility: 'ALL' },
+        {
+          visibility: 'SELECTED',
+          audiences: { some: { externalCompanyId: opts.viewerExternalCompanyId } },
+        },
+      ],
+    };
+  }
 
   const [rows, total] = await Promise.all([
     prisma.inquiryDbListing.findMany({
@@ -358,7 +396,11 @@ export async function listDbMarketplaceListings(
 
   const filtered =
     tab === 'available'
-      ? rows.filter((r) => viewerCanSeeListing(tenantId, r))
+      ? rows.filter((r) =>
+          viewerCanSeeListing(tenantId, r, {
+            externalCompanyId: opts?.viewerExternalCompanyId,
+          }),
+        )
       : rows;
 
   const items = filtered
@@ -387,21 +429,37 @@ export async function listDbMarketplaceListings(
   return { items, total: tab === 'available' ? total : total, limit, offset };
 }
 
-export async function getDbMarketplaceListingById(viewerTenantId: string, listingId: string) {
+export async function getDbMarketplaceListingById(
+  viewerTenantId: string,
+  listingId: string,
+  opts?: { viewerExternalCompanyId?: string | null },
+) {
   const row = await prisma.inquiryDbListing.findFirst({
     where: { id: listingId },
-    include: LISTING_INCLUDE,
+    include: {
+      inquiry: { select: INQUIRY_FULL_SELECT },
+      tenant: { select: { id: true, name: true } },
+      buyerTenant: { select: { id: true, name: true } },
+      buyerExternalCompany: { select: { id: true, name: true } },
+      audiences: true,
+    },
   });
   if (!row) throw new DbMarketplaceError('항목을 찾을 수 없습니다.', 404);
 
-  const canSee = await viewerCanSeeListing(viewerTenantId, row);
   const isSeller = row.tenantId === viewerTenantId;
   const isBuyer = row.buyerTenantId === viewerTenantId;
-  if (!canSee && !isSeller && !isBuyer && row.status !== 'CONFIRMED') {
+  const isExternalBuyer =
+    !!opts?.viewerExternalCompanyId &&
+    row.buyerKind === 'EXTERNAL_COMPANY' &&
+    row.buyerExternalCompanyId === opts.viewerExternalCompanyId;
+  const canSee = await viewerCanSeeListing(viewerTenantId, row, {
+    externalCompanyId: opts?.viewerExternalCompanyId,
+  });
+  if (!canSee && !isSeller && !isBuyer && !isExternalBuyer) {
     throw new DbMarketplaceError('조회 권한이 없습니다.', 403);
   }
 
-  return buildMaskedListingDto({
+  const masked = buildMaskedListingDto({
     id: row.id,
     sellerTenantId: row.tenantId,
     sellerTenantName: row.tenant.name,
@@ -411,8 +469,35 @@ export async function getDbMarketplaceListingById(viewerTenantId: string, listin
     displayAmount: row.displayAmount,
     publishedAt: row.publishedAt,
     inquiry: row.inquiry,
-    role: resolveListRole(viewerTenantId, row),
+    role: isExternalBuyer ? 'BUYER' : resolveListRole(viewerTenantId, row),
   });
+
+  const showFull = row.status === 'CONFIRMED' && (isSeller || isBuyer || isExternalBuyer);
+
+  let targetInquiryId: string | null = null;
+  if (row.status === 'CONFIRMED' && row.tenantInquiryShareId && isBuyer) {
+    const share = await prisma.tenantInquiryShare.findFirst({
+      where: { id: row.tenantInquiryShareId, targetTenantId: viewerTenantId },
+      select: { targetInquiryId: true },
+    });
+    targetInquiryId = share?.targetInquiryId ?? null;
+  }
+  if (row.status === 'CONFIRMED' && row.buyerKind === 'EXTERNAL_COMPANY' && (isSeller || isExternalBuyer)) {
+    targetInquiryId = row.inquiryId;
+  }
+
+  const detail: MarketplaceListingDetailDto = {
+    ...masked,
+    inquiryId: row.inquiryId,
+    buyerKind: row.buyerKind,
+    buyerName: row.buyerTenant?.name ?? row.buyerExternalCompany?.name ?? null,
+    buyerConfirmedAt: row.buyerConfirmedAt?.toISOString() ?? null,
+    sellerConfirmedAt: row.sellerConfirmedAt?.toISOString() ?? null,
+    inquiryFull: showFull ? buildFullInquiryDto(row.inquiry) : null,
+    targetInquiryId,
+  };
+
+  return detail;
 }
 
 export async function getDbListingForInquiry(tenantId: string, inquiryId: string) {
@@ -439,7 +524,14 @@ export function serializeSellerListing(row: {
   status: string;
   visibility: string;
   publishedAt: Date | null;
-  audiences: Array<{
+  buyerKind?: string | null;
+  buyerTenantId?: string | null;
+  buyerExternalCompanyId?: string | null;
+  buyerConfirmedAt?: Date | null;
+  sellerConfirmedAt?: Date | null;
+  buyerTenant?: { name: string } | null;
+  buyerExternalCompany?: { name: string } | null;
+  audiences?: Array<{
     id: string;
     audienceKind: string;
     partnerTenantId: string | null;
@@ -456,7 +548,13 @@ export function serializeSellerListing(row: {
     status: row.status,
     visibility: row.visibility,
     publishedAt: row.publishedAt?.toISOString() ?? null,
-    audiences: row.audiences.map((a) => ({
+    buyerKind: row.buyerKind ?? null,
+    buyerTenantId: row.buyerTenantId ?? null,
+    buyerExternalCompanyId: row.buyerExternalCompanyId ?? null,
+    buyerName: row.buyerTenant?.name ?? row.buyerExternalCompany?.name ?? null,
+    buyerConfirmedAt: row.buyerConfirmedAt?.toISOString() ?? null,
+    sellerConfirmedAt: row.sellerConfirmedAt?.toISOString() ?? null,
+    audiences: (row.audiences ?? []).map((a) => ({
       id: a.id,
       audienceKind: a.audienceKind,
       partnerTenantId: a.partnerTenantId,
