@@ -12,7 +12,7 @@ import {
   type DbMarketplaceAudienceInput,
   type DbMarketplaceSellerListing,
 } from '../../api/dbMarketplace';
-import { computeMarketplaceDisplayAmount } from '@shared/dbMarketplaceAmount';
+import { computeMarketplaceDisplayAmount, parseListingFeeInput } from '@shared/dbMarketplaceAmount';
 import { DbMarketplaceAudiencePickerModal } from './DbMarketplaceAudiencePickerModal';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
@@ -56,9 +56,12 @@ export function InquiryDbMarketplaceSellPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const parsedListingFee = parseListingFeeInput(listingFeeInput);
+  const listingFeeValid = parsedListingFee != null;
+
   const previewAmount = computeMarketplaceDisplayAmount(
     serviceBalanceAmount,
-    Number(listingFeeInput.replace(/,/g, '')) || 0,
+    parsedListingFee ?? 0,
   );
 
   const load = useCallback(
@@ -126,8 +129,8 @@ export function InquiryDbMarketplaceSellPanel({
 
   const saveDraft = async () => {
     if (!token) return;
-    const fee = Number(listingFeeInput.replace(/,/g, ''));
-    if (!Number.isFinite(fee) || fee < 0) {
+    const fee = parseListingFeeInput(listingFeeInput);
+    if (fee == null) {
       alert('수수료를 입력해 주세요.');
       return;
     }
@@ -320,14 +323,25 @@ export function InquiryDbMarketplaceSellPanel({
       {canEdit ? (
         <>
           <div>
-            <label className="block text-gray-600 mb-1 text-[11px]">수수료 (원) *</label>
+            <label className="block text-gray-600 mb-1 text-[11px]">
+              수수료 (원) <span className="text-red-600">*</span>
+            </label>
             <input
               value={listingFeeInput}
               onChange={(e) => setListingFeeInput(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-fluid-xs"
-              placeholder="0"
+              className={`w-full rounded-lg border px-2 py-1.5 text-fluid-xs ${
+                listingFeeInput.trim() && !listingFeeValid
+                  ? 'border-red-300 focus:border-red-400'
+                  : 'border-gray-300'
+              }`}
+              placeholder="금액 입력"
               inputMode="numeric"
+              required
+              aria-required
             />
+            {!listingFeeValid && listingFeeInput.trim() ? (
+              <p className="mt-1 text-[11px] text-red-600">올바른 수수료 금액을 입력해 주세요.</p>
+            ) : null}
             <p className="mt-1 text-[11px] text-gray-500">
               구매자 표시금액(잔금−수수료):{' '}
               {previewAmount != null ? `${previewAmount.toLocaleString('ko-KR')}원` : '잔금 확인 필요'}
@@ -337,9 +351,10 @@ export function InquiryDbMarketplaceSellPanel({
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || !listingFeeValid}
               onClick={() => void saveDraft()}
               className="rounded-lg bg-violet-700 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-violet-800 disabled:opacity-50"
+              title={!listingFeeValid ? '수수료를 입력해 주세요.' : undefined}
             >
               장바구니 담기
             </button>

@@ -5,6 +5,8 @@ import { listTenantPartnerships } from '../../api/tenantPartners';
 import type { DbMarketplaceAudienceInput } from '../../api/dbMarketplace';
 import { ModalCloseButton } from './ModalCloseButton';
 
+const EMPTY_ID_LIST: string[] = [];
+
 export type DbMarketplaceAudiencePickerValue = {
   visibility: 'ALL' | 'SELECTED';
   audiences: DbMarketplaceAudienceInput[];
@@ -32,8 +34,8 @@ export function DbMarketplaceAudiencePickerModal({
   title = '노출 대상',
   description,
   initialVisibility = 'ALL',
-  initialPartnerIds = [],
-  initialExternalIds = [],
+  initialPartnerIds = EMPTY_ID_LIST,
+  initialExternalIds = EMPTY_ID_LIST,
 }: Props) {
   const token = getToken();
   const [visibility, setVisibility] = useState<'ALL' | 'SELECTED'>(initialVisibility);
@@ -43,12 +45,13 @@ export function DbMarketplaceAudiencePickerModal({
   const [externalCompanies, setExternalCompanies] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // open 시 1회만 초기값 반영 — 기본 [] 참조·내부 state 변경마다 reset 되면 세그먼트(업체 선택)가 안 먹음
   useEffect(() => {
     if (!open) return;
     setVisibility(initialVisibility);
     setSelectedPartnerIds(initialPartnerIds);
     setSelectedExternalIds(initialExternalIds);
-  }, [open, initialVisibility, initialPartnerIds, initialExternalIds]);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !token) return;
@@ -87,7 +90,7 @@ export function DbMarketplaceAudiencePickerModal({
   return (
     <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
       <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
+        <div className="sticky top-0 z-10 relative flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3 pr-12">
           <h2 className="text-fluid-sm font-semibold text-slate-900">{title}</h2>
           <ModalCloseButton onClick={onClose} />
         </div>
@@ -115,6 +118,9 @@ export function DbMarketplaceAudiencePickerModal({
           ) : null}
           {visibility === 'SELECTED' ? (
             <div className="max-h-48 overflow-y-auto space-y-2 text-[11px]">
+              {!loading && partnerOptions.length === 0 && externalCompanies.length === 0 ? (
+                <p className="text-gray-500">연결된 파트너·등록 타업체가 없습니다. 「연결된 전체」를 사용하세요.</p>
+              ) : null}
               {partnerOptions.length > 0 ? (
                 <div>
                   <p className="font-medium text-gray-700 mb-1">파트너</p>
