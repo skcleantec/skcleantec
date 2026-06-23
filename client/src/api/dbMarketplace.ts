@@ -15,6 +15,21 @@ export type InquiryDbListingMeta = {
 
 export type DbMarketplaceListTab = 'available' | 'cart' | 'my_sales' | 'pending' | 'confirmed';
 
+export type DbMarketplaceAudienceOptionPartner = { id: string; name: string; slug: string };
+export type DbMarketplaceAudienceOptionExternal = { id: string; name: string };
+
+export async function listDbMarketplaceAudienceOptions(token: string): Promise<{
+  partners: DbMarketplaceAudienceOptionPartner[];
+  externalCompanies: DbMarketplaceAudienceOptionExternal[];
+}> {
+  const res = await fetch(`${API}/db-marketplace/audience-options`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '노출 대상 목록을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
 export type DbMarketplaceAudienceItem = {
   id: string;
   audienceKind: 'PARTNER_TENANT' | 'EXTERNAL_COMPANY';

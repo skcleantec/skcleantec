@@ -442,6 +442,40 @@ function resolveListRoleForViewer(
   return resolveListRole(tenantId, listing);
 }
 
+/** 정보공유 노출 대상 선택 — ACTIVE 파트너·등록 타업체 (mod_db_marketplace 전용, tenant exchange API 불필요) */
+export async function listDbMarketplaceAudienceOptions(tenantId: string) {
+  const partnerships = await prisma.tenantPartnership.findMany({
+    where: {
+      status: 'ACTIVE',
+      OR: [{ tenantLowId: tenantId }, { tenantHighId: tenantId }],
+    },
+    include: {
+      tenantLow: { select: { id: true, name: true, slug: true } },
+      tenantHigh: { select: { id: true, name: true, slug: true } },
+    },
+    orderBy: [{ updatedAt: 'desc' }],
+  });
+
+  const partnerById = new Map<string, { id: string; name: string; slug: string }>();
+  for (const row of partnerships) {
+    const partner = row.tenantLowId === tenantId ? row.tenantHigh : row.tenantLow;
+    if (partner.id !== tenantId) {
+      partnerById.set(partner.id, partner);
+    }
+  }
+
+  const externalCompanies = await prisma.externalCompany.findMany({
+    where: { tenantId, isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+
+  return {
+    partners: [...partnerById.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+    externalCompanies,
+  };
+}
+
 function partnerTenantPartnershipWhere(viewerTenantId: string): Prisma.TenantWhereInput {
   return {
     OR: [

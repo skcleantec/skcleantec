@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getToken } from '../../stores/auth';
-import { listExternalCompanies } from '../../api/externalCompanies';
-import { listTenantPartnerships } from '../../api/tenantPartners';
-import type { DbMarketplaceAudienceInput } from '../../api/dbMarketplace';
+import { listDbMarketplaceAudienceOptions, type DbMarketplaceAudienceInput } from '../../api/dbMarketplace';
 import { ModalCloseButton } from './ModalCloseButton';
 
 const EMPTY_ID_LIST: string[] = [];
@@ -44,6 +42,7 @@ export function DbMarketplaceAudiencePickerModal({
   const [partnerOptions, setPartnerOptions] = useState<{ id: string; name: string }[]>([]);
   const [externalCompanies, setExternalCompanies] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // open 시 1회만 초기값 반영 — 기본 [] 참조·내부 state 변경마다 reset 되면 세그먼트(업체 선택)가 안 먹음
   useEffect(() => {
@@ -56,12 +55,16 @@ export function DbMarketplaceAudiencePickerModal({
   useEffect(() => {
     if (!open || !token) return;
     setLoading(true);
-    void Promise.all([listTenantPartnerships(token), listExternalCompanies(token)])
-      .then(([partnerRes, extRes]) => {
-        setPartnerOptions(
-          partnerRes.items.filter((p) => p.status === 'ACTIVE').map((p) => ({ id: p.partner.id, name: p.partner.name })),
-        );
-        setExternalCompanies(extRes.items.map((e) => ({ id: e.id, name: e.name })));
+    setLoadError(null);
+    void listDbMarketplaceAudienceOptions(token)
+      .then(({ partners, externalCompanies: externals }) => {
+        setPartnerOptions(partners.map((p) => ({ id: p.id, name: p.name })));
+        setExternalCompanies(externals.map((e) => ({ id: e.id, name: e.name })));
+      })
+      .catch((e) => {
+        setPartnerOptions([]);
+        setExternalCompanies([]);
+        setLoadError(e instanceof Error ? e.message : '업체 목록을 불러올 수 없습니다.');
       })
       .finally(() => setLoading(false));
   }, [open, token]);
@@ -97,6 +100,7 @@ export function DbMarketplaceAudiencePickerModal({
         <div className="p-4 space-y-3">
           {description ? <p className="text-[11px] text-gray-600 leading-relaxed">{description}</p> : null}
           {loading ? <p className="text-[11px] text-gray-500">업체 목록 불러오는 중…</p> : null}
+          {loadError ? <p className="text-[11px] text-red-600">{loadError}</p> : null}
           <div className="flex gap-2">
             {(['ALL', 'SELECTED'] as const).map((v) => (
               <button

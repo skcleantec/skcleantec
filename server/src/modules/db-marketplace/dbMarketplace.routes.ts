@@ -10,6 +10,7 @@ import {
   DbMarketplaceError,
   getDbListingForInquiry,
   getDbMarketplaceListingById,
+  listDbMarketplaceAudienceOptions,
   listDbMarketplaceListings,
   publishDbListing,
   serializeSellerListing,
@@ -51,6 +52,13 @@ function mapError(res: import('express').Response, e: unknown): boolean {
   }
   return false;
 }
+
+router.get('/audience-options', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const options = await listDbMarketplaceAudienceOptions(tenantId);
+  res.json(options);
+});
 
 router.get('/draft-count', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
