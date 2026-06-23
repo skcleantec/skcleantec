@@ -15,7 +15,7 @@ export function HelpSidebar({ groups, activeModule, onModuleClick }: HelpSidebar
   };
 
   return (
-    <aside className="sticky top-24 h-fit rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <aside className="sticky top-20 h-fit rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-4 border-b border-slate-200 pb-3">
         <h2 className="text-lg font-bold text-slate-900">📑 목차</h2>
       </div>

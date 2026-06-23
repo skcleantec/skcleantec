@@ -122,21 +122,19 @@ export function HelpPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* 상단 헤더 */}
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-sm shadow-sm">
-        <div className="mx-auto max-w-screen-2xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                  📚 도움말
-                </h1>
-                <p className="mt-1 text-fluid-sm text-slate-600">SK클린텍 사용 가이드</p>
-              </div>
+      {/* 상단 헤더 - 고정 */}
+      <header className="sticky top-0 z-30 border-b border-slate-700 bg-slate-900 shadow-lg">
+        <div className="mx-auto max-w-screen-2xl px-4 py-2.5 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* 로고 & 타이틀 */}
+            <div className="flex items-center gap-3">
+              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">
+                📚 청소비서 도움말
+              </h1>
             </div>
 
-            {/* 메인 카테고리 탭 (최상단) */}
-            <nav className="flex gap-2 border-b border-slate-200 pb-3">
+            {/* 메인 카테고리 탭 */}
+            <nav className="flex gap-1">
               {MAIN_CATEGORIES.map((cat) => {
                 const isActive = mainCategory === cat.id;
                 return (
@@ -145,11 +143,11 @@ export function HelpPage() {
                     type="button"
                     onClick={() => changeMainCategory(cat.id)}
                     className={`
-                      relative rounded-t-lg px-5 py-2.5 text-fluid-sm font-semibold transition-all
+                      rounded-lg px-4 py-1.5 text-fluid-sm font-medium transition-all
                       ${
                         isActive
-                          ? 'bg-slate-900 text-white shadow-md'
-                          : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          ? 'bg-white text-slate-900 shadow-md'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                       }
                     `}
                   >
@@ -159,45 +157,45 @@ export function HelpPage() {
               })}
             </nav>
 
-            {/* 역할 선택 탭 (사용법에서만 표시) */}
+            {/* 역할 선택 (사용법에서만, 같은 줄) */}
             {mainCategory === 'usage' ? (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <nav className="flex gap-2">
-                  {(['admin', 'team'] as const).map((role) => {
-                    const isActive = selectedRole === role;
-                    return (
-                      <button
-                        key={role}
-                        type="button"
-                        onClick={() => changeRole(role)}
-                        className={`
-                          rounded-lg px-4 py-2 text-fluid-sm font-semibold transition-all
-                          ${
-                            isActive
-                              ? 'bg-blue-600 text-white shadow-md'
-                              : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                          }
-                        `}
-                      >
-                        {HELP_ROLE_LABELS[role]}
-                      </button>
-                    );
-                  })}
-                </nav>
-
-                {/* 검색 */}
-                <div className="flex-1 max-w-md">
-                  <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => changeSearch(e.target.value)}
-                    placeholder="화면 이름·내용 검색..."
-                    className="w-full rounded-lg border border-slate-300 px-4 py-2 text-fluid-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+              <div className="flex items-center gap-2">
+                {(['admin', 'team'] as const).map((role) => {
+                  const isActive = selectedRole === role;
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => changeRole(role)}
+                      className={`
+                        rounded-lg px-3 py-1.5 text-fluid-xs font-medium transition-all
+                        ${
+                          isActive
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+                        }
+                      `}
+                    >
+                      {HELP_ROLE_LABELS[role]}
+                    </button>
+                  );
+                })}
               </div>
             ) : null}
           </div>
+
+          {/* 검색 (사용법에서만, 하단 별도 줄) */}
+          {mainCategory === 'usage' ? (
+            <div className="mt-2 max-w-md">
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => changeSearch(e.target.value)}
+                placeholder="화면 이름·내용 검색..."
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-fluid-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          ) : null}
         </div>
       </header>
 
