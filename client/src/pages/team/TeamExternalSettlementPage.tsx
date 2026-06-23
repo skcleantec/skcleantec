@@ -74,6 +74,7 @@ export function TeamExternalSettlementPage() {
   const payPage = parseListPage(searchParams.get('payPage'));
   const listPage = activeTab === 'history' ? payPage : itemsPage;
   const listPageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
+  const itemSearch = searchParams.get('itemSearch')?.trim() ?? '';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +114,7 @@ export function TeamExternalSettlementPage() {
         itemsPage,
         payPage,
         listPageSize,
+        itemSearch,
         previewKey,
         previewCompanyId,
         previewCompanyName,
@@ -126,6 +128,7 @@ export function TeamExternalSettlementPage() {
       itemsPage,
       payPage,
       listPageSize,
+      itemSearch,
       previewKey,
       previewCompanyId,
       previewCompanyName,
@@ -164,6 +167,7 @@ export function TeamExternalSettlementPage() {
           offset: itemsOffset,
           payLimit: listPageSize,
           payOffset,
+          search: itemSearch || undefined,
           externalCompanyId: isPreviewStaff && previewCompanyId ? previewCompanyId : undefined,
           externalCompanyName: isPreviewStaff && previewCompanyName ? previewCompanyName : undefined,
         });
@@ -183,7 +187,7 @@ export function TeamExternalSettlementPage() {
         if (!opts?.silent && !isPreviewFetchStale(startedKey)) setLoading(false);
       }
     },
-    [listQueryKey, datePreset, monthKey, dayKey, itemsPage, payPage, listPageSize, navigate, previewCompanyId, previewCompanyName, previewMode, token, capturePreviewKey, isPreviewFetchStale]
+    [listQueryKey, datePreset, monthKey, dayKey, itemsPage, payPage, listPageSize, itemSearch, navigate, previewCompanyId, previewCompanyName, previewMode, token, capturePreviewKey, isPreviewFetchStale]
   );
 
   useEffect(() => {
@@ -588,7 +592,26 @@ export function TeamExternalSettlementPage() {
 
           {activeTab === 'summary' ? (
             <>
-            <div className="space-y-3 lg:hidden">
+            <div className="px-3 pt-3">
+              <label className="block text-fluid-xs text-gray-600">
+                <TeamBiLine id="team.settlement.searchCustomerInquiry" koClassName="text-fluid-xs text-gray-600" />
+                <input
+                  type="search"
+                  value={itemSearch}
+                  onChange={(e) => {
+                    patchListParams((next) => {
+                      const v = e.target.value.trim();
+                      if (v) next.set('itemSearch', v);
+                      else next.delete('itemSearch');
+                      next.set('page', '1');
+                    });
+                  }}
+                  placeholder="고객명 또는 접수번호"
+                  className="mt-1 block w-full max-w-md rounded border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                />
+              </label>
+            </div>
+            <div className="space-y-3 lg:hidden px-3">
             {lineItems.length === 0 ? (
               <div className="rounded-lg border border-gray-200 bg-white px-3 py-10 text-center">
                 <TeamBiLine id="team.settlement.emptyLinesPeriod" koClassName="text-gray-500 text-fluid-sm" />

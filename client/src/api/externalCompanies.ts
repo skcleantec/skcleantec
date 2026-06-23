@@ -239,14 +239,15 @@ export async function getExternalSettlementMonthlyOverview(
 
 export async function getExternalSettlementCompanyDetail(
   token: string,
-  params: { externalCompanyId: string; from: string; to: string }
+  params: { externalCompanyId: string; from: string; to: string; search?: string }
 ): Promise<ExternalSettlementCompanyDetail> {
   const q = new URLSearchParams({
     externalCompanyId: params.externalCompanyId,
     from: params.from,
     to: params.to,
-  }).toString();
-  const res = await fetch(`${API}/external-companies/settlement/company-detail?${q}`, {
+  });
+  if (params.search?.trim()) q.set('search', params.search.trim());
+  const res = await fetch(`${API}/external-companies/settlement/company-detail?${q.toString()}`, {
     ...NO_STORE,
     headers: headers(token),
   });

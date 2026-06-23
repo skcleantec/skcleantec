@@ -6,6 +6,16 @@ import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 import { loadMarketplaceConfirmedInquiryIdSet } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
+import {
+  computeSignedExternalFeeBeforeDate,
+  fetchExternalSettlementInquiriesForCompanyPeriod,
+  filterExternalSettlementItemsBySearch,
+  filterInquiriesByEffectiveSettlementDate,
+  kstYmdFromDate,
+  loadMarketplaceExternalConfirmAtMap,
+  externalSettlementPeriodOrClause,
+  resolveExternalSettlementEffectiveDate,
+} from '../../lib/externalSettlementEffectiveDate.js';
 
 const router = Router();
 
@@ -309,7 +319,7 @@ router.get('/settlement/company-overview-list', async (req, res) => {
 });
 
 /**
- * 타업체별 수수료 집계 (기간: 예약일 preferredDate KST)
+ * 타업체별 수수료 집계 (기간: 예약일 우선 · 정보공유 인계 확정일 보조)
  * query: from, to (yyyy-mm-dd)
  */
 router.get('/settlement/summary', async (req, res) => {
@@ -325,13 +335,23 @@ router.get('/settlement/summary', async (req, res) => {
   const startDate = new Date(`${from}T00:00:00.000+09:00`);
   const endDate = new Date(`${to}T23:59:59.999+09:00`);
 
-  const inquiries = await prisma.inquiry.findMany({
+  const marketplaceListingsInRange = await prisma.inquiryDbListing.findMany({
     where: {
       tenantId,
-      preferredDate: { gte: startDate, lte: endDate },
+      status: 'CONFIRMED',
+      buyerKind: 'EXTERNAL_COMPANY',
+      sellerConfirmedAt: { gte: startDate, lte: endDate },
+    },
+    select: { inquiryId: true },
+  });
+  const marketplaceInquiryIds = marketplaceListingsInRange.map((r) => r.inquiryId);
+
+  const inquiriesRaw = await prisma.inquiry.findMany({
+    where: {
+      tenantId,
       externalTransferFee: { not: null },
-      /** 보류는 수수료 집계 제외(취소는 마이너스 반영) */
       status: { not: 'ON_HOLD' },
+      OR: externalSettlementPeriodOrClause(startDate, endDate, marketplaceInquiryIds),
     },
     select: {
       id: true,
@@ -356,6 +376,15 @@ router.get('/settlement/summary', async (req, res) => {
       },
     },
   });
+  const summaryConfirmAtMap = await loadMarketplaceExternalConfirmAtMap(tenantId, {
+    inquiryIds: inquiriesRaw.map((r) => r.id),
+  });
+  const inquiries = filterInquiriesByEffectiveSettlementDate(
+    inquiriesRaw,
+    summaryConfirmAtMap,
+    startDate,
+    endDate,
+  );
 
   type Row = {
     externalCompanyId: string;
@@ -441,14 +470,26 @@ router.get('/settlement/monthly-overview', async (req, res) => {
   const [toY, toM] = hiMonth.split('-').map(Number);
   const endDate = new Date(new Date(toY, toM, 0).toISOString().slice(0, 10) + 'T23:59:59.999+09:00');
 
-  const inquiries = await prisma.inquiry.findMany({
+  const marketplaceIdsInRange = await prisma.inquiryDbListing.findMany({
     where: {
       tenantId,
-      preferredDate: { gte: startDate, lte: endDate },
+      status: 'CONFIRMED',
+      buyerKind: 'EXTERNAL_COMPANY',
+      sellerConfirmedAt: { gte: startDate, lte: endDate },
+    },
+    select: { inquiryId: true },
+  });
+  const marketplaceInquiryIds = marketplaceIdsInRange.map((r) => r.inquiryId);
+
+  const inquiriesRaw = await prisma.inquiry.findMany({
+    where: {
+      tenantId,
       externalTransferFee: { not: null },
       status: { not: 'ON_HOLD' },
+      OR: externalSettlementPeriodOrClause(startDate, endDate, marketplaceInquiryIds),
     },
     select: {
+      id: true,
       preferredDate: true,
       status: true,
       externalTransferFee: true,
@@ -468,6 +509,15 @@ router.get('/settlement/monthly-overview', async (req, res) => {
       },
     },
   });
+  const confirmAtMap = await loadMarketplaceExternalConfirmAtMap(tenantId, {
+    inquiryIds: inquiriesRaw.map((r) => r.id),
+  });
+  const inquiries = filterInquiriesByEffectiveSettlementDate(
+    inquiriesRaw,
+    confirmAtMap,
+    startDate,
+    endDate,
+  );
 
   const payments = await prisma.externalCompanySettlementPayment.findMany({
     where: {
@@ -488,8 +538,12 @@ router.get('/settlement/monthly-overview', async (req, res) => {
   const monthSet = new Set<string>();
 
   for (const inq of inquiries) {
-    if (!inq.preferredDate) continue;
-    const monthKey = kstYmd(inq.preferredDate).slice(0, 7);
+    const effective = resolveExternalSettlementEffectiveDate(
+      inq.preferredDate,
+      confirmAtMap.get(inq.id),
+    );
+    if (!effective) continue;
+    const monthKey = kstYmdFromDate(effective).slice(0, 7);
     monthSet.add(monthKey);
     const fee = inq.externalTransferFee ?? 0;
     const extAssign = inq.assignments.find((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
@@ -605,61 +659,15 @@ router.get('/settlement/company-detail', async (req, res) => {
   const hiYmd = fromYmd <= toYmd ? toYmd : fromYmd;
   const from = new Date(`${loYmd}T00:00:00+09:00`);
   const to = new Date(`${hiYmd}T23:59:59.999+09:00`);
+  const searchRaw = typeof req.query.search === 'string' ? req.query.search.trim() : '';
 
-  const activeRows = await prisma.inquiry.findMany({
-    where: {
-      tenantId,
-      externalTransferFee: { not: null },
-      preferredDate: { gte: from, lte: to },
-      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-      assignments: {
-        some: {
-          teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId },
-        },
-      },
-    },
-    orderBy: [{ preferredDate: 'desc' }, { createdAt: 'desc' }],
-    select: {
-      id: true,
-      inquiryNumber: true,
-      customerName: true,
-      address: true,
-      addressDetail: true,
-      preferredDate: true,
-      status: true,
-      externalTransferFee: true,
-    },
+  const { activeRows, cancelledRows } = await fetchExternalSettlementInquiriesForCompanyPeriod({
+    tenantId,
+    externalCompanyId,
+    from,
+    to,
   });
-  const cancelledRows = await prisma.inquiry.findMany({
-    where: {
-      tenantId,
-      status: 'CANCELLED',
-      externalTransferFee: { not: null },
-      preferredDate: { gte: from, lte: to },
-      OR: [
-        { cancelFeeExternalCompanyId: externalCompanyId },
-        {
-          assignments: {
-            some: {
-              teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId },
-            },
-          },
-        },
-      ],
-    },
-    orderBy: [{ preferredDate: 'desc' }, { createdAt: 'desc' }],
-    select: {
-      id: true,
-      inquiryNumber: true,
-      customerName: true,
-      address: true,
-      addressDetail: true,
-      preferredDate: true,
-      status: true,
-      externalTransferFee: true,
-    },
-  });
-  const items = [
+  let allItems = [
     ...activeRows.map((r) => ({
       inquiryId: r.id,
       inquiryNumber: r.inquiryNumber ?? null,
@@ -688,50 +696,21 @@ router.get('/settlement/company-detail', async (req, res) => {
     })),
   ].sort((a, b) => (b.preferredDate ?? '').localeCompare(a.preferredDate ?? ''));
   const marketplaceInquiryIds = await loadMarketplaceConfirmedInquiryIdSet(
-    items.map((it) => it.inquiryId),
+    allItems.map((it) => it.inquiryId),
   );
-  for (const it of items) {
+  for (const it of allItems) {
     if (marketplaceInquiryIds.has(it.inquiryId)) it.viaMarketplace = true;
   }
-  const inquiryCount = activeRows.length;
-  const cancelledInquiryCount = cancelledRows.length;
-  const totalFee = items.reduce((sum, it) => sum + it.signedFeeAmount, 0);
+  const items = filterExternalSettlementItemsBySearch(allItems, searchRaw);
+  const inquiryCount = allItems.filter((it) => !it.isCancelled).length;
+  const cancelledInquiryCount = allItems.filter((it) => it.isCancelled).length;
+  const totalFee = allItems.reduce((sum, it) => sum + it.signedFeeAmount, 0);
 
-  const activeBeforeAgg = await prisma.inquiry.aggregate({
-    where: {
-      tenantId,
-      externalTransferFee: { not: null },
-      preferredDate: { lt: from },
-      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-      assignments: {
-        some: {
-          teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId },
-        },
-      },
-    },
-    _sum: { externalTransferFee: true },
+  const signedBeforeRange = await computeSignedExternalFeeBeforeDate({
+    tenantId,
+    externalCompanyId,
+    before: from,
   });
-  const cancelledBeforeAgg = await prisma.inquiry.aggregate({
-    where: {
-      tenantId,
-      status: 'CANCELLED',
-      externalTransferFee: { not: null },
-      preferredDate: { lt: from },
-      OR: [
-        { cancelFeeExternalCompanyId: externalCompanyId },
-        {
-          assignments: {
-            some: {
-              teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId },
-            },
-          },
-        },
-      ],
-    },
-    _sum: { externalTransferFee: true },
-  });
-  const signedBeforeRange =
-    (activeBeforeAgg._sum.externalTransferFee ?? 0) - (cancelledBeforeAgg._sum.externalTransferFee ?? 0);
 
   const paidBeforeAgg = await prisma.externalCompanySettlementPayment.aggregate({
     where: { externalCompanyId, paidAt: { lt: from } },
@@ -785,7 +764,7 @@ router.get('/settlement/company-detail', async (req, res) => {
 });
 
 /**
- * 업체별 수수료 누계(마지막 「정산완료」 이후 구간 + 예약일 기준 일·월·년)
+ * 업체별 수수료 누계(마지막 「정산완료」 이후 구간 + 예약일·정보공유 인계 확정일 기준 일·월·년)
  * 타업체(EXTERNAL_PARTNER) 배정 접수만, 수수료 입력 건만 합산
  */
 router.get('/settlement/accruals', async (req, res) => {
@@ -864,23 +843,35 @@ router.get('/settlement/accruals', async (req, res) => {
     select: accrualSelect,
   });
 
+  const accrualConfirmAtMap = await loadMarketplaceExternalConfirmAtMap(tenantId, {
+    inquiryIds: [...activeInquiries, ...cancelledInquiries].map((inq) => inq.id),
+  });
+
   type Acc = { sinceReset: number; today: number; month: number; year: number };
   const accByCompany = new Map<string, Acc>();
   for (const c of companies) {
     accByCompany.set(c.id, { sinceReset: 0, today: 0, month: 0, year: 0 });
   }
 
-  const addSignedByPreferred = (cid: string, fee: number, sign: 1 | -1, inq: { preferredDate: Date | null }) => {
+  const addSignedByEffective = (
+    cid: string,
+    fee: number,
+    sign: 1 | -1,
+    inq: { preferredDate: Date | null; id: string },
+  ) => {
     const a = accByCompany.get(cid);
     if (!a) return;
+    const effective = resolveExternalSettlementEffectiveDate(
+      inq.preferredDate,
+      accrualConfirmAtMap.get(inq.id),
+    );
+    if (!effective) return;
     const v = sign * fee;
     a.sinceReset += v;
-    if (inq.preferredDate) {
-      const pYmd = kstYmd(inq.preferredDate);
-      if (pYmd === todayYmd) a.today += v;
-      if (pYmd.slice(0, 7) === monthKey) a.month += v;
-      if (pYmd.slice(0, 4) === yearPrefix) a.year += v;
-    }
+    const pYmd = kstYmdFromDate(effective);
+    if (pYmd === todayYmd) a.today += v;
+    if (pYmd.slice(0, 7) === monthKey) a.month += v;
+    if (pYmd.slice(0, 4) === yearPrefix) a.year += v;
   };
 
   for (const inq of activeInquiries) {
@@ -895,7 +886,7 @@ router.get('/settlement/accruals', async (req, res) => {
     const activeSinceReset = inq.createdAt > lastReset || inq.updatedAt > lastReset;
     if (!activeSinceReset) continue;
 
-    addSignedByPreferred(cid, fee, 1, inq);
+    addSignedByEffective(cid, fee, 1, inq);
   }
 
   for (const inq of cancelledInquiries) {
@@ -912,7 +903,7 @@ router.get('/settlement/accruals', async (req, res) => {
     const createdAfterReset = inq.createdAt > lastReset;
     if (createdAfterReset && inq.updatedAt.getTime() - inq.createdAt.getTime() < 120_000) continue;
 
-    addSignedByPreferred(cid, fee, -1, inq);
+    addSignedByEffective(cid, fee, -1, inq);
   }
 
   const items = companies.map((c) => ({

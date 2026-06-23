@@ -399,6 +399,7 @@ export const teamMessages = {
   'team.settlement.thCustomer': { ko: '고객명'},
   'team.settlement.thStatus': { ko: '상태'},
   'team.settlement.thFee': { ko: '수수료'},
+  'team.settlement.searchCustomerInquiry': { ko: '고객명·접수번호 검색'},
 
   'team.staffIdCard.sheetTitle': { ko: '사원증' },
   'team.staffIdCard.openSwipe': { ko: '사원증 보기' },

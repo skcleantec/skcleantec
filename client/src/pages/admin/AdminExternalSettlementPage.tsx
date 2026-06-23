@@ -133,7 +133,8 @@ export function AdminExternalSettlementPage() {
   >([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailMonth, setDetailMonth] = useState(kstTodayYmd().slice(0, 7));
-  const [detailItems, setDetailItems] = useState<
+  const [detailSearch, setDetailSearch] = useState('');
+  const [detailAllItems, setDetailAllItems] = useState<
     Array<{
       inquiryId: string;
       inquiryNumber: string | null;
@@ -142,9 +143,22 @@ export function AdminExternalSettlementPage() {
       viaMarketplace?: boolean;
     }>
   >([]);
+  const detailItems = useMemo(() => {
+    const q = detailSearch.trim().toLowerCase();
+    if (!q) return detailAllItems;
+    return detailAllItems.filter(
+      (it) =>
+        it.customerName.toLowerCase().includes(q) ||
+        (it.inquiryNumber?.toLowerCase().includes(q) ?? false),
+    );
+  }, [detailAllItems, detailSearch]);
   const detailTotalFee = useMemo(
     () => detailItems.reduce((sum, it) => sum + (it.signedFeeAmount ?? 0), 0),
-    [detailItems]
+    [detailItems],
+  );
+  const detailMonthTotalFee = useMemo(
+    () => detailAllItems.reduce((sum, it) => sum + (it.signedFeeAmount ?? 0), 0),
+    [detailAllItems],
   );
 
   const loadList = useCallback(async () => {
@@ -245,6 +259,7 @@ export function AdminExternalSettlementPage() {
     if (!token) return;
     setSelected(row);
     setDetailModalOpen(true);
+    setDetailSearch('');
     setDetailLoading(true);
     try {
       const range = monthStartEnd(targetMonth);
@@ -253,7 +268,7 @@ export function AdminExternalSettlementPage() {
         from: range.from,
         to: range.to,
       });
-      setDetailItems(
+      setDetailAllItems(
         detail.items.map((it) => ({
           inquiryId: it.inquiryId,
           inquiryNumber: it.inquiryNumber,
@@ -263,7 +278,7 @@ export function AdminExternalSettlementPage() {
         })),
       );
     } catch {
-      setDetailItems([]);
+      setDetailAllItems([]);
     } finally {
       setDetailLoading(false);
     }
@@ -827,7 +842,7 @@ export function AdminExternalSettlementPage() {
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <div className="mb-3 flex items-end gap-2">
+              <div className="mb-3 flex flex-wrap items-end gap-2">
                 <label className="text-xs text-gray-600">
                   월
                   <input
@@ -844,21 +859,42 @@ export function AdminExternalSettlementPage() {
                 >
                   조회
                 </button>
+                <label className="min-w-[12rem] flex-1 text-xs text-gray-600">
+                  고객명·접수번호 검색
+                  <input
+                    type="search"
+                    value={detailSearch}
+                    onChange={(e) => setDetailSearch(e.target.value)}
+                    placeholder="이름 또는 접수번호"
+                    className="mt-1 block w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                </label>
               </div>
-              <div className="mb-3 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs">
+              <div className="mb-3 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs space-y-1">
                 <p className="flex items-center justify-between">
                   <span className="text-gray-600">해당 월 합계 수수료</span>
-                  <strong className={`tabular-nums ${detailTotalFee < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                    {detailTotalFee < 0 ? '-' : '+'}
-                    {won(Math.abs(detailTotalFee))}
+                  <strong className={`tabular-nums ${detailMonthTotalFee < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                    {detailMonthTotalFee < 0 ? '-' : '+'}
+                    {won(Math.abs(detailMonthTotalFee))}
                   </strong>
                 </p>
+                {detailSearch.trim() ? (
+                  <p className="flex items-center justify-between">
+                    <span className="text-gray-500">검색 결과 ({detailItems.length}건)</span>
+                    <strong className={`tabular-nums ${detailTotalFee < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                      {detailTotalFee < 0 ? '-' : '+'}
+                      {won(Math.abs(detailTotalFee))}
+                    </strong>
+                  </p>
+                ) : null}
               </div>
 
               {detailLoading ? (
                 <div className="py-10 text-center text-sm text-gray-500">조회 중...</div>
-              ) : detailItems.length === 0 ? (
+              ) : detailAllItems.length === 0 ? (
                 <div className="py-10 text-center text-sm text-gray-500">해당 월 정산 상세내역이 없습니다.</div>
+              ) : detailItems.length === 0 ? (
+                <div className="py-10 text-center text-sm text-gray-500">검색 조건에 맞는 내역이 없습니다.</div>
               ) : (
                 <>
                   <div className="lg:hidden space-y-2">

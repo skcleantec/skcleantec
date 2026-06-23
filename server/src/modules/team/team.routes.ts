@@ -31,6 +31,11 @@ import {
   settlementPreferredRangeFromQuery,
 } from './teamExternalSettlementRange.js';
 import {
+  computeSignedExternalFeeBeforeDate,
+  fetchExternalSettlementInquiriesForCompanyPeriod,
+  filterExternalSettlementItemsBySearch,
+} from '../../lib/externalSettlementEffectiveDate.js';
+import {
   parseCrewMeetingPatchBody,
   validateCrewMeetingTimeForInquiry,
 } from '../inquiries/crewMeetingTime.helpers.js';
@@ -1259,89 +1264,14 @@ router.get('/external-settlement', async (req, res) => {
     to: typeof q.to === 'string' ? q.to : undefined,
   });
   const { itemsLimit, itemsOffset, payLimit, payOffset } = parseSettlementListPaging(q);
+  const searchRaw = typeof q.search === 'string' ? q.search.trim() : '';
 
-  const activeRows = await prisma.inquiry.findMany({
-    where: {
-      tenantId: routeTenantId,
-      externalTransferFee: { not: null },
-      preferredDate: { gte: from, lte: to },
-      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-      assignments: {
-        some: {
-          teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: companyId },
-        },
-      },
-    },
-    orderBy: [{ preferredDate: 'desc' }, { createdAt: 'desc' }],
-    select: {
-      id: true,
-      inquiryNumber: true,
-      customerName: true,
-      address: true,
-      addressDetail: true,
-      preferredDate: true,
-      status: true,
-      externalTransferFee: true,
-      assignments: {
-        orderBy: { sortOrder: 'asc' as const },
-        select: {
-          teamLeader: {
-            select: {
-              id: true,
-              name: true,
-              role: true,
-              externalCompanyId: true,
-              externalCompany: { select: { id: true, name: true } },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  const cancelledRows = await prisma.inquiry.findMany({
-    where: {
-      tenantId: routeTenantId,
-      status: 'CANCELLED',
-      externalTransferFee: { not: null },
-      preferredDate: { gte: from, lte: to },
-      OR: [
-        { cancelFeeExternalCompanyId: companyId },
-        {
-          assignments: {
-            some: {
-              teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: companyId },
-            },
-          },
-        },
-      ],
-    },
-    orderBy: [{ preferredDate: 'desc' }, { createdAt: 'desc' }],
-    select: {
-      id: true,
-      inquiryNumber: true,
-      customerName: true,
-      address: true,
-      addressDetail: true,
-      preferredDate: true,
-      status: true,
-      externalTransferFee: true,
-      cancelFeeExternalCompanyId: true,
-      assignments: {
-        orderBy: { sortOrder: 'asc' as const },
-        select: {
-          teamLeader: {
-            select: {
-              id: true,
-              name: true,
-              role: true,
-              externalCompanyId: true,
-              externalCompany: { select: { id: true, name: true } },
-            },
-          },
-        },
-      },
-    },
+  const { activeRows, cancelledRows } = await fetchExternalSettlementInquiriesForCompanyPeriod({
+    tenantId: routeTenantId,
+    externalCompanyId: companyId,
+    from,
+    to,
+    includeAssignmentLabels: true,
   });
 
   type Item = {
@@ -1418,39 +1348,13 @@ router.get('/external-settlement', async (req, res) => {
     return db.localeCompare(da);
   });
 
-  const activeBeforeAgg = await prisma.inquiry.aggregate({
-    where: {
-      externalTransferFee: { not: null },
-      preferredDate: { lt: from },
-      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-      assignments: {
-        some: {
-          teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: companyId },
-        },
-      },
-    },
-    _sum: { externalTransferFee: true },
+  const filteredItems = filterExternalSettlementItemsBySearch(items, searchRaw);
+
+  const signedBeforeRange = await computeSignedExternalFeeBeforeDate({
+    tenantId: routeTenantId,
+    externalCompanyId: companyId,
+    before: from,
   });
-  const cancelledBeforeAgg = await prisma.inquiry.aggregate({
-    where: {
-      status: 'CANCELLED',
-      externalTransferFee: { not: null },
-      preferredDate: { lt: from },
-      OR: [
-        { cancelFeeExternalCompanyId: companyId },
-        {
-          assignments: {
-            some: {
-              teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: companyId },
-            },
-          },
-        },
-      ],
-    },
-    _sum: { externalTransferFee: true },
-  });
-  const signedBeforeRange =
-    (activeBeforeAgg._sum.externalTransferFee ?? 0) - (cancelledBeforeAgg._sum.externalTransferFee ?? 0);
 
   const paidBeforeAgg = await prisma.externalCompanySettlementPayment.aggregate({
     where: { externalCompanyId: companyId, paidAt: { lt: from } },
@@ -1661,7 +1565,7 @@ router.get('/external-settlement', async (req, res) => {
     actorRole: r.actor?.role ?? null,
     outstandingAfterCumulative: outstandingAfterByPaymentId.get(r.id) ?? 0,
   }));
-  const itemsTotal = items.length;
+  const itemsTotal = filteredItems.length;
   const paymentsTotal = paymentsFull.length;
 
   res.json({
@@ -1692,7 +1596,7 @@ router.get('/external-settlement', async (req, res) => {
     itemsTotal,
     paymentsTotal,
     payments: paymentsFull.slice(payOffset, payOffset + payLimit),
-    items: items.slice(itemsOffset, itemsOffset + itemsLimit),
+    items: filteredItems.slice(itemsOffset, itemsOffset + itemsLimit),
   });
 });
 

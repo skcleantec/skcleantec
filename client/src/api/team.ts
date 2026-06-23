@@ -116,6 +116,7 @@ export type TeamExternalSettlementListParams = {
   payOffset?: number;
   externalCompanyId?: string;
   externalCompanyName?: string;
+  search?: string;
 };
 
 export interface TeamExternalSettlementResponse {
@@ -173,6 +174,7 @@ export async function getTeamExternalSettlement(
   if (params.payOffset != null) q.set('payOffset', String(params.payOffset));
   if (params.externalCompanyId) q.set('externalCompanyId', params.externalCompanyId);
   if (params.externalCompanyName) q.set('externalCompanyName', params.externalCompanyName);
+  if (params.search?.trim()) q.set('search', params.search.trim());
   const res = await fetch(withTeamPreviewQuery(`${API}/team/external-settlement?${q}`), {
     headers: headers(token),
   });
