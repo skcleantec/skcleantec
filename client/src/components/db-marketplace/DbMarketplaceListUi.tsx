@@ -3,6 +3,7 @@ import type { DbMarketplaceMaskedItem } from '../../api/dbMarketplace';
 import {
   formatMarketplaceCleaningSummary,
   formatMarketplaceSchedule,
+  formatMarketplaceListDate,
 } from '../../utils/dbMarketplaceDisplay';
 import { marketplaceBulkSelectDisabledReason, type DbMarketplaceBulkMode } from '../../utils/dbMarketplaceBulk';
 
@@ -97,6 +98,7 @@ export function DbMarketplaceRowCard({
   onToggleSelect,
   bulkMode,
   showSeller,
+  showMySalesMeta = false,
 }: {
   row: DbMarketplaceMaskedItem;
   onOpen: () => void;
@@ -105,6 +107,7 @@ export function DbMarketplaceRowCard({
   onToggleSelect: () => void;
   bulkMode: DbMarketplaceBulkMode | null;
   showSeller: boolean;
+  showMySalesMeta?: boolean;
 }) {
   const disabledReason =
     bulkMode && selectable ? marketplaceBulkSelectDisabledReason(row, bulkMode) : null;
@@ -142,6 +145,13 @@ export function DbMarketplaceRowCard({
             ) : null}
             {showSeller ? (
               <p className="mt-1 text-[11px] text-gray-500 break-words sm:hidden">{row.sellerTenantName}</p>
+            ) : null}
+            {showMySalesMeta ? (
+              <div className="mt-2 space-y-0.5 text-[11px] text-gray-600">
+                <p>판매 {formatMarketplaceListDate(row.publishedAt)}</p>
+                <p>인계 {formatMarketplaceListDate(row.sellerConfirmedAt)}</p>
+                <p className="break-words">업체 {row.buyerName ?? '-'}</p>
+              </div>
             ) : null}
           </div>
           <div className="flex shrink-0 flex-row items-center justify-between gap-3 sm:flex-col sm:items-end sm:justify-start">

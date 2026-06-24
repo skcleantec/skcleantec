@@ -7,6 +7,12 @@ export function formatMarketplacePreferredDate(iso: string | null): string {
   return d.toLocaleDateString('ko-KR');
 }
 
+/** 목록 — 판매·인계일 (KST 날짜) */
+export function formatMarketplaceListDate(iso: string | null | undefined): string {
+  if (!iso) return '-';
+  return formatMarketplacePreferredDate(iso);
+}
+
 /** 면적 — 공급/전용 + ㎡ 보조 */
 export function formatMarketplaceArea(row: Pick<DbMarketplaceMaskedItem, 'areaPyeong' | 'areaBasis' | 'exclusiveAreaSqm'>): string {
   if (row.areaPyeong == null) return '';

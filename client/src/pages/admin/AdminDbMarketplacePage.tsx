@@ -9,6 +9,7 @@ import {
   bulkWithdrawDbMarketplace,
   listDbMarketplace,
   getDbMarketplaceListing,
+  listDbMarketplaceAudienceOptions,
   type DbMarketplaceAudienceInput,
   type DbMarketplaceListTab,
   type DbMarketplaceMaskedItem,
@@ -24,8 +25,16 @@ import {
   dbMarketplacePageBottomClass,
 } from '../../components/db-marketplace/DbMarketplaceListUi';
 import {
+  DbMarketplaceMySalesFilters,
+  applyMySalesFiltersToSearchParams,
+  mySalesFiltersToApiParams,
+  parseMySalesFiltersFromSearchParams,
+  type DbMarketplaceMySalesFilterState,
+} from '../../components/db-marketplace/DbMarketplaceMySalesFilters';
+import {
   formatMarketplaceCleaningSummary,
   formatMarketplaceSchedule,
+  formatMarketplaceListDate,
 } from '../../utils/dbMarketplaceDisplay';
 import {
   canBulkSelectMarketplaceItem,
@@ -71,7 +80,7 @@ function parseAdminTab(raw: string | null): DbMarketplaceListTab {
   if (raw === 'cart' || raw === 'available' || raw === 'my_sales' || raw === 'pending' || raw === 'confirmed') {
     return raw;
   }
-  return 'available';
+  return 'cart';
 }
 
 function cleaningSummary(row: DbMarketplaceMaskedItem): string {
@@ -111,7 +120,29 @@ export function AdminDbMarketplacePage() {
             ? 'seller_confirm'
             : null;
   const selectable = bulkMode != null;
-  const showSellerColumn = tab !== 'cart';
+  const showSellerColumn = tab === 'available';
+  const showMySalesMeta = tab === 'my_sales';
+  const mySalesFilters = useMemo(
+    () => parseMySalesFiltersFromSearchParams(searchParams),
+    [searchParams],
+  );
+
+  const [audiencePartners, setAudiencePartners] = useState<
+    Awaited<ReturnType<typeof listDbMarketplaceAudienceOptions>>['partners']
+  >([]);
+  const [audienceExternals, setAudienceExternals] = useState<
+    Awaited<ReturnType<typeof listDbMarketplaceAudienceOptions>>['externalCompanies']
+  >([]);
+
+  useEffect(() => {
+    if (!token || tab !== 'my_sales') return;
+    void listDbMarketplaceAudienceOptions(token)
+      .then((r) => {
+        setAudiencePartners(r.partners);
+        setAudienceExternals(r.externalCompanies);
+      })
+      .catch(() => {});
+  }, [token, tab]);
 
   const offset = (page - 1) * pageSize;
 
@@ -120,7 +151,12 @@ export function AdminDbMarketplacePage() {
       if (!token) return;
       if (!opts?.silent) setLoading(true);
       setError(null);
-      void listDbMarketplace(token, { tab, limit: pageSize, offset })
+      void listDbMarketplace(token, {
+        tab,
+        limit: pageSize,
+        offset,
+        ...(tab === 'my_sales' ? mySalesFiltersToApiParams(mySalesFilters) : {}),
+      })
         .then((r) => {
           setItems(r.items);
           setTotal(r.total);
@@ -130,7 +166,7 @@ export function AdminDbMarketplacePage() {
           if (!opts?.silent) setLoading(false);
         });
     },
-    [token, tab, pageSize, offset],
+    [token, tab, pageSize, offset, mySalesFilters],
   );
 
   useEffect(() => {
@@ -184,6 +220,12 @@ export function AdminDbMarketplacePage() {
   const onPageSizeChange = (nextSize: number) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('pageSize', String(nextSize));
+    nextParams.set('page', '1');
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const onMySalesFiltersChange = (next: DbMarketplaceMySalesFilterState) => {
+    const nextParams = applyMySalesFiltersToSearchParams(searchParams, next);
     nextParams.set('page', '1');
     setSearchParams(nextParams, { replace: true });
   };
@@ -402,6 +444,15 @@ export function AdminDbMarketplacePage() {
       <DbMarketplaceTabBar options={TAB_OPTIONS} active={tab} onChange={setTab} />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        {showMySalesMeta ? (
+          <DbMarketplaceMySalesFilters
+            filters={mySalesFilters}
+            partners={audiencePartners}
+            externalCompanies={audienceExternals}
+            onChange={onMySalesFiltersChange}
+          />
+        ) : null}
+
         <ListPaginationBar
           mode="summary"
           page={page}
@@ -422,16 +473,23 @@ export function AdminDbMarketplacePage() {
         ) : null}
 
         <div className="mt-4 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <table className="w-full table-fixed border-collapse text-fluid-xs min-w-[720px]">
+          <table className={`w-full table-fixed border-collapse text-fluid-xs ${showMySalesMeta ? 'min-w-[960px]' : 'min-w-[720px]'}`}>
             <colgroup>
               {selectable ? <col className="w-[36px]" /> : null}
-              <col className="w-[12%]" />
-              <col className="w-[14%]" />
-              <col className="w-[22%]" />
-              <col className="w-[14%]" />
-              {tab === 'cart' ? <col className="w-[10%]" /> : null}
               <col className="w-[10%]" />
-              {showSellerColumn ? <col className="w-[12%]" /> : null}
+              <col className="w-[12%]" />
+              <col className="w-[18%]" />
+              <col className="w-[12%]" />
+              {tab === 'cart' ? <col className="w-[8%]" /> : null}
+              <col className="w-[8%]" />
+              {showMySalesMeta ? (
+                <>
+                  <col className="w-[9%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[10%]" />
+                </>
+              ) : null}
+              {showSellerColumn ? <col className="w-[10%]" /> : null}
               <col className="w-[8%]" />
             </colgroup>
             <thead>
@@ -453,6 +511,13 @@ export function AdminDbMarketplacePage() {
                 <th className="px-2 py-2 text-center">일정</th>
                 {tab === 'cart' ? <th className="px-2 py-2 text-center">수수료</th> : null}
                 <th className="px-2 py-2 text-center">표시금액</th>
+                {showMySalesMeta ? (
+                  <>
+                    <th className="px-2 py-2 text-center">판매날짜</th>
+                    <th className="px-2 py-2 text-center">인계날짜</th>
+                    <th className="px-2 py-2 text-center">인계업체</th>
+                  </>
+                ) : null}
                 {showSellerColumn ? <th className="px-2 py-2 text-center">판매 업체</th> : null}
                 <th className="px-2 py-2 text-center">상태</th>
               </tr>
@@ -499,6 +564,19 @@ export function AdminDbMarketplacePage() {
                     <td className="px-2 py-2 text-right tabular-nums">
                       {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
                     </td>
+                    {showMySalesMeta ? (
+                      <>
+                        <td className="px-2 py-2 text-center tabular-nums">
+                          {formatMarketplaceListDate(row.publishedAt)}
+                        </td>
+                        <td className="px-2 py-2 text-center tabular-nums">
+                          {formatMarketplaceListDate(row.sellerConfirmedAt)}
+                        </td>
+                        <td className="px-2 py-2 text-center truncate" title={row.buyerName ?? undefined}>
+                          {row.buyerName ?? '-'}
+                        </td>
+                      </>
+                    ) : null}
                     {showSellerColumn ? (
                       <td className="px-2 py-2 text-center truncate" title={row.sellerTenantName}>
                         {row.sellerTenantName}
@@ -527,6 +605,7 @@ export function AdminDbMarketplacePage() {
               onToggleSelect={() => toggleRow(row.id)}
               bulkMode={bulkMode}
               showSeller={showSellerColumn}
+              showMySalesMeta={showMySalesMeta}
             />
           ))}
         </div>

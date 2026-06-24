@@ -403,7 +403,7 @@ function ScheduleDayListItem({
               <TenantInquiryShareBadge share={item.tenantShare} compact className="shrink-0" />
             ) : null}
             {item.dbListing ? (
-              <InquiryDbMarketplaceBadge dbListing={item.dbListing} compact className="shrink-0" />
+              <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly className="shrink-0" />
             ) : null}
             {isExternalIntake && (
               <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1 py-px text-[9px] font-semibold text-fuchsia-800">

@@ -28,6 +28,10 @@ import {
   listingStatusSortRank,
   type MarketplaceListingDetailDto,
 } from './dbMarketplaceListing.dto.js';
+import {
+  applyMySalesListFilters,
+  type DbMarketplaceListFilters,
+} from './dbMarketplaceListFilters.js';
 
 export class DbMarketplaceError extends Error {
   constructor(
@@ -43,6 +47,8 @@ const LISTING_INCLUDE = {
   inquiry: { select: INQUIRY_MASK_SELECT },
   tenant: { select: { id: true, name: true } },
   audiences: true,
+  buyerTenant: { select: { id: true, name: true } },
+  buyerExternalCompany: { select: { id: true, name: true } },
 } as const;
 
 export type DbMarketplaceListTab = 'available' | 'cart' | 'my_sales' | 'pending' | 'confirmed';
@@ -584,7 +590,7 @@ export async function listDbMarketplaceListings(
   tabRaw: unknown,
   limitRaw: unknown,
   offsetRaw: unknown,
-  opts?: { viewerExternalCompanyId?: string | null },
+  opts?: { viewerExternalCompanyId?: string | null; filters?: DbMarketplaceListFilters },
 ) {
   await expireStaleOpenDbListings();
   await releaseExpiredDbListingHolds();
@@ -600,6 +606,9 @@ export async function listDbMarketplaceListings(
     where = buildExternalPartnerListWhere(tenantId, tab, opts.viewerExternalCompanyId);
   } else {
     where = buildListWhere(tenantId, tab);
+    if (tab === 'my_sales' && opts?.filters) {
+      where = applyMySalesListFilters(where, opts.filters);
+    }
   }
 
   const listOrderBy: Prisma.InquiryDbListingOrderByWithRelationInput[] =
@@ -661,7 +670,13 @@ export async function listDbMarketplaceListings(
         hold,
       });
       if (role === 'SELLER') {
-        return { ...masked, listingFee: row.listingFee, inquiryId: row.inquiryId };
+        return {
+          ...masked,
+          listingFee: row.listingFee,
+          inquiryId: row.inquiryId,
+          sellerConfirmedAt: row.sellerConfirmedAt?.toISOString() ?? null,
+          buyerName: row.buyerTenant?.name ?? row.buyerExternalCompany?.name ?? null,
+        };
       }
       return masked;
     })

@@ -18,6 +18,7 @@ import {
   upsertDbListingDraft,
   withdrawDbListing,
 } from './dbMarketplace.service.js';
+import { parseDbMarketplaceListFilters } from './dbMarketplaceListFilters.js';
 import {
   confirmDbListingBuyer,
   confirmDbListingSeller,
@@ -360,6 +361,7 @@ router.get('/', async (req, res) => {
     req.query.tab,
     req.query.limit,
     req.query.offset,
+    { filters: parseDbMarketplaceListFilters(req.query as Record<string, unknown>) },
   );
   res.json(result);
 });

@@ -130,6 +130,10 @@ export type DbMarketplaceMaskedItem = {
   /** 판매자 목록(cart·my_sales) 전용 */
   listingFee?: number;
   inquiryId?: string;
+  /** my_sales — 인계 확정일 */
+  sellerConfirmedAt?: string | null;
+  /** my_sales — 구매(인계) 업체명 */
+  buyerName?: string | null;
 };
 
 export type DbMarketplaceAudienceInput = {
@@ -331,12 +335,32 @@ export async function withdrawDbMarketplaceListing(
 
 export async function listDbMarketplace(
   token: string,
-  params: { tab?: DbMarketplaceListTab; limit?: number; offset?: number },
+  params: {
+    tab?: DbMarketplaceListTab;
+    limit?: number;
+    offset?: number;
+    buyerKind?: string;
+    buyerId?: string;
+    soldDatePreset?: string;
+    soldMonth?: string;
+    soldDay?: string;
+    handoverDatePreset?: string;
+    handoverMonth?: string;
+    handoverDay?: string;
+  },
 ): Promise<{ items: DbMarketplaceMaskedItem[]; total: number; limit: number; offset: number }> {
   const q = new URLSearchParams();
   if (params.tab) q.set('tab', params.tab);
   if (params.limit != null) q.set('limit', String(params.limit));
   if (params.offset != null) q.set('offset', String(params.offset));
+  if (params.buyerKind) q.set('buyerKind', params.buyerKind);
+  if (params.buyerId) q.set('buyerId', params.buyerId);
+  if (params.soldDatePreset) q.set('soldDatePreset', params.soldDatePreset);
+  if (params.soldMonth) q.set('soldMonth', params.soldMonth);
+  if (params.soldDay) q.set('soldDay', params.soldDay);
+  if (params.handoverDatePreset) q.set('handoverDatePreset', params.handoverDatePreset);
+  if (params.handoverMonth) q.set('handoverMonth', params.handoverMonth);
+  if (params.handoverDay) q.set('handoverDay', params.handoverDay);
   const res = await fetch(`${API}/db-marketplace?${q}`, { headers: headers(token) });
   return parseJson(res);
 }
