@@ -128,14 +128,36 @@ export function FlaggedBeforePhotosSection({
         ? '사진 준비 중'
         : `선택 사진 ${count}장 전달`;
 
+  const statusLabel = count > 0 ? `${count}장` : '없음';
+
   return (
     <section
       className={`rounded-xl border px-3 py-3 ${
         count > 0 ? 'border-amber-300 bg-amber-50/80' : 'border-gray-200 bg-gray-50/80'
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="min-w-0 text-fluid-sm font-semibold text-gray-900">오염 심함</h3>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-fluid-sm font-semibold text-gray-900">오염 심함</h3>
+            <span
+              className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-fluid-2xs font-semibold tabular-nums ${
+                count > 0
+                  ? 'bg-amber-200 text-amber-950 ring-1 ring-amber-300/80'
+                  : 'bg-gray-200 text-gray-600 ring-1 ring-gray-300/80'
+              }`}
+            >
+              {statusLabel}
+            </span>
+          </div>
+          <p className="mt-1 text-fluid-2xs leading-snug text-gray-600">
+            {count > 0
+              ? '청소 전 사진 중 오염·손상이 심하다고 표시한 사진입니다.'
+              : readOnly
+                ? '팀장이 청소 전 촬영에서 ★ 오염 심함으로 표시한 사진이 없습니다.'
+                : '청소 전 사진에서 ☆를 눌러 오염 심함(★)으로 표시하면 여기에 모입니다.'}
+          </p>
+        </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {count > 0 ? (
             <ImageThumbLightbox
@@ -206,8 +228,6 @@ export function FlaggedBeforePhotosSection({
             </div>
           ))}
         </div>
-      ) : !readOnly ? (
-        <p className="mt-2 text-fluid-2xs text-gray-500">아직 표시한 사진이 없습니다.</p>
       ) : null}
     </section>
   );
