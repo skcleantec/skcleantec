@@ -383,7 +383,7 @@ export function TeamSchedulePage() {
                             {STATUS_LABELS[item.status] ?? item.status}
                           </span>
                           <TeamHappyCallBadge item={item} />
-                          <TeamNoCrewMembersListBadge item={item} />
+                          <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                         </div>
                       </div>
                     );

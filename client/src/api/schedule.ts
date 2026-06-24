@@ -75,12 +75,8 @@ export interface ScheduleItem {
   crewMemberCount?: number | null;
   /** 팀원 수기(예: 김,태) */
   crewMemberNote?: string | null;
-  /** true: 팀장 단독 현장(크루 없음) */
-  noCrewMembers?: boolean;
   /** 타업체 담당 시 받는 수수료(원) */
   externalTransferFee?: number | null;
-  /** 팀장 해피콜 완료 시각 (ISO) */
-  happyCallCompletedAt?: string | null;
   operatingCompanyId?: string | null;
   operatingCompany?: {
     id: string;
@@ -110,13 +106,18 @@ export interface ScheduleItem {
     createdBy?: { id: string; name: string };
   } | null;
   assignments: Array<{
+    sortOrder?: number;
+    noCrewMembers?: boolean;
     teamLeader: {
       id: string;
       name: string;
       role?: string;
+      phone?: string | null;
       externalCompany?: { id: string; name: string } | null;
     };
   }>;
+  /** 팀장 해피콜 완료 시각 (ISO) */
+  happyCallCompletedAt?: string | null;
   changeLogs?: InquiryChangeLogEntry[];
   /** 인천 주안 기준 직선거리(km) */
   distanceFromJuanKm?: number | null;

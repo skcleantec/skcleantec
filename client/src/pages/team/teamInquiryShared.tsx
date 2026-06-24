@@ -46,6 +46,7 @@ import {
 import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import type { InspectionListSummary } from '../../api/inquiryInspection';
+import { SOLO_LEADER_CREW_LABEL, viewerAssignmentIsSolo } from '../../utils/inquiryNoCrewMembers';
 import { TEAM_CARD_PAYMENT_PATH } from '../../constants/teamCardPayment';
 import { TeamCrewMemberContactChips, resolveInquiryCrewMemberContacts } from '../../components/team/TeamCrewMemberContactChips';
 
@@ -188,8 +189,6 @@ export interface InquiryItem {
   specialNotes?: string | null;
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
-  /** true: 팀장 단독 현장(크루 없음) */
-  noCrewMembers?: boolean | null;
   /** 서버에서 `crewMemberNote`의 이름을 `TeamMember`와 매칭해 첨부한 전화번호·미팅 시각 */
   crewMembers?: Array<{
     teamMemberId: string | null;
@@ -223,11 +222,14 @@ export interface InquiryItem {
   /** ISO — 팀장 해피콜 완료 시각 */
   happyCallCompletedAt?: string | null;
   assignments: Array<{
+    sortOrder?: number;
+    noCrewMembers?: boolean;
     assignedAt?: string;
     assignedBy?: { id: string; name: string } | null;
     teamLeader: {
       id: string;
       name: string;
+      phone?: string | null;
       role?: string;
       externalCompany?: { id: string; name: string } | null;
     };
@@ -295,7 +297,6 @@ export function formatRoomInfo(r: number | null, b: number | null, v: number | n
 }
 
 export function formatCrewInfo(item: InquiryItem): string {
-  if (item.noCrewMembers) return teamBiPlain('team.modal.soloLeaderCrew');
   const n = item.crewMemberCount ?? 0;
   const tokens = item.crewMemberNote
     ?.split(/[,·/|]/g)
@@ -566,10 +567,18 @@ function myAssignmentForViewer(item: InquiryItem, viewerId: string) {
   return item.assignments.find((a) => a.teamLeader.id === viewerId);
 }
 
+function leaderSummaryLabel(
+  u: InquiryItem['assignments'][0]['teamLeader'],
+  solo?: boolean,
+): string {
+  const base = leaderLabelForAssignment(u);
+  return solo ? `${base} · ${SOLO_LEADER_CREW_LABEL}` : base;
+}
+
 export function coLeadersSummaryForViewer(item: InquiryItem, viewerId: string): string {
   const others = item.assignments
     .filter((a) => a.teamLeader.id !== viewerId)
-    .map((a) => leaderLabelForAssignment(a.teamLeader));
+    .map((a) => leaderSummaryLabel(a.teamLeader, a.noCrewMembers ?? false));
   return others.length ? others.join(' · ') : '—';
 }
 
@@ -615,15 +624,17 @@ export function TeamCoLeadersListHint({
   );
 }
 
-/** 목록·카드 — 팀장 단독(크루 없음) 강조 pill */
+/** 목록·카드 — 본인이 단독(크루 없음)일 때만 pill */
 export function TeamNoCrewMembersListBadge({
   item,
+  viewerId,
   className = '',
 }: {
   item: InquiryItem;
+  viewerId: string | null | undefined;
   className?: string;
 }) {
-  if (!item.noCrewMembers) return null;
+  if (!viewerAssignmentIsSolo(item.assignments, viewerId)) return null;
   const label = teamBiPlain('team.assign.soloLeaderBadge');
   return (
     <span
@@ -635,18 +646,63 @@ export function TeamNoCrewMembersListBadge({
   );
 }
 
-/** 접수 상세 상단 — 팀장 단독(크루 없음) 강조 */
-export function TeamNoCrewMembersDetailBanner({ item }: { item: InquiryItem }) {
-  if (!item.noCrewMembers) return null;
+/** 접수 상세 — 배정된 모든 팀장(메인/서브) + 단독 표시 + 전화 */
+export function TeamAssignedLeadersBlock({
+  item,
+  viewerId,
+}: {
+  item: InquiryItem;
+  viewerId: string | null | undefined;
+}) {
+  if (!item.assignments.length) return null;
+  const sorted = [...item.assignments].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   return (
-    <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3" role="status">
-      <p className="text-fluid-xs font-semibold text-amber-950">
-        <TeamBiLine id="team.modal.soloLeaderBanner" koClassName="text-fluid-xs font-semibold text-amber-950" />
-      </p>
-      <p className="mt-1 text-fluid-sm font-semibold text-amber-900">
-        {teamBiPlain('team.modal.soloLeaderCrew')}
-      </p>
-    </div>
+    <TeamModalSection
+      title={
+        <TeamBiLine
+          id="team.modal.section.assignedLeaders"
+          koClassName="text-fluid-xs font-semibold text-gray-600"
+        />
+      }
+    >
+      {sorted.map((a, idx) => {
+        const isSelf = viewerId === a.teamLeader.id;
+        const phone = a.teamLeader.phone?.trim();
+        return (
+          <div
+            key={a.teamLeader.id}
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-gray-100 px-3 py-2.5 last:border-b-0 sm:px-4"
+          >
+            <span className="w-9 shrink-0 text-fluid-xs font-medium text-gray-500">
+              {idx === 0 ? teamBiPlain('team.modal.leaderMain') : teamBiPlain('team.modal.leaderSub')}
+            </span>
+            <span className="min-w-0 flex-1 text-fluid-sm font-medium text-gray-900">
+              {leaderLabelForAssignment(a.teamLeader)}
+              {isSelf ? (
+                <span className="ml-1 text-fluid-xs font-normal text-gray-500">
+                  ({teamBiPlain('team.modal.leaderSelf')})
+                </span>
+              ) : null}
+            </span>
+            {a.noCrewMembers ? (
+              <span className="inline-flex shrink-0 items-center rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-fluid-2xs font-semibold text-amber-950">
+                {teamBiPlain('team.assign.soloLeaderBadge')}
+              </span>
+            ) : null}
+            {phone ? (
+              <a
+                href={`tel:${phone}`}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-blue-700 hover:bg-blue-50"
+                aria-label={`${a.teamLeader.name} 전화`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <PhoneMiniIcon className="h-4 w-4" />
+              </a>
+            ) : null}
+          </div>
+        );
+      })}
+    </TeamModalSection>
   );
 }
 
@@ -987,11 +1043,9 @@ export function TeamInquiryDetailModal({
           </div>
         </header>
 
-        <TeamCoLeadersDetailBanner item={item} viewerId={effectiveViewerId} />
-        <TeamNoCrewMembersDetailBanner item={item} />
-
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
           <div className="flex flex-col gap-4">
+            <TeamAssignedLeadersBlock item={item} viewerId={effectiveViewerId} />
             <TeamModalSection
               title={<TeamBiLine id="team.modal.section.inquiry" koClassName="text-fluid-xs font-semibold text-gray-600" />}
             >

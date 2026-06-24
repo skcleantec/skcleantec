@@ -227,7 +227,7 @@ export function TeamDashboardPage() {
                       {STATUS_LABELS[item.status] ?? item.status}
                     </span>
                     <TeamHappyCallBadge item={item} />
-                    <TeamNoCrewMembersListBadge item={item} />
+                    <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                   </div>
                 </div>
               );
@@ -305,7 +305,7 @@ export function TeamDashboardPage() {
                                 {STATUS_LABELS[item.status] ?? item.status}
                               </span>
                               <TeamHappyCallBadge item={item} />
-                              <TeamNoCrewMembersListBadge item={item} />
+                              <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                             </div>
                             <TeamCoLeadersListHint item={item} viewerId={myId} className="mt-1 text-fluid-2xs text-gray-600" />
                           </div>

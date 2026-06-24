@@ -582,7 +582,7 @@ export function TeamAssignmentListPage() {
                         {STATUS_LABELS[item.status] ?? item.status}
                       </span>
                       <TeamHappyCallBadge item={item} variant="list" />
-                      <TeamNoCrewMembersListBadge item={item} />
+                      <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                       {hasInspectionModule ? (
                         <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
                       ) : null}
@@ -780,7 +780,7 @@ export function TeamAssignmentListPage() {
                         </td>
                         <td className={`align-middle py-2 px-2 text-center ${pBorder}`}>
                           <TeamHappyCallBadge item={item} variant="list" />
-                      <TeamNoCrewMembersListBadge item={item} />
+                      <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                         </td>
                         {hasInspectionModule ? (
                           <td className={`align-middle py-2 px-2 text-center ${pBorder}`}>

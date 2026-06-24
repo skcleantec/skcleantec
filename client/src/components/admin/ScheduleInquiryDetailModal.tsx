@@ -82,10 +82,12 @@ import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
 import { resolveTeamLeaderIdForCrewSpacing } from '../../utils/crewLeaderSpacing';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import {
+  allTeamLeadersSolo,
   applyCrewFieldsToInquiryPatch,
   adminCrewPreviewLabel,
-  hasAssignedTeamLeader,
+  initSoloTeamLeaderIdsFromAssignments,
   SOLO_LEADER_CREW_LABEL,
+  toggleSoloTeamLeaderId,
 } from '../../utils/inquiryNoCrewMembers';
 import { TeamMemberSearchSelect } from './TeamMemberSearchSelect';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
@@ -282,8 +284,8 @@ type EditFormFields = {
   crewMemberCount: number;
   /** 팀원 선택 목록(인원수만큼 슬롯) */
   crewMemberNames: string[];
-  /** 팀장 단독 현장(크루 없음) */
-  noCrewMembers: boolean;
+  /** 팀장 단독(크루 없음) — teamLeaderId 목록 */
+  soloTeamLeaderIds: string[];
   status: string;
   createdById: string;
   operatingCompanyId: string;
@@ -315,7 +317,7 @@ type EditFormFields = {
 
 function buildPatchFromEditForm(
   editForm: EditFormFields,
-  opts?: { includeCreatedById?: boolean }
+  opts?: { includeCreatedById?: boolean; externalTeamLeaderId?: string | null }
 ): Record<string, unknown> {
   const parseWon = (s: string) => {
     const t = s.replace(/,/g, '').trim();
@@ -415,9 +417,11 @@ function buildPatchFromEditForm(
   }
   {
     applyCrewFieldsToInquiryPatch(patch, {
-      noCrewMembers: editForm.noCrewMembers,
+      teamLeaderIds: editForm.teamLeaderIds,
+      soloTeamLeaderIds: editForm.soloTeamLeaderIds,
       crewMemberCount: editForm.crewMemberCount,
       crewMemberNames: editForm.crewMemberNames,
+      externalTeamLeaderId: opts?.externalTeamLeaderId,
     });
   }
   return patch;
@@ -452,7 +456,7 @@ function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> 
     memo: p.memo,
     source: '전화',
     status: p.status ?? 'RECEIVED',
-    noCrewMembers: p.noCrewMembers,
+    soloTeamLeaderIds: p.soloTeamLeaderIds,
     crewMemberCount: p.crewMemberCount,
     crewMemberNote: p.crewMemberNote,
     ...(editForm.operatingCompanyId.trim()
@@ -911,7 +915,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         teamLeaderIds: [''],
         crewMemberCount: 0,
         crewMemberNames: [],
-        noCrewMembers: false,
+        soloTeamLeaderIds: [],
         status: 'RECEIVED',
         createdById: '',
         operatingCompanyId: '',
@@ -956,7 +960,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       teamLeaderIds: initialTeamLeaderIdsForEdit(it.assignments),
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
-      noCrewMembers: Boolean(it.noCrewMembers),
+      soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(it.assignments),
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
       operatingCompanyId: it.operatingCompanyId ?? it.operatingCompany?.id ?? '',
@@ -1306,7 +1310,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       teamLeaderIds: initialTeamLeaderIdsForEdit(it.assignments),
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
-      noCrewMembers: Boolean(it.noCrewMembers),
+      soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(it.assignments),
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
       operatingCompanyId: it.operatingCompanyId ?? it.operatingCompany?.id ?? '',
@@ -1419,9 +1423,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return true;
   }, [poolTeamMembers, occupiedCrewNamesByDate, editForm.crewMemberNames]);
 
-  const effectiveCrewSlots = editForm.noCrewMembers ? 0 : Math.max(0, editForm.crewMemberCount);
+  const hideCrewInputs = allTeamLeadersSolo(
+    editForm.teamLeaderIds,
+    editForm.soloTeamLeaderIds,
+    resolvedExternalLeadId,
+  );
 
-  const canAssignSoloLeader = hasAssignedTeamLeader(editForm.teamLeaderIds, resolvedExternalLeadId);
+  const effectiveCrewSlots = hideCrewInputs ? 0 : Math.max(0, editForm.crewMemberCount);
 
   const canUseCrewPartnerSwap = useMemo(() => {
     if (isCreate || !item || effectiveCrewSlots <= 0) return false;
@@ -1727,8 +1735,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       alert('신축·구축·인테리어 선택 시 이사 예정일을 입력하거나 「미정」을 선택해 주세요.');
       return;
     }
-    if (editForm.noCrewMembers && !canAssignSoloLeader) {
-      alert('팀장 단독(크루 없음)은 담당 팀장을 배정한 뒤에만 설정할 수 있습니다.');
+    if (hideCrewInputs && editForm.crewMemberCount > 0) {
+      alert('모든 팀장이 단독(크루 없음)일 때는 팀원을 배정할 수 없습니다.');
       return;
     }
     const leaderIdsForSave = resolvedExternalLeadId
@@ -1749,6 +1757,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     try {
       const patch = buildPatchFromEditForm(editForm, {
         includeCreatedById: canEditMarketer,
+        externalTeamLeaderId: resolvedExternalLeadId,
       }) as Record<string, unknown>;
       const requestedStatus = String(patch.status ?? '');
       const isCancelConfirm = requestedStatus === 'CANCEL_CONFIRMED';
@@ -3086,25 +3095,50 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 {(() => {
                   const u = assignableTeamLeaders.find((t) => t.id === resolvedExternalLeadId);
                   return u ? (
-                    <span className="mt-1 block text-xs text-amber-900/95">
-                      선택: {formatAssignableUserLabel(u)}
-                    </span>
+                    <>
+                      <span className="mt-1 block text-xs text-amber-900/95">
+                        선택: {formatAssignableUserLabel(u)}
+                      </span>
+                      <label className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber-950">
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 rounded border-amber-300"
+                          checked={editForm.soloTeamLeaderIds.includes(resolvedExternalLeadId)}
+                          onChange={(e) =>
+                            setEditForm((p) => ({
+                              ...p,
+                              soloTeamLeaderIds: toggleSoloTeamLeaderId(
+                                p.soloTeamLeaderIds,
+                                resolvedExternalLeadId,
+                                e.target.checked,
+                              ),
+                            }))
+                          }
+                        />
+                        {SOLO_LEADER_CREW_LABEL}
+                      </label>
+                    </>
                   ) : null;
                 })()}
               </div>
             ) : (
               <>
                 {editForm.teamLeaderIds.map((lid, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
+                  <div key={idx} className="flex flex-wrap gap-2 items-center">
                     <select
                       value={lid}
                       disabled={teamLeaderZoneBlock.blocked}
                       onChange={(e) => {
                         const v = e.target.value;
                         setEditForm((p) => {
+                          const prevId = p.teamLeaderIds[idx]?.trim() ?? '';
                           const next = [...p.teamLeaderIds];
                           next[idx] = v;
-                          return { ...p, teamLeaderIds: next };
+                          let solo = p.soloTeamLeaderIds;
+                          if (prevId && prevId !== v.trim()) {
+                            solo = solo.filter((id) => id !== prevId);
+                          }
+                          return { ...p, teamLeaderIds: next, soloTeamLeaderIds: solo };
                         });
                       }}
                       className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-sm"
@@ -3116,6 +3150,26 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                         </option>
                       ))}
                     </select>
+                    {lid.trim() ? (
+                      <label className="inline-flex shrink-0 items-center gap-1.5 text-xs text-gray-700">
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 rounded border-gray-300"
+                          checked={editForm.soloTeamLeaderIds.includes(lid.trim())}
+                          onChange={(e) =>
+                            setEditForm((p) => ({
+                              ...p,
+                              soloTeamLeaderIds: toggleSoloTeamLeaderId(
+                                p.soloTeamLeaderIds,
+                                lid.trim(),
+                                e.target.checked,
+                              ),
+                            }))
+                          }
+                        />
+                        {SOLO_LEADER_CREW_LABEL}
+                      </label>
+                    ) : null}
                     {editForm.teamLeaderIds.length > 1 && (
                       <button
                         type="button"
@@ -3124,6 +3178,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                           setEditForm((p) => ({
                             ...p,
                             teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
+                            soloTeamLeaderIds: p.soloTeamLeaderIds.filter(
+                              (id) => id !== (p.teamLeaderIds[idx]?.trim() ?? ''),
+                            ),
                           }))
                         }
                       >
@@ -3169,36 +3226,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               </>
             )}
           </div>
-          <div className="sm:col-span-2">
-            <label
-              className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 ${
-                editForm.noCrewMembers ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-gray-50'
-              } ${canAssignSoloLeader ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
-            >
-              <input
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300"
-                checked={editForm.noCrewMembers}
-                disabled={!canAssignSoloLeader}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setEditForm((p) => ({
-                    ...p,
-                    noCrewMembers: checked,
-                    ...(checked ? { crewMemberCount: 0, crewMemberNames: [] } : {}),
-                  }));
-                }}
-              />
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-gray-900">{SOLO_LEADER_CREW_LABEL}</span>
-                <span className="mt-0.5 block text-xs leading-relaxed text-gray-600">
-                  팀장 혼자 현장에 나가는 건입니다. 체크하면 팀장 화면에 「{SOLO_LEADER_CREW_LABEL}」으로 표시되어
-                  팀원 미입력과 구분됩니다. 담당 팀장 배정 후에만 선택할 수 있습니다.
-                </span>
-              </span>
-            </label>
-          </div>
-          {!editForm.noCrewMembers ? (
+          {!hideCrewInputs ? (
           <>
           <div className="sm:col-span-2">
             <div className="mb-2 flex items-center gap-2">

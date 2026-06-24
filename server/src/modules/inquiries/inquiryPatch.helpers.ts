@@ -1,6 +1,5 @@
 import type { Inquiry } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
-import { parseNoCrewMembersInput } from './inquiryNoCrewMembers.helpers.js';
 
 /** PATCH body → Prisma update data (inquiries.routes 와 동일 조건) */
 export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.InquiryUpdateInput {
@@ -165,9 +164,6 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   }
   if (body.crewMemberNote !== undefined) {
     data.crewMemberNote = body.crewMemberNote ? String(body.crewMemberNote) : null;
-  }
-  if (Object.prototype.hasOwnProperty.call(body, 'noCrewMembers')) {
-    data.noCrewMembers = parseNoCrewMembersInput(body.noCrewMembers);
   }
   if (Object.prototype.hasOwnProperty.call(body, 'createdById')) {
     const v = body.createdById;

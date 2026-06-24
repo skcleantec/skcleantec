@@ -2,6 +2,7 @@
 export const assignmentTeamLeaderSelect = {
   id: true,
   name: true,
+  phone: true,
   role: true,
   externalCompanyId: true,
   externalCompany: { select: { id: true, name: true } },

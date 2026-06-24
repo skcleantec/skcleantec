@@ -80,10 +80,15 @@ import inquiryInspectionAdminRoutes from '../inquiry-inspection/inquiryInspectio
 import { buildInquiryPatchCrewRosterAckMessages } from './crewRosterAckMessages.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
 import {
-  applyNoCrewMembersToUpdateData,
+  allTeamLeadersSolo,
+  applyAllSoloCrewClearToUpdateData,
+  buildSoloLeaderChangeLines,
   hasNoCrewMembersField,
+  hasSoloTeamLeaderIdsField,
   parseNoCrewMembersInput,
-  resolveNoCrewMembersForPatch,
+  parseSoloTeamLeaderIds,
+  resolveSoloTeamLeaderIdsForPatch,
+  soloFlagsChanged,
 } from './inquiryNoCrewMembers.helpers.js';
 import {
   clearInquiryCrewMemberMeetingTimes,
@@ -765,7 +770,6 @@ router.patch('/:id', async (req, res) => {
     teamLeaderIds = [];
     data.crewMemberCount = null;
     data.crewMemberNote = null;
-    data.noCrewMembers = false;
   }
 
   if (tentativeMergedStatus !== 'CANCELLED' && inquiry.status === 'CANCELLED') {
@@ -992,35 +996,61 @@ router.patch('/:id', async (req, res) => {
   const mergedCrewMemberNote =
     data.crewMemberNote !== undefined ? (data.crewMemberNote as string | null) : inquiry.crewMemberNote;
 
-  const effectiveTeamLeaderCount = wantsTeamSync
-    ? teamLeaderIds.length
-    : inquiry.assignments.length;
-  const noCrewResolve = resolveNoCrewMembersForPatch({
+  const effectiveTeamLeaderIds = wantsTeamSync
+    ? teamLeaderIds
+    : inquiry.assignments.map((a) => a.teamLeaderId);
+
+  const soloResolve = resolveSoloTeamLeaderIdsForPatch({
     body,
-    inquiryNoCrewMembers: inquiry.noCrewMembers,
+    teamLeaderIds: effectiveTeamLeaderIds,
+    currentAssignments: inquiry.assignments.map((a) => ({
+      teamLeaderId: a.teamLeaderId,
+      noCrewMembers: a.noCrewMembers,
+    })),
+    wantsTeamSync,
     mergedCrewCount: mergedCrew,
     mergedCrewNote: mergedCrewMemberNote,
-    effectiveTeamLeaderCount,
   });
-  if (noCrewResolve.error) {
-    res.status(400).json({ error: noCrewResolve.error });
+  if (soloResolve.error) {
+    res.status(400).json({ error: soloResolve.error });
     return;
   }
-  if (hasNoCrewMembersField(body) || noCrewResolve.noCrewMembers !== inquiry.noCrewMembers) {
-    applyNoCrewMembersToUpdateData(data, noCrewResolve.noCrewMembers);
-  }
-  const mergedNoCrewMembers = noCrewResolve.noCrewMembers;
-  const finalMergedCrew = mergedNoCrewMembers ? 0 : mergedCrew;
-  const finalMergedCrewNote = mergedNoCrewMembers ? null : mergedCrewMemberNote;
+  const mergedSoloTeamLeaderIds = soloResolve.soloTeamLeaderIds;
+  const wantsSoloSync =
+    hasSoloTeamLeaderIdsField(body) ||
+    hasNoCrewMembersField(body) ||
+    (wantsTeamSync && soloResolve.soloTeamLeaderIds.length > 0);
 
-  const noCrewFlagChanged = mergedNoCrewMembers !== inquiry.noCrewMembers;
+  if (
+    allTeamLeadersSolo(effectiveTeamLeaderIds, mergedSoloTeamLeaderIds) &&
+    effectiveTeamLeaderIds.length > 0
+  ) {
+    applyAllSoloCrewClearToUpdateData(data, effectiveTeamLeaderIds, mergedSoloTeamLeaderIds);
+  }
+
+  const finalMergedCrew =
+    allTeamLeadersSolo(effectiveTeamLeaderIds, mergedSoloTeamLeaderIds) &&
+    effectiveTeamLeaderIds.length > 0
+      ? 0
+      : mergedCrew;
+  const finalMergedCrewNote =
+    allTeamLeadersSolo(effectiveTeamLeaderIds, mergedSoloTeamLeaderIds) &&
+    effectiveTeamLeaderIds.length > 0
+      ? null
+      : mergedCrewMemberNote;
+
+  const soloFlagChanged = soloFlagsChanged(
+    inquiry.assignments.map((a) => ({ teamLeaderId: a.teamLeaderId, noCrewMembers: a.noCrewMembers })),
+    effectiveTeamLeaderIds,
+    mergedSoloTeamLeaderIds,
+  );
   const crewRosterChanged =
     isCrewRosterChanged(
       inquiry.crewMemberNote,
       inquiry.crewMemberCount,
       finalMergedCrewNote,
       finalMergedCrew,
-    ) || noCrewFlagChanged;
+    ) || soloFlagChanged;
   /** 팀원(투입) 메모·인원 변경 시 현장 미팅 시각은 팀장이 다시 넣도록 초기화 */
   let crewRosterAckMessages: { messageKo: string; messageTh: string } | null = null;
   if (crewRosterChanged) {
@@ -1177,14 +1207,6 @@ router.patch('/:id', async (req, res) => {
   if (data.crewMemberCount !== undefined)
     pushIfChanged('팀원 인원', inquiry.crewMemberCount, data.crewMemberCount, fmtNum);
   if (data.crewMemberNote !== undefined) pushIfChanged('팀원 메모', inquiry.crewMemberNote, data.crewMemberNote);
-  if (noCrewFlagChanged || hasNoCrewMembersField(body)) {
-    pushIfChanged(
-      '팀장 단독(크루 없음)',
-      inquiry.noCrewMembers,
-      mergedNoCrewMembers,
-      (v) => (v ? '예' : '아니오'),
-    );
-  }
   if (crewRosterChanged) {
     const hadMeeting = await inquiryHasAnyCrewMeetingTime(prisma, id, inquiry.crewMeetingTime);
     if (hadMeeting) {
@@ -1257,6 +1279,31 @@ router.patch('/:id', async (req, res) => {
       lines.push(`팀장 배정: ${beforeTxt} → ${afterTxt}`);
     }
   }
+  if (soloFlagChanged || hasSoloTeamLeaderIdsField(body) || hasNoCrewMembersField(body)) {
+    const toLeaderLabel = (u: { name: string; role: string; externalCompany: { name: string } | null }) =>
+      u.role === 'EXTERNAL_PARTNER'
+        ? `[타업체] ${u.externalCompany?.name ?? u.name}`
+        : u.name;
+    const assigneeNameById = new Map<string, string>();
+    for (const a of inquiry.assignments) {
+      assigneeNameById.set(a.teamLeaderId, toLeaderLabel(a.teamLeader));
+    }
+    for (const u of assigneesForLog) {
+      assigneeNameById.set(u.id, toLeaderLabel(u));
+    }
+    lines.push(
+      ...buildSoloLeaderChangeLines({
+        beforeAssignments: inquiry.assignments.map((a) => ({
+          teamLeaderId: a.teamLeaderId,
+          noCrewMembers: a.noCrewMembers,
+          teamLeader: a.teamLeader,
+        })),
+        teamLeaderIds: effectiveTeamLeaderIds,
+        soloTeamLeaderIds: mergedSoloTeamLeaderIds,
+        assigneeNameById,
+      }),
+    );
+  }
 
   if (shouldClearProfOptionsAmountReviewOnPatch(inquiry, data)) {
     data.profOptionsAmountReviewPending = false;
@@ -1319,6 +1366,7 @@ router.patch('/:id', async (req, res) => {
       if (wantsTeamSync) {
         await tx.assignment.deleteMany({ where: { inquiryId: id } });
         if (teamLeaderIds.length > 0) {
+          const soloSet = new Set(mergedSoloTeamLeaderIds);
           await tx.assignment.createMany({
             data: teamLeaderIds.map((teamLeaderId, sortOrder) => ({
               tenantId,
@@ -1326,7 +1374,16 @@ router.patch('/:id', async (req, res) => {
               teamLeaderId,
               assignedById: user.userId,
               sortOrder,
+              noCrewMembers: soloSet.has(teamLeaderId),
             })),
+          });
+        }
+      } else if (wantsSoloSync) {
+        const soloSet = new Set(mergedSoloTeamLeaderIds);
+        for (const tlId of effectiveTeamLeaderIds) {
+          await tx.assignment.updateMany({
+            where: { tenantId, inquiryId: id, teamLeaderId: tlId },
+            data: { noCrewMembers: soloSet.has(tlId) },
           });
         }
       }
@@ -1439,7 +1496,8 @@ router.patch('/:id', async (req, res) => {
     data.preferredDate !== undefined ||
     data.crewMemberNote !== undefined ||
     data.crewMemberCount !== undefined ||
-    data.noCrewMembers !== undefined ||
+    hasSoloTeamLeaderIdsField(body) ||
+    hasNoCrewMembersField(body) ||
     data.status !== undefined ||
     wantsTeamSync;
   if (crewFieldNotify) {
@@ -1498,9 +1556,19 @@ router.post('/', async (req, res) => {
   }
 
   let crewMemberCount: number | null = null;
-  const createNoCrew =
+  const createAllSoloLegacy =
     hasNoCrewMembersField(body) && parseNoCrewMembersInput(body.noCrewMembers);
-  if (createNoCrew) {
+  const createSoloIds = hasSoloTeamLeaderIdsField(body)
+    ? parseSoloTeamLeaderIds(body.soloTeamLeaderIds)
+    : createAllSoloLegacy
+      ? []
+      : [];
+  const createTeamLeaderIds = normalizeTeamLeaderIds(body.teamLeaderIds);
+  const createAllSolo =
+    createAllSoloLegacy ||
+    (createTeamLeaderIds.length > 0 &&
+      allTeamLeadersSolo(createTeamLeaderIds, createSoloIds));
+  if (createAllSolo) {
     crewMemberCount = 0;
   } else if (body.crewMemberCount !== undefined && body.crewMemberCount !== null && body.crewMemberCount !== '') {
     const n = Number(body.crewMemberCount);
@@ -1570,8 +1638,7 @@ router.post('/', async (req, res) => {
         source: body.source ? String(body.source) : '전화',
         status,
         crewMemberCount,
-        noCrewMembers: createNoCrew,
-        crewMemberNote: createNoCrew
+        crewMemberNote: createAllSolo
           ? null
           : body.crewMemberNote
             ? String(body.crewMemberNote)

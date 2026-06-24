@@ -1091,8 +1091,6 @@ model Inquiry {
   crewMemberCount Int?       @map("crew_member_count")
   /// 팀원 누구 투입 등 수기 메모(예: 김,태)
   crewMemberNote  String?    @map("crew_member_note")
-  /// true: 팀장 단독 현장(크루 투입 없음) — 관리자가 의도적으로 지정
-  noCrewMembers   Boolean    @default(false) @map("no_crew_members")
   /// 스케줄 목록(이름·접수번호 옆)에만 쓰는 짧은 메모 — 특이사항·발주서 메모와 별개
   scheduleMemo    String?    @map("schedule_memo")
   /// 상담·참고 사진과 함께 쓰는 마케터 메모 — 담당 팀장·타업체·마케터 공유
@@ -2151,6 +2149,8 @@ model Assignment {
   detailViewedAt DateTime? @map("detail_viewed_at")
   /// 같은 접수에 팀장 여러 명일 때 표시 순서
   sortOrder     Int      @default(0) @map("sort_order")
+  /// true: 이 팀장만 단독 현장(크루 없음). 접수 팀원 정보는 공유.
+  noCrewMembers Boolean  @default(false) @map("no_crew_members")
 
   inquiry     Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
   teamLeader  User    @relation("TeamLeaderAssignments", fields: [teamLeaderId], references: [id])

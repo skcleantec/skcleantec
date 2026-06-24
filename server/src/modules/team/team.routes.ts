@@ -156,6 +156,7 @@ const teamInquiryInclude = {
       assignedAt: true,
       detailViewedAt: true,
       sortOrder: true,
+      noCrewMembers: true,
       teamLeader: { select: assignmentTeamLeaderSelect },
       assignedBy: { select: { id: true, name: true } },
     },

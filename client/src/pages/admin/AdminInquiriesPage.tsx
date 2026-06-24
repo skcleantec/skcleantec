@@ -99,9 +99,11 @@ import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
 import { resolveTeamLeaderIdForCrewSpacing } from '../../utils/crewLeaderSpacing';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import {
+  allTeamLeadersSolo,
   applyCrewFieldsToInquiryPatch,
-  hasAssignedTeamLeader,
+  initSoloTeamLeaderIdsFromAssignments,
   SOLO_LEADER_CREW_LABEL,
+  toggleSoloTeamLeaderId,
 } from '../../utils/inquiryNoCrewMembers';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
@@ -481,6 +483,8 @@ interface InquiryItem {
     badgeColorKey?: string | null;
   } | null;
   assignments: Array<{
+    sortOrder?: number;
+    noCrewMembers?: boolean;
     teamLeader: {
       id: string;
       name: string;
@@ -490,7 +494,6 @@ interface InquiryItem {
   }>;
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
-  noCrewMembers?: boolean | null;
   externalTransferFee?: number | null;
   tenantShare?: import('../../api/tenantInquiryShare').TenantInquiryShareMeta | null;
   dbListing?: import('../../api/dbMarketplace').InquiryDbListingMeta | null;
@@ -639,17 +642,14 @@ function formatInquiryTeamSummary(item: InquiryItem): string {
       if (u.role === 'EXTERNAL_PARTNER') {
         return u.externalCompany?.name ? `[타업체] ${u.externalCompany.name}` : `[타업체] ${u.name}`;
       }
-      return u.name;
+      const solo = a.noCrewMembers ? `(${SOLO_LEADER_CREW_LABEL})` : '';
+      return `${u.name}${solo}`;
     })
     .join('/');
   const parts: string[] = [];
   parts.push(names || '미배정');
-  if (item.noCrewMembers) {
-    parts.push(SOLO_LEADER_CREW_LABEL);
-  } else {
-    parts.push(`팀원${crewN}명`);
-    if (item.crewMemberNote?.trim()) parts.push(formatCrewNoteDisplay(item.crewMemberNote.trim(), crewN));
-  }
+  parts.push(`팀원${crewN}명`);
+  if (item.crewMemberNote?.trim()) parts.push(formatCrewNoteDisplay(item.crewMemberNote.trim(), crewN));
   return parts.join('/');
 }
 
@@ -792,7 +792,7 @@ export function AdminInquiriesPage() {
     crewMemberCount: 0 as number,
     /** 등록 팀원 목록에서 선택한 이름들(슬롯 순서 유지). 저장 시 `/`로 합쳐 crewMemberNote로 전송. */
     crewMemberNames: [] as string[],
-    noCrewMembers: false,
+    soloTeamLeaderIds: [] as string[],
     status: '',
     customerPhone2: '',
     propertyType: '',
@@ -965,6 +965,12 @@ export function AdminInquiriesPage() {
     }
     return '';
   }, [editForm.teamLeaderIds, teamLeaders]);
+
+  const hideCrewInputs = useMemo(
+    () =>
+      allTeamLeadersSolo(editForm.teamLeaderIds, editForm.soloTeamLeaderIds, resolvedExternalLeadId),
+    [editForm.teamLeaderIds, editForm.soloTeamLeaderIds, resolvedExternalLeadId],
+  );
 
   const externalPartnerOptions = useMemo(
     () =>
@@ -1173,7 +1179,13 @@ export function AdminInquiriesPage() {
   // 슬롯(crewMemberCount)에 맞게 crewMemberNames 배열 길이를 동기화한다.
   useEffect(() => {
     if (!editItem) return;
-    const slots = editForm.noCrewMembers ? 0 : Math.max(0, editForm.crewMemberCount);
+    const slots = allTeamLeadersSolo(
+      editForm.teamLeaderIds,
+      editForm.soloTeamLeaderIds,
+      resolvedExternalLeadId,
+    )
+      ? 0
+      : Math.max(0, editForm.crewMemberCount);
     setEditForm((prev) => {
       const cur = prev.crewMemberNames;
       if (slots === cur.length) return prev;
@@ -1184,7 +1196,7 @@ export function AdminInquiriesPage() {
       while (next.length < slots) next.push('');
       return { ...prev, crewMemberNames: next };
     });
-  }, [editItem, editForm.crewMemberCount, editForm.noCrewMembers]);
+  }, [editItem, editForm.crewMemberCount, editForm.soloTeamLeaderIds, editForm.teamLeaderIds, resolvedExternalLeadId]);
 
   useEffect(() => {
     if (!token || (me?.role !== 'ADMIN' && me?.role !== 'MARKETER')) {
@@ -1701,7 +1713,7 @@ export function AdminInquiriesPage() {
       teamLeaderIds: initialTeamLeaderIdsForEdit(item.assignments),
       crewMemberCount: item.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(item.crewMemberNote),
-      noCrewMembers: Boolean(item.noCrewMembers),
+      soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(item.assignments),
       status: item.status,
       customerPhone2: item.customerPhone2 || '',
       propertyType: item.propertyType || '',
@@ -2225,16 +2237,13 @@ export function AdminInquiriesPage() {
           return;
         }
       }
-      if (editForm.noCrewMembers && !hasAssignedTeamLeader(editForm.teamLeaderIds, resolvedExternalLeadId)) {
-        alert('팀장 단독(크루 없음)은 담당 팀장을 배정한 뒤에만 설정할 수 있습니다.');
-        setSaving(false);
-        return;
-      }
       try {
         applyCrewFieldsToInquiryPatch(patch, {
-          noCrewMembers: editForm.noCrewMembers,
+          teamLeaderIds: editForm.teamLeaderIds,
+          soloTeamLeaderIds: editForm.soloTeamLeaderIds,
           crewMemberCount: editForm.crewMemberCount,
           crewMemberNames: editForm.crewMemberNames,
+          externalTeamLeaderId: resolvedExternalLeadId,
         });
       } catch (err) {
         alert(err instanceof Error ? err.message : '팀원 정보를 확인해주세요.');
@@ -4527,16 +4536,36 @@ export function AdminInquiriesPage() {
                     {(() => {
                       const u = teamLeaders.find((t) => t.id === resolvedExternalLeadId);
                       return u ? (
-                        <span className="mt-1 block text-xs text-amber-900/95">
-                          선택: {formatAssignableUserLabel(u)}
-                        </span>
+                        <>
+                          <span className="mt-1 block text-xs text-amber-900/95">
+                            선택: {formatAssignableUserLabel(u)}
+                          </span>
+                          <label className="mt-2 inline-flex items-center gap-1.5 text-fluid-xs text-amber-950">
+                            <input
+                              type="checkbox"
+                              className="h-3.5 w-3.5 rounded border-amber-300"
+                              checked={editForm.soloTeamLeaderIds.includes(resolvedExternalLeadId)}
+                              onChange={(e) =>
+                                setEditForm((p) => ({
+                                  ...p,
+                                  soloTeamLeaderIds: toggleSoloTeamLeaderId(
+                                    p.soloTeamLeaderIds,
+                                    resolvedExternalLeadId,
+                                    e.target.checked,
+                                  ),
+                                }))
+                              }
+                            />
+                            {SOLO_LEADER_CREW_LABEL}
+                          </label>
+                        </>
                       ) : null;
                     })()}
                   </div>
                 ) : (
                   <>
                     {editForm.teamLeaderIds.map((lid, idx) => (
-                      <div key={idx} className="flex gap-2 items-center">
+                      <div key={idx} className="flex flex-wrap gap-2 items-center">
                         <select
                           value={lid}
                           disabled={
@@ -4549,9 +4578,14 @@ export function AdminInquiriesPage() {
                           onChange={(e) => {
                             const v = e.target.value;
                             setEditForm((p) => {
+                              const prevId = p.teamLeaderIds[idx]?.trim() ?? '';
                               const next = [...p.teamLeaderIds];
                               next[idx] = v;
-                              return { ...p, teamLeaderIds: next };
+                              let solo = p.soloTeamLeaderIds;
+                              if (prevId && prevId !== v.trim()) {
+                                solo = solo.filter((id) => id !== prevId);
+                              }
+                              return { ...p, teamLeaderIds: next, soloTeamLeaderIds: solo };
                             });
                           }}
                           className="flex-1 min-w-0 px-3 py-2 border border-slate-300 rounded text-fluid-sm disabled:bg-slate-100"
@@ -4563,6 +4597,26 @@ export function AdminInquiriesPage() {
                             </option>
                           ))}
                         </select>
+                        {lid.trim() ? (
+                          <label className="inline-flex shrink-0 items-center gap-1.5 text-fluid-xs text-slate-700">
+                            <input
+                              type="checkbox"
+                              className="h-3.5 w-3.5 rounded border-slate-300"
+                              checked={editForm.soloTeamLeaderIds.includes(lid.trim())}
+                              onChange={(e) =>
+                                setEditForm((p) => ({
+                                  ...p,
+                                  soloTeamLeaderIds: toggleSoloTeamLeaderId(
+                                    p.soloTeamLeaderIds,
+                                    lid.trim(),
+                                    e.target.checked,
+                                  ),
+                                }))
+                              }
+                            />
+                            {SOLO_LEADER_CREW_LABEL}
+                          </label>
+                        ) : null}
                         {editForm.teamLeaderIds.length > 1 && (
                           <button
                             type="button"
@@ -4571,6 +4625,9 @@ export function AdminInquiriesPage() {
                               setEditForm((p) => ({
                                 ...p,
                                 teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
+                                soloTeamLeaderIds: p.soloTeamLeaderIds.filter(
+                                  (id) => id !== (p.teamLeaderIds[idx]?.trim() ?? ''),
+                                ),
                               }))
                             }
                           >
@@ -4598,39 +4655,7 @@ export function AdminInquiriesPage() {
                   </>
                 )}
               </div>
-              <div className="sm:col-span-2">
-                <label
-                  className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 ${
-                    editForm.noCrewMembers ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'
-                  } ${
-                    hasAssignedTeamLeader(editForm.teamLeaderIds, resolvedExternalLeadId)
-                      ? 'cursor-pointer'
-                      : 'cursor-not-allowed opacity-70'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300"
-                    checked={editForm.noCrewMembers}
-                    disabled={!hasAssignedTeamLeader(editForm.teamLeaderIds, resolvedExternalLeadId)}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setEditForm((p) => ({
-                        ...p,
-                        noCrewMembers: checked,
-                        ...(checked ? { crewMemberCount: 0, crewMemberNames: [] } : {}),
-                      }));
-                    }}
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-fluid-sm font-medium text-slate-900">{SOLO_LEADER_CREW_LABEL}</span>
-                    <span className="mt-0.5 block text-fluid-xs leading-relaxed text-slate-600">
-                      팀장 혼자 현장에 나가는 건입니다. 체크하면 팀장 화면에 「{SOLO_LEADER_CREW_LABEL}」으로 표시됩니다.
-                    </span>
-                  </span>
-                </label>
-              </div>
-              {!editForm.noCrewMembers ? (
+              {!hideCrewInputs ? (
               <>
               <div className="sm:col-span-2">
                 <label className="block text-fluid-sm text-slate-600 mb-1">팀원 투입</label>
