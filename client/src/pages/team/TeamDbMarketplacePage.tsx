@@ -17,7 +17,7 @@ import {
   DbMarketplaceTabBar,
   MarketplaceTableCheckboxCol,
   dbMarketplacePageBottomClass,
-  marketplaceTableCheckboxCellClass,
+  marketplaceTableCheckboxCellProps,
   marketplaceTableCheckboxInputClass,
 } from '../../components/db-marketplace/DbMarketplaceListUi';
 import {
@@ -264,17 +264,17 @@ export function TeamDbMarketplacePage() {
           <table className="w-full table-fixed border-collapse text-fluid-xs min-w-[640px]">
             <colgroup>
               {selectable ? <MarketplaceTableCheckboxCol /> : null}
-              <col className="w-[17%]" />
-              <col className="w-[19%]" />
-              <col className="w-[30%]" />
-              <col className="w-[17%]" />
               <col className="w-[15%]" />
-              <col className="w-[9%]" />
+              <col className="w-[16%]" />
+              <col className="w-[34%]" />
+              <col className="w-[15%]" />
+              <col className="w-[13%]" />
+              <col className="w-[8%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
                 {selectable ? (
-                  <th className={marketplaceTableCheckboxCellClass}>
+                  <th {...marketplaceTableCheckboxCellProps()}>
                     <input
                       type="checkbox"
                       className={marketplaceTableCheckboxInputClass}
@@ -304,7 +304,7 @@ export function TeamDbMarketplacePage() {
                   onClick={() => setSelectedRow(row)}
                 >
                   {selectable ? (
-                    <td className={marketplaceTableCheckboxCellClass} onClick={(e) => e.stopPropagation()}>
+                    <td {...marketplaceTableCheckboxCellProps()} onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         className={marketplaceTableCheckboxInputClass}

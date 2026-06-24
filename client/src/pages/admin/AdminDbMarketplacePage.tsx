@@ -25,7 +25,7 @@ import {
   DbMarketplaceTabBar,
   MarketplaceTableCheckboxCol,
   dbMarketplacePageBottomClass,
-  marketplaceTableCheckboxCellClass,
+  marketplaceTableCheckboxCellProps,
   marketplaceTableCheckboxInputClass,
 } from '../../components/db-marketplace/DbMarketplaceListUi';
 import {
@@ -535,12 +535,12 @@ export function AdminDbMarketplacePage() {
           <table className={`w-full table-fixed border-collapse text-fluid-xs ${showMySalesMeta ? 'min-w-[960px]' : 'min-w-[720px]'}`}>
             <colgroup>
               {selectable ? <MarketplaceTableCheckboxCol /> : null}
+              <col className="w-[10%]" />
               <col className="w-[11%]" />
-              <col className="w-[13%]" />
-              <col className="w-[22%]" />
-              <col className="w-[13%]" />
-              {tab === 'cart' ? <col className="w-[9%]" /> : null}
-              <col className="w-[9%]" />
+              <col className="w-[30%]" />
+              <col className="w-[11%]" />
+              {tab === 'cart' ? <col className="w-[8%]" /> : null}
+              <col className="w-[8%]" />
               {showMySalesMeta ? (
                 <>
                   <col className="w-[9%]" />
@@ -554,7 +554,7 @@ export function AdminDbMarketplacePage() {
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
                 {selectable ? (
-                  <th className={marketplaceTableCheckboxCellClass}>
+                  <th {...marketplaceTableCheckboxCellProps()}>
                     <input
                       type="checkbox"
                       className={marketplaceTableCheckboxInputClass}
@@ -608,7 +608,7 @@ export function AdminDbMarketplacePage() {
                       >
                         {selectable ? (
                           <td
-                            className={marketplaceTableCheckboxCellClass}
+                            {...marketplaceTableCheckboxCellProps()}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <input

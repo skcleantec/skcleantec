@@ -7,18 +7,31 @@ import {
 } from '../../utils/dbMarketplaceDisplay';
 import { marketplaceBulkSelectDisabledReason, type DbMarketplaceBulkMode } from '../../utils/dbMarketplaceBulk';
 
-/** PC 표 — 선택 열 (px 고정, table-fixed에서 % col만 쓰면 체크 열이 과하게 넓어짐) */
-export const MARKETPLACE_TABLE_CHECKBOX_COL_PX = 12;
+/** PC 표 — 선택 열 px 절대 고정 (단위 없는 width는 브라우저에서 무시됨) */
+export const MARKETPLACE_TABLE_CHECKBOX_COL_PX = 18;
 
-export function MarketplaceTableCheckboxCol() {
-  return <col style={{ width: MARKETPLACE_TABLE_CHECKBOX_COL_PX }} />;
+function checkboxColWidthCss() {
+  return `${MARKETPLACE_TABLE_CHECKBOX_COL_PX}px`;
 }
 
-export const marketplaceTableCheckboxCellClass =
-  'box-border w-[12px] min-w-[12px] max-w-[12px] p-0 text-center align-middle';
+export function MarketplaceTableCheckboxCol() {
+  const w = checkboxColWidthCss();
+  return <col width={MARKETPLACE_TABLE_CHECKBOX_COL_PX} style={{ width: w, minWidth: w, maxWidth: w }} />;
+}
+
+export function marketplaceTableCheckboxCellProps(): {
+  className: string;
+  style: { width: string; minWidth: string; maxWidth: string };
+} {
+  const w = checkboxColWidthCss();
+  return {
+    className: 'box-border p-0 text-center align-middle overflow-hidden',
+    style: { width: w, minWidth: w, maxWidth: w },
+  };
+}
 
 export const marketplaceTableCheckboxInputClass =
-  'mx-auto block h-3 w-3 shrink-0 scale-[0.68] origin-center cursor-pointer accent-slate-900';
+  'mx-auto block size-3.5 shrink-0 cursor-pointer accent-slate-900';
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: '장바구니',
@@ -131,7 +144,8 @@ export function DbMarketplaceRowCard({
     <div className="flex gap-1 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       {selectable ? (
         <div
-          className="flex w-[12px] shrink-0 items-start justify-center pt-0.5"
+          className="flex shrink-0 items-start justify-center pt-0.5"
+          style={{ width: MARKETPLACE_TABLE_CHECKBOX_COL_PX, minWidth: MARKETPLACE_TABLE_CHECKBOX_COL_PX }}
           onClick={(e) => e.stopPropagation()}
         >
           <input
