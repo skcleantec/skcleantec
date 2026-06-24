@@ -12,6 +12,7 @@ import {
   type DbMarketplaceAudienceInput,
   type DbMarketplaceSellerListing,
 } from '../../api/dbMarketplace';
+import { DbMarketplaceCartAddButton } from '../db-marketplace/marketplaceUiParts';
 import { computeMarketplaceDisplayAmount, parseListingFeeInput } from '@shared/dbMarketplaceAmount';
 import { DbMarketplaceAudiencePickerModal } from './DbMarketplaceAudiencePickerModal';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
@@ -349,15 +350,11 @@ export function InquiryDbMarketplaceSellPanel({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
+            <DbMarketplaceCartAddButton
               disabled={busy || !listingFeeValid}
               onClick={() => void saveDraft()}
-              className="rounded-lg bg-violet-700 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-violet-800 disabled:opacity-50"
               title={!listingFeeValid ? '수수료를 입력해 주세요.' : undefined}
-            >
-              장바구니 담기
-            </button>
+            />
             {listing ? (
               <>
                 <button

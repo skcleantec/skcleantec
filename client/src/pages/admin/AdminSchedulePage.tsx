@@ -48,6 +48,16 @@ import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInqui
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
+import {
+  ScheduleCloseDayButton,
+  ScheduleReleaseDayButton,
+  ScheduleToolbarButton,
+  scheduleSlotBadgeClass,
+  scheduleStaffAdjustButtonClass,
+  scheduleLeaderAdjustButtonClass,
+  scheduleMapButtonClass,
+} from '../../components/schedule/scheduleUiParts';
+import { adminScheduleMapIconUrl } from '../../utils/scheduleMapIcon';
 import { setScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { ScheduleInquiryMemoModal } from '../../components/admin/ScheduleInquiryMemoModal';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
@@ -80,13 +90,6 @@ const CS_AS_STATUS_LABEL: Record<string, string> = {
 
 const SCHEDULE_PAGE_OVERVIEW_HELP =
   '월별 배정·슬롯 현황을 한눈에 확인합니다.';
-
-/** 기본: 프로젝트용 Cloudinary 공개 URL. `client/.env`의 VITE_ADMIN_SCHEDULE_MAP_ICON_URL로 덮어쓰기 가능 */
-const DEFAULT_ADMIN_SCHEDULE_MAP_ICON =
-  'https://res.cloudinary.com/dipdqqsfs/image/upload/v1776501501/external-Map-Pin-map-and-navigation-filled-outline-design-circle_ulju4s.jpg';
-
-const adminScheduleMapIconUrl =
-  (import.meta.env.VITE_ADMIN_SCHEDULE_MAP_ICON_URL ?? '').trim() || DEFAULT_ADMIN_SCHEDULE_MAP_ICON;
 
 function scheduleLegendSlotHelpText(crewUnits: number): string {
   return `오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 0보다 작으면 해당 구간이 소진 건수보다 많이 잡혀 있다는 뜻입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다. 표준 접수는 팀원 ${crewUnits}명 단위로 집계합니다. ⚡ 사이는 팀장 미배정이면서 오전·오후가 아직 확정되지 않은 사이청소 건수입니다. 오전 또는 오후를 확정하면 ⚡는 사라지고 해당 슬롯 잔여가 줄어듭니다(미배정 건수는 유지).`;
@@ -301,13 +304,10 @@ function ScheduleDayListItem({
         ? 'bg-sky-50/50'
         : 'bg-violet-50/40';
   /** 사이청소는 오전·오후로 분류돼도 배지는 항상 「사이」(보라) 유지 */
-  const slotBadgeClass = isSide
-    ? 'bg-violet-100 text-violet-950 border border-violet-300'
-    : bucket === 'morning'
-      ? 'bg-amber-200/90 text-amber-950 border border-amber-400'
-      : bucket === 'afternoon'
-        ? 'bg-sky-200/90 text-sky-950 border border-sky-500'
-        : 'bg-violet-100 text-violet-950 border border-violet-300';
+  const slotBadgeClass = scheduleSlotBadgeClass(
+    bucket === 'morning' ? 'morning' : bucket === 'afternoon' ? 'afternoon' : 'other',
+    isSide
+  );
   const slotLabelShort = isSide
     ? '사이'
     : bucket === 'morning'
@@ -1813,24 +1813,24 @@ export function AdminSchedulePage() {
                   {token &&
                     selectedDate &&
                     (meRole === 'ADMIN' || meRole === 'MARKETER') && (
-                      <button
+                      <ScheduleToolbarButton
                         type="button"
                         onClick={() => setSlotToAdjustOpen(true)}
-                        className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100 leading-snug whitespace-nowrap"
+                        className={scheduleStaffAdjustButtonClass}
                       >
                         인원조정
-                      </button>
+                      </ScheduleToolbarButton>
                     )}
                   {token &&
                     selectedDate &&
                     (meRole === 'ADMIN' || meRole === 'MARKETER') && (
-                      <button
+                      <ScheduleToolbarButton
                         type="button"
                         onClick={() => setTeamLeaderAdjustOpen(true)}
-                        className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-violet-300 bg-violet-50 text-violet-950 hover:bg-violet-100 leading-snug whitespace-nowrap"
+                        className={scheduleLeaderAdjustButtonClass}
                       >
                         팀장조정
-                      </button>
+                      </ScheduleToolbarButton>
                     )}
                   {token && selectedDate && (
                     <button
@@ -1851,8 +1851,7 @@ export function AdminSchedulePage() {
                         가용인원
                       </button>
                       {hasScheduleClosure(stats[selectedDate]) ? (
-                        <button
-                          type="button"
+                        <ScheduleReleaseDayButton
                           disabled={closureBusy}
                           onClick={async () => {
                             setClosureBusy(true);
@@ -1865,27 +1864,20 @@ export function AdminSchedulePage() {
                               setClosureBusy(false);
                             }
                           }}
-                          className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:opacity-50 leading-snug sm:whitespace-nowrap"
-                        >
-                          일정마감 해제
-                        </button>
+                        />
                       ) : (
-                        <button
-                          type="button"
+                        <ScheduleCloseDayButton
                           disabled={closureBusy}
                           onClick={() => setClosureModalOpen(true)}
-                          className="px-1.5 py-0.5 text-fluid-2xs sm:px-2 sm:py-1 sm:text-fluid-xs md:px-3 md:py-1.5 md:text-fluid-xs font-medium rounded-md bg-slate-800 text-white hover:bg-slate-900 disabled:opacity-50 leading-snug whitespace-nowrap"
-                        >
-                          일정마감
-                        </button>
+                        />
                       )}
                     </>
                   )}
                   {token && (byDate[selectedDate]?.length ?? 0) > 0 && (
-                    <button
+                    <ScheduleToolbarButton
                       type="button"
                       onClick={() => setScheduleMapOpen(true)}
-                      className="inline-flex items-center justify-center shrink-0 size-[clamp(2rem,5.5vmin,2.5rem)] min-h-[32px] min-w-[32px] rounded-full border-[1.5px] border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-sm touch-manipulation sm:size-10 sm:border-2"
+                      className={scheduleMapButtonClass}
                       title="접수건 위치 검색"
                       aria-label="접수건 위치 검색"
                     >
@@ -1896,7 +1888,7 @@ export function AdminSchedulePage() {
                         loading="lazy"
                         decoding="async"
                       />
-                    </button>
+                    </ScheduleToolbarButton>
                   )}
                   <button
                     type="button"

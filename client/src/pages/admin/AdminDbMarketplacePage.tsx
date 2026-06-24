@@ -29,6 +29,14 @@ import {
   marketplaceTableCheckboxInputClass,
 } from '../../components/db-marketplace/DbMarketplaceListUi';
 import {
+  DbMarketplaceBuyBulkButton,
+  DbMarketplaceConfirmBulkButton,
+  DbMarketplaceDeclineBulkButton,
+  DbMarketplacePublishBulkButton,
+  DbMarketplaceRevertBulkButton,
+  DbMarketplaceRevertToCartButton,
+} from '../../components/db-marketplace/marketplaceUiParts';
+import {
   DbMarketplaceMySalesFilters,
   applyMySalesFiltersToSearchParams,
   mySalesFiltersToApiParams,
@@ -724,60 +732,17 @@ export function AdminDbMarketplacePage() {
         <DbMarketplaceBulkActionBar selectedCount={selectedCount} onClear={() => setSelectedIds(new Set())}>
         {bulkMode === 'publish' ? (
           <>
-            <button
-              type="button"
-              disabled={bulkBusy}
-              className="min-h-[2.75rem] flex-1 rounded-lg bg-violet-700 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:min-h-0 sm:flex-none sm:px-4"
-              onClick={() => setAudienceModalOpen(true)}
-            >
-              <span className="sm:hidden">노출 지정 · 게시</span>
-              <span className="hidden sm:inline">노출 업체 지정 · 게시하기</span>
-            </button>
-            <button
-              type="button"
-              disabled={bulkBusy}
-              className="min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 sm:min-h-0 sm:flex-none"
-              onClick={() => void runBulkRemoveFromCart()}
-            >
-              원상복귀
-            </button>
+            <DbMarketplacePublishBulkButton disabled={bulkBusy} onClick={() => setAudienceModalOpen(true)} />
+            <DbMarketplaceRevertBulkButton disabled={bulkBusy} onClick={() => void runBulkRemoveFromCart()} />
           </>
         ) : bulkMode === 'buy' ? (
-          <button
-            type="button"
-            disabled={bulkBusy}
-            className="min-h-[2.75rem] flex-1 rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:min-h-0 sm:flex-none"
-            onClick={() => void runBulkBuy()}
-          >
-            갖고가기
-          </button>
+          <DbMarketplaceBuyBulkButton disabled={bulkBusy} onClick={() => void runBulkBuy()} />
         ) : bulkMode === 'revert_cart' ? (
-          <button
-            type="button"
-            disabled={bulkBusy}
-            className="min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 sm:min-h-0 sm:flex-none"
-            onClick={() => void runBulkRevertToCart()}
-          >
-            장바구니로 되돌리기
-          </button>
+          <DbMarketplaceRevertToCartButton disabled={bulkBusy} onClick={() => void runBulkRevertToCart()} />
         ) : (
           <>
-            <button
-              type="button"
-              disabled={bulkBusy}
-              className="min-h-[2.75rem] flex-1 rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 sm:min-h-0 sm:flex-none"
-              onClick={() => void runBulkSellerConfirm()}
-            >
-              인계 확정
-            </button>
-            <button
-              type="button"
-              disabled={bulkBusy}
-              className="min-h-[2.75rem] flex-1 rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:min-h-0 sm:flex-none"
-              onClick={() => void runBulkSellerDecline()}
-            >
-              구매 신청 거절
-            </button>
+            <DbMarketplaceConfirmBulkButton disabled={bulkBusy} onClick={() => void runBulkSellerConfirm()} />
+            <DbMarketplaceDeclineBulkButton disabled={bulkBusy} onClick={() => void runBulkSellerDecline()} />
           </>
         )}
       </DbMarketplaceBulkActionBar>

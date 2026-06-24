@@ -68,6 +68,11 @@ import {
 import { getMe } from '../../api/auth';
 import { resolveMarketerOperationalAdminFromMe } from '../../utils/staffAdminAccess';
 import { getToken } from '../../stores/auth';
+import {
+  InquiryDatePresetBar,
+  InquiryManualIntakeButton,
+  InquiryMarketerDailyButton,
+} from '../../components/inquiries/inquiriesUiParts';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS, shortTimeSlotLabel } from '../../constants/orderFormSchedule';
 import {
@@ -2282,16 +2287,13 @@ export function AdminInquiriesPage() {
               >
                 일반 등록
               </button>
-              <button
-                type="button"
+              <InquiryManualIntakeButton
                 onClick={() => setCreateInquiryModalDate(kstTodayYmd())}
-                className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-fluid-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-sm"
                 title="수동접수 버튼 (스케줄 상세 폼)"
                 aria-label="수동접수 버튼"
               >
                 <CirclePlusIcon className="h-4 w-4" />
-                수동접수
-              </button>
+              </InquiryManualIntakeButton>
             </div>
           )}
         </div>
@@ -2311,44 +2313,7 @@ export function AdminInquiriesPage() {
               <option value="preferredDate">예약일</option>
             </select>
             <HelpTooltip text="접수일 기준 또는 예약일 기준으로 날짜 필터를 적용합니다." />
-            <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-fluid-sm">
-              <button
-                type="button"
-                onClick={() => applyDatePreset('today')}
-                className={`px-3 py-1.5 font-medium ${
-                  datePreset === 'today' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                당일
-              </button>
-              <button
-                type="button"
-                onClick={() => applyDatePreset('all')}
-                className={`px-3 py-1.5 font-medium border-l border-slate-200 ${
-                  datePreset === 'all' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                전체
-              </button>
-              <button
-                type="button"
-                onClick={() => applyDatePreset('month')}
-                className={`px-3 py-1.5 font-medium border-l border-slate-200 ${
-                  datePreset === 'month' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                월별
-              </button>
-              <button
-                type="button"
-                onClick={() => applyDatePreset('day')}
-                className={`px-3 py-1.5 font-medium border-l border-slate-200 ${
-                  datePreset === 'day' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                날짜
-              </button>
-            </div>
+            <InquiryDatePresetBar active={datePreset} onSelect={applyDatePreset} />
             {datePreset === 'month' && (
               <YearMonthSelect
                 value={monthKey}
@@ -2474,8 +2439,7 @@ export function AdminInquiriesPage() {
                         <td className="py-1.5 px-2 text-right tabular-nums">{m.monthCount}건</td>
                         <td className="py-1.5 px-2 text-right tabular-nums">{m.todayCount}건</td>
                         <td className="py-1.5 pl-2 text-center">
-                          <button
-                            type="button"
+                          <InquiryMarketerDailyButton
                             onClick={(e) => {
                               e.stopPropagation();
                               setMarketerDailyModal({
@@ -2483,11 +2447,8 @@ export function AdminInquiriesPage() {
                                 marketerName: m.name,
                               });
                             }}
-                            className="rounded border border-slate-300 bg-white px-2 py-0.5 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-50"
                             title={`${m.name} 일별 접수 건수`}
-                          >
-                            내역
-                          </button>
+                          />
                         </td>
                       </tr>
                     ))}

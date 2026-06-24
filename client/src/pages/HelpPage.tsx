@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { HelpMobileModuleSelect, HelpSidebar, helpModuleDomId } from '../components/help/HelpSidebar';
 import { HelpScreenCard } from '../components/help/HelpScreenCard';
+import { HelpUiGallery } from '../components/help/ui/HelpUiGallery';
 import type { HelpRole } from '../types/helpContent';
 import {
   fetchHelpContent,
@@ -120,6 +121,8 @@ export function HelpPage() {
 
   const groups = useMemo(() => groupHelpByModule(filtered), [filtered]);
 
+  const showUiGallery = canEdit && searchParams.get('ui') === 'gallery';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* 상단 헤더 - 고정 */}
@@ -134,7 +137,7 @@ export function HelpPage() {
             </div>
 
             {/* 메인 카테고리 탭 */}
-            <nav className="flex gap-1">
+            <nav className="flex flex-wrap items-center gap-2">
               {MAIN_CATEGORIES.map((cat) => {
                 const isActive = mainCategory === cat.id;
                 return (
@@ -155,6 +158,18 @@ export function HelpPage() {
                   </button>
                 );
               })}
+              {canEdit ? (
+                <a
+                  href="/help?category=usage&ui=gallery"
+                  className={`rounded-lg px-3 py-1.5 text-fluid-2xs font-medium ${
+                    showUiGallery
+                      ? 'bg-sky-500 text-white'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  UI 갤러리
+                </a>
+              ) : null}
             </nav>
           </div>
 
@@ -235,6 +250,8 @@ export function HelpPage() {
                     onModuleChange={setActiveModule}
                   />
                 </div>
+
+                {showUiGallery ? <HelpUiGallery /> : null}
 
                 {groups.length === 0 ? (
                   <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">

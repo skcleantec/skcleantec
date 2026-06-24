@@ -36,6 +36,9 @@ export function sortHelpEntries(entries: HelpScreenEntry[]): HelpScreenEntry[] {
     if (a.role !== b.role) return a.role.localeCompare(b.role);
     if (a.moduleOrder !== b.moduleOrder) return a.moduleOrder - b.moduleOrder;
     if (a.module !== b.module) return a.module.localeCompare(b.module, 'ko');
+    const ao = a.itemOrder ?? 999;
+    const bo = b.itemOrder ?? 999;
+    if (ao !== bo) return ao - bo;
     return a.title.localeCompare(b.title, 'ko');
   });
 }

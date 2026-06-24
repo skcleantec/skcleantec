@@ -1,44 +1,346 @@
 /**
- * admin 스크린샷 + pages.ts 정의 기준으로 help/data.json 생성
- * 팀장 항목은 기존 data.json 유지(정산 문구만 수정)
+ * admin·team 메뉴 정의 + 상세 markdown 기준으로 help/data.json 생성
+ * @see docs/HELP_CONTENT_GUIDE.md
  */
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  buildDashboardMarkdown,
-  buildInquiriesDetailedMarkdown,
-  buildScheduleMarkdown,
-} from './detailed-help-content.mjs';
+import { resolveDetailedMarkdown } from './help-content/registry.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(__dirname, '..');
 const DATA_PATH = path.join(REPO, 'client', 'public', 'help', 'data.json');
 
+/** GNB·사이드 nav 와 path 동기화 — moduleOrder 는 GNB 순서 */
 const ADMIN_PAGES = [
-  { module: '대시보드', moduleOrder: 1, title: '대시보드', path: '/admin/dashboard', screenshotFile: 'admin_대시보드_대시보드.png', hint: '오늘 접수 통계, DB 접수 폼(전화 접수 입력), 미배정·진행 중 건수 요약이 있습니다.' },
-  { module: '접수 관리', moduleOrder: 2, title: '접수 목록', path: '/admin/inquiries', screenshotFile: 'admin_접수_관리_접수_목록.png', hint: '전체 접수 목록 테이블. 상태 필터, 담당 팀장 지정, 날짜 검색, 엑셀 다운로드 기능이 있습니다.' },
-  { module: '스케줄 관리', moduleOrder: 3, title: '스케줄 표', path: '/admin/schedule', screenshotFile: 'admin_스케줄_관리_스케줄_표.png', hint: '월간 달력 뷰. 날짜별 팀장 배정 현황, 미배정 건, 오전·오후 슬롯 표시.' },
-  { module: '팀장·팀 관리', moduleOrder: 4, title: '팀장 목록', path: '/admin/team-leaders', screenshotFile: 'admin_팀장_팀_관리_팀장_목록.png', hint: '팀장 계정 목록. 등록·수정, 역할(팀장/외부파트너), 활성 여부 관리.' },
-  { module: '팀장·팀 관리', moduleOrder: 4, title: '팀 관리', path: '/admin/teams', screenshotFile: 'admin_팀장_팀_관리_팀_관리.png', hint: '팀 단위 그룹 관리. 팀장과 크루(현장팀원)를 묶는 팀 구성 화면.' },
-  { module: '팀장·팀 관리', moduleOrder: 4, title: '팀 휴무 캘린더', path: '/admin/team-holidays', screenshotFile: 'admin_팀장_팀_관리_팀_휴무_캘린더.png', hint: '팀장별 휴무·이동 가능 일정 캘린더. 팀장이 신청한 휴무를 관리자가 승인/거부.' },
-  { module: '팀장·팀 관리', moduleOrder: 4, title: '팀장 통계', path: '/admin/team-leader-stats', screenshotFile: 'admin_팀장_팀_관리_팀장_통계.png', hint: '팀장별 완료 건수, 배정 현황 통계.' },
-  { module: '발주서', moduleOrder: 5, title: '발주서 목록', path: '/admin/order-form', screenshotFile: 'admin_발주서_발주서_목록.png', hint: '고객이 셀프 접수 시 작성한 발주서 목록. 제출 여부, 접수 연결 상태 확인.' },
-  { module: '발주서', moduleOrder: 5, title: '발주서 안내 설정', path: '/admin/order-form/notice', screenshotFile: 'admin_발주서_발주서_안내_설정.png', hint: '고객에게 발송되는 발주서 안내문·약관 설정 화면.' },
-  { module: '발주서', moduleOrder: 5, title: '발주서 전문 옵션 설정', path: '/admin/order-form/specialty-settings', screenshotFile: 'admin_발주서_발주서_전문_옵션_설정.png', hint: '청소 전문 옵션(입주청소, 특수청소 등) 항목 커스터마이징.' },
-  { module: 'C/S 관리', moduleOrder: 6, title: 'C/S 워크데스크', path: '/admin/inquiries/cs', screenshotFile: 'admin_C_S_관리_C_S_워크데스크.png', hint: '고객 문의 처리 화면. 상담 이력, 처리 상태, 담당자 지정.' },
-  { module: '현장검수', moduleOrder: 7, title: '현장검수 템플릿', path: '/admin/inspection-template', screenshotFile: 'admin_현장검수_현장검수_템플릿.png', hint: '팀장이 현장에서 사용하는 체크리스트 템플릿 설정. 구역·항목 추가.' },
-  { module: '전자계약', moduleOrder: 8, title: '전자계약 목록', path: '/admin/e-contracts', screenshotFile: 'admin_전자계약_전자계약_목록.png', hint: '발송된 전자계약서 목록. 서명 완료 여부, PDF 다운로드.' },
-  { module: '정산', moduleOrder: 9, title: '급여·정산', path: '/admin/payroll', screenshotFile: 'admin_정산_급여_정산.png', hint: '팀장별 월간 정산 현황. 배정 건수, 금액, 지급 여부 관리.' },
-  { module: '정산', moduleOrder: 9, title: '외부업체 정산', path: '/admin/external-settlement', screenshotFile: 'admin_정산_외부업체_정산.png', hint: '타업체(협력업체) 수수료 정산·지급 관리 화면.' },
-  { module: '페이백·리뷰', moduleOrder: 10, title: '페이백·리뷰 신청 목록', path: '/admin/review-payback', screenshotFile: 'admin_페이백_리뷰_페이백_리뷰_신청_목록.png', hint: '고객이 신청한 페이백·리뷰 요청 목록. 확인·지급 처리.' },
-  { module: '광고', moduleOrder: 11, title: '광고 관리', path: '/admin/advertising', screenshotFile: 'admin_광고_광고_관리.png', hint: '플랫폼 내 배너·광고 설정 화면.' },
-  { module: '메시지', moduleOrder: 12, title: '메시지', path: '/admin/messages', screenshotFile: 'admin_메시지_메시지.png', hint: '관리자와 팀장 간 1:1 메시지 채팅 화면.' },
-  { module: '업체 설정', moduleOrder: 13, title: '업체 등록정보', path: '/admin/tenant-company-profile', screenshotFile: 'admin_업체_설정_업체_등록정보.png', hint: '업체 기본정보(상호, 사업자번호, 대표자, SMTP 메일 설정 등) 관리.' },
-  { module: '업체 설정', moduleOrder: 13, title: '고객 페이지 설정', path: '/admin/page-settings', screenshotFile: 'admin_업체_설정_고객_페이지_설정.png', hint: '고객에게 노출되는 공개 페이지(발주서, 현장검수 열람 등) 디자인·문구 설정.' },
-  { module: '파트너', moduleOrder: 14, title: '파트너 업체', path: '/admin/partners', screenshotFile: 'admin_파트너_파트너_업체.png', hint: '협력 파트너 업체 등록·관리. 공동 접수 배분 설정.' },
-  { module: '파트너', moduleOrder: 14, title: '파트너 정산', path: '/admin/partner-settlement', screenshotFile: 'admin_파트너_파트너_정산.png', hint: '파트너 업체와의 정산 내역 확인.' },
-  { module: '운영사', moduleOrder: 15, title: '운영사 관리', path: '/admin/operating-companies', screenshotFile: 'admin_운영사_운영사_관리.png', hint: '운영사(본사·가맹점) 구분 관리.' },
+  {
+    module: '대시보드',
+    moduleOrder: 1,
+    itemOrder: 1,
+    title: '대시보드',
+    path: '/admin/dashboard',
+    screenshotFile: 'admin_대시보드_대시보드.png',
+    hint: '오늘 접수 통계, DB 접수 폼(전화 접수 입력), 미배정·진행 중 건수 요약이 있습니다.',
+  },
+
+  // ── 서비스접수 (GNB + adminInquiriesNav) ──
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 1,
+    title: '접수목록',
+    path: '/admin/inquiries',
+    screenshotFile: 'admin_접수_관리_접수_목록.png',
+    hint: '전체 접수 목록. 상태·마케터·팀장 필터, 미제출 pin, 전화접수·발주서 연결, 엑셀 다운로드.',
+  },
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 2,
+    title: '부재·보류',
+    path: '/admin/inquiries/followup',
+    screenshotFile: '',
+    hint: '전화 부재·보류 후속 관리. 재연락·골드DB·입금 완료 시 접수 자동 생성.',
+  },
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 3,
+    title: '페이백/리뷰',
+    path: '/admin/inquiries/review-payback',
+    screenshotFile: 'admin_페이백_리뷰_페이백_리뷰_신청_목록.png',
+    hint: '고객 리뷰·페이백 신청 확인. 신청 접수 → 리뷰 확인 → 입금 완료/반려.',
+  },
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 4,
+    title: 'C/S 관리',
+    path: '/admin/inquiries/cs',
+    screenshotFile: 'admin_C_S_관리_C_S_워크데스크.png',
+    hint: 'CS 접수 워크데스크. 확인·처리중·완료, 접수 연동·전달·현장검수 요약.',
+  },
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 5,
+    title: '발주서 목록',
+    path: '/admin/inquiries/order-forms',
+    screenshotFile: 'admin_발주서_발주서_목록.png',
+    hint: '발급·제출 현황. 미제출 추적, 제출 시 접수 목록 연동.',
+  },
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 6,
+    title: '발주서 발급',
+    path: '/admin/inquiries/order-issue',
+    screenshotFile: '',
+    hint: '고객 셀프 접수 링크 발급. 대기 접수 연결 권장, 양식·선입력.',
+  },
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 7,
+    title: '발주서 양식',
+    path: '/admin/inquiries/order-templates',
+    screenshotFile: '',
+    hint: '발주서 템플릿 설계(구글폼식). 필드·발행·기본 양식.',
+  },
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 8,
+    title: '고객링크설정',
+    path: '/admin/inquiries/order-customer-link',
+    screenshotFile: '',
+    hint: '링크 공유 메시지·페이백 치환 문구 편집.',
+  },
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 9,
+    title: '발주서설정',
+    path: '/admin/inquiries/order-customer-preview',
+    screenshotFile: 'admin_발주서_발주서_안내_설정.png',
+    hint: '고객 발주서 문구·금액·전문시공·미리보기.',
+  },
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 10,
+    title: '견적 목록',
+    path: '/admin/inquiries/quotations',
+    screenshotFile: '',
+    hint: '견적서 작성·발송 이력. 작성 중/확정/발송됨.',
+  },
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 11,
+    title: '견적 작성',
+    path: '/admin/inquiries/quotations/new',
+    screenshotFile: '',
+    hint: '견적서 편집·PDF·이메일. 접수에서 넘어오면 고객 정보 자동 입력.',
+  },
+  {
+    module: '서비스접수',
+    moduleOrder: 2,
+    itemOrder: 12,
+    title: '견적 설정',
+    path: '/admin/inquiries/quotations/settings',
+    screenshotFile: '',
+    hint: '견적 PDF 기본값·서비스 항목 카탈로그.',
+  },
+
+  {
+    module: '스케줄',
+    moduleOrder: 3,
+    itemOrder: 1,
+    title: '스케줄 표',
+    path: '/admin/schedule',
+    screenshotFile: 'admin_스케줄_관리_스케줄_표.png',
+    hint: '예약일 기준 월간 달력. 슬롯·미배정·지역 탭·배정·마감·지도·접수 상세.',
+  },
+  {
+    module: '정보공유',
+    moduleOrder: 4,
+    itemOrder: 1,
+    title: '정보공유',
+    path: '/admin/db-marketplace',
+    screenshotFile: '',
+    hint: 'DB 장바구니·게시·갖고가기·인계 확정. 파트너·타업체 DB 거래.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 1,
+    title: '가입정보',
+    path: '/admin/team-leaders/company-profile/subscription',
+    screenshotFile: 'admin_업체_설정_업체_등록정보.png',
+    hint: '플랜·이용 상태·기능 모듈·사용량 확인.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 2,
+    title: '사업자정보',
+    path: '/admin/team-leaders/company-profile/business',
+    screenshotFile: '',
+    hint: '업체 기본 사업자 정보·견적 직인.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 3,
+    title: '발송이메일',
+    path: '/admin/team-leaders/company-profile/outbound-email',
+    screenshotFile: '',
+    hint: '고객 발송 메일 SMTP 설정.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 4,
+    title: '사용자 등록',
+    path: '/admin/team-leaders',
+    screenshotFile: 'admin_팀장_팀_관리_팀장_목록.png',
+    hint: '팀장·마케터·사무직 등록·수정·휴무 허용.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 5,
+    title: '영업브랜드',
+    path: '/admin/team-leaders/operating-companies',
+    screenshotFile: 'admin_운영사_운영사_관리.png',
+    hint: '영업 브랜드 등록·배지·사업자 정보.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 6,
+    title: '타업체등록',
+    path: '/admin/team-leaders/external-companies',
+    screenshotFile: '',
+    hint: '협력 타업체·로그인 계정 등록.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 7,
+    title: '파트너연결',
+    path: '/admin/team-leaders/tenant-partners',
+    screenshotFile: 'admin_파트너_파트너_업체.png',
+    hint: '다른 업체와 파트너 연결·승인.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 8,
+    title: '전자계약',
+    path: '/admin/team-leaders/e-contracts',
+    screenshotFile: 'admin_전자계약_전자계약_목록.png',
+    hint: '전자계약 양식·체결 링크·발행측 정보.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 9,
+    title: '타업체정산',
+    path: '/admin/team-leaders/external-settlement',
+    screenshotFile: 'admin_정산_외부업체_정산.png',
+    hint: '타업체 수수료·지급·잔액.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 10,
+    title: '파트너정산',
+    path: '/admin/team-leaders/tenant-partner-settlement',
+    screenshotFile: 'admin_파트너_파트너_정산.png',
+    hint: '파트너 수수료 수금·지급.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 11,
+    title: '월정산표',
+    path: '/admin/team-leaders/payroll',
+    screenshotFile: 'admin_정산_급여_정산.png',
+    hint: '팀장·마케터·팀원·브랜드 손익 월 정산.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 12,
+    title: '팀장',
+    path: '/admin/team-leaders/leader-stats',
+    screenshotFile: 'admin_팀장_팀_관리_팀장_통계.png',
+    hint: '팀장별 월간 배정·완료·취소 실적.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 13,
+    title: '팀원',
+    path: '/admin/team-leaders/team-members',
+    screenshotFile: 'admin_팀장_팀_관리_팀_관리.png',
+    hint: '현장 팀원·크루 그룹·휴무.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 14,
+    title: '휴일캘린더',
+    path: '/admin/team-leaders/holiday-calendar',
+    screenshotFile: 'admin_팀장_팀_관리_팀_휴무_캘린더.png',
+    hint: '팀장·팀원 휴무 월간 달력.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 15,
+    title: '페이지설정',
+    path: '/admin/team-leaders/page-settings',
+    screenshotFile: 'admin_업체_설정_고객_페이지_설정.png',
+    hint: '접수 축하 상단 바 문구(브라우저 저장).',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 16,
+    title: '직원권한',
+    path: '/admin/team-leaders/staff-access',
+    screenshotFile: '',
+    hint: '마케터 관리자 권한 단계 안내.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 17,
+    title: '브랜드정책',
+    path: '/admin/team-leaders/operating-policy',
+    screenshotFile: '',
+    hint: '영업 브랜드 배정·목록 노출 규칙.',
+  },
+  {
+    module: '관리자 전용',
+    moduleOrder: 5,
+    itemOrder: 18,
+    title: '검수템플릿',
+    path: '/admin/team-leaders/inspection-template',
+    screenshotFile: 'admin_현장검수_현장검수_템플릿.png',
+    hint: '현장 검수 체크리스트 항목 편집.',
+  },
+  {
+    module: '광고비',
+    moduleOrder: 6,
+    itemOrder: 1,
+    title: '광고비',
+    path: '/admin/advertising',
+    screenshotFile: 'admin_광고_광고_관리.png',
+    hint: '기간별 광고비·예약완료·ROAS·작업 종료 이력.',
+  },
+  {
+    module: '광고비',
+    moduleOrder: 6,
+    itemOrder: 2,
+    title: '설정',
+    path: '/admin/advertising/settings',
+    screenshotFile: '',
+    hint: '광고 채널·정산 방식·과목(건당 금액) — ADMIN 전용.',
+  },
+  {
+    module: '메시지',
+    moduleOrder: 7,
+    itemOrder: 1,
+    title: '메시지',
+    path: '/admin/messages',
+    screenshotFile: 'admin_메시지_메시지.png',
+    hint: '관리자·팀장 1:1 메시지.',
+  },
 ];
 
 function buildMarkdown(roleLabel, page) {
@@ -55,7 +357,7 @@ function buildMarkdown(roleLabel, page) {
     '',
     '## 사용 방법',
     '',
-    `1. 메뉴에서 **${page.module}** → **${page.title}** 로 이동합니다.`,
+    `1. 상단 메뉴 **${page.module === '서비스접수' ? '서비스접수' : page.module}** 에서 **${page.title}** 로 이동합니다.`,
     '2. 조회 조건을 선택한 뒤 화면 내용을 확인합니다.',
     '3. 항목을 선택해 상세를 검토하고 필요한 작업을 진행합니다.',
     '',
@@ -68,22 +370,13 @@ function buildMarkdown(roleLabel, page) {
 }
 
 function adminEntry(page) {
-  // 상세 마크다운이 있는 화면은 개별 함수 사용
-  let markdown;
-  if (page.path === '/admin/dashboard') {
-    markdown = buildDashboardMarkdown();
-  } else if (page.path === '/admin/inquiries') {
-    markdown = buildInquiriesDetailedMarkdown();
-  } else if (page.path === '/admin/schedule') {
-    markdown = buildScheduleMarkdown();
-  } else {
-    markdown = buildMarkdown('관리자(마케터)', page);
-  }
+  const markdown = resolveDetailedMarkdown(page.path) ?? buildMarkdown('관리자(마케터)', page);
 
   return {
     role: 'admin',
     module: page.module,
     moduleOrder: page.moduleOrder,
+    itemOrder: page.itemOrder ?? 999,
     title: page.title,
     path: page.path,
     screenshotFile: page.screenshotFile,
@@ -92,51 +385,115 @@ function adminEntry(page) {
   };
 }
 
-const TEAM_SETTLEMENT_FIX = {
-  title: '타업체 정산',
-  summary:
-    '타업체(EXTERNAL_PARTNER) 계정이 담당 현장의 수수료·정산완료 내역을 기간별로 확인하는 화면입니다.',
-  markdown: [
-    '## 화면 소개',
-    '**타업체 로그인 계정**이 본인 업체에 배정된 현장의 **인계·수수료 정산** 내역을 확인하는 화면입니다. 일반 팀장 급여 정산이 아니라, 협력 타업체 수수료·미수금·정산완료 내역을 조회합니다.',
-    '',
-    '## 주요 기능',
-    '- **기간 필터**: 오늘 / 전체 / 월별 / 날짜별 조회',
-    '- **정산 내역 탭**: 건별 접수·수수료·취소 차감 목록',
-    '- **정산완료내역 탭**: 관리자가 기록한 지급(정산완료) 이력',
-    '- **요약 카드**: 기간 결제대상, 정산완료, 남은 결제(미수) 금액',
-    '- **고객명·접수번호 검색**: 내역 빠르게 찾기',
-    '',
-    '## 사용 방법',
-    '1. 상단에서 조회 **기간**을 선택합니다.',
-    '2. **정산 내역** 탭에서 건별 수수료를 확인합니다.',
-    '3. **정산완료내역** 탭에서 실제 지급된 금액·일자를 확인합니다.',
-    '4. 특정 건을 찾을 때는 검색창에 **고객명 또는 접수번호**를 입력합니다.',
-    '',
-    '## 자주 묻는 질문',
-    '**Q: 정보공유로 갖고간 건이 안 보여요.**',
-    'A: 인계 확정 월 기준으로 집계됩니다. 조회 월을 인계 확정한 달로 바꿔 보세요.',
-    '',
-    '**Q: 일반 팀장 급여 정산은 어디서 보나요?**',
-    'A: 이 메뉴는 타업체 전용입니다. 자사 팀장 급여는 관리자 **급여·정산** 메뉴에서 처리됩니다.',
-  ].join('\n'),
-};
+function teamEntry(page) {
+  const markdown = resolveDetailedMarkdown(page.path) ?? buildMarkdown('팀장', page);
 
-const raw = await readFile(DATA_PATH, 'utf8');
-const teamEntries = JSON.parse(raw)
-  .filter((entry) => entry.role === 'team')
-  .map((entry) => {
-    if (entry.path === '/team/settlement') {
-      return {
-        ...entry,
-        title: TEAM_SETTLEMENT_FIX.title,
-        summary: TEAM_SETTLEMENT_FIX.summary,
-        markdown: TEAM_SETTLEMENT_FIX.markdown,
-      };
-    }
-    return entry;
-  });
+  return {
+    role: 'team',
+    module: page.module,
+    moduleOrder: page.moduleOrder,
+    itemOrder: page.itemOrder ?? 999,
+    title: page.title,
+    path: page.path,
+    screenshotFile: page.screenshotFile,
+    summary: page.hint,
+    markdown,
+  };
+}
 
-const merged = [...ADMIN_PAGES.map(adminEntry), ...teamEntries];
+/** 팀장 GNB·라우트 — TeamLayout nav 순서 */
+const TEAM_PAGES = [
+  {
+    module: '일정·업무',
+    moduleOrder: 1,
+    itemOrder: 1,
+    title: '대시보드',
+    path: '/team/dashboard',
+    screenshotFile: 'team_01_dashboard_main.png',
+    hint: '오늘·다가오는 일정, 해피콜, 접수 상세.',
+  },
+  {
+    module: '일정·업무',
+    moduleOrder: 1,
+    itemOrder: 2,
+    title: '배정목록',
+    path: '/team/assignments',
+    screenshotFile: 'team_02_assignments_list.png',
+    hint: '배정 전체 검색·필터·해피콜·페이지.',
+  },
+  {
+    module: '일정·업무',
+    moduleOrder: 1,
+    itemOrder: 3,
+    title: '스케줄',
+    path: '/team/schedule',
+    screenshotFile: 'team_03_schedule_calendar.png',
+    hint: '월간 달력·선택일 목록·지도.',
+  },
+  {
+    module: '일정·업무',
+    moduleOrder: 1,
+    itemOrder: 4,
+    title: '휴무일',
+    path: '/team/dayoffs',
+    screenshotFile: 'team_07_dayoffs_calendar.png',
+    hint: '휴무 지정·해제 — 스케줄·관리자 캘린더 연동.',
+  },
+  {
+    module: '정보공유',
+    moduleOrder: 2,
+    itemOrder: 1,
+    title: '정보공유',
+    path: '/team/db-marketplace',
+    screenshotFile: '',
+    hint: 'DB 구매·인계 대기·확정 (기능 켜진 업체).',
+  },
+  {
+    module: 'C/S',
+    moduleOrder: 3,
+    itemOrder: 1,
+    title: 'C/S',
+    path: '/team/cs',
+    screenshotFile: 'team_04_cs_list.png',
+    hint: '배정·전달 C/S 처리·처리완료.',
+  },
+  {
+    module: '전자계약',
+    moduleOrder: 4,
+    itemOrder: 1,
+    title: '전자계약',
+    path: '/team/e-contracts',
+    screenshotFile: 'team_05_econtract_list.png',
+    hint: '계약 확인·서명·PDF.',
+  },
+  {
+    module: '정산',
+    moduleOrder: 5,
+    itemOrder: 1,
+    title: '정산',
+    path: '/team/settlement',
+    screenshotFile: 'team_06_settlement_summary.png',
+    hint: '타업체 전용 — 수수료·지급 내역.',
+  },
+  {
+    module: '메시지',
+    moduleOrder: 6,
+    itemOrder: 1,
+    title: '메시지',
+    path: '/team/messages',
+    screenshotFile: 'team_08_messages_chat.png',
+    hint: '운영팀 1:1 채팅·공지.',
+  },
+];
+
+const merged = [...ADMIN_PAGES.map(adminEntry), ...TEAM_PAGES.map(teamEntry)];
 await writeFile(DATA_PATH, `${JSON.stringify(merged, null, 2)}\n`, 'utf8');
 console.log(`Wrote ${merged.length} entries to ${DATA_PATH}`);
+
+const verify = spawnSync(process.execPath, ['scripts/verify-help-ui-tokens.mjs'], {
+  cwd: REPO,
+  stdio: 'inherit',
+});
+if (verify.status !== 0) {
+  process.exit(verify.status ?? 1);
+}

@@ -1,5 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import {
+  InspectionPhotoCompareLightbox,
+  openCompareIndices,
+} from './InspectionPhotoCompareLightbox';
+import {
   INSPECTION_AREA_GUIDE,
   INSPECTION_BASIC_QUESTIONS,
   INSPECTION_CUSTOM_AREA_GUIDE,
@@ -91,6 +95,18 @@ export function InspectionItemCard({
   const showSplit = showBefore && showAfter;
   const beforeReadOnly = readOnly || photoMode === 'after-only';
   const afterReadOnly = readOnly || photoMode === 'before-only';
+  const beforePhotos = item.photos.filter((p) => p.phase === 'BEFORE');
+  const afterPhotos = item.photos.filter((p) => p.phase === 'AFTER');
+  const useCompareLightbox = Boolean(enablePhotoLightbox && showSplit);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareInitial, setCompareInitial] = useState(() =>
+    openCompareIndices('BEFORE', 0, beforePhotos.length, afterPhotos.length),
+  );
+
+  const openCompare = (phase: 'BEFORE' | 'AFTER', index: number) => {
+    setCompareInitial(openCompareIndices(phase, index, beforePhotos.length, afterPhotos.length));
+    setCompareOpen(true);
+  };
 
   return (
     <div
@@ -130,11 +146,12 @@ export function InspectionItemCard({
             phase: 'BEFORE',
             label: '청소 전',
             itemLabel: item.label,
-            items: item.photos.filter((p) => p.phase === 'BEFORE'),
+            items: beforePhotos,
             readOnly: beforeReadOnly,
             busy,
             split: true,
-            enableLightbox: enablePhotoLightbox,
+            enableLightbox: enablePhotoLightbox && !useCompareLightbox,
+            onPhotoClick: useCompareLightbox ? (idx) => openCompare('BEFORE', idx) : undefined,
             onUpload,
             onDeletePhoto,
           })}
@@ -142,11 +159,12 @@ export function InspectionItemCard({
             phase: 'AFTER',
             label: '청소 후',
             itemLabel: item.label,
-            items: item.photos.filter((p) => p.phase === 'AFTER'),
+            items: afterPhotos,
             readOnly: afterReadOnly,
             busy,
             split: true,
-            enableLightbox: enablePhotoLightbox,
+            enableLightbox: enablePhotoLightbox && !useCompareLightbox,
+            onPhotoClick: useCompareLightbox ? (idx) => openCompare('AFTER', idx) : undefined,
             onUpload,
             onDeletePhoto,
           })}
@@ -158,7 +176,7 @@ export function InspectionItemCard({
               phase: 'BEFORE',
               label: '청소 전',
               itemLabel: item.label,
-              items: item.photos.filter((p) => p.phase === 'BEFORE'),
+              items: beforePhotos,
               readOnly: beforeReadOnly,
               busy,
               split: false,
@@ -171,7 +189,7 @@ export function InspectionItemCard({
               phase: 'AFTER',
               label: '청소 후',
               itemLabel: item.label,
-              items: item.photos.filter((p) => p.phase === 'AFTER'),
+              items: afterPhotos,
               readOnly: afterReadOnly,
               busy,
               split: false,
@@ -181,6 +199,17 @@ export function InspectionItemCard({
             })}
         </div>
       )}
+
+      {useCompareLightbox ? (
+        <InspectionPhotoCompareLightbox
+          open={compareOpen}
+          onClose={() => setCompareOpen(false)}
+          itemLabel={item.label}
+          beforePhotos={beforePhotos}
+          afterPhotos={afterPhotos}
+          initial={compareInitial}
+        />
+      ) : null}
     </div>
   );
 }
@@ -194,6 +223,7 @@ function renderPhotoColumn(params: {
   busy: boolean;
   split: boolean;
   enableLightbox?: boolean;
+  onPhotoClick?: (index: number) => void;
   onUpload: (phase: 'BEFORE' | 'AFTER', files: FileList | null) => void;
   onDeletePhoto: (photoId: string) => void;
 }) {
@@ -235,7 +265,29 @@ function renderPhotoColumn(params: {
                 key={p.id}
                 className="relative aspect-square w-[calc(50%-0.375rem)] max-w-[9rem] min-w-[4.5rem]"
               >
-                {params.enableLightbox ? (
+                {params.onPhotoClick ? (
+                  <button
+                    type="button"
+                    onClick={() => params.onPhotoClick?.(idx)}
+                    className="block h-full w-full overflow-hidden rounded-md touch-manipulation ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    aria-label={`${params.itemLabel} ${params.label} ${idx + 1} 크게 보기`}
+                  >
+                    <img
+                      src={p.secureUrl}
+                      alt=""
+                      className="h-full w-full rounded-md border border-gray-200/80 object-cover"
+                      loading="lazy"
+                    />
+                    {isBefore && p.flagged ? (
+                      <span
+                        className="pointer-events-none absolute left-0.5 top-0.5 rounded bg-amber-500 px-1 py-0.5 text-[8px] font-bold text-white shadow"
+                        aria-hidden
+                      >
+                        ★
+                      </span>
+                    ) : null}
+                  </button>
+                ) : params.enableLightbox ? (
                   <ImageThumbLightbox
                     src={p.secureUrl}
                     alt={`${params.label} ${idx + 1}`}

@@ -5,7 +5,11 @@ import {
   formatMarketplaceSchedule,
   formatMarketplaceListDate,
 } from '../../utils/dbMarketplaceDisplay';
-import { marketplaceBulkSelectDisabledReason, type DbMarketplaceBulkMode } from '../../utils/dbMarketplaceBulk';
+import {
+  marketplaceBulkSelectDisabledReason,
+  type DbMarketplaceBulkMode,
+} from '../../utils/dbMarketplaceBulk';
+import { DbMarketplaceStatusBadge } from './marketplaceUiParts';
 
 /** PC 표 — 선택 열 px 절대 고정 (단위 없는 width는 브라우저에서 무시됨) */
 export const MARKETPLACE_TABLE_CHECKBOX_COL_PX = 18;
@@ -32,24 +36,6 @@ export function marketplaceTableCheckboxCellProps(): {
 
 export const marketplaceTableCheckboxInputClass =
   'mx-auto block size-3.5 shrink-0 cursor-pointer accent-slate-900';
-
-const STATUS_LABEL: Record<string, string> = {
-  DRAFT: '장바구니',
-  OPEN: '게시 중',
-  PENDING_SELLER: '인계 대기',
-  CONFIRMED: '확정 완료',
-  WITHDRAWN: '철회',
-  EXPIRED: '만료',
-};
-
-const STATUS_CLASS: Record<string, string> = {
-  DRAFT: 'bg-slate-100 text-slate-700',
-  OPEN: 'bg-sky-100 text-sky-800',
-  PENDING_SELLER: 'bg-amber-100 text-amber-800',
-  CONFIRMED: 'bg-emerald-100 text-emerald-800',
-  WITHDRAWN: 'bg-gray-200 text-gray-600',
-  EXPIRED: 'bg-gray-100 text-gray-700',
-};
 
 export function DbMarketplaceTabBar<T extends string>({
   options,
@@ -185,11 +171,7 @@ export function DbMarketplaceRowCard({
             ) : null}
           </div>
           <div className="flex shrink-0 flex-row items-center justify-between gap-3 sm:flex-col sm:items-end sm:justify-start">
-            <span
-              className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_CLASS[row.status] ?? ''}`}
-            >
-              {STATUS_LABEL[row.status] ?? row.status}
-            </span>
+            <DbMarketplaceStatusBadge status={row.status} />
             <p className="text-fluid-sm font-semibold tabular-nums text-slate-900">
               {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
             </p>

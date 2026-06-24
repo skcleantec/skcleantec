@@ -11,6 +11,7 @@ import {
   type EndAdSessionLine,
 } from '../../api/advertising';
 import { getToken } from '../../stores/auth';
+import { DashboardAdSettleButton } from '../dashboard/dashboardUiParts';
 import { ModalCloseButton } from './ModalCloseButton';
 
 function won(n: number): string {
@@ -253,14 +254,10 @@ export function TelemarketingSessionBlock() {
         <p className="text-sm text-gray-500">불러오는 중…</p>
       ) : session ? (
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
+          <DashboardAdSettleButton
             onClick={handleOpenEnd}
             disabled={submitting || channels.length === 0}
-            className="px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded hover:bg-gray-900 disabled:opacity-50"
-          >
-            작업 종료 및 정산
-          </button>
+          />
           {channels.length === 0 && (
             <span className="text-xs text-amber-700">
               채널이 없습니다. 관리자가 <strong className="text-gray-800">광고비 → 설정</strong>에서 채널을 추가하세요.

@@ -14,6 +14,7 @@ import {
   InspectionConsentSection,
   InspectionHeaderBlock,
 } from './inspectionUiBlocks';
+import { FlaggedBeforePhotosSection } from './FlaggedBeforePhotosSection';
 import { getMe } from '../../api/auth';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
@@ -158,6 +159,14 @@ export function AdminInspectionPanel({
         )}
       </div>
 
+      <FlaggedBeforePhotosSection
+        checklist={checklist}
+        inquiryId={inquiryId}
+        token={token}
+        readOnly
+        onChecklistUpdate={setChecklist}
+      />
+
       <details className="group rounded-lg border border-gray-200 bg-white">
         <summary className="cursor-pointer list-none px-3 py-2 text-fluid-xs font-medium text-gray-800 select-none [&::-webkit-details-marker]:hidden">
           <span className="inline-flex items-center gap-1.5">
@@ -184,6 +193,7 @@ export function AdminInspectionPanel({
                 readOnly
                 busy={false}
                 photoMode="both"
+                enablePhotoLightbox
                 defaultOpen={false}
                 onToggleItemNa={() => {}}
                 onUpload={() => {}}

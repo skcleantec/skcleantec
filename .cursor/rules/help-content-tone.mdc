@@ -1,0 +1,25 @@
+---
+description: /help 도움말 markdown — UI 그대로·비개발자 문체 (작성·수정 시 필수)
+alwaysApply: false
+---
+
+# 도움말 콘텐츠 톤 (필수)
+
+> **단일 기준 문서:** `docs/HELP_CONTENT_GUIDE.md`  
+> **소스:** `scripts/help-content/*.mjs` → `node scripts/build-help-data.mjs` → `client/public/help/data.json`
+
+## 트리거
+
+- `/help` 도움말·`scripts/help-content/`·`build-help-data.mjs`·`detailed-help-*.mjs` 를 **추가·수정**할 때 본 가이드와 룰을 따른다.
+
+## 핵심 (요약)
+
+1. **버튼·탭·메뉴** — 화면 글자 그대로: **「일정마감」 버튼**, **「장바구니」 탭**, **상단 「정보공유」 메뉴**
+2. **금지** — GNB, WebSocket, inbox:refresh, FAB, UUID, inquiryId, pin, createdAt, KST, TO, 컴포넌트/클래스명
+3. **자동 갱신** — 「F5 없이 목록·달력이 저절로 갱신」
+4. **FAQ** + **표** 위주, 개발자가 아닌 **현장 사용자** 대상
+5. 마무리: `registry.mjs` path 동기화 + `node scripts/build-help-data.mjs` (UI 토큰 검증 포함)
+
+**버튼·아이콘:** PNG 대신 `{{ui:토큰}}` — `docs/HELP_CONTENT_GUIDE.md` §5
+
+상세·체크리스트·금지어 표: **`docs/HELP_CONTENT_GUIDE.md`**

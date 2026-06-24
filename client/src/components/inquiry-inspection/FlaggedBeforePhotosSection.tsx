@@ -10,6 +10,11 @@ import {
 import { InspectionPhotoFlagButton } from './InspectionPhotoFlagButton';
 import { ImageThumbLightbox, type ImageGallerySlide } from '../ui/ImageThumbLightbox';
 
+function sanitizeFlaggedFilename(areaLabel: string, itemLabel: string, index: number): string {
+  const part = (s: string) => s.trim().replace(/[^\w\uAC00-\uD7A3.-]+/g, '_').slice(0, 16);
+  return `${part(areaLabel)}_${part(itemLabel)}_${index}`;
+}
+
 function ShareOutlineIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -56,10 +61,11 @@ export function FlaggedBeforePhotosSection({
 
   const gallerySlides: ImageGallerySlide[] = useMemo(
     () =>
-      entries.map((e) => ({
+      entries.map((e, idx) => ({
         src: e.photo.secureUrl,
         alt: `${e.areaLabel} · ${e.itemLabel}`,
-        title: `${e.areaLabel} · ${e.itemLabel}`,
+        title: `[오염 심함] ${e.areaLabel} · ${e.itemLabel}`,
+        downloadFilename: `flagged_${sanitizeFlaggedFilename(e.areaLabel, e.itemLabel, idx + 1)}.jpg`,
       })),
     [entries],
   );
@@ -130,7 +136,19 @@ export function FlaggedBeforePhotosSection({
     >
       <div className="flex items-center justify-between gap-2">
         <h3 className="min-w-0 text-fluid-sm font-semibold text-gray-900">오염 심함</h3>
-        {count > 0 && (
+        <div className="flex shrink-0 items-center gap-1.5">
+          {count > 0 ? (
+            <ImageThumbLightbox
+              src={entries[0]!.photo.secureUrl}
+              alt="오염 심함 사진 모아보기"
+              buttonLabel="모아보기"
+              gallerySlides={gallerySlides}
+              galleryIndex={0}
+              showDownload
+              buttonClassName="inline-flex min-h-8 items-center rounded-lg border border-amber-400 bg-white px-2.5 text-fluid-2xs font-semibold text-amber-950 touch-manipulation hover:bg-amber-50"
+            />
+          ) : null}
+          {count > 0 && !readOnly ? (
           <button
             type="button"
             disabled={disabled || sharing}
@@ -150,7 +168,8 @@ export function FlaggedBeforePhotosSection({
               </span>
             ) : null}
           </button>
-        )}
+          ) : null}
+        </div>
       </div>
 
       {count > 0 ? (
@@ -163,6 +182,7 @@ export function FlaggedBeforePhotosSection({
                   alt={`${entry.areaLabel} ${entry.itemLabel}`}
                   gallerySlides={gallerySlides}
                   galleryIndex={idx}
+                  showDownload
                   thumbClassName="h-16 w-full object-cover"
                   buttonClassName="block w-full overflow-hidden rounded-lg border-2 border-amber-400 bg-white touch-manipulation"
                 />
