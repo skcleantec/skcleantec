@@ -770,13 +770,17 @@ router.patch('/:id', async (req, res) => {
     }
   }
   if (Object.prototype.hasOwnProperty.call(body, 'createdById')) {
-    if (user.role !== 'ADMIN') {
-      res.status(403).json({ error: '담당 마케터 변경은 관리자만 가능합니다.' });
-      return;
-    }
     const rawCb = body.createdById;
     const nextCreatedById = rawCb == null || rawCb === '' ? null : String(rawCb);
-    if (nextCreatedById) {
+    const currentCreatedById = inquiry.createdById ?? null;
+    if (user.role !== 'ADMIN') {
+      if (nextCreatedById !== currentCreatedById) {
+        res.status(403).json({ error: '담당 마케터 변경은 관리자만 가능합니다.' });
+        return;
+      }
+      // 클라이언트가 기존 값을 그대로 실어 보낸 경우 — 다른 필드만 수정 허용
+      delete data.createdBy;
+    } else if (nextCreatedById) {
       const owner = await prisma.user.findFirst({
         where: { id: String(nextCreatedById), tenantId },
         select: { id: true, role: true, isActive: true },

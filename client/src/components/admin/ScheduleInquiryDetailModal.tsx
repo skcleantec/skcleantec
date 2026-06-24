@@ -718,7 +718,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     'inquiry-list';
   const activeServiceZoneId =
     (props as { activeServiceZoneId?: string | null }).activeServiceZoneId ?? null;
-  const canEditMarketer = currentUserStaffAdmin === true || currentUserRole === 'ADMIN';
+  const canEditMarketer = currentUserRole === 'ADMIN';
 
   const [saving, setSaving] = useState(false);
   const [externalIntake, setExternalIntake] = useState(false);
@@ -1730,7 +1730,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     setSaving(true);
     try {
       const patch = buildPatchFromEditForm(editForm, {
-        includeCreatedById: currentUserStaffAdmin === true || currentUserRole === 'ADMIN',
+        includeCreatedById: currentUserRole === 'ADMIN',
       }) as Record<string, unknown>;
       const requestedStatus = String(patch.status ?? '');
       const isCancelConfirm = requestedStatus === 'CANCEL_CONFIRMED';
