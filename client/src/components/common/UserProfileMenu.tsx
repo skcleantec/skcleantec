@@ -154,6 +154,15 @@ export function UserProfileMenu({
             >
               개인정보 수정
             </button>
+            <Link
+              to="/help"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setMenuOpen(false)}
+              className="block w-full border-t border-slate-100 px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 hover:text-slate-900"
+            >
+              도움말 · 문의
+            </Link>
             {teamEContractMenu ? (
               <div className="border-t border-slate-100 pt-2 mt-1">
                 <p className="px-3 pb-1 text-fluid-2xs font-semibold uppercase tracking-wide text-slate-500">
