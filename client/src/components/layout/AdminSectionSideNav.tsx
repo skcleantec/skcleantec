@@ -275,7 +275,7 @@ export function AdminCollapsibleSectionSideNav({
   return (
     <aside
       className={[
-        'hidden lg:flex shrink-0 self-start sticky top-2 z-[5] min-w-0 flex-col',
+        'hidden lg:flex shrink-0 self-start sticky top-6 z-[5] min-w-0 flex-col',
         'transition-[width] duration-300 ease-in-out motion-reduce:transition-none',
       ].join(' ')}
       style={{ width: widthPx }}
@@ -283,7 +283,7 @@ export function AdminCollapsibleSectionSideNav({
     >
       <div
         className={[
-          'flex max-h-[calc(100vh-7rem)] min-h-[12rem] flex-col overflow-hidden',
+          'flex max-h-[calc(100dvh-6.5rem)] min-h-[12rem] flex-col overflow-hidden',
           'rounded-2xl border border-slate-800 bg-slate-900 shadow-lg shadow-slate-900/20',
         ].join(' ')}
       >
