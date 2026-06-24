@@ -2,7 +2,7 @@ import { Router, type Request } from 'express';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
+import { authMiddleware, adminOnly, adminOrOperationalMarketer } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import {
@@ -54,7 +54,160 @@ async function findTeamMemberInTenantTeam(tenantId: string, teamId: string, memb
   });
 }
 
-router.use(authMiddleware, adminOnly);
+router.use(authMiddleware);
+
+/**
+ * 접수 상세·스케줄에서 투입 팀원 검색 시, 선택된 팀장(자사)과 같이 마지막으로 간 예약일부터
+ * 현재 편집 중 예약일까지 몇 칸의 날짜 차이인지(정보 표시만, 선택 제한 없음).
+ */
+router.get('/crew-leader-member-spacing', adminOrOperationalMarketer, async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
+  const teamLeaderId = typeof req.query.teamLeaderId === 'string' ? req.query.teamLeaderId.trim() : '';
+  const ymdRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
+  if (!teamLeaderId) {
+    res.status(400).json({ error: 'teamLeaderId가 필요합니다.' });
+    return;
+  }
+  if (!YMD.test(ymdRaw)) {
+    res.status(400).json({ error: 'preferredDate는 YYYY-MM-DD 형식이어야 합니다.' });
+    return;
+  }
+
+  const leader = await prisma.user.findFirst({
+    where: { id: teamLeaderId, tenantId, role: 'TEAM_LEADER', isActive: true },
+    select: { id: true },
+  });
+  if (!leader) {
+    res.status(404).json({ error: '팀장을 찾을 수 없습니다.' });
+    return;
+  }
+
+  const members = await prisma.teamMember.findMany({
+    where: {
+      teamId: null,
+      crewGroupMembers: { some: { group: { tenantId } } },
+    },
+    select: { name: true, nameTh: true },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+
+  const spacingByMemberName = await computeCrewSpacingByPoolMemberName(prisma, {
+    teamLeaderId,
+    currentYmd: ymdRaw,
+    poolMembers: members,
+  });
+
+  res.json({ spacingByMemberName });
+});
+
+router.get('/members', adminOrOperationalMarketer, async (req, res) => {
+  try {
+    const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+    if (!tenantId) return;
+
+    const dateRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
+    const preferredDate = YMD.test(dateRaw) ? dateRaw : null;
+    const lite = req.query.lite === '1' || req.query.lite === 'true';
+    const employmentStatusRaw =
+      typeof req.query.employmentStatus === 'string' ? req.query.employmentStatus.trim() : '';
+    const employmentStatus: EmploymentStatusFilter =
+      employmentStatusRaw === 'resigned' || employmentStatusRaw === 'all'
+        ? employmentStatusRaw
+        : 'active';
+
+    const members = await findPoolMembersForAdminList(prisma, tenantId);
+    const todayYmd = kstTodayYmd();
+    const filteredMembers = filterByEmploymentStatus(members, employmentStatus, todayYmd);
+
+    type CycleCache = { startYmd: string; endYmd: string; inquiries: { crewMemberNote: string | null }[] };
+    const inquiriesByPayDay = new Map<number, CycleCache>();
+
+    if (!lite) {
+      const distinctPayDays = [
+        ...new Set(
+          filteredMembers
+            .map((x) => x.monthlyPayDay)
+            .filter((d): d is number => d != null && d >= 1 && d <= 31),
+        ),
+      ].sort((a, b) => a - b);
+
+      await Promise.all(
+        distinctPayDays.map(async (payDay) => {
+          const { startYmd, endYmd } = payrollCycleBoundsKst(payDay);
+          const bounds = payrollCyclePreferredDateWhere(startYmd, endYmd);
+          const inquiries = await prisma.inquiry.findMany({
+            where: {
+              tenantId,
+              preferredDate: { gte: bounds.gte, lte: bounds.lte },
+              status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+            },
+            select: { crewMemberNote: true },
+          });
+          inquiriesByPayDay.set(payDay, { startYmd, endYmd, inquiries });
+        }),
+      );
+    }
+
+    let items = filteredMembers.map((m) => {
+      let payCycleJobCount: number | null = null;
+      let payCycleStartYmd: string | null = null;
+      let payCycleEndYmd: string | null = null;
+      if (!lite && m.monthlyPayDay != null) {
+        const cached = inquiriesByPayDay.get(m.monthlyPayDay);
+        if (cached) {
+          payCycleStartYmd = cached.startYmd;
+          payCycleEndYmd = cached.endYmd;
+          payCycleJobCount = cached.inquiries.filter((inq) =>
+            crewMemberNoteIncludesTeamMember(inq.crewMemberNote, m),
+          ).length;
+        }
+      }
+      return {
+        id: m.id,
+        name: m.name,
+        nameTh: m.nameTh,
+        phone: m.phone,
+        sortOrder: m.sortOrder,
+        isActive: m.isActive,
+        ...serializeUserDates(m),
+        monthlyPayDay: m.monthlyPayDay,
+        payAmountPerJob: m.payAmountPerJob,
+        createdAt: m.createdAt.toISOString(),
+        dayOffCount: m._count.dayOffs,
+        staffIdCardUrl: m.staffIdCardUrl ?? null,
+        payCycleJobCount,
+        payCycleStartYmd,
+        payCycleEndYmd,
+      };
+    });
+
+    if (preferredDate) {
+      const hasDailyRosterAgg =
+        (await prisma.teamCrewGroupMember.count({
+          where: { group: { tenantId, isActive: true, useDailyRosterOnly: true } },
+        })) > 0;
+      if (hasDailyRosterAgg) {
+        const crewMemberIds = new Set(filteredMembers.map((m) => m.id));
+        const pickableRaw = await getAvailableFieldStaffMemberIdsOnDate(prisma, preferredDate, tenantId);
+        const pickable = new Set([...pickableRaw].filter((id) => crewMemberIds.has(id)));
+        items = items.filter((row) => pickable.has(row.id));
+      }
+    }
+
+    res.json({ items });
+  } catch (e) {
+    console.error('[GET /teams/members]', e);
+    const detail = e instanceof Error ? e.message : String(e);
+    const hint = /tenant_id|does not exist|42703/i.test(detail)
+      ? ' DB 마이그레이션(prisma migrate deploy)이 필요합니다.'
+      : '';
+    res.status(500).json({ error: `팀원 목록을 불러오지 못했습니다.${hint}` });
+  }
+});
+
+router.use(adminOnly);
 
 /**
  * 팀장별 월간 배정·상태 집계
@@ -131,52 +284,6 @@ router.get('/leader-monthly-stats', async (req, res) => {
       };
     }),
   });
-});
-
-/**
- * 접수 상세·스케줄에서 투입 팀원 검색 시, 선택된 팀장(자사)과 같이 마지막으로 간 예약일부터
- * 현재 편집 중 예약일까지 몇 칸의 날짜 차이인지(정보 표시만, 선택 제한 없음).
- */
-router.get('/crew-leader-member-spacing', async (req, res) => {
-  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
-  if (!tenantId) return;
-
-  const teamLeaderId = typeof req.query.teamLeaderId === 'string' ? req.query.teamLeaderId.trim() : '';
-  const ymdRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
-  if (!teamLeaderId) {
-    res.status(400).json({ error: 'teamLeaderId가 필요합니다.' });
-    return;
-  }
-  if (!YMD.test(ymdRaw)) {
-    res.status(400).json({ error: 'preferredDate는 YYYY-MM-DD 형식이어야 합니다.' });
-    return;
-  }
-
-  const leader = await prisma.user.findFirst({
-    where: { id: teamLeaderId, tenantId, role: 'TEAM_LEADER', isActive: true },
-    select: { id: true },
-  });
-  if (!leader) {
-    res.status(404).json({ error: '팀장을 찾을 수 없습니다.' });
-    return;
-  }
-
-  const members = await prisma.teamMember.findMany({
-    where: {
-      teamId: null,
-      crewGroupMembers: { some: { group: { tenantId } } },
-    },
-    select: { name: true, nameTh: true },
-    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-  });
-
-  const spacingByMemberName = await computeCrewSpacingByPoolMemberName(prisma, {
-    teamLeaderId,
-    currentYmd: ymdRaw,
-    poolMembers: members,
-  });
-
-  res.json({ spacingByMemberName });
 });
 
 async function verifyAdminPassword(req: Request, password: unknown): Promise<boolean> {
@@ -317,111 +424,6 @@ function parseTeamMemberPayFields(body: Record<string, unknown>): {
   }
   return out;
 }
-
-router.get('/members', async (req, res) => {
-  try {
-    const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
-    if (!tenantId) return;
-
-    const dateRaw = typeof req.query.preferredDate === 'string' ? req.query.preferredDate.trim() : '';
-    const preferredDate = YMD.test(dateRaw) ? dateRaw : null;
-    const lite = req.query.lite === '1' || req.query.lite === 'true';
-    const employmentStatusRaw =
-      typeof req.query.employmentStatus === 'string' ? req.query.employmentStatus.trim() : '';
-    const employmentStatus: EmploymentStatusFilter =
-      employmentStatusRaw === 'resigned' || employmentStatusRaw === 'all'
-        ? employmentStatusRaw
-        : 'active';
-
-    const members = await findPoolMembersForAdminList(prisma, tenantId);
-    const todayYmd = kstTodayYmd();
-    const filteredMembers = filterByEmploymentStatus(members, employmentStatus, todayYmd);
-
-    type CycleCache = { startYmd: string; endYmd: string; inquiries: { crewMemberNote: string | null }[] };
-    const inquiriesByPayDay = new Map<number, CycleCache>();
-
-    if (!lite) {
-      const distinctPayDays = [
-        ...new Set(
-          filteredMembers
-            .map((x) => x.monthlyPayDay)
-            .filter((d): d is number => d != null && d >= 1 && d <= 31),
-        ),
-      ].sort((a, b) => a - b);
-
-      await Promise.all(
-        distinctPayDays.map(async (payDay) => {
-          const { startYmd, endYmd } = payrollCycleBoundsKst(payDay);
-          const bounds = payrollCyclePreferredDateWhere(startYmd, endYmd);
-          const inquiries = await prisma.inquiry.findMany({
-            where: {
-              tenantId,
-              preferredDate: { gte: bounds.gte, lte: bounds.lte },
-              status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-            },
-            select: { crewMemberNote: true },
-          });
-          inquiriesByPayDay.set(payDay, { startYmd, endYmd, inquiries });
-        }),
-      );
-    }
-
-    let items = filteredMembers.map((m) => {
-      let payCycleJobCount: number | null = null;
-      let payCycleStartYmd: string | null = null;
-      let payCycleEndYmd: string | null = null;
-      if (!lite && m.monthlyPayDay != null) {
-        const cached = inquiriesByPayDay.get(m.monthlyPayDay);
-        if (cached) {
-          payCycleStartYmd = cached.startYmd;
-          payCycleEndYmd = cached.endYmd;
-          payCycleJobCount = cached.inquiries.filter((inq) =>
-            crewMemberNoteIncludesTeamMember(inq.crewMemberNote, m),
-          ).length;
-        }
-      }
-      return {
-        id: m.id,
-        name: m.name,
-        nameTh: m.nameTh,
-        phone: m.phone,
-        sortOrder: m.sortOrder,
-        isActive: m.isActive,
-        ...serializeUserDates(m),
-        monthlyPayDay: m.monthlyPayDay,
-        payAmountPerJob: m.payAmountPerJob,
-        createdAt: m.createdAt.toISOString(),
-        dayOffCount: m._count.dayOffs,
-        staffIdCardUrl: m.staffIdCardUrl ?? null,
-        payCycleJobCount,
-        payCycleStartYmd,
-        payCycleEndYmd,
-      };
-    });
-
-    if (preferredDate) {
-      const hasDailyRosterAgg =
-        (await prisma.teamCrewGroupMember.count({
-          where: { group: { tenantId, isActive: true, useDailyRosterOnly: true } },
-        })) > 0;
-      if (hasDailyRosterAgg) {
-        const crewMemberIds = new Set(filteredMembers.map((m) => m.id));
-        const pickableRaw = await getAvailableFieldStaffMemberIdsOnDate(prisma, preferredDate, tenantId);
-        const pickable = new Set([...pickableRaw].filter((id) => crewMemberIds.has(id)));
-        items = items.filter((row) => pickable.has(row.id));
-      }
-    }
-
-    res.json({ items });
-  } catch (e) {
-    console.error('[GET /teams/members]', e);
-    const detail = e instanceof Error ? e.message : String(e);
-    const hint = /tenant_id|does not exist|42703/i.test(detail)
-      ? ' DB 마이그레이션(prisma migrate deploy)이 필요합니다.'
-      : '';
-    res.status(500).json({ error: `팀원 목록을 불러오지 못했습니다.${hint}` });
-  }
-});
 
 router.post('/members', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);

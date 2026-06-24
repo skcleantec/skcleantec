@@ -2,7 +2,10 @@ import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
 import { isTenantOwnerAdmin } from './tenantOwner.js';
-import { userHasStaffAdminAccess } from './staffAdminAccess.service.js';
+import {
+  userHasMarketerOperationalAdminAccess,
+  userHasStaffAdminAccess,
+} from './staffAdminAccess.service.js';
 
 export type CrewViewerRole = 'LEADER' | 'MEMBER';
 
@@ -84,6 +87,30 @@ export function adminRoleOnly(req: Request, res: Response, next: NextFunction) {
     return;
   }
   next();
+}
+
+/** ADMIN 또는 운영 권한 마케터(LIMITED·FULL) — 접수 수정·팀원 풀 조회 등 */
+export function adminOrOperationalMarketer(req: Request, res: Response, next: NextFunction) {
+  void (async () => {
+    try {
+      const user = (req as Request & { user?: AuthPayload }).user;
+      if (!user) {
+        res.status(403).json({ error: '권한이 필요합니다.' });
+        return;
+      }
+      if (user.role === 'ADMIN') {
+        next();
+        return;
+      }
+      if (user.role === 'MARKETER' && (await userHasMarketerOperationalAdminAccess(user))) {
+        next();
+        return;
+      }
+      res.status(403).json({ error: '권한이 필요합니다.' });
+    } catch (e) {
+      next(e);
+    }
+  })();
 }
 
 /** ADMIN 또는 MARKETER 허용 (발주서 발급 등) */
