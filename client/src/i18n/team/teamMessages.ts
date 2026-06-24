@@ -277,6 +277,20 @@ export const teamMessages = {
   'team.modal.copyShareDone': { ko: '복사됨'},
   'team.modal.copyShareFail': { ko: '복사 실패'},
 
+  'team.modal.cardPayment': { ko: '카드결재' },
+  'team.modal.cardPaymentTitle': {
+    ko: '원성페이먼츠 판매자센터(카드결재)를 새 창에서 엽니다.',
+  },
+  'team.cardPayment.pageTitle': { ko: '카드결재' },
+  'team.cardPayment.heading': { ko: '원성페이먼츠 판매자센터' },
+  'team.cardPayment.body': {
+    ko: '카드 결제는 원성페이먼츠 사이트에서 아이디·비밀번호로 로그인한 뒤 진행합니다. 잠시 후 해당 페이지로 이동합니다.',
+  },
+  'team.cardPayment.redirecting': { ko: '이동 중…' },
+  'team.cardPayment.redirectFailed': { ko: '자동 이동이 차단되었을 수 있습니다. 아래 버튼을 눌러 주세요.' },
+  'team.cardPayment.openSite': { ko: '결제 사이트 열기' },
+  'team.cardPayment.backToTeam': { ko: '팀장 화면으로' },
+
   'team.room.room': { ko: '방'},
   'team.room.bath': { ko: '화'},
   'team.room.veranda': { ko: '베'},

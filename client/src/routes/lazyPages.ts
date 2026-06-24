@@ -82,6 +82,9 @@ export const TeamDbMarketplacePage = lazyWithRetry(() =>
 export const TeamEContractListPage = lazyWithRetry(() =>
   import('../pages/team/TeamEContractListPage').then((m) => ({ default: m.TeamEContractListPage }))
 );
+export const TeamCardPaymentPage = lazyWithRetry(() =>
+  import('../pages/team/TeamCardPaymentPage').then((m) => ({ default: m.TeamCardPaymentPage }))
+);
 export const OrderFormPage = lazyWithRetry(() =>
   import('../pages/order/OrderFormPage').then((m) => ({ default: m.OrderFormPage }))
 );

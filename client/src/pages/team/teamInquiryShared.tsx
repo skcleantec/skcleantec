@@ -46,6 +46,7 @@ import {
 import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import type { InspectionListSummary } from '../../api/inquiryInspection';
+import { TEAM_CARD_PAYMENT_PATH } from '../../constants/teamCardPayment';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
   return (
@@ -859,6 +860,15 @@ export function TeamInquiryDetailModal({
     Boolean(teamToken) &&
     (viewerMe?.role === 'EXTERNAL_PARTNER' || Boolean(viewerMe?.previewExternal));
 
+  const showCardPayment =
+    Boolean(teamToken) &&
+    viewerMe?.role !== 'EXTERNAL_PARTNER' &&
+    !viewerMe?.previewExternal;
+
+  const handleOpenCardPayment = useCallback(() => {
+    window.open(TEAM_CARD_PAYMENT_PATH, '_blank', 'noopener,noreferrer');
+  }, []);
+
   const handleShareCopy = useCallback(async () => {
     setShareCopyHint(null);
     const ok = await copyTextToClipboard(buildTeamInquiryShareClipText(item));
@@ -923,6 +933,16 @@ export function TeamInquiryDetailModal({
                 aria-live="polite"
               >
                 {shareCopyHint ?? teamBiPlain('team.modal.copyShareOrder')}
+              </button>
+            ) : null}
+            {showCardPayment ? (
+              <button
+                type="button"
+                onClick={handleOpenCardPayment}
+                className="shrink-0 rounded-lg border border-emerald-600 bg-emerald-50 px-2.5 py-1.5 text-fluid-xs font-semibold text-emerald-900 hover:bg-emerald-100 active:bg-emerald-200/80 touch-manipulation"
+                title={teamBiPlain('team.modal.cardPaymentTitle')}
+              >
+                {teamBiPlain('team.modal.cardPayment')}
               </button>
             ) : null}
             <button

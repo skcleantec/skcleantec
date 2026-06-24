@@ -44,6 +44,7 @@ import {
   TeamExternalSettlementPage,
   TeamDbMarketplacePage,
   TeamEContractListPage,
+  TeamCardPaymentPage,
   OrderFormPage,
   OrderFormPrefillEditorPage,
   OrderInfoPage,
@@ -257,6 +258,16 @@ function App() {
         <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />
         <Route path="/inspection/:token" element={<SuspensePage><InspectionCustomerViewPage /></SuspensePage>} />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />
+        <Route
+          path="/team/card-payment"
+          element={
+            <TeamProtectedRoute>
+              <SuspensePage>
+                <TeamCardPaymentPage />
+              </SuspensePage>
+            </TeamProtectedRoute>
+          }
+        />
         <Route
           path="/crew"
           element={
