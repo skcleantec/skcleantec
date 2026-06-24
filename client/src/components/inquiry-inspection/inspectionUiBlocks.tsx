@@ -1,9 +1,5 @@
 import { useState, type ReactNode } from 'react';
 import {
-  InspectionPhotoCompareLightbox,
-  openCompareIndices,
-} from './InspectionPhotoCompareLightbox';
-import {
   INSPECTION_AREA_GUIDE,
   INSPECTION_BASIC_QUESTIONS,
   INSPECTION_CUSTOM_AREA_GUIDE,
@@ -68,6 +64,7 @@ export function InspectionItemCard({
   busy,
   photoMode,
   enablePhotoLightbox,
+  onComparePhotoOpen,
   onToggleNa,
   onUpload,
   onDeletePhoto,
@@ -78,6 +75,8 @@ export function InspectionItemCard({
   photoMode: InspectionPhotoMode;
   /** 고객 열람 등 — 탭 시 크게 보기·저장 */
   enablePhotoLightbox?: boolean;
+  /** 전·후 비교 모달(항목 간 이동) — 부모에서 slides 관리 */
+  onComparePhotoOpen?: (phase: 'BEFORE' | 'AFTER', index: number) => void;
   onToggleNa: (na: boolean) => void;
   onUpload: (phase: 'BEFORE' | 'AFTER', files: FileList | null) => void;
   onDeletePhoto: (photoId: string) => void;
@@ -97,16 +96,7 @@ export function InspectionItemCard({
   const afterReadOnly = readOnly || photoMode === 'before-only';
   const beforePhotos = item.photos.filter((p) => p.phase === 'BEFORE');
   const afterPhotos = item.photos.filter((p) => p.phase === 'AFTER');
-  const useCompareLightbox = Boolean(enablePhotoLightbox && showSplit);
-  const [compareOpen, setCompareOpen] = useState(false);
-  const [compareInitial, setCompareInitial] = useState(() =>
-    openCompareIndices('BEFORE', 0, beforePhotos.length, afterPhotos.length),
-  );
-
-  const openCompare = (phase: 'BEFORE' | 'AFTER', index: number) => {
-    setCompareInitial(openCompareIndices(phase, index, beforePhotos.length, afterPhotos.length));
-    setCompareOpen(true);
-  };
+  const useCompareLightbox = Boolean(enablePhotoLightbox && showSplit && onComparePhotoOpen);
 
   return (
     <div
@@ -151,7 +141,9 @@ export function InspectionItemCard({
             busy,
             split: true,
             enableLightbox: enablePhotoLightbox && !useCompareLightbox,
-            onPhotoClick: useCompareLightbox ? (idx) => openCompare('BEFORE', idx) : undefined,
+            onPhotoClick: useCompareLightbox
+              ? (idx) => onComparePhotoOpen!('BEFORE', idx)
+              : undefined,
             onUpload,
             onDeletePhoto,
           })}
@@ -164,7 +156,9 @@ export function InspectionItemCard({
             busy,
             split: true,
             enableLightbox: enablePhotoLightbox && !useCompareLightbox,
-            onPhotoClick: useCompareLightbox ? (idx) => openCompare('AFTER', idx) : undefined,
+            onPhotoClick: useCompareLightbox
+              ? (idx) => onComparePhotoOpen!('AFTER', idx)
+              : undefined,
             onUpload,
             onDeletePhoto,
           })}
@@ -200,16 +194,6 @@ export function InspectionItemCard({
         </div>
       )}
 
-      {useCompareLightbox ? (
-        <InspectionPhotoCompareLightbox
-          open={compareOpen}
-          onClose={() => setCompareOpen(false)}
-          itemLabel={item.label}
-          beforePhotos={beforePhotos}
-          afterPhotos={afterPhotos}
-          initial={compareInitial}
-        />
-      ) : null}
     </div>
   );
 }
@@ -361,6 +345,7 @@ export function InspectionAreaSection({
   busy,
   photoMode,
   enablePhotoLightbox,
+  onComparePhotoOpen,
   defaultOpen,
   onToggleAreaNa,
   onAddItem,
@@ -376,6 +361,7 @@ export function InspectionAreaSection({
   busy: boolean;
   photoMode: InspectionPhotoMode;
   enablePhotoLightbox?: boolean;
+  onComparePhotoOpen?: (itemId: string, phase: 'BEFORE' | 'AFTER', index: number) => void;
   defaultOpen?: boolean;
   onToggleAreaNa?: (na: boolean) => void;
   onAddItem?: () => void;
@@ -466,6 +452,11 @@ export function InspectionAreaSection({
                 busy={busy}
                 photoMode={photoMode}
                 enablePhotoLightbox={enablePhotoLightbox}
+                onComparePhotoOpen={
+                  onComparePhotoOpen
+                    ? (phase, index) => onComparePhotoOpen(item.id, phase, index)
+                    : undefined
+                }
                 onToggleNa={(na) => onToggleItemNa(item.id, na)}
                 onUpload={(phase, files) => onUpload(item.id, phase, files)}
                 onDeletePhoto={(photoId) => onDeletePhoto(item.id, photoId)}

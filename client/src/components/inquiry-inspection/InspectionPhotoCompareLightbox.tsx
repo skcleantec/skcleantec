@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { InspectionAreaPhoto } from '../../api/inquiryInspection';
+import type { InspectionAreaPhoto, InspectionChecklistDto } from '../../api/inquiryInspection';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 
 function sanitizeFilenamePart(raw: string): string {
@@ -26,7 +26,15 @@ async function downloadPhoto(url: string, filename: string) {
   }
 }
 
-type OpenState = {
+export type InspectionCompareSlide = {
+  itemId: string;
+  areaLabel: string;
+  itemLabel: string;
+  beforePhotos: InspectionAreaPhoto[];
+  afterPhotos: InspectionAreaPhoto[];
+};
+
+export type ComparePhotoInitial = {
   beforeIndex: number;
   afterIndex: number;
 };
@@ -34,11 +42,50 @@ type OpenState = {
 type Props = {
   open: boolean;
   onClose: () => void;
-  itemLabel: string;
-  beforePhotos: InspectionAreaPhoto[];
-  afterPhotos: InspectionAreaPhoto[];
-  initial?: OpenState;
+  slides: InspectionCompareSlide[];
+  slideIndex: number;
+  onSlideIndexChange: (index: number) => void;
+  initial?: ComparePhotoInitial;
 };
+
+export function buildInspectionCompareSlides(checklist: InspectionChecklistDto): InspectionCompareSlide[] {
+  const out: InspectionCompareSlide[] = [];
+  for (const area of checklist.areas) {
+    if (area.notApplicable) continue;
+    for (const item of area.items) {
+      if (item.itemKey.startsWith('_') || item.notApplicable) continue;
+      out.push({
+        itemId: item.id,
+        areaLabel: area.label,
+        itemLabel: item.label,
+        beforePhotos: item.photos.filter((p) => p.phase === 'BEFORE'),
+        afterPhotos: item.photos.filter((p) => p.phase === 'AFTER'),
+      });
+    }
+  }
+  return out;
+}
+
+function NavCircleButton({
+  label,
+  onClick,
+  className,
+}: {
+  label: string;
+  onClick: () => void;
+  className: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-xl font-light text-slate-800 shadow-md touch-manipulation hover:border-slate-400 hover:bg-slate-50 active:scale-95 ${className}`}
+    >
+      <span aria-hidden>{label.includes('이전') ? '‹' : '›'}</span>
+    </button>
+  );
+}
 
 function PhotoPane({
   label,
@@ -61,7 +108,9 @@ function PhotoPane({
   const photo = photos[index];
   const multi = photos.length > 1;
   const headerCls =
-    tone === 'before' ? 'border-sky-200/80 bg-sky-950/40 text-sky-100' : 'border-emerald-200/80 bg-emerald-950/40 text-emerald-100';
+    tone === 'before'
+      ? 'border-sky-200 bg-sky-50 text-sky-900'
+      : 'border-emerald-200 bg-emerald-50 text-emerald-900';
 
   const handleDownload = async () => {
     if (!photo || downloadBusy) return;
@@ -76,39 +125,39 @@ function PhotoPane({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className={`shrink-0 border-b px-2 py-1.5 text-center text-xs font-semibold ${headerCls}`}>
+      <div className={`shrink-0 border-b px-2 py-2 text-center text-xs font-semibold ${headerCls}`}>
         {label}
         {photos.length > 0 ? (
-          <span className="ml-1 font-normal opacity-80">
+          <span className="ml-1 font-normal text-slate-600">
             ({index + 1}/{photos.length})
           </span>
         ) : null}
       </div>
-      <div className="relative flex min-h-0 flex-1 items-center justify-center bg-black/30 p-2">
+      <div className="relative flex min-h-[12rem] min-w-0 flex-1 items-center justify-center bg-slate-100 p-2 sm:min-h-[16rem]">
         {photo ? (
           <img
             src={photo.secureUrl}
             alt={`${itemLabel} ${label}`}
-            className="max-h-[min(58dvh,100%)] max-w-full object-contain select-none"
+            className="max-h-[min(52dvh,100%)] max-w-full object-contain select-none"
             draggable={false}
           />
         ) : (
-          <p className="text-sm text-white/50">사진 없음</p>
+          <p className="text-sm text-slate-400">사진 없음</p>
         )}
         {multi && photo ? (
           <>
             <button
               type="button"
-              className="absolute left-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/55 text-lg text-white touch-manipulation hover:bg-black/75"
-              aria-label={`${label} 이전`}
+              className="absolute left-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-lg text-slate-800 shadow touch-manipulation hover:bg-slate-50"
+              aria-label={`${label} 이전 사진`}
               onClick={() => onIndexChange((index - 1 + photos.length) % photos.length)}
             >
               ‹
             </button>
             <button
               type="button"
-              className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/55 text-lg text-white touch-manipulation hover:bg-black/75"
-              aria-label={`${label} 다음`}
+              className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-lg text-slate-800 shadow touch-manipulation hover:bg-slate-50"
+              aria-label={`${label} 다음 사진`}
               onClick={() => onIndexChange((index + 1) % photos.length)}
             >
               ›
@@ -116,12 +165,12 @@ function PhotoPane({
           </>
         ) : null}
       </div>
-      <div className="shrink-0 border-t border-white/10 p-2">
+      <div className="shrink-0 border-t border-slate-200 bg-white p-2">
         <button
           type="button"
           disabled={!photo || downloadBusy}
           onClick={() => void handleDownload()}
-          className="w-full min-h-[40px] rounded-lg border border-white/25 bg-black/55 text-sm font-medium text-white touch-manipulation hover:bg-black/70 disabled:opacity-40"
+          className="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-800 touch-manipulation hover:bg-slate-50 disabled:opacity-40"
         >
           {downloadBusy ? '저장 중…' : `${label} 저장`}
         </button>
@@ -133,21 +182,39 @@ function PhotoPane({
 export function InspectionPhotoCompareLightbox({
   open,
   onClose,
-  itemLabel,
-  beforePhotos,
-  afterPhotos,
+  slides,
+  slideIndex,
+  onSlideIndexChange,
   initial,
 }: Props) {
+  const slide = slides[slideIndex];
   const [beforeIndex, setBeforeIndex] = useState(0);
   const [afterIndex, setAfterIndex] = useState(0);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !slide) return;
     const b = initial?.beforeIndex ?? 0;
     const a = initial?.afterIndex ?? 0;
-    setBeforeIndex(beforePhotos.length ? Math.min(b, beforePhotos.length - 1) : 0);
-    setAfterIndex(afterPhotos.length ? Math.min(a, afterPhotos.length - 1) : 0);
-  }, [open, initial?.beforeIndex, initial?.afterIndex, beforePhotos.length, afterPhotos.length]);
+    setBeforeIndex(slide.beforePhotos.length ? Math.min(b, slide.beforePhotos.length - 1) : 0);
+    setAfterIndex(slide.afterPhotos.length ? Math.min(a, slide.afterPhotos.length - 1) : 0);
+  }, [
+    open,
+    slide?.itemId,
+    initial?.beforeIndex,
+    initial?.afterIndex,
+    slide?.beforePhotos.length,
+    slide?.afterPhotos.length,
+  ]);
+
+  const goPrevItem = () => {
+    if (slides.length <= 1) return;
+    onSlideIndexChange((slideIndex - 1 + slides.length) % slides.length);
+  };
+
+  const goNextItem = () => {
+    if (slides.length <= 1) return;
+    onSlideIndexChange((slideIndex + 1) % slides.length);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -155,52 +222,96 @@ export function InspectionPhotoCompareLightbox({
     document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      if (slides.length <= 1) return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goPrevItem();
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goNextItem();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener('keydown', onKey);
     };
-  }, [open, onClose]);
+  }, [open, onClose, slideIndex, slides.length]);
 
-  if (!open) return null;
+  if (!open || !slide) return null;
+
+  const titleLine = slide.areaLabel ? `${slide.areaLabel} · ${slide.itemLabel}` : slide.itemLabel;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[720] flex flex-col bg-black/92 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+      className="fixed inset-0 z-[720] flex items-center justify-center p-2 sm:p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={`${itemLabel} 검수 사진`}
+      aria-label={`${titleLine} 검수 사진`}
       onClick={onClose}
     >
-      <div className="pointer-events-none absolute left-1/2 top-[max(0.5rem,env(safe-area-inset-top))] z-10 w-[min(94vw,28rem)] -translate-x-1/2 px-10 text-center">
-        <p className="truncate text-sm font-semibold text-white drop-shadow-md">{itemLabel}</p>
-        <p className="mt-0.5 text-xs text-white/70">왼쪽 청소 전 · 오른쪽 청소 후</p>
-      </div>
-      <ModalCloseButton onClick={onClose} className="right-2 top-2 z-20 sm:right-3 sm:top-3" />
-
       <div
-        className="relative z-0 mx-auto mt-10 flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-2 sm:flex-row sm:gap-0 sm:divide-x sm:divide-white/15"
+        className="relative flex w-full max-w-[min(100%,56rem)] items-stretch gap-1 sm:gap-2"
         onClick={(e) => e.stopPropagation()}
       >
-        <PhotoPane
-          label="청소 전"
-          tone="before"
-          photos={beforePhotos}
-          index={beforeIndex}
-          onIndexChange={setBeforeIndex}
-          itemLabel={itemLabel}
-          phaseTag="before"
-        />
-        <PhotoPane
-          label="청소 후"
-          tone="after"
-          photos={afterPhotos}
-          index={afterIndex}
-          onIndexChange={setAfterIndex}
-          itemLabel={itemLabel}
-          phaseTag="after"
-        />
+        {slides.length > 1 ? (
+          <div className="hidden shrink-0 items-center sm:flex">
+            <NavCircleButton label="이전 항목" onClick={goPrevItem} className="" />
+          </div>
+        ) : null}
+
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border-2 border-slate-300 bg-white shadow-2xl">
+          <ModalCloseButton onClick={onClose} className="right-2 top-2 z-20 sm:right-3 sm:top-3" />
+
+          <div className="border-b border-slate-200 bg-slate-50 px-3 py-2.5 pt-10 text-center sm:px-4">
+            <p className="truncate text-sm font-semibold text-slate-900">{titleLine}</p>
+            <p className="mt-0.5 text-xs text-slate-600">
+              왼쪽 청소 전 · 오른쪽 청소 후
+              {slides.length > 1 ? (
+                <span className="ml-1.5 tabular-nums text-slate-500">
+                  · 항목 {slideIndex + 1}/{slides.length}
+                </span>
+              ) : null}
+            </p>
+            {slides.length > 1 ? (
+              <div className="mt-2 flex items-center justify-center gap-2 sm:hidden">
+                <NavCircleButton label="이전 항목" onClick={goPrevItem} className="!h-9 !w-9 !text-base" />
+                <span className="text-fluid-2xs tabular-nums text-slate-600">
+                  {slideIndex + 1} / {slides.length}
+                </span>
+                <NavCircleButton label="다음 항목" onClick={goNextItem} className="!h-9 !w-9 !text-base" />
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col divide-y divide-slate-200 sm:flex-row sm:divide-x sm:divide-y-0">
+            <PhotoPane
+              label="청소 전"
+              tone="before"
+              photos={slide.beforePhotos}
+              index={beforeIndex}
+              onIndexChange={setBeforeIndex}
+              itemLabel={slide.itemLabel}
+              phaseTag="before"
+            />
+            <PhotoPane
+              label="청소 후"
+              tone="after"
+              photos={slide.afterPhotos}
+              index={afterIndex}
+              onIndexChange={setAfterIndex}
+              itemLabel={slide.itemLabel}
+              phaseTag="after"
+            />
+          </div>
+        </div>
+
+        {slides.length > 1 ? (
+          <div className="hidden shrink-0 items-center sm:flex">
+            <NavCircleButton label="다음 항목" onClick={goNextItem} className="" />
+          </div>
+        ) : null}
       </div>
     </div>,
     document.body,
@@ -212,7 +323,7 @@ export function openCompareIndices(
   index: number,
   beforeCount: number,
   afterCount: number,
-): OpenState {
+): ComparePhotoInitial {
   if (phase === 'BEFORE') {
     return {
       beforeIndex: index,

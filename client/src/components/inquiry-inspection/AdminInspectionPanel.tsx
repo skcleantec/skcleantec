@@ -15,6 +15,7 @@ import {
   InspectionHeaderBlock,
 } from './inspectionUiBlocks';
 import { FlaggedBeforePhotosSection } from './FlaggedBeforePhotosSection';
+import { useInspectionCompareLightbox } from './useInspectionCompareLightbox';
 import { getMe } from '../../api/auth';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
@@ -34,6 +35,7 @@ export function AdminInspectionPanel({
   const [voidPassword, setVoidPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [copyHint, setCopyHint] = useState<string | null>(null);
+  const { openCompare, lightbox: compareLightbox } = useInspectionCompareLightbox(checklist);
 
   const reload = useCallback(async () => {
     setErr(null);
@@ -194,6 +196,7 @@ export function AdminInspectionPanel({
                 busy={false}
                 photoMode="both"
                 enablePhotoLightbox
+                onComparePhotoOpen={openCompare}
                 defaultOpen={false}
                 onToggleItemNa={() => {}}
                 onUpload={() => {}}
@@ -285,6 +288,8 @@ export function AdminInspectionPanel({
           )}
         </div>
       </details>
+
+      {compareLightbox}
     </div>
   );
 }

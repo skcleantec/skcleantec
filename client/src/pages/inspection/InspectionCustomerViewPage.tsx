@@ -8,6 +8,7 @@ import {
   InspectionConsentSection,
   InspectionHeaderBlock,
 } from '../../components/inquiry-inspection/inspectionUiBlocks';
+import { useInspectionCompareLightbox } from '../../components/inquiry-inspection/useInspectionCompareLightbox';
 import type { InspectionChecklistDto } from '../../api/inquiryInspection';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 
@@ -56,6 +57,8 @@ function PageShell({
 }
 
 function ReadOnlyChecklistBody({ checklist }: { checklist: InspectionChecklistDto }) {
+  const { openCompare, lightbox: compareLightbox } = useInspectionCompareLightbox(checklist);
+
   return (
     <div className="space-y-4">
       <InspectionHeaderBlock checklist={checklist} />
@@ -71,6 +74,7 @@ function ReadOnlyChecklistBody({ checklist }: { checklist: InspectionChecklistDt
             busy={false}
             photoMode="both"
             enablePhotoLightbox
+            onComparePhotoOpen={openCompare}
             defaultOpen={false}
             onToggleItemNa={() => {}}
             onUpload={() => {}}
@@ -106,6 +110,7 @@ function ReadOnlyChecklistBody({ checklist }: { checklist: InspectionChecklistDt
           PDF 다운로드
         </a>
       ) : null}
+      {compareLightbox}
     </div>
   );
 }
