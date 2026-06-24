@@ -1091,6 +1091,8 @@ model Inquiry {
   crewMemberCount Int?       @map("crew_member_count")
   /// 팀원 누구 투입 등 수기 메모(예: 김,태)
   crewMemberNote  String?    @map("crew_member_note")
+  /// true: 팀장 단독 현장(크루 투입 없음) — 관리자가 의도적으로 지정
+  noCrewMembers   Boolean    @default(false) @map("no_crew_members")
   /// 스케줄 목록(이름·접수번호 옆)에만 쓰는 짧은 메모 — 특이사항·발주서 메모와 별개
   scheduleMemo    String?    @map("schedule_memo")
   /// 상담·참고 사진과 함께 쓰는 마케터 메모 — 담당 팀장·타업체·마케터 공유

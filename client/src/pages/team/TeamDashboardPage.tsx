@@ -22,6 +22,7 @@ import {
   TeamInquiryDetailModal,
   formatTeamInquiryAreaSummary,
   TeamCoLeadersListHint,
+  TeamNoCrewMembersListBadge,
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
@@ -226,6 +227,7 @@ export function TeamDashboardPage() {
                       {STATUS_LABELS[item.status] ?? item.status}
                     </span>
                     <TeamHappyCallBadge item={item} />
+                    <TeamNoCrewMembersListBadge item={item} />
                   </div>
                 </div>
               );
@@ -303,6 +305,7 @@ export function TeamDashboardPage() {
                                 {STATUS_LABELS[item.status] ?? item.status}
                               </span>
                               <TeamHappyCallBadge item={item} />
+                              <TeamNoCrewMembersListBadge item={item} />
                             </div>
                             <TeamCoLeadersListHint item={item} viewerId={myId} className="mt-1 text-fluid-2xs text-gray-600" />
                           </div>

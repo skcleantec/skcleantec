@@ -106,6 +106,11 @@ export const teamMessages = {
   'team.modal.row.professional': { ko: '전문 시공'},
   'team.modal.row.crew': { ko: '투입 팀원'},
   'team.modal.crewCount': { ko: '팀원{count}명'},
+  'team.modal.soloLeaderCrew': { ko: '팀장 단독 · 크루 없음'},
+  'team.modal.soloLeaderBanner': {
+    ko: '팀장 단독 현장 — 크루(팀원) 없이 팀장 혼자 진행합니다.',
+  },
+  'team.assign.soloLeaderBadge': { ko: '팀장 단독 · 크루 없음'},
   'team.modal.row.meetingTime': { ko: '미팅시간'},
   'team.modal.meetingAria': {
     ko: '현장 미팅 시각 (저장 시 크루 일정에 반영)',

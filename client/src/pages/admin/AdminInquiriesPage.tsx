@@ -98,6 +98,11 @@ import { TeamMemberSearchSelect } from '../../components/admin/TeamMemberSearchS
 import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
 import { resolveTeamLeaderIdForCrewSpacing } from '../../utils/crewLeaderSpacing';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
+import {
+  applyCrewFieldsToInquiryPatch,
+  hasAssignedTeamLeader,
+  SOLO_LEADER_CREW_LABEL,
+} from '../../utils/inquiryNoCrewMembers';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 import {
@@ -485,6 +490,7 @@ interface InquiryItem {
   }>;
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
+  noCrewMembers?: boolean | null;
   externalTransferFee?: number | null;
   tenantShare?: import('../../api/tenantInquiryShare').TenantInquiryShareMeta | null;
   dbListing?: import('../../api/dbMarketplace').InquiryDbListingMeta | null;
@@ -638,8 +644,12 @@ function formatInquiryTeamSummary(item: InquiryItem): string {
     .join('/');
   const parts: string[] = [];
   parts.push(names || '미배정');
-  parts.push(`팀원${crewN}명`);
-  if (item.crewMemberNote?.trim()) parts.push(formatCrewNoteDisplay(item.crewMemberNote.trim(), crewN));
+  if (item.noCrewMembers) {
+    parts.push(SOLO_LEADER_CREW_LABEL);
+  } else {
+    parts.push(`팀원${crewN}명`);
+    if (item.crewMemberNote?.trim()) parts.push(formatCrewNoteDisplay(item.crewMemberNote.trim(), crewN));
+  }
   return parts.join('/');
 }
 
@@ -782,6 +792,7 @@ export function AdminInquiriesPage() {
     crewMemberCount: 0 as number,
     /** 등록 팀원 목록에서 선택한 이름들(슬롯 순서 유지). 저장 시 `/`로 합쳐 crewMemberNote로 전송. */
     crewMemberNames: [] as string[],
+    noCrewMembers: false,
     status: '',
     customerPhone2: '',
     propertyType: '',
@@ -1162,7 +1173,7 @@ export function AdminInquiriesPage() {
   // 슬롯(crewMemberCount)에 맞게 crewMemberNames 배열 길이를 동기화한다.
   useEffect(() => {
     if (!editItem) return;
-    const slots = Math.max(0, editForm.crewMemberCount);
+    const slots = editForm.noCrewMembers ? 0 : Math.max(0, editForm.crewMemberCount);
     setEditForm((prev) => {
       const cur = prev.crewMemberNames;
       if (slots === cur.length) return prev;
@@ -1173,7 +1184,7 @@ export function AdminInquiriesPage() {
       while (next.length < slots) next.push('');
       return { ...prev, crewMemberNames: next };
     });
-  }, [editItem, editForm.crewMemberCount]);
+  }, [editItem, editForm.crewMemberCount, editForm.noCrewMembers]);
 
   useEffect(() => {
     if (!token || (me?.role !== 'ADMIN' && me?.role !== 'MARKETER')) {
@@ -1690,6 +1701,7 @@ export function AdminInquiriesPage() {
       teamLeaderIds: initialTeamLeaderIdsForEdit(item.assignments),
       crewMemberCount: item.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(item.crewMemberNote),
+      noCrewMembers: Boolean(item.noCrewMembers),
       status: item.status,
       customerPhone2: item.customerPhone2 || '',
       propertyType: item.propertyType || '',
@@ -2213,18 +2225,21 @@ export function AdminInquiriesPage() {
           return;
         }
       }
-      {
-        const c = editForm.crewMemberCount;
-        if (!Number.isFinite(c) || c < 0 || c > 100) {
-          alert('팀원 인원은 0~100 사이로 설정해주세요.');
-          setSaving(false);
-          return;
-        }
-        patch.crewMemberCount = Math.floor(c);
+      if (editForm.noCrewMembers && !hasAssignedTeamLeader(editForm.teamLeaderIds, resolvedExternalLeadId)) {
+        alert('팀장 단독(크루 없음)은 담당 팀장을 배정한 뒤에만 설정할 수 있습니다.');
+        setSaving(false);
+        return;
       }
-      {
-        const pickedNames = editForm.crewMemberNames.map((n) => n.trim()).filter(Boolean);
-        patch.crewMemberNote = pickedNames.length > 0 ? pickedNames.join('/') : null;
+      try {
+        applyCrewFieldsToInquiryPatch(patch, {
+          noCrewMembers: editForm.noCrewMembers,
+          crewMemberCount: editForm.crewMemberCount,
+          crewMemberNames: editForm.crewMemberNames,
+        });
+      } catch (err) {
+        alert(err instanceof Error ? err.message : '팀원 정보를 확인해주세요.');
+        setSaving(false);
+        return;
       }
       patch.teamLeaderIds = leaderIdsForSave;
       await updateInquiry(token, editItem.id, patch);
@@ -4584,6 +4599,40 @@ export function AdminInquiriesPage() {
                 )}
               </div>
               <div className="sm:col-span-2">
+                <label
+                  className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 ${
+                    editForm.noCrewMembers ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'
+                  } ${
+                    hasAssignedTeamLeader(editForm.teamLeaderIds, resolvedExternalLeadId)
+                      ? 'cursor-pointer'
+                      : 'cursor-not-allowed opacity-70'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300"
+                    checked={editForm.noCrewMembers}
+                    disabled={!hasAssignedTeamLeader(editForm.teamLeaderIds, resolvedExternalLeadId)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setEditForm((p) => ({
+                        ...p,
+                        noCrewMembers: checked,
+                        ...(checked ? { crewMemberCount: 0, crewMemberNames: [] } : {}),
+                      }));
+                    }}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-fluid-sm font-medium text-slate-900">{SOLO_LEADER_CREW_LABEL}</span>
+                    <span className="mt-0.5 block text-fluid-xs leading-relaxed text-slate-600">
+                      팀장 혼자 현장에 나가는 건입니다. 체크하면 팀장 화면에 「{SOLO_LEADER_CREW_LABEL}」으로 표시됩니다.
+                    </span>
+                  </span>
+                </label>
+              </div>
+              {!editForm.noCrewMembers ? (
+              <>
+              <div className="sm:col-span-2">
                 <label className="block text-fluid-sm text-slate-600 mb-1">팀원 투입</label>
                 <p className="text-fluid-xs text-slate-500 mb-2">
                   인원 수를 선택하면 아래 "투입 팀원 선택" 슬롯이 그만큼 늘어납니다. 이름 일부나 초성(예: ㄱㅁ)으로 빠르게 검색할 수 있습니다.
@@ -4651,6 +4700,8 @@ export function AdminInquiriesPage() {
                   </p>
                 </div>
               )}
+              </>
+              ) : null}
               <div className="sm:col-span-2">
                 <label className="block text-fluid-sm text-slate-600 mb-1">메모 (발주서 요약·관리자 메모)</label>
                 <textarea

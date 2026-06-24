@@ -188,6 +188,8 @@ export interface InquiryItem {
   specialNotes?: string | null;
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
+  /** true: 팀장 단독 현장(크루 없음) */
+  noCrewMembers?: boolean | null;
   /** 서버에서 `crewMemberNote`의 이름을 `TeamMember`와 매칭해 첨부한 전화번호·미팅 시각 */
   crewMembers?: Array<{
     teamMemberId: string | null;
@@ -293,6 +295,7 @@ export function formatRoomInfo(r: number | null, b: number | null, v: number | n
 }
 
 export function formatCrewInfo(item: InquiryItem): string {
+  if (item.noCrewMembers) return teamBiPlain('team.modal.soloLeaderCrew');
   const n = item.crewMemberCount ?? 0;
   const tokens = item.crewMemberNote
     ?.split(/[,·/|]/g)
@@ -609,6 +612,41 @@ export function TeamCoLeadersListHint({
       <span className="text-gray-500">{teamBiPlain('team.assign.thCoLeaders')}</span>{' '}
       <span className="font-medium text-gray-800">{summary}</span>
     </p>
+  );
+}
+
+/** 목록·카드 — 팀장 단독(크루 없음) 강조 pill */
+export function TeamNoCrewMembersListBadge({
+  item,
+  className = '',
+}: {
+  item: InquiryItem;
+  className?: string;
+}) {
+  if (!item.noCrewMembers) return null;
+  const label = teamBiPlain('team.assign.soloLeaderBadge');
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-fluid-2xs font-semibold text-amber-950 ${className}`}
+      title={label}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** 접수 상세 상단 — 팀장 단독(크루 없음) 강조 */
+export function TeamNoCrewMembersDetailBanner({ item }: { item: InquiryItem }) {
+  if (!item.noCrewMembers) return null;
+  return (
+    <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3" role="status">
+      <p className="text-fluid-xs font-semibold text-amber-950">
+        <TeamBiLine id="team.modal.soloLeaderBanner" koClassName="text-fluid-xs font-semibold text-amber-950" />
+      </p>
+      <p className="mt-1 text-fluid-sm font-semibold text-amber-900">
+        {teamBiPlain('team.modal.soloLeaderCrew')}
+      </p>
+    </div>
   );
 }
 
@@ -950,6 +988,7 @@ export function TeamInquiryDetailModal({
         </header>
 
         <TeamCoLeadersDetailBanner item={item} viewerId={effectiveViewerId} />
+        <TeamNoCrewMembersDetailBanner item={item} />
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
           <div className="flex flex-col gap-4">

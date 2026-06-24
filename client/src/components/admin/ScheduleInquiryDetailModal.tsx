@@ -81,6 +81,12 @@ import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
 import { resolveTeamLeaderIdForCrewSpacing } from '../../utils/crewLeaderSpacing';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
+import {
+  applyCrewFieldsToInquiryPatch,
+  adminCrewPreviewLabel,
+  hasAssignedTeamLeader,
+  SOLO_LEADER_CREW_LABEL,
+} from '../../utils/inquiryNoCrewMembers';
 import { TeamMemberSearchSelect } from './TeamMemberSearchSelect';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
@@ -226,12 +232,7 @@ function formatScheduleItemAssignmentLeaders(it: ScheduleItem): string {
 }
 
 function crewPreviewLabel(it: ScheduleItem): string {
-  const n = it.crewMemberCount ?? 0;
-  const raw = (it.crewMemberNote ?? '').trim();
-  if (!raw && n <= 0) return '팀원 미입력';
-  const names = parseCrewMemberNoteToNames(raw).filter(Boolean);
-  if (names.length > 0) return `${n}명 · ${names.join('/')}`;
-  return `${n}명`;
+  return adminCrewPreviewLabel(it, parseCrewMemberNoteToNames);
 }
 
 function distanceFromJuanLabel(item: ScheduleItem): string | null {
@@ -281,6 +282,8 @@ type EditFormFields = {
   crewMemberCount: number;
   /** 팀원 선택 목록(인원수만큼 슬롯) */
   crewMemberNames: string[];
+  /** 팀장 단독 현장(크루 없음) */
+  noCrewMembers: boolean;
   status: string;
   createdById: string;
   operatingCompanyId: string;
@@ -411,14 +414,12 @@ function buildPatchFromEditForm(
     throw new Error('베란다 개수는 숫자로 입력해주세요.');
   }
   {
-    const c = editForm.crewMemberCount;
-    if (!Number.isFinite(c) || c < 0 || c > 100) {
-      throw new Error('팀원 인원은 0~100 사이로 설정해주세요.');
-    }
-    patch.crewMemberCount = Math.floor(c);
+    applyCrewFieldsToInquiryPatch(patch, {
+      noCrewMembers: editForm.noCrewMembers,
+      crewMemberCount: editForm.crewMemberCount,
+      crewMemberNames: editForm.crewMemberNames,
+    });
   }
-  const pickedNames = editForm.crewMemberNames.map((n) => n.trim()).filter(Boolean);
-  patch.crewMemberNote = pickedNames.length > 0 ? pickedNames.join('/') : null;
   return patch;
 }
 
@@ -451,7 +452,9 @@ function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> 
     memo: p.memo,
     source: '전화',
     status: p.status ?? 'RECEIVED',
+    noCrewMembers: p.noCrewMembers,
     crewMemberCount: p.crewMemberCount,
+    crewMemberNote: p.crewMemberNote,
     ...(editForm.operatingCompanyId.trim()
       ? { operatingCompanyId: editForm.operatingCompanyId.trim() }
       : {}),
@@ -908,6 +911,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         teamLeaderIds: [''],
         crewMemberCount: 0,
         crewMemberNames: [],
+        noCrewMembers: false,
         status: 'RECEIVED',
         createdById: '',
         operatingCompanyId: '',
@@ -952,6 +956,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       teamLeaderIds: initialTeamLeaderIdsForEdit(it.assignments),
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
+      noCrewMembers: Boolean(it.noCrewMembers),
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
       operatingCompanyId: it.operatingCompanyId ?? it.operatingCompany?.id ?? '',
@@ -1301,6 +1306,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       teamLeaderIds: initialTeamLeaderIdsForEdit(it.assignments),
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
+      noCrewMembers: Boolean(it.noCrewMembers),
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
       operatingCompanyId: it.operatingCompanyId ?? it.operatingCompany?.id ?? '',
@@ -1413,7 +1419,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return true;
   }, [poolTeamMembers, occupiedCrewNamesByDate, editForm.crewMemberNames]);
 
-  const effectiveCrewSlots = Math.max(0, editForm.crewMemberCount);
+  const effectiveCrewSlots = editForm.noCrewMembers ? 0 : Math.max(0, editForm.crewMemberCount);
+
+  const canAssignSoloLeader = hasAssignedTeamLeader(editForm.teamLeaderIds, resolvedExternalLeadId);
 
   const canUseCrewPartnerSwap = useMemo(() => {
     if (isCreate || !item || effectiveCrewSlots <= 0) return false;
@@ -1717,6 +1725,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       !editForm.moveInDate.trim()
     ) {
       alert('신축·구축·인테리어 선택 시 이사 예정일을 입력하거나 「미정」을 선택해 주세요.');
+      return;
+    }
+    if (editForm.noCrewMembers && !canAssignSoloLeader) {
+      alert('팀장 단독(크루 없음)은 담당 팀장을 배정한 뒤에만 설정할 수 있습니다.');
       return;
     }
     const leaderIdsForSave = resolvedExternalLeadId
@@ -3158,6 +3170,37 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             )}
           </div>
           <div className="sm:col-span-2">
+            <label
+              className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 ${
+                editForm.noCrewMembers ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-gray-50'
+              } ${canAssignSoloLeader ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300"
+                checked={editForm.noCrewMembers}
+                disabled={!canAssignSoloLeader}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setEditForm((p) => ({
+                    ...p,
+                    noCrewMembers: checked,
+                    ...(checked ? { crewMemberCount: 0, crewMemberNames: [] } : {}),
+                  }));
+                }}
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-gray-900">{SOLO_LEADER_CREW_LABEL}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-gray-600">
+                  팀장 혼자 현장에 나가는 건입니다. 체크하면 팀장 화면에 「{SOLO_LEADER_CREW_LABEL}」으로 표시되어
+                  팀원 미입력과 구분됩니다. 담당 팀장 배정 후에만 선택할 수 있습니다.
+                </span>
+              </span>
+            </label>
+          </div>
+          {!editForm.noCrewMembers ? (
+          <>
+          <div className="sm:col-span-2">
             <div className="mb-2 flex items-center gap-2">
               <label className="block text-gray-600">팀원 투입</label>
               <div ref={crewHelpRef} className="relative group">
@@ -3250,6 +3293,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               ) : null}
             </div>
           )}
+          </>
+          ) : null}
           <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">특이사항 (관리자·팀장 공유)</label>
             <textarea

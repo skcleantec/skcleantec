@@ -79,6 +79,7 @@ const scheduleListSelectLite = {
   internalCustomerTone: true,
   crewMemberCount: true,
   crewMemberNote: true,
+  noCrewMembers: true,
   professionalOptionIds: true,
   profOptionsAmountReviewPending: true,
   serviceTotalAmount: true,

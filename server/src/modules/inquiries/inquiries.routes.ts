@@ -80,6 +80,12 @@ import inquiryInspectionAdminRoutes from '../inquiry-inspection/inquiryInspectio
 import { buildInquiryPatchCrewRosterAckMessages } from './crewRosterAckMessages.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
 import {
+  applyNoCrewMembersToUpdateData,
+  hasNoCrewMembersField,
+  parseNoCrewMembersInput,
+  resolveNoCrewMembersForPatch,
+} from './inquiryNoCrewMembers.helpers.js';
+import {
   clearInquiryCrewMemberMeetingTimes,
   inquiryHasAnyCrewMeetingTime,
 } from './inquiryCrewMemberMeetingTime.service.js';
@@ -759,6 +765,7 @@ router.patch('/:id', async (req, res) => {
     teamLeaderIds = [];
     data.crewMemberCount = null;
     data.crewMemberNote = null;
+    data.noCrewMembers = false;
   }
 
   if (tentativeMergedStatus !== 'CANCELLED' && inquiry.status === 'CANCELLED') {
@@ -984,12 +991,36 @@ router.patch('/:id', async (req, res) => {
 
   const mergedCrewMemberNote =
     data.crewMemberNote !== undefined ? (data.crewMemberNote as string | null) : inquiry.crewMemberNote;
-  const crewRosterChanged = isCrewRosterChanged(
-    inquiry.crewMemberNote,
-    inquiry.crewMemberCount,
-    mergedCrewMemberNote,
-    mergedCrew,
-  );
+
+  const effectiveTeamLeaderCount = wantsTeamSync
+    ? teamLeaderIds.length
+    : inquiry.assignments.length;
+  const noCrewResolve = resolveNoCrewMembersForPatch({
+    body,
+    inquiryNoCrewMembers: inquiry.noCrewMembers,
+    mergedCrewCount: mergedCrew,
+    mergedCrewNote: mergedCrewMemberNote,
+    effectiveTeamLeaderCount,
+  });
+  if (noCrewResolve.error) {
+    res.status(400).json({ error: noCrewResolve.error });
+    return;
+  }
+  if (hasNoCrewMembersField(body) || noCrewResolve.noCrewMembers !== inquiry.noCrewMembers) {
+    applyNoCrewMembersToUpdateData(data, noCrewResolve.noCrewMembers);
+  }
+  const mergedNoCrewMembers = noCrewResolve.noCrewMembers;
+  const finalMergedCrew = mergedNoCrewMembers ? 0 : mergedCrew;
+  const finalMergedCrewNote = mergedNoCrewMembers ? null : mergedCrewMemberNote;
+
+  const noCrewFlagChanged = mergedNoCrewMembers !== inquiry.noCrewMembers;
+  const crewRosterChanged =
+    isCrewRosterChanged(
+      inquiry.crewMemberNote,
+      inquiry.crewMemberCount,
+      finalMergedCrewNote,
+      finalMergedCrew,
+    ) || noCrewFlagChanged;
   /** 팀원(투입) 메모·인원 변경 시 현장 미팅 시각은 팀장이 다시 넣도록 초기화 */
   let crewRosterAckMessages: { messageKo: string; messageTh: string } | null = null;
   if (crewRosterChanged) {
@@ -1146,6 +1177,14 @@ router.patch('/:id', async (req, res) => {
   if (data.crewMemberCount !== undefined)
     pushIfChanged('팀원 인원', inquiry.crewMemberCount, data.crewMemberCount, fmtNum);
   if (data.crewMemberNote !== undefined) pushIfChanged('팀원 메모', inquiry.crewMemberNote, data.crewMemberNote);
+  if (noCrewFlagChanged || hasNoCrewMembersField(body)) {
+    pushIfChanged(
+      '팀장 단독(크루 없음)',
+      inquiry.noCrewMembers,
+      mergedNoCrewMembers,
+      (v) => (v ? '예' : '아니오'),
+    );
+  }
   if (crewRosterChanged) {
     const hadMeeting = await inquiryHasAnyCrewMeetingTime(prisma, id, inquiry.crewMeetingTime);
     if (hadMeeting) {
@@ -1400,6 +1439,7 @@ router.patch('/:id', async (req, res) => {
     data.preferredDate !== undefined ||
     data.crewMemberNote !== undefined ||
     data.crewMemberCount !== undefined ||
+    data.noCrewMembers !== undefined ||
     data.status !== undefined ||
     wantsTeamSync;
   if (crewFieldNotify) {
@@ -1458,7 +1498,11 @@ router.post('/', async (req, res) => {
   }
 
   let crewMemberCount: number | null = null;
-  if (body.crewMemberCount !== undefined && body.crewMemberCount !== null && body.crewMemberCount !== '') {
+  const createNoCrew =
+    hasNoCrewMembersField(body) && parseNoCrewMembersInput(body.noCrewMembers);
+  if (createNoCrew) {
+    crewMemberCount = 0;
+  } else if (body.crewMemberCount !== undefined && body.crewMemberCount !== null && body.crewMemberCount !== '') {
     const n = Number(body.crewMemberCount);
     if (!Number.isFinite(n) || n < 0 || n > 100) {
       res.status(400).json({ error: '팀원 인원은 0~100 사이로 입력해주세요.' });
@@ -1526,6 +1570,12 @@ router.post('/', async (req, res) => {
         source: body.source ? String(body.source) : '전화',
         status,
         crewMemberCount,
+        noCrewMembers: createNoCrew,
+        crewMemberNote: createNoCrew
+          ? null
+          : body.crewMemberNote
+            ? String(body.crewMemberNote)
+            : null,
       },
     });
   });

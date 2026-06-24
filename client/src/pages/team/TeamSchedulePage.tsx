@@ -26,6 +26,7 @@ import {
   TeamInquiryDetailModal,
   formatTeamInquiryAreaSummary,
   TeamCoLeadersListHint,
+  TeamNoCrewMembersListBadge,
 } from './teamInquiryShared';
 import { TeamCrewMemberContactChips } from '../../components/team/TeamCrewMemberContactChips';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
@@ -382,6 +383,7 @@ export function TeamSchedulePage() {
                             {STATUS_LABELS[item.status] ?? item.status}
                           </span>
                           <TeamHappyCallBadge item={item} />
+                          <TeamNoCrewMembersListBadge item={item} />
                         </div>
                       </div>
                     );
