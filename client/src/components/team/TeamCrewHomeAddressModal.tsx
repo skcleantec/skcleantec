@@ -95,12 +95,19 @@ export function TeamCrewHomeAddressIconButton({
   homeAddressDetail,
   onOpen,
   className = '',
+  compact = false,
 }: TeamCrewHomeAddressTarget & {
   onOpen: () => void;
   className?: string;
+  /** 해피콜 배지와 동일한 작은 pill */
+  compact?: boolean;
 }) {
   const hasAddress = Boolean(formatCrewHomeAddressLine(homeAddress, homeAddressDetail));
   if (!hasAddress) return null;
+  const compactCls =
+    'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-fluid-2xs font-medium border border-emerald-200 bg-emerald-50 text-emerald-900 shrink-0 touch-manipulation hover:bg-emerald-100';
+  const defaultCls =
+    'inline-flex items-center gap-0.5 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-emerald-900 touch-manipulation hover:bg-emerald-100';
   return (
     <button
       type="button"
@@ -108,12 +115,16 @@ export function TeamCrewHomeAddressIconButton({
         e.stopPropagation();
         onOpen();
       }}
-      className={`inline-flex items-center gap-0.5 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-emerald-900 touch-manipulation hover:bg-emerald-100 ${className}`}
+      className={`${compact ? compactCls : defaultCls} ${className}`}
       title={teamBiPlain('team.crewAddress.viewTitle')}
       aria-label={`${name} ${teamBiPlain('team.crewAddress.viewTitle')}`}
     >
-      <MapPinMiniIcon className="h-3 w-3 shrink-0" />
-      <span className="sr-only sm:not-sr-only">{teamBiPlain('team.crewAddress.short')}</span>
+      <MapPinMiniIcon className={`${compact ? 'h-3 w-3' : 'h-3 w-3'} shrink-0`} />
+      {compact ? (
+        <span className="sr-only">{teamBiPlain('team.crewAddress.short')}</span>
+      ) : (
+        <span className="sr-only sm:not-sr-only">{teamBiPlain('team.crewAddress.short')}</span>
+      )}
     </button>
   );
 }

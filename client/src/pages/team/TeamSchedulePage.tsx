@@ -345,7 +345,7 @@ export function TeamSchedulePage() {
                               {formatCrewInfo(item)}
                             </div>
                             <div className="mt-1">
-                              <TeamCrewMemberContactChips item={item} showPhoneNumber={false} />
+                              <TeamCrewMemberContactChips item={item} showPhoneNumber={false} variant="compact" />
                             </div>
                             <TeamCoLeadersListHint item={item} viewerId={myId} />
                           </div>

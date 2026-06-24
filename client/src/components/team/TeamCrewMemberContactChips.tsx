@@ -43,8 +43,9 @@ export function resolveInquiryCrewMemberContacts(item: {
 export function TeamCrewMemberContactChips({
   item,
   className = '',
-  chipClassName = 'inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5',
+  chipClassName,
   showPhoneNumber = true,
+  variant = 'default',
 }: {
   item: {
     crewMemberCount?: number | null;
@@ -54,32 +55,47 @@ export function TeamCrewMemberContactChips({
   className?: string;
   chipClassName?: string;
   showPhoneNumber?: boolean;
+  /** compact — 스케줄 등, 해피콜 배지와 같은 작은 pill */
+  variant?: 'default' | 'compact';
 }) {
   const list = resolveInquiryCrewMemberContacts(item);
   const [addressTarget, setAddressTarget] = useState<TeamCrewHomeAddressTarget | null>(null);
+  const compact = variant === 'compact';
+
+  const resolvedChipClassName =
+    chipClassName ??
+    (compact
+      ? 'inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-fluid-2xs shrink-0'
+      : 'inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5');
+
+  const phoneClassName = compact
+    ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-fluid-2xs font-medium border border-blue-200 bg-blue-50 text-blue-700 shrink-0 touch-manipulation'
+    : 'inline-flex items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-blue-700 touch-manipulation';
 
   if (list.length === 0) return null;
 
   return (
     <>
-      <ul className={`flex flex-wrap items-center gap-1.5 ${className}`}>
+      <ul className={`flex flex-wrap items-center gap-1 ${compact ? '' : 'gap-1.5'} ${className}`}>
         {list.map((m, idx) => (
-          <li key={`${m.teamMemberId ?? m.name}-${idx}`} className={chipClassName}>
-            <span className="font-medium text-gray-900">{m.name}</span>
+          <li key={`${m.teamMemberId ?? m.name}-${idx}`} className={resolvedChipClassName}>
+            <span className={`font-medium text-gray-900 ${compact ? 'text-fluid-2xs' : ''}`}>{m.name}</span>
             {m.phone ? (
               <a
                 href={`tel:${m.phone}`}
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-blue-700 touch-manipulation"
+                className={phoneClassName}
+                aria-label={`${m.name} ${m.phone}`}
               >
                 <PhoneMiniIcon className="h-3 w-3 shrink-0" />
-                {showPhoneNumber ? m.phone : null}
+                {showPhoneNumber && !compact ? m.phone : null}
               </a>
             ) : null}
             <TeamCrewHomeAddressIconButton
               name={m.name}
               homeAddress={m.homeAddress ?? null}
               homeAddressDetail={m.homeAddressDetail ?? null}
+              compact={compact}
               onOpen={() =>
                 setAddressTarget({
                   name: m.name,
