@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { DashboardInquiryBreakdown } from '../../../api/dashboard';
 import { HelpTooltip } from '../../ui/HelpTooltip';
@@ -57,6 +58,7 @@ export function DashboardInquiryAnalyticsPanel({
   error: string | null;
 }) {
   const navigate = useNavigate();
+  const [regionDetailOpen, setRegionDetailOpen] = useState(false);
 
   if (loading) {
     return (
@@ -126,31 +128,58 @@ export function DashboardInquiryAnalyticsPanel({
       <div className="space-y-4">
         <ChartCard
           title="지역별 접수"
-          accentDotClass="bg-violet-500"
+          accentDotClass="bg-red-500"
           helpText="접수일(KST) 이번 달 · 확정 접수 · 접수 주소에서 시·군·시·도를 파싱합니다. 서비스 권역이 설정된 경우 권역 이름을 우선 표시합니다."
         >
           {breakdown.bySidoMap.length > 0 ? (
-            <div className="mb-4 rounded-lg border border-white/80 bg-white/70 p-3">
+            <div className="rounded-lg border border-white/80 bg-white/70 p-3">
               <DashboardKoreaSidoMap items={breakdown.bySidoMap} />
             </div>
-          ) : null}
-          {regionItems.length === 0 ? (
+          ) : (
             <p className="py-6 text-center text-fluid-2xs text-gray-500 border border-dashed border-slate-200 rounded-lg bg-white/60">
               이번 달 집계 데이터가 없습니다.
             </p>
-          ) : (
-            <DashboardHorizontalBarChart
-              items={regionItems}
-              accentClass="bg-violet-500"
-              formatValue={(n) => `${n}건`}
-              onBarClick={() => {
-                navigate(
-                  `/admin/inquiries?datePreset=month&month=${encodeURIComponent(breakdown.monthKey)}`,
-                );
-              }}
-              ariaLabel="지역별 이번 달 접수 건수"
-            />
           )}
+          {regionItems.length > 0 ? (
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={() => setRegionDetailOpen((v) => !v)}
+                className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-fluid-2xs font-medium text-slate-600 hover:bg-white/80 transition-colors"
+                aria-expanded={regionDetailOpen}
+              >
+                <span>시·군·구 상세</span>
+                <span className="inline-flex items-center gap-1 text-slate-400">
+                  <span>{regionDetailOpen ? '접기' : '펼치기'}</span>
+                  <svg
+                    className={`h-3.5 w-3.5 transition-transform ${regionDetailOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                    aria-hidden
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
+              </button>
+              {regionDetailOpen ? (
+                <div className="mt-2">
+                  <DashboardHorizontalBarChart
+                    items={regionItems}
+                    accentClass="bg-red-500"
+                    formatValue={(n) => `${n}건`}
+                    onBarClick={() => {
+                      navigate(
+                        `/admin/inquiries?datePreset=month&month=${encodeURIComponent(breakdown.monthKey)}`,
+                      );
+                    }}
+                    ariaLabel="지역별 이번 달 접수 건수"
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </ChartCard>
 
         <ChartCard
