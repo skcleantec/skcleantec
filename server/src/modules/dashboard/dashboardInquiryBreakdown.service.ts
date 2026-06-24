@@ -6,6 +6,13 @@ import {
   type ActiveServiceZoneRow,
 } from '../service-zones/serviceZoneAssignment.js';
 import {
+  parseRegionLabelFromAddress,
+  parseSidoFromAddress,
+  shortSidoLabel,
+  type KoreaSidoKey,
+  KOREA_SIDO_KEYS,
+} from '../../lib/regionMatch.js';
+import {
   effectiveSalesDateYmd,
   getInquiryAmount,
   kstRecentMonthKeys,
@@ -13,14 +20,27 @@ import {
   SALES_AMOUNT_STATUSES,
 } from './dashboardSales.helpers.js';
 
+export type DashboardRegionBucket = {
+  regionKey: string;
+  label: string;
+  sidoKey: string | null;
+  inquiryCount: number;
+  salesAmount: number;
+};
+
+export type DashboardSidoMapBucket = {
+  sidoKey: KoreaSidoKey;
+  label: string;
+  inquiryCount: number;
+  salesAmount: number;
+};
+
 export type DashboardInquiryBreakdown = {
   monthKey: string;
-  byServiceZone: Array<{
-    serviceZoneId: string | null;
-    name: string;
-    inquiryCount: number;
-    salesAmount: number;
-  }>;
+  /** 시·군/시·도 주소 파싱 + (있으면) 서비스 권역명 우선 */
+  byRegion: DashboardRegionBucket[];
+  /** 시·도 지도 염색용 */
+  bySidoMap: DashboardSidoMapBucket[];
   byMonth: Array<{
     monthKey: string;
     inquiryCount: number;
@@ -42,12 +62,32 @@ type InquirySalesRow = {
   extraCharges: { amount: number }[];
 };
 
-function primaryServiceZoneId(
+function resolveInquiryRegion(
   address: string,
   zones: ActiveServiceZoneRow[],
-): string | null {
-  const matches = matchingServiceZonesForAddress(address, zones);
-  return matches.length > 0 ? matches[0].id : null;
+): { regionKey: string; label: string; sidoKey: KoreaSidoKey | null } {
+  const zoneMatches = matchingServiceZonesForAddress(address, zones);
+  const sidoKey = parseSidoFromAddress(address);
+  if (zoneMatches.length > 0) {
+    const z = zoneMatches[0];
+    return {
+      regionKey: `zone:${z.id}`,
+      label: z.name,
+      sidoKey,
+    };
+  }
+  const label = parseRegionLabelFromAddress(address);
+  if (label === '미분류') {
+    return { regionKey: 'unclassified', label, sidoKey: null };
+  }
+  const sigungu = label;
+  if (sidoKey && shortSidoLabel(sidoKey) !== label && label.endsWith('시')) {
+    return { regionKey: `city:${sidoKey}:${sigungu}`, label, sidoKey };
+  }
+  if (sidoKey) {
+    return { regionKey: `sido:${sidoKey}`, label, sidoKey };
+  }
+  return { regionKey: `label:${label}`, label, sidoKey: null };
 }
 
 export async function buildDashboardInquiryBreakdown(
@@ -102,24 +142,16 @@ export async function buildDashboardInquiryBreakdown(
 
   const pricePerPyeong = estimateConfig;
 
-  const zoneAgg = new Map<
-    string | null,
-    { serviceZoneId: string | null; name: string; inquiryCount: number; salesAmount: number }
-  >();
-  for (const z of serviceZones) {
-    zoneAgg.set(z.id, {
-      serviceZoneId: z.id,
-      name: z.name,
+  const regionAgg = new Map<string, DashboardRegionBucket>();
+  const sidoAgg = new Map<KoreaSidoKey, DashboardSidoMapBucket>();
+  for (const sk of KOREA_SIDO_KEYS) {
+    sidoAgg.set(sk, {
+      sidoKey: sk,
+      label: shortSidoLabel(sk),
       inquiryCount: 0,
       salesAmount: 0,
     });
   }
-  zoneAgg.set(null, {
-    serviceZoneId: null,
-    name: '미분류',
-    inquiryCount: 0,
-    salesAmount: 0,
-  });
 
   const monthAgg = new Map<string, { inquiryCount: number; salesAmount: number }>();
   for (const mk of monthKeys) {
@@ -138,10 +170,23 @@ export async function buildDashboardInquiryBreakdown(
     }
 
     if (mk === monthKey) {
-      const zid = primaryServiceZoneId(inq.address, serviceZones);
-      const entry = zoneAgg.get(zid) ?? zoneAgg.get(null)!;
-      entry.inquiryCount += 1;
-      entry.salesAmount += amt;
+      const { regionKey, label, sidoKey } = resolveInquiryRegion(inq.address, serviceZones);
+      const regionEntry = regionAgg.get(regionKey) ?? {
+        regionKey,
+        label,
+        sidoKey,
+        inquiryCount: 0,
+        salesAmount: 0,
+      };
+      regionEntry.inquiryCount += 1;
+      regionEntry.salesAmount += amt;
+      regionAgg.set(regionKey, regionEntry);
+
+      if (sidoKey) {
+        const sidoEntry = sidoAgg.get(sidoKey)!;
+        sidoEntry.inquiryCount += 1;
+        sidoEntry.salesAmount += amt;
+      }
     }
   }
 
@@ -156,9 +201,11 @@ export async function buildDashboardInquiryBreakdown(
     preferredByYmd.set(ymd, (preferredByYmd.get(ymd) ?? 0) + 1);
   }
 
-  const byServiceZone = [...zoneAgg.values()]
+  const byRegion = [...regionAgg.values()]
     .filter((z) => z.inquiryCount > 0)
-    .sort((a, b) => b.inquiryCount - a.inquiryCount || a.name.localeCompare(b.name, 'ko'));
+    .sort((a, b) => b.inquiryCount - a.inquiryCount || a.label.localeCompare(b.label, 'ko'));
+
+  const bySidoMap = [...sidoAgg.values()].filter((s) => s.inquiryCount > 0);
 
   const byMonth = monthKeys.map((mk) => {
     const v = monthAgg.get(mk) ?? { inquiryCount: 0, salesAmount: 0 };
@@ -171,7 +218,8 @@ export async function buildDashboardInquiryBreakdown(
 
   return {
     monthKey,
-    byServiceZone,
+    byRegion,
+    bySidoMap,
     byMonth,
     byPreferredDate,
   };

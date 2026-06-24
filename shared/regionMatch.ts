@@ -120,3 +120,100 @@ export function addressMatchesRegions(
   }
   return false;
 }
+
+/** 시·도 canonical 키 목록 (대시보드·지도 집계용) */
+export const KOREA_SIDO_KEYS = [
+  '서울특별시',
+  '부산광역시',
+  '대구광역시',
+  '인천광역시',
+  '광주광역시',
+  '대전광역시',
+  '울산광역시',
+  '세종특별자치시',
+  '경기도',
+  '강원특별자치도',
+  '충청북도',
+  '충청남도',
+  '전북특별자치도',
+  '전라남도',
+  '경상북도',
+  '경상남도',
+  '제주특별자치도',
+] as const;
+
+export type KoreaSidoKey = (typeof KOREA_SIDO_KEYS)[number];
+
+const METRO_SIDO: ReadonlySet<string> = new Set([
+  '서울특별시',
+  '부산광역시',
+  '대구광역시',
+  '인천광역시',
+  '광주광역시',
+  '대전광역시',
+  '울산광역시',
+  '세종특별자치시',
+]);
+
+/** 접수 주소에서 시·도 canonical 키 추출. 없으면 null */
+export function parseSidoFromAddress(address: string | null | undefined): KoreaSidoKey | null {
+  for (const sido of KOREA_SIDO_KEYS) {
+    if (addressMatchesRegions(address, [sido])) return sido;
+  }
+  return null;
+}
+
+function stripLeadingSidoPrefix(addressNoSpace: string, sido: KoreaSidoKey): string {
+  const aliases = SIDO_ALIASES[sido] ?? [sido];
+  for (const alias of aliases) {
+    const a = stripSpaces(alias);
+    if (addressNoSpace.startsWith(a)) return addressNoSpace.slice(a.length);
+  }
+  return addressNoSpace;
+}
+
+/** 시·군·구 1단계 토큰 (광역시는 시·도 short 라벨) */
+export function parseSigunguFromAddress(address: string | null | undefined): string | null {
+  const raw = stripSpaces(String(address ?? ''));
+  if (!raw) return null;
+  const addr = normalizeAddressForRegionMatch(raw);
+  const sido = parseSidoFromAddress(addr);
+  if (!sido) return null;
+  if (METRO_SIDO.has(sido)) return shortSidoLabel(sido);
+  const rest = stripLeadingSidoPrefix(addr, sido);
+  const m = rest.match(/^([\uac00-\ud7a3]+(?:시|군|구))/);
+  return m?.[1] ?? null;
+}
+
+/** 대시보드·목록용 짧은 시·도명 */
+export function shortSidoLabel(sido: KoreaSidoKey | string): string {
+  const map: Record<string, string> = {
+    서울특별시: '서울',
+    부산광역시: '부산',
+    대구광역시: '대구',
+    인천광역시: '인천',
+    광주광역시: '광주',
+    대전광역시: '대전',
+    울산광역시: '울산',
+    세종특별자치시: '세종',
+    경기도: '경기',
+    강원특별자치도: '강원',
+    충청북도: '충북',
+    충청남도: '충남',
+    전북특별자치도: '전북',
+    전라남도: '전남',
+    경상북도: '경북',
+    경상남도: '경남',
+    제주특별자치도: '제주',
+  };
+  return map[sido] ?? sido;
+}
+
+/** 접수 주소 → 표시용 지역 라벨 (시·군 우선, 없으면 시·도) */
+export function parseRegionLabelFromAddress(address: string | null | undefined): string {
+  const sigungu = parseSigunguFromAddress(address);
+  if (sigungu) return sigungu;
+  const sido = parseSidoFromAddress(address);
+  if (sido) return shortSidoLabel(sido);
+  return '미분류';
+}

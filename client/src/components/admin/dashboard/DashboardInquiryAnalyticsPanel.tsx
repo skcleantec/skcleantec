@@ -6,6 +6,7 @@ import {
   DashboardHorizontalBarChart,
   DashboardVerticalBarChart,
 } from './DashboardMiniBarChart';
+import { DashboardKoreaSidoMap } from './DashboardKoreaSidoMap';
 
 function formatCurrency(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
@@ -78,9 +79,9 @@ export function DashboardInquiryAnalyticsPanel({
 
   if (!breakdown) return null;
 
-  const zoneItems = breakdown.byServiceZone.slice(0, 8).map((z) => ({
-    key: z.serviceZoneId ?? 'unclassified',
-    label: z.name,
+  const regionItems = breakdown.byRegion.slice(0, 8).map((z) => ({
+    key: z.regionKey,
+    label: z.label,
     value: z.inquiryCount,
     subLabel: `${z.inquiryCount}건 · ${formatCurrency(z.salesAmount)}`,
   }));
@@ -126,15 +127,20 @@ export function DashboardInquiryAnalyticsPanel({
         <ChartCard
           title="지역별 접수"
           accentDotClass="bg-violet-500"
-          helpText="접수일(KST) 이번 달 · 확정 접수 · 서비스 권역 주소 매칭. 한 건은 첫 매칭 권역에만 집계됩니다."
+          helpText="접수일(KST) 이번 달 · 확정 접수 · 접수 주소에서 시·군·시·도를 파싱합니다. 서비스 권역이 설정된 경우 권역 이름을 우선 표시합니다."
         >
-          {zoneItems.length === 0 ? (
+          {breakdown.bySidoMap.length > 0 ? (
+            <div className="mb-4 rounded-lg border border-white/80 bg-white/70 p-3">
+              <DashboardKoreaSidoMap items={breakdown.bySidoMap} />
+            </div>
+          ) : null}
+          {regionItems.length === 0 ? (
             <p className="py-6 text-center text-fluid-2xs text-gray-500 border border-dashed border-slate-200 rounded-lg bg-white/60">
               이번 달 집계 데이터가 없습니다.
             </p>
           ) : (
             <DashboardHorizontalBarChart
-              items={zoneItems}
+              items={regionItems}
               accentClass="bg-violet-500"
               formatValue={(n) => `${n}건`}
               onBarClick={() => {

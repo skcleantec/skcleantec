@@ -95,9 +95,16 @@ export type OpsHourlySummary = {
 
 export type DashboardInquiryBreakdown = {
   monthKey: string;
-  byServiceZone: Array<{
-    serviceZoneId: string | null;
-    name: string;
+  byRegion: Array<{
+    regionKey: string;
+    label: string;
+    sidoKey: string | null;
+    inquiryCount: number;
+    salesAmount: number;
+  }>;
+  bySidoMap: Array<{
+    sidoKey: string;
+    label: string;
     inquiryCount: number;
     salesAmount: number;
   }>;
@@ -111,6 +118,8 @@ export type DashboardInquiryBreakdown = {
     inquiryCount: number;
   }>;
 };
+
+export type DashboardSidoMapBucket = DashboardInquiryBreakdown['bySidoMap'][number];
 
 export async function getDashboardStats(token: string): Promise<DashboardStats> {
   let res: Response;
