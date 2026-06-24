@@ -277,6 +277,15 @@ export const teamMessages = {
   'team.modal.copyShareDone': { ko: '복사됨'},
   'team.modal.copyShareFail': { ko: '복사 실패'},
 
+  'team.crewAddress.short': { ko: '주소' },
+  'team.crewAddress.viewTitle': { ko: '집 주소 보기' },
+  'team.crewAddress.modalTitle': { ko: '집 주소' },
+  'team.crewAddress.modalHint': { ko: '네비게이션에 붙여 넣을 수 있도록 복사해 주세요.' },
+  'team.crewAddress.copy': { ko: '복사하기' },
+  'team.crewAddress.copyDone': { ko: '복사됨' },
+  'team.crewAddress.copyFail': { ko: '복사 실패' },
+  'team.crewAddress.empty': { ko: '등록된 주소가 없습니다.' },
+
   'team.modal.cardPayment': { ko: '카드결재' },
   'team.modal.cardPaymentTitle': {
     ko: '원성페이먼츠 판매자센터(카드결재)를 새 창에서 엽니다.',

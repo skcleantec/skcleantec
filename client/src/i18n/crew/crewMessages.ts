@@ -199,6 +199,39 @@ export const crewMessages = {
     th: 'บันทึก',
   },
 
+  'crew.settings.editAddress': {
+    ko: '주소',
+    th: 'ที่อยู่',
+  },
+  'crew.settings.addressModalTitle': {
+    ko: '집 주소',
+    th: 'ที่อยู่บ้าน',
+  },
+  'crew.settings.addressModalHint': {
+    ko: '「주소 검색」으로 도로명·지번을 선택한 뒤 상세주소(동·호)를 꼭 입력해 주세요. 비우고 저장하면 주소를 지웁니다.',
+    th: 'ค้นหาที่อยู่ แล้วกรอกรายละเอียด (บ้านเลข/ชั้น) — บันทึกว่าง = ลบ',
+  },
+  'crew.settings.addressLabel': {
+    ko: '기본 주소',
+    th: 'ที่อยู่หลัก',
+  },
+  'crew.settings.addressDetailLabel': {
+    ko: '상세주소 (필수)',
+    th: 'รายละเอียด (จำเป็น)',
+  },
+  'crew.settings.addressDetailPlaceholder': {
+    ko: '동·호수 등',
+    th: 'บ้านเลข/ชั้น',
+  },
+  'crew.settings.addressRequired': {
+    ko: '주소 검색과 상세주소를 모두 입력해 주세요.',
+    th: 'กรุณาเลือกที่อยู่และกรอกรายละเอียด',
+  },
+  'crew.settings.addressClear': {
+    ko: '주소 지우기',
+    th: 'ลบที่อยู่',
+  },
+
   'crew.home.badgeGroupLeader': {
     ko: '(그룹장)',
     th: '(หัวหน้ากลุ่ม)',

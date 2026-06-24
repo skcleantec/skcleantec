@@ -664,6 +664,9 @@ model TeamMember {
   name      String
   nameTh    String?  @map("name_th") @db.VarChar(128)
   phone     String?
+  /// 크루 그룹장 설정 — 픽업·네비용 집 주소 (카카오 검색 기본 + 상세)
+  homeAddress       String? @map("home_address") @db.VarChar(512)
+  homeAddressDetail String? @map("home_address_detail") @db.VarChar(256)
   sortOrder Int      @default(0) @map("sort_order")
   isActive  Boolean  @default(true) @map("is_active")
   /// 입사일(포함) — 해당일부터 스케줄·배정 대상. null이면 제한 없음

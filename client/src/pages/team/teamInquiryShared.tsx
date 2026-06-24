@@ -47,6 +47,7 @@ import { InspectionProgressBadge } from '../../components/inquiry-inspection/Ins
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import type { InspectionListSummary } from '../../api/inquiryInspection';
 import { TEAM_CARD_PAYMENT_PATH } from '../../constants/teamCardPayment';
+import { TeamCrewMemberContactChips, resolveInquiryCrewMemberContacts } from '../../components/team/TeamCrewMemberContactChips';
 
 function PhoneMiniIcon({ className }: { className?: string }) {
   return (
@@ -191,8 +192,10 @@ export interface InquiryItem {
   crewMembers?: Array<{
     teamMemberId: string | null;
     name: string;
-    phone: string | null;
-    meetingTime?: string | null;
+      phone: string | null;
+      homeAddress?: string | null;
+      homeAddressDetail?: string | null;
+      meetingTime?: string | null;
   }>;
   /** 관리자 입력 수기(간편) 등록 제목 */
   scheduleMemo?: string | null;
@@ -935,16 +938,6 @@ export function TeamInquiryDetailModal({
                 {shareCopyHint ?? teamBiPlain('team.modal.copyShareOrder')}
               </button>
             ) : null}
-            {showCardPayment ? (
-              <button
-                type="button"
-                onClick={handleOpenCardPayment}
-                className="shrink-0 rounded-lg border border-emerald-600 bg-emerald-50 px-2.5 py-1.5 text-fluid-xs font-semibold text-emerald-900 hover:bg-emerald-100 active:bg-emerald-200/80 touch-manipulation"
-                title={teamBiPlain('team.modal.cardPaymentTitle')}
-              >
-                {teamBiPlain('team.modal.cardPayment')}
-              </button>
-            ) : null}
             <button
               type="button"
               onClick={onClose}
@@ -1104,15 +1097,8 @@ export function TeamInquiryDetailModal({
                 label={<TeamBiLine id="team.modal.row.crew" koClassName="text-fluid-xs font-medium text-gray-500" />}
               >
                 {(() => {
-                  const fallback = (item.crewMemberNote ?? '')
-                    .split(/[,·/|]/g)
-                    .map((x) => x.trim())
-                    .filter(Boolean);
-                  const list =
-                    item.crewMembers && item.crewMembers.length > 0
-                      ? item.crewMembers
-                      : fallback.map((name) => ({ name, phone: null as string | null }));
                   const count = item.crewMemberCount ?? 0;
+                  const list = resolveInquiryCrewMemberContacts(item);
                   if (list.length === 0) {
                     return (
                       <span className="text-gray-800">
@@ -1125,25 +1111,7 @@ export function TeamInquiryDetailModal({
                       <span className="text-fluid-2xs text-gray-500 inline-block">
                         <TeamBiLine id="team.modal.crewCount" vars={{ count: String(count) }} />
                       </span>
-                      <ul className="flex flex-wrap items-center gap-1.5">
-                        {list.map((m, idx) => (
-                          <li
-                            key={`${m.name}-${idx}`}
-                            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5"
-                          >
-                            <span className="font-medium text-gray-900">{m.name}</span>
-                            {m.phone ? (
-                              <a
-                                href={`tel:${m.phone}`}
-                                className="inline-flex items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-blue-700"
-                              >
-                                <PhoneMiniIcon className="h-3 w-3" />
-                                {m.phone}
-                              </a>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
+                      <TeamCrewMemberContactChips item={item} />
                     </div>
                   );
                 })()}
@@ -1572,11 +1540,21 @@ export function TeamInquiryDetailModal({
               )}
             </button>
           ) : null}
-          <div className="grid gap-2 grid-cols-1">
+          <div className={`grid gap-2 ${showCardPayment ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {showCardPayment ? (
+              <button
+                type="button"
+                onClick={handleOpenCardPayment}
+                className="min-h-[44px] w-full rounded-xl border border-emerald-600 bg-emerald-50 px-2 text-fluid-sm font-semibold text-emerald-900 hover:bg-emerald-100 active:bg-emerald-200/80 touch-manipulation"
+                title={teamBiPlain('team.modal.cardPaymentTitle')}
+              >
+                {teamBiPlain('team.modal.cardPayment')}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[44px] w-full rounded-xl border border-gray-300 bg-white px-4 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100"
+              className="min-h-[44px] w-full rounded-xl border border-gray-300 bg-white px-2 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
             >
               <TeamBiLine id="team.common.close" koClassName="text-fluid-sm font-medium text-gray-800" />
             </button>

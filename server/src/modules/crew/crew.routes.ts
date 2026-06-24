@@ -214,6 +214,71 @@ router.patch('/members/:teamMemberId/phone', crewGroupLeaderFromDb, async (req, 
   }
 });
 
+/** 그룹장: 소속 멤버 집 주소 (카카오 검색 + 상세주소 필수, 비우려면 둘 다 null) */
+router.patch('/members/:teamMemberId/address', crewGroupLeaderFromDb, async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  const { teamMemberId } = req.params;
+  if (!teamMemberId || typeof teamMemberId !== 'string') {
+    res.status(400).json({ error: 'teamMemberId가 필요합니다.' });
+    return;
+  }
+  const body = req.body as { address?: string | null; addressDetail?: string | null };
+  if (!('address' in body) || !('addressDetail' in body)) {
+    res.status(400).json({ error: 'address, addressDetail 필드가 필요합니다. (비우려면 null)' });
+    return;
+  }
+  const inGroup = await prisma.teamCrewGroupMember.findFirst({
+    where: { groupId: gid, teamMemberId },
+  });
+  if (!inGroup) {
+    res.status(404).json({ error: '그룹 멤버가 아닙니다.' });
+    return;
+  }
+  const group = await prisma.teamCrewGroup.findUnique({
+    where: { id: gid },
+    select: { tenantId: true },
+  });
+  if (!group) {
+    res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
+    return;
+  }
+  const homeAddress =
+    body.address === null || body.address === undefined
+      ? null
+      : String(body.address).trim() === ''
+        ? null
+        : String(body.address).trim().slice(0, 512);
+  const homeAddressDetail =
+    body.addressDetail === null || body.addressDetail === undefined
+      ? null
+      : String(body.addressDetail).trim() === ''
+        ? null
+        : String(body.addressDetail).trim().slice(0, 256);
+  if (homeAddress && !homeAddressDetail) {
+    res.status(400).json({ error: '상세주소를 입력해 주세요.' });
+    return;
+  }
+  if (homeAddressDetail && !homeAddress) {
+    res.status(400).json({ error: '「주소 검색」으로 기본 주소를 선택해 주세요.' });
+    return;
+  }
+  try {
+    const updated = await prisma.teamMember.updateMany({
+      where: { id: teamMemberId, tenantId: group.tenantId },
+      data: { homeAddress, homeAddressDetail },
+    });
+    if (updated.count === 0) {
+      res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
+      return;
+    }
+    notifyCrewGroupsInboxRefresh([gid]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('PATCH /crew/members/:teamMemberId/address', e);
+    res.status(500).json({ error: '저장 중 오류가 발생했습니다.' });
+  }
+});
+
 router.put('/day-roster', crewGroupLeaderFromDb, async (req, res) => {
   const gid = crewGroupId(req as unknown as { user: AuthPayload });
   const leaderCount = await prisma.teamCrewGroupMember.count({

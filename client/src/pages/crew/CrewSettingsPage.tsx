@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom';
 import { Link, useOutletContext } from 'react-router-dom';
 import type { CrewLayoutContext } from '../../components/layout/CrewLayout';
 import { getCrewToken } from '../../stores/crewAuth';
-import { patchCrewMemberDisplayNames, patchCrewMemberPhone } from '../../api/crew';
+import { patchCrewMemberAddress, patchCrewMemberDisplayNames, patchCrewMemberPhone } from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
 import { CrewBiLine, crewT } from '../../i18n/crew/crewI18n';
+import { AddressSearch } from '../../components/forms/AddressSearch';
+import { formatCrewHomeAddressLine } from '../../utils/crewHomeAddress';
 
 export function CrewSettingsPage() {
   const outlet = useOutletContext<CrewLayoutContext | undefined>();
@@ -22,6 +24,17 @@ export function CrewSettingsPage() {
   } | null>(null);
   const [phoneDraft, setPhoneDraft] = useState('');
   const [phoneModalSaving, setPhoneModalSaving] = useState(false);
+
+  const [addressModal, setAddressModal] = useState<{
+    teamMemberId: string;
+    memberName: string;
+    address: string;
+    addressDetail: string;
+  } | null>(null);
+  const [addressDraft, setAddressDraft] = useState('');
+  const [addressDetailDraft, setAddressDetailDraft] = useState('');
+  const [addressModalSaving, setAddressModalSaving] = useState(false);
+
   const [introHelpOpen, setIntroHelpOpen] = useState(false);
 
   useEffect(() => {
@@ -64,6 +77,68 @@ export function CrewSettingsPage() {
       setPhoneModalSaving(false);
     }
   }, [me, phoneModal, phoneDraft, reloadMe]);
+
+  const openAddressModal = (
+    teamMemberId: string,
+    memberName: string,
+    homeAddress: string | null,
+    homeAddressDetail: string | null,
+  ) => {
+    setAddressModal({
+      teamMemberId,
+      memberName,
+      address: homeAddress ?? '',
+      addressDetail: homeAddressDetail ?? '',
+    });
+    setAddressDraft(homeAddress ?? '');
+    setAddressDetailDraft(homeAddressDetail ?? '');
+  };
+
+  const closeAddressModal = () => {
+    setAddressModal(null);
+    setAddressDraft('');
+    setAddressDetailDraft('');
+  };
+
+  const saveAddressModal = useCallback(async () => {
+    const token = getCrewToken();
+    if (!token || !me || me.crewViewerRole !== 'LEADER' || !addressModal) return;
+    const road = addressDraft.trim();
+    const detail = addressDetailDraft.trim();
+    if ((road && !detail) || (!road && detail)) {
+      const msg = crewT('crew.settings.addressRequired');
+      alert(`${msg.ko}\n${msg.th}`);
+      return;
+    }
+    setAddressModalSaving(true);
+    try {
+      await patchCrewMemberAddress(
+        token,
+        addressModal.teamMemberId,
+        road || null,
+        detail || null,
+      );
+      await reloadMe?.();
+      closeAddressModal();
+      const ok = crewT('crew.settings.saved');
+      alert(`${ok.ko}\n${ok.th}`);
+    } catch (e) {
+      const fail = crewT('crew.settings.saveFail');
+      if (e instanceof AuthSessionExpiredError) {
+        alert(`${fail.ko}\n세션이 만료되었습니다.\n${fail.th}`);
+        return;
+      }
+      const msg = e instanceof Error ? e.message : fail.ko;
+      alert(`${fail.ko}\n${msg}\n${fail.th}`);
+    } finally {
+      setAddressModalSaving(false);
+    }
+  }, [me, addressModal, addressDraft, addressDetailDraft, reloadMe]);
+
+  const clearAddressDraft = () => {
+    setAddressDraft('');
+    setAddressDetailDraft('');
+  };
 
   const saveDisplayOne = useCallback(
     async (teamMemberId: string) => {
@@ -154,7 +229,7 @@ export function CrewSettingsPage() {
           {me.group.members.map((m) => {
             const rowSaving = savingDisplayId === m.teamMemberId;
             return (
-              <li key={m.teamMemberId} className="px-1.5 py-1 min-w-0">
+              <li key={m.teamMemberId} className="px-1.5 py-1.5 min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 min-w-0">
                   <span
                     className={`shrink-0 text-[0.7rem] font-medium truncate max-w-[4.25rem] sm:max-w-[5.5rem] ${
@@ -197,6 +272,23 @@ export function CrewSettingsPage() {
                     className="shrink-0 text-[0.55rem] px-1 py-0.5 border border-gray-300 rounded bg-white text-gray-700 leading-none"
                   >
                     {crewT('crew.settings.editPhone').ko}/{crewT('crew.settings.editPhone').th}
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 min-w-0 pl-0.5">
+                  <span
+                    className="text-[0.58rem] text-gray-500 shrink-0 min-w-0 flex-1 truncate max-w-full sm:max-w-[12rem]"
+                    title={formatCrewHomeAddressLine(m.homeAddress, m.homeAddressDetail) ?? ''}
+                  >
+                    {formatCrewHomeAddressLine(m.homeAddress, m.homeAddressDetail) ?? '—'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAddressModal(m.teamMemberId, m.name, m.homeAddress, m.homeAddressDetail)
+                    }
+                    className="shrink-0 text-[0.55rem] px-1 py-0.5 border border-emerald-300 rounded bg-emerald-50 text-emerald-900 leading-none"
+                  >
+                    {crewT('crew.settings.editAddress').ko}/{crewT('crew.settings.editAddress').th}
                   </button>
                 </div>
               </li>
@@ -253,6 +345,82 @@ export function CrewSettingsPage() {
                   className="px-2 py-1 text-xs rounded bg-gray-900 text-white"
                 >
                   {phoneModalSaving
+                    ? `${crewT('crew.settings.saving').ko}`
+                    : `${crewT('crew.settings.phoneModalSave').ko}/${crewT('crew.settings.phoneModalSave').th}`}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {addressModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget && !addressModalSaving) closeAddressModal();
+            }}
+          >
+            <div
+              className="w-full max-w-md max-h-[92dvh] overflow-y-auto rounded-t-xl sm:rounded-xl bg-white shadow-lg border border-gray-200 p-3 sm:p-4"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xs font-semibold text-gray-900">
+                <CrewBiLine id="crew.settings.addressModalTitle" koClassName="font-semibold" />
+                <span className="font-normal text-gray-600"> · {addressModal.memberName}</span>
+              </h2>
+              <p className="text-[0.58rem] text-gray-500 mt-1 leading-snug">
+                <CrewBiLine id="crew.settings.addressModalHint" />
+              </p>
+              <div className="mt-3 space-y-2">
+                <label className="block text-[0.58rem] text-gray-600">
+                  <CrewBiLine id="crew.settings.addressLabel" />
+                </label>
+                <AddressSearch
+                  value={addressDraft}
+                  onChange={(next) => setAddressDraft(next)}
+                  mobilePreferred
+                  className="text-sm"
+                />
+                <label className="block text-[0.58rem] text-gray-600 mt-2">
+                  <CrewBiLine id="crew.settings.addressDetailLabel" />
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-2 py-2 border border-gray-300 rounded text-sm"
+                  placeholder={`${crewT('crew.settings.addressDetailPlaceholder').ko} / ${crewT('crew.settings.addressDetailPlaceholder').th}`}
+                  value={addressDetailDraft}
+                  onChange={(e) => setAddressDetailDraft(e.target.value)}
+                  disabled={addressModalSaving}
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={addressModalSaving}
+                  onClick={clearAddressDraft}
+                  className="px-2 py-1 text-xs border border-rose-200 rounded bg-rose-50 text-rose-900"
+                >
+                  {crewT('crew.settings.addressClear').ko}/{crewT('crew.settings.addressClear').th}
+                </button>
+                <button
+                  type="button"
+                  disabled={addressModalSaving}
+                  onClick={closeAddressModal}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-800"
+                >
+                  {crewT('crew.settings.phoneModalCancel').ko}/{crewT('crew.settings.phoneModalCancel').th}
+                </button>
+                <button
+                  type="button"
+                  disabled={addressModalSaving}
+                  onClick={() => void saveAddressModal()}
+                  className="px-2 py-1 text-xs rounded bg-gray-900 text-white"
+                >
+                  {addressModalSaving
                     ? `${crewT('crew.settings.saving').ko}`
                     : `${crewT('crew.settings.phoneModalSave').ko}/${crewT('crew.settings.phoneModalSave').th}`}
                 </button>

@@ -97,6 +97,8 @@ export interface CrewMeResponse {
       name: string;
       nameTh?: string | null;
       phone: string | null;
+      homeAddress: string | null;
+      homeAddressDetail: string | null;
       isActive: boolean;
       isGroupLeader: boolean;
     }>;
@@ -178,6 +180,25 @@ export async function patchCrewMemberPhone(
   }
   if (!res.ok) {
     throw new Error(await apiErrorMessage(res, '연락처를 저장할 수 없습니다.'));
+  }
+}
+
+export async function patchCrewMemberAddress(
+  token: string,
+  teamMemberId: string,
+  address: string | null,
+  addressDetail: string | null,
+): Promise<void> {
+  const res = await fetch(`${API}/crew/members/${encodeURIComponent(teamMemberId)}/address`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify({ address, addressDetail }),
+  });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '주소를 저장할 수 없습니다.'));
   }
 }
 

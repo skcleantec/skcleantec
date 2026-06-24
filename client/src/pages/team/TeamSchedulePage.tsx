@@ -27,6 +27,7 @@ import {
   formatTeamInquiryAreaSummary,
   TeamCoLeadersListHint,
 } from './teamInquiryShared';
+import { TeamCrewMemberContactChips } from '../../components/team/TeamCrewMemberContactChips';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
 import type { ScheduleItem } from '../../api/schedule';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
@@ -342,6 +343,9 @@ export function TeamSchedulePage() {
                             </div>
                             <div className="text-fluid-xs text-gray-500 mt-0.5" title={formatCrewInfo(item)}>
                               {formatCrewInfo(item)}
+                            </div>
+                            <div className="mt-1">
+                              <TeamCrewMemberContactChips item={item} showPhoneNumber={false} />
                             </div>
                             <TeamCoLeadersListHint item={item} viewerId={myId} />
                           </div>

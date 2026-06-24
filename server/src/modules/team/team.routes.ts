@@ -187,7 +187,7 @@ const teamInquiryInclude = {
 
 /**
  * `crew_member_note`(이름을 `/ , · |` 중 하나로 구분한 문자열)을 파싱해
- * 등록된 `TeamMember` 레코드의 이름과 매칭, 각 접수에 `crewMembers: [{name, phone}]`
+ * 등록된 `TeamMember` 레코드의 이름과 매칭, 각 접수에 `crewMembers: [{name, phone, homeAddress, ...}]`
  * 을 덧붙인다. 팀장이 현장 팀원에게 직접 연락할 수 있도록 이름·전화를 노출한다.
  */
 function parseCrewNames(note: string | null | undefined): string[] {
@@ -224,6 +224,8 @@ async function attachCrewMembers<
         teamMemberId: string | null;
         name: string;
         phone: string | null;
+        homeAddress: string | null;
+        homeAddressDetail: string | null;
         meetingTime: string | null;
       }>;
     }
@@ -241,14 +243,38 @@ async function attachCrewMembers<
       name: { in: Array.from(allNames) },
       ...tenantActiveTeamMemberWhere(tenantId),
     },
-    select: { id: true, name: true, phone: true, sortOrder: true, createdAt: true },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      homeAddress: true,
+      homeAddressDetail: true,
+      sortOrder: true,
+      createdAt: true,
+    },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   });
-  const memberByName = new Map<string, { id: string; phone: string | null }>();
+  const memberByName = new Map<
+    string,
+    { id: string; phone: string | null; homeAddress: string | null; homeAddressDetail: string | null }
+  >();
   for (const m of members) {
     const cur = memberByName.get(m.name);
-    if (!cur) memberByName.set(m.name, { id: m.id, phone: m.phone ?? null });
-    else if (!cur.phone && m.phone) memberByName.set(m.name, { id: cur.id, phone: m.phone });
+    const entry = {
+      id: m.id,
+      phone: m.phone ?? null,
+      homeAddress: m.homeAddress ?? null,
+      homeAddressDetail: m.homeAddressDetail ?? null,
+    };
+    if (!cur) memberByName.set(m.name, entry);
+    else if (!cur.phone && m.phone) memberByName.set(m.name, { ...cur, phone: m.phone });
+    else if (!cur.homeAddress && m.homeAddress) {
+      memberByName.set(m.name, {
+        ...cur,
+        homeAddress: m.homeAddress,
+        homeAddressDetail: m.homeAddressDetail ?? cur.homeAddressDetail,
+      });
+    }
   }
   return items.map((it) => {
     const shared = it.crewMeetingTimeShared !== false;
@@ -270,6 +296,8 @@ async function attachCrewMembers<
           teamMemberId,
           name,
           phone: mem?.phone ?? null,
+          homeAddress: mem?.homeAddress ?? null,
+          homeAddressDetail: mem?.homeAddressDetail ?? null,
           meetingTime,
         };
       }),
@@ -291,6 +319,8 @@ async function attachCrewMembersOne<T extends { crewMemberNote: string | null } 
           teamMemberId: string | null;
           name: string;
           phone: string | null;
+          homeAddress: string | null;
+          homeAddressDetail: string | null;
           meetingTime: string | null;
         }>;
       },

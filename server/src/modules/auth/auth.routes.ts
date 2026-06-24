@@ -499,7 +499,17 @@ router.get('/crew-me', authMiddleware, async (req, res) => {
     include: {
       members: {
         include: {
-          teamMember: { select: { id: true, name: true, nameTh: true, phone: true, isActive: true } },
+          teamMember: {
+            select: {
+              id: true,
+              name: true,
+              nameTh: true,
+              phone: true,
+              homeAddress: true,
+              homeAddressDetail: true,
+              isActive: true,
+            },
+          },
         },
         orderBy: { createdAt: 'asc' },
       },
@@ -531,6 +541,8 @@ router.get('/crew-me', authMiddleware, async (req, res) => {
         name: m.teamMember.name,
         nameTh: m.teamMember.nameTh,
         phone: m.teamMember.phone,
+        homeAddress: m.teamMember.homeAddress,
+        homeAddressDetail: m.teamMember.homeAddressDetail,
         isActive: m.teamMember.isActive,
         isGroupLeader: m.isGroupLeader,
       })),
