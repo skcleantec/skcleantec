@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import {
   addTeamInspectionItem,
   deleteTeamInspectionPhoto,
@@ -12,6 +12,8 @@ import {
   type InspectionPhotoMode,
 } from '../../components/inquiry-inspection/inspectionUiBlocks';
 import { ShareAreaBeforePhotosButton } from '../../components/inquiry-inspection/ShareAreaBeforePhotosButton';
+import { prepareImageFilesForUpload } from '../../utils/imageResizeForUpload';
+import { mergeItemPhotos, removeItemPhoto } from '../../utils/inspectionChecklistPhotoMerge';
 
 export function TeamInspectionAreasEditor({
   checklist,
@@ -23,6 +25,7 @@ export function TeamInspectionAreasEditor({
   photoMode,
   onReload,
   onMsg,
+  onChecklistUpdate,
 }: {
   checklist: InspectionChecklistDto;
   inquiryId: string;
@@ -33,8 +36,10 @@ export function TeamInspectionAreasEditor({
   photoMode: InspectionPhotoMode;
   onReload: () => Promise<unknown>;
   onMsg: (msg: string | null) => void;
+  onChecklistUpdate?: Dispatch<SetStateAction<InspectionChecklistDto | null>>;
 }) {
   const [customItemLabels, setCustomItemLabels] = useState<Record<string, string>>({});
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
 
   /** 청소 전 촬영에서 해당없음·− 로 제외한 구역은 현장검수 목록에 표시하지 않음 (+ 로 추가 시 다시 노출) */
   const displayAreas = useMemo(
@@ -76,6 +81,12 @@ export function TeamInspectionAreasEditor({
           {photoMode === 'before-only' ? '청소 전 촬영 (세부 항목)' : '구역별 검수 (세부 항목)'}
         </h3>
       </div>
+
+      {uploadProgress && (
+        <p className="text-fluid-2xs text-gray-600">
+          사진 준비·업로드 중… ({uploadProgress.done}/{uploadProgress.total})
+        </p>
+      )}
 
       {photoMode === 'both' && displayAreas.length === 0 && (
         <p className="text-fluid-2xs text-gray-500">
@@ -120,14 +131,29 @@ export function TeamInspectionAreasEditor({
             onToggleItemNa={(itemId, na) => void handleToggleItemNa(itemId, na)}
             onUpload={async (itemId, phase, files) => {
               if (!files?.length) return;
+              const raw = Array.from(files);
               setBusy(true);
+              setUploadProgress({ done: 0, total: raw.length });
+              onMsg(null);
               try {
-                await uploadTeamInspectionPhotos(token, inquiryId, itemId, phase, Array.from(files));
-                await onReload();
+                const prepared = await prepareImageFilesForUpload(raw);
+                setUploadProgress({ done: prepared.length, total: raw.length });
+                const newPhotos = await uploadTeamInspectionPhotos(
+                  token,
+                  inquiryId,
+                  itemId,
+                  phase,
+                  prepared,
+                );
+                onChecklistUpdate?.((prev) => {
+                  if (!prev) return prev;
+                  return mergeItemPhotos(prev, itemId, newPhotos);
+                });
               } catch (e) {
                 onMsg(e instanceof Error ? e.message : '업로드 실패');
               } finally {
                 setBusy(false);
+                setUploadProgress(null);
               }
             }}
             onDeletePhoto={async (itemId, photoId) => {
@@ -135,7 +161,10 @@ export function TeamInspectionAreasEditor({
               setBusy(true);
               try {
                 await deleteTeamInspectionPhoto(token, inquiryId, itemId, photoId);
-                await onReload();
+                onChecklistUpdate?.((prev) => {
+                  if (!prev) return prev;
+                  return removeItemPhoto(prev, itemId, photoId);
+                });
               } catch (e) {
                 onMsg(e instanceof Error ? e.message : '삭제 실패');
               } finally {

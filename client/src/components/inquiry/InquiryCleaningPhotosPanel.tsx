@@ -12,6 +12,7 @@ import {
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ImageThumbLightbox, type ImageGallerySlide } from '../ui/ImageThumbLightbox';
 import { parseJwtPayload } from '../../utils/jwtPayload';
+import { prepareImageFilesForUpload } from '../../utils/imageResizeForUpload';
 
 const PHASE_LABEL: Record<CleaningPhotoPhase, string> = {
   BEFORE: '청소 전',
@@ -145,10 +146,11 @@ export function InquiryCleaningPhotosPanel({
       setError(null);
     }
     try {
+      const prepared = await prepareImageFilesForUpload(batch);
       const res =
         variant === 'team'
-          ? await uploadTeamCleaningPhotos(token, inquiryId, batch, phase)
-          : await uploadAdminCleaningPhotos(token, inquiryId, batch, phase);
+          ? await uploadTeamCleaningPhotos(token, inquiryId, prepared, phase)
+          : await uploadAdminCleaningPhotos(token, inquiryId, prepared, phase);
       setItems((prev) => [...res.items, ...prev]);
     } catch (e) {
       setError(e instanceof Error ? e.message : '업로드에 실패했습니다.');
@@ -337,7 +339,7 @@ export function InquiryCleaningPhotosPanel({
                         <ImageThumbLightbox
                           src={photo.secureUrl}
                           alt={`${PHASE_LABEL[phase]} 사진`}
-                          thumbClassName="h-8 w-full max-h-8 object-cover"
+                          thumbClassName="h-20 w-full max-h-20 object-cover"
                           buttonClassName="flex min-h-[44px] w-full items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-50 p-0 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation"
                           gallerySlides={gallerySlides.length > 1 ? gallerySlides : undefined}
                           galleryIndex={visibleItems.findIndex((p) => p.id === photo.id)}

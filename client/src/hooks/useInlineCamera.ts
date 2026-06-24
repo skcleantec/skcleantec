@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { encodeVideoFrameToUploadFile } from '../utils/imageResizeForUpload';
 
 export type InlineCameraStatus = 'idle' | 'starting' | 'live' | 'error';
 
@@ -70,7 +71,11 @@ export function useInlineCamera(enabled: boolean) {
 
     void navigator.mediaDevices
       .getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
         audio: false,
       })
       .then((stream) => {
@@ -104,23 +109,19 @@ export function useInlineCamera(enabled: boolean) {
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [enabled, status, refreshPreview]);
 
+  /** 업로드 직전 JPEG 1회 압축 (prepareImage 이중 인코딩 방지) */
   const captureFrame = useCallback(async (): Promise<File> => {
     bindStreamToVideo();
     const video = videoRef.current;
     if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
       throw new Error('카메라 준비 중입니다. 잠시 후 다시 시도해 주세요.');
     }
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('촬영에 실패했습니다.');
-    ctx.drawImage(video, 0, 0);
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, 'image/jpeg', 0.9);
-    });
-    if (!blob) throw new Error('촬영에 실패했습니다.');
-    return new File([blob], `preclean-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    return encodeVideoFrameToUploadFile(
+      video,
+      video.videoWidth,
+      video.videoHeight,
+      `preclean-${Date.now()}`,
+    );
   }, [bindStreamToVideo]);
 
   return { videoRef: setVideoElement, status, error, captureFrame, refreshPreview, stopStream };

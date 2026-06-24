@@ -146,6 +146,7 @@ export function TeamPreCleanPhotoPage() {
           photoMode="before-only"
           onReload={reload}
           onMsg={setMsg}
+          onChecklistUpdate={setChecklist}
         />
       ) : (
         <TeamPreCleanWizard

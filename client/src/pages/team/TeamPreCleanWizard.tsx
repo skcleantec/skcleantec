@@ -24,6 +24,7 @@ import {
 } from '../../api/inquiryInspection';
 import { ImageThumbLightbox, type ImageGallerySlide } from '../../components/ui/ImageThumbLightbox';
 import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
+import { mergeItemPhotos, removeItemPhoto } from '../../utils/inspectionChecklistPhotoMerge';
 import { useInlineCamera } from '../../hooks/useInlineCamera';
 import { ShareAreaBeforePhotosButton } from '../../components/inquiry-inspection/ShareAreaBeforePhotosButton';
 import { InspectionPhotoFlagButton } from '../../components/inquiry-inspection/InspectionPhotoFlagButton';
@@ -119,38 +120,6 @@ function collectAreaBeforePhotos(area: InspectionArea): AreaBeforePhotoEntry[] {
     }
   }
   return out;
-}
-
-function mergeItemPhotos(
-  dto: InspectionChecklistDto,
-  itemId: string,
-  newPhotos: InspectionAreaPhoto[],
-): InspectionChecklistDto {
-  return {
-    ...dto,
-    areas: dto.areas.map((area) => ({
-      ...area,
-      items: area.items.map((it) =>
-        it.id === itemId ? { ...it, photos: [...it.photos, ...newPhotos] } : it,
-      ),
-    })),
-  };
-}
-
-function removeItemPhoto(
-  dto: InspectionChecklistDto,
-  itemId: string,
-  photoId: string,
-): InspectionChecklistDto {
-  return {
-    ...dto,
-    areas: dto.areas.map((area) => ({
-      ...area,
-      items: area.items.map((it) =>
-        it.id === itemId ? { ...it, photos: it.photos.filter((p) => p.id !== photoId) } : it,
-      ),
-    })),
-  };
 }
 
 function CapturePhotoThumb({
@@ -252,7 +221,7 @@ export function TeamPreCleanWizard({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoredRef = useRef(false);
   const globalStartRef = useRef(false);
-  const reloadGenRef = useRef(0);
+  const captureInFlightRef = useRef(false);
   /** 페이지에 머무는 동안 카메라 세션 유지 — 촬영 화면 나갔다 들어와도 권한 재요청 방지 */
   const [cameraSessionWarm, setCameraSessionWarm] = useState(false);
 
@@ -272,6 +241,16 @@ export function TeamPreCleanWizard({
     useInlineCamera(cameraActive);
 
   useEffect(() => {
+    if (!uploading) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [uploading]);
+
+  useEffect(() => {
     if (!captureAreaId || !cameraSessionWarm) return;
     refreshPreview();
     requestAnimationFrame(() => refreshPreview());
@@ -282,15 +261,6 @@ export function TeamPreCleanWizard({
       setLocalChecklist(checklist);
     }
   }, [checklist, captureAreaId]);
-
-  const scheduleBackgroundReload = useCallback(() => {
-    const gen = ++reloadGenRef.current;
-    void onReload().then((fresh) => {
-      if (fresh && gen === reloadGenRef.current) {
-        setLocalChecklist(fresh);
-      }
-    });
-  }, [onReload]);
 
   const areas = localChecklist.areas;
 
@@ -478,7 +448,8 @@ export function TeamPreCleanWizard({
 
   const uploadAndAdvance = useCallback(
     async (file: File) => {
-      if (!currentItem || uploading) return;
+      if (!currentItem || uploading || captureInFlightRef.current) return;
+      captureInFlightRef.current = true;
       const itemId = currentItem.id;
       const areaLen = captureItems.length;
       setUploading(true);
@@ -486,13 +457,17 @@ export function TeamPreCleanWizard({
       try {
         const prepared = await prepareImageFileForUpload(file);
         const newPhotos = await uploadTeamInspectionPhotos(token, inquiryId, itemId, phase, [prepared]);
-        setLocalChecklist((prev) => mergeItemPhotos(prev, itemId, newPhotos));
-        scheduleBackgroundReload();
+        setLocalChecklist((prev) => {
+          const next = mergeItemPhotos(prev, itemId, newPhotos);
+          onChecklistUpdate?.(next);
+          return next;
+        });
         advanceToNextItem(areaLen);
       } catch (e) {
         onMsg(e instanceof Error ? e.message : '업로드 실패');
       } finally {
         setUploading(false);
+        captureInFlightRef.current = false;
       }
     },
     [
@@ -500,8 +475,8 @@ export function TeamPreCleanWizard({
       captureItems.length,
       currentItem,
       inquiryId,
+      onChecklistUpdate,
       onMsg,
-      scheduleBackgroundReload,
       token,
       uploading,
       phase,
@@ -509,16 +484,20 @@ export function TeamPreCleanWizard({
   );
 
   const handleShutter = useCallback(async () => {
-    if (uploading || busy || !currentItem) return;
+    if (uploading || busy || !currentItem || captureInFlightRef.current) return;
     if (cameraStatus === 'live') {
+      captureInFlightRef.current = true;
       try {
         const file = await captureFrame();
+        captureInFlightRef.current = false;
         await uploadAndAdvance(file);
       } catch (e) {
+        captureInFlightRef.current = false;
         onMsg(e instanceof Error ? e.message : '촬영 실패');
       }
       return;
     }
+    onMsg(null);
     fileInputRef.current?.click();
   }, [busy, cameraStatus, captureFrame, currentItem, onMsg, uploadAndAdvance, uploading]);
 
@@ -568,8 +547,11 @@ export function TeamPreCleanWizard({
     onMsg(null);
     try {
       await deleteTeamInspectionPhoto(token, inquiryId, itemId, photoId);
-      setLocalChecklist((prev) => removeItemPhoto(prev, itemId, photoId));
-      scheduleBackgroundReload();
+      setLocalChecklist((prev) => {
+        const next = removeItemPhoto(prev, itemId, photoId);
+        onChecklistUpdate?.(next);
+        return next;
+      });
       refreshPreview();
     } catch (e) {
       onMsg(e instanceof Error ? e.message : '삭제 실패');
@@ -757,8 +739,11 @@ export function TeamPreCleanWizard({
           </div>
 
           {uploading && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45">
-              <p className="rounded-full bg-black/70 px-4 py-2 text-sm font-medium">저장 중…</p>
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/45 px-6 text-center">
+              <p className="rounded-full bg-black/70 px-4 py-2 text-sm font-medium">
+                {itemIndex + 1}/{captureItems.length} · 저장 중…
+              </p>
+              <p className="text-xs text-white/80">완료될 때까지 화면을 벗어나지 마세요.</p>
             </div>
           )}
 
@@ -801,7 +786,7 @@ export function TeamPreCleanWizard({
 
             <button
               type="button"
-              disabled={uploading || busy}
+              disabled={uploading || busy || (cameraStatus === 'starting')}
               onClick={() => void handleShutter()}
               className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full border-4 border-white bg-white/95 shadow-lg touch-manipulation active:scale-95 disabled:opacity-50"
               aria-label="촬영"

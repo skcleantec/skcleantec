@@ -58,7 +58,7 @@ export async function uploadImageBuffer(params: {
       {
         folder,
         resource_type: 'image',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'],
       },
       (err, res) => {
         if (err) reject(err);

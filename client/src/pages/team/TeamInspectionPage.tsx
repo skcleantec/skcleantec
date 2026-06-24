@@ -333,6 +333,7 @@ export function TeamInspectionPage() {
         photoMode="both"
         onReload={reload}
         onMsg={setMsg}
+        onChecklistUpdate={setChecklist}
       />
 
       <section>
