@@ -26,7 +26,7 @@ const ADMIN_PAGES = [
   { module: '발주서', moduleOrder: 5, title: '발주서 목록', path: '/admin/order-form', screenshotFile: 'admin_발주서_발주서_목록.png', hint: '고객이 셀프 접수 시 작성한 발주서 목록. 제출 여부, 접수 연결 상태 확인.' },
   { module: '발주서', moduleOrder: 5, title: '발주서 안내 설정', path: '/admin/order-form/notice', screenshotFile: 'admin_발주서_발주서_안내_설정.png', hint: '고객에게 발송되는 발주서 안내문·약관 설정 화면.' },
   { module: '발주서', moduleOrder: 5, title: '발주서 전문 옵션 설정', path: '/admin/order-form/specialty-settings', screenshotFile: 'admin_발주서_발주서_전문_옵션_설정.png', hint: '청소 전문 옵션(입주청소, 특수청소 등) 항목 커스터마이징.' },
-  { module: 'C/S 관리', moduleOrder: 6, title: 'C/S 워크데스크', path: '/admin/cs', screenshotFile: 'admin_C_S_관리_C_S_워크데스크.png', hint: '고객 문의 처리 화면. 상담 이력, 처리 상태, 담당자 지정.' },
+  { module: 'C/S 관리', moduleOrder: 6, title: 'C/S 워크데스크', path: '/admin/inquiries/cs', screenshotFile: 'admin_C_S_관리_C_S_워크데스크.png', hint: '고객 문의 처리 화면. 상담 이력, 처리 상태, 담당자 지정.' },
   { module: '현장검수', moduleOrder: 7, title: '현장검수 템플릿', path: '/admin/inspection-template', screenshotFile: 'admin_현장검수_현장검수_템플릿.png', hint: '팀장이 현장에서 사용하는 체크리스트 템플릿 설정. 구역·항목 추가.' },
   { module: '전자계약', moduleOrder: 8, title: '전자계약 목록', path: '/admin/e-contracts', screenshotFile: 'admin_전자계약_전자계약_목록.png', hint: '발송된 전자계약서 목록. 서명 완료 여부, PDF 다운로드.' },
   { module: '정산', moduleOrder: 9, title: '급여·정산', path: '/admin/payroll', screenshotFile: 'admin_정산_급여_정산.png', hint: '팀장별 월간 정산 현황. 배정 건수, 금액, 지급 여부 관리.' },

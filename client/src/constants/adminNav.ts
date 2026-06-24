@@ -12,7 +12,6 @@ export type AdminNavId =
   | 'schedule'
   | 'db-marketplace'
   | 'team-leaders'
-  | 'cs'
   | 'advertising'
   | 'messages';
 
@@ -44,7 +43,6 @@ export const ADMIN_NAV_DEF: Record<
   'db-marketplace': { to: '/admin/db-marketplace', label: '정보공유' },
   /** 팀장·마케터·타업체 등 — 관리자만 GNB에 노출 */
   'team-leaders': { to: '/admin/team-leaders', label: '관리자 전용', adminOnly: true },
-  cs: { to: '/admin/cs', label: 'C/S 관리' },
   advertising: { to: '/admin/advertising', label: '광고비' },
   messages: { to: '/admin/messages', label: '메시지' },
 };
@@ -58,7 +56,6 @@ export const DEFAULT_ADMIN_NAV_ORDER: AdminNavId[] = [
   'schedule',
   'db-marketplace',
   'team-leaders',
-  'cs',
   'advertising',
   'messages',
 ];
@@ -69,7 +66,6 @@ export const DEFAULT_NON_ADMIN_NAV_ORDER: AdminNavId[] = [
   'inquiries',
   'schedule',
   'db-marketplace',
-  'cs',
   'advertising',
   'messages',
 ];

@@ -54,6 +54,7 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
       { label: '견적 목록', path: '/admin/inquiries/quotations', moduleId: 'core_inquiries', group: '견적서' },
       { label: '견적 작성', path: '/admin/inquiries/quotations/new', moduleId: 'core_inquiries', group: '견적서' },
       { label: '견적 설정', path: '/admin/inquiries/quotations/settings', moduleId: 'core_inquiries', group: '견적서' },
+      { label: 'C/S 관리', path: '/admin/inquiries/cs', moduleId: 'mod_cs' },
     ],
   },
   {
@@ -67,12 +68,6 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
     label: '정보공유',
     subtitle: 'GNB · 정보공유',
     rows: [{ label: '정보공유', path: '/admin/db-marketplace', moduleId: 'mod_db_marketplace' }],
-  },
-  {
-    id: 'cs',
-    label: 'C/S 관리',
-    subtitle: 'GNB · C/S 관리',
-    rows: [{ label: 'C/S 관리', path: '/admin/cs', moduleId: 'mod_cs' }],
   },
   {
     id: 'advertising',

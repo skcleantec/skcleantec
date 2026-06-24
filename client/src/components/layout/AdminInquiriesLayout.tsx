@@ -3,27 +3,22 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { ADMIN_INQUIRIES_NAV_ITEMS } from '../../constants/adminInquiriesNav';
 import { AdminCollapsibleSectionSideNav, type AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
+import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { getToken } from '../../stores/auth';
-import { getReviewPaybackUnseenCount } from '../../api/reviewPayback';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { filterAdminSideNavItems } from '../../utils/filterAdminSideNavByFeatures';
 
 const ADMIN_INQUIRIES_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-inquiries-side-nav-collapsed';
 const REVIEW_PAYBACK_PATH = '/admin/inquiries/review-payback';
+const CS_PATH = '/admin/inquiries/cs';
 
-function MobileInquirySubNavTabs({
-  items,
-  reviewPaybackBadge,
-}: {
-  items: AdminSideNavItem[];
-  reviewPaybackBadge: number;
-}) {
+function MobileInquirySubNavTabs({ items }: { items: AdminSideNavItem[] }) {
   return (
     <>
       {items.flatMap((item) => {
         if (item.type === 'link') {
-          const badge = item.to === REVIEW_PAYBACK_PATH ? reviewPaybackBadge : 0;
+          const badge = item.badge ?? 0;
           return (
             <NavLink
               key={item.to}
@@ -72,38 +67,43 @@ export function AdminInquiriesLayout() {
   const token = getToken();
   const { features } = useTenantCapabilities();
   const [reviewPaybackBadge, setReviewPaybackBadge] = useState(0);
+  const [csPendingBadge, setCsPendingBadge] = useState(0);
 
-  const refreshBadge = useCallback(async () => {
+  const refreshBadges = useCallback(async () => {
     if (!token) return;
     try {
-      const count = await getReviewPaybackUnseenCount(token);
-      setReviewPaybackBadge(count);
+      const r = await getAdminNavBadges(token);
+      setReviewPaybackBadge(r.reviewPaybackUnseenCount);
+      setCsPendingBadge(r.csPendingCount);
     } catch {
       /* ignore */
     }
   }, [token]);
 
   useEffect(() => {
-    void refreshBadge();
-  }, [refreshBadge]);
+    void refreshBadges();
+  }, [refreshBadges]);
 
-  useInboxRealtime(token, () => void refreshBadge(), Boolean(token));
+  useInboxRealtime(token, () => void refreshBadges(), Boolean(token));
 
   const navItems = useMemo(() => {
     const withBadge = ADMIN_INQUIRIES_NAV_ITEMS.map((item) => {
       if (item.type === 'link' && item.to === REVIEW_PAYBACK_PATH) {
         return { ...item, badge: reviewPaybackBadge };
       }
+      if (item.type === 'link' && item.to === CS_PATH) {
+        return { ...item, badge: csPendingBadge };
+      }
       return item;
     });
     return filterAdminSideNavItems(withBadge, features);
-  }, [reviewPaybackBadge, features]);
+  }, [reviewPaybackBadge, csPendingBadge, features]);
 
   return (
     <div className="min-w-0 w-full max-w-full">
       <div className="lg:hidden">
         <AdminSubNavScroll aria-label="서비스접수 하위 메뉴">
-          <MobileInquirySubNavTabs items={navItems} reviewPaybackBadge={reviewPaybackBadge} />
+          <MobileInquirySubNavTabs items={navItems} />
         </AdminSubNavScroll>
       </div>
 

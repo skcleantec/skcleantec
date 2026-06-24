@@ -2652,7 +2652,7 @@ export function AdminSchedulePage() {
                               alert('접수를 불러올 수 없습니다.');
                             }
                           } else {
-                            window.open(`${window.location.origin}/admin/cs`, '_blank', 'noopener,noreferrer');
+                            window.open(`${window.location.origin}/admin/inquiries/cs`, '_blank', 'noopener,noreferrer');
                           }
                         }}
                       >

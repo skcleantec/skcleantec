@@ -150,6 +150,14 @@ function App() {
             <Route path="quotations/new" element={<SuspensePage><AdminQuotationEditorPage /></SuspensePage>} />
             <Route path="quotations/settings" element={<SuspensePage><AdminQuotationSettingsPage /></SuspensePage>} />
             <Route path="quotations/:id" element={<SuspensePage><AdminQuotationEditorPage /></SuspensePage>} />
+            <Route
+              path="cs"
+              element={
+                <FeatureGate module="mod_cs">
+                  <SuspensePage><AdminCsPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
           </Route>
           <Route path="schedule" element={<SuspensePage><AdminSchedulePage /></SuspensePage>} />
           <Route
@@ -226,7 +234,7 @@ function App() {
           <Route path="orderforms" element={<Navigate to="/admin/inquiries/order-issue" replace />} />
           <Route path="orderforms/notice" element={<Navigate to="/admin/inquiries/order-customer-preview?panel=guide" replace />} />
           <Route path="orderforms/followup" element={<Navigate to="/admin/inquiries/followup" replace />} />
-          <Route path="cs" element={<FeatureGate module="mod_cs"><SuspensePage><AdminCsPage /></SuspensePage></FeatureGate>} />
+          <Route path="cs" element={<Navigate to="/admin/inquiries/cs" replace />} />
           <Route path="advertising" element={<FeatureGate module="mod_advertising"><AdminAdvertisingLayout /></FeatureGate>}>
             <Route index element={<SuspensePage><AdminAdvertisingPage /></SuspensePage>} />
             <Route path="settings" element={<SuspensePage><AdminAdvertisingSettingsPage /></SuspensePage>} />

@@ -84,7 +84,6 @@ export const ADMIN_NAV_MODULE_MAP = {
   inquiries: 'core_inquiries',
   schedule: 'core_schedule',
   'team-leaders': null,
-  cs: 'mod_cs',
   advertising: 'mod_advertising',
   messages: 'core_messages',
   'db-marketplace': 'mod_db_marketplace',

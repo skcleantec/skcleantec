@@ -155,13 +155,6 @@ function AdminNavIcon({ id, className }: { id: string; className?: string }) {
       </svg>
     );
   }
-  if (id === 'cs') {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
-    );
-  }
   if (id === 'advertising') {
     return (
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -848,39 +841,8 @@ export function AdminLayout() {
                       </div>
                     );
                   }
-                  if (id === 'cs') {
-                    return (
-                      <div
-                        key={id}
-                        className={rowClass}
-                        onDragOver={handleNavDragOver}
-                        onDrop={(e) => handleNavDrop(e, id)}
-                      >
-                        {dragHandle}
-                        <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
-                          <NavLink
-                            to={def.to}
-                            className={navClass}
-                            aria-label={
-                              csPendingCount > 0 ? `${def.label}, 미확인 ${csPendingCount}건` : def.label
-                            }
-                          >
-                            <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
-                            <span>{def.label}</span>
-                          </NavLink>
-                          {csPendingCount > 0 ? (
-                            <span
-                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
-                              aria-hidden
-                            >
-                              {csPendingCount}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  }
                   if (id === 'inquiries') {
+                    const inquiriesNavBadge = reviewPaybackUnseenCount + csPendingCount;
                     return (
                       <div
                         key={id}
@@ -894,20 +856,20 @@ export function AdminLayout() {
                             to={def.to}
                             className={navClass}
                             aria-label={
-                              reviewPaybackUnseenCount > 0
-                                ? `${def.label}, 페이백/리뷰 미확인 ${reviewPaybackUnseenCount}건`
+                              inquiriesNavBadge > 0
+                                ? `${def.label}, 하위 메뉴 알림 ${inquiriesNavBadge}건`
                                 : def.label
                             }
                           >
                             <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
                             <span>{def.label}</span>
                           </NavLink>
-                          {reviewPaybackUnseenCount > 0 ? (
+                          {inquiriesNavBadge > 0 ? (
                             <span
                               className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3"
                               aria-hidden
                             >
-                              {reviewPaybackUnseenCount > 99 ? '99+' : reviewPaybackUnseenCount}
+                              {inquiriesNavBadge > 99 ? '99+' : inquiriesNavBadge}
                             </span>
                           ) : null}
                         </div>

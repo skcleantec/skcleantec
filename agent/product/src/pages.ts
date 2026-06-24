@@ -118,7 +118,7 @@ export const ADMIN_PAGES: PageDef[] = [
     module: 'C/S 관리',
     moduleOrder: 6,
     title: 'C/S 워크데스크',
-    path: '/admin/cs',
+    path: '/admin/inquiries/cs',
     hint: '고객 문의 처리 화면. 상담 이력, 처리 상태, 담당자 지정.',
   },
   {
