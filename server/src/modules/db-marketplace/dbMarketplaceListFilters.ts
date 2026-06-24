@@ -42,24 +42,30 @@ export function parseDbMarketplaceListFilters(query: Record<string, unknown>): D
   };
 }
 
-export function applyMySalesListFilters(
+export type DbMarketplaceFilterTab = 'cart' | 'my_sales' | 'confirmed';
+
+/** 장바구니·내 판매·확정 완료 목록 공통 필터 (장바구니는 판매일→담은 날·인계/구매자 필터 미적용) */
+export function applyDbMarketplaceListFilters(
   base: Prisma.InquiryDbListingWhereInput,
   filters: DbMarketplaceListFilters,
+  tab: DbMarketplaceFilterTab,
 ): Prisma.InquiryDbListingWhereInput {
   const parts: Prisma.InquiryDbListingWhereInput[] = [base];
 
-  if (
-    !filters.groupByCompany &&
-    filters.buyerKind === 'PARTNER_TENANT' &&
-    filters.buyerId
-  ) {
-    parts.push({ buyerTenantId: filters.buyerId });
-  } else if (
-    !filters.groupByCompany &&
-    filters.buyerKind === 'EXTERNAL_COMPANY' &&
-    filters.buyerId
-  ) {
-    parts.push({ buyerExternalCompanyId: filters.buyerId });
+  if (tab !== 'cart') {
+    if (
+      !filters.groupByCompany &&
+      filters.buyerKind === 'PARTNER_TENANT' &&
+      filters.buyerId
+    ) {
+      parts.push({ buyerTenantId: filters.buyerId });
+    } else if (
+      !filters.groupByCompany &&
+      filters.buyerKind === 'EXTERNAL_COMPANY' &&
+      filters.buyerId
+    ) {
+      parts.push({ buyerExternalCompanyId: filters.buyerId });
+    }
   }
 
   const soldRange = createdAtRangeFromQuery({
@@ -68,17 +74,27 @@ export function applyMySalesListFilters(
     day: filters.soldDay,
   });
   if (soldRange) {
-    parts.push({ publishedAt: soldRange });
+    parts.push(tab === 'cart' ? { createdAt: soldRange } : { publishedAt: soldRange });
   }
 
-  const handoverRange = createdAtRangeFromQuery({
-    datePreset: filters.handoverDatePreset,
-    month: filters.handoverMonth,
-    day: filters.handoverDay,
-  });
-  if (handoverRange) {
-    parts.push({ sellerConfirmedAt: handoverRange });
+  if (tab !== 'cart') {
+    const handoverRange = createdAtRangeFromQuery({
+      datePreset: filters.handoverDatePreset,
+      month: filters.handoverMonth,
+      day: filters.handoverDay,
+    });
+    if (handoverRange) {
+      parts.push({ sellerConfirmedAt: handoverRange });
+    }
   }
 
   return parts.length === 1 ? base : { AND: parts };
+}
+
+/** @deprecated applyDbMarketplaceListFilters(tab: 'my_sales') 사용 */
+export function applyMySalesListFilters(
+  base: Prisma.InquiryDbListingWhereInput,
+  filters: DbMarketplaceListFilters,
+): Prisma.InquiryDbListingWhereInput {
+  return applyDbMarketplaceListFilters(base, filters, 'my_sales');
 }

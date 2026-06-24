@@ -88,6 +88,12 @@ function parseAdminTab(raw: string | null): DbMarketplaceListTab {
   return 'cart';
 }
 
+const TABS_WITH_LIST_FILTERS: DbMarketplaceListTab[] = ['cart', 'my_sales', 'confirmed'];
+
+function tabUsesListFilters(tab: DbMarketplaceListTab): boolean {
+  return TABS_WITH_LIST_FILTERS.includes(tab);
+}
+
 function cleaningSummary(row: DbMarketplaceMaskedItem): string {
   return formatMarketplaceCleaningSummary(row);
 }
@@ -127,17 +133,18 @@ export function AdminDbMarketplacePage() {
   const selectable = bulkMode != null;
   const showSellerColumn = tab === 'available';
   const showMySalesMeta = tab === 'my_sales';
+  const showListFilters = tabUsesListFilters(tab);
   const mySalesFilters = useMemo(
     () => parseMySalesFiltersFromSearchParams(searchParams),
     [searchParams],
   );
 
   const displayGroups = useMemo(() => {
-    if (showMySalesMeta && mySalesFilters.groupByCompany) {
+    if (showListFilters && mySalesFilters.groupByCompany && tab !== 'cart') {
       return groupMySalesByCompany(items);
     }
     return [{ label: null as string | null, items }];
-  }, [items, showMySalesMeta, mySalesFilters.groupByCompany]);
+  }, [items, showListFilters, mySalesFilters.groupByCompany, tab]);
 
   const tableColSpan = useMemo(() => {
     let n = 5;
@@ -157,14 +164,14 @@ export function AdminDbMarketplacePage() {
   >([]);
 
   useEffect(() => {
-    if (!token || tab !== 'my_sales') return;
+    if (!token || !showListFilters) return;
     void listDbMarketplaceAudienceOptions(token)
       .then((r) => {
         setAudiencePartners(r.partners);
         setAudienceExternals(r.externalCompanies);
       })
       .catch(() => {});
-  }, [token, tab]);
+  }, [token, showListFilters]);
 
   const offset = (page - 1) * pageSize;
 
@@ -177,7 +184,7 @@ export function AdminDbMarketplacePage() {
         tab,
         limit: pageSize,
         offset,
-        ...(tab === 'my_sales' ? mySalesFiltersToApiParams(mySalesFilters) : {}),
+        ...(showListFilters ? mySalesFiltersToApiParams(mySalesFilters) : {}),
       })
         .then((r) => {
           setItems(r.items);
@@ -503,7 +510,7 @@ export function AdminDbMarketplacePage() {
       <DbMarketplaceTabBar options={TAB_OPTIONS} active={tab} onChange={setTab} />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        {showMySalesMeta ? (
+        {showListFilters ? (
           <DbMarketplaceMySalesFilters
             filters={mySalesFilters}
             partners={audiencePartners}

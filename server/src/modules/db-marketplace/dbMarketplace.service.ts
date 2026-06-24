@@ -29,7 +29,7 @@ import {
   type MarketplaceListingDetailDto,
 } from './dbMarketplaceListing.dto.js';
 import {
-  applyMySalesListFilters,
+  applyDbMarketplaceListFilters,
   type DbMarketplaceListFilters,
 } from './dbMarketplaceListFilters.js';
 
@@ -649,8 +649,11 @@ export async function listDbMarketplaceListings(
     where = buildExternalPartnerListWhere(tenantId, tab, opts.viewerExternalCompanyId);
   } else {
     where = buildListWhere(tenantId, tab);
-    if (tab === 'my_sales' && opts?.filters) {
-      where = applyMySalesListFilters(where, opts.filters);
+    if (
+      (tab === 'my_sales' || tab === 'cart' || tab === 'confirmed') &&
+      opts?.filters
+    ) {
+      where = applyDbMarketplaceListFilters(where, opts.filters, tab);
     }
   }
 
@@ -724,7 +727,10 @@ export async function listDbMarketplaceListings(
       return masked;
     })
     .sort((a, b) => {
-      if (opts?.filters?.groupByCompany && tab === 'my_sales') {
+      if (
+        opts?.filters?.groupByCompany &&
+        (tab === 'my_sales' || tab === 'confirmed')
+      ) {
         const buyerLabel = (row: typeof a) =>
           'buyerName' in row && row.buyerName?.trim() ? row.buyerName.trim() : '';
         const nullRank = (name: string) => (name ? 0 : 1);
