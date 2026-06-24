@@ -66,6 +66,7 @@ import {
   type UserItem,
 } from '../../api/users';
 import { getMe } from '../../api/auth';
+import { resolveMarketerOperationalAdminFromMe } from '../../utils/staffAdminAccess';
 import { getToken } from '../../stores/auth';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { ORDER_TIME_SLOT_OPTIONS, shortTimeSlotLabel } from '../../constants/orderFormSchedule';
@@ -871,6 +872,7 @@ export function AdminInquiriesPage() {
     phone?: string | null;
     email?: string;
   } | null>(null);
+  const [operationalAdmin, setOperationalAdmin] = useState(false);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */
   const [marketerFilterId, setMarketerFilterId] = useState(
@@ -1002,19 +1004,24 @@ export function AdminInquiriesPage() {
   useEffect(() => {
     if (!token) {
       setMe(null);
+      setOperationalAdmin(false);
       return;
     }
     getMe(token)
-      .then((u: { id: string; role: string; name: string; phone?: string | null; email?: string }) =>
+      .then((u: { id: string; role: string; name: string; phone?: string | null; email?: string }) => {
         setMe({
           id: u.id,
           role: u.role,
           name: u.name,
           phone: u.phone ?? null,
           email: typeof u.email === 'string' ? u.email : undefined,
-        })
-      )
-      .catch(() => setMe(null));
+        });
+        setOperationalAdmin(resolveMarketerOperationalAdminFromMe(u));
+      })
+      .catch(() => {
+        setMe(null);
+        setOperationalAdmin(false);
+      });
   }, [token]);
 
   /** URL의 목록 필터 — page·pageSize 변경만으로는 실행하지 않음 */
@@ -2097,8 +2104,8 @@ export function AdminInquiriesPage() {
       if (omitSpecialNotesIfLegacyUnchangedRef.current && editForm.specialNotes.trim() === '') {
         delete patch.specialNotes;
       }
-      // 서버는 body에 createdById 키가 있으면 비관리자에게 403 — 마케터는 팀장 등만 바꿔도 저장되도록 관리자일 때만 전송
-      if (me?.role === 'ADMIN') {
+      // 운영 권한(LIMITED·FULL) 또는 ADMIN만 createdById 전송 — NONE 마케터는 키 자체를 보내지 않음
+      if (me?.role === 'ADMIN' || operationalAdmin) {
         patch.createdById = editForm.createdById || null;
       }
       const basisTrim = editForm.areaBasis.trim();
@@ -3948,8 +3955,8 @@ export function AdminInquiriesPage() {
               {!isInquirySourceHiddenFromUi(editItem.source) ? (
                 <span>출처: {formatInquirySourceLabel(editItem.source)}</span>
               ) : null}
-              {(editItem.createdBy?.name || editItem.orderForm?.createdBy?.name || me?.role === 'ADMIN') && (
-                me?.role === 'ADMIN' ? (
+              {(editItem.createdBy?.name || editItem.orderForm?.createdBy?.name || me?.role === 'ADMIN' || operationalAdmin) && (
+                me?.role === 'ADMIN' || operationalAdmin ? (
                   <button
                     type="button"
                     className="underline underline-offset-2 text-blue-700 hover:text-blue-900"
@@ -4782,6 +4789,7 @@ export function AdminInquiriesPage() {
           teamLeaders={teamLeaders}
           professionalCatalog={profCatalog}
           currentUserRole={me?.role ?? null}
+          currentUserOperationalAdmin={operationalAdmin}
           marketerOptions={marketers}
           meUser={
             me
@@ -4869,6 +4877,7 @@ export function AdminInquiriesPage() {
           professionalCatalog={profCatalog}
           scheduleStatsByDate={scheduleStatsForModal}
           currentUserRole={me?.role ?? null}
+          currentUserOperationalAdmin={operationalAdmin}
           marketerOptions={marketers}
           meUser={me}
           onClose={() => setCreateInquiryModalDate(null)}

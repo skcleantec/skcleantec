@@ -487,8 +487,10 @@ export type ScheduleInquiryDetailModalProps =
       professionalCatalog: ProfessionalSpecialtyOption[];
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
       currentUserRole?: string | null;
-      /** ADMIN 또는 마케터 관리자 승격 */
+      /** ADMIN 또는 마케터 관리자 승격(FULL) */
       currentUserStaffAdmin?: boolean;
+      /** ADMIN 또는 마케터 운영 권한(LIMITED·FULL) — 담당 마케터 변경 */
+      currentUserOperationalAdmin?: boolean;
       marketerOptions?: UserItem[];
       meUser?: { id: string; role: string; name: string; email?: string } | null;
       onClose: () => void;
@@ -520,8 +522,10 @@ export type ScheduleInquiryDetailModalProps =
       professionalCatalog: ProfessionalSpecialtyOption[];
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
       currentUserRole?: string | null;
-      /** ADMIN 또는 마케터 관리자 승격 */
+      /** ADMIN 또는 마케터 관리자 승격(FULL) */
       currentUserStaffAdmin?: boolean;
+      /** ADMIN 또는 마케터 운영 권한(LIMITED·FULL) — 담당 마케터 변경 */
+      currentUserOperationalAdmin?: boolean;
       marketerOptions?: UserItem[];
       meUser?: { id: string; role: string; name: string; email?: string } | null;
       onClose: () => void;
@@ -684,6 +688,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     scheduleStatsByDate,
     currentUserRole,
     currentUserStaffAdmin,
+    currentUserOperationalAdmin,
     marketerOptions,
     meUser,
     onClose,
@@ -718,7 +723,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     'inquiry-list';
   const activeServiceZoneId =
     (props as { activeServiceZoneId?: string | null }).activeServiceZoneId ?? null;
-  const canEditMarketer = currentUserRole === 'ADMIN';
+  const canEditMarketer =
+    currentUserRole === 'ADMIN' || currentUserOperationalAdmin === true;
 
   const [saving, setSaving] = useState(false);
   const [externalIntake, setExternalIntake] = useState(false);
@@ -1730,7 +1736,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     setSaving(true);
     try {
       const patch = buildPatchFromEditForm(editForm, {
-        includeCreatedById: currentUserRole === 'ADMIN',
+        includeCreatedById: canEditMarketer,
       }) as Record<string, unknown>;
       const requestedStatus = String(patch.status ?? '');
       const isCancelConfirm = requestedStatus === 'CANCEL_CONFIRMED';

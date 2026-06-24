@@ -29,7 +29,7 @@ import { ScheduleDaySlotToAdjustModal } from '../../components/admin/ScheduleDay
 import { ScheduleDayTeamLeaderAdjustModal } from '../../components/admin/ScheduleDayTeamLeaderAdjustModal';
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
-import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
+import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe } from '../../utils/staffAdminAccess';
 import { getScheduleStats, type ScheduleStatsByDate, type AsCsScheduleListItem } from '../../api/dayoffs';
 import {
   getAssignableScheduleUsers,
@@ -629,6 +629,7 @@ export function AdminSchedulePage() {
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   const [meRole, setMeRole] = useState<string | null>(null);
   const [effectiveStaffAdmin, setEffectiveStaffAdmin] = useState(false);
+  const [operationalAdmin, setOperationalAdmin] = useState(false);
   const [meUser, setMeUser] = useState<{
     id: string;
     role: string;
@@ -896,6 +897,7 @@ export function AdminSchedulePage() {
     if (!token) {
       setMeRole(null);
       setEffectiveStaffAdmin(false);
+      setOperationalAdmin(false);
       return;
     }
     getMe(token)
@@ -903,6 +905,7 @@ export function AdminSchedulePage() {
         const role = typeof u.role === 'string' ? u.role : null;
         setMeRole(role);
         setEffectiveStaffAdmin(resolveEffectiveStaffAdminFromMe(u));
+        setOperationalAdmin(resolveMarketerOperationalAdminFromMe(u));
         if (u.id && u.name && role)
           setMeUser({
             id: u.id,
@@ -915,19 +918,20 @@ export function AdminSchedulePage() {
       .catch(() => {
         setMeRole(null);
         setEffectiveStaffAdmin(false);
+        setOperationalAdmin(false);
         setMeUser(null);
       });
   }, [token]);
 
   useEffect(() => {
-    if (!token || !effectiveStaffAdmin) {
+    if (!token || (!effectiveStaffAdmin && !operationalAdmin)) {
       setMarketers([]);
       return;
     }
     getInquiryCreatorOptions(token)
       .then(setMarketers)
       .catch(() => setMarketers([]));
-  }, [token, effectiveStaffAdmin]);
+  }, [token, effectiveStaffAdmin, operationalAdmin]);
 
   useEffect(() => {
     if (!token) {
@@ -2690,6 +2694,7 @@ export function AdminSchedulePage() {
           scheduleStatsByDate={stats}
           currentUserRole={meRole}
           currentUserStaffAdmin={effectiveStaffAdmin}
+          currentUserOperationalAdmin={operationalAdmin}
           marketerOptions={marketers}
           meUser={meUser}
           leaderAssignmentCountsByLeaderId={detailLeaderAssignmentCounts}
@@ -2735,6 +2740,7 @@ export function AdminSchedulePage() {
           scheduleStatsByDate={stats}
           currentUserRole={meRole}
           currentUserStaffAdmin={effectiveStaffAdmin}
+          currentUserOperationalAdmin={operationalAdmin}
           marketerOptions={marketers}
           meUser={meUser}
           onClose={() => setCreateInquiryModalDate(null)}

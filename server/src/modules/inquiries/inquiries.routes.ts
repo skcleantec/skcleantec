@@ -5,6 +5,7 @@ import type { Prisma, InquiryStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { ShortTtlCache } from '../../lib/shortTtlCache.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { userHasMarketerOperationalAdminAccess } from '../auth/staffAdminAccess.service.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import {
@@ -773,9 +774,10 @@ router.patch('/:id', async (req, res) => {
     const rawCb = body.createdById;
     const nextCreatedById = rawCb == null || rawCb === '' ? null : String(rawCb);
     const currentCreatedById = inquiry.createdById ?? null;
-    if (user.role !== 'ADMIN') {
+    const canEditCreatedBy = await userHasMarketerOperationalAdminAccess(user);
+    if (!canEditCreatedBy) {
       if (nextCreatedById !== currentCreatedById) {
-        res.status(403).json({ error: '담당 마케터 변경은 관리자만 가능합니다.' });
+        res.status(403).json({ error: '담당 마케터 변경 권한이 없습니다.' });
         return;
       }
       // 클라이언트가 기존 값을 그대로 실어 보낸 경우 — 다른 필드만 수정 허용
