@@ -7,6 +7,19 @@ import {
 } from '../../utils/dbMarketplaceDisplay';
 import { marketplaceBulkSelectDisabledReason, type DbMarketplaceBulkMode } from '../../utils/dbMarketplaceBulk';
 
+/** PC 표 — 선택 열 (px 고정, table-fixed에서 % col만 쓰면 체크 열이 과하게 넓어짐) */
+export const MARKETPLACE_TABLE_CHECKBOX_COL_PX = 12;
+
+export function MarketplaceTableCheckboxCol() {
+  return <col style={{ width: MARKETPLACE_TABLE_CHECKBOX_COL_PX }} />;
+}
+
+export const marketplaceTableCheckboxCellClass =
+  'box-border w-[12px] min-w-[12px] max-w-[12px] p-0 text-center align-middle';
+
+export const marketplaceTableCheckboxInputClass =
+  'mx-auto block h-3 w-3 shrink-0 scale-[0.68] origin-center cursor-pointer accent-slate-900';
+
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: '장바구니',
   OPEN: '게시 중',
@@ -115,12 +128,15 @@ export function DbMarketplaceRowCard({
   const cleaningSummary = formatMarketplaceCleaningSummary(row);
 
   return (
-    <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex gap-1 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       {selectable ? (
-        <label className="flex shrink-0 items-start pt-0.5">
+        <div
+          className="flex w-[12px] shrink-0 items-start justify-center pt-0.5"
+          onClick={(e) => e.stopPropagation()}
+        >
           <input
             type="checkbox"
-            className="mt-1 size-3.5 shrink-0"
+            className={marketplaceTableCheckboxInputClass}
             checked={selected}
             disabled={!canSelect}
             title={disabledReason ?? undefined}
@@ -129,7 +145,7 @@ export function DbMarketplaceRowCard({
               if (canSelect) onToggleSelect();
             }}
           />
-        </label>
+        </div>
       ) : null}
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left hover:opacity-90">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">

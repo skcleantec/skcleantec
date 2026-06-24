@@ -23,7 +23,10 @@ import {
   DbMarketplaceBulkActionBar,
   DbMarketplaceRowCard,
   DbMarketplaceTabBar,
+  MarketplaceTableCheckboxCol,
   dbMarketplacePageBottomClass,
+  marketplaceTableCheckboxCellClass,
+  marketplaceTableCheckboxInputClass,
 } from '../../components/db-marketplace/DbMarketplaceListUi';
 import {
   DbMarketplaceMySalesFilters,
@@ -531,13 +534,13 @@ export function AdminDbMarketplacePage() {
         <div className="mt-4 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
           <table className={`w-full table-fixed border-collapse text-fluid-xs ${showMySalesMeta ? 'min-w-[960px]' : 'min-w-[720px]'}`}>
             <colgroup>
-              {selectable ? <col className="w-[22px]" /> : null}
-              <col className="w-[10%]" />
-              <col className="w-[12%]" />
-              <col className="w-[18%]" />
-              <col className="w-[12%]" />
-              {tab === 'cart' ? <col className="w-[8%]" /> : null}
-              <col className="w-[8%]" />
+              {selectable ? <MarketplaceTableCheckboxCol /> : null}
+              <col className="w-[11%]" />
+              <col className="w-[13%]" />
+              <col className="w-[22%]" />
+              <col className="w-[13%]" />
+              {tab === 'cart' ? <col className="w-[9%]" /> : null}
+              <col className="w-[9%]" />
               {showMySalesMeta ? (
                 <>
                   <col className="w-[9%]" />
@@ -551,10 +554,10 @@ export function AdminDbMarketplacePage() {
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
                 {selectable ? (
-                  <th className="w-[22px] max-w-[22px] px-0 py-2 text-center">
+                  <th className={marketplaceTableCheckboxCellClass}>
                     <input
                       type="checkbox"
-                      className="size-3"
+                      className={marketplaceTableCheckboxInputClass}
                       aria-label="현재 페이지 전체 선택"
                       checked={allPageSelected}
                       onChange={toggleAllPage}
@@ -605,12 +608,12 @@ export function AdminDbMarketplacePage() {
                       >
                         {selectable ? (
                           <td
-                            className="w-[22px] max-w-[22px] px-0 py-2 text-center"
+                            className={marketplaceTableCheckboxCellClass}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <input
                               type="checkbox"
-                              className="size-3"
+                              className={marketplaceTableCheckboxInputClass}
                               checked={selectedIds.has(row.id)}
                               disabled={!canSelect}
                               title={disabledReason ?? undefined}

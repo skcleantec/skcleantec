@@ -15,7 +15,10 @@ import {
   DbMarketplaceBulkActionBar,
   DbMarketplaceRowCard,
   DbMarketplaceTabBar,
+  MarketplaceTableCheckboxCol,
   dbMarketplacePageBottomClass,
+  marketplaceTableCheckboxCellClass,
+  marketplaceTableCheckboxInputClass,
 } from '../../components/db-marketplace/DbMarketplaceListUi';
 import {
   formatMarketplaceCleaningSummary,
@@ -260,20 +263,21 @@ export function TeamDbMarketplacePage() {
         <div className="mt-4 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
           <table className="w-full table-fixed border-collapse text-fluid-xs min-w-[640px]">
             <colgroup>
-              {selectable ? <col className="w-[36px]" /> : null}
-              <col className="w-[16%]" />
-              <col className="w-[18%]" />
-              <col className="w-[28%]" />
-              <col className="w-[16%]" />
-              <col className="w-[14%]" />
-              <col className="w-[8%]" />
+              {selectable ? <MarketplaceTableCheckboxCol /> : null}
+              <col className="w-[17%]" />
+              <col className="w-[19%]" />
+              <col className="w-[30%]" />
+              <col className="w-[17%]" />
+              <col className="w-[15%]" />
+              <col className="w-[9%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
                 {selectable ? (
-                  <th className="px-1 py-2 text-center">
+                  <th className={marketplaceTableCheckboxCellClass}>
                     <input
                       type="checkbox"
+                      className={marketplaceTableCheckboxInputClass}
                       aria-label="현재 페이지 전체 선택"
                       checked={allPageSelected}
                       onChange={toggleAllPage}
@@ -300,9 +304,10 @@ export function TeamDbMarketplacePage() {
                   onClick={() => setSelectedRow(row)}
                 >
                   {selectable ? (
-                    <td className="px-1 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td className={marketplaceTableCheckboxCellClass} onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
+                        className={marketplaceTableCheckboxInputClass}
                         checked={selectedIds.has(row.id)}
                         disabled={!canSelect}
                         title={disabledReason ?? undefined}
