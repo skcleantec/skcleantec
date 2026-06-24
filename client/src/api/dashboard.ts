@@ -93,6 +93,25 @@ export type OpsHourlySummary = {
   conversionByHour: OpsConversionByHour;
 };
 
+export type DashboardInquiryBreakdown = {
+  monthKey: string;
+  byServiceZone: Array<{
+    serviceZoneId: string | null;
+    name: string;
+    inquiryCount: number;
+    salesAmount: number;
+  }>;
+  byMonth: Array<{
+    monthKey: string;
+    inquiryCount: number;
+    salesAmount: number;
+  }>;
+  byPreferredDate: Array<{
+    date: string;
+    inquiryCount: number;
+  }>;
+};
+
 export async function getDashboardStats(token: string): Promise<DashboardStats> {
   let res: Response;
   try {
@@ -131,6 +150,29 @@ export async function getDashboardOpsHourly(
   }
   if (!res.ok) {
     throw new Error(await apiErrorMessage(res, '운영 시간대 통계를 불러올 수 없습니다.'));
+  }
+  return res.json();
+}
+
+export async function getDashboardInquiryBreakdown(
+  token: string,
+): Promise<DashboardInquiryBreakdown> {
+  let res: Response;
+  try {
+    res = await fetch(`${API}/dashboard/inquiry-breakdown`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  if (!res.ok) {
+    if (res.status === 502 || res.status === 503) {
+      throw apiUnreachableMessage();
+    }
+    throw new Error(await apiErrorMessage(res, '접수 분석 통계를 불러올 수 없습니다.'));
   }
   return res.json();
 }

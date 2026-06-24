@@ -9,27 +9,18 @@ import { distanceKmFromJuan } from '../inquiries/inquiryJuanDistance.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { buildOpsHourlySummary } from '../ops-analytics/opsAnalyticsHourly.service.js';
+import {
+  effectiveSalesDateYmd,
+  getInquiryAmount,
+  kstYmdAddDays,
+  SALES_AMOUNT_STATUSES,
+} from './dashboardSales.helpers.js';
+import { buildDashboardInquiryBreakdown } from './dashboardInquiryBreakdown.service.js';
 
 const router = Router();
 
 router.use(authMiddleware);
 router.use(adminOrMarketer);
-
-/**
- * 대시보드 매출 금액·그래프 대상 상태.
- * - 고객이 확정한(접수 완료된) 건만 매출로 본다.
- * - PENDING(대기·마케터 선접수, 고객 미제출)·ORDER_FORM_PENDING(발급 후 미제출)은 제외 → 미확정 발주금액이 매출에 섞이지 않게 한다.
- */
-const SALES_AMOUNT_STATUSES = [
-  'RECEIVED',
-  'DEPOSIT_PENDING',
-  'DEPOSIT_COMPLETED',
-  'ASSIGNED',
-  'IN_PROGRESS',
-  'COMPLETED',
-  'CS_PROCESSING',
-  'ON_HOLD',
-] as const;
 
 /** 이번 달 팀장별 현장 카드 — 접수일(KST) 이번 달·취소 제외·1차 배정이 팀장인 건만 */
 const HAPPY_CALL_STATS_STATUSES = [
@@ -39,44 +30,6 @@ const HAPPY_CALL_STATS_STATUSES = [
   'COMPLETED',
   'CS_PROCESSING',
 ] as const;
-
-/**
- * 접수 1건의 매출 금액 = 확정 총액(발주서·서비스 총액·평수×단가 순) + 추가청소(extraCharges) 합.
- * extraCharges.amount 는 음수면 할인 — 스케줄·정산과 동일 기준.
- * 파트너 연계 mirror는 orderForm 없이 serviceTotalAmount만 있으므로 반드시 포함한다.
- */
-function getInquiryAmount(
-  inq: {
-    orderForm?: { totalAmount: number } | null;
-    serviceTotalAmount?: number | null;
-    areaPyeong: number | null;
-    extraCharges?: { amount: number }[] | null;
-  },
-  pricePerPyeong: number,
-): number {
-  const base =
-    inq.orderForm?.totalAmount != null
-      ? inq.orderForm.totalAmount
-      : inq.serviceTotalAmount != null && inq.serviceTotalAmount > 0
-        ? inq.serviceTotalAmount
-        : inq.areaPyeong != null && inq.areaPyeong > 0
-          ? Math.round(inq.areaPyeong * pricePerPyeong)
-          : 0;
-  const extra = inq.extraCharges?.reduce((sum, c) => sum + (c.amount ?? 0), 0) ?? 0;
-  return base + extra;
-}
-
-/** 매출 기준일(KST): 접수일(createdAt) 기준으로 통일 */
-function effectiveSalesDateYmd(inquiry: { createdAt: Date }): string {
-  return inquiry.createdAt.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
-}
-
-/** KST 날짜(YYYY-MM-DD)에 일수 더하기 */
-function kstYmdAddDays(ymd: string, deltaDays: number): string {
-  const d = new Date(`${ymd}T12:00:00+09:00`);
-  d.setDate(d.getDate() + deltaDays);
-  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
-}
 
 router.get('/stats', async (req, res) => {
   try {
@@ -337,6 +290,23 @@ router.get('/stats', async (req, res) => {
           ? 'DB 스키마가 코드보다 낮을 수 있습니다. server 에서 `npx prisma migrate deploy`(또는 로컬 `migrate dev`) 후 다시 시도해 주세요.'
           : msg,
     });
+  }
+});
+
+/** 접수·예약 분석 — 지역별·월별·예약일 (대시보드 우측 패널) */
+router.get('/inquiry-breakdown', async (req, res) => {
+  try {
+    const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+    if (!tenantId) {
+      res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+      return;
+    }
+    const breakdown = await buildDashboardInquiryBreakdown(tenantId);
+    res.json(breakdown);
+  } catch (err) {
+    console.error('[dashboard/inquiry-breakdown]', err);
+    const msg = err instanceof Error ? err.message : '접수 분석 통계를 불러오지 못했습니다.';
+    res.status(500).json({ error: msg });
   }
 });
 
