@@ -188,9 +188,9 @@ export function HelpPage() {
               <p className="text-fluid-sm font-semibold text-red-700">{error}</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
               {/* 왼쪽 사이드바 (PC) */}
-              <aside className="hidden lg:block lg:w-64 lg:shrink-0">
+              <div className="hidden lg:block lg:w-64 lg:shrink-0 lg:self-start">
                 <HelpSidebar
                   groups={groups}
                   activeModule={activeModule}
@@ -198,7 +198,7 @@ export function HelpPage() {
                   selectedRole={selectedRole}
                   onRoleChange={changeRole}
                 />
-              </aside>
+              </div>
 
               {/* 메인 콘텐츠 */}
               <main className="flex-1 min-w-0">
