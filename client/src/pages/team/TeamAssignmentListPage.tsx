@@ -31,7 +31,6 @@ import {
   TeamCoLeadersListHint,
 } from './teamInquiryShared';
 import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
-import { TeamCrewMemberContactChips } from '../../components/team/TeamCrewMemberContactChips';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { addressListShortSiGu, inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
@@ -586,12 +585,9 @@ export function TeamAssignmentListPage() {
                         <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
                       ) : null}
                     </div>
-                    <div className="mt-1.5 space-y-1">
-                      <p className="line-clamp-2 text-fluid-2xs text-gray-600" title={formatCrewInfo(item)}>
-                        {formatCrewInfo(item)}
-                      </p>
-                      <TeamCrewMemberContactChips item={item} showPhoneNumber={false} />
-                    </div>
+                    <p className="mt-1.5 line-clamp-2 text-fluid-2xs text-gray-600" title={formatCrewInfo(item)}>
+                      {formatCrewInfo(item)}
+                    </p>
                     <TeamCoLeadersListHint item={item} viewerId={myId} />
                   </div>
                 );
@@ -766,9 +762,6 @@ export function TeamAssignmentListPage() {
                           <span className="mt-0.5 block truncate text-fluid-2xs text-gray-500" title={formatCrewInfo(item)}>
                             {formatCrewInfo(item)}
                           </span>
-                          <div className="mt-1 flex justify-center">
-                            <TeamCrewMemberContactChips item={item} showPhoneNumber={false} />
-                          </div>
                         </td>
                         <td className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap ${pBorder}`}>
                           <span className="text-fluid-xs tabular-nums">
