@@ -15,6 +15,8 @@ import {
   publishDbListing,
   serializeSellerListing,
   updateDbListingAudience,
+  removeDbListingFromCart,
+  revertDbListingToCart,
   upsertDbListingDraft,
   withdrawDbListing,
 } from './dbMarketplace.service.js';
@@ -42,6 +44,8 @@ import {
   bulkConfirmDbListingSeller,
   bulkDeclineDbListingSeller,
   bulkPublishDbListings,
+  bulkRemoveDbListingsFromCart,
+  bulkRevertDbListingsToCart,
   bulkWithdrawDbListings,
 } from './dbMarketplaceBulk.service.js';
 
@@ -155,6 +159,32 @@ router.post('/bulk/withdraw', async (req, res) => {
   }
 });
 
+router.post('/bulk/revert-to-cart', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const body = req.body as { listingIds?: unknown };
+  try {
+    const result = await bulkRevertDbListingsToCart(tenantId, body.listingIds);
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/bulk/remove-from-cart', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const body = req.body as { listingIds?: unknown };
+  try {
+    const result = await bulkRemoveDbListingsFromCart(tenantId, body.listingIds);
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
 router.post('/bulk/seller-confirm', async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, auth);
@@ -241,6 +271,39 @@ router.post('/:id/withdraw', async (req, res) => {
       audiences: row.audiences,
     });
     res.json({ listing: serializeSellerListing(row) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/revert-to-cart', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const row = await revertDbListingToCart(tenantId, listingId);
+    await notifyDbMarketplaceBroadcast({
+      sellerTenantId: tenantId,
+      visibility: row.visibility,
+      audiences: row.audiences,
+    });
+    await notifyDbMarketplaceSellerAdmins(tenantId);
+    res.json({ listing: serializeSellerListing(row) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/remove-from-cart', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const row = await removeDbListingFromCart(tenantId, listingId);
+    await notifyDbMarketplaceSellerAdmins(tenantId);
+    res.json(row);
   } catch (e) {
     if (mapError(res, e)) return;
     throw e;

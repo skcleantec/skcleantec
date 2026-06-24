@@ -11,6 +11,8 @@ import {
 import {
   DbMarketplaceError,
   publishDbListing,
+  removeDbListingFromCart,
+  revertDbListingToCart,
   updateDbListingAudience,
   withdrawDbListing,
 } from './dbMarketplace.service.js';
@@ -35,6 +37,16 @@ export type DbMarketplaceBulkPublishResult = {
 
 export type DbMarketplaceBulkBuyerConfirmResult = {
   requested: DbMarketplaceBulkItemResult[];
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export type DbMarketplaceBulkRevertToCartResult = {
+  reverted: DbMarketplaceBulkItemResult[];
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export type DbMarketplaceBulkRemoveFromCartResult = {
+  removed: Array<{ id: string; inquiryId: string }>;
   failed: DbMarketplaceBulkFailed[];
 };
 
@@ -168,6 +180,69 @@ export async function bulkWithdrawDbListings(
   }
 
   return { withdrawn, failed };
+}
+
+export async function bulkRevertDbListingsToCart(
+  tenantId: string,
+  listingIdsRaw: unknown,
+): Promise<DbMarketplaceBulkRevertToCartResult> {
+  const listingIds = parseListingIds(listingIdsRaw);
+  const reverted: DbMarketplaceBulkItemResult[] = [];
+  const failed: DbMarketplaceBulkFailed[] = [];
+
+  for (const id of listingIds) {
+    try {
+      const row = await revertDbListingToCart(tenantId, id);
+      await notifyDbMarketplaceBroadcast({
+        sellerTenantId: tenantId,
+        visibility: row.visibility,
+        audiences: row.audiences,
+      });
+      reverted.push({
+        id: row.id,
+        inquiryId: row.inquiryId,
+        displayAmount: row.displayAmount,
+      });
+    } catch (e) {
+      failed.push({
+        id,
+        error: e instanceof DbMarketplaceError ? e.message : '장바구니 되돌리기 실패',
+      });
+    }
+  }
+
+  if (reverted.length > 0) {
+    await notifyDbMarketplaceSellerAdmins(tenantId);
+  }
+
+  return { reverted, failed };
+}
+
+export async function bulkRemoveDbListingsFromCart(
+  tenantId: string,
+  listingIdsRaw: unknown,
+): Promise<DbMarketplaceBulkRemoveFromCartResult> {
+  const listingIds = parseListingIds(listingIdsRaw);
+  const removed: Array<{ id: string; inquiryId: string }> = [];
+  const failed: DbMarketplaceBulkFailed[] = [];
+
+  for (const id of listingIds) {
+    try {
+      const row = await removeDbListingFromCart(tenantId, id);
+      removed.push(row);
+    } catch (e) {
+      failed.push({
+        id,
+        error: e instanceof DbMarketplaceError ? e.message : '원상복귀 실패',
+      });
+    }
+  }
+
+  if (removed.length > 0) {
+    await notifyDbMarketplaceSellerAdmins(tenantId);
+  }
+
+  return { removed, failed };
 }
 
 export async function bulkConfirmDbListingSeller(

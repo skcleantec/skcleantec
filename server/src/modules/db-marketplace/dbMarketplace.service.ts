@@ -303,6 +303,49 @@ export async function withdrawDbListing(tenantId: string, listingId: string) {
   });
 }
 
+/** 장바구니(DRAFT) — 정보공유 등록 자체를 취소(접수 원상복귀) */
+export async function removeDbListingFromCart(tenantId: string, listingId: string) {
+  const listing = await prisma.inquiryDbListing.findFirst({
+    where: { id: listingId, tenantId },
+    select: { id: true, inquiryId: true, status: true },
+  });
+  if (!listing) throw new DbMarketplaceError('판매 항목을 찾을 수 없습니다.', 404);
+  if (listing.status !== 'DRAFT') {
+    throw new DbMarketplaceError('장바구니 항목만 원상복귀할 수 있습니다.', 400);
+  }
+
+  await prisma.inquiryDbListing.delete({ where: { id: listingId, tenantId } });
+  return { id: listing.id, inquiryId: listing.inquiryId };
+}
+
+/** 게시(OPEN) — 노출·대상 설정 유지한 채 장바구니(DRAFT)로 되돌림 */
+export async function revertDbListingToCart(tenantId: string, listingId: string) {
+  const listing = await prisma.inquiryDbListing.findFirst({
+    where: { id: listingId, tenantId },
+  });
+  if (!listing) throw new DbMarketplaceError('판매 항목을 찾을 수 없습니다.', 404);
+  if (listing.status !== 'OPEN') {
+    throw new DbMarketplaceError('게시 중인 건만 장바구니로 되돌릴 수 있습니다.', 400);
+  }
+
+  return prisma.inquiryDbListing.update({
+    where: { id: listingId, tenantId },
+    data: {
+      status: 'DRAFT',
+      publishedAt: null,
+      expiresAt: null,
+      expiredAt: null,
+      withdrawnAt: null,
+      holdBuyerKind: null,
+      holdBuyerTenantId: null,
+      holdBuyerExternalCompanyId: null,
+      holdByUserId: null,
+      heldUntil: null,
+    },
+    include: LISTING_INCLUDE,
+  });
+}
+
 export async function countDbListingDrafts(tenantId: string): Promise<number> {
   return prisma.inquiryDbListing.count({
     where: { tenantId, status: 'DRAFT' },
@@ -681,6 +724,15 @@ export async function listDbMarketplaceListings(
       return masked;
     })
     .sort((a, b) => {
+      if (opts?.filters?.groupByCompany && tab === 'my_sales') {
+        const buyerLabel = (row: typeof a) =>
+          'buyerName' in row && row.buyerName?.trim() ? row.buyerName.trim() : '';
+        const nullRank = (name: string) => (name ? 0 : 1);
+        const buyerCmp =
+          nullRank(buyerLabel(a)) - nullRank(buyerLabel(b)) ||
+          buyerLabel(a).localeCompare(buyerLabel(b), 'ko');
+        if (buyerCmp !== 0) return buyerCmp;
+      }
       const rankDiff = listingStatusSortRank(a.status) - listingStatusSortRank(b.status);
       if (rankDiff !== 0) return rankDiff;
       const aTime = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;

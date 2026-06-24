@@ -18,13 +18,6 @@ const STATUS_LABEL: Record<InquiryDbListingMeta['status'], string> = {
   EXPIRED: '정보공유 만료',
 };
 
-function statusColorClass(status: InquiryDbListingMeta['status']): string {
-  if (status === 'PENDING_SELLER') return 'border-amber-200 bg-amber-50 text-amber-900';
-  if (status === 'CONFIRMED') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
-  if (status === 'OPEN') return 'border-sky-200 bg-sky-50 text-sky-900';
-  if (status === 'EXPIRED') return 'border-gray-200 bg-gray-50 text-gray-600';
-  return 'border-violet-200 bg-violet-50 text-violet-900';
-}
 
 function ShoppingCartIcon({ className = '' }: { className?: string }) {
   return (
@@ -48,12 +41,11 @@ export function InquiryDbMarketplaceBadge({
   iconOnly = false,
 }: Props) {
   const label = STATUS_LABEL[dbListing.status];
-  const colorClass = statusColorClass(dbListing.status);
 
   if (iconOnly) {
     return (
       <span
-        className={`inline-flex shrink-0 items-center justify-center rounded border p-0.5 ${colorClass} ${className}`}
+        className={`inline-flex shrink-0 items-center justify-center rounded border border-orange-400 bg-orange-100 p-0.5 text-orange-700 shadow-sm ${className}`}
         title={label}
         aria-label={label}
       >

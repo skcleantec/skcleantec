@@ -6,6 +6,8 @@ import {
   confirmDbMarketplaceSeller,
   declineDbMarketplaceSeller,
   getDbMarketplaceListing,
+  removeDbMarketplaceFromCart,
+  revertDbMarketplaceToCart,
   confirmTeamDbMarketplaceBuyer,
   getTeamDbMarketplaceListing,
   listDbMarketplaceMessages,
@@ -236,6 +238,44 @@ export function DbMarketplaceListingDetailModal({
       onClose();
     } catch (e) {
       alert(e instanceof Error ? e.message : '거절 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runRemoveFromCart = async () => {
+    if (
+      !token ||
+      !window.confirm('정보공유 등록을 취소하고 접수를 원상복귀합니다. 계속할까요?')
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await removeDbMarketplaceFromCart(token, row.id);
+      onChanged();
+      onClose();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '원상복귀 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runRevertToCart = async () => {
+    if (
+      !token ||
+      !window.confirm('게시를 중단하고 장바구니로 되돌립니다. 노출 업체 설정은 유지됩니다. 계속할까요?')
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await revertDbMarketplaceToCart(token, row.id);
+      onChanged();
+      onClose();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '장바구니 되돌리기 실패');
     } finally {
       setBusy(false);
     }
@@ -526,6 +566,26 @@ export function DbMarketplaceListingDetailModal({
                   구매 신청 거절
                 </button>
               </>
+            ) : null}
+            {d.status === 'DRAFT' && d.role === 'SELLER' && apiMode === 'admin' ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void runRemoveFromCart()}
+                className="min-h-[2.75rem] w-full rounded-lg border border-gray-300 px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
+              >
+                원상복귀
+              </button>
+            ) : null}
+            {d.status === 'OPEN' && d.role === 'SELLER' && apiMode === 'admin' ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void runRevertToCart()}
+                className="min-h-[2.75rem] w-full rounded-lg border border-violet-300 px-4 py-2 text-fluid-xs font-medium text-violet-900 hover:bg-violet-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
+              >
+                장바구니로 되돌리기
+              </button>
             ) : null}
             <button
               type="button"

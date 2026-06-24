@@ -1,9 +1,19 @@
 import type { DbMarketplaceMaskedItem } from '../api/dbMarketplace';
 
-export type DbMarketplaceBulkMode = 'publish' | 'buy' | 'withdraw' | 'seller_confirm';
+export type DbMarketplaceBulkMode =
+  | 'publish'
+  | 'buy'
+  | 'revert_cart'
+  | 'remove_cart'
+  | 'seller_confirm';
 
 /** 장바구니 — 일괄 게시 선택 가능 */
 export function canBulkPublishMarketplaceItem(row: DbMarketplaceMaskedItem): boolean {
+  return row.status === 'DRAFT' && row.role === 'SELLER';
+}
+
+/** 장바구니 — 원상복귀(등록 취소) */
+export function canBulkRemoveFromCartItem(row: DbMarketplaceMaskedItem): boolean {
   return row.status === 'DRAFT' && row.role === 'SELLER';
 }
 
@@ -17,8 +27,8 @@ export function canBulkBuyMarketplaceItem(row: DbMarketplaceMaskedItem): boolean
   );
 }
 
-/** 내 판매 — 게시 중 건 일괄 철회 */
-export function canBulkWithdrawMarketplaceItem(row: DbMarketplaceMaskedItem): boolean {
+/** 내 판매 — 게시 중 건 장바구니로 되돌리기 */
+export function canBulkRevertToCartItem(row: DbMarketplaceMaskedItem): boolean {
   return row.status === 'OPEN' && row.role === 'SELLER';
 }
 
@@ -34,10 +44,12 @@ export function canBulkSelectMarketplaceItem(
   switch (mode) {
     case 'publish':
       return canBulkPublishMarketplaceItem(row);
+    case 'remove_cart':
+      return canBulkRemoveFromCartItem(row);
     case 'buy':
       return canBulkBuyMarketplaceItem(row);
-    case 'withdraw':
-      return canBulkWithdrawMarketplaceItem(row);
+    case 'revert_cart':
+      return canBulkRevertToCartItem(row);
     case 'seller_confirm':
       return canBulkSellerConfirmMarketplaceItem(row);
     default:
@@ -54,6 +66,11 @@ export function marketplaceBulkSelectDisabledReason(
     if (row.role !== 'SELLER') return '판매 건만 선택할 수 있습니다.';
     return null;
   }
+  if (mode === 'remove_cart') {
+    if (row.status !== 'DRAFT') return '장바구니 항목만 원상복귀할 수 있습니다.';
+    if (row.role !== 'SELLER') return '판매 건만 선택할 수 있습니다.';
+    return null;
+  }
   if (mode === 'buy') {
     if (row.platformSuspended) return '플랫폼 중지된 건입니다.';
     if (row.status !== 'OPEN') return '게시 중인 건만 갖고갈 수 있습니다.';
@@ -61,9 +78,9 @@ export function marketplaceBulkSelectDisabledReason(
     if (row.holdActive && !row.holdIsMine) return '다른 업체가 검토 예약 중입니다.';
     return null;
   }
-  if (mode === 'withdraw') {
+  if (mode === 'revert_cart') {
     if (row.role !== 'SELLER') return '내 판매 건만 선택할 수 있습니다.';
-    if (row.status !== 'OPEN') return '게시 중인 건만 철회할 수 있습니다.';
+    if (row.status !== 'OPEN') return '게시 중인 건만 장바구니로 되돌릴 수 있습니다.';
     return null;
   }
   if (mode === 'seller_confirm') {
@@ -72,4 +89,25 @@ export function marketplaceBulkSelectDisabledReason(
     return null;
   }
   return null;
+}
+
+const MY_SALES_NO_BUYER_LABEL = '구매 전 · 미인계';
+
+/** 내 판매 — 인계업체별 그룹 */
+export function groupMySalesByCompany(
+  items: DbMarketplaceMaskedItem[],
+): Array<{ label: string; items: DbMarketplaceMaskedItem[] }> {
+  const groups = new Map<string, DbMarketplaceMaskedItem[]>();
+  for (const item of items) {
+    const label = item.buyerName?.trim() || MY_SALES_NO_BUYER_LABEL;
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label)!.push(item);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => {
+      if (a === MY_SALES_NO_BUYER_LABEL) return 1;
+      if (b === MY_SALES_NO_BUYER_LABEL) return -1;
+      return a.localeCompare(b, 'ko');
+    })
+    .map(([label, groupItems]) => ({ label, items: groupItems }));
 }

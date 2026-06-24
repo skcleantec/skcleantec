@@ -9,6 +9,7 @@ import type {
 export type DbMarketplaceMySalesFilterState = {
   buyerKind: '' | 'PARTNER_TENANT' | 'EXTERNAL_COMPANY';
   buyerId: string;
+  groupByCompany: boolean;
   soldDatePreset: 'today' | 'all' | 'month' | 'day';
   soldMonth: string;
   soldDay: string;
@@ -34,9 +35,13 @@ export function parseMySalesFiltersFromSearchParams(sp: URLSearchParams): DbMark
       ? handoverPresetRaw
       : 'all';
 
+  const groupRaw = sp.get('groupByCompany')?.trim() ?? '';
+  const groupByCompany = groupRaw === '1' || groupRaw === 'true';
+
   return {
-    buyerKind,
-    buyerId: sp.get('buyerId')?.trim() ?? '',
+    buyerKind: groupByCompany ? '' : buyerKind,
+    buyerId: groupByCompany ? '' : sp.get('buyerId')?.trim() ?? '',
+    groupByCompany,
     soldDatePreset,
     soldMonth: sp.get('soldMonth')?.trim() || kstTodayYmd().slice(0, 7),
     soldDay: sp.get('soldDay')?.trim() || kstTodayYmd(),
@@ -48,7 +53,9 @@ export function parseMySalesFiltersFromSearchParams(sp: URLSearchParams): DbMark
 
 export function mySalesFiltersToApiParams(filters: DbMarketplaceMySalesFilterState): Record<string, string> {
   const params: Record<string, string> = {};
-  if (filters.buyerKind && filters.buyerId) {
+  if (filters.groupByCompany) {
+    params.groupByCompany = '1';
+  } else if (filters.buyerKind && filters.buyerId) {
     params.buyerKind = filters.buyerKind;
     params.buyerId = filters.buyerId;
   }
@@ -73,6 +80,7 @@ export function applyMySalesFiltersToSearchParams(
   for (const key of [
     'buyerKind',
     'buyerId',
+    'groupByCompany',
     'soldDatePreset',
     'soldMonth',
     'soldDay',
@@ -96,7 +104,7 @@ const DATE_PRESET_OPTIONS = [
   { id: 'day' as const, label: '날짜' },
 ];
 
-function DatePresetSegment({
+function CompactDatePreset({
   label,
   preset,
   month,
@@ -114,16 +122,16 @@ function DatePresetSegment({
   onDayChange: (next: string) => void;
 }) {
   return (
-    <div className="min-w-0 space-y-2">
-      <p className="text-fluid-2xs font-medium text-gray-600">{label}</p>
-      <div className="inline-flex max-w-full flex-nowrap gap-1 overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-1">
+    <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-1.5">
+      <span className="shrink-0 text-fluid-2xs font-medium text-gray-600 whitespace-nowrap">{label}</span>
+      <div className="inline-flex max-w-full flex-nowrap gap-0.5 overflow-x-auto rounded-md border border-gray-200 bg-white p-0.5 [scrollbar-width:thin]">
         {DATE_PRESET_OPTIONS.map((opt) => (
           <button
             key={opt.id}
             type="button"
             onClick={() => onPresetChange(opt.id)}
-            className={`shrink-0 rounded-md px-2.5 py-1.5 text-fluid-2xs font-medium whitespace-nowrap ${
-              preset === opt.id ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-white'
+            className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium whitespace-nowrap sm:text-fluid-2xs ${
+              preset === opt.id ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
             {opt.label}
@@ -131,10 +139,10 @@ function DatePresetSegment({
         ))}
       </div>
       {preset === 'month' ? (
-        <YearMonthSelect value={month} onChange={onMonthChange} className="w-full max-w-[12rem]" />
+        <YearMonthSelect value={month} onChange={onMonthChange} className="min-w-0 shrink" />
       ) : null}
       {preset === 'day' ? (
-        <YmdSelect value={day} onChange={onDayChange} className="w-full max-w-[14rem]" />
+        <YmdSelect value={day} onChange={onDayChange} className="min-w-0 shrink" />
       ) : null}
     </div>
   );
@@ -168,49 +176,76 @@ export function DbMarketplaceMySalesFilters({
   }, [partners, externalCompanies]);
 
   return (
-    <div className="mb-4 space-y-4 rounded-xl border border-gray-200 bg-gray-50/80 p-3 sm:p-4">
-      <div className="min-w-0 space-y-2">
-        <p className="text-fluid-2xs font-medium text-gray-600">인계업체</p>
-        <select
-          value={buyerSelectValue}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (!v) {
-              onChange({ ...filters, buyerKind: '', buyerId: '' });
-              return;
+    <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50/80 p-2 sm:p-3">
+      <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center xl:gap-x-4 xl:gap-y-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="shrink-0 text-fluid-2xs font-medium text-gray-600">인계업체</span>
+          <select
+            value={buyerSelectValue}
+            disabled={filters.groupByCompany}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) {
+                onChange({ ...filters, buyerKind: '', buyerId: '', groupByCompany: false });
+                return;
+              }
+              const [kind, id] = v.split(':') as ['PARTNER_TENANT' | 'EXTERNAL_COMPANY', string];
+              onChange({ ...filters, buyerKind: kind, buyerId: id, groupByCompany: false });
+            }}
+            className="min-w-0 max-w-full flex-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-fluid-2xs text-gray-800 disabled:bg-gray-100 sm:max-w-[11rem] sm:text-fluid-xs"
+          >
+            <option value="">전체</option>
+            {buyerOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                ...filters,
+                groupByCompany: !filters.groupByCompany,
+                buyerKind: '',
+                buyerId: '',
+              })
             }
-            const [kind, id] = v.split(':') as ['PARTNER_TENANT' | 'EXTERNAL_COMPANY', string];
-            onChange({ ...filters, buyerKind: kind, buyerId: id });
-          }}
-          className="w-full max-w-md rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs text-gray-800"
-        >
-          <option value="">전체 업체</option>
-          {buyerOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <DatePresetSegment
-          label="판매날짜 (게시일)"
-          preset={filters.soldDatePreset}
-          month={filters.soldMonth}
-          day={filters.soldDay}
-          onPresetChange={(soldDatePreset) => onChange({ ...filters, soldDatePreset })}
-          onMonthChange={(soldMonth) => onChange({ ...filters, soldMonth })}
-          onDayChange={(soldDay) => onChange({ ...filters, soldDay })}
-        />
-        <DatePresetSegment
-          label="인계날짜"
-          preset={filters.handoverDatePreset}
-          month={filters.handoverMonth}
-          day={filters.handoverDay}
-          onPresetChange={(handoverDatePreset) => onChange({ ...filters, handoverDatePreset })}
-          onMonthChange={(handoverMonth) => onChange({ ...filters, handoverMonth })}
-          onDayChange={(handoverDay) => onChange({ ...filters, handoverDay })}
-        />
+            className={`shrink-0 rounded-md border px-2 py-1.5 text-fluid-2xs font-medium whitespace-nowrap sm:text-fluid-xs ${
+              filters.groupByCompany
+                ? 'border-slate-900 bg-slate-900 text-white'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            업체별 보기
+          </button>
+        </div>
+
+        <div className="hidden h-6 w-px shrink-0 bg-gray-300 xl:block" aria-hidden />
+
+        <div className="min-w-0 flex-1 xl:min-w-[14rem]">
+          <CompactDatePreset
+            label="판매"
+            preset={filters.soldDatePreset}
+            month={filters.soldMonth}
+            day={filters.soldDay}
+            onPresetChange={(soldDatePreset) => onChange({ ...filters, soldDatePreset })}
+            onMonthChange={(soldMonth) => onChange({ ...filters, soldMonth })}
+            onDayChange={(soldDay) => onChange({ ...filters, soldDay })}
+          />
+        </div>
+
+        <div className="min-w-0 flex-1 xl:min-w-[14rem]">
+          <CompactDatePreset
+            label="인계"
+            preset={filters.handoverDatePreset}
+            month={filters.handoverMonth}
+            day={filters.handoverDay}
+            onPresetChange={(handoverDatePreset) => onChange({ ...filters, handoverDatePreset })}
+            onMonthChange={(handoverMonth) => onChange({ ...filters, handoverMonth })}
+            onDayChange={(handoverDay) => onChange({ ...filters, handoverDay })}
+          />
+        </div>
       </div>
     </div>
   );

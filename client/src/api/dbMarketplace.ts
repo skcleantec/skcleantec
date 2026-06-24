@@ -218,6 +218,16 @@ export type DbMarketplaceBulkBuyerConfirmResult = {
   failed: DbMarketplaceBulkFailed[];
 };
 
+export type DbMarketplaceBulkRevertToCartResult = {
+  reverted: Array<{ id: string; inquiryId?: string; displayAmount?: number | null }>;
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export type DbMarketplaceBulkRemoveFromCartResult = {
+  removed: Array<{ id: string; inquiryId: string }>;
+  failed: DbMarketplaceBulkFailed[];
+};
+
 export type DbMarketplaceBulkWithdrawResult = {
   withdrawn: Array<{ id: string; inquiryId?: string; displayAmount?: number | null }>;
   failed: DbMarketplaceBulkFailed[];
@@ -266,6 +276,30 @@ export async function bulkWithdrawDbMarketplace(
   listingIds: string[],
 ): Promise<DbMarketplaceBulkWithdrawResult> {
   const res = await fetch(`${API}/db-marketplace/bulk/withdraw`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ listingIds }),
+  });
+  return parseJson(res);
+}
+
+export async function bulkRevertToCartDbMarketplace(
+  token: string,
+  listingIds: string[],
+): Promise<DbMarketplaceBulkRevertToCartResult> {
+  const res = await fetch(`${API}/db-marketplace/bulk/revert-to-cart`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ listingIds }),
+  });
+  return parseJson(res);
+}
+
+export async function bulkRemoveFromCartDbMarketplace(
+  token: string,
+  listingIds: string[],
+): Promise<DbMarketplaceBulkRemoveFromCartResult> {
+  const res = await fetch(`${API}/db-marketplace/bulk/remove-from-cart`, {
     method: 'POST',
     headers: headers(token),
     body: JSON.stringify({ listingIds }),
@@ -333,6 +367,29 @@ export async function withdrawDbMarketplaceListing(
   return data.listing;
 }
 
+export async function revertDbMarketplaceToCart(
+  token: string,
+  listingId: string,
+): Promise<DbMarketplaceSellerListing> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/revert-to-cart`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
+  return data.listing;
+}
+
+export async function removeDbMarketplaceFromCart(
+  token: string,
+  listingId: string,
+): Promise<{ id: string; inquiryId: string }> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/remove-from-cart`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  return parseJson(res);
+}
+
 export async function listDbMarketplace(
   token: string,
   params: {
@@ -347,6 +404,7 @@ export async function listDbMarketplace(
     handoverDatePreset?: string;
     handoverMonth?: string;
     handoverDay?: string;
+    groupByCompany?: boolean;
   },
 ): Promise<{ items: DbMarketplaceMaskedItem[]; total: number; limit: number; offset: number }> {
   const q = new URLSearchParams();
@@ -361,6 +419,7 @@ export async function listDbMarketplace(
   if (params.handoverDatePreset) q.set('handoverDatePreset', params.handoverDatePreset);
   if (params.handoverMonth) q.set('handoverMonth', params.handoverMonth);
   if (params.handoverDay) q.set('handoverDay', params.handoverDay);
+  if (params.groupByCompany) q.set('groupByCompany', '1');
   const res = await fetch(`${API}/db-marketplace?${q}`, { headers: headers(token) });
   return parseJson(res);
 }

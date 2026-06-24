@@ -10,6 +10,7 @@ export type DbMarketplaceListFilters = {
   handoverDatePreset?: 'today' | 'all' | 'month' | 'day';
   handoverMonth?: string;
   handoverDay?: string;
+  groupByCompany?: boolean;
 };
 
 function parseDatePreset(raw: unknown): 'today' | 'all' | 'month' | 'day' | undefined {
@@ -37,6 +38,7 @@ export function parseDbMarketplaceListFilters(query: Record<string, unknown>): D
     handoverDatePreset: parseDatePreset(query.handoverDatePreset),
     handoverMonth: trimStr(query.handoverMonth),
     handoverDay: trimStr(query.handoverDay),
+    groupByCompany: query.groupByCompany === '1' || query.groupByCompany === 'true',
   };
 }
 
@@ -46,9 +48,17 @@ export function applyMySalesListFilters(
 ): Prisma.InquiryDbListingWhereInput {
   const parts: Prisma.InquiryDbListingWhereInput[] = [base];
 
-  if (filters.buyerKind === 'PARTNER_TENANT' && filters.buyerId) {
+  if (
+    !filters.groupByCompany &&
+    filters.buyerKind === 'PARTNER_TENANT' &&
+    filters.buyerId
+  ) {
     parts.push({ buyerTenantId: filters.buyerId });
-  } else if (filters.buyerKind === 'EXTERNAL_COMPANY' && filters.buyerId) {
+  } else if (
+    !filters.groupByCompany &&
+    filters.buyerKind === 'EXTERNAL_COMPANY' &&
+    filters.buyerId
+  ) {
     parts.push({ buyerExternalCompanyId: filters.buyerId });
   }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -6,7 +6,8 @@ import {
   bulkPublishDbMarketplace,
   bulkSellerConfirmDbMarketplace,
   bulkSellerDeclineDbMarketplace,
-  bulkWithdrawDbMarketplace,
+  bulkRemoveFromCartDbMarketplace,
+  bulkRevertToCartDbMarketplace,
   listDbMarketplace,
   getDbMarketplaceListing,
   listDbMarketplaceAudienceOptions,
@@ -38,6 +39,7 @@ import {
 } from '../../utils/dbMarketplaceDisplay';
 import {
   canBulkSelectMarketplaceItem,
+  groupMySalesByCompany,
   marketplaceBulkSelectDisabledReason,
   type DbMarketplaceBulkMode,
 } from '../../utils/dbMarketplaceBulk';
@@ -115,7 +117,7 @@ export function AdminDbMarketplacePage() {
       : tab === 'available'
         ? 'buy'
         : tab === 'my_sales'
-          ? 'withdraw'
+          ? 'revert_cart'
           : tab === 'pending'
             ? 'seller_confirm'
             : null;
@@ -126,6 +128,23 @@ export function AdminDbMarketplacePage() {
     () => parseMySalesFiltersFromSearchParams(searchParams),
     [searchParams],
   );
+
+  const displayGroups = useMemo(() => {
+    if (showMySalesMeta && mySalesFilters.groupByCompany) {
+      return groupMySalesByCompany(items);
+    }
+    return [{ label: null as string | null, items }];
+  }, [items, showMySalesMeta, mySalesFilters.groupByCompany]);
+
+  const tableColSpan = useMemo(() => {
+    let n = 5;
+    if (selectable) n += 1;
+    if (tab === 'cart') n += 1;
+    if (showMySalesMeta) n += 3;
+    if (showSellerColumn) n += 1;
+    n += 1;
+    return n;
+  }, [selectable, tab, showMySalesMeta, showSellerColumn]);
 
   const [audiencePartners, setAudiencePartners] = useState<
     Awaited<ReturnType<typeof listDbMarketplaceAudienceOptions>>['partners']
@@ -334,26 +353,63 @@ export function AdminDbMarketplacePage() {
     }
   };
 
-  const runBulkWithdraw = async () => {
+  const runBulkRemoveFromCart = async () => {
     if (!token || selectedCount === 0) return;
     if (selectedCount > DB_MARKETPLACE_BULK_MAX) {
       alert(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 처리할 수 있습니다.`);
       return;
     }
-    if (!window.confirm(`선택 ${selectedCount}건의 게시를 철회할까요?`)) return;
+    if (
+      !window.confirm(
+        `선택 ${selectedCount}건을 정보공유에서 제거하고 접수를 원상복귀합니다. 계속할까요?`,
+      )
+    ) {
+      return;
+    }
     setBulkBusy(true);
     try {
-      const result = await bulkWithdrawDbMarketplace(token, [...selectedIds]);
+      const result = await bulkRemoveFromCartDbMarketplace(token, [...selectedIds]);
       setSelectedIds(new Set());
       setBulkResult({
-        title: '일괄 게시 철회 결과',
-        successLabel: '철회 완료',
-        successCount: result.withdrawn.length,
+        title: '일괄 원상복귀 결과',
+        successLabel: '원상복귀 완료',
+        successCount: result.removed.length,
         failed: result.failed,
       });
       load({ silent: true });
     } catch (e) {
-      alert(e instanceof Error ? e.message : '일괄 철회 실패');
+      alert(e instanceof Error ? e.message : '일괄 원상복귀 실패');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkRevertToCart = async () => {
+    if (!token || selectedCount === 0) return;
+    if (selectedCount > DB_MARKETPLACE_BULK_MAX) {
+      alert(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 처리할 수 있습니다.`);
+      return;
+    }
+    if (
+      !window.confirm(
+        `선택 ${selectedCount}건을 게시에서 장바구니로 되돌립니다. 노출 업체 설정은 유지됩니다. 계속할까요?`,
+      )
+    ) {
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const result = await bulkRevertToCartDbMarketplace(token, [...selectedIds]);
+      setSelectedIds(new Set());
+      setBulkResult({
+        title: '일괄 장바구니 되돌리기 결과',
+        successLabel: '장바구니 이동 완료',
+        successCount: result.reverted.length,
+        failed: result.failed,
+      });
+      load({ silent: true });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '일괄 장바구니 되돌리기 실패');
     } finally {
       setBulkBusy(false);
     }
@@ -475,7 +531,7 @@ export function AdminDbMarketplacePage() {
         <div className="mt-4 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
           <table className={`w-full table-fixed border-collapse text-fluid-xs ${showMySalesMeta ? 'min-w-[960px]' : 'min-w-[720px]'}`}>
             <colgroup>
-              {selectable ? <col className="w-[36px]" /> : null}
+              {selectable ? <col className="w-[22px]" /> : null}
               <col className="w-[10%]" />
               <col className="w-[12%]" />
               <col className="w-[18%]" />
@@ -495,9 +551,10 @@ export function AdminDbMarketplacePage() {
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
                 {selectable ? (
-                  <th className="px-1 py-2 text-center">
+                  <th className="w-[22px] max-w-[22px] px-0 py-2 text-center">
                     <input
                       type="checkbox"
+                      className="size-3"
                       aria-label="현재 페이지 전체 선택"
                       checked={allPageSelected}
                       onChange={toggleAllPage}
@@ -523,90 +580,121 @@ export function AdminDbMarketplacePage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((row) => {
-                const canSelect = canSelectRow(row);
-                const disabledReason =
-                  bulkMode && selectable ? marketplaceBulkSelectDisabledReason(row, bulkMode) : null;
-                return (
-                  <tr
-                    key={row.id}
-                    className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                    onClick={() => setSelectedRow(row)}
-                  >
-                    {selectable ? (
-                      <td className="px-1 py-2 text-center" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(row.id)}
-                          disabled={!canSelect}
-                          title={disabledReason ?? undefined}
-                          onChange={() => {
-                            if (canSelect) toggleRow(row.id);
-                          }}
-                        />
+              {displayGroups.map((group) => (
+                <Fragment key={group.label ?? '__flat__'}>
+                  {group.label ? (
+                    <tr className="border-b border-slate-200 bg-slate-100/90">
+                      <td
+                        colSpan={tableColSpan}
+                        className="px-2 py-1.5 text-left text-fluid-2xs font-semibold text-slate-800"
+                      >
+                        {group.label}
+                        <span className="ml-2 font-normal tabular-nums text-slate-600">{group.items.length}건</span>
                       </td>
-                    ) : null}
-                    <td className="px-2 py-2 text-center truncate" title={row.customerNameMasked}>
-                      {row.customerNameMasked}
-                    </td>
-                    <td className="px-2 py-2 text-center truncate" title={row.addressRegion}>
-                      {row.addressRegion}
-                    </td>
-                    <td className="px-2 py-2 text-center truncate" title={cleaningSummary(row)}>
-                      {cleaningSummary(row)}
-                    </td>
-                    <td className="px-2 py-2 text-center">{formatMarketplaceSchedule(row)}</td>
-                    {tab === 'cart' ? (
-                      <td className="px-2 py-2 text-right tabular-nums">
-                        {row.listingFee != null ? `${row.listingFee.toLocaleString('ko-KR')}원` : '-'}
-                      </td>
-                    ) : null}
-                    <td className="px-2 py-2 text-right tabular-nums">
-                      {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
-                    </td>
-                    {showMySalesMeta ? (
-                      <>
-                        <td className="px-2 py-2 text-center tabular-nums">
-                          {formatMarketplaceListDate(row.publishedAt)}
+                    </tr>
+                  ) : null}
+                  {group.items.map((row) => {
+                    const canSelect = canSelectRow(row);
+                    const disabledReason =
+                      bulkMode && selectable ? marketplaceBulkSelectDisabledReason(row, bulkMode) : null;
+                    return (
+                      <tr
+                        key={row.id}
+                        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                        onClick={() => setSelectedRow(row)}
+                      >
+                        {selectable ? (
+                          <td
+                            className="w-[22px] max-w-[22px] px-0 py-2 text-center"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              className="size-3"
+                              checked={selectedIds.has(row.id)}
+                              disabled={!canSelect}
+                              title={disabledReason ?? undefined}
+                              onChange={() => {
+                                if (canSelect) toggleRow(row.id);
+                              }}
+                            />
+                          </td>
+                        ) : null}
+                        <td className="px-2 py-2 text-center truncate" title={row.customerNameMasked}>
+                          {row.customerNameMasked}
                         </td>
-                        <td className="px-2 py-2 text-center tabular-nums">
-                          {formatMarketplaceListDate(row.sellerConfirmedAt)}
+                        <td className="px-2 py-2 text-center truncate" title={row.addressRegion}>
+                          {row.addressRegion}
                         </td>
-                        <td className="px-2 py-2 text-center truncate" title={row.buyerName ?? undefined}>
-                          {row.buyerName ?? '-'}
+                        <td className="px-2 py-2 text-center truncate" title={cleaningSummary(row)}>
+                          {cleaningSummary(row)}
                         </td>
-                      </>
-                    ) : null}
-                    {showSellerColumn ? (
-                      <td className="px-2 py-2 text-center truncate" title={row.sellerTenantName}>
-                        {row.sellerTenantName}
-                      </td>
-                    ) : null}
-                    <td className="px-2 py-2 text-center">
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${STATUS_CLASS[row.status] ?? ''}`}>
-                        {STATUS_LABEL[row.status] ?? row.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+                        <td className="px-2 py-2 text-center">{formatMarketplaceSchedule(row)}</td>
+                        {tab === 'cart' ? (
+                          <td className="px-2 py-2 text-right tabular-nums">
+                            {row.listingFee != null ? `${row.listingFee.toLocaleString('ko-KR')}원` : '-'}
+                          </td>
+                        ) : null}
+                        <td className="px-2 py-2 text-right tabular-nums">
+                          {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
+                        </td>
+                        {showMySalesMeta ? (
+                          <>
+                            <td className="px-2 py-2 text-center tabular-nums">
+                              {formatMarketplaceListDate(row.publishedAt)}
+                            </td>
+                            <td className="px-2 py-2 text-center tabular-nums">
+                              {formatMarketplaceListDate(row.sellerConfirmedAt)}
+                            </td>
+                            <td className="px-2 py-2 text-center truncate" title={row.buyerName ?? undefined}>
+                              {row.buyerName ?? '-'}
+                            </td>
+                          </>
+                        ) : null}
+                        {showSellerColumn ? (
+                          <td className="px-2 py-2 text-center truncate" title={row.sellerTenantName}>
+                            {row.sellerTenantName}
+                          </td>
+                        ) : null}
+                        <td className="px-2 py-2 text-center">
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${STATUS_CLASS[row.status] ?? ''}`}
+                          >
+                            {STATUS_LABEL[row.status] ?? row.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              ))}
             </tbody>
           </table>
         </div>
 
         <div className="mt-4 space-y-3 lg:hidden">
-          {items.map((row) => (
-            <DbMarketplaceRowCard
-              key={row.id}
-              row={row}
-              onOpen={() => setSelectedRow(row)}
-              selectable={selectable}
-              selected={selectedIds.has(row.id)}
-              onToggleSelect={() => toggleRow(row.id)}
-              bulkMode={bulkMode}
-              showSeller={showSellerColumn}
-              showMySalesMeta={showMySalesMeta}
-            />
+          {displayGroups.map((group) => (
+            <Fragment key={group.label ?? '__flat__'}>
+              {group.label ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-fluid-xs font-semibold text-slate-800">
+                  {group.label}
+                  <span className="ml-2 font-normal tabular-nums text-slate-600">{group.items.length}건</span>
+                </div>
+              ) : null}
+              {group.items.map((row) => (
+                <DbMarketplaceRowCard
+                  key={row.id}
+                  row={row}
+                  onOpen={() => setSelectedRow(row)}
+                  selectable={selectable}
+                  selected={selectedIds.has(row.id)}
+                  onToggleSelect={() => toggleRow(row.id)}
+                  bulkMode={bulkMode}
+                  showSeller={showSellerColumn}
+                  showMySalesMeta={showMySalesMeta}
+                />
+              ))}
+            </Fragment>
           ))}
         </div>
 
@@ -625,15 +713,25 @@ export function AdminDbMarketplacePage() {
       {bulkMode ? (
         <DbMarketplaceBulkActionBar selectedCount={selectedCount} onClear={() => setSelectedIds(new Set())}>
         {bulkMode === 'publish' ? (
-          <button
-            type="button"
-            disabled={bulkBusy}
-            className="min-h-[2.75rem] flex-1 rounded-lg bg-violet-700 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:min-h-0 sm:flex-none sm:px-4"
-            onClick={() => setAudienceModalOpen(true)}
-          >
-            <span className="sm:hidden">노출 지정 · 게시</span>
-            <span className="hidden sm:inline">노출 업체 지정 · 게시하기</span>
-          </button>
+          <>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              className="min-h-[2.75rem] flex-1 rounded-lg bg-violet-700 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:min-h-0 sm:flex-none sm:px-4"
+              onClick={() => setAudienceModalOpen(true)}
+            >
+              <span className="sm:hidden">노출 지정 · 게시</span>
+              <span className="hidden sm:inline">노출 업체 지정 · 게시하기</span>
+            </button>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              className="min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 sm:min-h-0 sm:flex-none"
+              onClick={() => void runBulkRemoveFromCart()}
+            >
+              원상복귀
+            </button>
+          </>
         ) : bulkMode === 'buy' ? (
           <button
             type="button"
@@ -643,14 +741,14 @@ export function AdminDbMarketplacePage() {
           >
             갖고가기
           </button>
-        ) : bulkMode === 'withdraw' ? (
+        ) : bulkMode === 'revert_cart' ? (
           <button
             type="button"
             disabled={bulkBusy}
             className="min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 sm:min-h-0 sm:flex-none"
-            onClick={() => void runBulkWithdraw()}
+            onClick={() => void runBulkRevertToCart()}
           >
-            게시 철회
+            장바구니로 되돌리기
           </button>
         ) : (
           <>
