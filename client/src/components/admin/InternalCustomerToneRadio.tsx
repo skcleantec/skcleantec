@@ -2,6 +2,7 @@ import {
   INTERNAL_CUSTOMER_TONE_OPTIONS,
   type InternalCustomerTone,
 } from '../../constants/internalCustomerTone';
+import { InternalCustomerToneIcon } from './InternalCustomerToneIcon';
 
 type Props = {
   value: InternalCustomerTone;
@@ -10,7 +11,7 @@ type Props = {
   name?: string;
 };
 
-/** 발주서 발급·접수 수정 — 내부 고객 등급 라디오 (선택 사항, 👼/😈/🧓) */
+/** 발주서 발급·접수 수정 — 내부 고객 등급 라디오 (선택 사항) */
 export function InternalCustomerToneRadio({
   value,
   onChange,
@@ -31,7 +32,7 @@ export function InternalCustomerToneRadio({
           return (
             <label
               key={opt.value}
-              className={`inline-flex cursor-pointer items-center justify-center rounded-md border px-3 py-2 min-w-[2.75rem] ${
+              className={`inline-flex cursor-pointer items-center justify-center rounded-md border px-3 py-2 min-h-[2.75rem] min-w-[2.75rem] ${
                 selected
                   ? 'border-gray-400 bg-gray-50 ring-1 ring-gray-300'
                   : 'border-gray-200 bg-white hover:bg-gray-50'
@@ -53,9 +54,7 @@ export function InternalCustomerToneRadio({
                 aria-label={opt.label}
                 onChange={() => onChange(opt.value)}
               />
-              <span className="text-xl leading-none select-none" aria-hidden>
-                {opt.emoji}
-              </span>
+              <InternalCustomerToneIcon tone={opt.value} sizeClass="h-8 w-8" />
             </label>
           );
         })}
