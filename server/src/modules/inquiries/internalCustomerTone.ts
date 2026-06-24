@@ -1,6 +1,6 @@
 import type { InternalCustomerTone } from '@prisma/client';
 
-const TONE_VALUES: InternalCustomerTone[] = ['GOOD', 'NORMAL', 'BAD', 'ELDERLY'];
+const TONE_VALUES: InternalCustomerTone[] = ['GOOD', 'NORMAL', 'BAD', 'SEVERE', 'ELDERLY'];
 
 /** 1차: 마케터·관리자만. 팀장·외부 확장 시 이 함수만 조정 */
 export function canViewInternalCustomerTone(role: string | undefined): boolean {
@@ -26,6 +26,8 @@ export function internalCustomerToneEmoji(tone: InternalCustomerTone): string {
       return '👼';
     case 'BAD':
       return '😈';
+    case 'SEVERE':
+      return '💀';
     case 'ELDERLY':
       return '🧓';
     default:

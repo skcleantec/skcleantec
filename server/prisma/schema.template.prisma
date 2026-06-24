@@ -1019,6 +1019,7 @@ enum InternalCustomerTone {
   GOOD
   NORMAL
   BAD
+  SEVERE
   ELDERLY
 }
 

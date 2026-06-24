@@ -54,7 +54,7 @@ export interface ScheduleItem {
   /** 상담·참고용 마케터 메모 — 팀장·타업체와 공유 */
   consultationMemo?: string | null;
   /** 내부 고객 등급 — 마케터·관리자 API만 */
-  internalCustomerTone?: 'GOOD' | 'NORMAL' | 'BAD' | 'ELDERLY' | null;
+  internalCustomerTone?: 'GOOD' | 'NORMAL' | 'BAD' | 'SEVERE' | 'ELDERLY' | null;
   claimMemo?: string | null;
   callAttempt?: number | null;
   buildingType?: string | null;
