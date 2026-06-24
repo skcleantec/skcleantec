@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type { DashboardInquiryBreakdown } from '../../../api/dashboard';
 import { HelpTooltip } from '../../ui/HelpTooltip';
 import {
@@ -8,6 +7,7 @@ import {
   DashboardVerticalBarChart,
 } from './DashboardMiniBarChart';
 import { DashboardKoreaSidoMap } from './DashboardKoreaSidoMap';
+import type { DashboardDrillKind } from './dashboardDrilldownTypes';
 
 function formatCurrency(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
@@ -28,14 +28,34 @@ function ChartCard({
   accentDotClass,
   helpText,
   children,
+  onOpenDrill,
 }: {
   title: string;
   accentDotClass: string;
   helpText: string;
   children: ReactNode;
+  onOpenDrill?: () => void;
 }) {
+  const clickable = onOpenDrill != null;
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50/40 p-4 min-w-0">
+    <div
+      className={`rounded-xl border border-slate-100 bg-slate-50/40 p-4 min-w-0 ${
+        clickable ? 'cursor-pointer hover:bg-slate-50/80 transition-colors' : ''
+      }`}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={clickable ? onOpenDrill : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpenDrill?.();
+              }
+            }
+          : undefined
+      }
+    >
       <div className="mb-3 flex items-start justify-between gap-2">
         <h3 className="text-fluid-2xs font-semibold text-gray-700 flex items-center gap-1.5 min-w-0">
           <span className={`w-1.5 h-3 rounded-full shrink-0 ${accentDotClass}`} />
@@ -52,12 +72,13 @@ export function DashboardInquiryAnalyticsPanel({
   breakdown,
   loading,
   error,
+  onOpenDrill,
 }: {
   breakdown: DashboardInquiryBreakdown | null;
   loading: boolean;
   error: string | null;
+  onOpenDrill: (kind: DashboardDrillKind, initialMonth?: string) => void;
 }) {
-  const navigate = useNavigate();
   const [regionDetailOpen, setRegionDetailOpen] = useState(false);
 
   if (loading) {
@@ -130,6 +151,7 @@ export function DashboardInquiryAnalyticsPanel({
           title="지역별 접수"
           accentDotClass="bg-red-500"
           helpText="접수일(KST) 이번 달 · 확정 접수 · 접수 주소에서 시·군·시·도를 파싱합니다. 서비스 권역이 설정된 경우 권역 이름을 우선 표시합니다."
+          onOpenDrill={() => onOpenDrill('region', breakdown.monthKey)}
         >
           {breakdown.bySidoMap.length > 0 ? (
             <div className="rounded-lg border border-white/80 bg-white/70 p-3">
@@ -144,7 +166,10 @@ export function DashboardInquiryAnalyticsPanel({
             <div className="mt-3 border-t border-slate-100 pt-3">
               <button
                 type="button"
-                onClick={() => setRegionDetailOpen((v) => !v)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setRegionDetailOpen((v) => !v);
+                }}
                 className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-fluid-2xs font-medium text-slate-600 hover:bg-white/80 transition-colors"
                 aria-expanded={regionDetailOpen}
               >
@@ -169,11 +194,6 @@ export function DashboardInquiryAnalyticsPanel({
                     items={regionItems}
                     accentClass="bg-red-500"
                     formatValue={(n) => `${n}건`}
-                    onBarClick={() => {
-                      navigate(
-                        `/admin/inquiries?datePreset=month&month=${encodeURIComponent(breakdown.monthKey)}`,
-                      );
-                    }}
                     ariaLabel="지역별 이번 달 접수 건수"
                   />
                 </div>
@@ -185,8 +205,10 @@ export function DashboardInquiryAnalyticsPanel({
         <ChartCard
           title="월별 접수·매출"
           accentDotClass="bg-indigo-500"
-          helpText="접수일(KST) 기준 최근 6개월 · 확정 접수 건수. 호버·클릭 시 매출 포함."
+          helpText="접수일(KST) 기준 최근 6개월 · 확정 접수 건수. 클릭하면 기간별 상세 통계를 볼 수 있습니다."
+          onOpenDrill={() => onOpenDrill('monthly-inquiry', breakdown.monthKey)}
         >
+          <div onClick={(e) => e.stopPropagation()}>
           <DashboardVerticalBarChart
             items={monthItems}
             accentClass="bg-indigo-400"
@@ -194,20 +216,19 @@ export function DashboardInquiryAnalyticsPanel({
             showValueLabels
             formatValue={(n) => `${n}건`}
             barAreaClass="h-24"
-            onBarClick={(item) => {
-              navigate(
-                `/admin/inquiries?datePreset=month&month=${encodeURIComponent(item.key)}`,
-              );
-            }}
+            onBarClick={(item) => onOpenDrill('monthly-inquiry', item.key)}
             ariaLabel="최근 6개월 월별 접수 건수"
           />
+          </div>
         </ChartCard>
 
         <ChartCard
           title="예약일별 작업"
           accentDotClass="bg-sky-500"
           helpText="예약일(preferredDate) KST · 이번 달 · 취소·보류 제외. 스케줄 밀도 확인용입니다."
+          onOpenDrill={() => onOpenDrill('preferred-date', breakdown.monthKey)}
         >
+          <div onClick={(e) => e.stopPropagation()}>
           {preferredItems.every((d) => d.value === 0) ? (
             <p className="py-6 text-center text-fluid-2xs text-gray-500 border border-dashed border-slate-200 rounded-lg bg-white/60">
               이번 달 예약일이 있는 접수가 없습니다.
@@ -220,14 +241,10 @@ export function DashboardInquiryAnalyticsPanel({
               formatValue={(n) => `${n}건`}
               barAreaClass="h-20"
               labelEvery={preferredLabelEvery}
-              onBarClick={(item) => {
-                navigate(
-                  `/admin/inquiries?dateBasis=preferredDate&datePreset=day&day=${encodeURIComponent(item.key)}`,
-                );
-              }}
               ariaLabel="이번 달 예약일별 작업 건수"
             />
           )}
+          </div>
         </ChartCard>
       </div>
     </section>

@@ -165,10 +165,12 @@ export async function getDashboardOpsHourly(
 
 export async function getDashboardInquiryBreakdown(
   token: string,
+  month?: string,
 ): Promise<DashboardInquiryBreakdown> {
+  const qs = month ? `?month=${encodeURIComponent(month)}` : '';
   let res: Response;
   try {
-    res = await fetch(`${API}/dashboard/inquiry-breakdown`, {
+    res = await fetch(`${API}/dashboard/inquiry-breakdown${qs}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
   } catch (e) {
@@ -182,6 +184,100 @@ export async function getDashboardInquiryBreakdown(
       throw apiUnreachableMessage();
     }
     throw new Error(await apiErrorMessage(res, '접수 분석 통계를 불러올 수 없습니다.'));
+  }
+  return res.json();
+}
+
+export type DashboardSalesBreakdown = {
+  monthKey: string;
+  totalSales: number;
+  inquiryCount: number;
+  dailySales: Array<{ date: string; amount: number; inquiryCount: number }>;
+  salesByTeamLeader: Array<{ teamLeaderId: string; name: string; amount: number }>;
+};
+
+export async function getDashboardSalesBreakdown(
+  token: string,
+  month?: string,
+): Promise<DashboardSalesBreakdown> {
+  const qs = month ? `?month=${encodeURIComponent(month)}` : '';
+  let res: Response;
+  try {
+    res = await fetch(`${API}/dashboard/sales-breakdown${qs}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '매출 통계를 불러올 수 없습니다.'));
+  }
+  return res.json();
+}
+
+export type DashboardSettlementSummaryRow = {
+  teamLeaderId: string;
+  name: string;
+  assignedJobCount: number;
+  settlementDueTotal: number | null;
+  paidTotal: number;
+  unsettledCombined: number;
+};
+
+export type DashboardSettlementSummary = {
+  monthKey: string;
+  rows: DashboardSettlementSummaryRow[];
+  totals: {
+    settlementDueTotal: number;
+    paidTotal: number;
+    unsettledCombined: number;
+  };
+};
+
+export async function getDashboardSettlementSummary(
+  token: string,
+  month?: string,
+): Promise<DashboardSettlementSummary> {
+  const qs = month ? `?month=${encodeURIComponent(month)}` : '';
+  let res: Response;
+  try {
+    res = await fetch(`${API}/dashboard/settlement-summary${qs}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '정산 통계를 불러올 수 없습니다.'));
+  }
+  return res.json();
+}
+
+export async function getDashboardOpsHourlyRange(
+  token: string,
+  fromYmd: string,
+  toYmd: string,
+): Promise<OpsHourlySummary> {
+  const qs = new URLSearchParams({ fromYmd, toYmd });
+  let res: Response;
+  try {
+    res = await fetch(`${API}/dashboard/ops-hourly?${qs}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '운영 시간대 통계를 불러올 수 없습니다.'));
   }
   return res.json();
 }

@@ -10,11 +10,9 @@ import { DashboardTenantSubscriptionBlock } from '../../components/admin/Dashboa
 import { DashboardStatCard } from '../../components/admin/dashboard/DashboardStatCard';
 import { DashboardSalesBlock } from '../../components/admin/dashboard/DashboardSalesBlock';
 import { DashboardInquiryAnalyticsPanel } from '../../components/admin/dashboard/DashboardInquiryAnalyticsPanel';
-
-/** 서비스접수 필터와 동일한 KST 연월 YYYY-MM */
-function kstMonthKeyNow(): string {
-  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
-}
+import { DashboardDrilldownModal } from '../../components/admin/dashboard/DashboardDrilldownModal';
+import type { DashboardDrillKind, DashboardDrillRequest } from '../../components/admin/dashboard/dashboardDrilldownTypes';
+import { kstMonthKeyNow } from '../../components/admin/dashboard/dashboardDrilldownTypes';
 
 function kstMonthTitleKo(): string {
   const k = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
@@ -32,6 +30,18 @@ export function AdminDashboardPage() {
   const [breakdownError, setBreakdownError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [tenantDisplayName, setTenantDisplayName] = useState<string | null>(null);
+  const [drillOpen, setDrillOpen] = useState(false);
+  const [drillRequest, setDrillRequest] = useState<DashboardDrillRequest | null>(null);
+
+  const openDrill = (kind: DashboardDrillKind, initialMonth?: string, range?: { fromYmd: string; toYmd: string }) => {
+    setDrillRequest({
+      kind,
+      initialMonth: initialMonth ?? kstMonthKeyNow(),
+      initialFromYmd: range?.fromYmd,
+      initialToYmd: range?.toYmd,
+    });
+    setDrillOpen(true);
+  };
 
   useEffect(() => {
     if (!token) return;
@@ -109,7 +119,7 @@ export function AdminDashboardPage() {
         <TelemarketingSessionBlock />
       </div>
 
-      <DashboardOpsHourlyStrip />
+      <DashboardOpsHourlyStrip onOpenDetail={(range) => openDrill('ops-hourly', undefined, range)} />
 
       {/* 팀 현황: 이번 달 업무량 · 오늘 휴무 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -337,13 +347,25 @@ export function AdminDashboardPage() {
 
       {/* 매출 · 접수 분석 — PC 50:50 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0 w-full max-w-full">
-        <DashboardSalesBlock stats={stats} loading={loading} />
+        <DashboardSalesBlock
+          stats={stats}
+          loading={loading}
+          onOpenDrill={() => openDrill('sales', kstMonthKeyNow())}
+        />
         <DashboardInquiryAnalyticsPanel
           breakdown={breakdown}
           loading={breakdownLoading}
           error={breakdownError}
+          onOpenDrill={(kind, initialMonth) => openDrill(kind, initialMonth)}
         />
       </div>
+
+      <DashboardDrilldownModal
+        open={drillOpen}
+        request={drillRequest}
+        onClose={() => setDrillOpen(false)}
+        authToken={token}
+      />
 
       {token && <DashboardChangeHistory token={token} />}
     </div>

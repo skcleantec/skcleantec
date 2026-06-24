@@ -90,11 +90,18 @@ function resolveInquiryRegion(
   return { regionKey: `label:${label}`, label, sidoKey: null };
 }
 
+function parseAnchorMonthKey(raw: string | undefined): string {
+  const todayYmd = kstTodayYmd();
+  const fallback = todayYmd.slice(0, 7);
+  if (!raw || !/^\d{4}-\d{2}$/.test(raw.trim())) return fallback;
+  return raw.trim();
+}
+
 export async function buildDashboardInquiryBreakdown(
   tenantId: string,
+  anchorMonthKeyRaw?: string,
 ): Promise<DashboardInquiryBreakdown> {
-  const todayYmd = kstTodayYmd();
-  const monthKey = todayYmd.slice(0, 7);
+  const monthKey = parseAnchorMonthKey(anchorMonthKeyRaw);
   const kstThisMonth = kstMonthRangeYm(monthKey);
   if (!kstThisMonth) {
     throw new Error('이번 달 구간을 계산할 수 없습니다.');

@@ -9,9 +9,11 @@ function formatCurrency(n: number): string {
 export function DashboardSalesBlock({
   stats,
   loading,
+  onOpenDrill,
 }: {
   stats: DashboardStats | null;
   loading: boolean;
+  onOpenDrill?: () => void;
 }) {
   const dailyChartItems =
     stats?.dailySales?.map((d) => ({
@@ -22,7 +24,24 @@ export function DashboardSalesBlock({
     })) ?? [];
 
   return (
-    <section className="min-w-0 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm shadow-slate-100/50">
+    <section
+      className={`min-w-0 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm shadow-slate-100/50 ${
+        onOpenDrill ? 'cursor-pointer hover:border-slate-300/80 transition-colors' : ''
+      }`}
+      role={onOpenDrill ? 'button' : undefined}
+      tabIndex={onOpenDrill ? 0 : undefined}
+      onClick={onOpenDrill}
+      onKeyDown={
+        onOpenDrill
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpenDrill();
+              }
+            }
+          : undefined
+      }
+    >
       <div className="mb-4 border-b border-slate-100 pb-3">
         <h2 className="text-fluid-sm font-semibold text-slate-900 flex items-center gap-1.5">
           <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
@@ -34,7 +53,7 @@ export function DashboardSalesBlock({
           </svg>
           매출 및 정산 현황
         </h2>
-        <p className="text-fluid-2xs text-gray-500 mt-1">접수일(KST) 기준 · 확정 접수만</p>
+        <p className="text-fluid-2xs text-gray-500 mt-1">접수일(KST) 기준 · 확정 접수만 · 클릭하면 기간별 상세</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">

@@ -329,12 +329,27 @@ function buildConversionByHour(
   };
 }
 
-export async function buildOpsHourlySummary(
+function parseYmd(raw: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim());
+  return m ? raw.trim() : null;
+}
+
+function kstRangeFromYmd(fromYmd: string, toYmd: string): { gte: Date; lte: Date; startYmd: string; endYmd: string; periodDays: number } | null {
+  if (fromYmd > toYmd) return null;
+  const start = new Date(`${fromYmd}T00:00:00+09:00`);
+  const end = new Date(`${toYmd}T23:59:59.999+09:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  const msPerDay = 86400000;
+  const periodDays = Math.floor((end.getTime() - start.getTime()) / msPerDay) + 1;
+  if (periodDays < 1 || periodDays > 90) return null;
+  return { gte: start, lte: end, startYmd: fromYmd, endYmd: toYmd, periodDays };
+}
+
+async function buildOpsHourlySummaryInner(
   tenantId: string,
-  periodDaysRaw: unknown,
+  range: { gte: Date; lte: Date; startYmd: string; endYmd: string; periodDays: number },
 ): Promise<OpsHourlySummary> {
-  const periodDays = parsePeriodDays(periodDaysRaw);
-  const { gte, lte, startYmd, endYmd } = kstPeriodRange(periodDays);
+  const { gte, lte, startYmd, endYmd, periodDays } = range;
 
   const [metrics, heatmapRows, openBacklog] = await Promise.all([
     Promise.all(METRIC_DEFS.map((def) => buildMetric(def, tenantId, gte, lte))),
@@ -379,4 +394,30 @@ export async function buildOpsHourlySummary(
     openBacklog,
     conversionByHour: buildConversionByHour(absent.hourly, onHold.hourly, reserved.hourly),
   };
+}
+
+export async function buildOpsHourlySummaryForRange(
+  tenantId: string,
+  fromYmdRaw: unknown,
+  toYmdRaw: unknown,
+): Promise<OpsHourlySummary> {
+  const fromYmd = typeof fromYmdRaw === 'string' ? parseYmd(fromYmdRaw) : null;
+  const toYmd = typeof toYmdRaw === 'string' ? parseYmd(toYmdRaw) : null;
+  if (!fromYmd || !toYmd) {
+    throw new Error('fromYmd·toYmd(YYYY-MM-DD)가 필요합니다.');
+  }
+  const range = kstRangeFromYmd(fromYmd, toYmd);
+  if (!range) {
+    throw new Error('기간이 올바르지 않거나 90일을 초과합니다.');
+  }
+  return buildOpsHourlySummaryInner(tenantId, range);
+}
+
+export async function buildOpsHourlySummary(
+  tenantId: string,
+  periodDaysRaw: unknown,
+): Promise<OpsHourlySummary> {
+  const periodDays = parsePeriodDays(periodDaysRaw);
+  const { gte, lte, startYmd, endYmd } = kstPeriodRange(periodDays);
+  return buildOpsHourlySummaryInner(tenantId, { gte, lte, startYmd, endYmd, periodDays });
 }

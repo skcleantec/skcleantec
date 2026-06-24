@@ -8,7 +8,7 @@ import { happyCallDeadlineEnd } from '../inquiries/happyCall.helpers.js';
 import { distanceKmFromJuan } from '../inquiries/inquiryJuanDistance.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
-import { buildOpsHourlySummary } from '../ops-analytics/opsAnalyticsHourly.service.js';
+import { buildOpsHourlySummary, buildOpsHourlySummaryForRange } from '../ops-analytics/opsAnalyticsHourly.service.js';
 import {
   effectiveSalesDateYmd,
   getInquiryAmount,
@@ -16,6 +16,8 @@ import {
   SALES_AMOUNT_STATUSES,
 } from './dashboardSales.helpers.js';
 import { buildDashboardInquiryBreakdown } from './dashboardInquiryBreakdown.service.js';
+import { buildDashboardSalesBreakdown } from './dashboardSalesBreakdown.service.js';
+import { buildDashboardSettlementSummary } from './dashboardSettlementSummary.service.js';
 
 const router = Router();
 
@@ -301,11 +303,48 @@ router.get('/inquiry-breakdown', async (req, res) => {
       res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
       return;
     }
-    const breakdown = await buildDashboardInquiryBreakdown(tenantId);
+    const monthRaw = typeof req.query.month === 'string' ? req.query.month.trim() : undefined;
+    const breakdown = await buildDashboardInquiryBreakdown(tenantId, monthRaw);
     res.json(breakdown);
   } catch (err) {
     console.error('[dashboard/inquiry-breakdown]', err);
     const msg = err instanceof Error ? err.message : '접수 분석 통계를 불러오지 못했습니다.';
+    res.status(500).json({ error: msg });
+  }
+});
+
+/** 매출 상세 — 월별 일별·팀장별 (대시보드 drill-down) */
+router.get('/sales-breakdown', async (req, res) => {
+  try {
+    const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+    if (!tenantId) {
+      res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+      return;
+    }
+    const monthRaw = typeof req.query.month === 'string' ? req.query.month.trim() : undefined;
+    const breakdown = await buildDashboardSalesBreakdown(tenantId, monthRaw);
+    res.json(breakdown);
+  } catch (err) {
+    console.error('[dashboard/sales-breakdown]', err);
+    const msg = err instanceof Error ? err.message : '매출 통계를 불러오지 못했습니다.';
+    res.status(500).json({ error: msg });
+  }
+});
+
+/** 팀장 정산 요약 — 예약일(KST) 월 기준 (대시보드 drill-down) */
+router.get('/settlement-summary', async (req, res) => {
+  try {
+    const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
+    if (!tenantId) {
+      res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+      return;
+    }
+    const monthRaw = typeof req.query.month === 'string' ? req.query.month.trim() : undefined;
+    const summary = await buildDashboardSettlementSummary(tenantId, monthRaw);
+    res.json(summary);
+  } catch (err) {
+    console.error('[dashboard/settlement-summary]', err);
+    const msg = err instanceof Error ? err.message : '정산 통계를 불러오지 못했습니다.';
     res.status(500).json({ error: msg });
   }
 });
@@ -318,7 +357,12 @@ router.get('/ops-hourly', async (req, res) => {
       res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
       return;
     }
-    const summary = await buildOpsHourlySummary(tenantId, req.query.days);
+    const fromYmd = typeof req.query.fromYmd === 'string' ? req.query.fromYmd.trim() : '';
+    const toYmd = typeof req.query.toYmd === 'string' ? req.query.toYmd.trim() : '';
+    const summary =
+      fromYmd && toYmd
+        ? await buildOpsHourlySummaryForRange(tenantId, fromYmd, toYmd)
+        : await buildOpsHourlySummary(tenantId, req.query.days);
     res.json(summary);
   } catch (err) {
     console.error('[dashboard/ops-hourly]', err);
