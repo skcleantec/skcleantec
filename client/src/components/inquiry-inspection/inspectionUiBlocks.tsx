@@ -554,7 +554,7 @@ export function InspectionConsentSection({
   customerEmail,
   onEmailBlur,
   onEmailFocus,
-  consentItemsDefaultOpen = true,
+  consentItemsDefaultOpen = false,
 }: {
   checklist: InspectionChecklistDto;
   /** 체크 즉시 반영 — 부모 로컬 state 연결 */
@@ -567,7 +567,7 @@ export function InspectionConsentSection({
   customerEmail?: string;
   onEmailBlur?: (email: string) => void;
   onEmailFocus?: () => void;
-  /** 관리자 열람 등 — 동의 항목 본문 기본 접힘 */
+  /** true면 동의 항목 본문을 펼친 상태로 표시 (기본: 접힘) */
   consentItemsDefaultOpen?: boolean;
 }) {
   const consentState = consent ?? checklist.consent;
@@ -586,6 +586,12 @@ export function InspectionConsentSection({
     (item) => consentKeyMap[item.id]!,
   );
   const allRequiredChecked = requiredKeys.every((key) => consentState[key]);
+
+  const agreeChipLabel = (itemId: (typeof INSPECTION_CONSENT_ITEMS)[number]['id'], required: boolean) => {
+    if (itemId === 'F4_LEADER') return '동의함 (팀장)';
+    if (itemId === 'F4_CUSTOMER') return '동의함 (고객)';
+    return required ? '동의함' : '동의 (선택)';
+  };
 
   return (
     <section className="space-y-4">
@@ -618,40 +624,66 @@ export function InspectionConsentSection({
         </button>
       )}
 
-      {INSPECTION_CONSENT_ITEMS.map((item) => {
-        const key = consentKeyMap[item.id];
-        if (!key) return null;
-        const checked = consentState[key];
-        return (
-          <details
-            key={item.id}
-            className="rounded-lg border border-gray-200 bg-white"
-            open={consentItemsDefaultOpen && item.required}
-          >
-            <summary className="cursor-pointer px-3 py-2 text-fluid-xs font-medium text-gray-900">
-              {item.title}
-              {item.required ? ' (필수)' : ' (선택)'}
-            </summary>
-            <div className="border-t border-gray-100 px-3 py-2">
-              <p className="whitespace-pre-wrap text-fluid-2xs text-gray-700 mb-2">{item.body}</p>
-              <label className="flex items-start gap-2 text-fluid-xs text-gray-900">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={readOnly}
-                  onChange={(e) => onConsentChange(key, e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 touch-manipulation"
-                />
-                <span>{item.checkboxLabel}</span>
-              </label>
-            </div>
-          </details>
-        );
-      })}
+      <div className="space-y-2">
+        {INSPECTION_CONSENT_ITEMS.map((item) => {
+          const key = consentKeyMap[item.id];
+          if (!key) return null;
+          const checked = consentState[key];
+          const chip = agreeChipLabel(item.id, item.required);
+          return (
+            <details
+              key={item.id}
+              className="group rounded-lg border border-gray-200 bg-white"
+              {...(consentItemsDefaultOpen ? { open: true } : {})}
+            >
+              <summary className="flex min-h-[44px] cursor-pointer list-none items-center gap-2 px-3 py-2 touch-manipulation [&::-webkit-details-marker]:hidden">
+                <span className="min-w-0 flex-1 text-fluid-xs font-medium leading-snug text-gray-900">
+                  {item.title}
+                  <span className="ml-1 font-normal text-gray-500">
+                    ({item.required ? '필수' : '선택'})
+                  </span>
+                </span>
+                <label
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 touch-manipulation"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={readOnly}
+                    onChange={(e) => onConsentChange(key, e.target.checked)}
+                    className="h-4 w-4 shrink-0 touch-manipulation"
+                    aria-label={`${item.title} ${chip}`}
+                  />
+                  <span
+                    className={`whitespace-nowrap text-fluid-2xs font-semibold ${
+                      checked ? 'text-emerald-800' : 'text-gray-600'
+                    }`}
+                  >
+                    {chip}
+                  </span>
+                </label>
+                <span className="hidden shrink-0 text-fluid-2xs text-sky-700 group-open:inline">접기</span>
+                <span className="shrink-0 text-fluid-2xs text-sky-700 group-open:hidden">내용</span>
+              </summary>
+              <div className="border-t border-gray-100 px-3 py-2.5">
+                <p className="whitespace-pre-wrap text-fluid-2xs leading-relaxed text-gray-700">{item.body}</p>
+                <p className="mt-2 text-fluid-2xs text-gray-500">{item.checkboxLabel}</p>
+              </div>
+            </details>
+          );
+        })}
+      </div>
 
-      <p className="rounded-lg border border-blue-100 bg-blue-50/80 p-3 text-fluid-2xs text-blue-950 whitespace-pre-wrap">
-        {INSPECTION_FINAL_CONFIRM_NOTICE}
-      </p>
+      <details className="rounded-lg border border-blue-100 bg-blue-50/80">
+        <summary className="cursor-pointer list-none px-3 py-2 text-fluid-2xs font-medium text-blue-950 touch-manipulation [&::-webkit-details-marker]:hidden">
+          최종 확인 문구 · 탭하여 펼치기
+        </summary>
+        <p className="border-t border-blue-100/80 px-3 py-2.5 text-fluid-2xs leading-relaxed text-blue-950 whitespace-pre-wrap">
+          {INSPECTION_FINAL_CONFIRM_NOTICE}
+        </p>
+      </details>
     </section>
   );
 }
