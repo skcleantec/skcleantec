@@ -236,7 +236,6 @@ export function TeamPreCleanWizard({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoredRef = useRef(false);
   const globalStartRef = useRef(false);
-  const captureInFlightRef = useRef(false);
   /** 페이지에 머무는 동안 카메라 세션 유지 — 촬영 화면 나갔다 들어와도 권한 재요청 방지 */
   const [cameraSessionWarm, setCameraSessionWarm] = useState(false);
 
@@ -470,7 +469,7 @@ export function TeamPreCleanWizard({
 
   const uploadAndAdvance = useCallback(
     async (file: File) => {
-      if (!currentItem || captureInFlightRef.current) return;
+      if (!currentItem) return;
       const itemId = currentItem.id;
       const areaLen = captureItems.length;
       const optimisticId = `pending-${Date.now()}`;
@@ -530,9 +529,8 @@ export function TeamPreCleanWizard({
   );
 
   const handleShutter = useCallback(async () => {
-    if (busy || !currentItem || captureInFlightRef.current) return;
+    if (busy || !currentItem || capturing) return;
     if (cameraStatus === 'live') {
-      captureInFlightRef.current = true;
       setCapturing(true);
       try {
         const file = await captureFrame();
@@ -540,22 +538,21 @@ export function TeamPreCleanWizard({
       } catch (e) {
         onMsg(e instanceof Error ? e.message : '촬영 실패');
       } finally {
-        captureInFlightRef.current = false;
         setCapturing(false);
       }
       return;
     }
     onMsg(null);
     fileInputRef.current?.click();
-  }, [busy, cameraStatus, captureFrame, currentItem, onMsg, uploadAndAdvance]);
+  }, [busy, cameraStatus, captureFrame, capturing, currentItem, onMsg, uploadAndAdvance]);
 
   const handleCapture = async (files: FileList | null) => {
-    if (!files?.length || captureInFlightRef.current) return;
-    captureInFlightRef.current = true;
+    if (!files?.length || capturing) return;
+    setCapturing(true);
     try {
       await uploadAndAdvance(files[0]!);
     } finally {
-      captureInFlightRef.current = false;
+      setCapturing(false);
     }
   };
 

@@ -71,7 +71,6 @@ export function ContaminationPhotosSection({
   onMsg?: (msg: string | null) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const captureInFlightRef = useRef(false);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareProgress, setShareProgress] = useState<{ done: number; total: number } | null>(null);
@@ -203,9 +202,8 @@ export function ContaminationPhotosSection({
   };
 
   const handleShutter = useCallback(async () => {
-    if (disabled || captureInFlightRef.current || !uploadTarget) return;
+    if (disabled || capturing || !uploadTarget) return;
     if (cameraStatus === 'live') {
-      captureInFlightRef.current = true;
       setCapturing(true);
       try {
         const file = await captureFrame();
@@ -213,14 +211,13 @@ export function ContaminationPhotosSection({
       } catch (e) {
         onMsg?.(e instanceof Error ? e.message : '촬영 실패');
       } finally {
-        captureInFlightRef.current = false;
         setCapturing(false);
       }
       return;
     }
     onMsg?.(null);
     fileInputRef.current?.click();
-  }, [cameraStatus, captureFrame, disabled, onMsg, uploadFiles, uploadTarget]);
+  }, [cameraStatus, captureFrame, capturing, disabled, onMsg, uploadFiles, uploadTarget]);
 
   const closeCapture = useCallback(() => {
     if (capturing) return;
