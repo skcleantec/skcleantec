@@ -5,7 +5,7 @@ import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { resolveTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { notifyCrewGroupsInboxRefresh } from '../crew/crewFieldRealtime.js';
-import { ROSTER_YMD, getDayRosterInRange, putDayRosterEntries } from './crewGroupDayRoster.service.js';
+import { ROSTER_YMD, getDayRosterInRange, putDayRosterEntries, type DayRosterEntryIn } from './crewGroupDayRoster.service.js';
 
 const router = Router();
 
@@ -199,15 +199,21 @@ router.get('/:groupId/day-roster', async (req, res) => {
 router.put('/:groupId/day-roster', async (req, res) => {
   const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const { groupId } = req.params;
-  const body = req.body as { entries?: { date: string; teamMemberIds: string[] }[] };
+  const body = req.body as { entries?: DayRosterEntryIn[] };
   const entries = body.entries;
   if (!Array.isArray(entries) || entries.length === 0) {
     res.status(400).json({ error: 'entries 배열이 필요합니다.' });
     return;
   }
   for (const e of entries) {
-    if (!e || typeof e.date !== 'string' || !Array.isArray(e.teamMemberIds)) {
-      res.status(400).json({ error: '각 항목은 date, teamMemberIds가 필요합니다.' });
+    if (!e || typeof e.date !== 'string') {
+      res.status(400).json({ error: '각 항목은 date가 필요합니다.' });
+      return;
+    }
+    const hasMembers = Array.isArray(e.members);
+    const hasIds = Array.isArray(e.teamMemberIds);
+    if (!hasMembers && !hasIds) {
+      res.status(400).json({ error: '각 항목은 members 또는 teamMemberIds가 필요합니다.' });
       return;
     }
   }

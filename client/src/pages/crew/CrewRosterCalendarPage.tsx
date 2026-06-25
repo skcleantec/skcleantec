@@ -67,9 +67,14 @@ export function CrewRosterCalendarPage() {
       const next: Record<string, string[]> = {};
       const items = Array.isArray(r.items) ? r.items : [];
       for (const it of items) {
-        if (!it || typeof it.date !== 'string' || !Array.isArray(it.teamMemberIds)) continue;
-        if (!YMD_RE.test(it.date)) continue;
-        next[it.date] = [...it.teamMemberIds];
+        if (!it || typeof it.date !== 'string' || !YMD_RE.test(it.date)) continue;
+        const ids = Array.isArray(it.teamMemberIds)
+          ? it.teamMemberIds
+          : Array.isArray(it.members)
+            ? it.members.map((m) => m.teamMemberId)
+            : null;
+        if (!ids) continue;
+        next[it.date] = [...ids];
       }
       setByDay(next);
     } catch {

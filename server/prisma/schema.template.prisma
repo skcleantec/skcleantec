@@ -815,6 +815,8 @@ model TeamCrewGroupDayRoster {
   groupId      String   @map("group_id")
   date         DateTime @db.Date
   teamMemberId String   @map("team_member_id")
+  /** 크루 현장 일정 미팅 칸 「대기」 표시 — 가용(마케터 배정) 여부와 무관 */
+  isStandby    Boolean  @default(false) @map("is_standby")
   createdAt    DateTime @default(now()) @map("created_at")
 
   group      TeamCrewGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)

@@ -9,7 +9,7 @@ import {
   type AuthPayload,
 } from '../auth/auth.middleware.js';
 import { crewGroupLeaderFromDb } from './crewGroupLeader.middleware.js';
-import { ROSTER_YMD, getDayRosterInRange, putDayRosterEntries } from '../team-crew-groups/crewGroupDayRoster.service.js';
+import { ROSTER_YMD, getDayRosterInRange, putDayRosterEntries, type DayRosterEntryIn } from '../team-crew-groups/crewGroupDayRoster.service.js';
 import { buildCrewFieldSchedule, getCrewMonthlyInquiryStats } from './crewFieldSchedule.service.js';
 import { notifyCrewGroupsInboxRefresh } from './crewFieldRealtime.js';
 import {
@@ -289,7 +289,7 @@ router.put('/day-roster', crewGroupLeaderFromDb, async (req, res) => {
     return;
   }
   const body = req.body as {
-    entries?: { date: string; teamMemberIds: string[] }[];
+    entries?: DayRosterEntryIn[];
     settingsPassword?: string;
   };
   const entries = body.entries;
@@ -298,8 +298,14 @@ router.put('/day-roster', crewGroupLeaderFromDb, async (req, res) => {
     return;
   }
   for (const e of entries) {
-    if (!e || typeof e.date !== 'string' || !Array.isArray(e.teamMemberIds)) {
-      res.status(400).json({ error: '각 항목은 date, teamMemberIds가 필요합니다.' });
+    if (!e || typeof e.date !== 'string') {
+      res.status(400).json({ error: '각 항목은 date가 필요합니다.' });
+      return;
+    }
+    const hasMembers = Array.isArray(e.members);
+    const hasIds = Array.isArray(e.teamMemberIds);
+    if (!hasMembers && !hasIds) {
+      res.status(400).json({ error: '각 항목은 members 또는 teamMemberIds가 필요합니다.' });
       return;
     }
   }

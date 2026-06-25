@@ -202,9 +202,19 @@ export async function patchCrewMemberAddress(
   }
 }
 
+export interface DayRosterMemberItem {
+  teamMemberId: string;
+  isStandby: boolean;
+}
+
 export interface DayRosterItem {
   date: string;
-  teamMemberIds: string[];
+  /** 저장 시 권장 */
+  members?: DayRosterMemberItem[];
+  /** 조회·달력용 — 일할 멤버 전원 */
+  teamMemberIds?: string[];
+  /** 조회용 — 대기 표시 멤버 */
+  standbyTeamMemberIds?: string[];
 }
 
 export async function getCrewDayRoster(token: string, start: string, end: string) {
@@ -273,6 +283,8 @@ export interface CrewFieldMemberDay {
   name: string;
   nameTh?: string | null;
   onRoster: boolean;
+  /** 일할 명단 + 크루장 「대기」 — 접수 없을 때 현장 일정 미팅 칸 */
+  isStandby?: boolean;
   inquiries: CrewFieldInquiry[];
 }
 

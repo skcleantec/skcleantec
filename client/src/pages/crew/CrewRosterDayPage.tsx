@@ -18,6 +18,7 @@ export function CrewRosterDayPage() {
   const reloadMe = outlet?.reloadMe;
 
   const [workingIds, setWorkingIds] = useState<Set<string>>(new Set());
+  const [standbyIds, setStandbyIds] = useState<Set<string>>(new Set());
   const [highlightPool, setHighlightPool] = useState<Set<string>>(new Set());
   const [highlightWorking, setHighlightWorking] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -39,12 +40,26 @@ export function CrewRosterDayPage() {
       const r = await getCrewDayRoster(token, ymd, ymd);
       const items = Array.isArray(r.items) ? r.items : [];
       const row = items.find((it) => it && it.date === ymd);
-      const ids = row && Array.isArray(row.teamMemberIds) ? row.teamMemberIds : [];
+      let ids: string[] = [];
+      let standby = new Set<string>();
+      if (row) {
+        if (Array.isArray(row.members) && row.members.length > 0) {
+          ids = row.members.map((m) => m.teamMemberId);
+          standby = new Set(row.members.filter((m) => m.isStandby).map((m) => m.teamMemberId));
+        } else if (Array.isArray(row.teamMemberIds)) {
+          ids = row.teamMemberIds;
+          standby = new Set(
+            Array.isArray(row.standbyTeamMemberIds) ? row.standbyTeamMemberIds : [],
+          );
+        }
+      }
       setWorkingIds(new Set(ids));
+      setStandbyIds(standby);
       setHighlightPool(new Set());
       setHighlightWorking(new Set());
     } catch {
       setWorkingIds(new Set());
+      setStandbyIds(new Set());
       setHighlightPool(new Set());
       setHighlightWorking(new Set());
     } finally {
@@ -106,7 +121,22 @@ export function CrewRosterDayPage() {
       for (const id of highlightWorking) next.delete(id);
       return next;
     });
+    setStandbyIds((prev) => {
+      const next = new Set(prev);
+      for (const id of highlightWorking) next.delete(id);
+      return next;
+    });
     setHighlightWorking(new Set());
+  };
+
+  const toggleStandby = (id: string) => {
+    if (!canEdit) return;
+    setStandbyIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const requestSave = () => {
@@ -132,7 +162,15 @@ export function CrewRosterDayPage() {
     try {
       await putCrewDayRoster(
         token,
-        [{ date: ymd, teamMemberIds: [...workingIds] }],
+        [
+          {
+            date: ymd,
+            members: [...workingIds].map((teamMemberId) => ({
+              teamMemberId,
+              isStandby: standbyIds.has(teamMemberId),
+            })),
+          },
+        ],
         {
           settingsPassword: needsSensitivePassword ? settingsPassword : undefined,
         },
@@ -197,6 +235,11 @@ export function CrewRosterDayPage() {
       ? 'bg-indigo-100 border-indigo-400 text-indigo-950 ring-1 ring-indigo-300'
       : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-50';
 
+  const standbyBtn = (on: boolean) =>
+    on
+      ? 'bg-amber-500 border-amber-600 text-white shadow-sm'
+      : 'bg-white border-gray-300 text-gray-700 hover:bg-amber-50';
+
   return (
     <div className="min-w-0 min-h-[60vh] flex flex-col">
       <div className="sticky top-0 z-20 bg-white border border-gray-200 rounded-lg shadow-sm px-2 py-2 mb-2 -mx-0">
@@ -247,8 +290,9 @@ export function CrewRosterDayPage() {
           </button>
         </div>
         {helpOpen ? (
-          <div className="mt-1.5 p-2 rounded-md border border-gray-200 bg-gray-50 text-[0.65rem] text-gray-600 leading-snug">
+          <div className="mt-1.5 p-2 rounded-md border border-gray-200 bg-gray-50 text-[0.65rem] text-gray-600 leading-snug space-y-1">
             {canEdit ? <CrewBiLine id="crew.roster.dayEditorHintLeader" /> : <CrewBiLine id="crew.roster.hintView" />}
+            {canEdit ? <CrewBiLine id="crew.roster.standbyHint" /> : null}
           </div>
         ) : null}
 
@@ -336,31 +380,54 @@ export function CrewRosterDayPage() {
                 ) : (
                   workingMembers.map((mem) => {
                     const hi = highlightWorking.has(mem.teamMemberId);
+                    const onStandby = standbyIds.has(mem.teamMemberId);
+                    const standbyLabel = crewT('crew.roster.standbyButton');
                     return (
                       <li key={mem.teamMemberId}>
                         {canEdit ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleWorkingHighlight(mem.teamMemberId)}
-                            className={`w-full text-left px-2 py-2 text-sm border-l-2 transition-colors ${listBtn(hi)}`}
-                          >
-                            <CrewMemberNameLines
-                              className="text-sm"
-                              name={mem.name}
-                              nameTh={mem.nameTh}
-                              inactive={!mem.isActive}
-                              variant="emerald"
-                            />
-                          </button>
+                          <div className="flex items-stretch gap-0.5 min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => toggleWorkingHighlight(mem.teamMemberId)}
+                              className={`flex-1 min-w-0 text-left px-2 py-2 text-sm border-l-2 transition-colors ${listBtn(hi)}`}
+                            >
+                              <CrewMemberNameLines
+                                className="text-sm"
+                                name={mem.name}
+                                nameTh={mem.nameTh}
+                                inactive={!mem.isActive}
+                                variant="emerald"
+                              />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleStandby(mem.teamMemberId);
+                              }}
+                              title={`${standbyLabel.ko} / ${standbyLabel.th}`}
+                              aria-pressed={onStandby}
+                              className={`shrink-0 self-center mx-0.5 px-1.5 py-1 rounded border text-[0.6rem] font-semibold leading-none min-w-[2rem] ${standbyBtn(onStandby)}`}
+                            >
+                              {standbyLabel.th}
+                            </button>
+                          </div>
                         ) : (
-                          <div className="px-2 py-2 text-sm text-emerald-900">
-                            <CrewMemberNameLines
-                              className="text-sm"
-                              name={mem.name}
-                              nameTh={mem.nameTh}
-                              inactive={!mem.isActive}
-                              variant="emerald"
-                            />
+                          <div className="flex items-center gap-1 px-2 py-2 text-sm text-emerald-900 min-w-0">
+                            <div className="flex-1 min-w-0">
+                              <CrewMemberNameLines
+                                className="text-sm"
+                                name={mem.name}
+                                nameTh={mem.nameTh}
+                                inactive={!mem.isActive}
+                                variant="emerald"
+                              />
+                            </div>
+                            {onStandby ? (
+                              <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[0.6rem] font-medium">
+                                {standbyLabel.ko}/{standbyLabel.th}
+                              </span>
+                            ) : null}
                           </div>
                         )}
                       </li>

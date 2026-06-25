@@ -285,6 +285,10 @@ export const crewMessages = {
     ko: '수정됨',
     th: 'แก้ไขแล้ว',
   },
+  'crew.schedule.standbyLabel': {
+    ko: '대기',
+    th: 'รอ',
+  },
   'crew.schedule.wsConnected': {
     ko: '실시간 연결됨',
     th: 'เชื่อมต่อเรียลไทม์แล้ว',
@@ -426,6 +430,14 @@ export const crewMessages = {
   'crew.roster.transferToPool': {
     ko: '일할 멤버에서 빼기',
     th: 'นำออกจากคนทำงาน',
+  },
+  'crew.roster.standbyButton': {
+    ko: '대기',
+    th: 'รอ',
+  },
+  'crew.roster.standbyHint': {
+    ko: '일할 멤버 중 접수가 없을 때 현장 일정 미팅 칸에 「대기」로 표시됩니다. 마케터 배정 명단에는 그대로 포함됩니다.',
+    th: 'คนที่กดรอจะแสดง «รอ» ในตารางงานเมื่อยังไม่มีงาน — ยังอยู่ในรายชื่อสำหรับมาร์เก็ตเตอร์',
   },
   'crew.roster.todayBadge': {
     ko: '오늘',

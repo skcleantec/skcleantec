@@ -45,9 +45,52 @@ type TodayRow = {
   meetingTime: string | null;
   /** 팀장이 미팅 시각 저장·변경 후 true — 태국어 «수정됨» 배지 */
   meetingTimeEdited?: boolean;
+  /** 접수 없음 + 크루장 「대기」 */
+  isStandby?: boolean;
   vehicleText: string;
   inactive: boolean;
 };
+
+function MeetingCellContent({ row }: { row: TodayRow }) {
+  if (row.meetingTime) {
+    return (
+      <span className="inline-flex flex-wrap items-center justify-center gap-x-1 gap-y-1">
+        <span className="whitespace-nowrap">{row.meetingTime}</span>
+        {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
+      </span>
+    );
+  }
+  if (row.isStandby) {
+    return (
+      <CrewBiInline id="crew.schedule.standbyLabel" className="text-amber-800 font-medium leading-tight" />
+    );
+  }
+  return <>—</>;
+}
+
+function MeetingSnippetInline({
+  row,
+  meetingThLabel,
+}: {
+  row: TodayRow;
+  meetingThLabel: string;
+}) {
+  if (row.meetingTime) {
+    return (
+      <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
+        <span className="text-gray-600">{meetingThLabel}</span>
+        <span className="tabular-nums">{row.meetingTime}</span>
+        {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
+      </span>
+    );
+  }
+  if (row.isStandby) {
+    return (
+      <CrewBiInline id="crew.schedule.standbyLabel" className="text-amber-800 font-medium leading-tight" />
+    );
+  }
+  return null;
+}
 
 function buildDayList(
   day: CrewFieldDay | undefined,
@@ -68,6 +111,7 @@ function buildDayList(
         timeText: '—',
         meetingTime: null,
         meetingTimeEdited: false,
+        isStandby: Boolean(m?.isStandby),
         vehicleText: '—',
         inactive: !gm.isActive,
       });
@@ -258,6 +302,7 @@ export function CrewFieldSchedulePage() {
                   const leadersOnly = plainLeaders !== '—';
                   const meetingThLabel = crewT('crew.schedule.colMeeting').th;
                   const hasMeeting = Boolean(row.meetingTime);
+                  const hasStandbyOnly = Boolean(row.isStandby && !row.meetingTime);
                   const leaderVehicleLine =
                     !leadersOnly && !hasVehicle
                       ? '—'
@@ -297,40 +342,28 @@ export function CrewFieldSchedulePage() {
                         title={leaderVehicleLine !== '—' ? leaderVehicleLine : undefined}
                       >
                         {!leadersOnly && !hasVehicle ? (
-                          hasMeeting ? (
-                            <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
-                              <span className="text-gray-600">{meetingThLabel}</span>
-                              <span className="tabular-nums">{row.meetingTime}</span>
-                              {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
-                            </span>
+                          hasMeeting || hasStandbyOnly ? (
+                            <MeetingSnippetInline row={row} meetingThLabel={meetingThLabel} />
                           ) : (
                             <span className="text-gray-500">—</span>
                           )
                         ) : !leadersOnly ? (
                           <span className="tabular-nums inline-block min-w-0">
                             {v || '—'}
-                            {hasMeeting ? (
+                            {hasMeeting || hasStandbyOnly ? (
                               <>
                                 <span className="text-gray-400"> · </span>
-                                <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                                  <span className="text-gray-600">{meetingThLabel}</span>
-                                  <span className="tabular-nums">{row.meetingTime}</span>
-                                  {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
-                                </span>
+                                <MeetingSnippetInline row={row} meetingThLabel={meetingThLabel} />
                               </>
                             ) : null}
                           </span>
                         ) : !hasVehicle ? (
                           <span className="min-w-0 block">
                             <span className="truncate inline align-middle">{plainLeaders}</span>
-                            {hasMeeting ? (
+                            {hasMeeting || hasStandbyOnly ? (
                               <>
                                 <span className="text-gray-400"> · </span>
-                                <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 align-middle">
-                                  <span className="text-gray-600">{meetingThLabel}</span>
-                                  <span className="tabular-nums">{row.meetingTime}</span>
-                                  {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
-                                </span>
+                                <MeetingSnippetInline row={row} meetingThLabel={meetingThLabel} />
                               </>
                             ) : null}
                           </span>
@@ -339,14 +372,10 @@ export function CrewFieldSchedulePage() {
                             <span>{plainLeaders}</span>
                             <span className="text-gray-400"> / </span>
                             <span className="tabular-nums">{v}</span>
-                            {hasMeeting ? (
+                            {hasMeeting || hasStandbyOnly ? (
                               <>
                                 <span className="text-gray-400"> · </span>
-                                <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                                  <span className="text-gray-600">{meetingThLabel}</span>
-                                  <span className="tabular-nums">{row.meetingTime}</span>
-                                  {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
-                                </span>
+                                <MeetingSnippetInline row={row} meetingThLabel={meetingThLabel} />
                               </>
                             ) : null}
                           </span>
@@ -408,14 +437,7 @@ export function CrewFieldSchedulePage() {
                             {row.timeText}
                           </td>
                           <td className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 tabular-nums">
-                            {row.meetingTime ? (
-                              <span className="inline-flex flex-wrap items-center justify-center gap-x-1 gap-y-1">
-                                <span className="whitespace-nowrap">{row.meetingTime}</span>
-                                {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
-                              </span>
-                            ) : (
-                              '—'
-                            )}
+                            <MeetingCellContent row={row} />
                           </td>
                           <td
                             className="border-b border-gray-100 px-0.5 py-1.5 text-center align-middle text-gray-800 truncate"

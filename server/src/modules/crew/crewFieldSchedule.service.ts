@@ -55,6 +55,8 @@ export type CrewFieldMemberDayOut = {
   name: string;
   nameTh: string | null;
   onRoster: boolean;
+  /** 일할 명단 + 크루장 「대기」 — 접수 없을 때 현장 일정 미팅 칸 표시용 */
+  isStandby: boolean;
   inquiries: CrewFieldInquiryOut[];
 };
 
@@ -86,8 +88,10 @@ export async function buildCrewFieldSchedule(
 
   const rosterItems = await getDayRosterInRange(groupId, startYmd, endYmd);
   const rosterByYmd = new Map<string, Set<string>>();
+  const standbyByYmd = new Map<string, Set<string>>();
   for (const it of rosterItems) {
     rosterByYmd.set(it.date, new Set(it.teamMemberIds));
+    standbyByYmd.set(it.date, new Set(it.standbyTeamMemberIds));
   }
 
   const rangeGte = new Date(`${startYmd}T00:00:00.000+09:00`);
@@ -167,6 +171,7 @@ export async function buildCrewFieldSchedule(
 
   for (const ymd of eachYmdInRange(startYmd, endYmd)) {
     const rosterSet = rosterByYmd.get(ymd) ?? new Set<string>();
+    const standbySet = standbyByYmd.get(ymd) ?? new Set<string>();
     const dayInquiries = inquiriesByYmd.get(ymd) ?? [];
 
     const memberIdsForDay = new Set<string>();
@@ -233,6 +238,7 @@ export async function buildCrewFieldSchedule(
         name: gm.teamMember.name,
         nameTh: gm.teamMember.nameTh,
         onRoster: group.useDailyRosterOnly ? onRoster : true,
+        isStandby: standbySet.has(mid),
         inquiries: matched,
       });
     }

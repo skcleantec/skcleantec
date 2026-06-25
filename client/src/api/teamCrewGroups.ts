@@ -157,9 +157,16 @@ export async function setTeamCrewGroupMemberLeader(
   return res.json();
 }
 
+export interface DayRosterMemberItem {
+  teamMemberId: string;
+  isStandby: boolean;
+}
+
 export interface DayRosterItem {
   date: string;
-  teamMemberIds: string[];
+  members?: DayRosterMemberItem[];
+  teamMemberIds?: string[];
+  standbyTeamMemberIds?: string[];
 }
 
 export async function getTeamCrewGroupDayRoster(

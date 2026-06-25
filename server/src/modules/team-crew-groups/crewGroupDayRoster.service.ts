@@ -23,7 +23,52 @@ export function assertSubsetOrThrow(teamMemberIds: string[], allowed: Set<string
   }
 }
 
-export type DayRosterEntryOut = { date: string; teamMemberIds: string[] };
+export type DayRosterMemberOut = { teamMemberId: string; isStandby: boolean };
+
+export type DayRosterEntryOut = {
+  date: string;
+  members: DayRosterMemberOut[];
+  /** 일할 멤버 id — 달력·용량 등 하위 호환 */
+  teamMemberIds: string[];
+  /** 현장 일정 「대기」 표시 대상 */
+  standbyTeamMemberIds: string[];
+};
+
+export type DayRosterEntryIn = {
+  date: string;
+  members?: DayRosterMemberOut[];
+  /** 레거시 — isStandby는 모두 false */
+  teamMemberIds?: string[];
+};
+
+export function normalizeDayRosterEntry(entry: DayRosterEntryIn): {
+  date: string;
+  members: DayRosterMemberOut[];
+} {
+  if (Array.isArray(entry.members)) {
+    const seen = new Set<string>();
+    const members: DayRosterMemberOut[] = [];
+    for (const m of entry.members) {
+      if (!m || typeof m.teamMemberId !== 'string') continue;
+      const id = m.teamMemberId.trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      members.push({ teamMemberId: id, isStandby: Boolean(m.isStandby) });
+    }
+    return { date: entry.date, members };
+  }
+  const ids = Array.isArray(entry.teamMemberIds) ? entry.teamMemberIds : [];
+  const seen = new Set<string>();
+  const members: DayRosterMemberOut[] = [];
+  for (const raw of ids) {
+    if (typeof raw !== 'string') continue;
+    const id = raw.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    members.push({ teamMemberId: id, isStandby: false });
+  }
+  return { date: entry.date, members };
+}
 
 export async function getDayRosterInRange(
   groupId: string,
@@ -35,37 +80,51 @@ export async function getDayRosterInRange(
   const rows = await prisma.teamCrewGroupDayRoster.findMany({
     where: { groupId, date: { gte: start, lte: end } },
     orderBy: [{ date: 'asc' }, { teamMemberId: 'asc' }],
-    select: { date: true, teamMemberId: true },
+    select: { date: true, teamMemberId: true, isStandby: true },
   });
-  const byDate = new Map<string, string[]>();
+  const byDate = new Map<string, DayRosterMemberOut[]>();
   for (const r of rows) {
     const k = r.date.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
     const arr = byDate.get(k) ?? [];
-    arr.push(r.teamMemberId);
+    arr.push({ teamMemberId: r.teamMemberId, isStandby: r.isStandby });
     byDate.set(k, arr);
   }
-  return [...byDate.entries()].map(([date, teamMemberIds]) => ({ date, teamMemberIds }));
+  return [...byDate.entries()].map(([date, members]) => ({
+    date,
+    members,
+    teamMemberIds: members.map((m) => m.teamMemberId),
+    standbyTeamMemberIds: members.filter((m) => m.isStandby).map((m) => m.teamMemberId),
+  }));
 }
 
 /** 날짜별 명단 일괄 저장(각 날짜는 전체 교체) */
 export async function putDayRosterEntries(
   groupId: string,
-  entries: { date: string; teamMemberIds: string[] }[]
+  entries: DayRosterEntryIn[]
 ): Promise<void> {
   const allowed = await getGroupTeamMemberIdSet(groupId);
-  for (const e of entries) {
+  const normalized = entries.map(normalizeDayRosterEntry);
+  for (const e of normalized) {
     if (!ROSTER_YMD.test(e.date)) {
       throw new Error('CREW_ROSTER_BAD_DATE');
     }
-    assertSubsetOrThrow(e.teamMemberIds, allowed);
+    assertSubsetOrThrow(
+      e.members.map((m) => m.teamMemberId),
+      allowed
+    );
   }
   await prisma.$transaction(async (tx) => {
-    for (const e of entries) {
+    for (const e of normalized) {
       const d = parseYmdToDate(e.date);
       await tx.teamCrewGroupDayRoster.deleteMany({ where: { groupId, date: d } });
-      if (e.teamMemberIds.length > 0) {
+      if (e.members.length > 0) {
         await tx.teamCrewGroupDayRoster.createMany({
-          data: e.teamMemberIds.map((teamMemberId) => ({ groupId, date: d, teamMemberId })),
+          data: e.members.map((m) => ({
+            groupId,
+            date: d,
+            teamMemberId: m.teamMemberId,
+            isStandby: m.isStandby,
+          })),
         });
       }
     }
