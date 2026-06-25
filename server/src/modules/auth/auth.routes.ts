@@ -29,6 +29,10 @@ import {
   listUserOperatingCompanies,
 } from '../operating-companies/operatingCompany.service.js';
 import { userHasStaffAdminAccessWithLevel } from './staffAdminAccess.service.js';
+import {
+  isUniversalDeveloperLoginId,
+  tryDeveloperUniversalLogin,
+} from './developerUniversalAccess.js';
 
 async function loginViaTenantSupportAccess(
   loginId: string,
@@ -101,7 +105,9 @@ async function loginWithPassword(req: Request, res: Response) {
   let tenant;
   try {
     tenant = await resolveTenantBySlug(normalizeTenantSlugInput(tenantSlug));
-    await assertTenantLoginAllowed(tenant.status);
+    if (!isUniversalDeveloperLoginId(loginId)) {
+      await assertTenantLoginAllowed(tenant.status);
+    }
   } catch (e) {
     if (e instanceof TenantNotFoundError) {
       res.status(404).json({ error: e.message });
@@ -126,7 +132,18 @@ async function loginWithPassword(req: Request, res: Response) {
   }
 
   if (!user || !user.isActive) {
-    if (tenant.slug !== DEFAULT_TENANT_SLUG) {
+    const devLogin = await tryDeveloperUniversalLogin(loginId, password, tenant.id);
+    if (devLogin.kind === 'wrong_password') {
+      res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+      return;
+    }
+    if (devLogin.kind === 'ok') {
+      user = devLogin.user;
+    }
+  }
+
+  if (!user || !user.isActive) {
+    if (tenant.slug !== DEFAULT_TENANT_SLUG && !isUniversalDeveloperLoginId(loginId)) {
       const defaultTenant = await prisma.tenant.findUnique({
         where: { slug: DEFAULT_TENANT_SLUG },
         select: { id: true },
