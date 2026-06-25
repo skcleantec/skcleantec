@@ -311,7 +311,7 @@ router.put('/day-roster', crewGroupLeaderFromDb, async (req, res) => {
   }
   const group = await prisma.teamCrewGroup.findUnique({
     where: { id: gid },
-    select: { id: true, settingsPasswordHash: true, useDailyRosterOnly: true },
+    select: { id: true, settingsPasswordHash: true, availabilityMode: true },
   });
   if (!group) {
     res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
@@ -320,7 +320,7 @@ router.put('/day-roster', crewGroupLeaderFromDb, async (req, res) => {
 
   /** 집계·명단 모드일 때만 명단이 스케줄 가용 인원에 반영되므로, 이때만 2차(설정용) 비밀번호를 요구한다. */
   const needsSettingsPassword =
-    group.useDailyRosterOnly === true && group.settingsPasswordHash != null;
+    group.availabilityMode === 'ROSTER' && group.settingsPasswordHash != null;
   if (needsSettingsPassword) {
     const sp = body.settingsPassword != null ? String(body.settingsPassword) : '';
     if (!sp.trim()) {
@@ -355,6 +355,112 @@ router.put('/day-roster', crewGroupLeaderFromDb, async (req, res) => {
     console.error('PUT /crew/day-roster', e);
     res.status(500).json({ error: '저장 중 오류가 발생했습니다.' });
   }
+});
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+async function assertCrewDayOffEditAllowed(groupId: string): Promise<boolean> {
+  const group = await prisma.teamCrewGroup.findUnique({
+    where: { id: groupId },
+    select: { availabilityMode: true, allowCrewDayOffEdit: true, isActive: true },
+  });
+  return Boolean(group?.isActive && group.availabilityMode === 'DAY_OFF' && group.allowCrewDayOffEdit);
+}
+
+async function assertGroupMember(groupId: string, teamMemberId: string): Promise<boolean> {
+  const row = await prisma.teamCrewGroupMember.findFirst({
+    where: { groupId, teamMemberId },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+/** DAY_OFF + allowCrewDayOffEdit — 그룹 멤버 휴무 조회 */
+router.get('/day-offs', async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  if (!(await assertCrewDayOffEditAllowed(gid))) {
+    res.status(403).json({ error: '이 그룹은 크루 휴무일 입력이 허용되지 않습니다.' });
+    return;
+  }
+  const { start, end } = req.query as { start?: string; end?: string };
+  if (!start || !end || !YMD.test(start) || !YMD.test(end)) {
+    res.status(400).json({ error: 'start, end는 YYYY-MM-DD 형식이어야 합니다.' });
+    return;
+  }
+  const startDate = new Date(`${start}T00:00:00+09:00`);
+  const endDate = new Date(`${end}T23:59:59.999+09:00`);
+  const links = await prisma.teamCrewGroupMember.findMany({
+    where: { groupId: gid },
+    select: { teamMemberId: true },
+  });
+  const ids = links.map((l) => l.teamMemberId);
+  if (ids.length === 0) {
+    res.json({ byMember: {} as Record<string, string[]> });
+    return;
+  }
+  const rows = await prisma.teamMemberDayOff.findMany({
+    where: { teamMemberId: { in: ids }, date: { gte: startDate, lte: endDate } },
+    orderBy: [{ teamMemberId: 'asc' }, { date: 'asc' }],
+  });
+  const byMember: Record<string, string[]> = {};
+  for (const row of rows) {
+    const k = row.date.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+    if (!byMember[row.teamMemberId]) byMember[row.teamMemberId] = [];
+    byMember[row.teamMemberId].push(k);
+  }
+  res.json({ byMember });
+});
+
+/** DAY_OFF + allowCrewDayOffEdit — 휴무일 추가 */
+router.post('/day-offs', async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  if (!(await assertCrewDayOffEditAllowed(gid))) {
+    res.status(403).json({ error: '이 그룹은 크루 휴무일 입력이 허용되지 않습니다.' });
+    return;
+  }
+  const body = req.body as { teamMemberId?: string; date?: string };
+  const teamMemberId = body.teamMemberId != null ? String(body.teamMemberId).trim() : '';
+  const date = body.date != null ? String(body.date).trim() : '';
+  if (!teamMemberId || !YMD.test(date)) {
+    res.status(400).json({ error: 'teamMemberId와 date(YYYY-MM-DD)가 필요합니다.' });
+    return;
+  }
+  if (!(await assertGroupMember(gid, teamMemberId))) {
+    res.status(400).json({ error: '이 그룹 소속 팀원만 휴무일을 등록할 수 있습니다.' });
+    return;
+  }
+  const dateOnly = new Date(`${date}T12:00:00+09:00`);
+  await prisma.teamMemberDayOff.upsert({
+    where: { teamMemberId_date: { teamMemberId, date: dateOnly } },
+    create: { teamMemberId, date: dateOnly },
+    update: {},
+  });
+  notifyCrewGroupsInboxRefresh([gid]);
+  res.json({ ok: true });
+});
+
+/** DAY_OFF + allowCrewDayOffEdit — 휴무일 삭제 */
+router.delete('/day-offs', async (req, res) => {
+  const gid = crewGroupId(req as unknown as { user: AuthPayload });
+  if (!(await assertCrewDayOffEditAllowed(gid))) {
+    res.status(403).json({ error: '이 그룹은 크루 휴무일 입력이 허용되지 않습니다.' });
+    return;
+  }
+  const body = req.body as { teamMemberId?: string; date?: string };
+  const teamMemberId = body.teamMemberId != null ? String(body.teamMemberId).trim() : '';
+  const date = body.date != null ? String(body.date).trim() : '';
+  if (!teamMemberId || !YMD.test(date)) {
+    res.status(400).json({ error: 'teamMemberId와 date(YYYY-MM-DD)가 필요합니다.' });
+    return;
+  }
+  if (!(await assertGroupMember(gid, teamMemberId))) {
+    res.status(400).json({ error: '이 그룹 소속 팀원만 휴무일을 삭제할 수 있습니다.' });
+    return;
+  }
+  const dateOnly = new Date(`${date}T12:00:00+09:00`);
+  await prisma.teamMemberDayOff.deleteMany({ where: { teamMemberId, date: dateOnly } });
+  notifyCrewGroupsInboxRefresh([gid]);
+  res.json({ ok: true });
 });
 
 /**

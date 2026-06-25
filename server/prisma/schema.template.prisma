@@ -750,6 +750,19 @@ model TeamMemberPayrollMonthAdjust {
   @@map("team_member_payroll_month_adjusts")
 }
 
+/// 크루 그룹 가용 방식 — ROSTER: 크루장 일자 명단 / DAY_OFF: 기본 근무·휴무만 제외
+enum CrewGroupAvailabilityMode {
+  ROSTER
+  DAY_OFF
+}
+
+/// 크루 앱 UI 표시 언어 (그룹당 1개)
+enum CrewUiLanguage {
+  KO
+  TH
+  MN
+}
+
 /// 태국인 팀원 등 공유 로그인으로 같은 화면을 보는 크루 그룹(팀원 관리에서 생성·설정)
 model TeamCrewGroup {
   id     String @id @default(uuid())
@@ -760,8 +773,12 @@ model TeamCrewGroup {
   loginId String @map("login_id") @db.VarChar(64)
   passwordHash String @map("password_hash")
   phone   String? @db.VarChar(32)
-  /// true: 스케줄 집계·접수 팀원 선택 시 그룹장이 해당일 지정한 명단만 사용. false: 그룹 소속 활성 팀원 전원
-  useDailyRosterOnly Boolean @default(false) @map("use_daily_roster_only")
+  /// ROSTER: 일자 명단에 있는 멤버만 가용(명단 우선·휴무 무시). DAY_OFF: 휴무 아닌 날 기본 가용
+  availabilityMode CrewGroupAvailabilityMode @default(ROSTER) @map("availability_mode")
+  /// 크루 화면 UI 언어
+  crewUiLanguage CrewUiLanguage @default(KO) @map("crew_ui_language")
+  /// DAY_OFF 그룹 — 크루 앱에서 휴무일 등록 허용(관리자 ON/OFF)
+  allowCrewDayOffEdit Boolean @default(false) @map("allow_crew_day_off_edit")
   /// 민감 설정 시 별도 확인용 비밀번호(공유 로그인 비번과 별개). null이면 미설정
   settingsPasswordHash String? @map("settings_password_hash")
   isActive Boolean @default(true) @map("is_active")

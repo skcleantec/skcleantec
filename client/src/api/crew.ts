@@ -90,6 +90,9 @@ export interface CrewMeResponse {
     name: string;
     loginId: string;
     phone: string | null;
+    availabilityMode: 'ROSTER' | 'DAY_OFF';
+    crewUiLanguage: 'KO' | 'TH' | 'MN';
+    allowCrewDayOffEdit: boolean;
     useDailyRosterOnly: boolean;
     hasSettingsPassword: boolean;
     members: Array<{
@@ -146,6 +149,60 @@ export async function getCrewMe(token: string): Promise<CrewMeResponse> {
     throw new Error(await apiErrorMessage(res, '세션을 확인할 수 없습니다.'));
   }
   return res.json();
+}
+
+export async function getCrewDayOffs(
+  token: string,
+  start: string,
+  end: string,
+): Promise<{ byMember: Record<string, string[]> }> {
+  const q = new URLSearchParams({ start, end });
+  const res = await fetch(`${API}/crew/day-offs?${q}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '휴무일을 불러올 수 없습니다.'));
+  }
+  return res.json();
+}
+
+export async function addCrewDayOff(
+  token: string,
+  teamMemberId: string,
+  date: string,
+): Promise<void> {
+  const res = await fetch(`${API}/crew/day-offs`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ teamMemberId, date }),
+  });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '휴무일을 등록할 수 없습니다.'));
+  }
+}
+
+export async function removeCrewDayOff(
+  token: string,
+  teamMemberId: string,
+  date: string,
+): Promise<void> {
+  const res = await fetch(`${API}/crew/day-offs`, {
+    method: 'DELETE',
+    headers: headers(token),
+    body: JSON.stringify({ teamMemberId, date }),
+  });
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    throw new Error(await apiErrorMessage(res, '휴무일을 삭제할 수 없습니다.'));
+  }
 }
 
 export async function patchCrewMemberDisplayNames(

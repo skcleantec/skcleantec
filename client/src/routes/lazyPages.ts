@@ -215,6 +215,9 @@ export const CrewRosterCalendarPage = lazyWithRetry(() =>
 export const CrewRosterDayPage = lazyWithRetry(() =>
   import('../pages/crew/CrewRosterDayPage').then((m) => ({ default: m.CrewRosterDayPage }))
 );
+export const CrewDayOffsPage = lazyWithRetry(() =>
+  import('../pages/crew/CrewDayOffsPage').then((m) => ({ default: m.CrewDayOffsPage }))
+);
 export const CrewFieldSchedulePage = lazyWithRetry(() =>
   import('../pages/crew/CrewFieldSchedulePage').then((m) => ({ default: m.CrewFieldSchedulePage }))
 );

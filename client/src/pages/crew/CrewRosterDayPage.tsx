@@ -29,7 +29,7 @@ export function CrewRosterDayPage() {
 
   const canEdit = me?.crewViewerRole === 'LEADER';
   const needsSensitivePassword =
-    Boolean(canEdit && me?.group.useDailyRosterOnly && me?.group.hasSettingsPassword);
+    Boolean(canEdit && me?.group.availabilityMode === 'ROSTER' && me?.group.hasSettingsPassword);
   const members: CrewMeResponse['group']['members'] = me?.group.members ?? [];
 
   const loadDay = useCallback(async () => {

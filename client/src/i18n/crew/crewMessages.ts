@@ -34,6 +34,50 @@ export const crewMessages = {
     ko: '일자 명단',
     th: 'รายชื่อรายวัน',
   },
+  'crew.layout.navDayOffs': {
+    ko: '휴무일',
+    th: 'วันหยุด',
+  },
+  'crew.dayoffs.hint': {
+    ko: '날짜를 눌러 해당 멤버의 휴무를 등록·해제합니다.',
+    th: 'แตะวันที่เพื่อลง/ยกเลิกวันหยุดของสมาชิก',
+  },
+  'crew.dayoffs.memberLabel': {
+    ko: '멤버 선택',
+    th: 'เลือกสมาชิก',
+  },
+  'crew.dayoffs.yearOption': {
+    ko: '{y}년',
+    th: 'ปี {y}',
+  },
+  'crew.dayoffs.monthOption': {
+    ko: '{m}월',
+    th: 'เดือน {m}',
+  },
+  'crew.dayoffs.cellLabel': {
+    ko: '휴무',
+    th: 'หยุด',
+  },
+  'crew.dayoffs.legendRed': {
+    ko: '빨간 날 = 휴무 (배정·일정에서 제외)',
+    th: 'วันสีแดง = วันหยุด (ไม่เข้างาน)',
+  },
+  'crew.dayoffs.confirmAddTitle': {
+    ko: '이 날을 휴무로 등록할까요?',
+    th: 'ลงวันหยุดวันนี้?',
+  },
+  'crew.dayoffs.confirmRemoveTitle': {
+    ko: '휴무 등록을 해제할까요?',
+    th: 'ยกเลิกวันหยุด?',
+  },
+  'crew.dayoffs.no': {
+    ko: '아니오',
+    th: 'ไม่',
+  },
+  'crew.dayoffs.yes': {
+    ko: '예',
+    th: 'ใช่',
+  },
   'crew.layout.navSettlement': {
     ko: '정산',
     th: 'สรุปค่าจ้าง',

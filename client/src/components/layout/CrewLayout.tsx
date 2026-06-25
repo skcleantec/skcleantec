@@ -6,11 +6,13 @@ import { DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY } from '../../constants/devPreviewAu
 import { getCrewMe } from '../../api/crew';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import type { CrewMeResponse } from '../../api/crew';
-import { CrewBiLine, crewT } from '../../i18n/crew/crewI18n';
+import { CrewBiLine, crewT, CrewUiLine } from '../../i18n/crew/crewI18n';
+import { CrewUiLanguageProvider } from '../../i18n/crew/crewUiLanguageContext';
+import { isCrewGroupRosterMode } from '@shared/crewGroupSettings';
 import { RosterAckBanner } from '../common/RosterAckBanner';
 import { useRosterAckRealtime, type RosterAckPayload } from '../../hooks/useInboxRealtime';
 
-function CrewNavIcon({ type, className }: { type: 'home' | 'schedule' | 'roster' | 'settlement' | 'settings'; className?: string }) {
+function CrewNavIcon({ type, className }: { type: 'home' | 'schedule' | 'roster' | 'dayoffs' | 'settlement' | 'settings'; className?: string }) {
   if (type === 'home') {
     return (
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -34,6 +36,18 @@ function CrewNavIcon({ type, className }: { type: 'home' | 'schedule' | 'roster'
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
         <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+      </svg>
+    );
+  }
+  if (type === 'dayoffs') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+        <line x1="9" y1="14" x2="15" y2="18" />
+        <line x1="15" y1="14" x2="9" y2="18" />
       </svg>
     );
   }
@@ -111,7 +125,14 @@ export function CrewLayout() {
 
   const outletCtx: CrewLayoutContext = { me, reloadMe };
 
+  const groupMode =
+    me?.group.availabilityMode ?? (me?.group.useDailyRosterOnly ? 'ROSTER' : 'DAY_OFF');
+  const rosterMode = me ? isCrewGroupRosterMode(groupMode) : true;
+  const showDayOffsNav =
+    Boolean(me && !rosterMode && me.group.allowCrewDayOffEdit && me.crewViewerRole === 'LEADER');
+
   return (
+    <CrewUiLanguageProvider crewUiLanguage={me?.group.crewUiLanguage}>
     <div className="relative min-h-screen bg-[#edf0f5] flex flex-col font-sans antialiased">
       {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 max-lg:bg-[#edf0f5]" aria-hidden="true">
@@ -128,11 +149,8 @@ export function CrewLayout() {
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="min-w-0 flex-1 leading-tight">
               <div className="text-fluid-sm font-semibold text-white truncate">
-                <span className="text-white">{crewT('crew.layout.titlePrefix').ko}</span>{' '}
+                <CrewUiLine id="crew.layout.titlePrefix" className="inline" />{' '}
                 <span>{me?.group.name ?? '…'}</span>
-              </div>
-              <div className="text-fluid-2xs text-slate-400 truncate mt-px">
-                {crewT('crew.layout.titlePrefix').th} {me?.group.name ?? '…'}
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -204,7 +222,7 @@ export function CrewLayout() {
                 }
               >
                 <CrewNavIcon type="home" className="w-4 h-4 mr-1.5 shrink-0" />
-                <CrewBiLine id="crew.layout.navHome" />
+                <CrewUiLine id="crew.layout.navHome" />
               </NavLink>
               <NavLink
                 to="/crew/schedule"
@@ -217,8 +235,9 @@ export function CrewLayout() {
                 }
               >
                 <CrewNavIcon type="schedule" className="w-4 h-4 mr-1.5 shrink-0" />
-                <CrewBiLine id="crew.layout.navSchedule" />
+                <CrewUiLine id="crew.layout.navSchedule" />
               </NavLink>
+              {rosterMode ? (
               <NavLink
                 to="/crew/roster"
                 className={() =>
@@ -230,8 +249,24 @@ export function CrewLayout() {
                 }
               >
                 <CrewNavIcon type="roster" className="w-4 h-4 mr-1.5 shrink-0" />
-                <CrewBiLine id="crew.layout.navRoster" />
+                <CrewUiLine id="crew.layout.navRoster" />
               </NavLink>
+              ) : null}
+              {showDayOffsNav ? (
+              <NavLink
+                to="/crew/day-offs"
+                className={({ isActive }) =>
+                  `shrink-0 whitespace-nowrap px-3 py-1 text-fluid-xs font-semibold rounded-xl inline-flex items-center transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] ${
+                    isActive
+                      ? 'bg-slate-900 text-white shadow-sm shadow-slate-900/10'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+                  }`
+                }
+              >
+                <CrewNavIcon type="dayoffs" className="w-4 h-4 mr-1.5 shrink-0" />
+                <CrewUiLine id="crew.layout.navDayOffs" />
+              </NavLink>
+              ) : null}
               <NavLink
                 to={
                   me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview'
@@ -250,9 +285,9 @@ export function CrewLayout() {
               >
                 <CrewNavIcon type="settlement" className="w-4 h-4 mr-1.5 shrink-0" />
                 {me?.crewViewerRole === 'LEADER' || me?.crewJwtSource === 'preview' ? (
-                  <CrewBiLine id="crew.layout.navSettlement" />
+                  <CrewUiLine id="crew.layout.navSettlement" />
                 ) : (
-                  <CrewBiLine id="crew.layout.navTeamExpenses" />
+                  <CrewUiLine id="crew.layout.navTeamExpenses" />
                 )}
               </NavLink>
               {me?.crewViewerRole === 'LEADER' ? (
@@ -267,12 +302,12 @@ export function CrewLayout() {
                   }
                 >
                   <CrewNavIcon type="settings" className="w-4 h-4 mr-1.5 shrink-0" />
-                  <CrewBiLine id="crew.layout.navSettings" />
+                  <CrewUiLine id="crew.layout.navSettings" />
                 </NavLink>
               ) : null}
             </div>
             <p className="mt-1 text-[10px] text-gray-400 sm:hidden px-0.5">
-              {crewT('crew.layout.navScrollHint').ko} · {crewT('crew.layout.navScrollHint').th}
+              <CrewUiLine id="crew.layout.navScrollHint" />
             </p>
           </nav>
         </div>
@@ -282,6 +317,7 @@ export function CrewLayout() {
         <Outlet context={outletCtx} />
       </main>
     </div>
+    </CrewUiLanguageProvider>
   );
 }
 

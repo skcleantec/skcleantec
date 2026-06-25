@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { isCrewGroupRosterMode } from '../../lib/crewGroupSettings.js';
 import { preferredDateYmdKst } from '../inquiries/crewMemberCapacity.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
@@ -69,11 +70,11 @@ export async function buildCrewFieldSchedule(
   groupId: string,
   startYmd: string,
   endYmd: string
-): Promise<{ useDailyRosterOnly: boolean; days: CrewFieldDayOut[] }> {
+): Promise<{ useDailyRosterOnly: boolean; availabilityMode: 'ROSTER' | 'DAY_OFF'; days: CrewFieldDayOut[] }> {
   const group = await prisma.teamCrewGroup.findUnique({
     where: { id: groupId },
     select: {
-      useDailyRosterOnly: true,
+      availabilityMode: true,
       members: {
         include: {
           teamMember: { select: { id: true, name: true, nameTh: true, isActive: true } },
@@ -85,6 +86,7 @@ export async function buildCrewFieldSchedule(
   if (!group) {
     throw new Error('CREW_GROUP_NOT_FOUND');
   }
+  const rosterMode = isCrewGroupRosterMode(group.availabilityMode);
 
   const rosterItems = await getDayRosterInRange(groupId, startYmd, endYmd);
   const rosterByYmd = new Map<string, Set<string>>();
@@ -96,6 +98,25 @@ export async function buildCrewFieldSchedule(
 
   const rangeGte = new Date(`${startYmd}T00:00:00.000+09:00`);
   const rangeLte = new Date(`${endYmd}T23:59:59.999+09:00`);
+
+  const dayOffByYmd = new Map<string, Set<string>>();
+  if (!rosterMode) {
+    const memberIds = group.members.map((m) => m.teamMemberId);
+    if (memberIds.length > 0) {
+      const offRows = await prisma.teamMemberDayOff.findMany({
+        where: {
+          teamMemberId: { in: memberIds },
+          date: { gte: rangeGte, lte: rangeLte },
+        },
+        select: { teamMemberId: true, date: true },
+      });
+      for (const row of offRows) {
+        const k = dateToYmdKst(row.date);
+        if (!dayOffByYmd.has(k)) dayOffByYmd.set(k, new Set());
+        dayOffByYmd.get(k)!.add(row.teamMemberId);
+      }
+    }
+  }
 
   const inquiries = await prisma.inquiry.findMany({
     where: {
@@ -175,11 +196,14 @@ export async function buildCrewFieldSchedule(
     const dayInquiries = inquiriesByYmd.get(ymd) ?? [];
 
     const memberIdsForDay = new Set<string>();
-    if (group.useDailyRosterOnly) {
+    if (rosterMode) {
       for (const id of rosterSet) memberIdsForDay.add(id);
     } else {
+      const offSet = dayOffByYmd.get(ymd) ?? new Set<string>();
       for (const gm of group.members) {
-        if (gm.teamMember.isActive) memberIdsForDay.add(gm.teamMemberId);
+        if (gm.teamMember.isActive && !offSet.has(gm.teamMemberId)) {
+          memberIdsForDay.add(gm.teamMemberId);
+        }
       }
     }
 
@@ -237,7 +261,7 @@ export async function buildCrewFieldSchedule(
         teamMemberId: mid,
         name: gm.teamMember.name,
         nameTh: gm.teamMember.nameTh,
-        onRoster: group.useDailyRosterOnly ? onRoster : true,
+        onRoster: rosterMode ? onRoster : true,
         isStandby: standbySet.has(mid),
         inquiries: matched,
       });
@@ -250,7 +274,7 @@ export async function buildCrewFieldSchedule(
     }
   }
 
-  return { useDailyRosterOnly: group.useDailyRosterOnly, days };
+  return { useDailyRosterOnly: rosterMode, availabilityMode: group.availabilityMode, days };
 }
 
 /** 홈 월별 막대그래프 — 현장 일정과 동일: 취소·보류 제외 접수 + `crewMemberNote` 이름 매칭 건만 집계 */

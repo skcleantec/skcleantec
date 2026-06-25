@@ -6,6 +6,11 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import { resolveTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { notifyCrewGroupsInboxRefresh } from '../crew/crewFieldRealtime.js';
 import { ROSTER_YMD, getDayRosterInRange, putDayRosterEntries, type DayRosterEntryIn } from './crewGroupDayRoster.service.js';
+import {
+  mapCrewGroupPublicFields,
+  resolveAvailabilityModeFromBody,
+  resolveCrewUiLanguageFromBody,
+} from './crewGroupSettings.helpers.js';
 
 const router = Router();
 
@@ -63,7 +68,7 @@ router.get('/', async (req, res) => {
       name: g.name,
       loginId: g.loginId,
       phone: g.phone,
-      useDailyRosterOnly: g.useDailyRosterOnly,
+      ...mapCrewGroupPublicFields(g),
       hasSettingsPassword: g.settingsPasswordHash != null,
       isActive: g.isActive,
       createdAt: g.createdAt.toISOString(),
@@ -89,6 +94,9 @@ router.post('/', async (req, res) => {
     password?: string;
     phone?: string | null;
     useDailyRosterOnly?: boolean;
+    availabilityMode?: string;
+    crewUiLanguage?: string;
+    allowCrewDayOffEdit?: boolean;
     settingsPassword?: string | null;
     adminPassword?: string;
   };
@@ -125,7 +133,10 @@ router.post('/', async (req, res) => {
 
   const phone =
     body.phone != null && String(body.phone).trim() ? String(body.phone).trim().slice(0, 32) : null;
-  const useDailyRosterOnly = Boolean(body.useDailyRosterOnly);
+  const availabilityMode = resolveAvailabilityModeFromBody(body);
+  const crewUiLanguage = resolveCrewUiLanguageFromBody(body);
+  const allowCrewDayOffEdit =
+    availabilityMode === 'DAY_OFF' ? Boolean(body.allowCrewDayOffEdit) : false;
 
   let settingsPasswordHash: string | null = null;
   const sp = body.settingsPassword != null ? String(body.settingsPassword) : '';
@@ -145,7 +156,9 @@ router.post('/', async (req, res) => {
         loginId,
         passwordHash: await bcrypt.hash(password, 10),
         phone,
-        useDailyRosterOnly,
+        availabilityMode,
+        crewUiLanguage,
+        allowCrewDayOffEdit,
         settingsPasswordHash,
       },
     });
@@ -154,7 +167,7 @@ router.post('/', async (req, res) => {
       name: created.name,
       loginId: created.loginId,
       phone: created.phone,
-      useDailyRosterOnly: created.useDailyRosterOnly,
+      ...mapCrewGroupPublicFields(created),
       hasSettingsPassword: created.settingsPasswordHash != null,
       isActive: created.isActive,
       createdAt: created.createdAt.toISOString(),
@@ -249,6 +262,9 @@ router.patch('/:groupId', async (req, res) => {
     phone?: string | null;
     loginId?: string;
     useDailyRosterOnly?: boolean;
+    availabilityMode?: string;
+    crewUiLanguage?: string;
+    allowCrewDayOffEdit?: boolean;
     isActive?: boolean;
     password?: string | null;
     settingsPassword?: string | null;
@@ -277,7 +293,9 @@ router.patch('/:groupId', async (req, res) => {
     name?: string;
     phone?: string | null;
     loginId?: string;
-    useDailyRosterOnly?: boolean;
+    availabilityMode?: 'ROSTER' | 'DAY_OFF';
+    crewUiLanguage?: 'KO' | 'TH' | 'MN';
+    allowCrewDayOffEdit?: boolean;
     isActive?: boolean;
     passwordHash?: string;
     settingsPasswordHash?: string | null;
@@ -295,8 +313,18 @@ router.patch('/:groupId', async (req, res) => {
     data.phone =
       body.phone != null && String(body.phone).trim() ? String(body.phone).trim().slice(0, 32) : null;
   }
-  if (body.useDailyRosterOnly !== undefined) {
-    data.useDailyRosterOnly = Boolean(body.useDailyRosterOnly);
+  if (body.availabilityMode !== undefined || body.useDailyRosterOnly !== undefined) {
+    data.availabilityMode = resolveAvailabilityModeFromBody(body);
+    if (data.availabilityMode === 'ROSTER') {
+      data.allowCrewDayOffEdit = false;
+    }
+  }
+  if (body.crewUiLanguage !== undefined) {
+    data.crewUiLanguage = resolveCrewUiLanguageFromBody(body);
+  }
+  if (body.allowCrewDayOffEdit !== undefined) {
+    const mode = data.availabilityMode ?? group.availabilityMode;
+    data.allowCrewDayOffEdit = mode === 'DAY_OFF' ? Boolean(body.allowCrewDayOffEdit) : false;
   }
   if (body.isActive !== undefined) {
     data.isActive = Boolean(body.isActive);
@@ -353,7 +381,7 @@ router.patch('/:groupId', async (req, res) => {
       name: updated.name,
       loginId: updated.loginId,
       phone: updated.phone,
-      useDailyRosterOnly: updated.useDailyRosterOnly,
+      ...mapCrewGroupPublicFields(updated),
       hasSettingsPassword: updated.settingsPasswordHash != null,
       isActive: updated.isActive,
       createdAt: updated.createdAt.toISOString(),
@@ -414,6 +442,20 @@ router.post('/:groupId/members', async (req, res) => {
   });
   if (!member) {
     res.status(400).json({ error: '전사 팀원 풀에서만 멤버를 추가할 수 있습니다.' });
+    return;
+  }
+  const otherGroup = await prisma.teamCrewGroupMember.findFirst({
+    where: {
+      teamMemberId,
+      groupId: { not: groupId },
+      group: { tenantId },
+    },
+    select: { group: { select: { name: true } } },
+  });
+  if (otherGroup) {
+    res.status(409).json({
+      error: `이미 다른 크루 그룹「${otherGroup.group.name}」에 속한 팀원입니다. 한 팀원은 하나의 크루 그룹에만 넣을 수 있습니다.`,
+    });
     return;
   }
   try {

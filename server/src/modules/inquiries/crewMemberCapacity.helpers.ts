@@ -80,12 +80,12 @@ function dateToKstYmdKey(d: Date): string {
   return dateToYmdKst(d);
 }
 
-/** 집계 모드(useDailyRosterOnly) 크루 그룹 소속 팀원 — 해당일 명단에 있어야 가용으로 친다 */
-async function loadDailyRosterOnlyRestriction(
+/** ROSTER 모드 크루 그룹 소속 팀원 — 해당일 명단에 있어야 가용(명단 우선·휴무 무시) */
+async function loadCrewRosterRestriction(
   prisma: PrismaClient,
   params: { rosterYmd?: string; date?: Date; rangeStart?: Date; rangeEnd?: Date; tenantId: string }
 ): Promise<{ restrictedIds: Set<string>; rosterByDay: Map<string, Set<string>> }> {
-  const groupWhere = { tenantId: params.tenantId, isActive: true, useDailyRosterOnly: true };
+  const groupWhere = { tenantId: params.tenantId, isActive: true, availabilityMode: 'ROSTER' as const };
   const restrictedRows = await prisma.teamCrewGroupMember.findMany({
     where: {
       group: groupWhere,
@@ -149,7 +149,7 @@ export async function countAvailableFieldStaffByDateRange(
   const memberIdSet = new Set(members.map((m) => m.id));
 
   const [{ restrictedIds, rosterByDay }, dayOffRows, slotRows] = await Promise.all([
-    loadDailyRosterOnlyRestriction(prisma, { rangeStart, rangeEnd, tenantId }),
+    loadCrewRosterRestriction(prisma, { rangeStart, rangeEnd, tenantId }),
     prisma.teamMemberDayOff.findMany({
       where: {
         date: { gte: rangeStart, lte: rangeEnd },
@@ -189,7 +189,10 @@ export async function countAvailableFieldStaffByDateRange(
     let n = 0;
     for (const m of members) {
       if (!employedIds.has(m.id)) continue;
-      if (restrictedIds.has(m.id) && !rosterForDay.has(m.id)) {
+      const onRoster = rosterForDay.has(m.id);
+      if (restrictedIds.has(m.id)) {
+        if (!onRoster) continue;
+        n++;
         continue;
       }
       if (slotMap.has(m.id)) {
@@ -224,7 +227,7 @@ export async function getAvailableFieldStaffMemberIdsOnDate(
     prisma.scheduleDayTeamMemberSlot.findMany({
       where: { tenantId, date: dateOnly },
     }),
-    loadDailyRosterOnlyRestriction(prisma, { rosterYmd: ymd, tenantId }),
+    loadCrewRosterRestriction(prisma, { rosterYmd: ymd, tenantId }),
   ]);
   const rosterForDay = new Set<string>();
   for (const ids of rosterByDay.values()) {
@@ -233,7 +236,10 @@ export async function getAvailableFieldStaffMemberIdsOnDate(
   const oMap = new Map(overrides.map((o) => [o.teamMemberId, o.available]));
   const out = new Set<string>();
   for (const m of members) {
-    if (restrictedIds.has(m.id) && !rosterForDay.has(m.id)) {
+    const onRoster = rosterForDay.has(m.id);
+    if (restrictedIds.has(m.id)) {
+      if (!onRoster) continue;
+      out.add(m.id);
       continue;
     }
     if (oMap.has(m.id)) {

@@ -81,6 +81,7 @@ import {
   CrewHomePage,
   CrewRosterCalendarPage,
   CrewRosterDayPage,
+  CrewDayOffsPage,
   CrewFieldSchedulePage,
   CrewSettingsPage,
   CrewSettlementPage,
@@ -282,6 +283,7 @@ function App() {
             <Route path=":ymd" element={<SuspensePage><CrewRosterDayPage /></SuspensePage>} />
           </Route>
           <Route path="schedule" element={<SuspensePage><CrewFieldSchedulePage /></SuspensePage>} />
+          <Route path="day-offs" element={<SuspensePage><CrewDayOffsPage /></SuspensePage>} />
           <Route path="settlement" element={<SuspensePage><CrewSettlementPage /></SuspensePage>} />
           <Route path="expenses" element={<SuspensePage><CrewExpensesRedirect /></SuspensePage>} />
           <Route path="settings" element={<SuspensePage><CrewSettingsPage /></SuspensePage>} />

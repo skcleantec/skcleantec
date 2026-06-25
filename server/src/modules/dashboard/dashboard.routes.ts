@@ -142,13 +142,13 @@ router.get('/stats', async (req, res) => {
       },
     }),
     prisma.teamCrewGroupMember.findMany({
-      where: { group: { tenantId, isActive: true, useDailyRosterOnly: true } },
+      where: { group: { tenantId, isActive: true, availabilityMode: 'ROSTER' } },
       select: { teamMemberId: true },
     }),
     prisma.teamCrewGroupDayRoster.findMany({
       where: {
         date: todayOffDbDate,
-        group: { tenantId, isActive: true, useDailyRosterOnly: true },
+        group: { tenantId, isActive: true, availabilityMode: 'ROSTER' },
       },
       select: { teamMemberId: true },
     }),

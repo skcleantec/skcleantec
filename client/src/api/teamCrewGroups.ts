@@ -34,6 +34,10 @@ export interface TeamCrewGroupItem {
   name: string;
   loginId: string;
   phone: string | null;
+  availabilityMode: 'ROSTER' | 'DAY_OFF';
+  crewUiLanguage: 'KO' | 'TH' | 'MN';
+  allowCrewDayOffEdit: boolean;
+  /** @deprecated availabilityMode === 'ROSTER' */
   useDailyRosterOnly: boolean;
   hasSettingsPassword: boolean;
   isActive: boolean;
@@ -57,6 +61,9 @@ export async function createTeamCrewGroup(
     loginId: string;
     password: string;
     phone?: string | null;
+    availabilityMode?: 'ROSTER' | 'DAY_OFF';
+    crewUiLanguage?: 'KO' | 'TH' | 'MN';
+    allowCrewDayOffEdit?: boolean;
     useDailyRosterOnly?: boolean;
     settingsPassword?: string | null;
     adminPassword: string;
@@ -80,6 +87,9 @@ export async function updateTeamCrewGroup(
     name?: string;
     phone?: string | null;
     loginId?: string;
+    availabilityMode?: 'ROSTER' | 'DAY_OFF';
+    crewUiLanguage?: 'KO' | 'TH' | 'MN';
+    allowCrewDayOffEdit?: boolean;
     useDailyRosterOnly?: boolean;
     isActive?: boolean;
     password?: string | null;

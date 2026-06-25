@@ -27,6 +27,8 @@ import {
   type TeamCrewGroupItem,
 } from '../../api/teamCrewGroups';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { CrewGroupPolicyFields, crewGroupPolicySummary } from '../../components/admin/CrewGroupPolicyFields';
+import type { CrewGroupAvailabilityMode, CrewUiLanguage } from '@shared/crewGroupSettings';
 
 /** 팀 크루 그룹 섹션 도움말 */
 const CREW_GROUP_SECTION_HELP =
@@ -152,7 +154,9 @@ export function AdminTeamsPage() {
     loginId: '',
     password: '',
     phone: '',
-    useDailyRosterOnly: false,
+    availabilityMode: 'DAY_OFF' as CrewGroupAvailabilityMode,
+    crewUiLanguage: 'KO' as CrewUiLanguage,
+    allowCrewDayOffEdit: false,
     settingsPassword: '',
     adminPassword: '',
   });
@@ -162,7 +166,9 @@ export function AdminTeamsPage() {
     name: '',
     phone: '',
     loginId: '',
-    useDailyRosterOnly: false,
+    availabilityMode: 'DAY_OFF' as CrewGroupAvailabilityMode,
+    crewUiLanguage: 'KO' as CrewUiLanguage,
+    allowCrewDayOffEdit: false,
     isActive: true,
     newPassword: '',
     newSettingsPassword: '',
@@ -397,7 +403,9 @@ export function AdminTeamsPage() {
       name: g.name,
       phone: g.phone ?? '',
       loginId: g.loginId,
-      useDailyRosterOnly: g.useDailyRosterOnly,
+      availabilityMode: g.availabilityMode ?? (g.useDailyRosterOnly ? 'ROSTER' : 'DAY_OFF'),
+      crewUiLanguage: g.crewUiLanguage ?? 'KO',
+      allowCrewDayOffEdit: g.allowCrewDayOffEdit ?? false,
       isActive: g.isActive,
       newPassword: '',
       newSettingsPassword: '',
@@ -439,7 +447,9 @@ export function AdminTeamsPage() {
         loginId,
         password,
         phone: crewCreateForm.phone.trim() || null,
-        useDailyRosterOnly: crewCreateForm.useDailyRosterOnly,
+        availabilityMode: crewCreateForm.availabilityMode,
+        crewUiLanguage: crewCreateForm.crewUiLanguage,
+        allowCrewDayOffEdit: crewCreateForm.allowCrewDayOffEdit,
         settingsPassword: settingsPassword || null,
         adminPassword,
       });
@@ -449,7 +459,9 @@ export function AdminTeamsPage() {
         loginId: '',
         password: '',
         phone: '',
-        useDailyRosterOnly: false,
+        availabilityMode: 'DAY_OFF',
+        crewUiLanguage: 'KO',
+        allowCrewDayOffEdit: false,
         settingsPassword: '',
         adminPassword: '',
       });
@@ -506,8 +518,14 @@ export function AdminTeamsPage() {
       body.phone = crewEditForm.phone.trim() || null;
     }
     if (crewEditForm.loginId.trim() !== orig.loginId) body.loginId = crewEditForm.loginId.trim();
-    if (crewEditForm.useDailyRosterOnly !== orig.useDailyRosterOnly) {
-      body.useDailyRosterOnly = crewEditForm.useDailyRosterOnly;
+    if (crewEditForm.availabilityMode !== orig.availabilityMode) {
+      body.availabilityMode = crewEditForm.availabilityMode;
+    }
+    if (crewEditForm.crewUiLanguage !== orig.crewUiLanguage) {
+      body.crewUiLanguage = crewEditForm.crewUiLanguage;
+    }
+    if (crewEditForm.allowCrewDayOffEdit !== orig.allowCrewDayOffEdit) {
+      body.allowCrewDayOffEdit = crewEditForm.allowCrewDayOffEdit;
     }
     if (crewEditForm.isActive !== orig.isActive) body.isActive = crewEditForm.isActive;
 
@@ -554,7 +572,9 @@ export function AdminTeamsPage() {
         name: updated.name,
         phone: updated.phone ?? '',
         loginId: updated.loginId,
-        useDailyRosterOnly: updated.useDailyRosterOnly,
+        availabilityMode: updated.availabilityMode ?? (updated.useDailyRosterOnly ? 'ROSTER' : 'DAY_OFF'),
+        crewUiLanguage: updated.crewUiLanguage ?? 'KO',
+        allowCrewDayOffEdit: updated.allowCrewDayOffEdit ?? false,
         isActive: updated.isActive,
         newPassword: '',
         newSettingsPassword: '',
@@ -646,7 +666,7 @@ export function AdminTeamsPage() {
                     <th className="border-b border-gray-200 px-2 py-2 text-center">그룹명</th>
                     <th className="border-b border-gray-200 px-2 py-2 text-center">로그인 ID</th>
                     <th className="border-b border-gray-200 px-2 py-2 text-center">연락처</th>
-                    <th className="border-b border-gray-200 px-2 py-2 text-center">집계 모드</th>
+                    <th className="border-b border-gray-200 px-2 py-2 text-center">가용·언어</th>
                     <th className="border-b border-gray-200 px-2 py-2 text-center">멤버</th>
                     <th className="border-b border-gray-200 px-2 py-2 text-center">그룹장</th>
                     <th className="border-b border-gray-200 px-2 py-2 text-center">상태</th>
@@ -667,12 +687,8 @@ export function AdminTeamsPage() {
                         <td className="border-b border-gray-100 px-2 py-2 text-center truncate" title={g.phone ?? ''}>
                           {g.phone ?? '—'}
                         </td>
-                        <td className="border-b border-gray-100 px-2 py-2 text-center">
-                          {g.useDailyRosterOnly ? (
-                            <span className="text-indigo-800">일자 명단만</span>
-                          ) : (
-                            <span className="text-gray-600">활성 전원</span>
-                          )}
+                        <td className="border-b border-gray-100 px-2 py-2 text-center text-fluid-2xs" title={crewGroupPolicySummary(g)}>
+                          {crewGroupPolicySummary(g)}
                         </td>
                         <td className="border-b border-gray-100 px-2 py-2 text-center tabular-nums">{g.members.length}</td>
                         <td className="border-b border-gray-100 px-2 py-2 text-center truncate" title={leader?.name ?? ''}>
@@ -718,7 +734,7 @@ export function AdminTeamsPage() {
                       {g.phone ? ` · ${g.phone}` : ''}
                     </div>
                     <div className="text-fluid-xs mt-1">
-                      {g.useDailyRosterOnly ? '집계: 일자 명단만' : '집계: 활성 전원'} · 멤버 {g.members.length}명
+                      {crewGroupPolicySummary(g)} · 멤버 {g.members.length}명
                       {leader ? ` · 그룹장 ${leader.name}` : ''} · {g.isActive ? '사용' : '중지'}
                     </div>
                     <div className="flex flex-wrap gap-1.5 mt-2">
@@ -1433,17 +1449,22 @@ export function AdminTeamsPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded"
                   />
                 </div>
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={crewCreateForm.useDailyRosterOnly}
-                    onChange={(e) => setCrewCreateForm((p) => ({ ...p, useDailyRosterOnly: e.target.checked }))}
-                    className="mt-1"
-                  />
-                  <span className="text-xs text-gray-700">
-                    집계·팀원 선택 시 <strong>그룹장이 날짜별로 지정한 명단만</strong> 쓰기 (나중 단계에서 스케줄과 연동)
-                  </span>
-                </label>
+                <CrewGroupPolicyFields
+                  idPrefix="crew-create"
+                  value={{
+                    availabilityMode: crewCreateForm.availabilityMode,
+                    crewUiLanguage: crewCreateForm.crewUiLanguage,
+                    allowCrewDayOffEdit: crewCreateForm.allowCrewDayOffEdit,
+                  }}
+                  onChange={(next) =>
+                    setCrewCreateForm((p) => ({
+                      ...p,
+                      availabilityMode: next.availabilityMode,
+                      crewUiLanguage: next.crewUiLanguage,
+                      allowCrewDayOffEdit: next.allowCrewDayOffEdit,
+                    }))
+                  }
+                />
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">그룹 설정용 비밀번호 (선택, 공유 로그인과 별개)</label>
                   <input
@@ -1454,8 +1475,8 @@ export function AdminTeamsPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded"
                   />
                   <p className="text-fluid-2xs text-gray-500 mt-1">
-                    위 「집계·명단」을 켠 상태에서 설정하면, 그룹장이 크루 화면에서 <strong>일자 명단 저장</strong>할 때만 이
-                    비밀번호를 추가로 입력합니다. 집계 모드가 꺼져 있으면 저장 시 요구하지 않습니다.
+                    가용 방식이 <strong>배정(일자 명단)</strong>일 때, 그룹장이 크루 화면에서 일자 명단을 저장할 때만 이
+                    비밀번호를 추가로 입력합니다.
                   </p>
                 </div>
                 <div>
@@ -1541,15 +1562,22 @@ export function AdminTeamsPage() {
                   />
                   <p className="text-fluid-2xs text-amber-800 mt-1">ID를 바꾸면 관리자 비밀번호가 필요합니다.</p>
                 </div>
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={crewEditForm.useDailyRosterOnly}
-                    onChange={(e) => setCrewEditForm((p) => ({ ...p, useDailyRosterOnly: e.target.checked }))}
-                    className="mt-1"
-                  />
-                  <span className="text-xs text-gray-700">집계·선택 시 일자별 명단만 사용</span>
-                </label>
+                <CrewGroupPolicyFields
+                  idPrefix="crew-edit"
+                  value={{
+                    availabilityMode: crewEditForm.availabilityMode,
+                    crewUiLanguage: crewEditForm.crewUiLanguage,
+                    allowCrewDayOffEdit: crewEditForm.allowCrewDayOffEdit,
+                  }}
+                  onChange={(next) =>
+                    setCrewEditForm((p) => ({
+                      ...p,
+                      availabilityMode: next.availabilityMode,
+                      crewUiLanguage: next.crewUiLanguage,
+                      allowCrewDayOffEdit: next.allowCrewDayOffEdit,
+                    }))
+                  }
+                />
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"

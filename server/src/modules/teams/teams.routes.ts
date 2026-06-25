@@ -186,7 +186,7 @@ router.get('/members', adminOrOperationalMarketer, async (req, res) => {
     if (preferredDate) {
       const hasDailyRosterAgg =
         (await prisma.teamCrewGroupMember.count({
-          where: { group: { tenantId, isActive: true, useDailyRosterOnly: true } },
+          where: { group: { tenantId, isActive: true, availabilityMode: 'ROSTER' } },
         })) > 0;
       if (hasDailyRosterAgg) {
         const crewMemberIds = new Set(filteredMembers.map((m) => m.id));

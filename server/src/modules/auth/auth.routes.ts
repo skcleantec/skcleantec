@@ -551,7 +551,10 @@ router.get('/crew-me', authMiddleware, async (req, res) => {
       name: group.name,
       loginId: group.loginId,
       phone: group.phone,
-      useDailyRosterOnly: group.useDailyRosterOnly,
+      availabilityMode: group.availabilityMode,
+      crewUiLanguage: group.crewUiLanguage,
+      allowCrewDayOffEdit: group.allowCrewDayOffEdit,
+      useDailyRosterOnly: group.availabilityMode === 'ROSTER',
       hasSettingsPassword: group.settingsPasswordHash != null,
       members: group.members.map((m) => ({
         teamMemberId: m.teamMemberId,
