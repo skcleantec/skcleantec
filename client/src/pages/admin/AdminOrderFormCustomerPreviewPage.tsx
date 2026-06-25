@@ -18,6 +18,7 @@ import { getToken } from '../../stores/auth';
 import { normalizeMsgConfigForEditor, type FormMessagesState } from '../../utils/orderFormCustomerCopy';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults';
 import { appendPublicQuery } from '../../utils/publicTenantQuery';
+import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
 
@@ -70,6 +71,7 @@ function parsePanel(raw: string | null): DesignerPanel {
 
 export function AdminOrderFormCustomerPreviewPage() {
   const token = getToken();
+  const staffTenantSlug = useStaffTenantSlugForLinks(token);
   const [searchParams, setSearchParams] = useSearchParams();
   const activePanel = parsePanel(searchParams.get('panel'));
 
@@ -184,9 +186,9 @@ export function AdminOrderFormCustomerPreviewPage() {
 
   const iframeSrc =
     typeof window !== 'undefined' && previewToken
-      ? appendPublicQuery(
-          `${window.location.origin}/order/${encodeURIComponent(previewToken)}`,
-        )
+      ? appendPublicQuery(`${window.location.origin}/order/${encodeURIComponent(previewToken)}`, {
+          tenantSlug: staffTenantSlug || null,
+        })
       : '';
 
   const handleSaveMsg = async () => {

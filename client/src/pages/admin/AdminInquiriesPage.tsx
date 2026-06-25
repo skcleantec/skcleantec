@@ -68,6 +68,7 @@ import {
 import { getMe } from '../../api/auth';
 import { resolveMarketerOperationalAdminFromMe } from '../../utils/staffAdminAccess';
 import { getToken } from '../../stores/auth';
+import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import {
   InquiryDatePresetBar,
   InquiryManualIntakeButton,
@@ -729,6 +730,7 @@ function patchInquiryProfReviewInList(
 
 export function AdminInquiriesPage() {
   const token = getToken();
+  const staffTenantSlug = useStaffTenantSlugForLinks(token);
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const isLgUp = useIsLgUp();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -2021,7 +2023,7 @@ export function AdminInquiriesPage() {
       return;
     }
     window.open(
-      getOrderFormPublicUrl(tk, undefined, undefined, item.operatingCompany?.slug ?? null),
+      getOrderFormPublicUrl(tk, undefined, staffTenantSlug || null, item.operatingCompany?.slug ?? null),
       '_blank',
       'noopener',
     );
@@ -2038,7 +2040,7 @@ export function AdminInquiriesPage() {
         orderCustomerPreviewMsgConfig,
         orderCustomerPreview.order,
         undefined,
-        undefined,
+        staffTenantSlug || null,
         orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
       );
       const ok = await copyTextToClipboard(text);
@@ -2053,7 +2055,7 @@ export function AdminInquiriesPage() {
       getOrderFormPublicUrl(
         orderCustomerPreview.order.token,
         undefined,
-        undefined,
+        staffTenantSlug || null,
         orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
       ),
     );
@@ -3758,7 +3760,7 @@ export function AdminInquiriesPage() {
                         orderCustomerPreviewMsgConfig,
                         orderCustomerPreview.order,
                         undefined,
-                        undefined,
+                        staffTenantSlug || null,
                         orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
                       )}
                     </pre>
@@ -3773,7 +3775,7 @@ export function AdminInquiriesPage() {
                       value={getOrderFormPublicUrl(
                         orderCustomerPreview.order.token,
                         undefined,
-                        undefined,
+                        staffTenantSlug || null,
                         orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
                       )}
                       onFocus={(e) => e.target.select()}

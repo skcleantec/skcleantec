@@ -45,6 +45,8 @@ import {
 } from '../../utils/listPagination';
 import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
 import { getAssignableScheduleUsers, formatAssignableUserLabel, type UserItem } from '../../api/users';
+import { getCsPublicUrl } from '../../utils/orderFormCustomerCopy';
+import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 
 const STATUS_OPTIONS = [
@@ -212,6 +214,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const previewKey = teamPreviewDepsKey(location.search);
   const token = mode === 'admin' ? getToken() : getTeamToken();
+  const staffTenantSlug = useStaffTenantSlugForLinks(token);
   const isAdmin = mode === 'admin';
   const [items, setItems] = useState<CsReport[]>([]);
   const [listTotal, setListTotal] = useState(0);
@@ -561,7 +564,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
     }
   };
 
-  const csLink = `${window.location.origin}/cs`;
+  const csLink = getCsPublicUrl(undefined, staffTenantSlug || null);
   const pageTitle = mode === 'admin' ? 'C/S 관리' : 'C/S';
   const statusSelectOptions =
     mode === 'team'
@@ -623,7 +626,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               </button>
             </div>
             <a
-              href="/cs"
+              href={csLink}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex shrink-0 items-center justify-center gap-2 min-h-[44px] self-start rounded-xl border border-slate-200 bg-white px-4 py-2 text-fluid-sm font-semibold text-slate-700 shadow-sm transition-all duration-150 hover:scale-[1.015] hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98] touch-manipulation sm:self-end"

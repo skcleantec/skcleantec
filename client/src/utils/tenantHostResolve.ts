@@ -4,8 +4,7 @@
  */
 
 import { parseTenantHostList, resolveTenantSlugFromHostCore } from '@shared/tenantHost';
-
-const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
+import { resolveTenantSlugForPublicLinks } from './staffTenantSlugForLinks';
 
 function baseDomainFromEnv(): string {
   const v = import.meta.env.VITE_TENANT_HOST_BASE_DOMAIN;
@@ -38,28 +37,9 @@ export function resolveTenantSlugFromHost(
   });
 }
 
-/** URL ?tenant= → Host subdomain → localStorage 순 */
+/** URL ?tenant= → 로그인 저장 slug → Host(비-SK) → apex SK 레거시 */
 export function resolveInitialTenantSlug(): string {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const q = params.get('tenant')?.trim().toLowerCase();
-    if (q && SLUG_RE.test(q)) return q;
-  } catch {
-    /* ignore */
-  }
-
-  const fromHost = resolveTenantSlugFromHost(window.location.hostname);
-  if (fromHost) return fromHost;
-
-  return loadTenantSlugFromStorage();
-}
-
-function loadTenantSlugFromStorage(): string {
-  try {
-    return localStorage.getItem('sk_tenant_slug')?.trim().toLowerCase() ?? '';
-  } catch {
-    return '';
-  }
+  return resolveTenantSlugForPublicLinks();
 }
 
 export async function resolveTenantSlugWithApiFallback(): Promise<string> {

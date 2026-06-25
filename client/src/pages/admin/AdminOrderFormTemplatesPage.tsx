@@ -6,6 +6,7 @@ import { OrderFormTemplatePreview } from '../../components/admin/OrderFormTempla
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { getDesignerPreviewOrderToken } from '../../api/orderform';
 import { appendPublicQuery } from '../../utils/publicTenantQuery';
+import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import {
   createOrderFormTemplate,
   deleteOrderFormTemplate,
@@ -201,6 +202,7 @@ function statusBadge(status: OrderFormTemplate['status']) {
 
 export function AdminOrderFormTemplatesPage() {
   const token = getToken() ?? '';
+  const staffTenantSlug = useStaffTenantSlugForLinks(token || null);
   const [templates, setTemplates] = useState<OrderFormTemplate[]>([]);
   const [systemFields, setSystemFields] = useState<OrderFormSystemFieldDef[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -905,6 +907,7 @@ export function AdminOrderFormTemplatesPage() {
                         <a
                           href={appendPublicQuery(
                             `${window.location.origin}/order/${encodeURIComponent(defaultPreviewToken)}`,
+                            { tenantSlug: staffTenantSlug || null },
                           )}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -919,6 +922,7 @@ export function AdminOrderFormTemplatesPage() {
                         title="기본 발주서 미리보기"
                         src={appendPublicQuery(
                           `${window.location.origin}/order/${encodeURIComponent(defaultPreviewToken)}`,
+                          { tenantSlug: staffTenantSlug || null },
                         )}
                         className="h-[min(78vh,900px)] w-full min-h-[420px] bg-gray-50"
                       />

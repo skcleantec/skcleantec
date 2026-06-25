@@ -10,7 +10,7 @@ import {
 } from '../../utils/orderFormCustomerCopy';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults';
 import { ORDER_FORM_CUSTOMER_LINK_COPY_DEFAULTS } from '@shared/orderFormCustomerLinkCopy';
-import { resolvePublicTenantSlug } from '../../utils/publicTenantQuery';
+import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 
 const MSG_TEXTAREA_CLS =
@@ -127,6 +127,7 @@ const LINK_FIELDS: LinkFieldDef[] = [
 
 export function AdminOrderFormCustomerLinkSettingsPage() {
   const token = getToken();
+  const staffTenantSlug = useStaffTenantSlugForLinks(token);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,14 +182,13 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
   }, [token]);
 
   const previewMessage = useMemo(() => {
-    const tenantSlug = resolvePublicTenantSlug();
     return buildOrderFormCustomerMessage(
       msgConfig,
       PREVIEW_SAMPLE_ORDER,
       typeof window !== 'undefined' ? window.location.origin : undefined,
-      tenantSlug || null,
+      staffTenantSlug || null,
     );
-  }, [msgConfig]);
+  }, [msgConfig, staffTenantSlug]);
 
   const handleSave = async () => {
     if (!token) return;

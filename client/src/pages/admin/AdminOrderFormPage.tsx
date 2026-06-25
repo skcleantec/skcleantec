@@ -28,6 +28,7 @@ import {
 import { getInquiries } from '../../api/inquiries';
 import { listOrderFormTemplates, type OrderFormTemplate } from '../../api/orderFormTemplates';
 import { getToken } from '../../stores/auth';
+import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
@@ -104,6 +105,7 @@ function formatOrderFormReservationCell(order: OrderForm): {
 
 export function AdminOrderFormPage() {
   const token = getToken();
+  const staffTenantSlug = useStaffTenantSlugForLinks(token);
   const location = useLocation();
   const navigate = useNavigate();
   /** 접수 메뉴 하위로 끼워 넣은 발주서 화면 */
@@ -516,10 +518,16 @@ export function AdminOrderFormPage() {
   const brandSlugForOrder = (order: OrderForm) => order.operatingCompany?.slug ?? null;
 
   const getOrderLink = (orderToken: string, brandSlug?: string | null) =>
-    getOrderFormPublicUrl(orderToken, undefined, undefined, brandSlug);
+    getOrderFormPublicUrl(orderToken, undefined, staffTenantSlug || null, brandSlug);
 
   const getOrderMessage = (order: OrderForm) =>
-    buildOrderFormCustomerMessage(msgConfig, order, undefined, undefined, brandSlugForOrder(order));
+    buildOrderFormCustomerMessage(
+      msgConfig,
+      order,
+      undefined,
+      staffTenantSlug || null,
+      brandSlugForOrder(order),
+    );
 
   const handleCopyPreviewModal = async () => {
     if (!previewModal) return;

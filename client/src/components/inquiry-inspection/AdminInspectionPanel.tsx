@@ -19,6 +19,7 @@ import { useInspectionCompareLightbox } from './useInspectionCompareLightbox';
 import { getMe } from '../../api/auth';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
+import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { isContaminationInspectionArea } from '@shared/inquiryInspectionContamination';
 import { useInspectionChecklistRealtime } from '../../hooks/useInspectionChecklistRealtime';
 
@@ -29,6 +30,7 @@ export function AdminInspectionPanel({
   inquiryId: string;
   token: string;
 }) {
+  const staffTenantSlug = useStaffTenantSlugForLinks(token);
   const [checklist, setChecklist] = useState<InspectionChecklistDto | null | undefined>(undefined);
   const [smtpConfigured, setSmtpConfigured] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -139,7 +141,11 @@ export function AdminInspectionPanel({
               <button
                 type="button"
                 onClick={() => {
-                  const url = getInspectionCustomerViewUrl(checklist.customerViewToken!);
+                  const url = getInspectionCustomerViewUrl(
+                    checklist.customerViewToken!,
+                    undefined,
+                    staffTenantSlug || null,
+                  );
                   void copyTextToClipboard(url).then((ok) => {
                     setCopyHint(ok ? '복사됨' : '복사 실패');
                     window.setTimeout(() => setCopyHint(null), 2000);

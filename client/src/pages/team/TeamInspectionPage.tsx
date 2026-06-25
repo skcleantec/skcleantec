@@ -21,6 +21,7 @@ import { ContaminationPhotosSection } from '../../components/inquiry-inspection/
 import { TeamInspectionAreasEditor } from './TeamInspectionAreasEditor';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
+import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { resolveTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
 import { RoundBackButton } from '../../components/ui/RoundBackButton';
 import { useInspectionChecklistRealtime } from '../../hooks/useInspectionChecklistRealtime';
@@ -34,6 +35,7 @@ export function TeamInspectionPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const token = getTeamToken();
+  const staffTenantSlug = useStaffTenantSlugForLinks(token);
   const returnTo = useMemo(
     () => resolveTeamInquiryReturnTo(location, inquiryId),
     [location, inquiryId],
@@ -487,7 +489,11 @@ export function TeamInspectionPage() {
               className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-fluid-xs font-medium text-indigo-900"
               onClick={() => {
                 void copyTextToClipboard(
-                  getInspectionCustomerViewUrl(checklist.customerViewToken!),
+                  getInspectionCustomerViewUrl(
+                    checklist.customerViewToken!,
+                    undefined,
+                    staffTenantSlug || null,
+                  ),
                 ).then((ok) => alert(ok ? '고객 열람 링크를 복사했습니다.' : '복사에 실패했습니다.'));
               }}
             >
