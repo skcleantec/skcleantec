@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>청소비서 팀장 앱 사용설명서</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+  :root {
+    --teal:#1a6b5a; --teal-light:#d1ede8; --navy:#0f172a;
+    --bg:#eeecea; --white:#fff; --gray-50:#f8f9fa; --gray-100:#f1f5f9;
+    --gray-200:#e2e8f0; --gray-400:#94a3b8; --gray-600:#475569; --gray-800:#1e293b;
+    --red:#dc2626; --blue:#2563eb; --green:#16a34a; --amber:#d97706;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--gray-800);}
+  em{color:var(--teal);font-style:normal;font-weight:700;}
+
+  .slide{width:1200px;min-height:720px;margin:0 auto 60px;background:var(--white);border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.10);display:flex;flex-direction:column;}
+  .slide-header{background:var(--navy);color:white;padding:14px 32px;display:flex;align-items:center;justify-content:space-between;}
+  .slide-header .brand{font-size:15px;font-weight:700;letter-spacing:.5px;}
+  .slide-header .brand span{color:#4ade80;}
+  .slide-header .slide-num{font-size:12px;color:#94a3b8;}
+  .slide-body{display:grid;grid-template-columns:380px 1fr;flex:1;}
+
+  .phone-col{background:var(--gray-100);display:flex;align-items:center;justify-content:center;padding:24px 18px;}
+  .phone{width:295px;border-radius:34px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.22);background:white;border:6px solid #1e293b;}
+  .phone-nav{background:var(--navy);padding:10px 8px 6px;display:flex;align-items:center;gap:3px;}
+  .phone-nav .logo{color:#4ade80;font-weight:700;font-size:11px;margin-right:auto;}
+  .nav-item{padding:4px 6px;border-radius:6px;font-size:8.5px;color:#cbd5e1;white-space:nowrap;}
+  .nav-item.active{background:rgba(255,255,255,.18);color:white;font-weight:600;}
+  .nav-badge{display:inline-flex;background:#ef4444;color:white;border-radius:9px;font-size:7.5px;padding:1px 4px;margin-left:1px;}
+  .phone-body{padding:10px;background:#f8fafc;}
+  .phone-title{font-size:13px;font-weight:700;color:var(--gray-800);margin-bottom:8px;}
+
+  .hc-alert{background:#fff1f1;border:1px solid #fca5a5;border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:9px;color:#991b1b;}
+  .hc-alert .hc-title{font-weight:700;margin-bottom:3px;font-size:10px;}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:10px;}
+  .stat-cell{background:white;border:1px solid #e2e8f0;border-radius:8px;padding:6px 4px;text-align:center;}
+  .stat-cell .val{font-size:16px;font-weight:700;color:var(--navy);}
+  .stat-cell .lbl{font-size:8px;color:#64748b;}
+  .schedule-card{background:white;border:1px solid #e2e8f0;border-radius:10px;padding:7px 9px;margin-bottom:5px;}
+  .sc-name{font-size:11px;font-weight:700;color:var(--navy);}
+  .sc-tag{display:inline-block;font-size:7.5px;padding:1px 5px;border-radius:8px;margin-bottom:2px;font-weight:600;}
+  .sc-tag.today{background:#fee2e2;color:#dc2626;}
+  .sc-tag.change{background:#fef3c7;color:#92400e;}
+  .sc-info{font-size:8px;color:#64748b;line-height:1.5;}
+  .sc-footer{display:flex;align-items:center;gap:4px;margin-top:4px;}
+  .sc-status{font-size:7.5px;padding:2px 5px;border-radius:5px;font-weight:600;}
+  .s-assign{background:#dbeafe;color:#1e40af;}
+  .s-prog{background:#d1fae5;color:#065f46;}
+  .s-warn{background:#fee2e2;color:#dc2626;}
+  .s-done{background:#dcfce7;color:#14532d;}
+  .btn-call{margin-left:auto;background:var(--blue);color:white;border:none;border-radius:6px;padding:4px 9px;font-size:8.5px;font-weight:600;flex-shrink:0;}
+  .sec-label{font-size:10px;font-weight:700;color:var(--gray-600);margin:7px 0 4px;padding-bottom:3px;border-bottom:1px solid #e2e8f0;}
+
+  .popup-wrap{background:rgba(0,0,0,.35);border-radius:10px;padding:4px;}
+  .popup-inner{background:white;border-radius:10px;overflow:hidden;}
+  .popup-hd{padding:9px 11px 7px;border-bottom:1px solid #f1f5f9;}
+  .popup-hd .ptitle{font-size:8.5px;color:#64748b;margin-bottom:3px;}
+  .popup-hd .pname{font-size:13px;font-weight:700;color:var(--navy);}
+  .popup-hd .badges{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;}
+  .pbadge{font-size:7.5px;padding:2px 6px;border-radius:7px;font-weight:600;}
+  .pb-blue{background:#dbeafe;color:#1e40af;}
+  .pb-red{background:#fee2e2;color:#dc2626;}
+  .pb-gray{background:#f1f5f9;color:#475569;}
+  .psec{padding:5px 11px;border-bottom:1px solid #f8fafc;}
+  .psec-title{font-size:7.5px;font-weight:700;color:#94a3b8;margin-bottom:4px;letter-spacing:.4px;text-transform:uppercase;}
+  .prow{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;}
+  .pkey{font-size:8px;color:#64748b;}
+  .pval{font-size:8px;font-weight:600;color:var(--navy);}
+  .pval-blue{color:#2563eb;text-decoration:underline;cursor:pointer;}
+  .pval-red{color:#dc2626;font-weight:700;}
+  .p-btn-sm{font-size:7px;background:#e2e8f0;padding:1px 5px;border-radius:4px;color:#475569;cursor:pointer;white-space:nowrap;}
+  .p-btn-blue{font-size:7px;background:#dbeafe;padding:1px 5px;border-radius:4px;color:#1d4ed8;cursor:pointer;}
+  .pactions{padding:7px 11px;display:flex;flex-direction:column;gap:4px;}
+  .pa{width:100%;padding:6px;border-radius:7px;border:none;font-size:9.5px;font-weight:700;color:white;cursor:pointer;text-align:center;}
+  .pa-blue{background:#2563eb;}
+  .pa-green{background:#16a34a;}
+  .pa-dark{background:#1e293b;}
+  .pa-sky{background:#0ea5e9;}
+  .pa-outline{background:white;border:1.5px solid #22c55e;color:#1e293b;}
+  .pa-gray{background:white;border:1px solid #e2e8f0;color:#64748b;}
+
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+  .cal-dh{text-align:center;color:#94a3b8;font-weight:700;padding:2px 0;font-size:7.5px;}
+  .cal-dh.sun{color:#ef4444;}
+  .cal-dh.sat{color:#3b82f6;}
+  .cal-cell{min-height:30px;border-radius:5px;padding:2px;text-align:center;background:white;border:1px solid #f1f5f9;}
+  .cal-cell .cn{font-size:8.5px;font-weight:600;color:#374151;}
+  .cal-cell .cn.teal{color:#0d9488;font-weight:700;}
+  .cal-cell .cn.today-ring{background:#3b82f6;color:white;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;}
+  .cal-cell .cn.off-ring{background:#ef4444;color:white;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;}
+  .cal-cell .cc{font-size:7.5px;color:var(--teal);font-weight:700;}
+  .cal-cell.empty{background:transparent;border-color:transparent;}
+  .cal-cell.selected{border:2px solid #3b82f6;background:#eff6ff;}
+
+  .desc-col{padding:28px 32px;display:flex;flex-direction:column;}
+  .page-tag{display:inline-block;background:var(--teal-light);color:var(--teal);font-size:11px;font-weight:700;padding:3px 11px;border-radius:18px;margin-bottom:9px;width:fit-content;}
+  .page-title{font-size:21px;font-weight:700;color:var(--navy);margin-bottom:5px;line-height:1.3;}
+  .page-sub{font-size:12.5px;color:var(--gray-600);margin-bottom:18px;line-height:1.6;}
+  .step-list{display:flex;flex-direction:column;gap:11px;}
+  .step{display:flex;gap:11px;align-items:flex-start;}
+  .step-num{flex-shrink:0;width:24px;height:24px;background:var(--teal);color:white;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+  .step-c{flex:1;}
+  .step-c strong{display:block;font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:2px;}
+  .step-c p{font-size:11.5px;color:var(--gray-600);line-height:1.65;}
+  .sub-li{margin-top:4px;list-style:none;padding:0;}
+  .sub-li li{font-size:11px;color:var(--gray-600);padding:2px 0 2px 12px;position:relative;line-height:1.5;}
+  .sub-li li::before{content:'·';position:absolute;left:2px;color:var(--teal);font-weight:700;}
+  .tip-box{background:var(--teal-light);border-left:3px solid var(--teal);border-radius:0 7px 7px 0;padding:9px 13px;margin-top:12px;font-size:11.5px;color:var(--teal);line-height:1.6;}
+  .tip-box .tip-t{font-weight:700;margin-bottom:2px;}
+  .warn-box{background:#fff7ed;border-left:3px solid var(--amber);border-radius:0 7px 7px 0;padding:9px 13px;margin-top:12px;font-size:11.5px;color:#92400e;line-height:1.6;}
+  .warn-box .warn-t{font-weight:700;margin-bottom:2px;}
+  .divider{height:1px;background:var(--gray-200);margin:12px 0;}
+  .sub-plain{list-style:none;padding:0;}
+  .sub-plain li{font-size:12px;color:var(--gray-600);padding:3px 0 3px 13px;position:relative;line-height:1.6;}
+  .sub-plain li::before{content:'·';position:absolute;left:2px;color:var(--teal);font-weight:700;}
+
+  .btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px;}
+  .btn-item{display:flex;align-items:flex-start;gap:7px;padding:9px;background:var(--gray-50);border-radius:9px;border:1px solid var(--gray-200);}
+  .btn-dot{flex-shrink:0;width:13px;height:13px;border-radius:3px;margin-top:2px;}
+  .btn-item .bl{font-size:10.5px;font-weight:700;color:var(--navy);margin-bottom:1px;}
+  .btn-item .bd{font-size:10px;color:var(--gray-600);line-height:1.4;}
+
+  /* 표지 */
+  .cover-slide{background:linear-gradient(135deg,var(--navy) 0%,#1e3a5f 60%,var(--teal) 100%);color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:380px;padding:60px 40px;text-align:center;border-radius:20px;margin:0 auto 60px;width:1200px;box-shadow:0 8px 40px rgba(0,0,0,.18);}
+  .cover-badge{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:18px;padding:5px 18px;font-size:12px;color:#a7f3d0;margin-bottom:18px;letter-spacing:1px;}
+  .cover-title{font-size:40px;font-weight:700;margin-bottom:10px;line-height:1.2;}
+  .cover-title span{color:#4ade80;}
+  .cover-sub{font-size:15px;color:#cbd5e1;margin-bottom:24px;}
+  .cover-feats{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;}
+  .cover-feat{background:rgba(255,255,255,.1);border-radius:11px;padding:9px 16px;font-size:12.5px;color:#e2e8f0;}
+  .cover-feat span{color:#4ade80;font-weight:700;}
+
+  /* 목차 */
+  .toc-slide{width:1200px;margin:0 auto 60px;background:white;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.10);padding:44px 52px;}
+  .toc-title{font-size:26px;font-weight:700;color:var(--navy);margin-bottom:26px;}
+  .toc-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
+  .toc-item{background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:13px;padding:15px 13px;}
+  .toc-item.toc-highlight{background:#f0fdf4;border-color:#86efac;}
+  .toc-num{font-size:10.5px;color:var(--teal);font-weight:700;margin-bottom:5px;}
+  .toc-name{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:3px;}
+  .toc-desc{font-size:10.5px;color:var(--gray-600);line-height:1.4;}
+
+  /* 시퀀스 슬라이드 */
+  .seq-slide{width:1200px;margin:0 auto 60px;background:white;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.10);}
+  .seq-body{padding:32px 40px 40px;}
+  .seq-intro{font-size:13px;color:var(--gray-600);margin-bottom:24px;line-height:1.6;}
+  .seq-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px;}
+  .seq-card{background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:14px;padding:15px 13px;position:relative;}
+  .seq-num{width:26px;height:26px;background:var(--teal);color:white;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:7px;}
+  .seq-icon{font-size:22px;margin-bottom:5px;}
+  .seq-name{font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+  .seq-desc{font-size:10.5px;color:var(--gray-600);line-height:1.6;}
+  .seq-tip{background:var(--teal-light);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--teal);line-height:1.65;}
+  .seq-tip strong{font-weight:700;}
+
+  .page-wrapper{padding:40px 40px 20px;max-width:1280px;margin:0 auto;}
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+
+<!-- ══ 표지 ══ -->
+<div class="cover-slide">
+  <div class="cover-badge">TEAM LEADER GUIDE</div>
+  <div class="cover-title">청소비서 <span>팀장</span> 앱<br>사용설명서</div>
+  <div class="cover-sub">처음 사용하는 분도 바로 따라 할 수 있는 단계별 안내</div>
+  <div class="cover-feats">
+    <div class="cover-feat">🔄 <span>처리 순서</span> — 10단계 전체 흐름</div>
+    <div class="cover-feat">📋 <span>대시보드</span> — 오늘 일정 한눈에</div>
+    <div class="cover-feat">📌 <span>배정목록</span> — 검색·필터·상세</div>
+    <div class="cover-feat">💰 <span>추가결재</span> — 현장 추가비용 처리</div>
+    <div class="cover-feat">📅 <span>스케줄</span> — 달력 + 날짜 클릭</div>
+    <div class="cover-feat">🚫 <span>휴무일</span> — 직접 설정</div>
+  </div>
+</div>
+
+<!-- ══ 목차 ══ -->
+<div class="toc-slide">
+  <div class="toc-title">📖 목차</div>
+  <div class="toc-grid">
+    <div class="toc-item toc-highlight"><div class="toc-num">01</div><div class="toc-name">신규 배정 처리 순서</div><div class="toc-desc">접수 확인부터 완료까지 10단계</div></div>
+    <div class="toc-item"><div class="toc-num">02</div><div class="toc-name">대시보드 — 알림·통계</div><div class="toc-desc">해피콜 알림, 8개 통계 카드</div></div>
+    <div class="toc-item"><div class="toc-num">03</div><div class="toc-name">대시보드 — 오늘 일정</div><div class="toc-desc">카드 구조, 태그 색깔 의미</div></div>
+    <div class="toc-item"><div class="toc-num">04</div><div class="toc-name">배정목록 — 검색·필터</div><div class="toc-desc">기간 기준, 탭, 상태 필터</div></div>
+    <div class="toc-item"><div class="toc-num">05</div><div class="toc-name">배정 상세 ① 고객정보</div><div class="toc-desc">헤더~고객현장 섹션 상세</div></div>
+    <div class="toc-item"><div class="toc-num">06</div><div class="toc-name">배정 상세 ② 팀원·일정</div><div class="toc-desc">팀원 연락처, 미팅시간, 예약일 변경</div></div>
+    <div class="toc-item"><div class="toc-num">07</div><div class="toc-name">배정 상세 ③ 결제·추가결재</div><div class="toc-desc">결제금액 · 현장 추가비용 등록</div></div>
+    <div class="toc-item"><div class="toc-num">08</div><div class="toc-name">스케줄 — 달력+날짜 클릭</div><div class="toc-desc">건수, 손없는날, 날짜별 상세 카드</div></div>
+    <div class="toc-item"><div class="toc-num">09</div><div class="toc-name">휴무일 설정</div><div class="toc-desc">날짜 눌러서 휴무 지정·취소</div></div>
+    <div class="toc-item"><div class="toc-num">10</div><div class="toc-name">C/S · 메시지 · 전자계약</div><div class="toc-desc">C/S 처리, 운영팀 채팅, 서명</div></div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 01 ══ 신규 배정 처리 순서 (시퀀스) — 1번으로 이동 -->
+<div class="seq-slide">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 팀장 앱 사용설명서</span>
+    <span class="slide-num">01 / 10 — 신규 배정 처리 순서</span>
+  </div>
+  <div class="seq-body">
+    <div class="seq-intro">새 배정이 왔을 때 팀장이 처음부터 끝까지 처리해야 할 순서입니다. 이 흐름대로 진행하면 빠짐없이 완료됩니다.</div>
+    <div class="seq-grid">
+      <div class="seq-card">
+        <div class="seq-num">1</div>
+        <div class="seq-icon">📬</div>
+        <div class="seq-name">배정 알림 확인</div>
+        <div class="seq-desc">내비게이션 <em>배정</em> 배지 숫자 확인. 대시보드 오늘 일정에 새 카드가 나타납니다. 빨간 태그(신규배정)가 붙어 있으면 확인 전 건입니다.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-num">2</div>
+        <div class="seq-icon">📋</div>
+        <div class="seq-name">접수 상세 열기</div>
+        <div class="seq-desc">카드를 눌러 상세 팝업을 엽니다. 위에서 아래로 <em>전체 내용</em>을 천천히 읽습니다. 제목·특이사항 반드시 확인.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-num">3</div>
+        <div class="seq-icon">🏠</div>
+        <div class="seq-name">고객·현장 확인</div>
+        <div class="seq-desc">주소, 방화 구조(3방 2화), 건물 유형(아파트/빌라), 평수를 확인합니다. 특이사항 메모를 읽어 작업 준비를 합니다.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-num">4</div>
+        <div class="seq-icon">📞</div>
+        <div class="seq-name">해피콜 전화</div>
+        <div class="seq-desc">고객 연락처를 눌러 전화합니다. 작업 일정을 안내한 뒤 팝업 하단 <em>「해피콜 완료」</em> 버튼을 눌러 처리합니다. 마감: 작업일 전날.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-num">5</div>
+        <div class="seq-icon">👥</div>
+        <div class="seq-name">팀원 확인</div>
+        <div class="seq-desc">투입 팀원 목록과 연락처를 확인합니다. 필요한 경우 파란 번호를 눌러 팀원에게 직접 연락합니다.</div>
+      </div>
+    </div>
+    <div class="seq-grid" style="margin-bottom:0;">
+      <div class="seq-card">
+        <div class="seq-num">6</div>
+        <div class="seq-icon">⏰</div>
+        <div class="seq-name">미팅 시간 설정</div>
+        <div class="seq-desc">팝업 「미팅시간」 칸에 집합 시간을 입력하고 <em>저장</em>을 누릅니다. 팀원 전원의 크루 앱에 자동으로 시간이 공유됩니다.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-num">7</div>
+        <div class="seq-icon">📷</div>
+        <div class="seq-name">청소 전 촬영</div>
+        <div class="seq-desc">현장 도착 후, 청소 시작 전 현장 상태를 사진으로 찍습니다. 팝업 하단 <em>파란 「청소 전 촬영」</em> 버튼을 누릅니다.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-num">8</div>
+        <div class="seq-icon">🧹</div>
+        <div class="seq-name">청소 진행</div>
+        <div class="seq-desc">팀원들과 청소를 진행합니다. 현장에서 추가 비용이 생기면 <em>결제금액 섹션 → 추가결재 「펼치기」</em> 를 눌러 항목을 등록합니다.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-num">9</div>
+        <div class="seq-icon">📸</div>
+        <div class="seq-name">청소 후 촬영</div>
+        <div class="seq-desc">청소가 끝난 후 깨끗해진 현장 사진을 찍습니다. <em>초록 「청소 후 촬영」</em> 버튼을 누릅니다.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-num">10</div>
+        <div class="seq-icon">✅</div>
+        <div class="seq-name">완료 처리 + 결제</div>
+        <div class="seq-desc"><em>검정 「현장 검수·청소완료」</em> 버튼을 누릅니다. 카드 결제가 필요하면 <em>녹색 테두리 「카드결제」</em> 버튼도 처리합니다.</div>
+      </div>
+    </div>
+    <div class="seq-tip" style="margin-top:18px;">
+      <strong>💡 빠른 요약:</strong> 배정 확인 → 상세 읽기 → 고객 해피콜 → 팀원·미팅시간 설정 → 현장 출발 → 전 촬영 → 청소 (추가비용 발생 시 추가결재 등록) → 후 촬영 → 완료 버튼 → 카드결제<br>
+      이 10단계를 지키면 관리자 화면도 실시간으로 업데이트되어 별도 보고 없이도 진행 상황이 공유됩니다.
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 02 ══ 대시보드: 해피콜·통계 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 팀장 앱 사용설명서</span>
+    <span class="slide-num">02 / 10 — 대시보드 · 알림 &amp; 통계</span>
+  </div>
+  <div class="slide-body">
+    <div class="phone-col">
+      <div class="phone">
+        <div class="phone-nav">
+          <span class="logo">청소비서</span>
+          <span class="nav-item active">대시보드</span>
+          <span class="nav-item">배정<span class="nav-badge">12</span></span>
+          <span class="nav-item">스케줄</span>
+          <span class="nav-item">휴무일</span>
+        </div>
+        <div class="phone-body">
+          <div class="phone-title">대시보드</div>
+          <div class="hc-alert">
+            <div class="hc-title">📞 해피콜(고객 일정 안내 전화):</div>
+            <div class="hc-counts" style="font-weight:700;gap:8px;display:flex;"><span>마감 초과 7건</span><span>마감 전 미완 8건</span></div>
+            <div style="margin-top:4px;font-size:8.5px;color:#b91c1c;line-height:1.4;">건을 눌러 상세에서 「해피콜 완료」를 눌러 주세요.<br>마감은 작업일 전날(한국시간) 말일까지입니다.</div>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-cell"><div class="val">20</div><div class="lbl">전체</div></div>
+            <div class="stat-cell"><div class="val" style="color:#2563eb">5</div><div class="lbl">오늘</div></div>
+            <div class="stat-cell"><div class="val" style="color:#0891b2">10</div><div class="lbl">분배</div></div>
+            <div class="stat-cell"><div class="val" style="color:#16a34a">3</div><div class="lbl">진행</div></div>
+            <div class="stat-cell"><div class="val" style="color:#059669">3</div><div class="lbl">완료</div></div>
+            <div class="stat-cell"><div class="val" style="color:#d97706">1</div><div class="lbl">접수</div></div>
+            <div class="stat-cell"><div class="val" style="color:#9333ea">1</div><div class="lbl">보류</div></div>
+            <div class="stat-cell"><div class="val" style="color:#94a3b8">1</div><div class="lbl">취소</div></div>
+          </div>
+          <div class="sec-label">오늘 일정 (5건)</div>
+          <div class="schedule-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><span class="sc-tag today">오늘·신규배정(미확인)</span>
+              <div class="sc-name">한서윤</div>
+              <div class="sc-info">오전 8~9시 · 3방 2화 · 전용 32평<br>서울 강남구 테헤란로 152</div></div>
+              <button class="btn-call">전화</button>
+            </div>
+            <div class="sc-footer"><span class="sc-status s-assign">분배</span><span class="sc-status s-warn">미완·마감초과</span></div>
+          </div>
+          <div class="schedule-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><span class="sc-tag change">변경이력있음</span>
+              <div class="sc-name">이수정</div>
+              <div class="sc-info">오후 12~14시 · 3방 2화 · 전용 30평</div></div>
+              <button class="btn-call">전화</button>
+            </div>
+            <div class="sc-footer"><span class="sc-status s-assign">분배</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">📱 02 · 대시보드</div>
+      <div class="page-title">앱을 열면 가장 먼저<br>이 화면이 나타납니다</div>
+      <div class="page-sub">오늘 해야 할 일, 전체 일정 현황, 긴급 알림을 한눈에 볼 수 있는 홈 화면입니다.</div>
+      <div class="step-list">
+        <div class="step"><div class="step-num">1</div><div class="step-c">
+          <strong>🚨 빨간 박스 — 해피콜 미완료 알림</strong>
+          <p>화면 상단에 빨간 박스가 보이면 고객에게 전화를 아직 못 드린 건이 있다는 뜻입니다. <em>마감 초과</em>는 이미 작업일을 지났는데 전화를 못 한 건, <em>마감 전 미완</em>은 아직 시간이 남아 있는 건입니다. 숫자를 직접 누르면 해당 건 목록으로 이동합니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-c">
+          <strong>8칸 숫자 카드 — 내 배정 상태별 현황</strong>
+          <ul class="sub-li">
+            <li><em>전체</em> — 나에게 배정된 모든 건의 합계</li>
+            <li><em>오늘</em> — 오늘 작업 예정인 건</li>
+            <li><em>분배</em> — 팀원 배치까지 완료된 상태</li>
+            <li><em>진행</em> — 현재 현장 청소 중인 상태</li>
+            <li><em>완료</em> — 청소 마치고 완료 처리된 건</li>
+            <li><em>접수</em> — 신규 접수, 팀원 배치 전</li>
+            <li><em>보류</em> — 잠시 미루거나 확인 중인 건</li>
+            <li><em>취소</em> — 고객 요청 등으로 취소된 건</li>
+          </ul>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-c">
+          <strong>오늘 일정 카드 — 파란 전화 버튼으로 바로 연결</strong>
+          <p>카드 오른쪽 위 <em>파란 전화 버튼</em>을 누르면 고객에게 바로 전화가 걸립니다. 카드 안 어디든 눌러 상세 팝업을 열 수 있습니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-c">
+          <strong>🔔 오른쪽 위 알림 버튼</strong>
+          <p>빨간 숫자 배지가 있으면 읽지 않은 변경 이력이나 공지가 있다는 뜻입니다. 눌러서 확인하세요.</p>
+        </div></div>
+      </div>
+      <div class="tip-box"><div class="tip-t">💡 해피콜 처리 흐름</div>빨간 박스 숫자 누르기 → 해당 카드 열기 → 고객에게 전화 → 다시 카드 열어 「해피콜 완료」 버튼 누르기. 이 순서로 하면 미완 숫자가 즉시 줄어듭니다.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 03 ══ 대시보드: 오늘 일정 카드 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 팀장 앱 사용설명서</span>
+    <span class="slide-num">03 / 10 — 대시보드 · 오늘 일정 카드</span>
+  </div>
+  <div class="slide-body">
+    <div class="phone-col">
+      <div class="phone">
+        <div class="phone-nav">
+          <span class="logo">청소비서</span>
+          <span class="nav-item active">대시보드</span>
+          <span class="nav-item">배정<span class="nav-badge">12</span></span>
+          <span class="nav-item">스케줄</span>
+        </div>
+        <div class="phone-body">
+          <div class="sec-label">오늘 일정 (5건)</div>
+          <div class="schedule-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><span class="sc-tag today">오늘·신규배정(미확인)</span>
+              <div class="sc-name">한서윤</div>
+              <div class="sc-info">관리자: 오늘·신규배정(미확인)<br>오전 (8시~9시 시작) · 3방 2화<br>전용 32평 · 아파트<br>서울 강남구 테헤란로 152</div></div>
+              <button class="btn-call">전화</button>
+            </div>
+            <div class="sc-footer"><span class="sc-status s-assign">분배</span><span class="sc-status s-warn">미완·마감초과</span></div>
+          </div>
+          <div class="schedule-card" style="border-color:#fbbf24;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><span class="sc-tag change">변경이력있음</span>
+              <div class="sc-name">이수정</div>
+              <div class="sc-info">오후 12~14시 · 3방 2화 · 전용 30평</div></div>
+              <button class="btn-call">전화</button>
+            </div>
+            <div class="sc-footer"><span class="sc-status s-assign">분배</span><span style="font-size:7.5px;color:#92400e;font-weight:600;">⚠ 변경내용 확인 필요</span></div>
+          </div>
+          <div class="schedule-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><div class="sc-name">오준혁</div>
+              <div class="sc-info">오후 12~14시 · 3방 1화 · 전용 28평</div></div>
+              <button class="btn-call">전화</button>
+            </div>
+            <div class="sc-footer"><span class="sc-status s-prog">진행</span><span class="sc-status s-done">해피콜 완료</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">📱 03 · 대시보드 · 카드 읽는 법</div>
+      <div class="page-title">일정 카드 한 장에<br>모든 정보가 담겨 있습니다</div>
+      <div class="page-sub">카드를 꼼꼼히 읽으면 현장에 가기 전 필요한 준비를 모두 파악할 수 있습니다.</div>
+      <div class="step-list">
+        <div class="step"><div class="step-num">1</div><div class="step-c">
+          <strong>카드 위 색깔 태그 — 특이사항 표시</strong>
+          <ul class="sub-li">
+            <li><em style="color:#dc2626;">빨간 태그</em> (오늘·신규배정) — 오늘 작업인데 아직 확인 전인 신규 건</li>
+            <li><em style="color:#92400e;">노란 태그</em> (변경이력있음) — 날짜·금액·주소 등이 변경됨. 반드시 상세에서 확인</li>
+            <li>태그 없는 카드 — 별다른 변경 없는 일반 건</li>
+          </ul>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-c">
+          <strong>카드 안 정보 순서</strong>
+          <ul class="sub-li">
+            <li>고객 이름 (굵은 글씨)</li>
+            <li>관리자 메모 (특별 요청·주의사항)</li>
+            <li>희망 시간 · 방 수 · 화장실 수 · 면적 · 건물 유형</li>
+            <li>현장 주소</li>
+          </ul>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-c">
+          <strong>카드 아래 상태 배지 의미</strong>
+          <ul class="sub-li">
+            <li><em>분배</em> — 팀원이 배치된 상태</li>
+            <li><em>진행</em> — 현재 현장에서 청소 작업 중</li>
+            <li><em>해피콜 완료</em> — 고객에게 일정 안내 전화를 마쳤음</li>
+            <li><em style="color:#dc2626;">미완·마감초과</em> — 해피콜 미완 + 마감 지남 → 즉시 전화 필요</li>
+          </ul>
+        </div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-c">
+          <strong>다가오는 일정 — 내일·모레 예정 건 미리 확인</strong>
+          <p>오늘 일정 아래에 내일 이후 가까운 건들이 표시됩니다. 미리 팀원 배치나 이동 경로를 확인해 두세요.</p>
+        </div></div>
+      </div>
+      <div class="warn-box"><div class="warn-t">⚠ 노란 태그(변경이력)가 보이면 반드시 확인!</div>날짜·금액·주소 중 하나라도 변경된 건입니다. 상세 팝업 → <em>「접수 변경 이력 보기」</em>에서 무엇이 바뀌었는지 꼭 확인하세요.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 04 ══ 배정목록: 검색·필터 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 팀장 앱 사용설명서</span>
+    <span class="slide-num">04 / 10 — 배정목록 · 검색 &amp; 필터</span>
+  </div>
+  <div class="slide-body">
+    <div class="phone-col">
+      <div class="phone">
+        <div class="phone-nav">
+          <span class="logo">청소비서</span>
+          <span class="nav-item">대시보드</span>
+          <span class="nav-item active">배정<span class="nav-badge">12</span></span>
+          <span class="nav-item">스케줄</span>
+        </div>
+        <div class="phone-body">
+          <div class="phone-title">배정목록</div>
+          <div class="hc-alert"><div class="hc-title">해피콜 미완:</div><div class="hc-counts" style="display:flex;gap:8px;font-weight:700;"><span>마감 초과 7건</span><span>마감 전 8건</span></div></div>
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:9px;padding:7px;margin-bottom:7px;">
+            <select style="font-size:8.5px;padding:3px 6px;border:1px solid #d1d5db;border-radius:5px;background:white;width:100%;margin-bottom:5px;"><option>배정일(본인)</option></select>
+            <div style="display:flex;gap:3px;margin-bottom:5px;">
+              <button style="padding:3px 7px;border-radius:5px;font-size:8px;background:#f1f5f9;border:1px solid #e2e8f0;color:#64748b;">당일</button>
+              <button style="padding:3px 7px;border-radius:5px;font-size:8px;background:#f1f5f9;border:1px solid #e2e8f0;color:#64748b;">전체</button>
+              <button style="padding:3px 7px;border-radius:5px;font-size:8px;background:#0f172a;border:1px solid #0f172a;color:white;font-weight:700;">월별</button>
+              <button style="padding:3px 7px;border-radius:5px;font-size:8px;background:#f1f5f9;border:1px solid #e2e8f0;color:#64748b;">날짜</button>
+            </div>
+            <div style="font-size:7.5px;color:#64748b;margin-bottom:5px;">총 20건 · 1–20번째 &nbsp; 페이지당 30개</div>
+            <select style="font-size:8.5px;padding:3px 5px;border:1px solid #d1d5db;border-radius:5px;background:white;width:100%;margin-bottom:5px;"><option>상태 — 전체</option></select>
+            <div style="display:flex;gap:3px;">
+              <input type="text" placeholder="고객명·연락처·주소·접수번호" style="flex:1;font-size:7.5px;padding:3px 7px;border:1px solid #d1d5db;border-radius:5px;">
+              <button style="padding:3px 9px;background:#1e293b;color:white;border:none;border-radius:5px;font-size:8.5px;font-weight:700;">조회</button>
+            </div>
+          </div>
+          <div class="schedule-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><div class="sc-name">한서윤 <span style="font-size:7.5px;color:#94a3b8;font-weight:400;">sk2606250002</span></div>
+              <div class="sc-info" style="margin-top:2px;">배정 2026.6.25 · 이정무대표<br>서울 강남구 · 26.06.25 오전</div></div>
+              <button class="btn-call">전화</button>
+            </div>
+            <div class="sc-footer"><span class="sc-status s-assign">분배</span><span class="sc-status s-warn">미완료</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">📋 04 · 배정목록</div>
+      <div class="page-title">원하는 건수를<br>빠르게 찾는 방법</div>
+      <div class="page-sub">필터와 검색창을 조합하면 수십 건 중에서도 원하는 건을 바로 찾을 수 있습니다.</div>
+      <div class="step-list">
+        <div class="step"><div class="step-num">1</div><div class="step-c">
+          <strong>기간 기준 드롭다운 — 어떤 날짜로 볼지 선택</strong>
+          <ul class="sub-li">
+            <li><em>배정일(본인)</em> — 관리자가 나에게 배정한 날짜 기준 (기본값)</li>
+            <li><em>접수일</em> — 고객이 처음 예약 접수를 한 날짜 기준</li>
+            <li><em>예약일</em> — 실제 청소 작업 예정일 기준</li>
+          </ul>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-c">
+          <strong>기간 탭 4개 — 보고 싶은 범위 선택</strong>
+          <ul class="sub-li">
+            <li><em>당일</em> / <em>전체</em> / <em>월별</em> (연도·월 선택) / <em>날짜</em> (시작~종료 직접 지정)</li>
+          </ul>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-c">
+          <strong>상태 드롭다운 — 원하는 상태만 보기</strong>
+          <p>전체·대기·접수·분배·진행·완료·보류·취소·C/S 등 중 하나를 선택합니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-c">
+          <strong>검색창 — 이름·번호·주소·접수번호로 검색</strong>
+          <p>검색어 입력 후 <em>조회 버튼</em>을 누릅니다. 예: "강남" 입력 → 강남구 주소의 건 전체 표시.</p>
+        </div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-c">
+          <strong>카드 아무 곳이나 누르면 — 상세 팝업 열림</strong>
+          <p>카드 전체가 클릭 가능합니다. 고객 정보·팀원 연락처·결제 금액·현장 버튼은 모두 상세 팝업 안에 있습니다.</p>
+        </div></div>
+      </div>
+      <div class="tip-box"><div class="tip-t">💡 실전 검색 조합</div>오늘 현장만: 탭 「당일」 / 이번 달 완료 건: 탭 「월별」 + 상태 「완료」 / 특정 고객: 이름 입력 → 조회</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 05 ══ 배정 상세 ①: 헤더 ~ 고객·현장 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 팀장 앱 사용설명서</span>
+    <span class="slide-num">05 / 10 — 배정 상세 ① · 고객 정보 확인</span>
+  </div>
+  <div class="slide-body">
+    <div class="phone-col">
+      <div class="phone" style="width:282px;">
+        <div class="phone-nav"><span class="logo">청소비서</span><span class="nav-item active">배정목록</span></div>
+        <div class="phone-body" style="padding:0;">
+          <div class="popup-wrap" style="border-radius:0;padding:3px;">
+            <div class="popup-inner">
+              <div class="popup-hd">
+                <div class="ptitle">접수 상세</div>
+                <div class="pname">한서윤</div>
+                <div class="badges"><span class="pbadge pb-gray">SK2606250002</span><span class="pbadge pb-blue">분배</span><span class="pbadge pb-red">미완·마감초과</span></div>
+              </div>
+              <div class="psec">
+                <div class="psec-title">담당 팀장</div>
+                <div class="prow"><span class="pkey">메인</span><span class="pval">최BI서(도움말) (나) 📞</span></div>
+              </div>
+              <div class="psec">
+                <div class="psec-title">접수 정보</div>
+                <div class="prow"><span class="pkey">접수일</span><span class="pval">26.06.25 목</span></div>
+                <div class="prow"><span class="pkey">담당 마케터</span><span class="pval">이정무대표 <span class="p-btn-sm">전화걸기</span></span></div>
+              </div>
+              <div class="psec">
+                <div class="psec-title">제목 (관리자 메모)</div>
+                <div style="font-size:8.5px;color:#374151;font-weight:600;padding:2px 0;">오늘·신규배정(미확인)</div>
+              </div>
+              <div class="psec">
+                <div class="psec-title">배정 정보 (본인)</div>
+                <div class="prow"><span class="pkey">배정일시</span><span class="pval">2026. 6. 25. 오후 12:00</span></div>
+                <div class="prow"><span class="pkey">배정자</span><span class="pval">이정무대표</span></div>
+                <div class="prow"><span class="pkey">공동 배정</span><span class="pval">—</span></div>
+              </div>
+              <div class="psec" style="border-bottom:none;">
+                <div class="psec-title">고객 · 현장</div>
+                <div class="prow"><span class="pkey">연락처</span><span class="pval pval-blue">010-9000-001</span></div>
+                <div class="prow"><span class="pkey">주소</span><span class="pval" style="font-size:7.5px;text-align:right;max-width:55%;">서울 강남구 테헤란로 152</span></div>
+                <div class="prow"><span class="pkey">유형</span><span class="pval">전용 32평</span></div>
+                <div class="prow"><span class="pkey">방·화·베</span><span class="pval">3방 2화</span></div>
+                <div class="prow"><span class="pkey">건축물</span><span class="pval">아파트</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">📋 05 · 배정 상세 ① 고객 정보</div>
+      <div class="page-title">팝업 위에서부터<br>섹션별로 읽는 방법</div>
+      <div class="page-sub">카드를 누르면 팝업이 열립니다. 섹션이 6개로 나뉘어 있습니다. 위에서 아래로 차례로 확인하세요.</div>
+      <div class="step-list">
+        <div class="step"><div class="step-num">1</div><div class="step-c">
+          <strong>맨 위 헤더 — 고객명 · 접수번호 · 상태 배지</strong>
+          <p>팝업 맨 위에 고객명과 <em>SK로 시작하는 접수번호</em>가 있습니다. 관리자에게 전화할 때 이 번호를 알려주면 빠르게 건을 찾을 수 있습니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-c">
+          <strong>담당 팀장 섹션 — 📞 아이콘 = 내 전화번호 확인</strong>
+          <p>메인 담당으로 표시된 이름이 나 자신입니다. 옆 📞 아이콘을 누르면 내 등록 연락처를 확인할 수 있습니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-c">
+          <strong>접수 정보 섹션 — 담당 마케터 「전화걸기」</strong>
+          <p>마케터 이름 옆 <em>전화걸기</em>를 누르면 담당 직원에게 바로 전화가 걸립니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-c">
+          <strong>제목 섹션 — 관리자가 입력한 메모</strong>
+          <p>"오늘·신규배정(미확인)", "4인투입", "사이청소" 등 작업 특성. 반드시 읽고 현장에 가세요.</p>
+        </div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-c">
+          <strong>고객·현장 섹션 — 연락처 누르면 바로 전화</strong>
+          <p><em>연락처(파란 숫자)</em>를 누르면 고객에게 바로 전화가 걸립니다. 주소, 아파트/빌라 구분, 방 수·화장실 수도 여기서 확인합니다.</p>
+        </div></div>
+      </div>
+      <div class="tip-box"><div class="tip-t">💡 스크롤 내리면 팀원·일정·결제·버튼이 더 있습니다</div>이 팝업은 아래로 더 스크롤할 수 있습니다. 다음 슬라이드(06, 07)에서 나머지 섹션들을 설명합니다.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 06 ══ 배정 상세 ②: 팀원·미팅·일정·특이사항 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 팀장 앱 사용설명서</span>
+    <span class="slide-num">06 / 10 — 배정 상세 ② · 팀원 · 미팅시간 · 일정</span>
+  </div>
+  <div class="slide-body">
+    <div class="phone-col">
+      <div class="phone" style="width:282px;">
+        <div class="phone-nav"><span class="logo">청소비서</span><span class="nav-item active">배정목록</span></div>
+        <div class="phone-body" style="padding:0;">
+          <div class="popup-wrap" style="border-radius:0;padding:3px;">
+            <div class="popup-inner">
+              <div style="background:#f8fafc;padding:4px 11px;font-size:7.5px;color:#94a3b8;border-bottom:1px solid #f1f5f9;">↑ 위로 스크롤하면 고객·현장 정보</div>
+              <div class="psec">
+                <div class="psec-title">투입 팀원 (3명)</div>
+                <div style="font-size:8px;line-height:2;color:#374151;">
+                  민수 · <span style="color:#2563eb;text-decoration:underline;">010-7000-1000</span><br>
+                  지현 · <span style="color:#2563eb;text-decoration:underline;">010-7000-1001</span><br>
+                  태호 · <span style="color:#2563eb;text-decoration:underline;">010-7000-1002</span>
+                </div>
+              </div>
+              <div class="psec">
+                <div class="psec-title">미팅시간</div>
+                <div style="font-size:8px;color:#64748b;margin-bottom:5px;">공용 미팅 시간 (투입 팀원 전원 동일)</div>
+                <div style="display:flex;gap:4px;margin-bottom:4px;">
+                  <input type="time" style="flex:1;font-size:8px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;">
+                  <button style="background:#1e293b;color:white;border:none;border-radius:4px;padding:2px 7px;font-size:7.5px;font-weight:700;">저장</button>
+                  <button style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:2px 6px;font-size:7.5px;color:#64748b;">지우기</button>
+                </div>
+                <div style="font-size:7.5px;color:#94a3b8;line-height:1.4;">시간 선택 후 저장을 누르면 크루 「현장 일정」 및 관리자 화면에 반영됩니다.</div>
+              </div>
+              <div class="psec">
+                <div class="psec-title">일정</div>
+                <div class="prow"><span class="pkey">예약일</span><span class="pval">26.06.25 목</span></div>
+                <div class="prow"><span class="pkey">희망 시간</span><span class="pval" style="font-size:7.5px;">오전 (8시~9시 시작)</span></div>
+                <div style="margin-top:5px;">
+                  <span class="p-btn-sm">접수 변경 이력 보기 (날짜·금액·현장 미팅 등)</span>
+                </div>
+                <div style="margin-top:4px;">
+                  <span class="p-btn-blue">예약일 변경 (팀장)</span>
+                  <button style="margin-left:4px;background:#1d4ed8;color:white;border:none;border-radius:4px;padding:2px 10px;font-size:7.5px;font-weight:700;">변경 저장</button>
+                </div>
+              </div>
+              <div class="psec" style="border-bottom:none;">
+                <div class="psec-title">특이사항 (관리자·팀장·타업체 공유)</div>
+                <div style="font-size:8px;color:#374151;line-height:1.5;background:#fffbeb;border-radius:5px;padding:5px 7px;">오늘·신규배정(미확인) · 도움말 데모</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">📋 06 · 배정 상세 ② 팀원·일정</div>
+      <div class="page-title">스크롤 내리면 나오는<br>팀원·미팅·일정 섹션</div>
+      <div class="page-sub">05번 슬라이드에서 아래로 스크롤하면 이 섹션들이 보입니다. 현장 출발 전 반드시 확인하세요.</div>
+      <div class="step-list">
+        <div class="step"><div class="step-num">1</div><div class="step-c">
+          <strong>투입 팀원 섹션 — 파란 번호 누르면 팀원에게 전화</strong>
+          <p>오늘 함께 일하는 팀원 이름과 연락처가 모두 표시됩니다. <em>파란색 번호</em>를 누르면 해당 팀원에게 바로 전화가 걸립니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-c">
+          <strong>미팅시간 섹션 — 팀원 전원에게 집합 시간 공유</strong>
+          <p>시간을 입력하고 <em>저장</em>을 누르면 투입 팀원 전원의 크루 앱에 집합 시간이 자동으로 표시됩니다. 별도로 문자를 보낼 필요가 없습니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-c">
+          <strong>일정 섹션 — 예약일·희망 시간 확인 / 변경 이력 보기</strong>
+          <p><em>「접수 변경 이력 보기」</em>를 누르면 날짜·금액·주소 등이 언제 어떻게 바뀌었는지 전체 기록을 볼 수 있습니다. <em>「예약일 변경」</em>으로 날짜를 수정하면 관리자 화면에 즉시 반영됩니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-c">
+          <strong>특이사항 섹션 — 현장 메모를 직접 추가 가능</strong>
+          <p>노란 배경 박스에 관리자와 팀장 메모가 함께 표시됩니다. 현장에서 특이한 점을 발견하면 이 칸을 눌러 직접 메모를 추가할 수 있습니다.</p>
+        </div></div>
+      </div>
+      <div class="tip-box"><div class="tip-t">💡 미팅시간 저장 = 팀원 전체 공유</div>시간을 저장하는 순간 팀원들 크루 앱에 자동으로 전달됩니다. 팀 단체방에 따로 보낼 필요 없이 앱에서 한 번만 설정하면 됩니다.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 07 ══ 배정 상세 ③: 결제·추가결재·해피콜·사진·액션 버튼 -->
+<div class="slide" style="min-height:800px;">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 팀장 앱 사용설명서</span>
+    <span class="slide-num">07 / 10 — 배정 상세 ③ · 결제금액 · 추가결재 · 현장 버튼</span>
+  </div>
+  <div class="slide-body" style="align-items:start;">
+    <div class="phone-col" style="align-items:flex-start;padding-top:20px;">
+      <div class="phone" style="width:282px;">
+        <div class="phone-nav"><span class="logo">청소비서</span><span class="nav-item active">배정목록</span></div>
+        <div class="phone-body" style="padding:0;">
+          <div class="popup-wrap" style="border-radius:0;padding:3px;">
+            <div class="popup-inner">
+              <div style="background:#f8fafc;padding:4px 11px;font-size:7.5px;color:#94a3b8;border-bottom:1px solid #f1f5f9;">↑ 위로 스크롤하면 팀원·일정 정보</div>
+              <!-- 결제 금액 섹션 -->
+              <div style="background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:5px 11px 4px;">
+                <div style="font-size:8px;font-weight:700;color:#1e40af;margin-bottom:2px;">결제 금액 내역</div>
+                <div style="font-size:7px;color:#3b82f6;">총액·예약금은 서비스 계약 기준. 잔금은 회사입금 추가결재만 포함(현장결재 제외)</div>
+              </div>
+              <div class="psec">
+                <div class="prow"><span class="pkey">총 결제금액 (서비스)</span><span class="pval">800,000원</span></div>
+                <div class="prow"><span class="pkey">예약금(선결제)</span><span class="pval pval-red">200,000원</span></div>
+              </div>
+              <!-- 추가결재 항목들 -->
+              <div style="padding:4px 11px;border-bottom:1px solid #f1f5f9;background:#f0fdf4;">
+                <div style="font-size:7.5px;color:#15803d;font-weight:700;margin-bottom:2px;">추가결재 · 발코니 특수청소 <span style="background:#dcfce7;padding:1px 4px;border-radius:3px;font-size:7px;">현장</span></div>
+                <div style="display:flex;justify-content:space-between;"><span style="font-size:7px;color:#64748b;">회사입금</span><span style="font-size:8px;font-weight:700;color:#15803d;">50,000원</span></div>
+              </div>
+              <div class="psec">
+                <div class="prow"><span class="pkey" style="font-weight:700;color:#374151;">잔금 (회사 수금)</span><span class="pval" style="font-size:10px;font-weight:700;">650,000원</span></div>
+              </div>
+              <!-- 추가결재 펼치기 -->
+              <div style="border:1.5px solid #bfdbfe;border-radius:7px;margin:5px 8px;overflow:hidden;">
+                <div style="background:#f0f9ff;padding:5px 8px;font-size:7.5px;font-weight:700;color:#1e40af;display:flex;justify-content:space-between;align-items:center;">
+                  <span>추가결재 (별도 정산) · 1건</span><span style="background:white;border:1px solid #bfdbfe;border-radius:4px;padding:1px 6px;font-size:7px;">접기</span>
+                </div>
+                <div style="padding:5px 8px;background:white;">
+                  <div style="font-size:7.5px;color:#374151;margin-bottom:3px;">발코니 특수청소 &nbsp; <span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:3px;padding:1px 4px;font-size:7px;">현장결재(본인수금)</span> &nbsp; <span style="color:#16a34a;font-weight:700;">50,000원</span>
+                    <span style="background:white;border:1px solid #e2e8f0;border-radius:3px;padding:1px 5px;font-size:7px;margin-left:3px;">수정</span><span style="background:white;border:1px solid #fca5a5;border-radius:3px;padding:1px 5px;font-size:7px;color:#dc2626;margin-left:2px;">삭제</span>
+                  </div>
+                </div>
+                <!-- 새 항목 입력 폼 -->
+                <div style="padding:5px 8px;background:#eff6ff;border-top:1px solid #bfdbfe;">
+                  <div style="display:flex;gap:3px;margin-bottom:4px;">
+                    <input type="text" placeholder="항목명 입력" style="flex:1;font-size:7.5px;padding:3px 5px;border:1px solid #93c5fd;border-radius:4px;">
+                    <input type="text" placeholder="금액" style="width:55px;font-size:7.5px;padding:3px 5px;border:1px solid #93c5fd;border-radius:4px;text-align:right;">
+                    <button style="background:#2563eb;color:white;border:none;border-radius:4px;padding:3px 7px;font-size:7.5px;font-weight:700;">저장</button>
+                  </div>
+                  <!-- 수금 방식 라디오 -->
+                  <div style="background:white;border:1px solid #bfdbfe;border-radius:5px;padding:4px 7px;">
+                    <div style="font-size:7px;font-weight:700;color:#374151;margin-bottom:3px;">추가결재 수금 방식 <span style="color:#dc2626;">*</span></div>
+                    <div style="display:flex;gap:10px;">
+                      <label style="display:flex;align-items:center;gap:3px;font-size:7px;color:#374151;cursor:pointer;"><input type="radio" name="ch" style="width:10px;height:10px;"> 현장결재 (본인이 받음)</label>
+                      <label style="display:flex;align-items:center;gap:3px;font-size:7px;color:#374151;cursor:pointer;"><input type="radio" name="ch" style="width:10px;height:10px;"> 회사입금</label>
+                    </div>
+                  </div>
+                  <!-- 빠른 금액 버튼 -->
+                  <div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;">
+                    <span style="font-size:7px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:10px;background:white;color:#374151;">+1천</span>
+                    <span style="font-size:7px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:10px;background:white;color:#374151;">+5천</span>
+                    <span style="font-size:7px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:10px;background:white;color:#374151;">+1만</span>
+                    <span style="font-size:7px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:10px;background:white;color:#374151;">+10만</span>
+                    <span style="font-size:7px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:10px;background:white;color:#64748b;">지우기</span>
+                  </div>
+                  <div style="margin-top:4px;padding:3px 6px;background:#dbeafe;border-radius:4px;font-size:7px;color:#1e40af;font-weight:700;">추가결재 합계 (급여 정산 대상): 50,000원</div>
+                </div>
+              </div>
+              <!-- 해피콜 -->
+              <div class="psec">
+                <div style="font-size:8.5px;color:#dc2626;font-weight:600;">⚠ 해피콜 미완료</div>
+              </div>
+              <!-- 액션 버튼 -->
+              <div class="pactions" style="padding:6px 8px;gap:3px;">
+                <button class="pa pa-blue" style="font-size:8.5px;padding:5px;">📷 청소 전 촬영</button>
+                <button class="pa pa-green" style="font-size:8.5px;padding:5px;">📷 청소 후 촬영</button>
+                <button class="pa pa-dark" style="font-size:8.5px;padding:5px;">✅ 현장 검수 · 청소완료</button>
+                <button class="pa pa-sky" style="font-size:8.5px;padding:5px;">📞 해피콜 완료</button>
+                <div style="display:flex;gap:4px;"><button class="pa pa-outline" style="flex:1;font-size:8.5px;padding:5px;">💳 카드결제</button><button class="pa pa-gray" style="flex:1;font-size:8.5px;padding:5px;">닫기</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="desc-col" style="padding:22px 28px;">
+      <div class="page-tag">📋 07 · 배정 상세 ③ 결제·추가결재</div>
+      <div class="page-title">현장에서 추가 비용이<br>생겼을 때 처리 방법</div>
+      <div class="page-sub">결제 금액 섹션에서 추가결재를 등록하면 관리자 화면과 급여 정산에 자동으로 반영됩니다.</div>
+      <div class="step-list">
+        <div class="step"><div class="step-num">1</div><div class="step-c">
+          <strong>결제 금액 섹션 — 기본 구조 이해</strong>
+          <ul class="sub-li">
+            <li><em>총 결제금액</em> — 계약 원금 (변경 안 됨)</li>
+            <li><em>예약금</em> — 이미 선결제된 금액</li>
+            <li><em>잔금</em> — 현장에서 받아야 할 금액 = 기본 잔금 + 회사입금 추가결재</li>
+          </ul>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-c">
+          <strong>추가결재 「펼치기」 버튼 — 현장 추가비용 입력 폼</strong>
+          <p>결제 금액 섹션 하단의 <em>「추가결재 (별도 정산)」</em> 항목을 누르면 입력 폼이 펼쳐집니다. 여기서 추가 항목 이름과 금액을 입력합니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-c">
+          <strong>항목명 + 금액 입력 → 수금 방식 선택 (필수) → 저장</strong>
+          <ul class="sub-li">
+            <li>항목명 예시: "발코니 특수청소", "에어컨 청소 추가", "심한 곰팡이 처리"</li>
+            <li>금액은 숫자로 입력. 빠른 버튼 (+1천 / +5천 / +1만 / +10만)을 눌러 더하면 편합니다</li>
+            <li>수금 방식을 반드시 선택해야 저장됩니다 (선택 안 하면 저장 버튼이 안 눌림)</li>
+          </ul>
+        </div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-c">
+          <strong>수금 방식 2가지 — 반드시 정확히 선택</strong>
+          <ul class="sub-li">
+            <li><em>현장결재 (본인이 받음)</em> — 팀장이 현장에서 직접 고객에게 현금·계좌이체로 받는 경우. 잔금 합계에는 포함되지 않음 (이미 받았으므로). 급여 정산 시에는 포함됨.</li>
+            <li><em>회사입금</em> — 고객이 나중에 회사 계좌로 입금하는 경우. 잔금 합계에 더해짐. 팀장이 직접 받지 않음.</li>
+          </ul>
+        </div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-c">
+          <strong>저장하면 즉시 반영 — 수정·삭제도 가능</strong>
+          <p>저장 즉시 접수 변경 이력에 자동 기록되고 관리자 화면에도 실시간으로 반영됩니다. 잘못 입력했으면 항목 옆 <em>수정</em> 또는 <em>삭제</em> 버튼을 누릅니다.</p>
+        </div></div>
+      </div>
+      <div class="divider"></div>
+      <div style="font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:8px;">현장 액션 버튼 — 순서대로 누르세요</div>
+      <div class="btn-grid">
+        <div class="btn-item"><div class="btn-dot" style="background:#2563eb;"></div><div><div class="bl">① 📷 청소 전 촬영</div><div class="bd">작업 시작 전 현장 상태 사진 등록.</div></div></div>
+        <div class="btn-item"><div class="btn-dot" style="background:#0ea5e9;"></div><div><div class="bl">② 📞 해피콜 완료</div><div class="bd">고객에게 일정 안내 전화 후 누름. 미완 숫자 감소.</div></div></div>
+        <div class="btn-item"><div class="btn-dot" style="background:#16a34a;"></div><div><div class="bl">③ 📷 청소 후 촬영</div><div class="bd">청소 완료 후 결과물 사진 등록.</div></div></div>
+        <div class="btn-item"><div class="btn-dot" style="background:#1e293b;"></div><div><div class="bl">④ ✅ 현장 검수·완료</div><div class="bd">상태가 「완료」로 즉시 변경됨.</div></div></div>
+        <div class="btn-item" style="grid-column:1/-1;"><div class="btn-dot" style="background:white;border:2px solid #22c55e;"></div><div><div class="bl">⑤ 💳 카드결제</div><div class="bd">잔금을 현장에서 카드로 받을 때 사용. 잔금 금액 자동 입력됨.</div></div></div>
+      </div>
+      <div class="warn-box" style="margin-top:10px;"><div class="warn-t">⚠ 추가결재 수금 방식, 잘못 선택하면 정산이 틀립니다</div>현장에서 직접 받으면 반드시 <em>현장결재</em>로 선택하세요. 회사입금으로 잘못 선택하면 잔금에 중복 포함되어 관리자 정산이 어긋납니다.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 08 ══ 스케줄: 달력 + 날짜 클릭 상세 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 팀장 앱 사용설명서</span>
+    <span class="slide-num">08 / 10 — 스케줄 · 달력 &amp; 날짜 클릭 상세</span>
+  </div>
+  <div class="slide-body">
+    <div class="phone-col">
+      <div class="phone">
+        <div class="phone-nav">
+          <span class="logo">청소비서</span>
+          <span class="nav-item">대시보드</span>
+          <span class="nav-item">배정<span class="nav-badge">12</span></span>
+          <span class="nav-item active">스케줄</span>
+          <span class="nav-item">휴무일</span>
+        </div>
+        <div class="phone-body">
+          <div class="phone-title">스케줄</div>
+          <div style="display:flex;gap:4px;margin-bottom:5px;">
+            <select style="font-size:8.5px;padding:2px 5px;border:1px solid #d1d5db;border-radius:5px;background:white;"><option>2026년</option></select>
+            <select style="font-size:8.5px;padding:2px 5px;border:1px solid #d1d5db;border-radius:5px;background:white;"><option>6월</option></select>
+            <span style="font-size:8px;color:#0d9488;font-weight:600;margin-left:auto;align-self:center;">청록=손없는날</span>
+          </div>
+          <div class="cal-grid" style="margin-bottom:8px;">
+            <div class="cal-dh sun">일</div><div class="cal-dh">월</div><div class="cal-dh">화</div><div class="cal-dh">수</div><div class="cal-dh">목</div><div class="cal-dh">금</div><div class="cal-dh sat">토</div>
+            <div class="cal-cell empty"></div>
+            <div class="cal-cell"><div class="cn">1</div></div><div class="cal-cell"><div class="cn">2</div></div><div class="cal-cell"><div class="cn">3</div></div><div class="cal-cell"><div class="cn">4</div></div><div class="cal-cell"><div class="cn">5</div></div><div class="cal-cell"><div class="cn">6</div></div>
+            <div class="cal-cell"><div class="cn">7</div></div><div class="cal-cell"><div class="cn">8</div></div><div class="cal-cell"><div class="cn teal">9</div></div><div class="cal-cell"><div class="cn teal">10</div></div><div class="cal-cell"><div class="cn">11</div></div><div class="cal-cell"><div class="cn">12</div></div><div class="cal-cell"><div class="cn">13</div></div>
+            <div class="cal-cell"><div class="cn">14</div></div><div class="cal-cell"><div class="cn">15</div></div><div class="cal-cell"><div class="cn">16</div></div><div class="cal-cell"><div class="cn">17</div></div>
+            <div class="cal-cell"><div class="cn">18</div><div class="cc">1건</div></div>
+            <div class="cal-cell"><div class="cn teal">19</div></div><div class="cal-cell"><div class="cn teal">20</div></div>
+            <div class="cal-cell"><div class="cn">21</div></div><div class="cal-cell"><div class="cn">22</div><div class="cc">1건</div></div><div class="cal-cell"><div class="cn">23</div><div class="cc">1건</div></div><div class="cal-cell"><div class="cn">24</div><div class="cc">2건</div></div>
+            <div class="cal-cell selected"><div class="cn today-ring">25</div><div class="cc">5건</div></div>
+            <div class="cal-cell"><div class="cn">26</div><div class="cc">2건</div></div><div class="cal-cell"><div class="cn">27</div><div class="cc">1건</div></div>
+            <div class="cal-cell"><div class="cn">28</div><div class="cc">1건</div></div><div class="cal-cell"><div class="cn teal">29</div><div class="cc">1건</div></div><div class="cal-cell"><div class="cn teal">30</div></div>
+          </div>
+          <div style="font-size:9.5px;font-weight:700;color:#374151;margin-bottom:5px;padding:4px 0;border-top:2px solid #3b82f6;">📅 26.06.25 목 상세</div>
+          <div class="schedule-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><span class="sc-tag today">오늘·신규배정(미확인)</span>
+              <div class="sc-name">한서윤</div>
+              <div class="sc-info">010-9000-001 · 오전 8~9시 · 3방 2화<br>팀원3명 · 민수/지현/태호</div></div>
+              <button class="btn-call">전화</button>
+            </div>
+            <div class="sc-footer"><span class="sc-status s-assign">분배</span><span class="sc-status s-warn">미완·마감초과</span></div>
+          </div>
+          <div class="schedule-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><div class="sc-name">서민재</div>
+              <div class="sc-info">오늘·4인투입 · 오전 4방 2화 · 38평</div></div>
+              <button class="btn-call">전화</button>
+            </div>
+            <div class="sc-footer"><span class="sc-status s-assign">분배</span><span class="sc-status s-warn">미완료</span></div>
+          </div>
+          <div style="font-size:8px;color:#94a3b8;text-align:center;padding:4px 0;">↓ 이수정·오준혁 외 3건 더</div>
+        </div>
+      </div>
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">📅 08 · 스케줄</div>
+      <div class="page-title">달력에서 날짜를 누르면<br>그날 일정이 바로 펼쳐집니다</div>
+      <div class="page-sub">스케줄 메뉴는 달력 뷰와 날짜별 상세 뷰, 두 가지를 함께 제공합니다.</div>
+      <div class="step-list">
+        <div class="step"><div class="step-num">1</div><div class="step-c">
+          <strong>연도·월 드롭다운으로 다른 달 이동</strong>
+          <p>상단 드롭다운에서 연도와 월을 바꾸면 해당 달의 달력이 나타납니다. 다음 달 일정을 미리 확인할 때 유용합니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-c">
+          <strong>날짜 아래 청록 숫자 — 배정 건수</strong>
+          <p>날짜 아래에 건수가 표시됩니다. 예: 25목 아래 「5건」이면 그날 5곳 현장 작업이 예정되어 있다는 뜻입니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-c">
+          <strong>날짜 숫자 자체가 청록색 — 손없는날</strong>
+          <p>날짜 숫자가 청록색이면 <em>손없는날</em>입니다 (음력 끝자리 9·0). 이사·입주가 몰려 청소 수요가 높습니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-c">
+          <strong>날짜 누르면 — 달력 바로 아래에 상세 카드 목록 펼침</strong>
+          <p>날짜를 누르면 파란 테두리로 선택 표시가 되고, <em>달력 아래에 바로 그날의 배정 건 카드 목록</em>이 펼쳐집니다. 고객명·연락처·주소·팀원·시간이 한 카드에 모두 표시됩니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-c">
+          <strong>상세 카드에서 할 수 있는 것</strong>
+          <ul class="sub-li">
+            <li>카드 오른쪽 <em>전화 버튼</em> → 고객에게 바로 전화</li>
+            <li>카드 아무 곳이나 누르기 → 상세 팝업 열기 (팀원·결제·촬영 등)</li>
+            <li>상태 배지로 해피콜 완료 여부·작업 진행 상태 확인</li>
+          </ul>
+        </div></div>
+      </div>
+      <div class="tip-box"><div class="tip-t">💡 스케줄 vs 배정목록 차이</div><strong>스케줄</strong> → 달력 뷰, 어떤 날이 바쁜지 한눈에 파악<br><strong>배정목록</strong> → 목록 뷰, 검색·필터로 특정 건 빠르게 찾기</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 09 ══ 휴무일 설정 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 팀장 앱 사용설명서</span>
+    <span class="slide-num">09 / 10 — 휴무일 설정</span>
+  </div>
+  <div class="slide-body">
+    <div class="phone-col">
+      <div class="phone">
+        <div class="phone-nav">
+          <span class="logo">청소비서</span>
+          <span class="nav-item">스케줄</span>
+          <span class="nav-item active">휴무일</span>
+          <span class="nav-item">C/S</span>
+        </div>
+        <div class="phone-body">
+          <div class="phone-title">휴무일 설정</div>
+          <div style="font-size:8.5px;color:#64748b;line-height:1.6;margin-bottom:8px;padding:6px 8px;background:#f8fafc;border-radius:7px;">날짜를 누르면 확인 창에서 휴무를 지정하거나, 이미 휴무인 날은 취소할 수 있습니다. 관리자 캘린더에 반영됩니다.</div>
+          <div style="display:flex;gap:4px;margin-bottom:7px;">
+            <select style="font-size:8.5px;padding:2px 5px;border:1px solid #d1d5db;border-radius:5px;background:white;"><option>2026년</option></select>
+            <select style="font-size:8.5px;padding:2px 5px;border:1px solid #d1d5db;border-radius:5px;background:white;"><option>7월</option></select>
+          </div>
+          <div class="cal-grid" style="margin-bottom:7px;">
+            <div class="cal-dh sun">일</div><div class="cal-dh">월</div><div class="cal-dh">화</div><div class="cal-dh">수</div><div class="cal-dh">목</div><div class="cal-dh">금</div><div class="cal-dh sat">토</div>
+            <div class="cal-cell empty"></div><div class="cal-cell empty"></div>
+            <div class="cal-cell"><div class="cn">1</div></div><div class="cal-cell"><div class="cn">2</div></div><div class="cal-cell"><div class="cn">3</div></div><div class="cal-cell"><div class="cn">4</div></div><div class="cal-cell"><div class="cn off-ring">5</div></div>
+            <div class="cal-cell"><div class="cn off-ring">6</div></div><div class="cal-cell"><div class="cn">7</div></div><div class="cal-cell"><div class="cn">8</div></div><div class="cal-cell"><div class="cn">9</div></div><div class="cal-cell"><div class="cn">10</div></div><div class="cal-cell"><div class="cn">11</div></div><div class="cal-cell"><div class="cn off-ring">12</div></div>
+            <div class="cal-cell"><div class="cn off-ring">13</div></div><div class="cal-cell"><div class="cn">14</div></div><div class="cal-cell"><div class="cn">15</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:8.5px;color:#374151;font-weight:600;margin-bottom:10px;">
+            <div style="width:13px;height:13px;background:#ef4444;border-radius:50%;flex-shrink:0;"></div>붉은색 = 휴무일
+          </div>
+          <div style="background:white;border:1.5px solid #e2e8f0;border-radius:9px;padding:9px;text-align:center;">
+            <div style="font-size:9px;font-weight:700;color:#374151;margin-bottom:5px;">2026년 7월 26일 (일)</div>
+            <div style="font-size:8.5px;color:#64748b;margin-bottom:8px;">이 날을 휴무일로 지정할까요?</div>
+            <div style="display:flex;gap:6px;">
+              <button style="flex:1;padding:6px;background:#ef4444;color:white;border:none;border-radius:6px;font-size:8.5px;font-weight:700;">휴무 지정</button>
+              <button style="flex:1;padding:6px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;font-size:8.5px;">취소</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">🚫 09 · 휴무일 설정</div>
+      <div class="page-title">쉬는 날을 직접<br>달력에서 설정합니다</div>
+      <div class="page-sub">휴무일을 지정하면 관리자 캘린더에 바로 반영되어 그날 배정을 피할 수 있습니다.</div>
+      <div class="step-list">
+        <div class="step"><div class="step-num">1</div><div class="step-c">
+          <strong>연도·월 선택 — 원하는 달로 이동</strong>
+          <p>상단 드롭다운에서 연도와 월을 선택합니다. 다음 달이나 그다음 달도 미리 설정할 수 있습니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-c">
+          <strong>쉬고 싶은 날짜 누르기 → 확인 창 → 「휴무 지정」</strong>
+          <p>달력에서 날짜를 누르면 확인 창이 뜹니다. <em>「휴무 지정」</em>을 누르면 그 날짜가 빨간 원으로 표시됩니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-c">
+          <strong>이미 빨간 날짜를 다시 누르면 — 휴무 취소</strong>
+          <p>이미 설정된 휴무일을 다시 누르면 <em>「취소 확인」</em> 창이 나타납니다. 확인을 누르면 일반 날짜로 돌아옵니다.</p>
+        </div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-c">
+          <strong>저장 버튼 없이 즉시 반영</strong>
+          <p>「휴무 지정」을 누르는 즉시 관리자 캘린더에 자동 반영됩니다. 별도 저장 버튼을 누를 필요가 없습니다.</p>
+        </div></div>
+      </div>
+      <div class="warn-box"><div class="warn-t">⚠ 이미 배정된 날짜도 확인하세요</div>배정 건이 잡혀 있는 날을 휴무로 설정해도 기존 배정이 자동 취소되지 않습니다. 먼저 관리자에게 알린 후 설정하세요.</div>
+      <div class="tip-box" style="margin-top:10px;"><div class="tip-t">💡 정기 휴무 미리 등록</div>매주 같은 요일이 쉬는 날이라면 다음 달치를 미리 한꺼번에 설정해 두면, 관리자가 처음부터 그 날짜를 피해 배정합니다.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 10 ══ C/S · 메시지 · 전자계약 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 팀장 앱 사용설명서</span>
+    <span class="slide-num">10 / 10 — C/S · 메시지 · 전자계약</span>
+  </div>
+  <div class="slide-body">
+    <div class="phone-col">
+      <div class="phone">
+        <div class="phone-nav">
+          <span class="logo">청소비서</span>
+          <span class="nav-item">C/S</span>
+          <span class="nav-item active">메시지</span>
+        </div>
+        <div class="phone-body" style="padding:0;display:flex;flex-direction:column;min-height:460px;">
+          <div style="padding:10px 10px 4px;">
+            <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:8px;">메시지</div>
+            <div style="background:#f1f5f9;border-radius:10px;padding:7px 9px;display:flex;align-items:center;gap:6px;">
+              <div style="width:30px;height:30px;background:#1a6b5a;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;flex-shrink:0;">운</div>
+              <div><div style="font-size:11px;font-weight:700;color:#0f172a;">운영팀</div><div style="font-size:8.5px;color:#94a3b8;">안녕하세요! 오늘 일정 잘 부탁드립니다</div></div>
+            </div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:5px;padding:8px 10px;">
+            <div style="font-size:7.5px;color:#94a3b8;text-align:center;">2026년 6월 25일</div>
+            <div style="max-width:80%;padding:6px 10px;border-radius:12px 12px 12px 4px;font-size:8.5px;background:#f1f5f9;color:#0f172a;line-height:1.5;">안녕하세요! 오늘 일정 잘 부탁드립니다 😊</div>
+            <div style="max-width:80%;padding:6px 10px;border-radius:12px 12px 4px 12px;font-size:8.5px;background:#1a6b5a;color:white;align-self:flex-end;line-height:1.5;">네, 알겠습니다. 한서윤 고객 9시로 확정했습니다.</div>
+            <div style="max-width:80%;padding:6px 10px;border-radius:12px 12px 12px 4px;font-size:8.5px;background:#f1f5f9;color:#0f172a;">확인했습니다. 감사합니다!</div>
+          </div>
+          <div style="background:white;border-top:1px solid #e2e8f0;padding:6px 8px;display:flex;gap:6px;align-items:center;">
+            <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:5px 10px;font-size:8.5px;color:#94a3b8;">메시지 입력...</div>
+            <button style="background:#1a6b5a;color:white;border:none;border-radius:50%;width:26px;height:26px;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">➤</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">💬 10 · C/S · 메시지 · 전자계약</div>
+      <div class="page-title">나머지 세 메뉴<br>사용법 정리</div>
+      <div class="page-sub">C/S, 메시지, 전자계약 메뉴의 사용 방법을 한 페이지에 정리했습니다.</div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:7px;"><span style="background:var(--teal-light);color:var(--teal);padding:3px 10px;border-radius:11px;font-size:11px;font-weight:700;">C/S 메뉴</span></div>
+        <ul class="sub-plain">
+          <li>배정 건과 연결된 고객 클레임이 표시됩니다. 관리자가 나에게 전달한 C/S도 여기에 나타납니다.</li>
+          <li>C/S를 눌러 내용을 확인한 후, 어떻게 처리했는지 <em>처리 방법</em>을 입력하고 완료 처리합니다.</li>
+          <li>아무 C/S가 없으면 「표시할 C/S가 없습니다」 메시지가 보입니다. 이것은 정상입니다.</li>
+        </ul>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:7px;"><span style="background:var(--teal-light);color:var(--teal);padding:3px 10px;border-radius:11px;font-size:11px;font-weight:700;">메시지 메뉴</span></div>
+        <ul class="sub-plain">
+          <li><em>운영팀</em>과 1:1로 채팅하는 공간입니다. 카카오톡처럼 메시지를 주고받을 수 있습니다.</li>
+          <li>하단 입력창에 내용을 쓰고 <em>전송 버튼(▶)</em>을 누르면 운영팀에 바로 전달됩니다.</li>
+          <li>운영팀의 답장은 메시지 아이콘에 읽지 않은 수가 배지로 표시됩니다.</li>
+          <li>현장 문제·긴급 연락·일정 조율 등 업무 연락은 이 메시지 창을 이용해 주세요.</li>
+        </ul>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:7px;"><span style="background:var(--teal-light);color:var(--teal);padding:3px 10px;border-radius:11px;font-size:11px;font-weight:700;">전자계약 — 팀장 전용</span></div>
+        <ul class="sub-plain">
+          <li>관리자가 발급한 <em>계약서</em>를 확인하고 서명할 수 있는 팀장 전용 메뉴입니다.</li>
+          <li>목록에서 <em>「미리보기」</em>를 눌러 계약서를 먼저 읽고, <em>「PDF로 저장」</em>으로 파일을 내려받을 수 있습니다.</li>
+          <li>내용 확인 후 서명을 진행하면 완료됩니다. 체결은 보안 확인 페이지를 거칩니다.</li>
+        </ul>
+      </div>
+      <div class="tip-box" style="margin-top:14px;"><div class="tip-t">💡 이름 버튼 — 내 정보 확인 및 로그아웃</div>내비게이션 바 오른쪽 끝 이름(예: cbiseo▾)을 누르면 내 프로필 정보와 로그아웃 버튼이 나타납니다.</div>
+    </div>
+  </div>
+</div>
+
+<div style="height:40px;"></div>
+</div>
+</body>
+</html>

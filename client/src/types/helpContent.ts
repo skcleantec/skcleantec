@@ -11,6 +11,8 @@ export type HelpScreenEntry = {
   screenshotFile: string;
   summary: string;
   markdown: string;
+  /** 정적 HTML 가이드 — 있으면 iframe으로 표시 (마크다운 대신) */
+  embedUrl?: string;
 };
 
 export type HelpModuleGroup = {

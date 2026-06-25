@@ -75,6 +75,8 @@ export function HelpScreenCard({ entry, canEdit, onUpdated }: HelpScreenCardProp
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const embedUrl = entry.embedUrl?.trim() || '';
+  const isEmbeddedGuide = Boolean(embedUrl);
 
   const handleSave = async () => {
     if (!canEdit) return;
@@ -127,7 +129,7 @@ export function HelpScreenCard({ entry, canEdit, onUpdated }: HelpScreenCardProp
               <p className="mt-2 font-mono text-fluid-2xs text-slate-400">{entry.path}</p>
             ) : null}
           </div>
-          {canEdit ? (
+          {canEdit && !isEmbeddedGuide ? (
             <div className="flex gap-2 shrink-0">
               {!editing ? (
                 <button
@@ -164,7 +166,29 @@ export function HelpScreenCard({ entry, canEdit, onUpdated }: HelpScreenCardProp
         </div>
       </div>
 
-      <HelpScreenshot entry={entry} />
+      {!isEmbeddedGuide ? <HelpScreenshot entry={entry} /> : null}
+
+      {isEmbeddedGuide ? (
+        <div className="border-t border-slate-100 bg-slate-50 p-2 sm:p-3">
+          <p className="mb-2 px-1 text-fluid-2xs text-slate-500">
+            아래 가이드는 스크롤·확대하여 볼 수 있습니다. 새 창:{' '}
+            <a
+              href={embedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-sky-600 underline hover:text-sky-700"
+            >
+              전체 화면으로 열기
+            </a>
+          </p>
+          <iframe
+            src={embedUrl}
+            title={entry.title}
+            className="block w-full min-h-[70vh] rounded-xl border border-slate-200 bg-white sm:min-h-[80vh]"
+            loading="lazy"
+          />
+        </div>
+      ) : null}
 
       {editing ? (
         <div className="border-t border-slate-100 px-4 py-4 sm:px-6 sm:py-5 bg-slate-50">
@@ -221,7 +245,7 @@ export function HelpScreenCard({ entry, canEdit, onUpdated }: HelpScreenCardProp
             </button>
           </div>
         </div>
-      ) : entry.markdown ? (
+      ) : !isEmbeddedGuide && entry.markdown ? (
         <div className="px-4 py-4 sm:px-6 sm:py-5">
           <SimpleMarkdown source={entry.markdown} />
         </div>

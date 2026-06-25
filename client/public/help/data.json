@@ -493,5 +493,17 @@
     "screenshotFile": "team_08_messages_chat.png",
     "summary": "운영팀 1:1 채팅·공지.",
     "markdown": "## 화면 소개\n\n**메시지**는 **운영팀(관리자·마케터)** 과 **1:1**로 소통하는 채팅 화면입니다.\n\n---\n\n## 사용 방법\n\n1. 위아래로 스크롤해 **대화 내역** 확인\n2. 하단 입력 → **전송**\n3. 내 메시지 **읽음 / 읽지 않음** 표시 확인\n\n관리자 **현장 공지(일괄 발송)** 도 이 채팅방에 같은 형식으로 도착합니다.\n\n배정·상태가 바뀌면 **F5 없이** 목록·배지가 자동으로 갱신됩니다."
+  },
+  {
+    "role": "team",
+    "module": "팀장 가이드",
+    "moduleOrder": 0,
+    "itemOrder": 1,
+    "title": "팀장 앱 사용설명서 (전체)",
+    "path": "/help/team-guide",
+    "screenshotFile": "",
+    "embedUrl": "/help/team-guide.html",
+    "summary": "신규 배정 10단계부터 대시보드·배정목록·상세·스케줄·휴무·C/S·메시지·전자계약까지 — 그림으로 따라 하는 팀장 전용 가이드.",
+    "markdown": ""
   }
 ]
