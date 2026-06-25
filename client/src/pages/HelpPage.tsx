@@ -196,7 +196,11 @@ export function HelpPage() {
       </header>
 
       {/* 메인 콘텐츠 영역 */}
-      <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8">
+      <div
+        className={`mx-auto max-w-screen-2xl ${
+          isTeamGuideView ? 'px-2 py-3 sm:px-3 lg:px-4 lg:py-4' : 'px-4 py-6 sm:px-6 lg:px-8'
+        }`}
+      >
         {mainCategory === 'usage' ? (
           isTeamGuideView ? (
             <TeamGuideHelpLayout selectedRole={selectedRole} onRoleChange={changeRole} />

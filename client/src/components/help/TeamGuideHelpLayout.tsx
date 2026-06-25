@@ -125,8 +125,8 @@ export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHel
   }
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-      <div className="hidden lg:block lg:w-72 lg:shrink-0 lg:self-start">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-3">
+      <div className="hidden lg:block lg:w-44 xl:w-48 lg:shrink-0 lg:self-start">
         <TeamGuideSidebar
           chapters={chapters}
           activeChapter={activeChapter}
@@ -136,7 +136,7 @@ export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHel
         />
       </div>
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <TeamGuideMobileChapterSelect
           chapters={chapters}
           activeChapter={activeChapter}
@@ -145,7 +145,7 @@ export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHel
           onRoleChange={onRoleChange}
         />
 
-        <div className="mt-3 flex items-center justify-end gap-3 lg:mt-0">
+        <div className="mt-2 flex items-center justify-end lg:mt-0">
           <a
             href={activeChapter ? `${TEAM_GUIDE_HTML_URL}#slide-${activeChapter}` : TEAM_GUIDE_HTML_URL}
             target="_blank"
@@ -156,14 +156,16 @@ export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHel
           </a>
         </div>
 
-        <iframe
-          ref={iframeRef}
-          key={iframeSrc}
-          src={iframeSrc}
-          title="청소비서 팀장 앱 사용설명서"
-          className="mt-2 block w-full min-h-[calc(100dvh-10rem)] border-0 bg-[#eeecea] lg:min-h-[calc(100dvh-9rem)]"
-          loading="lazy"
-        />
+        <div className="mt-1 w-full min-w-0 overflow-x-hidden">
+          <iframe
+            ref={iframeRef}
+            key={iframeSrc}
+            src={iframeSrc}
+            title="청소비서 팀장 앱 사용설명서"
+            className="block w-full min-h-[calc(100dvh-11rem)] border-0 bg-[#eeecea] sm:min-h-[calc(100dvh-10rem)] lg:min-h-[calc(100dvh-9rem)]"
+            loading="lazy"
+          />
+        </div>
       </div>
     </div>
   );
