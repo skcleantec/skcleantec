@@ -108,8 +108,8 @@ export function AdminTeamsPage() {
   const [apiError, setApiError] = useState<string | null>(null);
 
   const [memberForm, setMemberForm] = useState({ name: '', nameTh: '', phone: '' });
+  const [memberRegisterOpen, setMemberRegisterOpen] = useState(false);
   const [registerBusy, setRegisterBusy] = useState(false);
-  const [registerOk, setRegisterOk] = useState<string | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<{ memberId: string; label: string } | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
@@ -613,6 +613,36 @@ export function AdminTeamsPage() {
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
 
+  const activeMemberCount = members.filter((m) => m.isActive).length;
+  const canRegisterMember = memberListTab === 'active' && activeMemberCount < 100;
+
+  const openMemberRegisterModal = () => {
+    setMemberForm({ name: '', nameTh: '', phone: '' });
+    setMemberRegisterOpen(true);
+  };
+
+  const submitMemberRegister = async () => {
+    if (!token || !memberForm.name.trim()) {
+      alert('이름을 입력해주세요.');
+      return;
+    }
+    setRegisterBusy(true);
+    try {
+      await addPoolTeamMember(token, {
+        name: memberForm.name.trim(),
+        nameTh: memberForm.nameTh.trim() || undefined,
+        phone: memberForm.phone.trim() || undefined,
+      });
+      setMemberForm({ name: '', nameTh: '', phone: '' });
+      setMemberRegisterOpen(false);
+      await refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '등록 실패');
+    } finally {
+      setRegisterBusy(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 min-w-0 max-w-4xl">
       <div>
@@ -774,7 +804,17 @@ export function AdminTeamsPage() {
                   : '퇴사일이 지난 팀원입니다. 과거 스케줄·접수 기록은 유지됩니다. 복직 시 정보 수정에서 퇴사일을 비우세요.'}
               </p>
             </div>
-            <nav className="inline-flex shrink-0 rounded border border-gray-200 bg-gray-50 p-0.5" role="tablist" aria-label="팀원 재직 구분">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {canRegisterMember ? (
+                <button
+                  type="button"
+                  onClick={openMemberRegisterModal}
+                  className="px-3 py-2 text-sm bg-gray-800 text-white rounded-lg hover:bg-gray-900"
+                >
+                  팀원 등록
+                </button>
+              ) : null}
+              <nav className="inline-flex shrink-0 rounded border border-gray-200 bg-gray-50 p-0.5" role="tablist" aria-label="팀원 재직 구분">
               {MEMBER_LIST_TABS.map((id) => (
                 <button
                   key={id}
@@ -790,6 +830,7 @@ export function AdminTeamsPage() {
                 </button>
               ))}
             </nav>
+            </div>
           </div>
           <p className="text-xs text-gray-500 mb-3 hidden sm:block">
             각 행에서 순서(위로·아래로)·휴무일·정보 수정·사용 중지·삭제를 할 수 있습니다.
@@ -797,7 +838,7 @@ export function AdminTeamsPage() {
           </p>
           {members.length === 0 ? (
             <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-md px-3 py-4 text-center mb-3">
-              아직 등록된 팀원이 없습니다. 아래에서 이름을 입력하고 등록하세요.
+              아직 등록된 팀원이 없습니다. 상단 「팀원 등록」으로 추가하세요.
             </p>
           ) : (
             <ul className="divide-y divide-gray-100 border border-gray-100 rounded-md mb-3">
@@ -935,80 +976,97 @@ export function AdminTeamsPage() {
               ))}
             </ul>
           )}
-          {memberListTab === 'active' && members.filter((m) => m.isActive).length < 100 && (
-            <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-2 items-end">
-              <input
-                type="text"
-                placeholder="이름"
-                value={memberForm.name}
-                onChange={(e) => {
-                  setRegisterOk(null);
-                  setMemberForm((p) => ({ ...p, name: e.target.value }));
-                }}
-                className="px-3 py-2 border border-gray-300 rounded text-sm w-36"
-              />
-              <input
-                type="text"
-                placeholder="태국어 표시명 (선택)"
-                value={memberForm.nameTh}
-                onChange={(e) => {
-                  setRegisterOk(null);
-                  setMemberForm((p) => ({ ...p, nameTh: e.target.value }));
-                }}
-                className="px-3 py-2 border border-gray-300 rounded text-sm w-36"
-              />
-              <input
-                type="text"
-                placeholder="연락처 (선택)"
-                value={memberForm.phone}
-                onChange={(e) => {
-                  setRegisterOk(null);
-                  setMemberForm((p) => ({ ...p, phone: e.target.value }));
-                }}
-                className="px-3 py-2 border border-gray-300 rounded text-sm w-40"
-              />
-              <button
-                type="button"
-                disabled={registerBusy}
-                onClick={async () => {
-                  if (!token || !memberForm.name.trim()) {
-                    alert('이름을 입력해주세요.');
-                    return;
-                  }
-                  setRegisterOk(null);
-                  setRegisterBusy(true);
-                  try {
-                    await addPoolTeamMember(token, {
-                      name: memberForm.name.trim(),
-                      nameTh: memberForm.nameTh.trim() || undefined,
-                      phone: memberForm.phone.trim() || undefined,
-                    });
-                    setMemberForm({ name: '', nameTh: '', phone: '' });
-                    setRegisterOk('등록되었습니다. 목록을 갱신합니다.');
-                    await refresh();
-                    setRegisterOk('등록되었습니다.');
-                  } catch (e) {
-                    alert(e instanceof Error ? e.message : '등록 실패');
-                  } finally {
-                    setRegisterBusy(false);
-                  }
-                }}
-                className="px-3 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-900 disabled:opacity-50"
-              >
-                {registerBusy ? '등록 중…' : '팀원 등록'}
-              </button>
-            </div>
-            {registerOk && <p className="text-sm text-green-700">{registerOk}</p>}
-            </div>
-          )}
-          {memberListTab === 'active' && members.filter((m) => m.isActive).length >= 100 && (
+          {memberListTab === 'active' && activeMemberCount >= 100 && (
             <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded px-3 py-2">
               활성 팀원이 상한(100명)에 도달했습니다. 사용 중지 후 추가하거나 관리자에게 문의하세요.
             </p>
           )}
         </section>
       )}
+
+      {memberRegisterOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40"
+            role="dialog"
+            aria-modal
+            aria-labelledby="member-register-title"
+            onClick={() => !registerBusy && setMemberRegisterOpen(false)}
+          >
+            <div
+              className="relative w-full max-w-md rounded-lg bg-white shadow-lg border border-gray-200 p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ModalCloseButton
+                onClick={() => !registerBusy && setMemberRegisterOpen(false)}
+                disabled={registerBusy}
+              />
+              <h2 id="member-register-title" className="text-base font-semibold text-gray-900 pr-10">
+                팀원 등록
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                현장 투입 인원을 전사 풀에 추가합니다. 등록 후 목록에서 휴무일·급여·크루 그룹 배정을 설정할 수 있습니다.
+              </p>
+              <form
+                id="member-register-form"
+                className="mt-4 space-y-3 text-sm"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void submitMemberRegister();
+                }}
+              >
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">이름</label>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={memberForm.name}
+                    onChange={(e) => setMemberForm((p) => ({ ...p, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">태국어 표시명 (선택)</label>
+                  <input
+                    type="text"
+                    value={memberForm.nameTh}
+                    onChange={(e) => setMemberForm((p) => ({ ...p, nameTh: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
+                  />
+                  <p className="text-fluid-2xs text-gray-500 mt-1">크루 화면에서 보조 이름으로 표시됩니다.</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">연락처 (선택)</label>
+                  <input
+                    type="text"
+                    value={memberForm.phone}
+                    onChange={(e) => setMemberForm((p) => ({ ...p, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
+                  />
+                </div>
+              </form>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-50"
+                  disabled={registerBusy}
+                  onClick={() => setMemberRegisterOpen(false)}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  form="member-register-form"
+                  className="px-3 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-900 disabled:opacity-40"
+                  disabled={registerBusy}
+                >
+                  {registerBusy ? '등록 중…' : '등록'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {editMemberModal &&
         createPortal(
