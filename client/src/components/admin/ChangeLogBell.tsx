@@ -7,6 +7,10 @@ import {
 import { useChangeLogRealtime, type ChangeLogRtPayload } from '../../hooks/useInboxRealtime';
 import { ModalCloseButton } from './ModalCloseButton';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
+import {
+  filterMarketerOnlyChangeLogLines,
+  isMarketerOnlyChangeLogLine,
+} from '../../constants/internalCustomerTone';
 
 const PAGE_SIZE = 50;
 const BELL_POS_STORAGE_KEY = 'changeLogBellTopPx';
@@ -64,6 +68,8 @@ type Props = {
   markSeen: (token: string) => Promise<unknown>;
   /** 항목 클릭 시 해당 접수로 이동 */
   onOpenInquiry: (inquiryId: string) => void;
+  /** 팀장·타업체 — 마케터 전용(내부 표시) 이력·토스트 숨김 */
+  hideMarketerOnlyLines?: boolean;
 };
 
 /**
@@ -71,7 +77,7 @@ type Props = {
  * 클릭 시 모달로 변경 내역(유형 칩·필터·과거 이력 스크롤)을 보여주고,
  * 항목을 누르면 해당 접수 상세로 이동한다.
  */
-export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenInquiry }: Props) {
+export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenInquiry, hideMarketerOnlyLines = false }: Props) {
   const [unseen, setUnseen] = useState(0);
   const [blink, setBlink] = useState(false);
   const [toast, setToast] = useState<ChangeLogRtPayload | null>(null);
@@ -183,12 +189,13 @@ export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenI
   useChangeLogRealtime(
     token,
     useCallback((p: ChangeLogRtPayload) => {
+      if (hideMarketerOnlyLines && isMarketerOnlyChangeLogLine(p.summary)) return;
       setUnseen((c) => c + 1);
       setBlink(true);
       setToast(p);
       if (toastTimer.current) clearTimeout(toastTimer.current);
       toastTimer.current = setTimeout(() => setToast(null), 6000);
-    }, []),
+    }, [hideMarketerOnlyLines]),
     Boolean(token),
   );
 
@@ -245,10 +252,22 @@ export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenI
     onOpenInquiry(item.inquiryId);
   };
 
+  const normalizedItems = hideMarketerOnlyLines
+    ? items
+        .map((row) => {
+          const lines = filterMarketerOnlyChangeLogLines(row.lines);
+          if (lines.length === 0) return null;
+          const summaryLine =
+            lines.length === 1 ? lines[0] : `${lines[0]} 외 ${lines.length - 1}건`;
+          return { ...row, lines, summaryLine };
+        })
+        .filter((row): row is NonNullable<typeof row> => row != null)
+    : items;
+
   const visibleItems =
     activeFilters.size === 0
-      ? items
-      : items.filter((it) => it.categories.some((c) => activeFilters.has(c)));
+      ? normalizedItems
+      : normalizedItems.filter((it) => it.categories.some((c) => activeFilters.has(c)));
 
   const hasMore = items.length < total;
 

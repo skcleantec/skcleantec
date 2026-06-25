@@ -1354,6 +1354,7 @@ export function TeamInquiryDetailModal({
               <div className="border-t border-gray-100 bg-white p-3">
                 <InquiryChangeHistoryBlock
                   logs={item.changeLogs}
+                  hideMarketerOnlyLines
                   className="mb-0 border-0 bg-transparent p-0"
                   showEmptyHint
                   sectionHeading={teamBiPlain('team.changeHistory.heading')}

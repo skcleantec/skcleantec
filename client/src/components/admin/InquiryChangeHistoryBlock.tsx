@@ -1,9 +1,11 @@
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
+import { filterMarketerOnlyChangeLogLines } from '../../constants/internalCustomerTone';
 
-function normalizeLines(raw: unknown): string[] {
+function normalizeLines(raw: unknown, hideMarketerOnlyLines: boolean): string[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is string => typeof x === 'string');
+  const lines = raw.filter((x): x is string => typeof x === 'string');
+  return hideMarketerOnlyLines ? filterMarketerOnlyChangeLogLines(lines) : lines;
 }
 
 /** 접수 날짜·금액·미팅 시각 등 변경 이력 (관리자·팀장 PATCH 시 서버 기록) */
@@ -13,6 +15,8 @@ export function InquiryChangeHistoryBlock({
   showEmptyHint = false,
   sectionHeading = '날짜·금액 변경 이력',
   emptyHintText,
+  /** 팀장·타업체 화면 — 마케터 전용(내부 표시) 이력 줄 숨김 */
+  hideMarketerOnlyLines = false,
 }: {
   logs: InquiryChangeLogEntry[] | undefined;
   /** 기본은 카드형 여백. 접기 안쪽 등에서는 `mb-0 p-0 border-0 bg-transparent` 등으로 조정 */
@@ -23,10 +27,12 @@ export function InquiryChangeHistoryBlock({
   sectionHeading?: string;
   /** 이력 없음 안내(미지정 시 기본 한 문구 사용) */
   emptyHintText?: string;
+  hideMarketerOnlyLines?: boolean;
 }) {
   const entries =
-    logs?.map((log) => ({ ...log, lines: normalizeLines(log.lines) })).filter((e) => e.lines.length > 0) ??
-    [];
+    logs
+      ?.map((log) => ({ ...log, lines: normalizeLines(log.lines, hideMarketerOnlyLines) }))
+      .filter((e) => e.lines.length > 0) ?? [];
   const emptyHint =
     emptyHintText ?? '저장된 날짜·금액 변경 이력이 없습니다.';
   if (entries.length === 0) {

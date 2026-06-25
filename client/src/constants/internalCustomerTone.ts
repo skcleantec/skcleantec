@@ -78,3 +78,13 @@ export function hasInternalCustomerToneDisplay(
 export function canShowInternalCustomerTone(role: string | undefined | null): boolean {
   return role === 'ADMIN' || role === 'MARKETER';
 }
+
+/** 변경 이력 — 팀장·타업체 등 restricted viewer용 (서버 sanitize와 동일 라벨) */
+export function isMarketerOnlyChangeLogLine(line: string): boolean {
+  const t = line.trimStart();
+  return t.startsWith('내부 표시:') || t.startsWith('내부 표시 :');
+}
+
+export function filterMarketerOnlyChangeLogLines(lines: readonly string[]): string[] {
+  return lines.filter((line) => !isMarketerOnlyChangeLogLine(line));
+}

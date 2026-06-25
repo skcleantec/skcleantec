@@ -23,6 +23,10 @@ import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/na
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import { toChangeHistoryItemDto } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
+import {
+  filterMarketerOnlyChangeLogLines,
+  sanitizeInquiriesForRestrictedViewer,
+} from '../inquiries/internalCustomerTone.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import { orderFormTemplateSelect } from '../inquiries/inquiryDetailInclude.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
@@ -237,7 +241,7 @@ async function attachCrewMembers<
     for (const n of parseCrewNames(it.crewMemberNote)) allNames.add(n);
   }
   if (allNames.size === 0) {
-    return items.map((it) => ({ ...it, crewMembers: [] }));
+    return sanitizeInquiriesForRestrictedViewer(items.map((it) => ({ ...it, crewMembers: [] })));
   }
   const members = await prisma.teamMember.findMany({
     where: {
@@ -277,7 +281,7 @@ async function attachCrewMembers<
       });
     }
   }
-  return items.map((it) => {
+  const enriched = items.map((it) => {
     const shared = it.crewMeetingTimeShared !== false;
     const timeByMember = new Map(
       (it.crewMemberMeetingTimes ?? []).map((r) => [r.teamMemberId, r.meetingTime] as const),
@@ -304,6 +308,7 @@ async function attachCrewMembers<
       }),
     };
   });
+  return sanitizeInquiriesForRestrictedViewer(enriched);
 }
 
 async function attachCrewMembersOne<T extends { crewMemberNote: string | null } | null>(
@@ -1084,7 +1089,13 @@ router.get('/inquiry-change-logs', async (req, res) => {
     }),
     prisma.inquiryChangeLog.count({ where }),
   ]);
-  const items = rows.map((r) => toChangeHistoryItemDto(r, r.actor?.name ?? null));
+  const items = rows
+    .map((r) => {
+      const lines = filterMarketerOnlyChangeLogLines(r.lines);
+      if (lines.length === 0) return null;
+      return toChangeHistoryItemDto({ ...r, lines }, r.actor?.name ?? null);
+    })
+    .filter((item): item is NonNullable<typeof item> => item != null);
   res.json({ items, total });
 });
 

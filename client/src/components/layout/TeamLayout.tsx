@@ -538,6 +538,7 @@ export function TeamLayout() {
       {teamToken && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER') && (
         <ChangeLogBell
           token={teamToken}
+          hideMarketerOnlyLines
           fetchUnseen={getTeamUnseenChangeCount}
           fetchList={(t, opts) => getTeamChangeHistoryList(t, opts)}
           markSeen={markTeamChangeSeen}
