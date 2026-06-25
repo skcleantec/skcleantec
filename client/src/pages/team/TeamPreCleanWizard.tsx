@@ -34,6 +34,7 @@ import {
 } from '../../components/inquiry-inspection/InspectionAreaCountButtons';
 import { updateChecklistPhotoFlag } from '../../utils/inspectionFlaggedPhotos';
 import { normalizeAreaKeyForTemplate } from '@shared/inquiryInspectionTenantTemplate';
+import { isContaminationInspectionArea } from '@shared/inquiryInspectionContamination';
 
 export type InspectionCapturePhase = 'BEFORE' | 'AFTER';
 
@@ -262,7 +263,10 @@ export function TeamPreCleanWizard({
     }
   }, [checklist, captureAreaId]);
 
-  const areas = localChecklist.areas;
+  const areas = useMemo(
+    () => localChecklist.areas.filter((a) => !isContaminationInspectionArea(a.areaKey)),
+    [localChecklist.areas],
+  );
 
   const captureArea = useMemo(
     () => (captureAreaId ? areas.find((a) => a.id === captureAreaId) ?? null : null),

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { fetchPublicInspection } from '../../api/inspectionPublic';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
@@ -8,9 +8,11 @@ import {
   InspectionConsentSection,
   InspectionHeaderBlock,
 } from '../../components/inquiry-inspection/inspectionUiBlocks';
+import { ContaminationPhotosSection } from '../../components/inquiry-inspection/ContaminationPhotosSection';
 import { useInspectionCompareLightbox } from '../../components/inquiry-inspection/useInspectionCompareLightbox';
 import type { InspectionChecklistDto } from '../../api/inquiryInspection';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { isContaminationInspectionArea } from '@shared/inquiryInspectionContamination';
 
 function PageShell({
   brandName,
@@ -58,15 +60,26 @@ function PageShell({
 
 function ReadOnlyChecklistBody({ checklist }: { checklist: InspectionChecklistDto }) {
   const { openCompare, lightbox: compareLightbox } = useInspectionCompareLightbox(checklist);
+  const displayAreas = useMemo(
+    () => checklist.areas.filter((a) => !isContaminationInspectionArea(a.areaKey)),
+    [checklist.areas],
+  );
 
   return (
     <div className="space-y-4">
       <InspectionHeaderBlock checklist={checklist} />
       <InspectionBasicSection checklist={checklist} readOnly onPatch={() => {}} />
+      <ContaminationPhotosSection
+        checklist={checklist}
+        inquiryId={checklist.inquiryId}
+        token=""
+        readOnly
+        onChecklistUpdate={() => {}}
+      />
       <div className="space-y-3">
         <p className="text-fluid-sm font-semibold text-slate-900">구역별 세부 검수</p>
         <p className="text-fluid-2xs text-slate-500 -mt-2">사진을 누르면 크게 보고 저장할 수 있습니다.</p>
-        {checklist.areas.map((area) => (
+        {displayAreas.map((area) => (
           <InspectionAreaSection
             key={area.id}
             area={area}

@@ -14,15 +14,17 @@ import {
 import { TeamInspectionAreasEditor } from './TeamInspectionAreasEditor';
 import { TeamPreCleanWizard } from './TeamPreCleanWizard';
 import { isBeforeItemComplete } from '@shared/inquiryInspectionTemplate';
+import { isContaminationInspectionArea } from '@shared/inquiryInspectionContamination';
 import { resolveTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
 import { RoundBackButton } from '../../components/ui/RoundBackButton';
-import { FlaggedBeforePhotosSection } from '../../components/inquiry-inspection/FlaggedBeforePhotosSection';
+import { ContaminationPhotosSection } from '../../components/inquiry-inspection/ContaminationPhotosSection';
+import { useInspectionChecklistRealtime } from '../../hooks/useInspectionChecklistRealtime';
 
 function countBeforeProgress(checklist: InspectionChecklistDto) {
   let beforeDone = 0;
   let total = 0;
   for (const area of checklist.areas) {
-    if (area.notApplicable) continue;
+    if (area.notApplicable || isContaminationInspectionArea(area.areaKey)) continue;
     for (const item of area.items) {
       if (item.itemKey.startsWith('_')) continue;
       total += 1;
@@ -73,6 +75,18 @@ export function TeamPreCleanPhotoPage() {
       return null;
     }
   }, [token, inquiryId, navigate]);
+
+  const reloadSilent = useCallback(async () => {
+    if (!token || !inquiryId) return;
+    try {
+      const dto = await fetchTeamInspectionChecklist(token, inquiryId);
+      setChecklist(dto);
+    } catch {
+      /* WS silent — 화면 유지 */
+    }
+  }, [token, inquiryId]);
+
+  useInspectionChecklistRealtime(token, reloadSilent, Boolean(token && inquiryId && checklist));
 
   useEffect(() => {
     void reload();
@@ -125,7 +139,7 @@ export function TeamPreCleanPhotoPage() {
         )}
       </div>
 
-      <FlaggedBeforePhotosSection
+      <ContaminationPhotosSection
         checklist={checklist}
         inquiryId={inquiryId}
         token={token}

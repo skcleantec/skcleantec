@@ -115,6 +115,7 @@ import {
   attachInspectionSummaries,
   whereInspectionStatusFilter,
 } from '../inquiry-inspection/inquiryInspection.summary.js';
+import { notifyInspectionChecklistRefresh } from '../inquiry-inspection/inquiryInspectionNotify.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { handlePostSwapCrewWithPartner } from './inquiryCrewPartnerSwap.handler.js';
 import {
@@ -1478,6 +1479,16 @@ router.patch('/:id', async (req, res) => {
   if (data.consultationMemo !== undefined) {
     const leaderIds = updated.assignments.map((a) => a.teamLeaderId);
     void notifyStaffInboxRefresh(tenantId, leaderIds);
+  }
+  if (
+    data.roomCount !== undefined ||
+    data.kitchenCount !== undefined ||
+    data.bathroomCount !== undefined ||
+    data.isOneRoom !== undefined
+  ) {
+    void notifyInspectionChecklistRefresh({ inquiryId: id, tenantId }).catch((e) =>
+      console.error('[inspection-notify]', e),
+    );
   }
   void notifyAfterInquiryPatch({
     inquiryBefore: {

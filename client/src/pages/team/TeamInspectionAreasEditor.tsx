@@ -7,6 +7,7 @@ import {
   uploadTeamInspectionPhotos,
   type InspectionChecklistDto,
 } from '../../api/inquiryInspection';
+import { isContaminationInspectionArea } from '@shared/inquiryInspectionContamination';
 import {
   InspectionAreaSection,
   type InspectionPhotoMode,
@@ -43,7 +44,10 @@ export function TeamInspectionAreasEditor({
 
   /** 청소 전 촬영에서 해당없음·− 로 제외한 구역은 현장검수 목록에 표시하지 않음 (+ 로 추가 시 다시 노출) */
   const displayAreas = useMemo(
-    () => (photoMode === 'both' ? checklist.areas.filter((a) => !a.notApplicable) : checklist.areas),
+    () =>
+      (photoMode === 'both' ? checklist.areas.filter((a) => !a.notApplicable) : checklist.areas).filter(
+        (a) => !isContaminationInspectionArea(a.areaKey),
+      ),
     [checklist.areas, photoMode],
   );
 

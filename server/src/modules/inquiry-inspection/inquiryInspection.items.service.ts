@@ -1,4 +1,6 @@
+import { InquiryInspectionStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { INSPECTION_TEMPLATE_VERSION } from '../../lib/inquiryInspectionTemplate.js';
 import { resolveInspectionItemsForArea } from '../../lib/inquiryInspectionTenantTemplate.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 
@@ -27,13 +29,36 @@ export async function ensureInspectionItemsForChecklist(
   for (const area of areas) {
     await ensureAreaStandardItems(area, inspectionTemplate);
   }
+
+  const checklist = await prisma.inquiryInspectionChecklist.findUnique({
+    where: { id: checklistId },
+    select: { status: true, templateVersion: true },
+  });
+  if (
+    checklist &&
+    (checklist.status === InquiryInspectionStatus.IN_PROGRESS ||
+      checklist.status === InquiryInspectionStatus.AWAITING_CUSTOMER) &&
+    checklist.templateVersion !== INSPECTION_TEMPLATE_VERSION
+  ) {
+    await prisma.inquiryInspectionChecklist.update({
+      where: { id: checklistId },
+      data: { templateVersion: INSPECTION_TEMPLATE_VERSION },
+    });
+  }
 }
 
 type AreaWithItems = {
   id: string;
   areaKey: string;
   isCustom: boolean;
-  items: Array<{ id: string; itemKey: string; label: string; isCustom: boolean; sortOrder: number; photos: unknown[] }>;
+  items: Array<{
+    id: string;
+    itemKey: string;
+    label: string;
+    isCustom: boolean;
+    sortOrder: number;
+    photos: unknown[];
+  }>;
 };
 
 async function ensureAreaStandardItems(
@@ -43,7 +68,25 @@ async function ensureAreaStandardItems(
   const standardDefs = resolveInspectionItemsForArea(area.areaKey, inspectionTemplate);
   if (!standardDefs.length) return;
 
-  const existingKeys = new Set(area.items.map((i) => i.itemKey));
+  const defByKey = new Map(standardDefs.map((d) => [d.itemKey, d]));
+  const defKeys = new Set(standardDefs.map((d) => d.itemKey));
+
+  for (const item of area.items) {
+    if (PLACEHOLDER_ITEM_KEYS.has(item.itemKey) && item.photos.length === 0) {
+      await prisma.inquiryInspectionItem.delete({ where: { id: item.id } }).catch(() => undefined);
+      continue;
+    }
+    if (item.isCustom) continue;
+    if (defKeys.has(item.itemKey)) continue;
+    if (item.photos.length > 0) continue;
+    await prisma.inquiryInspectionItem.delete({ where: { id: item.id } }).catch(() => undefined);
+  }
+
+  const remaining = await prisma.inquiryInspectionItem.findMany({
+    where: { areaId: area.id },
+    select: { itemKey: true },
+  });
+  const existingKeys = new Set(remaining.map((i) => i.itemKey));
   const toCreate = standardDefs.filter((d) => !existingKeys.has(d.itemKey));
   if (toCreate.length) {
     const maxSort = area.items.reduce((m, i) => Math.max(m, i.sortOrder), -1);
@@ -58,12 +101,11 @@ async function ensureAreaStandardItems(
     });
   }
 
-  const defByKey = new Map(standardDefs.map((d) => [d.itemKey, d]));
-  for (const item of area.items) {
-    if (PLACEHOLDER_ITEM_KEYS.has(item.itemKey) && item.photos.length === 0) {
-      await prisma.inquiryInspectionItem.delete({ where: { id: item.id } }).catch(() => undefined);
-      continue;
-    }
+  const allItems = await prisma.inquiryInspectionItem.findMany({
+    where: { areaId: area.id },
+  });
+
+  for (const item of allItems) {
     const def = defByKey.get(item.itemKey);
     if (def && !item.isCustom && def.label !== item.label) {
       await prisma.inquiryInspectionItem.update({
@@ -71,6 +113,43 @@ async function ensureAreaStandardItems(
         data: { label: def.label },
       });
     }
+  }
+
+  const legacyStandard = allItems
+    .filter((i) => !i.isCustom && !defKeys.has(i.itemKey))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.itemKey.localeCompare(b.itemKey));
+  const customItems = allItems
+    .filter((i) => i.isCustom)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.itemKey.localeCompare(b.itemKey));
+
+  let order = 0;
+  for (const def of standardDefs) {
+    const item = allItems.find((i) => i.itemKey === def.itemKey);
+    if (item && item.sortOrder !== order) {
+      await prisma.inquiryInspectionItem.update({
+        where: { id: item.id },
+        data: { sortOrder: order },
+      });
+    }
+    order += 1;
+  }
+  for (const leg of legacyStandard) {
+    if (leg.sortOrder !== order) {
+      await prisma.inquiryInspectionItem.update({
+        where: { id: leg.id },
+        data: { sortOrder: order },
+      });
+    }
+    order += 1;
+  }
+  for (const custom of customItems) {
+    if (custom.sortOrder !== order) {
+      await prisma.inquiryInspectionItem.update({
+        where: { id: custom.id },
+        data: { sortOrder: order },
+      });
+    }
+    order += 1;
   }
 }
 

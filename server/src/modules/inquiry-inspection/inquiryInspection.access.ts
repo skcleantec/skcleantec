@@ -19,6 +19,8 @@ export async function findInquiryForTeamLeader(params: {
       preferredDate: true,
       roomCount: true,
       isOneRoom: true,
+      kitchenCount: true,
+      bathroomCount: true,
       status: true,
     },
   });

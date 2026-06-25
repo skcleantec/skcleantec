@@ -14,11 +14,13 @@ import {
   InspectionConsentSection,
   InspectionHeaderBlock,
 } from './inspectionUiBlocks';
-import { FlaggedBeforePhotosSection } from './FlaggedBeforePhotosSection';
+import { ContaminationPhotosSection } from './ContaminationPhotosSection';
 import { useInspectionCompareLightbox } from './useInspectionCompareLightbox';
 import { getMe } from '../../api/auth';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
+import { isContaminationInspectionArea } from '@shared/inquiryInspectionContamination';
+import { useInspectionChecklistRealtime } from '../../hooks/useInspectionChecklistRealtime';
 
 export function AdminInspectionPanel({
   inquiryId,
@@ -55,6 +57,18 @@ export function AdminInspectionPanel({
       .then((me) => setIsAdmin(me.role === 'ADMIN'))
       .catch(() => setIsAdmin(false));
   }, [reload, token]);
+
+  const reloadSilent = useCallback(async () => {
+    try {
+      const { checklist: dto, smtpConfigured: smtp } = await fetchAdminInspectionChecklist(token, inquiryId);
+      setChecklist(dto);
+      setSmtpConfigured(smtp);
+    } catch {
+      /* WS silent */
+    }
+  }, [token, inquiryId]);
+
+  useInspectionChecklistRealtime(token, reloadSilent, Boolean(token && inquiryId && checklist !== undefined));
 
   const downloadAllPhotos = () => {
     void downloadAdminInspectionPhotosZip(token, inquiryId).catch((e) => {
@@ -161,7 +175,7 @@ export function AdminInspectionPanel({
         )}
       </div>
 
-      <FlaggedBeforePhotosSection
+      <ContaminationPhotosSection
         checklist={checklist}
         inquiryId={inquiryId}
         token={token}
@@ -188,7 +202,7 @@ export function AdminInspectionPanel({
 
           <section className="space-y-2">
             <h3 className="text-fluid-sm font-semibold text-gray-900">구역별 세부 항목 사진</h3>
-            {checklist.areas.map((area) => (
+            {checklist.areas.filter((a) => !isContaminationInspectionArea(a.areaKey)).map((area) => (
               <InspectionAreaSection
                 key={area.id}
                 area={area}

@@ -1,6 +1,6 @@
 import { InquiryInspectionStatus, InquiryStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { buildStandardInspectionAreas } from '../../lib/inquiryInspectionTemplate.js';
+import { buildStandardInspectionAreas, INSPECTION_TEMPLATE_VERSION } from '../../lib/inquiryInspectionTemplate.js';
 import { resolveInspectionItemsForArea } from '../../lib/inquiryInspectionTenantTemplate.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 import { buildInspectionConsentSnapshot } from '../../lib/inquiryInspectionConsent.js';
@@ -10,9 +10,25 @@ import { validateInspectionCompletion } from './inquiryInspection.validation.js'
 import { finalizeInspectionAfterComplete } from './inquiryInspection.postComplete.service.js';
 import { ensureInspectionItemsForChecklist } from './inquiryInspection.items.service.js';
 import { ensureInspectionCustomerViewToken } from './inquiryInspection.customerView.service.js';
+import { syncChecklistAreasFromInquiry } from './inquiryInspection.areas.service.js';
+import type { InquiryInspectionAreaStructureInput } from '../../lib/inquiryInspectionTemplate.js';
 
 function isEditableStatus(status: InquiryInspectionStatus): boolean {
   return status === InquiryInspectionStatus.IN_PROGRESS || status === InquiryInspectionStatus.AWAITING_CUSTOMER;
+}
+
+function inquiryAreaStructure(params: {
+  roomCount?: number | null;
+  isOneRoom?: boolean | null;
+  kitchenCount?: number | null;
+  bathroomCount?: number | null;
+}): InquiryInspectionAreaStructureInput {
+  return {
+    roomCount: params.roomCount,
+    isOneRoom: params.isOneRoom,
+    kitchenCount: params.kitchenCount,
+    bathroomCount: params.bathroomCount,
+  };
 }
 
 export async function getOrCreateInspectionChecklist(params: {
@@ -21,14 +37,24 @@ export async function getOrCreateInspectionChecklist(params: {
   teamLeaderId: string;
   roomCount?: number | null;
   isOneRoom?: boolean | null;
+  kitchenCount?: number | null;
+  bathroomCount?: number | null;
   customerName: string;
   preferredDate: Date | null;
 }) {
+  const structure = inquiryAreaStructure(params);
   const existing = await prisma.inquiryInspectionChecklist.findFirst({
     where: { inquiryId: params.inquiryId, tenantId: params.tenantId },
     include: inspectionChecklistInclude,
   });
   if (existing) {
+    if (isEditableStatus(existing.status)) {
+      await syncChecklistAreasFromInquiry({
+        checklistId: existing.id,
+        tenantId: params.tenantId,
+        inquiry: structure,
+      });
+    }
     await ensureInspectionItemsForChecklist(existing.id, params.tenantId);
     const refreshed = await prisma.inquiryInspectionChecklist.findFirst({
       where: { id: existing.id },
@@ -40,10 +66,7 @@ export async function getOrCreateInspectionChecklist(params: {
     });
   }
 
-  const areas = buildStandardInspectionAreas({
-    roomCount: params.roomCount,
-    isOneRoom: params.isOneRoom,
-  });
+  const areas = buildStandardInspectionAreas(structure);
   const tenantConfig = await getTenantConfig(params.tenantId);
   const inspectionTemplate = tenantConfig.inspection ?? null;
 
@@ -53,7 +76,7 @@ export async function getOrCreateInspectionChecklist(params: {
       inquiryId: params.inquiryId,
       teamLeaderId: params.teamLeaderId,
       status: InquiryInspectionStatus.IN_PROGRESS,
-      templateVersion: 'v2',
+      templateVersion: INSPECTION_TEMPLATE_VERSION,
       areas: {
         create: areas.map((a) => {
           const itemDefs = resolveInspectionItemsForArea(a.areaKey, inspectionTemplate);
@@ -89,6 +112,26 @@ export async function loadInspectionChecklist(params: { inquiryId: string; tenan
     include: inspectionChecklistInclude,
   });
   if (!row) return null;
+
+  if (isEditableStatus(row.status)) {
+    const inqStructure = await prisma.inquiry.findFirst({
+      where: { id: params.inquiryId, tenantId: params.tenantId },
+      select: {
+        roomCount: true,
+        isOneRoom: true,
+        kitchenCount: true,
+        bathroomCount: true,
+      },
+    });
+    if (inqStructure) {
+      await syncChecklistAreasFromInquiry({
+        checklistId: row.id,
+        tenantId: params.tenantId,
+        inquiry: inqStructure,
+      });
+    }
+  }
+
   await ensureInspectionItemsForChecklist(row.id, params.tenantId);
   const refreshed = await prisma.inquiryInspectionChecklist.findFirst({
     where: { id: row.id },

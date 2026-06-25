@@ -19,6 +19,7 @@ const files = [
   'inquiryInspectionAreaInstances.ts',
   'inquiryInspectionRetention.ts',
   'inspectionCompletionValidation.ts',
+  'inquiryInspectionContamination.ts',
 ];
 
 const banner = (name) => `/**

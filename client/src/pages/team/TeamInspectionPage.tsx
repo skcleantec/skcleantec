@@ -17,11 +17,13 @@ import {
   InspectionHeaderBlock,
 } from '../../components/inquiry-inspection/inspectionUiBlocks';
 import { InspectionCompletionIssuesModal } from '../../components/inquiry-inspection/InspectionCompletionIssuesModal';
+import { ContaminationPhotosSection } from '../../components/inquiry-inspection/ContaminationPhotosSection';
 import { TeamInspectionAreasEditor } from './TeamInspectionAreasEditor';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { getInspectionCustomerViewUrl } from '../../utils/inspectionCustomerCopy';
 import { resolveTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
 import { RoundBackButton } from '../../components/ui/RoundBackButton';
+import { useInspectionChecklistRealtime } from '../../hooks/useInspectionChecklistRealtime';
 import {
   consentToDraftPatch,
   validateInspectionCompletionForTeam,
@@ -64,6 +66,18 @@ export function TeamInspectionPage() {
       setLoadErr(e instanceof Error ? e.message : '불러오기 실패');
     }
   }, [token, inquiryId, navigate]);
+
+  const reloadSilent = useCallback(async () => {
+    if (!token || !inquiryId) return;
+    try {
+      const dto = await fetchTeamInspectionChecklist(token, inquiryId);
+      setChecklist(dto);
+    } catch {
+      /* WS silent */
+    }
+  }, [token, inquiryId]);
+
+  useInspectionChecklistRealtime(token, reloadSilent, Boolean(token && inquiryId && checklist));
 
   useEffect(() => {
     void reload();
@@ -321,6 +335,16 @@ export function TeamInspectionPage() {
           setBasicAnswersLocal(basicAnswers);
           scheduleBasicAnswersSave(basicAnswers);
         }}
+      />
+
+      <ContaminationPhotosSection
+        checklist={checklist}
+        inquiryId={inquiryId}
+        token={token ?? ''}
+        readOnly={readOnly}
+        disabled={busy}
+        onChecklistUpdate={setChecklist}
+        onMsg={setMsg}
       />
 
       <TeamInspectionAreasEditor

@@ -37,6 +37,11 @@ import {
   addInspectionAreaInstance,
   removeInspectionAreaInstance,
 } from './inquiryInspection.areas.service.js';
+import { notifyInspectionChecklistRefresh } from './inquiryInspectionNotify.js';
+
+function fireInspectionRefresh(inquiryId: string, tenantId: string, includeStaff = false) {
+  void notifyInspectionChecklistRefresh({ inquiryId, tenantId, includeStaff });
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -86,6 +91,8 @@ router.get('/', async (req, res) => {
     teamLeaderId: userId,
     roomCount: inquiry.roomCount,
     isOneRoom: inquiry.isOneRoom,
+    kitchenCount: inquiry.kitchenCount,
+    bathroomCount: inquiry.bathroomCount,
     customerName: inquiry.customerName,
     preferredDate: inquiry.preferredDate,
   });
@@ -134,6 +141,7 @@ router.patch('/', async (req, res) => {
         consentEmailDelivery: typeof b.consentEmailDelivery === 'boolean' ? b.consentEmailDelivery : undefined,
       },
     });
+    fireInspectionRefresh(inquiryId, tenantId);
     res.json({
       checklist: serializeInspectionChecklist(updated, {
         customerName: inquiry.customerName,
@@ -172,6 +180,7 @@ router.post('/areas', async (req, res) => {
   const label = typeof req.body?.label === 'string' ? req.body.label : '';
   try {
     const area = await addCustomInspectionArea({ checklistId: checklist.id, tenantId, label });
+    fireInspectionRefresh(inquiryId, tenantId);
     res.status(201).json({ area });
   } catch (e) {
     const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
@@ -221,6 +230,7 @@ router.post('/areas/instances', async (req, res) => {
       res.status(500).json({ error: '구역 추가에 실패했습니다.' });
       return;
     }
+    fireInspectionRefresh(inquiryId, tenantId);
     res.status(201).json({
       checklist: serializeInspectionChecklist(updated, {
         customerName: inquiry.customerName,
@@ -274,6 +284,7 @@ router.delete('/areas/:areaId/instance', async (req, res) => {
       res.status(500).json({ error: '구역 삭제에 실패했습니다.' });
       return;
     }
+    fireInspectionRefresh(inquiryId, tenantId);
     res.json({
       checklist: serializeInspectionChecklist(updated, {
         customerName: inquiry.customerName,
@@ -376,6 +387,7 @@ router.patch('/areas/:areaId', async (req, res) => {
       notApplicable: typeof b.notApplicable === 'boolean' ? b.notApplicable : undefined,
       naReason: typeof b.naReason === 'string' ? b.naReason : b.naReason === null ? null : undefined,
     });
+    fireInspectionRefresh(inquiryId, tenantId);
     res.json({ area });
   } catch (e) {
     const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
@@ -420,6 +432,7 @@ router.patch('/items/:itemId', async (req, res) => {
       notApplicable: typeof b.notApplicable === 'boolean' ? b.notApplicable : undefined,
       naReason: typeof b.naReason === 'string' ? b.naReason : b.naReason === null ? null : undefined,
     });
+    fireInspectionRefresh(inquiryId, tenantId);
     res.json({ item });
   } catch (e) {
     const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
@@ -462,6 +475,7 @@ router.post('/areas/:areaId/items', async (req, res) => {
       areaId,
       label,
     });
+    fireInspectionRefresh(inquiryId, tenantId);
     res.status(201).json({ item });
   } catch (e) {
     const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
@@ -557,6 +571,7 @@ router.post('/items/:itemId/photos', uploadImages, async (req, res) => {
     res.status(400).json({ error: '유효한 이미지 파일이 없습니다.' });
     return;
   }
+  fireInspectionRefresh(inquiryId, tenantId);
   res.status(201).json({ items: created });
 });
 
@@ -605,6 +620,7 @@ router.patch('/items/:itemId/photos/:photoId', async (req, res) => {
       res.status(404).json({ error: '사진을 찾을 수 없습니다.' });
       return;
     }
+    fireInspectionRefresh(inquiryId, tenantId);
     res.json({
       photo: {
         id: updated.id,
@@ -661,6 +677,7 @@ router.delete('/items/:itemId/photos/:photoId', async (req, res) => {
     res.status(404).json({ error: '사진을 찾을 수 없습니다.' });
     return;
   }
+  fireInspectionRefresh(inquiryId, tenantId);
   res.json({ ok: true });
 });
 
@@ -709,6 +726,7 @@ router.post('/signature', uploadSignature, async (req, res) => {
       tenantId,
       patch: { signaturePublicId: up.public_id, signatureSecureUrl: up.secure_url },
     });
+    fireInspectionRefresh(inquiryId, tenantId);
     res.json({
       signature: { publicId: up.public_id, secureUrl: up.secure_url },
       checklist: serializeInspectionChecklist(updated, {
@@ -754,6 +772,7 @@ router.post('/complete', async (req, res) => {
       tenantId,
       inquiryId,
     });
+    fireInspectionRefresh(inquiryId, tenantId, true);
     res.json({ checklist: dto });
   } catch (e) {
     const err = e as { code?: string; issues?: { message: string }[] };

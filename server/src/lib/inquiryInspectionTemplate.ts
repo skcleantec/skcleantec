@@ -3,7 +3,13 @@
  * 변경: shared/inquiryInspectionTemplate.ts 수정 후 `npm run sync:inquiry-inspection-shared` (prebuild/predev 자동).
  */
 
-export const INSPECTION_TEMPLATE_VERSION = 'v2';
+import {
+  MAX_INSPECTION_AREA_INSTANCES,
+  buildAreaInstanceKey,
+  buildAreaInstanceLabel,
+} from './inquiryInspectionAreaInstances.js';
+
+export const INSPECTION_TEMPLATE_VERSION = 'v3';
 
 export const INSPECTION_HEADER_INTRO =
   '담당 팀장이 「내가 살 집이라 생각하고」 청소하였으며, 아래 내용을 고객님과 함께 확인·기록합니다. 본 문서는 서비스 품질 확인 및 사후 A/S·분쟁 예방을 위해 작성됩니다.';
@@ -42,51 +48,87 @@ export type StandardInspectionAreaDef = {
   sortOrder: number;
 };
 
-const FIXED_AREAS: ReadonlyArray<Omit<StandardInspectionAreaDef, 'sortOrder'>> = [
-  { areaKey: 'entrance', label: '현관' },
-  { areaKey: 'living', label: '거실' },
-  { areaKey: 'kitchen', label: '주방' },
-  { areaKey: 'bathroom', label: '욕실' },
-  { areaKey: 'balcony', label: '베란다' },
-  { areaKey: 'utility', label: '다용도실' },
-];
-
-/** 접수 roomCount·isOneRoom 기준 표준 구역 목록 생성 */
-export function buildStandardInspectionAreas(params: {
+/** 접수 필드 → 체크리스트 표준 구역 개수 */
+export type InquiryInspectionAreaStructureInput = {
   roomCount?: number | null;
   isOneRoom?: boolean | null;
-}): StandardInspectionAreaDef[] {
-  const rooms = params.isOneRoom
-    ? 1
-    : Math.max(1, Math.min(3, params.roomCount ?? 1));
-  const roomAreas: StandardInspectionAreaDef[] = [];
-  for (let i = 1; i <= rooms; i += 1) {
-    roomAreas.push({
-      areaKey: `room_${i}`,
-      label: rooms === 1 ? '방' : `방 ${i}`,
+  kitchenCount?: number | null;
+  bathroomCount?: number | null;
+};
+
+function clampAreaInstanceCount(n: number): number {
+  return Math.max(1, Math.min(MAX_INSPECTION_AREA_INSTANCES, Math.floor(n)));
+}
+
+/** 접수 roomCount·kitchenCount·bathroomCount·isOneRoom 기준 표준 구역 목록 */
+export function buildStandardInspectionAreas(
+  params: InquiryInspectionAreaStructureInput,
+): StandardInspectionAreaDef[] {
+  const rooms = params.isOneRoom ? 1 : clampAreaInstanceCount(params.roomCount ?? 1);
+  const kitchens = clampAreaInstanceCount(params.kitchenCount ?? 1);
+  const bathrooms = clampAreaInstanceCount(params.bathroomCount ?? 1);
+
+  const merged: StandardInspectionAreaDef[] = [
+    {
+      areaKey: 'entrance',
+      label: buildAreaInstanceLabel('entrance', 1, 1),
+      sortOrder: 0,
+    },
+    {
+      areaKey: 'living',
+      label: buildAreaInstanceLabel('living', 1, 1),
+      sortOrder: 0,
+    },
+  ];
+
+  for (let i = 1; i <= kitchens; i += 1) {
+    merged.push({
+      areaKey: buildAreaInstanceKey('kitchen', i),
+      label: buildAreaInstanceLabel('kitchen', i, kitchens),
       sortOrder: 0,
     });
   }
-  const merged: StandardInspectionAreaDef[] = [
-    { ...FIXED_AREAS[0]!, sortOrder: 0 },
-    { ...FIXED_AREAS[1]!, sortOrder: 0 },
-    { ...FIXED_AREAS[2]!, sortOrder: 0 },
-    ...roomAreas,
-    { ...FIXED_AREAS[3]!, sortOrder: 0 },
-    { ...FIXED_AREAS[4]!, sortOrder: 0 },
-    { ...FIXED_AREAS[5]!, sortOrder: 0 },
-  ];
+
+  for (let i = 1; i <= rooms; i += 1) {
+    merged.push({
+      areaKey: buildAreaInstanceKey('room', i),
+      label: buildAreaInstanceLabel('room', i, rooms),
+      sortOrder: 0,
+    });
+  }
+
+  for (let i = 1; i <= bathrooms; i += 1) {
+    merged.push({
+      areaKey: buildAreaInstanceKey('bathroom', i),
+      label: buildAreaInstanceLabel('bathroom', i, bathrooms),
+      sortOrder: 0,
+    });
+  }
+
+  merged.push(
+    {
+      areaKey: 'balcony',
+      label: buildAreaInstanceLabel('balcony', 1, 1),
+      sortOrder: 0,
+    },
+    {
+      areaKey: 'utility',
+      label: buildAreaInstanceLabel('utility', 1, 1),
+      sortOrder: 0,
+    },
+  );
+
   return merged.map((a, idx) => ({ ...a, sortOrder: idx }));
 }
 
 export const INSPECTION_AREA_GUIDE =
-  '각 세부 항목마다 청소 전·청소 후 사진을 등록해야 합니다. 모서리·걸레받이·몰딩 등 작은 흔적도 CS 분쟁 예방을 위해 반드시 촬영해 주세요.';
+  '구역별 핵심 항목만 촬영합니다. 항목마다 청소 전·후 사진을 1장씩 등록하세요. 오염이 심한 곳은 촬영 중 별표(★)를 눌러 추가로 기록할 수 있습니다.';
 
 export const INSPECTION_PRE_CLEAN_GUIDE =
-  '청소 시작 전, 팀장이 현장에 도착하면 이 화면에서 모든 세부 항목의 「청소 전」 사진을 먼저 촬영합니다.';
+  '청소 시작 전, 아래 항목 순서대로 「청소 전」 사진을 촬영합니다. 해당 공간이 없으면 「해당없음」을 선택하세요.';
 
 export const INSPECTION_ITEM_GUIDE =
-  '항목별로 청소 전·후 사진을 각각 1장 이상 등록하세요. 해당 공간/항목이 없으면 「해당없음」을 눌러 주세요.';
+  '항목별로 청소 전·후 사진을 각 1장 등록하세요. 없는 항목은 「해당없음」을 눌러 주세요.';
 
 export const INSPECTION_NA_CUSTOMER_NOTICE =
   '본 구역(또는 추가 항목)은 당일 청소 범위에 포함되지 않거나 현장 구조상 해당 공간이 없음을 확인하였습니다. 이후 해당 구역에 대한 추가 청소를 요청하실 경우 별도 견적·추가 요금이 발생할 수 있습니다.';

@@ -4,6 +4,11 @@ import {
   INSPECTION_HEADER_INTRO,
   formatInspectionNaReason,
 } from '../../lib/inquiryInspectionTemplate.js';
+import {
+  INSPECTION_CONTAMINATION_AREA_KEY,
+  INSPECTION_CONTAMINATION_ITEM_KEY,
+  isContaminationInspectionArea,
+} from '../../lib/inquiryInspectionContamination.js';
 import { INSPECTION_FINAL_CONFIRM_NOTICE } from '../../lib/inquiryInspectionConsent.js';
 import {
   buildInspectionReportPlainText,
@@ -18,6 +23,96 @@ type ChecklistRow = Prisma.InquiryInspectionChecklistGetPayload<{
 }>;
 
 const PLACEHOLDER_KEYS = new Set(['_legacy', '_pending_seed']);
+
+type ContaminationPdfEntry = {
+  url: string;
+  caption: string;
+};
+
+function collectContaminationPdfEntries(row: ChecklistRow): ContaminationPdfEntry[] {
+  const out: ContaminationPdfEntry[] = [];
+  for (const area of row.areas) {
+    if (area.notApplicable || isContaminationInspectionArea(area.areaKey)) continue;
+    for (const item of area.items) {
+      if (PLACEHOLDER_KEYS.has(item.itemKey) || item.notApplicable) continue;
+      for (const photo of item.photos) {
+        if (photo.phase !== 'BEFORE' || !photo.flagged || !photo.secureUrl) continue;
+        out.push({
+          url: photo.secureUrl,
+          caption: `${area.label} · ${item.label}`,
+        });
+      }
+    }
+  }
+  const contaminationArea = row.areas.find((a) => a.areaKey === INSPECTION_CONTAMINATION_AREA_KEY);
+  if (contaminationArea && !contaminationArea.notApplicable) {
+    const item =
+      contaminationArea.items.find((i) => i.itemKey === INSPECTION_CONTAMINATION_ITEM_KEY) ??
+      contaminationArea.items[0];
+    if (item && !item.notApplicable) {
+      for (const photo of item.photos) {
+        if (photo.phase !== 'BEFORE' || !photo.secureUrl) continue;
+        out.push({ url: photo.secureUrl, caption: '추가 오염 촬영' });
+      }
+    }
+  }
+  return out;
+}
+
+async function renderContaminationPdfSection(
+  doc: InstanceType<typeof PDFDocument>,
+  row: ChecklistRow,
+  pageWidth: number,
+): Promise<void> {
+  const entries = collectContaminationPdfEntries(row);
+  if (entries.length === 0) return;
+
+  if (doc.y > doc.page.height - 120) doc.addPage();
+  doc.fontSize(11).fillColor('#111').text('오염사진', { underline: true });
+  doc.moveDown(0.25);
+  doc.fontSize(8).fillColor('#555').text('청소 전 촬영 중 ★ 표시 및 추가 오염 촬영 사진입니다.');
+  doc.moveDown(0.35);
+
+  const cols = 3;
+  const gap = 8;
+  const cellW = (pageWidth - gap * (cols - 1)) / cols;
+  const cellH = 64;
+  let col = 0;
+  let x0 = doc.page.margins.left;
+  let y0 = doc.y;
+
+  for (const entry of entries) {
+    if (col === 0 && y0 > doc.page.height - cellH - 36) {
+      doc.addPage();
+      y0 = doc.page.margins.top;
+      col = 0;
+    }
+    const x = x0 + col * (cellW + gap);
+    const buf = await fetchImageBuffer(entry.url);
+    if (buf) {
+      try {
+        doc.image(buf, x, y0, { fit: [cellW, cellH], align: 'center', valign: 'center' });
+      } catch {
+        doc.fontSize(7).fillColor('#999').text('(이미지)', x, y0 + 20, { width: cellW, align: 'center' });
+      }
+    } else {
+      doc.fontSize(7).fillColor('#999').text('(없음)', x, y0 + 20, { width: cellW, align: 'center' });
+    }
+    doc.fontSize(6.5).fillColor('#444').text(entry.caption, x, y0 + cellH + 2, {
+      width: cellW,
+      align: 'center',
+      lineGap: 0.5,
+    });
+    col += 1;
+    if (col >= cols) {
+      col = 0;
+      y0 += cellH + 22;
+    }
+  }
+  doc.y = col === 0 ? y0 : y0 + cellH + 22;
+  doc.moveDown(0.4);
+  doc.fillColor('#333');
+}
 
 async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   try {
@@ -102,6 +197,7 @@ export async function buildInspectionPdfBuffer(
 
     void (async () => {
       for (const area of row.areas) {
+        if (isContaminationInspectionArea(area.areaKey)) continue;
         if (doc.y > doc.page.height - 120) doc.addPage();
 
         doc.fontSize(10).fillColor('#1e3a8a').text(area.label, { underline: true });
@@ -196,6 +292,8 @@ export async function buildInspectionPdfBuffer(
         }
         doc.moveDown(0.3);
       }
+
+      await renderContaminationPdfSection(doc, row, pageWidth);
 
       if (row.leaderNotes?.trim()) {
         if (doc.y > doc.page.height - 80) doc.addPage();

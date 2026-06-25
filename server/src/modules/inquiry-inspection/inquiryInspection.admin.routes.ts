@@ -11,6 +11,7 @@ import { buildInspectionPdfBuffer } from './inquiryInspection.pdf.service.js';
 import { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import { prisma } from '../../lib/prisma.js';
 import { isSmtpConfiguredForTenant, formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
+import { notifyInspectionChecklistRefresh } from './inquiryInspectionNotify.js';
 
 const router = Router({ mergeParams: true });
 
@@ -158,6 +159,7 @@ router.post('/resend-email', async (req, res) => {
       inquiryId,
     });
     const checklist = await loadInspectionChecklist({ inquiryId, tenantId });
+    void notifyInspectionChecklistRefresh({ inquiryId, tenantId, includeStaff: true });
     res.json({ checklist, emailSent: result.emailSent, pdfUrl: result.pdfUrl });
   } catch (e) {
     const err = e as { code?: string; message?: string };
@@ -237,6 +239,7 @@ router.post('/void', async (req, res) => {
       voidedById: user.userId,
       voidReason,
     });
+    void notifyInspectionChecklistRefresh({ inquiryId, tenantId, includeStaff: true });
     res.json({ checklist: dto });
   } catch (e) {
     const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';

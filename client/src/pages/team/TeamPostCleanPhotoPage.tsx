@@ -10,14 +10,16 @@ import { isAuthSessionExpiredError } from '../../api/auth';
 import { InspectionHeaderBlock } from '../../components/inquiry-inspection/inspectionUiBlocks';
 import { TeamPreCleanWizard } from './TeamPreCleanWizard';
 import { isAfterItemComplete } from '@shared/inquiryInspectionTemplate';
+import { isContaminationInspectionArea } from '@shared/inquiryInspectionContamination';
 import { resolveTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
 import { RoundBackButton } from '../../components/ui/RoundBackButton';
+import { useInspectionChecklistRealtime } from '../../hooks/useInspectionChecklistRealtime';
 
 function countAfterProgress(checklist: InspectionChecklistDto) {
   let afterDone = 0;
   let total = 0;
   for (const area of checklist.areas) {
-    if (area.notApplicable) continue;
+    if (area.notApplicable || isContaminationInspectionArea(area.areaKey)) continue;
     for (const item of area.items) {
       if (item.itemKey.startsWith('_')) continue;
       total += 1;
@@ -74,6 +76,18 @@ export function TeamPostCleanPhotoPage() {
       return null;
     }
   }, [token, inquiryId, navigate]);
+
+  const reloadSilent = useCallback(async () => {
+    if (!token || !inquiryId) return;
+    try {
+      const dto = await fetchTeamInspectionChecklist(token, inquiryId);
+      setChecklist(dto);
+    } catch {
+      /* WS silent */
+    }
+  }, [token, inquiryId]);
+
+  useInspectionChecklistRealtime(token, reloadSilent, Boolean(token && inquiryId && checklist));
 
   useEffect(() => {
     void reload();
