@@ -663,6 +663,8 @@ model TeamMember {
   teamId    String?  @map("team_id")
   name      String
   nameTh    String?  @map("name_th") @db.VarChar(128)
+  /// KO/TH/MN — 보조 표시명(nameTh) 라벨·크루 화면 표기 구분
+  nationality CrewUiLanguage @default(KO) @map("nationality")
   phone     String?
   /// 크루 그룹장 설정 — 픽업·네비용 집 주소 (카카오 검색 기본 + 상세)
   homeAddress       String? @map("home_address") @db.VarChar(512)

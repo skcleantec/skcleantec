@@ -6,6 +6,7 @@ export type PoolMemberAdminRow = {
   id: string;
   name: string;
   nameTh: string | null;
+  nationality: 'KO' | 'TH' | 'MN';
   phone: string | null;
   sortOrder: number;
   isActive: boolean;
@@ -48,6 +49,7 @@ async function findPoolMembersLegacySql(
       id: r.id,
       name: r.name,
       nameTh: r.name_th,
+      nationality: 'KO',
       phone: r.phone,
       sortOrder: r.sort_order,
       isActive: r.is_active,

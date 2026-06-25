@@ -18,8 +18,9 @@ export interface TeamLeaderBrief {
 export interface TeamMemberItem {
   id: string;
   name: string;
-  /** 크루 등 보조 표시명(태국어 등) */
+  /** 크루 등 보조 표시명(태국어·몽골어 등) */
   nameTh?: string | null;
+  nationality?: 'KO' | 'TH' | 'MN';
   phone: string | null;
   sortOrder: number;
   isActive: boolean;
@@ -140,7 +141,13 @@ async function readApiError(res: Response, fallback: string): Promise<string> {
 
 export async function addPoolTeamMember(
   token: string,
-  data: { name: string; nameTh?: string | null; phone?: string | null; sortOrder?: number }
+  data: {
+    name: string;
+    nameTh?: string | null;
+    nationality?: 'KO' | 'TH' | 'MN';
+    phone?: string | null;
+    sortOrder?: number;
+  }
 ): Promise<void> {
   const res = await fetch(`${API}/teams/members`, {
     method: 'POST',
@@ -158,6 +165,7 @@ export async function updatePoolTeamMember(
   data: {
     name?: string;
     nameTh?: string | null;
+    nationality?: 'KO' | 'TH' | 'MN';
     phone?: string | null;
     sortOrder?: number;
     isActive?: boolean;

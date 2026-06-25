@@ -28,7 +28,12 @@ import {
 } from '../../api/teamCrewGroups';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { CrewGroupPolicyFields, crewGroupPolicySummary } from '../../components/admin/CrewGroupPolicyFields';
+import {
+  TeamMemberNationalityFields,
+  teamMemberNationalityBadge,
+} from '../../components/admin/TeamMemberNationalityFields';
 import type { CrewGroupAvailabilityMode, CrewUiLanguage } from '@shared/crewGroupSettings';
+import { teamMemberAltNameField, type TeamMemberNationality } from '@shared/teamMemberNationality';
 
 /** 팀 크루 그룹 섹션 도움말 */
 const CREW_GROUP_SECTION_HELP =
@@ -107,7 +112,12 @@ export function AdminTeamsPage() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const [memberForm, setMemberForm] = useState({ name: '', nameTh: '', phone: '' });
+  const [memberForm, setMemberForm] = useState({
+    nationality: 'KO' as TeamMemberNationality,
+    name: '',
+    nameTh: '',
+    phone: '',
+  });
   const [memberRegisterOpen, setMemberRegisterOpen] = useState(false);
   const [registerBusy, setRegisterBusy] = useState(false);
 
@@ -124,6 +134,7 @@ export function AdminTeamsPage() {
 
   const [editMemberModal, setEditMemberModal] = useState<{
     memberId: string;
+    nationality: TeamMemberNationality;
     name: string;
     nameTh: string;
     phone: string;
@@ -378,6 +389,7 @@ export function AdminTeamsPage() {
       await updatePoolTeamMember(token, editMemberModal.memberId, {
         name,
         phone,
+        nationality: editMemberModal.nationality,
         nameTh,
         monthlyPayDay,
         payAmountPerJob,
@@ -617,9 +629,14 @@ export function AdminTeamsPage() {
   const canRegisterMember = memberListTab === 'active' && activeMemberCount < 100;
 
   const openMemberRegisterModal = () => {
-    setMemberForm({ name: '', nameTh: '', phone: '' });
+    setMemberForm({ nationality: 'KO', name: '', nameTh: '', phone: '' });
     setMemberRegisterOpen(true);
   };
+
+  const poolMemberNationality = (memberId: string): TeamMemberNationality =>
+    members.find((m) => m.id === memberId)?.nationality ??
+    activePoolMembers.find((m) => m.id === memberId)?.nationality ??
+    'KO';
 
   const submitMemberRegister = async () => {
     if (!token || !memberForm.name.trim()) {
@@ -630,10 +647,11 @@ export function AdminTeamsPage() {
     try {
       await addPoolTeamMember(token, {
         name: memberForm.name.trim(),
+        nationality: memberForm.nationality,
         nameTh: memberForm.nameTh.trim() || undefined,
         phone: memberForm.phone.trim() || undefined,
       });
-      setMemberForm({ name: '', nameTh: '', phone: '' });
+      setMemberForm({ nationality: 'KO', name: '', nameTh: '', phone: '' });
       setMemberRegisterOpen(false);
       await refresh();
     } catch (e) {
@@ -857,6 +875,11 @@ export function AdminTeamsPage() {
                           <span className={m.isActive ? 'font-medium text-gray-900' : 'text-gray-400 line-through'}>
                             {m.name}
                           </span>
+                          {teamMemberNationalityBadge(m.nationality ?? 'KO') ? (
+                            <span className="text-xs text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shrink-0">
+                              {teamMemberNationalityBadge(m.nationality ?? 'KO')}
+                            </span>
+                          ) : null}
                           {m.monthlyPayDay != null &&
                           m.payCycleJobCount != null &&
                           m.payCycleStartYmd &&
@@ -929,6 +952,7 @@ export function AdminTeamsPage() {
                         onClick={() =>
                           setEditMemberModal({
                             memberId: m.id,
+                            nationality: m.nationality ?? 'KO',
                             name: m.name,
                             nameTh: (m.nameTh ?? '').trim(),
                             phone: m.phone ?? '',
@@ -1009,41 +1033,18 @@ export function AdminTeamsPage() {
               </p>
               <form
                 id="member-register-form"
-                className="mt-4 space-y-3 text-sm"
+                className="mt-4"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void submitMemberRegister();
                 }}
               >
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">이름</label>
-                  <input
-                    type="text"
-                    autoFocus
-                    value={memberForm.name}
-                    onChange={(e) => setMemberForm((p) => ({ ...p, name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">태국어 표시명 (선택)</label>
-                  <input
-                    type="text"
-                    value={memberForm.nameTh}
-                    onChange={(e) => setMemberForm((p) => ({ ...p, nameTh: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded"
-                  />
-                  <p className="text-fluid-2xs text-gray-500 mt-1">크루 화면에서 보조 이름으로 표시됩니다.</p>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">연락처 (선택)</label>
-                  <input
-                    type="text"
-                    value={memberForm.phone}
-                    onChange={(e) => setMemberForm((p) => ({ ...p, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded"
-                  />
-                </div>
+                <TeamMemberNationalityFields
+                  idPrefix="member-register"
+                  nameAutoFocus
+                  value={memberForm}
+                  onChange={setMemberForm}
+                />
               </form>
               <div className="mt-4 flex justify-end gap-2">
                 <button
@@ -1085,40 +1086,28 @@ export function AdminTeamsPage() {
                 팀원 정보 수정
               </h2>
               <div className="mt-4 space-y-3">
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">이름</label>
-                  <input
-                    type="text"
-                    value={editMemberModal.name}
-                    onChange={(e) =>
-                      setEditMemberModal((prev) => (prev ? { ...prev, name: e.target.value } : null))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">크루 앱용 태국어 표시명 (선택)</label>
-                  <input
-                    type="text"
-                    value={editMemberModal.nameTh}
-                    onChange={(e) =>
-                      setEditMemberModal((prev) => (prev ? { ...prev, nameTh: e.target.value } : null))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                    placeholder="한글 이름 아래에 보조로 표시"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">연락처 (선택)</label>
-                  <input
-                    type="text"
-                    value={editMemberModal.phone}
-                    onChange={(e) =>
-                      setEditMemberModal((prev) => (prev ? { ...prev, phone: e.target.value } : null))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                  />
-                </div>
+                <TeamMemberNationalityFields
+                  idPrefix="member-edit"
+                  value={{
+                    nationality: editMemberModal.nationality,
+                    name: editMemberModal.name,
+                    nameTh: editMemberModal.nameTh,
+                    phone: editMemberModal.phone,
+                  }}
+                  onChange={(next) =>
+                    setEditMemberModal((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            nationality: next.nationality,
+                            name: next.name,
+                            nameTh: next.nameTh,
+                            phone: next.phone,
+                          }
+                        : null,
+                    )
+                  }
+                />
                 <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-3 space-y-2">
                   <p className="text-xs font-medium text-gray-800">사원증 사진</p>
                   <p className="text-[11px] text-gray-500 leading-snug">
@@ -1813,25 +1802,33 @@ export function AdminTeamsPage() {
 
                 <details className="mt-4 rounded-md border border-gray-200 bg-gray-50/80 px-3 py-2">
                   <summary className="text-xs font-medium text-gray-800 cursor-pointer select-none">
-                    크루 앱 표시명 설정 (태국어)
+                    크루 앱 보조 표시명
                   </summary>
                   <p className="text-fluid-2xs text-gray-600 mt-2 mb-2 leading-snug">
-                    멤버의 한글 이름 아래에 보조 이름을 넣으면 크루 화면(홈·일정·일자 명단)에서 태국인 팀원이 본인을 찾기 쉽습니다.
-                    전사 팀원 풀의 「정보 수정」에서도 동일 항목을 편집할 수 있습니다.
+                    태국·몽골 국적 팀원은 한글 이름 아래 보조 표기를 넣을 수 있습니다. 전사 팀원 풀의 「정보 수정」에서도
+                    국적과 함께 편집할 수 있습니다.
                   </p>
-                  {crewEdit.members.length === 0 ? (
-                    <p className="text-xs text-gray-500">멤버를 먼저 추가하세요.</p>
+                  {crewEdit.members.filter((m) => poolMemberNationality(m.teamMemberId) !== 'KO').length === 0 ? (
+                    <p className="text-xs text-gray-500">보조 표시명이 필요한 태국·몽골 국적 멤버가 없습니다.</p>
                   ) : (
                     <ul className="space-y-2 max-h-56 overflow-y-auto border border-gray-100 rounded bg-white p-2">
-                      {crewEdit.members.map((m) => (
+                      {crewEdit.members
+                        .filter((m) => poolMemberNationality(m.teamMemberId) !== 'KO')
+                        .map((m) => {
+                          const nat = poolMemberNationality(m.teamMemberId);
+                          const alt = teamMemberAltNameField(nat);
+                          return (
                         <li key={m.teamMemberId} className="flex flex-col sm:flex-row sm:items-center gap-1.5 text-xs">
                           <span className={`shrink-0 sm:w-28 font-medium ${m.isActive ? 'text-gray-900' : 'text-gray-400'}`}>
                             {m.name}
+                            {teamMemberNationalityBadge(nat) ? (
+                              <span className="ml-1 text-gray-500 font-normal">({teamMemberNationalityBadge(nat)})</span>
+                            ) : null}
                           </span>
                           <input
                             type="text"
                             className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded text-xs"
-                            placeholder="태국어 표시명"
+                            placeholder={alt.placeholder}
                             value={crewNameThDraft[m.teamMemberId] ?? ''}
                             onChange={(e) =>
                               setCrewNameThDraft((prev) => ({
@@ -1841,13 +1838,17 @@ export function AdminTeamsPage() {
                             }
                           />
                         </li>
-                      ))}
+                          );
+                        })}
                     </ul>
                   )}
                   <div className="mt-2 flex justify-end">
                     <button
                       type="button"
-                      disabled={crewDisplayNameSaving || crewEdit.members.length === 0}
+                      disabled={
+                        crewDisplayNameSaving ||
+                        crewEdit.members.filter((m) => poolMemberNationality(m.teamMemberId) !== 'KO').length === 0
+                      }
                       className="px-3 py-1.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40"
                       onClick={() => void saveCrewMemberDisplayNames()}
                     >

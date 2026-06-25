@@ -23,6 +23,10 @@ import {
 } from './teamMemberPayrollCycle.js';
 import { computeCrewSpacingByPoolMemberName } from './crewLeaderMemberSpacing.js';
 import { findPoolMembersForAdminList } from './poolTeamMembers.service.js';
+import {
+  normalizeTeamMemberNameTh,
+  resolveTeamMemberNationality,
+} from '../../lib/teamMemberNationality.js';
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { isTenantOwnerAdmin } from '../auth/tenantOwner.js';
@@ -168,6 +172,7 @@ router.get('/members', adminOrOperationalMarketer, async (req, res) => {
         id: m.id,
         name: m.name,
         nameTh: m.nameTh,
+        nationality: m.nationality,
         phone: m.phone,
         sortOrder: m.sortOrder,
         isActive: m.isActive,
@@ -324,6 +329,7 @@ router.get('/', async (req, res) => {
         id: m.id,
         name: m.name,
         nameTh: m.nameTh,
+        nationality: m.nationality,
         phone: m.phone,
         sortOrder: m.sortOrder,
         isActive: m.isActive,
@@ -429,11 +435,19 @@ router.post('/members', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
-  const body = req.body as { name?: string; nameTh?: string | null; phone?: string | null; sortOrder?: number };
+  const body = req.body as {
+    name?: string;
+    nameTh?: string | null;
+    phone?: string | null;
+    sortOrder?: number;
+    nationality?: unknown;
+  };
   if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
     res.status(400).json({ error: '이름을 입력해주세요.' });
     return;
   }
+  const nationality = resolveTeamMemberNationality(body.nationality);
+  const nameTh = normalizeTeamMemberNameTh(nationality, body.nameTh);
   try {
     const activePool = await prisma.teamMember.count({
       where: { ...poolMemberInTenantWhere(tenantId), isActive: true },
@@ -449,6 +463,8 @@ router.post('/members', async (req, res) => {
         tenantId,
         teamId: null,
         name: body.name.trim(),
+        nameTh,
+        nationality,
         phone: body.phone != null && String(body.phone).trim() ? String(body.phone).trim() : null,
         sortOrder:
           typeof body.sortOrder === 'number' && Number.isFinite(body.sortOrder) ? body.sortOrder : activePool,
@@ -457,6 +473,8 @@ router.post('/members', async (req, res) => {
     res.status(201).json({
       id: member.id,
       name: member.name,
+      nameTh: member.nameTh,
+      nationality: member.nationality,
       phone: member.phone,
       sortOrder: member.sortOrder,
       isActive: member.isActive,
@@ -487,6 +505,7 @@ router.patch('/members/:memberId', async (req, res) => {
     isActive?: boolean;
     hireDate?: string | null;
     resignationDate?: string | null;
+    nationality?: unknown;
   };
   const payParsed = parseTeamMemberPayFields(body);
   if (payParsed.error) {
@@ -556,16 +575,24 @@ router.patch('/members/:memberId', async (req, res) => {
     }
   }
 
+  const nationalityNext =
+    body.nationality !== undefined ? resolveTeamMemberNationality(body.nationality) : member.nationality;
+  let nameThNext = member.nameTh;
+  if (body.nameTh !== undefined) {
+    nameThNext = normalizeTeamMemberNameTh(nationalityNext, body.nameTh);
+  } else if (body.nationality !== undefined && nationalityNext === 'KO') {
+    nameThNext = null;
+  }
+
   const updated = await prisma.teamMember.update({
     where: { id: memberId },
     data: {
       name: body.name === undefined ? undefined : String(body.name).trim() || member.name,
+      nationality: body.nationality !== undefined ? nationalityNext : undefined,
       nameTh:
-        body.nameTh === undefined
-          ? undefined
-          : body.nameTh === null || String(body.nameTh).trim() === ''
-            ? null
-            : String(body.nameTh).trim().slice(0, 128),
+        body.nameTh !== undefined || (body.nationality !== undefined && nationalityNext === 'KO')
+          ? nameThNext
+          : undefined,
       phone: body.phone === undefined ? undefined : body.phone === null || body.phone === '' ? null : String(body.phone),
       sortOrder:
         body.sortOrder === undefined
@@ -586,6 +613,7 @@ router.patch('/members/:memberId', async (req, res) => {
     id: updated.id,
     name: updated.name,
     nameTh: updated.nameTh,
+    nationality: updated.nationality,
     phone: updated.phone,
     sortOrder: updated.sortOrder,
     isActive: updated.isActive,
@@ -803,7 +831,13 @@ router.post('/:teamId/members', async (req, res) => {
   if (!tenantId) return;
 
   const { teamId } = req.params;
-  const body = req.body as { name?: string; nameTh?: string | null; phone?: string | null; sortOrder?: number };
+  const body = req.body as {
+    name?: string;
+    nameTh?: string | null;
+    phone?: string | null;
+    sortOrder?: number;
+    nationality?: unknown;
+  };
   if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
     res.status(400).json({ error: '이름을 입력해주세요.' });
     return;
@@ -820,13 +854,15 @@ router.post('/:teamId/members', async (req, res) => {
     res.status(400).json({ error: `활성 팀원은 최대 ${MAX_ACTIVE_TEAM_MEMBERS}명까지 등록할 수 있습니다.` });
     return;
   }
-  const nameThTeamRaw = body.nameTh != null ? String(body.nameTh).trim() : '';
+  const nationality = resolveTeamMemberNationality(body.nationality);
+  const nameTh = normalizeTeamMemberNameTh(nationality, body.nameTh);
   const member = await prisma.teamMember.create({
     data: {
       tenantId,
       teamId,
       name: body.name.trim(),
-      nameTh: nameThTeamRaw ? nameThTeamRaw.slice(0, 128) : null,
+      nameTh,
+      nationality,
       phone: body.phone != null && String(body.phone).trim() ? String(body.phone).trim() : null,
       sortOrder: typeof body.sortOrder === 'number' && Number.isFinite(body.sortOrder) ? body.sortOrder : activeCount,
     },
@@ -835,6 +871,7 @@ router.post('/:teamId/members', async (req, res) => {
     id: member.id,
     name: member.name,
     nameTh: member.nameTh,
+    nationality: member.nationality,
     phone: member.phone,
     sortOrder: member.sortOrder,
     isActive: member.isActive,
@@ -853,6 +890,7 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
     phone?: string | null;
     sortOrder?: number;
     isActive?: boolean;
+    nationality?: unknown;
   };
   const payParsed = parseTeamMemberPayFields(body);
   if (payParsed.error) {
@@ -873,16 +911,23 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
       return;
     }
   }
+  const nationalityNext =
+    body.nationality !== undefined ? resolveTeamMemberNationality(body.nationality) : member.nationality;
+  let nameThNext = member.nameTh;
+  if (body.nameTh !== undefined) {
+    nameThNext = normalizeTeamMemberNameTh(nationalityNext, body.nameTh);
+  } else if (body.nationality !== undefined && nationalityNext === 'KO') {
+    nameThNext = null;
+  }
   const updated = await prisma.teamMember.update({
     where: { id: memberId },
     data: {
       name: body.name === undefined ? undefined : String(body.name).trim() || member.name,
+      nationality: body.nationality !== undefined ? nationalityNext : undefined,
       nameTh:
-        body.nameTh === undefined
-          ? undefined
-          : body.nameTh === null || String(body.nameTh).trim() === ''
-            ? null
-            : String(body.nameTh).trim().slice(0, 128),
+        body.nameTh !== undefined || (body.nationality !== undefined && nationalityNext === 'KO')
+          ? nameThNext
+          : undefined,
       phone: body.phone === undefined ? undefined : body.phone === null || body.phone === '' ? null : String(body.phone),
       sortOrder:
         body.sortOrder === undefined
@@ -901,6 +946,7 @@ router.patch('/:teamId/members/:memberId', async (req, res) => {
     id: updated.id,
     name: updated.name,
     nameTh: updated.nameTh,
+    nationality: updated.nationality,
     phone: updated.phone,
     sortOrder: updated.sortOrder,
     isActive: updated.isActive,
