@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { HelpMobileModuleSelect, HelpSidebar, helpModuleDomId } from '../components/help/HelpSidebar';
 import { HelpScreenCard } from '../components/help/HelpScreenCard';
+import { TeamGuideHelpLayout } from '../components/help/TeamGuideHelpLayout';
 import { HelpUiGallery } from '../components/help/ui/HelpUiGallery';
 import type { HelpRole } from '../types/helpContent';
 import {
@@ -92,6 +93,11 @@ export function HelpPage() {
         const next = new URLSearchParams(prev);
         next.set('role', newRole);
         next.delete('q');
+        if (newRole === 'team') {
+          next.set('chapter', '01');
+        } else {
+          next.delete('chapter');
+        }
         return next;
       });
       setActiveModule(null);
@@ -122,6 +128,7 @@ export function HelpPage() {
   const groups = useMemo(() => groupHelpByModule(filtered), [filtered]);
 
   const showUiGallery = canEdit && searchParams.get('ui') === 'gallery';
+  const isTeamGuideView = mainCategory === 'usage' && selectedRole === 'team';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -173,8 +180,8 @@ export function HelpPage() {
             </nav>
           </div>
 
-          {/* 검색 (사용법에서만, 하단 별도 줄) */}
-          {mainCategory === 'usage' ? (
+          {/* 검색 (관리자 사용법에서만) */}
+          {mainCategory === 'usage' && selectedRole !== 'team' ? (
             <div className="mt-2 max-w-md">
               <input
                 type="search"
@@ -191,7 +198,9 @@ export function HelpPage() {
       {/* 메인 콘텐츠 영역 */}
       <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8">
         {mainCategory === 'usage' ? (
-          loading ? (
+          isTeamGuideView ? (
+            <TeamGuideHelpLayout selectedRole={selectedRole} onRoleChange={changeRole} />
+          ) : loading ? (
             <div className="flex min-h-[40vh] items-center justify-center">
               <div className="text-center">
                 <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-600" />
