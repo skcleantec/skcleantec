@@ -16,6 +16,28 @@ export function mergeItemPhotos(
   };
 }
 
+export function replaceItemPhoto(
+  dto: InspectionChecklistDto,
+  itemId: string,
+  oldPhotoId: string,
+  newPhotos: InspectionAreaPhoto[],
+): InspectionChecklistDto {
+  return {
+    ...dto,
+    areas: dto.areas.map((area) => ({
+      ...area,
+      items: area.items.map((it) =>
+        it.id === itemId
+          ? {
+              ...it,
+              photos: [...it.photos.filter((p) => p.id !== oldPhotoId), ...newPhotos],
+            }
+          : it,
+      ),
+    })),
+  };
+}
+
 export function removeItemPhoto(
   dto: InspectionChecklistDto,
   itemId: string,

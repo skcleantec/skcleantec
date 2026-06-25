@@ -24,7 +24,7 @@ import {
 } from '../../api/inquiryInspection';
 import { ImageThumbLightbox, type ImageGallerySlide } from '../../components/ui/ImageThumbLightbox';
 import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
-import { mergeItemPhotos, removeItemPhoto } from '../../utils/inspectionChecklistPhotoMerge';
+import { mergeItemPhotos, removeItemPhoto, replaceItemPhoto } from '../../utils/inspectionChecklistPhotoMerge';
 import { useInlineCamera } from '../../hooks/useInlineCamera';
 import { ShareAreaBeforePhotosButton } from '../../components/inquiry-inspection/ShareAreaBeforePhotosButton';
 import { InspectionPhotoFlagButton } from '../../components/inquiry-inspection/InspectionPhotoFlagButton';
@@ -123,6 +123,10 @@ function collectAreaBeforePhotos(area: InspectionArea): AreaBeforePhotoEntry[] {
   return out;
 }
 
+function isPendingInspectionPhotoId(id: string): boolean {
+  return id.startsWith('pending-');
+}
+
 function CapturePhotoThumb({
   photo,
   idx,
@@ -133,6 +137,7 @@ function CapturePhotoThumb({
   caption,
   onToggleFlag,
   flagDisabled,
+  pending,
 }: {
   photo: InspectionAreaPhoto;
   idx: number;
@@ -143,6 +148,7 @@ function CapturePhotoThumb({
   caption?: string;
   onToggleFlag?: () => void;
   flagDisabled?: boolean;
+  pending?: boolean;
 }) {
   const flagged = !!photo.flagged;
   return (
@@ -155,11 +161,16 @@ function CapturePhotoThumb({
           galleryIndex={idx}
           thumbClassName="h-14 w-full object-cover"
           buttonClassName={`relative block w-full overflow-hidden rounded-lg border-2 bg-black/40 touch-manipulation active:scale-[0.97] disabled:opacity-50 ${
-            flagged ? 'border-amber-400' : 'border-white/25'
+            flagged ? 'border-amber-400' : pending ? 'border-sky-400/70' : 'border-white/25'
           }`}
-          onRetake={disabled ? undefined : onRetakeAtGalleryIndex}
+          onRetake={disabled || pending ? undefined : onRetakeAtGalleryIndex}
           onLightboxClose={onLightboxClose}
         />
+        {pending ? (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-black/45">
+            <span className="text-[10px] font-semibold text-white">저장</span>
+          </div>
+        ) : null}
         {onToggleFlag ? (
           <div className="absolute -left-1 -top-1 z-10">
             <InspectionPhotoFlagButton
@@ -217,7 +228,10 @@ export function TeamPreCleanWizard({
   const [itemIndex, setItemIndex] = useState(0);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [localChecklist, setLocalChecklist] = useState(checklist);
-  const [uploading, setUploading] = useState(false);
+  const [pendingUploadCount, setPendingUploadCount] = useState(0);
+  const [showCapturedPhotos, setShowCapturedPhotos] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [flaggingPhotoId, setFlaggingPhotoId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoredRef = useRef(false);
@@ -242,17 +256,21 @@ export function TeamPreCleanWizard({
     useInlineCamera(cameraActive);
 
   useEffect(() => {
-    if (!uploading) return;
+    if (pendingUploadCount <= 0) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [uploading]);
+  }, [pendingUploadCount]);
 
   useEffect(() => {
-    if (!captureAreaId || !cameraSessionWarm) return;
+    if (!captureAreaId) {
+      setShowCapturedPhotos(false);
+      return;
+    }
+    if (!cameraSessionWarm) return;
     refreshPreview();
     requestAnimationFrame(() => refreshPreview());
   }, [captureAreaId, cameraSessionWarm, refreshPreview]);
@@ -452,27 +470,52 @@ export function TeamPreCleanWizard({
 
   const uploadAndAdvance = useCallback(
     async (file: File) => {
-      if (!currentItem || uploading || captureInFlightRef.current) return;
-      captureInFlightRef.current = true;
+      if (!currentItem || captureInFlightRef.current) return;
       const itemId = currentItem.id;
       const areaLen = captureItems.length;
-      setUploading(true);
+      const optimisticId = `pending-${Date.now()}`;
+      const blobUrl = URL.createObjectURL(file);
+      const optimisticPhoto: InspectionAreaPhoto = {
+        id: optimisticId,
+        phase,
+        secureUrl: blobUrl,
+        width: null,
+        height: null,
+        flagged: false,
+        uploadedBy: { id: '', name: '' },
+        createdAt: new Date().toISOString(),
+      };
+
+      setLocalChecklist((prev) => {
+        const next = mergeItemPhotos(prev, itemId, [optimisticPhoto]);
+        onChecklistUpdate?.(next);
+        return next;
+      });
+      advanceToNextItem(areaLen);
       onMsg(null);
-      try {
-        const prepared = await prepareImageFileForUpload(file);
-        const newPhotos = await uploadTeamInspectionPhotos(token, inquiryId, itemId, phase, [prepared]);
-        setLocalChecklist((prev) => {
-          const next = mergeItemPhotos(prev, itemId, newPhotos);
-          onChecklistUpdate?.(next);
-          return next;
-        });
-        advanceToNextItem(areaLen);
-      } catch (e) {
-        onMsg(e instanceof Error ? e.message : '업로드 실패');
-      } finally {
-        setUploading(false);
-        captureInFlightRef.current = false;
-      }
+
+      setPendingUploadCount((n) => n + 1);
+      void (async () => {
+        try {
+          const prepared = await prepareImageFileForUpload(file);
+          const newPhotos = await uploadTeamInspectionPhotos(token, inquiryId, itemId, phase, [prepared]);
+          setLocalChecklist((prev) => {
+            const next = replaceItemPhoto(prev, itemId, optimisticId, newPhotos);
+            onChecklistUpdate?.(next);
+            return next;
+          });
+        } catch (e) {
+          setLocalChecklist((prev) => {
+            const next = removeItemPhoto(prev, itemId, optimisticId);
+            onChecklistUpdate?.(next);
+            return next;
+          });
+          onMsg(e instanceof Error ? e.message : '업로드 실패');
+        } finally {
+          URL.revokeObjectURL(blobUrl);
+          setPendingUploadCount((n) => Math.max(0, n - 1));
+        }
+      })();
     },
     [
       advanceToNextItem,
@@ -482,32 +525,38 @@ export function TeamPreCleanWizard({
       onChecklistUpdate,
       onMsg,
       token,
-      uploading,
       phase,
     ],
   );
 
   const handleShutter = useCallback(async () => {
-    if (uploading || busy || !currentItem || captureInFlightRef.current) return;
+    if (busy || !currentItem || captureInFlightRef.current) return;
     if (cameraStatus === 'live') {
       captureInFlightRef.current = true;
+      setCapturing(true);
       try {
         const file = await captureFrame();
-        captureInFlightRef.current = false;
         await uploadAndAdvance(file);
       } catch (e) {
-        captureInFlightRef.current = false;
         onMsg(e instanceof Error ? e.message : '촬영 실패');
+      } finally {
+        captureInFlightRef.current = false;
+        setCapturing(false);
       }
       return;
     }
     onMsg(null);
     fileInputRef.current?.click();
-  }, [busy, cameraStatus, captureFrame, currentItem, onMsg, uploadAndAdvance, uploading]);
+  }, [busy, cameraStatus, captureFrame, currentItem, onMsg, uploadAndAdvance]);
 
   const handleCapture = async (files: FileList | null) => {
-    if (!files?.length || uploading) return;
-    await uploadAndAdvance(files[0]!);
+    if (!files?.length || captureInFlightRef.current) return;
+    captureInFlightRef.current = true;
+    try {
+      await uploadAndAdvance(files[0]!);
+    } finally {
+      captureInFlightRef.current = false;
+    }
   };
 
   const handleItemNa = async () => {
@@ -545,9 +594,9 @@ export function TeamPreCleanWizard({
   };
 
   const handleRetakePhoto = async (photoId: string, itemId: string) => {
-    if (uploading || busy) return;
+    if (busy || capturing || isPendingInspectionPhotoId(photoId)) return;
     if (!window.confirm('선택한 사진을 삭제하고 다시 촬영할까요?')) return;
-    setUploading(true);
+    setDeletingPhotoId(photoId);
     onMsg(null);
     try {
       await deleteTeamInspectionPhoto(token, inquiryId, itemId, photoId);
@@ -560,7 +609,7 @@ export function TeamPreCleanWizard({
     } catch (e) {
       onMsg(e instanceof Error ? e.message : '삭제 실패');
     } finally {
-      setUploading(false);
+      setDeletingPhotoId(null);
     }
   };
 
@@ -691,7 +740,7 @@ export function TeamPreCleanWizard({
               <button
                 type="button"
                 onClick={exitCapture}
-                disabled={busy || uploading}
+                disabled={busy || capturing}
                 className="pointer-events-auto flex h-11 min-w-[44px] shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-medium touch-manipulation disabled:opacity-50"
                 aria-label="구역 목록으로"
               >
@@ -710,12 +759,17 @@ export function TeamPreCleanWizard({
                   sessionStorage.removeItem(sessionKey(inquiryId, phase));
                   onClose?.();
                 }}
-                disabled={busy || uploading}
+                disabled={busy || capturing}
                 className="pointer-events-auto flex h-11 shrink-0 items-center justify-center rounded-full border border-white/25 bg-white/10 px-3 text-sm font-semibold touch-manipulation disabled:opacity-50"
               >
                 닫기
               </button>
             </div>
+            {pendingUploadCount > 0 ? (
+              <p className="pointer-events-none mx-auto mt-1 max-w-lg text-center text-[10px] text-sky-200/90">
+                백그라운드 저장 {pendingUploadCount}건 — 촬영은 계속할 수 있습니다
+              </p>
+            ) : null}
           </div>
 
           <div className="absolute inset-x-0 top-[4.25rem] z-10 px-4">
@@ -742,15 +796,6 @@ export function TeamPreCleanWizard({
             </div>
           </div>
 
-          {uploading && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/45 px-6 text-center">
-              <p className="rounded-full bg-black/70 px-4 py-2 text-sm font-medium">
-                {itemIndex + 1}/{captureItems.length} · 저장 중…
-              </p>
-              <p className="text-xs text-white/80">완료될 때까지 화면을 벗어나지 마세요.</p>
-            </div>
-          )}
-
           {!isBeforePhase && (
             <div className="pointer-events-auto absolute bottom-4 left-4 z-10">
               <p className="mb-1 text-[10px] font-semibold tracking-wide text-sky-200">청소 전 참고</p>
@@ -774,13 +819,82 @@ export function TeamPreCleanWizard({
               )}
             </div>
           )}
+
+          {isBeforePhase && areaBeforeEntries.length > 0 ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowCapturedPhotos((open) => !open)}
+                className="pointer-events-auto absolute bottom-4 right-3 z-10 flex min-h-9 items-center gap-1.5 rounded-full border border-white/20 bg-black/55 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm touch-manipulation active:scale-[0.98]"
+                aria-expanded={showCapturedPhotos}
+                aria-label={`촬영 목록 ${areaBeforeEntries.length}장`}
+              >
+                <span className="tabular-nums">
+                  {areaBeforeEntries.length}장 · {areaDoneCount}/{captureItems.length}
+                </span>
+                {pendingUploadCount > 0 ? (
+                  <span className="rounded-full bg-sky-500/90 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                    저장 {pendingUploadCount}
+                  </span>
+                ) : null}
+                <span className="text-white/70">{showCapturedPhotos ? '접기' : '목록'}</span>
+              </button>
+
+              {showCapturedPhotos ? (
+                <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 max-h-[38%] border-t border-white/15 bg-black/88 px-3 pb-3 pt-2 backdrop-blur-md">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-[10px] text-gray-300">
+                      등록 {areaBeforeEntries.length}장 · ☆ 오염 심함 표시
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowCapturedPhotos(false)}
+                      className="rounded-full px-2 py-1 text-[10px] font-semibold text-gray-300 touch-manipulation"
+                    >
+                      접기
+                    </button>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
+                    {areaBeforeEntries.map((entry, idx) => (
+                      <CapturePhotoThumb
+                        key={entry.photo.id}
+                        photo={entry.photo}
+                        idx={idx}
+                        gallerySlides={areaGallerySlides}
+                        disabled={busy || capturing || !!deletingPhotoId}
+                        pending={isPendingInspectionPhotoId(entry.photo.id)}
+                        caption={entry.itemLabel}
+                        flagDisabled={
+                          busy ||
+                          capturing ||
+                          isPendingInspectionPhotoId(entry.photo.id) ||
+                          flaggingPhotoId === entry.photo.id
+                        }
+                        onToggleFlag={() =>
+                          void handleTogglePhotoFlag(entry.itemId, entry.photo.id, !entry.photo.flagged)
+                        }
+                        onRetakeAtGalleryIndex={(galleryIdx) => {
+                          const target = areaBeforeEntries[galleryIdx];
+                          if (target) void handleRetakePhoto(target.photo.id, target.itemId);
+                        }}
+                        onLightboxClose={() => {
+                          refreshPreview();
+                          requestAnimationFrame(() => refreshPreview());
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </div>
 
         <div className="shrink-0 border-t border-white/10 bg-black/90 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
             <button
               type="button"
-              disabled={busy || uploading || itemIndex === 0}
+              disabled={busy || capturing || itemIndex === 0}
               onClick={() => setItemIndex((i) => Math.max(0, i - 1))}
               className="flex h-12 min-w-[3.5rem] flex-col items-center justify-center rounded-xl text-[11px] text-gray-300 touch-manipulation disabled:opacity-40"
             >
@@ -790,7 +904,7 @@ export function TeamPreCleanWizard({
 
             <button
               type="button"
-              disabled={uploading || busy || (cameraStatus === 'starting')}
+              disabled={capturing || busy || cameraStatus === 'starting'}
               onClick={() => void handleShutter()}
               className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full border-4 border-white bg-white/95 shadow-lg touch-manipulation active:scale-95 disabled:opacity-50"
               aria-label="촬영"
@@ -800,7 +914,7 @@ export function TeamPreCleanWizard({
 
             <button
               type="button"
-              disabled={busy || uploading}
+              disabled={busy || capturing}
               onClick={() => void handleItemNa()}
               className="flex h-12 min-w-[3.5rem] flex-col items-center justify-center rounded-xl text-[11px] text-amber-200 touch-manipulation disabled:opacity-50"
             >
@@ -809,40 +923,9 @@ export function TeamPreCleanWizard({
             </button>
           </div>
           <p className="mt-2 text-center text-[11px] text-gray-400">
-            셔터를 누르면 저장 후 다음 항목으로 자동 이동합니다
+            셔터를 누르면 바로 다음 항목으로 이동합니다
+            {isBeforePhase && areaBeforeEntries.length > 0 ? ' · 우하단에서 촬영 목록 확인' : ''}
           </p>
-
-          {isBeforePhase && areaBeforeEntries.length > 0 && (
-            <div className="mt-3 border-t border-white/10 pt-3">
-              <p className="mb-2 text-center text-[10px] text-gray-400">
-                등록 {areaBeforeEntries.length}장 · {areaDoneCount}/{captureItems.length} 완료 · ☆ 오염 심함 표시
-              </p>
-              <div className="mx-auto flex max-w-lg gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
-                {areaBeforeEntries.map((entry, idx) => (
-                  <CapturePhotoThumb
-                    key={entry.photo.id}
-                    photo={entry.photo}
-                    idx={idx}
-                    gallerySlides={areaGallerySlides}
-                    disabled={uploading || busy}
-                    caption={entry.itemLabel}
-                    flagDisabled={uploading || busy || flaggingPhotoId === entry.photo.id}
-                    onToggleFlag={() =>
-                      void handleTogglePhotoFlag(entry.itemId, entry.photo.id, !entry.photo.flagged)
-                    }
-                    onRetakeAtGalleryIndex={(galleryIdx) => {
-                      const target = areaBeforeEntries[galleryIdx];
-                      if (target) void handleRetakePhoto(target.photo.id, target.itemId);
-                    }}
-                    onLightboxClose={() => {
-                      refreshPreview();
-                      requestAnimationFrame(() => refreshPreview());
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
 
           <input
             ref={fileInputRef}
@@ -850,7 +933,7 @@ export function TeamPreCleanWizard({
             accept="image/*"
             capture="environment"
             className="hidden"
-            disabled={uploading}
+            disabled={capturing}
             onChange={(e) => {
               void handleCapture(e.target.files);
               e.target.value = '';
@@ -905,7 +988,7 @@ export function TeamPreCleanWizard({
                     <InspectionAreaCountButtons
                       area={area}
                       allAreas={areas}
-                      disabled={busy || uploading}
+                      disabled={busy || capturing}
                       onAdd={() => void handleAddAreaInstance(area)}
                       onRemove={() => void handleRemoveAreaInstance(area)}
                     />
@@ -973,7 +1056,7 @@ export function TeamPreCleanWizard({
                           area={area}
                           customerName={checklist.inquiryHeader?.customerName}
                           preferredDate={checklist.inquiryHeader?.preferredDate}
-                          disabled={busy || uploading}
+                          disabled={busy || capturing}
                           size="compact"
                           className="min-w-0 w-full"
                         />

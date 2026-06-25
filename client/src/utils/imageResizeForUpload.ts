@@ -2,6 +2,9 @@
  * 업로드용 — 긴 변 기준 리사이즈 + JPEG 압축 (multer 8MB·네트워크 부담 완화)
  */
 export const UPLOAD_MAX_EDGE_PX = 1920;
+/** 인라인 카메라 — 빠른 인코딩·업로드용 (현장 촬영) */
+export const INLINE_CAPTURE_MAX_EDGE_PX = 1280;
+const INLINE_CAPTURE_JPEG_QUALITY = 0.82;
 const TARGET_MAX_BYTES = 1.75 * 1024 * 1024;
 const MIN_QUALITY = 0.52;
 const QUALITY_STEP = 0.07;
@@ -50,7 +53,16 @@ function canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number): Promise<B
   });
 }
 
-async function encodeCanvasToUploadFile(canvas: HTMLCanvasElement, baseName: string): Promise<File> {
+async function encodeCanvasToUploadFile(
+  canvas: HTMLCanvasElement,
+  baseName: string,
+  opts?: { fast?: boolean },
+): Promise<File> {
+  if (opts?.fast) {
+    const blob = await canvasToJpegBlob(canvas, INLINE_CAPTURE_JPEG_QUALITY);
+    const base = baseName.replace(/\.[^.]+$/, '') || 'image';
+    return new File([blob], `${base}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+  }
   let quality = 0.88;
   let blob: Blob | null = null;
   for (let i = 0; i < 12; i++) {
@@ -82,8 +94,9 @@ export async function encodeVideoFrameToUploadFile(
   let w = sourceWidth;
   let h = sourceHeight;
   const maxEdge = Math.max(w, h);
-  if (maxEdge > UPLOAD_MAX_EDGE_PX) {
-    const scale = UPLOAD_MAX_EDGE_PX / maxEdge;
+  const capEdge = UPLOAD_MAX_EDGE_PX;
+  if (maxEdge > capEdge) {
+    const scale = capEdge / maxEdge;
     w = Math.round(w * scale);
     h = Math.round(h * scale);
   }
@@ -94,6 +107,35 @@ export async function encodeVideoFrameToUploadFile(
   if (!ctx) throw new Error('촬영에 실패했습니다.');
   ctx.drawImage(source, 0, 0, w, h);
   return encodeCanvasToUploadFile(canvas, fileBaseName);
+}
+
+/**
+ * 인라인 카메라 촬영 — 해상도·단일 패스 JPEG로 인코딩 속도 우선
+ */
+export async function encodeInlineCameraFrameToUploadFile(
+  source: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  fileBaseName = `preclean-${Date.now()}`,
+): Promise<File> {
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    throw new Error('카메라 준비 중입니다. 잠시 후 다시 시도해 주세요.');
+  }
+  let w = sourceWidth;
+  let h = sourceHeight;
+  const maxEdge = Math.max(w, h);
+  if (maxEdge > INLINE_CAPTURE_MAX_EDGE_PX) {
+    const scale = INLINE_CAPTURE_MAX_EDGE_PX / maxEdge;
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('촬영에 실패했습니다.');
+  ctx.drawImage(source, 0, 0, w, h);
+  return encodeCanvasToUploadFile(canvas, fileBaseName, { fast: true });
 }
 
 /**

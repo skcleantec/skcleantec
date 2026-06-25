@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
-import type { InspectionChecklistDto } from '../../api/inquiryInspection';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import type { InspectionAreaPhoto, InspectionChecklistDto } from '../../api/inquiryInspection';
 import {
   deleteTeamInspectionPhoto,
   patchTeamInspectionPhotoFlag,
@@ -18,8 +19,9 @@ import {
 } from '../../utils/inspectionFlaggedPhotos';
 import { InspectionPhotoFlagButton } from './InspectionPhotoFlagButton';
 import { ImageThumbLightbox, type ImageGallerySlide } from '../ui/ImageThumbLightbox';
-import { prepareImageFilesForUpload } from '../../utils/imageResizeForUpload';
-import { mergeItemPhotos } from '../../utils/inspectionChecklistPhotoMerge';
+import { useInlineCamera } from '../../hooks/useInlineCamera';
+import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
+import { mergeItemPhotos, removeItemPhoto, replaceItemPhoto } from '../../utils/inspectionChecklistPhotoMerge';
 
 function sanitizeFilename(label: string, index: number): string {
   const part = label.trim().replace(/[^\w\uAC00-\uD7A3.-]+/g, '_').slice(0, 16);
@@ -69,10 +71,31 @@ export function ContaminationPhotosSection({
   onMsg?: (msg: string | null) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const captureInFlightRef = useRef(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareProgress, setShareProgress] = useState<{ done: number; total: number } | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [pendingUploadCount, setPendingUploadCount] = useState(0);
+  const [capturing, setCapturing] = useState(false);
+
+  const { videoRef, status: cameraStatus, error: cameraError, captureFrame, refreshPreview } =
+    useInlineCamera(captureOpen && !readOnly);
+
+  useEffect(() => {
+    if (!captureOpen || readOnly) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [captureOpen, readOnly]);
+
+  useEffect(() => {
+    if (!captureOpen) return;
+    refreshPreview();
+    requestAnimationFrame(() => refreshPreview());
+  }, [captureOpen, refreshPreview]);
 
   const flaggedEntries = useMemo(() => collectFlaggedBeforePhotos(checklist), [checklist]);
   const directEntries = useMemo(() => collectContaminationDirectPhotos(checklist), [checklist]);
@@ -120,27 +143,89 @@ export function ContaminationPhotosSection({
     }
   };
 
+  const checklistRef = useRef(checklist);
+  checklistRef.current = checklist;
+
+  const applyChecklist = useCallback(
+    (updater: (prev: InspectionChecklistDto) => InspectionChecklistDto) => {
+      const next = updater(checklistRef.current);
+      checklistRef.current = next;
+      onChecklistUpdate(next);
+    },
+    [onChecklistUpdate],
+  );
+
+  const uploadFiles = useCallback(
+    async (files: File[]) => {
+      if (!files.length || !uploadTarget || readOnly || disabled) return;
+      for (const file of files) {
+        const optimisticId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const blobUrl = URL.createObjectURL(file);
+        const optimisticPhoto: InspectionAreaPhoto = {
+          id: optimisticId,
+          phase: 'BEFORE',
+          secureUrl: blobUrl,
+          width: null,
+          height: null,
+          flagged: false,
+          uploadedBy: { id: '', name: '' },
+          createdAt: new Date().toISOString(),
+        };
+        const itemId = uploadTarget.itemId;
+
+        applyChecklist((prev) => mergeItemPhotos(prev, itemId, [optimisticPhoto]));
+        onMsg?.(null);
+
+        setPendingUploadCount((n) => n + 1);
+        void (async () => {
+          try {
+            const prepared = await prepareImageFileForUpload(file);
+            const created = await uploadTeamInspectionPhotos(token, inquiryId, itemId, 'BEFORE', [prepared]);
+            applyChecklist((prev) => replaceItemPhoto(prev, itemId, optimisticId, created));
+            onMsg?.(`오염 사진 ${created.length}장을 추가했습니다.`);
+            refreshPreview();
+          } catch (e) {
+            applyChecklist((prev) => removeItemPhoto(prev, itemId, optimisticId));
+            onMsg?.(e instanceof Error ? e.message : '업로드 실패');
+          } finally {
+            URL.revokeObjectURL(blobUrl);
+            setPendingUploadCount((n) => Math.max(0, n - 1));
+          }
+        })();
+      }
+    },
+    [applyChecklist, disabled, inquiryId, onMsg, readOnly, refreshPreview, token, uploadTarget],
+  );
+
   const handleUpload = async (files: FileList | null) => {
-    if (!files?.length || !uploadTarget || readOnly || disabled || uploading) return;
-    setUploading(true);
-    onMsg?.(null);
-    try {
-      const prepared = await prepareImageFilesForUpload(Array.from(files));
-      const created = await uploadTeamInspectionPhotos(
-        token,
-        inquiryId,
-        uploadTarget.itemId,
-        'BEFORE',
-        prepared,
-      );
-      onChecklistUpdate(mergeItemPhotos(checklist, uploadTarget.itemId, created));
-      onMsg?.(`오염 사진 ${created.length}장을 추가했습니다.`);
-    } catch (e) {
-      onMsg?.(e instanceof Error ? e.message : '업로드 실패');
-    } finally {
-      setUploading(false);
-    }
+    if (!files?.length) return;
+    await uploadFiles(Array.from(files));
   };
+
+  const handleShutter = useCallback(async () => {
+    if (disabled || captureInFlightRef.current || !uploadTarget) return;
+    if (cameraStatus === 'live') {
+      captureInFlightRef.current = true;
+      setCapturing(true);
+      try {
+        const file = await captureFrame();
+        await uploadFiles([file]);
+      } catch (e) {
+        onMsg?.(e instanceof Error ? e.message : '촬영 실패');
+      } finally {
+        captureInFlightRef.current = false;
+        setCapturing(false);
+      }
+      return;
+    }
+    onMsg?.(null);
+    fileInputRef.current?.click();
+  }, [cameraStatus, captureFrame, disabled, onMsg, uploadFiles, uploadTarget]);
+
+  const closeCapture = useCallback(() => {
+    if (capturing) return;
+    setCaptureOpen(false);
+  }, [capturing]);
 
   const handleShare = async () => {
     if (!count || sharing || disabled) return;
@@ -184,7 +269,110 @@ export function ContaminationPhotosSection({
         ? '사진 준비 중'
         : `오염 사진 ${count}장 전달`;
 
+  let captureOverlay: ReactNode = null;
+  if (captureOpen && !readOnly && uploadTarget) {
+    captureOverlay = (
+      <div className="fixed inset-0 z-[200] flex flex-col bg-black text-white pt-[env(safe-area-inset-top)]">
+        <div className="relative min-h-0 flex-1">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className={`absolute inset-0 h-full w-full object-cover ${
+              cameraStatus === 'live' ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+          {cameraStatus !== 'live' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-950 px-6 text-center">
+              <p className="text-sm text-gray-300">
+                {cameraStatus === 'starting'
+                  ? '카메라를 여는 중…'
+                  : cameraError ?? '카메라를 사용할 수 없습니다. 아래 촬영 버튼으로 갤러리·카메라 앱을 이용해 주세요.'}
+              </p>
+            </div>
+          )}
+
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/75 via-transparent to-black/80" />
+
+          <div className="absolute inset-x-0 top-0 z-10 border-b border-white/10 bg-black/40 px-3 py-2.5 backdrop-blur-sm">
+            <div className="mx-auto flex max-w-lg items-center gap-2">
+              <button
+                type="button"
+                onClick={closeCapture}
+                disabled={capturing}
+                className="pointer-events-auto flex h-11 min-w-[44px] shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-medium touch-manipulation disabled:opacity-50"
+                aria-label="닫기"
+              >
+                ←
+              </button>
+              <div className="min-w-0 flex-1 text-center">
+                <p className="text-xs text-amber-200/90">오염사진</p>
+                <p className="truncate text-base font-bold">추가 오염 촬영</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCapture}
+                disabled={capturing}
+                className="pointer-events-auto flex h-11 shrink-0 items-center justify-center rounded-full border border-white/25 bg-white/10 px-3 text-sm font-semibold touch-manipulation disabled:opacity-50"
+              >
+                닫기
+              </button>
+            </div>
+            {pendingUploadCount > 0 ? (
+              <p className="pointer-events-none mx-auto mt-1 max-w-lg text-center text-[10px] text-sky-200/90">
+                백그라운드 저장 {pendingUploadCount}건
+              </p>
+            ) : null}
+          </div>
+
+          <div className="absolute inset-x-0 top-[4.25rem] z-10 px-4">
+            <div className="pointer-events-none mx-auto max-w-lg rounded-xl border border-amber-400/40 bg-black/55 px-4 py-3 backdrop-blur-md">
+              <p className="text-[11px] font-bold tracking-wide text-amber-300">촬영 가이드</p>
+              <p className="mt-1.5 text-sm font-medium leading-snug text-white">
+                오염·손상이 심한 부분을 가까이에서 선명하게 촬영해 주세요. 여러 장 연속 촬영할 수 있습니다.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-white/10 bg-black/90 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <div className="mx-auto flex max-w-lg items-center justify-center">
+            <button
+              type="button"
+              disabled={capturing || disabled || cameraStatus === 'starting'}
+              onClick={() => void handleShutter()}
+              className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full border-4 border-white bg-white/95 shadow-lg touch-manipulation active:scale-95 disabled:opacity-50"
+              aria-label="촬영"
+            >
+              <span className="block h-[3.25rem] w-[3.25rem] rounded-full bg-amber-500" />
+            </button>
+          </div>
+          <p className="mt-2 text-center text-[11px] text-gray-400">
+            셔터를 누르면 바로 저장됩니다 · 추가 {directEntries.length}장
+            {pendingUploadCount > 0 ? ` · 업로드 ${pendingUploadCount}건` : ''}
+          </p>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            disabled={capturing}
+            onChange={(e) => {
+              void handleUpload(e.target.files);
+              e.target.value = '';
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
+    <>
+      {captureOverlay ? createPortal(captureOverlay, document.body) : null}
     <section
       className={`rounded-xl border px-3 py-3 ${
         count > 0 ? 'border-amber-300 bg-amber-50/80' : 'border-gray-200 bg-gray-50/80'
@@ -253,24 +441,13 @@ export function ContaminationPhotosSection({
 
       {!readOnly && uploadTarget ? (
         <div className="mt-3">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              void handleUpload(e.target.files);
-              e.target.value = '';
-            }}
-          />
           <button
             type="button"
-            disabled={disabled || uploading}
-            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || capturing || pendingUploadCount > 0}
+            onClick={() => setCaptureOpen(true)}
             className="flex min-h-[44px] w-full items-center justify-center rounded-lg border border-dashed border-amber-400 bg-white px-3 py-2 text-fluid-xs font-semibold text-amber-950 touch-manipulation disabled:opacity-50"
           >
-            {uploading ? '업로드 중…' : '+ 오염 추가 촬영'}
+            {capturing ? '촬영 중…' : pendingUploadCount > 0 ? `저장 중 ${pendingUploadCount}건…` : '+ 오염 추가 촬영'}
           </button>
         </div>
       ) : null}
@@ -322,6 +499,7 @@ export function ContaminationPhotosSection({
         </div>
       ) : null}
     </section>
+    </>
   );
 }
 

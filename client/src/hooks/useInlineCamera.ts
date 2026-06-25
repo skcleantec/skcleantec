@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { encodeVideoFrameToUploadFile } from '../utils/imageResizeForUpload';
+import { encodeInlineCameraFrameToUploadFile } from '../utils/imageResizeForUpload';
 
 export type InlineCameraStatus = 'idle' | 'starting' | 'live' | 'error';
 
@@ -116,7 +116,7 @@ export function useInlineCamera(enabled: boolean) {
     if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
       throw new Error('카메라 준비 중입니다. 잠시 후 다시 시도해 주세요.');
     }
-    return encodeVideoFrameToUploadFile(
+    return encodeInlineCameraFrameToUploadFile(
       video,
       video.videoWidth,
       video.videoHeight,
