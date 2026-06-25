@@ -315,6 +315,7 @@ export const teamMessages = {
 
   'team.dashboard.areaUnit': { ko: '평'},
   'team.dashboard.summaryTotal': { ko: '전체'},
+  'team.dashboard.summaryToday': { ko: '오늘'},
   'team.dashboard.itemsParen': { ko: '({count}건)'},
   'team.dashboard.happyPendingIncompleteCases': {
     ko: '마감 전 미완 {count}건',

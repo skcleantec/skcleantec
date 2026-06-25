@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   completeTeamHappyCall,
@@ -27,6 +27,44 @@ import {
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
+
+/** 대시보드 상단 — 모바일 4열×2행 고정 요약 */
+const DASHBOARD_SUMMARY_KEYS = [
+  'total',
+  'today',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'RECEIVED',
+  'ON_HOLD',
+  'CANCELLED',
+] as const;
+
+type DashboardSummaryKey = (typeof DASHBOARD_SUMMARY_KEYS)[number];
+
+function TeamDashboardSummaryTile({
+  count,
+  label,
+  accent,
+}: {
+  count: number;
+  label: ReactNode;
+  accent?: 'blue' | 'slate';
+}) {
+  const accentNum =
+    accent === 'blue' ? 'text-blue-700' : accent === 'slate' ? 'text-slate-900' : 'text-slate-900';
+  return (
+    <div
+      className="flex min-w-0 flex-col items-center justify-center rounded-lg border border-slate-200/90 bg-white px-1 py-2 shadow-sm sm:rounded-xl sm:px-2 sm:py-2.5"
+      title={typeof label === 'string' ? label : undefined}
+    >
+      <div className={`text-base font-bold tabular-nums leading-none sm:text-lg ${accentNum}`}>{count}</div>
+      <div className="mt-1 w-full truncate text-center text-[10px] font-medium leading-tight text-slate-500 sm:text-fluid-2xs">
+        {label}
+      </div>
+    </div>
+  );
+}
 
 export function TeamDashboardPage() {
   const token = getTeamToken();
@@ -100,6 +138,18 @@ export function TeamDashboardPage() {
     return acc;
   }, {});
 
+  const summaryTiles = useMemo(() => {
+    const countFor = (key: DashboardSummaryKey): number => {
+      if (key === 'total') return items.length;
+      if (key === 'today') return todayItems.length;
+      return byStatus[key] ?? 0;
+    };
+    return DASHBOARD_SUMMARY_KEYS.map((key) => ({
+      key,
+      count: countFor(key),
+    }));
+  }, [items.length, todayItems.length, byStatus]);
+
   if (loading) {
     return (
       <div className="py-12 text-center text-gray-500 text-fluid-sm">
@@ -143,19 +193,40 @@ export function TeamDashboardPage() {
           </div>
         </div>
       )}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-          <div className="text-2xl font-bold text-gray-900">{items.length}</div>
-          <div className="text-fluid-sm text-gray-500">
-            <TeamBiLine id="team.dashboard.summaryTotal" koClassName="text-fluid-sm text-gray-500" />
-          </div>
-        </div>
-        {Object.entries(byStatus).map(([status, count]) => (
-          <div key={status} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-            <div className="text-2xl font-bold text-gray-900">{count}</div>
-            <div className="text-fluid-sm text-gray-500">{STATUS_LABELS[status] ?? status}</div>
-          </div>
-        ))}
+      <section className="grid grid-cols-4 gap-1.5 sm:gap-2">
+        {summaryTiles.map(({ key, count }) => {
+          if (key === 'total') {
+            return (
+              <TeamDashboardSummaryTile
+                key={key}
+                count={count}
+                accent="slate"
+                label={
+                  <TeamBiLine id="team.dashboard.summaryTotal" koClassName="text-[10px] sm:text-fluid-2xs" />
+                }
+              />
+            );
+          }
+          if (key === 'today') {
+            return (
+              <TeamDashboardSummaryTile
+                key={key}
+                count={count}
+                accent="blue"
+                label={
+                  <TeamBiLine id="team.dashboard.summaryToday" koClassName="text-[10px] sm:text-fluid-2xs" />
+                }
+              />
+            );
+          }
+          return (
+            <TeamDashboardSummaryTile
+              key={key}
+              count={count}
+              label={STATUS_LABELS[key] ?? key}
+            />
+          );
+        })}
       </section>
 
       <section>
