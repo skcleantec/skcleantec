@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import type { HelpRole } from '../../types/helpContent';
 import {
   fetchTeamGuideToc,
-  parseTeamGuideChapter,
+  resolveTeamGuideChapter,
   teamGuideIframeSrc,
   TEAM_GUIDE_HTML_URL,
   type TeamGuideChapter,
@@ -18,9 +18,11 @@ type TeamGuideHelpLayoutProps = {
 export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHelpLayoutProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const chapterParam = searchParams.get('chapter');
-  const activeChapter = useMemo(() => parseTeamGuideChapter(chapterParam), [chapterParam]);
-
   const [chapters, setChapters] = useState<TeamGuideChapter[]>([]);
+  const activeChapter = useMemo(
+    () => resolveTeamGuideChapter(chapterParam, chapters),
+    [chapterParam, chapters]
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);

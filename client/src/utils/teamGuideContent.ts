@@ -8,12 +8,23 @@ export type TeamGuideChapter = {
 export const TEAM_GUIDE_HTML_URL = '/help/team-guide.html';
 export const TEAM_GUIDE_TOC_URL = '/help/team-guide.toc.json';
 
-const CHAPTER_ID_PATTERN = /^(0[1-9]|10)$/;
+const CHAPTER_ID_PATTERN = /^\d{2}$/;
 
+/** URL `chapter` 쿼리 — 2자리 숫자(01, 02 …). 실제 존재 여부는 목차 JSON과 대조한다. */
 export function parseTeamGuideChapter(raw: string | null): string | null {
   const trimmed = raw?.trim() ?? '';
-  if (!trimmed) return null;
-  return CHAPTER_ID_PATTERN.test(trimmed) ? trimmed : null;
+  if (!trimmed || !CHAPTER_ID_PATTERN.test(trimmed)) return null;
+  return trimmed;
+}
+
+export function resolveTeamGuideChapter(
+  raw: string | null,
+  chapters: TeamGuideChapter[]
+): string | null {
+  const parsed = parseTeamGuideChapter(raw);
+  if (!parsed) return null;
+  if (chapters.length === 0) return parsed;
+  return chapters.some((c) => c.id === parsed) ? parsed : null;
 }
 
 export function teamGuideIframeSrc(chapterId: string | null): string {
