@@ -581,6 +581,78 @@ export async function getEContractSubmissionDetail(
   return sub;
 }
 
+/** 체결본 셀카·서명 교체용 Cloudinary 업로드 */
+export async function uploadEContractSubmissionMedia(
+  token: string,
+  submissionId: string,
+  blob: Blob,
+  filename: string,
+): Promise<{ publicId: string; secureUrl: string }> {
+  const signRes = await fetch(
+    `${API}/admin/e-contracts/submissions/${encodeURIComponent(submissionId)}/upload-sign`,
+    {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify({}),
+    },
+  );
+  const signJson = await signRes.json().catch(() => ({}));
+  if (!signRes.ok) throw new Error((signJson as { error?: string }).error || '업로드 준비에 실패했습니다.');
+  const m = signJson as {
+    cloudName: string;
+    apiKey: string;
+    timestamp: number;
+    signature: string;
+    folder: string;
+  };
+
+  const fd = new FormData();
+  fd.append('file', blob, filename);
+  fd.append('api_key', m.apiKey);
+  fd.append('timestamp', String(m.timestamp));
+  fd.append('signature', m.signature);
+  fd.append('folder', m.folder);
+
+  const upl = await fetch(`https://api.cloudinary.com/v1_1/${m.cloudName}/image/upload`, {
+    method: 'POST',
+    body: fd,
+  });
+  const uj = await upl.json().catch(() => ({}));
+  if (!upl.ok) {
+    throw new Error((uj as { error?: { message?: string } }).error?.message || '파일 업로드에 실패했습니다.');
+  }
+  const publicId = typeof (uj as { public_id?: string }).public_id === 'string' ? (uj as { public_id: string }).public_id : '';
+  const secureUrl =
+    typeof (uj as { secure_url?: string }).secure_url === 'string' ? (uj as { secure_url: string }).secure_url : '';
+  if (!publicId.startsWith('e_contract/') || !secureUrl) {
+    throw new Error('업로드 결과가 규격에 맞지 않습니다.');
+  }
+  return { publicId, secureUrl };
+}
+
+export async function patchEContractSubmissionMedia(
+  token: string,
+  submissionId: string,
+  body: {
+    password: string;
+    selfiePublicId?: string;
+    selfieUrl?: string;
+    signaturePublicId?: string;
+    signatureUrl?: string;
+  },
+): Promise<EContractSubmissionDetailDto> {
+  const res = await fetch(`${API}/admin/e-contracts/submissions/${encodeURIComponent(submissionId)}/media`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as { error?: string }).error || '저장하지 못했습니다.');
+  const sub = (data as { submission?: EContractSubmissionDetailDto }).submission;
+  if (!sub || typeof sub.bodyHtml !== 'string') throw new Error('응답이 올바르지 않습니다.');
+  return sub;
+}
+
 /** 발급·체결 링크 URL (팀장·마케터 공통 — 수신자 전용 포털 없음) */
 export function buildEContractPublicSignUrl(token: string): string {
   const path = `/e-contract/sign/${encodeURIComponent(token)}`;

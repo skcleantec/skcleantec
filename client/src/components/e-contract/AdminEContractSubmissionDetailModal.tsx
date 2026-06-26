@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getEContractSubmissionDetail, type EContractSubmissionDetailDto } from '../../api/adminEContract';
+import {
+  getEContractSubmissionDetail,
+  patchEContractSubmissionMedia,
+  uploadEContractSubmissionMedia,
+  type EContractSubmissionDetailDto,
+} from '../../api/adminEContract';
+import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { eContractRecipientRoleLabel } from '../../utils/eContractDisplay';
 import { EContractPagedIframeReader } from './EContractPagedIframeReader';
+import { SignaturePad } from './SignaturePad';
 import { downloadPagedIframeAsPdf, sanitizeEContractPdfFilenameBase } from './downloadPagedIframePdf';
 
 type Props = {
@@ -21,6 +28,12 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
   const [pagedReady, setPagedReady] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const selfieInputRef = useRef<HTMLInputElement | null>(null);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [mediaMsg, setMediaMsg] = useState<string | null>(null);
+  const [pendingSelfie, setPendingSelfie] = useState<{ publicId: string; secureUrl: string } | null>(null);
+  const [pendingSignature, setPendingSignature] = useState<{ publicId: string; secureUrl: string } | null>(null);
+  const [mediaConfirmOpen, setMediaConfirmOpen] = useState(false);
 
   const recipientDisplayName =
     detail?.recipientName?.trim() ||
@@ -47,6 +60,11 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
       setReaderExpanded(false);
       setPagedReady(false);
       setPdfBusy(false);
+      setMediaBusy(false);
+      setMediaMsg(null);
+      setPendingSelfie(null);
+      setPendingSignature(null);
+      setMediaConfirmOpen(false);
     }
   }, [open]);
 
@@ -89,6 +107,70 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
       window.alert(e instanceof Error ? e.message : 'PDF를 저장하지 못했습니다.');
     } finally {
       setPdfBusy(false);
+    }
+  }
+
+  async function onSelfieReplaceSelected(files: FileList | null) {
+    if (!token || !submissionId || !files?.[0]) return;
+    const f = files[0];
+    setMediaBusy(true);
+    setMediaMsg(null);
+    try {
+      const up = await uploadEContractSubmissionMedia(token, submissionId, f, f.name || 'selfie.jpg');
+      setPendingSelfie(up);
+      setMediaMsg('새 셀카를 올렸습니다. 아래 「교체 저장」을 눌러 반영해 주세요.');
+    } catch (e) {
+      setMediaMsg(e instanceof Error ? e.message : '셀카 업로드에 실패했습니다.');
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
+  async function onSignatureReplaceSaved(blob: Blob) {
+    if (!token || !submissionId) return;
+    setMediaBusy(true);
+    setMediaMsg(null);
+    try {
+      const up = await uploadEContractSubmissionMedia(
+        token,
+        submissionId,
+        blob,
+        `signature_${Date.now()}.png`,
+      );
+      setPendingSignature(up);
+      setMediaMsg('새 서명을 올렸습니다. 아래 「교체 저장」을 눌러 반영해 주세요.');
+    } catch (e) {
+      setMediaMsg(e instanceof Error ? e.message : '서명 업로드에 실패했습니다.');
+      throw e;
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
+  async function confirmMediaReplace(password: string) {
+    if (!token || !submissionId) return;
+    if (!pendingSelfie && !pendingSignature) {
+      throw new Error('교체할 셀카 또는 서명을 먼저 선택해 주세요.');
+    }
+    setMediaBusy(true);
+    setMediaMsg(null);
+    try {
+      const updated = await patchEContractSubmissionMedia(token, submissionId, {
+        password,
+        ...(pendingSelfie
+          ? { selfiePublicId: pendingSelfie.publicId, selfieUrl: pendingSelfie.secureUrl }
+          : {}),
+        ...(pendingSignature
+          ? { signaturePublicId: pendingSignature.publicId, signatureUrl: pendingSignature.secureUrl }
+          : {}),
+      });
+      setDetail(updated);
+      setPagedReady(false);
+      setPendingSelfie(null);
+      setPendingSignature(null);
+      setMediaMsg('셀카·서명을 교체했습니다. PDF는 다시 저장해 주세요.');
+    } finally {
+      setMediaBusy(false);
     }
   }
 
@@ -354,6 +436,83 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                         </div>
                       </div>
                     )}
+
+                    {token ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3">
+                        <div className="text-fluid-xs font-semibold text-amber-950">셀카·서명 교체 (관리자)</div>
+                        <p className="mt-1 text-fluid-2xs text-amber-900/90 leading-snug">
+                          체결 후 잘못 올린 본인확인 셀카·서명만 교체합니다. 본인 비밀번호 확인 후 저장되며, 서명 교체
+                          시 PDF·최종본 부록의 (을) 서명도 함께 갱신됩니다.
+                        </p>
+
+                        <div className="mt-3 space-y-4">
+                          <div>
+                            <div className="text-fluid-2xs font-medium text-gray-800">셀카</div>
+                            <input
+                              ref={selfieInputRef}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="hidden"
+                              onChange={(ev) => void onSelfieReplaceSelected(ev.target.files)}
+                            />
+                            <button
+                              type="button"
+                              disabled={mediaBusy}
+                              onClick={() => selfieInputRef.current?.click()}
+                              className="mt-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-fluid-2xs font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              새 셀카 선택
+                            </button>
+                            {(pendingSelfie?.secureUrl || detail.selfieUrl) ? (
+                              <div className="mt-2">
+                                <img
+                                  src={pendingSelfie?.secureUrl ?? detail.selfieUrl ?? ''}
+                                  alt="셀카 미리보기"
+                                  className="max-h-32 w-auto rounded border border-gray-200 object-contain"
+                                />
+                                {pendingSelfie ? (
+                                  <p className="mt-1 text-fluid-2xs text-amber-800">(교체 대기 중)</p>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div>
+                            <div className="text-fluid-2xs font-medium text-gray-800">서명</div>
+                            <SignaturePad
+                              busy={mediaBusy}
+                              onSave={onSignatureReplaceSaved}
+                              onClear={() => setPendingSignature(null)}
+                            />
+                            {(pendingSignature?.secureUrl || detail.signatureUrl) ? (
+                              <div className="mt-2">
+                                <img
+                                  src={pendingSignature?.secureUrl ?? detail.signatureUrl ?? ''}
+                                  alt="서명 미리보기"
+                                  className="max-h-20 w-auto rounded border border-gray-200 bg-white p-1 object-contain"
+                                />
+                                {pendingSignature ? (
+                                  <p className="mt-1 text-fluid-2xs text-amber-800">(교체 대기 중)</p>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {mediaMsg ? <p className="mt-2 text-fluid-2xs text-gray-700">{mediaMsg}</p> : null}
+
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            disabled={mediaBusy || (!pendingSelfie && !pendingSignature)}
+                            onClick={() => setMediaConfirmOpen(true)}
+                            className="rounded-md border border-slate-800 bg-slate-900 px-3 py-1.5 text-fluid-2xs font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            교체 저장
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </details>
               </div>
@@ -409,6 +568,20 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
           </div>
         </div>
       ) : null}
+
+      <ConfirmPasswordModal
+        open={mediaConfirmOpen}
+        title="셀카·서명 교체"
+        description={
+          <p className="text-fluid-2xs text-gray-600">
+            체결 기록의 본인확인 이미지를 교체합니다. 되돌릴 수 없으니 내용을 확인한 뒤 진행해 주세요.
+          </p>
+        }
+        confirmLabel="교체 저장"
+        zIndexClassName="z-[95]"
+        onClose={() => setMediaConfirmOpen(false)}
+        onConfirm={confirmMediaReplace}
+      />
     </>
   );
 }

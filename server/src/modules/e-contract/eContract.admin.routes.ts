@@ -43,6 +43,10 @@ import {
   previewBodyWithIssuerProfile,
 } from './eContractIssuer.profile.service.js';
 import { submissionMergedHtmlToDocxBuffer } from './eContractSubmissionDocx.js';
+import {
+  patchSubmissionMediaForAdmin,
+  submissionMediaUploadFolder,
+} from './eContractSubmissionMedia.service.js';
 import eContractFieldDefinitionRoutes from './eContractFieldDefinition.routes.js';
 
 const router = Router();
@@ -615,6 +619,115 @@ router.get('/submissions/:submissionId', async (req, res) => {
     }
     console.error('[e-contract] submission detail', e);
     res.status(500).json({ error: '불러오지 못했습니다.' });
+  }
+});
+
+router.post('/submissions/:submissionId/upload-sign', async (req, res) => {
+  try {
+    if (!isCloudinaryConfigured()) {
+      res.status(503).json({ error: '이미지 저장소가 준비되지 않았습니다.' });
+      return;
+    }
+    const tid = reqTenantId(req);
+    const submission = await prisma.eContractSubmission.findFirst({
+      where: { id: req.params.submissionId, issuance: { definition: { tenantId: tid } } },
+      select: { id: true, issuanceId: true },
+    });
+    if (!submission) {
+      res.status(404).json({ error: '체결 기록을 찾을 수 없습니다.' });
+      return;
+    }
+
+    const folder = submissionMediaUploadFolder(submission.issuanceId);
+    const ts = Math.round(Date.now() / 1000);
+    const paramsToSign: Record<string, string | number> = { timestamp: ts, folder };
+
+    const cfg = cloudinary.config();
+    if (!cfg.api_secret) {
+      res.status(503).json({ error: '저장 설정이 불완전합니다.' });
+      return;
+    }
+    const signature = cloudinary.utils.api_sign_request(paramsToSign, cfg.api_secret);
+
+    res.json({
+      cloudName: cfg.cloud_name,
+      apiKey: cfg.api_key,
+      timestamp: ts,
+      signature,
+      folder,
+    });
+  } catch (e) {
+    console.error('[e-contract] submission media upload-sign', e);
+    res.status(500).json({ error: '업로드 서명에 실패했습니다.' });
+  }
+});
+
+router.patch('/submissions/:submissionId/media', async (req, res) => {
+  try {
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!password) {
+      res.status(400).json({ error: '본인 비밀번호를 입력해 주세요.' });
+      return;
+    }
+    const uid = actor(req).userId;
+    const tid = reqTenantId(req);
+    const dbUser = await prisma.user.findFirst({ where: { id: uid, tenantId: tid } });
+    if (!dbUser?.passwordHash) {
+      res.status(403).json({ error: '비밀번호 확인에 실패했습니다.' });
+      return;
+    }
+    const ok = await bcrypt.compare(password, dbUser.passwordHash);
+    if (!ok) {
+      res.status(403).json({ error: '비밀번호가 일치하지 않습니다.' });
+      return;
+    }
+
+    const b = req.body ?? {};
+    const patchSelfie = 'selfiePublicId' in b || 'selfieUrl' in b;
+    const patchSignature = 'signaturePublicId' in b || 'signatureUrl' in b;
+    if (!patchSelfie && !patchSignature) {
+      res.status(400).json({ error: '교체할 셀카 또는 서명을 선택해 주세요.' });
+      return;
+    }
+
+    await patchSubmissionMediaForAdmin(tid, req.params.submissionId, {
+      ...(patchSelfie
+        ? {
+            selfiePublicId: typeof b.selfiePublicId === 'string' ? b.selfiePublicId : null,
+            selfieUrl: typeof b.selfieUrl === 'string' ? b.selfieUrl : null,
+          }
+        : {}),
+      ...(patchSignature
+        ? {
+            signaturePublicId: typeof b.signaturePublicId === 'string' ? b.signaturePublicId : null,
+            signatureUrl: typeof b.signatureUrl === 'string' ? b.signatureUrl : null,
+          }
+        : {}),
+    });
+
+    const detail = await getSubmissionDetailForAdmin(tid, req.params.submissionId);
+    res.json({ submission: detail });
+  } catch (e: unknown) {
+    const code = (e as { code?: string })?.code;
+    if (code === 'not_found') {
+      res.status(404).json({ error: '체결 기록을 찾을 수 없습니다.' });
+      return;
+    }
+    if (code === 'bad_request') {
+      const m = e instanceof Error ? e.message : '';
+      const msg =
+        m === 'selfie_bad'
+          ? '셀카 업로드 정보가 올바르지 않습니다.'
+          : m === 'signature_bad'
+            ? '서명 업로드 정보가 올바르지 않습니다.'
+            : m === 'nothing_to_patch'
+              ? '변경할 값이 없습니다.'
+              : '입력값을 확인해 주세요.';
+      res.status(400).json({ error: msg });
+      return;
+    }
+    console.error('[e-contract] submission media patch', e);
+    res.status(500).json({ error: '저장하지 못했습니다.' });
   }
 });
 

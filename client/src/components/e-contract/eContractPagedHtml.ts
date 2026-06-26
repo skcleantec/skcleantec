@@ -29,6 +29,19 @@ export function normalizeContractBodyForPaged(raw: string): string {
   return `<pre class="ec-plain-contract">${escapeHtml(t)}</pre>`;
 }
 
+/** 갑·을 부록은 paged.js `break-inside: avoid` 에서 누락되기 쉬워 본문과 분리합니다. */
+export function splitContractMainAndPartyAppendix(html: string): { main: string; appendix: string | null } {
+  const t = (html ?? '').trim();
+  if (!t) return { main: '', appendix: null };
+  const re = /<div\b[^>]*\bec-party-appendix\b/i;
+  const m = re.exec(t);
+  if (!m || m.index == null) return { main: t, appendix: null };
+  return {
+    main: t.slice(0, m.index).trimEnd(),
+    appendix: t.slice(m.index).trim(),
+  };
+}
+
 /** iframe srcdoc — paged.js 로 A4 페이지 단위 분할·헤더·푸터 */
 export function buildPagedHtmlDocument(opts: {
   bodyHtml: string;
@@ -36,7 +49,9 @@ export function buildPagedHtmlDocument(opts: {
   pagedScriptUrl: string;
   title: string;
 }): string {
-  const inner = sanitizeEContractHtml(opts.bodyHtml);
+  const sanitized = sanitizeEContractHtml(opts.bodyHtml);
+  const { main, appendix } = splitContractMainAndPartyAppendix(sanitized);
+  const inner = main || sanitized;
   const docIdSafe = escapeHtml(opts.docId);
   const titleSafe = escapeHtml(opts.title);
   const absoluteScriptUrl = (() => {
@@ -129,7 +144,20 @@ article.e-contract-body-html [style*="text-align: right"] { text-align: right; }
 article.e-contract-body-html .ql-align-justify,
 article.e-contract-body-html [style*="text-align: justify"] { text-align: justify; }
 
-.ec-party-appendix { page-break-inside: avoid; break-inside: avoid; }
+.ec-party-appendix { page-break-inside: auto; break-inside: auto; }
+
+.ec-appendix-dedicated-page {
+  width: 210mm;
+  min-height: 297mm;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+.ec-appendix-dedicated-page .pagedjs_pagebox,
+.ec-appendix-dedicated-page .pagedjs_area {
+  width: 100%;
+  min-height: 297mm;
+  box-sizing: border-box;
+}
 
 @media screen {
   body {
@@ -157,6 +185,22 @@ ${inner}
   window.PagedConfig = {
     auto: true,
     after: function() {
+      try {
+        var appendixHtml = ${JSON.stringify(appendix ?? '')};
+        if (appendixHtml) {
+          var pagesRoot = document.querySelector('.pagedjs_pages');
+          if (pagesRoot) {
+            var page = document.createElement('div');
+            page.className = 'pagedjs_page ec-appendix-dedicated-page';
+            page.setAttribute('data-ec-appendix-page', '1');
+            var box = document.createElement('div');
+            box.className = 'pagedjs_pagebox';
+            box.innerHTML = appendixHtml;
+            page.appendChild(box);
+            pagesRoot.appendChild(page);
+          }
+        }
+      } catch (e) {}
       try { document.body.setAttribute('data-pagedjs-ready', '1'); } catch (e) {}
       try { window.parent.postMessage({ type: 'pagedjs-rendered' }, '*'); } catch (e) {}
     }

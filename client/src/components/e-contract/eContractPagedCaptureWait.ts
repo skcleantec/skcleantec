@@ -17,7 +17,9 @@ export async function waitUntilPagedDomPainted(doc: Document, timeoutMs = 18000)
     }
     if (!contractHtmlExpectsPartyAppendix(doc)) return;
 
-    const ap = doc.querySelector('.pagedjs_pages .ec-party-appendix');
+    const ap =
+      doc.querySelector('.pagedjs_pages .ec-party-appendix') ||
+      doc.querySelector('.ec-appendix-dedicated-page .ec-party-appendix');
     const h = ap?.getBoundingClientRect().height ?? 0;
     if (ap && h >= 16) return;
 
