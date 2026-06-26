@@ -793,9 +793,9 @@ export function TeamAssignmentListPage() {
                           {collectibleAmount != null ? (
                             <span
                               className="text-fluid-2xs font-medium text-amber-900"
-                              title={`고객에게 받을 금액 ${Number(collectibleAmount).toLocaleString('ko-KR')}원`}
+                              title={`${Number(collectibleAmount).toLocaleString('ko-KR')}원`}
                             >
-                              {Number(collectibleAmount).toLocaleString('ko-KR')}
+                              {Number(collectibleAmount).toLocaleString('ko-KR')}원
                             </span>
                           ) : (
                             <span className="text-fluid-xs text-gray-400">{teamBiPlain('team.common.emDash')}</span>

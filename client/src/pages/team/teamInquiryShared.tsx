@@ -373,9 +373,9 @@ export function TeamInquiryCollectibleListBadge({
   return (
     <span
       className={`inline-flex shrink-0 items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-fluid-2xs font-semibold text-amber-900 ring-1 ring-amber-200/80 tabular-nums ${className}`}
-      title={`고객에게 받을 금액 ${full}`}
+      title={full}
     >
-      받을 {Number(amount).toLocaleString('ko-KR')}
+      {full}
     </span>
   );
 }
