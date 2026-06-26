@@ -1,10 +1,18 @@
+import { EC_APPENDIX_SOURCE_ID } from './eContractPagedHtml';
+
 /** Paged.js 출력 안에 갑·을 부록이 실제로 배치됐는지 확인할 때 사용하는 마커 */
 export function contractHtmlExpectsPartyAppendix(doc: Document): boolean {
-  return (doc.body?.innerHTML ?? '').includes('ec-party-appendix');
+  const html = doc.body?.innerHTML ?? '';
+  return html.includes('ec-party-appendix') || !!doc.getElementById(EC_APPENDIX_SOURCE_ID);
 }
 
 /** `.pagedjs_pages` 안에 부록 DOM이 실제로 렌더됐는지 */
 export function partyAppendixPresentInPagedOutput(doc: Document): boolean {
+  const injected = doc.querySelector('.pagedjs_pages .pagedjs_page[data-ec-appendix-injected="1"]');
+  if (injected) {
+    const ap = injected.querySelector('.ec-party-appendix');
+    return !!(ap && ap.getBoundingClientRect().height >= 12);
+  }
   const ap = doc.querySelector('.pagedjs_pages .ec-party-appendix');
   return !!(ap && ap.getBoundingClientRect().height >= 12);
 }

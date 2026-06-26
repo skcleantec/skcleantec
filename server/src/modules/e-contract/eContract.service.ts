@@ -9,6 +9,7 @@ import { prisma } from '../../lib/prisma.js';
 import { computeEContractContentHash } from './eContract.contentHash.js';
 import { expandIssuerPlaceholders } from './eContractIssuer.expand.js';
 import { issuerSnapshotBlockForPublish } from './eContractIssuer.profile.service.js';
+import { buildAdminSubmissionBodyHtml } from './eContractSubmissionDisplayHtml.js';
 import { buildPartyAppendixHtml, dedupeTrailingPartyAppendices, stripPartyAppendixFromContractHtml } from './eContractPartyAppendix.js';
 import { editorBodyHasMeaningfulContent } from './eContractBodyContent.js';
 import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
@@ -829,32 +830,18 @@ export async function getSubmissionDetailForAdmin(tenantId: string, submissionId
     typeof s.version.bodyDisplayHtml === 'string' && s.version.bodyDisplayHtml.trim() !== ''
       ? s.version.bodyDisplayHtml.trim()
       : s.version.bodyMarkdown.replace(/\r\n/g, '\n');
-  let bodyHtml = merged || versionFallback;
-  if (merged) {
-    bodyHtml = dedupeTrailingPartyAppendices(bodyHtml);
-  } else if (bodyHtml && !bodyHtml.includes('ec-party-appendix')) {
-    const issuerSnap = await getIssuerSnapshot(tenantId);
-    const appendixHtml = buildPartyAppendixHtml(issuerSnap, {
-      submissionId: s.id,
-      signedAtIso: s.signedAt.toISOString(),
-    });
-    let withAppendix = `${bodyHtml}\n\n${appendixHtml}`;
 
-    const payload = s.payload as Record<string, any> | null;
-    if (payload && payload.signerEntered) {
-      const signerForExpand: SignerFilledFields = {
-        name: typeof payload.signerEntered.name === 'string' ? payload.signerEntered.name : '',
-        residentRegistrationNumber: typeof payload.signerEntered.residentRegistrationNumber === 'string' ? payload.signerEntered.residentRegistrationNumber : '',
-        addressLine: typeof payload.signerEntered.addressLine === 'string' ? payload.signerEntered.addressLine : '',
-        phone: typeof payload.signerEntered.phone === 'string' ? payload.signerEntered.phone : '',
-        freeTextNotes: typeof payload.signerEntered.freeTextNotes === 'string' ? payload.signerEntered.freeTextNotes : '',
-        signatureSecureUrl: s.signatureUrl?.trim() || '',
-      };
-      bodyHtml = expandSignerPlaceholders(withAppendix, signerForExpand);
-    } else {
-      bodyHtml = withAppendix;
-    }
-  }
+  const { bodyHtml, mergedUsed } = await buildAdminSubmissionBodyHtml({
+    tenantId,
+    audience: s.issuance.definition.audience,
+    submissionId: s.id,
+    signedAt: s.signedAt,
+    signatureUrl: s.signatureUrl?.trim() || null,
+    payload: s.payload,
+    mergeFields: (s.payload as Record<string, unknown> | null)?.mergeFields,
+    mergedContractHtml: merged || null,
+    versionFallback,
+  });
 
   const recipient = mapSubmissionRecipient({
     recipientLabel: s.issuance.recipientLabel,
@@ -876,7 +863,7 @@ export async function getSubmissionDetailForAdmin(tenantId: string, submissionId
     versionOrdinal: s.version.publishedOrdinal,
     versionTitle: s.version.titleSnapshot,
     /** true면 체결 시점 을·서명 반영 확정본 */
-    mergedUsed: Boolean(merged),
+    mergedUsed,
     bodyHtml,
     selfieUrl: s.selfieUrl?.trim() || null,
     signatureUrl: s.signatureUrl?.trim() || null,

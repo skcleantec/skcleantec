@@ -308,7 +308,15 @@ export async function completeSubmissionByToken(
 
   const bodyText = versionBodyWithAppendix;
   const audience = issuance.definition!.audience;
-  const signerValues = input.signerValuesByToken ?? {};
+  const byToken = input.signerValuesByToken ?? {};
+  const signerValues: Record<string, string> = {
+    '[[EC_SIGNER_NAME]]': input.signerEntered.name,
+    '[[EC_SIGNER_RRN]]': input.signerEntered.residentRegistrationNumber,
+    '[[EC_SIGNER_ADDRESS]]': input.signerEntered.addressLine,
+    '[[EC_SIGNER_PHONE]]': input.signerEntered.phone,
+    '[[EC_SIGNER_FREETEXT]]': (input.signerEntered.freeTextNotes ?? '').trim(),
+    ...byToken,
+  };
   const valueMap = await buildExpansionValueMap({
     tenantId: issuance.definition!.tenantId,
     audience,

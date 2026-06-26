@@ -25,11 +25,7 @@ function collectMainContractPages(doc: Document): HTMLElement[] {
     pages = Array.from(doc.querySelectorAll('.pagedjs_page')) as HTMLElement[];
   }
 
-  const filtered = pages.filter((page) => {
-    if (page.getAttribute('data-ec-appendix-injected') === '1') return false;
-    if (page.querySelector('.ec-party-appendix')) return false;
-    return true;
-  });
+  const filtered = pages.filter((page) => page.getAttribute('data-ec-appendix-injected') !== '1');
 
   if (filtered.length > 0) return filtered;
 
@@ -100,7 +96,9 @@ export async function downloadPagedIframeAsPdf(
   await settleIframeForRasterCapture(iframe);
 
   const mainPages = collectMainContractPages(doc);
-  const appendixCapture = await buildDedicatedAppendixCapture(doc, win);
+  const appendixPage = doc.querySelector('.pagedjs_pages .pagedjs_page[data-ec-appendix-injected="1"]') as HTMLElement | null;
+  const appendixCapture =
+    appendixPage ?? (await buildDedicatedAppendixCapture(doc, win));
   const targets = appendixCapture ? [...mainPages, appendixCapture] : mainPages;
 
   if (targets.length === 0) {

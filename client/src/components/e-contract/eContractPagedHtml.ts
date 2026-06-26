@@ -60,8 +60,8 @@ export function buildPagedHtmlDocument(opts: {
   title: string;
 }): string {
   const sanitized = sanitizeEContractHtml(opts.bodyHtml);
-  const { appendix } = splitContractMainAndPartyAppendix(sanitized);
-  const inner = sanitized;
+  const { main, appendix } = splitContractMainAndPartyAppendix(sanitized);
+  const inner = (main || sanitized).trim();
   const docIdSafe = escapeHtml(opts.docId);
   const titleSafe = escapeHtml(opts.title);
   const appendixJson = JSON.stringify(appendix ?? '');
@@ -204,16 +204,14 @@ ${inner}
         });
       }
 
-      function appendixInPages() {
-        var ap = document.querySelector('.pagedjs_pages .ec-party-appendix');
-        return !!(ap && ap.getBoundingClientRect().height >= 12);
-      }
-
-      function injectAppendixIfMissing() {
-        if (!appendixHtml || appendixInPages()) return;
+      function injectAppendixDedicatedPage() {
+        if (!appendixHtml) return;
         var pagesRoot = document.querySelector('.pagedjs_pages');
         if (!pagesRoot) return;
-        var template = pagesRoot.querySelector('.pagedjs_page');
+        pagesRoot.querySelectorAll('[data-ec-appendix-injected="1"]').forEach(function(node) {
+          node.remove();
+        });
+        var template = pagesRoot.querySelector('.pagedjs_page:not([data-ec-appendix-injected])');
         if (!template) return;
         var page = template.cloneNode(true);
         page.setAttribute('data-ec-appendix-injected', '1');
@@ -225,7 +223,7 @@ ${inner}
       }
 
       try { enableCorsImages(document); } catch (e) {}
-      try { injectAppendixIfMissing(); } catch (e) {}
+      try { injectAppendixDedicatedPage(); } catch (e) {}
       try { document.body.setAttribute('data-pagedjs-ready', '1'); } catch (e) {}
       try { window.parent.postMessage({ type: 'pagedjs-rendered' }, '*'); } catch (e) {}
     }

@@ -13,7 +13,7 @@ export function sanitizeEContractHtml(raw: string): string {
   if (!dirty) return '';
   return DOMPurify.sanitize(stabilizeEContractParagraphHtml(dirty), {
     USE_PROFILES: { html: true },
-    ADD_ATTR: ['style', 'class', 'target', 'rel', 'loading', 'width', 'height', 'alt', 'colspan', 'rowspan'],
+    ADD_ATTR: ['style', 'class', 'target', 'rel', 'loading', 'width', 'height', 'alt', 'colspan', 'rowspan', 'crossorigin'],
     FORBID_TAGS: ['iframe', 'object', 'embed', 'form', 'input', 'button', 'meta', 'style', 'script'],
   });
 }
