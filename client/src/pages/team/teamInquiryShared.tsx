@@ -8,6 +8,7 @@ import {
   effectiveCustomerOrderNotes,
   effectiveTeamSharedAdminNotes,
 } from '../../utils/inquirySpecialNotesDisplay';
+import { computeInquiryCollectibleAmount } from '../../utils/inquiryCollectibleAmount';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryCleaningPhotosPanel';
 import { InquiryConsultationPhotosPanel } from '../../components/inquiry/InquiryConsultationPhotosPanel';
@@ -211,6 +212,7 @@ export interface InquiryItem {
     submittedAt?: string | null;
     depositAmount?: number | null;
     totalAmount?: number | null;
+    balanceAmount?: number | null;
     customerSpecialNotes?: string | null;
     customerAnswers?: Record<string, unknown> | null;
     template?: {
@@ -325,18 +327,14 @@ export function marketerInfo(item: InquiryItem): { name: string; phone: string |
   return { name: who.name, phone: who.phone ?? null };
 }
 
-/** 목록·배지 — 고객에게 받을 결제 총액(접수 스냅샷 우선, 발주서 보조) */
-export function teamInquiryCustomerPaymentTotal(item: InquiryItem): number | null {
-  const total = item.serviceTotalAmount ?? item.orderForm?.totalAmount ?? null;
-  if (total == null || !Number.isFinite(total) || total <= 0) return null;
-  return Math.round(total);
+/** 목록·배지 — 고객에게 받을 금액(잔금 + 회사입금 추가결재 + 레거시 추가금) */
+export function teamInquiryCollectibleAmount(item: InquiryItem): number | null {
+  return computeInquiryCollectibleAmount(item);
 }
 
-/** @deprecated 예약금 — 목록에는 총액만 표시. 상세·정산용으로 유지 */
-export function teamInquiryDepositAmount(item: InquiryItem): number | null {
-  const deposit = item.serviceDepositAmount ?? item.orderForm?.depositAmount ?? null;
-  if (deposit == null || !Number.isFinite(deposit) || deposit <= 0) return null;
-  return Math.round(deposit);
+/** @deprecated teamInquiryCollectibleAmount 사용 */
+export function teamInquiryCustomerPaymentTotal(item: InquiryItem): number | null {
+  return teamInquiryCollectibleAmount(item);
 }
 
 export function teamInquirySpecialNotesPreview(item: InquiryItem): string {
@@ -361,29 +359,30 @@ export function teamInquiryHasSpecialNotes(item: InquiryItem): boolean {
   return teamInquirySpecialNotesPreview(item) !== '';
 }
 
-/** 배정·대시보드 목록 — 고객 결제 총액 pill */
-export function TeamInquiryPaymentTotalListBadge({
+/** 배정·대시보드 목록 — 고객 수금액 pill */
+export function TeamInquiryCollectibleListBadge({
   item,
   className = '',
 }: {
   item: InquiryItem;
   className?: string;
 }) {
-  const amount = teamInquiryCustomerPaymentTotal(item);
+  const amount = teamInquiryCollectibleAmount(item);
   if (amount == null) return null;
   const full = `${Number(amount).toLocaleString('ko-KR')}원`;
   return (
     <span
       className={`inline-flex shrink-0 items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-fluid-2xs font-semibold text-amber-900 ring-1 ring-amber-200/80 tabular-nums ${className}`}
-      title={`고객 결제 총액 ${full}`}
+      title={`고객에게 받을 금액 ${full}`}
     >
-      총 {Number(amount).toLocaleString('ko-KR')}
+      받을 {Number(amount).toLocaleString('ko-KR')}
     </span>
   );
 }
 
-/** @deprecated TeamInquiryPaymentTotalListBadge 사용 */
-export const TeamInquiryDepositListBadge = TeamInquiryPaymentTotalListBadge;
+/** @deprecated TeamInquiryCollectibleListBadge 사용 */
+export const TeamInquiryPaymentTotalListBadge = TeamInquiryCollectibleListBadge;
+export const TeamInquiryDepositListBadge = TeamInquiryCollectibleListBadge;
 
 /** 배정·대시보드 목록 — 특이사항 「특」 원형 아이콘 */
 export function TeamInquirySpecialNotesListBadge({
@@ -413,12 +412,12 @@ export function TeamInquiryListAmountNotesBadges({
   item: InquiryItem;
   className?: string;
 }) {
-  const total = teamInquiryCustomerPaymentTotal(item);
+  const collectible = teamInquiryCollectibleAmount(item);
   const hasNotes = teamInquiryHasSpecialNotes(item);
-  if (total == null && !hasNotes) return null;
+  if (collectible == null && !hasNotes) return null;
   return (
     <span className={`inline-flex flex-wrap items-center gap-1 ${className}`}>
-      <TeamInquiryPaymentTotalListBadge item={item} />
+      <TeamInquiryCollectibleListBadge item={item} />
       <TeamInquirySpecialNotesListBadge item={item} />
     </span>
   );

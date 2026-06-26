@@ -16,6 +16,10 @@ import {
   type InquiryAdditionalReceipt,
   type AdditionalReceiptSettlementChannel,
 } from '../../api/inquiryAdditionalReceipts';
+import {
+  coerceInquiryWonAmount,
+  resolveCollectibleBaseBalance,
+} from '../../utils/inquiryCollectibleAmount';
 
 interface Props {
   inquiryId: string;
@@ -66,26 +70,9 @@ function formatWonSigned(n: number): string {
 }
 
 function coerceWonAmount(v: unknown): number {
-  if (v == null || v === '') return 0;
-  const n = typeof v === 'number' ? v : Number(v);
-  return Number.isFinite(n) ? Math.trunc(n) : 0;
+  return coerceInquiryWonAmount(v);
 }
 
-function resolveCollectibleBaseBalance(
-  serviceTotalAmount: number | null | undefined,
-  serviceDepositAmount: number | null | undefined,
-  serviceBalanceAmount: number | null | undefined,
-): number | null {
-  if (serviceBalanceAmount != null && Number.isFinite(Number(serviceBalanceAmount))) {
-    return coerceWonAmount(serviceBalanceAmount);
-  }
-  const total = coerceWonAmount(serviceTotalAmount);
-  const deposit = coerceWonAmount(serviceDepositAmount);
-  if (total > 0 && deposit >= 0) return Math.max(0, total - deposit);
-  return null;
-}
-
-/** "40,000" / "40000" / "4만" / "4만5천" / "4.5만" / "-2만" 등 한글 약어도 허용 */
 function normalizeAmount(raw: string): number | null {
   let s = raw.trim().replace(/[,\s원]/g, '');
   if (!s) return null;
