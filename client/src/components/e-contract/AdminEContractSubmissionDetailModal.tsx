@@ -235,7 +235,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                 <p className="mt-1 text-fluid-2xs text-gray-600">
                   아래 미리보기는 <span className="font-medium text-gray-800">실제 A4 인쇄 페이지</span>로 분할되어 표시됩니다.
                   각 페이지 머리말에 <span className="font-medium">문서 확인 번호</span>, 꼬리말에 <span className="font-medium">현재/전체 페이지 번호</span>가
-                  자동으로 들어갑니다.
+                  자동으로 들어갑니다. 부록 「본인확인번호」는 셀카에 함께 찍은 6자리와 동일합니다.
                 </p>
               </div>
               <button
@@ -303,6 +303,22 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                   </div>
                 ) : null}
 
+                {detail.challengeDigits ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <div className="text-fluid-2xs font-medium text-amber-950">본인확인 번호 (셀카·계약서 부록 공통)</div>
+                        <div className="mt-0.5 text-fluid-2xs text-amber-900/90">
+                          아래 계약서 부록 (을) 표와 「셀카 보기」 사진에 이 번호가 함께 있어야 합니다.
+                        </div>
+                      </div>
+                      <span className="text-fluid-2xl font-bold tabular-nums tracking-wider text-gray-900">
+                        {detail.challengeDigits}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-end justify-between gap-2">
                     <div>
@@ -354,6 +370,17 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                         <span className="font-medium">체결 시각</span> —{' '}
                         <span className="tabular-nums">{new Date(detail.signedAt).toLocaleString('ko-KR')}</span>
                       </div>
+                      {detail.challengeDigits ? (
+                        <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                          <div className="text-fluid-2xs font-medium text-amber-950">본인확인 번호 (셀카에 함께 촬영)</div>
+                          <div className="mt-1 text-fluid-xl font-bold tabular-nums tracking-wider text-gray-900">
+                            {detail.challengeDigits}
+                          </div>
+                          <p className="mt-1 text-fluid-2xs text-amber-900/90">
+                            계약서 부록 (을) 표에도 동일 번호가 기록됩니다. 셀카 사진과 대조해 주세요.
+                          </p>
+                        </div>
+                      ) : null}
                       {detail.signerIp ? (
                         <div className="mt-1 break-all text-gray-600">
                           <span className="font-medium text-gray-800">IP</span> — {detail.signerIp}
@@ -413,7 +440,14 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                         <div className="mt-2 flex flex-wrap gap-4">
                           {detail.selfieUrl ? (
                             <div className="min-w-0">
-                              <div className="text-fluid-2xs text-gray-500">셀카</div>
+                              <div className="text-fluid-2xs text-gray-500">
+                                셀카
+                                {detail.challengeDigits ? (
+                                  <span className="ml-1 font-mono tabular-nums text-amber-900">
+                                    (번호 {detail.challengeDigits})
+                                  </span>
+                                ) : null}
+                              </div>
                               <button
                                 type="button"
                                 className="mt-1 block overflow-hidden rounded border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -465,6 +499,14 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
               <div className="min-w-0">
                 <h3 className="text-fluid-sm font-semibold text-gray-900">본인확인 셀카</h3>
                 <p className="mt-0.5 text-fluid-2xs text-gray-500">체결 후 잘못 올린 셀카만 교체할 수 있습니다.</p>
+                {detail?.challengeDigits ? (
+                  <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5">
+                    <span className="text-fluid-2xs font-medium text-amber-950">촬영 번호</span>
+                    <span className="text-fluid-md font-bold tabular-nums tracking-wider text-gray-900">
+                      {detail.challengeDigits}
+                    </span>
+                  </div>
+                ) : null}
               </div>
               <button
                 type="button"

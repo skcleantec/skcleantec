@@ -10,3 +10,16 @@ export function deriveChallengeDigitsForToken(rawToken: string): string {
   const n = (BigInt('0x' + h.slice(0, 14)) % 900000n) + 100000n;
   return String(n).padStart(6, '0');
 }
+
+export function challengeDigitsFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const raw = (payload as Record<string, unknown>).challengeDigits;
+  if (typeof raw !== 'string') return null;
+  const digits = raw.replace(/\s/g, '');
+  return /^\d{6}$/.test(digits) ? digits : null;
+}
+
+/** 체결 payload 우선, 없으면 발급 링크 토큰으로 복원(레거시 제출본). */
+export function resolveSubmissionChallengeDigits(payload: unknown, inviteToken: string): string {
+  return challengeDigitsFromPayload(payload) ?? deriveChallengeDigitsForToken(inviteToken);
+}

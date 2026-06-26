@@ -120,6 +120,8 @@ export type EContractSubmissionDetailDto = {
   versionTitle: string;
   mergedUsed: boolean;
   bodyHtml: string;
+  /** 셀카 촬영 시 함께 찍어야 한 6자리 본인확인 번호 */
+  challengeDigits: string;
   selfieUrl: string | null;
   signatureUrl: string | null;
   signerIp: string | null;

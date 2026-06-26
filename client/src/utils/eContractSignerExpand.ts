@@ -10,6 +10,7 @@ export const EC_SIGNER_PLACEHOLDER_OPTIONS: ReadonlyArray<{ token: string; label
   { token: '[[EC_SIGNER_PHONE]]', label: '(을) 연락처' },
   { token: '[[EC_SIGNER_FREETEXT]]', label: '(을) 추가 기재(선택)' },
   { token: '[[EC_SIGNATURE]]', label: '(을) 서명' },
+  { token: '[[EC_CHALLENGE_DIGITS]]', label: '(을) 본인확인 번호 — 체결 시 자동' },
 ];
 
 export type SignerPreviewFields = {

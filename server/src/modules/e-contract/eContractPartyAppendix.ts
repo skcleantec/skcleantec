@@ -115,6 +115,7 @@ export function buildPartyAppendixHtml(
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">주민번호</td><td style="padding: 6px 0;">[[EC_SIGNER_RRN]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">주소</td><td style="padding: 6px 0;">[[EC_SIGNER_ADDRESS]]</td></tr>
             <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">연락처</td><td style="padding: 6px 0;">[[EC_SIGNER_PHONE]]</td></tr>
+            <tr><td style="padding: 6px 0; color: #333; font-weight: bold;">본인확인번호</td><td style="padding: 6px 0; font-size: 15px; font-weight: bold; letter-spacing: 0.12em; font-variant-numeric: tabular-nums;">[[EC_CHALLENGE_DIGITS]]</td></tr>
             [[EC_SIGNER_FREETEXT_ROW]]
             <tr>
               <td colspan="2" style="padding-top: 20px; vertical-align: top;">

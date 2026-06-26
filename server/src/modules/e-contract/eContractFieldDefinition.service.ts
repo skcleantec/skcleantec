@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
+  EC_CHALLENGE_DIGITS_TOKEN,
   EC_SIGNATURE_TOKEN,
   EC_CONTRACT_DATE_TOKEN,
   extractEcTokensFromText,
@@ -303,6 +304,8 @@ export async function buildExpansionValueMap(input: {
   signerValues?: Record<string, string>;
   signedAt?: Date;
   signatureUrl?: string | null;
+  /** 셀카 본인확인 6자리 — `[[EC_CHALLENGE_DIGITS]]` 치환 */
+  challengeDigits?: string | null;
   /** true면 AUTO·미입력 SIGNER 는 치환 전 빈값(미리보기용) */
   previewMode?: boolean;
 }): Promise<Record<string, string>> {
@@ -329,6 +332,15 @@ export async function buildExpansionValueMap(input: {
       }
     }
   }
+
+  if (extractEcTokensFromText(input.bodyText).includes(EC_CHALLENGE_DIGITS_TOKEN)) {
+    if (input.previewMode) {
+      out[EC_CHALLENGE_DIGITS_TOKEN] = '(체결 시 자동 기록)';
+    } else {
+      out[EC_CHALLENGE_DIGITS_TOKEN] = (input.challengeDigits ?? '').trim();
+    }
+  }
+
   return out;
 }
 

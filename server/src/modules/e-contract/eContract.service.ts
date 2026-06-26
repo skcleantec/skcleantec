@@ -10,6 +10,7 @@ import { computeEContractContentHash } from './eContract.contentHash.js';
 import { expandIssuerPlaceholders } from './eContractIssuer.expand.js';
 import { issuerSnapshotBlockForPublish } from './eContractIssuer.profile.service.js';
 import { buildAdminSubmissionBodyHtml } from './eContractSubmissionDisplayHtml.js';
+import { resolveSubmissionChallengeDigits } from './eContract.challenge.js';
 import { buildPartyAppendixHtml, dedupeTrailingPartyAppendices, stripPartyAppendixFromContractHtml } from './eContractPartyAppendix.js';
 import { editorBodyHasMeaningfulContent } from './eContractBodyContent.js';
 import { composePublishedVersionHtmlWithLiveIssuer } from './eContractVersionLiveCompose.js';
@@ -802,7 +803,9 @@ export async function getSubmissionDetailForAdmin(tenantId: string, submissionId
     where: { id: submissionId, issuance: { definition: { tenantId } } },
     include: {
       issuance: {
-        include: {
+        select: {
+          token: true,
+          recipientLabel: true,
           definition: { select: { id: true, title: true, audience: true } },
           teamLeader: { select: { id: true, name: true, email: true, role: true } },
           teamMember: { select: { id: true, name: true, phone: true } },
@@ -831,6 +834,8 @@ export async function getSubmissionDetailForAdmin(tenantId: string, submissionId
       ? s.version.bodyDisplayHtml.trim()
       : s.version.bodyMarkdown.replace(/\r\n/g, '\n');
 
+  const challengeDigits = resolveSubmissionChallengeDigits(s.payload, s.issuance.token);
+
   const { bodyHtml, mergedUsed } = await buildAdminSubmissionBodyHtml({
     tenantId,
     audience: s.issuance.definition.audience,
@@ -841,6 +846,7 @@ export async function getSubmissionDetailForAdmin(tenantId: string, submissionId
     mergeFields: (s.payload as Record<string, unknown> | null)?.mergeFields,
     mergedContractHtml: merged || null,
     versionFallback,
+    inviteToken: s.issuance.token,
   });
 
   const recipient = mapSubmissionRecipient({
@@ -865,6 +871,7 @@ export async function getSubmissionDetailForAdmin(tenantId: string, submissionId
     /** true면 체결 시점 을·서명 반영 확정본 */
     mergedUsed,
     bodyHtml,
+    challengeDigits,
     selfieUrl: s.selfieUrl?.trim() || null,
     signatureUrl: s.signatureUrl?.trim() || null,
     signerIp: s.signerIp?.trim() || null,

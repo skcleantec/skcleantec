@@ -372,7 +372,7 @@ export function EContractPublicSignPage() {
           aria-live="polite"
         >
           <p className="text-[12px] font-semibold leading-snug text-gray-950">
-            위 번호와 얼굴이 함께 보이도록 셀카를 촬영해 업로드해 주세요.
+            위 번호와 얼굴이 함께 보이도록 셀카를 촬영해 업로드해 주세요. 이 번호는 계약서 부록에도 기록됩니다.
           </p>
         </div>
 

@@ -1,4 +1,6 @@
 import type { EContractAudience } from '@prisma/client';
+import { resolveSubmissionChallengeDigits } from './eContract.challenge.js';
+import { EC_CHALLENGE_DIGITS_TOKEN } from './eContractField.tokens.js';
 import { buildExpansionValueMap } from './eContractFieldDefinition.service.js';
 import { expandIssuerPlaceholders } from './eContractIssuer.expand.js';
 import { getIssuerSnapshot } from './eContractIssuer.profile.service.js';
@@ -48,15 +50,22 @@ export async function hydrateSubmissionDisplayHtml(input: {
   signatureUrl: string | null;
   payload: unknown;
   mergeFields?: unknown;
+  inviteToken?: string | null;
 }): Promise<string> {
   let html = (input.bodyHtml ?? '').trim();
   if (!html) return html;
 
   const needsSigner =
     UNEXPANDED_SIGNER_RE.test(html) || html.includes('[[EC_SIGNATURE]]');
+  const needsChallenge = html.includes(EC_CHALLENGE_DIGITS_TOKEN);
   const needsIssuer = UNEXPANDED_ISSUER_RE.test(html);
 
-  if (needsSigner) {
+  const challengeDigits =
+    typeof input.inviteToken === 'string' && input.inviteToken.trim()
+      ? resolveSubmissionChallengeDigits(input.payload, input.inviteToken.trim())
+      : null;
+
+  if (needsSigner || needsChallenge) {
     const legacy = signerFieldsFromPayload(input.payload, input.signatureUrl);
     const byToken = signerValuesFromPayload(input.payload);
     const signerValues: Record<string, string> = legacy
@@ -78,6 +87,7 @@ export async function hydrateSubmissionDisplayHtml(input: {
       signerValues,
       signedAt: input.signedAt,
       signatureUrl: input.signatureUrl,
+      challengeDigits,
     });
     html = expandEcTokenValues(html, valueMap);
   } else if (input.signatureUrl?.trim()) {
@@ -105,6 +115,7 @@ export async function buildAdminSubmissionBodyHtml(input: {
   mergeFields?: unknown;
   mergedContractHtml: string | null | undefined;
   versionFallback: string;
+  inviteToken?: string | null;
 }): Promise<{ bodyHtml: string; mergedUsed: boolean }> {
   const merged =
     typeof input.mergedContractHtml === 'string' && input.mergedContractHtml.trim() !== ''
@@ -136,6 +147,7 @@ export async function buildAdminSubmissionBodyHtml(input: {
     signatureUrl: input.signatureUrl,
     payload: input.payload,
     mergeFields: input.mergeFields,
+    inviteToken: input.inviteToken,
   });
 
   return { bodyHtml, mergedUsed };

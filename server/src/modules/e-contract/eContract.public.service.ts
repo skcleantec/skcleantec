@@ -190,6 +190,7 @@ export async function getPublicSignSession(rawToken: string): Promise<
         signerFields.map((f) => [f.token, f.token === '[[EC_SIGNER_NAME]]' ? signer.name : ''])
       ),
       signatureUrl: null,
+      challengeDigits,
       previewMode: true,
     });
     bodyMarkdown = expandEcTokenMapPreview(bodyMarkdown, previewValues, {
@@ -325,12 +326,14 @@ export async function completeSubmissionByToken(
     signerValues,
     signedAt: signedAtDate,
     signatureUrl: input.signatureUrl.trim(),
+    challengeDigits: expected,
   });
   const mergedHtml = expandEcTokenValues(bodyText, valueMap);
 
   const payloadObj: Record<string, unknown> = {
     agree: true,
     challengeVerified: true,
+    challengeDigits: expected,
     signerEntered: {
       name: input.signerEntered.name,
       residentRegistrationNumber: input.signerEntered.residentRegistrationNumber,
