@@ -7,11 +7,13 @@
  *   값이 들어간 키 = 고객 화면 잠금(확인 전용), 제출 시 그 값이 우선.
  */
 
+import type { Prisma } from '@prisma/client';
 import {
   parseProfessionalOptionSelectionsRaw,
   serializeProfessionalOptionSelectionsJson,
 } from './specialtyOptions.js';
 import { isOrderFormPendingPlaceholderAddress } from '../../lib/orderFormPendingAddress.js';
+import { parseIsOneRoomFlag } from './orderFormOneRoom.js';
 
 /** prefillAnswers 로 다루는 표준(시스템) 항목 키 — 제출 body 필드명과 동일하게 맞춘다 */
 export const PREFILL_STANDARD_KEYS = [
@@ -158,4 +160,79 @@ export function overlayPrefillOntoSubmitBody(
     }
   }
   if (answersTouched) body.answers = answers;
+}
+
+function parsePrefillCount(raw: unknown): number | null {
+  if (raw == null || String(raw).trim() === '') return null;
+  const n = typeof raw === 'number' ? raw : Number(String(raw).trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+function parsePrefillMoveInDate(raw: unknown): Date | null {
+  const ymd = typeof raw === 'string' ? raw.trim() : '';
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  const d = new Date(`${ymd}T12:00:00+09:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * 마케터 선입력(prefillAnswers) → 연결 pending Inquiry 동기화 필드.
+ * 면적·날짜·시간은 POST /prefill 라우트에서 typed 컬럼으로 별도 반영한다.
+ */
+export function inquiryUpdateDataFromPrefillMap(prefill: PrefillMap): Prisma.InquiryUpdateInput {
+  const data: Prisma.InquiryUpdateInput = {};
+
+  const isOneRoom = parseIsOneRoomFlag(prefill.isOneRoom);
+  const propertyType =
+    typeof prefill.propertyType === 'string' && prefill.propertyType.trim()
+      ? prefill.propertyType.trim()
+      : null;
+
+  if (isOneRoom) {
+    data.isOneRoom = true;
+    if (!propertyType) data.propertyType = null;
+  } else if (propertyType) {
+    data.isOneRoom = false;
+    data.propertyType = propertyType;
+  }
+
+  if (typeof prefill.buildingType === 'string' && prefill.buildingType.trim()) {
+    data.buildingType = prefill.buildingType.trim();
+  }
+
+  const roomCount = parsePrefillCount(prefill.roomCount);
+  if (roomCount != null) data.roomCount = roomCount;
+  const bathroomCount = parsePrefillCount(prefill.bathroomCount);
+  if (bathroomCount != null) data.bathroomCount = bathroomCount;
+  const balconyCount = parsePrefillCount(prefill.balconyCount);
+  if (balconyCount != null) data.balconyCount = balconyCount;
+  const kitchenCount = parsePrefillCount(prefill.kitchenCount);
+  if (kitchenCount != null) data.kitchenCount = kitchenCount;
+
+  if (typeof prefill.specialNotes === 'string') {
+    data.specialNotes = prefill.specialNotes.trim() || null;
+  }
+
+  if (prefill.moveInDateUndecided === true) {
+    data.moveInDateUndecided = true;
+    data.moveInDate = null;
+  } else if (prefill.moveInDate != null) {
+    const moveInDate = parsePrefillMoveInDate(prefill.moveInDate);
+    if (moveInDate) {
+      data.moveInDate = moveInDate;
+      data.moveInDateUndecided = false;
+    }
+  }
+
+  if (typeof prefill.address === 'string') {
+    const addr = prefill.address.trim();
+    if (addr && !isOrderFormPendingPlaceholderAddress(addr)) {
+      data.address = addr;
+    }
+  }
+  if (typeof prefill.addressDetail === 'string') {
+    data.addressDetail = prefill.addressDetail.trim() || null;
+  }
+
+  return data;
 }

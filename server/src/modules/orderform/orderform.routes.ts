@@ -81,6 +81,7 @@ import {
   buildPrefillFromPayload,
   lockedKeysFromPrefill,
   overlayPrefillOntoSubmitBody,
+  inquiryUpdateDataFromPrefillMap,
 } from './orderFormPrefill.js';
 import { parseIsOneRoomFlag, resolveOneRoomSpecialNotes, hasOrderFormBuildingTypeChoice, orderFormPropertyTypeDisplay } from './orderFormOneRoom.js';
 import { isSkCleantecOpsUiEnabled, oneRoomLabelWhenSkOpsEnabled } from '../custom/skcleantecOpsUi.js';
@@ -1502,6 +1503,7 @@ router.post('/:id/prefill', authMiddleware, adminOrMarketer, async (req, res) =>
         select: { id: true },
       });
       if (pending) {
+        const prefillInquiryPatch = inquiryUpdateDataFromPrefillMap(prefill);
         await tx.inquiry.update({
           where: { id: pending.id },
           data: {
@@ -1513,6 +1515,7 @@ router.post('/:id/prefill', authMiddleware, adminOrMarketer, async (req, res) =>
             ...(lockAreaPyeong != null && lockAreaBasis
               ? { areaPyeong: lockAreaPyeong, areaBasis: lockAreaBasis, exclusiveAreaSqm: null }
               : {}),
+            ...prefillInquiryPatch,
           },
         });
       }

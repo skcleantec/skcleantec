@@ -93,6 +93,8 @@ export interface ScheduleItem {
     balanceAmount: number;
     submittedAt?: string | null;
     customerSpecialNotes?: string | null;
+    /** 마케터 선입력 — 고객 제출 전 원/투룸 등 스케줄 표시 fallback */
+    prefillAnswers?: Record<string, unknown> | null;
     /** 동적 발주서 추가 항목 답변 {fieldKey: value} */
     customerAnswers?: Record<string, unknown> | null;
     /** 발주서 양식(카테고리) — 배지·추가정보 라벨 */

@@ -65,7 +65,7 @@ import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptio
 import { PropertyTypeSticker } from '../../components/ui/PropertyTypeSticker';
 import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
 import { SkCleantecScheduleOneRoomIndicator } from '../../components/admin/SkCleantecScheduleOneRoomIndicator';
-import { shouldShowSkOneRoomTaegeuk } from '../../utils/scheduleOneRoomDisplay';
+import { shouldShowSkOneRoomTaegeuk, scheduleItemIsOneRoom } from '../../utils/scheduleOneRoomDisplay';
 import {
   formatDateCompactWithWeekday,
   formatPreferredDateInputYmd,
@@ -275,6 +275,7 @@ function ScheduleDayListItem({
   leaderAssignmentCountsForDay,
   viewerRole,
   oneRoomLabel = '원룸',
+  skOneRoomHighlight = false,
 }: {
   item: ScheduleItem;
   profCatalog: ProfessionalSpecialtyOptionDto[];
@@ -284,7 +285,9 @@ function ScheduleDayListItem({
   leaderAssignmentCountsForDay?: Map<string, number>;
   viewerRole?: string | null;
   oneRoomLabel?: string;
+  skOneRoomHighlight?: boolean;
 }) {
+  const isOneRoomItem = scheduleItemIsOneRoom(item);
   const isExternalIntake = isManualIntakeInquiry(item.source);
   const isPreOrder =
     item.status === 'PENDING' ||
@@ -391,8 +394,9 @@ function ScheduleDayListItem({
                 />
                 <PropertyTypeSticker
                   propertyType={item.propertyType}
-                  isOneRoom={item.isOneRoom}
+                  isOneRoom={isOneRoomItem}
                   oneRoomTitle={oneRoomLabel}
+                  skOneRoomHighlight={skOneRoomHighlight && isOneRoomItem}
                   className="shrink-0"
                 />
               </span>
@@ -522,7 +526,7 @@ function ScheduleDayListItem({
                 areaBasis: item.areaBasis,
                 areaPyeong: item.areaPyeong,
                 exclusiveAreaSqm: item.exclusiveAreaSqm,
-                isOneRoom: item.isOneRoom,
+                isOneRoom: isOneRoomItem,
               },
               { oneRoomLabel },
             );
@@ -1493,10 +1497,11 @@ export function AdminSchedulePage() {
                   <img
                     src="/assets/custom/skcleantec/taegeuk-unassigned.png"
                     alt=""
-                    className="h-3.5 w-3.5 object-contain"
+                    className="h-4 w-4 object-contain ring-1 ring-red-300/80 rounded-full"
                     aria-hidden
                   />
                   {oneRoomLabel}
+                  <span className="font-normal text-slate-600">(타업체 이관 제외 · 미배정 시 표시)</span>
                 </span>
               ) : null}
               <span className="font-semibold text-red-600">⚠️ 미배정</span>
@@ -1753,11 +1758,13 @@ export function AdminSchedulePage() {
                         </div>
                       )}
 
-                      {/* SK: 팀원 행 아래 — 태극기 + 당일 원/투룸 접수 건수 (전원 배정 시 숨김) */}
+                      {/* SK: 팀원 행 아래 — 태극기 + 자사 관리 원/투룸(타업체 이관 제외, 미배정 있을 때) */}
                       {skOpsUi && skOneRoomTaegeuk.show ? (
                         <SkCleantecScheduleOneRoomIndicator
                           count={skOneRoomTaegeuk.count}
                           oneRoomLabel={oneRoomLabel}
+                          highlighted={skOneRoomTaegeuk.highlighted}
+                          unassignedCount={skOneRoomTaegeuk.unassignedOneRoomCount}
                         />
                       ) : null}
 
@@ -2223,6 +2230,7 @@ export function AdminSchedulePage() {
                                 {unassignedOwnMorning.map((item) => (
                                   <ScheduleDayListItem
                                     oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
                                     key={item.id}
                                     item={item}
                                     profCatalog={profCatalog}
@@ -2253,6 +2261,7 @@ export function AdminSchedulePage() {
                                 {unassignedOwnAfternoon.map((item) => (
                                   <ScheduleDayListItem
                                     oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
                                     key={item.id}
                                     item={item}
                                     profCatalog={profCatalog}
@@ -2286,6 +2295,7 @@ export function AdminSchedulePage() {
                                 {unassignedOwnOther.map((item) => (
                                   <ScheduleDayListItem
                                     oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
                                     key={item.id}
                                     item={item}
                                     profCatalog={profCatalog}
@@ -2319,6 +2329,7 @@ export function AdminSchedulePage() {
                             <ScheduleDayListItem
                               key={item.id}
                               oneRoomLabel={oneRoomLabel}
+                              skOneRoomHighlight={skOpsUi}
                               item={item}
                               profCatalog={profCatalog}
                               viewerRole={meRole}
@@ -2348,6 +2359,7 @@ export function AdminSchedulePage() {
                             <ScheduleDayListItem
                               key={item.id}
                               oneRoomLabel={oneRoomLabel}
+                              skOneRoomHighlight={skOpsUi}
                               item={item}
                               profCatalog={profCatalog}
                               viewerRole={meRole}
@@ -2380,6 +2392,7 @@ export function AdminSchedulePage() {
                             <ScheduleDayListItem
                               key={item.id}
                               oneRoomLabel={oneRoomLabel}
+                              skOneRoomHighlight={skOpsUi}
                               item={item}
                               profCatalog={profCatalog}
                               viewerRole={meRole}
@@ -2430,6 +2443,7 @@ export function AdminSchedulePage() {
                                       {morningExtUnassignedSorted.map((item) => (
                                         <ScheduleDayListItem
                                     oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
@@ -2460,6 +2474,7 @@ export function AdminSchedulePage() {
                                       {afternoonExtUnassignedSorted.map((item) => (
                                         <ScheduleDayListItem
                                     oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
@@ -2490,6 +2505,7 @@ export function AdminSchedulePage() {
                                       {otherExtUnassignedSorted.map((item) => (
                                         <ScheduleDayListItem
                                     oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
@@ -2543,6 +2559,7 @@ export function AdminSchedulePage() {
                                         {bucket.morning.map((item) => (
                                           <ScheduleDayListItem
                                     oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
@@ -2573,6 +2590,7 @@ export function AdminSchedulePage() {
                                         {bucket.afternoon.map((item) => (
                                           <ScheduleDayListItem
                                     oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
@@ -2603,6 +2621,7 @@ export function AdminSchedulePage() {
                                         {bucket.other.map((item) => (
                                           <ScheduleDayListItem
                                     oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
@@ -2639,6 +2658,7 @@ export function AdminSchedulePage() {
                             <ScheduleDayListItem
                               key={item.id}
                               oneRoomLabel={oneRoomLabel}
+                              skOneRoomHighlight={skOpsUi}
                               item={item}
                               profCatalog={profCatalog}
                               viewerRole={meRole}
