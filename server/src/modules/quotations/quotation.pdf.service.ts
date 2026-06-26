@@ -232,18 +232,24 @@ export async function buildQuotationPdfBuffer(
         if (repName) {
           const repText = `대표 ${repName}`;
           const textX = ml + 8;
+          const lineH = doc.currentLineHeight();
           doc.text(repText, textX, leftY, { lineBreak: false });
           const textW = doc.widthOfString(repText);
-          let rowH = doc.currentLineHeight();
           if (sealBuf) {
             try {
-              doc.image(sealBuf, textX + textW + 3, leftY - 3, { width: sealPt });
-              rowH = Math.max(rowH, sealPt - 2);
+              // 직인은 줄 높이에 포함하지 않고 대표자명 위에 스티커처럼 겹침
+              const boxInnerRight = ml + boxW - 8;
+              const sealX = Math.min(
+                Math.max(textX + textW - sealPt * 0.45, textX),
+                boxInnerRight - sealPt,
+              );
+              const sealY = leftY + lineH / 2 - sealPt / 2;
+              doc.image(sealBuf, sealX, sealY, { width: sealPt });
             } catch {
               /* ignore broken image */
             }
           }
-          leftY += rowH + 1;
+          leftY += lineH + 1;
         }
         const tailLines = [
           company?.businessRegistrationNo?.trim()

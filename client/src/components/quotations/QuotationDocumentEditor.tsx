@@ -92,15 +92,21 @@ function RepresentativeWithSeal({
 }) {
   return (
     <p className={`leading-snug ${className}`}>
-      <span className="whitespace-nowrap">
+      <span className="relative inline-block whitespace-nowrap">
         대표 {repName}
         {sealUrl ? (
           <img
             src={sealUrl}
             alt=""
             width={sealWidth}
-            className="inline-block align-middle ml-0.5 object-contain"
-            style={{ width: sealWidth, height: 'auto', maxHeight: sealWidth, verticalAlign: 'middle' }}
+            className="pointer-events-none absolute object-contain"
+            style={{
+              width: sealWidth,
+              height: sealWidth,
+              left: `calc(100% - ${Math.round(sealWidth * 0.45)}px)`,
+              top: '50%',
+              transform: 'translateY(-50%)',
+            }}
           />
         ) : null}
       </span>
