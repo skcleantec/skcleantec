@@ -832,9 +832,7 @@ export async function getSubmissionDetailForAdmin(tenantId: string, submissionId
   let bodyHtml = merged || versionFallback;
   if (merged) {
     bodyHtml = dedupeTrailingPartyAppendices(bodyHtml);
-  }
-
-  if (bodyHtml && !bodyHtml.includes('ec-party-appendix')) {
+  } else if (bodyHtml && !bodyHtml.includes('ec-party-appendix')) {
     const issuerSnap = await getIssuerSnapshot(tenantId);
     const appendixHtml = buildPartyAppendixHtml(issuerSnap, {
       submissionId: s.id,

@@ -10,6 +10,7 @@ import { eContractRecipientRoleLabel } from '../../utils/eContractDisplay';
 import { EContractPagedIframeReader } from './EContractPagedIframeReader';
 import { SignaturePad } from './SignaturePad';
 import { downloadPagedIframeAsPdf, sanitizeEContractPdfFilenameBase } from './downloadPagedIframePdf';
+import { normalizeContractBodyForPaged } from './eContractPagedHtml';
 
 type Props = {
   token: string | null;
@@ -52,6 +53,12 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
     const vo = detail.versionOrdinal != null ? `v${detail.versionOrdinal}` : 'v';
     return sanitizeEContractPdfFilenameBase(`${detail.definitionTitle}_${vo}_${detail.id}`);
   }, [detail]);
+
+  /** 체결 화면(EContractPagedPreviewModal)과 동일한 본문 정규화 */
+  const pagedBodyHtml = useMemo(
+    () => normalizeContractBodyForPaged(detail?.bodyHtml ?? ''),
+    [detail?.bodyHtml],
+  );
 
   useEffect(() => {
     if (!open) {
@@ -310,7 +317,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                   </div>
                   <div className="mt-2 min-w-0">
                     <EContractPagedIframeReader
-                      bodyHtml={detail.bodyHtml}
+                      bodyHtml={pagedBodyHtml}
                       docId={detail.id}
                       title={`${detail.definitionTitle} - ${recipientDisplayName}`}
                       iframeRef={iframeRef}
