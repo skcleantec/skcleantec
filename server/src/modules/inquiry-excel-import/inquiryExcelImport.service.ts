@@ -11,6 +11,7 @@ import type {
   InquiryExcelRowPreviewResult,
 } from '../../lib/inquiryExcelImportPolicy.js';
 import { createInquiryFromBody, InquiryCreateError } from '../inquiries/inquiryCreate.service.js';
+import { deleteInquiriesFromExcelImportRun, parseRowResults } from './inquiryExcelImport.runDelete.js';
 import { findDuplicateInquiry } from './inquiryExcelImport.duplicate.js';
 import { mapExcelRowToInquiryBody } from './inquiryExcelImport.map.js';
 import { extractExcelHeaders, parseExcelBuffer, type ParsedExcelSheet } from './inquiryExcelImport.parse.js';
@@ -396,14 +397,76 @@ export async function listInquiryExcelRuns(tenantId: string, limit = 20, offset 
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: offset,
-      include: {
+      select: {
+        id: true,
+        tenantId: true,
+        profileId: true,
+        fileName: true,
+        totalRows: true,
+        createdCount: true,
+        skippedCount: true,
+        errorCount: true,
+        status: true,
+        createdAt: true,
+        rowResults: true,
         profile: { select: { id: true, name: true } },
         actor: { select: { id: true, name: true } },
       },
     }),
     prisma.inquiryExcelImportRun.count({ where: { tenantId } }),
   ]);
-  return { items, total };
+  const summaries = items.map(({ rowResults, ...rest }) => {
+    const rows = parseRowResults(rowResults);
+    const deletedCount = rows.filter((r) => r.kind === 'DELETED').length;
+    const remainingCreatedCount = rows.filter((r) => r.kind === 'CREATED').length;
+    return { ...rest, deletedCount, remainingCreatedCount };
+  });
+  return { items: summaries, total };
+}
+
+export async function getInquiryExcelRun(tenantId: string, runId: string) {
+  const run = await prisma.inquiryExcelImportRun.findFirst({
+    where: { id: runId, tenantId },
+    include: {
+      profile: { select: { id: true, name: true } },
+      actor: { select: { id: true, name: true } },
+    },
+  });
+  if (!run) return null;
+  const rowResults = parseRowResults(run.rowResults);
+  const deletedCount = rowResults.filter((r) => r.kind === 'DELETED').length;
+  const remainingCreatedCount = rowResults.filter((r) => r.kind === 'CREATED').length;
+  return { ...run, rowResults, deletedCount, remainingCreatedCount };
+}
+
+export async function undoInquiryExcelImportRun(params: {
+  tenantId: string;
+  runId: string;
+  actorId: string;
+}) {
+  const run = await prisma.inquiryExcelImportRun.findFirst({
+    where: { id: params.runId, tenantId: params.tenantId },
+    select: { id: true, fileName: true, rowResults: true },
+  });
+  if (!run) return null;
+
+  const rowResults = parseRowResults(run.rowResults);
+  const pendingCount = rowResults.filter((r) => r.kind === 'CREATED').length;
+  if (pendingCount === 0) {
+    return { deletedCount: 0, notFoundCount: 0, alreadyDeletedCount: rowResults.filter((r) => r.kind === 'DELETED').length };
+  }
+
+  const label = run.fileName?.trim() || run.id.slice(0, 8);
+  return prisma.$transaction((tx) =>
+    deleteInquiriesFromExcelImportRun({
+      db: tx,
+      tenantId: params.tenantId,
+      runId: run.id,
+      actorId: params.actorId,
+      rowResults,
+      runLabel: label,
+    }),
+  );
 }
 
 export { extractExcelHeaders, parseMappingSpec };

@@ -18,11 +18,13 @@ const ACTION_LABEL: Record<string, string> = {
   ERROR: '오류',
   CREATED: '등록됨',
   SKIPPED: '건너뜀',
+  DELETED: '삭제됨',
 };
 
 function actionClass(action: string): string {
   if (action === 'CREATE' || action === 'CREATED') return 'bg-emerald-100 text-emerald-800';
   if (action === 'SKIP' || action === 'SKIPPED') return 'bg-amber-100 text-amber-900';
+  if (action === 'DELETED') return 'bg-slate-200 text-slate-700';
   return 'bg-red-100 text-red-800';
 }
 
@@ -113,7 +115,11 @@ export function AdminInquiryExcelImportPage() {
           <Link to="/admin/inquiries/bulk-excel/mappings" className="text-sky-700 underline">
             매칭 서식 관리
           </Link>
-          에서 헤더·값 매핑을 먼저 설정하세요.
+          {' · '}
+          <Link to="/admin/inquiries/bulk-excel/history" className="text-sky-700 underline">
+            실행 이력
+          </Link>
+          에서 과거 일괄 등록·일괄 삭제를 확인할 수 있습니다.
         </p>
       </div>
 
@@ -192,7 +198,14 @@ export function AdminInquiryExcelImportPage() {
             <span className="font-semibold tabular-nums text-red-700">{summary.errorCount}</span>
           </p>
           {'runId' in summary && summary.runId ? (
-            <p className="mt-1 text-fluid-2xs text-slate-500">실행 ID: {summary.runId}</p>
+            <p className="mt-1 text-fluid-2xs text-slate-500">
+              <Link
+                to={`/admin/inquiries/bulk-excel/history?runId=${summary.runId}`}
+                className="text-sky-700 underline"
+              >
+                실행 이력에서 보기
+              </Link>
+            </p>
           ) : null}
         </div>
       ) : null}

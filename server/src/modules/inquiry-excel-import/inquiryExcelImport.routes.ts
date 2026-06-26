@@ -1,8 +1,10 @@
-import { Router, type Request } from 'express';
+import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
+import bcrypt from 'bcryptjs';
 import type { UserRole } from '@prisma/client';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { prisma } from '../../lib/prisma.js';
 import {
   createInquiryExcelProfile,
   deleteInquiryExcelProfile,
@@ -10,9 +12,11 @@ import {
   extractExcelHeaders,
   getInquiryExcelFieldCatalog,
   getInquiryExcelProfile,
+  getInquiryExcelRun,
   listInquiryExcelProfiles,
   listInquiryExcelRuns,
   previewInquiryExcelImport,
+  undoInquiryExcelImportRun,
   updateInquiryExcelProfile,
 } from './inquiryExcelImport.service.js';
 
@@ -32,6 +36,30 @@ function tenantIdOr403(req: Request, res: { status: (n: number) => { json: (b: u
     return null;
   }
   return tenantId;
+}
+
+async function verifyPasswordForRequest(
+  req: Request,
+  res: Response,
+  passwordRaw: unknown,
+): Promise<boolean> {
+  const password = passwordRaw != null ? String(passwordRaw) : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return false;
+  }
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return false;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return false;
+  }
+  return true;
 }
 
 router.get('/field-catalog', async (req, res) => {
@@ -183,10 +211,41 @@ router.post('/import/execute', upload.single('file'), async (req, res) => {
 router.get('/runs', async (req, res) => {
   const tenantId = tenantIdOr403(req, res);
   if (!tenantId) return;
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
   const offset = Math.max(0, Number(req.query.offset) || 0);
   const data = await listInquiryExcelRuns(tenantId, limit, offset);
   res.json(data);
+});
+
+router.get('/runs/:id', async (req, res) => {
+  const tenantId = tenantIdOr403(req, res);
+  if (!tenantId) return;
+  const run = await getInquiryExcelRun(tenantId, req.params.id);
+  if (!run) {
+    res.status(404).json({ error: '실행 이력을 찾을 수 없습니다.' });
+    return;
+  }
+  res.json(run);
+});
+
+/** 비밀번호 확인 후 — 해당 실행으로 등록(CREATED)된 접수 일괄 영구 삭제 */
+router.delete('/runs/:id/inquiries', async (req, res) => {
+  const tenantId = tenantIdOr403(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const body = req.body as { password?: string };
+  if (!(await verifyPasswordForRequest(req, res, body.password))) return;
+
+  const result = await undoInquiryExcelImportRun({
+    tenantId,
+    runId: req.params.id,
+    actorId: user.userId,
+  });
+  if (!result) {
+    res.status(404).json({ error: '실행 이력을 찾을 수 없습니다.' });
+    return;
+  }
+  res.json({ ok: true, ...result });
 });
 
 export default router;

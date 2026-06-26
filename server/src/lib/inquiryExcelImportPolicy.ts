@@ -54,7 +54,7 @@ export type InquiryExcelRowPreviewResult = {
 
 export type InquiryExcelRowExecuteResult = {
   rowIndex: number;
-  kind: 'CREATED' | 'SKIPPED' | 'ERROR';
+  kind: 'CREATED' | 'SKIPPED' | 'ERROR' | 'DELETED';
   message?: string;
   inquiryId?: string;
   inquiryNumber?: string | null;

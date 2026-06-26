@@ -148,12 +148,64 @@ export type InquiryExcelExecuteResponse = {
   errorCount: number;
   rows: Array<{
     rowIndex: number;
-    kind: 'CREATED' | 'SKIPPED' | 'ERROR';
+    kind: 'CREATED' | 'SKIPPED' | 'ERROR' | 'DELETED';
     message?: string;
     inquiryId?: string;
     inquiryNumber?: string | null;
   }>;
 };
+
+export type InquiryExcelRunSummary = {
+  id: string;
+  fileName: string | null;
+  totalRows: number;
+  createdCount: number;
+  skippedCount: number;
+  errorCount: number;
+  deletedCount: number;
+  remainingCreatedCount: number;
+  status: string;
+  createdAt: string;
+  profile: { id: string; name: string } | null;
+  actor: { id: string; name: string } | null;
+};
+
+export type InquiryExcelRunDetail = InquiryExcelRunSummary & {
+  rowResults: InquiryExcelExecuteResponse['rows'];
+};
+
+export async function listInquiryExcelRuns(
+  token: string,
+  params?: { limit?: number; offset?: number },
+): Promise<{ items: InquiryExcelRunSummary[]; total: number }> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set('limit', String(params.limit));
+  if (params?.offset != null) qs.set('offset', String(params.offset));
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const res = await fetch(`${API}/inquiry-excel-import/runs${suffix}`, { headers: authHeaders(token) });
+  if (!res.ok) await parseError(res, '실행 이력을 불러올 수 없습니다.');
+  return res.json() as Promise<{ items: InquiryExcelRunSummary[]; total: number }>;
+}
+
+export async function getInquiryExcelRun(token: string, runId: string): Promise<InquiryExcelRunDetail> {
+  const res = await fetch(`${API}/inquiry-excel-import/runs/${runId}`, { headers: authHeaders(token) });
+  if (!res.ok) await parseError(res, '실행 이력을 불러올 수 없습니다.');
+  return res.json() as Promise<InquiryExcelRunDetail>;
+}
+
+export async function deleteInquiryExcelRunInquiries(
+  token: string,
+  runId: string,
+  password: string,
+): Promise<{ ok: true; deletedCount: number; notFoundCount: number; alreadyDeletedCount: number }> {
+  const res = await fetch(`${API}/inquiry-excel-import/runs/${runId}/inquiries`, {
+    method: 'DELETE',
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) await parseError(res, '일괄 삭제에 실패했습니다.');
+  return res.json() as Promise<{ ok: true; deletedCount: number; notFoundCount: number; alreadyDeletedCount: number }>;
+}
 
 export async function executeInquiryExcelImport(
   token: string,

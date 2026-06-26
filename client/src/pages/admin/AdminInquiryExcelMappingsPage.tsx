@@ -47,6 +47,35 @@ function specFromProfile(p: InquiryExcelProfile | null): InquiryExcelMappingSpec
   };
 }
 
+/** 저장된 mappingSpec에 들어 있는 엑셀 헤더 — 재배포 후 샘플 미업로드 시 드롭다운 복원용 */
+function collectExcelHeadersFromSpec(spec: InquiryExcelMappingSpec): string[] {
+  const set = new Set<string>();
+  for (const m of spec.columnMappings) {
+    if (m.excelHeader) set.add(m.excelHeader);
+  }
+  for (const g of spec.memoLineMappings ?? []) {
+    for (const h of g.excelHeaders ?? []) {
+      if (h) set.add(h);
+    }
+  }
+  return [...set];
+}
+
+function mergeExcelHeaderLists(...lists: string[][]): string[] {
+  const set = new Set<string>();
+  for (const list of lists) {
+    for (const h of list) {
+      if (h) set.add(h);
+    }
+  }
+  return [...set];
+}
+
+function headerSelectOptions(excelHeaders: string[], selected: string): string[] {
+  if (selected && !excelHeaders.includes(selected)) return [selected, ...excelHeaders];
+  return excelHeaders;
+}
+
 export function AdminInquiryExcelMappingsPage() {
   const token = getToken();
   const navigate = useNavigate();
@@ -80,11 +109,14 @@ export function AdminInquiryExcelMappingsPage() {
     if (!token || !editId) {
       setName('');
       setSpec({ ...EMPTY_SPEC, columnMappings: [], valueMappings: [] });
+      setExcelHeaders([]);
       return;
     }
     const p = await getInquiryExcelProfile(token, editId);
+    const loadedSpec = specFromProfile(p);
     setName(p.name);
-    setSpec(specFromProfile(p));
+    setSpec(loadedSpec);
+    setExcelHeaders((prev) => mergeExcelHeaderLists(prev, collectExcelHeadersFromSpec(loadedSpec)));
   }, [token, editId]);
 
   useEffect(() => {
@@ -191,12 +223,18 @@ export function AdminInquiryExcelMappingsPage() {
 
   const headersUsedInMemoLines = useMemo(() => new Set(memoLineHeaders.filter(Boolean)), [memoLineHeaders]);
 
+  const savedMappingSummary = useMemo(() => {
+    const mapped = spec.columnMappings.filter((m) => m.excelHeader);
+    const memoLines = memoLineHeaders.filter(Boolean).length;
+    return { columnCount: mapped.length, memoLines, valueGroups: spec.valueMappings.length };
+  }, [spec.columnMappings, spec.valueMappings.length, memoLineHeaders]);
+
   const handleSampleUpload = async (file: File | null) => {
     if (!token || !file) return;
     setError(null);
     try {
       const { headers } = await analyzeInquiryExcelSample(token, file);
-      setExcelHeaders(headers);
+      setExcelHeaders((prev) => mergeExcelHeaderLists(prev, headers));
       setMessage(`샘플 헤더 ${headers.length}개를 불러왔습니다.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : '샘플 분석 실패');
@@ -205,6 +243,12 @@ export function AdminInquiryExcelMappingsPage() {
 
   const handleSave = async () => {
     if (!token) return;
+    if (editId && spec.columnMappings.length === 0) {
+      const ok = window.confirm(
+        '열 매핑이 하나도 없습니다. 저장하면 이 서식의 기존 열 매핑이 모두 지워집니다. 계속할까요?',
+      );
+      if (!ok) return;
+    }
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -343,8 +387,20 @@ export function AdminInquiryExcelMappingsPage() {
               />
               {excelHeaders.length > 0 ? (
                 <p className="mt-1 text-fluid-2xs text-slate-500">헤더: {excelHeaders.join(', ')}</p>
+              ) : editId ? (
+                <p className="mt-1 text-fluid-2xs text-amber-800">
+                  저장된 열 매핑은 DB에 있지만, 드롭다운 목록을 채우려면 같은 형식의 샘플 엑셀을 한 번 올려 주세요.
+                </p>
               ) : null}
             </div>
+            {editId && savedMappingSummary.columnCount > 0 ? (
+              <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs text-slate-700">
+                저장됨 — 열 {savedMappingSummary.columnCount}개
+                {savedMappingSummary.memoLines > 0 ? ` · 줄 합치기 ${savedMappingSummary.memoLines}줄` : ''}
+                {savedMappingSummary.valueGroups > 0 ? ` · 값 매핑 ${savedMappingSummary.valueGroups}그룹` : ''}
+                . 총액 등만 추가할 때는 아래에서 해당 필드만 고른 뒤 저장하세요.
+              </p>
+            ) : null}
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm overflow-hidden">
@@ -362,7 +418,7 @@ export function AdminInquiryExcelMappingsPage() {
                     className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-fluid-xs"
                   >
                     <option value="">— 매핑 안 함 —</option>
-                    {excelHeaders.map((h) => (
+                    {headerSelectOptions(excelHeaders, getColumnHeader(f.key)).map((h) => (
                       <option key={h} value={h} disabled={headersUsedInMemoLines.has(h)}>
                         {h}
                         {headersUsedInMemoLines.has(h) ? ' (줄 합치기)' : ''}
@@ -394,7 +450,7 @@ export function AdminInquiryExcelMappingsPage() {
                           className="w-full max-w-xs rounded border border-slate-300 px-2 py-1"
                         >
                           <option value="">—</option>
-                          {excelHeaders.map((h) => (
+                          {headerSelectOptions(excelHeaders, getColumnHeader(f.key)).map((h) => (
                             <option key={h} value={h} disabled={headersUsedInMemoLines.has(h)}>
                               {h}
                               {headersUsedInMemoLines.has(h) ? ' (줄 합치기)' : ''}
@@ -524,7 +580,7 @@ export function AdminInquiryExcelMappingsPage() {
                       className="min-w-[10rem] flex-1 rounded border border-slate-300 px-2 py-1.5 text-fluid-xs"
                     >
                       <option value="">— 엑셀 헤더 —</option>
-                      {excelHeaders.map((h) => (
+                      {headerSelectOptions(excelHeaders, header).map((h) => (
                         <option key={h} value={h}>
                           {h}
                         </option>

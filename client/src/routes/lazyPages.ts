@@ -24,6 +24,9 @@ export const AdminInquiryExcelMappingsPage = lazyWithRetry(() =>
 export const AdminInquiryExcelImportPage = lazyWithRetry(() =>
   import('../pages/admin/AdminInquiryExcelImportPage').then((m) => ({ default: m.AdminInquiryExcelImportPage }))
 );
+export const AdminInquiryExcelHistoryPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminInquiryExcelHistoryPage').then((m) => ({ default: m.AdminInquiryExcelHistoryPage }))
+);
 export const AdminMessagesPage = lazyWithRetry(() =>
   import('../pages/admin/AdminMessagesPage').then((m) => ({ default: m.AdminMessagesPage }))
 );

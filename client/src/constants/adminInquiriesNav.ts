@@ -44,6 +44,7 @@ export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
     children: [
       { to: '/admin/inquiries/bulk-excel/mappings', label: '매칭 서식' },
       { to: '/admin/inquiries/bulk-excel/import', label: '일괄 등록' },
+      { to: '/admin/inquiries/bulk-excel/history', label: '실행 이력' },
     ],
   },
 ];
