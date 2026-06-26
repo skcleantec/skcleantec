@@ -40,9 +40,7 @@ export function EContractPagedIframeReader({
       if (pages.length === 0) return;
 
       if (contractHtmlExpectsPartyAppendix(doc)) {
-        const ap =
-          doc.querySelector('.pagedjs_pages .ec-party-appendix') ||
-          doc.querySelector('.ec-appendix-dedicated-page .ec-party-appendix');
+        const ap = doc.querySelector('.pagedjs_pages .ec-party-appendix');
         const h = ap?.getBoundingClientRect().height ?? 0;
         if (!ap || h < 12) return;
       }

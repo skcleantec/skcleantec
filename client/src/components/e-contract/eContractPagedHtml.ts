@@ -29,7 +29,7 @@ export function normalizeContractBodyForPaged(raw: string): string {
   return `<pre class="ec-plain-contract">${escapeHtml(t)}</pre>`;
 }
 
-/** 갑·을 부록은 paged.js `break-inside: avoid` 에서 누락되기 쉬워 본문과 분리합니다. */
+/** PDF 부록 폴백용 — 갑·을 부록 블록 분리 */
 export function splitContractMainAndPartyAppendix(html: string): { main: string; appendix: string | null } {
   const t = (html ?? '').trim();
   if (!t) return { main: '', appendix: null };
@@ -42,6 +42,10 @@ export function splitContractMainAndPartyAppendix(html: string): { main: string;
   };
 }
 
+/** Paged.js가 article 밖 `.pagedjs_page_content`로 옮긴 뒤에도 동일 서식이 적용되도록 공통 셀렉터 */
+const EC_PAGED_BODY_SELECTOR =
+  'article.e-contract-body-html, .pagedjs_page_content, .ec-pdf-appendix-capture-root';
+
 /** iframe srcdoc — paged.js 로 A4 페이지 단위 분할·헤더·푸터 */
 export function buildPagedHtmlDocument(opts: {
   bodyHtml: string;
@@ -49,9 +53,7 @@ export function buildPagedHtmlDocument(opts: {
   pagedScriptUrl: string;
   title: string;
 }): string {
-  const sanitized = sanitizeEContractHtml(opts.bodyHtml);
-  const { main, appendix } = splitContractMainAndPartyAppendix(sanitized);
-  const inner = main || sanitized;
+  const inner = sanitizeEContractHtml(opts.bodyHtml);
   const docIdSafe = escapeHtml(opts.docId);
   const titleSafe = escapeHtml(opts.title);
   const absoluteScriptUrl = (() => {
@@ -97,66 +99,59 @@ html, body {
   print-color-adjust: exact;
 }
 
-article.e-contract-body-html {
+${EC_PAGED_BODY_SELECTOR} {
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
 
-article.e-contract-body-html pre.ec-plain-contract {
+${EC_PAGED_BODY_SELECTOR} pre.ec-plain-contract {
   margin: 0;
   font-family: inherit;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-article.e-contract-body-html p { margin: 0 0 0.6em 0; }
-article.e-contract-body-html p:empty { min-height: 1.65em; }
-article.e-contract-body-html p:has(> br:only-child) { min-height: 1em; }
+${EC_PAGED_BODY_SELECTOR} p { margin: 0 0 0.6em 0; }
+${EC_PAGED_BODY_SELECTOR} p:empty { min-height: 1.65em; }
+${EC_PAGED_BODY_SELECTOR} p:has(> br:only-child) { min-height: 1em; }
 
-article.e-contract-body-html h1 { font-size: 16pt; font-weight: 700; margin: 0.6em 0 0.4em; page-break-after: avoid; }
-article.e-contract-body-html h2 { font-size: 13pt; font-weight: 700; margin: 0.6em 0 0.4em; page-break-after: avoid; }
-article.e-contract-body-html h3 { font-size: 11.5pt; font-weight: 600; margin: 0.5em 0 0.3em; page-break-after: avoid; }
-article.e-contract-body-html ul, article.e-contract-body-html ol { margin: 0.4em 0 0.6em 1.4em; padding: 0; }
-article.e-contract-body-html li { margin: 0.1em 0; }
-article.e-contract-body-html blockquote {
+${EC_PAGED_BODY_SELECTOR} h1 { font-size: 16pt; font-weight: 700; margin: 0.6em 0 0.4em; page-break-after: avoid; }
+${EC_PAGED_BODY_SELECTOR} h2 { font-size: 13pt; font-weight: 700; margin: 0.6em 0 0.4em; page-break-after: avoid; }
+${EC_PAGED_BODY_SELECTOR} h3 { font-size: 11.5pt; font-weight: 600; margin: 0.5em 0 0.3em; page-break-after: avoid; }
+${EC_PAGED_BODY_SELECTOR} ul, ${EC_PAGED_BODY_SELECTOR} ol { margin: 0.4em 0 0.6em 1.4em; padding: 0; }
+${EC_PAGED_BODY_SELECTOR} li { margin: 0.1em 0; }
+${EC_PAGED_BODY_SELECTOR} blockquote {
   margin: 0.6em 0;
   padding-left: 10px;
   border-left: 3px solid #d1d5db;
   color: #4b5563;
 }
-article.e-contract-body-html table { border-collapse: collapse; page-break-inside: auto; width: 100%; }
-article.e-contract-body-html th,
-article.e-contract-body-html td {
+${EC_PAGED_BODY_SELECTOR} table { border-collapse: collapse; page-break-inside: auto; width: 100%; }
+${EC_PAGED_BODY_SELECTOR} th,
+${EC_PAGED_BODY_SELECTOR} td {
   border: 1px solid #d1d5db;
   padding: 6px 8px;
   vertical-align: top;
   word-break: break-word;
 }
-article.e-contract-body-html th { background: #f3f4f6; font-weight: 600; text-align: center; }
-article.e-contract-body-html tr { page-break-inside: avoid; }
-article.e-contract-body-html img { max-width: 100%; height: auto; page-break-inside: avoid; }
-article.e-contract-body-html a { color: #1d4ed8; text-decoration: underline; }
+${EC_PAGED_BODY_SELECTOR} th { background: #f3f4f6; font-weight: 600; text-align: center; }
+${EC_PAGED_BODY_SELECTOR} tr { page-break-inside: avoid; }
+${EC_PAGED_BODY_SELECTOR} img { max-width: 100%; height: auto; page-break-inside: avoid; }
+${EC_PAGED_BODY_SELECTOR} a { color: #1d4ed8; text-decoration: underline; }
 
-article.e-contract-body-html .ql-align-center,
-article.e-contract-body-html [style*="text-align: center"] { text-align: center; }
-article.e-contract-body-html .ql-align-right,
-article.e-contract-body-html [style*="text-align: right"] { text-align: right; }
-article.e-contract-body-html .ql-align-justify,
-article.e-contract-body-html [style*="text-align: justify"] { text-align: justify; }
+${EC_PAGED_BODY_SELECTOR} .ql-align-center,
+${EC_PAGED_BODY_SELECTOR} [style*="text-align: center"] { text-align: center; }
+${EC_PAGED_BODY_SELECTOR} .ql-align-right,
+${EC_PAGED_BODY_SELECTOR} [style*="text-align: right"] { text-align: right; }
+${EC_PAGED_BODY_SELECTOR} .ql-align-justify,
+${EC_PAGED_BODY_SELECTOR} [style*="text-align: justify"] { text-align: justify; }
 
-.ec-party-appendix { page-break-inside: auto; break-inside: auto; }
-
-.ec-appendix-dedicated-page {
-  width: 210mm;
-  min-height: 297mm;
-  background: #ffffff;
-  box-sizing: border-box;
-}
-.ec-appendix-dedicated-page .pagedjs_pagebox,
-.ec-appendix-dedicated-page .pagedjs_area {
-  width: 100%;
-  min-height: 297mm;
-  box-sizing: border-box;
+/* avoid 는 Paged.js에서 페이지 밖으로 밀려 PDF에서 빠지기 쉬움 → 새 페이지 시작 + 내부 분할 허용 */
+.ec-party-appendix {
+  break-before: page;
+  page-break-before: always;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 
 @media screen {
@@ -185,22 +180,6 @@ ${inner}
   window.PagedConfig = {
     auto: true,
     after: function() {
-      try {
-        var appendixHtml = ${JSON.stringify(appendix ?? '')};
-        if (appendixHtml) {
-          var pagesRoot = document.querySelector('.pagedjs_pages');
-          if (pagesRoot) {
-            var page = document.createElement('div');
-            page.className = 'pagedjs_page ec-appendix-dedicated-page';
-            page.setAttribute('data-ec-appendix-page', '1');
-            var box = document.createElement('div');
-            box.className = 'pagedjs_pagebox';
-            box.innerHTML = appendixHtml;
-            page.appendChild(box);
-            pagesRoot.appendChild(page);
-          }
-        }
-      } catch (e) {}
       try { document.body.setAttribute('data-pagedjs-ready', '1'); } catch (e) {}
       try { window.parent.postMessage({ type: 'pagedjs-rendered' }, '*'); } catch (e) {}
     }

@@ -22,8 +22,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
   const [detail, setDetail] = useState<EContractSubmissionDetailDto | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [imageLightboxUrl, setImageLightboxUrl] = useState<string | null>(null);
-  const [imageLightboxLabel, setImageLightboxLabel] = useState('');
+  const [mediaPanel, setMediaPanel] = useState<'selfie' | 'signature' | null>(null);
   const [readerExpanded, setReaderExpanded] = useState(false);
   const [pagedReady, setPagedReady] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -34,6 +33,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
   const [pendingSelfie, setPendingSelfie] = useState<{ publicId: string; secureUrl: string } | null>(null);
   const [pendingSignature, setPendingSignature] = useState<{ publicId: string; secureUrl: string } | null>(null);
   const [mediaConfirmOpen, setMediaConfirmOpen] = useState(false);
+  const [mediaConfirmKind, setMediaConfirmKind] = useState<'selfie' | 'signature' | null>(null);
 
   const recipientDisplayName =
     detail?.recipientName?.trim() ||
@@ -55,8 +55,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
 
   useEffect(() => {
     if (!open) {
-      setImageLightboxUrl(null);
-      setImageLightboxLabel('');
+      setMediaPanel(null);
       setReaderExpanded(false);
       setPagedReady(false);
       setPdfBusy(false);
@@ -65,6 +64,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
       setPendingSelfie(null);
       setPendingSignature(null);
       setMediaConfirmOpen(false);
+      setMediaConfirmKind(null);
     }
   }, [open]);
 
@@ -118,7 +118,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
     try {
       const up = await uploadEContractSubmissionMedia(token, submissionId, f, f.name || 'selfie.jpg');
       setPendingSelfie(up);
-      setMediaMsg('새 셀카를 올렸습니다. 아래 「교체 저장」을 눌러 반영해 주세요.');
+      setMediaMsg('새 셀카를 올렸습니다. 「저장」을 눌러 반영해 주세요.');
     } catch (e) {
       setMediaMsg(e instanceof Error ? e.message : '셀카 업로드에 실패했습니다.');
     } finally {
@@ -138,7 +138,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
         `signature_${Date.now()}.png`,
       );
       setPendingSignature(up);
-      setMediaMsg('새 서명을 올렸습니다. 아래 「교체 저장」을 눌러 반영해 주세요.');
+      setMediaMsg('새 서명을 올렸습니다. 「교체 저장」을 눌러 반영해 주세요.');
     } catch (e) {
       setMediaMsg(e instanceof Error ? e.message : '서명 업로드에 실패했습니다.');
       throw e;
@@ -147,32 +147,47 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
     }
   }
 
+  function closeMediaPanel() {
+    setMediaPanel(null);
+    setMediaMsg(null);
+  }
+
   async function confirmMediaReplace(password: string) {
-    if (!token || !submissionId) return;
-    if (!pendingSelfie && !pendingSignature) {
-      throw new Error('교체할 셀카 또는 서명을 먼저 선택해 주세요.');
+    if (!token || !submissionId || !mediaConfirmKind) return;
+    if (mediaConfirmKind === 'selfie' && !pendingSelfie) {
+      throw new Error('교체할 셀카를 먼저 선택해 주세요.');
+    }
+    if (mediaConfirmKind === 'signature' && !pendingSignature) {
+      throw new Error('교체할 서명을 먼저 그려 주세요.');
     }
     setMediaBusy(true);
     setMediaMsg(null);
     try {
       const updated = await patchEContractSubmissionMedia(token, submissionId, {
         password,
-        ...(pendingSelfie
+        ...(mediaConfirmKind === 'selfie' && pendingSelfie
           ? { selfiePublicId: pendingSelfie.publicId, selfieUrl: pendingSelfie.secureUrl }
           : {}),
-        ...(pendingSignature
+        ...(mediaConfirmKind === 'signature' && pendingSignature
           ? { signaturePublicId: pendingSignature.publicId, signatureUrl: pendingSignature.secureUrl }
           : {}),
       });
       setDetail(updated);
       setPagedReady(false);
-      setPendingSelfie(null);
-      setPendingSignature(null);
-      setMediaMsg('셀카·서명을 교체했습니다. PDF는 다시 저장해 주세요.');
+      if (mediaConfirmKind === 'selfie') setPendingSelfie(null);
+      if (mediaConfirmKind === 'signature') setPendingSignature(null);
+      setMediaMsg(
+        mediaConfirmKind === 'selfie'
+          ? '셀카를 교체했습니다.'
+          : '서명을 교체했습니다. PDF는 다시 저장해 주세요.',
+      );
     } finally {
       setMediaBusy(false);
     }
   }
+
+  const selfieDisplayUrl = pendingSelfie?.secureUrl ?? detail?.selfieUrl ?? null;
+  const signatureDisplayUrl = pendingSignature?.secureUrl ?? detail?.signatureUrl ?? null;
 
   if (!open) return null;
 
@@ -240,12 +255,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                     type="button"
                     disabled={!detail.selfieUrl}
                     className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-45"
-                    onClick={() => {
-                      if (detail.selfieUrl) {
-                        setImageLightboxLabel('본인확인 셀카');
-                        setImageLightboxUrl(detail.selfieUrl);
-                      }
-                    }}
+                    onClick={() => setMediaPanel('selfie')}
                   >
                     셀카 보기
                   </button>
@@ -253,12 +263,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                     type="button"
                     disabled={!detail.signatureUrl}
                     className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-45"
-                    onClick={() => {
-                      if (detail.signatureUrl) {
-                        setImageLightboxLabel('서명');
-                        setImageLightboxUrl(detail.signatureUrl);
-                      }
-                    }}
+                    onClick={() => setMediaPanel('signature')}
                   >
                     서명 보기
                   </button>
@@ -396,7 +401,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                       <div>
                         <div className="text-fluid-xs font-medium text-gray-800">이미지 미리보기</div>
                         <p className="mt-1 text-fluid-2xs text-gray-500">
-                          상단 「셀카 보기」「서명 보기」로 크게 볼 수 있습니다.
+                          상단 「셀카 보기」「서명 보기」에서 크게 보고 교체할 수 있습니다.
                         </p>
                         <div className="mt-2 flex flex-wrap gap-4">
                           {detail.selfieUrl ? (
@@ -405,10 +410,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                               <button
                                 type="button"
                                 className="mt-1 block overflow-hidden rounded border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                onClick={() => {
-                                  setImageLightboxLabel('본인확인 셀카');
-                                  setImageLightboxUrl(detail.selfieUrl);
-                                }}
+                                onClick={() => setMediaPanel('selfie')}
                               >
                                 <img
                                   src={detail.selfieUrl}
@@ -424,10 +426,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                               <button
                                 type="button"
                                 className="mt-1 block overflow-hidden rounded border border-gray-200 bg-white p-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                onClick={() => {
-                                  setImageLightboxLabel('서명');
-                                  setImageLightboxUrl(detail.signatureUrl);
-                                }}
+                                onClick={() => setMediaPanel('signature')}
                               >
                                 <img src={detail.signatureUrl} alt="서명" className="max-h-24 w-auto object-contain" />
                               </button>
@@ -436,83 +435,6 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                         </div>
                       </div>
                     )}
-
-                    {token ? (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3">
-                        <div className="text-fluid-xs font-semibold text-amber-950">셀카·서명 교체 (관리자)</div>
-                        <p className="mt-1 text-fluid-2xs text-amber-900/90 leading-snug">
-                          체결 후 잘못 올린 본인확인 셀카·서명만 교체합니다. 본인 비밀번호 확인 후 저장되며, 서명 교체
-                          시 PDF·최종본 부록의 (을) 서명도 함께 갱신됩니다.
-                        </p>
-
-                        <div className="mt-3 space-y-4">
-                          <div>
-                            <div className="text-fluid-2xs font-medium text-gray-800">셀카</div>
-                            <input
-                              ref={selfieInputRef}
-                              type="file"
-                              accept="image/jpeg,image/png,image/webp"
-                              className="hidden"
-                              onChange={(ev) => void onSelfieReplaceSelected(ev.target.files)}
-                            />
-                            <button
-                              type="button"
-                              disabled={mediaBusy}
-                              onClick={() => selfieInputRef.current?.click()}
-                              className="mt-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-fluid-2xs font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
-                            >
-                              새 셀카 선택
-                            </button>
-                            {(pendingSelfie?.secureUrl || detail.selfieUrl) ? (
-                              <div className="mt-2">
-                                <img
-                                  src={pendingSelfie?.secureUrl ?? detail.selfieUrl ?? ''}
-                                  alt="셀카 미리보기"
-                                  className="max-h-32 w-auto rounded border border-gray-200 object-contain"
-                                />
-                                {pendingSelfie ? (
-                                  <p className="mt-1 text-fluid-2xs text-amber-800">(교체 대기 중)</p>
-                                ) : null}
-                              </div>
-                            ) : null}
-                          </div>
-
-                          <div>
-                            <div className="text-fluid-2xs font-medium text-gray-800">서명</div>
-                            <SignaturePad
-                              busy={mediaBusy}
-                              onSave={onSignatureReplaceSaved}
-                              onClear={() => setPendingSignature(null)}
-                            />
-                            {(pendingSignature?.secureUrl || detail.signatureUrl) ? (
-                              <div className="mt-2">
-                                <img
-                                  src={pendingSignature?.secureUrl ?? detail.signatureUrl ?? ''}
-                                  alt="서명 미리보기"
-                                  className="max-h-20 w-auto rounded border border-gray-200 bg-white p-1 object-contain"
-                                />
-                                {pendingSignature ? (
-                                  <p className="mt-1 text-fluid-2xs text-amber-800">(교체 대기 중)</p>
-                                ) : null}
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        {mediaMsg ? <p className="mt-2 text-fluid-2xs text-gray-700">{mediaMsg}</p> : null}
-
-                        <div className="mt-3 flex justify-end">
-                          <button
-                            type="button"
-                            disabled={mediaBusy || (!pendingSelfie && !pendingSignature)}
-                            onClick={() => setMediaConfirmOpen(true)}
-                            className="rounded-md border border-slate-800 bg-slate-900 px-3 py-1.5 text-fluid-2xs font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            교체 저장
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
                   </div>
                 </details>
               </div>
@@ -521,65 +443,195 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
         </div>
       </div>
 
-      {imageLightboxUrl ? (
+      {mediaPanel === 'selfie' && selfieDisplayUrl ? (
         <div
-          className="fixed inset-0 z-[90] flex flex-col items-center justify-center bg-black/75 p-4"
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
-          aria-label={imageLightboxLabel}
+          aria-label="본인확인 셀카"
           onMouseDown={(ev) => {
-            if (ev.target === ev.currentTarget) {
-              setImageLightboxUrl(null);
-              setImageLightboxLabel('');
-            }
+            if (ev.target === ev.currentTarget) closeMediaPanel();
           }}
         >
-          <div className="relative max-h-full max-w-full rounded-lg bg-white p-2 shadow-xl">
-            <div className="flex items-center justify-between gap-4 border-b border-gray-200 px-2 pb-2">
-              <span className="text-fluid-sm font-medium text-gray-900">{imageLightboxLabel}</span>
-              <div className="flex flex-wrap gap-2">
-                <a
-                  href={imageLightboxUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded border border-gray-300 px-3 py-1 text-fluid-xs text-gray-800 hover:bg-gray-50"
-                >
-                  새 탭에서 열기
-                </a>
-                <button
-                  type="button"
-                  className="rounded-md bg-gray-900 px-3 py-1 text-fluid-xs font-medium text-white hover:bg-gray-800"
-                  onClick={() => {
-                    setImageLightboxUrl(null);
-                    setImageLightboxLabel('');
-                  }}
-                >
-                  닫기
-                </button>
+          <div className="flex max-h-[min(94vh,900px)] w-full max-w-lg flex-col overflow-hidden rounded-t-xl bg-white shadow-xl sm:rounded-xl">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
+              <div className="min-w-0">
+                <h3 className="text-fluid-sm font-semibold text-gray-900">본인확인 셀카</h3>
+                <p className="mt-0.5 text-fluid-2xs text-gray-500">체결 후 잘못 올린 셀카만 교체할 수 있습니다.</p>
               </div>
+              <button
+                type="button"
+                className="shrink-0 rounded-md px-3 py-1.5 text-fluid-xs text-gray-700 hover:bg-gray-100"
+                onClick={closeMediaPanel}
+              >
+                닫기
+              </button>
             </div>
-            <div className="max-h-[min(80vh,720px)] overflow-auto p-2">
-              <img
-                src={imageLightboxUrl}
-                alt={imageLightboxLabel}
-                className="mx-auto max-h-[min(75vh,680px)] w-auto max-w-full object-contain"
-              />
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                <img
+                  src={selfieDisplayUrl}
+                  alt="본인 확인 셀카"
+                  className="mx-auto max-h-[min(50vh,420px)] w-full object-contain"
+                />
+              </div>
+              {pendingSelfie ? (
+                <p className="mt-2 text-fluid-2xs font-medium text-amber-800">새 사진이 선택되었습니다. 저장을 눌러 반영해 주세요.</p>
+              ) : null}
+              {mediaMsg && mediaPanel === 'selfie' ? (
+                <p className="mt-2 text-fluid-2xs text-gray-700">{mediaMsg}</p>
+              ) : null}
             </div>
+
+            {token ? (
+              <div className="shrink-0 space-y-2 border-t border-gray-200 bg-gray-50 px-4 py-3">
+                <input
+                  ref={selfieInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(ev) => {
+                    void onSelfieReplaceSelected(ev.target.files);
+                    ev.target.value = '';
+                  }}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={mediaBusy}
+                    onClick={() => selfieInputRef.current?.click()}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {mediaBusy ? '업로드 중…' : '사진 교체'}
+                  </button>
+                  <a
+                    href={selfieDisplayUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50"
+                  >
+                    새 탭에서 열기
+                  </a>
+                  <button
+                    type="button"
+                    disabled={mediaBusy || !pendingSelfie}
+                    onClick={() => {
+                      setMediaConfirmKind('selfie');
+                      setMediaConfirmOpen(true);
+                    }}
+                    className="ml-auto rounded-lg border border-slate-800 bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    저장
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {mediaPanel === 'signature' && signatureDisplayUrl ? (
+        <div
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="서명"
+          onMouseDown={(ev) => {
+            if (ev.target === ev.currentTarget) closeMediaPanel();
+          }}
+        >
+          <div className="flex max-h-[min(94vh,900px)] w-full max-w-lg flex-col overflow-hidden rounded-t-xl bg-white shadow-xl sm:rounded-xl">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
+              <div className="min-w-0">
+                <h3 className="text-fluid-sm font-semibold text-gray-900">서명</h3>
+                <p className="mt-0.5 text-fluid-2xs text-gray-500">
+                  아래에서 새로 그리면 PDF·최종본 부록의 (을) 서명도 함께 갱신됩니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 rounded-md px-3 py-1.5 text-fluid-xs text-gray-700 hover:bg-gray-100"
+                onClick={closeMediaPanel}
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white p-2">
+                <img
+                  src={signatureDisplayUrl}
+                  alt="현재 서명"
+                  className="mx-auto max-h-28 w-full object-contain"
+                />
+              </div>
+              {pendingSignature ? (
+                <p className="mt-2 text-fluid-2xs font-medium text-amber-800">새 서명이 준비되었습니다. 교체 저장을 눌러 반영해 주세요.</p>
+              ) : null}
+              {mediaMsg && mediaPanel === 'signature' ? (
+                <p className="mt-2 text-fluid-2xs text-gray-700">{mediaMsg}</p>
+              ) : null}
+
+              {token ? (
+                <div className="mt-4">
+                  <div className="text-fluid-2xs font-medium text-gray-800">새 서명 그리기</div>
+                  <div className="mt-2">
+                    <SignaturePad
+                      busy={mediaBusy}
+                      onSave={onSignatureReplaceSaved}
+                      onClear={() => setPendingSignature(null)}
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {token ? (
+              <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-4 py-3">
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={signatureDisplayUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50"
+                  >
+                    새 탭에서 열기
+                  </a>
+                  <button
+                    type="button"
+                    disabled={mediaBusy || !pendingSignature}
+                    onClick={() => {
+                      setMediaConfirmKind('signature');
+                      setMediaConfirmOpen(true);
+                    }}
+                    className="ml-auto rounded-lg border border-slate-800 bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    교체 저장
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
 
       <ConfirmPasswordModal
         open={mediaConfirmOpen}
-        title="셀카·서명 교체"
+        title={mediaConfirmKind === 'signature' ? '서명 교체' : '셀카 교체'}
         description={
           <p className="text-fluid-2xs text-gray-600">
-            체결 기록의 본인확인 이미지를 교체합니다. 되돌릴 수 없으니 내용을 확인한 뒤 진행해 주세요.
+            {mediaConfirmKind === 'signature'
+              ? '체결 기록의 서명과 PDF 부록 서명을 교체합니다. 되돌릴 수 없으니 확인 후 진행해 주세요.'
+              : '체결 기록의 본인확인 셀카를 교체합니다. 되돌릴 수 없으니 확인 후 진행해 주세요.'}
           </p>
         }
-        confirmLabel="교체 저장"
+        confirmLabel={mediaConfirmKind === 'signature' ? '교체 저장' : '저장'}
         zIndexClassName="z-[95]"
-        onClose={() => setMediaConfirmOpen(false)}
+        onClose={() => {
+          setMediaConfirmOpen(false);
+          setMediaConfirmKind(null);
+        }}
         onConfirm={confirmMediaReplace}
       />
     </>
