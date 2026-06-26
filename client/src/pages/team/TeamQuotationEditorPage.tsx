@@ -13,6 +13,7 @@ import {
 } from '../../api/teamQuotations';
 import type { TenantCompanyRegistration, TenantSmtpSettingsPublic } from '../../api/tenantCompanyProfile';
 import { QuotationDocumentEditor } from '../../components/quotations/QuotationDocumentEditor';
+import { QuotationMobileFormEditor } from '../../components/quotations/QuotationMobileFormEditor';
 import { QuotationEmailPanel } from '../../components/quotations/QuotationEmailPanel';
 import { QuotationPdfActions } from '../../components/quotations/QuotationPdfActions';
 import { QuotationPreconditionBanner } from '../../components/quotations/QuotationPreconditionBanner';
@@ -366,7 +367,7 @@ export function TeamQuotationEditorPage() {
   const canEmail = smtpReady || globalSmtpFallback;
 
   return (
-    <div className={`${qUi.pageRoot} pb-24`}>
+    <div className={`${qUi.pageRoot} ${qUi.stickyActionBarSpacer}`}>
       <div className="space-y-1">
         <p className={qUi.breadcrumb}>
           <Link to={returnTo} className={qUi.breadcrumbLink}>
@@ -405,7 +406,7 @@ export function TeamQuotationEditorPage() {
         </p>
       )}
 
-      <QuotationDocumentEditor
+      <QuotationMobileFormEditor
         quoteNumber={quoteNumber}
         createdAt={createdAt}
         company={company}
@@ -439,6 +440,42 @@ export function TeamQuotationEditorPage() {
         footerNotice={footerNotice}
       />
 
+      <div className="hidden lg:block">
+        <QuotationDocumentEditor
+          quoteNumber={quoteNumber}
+          createdAt={createdAt}
+          company={company}
+          operatingCompanies={operatingCompanies}
+          operatingCompanyId={operatingCompanyId}
+          onOperatingCompanyChange={handleOperatingCompanyChange}
+          customerName={customerName}
+          customerPhone={customerPhone}
+          customerEmail={customerEmail}
+          customerAddress={customerAddress}
+          validUntil={validUntil}
+          onCustomerNameChange={setCustomerName}
+          onCustomerPhoneChange={setCustomerPhone}
+          onCustomerEmailChange={setCustomerEmail}
+          onCustomerAddressChange={setCustomerAddress}
+          onValidUntilChange={setValidUntil}
+          lines={lines}
+          catalog={catalog}
+          onLinesChange={setLines}
+          discountAmount={discountAmount}
+          onDiscountAmountChange={setDiscountAmount}
+          subtotal={totals.subtotal}
+          discountNum={totals.discountNum}
+          supplyTotal={totals.supplyTotal}
+          vatMode={vatMode}
+          onVatModeChange={setVatMode}
+          vatAmount={totals.vatAmount}
+          grandTotal={totals.grandTotal}
+          memo={memo}
+          onMemoChange={setMemo}
+          footerNotice={footerNotice}
+        />
+      </div>
+
       {!isNew && id && token && (
         <QuotationEmailPanel
           token={token}
@@ -459,35 +496,42 @@ export function TeamQuotationEditorPage() {
       )}
 
       <div className={qUi.stickyActionBar}>
-        <div className="mx-auto flex max-w-[794px] flex-wrap gap-2 justify-center sm:justify-start">
-          <Link to={returnTo} className={qUi.btnGhost}>
-            돌아가기
-          </Link>
-          <button
-            type="button"
-            disabled={saving || (isNew && !seedInquiryId)}
-            onClick={() => void handleSave(false)}
-            className={qUi.btnPrimary}
-          >
-            {saving ? '저장 중…' : '저장'}
-          </button>
-          <button
-            type="button"
-            disabled={saving || (isNew && !seedInquiryId)}
-            onClick={() => void handleSave(true)}
-            className={qUi.btnSecondary}
-          >
-            확정 저장
-          </button>
-          {!isNew && id && (
-            <QuotationPdfActions
-              token={token ?? ''}
-              quotationId={id}
-              quoteNumber={quoteNumber}
-              disabled={saving}
-              apiScope="team"
-            />
-          )}
+        <div className="mx-auto flex max-w-[794px] min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:justify-start">
+          <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:gap-2">
+            <button
+              type="button"
+              disabled={saving || (isNew && !seedInquiryId)}
+              onClick={() => void handleSave(false)}
+              className={`${qUi.btnPrimary} w-full py-3 lg:w-auto lg:py-2.5 touch-manipulation`}
+            >
+              {saving ? '저장 중…' : '저장'}
+            </button>
+            <button
+              type="button"
+              disabled={saving || (isNew && !seedInquiryId)}
+              onClick={() => void handleSave(true)}
+              className={`${qUi.btnSecondary} w-full py-3 lg:w-auto lg:py-1.5 touch-manipulation`}
+            >
+              확정 저장
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+            {!isNew && id && (
+              <QuotationPdfActions
+                token={token ?? ''}
+                quotationId={id}
+                quoteNumber={quoteNumber}
+                disabled={saving}
+                apiScope="team"
+              />
+            )}
+            <Link
+              to={returnTo}
+              className={`${qUi.btnGhost} py-2.5 touch-manipulation hidden sm:inline-flex lg:inline-flex`}
+            >
+              돌아가기
+            </Link>
+          </div>
         </div>
       </div>
     </div>

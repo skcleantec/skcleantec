@@ -358,7 +358,7 @@ export function AdminQuotationEditorPage() {
   const canEmail = smtpReady || globalSmtpFallback;
 
   return (
-    <div className={`${qUi.pageRoot} pb-24`}>
+    <div className={`${qUi.pageRoot} ${qUi.stickyActionBarSpacer}`}>
       <div className="space-y-1">
         <p className={qUi.breadcrumb}>
           <Link to="/admin/inquiries/quotations" className={qUi.breadcrumbLink}>

@@ -76,5 +76,7 @@ export const qUi = {
   modalHeader: 'border-b border-slate-100 px-4 pb-3 pt-4 pr-12',
   modalFooter: 'flex justify-end gap-2 border-t border-slate-100 px-4 py-3',
   stickyActionBar:
-    'fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 p-3 backdrop-blur sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none',
+    'fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:static lg:z-auto lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none',
+  /** 팀·모바일 견적 하단 고정 바 여백 */
+  stickyActionBarSpacer: 'pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-24',
 } as const;
