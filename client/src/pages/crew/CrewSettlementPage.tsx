@@ -13,6 +13,7 @@ import {
 } from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
 import { CrewBiLine, CrewBiInline, useCrewText } from '../../i18n/crew/crewI18n';
+import { useCrewUiLang } from '../../i18n/crew/crewUiLanguageContext';
 import { CrewTeamExpensesTab } from './CrewTeamExpensesTab';
 
 const TAB_EXPENSES = 'expenses';
@@ -593,6 +594,7 @@ function CrewSettlementDetailModal({
   onClose: () => void;
 }) {
   const t = useCrewText();
+  const uiLang = useCrewUiLang();
   const [data, setData] = useState<CrewPoolMemberPayrollDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -636,10 +638,9 @@ function CrewSettlementDetailModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  const altName = uiLang !== 'ko' ? (data?.member.nameTh ?? '').trim() : '';
   const heading =
-    data?.member.nameTh?.trim() != null && data.member.nameTh!.trim() !== ''
-      ? `${data.member.name} (${data.member.nameTh!.trim()})`
-      : (data?.member.name ?? '');
+    altName !== '' ? `${data?.member.name ?? ''} (${altName})` : (data?.member.name ?? '');
 
   const modalBody = (
     <div

@@ -1,3 +1,5 @@
+import { useCrewUiLang } from '../../i18n/crew/crewUiLanguageContext';
+
 /** 크루 화면 공통: 기본 이름 + 외국어 표기를 같은 줄에 붙여 표시(가운데 정렬 블록) */
 export function CrewMemberNameLines({
   name,
@@ -13,7 +15,8 @@ export function CrewMemberNameLines({
   variant?: 'default' | 'emerald';
   className?: string;
 }) {
-  const th = (nameTh ?? '').trim();
+  const uiLang = useCrewUiLang();
+  const th = uiLang !== 'ko' ? (nameTh ?? '').trim() : '';
   const mainCls = inactive
     ? 'text-gray-400 line-through'
     : variant === 'emerald'

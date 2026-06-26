@@ -201,7 +201,7 @@ export function CrewHomePage() {
           ) : (
             <ul className="space-y-2.5">
               {chartRows.map((row, idx) => {
-                const th = (row.nameTh ?? '').trim();
+                const th = uiLang !== 'ko' ? (row.nameTh ?? '').trim() : '';
                 const label = th ? `${row.name} · ${th}` : row.name;
                 const pct = (row.inquiryCount / maxCount) * 100;
                 const inactive = !row.isActive;

@@ -7,6 +7,7 @@ import { patchCrewMemberAddress, patchCrewMemberDisplayNames, patchCrewMemberPho
 import { AuthSessionExpiredError } from '../../api/auth';
 import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
 import { AddressSearch } from '../../components/forms/AddressSearch';
+import { crewUiLanguageShowsAltMemberName } from '@shared/crewGroupSettings';
 import { formatCrewHomeAddressLine } from '../../utils/crewHomeAddress';
 
 export function CrewSettingsPage() {
@@ -37,13 +38,14 @@ export function CrewSettingsPage() {
 
   const [introHelpOpen, setIntroHelpOpen] = useState(false);
   const t = useCrewText();
+  const showAltDisplayName = crewUiLanguageShowsAltMemberName(me?.group.crewUiLanguage);
 
   useEffect(() => {
-    if (!me) return;
+    if (!me || !showAltDisplayName) return;
     const next: Record<string, string> = {};
     for (const m of me.group.members) next[m.teamMemberId] = (m.nameTh ?? '').trim();
     setDraft(next);
-  }, [me]);
+  }, [me, showAltDisplayName]);
 
   const openPhoneModal = (teamMemberId: string, memberName: string, phone: string | null) => {
     setPhoneModal({ teamMemberId, memberName, phone: phone ?? '' });
@@ -197,7 +199,10 @@ export function CrewSettingsPage() {
       <div className="bg-white border border-gray-200 rounded-lg px-2 py-1.5">
         <div className="flex items-start gap-1.5 min-w-0">
           <h1 className="text-xs font-semibold text-gray-900 leading-tight min-w-0 flex-1">
-            <CrewBiLine id="crew.settings.title" koClassName="font-semibold" />
+            <CrewBiLine
+              id={showAltDisplayName ? 'crew.settings.title' : 'crew.settings.titleContact'}
+              koClassName="font-semibold"
+            />
           </h1>
           <button
             type="button"
@@ -213,7 +218,7 @@ export function CrewSettingsPage() {
         </div>
         {introHelpOpen ? (
           <div className="mt-1.5 p-2 rounded-md border border-gray-200 bg-gray-50 text-[0.58rem] text-gray-600 leading-snug">
-            <CrewBiLine id="crew.settings.intro" />
+            <CrewBiLine id={showAltDisplayName ? 'crew.settings.intro' : 'crew.settings.introContact'} />
           </div>
         ) : null}
       </div>
@@ -228,11 +233,13 @@ export function CrewSettingsPage() {
                   <span
                     className={`shrink-0 text-[0.7rem] font-medium truncate max-w-[4.25rem] sm:max-w-[5.5rem] ${
                       m.isActive ? 'text-gray-900' : 'text-gray-400 line-through'
-                    }`}
+                    } ${showAltDisplayName ? '' : 'flex-1 min-w-0 max-w-none sm:max-w-none'}`}
                     title={m.name}
                   >
                     {m.name}
                   </span>
+                  {showAltDisplayName ? (
+                    <>
                   <input
                     type="text"
                     className="flex-1 min-w-[6rem] text-[0.65rem] py-0.5 px-1 border border-gray-300 rounded leading-tight min-h-0"
@@ -252,6 +259,8 @@ export function CrewSettingsPage() {
                   >
                     {rowSaving ? '…' : t('crew.settings.save')}
                   </button>
+                    </>
+                  ) : null}
                   <span
                     className="text-[0.58rem] text-gray-500 tabular-nums shrink-0 truncate max-w-[5.5rem] sm:max-w-[6.5rem]"
                     title={m.phone ?? ''}

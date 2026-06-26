@@ -32,7 +32,11 @@ import {
   TeamMemberNationalityFields,
   teamMemberNationalityBadge,
 } from '../../components/admin/TeamMemberNationalityFields';
-import type { CrewGroupAvailabilityMode, CrewUiLanguage } from '@shared/crewGroupSettings';
+import {
+  crewUiLanguageShowsAltMemberName,
+  type CrewGroupAvailabilityMode,
+  type CrewUiLanguage,
+} from '@shared/crewGroupSettings';
 import { teamMemberAltNameField, type TeamMemberNationality } from '@shared/teamMemberNationality';
 
 /** 팀 크루 그룹 섹션 도움말 */
@@ -1711,7 +1715,10 @@ export function AdminTeamsPage() {
                       .map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.name}
-                          {(m.nameTh ?? '').trim() ? ` · ${(m.nameTh ?? '').trim()}` : ''}
+                          {crewUiLanguageShowsAltMemberName(crewEditForm.crewUiLanguage) &&
+                          (m.nameTh ?? '').trim()
+                            ? ` · ${(m.nameTh ?? '').trim()}`
+                            : ''}
                           {!m.isActive ? ' (사용 중지)' : ''}
                         </option>
                       ))}
@@ -1745,7 +1752,8 @@ export function AdminTeamsPage() {
                           {m.isGroupLeader ? (
                             <span className="ml-1 text-indigo-700 font-medium">(그룹장)</span>
                           ) : null}
-                          {(m.nameTh ?? '').trim() ? (
+                          {crewUiLanguageShowsAltMemberName(crewEditForm.crewUiLanguage) &&
+                          (m.nameTh ?? '').trim() ? (
                             <span className="block text-[0.65rem] text-gray-500 font-normal mt-0.5 not-italic">
                               {(m.nameTh ?? '').trim()}
                             </span>
@@ -1800,6 +1808,7 @@ export function AdminTeamsPage() {
                   )}
                 </ul>
 
+                {crewUiLanguageShowsAltMemberName(crewEditForm.crewUiLanguage) ? (
                 <details className="mt-4 rounded-md border border-gray-200 bg-gray-50/80 px-3 py-2">
                   <summary className="text-xs font-medium text-gray-800 cursor-pointer select-none">
                     크루 앱 보조 표시명
@@ -1856,6 +1865,7 @@ export function AdminTeamsPage() {
                     </button>
                   </div>
                 </details>
+                ) : null}
 
                 <p className="text-fluid-2xs text-gray-500 mt-2">
                   날짜별 투입 가능 인원은 크루 계정으로 로그인한 뒤 「일자 명단」 메뉴에서만 편집합니다.

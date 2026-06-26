@@ -9,6 +9,7 @@ import {
 } from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
 import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
+import { crewUiLanguageShowsAltMemberName } from '@shared/crewGroupSettings';
 
 export type CrewTeamExpensesTabVariant = 'page' | 'embedded';
 
@@ -118,6 +119,7 @@ export function CrewTeamExpensesTab({
   };
 
   const activeMembers = me?.group.members.filter((m) => m.isActive) ?? [];
+  const showAltName = crewUiLanguageShowsAltMemberName(me?.group.crewUiLanguage);
 
   return (
     <div className="space-y-4 min-w-0">
@@ -163,7 +165,7 @@ export function CrewTeamExpensesTab({
                 {activeMembers.map((m) => (
                   <option key={m.teamMemberId} value={m.teamMemberId}>
                     {m.name}
-                    {m.nameTh ? ` (${m.nameTh})` : ''}
+                    {showAltName && m.nameTh ? ` (${m.nameTh})` : ''}
                   </option>
                 ))}
               </select>

@@ -42,3 +42,8 @@ export function parseCrewUiLanguage(raw: unknown): CrewUiLanguage | null {
   if (raw === 'KO' || raw === 'TH' || raw === 'MN') return raw;
   return null;
 }
+
+/** 크루 앱 UI 언어가 한국어일 때는 보조 표시명(태국어·몽골어) 입력·병기 불필요 */
+export function crewUiLanguageShowsAltMemberName(lang: CrewUiLanguage | undefined): boolean {
+  return lang === 'TH' || lang === 'MN';
+}
