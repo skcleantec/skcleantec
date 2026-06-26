@@ -16,7 +16,7 @@ function signatureMarkup(url: string): string {
     return '<span class="e-contract-no-sign text-gray-500">(서명 없음)</span>';
   }
   const src = escapeHtml(url.trim());
-  return `<img src="${src}" alt="서명" class="e-contract-signer-signature-img inline-block max-w-[260px] align-middle border border-gray-200 bg-white p-1" loading="lazy" />`;
+  return `<img src="${src}" alt="서명" crossorigin="anonymous" class="e-contract-signer-signature-img inline-block max-w-[260px] align-middle border border-gray-200 bg-white p-1" loading="lazy" />`;
 }
 
 function formatValueForHtml(token: string, raw: string): string {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { buildPagedHtmlDocument, PAGED_POLYFILL_URL } from './eContractPagedHtml';
-import { contractHtmlExpectsPartyAppendix } from './eContractPagedCaptureWait';
+import { contractHtmlExpectsPartyAppendix, partyAppendixPresentInPagedOutput } from './eContractPagedCaptureWait';
 
 /**
  * 체결 합본 / 계약 본문 — iframe + Paged.js (관리자 체결 상세·팀장 서명 화면 공통)
@@ -40,9 +40,7 @@ export function EContractPagedIframeReader({
       if (pages.length === 0) return;
 
       if (contractHtmlExpectsPartyAppendix(doc)) {
-        const ap = doc.querySelector('.pagedjs_pages .ec-party-appendix');
-        const h = ap?.getBoundingClientRect().height ?? 0;
-        if (!ap || h < 12) return;
+        if (!partyAppendixPresentInPagedOutput(doc)) return;
       }
 
       onReadyChange(true);

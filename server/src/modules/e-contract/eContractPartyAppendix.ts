@@ -81,7 +81,7 @@ export function buildPartyAppendixHtml(
   }
 
   const tmpl = `
-<div class="ec-party-appendix" style="margin-top: 60px; padding-top: 40px; border-top: 1px solid #000; font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; color: #000; page-break-inside: avoid;">
+<div class="ec-party-appendix" style="margin-top: 60px; padding-top: 40px; border-top: 1px solid #000; font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; color: #000;">
   <div style="text-align: center; margin-bottom: 60px; font-size: 18px; font-weight: bold; letter-spacing: 2px;">
     ${dateText}
   </div>

@@ -87,7 +87,7 @@ function sealImgMarkup(snapshot: EContractIssuerSnapshot): string {
       : 96;
   if (w < 48) w = 48;
   if (w > 320) w = 320;
-  return `<img src="${escapeHtml(url)}" alt="인" width="${w}" class="e-contract-seal-img inline-block align-middle max-w-[40%]" loading="lazy" />`;
+  return `<img src="${escapeHtml(url)}" alt="인" width="${w}" crossorigin="anonymous" class="e-contract-seal-img inline-block align-middle max-w-[40%]" loading="lazy" />`;
 }
 
 function signatureImgMarkup(snapshot: EContractIssuerSnapshot): string {
@@ -101,7 +101,7 @@ function signatureImgMarkup(snapshot: EContractIssuerSnapshot): string {
       : 96;
   if (w < 48) w = 48;
   if (w > 320) w = 320;
-  return `<img src="${escapeHtml(url)}" alt="서명" width="${w}" class="e-contract-issuer-signature-img inline-block align-middle max-w-[260px]" loading="lazy" />`;
+  return `<img src="${escapeHtml(url)}" alt="서명" width="${w}" crossorigin="anonymous" class="e-contract-issuer-signature-img inline-block align-middle max-w-[260px]" loading="lazy" />`;
 }
 
 /** `[[EC_ISSUER_SEAL]]` — 설정에 따라 도장 또는 서명 이미지 */
