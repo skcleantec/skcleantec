@@ -15,6 +15,7 @@ import {
   mergeFieldsFromJson,
   suggestEcTokenFromLabel,
 } from './eContractField.tokens.js';
+import { DEFAULT_FIELD_SPECS_BY_AUDIENCE } from './eContractDefaultFieldDefinitions.js';
 
 export type EContractFieldDefinitionDto = {
   id: string;
@@ -60,6 +61,7 @@ export async function listFieldDefinitions(
   audience: EContractAudience,
   opts?: { activeOnly?: boolean }
 ): Promise<EContractFieldDefinitionDto[]> {
+  await ensureDefaultFieldDefinitions(tenantId, audience);
   const rows = await prisma.eContractFieldDefinition.findMany({
     where: {
       tenantId,
@@ -70,6 +72,38 @@ export async function listFieldDefinitions(
   });
   const usage = await Promise.all(rows.map((r) => tokenInUse(r.token)));
   return rows.map((r, i) => mapRow(r, usage[i] ?? false));
+}
+
+/** TEAM_MEMBER 등 신규 audience — 기본 체결 필드가 없으면 팀장과 동일 을-party 항목을 보강 */
+export async function ensureDefaultFieldDefinitions(
+  tenantId: string,
+  audience: EContractAudience,
+): Promise<void> {
+  const defaults = DEFAULT_FIELD_SPECS_BY_AUDIENCE[audience];
+  if (!defaults?.length) return;
+
+  const existing = await prisma.eContractFieldDefinition.findMany({
+    where: { tenantId, audience },
+    select: { token: true },
+  });
+  const have = new Set(existing.map((r) => r.token));
+  const missing = defaults.filter((d) => !have.has(d.token));
+  if (missing.length === 0) return;
+
+  await prisma.eContractFieldDefinition.createMany({
+    data: missing.map((d) => ({
+      tenantId,
+      audience,
+      token: d.token,
+      label: d.label,
+      inputType: d.inputType,
+      filledBy: d.filledBy,
+      required: d.required,
+      sortOrder: d.sortOrder,
+      isActive: true,
+    })),
+    skipDuplicates: true,
+  });
 }
 
 export async function createFieldDefinition(
@@ -239,6 +273,7 @@ export async function resolveSignerFormFields(
   tenantId: string,
   audience: EContractAudience,
 ): Promise<ResolvedFieldForBody[]> {
+  await ensureDefaultFieldDefinitions(tenantId, audience);
   const rows = await prisma.eContractFieldDefinition.findMany({
     where: {
       tenantId,
