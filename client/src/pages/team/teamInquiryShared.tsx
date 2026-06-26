@@ -209,6 +209,7 @@ export interface InquiryItem {
   orderForm?: {
     id?: string;
     submittedAt?: string | null;
+    depositAmount?: number | null;
     customerSpecialNotes?: string | null;
     customerAnswers?: Record<string, unknown> | null;
     template?: {
@@ -321,6 +322,95 @@ export function marketerInfo(item: InquiryItem): { name: string; phone: string |
   const who = created ?? fallback;
   if (!who) return { name: '-', phone: null };
   return { name: who.name, phone: who.phone ?? null };
+}
+
+/** 목록·배지 — 고객에게 받을 예약금(접수 스냅샷 우선, 발주서 보조) */
+export function teamInquiryDepositAmount(item: InquiryItem): number | null {
+  const deposit = item.serviceDepositAmount ?? item.orderForm?.depositAmount ?? null;
+  if (deposit == null || !Number.isFinite(deposit) || deposit <= 0) return null;
+  return Math.round(deposit);
+}
+
+export function teamInquirySpecialNotesPreview(item: InquiryItem): string {
+  const parts: string[] = [];
+  const customer = effectiveCustomerOrderNotes({
+    specialNotes: item.specialNotes,
+    orderForm: item.orderForm,
+  }).trim();
+  if (customer) parts.push(`[고객] ${customer}`);
+  const admin = effectiveTeamSharedAdminNotes({
+    memo: item.memo,
+    specialNotes: item.specialNotes,
+    orderForm: item.orderForm,
+  }).trim();
+  if (admin) parts.push(`[관리자] ${admin}`);
+  const consult = item.consultationMemo?.trim();
+  if (consult) parts.push(`[상담] ${consult}`);
+  return parts.join('\n');
+}
+
+export function teamInquiryHasSpecialNotes(item: InquiryItem): boolean {
+  return teamInquirySpecialNotesPreview(item) !== '';
+}
+
+/** 배정·대시보드 목록 — 예약금 pill */
+export function TeamInquiryDepositListBadge({
+  item,
+  className = '',
+}: {
+  item: InquiryItem;
+  className?: string;
+}) {
+  const amount = teamInquiryDepositAmount(item);
+  if (amount == null) return null;
+  const full = `${Number(amount).toLocaleString('ko-KR')}원`;
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-fluid-2xs font-semibold text-amber-900 ring-1 ring-amber-200/80 tabular-nums ${className}`}
+      title={`예약금 ${full}`}
+    >
+      예약 {Number(amount).toLocaleString('ko-KR')}
+    </span>
+  );
+}
+
+/** 배정·대시보드 목록 — 특이사항 「특」 원형 아이콘 */
+export function TeamInquirySpecialNotesListBadge({
+  item,
+  className = '',
+}: {
+  item: InquiryItem;
+  className?: string;
+}) {
+  const preview = teamInquirySpecialNotesPreview(item);
+  if (!preview) return null;
+  return (
+    <span
+      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-bold leading-none text-violet-800 ring-1 ring-violet-300/80 ${className}`}
+      title={preview}
+      aria-label="특이사항"
+    >
+      특
+    </span>
+  );
+}
+
+export function TeamInquiryListAmountNotesBadges({
+  item,
+  className = '',
+}: {
+  item: InquiryItem;
+  className?: string;
+}) {
+  const deposit = teamInquiryDepositAmount(item);
+  const hasNotes = teamInquiryHasSpecialNotes(item);
+  if (deposit == null && !hasNotes) return null;
+  return (
+    <span className={`inline-flex flex-wrap items-center gap-1 ${className}`}>
+      <TeamInquiryDepositListBadge item={item} />
+      <TeamInquirySpecialNotesListBadge item={item} />
+    </span>
+  );
 }
 
 /** 타업체가 협력 팀장에게 붙여넣기할 접수·발주 요약 텍스트 (관리자 「정보 복사」와 동일 계열) */

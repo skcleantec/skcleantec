@@ -33,6 +33,13 @@ function kstYmdNow(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
+function formatQuotationIssuer(createdBy: QuotationDto['createdBy']): string {
+  if (!createdBy) return '—';
+  const name = createdBy.name?.trim();
+  if (name) return name;
+  return createdBy.email?.trim() || '—';
+}
+
 export function AdminQuotationsListPage() {
   const token = getToken();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -246,6 +253,7 @@ export function AdminQuotationsListPage() {
                     <th className={qUi.th}>접수</th>
                     <th className={`${qUi.th} text-right`}>합계</th>
                     <th className={qUi.th}>상태</th>
+                    <th className={qUi.th}>발행자</th>
                     <th className={qUi.th}>작성일</th>
                     <th className={qUi.th}>최근 발송</th>
                     <th className={qUi.th} />
@@ -266,6 +274,12 @@ export function AdminQuotationsListPage() {
                       </td>
                       <td className={qUi.td}>
                         <QuotationStatusBadge status={row.status} />
+                      </td>
+                      <td
+                        className={`${qUi.td} text-slate-700 truncate max-w-[8rem]`}
+                        title={formatQuotationIssuer(row.createdBy)}
+                      >
+                        {formatQuotationIssuer(row.createdBy)}
                       </td>
                       <td className={`${qUi.td} text-slate-500 whitespace-nowrap`}>
                         {new Date(row.createdAt).toLocaleDateString('ko-KR')}
@@ -318,6 +332,7 @@ export function AdminQuotationsListPage() {
                       {row.total.toLocaleString('ko-KR')}원
                     </span>
                     <span>{new Date(row.createdAt).toLocaleDateString('ko-KR')}</span>
+                    <span title="발행자">{formatQuotationIssuer(row.createdBy)}</span>
                     {row.inquiry?.inquiryNumber && (
                       <span className="font-mono">접수 {row.inquiry.inquiryNumber}</span>
                     )}

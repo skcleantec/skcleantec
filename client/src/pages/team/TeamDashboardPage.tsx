@@ -23,6 +23,7 @@ import {
   formatTeamInquiryAreaSummary,
   TeamCoLeadersListHint,
   TeamNoCrewMembersListBadge,
+  TeamInquiryListAmountNotesBadges,
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
@@ -261,7 +262,10 @@ export function TeamDashboardPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-gray-900">{primaryLabel}</div>
+                      <div className="flex flex-wrap items-center gap-1.5 font-semibold text-gray-900">
+                        <span>{primaryLabel}</span>
+                        <TeamInquiryListAmountNotesBadges item={item} />
+                      </div>
                       {memoSubtitle ? (
                         <p className="mt-0.5 line-clamp-1 text-fluid-xs text-gray-700" title={memoTrim}>
                           {memoTrim}
@@ -350,7 +354,10 @@ export function TeamDashboardPage() {
                           className="flex items-center justify-between px-4 py-3 active:bg-gray-50 min-h-[48px]"
                         >
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium text-gray-900 truncate">{primaryLabel}</div>
+                            <div className="flex flex-wrap items-center gap-1.5 font-medium text-gray-900">
+                              <span className="truncate">{primaryLabel}</span>
+                              <TeamInquiryListAmountNotesBadges item={item} />
+                            </div>
                             {memoSubtitle ? (
                               <div
                                 className="mt-0.5 line-clamp-1 text-fluid-2xs text-gray-600 truncate"

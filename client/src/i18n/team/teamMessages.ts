@@ -223,6 +223,7 @@ export const teamMessages = {
   'team.assign.thPrefDate': { ko: '예약일'},
   'team.assign.thTimeSlot': { ko: '시간대'},
   'team.assign.thStatus': { ko: '상태'},
+  'team.assign.thDeposit': { ko: '예약금'},
   'team.assign.thHappy': { ko: '해피콜'},
   'team.assign.happyComplete': { ko: '완료'},
   'team.assign.happyIncomplete': { ko: '미완료'},

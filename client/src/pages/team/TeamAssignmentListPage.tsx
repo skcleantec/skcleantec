@@ -30,6 +30,9 @@ import {
   coLeadersSummaryForViewer,
   TeamCoLeadersListHint,
   TeamNoCrewMembersListBadge,
+  TeamInquiryDepositListBadge,
+  TeamInquirySpecialNotesListBadge,
+  teamInquiryDepositAmount,
 } from './teamInquiryShared';
 import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
@@ -522,6 +525,8 @@ export function TeamAssignmentListPage() {
                               ●
                             </span>
                           ) : null}
+                          <TeamInquirySpecialNotesListBadge item={item} />
+                          <TeamInquiryDepositListBadge item={item} />
                           {item.inquiryNumber ? (
                             <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 font-mono text-fluid-2xs tabular-nums text-gray-700">
                               {item.inquiryNumber}
@@ -600,7 +605,7 @@ export function TeamAssignmentListPage() {
             {isLgUp ? (
             <div>
             <SyncHorizontalScroll contentClassName="-mx-4 px-4 sm:mx-0 sm:px-0">
-              <table className="w-full table-fixed text-fluid-sm border-collapse min-w-[960px]">
+              <table className="w-full table-fixed text-fluid-sm border-collapse min-w-[1020px]">
                 <colgroup>
                   <col className="w-[8.5rem]" />
                   <col className="w-[5.5rem]" />
@@ -613,6 +618,7 @@ export function TeamAssignmentListPage() {
                   <col className="w-[5rem]" />
                   <col className="w-[4.5rem]" />
                   <col className="w-[4.5rem]" />
+                  <col className="w-[5rem]" />
                   <col className="w-[4.5rem]" />
                   <col className="w-[5.5rem]" />
                   <col className="w-[6rem]" />
@@ -653,6 +659,9 @@ export function TeamAssignmentListPage() {
                       <TeamBiLine id="team.assign.thStatus" koClassName="text-fluid-xs font-medium text-gray-700" />
                     </th>
                     <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
+                      <TeamBiLine id="team.assign.thDeposit" koClassName="text-fluid-xs font-medium text-gray-700" />
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium text-gray-700 whitespace-nowrap align-middle">
                       <TeamBiLine id="team.assign.thHappy" koClassName="text-fluid-xs font-medium text-gray-700" />
                     </th>
                     {hasInspectionModule ? (
@@ -672,6 +681,7 @@ export function TeamAssignmentListPage() {
                     const primaryLabel = inquiryPrimaryCustomerLabel(item);
                     const memoTrim = item.scheduleMemo?.trim() ?? '';
                     const memoSubtitle = memoTrim && memoTrim !== primaryLabel;
+                    const depositAmount = teamInquiryDepositAmount(item);
                     const pBorder = 'border-b border-gray-100';
                     return (
                       <tr
@@ -726,6 +736,7 @@ export function TeamAssignmentListPage() {
                                   ●
                                 </span>
                               ) : null}
+                              <TeamInquirySpecialNotesListBadge item={item} className="ml-1 align-middle" />
                             </div>
                             {memoSubtitle ? (
                               <div
@@ -777,6 +788,18 @@ export function TeamAssignmentListPage() {
                           <span className="inline-block rounded bg-gray-200 px-2 py-0.5 text-fluid-2xs text-gray-800">
                             {STATUS_LABELS[item.status] ?? item.status}
                           </span>
+                        </td>
+                        <td className={`align-middle py-2 px-2 text-center whitespace-nowrap tabular-nums ${pBorder}`}>
+                          {depositAmount != null ? (
+                            <span
+                              className="text-fluid-2xs font-medium text-amber-900"
+                              title={`예약금 ${Number(depositAmount).toLocaleString('ko-KR')}원`}
+                            >
+                              {Number(depositAmount).toLocaleString('ko-KR')}
+                            </span>
+                          ) : (
+                            <span className="text-fluid-xs text-gray-400">{teamBiPlain('team.common.emDash')}</span>
+                          )}
                         </td>
                         <td className={`align-middle py-2 px-2 text-center ${pBorder}`}>
                           <TeamHappyCallBadge item={item} variant="list" />
