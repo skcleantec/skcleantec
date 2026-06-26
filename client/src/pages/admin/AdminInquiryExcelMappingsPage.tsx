@@ -298,8 +298,8 @@ export function AdminInquiryExcelMappingsPage() {
     }
     if (fieldKey === 'preferredTime') {
       return [
-        { value: '오전', label: '오전' },
-        { value: '오후', label: '오후' },
+        { value: '오전', label: '오전 (8시~9시 시작)' },
+        { value: '오후', label: '오후 (12시~14시 시작)' },
         { value: '사이청소', label: '사이청소' },
       ];
     }
@@ -323,7 +323,7 @@ export function AdminInquiryExcelMappingsPage() {
       <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
         <h1 className="text-fluid-lg font-semibold text-slate-900">매칭 서식 관리</h1>
         <p className="mt-1 text-fluid-sm text-slate-600">
-          엑셀 헤더 ↔ SK 필드 매핑과 상태·운영사 등 값 변환 규칙을 저장합니다.
+          엑셀 헤더 ↔ 청소비서 필드 매핑과 상태·운영사 등 값 변환 규칙을 저장합니다.
         </p>
       </div>
 
@@ -432,7 +432,7 @@ export function AdminInquiryExcelMappingsPage() {
               <table className="w-full table-fixed border-collapse text-fluid-xs">
                 <thead>
                   <tr className="bg-slate-100">
-                    <th className="border border-slate-200 px-2 py-2 text-center">SK 필드</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center">청소비서 필드</th>
                     <th className="border border-slate-200 px-2 py-2 text-center">엑셀 헤더</th>
                   </tr>
                 </thead>
@@ -486,7 +486,7 @@ export function AdminInquiryExcelMappingsPage() {
                   </button>
                 </div>
                 {entries.length === 0 ? (
-                  <p className="text-fluid-xs text-slate-500">엑셀 값 → SK 값 변환 규칙을 추가하세요.</p>
+                  <p className="text-fluid-xs text-slate-500">엑셀 값 → 청소비서 값 변환 규칙을 추가하세요.</p>
                 ) : (
                   <div className="space-y-2">
                     {entries.map((entry, idx) => (
@@ -504,7 +504,7 @@ export function AdminInquiryExcelMappingsPage() {
                             onChange={(e) => updateValueEntry(fieldKey, idx, { skValue: e.target.value })}
                             className="min-w-[8rem] flex-1 rounded border border-slate-300 px-2 py-1.5 text-fluid-xs"
                           >
-                            <option value="">SK 값</option>
+                            <option value="">청소비서 값</option>
                             {skOpts.map((o) => (
                               <option key={o.value} value={o.value}>
                                 {o.label}
@@ -515,7 +515,7 @@ export function AdminInquiryExcelMappingsPage() {
                           <input
                             value={entry.skValue}
                             onChange={(e) => updateValueEntry(fieldKey, idx, { skValue: e.target.value })}
-                            placeholder="SK 값"
+                            placeholder="청소비서 값"
                             className="min-w-[8rem] flex-1 rounded border border-slate-300 px-2 py-1.5 text-fluid-xs"
                           />
                         )}
@@ -539,7 +539,7 @@ export function AdminInquiryExcelMappingsPage() {
               <div>
                 <h2 className="text-fluid-sm font-semibold text-slate-800">특이사항 줄 합치기</h2>
                 <p className="mt-1 text-fluid-2xs text-slate-500">
-                  「특이사항1」「특이사항2」처럼 SK에 1:1 필드가 없는 열은 순서대로 줄바꿈해 한 칸에 넣습니다.
+                  「특이사항1」「특이사항2」처럼 청소비서에 1:1 필드가 없는 열은 순서대로 줄바꿈해 한 칸에 넣습니다.
                 </p>
               </div>
               <button
@@ -551,7 +551,7 @@ export function AdminInquiryExcelMappingsPage() {
               </button>
             </div>
             <label className="mb-3 block text-fluid-xs text-slate-600">
-              합칠 SK 필드
+              합칠 청소비서 필드
               <select
                 value={memoLineGroup.targetFieldKey ?? 'specialNotes'}
                 onChange={(e) =>

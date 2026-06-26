@@ -12,6 +12,7 @@ import {
   normalizeExcelHeader,
   normalizePhoneFromExcel,
   phoneColumnMappingHint,
+  resolvePreferredTimeFromExcel,
 } from './inquiryExcelImport.cellValue.js';
 
 export type MappedInquiryRow = {
@@ -184,6 +185,13 @@ export async function mapExcelRowToInquiryBody(params: {
         if (policy === 'SKIP_ROW') return { body, skipReason: `운영사 '${trimmed}' 를 찾을 수 없습니다.` };
         if (policy === 'ERROR') return { body, error: `운영사 '${trimmed}' 를 찾을 수 없습니다.` };
         continue;
+      }
+      if (fieldKey === 'preferredTime') {
+        const auto = resolvePreferredTimeFromExcel(trimmed);
+        if (auto) {
+          body.preferredTime = auto;
+          continue;
+        }
       }
       const policy = unmappedPolicy(spec, fieldKey);
       if (policy === 'SKIP_ROW') return { body, skipReason: `${def?.label ?? fieldKey} 값 '${trimmed}' 매핑 없음` };

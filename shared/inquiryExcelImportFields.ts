@@ -69,7 +69,7 @@ export const INQUIRY_EXCEL_FIELD_CATALOG: InquiryExcelFieldDef[] = [
   { key: 'operatingCompanyId', label: '운영사', kind: 'lookup', valueMapping: true },
   { key: 'createdAt', label: '접수일', kind: 'date', hint: '목록·집계의 접수일(createdAt) — KST 날짜' },
   { key: 'preferredDate', label: '예약일', kind: 'date' },
-  { key: 'preferredTime', label: '시간대', kind: 'enum', valueMapping: true },
+  { key: 'preferredTime', label: '시간대', kind: 'enum', valueMapping: true, hint: '엑셀 오전·오후·사이 → 청소비서 오전/오후/사이청소 자동(값 매핑 선택)' },
   { key: 'preferredTimeDetail', label: '사이청소 시각', kind: 'text' },
   { key: 'areaPyeong', label: '평수', kind: 'number' },
   { key: 'areaBasis', label: '평수 기준', kind: 'text', hint: '공급 · 전용 — 열 없으면 서식 기본값(기본 공급)' },

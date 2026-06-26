@@ -86,5 +86,20 @@ export function phoneColumnMappingHint(
     return '';
   }
 
-  return ` 파일의 연락처 열: ${candidates.join(', ')} — 매칭 서식에서 SK 「연락처」를 해당 열에 연결하세요.`;
+  return ` 파일의 연락처 열: ${candidates.join(', ')} — 매칭 서식에서 「연락처」를 해당 열에 연결하세요.`;
+}
+
+/** SK preferredTime 저장값: '오전' | '오후' | '사이청소' (UI 라벨의 괄호 설명과 무관) */
+export function resolvePreferredTimeFromExcel(raw: string): string | null {
+  const s = raw.trim();
+  if (!s) return null;
+
+  if (s === '오전' || s === '오후' || s === '사이청소') return s;
+
+  const lower = s.toLowerCase();
+  if (s.includes('사이') || lower === 'between') return '사이청소';
+  if (s.includes('오전') || lower === 'am' || s.includes('上午')) return '오전';
+  if (s.includes('오후') || lower === 'pm' || s.includes('下午')) return '오후';
+
+  return null;
 }
