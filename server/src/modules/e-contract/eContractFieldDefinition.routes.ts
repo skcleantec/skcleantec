@@ -17,14 +17,11 @@ function reqTenantId(req: Request): string {
   return (req as TenantScopedRequest).tenantId;
 }
 
-function parseAudience(raw: unknown): EContractAudience | null {
-  if (raw === 'MARKETER' || raw === 'TEAM_LEADER') return raw;
-  return null;
-}
+import { parseEContractAudienceInput } from './eContractAudience.helpers.js';
 
 router.get('/field-definitions', async (req, res) => {
   try {
-    const audience = parseAudience(typeof req.query.audience === 'string' ? req.query.audience : '');
+    const audience = parseEContractAudienceInput(typeof req.query.audience === 'string' ? req.query.audience : '');
     if (!audience) {
       res.status(400).json({ error: 'audience가 필요합니다.' });
       return;
@@ -41,7 +38,7 @@ router.get('/field-definitions', async (req, res) => {
 router.post('/field-definitions', async (req, res) => {
   try {
     const b = req.body ?? {};
-    const audience = parseAudience(b.audience);
+    const audience = parseEContractAudienceInput(b.audience);
     if (!audience) {
       res.status(400).json({ error: 'audience가 필요합니다.' });
       return;

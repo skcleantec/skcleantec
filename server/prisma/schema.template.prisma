@@ -694,6 +694,7 @@ model TeamMember {
   payrollSettlements TeamMemberPayrollSettlement[]
   payrollLedgerManualExpenseTargets PayrollAccountLedgerManualEntry[]
   inquiryCrewMemberMeetingTimes InquiryCrewMemberMeetingTime[]
+  eContractIssuances EContractIssuance[]
 
   @@index([tenantId, isActive])
   @@map("team_members")
@@ -2341,10 +2342,11 @@ enum EContractIssuanceStatus {
   REVOKED
 }
 
-/// 계약서 수신 대상 — 팀장(팀 화면) / 마케터(링크만)
+/// 계약서 수신 대상 — 팀장(팀 화면) / 마케터(링크만) / 팀원(링크만, User 계정 없음)
 enum EContractAudience {
   TEAM_LEADER
   MARKETER
+  TEAM_MEMBER
 }
 
 /// 체결·매핑 필드 — 값을 채우는 주체
@@ -2439,13 +2441,18 @@ model EContractVersion {
   @@map("e_contract_versions")
 }
 
-/// 팀장에게 낸 링크(토큰) 1건 — 어느 배포 버전으로 체결 대상인지 고정.
+/// 수신자에게 낸 링크(토큰) 1건 — 어느 배포 버전으로 체결 대상인지 고정.
 model EContractIssuance {
   id             String                  @id @default(uuid())
   token          String                  @unique @db.VarChar(128)
   definitionId   String                  @map("definition_id")
   versionId      String                  @map("version_id")
-  teamLeaderId   String                  @map("team_leader_id")
+  /// 팀장·마케터(User) 수신 — TEAM_MEMBER 발급 시 null
+  teamLeaderId   String?                 @map("team_leader_id")
+  /// 팀원(TeamMember) 수신 — User 계정 없이 링크만
+  teamMemberId   String?                 @map("team_member_id")
+  /// 발급 시점 수신자 표시명 스냅샷(팀원명 등)
+  recipientLabel String?                 @map("recipient_label") @db.VarChar(128)
   status         EContractIssuanceStatus @default(PENDING)
   expiresAt      DateTime?               @map("expires_at")
   notes          String?                 @db.Text
@@ -2456,10 +2463,12 @@ model EContractIssuance {
 
   definition EContractDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
   version    EContractVersion    @relation(fields: [versionId], references: [id], onDelete: Restrict)
-  teamLeader User                @relation("EContractIssuanceTeamLeader", fields: [teamLeaderId], references: [id], onDelete: Cascade)
+  teamLeader User?               @relation("EContractIssuanceTeamLeader", fields: [teamLeaderId], references: [id], onDelete: Cascade)
+  teamMember TeamMember?         @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
   submission EContractSubmission?
 
   @@index([teamLeaderId, createdAt(sort: Desc)])
+  @@index([teamMemberId, createdAt(sort: Desc)])
   @@index([definitionId, versionId])
   @@map("e_contract_issuances")
 }

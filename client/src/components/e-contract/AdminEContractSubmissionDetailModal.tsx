@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getEContractSubmissionDetail, type EContractSubmissionDetailDto } from '../../api/adminEContract';
+import { eContractRecipientRoleLabel } from '../../utils/eContractDisplay';
 import { EContractPagedIframeReader } from './EContractPagedIframeReader';
 import { downloadPagedIframeAsPdf, sanitizeEContractPdfFilenameBase } from './downloadPagedIframePdf';
 
@@ -20,6 +21,18 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
   const [pagedReady, setPagedReady] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  const recipientDisplayName =
+    detail?.recipientName?.trim() ||
+    detail?.teamMember?.name?.trim() ||
+    detail?.teamLeader?.name?.trim() ||
+    detail?.recipientLabel?.trim() ||
+    '—';
+  const recipientRoleLabel = eContractRecipientRoleLabel(detail?.recipientRole ?? detail?.teamLeader?.role);
+  const recipientContact =
+    detail?.teamLeader?.email?.trim() ||
+    detail?.teamMember?.phone?.trim() ||
+    '';
 
   const pdfFilenameBase = useMemo(() => {
     if (!detail) return '계약서';
@@ -212,7 +225,7 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                     <EContractPagedIframeReader
                       bodyHtml={detail.bodyHtml}
                       docId={detail.id}
-                      title={`${detail.definitionTitle} - ${detail.teamLeader.name}`}
+                      title={`${detail.definitionTitle} - ${recipientDisplayName}`}
                       iframeRef={iframeRef}
                       onReadyChange={setPagedReady}
                     />
@@ -233,8 +246,10 @@ export function AdminEContractSubmissionDetailModal({ token, submissionId, open,
                         <span className="font-medium">계약 종류</span> — {detail.definitionTitle}
                       </div>
                       <div className="mt-1">
-                        <span className="font-medium">팀장</span> — {detail.teamLeader.name}{' '}
-                        <span className="text-gray-600">({detail.teamLeader.email})</span>
+                        <span className="font-medium">{recipientRoleLabel}</span> — {recipientDisplayName}{' '}
+                        {recipientContact ? (
+                          <span className="text-gray-600">({recipientContact})</span>
+                        ) : null}
                       </div>
                       <div className="mt-1">
                         <span className="font-medium">버전</span> —{' '}

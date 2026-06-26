@@ -7,7 +7,7 @@ function headers(token: string) {
   };
 }
 
-export type EContractAudienceKind = 'TEAM_LEADER' | 'MARKETER';
+export type EContractAudienceKind = 'TEAM_LEADER' | 'MARKETER' | 'TEAM_MEMBER';
 
 export type EContractDefinitionListItem = {
   id: string;
@@ -96,7 +96,14 @@ export type EContractSubmissionRow = {
   teamLeaderId: string;
   teamLeaderName: string;
   teamLeaderEmail: string;
-  recipientRole?: 'TEAM_LEADER' | 'MARKETER' | 'ADMIN' | 'EXTERNAL_PARTNER';
+  recipientRole?: 'TEAM_LEADER' | 'MARKETER' | 'TEAM_MEMBER' | 'ADMIN' | 'EXTERNAL_PARTNER';
+};
+
+export type EContractTeamMemberPicker = {
+  id: string;
+  name: string;
+  phone: string | null;
+  teamName: string | null;
 };
 
 export type EContractSubmissionDetailDto = {
@@ -104,7 +111,11 @@ export type EContractSubmissionDetailDto = {
   signedAt: string;
   definitionId: string;
   definitionTitle: string;
-  teamLeader: { id: string; name: string; email: string; role?: 'TEAM_LEADER' | 'MARKETER' | 'ADMIN' | 'EXTERNAL_PARTNER' };
+  teamLeader: { id: string; name: string; email: string; role?: 'TEAM_LEADER' | 'MARKETER' | 'ADMIN' | 'EXTERNAL_PARTNER' } | null;
+  teamMember: { id: string; name: string; phone: string | null } | null;
+  recipientLabel: string | null;
+  recipientName?: string;
+  recipientRole?: 'TEAM_LEADER' | 'MARKETER' | 'TEAM_MEMBER' | 'ADMIN' | 'EXTERNAL_PARTNER';
   versionOrdinal: number | null;
   versionTitle: string;
   mergedUsed: boolean;
@@ -123,7 +134,9 @@ export type EContractIssuanceRow = {
   expiresAt: string | null;
   notes: string | null;
   createdAt: string;
-  teamLeader: { id: string; name: string; email: string; role?: 'TEAM_LEADER' | 'MARKETER' | 'ADMIN' | 'EXTERNAL_PARTNER' };
+  recipientLabel: string | null;
+  teamLeader: { id: string; name: string; email: string; role?: 'TEAM_LEADER' | 'MARKETER' | 'ADMIN' | 'EXTERNAL_PARTNER' } | null;
+  teamMember: { id: string; name: string; phone: string | null } | null;
   version: { id: string; publishedOrdinal: number | null; titleSnapshot: string };
   submission: { id: string; signedAt: string } | null;
 };
@@ -317,6 +330,17 @@ export async function pickerAllContractRecipients(token: string): Promise<{ reci
   return res.json() as Promise<{ recipients: EContractRecipientPicker[] }>;
 }
 
+export async function pickerTeamMembers(token: string): Promise<{ teamMembers: EContractTeamMemberPicker[] }> {
+  const res = await fetch(`${API}/admin/e-contracts/pickers/team-members`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '목록을 불러오지 못했습니다.');
+  }
+  return res.json() as Promise<{ teamMembers: EContractTeamMemberPicker[] }>;
+}
+
 export async function pickerTeamLeaders(token: string): Promise<{ teamLeaders: TeamLeaderPicker[] }> {
   const res = await fetch(`${API}/admin/e-contracts/pickers/team-leaders`, {
     headers: headers(token),
@@ -447,7 +471,8 @@ export async function createEContractIssuance(
   token: string,
   body: {
     definitionId: string;
-    recipientUserId: string;
+    recipientUserId?: string;
+    teamMemberId?: string;
     versionId?: string | null;
     expiresAt?: string | null;
     notes?: string | null;

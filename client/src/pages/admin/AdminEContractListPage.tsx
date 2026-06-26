@@ -93,6 +93,7 @@ export function AdminEContractListPage() {
                 [
                   ['TEAM_LEADER', '팀장'],
                   ['MARKETER', '마케터(링크 발송)'],
+                  ['TEAM_MEMBER', '팀원(링크 발송)'],
                 ] as const
               ).map(([key, label]) => (
                 <button
@@ -108,7 +109,7 @@ export function AdminEContractListPage() {
               ))}
             </div>
             <p className="mt-1 text-fluid-2xs text-gray-500">
-              마케터는 전용 포털이 없어 등록 후 발급한 체결 링크를 직접 전달합니다.
+              마케터·팀원은 전용 로그인이 없어 등록 후 발급한 체결 링크를 직접 전달합니다.
             </p>
           </div>
         </div>

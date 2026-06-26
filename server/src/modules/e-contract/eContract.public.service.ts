@@ -20,7 +20,7 @@ import { assertTenantAllowsPublicService, PublicTenantAccessError } from '../ten
 export type PublicSignSession = {
   issuanceId: string;
   definitionTitle: string;
-  audience: 'TEAM_LEADER' | 'MARKETER';
+  audience: 'TEAM_LEADER' | 'MARKETER' | 'TEAM_MEMBER';
   /** 체결 대상 명시용(팀장·마케터 실명) */
   signerNameLabel: string;
   versionOrdinal: number;
@@ -44,9 +44,34 @@ async function issuanceByToken(rawToken: string) {
       definition: { select: { id: true, title: true, isArchived: true, audience: true, tenantId: true } },
       version: true,
       teamLeader: { select: { id: true, name: true, isActive: true, role: true } },
+      teamMember: { select: { id: true, name: true, isActive: true } },
       submission: { select: { id: true, signedAt: true, mergedContractHtml: true } },
     },
   });
+}
+
+function resolveSignerFromIssuance(row: {
+  recipientLabel: string | null;
+  teamLeader: { id: string; name: string; isActive: boolean; role: string } | null;
+  teamMember: { id: string; name: string; isActive: boolean } | null;
+  definition: { audience: string };
+}): { name: string; isActive: boolean } {
+  if (row.teamMember) {
+    return {
+      name: row.recipientLabel?.trim() || row.teamMember.name?.trim() || '',
+      isActive: row.teamMember.isActive,
+    };
+  }
+  if (row.teamLeader) {
+    return {
+      name: row.teamLeader.name?.trim() || '',
+      isActive: row.teamLeader.isActive,
+    };
+  }
+  return {
+    name: row.recipientLabel?.trim() || '',
+    isActive: false,
+  };
 }
 
 async function maybeMarkExpired(
@@ -115,7 +140,8 @@ export async function getPublicSignSession(rawToken: string): Promise<
 
   if (row.status === EContractIssuanceStatus.REVOKED) return { error: 'revoked' };
   if (row.definition.isArchived) return { error: 'archived_definition' };
-  if (!row.teamLeader?.isActive) return { error: 'inactive_signer' };
+  const signer = resolveSignerFromIssuance(row);
+  if (!signer.isActive) return { error: 'inactive_signer' };
 
   let alreadySigned = Boolean(row.submission?.id);
   if (!alreadySigned) {
@@ -161,7 +187,7 @@ export async function getPublicSignSession(rawToken: string): Promise<
       bodyText: bodyMarkdown,
       mergeFields: row.mergeFields,
       signerValues: Object.fromEntries(
-        signerFields.map((f) => [f.token, f.token === '[[EC_SIGNER_NAME]]' ? row.teamLeader.name?.trim() || '' : ''])
+        signerFields.map((f) => [f.token, f.token === '[[EC_SIGNER_NAME]]' ? signer.name : ''])
       ),
       signatureUrl: null,
       previewMode: true,
@@ -179,11 +205,11 @@ export async function getPublicSignSession(rawToken: string): Promise<
     issuanceId: row.id,
     definitionTitle: row.definition.title,
     audience: row.definition.audience,
-    signerNameLabel: row.teamLeader.name,
+    signerNameLabel: signer.name,
     versionOrdinal: row.version.publishedOrdinal ?? 0,
     versionTitle: row.version.titleSnapshot,
     bodyMarkdown,
-    signFields: toPublicSignFields(signFieldsResolved, row.teamLeader.name),
+    signFields: toPublicSignFields(signFieldsResolved, signer.name),
     expiresAtIso: row.expiresAt?.toISOString() ?? null,
     challengeDigits,
     issuanceStatus: row.status,
@@ -216,7 +242,8 @@ export async function validateIssuanceWritable(rawToken: string) {
     }
     throw e;
   }
-  if (!again.teamLeader?.isActive) throw Object.assign(new Error('inactive_signer'), { code: 'forbidden' as const });
+  const signerCheck = resolveSignerFromIssuance(again);
+  if (!signerCheck.isActive) throw Object.assign(new Error('inactive_signer'), { code: 'forbidden' as const });
   if (again.status === EContractIssuanceStatus.REVOKED)
     throw Object.assign(new Error('closed'), { code: 'gone' as const });
   if (again.submission) throw Object.assign(new Error('already_signed'), { code: 'conflict' as const });
@@ -344,7 +371,7 @@ export async function completeSubmissionByToken(
 
       return { signedAt: sub.signedAt.toISOString() };
     });
-    if (recipientRole) {
+    if (recipientUserId && recipientRole) {
       notifyEContractInboxIfTeamLeader(recipientUserId, recipientRole);
     }
     return result;

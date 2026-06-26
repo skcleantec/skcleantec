@@ -8,16 +8,36 @@ export function eContractIssuanceStatusKo(status: string, hasSigned?: boolean): 
   return status || '—';
 }
 
-export type EContractAudienceKind = 'TEAM_LEADER' | 'MARKETER';
+export type EContractAudienceKind = 'TEAM_LEADER' | 'MARKETER' | 'TEAM_MEMBER';
 
 export function eContractAudienceLabel(audience: EContractAudienceKind): string {
-  return audience === 'MARKETER' ? '마케터' : '팀장';
+  if (audience === 'MARKETER') return '마케터';
+  if (audience === 'TEAM_MEMBER') return '팀원(링크 발송)';
+  return '팀장';
 }
 
 export function eContractRecipientRoleLabel(role: string | undefined): string {
   if (role === 'MARKETER') return '마케터';
+  if (role === 'TEAM_MEMBER') return '팀원';
   if (role === 'TEAM_LEADER') return '팀장';
   return role || '—';
+}
+
+export function eContractIssuanceRecipientLabel(row: {
+  recipientLabel?: string | null;
+  teamMember?: { name: string } | null;
+  teamLeader?: { name: string } | null;
+}): string {
+  const snap = row.recipientLabel?.trim();
+  if (snap) return snap;
+  if (row.teamMember?.name?.trim()) return row.teamMember.name.trim();
+  if (row.teamLeader?.name?.trim()) return row.teamLeader.name.trim();
+  return '—';
+}
+
+/** 링크만 전달하는 수신 유형(로그인 없음) */
+export function eContractAudienceUsesLinkOnly(audience: EContractAudienceKind): boolean {
+  return audience === 'MARKETER' || audience === 'TEAM_MEMBER';
 }
 
 export function eContractFieldFilledByLabel(filledBy: string): string {

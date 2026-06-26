@@ -22,14 +22,22 @@ import {
   publishEContractVersion,
   pickerTeamLeaders,
   pickerMarketers,
+  pickerTeamMembers,
   type EContractDefinitionDetail,
   type EContractEditorFieldOption,
   type EContractIssuanceRow,
   type EContractMergeFieldForIssuance,
+  type EContractTeamMemberPicker,
   type EContractVersionDetail,
   type TeamLeaderPicker,
 } from '../../api/adminEContract';
-import { eContractAudienceLabel, eContractIssuanceStatusKo, eContractRecipientRoleLabel } from '../../utils/eContractDisplay';
+import {
+  eContractAudienceLabel,
+  eContractAudienceUsesLinkOnly,
+  eContractIssuanceRecipientLabel,
+  eContractIssuanceStatusKo,
+  eContractRecipientRoleLabel,
+} from '../../utils/eContractDisplay';
 
 function publishedVersionDeleteLabel(v: EContractVersionDetail): string {
   const ord = v.publishedOrdinal != null ? `v${v.publishedOrdinal}` : '배포본';
@@ -43,6 +51,7 @@ export function AdminEContractDefinitionPage() {
   const [def, setDef] = useState<EContractDefinitionDetail | null>(null);
   const [issuances, setIssuances] = useState<EContractIssuanceRow[]>([]);
   const [pickers, setPickers] = useState<TeamLeaderPicker[]>([]);
+  const [teamMemberPickers, setTeamMemberPickers] = useState<EContractTeamMemberPicker[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -81,13 +90,21 @@ export function AdminEContractDefinitionPage() {
       const d = await getEContractDefinition(token, definitionId);
       const iss = await listEContractIssuances(token, definitionId);
       const audience = d.definition.audience ?? 'TEAM_LEADER';
-      const pl =
-        audience === 'MARKETER'
-          ? await pickerMarketers(token).then((r) => r.marketers)
-          : await pickerTeamLeaders(token).then((r) => r.teamLeaders);
+      if (audience === 'MARKETER') {
+        const pl = await pickerMarketers(token).then((r) => r.marketers);
+        setPickers(pl);
+        setTeamMemberPickers([]);
+      } else if (audience === 'TEAM_MEMBER') {
+        const tm = await pickerTeamMembers(token).then((r) => r.teamMembers);
+        setTeamMemberPickers(tm);
+        setPickers([]);
+      } else {
+        const pl = await pickerTeamLeaders(token).then((r) => r.teamLeaders);
+        setPickers(pl);
+        setTeamMemberPickers([]);
+      }
       setDef(d.definition);
       setIssuances(iss.issuances);
-      setPickers(pl);
       const edFields = await fetchEContractEditorFields(token, definitionId);
       setEditorFields(edFields.fields);
       const draft = d.definition.versions.find((v) => v.status === 'DRAFT');
@@ -260,12 +277,21 @@ export function AdminEContractDefinitionPage() {
     setMsg(null);
     setLastIssuedSignUrl(null);
     try {
-      const result = await createEContractIssuance(token, {
-        definitionId,
-        recipientUserId: issueRecipientId,
-        versionId: issueVersionId || null,
-        mergeFields: Object.keys(issueMergeValues).length > 0 ? issueMergeValues : undefined,
-      });
+      const issueBody =
+        def?.audience === 'TEAM_MEMBER'
+          ? {
+              definitionId,
+              teamMemberId: issueRecipientId,
+              versionId: issueVersionId || null,
+              mergeFields: Object.keys(issueMergeValues).length > 0 ? issueMergeValues : undefined,
+            }
+          : {
+              definitionId,
+              recipientUserId: issueRecipientId,
+              versionId: issueVersionId || null,
+              mergeFields: Object.keys(issueMergeValues).length > 0 ? issueMergeValues : undefined,
+            };
+      const result = await createEContractIssuance(token, issueBody);
       const issuanceToken =
         typeof result.issuance === 'object' &&
         result.issuance !== null &&
@@ -274,13 +300,21 @@ export function AdminEContractDefinitionPage() {
           ? (result.issuance as { token: string }).token
           : null;
       const signUrl = issuanceToken ? buildEContractPublicSignUrl(issuanceToken) : null;
-      if (signUrl && def?.audience === 'MARKETER') {
+      if (signUrl && def && eContractAudienceUsesLinkOnly(def.audience)) {
         setLastIssuedSignUrl(signUrl);
         try {
           await navigator.clipboard.writeText(signUrl);
-          setMsg('체결 링크를 발급했고 클립보드에 복사했습니다. 마케터에게 전달해 주세요.');
+          setMsg(
+            def.audience === 'TEAM_MEMBER'
+              ? '체결 링크를 발급했고 클립보드에 복사했습니다. 팀원에게 전달해 주세요.'
+              : '체결 링크를 발급했고 클립보드에 복사했습니다. 마케터에게 전달해 주세요.'
+          );
         } catch {
-          setMsg('체결 링크를 발급했습니다. 아래 링크를 복사해 마케터에게 전달해 주세요.');
+          setMsg(
+            def.audience === 'TEAM_MEMBER'
+              ? '체결 링크를 발급했습니다. 아래 링크를 복사해 팀원에게 전달해 주세요.'
+              : '체결 링크를 발급했습니다. 아래 링크를 복사해 마케터에게 전달해 주세요.'
+          );
         }
       } else {
         setMsg('체결 링크를 발급했습니다. 아래 목록에서 복사하세요.');
@@ -363,8 +397,8 @@ export function AdminEContractDefinitionPage() {
           <p className="mt-1 text-fluid-xs text-gray-600">
             수신 대상:{' '}
             <span className="font-medium text-gray-800">{eContractAudienceLabel(def.audience ?? 'TEAM_LEADER')}</span>
-            {def.audience === 'MARKETER' ? (
-              <span className="text-gray-500"> — 전용 화면 없음, 발급 링크를 직접 전달</span>
+            {eContractAudienceUsesLinkOnly(def.audience ?? 'TEAM_LEADER') ? (
+              <span className="text-gray-500"> — 전용 로그인 없음, 발급 링크를 직접 전달</span>
             ) : null}
           </p>
           {def.description ? (
@@ -631,12 +665,18 @@ export function AdminEContractDefinitionPage() {
 
       <section className="mb-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-fluid-md font-semibold text-gray-900">
-          {def.audience === 'MARKETER' ? '마케터 체결 링크 발급' : '팀장 링크 발급'}
+          {def.audience === 'MARKETER'
+            ? '마케터 체결 링크 발급'
+            : def.audience === 'TEAM_MEMBER'
+              ? '팀원 체결 링크 발급'
+              : '팀장 링크 발급'}
         </h2>
         <p className="mt-1 text-fluid-xs text-gray-600">
           {def.audience === 'MARKETER'
             ? '마케터는 별도 로그인 화면이 없습니다. 발급 후 생성된 URL을 카카오·문자 등으로 전달하면 해당 페이지에서 바로 서명할 수 있습니다.'
-            : '최신 배포 버전으로 발급됩니다. 팀장은 팀 메뉴에서도 확인할 수 있습니다. 특정 과거 버전으로 보내려면 아래에서 버전을 고르세요.'}
+            : def.audience === 'TEAM_MEMBER'
+              ? '팀원은 개인 로그인 계정이 없습니다. 등록된 팀원을 선택한 뒤 발급된 URL을 전달하면 해당 페이지에서 바로 서명할 수 있습니다.'
+              : '최신 배포 버전으로 발급됩니다. 팀장은 팀 메뉴에서도 확인할 수 있습니다. 특정 과거 버전으로 보내려면 아래에서 버전을 고르세요.'}
         </p>
         {lastIssuedSignUrl ? (
           <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3">
@@ -657,7 +697,7 @@ export function AdminEContractDefinitionPage() {
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="min-w-[200px]">
             <label className="block text-fluid-xs font-medium text-gray-700">
-              {def.audience === 'MARKETER' ? '마케터' : '팀장'}
+              {def.audience === 'MARKETER' ? '마케터' : def.audience === 'TEAM_MEMBER' ? '팀원' : '팀장'}
             </label>
             <select
               value={issueRecipientId}
@@ -665,11 +705,19 @@ export function AdminEContractDefinitionPage() {
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-fluid-sm"
             >
               <option value="">선택</option>
-              {pickers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.email})
-                </option>
-              ))}
+              {def.audience === 'TEAM_MEMBER'
+                ? teamMemberPickers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                      {m.teamName ? ` · ${m.teamName}` : ''}
+                      {m.phone ? ` · ${m.phone}` : ''}
+                    </option>
+                  ))
+                : pickers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.email})
+                    </option>
+                  ))}
             </select>
           </div>
           <div className="min-w-[200px]">
@@ -743,11 +791,13 @@ export function AdminEContractDefinitionPage() {
                     return (
                       <tr key={row.id} className="border-b border-gray-100">
                         <td className="px-2 py-2 text-center">
-                          <div>{row.teamLeader.name}</div>
-                          {row.teamLeader.role ? (
+                          <div>{eContractIssuanceRecipientLabel(row)}</div>
+                          {row.teamLeader?.role ? (
                             <div className="text-fluid-2xs text-gray-500">
                               {eContractRecipientRoleLabel(row.teamLeader.role)}
                             </div>
+                          ) : row.teamMember ? (
+                            <div className="text-fluid-2xs text-gray-500">팀원</div>
                           ) : null}
                         </td>
                         <td className="px-2 py-2 text-center tabular-nums">
@@ -798,11 +848,13 @@ export function AdminEContractDefinitionPage() {
               return (
                 <div key={row.id} className="rounded border border-gray-100 p-3 text-fluid-xs">
                   <div className="font-medium">
-                    {row.teamLeader.name}
-                    {row.teamLeader.role ? (
+                    {eContractIssuanceRecipientLabel(row)}
+                    {row.teamLeader?.role ? (
                       <span className="ml-1 text-fluid-2xs text-gray-500">
                         ({eContractRecipientRoleLabel(row.teamLeader.role)})
                       </span>
+                    ) : row.teamMember ? (
+                      <span className="ml-1 text-fluid-2xs text-gray-500">(팀원)</span>
                     ) : null}
                   </div>
                   <div className="text-gray-600">

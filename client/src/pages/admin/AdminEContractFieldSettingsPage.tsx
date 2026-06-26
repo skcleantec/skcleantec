@@ -108,11 +108,11 @@ export function AdminEContractFieldSettingsPage() {
     <div className="min-w-0 w-full max-w-full">
       <h1 className="text-fluid-lg font-semibold text-gray-900">체결·매핑 필드 설정</h1>
       <p className="mt-2 text-fluid-sm text-gray-600">
-        팀장·마케터 계약서 본문에 넣을 치환 코드를 관리합니다. 초안 편집기 드롭다운과 체결·발급 입력란에 반영됩니다.
+        팀장·마케터·팀원 계약서 본문에 넣을 치환 코드를 관리합니다. 초안 편집기 드롭다운과 체결·발급 입력란에 반영됩니다.
       </p>
 
       <div className="mt-4 inline-flex rounded-lg border border-gray-300 bg-white p-0.5">
-        {(['TEAM_LEADER', 'MARKETER'] as const).map((a) => (
+        {(['TEAM_LEADER', 'MARKETER', 'TEAM_MEMBER'] as const).map((a) => (
           <button
             key={a}
             type="button"

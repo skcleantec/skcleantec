@@ -17,6 +17,8 @@ import { expandSignerPlaceholders, expandEcTokenValues, type SignerFilledFields 
 import { validateAdminMergeFields } from './eContractFieldDefinition.service.js';
 import { newEContractInviteToken } from './eContract.tokens.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
+import { tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.helpers.js';
+import { normalizeEContractAudience } from './eContractAudience.helpers.js';
 import {
   issuanceWhereForTeamLeader,
   parseEContractListQuery,
@@ -63,8 +65,7 @@ export async function createDefinition(
   if (!trimmed) {
     throw Object.assign(new Error('title_required'), { code: 'bad_request' as const });
   }
-  const aud =
-    audience === EContractAudience.MARKETER ? EContractAudience.MARKETER : EContractAudience.TEAM_LEADER;
+  const aud = normalizeEContractAudience(audience);
   return prisma.eContractDefinition.create({
     data: {
       tenantId,
@@ -102,8 +103,7 @@ export async function patchDefinition(
     if (issuanceCount > 0) {
       throw Object.assign(new Error('audience_locked'), { code: 'conflict' as const });
     }
-    data.audience =
-      patch.audience === EContractAudience.MARKETER ? EContractAudience.MARKETER : EContractAudience.TEAM_LEADER;
+    data.audience = normalizeEContractAudience(patch.audience);
   }
   if (Object.keys(data).length === 0) {
     throw Object.assign(new Error('nothing_to_patch'), { code: 'bad_request' as const });
@@ -394,7 +394,9 @@ export async function createIssuance(
   definitionId: string;
   versionId?: string | null;
   /** DB `team_leader_id` — 팀장 또는 마케터 user.id */
-  recipientUserId: string;
+  recipientUserId?: string;
+  /** TEAM_MEMBER 발급 — TeamMember.id */
+  teamMemberId?: string;
   expiresAt?: Date | null;
   notes?: string | null;
   mergeFields?: unknown;
@@ -405,16 +407,6 @@ export async function createIssuance(
   });
   if (!definition) {
     throw Object.assign(new Error('definition_not_found'), { code: 'not_found' as const });
-  }
-
-  const recipient = await prisma.user.findFirst({
-    where: { id: input.recipientUserId, tenantId },
-    select: { id: true, role: true, isActive: true },
-  });
-  const expectedRole =
-    definition.audience === EContractAudience.MARKETER ? UserRole.MARKETER : UserRole.TEAM_LEADER;
-  if (!recipient?.isActive || recipient.role !== expectedRole) {
-    throw Object.assign(new Error('recipient_invalid'), { code: 'bad_request' as const });
   }
 
   const versionId =
@@ -443,23 +435,67 @@ export async function createIssuance(
     mergeFields: input.mergeFields ?? {},
   });
 
-  return prisma.eContractIssuance.create({
-    data: {
+  let issuanceData: Prisma.EContractIssuanceCreateInput;
+
+  if (definition.audience === EContractAudience.TEAM_MEMBER) {
+    const memberId = input.teamMemberId?.trim() ?? '';
+    if (!memberId) {
+      throw Object.assign(new Error('recipient_required'), { code: 'bad_request' as const });
+    }
+    const member = await prisma.teamMember.findFirst({
+      where: { id: memberId, ...tenantActiveTeamMemberWhere(tenantId, kstTodayYmd()) },
+      select: { id: true, name: true, isActive: true },
+    });
+    if (!member?.isActive) {
+      throw Object.assign(new Error('recipient_invalid'), { code: 'bad_request' as const });
+    }
+    const label = member.name.trim();
+    issuanceData = {
       token: newEContractInviteToken(),
-      definitionId: input.definitionId,
-      versionId,
-      teamLeaderId: input.recipientUserId,
+      definition: { connect: { id: input.definitionId } },
+      version: { connect: { id: versionId } },
+      teamMember: { connect: { id: member.id } },
+      recipientLabel: label || null,
       status: EContractIssuanceStatus.PENDING,
       expiresAt: input.expiresAt ?? null,
       notes: input.notes?.trim() || null,
       mergeFields: Object.keys(validatedMerge).length > 0 ? (validatedMerge as Prisma.InputJsonValue) : undefined,
-    },
+    };
+  } else {
+    const recipientUserId = input.recipientUserId?.trim() ?? '';
+    if (!recipientUserId) {
+      throw Object.assign(new Error('recipient_required'), { code: 'bad_request' as const });
+    }
+    const recipient = await prisma.user.findFirst({
+      where: { id: recipientUserId, tenantId },
+      select: { id: true, role: true, isActive: true },
+    });
+    const expectedRole =
+      definition.audience === EContractAudience.MARKETER ? UserRole.MARKETER : UserRole.TEAM_LEADER;
+    if (!recipient?.isActive || recipient.role !== expectedRole) {
+      throw Object.assign(new Error('recipient_invalid'), { code: 'bad_request' as const });
+    }
+    issuanceData = {
+      token: newEContractInviteToken(),
+      definition: { connect: { id: input.definitionId } },
+      version: { connect: { id: versionId } },
+      teamLeader: { connect: { id: recipientUserId } },
+      status: EContractIssuanceStatus.PENDING,
+      expiresAt: input.expiresAt ?? null,
+      notes: input.notes?.trim() || null,
+      mergeFields: Object.keys(validatedMerge).length > 0 ? (validatedMerge as Prisma.InputJsonValue) : undefined,
+    };
+  }
+
+  return prisma.eContractIssuance.create({
+    data: issuanceData,
     include: {
       version: {
         select: { id: true, publishedOrdinal: true, titleSnapshot: true, contentHash: true },
       },
       definition: { select: { id: true, title: true, audience: true } },
       teamLeader: { select: { id: true, name: true, email: true, role: true } },
+      teamMember: { select: { id: true, name: true, phone: true } },
     },
   });
 }
@@ -472,7 +508,28 @@ export async function listMarketersForPicker(tenantId: string) {
   return listRecipientsForPicker(tenantId, EContractAudience.MARKETER);
 }
 
+export async function listTeamMembersForPicker(tenantId: string) {
+  const todayYmd = kstTodayYmd();
+  const rows = await prisma.teamMember.findMany({
+    where: tenantActiveTeamMemberWhere(tenantId, todayYmd),
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      team: { select: { teamLeader: { select: { name: true } } } },
+    },
+    orderBy: [{ name: 'asc' }],
+  });
+  return rows.map(({ team, ...rest }) => ({
+    ...rest,
+    teamName: team?.teamLeader?.name?.trim() || null,
+  }));
+}
+
 export async function listRecipientsForPicker(tenantId: string, audience: EContractAudience) {
+  if (audience === EContractAudience.TEAM_MEMBER) {
+    return listTeamMembersForPicker(tenantId);
+  }
   const role = audience === EContractAudience.MARKETER ? UserRole.MARKETER : UserRole.TEAM_LEADER;
   const todayYmd = kstTodayYmd();
   const rows = await prisma.user.findMany({
@@ -523,14 +580,47 @@ const submissionListSelect = {
     select: {
       token: true,
       status: true,
+      recipientLabel: true,
       teamLeader: { select: { id: true, name: true, email: true, role: true } },
-      definition: { select: { id: true, title: true } },
+      teamMember: { select: { id: true, name: true, phone: true } },
+      definition: { select: { id: true, title: true, audience: true } },
     },
   },
   version: {
     select: { id: true, publishedOrdinal: true, titleSnapshot: true },
   },
 } as const;
+
+function mapSubmissionRecipient(issuance: {
+  recipientLabel: string | null;
+  teamLeader: { id: string; name: string; email: string; role: string } | null;
+  teamMember: { id: string; name: string; phone: string | null } | null;
+  definition: { audience: EContractAudience };
+}) {
+  if (issuance.teamMember) {
+    return {
+      teamLeaderId: issuance.teamMember.id,
+      teamLeaderName: issuance.recipientLabel?.trim() || issuance.teamMember.name,
+      teamLeaderEmail: issuance.teamMember.phone?.trim() || '',
+      recipientRole: 'TEAM_MEMBER' as const,
+    };
+  }
+  if (issuance.teamLeader) {
+    return {
+      teamLeaderId: issuance.teamLeader.id,
+      teamLeaderName: issuance.teamLeader.name,
+      teamLeaderEmail: issuance.teamLeader.email,
+      recipientRole: issuance.teamLeader.role,
+    };
+  }
+  return {
+    teamLeaderId: '',
+    teamLeaderName: issuance.recipientLabel?.trim() || '—',
+    teamLeaderEmail: '',
+    recipientRole:
+      issuance.definition.audience === EContractAudience.TEAM_MEMBER ? ('TEAM_MEMBER' as const) : undefined,
+  };
+}
 
 function mapSubmissionListRow(s: {
   id: string;
@@ -539,11 +629,14 @@ function mapSubmissionListRow(s: {
   issuance: {
     token: string;
     status: EContractIssuanceStatus;
-    teamLeader: { id: string; name: string; email: string; role: string };
-    definition: { id: string; title: string };
+    recipientLabel: string | null;
+    teamLeader: { id: string; name: string; email: string; role: string } | null;
+    teamMember: { id: string; name: string; phone: string | null } | null;
+    definition: { id: string; title: string; audience: EContractAudience };
   };
   version: { id: string; publishedOrdinal: number | null; titleSnapshot: string };
 }) {
+  const recipient = mapSubmissionRecipient(s.issuance);
   return {
     id: s.id,
     signedAt: s.signedAt,
@@ -554,10 +647,7 @@ function mapSubmissionListRow(s: {
     issuanceToken: s.issuance.token,
     issuanceStatus: s.issuance.status,
     versionContentHash: s.versionContentHash,
-    teamLeaderId: s.issuance.teamLeader.id,
-    teamLeaderName: s.issuance.teamLeader.name,
-    teamLeaderEmail: s.issuance.teamLeader.email,
-    recipientRole: s.issuance.teamLeader.role,
+    ...recipient,
   };
 }
 
@@ -644,6 +734,7 @@ export async function listIssuancesForDefinition(tenantId: string, definitionId:
     take,
     include: {
       teamLeader: { select: { id: true, name: true, email: true, role: true } },
+      teamMember: { select: { id: true, name: true, phone: true } },
       version: { select: { id: true, publishedOrdinal: true, titleSnapshot: true } },
       submission: { select: { id: true, signedAt: true } },
     },
@@ -667,8 +758,10 @@ export async function listSubmissionsByTeamLeader(userId: string) {
         select: {
           token: true,
           status: true,
+          recipientLabel: true,
           teamLeader: { select: { id: true, name: true, email: true, role: true } },
-          definition: { select: { id: true, title: true } },
+          teamMember: { select: { id: true, name: true, phone: true } },
+          definition: { select: { id: true, title: true, audience: true } },
         },
       },
       version: {
@@ -709,8 +802,9 @@ export async function getSubmissionDetailForAdmin(tenantId: string, submissionId
     include: {
       issuance: {
         include: {
-          definition: { select: { id: true, title: true } },
+          definition: { select: { id: true, title: true, audience: true } },
           teamLeader: { select: { id: true, name: true, email: true, role: true } },
+          teamMember: { select: { id: true, name: true, phone: true } },
         },
       },
       version: {
@@ -764,12 +858,23 @@ export async function getSubmissionDetailForAdmin(tenantId: string, submissionId
     }
   }
 
+  const recipient = mapSubmissionRecipient({
+    recipientLabel: s.issuance.recipientLabel,
+    teamLeader: s.issuance.teamLeader,
+    teamMember: s.issuance.teamMember,
+    definition: s.issuance.definition,
+  });
+
   return {
     id: s.id,
     signedAt: s.signedAt.toISOString(),
     definitionId: s.issuance.definition.id,
     definitionTitle: s.issuance.definition.title,
     teamLeader: s.issuance.teamLeader,
+    teamMember: s.issuance.teamMember,
+    recipientLabel: s.issuance.recipientLabel,
+    recipientName: recipient.teamLeaderName,
+    recipientRole: recipient.recipientRole,
     versionOrdinal: s.version.publishedOrdinal,
     versionTitle: s.version.titleSnapshot,
     /** true면 체결 시점 을·서명 반영 확정본 */
