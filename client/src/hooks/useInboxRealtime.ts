@@ -114,6 +114,19 @@ function parseReviewPaybackPayload(d: unknown): ReviewPaybackRtPayload | null {
   };
 }
 
+export type ScheduleDayMemoRtPayload = {
+  type: 'schedule-day-memo:refresh';
+  date: string;
+};
+
+function parseScheduleDayMemoPayload(d: unknown): ScheduleDayMemoRtPayload | null {
+  if (!d || typeof d !== 'object') return null;
+  const o = d as Record<string, unknown>;
+  if (o.type !== 'schedule-day-memo:refresh') return null;
+  if (typeof o.date !== 'string') return null;
+  return { type: 'schedule-day-memo:refresh', date: o.date };
+}
+
 type Bucket = {
   token: string;
   ws: WebSocket | null;
@@ -125,6 +138,7 @@ type Bucket = {
   rosterAckListeners: Set<(p: RosterAckPayload) => void>;
   changeLogListeners: Set<(p: ChangeLogRtPayload) => void>;
   reviewPaybackListeners: Set<(p: ReviewPaybackRtPayload) => void>;
+  scheduleDayMemoListeners: Set<(p: ScheduleDayMemoRtPayload) => void>;
 };
 
 const buckets = new Map<string, Bucket>();
@@ -135,7 +149,8 @@ function bucketHasSubscribers(bucket: Bucket): boolean {
     bucket.celebrationListeners.size > 0 ||
     bucket.rosterAckListeners.size > 0 ||
     bucket.changeLogListeners.size > 0 ||
-    bucket.reviewPaybackListeners.size > 0
+    bucket.reviewPaybackListeners.size > 0 ||
+    bucket.scheduleDayMemoListeners.size > 0
   );
 }
 
@@ -217,6 +232,16 @@ function connectBucket(bucket: Bucket) {
           }
         }
       }
+      const scheduleDayMemo = parseScheduleDayMemoPayload(data);
+      if (scheduleDayMemo) {
+        for (const fn of bucket.scheduleDayMemoListeners) {
+          try {
+            fn(scheduleDayMemo);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -265,7 +290,8 @@ function destroyBucketIfIdle(token: string) {
     bucket.celebrationListeners.size > 0 ||
     bucket.rosterAckListeners.size > 0 ||
     bucket.changeLogListeners.size > 0 ||
-    bucket.reviewPaybackListeners.size > 0
+    bucket.reviewPaybackListeners.size > 0 ||
+    bucket.scheduleDayMemoListeners.size > 0
   )
     return;
   bucket.tearDown = true;
@@ -315,6 +341,7 @@ export function useInboxRealtime(
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         reviewPaybackListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -399,6 +426,7 @@ export function useInquiryCelebrateRealtime(
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         reviewPaybackListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -476,6 +504,7 @@ export function useRosterAckRealtime(
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         reviewPaybackListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -532,6 +561,7 @@ export function useChangeLogRealtime(
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         reviewPaybackListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -582,6 +612,7 @@ export function useReviewPaybackRealtime(
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         reviewPaybackListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -598,6 +629,57 @@ export function useReviewPaybackRealtime(
       const bucket = buckets.get(token);
       if (bucket) {
         bucket.reviewPaybackListeners.delete(listener);
+        bucket.connectionListeners.delete(noopConn);
+      }
+      destroyBucketIfIdle(token);
+    };
+  }, [token, enabled]);
+}
+
+/** 스태프: 스케줄 당일 공유 메모 갱신 */
+export function useScheduleDayStaffMemoRealtime(
+  token: string | null,
+  onRefresh: (p: ScheduleDayMemoRtPayload) => void,
+  enabled: boolean,
+): void {
+  const onRef = useRef(onRefresh);
+  useEffect(() => {
+    onRef.current = onRefresh;
+  });
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+
+    let b = buckets.get(token);
+    if (!b) {
+      b = {
+        token,
+        ws: null,
+        reconnectTimer: undefined,
+        tearDown: false,
+        refreshListeners: new Set(),
+        connectionListeners: new Set(),
+        celebrationListeners: new Set(),
+        rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
+        reviewPaybackListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
+      };
+      buckets.set(token, b);
+    } else {
+      b.tearDown = false;
+    }
+
+    const listener = (p: ScheduleDayMemoRtPayload) => onRef.current(p);
+    b.scheduleDayMemoListeners.add(listener);
+    const noopConn = () => {};
+    b.connectionListeners.add(noopConn);
+    connectBucket(b);
+
+    return () => {
+      const bucket = buckets.get(token);
+      if (bucket) {
+        bucket.scheduleDayMemoListeners.delete(listener);
         bucket.connectionListeners.delete(noopConn);
       }
       destroyBucketIfIdle(token);

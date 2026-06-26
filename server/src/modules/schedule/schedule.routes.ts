@@ -18,6 +18,7 @@ import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inqui
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { attachTenantShareMetaToInquiries } from '../tenant-partners/tenantInquiryShareMeta.js';
 import { attachDbListingMetaToInquiries } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
+import { notifyScheduleDayStaffMemoRefresh } from '../realtime/scheduleDayMemoNotify.js';
 
 const router = Router();
 
@@ -34,6 +35,86 @@ router.use(authMiddleware);
 router.use(adminOrMarketer);
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_STAFF_MEMO_MAX_LEN = 4000;
+
+function scheduleDayDateFromYmd(date: string): Date {
+  return new Date(`${date}T12:00:00+09:00`);
+}
+
+/** 관리자·마케터: 선택일 공유 메모 조회 */
+router.get('/day-memo', async (req, res) => {
+  const tenantId = await tenantFromReq(req, res);
+  if (!tenantId) return;
+  const { date } = req.query as { date?: string };
+  if (!date || !YMD.test(date)) {
+    res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)가 필요합니다.' });
+    return;
+  }
+  const row = await prisma.scheduleDayStaffMemo.findUnique({
+    where: { tenantId_date: { tenantId, date: scheduleDayDateFromYmd(date) } },
+    select: {
+      body: true,
+      updatedAt: true,
+      updatedBy: { select: { id: true, name: true } },
+    },
+  });
+  res.json({
+    date,
+    body: row?.body ?? '',
+    updatedAt: row?.updatedAt?.toISOString() ?? null,
+    updatedBy: row?.updatedBy ?? null,
+  });
+});
+
+/** 관리자·마케터: 선택일 공유 메모 저장(덮어쓰기, 이력 없음) */
+router.put('/day-memo', async (req, res) => {
+  const tenantId = await tenantFromReq(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { date, body } = req.body as { date?: string; body?: unknown };
+  if (!date || !YMD.test(date)) {
+    res.status(400).json({ error: '유효한 날짜(yyyy-mm-dd)가 필요합니다.' });
+    return;
+  }
+  if (typeof body !== 'string') {
+    res.status(400).json({ error: '메모 본문이 필요합니다.' });
+    return;
+  }
+  const trimmed = body.trim();
+  if (trimmed.length > DAY_STAFF_MEMO_MAX_LEN) {
+    res.status(400).json({ error: `메모는 ${DAY_STAFF_MEMO_MAX_LEN}자 이내로 입력해 주세요.` });
+    return;
+  }
+
+  const d = scheduleDayDateFromYmd(date);
+  const saved = await prisma.scheduleDayStaffMemo.upsert({
+    where: { tenantId_date: { tenantId, date: d } },
+    create: {
+      tenantId,
+      date: d,
+      body: trimmed,
+      updatedById: user.userId,
+    },
+    update: {
+      body: trimmed,
+      updatedById: user.userId,
+    },
+    select: {
+      body: true,
+      updatedAt: true,
+      updatedBy: { select: { id: true, name: true } },
+    },
+  });
+
+  notifyScheduleDayStaffMemoRefresh({ tenantId, date });
+
+  res.json({
+    date,
+    body: saved.body,
+    updatedAt: saved.updatedAt.toISOString(),
+    updatedBy: saved.updatedBy,
+  });
+});
 
 /**
  * 스케줄 월/주 목록용 select.

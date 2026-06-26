@@ -27,6 +27,7 @@ import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModa
 import { ScheduleDayAssignmentSummaryModal } from '../../components/admin/ScheduleDayAssignmentSummaryModal';
 import { ScheduleDaySlotToAdjustModal } from '../../components/admin/ScheduleDaySlotToAdjustModal';
 import { ScheduleDayTeamLeaderAdjustModal } from '../../components/admin/ScheduleDayTeamLeaderAdjustModal';
+import { ScheduleDayStaffMemoPanel } from '../../components/admin/ScheduleDayStaffMemoPanel';
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
 import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe } from '../../utils/staffAdminAccess';
@@ -1940,6 +1941,10 @@ export function AdminSchedulePage() {
                   </button>
                 </div>
               </div>
+
+              {token && (meRole === 'ADMIN' || meRole === 'MARKETER') ? (
+                <ScheduleDayStaffMemoPanel token={token} date={selectedDate} />
+              ) : null}
 
               {stats[selectedDate]?.closureScope === 'FULL' ||
               (stats[selectedDate]?.manualClosed && !stats[selectedDate]?.closureScope) ? (

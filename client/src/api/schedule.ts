@@ -272,3 +272,44 @@ export async function putDayAvailability(
     throw new Error((err as { error?: string }).error || '가용 인원 저장에 실패했습니다.');
   }
 }
+
+export type ScheduleDayStaffMemoDto = {
+  date: string;
+  body: string;
+  updatedAt: string | null;
+  updatedBy: { id: string; name: string } | null;
+};
+
+export async function getScheduleDayStaffMemo(
+  token: string,
+  date: string,
+): Promise<ScheduleDayStaffMemoDto> {
+  const q = new URLSearchParams({ date }).toString();
+  const res = await fetch(`${API}/schedule/day-memo?${q}`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '당일 메모를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function putScheduleDayStaffMemo(
+  token: string,
+  payload: { date: string; body: string },
+): Promise<ScheduleDayStaffMemoDto> {
+  const res = await fetch(`${API}/schedule/day-memo`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers(token),
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '당일 메모 저장에 실패했습니다.');
+  }
+  return res.json();
+}
