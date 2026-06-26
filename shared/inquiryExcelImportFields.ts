@@ -61,7 +61,7 @@ export const INQUIRY_EXCEL_FIELD_CATALOG: InquiryExcelFieldDef[] = [
   { key: 'inquiryNumber', label: '접수번호', kind: 'text', hint: '외부 번호 — 비어 있으면 입금대기만 자동 발번' },
   { key: 'customerName', label: '성함', kind: 'text', required: true },
   { key: 'nickname', label: '호칭·별칭', kind: 'text' },
-  { key: 'customerPhone', label: '연락처', kind: 'text', required: true },
+  { key: 'customerPhone', label: '연락처', kind: 'text', required: true, hint: '엑셀 열 예: 고객연락처 (연락처 아님)' },
   { key: 'customerPhone2', label: '연락처2', kind: 'text' },
   { key: 'address', label: '주소', kind: 'text', required: true },
   { key: 'addressDetail', label: '상세주소', kind: 'text' },

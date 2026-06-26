@@ -8,6 +8,11 @@ import type {
   InquiryExcelUnmappedValuePolicy,
 } from '../../lib/inquiryExcelImportPolicy.js';
 import { normalizeInquiryServiceAmounts } from '../inquiries/inquiryServiceAmounts.js';
+import {
+  normalizeExcelHeader,
+  normalizePhoneFromExcel,
+  phoneColumnMappingHint,
+} from './inquiryExcelImport.cellValue.js';
 
 export type MappedInquiryRow = {
   body: Record<string, unknown>;
@@ -139,13 +144,13 @@ export async function mapExcelRowToInquiryBody(params: {
   const headerToField = new Map<string, string>();
   for (const cm of spec.columnMappings) {
     if (cm.excelHeader && cm.fieldKey) {
-      headerToField.set(cm.excelHeader, cm.fieldKey);
+      headerToField.set(normalizeExcelHeader(cm.excelHeader), cm.fieldKey);
     }
   }
 
   for (const [header, rawVal] of Object.entries(excelRow)) {
     if (memoHeaders.has(header)) continue;
-    const fieldKey = headerToField.get(header);
+    const fieldKey = headerToField.get(normalizeExcelHeader(header));
     if (!fieldKey) continue;
     const def = inquiryExcelFieldByKey(fieldKey);
     const trimmed = normExcelVal(rawVal);
@@ -203,6 +208,11 @@ export async function mapExcelRowToInquiryBody(params: {
       continue;
     }
 
+    if (fieldKey === 'customerPhone' || fieldKey === 'customerPhone2') {
+      body[fieldKey] = normalizePhoneFromExcel(trimmed);
+      continue;
+    }
+
     body[fieldKey] = trimmed;
   }
 
@@ -226,7 +236,11 @@ export async function mapExcelRowToInquiryBody(params: {
     return { body, error: '성함이 비어 있습니다.' };
   }
   if (!String(body.customerPhone ?? '').trim()) {
-    return { body, error: '연락처가 비어 있습니다.' };
+    const phoneMapping = spec.columnMappings.find((m) => m.fieldKey === 'customerPhone');
+    const mappedHeader = phoneMapping?.excelHeader;
+    const hint = phoneColumnMappingHint(excelRow, mappedHeader);
+    const mappedLabel = mappedHeader ? ` (매핑 열: '${mappedHeader}')` : '';
+    return { body, error: `연락처가 비어 있습니다.${mappedLabel}${hint}` };
   }
 
   const areaBasisTrim = String(body.areaBasis ?? '').trim();

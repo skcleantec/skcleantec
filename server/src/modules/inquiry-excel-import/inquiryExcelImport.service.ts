@@ -11,6 +11,7 @@ import type {
   InquiryExcelRowPreviewResult,
 } from '../../lib/inquiryExcelImportPolicy.js';
 import { createInquiryFromBody, InquiryCreateError } from '../inquiries/inquiryCreate.service.js';
+import { normalizeUploadedFilename } from '../../lib/uploadFilename.js';
 import { deleteInquiriesFromExcelImportRun, parseRowResults } from './inquiryExcelImport.runDelete.js';
 import { findDuplicateInquiry } from './inquiryExcelImport.duplicate.js';
 import { mapExcelRowToInquiryBody } from './inquiryExcelImport.map.js';
@@ -415,11 +416,16 @@ export async function listInquiryExcelRuns(tenantId: string, limit = 20, offset 
     }),
     prisma.inquiryExcelImportRun.count({ where: { tenantId } }),
   ]);
-  const summaries = items.map(({ rowResults, ...rest }) => {
+  const summaries = items.map(({ rowResults, fileName, ...rest }) => {
     const rows = parseRowResults(rowResults);
     const deletedCount = rows.filter((r) => r.kind === 'DELETED').length;
     const remainingCreatedCount = rows.filter((r) => r.kind === 'CREATED').length;
-    return { ...rest, deletedCount, remainingCreatedCount };
+    return {
+      ...rest,
+      fileName: normalizeUploadedFilename(fileName),
+      deletedCount,
+      remainingCreatedCount,
+    };
   });
   return { items: summaries, total };
 }
@@ -436,7 +442,13 @@ export async function getInquiryExcelRun(tenantId: string, runId: string) {
   const rowResults = parseRowResults(run.rowResults);
   const deletedCount = rowResults.filter((r) => r.kind === 'DELETED').length;
   const remainingCreatedCount = rowResults.filter((r) => r.kind === 'CREATED').length;
-  return { ...run, rowResults, deletedCount, remainingCreatedCount };
+  return {
+    ...run,
+    fileName: normalizeUploadedFilename(run.fileName),
+    rowResults,
+    deletedCount,
+    remainingCreatedCount,
+  };
 }
 
 export async function undoInquiryExcelImportRun(params: {

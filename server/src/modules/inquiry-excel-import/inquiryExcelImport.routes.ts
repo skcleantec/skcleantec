@@ -5,6 +5,7 @@ import type { UserRole } from '@prisma/client';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { prisma } from '../../lib/prisma.js';
+import { normalizeUploadedFilename } from '../../lib/uploadFilename.js';
 import {
   createInquiryExcelProfile,
   deleteInquiryExcelProfile,
@@ -147,7 +148,7 @@ router.post('/profiles/analyze-sample', upload.single('file'), async (req, res) 
   }
   try {
     const headers = extractExcelHeaders(file.buffer);
-    res.json({ headers, fileName: file.originalname });
+    res.json({ headers, fileName: normalizeUploadedFilename(file.originalname) });
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : '파일 분석 실패' });
   }
@@ -167,11 +168,12 @@ router.post('/import/preview', upload.single('file'), async (req, res) => {
     return;
   }
   try {
+    const fileName = normalizeUploadedFilename(file.originalname) ?? undefined;
     const result = await previewInquiryExcelImport({
       tenantId,
       profileId,
       buffer: file.buffer,
-      fileName: file.originalname,
+      fileName,
     });
     res.json(result);
   } catch (e) {
@@ -194,13 +196,14 @@ router.post('/import/execute', upload.single('file'), async (req, res) => {
     return;
   }
   try {
+    const fileName = normalizeUploadedFilename(file.originalname) ?? undefined;
     const result = await executeInquiryExcelImport({
       tenantId,
       userId: user.userId,
       userRole: user.role as UserRole,
       profileId,
       buffer: file.buffer,
-      fileName: file.originalname,
+      fileName,
     });
     res.json(result);
   } catch (e) {
