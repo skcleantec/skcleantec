@@ -285,12 +285,11 @@ function ScheduleDayListItem({
   leaderAssignmentCountsForDay?: Map<string, number>;
   viewerRole?: string | null;
   oneRoomLabel?: string;
-  /** SK — 접수 내역에서 오피스텔·원/투룸 강조 */
+  /** SK — 접수 내역에서 원/투룸만 강조 */
   skOneRoomHighlight?: boolean;
 }) {
   const isOneRoomItem = scheduleItemIsOneRoom(item);
-  const isOfficetelItem = String(item.propertyType ?? '').includes('오피스텔');
-  const emphasizePropertyInList = skOneRoomHighlight && (isOneRoomItem || isOfficetelItem);
+  const emphasizeOneRoomInList = skOneRoomHighlight && isOneRoomItem;
   const isExternalIntake = isManualIntakeInquiry(item.source);
   const isPreOrder =
     item.status === 'PENDING' ||
@@ -366,9 +365,9 @@ function ScheduleDayListItem({
   return (
     <div
       className={`text-left w-full py-2 pl-3 pr-2 rounded-xl flex gap-2 border shadow-sm text-fluid-sm transition-all duration-200 hover:shadow-md hover:translate-y-[-0.5px] ${slotLeftBorder} ${
-        emphasizePropertyInList ? 'border-violet-300/90 ring-1 ring-violet-200/80' : 'border-slate-200/90'
+        emphasizeOneRoomInList ? 'border-red-300/90 ring-1 ring-red-200/80' : 'border-slate-200/90'
       } ${
-        leaderDayLoadUnderfilled ? 'bg-rose-50/95' : emphasizePropertyInList ? 'bg-violet-50/35' : slotBgTint
+        leaderDayLoadUnderfilled ? 'bg-rose-50/95' : emphasizeOneRoomInList ? 'bg-red-50/30' : slotBgTint
       } ${
         isPreOrder ? 'ring-1 ring-red-500' : ''
       } ${
@@ -401,7 +400,7 @@ function ScheduleDayListItem({
                   propertyType={item.propertyType}
                   isOneRoom={isOneRoomItem}
                   oneRoomTitle={oneRoomLabel}
-                  emphasizeInList={skOneRoomHighlight}
+                  emphasizeOneRoomInList={emphasizeOneRoomInList}
                   className="shrink-0"
                 />
               </span>

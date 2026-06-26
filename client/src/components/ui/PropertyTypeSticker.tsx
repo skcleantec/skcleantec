@@ -15,27 +15,11 @@ const TONE_CLASS: Record<PropertyTypeStickerTone, string> = {
   oneroom: 'bg-rose-100 text-rose-800 ring-rose-300/90',
 };
 
-const EMPHASIZED_TONE_RING: Partial<Record<PropertyTypeStickerTone, string>> = {
-  officetel: 'ring-violet-500/90',
-  oneroom: 'ring-rose-500/90',
-};
-
-function TypeStickerChip({
-  label,
-  title,
-  emphasized = false,
-}: {
-  label: string;
-  title: string;
-  emphasized?: boolean;
-}) {
+function TypeStickerChip({ label, title }: { label: string; title: string }) {
   const tone = propertyTypeStickerTone(label);
-  const emphRing = emphasized ? EMPHASIZED_TONE_RING[tone] ?? 'ring-slate-400/90' : '';
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-bold leading-none ${
-        emphasized ? 'size-5 text-[10px] ring-2 shadow-sm' : 'size-3.5 text-[8px] ring-1'
-      } ${TONE_CLASS[tone]} ${emphRing}`}
+      className={`inline-flex size-3.5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold leading-none ring-1 ${TONE_CLASS[tone]}`}
       title={title}
       aria-label={title}
     >
@@ -44,44 +28,31 @@ function TypeStickerChip({
   );
 }
 
-function isOfficetelPropertyType(propertyType: string | null | undefined): boolean {
-  const t = String(propertyType ?? '').trim();
-  return t.includes('오피스텔');
-}
-
 /** 건축물 유형(아·빌 등) + 원룸(원) 원형 스티커 */
 export function PropertyTypeSticker({
   propertyType,
   isOneRoom,
   oneRoomTitle = '원룸',
-  emphasizeInList = false,
+  emphasizeOneRoomInList = false,
   className = '',
 }: {
   propertyType?: string | null;
   isOneRoom?: boolean | null;
   oneRoomTitle?: string;
-  /** 스케줄 접수 내역 — 오피스텔·원/투룸 식별 강조 */
-  emphasizeInList?: boolean;
+  /** 스케줄 접수 내역 — 원/투룸만 강조 */
+  emphasizeOneRoomInList?: boolean;
   className?: string;
 }) {
   const typeLabel = propertyTypeStickerChar(propertyType);
   const typeFull = String(propertyType ?? '').trim();
   const showOneRoom = Boolean(isOneRoom);
-  const showOfficetel = isOfficetelPropertyType(propertyType);
-  const emphasizeType = emphasizeInList && showOfficetel;
-  const emphasizeOneRoom = emphasizeInList && showOneRoom;
+  const emphasizeOneRoom = emphasizeOneRoomInList && showOneRoom;
 
-  if (!typeLabel && !showOneRoom && !emphasizeInList) return null;
+  if (!typeLabel && !showOneRoom) return null;
 
   return (
     <span className={`inline-flex items-center gap-1 flex-wrap ${className}`}>
-      {emphasizeInList && showOfficetel ? (
-        <span className="inline-flex items-center rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-extrabold text-violet-900 ring-2 ring-violet-400/90 shadow-sm">
-          오피스텔
-        </span>
-      ) : typeLabel ? (
-        <TypeStickerChip label={typeLabel} title={typeFull || typeLabel} emphasized={emphasizeType} />
-      ) : null}
+      {typeLabel ? <TypeStickerChip label={typeLabel} title={typeFull || typeLabel} /> : null}
       {showOneRoom ? (
         emphasizeOneRoom ? (
           <span className="inline-flex items-center gap-0.5 rounded-md bg-gradient-to-r from-red-50 to-blue-50 px-1.5 py-0.5 text-[10px] font-extrabold text-red-900 ring-2 ring-red-400/90 shadow-sm">
@@ -95,5 +66,3 @@ export function PropertyTypeSticker({
     </span>
   );
 }
-
-export { isOfficetelPropertyType };
