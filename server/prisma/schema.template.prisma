@@ -1003,6 +1003,10 @@ model UserDayOff {
   id            String   @id @default(uuid())
   teamLeaderId  String   @map("team_leader_id")
   date          DateTime @db.Date @map("date")
+  /// true = 관리 스케줄 「팀장조정」(슬롯 제외만, 팀장 휴무 달력·본인 휴무와 분리)
+  adminSlotAdjust Boolean @default(false) @map("admin_slot_adjust")
+  /// true = 팀장 본인이 휴무 달력에 등록
+  selfRegistered    Boolean @default(false) @map("self_registered")
   createdAt     DateTime @default(now()) @map("created_at")
 
   teamLeader User @relation("UserDayOffs", fields: [teamLeaderId], references: [id], onDelete: Cascade)

@@ -101,8 +101,8 @@ export function ScheduleDayTeamLeaderAdjustModal({
         ) : null}
 
         <div className="px-4 pt-3 pb-2 text-fluid-2xs text-gray-600 leading-snug shrink-0">
-          팀장을 <strong className="font-medium text-gray-800">휴무</strong>로 지정하면 해당일 오전·오후 슬롯에서
-          제외됩니다. 팀장 본인 등록 휴무와 동일하게 스케줄·잔여 TO에 반영됩니다.
+          체크한 팀장은 해당일 <strong className="font-medium text-gray-800">관리 스케줄 슬롯·TO</strong>에서만
+          제외됩니다. 팀장 앱 「휴무」 달력에는 표시되지 않으며, 해당일 배정 접수도 팀장 화면에서 숨깁니다.
         </div>
 
         {stats ? (

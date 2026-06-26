@@ -66,6 +66,11 @@ import {
   buildTeamLeaderInquiryBrandFilter,
   mergeInquiryWhere,
 } from '../operating-companies/operatingCompanyAssignment.js';
+import {
+  isInquiryHiddenFromTeamLeaderByAdminSlotAdjust,
+  mergeTeamLeaderVisibleInquiryWhere,
+  whereExcludeAdminSlotAdjustInquiries,
+} from './teamLeaderDayOffInquiryVisibility.js';
 
 const router = Router();
 
@@ -437,6 +442,7 @@ router.get('/nav-badges', async (req, res) => {
     }
   }
 
+  const dayOffExclude = await whereExcludeAdminSlotAdjustInquiries(prisma, userId);
   const [unreadCount, csPendingCount, newAssignmentCount, eContractPendingCount] = await Promise.all([
     prisma.message.count({
       where: { receiverId: userId, readAt: null },
@@ -453,6 +459,7 @@ router.get('/nav-badges', async (req, res) => {
         detailViewedAt: null,
         inquiry: {
           status: { notIn: ['CANCELLED', 'COMPLETED', 'ON_HOLD'] },
+          ...(dayOffExclude ?? {}),
         },
       },
     }),
@@ -607,9 +614,10 @@ router.patch('/cs/:id', async (req, res) => {
   }
 });
 
-/** 해피콜 미완 건수 (마감 전 / 마감 후) — 팀장 본인 배정만 */
+/** 팀장: 해피콜 미완 건수 — 팀장조정(관리 슬롯 제외)일 예약 접수 제외 */
 router.get('/happy-call-stats', async (req, res) => {
   const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const dayOffExclude = await whereExcludeAdminSlotAdjustInquiries(prisma, userId);
   const rows = await prisma.inquiry.findMany({
     where: {
       preferredDate: { not: null },
@@ -618,6 +626,7 @@ router.get('/happy-call-stats', async (req, res) => {
         notIn: ['CANCELLED', 'ON_HOLD', 'PENDING', 'DEPOSIT_PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'],
       },
       assignments: { some: { teamLeaderId: userId } },
+      ...(dayOffExclude ?? {}),
     },
     select: { preferredDate: true },
   });
@@ -1130,6 +1139,10 @@ router.get('/inquiries/:id', async (req, res) => {
     res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
     return;
   }
+  if (await isInquiryHiddenFromTeamLeaderByAdminSlotAdjust(prisma, userId, row.preferredDate)) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
   const [item] = await attachProfessionalOptions(await attachCrewMembers([row], tenantId), tenantId);
   res.json(attachInspectionSummaryToInquiry(item));
 });
@@ -1145,16 +1158,18 @@ router.get('/inquiries', async (req, res) => {
   const brandScope = await buildTeamLeaderInquiryBrandFilter(prisma, tenantId, userId);
   const hasPaging = typeof req.query.limit === 'string';
   if (!hasPaging) {
-    const rows = await prisma.inquiry.findMany({
-      where: mergeInquiryWhere(
-        {
-          tenantId,
-          assignments: {
-            some: { teamLeaderId: userId },
-          },
+    const baseWhere = mergeInquiryWhere(
+      {
+        tenantId,
+        assignments: {
+          some: { teamLeaderId: userId },
         },
-        brandScope,
-      ),
+      },
+      brandScope,
+    );
+    const where = await mergeTeamLeaderVisibleInquiryWhere(prisma, userId, baseWhere);
+    const rows = await prisma.inquiry.findMany({
+      where,
       orderBy: { preferredDate: 'asc' },
       include: teamInquiryInclude,
     });
@@ -1168,6 +1183,9 @@ router.get('/inquiries', async (req, res) => {
   }
   try {
     const parsed = parseTeamAssignmentListQuery(req.query as Record<string, unknown>);
+    const brandWhere = brandScope ? { AND: [{ tenantId }, brandScope] } : { tenantId };
+    const dayOffExclude = await whereExcludeAdminSlotAdjustInquiries(prisma, userId);
+    const extraInquiryWhere = dayOffExclude ? { AND: [brandWhere, dayOffExclude] } : brandWhere;
     const { items, total } = await listTeamAssignmentsPaginated(
       prisma,
       userId,
@@ -1177,7 +1195,7 @@ router.get('/inquiries', async (req, res) => {
         attachCrewMembers: async (rows) =>
           attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId),
       },
-      brandScope ? { AND: [{ tenantId }, brandScope] } : { tenantId },
+      extraInquiryWhere,
     );
     res.json({
       items: attachInspectionSummaries(
@@ -1217,18 +1235,23 @@ router.get('/schedule', async (req, res) => {
   }
 
   const brandScope = await buildTeamLeaderInquiryBrandFilter(prisma, tenantId, userId);
-  const rows = await prisma.inquiry.findMany({
-    where: mergeInquiryWhere(
-      {
-        tenantId,
-        preferredDate: { gte: startDate, lte: endDate },
-        status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-        assignments: {
-          some: { teamLeaderId: userId },
-        },
+  const baseWhere = mergeInquiryWhere(
+    {
+      tenantId,
+      preferredDate: { gte: startDate, lte: endDate },
+      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+      assignments: {
+        some: { teamLeaderId: userId },
       },
-      brandScope,
-    ),
+    },
+    brandScope,
+  );
+  const where = await mergeTeamLeaderVisibleInquiryWhere(prisma, userId, baseWhere, {
+    preferredDateGte: startDate,
+    preferredDateLte: endDate,
+  });
+  const rows = await prisma.inquiry.findMany({
+    where,
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
     include: teamInquiryInclude,
   });

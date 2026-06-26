@@ -26,6 +26,7 @@ import {
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constants.js';
 import { resolveLeaderMorningAfternoon } from '../schedule/scheduleDayAvailability.helpers.js';
 import { isUserEmployedOnYmd } from '../users/userEmployment.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 
 const router = Router();
 
@@ -81,6 +82,7 @@ router.get('/me', teamAuthMiddleware, async (req, res) => {
   const list = await prisma.userDayOff.findMany({
     where: {
       teamLeaderId: userId,
+      selfRegistered: true,
       date: { gte: startDate, lte: endDate },
     },
     orderBy: { date: 'asc' },
@@ -109,8 +111,8 @@ router.post('/me', teamAuthMiddleware, async (req, res) => {
     where: {
       teamLeaderId_date: { teamLeaderId: userId, date: d },
     },
-    create: { teamLeaderId: userId, date: d },
-    update: {},
+    create: { teamLeaderId: userId, date: d, adminSlotAdjust: false, selfRegistered: true },
+    update: { selfRegistered: true },
   });
   res.json({ ok: true });
 });
@@ -133,7 +135,7 @@ router.delete('/me', teamAuthMiddleware, async (req, res) => {
   }
   const d = new Date(`${date}T12:00:00+09:00`);
   await prisma.userDayOff.deleteMany({
-    where: { teamLeaderId: userId, date: d },
+    where: { teamLeaderId: userId, date: d, selfRegistered: true },
   });
   res.json({ ok: true });
 });
@@ -789,21 +791,27 @@ router.put('/team-leader-day-offs', authMiddleware, adminOrMarketer, async (req,
       if (row.dayOff) {
         await tx.userDayOff.upsert({
           where: { teamLeaderId_date: { teamLeaderId, date: d } },
-          create: { teamLeaderId, date: d },
-          update: {},
+          create: { teamLeaderId, date: d, adminSlotAdjust: true, selfRegistered: false },
+          update: { adminSlotAdjust: true },
         });
         await tx.scheduleDayLeaderSlot.deleteMany({
           where: { tenantId, date: d, teamLeaderId },
         });
       } else {
         await tx.userDayOff.deleteMany({
-          where: { teamLeaderId, date: d },
+          where: { teamLeaderId, date: d, adminSlotAdjust: true, selfRegistered: false },
+        });
+        await tx.userDayOff.updateMany({
+          where: { teamLeaderId, date: d, adminSlotAdjust: true, selfRegistered: true },
+          data: { adminSlotAdjust: false },
         });
       }
     }
   });
 
   scheduleStatsCache.deleteByPrefix(`ss:${tenantId}:`);
+  const notifyIds = leaderIds.filter((id) => items.some((row) => row.teamLeaderId?.trim() === id));
+  if (notifyIds.length > 0) notifyInboxRefresh(notifyIds);
   res.json({ ok: true });
 });
 
