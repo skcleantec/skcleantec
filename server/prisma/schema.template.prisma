@@ -118,6 +118,7 @@ model Tenant {
   adWorkSessions AdWorkSession[]
   dailyInquiryCounters DailyInquiryCounter[]
   scheduleDayClosures ScheduleDayClosure[]
+  scheduleDayStaffMemos ScheduleDayStaffMemo[]
   scheduleDaySlotAdjustments ScheduleDaySlotToAdjustment[]
   scheduleDayLeaderSlots ScheduleDayLeaderSlot[]
   scheduleDayTeamMemberSlots ScheduleDayTeamMemberSlot[]
@@ -597,6 +598,7 @@ model User {
   eContractIssuancesAsTeamLeader EContractIssuance[] @relation("EContractIssuanceTeamLeader")
   inquiryExcelImportProfilesCreated InquiryExcelImportProfile[] @relation("InquiryExcelImportProfileCreator")
   inquiryExcelImportRunsAsActor InquiryExcelImportRun[] @relation("InquiryExcelImportRunActor")
+  scheduleDayStaffMemosUpdated ScheduleDayStaffMemo[] @relation("ScheduleDayStaffMemoUpdater")
 
   @@unique([tenantId, email])
   @@unique([tenantId, platformSupportAccessId])
@@ -1410,6 +1412,22 @@ model ScheduleDayClosure {
 
   @@unique([tenantId, date])
   @@map("schedule_day_closures")
+}
+
+/// 스케줄 당일 공유 메모(관리자·마케터, 테넌트·날짜당 1건)
+model ScheduleDayStaffMemo {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date @map("date")
+  body        String   @default("") @db.Text
+  updatedById String   @map("updated_by_id")
+  updatedBy   User     @relation("ScheduleDayStaffMemoUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, date])
+  @@map("schedule_day_staff_memos")
 }
 
 /// 스케줄표·캘린더에 표시되는 오전·오후 잔여 슬롯(TO) 숫자 보정(가산)
