@@ -71,7 +71,7 @@ export interface TeamViewerMe {
   /** 입사일 — 사원증 하단 인증 문구용 */
   hireDate?: string | null;
   /** 소속 업체(테넌트) 표시명 — 헤더·탭 제목용 */
-  tenant?: { id: string; name: string; displayName: string } | null;
+  tenant?: { id: string; name: string; displayName: string; slug?: string } | null;
   /** 테넌트 기능 모듈 (FeatureGate·메뉴 표시) */
   features?: string[];
 }

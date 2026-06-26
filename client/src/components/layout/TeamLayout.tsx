@@ -257,6 +257,7 @@ export function TeamLayout() {
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
   const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
+  const [tenantSlug, setTenantSlug] = useState<string | null>(null);
 
   useDocumentTitle(tenantName);
 
@@ -275,6 +276,7 @@ export function TeamLayout() {
       setViewerUserId(null);
       setTenantName(null);
       setTenantFeatures(null);
+      setTenantSlug(null);
       return;
     }
     const startedKey = capturePreviewKey();
@@ -291,6 +293,7 @@ export function TeamLayout() {
         setViewerUserId(u.id ?? null);
         setTenantName(u.tenant?.displayName?.trim() || u.tenant?.name?.trim() || null);
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
+        setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : null);
       })
       .catch((e) => {
         if (isPreviewFetchStale(startedKey)) return;
@@ -304,6 +307,7 @@ export function TeamLayout() {
         setViewerUserId(null);
         setTenantName(null);
         setTenantFeatures(null);
+        setTenantSlug(null);
         if (isAuthSessionExpiredError(e)) {
           clearTeamToken();
           navigate('/login', { replace: true, state: { sessionExpired: true } });
@@ -524,7 +528,7 @@ export function TeamLayout() {
       </header>
       </div>
       <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
-        <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null }}>
+        <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null, tenantSlug }}>
           <Outlet />
         </TenantCapabilitiesProvider>
       </main>

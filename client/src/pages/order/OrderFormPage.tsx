@@ -57,6 +57,8 @@ import {
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
 import { applyOneRoomToSpecialNotes, detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
+import { resolvePublicTenantSlug } from '../../utils/publicTenantQuery';
+import { oneRoomLabelForOpsUi, skCleantecOpsUiEnabled } from '@shared/custom/skcleantecOpsUi';
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhotoSection';
@@ -110,6 +112,15 @@ export interface OrderFormEditorContext {
 
 export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = {}) {
   const { token } = useParams<{ token: string }>();
+  const skOpsUi = useMemo(
+    () => skCleantecOpsUiEnabled({ tenantSlug: resolvePublicTenantSlug(), slugOnly: true }),
+    [],
+  );
+  const oneRoomLabel = oneRoomLabelForOpsUi(skOpsUi);
+  const oneRoomNotesOpts = useMemo(
+    () => (skOpsUi ? { omitAutoPhrase: true as const } : undefined),
+    [skOpsUi],
+  );
   const isEditor = Boolean(editor);
   const isCreate = Boolean(editor?.create);
   const isInline = Boolean(editor?.inline);
@@ -1269,7 +1280,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                         setForm((f) => ({
                           ...f,
                           isOneRoom: true,
-                          specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, true),
+                          specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, true, oneRoomNotesOpts),
                         }));
                         setNoSpecialNotes(false);
                       }}
@@ -1279,14 +1290,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                           setForm((f) => ({
                             ...f,
                             isOneRoom: false,
-                            specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, false),
+                            specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, false, oneRoomNotesOpts),
                           }));
                         }
                       }}
                       disabled={lockKey('isOneRoom')}
                       className="w-4 h-4 border-gray-300 text-gray-800 disabled:cursor-not-allowed"
                     />
-                    원룸
+                    {oneRoomLabel}
                   </label>
                 );
                 const nodes: React.ReactNode[] = [];

@@ -56,6 +56,7 @@ import {
   serializeProfessionalOptionSelectionsJson,
 } from '../orderform/specialtyOptions.js';
 import { resolveOneRoomSpecialNotes } from '../orderform/orderFormOneRoom.js';
+import { isSkCleantecOpsUiEnabled, oneRoomLabelWhenSkOpsEnabled } from '../custom/skcleantecOpsUi.js';
 import { ensureReviewPaybackToken } from '../review-payback/reviewPayback.service.js';
 import { allocateNextInquiryNumber } from './inquiryNumber.js';
 import {
@@ -1102,6 +1103,8 @@ router.patch('/:id', async (req, res) => {
     return;
   }
 
+  const skOpsUiEnabled = await isSkCleantecOpsUiEnabled(tenantId);
+
   const beforeSnap = {
     preferredDate: inquiry.preferredDate,
     serviceTotalAmount: inquiry.serviceTotalAmount,
@@ -1166,8 +1169,9 @@ router.patch('/:id', async (req, res) => {
     pushIfChanged('참고 전용면적(㎡)', inquiry.exclusiveAreaSqm, data.exclusiveAreaSqm, fmtNum);
   if (data.propertyType !== undefined) pushIfChanged('건물 유형', inquiry.propertyType, data.propertyType);
   if (data.isOneRoom !== undefined) {
-    const fmtOneRoom = (v: unknown) => (v ? '원룸' : '(아님)');
-    pushIfChanged('원룸', inquiry.isOneRoom, data.isOneRoom, fmtOneRoom);
+    const oneRoomLabel = oneRoomLabelWhenSkOpsEnabled(skOpsUiEnabled);
+    const fmtOneRoom = (v: unknown) => (v ? oneRoomLabel : '(아님)');
+    pushIfChanged(oneRoomLabel, inquiry.isOneRoom, data.isOneRoom, fmtOneRoom);
   }
   if (data.roomCount !== undefined) pushIfChanged('방', inquiry.roomCount, data.roomCount, fmtNum);
   if (data.bathroomCount !== undefined) pushIfChanged('화장실', inquiry.bathroomCount, data.bathroomCount, fmtNum);
@@ -1348,7 +1352,9 @@ router.patch('/:id', async (req, res) => {
           inquiry.orderForm.customerSpecialNotes?.trim() ||
           inquiry.specialNotes?.trim() ||
           '';
-        const syncedNotes = resolveOneRoomSpecialNotes(currentNotes, nextOneRoom);
+        const syncedNotes = resolveOneRoomSpecialNotes(currentNotes, nextOneRoom, {
+          omitAutoPhrase: skOpsUiEnabled,
+        });
         await tx.orderForm.update({
           where: { id: inquiry.orderForm.id },
           data: { customerSpecialNotes: syncedNotes },

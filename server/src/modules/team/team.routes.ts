@@ -119,13 +119,21 @@ router.get('/me', async (req, res) => {
     return;
   }
   const tenantId = getTenantIdFromAuth(auth) ?? me.tenantId ?? null;
-  let tenant: { id: string; name: string; displayName: string } | null = null;
+  let tenant: { id: string; name: string; displayName: string; slug: string } | null = null;
   let features: string[] = [];
   if (tenantId) {
-    const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, name: true } });
+    const t = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, name: true, slug: true },
+    });
     if (t) {
       const cfg = await getTenantConfig(tenantId);
-      tenant = { id: t.id, name: t.name, displayName: cfg.branding?.displayName?.trim() || t.name };
+      tenant = {
+        id: t.id,
+        name: t.name,
+        displayName: cfg.branding?.displayName?.trim() || t.name,
+        slug: t.slug,
+      };
       features = await getEffectiveEnabledModules(tenantId);
     }
   }

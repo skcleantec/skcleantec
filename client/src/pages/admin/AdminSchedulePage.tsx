@@ -63,6 +63,8 @@ import { ScheduleInquiryMemoModal } from '../../components/admin/ScheduleInquiry
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
 import { PropertyTypeSticker } from '../../components/ui/PropertyTypeSticker';
+import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
+import { SkCleantecScheduleUnassignedIndicator } from '../../components/admin/SkCleantecScheduleUnassignedIndicator';
 import {
   formatDateCompactWithWeekday,
   formatPreferredDateInputYmd,
@@ -271,6 +273,7 @@ function ScheduleDayListItem({
   onOpenMemo,
   leaderAssignmentCountsForDay,
   viewerRole,
+  oneRoomLabel = '원룸',
 }: {
   item: ScheduleItem;
   profCatalog: ProfessionalSpecialtyOptionDto[];
@@ -279,6 +282,7 @@ function ScheduleDayListItem({
   /** 선택한 날짜의 팀장별 배정 건수(이번 달 목록 기준). 없으면 강조 생략 */
   leaderAssignmentCountsForDay?: Map<string, number>;
   viewerRole?: string | null;
+  oneRoomLabel?: string;
 }) {
   const isExternalIntake = isManualIntakeInquiry(item.source);
   const isPreOrder =
@@ -387,6 +391,7 @@ function ScheduleDayListItem({
                 <PropertyTypeSticker
                   propertyType={item.propertyType}
                   isOneRoom={item.isOneRoom}
+                  oneRoomTitle={oneRoomLabel}
                   className="shrink-0"
                 />
               </span>
@@ -511,12 +516,15 @@ function ScheduleDayListItem({
         >
           <span className="text-slate-800 font-semibold">{shortSiGuFromAddress(item.address)}</span>
           {(() => {
-            const areaStr = formatInquiryListAreaLabel({
-              areaBasis: item.areaBasis,
-              areaPyeong: item.areaPyeong,
-              exclusiveAreaSqm: item.exclusiveAreaSqm,
-              isOneRoom: item.isOneRoom,
-            });
+            const areaStr = formatInquiryListAreaLabel(
+              {
+                areaBasis: item.areaBasis,
+                areaPyeong: item.areaPyeong,
+                exclusiveAreaSqm: item.exclusiveAreaSqm,
+                isOneRoom: item.isOneRoom,
+              },
+              { oneRoomLabel },
+            );
             return areaStr !== '—' ? ` / ${areaStr}` : '';
           })()}
           <span className="text-slate-300"> · </span>
@@ -601,6 +609,7 @@ function hasScheduleClosure(s: ScheduleStatsByDate | undefined): boolean {
 
 export function AdminSchedulePage() {
   const token = getToken();
+  const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -1478,7 +1487,19 @@ export function AdminSchedulePage() {
                 <span className="font-semibold text-sky-900">오후</span> 숫자 = 잔여 슬롯
               </span>
               <span>👥 팀원 가용</span>
-              <span className="font-semibold text-red-600">⚠️ 미배정</span>
+              {skOpsUi ? (
+                <span className="inline-flex items-center gap-1 font-semibold text-red-600">
+                  <img
+                    src="/assets/custom/skcleantec/taegeuk-unassigned.png"
+                    alt=""
+                    className="h-3.5 w-3.5 object-contain"
+                    aria-hidden
+                  />
+                  미배정
+                </span>
+              ) : (
+                <span className="font-semibold text-red-600">⚠️ 미배정</span>
+              )}
               <span className="text-violet-700">⚡ 사이(미배정)</span>
               <span className="inline-flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />
@@ -1732,16 +1753,19 @@ export function AdminSchedulePage() {
                       )}
 
                       {/* 미배정 & 사이청소 한 줄 또는 컴팩트 정렬 */}
-                      {unassignedCount > 0 && (
-                        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-bold text-red-600 leading-none shrink-0">
-                          <span className="flex items-center gap-0.5">
-                            <span aria-hidden>⚠️</span>
-                            <span className="sm:hidden">미배</span>
-                            <span className="hidden sm:inline">미배정</span>
-                          </span>
-                          <span className="tabular-nums ml-0.5 sm:ml-0">{unassignedCount}</span>
-                        </div>
-                      )}
+                      {unassignedCount > 0 &&
+                        (skOpsUi ? (
+                          <SkCleantecScheduleUnassignedIndicator count={unassignedCount} />
+                        ) : (
+                          <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-bold text-red-600 leading-none shrink-0">
+                            <span className="flex items-center gap-0.5">
+                              <span aria-hidden>⚠️</span>
+                              <span className="sm:hidden">미배</span>
+                              <span className="hidden sm:inline">미배정</span>
+                            </span>
+                            <span className="tabular-nums ml-0.5 sm:ml-0">{unassignedCount}</span>
+                          </div>
+                        ))}
                       {sideOrderCount > 0 && (
                         <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-semibold text-violet-700 leading-none shrink-0">
                           <span className="flex items-center gap-0.5">
@@ -2192,6 +2216,7 @@ export function AdminSchedulePage() {
                               <div className="flex flex-col gap-1.5">
                                 {unassignedOwnMorning.map((item) => (
                                   <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
                                     key={item.id}
                                     item={item}
                                     profCatalog={profCatalog}
@@ -2221,6 +2246,7 @@ export function AdminSchedulePage() {
                               <div className="flex flex-col gap-1.5">
                                 {unassignedOwnAfternoon.map((item) => (
                                   <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
                                     key={item.id}
                                     item={item}
                                     profCatalog={profCatalog}
@@ -2253,6 +2279,7 @@ export function AdminSchedulePage() {
                               <div className="flex flex-col gap-1.5">
                                 {unassignedOwnOther.map((item) => (
                                   <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
                                     key={item.id}
                                     item={item}
                                     profCatalog={profCatalog}
@@ -2285,6 +2312,7 @@ export function AdminSchedulePage() {
                           {morningOwn.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
+                              oneRoomLabel={oneRoomLabel}
                               item={item}
                               profCatalog={profCatalog}
                               viewerRole={meRole}
@@ -2313,6 +2341,7 @@ export function AdminSchedulePage() {
                           {afternoonOwn.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
+                              oneRoomLabel={oneRoomLabel}
                               item={item}
                               profCatalog={profCatalog}
                               viewerRole={meRole}
@@ -2344,6 +2373,7 @@ export function AdminSchedulePage() {
                           {otherOwn.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
+                              oneRoomLabel={oneRoomLabel}
                               item={item}
                               profCatalog={profCatalog}
                               viewerRole={meRole}
@@ -2393,6 +2423,7 @@ export function AdminSchedulePage() {
                                     <div className="flex flex-col gap-1">
                                       {morningExtUnassignedSorted.map((item) => (
                                         <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
@@ -2422,6 +2453,7 @@ export function AdminSchedulePage() {
                                     <div className="flex flex-col gap-1">
                                       {afternoonExtUnassignedSorted.map((item) => (
                                         <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
@@ -2451,6 +2483,7 @@ export function AdminSchedulePage() {
                                     <div className="flex flex-col gap-1">
                                       {otherExtUnassignedSorted.map((item) => (
                                         <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
                                           key={item.id}
                                           item={item}
                                           profCatalog={profCatalog}
@@ -2503,6 +2536,7 @@ export function AdminSchedulePage() {
                                       <div className="flex flex-col gap-1">
                                         {bucket.morning.map((item) => (
                                           <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
@@ -2532,6 +2566,7 @@ export function AdminSchedulePage() {
                                       <div className="flex flex-col gap-1">
                                         {bucket.afternoon.map((item) => (
                                           <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
@@ -2561,6 +2596,7 @@ export function AdminSchedulePage() {
                                       <div className="flex flex-col gap-1">
                                         {bucket.other.map((item) => (
                                           <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
                                             key={item.id}
                                             item={item}
                                             profCatalog={profCatalog}
@@ -2596,6 +2632,7 @@ export function AdminSchedulePage() {
                           {shelfInactive.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
+                              oneRoomLabel={oneRoomLabel}
                               item={item}
                               profCatalog={profCatalog}
                               viewerRole={meRole}

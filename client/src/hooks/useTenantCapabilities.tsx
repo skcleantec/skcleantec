@@ -5,9 +5,11 @@ export type TenantCapabilitiesState = {
   /** null = 아직 /auth/me features 미수신 */
   features: readonly string[] | null;
   plan: string | null;
+  /** null = /auth/me tenant.slug 미수신 */
+  tenantSlug: string | null;
 };
 
-const defaultState: TenantCapabilitiesState = { features: null, plan: null };
+const defaultState: TenantCapabilitiesState = { features: null, plan: null, tenantSlug: null };
 
 export const TenantCapabilitiesContext = createContext<TenantCapabilitiesState>(defaultState);
 

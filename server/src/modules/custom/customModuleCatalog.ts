@@ -11,8 +11,18 @@ export type CustomModuleDef = {
 
 /** slug → 해당 업체에만 노출되는 커스텀 모듈 (플랫폼 기능 탭) */
 export const CUSTOM_MODULES_BY_SLUG: Record<string, CustomModuleDef[]> = {
-  // 예시 — 실제 배포 시 slug·라우트와 함께 추가
-  // acme: [{ moduleId: 'custom_acme_report', label: '[ACME] 전용 리포트' }],
+  skcleanteck: [
+    {
+      moduleId: 'custom_skcleanteck_ops_ui',
+      label: '[SK] 운영 UI (원/투룸·스케줄 태극기 미배정)',
+    },
+  ],
+  sk: [
+    {
+      moduleId: 'custom_skcleanteck_ops_ui',
+      label: '[SK] 운영 UI (원/투룸·스케줄 태극기 미배정)',
+    },
+  ],
 };
 
 export function isCustomModuleId(moduleId: string): boolean {

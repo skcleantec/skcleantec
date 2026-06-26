@@ -218,6 +218,7 @@ export function AdminLayout() {
   const [isPlatformSupportAccess, setIsPlatformSupportAccess] = useState(false);
   const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
   const [tenantPlan, setTenantPlan] = useState<string | null>(null);
+  const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
   useDocumentTitle(tenantName);
   const [stagingDbImportModalOpen, setStagingDbImportModalOpen] = useState(false);
@@ -282,6 +283,7 @@ export function AdminLayout() {
       setIsPlatformSupportAccess(false);
       setTenantFeatures(null);
       setTenantPlan(null);
+      setTenantSlug(null);
       setTenantName(null);
       setMeProfileLoading(false);
       return;
@@ -301,7 +303,7 @@ export function AdminLayout() {
         effectiveStaffAdminAccess?: boolean;
         marketerAdminAccess?: boolean;
         features?: string[];
-        tenant?: { plan?: string; name?: string; displayName?: string } | null;
+        tenant?: { plan?: string; name?: string; displayName?: string; slug?: string } | null;
       }) => {
         if (cancelled) return;
         const role = typeof u.role === 'string' ? u.role : null;
@@ -315,6 +317,7 @@ export function AdminLayout() {
         setIsPlatformSupportAccess(Boolean(u.isPlatformSupportAccess));
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
         setTenantPlan(typeof u.tenant?.plan === 'string' ? u.tenant.plan : null);
+        setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : null);
         setTenantName(
           (typeof u.tenant?.displayName === 'string' && u.tenant.displayName.trim()) ||
             (typeof u.tenant?.name === 'string' && u.tenant.name.trim()) ||
@@ -1021,7 +1024,7 @@ export function AdminLayout() {
             사용하고, 작업 후 로그아웃해 주세요.
           </div>
         ) : null}
-        <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan }}>
+        <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan, tenantSlug }}>
           <Outlet />
         </TenantCapabilitiesProvider>
       </main>

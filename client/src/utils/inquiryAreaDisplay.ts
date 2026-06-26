@@ -63,17 +63,21 @@ export function formatInquiryAreaKoShort(item: {
   return '—';
 }
 
-/** 목록·스케줄 카드용 — 면적 + 원룸 표시 */
-export function formatInquiryListAreaLabel(item: {
-  areaBasis?: string | null;
-  areaPyeong?: number | null;
-  exclusiveAreaSqm?: number | null;
-  isOneRoom?: boolean | null;
-}): string {
+/** 목록·스케줄 카드용 — 면적 + 원룸(또는 SK 원/투룸) 표시 */
+export function formatInquiryListAreaLabel(
+  item: {
+    areaBasis?: string | null;
+    areaPyeong?: number | null;
+    exclusiveAreaSqm?: number | null;
+    isOneRoom?: boolean | null;
+  },
+  opts?: { oneRoomLabel?: string },
+): string {
+  const oneRoomLabel = opts?.oneRoomLabel ?? '원룸';
   const base = formatInquiryAreaKoShort(item);
   if (!item.isOneRoom) return base;
-  if (base === '—') return '원룸';
-  return `${base}·원룸`;
+  if (base === '—') return oneRoomLabel;
+  return `${base}·${oneRoomLabel}`;
 }
 
 /** 편집 폼 문자열 → `formatInquiryAreaKoShort` (복사 텍스트 등) */

@@ -31,10 +31,12 @@ function TypeStickerChip({ label, title }: { label: string; title: string }) {
 export function PropertyTypeSticker({
   propertyType,
   isOneRoom,
+  oneRoomTitle = '원룸',
   className = '',
 }: {
   propertyType?: string | null;
   isOneRoom?: boolean | null;
+  oneRoomTitle?: string;
   className?: string;
 }) {
   const typeLabel = propertyTypeStickerChar(propertyType);
@@ -45,7 +47,7 @@ export function PropertyTypeSticker({
     <span className={`inline-flex items-center gap-0.5 ${className}`}>
       {typeLabel ? <TypeStickerChip label={typeLabel} title={typeFull || typeLabel} /> : null}
       {showOneRoom ? (
-        <TypeStickerChip label={ONE_ROOM_STICKER_CHAR} title="원룸" />
+        <TypeStickerChip label={ONE_ROOM_STICKER_CHAR} title={oneRoomTitle} />
       ) : null}
     </span>
   );

@@ -92,6 +92,7 @@ import { InquirySettlementPanel } from '../../components/inquiry/InquirySettleme
 import { uploadAdminCleaningPhotos } from '../../api/inquiryCleaningPhotos';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
+import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
 import { getPoolTeamMembers, getCrewLeaderMemberSpacing, type TeamMemberItem } from '../../api/teams';
@@ -655,9 +656,9 @@ function formatInquiryTeamSummary(item: InquiryItem): string {
 }
 
 /** 모바일 카드: 면적·방(값 있을 때만) + 팀 요약, `- · -` 방지 */
-function formatInquiryMobileSpecsTail(item: InquiryItem): string {
+function formatInquiryMobileSpecsTail(item: InquiryItem, oneRoomLabel = '원룸'): string {
   const segs: string[] = [];
-  const area = formatInquiryListAreaLabel(item);
+  const area = formatInquiryListAreaLabel(item, { oneRoomLabel });
   if (area !== '—' && area !== '-') segs.push(area);
   const rooms = formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount);
   if (rooms !== '-') segs.push(rooms);
@@ -730,6 +731,7 @@ function patchInquiryProfReviewInList(
 
 export function AdminInquiriesPage() {
   const token = getToken();
+  const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
   const staffTenantSlug = useStaffTenantSlugForLinks(token);
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const isLgUp = useIsLgUp();
@@ -2786,7 +2788,7 @@ export function AdminInquiriesPage() {
               {items.map((item) => {
                 const addrFull = inquiryListAddressFull(item.address, item.addressDetail);
                 const addrShort = addressListShortSiGu(item.address);
-                const mobileSpecsTail = formatInquiryMobileSpecsTail(item);
+                const mobileSpecsTail = formatInquiryMobileSpecsTail(item, oneRoomLabel);
                 return (
                   <div key={item.id} className={inquiryMobileCardShellClass(item)}>
                     <div
@@ -3346,7 +3348,7 @@ export function AdminInquiriesPage() {
                         onClick={() => setListQuickEdit({ field: 'area', item })}
                       >
                         <span className="line-clamp-2 break-words" title={formatInquiryAreaKoLine(item)}>
-                          {formatInquiryListAreaLabel(item)}
+                          {formatInquiryListAreaLabel(item, { oneRoomLabel })}
                         </span>
                       </InquiryListQuickEditTrigger>
                     </td>
@@ -4143,7 +4145,9 @@ export function AdminInquiriesPage() {
                       setEditForm((p) => ({ ...p, isOneRoom: checked }));
                     }}
                   />
-                  원룸 (체크 시 고객 발주서 특이사항에 「에어컨,냉장고,세탁기 포함」 반영)
+                  {skOpsUi
+                    ? oneRoomLabel
+                    : '원룸 (체크 시 고객 발주서 특이사항에 「에어컨,냉장고,세탁기 포함」 반영)'}
                 </label>
               </div>
               <div>

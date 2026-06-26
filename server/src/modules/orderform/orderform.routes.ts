@@ -83,6 +83,7 @@ import {
   overlayPrefillOntoSubmitBody,
 } from './orderFormPrefill.js';
 import { parseIsOneRoomFlag, resolveOneRoomSpecialNotes } from './orderFormOneRoom.js';
+import { isSkCleantecOpsUiEnabled } from '../custom/skcleantecOpsUi.js';
 import { assertValidCustomerEmail } from '../../lib/customerEmail.js';
 import {
   queueOrderFormSubmissionConfirmationEmail,
@@ -2103,9 +2104,11 @@ router.post('/submit/:token', async (req, res) => {
   const professionalIds = professionalSelections.map((s) => s.id);
   const professionalOptionIdsJson = serializeProfessionalOptionSelectionsJson(professionalSelections);
   const isOneRoom = parseIsOneRoomFlag(body.isOneRoom);
+  const skOpsUi = await isSkCleantecOpsUiEnabled(submitTenantId);
   const customerSpecialNotes = resolveOneRoomSpecialNotes(
     body.specialNotes != null ? String(body.specialNotes) : null,
     isOneRoom,
+    { omitAutoPhrase: skOpsUi },
   );
   if (form.submittedAt) {
     res.status(410).json({ error: '이미 제출된 발주서입니다.' });

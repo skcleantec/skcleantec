@@ -69,6 +69,7 @@ import {
 import { InquiryOrderForceMatchPanel } from './InquiryOrderForceMatchPanel';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
+import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
 import { PropertyTypeSticker } from '../ui/PropertyTypeSticker';
 import { InquiryCleaningPhotosPanel } from '../inquiry/InquiryCleaningPhotosPanel';
 import { AdminInspectionPanel } from '../inquiry-inspection/AdminInspectionPanel';
@@ -561,7 +562,11 @@ function initialTeamLeaderIdsForEdit(assignments: ScheduleItem['assignments']): 
  * 타업체 배정 건이면 수수료를 함께 포함한다.
  * 빈 값은 건너뛰며, 섹션 간 공백 줄로 구분해 카톡·문자·메일에서도 깔끔히 보이게 한다.
  */
-function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): string {
+function buildInquiryCopyText(
+  item: ScheduleItem,
+  editForm: EditFormFields,
+  oneRoomLabel = '원룸',
+): string {
   const sections: string[][] = [];
   const currentSection = (): string[] => {
     if (sections.length === 0) sections.push([]);
@@ -600,7 +605,7 @@ function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): str
 
   // 현장 정보
   addRow('건축물', editForm.propertyType);
-  if (editForm.isOneRoom) addRow('원룸', '예');
+  if (editForm.isOneRoom) addRow(oneRoomLabel, '예');
   const areaCopy = formatInquiryAreaKoShortFromEditStrings({
     areaBasis: editForm.areaBasis,
     areaPyeong: editForm.areaPyeong,
@@ -685,6 +690,7 @@ function buildInquiryCopyText(item: ScheduleItem, editForm: EditFormFields): str
 }
 
 export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProps) {
+  const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
   const isCreate = props.mode === 'create';
   const item = !isCreate ? props.item : null;
   const distanceJuanLabel = item ? distanceFromJuanLabel(item) : null;
@@ -1857,7 +1863,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const copyInquiryInfo = useCallback(async () => {
     if (!item) return;
     setCopyHint(null);
-    const text = buildInquiryCopyText(item, editForm);
+    const text = buildInquiryCopyText(item, editForm, oneRoomLabel);
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
@@ -2029,6 +2035,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 <PropertyTypeSticker
                   propertyType={editForm.propertyType?.trim() || item.propertyType}
                   isOneRoom={editForm.isOneRoom}
+                  oneRoomTitle={oneRoomLabel}
                   className="shrink-0"
                 />
                 {item.orderForm?.template && !item.orderForm.template.isDefault ? (
@@ -2203,7 +2210,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 checked={editForm.isOneRoom}
                 onChange={(e) => setEditForm((p) => ({ ...p, isOneRoom: e.target.checked }))}
               />
-              원룸 (체크 시 고객 발주서 특이사항에 「에어컨,냉장고,세탁기 포함」 반영)
+              {skOpsUi
+                ? oneRoomLabel
+                : '원룸 (체크 시 고객 발주서 특이사항에 「에어컨,냉장고,세탁기 포함」 반영)'}
             </label>
           </div>
           <div>
