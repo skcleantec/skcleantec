@@ -36,6 +36,11 @@ export function detectOneRoomFromNotes(notes: string | null | undefined): boolea
   return Boolean(notes?.includes(ONE_ROOM_SPECIAL_NOTES_PHRASE));
 }
 
+/** 발주서 — 건축물 유형(아파트 등) 또는 원/투룸 중 하나 이상 선택 */
+export function hasOrderFormBuildingTypeChoice(propertyType: string, isOneRoom: boolean): boolean {
+  return Boolean(propertyType.trim()) || isOneRoom;
+}
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

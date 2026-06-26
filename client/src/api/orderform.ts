@@ -612,7 +612,7 @@ export async function submitOrderForm(
     /** 공급·전용 모두 평 단위. 전용일 때는 exclusiveAreaSqm 생략(null). */
     areaPyeong?: number | null;
     areaBasis: string;
-    propertyType: string;
+    propertyType?: string;
     preferredDate?: string;
     preferredTime?: string;
     preferredTimeDetail?: string | null;

@@ -82,8 +82,8 @@ import {
   lockedKeysFromPrefill,
   overlayPrefillOntoSubmitBody,
 } from './orderFormPrefill.js';
-import { parseIsOneRoomFlag, resolveOneRoomSpecialNotes } from './orderFormOneRoom.js';
-import { isSkCleantecOpsUiEnabled } from '../custom/skcleantecOpsUi.js';
+import { parseIsOneRoomFlag, resolveOneRoomSpecialNotes, hasOrderFormBuildingTypeChoice, orderFormPropertyTypeDisplay } from './orderFormOneRoom.js';
+import { isSkCleantecOpsUiEnabled, oneRoomLabelWhenSkOpsEnabled } from '../custom/skcleantecOpsUi.js';
 import { assertValidCustomerEmail } from '../../lib/customerEmail.js';
 import {
   queueOrderFormSubmissionConfirmationEmail,
@@ -2177,10 +2177,13 @@ router.post('/submit/:token', async (req, res) => {
   }
 
   const propertyTypeNorm = String(body.propertyType || '').trim();
-  if (!propertyTypeNorm) {
-    res.status(400).json({ error: '아파트·오피스텔 등 건축물 유형을 선택해주세요.' });
+  if (!hasOrderFormBuildingTypeChoice(propertyTypeNorm, isOneRoom)) {
+    res.status(400).json({ error: '아파트·오피스텔 등 건축물 유형 또는 원/투룸을 선택해주세요.' });
     return;
   }
+  const propertyTypeStored = propertyTypeNorm || null;
+  const propertyTypeForDisplay =
+    orderFormPropertyTypeDisplay(propertyTypeNorm, isOneRoom, oneRoomLabelWhenSkOpsEnabled(skOpsUi)) ?? '';
 
   // 관리자가 발급 시 날짜를 넣었으면 그 날짜는 고객이 바꿀 수 없음(본문 무시). 미지정이면 고객 입력 사용.
   const adminDateLocked = Boolean(form.preferredDate && String(form.preferredDate).trim());
@@ -2343,7 +2346,7 @@ router.post('/submit/:token', async (req, res) => {
       areaPyeong: areaPyeongOut,
       areaBasis: areaBasisNorm,
       exclusiveAreaSqm,
-      propertyType: propertyTypeNorm,
+      propertyType: propertyTypeForDisplay,
       preferredDate: useDateStr,
       preferredTime: useTimeStr,
       preferredTimeDetail: useDetailStr,
@@ -2399,7 +2402,7 @@ router.post('/submit/:token', async (req, res) => {
           areaPyeong: areaPyeongOut,
           areaBasis: areaBasisNorm,
           exclusiveAreaSqm,
-          propertyType: propertyTypeNorm,
+          propertyType: propertyTypeStored,
           isOneRoom,
           roomCount: body.roomCount ?? null,
           bathroomCount: body.bathroomCount ?? null,
@@ -2480,7 +2483,7 @@ router.post('/submit/:token', async (req, res) => {
           areaPyeong: areaPyeongOut,
           areaBasis: areaBasisNorm,
           exclusiveAreaSqm,
-          propertyType: propertyTypeNorm,
+          propertyType: propertyTypeStored,
           isOneRoom,
           roomCount: body.roomCount ?? null,
           bathroomCount: body.bathroomCount ?? null,

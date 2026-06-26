@@ -56,7 +56,7 @@ import {
 } from '../../constants/orderFormBuilding';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
-import { applyOneRoomToSpecialNotes, detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
+import { applyOneRoomToSpecialNotes, detectOneRoomFromNotes, hasOrderFormBuildingTypeChoice } from '../../utils/orderFormOneRoom';
 import { resolvePublicTenantSlug } from '../../utils/publicTenantQuery';
 import { oneRoomLabelForOpsUi, skCleantecOpsUiEnabled } from '@shared/custom/skcleantecOpsUi';
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
@@ -686,7 +686,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
         throw new Error('이메일 형식이 올바르지 않습니다.');
       }
-      if (!form.propertyType) throw new Error('건축물 유형을 선택해주세요.');
+      if (!hasOrderFormBuildingTypeChoice(form.propertyType, form.isOneRoom)) {
+        throw new Error(`건축물 유형 또는 ${oneRoomLabel}을 선택해주세요.`);
+      }
       const areaLockedByAdmin = isOrderFormAreaLockedFromOrder(order);
       let submitAreaPyeong: number | null = null;
       let submitExclusiveSqm: number | null = null;
@@ -776,7 +778,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         areaPyeong: submitAreaPyeong,
         areaBasis: submitAreaBasis,
         exclusiveAreaSqm: submitExclusiveSqm,
-        propertyType: form.propertyType,
+        propertyType: form.propertyType.trim() || undefined,
         preferredDate: useDate,
         preferredTime: useTime,
         preferredTimeDetail: useTimeDetail ?? null,
@@ -1280,6 +1282,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                         setForm((f) => ({
                           ...f,
                           isOneRoom: true,
+                          propertyType: '',
                           specialNotes: applyOneRoomToSpecialNotes(f.specialNotes, true, oneRoomNotesOpts),
                         }));
                         setNoSpecialNotes(false);
@@ -1310,7 +1313,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                         name="propertyType"
                         value={o.value}
                         checked={form.propertyType === o.value}
-                        onChange={() => setForm((f) => ({ ...f, propertyType: o.value }))}
+                        onChange={() =>
+                          setForm((f) => ({
+                            ...f,
+                            propertyType: o.value,
+                            isOneRoom: false,
+                          }))
+                        }
                         disabled={lockKey('propertyType')}
                         className="w-4 h-4 border-gray-300 text-gray-800 disabled:cursor-not-allowed"
                       />
