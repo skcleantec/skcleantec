@@ -20,6 +20,7 @@ import {
   parseNoCrewMembersInput,
   parseSoloTeamLeaderIds,
 } from './inquiryNoCrewMembers.helpers.js';
+import { normalizeInquiryServiceAmounts } from './inquiryServiceAmounts.js';
 
 export const CREATE_INQUIRY_STATUSES: InquiryStatus[] = [
   'PENDING',
@@ -147,6 +148,11 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
 
   const overrideNum = inquiryNumberOverride?.trim() || String(body.inquiryNumber ?? '').trim() || '';
 
+  const amountError = normalizeInquiryServiceAmounts(body);
+  if (amountError) {
+    throw new InquiryCreateError(amountError);
+  }
+
   const inquiry = await db.$transaction(async (tx) => {
     let inquiryNumber: string | null = null;
     if (overrideNum) {
@@ -194,6 +200,12 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
         callAttempt: body.callAttempt != null ? Number(body.callAttempt) : null,
         memo: body.memo ? String(body.memo) : null,
         specialNotes: body.specialNotes ? String(body.specialNotes) : null,
+        serviceTotalAmount:
+          body.serviceTotalAmount != null ? Number(body.serviceTotalAmount) : null,
+        serviceDepositAmount:
+          body.serviceDepositAmount != null ? Number(body.serviceDepositAmount) : null,
+        serviceBalanceAmount:
+          body.serviceBalanceAmount != null ? Number(body.serviceBalanceAmount) : null,
         source: body.source ? String(body.source) : '전화',
         status,
         crewMemberCount,

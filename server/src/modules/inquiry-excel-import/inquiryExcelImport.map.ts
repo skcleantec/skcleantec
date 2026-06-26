@@ -7,6 +7,7 @@ import type {
   InquiryExcelMappingSpec,
   InquiryExcelUnmappedValuePolicy,
 } from '../../lib/inquiryExcelImportPolicy.js';
+import { normalizeInquiryServiceAmounts } from '../inquiries/inquiryServiceAmounts.js';
 
 export type MappedInquiryRow = {
   body: Record<string, unknown>;
@@ -236,6 +237,11 @@ export async function mapExcelRowToInquiryBody(params: {
   if (!areaBasisTrim && hasPyeong) {
     const fallback = spec.defaultAreaBasis ?? '공급';
     body.areaBasis = fallback === '전용' ? '전용' : '공급';
+  }
+
+  const amountError = normalizeInquiryServiceAmounts(body);
+  if (amountError) {
+    return { body, error: amountError };
   }
 
   return { body };
