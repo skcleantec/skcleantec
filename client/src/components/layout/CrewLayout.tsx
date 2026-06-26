@@ -6,7 +6,7 @@ import { DEV_PREVIEW_ADMIN_TOKEN_BACKUP_KEY } from '../../constants/devPreviewAu
 import { getCrewMe } from '../../api/crew';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import type { CrewMeResponse } from '../../api/crew';
-import { CrewBiLine, crewT, CrewUiLine } from '../../i18n/crew/crewI18n';
+import { CrewUiLine, crewText, crewUiLanguageToKey } from '../../i18n/crew/crewI18n';
 import { CrewUiLanguageProvider } from '../../i18n/crew/crewUiLanguageContext';
 import { isCrewGroupRosterMode } from '@shared/crewGroupSettings';
 import { RosterAckBanner } from '../common/RosterAckBanner';
@@ -130,6 +130,7 @@ export function CrewLayout() {
   const rosterMode = me ? isCrewGroupRosterMode(groupMode) : true;
   const showDayOffsNav =
     Boolean(me && !rosterMode && me.group.allowCrewDayOffEdit && me.crewViewerRole === 'LEADER');
+  const uiLang = crewUiLanguageToKey(me?.group.crewUiLanguage);
 
   return (
     <CrewUiLanguageProvider crewUiLanguage={me?.group.crewUiLanguage}>
@@ -173,7 +174,7 @@ export function CrewLayout() {
                     }
                   }}
                 >
-                  <CrewBiLine id="crew.layout.goAdmin" />
+                  <CrewUiLine id="crew.layout.goAdmin" />
                 </button>
               ) : null}
               <button
@@ -198,13 +199,13 @@ export function CrewLayout() {
                   navigate('/login', { replace: true });
                 }}
               >
-                <CrewBiLine id="crew.layout.logout" />
+                <CrewUiLine id="crew.layout.logout" />
               </button>
             </div>
           </div>
           <nav
             className="relative min-w-0 -mx-4 px-4 sm:mx-0 sm:px-0"
-            aria-label={`${crewT('crew.layout.navAriaLabel').ko}. ${crewT('crew.layout.navAriaLabel').th}`}
+            aria-label={crewText('crew.layout.navAriaLabel', uiLang)}
           >
             <div
               className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain pb-0.5 text-fluid-xs [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"

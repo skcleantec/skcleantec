@@ -12,7 +12,7 @@ import {
   type CrewSettlementPayrollSheetRow,
 } from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
-import { CrewBiLine, CrewBiInline, crewT } from '../../i18n/crew/crewI18n';
+import { CrewBiLine, CrewBiInline, useCrewText } from '../../i18n/crew/crewI18n';
 import { CrewTeamExpensesTab } from './CrewTeamExpensesTab';
 
 const TAB_EXPENSES = 'expenses';
@@ -37,6 +37,7 @@ function CrewSettlementMenuGate({
   crewGroupId: string;
   onUnlocked: () => void;
 }) {
+  const t = useCrewText();
   const [pwd, setPwd] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -60,7 +61,7 @@ function CrewSettlementMenuGate({
           setError(e.message);
           return;
         }
-        setError(e instanceof Error ? e.message : crewT('crew.settlement.menuGateVerifyFail').ko);
+        setError(e instanceof Error ? e.message : t('crew.settlement.menuGateVerifyFail'));
       } finally {
         setLoading(false);
       }
@@ -100,7 +101,7 @@ function CrewSettlementMenuGate({
 function CrewSettlementIntroHint() {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const aria = crewT('crew.settlement.pageIntroToggleAria');
+  const t = useCrewText();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -128,8 +129,8 @@ function CrewSettlementIntroHint() {
         className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-white text-fluid-sm font-bold leading-none text-gray-600 hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
         aria-expanded={open}
         aria-controls="crew-settlement-intro-popover"
-        aria-label={`${aria.ko}. ${aria.th}`}
-        title={`${aria.ko} / ${aria.th}`}
+        aria-label={t('crew.settlement.pageIntroToggleAria')}
+        title={t('crew.settlement.pageIntroToggleAria')}
         onClick={() => setOpen((v) => !v)}
       >
         ?
@@ -246,6 +247,7 @@ export function CrewSettlementPage() {
 }
 
 function CrewSettlementSheetPanel({ me }: { me: NonNullable<CrewLayoutContext['me']> }) {
+  const t = useCrewText();
   const [month, setMonth] = useState(() => kstMonthKeyNow());
   const [rows, setRows] = useState<CrewSettlementPayrollSheetRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -315,12 +317,12 @@ function CrewSettlementSheetPanel({ me }: { me: NonNullable<CrewLayoutContext['m
           setError(e.message);
           return;
         }
-        setError(e instanceof Error ? e.message : crewT('crew.settlement.loadFail').ko);
+        setError(e instanceof Error ? e.message : t('crew.settlement.loadFail'));
       } finally {
         setLoading(false);
       }
     },
-    [month, me.crewGroupId, preview, readStoredPwd],
+    [month, me.crewGroupId, preview, readStoredPwd, t],
   );
 
   useEffect(() => {
@@ -425,6 +427,7 @@ function CrewSettlementSheetTable({
   rows: CrewSettlementPayrollSheetRow[];
   onOpenDetail: (teamMemberId: string) => void;
 }) {
+  const t = useCrewText();
   const dash = '—';
   const statsVars = (r: CrewSettlementPayrollSheetRow) => ({
     pay: r.payDateYmd ?? dash,
@@ -441,7 +444,7 @@ function CrewSettlementSheetTable({
       {/* 모바일: 카드 리스트 */}
       <div className="lg:hidden divide-y divide-gray-100 border border-gray-200 rounded-lg bg-white overflow-hidden shadow-sm">
         {rows.map((r) => {
-          const settlementLbl = crewT(
+          const settlementLbl = t(
             r.poolSettlementComplete ? 'crew.settlement.sheetSettlementDone' : 'crew.settlement.sheetSettlementPending',
           );
           return (
@@ -455,32 +458,24 @@ function CrewSettlementSheetTable({
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
                 <span className="text-fluid-xs font-semibold text-gray-900 truncate">{r.name}</span>
                 <span
-                  className={`inline-flex shrink-0 flex-col rounded px-1.5 py-0.5 text-[9px] font-semibold border leading-tight ${settlementBadgeClass(Boolean(r.poolSettlementComplete))}`}
+                  className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold border leading-tight ${settlementBadgeClass(Boolean(r.poolSettlementComplete))}`}
                 >
-                  <span>{settlementLbl.ko}</span>
-                  <span className="text-[8px] font-medium opacity-90">{settlementLbl.th}</span>
+                  {settlementLbl}
                 </span>
               </div>
               <span className="text-[10px] text-gray-600 tabular-nums leading-tight block">
-                {crewT('crew.settlement.sheetMobileStats', statsVars(r)).ko}
-              </span>
-              <span className="text-[9px] text-gray-400 tabular-nums leading-tight block">
-                {crewT('crew.settlement.sheetMobileStats', statsVars(r)).th}
+                {t('crew.settlement.sheetMobileStats', statsVars(r))}
               </span>
             </div>
             <div className="shrink-0 flex flex-col items-end justify-center gap-0.5 pr-0.5 text-right">
               <span className="text-[9px] text-emerald-900/90 font-medium tabular-nums leading-tight">
-                {crewT('crew.settlement.sheetColNet').ko}
-              </span>
-              <span className="text-[8px] text-emerald-800/75 tabular-nums leading-tight">
-                {crewT('crew.settlement.sheetColNet').th}
+                {t('crew.settlement.sheetColNet')}
               </span>
               <span className="text-fluid-sm font-bold tabular-nums text-emerald-900 leading-none mt-0.5">
                 {fmtWon(r.amountNet)}
               </span>
               <span className="text-[9px] text-blue-700 mt-1 leading-tight">
-                <span className="block">{crewT('crew.settlement.sheetMobileOpenDetail').ko}</span>
-                <span className="block text-[8px] text-blue-600/90">{crewT('crew.settlement.sheetMobileOpenDetail').th}</span>
+                {t('crew.settlement.sheetMobileOpenDetail')}
               </span>
             </div>
             <span className="shrink-0 self-center text-gray-300 text-lg leading-none pl-0.5" aria-hidden>
@@ -526,7 +521,7 @@ function CrewSettlementSheetTable({
             </thead>
             <tbody>
               {rows.map((row) => {
-                const settlementLbl = crewT(
+                const settlementLbl = t(
                   row.poolSettlementComplete
                     ? 'crew.settlement.sheetSettlementDone'
                     : 'crew.settlement.sheetSettlementPending',
@@ -551,10 +546,9 @@ function CrewSettlementSheetTable({
                   </td>
                   <td className="border-b border-gray-100 px-2 py-1.5 text-center align-middle">
                     <span
-                      className={`inline-flex flex-col rounded px-1.5 py-0.5 text-[10px] font-semibold border leading-tight ${settlementBadgeClass(Boolean(row.poolSettlementComplete))}`}
+                      className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border leading-tight ${settlementBadgeClass(Boolean(row.poolSettlementComplete))}`}
                     >
-                      <span>{settlementLbl.ko}</span>
-                      <span className="text-[9px] font-medium opacity-90">{settlementLbl.th}</span>
+                      {settlementLbl}
                     </span>
                   </td>
                   <td className="border-b border-gray-100 px-2 py-1.5 text-right tabular-nums font-semibold text-emerald-900 align-middle">
@@ -576,15 +570,10 @@ function CrewSettlementSheetTable({
 }
 
 function DetailStatRow({ labelId, value }: { labelId: Parameters<typeof CrewBiLine>[0]['id']; value: string }) {
-  const { ko, th } = crewT(labelId);
+  const t = useCrewText();
   return (
     <div className="flex justify-between gap-2 text-[11px] min-w-0 leading-snug">
-      <span className="text-gray-500 shrink-0">
-        <span className="sm:hidden">{ko}</span>
-        <span className="hidden sm:inline">
-          {ko} <span className="text-[10px] text-gray-400">/ {th}</span>
-        </span>
-      </span>
+      <span className="text-gray-500 shrink-0">{t(labelId)}</span>
       <span className="text-gray-900 tabular-nums text-right truncate font-medium">{value}</span>
     </div>
   );
@@ -603,6 +592,7 @@ function CrewSettlementDetailModal({
   readSensitivePwd: () => string;
   onClose: () => void;
 }) {
+  const t = useCrewText();
   const [data, setData] = useState<CrewPoolMemberPayrollDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -628,7 +618,7 @@ function CrewSettlementDetailModal({
           setError(e.message);
           return;
         }
-        setError(e instanceof Error ? e.message : crewT('crew.settlement.detailLoadFail').ko);
+        setError(e instanceof Error ? e.message : t('crew.settlement.detailLoadFail'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -636,7 +626,7 @@ function CrewSettlementDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [teamMemberId, month, preview, readSensitivePwd]);
+  }, [teamMemberId, month, preview, readSensitivePwd, t]);
 
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
@@ -798,25 +788,20 @@ function CrewSettlementDetailModal({
                           <span className="text-gray-500 shrink-0">{fmtIsoShort(ex.createdAt)}</span>
                         </div>
                         <div className="text-[10px] text-gray-600 truncate leading-snug">
-                          <span className="font-medium text-gray-700">
-                            {crewT('crew.settlement.detailExpenseGroup').ko}
-                          </span>
-                          <span className="text-gray-400 mx-0.5">/</span>
-                          <span className="text-[10px] text-gray-500">{crewT('crew.settlement.detailExpenseGroup').th}</span>
+                          <span className="font-medium text-gray-700">{t('crew.settlement.detailExpenseGroup')}</span>
                           <span>: {ex.crewGroupName}</span>
                           <span className="mx-1 text-gray-300">·</span>
                           <span>
-                            {crewT('crew.settlement.detailAttachments').ko}/{crewT('crew.settlement.detailAttachments').th}{' '}
-                            {crewT('crew.settlement.detailAttachCount', {
+                            {t('crew.settlement.detailAttachments')}{' '}
+                            {t('crew.settlement.detailAttachCount', {
                               count: String(ex.attachmentCount),
-                            }).ko}{' '}
-                            ({crewT('crew.settlement.detailAttachCount', { count: String(ex.attachmentCount) }).th})
+                            })}
                           </span>
                         </div>
                         {ex.memo?.trim() ? (
                           <div className="text-[10px] text-gray-700 whitespace-pre-wrap break-words">
                             <span className="font-medium text-gray-600">
-                              {crewT('crew.settlement.detailExpenseMemo').ko}/{crewT('crew.settlement.detailExpenseMemo').th}
+                              {t('crew.settlement.detailExpenseMemo')}
                             </span>
                             : {ex.memo}
                           </div>

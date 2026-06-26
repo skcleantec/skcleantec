@@ -4,7 +4,8 @@ import type { CrewLayoutContext } from '../../components/layout/CrewLayout';
 import { getCrewToken, subscribeCrewAuth } from '../../stores/crewAuth';
 import { getCrewMonthlyJobStats, getCrewStaffNotices, type CrewMonthlyJobStatItem, type CrewStaffNoticeItem } from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
-import { CrewBiLine, crewT } from '../../i18n/crew/crewI18n';
+import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
+import { useCrewUiLang } from '../../i18n/crew/crewUiLanguageContext';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 
@@ -49,6 +50,8 @@ export function CrewHomePage() {
   const outlet = useOutletContext<CrewLayoutContext | undefined>();
   const me = outlet?.me ?? null;
   const crewToken = useSyncExternalStore(subscribeCrewAuth, getCrewToken, () => null);
+  const t = useCrewText();
+  const uiLang = useCrewUiLang();
 
   const [statsMonth, setStatsMonth] = useState(kstMonthYmNow);
   const [stats, setStats] = useState<CrewMonthlyJobStatItem[] | null>(null);
@@ -166,19 +169,20 @@ export function CrewHomePage() {
           <button
             type="button"
             className="shrink-0 w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center justify-center text-sm"
-            aria-label={`${crewT('crew.home.prevMonthAria').ko} / ${crewT('crew.home.prevMonthAria').th}`}
+            aria-label={t('crew.home.prevMonthAria')}
             onClick={() => setStatsMonth((ym) => addMonthsYm(ym, -1))}
           >
             ‹
           </button>
           <div className="flex-1 min-w-0 text-center">
-            <div className="text-xs font-semibold text-slate-900">{formatMonthKo(statsMonth)}</div>
-            <div className="text-[0.58rem] text-indigo-700/90 leading-tight">{formatMonthTh(statsMonth)}</div>
+            <div className="text-xs font-semibold text-slate-900">
+              {uiLang === 'th' ? formatMonthTh(statsMonth) : formatMonthKo(statsMonth)}
+            </div>
           </div>
           <button
             type="button"
             className="shrink-0 w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center justify-center text-sm"
-            aria-label={`${crewT('crew.home.nextMonthAria').ko} / ${crewT('crew.home.nextMonthAria').th}`}
+            aria-label={t('crew.home.nextMonthAria')}
             onClick={() => setStatsMonth((ym) => addMonthsYm(ym, 1))}
           >
             ›
@@ -191,13 +195,9 @@ export function CrewHomePage() {
           </h3>
 
           {statsLoading ? (
-            <p className="text-[0.65rem] text-slate-500 py-4 text-center">
-              {crewT('crew.home.statsLoading').ko} / {crewT('crew.home.statsLoading').th}
-            </p>
+            <p className="text-[0.65rem] text-slate-500 py-4 text-center">{t('crew.home.statsLoading')}</p>
           ) : statsError ? (
-            <p className="text-[0.65rem] text-red-600 py-2 text-center">
-              {crewT('crew.home.statsError').ko} / {crewT('crew.home.statsError').th}
-            </p>
+            <p className="text-[0.65rem] text-red-600 py-2 text-center">{t('crew.home.statsError')}</p>
           ) : (
             <ul className="space-y-2.5">
               {chartRows.map((row, idx) => {
@@ -236,7 +236,7 @@ export function CrewHomePage() {
                       >
                         {row.inquiryCount}
                         <span className="text-[0.58rem] font-normal text-slate-500 ml-0.5">
-                          {crewT('crew.home.statsUnit').ko}/{crewT('crew.home.statsUnit').th}
+                          {t('crew.home.statsUnit')}
                         </span>
                       </span>
                     </div>

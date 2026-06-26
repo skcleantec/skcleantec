@@ -5,7 +5,7 @@ import type { CrewLayoutContext } from '../../components/layout/CrewLayout';
 import { getCrewToken } from '../../stores/crewAuth';
 import { patchCrewMemberAddress, patchCrewMemberDisplayNames, patchCrewMemberPhone } from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
-import { CrewBiLine, crewT } from '../../i18n/crew/crewI18n';
+import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
 import { AddressSearch } from '../../components/forms/AddressSearch';
 import { formatCrewHomeAddressLine } from '../../utils/crewHomeAddress';
 
@@ -36,6 +36,7 @@ export function CrewSettingsPage() {
   const [addressModalSaving, setAddressModalSaving] = useState(false);
 
   const [introHelpOpen, setIntroHelpOpen] = useState(false);
+  const t = useCrewText();
 
   useEffect(() => {
     if (!me) return;
@@ -63,20 +64,18 @@ export function CrewSettingsPage() {
       await patchCrewMemberPhone(token, phoneModal.teamMemberId, phone);
       await reloadMe?.();
       closePhoneModal();
-      const ok = crewT('crew.settings.saved');
-      alert(`${ok.ko}\n${ok.th}`);
+      alert(t('crew.settings.saved'));
     } catch (e) {
-      const fail = crewT('crew.settings.saveFail');
       if (e instanceof AuthSessionExpiredError) {
-        alert(`${fail.ko}\n세션이 만료되었습니다.\n${fail.th}`);
+        alert(`${t('crew.settings.saveFail')}\n세션이 만료되었습니다.`);
         return;
       }
-      const msg = e instanceof Error ? e.message : fail.ko;
-      alert(`${fail.ko}\n${msg}\n${fail.th}`);
+      const msg = e instanceof Error ? e.message : t('crew.settings.saveFail');
+      alert(`${t('crew.settings.saveFail')}\n${msg}`);
     } finally {
       setPhoneModalSaving(false);
     }
-  }, [me, phoneModal, phoneDraft, reloadMe]);
+  }, [me, phoneModal, phoneDraft, reloadMe, t]);
 
   const openAddressModal = (
     teamMemberId: string,
@@ -106,8 +105,7 @@ export function CrewSettingsPage() {
     const road = addressDraft.trim();
     const detail = addressDetailDraft.trim();
     if ((road && !detail) || (!road && detail)) {
-      const msg = crewT('crew.settings.addressRequired');
-      alert(`${msg.ko}\n${msg.th}`);
+      alert(t('crew.settings.addressRequired'));
       return;
     }
     setAddressModalSaving(true);
@@ -120,20 +118,18 @@ export function CrewSettingsPage() {
       );
       await reloadMe?.();
       closeAddressModal();
-      const ok = crewT('crew.settings.saved');
-      alert(`${ok.ko}\n${ok.th}`);
+      alert(t('crew.settings.saved'));
     } catch (e) {
-      const fail = crewT('crew.settings.saveFail');
       if (e instanceof AuthSessionExpiredError) {
-        alert(`${fail.ko}\n세션이 만료되었습니다.\n${fail.th}`);
+        alert(`${t('crew.settings.saveFail')}\n세션이 만료되었습니다.`);
         return;
       }
-      const msg = e instanceof Error ? e.message : fail.ko;
-      alert(`${fail.ko}\n${msg}\n${fail.th}`);
+      const msg = e instanceof Error ? e.message : t('crew.settings.saveFail');
+      alert(`${t('crew.settings.saveFail')}\n${msg}`);
     } finally {
       setAddressModalSaving(false);
     }
-  }, [me, addressModal, addressDraft, addressDetailDraft, reloadMe]);
+  }, [me, addressModal, addressDraft, addressDetailDraft, reloadMe, t]);
 
   const clearAddressDraft = () => {
     setAddressDraft('');
@@ -149,21 +145,19 @@ export function CrewSettingsPage() {
       try {
         await patchCrewMemberDisplayNames(token, [{ teamMemberId, nameTh }]);
         await reloadMe?.();
-        const ok = crewT('crew.settings.saved');
-        alert(`${ok.ko}\n${ok.th}`);
+        alert(t('crew.settings.saved'));
       } catch (e) {
-        const fail = crewT('crew.settings.saveFail');
         if (e instanceof AuthSessionExpiredError) {
-          alert(`${fail.ko}\n세션이 만료되었습니다.\n${fail.th}`);
+          alert(`${t('crew.settings.saveFail')}\n세션이 만료되었습니다.`);
           return;
         }
-        const msg = e instanceof Error ? e.message : fail.ko;
-        alert(`${fail.ko}\n${msg}\n${fail.th}`);
+        const msg = e instanceof Error ? e.message : t('crew.settings.saveFail');
+        alert(`${t('crew.settings.saveFail')}\n${msg}`);
       } finally {
         setSavingDisplayId(null);
       }
     },
-    [me, draft, reloadMe],
+    [me, draft, reloadMe, t],
   );
 
   if (!outlet) {
@@ -192,7 +186,7 @@ export function CrewSettingsPage() {
           to="/crew"
           className="inline-block text-sm text-indigo-700 underline hover:text-indigo-900"
         >
-          ← {crewT('crew.settings.backHome').ko} / {crewT('crew.settings.backHome').th}
+          ← {t('crew.settings.backHome')}
         </Link>
       </div>
     );
@@ -208,7 +202,7 @@ export function CrewSettingsPage() {
           <button
             type="button"
             aria-expanded={introHelpOpen}
-            aria-label={`${crewT('crew.settings.helpToggleAria').ko} / ${crewT('crew.settings.helpToggleAria').th}`}
+            aria-label={t('crew.settings.helpToggleAria')}
             onClick={() => setIntroHelpOpen((v) => !v)}
             className="shrink-0 mt-0.5 w-6 h-6 rounded-full border border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 flex items-center justify-center"
           >
@@ -242,8 +236,8 @@ export function CrewSettingsPage() {
                   <input
                     type="text"
                     className="flex-1 min-w-[6rem] text-[0.65rem] py-0.5 px-1 border border-gray-300 rounded leading-tight min-h-0"
-                    placeholder={`${crewT('crew.settings.placeholderTh').th} · ${crewT('crew.settings.placeholderTh').ko}`}
-                    aria-label={`${crewT('crew.settings.colDisplayTh').ko}`}
+                    placeholder={t('crew.settings.placeholderTh')}
+                    aria-label={t('crew.settings.colDisplayTh')}
                     value={draft[m.teamMemberId] ?? ''}
                     onChange={(e) =>
                       setDraft((prev) => ({ ...prev, [m.teamMemberId]: e.target.value }))
@@ -256,9 +250,7 @@ export function CrewSettingsPage() {
                     onClick={() => void saveDisplayOne(m.teamMemberId)}
                     className="shrink-0 text-[0.58rem] px-1.5 py-0.5 bg-gray-900 text-white rounded leading-none disabled:opacity-50"
                   >
-                    {rowSaving
-                      ? '…'
-                      : `${crewT('crew.settings.save').th} · ${crewT('crew.settings.save').ko}`}
+                    {rowSaving ? '…' : t('crew.settings.save')}
                   </button>
                   <span
                     className="text-[0.58rem] text-gray-500 tabular-nums shrink-0 truncate max-w-[5.5rem] sm:max-w-[6.5rem]"
@@ -271,7 +263,7 @@ export function CrewSettingsPage() {
                     onClick={() => openPhoneModal(m.teamMemberId, m.name, m.phone)}
                     className="shrink-0 text-[0.55rem] px-1 py-0.5 border border-gray-300 rounded bg-white text-gray-700 leading-none"
                   >
-                    {crewT('crew.settings.editPhone').ko}/{crewT('crew.settings.editPhone').th}
+                    {t('crew.settings.editPhone')}
                   </button>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 min-w-0 pl-0.5">
@@ -288,7 +280,7 @@ export function CrewSettingsPage() {
                     }
                     className="shrink-0 text-[0.55rem] px-1 py-0.5 border border-emerald-300 rounded bg-emerald-50 text-emerald-900 leading-none"
                   >
-                    {crewT('crew.settings.editAddress').ko}/{crewT('crew.settings.editAddress').th}
+                    {t('crew.settings.editAddress')}
                   </button>
                 </div>
               </li>
@@ -336,7 +328,7 @@ export function CrewSettingsPage() {
                   onClick={closePhoneModal}
                   className="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-800"
                 >
-                  {crewT('crew.settings.phoneModalCancel').ko}/{crewT('crew.settings.phoneModalCancel').th}
+                  {t('crew.settings.phoneModalCancel')}
                 </button>
                 <button
                   type="button"
@@ -344,9 +336,7 @@ export function CrewSettingsPage() {
                   onClick={() => void savePhoneModal()}
                   className="px-2 py-1 text-xs rounded bg-gray-900 text-white"
                 >
-                  {phoneModalSaving
-                    ? `${crewT('crew.settings.saving').ko}`
-                    : `${crewT('crew.settings.phoneModalSave').ko}/${crewT('crew.settings.phoneModalSave').th}`}
+                  {phoneModalSaving ? t('crew.settings.saving') : t('crew.settings.phoneModalSave')}
                 </button>
               </div>
             </div>
@@ -391,7 +381,7 @@ export function CrewSettingsPage() {
                 <input
                   type="text"
                   className="w-full px-2 py-2 border border-gray-300 rounded text-sm"
-                  placeholder={`${crewT('crew.settings.addressDetailPlaceholder').ko} / ${crewT('crew.settings.addressDetailPlaceholder').th}`}
+                  placeholder={t('crew.settings.addressDetailPlaceholder')}
                   value={addressDetailDraft}
                   onChange={(e) => setAddressDetailDraft(e.target.value)}
                   disabled={addressModalSaving}
@@ -404,7 +394,7 @@ export function CrewSettingsPage() {
                   onClick={clearAddressDraft}
                   className="px-2 py-1 text-xs border border-rose-200 rounded bg-rose-50 text-rose-900"
                 >
-                  {crewT('crew.settings.addressClear').ko}/{crewT('crew.settings.addressClear').th}
+                  {t('crew.settings.addressClear')}
                 </button>
                 <button
                   type="button"
@@ -412,7 +402,7 @@ export function CrewSettingsPage() {
                   onClick={closeAddressModal}
                   className="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-800"
                 >
-                  {crewT('crew.settings.phoneModalCancel').ko}/{crewT('crew.settings.phoneModalCancel').th}
+                  {t('crew.settings.phoneModalCancel')}
                 </button>
                 <button
                   type="button"
@@ -420,9 +410,7 @@ export function CrewSettingsPage() {
                   onClick={() => void saveAddressModal()}
                   className="px-2 py-1 text-xs rounded bg-gray-900 text-white"
                 >
-                  {addressModalSaving
-                    ? `${crewT('crew.settings.saving').ko}`
-                    : `${crewT('crew.settings.phoneModalSave').ko}/${crewT('crew.settings.phoneModalSave').th}`}
+                  {addressModalSaving ? t('crew.settings.saving') : t('crew.settings.phoneModalSave')}
                 </button>
               </div>
             </div>

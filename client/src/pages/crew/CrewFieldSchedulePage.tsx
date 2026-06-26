@@ -11,7 +11,7 @@ import {
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
-import { CrewBiLine, CrewBiInline, crewT } from '../../i18n/crew/crewI18n';
+import { CrewBiLine, CrewBiInline, useCrewText } from '../../i18n/crew/crewI18n';
 import { CrewMemberNameLines } from '../../components/crew/CrewMemberNameLines';
 import {
   CrewScheduleLeaderNames,
@@ -24,13 +24,14 @@ function formatVehicles(leaders: CrewFieldLeader[]): string {
 }
 
 function MeetingTimeEditedBadgeInline() {
-  const { ko, th } = crewT('crew.schedule.meetingTimeEditedBadge');
+  const t = useCrewText();
+  const label = t('crew.schedule.meetingTimeEditedBadge');
   return (
     <span
       className="inline-block rounded bg-amber-50 px-1 py-px text-[0.58rem] sm:text-[0.6rem] font-medium text-amber-900 leading-tight max-w-[5.5rem] text-center shrink-0"
-      title={`${ko} (${th})`}
+      title={label}
     >
-      {th}
+      {label}
     </span>
   );
 }
@@ -70,15 +71,15 @@ function MeetingCellContent({ row }: { row: TodayRow }) {
 
 function MeetingSnippetInline({
   row,
-  meetingThLabel,
+  meetingLabel,
 }: {
   row: TodayRow;
-  meetingThLabel: string;
+  meetingLabel: string;
 }) {
   if (row.meetingTime) {
     return (
       <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
-        <span className="text-gray-600">{meetingThLabel}</span>
+        <span className="text-gray-600">{meetingLabel}</span>
         <span className="tabular-nums">{row.meetingTime}</span>
         {row.meetingTimeEdited ? <MeetingTimeEditedBadgeInline /> : null}
       </span>
@@ -143,6 +144,7 @@ const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 export function CrewFieldSchedulePage() {
   const outlet = useOutletContext<CrewLayoutContext | undefined>();
   const me = outlet?.me ?? null;
+  const t = useCrewText();
   /** 첫 진입·리셋 시 한국 달력 기준 오늘 */
   const [selectedYmd, setSelectedYmd] = useState(() => kstTodayYmd());
   const [days, setDays] = useState<CrewFieldDay[]>([]);
@@ -205,10 +207,9 @@ export function CrewFieldSchedulePage() {
     );
   }
 
-  const dateAria = `${crewT('crew.schedule.dateLabel').ko} / ${crewT('crew.schedule.dateLabel').th}`;
-  const wsBadgeTitle = wsConnected
-    ? `${crewT('crew.schedule.wsConnected').ko} / ${crewT('crew.schedule.wsConnected').th}`
-    : `${crewT('crew.schedule.wsFallback').ko} / ${crewT('crew.schedule.wsFallback').th}`;
+  const dateAria = t('crew.schedule.dateLabel');
+  const wsBadgeTitle = wsConnected ? t('crew.schedule.wsConnected') : t('crew.schedule.wsFallback');
+  const wsHeaderLabel = t(wsConnected ? 'crew.schedule.headerWsOn' : 'crew.schedule.headerWsOff');
 
   return (
     <div className="space-y-1 lg:space-y-2 min-w-0">
@@ -216,10 +217,7 @@ export function CrewFieldSchedulePage() {
         <div className="flex flex-nowrap items-center justify-between gap-1.5 min-w-0">
           <div className="min-w-0 flex-1 flex items-center gap-x-1 leading-tight overflow-hidden">
             <span className="text-[0.8125rem] sm:text-sm font-semibold text-gray-900 truncate shrink-0">
-              {crewT('crew.schedule.title').ko}
-            </span>
-            <span className="hidden lg:inline text-[0.65rem] text-gray-500 truncate">
-              {crewT('crew.schedule.title').th}
+              {t('crew.schedule.title')}
             </span>
             <span className="text-[0.62rem] sm:text-[0.7rem] text-gray-600 tabular-nums truncate min-w-0">
               · {formatDateCompactWithWeekday(selectedYmd)}
@@ -231,11 +229,7 @@ export function CrewFieldSchedulePage() {
             }`}
             title={wsBadgeTitle}
           >
-            <span className="lg:hidden">{crewT(wsConnected ? 'crew.schedule.headerWsOn' : 'crew.schedule.headerWsOff').ko}</span>
-            <span className="hidden lg:inline">
-              {crewT(wsConnected ? 'crew.schedule.headerWsOn' : 'crew.schedule.headerWsOff').ko}·
-              {crewT(wsConnected ? 'crew.schedule.headerWsOn' : 'crew.schedule.headerWsOff').th}
-            </span>
+            {wsHeaderLabel}
           </span>
         </div>
         <div className="mt-1 flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-0">
@@ -258,17 +252,10 @@ export function CrewFieldSchedulePage() {
                 : 'border-indigo-300 bg-indigo-50 text-indigo-800'
             }`}
           >
-            <span className="sm:hidden">{crewT('crew.schedule.todayButton').ko}</span>
-            <span className="hidden sm:inline">
-              {crewT('crew.schedule.todayButton').ko}/{crewT('crew.schedule.todayButton').th}
-            </span>
+            {t('crew.schedule.todayButton')}
           </button>
         </div>
-        <p className="hidden lg:block text-[0.6rem] text-gray-500 mt-1 leading-snug">
-          <span className="text-gray-700">{crewT('crew.schedule.intro').ko}</span>
-          <span className="text-gray-400 mx-0.5">·</span>
-          <span className="text-gray-500">{crewT('crew.schedule.intro').th}</span>
-        </p>
+        <p className="hidden lg:block text-[0.6rem] text-gray-500 mt-1 leading-snug">{t('crew.schedule.intro')}</p>
       </div>
 
       {loading ? (
@@ -278,9 +265,7 @@ export function CrewFieldSchedulePage() {
       ) : (
         <>
           <p className="text-[0.55rem] text-gray-500 px-0.5 leading-tight hidden lg:block">
-            <span className="text-gray-700">{crewT('crew.schedule.emptyTodayHint').ko}</span>
-            <span className="text-gray-400 mx-0.5">·</span>
-            <span>{crewT('crew.schedule.emptyTodayHint').th}</span>
+            {t('crew.schedule.emptyTodayHint')}
           </p>
 
           {rows.length === 0 ? (
@@ -300,7 +285,7 @@ export function CrewFieldSchedulePage() {
                   const v = (row.vehicleText ?? '').trim();
                   const hasVehicle = v && v !== '—';
                   const leadersOnly = plainLeaders !== '—';
-                  const meetingThLabel = crewT('crew.schedule.colMeeting').th;
+                  const meetingLabel = t('crew.schedule.colMeeting');
                   const hasMeeting = Boolean(row.meetingTime);
                   const hasStandbyOnly = Boolean(row.isStandby && !row.meetingTime);
                   const leaderVehicleLine =
@@ -332,7 +317,7 @@ export function CrewFieldSchedulePage() {
                         </div>
                         <div
                           className="shrink-0 text-[0.7rem] font-medium tabular-nums text-gray-900 leading-none pt-px"
-                          title={`${crewT('crew.schedule.colTimeOnly').ko} ${row.timeText}`}
+                          title={`${t('crew.schedule.colTimeOnly')} ${row.timeText}`}
                         >
                           {row.timeText}
                         </div>
@@ -343,7 +328,7 @@ export function CrewFieldSchedulePage() {
                       >
                         {!leadersOnly && !hasVehicle ? (
                           hasMeeting || hasStandbyOnly ? (
-                            <MeetingSnippetInline row={row} meetingThLabel={meetingThLabel} />
+                            <MeetingSnippetInline row={row} meetingLabel={meetingLabel} />
                           ) : (
                             <span className="text-gray-500">—</span>
                           )
@@ -353,7 +338,7 @@ export function CrewFieldSchedulePage() {
                             {hasMeeting || hasStandbyOnly ? (
                               <>
                                 <span className="text-gray-400"> · </span>
-                                <MeetingSnippetInline row={row} meetingThLabel={meetingThLabel} />
+                                <MeetingSnippetInline row={row} meetingLabel={meetingLabel} />
                               </>
                             ) : null}
                           </span>
@@ -363,7 +348,7 @@ export function CrewFieldSchedulePage() {
                             {hasMeeting || hasStandbyOnly ? (
                               <>
                                 <span className="text-gray-400"> · </span>
-                                <MeetingSnippetInline row={row} meetingThLabel={meetingThLabel} />
+                                <MeetingSnippetInline row={row} meetingLabel={meetingLabel} />
                               </>
                             ) : null}
                           </span>
@@ -375,7 +360,7 @@ export function CrewFieldSchedulePage() {
                             {hasMeeting || hasStandbyOnly ? (
                               <>
                                 <span className="text-gray-400"> · </span>
-                                <MeetingSnippetInline row={row} meetingThLabel={meetingThLabel} />
+                                <MeetingSnippetInline row={row} meetingLabel={meetingLabel} />
                               </>
                             ) : null}
                           </span>

@@ -5,7 +5,7 @@ import { getCrewToken } from '../../stores/crewAuth';
 import { getCrewDayRoster, putCrewDayRoster, type CrewMeResponse } from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
-import { CrewBiLine, CrewBiInline, crewT } from '../../i18n/crew/crewI18n';
+import { CrewBiLine, CrewBiInline, useCrewText } from '../../i18n/crew/crewI18n';
 import { CrewMemberNameLines } from '../../components/crew/CrewMemberNameLines';
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -26,6 +26,7 @@ export function CrewRosterDayPage() {
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [modalPassword, setModalPassword] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
+  const t = useCrewText();
 
   const canEdit = me?.crewViewerRole === 'LEADER';
   const needsSensitivePassword =
@@ -152,13 +153,10 @@ export function CrewRosterDayPage() {
   const performSave = async (settingsPassword?: string) => {
     const token = getCrewToken();
     if (!token || !canEdit || !ymd || !YMD_RE.test(ymd)) {
-      const skip = crewT('crew.roster.alertSaveSkipped');
-      alert(`${skip.ko}\n${skip.th}`);
+      alert(t('crew.roster.alertSaveSkipped'));
       return;
     }
     setSaving(true);
-    const ok = crewT('crew.roster.alertSaved');
-    const fail = crewT('crew.roster.alertSaveFail');
     try {
       await putCrewDayRoster(
         token,
@@ -176,15 +174,15 @@ export function CrewRosterDayPage() {
         },
       );
       await reloadMe?.();
-      alert(`[${ok.ko}] ${ok.th}`);
+      alert(t('crew.roster.alertSaved'));
       goCalendar();
     } catch (e) {
       if (e instanceof AuthSessionExpiredError) {
-        alert(`[${fail.ko}]\n세션이 만료되었습니다. 다시 로그인해 주세요.\n${fail.th}`);
+        alert(`${t('crew.roster.alertSaveFail')}\n세션이 만료되었습니다. 다시 로그인해 주세요.`);
         return;
       }
-      const detail = e instanceof Error && e.message.trim() ? e.message.trim() : fail.ko;
-      alert(`[${fail.ko}]\n${detail}\n${fail.th}`);
+      const detail = e instanceof Error && e.message.trim() ? e.message.trim() : t('crew.roster.alertSaveFail');
+      alert(`${t('crew.roster.alertSaveFail')}\n${detail}`);
     } finally {
       setSaving(false);
     }
@@ -193,8 +191,7 @@ export function CrewRosterDayPage() {
   const confirmPasswordModal = () => {
     const p = modalPassword.trim();
     if (!p) {
-      const req = crewT('crew.roster.modalPasswordRequired');
-      alert(`${req.ko}\n${req.th}`);
+      alert(t('crew.roster.modalPasswordRequired'));
       return;
     }
     setPasswordModalOpen(false);
@@ -250,9 +247,7 @@ export function CrewRosterDayPage() {
             className="shrink-0 px-2 py-1 rounded border border-gray-300 bg-white text-gray-800 text-left leading-tight"
           >
             <span className="text-xs font-medium">←</span>
-            <span className="block text-[0.6rem]">
-              {crewT('crew.roster.backToCalendar').ko}/{crewT('crew.roster.backToCalendar').th}
-            </span>
+            <span className="block text-[0.6rem]">{t('crew.roster.backToCalendar')}</span>
           </button>
           <div className="min-w-0 flex-1 text-center">
             <div className="text-xs font-semibold text-gray-900 truncate tabular-nums">{dateLine}</div>
@@ -267,7 +262,7 @@ export function CrewRosterDayPage() {
             onClick={goCalendar}
             className="shrink-0 px-2 py-1.5 text-xs rounded border border-gray-200 text-gray-600"
           >
-            {crewT('crew.roster.close').ko}/{crewT('crew.roster.close').th}
+            {t('crew.roster.close')}
           </button>
         </div>
       </div>
@@ -280,7 +275,7 @@ export function CrewRosterDayPage() {
           <button
             type="button"
             aria-expanded={helpOpen}
-            aria-label={`${crewT('crew.roster.helpToggleAria').ko} / ${crewT('crew.roster.helpToggleAria').th}`}
+            aria-label={t('crew.roster.helpToggleAria')}
             onClick={() => setHelpOpen((v) => !v)}
             className="shrink-0 mt-0.5 w-6 h-6 rounded-full border border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 flex items-center justify-center"
           >
@@ -351,9 +346,9 @@ export function CrewRosterDayPage() {
                 type="button"
                 disabled={!canEdit || saving || highlightPool.size === 0}
                 onClick={moveToWorking}
-                title={`${crewT('crew.roster.transferToWorking').ko} / ${crewT('crew.roster.transferToWorking').th}`}
+                title={t('crew.roster.transferToWorking')}
                 className="min-h-[2.75rem] min-w-[2.5rem] rounded-lg border border-gray-300 bg-white text-lg font-semibold text-gray-800 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:bg-gray-100"
-                aria-label={`${crewT('crew.roster.transferToWorking').ko}`}
+                aria-label={t('crew.roster.transferToWorking')}
               >
                 →
               </button>
@@ -361,9 +356,9 @@ export function CrewRosterDayPage() {
                 type="button"
                 disabled={!canEdit || saving || highlightWorking.size === 0}
                 onClick={moveToPool}
-                title={`${crewT('crew.roster.transferToPool').ko} / ${crewT('crew.roster.transferToPool').th}`}
+                title={t('crew.roster.transferToPool')}
                 className="min-h-[2.75rem] min-w-[2.5rem] rounded-lg border border-gray-300 bg-white text-lg font-semibold text-gray-800 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:bg-gray-100"
-                aria-label={`${crewT('crew.roster.transferToPool').ko}`}
+                aria-label={t('crew.roster.transferToPool')}
               >
                 ←
               </button>
@@ -381,7 +376,7 @@ export function CrewRosterDayPage() {
                   workingMembers.map((mem) => {
                     const hi = highlightWorking.has(mem.teamMemberId);
                     const onStandby = standbyIds.has(mem.teamMemberId);
-                    const standbyLabel = crewT('crew.roster.standbyButton');
+                    const standbyLabel = t('crew.roster.standbyButton');
                     return (
                       <li key={mem.teamMemberId}>
                         {canEdit ? (
@@ -405,11 +400,11 @@ export function CrewRosterDayPage() {
                                 e.stopPropagation();
                                 toggleStandby(mem.teamMemberId);
                               }}
-                              title={`${standbyLabel.ko} / ${standbyLabel.th}`}
+                              title={standbyLabel}
                               aria-pressed={onStandby}
                               className={`shrink-0 self-center mx-0.5 px-1.5 py-1 rounded border text-[0.6rem] font-semibold leading-none min-w-[2rem] ${standbyBtn(onStandby)}`}
                             >
-                              {standbyLabel.th}
+                              {standbyLabel}
                             </button>
                           </div>
                         ) : (
@@ -425,7 +420,7 @@ export function CrewRosterDayPage() {
                             </div>
                             {onStandby ? (
                               <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[0.6rem] font-medium">
-                                {standbyLabel.ko}/{standbyLabel.th}
+                                {standbyLabel}
                               </span>
                             ) : null}
                           </div>
@@ -448,15 +443,9 @@ export function CrewRosterDayPage() {
               className="w-full px-2 py-1.5 text-xs leading-tight bg-gray-900 text-white rounded-md disabled:opacity-50"
             >
               {saving ? (
-                <span className="block text-[0.65rem]">
-                  {crewT('crew.roster.saving').ko} · {crewT('crew.roster.saving').th}
-                </span>
+                <span className="block text-[0.65rem]">{t('crew.roster.saving')}</span>
               ) : (
-                <span className="block font-medium">
-                  {crewT('crew.roster.saveDay').ko}
-                  <span className="text-gray-300 mx-0.5">·</span>
-                  <span className="text-gray-200 font-normal">{crewT('crew.roster.saveDay').th}</span>
-                </span>
+                <span className="block font-medium">{t('crew.roster.saveDay')}</span>
               )}
             </button>
           </div>
@@ -495,7 +484,7 @@ export function CrewRosterDayPage() {
                 if (e.key === 'Escape') closePasswordModal();
                 if (e.key === 'Enter') confirmPasswordModal();
               }}
-              placeholder={`${crewT('crew.roster.sensitivePasswordPlaceholder').ko} / ${crewT('crew.roster.sensitivePasswordPlaceholder').th}`}
+              placeholder={t('crew.roster.sensitivePasswordPlaceholder')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
               autoFocus
             />
@@ -505,14 +494,14 @@ export function CrewRosterDayPage() {
                 onClick={closePasswordModal}
                 className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-800"
               >
-                {crewT('crew.roster.modalCancel').ko}/{crewT('crew.roster.modalCancel').th}
+                {t('crew.roster.modalCancel')}
               </button>
               <button
                 type="button"
                 onClick={() => confirmPasswordModal()}
                 className="px-3 py-2 text-sm rounded-lg bg-gray-900 text-white"
               >
-                {crewT('crew.roster.modalConfirmSave').ko}/{crewT('crew.roster.modalConfirmSave').th}
+                {t('crew.roster.modalConfirmSave')}
               </button>
             </div>
           </div>

@@ -4,7 +4,8 @@ import type { CrewLayoutContext } from '../../components/layout/CrewLayout';
 import { getCrewToken } from '../../stores/crewAuth';
 import { getCrewDayRoster, type CrewMeResponse } from '../../api/crew';
 import { kstTodayYmd, WEEKDAY_EN } from '../../utils/dateFormat';
-import { CrewBiLine, crewT } from '../../i18n/crew/crewI18n';
+import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
+import { useCrewUiLang, type CrewUiLangKey } from '../../i18n/crew/crewUiLanguageContext';
 
 function pad2(n: number) {
   return n < 10 ? `0${n}` : `${n}`;
@@ -36,11 +37,9 @@ function getCalendarDays(year: number, month: number): (number | null)[] {
   return days;
 }
 
-function rosterCountLabel(n: number): { ko: string; th: string } {
-  return {
-    ko: `${n}명`,
-    th: `${n} คน`,
-  };
+function rosterCountLabel(n: number, lang: CrewUiLangKey): string {
+  if (lang === 'th') return `${n} คน`;
+  return `${n}명`;
 }
 
 export function CrewRosterCalendarPage() {
@@ -53,6 +52,8 @@ export function CrewRosterCalendarPage() {
   const [byDay, setByDay] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const t = useCrewText();
+  const uiLang = useCrewUiLang();
 
   const canEdit = me?.crewViewerRole === 'LEADER';
   const { start, end } = monthRange(y, m);
@@ -151,7 +152,7 @@ export function CrewRosterCalendarPage() {
           <button
             type="button"
             aria-expanded={helpOpen}
-            aria-label={`${crewT('crew.roster.helpToggleAria').ko} / ${crewT('crew.roster.helpToggleAria').th}`}
+            aria-label={t('crew.roster.helpToggleAria')}
             onClick={() => setHelpOpen((v) => !v)}
             className="shrink-0 w-6 h-6 rounded-full border border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 flex items-center justify-center"
           >
@@ -171,7 +172,7 @@ export function CrewRosterCalendarPage() {
             type="button"
             className={navBtn}
             onClick={goPrevMonth}
-            aria-label={`${crewT('crew.roster.prevMonthAria').ko} / ${crewT('crew.roster.prevMonthAria').th}`}
+            aria-label={t('crew.roster.prevMonthAria')}
           >
             ‹
           </button>
@@ -201,7 +202,7 @@ export function CrewRosterCalendarPage() {
             type="button"
             className={navBtn}
             onClick={goNextMonth}
-            aria-label={`${crewT('crew.roster.nextMonthAria').ko} / ${crewT('crew.roster.nextMonthAria').th}`}
+            aria-label={t('crew.roster.nextMonthAria')}
           >
             ›
           </button>
@@ -240,7 +241,7 @@ export function CrewRosterCalendarPage() {
                 const key = ymd(d);
                 const cnt = (byDay[key] ?? []).length;
                 const isTodayCell = key === kstToday;
-                const { ko: cntKo, th: cntTh } = rosterCountLabel(cnt);
+                const cntLabel = rosterCountLabel(cnt, uiLang);
                 const wk = new Date(y, m - 1, d).getDay();
                 const isSun = wk === 0;
                 const isSat = wk === 6;
@@ -264,14 +265,9 @@ export function CrewRosterCalendarPage() {
                     </span>
                     <div className="absolute bottom-0.5 left-0 right-0 px-0.5 flex flex-col items-center justify-end gap-0 pointer-events-none">
                       {cnt > 0 ? (
-                        <>
-                          <span className="inline-flex items-center justify-center rounded-full bg-emerald-100 text-emerald-900 px-1 py-px text-[0.55rem] font-semibold tabular-nums leading-none border border-emerald-200/70">
-                            {cntKo}
-                          </span>
-                          <span className="text-[0.48rem] text-emerald-800/85 font-medium tabular-nums leading-none">
-                            {cntTh}
-                          </span>
-                        </>
+                        <span className="inline-flex items-center justify-center rounded-full bg-emerald-100 text-emerald-900 px-1 py-px text-[0.55rem] font-semibold tabular-nums leading-none border border-emerald-200/70">
+                          {cntLabel}
+                        </span>
                       ) : (
                         <span className="text-[0.5rem] text-gray-300 tabular-nums">·</span>
                       )}
@@ -281,7 +277,7 @@ export function CrewRosterCalendarPage() {
               })}
             </div>
             <p className="text-[0.55rem] text-gray-400 mt-1 text-center leading-none">
-              {crewT('crew.roster.memberPoolHint').ko}/{crewT('crew.roster.memberPoolHint').th}{' '}
+              {t('crew.roster.memberPoolHint')}{' '}
               <span className="tabular-nums">({members.length})</span>
             </p>
           </div>

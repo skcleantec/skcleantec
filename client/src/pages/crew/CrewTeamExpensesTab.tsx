@@ -8,7 +8,7 @@ import {
   type CrewExpenseListItemDto,
 } from '../../api/crew';
 import { AuthSessionExpiredError } from '../../api/auth';
-import { CrewBiLine, crewT } from '../../i18n/crew/crewI18n';
+import { CrewBiLine, useCrewText } from '../../i18n/crew/crewI18n';
 
 export type CrewTeamExpensesTabVariant = 'page' | 'embedded';
 
@@ -24,6 +24,7 @@ export function CrewTeamExpensesTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const t = useCrewText();
 
   const [memberId, setMemberId] = useState('');
   const [amountInput, setAmountInput] = useState('');
@@ -43,7 +44,7 @@ export function CrewTeamExpensesTab({
     } catch (e) {
       setItems([]);
       if (e instanceof AuthSessionExpiredError) throw e;
-      setError(e instanceof Error ? e.message : crewT('crew.common.loading').ko);
+      setError(e instanceof Error ? e.message : t('crew.common.loading'));
     } finally {
       setLoading(false);
     }
@@ -72,13 +73,11 @@ export function CrewTeamExpensesTab({
     if (!token || !canEdit) return;
     const amt = Number.parseInt(amountInput.replace(/,/g, '').trim(), 10);
     if (!memberId.trim()) {
-      const x = crewT('crew.expenses.errMember');
-      alert(`${x.ko}\n${x.th}`);
+      alert(t('crew.expenses.errMember'));
       return;
     }
     if (!Number.isFinite(amt) || amt < 1) {
-      const x = crewT('crew.expenses.errAmount');
-      alert(`${x.ko}\n${x.th}`);
+      alert(t('crew.expenses.errAmount'));
       return;
     }
     const fd = new FormData();
@@ -93,8 +92,7 @@ export function CrewTeamExpensesTab({
     setSaving(true);
     try {
       await postCrewExpense(token, fd);
-      const ok = crewT('crew.expenses.saved');
-      alert(`${ok.ko}\n${ok.th}`);
+      alert(t('crew.expenses.saved'));
       setAmountInput('');
       setMemoInput('');
       setFiles([]);
@@ -109,12 +107,10 @@ export function CrewTeamExpensesTab({
   const remove = async (id: string) => {
     const token = getCrewToken();
     if (!token || !canEdit) return;
-    const q = crewT('crew.expenses.confirmDelete');
-    if (!window.confirm(`${q.ko}\n${q.th}`)) return;
+    if (!window.confirm(t('crew.expenses.confirmDelete'))) return;
     try {
       await deleteCrewExpense(token, id);
-      const ok = crewT('crew.expenses.deleted');
-      alert(`${ok.ko}\n${ok.th}`);
+      alert(t('crew.expenses.deleted'));
       await reload();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Error');
@@ -201,7 +197,7 @@ export function CrewTeamExpensesTab({
             <span className="block text-fluid-2xs text-gray-600 mb-1">
               <CrewBiLine id="crew.expenses.imagesLabel" />{' '}
               <span className="text-gray-400 font-normal">
-                ({crewT('crew.expenses.imagesHint').ko} / {crewT('crew.expenses.imagesHint').th})
+                ({t('crew.expenses.imagesHint')})
               </span>
             </span>
             <input
