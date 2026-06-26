@@ -228,5 +228,15 @@ export async function mapExcelRowToInquiryBody(params: {
     return { body, error: '연락처가 비어 있습니다.' };
   }
 
+  const areaBasisTrim = String(body.areaBasis ?? '').trim();
+  const hasPyeong =
+    body.areaPyeong != null &&
+    body.areaPyeong !== '' &&
+    Number.isFinite(Number(body.areaPyeong));
+  if (!areaBasisTrim && hasPyeong) {
+    const fallback = spec.defaultAreaBasis ?? '공급';
+    body.areaBasis = fallback === '전용' ? '전용' : '공급';
+  }
+
   return { body };
 }

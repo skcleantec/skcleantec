@@ -49,6 +49,10 @@ export const INQUIRY_EXCEL_VALUE_MAPPING_FIELD_KEYS = [
   'propertyType',
 ] as const;
 
+export const INQUIRY_EXCEL_AREA_BASIS_VALUES = ['공급', '전용'] as const;
+export type InquiryExcelAreaBasis = (typeof INQUIRY_EXCEL_AREA_BASIS_VALUES)[number];
+export const INQUIRY_EXCEL_DEFAULT_AREA_BASIS: InquiryExcelAreaBasis = '공급';
+
 export const INQUIRY_EXCEL_FIELD_CATALOG: InquiryExcelFieldDef[] = [
   { key: 'inquiryNumber', label: '접수번호', kind: 'text', hint: '외부 번호 — 비어 있으면 입금대기만 자동 발번' },
   { key: 'customerName', label: '성함', kind: 'text', required: true },
@@ -64,7 +68,7 @@ export const INQUIRY_EXCEL_FIELD_CATALOG: InquiryExcelFieldDef[] = [
   { key: 'preferredTime', label: '시간대', kind: 'enum', valueMapping: true },
   { key: 'preferredTimeDetail', label: '사이청소 시각', kind: 'text' },
   { key: 'areaPyeong', label: '평수', kind: 'number' },
-  { key: 'areaBasis', label: '평수 기준', kind: 'text' },
+  { key: 'areaBasis', label: '평수 기준', kind: 'text', hint: '공급 · 전용 — 열 없으면 서식 기본값(기본 공급)' },
   { key: 'exclusiveAreaSqm', label: '전용면적(㎡)', kind: 'number' },
   { key: 'propertyType', label: '주거형태', kind: 'enum', valueMapping: true },
   { key: 'buildingType', label: '신축/구축', kind: 'enum', valueMapping: true },

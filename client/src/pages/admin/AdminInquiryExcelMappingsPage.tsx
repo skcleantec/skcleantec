@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   INQUIRY_EXCEL_FIELD_CATALOG,
+  INQUIRY_EXCEL_AREA_BASIS_VALUES,
+  INQUIRY_EXCEL_DEFAULT_AREA_BASIS,
   INQUIRY_EXCEL_STATUS_LABELS,
   INQUIRY_EXCEL_VALUE_MAPPING_FIELD_KEYS,
 } from '@shared/inquiryExcelImportFields';
@@ -25,6 +27,7 @@ const EMPTY_SPEC: InquiryExcelMappingSpec = {
   emptyValueRules: [],
   unmappedPolicies: { status: 'ERROR' },
   defaultStatus: 'RECEIVED',
+  defaultAreaBasis: INQUIRY_EXCEL_DEFAULT_AREA_BASIS,
   memoLineMappings: [{ targetFieldKey: 'specialNotes', excelHeaders: [] }],
 };
 
@@ -36,6 +39,7 @@ function specFromProfile(p: InquiryExcelProfile | null): InquiryExcelMappingSpec
     emptyValueRules: p.mappingSpec.emptyValueRules ?? [],
     unmappedPolicies: p.mappingSpec.unmappedPolicies ?? { status: 'ERROR' },
     defaultStatus: p.mappingSpec.defaultStatus ?? 'RECEIVED',
+    defaultAreaBasis: p.mappingSpec.defaultAreaBasis ?? INQUIRY_EXCEL_DEFAULT_AREA_BASIS,
     memoLineMappings:
       p.mappingSpec.memoLineMappings?.length
         ? p.mappingSpec.memoLineMappings
@@ -589,6 +593,26 @@ export function AdminInquiryExcelMappingsPage() {
                   <option value="ERROR">오류</option>
                   <option value="USE_DEFAULT">기본값 사용</option>
                   <option value="SKIP_ROW">행 건너뛰기</option>
+                </select>
+              </label>
+              <label className="text-fluid-xs text-slate-600 sm:col-span-2">
+                평수 기준 기본값
+                <span className="ml-1 font-normal text-slate-500">(평수 열은 있는데 평수 기준 열이 없을 때)</span>
+                <select
+                  value={spec.defaultAreaBasis ?? INQUIRY_EXCEL_DEFAULT_AREA_BASIS}
+                  onChange={(e) =>
+                    setSpec((p) => ({
+                      ...p,
+                      defaultAreaBasis: e.target.value === '전용' ? '전용' : '공급',
+                    }))
+                  }
+                  className="mt-1 w-full max-w-xs rounded border border-slate-300 px-2 py-1.5"
+                >
+                  {INQUIRY_EXCEL_AREA_BASIS_VALUES.map((v) => (
+                    <option key={v} value={v}>
+                      {v === '공급' ? '공급면적 (분양평수)' : '전용면적 (실제 내 집 공간)'}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>

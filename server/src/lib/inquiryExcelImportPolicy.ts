@@ -41,6 +41,7 @@ export type InquiryExcelMappingSpec = {
   emptyValueRules?: InquiryExcelEmptyValueRule[];
   unmappedPolicies?: InquiryExcelUnmappedPolicies;
   defaultStatus?: string;
+  defaultAreaBasis?: '공급' | '전용';
   memoLineMappings?: InquiryExcelMemoLineMapping[];
 };
 

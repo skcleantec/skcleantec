@@ -71,6 +71,10 @@ function parseMappingSpec(raw: unknown): InquiryExcelMappingSpec {
     o.defaultStatus != null && String(o.defaultStatus).trim()
       ? String(o.defaultStatus).trim()
       : undefined;
+  const defaultAreaBasisRaw =
+    o.defaultAreaBasis != null ? String(o.defaultAreaBasis).trim() : '';
+  const defaultAreaBasis =
+    defaultAreaBasisRaw === '전용' ? ('전용' as const) : defaultAreaBasisRaw === '공급' ? ('공급' as const) : undefined;
   const memoLineMappings = Array.isArray(o.memoLineMappings)
     ? o.memoLineMappings
         .filter((x) => x && typeof x === 'object')
@@ -94,6 +98,7 @@ function parseMappingSpec(raw: unknown): InquiryExcelMappingSpec {
     emptyValueRules,
     unmappedPolicies,
     defaultStatus,
+    defaultAreaBasis,
     memoLineMappings,
   };
 }

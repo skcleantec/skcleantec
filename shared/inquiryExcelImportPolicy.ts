@@ -41,6 +41,8 @@ export type InquiryExcelMappingSpec = {
   unmappedPolicies?: InquiryExcelUnmappedPolicies;
   /** status 미매핑·빈칸 시 USE_DEFAULT 정책용 */
   defaultStatus?: string;
+  /** 평수(areaPyeong) 있는데 평수 기준 열이 없을 때 — 미설정 시 공급 */
+  defaultAreaBasis?: '공급' | '전용';
   /** 특이사항1·2 등 — 순서대로 줄바꿈 결합 */
   memoLineMappings?: InquiryExcelMemoLineMapping[];
 };
