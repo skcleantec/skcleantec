@@ -30,6 +30,14 @@ export type TenantCompanyRegistrationConfig = {
   sealDisplayWidthPx?: number;
 };
 
+/** SK 현장팀장 교육자료 PDF (Cloudinary) */
+export type TenantTeamLeaderTrainingConfig = {
+  pdfPublicId?: string;
+  pdfSecureUrl?: string;
+  fileName?: string;
+  updatedAt?: string;
+};
+
 /** SMTP — passEnc는 서버 전용 (암호화 저장) */
 export type TenantSmtpConfigStored = {
   host?: string;
@@ -57,6 +65,7 @@ export type TenantConfig = {
   companyRegistration?: TenantCompanyRegistrationConfig;
   smtp?: TenantSmtpConfigStored;
   access?: TenantAccessConfig;
+  teamLeaderTraining?: TenantTeamLeaderTrainingConfig;
 };
 
 const MAX_STRING = 512;
@@ -183,6 +192,17 @@ function parseAccess(raw: unknown): TenantConfig['access'] | undefined {
   return { marketerAdminAccess: o.marketerAdminAccess };
 }
 
+function parseTeamLeaderTraining(raw: unknown): TenantConfig['teamLeaderTraining'] | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const o = raw as Record<string, unknown>;
+  const pdfPublicId = trimOptionalString(o.pdfPublicId, 512);
+  const pdfSecureUrl = trimOptionalString(o.pdfSecureUrl, 2048);
+  const fileName = trimOptionalString(o.fileName, 200);
+  const updatedAt = trimOptionalString(o.updatedAt, 64);
+  if (!pdfPublicId && !pdfSecureUrl && !fileName && !updatedAt) return undefined;
+  return { pdfPublicId, pdfSecureUrl, fileName, updatedAt };
+}
+
 /** DB JSON → 검증된 TenantConfig (알 수 없는 키는 무시) */
 export function parseTenantConfig(raw: unknown): TenantConfig {
   if (raw == null) return {};
@@ -198,6 +218,7 @@ export function parseTenantConfig(raw: unknown): TenantConfig {
   const companyRegistration = parseCompanyRegistration(o.companyRegistration);
   const smtp = parseSmtpConfigStored(o.smtp);
   const access = parseAccess(o.access);
+  const teamLeaderTraining = parseTeamLeaderTraining(o.teamLeaderTraining);
   const out: TenantConfig = {};
   if (branding) out.branding = branding;
   if (orderForm) out.orderForm = orderForm;
@@ -207,6 +228,7 @@ export function parseTenantConfig(raw: unknown): TenantConfig {
   if (companyRegistration) out.companyRegistration = companyRegistration;
   if (smtp) out.smtp = smtp;
   if (access) out.access = access;
+  if (teamLeaderTraining) out.teamLeaderTraining = teamLeaderTraining;
   return out;
 }
 
@@ -227,6 +249,8 @@ export function mergeTenantConfig(existing: TenantConfig, patch: TenantConfig): 
         : existing.companyRegistration,
     smtp: patch.smtp !== undefined ? patch.smtp : existing.smtp,
     access: patch.access !== undefined ? { ...existing.access, ...patch.access } : existing.access,
+    teamLeaderTraining:
+      patch.teamLeaderTraining !== undefined ? patch.teamLeaderTraining : existing.teamLeaderTraining,
   };
 }
 
@@ -247,6 +271,9 @@ export function tenantConfigToJson(config: TenantConfig): Record<string, unknown
   }
   if (config.access && typeof config.access.marketerAdminAccess === 'boolean') {
     out.access = { marketerAdminAccess: config.access.marketerAdminAccess };
+  }
+  if (config.teamLeaderTraining && Object.keys(config.teamLeaderTraining).length > 0) {
+    out.teamLeaderTraining = config.teamLeaderTraining;
   }
   return out;
 }

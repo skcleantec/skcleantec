@@ -91,6 +91,9 @@ export const TeamDbMarketplacePage = lazyWithRetry(() =>
 export const TeamEContractListPage = lazyWithRetry(() =>
   import('../pages/team/TeamEContractListPage').then((m) => ({ default: m.TeamEContractListPage }))
 );
+export const TeamTrainingMaterialPage = lazyWithRetry(() =>
+  import('../pages/team/TeamTrainingMaterialPage').then((m) => ({ default: m.TeamTrainingMaterialPage }))
+);
 export const TeamQuotationEditorPage = lazyWithRetry(() =>
   import('../pages/team/TeamQuotationEditorPage').then((m) => ({ default: m.TeamQuotationEditorPage }))
 );
@@ -185,6 +188,11 @@ export const AdminExternalSettlementPage = lazyWithRetry(() =>
 );
 export const AdminPageSettingsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminPageSettingsPage').then((m) => ({ default: m.AdminPageSettingsPage }))
+);
+export const AdminTeamLeaderTrainingPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminTeamLeaderTrainingPage').then((m) => ({
+    default: m.AdminTeamLeaderTrainingPage,
+  }))
 );
 export const AdminInspectionTemplatePage = lazyWithRetry(() =>
   import('../pages/admin/AdminInspectionTemplatePage').then((m) => ({

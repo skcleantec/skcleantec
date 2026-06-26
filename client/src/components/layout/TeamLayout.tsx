@@ -22,6 +22,8 @@ import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 import { DarkHeaderNavScroll } from './DarkHeaderNavScroll';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
+import { isSkTenantSlug } from '@shared/skTenant';
+import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -258,6 +260,7 @@ export function TeamLayout() {
   const [tenantName, setTenantName] = useState<string | null>(null);
   const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
   const [tenantSlug, setTenantSlug] = useState<string | null>(null);
+  const [teamTrainingAvailable, setTeamTrainingAvailable] = useState(false);
 
   useDocumentTitle(tenantName);
 
@@ -277,6 +280,7 @@ export function TeamLayout() {
       setTenantName(null);
       setTenantFeatures(null);
       setTenantSlug(null);
+      setTeamTrainingAvailable(false);
       return;
     }
     const startedKey = capturePreviewKey();
@@ -308,12 +312,31 @@ export function TeamLayout() {
         setTenantName(null);
         setTenantFeatures(null);
         setTenantSlug(null);
+        setTeamTrainingAvailable(false);
         if (isAuthSessionExpiredError(e)) {
           clearTeamToken();
           navigate('/login', { replace: true, state: { sessionExpired: true } });
         }
       });
   }, [teamToken, navigate, location.search, capturePreviewKey, isPreviewFetchStale]);
+
+  useEffect(() => {
+    const token = getTeamToken();
+    if (!token || userRole !== 'TEAM_LEADER' || !isSkTenantSlug(tenantSlug)) {
+      setTeamTrainingAvailable(false);
+      return;
+    }
+    const startedKey = capturePreviewKey();
+    fetchTeamLeaderTrainingMeta(token)
+      .then((m) => {
+        if (isPreviewFetchStale(startedKey)) return;
+        setTeamTrainingAvailable(Boolean(m.available));
+      })
+      .catch(() => {
+        if (isPreviewFetchStale(startedKey)) return;
+        setTeamTrainingAvailable(false);
+      });
+  }, [userRole, tenantSlug, teamToken, previewKey, capturePreviewKey, isPreviewFetchStale]);
 
   const fetchTeamBadges = useCallback(() => {
     const token = getTeamToken();
@@ -505,6 +528,11 @@ export function TeamLayout() {
                     teamEContractMenu={
                       userRole === 'TEAM_LEADER'
                         ? { listHref: teamTo('/team/e-contracts'), pendingCount: eContractPendingCount }
+                        : null
+                    }
+                    teamTrainingMenu={
+                      userRole === 'TEAM_LEADER' && teamTrainingAvailable
+                        ? { href: teamTo('/team/training') }
                         : null
                     }
                     onLogout={handleLogout}

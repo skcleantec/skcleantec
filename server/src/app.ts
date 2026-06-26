@@ -54,6 +54,7 @@ import platformSupportAccessRoutes from './modules/platform/platformSupportAcces
 import platformTenantPartnershipsRoutes from './modules/platform/platformTenantPartnerships.routes.js';
 import platformDbMarketplaceRoutes from './modules/db-marketplace/platformDbMarketplace.routes.js';
 import helpRoutes from './modules/help/help.routes.js';
+import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLeaderTraining.admin.routes.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
 
@@ -116,6 +117,7 @@ app.use('/api/admin/tenant-company-profile', tenantCompanyProfileRoutes);
 app.use('/api/admin/tenant-staff-access', tenantStaffAccessRoutes);
 app.use('/api/admin/tenant-subscription', tenantSubscriptionRoutes);
 app.use('/api/admin/e-contracts', eContractAdminRoutes);
+app.use('/api/admin/team-leader-training', teamLeaderTrainingAdminRoutes);
 app.use('/api/e-contract', eContractPublicRoutes);
 app.use('/api/help', helpRoutes);
 mountCustomModuleRoutes(app);

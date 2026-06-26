@@ -7,6 +7,10 @@ type TeamEContractDropdown = {
   pendingCount: number;
 };
 
+type TeamTrainingDropdown = {
+  href: string;
+};
+
 type MeUser = {
   name?: string | null;
   phone?: string | null;
@@ -31,6 +35,8 @@ export function UserProfileMenu({
   onStagingDbImport,
   /** `/team/e-contracts`(프리뷰 쿼리 포함) — 팀장만 */
   teamEContractMenu,
+  /** `/team/training` — SK 팀장·등록된 PDF 있을 때 */
+  teamTrainingMenu,
 }: {
   token: string | null;
   me: MeUser | null;
@@ -49,6 +55,7 @@ export function UserProfileMenu({
   showStagingDbImport?: boolean;
   onStagingDbImport?: () => void;
   teamEContractMenu?: TeamEContractDropdown | null;
+  teamTrainingMenu?: TeamTrainingDropdown | null;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -184,6 +191,15 @@ export function UserProfileMenu({
                   ) : null}
                 </Link>
               </div>
+            ) : null}
+            {teamTrainingMenu ? (
+              <Link
+                to={teamTrainingMenu.href}
+                onClick={() => setMenuOpen(false)}
+                className="block w-full border-t border-slate-100 px-3 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 hover:text-slate-900"
+              >
+                현장팀장 교육자료
+              </Link>
             ) : null}
             {showStagingDbImport && onStagingDbImport ? (
               <button

@@ -43,6 +43,7 @@ const PATH_ICON_RULES: { prefix: string; icon: AdminSideNavIconId }[] = [
   { prefix: '/admin/team-leaders/holiday-calendar', icon: 'calendar' },
   { prefix: '/admin/team-leaders/staff-access', icon: 'shield' },
   { prefix: '/admin/team-leaders/inspection-template', icon: 'clipboard' },
+  { prefix: '/admin/team-leaders/team-leader-training', icon: 'document' },
   { prefix: '/admin/team-leaders/operating-policy', icon: 'settings' },
   { prefix: '/admin/team-leaders/page-settings', icon: 'settings' },
   { prefix: '/admin/team-leaders/operating-companies', icon: 'building' },

@@ -47,6 +47,7 @@ import {
   TeamExternalSettlementPage,
   TeamDbMarketplacePage,
   TeamEContractListPage,
+  TeamTrainingMaterialPage,
   TeamQuotationEditorPage,
   TeamCardPaymentPage,
   OrderFormPage,
@@ -74,6 +75,7 @@ import {
   AdminStaffAccessSettingsPage,
   AdminExternalSettlementPage,
   AdminPageSettingsPage,
+  AdminTeamLeaderTrainingPage,
   AdminInspectionTemplatePage,
   AdminPayrollPage,
   AdminEContractListPage,
@@ -184,6 +186,10 @@ function App() {
             <Route path="holiday-calendar" element={<SuspensePage><AdminTeamHolidayCalendarPage /></SuspensePage>} />
             <Route path="leader-stats" element={<SuspensePage><AdminTeamLeaderStatsPage /></SuspensePage>} />
             <Route path="page-settings" element={<SuspensePage><AdminPageSettingsPage /></SuspensePage>} />
+            <Route
+              path="team-leader-training"
+              element={<SuspensePage><AdminTeamLeaderTrainingPage /></SuspensePage>}
+            />
             <Route path="inquiry-delete" element={<SuspensePage><AdminInquiryBulkDeletePage /></SuspensePage>} />
             <Route path="operating-companies" element={<SuspensePage><AdminOperatingCompaniesPage /></SuspensePage>} />
             <Route path="company-profile" element={<Navigate to="company-profile/subscription" replace />} />
@@ -324,6 +330,7 @@ function App() {
           <Route path="cs" element={<SuspensePage><TeamCsPage /></SuspensePage>} />
           <Route path="messages" element={<SuspensePage><TeamMessagesPage /></SuspensePage>} />
           <Route path="e-contracts" element={<SuspensePage><TeamEContractListPage /></SuspensePage>} />
+          <Route path="training" element={<SuspensePage><TeamTrainingMaterialPage /></SuspensePage>} />
           <Route path="quotations/new" element={<SuspensePage><TeamQuotationEditorPage /></SuspensePage>} />
           <Route path="quotations/:id" element={<SuspensePage><TeamQuotationEditorPage /></SuspensePage>} />
           <Route index element={<Navigate to="dashboard" replace />} />

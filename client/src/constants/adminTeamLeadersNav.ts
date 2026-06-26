@@ -123,6 +123,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         label: '검수템플릿',
         title: '현장 검수 체크리스트 템플릿',
       },
+      {
+        to: '/admin/team-leaders/team-leader-training',
+        label: '팀장교육자료',
+        title: '현장팀장 교육자료 PDF',
+      },
     ],
   },
 ];
