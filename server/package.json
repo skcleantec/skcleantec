@@ -15,6 +15,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:team-helpdesk-cbiseo": "tsx scripts/seed-team-helpdesk-cbiseo.ts",
     "db:seed:orderforms": "tsx prisma/seed-orderform-samples.ts",
     "db:seed:schedule": "tsx prisma/seed-schedule-random.ts",
     "db:seed:schedule:test-m3-m5": "tsx prisma/seed-schedule-mar-may-test.ts",
@@ -37,7 +38,7 @@
     "verify:multitenant:tenant-exchange": "tsx scripts/verify-multitenant-tenant-exchange.ts",
     "verify:multitenant:db-marketplace": "tsx scripts/verify-multitenant-db-marketplace.ts",
     "verify:review-payback:phase1": "tsx scripts/verify-review-payback-phase1.ts",
-    "verify:review-payback:phase2-db": "tsx scripts/verify-review-payback-phase2-db.ts",
+    "copy:inquiry-env": "tsx scripts/copy-inquiry-between-databases.ts",
     "verify:review-payback:phase3": "tsx scripts/verify-review-payback-phase3.ts",
     "verify:review-payback:phase4": "tsx scripts/verify-review-payback-phase4.ts",
     "verify:review-payback:phase5": "tsx scripts/verify-review-payback-phase5.ts",
@@ -64,7 +65,8 @@
     "pdfkit": "^0.19.1",
     "prisma": "^6.0.0",
     "tsx": "^4.19.0",
-    "ws": "^8.20.0"
+    "ws": "^8.20.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

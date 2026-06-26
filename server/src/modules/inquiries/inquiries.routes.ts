@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import type { Prisma, InquiryStatus } from '@prisma/client';
+import type { Prisma, InquiryStatus, UserRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { ShortTtlCache } from '../../lib/shortTtlCache.js';
 import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
@@ -128,6 +128,11 @@ import {
 } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
 import { stampTenantShareCancelFeeDirection } from '../tenant-partners/tenantPartnerSettlement.service.js';
 import { syncTenantShareAfterInquiryPatch } from '../tenant-partners/tenantInquirySync.service.js';
+import {
+  CREATE_INQUIRY_STATUSES,
+  createInquiryFromBody,
+  InquiryCreateError,
+} from './inquiryCreate.service.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -1531,19 +1536,7 @@ router.patch('/:id', async (req, res) => {
   );
 });
 
-const CREATE_STATUSES: InquiryStatus[] = [
-  'PENDING',
-  'RECEIVED',
-  'DEPOSIT_PENDING',
-  'DEPOSIT_COMPLETED',
-  'ORDER_FORM_PENDING',
-  'ASSIGNED',
-  'IN_PROGRESS',
-  'COMPLETED',
-  'ON_HOLD',
-  'CANCELLED',
-  'CS_PROCESSING',
-];
+const CREATE_STATUSES = CREATE_INQUIRY_STATUSES;
 
 router.post('/', async (req, res) => {
   const body = req.body as Record<string, unknown>;
@@ -1553,136 +1546,21 @@ router.post('/', async (req, res) => {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
-  const rawStatus = body.status != null ? String(body.status) : '';
-  const status: InquiryStatus =
-    rawStatus && CREATE_STATUSES.includes(rawStatus as InquiryStatus)
-      ? (rawStatus as InquiryStatus)
-      : 'RECEIVED';
-
-  const createAddress = String(body.address ?? '').trim();
-  const createAddressError = validateInquiryAddressForStatus(status, createAddress);
-  if (createAddressError) {
-    res.status(400).json({ error: createAddressError });
-    return;
-  }
-
-  let crewMemberCount: number | null = null;
-  const createAllSoloLegacy =
-    hasNoCrewMembersField(body) && parseNoCrewMembersInput(body.noCrewMembers);
-  const createSoloIds = hasSoloTeamLeaderIdsField(body)
-    ? parseSoloTeamLeaderIds(body.soloTeamLeaderIds)
-    : createAllSoloLegacy
-      ? []
-      : [];
-  const createTeamLeaderIds = normalizeTeamLeaderIds(body.teamLeaderIds);
-  const createAllSolo =
-    createAllSoloLegacy ||
-    (createTeamLeaderIds.length > 0 &&
-      allTeamLeadersSolo(createTeamLeaderIds, createSoloIds));
-  if (createAllSolo) {
-    crewMemberCount = 0;
-  } else if (body.crewMemberCount !== undefined && body.crewMemberCount !== null && body.crewMemberCount !== '') {
-    const n = Number(body.crewMemberCount);
-    if (!Number.isFinite(n) || n < 0 || n > 100) {
-      res.status(400).json({ error: '팀원 인원은 0~100 사이로 입력해주세요.' });
-      return;
-    }
-    crewMemberCount = Math.floor(n);
-  }
-
-  const preferredDate = body.preferredDate ? new Date(body.preferredDate as string) : null;
-
-  let operatingCompanyId: string;
   try {
-    operatingCompanyId = await prisma.$transaction(async (tx) =>
-      resolveInquiryOperatingCompanyId({
-        tx,
-        tenantId,
-        userId: user?.userId,
-        userRole: user?.role as import('@prisma/client').UserRole | undefined,
-        bodyOperatingCompanyId: body.operatingCompanyId,
-      }),
-    );
+    const created = await createInquiryFromBody({
+      tenantId,
+      userId: user?.userId,
+      userRole: user?.role as UserRole | undefined,
+      body,
+    });
+    res.status(201).json(created);
   } catch (e) {
-    const mapped = mapOperatingCompanyResolveError(e);
-    if (mapped) {
-      res.status(mapped.status).json({ error: mapped.message });
+    if (e instanceof InquiryCreateError) {
+      res.status(e.statusCode).json({ error: e.message });
       return;
     }
     throw e;
   }
-
-  const inquiry = await prisma.$transaction(async (tx) => {
-    const inquiryNumber =
-      status === 'DEPOSIT_PENDING'
-        ? await allocateNextInquiryNumber(tx, tenantId, operatingCompanyId)
-        : null;
-    return tx.inquiry.create({
-      data: {
-        tenantId,
-        operatingCompanyId,
-        inquiryNumber,
-        createdById: user?.userId ?? null,
-        customerName: String(body.customerName ?? ''),
-        nickname: body.nickname ? String(body.nickname) : null,
-        customerPhone: String(body.customerPhone ?? ''),
-        customerPhone2: body.customerPhone2 ? String(body.customerPhone2) : null,
-        address: String(body.address ?? ''),
-        addressDetail: body.addressDetail ? String(body.addressDetail) : null,
-        areaPyeong: body.areaPyeong != null ? Number(body.areaPyeong) : null,
-        areaBasis: body.areaBasis ? String(body.areaBasis) : null,
-        exclusiveAreaSqm: (() => {
-          const v = body.exclusiveAreaSqm;
-          if (v == null || v === '') return null;
-          const n = Number(v);
-          return Number.isFinite(n) && n > 0 ? n : null;
-        })(),
-        propertyType: body.propertyType ? String(body.propertyType) : null,
-        roomCount: body.roomCount != null ? Number(body.roomCount) : null,
-        bathroomCount: body.bathroomCount != null ? Number(body.bathroomCount) : null,
-        balconyCount: body.balconyCount != null ? Number(body.balconyCount) : null,
-        preferredDate,
-        preferredTime: body.preferredTime ? String(body.preferredTime) : null,
-        preferredTimeDetail: body.preferredTimeDetail ? String(body.preferredTimeDetail) : null,
-        callAttempt: body.callAttempt != null ? Number(body.callAttempt) : null,
-        memo: body.memo ? String(body.memo) : null,
-        source: body.source ? String(body.source) : '전화',
-        status,
-        crewMemberCount,
-        crewMemberNote: createAllSolo
-          ? null
-          : body.crewMemberNote
-            ? String(body.crewMemberNote)
-            : null,
-      },
-    });
-  });
-  await recordInquiryStatusEvent(prisma, {
-    tenantId,
-    inquiryId: inquiry.id,
-    status: inquiry.status,
-    actorId: user?.userId ?? null,
-    occurredAt: inquiry.createdAt,
-  });
-  void notifyInquiryCelebrate({
-    tenantId,
-    createdById: inquiry.createdById,
-    customerName: inquiry.customerName,
-    inquiryNumber: inquiry.inquiryNumber,
-    source: inquiry.source,
-  });
-  await syncInquiryAddressGeo(prisma, inquiry.id);
-  const createdOut = await prisma.inquiry.findUnique({
-    where: { id: inquiry.id },
-    include: inquiryDetailInclude,
-  });
-  if (!createdOut) {
-    res.status(500).json({ error: '접수 생성 후 조회에 실패했습니다.' });
-    return;
-  }
-  res.status(201).json(
-    attachInternalCustomerToneForRole(attachDistanceFromJuanForInquiry(createdOut), user.role),
-  );
 });
 
 export default router;

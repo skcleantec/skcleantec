@@ -3,6 +3,14 @@ import type { AdminSideNavItem } from '../components/layout/AdminSectionSideNav'
 /** 서비스접수(/admin/inquiries/*) — PC 사이드·모바일 가로 탭 공통 정의 */
 export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
   { type: 'link', to: '/admin/inquiries', end: true, label: '접수목록' },
+  {
+    type: 'group',
+    label: '일괄접수',
+    children: [
+      { to: '/admin/inquiries/bulk-excel/mappings', label: '매칭 서식' },
+      { to: '/admin/inquiries/bulk-excel/import', label: '일괄 등록' },
+    ],
+  },
   { type: 'link', to: '/admin/inquiries/followup', label: '부재·보류' },
   { type: 'link', to: '/admin/inquiries/review-payback', label: '페이백/리뷰' },
   { type: 'link', to: '/admin/inquiries/cs', label: 'C/S 관리' },

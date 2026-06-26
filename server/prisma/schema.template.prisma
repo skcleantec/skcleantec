@@ -159,6 +159,8 @@ model Tenant {
   inquiryDbListingsAsBuyer InquiryDbListing[] @relation("ListingBuyerTenant")
   inquiryDbListingsHeldAsBuyer InquiryDbListing[] @relation("ListingHoldBuyerTenant")
   inquiryDbListingMessages InquiryDbListingMessage[]
+  inquiryExcelImportProfiles InquiryExcelImportProfile[]
+  inquiryExcelImportRuns InquiryExcelImportRun[]
 
   @@map("tenants")
 }
@@ -593,6 +595,8 @@ model User {
   eContractVersionsPublishedBy EContractVersion[]    @relation("EContractVersionPublisher")
   /// 팀장에게 발급·체결된 전자계약(수신측 사용자)
   eContractIssuancesAsTeamLeader EContractIssuance[] @relation("EContractIssuanceTeamLeader")
+  inquiryExcelImportProfilesCreated InquiryExcelImportProfile[] @relation("InquiryExcelImportProfileCreator")
+  inquiryExcelImportRunsAsActor InquiryExcelImportRun[] @relation("InquiryExcelImportRunActor")
 
   @@unique([tenantId, email])
   @@unique([tenantId, platformSupportAccessId])
@@ -2497,4 +2501,53 @@ model EContractSubmission {
 
   @@index([versionId, signedAt(sort: Desc)])
   @@map("e_contract_submissions")
+}
+
+enum InquiryExcelImportRunStatus {
+  PREVIEW
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+/// 엑셀 일괄 접수 — 헤더·값 매핑 프로필
+model InquiryExcelImportProfile {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  name        String   @db.VarChar(128)
+  mappingSpec Json     @map("mapping_spec")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("InquiryExcelImportProfileCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  runs      InquiryExcelImportRun[]
+
+  @@index([tenantId, isActive, updatedAt(sort: Desc)])
+  @@map("inquiry_excel_import_profiles")
+}
+
+/// 엑셀 일괄 접수 실행 이력
+model InquiryExcelImportRun {
+  id           String                      @id @default(uuid())
+  tenantId     String                      @map("tenant_id")
+  profileId    String?                     @map("profile_id")
+  fileName     String?                     @map("file_name") @db.VarChar(256)
+  totalRows    Int                         @map("total_rows")
+  createdCount Int                         @default(0) @map("created_count")
+  skippedCount Int                         @default(0) @map("skipped_count")
+  errorCount   Int                         @default(0) @map("error_count")
+  rowResults   Json                        @default("[]") @map("row_results")
+  status       InquiryExcelImportRunStatus @default(COMPLETED)
+  actorId      String?                     @map("actor_id")
+  createdAt    DateTime                    @default(now()) @map("created_at")
+
+  tenant  Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  profile InquiryExcelImportProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  actor   User?                      @relation("InquiryExcelImportRunActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("inquiry_excel_import_runs")
 }

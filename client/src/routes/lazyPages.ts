@@ -18,6 +18,12 @@ export const AdminTeamLeadersPage = lazyWithRetry(() =>
 export const AdminInquiryBulkDeletePage = lazyWithRetry(() =>
   import('../pages/admin/AdminInquiryBulkDeletePage').then((m) => ({ default: m.AdminInquiryBulkDeletePage }))
 );
+export const AdminInquiryExcelMappingsPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminInquiryExcelMappingsPage').then((m) => ({ default: m.AdminInquiryExcelMappingsPage }))
+);
+export const AdminInquiryExcelImportPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminInquiryExcelImportPage').then((m) => ({ default: m.AdminInquiryExcelImportPage }))
+);
 export const AdminMessagesPage = lazyWithRetry(() =>
   import('../pages/admin/AdminMessagesPage').then((m) => ({ default: m.AdminMessagesPage }))
 );

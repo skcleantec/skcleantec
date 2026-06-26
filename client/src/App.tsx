@@ -24,6 +24,8 @@ import {
   AdminServiceZonesPage,
   AdminTeamLeadersPage,
   AdminInquiryBulkDeletePage,
+  AdminInquiryExcelMappingsPage,
+  AdminInquiryExcelImportPage,
   AdminMessagesPage,
   AdminOrderFormPage,
   AdminOrderFormCustomerPreviewPage,
@@ -134,6 +136,8 @@ function App() {
           <Route path="subscription" element={<SuspensePage><AdminTenantSubscriptionPage /></SuspensePage>} />
           <Route path="inquiries" element={<AdminInquiriesLayout />}>
             <Route index element={<SuspensePage><AdminInquiriesPage /></SuspensePage>} />
+            <Route path="bulk-excel/mappings" element={<SuspensePage><AdminInquiryExcelMappingsPage /></SuspensePage>} />
+            <Route path="bulk-excel/import" element={<SuspensePage><AdminInquiryExcelImportPage /></SuspensePage>} />
             <Route path="followup" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
             <Route path="review-payback" element={<SuspensePage><AdminReviewPaybackPage /></SuspensePage>} />
             <Route path="order-forms" element={<SuspensePage><AdminOrderFormPage /></SuspensePage>} />
