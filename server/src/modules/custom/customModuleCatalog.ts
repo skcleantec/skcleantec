@@ -14,13 +14,13 @@ export const CUSTOM_MODULES_BY_SLUG: Record<string, CustomModuleDef[]> = {
   skcleanteck: [
     {
       moduleId: 'custom_skcleanteck_ops_ui',
-      label: '[SK] 운영 UI (원/투룸·스케줄 태극기 미배정)',
+      label: '[SK] 운영 UI (원/투룸·스케줄 태극기 원/투룸 건수)',
     },
   ],
   sk: [
     {
       moduleId: 'custom_skcleanteck_ops_ui',
-      label: '[SK] 운영 UI (원/투룸·스케줄 태극기 미배정)',
+      label: '[SK] 운영 UI (원/투룸·스케줄 태극기 원/투룸 건수)',
     },
   ],
 };

@@ -1,4 +1,4 @@
-/** SK클린텍 L3 커스텀 — 원/투룸·특이사항·스케줄 태극기 미배정 표시 */
+/** SK클린텍 L3 커스텀 — 원/투룸·특이사항·스케줄 태극기 원/투룸 건수 표시 */
 
 export const SK_CLEANTEC_OPS_UI_FEATURE = 'custom_skcleanteck_ops_ui';
 

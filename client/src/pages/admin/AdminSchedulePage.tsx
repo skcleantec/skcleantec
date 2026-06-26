@@ -64,7 +64,8 @@ import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal'
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
 import { PropertyTypeSticker } from '../../components/ui/PropertyTypeSticker';
 import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
-import { SkCleantecScheduleUnassignedIndicator } from '../../components/admin/SkCleantecScheduleUnassignedIndicator';
+import { SkCleantecScheduleOneRoomIndicator } from '../../components/admin/SkCleantecScheduleOneRoomIndicator';
+import { shouldShowSkOneRoomTaegeuk } from '../../utils/scheduleOneRoomDisplay';
 import {
   formatDateCompactWithWeekday,
   formatPreferredDateInputYmd,
@@ -1488,18 +1489,17 @@ export function AdminSchedulePage() {
               </span>
               <span>👥 팀원 가용</span>
               {skOpsUi ? (
-                <span className="inline-flex items-center gap-1 font-semibold text-red-600">
+                <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
                   <img
                     src="/assets/custom/skcleantec/taegeuk-unassigned.png"
                     alt=""
                     className="h-3.5 w-3.5 object-contain"
                     aria-hidden
                   />
-                  미배정
+                  {oneRoomLabel}
                 </span>
-              ) : (
-                <span className="font-semibold text-red-600">⚠️ 미배정</span>
-              )}
+              ) : null}
+              <span className="font-semibold text-red-600">⚠️ 미배정</span>
               <span className="text-violet-700">⚡ 사이(미배정)</span>
               <span className="inline-flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />
@@ -1569,6 +1569,7 @@ export function AdminSchedulePage() {
                 const sideUnconfirmed = dayStats?.sideCleaningUnconfirmedCount ?? 0;
                 const workingCount = dayStats?.workingCount ?? 0;
                 const unassignedCount = activeScheduleItems.filter((it) => !it.assignments?.[0]).length;
+                const skOneRoomTaegeuk = shouldShowSkOneRoomTaegeuk(activeScheduleItems);
                 const isSelected = selectedDate === key;
                 const isSaturday = i % 7 === 6;
                 const isSunday = i % 7 === 0;
@@ -1752,20 +1753,25 @@ export function AdminSchedulePage() {
                         </div>
                       )}
 
-                      {/* 미배정 & 사이청소 한 줄 또는 컴팩트 정렬 */}
-                      {unassignedCount > 0 &&
-                        (skOpsUi ? (
-                          <SkCleantecScheduleUnassignedIndicator count={unassignedCount} />
-                        ) : (
-                          <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-bold text-red-600 leading-none shrink-0">
-                            <span className="flex items-center gap-0.5">
-                              <span aria-hidden>⚠️</span>
-                              <span className="sm:hidden">미배</span>
-                              <span className="hidden sm:inline">미배정</span>
-                            </span>
-                            <span className="tabular-nums ml-0.5 sm:ml-0">{unassignedCount}</span>
-                          </div>
-                        ))}
+                      {/* SK: 팀원 행 아래 — 태극기 + 당일 원/투룸 접수 건수 (전원 배정 시 숨김) */}
+                      {skOpsUi && skOneRoomTaegeuk.show ? (
+                        <SkCleantecScheduleOneRoomIndicator
+                          count={skOneRoomTaegeuk.count}
+                          oneRoomLabel={oneRoomLabel}
+                        />
+                      ) : null}
+
+                      {/* 미배정 & 사이청소 */}
+                      {unassignedCount > 0 && (
+                        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-bold text-red-600 leading-none shrink-0">
+                          <span className="flex items-center gap-0.5">
+                            <span aria-hidden>⚠️</span>
+                            <span className="sm:hidden">미배</span>
+                            <span className="hidden sm:inline">미배정</span>
+                          </span>
+                          <span className="tabular-nums ml-0.5 sm:ml-0">{unassignedCount}</span>
+                        </div>
+                      )}
                       {sideOrderCount > 0 && (
                         <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-semibold text-violet-700 leading-none shrink-0">
                           <span className="flex items-center gap-0.5">
