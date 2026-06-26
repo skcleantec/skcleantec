@@ -147,6 +147,7 @@ const teamInquiryInclude = {
       id: true,
       submittedAt: true,
       depositAmount: true,
+      totalAmount: true,
       customerSpecialNotes: true,
       customerAnswers: true,
       template: { select: orderFormTemplateSelect },

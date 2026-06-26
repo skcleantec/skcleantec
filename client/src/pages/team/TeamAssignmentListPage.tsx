@@ -30,9 +30,9 @@ import {
   coLeadersSummaryForViewer,
   TeamCoLeadersListHint,
   TeamNoCrewMembersListBadge,
-  TeamInquiryDepositListBadge,
+  TeamInquiryPaymentTotalListBadge,
   TeamInquirySpecialNotesListBadge,
-  teamInquiryDepositAmount,
+  teamInquiryCustomerPaymentTotal,
 } from './teamInquiryShared';
 import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
@@ -526,7 +526,7 @@ export function TeamAssignmentListPage() {
                             </span>
                           ) : null}
                           <TeamInquirySpecialNotesListBadge item={item} />
-                          <TeamInquiryDepositListBadge item={item} />
+                          <TeamInquiryPaymentTotalListBadge item={item} />
                           {item.inquiryNumber ? (
                             <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 font-mono text-fluid-2xs tabular-nums text-gray-700">
                               {item.inquiryNumber}
@@ -681,7 +681,7 @@ export function TeamAssignmentListPage() {
                     const primaryLabel = inquiryPrimaryCustomerLabel(item);
                     const memoTrim = item.scheduleMemo?.trim() ?? '';
                     const memoSubtitle = memoTrim && memoTrim !== primaryLabel;
-                    const depositAmount = teamInquiryDepositAmount(item);
+                    const paymentTotal = teamInquiryCustomerPaymentTotal(item);
                     const pBorder = 'border-b border-gray-100';
                     return (
                       <tr
@@ -790,12 +790,12 @@ export function TeamAssignmentListPage() {
                           </span>
                         </td>
                         <td className={`align-middle py-2 px-2 text-center whitespace-nowrap tabular-nums ${pBorder}`}>
-                          {depositAmount != null ? (
+                          {paymentTotal != null ? (
                             <span
                               className="text-fluid-2xs font-medium text-amber-900"
-                              title={`예약금 ${Number(depositAmount).toLocaleString('ko-KR')}원`}
+                              title={`고객 결제 총액 ${Number(paymentTotal).toLocaleString('ko-KR')}원`}
                             >
-                              {Number(depositAmount).toLocaleString('ko-KR')}
+                              {Number(paymentTotal).toLocaleString('ko-KR')}
                             </span>
                           ) : (
                             <span className="text-fluid-xs text-gray-400">{teamBiPlain('team.common.emDash')}</span>

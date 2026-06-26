@@ -210,6 +210,7 @@ export interface InquiryItem {
     id?: string;
     submittedAt?: string | null;
     depositAmount?: number | null;
+    totalAmount?: number | null;
     customerSpecialNotes?: string | null;
     customerAnswers?: Record<string, unknown> | null;
     template?: {
@@ -324,7 +325,14 @@ export function marketerInfo(item: InquiryItem): { name: string; phone: string |
   return { name: who.name, phone: who.phone ?? null };
 }
 
-/** 목록·배지 — 고객에게 받을 예약금(접수 스냅샷 우선, 발주서 보조) */
+/** 목록·배지 — 고객에게 받을 결제 총액(접수 스냅샷 우선, 발주서 보조) */
+export function teamInquiryCustomerPaymentTotal(item: InquiryItem): number | null {
+  const total = item.serviceTotalAmount ?? item.orderForm?.totalAmount ?? null;
+  if (total == null || !Number.isFinite(total) || total <= 0) return null;
+  return Math.round(total);
+}
+
+/** @deprecated 예약금 — 목록에는 총액만 표시. 상세·정산용으로 유지 */
 export function teamInquiryDepositAmount(item: InquiryItem): number | null {
   const deposit = item.serviceDepositAmount ?? item.orderForm?.depositAmount ?? null;
   if (deposit == null || !Number.isFinite(deposit) || deposit <= 0) return null;
@@ -353,26 +361,29 @@ export function teamInquiryHasSpecialNotes(item: InquiryItem): boolean {
   return teamInquirySpecialNotesPreview(item) !== '';
 }
 
-/** 배정·대시보드 목록 — 예약금 pill */
-export function TeamInquiryDepositListBadge({
+/** 배정·대시보드 목록 — 고객 결제 총액 pill */
+export function TeamInquiryPaymentTotalListBadge({
   item,
   className = '',
 }: {
   item: InquiryItem;
   className?: string;
 }) {
-  const amount = teamInquiryDepositAmount(item);
+  const amount = teamInquiryCustomerPaymentTotal(item);
   if (amount == null) return null;
   const full = `${Number(amount).toLocaleString('ko-KR')}원`;
   return (
     <span
       className={`inline-flex shrink-0 items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-fluid-2xs font-semibold text-amber-900 ring-1 ring-amber-200/80 tabular-nums ${className}`}
-      title={`예약금 ${full}`}
+      title={`고객 결제 총액 ${full}`}
     >
-      예약 {Number(amount).toLocaleString('ko-KR')}
+      총 {Number(amount).toLocaleString('ko-KR')}
     </span>
   );
 }
+
+/** @deprecated TeamInquiryPaymentTotalListBadge 사용 */
+export const TeamInquiryDepositListBadge = TeamInquiryPaymentTotalListBadge;
 
 /** 배정·대시보드 목록 — 특이사항 「특」 원형 아이콘 */
 export function TeamInquirySpecialNotesListBadge({
@@ -402,12 +413,12 @@ export function TeamInquiryListAmountNotesBadges({
   item: InquiryItem;
   className?: string;
 }) {
-  const deposit = teamInquiryDepositAmount(item);
+  const total = teamInquiryCustomerPaymentTotal(item);
   const hasNotes = teamInquiryHasSpecialNotes(item);
-  if (deposit == null && !hasNotes) return null;
+  if (total == null && !hasNotes) return null;
   return (
     <span className={`inline-flex flex-wrap items-center gap-1 ${className}`}>
-      <TeamInquiryDepositListBadge item={item} />
+      <TeamInquiryPaymentTotalListBadge item={item} />
       <TeamInquirySpecialNotesListBadge item={item} />
     </span>
   );
