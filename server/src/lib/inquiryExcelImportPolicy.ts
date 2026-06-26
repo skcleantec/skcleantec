@@ -30,12 +30,18 @@ export type InquiryExcelUnmappedPolicies = Partial<
   Record<string, InquiryExcelUnmappedValuePolicy>
 >;
 
+export type InquiryExcelMemoLineMapping = {
+  targetFieldKey?: 'specialNotes' | 'memo';
+  excelHeaders: string[];
+};
+
 export type InquiryExcelMappingSpec = {
   columnMappings: InquiryExcelColumnMapping[];
   valueMappings: InquiryExcelValueMapping[];
   emptyValueRules?: InquiryExcelEmptyValueRule[];
   unmappedPolicies?: InquiryExcelUnmappedPolicies;
   defaultStatus?: string;
+  memoLineMappings?: InquiryExcelMemoLineMapping[];
 };
 
 export type InquiryExcelRowPreviewResult = {

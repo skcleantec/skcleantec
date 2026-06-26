@@ -116,6 +116,18 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
     throw new InquiryCreateError('예약일 형식이 올바르지 않습니다.');
   }
 
+  const createdAtOverride = (() => {
+    const raw = body.createdAt;
+    if (raw == null || raw === '') return undefined;
+    const s = String(raw).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const d = new Date(`${s}T12:00:00+09:00`);
+      return Number.isNaN(d.getTime()) ? undefined : d;
+    }
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  })();
+
   let operatingCompanyId: string;
   try {
     operatingCompanyId = await db.$transaction(async (tx) =>
@@ -155,6 +167,7 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
         tenantId,
         operatingCompanyId,
         inquiryNumber,
+        ...(createdAtOverride ? { createdAt: createdAtOverride } : {}),
         createdById: userId ?? null,
         customerName: String(body.customerName ?? ''),
         nickname: body.nickname ? String(body.nickname) : null,
@@ -180,6 +193,7 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
         preferredTimeDetail: body.preferredTimeDetail ? String(body.preferredTimeDetail) : null,
         callAttempt: body.callAttempt != null ? Number(body.callAttempt) : null,
         memo: body.memo ? String(body.memo) : null,
+        specialNotes: body.specialNotes ? String(body.specialNotes) : null,
         source: body.source ? String(body.source) : '전화',
         status,
         crewMemberCount,

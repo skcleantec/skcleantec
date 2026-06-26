@@ -25,6 +25,7 @@ const EMPTY_SPEC: InquiryExcelMappingSpec = {
   emptyValueRules: [],
   unmappedPolicies: { status: 'ERROR' },
   defaultStatus: 'RECEIVED',
+  memoLineMappings: [{ targetFieldKey: 'specialNotes', excelHeaders: [] }],
 };
 
 function specFromProfile(p: InquiryExcelProfile | null): InquiryExcelMappingSpec {
@@ -35,6 +36,10 @@ function specFromProfile(p: InquiryExcelProfile | null): InquiryExcelMappingSpec
     emptyValueRules: p.mappingSpec.emptyValueRules ?? [],
     unmappedPolicies: p.mappingSpec.unmappedPolicies ?? { status: 'ERROR' },
     defaultStatus: p.mappingSpec.defaultStatus ?? 'RECEIVED',
+    memoLineMappings:
+      p.mappingSpec.memoLineMappings?.length
+        ? p.mappingSpec.memoLineMappings
+        : [{ targetFieldKey: 'specialNotes', excelHeaders: [] }],
   };
 }
 
@@ -144,6 +149,43 @@ export function AdminInquiryExcelMappingsPage() {
         .filter((v) => v.entries.length > 0),
     }));
   };
+
+  const memoLineGroup = spec.memoLineMappings?.[0] ?? { targetFieldKey: 'specialNotes' as const, excelHeaders: [] };
+  const memoLineHeaders = memoLineGroup.excelHeaders ?? [];
+
+  const patchMemoLineGroup = (patch: Partial<{ targetFieldKey: 'specialNotes' | 'memo'; excelHeaders: string[] }>) => {
+    setSpec((prev) => {
+      const cur = prev.memoLineMappings?.[0] ?? { targetFieldKey: 'specialNotes' as const, excelHeaders: [] };
+      return {
+        ...prev,
+        memoLineMappings: [{ ...cur, ...patch }],
+      };
+    });
+  };
+
+  const addMemoLineHeader = () => {
+    patchMemoLineGroup({ excelHeaders: [...memoLineHeaders, ''] });
+  };
+
+  const updateMemoLineHeader = (index: number, header: string) => {
+    const next = [...memoLineHeaders];
+    next[index] = header;
+    patchMemoLineGroup({ excelHeaders: next });
+  };
+
+  const removeMemoLineHeader = (index: number) => {
+    patchMemoLineGroup({ excelHeaders: memoLineHeaders.filter((_, i) => i !== index) });
+  };
+
+  const moveMemoLineHeader = (index: number, delta: -1 | 1) => {
+    const next = [...memoLineHeaders];
+    const j = index + delta;
+    if (j < 0 || j >= next.length) return;
+    [next[index], next[j]] = [next[j]!, next[index]!];
+    patchMemoLineGroup({ excelHeaders: next });
+  };
+
+  const headersUsedInMemoLines = useMemo(() => new Set(memoLineHeaders.filter(Boolean)), [memoLineHeaders]);
 
   const handleSampleUpload = async (file: File | null) => {
     if (!token || !file) return;
@@ -317,8 +359,9 @@ export function AdminInquiryExcelMappingsPage() {
                   >
                     <option value="">— 매핑 안 함 —</option>
                     {excelHeaders.map((h) => (
-                      <option key={h} value={h}>
+                      <option key={h} value={h} disabled={headersUsedInMemoLines.has(h)}>
                         {h}
+                        {headersUsedInMemoLines.has(h) ? ' (줄 합치기)' : ''}
                       </option>
                     ))}
                   </select>
@@ -348,8 +391,9 @@ export function AdminInquiryExcelMappingsPage() {
                         >
                           <option value="">—</option>
                           {excelHeaders.map((h) => (
-                            <option key={h} value={h}>
+                            <option key={h} value={h} disabled={headersUsedInMemoLines.has(h)}>
                               {h}
+                              {headersUsedInMemoLines.has(h) ? ' (줄 합치기)' : ''}
                             </option>
                           ))}
                         </select>
@@ -429,6 +473,89 @@ export function AdminInquiryExcelMappingsPage() {
               </div>
             );
           })}
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-fluid-sm font-semibold text-slate-800">특이사항 줄 합치기</h2>
+                <p className="mt-1 text-fluid-2xs text-slate-500">
+                  「특이사항1」「특이사항2」처럼 SK에 1:1 필드가 없는 열은 순서대로 줄바꿈해 한 칸에 넣습니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addMemoLineHeader}
+                className="rounded-lg border border-slate-300 px-2 py-1 text-fluid-2xs hover:bg-slate-50"
+              >
+                + 줄 추가
+              </button>
+            </div>
+            <label className="mb-3 block text-fluid-xs text-slate-600">
+              합칠 SK 필드
+              <select
+                value={memoLineGroup.targetFieldKey ?? 'specialNotes'}
+                onChange={(e) =>
+                  patchMemoLineGroup({
+                    targetFieldKey: e.target.value === 'memo' ? 'memo' : 'specialNotes',
+                  })
+                }
+                className="mt-1 w-full max-w-xs rounded border border-slate-300 px-2 py-1.5"
+              >
+                <option value="specialNotes">특이사항 (관리자·팀장 공유)</option>
+                <option value="memo">메모</option>
+              </select>
+            </label>
+            {memoLineHeaders.length === 0 ? (
+              <p className="text-fluid-xs text-slate-500">샘플 엑셀 업로드 후 「+ 줄 추가」로 열을 지정하세요.</p>
+            ) : (
+              <div className="space-y-2">
+                {memoLineHeaders.map((header, idx) => (
+                  <div key={idx} className="flex flex-wrap items-center gap-2">
+                    <span className="w-8 shrink-0 text-center text-fluid-2xs tabular-nums text-slate-500">
+                      {idx + 1}줄
+                    </span>
+                    <select
+                      value={header}
+                      onChange={(e) => updateMemoLineHeader(idx, e.target.value)}
+                      className="min-w-[10rem] flex-1 rounded border border-slate-300 px-2 py-1.5 text-fluid-xs"
+                    >
+                      <option value="">— 엑셀 헤더 —</option>
+                      {excelHeaders.map((h) => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      onClick={() => moveMemoLineHeader(idx, -1)}
+                      className="rounded border border-slate-200 px-2 py-1 text-fluid-2xs disabled:opacity-40"
+                      title="위로"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === memoLineHeaders.length - 1}
+                      onClick={() => moveMemoLineHeader(idx, 1)}
+                      className="rounded border border-slate-200 px-2 py-1 text-fluid-2xs disabled:opacity-40"
+                      title="아래로"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeMemoLineHeader(idx)}
+                      className="rounded border border-red-200 px-2 py-1 text-fluid-2xs text-red-700"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="text-fluid-sm font-semibold text-slate-800">미매핑·기본값</h2>

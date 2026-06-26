@@ -27,6 +27,13 @@ export type InquiryExcelUnmappedPolicies = Partial<
   Record<string, InquiryExcelUnmappedValuePolicy>
 >;
 
+export type InquiryExcelMemoLineMapping = {
+  /** 줄바꿈으로 합칠 대상 — 기본 specialNotes(특이사항) */
+  targetFieldKey?: 'specialNotes' | 'memo';
+  /** 위에서 아래 순서대로 한 줄씩 합침 */
+  excelHeaders: string[];
+};
+
 export type InquiryExcelMappingSpec = {
   columnMappings: InquiryExcelColumnMapping[];
   valueMappings: InquiryExcelValueMapping[];
@@ -34,6 +41,8 @@ export type InquiryExcelMappingSpec = {
   unmappedPolicies?: InquiryExcelUnmappedPolicies;
   /** status 미매핑·빈칸 시 USE_DEFAULT 정책용 */
   defaultStatus?: string;
+  /** 특이사항1·2 등 — 순서대로 줄바꿈 결합 */
+  memoLineMappings?: InquiryExcelMemoLineMapping[];
 };
 
 export type InquiryExcelRowPreviewResult = {

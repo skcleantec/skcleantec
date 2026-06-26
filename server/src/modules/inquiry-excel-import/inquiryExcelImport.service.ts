@@ -71,7 +71,31 @@ function parseMappingSpec(raw: unknown): InquiryExcelMappingSpec {
     o.defaultStatus != null && String(o.defaultStatus).trim()
       ? String(o.defaultStatus).trim()
       : undefined;
-  return { columnMappings, valueMappings, emptyValueRules, unmappedPolicies, defaultStatus };
+  const memoLineMappings = Array.isArray(o.memoLineMappings)
+    ? o.memoLineMappings
+        .filter((x) => x && typeof x === 'object')
+        .map((x) => {
+          const m = x as Record<string, unknown>;
+          const targetRaw = String(m.targetFieldKey ?? 'specialNotes').trim();
+          const targetFieldKey =
+            targetRaw === 'memo' ? ('memo' as const) : ('specialNotes' as const);
+          const excelHeaders = Array.isArray(m.excelHeaders)
+            ? m.excelHeaders
+                .map((h) => String(h ?? '').trim())
+                .filter(Boolean)
+            : [];
+          return { targetFieldKey, excelHeaders };
+        })
+        .filter((x) => x.excelHeaders.length > 0)
+    : undefined;
+  return {
+    columnMappings,
+    valueMappings,
+    emptyValueRules,
+    unmappedPolicies,
+    defaultStatus,
+    memoLineMappings,
+  };
 }
 
 export async function getInquiryExcelFieldCatalog(tenantId: string) {

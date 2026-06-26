@@ -93,6 +93,39 @@ function XlsxSerialToYmd(serial: number): string | null {
   return `${y}-${m}-${d}`;
 }
 
+function memoLineHeaderSet(spec: InquiryExcelMappingSpec): Set<string> {
+  const out = new Set<string>();
+  for (const group of spec.memoLineMappings ?? []) {
+    for (const h of group.excelHeaders ?? []) {
+      const t = h.trim();
+      if (t) out.add(t);
+    }
+  }
+  return out;
+}
+
+function applyMemoLineMappings(
+  spec: InquiryExcelMappingSpec,
+  excelRow: Record<string, string>,
+  body: Record<string, unknown>,
+): void {
+  for (const group of spec.memoLineMappings ?? []) {
+    const target = group.targetFieldKey ?? 'specialNotes';
+    const lines: string[] = [];
+    for (const header of group.excelHeaders ?? []) {
+      const v = normExcelVal(excelRow[header] ?? '');
+      if (v) lines.push(v);
+    }
+    if (lines.length === 0) continue;
+    const combined = lines.join('\n');
+    const existing = body[target];
+    body[target] =
+      existing != null && String(existing).trim()
+        ? `${String(existing).trim()}\n${combined}`
+        : combined;
+  }
+}
+
 export async function mapExcelRowToInquiryBody(params: {
   db: PrismaClient;
   tenantId: string;
@@ -101,6 +134,7 @@ export async function mapExcelRowToInquiryBody(params: {
 }): Promise<MappedInquiryRow> {
   const { db, tenantId, spec, excelRow } = params;
   const body: Record<string, unknown> = {};
+  const memoHeaders = memoLineHeaderSet(spec);
   const headerToField = new Map<string, string>();
   for (const cm of spec.columnMappings) {
     if (cm.excelHeader && cm.fieldKey) {
@@ -109,6 +143,7 @@ export async function mapExcelRowToInquiryBody(params: {
   }
 
   for (const [header, rawVal] of Object.entries(excelRow)) {
+    if (memoHeaders.has(header)) continue;
     const fieldKey = headerToField.get(header);
     if (!fieldKey) continue;
     const def = inquiryExcelFieldByKey(fieldKey);
@@ -169,6 +204,8 @@ export async function mapExcelRowToInquiryBody(params: {
 
     body[fieldKey] = trimmed;
   }
+
+  applyMemoLineMappings(spec, excelRow, body);
 
   if (!body.status) {
     const policy = unmappedPolicy(spec, 'status');
