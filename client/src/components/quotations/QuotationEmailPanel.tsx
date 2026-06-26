@@ -6,6 +6,12 @@ import {
   sendQuotationEmail,
   type QuotationEmailLogDto,
 } from '../../api/quotations';
+import {
+  fetchTeamQuotationEmailDefaults,
+  fetchTeamQuotationEmailLogs,
+  resendTeamQuotationEmail,
+  sendTeamQuotationEmail,
+} from '../../api/teamQuotations';
 import { QuotationStatusBadge, qUi } from './quotationUi';
 
 type Props = {
@@ -16,6 +22,8 @@ type Props = {
   sentAt: string | null;
   lastEmailedAt: string | null;
   canEmail: boolean;
+  /** admin: /api/quotations, team: /api/team/quotations */
+  apiScope?: 'admin' | 'team';
   onSent: (patch: {
     status: string;
     customerEmail: string | null;
@@ -37,6 +45,7 @@ export function QuotationEmailPanel({
   sentAt,
   lastEmailedAt,
   canEmail,
+  apiScope = 'admin',
   onSent,
 }: Props) {
   const [emailTo, setEmailTo] = useState(customerEmail);
@@ -51,7 +60,10 @@ export function QuotationEmailPanel({
     if (!token) return;
     setLoadingDefaults(true);
     try {
-      const defaults = await fetchQuotationEmailDefaults(token, quotationId);
+      const defaults =
+        apiScope === 'team'
+          ? await fetchTeamQuotationEmailDefaults(token, quotationId)
+          : await fetchQuotationEmailDefaults(token, quotationId);
       setSubject(defaults.subject);
       setBody(defaults.body);
     } catch {
@@ -59,20 +71,23 @@ export function QuotationEmailPanel({
     } finally {
       setLoadingDefaults(false);
     }
-  }, [token, quotationId]);
+  }, [token, quotationId, apiScope]);
 
   const loadLogs = useCallback(async () => {
     if (!token) return;
     setLoadingLogs(true);
     try {
-      const data = await fetchQuotationEmailLogs(token, quotationId);
+      const data =
+        apiScope === 'team'
+          ? await fetchTeamQuotationEmailLogs(token, quotationId)
+          : await fetchQuotationEmailLogs(token, quotationId);
       setLogs(data);
     } catch {
       setLogs([]);
     } finally {
       setLoadingLogs(false);
     }
-  }, [token, quotationId]);
+  }, [token, quotationId, apiScope]);
 
   useEffect(() => {
     setEmailTo(customerEmail);
@@ -89,7 +104,11 @@ export function QuotationEmailPanel({
   async function handleSend(resend: boolean) {
     if (!token) return;
     if (!canEmail) {
-      alert('SMTP가 설정되지 않았습니다. 업체등록정보에서 메일 설정을 확인해 주세요.');
+      alert(
+        apiScope === 'team'
+          ? 'SMTP가 설정되지 않았습니다. 관리자에게 발송 이메일 설정을 요청해 주세요.'
+          : 'SMTP가 설정되지 않았습니다. 업체등록정보에서 메일 설정을 확인해 주세요.',
+      );
       return;
     }
     const to = emailTo.trim();
@@ -105,8 +124,12 @@ export function QuotationEmailPanel({
         body: body.trim() || undefined,
       };
       const updated = resend
-        ? await resendQuotationEmail(token, quotationId, payload)
-        : await sendQuotationEmail(token, quotationId, payload);
+        ? apiScope === 'team'
+          ? await resendTeamQuotationEmail(token, quotationId, payload)
+          : await resendQuotationEmail(token, quotationId, payload)
+        : apiScope === 'team'
+          ? await sendTeamQuotationEmail(token, quotationId, payload)
+          : await sendQuotationEmail(token, quotationId, payload);
       onSent({
         status: updated.status,
         customerEmail: updated.customerEmail,

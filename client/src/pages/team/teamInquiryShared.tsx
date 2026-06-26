@@ -13,6 +13,7 @@ import { InquiryCleaningPhotosPanel } from '../../components/inquiry/InquiryClea
 import { InquiryConsultationPhotosPanel } from '../../components/inquiry/InquiryConsultationPhotosPanel';
 import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFormPhotosPanel';
 import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../../components/orderform/OrderFormTemplateInfo';
+import { TeamQuotationInquiryLinkPanel } from '../../components/quotations/TeamQuotationInquiryLinkPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { TeamInlineNoticeModule } from '../../components/team/TeamInlineNoticeModule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
@@ -1423,6 +1424,22 @@ export function TeamInquiryDetailModal({
                     orderForm: item.orderForm,
                   })}
                 </div>
+              </TeamModalSection>
+            ) : null}
+
+            {teamToken && viewerMe?.role === 'TEAM_LEADER' ? (
+              <TeamModalSection
+                title={
+                  <span className="text-fluid-xs font-semibold text-gray-600">견적서</span>
+                }
+              >
+                <TeamQuotationInquiryLinkPanel
+                  token={teamToken}
+                  inquiryId={item.id}
+                  inquiryNumber={item.inquiryNumber}
+                  customerName={item.customerName}
+                  returnTo={inquiryReturnTo}
+                />
               </TeamModalSection>
             ) : null}
 

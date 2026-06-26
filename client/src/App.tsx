@@ -47,6 +47,7 @@ import {
   TeamExternalSettlementPage,
   TeamDbMarketplacePage,
   TeamEContractListPage,
+  TeamQuotationEditorPage,
   TeamCardPaymentPage,
   OrderFormPage,
   OrderFormPrefillEditorPage,
@@ -323,6 +324,8 @@ function App() {
           <Route path="cs" element={<SuspensePage><TeamCsPage /></SuspensePage>} />
           <Route path="messages" element={<SuspensePage><TeamMessagesPage /></SuspensePage>} />
           <Route path="e-contracts" element={<SuspensePage><TeamEContractListPage /></SuspensePage>} />
+          <Route path="quotations/new" element={<SuspensePage><TeamQuotationEditorPage /></SuspensePage>} />
+          <Route path="quotations/:id" element={<SuspensePage><TeamQuotationEditorPage /></SuspensePage>} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />

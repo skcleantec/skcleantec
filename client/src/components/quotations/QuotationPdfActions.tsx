@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { downloadQuotationPdf } from '../../api/quotations';
+import { downloadTeamQuotationPdf } from '../../api/teamQuotations';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { qUi } from './quotationUi';
 
@@ -8,6 +9,8 @@ type Props = {
   quotationId: string | null;
   quoteNumber: string | null;
   disabled?: boolean;
+  /** admin: /api/quotations, team: /api/team/quotations */
+  apiScope?: 'admin' | 'team';
 };
 
 function toPdfBlob(blob: Blob): Blob {
@@ -15,7 +18,7 @@ function toPdfBlob(blob: Blob): Blob {
   return new Blob([blob], { type: 'application/pdf' });
 }
 
-export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled }: Props) {
+export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled, apiScope = 'admin' }: Props) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const previewUrlRef = useRef<string | null>(null);
@@ -46,6 +49,11 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled 
     setError(null);
   }
 
+  const downloadPdf =
+    apiScope === 'team'
+      ? (t: string, id: string, opts?: { preview?: boolean }) => downloadTeamQuotationPdf(t, id, opts)
+      : downloadQuotationPdf;
+
   async function handlePreview() {
     if (!token || !quotationId) {
       alert('먼저 저장해 주세요.');
@@ -56,7 +64,7 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled 
     clearPreviewUrl();
     setPreviewOpen(true);
     try {
-      const blob = await downloadQuotationPdf(token, quotationId, { preview: true });
+      const blob = await downloadPdf(token, quotationId, { preview: true });
       if (blob.size <= 0) {
         throw new Error('PDF 데이터가 비어 있습니다.');
       }
@@ -80,7 +88,7 @@ export function QuotationPdfActions({ token, quotationId, quoteNumber, disabled 
     }
     setLoading(true);
     try {
-      const blob = await downloadQuotationPdf(token, quotationId);
+      const blob = await downloadPdf(token, quotationId);
       const url = URL.createObjectURL(toPdfBlob(blob));
       const a = document.createElement('a');
       a.href = url;
