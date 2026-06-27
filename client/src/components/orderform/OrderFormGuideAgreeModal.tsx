@@ -8,9 +8,12 @@ import { OrderFormGuideSections } from './OrderFormGuideSections';
 export function OrderFormGuideAgreeModal(props: {
   open: boolean;
   onClose: () => void;
-  onAgree: () => void;
+  /** agree: 제출 전 동의(스크롤·동의 버튼) · view: 제출 확인서 등 재열람 */
+  mode?: 'agree' | 'view';
+  onAgree?: () => void;
 }) {
-  const { open, onClose, onAgree } = props;
+  const { open, onClose, mode = 'agree', onAgree } = props;
+  const isViewMode = mode === 'view';
   const scrollRef = useRef<HTMLDivElement>(null);
   const [sections, setSections] = useState<GuideSection[]>(ORDER_GUIDE_DEFAULT_SECTIONS);
   const [loading, setLoading] = useState(true);
@@ -80,7 +83,11 @@ export function OrderFormGuideAgreeModal(props: {
           <h2 id="order-guide-agree-title" className="text-base font-semibold tracking-tight">
             서비스 안내사항
           </h2>
-          <p className="mt-1 text-fluid-xs text-gray-300">아래 내용을 끝까지 확인한 뒤 동의해 주세요.</p>
+          <p className="mt-1 text-fluid-xs text-gray-300">
+            {isViewMode
+              ? '제출 후에도 아래 안내사항을 다시 확인하실 수 있습니다.'
+              : '아래 내용을 끝까지 확인한 뒤 동의해 주세요.'}
+          </p>
         </div>
 
         <div
@@ -117,20 +124,32 @@ export function OrderFormGuideAgreeModal(props: {
         </div>
 
         <div className="shrink-0 space-y-2 border-t border-gray-100 bg-gray-50/90 px-4 py-3 sm:px-6">
-          {!scrolledToEnd && !loading ? (
-            <p className="text-center text-fluid-2xs text-gray-500">맨 아래까지 스크롤하면 동의할 수 있습니다.</p>
-          ) : null}
-          <button
-            type="button"
-            disabled={loading || !scrolledToEnd}
-            onClick={() => {
-              onAgree();
-              onClose();
-            }}
-            className="w-full rounded-lg bg-gray-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            모든사항을 확인했고 이에 모두 동의합니다.
-          </button>
+          {isViewMode ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-fluid-sm font-medium text-gray-800 shadow-sm transition hover:bg-gray-50"
+            >
+              닫기
+            </button>
+          ) : (
+            <>
+              {!scrolledToEnd && !loading ? (
+                <p className="text-center text-fluid-2xs text-gray-500">맨 아래까지 스크롤하면 동의할 수 있습니다.</p>
+              ) : null}
+              <button
+                type="button"
+                disabled={loading || !scrolledToEnd}
+                onClick={() => {
+                  onAgree?.();
+                  onClose();
+                }}
+                className="w-full rounded-lg bg-gray-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                모든사항을 확인했고 이에 모두 동의합니다.
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>,

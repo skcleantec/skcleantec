@@ -26,7 +26,7 @@ import {
   type TeamViewerMe,
 } from '../../api/team';
 import { copyTextToClipboard } from '../../utils/clipboard';
-import { formatInquiryListAreaLabel } from '../../utils/inquiryAreaDisplay';
+import { formatInquiryListAreaLabel, formatInquiryAreaCompactKo } from '../../utils/inquiryAreaDisplay';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import { buildTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
@@ -289,6 +289,15 @@ export function formatTeamInquiryAreaSummary(item: {
   return s === '—' ? teamT('team.common.emDash') : s;
 }
 
+/** 목록·배지용 — 「34평」 등 짧은 평수 (상세는 formatTeamInquiryAreaSummary) */
+export function formatTeamInquiryAreaCompact(item: {
+  areaPyeong?: number | null;
+  exclusiveAreaSqm?: number | null;
+  isOneRoom?: boolean | null;
+}): string | null {
+  return formatInquiryAreaCompactKo(item);
+}
+
 export function formatRoomInfo(r: number | null, b: number | null, v: number | null) {
   const rk = teamT('team.room.room');
   const bk = teamT('team.room.bath');
@@ -357,6 +366,27 @@ export function teamInquirySpecialNotesPreview(item: InquiryItem): string {
 
 export function teamInquiryHasSpecialNotes(item: InquiryItem): boolean {
   return teamInquirySpecialNotesPreview(item) !== '';
+}
+
+/** 배정·스케줄 목록 — 평수 pill (짧은 표기, 호버 시 공급/전용 상세) */
+export function TeamInquiryAreaListBadge({
+  item,
+  className = '',
+}: {
+  item: Pick<InquiryItem, 'areaBasis' | 'areaPyeong' | 'exclusiveAreaSqm' | 'isOneRoom'>;
+  className?: string;
+}) {
+  const label = formatTeamInquiryAreaCompact(item);
+  if (!label) return null;
+  const detail = formatTeamInquiryAreaSummary(item);
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-slate-800 ring-1 ring-slate-200/80 tabular-nums ${className}`}
+      title={detail !== teamT('team.common.emDash') ? detail : undefined}
+    >
+      {label}
+    </span>
+  );
 }
 
 /** 배정·대시보드 목록 — 고객 수금액 pill */

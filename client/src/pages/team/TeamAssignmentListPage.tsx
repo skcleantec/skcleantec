@@ -27,11 +27,13 @@ import {
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
   formatTeamInquiryAreaSummary,
+  formatTeamInquiryAreaCompact,
   coLeadersSummaryForViewer,
   TeamCoLeadersListHint,
   TeamNoCrewMembersListBadge,
   TeamInquiryCollectibleListBadge,
   TeamInquirySpecialNotesListBadge,
+  TeamInquiryAreaListBadge,
   teamInquiryCollectibleAmount,
 } from './teamInquiryShared';
 import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
@@ -527,6 +529,7 @@ export function TeamAssignmentListPage() {
                           ) : null}
                           <TeamInquirySpecialNotesListBadge item={item} />
                           <TeamInquiryCollectibleListBadge item={item} />
+                          <TeamInquiryAreaListBadge item={item} />
                           {item.inquiryNumber ? (
                             <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 font-mono text-fluid-2xs tabular-nums text-gray-700">
                               {item.inquiryNumber}
@@ -586,6 +589,7 @@ export function TeamAssignmentListPage() {
                       <span className="inline-flex rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
                         {STATUS_LABELS[item.status] ?? item.status}
                       </span>
+                      <TeamInquiryAreaListBadge item={item} />
                       <TeamHappyCallBadge item={item} variant="list" />
                       <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                       {hasInspectionModule ? (
@@ -767,8 +771,11 @@ export function TeamAssignmentListPage() {
                         >
                           {addressListShortSiGu(item.address)}
                         </td>
-                        <td className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap ${pBorder}`}>
-                          {formatTeamInquiryAreaSummary(item)}
+                        <td
+                          className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap tabular-nums ${pBorder}`}
+                          title={formatTeamInquiryAreaSummary(item)}
+                        >
+                          {formatTeamInquiryAreaCompact(item) ?? teamBiPlain('team.common.emDash')}
                         </td>
                         <td className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap ${pBorder}`}>
                           {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}

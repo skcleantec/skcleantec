@@ -20,10 +20,10 @@ import {
   relativeDateHint,
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
-  formatTeamInquiryAreaSummary,
   TeamCoLeadersListHint,
   TeamNoCrewMembersListBadge,
   TeamInquiryListAmountNotesBadges,
+  TeamInquiryAreaListBadge,
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
@@ -265,6 +265,7 @@ export function TeamDashboardPage() {
                       <div className="flex flex-wrap items-center gap-1.5 font-semibold text-gray-900">
                         <span>{primaryLabel}</span>
                         <TeamInquiryListAmountNotesBadges item={item} />
+                        <TeamInquiryAreaListBadge item={item} />
                       </div>
                       {memoSubtitle ? (
                         <p className="mt-0.5 line-clamp-1 text-fluid-xs text-gray-700" title={memoTrim}>
@@ -280,8 +281,7 @@ export function TeamDashboardPage() {
                         </p>
                       ) : null}
                       <div className="text-fluid-sm text-gray-700 mt-0.5">
-                        {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} ·{' '}
-                        {formatTeamInquiryAreaSummary(item)}
+                        {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
                       </div>
                       <div className="text-fluid-xs text-gray-600 mt-1 truncate">
                         {item.address}
@@ -357,6 +357,7 @@ export function TeamDashboardPage() {
                             <div className="flex flex-wrap items-center gap-1.5 font-medium text-gray-900">
                               <span className="truncate">{primaryLabel}</span>
                               <TeamInquiryListAmountNotesBadges item={item} />
+                              <TeamInquiryAreaListBadge item={item} />
                             </div>
                             {memoSubtitle ? (
                               <div

@@ -9,6 +9,7 @@ import {
   orderFormConfigLine,
 } from '../../constants/orderFormConfigDefaults';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { OrderFormGuideAgreeModal } from './OrderFormGuideAgreeModal';
 import { OrderFormSubmissionSnapshotContent } from './orderFormSubmissionSnapshot';
 
 export function OrderFormSubmissionReceiptView(props: {
@@ -28,6 +29,12 @@ export function OrderFormSubmissionReceiptView(props: {
   const { token, customerName, submittedAt, inquiryNumber, snapshot, formConfig, submissionEmail, headerRight } = props;
   const [photos, setPhotos] = useState<OrderFormPhotoItem[]>([]);
   const [preview, setPreview] = useState<OrderFormPhotoItem | null>(null);
+  const [guideModalOpen, setGuideModalOpen] = useState(false);
+
+  const guideLinkLabel = orderFormConfigLine(
+    formConfig?.infoLinkText,
+    ORDER_FORM_CONFIG_DEFAULTS.infoLinkText
+  );
 
   const successTitle = orderFormConfigLine(
     formConfig?.submitSuccessTitle,
@@ -63,6 +70,15 @@ export function OrderFormSubmissionReceiptView(props: {
           <p className="mt-3 text-fluid-xs text-gray-500">
             이 링크를 저장해 두시면 제출 내용을 다시 확인할 수 있습니다.
           </p>
+          <button
+            type="button"
+            onClick={() => setGuideModalOpen(true)}
+            title={guideLinkLabel}
+            className="mt-2 inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-fluid-2xs font-medium text-gray-600 shadow-sm transition hover:border-gray-300 hover:text-gray-900"
+          >
+            <span aria-hidden className="text-[10px] leading-none">ℹ</span>
+            안내사항 보기
+          </button>
           {submissionEmail?.toEmail ? (
             <p className="mt-2 text-fluid-xs text-gray-600">
               {submissionEmail.status === 'SENT'
@@ -133,6 +149,12 @@ export function OrderFormSubmissionReceiptView(props: {
           />
         </div>
       ) : null}
+
+      <OrderFormGuideAgreeModal
+        open={guideModalOpen}
+        mode="view"
+        onClose={() => setGuideModalOpen(false)}
+      />
     </div>
   );
 }

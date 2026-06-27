@@ -137,3 +137,35 @@ export function formatInquiryAreaKoLine(item: {
   if (py != null) return `${py}평`;
   return '—';
 }
+
+/** 목록·배지용 — 「34평」「약 25평」 등 짧게 (공급/전용 접두 생략) */
+export function formatInquiryAreaCompactKo(
+  item: {
+    areaPyeong?: number | null;
+    exclusiveAreaSqm?: number | null;
+    isOneRoom?: boolean | null;
+  },
+  opts?: { oneRoomLabel?: string },
+): string | null {
+  const oneRoomLabel = opts?.oneRoomLabel ?? '원룸';
+  const py = item.areaPyeong != null && Number.isFinite(item.areaPyeong) ? item.areaPyeong : null;
+  const sqm =
+    item.exclusiveAreaSqm != null && Number.isFinite(item.exclusiveAreaSqm)
+      ? item.exclusiveAreaSqm
+      : null;
+
+  let base: string | null = null;
+  if (py != null) {
+    base = `${Number(py).toLocaleString('ko-KR')}평`;
+  } else if (sqm != null) {
+    const approx = approxPyeongFromExclusiveSqm(sqm);
+    base = `약${Number(approx).toLocaleString('ko-KR')}평`;
+  } else if (item.isOneRoom) {
+    return oneRoomLabel;
+  } else {
+    return null;
+  }
+
+  if (item.isOneRoom) return `${base}·${oneRoomLabel}`;
+  return base;
+}

@@ -24,9 +24,9 @@ import {
   getCalendarDays,
   TeamHappyCallBadge,
   TeamInquiryDetailModal,
-  formatTeamInquiryAreaSummary,
   TeamCoLeadersListHint,
   TeamNoCrewMembersListBadge,
+  TeamInquiryAreaListBadge,
 } from './teamInquiryShared';
 import { TeamCrewMemberContactChips } from '../../components/team/TeamCrewMemberContactChips';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
@@ -305,7 +305,10 @@ export function TeamSchedulePage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium text-gray-900">{primaryLabel}</div>
+                            <div className="font-medium text-gray-900 flex flex-wrap items-center gap-1.5">
+                              <span>{primaryLabel}</span>
+                              <TeamInquiryAreaListBadge item={item} />
+                            </div>
                             {memoSubtitle ? (
                               <div className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={memoTrim}>
                                 {memoTrim}
@@ -339,8 +342,7 @@ export function TeamSchedulePage() {
                               {item.addressDetail ? ` ${item.addressDetail}` : ''}
                             </div>
                             <div className="text-fluid-xs text-gray-500 mt-0.5">
-                              {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)} ·{' '}
-                              {formatTeamInquiryAreaSummary(item)}
+                              {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
                             </div>
                             <div className="text-fluid-xs text-gray-500 mt-0.5" title={formatCrewInfo(item)}>
                               {formatCrewInfo(item)}
