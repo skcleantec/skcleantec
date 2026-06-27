@@ -130,7 +130,7 @@ html, body {
   color: #ffffff !important;
 }
 
-/* User Profile Menu — 트리거(다크 헤더) / 드롭다운(밝은 패널) 분리 */
+/* User Profile Menu — 트리거(다크 헤더) / 드롭다운·모달(밝은 패널) 분리 */
 .theme-dark-header .staff-profile-trigger {
   color: #f8fafc !important; /* slate-50 */
 }
@@ -138,9 +138,15 @@ html, body {
   color: #ffffff !important;
   background-color: rgba(255, 255, 255, 0.1) !important;
 }
+
+/* 드롭다운: 다크 GNB 글자색·text-gray-* 오버라이드가 밝은 패널까지 적용되지 않게 */
+.theme-dark-header [data-staff-profile-dropdown] {
+  color: #1e293b !important;
+  background-color: #ffffff !important;
+}
 .theme-dark-header [data-staff-profile-dropdown] button,
 .theme-dark-header [data-staff-profile-dropdown] a {
-  color: #1e293b !important; /* slate-800 */
+  color: #1e293b !important;
   background-color: transparent !important;
 }
 .theme-dark-header [data-staff-profile-dropdown] button:hover,
@@ -148,12 +154,56 @@ html, body {
   background-color: #f8fafc !important; /* slate-50 */
   color: #0f172a !important; /* slate-900 */
 }
+.theme-dark-header [data-staff-profile-dropdown] p {
+  color: #64748b !important; /* slate-500 — 섹션 제목 */
+}
+.theme-dark-header [data-staff-profile-dropdown] .text-slate-500 {
+  color: #64748b !important;
+}
+.theme-dark-header [data-staff-profile-dropdown] .text-slate-800,
+.theme-dark-header [data-staff-profile-dropdown] .text-slate-900 {
+  color: #1e293b !important;
+}
+.theme-dark-header [data-staff-profile-dropdown] .text-amber-900 {
+  color: #78350f !important;
+}
+.theme-dark-header [data-staff-profile-dropdown] .text-white {
+  color: #ffffff !important;
+}
 .theme-dark-header [data-staff-profile-dropdown] .staff-profile-logout {
   color: #0f172a !important;
   font-weight: 600;
 }
 .theme-dark-header [data-staff-profile-dropdown] .staff-profile-logout:hover {
   background-color: #f1f5f9 !important; /* slate-100 */
+  color: #0f172a !important;
+}
+
+/* 개인정보 수정 모달 — portal 사용, 헤더 테마와 분리된 밝은 패널 글자색 */
+[data-staff-profile-modal] {
+  color: #0f172a !important;
+}
+[data-staff-profile-modal] .text-gray-900 {
+  color: #111827 !important;
+}
+[data-staff-profile-modal] .text-gray-800 {
+  color: #1f2937 !important;
+}
+[data-staff-profile-modal] .text-gray-700 {
+  color: #374151 !important;
+}
+[data-staff-profile-modal] .text-gray-600 {
+  color: #4b5563 !important;
+}
+[data-staff-profile-modal] .text-gray-500 {
+  color: #6b7280 !important;
+}
+[data-staff-profile-modal] input {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+[data-staff-profile-modal] button.text-gray-700 {
+  color: #374151 !important;
 }
 
 /* AdminDevPreviewLinks (미리보기) */

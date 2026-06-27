@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { isAuthSessionExpiredError, updateMyProfile } from '../../api/auth';
 
@@ -224,109 +225,113 @@ export function UserProfileMenu({
         ) : null}
       </div>
 
-      {modalOpen ? (
-        <div
-          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 p-4"
-          role="presentation"
-          onClick={() => setModalOpen(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="개인정보 수정"
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-4 shadow-2xl"
-          >
-            <h2 className="text-base font-semibold text-gray-900">개인정보 수정</h2>
-            <div className="mt-3 space-y-3">
-              <label className="block">
-                <span className="mb-1 block text-xs text-gray-600">이름</span>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                  placeholder="이름"
-                />
-              </label>
-              {me?.role === 'TEAM_LEADER' ? (
-                <label className="block">
-                  <span className="mb-1 block text-xs text-gray-600">영문 이름 (선택)</span>
-                  <input
-                    value={nameEn}
-                    onChange={(e) => setNameEn(e.target.value)}
-                    maxLength={128}
-                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                    placeholder="예: Kim Cheolsu"
-                    autoComplete="off"
-                  />
-                  <p className="mt-1 text-fluid-2xs text-gray-500 leading-snug">
-                    크루 「현장 일정」 배정 팀장 옆에 함께 표시됩니다.
-                  </p>
-                </label>
-              ) : null}
-              <label className="block">
-                <span className="mb-1 block text-xs text-gray-600">전화번호</span>
-                <input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                  placeholder="010-0000-0000"
-                />
-              </label>
-              {showVehicleNumber ? (
-                <label className="block">
-                  <span className="mb-1 block text-xs text-gray-600">개인 차량번호</span>
-                  <input
-                    value={vehicleNumber}
-                    onChange={(e) => setVehicleNumber(e.target.value)}
-                    maxLength={64}
-                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                    placeholder="예: 123가4567"
-                    autoComplete="off"
-                  />
-                  {teamProfileVehicleField && showVehicleNumber ? (
-                    <p className="mt-1.5 text-fluid-2xs text-gray-500 leading-snug">
-                      팀원 픽업 등 안내 메시지에 자동으로 넣을 수 있도록 저장됩니다. (선택)
-                      {showVehicleForPreviewAdmin ? (
-                        <span className="mt-1 block text-gray-500">
-                          팀 화면 미리보기(개발자) 계정에서도 동일하게 저장·확인할 수 있습니다.
-                        </span>
-                      ) : null}
-                    </p>
+      {modalOpen
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 p-4"
+              role="presentation"
+              onClick={() => setModalOpen(false)}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="개인정보 수정"
+                data-staff-profile-modal
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-4 shadow-2xl"
+              >
+                <h2 className="text-base font-semibold text-gray-900">개인정보 수정</h2>
+                <div className="mt-3 space-y-3">
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-gray-600">이름</span>
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                      placeholder="이름"
+                    />
+                  </label>
+                  {me?.role === 'TEAM_LEADER' ? (
+                    <label className="block">
+                      <span className="mb-1 block text-xs text-gray-600">영문 이름 (선택)</span>
+                      <input
+                        value={nameEn}
+                        onChange={(e) => setNameEn(e.target.value)}
+                        maxLength={128}
+                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                        placeholder="예: Kim Cheolsu"
+                        autoComplete="off"
+                      />
+                      <p className="mt-1 text-fluid-2xs text-gray-500 leading-snug">
+                        크루 「현장 일정」 배정 팀장 옆에 함께 표시됩니다.
+                      </p>
+                    </label>
                   ) : null}
-                </label>
-              ) : null}
-              <label className="block">
-                <span className="mb-1 block text-xs text-gray-600">새 비밀번호 (선택)</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                  placeholder="변경할 때만 입력"
-                />
-              </label>
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={() => void submit()}
-                disabled={saving}
-                className="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-              >
-                {saving ? '저장 중…' : '저장'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-gray-600">전화번호</span>
+                    <input
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                      placeholder="010-0000-0000"
+                    />
+                  </label>
+                  {showVehicleNumber ? (
+                    <label className="block">
+                      <span className="mb-1 block text-xs text-gray-600">개인 차량번호</span>
+                      <input
+                        value={vehicleNumber}
+                        onChange={(e) => setVehicleNumber(e.target.value)}
+                        maxLength={64}
+                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                        placeholder="예: 123가4567"
+                        autoComplete="off"
+                      />
+                      {teamProfileVehicleField && showVehicleNumber ? (
+                        <p className="mt-1.5 text-fluid-2xs text-gray-500 leading-snug">
+                          팀원 픽업 등 안내 메시지에 자동으로 넣을 수 있도록 저장됩니다. (선택)
+                          {showVehicleForPreviewAdmin ? (
+                            <span className="mt-1 block text-gray-500">
+                              팀 화면 미리보기(개발자) 계정에서도 동일하게 저장·확인할 수 있습니다.
+                            </span>
+                          ) : null}
+                        </p>
+                      ) : null}
+                    </label>
+                  ) : null}
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-gray-600">새 비밀번호 (선택)</span>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                      placeholder="변경할 때만 입력"
+                    />
+                  </label>
+                </div>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void submit()}
+                    disabled={saving}
+                    className="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                  >
+                    {saving ? '저장 중…' : '저장'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
