@@ -66,7 +66,7 @@ router.get('/options/all', adminOrMarketer, async (req, res) => {
   res.json({ items: list });
 });
 
-router.post('/options', adminOnly, async (req, res) => {
+router.post('/options', adminOrMarketer, async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const { name, extraAmount, sortOrder } = req.body as {
@@ -89,11 +89,16 @@ router.post('/options', adminOnly, async (req, res) => {
   res.json(created);
 });
 
-router.patch('/options/:id', adminOnly, async (req, res) => {
+router.patch('/options/:id', adminOrMarketer, async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const { id } = req.params;
-  const { name, extraAmount, sortOrder, isActive } = req.body;
+  const { name, extraAmount, sortOrder, isActive } = req.body as {
+    name?: string;
+    extraAmount?: number;
+    sortOrder?: number;
+    isActive?: boolean;
+  };
   const existing = await prisma.estimateOption.findFirst({ where: { id, tenantId } });
   if (!existing) {
     res.status(404).json({ error: '옵션을 찾을 수 없습니다.' });
@@ -105,13 +110,13 @@ router.patch('/options/:id', adminOnly, async (req, res) => {
       ...(name != null && { name }),
       ...(extraAmount != null && { extraAmount }),
       ...(sortOrder != null && { sortOrder }),
-      ...(isActive != null && { isActive }),
+      ...(typeof isActive === 'boolean' && { isActive }),
     },
   });
   res.json(updated);
 });
 
-router.delete('/options/:id', adminOnly, async (req, res) => {
+router.delete('/options/:id', adminOrMarketer, async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const { id } = req.params;

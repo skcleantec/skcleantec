@@ -254,3 +254,46 @@ export function normalizeHexColor(input: string): string | null {
   if (/^[0-9a-fA-F]{6}$/.test(t)) return `#${t.toLowerCase()}`;
   return null;
 }
+
+/** 비활성 루트/중간 노드 아래 모든 자손 id (본인 제외) */
+export async function collectProfessionalOptionDescendantIds(
+  prisma: PrismaClient,
+  tenantId: string,
+  rootId: string,
+): Promise<string[]> {
+  const out: string[] = [];
+  let frontier = [rootId];
+  while (frontier.length) {
+    const children = await prisma.professionalSpecialtyOption.findMany({
+      where: { tenantId, parentId: { in: frontier } },
+      select: { id: true },
+    });
+    const ids = children.map((c) => c.id);
+    out.push(...ids);
+    frontier = ids;
+  }
+  return out;
+}
+
+/** 자식·손자 활성화 시 상위 대분류·중간 노드도 함께 활성화 */
+export async function ensureProfessionalOptionAncestorChainActive(
+  prisma: PrismaClient,
+  tenantId: string,
+  startParentId: string | null,
+): Promise<void> {
+  let parentId = startParentId;
+  while (parentId) {
+    const parent = await prisma.professionalSpecialtyOption.findUnique({
+      where: profOptionKey(tenantId, parentId),
+      select: { id: true, parentId: true, isActive: true },
+    });
+    if (!parent) break;
+    if (!parent.isActive) {
+      await prisma.professionalSpecialtyOption.update({
+        where: profOptionKey(tenantId, parent.id),
+        data: { isActive: true },
+      });
+    }
+    parentId = parent.parentId;
+  }
+}

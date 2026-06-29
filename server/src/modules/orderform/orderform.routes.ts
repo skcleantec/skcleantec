@@ -24,6 +24,8 @@ import {
 } from './guideDefaults.js';
 import {
   buildProfOptionIssuedSummaryParts,
+  collectProfessionalOptionDescendantIds,
+  ensureProfessionalOptionAncestorChainActive,
   filterActiveProfessionalOptionSelections,
   normalizeHexColor,
   parseProfessionalOptionSelectionsRaw,
@@ -532,11 +534,27 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
       data.priceAmount = null;
     }
   }
+  if (Object.keys(data).length === 0) {
+    res.status(400).json({ error: '수정할 항목이 없습니다.' });
+    return;
+  }
   try {
+    if (body.isActive === true) {
+      await ensureProfessionalOptionAncestorChainActive(prisma, tenantId, existing.parentId);
+    }
     const updated = await prisma.professionalSpecialtyOption.update({
       where: profOptionKey(tenantId, id),
       data,
     });
+    if (body.isActive === false) {
+      const descendantIds = await collectProfessionalOptionDescendantIds(prisma, tenantId, id);
+      if (descendantIds.length) {
+        await prisma.professionalSpecialtyOption.updateMany({
+          where: { tenantId, id: { in: descendantIds } },
+          data: { isActive: false },
+        });
+      }
+    }
     res.json(updated);
   } catch (err) {
     console.error('professional-options patch error:', err);

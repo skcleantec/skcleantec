@@ -1841,7 +1841,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   const kids = listProfChildren(professionalOptions, root.id).filter((c) => c.isActive);
                   const showAsSection = root.isGroup || kids.length > 0;
                   if (showAsSection) {
-                    if (kids.length === 0) return null;
+                    if (!root.isActive || kids.length === 0) return null;
                     const subtree = collectSubtreeOptionIds(professionalOptions, root.id);
                     const catOpen = profCatOpen[root.id] ?? false;
                     return (

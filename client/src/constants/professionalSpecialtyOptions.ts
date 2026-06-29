@@ -79,6 +79,21 @@ export function listProfRootNodes(
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+/** 본인·상위가 모두 isActive일 때만 고객·관리 UI에서 “켜짐”으로 본다 */
+export function isProfOptionEffectivelyActive(
+  catalog: ProfessionalSpecialtyOptionDto[],
+  opt: ProfessionalSpecialtyOptionDto,
+): boolean {
+  if (opt.isActive === false) return false;
+  let cur: ProfessionalSpecialtyOptionDto | undefined = opt;
+  while (cur?.parentId) {
+    const parent = catalog.find((x) => x.id === cur!.parentId);
+    if (!parent || parent.isActive === false) return false;
+    cur = parent;
+  }
+  return true;
+}
+
 /** 같은 부모(루트는 parentId=null) 형제끼리 ↑↓ 이동 — sortOrder를 0..n-1로 재부여한 새 catalog */
 export function swapProfSiblingOrder(
   catalog: ProfessionalSpecialtyOptionDto[],

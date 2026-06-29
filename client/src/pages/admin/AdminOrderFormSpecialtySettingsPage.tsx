@@ -12,6 +12,8 @@ import {
   listProfRootNodes,
   profDepthFromRoot,
   swapProfSiblingOrder,
+  isProfOptionEffectivelyActive,
+  collectSubtreeOptionIds,
 } from '../../constants/professionalSpecialtyOptions';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { ProfOptionEmojiPicker } from '../../components/orderform/ProfOptionEmojiPicker';
@@ -79,7 +81,12 @@ function ProfOptionMoveButtons({
 }
 
 /** 발주서 설정 탭 — 전문 시공: 대분류 + 상세 옵션(가격) */
-export function AdminOrderFormSpecialtySettingsPage() {
+export function AdminOrderFormSpecialtySettingsPage({
+  onCatalogChanged,
+}: {
+  /** 저장·비활성·순서 변경 후 고객 미리보기 iframe 갱신 */
+  onCatalogChanged?: () => void | Promise<void>;
+} = {}) {
   const token = getToken();
   const [items, setItems] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,6 +106,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(() => new Set());
   const [editDraft, setEditDraft] = useState({
     label: '',
     priceHint: '',
@@ -129,6 +137,10 @@ export function AdminOrderFormSpecialtySettingsPage() {
     load();
   }, [load]);
 
+  const notifyCatalogChanged = useCallback(async () => {
+    await onCatalogChanged?.();
+  }, [onCatalogChanged]);
+
   const handleAddRoot = async () => {
     if (!token || !newLabel.trim()) {
       setError('항목명을 입력해주세요.');
@@ -149,6 +161,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
       setNewEmoji('');
       setNewColor('#2563eb');
       await load();
+      await notifyCatalogChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : '추가 실패');
     }
@@ -178,19 +191,39 @@ export function AdminOrderFormSpecialtySettingsPage() {
       setChildEmoji('');
       setChildColor('#6b7280');
       await load();
+      await notifyCatalogChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : '상세 추가 실패');
     }
   };
 
   const handleToggle = async (opt: ProfessionalSpecialtyOptionDto) => {
-    if (!token) return;
+    if (!token || togglingIds.has(opt.id)) return;
+    const currentlyActive = opt.isActive !== false;
+    const targetActive = !currentlyActive;
+    setTogglingIds((prev) => new Set(prev).add(opt.id));
     setError(null);
+    setItems((prev) => {
+      let next = prev.map((x) => (x.id === opt.id ? { ...x, isActive: targetActive } : x));
+      if (!targetActive) {
+        const desc = collectSubtreeOptionIds(prev, opt.id);
+        next = next.map((x) => (desc.includes(x.id) ? { ...x, isActive: false } : x));
+      }
+      return next;
+    });
     try {
-      await updateProfessionalOption(token, opt.id, { isActive: !opt.isActive });
+      await updateProfessionalOption(token, opt.id, { isActive: targetActive });
       await load();
+      await notifyCatalogChanged();
     } catch (e) {
+      await load();
       setError(e instanceof Error ? e.message : '수정 실패');
+    } finally {
+      setTogglingIds((prev) => {
+        const n = new Set(prev);
+        n.delete(opt.id);
+        return n;
+      });
     }
   };
 
@@ -208,6 +241,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
       await deleteProfessionalOption(token, opt.id);
       if (editingId === opt.id) setEditingId(null);
       await load();
+      await notifyCatalogChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : '삭제 실패');
     }
@@ -239,6 +273,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
       await Promise.all(
         siblings.map((opt, idx) => updateProfessionalOption(token, opt.id, { sortOrder: idx }))
       );
+      await notifyCatalogChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : '순서 변경 실패');
       await load();
@@ -266,6 +301,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
       });
       setEditingId(null);
       await load();
+      await notifyCatalogChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
     }
@@ -355,6 +391,8 @@ export function AdminOrderFormSpecialtySettingsPage() {
             {roots.map((root, rootIdx) => {
               const children = listProfChildren(items, root.id);
               const isSection = root.isGroup || children.length > 0;
+              const rootSelfOn = root.isActive !== false;
+              const rootEffective = isProfOptionEffectivelyActive(items, root);
               return (
                 <li
                   key={root.id}
@@ -456,7 +494,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
                           <div className="min-w-0">
                             <p
                               className={`text-xs font-medium leading-tight ${
-                                root.isActive ? 'text-gray-900' : 'text-gray-400 line-through'
+                                rootEffective ? 'text-gray-900' : 'text-gray-400 line-through'
                               }`}
                             >
                               {isSection && (
@@ -478,6 +516,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
                             </p>
                             <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
                               {rootIdx + 1}번째 · {root.id.slice(0, 8)}…
+                              {!rootEffective && rootSelfOn ? ' · 상위 비활성' : null}
                             </p>
                           </div>
                         </div>
@@ -491,10 +530,11 @@ export function AdminOrderFormSpecialtySettingsPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleToggle(root)}
-                            className="text-[11px] text-gray-600 px-1.5 py-0.5 border border-gray-300 rounded leading-none"
+                            onClick={() => void handleToggle(root)}
+                            disabled={togglingIds.has(root.id) || reordering}
+                            className="text-[11px] text-gray-600 px-1.5 py-0.5 border border-gray-300 rounded leading-none disabled:opacity-40"
                           >
-                            {root.isActive ? '비활성' : '활성'}
+                            {rootSelfOn ? '비활성' : '활성'}
                           </button>
                           <button
                             type="button"
@@ -516,6 +556,8 @@ export function AdminOrderFormSpecialtySettingsPage() {
                           {children.map((ch, chIdx) => {
                             const canAddGrandchild = profDepthFromRoot(items, ch.id) <= 1;
                             const grandkids = listProfChildren(items, ch.id);
+                            const chSelfOn = ch.isActive !== false;
+                            const chEffective = isProfOptionEffectivelyActive(items, ch);
                             return (
                               <div key={ch.id} className="space-y-0.5">
                                 {editingId === ch.id ? (
@@ -576,7 +618,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                         onMoveDown={() => void handleMoveSibling(root.id, ch.id, 1)}
                                       />
                                       <span
-                                        className={ch.isActive ? 'text-gray-800' : 'text-gray-400 line-through'}
+                                        className={chEffective ? 'text-gray-800' : 'text-gray-400 line-through'}
                                       >
                                         <span
                                           className="inline-block w-2 h-2 rounded-full mr-1 border border-gray-200 align-middle"
@@ -604,10 +646,11 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                       </button>
                                       <button
                                         type="button"
-                                        className="text-gray-500 px-1.5 py-0.5 border border-gray-200 rounded"
-                                        onClick={() => handleToggle(ch)}
+                                        className="text-gray-500 px-1.5 py-0.5 border border-gray-200 rounded disabled:opacity-40"
+                                        disabled={togglingIds.has(ch.id) || reordering}
+                                        onClick={() => void handleToggle(ch)}
                                       >
-                                        {ch.isActive ? '끄기' : '켜기'}
+                                        {chSelfOn ? '끄기' : '켜기'}
                                       </button>
                                       <button
                                         type="button"
@@ -621,8 +664,10 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                 )}
 
                                 <div className="ml-1.5 pl-1.5 border-l border-gray-100 space-y-0.5">
-                                  {grandkids.map((gc, gcIdx) =>
-                                    editingId === gc.id ? (
+                                  {grandkids.map((gc, gcIdx) => {
+                                    const gcSelfOn = gc.isActive !== false;
+                                    const gcEffective = isProfOptionEffectivelyActive(items, gc);
+                                    return editingId === gc.id ? (
                                       <div key={gc.id} className="space-y-0.5 bg-amber-50/50 p-1 rounded">
                                         <div className="flex flex-wrap gap-0.5">
                                           <input
@@ -688,7 +733,7 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                           />
                                           <span
                                             className={
-                                              gc.isActive ? 'text-gray-700' : 'text-gray-400 line-through'
+                                              gcEffective ? 'text-gray-700' : 'text-gray-400 line-through'
                                             }
                                           >
                                             <span
@@ -717,10 +762,11 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                           </button>
                                           <button
                                             type="button"
-                                            className="text-gray-500 px-1 py-0.5 border border-gray-200 rounded"
-                                            onClick={() => handleToggle(gc)}
+                                            className="text-gray-500 px-1 py-0.5 border border-gray-200 rounded disabled:opacity-40"
+                                            disabled={togglingIds.has(gc.id) || reordering}
+                                            onClick={() => void handleToggle(gc)}
                                           >
-                                            {gc.isActive ? '끄기' : '켜기'}
+                                            {gcSelfOn ? '끄기' : '켜기'}
                                           </button>
                                           <button
                                             type="button"
@@ -731,8 +777,8 @@ export function AdminOrderFormSpecialtySettingsPage() {
                                           </button>
                                         </span>
                                       </div>
-                                    )
-                                  )}
+                                    );
+                                  })}
 
                                   {canAddGrandchild ? (
                                     childParentId === ch.id ? (

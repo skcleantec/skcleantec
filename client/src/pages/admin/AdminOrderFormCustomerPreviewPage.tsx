@@ -648,7 +648,7 @@ export function AdminOrderFormCustomerPreviewPage() {
 
             {activePanel === 'specialty' && (
               <div>
-                <AdminOrderFormSpecialtySettingsPage />
+                <AdminOrderFormSpecialtySettingsPage onCatalogChanged={bumpIframe} />
               </div>
             )}
 

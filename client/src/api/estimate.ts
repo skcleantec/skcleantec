@@ -72,7 +72,10 @@ export async function updateEstimateOption(
     headers: headers(token),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('옵션 수정에 실패했습니다.');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '옵션 수정에 실패했습니다.');
+  }
   return res.json();
 }
 
