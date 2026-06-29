@@ -3,6 +3,7 @@
 export type InquiryCelebrateFeedPayload = {
   type: 'inquiry:celebrate';
   eventId: number;
+  tenantId: string;
   inquiryId: string;
   registrarName: string;
   customerName: string;
@@ -12,7 +13,7 @@ export type InquiryCelebrateFeedPayload = {
 
 const MAX_ROWS = 120;
 let seq = 0;
-const rows: { id: number; payload: InquiryCelebrateFeedPayload; at: number }[] = [];
+const rows: { id: number; tenantId: string; payload: InquiryCelebrateFeedPayload; at: number }[] = [];
 
 export function getCelebrationFeedHeadId(): number {
   return seq;
@@ -24,12 +25,12 @@ export function appendCelebrationToFeed(
   seq += 1;
   const payload: InquiryCelebrateFeedPayload = { ...base, eventId: seq };
   const now = Date.now();
-  rows.push({ id: seq, payload, at: now });
+  rows.push({ id: seq, tenantId: base.tenantId, payload, at: now });
   while (rows.length > MAX_ROWS) rows.shift();
   return payload;
 }
 
-export function listCelebrationFeedAfter(afterId: number): InquiryCelebrateFeedPayload[] {
-  if (!Number.isFinite(afterId) || afterId < 0) return [];
-  return rows.filter((r) => r.id > afterId).map((r) => r.payload);
+export function listCelebrationFeedAfter(afterId: number, tenantId: string): InquiryCelebrateFeedPayload[] {
+  if (!Number.isFinite(afterId) || afterId < 0 || !tenantId) return [];
+  return rows.filter((r) => r.id > afterId && r.tenantId === tenantId).map((r) => r.payload);
 }

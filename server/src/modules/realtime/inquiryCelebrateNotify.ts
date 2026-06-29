@@ -34,6 +34,7 @@ export async function notifyInquiryCelebrate(params: {
   }
   const payload = appendCelebrationToFeed({
     type: 'inquiry:celebrate',
+    tenantId: params.tenantId,
     inquiryId: params.inquiryId,
     registrarName,
     customerName: (params.customerName ?? '').trim() || DEFAULT_CUSTOMER,

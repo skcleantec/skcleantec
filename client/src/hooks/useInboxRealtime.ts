@@ -33,6 +33,8 @@ export type InquiryCelebratePayload = {
   type: 'inquiry:celebrate';
   /** Dedup + poll cursor (server assigns). */
   eventId?: number;
+  /** 멀티테넌트 격리 — 폴링·구버전 WS 호환 */
+  tenantId?: string;
   /** 접수 상세 딥링크 — 구 이벤트·테스트에는 없을 수 있음 */
   inquiryId?: string;
   registrarName: string;

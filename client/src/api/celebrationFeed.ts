@@ -7,6 +7,7 @@ function headers(token: string) {
 export type CelebrationFeedItem = {
   type: 'inquiry:celebrate';
   eventId?: number;
+  tenantId?: string;
   inquiryId?: string;
   registrarName: string;
   customerName: string;
