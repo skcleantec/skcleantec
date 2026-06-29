@@ -40,20 +40,13 @@ export async function getOrCreateEstimateConfig(db: Db, tenantId: string) {
 
 export async function seedProfessionalDefaultsForTenant(db: Db, tenantId: string): Promise<void> {
   for (const row of DEFAULT_PROFESSIONAL_OPTIONS) {
-    await db.professionalSpecialtyOption.upsert({
+    const exists = await db.professionalSpecialtyOption.findUnique({
       where: profOptionKey(tenantId, row.id),
-      update: {
-        label: row.label,
-        priceHint: row.priceHint,
-        emoji: row.emoji,
-        color: row.color,
-        sortOrder: row.sortOrder,
-        isActive: true,
-        parentId: null,
-        isGroup: false,
-        priceAmount: null,
-      },
-      create: {
+      select: { id: true },
+    });
+    if (exists) continue;
+    await db.professionalSpecialtyOption.create({
+      data: {
         tenantId,
         id: row.id,
         label: row.label,

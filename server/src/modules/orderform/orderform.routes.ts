@@ -70,7 +70,6 @@ import {
   getOrCreateEstimateConfig,
   getOrCreateOrderFormConfig,
   profOptionKey,
-  seedProfessionalDefaultsForTenant,
 } from '../tenants/tenantConfigSeed.service.js';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
 import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
@@ -664,11 +663,6 @@ async function buildEditableOrderPayload(
   form: Prisma.OrderFormGetPayload<{ include: { inquiries: true } }>,
   brandSlug?: string | null,
 ) {
-  try {
-    await seedProfessionalDefaultsForTenant(prisma, form.tenantId);
-  } catch (err) {
-    console.error('buildEditableOrderPayload ensure professional defaults:', err);
-  }
   const pendingRow = form.inquiries[0];
   const pendingInquiry = pendingRow ? mapPendingInquiry(pendingRow) : null;
 
@@ -1365,7 +1359,6 @@ router.get('/issue-form', authMiddleware, adminOrMarketer, async (req, res) => {
         `${tenantRow.name} 입주청소 발주서`,
       );
     }
-    await seedProfessionalDefaultsForTenant(prisma, tenantId);
   } catch (err) {
     console.error('issue-form ensure tenant defaults:', err);
   }
