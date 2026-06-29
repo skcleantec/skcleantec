@@ -79,7 +79,11 @@ function parseBranding(raw: unknown): OperatingCompanyConfig['branding'] | undef
 }
 
 function parseOrderForm(raw: unknown): OperatingCompanyConfig['orderForm'] | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
+  if (raw === undefined) return undefined;
+  if (raw == null || (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0)) {
+    return undefined;
+  }
+  if (typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const o = raw as Record<string, unknown>;
   const publicSubtitle = trimOptionalString(o.publicSubtitle, MAX_STRING);
   if (!publicSubtitle) return undefined;
@@ -87,7 +91,11 @@ function parseOrderForm(raw: unknown): OperatingCompanyConfig['orderForm'] | und
 }
 
 function parseInquiry(raw: unknown): OperatingCompanyConfig['inquiry'] | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
+  if (raw === undefined) return undefined;
+  if (raw == null || (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0)) {
+    return undefined;
+  }
+  if (typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const o = raw as Record<string, unknown>;
   const numberPrefix = trimOptionalString(o.numberPrefix, MAX_PREFIX);
   if (!numberPrefix) return undefined;
@@ -213,12 +221,17 @@ export function parseOperatingCompanyConfig(raw: unknown): OperatingCompanyConfi
   }
   const o = raw as Record<string, unknown>;
   const branding = parseBranding(o.branding);
-  const orderForm = parseOrderForm(o.orderForm);
-  const inquiry = parseInquiry(o.inquiry);
   const out: OperatingCompanyConfig = {};
   if (branding) out.branding = branding;
-  if (orderForm) out.orderForm = orderForm;
-  if (inquiry) out.inquiry = inquiry;
+  if ('orderForm' in o) {
+    out.orderForm = parseOrderForm(o.orderForm);
+  }
+  if ('inquiry' in o) {
+    out.inquiry = parseInquiry(o.inquiry);
+  } else {
+    const inquiry = parseInquiry(o.inquiry);
+    if (inquiry) out.inquiry = inquiry;
+  }
   if ('companyRegistration' in o) {
     out.companyRegistration = parseCompanyRegistration(o.companyRegistration) ?? {};
   }

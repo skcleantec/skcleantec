@@ -71,7 +71,7 @@ const SETTINGS_FIELDS: {
   {
     key: 'orderFormPublicSubtitle',
     label: '고객 발주서 부제',
-    hint: '고객이 여는 발주서 상단 안내 문구',
+    hint: '고객 발주서 상단 안내 — 저장 시 기본 영업 브랜드·고객 화면에 반영',
     placeholder: '예: 아래 내용을 확인 후 작성해 주세요',
   },
 ];

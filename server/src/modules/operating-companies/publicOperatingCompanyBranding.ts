@@ -14,12 +14,17 @@ export type PublicOperatingCompanyBrandingDto = {
 
 function toPublicBrandingDto(
   oc: ReturnType<typeof operatingCompanySummary>,
+  tenantFallback?: { displayName?: string; publicSubtitle?: string | null },
 ): PublicOperatingCompanyBrandingDto {
+  const ocSubtitle = oc.config.orderForm?.publicSubtitle?.trim() || null;
+  const fallbackSubtitle = tenantFallback?.publicSubtitle?.trim() || null;
+  const ocDisplay = oc.displayName?.trim() || '';
+  const fallbackDisplay = tenantFallback?.displayName?.trim() || '';
   return {
     operatingCompanyId: oc.id,
     slug: oc.slug,
-    displayName: oc.displayName,
-    publicSubtitle: oc.config.orderForm?.publicSubtitle?.trim() || null,
+    displayName: ocDisplay || fallbackDisplay || oc.name,
+    publicSubtitle: ocSubtitle || fallbackSubtitle,
   };
 }
 
@@ -33,7 +38,11 @@ export async function resolvePublicBrandingById(
     where: { id: operatingCompanyId.trim(), tenantId },
   });
   if (!row || !row.isActive) return null;
-  return toPublicBrandingDto(operatingCompanySummary(row));
+  const tenantConfig = await getTenantConfig(tenantId);
+  return toPublicBrandingDto(operatingCompanySummary(row), {
+    displayName: tenantConfig.branding?.displayName,
+    publicSubtitle: tenantConfig.orderForm?.publicSubtitle ?? null,
+  });
 }
 
 export async function resolvePublicBrandingBySlug(
@@ -45,7 +54,11 @@ export async function resolvePublicBrandingBySlug(
   try {
     const oc = await getOperatingCompanyBySlug(db, tenantId, brandSlug);
     if (!oc.isActive) return null;
-    return toPublicBrandingDto(oc);
+    const tenantConfig = await getTenantConfig(tenantId);
+    return toPublicBrandingDto(oc, {
+      displayName: tenantConfig.branding?.displayName,
+      publicSubtitle: tenantConfig.orderForm?.publicSubtitle ?? null,
+    });
   } catch {
     return null;
   }

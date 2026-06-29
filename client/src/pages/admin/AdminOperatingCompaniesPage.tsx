@@ -95,8 +95,8 @@ export function AdminOperatingCompaniesPage() {
     const companyRegistration = companyRegistrationFromForm(f.companyRegistration);
     return {
       branding: Object.keys(branding).length > 0 ? branding : undefined,
-      orderForm: f.publicSubtitle.trim() ? { publicSubtitle: f.publicSubtitle.trim() } : undefined,
-      inquiry: f.numberPrefix.trim() ? { numberPrefix: f.numberPrefix.trim() } : undefined,
+      orderForm: { publicSubtitle: f.publicSubtitle.trim() },
+      inquiry: { numberPrefix: f.numberPrefix.trim() },
       companyRegistration,
     };
   };

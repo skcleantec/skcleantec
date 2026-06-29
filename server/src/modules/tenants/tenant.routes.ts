@@ -57,7 +57,7 @@ router.get('/public-info', async (req, res) => {
     let displayName = config.branding?.displayName?.trim() || tenant.name;
     let loginSubtitle = config.branding?.loginSubtitle?.trim() || null;
     let brandSlug: string | null = null;
-    let publicSubtitle: string | null = null;
+    let publicSubtitle: string | null = config.orderForm?.publicSubtitle?.trim() || null;
     if (brandRaw) {
       const branding = await resolvePublicBrandingBySlug(prisma, tenant.id, brandRaw);
       if (branding) {
