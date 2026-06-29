@@ -242,6 +242,14 @@ export function AdminLayout() {
     celebAnimRef.current = setTimeout(() => setCelebration(null), 360);
   }, []);
 
+  const openCelebrateInquiry = useCallback(
+    (inquiryId: string) => {
+      closeCelebrateStrip();
+      navigate(`/admin/inquiries?openInquiry=${encodeURIComponent(inquiryId)}`);
+    },
+    [closeCelebrateStrip, navigate]
+  );
+
   const openCelebrateStrip = useCallback((p: InquiryCelebratePayload) => {
     setCelebration(p);
     setCelebrationOpen(true);
@@ -694,16 +702,36 @@ export function AdminLayout() {
         >
           <div className="min-h-0 overflow-hidden">
             <div
-              role="status"
-              aria-live="polite"
-              className="relative flex items-center justify-center px-8 py-2 sm:px-10 sm:py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white border-b border-amber-700/30"
+              className="relative bg-gradient-to-r from-amber-500 to-amber-600 text-white border-b border-amber-700/30"
             >
-              <p className="text-center text-xs sm:text-sm font-medium leading-snug max-w-4xl [text-wrap:pretty]">
-                {formatCelebrateBannerFromConfig(celebration)}
-              </p>
+              {celebration.inquiryId ? (
+                <button
+                  type="button"
+                  role="status"
+                  aria-live="polite"
+                  aria-label="접수 상세 열기"
+                  onClick={() => openCelebrateInquiry(celebration.inquiryId!)}
+                  className="flex w-full flex-col items-center justify-center px-8 py-2 sm:px-10 sm:py-2 hover:from-amber-600 hover:to-amber-700 bg-gradient-to-r from-amber-500 to-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80"
+                >
+                  <p className="text-center text-xs sm:text-sm font-medium leading-snug max-w-4xl [text-wrap:pretty]">
+                    {formatCelebrateBannerFromConfig(celebration)}
+                  </p>
+                  <span className="mt-0.5 text-[10px] text-amber-100/90">탭하여 접수 상세 열기</span>
+                </button>
+              ) : (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex items-center justify-center px-8 py-2 sm:px-10 sm:py-2"
+                >
+                  <p className="text-center text-xs sm:text-sm font-medium leading-snug max-w-4xl [text-wrap:pretty]">
+                    {formatCelebrateBannerFromConfig(celebration)}
+                  </p>
+                </div>
+              )}
               <button
                 type="button"
-                aria-label={'닫기'}
+                aria-label="닫기"
                 onClick={closeCelebrateStrip}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
               >

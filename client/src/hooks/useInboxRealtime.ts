@@ -33,6 +33,8 @@ export type InquiryCelebratePayload = {
   type: 'inquiry:celebrate';
   /** Dedup + poll cursor (server assigns). */
   eventId?: number;
+  /** 접수 상세 딥링크 — 구 이벤트·테스트에는 없을 수 있음 */
+  inquiryId?: string;
   registrarName: string;
   customerName: string;
   inquiryNumber: string | null;

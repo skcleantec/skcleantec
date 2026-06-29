@@ -227,6 +227,7 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
   });
   void notifyInquiryCelebrate({
     tenantId,
+    inquiryId: inquiry.id,
     createdById: inquiry.createdById,
     customerName: inquiry.customerName,
     inquiryNumber: inquiry.inquiryNumber,

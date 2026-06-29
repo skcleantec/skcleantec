@@ -2545,6 +2545,7 @@ router.post('/submit/:token', async (req, res) => {
   const celebrateRow = await prisma.inquiry.findFirst({
     where: { orderFormId: form.id },
     select: {
+      id: true,
       createdById: true,
       customerName: true,
       inquiryNumber: true,
@@ -2554,6 +2555,7 @@ router.post('/submit/:token', async (req, res) => {
   if (celebrateRow) {
     void notifyInquiryCelebrate({
       tenantId: submitTenantId,
+      inquiryId: celebrateRow.id,
       createdById: celebrateRow.createdById,
       customerName: celebrateRow.customerName,
       inquiryNumber: celebrateRow.inquiryNumber,

@@ -5,6 +5,7 @@ import { broadcastJsonToStaff } from './realtimeHub.js';
 export type InquiryCelebrateWsPayload = {
   type: 'inquiry:celebrate';
   eventId: number;
+  inquiryId: string;
   registrarName: string;
   customerName: string;
   inquiryNumber: string | null;
@@ -17,6 +18,7 @@ const DEFAULT_CUSTOMER = '\uACE0\uAC1D';
 /** Push celebration toast to connected ADMIN·MARKETER clients. */
 export async function notifyInquiryCelebrate(params: {
   tenantId: string;
+  inquiryId: string;
   createdById: string | null;
   customerName: string;
   inquiryNumber?: string | null;
@@ -32,6 +34,7 @@ export async function notifyInquiryCelebrate(params: {
   }
   const payload = appendCelebrationToFeed({
     type: 'inquiry:celebrate',
+    inquiryId: params.inquiryId,
     registrarName,
     customerName: (params.customerName ?? '').trim() || DEFAULT_CUSTOMER,
     inquiryNumber: params.inquiryNumber ?? null,
