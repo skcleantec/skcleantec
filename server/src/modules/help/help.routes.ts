@@ -3,12 +3,12 @@ import multer from 'multer';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { isUniversalDeveloperLoginId } from '../auth/developerUniversalAccess.js';
 import { resolveHelpScreenshotsDir } from './helpScreenshotsPath.js';
 import {
   allowedMarketerGuideScreenshotFilenames,
   loadMarketerGuideScreenshotCatalog,
 } from './marketerGuideScreenshots.js';
+import { canEditMarketerGuideScreenshots } from './marketerGuideScreenshotAuth.js';
 
 const router = express.Router();
 
@@ -67,13 +67,14 @@ function requireHelpEditPermission(req: any, res: Response, next: NextFunction) 
   next();
 }
 
-/** 마케터 HTML 가이드 스크린샷 교체 — pyo 등 UNIVERSAL_DEVELOPER_LOGIN_IDS 만 */
-function requirePyoDeveloperOnly(req: any, res: Response, next: NextFunction) {
+/** 마케터 HTML 가이드 스크린샷 교체 — pyo 등 개발자 loginId */
+async function requirePyoDeveloperOnly(req: any, res: Response, next: NextFunction) {
   const user = req.user;
   if (!user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  if (!isUniversalDeveloperLoginId(user.email)) {
+  const canEdit = await canEditMarketerGuideScreenshots(user);
+  if (!canEdit) {
     return res.status(403).json({ error: '스크린샷 교체 권한이 없습니다.' });
   }
   next();
@@ -106,8 +107,9 @@ const marketerGuideScreenshotUpload = multer({
 /**
  * GET /api/help/marketer-guide/can-edit-screenshots
  */
-router.get('/marketer-guide/can-edit-screenshots', authMiddleware, (req: any, res) => {
-  res.json({ canEdit: isUniversalDeveloperLoginId(req.user?.email) });
+router.get('/marketer-guide/can-edit-screenshots', authMiddleware, async (req: any, res) => {
+  const canEdit = await canEditMarketerGuideScreenshots(req.user);
+  res.json({ canEdit });
 });
 
 /**

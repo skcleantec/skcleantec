@@ -12,6 +12,7 @@ type MarketerGuideScreenshotEditorProps = {
 };
 
 const REPLACE_MESSAGE_TYPE = 'marketer-guide-replace-screenshot';
+const UPLOAD_FILE_MESSAGE_TYPE = 'marketer-guide-upload-file';
 
 function screenshotPreviewUrl(filename: string, version: number): string {
   return `/help/screenshots/${filename}?v=${version}`;
@@ -83,7 +84,26 @@ function injectIframeScreenshotOverlays(
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      window.parent.postMessage({ type: REPLACE_MESSAGE_TYPE, filename }, window.location.origin);
+      const input = doc.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/png,image/jpeg,image/webp,image/gif';
+      input.style.display = 'none';
+      doc.body.appendChild(input);
+      input.addEventListener(
+        'change',
+        () => {
+          const file = input.files?.[0];
+          if (file) {
+            window.parent.postMessage(
+              { type: UPLOAD_FILE_MESSAGE_TYPE, filename, file },
+              window.location.origin,
+            );
+          }
+          input.remove();
+        },
+        { once: true },
+      );
+      input.click();
     });
     wrap.appendChild(btn);
 
@@ -184,13 +204,22 @@ export function MarketerGuideScreenshotEditor({
     if (!canEdit) return;
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      const data = event.data as { type?: string; filename?: string };
-      if (data?.type !== REPLACE_MESSAGE_TYPE || !data.filename) return;
-      openFilePicker(data.filename);
+      const data = event.data as {
+        type?: string;
+        filename?: string;
+        file?: File;
+      };
+      if (data?.type === UPLOAD_FILE_MESSAGE_TYPE && data.filename && data.file instanceof File) {
+        void handleUpload(data.filename, data.file);
+        return;
+      }
+      if (data?.type === REPLACE_MESSAGE_TYPE && data.filename) {
+        openFilePicker(data.filename);
+      }
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [canEdit, openFilePicker]);
+  }, [canEdit, openFilePicker, handleUpload]);
 
   const attachIframeOverlays = useCallback(() => {
     const iframe = iframeRef.current;
@@ -206,7 +235,20 @@ export function MarketerGuideScreenshotEditor({
     return () => iframe.removeEventListener('load', attachIframeOverlays);
   }, [iframeRef, canEdit, attachIframeOverlays]);
 
-  if (!canEdit || !activeChapter || chapterItems.length === 0) return null;
+  if (!canEdit) return null;
+
+  if (!activeChapter || chapterItems.length === 0) {
+    return (
+      <div className="mt-2 rounded-xl border border-sky-200 bg-sky-50/90 px-3 py-2.5 sm:px-4">
+        <p className="text-fluid-xs font-semibold text-sky-950">스크린샷 교체 (개발자)</p>
+        <p className="mt-0.5 text-fluid-2xs text-sky-800">
+          {activeChapter
+            ? '이 장(01·구조 설명)에는 스크린샷이 없습니다. 왼쪽 목차에서 02장 이상을 선택하세요.'
+            : '장을 선택하면 스크린샷을 교체할 수 있습니다.'}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-2 rounded-xl border border-sky-200 bg-sky-50/90 shadow-sm">

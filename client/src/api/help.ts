@@ -113,10 +113,21 @@ export async function checkMarketerGuideScreenshotEditPermission(): Promise<{ ca
 }
 
 export async function fetchMarketerGuideScreenshotCatalog(): Promise<MarketerGuideScreenshotItem[]> {
-  const res = await fetch(`${API_BASE}/api/help/marketer-guide/screenshots`);
-  if (!res.ok) throw new Error('스크린샷 목록을 불러올 수 없습니다.');
-  const data = (await res.json()) as { items: MarketerGuideScreenshotItem[] };
-  return data.items ?? [];
+  try {
+    const res = await fetch(`${API_BASE}/api/help/marketer-guide/screenshots`);
+    if (res.ok) {
+      const data = (await res.json()) as { items: MarketerGuideScreenshotItem[] };
+      if (Array.isArray(data.items) && data.items.length > 0) return data.items;
+    }
+  } catch {
+    /* static fallback */
+  }
+
+  const staticRes = await fetch('/help/marketer-guide.screenshots.json');
+  if (!staticRes.ok) throw new Error('스크린샷 목록을 불러올 수 없습니다.');
+  const items = (await staticRes.json()) as MarketerGuideScreenshotItem[];
+  if (!Array.isArray(items)) throw new Error('스크린샷 목록 형식이 올바르지 않습니다.');
+  return items;
 }
 
 export async function uploadMarketerGuideScreenshot(
