@@ -56,7 +56,7 @@ import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleT
 import { buildSlotOccupiedLeaderIdsForDay } from '../../utils/scheduleSlotOccupancy';
 import { formatPreferredDateInputYmd, formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquirySourceLabel, inquiryEditFormAddress, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
-import { isRealCustomerAddress } from '@shared/orderFormPendingAddress';
+import { isRealCustomerAddress, MANUAL_INTAKE_PLACEHOLDER_ADDRESS } from '@shared/orderFormPendingAddress';
 import {
   formatInquiryAreaKoShortFromEditStrings,
   inquiryAreaEditFormStringsFromItem,
@@ -316,9 +316,28 @@ type EditFormFields = {
   professionalOptionIds: string[];
 };
 
+const MANUAL_INTAKE_DEFAULT_NAME = '수기 접수';
+const MANUAL_INTAKE_DEFAULT_PHONE = '-';
+
+function applyManualIntakeFieldDefaults(
+  patch: Record<string, unknown>,
+  editForm: EditFormFields,
+): void {
+  const name = editForm.customerName.trim();
+  const phone = editForm.customerPhone.trim();
+  const address = editForm.address.trim();
+  if (!name) patch.customerName = MANUAL_INTAKE_DEFAULT_NAME;
+  if (!phone) patch.customerPhone = MANUAL_INTAKE_DEFAULT_PHONE;
+  if (!isRealCustomerAddress(address)) patch.address = MANUAL_INTAKE_PLACEHOLDER_ADDRESS;
+}
+
 function buildPatchFromEditForm(
   editForm: EditFormFields,
-  opts?: { includeCreatedById?: boolean; externalTeamLeaderId?: string | null }
+  opts?: {
+    includeCreatedById?: boolean;
+    externalTeamLeaderId?: string | null;
+    manualIntake?: boolean;
+  }
 ): Record<string, unknown> {
   const parseWon = (s: string) => {
     const t = s.replace(/,/g, '').trim();
@@ -425,6 +444,9 @@ function buildPatchFromEditForm(
       externalTeamLeaderId: opts?.externalTeamLeaderId,
     });
   }
+  if (opts?.manualIntake) {
+    applyManualIntakeFieldDefaults(patch, editForm);
+  }
   return patch;
 }
 
@@ -471,15 +493,8 @@ function buildCreatePostBodyForMode(
   opts?: { externalIntake?: boolean }
 ): Record<string, unknown> {
   if (!opts?.externalIntake) return buildCreatePostBody(editForm);
-  const safeName = editForm.customerName.trim() || '수기 접수';
-  const safePhone = editForm.customerPhone.trim() || '-';
-  const safeAddress = editForm.address.trim() || '주소 미입력';
-  const body = buildCreatePostBody({
-    ...editForm,
-    customerName: safeName,
-    customerPhone: safePhone,
-    address: safeAddress,
-  });
+  const body = buildCreatePostBody(editForm);
+  applyManualIntakeFieldDefaults(body, editForm);
   return {
     ...body,
     source: MANUAL_INTAKE_SOURCE_VALUE,
@@ -1764,6 +1779,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const patch = buildPatchFromEditForm(editForm, {
         includeCreatedById: canEditMarketer,
         externalTeamLeaderId: resolvedExternalLeadId,
+        manualIntake: isExternalIntakeMode,
       }) as Record<string, unknown>;
       const requestedStatus = String(patch.status ?? '');
       const isCancelConfirm = requestedStatus === 'CANCEL_CONFIRMED';

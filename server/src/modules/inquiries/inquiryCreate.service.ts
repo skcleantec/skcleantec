@@ -85,7 +85,10 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
       : 'RECEIVED';
 
   const createAddress = String(body.address ?? '').trim();
-  const createAddressError = validateInquiryAddressForStatus(status, createAddress);
+  const createSource = body.source != null ? String(body.source) : null;
+  const createAddressError = validateInquiryAddressForStatus(status, createAddress, {
+    source: createSource,
+  });
   if (createAddressError) {
     throw new InquiryCreateError(createAddressError);
   }

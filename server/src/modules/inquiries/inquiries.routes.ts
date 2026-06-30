@@ -762,9 +762,16 @@ router.patch('/:id', async (req, res) => {
         ? data.address
         : inquiry.address
       : inquiry.address;
+  const mergedSource =
+    data.source !== undefined
+      ? data.source == null || data.source === ''
+        ? null
+        : String(data.source)
+      : inquiry.source;
   const addressStatusError = validateInquiryAddressForStatus(
     tentativeMergedStatus,
     mergedAddress,
+    { source: mergedSource },
   );
   if (addressStatusError) {
     res.status(400).json({ error: addressStatusError });

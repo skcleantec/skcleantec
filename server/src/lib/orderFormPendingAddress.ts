@@ -4,15 +4,34 @@
  */
 export const ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS = '(발주서 링크 발급)';
 
+/** 관리자 수기(간편) 등록 — 고객 주소 미입력 시 DB·목록용 내부 표식 */
+export const MANUAL_INTAKE_PLACEHOLDER_ADDRESS = '주소 미입력';
+
 export function isOrderFormPendingPlaceholderAddress(
   address: string | null | undefined,
 ): boolean {
   return (address ?? '').trim() === ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS;
 }
 
+export function isManualIntakePlaceholderAddress(
+  address: string | null | undefined,
+): boolean {
+  return (address ?? '').trim() === MANUAL_INTAKE_PLACEHOLDER_ADDRESS;
+}
+
+/** 구 `외부업체…` 출처와 신규 `수기등록` — 간편 등록(필수 항목 생략) 플로우 */
+export function isManualIntakeSource(source: string | null | undefined): boolean {
+  const s = source ?? '';
+  return s.includes('외부업체') || s.includes('수기등록');
+}
+
 export function isRealCustomerAddress(address: string | null | undefined): boolean {
   const t = (address ?? '').trim();
-  return t.length > 0 && !isOrderFormPendingPlaceholderAddress(t);
+  return (
+    t.length > 0 &&
+    !isOrderFormPendingPlaceholderAddress(t) &&
+    !isManualIntakePlaceholderAddress(t)
+  );
 }
 
 export const INQUIRY_STATUSES_ALLOWING_PLACEHOLDER_ADDRESS = [
@@ -25,7 +44,11 @@ export const INQUIRY_STATUSES_ALLOWING_PLACEHOLDER_ADDRESS = [
 export function validateInquiryAddressForStatus(
   status: string,
   address: string | null | undefined,
+  opts?: { source?: string | null },
 ): string | null {
+  if (isManualIntakeSource(opts?.source)) {
+    return null;
+  }
   if (
     (INQUIRY_STATUSES_ALLOWING_PLACEHOLDER_ADDRESS as readonly string[]).includes(status)
   ) {
@@ -41,6 +64,7 @@ export function customerFormAddressFromInquiry(
   address: string | null | undefined,
 ): string {
   if (isOrderFormPendingPlaceholderAddress(address)) return '';
+  if (isManualIntakePlaceholderAddress(address)) return '';
   return (address ?? '').trim();
 }
 
