@@ -1,39 +1,68 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import {
-  checkMarketerGuideScreenshotEditPermission,
-  uploadMarketerGuideScreenshot,
-} from '../../api/help';
+import { checkMarketerGuideScreenshotEditPermission } from '../../api/help';
 
 type MarketerGuideScreenshotEditorProps = {
   activeChapter: string | null;
   iframeRef: RefObject<HTMLIFrameElement | null>;
 };
 
-const UPLOAD_FILE_MESSAGE_TYPE = 'marketer-guide-upload-file';
-const UPLOAD_BUFFER_MESSAGE_TYPE = 'marketer-guide-upload-buffer';
+const ADMIN_TOKEN_KEY = 'sk_admin_token';
 
 function parseScreenshotFilename(src: string): string | null {
   const match = src.match(/screenshots\/([^/?#]+)/i);
   return match?.[1] ?? null;
 }
 
-function refreshIframeScreenshotSrc(
-  iframe: HTMLIFrameElement,
-  filename: string | null,
-  previewVersion: number,
-) {
-  const doc = iframe.contentDocument;
-  if (!doc) return;
-  doc.querySelectorAll('img[src*="screenshots/"]').forEach((node) => {
-    const img = node as HTMLImageElement;
-    const imgFile = parseScreenshotFilename(img.getAttribute('src') ?? img.src ?? '');
-    if (!imgFile) return;
-    if (filename && imgFile !== filename) return;
-    img.src = `./screenshots/${imgFile}?v=${previewVersion}`;
-  });
+function readAdminToken(doc: Document): string | null {
+  const win = doc.defaultView;
+  if (!win) return null;
+  try {
+    return win.localStorage.getItem(ADMIN_TOKEN_KEY) || win.sessionStorage.getItem(ADMIN_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** iframe 안에서 직접 업로드 — postMessage·ArrayBuffer 없이 연속 교체 보장 */
+function uploadScreenshotInIframe(doc: Document, filename: string, file: File): Promise<number> {
+  const token = readAdminToken(doc);
+  if (!token) {
+    return Promise.reject(new Error('로그인이 필요합니다. 다시 로그인한 뒤 시도해 주세요.'));
+  }
+
+  const formData = new FormData();
+  formData.append('screenshot', file);
+
+  return fetch(`/api/help/marketer-guide/screenshot/${encodeURIComponent(filename)}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: '업로드 실패' }));
+        throw new Error(typeof err.error === 'string' ? err.error : '업로드 실패');
+      }
+      return res.json() as Promise<{ url?: string }>;
+    })
+    .then(() => {
+      const version = Date.now();
+      doc.querySelectorAll('img[src*="screenshots/"]').forEach((node) => {
+        const img = node as HTMLImageElement;
+        const imgFile = parseScreenshotFilename(img.getAttribute('src') ?? img.src ?? '');
+        if (!imgFile || imgFile !== filename) return;
+        img.src = `./screenshots/${imgFile}?v=${version}`;
+      });
+      return version;
+    });
 }
 
 function openIframeFilePicker(doc: Document, filename: string) {
+  const win = doc.defaultView;
+  if (!win) return;
+
+  if (win.document.body.dataset.guideScreenshotUploading === '1') return;
+
   const input = doc.createElement('input');
   input.type = 'file';
   input.accept = 'image/png,image/jpeg,image/webp,image/gif';
@@ -42,28 +71,24 @@ function openIframeFilePicker(doc: Document, filename: string) {
   input.addEventListener(
     'change',
     () => {
-      const file = input.files?.[0];
-      if (file) {
-        void file.arrayBuffer().then((buffer) => {
-          window.parent.postMessage(
-            {
-              type: UPLOAD_BUFFER_MESSAGE_TYPE,
-              filename,
-              buffer,
-              mimeType: file.type || 'image/png',
-            },
-            window.location.origin,
-          );
-        });
-      }
+      const picked = input.files?.[0];
       input.remove();
+      if (!picked) return;
+
+      win.document.body.dataset.guideScreenshotUploading = '1';
+      void uploadScreenshotInIframe(doc, filename, picked)
+        .catch((err: Error) => {
+          win.alert(err.message || '업로드 실패');
+        })
+        .finally(() => {
+          delete win.document.body.dataset.guideScreenshotUploading;
+        });
     },
     { once: true },
   );
   input.click();
 }
 
-/** 장당 1회 — previewVersion 변경 시 전체 재주입하지 않음(2번째 교체 실패 방지) */
 function injectIframeScreenshotOverlays(
   iframe: HTMLIFrameElement,
   chapterId: string,
@@ -74,16 +99,6 @@ function injectIframeScreenshotOverlays(
 
   const slide = doc.getElementById(`slide-${chapterId}`);
   if (!slide) return;
-
-  if (slide.dataset.guideScreenshotEditBound === chapterId) {
-    refreshIframeScreenshotSrc(iframe, null, previewVersion);
-    return;
-  }
-
-  slide.dataset.guideScreenshotEditBound = chapterId;
-  doc.querySelectorAll('[data-guide-screenshot-edit-bound]').forEach((el) => {
-    if (el !== slide) delete (el as HTMLElement).dataset.guideScreenshotEditBound;
-  });
 
   if (!doc.getElementById('guide-screenshot-edit-style')) {
     const style = doc.createElement('style');
@@ -140,23 +155,10 @@ function injectIframeScreenshotOverlays(
     });
     wrap.appendChild(btn);
 
-    img.src = `./screenshots/${filename}?v=${previewVersion}`;
+    if (!img.src.includes('?v=')) {
+      img.src = `./screenshots/${filename}?v=${previewVersion}`;
+    }
   });
-
-  slide.setAttribute('data-guide-screenshot-edit-bound', chapterId);
-}
-
-function isArrayBuffer(value: unknown): value is ArrayBuffer {
-  return value instanceof ArrayBuffer;
-}
-
-function isUploadFile(value: unknown): value is Blob {
-  return (
-    value != null &&
-    typeof value === 'object' &&
-    'arrayBuffer' in value &&
-    typeof (value as Blob).arrayBuffer === 'function'
-  );
 }
 
 /** iframe 오버레이만 — UI 박스 없음 */
@@ -166,7 +168,6 @@ export function MarketerGuideScreenshotEditor({
 }: MarketerGuideScreenshotEditorProps) {
   const [canEdit, setCanEdit] = useState(false);
   const previewVersionRef = useRef(Date.now());
-  const uploadingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -177,58 +178,6 @@ export function MarketerGuideScreenshotEditor({
       cancelled = true;
     };
   }, []);
-
-  const handleUpload = useCallback(
-    async (filename: string, file: Blob) => {
-      if (uploadingRef.current) return;
-      uploadingRef.current = true;
-      try {
-        const uploadFile =
-          file instanceof File
-            ? file
-            : new File([file], filename, { type: file.type || 'image/png' });
-        await uploadMarketerGuideScreenshot(filename, uploadFile);
-        const version = Date.now();
-        previewVersionRef.current = version;
-        const iframe = iframeRef.current;
-        if (iframe) {
-          refreshIframeScreenshotSrc(iframe, filename, version);
-        }
-      } catch (err) {
-        alert((err as Error).message);
-      } finally {
-        uploadingRef.current = false;
-      }
-    },
-    [iframeRef],
-  );
-
-  useEffect(() => {
-    if (!canEdit) return;
-    const onMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      const data = event.data as {
-        type?: string;
-        filename?: string;
-        file?: unknown;
-        buffer?: unknown;
-        mimeType?: string;
-      };
-      if (!data?.filename) return;
-
-      if (data.type === UPLOAD_BUFFER_MESSAGE_TYPE && isArrayBuffer(data.buffer)) {
-        const mime = typeof data.mimeType === 'string' ? data.mimeType : 'image/png';
-        void handleUpload(data.filename, new File([data.buffer], data.filename, { type: mime }));
-        return;
-      }
-
-      if (data.type === UPLOAD_FILE_MESSAGE_TYPE && isUploadFile(data.file)) {
-        void handleUpload(data.filename, data.file);
-      }
-    };
-    window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
-  }, [canEdit, handleUpload]);
 
   const attachIframeOverlays = useCallback(() => {
     const iframe = iframeRef.current;

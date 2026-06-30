@@ -3,7 +3,11 @@ import multer from 'multer';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { resolveHelpScreenshotsDir, helpScreenshotFileFilter } from './helpScreenshotsPath.js';
+import {
+  helpScreenshotMirrorDirs,
+  resolveHelpScreenshotsDir,
+  helpScreenshotFileFilter,
+} from './helpScreenshotsPath.js';
 import {
   allowedMarketerGuideScreenshotFilenames,
   isAllowedMarketerGuideScreenshotFilename,
@@ -151,21 +155,14 @@ router.post(
       }
 
       const filename = req.file.filename;
-      const publicRoots = [
-        path.join(process.cwd(), 'client', 'public', 'help', 'screenshots'),
-        path.join(process.cwd(), '..', 'client', 'public', 'help', 'screenshots'),
-      ];
-      const servedDir = resolveHelpScreenshotsDir();
-      const sourcePath = path.join(servedDir, filename);
+      const sourcePath = path.join(resolveHelpScreenshotsDir(), filename);
 
-      for (const publicDir of publicRoots) {
+      for (const mirrorDir of helpScreenshotMirrorDirs()) {
         try {
-          if (!publicDir.includes(`${path.sep}public${path.sep}`)) continue;
-          await fs.mkdir(publicDir, { recursive: true });
-          await fs.copyFile(sourcePath, path.join(publicDir, filename));
-          break;
+          await fs.mkdir(mirrorDir, { recursive: true });
+          await fs.copyFile(sourcePath, path.join(mirrorDir, filename));
         } catch {
-          /* 로컬 dev용 — 프로덕션 컨테이너에서는 무시 */
+          /* Volume·dist·public 중 쓰기 불가 경로는 무시 */
         }
       }
 

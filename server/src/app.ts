@@ -54,6 +54,7 @@ import platformSupportAccessRoutes from './modules/platform/platformSupportAcces
 import platformTenantPartnershipsRoutes from './modules/platform/platformTenantPartnerships.routes.js';
 import platformDbMarketplaceRoutes from './modules/db-marketplace/platformDbMarketplace.routes.js';
 import helpRoutes from './modules/help/help.routes.js';
+import { resolveHelpScreenshotFilePath } from './modules/help/helpScreenshotsPath.js';
 import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLeaderTraining.admin.routes.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
@@ -171,11 +172,26 @@ const clientDistCandidates = [
 const clientDir = clientDistCandidates.find((d) => fs.existsSync(d));
 if (clientDir) {
   console.info('[app] client 정적 파일:', clientDir);
+
+  /** 교체 스크린샷 — Volume·최신 파일 우선, 브라우저 캐시 방지 */
+  app.get('/help/screenshots/:filename', (req, res, next) => {
+    const filePath = resolveHelpScreenshotFilePath(req.params.filename);
+    if (!filePath) return next();
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.sendFile(filePath, (err) => {
+      if (err) next(err);
+    });
+  });
+
   app.use(
     express.static(clientDir, {
       setHeaders(res, filePath) {
         const base = path.basename(filePath);
         if (base === 'index.html') {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          return;
+        }
+        if (filePath.includes(`${path.sep}help${path.sep}screenshots${path.sep}`)) {
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
           return;
         }
