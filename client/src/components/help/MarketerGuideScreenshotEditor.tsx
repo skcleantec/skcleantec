@@ -76,6 +76,8 @@ function injectIframeScreenshotOverlays(
       wrap = newWrap;
     }
 
+    wrap.querySelectorAll('.guide-screenshot-edit-btn').forEach((el) => el.remove());
+
     const btn = doc.createElement('button');
     btn.type = 'button';
     btn.className = 'guide-screenshot-edit-btn';
@@ -111,18 +113,28 @@ function injectIframeScreenshotOverlays(
   });
 }
 
+function isUploadFile(value: unknown): value is Blob {
+  return (
+    value != null &&
+    typeof value === 'object' &&
+    'arrayBuffer' in value &&
+    typeof (value as Blob).arrayBuffer === 'function'
+  );
+}
+
 function refreshIframeScreenshotSrc(
   iframe: HTMLIFrameElement,
-  chapterId: string,
+  filename: string | null,
   previewVersion: number,
 ) {
   const doc = iframe.contentDocument;
   if (!doc) return;
-  const slide = doc.getElementById(`slide-${chapterId}`);
-  slide?.querySelectorAll('img[src*="screenshots/"]').forEach((node) => {
+  doc.querySelectorAll('img[src*="screenshots/"]').forEach((node) => {
     const img = node as HTMLImageElement;
-    const filename = parseScreenshotFilename(img.getAttribute('src') ?? '');
-    if (filename) img.src = `./screenshots/${filename}?v=${previewVersion}`;
+    const imgFile = parseScreenshotFilename(img.getAttribute('src') ?? '');
+    if (!imgFile) return;
+    if (filename && imgFile !== filename) return;
+    img.src = `./screenshots/${imgFile}?v=${previewVersion}`;
   });
 }
 
@@ -172,16 +184,20 @@ export function MarketerGuideScreenshotEditor({
   }, [items, activeChapter]);
 
   const handleUpload = useCallback(
-    async (filename: string, file: File) => {
+    async (filename: string, file: Blob) => {
       setUploadingFilename(filename);
       setSuccessFilename(null);
       try {
-        await uploadMarketerGuideScreenshot(filename, file);
+        const uploadFile =
+          file instanceof File
+            ? file
+            : new File([file], filename, { type: file.type || 'image/png' });
+        await uploadMarketerGuideScreenshot(filename, uploadFile);
         const version = Date.now();
         setPreviewVersion(version);
         const iframe = iframeRef.current;
-        if (iframe && activeChapter) {
-          refreshIframeScreenshotSrc(iframe, activeChapter, version);
+        if (iframe) {
+          refreshIframeScreenshotSrc(iframe, filename, version);
         }
         setSuccessFilename(filename);
         window.setTimeout(() => setSuccessFilename((prev) => (prev === filename ? null : prev)), 2500);
@@ -193,7 +209,7 @@ export function MarketerGuideScreenshotEditor({
         if (input) input.value = '';
       }
     },
-    [activeChapter, iframeRef],
+    [iframeRef],
   );
 
   const openFilePicker = useCallback((filename: string) => {
@@ -209,7 +225,7 @@ export function MarketerGuideScreenshotEditor({
         filename?: string;
         file?: File;
       };
-      if (data?.type === UPLOAD_FILE_MESSAGE_TYPE && data.filename && data.file instanceof File) {
+      if (data?.type === UPLOAD_FILE_MESSAGE_TYPE && data.filename && isUploadFile(data.file)) {
         void handleUpload(data.filename, data.file);
         return;
       }
@@ -243,7 +259,7 @@ export function MarketerGuideScreenshotEditor({
         <p className="text-fluid-xs font-semibold text-sky-950">스크린샷 교체 (개발자)</p>
         <p className="mt-0.5 text-fluid-2xs text-sky-800">
           {activeChapter
-            ? '이 장(01·구조 설명)에는 스크린샷이 없습니다. 왼쪽 목차에서 02장 이상을 선택하세요.'
+            ? `${activeChapter}장에는 교체 가능한 스크린샷이 없습니다. 목록이 비어 있으면 페이지를 새로고침(F5)한 뒤 다시 시도해 주세요.`
             : '장을 선택하면 스크린샷을 교체할 수 있습니다.'}
         </p>
       </div>

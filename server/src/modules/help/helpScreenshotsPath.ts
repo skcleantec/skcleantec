@@ -57,6 +57,21 @@ export function resolveHelpScreenshotsDir(): string {
   return path.join(cwdFallback(), 'help', 'screenshots');
 }
 
+/** dist·public 후보 경로 전부 (구 dist만 있을 때 public 최신 JSON과 병합) */
+export function helpStaticPathCandidates(...segments: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (root: string) => {
+    const candidate = path.normalize(path.join(root, ...segments));
+    if (seen.has(candidate)) return;
+    seen.add(candidate);
+    if (fs.existsSync(candidate)) out.push(candidate);
+  };
+  for (const root of clientPublicRoots()) add(root);
+  for (const root of clientDistRoots()) add(root);
+  return out;
+}
+
 /** help 정적 JSON·HTML — dist 우선, 없으면 public (로컬 dev) */
 export function resolveHelpStaticPath(...segments: string[]): string {
   for (const root of clientDistRoots()) {

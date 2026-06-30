@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { resolveHelpStaticPath } from './helpScreenshotsPath.js';
+import { helpStaticPathCandidates } from './helpScreenshotsPath.js';
 
 export type MarketerGuideScreenshotMeta = {
   filename: string;
@@ -24,35 +24,70 @@ export const MARKETER_GUIDE_SCREENSHOT_FILENAMES = [
   's16_team_leaders.png',
 ] as const;
 
-function marketerGuideScreenshotsJsonPath(): string {
-  return resolveHelpStaticPath('help', 'marketer-guide.screenshots.json');
+function normalizeCatalogEntry(raw: unknown): MarketerGuideScreenshotMeta | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const row = raw as Partial<MarketerGuideScreenshotMeta>;
+  const filename = String(row.filename ?? '').trim();
+  if (!filename) return null;
+  const chapterIds = Array.isArray(row.chapterIds)
+    ? row.chapterIds.filter((id): id is string => typeof id === 'string' && /^\d{2}$/.test(id))
+    : [];
+  return {
+    filename,
+    label: String(row.label ?? filename).trim() || filename,
+    chapterIds,
+  };
 }
 
-let cachedAllowed: Set<string> | null = null;
+async function readMarketerGuideCatalogFromDisk(): Promise<MarketerGuideScreenshotMeta[]> {
+  const paths = helpStaticPathCandidates('help', 'marketer-guide.screenshots.json');
+  const merged: MarketerGuideScreenshotMeta[] = [];
+
+  for (const jsonPath of paths) {
+    try {
+      const raw = await fs.readFile(jsonPath, 'utf8');
+      const data = JSON.parse(raw) as unknown[];
+      if (!Array.isArray(data)) continue;
+      for (const entry of data) {
+        const item = normalizeCatalogEntry(entry);
+        if (!item) continue;
+        const idx = merged.findIndex((m) => m.filename === item.filename);
+        if (idx < 0) {
+          merged.push(item);
+        } else {
+          merged[idx] = {
+            ...merged[idx],
+            label: merged[idx].label || item.label,
+            chapterIds: Array.from(new Set([...merged[idx].chapterIds, ...item.chapterIds])).sort(),
+          };
+        }
+      }
+    } catch {
+      /* try next path */
+    }
+  }
+
+  return merged;
+}
 
 export async function loadMarketerGuideScreenshotCatalog(): Promise<MarketerGuideScreenshotMeta[]> {
-  try {
-    const jsonPath = marketerGuideScreenshotsJsonPath();
-    const raw = await fs.readFile(jsonPath, 'utf8');
-    const data = JSON.parse(raw) as MarketerGuideScreenshotMeta[];
-    if (!Array.isArray(data)) {
-      throw new Error('marketer-guide.screenshots.json 형식 오류');
-    }
-    return data;
-  } catch {
-    return MARKETER_GUIDE_SCREENSHOT_FILENAMES.map((filename) => ({
-      filename,
-      label: filename,
-      chapterIds: [],
-    }));
-  }
+  const fromDisk = await readMarketerGuideCatalogFromDisk();
+  if (fromDisk.length > 0) return fromDisk;
+
+  return MARKETER_GUIDE_SCREENSHOT_FILENAMES.map((filename) => ({
+    filename,
+    label: filename,
+    chapterIds: [],
+  }));
 }
 
 export async function allowedMarketerGuideScreenshotFilenames(): Promise<Set<string>> {
-  if (cachedAllowed) return cachedAllowed;
   const catalog = await loadMarketerGuideScreenshotCatalog();
-  cachedAllowed = new Set(catalog.map((item) => item.filename));
-  return cachedAllowed;
+  const allowed = new Set(catalog.map((item) => item.filename));
+  for (const filename of MARKETER_GUIDE_SCREENSHOT_FILENAMES) {
+    allowed.add(filename);
+  }
+  return allowed;
 }
 
 export function isAllowedMarketerGuideScreenshotFilename(filename: string): boolean {

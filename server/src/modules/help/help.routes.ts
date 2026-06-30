@@ -6,6 +6,7 @@ import { authMiddleware } from '../auth/auth.middleware.js';
 import { resolveHelpScreenshotsDir, helpScreenshotFileFilter } from './helpScreenshotsPath.js';
 import {
   allowedMarketerGuideScreenshotFilenames,
+  isAllowedMarketerGuideScreenshotFilename,
   loadMarketerGuideScreenshotCatalog,
 } from './marketerGuideScreenshots.js';
 import { canEditMarketerGuideScreenshots } from './marketerGuideScreenshotAuth.js';
@@ -123,7 +124,7 @@ router.post(
     try {
       const { filename } = req.params;
       const allowed = await allowedMarketerGuideScreenshotFilenames();
-      if (!allowed.has(filename)) {
+      if (!isAllowedMarketerGuideScreenshotFilename(filename) && !allowed.has(filename)) {
         return res.status(400).json({ error: '허용되지 않은 파일명입니다.' });
       }
       next();

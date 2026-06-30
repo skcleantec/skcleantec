@@ -112,22 +112,75 @@ export async function checkMarketerGuideScreenshotEditPermission(): Promise<{ ca
   }
 }
 
+function normalizeMarketerGuideCatalog(items: unknown): MarketerGuideScreenshotItem[] {
+  if (!Array.isArray(items)) return [];
+  const out: MarketerGuideScreenshotItem[] = [];
+  for (const raw of items) {
+    if (!raw || typeof raw !== 'object') continue;
+    const row = raw as Partial<MarketerGuideScreenshotItem>;
+    const filename = String(row.filename ?? '').trim();
+    if (!filename) continue;
+    const chapterIds = Array.isArray(row.chapterIds)
+      ? row.chapterIds.filter((id): id is string => typeof id === 'string' && /^\d{2}$/.test(id))
+      : [];
+    out.push({
+      filename,
+      label: String(row.label ?? filename).trim() || filename,
+      chapterIds,
+    });
+  }
+  return out;
+}
+
+/** 정적 JSON(브라우저와 동일) 우선 + API 병합 — 구 dist 캐시로 4장 이후 chapterIds 누락 방지 */
+function mergeMarketerGuideCatalogs(
+  ...sources: MarketerGuideScreenshotItem[][]
+): MarketerGuideScreenshotItem[] {
+  const byFile = new Map<string, MarketerGuideScreenshotItem>();
+  for (const list of sources) {
+    for (const item of list) {
+      const prev = byFile.get(item.filename);
+      if (!prev) {
+        byFile.set(item.filename, {
+          filename: item.filename,
+          label: item.label,
+          chapterIds: [...item.chapterIds],
+        });
+        continue;
+      }
+      const chapterIds = Array.from(new Set([...prev.chapterIds, ...item.chapterIds])).sort();
+      byFile.set(item.filename, {
+        filename: item.filename,
+        label: prev.label || item.label,
+        chapterIds,
+      });
+    }
+  }
+  return Array.from(byFile.values()).sort((a, b) => a.filename.localeCompare(b.filename));
+}
+
 export async function fetchMarketerGuideScreenshotCatalog(): Promise<MarketerGuideScreenshotItem[]> {
+  const staticRes = await fetch('/help/marketer-guide.screenshots.json');
+  const staticItems = staticRes.ok
+    ? normalizeMarketerGuideCatalog(await staticRes.json())
+    : [];
+
+  let apiItems: MarketerGuideScreenshotItem[] = [];
   try {
     const res = await fetch(`${API_BASE}/api/help/marketer-guide/screenshots`);
     if (res.ok) {
-      const data = (await res.json()) as { items: MarketerGuideScreenshotItem[] };
-      if (Array.isArray(data.items) && data.items.length > 0) return data.items;
+      const data = (await res.json()) as { items?: unknown };
+      apiItems = normalizeMarketerGuideCatalog(data.items);
     }
   } catch {
-    /* static fallback */
+    /* API 없으면 정적만 */
   }
 
-  const staticRes = await fetch('/help/marketer-guide.screenshots.json');
-  if (!staticRes.ok) throw new Error('스크린샷 목록을 불러올 수 없습니다.');
-  const items = (await staticRes.json()) as MarketerGuideScreenshotItem[];
-  if (!Array.isArray(items)) throw new Error('스크린샷 목록 형식이 올바르지 않습니다.');
-  return items;
+  const merged = mergeMarketerGuideCatalogs(staticItems, apiItems);
+  if (merged.length === 0) {
+    throw new Error('스크린샷 목록을 불러올 수 없습니다.');
+  }
+  return merged;
 }
 
 export async function uploadMarketerGuideScreenshot(
