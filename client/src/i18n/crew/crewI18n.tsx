@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { crewMessages, type CrewMessageId } from './crewMessages';
 import { useCrewUiLang, type CrewUiLangKey } from './crewUiLanguageContext';
 
@@ -36,10 +36,10 @@ export function crewText(id: CrewMessageId, lang: CrewUiLangKey, vars?: Record<s
   return vars ? fillCrewTemplate(s, vars) : s;
 }
 
-/** 크루 화면 — 현재 그룹 UI 언어로 문구 조회 */
+/** 크루 화면 — 현재 그룹 UI 언어로 문구 조회 (참조 안정 — effect·useCallback deps용) */
 export function useCrewText(): (id: CrewMessageId, vars?: Record<string, string>) => string {
   const lang = useCrewUiLang();
-  return (id, vars) => crewText(id, lang, vars);
+  return useCallback((id, vars) => crewText(id, lang, vars), [lang]);
 }
 
 export function CrewUiLine({

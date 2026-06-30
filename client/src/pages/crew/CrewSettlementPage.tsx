@@ -256,6 +256,8 @@ function CrewSettlementSheetPanel({ me }: { me: NonNullable<CrewLayoutContext['m
   const [pwdGate, setPwdGate] = useState('');
   const [needsPwdUi, setNeedsPwdUi] = useState(false);
   const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
+  const rowsLengthRef = useRef(0);
+  rowsLengthRef.current = rows.length;
 
   const preview = me.crewJwtSource === 'preview';
 
@@ -271,7 +273,7 @@ function CrewSettlementSheetPanel({ me }: { me: NonNullable<CrewLayoutContext['m
     async (opts?: { overridePassword?: string }): Promise<void> => {
       const token = getCrewToken();
       if (!token) return;
-      setLoading(true);
+      if (rowsLengthRef.current === 0) setLoading(true);
       setError(null);
       try {
         let sensitive: string | undefined;
@@ -389,7 +391,7 @@ function CrewSettlementSheetPanel({ me }: { me: NonNullable<CrewLayoutContext['m
         <div className="text-fluid-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2 py-1.5">{error}</div>
       ) : null}
 
-      {loading ? (
+      {loading && rows.length === 0 ? (
         <p className="text-fluid-sm text-gray-500 py-6 text-center">
           <CrewBiLine id="crew.common.loading" />
         </p>

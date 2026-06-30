@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CrewMeResponse } from '../../api/crew';
 import { getCrewToken } from '../../stores/crewAuth';
 import {
@@ -31,13 +31,15 @@ export function CrewTeamExpensesTab({
   const [amountInput, setAmountInput] = useState('');
   const [memoInput, setMemoInput] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  const itemsLengthRef = useRef(0);
+  itemsLengthRef.current = items.length;
 
   const canEdit = me?.crewViewerRole === 'LEADER';
 
   const reload = useCallback(async () => {
     const token = getCrewToken();
     if (!token) return;
-    setLoading(true);
+    if (itemsLengthRef.current === 0) setLoading(true);
     setError(null);
     try {
       const r = await getCrewExpenses(token, month);
@@ -228,7 +230,7 @@ export function CrewTeamExpensesTab({
         <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>
       ) : null}
 
-      {loading ? (
+      {loading && items.length === 0 ? (
         <p className="text-fluid-sm text-gray-500 py-8 text-center">
           <CrewBiLine id="crew.expenses.loading" />
         </p>
