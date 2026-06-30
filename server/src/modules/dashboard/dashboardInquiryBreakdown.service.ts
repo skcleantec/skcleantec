@@ -1,13 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import { kstMonthRangeYm, kstTodayYmd, kstYmdKeysInRange } from '../inquiries/inquiryListDateRange.js';
 import {
-  listActiveServiceZoneRows,
-  matchingServiceZonesForAddress,
-  type ActiveServiceZoneRow,
-} from '../service-zones/serviceZoneAssignment.js';
-import {
-  parseRegionLabelFromAddress,
-  parseSidoFromAddress,
+  parseDashboardRegionFromAddress,
   shortSidoLabel,
   type KoreaSidoKey,
   KOREA_SIDO_KEYS,
@@ -35,12 +29,20 @@ export type DashboardSidoMapBucket = {
   salesAmount: number;
 };
 
+export type DashboardSidoRegionDetail = {
+  sidoKey: KoreaSidoKey;
+  label: string;
+  items: DashboardRegionBucket[];
+};
+
 export type DashboardInquiryBreakdown = {
   monthKey: string;
-  /** 시·군/시·도 주소 파싱 + (있으면) 서비스 권역명 우선 */
+  /** 접수 주소 파싱 · 시·군·광역시·도 동급 비교 */
   byRegion: DashboardRegionBucket[];
   /** 시·도 지도 염색용 */
   bySidoMap: DashboardSidoMapBucket[];
+  /** 시·도 클릭 시 구·군·시 상세 */
+  byRegionWithinSido: DashboardSidoRegionDetail[];
   byMonth: Array<{
     monthKey: string;
     inquiryCount: number;
@@ -62,39 +64,31 @@ type InquirySalesRow = {
   extraCharges: { amount: number }[];
 };
 
-function resolveInquiryRegion(
-  address: string,
-  zones: ActiveServiceZoneRow[],
-): { regionKey: string; label: string; sidoKey: KoreaSidoKey | null } {
-  const zoneMatches = matchingServiceZonesForAddress(address, zones);
-  const sidoKey = parseSidoFromAddress(address);
-  if (zoneMatches.length > 0) {
-    const z = zoneMatches[0];
-    return {
-      regionKey: `zone:${z.id}`,
-      label: z.name,
-      sidoKey,
-    };
-  }
-  const label = parseRegionLabelFromAddress(address);
-  if (label === '미분류') {
-    return { regionKey: 'unclassified', label, sidoKey: null };
-  }
-  const sigungu = label;
-  if (sidoKey && shortSidoLabel(sidoKey) !== label && label.endsWith('시')) {
-    return { regionKey: `city:${sidoKey}:${sigungu}`, label, sidoKey };
-  }
-  if (sidoKey) {
-    return { regionKey: `sido:${sidoKey}`, label, sidoKey };
-  }
-  return { regionKey: `label:${label}`, label, sidoKey: null };
-}
-
 function parseAnchorMonthKey(raw: string | undefined): string {
   const todayYmd = kstTodayYmd();
   const fallback = todayYmd.slice(0, 7);
   if (!raw || !/^\d{4}-\d{2}$/.test(raw.trim())) return fallback;
   return raw.trim();
+}
+
+function bumpBucket(
+  map: Map<string, DashboardRegionBucket>,
+  regionKey: string,
+  label: string,
+  sidoKey: KoreaSidoKey | null,
+  inquiryDelta: number,
+  salesDelta: number,
+): void {
+  const entry = map.get(regionKey) ?? {
+    regionKey,
+    label,
+    sidoKey,
+    inquiryCount: 0,
+    salesAmount: 0,
+  };
+  entry.inquiryCount += inquiryDelta;
+  entry.salesAmount += salesDelta;
+  map.set(regionKey, entry);
 }
 
 export async function buildDashboardInquiryBreakdown(
@@ -118,9 +112,8 @@ export async function buildDashboardInquiryBreakdown(
     .toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' })
     .slice(0, 10);
 
-  const [estimateConfig, serviceZones, salesInquiries, preferredInquiries] = await Promise.all([
+  const [estimateConfig, salesInquiries, preferredInquiries] = await Promise.all([
     prisma.estimateConfig.findUnique({ where: { tenantId } }).then((c) => c?.pricePerPyeong ?? 5000),
-    listActiveServiceZoneRows(prisma, tenantId),
     prisma.inquiry.findMany({
       where: {
         tenantId,
@@ -150,6 +143,7 @@ export async function buildDashboardInquiryBreakdown(
   const pricePerPyeong = estimateConfig;
 
   const regionAgg = new Map<string, DashboardRegionBucket>();
+  const sidoDetailAgg = new Map<KoreaSidoKey, Map<string, DashboardRegionBucket>>();
   const sidoAgg = new Map<KoreaSidoKey, DashboardSidoMapBucket>();
   for (const sk of KOREA_SIDO_KEYS) {
     sidoAgg.set(sk, {
@@ -177,22 +171,20 @@ export async function buildDashboardInquiryBreakdown(
     }
 
     if (mk === monthKey) {
-      const { regionKey, label, sidoKey } = resolveInquiryRegion(inq.address, serviceZones);
-      const regionEntry = regionAgg.get(regionKey) ?? {
-        regionKey,
-        label,
-        sidoKey,
-        inquiryCount: 0,
-        salesAmount: 0,
-      };
-      regionEntry.inquiryCount += 1;
-      regionEntry.salesAmount += amt;
-      regionAgg.set(regionKey, regionEntry);
+      const parsed = parseDashboardRegionFromAddress(inq.address);
+      bumpBucket(regionAgg, parsed.chartRegionKey, parsed.chartLabel, parsed.sidoKey, 1, amt);
 
-      if (sidoKey) {
-        const sidoEntry = sidoAgg.get(sidoKey)!;
+      if (parsed.sidoKey) {
+        const sidoEntry = sidoAgg.get(parsed.sidoKey)!;
         sidoEntry.inquiryCount += 1;
         sidoEntry.salesAmount += amt;
+
+        let subMap = sidoDetailAgg.get(parsed.sidoKey);
+        if (!subMap) {
+          subMap = new Map();
+          sidoDetailAgg.set(parsed.sidoKey, subMap);
+        }
+        bumpBucket(subMap, parsed.subRegionKey, parsed.subLabel, parsed.sidoKey, 1, amt);
       }
     }
   }
@@ -214,6 +206,21 @@ export async function buildDashboardInquiryBreakdown(
 
   const bySidoMap = [...sidoAgg.values()].filter((s) => s.inquiryCount > 0);
 
+  const byRegionWithinSido = [...sidoDetailAgg.entries()]
+    .map(([sidoKey, subMap]) => ({
+      sidoKey,
+      label: shortSidoLabel(sidoKey),
+      items: [...subMap.values()]
+        .filter((z) => z.inquiryCount > 0)
+        .sort((a, b) => b.inquiryCount - a.inquiryCount || a.label.localeCompare(b.label, 'ko')),
+    }))
+    .filter((g) => g.items.length > 0)
+    .sort((a, b) => {
+      const aTotal = a.items.reduce((s, i) => s + i.inquiryCount, 0);
+      const bTotal = b.items.reduce((s, i) => s + i.inquiryCount, 0);
+      return bTotal - aTotal || a.label.localeCompare(b.label, 'ko');
+    });
+
   const byMonth = monthKeys.map((mk) => {
     const v = monthAgg.get(mk) ?? { inquiryCount: 0, salesAmount: 0 };
     return { monthKey: mk, inquiryCount: v.inquiryCount, salesAmount: v.salesAmount };
@@ -227,6 +234,7 @@ export async function buildDashboardInquiryBreakdown(
     monthKey,
     byRegion,
     bySidoMap,
+    byRegionWithinSido,
     byMonth,
     byPreferredDate,
   };

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { DashboardInquiryBreakdown } from '../../../api/dashboard';
 import { HelpTooltip } from '../../ui/HelpTooltip';
 import {
@@ -7,7 +7,9 @@ import {
   DashboardVerticalBarChart,
 } from './DashboardMiniBarChart';
 import { DashboardKoreaSidoMap } from './DashboardKoreaSidoMap';
+import { DashboardSidoRegionModal } from './DashboardSidoRegionModal';
 import type { DashboardDrillKind } from './dashboardDrilldownTypes';
+import type { KoreaSidoKey } from '@shared/regionMatch';
 
 function formatCurrency(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
@@ -80,6 +82,12 @@ export function DashboardInquiryAnalyticsPanel({
   onOpenDrill: (kind: DashboardDrillKind, initialMonth?: string) => void;
 }) {
   const [regionDetailOpen, setRegionDetailOpen] = useState(false);
+  const [sidoDetailKey, setSidoDetailKey] = useState<KoreaSidoKey | null>(null);
+
+  const sidoDetail = useMemo(() => {
+    if (!breakdown || !sidoDetailKey) return null;
+    return breakdown.byRegionWithinSido.find((g) => g.sidoKey === sidoDetailKey) ?? null;
+  }, [breakdown, sidoDetailKey]);
 
   if (loading) {
     return (
@@ -150,12 +158,15 @@ export function DashboardInquiryAnalyticsPanel({
         <ChartCard
           title="지역별 접수"
           accentDotClass="bg-red-500"
-          helpText="접수일(KST) 이번 달 · 확정 접수 · 접수 주소에서 시·군·시·도를 파싱합니다. 서비스 권역이 설정된 경우 권역 이름을 우선 표시합니다."
+          helpText="접수일(KST) 이번 달 · 확정 접수 · 접수 주소(주소 검색 필드)에서 시·도·시·군·구를 파싱합니다. 서비스 권역명은 사용하지 않습니다. 지도에서 시·도를 클릭하면 구·군·시 상세를 볼 수 있습니다."
           onOpenDrill={() => onOpenDrill('region', breakdown.monthKey)}
         >
           {breakdown.bySidoMap.length > 0 ? (
             <div className="rounded-lg border border-white/80 bg-white/70 p-3">
-              <DashboardKoreaSidoMap items={breakdown.bySidoMap} />
+              <DashboardKoreaSidoMap
+                items={breakdown.bySidoMap}
+                onSidoClick={(sidoKey) => setSidoDetailKey(sidoKey)}
+              />
             </div>
           ) : (
             <p className="py-6 text-center text-fluid-2xs text-gray-500 border border-dashed border-slate-200 rounded-lg bg-white/60">
@@ -201,6 +212,13 @@ export function DashboardInquiryAnalyticsPanel({
             </div>
           ) : null}
         </ChartCard>
+
+        <DashboardSidoRegionModal
+          open={sidoDetailKey != null}
+          detail={sidoDetail}
+          monthTitle={monthTitleKo(breakdown.monthKey)}
+          onClose={() => setSidoDetailKey(null)}
+        />
 
         <ChartCard
           title="월별 접수·매출"

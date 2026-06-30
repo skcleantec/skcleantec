@@ -19,7 +19,9 @@ import { YearMonthSelect, YmdSelect } from '../../ui/DateQuerySelects';
 import { ModalCloseButton } from '../ModalCloseButton';
 import { DashboardHorizontalBarChart, DashboardVerticalBarChart } from './DashboardMiniBarChart';
 import { DashboardKoreaSidoMap } from './DashboardKoreaSidoMap';
+import { DashboardSidoRegionModal } from './DashboardSidoRegionModal';
 import { DashboardOpsHourlyDetail } from './DashboardOpsHourlyDetail';
+import type { KoreaSidoKey } from '@shared/regionMatch';
 import {
   DRILL_KIND_LABELS,
   formatCurrencyKo,
@@ -283,6 +285,12 @@ export function DashboardDrilldownModal(props: {
 }
 
 function RegionDrillBody({ data }: { data: DashboardInquiryBreakdown }) {
+  const [sidoDetailKey, setSidoDetailKey] = useState<KoreaSidoKey | null>(null);
+  const sidoDetail =
+    sidoDetailKey != null
+      ? data.byRegionWithinSido.find((g) => g.sidoKey === sidoDetailKey) ?? null
+      : null;
+
   const regionItems = data.byRegion.map((z) => ({
     key: z.regionKey,
     label: z.label,
@@ -294,13 +302,22 @@ function RegionDrillBody({ data }: { data: DashboardInquiryBreakdown }) {
     <div className="space-y-4">
       {data.bySidoMap.length > 0 ? (
         <div className="rounded-xl border border-slate-100 bg-slate-50/40 p-3">
-          <DashboardKoreaSidoMap items={data.bySidoMap} />
+          <DashboardKoreaSidoMap
+            items={data.bySidoMap}
+            onSidoClick={(sidoKey) => setSidoDetailKey(sidoKey)}
+          />
         </div>
       ) : (
         <p className="py-8 text-center text-fluid-2xs text-gray-500 border border-dashed border-slate-200 rounded-lg">
           해당 월 집계 데이터가 없습니다.
         </p>
       )}
+      <DashboardSidoRegionModal
+        open={sidoDetailKey != null}
+        detail={sidoDetail}
+        monthTitle={monthTitleKo(data.monthKey)}
+        onClose={() => setSidoDetailKey(null)}
+      />
       {regionItems.length > 0 ? (
         <div>
           <h3 className="text-fluid-2xs font-semibold text-gray-700 mb-2">시·군·구 상세</h3>

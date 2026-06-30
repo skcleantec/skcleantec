@@ -108,6 +108,17 @@ export type DashboardInquiryBreakdown = {
     inquiryCount: number;
     salesAmount: number;
   }>;
+  byRegionWithinSido: Array<{
+    sidoKey: string;
+    label: string;
+    items: Array<{
+      regionKey: string;
+      label: string;
+      sidoKey: string | null;
+      inquiryCount: number;
+      salesAmount: number;
+    }>;
+  }>;
   byMonth: Array<{
     monthKey: string;
     inquiryCount: number;
@@ -118,6 +129,8 @@ export type DashboardInquiryBreakdown = {
     inquiryCount: number;
   }>;
 };
+
+export type DashboardSidoRegionDetail = DashboardInquiryBreakdown['byRegionWithinSido'][number];
 
 export type DashboardSidoMapBucket = DashboardInquiryBreakdown['bySidoMap'][number];
 

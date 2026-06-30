@@ -217,3 +217,92 @@ export function parseRegionLabelFromAddress(address: string | null | undefined):
   if (sido) return shortSidoLabel(sido);
   return '미분류';
 }
+
+/** 대시보드 지역 집계 — 접수 `address` 필드만 사용(권역명·상세주소 미사용) */
+export type DashboardRegionParse = {
+  sidoKey: KoreaSidoKey | null;
+  /** 막대 그래프·동급 비교 (광역=서울, 도=고양시) */
+  chartLabel: string;
+  chartRegionKey: string;
+  /** 시·도 클릭 모달 (광역=강남구, 도=고양시·성남시 등) */
+  subLabel: string;
+  subRegionKey: string;
+};
+
+export function parseDashboardRegionFromAddress(
+  address: string | null | undefined,
+): DashboardRegionParse {
+  const unclassified: DashboardRegionParse = {
+    sidoKey: null,
+    chartLabel: '미분류',
+    chartRegionKey: 'unclassified',
+    subLabel: '미분류',
+    subRegionKey: 'unclassified',
+  };
+
+  const raw = stripSpaces(String(address ?? ''));
+  if (!raw) return unclassified;
+
+  const addr = normalizeAddressForRegionMatch(raw);
+  const sidoKey = parseSidoFromAddress(addr);
+  if (!sidoKey) return unclassified;
+
+  const rest = stripLeadingSidoPrefix(addr, sidoKey);
+
+  if (METRO_SIDO.has(sidoKey)) {
+    const chartLabel = shortSidoLabel(sidoKey);
+    const chartRegionKey = `sido:${sidoKey}`;
+    const guM = rest.match(/^([\uac00-\ud7a3]+구)/);
+    if (guM) {
+      const gu = guM[1];
+      return {
+        sidoKey,
+        chartLabel,
+        chartRegionKey,
+        subLabel: gu,
+        subRegionKey: `gu:${sidoKey}:${gu}`,
+      };
+    }
+    return {
+      sidoKey,
+      chartLabel,
+      chartRegionKey,
+      subLabel: chartLabel,
+      subRegionKey: chartRegionKey,
+    };
+  }
+
+  const cityM = rest.match(/^([\uac00-\ud7a3]+(?:시|군))/);
+  if (cityM) {
+    const city = cityM[1];
+    const chartRegionKey = `city:${sidoKey}:${city}`;
+    return {
+      sidoKey,
+      chartLabel: city,
+      chartRegionKey,
+      subLabel: city,
+      subRegionKey: chartRegionKey,
+    };
+  }
+
+  const guOnly = rest.match(/^([\uac00-\ud7a3]+구)/);
+  if (guOnly) {
+    const gu = guOnly[1];
+    return {
+      sidoKey,
+      chartLabel: gu,
+      chartRegionKey: `gu-only:${sidoKey}:${gu}`,
+      subLabel: gu,
+      subRegionKey: `gu-only:${sidoKey}:${gu}`,
+    };
+  }
+
+  const chartLabel = shortSidoLabel(sidoKey);
+  return {
+    sidoKey,
+    chartLabel,
+    chartRegionKey: `sido:${sidoKey}`,
+    subLabel: chartLabel,
+    subRegionKey: `sido:${sidoKey}`,
+  };
+}
