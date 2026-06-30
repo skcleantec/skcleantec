@@ -78,17 +78,28 @@ function cityShortForm(city: string): string {
   return s;
 }
 
+function addressStartsWithToken(addressNoSpace: string, token: string): boolean {
+  const t = stripSpaces(token);
+  return t.length > 0 && addressNoSpace.startsWith(t);
+}
+
+function matchSidoRegion(addressNoSpace: string, canonical: string): boolean {
+  const aliases = SIDO_ALIASES[canonical];
+  if (!aliases || aliases.length === 0) return false;
+  for (const a of aliases) {
+    /** 시·도·축약(경남 등)은 주소 **앞** 행정구역만 — 건물명·도로명 오탐 방지 */
+    if (addressStartsWithToken(addressNoSpace, a)) return true;
+  }
+  if (canonical === '광주광역시' && matchesGwangjuMetroCompact(addressNoSpace)) return true;
+  return false;
+}
+
 function matchOneRegion(addressNoSpace: string, region: string): boolean {
   const canonical = stripSpaces(region);
   if (!canonical) return false;
 
-  const aliases = SIDO_ALIASES[canonical];
-  if (aliases && aliases.length > 0) {
-    for (const a of aliases) {
-      if (hasWordBoundary(addressNoSpace, stripSpaces(a))) return true;
-    }
-    if (canonical === '광주광역시' && matchesGwangjuMetroCompact(addressNoSpace)) return true;
-    return false;
+  if (SIDO_ALIASES[canonical]) {
+    return matchSidoRegion(addressNoSpace, canonical);
   }
 
   if (canonical === '광주시') {
