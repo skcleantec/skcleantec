@@ -2,81 +2,250 @@
   {
     "filename": "s02_dashboard.png",
     "label": "대시보드",
-    "chapterIds": ["02", "03"]
+    "chapterIds": [
+      "02",
+      "03"
+    ]
   },
   {
     "filename": "s04_inquiries.png",
     "label": "접수 목록",
-    "chapterIds": ["04", "05"]
+    "chapterIds": [
+      "04",
+      "05"
+    ]
   },
   {
     "filename": "s06_order_issue.png",
     "label": "발주서 발급",
-    "chapterIds": ["06"]
+    "chapterIds": [
+      "06"
+    ]
   },
   {
     "filename": "s07_order_forms.png",
     "label": "발주서 목록",
-    "chapterIds": ["07"]
+    "chapterIds": [
+      "07"
+    ]
   },
   {
     "filename": "s08_quotations.png",
     "label": "견적서",
-    "chapterIds": ["08"]
+    "chapterIds": [
+      "08"
+    ]
   },
   {
     "filename": "s09_cs.png",
     "label": "C/S 관리",
-    "chapterIds": ["09"]
+    "chapterIds": [
+      "09"
+    ]
   },
   {
     "filename": "s10_payback.png",
     "label": "페이백·리뷰",
-    "chapterIds": ["10"]
+    "chapterIds": [
+      "10"
+    ]
   },
   {
     "filename": "s11_advertising.png",
     "label": "광고비",
-    "chapterIds": ["11", "12", "13"]
+    "chapterIds": [
+      "11",
+      "12",
+      "13"
+    ]
   },
   {
     "filename": "s14_ad_settings.png",
     "label": "광고비 설정",
-    "chapterIds": ["14"]
+    "chapterIds": [
+      "14"
+    ]
   },
   {
     "filename": "s15_schedule.png",
     "label": "스케줄 달력",
-    "chapterIds": ["15"]
+    "chapterIds": [
+      "15"
+    ]
   },
   {
     "filename": "s15d_schedule_day.png",
     "label": "스케줄 선택일",
-    "chapterIds": ["15"]
+    "chapterIds": [
+      "15"
+    ]
   },
   {
     "filename": "s15b_messages.png",
     "label": "메시지 채팅",
-    "chapterIds": ["16"]
+    "chapterIds": [
+      "16"
+    ]
   },
   {
     "filename": "s15e_messages_notice.png",
     "label": "현장 공지",
-    "chapterIds": ["16"]
+    "chapterIds": [
+      "16"
+    ]
   },
   {
     "filename": "s15c_db_marketplace.png",
     "label": "정보공유 목록",
-    "chapterIds": ["17"]
+    "chapterIds": [
+      "17"
+    ]
   },
   {
     "filename": "s15f_db_cart.png",
     "label": "장바구니·게시",
-    "chapterIds": ["17"]
+    "chapterIds": [
+      "17"
+    ]
   },
   {
     "filename": "s16_team_leaders.png",
-    "label": "관리자 전용",
-    "chapterIds": ["18"]
+    "label": "관리자 전용 개요",
+    "chapterIds": [
+      "18"
+    ]
+  },
+  {
+    "filename": "s18_subscription.png",
+    "label": "가입정보",
+    "chapterIds": [
+      "19"
+    ]
+  },
+  {
+    "filename": "s18_business.png",
+    "label": "사업자정보",
+    "chapterIds": [
+      "20"
+    ]
+  },
+  {
+    "filename": "s18_outbound_email.png",
+    "label": "발송이메일",
+    "chapterIds": [
+      "21"
+    ]
+  },
+  {
+    "filename": "s18_users.png",
+    "label": "사용자 등록",
+    "chapterIds": [
+      "22"
+    ]
+  },
+  {
+    "filename": "s18_operating_brands.png",
+    "label": "영업브랜드",
+    "chapterIds": [
+      "23"
+    ]
+  },
+  {
+    "filename": "s18_external_companies.png",
+    "label": "타업체등록",
+    "chapterIds": [
+      "24"
+    ]
+  },
+  {
+    "filename": "s18_partners.png",
+    "label": "파트너연결",
+    "chapterIds": [
+      "25"
+    ]
+  },
+  {
+    "filename": "s18_e_contracts.png",
+    "label": "전자계약",
+    "chapterIds": [
+      "26"
+    ]
+  },
+  {
+    "filename": "s18_external_settlement.png",
+    "label": "타업체정산",
+    "chapterIds": [
+      "27"
+    ]
+  },
+  {
+    "filename": "s18_partner_settlement.png",
+    "label": "파트너정산",
+    "chapterIds": [
+      "28"
+    ]
+  },
+  {
+    "filename": "s18_payroll.png",
+    "label": "월정산표",
+    "chapterIds": [
+      "29"
+    ]
+  },
+  {
+    "filename": "s18_leader_stats.png",
+    "label": "팀장 실적",
+    "chapterIds": [
+      "30"
+    ]
+  },
+  {
+    "filename": "s18_team_members.png",
+    "label": "팀원",
+    "chapterIds": [
+      "31"
+    ]
+  },
+  {
+    "filename": "s18_holiday_calendar.png",
+    "label": "휴일캘린더",
+    "chapterIds": [
+      "32"
+    ]
+  },
+  {
+    "filename": "s18_page_settings.png",
+    "label": "페이지설정",
+    "chapterIds": [
+      "33"
+    ]
+  },
+  {
+    "filename": "s18_staff_access.png",
+    "label": "직원권한",
+    "chapterIds": [
+      "34"
+    ]
+  },
+  {
+    "filename": "s18_brand_policy.png",
+    "label": "브랜드정책",
+    "chapterIds": [
+      "35"
+    ]
+  },
+  {
+    "filename": "s18_inspection_template.png",
+    "label": "검수템플릿",
+    "chapterIds": [
+      "36"
+    ]
+  },
+  {
+    "filename": "s18_team_leader_training.png",
+    "label": "팀장교육자료",
+    "chapterIds": [
+      "37"
+    ]
   }
 ]

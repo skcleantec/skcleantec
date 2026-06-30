@@ -104,7 +104,121 @@
   {
     "id": "18",
     "anchor": "slide-18",
-    "title": "관리자 전용",
-    "desc": "사용자·업체·정산·직원·설정"
+    "title": "관리자 전용 개요",
+    "desc": "5개 대분류·권한 안내"
+  },
+  {
+    "id": "19",
+    "anchor": "slide-19",
+    "title": "가입정보",
+    "desc": "플랜·기능·사용량"
+  },
+  {
+    "id": "20",
+    "anchor": "slide-20",
+    "title": "사업자정보",
+    "desc": "상호·직인·견적 반영"
+  },
+  {
+    "id": "21",
+    "anchor": "slide-21",
+    "title": "발송이메일",
+    "desc": "SMTP·연결 테스트"
+  },
+  {
+    "id": "22",
+    "anchor": "slide-22",
+    "title": "사용자 등록",
+    "desc": "팀장·마케터·사무직"
+  },
+  {
+    "id": "23",
+    "anchor": "slide-23",
+    "title": "영업브랜드",
+    "desc": "운영사·배지·번호"
+  },
+  {
+    "id": "24",
+    "anchor": "slide-24",
+    "title": "타업체등록",
+    "desc": "협력업체·로그인"
+  },
+  {
+    "id": "25",
+    "anchor": "slide-25",
+    "title": "파트너연결",
+    "desc": "업체 간 파트너"
+  },
+  {
+    "id": "26",
+    "anchor": "slide-26",
+    "title": "전자계약",
+    "desc": "양식·체결 링크"
+  },
+  {
+    "id": "27",
+    "anchor": "slide-27",
+    "title": "타업체정산",
+    "desc": "수수료·지급·잔액"
+  },
+  {
+    "id": "28",
+    "anchor": "slide-28",
+    "title": "파트너정산",
+    "desc": "수금·지급·CSV"
+  },
+  {
+    "id": "29",
+    "anchor": "slide-29",
+    "title": "월정산표",
+    "desc": "팀장·마케터·팀원 급여"
+  },
+  {
+    "id": "30",
+    "anchor": "slide-30",
+    "title": "팀장 실적",
+    "desc": "월별 배정·완료"
+  },
+  {
+    "id": "31",
+    "anchor": "slide-31",
+    "title": "팀원",
+    "desc": "크루·휴무·그룹"
+  },
+  {
+    "id": "32",
+    "anchor": "slide-32",
+    "title": "휴일캘린더",
+    "desc": "팀장·팀원 휴무"
+  },
+  {
+    "id": "33",
+    "anchor": "slide-33",
+    "title": "페이지설정",
+    "desc": "접수 축하 바"
+  },
+  {
+    "id": "34",
+    "anchor": "slide-34",
+    "title": "직원권한",
+    "desc": "마케터 3단계"
+  },
+  {
+    "id": "35",
+    "anchor": "slide-35",
+    "title": "브랜드정책",
+    "desc": "배정·목록 규칙"
+  },
+  {
+    "id": "36",
+    "anchor": "slide-36",
+    "title": "검수템플릿",
+    "desc": "현장 체크리스트"
+  },
+  {
+    "id": "37",
+    "anchor": "slide-37",
+    "title": "팀장교육자료",
+    "desc": "PDF 업로드"
   }
 ]
