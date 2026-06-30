@@ -216,10 +216,12 @@ export function AdminLayout() {
   const [showStagingDbImportMenu, setShowStagingDbImportMenu] = useState(false);
   const [showVolumeStatsMenu, setShowVolumeStatsMenu] = useState(false);
   const [isPlatformSupportAccess, setIsPlatformSupportAccess] = useState(false);
+  const [suppressCelebrateBar, setSuppressCelebrateBar] = useState(false);
   const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
   const [tenantPlan, setTenantPlan] = useState<string | null>(null);
   const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
+  const [meTenantId, setMeTenantId] = useState<string | null>(null);
   useDocumentTitle(tenantName);
   const [stagingDbImportModalOpen, setStagingDbImportModalOpen] = useState(false);
   const [fabDragging, setFabDragging] = useState(false);
@@ -260,10 +262,16 @@ export function AdminLayout() {
   useInquiryCelebrateRealtime(
     adminToken,
     openCelebrateStrip,
-    Boolean(adminToken && (meRole === 'ADMIN' || meRole === 'MARKETER'))
+    Boolean(
+      adminToken &&
+        (meRole === 'ADMIN' || meRole === 'MARKETER') &&
+        !suppressCelebrateBar,
+    ),
+    meTenantId,
   );
 
   useEffect(() => {
+    if (suppressCelebrateBar) return;
     if (meRole !== 'ADMIN' && meRole !== 'MARKETER') return;
     const onTestCelebrate = () => {
       openCelebrateStrip({
@@ -276,7 +284,7 @@ export function AdminLayout() {
     };
     window.addEventListener(CELEBRATE_BAR_TEST_EVENT, onTestCelebrate);
     return () => window.removeEventListener(CELEBRATE_BAR_TEST_EVENT, onTestCelebrate);
-  }, [meRole, openCelebrateStrip]);
+  }, [meRole, openCelebrateStrip, suppressCelebrateBar]);
 
   useEffect(() => {
     const token = getToken();
@@ -289,10 +297,12 @@ export function AdminLayout() {
       setTeamPreviewLink(false);
       setShowStagingDbImportMenu(false);
       setIsPlatformSupportAccess(false);
+      setSuppressCelebrateBar(false);
       setTenantFeatures(null);
       setTenantPlan(null);
       setTenantSlug(null);
       setTenantName(null);
+      setMeTenantId(null);
       setMeProfileLoading(false);
       return;
     }
@@ -311,7 +321,8 @@ export function AdminLayout() {
         effectiveStaffAdminAccess?: boolean;
         marketerAdminAccess?: boolean;
         features?: string[];
-        tenant?: { plan?: string; name?: string; displayName?: string; slug?: string } | null;
+        tenant?: { id?: string; plan?: string; name?: string; displayName?: string; slug?: string } | null;
+        tenantId?: string;
       }) => {
         if (cancelled) return;
         const role = typeof u.role === 'string' ? u.role : null;
@@ -323,7 +334,16 @@ export function AdminLayout() {
         setShowStagingDbImportMenu(Boolean(u.showStagingDbImport));
         setShowVolumeStatsMenu(Boolean(u.showVolumeStats));
         setIsPlatformSupportAccess(Boolean(u.isPlatformSupportAccess));
+        const email = typeof u.email === 'string' ? u.email : '';
+        setSuppressCelebrateBar(
+          Boolean(u.isPlatformSupportAccess) || isTeamPreviewAdminEmail(email),
+        );
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
+        const tid =
+          (typeof u.tenantId === 'string' && u.tenantId.trim()) ||
+          (typeof u.tenant?.id === 'string' && u.tenant.id.trim()) ||
+          null;
+        setMeTenantId(tid);
         setTenantPlan(typeof u.tenant?.plan === 'string' ? u.tenant.plan : null);
         setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : null);
         setTenantName(
@@ -332,7 +352,6 @@ export function AdminLayout() {
             null,
         );
         /** 팀·크루 미리보기: 업무 관리자(ADMIN) + 개발용 이메일 화이트리스트만. 일반 마케터는 제외 */
-        const email = typeof u.email === 'string' ? u.email : '';
         const preview = role === 'ADMIN' || isTeamPreviewAdminEmail(email);
         setTeamPreviewLink(preview);
         if (preview && !getTeamToken()) {
@@ -350,9 +369,12 @@ export function AdminLayout() {
           setTeamPreviewLink(false);
           setShowStagingDbImportMenu(false);
           setShowVolumeStatsMenu(false);
+          setIsPlatformSupportAccess(false);
+          setSuppressCelebrateBar(false);
           setTenantFeatures(null);
           setTenantPlan(null);
           setTenantName(null);
+          setMeTenantId(null);
           clearToken();
           navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
           return;

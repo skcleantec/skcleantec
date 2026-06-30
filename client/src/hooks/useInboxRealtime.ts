@@ -377,25 +377,42 @@ export function useInboxRealtime(
   return { connected };
 }
 
+function celebratePayloadMatchesSession(
+  p: InquiryCelebratePayload,
+  sessionTenantId: string | null | undefined,
+): boolean {
+  if (!sessionTenantId) return true;
+  const payloadTenant = typeof p.tenantId === 'string' ? p.tenantId.trim() : '';
+  if (!payloadTenant) return true;
+  return payloadTenant === sessionTenantId;
+}
+
 /**
  * Staff-only inquiry:celebrate toast; uses WebSocket when available, otherwise HTTP poll
  * (proxies like Cloudflare may block /ws).
+ * `sessionTenantId` — JWT 테넌트와 payload.tenantId 불일치 시 무시 (멀티테넌트 이중 안전망).
  */
 export function useInquiryCelebrateRealtime(
   token: string | null,
   onCelebrate: (p: InquiryCelebratePayload) => void,
-  enabled: boolean
+  enabled: boolean,
+  sessionTenantId?: string | null,
 ): void {
   const onCelebrateRef = useRef(onCelebrate);
   useEffect(() => {
     onCelebrateRef.current = onCelebrate;
   });
+  const sessionTenantIdRef = useRef(sessionTenantId);
+  useEffect(() => {
+    sessionTenantIdRef.current = sessionTenantId;
+  }, [sessionTenantId]);
   const lastEventIdRef = useRef(0);
   const bootstrappedRef = useRef(false);
   const seenIdsRef = useRef(new Set<number>());
   const [wsConnected, setWsConnected] = useState(false);
 
   const emitCelebrate = useCallback((p: InquiryCelebratePayload) => {
+    if (!celebratePayloadMatchesSession(p, sessionTenantIdRef.current)) return;
     if (typeof p.eventId === 'number') {
       if (seenIdsRef.current.has(p.eventId)) return;
       seenIdsRef.current.add(p.eventId);

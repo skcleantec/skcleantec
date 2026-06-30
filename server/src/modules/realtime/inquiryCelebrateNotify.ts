@@ -1,10 +1,13 @@
 import { prisma } from '../../lib/prisma.js';
 import { appendCelebrationToFeed } from './celebrationFeedStore.js';
+import { shouldNotifyInquiryCelebrate } from './inquiryCelebrateEligibility.js';
 import { broadcastJsonToStaff } from './realtimeHub.js';
 
 export type InquiryCelebrateWsPayload = {
   type: 'inquiry:celebrate';
   eventId: number;
+  /** 브로드캐스트·클라이언트 테넌트 검증용 */
+  tenantId: string;
   inquiryId: string;
   registrarName: string;
   customerName: string;
@@ -24,6 +27,8 @@ export async function notifyInquiryCelebrate(params: {
   inquiryNumber?: string | null;
   source?: string | null;
 }): Promise<void> {
+  if (!(await shouldNotifyInquiryCelebrate(params.createdById))) return;
+
   let registrarName = DEFAULT_REGISTRAR;
   if (params.createdById) {
     const u = await prisma.user.findUnique({
