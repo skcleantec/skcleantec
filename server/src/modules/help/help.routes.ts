@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { resolveHelpScreenshotsDir } from './helpScreenshotsPath.js';
+import { resolveHelpScreenshotsDir, helpScreenshotFileFilter } from './helpScreenshotsPath.js';
 import {
   allowedMarketerGuideScreenshotFilenames,
   loadMarketerGuideScreenshotCatalog,
@@ -36,14 +36,7 @@ const upload = multer({
     },
   }),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-  fileFilter: (_req, file, cb) => {
-    const allowed = /\.(jpg|jpeg|png|gif|webp)$/i;
-    if (allowed.test(file.originalname)) {
-      cb(null, true);
-    } else {
-      cb(new Error('이미지 파일만 업로드 가능합니다.'));
-    }
-  },
+  fileFilter: helpScreenshotFileFilter,
 });
 
 const DATA_PATH = path.join(process.cwd(), 'client', 'public', 'help', 'data.json');
@@ -94,14 +87,7 @@ const marketerGuideScreenshotUpload = multer({
     },
   }),
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const allowed = /\.(jpg|jpeg|png|gif|webp)$/i;
-    if (allowed.test(file.originalname)) {
-      cb(null, true);
-    } else {
-      cb(new Error('이미지 파일만 업로드 가능합니다.'));
-    }
-  },
+  fileFilter: helpScreenshotFileFilter,
 });
 
 /**
@@ -146,7 +132,17 @@ router.post(
       res.status(500).json({ error: '업로드 준비 실패' });
     }
   },
-  marketerGuideScreenshotUpload.single('screenshot'),
+  (req, res, next) => {
+    marketerGuideScreenshotUpload.single('screenshot')(req, res, (err: unknown) => {
+      if (err) {
+        console.error('Marketer guide screenshot multer error:', err);
+        const message = err instanceof Error ? err.message : '업로드 실패';
+        res.status(400).json({ error: message });
+        return;
+      }
+      next();
+    });
+  },
   async (req, res) => {
     try {
       if (!req.file) {
@@ -154,12 +150,22 @@ router.post(
       }
 
       const filename = req.file.filename;
-      const publicDir = path.join(process.cwd(), 'client', 'public', 'help', 'screenshots');
+      const publicRoots = [
+        path.join(process.cwd(), 'client', 'public', 'help', 'screenshots'),
+        path.join(process.cwd(), '..', 'client', 'public', 'help', 'screenshots'),
+      ];
       const servedDir = resolveHelpScreenshotsDir();
+      const sourcePath = path.join(servedDir, filename);
 
-      if (servedDir !== publicDir) {
-        await fs.mkdir(publicDir, { recursive: true });
-        await fs.copyFile(path.join(servedDir, filename), path.join(publicDir, filename));
+      for (const publicDir of publicRoots) {
+        try {
+          if (!publicDir.includes(`${path.sep}public${path.sep}`)) continue;
+          await fs.mkdir(publicDir, { recursive: true });
+          await fs.copyFile(sourcePath, path.join(publicDir, filename));
+          break;
+        } catch {
+          /* 로컬 dev용 — 프로덕션 컨테이너에서는 무시 */
+        }
       }
 
       res.json({
