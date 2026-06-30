@@ -6,7 +6,7 @@ import type { PrismaClient } from '@prisma/client';
 import { allocateNextInquiryNumber } from '../src/modules/inquiries/inquiryNumber.js';
 import { addDaysToKstYmd, kstTodayYmd } from '../src/modules/inquiries/inquiryListDateRange.js';
 import { getDefaultOperatingCompanyId } from '../src/modules/operating-companies/operatingCompany.service.js';
-import { DEFAULT_TENANT_ID } from '../src/modules/tenants/tenant.constants.js';
+import { guideDemoTenantId, guideDemoTeamLeaderEmail } from './guide-demo/tenantScope.js';
 import {
   GUIDE_DEMO_CREW_GROUP_ID,
   GUIDE_DEMO_CREW_LOGIN_ID,
@@ -14,7 +14,6 @@ import {
   guideDemoCrewInquiryId,
 } from './guide-demo/constants.js';
 import { purgeGuideDemoCrewSeed } from './guide-demo/purge.js';
-import { TEAM_HELPDESK_LEADER_EMAIL } from './seed-team-helpdesk-cbiseo.logic.js';
 
 function kstNoon(dayOffset: number): Date {
   const ymd = addDaysToKstYmd(kstTodayYmd(), dayOffset);
@@ -29,7 +28,7 @@ export async function runGuideDemoCrewSeed(
   const password = opts?.password ?? '1234';
 
   const leader = await prisma.user.findFirst({
-    where: { tenantId: DEFAULT_TENANT_ID, email: TEAM_HELPDESK_LEADER_EMAIL, isActive: true },
+    where: { tenantId: guideDemoTenantId(), email: guideDemoTeamLeaderEmail(), isActive: true },
   });
   if (!leader) {
     throw new Error('cbiseo 팀장 계정이 없습니다. team phase를 먼저 실행하세요.');
@@ -39,7 +38,7 @@ export async function runGuideDemoCrewSeed(
   if (!team) throw new Error('cbiseo 팀이 없습니다.');
 
   const members = await prisma.teamMember.findMany({
-    where: { tenantId: DEFAULT_TENANT_ID, teamId: team.id, isActive: true },
+    where: { tenantId: guideDemoTenantId(), teamId: team.id, isActive: true },
     orderBy: { sortOrder: 'asc' },
     take: 3,
   });
@@ -59,7 +58,7 @@ export async function runGuideDemoCrewSeed(
     },
     create: {
       id: GUIDE_DEMO_CREW_GROUP_ID,
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: guideDemoTenantId(),
       name: '가이드데모 크루',
       loginId: GUIDE_DEMO_CREW_LOGIN_ID,
       passwordHash: hash,
@@ -103,12 +102,12 @@ export async function runGuideDemoCrewSeed(
   }
 
   const admin = await prisma.user.findFirst({
-    where: { tenantId: DEFAULT_TENANT_ID, role: 'ADMIN', isActive: true },
+    where: { tenantId: guideDemoTenantId(), role: 'ADMIN', isActive: true },
     orderBy: { createdAt: 'asc' },
   });
   if (!admin) throw new Error('ADMIN 계정이 없습니다.');
 
-  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, DEFAULT_TENANT_ID);
+  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, guideDemoTenantId());
   const crewNames = members.slice(0, 2).map((m) => m.name).join('·');
 
   const scenarios = [
@@ -136,11 +135,11 @@ export async function runGuideDemoCrewSeed(
     const preferredDate = kstNoon(0);
     const phoneSuffix = s.id.slice(-4);
     await prisma.$transaction(async (tx) => {
-      const inquiryNumber = await allocateNextInquiryNumber(tx, DEFAULT_TENANT_ID);
+      const inquiryNumber = await allocateNextInquiryNumber(tx, guideDemoTenantId());
       await tx.inquiry.create({
         data: {
           id: s.id,
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: guideDemoTenantId(),
           operatingCompanyId,
           inquiryNumber,
           customerName: s.customerName,
@@ -170,7 +169,7 @@ export async function runGuideDemoCrewSeed(
       });
       await tx.assignment.create({
         data: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: guideDemoTenantId(),
           inquiryId: s.id,
           teamLeaderId: leader.id,
           assignedById: admin.id,

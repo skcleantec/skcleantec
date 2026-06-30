@@ -6,7 +6,7 @@ import { ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS } from '../src/lib/orderFormPend
 import { allocateNextInquiryNumber } from '../src/modules/inquiries/inquiryNumber.js';
 import { addDaysToKstYmd, kstTodayYmd } from '../src/modules/inquiries/inquiryListDateRange.js';
 import { getDefaultOperatingCompanyId } from '../src/modules/operating-companies/operatingCompany.service.js';
-import { DEFAULT_TENANT_ID } from '../src/modules/tenants/tenant.constants.js';
+import { guideDemoTenantId, guideDemoTenantSlugFromEnv } from './guide-demo/tenantScope.js';
 import {
   GUIDE_DEMO_MARKETER_EMAIL,
   GUIDE_DEMO_ORDER_TOKEN_PREFIX,
@@ -26,14 +26,14 @@ export async function runGuideDemoPublicSeed(
 ): Promise<{ tokens: string[] }> {
   const marketer =
     (await prisma.user.findFirst({
-      where: { tenantId: DEFAULT_TENANT_ID, email: GUIDE_DEMO_MARKETER_EMAIL, isActive: true },
+      where: { tenantId: guideDemoTenantId(), email: GUIDE_DEMO_MARKETER_EMAIL, isActive: true },
     })) ??
     (await prisma.user.findFirst({
-      where: { tenantId: DEFAULT_TENANT_ID, role: 'MARKETER', isActive: true },
+      where: { tenantId: guideDemoTenantId(), role: 'MARKETER', isActive: true },
     }));
   if (!marketer) throw new Error('마케터 계정이 없습니다.');
 
-  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, DEFAULT_TENANT_ID);
+  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, guideDemoTenantId());
   const tokens = [guideDemoPublicOrderToken(1), guideDemoPublicOrderToken(2)];
 
   const rows = [
@@ -67,7 +67,7 @@ export async function runGuideDemoPublicSeed(
 
       const form = await tx.orderForm.create({
         data: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: guideDemoTenantId(),
           operatingCompanyId,
           token: row.token,
           customerName: row.name,
@@ -84,11 +84,11 @@ export async function runGuideDemoPublicSeed(
         },
       });
 
-      const inquiryNumber = await allocateNextInquiryNumber(tx, DEFAULT_TENANT_ID);
+      const inquiryNumber = await allocateNextInquiryNumber(tx, guideDemoTenantId());
       await tx.inquiry.create({
         data: {
           id: row.id,
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: guideDemoTenantId(),
           operatingCompanyId,
           inquiryNumber,
           orderFormId: form.id,
@@ -116,15 +116,18 @@ export async function runGuideDemoPublicSeed(
 }
 
 /** 문서용 공개 URL 목록 */
-export function guideDemoPublicUrls(baseUrl = 'https://cbiseo.com'): { label: string; url: string }[] {
+export function guideDemoPublicUrls(
+  baseUrl = 'https://cbiseo.com',
+  tenantSlug = guideDemoTenantSlugFromEnv(),
+): { label: string; url: string }[] {
   return [
     {
       label: '발주서 작성 중',
-      url: `${baseUrl}/order/${guideDemoPublicOrderToken(1)}?tenant=sk`,
+      url: `${baseUrl}/order/${guideDemoPublicOrderToken(1)}?tenant=${tenantSlug}`,
     },
     {
       label: '발주서 제출 완료',
-      url: `${baseUrl}/order/${guideDemoPublicOrderToken(2)}?tenant=sk`,
+      url: `${baseUrl}/order/${guideDemoPublicOrderToken(2)}?tenant=${tenantSlug}`,
     },
   ];
 }

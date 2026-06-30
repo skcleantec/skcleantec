@@ -3,7 +3,7 @@
  */
 import type { PrismaClient } from '@prisma/client';
 import { addDaysToKstYmd, kstTodayYmd } from '../src/modules/inquiries/inquiryListDateRange.js';
-import { DEFAULT_TENANT_ID } from '../src/modules/tenants/tenant.constants.js';
+import { guideDemoTenantId } from './guide-demo/tenantScope.js';
 import { GUIDE_DEMO_TAG, guideDemoCsId } from './guide-demo/constants.js';
 import { purgeGuideDemoCsSeed } from './guide-demo/purge.js';
 
@@ -86,7 +86,7 @@ export async function runGuideDemoCsSeed(prisma: PrismaClient): Promise<{ purged
   ];
 
   const admin = await prisma.user.findFirst({
-    where: { tenantId: DEFAULT_TENANT_ID, role: 'ADMIN', isActive: true },
+    where: { tenantId: guideDemoTenantId(), role: 'ADMIN', isActive: true },
     orderBy: { createdAt: 'asc' },
   });
 
@@ -95,7 +95,7 @@ export async function runGuideDemoCsSeed(prisma: PrismaClient): Promise<{ purged
     await prisma.csReport.create({
       data: {
         id: s.id,
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: guideDemoTenantId(),
         customerName: s.customerName,
         customerPhone: s.customerPhone,
         content: s.content,

@@ -10,7 +10,7 @@ import {
 import { allocateNextInquiryNumber } from '../src/modules/inquiries/inquiryNumber.js';
 import { addDaysToKstYmd, kstTodayYmd } from '../src/modules/inquiries/inquiryListDateRange.js';
 import { getDefaultOperatingCompanyId } from '../src/modules/operating-companies/operatingCompany.service.js';
-import { DEFAULT_TENANT_ID } from '../src/modules/tenants/tenant.constants.js';
+import { guideDemoTenantId } from './guide-demo/tenantScope.js';
 import {
   GUIDE_DEMO_EXTERNAL_COMPANY_ID,
   GUIDE_DEMO_TAG,
@@ -33,18 +33,18 @@ export async function runGuideDemoMarketplaceSeed(
   const purged = await purgeGuideDemoMarketplaceSeed(prisma);
 
   await prisma.tenantFeature.upsert({
-    where: { tenantId_moduleId: { tenantId: DEFAULT_TENANT_ID, moduleId: 'mod_db_marketplace' } },
+    where: { tenantId_moduleId: { tenantId: guideDemoTenantId(), moduleId: 'mod_db_marketplace' } },
     update: { enabled: true },
-    create: { tenantId: DEFAULT_TENANT_ID, moduleId: 'mod_db_marketplace', enabled: true },
+    create: { tenantId: guideDemoTenantId(), moduleId: 'mod_db_marketplace', enabled: true },
   });
 
   const admin = await prisma.user.findFirst({
-    where: { tenantId: DEFAULT_TENANT_ID, role: 'ADMIN', isActive: true },
+    where: { tenantId: guideDemoTenantId(), role: 'ADMIN', isActive: true },
     orderBy: { createdAt: 'asc' },
   });
   if (!admin) throw new Error('ADMIN 계정이 없습니다.');
 
-  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, DEFAULT_TENANT_ID);
+  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, guideDemoTenantId());
   const now = new Date();
 
   const rows = [
@@ -61,11 +61,11 @@ export async function runGuideDemoMarketplaceSeed(
     const preferredDate = kstNoon(14);
 
     await prisma.$transaction(async (tx) => {
-      const inquiryNumber = await allocateNextInquiryNumber(tx, DEFAULT_TENANT_ID);
+      const inquiryNumber = await allocateNextInquiryNumber(tx, guideDemoTenantId());
       await tx.inquiry.create({
         data: {
           id: inquiryId,
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: guideDemoTenantId(),
           operatingCompanyId,
           inquiryNumber,
           customerName: row.name,
@@ -101,7 +101,7 @@ export async function runGuideDemoMarketplaceSeed(
     await prisma.inquiryDbListing.create({
       data: {
         id: listingId,
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: guideDemoTenantId(),
         inquiryId,
         listingFee: LISTING_FEE,
         displayAmount,

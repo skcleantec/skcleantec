@@ -18,6 +18,12 @@ if (fs.existsSync(stagingEnvPath)) {
   dotenv.config({ path: stagingEnvPath, override: true });
 }
 
+/** 가이드 데모 시드를 운영 DB(cbiseo 테넌트)에 넣을 때 — server/.env 의 SKCT_TARGET_DATABASE_URL 사용 */
+if (process.env.GUIDE_DEMO_TARGET_DB === 'production') {
+  const prod = process.env.SKCT_TARGET_DATABASE_URL?.trim();
+  if (prod) process.env.DATABASE_URL = prod;
+}
+
 const databaseUrl = (process.env.DATABASE_URL ?? '').trim();
 
 /** `env.staging.template` 그대로 두면 Prisma가 "invalid port number" 로만 실패해 원인 파악이 어렵다 */

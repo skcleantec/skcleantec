@@ -6,7 +6,7 @@ import { ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS } from '../src/lib/orderFormPend
 import { allocateNextInquiryNumber } from '../src/modules/inquiries/inquiryNumber.js';
 import { addDaysToKstYmd, kstTodayYmd } from '../src/modules/inquiries/inquiryListDateRange.js';
 import { getDefaultOperatingCompanyId } from '../src/modules/operating-companies/operatingCompany.service.js';
-import { DEFAULT_TENANT_ID } from '../src/modules/tenants/tenant.constants.js';
+import { guideDemoTenantId, guideDemoTeamLeaderEmail, resolveGuideDemoLeaderEmail } from './guide-demo/tenantScope.js';
 import {
   GUIDE_DEMO_MARKETER_EMAIL,
   GUIDE_DEMO_TAG,
@@ -43,36 +43,35 @@ type SeedContext = {
 
 async function resolveSeedContext(prisma: PrismaClient): Promise<SeedContext> {
   const admin = await prisma.user.findFirst({
-    where: { tenantId: DEFAULT_TENANT_ID, role: 'ADMIN', isActive: true },
+    where: { tenantId: guideDemoTenantId(), role: 'ADMIN', isActive: true },
     orderBy: { createdAt: 'asc' },
   });
   if (!admin) throw new Error('SK클린텍 ADMIN 계정이 없습니다. npm run db:seed 를 먼저 실행하세요.');
 
   const marketer =
     (await prisma.user.findFirst({
-      where: { tenantId: DEFAULT_TENANT_ID, email: GUIDE_DEMO_MARKETER_EMAIL, isActive: true },
+      where: { tenantId: guideDemoTenantId(), email: GUIDE_DEMO_MARKETER_EMAIL, isActive: true },
     })) ??
     (await prisma.user.findFirst({
-      where: { tenantId: DEFAULT_TENANT_ID, role: 'MARKETER', isActive: true },
+      where: { tenantId: guideDemoTenantId(), role: 'MARKETER', isActive: true },
     }));
   if (!marketer) throw new Error('마케터 계정이 없습니다.');
 
   const leaders = await prisma.user.findMany({
-    where: { tenantId: DEFAULT_TENANT_ID, role: 'TEAM_LEADER', isActive: true },
+    where: { tenantId: guideDemoTenantId(), role: 'TEAM_LEADER', isActive: true },
     select: { id: true, email: true },
   });
   const leaderByEmail = new Map(leaders.map((l) => [l.email.toLowerCase(), l.id]));
   for (const l of leaders) {
     if (!leaderByEmail.has(l.email)) leaderByEmail.set(l.email, l.id);
   }
-  // cbiseo는 email이 'cbiseo' 그대로
-  const cbiseo = leaders.find((l) => l.email === 'cbiseo');
-  if (cbiseo) leaderByEmail.set('cbiseo', cbiseo.id);
+  const primaryLeader = leaders.find((l) => l.email === guideDemoTeamLeaderEmail());
+  if (primaryLeader) leaderByEmail.set('cbiseo', primaryLeader.id);
 
-  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, DEFAULT_TENANT_ID);
+  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, guideDemoTenantId());
 
   return {
-    tenantId: DEFAULT_TENANT_ID,
+    tenantId: guideDemoTenantId(),
     operatingCompanyId,
     adminId: admin.id,
     marketerId: marketer.id,
@@ -200,7 +199,8 @@ async function seedInquiryScenario(
 }
 
 function leaderByEmailLookup(ctx: SeedContext, email: string): string | undefined {
-  return ctx.leaderByEmail.get(email.toLowerCase()) ?? ctx.leaderByEmail.get(email);
+  const resolved = resolveGuideDemoLeaderEmail(email);
+  return ctx.leaderByEmail.get(resolved.toLowerCase()) ?? ctx.leaderByEmail.get(resolved);
 }
 
 export async function runGuideDemoAdminSeed(

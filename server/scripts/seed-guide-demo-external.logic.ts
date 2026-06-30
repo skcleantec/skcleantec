@@ -6,7 +6,7 @@ import type { PrismaClient } from '@prisma/client';
 import { allocateNextInquiryNumber } from '../src/modules/inquiries/inquiryNumber.js';
 import { addDaysToKstYmd, kstTodayYmd } from '../src/modules/inquiries/inquiryListDateRange.js';
 import { getDefaultOperatingCompanyId } from '../src/modules/operating-companies/operatingCompany.service.js';
-import { DEFAULT_TENANT_ID } from '../src/modules/tenants/tenant.constants.js';
+import { guideDemoTenantId } from './guide-demo/tenantScope.js';
 import {
   GUIDE_DEMO_EXTERNAL_COMPANY_ID,
   GUIDE_DEMO_TAG,
@@ -29,18 +29,18 @@ export async function runGuideDemoExternalSeed(
   const purged = await purgeGuideDemoExternalSeed(prisma);
 
   const admin = await prisma.user.findFirst({
-    where: { tenantId: DEFAULT_TENANT_ID, role: 'ADMIN', isActive: true },
+    where: { tenantId: guideDemoTenantId(), role: 'ADMIN', isActive: true },
     orderBy: { createdAt: 'asc' },
   });
   if (!admin) throw new Error('ADMIN 계정이 없습니다.');
 
-  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, DEFAULT_TENANT_ID);
+  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, guideDemoTenantId());
   const hash = await bcrypt.hash(PARTNER_PASSWORD, 10);
 
   await prisma.externalCompany.create({
     data: {
       id: GUIDE_DEMO_EXTERNAL_COMPANY_ID,
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: guideDemoTenantId(),
       name: '가이드데모 협력청소',
       phone: '010-8300-0001',
       memo: `${GUIDE_DEMO_TAG} 타업체 데모`,
@@ -50,7 +50,7 @@ export async function runGuideDemoExternalSeed(
 
   const partner = await prisma.user.create({
     data: {
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: guideDemoTenantId(),
       email: PARTNER_EMAIL,
       passwordHash: hash,
       name: '가이드협력',
@@ -77,11 +77,11 @@ export async function runGuideDemoExternalSeed(
 
   for (const s of scenarios) {
     const preferredDate = kstNoon(s.dayOffset);
-    const inquiryNumber = await allocateNextInquiryNumber(prisma, DEFAULT_TENANT_ID);
+    const inquiryNumber = await allocateNextInquiryNumber(prisma, guideDemoTenantId());
     await prisma.inquiry.create({
       data: {
         id: s.id,
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: guideDemoTenantId(),
         operatingCompanyId,
         inquiryNumber,
         customerName: s.name,
@@ -106,7 +106,7 @@ export async function runGuideDemoExternalSeed(
     });
     await prisma.assignment.create({
       data: {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: guideDemoTenantId(),
         inquiryId: s.id,
         teamLeaderId: partner.id,
         assignedById: admin.id,

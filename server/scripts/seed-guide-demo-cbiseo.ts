@@ -36,7 +36,9 @@ async function main() {
   }
 
   console.log('【cbiseo 가이드 데모 시드 완료】');
-  console.log(`  업체: SK클린텍 (slug: sk / skcleanteck)`);
+  const tenantSlug = (result.tenantSlug as string | undefined) ?? 'sk';
+  const teamLeaderLogin = (result.teamLeaderLoginId as string | undefined) ?? 'cbiseo';
+  console.log(`  테넌트 slug: ${tenantSlug}`);
   console.log(`  phase: ${phases.join(', ')}`);
   console.log(`  태그: ${GUIDE_DEMO_TAG}`);
 
@@ -101,7 +103,7 @@ async function main() {
   }
 
   console.log('');
-  console.log('  admin / cbiseo / marketer@skcleanteck.com / guide-crew (업체코드 sk)');
+  console.log(`  관리자: admin / ${teamLeaderLogin}(팀장) / marketer@skcleanteck.com — 업체코드 ${tenantSlug} / 비번 1234`);
   console.log('  문서: docs/GUIDE_DEMO_CBiseo.md');
 }
 

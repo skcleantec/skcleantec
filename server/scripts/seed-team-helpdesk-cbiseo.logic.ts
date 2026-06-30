@@ -12,7 +12,7 @@ import {
 import { allocateNextInquiryNumber } from '../src/modules/inquiries/inquiryNumber.js';
 import { addDaysToKstYmd, kstTodayYmd } from '../src/modules/inquiries/inquiryListDateRange.js';
 import { getDefaultOperatingCompanyId } from '../src/modules/operating-companies/operatingCompany.service.js';
-import { DEFAULT_TENANT_ID } from '../src/modules/tenants/tenant.constants.js';
+import { guideDemoTenantId, guideDemoTeamLeaderEmail } from './guide-demo/tenantScope.js';
 import { getOrCreateInspectionChecklist } from '../src/modules/inquiry-inspection/inquiryInspection.service.js';
 
 export const TEAM_HELPDESK_SEED_TAG = '[팀장도움말 cbiseo]';
@@ -161,7 +161,7 @@ function buildScenarios(): Scenario[] {
       preferredDayOffset: 3,
       preferredTime: '오전',
       crewMeetingShared: false,
-      perMemberMeeting: { 민수: '08:30', 지현: '08:45', 태호: '09:00' },
+      perMemberMeeting: { [CREW_NAMES[0]]: '08:30', [CREW_NAMES[1]]: '08:45', [CREW_NAMES[2]]: '09:00' },
       propertyType: '아파트',
       areaPyeong: 40,
       roomCount: 4,
@@ -351,7 +351,7 @@ function buildScenarios(): Scenario[] {
 
 export async function purgeTeamHelpdeskCbiseoSeed(prisma: PrismaClient): Promise<number> {
   const rows = await prisma.inquiry.findMany({
-    where: { tenantId: DEFAULT_TENANT_ID, memo: { contains: TEAM_HELPDESK_SEED_TAG } },
+    where: { tenantId: guideDemoTenantId(), memo: { contains: TEAM_HELPDESK_SEED_TAG } },
     select: { id: true },
   });
   if (rows.length === 0) return 0;
@@ -367,7 +367,7 @@ export async function purgeTeamHelpdeskCbiseoSeed(prisma: PrismaClient): Promise
 async function ensureLeader(prisma: PrismaClient, password: string) {
   const hash = await bcrypt.hash(password, 10);
   const leader = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: DEFAULT_TENANT_ID, email: TEAM_HELPDESK_LEADER_EMAIL } },
+    where: { tenantId_email: { tenantId: guideDemoTenantId(), email: guideDemoTeamLeaderEmail() } },
     update: {
       role: 'TEAM_LEADER',
       isActive: true,
@@ -375,8 +375,8 @@ async function ensureLeader(prisma: PrismaClient, password: string) {
       phone: '010-0000-cbis',
     },
     create: {
-      tenantId: DEFAULT_TENANT_ID,
-      email: TEAM_HELPDESK_LEADER_EMAIL,
+      tenantId: guideDemoTenantId(),
+      email: guideDemoTeamLeaderEmail(),
       passwordHash: hash,
       name: '최BI서(도움말)',
       phone: '010-0000-cbis',
@@ -388,7 +388,7 @@ async function ensureLeader(prisma: PrismaClient, password: string) {
     where: { teamLeaderId: leader.id },
     update: { memo: `${TEAM_HELPDESK_SEED_TAG} 데모 팀` },
     create: {
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: guideDemoTenantId(),
       teamLeaderId: leader.id,
       memo: `${TEAM_HELPDESK_SEED_TAG} 데모 팀`,
     },
@@ -398,12 +398,12 @@ async function ensureLeader(prisma: PrismaClient, password: string) {
   for (let i = 0; i < CREW_NAMES.length; i += 1) {
     const name = CREW_NAMES[i]!;
     const existing = await prisma.teamMember.findFirst({
-      where: { tenantId: DEFAULT_TENANT_ID, teamId: team.id, name },
+      where: { tenantId: guideDemoTenantId(), teamId: team.id, name },
     });
     if (existing) continue;
     await prisma.teamMember.create({
       data: {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: guideDemoTenantId(),
         teamId: team.id,
         name,
         phone: `010-7000-${String(1000 + i)}`,
@@ -421,17 +421,17 @@ async function ensureLeader(prisma: PrismaClient, password: string) {
 async function ensureInspectionModule(prisma: PrismaClient) {
   await prisma.tenantFeature.upsert({
     where: {
-      tenantId_moduleId: { tenantId: DEFAULT_TENANT_ID, moduleId: 'mod_inspection' },
+      tenantId_moduleId: { tenantId: guideDemoTenantId(), moduleId: 'mod_inspection' },
     },
     update: { enabled: true },
-    create: { tenantId: DEFAULT_TENANT_ID, moduleId: 'mod_inspection', enabled: true },
+    create: { tenantId: guideDemoTenantId(), moduleId: 'mod_inspection', enabled: true },
   });
   await prisma.tenantFeature.upsert({
     where: {
-      tenantId_moduleId: { tenantId: DEFAULT_TENANT_ID, moduleId: 'mod_crew' },
+      tenantId_moduleId: { tenantId: guideDemoTenantId(), moduleId: 'mod_crew' },
     },
     update: { enabled: true },
-    create: { tenantId: DEFAULT_TENANT_ID, moduleId: 'mod_crew', enabled: true },
+    create: { tenantId: guideDemoTenantId(), moduleId: 'mod_crew', enabled: true },
   });
 }
 
@@ -444,7 +444,7 @@ export async function runTeamHelpdeskCbiseoSeed(
   await ensureInspectionModule(prisma);
 
   const admin = await prisma.user.findFirst({
-    where: { tenantId: DEFAULT_TENANT_ID, role: 'ADMIN', isActive: true },
+    where: { tenantId: guideDemoTenantId(), role: 'ADMIN', isActive: true },
     orderBy: { createdAt: 'asc' },
   });
   if (!admin) {
@@ -452,10 +452,10 @@ export async function runTeamHelpdeskCbiseoSeed(
   }
 
   const leader = await ensureLeader(prisma, password);
-  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, DEFAULT_TENANT_ID);
+  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, guideDemoTenantId());
   const team = await prisma.team.findUniqueOrThrow({ where: { teamLeaderId: leader.id } });
   const members = await prisma.teamMember.findMany({
-    where: { tenantId: DEFAULT_TENANT_ID, teamId: team.id, isActive: true },
+    where: { tenantId: guideDemoTenantId(), teamId: team.id, isActive: true },
     select: { id: true, name: true },
   });
   const memberByName = new Map(members.map((m) => [m.name, m.id]));
@@ -471,16 +471,16 @@ export async function runTeamHelpdeskCbiseoSeed(
     const serviceTotal = (s.areaPyeong ?? 30) * 25_000;
 
     await prisma.$transaction(async (tx) => {
-      const existing = await tx.inquiry.findFirst({ where: { id: s.id, tenantId: DEFAULT_TENANT_ID } });
+      const existing = await tx.inquiry.findFirst({ where: { id: s.id, tenantId: guideDemoTenantId() } });
       if (existing) {
         await tx.inquiry.delete({ where: { id: s.id } });
       }
 
-      const inquiryNumber = await allocateNextInquiryNumber(tx, DEFAULT_TENANT_ID);
+      const inquiryNumber = await allocateNextInquiryNumber(tx, guideDemoTenantId());
       await tx.inquiry.create({
         data: {
           id: s.id,
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: guideDemoTenantId(),
           operatingCompanyId,
           inquiryNumber,
           customerName: s.customerName,
@@ -523,7 +523,7 @@ export async function runTeamHelpdeskCbiseoSeed(
 
       await tx.assignment.create({
         data: {
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: guideDemoTenantId(),
           inquiryId: s.id,
           teamLeaderId: leader.id,
           assignedById: admin.id,
@@ -540,7 +540,7 @@ export async function runTeamHelpdeskCbiseoSeed(
           if (!teamMemberId) continue;
           await tx.inquiryCrewMemberMeetingTime.create({
             data: {
-              tenantId: DEFAULT_TENANT_ID,
+              tenantId: guideDemoTenantId(),
               inquiryId: s.id,
               teamMemberId,
               meetingTime,
@@ -567,7 +567,7 @@ export async function runTeamHelpdeskCbiseoSeed(
     if (s.inspection === 'draft' || s.inspection === 'completed') {
       await getOrCreateInspectionChecklist({
         inquiryId: s.id,
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: guideDemoTenantId(),
         teamLeaderId: leader.id,
         roomCount: s.roomCount ?? 3,
         isOneRoom: s.isOneRoom ?? false,
@@ -579,7 +579,7 @@ export async function runTeamHelpdeskCbiseoSeed(
 
       if (s.inspection === 'completed') {
         await prisma.inquiryInspectionChecklist.updateMany({
-          where: { inquiryId: s.id, tenantId: DEFAULT_TENANT_ID },
+          where: { inquiryId: s.id, tenantId: guideDemoTenantId() },
           data: {
             status: InquiryInspectionStatus.COMPLETED,
             completedAt: new Date(),
@@ -601,7 +601,7 @@ export async function runTeamHelpdeskCbiseoSeed(
   }
 
   return {
-    leaderEmail: TEAM_HELPDESK_LEADER_EMAIL,
+    leaderEmail: guideDemoTeamLeaderEmail(),
     inquiryCount: scenarios.length,
     purged,
   };

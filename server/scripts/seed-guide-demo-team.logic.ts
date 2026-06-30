@@ -10,7 +10,7 @@ import {
 import { allocateNextInquiryNumber } from '../src/modules/inquiries/inquiryNumber.js';
 import { addDaysToKstYmd, kstTodayYmd } from '../src/modules/inquiries/inquiryListDateRange.js';
 import { getDefaultOperatingCompanyId } from '../src/modules/operating-companies/operatingCompany.service.js';
-import { DEFAULT_TENANT_ID } from '../src/modules/tenants/tenant.constants.js';
+import { guideDemoTenantId, guideDemoTeamLeaderEmail, resolveGuideDemoLeaderEmail } from './guide-demo/tenantScope.js';
 import { getOrCreateInspectionChecklist } from '../src/modules/inquiry-inspection/inquiryInspection.service.js';
 import { GUIDE_DEMO_TEAM_TAG, guideDemoTeamInquiryId } from './guide-demo/constants.js';
 import { purgeGuideDemoTeamSeed } from './guide-demo/purge.js';
@@ -191,20 +191,21 @@ export async function runGuideDemoTeamSeed(
   const purged = await purgeGuideDemoTeamSeed(prisma);
 
   const admin = await prisma.user.findFirst({
-    where: { tenantId: DEFAULT_TENANT_ID, role: 'ADMIN', isActive: true },
+    where: { tenantId: guideDemoTenantId(), role: 'ADMIN', isActive: true },
     orderBy: { createdAt: 'asc' },
   });
   if (!admin) throw new Error('ADMIN 계정이 없습니다.');
 
   const leaders = await prisma.user.findMany({
-    where: { tenantId: DEFAULT_TENANT_ID, role: 'TEAM_LEADER', isActive: true },
+    where: { tenantId: guideDemoTenantId(), role: 'TEAM_LEADER', isActive: true },
     select: { id: true, email: true },
   });
   const leaderByEmail = new Map(leaders.map((l) => [l.email.toLowerCase(), l.id]));
-  const cbiseo = leaders.find((l) => l.email === 'cbiseo');
-  if (cbiseo) leaderByEmail.set('cbiseo', cbiseo.id);
+  const primaryLeader = leaders.find((l) => l.email === guideDemoTeamLeaderEmail());
+  if (primaryLeader) leaderByEmail.set('cbiseo', primaryLeader.id);
+  const cbiseo = primaryLeader;
 
-  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, DEFAULT_TENANT_ID);
+  const operatingCompanyId = await getDefaultOperatingCompanyId(prisma, guideDemoTenantId());
   const scenarios = buildTeamScenarios();
   const today = kstTodayYmd();
 
@@ -218,11 +219,11 @@ export async function runGuideDemoTeamSeed(
     const leaderEmails = [s.teamLeaderEmail, s.secondTeamLeaderEmail].filter(Boolean) as string[];
 
     await prisma.$transaction(async (tx) => {
-      const inquiryNumber = await allocateNextInquiryNumber(tx, DEFAULT_TENANT_ID);
+      const inquiryNumber = await allocateNextInquiryNumber(tx, guideDemoTenantId());
       await tx.inquiry.create({
         data: {
           id: s.id,
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: guideDemoTenantId(),
           operatingCompanyId,
           inquiryNumber,
           customerName: s.customerName,
@@ -256,11 +257,12 @@ export async function runGuideDemoTeamSeed(
       });
 
       for (let i = 0; i < leaderEmails.length; i += 1) {
-        const tlId = leaderByEmail.get(leaderEmails[i]!.toLowerCase()) ?? leaderByEmail.get(leaderEmails[i]!);
+        const key = resolveGuideDemoLeaderEmail(leaderEmails[i]!);
+        const tlId = leaderByEmail.get(key.toLowerCase()) ?? leaderByEmail.get(key);
         if (!tlId) continue;
         await tx.assignment.create({
           data: {
-            tenantId: DEFAULT_TENANT_ID,
+            tenantId: guideDemoTenantId(),
             inquiryId: s.id,
             teamLeaderId: tlId,
             assignedById: admin.id,
@@ -327,12 +329,15 @@ export async function runGuideDemoTeamSeed(
     });
 
     const primaryLeader = leaderEmails[0]
-      ? leaderByEmail.get(leaderEmails[0].toLowerCase()) ?? leaderByEmail.get(leaderEmails[0])
+      ? (() => {
+          const key = resolveGuideDemoLeaderEmail(leaderEmails[0]);
+          return leaderByEmail.get(key.toLowerCase()) ?? leaderByEmail.get(key);
+        })()
       : cbiseo?.id;
     if (s.inspection && primaryLeader) {
       await getOrCreateInspectionChecklist({
         inquiryId: s.id,
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: guideDemoTenantId(),
         teamLeaderId: primaryLeader,
         roomCount: 3,
         isOneRoom: false,
@@ -343,7 +348,7 @@ export async function runGuideDemoTeamSeed(
       });
       if (s.inspection === 'completed') {
         await prisma.inquiryInspectionChecklist.updateMany({
-          where: { inquiryId: s.id, tenantId: DEFAULT_TENANT_ID },
+          where: { inquiryId: s.id, tenantId: guideDemoTenantId() },
           data: {
             status: InquiryInspectionStatus.COMPLETED,
             completedAt: new Date(),

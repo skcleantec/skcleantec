@@ -4,6 +4,10 @@
 import type { PrismaClient } from '@prisma/client';
 import { GUIDE_DEMO_TAG } from './guide-demo/constants.js';
 import {
+  ensureGuideDemoStaffUsers,
+  initGuideDemoTenantScope,
+} from './guide-demo/tenantScope.js';
+import {
   purgeGuideDemoAdminSeed,
   purgeGuideDemoAllExceptTeamHelpdesk,
   purgeGuideDemoCrewSeed,
@@ -38,8 +42,8 @@ export type GuideDemoPhase =
   | 'all';
 
 const ALL_PHASES: GuideDemoPhase[] = [
-  'admin',
   'team',
+  'admin',
   'external',
   'marketplace',
   'crew',
@@ -101,6 +105,11 @@ export async function runGuideDemoCbiseoSeed(
   const purgeOnly = opts?.purgeOnly ?? false;
   const run = phasesToRun(phases.includes('all') ? ['all'] : (phases as GuideDemoPhase[]));
 
+  const tenantScope = await initGuideDemoTenantScope(prisma);
+  if (!purgeOnly) {
+    await ensureGuideDemoStaffUsers(prisma, tenantScope.tenantId, opts?.teamPassword ?? '1234');
+  }
+
   if (purgeOnly) {
     if (phases.includes('all')) {
       await purgeGuideDemoAllExceptTeamHelpdesk(prisma);
@@ -160,6 +169,9 @@ export async function runGuideDemoCbiseoSeed(
     result.public = await runGuideDemoPublicSeed(prisma);
     result.publicUrls = guideDemoPublicUrls();
   }
+
+  result.tenantSlug = tenantScope.slug;
+  result.teamLeaderLoginId = tenantScope.teamLeaderEmail;
 
   return result;
 }

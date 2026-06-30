@@ -14,7 +14,7 @@ import {
   addDaysToKstYmd,
   kstTodayYmd,
 } from '../src/modules/inquiries/inquiryListDateRange.js';
-import { DEFAULT_TENANT_ID } from '../src/modules/tenants/tenant.constants.js';
+import { guideDemoTenantId, guideDemoTeamLeaderEmail, guideDemoTenantSlugFromEnv } from './guide-demo/tenantScope.js';
 import {
   GUIDE_DEMO_ECONTRACT_DEF_ID,
   GUIDE_DEMO_ECONTRACT_VERSION_ID,
@@ -28,7 +28,6 @@ import {
   guideDemoPayrollSettlementId,
 } from './guide-demo/constants.js';
 import { purgeGuideDemoPremiumSeed } from './guide-demo/purge.js';
-import { TEAM_HELPDESK_LEADER_EMAIL } from './seed-team-helpdesk-cbiseo.logic.js';
 
 const DEMO_ECONTRACT_BODY = `# 가이드 데모 · 팀원 근로계약서
 
@@ -49,9 +48,9 @@ function kstDateTime(dayOffset: number, hour = 18, minute = 0): Date {
 async function ensurePremiumModules(prisma: PrismaClient): Promise<void> {
   for (const moduleId of ['mod_advertising', 'mod_payroll', 'mod_e_contract'] as const) {
     await prisma.tenantFeature.upsert({
-      where: { tenantId_moduleId: { tenantId: DEFAULT_TENANT_ID, moduleId } },
+      where: { tenantId_moduleId: { tenantId: guideDemoTenantId(), moduleId } },
       update: { enabled: true },
-      create: { tenantId: DEFAULT_TENANT_ID, moduleId, enabled: true },
+      create: { tenantId: guideDemoTenantId(), moduleId, enabled: true },
     });
   }
 }
@@ -61,10 +60,10 @@ async function seedAdvertising(
   marketerId: string,
   adminId: string,
 ): Promise<{ sessionCount: number; spendLineCount: number }> {
-  await ensureDefaultAdChannelsForTenant(prisma, DEFAULT_TENANT_ID);
+  await ensureDefaultAdChannelsForTenant(prisma, guideDemoTenantId());
 
   const channels = await prisma.adChannel.findMany({
-    where: { tenantId: DEFAULT_TENANT_ID, name: { in: ['네이버', '인스타그램', '배너'] } },
+    where: { tenantId: guideDemoTenantId(), name: { in: ['네이버', '인스타그램', '배너'] } },
     select: { id: true, name: true },
   });
   const channelByName = new Map(channels.map((c) => [c.name, c.id]));
@@ -85,7 +84,7 @@ async function seedAdvertising(
   await prisma.adWorkSession.create({
     data: {
       id: guideDemoAdSessionId(1),
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: guideDemoTenantId(),
       userId: marketerId,
       startedAt: session1Start,
       endedAt: session1End,
@@ -103,7 +102,7 @@ async function seedAdvertising(
   await prisma.adWorkSession.create({
     data: {
       id: guideDemoAdSessionId(2),
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: guideDemoTenantId(),
       userId: marketerId,
       startedAt: session2Start,
       endedAt: session2End,
@@ -117,7 +116,7 @@ async function seedAdvertising(
   await prisma.adWorkSession.create({
     data: {
       id: guideDemoAdSessionId(3),
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: guideDemoTenantId(),
       userId: adminId,
       startedAt: session3Start,
       endedAt: session3End,
@@ -201,7 +200,7 @@ async function seedEContract(
   adminId: string,
   teamMembers: { minsSu: string; jiHyun: string; taeHo: string },
 ): Promise<{ issuanceCount: number }> {
-  await ensureDefaultFieldDefinitions(DEFAULT_TENANT_ID, EContractAudience.TEAM_MEMBER);
+  await ensureDefaultFieldDefinitions(guideDemoTenantId(), EContractAudience.TEAM_MEMBER);
 
   const title = '가이드 데모 · 팀원 근로계약서';
   const bodyDisplayHtml = DEMO_ECONTRACT_BODY.replace(/\r\n/g, '\n');
@@ -216,7 +215,7 @@ async function seedEContract(
   await prisma.eContractDefinition.create({
     data: {
       id: GUIDE_DEMO_ECONTRACT_DEF_ID,
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: guideDemoTenantId(),
       title,
       description: `${GUIDE_DEMO_PREMIUM_TAG} 팀원 체결 데모`,
       audience: EContractAudience.TEAM_MEMBER,
@@ -300,14 +299,17 @@ async function seedEContract(
   return { issuanceCount: 3 };
 }
 
-export function guideDemoPremiumUrls(baseUrl = 'https://cbiseo.com'): {
+export function guideDemoPremiumUrls(
+  baseUrl = 'https://cbiseo.com',
+  tenantSlug = guideDemoTenantSlugFromEnv(),
+): {
   label: string;
   url: string;
 }[] {
   return [
-    { label: '전자계약 · 서명 대기', url: `${baseUrl}/e-contract/sign/${guideDemoEContractToken(1)}?tenant=sk` },
-    { label: '전자계약 · 열람 완료', url: `${baseUrl}/e-contract/sign/${guideDemoEContractToken(2)}?tenant=sk` },
-    { label: '전자계약 · 체결 완료', url: `${baseUrl}/e-contract/sign/${guideDemoEContractToken(3)}?tenant=sk` },
+    { label: '전자계약 · 서명 대기', url: `${baseUrl}/e-contract/sign/${guideDemoEContractToken(1)}?tenant=${tenantSlug}` },
+    { label: '전자계약 · 열람 완료', url: `${baseUrl}/e-contract/sign/${guideDemoEContractToken(2)}?tenant=${tenantSlug}` },
+    { label: '전자계약 · 체결 완료', url: `${baseUrl}/e-contract/sign/${guideDemoEContractToken(3)}?tenant=${tenantSlug}` },
   ];
 }
 
@@ -324,22 +326,22 @@ export async function runGuideDemoPremiumSeed(
   await ensurePremiumModules(prisma);
 
   const admin = await prisma.user.findFirst({
-    where: { tenantId: DEFAULT_TENANT_ID, role: 'ADMIN', isActive: true },
+    where: { tenantId: guideDemoTenantId(), role: 'ADMIN', isActive: true },
     orderBy: { createdAt: 'asc' },
   });
   if (!admin) throw new Error('ADMIN 계정이 없습니다.');
 
   const marketer =
     (await prisma.user.findFirst({
-      where: { tenantId: DEFAULT_TENANT_ID, email: GUIDE_DEMO_MARKETER_EMAIL, isActive: true },
+      where: { tenantId: guideDemoTenantId(), email: GUIDE_DEMO_MARKETER_EMAIL, isActive: true },
     })) ??
     (await prisma.user.findFirst({
-      where: { tenantId: DEFAULT_TENANT_ID, role: 'MARKETER', isActive: true },
+      where: { tenantId: guideDemoTenantId(), role: 'MARKETER', isActive: true },
     }));
   if (!marketer) throw new Error('마케터 계정이 없습니다.');
 
   const leader = await prisma.user.findFirst({
-    where: { tenantId: DEFAULT_TENANT_ID, email: TEAM_HELPDESK_LEADER_EMAIL, isActive: true },
+    where: { tenantId: guideDemoTenantId(), email: guideDemoTeamLeaderEmail(), isActive: true },
   });
   if (!leader) {
     throw new Error('cbiseo 팀장 계정이 없습니다. --phase=team 을 먼저 실행하세요.');
@@ -349,7 +351,7 @@ export async function runGuideDemoPremiumSeed(
   if (!team) throw new Error('cbiseo 팀이 없습니다. --phase=team 을 먼저 실행하세요.');
 
   const members = await prisma.teamMember.findMany({
-    where: { tenantId: DEFAULT_TENANT_ID, teamId: team.id, isActive: true },
+    where: { tenantId: guideDemoTenantId(), teamId: team.id, isActive: true },
     select: { id: true, name: true },
   });
   const byName = new Map(members.map((m) => [m.name, m.id]));

@@ -1,5 +1,4 @@
 import type { PrismaClient } from '@prisma/client';
-import { DEFAULT_TENANT_ID } from '../../src/modules/tenants/tenant.constants.js';
 import {
   GUIDE_DEMO_CREW_GROUP_ID,
   GUIDE_DEMO_ECONTRACT_DEF_ID,
@@ -12,6 +11,7 @@ import {
   guideDemoPayrollMonthAdjustId,
   guideDemoPayrollSettlementId,
 } from './constants.js';
+import { guideDemoTenantId } from './tenantScope.js';
 
 async function purgeInquiriesByMemoTag(
   prisma: PrismaClient,
@@ -61,7 +61,7 @@ export async function purgeGuideDemoAdminSeed(prisma: PrismaClient): Promise<{
   orderForms: number;
   followups: number;
 }> {
-  const tenantId = DEFAULT_TENANT_ID;
+  const tenantId = guideDemoTenantId();
 
   const followupRows = await prisma.orderFollowup.findMany({
     where: { tenantId, memo: { contains: GUIDE_DEMO_TAG } },
@@ -103,11 +103,11 @@ export async function purgeGuideDemoAdminSeed(prisma: PrismaClient): Promise<{
 }
 
 export async function purgeGuideDemoTeamSeed(prisma: PrismaClient): Promise<number> {
-  return purgeInquiriesByMemoTag(prisma, DEFAULT_TENANT_ID, GUIDE_DEMO_TEAM_TAG);
+  return purgeInquiriesByMemoTag(prisma, guideDemoTenantId(), GUIDE_DEMO_TEAM_TAG);
 }
 
 export async function purgeGuideDemoCsSeed(prisma: PrismaClient): Promise<number> {
-  const tenantId = DEFAULT_TENANT_ID;
+  const tenantId = guideDemoTenantId();
   const deleted = await prisma.csReport.deleteMany({
     where: { tenantId, memo: { contains: GUIDE_DEMO_TAG } },
   });
@@ -115,11 +115,11 @@ export async function purgeGuideDemoCsSeed(prisma: PrismaClient): Promise<number
 }
 
 export async function purgeGuideDemoMarketplaceSeed(prisma: PrismaClient): Promise<number> {
-  return purgeInquiriesByMemoTag(prisma, DEFAULT_TENANT_ID, `${GUIDE_DEMO_TAG} 마켓`);
+  return purgeInquiriesByMemoTag(prisma, guideDemoTenantId(), `${GUIDE_DEMO_TAG} 마켓`);
 }
 
 export async function purgeGuideDemoExternalSeed(prisma: PrismaClient): Promise<number> {
-  const tenantId = DEFAULT_TENANT_ID;
+  const tenantId = guideDemoTenantId();
   const tagInquiries = await purgeInquiriesByMemoTag(prisma, tenantId, `${GUIDE_DEMO_TAG} 타업체`);
 
   const partnerUsers = await prisma.user.findMany({
@@ -142,7 +142,7 @@ export async function purgeGuideDemoExternalSeed(prisma: PrismaClient): Promise<
 }
 
 export async function purgeGuideDemoCrewSeed(prisma: PrismaClient): Promise<number> {
-  const removed = await purgeInquiriesByMemoTag(prisma, DEFAULT_TENANT_ID, `${GUIDE_DEMO_TAG} 크루`);
+  const removed = await purgeInquiriesByMemoTag(prisma, guideDemoTenantId(), `${GUIDE_DEMO_TAG} 크루`);
   await prisma.teamCrewGroupDayRoster.deleteMany({ where: { groupId: GUIDE_DEMO_CREW_GROUP_ID } });
   await prisma.teamCrewGroupMember.deleteMany({ where: { groupId: GUIDE_DEMO_CREW_GROUP_ID } });
   await prisma.teamCrewGroup.deleteMany({ where: { id: GUIDE_DEMO_CREW_GROUP_ID } });
@@ -156,7 +156,7 @@ export async function purgeGuideDemoPremiumSeed(prisma: PrismaClient): Promise<{
 }> {
   const sessionIds = [1, 2, 3].map((n) => guideDemoAdSessionId(n));
   const adDeleted = await prisma.adWorkSession.deleteMany({
-    where: { id: { in: sessionIds }, tenantId: DEFAULT_TENANT_ID },
+    where: { id: { in: sessionIds }, tenantId: guideDemoTenantId() },
   });
 
   const payrollIds = [1, 2, 3].map((n) => guideDemoPayrollSettlementId(n));
