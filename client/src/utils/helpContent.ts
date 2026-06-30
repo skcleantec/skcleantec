@@ -8,7 +8,7 @@ export const HELP_ROLE_LABELS: Record<HelpRole, string> = {
 };
 
 export function parseHelpRole(raw: string | null): HelpRole {
-  return raw === 'admin' ? 'admin' : 'team';
+  return raw === 'team' ? 'team' : 'admin';
 }
 
 export function slugifyHelpModule(module: string): string {

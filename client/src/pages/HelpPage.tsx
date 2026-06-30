@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { HelpMobileModuleSelect, HelpSidebar, helpModuleDomId } from '../components/help/HelpSidebar';
 import { HelpScreenCard } from '../components/help/HelpScreenCard';
+import { AdminGuideHelpLayout } from '../components/help/AdminGuideHelpLayout';
 import { TeamGuideHelpLayout } from '../components/help/TeamGuideHelpLayout';
 import { HelpUiGallery } from '../components/help/ui/HelpUiGallery';
 import type { HelpRole } from '../types/helpContent';
@@ -93,7 +94,7 @@ export function HelpPage() {
         const next = new URLSearchParams(prev);
         next.set('role', newRole);
         next.delete('q');
-        if (newRole === 'team') {
+        if (newRole === 'team' || newRole === 'admin') {
           next.set('chapter', '01');
         } else {
           next.delete('chapter');
@@ -129,6 +130,8 @@ export function HelpPage() {
 
   const showUiGallery = canEdit && searchParams.get('ui') === 'gallery';
   const isTeamGuideView = mainCategory === 'usage' && selectedRole === 'team';
+  const isAdminGuideView = mainCategory === 'usage' && selectedRole === 'admin';
+  const isHtmlGuideView = isTeamGuideView || isAdminGuideView;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -181,7 +184,7 @@ export function HelpPage() {
           </div>
 
           {/* 검색 (관리자 사용법에서만) */}
-          {mainCategory === 'usage' && selectedRole !== 'team' ? (
+          {mainCategory === 'usage' && !isHtmlGuideView ? (
             <div className="mt-2 max-w-md">
               <input
                 type="search"
@@ -198,11 +201,13 @@ export function HelpPage() {
       {/* 메인 콘텐츠 영역 */}
       <div
         className={`mx-auto max-w-screen-2xl ${
-          isTeamGuideView ? 'px-2 py-3 sm:px-3 lg:px-4 lg:py-4' : 'px-4 py-6 sm:px-6 lg:px-8'
+          isHtmlGuideView ? 'px-2 py-3 sm:px-3 lg:px-4 lg:py-4' : 'px-4 py-6 sm:px-6 lg:px-8'
         }`}
       >
         {mainCategory === 'usage' ? (
-          isTeamGuideView ? (
+          isAdminGuideView ? (
+            <AdminGuideHelpLayout selectedRole={selectedRole} onRoleChange={changeRole} />
+          ) : isTeamGuideView ? (
             <TeamGuideHelpLayout selectedRole={selectedRole} onRoleChange={changeRole} />
           ) : loading ? (
             <div className="flex min-h-[40vh] items-center justify-center">

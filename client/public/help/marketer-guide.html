@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<!-- v2026-06-30-NOCACHE -->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>청소비서 관리자(마케터) 앱 사용설명서</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+  :root {
+    --teal:#1a6b5a; --teal-light:#d1ede8; --navy:#0f172a;
+    --bg:#eeecea; --white:#fff; --gray-50:#f8f9fa; --gray-100:#f1f5f9;
+    --gray-200:#e2e8f0; --gray-400:#94a3b8; --gray-600:#475569; --gray-800:#1e293b;
+    --red:#dc2626; --blue:#2563eb; --green:#16a34a; --amber:#d97706;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{overflow-x:hidden;max-width:100%;}
+  body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--gray-800);font-size:15px;line-height:1.55;}
+
+  .slide{width:100%;max-width:100%;min-height:auto;margin:0 auto 32px;background:var(--white);border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);display:flex;flex-direction:column;}
+  .slide-header{background:var(--navy);color:white;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .slide-header .brand{font-size:14px;font-weight:700;letter-spacing:.5px;}
+  .slide-header .brand span{color:#4ade80;}
+  .slide-header .slide-num{font-size:11px;color:#94a3b8;text-align:right;}
+  .slide-body{display:flex;flex-direction:column;flex:1;}
+
+  /* PC 스크린샷 */
+  .pc-col{background:var(--gray-100);width:100%;height:440px;overflow:hidden;}
+  .pc-col img{width:100%;height:100%;object-fit:cover;object-position:top left;display:block;}
+  .pc-mock{width:100%;max-width:340px;border-radius:10px;overflow:hidden;box-shadow:0 10px 36px rgba(0,0,0,.20);background:white;border:4px solid #1e293b;}
+  .pc-browser-bar{background:#374151;height:26px;display:flex;align-items:center;padding:0 8px;gap:4px;}
+  .pc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .pc-dot.rd{background:#ef4444;} .pc-dot.yl{background:#f59e0b;} .pc-dot.gn{background:#22c55e;}
+  .pc-url{flex:1;background:#4b5563;border-radius:3px;height:14px;margin-left:5px;display:flex;align-items:center;padding:0 6px;}
+  .pc-url span{font-size:6.5px;color:#9ca3af;overflow:hidden;white-space:nowrap;}
+  .pc-gnb{background:var(--navy);padding:5px 8px;display:flex;align-items:center;gap:2px;overflow:hidden;}
+  .pc-gnb-logo{color:#4ade80;font-weight:700;font-size:9px;margin-right:5px;white-space:nowrap;flex-shrink:0;}
+  .pc-gnb-item{padding:3px 7px;border-radius:5px;font-size:7.5px;color:#cbd5e1;white-space:nowrap;flex-shrink:0;}
+  .pc-gnb-item.active{background:rgba(255,255,255,.18);color:white;font-weight:600;}
+  .pc-body{padding:10px;background:#f8fafc;}
+  .pc-page-title{font-size:11px;font-weight:700;color:var(--gray-800);margin-bottom:8px;}
+  .pc-card{background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-bottom:6px;}
+  .pc-card-title{font-size:8px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;}
+  .pc-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+  .pc-lbl{font-size:7.5px;color:#64748b;}
+  .pc-val{font-size:7.5px;font-weight:600;color:var(--navy);}
+  .pc-val.teal{color:var(--teal);} .pc-val.blue{color:#2563eb;} .pc-val.red{color:#dc2626;} .pc-val.green{color:#16a34a;}
+  .pc-badge{display:inline-block;font-size:6.5px;padding:1.5px 5px;border-radius:5px;font-weight:600;}
+  .pb-teal{background:var(--teal-light);color:var(--teal);}
+  .pb-blue{background:#dbeafe;color:#1e40af;}
+  .pb-red{background:#fee2e2;color:#dc2626;}
+  .pb-amber{background:#fef3c7;color:#92400e;}
+  .pb-green{background:#d1fae5;color:#065f46;}
+  .pb-gray{background:#f1f5f9;color:#475569;}
+  .pb-purple{background:#ede9fe;color:#5b21b6;}
+  .pc-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:6px;}
+  .pc-stat{background:white;border:1px solid #e2e8f0;border-radius:6px;padding:5px 4px;text-align:center;}
+  .pc-stat .sv{font-size:14px;font-weight:700;color:var(--navy);}
+  .pc-stat .sl{font-size:6.5px;color:#64748b;}
+  .pc-filter-bar{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px;}
+  .pc-ftab{font-size:7px;padding:2px 7px;border-radius:10px;border:1px solid #e2e8f0;background:white;color:#64748b;white-space:nowrap;}
+  .pc-ftab.active{background:var(--teal);color:white;border-color:var(--teal);}
+  .pc-ftab.navy{background:var(--navy);color:white;border-color:var(--navy);}
+  .pc-table{width:100%;border-collapse:collapse;}
+  .pc-table th{font-size:6.5px;color:#94a3b8;text-align:left;padding:2px 4px;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
+  .pc-table td{font-size:7px;color:#374151;padding:3px 4px;border-bottom:1px solid #f8fafc;white-space:nowrap;}
+  .pc-btn{display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;border-radius:5px;font-size:7.5px;font-weight:700;white-space:nowrap;}
+  .pc-btn.teal{background:var(--teal);color:white;}
+  .pc-btn.blue{background:#2563eb;color:white;}
+  .pc-btn.dark{background:#1e293b;color:white;}
+  .pc-btn.gray{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;}
+  .pc-btn.red{background:#dc2626;color:white;}
+  .pc-btn.outline{background:white;border:1.5px solid var(--teal);color:var(--teal);}
+  .pc-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+  .pc-kpi{background:white;border:1px solid #e2e8f0;border-radius:7px;padding:6px 5px;text-align:center;}
+  .pc-kpi .kv{font-size:13px;font-weight:700;color:var(--navy);}
+  .pc-kpi .kl{font-size:6.5px;color:#64748b;margin-top:1px;}
+  .pc-sidebar{background:var(--navy);padding:6px;width:80px;flex-shrink:0;}
+  .pc-sidebar-item{padding:4px 6px;border-radius:5px;font-size:7px;color:#cbd5e1;margin-bottom:2px;cursor:pointer;}
+  .pc-sidebar-item.active{background:rgba(255,255,255,.15);color:white;font-weight:600;}
+  .pc-sidebar-sep{font-size:6px;color:#475569;padding:4px 6px 2px;text-transform:uppercase;letter-spacing:.3px;}
+  .pc-with-sidebar{display:flex;gap:0;}
+  .pc-with-sidebar .pc-body{flex:1;min-width:0;}
+  .pc-progress{height:5px;border-radius:3px;background:#e2e8f0;margin-top:3px;}
+  .pc-progress-fill{height:100%;border-radius:3px;background:var(--teal);}
+  .pc-chart-bar{display:flex;align-items:flex-end;gap:3px;height:40px;margin-bottom:4px;}
+  .pc-bar{flex:1;border-radius:2px 2px 0 0;background:var(--teal);opacity:.7;}
+  .pc-bar.active{opacity:1;}
+
+  /* 설명 컬럼 */
+  .desc-col{padding:22px 20px;display:flex;flex-direction:column;min-width:0;}
+  .page-tag{display:inline-block;background:var(--teal-light);color:var(--teal);font-size:13px;font-weight:700;padding:4px 12px;border-radius:18px;margin-bottom:10px;width:fit-content;}
+  .page-title{font-size:clamp(1.25rem,2.5vw,1.65rem);font-weight:700;color:var(--navy);margin-bottom:6px;line-height:1.35;}
+  .page-sub{font-size:15px;color:var(--gray-600);margin-bottom:16px;line-height:1.65;}
+  .step-list{display:flex;flex-direction:column;gap:12px;}
+  .step{display:flex;gap:12px;align-items:flex-start;}
+  .step-num{flex-shrink:0;width:26px;height:26px;background:var(--teal);color:white;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+  .step-c{flex:1;min-width:0;}
+  .step-c strong{display:block;font-size:15px;font-weight:700;color:var(--navy);margin-bottom:3px;}
+  .step-c p{font-size:14px;color:var(--gray-600);line-height:1.7;}
+  .sub-li{margin-top:4px;list-style:none;padding:0;}
+  .sub-li li{font-size:13.5px;color:var(--gray-600);padding:3px 0 3px 12px;position:relative;line-height:1.6;}
+  .sub-li li::before{content:'·';position:absolute;left:2px;color:var(--teal);font-weight:700;}
+  .tip-box{background:var(--teal-light);border-left:3px solid var(--teal);border-radius:0 7px 7px 0;padding:10px 14px;margin-top:12px;font-size:14px;color:var(--teal);line-height:1.65;}
+  .tip-box .tip-t{font-weight:700;margin-bottom:2px;}
+  .warn-box{background:#fff7ed;border-left:3px solid var(--amber);border-radius:0 7px 7px 0;padding:10px 14px;margin-top:12px;font-size:14px;color:#92400e;line-height:1.65;}
+  .warn-box .warn-t{font-weight:700;margin-bottom:2px;}
+  .divider{height:1px;background:var(--gray-200);margin:12px 0;}
+  .sub-plain{list-style:none;padding:0;}
+  .sub-plain li{font-size:14px;color:var(--gray-600);padding:4px 0 4px 13px;position:relative;line-height:1.65;}
+  .sub-plain li::before{content:'·';position:absolute;left:2px;color:var(--teal);font-weight:700;}
+  .btn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:12px;}
+  .btn-item{display:flex;align-items:flex-start;gap:7px;padding:10px;background:var(--gray-50);border-radius:9px;border:1px solid var(--gray-200);}
+  .btn-dot{flex-shrink:0;width:13px;height:13px;border-radius:3px;margin-top:2px;}
+  .btn-item .bl{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:2px;}
+  .btn-item .bd{font-size:11.5px;color:var(--gray-600);line-height:1.45;}
+  em{color:var(--teal);font-style:normal;font-weight:700;}
+
+  /* 표지 */
+  .cover-slide{background:linear-gradient(135deg,var(--navy) 0%,#1e3a5f 60%,var(--teal) 100%);color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:280px;padding:40px 20px;text-align:center;border-radius:16px;margin:0 auto 32px;width:100%;max-width:100%;box-shadow:0 4px 24px rgba(0,0,0,.12);}
+  .cover-badge{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:18px;padding:5px 16px;font-size:12px;color:#a7f3d0;margin-bottom:14px;letter-spacing:1px;}
+  .cover-title{font-size:clamp(1.5rem,4.5vw,2.25rem);font-weight:700;margin-bottom:10px;line-height:1.25;}
+  .cover-title span{color:#4ade80;}
+  .cover-sub{font-size:15px;color:#cbd5e1;margin-bottom:20px;line-height:1.55;}
+  .cover-feats{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+  .cover-feat{background:rgba(255,255,255,.1);border-radius:11px;padding:8px 14px;font-size:13px;color:#e2e8f0;}
+  .cover-feat span{color:#4ade80;font-weight:700;}
+
+  /* 목차 */
+  .toc-slide{width:100%;max-width:100%;margin:0 auto 32px;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:28px 20px;}
+  .toc-title{font-size:clamp(1.25rem,3vw,1.5rem);font-weight:700;color:var(--navy);margin-bottom:18px;}
+  .toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+  .toc-item{background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:12px;padding:12px 10px;}
+  .toc-item.toc-highlight{background:#f0fdf4;border-color:#86efac;}
+  .toc-num{font-size:11px;color:var(--teal);font-weight:700;margin-bottom:4px;}
+  .toc-name{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:3px;line-height:1.35;}
+  .toc-desc{font-size:12px;color:var(--gray-600);line-height:1.45;}
+
+  /* 시퀀스 슬라이드 */
+  .seq-slide{width:100%;max-width:100%;margin:0 auto 32px;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);}
+  .seq-body{padding:22px 18px 28px;}
+  .seq-intro{font-size:15px;color:var(--gray-600);margin-bottom:18px;line-height:1.65;}
+  .seq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px;}
+  .seq-card{background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:12px;padding:12px 10px;position:relative;}
+  .seq-num{width:26px;height:26px;background:var(--teal);color:white;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:6px;}
+  .seq-icon{font-size:22px;margin-bottom:4px;}
+  .seq-name{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px;line-height:1.35;}
+  .seq-desc{font-size:12.5px;color:var(--gray-600);line-height:1.55;}
+  .seq-tip{background:var(--teal-light);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--teal);line-height:1.65;}
+  .seq-tip strong{font-weight:700;}
+
+  /* 권한 카드 */
+  .perm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;}
+  .perm-card{border-radius:10px;padding:12px;text-align:center;}
+  .perm-card.none{background:#f8fafc;border:1.5px solid #e2e8f0;}
+  .perm-card.limited{background:#eff6ff;border:1.5px solid #bfdbfe;}
+  .perm-card.full{background:#f0fdf4;border:1.5px solid #86efac;}
+  .perm-level{font-size:11px;font-weight:700;margin-bottom:5px;}
+  .perm-card.none .perm-level{color:#64748b;}
+  .perm-card.limited .perm-level{color:#1d4ed8;}
+  .perm-card.full .perm-level{color:#15803d;}
+  .perm-icon{font-size:24px;margin-bottom:5px;}
+  .perm-desc{font-size:11.5px;color:var(--gray-600);line-height:1.5;}
+
+  .page-wrapper{padding:12px 10px 16px;max-width:100%;margin:0 auto;}
+
+  @media (max-width:900px){
+    .desc-col{padding:18px 16px 22px;}
+    .seq-body{padding:18px 14px 22px;}
+    .toc-slide{padding:22px 16px;}
+    .cover-slide{padding:32px 16px;}
+    .perm-grid{grid-template-columns:1fr;}
+  }
+  @media (max-width:480px){
+    body{font-size:14px;}
+    .slide{margin-bottom:24px;border-radius:12px;}
+    .slide-header{padding:10px 12px;}
+    .pc-mock{max-width:100%;}
+    .seq-grid{grid-template-columns:1fr 1fr;}
+    .toc-grid{grid-template-columns:1fr;}
+    .page-wrapper{padding:8px 6px 12px;}
+    .perm-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+
+<!-- ══ 표지 ══ -->
+<div class="cover-slide">
+  <div class="cover-badge">ADMIN · MARKETER GUIDE</div>
+  <div class="cover-title">청소비서 <span>관리자</span> 앱<br>사용설명서</div>
+  <div class="cover-sub">PC 웹 기준 · 마케터&관리자 전 기능 완전 가이드</div>
+  <div class="cover-feats">
+    <div class="cover-feat">📊 <span>대시보드</span> — 매출·운영 실시간</div>
+    <div class="cover-feat">📋 <span>서비스접수</span> — 접수·발주서·견적서</div>
+    <div class="cover-feat">💰 <span>광고비</span> — ROAS·정산 분석</div>
+    <div class="cover-feat">📅 <span>스케쥴</span> — 달력 배정 현황</div>
+    <div class="cover-feat">💬 <span>메시지</span> — 팀장 채팅·공지</div>
+    <div class="cover-feat">⚙️ <span>관리자 전용</span> — 사용자·설정·정산</div>
+  </div>
+</div>
+
+<!-- ══ 목차 ══ -->
+<div class="toc-slide">
+  <div class="toc-title">📖 목차</div>
+  <div class="toc-grid">
+    <div class="toc-item toc-highlight"><div class="toc-num">01</div><div class="toc-name">앱 전체 구조·권한</div><div class="toc-desc">6개 메뉴 + 없음/일부/전체 3단계</div></div>
+    <div class="toc-item"><div class="toc-num">02</div><div class="toc-name">대시보드 ① 현황</div><div class="toc-desc">구독·작업종료 버튼·운영시간대</div></div>
+    <div class="toc-item"><div class="toc-num">03</div><div class="toc-name">대시보드 ② 매출·분석</div><div class="toc-desc">오늘매출·팀장랭킹·지역지도</div></div>
+    <div class="toc-item"><div class="toc-num">04</div><div class="toc-name">접수 목록 조회</div><div class="toc-desc">필터·검색·상태·컬럼 의미</div></div>
+    <div class="toc-item"><div class="toc-num">05</div><div class="toc-name">접수 수정 팝업</div><div class="toc-desc">고객·면적·일정·정산·결제 6섹션</div></div>
+    <div class="toc-item"><div class="toc-num">06</div><div class="toc-name">발주서 발급</div><div class="toc-desc">양식선택·고객링크 발송</div></div>
+    <div class="toc-item"><div class="toc-num">07</div><div class="toc-name">발주서 목록</div><div class="toc-desc">제출현황 확인·이메일 재발송</div></div>
+    <div class="toc-item"><div class="toc-num">08</div><div class="toc-name">견적서</div><div class="toc-desc">새 견적서 작성·발송</div></div>
+    <div class="toc-item"><div class="toc-num">09</div><div class="toc-name">C/S 관리</div><div class="toc-desc">고객 문의 링크·미리보기</div></div>
+    <div class="toc-item"><div class="toc-num">10</div><div class="toc-name">페이백·리뷰</div><div class="toc-desc">신청접수→리뷰확인→입금처리</div></div>
+    <div class="toc-item"><div class="toc-num">11</div><div class="toc-name">광고비 ① 기간 요약</div><div class="toc-desc">9개 지표 카드 의미</div></div>
+    <div class="toc-item"><div class="toc-num">12</div><div class="toc-name">광고비 ② 사용자별 집계</div><div class="toc-desc">마케터별 테이블·일별 정산</div></div>
+    <div class="toc-item"><div class="toc-num">13</div><div class="toc-name">광고비 ③ 작업 종료</div><div class="toc-desc">채널별 금액 입력·이력 확인</div></div>
+    <div class="toc-item"><div class="toc-num">14</div><div class="toc-name">광고비 설정</div><div class="toc-desc">채널 추가·과목(건당금액) 관리</div></div>
+    <div class="toc-item"><div class="toc-num">15</div><div class="toc-name">스케쥴·메시지·정보공유</div><div class="toc-desc">달력·채팅·DB마켓 3개 메뉴</div></div>
+    <div class="toc-item"><div class="toc-num">16</div><div class="toc-name">관리자 전용</div><div class="toc-desc">사용자·업체·정산·직원·설정</div></div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 01 ══ 앱 전체 구조 & 권한 -->
+<div class="seq-slide" id="slide-01">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">01 / 16 — 앱 전체 구조 &amp; 권한 레벨</span>
+  </div>
+  <div class="seq-body">
+    <div class="seq-intro">관리자 앱은 PC 웹 브라우저에서 사용합니다. 상단 메뉴(GNB)는 역할에 따라 다르게 표시되며, 마케터는 6개 메뉴를 기본으로 사용합니다.</div>
+    <div class="seq-grid">
+      <div class="seq-card">
+        <div class="seq-icon">📊</div>
+        <div class="seq-name">대시보드</div>
+        <div class="seq-desc">오늘 매출·접수 현황, 팀장별 랭킹, 운영 시간대 분석, 접수 변경 이력을 한눈에 봅니다.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-icon">📋</div>
+        <div class="seq-name">서비스접수</div>
+        <div class="seq-desc">접수 목록·수정, 발주서 발급·목록, 견적서, C/S 관리, 페이백·리뷰까지 모든 접수 업무를 처리합니다.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-icon">📅</div>
+        <div class="seq-name">스케쥴</div>
+        <div class="seq-desc">월별 달력에서 팀장별 배정 현황을 AM/PM 슬롯으로 확인합니다. 권역 필터로 특정 지역만 볼 수 있습니다.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-icon">🗂️</div>
+        <div class="seq-name">정보공유</div>
+        <div class="seq-desc">DB 마켓플레이스. 업체 간 접수 정보를 장바구니·구매·판매 형태로 주고받습니다.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-icon">💰</div>
+        <div class="seq-name">광고비</div>
+        <div class="seq-desc">마케터 핵심 메뉴. 광고비 입력(작업 종료), 기간별 성과 지표(ROAS·건당비용), 사용자별 집계를 관리합니다.</div>
+      </div>
+      <div class="seq-card">
+        <div class="seq-icon">💬</div>
+        <div class="seq-name">메시지</div>
+        <div class="seq-desc">팀장과 1:1 채팅, 전체 팀장에게 현장 공지를 일괄 발송합니다.</div>
+      </div>
+    </div>
+    <div class="seq-tip" style="margin-bottom:14px;">
+      <strong>⚙️ 관리자 전용</strong> 메뉴(사용자 등록·정산·설정 등)는 <em>권한 레벨 「전체」</em>인 마케터와 관리자만 상단에 표시됩니다.
+    </div>
+    <p style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:10px;">마케터 권한 레벨 3단계</p>
+    <div class="perm-grid">
+      <div class="perm-card none">
+        <div class="perm-icon">👁️</div>
+        <div class="perm-level">없음 (조회만)</div>
+        <div class="perm-desc">목록·상세 조회만 가능. 수정·삭제·배정·접수 등 모든 변경 작업 불가.</div>
+      </div>
+      <div class="perm-card limited">
+        <div class="perm-icon">✏️</div>
+        <div class="perm-level">일부 (운영 권한)</div>
+        <div class="perm-desc">배정·삭제·접수 고급 수정 가능. 관리자 전용 메뉴는 비표시.</div>
+      </div>
+      <div class="perm-card full">
+        <div class="perm-icon">🔑</div>
+        <div class="perm-level">전체 (관리자 동일)</div>
+        <div class="perm-desc">관리자와 동일한 모든 권한. 관리자 전용 메뉴 포함 전체 기능 사용.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 02 ══ 대시보드 ① 현황 -->
+<div class="slide" id="slide-02">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">02 / 16 — 대시보드 ① 실시간 현황</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s02_dashboard.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">대시보드 ①</div>
+      <div class="page-title">실시간 운영 현황 한눈에</div>
+      <div class="page-sub">대시보드 최상단에는 업체 구독 정보와 마케팅 세션 상태가 표시됩니다. 광고비 정산의 시작점인 <em>「작업 종료 및 정산」</em> 버튼이 이 영역에 있습니다.</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-c">
+            <strong>계정 및 서비스 이용 현황</strong>
+            <p>현재 구독 플랜(Premium 등), 상태(정상/만료), 활성 계정 수·브랜드 수를 확인합니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-c">
+            <strong>텔레마케팅·광고비 블록</strong>
+            <p>마케터가 하루 업무를 시작하면 <em>세션이 「진행 중」</em> 상태로 표시됩니다. 업무 종료 시 반드시 <em>「🔴 작업 종료 및 정산」</em> 버튼을 눌러 광고비를 입력해야 합니다.</p>
+            <ul class="sub-li">
+              <li>이 버튼을 눌러야 오늘 사용한 광고비(채널별 금액)를 입력할 수 있습니다</li>
+              <li>입력하지 않으면 광고비 집계에 누락이 생깁니다</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>운영 시간대(KST) 차트</strong>
+            <p>시간대별로 어떤 활동이 얼마나 일어났는지 막대 그래프로 보여줍니다. 7일 / 30일 / 90일 탭으로 기간을 바꿀 수 있습니다.</p>
+            <ul class="sub-li">
+              <li><em>발주서 발급</em> — 고객에게 발주서 링크를 보낸 건수</li>
+              <li><em>부재 유입</em> — 고객이 부재 중이었던 유입 건수</li>
+              <li><em>발주서 재출</em> — 고객이 발주서를 다시 제출한 건수</li>
+              <li><em>접수 전환</em> — 발주서 제출 후 정식 접수로 전환된 건수</li>
+              <li><em>보유 유입 / 예약 확정</em> — 내부 보유 고객 및 최종 예약 확정 건수</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="tip-box">
+        <div class="tip-t">💡 가장 중요한 습관</div>
+        하루 업무가 끝나면 대시보드로 돌아와 <em>「작업 종료 및 정산」</em> 버튼을 눌러 광고비를 입력하세요. 이 데이터가 광고비 페이지의 모든 지표(ROAS·건당비용 등)의 기초가 됩니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 03 ══ 대시보드 ② 매출·분석 -->
+<div class="slide" id="slide-03">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">03 / 16 — 대시보드 ② 매출·분석·변경이력</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s02_dashboard.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">대시보드 ②</div>
+      <div class="page-title">매출·분석·변경이력</div>
+      <div class="page-sub">스크롤을 내리면 오늘/이번달 매출, 팀장별 실적, 지역별 접수 지도, 접수 변경 이력이 순서대로 나타납니다.</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-c">
+            <strong>오늘·이번달 미분배·해피콜 미완</strong>
+            <p>상단 3개 카운터로 당일 긴급 확인 사항을 빠르게 파악합니다.</p>
+            <ul class="sub-li">
+              <li><em>이번달 미분배</em> — 아직 팀장에게 배정하지 않은 접수 건수. 숫자를 클릭하면 해당 목록으로 이동</li>
+              <li><em>해피콜 미완</em> — 작업일 전날까지 고객에게 전화 안내를 완료하지 못한 건수</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-c">
+            <strong>매출 및 정산 현황</strong>
+            <p>오늘 매출, 이번달 누적 매출, 최근 7일 매출 추이 차트, 팀장별 매출 비교를 확인합니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>이번달 현장 업무 랭킹</strong>
+            <p>팀장별 <em>누적 이동거리(km)</em>와 <em>배정 건수</em> 랭킹을 나란히 보여줍니다. 현장 업무 부담이 고르게 분배되고 있는지 점검할 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-c">
+            <strong>접수·예약 분석 (지역별 지도)</strong>
+            <p>지역별로 접수가 얼마나 들어오는지 지도 위에 시각화됩니다. 어느 지역에서 많이 오는지 파악해 마케팅 전략에 활용하세요.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-c">
+            <strong>접수 변경 이력</strong>
+            <p>가장 최근에 수정·생성된 접수 건들의 변경 내용이 타임라인으로 기록됩니다. 누가, 언제, 무엇을 바꿨는지 추적할 수 있습니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 04 ══ 접수 목록 조회 -->
+<div class="slide" id="slide-04">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">04 / 16 — 서비스접수 · 접수 목록 조회</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s04_inquiries.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">서비스접수</div>
+      <div class="page-title">접수 목록 — 필터·조회</div>
+      <div class="page-sub">상단 메뉴 <em>「서비스접수」</em>를 누르면 접수 목록이 나타납니다. 다양한 필터로 원하는 접수만 빠르게 찾을 수 있습니다.</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-c">
+            <strong>날짜 기간 탭</strong>
+            <p>오늘 / 이번달 / 지난달 / 기간 직접 선택. 기본값은 이번달입니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-c">
+            <strong>주요 필터 항목</strong>
+            <ul class="sub-li">
+              <li><em>마케터 확정예약</em> — 마케터별로 확정된 예약 건수를 집계해 드롭다운으로 선택</li>
+              <li><em>접수자</em> — 접수를 등록한 직원 기준 필터</li>
+              <li><em>팀장·타업체·현장검수·브랜드</em> — 배정 팀장, 협력업체, 현장검수 여부, 영업 브랜드로 좁히기</li>
+              <li><em>상태</em> — 접수·예약확정·배정완료·진행중·완료·취소·삭제 등</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>접수 행 클릭 → 상세 수정 팝업</strong>
+            <p>목록에서 접수 행을 클릭하면 수정 팝업이 열립니다. 팝업에서 고객 정보부터 결제까지 모든 내용을 수정할 수 있습니다. (다음 슬라이드 참조)</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-c">
+            <strong>행 우측 버튼들</strong>
+            <ul class="sub-li">
+              <li><em>상세</em> — 팝업으로 수정</li>
+              <li><em>클레임</em> — 클레임 등록</li>
+              <li><em>취소 / 삭제</em> — 접수 취소·삭제 처리</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="tip-box">
+        <div class="tip-t">💡 마케터는 자신이 담당한 접수만 보임</div>
+        마케터는 기본적으로 본인이 접수한 건만 보입니다. 권한이 <em>「일부」 이상</em>이면 다른 직원의 접수도 조회·수정할 수 있습니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 05 ══ 접수 수정 팝업 -->
+<div class="slide" id="slide-05">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">05 / 16 — 접수 수정 팝업 · 6개 섹션</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s04_inquiries.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">서비스접수</div>
+      <div class="page-title">접수 수정 팝업 — 6개 섹션</div>
+      <div class="page-sub">접수 행을 클릭하면 수정 팝업이 열립니다. 위에서 아래로 6개 섹션이 펼쳐지며, 각 항목을 바로 수정·저장할 수 있습니다.</div>
+      <div class="btn-grid">
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#0f172a;"></div>
+          <div><div class="bl">① 고객 정보·주소</div><div class="bd">고객명, 연락처, 주소, 동·층·비밀번호, 특이사항</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#1a6b5a;"></div>
+          <div><div class="bl">② 유형·면적·방·주방</div><div class="bd">서비스 종류, 평수, 방·화장실·주방 수, 건물 유형(아파트·빌라 등)</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#2563eb;"></div>
+          <div><div class="bl">③ 일정</div><div class="bd">예약일, 시간대(오전·오후·저녁), 상세 시간, 팀장 배정</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#d97706;"></div>
+          <div><div class="bl">④ 정산·옵션</div><div class="bd">기본금, 추가 옵션 항목·금액, 전문시공옵션 리뷰 배지</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#9333ea;"></div>
+          <div><div class="bl">⑤ 결제금액 내역</div><div class="bd">총 결제금액, 결제수단, 할인·쿠폰 적용 내역</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#16a34a;"></div>
+          <div><div class="bl">⑥ 메모·내부정보</div><div class="bd">내부용 메모, 마케터 지정, 브랜드 선택</div></div>
+        </div>
+      </div>
+      <div class="tip-box" style="margin-top:14px;">
+        <div class="tip-t">💡 저장 방법</div>
+        각 섹션에서 수정 후 해당 섹션 하단의 <em>「저장」</em> 버튼을 누릅니다. 팝업 전체를 한꺼번에 저장하는 것이 아니라 <em>섹션별로 저장</em>합니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 06 ══ 발주서 발급 -->
+<div class="slide" id="slide-06">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">06 / 16 — 발주서 발급</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s06_order_issue.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">서비스접수 › 발주서</div>
+      <div class="page-title">발주서 발급 — 고객 링크 생성</div>
+      <div class="page-sub">발주서는 고객이 서비스 내용을 직접 확인하고 제출하는 온라인 폼입니다. 마케터가 발주서를 만들어 고객에게 링크를 보내면, 고객이 폼을 작성·제출합니다.</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-c">
+            <strong>양식 선택</strong>
+            <p>발주서 양식을 선택합니다. 업체에서 미리 만들어 둔 여러 가지 양식 중 고객 유형에 맞는 것을 고릅니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-c">
+            <strong>대기접수 연결 (선택)</strong>
+            <p>이미 대기 중인 접수가 있다면 연결합니다. 연결하면 고객이 발주서를 제출할 때 기존 접수와 자동으로 매칭됩니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>내부표시 이모지</strong>
+            <p>이 발주서를 식별하기 위한 이모지를 선택합니다. 목록에서 쉽게 구분할 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-c">
+            <strong>고객 정보 입력</strong>
+            <p>고객명, 연락처, 주소를 입력합니다. 기존 접수와 연결한 경우 자동으로 채워집니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-c">
+            <strong>발급 금액 설정 후 발송</strong>
+            <p>발주서에 표시될 금액을 입력합니다. 완료 후 <em>링크 복사</em>, <em>카카오 발송</em>, <em>문자 발송</em> 중 선택합니다.</p>
+          </div>
+        </div>
+      </div>
+      <div class="warn-box">
+        <div class="warn-t">⚠️ 발주서 vs 접수의 차이</div>
+        발주서는 고객에게 보내는 <em>견적·확인 폼</em>입니다. 고객이 제출하면 그때 정식 <em>「접수」</em>로 전환됩니다. 발주서만 발급하고 고객이 제출하지 않으면 접수 목록에 나타나지 않습니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ SLIDE 07 ══ 발주서 목록 -->
+<div class="slide" id="slide-07">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">07 / 16 — 발주서 목록</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s07_order_forms.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">서비스접수 › 발주서 목록</div>
+      <div class="page-title">발주서 목록 — 제출 현황 관리</div>
+      <div class="page-sub">지금까지 발급한 발주서를 한눈에 확인합니다. 고객이 제출했는지 여부를 추적하고, 확인 이메일을 재발송할 수 있습니다.</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-c">
+            <strong>기간 탭 선택</strong>
+            <p>발급일 기준으로 오늘 / 이번달 / 전체 / 월별 / 날짜 직접 선택으로 범위를 좁힙니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-c">
+            <strong>담당자 · 상태 필터</strong>
+            <p>담당 마케터별로 필터링하거나, <em>「미제출만」</em> 버튼으로 아직 고객이 제출하지 않은 발주서만 골라볼 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>상태 컬럼 의미</strong>
+            <ul class="sub-li">
+              <li><em>미제출</em> — 발주서 링크를 보냈지만 고객이 아직 작성·제출하지 않음</li>
+              <li><em>제출완료</em> — 고객이 발주서를 작성하고 제출함. 접수로 전환 가능</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-c">
+            <strong>이메일 재발송</strong>
+            <p>고객이 제출한 발주서에 대해 확인 이메일이 발송됩니다. 발송 실패 시 행 우측 <em>「이메일 재발송」</em> 버튼으로 다시 보낼 수 있습니다.</p>
+          </div>
+        </div>
+      </div>
+      <div class="tip-box">
+        <div class="tip-t">💡 미제출 발주서 팔로업</div>
+        발주서를 보낸 후 하루 이상 미제출 상태라면 고객에게 다시 연락해 보세요. <em>「미제출만」</em> 필터로 팔로업이 필요한 건을 빠르게 확인할 수 있습니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 08 ══ 견적서 -->
+<div class="slide" id="slide-08">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">08 / 16 — 견적서</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s08_quotations.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">서비스접수 › 견적서</div>
+      <div class="page-title">견적서 — 작성·발송·관리</div>
+      <div class="page-sub">발주서와 별도로 고객에게 보낼 견적서를 작성·발송·관리합니다. 견적서는 PDF 형태로 발송됩니다.</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-c">
+            <strong>새 견적서 작성</strong>
+            <p>우측 상단 <em>「+ 새 견적서」</em> 버튼을 누릅니다. 견적서 편집 화면으로 이동합니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-c">
+            <strong>견적서 내용 작성</strong>
+            <ul class="sub-li">
+              <li>상대방(고객) 이름·연락처·이메일 입력</li>
+              <li>서비스 항목별 단가·수량·금액 입력</li>
+              <li>유효기간, 메모 등 추가 정보 입력</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>확정 후 발송</strong>
+            <p>작성 완료 후 <em>「확정」</em> 상태로 바꾸고 고객 이메일로 PDF를 발송합니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-c">
+            <strong>상태 확인</strong>
+            <ul class="sub-li">
+              <li><em>작성 중</em> — 아직 편집 중. 고객에게 발송 전 상태</li>
+              <li><em>확정</em> — 내용 확정 완료. 발송 준비 상태</li>
+              <li><em>발송됨</em> — 고객 이메일로 PDF 발송 완료</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 09 ══ C/S 관리 -->
+<div class="slide" id="slide-09">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">09 / 16 — C/S 관리</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s09_cs.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">서비스접수 › C/S 관리</div>
+      <div class="page-title">C/S 관리 — 고객 문의 처리</div>
+      <div class="page-sub">서비스를 이용한 고객의 사후 문의·불만을 관리합니다. 고객에게 C/S 페이지 링크를 공유하면 고객이 직접 문의를 입력할 수 있습니다.</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-c">
+            <strong>C/S 링크 복사 후 공유</strong>
+            <p>목록에서 해당 접수의 <em>「링크복사」</em>를 클릭하면 고객용 C/S 페이지 URL이 복사됩니다. 문자·카카오로 고객에게 보내세요.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-c">
+            <strong>고객 문의 확인</strong>
+            <p>고객이 C/S 페이지에서 문의를 남기면 해당 접수의 상태가 변경됩니다. 문의 내용을 확인하고 처리합니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>기간 필터</strong>
+            <p>접수일 기준으로 최근 3개월 / 월별 / 날짜 직접 지정으로 조회 범위를 조정합니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-c">
+            <strong>C/S 페이지 미리보기</strong>
+            <p>고객이 실제로 보게 될 C/S 페이지를 미리 확인할 수 있습니다. 페이지 우측 <em>「미리보기」</em> 버튼을 클릭하세요.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 10 ══ 페이백·리뷰 -->
+<div class="slide" id="slide-10">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">10 / 16 — 페이백·리뷰</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s10_payback.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">서비스접수 › 페이백·리뷰</div>
+      <div class="page-title">페이백·리뷰 — 리뷰 보상 관리</div>
+      <div class="page-sub">청소 완료 후 고객이 리뷰를 작성하면 페이백(현금 보상)을 신청할 수 있습니다. 이 화면에서 신청을 검토하고 입금 처리합니다.</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-c">
+            <strong>탭으로 단계별 관리</strong>
+            <ul class="sub-li">
+              <li><em>전체</em> — 모든 페이백 신청 내역</li>
+              <li><em>신청접수</em> — 고객이 방금 신청한 건. 처리 대기 상태</li>
+              <li><em>리뷰확인</em> — 리뷰 작성 여부를 담당자가 확인 중인 상태</li>
+              <li><em>입금완료</em> — 페이백 금액을 고객 계좌로 입금 처리 완료</li>
+              <li><em>반려</em> — 리뷰 조건 미충족·허위 등으로 거절한 건</li>
+              <li><em>미확인만</em> — 아직 아무도 확인하지 않은 신청만 표시</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-c">
+            <strong>처리 순서</strong>
+            <p>신청접수 → 리뷰 링크 클릭하여 실제 리뷰 확인 → <em>「리뷰 확인」</em> 클릭 → 계좌번호 확인 후 입금 → <em>「입금 완료」</em> 클릭</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>반려 처리</strong>
+            <p>리뷰가 조건에 맞지 않거나 허위인 경우 <em>「반려」</em> 버튼을 눌러 처리합니다. 반려 사유를 입력할 수 있습니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 11 ══ 광고비 ① 기간 요약 -->
+<div class="slide" id="slide-11">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">11 / 16 — 광고비 ① 기간 요약 지표</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s11_advertising.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">광고비</div>
+      <div class="page-title">광고비 ① — 기간 요약 9개 지표</div>
+      <div class="page-sub">광고비 페이지 상단에 선택 기간 동안의 핵심 성과 지표 9개가 카드 형태로 표시됩니다. 마케터는 본인 데이터만, 관리자는 전체를 볼 수 있습니다.</div>
+      <div class="btn-grid">
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#0f172a;"></div>
+          <div><div class="bl">총 광고비</div><div class="bd">선택 기간에 입력한 광고비 총액(원)</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#16a34a;"></div>
+          <div><div class="bl">예약완료 건수</div><div class="bd">광고 유입 후 예약까지 확정된 건수</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#d97706;"></div>
+          <div><div class="bl">미제출 발급</div><div class="bd">발주서를 보냈지만 고객이 아직 제출하지 않은 건수</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#dc2626;"></div>
+          <div><div class="bl">취소 건수</div><div class="bd">예약 확정 후 고객이 취소한 건수</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#94a3b8;"></div>
+          <div><div class="bl">삭제 건수</div><div class="bd">내부적으로 삭제 처리한 접수 건수</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:var(--teal);"></div>
+          <div><div class="bl">접수 매출 합계</div><div class="bd">예약완료 건들의 결제금액 합계(원)</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#6366f1;"></div>
+          <div><div class="bl">ROAS</div><div class="bd">접수 매출 ÷ 총 광고비. 숫자가 높을수록 광고 효율이 좋음</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#0ea5e9;"></div>
+          <div><div class="bl">건당 비용</div><div class="bd">총 광고비 ÷ 예약완료 건수. 1건 예약당 평균 광고비</div></div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#f59e0b;"></div>
+          <div><div class="bl">일평균 광고비</div><div class="bd">선택 기간 일수로 나눈 하루 평균 광고비</div></div>
+        </div>
+      </div>
+      <div class="tip-box" style="margin-top:14px;">
+        <div class="tip-t">💡 ROAS 해석</div>
+        ROAS 14.8 = 광고비 1원당 14.8원의 매출이 발생. <em>일반적으로 ROAS 10 이상이면 우수한 성과</em>로 봅니다. 채널별·기간별로 비교해 효율이 낮은 채널을 점검하세요.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 12 ══ 광고비 ② 사용자별 집계 -->
+<div class="slide" id="slide-12">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">12 / 16 — 광고비 ② 사용자별 집계·일별 정산</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s11_advertising.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">광고비</div>
+      <div class="page-title">광고비 ② — 사용자별 집계</div>
+      <div class="page-sub">기간 요약 카드 아래에 마케터별 성과 테이블이 나타납니다. 각 마케터가 얼마의 광고비를 써서 얼마의 성과를 냈는지 한 눈에 비교합니다.</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-c">
+            <strong>테이블 컬럼 설명</strong>
+            <ul class="sub-li">
+              <li><em>이름·역할</em> — 마케터 이름과 역할 배지</li>
+              <li><em>광고비</em> — 해당 마케터가 해당 기간에 입력한 총 광고비</li>
+              <li><em>예약완료</em> — 예약으로 전환된 건수</li>
+              <li><em>미제출·취소·삭제</em> — 각각의 건수 (낮을수록 좋음)</li>
+              <li><em>매출</em> — 예약완료 건들의 총 결제금액</li>
+              <li><em>ROAS</em> — 마케터 개인의 광고 효율</li>
+              <li><em>건당 비용</em> — 1건 예약당 평균 광고비</li>
+              <li><em>일평균 광고비</em> — 선택 기간 동안 하루 평균 광고비</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-c">
+            <strong>「일별」 버튼 → 일별 정산 팝업</strong>
+            <p>각 마케터 행 우측 <em>「일별」</em> 버튼을 누르면 날짜별 광고비 내역 팝업이 열립니다. 어떤 날 어떤 채널에 얼마를 썼는지 확인할 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>마케터 필터 활용</strong>
+            <p>상단 <em>「마케터 필터」</em>에서 특정 마케터만 선택하면 기간 요약 카드도 해당 마케터의 데이터만 표시됩니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 13 ══ 광고비 ③ 작업 종료 & 정산 -->
+<div class="slide" id="slide-13">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">13 / 16 — 광고비 ③ 작업 종료 이력·광고비 입력</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s11_advertising.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">광고비</div>
+      <div class="page-title">광고비 ③ — 작업 종료 이력</div>
+      <div class="page-sub">광고비 입력은 <em>대시보드의 「작업 종료 및 정산」 버튼</em>에서 시작합니다. 입력 완료된 내역은 광고비 페이지 하단 <em>작업 종료 이력</em>에 쌓입니다.</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-c">
+            <strong>광고비 입력 방법 (대시보드에서 시작)</strong>
+            <p>대시보드 → <em>텔레마케팅·광고비 블록</em> → <em>「🔴 작업 종료 및 정산」</em> 버튼 클릭</p>
+            <ul class="sub-li">
+              <li>채널별 팝업 양식이 열립니다</li>
+              <li>채널(숨고·네이버·기타 등)별로 해당 날짜에 사용한 금액을 입력합니다</li>
+              <li>과목(항목) 단위로 건수와 금액을 입력할 수 있습니다</li>
+              <li>완료 후 <em>「종료」</em>를 누르면 정산 기록이 저장됩니다</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-c">
+            <strong>작업 종료 이력 확인</strong>
+            <p>광고비 페이지 하단에서 날짜별·마케터별 입력 이력을 확인합니다.</p>
+            <ul class="sub-li">
+              <li><em>종료 시각</em> — 작업 종료 버튼을 누른 시각</li>
+              <li><em>담당</em> — 해당 마케터 이름</li>
+              <li><em>채널별 금액</em> — 채널별로 입력한 금액과 과목 건수 내역</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>하루에 여러 번 입력 가능</strong>
+            <p>오전·오후에 나눠서 입력하거나 실수 수정을 위해 같은 날 여러 번 작업 종료 버튼을 눌러도 됩니다. 이력은 시각순으로 모두 기록됩니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 14 ══ 광고비 설정 -->
+<div class="slide" id="slide-14">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">14 / 16 — 광고비 설정</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s14_ad_settings.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">광고비 › 설정</div>
+      <div class="page-title">광고비 설정 — 채널·과목 관리</div>
+      <div class="page-sub">광고비 메뉴 좌측 <em>「설정」</em>을 누르면 광고 채널을 추가·수정·삭제하고 과목(건당 금액)을 관리할 수 있습니다.</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-c">
+            <strong>광고 채널 추가</strong>
+            <p>하단 <em>「+ 채널 추가」</em>를 눌러 새 광고 채널(예: 당근, 카카오 등)을 등록합니다. 채널 이름을 입력하고 저장합니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-c">
+            <strong>정산 방식 선택</strong>
+            <ul class="sub-li">
+              <li><em>건당 금액</em> — 과목별로 건수를 입력하면 금액이 자동 계산됩니다. (예: 전화상담 1건 = 5,000원)</li>
+              <li><em>직접 입력</em> — 매번 금액을 직접 입력합니다. 정산 방식이 복잡하거나 고정되지 않은 채널에 적합합니다.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>과목(항목) 관리</strong>
+            <p>건당 금액 방식을 사용하는 채널에는 과목을 추가합니다. 과목명과 건당 금액을 입력하면 작업 종료 시 건수만 입력해도 금액이 자동으로 계산됩니다.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-c">
+            <strong>채널 사용 ON/OFF</strong>
+            <p>일시적으로 사용하지 않는 채널은 삭제하지 않고 <em>비활성화</em>만 해둘 수 있습니다. 비활성화된 채널은 작업 종료 팝업에 표시되지 않습니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 15 ══ 스케쥴·메시지·정보공유 -->
+<div class="slide" id="slide-15">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">15 / 16 — 스케쥴 · 메시지 · 정보공유</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col" style="display:flex;flex-direction:row;gap:4px;padding:8px;">
+      <img src="./screenshots/s15_schedule.png" alt="스케쥴" style="flex:1;min-width:0;width:0;height:100%;object-fit:cover;object-position:top left;border-radius:4px;display:block;">
+      <div style="display:flex;gap:4px;flex:1;">
+        <img src="./screenshots/s15b_messages.png" alt="메시지" style="flex:1;min-width:0;width:0;height:100%;object-fit:cover;object-position:top left;border-radius:4px;display:block;">
+        <img src="./screenshots/s15c_db_marketplace.png" alt="DB마켓" style="flex:1;min-width:0;width:0;height:100%;object-fit:cover;object-position:top left;border-radius:4px;display:block;">
+      </div>
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">스케쥴 · 메시지 · 정보공유</div>
+      <div class="page-title">3개 메뉴 핵심 사용법</div>
+      <div class="page-sub">스케쥴, 메시지, 정보공유 메뉴는 주로 현장 운영 파악·소통·정보 교환에 사용됩니다.</div>
+      <div class="divider"></div>
+      <p style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:10px;">📅 스케쥴</p>
+      <ul class="sub-plain">
+        <li>월별 달력에서 팀장들의 배정 현황을 AM/PM 슬롯별로 확인합니다</li>
+        <li>날짜를 클릭하면 해당 날의 배정 상세(팀장별 접수 목록)가 팝업으로 열립니다</li>
+        <li><em>권역 필터</em>로 특정 지역 팀장들의 일정만 볼 수 있습니다</li>
+        <li>달력 상단 화살표로 월을 이동합니다</li>
+      </ul>
+      <div class="divider"></div>
+      <p style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:10px;">💬 메시지</p>
+      <ul class="sub-plain">
+        <li><em>대화 목록</em> — 팀장(또는 파트너)과 1:1 채팅. 왼쪽 목록에서 상대를 선택하면 오른쪽에 채팅창이 열립니다</li>
+        <li><em>현장 공지</em> — 전체 팀장에게 한 번에 공지 메시지를 발송합니다. 개별 클릭 없이 일괄 전송</li>
+        <li>읽지 않은 메시지는 이름 옆에 숫자 배지로 표시됩니다</li>
+      </ul>
+      <div class="divider"></div>
+      <p style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:10px;">🗂️ 정보공유 (DB 마켓플레이스)</p>
+      <ul class="sub-plain">
+        <li><em>장바구니</em> — 구매 전 담아둔 접수 정보</li>
+        <li><em>구매 가능</em> — 다른 업체가 올려놓은 구매 가능한 접수 정보</li>
+        <li><em>내 판매</em> — 내가 올려놓은 판매용 접수 정보</li>
+        <li><em>진행 중</em> — 거래가 진행 중인 건</li>
+        <li><em>확정 완료</em> — 거래가 완료된 건</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 16 ══ 관리자 전용 -->
+<div class="slide" id="slide-16">
+  <div class="slide-header">
+    <span class="brand">청소<span>비서</span> 관리자 앱 사용설명서</span>
+    <span class="slide-num">16 / 16 — 관리자 전용 메뉴</span>
+  </div>
+  <div class="slide-body">
+    <div class="pc-col">
+      <img src="./screenshots/s16_team_leaders.png" alt="화면 캡쳐">
+    </div>
+    <div class="desc-col">
+      <div class="page-tag">관리자 전용</div>
+      <div class="page-title">관리자 전용 — 사용자·업체·정산·설정</div>
+      <div class="page-sub">권한 레벨 <em>「전체」</em>인 마케터와 관리자만 접근할 수 있는 메뉴입니다. 왼쪽 사이드바에 5개 대분류가 있습니다.</div>
+      <div class="btn-grid">
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#0f172a;"></div>
+          <div>
+            <div class="bl">업체등록정보</div>
+            <div class="bd">
+              가입정보 — 업체명·플랜·구독<br>
+              사업자정보 — 사업자번호·대표자<br>
+              발송이메일 — SMTP 설정
+            </div>
+          </div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:var(--teal);"></div>
+          <div>
+            <div class="bl">사용자 등록</div>
+            <div class="bd">
+              팀장·마케터·사무직·퇴사자 탭<br>
+              계정 생성·수정·비활성화<br>
+              마케터 권한 레벨 지정<br>
+              영업브랜드·타업체·파트너 연결<br>
+              전자계약 발급 설정
+            </div>
+          </div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#2563eb;"></div>
+          <div>
+            <div class="bl">정산</div>
+            <div class="bd">
+              타업체정산 — 협력업체 정산<br>
+              파트너정산 — 파트너 수수료<br>
+              월정산표 — 월별 전체 정산 요약
+            </div>
+          </div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#6366f1;"></div>
+          <div>
+            <div class="bl">직원관리</div>
+            <div class="bd">
+              팀장 — 팀장 프로필·담당 권역<br>
+              팀원 — 팀원 목록·소속 팀장<br>
+              휴일캘린더 — 공휴일·업체 휴일
+            </div>
+          </div>
+        </div>
+        <div class="btn-item">
+          <div class="btn-dot" style="background:#d97706;"></div>
+          <div>
+            <div class="bl">설정</div>
+            <div class="bd">
+              페이지설정 — 발주서·견적서 외관<br>
+              직원권한 — 역할별 접근 범위<br>
+              브랜드정책 — 브랜드별 운영 규칙<br>
+              검수템플릿 — 현장검수 항목<br>
+              팀장교육자료 — 교육 파일 업로드
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="warn-box">
+        <div class="warn-t">⚠️ 주의 — 전체 권한 마케터만 접근 가능</div>
+        관리자 전용 메뉴는 <em>권한 레벨이 「전체」인 마케터</em>와 관리자 계정만 상단 메뉴에 표시됩니다. 「없음」 또는 「일부」 권한의 마케터는 이 메뉴를 볼 수 없습니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /page-wrapper -->
+</body>
+</html>
+                                                

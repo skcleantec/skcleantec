@@ -2,12 +2,17 @@ import type { HelpRole } from '../../types/helpContent';
 import type { TeamGuideChapter } from '../../utils/teamGuideContent';
 import { HELP_ROLE_LABELS } from '../../utils/helpContent';
 
+/** 팀장·관리자 HTML 가이드 공통 목차 항목 */
+export type GuideChapterItem = Pick<TeamGuideChapter, 'id' | 'title' | 'desc'>;
+
 type TeamGuideSidebarProps = {
-  chapters: TeamGuideChapter[];
+  chapters: GuideChapterItem[];
   activeChapter: string | null;
   onChapterClick: (chapterId: string) => void;
   selectedRole: HelpRole;
   onRoleChange: (role: HelpRole) => void;
+  /** 접근성 — 가이드 종류별 목차 라벨 */
+  navAriaLabel?: string;
 };
 
 export function TeamGuideSidebar({
@@ -16,6 +21,7 @@ export function TeamGuideSidebar({
   onChapterClick,
   selectedRole,
   onRoleChange,
+  navAriaLabel = '팀장 가이드 목차',
 }: TeamGuideSidebarProps) {
   return (
     <aside className="sticky top-[7.5rem] z-20 flex max-h-[calc(100dvh-8.5rem)] min-h-0 w-full flex-col self-start overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -49,7 +55,7 @@ export function TeamGuideSidebar({
       </div>
 
       <nav
-        aria-label="팀장 가이드 목차"
+        aria-label={navAriaLabel}
         className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-1.5 [-webkit-overflow-scrolling:touch]"
       >
         <ul className="space-y-0.5">
