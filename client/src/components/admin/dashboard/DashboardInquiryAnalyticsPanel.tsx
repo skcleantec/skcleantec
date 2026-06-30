@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
-import type { DashboardInquiryBreakdown } from '../../../api/dashboard';
+import {
+  pickDashboardRegionAnalytics,
+  type DashboardInquiryBreakdown,
+  type DashboardRegionDateBasis,
+} from '../../../api/dashboard';
 import { HelpTooltip } from '../../ui/HelpTooltip';
 import {
   DashboardHorizontalBarChart,
@@ -8,6 +12,7 @@ import {
 } from './DashboardMiniBarChart';
 import { DashboardKoreaSidoMap } from './DashboardKoreaSidoMap';
 import { DashboardSidoRegionModal } from './DashboardSidoRegionModal';
+import { DashboardRegionDateBasisToggle } from './DashboardRegionDateBasisToggle';
 import type { DashboardDrillKind } from './dashboardDrilldownTypes';
 import type { KoreaSidoKey } from '@shared/regionMatch';
 
@@ -83,11 +88,17 @@ export function DashboardInquiryAnalyticsPanel({
 }) {
   const [regionDetailOpen, setRegionDetailOpen] = useState(false);
   const [sidoDetailKey, setSidoDetailKey] = useState<KoreaSidoKey | null>(null);
+  const [regionDateBasis, setRegionDateBasis] = useState<DashboardRegionDateBasis>('createdAt');
+
+  const regionAnalytics = useMemo(
+    () => (breakdown ? pickDashboardRegionAnalytics(breakdown, regionDateBasis) : null),
+    [breakdown, regionDateBasis],
+  );
 
   const sidoDetail = useMemo(() => {
-    if (!breakdown || !sidoDetailKey) return null;
-    return breakdown.byRegionWithinSido.find((g) => g.sidoKey === sidoDetailKey) ?? null;
-  }, [breakdown, sidoDetailKey]);
+    if (!regionAnalytics || !sidoDetailKey) return null;
+    return regionAnalytics.byRegionWithinSido.find((g) => g.sidoKey === sidoDetailKey) ?? null;
+  }, [regionAnalytics, sidoDetailKey]);
 
   if (loading) {
     return (
@@ -108,9 +119,9 @@ export function DashboardInquiryAnalyticsPanel({
     );
   }
 
-  if (!breakdown) return null;
+  if (!breakdown || !regionAnalytics) return null;
 
-  const regionItems = breakdown.byRegion.slice(0, 8).map((z) => ({
+  const regionItems = regionAnalytics.byRegion.slice(0, 8).map((z) => ({
     key: z.regionKey,
     label: z.label,
     value: z.inquiryCount,
@@ -158,13 +169,16 @@ export function DashboardInquiryAnalyticsPanel({
         <ChartCard
           title="지역별 접수"
           accentDotClass="bg-red-500"
-          helpText="접수일(KST) 이번 달 · 확정 접수 · 접수 주소(주소 검색 필드)에서 시·도·시·군·구를 파싱합니다. 서비스 권역명은 사용하지 않습니다. 지도에서 시·도를 클릭하면 구·군·시 상세를 볼 수 있습니다."
+          helpText="접수 주소(주소 검색 필드)에서 시·도·시·군·구를 파싱합니다. 접수일=확정 접수 · 예약일=청소 예약일(취소·보류 제외). 지도 클릭 시 하위 지역, 경기 등은 시·군 클릭 시 구까지 펼칩니다."
           onOpenDrill={() => onOpenDrill('region', breakdown.monthKey)}
         >
-          {breakdown.bySidoMap.length > 0 ? (
-            <div className="rounded-lg border border-white/80 bg-white/70 p-3">
+          <div className="mb-3 flex justify-end" onClick={(e) => e.stopPropagation()}>
+            <DashboardRegionDateBasisToggle value={regionDateBasis} onChange={setRegionDateBasis} />
+          </div>
+          {regionAnalytics.bySidoMap.length > 0 ? (
+            <div className="rounded-lg border border-white/80 bg-white/70 p-3" onClick={(e) => e.stopPropagation()}>
               <DashboardKoreaSidoMap
-                items={breakdown.bySidoMap}
+                items={regionAnalytics.bySidoMap}
                 onSidoClick={(sidoKey) => setSidoDetailKey(sidoKey)}
               />
             </div>
@@ -217,6 +231,8 @@ export function DashboardInquiryAnalyticsPanel({
           open={sidoDetailKey != null}
           detail={sidoDetail}
           monthTitle={monthTitleKo(breakdown.monthKey)}
+          dateBasis={regionDateBasis}
+          onDateBasisChange={setRegionDateBasis}
           onClose={() => setSidoDetailKey(null)}
         />
 

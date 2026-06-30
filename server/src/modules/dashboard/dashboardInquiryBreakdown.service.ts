@@ -14,12 +14,16 @@ import {
   SALES_AMOUNT_STATUSES,
 } from './dashboardSales.helpers.js';
 
+export type DashboardRegionDateBasis = 'createdAt' | 'preferredDate';
+
 export type DashboardRegionBucket = {
   regionKey: string;
   label: string;
   sidoKey: string | null;
   inquiryCount: number;
   salesAmount: number;
+  /** 도내 시·군 하위 구 (예: 수원시 → 영통구) */
+  children?: DashboardRegionBucket[];
 };
 
 export type DashboardSidoMapBucket = {
@@ -35,14 +39,15 @@ export type DashboardSidoRegionDetail = {
   items: DashboardRegionBucket[];
 };
 
+export type DashboardRegionAnalytics = {
+  byRegion: DashboardRegionBucket[];
+  bySidoMap: DashboardSidoMapBucket[];
+  byRegionWithinSido: DashboardSidoRegionDetail[];
+};
+
 export type DashboardInquiryBreakdown = {
   monthKey: string;
-  /** 접수 주소 파싱 · 시·군·광역시·도 동급 비교 */
-  byRegion: DashboardRegionBucket[];
-  /** 시·도 지도 염색용 */
-  bySidoMap: DashboardSidoMapBucket[];
-  /** 시·도 클릭 시 구·군·시 상세 */
-  byRegionWithinSido: DashboardSidoRegionDetail[];
+  regionByDateBasis: Record<DashboardRegionDateBasis, DashboardRegionAnalytics>;
   byMonth: Array<{
     monthKey: string;
     inquiryCount: number;
@@ -60,8 +65,18 @@ type InquirySalesRow = {
   areaPyeong: number | null;
   serviceTotalAmount: number | null;
   preferredDate: Date | null;
+  status: string;
   orderForm: { totalAmount: number } | null;
   extraCharges: { amount: number }[];
+};
+
+type RegionAggState = {
+  regionAgg: Map<string, DashboardRegionBucket>;
+  sidoAgg: Map<KoreaSidoKey, DashboardSidoMapBucket>;
+  /** 광역시·특별시: 구 flat */
+  metroSub: Map<KoreaSidoKey, Map<string, DashboardRegionBucket>>;
+  /** 도: 시·군 → (optional) 구 children */
+  provincialCity: Map<KoreaSidoKey, Map<string, { bucket: DashboardRegionBucket; gu: Map<string, DashboardRegionBucket> }>>;
 };
 
 function parseAnchorMonthKey(raw: string | undefined): string {
@@ -91,6 +106,129 @@ function bumpBucket(
   map.set(regionKey, entry);
 }
 
+function createRegionAggState(): RegionAggState {
+  const sidoAgg = new Map<KoreaSidoKey, DashboardSidoMapBucket>();
+  for (const sk of KOREA_SIDO_KEYS) {
+    sidoAgg.set(sk, {
+      sidoKey: sk,
+      label: shortSidoLabel(sk),
+      inquiryCount: 0,
+      salesAmount: 0,
+    });
+  }
+  return {
+    regionAgg: new Map(),
+    sidoAgg,
+    metroSub: new Map(),
+    provincialCity: new Map(),
+  };
+}
+
+function isSalesStatus(status: string): boolean {
+  return (SALES_AMOUNT_STATUSES as readonly string[]).includes(status);
+}
+
+function isPreferredRegionStatus(status: string): boolean {
+  return status !== 'CANCELLED' && status !== 'ON_HOLD';
+}
+
+function bumpRegionAnalytics(state: RegionAggState, address: string, delta: number, amt: number): void {
+  const parsed = parseDashboardRegionFromAddress(address);
+  bumpBucket(state.regionAgg, parsed.chartRegionKey, parsed.chartLabel, parsed.sidoKey, delta, amt);
+
+  if (!parsed.sidoKey) return;
+
+  const sidoEntry = state.sidoAgg.get(parsed.sidoKey)!;
+  sidoEntry.inquiryCount += delta;
+  sidoEntry.salesAmount += amt;
+
+  const isMetroGu = parsed.subRegionKey.startsWith('gu:') && parsed.parentCityKey == null;
+  if (isMetroGu) {
+    let subMap = state.metroSub.get(parsed.sidoKey);
+    if (!subMap) {
+      subMap = new Map();
+      state.metroSub.set(parsed.sidoKey, subMap);
+    }
+    bumpBucket(subMap, parsed.subRegionKey, parsed.subLabel, parsed.sidoKey, delta, amt);
+    return;
+  }
+
+  let cityMap = state.provincialCity.get(parsed.sidoKey);
+  if (!cityMap) {
+    cityMap = new Map();
+    state.provincialCity.set(parsed.sidoKey, cityMap);
+  }
+
+  let cityEntry = cityMap.get(parsed.subRegionKey);
+  if (!cityEntry) {
+    cityEntry = {
+      bucket: {
+        regionKey: parsed.subRegionKey,
+        label: parsed.subLabel,
+        sidoKey: parsed.sidoKey,
+        inquiryCount: 0,
+        salesAmount: 0,
+      },
+      gu: new Map(),
+    };
+    cityMap.set(parsed.subRegionKey, cityEntry);
+  }
+  cityEntry.bucket.inquiryCount += delta;
+  cityEntry.bucket.salesAmount += amt;
+
+  if (parsed.districtRegionKey && parsed.districtLabel && parsed.parentCityKey) {
+    bumpBucket(cityEntry.gu, parsed.districtRegionKey, parsed.districtLabel, parsed.sidoKey, delta, amt);
+  }
+}
+
+function finalizeRegionAnalytics(state: RegionAggState): DashboardRegionAnalytics {
+  const byRegion = [...state.regionAgg.values()]
+    .filter((z) => z.inquiryCount > 0)
+    .sort((a, b) => b.inquiryCount - a.inquiryCount || a.label.localeCompare(b.label, 'ko'));
+
+  const bySidoMap = [...state.sidoAgg.values()].filter((s) => s.inquiryCount > 0);
+
+  const sidoKeys = new Set<KoreaSidoKey>([
+    ...state.metroSub.keys(),
+    ...state.provincialCity.keys(),
+  ]);
+
+  const byRegionWithinSido: DashboardSidoRegionDetail[] = [...sidoKeys]
+    .map((sidoKey) => {
+      const metroItems = state.metroSub.get(sidoKey);
+      if (metroItems) {
+        return {
+          sidoKey,
+          label: shortSidoLabel(sidoKey),
+          items: [...metroItems.values()]
+            .filter((z) => z.inquiryCount > 0)
+            .sort((a, b) => b.inquiryCount - a.inquiryCount || a.label.localeCompare(b.label, 'ko')),
+        };
+      }
+
+      const cityMap = state.provincialCity.get(sidoKey)!;
+      const items = [...cityMap.values()]
+        .map(({ bucket, gu }) => {
+          const children = [...gu.values()]
+            .filter((z) => z.inquiryCount > 0)
+            .sort((a, b) => b.inquiryCount - a.inquiryCount || a.label.localeCompare(b.label, 'ko'));
+          return children.length > 0 ? { ...bucket, children } : bucket;
+        })
+        .filter((z) => z.inquiryCount > 0)
+        .sort((a, b) => b.inquiryCount - a.inquiryCount || a.label.localeCompare(b.label, 'ko'));
+
+      return { sidoKey, label: shortSidoLabel(sidoKey), items };
+    })
+    .filter((g) => g.items.length > 0)
+    .sort((a, b) => {
+      const aTotal = a.items.reduce((s, i) => s + i.inquiryCount, 0);
+      const bTotal = b.items.reduce((s, i) => s + i.inquiryCount, 0);
+      return bTotal - aTotal || a.label.localeCompare(b.label, 'ko');
+    });
+
+  return { byRegion, bySidoMap, byRegionWithinSido };
+}
+
 export async function buildDashboardInquiryBreakdown(
   tenantId: string,
   anchorMonthKeyRaw?: string,
@@ -112,13 +250,21 @@ export async function buildDashboardInquiryBreakdown(
     .toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' })
     .slice(0, 10);
 
-  const [estimateConfig, salesInquiries, preferredInquiries] = await Promise.all([
+  const [estimateConfig, inquiries, preferredInquiries] = await Promise.all([
     prisma.estimateConfig.findUnique({ where: { tenantId } }).then((c) => c?.pricePerPyeong ?? 5000),
     prisma.inquiry.findMany({
       where: {
         tenantId,
-        status: { in: [...SALES_AMOUNT_STATUSES] },
-        createdAt: { gte: earliestRange.gte, lte: kstThisMonth.lte },
+        OR: [
+          {
+            status: { in: [...SALES_AMOUNT_STATUSES] },
+            createdAt: { gte: earliestRange.gte, lte: kstThisMonth.lte },
+          },
+          {
+            status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+            preferredDate: { gte: kstThisMonth.gte, lte: kstThisMonth.lte },
+          },
+        ],
       },
       select: {
         createdAt: true,
@@ -126,6 +272,7 @@ export async function buildDashboardInquiryBreakdown(
         areaPyeong: true,
         serviceTotalAmount: true,
         preferredDate: true,
+        status: true,
         orderForm: { select: { totalAmount: true } },
         extraCharges: { select: { amount: true } },
       },
@@ -142,49 +289,33 @@ export async function buildDashboardInquiryBreakdown(
 
   const pricePerPyeong = estimateConfig;
 
-  const regionAgg = new Map<string, DashboardRegionBucket>();
-  const sidoDetailAgg = new Map<KoreaSidoKey, Map<string, DashboardRegionBucket>>();
-  const sidoAgg = new Map<KoreaSidoKey, DashboardSidoMapBucket>();
-  for (const sk of KOREA_SIDO_KEYS) {
-    sidoAgg.set(sk, {
-      sidoKey: sk,
-      label: shortSidoLabel(sk),
-      inquiryCount: 0,
-      salesAmount: 0,
-    });
-  }
+  const regionCreatedAt = createRegionAggState();
+  const regionPreferred = createRegionAggState();
 
   const monthAgg = new Map<string, { inquiryCount: number; salesAmount: number }>();
   for (const mk of monthKeys) {
     monthAgg.set(mk, { inquiryCount: 0, salesAmount: 0 });
   }
 
-  for (const inq of salesInquiries as InquirySalesRow[]) {
-    const ymd = effectiveSalesDateYmd(inq);
-    const mk = ymd.slice(0, 7);
+  for (const inq of inquiries as InquirySalesRow[]) {
+    const createdYmd = effectiveSalesDateYmd(inq);
+    const createdMk = createdYmd.slice(0, 7);
     const amt = getInquiryAmount(inq, pricePerPyeong);
 
-    if (monthAgg.has(mk)) {
-      const cur = monthAgg.get(mk)!;
+    if (isSalesStatus(inq.status) && monthAgg.has(createdMk)) {
+      const cur = monthAgg.get(createdMk)!;
       cur.inquiryCount += 1;
       cur.salesAmount += amt;
     }
 
-    if (mk === monthKey) {
-      const parsed = parseDashboardRegionFromAddress(inq.address);
-      bumpBucket(regionAgg, parsed.chartRegionKey, parsed.chartLabel, parsed.sidoKey, 1, amt);
+    if (isSalesStatus(inq.status) && createdMk === monthKey) {
+      bumpRegionAnalytics(regionCreatedAt, inq.address, 1, amt);
+    }
 
-      if (parsed.sidoKey) {
-        const sidoEntry = sidoAgg.get(parsed.sidoKey)!;
-        sidoEntry.inquiryCount += 1;
-        sidoEntry.salesAmount += amt;
-
-        let subMap = sidoDetailAgg.get(parsed.sidoKey);
-        if (!subMap) {
-          subMap = new Map();
-          sidoDetailAgg.set(parsed.sidoKey, subMap);
-        }
-        bumpBucket(subMap, parsed.subRegionKey, parsed.subLabel, parsed.sidoKey, 1, amt);
+    if (inq.preferredDate && isPreferredRegionStatus(inq.status)) {
+      const prefYmd = preferredDateYmd(inq.preferredDate);
+      if (prefYmd.slice(0, 7) === monthKey) {
+        bumpRegionAnalytics(regionPreferred, inq.address, 1, amt);
       }
     }
   }
@@ -200,27 +331,6 @@ export async function buildDashboardInquiryBreakdown(
     preferredByYmd.set(ymd, (preferredByYmd.get(ymd) ?? 0) + 1);
   }
 
-  const byRegion = [...regionAgg.values()]
-    .filter((z) => z.inquiryCount > 0)
-    .sort((a, b) => b.inquiryCount - a.inquiryCount || a.label.localeCompare(b.label, 'ko'));
-
-  const bySidoMap = [...sidoAgg.values()].filter((s) => s.inquiryCount > 0);
-
-  const byRegionWithinSido = [...sidoDetailAgg.entries()]
-    .map(([sidoKey, subMap]) => ({
-      sidoKey,
-      label: shortSidoLabel(sidoKey),
-      items: [...subMap.values()]
-        .filter((z) => z.inquiryCount > 0)
-        .sort((a, b) => b.inquiryCount - a.inquiryCount || a.label.localeCompare(b.label, 'ko')),
-    }))
-    .filter((g) => g.items.length > 0)
-    .sort((a, b) => {
-      const aTotal = a.items.reduce((s, i) => s + i.inquiryCount, 0);
-      const bTotal = b.items.reduce((s, i) => s + i.inquiryCount, 0);
-      return bTotal - aTotal || a.label.localeCompare(b.label, 'ko');
-    });
-
   const byMonth = monthKeys.map((mk) => {
     const v = monthAgg.get(mk) ?? { inquiryCount: 0, salesAmount: 0 };
     return { monthKey: mk, inquiryCount: v.inquiryCount, salesAmount: v.salesAmount };
@@ -232,9 +342,10 @@ export async function buildDashboardInquiryBreakdown(
 
   return {
     monthKey,
-    byRegion,
-    bySidoMap,
-    byRegionWithinSido,
+    regionByDateBasis: {
+      createdAt: finalizeRegionAnalytics(regionCreatedAt),
+      preferredDate: finalizeRegionAnalytics(regionPreferred),
+    },
     byMonth,
     byPreferredDate,
   };

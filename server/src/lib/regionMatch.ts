@@ -224,9 +224,14 @@ export type DashboardRegionParse = {
   /** 막대 그래프·동급 비교 (광역=서울, 도=고양시) */
   chartLabel: string;
   chartRegionKey: string;
-  /** 시·도 클릭 모달 (광역=강남구, 도=고양시·성남시 등) */
+  /** 시·도 클릭 모달 1단 (광역=강남구, 도=고양시·성남시 등) */
   subLabel: string;
   subRegionKey: string;
+  /** 도내 시·군 하위 구 (예: 수원시 영통구) */
+  districtLabel: string | null;
+  districtRegionKey: string | null;
+  /** district가 속한 시·군 chartRegionKey */
+  parentCityKey: string | null;
 };
 
 export function parseDashboardRegionFromAddress(
@@ -238,6 +243,9 @@ export function parseDashboardRegionFromAddress(
     chartRegionKey: 'unclassified',
     subLabel: '미분류',
     subRegionKey: 'unclassified',
+    districtLabel: null,
+    districtRegionKey: null,
+    parentCityKey: null,
   };
 
   const raw = stripSpaces(String(address ?? ''));
@@ -261,6 +269,9 @@ export function parseDashboardRegionFromAddress(
         chartRegionKey,
         subLabel: gu,
         subRegionKey: `gu:${sidoKey}:${gu}`,
+        districtLabel: null,
+        districtRegionKey: null,
+        parentCityKey: null,
       };
     }
     return {
@@ -269,6 +280,9 @@ export function parseDashboardRegionFromAddress(
       chartRegionKey,
       subLabel: chartLabel,
       subRegionKey: chartRegionKey,
+      districtLabel: null,
+      districtRegionKey: null,
+      parentCityKey: null,
     };
   }
 
@@ -276,12 +290,30 @@ export function parseDashboardRegionFromAddress(
   if (cityM) {
     const city = cityM[1];
     const chartRegionKey = `city:${sidoKey}:${city}`;
+    const afterCity = rest.slice(city.length);
+    const guM = afterCity.match(/^([\uac00-\ud7a3]+구)/);
+    if (guM) {
+      const gu = guM[1];
+      return {
+        sidoKey,
+        chartLabel: city,
+        chartRegionKey,
+        subLabel: city,
+        subRegionKey: chartRegionKey,
+        districtLabel: gu,
+        districtRegionKey: `gu:${sidoKey}:${city}:${gu}`,
+        parentCityKey: chartRegionKey,
+      };
+    }
     return {
       sidoKey,
       chartLabel: city,
       chartRegionKey,
       subLabel: city,
       subRegionKey: chartRegionKey,
+      districtLabel: null,
+      districtRegionKey: null,
+      parentCityKey: null,
     };
   }
 
@@ -294,6 +326,9 @@ export function parseDashboardRegionFromAddress(
       chartRegionKey: `gu-only:${sidoKey}:${gu}`,
       subLabel: gu,
       subRegionKey: `gu-only:${sidoKey}:${gu}`,
+      districtLabel: null,
+      districtRegionKey: null,
+      parentCityKey: null,
     };
   }
 
@@ -304,5 +339,8 @@ export function parseDashboardRegionFromAddress(
     chartRegionKey: `sido:${sidoKey}`,
     subLabel: chartLabel,
     subRegionKey: `sido:${sidoKey}`,
+    districtLabel: null,
+    districtRegionKey: null,
+    parentCityKey: null,
   };
 }

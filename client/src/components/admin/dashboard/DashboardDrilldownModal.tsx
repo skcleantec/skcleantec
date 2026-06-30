@@ -5,7 +5,9 @@ import {
   getDashboardOpsHourlyRange,
   getDashboardSalesBreakdown,
   getDashboardSettlementSummary,
+  pickDashboardRegionAnalytics,
   type DashboardInquiryBreakdown,
+  type DashboardRegionDateBasis,
   type DashboardSalesBreakdown,
   type DashboardSettlementSummary,
   type OpsHourlySummary,
@@ -20,6 +22,7 @@ import { ModalCloseButton } from '../ModalCloseButton';
 import { DashboardHorizontalBarChart, DashboardVerticalBarChart } from './DashboardMiniBarChart';
 import { DashboardKoreaSidoMap } from './DashboardKoreaSidoMap';
 import { DashboardSidoRegionModal } from './DashboardSidoRegionModal';
+import { DashboardRegionDateBasisToggle } from './DashboardRegionDateBasisToggle';
 import { DashboardOpsHourlyDetail } from './DashboardOpsHourlyDetail';
 import type { KoreaSidoKey } from '@shared/regionMatch';
 import {
@@ -286,12 +289,14 @@ export function DashboardDrilldownModal(props: {
 
 function RegionDrillBody({ data }: { data: DashboardInquiryBreakdown }) {
   const [sidoDetailKey, setSidoDetailKey] = useState<KoreaSidoKey | null>(null);
+  const [regionDateBasis, setRegionDateBasis] = useState<DashboardRegionDateBasis>('createdAt');
+  const regionAnalytics = pickDashboardRegionAnalytics(data, regionDateBasis);
   const sidoDetail =
     sidoDetailKey != null
-      ? data.byRegionWithinSido.find((g) => g.sidoKey === sidoDetailKey) ?? null
+      ? regionAnalytics.byRegionWithinSido.find((g) => g.sidoKey === sidoDetailKey) ?? null
       : null;
 
-  const regionItems = data.byRegion.map((z) => ({
+  const regionItems = regionAnalytics.byRegion.map((z) => ({
     key: z.regionKey,
     label: z.label,
     value: z.inquiryCount,
@@ -300,10 +305,13 @@ function RegionDrillBody({ data }: { data: DashboardInquiryBreakdown }) {
 
   return (
     <div className="space-y-4">
-      {data.bySidoMap.length > 0 ? (
+      <div className="flex justify-end">
+        <DashboardRegionDateBasisToggle value={regionDateBasis} onChange={setRegionDateBasis} />
+      </div>
+      {regionAnalytics.bySidoMap.length > 0 ? (
         <div className="rounded-xl border border-slate-100 bg-slate-50/40 p-3">
           <DashboardKoreaSidoMap
-            items={data.bySidoMap}
+            items={regionAnalytics.bySidoMap}
             onSidoClick={(sidoKey) => setSidoDetailKey(sidoKey)}
           />
         </div>
@@ -316,6 +324,8 @@ function RegionDrillBody({ data }: { data: DashboardInquiryBreakdown }) {
         open={sidoDetailKey != null}
         detail={sidoDetail}
         monthTitle={monthTitleKo(data.monthKey)}
+        dateBasis={regionDateBasis}
+        onDateBasisChange={setRegionDateBasis}
         onClose={() => setSidoDetailKey(null)}
       />
       {regionItems.length > 0 ? (
@@ -334,7 +344,7 @@ function RegionDrillBody({ data }: { data: DashboardInquiryBreakdown }) {
           { label: '접수 건수', value: `${regionItems.reduce((s, i) => s + i.value, 0)}건` },
           {
             label: '매출 합계',
-            value: formatCurrencyKo(data.byRegion.reduce((s, z) => s + z.salesAmount, 0)),
+            value: formatCurrencyKo(regionAnalytics.byRegion.reduce((s, z) => s + z.salesAmount, 0)),
           },
         ]}
       />

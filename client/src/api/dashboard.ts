@@ -93,15 +93,19 @@ export type OpsHourlySummary = {
   conversionByHour: OpsConversionByHour;
 };
 
-export type DashboardInquiryBreakdown = {
-  monthKey: string;
-  byRegion: Array<{
-    regionKey: string;
-    label: string;
-    sidoKey: string | null;
-    inquiryCount: number;
-    salesAmount: number;
-  }>;
+export type DashboardRegionDateBasis = 'createdAt' | 'preferredDate';
+
+export type DashboardRegionBucket = {
+  regionKey: string;
+  label: string;
+  sidoKey: string | null;
+  inquiryCount: number;
+  salesAmount: number;
+  children?: DashboardRegionBucket[];
+};
+
+export type DashboardRegionAnalytics = {
+  byRegion: DashboardRegionBucket[];
   bySidoMap: Array<{
     sidoKey: string;
     label: string;
@@ -111,14 +115,13 @@ export type DashboardInquiryBreakdown = {
   byRegionWithinSido: Array<{
     sidoKey: string;
     label: string;
-    items: Array<{
-      regionKey: string;
-      label: string;
-      sidoKey: string | null;
-      inquiryCount: number;
-      salesAmount: number;
-    }>;
+    items: DashboardRegionBucket[];
   }>;
+};
+
+export type DashboardInquiryBreakdown = {
+  monthKey: string;
+  regionByDateBasis: Record<DashboardRegionDateBasis, DashboardRegionAnalytics>;
   byMonth: Array<{
     monthKey: string;
     inquiryCount: number;
@@ -130,9 +133,16 @@ export type DashboardInquiryBreakdown = {
   }>;
 };
 
-export type DashboardSidoRegionDetail = DashboardInquiryBreakdown['byRegionWithinSido'][number];
+export type DashboardSidoRegionDetail = DashboardRegionAnalytics['byRegionWithinSido'][number];
 
-export type DashboardSidoMapBucket = DashboardInquiryBreakdown['bySidoMap'][number];
+export type DashboardSidoMapBucket = DashboardRegionAnalytics['bySidoMap'][number];
+
+export function pickDashboardRegionAnalytics(
+  breakdown: DashboardInquiryBreakdown,
+  dateBasis: DashboardRegionDateBasis,
+): DashboardRegionAnalytics {
+  return breakdown.regionByDateBasis[dateBasis];
+}
 
 export async function getDashboardStats(token: string): Promise<DashboardStats> {
   let res: Response;
