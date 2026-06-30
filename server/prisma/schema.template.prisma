@@ -369,6 +369,33 @@ model PlatformUser {
   @@map("platform_users")
 }
 
+/// /help 고객문의 — 플랫폼 단일 설정 (카테고리·연락처·작성 도움말)
+model HelpInquirySettings {
+  id              String   @id @default("default")
+  contactEmail    String   @default("pyo0829@gmail.com") @map("contact_email") @db.VarChar(256)
+  notifyEmail     String   @default("pyo0829@gmail.com") @map("notify_email") @db.VarChar(256)
+  composeHelpText String?  @map("compose_help_text") @db.Text
+  categoriesJson  Json     @default("[{\"id\":\"general\",\"label\":\"일반 문의\",\"sortOrder\":0},{\"id\":\"feature\",\"label\":\"기능 요청\",\"sortOrder\":1},{\"id\":\"bug\",\"label\":\"버그 신고\",\"sortOrder\":2}]") @map("categories_json")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("help_inquiry_settings")
+}
+
+/// /help 고객문의 게시판 글 (공개 작성)
+model HelpInquiryPost {
+  id           String   @id @default(uuid())
+  categoryId   String   @map("category_id") @db.VarChar(64)
+  authorName   String   @map("author_name") @db.VarChar(64)
+  authorEmail  String   @map("author_email") @db.VarChar(256)
+  title        String   @db.VarChar(200)
+  bodyMarkdown String   @map("body_markdown") @db.Text
+  imageUrls    Json     @default("[]") @map("image_urls")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@map("help_inquiry_posts")
+}
+
 /// 플랫폼 운영 — 모든 테넌트 관리자(/admin) 로그인용 글로벌 지원 계정
 model TenantSupportAccess {
   id           String    @id @default(uuid())
