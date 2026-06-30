@@ -46,22 +46,37 @@
   },
   {
     "filename": "s15_schedule.png",
-    "label": "스케줄",
+    "label": "스케줄 달력",
+    "chapterIds": ["15"]
+  },
+  {
+    "filename": "s15d_schedule_day.png",
+    "label": "스케줄 선택일",
     "chapterIds": ["15"]
   },
   {
     "filename": "s15b_messages.png",
-    "label": "메시지",
-    "chapterIds": ["15"]
+    "label": "메시지 채팅",
+    "chapterIds": ["16"]
+  },
+  {
+    "filename": "s15e_messages_notice.png",
+    "label": "현장 공지",
+    "chapterIds": ["16"]
   },
   {
     "filename": "s15c_db_marketplace.png",
-    "label": "DB마켓",
-    "chapterIds": ["15"]
+    "label": "정보공유 목록",
+    "chapterIds": ["17"]
+  },
+  {
+    "filename": "s15f_db_cart.png",
+    "label": "장바구니·게시",
+    "chapterIds": ["17"]
   },
   {
     "filename": "s16_team_leaders.png",
     "label": "관리자 전용",
-    "chapterIds": ["16"]
+    "chapterIds": ["18"]
   }
 ]

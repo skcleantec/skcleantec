@@ -19,8 +19,11 @@ export const MARKETER_GUIDE_SCREENSHOT_FILENAMES = [
   's11_advertising.png',
   's14_ad_settings.png',
   's15_schedule.png',
+  's15d_schedule_day.png',
   's15b_messages.png',
+  's15e_messages_notice.png',
   's15c_db_marketplace.png',
+  's15f_db_cart.png',
   's16_team_leaders.png',
 ] as const;
 
