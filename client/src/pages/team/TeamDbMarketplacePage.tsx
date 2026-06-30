@@ -16,9 +16,10 @@ import {
   DbMarketplaceRowCard,
   DbMarketplaceTabBar,
   MarketplaceTableCheckboxCol,
+  MarketplaceBulkSelectCheckbox,
+  DbMarketplaceMobilePageSelectBar,
   dbMarketplacePageBottomClass,
   marketplaceTableCheckboxCellProps,
-  marketplaceTableCheckboxInputClass,
 } from '../../components/db-marketplace/DbMarketplaceListUi';
 import {
   formatMarketplaceCleaningSummary,
@@ -26,7 +27,6 @@ import {
 } from '../../utils/dbMarketplaceDisplay';
 import {
   canBulkBuyMarketplaceItem,
-  marketplaceBulkSelectDisabledReason,
 } from '../../utils/dbMarketplaceBulk';
 import { DB_MARKETPLACE_BULK_MAX } from '@shared/dbMarketplacePolicy';
 import {
@@ -167,6 +167,11 @@ export function TeamDbMarketplacePage() {
   const selectableOnPage = useMemo(() => items.filter(canBulkBuyMarketplaceItem), [items]);
   const allPageSelected =
     selectableOnPage.length > 0 && selectableOnPage.every((r) => selectedIds.has(r.id));
+  const selectedOnPageCount = useMemo(
+    () => selectableOnPage.filter((r) => selectedIds.has(r.id)).length,
+    [selectableOnPage, selectedIds],
+  );
+  const partialPageSelected = selectedOnPageCount > 0 && !allPageSelected;
   const selectedCount = selectedIds.size;
 
   const toggleRow = (id: string) => {
@@ -275,13 +280,12 @@ export function TeamDbMarketplacePage() {
               <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
                 {selectable ? (
                   <th {...marketplaceTableCheckboxCellProps()}>
-                    <input
-                      type="checkbox"
-                      className={marketplaceTableCheckboxInputClass}
-                      aria-label="현재 페이지 전체 선택"
+                    <MarketplaceBulkSelectCheckbox
                       checked={allPageSelected}
+                      indeterminate={partialPageSelected}
                       onChange={toggleAllPage}
                       disabled={selectableOnPage.length === 0}
+                      aria-label="현재 페이지 전체 선택"
                     />
                   </th>
                 ) : null}
@@ -296,7 +300,6 @@ export function TeamDbMarketplacePage() {
             <tbody>
               {items.map((row) => {
                 const canSelect = canBulkBuyMarketplaceItem(row);
-                const disabledReason = selectable ? marketplaceBulkSelectDisabledReason(row, 'buy') : null;
                 return (
                 <tr
                   key={row.id}
@@ -305,15 +308,11 @@ export function TeamDbMarketplacePage() {
                 >
                   {selectable ? (
                     <td {...marketplaceTableCheckboxCellProps()} onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        className={marketplaceTableCheckboxInputClass}
+                      <MarketplaceBulkSelectCheckbox
                         checked={selectedIds.has(row.id)}
                         disabled={!canSelect}
-                        title={disabledReason ?? undefined}
-                        onChange={() => {
-                          if (canSelect) toggleRow(row.id);
-                        }}
+                        onChange={() => toggleRow(row.id)}
+                        aria-label={`${row.customerNameMasked} 선택`}
                       />
                     </td>
                   ) : null}
@@ -341,6 +340,14 @@ export function TeamDbMarketplacePage() {
             </tbody>
           </table>
         </div>
+
+        <DbMarketplaceMobilePageSelectBar
+          selectable={selectable}
+          selectableOnPageCount={selectableOnPage.length}
+          allPageSelected={allPageSelected}
+          partialPageSelected={partialPageSelected}
+          onToggleAllPage={toggleAllPage}
+        />
 
         <div className="mt-4 space-y-3 lg:hidden">
           {items.map((row) => (

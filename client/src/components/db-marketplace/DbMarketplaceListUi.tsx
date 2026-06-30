@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import type { DbMarketplaceMaskedItem } from '../../api/dbMarketplace';
 import {
   formatMarketplaceCleaningSummary,
@@ -11,8 +11,89 @@ import {
 } from '../../utils/dbMarketplaceBulk';
 import { DbMarketplaceStatusBadge } from './marketplaceUiParts';
 
-/** PC 표 — 선택 열 px 절대 고정 (단위 없는 width는 브라우저에서 무시됨) */
-export const MARKETPLACE_TABLE_CHECKBOX_COL_PX = 18;
+/** PC 표 — 선택 열 px (데스크톱) */
+export const MARKETPLACE_TABLE_CHECKBOX_COL_PX = 36;
+
+/** 모바일 카드 — 터치 최소 영역 (iOS·Android 권장 44px) */
+export const MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX = 44;
+
+export function MarketplaceBulkSelectCheckbox({
+  checked,
+  indeterminate = false,
+  disabled = false,
+  onChange,
+  'aria-label': ariaLabel,
+  className,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  disabled?: boolean;
+  onChange: () => void;
+  'aria-label'?: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate, checked]);
+
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      onChange={(e) => {
+        e.stopPropagation();
+        onChange();
+      }}
+      onClick={(e) => e.stopPropagation()}
+      className={className ?? marketplaceTableCheckboxInputClass}
+    />
+  );
+}
+
+/** 모바일 목록 상단 — 현재 페이지 전체·일부 선택 */
+export function DbMarketplaceMobilePageSelectBar({
+  selectable,
+  selectableOnPageCount,
+  allPageSelected,
+  partialPageSelected,
+  onToggleAllPage,
+}: {
+  selectable: boolean;
+  selectableOnPageCount: number;
+  allPageSelected: boolean;
+  partialPageSelected: boolean;
+  onToggleAllPage: () => void;
+}) {
+  if (!selectable || selectableOnPageCount === 0) return null;
+
+  const label = allPageSelected
+    ? '현재 페이지 전체 선택됨'
+    : partialPageSelected
+      ? '일부 선택'
+      : '현재 페이지 전체 선택';
+
+  return (
+    <div className="mt-3 border-b border-gray-100 pb-3 lg:hidden">
+      <label className="flex min-h-11 cursor-pointer touch-manipulation select-none items-center gap-3">
+        <MarketplaceBulkSelectCheckbox
+          checked={allPageSelected}
+          indeterminate={partialPageSelected}
+          onChange={onToggleAllPage}
+          aria-label={label}
+          className="size-5 shrink-0 accent-slate-900"
+        />
+        <span className="text-fluid-xs font-medium text-slate-800">{label}</span>
+        {partialPageSelected ? (
+          <span className="text-fluid-2xs text-gray-500">탭하여 전체 선택·해제</span>
+        ) : null}
+      </label>
+    </div>
+  );
+}
 
 function checkboxColWidthCss() {
   return `${MARKETPLACE_TABLE_CHECKBOX_COL_PX}px`;
@@ -29,13 +110,13 @@ export function marketplaceTableCheckboxCellProps(): {
 } {
   const w = checkboxColWidthCss();
   return {
-    className: 'box-border p-0 text-center align-middle overflow-hidden',
+    className: 'box-border px-1 py-2 text-center align-middle',
     style: { width: w, minWidth: w, maxWidth: w },
   };
 }
 
 export const marketplaceTableCheckboxInputClass =
-  'mx-auto block size-3.5 shrink-0 cursor-pointer accent-slate-900';
+  'mx-auto block size-4 shrink-0 cursor-pointer accent-slate-900 touch-manipulation';
 
 export function DbMarketplaceTabBar<T extends string>({
   options,
@@ -127,27 +208,35 @@ export function DbMarketplaceRowCard({
   const cleaningSummary = formatMarketplaceCleaningSummary(row);
 
   return (
-    <div className="flex gap-1 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       {selectable ? (
-        <div
-          className="flex shrink-0 items-start justify-center pt-0.5"
-          style={{ width: MARKETPLACE_TABLE_CHECKBOX_COL_PX, minWidth: MARKETPLACE_TABLE_CHECKBOX_COL_PX }}
+        <label
+          className={`relative z-[1] flex shrink-0 items-start justify-center touch-manipulation select-none ${
+            canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+          }`}
+          style={{
+            width: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
+            minWidth: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
+            minHeight: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
+          }}
+          title={disabledReason ?? undefined}
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
         >
           <input
             type="checkbox"
-            className={marketplaceTableCheckboxInputClass}
+            className="mt-2.5 size-5 shrink-0 accent-slate-900 touch-manipulation disabled:opacity-100"
             checked={selected}
             disabled={!canSelect}
-            title={disabledReason ?? undefined}
             onChange={(e) => {
               e.stopPropagation();
               if (canSelect) onToggleSelect();
             }}
+            onClick={(e) => e.stopPropagation()}
           />
-        </div>
+        </label>
       ) : null}
-      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left hover:opacity-90">
+      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left hover:opacity-90 touch-manipulation">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-fluid-sm font-semibold text-slate-900 break-words">{row.customerNameMasked}</p>
