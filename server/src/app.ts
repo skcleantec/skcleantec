@@ -54,6 +54,8 @@ import platformSupportAccessRoutes from './modules/platform/platformSupportAcces
 import platformTenantPartnershipsRoutes from './modules/platform/platformTenantPartnerships.routes.js';
 import platformDbMarketplaceRoutes from './modules/db-marketplace/platformDbMarketplace.routes.js';
 import helpRoutes from './modules/help/help.routes.js';
+import helpInquiryPublicRoutes from './modules/help-inquiry/helpInquiry.public.routes.js';
+import platformHelpInquiryRoutes from './modules/help-inquiry/platformHelpInquiry.routes.js';
 import { resolveHelpScreenshotFilePath } from './modules/help/helpScreenshotsPath.js';
 import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLeaderTraining.admin.routes.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
@@ -76,6 +78,7 @@ app.use('/api/platform/tenants', platformTenantsRoutes);
 app.use('/api/platform/support-access', platformSupportAccessRoutes);
 app.use('/api/platform/tenant-partnerships', platformTenantPartnershipsRoutes);
 app.use('/api/platform/db-marketplace', platformDbMarketplaceRoutes);
+app.use('/api/platform/help-inquiry', platformHelpInquiryRoutes);
 app.use('/api/tenant', tenantRoutes);
 app.use('/api/inquiries', inquiriesRoutes);
 app.use('/api/inquiry-excel-import', inquiryExcelImportRoutes);
@@ -121,6 +124,7 @@ app.use('/api/admin/e-contracts', eContractAdminRoutes);
 app.use('/api/admin/team-leader-training', teamLeaderTrainingAdminRoutes);
 app.use('/api/e-contract', eContractPublicRoutes);
 app.use('/api/help', helpRoutes);
+app.use('/api/help/inquiry', helpInquiryPublicRoutes);
 mountCustomModuleRoutes(app);
 
 // C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙

@@ -14,6 +14,7 @@ import {
   parseHelpRole,
 } from '../utils/helpContent';
 import { checkHelpEditPermission } from '../api/help';
+import { HelpInquiryBoard } from '../components/help/HelpInquiryBoard';
 
 type MainCategory = 'usage' | 'inquiry' | 'notice';
 
@@ -308,28 +309,7 @@ export function HelpPage() {
           )
         ) : mainCategory === 'inquiry' ? (
           <div className="mx-auto max-w-3xl">
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">고객문의</h2>
-              <p className="text-slate-600 mb-6">
-                궁금하신 사항이 있으시면 아래 연락처로 문의해주세요.
-              </p>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="text-2xl">📞</div>
-                  <div>
-                    <p className="font-semibold text-slate-900">전화 문의</p>
-                    <p className="text-slate-600">1234-5678 (평일 09:00 - 18:00)</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="text-2xl">✉️</div>
-                  <div>
-                    <p className="font-semibold text-slate-900">이메일 문의</p>
-                    <p className="text-slate-600">support@skcleanteck.com</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <HelpInquiryBoard />
           </div>
         ) : (
           <div className="mx-auto max-w-3xl">
