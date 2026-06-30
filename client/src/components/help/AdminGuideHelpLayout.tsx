@@ -9,6 +9,7 @@ import {
   type MarketerGuideChapter,
 } from '../../utils/marketerGuideContent';
 import { TeamGuideMobileChapterSelect, TeamGuideSidebar } from './TeamGuideSidebar';
+import { MarketerGuideScreenshotEditor } from './MarketerGuideScreenshotEditor';
 
 type AdminGuideHelpLayoutProps = {
   selectedRole: HelpRole;
@@ -25,9 +26,17 @@ export function AdminGuideHelpLayout({ selectedRole, onRoleChange }: AdminGuideH
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [iframeCacheBust, setIframeCacheBust] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const iframeSrc = useMemo(() => marketerGuideIframeSrc(activeChapter), [activeChapter]);
+  const iframeSrc = useMemo(
+    () => marketerGuideIframeSrc(activeChapter, iframeCacheBust || undefined),
+    [activeChapter, iframeCacheBust],
+  );
+
+  const handleScreenshotUpdated = useCallback(() => {
+    setIframeCacheBust(Date.now());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +163,11 @@ export function AdminGuideHelpLayout({ selectedRole, onRoleChange }: AdminGuideH
             새 창에서 열기
           </a>
         </div>
+
+        <MarketerGuideScreenshotEditor
+          activeChapter={activeChapter}
+          onScreenshotUpdated={handleScreenshotUpdated}
+        />
 
         <div className="mt-1 w-full min-w-0 overflow-x-hidden">
           <iframe

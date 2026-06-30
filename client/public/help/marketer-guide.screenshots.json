@@ -1,0 +1,67 @@
+[
+  {
+    "filename": "s02_dashboard.png",
+    "label": "대시보드",
+    "chapterIds": ["02", "03"]
+  },
+  {
+    "filename": "s04_inquiries.png",
+    "label": "접수 목록",
+    "chapterIds": ["04", "05"]
+  },
+  {
+    "filename": "s06_order_issue.png",
+    "label": "발주서 발급",
+    "chapterIds": ["06"]
+  },
+  {
+    "filename": "s07_order_forms.png",
+    "label": "발주서 목록",
+    "chapterIds": ["07"]
+  },
+  {
+    "filename": "s08_quotations.png",
+    "label": "견적서",
+    "chapterIds": ["08"]
+  },
+  {
+    "filename": "s09_cs.png",
+    "label": "C/S 관리",
+    "chapterIds": ["09"]
+  },
+  {
+    "filename": "s10_payback.png",
+    "label": "페이백·리뷰",
+    "chapterIds": ["10"]
+  },
+  {
+    "filename": "s11_advertising.png",
+    "label": "광고비",
+    "chapterIds": ["11", "12", "13"]
+  },
+  {
+    "filename": "s14_ad_settings.png",
+    "label": "광고비 설정",
+    "chapterIds": ["14"]
+  },
+  {
+    "filename": "s15_schedule.png",
+    "label": "스케줄",
+    "chapterIds": ["15"]
+  },
+  {
+    "filename": "s15b_messages.png",
+    "label": "메시지",
+    "chapterIds": ["15"]
+  },
+  {
+    "filename": "s15c_db_marketplace.png",
+    "label": "DB마켓",
+    "chapterIds": ["15"]
+  },
+  {
+    "filename": "s16_team_leaders.png",
+    "label": "관리자 전용",
+    "chapterIds": ["16"]
+  }
+]

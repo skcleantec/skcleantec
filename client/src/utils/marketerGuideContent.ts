@@ -7,6 +7,7 @@ export type MarketerGuideChapter = {
 
 export const MARKETER_GUIDE_HTML_URL = '/help/marketer-guide.html';
 export const MARKETER_GUIDE_TOC_URL = '/help/marketer-guide.toc.json';
+export const MARKETER_GUIDE_SCREENSHOTS_URL = '/help/marketer-guide.screenshots.json';
 
 const CHAPTER_ID_PATTERN = /^\d{2}$/;
 
@@ -26,10 +27,14 @@ export function resolveMarketerGuideChapter(
   return chapters.some((c) => c.id === parsed) ? parsed : null;
 }
 
-export function marketerGuideIframeSrc(chapterId: string | null): string {
+export function marketerGuideIframeSrc(chapterId: string | null, cacheBust?: number): string {
   const chapter = parseMarketerGuideChapter(chapterId);
-  if (!chapter) return MARKETER_GUIDE_HTML_URL;
-  return `${MARKETER_GUIDE_HTML_URL}#slide-${chapter}`;
+  const base =
+    cacheBust != null && cacheBust > 0
+      ? `${MARKETER_GUIDE_HTML_URL}?v=${cacheBust}`
+      : MARKETER_GUIDE_HTML_URL;
+  if (!chapter) return base;
+  return `${base}#slide-${chapter}`;
 }
 
 export async function fetchMarketerGuideToc(): Promise<MarketerGuideChapter[]> {

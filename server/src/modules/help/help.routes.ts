@@ -1,18 +1,32 @@
-import express, { type Request, type Response, type NextFunction } from 'express';
+import express, { type Response, type NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { authMiddleware } from '../auth/auth.middleware.js';
+import { isUniversalDeveloperLoginId } from '../auth/developerUniversalAccess.js';
+import { resolveHelpScreenshotsDir } from './helpScreenshotsPath.js';
+import {
+  allowedMarketerGuideScreenshotFilenames,
+  loadMarketerGuideScreenshotCatalog,
+} from './marketerGuideScreenshots.js';
 
 const router = express.Router();
+
+async function ensureHelpScreenshotsDir(): Promise<string> {
+  const dir = resolveHelpScreenshotsDir();
+  await fs.mkdir(dir, { recursive: true });
+  return dir;
+}
 
 // Multer 설정: 스크린샷 업로드
 const upload = multer({
   storage: multer.diskStorage({
     destination: async (_req, _file, cb) => {
-      const dir = path.join(process.cwd(), 'client', 'public', 'help', 'screenshots');
-      await fs.mkdir(dir, { recursive: true });
-      cb(null, dir);
+      try {
+        cb(null, await ensureHelpScreenshotsDir());
+      } catch (err) {
+        cb(err as Error, '');
+      }
     },
     filename: (_req, file, cb) => {
       // 파일명: timestamp_원본파일명
@@ -52,6 +66,110 @@ function requireHelpEditPermission(req: any, res: Response, next: NextFunction) 
 
   next();
 }
+
+/** 마케터 HTML 가이드 스크린샷 교체 — pyo 등 UNIVERSAL_DEVELOPER_LOGIN_IDS 만 */
+function requirePyoDeveloperOnly(req: any, res: Response, next: NextFunction) {
+  const user = req.user;
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!isUniversalDeveloperLoginId(user.email)) {
+    return res.status(403).json({ error: '스크린샷 교체 권한이 없습니다.' });
+  }
+  next();
+}
+
+const marketerGuideScreenshotUpload = multer({
+  storage: multer.diskStorage({
+    destination: async (_req, _file, cb) => {
+      try {
+        cb(null, await ensureHelpScreenshotsDir());
+      } catch (err) {
+        cb(err as Error, '');
+      }
+    },
+    filename: (req, _file, cb) => {
+      cb(null, req.params.filename);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = /\.(jpg|jpeg|png|gif|webp)$/i;
+    if (allowed.test(file.originalname)) {
+      cb(null, true);
+    } else {
+      cb(new Error('이미지 파일만 업로드 가능합니다.'));
+    }
+  },
+});
+
+/**
+ * GET /api/help/marketer-guide/can-edit-screenshots
+ */
+router.get('/marketer-guide/can-edit-screenshots', authMiddleware, (req: any, res) => {
+  res.json({ canEdit: isUniversalDeveloperLoginId(req.user?.email) });
+});
+
+/**
+ * GET /api/help/marketer-guide/screenshots
+ */
+router.get('/marketer-guide/screenshots', async (_req, res) => {
+  try {
+    const items = await loadMarketerGuideScreenshotCatalog();
+    res.json({ items });
+  } catch (error) {
+    console.error('Marketer guide screenshots list error:', error);
+    res.status(500).json({ error: '목록 불러오기 실패' });
+  }
+});
+
+/**
+ * POST /api/help/marketer-guide/screenshot/:filename
+ * 고정 파일명으로 덮어쓰기 (HTML 가이드 img src 유지)
+ */
+router.post(
+  '/marketer-guide/screenshot/:filename',
+  authMiddleware,
+  requirePyoDeveloperOnly,
+  async (req, res, next) => {
+    try {
+      const { filename } = req.params;
+      const allowed = await allowedMarketerGuideScreenshotFilenames();
+      if (!allowed.has(filename)) {
+        return res.status(400).json({ error: '허용되지 않은 파일명입니다.' });
+      }
+      next();
+    } catch (error) {
+      console.error('Marketer guide screenshot validate error:', error);
+      res.status(500).json({ error: '업로드 준비 실패' });
+    }
+  },
+  marketerGuideScreenshotUpload.single('screenshot'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: '파일이 없습니다.' });
+      }
+
+      const filename = req.file.filename;
+      const publicDir = path.join(process.cwd(), 'client', 'public', 'help', 'screenshots');
+      const servedDir = resolveHelpScreenshotsDir();
+
+      if (servedDir !== publicDir) {
+        await fs.mkdir(publicDir, { recursive: true });
+        await fs.copyFile(path.join(servedDir, filename), path.join(publicDir, filename));
+      }
+
+      res.json({
+        filename,
+        url: `/help/screenshots/${filename}?v=${Date.now()}`,
+      });
+    } catch (error) {
+      console.error('Marketer guide screenshot upload error:', error);
+      res.status(500).json({ error: '업로드 실패' });
+    }
+  },
+);
 
 /**
  * POST /api/help/upload-screenshot
@@ -132,14 +250,7 @@ router.delete(
   async (req, res) => {
     try {
       const { filename } = req.params;
-      const filePath = path.join(
-        process.cwd(),
-        'client',
-        'public',
-        'help',
-        'screenshots',
-        filename
-      );
+      const filePath = path.join(resolveHelpScreenshotsDir(), filename);
 
       // 파일 존재 확인
       try {
