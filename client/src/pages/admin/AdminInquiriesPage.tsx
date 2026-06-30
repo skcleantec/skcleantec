@@ -3915,14 +3915,14 @@ export function AdminInquiriesPage() {
         !token &&
         createPortal(
           <div
-            className="fixed inset-0 z-[500] flex items-end justify-center p-0 sm:items-center sm:p-4"
+            className="modal-mobile-safe-overlay fixed inset-0 z-[500] flex flex-col justify-end p-0 sm:flex-row sm:items-center sm:justify-center sm:p-4"
             role="dialog"
             aria-modal="true"
             aria-labelledby="inquiry-edit-title"
           >
             <div className="absolute inset-0 bg-black/40" aria-hidden />
             <div
-              className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:rounded-lg"
+              className="modal-mobile-fullscreen-panel relative z-10 flex max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:flex-none sm:rounded-lg"
               onClick={(e) => e.stopPropagation()}
             >
             <div className="relative shrink-0 border-b border-slate-100 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">

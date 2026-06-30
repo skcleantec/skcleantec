@@ -118,9 +118,42 @@ html, body {
   color: #f1f5f9 !important;
 }
 
-/** PWA(standalone) — iOS/Android 상태 표시줄(시계·신호) 아래로 GNB 시작 */
+/** PWA(standalone) — iOS/Android 상태 표시줄(시계·신호) 아래로 GNB·모달 헤더 시작 */
 .staff-top-safe {
   padding-top: env(safe-area-inset-top, 0px);
+}
+
+@media (display-mode: standalone) {
+  .staff-top-safe {
+    padding-top: max(env(safe-area-inset-top, 0px), 1.25rem);
+  }
+}
+
+/** 모바일 전체화면(bottom sheet) 모달 — 오버레이 상·하 safe area (sm+ 에서 해제) */
+.modal-mobile-safe-overlay {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (display-mode: standalone) {
+  .modal-mobile-safe-overlay {
+    padding-top: max(env(safe-area-inset-top, 0px), 1.25rem);
+  }
+}
+
+@media (min-width: 640px) {
+  .modal-mobile-safe-overlay {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+/** modal-mobile-safe-overlay 안에서 100dvh 대신 flex로 남은 높이 채움 */
+.modal-mobile-fullscreen-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  width: 100%;
 }
 
 /* Header brand text & headings */

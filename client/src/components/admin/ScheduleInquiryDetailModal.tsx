@@ -1906,13 +1906,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     <>
       {createPortal(
     <div
-      className="fixed inset-0 z-[500] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+      className="modal-mobile-safe-overlay fixed inset-0 z-[500] flex flex-col justify-end bg-black/40 p-0 sm:flex-row sm:items-center sm:justify-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="schedule-detail-title"
     >
       <div
-        className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:rounded-2xl"
+        className="modal-mobile-fullscreen-panel relative z-10 flex max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:flex-none sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative shrink-0 border-b border-gray-100 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">

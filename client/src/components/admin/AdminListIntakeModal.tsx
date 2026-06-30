@@ -152,13 +152,13 @@ export function AdminListIntakeModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[580] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[580] flex items-end justify-center bg-black/45 p-0 pb-[env(safe-area-inset-bottom,0px)] sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="list-intake-title"
     >
       <div className="absolute inset-0" aria-hidden onClick={() => !saving && onClose()} />
-      <div className="relative z-10 flex max-h-[min(92dvh,640px)] w-full max-w-lg flex-col rounded-t-2xl border border-gray-200 bg-white shadow-xl sm:rounded-xl">
+      <div className="relative z-10 flex max-h-[min(calc(100dvh-max(1.25rem,env(safe-area-inset-top,0px))-env(safe-area-inset-bottom,0px)),640px)] w-full max-w-lg flex-col rounded-t-2xl border border-gray-200 bg-white shadow-xl sm:max-h-[min(92dvh,640px)] sm:rounded-xl">
         <ModalCloseButton onClick={() => !saving && onClose()} />
         <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12">
           <h2 id="list-intake-title" className="text-fluid-base font-semibold text-gray-900">
