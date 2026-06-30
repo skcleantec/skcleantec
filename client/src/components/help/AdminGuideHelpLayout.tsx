@@ -26,17 +26,8 @@ export function AdminGuideHelpLayout({ selectedRole, onRoleChange }: AdminGuideH
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [iframeCacheBust, setIframeCacheBust] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  const iframeSrc = useMemo(
-    () => marketerGuideIframeSrc(activeChapter, iframeCacheBust || undefined),
-    [activeChapter, iframeCacheBust],
-  );
-
-  const handleScreenshotUpdated = useCallback(() => {
-    setIframeCacheBust(Date.now());
-  }, []);
+  const iframeSrc = useMemo(() => marketerGuideIframeSrc(activeChapter), [activeChapter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -164,10 +155,7 @@ export function AdminGuideHelpLayout({ selectedRole, onRoleChange }: AdminGuideH
           </a>
         </div>
 
-        <MarketerGuideScreenshotEditor
-          activeChapter={activeChapter}
-          onScreenshotUpdated={handleScreenshotUpdated}
-        />
+        <MarketerGuideScreenshotEditor activeChapter={activeChapter} iframeRef={iframeRef} />
 
         <div className="mt-1 w-full min-w-0 overflow-x-hidden">
           <iframe
