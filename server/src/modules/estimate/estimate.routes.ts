@@ -18,15 +18,15 @@ function requireTenant(req: import('express').Request, res: import('express').Re
   return tenantId;
 }
 
-/** Read estimate defaults (order form UI) */
-router.get('/config', requireStaffPermission('inquiry.view', 'orderform.issue', 'orderform.formConfig'), async (req, res) => {
+/** Read estimate defaults (order form UI, telecrm settings) */
+router.get('/config', requireStaffPermission('inquiry.view', 'orderform.issue', 'orderform.formConfig', 'crm.settings'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const config = await getOrCreateEstimateConfig(prisma, tenantId);
   res.json(config);
 });
 
-router.put('/config', requireStaffPermission('orderform.formConfig'), async (req, res) => {
+router.put('/config', requireStaffPermission('orderform.formConfig', 'crm.settings'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const { pricePerPyeong, depositAmount } = req.body as {

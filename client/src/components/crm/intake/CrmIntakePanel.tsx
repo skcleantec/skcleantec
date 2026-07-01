@@ -4,6 +4,7 @@ import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
 import { CrmIntakeForm } from './CrmIntakeForm';
+import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
 import { useCrmCustomerLookup } from '../../../hooks/useCrmCustomerLookup';
 
@@ -28,6 +29,8 @@ export function CrmIntakePanel({
   initialFormDraft,
   onFormChange,
   skipAutoFillPhone,
+  canSubmitKind,
+  permissionsLoading,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
@@ -42,6 +45,8 @@ export function CrmIntakePanel({
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
   onFormChange?: (snapshot: CrmIntakeFormSnapshot) => void;
   skipAutoFillPhone?: string | null;
+  canSubmitKind: (kind: CrmIntakeKind) => boolean;
+  permissionsLoading?: boolean;
 }) {
   const lookupEnabled = mode === 'existing' && phone.trim().length >= 4;
   const { data, loading, error, refresh } = useCrmCustomerLookup(phone, lookupEnabled);
@@ -167,12 +172,15 @@ export function CrmIntakePanel({
           <CrmIntakeForm
             seed={intakeSeed}
             initialFormDraft={initialFormDraft}
+            phone={phone}
             pyeong={pyeong}
             onPyeongChange={onPyeongChange}
             onFormChange={onFormChange}
             onSaved={handleSaved}
             lastInquiryId={lastInquiryId}
             onOpenOrderIssue={openOrderIssue}
+            canSubmitKind={canSubmitKind}
+            permissionsLoading={permissionsLoading}
           />
         </div>
       </div>

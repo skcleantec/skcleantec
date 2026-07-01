@@ -1,6 +1,7 @@
 import { createOrderFollowup } from '../../../api/orderFollowups';
 import { createInquiry } from '../../../api/inquiries';
 import type { OrderFollowupStatus } from '../../../constants/orderFollowupStatus';
+import { parseCrmIntakePyeong, validateCrmIntakeForm } from './crmIntakeValidation';
 
 export type CrmIntakeKind =
   | 'requested'
@@ -25,15 +26,27 @@ export type CrmIntakeSubmitResult =
   | { kind: 'followup' }
   | { kind: 'inquiry'; inquiryId: string; status: string };
 
+function inquiryExtras(pyeong: string, preferredMoveInCleanYmd: string) {
+  const areaPyeong = parseCrmIntakePyeong(pyeong);
+  const pmd = preferredMoveInCleanYmd.trim();
+  return {
+    ...(areaPyeong != null ? { areaPyeong } : {}),
+    ...(pmd ? { preferredDate: pmd } : {}),
+  };
+}
+
 export async function submitCrmIntake(
   token: string,
   values: CrmIntakeFormValues,
+  pyeong: string,
 ): Promise<CrmIntakeSubmitResult> {
-  const n = values.customerName.trim();
-  if (!n) throw new Error('고객명을 입력해 주세요.');
+  const validationError = validateCrmIntakeForm(values, pyeong);
+  if (validationError) throw new Error(validationError);
 
+  const n = values.customerName.trim();
   const pmd = values.preferredMoveInCleanYmd.trim();
   const pmdBody = pmd ? { preferredMoveInCleaningDate: pmd } : {};
+  const extras = inquiryExtras(pyeong, values.preferredMoveInCleanYmd);
 
   if (values.kind === 'requested' || values.kind === 'absent' || values.kind === 'hold') {
     const status: OrderFollowupStatus =
@@ -55,11 +68,12 @@ export async function submitCrmIntake(
       customerName: n,
       nickname: values.nickname.trim() || null,
       customerPhone: values.phone.trim() || '',
-      address: values.address.trim() || '',
+      address: values.address.trim(),
       addressDetail: null,
       memo: values.memo.trim() || null,
       source: '전화',
       status: 'RECEIVED',
+      ...extras,
     })) as { id: string };
     return { kind: 'inquiry', inquiryId: created.id, status: 'RECEIVED' };
   }
@@ -74,6 +88,7 @@ export async function submitCrmIntake(
     memo: values.memo.trim() || null,
     source: '전화',
     status: inqSt,
+    ...extras,
   })) as { id: string };
   const fuSt: OrderFollowupStatus = values.kind === 'deposit' ? 'DEPOSIT_PENDING' : 'RESERVED';
   await createOrderFollowup(token, {

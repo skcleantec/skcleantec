@@ -9,6 +9,7 @@ import {
   type CrmIntakeKind,
   type CrmIntakeSubmitResult,
 } from './crmIntakeSubmit';
+import { crmIntakePermissionLabel } from './crmIntakeValidation';
 
 const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
   { value: 'absent', label: ORDER_FOLLOWUP_STATUS_LABEL.ABSENT, hint: '부재현황' },
@@ -22,25 +23,30 @@ const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
 export function CrmIntakeForm({
   seed,
   initialFormDraft,
+  phone,
   pyeong,
   onPyeongChange,
   onFormChange,
   onSaved,
   lastInquiryId,
   onOpenOrderIssue,
+  canSubmitKind,
+  permissionsLoading,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
+  phone: string;
   pyeong: string;
   onPyeongChange: (v: string) => void;
   onFormChange?: (snapshot: CrmIntakeFormSnapshot) => void;
   onSaved: (result: CrmIntakeSubmitResult) => void;
   lastInquiryId: string | null;
   onOpenOrderIssue: (inquiryId: string | null) => void;
+  canSubmitKind: (kind: CrmIntakeKind) => boolean;
+  permissionsLoading?: boolean;
 }) {
   const [customerName, setCustomerName] = useState('');
   const [nickname, setNickname] = useState('');
-  const [phone, setPhone] = useState('');
   const [memo, setMemo] = useState('');
   const [preferredMoveInCleanYmd, setPreferredMoveInCleanYmd] = useState('');
   const [address, setAddress] = useState('');
@@ -51,13 +57,14 @@ export function CrmIntakeForm({
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  const canSave = canSubmitKind(kind);
+
   useEffect(() => {
     setCustomerName(seed.customerName ?? '');
     setNickname(seed.nickname ?? '');
-    setPhone(seed.phone ?? '');
     setMemo(seed.memo ?? '');
     setAddress(seed.address ?? '');
-  }, [seed.customerName, seed.nickname, seed.phone, seed.memo, seed.address]);
+  }, [seed.customerName, seed.nickname, seed.memo, seed.address]);
 
   const appliedDraftRef = useRef(false);
 
@@ -75,6 +82,10 @@ export function CrmIntakeForm({
     if (initialFormDraft.goldDb != null) setGoldDb(initialFormDraft.goldDb);
     if (initialFormDraft.address || initialFormDraft.preferredMoveInCleanYmd) setShowMore(true);
   }, [initialFormDraft]);
+
+  useEffect(() => {
+    if (kind === 'received') setShowMore(true);
+  }, [kind]);
 
   useEffect(() => {
     if (!onFormChange) return;
@@ -95,20 +106,28 @@ export function CrmIntakeForm({
   const submit = async (keepForm: boolean) => {
     const token = getToken();
     if (!token) return;
+    if (!canSubmitKind(kind)) {
+      setErr(`${crmIntakePermissionLabel(kind)} 권한이 필요합니다.`);
+      return;
+    }
     setSaving(true);
     setErr(null);
     setMsg(null);
     try {
-      const result = await submitCrmIntake(token, {
-        customerName,
-        nickname,
-        phone,
-        memo,
-        preferredMoveInCleanYmd,
-        address,
-        kind,
-        goldDb,
-      });
+      const result = await submitCrmIntake(
+        token,
+        {
+          customerName,
+          nickname,
+          phone,
+          memo,
+          preferredMoveInCleanYmd,
+          address,
+          kind,
+          goldDb,
+        },
+        pyeong,
+      );
       onSaved(result);
       setMsg('저장했습니다.');
       if (!keepForm) {
@@ -146,16 +165,6 @@ export function CrmIntakeForm({
           disabled={saving}
         />
       </label>
-      <label className="block space-y-1">
-        <span className="text-fluid-xs font-medium text-gray-700">연락처</span>
-        <input
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
-          disabled={saving}
-        />
-      </label>
 
       <fieldset>
         <legend className="mb-1.5 text-fluid-xs font-medium text-gray-700">처리 구분</legend>
@@ -181,13 +190,37 @@ export function CrmIntakeForm({
         </div>
       </fieldset>
 
-      <button
-        type="button"
-        onClick={() => setShowMore((v) => !v)}
-        className="text-fluid-xs text-sky-700 hover:underline"
-      >
-        {showMore ? '추가 필드 접기' : '주소·희망일 등 추가'}
-      </button>
+      {kind === 'received' ? (
+        <label className="block space-y-1">
+          <span className="text-fluid-xs font-medium text-gray-700">주소 * (예약완료)</span>
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="실 주소를 입력해 주세요"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+            disabled={saving}
+          />
+        </label>
+      ) : null}
+
+      {kind !== 'received' ? (
+        <button
+          type="button"
+          onClick={() => setShowMore((v) => !v)}
+          className="text-fluid-xs text-sky-700 hover:underline"
+        >
+          {showMore ? '추가 필드 접기' : '주소·희망일 등 추가'}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowMore((v) => !v)}
+          className="text-fluid-xs text-sky-700 hover:underline"
+        >
+          {showMore ? '추가 필드 접기' : '평수·희망일 등 추가'}
+        </button>
+      )}
 
       {showMore ? (
         <div className="space-y-3 rounded-xl border border-gray-100 bg-slate-50/80 p-3">
@@ -202,18 +235,20 @@ export function CrmIntakeForm({
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
               disabled={saving}
             />
-            <span className="text-[10px] text-gray-500">스크립트·가격 계산기와 연동됩니다.</span>
+            <span className="text-[10px] text-gray-500">스크립트·가격 계산기와 연동·접수에 저장됩니다.</span>
           </label>
-          <label className="block space-y-1">
-            <span className="text-fluid-xs font-medium text-gray-700">주소 (예약완료 시)</span>
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
-              disabled={saving}
-            />
-          </label>
+          {kind !== 'received' ? (
+            <label className="block space-y-1">
+              <span className="text-fluid-xs font-medium text-gray-700">주소</span>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                disabled={saving}
+              />
+            </label>
+          ) : null}
           <label className="block space-y-1">
             <span className="text-fluid-xs font-medium text-gray-700">입주청소 희망일</span>
             <input
@@ -223,6 +258,9 @@ export function CrmIntakeForm({
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
               disabled={saving}
             />
+            <span className="text-[10px] text-gray-500">
+              부재·입금 연동 시 부재현황에, 예약완료 시 접수 희망일에 반영됩니다.
+            </span>
           </label>
           <label className="flex items-start gap-2 text-fluid-xs text-gray-700">
             <input
@@ -248,13 +286,19 @@ export function CrmIntakeForm({
         />
       </label>
 
+      {!permissionsLoading && !canSave ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-900">
+          선택한 처리 구분을 저장하려면 <strong>{crmIntakePermissionLabel(kind)}</strong> 권한이 필요합니다.
+        </p>
+      ) : null}
+
       {msg ? <p className="text-fluid-xs text-green-700">{msg}</p> : null}
       {err ? <p className="text-fluid-xs text-red-600">{err}</p> : null}
 
       <div className="flex flex-col gap-2">
         <button
           type="button"
-          disabled={saving}
+          disabled={saving || permissionsLoading || !canSave}
           onClick={() => void submit(false)}
           className="w-full rounded-lg bg-slate-900 py-2.5 text-fluid-sm font-medium text-white disabled:opacity-50"
         >
@@ -262,7 +306,7 @@ export function CrmIntakeForm({
         </button>
         <button
           type="button"
-          disabled={saving}
+          disabled={saving || permissionsLoading || !canSave}
           onClick={() => void submit(true)}
           className="w-full rounded-lg border border-gray-300 py-2 text-fluid-sm text-gray-800 hover:bg-gray-50 disabled:opacity-50"
         >

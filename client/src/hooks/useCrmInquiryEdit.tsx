@@ -10,24 +10,30 @@ export function useCrmInquiryEdit(enabled: boolean, onSaved?: () => void) {
   const support = useCrmInquiryEditSupport(enabled);
   const [editItem, setEditItem] = useState<ScheduleItem | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
+  const [openError, setOpenError] = useState<string | null>(null);
 
   const openInquiryEdit = useCallback((inquiryId: string) => {
     const token = getToken();
     if (!token) return;
+    setOpenError(null);
     setOpeningId(inquiryId);
     void (async () => {
       try {
         const raw = await getInquiry(token, inquiryId);
         setEditItem(raw as unknown as ScheduleItem);
-      } catch {
+      } catch (e) {
         setEditItem(null);
+        setOpenError(e instanceof Error ? e.message : '접수를 불러올 수 없습니다.');
       } finally {
         setOpeningId(null);
       }
     })();
   }, []);
 
-  const close = useCallback(() => setEditItem(null), []);
+  const close = useCallback(() => {
+    setEditItem(null);
+    setOpenError(null);
+  }, []);
 
   const handleSaved = useCallback(() => {
     close();
@@ -46,10 +52,12 @@ export function useCrmInquiryEdit(enabled: boolean, onSaved?: () => void) {
   }, [editItem]);
 
   const token = getToken();
+  const detailLoading = Boolean(openingId || (editItem && support.loading));
+
   const layer =
     enabled && token ? (
       <>
-        {openingId ? (
+        {detailLoading ? (
           createPortal(
             <div
               className="fixed inset-0 z-[200] flex items-center justify-center bg-black/25"
@@ -64,7 +72,25 @@ export function useCrmInquiryEdit(enabled: boolean, onSaved?: () => void) {
           )
         ) : null}
 
-        {editItem && !openingId && !support.loading ? (
+        {openError && !detailLoading ? (
+          createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/25 p-4">
+              <div className="max-w-sm rounded-xl bg-white p-4 shadow-lg text-center space-y-3">
+                <p className="text-fluid-sm text-red-700">{openError}</p>
+                <button
+                  type="button"
+                  onClick={() => setOpenError(null)}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-medium text-white"
+                >
+                  확인
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        ) : null}
+
+        {editItem && !detailLoading && !openError ? (
           <ScheduleInquiryDetailModal
             mode="edit"
             token={token}

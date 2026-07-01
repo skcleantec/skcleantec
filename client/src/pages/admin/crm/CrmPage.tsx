@@ -11,6 +11,8 @@ import { CrmScriptPanel } from '../../../components/crm/scripts/CrmScriptPanel';
 import { CrmPricingPanel } from '../../../components/crm/pricing/CrmPricingPanel';
 import { CrmSessionBar } from '../../../components/crm/session/CrmSessionBar';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
+import { crmIntakeRequiredPermission } from '../../../components/crm/intake/crmIntakeValidation';
+import type { CrmIntakeKind } from '../../../components/crm/intake/crmIntakeSubmit';
 import {
   clearCrmIntakeDraft,
   crmIntakeDraftHasContent,
@@ -84,10 +86,22 @@ export function CrmPage() {
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    void fetchTelecrmPricingCatalog(token).then((res) => {
-      setPricePerPyeong(res.estimateConfig.pricePerPyeong);
-    });
+    void fetchTelecrmPricingCatalog(token)
+      .then((res) => {
+        setPricePerPyeong(res.estimateConfig.pricePerPyeong);
+      })
+      .catch(() => {
+        /* estimate config optional for script placeholders */
+      });
   }, []);
+
+  const canSubmitIntakeKind = useCallback(
+    (kind: CrmIntakeKind) => {
+      if (permissions.me?.role === 'ADMIN') return true;
+      return permissions.has(crmIntakeRequiredPermission(kind));
+    },
+    [permissions],
+  );
 
   const persistDraft = useCallback(
     (form: CrmIntakeFormSnapshot) => {
@@ -166,7 +180,15 @@ export function CrmPage() {
     );
   }
 
-  if (!permissions.loading && !canView) {
+  if (permissions.loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-8 text-center">
+        <p className="text-fluid-sm text-gray-500">권한 확인 중…</p>
+      </div>
+    );
+  }
+
+  if (!canView) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 p-8 text-center">
         <p className="text-fluid-sm text-amber-900">텔레CRM 사용 권한이 없습니다.</p>
@@ -175,7 +197,29 @@ export function CrmPage() {
   }
 
   return (
-    <FeatureGate module="mod_telecrm">
+    <FeatureGate
+      module="mod_telecrm"
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-slate-100 p-8 text-center">
+          <div className="max-w-md space-y-3">
+            <p className="text-fluid-sm text-amber-900">이 업체에는 텔레CRM 기능(mod_telecrm)이 꺼져 있습니다.</p>
+            {isPopup ? (
+              <button
+                type="button"
+                onClick={() => window.close()}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm text-white"
+              >
+                창 닫기
+              </button>
+            ) : (
+              <Link to="/admin/dashboard" className="text-fluid-sm text-sky-700 hover:underline">
+                대시보드로
+              </Link>
+            )}
+          </div>
+        </div>
+      }
+    >
       <div className="min-w-[1280px]">
         <CrmShell
           header={
@@ -234,6 +278,8 @@ export function CrmPage() {
               initialFormDraft={initialFormDraft}
               onFormChange={handleFormChange}
               skipAutoFillPhone={draftRestoredPhone}
+              canSubmitKind={canSubmitIntakeKind}
+              permissionsLoading={permissions.loading}
             />
           }
           center={

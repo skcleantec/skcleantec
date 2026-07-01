@@ -9,10 +9,12 @@ type Props = {
   children: ReactNode;
   /** 기능 off 시 이동 경로 (기본: 관리자 대시보드) */
   redirectTo?: string;
+  /** 기능 off 시 redirect 대신 표시 (팝업 등) */
+  fallback?: ReactNode;
 };
 
 /** 테넌트 기능 모듈 off 시 redirectTo 로 돌려보냄 */
-export function FeatureGate({ module, children, redirectTo = '/admin/dashboard' }: Props) {
+export function FeatureGate({ module, children, redirectTo = '/admin/dashboard', fallback }: Props) {
   const { features } = useTenantCapabilities();
   const location = useLocation();
 
@@ -23,6 +25,7 @@ export function FeatureGate({ module, children, redirectTo = '/admin/dashboard' 
   }
 
   if (!hasFeature(features, module)) {
+    if (fallback) return <>{fallback}</>;
     return (
       <Navigate
         to={redirectTo}
