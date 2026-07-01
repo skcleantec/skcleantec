@@ -62,19 +62,20 @@ export function AddressSearch({ value, onChange, placeholder, className = '', mo
 
   return (
     <>
-      <div className={`flex gap-2 ${className}`}>
-        <input
-          type="text"
-          value={value}
+      <div className={`flex min-w-0 flex-col gap-2 sm:flex-row sm:items-stretch ${className}`}>
+        <textarea
           readOnly
+          rows={2}
+          value={value}
           placeholder={placeholder ?? '주소 검색'}
-          className={`flex-1 min-w-0 rounded border border-gray-300 bg-gray-50 px-3 py-2 text-sm ${mobilePreferred ? 'text-fluid-sm py-2.5' : ''}`}
+          aria-readonly
+          className={`flex-1 min-w-0 resize-none overflow-y-auto break-words rounded border border-gray-300 bg-gray-50 px-3 py-2 text-sm leading-snug ${mobilePreferred ? 'text-fluid-sm py-2.5' : ''}`}
         />
         <button
           type="button"
           onClick={() => setLayerOpen(true)}
           disabled={disabled}
-          className={`shrink-0 touch-manipulation whitespace-nowrap rounded bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 ${mobilePreferred ? 'min-h-[44px] text-fluid-xs' : ''}`}
+          className={`w-full touch-manipulation whitespace-nowrap rounded bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 sm:w-auto sm:shrink-0 ${mobilePreferred ? 'min-h-[44px] text-fluid-xs' : ''}`}
         >
           주소 검색
         </button>
