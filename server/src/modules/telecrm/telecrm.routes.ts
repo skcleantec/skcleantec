@@ -11,6 +11,7 @@ import {
   telecrmPricingCatalogRouter,
 } from './telecrmPricing.routes.js';
 import { telecrmCustomerLookupRouter } from './telecrmCustomerLookup.routes.js';
+import { telecrmOrderOptionsRouter } from './telecrmOrderOptions.routes.js';
 
 const router = Router();
 router.use(authMiddleware, requireFeature('mod_telecrm'));
@@ -21,5 +22,6 @@ router.use('/price-categories', telecrmPriceCategoriesRouter);
 router.use('/price-items', telecrmPriceItemsRouter);
 router.use('/pricing', telecrmPricingCatalogRouter);
 router.use('/customer-lookup', telecrmCustomerLookupRouter);
+router.use('/order-options', telecrmOrderOptionsRouter);
 
 export const telecrmRoutes = router;

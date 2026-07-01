@@ -276,6 +276,9 @@ export const HelpPage = lazyWithRetry(() =>
 export const CrmPage = lazyWithRetry(() =>
   import('../pages/admin/crm/CrmPage').then((m) => ({ default: m.CrmPage }))
 );
+export const CrmPopupEntry = lazyWithRetry(() =>
+  import('../pages/admin/crm/CrmPopupEntry').then((m) => ({ default: m.CrmPopupEntry }))
+);
 export const TelecrmSettingsLayout = lazyWithRetry(() =>
   import('../pages/admin/crm/settings/TelecrmSettingsLayout').then((m) => ({ default: m.TelecrmSettingsLayout }))
 );

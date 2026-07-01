@@ -13,15 +13,36 @@ import {
   saveLoginCredentials,
   clearSavedLoginCredentials,
 } from '../utils/loginCredentialsStorage';
+import {
+  readResumeLocation as readStoredResumeLocation,
+  clearResumeLocation,
+} from '../api/sessionGate';
 
-/** ProtectedRoute / TeamProtectedRoute 가 넘긴 `state.from` 만 안전하게 읽기 */
-function readResumeLocation(state: unknown): RouterLocation | undefined {
+/** ProtectedRoute / TeamProtectedRoute / CrmPopupEntry 가 넘긴 `state.from` 만 안전하게 읽기 */
+function readResumeLocationFromState(state: unknown): RouterLocation | undefined {
   if (!state || typeof state !== 'object') return undefined;
   const rec = state as { from?: unknown };
   if (!rec.from || typeof rec.from !== 'object') return undefined;
   const from = rec.from as { pathname?: unknown };
   if (typeof from.pathname !== 'string') return undefined;
   return rec.from as RouterLocation;
+}
+
+function readResumeLocationFromStorage(): RouterLocation | undefined {
+  const stored = readStoredResumeLocation();
+  if (!stored) return undefined;
+  return {
+    pathname: stored.pathname,
+    search: stored.search,
+    hash: stored.hash,
+    state: null,
+    key: 'default',
+  } as RouterLocation;
+}
+
+/** Navigate state 우선, 세션 만료 시 sessionStorage 보조 */
+function resolveLoginResumeLocation(state: unknown): RouterLocation | undefined {
+  return readResumeLocationFromState(state) ?? readResumeLocationFromStorage();
 }
 
 function resolveAdminResumePath(from: RouterLocation | undefined): string {
@@ -193,7 +214,7 @@ export function LoginPage() {
 
     void (async () => {
       const myGen = sessionProbeGen.current;
-      const resumeFrom = readResumeLocation(location.state);
+      const resumeFrom = resolveLoginResumeLocation(location.state);
       try {
         if (a && !t && !c) {
           await getMe(a);
@@ -262,7 +283,7 @@ export function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const resumeFrom = readResumeLocation(location.state);
+      const resumeFrom = resolveLoginResumeLocation(location.state);
 
       if (crewLoginMode) {
         const slug = tenantSlug.trim();
@@ -280,6 +301,7 @@ export function LoginPage() {
         clearTeamToken();
         setCrewToken(data.token);
         persistLoginCredentials(true);
+        clearResumeLocation();
         navigate(resolveCrewResumePath(resumeFrom), { replace: true });
         return;
       }
@@ -294,12 +316,14 @@ export function LoginPage() {
         clearToken();
         clearCrewToken();
         setTeamToken(token);
+        clearResumeLocation();
         navigate(resolveTeamResumePath(resumeFrom), { replace: true });
       } else if (role === 'ADMIN' || role === 'MARKETER') {
         clearTeamToken();
         clearCrewToken();
         setToken(token);
         setTeamToken(token);
+        clearResumeLocation();
         navigate(resolveAdminResumePath(resumeFrom), { replace: true });
       } else {
         setError('지원하지 않는 계정 유형입니다.');

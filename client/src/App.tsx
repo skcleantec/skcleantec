@@ -99,7 +99,7 @@ import {
   PlatformDbMarketplacePage,
   PlatformHelpInquirySettingsPage,
   HelpPage,
-  CrmPage,
+  CrmPopupEntry,
   TelecrmSettingsLayout,
   TelecrmScriptSettingsPage,
   TelecrmPricingSettingsPage,
@@ -281,11 +281,9 @@ function App() {
         <Route
           path="/admin/crm"
           element={
-            <ProtectedRoute>
-              <SuspensePage>
-                <CrmPage />
-              </SuspensePage>
-            </ProtectedRoute>
+            <SuspensePage>
+              <CrmPopupEntry />
+            </SuspensePage>
           }
         />
         <Route path="/e-contract/sign/:token" element={<SuspensePage><EContractPublicSignPage /></SuspensePage>} />

@@ -334,3 +334,21 @@ export async function fetchTelecrmPricingCatalog(
   const res = await fetch(`${API}/pricing/catalog${qs}`, { headers: authHeaders(token) });
   return parseJson(res);
 }
+
+export type TelecrmOrderOptionDto = {
+  id: string;
+  label: string;
+  labelPath: string;
+  priceAmount: number | null;
+  priceHint: string | null;
+  emoji: string | null;
+};
+
+export async function fetchTelecrmOrderOptions(
+  token: string,
+  q?: string,
+): Promise<{ items: TelecrmOrderOptionDto[] }> {
+  const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : '';
+  const res = await fetch(`${API}/order-options${qs}`, { headers: authHeaders(token) });
+  return parseJson(res);
+}
