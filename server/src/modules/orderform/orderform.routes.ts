@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { prisma } from '../../lib/prisma.js';
+import { computeEstimateTotalFromPyeong } from '../../lib/estimateTotal.js';
 import { authMiddleware, adminOrMarketerOrTeamLeader } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
@@ -744,7 +745,7 @@ async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: str
     _sum: { extraAmount: true },
   });
   const extraSum = extras._sum.extraAmount ?? 0;
-  const totalAmount = pricePer * DEMO_PYEONG + extraSum;
+  const totalAmount = computeEstimateTotalFromPyeong(DEMO_PYEONG, pricePer, ec?.minimumTotalAmount ?? 0) + extraSum;
   const balanceAmount = Math.max(0, totalAmount - deposit);
   const previewToken = designerPreviewOrderTokenForTenant(tenantId);
   const tenantRow = await prisma.tenant.findUnique({

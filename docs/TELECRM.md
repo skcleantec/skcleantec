@@ -18,7 +18,7 @@
 
 ## 설정
 
-`/admin/crm/settings/scripts` · `…/pricing` · `…/general` — 별도 탭에서 CRUD.
+`/admin/crm/settings/scripts` · `…/pricing` · `…/general`(평당·최소·예약금) — 별도 탭에서 CRUD.
 
 발주 전문시공 금액은 **발주서 설정 → 전문시공 옵션**에서 관리하며, 텔레CRM 가격 패널 「발주 전문시공」 탭에서 읽기 전용으로 표시됩니다.
 

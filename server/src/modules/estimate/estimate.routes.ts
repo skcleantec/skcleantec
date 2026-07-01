@@ -29,9 +29,10 @@ router.get('/config', requireStaffPermission('inquiry.view', 'orderform.issue', 
 router.put('/config', requireStaffPermission('orderform.formConfig', 'crm.settings'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
-  const { pricePerPyeong, depositAmount } = req.body as {
+  const { pricePerPyeong, depositAmount, minimumTotalAmount } = req.body as {
     pricePerPyeong?: number;
     depositAmount?: number;
+    minimumTotalAmount?: number;
   };
   const existing = await getOrCreateEstimateConfig(prisma, tenantId);
   const config = await prisma.estimateConfig.update({
@@ -39,6 +40,7 @@ router.put('/config', requireStaffPermission('orderform.formConfig', 'crm.settin
     data: {
       ...(pricePerPyeong != null && { pricePerPyeong }),
       ...(depositAmount != null && { depositAmount }),
+      ...(minimumTotalAmount != null && { minimumTotalAmount: Math.max(0, minimumTotalAmount) }),
     },
   });
   res.json(config);

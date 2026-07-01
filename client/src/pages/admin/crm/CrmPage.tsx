@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { canAccessAdminPath } from '@shared/marketerPermissionNav';
+import { computeEstimateTotalFromPyeong } from '@shared/estimateTotal';
 import { getToken } from '../../../stores/auth';
 import { useMarketerPermissions } from '../../../hooks/useMarketerPermissions';
 import { useCrmInquiryEdit } from '../../../hooks/useCrmInquiryEdit';
@@ -36,6 +37,7 @@ export function CrmPage() {
   const [customerName, setCustomerName] = useState('');
   const [pyeong, setPyeong] = useState('');
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
+  const [minimumTotalAmount, setMinimumTotalAmount] = useState(0);
   const [lookupRefreshKey, setLookupRefreshKey] = useState(0);
   const [initialFormDraft, setInitialFormDraft] = useState<Partial<CrmIntakeFormSnapshot> | null>(null);
   const [draftRestoredPhone, setDraftRestoredPhone] = useState<string | null>(null);
@@ -89,6 +91,7 @@ export function CrmPage() {
     void fetchTelecrmPricingCatalog(token)
       .then((res) => {
         setPricePerPyeong(res.estimateConfig.pricePerPyeong);
+        setMinimumTotalAmount(res.estimateConfig.minimumTotalAmount ?? 0);
       })
       .catch(() => {
         /* estimate config optional for script placeholders */
@@ -169,8 +172,8 @@ export function CrmPage() {
   const pyeongNum = parseFloat(pyeong.replace(/,/g, ''));
   const estimateWon = useMemo(() => {
     if (!Number.isFinite(pyeongNum) || pyeongNum <= 0 || pricePerPyeong <= 0) return null;
-    return Math.round(pyeongNum * pricePerPyeong);
-  }, [pyeongNum, pricePerPyeong]);
+    return computeEstimateTotalFromPyeong(pyeongNum, pricePerPyeong, minimumTotalAmount);
+  }, [pyeongNum, pricePerPyeong, minimumTotalAmount]);
 
   if (!getToken()) {
     return (

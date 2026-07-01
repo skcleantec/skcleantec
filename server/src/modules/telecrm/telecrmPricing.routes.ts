@@ -380,6 +380,7 @@ catalogRouter.get('/catalog', requireStaffPermission('crm.view', 'crm.settings')
     estimateConfig: {
       pricePerPyeong: config.pricePerPyeong,
       depositAmount: config.depositAmount,
+      minimumTotalAmount: config.minimumTotalAmount,
     },
   });
 });

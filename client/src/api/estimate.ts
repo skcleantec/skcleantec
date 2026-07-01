@@ -11,6 +11,7 @@ export interface EstimateConfig {
   id: string;
   pricePerPyeong: number;
   depositAmount: number;
+  minimumTotalAmount: number;
 }
 
 export interface EstimateOption {
@@ -29,7 +30,7 @@ export async function getEstimateConfig(token: string): Promise<EstimateConfig> 
 
 export async function updateEstimateConfig(
   token: string,
-  data: { pricePerPyeong?: number; depositAmount?: number }
+  data: { pricePerPyeong?: number; depositAmount?: number; minimumTotalAmount?: number }
 ): Promise<EstimateConfig> {
   const res = await fetch(`${API}/estimate/config`, {
     method: 'PUT',

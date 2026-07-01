@@ -87,7 +87,11 @@ export function AdminOrderFormCustomerPreviewPage() {
   const [previewToken, setPreviewToken] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
 
-  const [configForm, setConfigForm] = useState({ pricePerPyeong: '', depositAmount: '' });
+  const [configForm, setConfigForm] = useState({
+    pricePerPyeong: '',
+    minimumTotalAmount: '',
+    depositAmount: '',
+  });
   const [configSaving, setConfigSaving] = useState(false);
   const [options, setOptions] = useState<EstimateOption[]>([]);
   const [newOptionName, setNewOptionName] = useState('');
@@ -114,6 +118,7 @@ export function AdminOrderFormCustomerPreviewPage() {
       .then((c) => {
         setConfigForm({
           pricePerPyeong: String(c.pricePerPyeong),
+          minimumTotalAmount: String(c.minimumTotalAmount ?? 0),
           depositAmount: String(c.depositAmount),
         });
       })
@@ -161,6 +166,7 @@ export function AdminOrderFormCustomerPreviewPage() {
         setMsgConfig(normalizeMsgConfigForEditor(fc));
         setConfigForm({
           pricePerPyeong: String(ec.pricePerPyeong),
+          minimumTotalAmount: String(ec.minimumTotalAmount ?? 0),
           depositAmount: String(ec.depositAmount),
         });
         setOptions(eo.items);
@@ -224,9 +230,16 @@ export function AdminOrderFormCustomerPreviewPage() {
     setError(null);
     try {
       const price = parseInt(configForm.pricePerPyeong, 10);
+      const minimum = parseInt(configForm.minimumTotalAmount, 10);
       const deposit = parseInt(configForm.depositAmount, 10);
-      if (Number.isNaN(price) || Number.isNaN(deposit)) throw new Error('평당 금액·예약금을 숫자로 입력해 주세요.');
-      await updateEstimateConfig(token, { pricePerPyeong: price, depositAmount: deposit });
+      if (Number.isNaN(price) || Number.isNaN(minimum) || Number.isNaN(deposit)) {
+        throw new Error('평당 금액·최소 금액·예약금을 숫자로 입력해 주세요.');
+      }
+      await updateEstimateConfig(token, {
+        pricePerPyeong: price,
+        minimumTotalAmount: Math.max(0, minimum),
+        depositAmount: deposit,
+      });
       refreshEstimate();
       refreshOptions();
       await bumpIframe();
@@ -415,6 +428,16 @@ export function AdminOrderFormCustomerPreviewPage() {
                         className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-fluid-sm"
                         value={configForm.pricePerPyeong}
                         onChange={(e) => setConfigForm((f) => ({ ...f, pricePerPyeong: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-fluid-xs text-gray-600">최소 금액 (원)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-fluid-sm"
+                        value={configForm.minimumTotalAmount}
+                        onChange={(e) => setConfigForm((f) => ({ ...f, minimumTotalAmount: e.target.value }))}
                       />
                     </div>
                     <div>

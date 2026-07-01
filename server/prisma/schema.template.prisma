@@ -1576,9 +1576,11 @@ model EstimateConfig {
   id             String   @id @default(uuid())
   tenantId       String   @unique @map("tenant_id")
   tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  pricePerPyeong Int      @map("price_per_pyeong")
-  depositAmount  Int      @default(20000) @map("deposit_amount")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  pricePerPyeong      Int      @map("price_per_pyeong")
+  depositAmount       Int      @default(20000) @map("deposit_amount")
+  /// 0이면 미적용. 평수×평당 계산값이 이보다 작을 때 이 금액을 사용한다.
+  minimumTotalAmount  Int      @default(0) @map("minimum_total_amount")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("estimate_config")
 }

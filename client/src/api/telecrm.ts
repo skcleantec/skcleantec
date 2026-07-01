@@ -47,7 +47,7 @@ export type TelecrmPriceCategoryDto = {
 
 export type TelecrmPricingCatalogDto = {
   categories: TelecrmPriceCategoryDto[];
-  estimateConfig: { pricePerPyeong: number; depositAmount: number };
+  estimateConfig: { pricePerPyeong: number; depositAmount: number; minimumTotalAmount: number };
 };
 
 export type TelecrmCustomerLookupDto = {

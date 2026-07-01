@@ -8,6 +8,7 @@ import {
 } from '../../../api/telecrm';
 import { formatWon } from '../settings/telecrmSettingsUi';
 import { CrmColumn } from '../layout/CrmShell';
+import { computeEstimateTotalFromPyeong } from '@shared/estimateTotal';
 
 type PriceSource = 'telecrm' | 'orderform';
 
@@ -32,6 +33,7 @@ export function CrmPricingPanel({
   const [categories, setCategories] = useState<TelecrmPriceCategoryDto[]>([]);
   const [orderOptions, setOrderOptions] = useState<TelecrmOrderOptionDto[]>([]);
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
+  const [minimumTotalAmount, setMinimumTotalAmount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -46,6 +48,7 @@ export function CrmPricingPanel({
       const res = await fetchTelecrmPricingCatalog(token, search);
       setCategories(res.categories);
       setPricePerPyeong(res.estimateConfig.pricePerPyeong);
+      setMinimumTotalAmount(res.estimateConfig.minimumTotalAmount ?? 0);
       if (res.categories.length > 0) {
         setCategoryId((prev) => {
           if (prev && res.categories.some((c) => c.id === prev)) return prev;
@@ -91,8 +94,17 @@ export function CrmPricingPanel({
   const pyeongNum = parseFloat(pyeong.replace(/,/g, ''));
   const estimatedTotal =
     Number.isFinite(pyeongNum) && pyeongNum > 0 && pricePerPyeong > 0
+      ? computeEstimateTotalFromPyeong(pyeongNum, pricePerPyeong, minimumTotalAmount)
+      : null;
+  const rawTotal =
+    Number.isFinite(pyeongNum) && pyeongNum > 0 && pricePerPyeong > 0
       ? Math.round(pyeongNum * pricePerPyeong)
       : null;
+  const minimumApplied =
+    minimumTotalAmount > 0 &&
+    estimatedTotal != null &&
+    rawTotal != null &&
+    estimatedTotal > rawTotal;
 
   const copyText = async (id: string, text: string) => {
     try {
@@ -155,7 +167,8 @@ export function CrmPricingPanel({
         {source === 'telecrm' ? (
           <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 space-y-2">
             <p className="text-fluid-xs font-medium text-indigo-900">
-              예상 총액 (평당 {formatWon(pricePerPyeong)})
+              예상 총액 (평당 {formatWon(pricePerPyeong)}
+              {minimumTotalAmount > 0 ? ` · 최소 ${formatWon(minimumTotalAmount)}` : ''})
             </p>
             <div className="flex items-center gap-2">
               <input
@@ -171,6 +184,9 @@ export function CrmPricingPanel({
                 {estimatedTotal != null ? formatWon(estimatedTotal) : '—'}
               </span>
             </div>
+            {minimumApplied ? (
+              <p className="text-[10px] text-indigo-700">최소 금액이 적용되었습니다.</p>
+            ) : null}
           </div>
         ) : (
           <p className="text-[10px] text-gray-500">
