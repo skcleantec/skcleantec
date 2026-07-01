@@ -12,6 +12,7 @@ import { telecrmCall, isTelecrmNativeApp } from '../../../utils/telecrmNativeBri
 import { CrmIntakeForm } from './CrmIntakeForm';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
+import { CrmCallMemoSection } from '../memo/CrmCallMemoPanel';
 import {
   useCrmCustomerLookup,
   type CrmCustomerSearchMode,
@@ -322,6 +323,8 @@ export function CrmIntakePanel({
             formResetKey={formResetKey}
           />
         </div>
+
+        <CrmCallMemoSection phone={phone} inquiryId={activeInquiryId} resetKey={formResetKey} />
       </div>
     </CrmColumn>
   );

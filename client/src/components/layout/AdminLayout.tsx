@@ -40,6 +40,10 @@ import { AdminVolumeStatsButton } from '../admin/AdminVolumeStatsButton';
 import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 import { getScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
+import {
+  AdminStaffSessionProvider,
+  resolveCanCrmSettingsFromMe,
+} from '../../hooks/useAdminStaffSession';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { getDbMarketplaceNavCounts } from '../../api/dbMarketplace';
 import { AdminStaffPathGate } from './AdminStaffPathGate';
@@ -208,6 +212,9 @@ export function AdminLayout() {
   const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
   const [meTenantId, setMeTenantId] = useState<string | null>(null);
+  const [isTenantOwner, setIsTenantOwner] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [canCrmSettings, setCanCrmSettings] = useState(false);
   useDocumentTitle(tenantName);
   const [stagingDbImportModalOpen, setStagingDbImportModalOpen] = useState(false);
   const [fabDragging, setFabDragging] = useState(false);
@@ -290,6 +297,9 @@ export function AdminLayout() {
       setTenantSlug(null);
       setTenantName(null);
       setMeTenantId(null);
+      setIsTenantOwner(false);
+      setIsSuperAdmin(false);
+      setCanCrmSettings(false);
       setMeProfileLoading(false);
       return;
     }
@@ -305,6 +315,8 @@ export function AdminLayout() {
         showStagingDbImport?: boolean;
         showVolumeStats?: boolean;
         isPlatformSupportAccess?: boolean;
+        isTenantOwner?: boolean;
+        isSuperAdmin?: boolean;
         effectiveStaffAdminAccess?: boolean;
         marketerAdminAccess?: boolean;
         marketerPermissions?: StaffAdminMeFields['marketerPermissions'];
@@ -345,6 +357,9 @@ export function AdminLayout() {
             (typeof u.tenant?.name === 'string' && u.tenant.name.trim()) ||
             null,
         );
+        setIsTenantOwner(Boolean(u.isTenantOwner));
+        setIsSuperAdmin(Boolean(u.isSuperAdmin));
+        setCanCrmSettings(resolveCanCrmSettingsFromMe(u));
         /** 팀·크루 미리보기: 업무 관리자(ADMIN) + 개발용 이메일 화이트리스트만. 일반 마케터는 제외 */
         const preview = role === 'ADMIN' || isTeamPreviewAdminEmail(email);
         setTeamPreviewLink(preview);
@@ -369,6 +384,9 @@ export function AdminLayout() {
           setTenantPlan(null);
           setTenantName(null);
           setMeTenantId(null);
+          setIsTenantOwner(false);
+          setIsSuperAdmin(false);
+          setCanCrmSettings(false);
           clearToken();
           navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
           return;
@@ -989,9 +1007,21 @@ export function AdminLayout() {
           </div>
         ) : null}
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan, tenantSlug }}>
-          <AdminStaffPathGate staffMe={staffMe}>
-            <Outlet />
-          </AdminStaffPathGate>
+          <AdminStaffSessionProvider
+            value={{
+              ready: !meProfileLoading && Boolean(meRole),
+              tenantName,
+              role: meRole,
+              staffMe,
+              isTenantOwner,
+              isSuperAdmin,
+              canCrmSettings,
+            }}
+          >
+            <AdminStaffPathGate staffMe={staffMe}>
+              <Outlet />
+            </AdminStaffPathGate>
+          </AdminStaffSessionProvider>
         </TenantCapabilitiesProvider>
       </main>
       {showOrderIssueFab && (

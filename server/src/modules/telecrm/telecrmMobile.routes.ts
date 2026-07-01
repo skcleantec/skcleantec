@@ -14,6 +14,7 @@ import {
   parseTelecrmMobileDispatchBody,
 } from './telecrmMobileDispatch.service.js';
 import { resolveTelecrmOrderFormLink } from './telecrmOrderLink.service.js';
+import { getTelecrmWorkdeskStats } from './telecrmWorkdeskStats.service.js';
 
 const router = Router();
 router.use(authMiddleware, staffMarketerRoleOnly);
@@ -103,6 +104,18 @@ router.post('/call-sessions', requireStaffPermission('crm.view', 'crm.settings')
     }
     throw e;
   }
+});
+
+router.get('/workdesk-stats', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const day =
+    typeof req.query.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.day.trim())
+      ? req.query.day.trim()
+      : new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const stats = await getTelecrmWorkdeskStats(tenantId, user.userId, day);
+  res.json(stats);
 });
 
 router.get('/call-sessions/summary', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {

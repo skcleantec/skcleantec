@@ -68,7 +68,7 @@ router.get('/stats', async (req, res) => {
 
   const todayOffDbDate = new Date(`${todayYmd}T12:00:00+09:00`);
 
-  const [todayCount, unassignedCount, estimateConfig, inquiriesForSales, teamLeadersRaw, monthWorkloadInquiries, todayLeaderDayOffRows, rosterRestrictedMembers, rosterOnTodayRows] =
+  const [todayCount, unassignedCount, estimateConfig, inquiriesForSales, teamLeadersRaw, monthWorkloadInquiries, todayLeaderDayOffRows, rosterRestrictedMembers, rosterOnTodayRows, happyCallRows] =
     await Promise.all([
     prisma.inquiry.count({
       where: {
@@ -151,6 +151,16 @@ router.get('/stats', async (req, res) => {
         group: { tenantId, isActive: true, availabilityMode: 'ROSTER' },
       },
       select: { teamMemberId: true },
+    }),
+    prisma.inquiry.findMany({
+      where: {
+        tenantId,
+        preferredDate: { not: null },
+        happyCallCompletedAt: null,
+        status: { in: [...HAPPY_CALL_STATS_STATUSES] },
+        assignments: { some: {} },
+      },
+      select: { preferredDate: true },
     }),
   ]);
 
@@ -249,16 +259,6 @@ router.get('/stats', async (req, res) => {
     .map(([date, amount]) => ({ date, amount }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const happyCallRows = await prisma.inquiry.findMany({
-    where: {
-      tenantId,
-      preferredDate: { not: null },
-      happyCallCompletedAt: null,
-      status: { in: [...HAPPY_CALL_STATS_STATUSES] },
-      assignments: { some: {} },
-    },
-    select: { preferredDate: true },
-  });
   const nowTs = new Date();
   let happyCallOverdueCount = 0;
   let happyCallPendingBeforeDeadlineCount = 0;

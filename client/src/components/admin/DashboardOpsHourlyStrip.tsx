@@ -7,6 +7,7 @@ import {
   type OpsHourlySummary,
 } from '../../api/dashboard';
 import { getToken } from '../../stores/auth';
+import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { HelpTooltip } from '../ui/HelpTooltip';
 
 const PERIOD_OPTIONS = [
@@ -229,9 +230,15 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [heatmapOpen, setHeatmapOpen] = useState(false);
+  const [fetchEnabled, setFetchEnabled] = useState(false);
 
   useEffect(() => {
     if (!token) return;
+    return runWhenIdle(() => setFetchEnabled(true));
+  }, [token]);
+
+  useEffect(() => {
+    if (!token || !fetchEnabled) return;
     let cancelled = false;
     setLoading(true);
     getDashboardOpsHourly(token, days)
@@ -253,7 +260,7 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
     return () => {
       cancelled = true;
     };
-  }, [token, days]);
+  }, [token, days, fetchEnabled]);
 
   const issued = data?.metrics.find((m) => m.id === 'order_form_issued');
   const absent = data?.metrics.find((m) => m.id === 'followup_absent');

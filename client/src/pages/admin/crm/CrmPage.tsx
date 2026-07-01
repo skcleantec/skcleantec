@@ -8,11 +8,12 @@ import { useCrmInquiryEdit } from '../../../hooks/useCrmInquiryEdit';
 import { fetchTelecrmPricingCatalog } from '../../../api/telecrm';
 import { CrmShell } from '../../../components/crm/layout/CrmShell';
 import { CrmIntakePanel, type CrmCustomerMode } from '../../../components/crm/intake/CrmIntakePanel';
-import { CrmCallMemoPanel } from '../../../components/crm/memo/CrmCallMemoPanel';
-import { CrmSmsPanel } from '../../../components/crm/sms/CrmSmsPanel';
 import { CrmScriptPanel } from '../../../components/crm/scripts/CrmScriptPanel';
 import { CrmPricingPanel } from '../../../components/crm/pricing/CrmPricingPanel';
 import { CrmSessionBar } from '../../../components/crm/session/CrmSessionBar';
+import { CrmHeaderStats } from '../../../components/crm/session/CrmHeaderStats';
+import { CrmToolSideNav, CrmIconMessage } from '../../../components/crm/layout/CrmToolSideNav';
+import { CrmSmsDrawer } from '../../../components/crm/sms/CrmSmsDrawer';
 import { CrmIconPhone } from '../../../components/crm/crmUi';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
@@ -66,7 +67,8 @@ export function CrmPage() {
     customerMatch: 'new' | 'existing' | 'pick' | 'unknown';
   }>({ inquiryId: null, customerMatch: 'new' });
   const [formResetKey, setFormResetKey] = useState(0);
-  const [callMemoResetKey, setCallMemoResetKey] = useState(0);
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
+  const [smsDrawerOpen, setSmsDrawerOpen] = useState(false);
   const dispatchNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const draftReadyRef = useRef(false);
   const formSnapshotRef = useRef<CrmIntakeFormSnapshot | null>(null);
@@ -204,7 +206,6 @@ export function CrmPage() {
   const handleModeChange = useCallback((next: CrmCustomerMode) => {
     if (next === 'new') {
       setFormResetKey((k) => k + 1);
-      setCallMemoResetKey((k) => k + 1);
       setCustomerName('');
       setPyeong('');
       setInitialFormDraft({
@@ -229,6 +230,7 @@ export function CrmPage() {
     clearCrmIntakeDraft();
     setHasUnsavedDraft(false);
     setLookupRefreshKey((k) => k + 1);
+    setStatsRefreshKey((k) => k + 1);
   }, []);
 
   const pyeongNum = parseFloat(pyeong.replace(/,/g, ''));
@@ -321,21 +323,32 @@ export function CrmPage() {
         <CrmShell
           mobile={isMobileApp}
           header={
-            <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-4 py-3 text-white shadow-lg">
-              <div className="flex min-w-0 items-center gap-3">
+            <header className="flex shrink-0 items-center gap-3 border-b border-white/10 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-4 py-3 text-white shadow-lg">
+              <div className="flex min-w-0 shrink-0 items-center gap-3 md:w-[220px]">
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 shadow-md shadow-indigo-900/40">
                   <CrmIconPhone className="h-5 w-5" />
                 </span>
                 <h1 className="truncate text-fluid-sm font-bold tracking-tight">텔레CRM</h1>
                 {!isMobileApp ? <CrmSessionBar enabled={canAdsSession} /> : null}
                 {hasUnsavedDraft ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-semibold text-amber-100 ring-1 ring-inset ring-amber-300/30">
+                  <span className="hidden items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-semibold text-amber-100 ring-1 ring-inset ring-amber-300/30 sm:inline-flex">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    미저장 초안
+                    미저장
                   </span>
                 ) : null}
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <CrmHeaderStats refreshKey={statsRefreshKey} />
+              <div className="flex shrink-0 items-center justify-end gap-2 md:w-[220px]">
+                {isMobileApp ? (
+                  <button
+                    type="button"
+                    onClick={() => setSmsDrawerOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3 py-1.5 text-fluid-xs font-semibold text-violet-100"
+                  >
+                    <CrmIconMessage className="h-4 w-4" />
+                    문자
+                  </button>
+                ) : null}
                 {canOrderIssue ? (
                   <button
                     type="button"
@@ -375,8 +388,23 @@ export function CrmPage() {
               </div>
             </header>
           }
+          toolNav={
+            !isMobileApp ? (
+              <CrmToolSideNav
+                items={[
+                  {
+                    id: 'sms',
+                    label: '문자 발송',
+                    icon: <CrmIconMessage />,
+                    active: smsDrawerOpen,
+                    onClick: () => setSmsDrawerOpen(true),
+                  },
+                ]}
+              />
+            ) : undefined
+          }
           left={
-            <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+            <div className="flex min-h-0 flex-col overflow-y-auto">
               <CrmIntakePanel
                 mode={mode}
                 onModeChange={handleModeChange}
@@ -397,27 +425,6 @@ export function CrmPage() {
                 onDispatchNotice={showDispatchNotice}
                 onContextChange={setCrmContext}
                 formResetKey={formResetKey}
-              />
-              <CrmCallMemoPanel
-                phone={phone}
-                inquiryId={crmContext.inquiryId}
-                resetKey={callMemoResetKey}
-              />
-              <CrmSmsPanel
-                phone={phone}
-                customerName={customerName || undefined}
-                pyeong={pyeong || undefined}
-                estimateWon={estimateWon}
-                inquiryId={crmContext.inquiryId}
-                customerMatch={crmContext.customerMatch}
-                onDispatchNotice={showDispatchNotice}
-                refreshKey={catalogRefreshKey}
-                onOpenSettings={
-                  canOpenSettings
-                    ? () => openSettings('sms', canPersonalCatalog ? 'personal' : 'shared')
-                    : undefined
-                }
-                onOpenOrderIssue={canOrderIssue ? () => openIssue(crmContext.inquiryId) : undefined}
               />
             </div>
           }
@@ -474,6 +481,20 @@ export function CrmPage() {
             {dispatchNotice}
           </div>
         ) : null}
+        <CrmSmsDrawer
+          open={smsDrawerOpen}
+          onClose={() => setSmsDrawerOpen(false)}
+          phone={phone}
+          customerName={customerName || undefined}
+          pyeong={pyeong || undefined}
+          estimateWon={estimateWon}
+          inquiryId={crmContext.inquiryId}
+          customerMatch={crmContext.customerMatch}
+          onDispatchNotice={showDispatchNotice}
+          refreshKey={catalogRefreshKey}
+          onOpenOrderIssue={canOrderIssue ? () => openIssue(crmContext.inquiryId) : undefined}
+          onTemplatesChanged={() => setCatalogRefreshKey((k) => k + 1)}
+        />
       </div>
     </FeatureGate>
   );

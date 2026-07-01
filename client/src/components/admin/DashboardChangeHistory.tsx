@@ -5,7 +5,8 @@ import {
   deleteChangeHistoryEntry,
   type ChangeHistoryItem,
 } from '../../api/inquiryChangeLogs';
-import { getMe } from '../../api/auth';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
+import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { ModalCloseButton } from './ModalCloseButton';
 import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
@@ -24,6 +25,8 @@ type Props = {
 };
 
 export function DashboardChangeHistory({ token }: Props) {
+  const { isTenantOwner, isSuperAdmin } = useAdminStaffSession();
+  const isTenantOwnerOrSuper = isTenantOwner || isSuperAdmin;
   const [recent, setRecent] = useState<ChangeHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -32,7 +35,6 @@ export function DashboardChangeHistory({ token }: Props) {
   const [fullTotal, setFullTotal] = useState(0);
   const [filterName, setFilterName] = useState('');
   const [fullLoading, setFullLoading] = useState(false);
-  const [isTenantOwner, setIsTenantOwner] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ChangeHistoryItem | null>(null);
   const [pwdOpen, setPwdOpen] = useState(false);
 
@@ -46,16 +48,8 @@ export function DashboardChangeHistory({ token }: Props) {
   }, [token]);
 
   useEffect(() => {
-    loadRecent();
+    return runWhenIdle(() => loadRecent());
   }, [loadRecent]);
-
-  useEffect(() => {
-    getMe(token)
-      .then((u: { isTenantOwner?: boolean; isSuperAdmin?: boolean }) =>
-        setIsTenantOwner(Boolean(u.isTenantOwner ?? u.isSuperAdmin)),
-      )
-      .catch(() => setIsTenantOwner(false));
-  }, [token]);
 
   async function openModal() {
     setModalOpen(true);
@@ -156,7 +150,7 @@ export function DashboardChangeHistory({ token }: Props) {
                   </div>
                   <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
                     <span className="text-[11px] text-gray-400 tabular-nums">{formatWhen(row.createdAt)}</span>
-                    {isTenantOwner && (
+                    {isTenantOwnerOrSuper && (
                       <button
                         type="button"
                         className="text-[11px] text-red-600 hover:underline font-semibold"
@@ -238,7 +232,7 @@ export function DashboardChangeHistory({ token }: Props) {
                           ))}
                         </ul>
                       </div>
-                      {isTenantOwner && (
+                      {isTenantOwnerOrSuper && (
                         <button
                           type="button"
                           className="shrink-0 text-fluid-2xs text-rose-600 hover:underline font-semibold"

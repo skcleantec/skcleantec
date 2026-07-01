@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDashboardStats, getDashboardInquiryBreakdown, type DashboardStats, type DashboardInquiryBreakdown } from '../../api/dashboard';
-import { getMe } from '../../api/auth';
 import { getToken } from '../../stores/auth';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
+import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { DashboardChangeHistory } from '../../components/admin/DashboardChangeHistory';
 import { DashboardOpsHourlyStrip } from '../../components/admin/DashboardOpsHourlyStrip';
 import { TelemarketingSessionBlock } from '../../components/admin/TelemarketingSessionBlock';
@@ -25,6 +26,7 @@ function kstMonthTitleKo(): string {
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const token = getToken();
+  const { tenantName } = useAdminStaffSession();
   const showTelecrmDashboard = useTelecrmDashboardVisible();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [breakdown, setBreakdown] = useState<DashboardInquiryBreakdown | null>(null);
@@ -32,7 +34,7 @@ export function AdminDashboardPage() {
   const [breakdownLoading, setBreakdownLoading] = useState(true);
   const [breakdownError, setBreakdownError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [tenantDisplayName, setTenantDisplayName] = useState<string | null>(null);
+  const [loadBreakdown, setLoadBreakdown] = useState(false);
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillRequest, setDrillRequest] = useState<DashboardDrillRequest | null>(null);
 
@@ -48,15 +50,7 @@ export function AdminDashboardPage() {
 
   useEffect(() => {
     if (!token) return;
-    getMe(token)
-      .then((u) => {
-        const name =
-          (typeof u.tenant?.displayName === 'string' && u.tenant.displayName.trim()) ||
-          (typeof u.tenant?.name === 'string' && u.tenant.name.trim()) ||
-          null;
-        setTenantDisplayName(name);
-      })
-      .catch(() => setTenantDisplayName(null));
+    return runWhenIdle(() => setLoadBreakdown(true));
   }, [token]);
 
   useEffect(() => {
@@ -87,9 +81,11 @@ export function AdminDashboardPage() {
   }, [token]);
 
   useEffect(() => {
-    if (!token) {
-      setBreakdown(null);
-      setBreakdownLoading(false);
+    if (!token || !loadBreakdown) {
+      if (!token) {
+        setBreakdown(null);
+        setBreakdownLoading(false);
+      }
       return;
     }
     setBreakdownLoading(true);
@@ -103,12 +99,12 @@ export function AdminDashboardPage() {
         setBreakdownError(err instanceof Error ? err.message : '접수 분석을 불러올 수 없습니다.');
       })
       .finally(() => setBreakdownLoading(false));
-  }, [token]);
+  }, [token, loadBreakdown]);
 
   return (
     <div className="space-y-6">
       <h1 className="text-fluid-xl font-semibold tracking-tight text-slate-900">
-        {tenantDisplayName ? `${tenantDisplayName} Dashboard` : 'Dashboard'}
+        {tenantName ? `${tenantName} Dashboard` : 'Dashboard'}
       </h1>
 
       {apiError && (

@@ -39,12 +39,14 @@ export function CrmColumn({
 
 export function CrmShell({
   header,
+  toolNav,
   left,
   center,
   right,
   mobile = false,
 }: {
   header: ReactNode;
+  toolNav?: ReactNode;
   left: ReactNode;
   center: ReactNode;
   right: ReactNode;
@@ -66,10 +68,13 @@ export function CrmShell({
   return (
     <div className="flex h-screen min-w-[1280px] flex-col bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-100">
       {header}
-      <div className="grid min-h-0 flex-1 grid-cols-[28%_40%_32%] gap-3 p-3">
-        {left}
-        {center}
-        {right}
+      <div className="flex min-h-0 flex-1 gap-3 p-3">
+        {toolNav}
+        <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[28%_40%_32%] gap-3">
+          {left}
+          {center}
+          {right}
+        </div>
       </div>
     </div>
   );

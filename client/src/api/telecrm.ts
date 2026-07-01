@@ -401,3 +401,20 @@ export async function fetchTelecrmOrderOptions(
   const res = await fetch(`${API}/order-options${qs}`, { headers: authHeaders(token) });
   return parseJson(res);
 }
+
+export type TelecrmWorkdeskStatsDto = {
+  day: string;
+  callCount: number;
+  totalDurationSec: number;
+  receivedCount: number;
+  absentHoldCount: number;
+};
+
+export async function fetchTelecrmWorkdeskStats(
+  token: string,
+  day?: string,
+): Promise<TelecrmWorkdeskStatsDto> {
+  const qs = day ? `?day=${encodeURIComponent(day)}` : '';
+  const res = await fetch(`${API}/workdesk-stats${qs}`, { headers: authHeaders(token) });
+  return parseJson(res);
+}
