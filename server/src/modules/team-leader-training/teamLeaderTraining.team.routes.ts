@@ -22,9 +22,8 @@ router.get('/meta', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, auth);
   if (!tenantId) return;
 
-  const viewer = (req as unknown as { teamViewer?: { role?: string } }).teamViewer;
-  const role = viewer?.role ?? auth.role;
-  if (!isTeamLeaderRole(role)) {
+  // teamAuthMiddleware가 프리뷰 시 auth.role을 대상 팀장으로 매핑함 — viewer.role(ADMIN)은 쓰지 않음
+  if (!isTeamLeaderRole(auth.role)) {
     res.status(403).json({ error: '팀장만 열람할 수 있습니다.' });
     return;
   }
@@ -48,9 +47,7 @@ router.get('/pdf', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, auth);
   if (!tenantId) return;
 
-  const viewer = (req as unknown as { teamViewer?: { role?: string } }).teamViewer;
-  const role = viewer?.role ?? auth.role;
-  if (!isTeamLeaderRole(role)) {
+  if (!isTeamLeaderRole(auth.role)) {
     res.status(403).json({ error: '팀장만 열람할 수 있습니다.' });
     return;
   }
