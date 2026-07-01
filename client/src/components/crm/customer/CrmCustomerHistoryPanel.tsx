@@ -1,6 +1,12 @@
-import type { TelecrmCustomerLookupDto } from '../../../api/telecrm';
+import { useEffect, useState } from 'react';
+import type {
+  TelecrmCustomerCandidateDto,
+  TelecrmCustomerLookupDto,
+  TelecrmInquiryBriefDto,
+} from '../../../api/telecrm';
 import { ORDER_FOLLOWUP_STATUS_LABEL, type OrderFollowupStatus } from '../../../constants/orderFollowupStatus';
 import { INQUIRY_STATUS_LABELS } from '../../inquiries/inquiriesUiParts';
+import { CrmInquiryBriefPanel } from './CrmInquiryBriefPanel';
 
 function fmtDate(iso: string): string {
   try {
@@ -27,25 +33,93 @@ export function CrmCustomerHistoryPanel({
   data,
   loading,
   error,
+  onSelectCandidate,
   onSelectInquiry,
   onNewForCustomer,
 }: {
   data: TelecrmCustomerLookupDto | null;
   loading: boolean;
   error: string | null;
-  onSelectInquiry: (row: TelecrmCustomerLookupDto['inquiries'][number]) => void;
+  onSelectCandidate: (row: TelecrmCustomerCandidateDto) => void;
+  onSelectInquiry: (row: TelecrmInquiryBriefDto) => void;
   onNewForCustomer: () => void;
 }) {
+  const [selectedInquiryId, setSelectedInquiryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!data?.inquiries.length) {
+      setSelectedInquiryId(null);
+      return;
+    }
+    setSelectedInquiryId((prev) => {
+      if (prev && data.inquiries.some((i) => i.id === prev)) return prev;
+      return data.inquiries[0]?.id ?? null;
+    });
+  }, [data?.inquiries]);
+
+  const selectedInquiry =
+    data?.inquiries.find((i) => i.id === selectedInquiryId) ?? data?.inquiries[0] ?? null;
+
   if (loading) {
     return <p className="text-fluid-sm text-gray-500">고객 이력 조회 중…</p>;
   }
   if (error) {
     return <p className="text-fluid-sm text-red-600">{error}</p>;
   }
-  if (!data || data.match === 'new') {
+  if (!data) {
     return (
       <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-fluid-sm text-gray-500">
-        이 연락처로 등록된 이력이 없습니다. 신규 접수를 진행하세요.
+        전화번호(4자 이상) 또는 이름(2자 이상)으로 검색하세요.
+      </p>
+    );
+  }
+
+  if (data.match === 'pick') {
+    return (
+      <div className="space-y-3">
+        <p className="text-fluid-sm text-gray-700">
+          같은 이름의 고객이 <strong>{data.candidates.length}명</strong> 있습니다. 연락처를 확인해
+          선택하세요.
+        </p>
+        <ul className="space-y-2 max-h-56 overflow-y-auto">
+          {data.candidates.map((row) => (
+            <li key={row.key}>
+              <button
+                type="button"
+                onClick={() => onSelectCandidate(row)}
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left hover:border-indigo-400 hover:bg-indigo-50/30"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-fluid-sm font-medium text-gray-900">{row.customerName}</span>
+                  <span className="shrink-0 text-fluid-2xs text-gray-500 tabular-nums">
+                    {row.customerPhone}
+                  </span>
+                </div>
+                {row.nickname ? (
+                  <p className="text-fluid-2xs text-gray-500">닉네임: {row.nickname}</p>
+                ) : null}
+                {row.lastAddress ? (
+                  <p className="mt-0.5 text-fluid-2xs text-gray-600 truncate" title={row.lastAddress}>
+                    {row.lastAddress}
+                  </p>
+                ) : null}
+                <p className="mt-1 text-[10px] text-gray-400">
+                  접수 {row.inquiryCount}건 · 최근 {fmtDate(row.latestAt)}
+                </p>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  if (data.match === 'new') {
+    return (
+      <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-fluid-sm text-gray-500">
+        {data.searchBy === 'name'
+          ? '이 이름으로 등록된 이력이 없습니다. 신규 접수를 진행하세요.'
+          : '이 연락처로 등록된 이력이 없습니다. 신규 접수를 진행하세요.'}
       </p>
     );
   }
@@ -56,6 +130,7 @@ export function CrmCustomerHistoryPanel({
     <div className="space-y-3">
       <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
         <p className="text-fluid-sm font-semibold text-gray-900">{customer.name ?? '이름 미확인'}</p>
+        <p className="text-fluid-xs text-gray-600 tabular-nums">{customer.phone}</p>
         {customer.nickname ? (
           <p className="text-fluid-xs text-gray-600">닉네임: {customer.nickname}</p>
         ) : null}
@@ -73,27 +148,42 @@ export function CrmCustomerHistoryPanel({
         </button>
       </div>
 
+      {selectedInquiry ? (
+        <CrmInquiryBriefPanel
+          inquiry={selectedInquiry}
+          onOpenDetail={() => onSelectInquiry(selectedInquiry)}
+        />
+      ) : null}
+
       {inquiries.length > 0 ? (
         <section>
           <h3 className="mb-1.5 text-fluid-xs font-semibold text-gray-700">
-            접수 ({inquiries.length})
-            <span className="ml-1 font-normal text-gray-500">· 클릭 시 상세 수정</span>
+            접수 이력 ({inquiries.length})
+            <span className="ml-1 font-normal text-gray-500">· 선택하면 상담 요약</span>
           </h3>
-          <ul className="space-y-1.5 max-h-40 overflow-y-auto">
+          <ul className="space-y-1.5 max-h-36 overflow-y-auto">
             {inquiries.map((row) => (
               <li key={row.id}>
                 <button
                   type="button"
-                  onClick={() => onSelectInquiry(row)}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-left hover:border-slate-400"
+                  onClick={() => setSelectedInquiryId(row.id)}
+                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                    selectedInquiryId === row.id
+                      ? 'border-slate-900 bg-slate-50'
+                      : 'border-gray-200 bg-white hover:border-slate-400'
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-fluid-xs font-medium text-gray-900 truncate">{row.customerName}</span>
-                    <span className="shrink-0 text-fluid-2xs text-sky-800">{inquiryStatusLabel(row.status)}</span>
+                    <span className="text-fluid-xs font-medium text-gray-900 truncate">
+                      {row.customerName}
+                    </span>
+                    <span className="shrink-0 text-fluid-2xs text-sky-800">
+                      {inquiryStatusLabel(row.status)}
+                    </span>
                   </div>
                   <p className="text-fluid-2xs text-gray-500">{fmtDate(row.createdAt)}</p>
                   {row.memo ? (
-                    <p className="mt-0.5 text-fluid-2xs text-gray-600 line-clamp-2">{row.memo}</p>
+                    <p className="mt-0.5 text-fluid-2xs text-gray-600 line-clamp-1">{row.memo}</p>
                   ) : null}
                 </button>
               </li>

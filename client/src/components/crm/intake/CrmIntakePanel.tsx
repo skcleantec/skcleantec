@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { TelecrmCustomerLookupDto } from '../../../api/telecrm';
+import type {
+  TelecrmCustomerCandidateDto,
+  TelecrmCustomerLookupDto,
+  TelecrmInquiryBriefDto,
+} from '../../../api/telecrm';
 import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
 import { CrmIntakeForm } from './CrmIntakeForm';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
-import { useCrmCustomerLookup } from '../../../hooks/useCrmCustomerLookup';
+import {
+  useCrmCustomerLookup,
+  type CrmCustomerSearchMode,
+} from '../../../hooks/useCrmCustomerLookup';
 
 export type CrmCustomerMode = 'new' | 'existing';
 
@@ -50,8 +57,18 @@ export function CrmIntakePanel({
   permissionsLoading?: boolean;
   onOpenOrderIssue?: (inquiryId: string | null) => void;
 }) {
-  const lookupEnabled = mode === 'existing' && phone.trim().length >= 4;
-  const { data, loading, error, refresh } = useCrmCustomerLookup(phone, lookupEnabled);
+  const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
+  const [nameSearch, setNameSearch] = useState('');
+  const searchText = searchMode === 'phone' ? phone : nameSearch;
+  const lookupEnabled =
+    mode === 'existing' &&
+    (searchMode === 'phone' ? phone.trim().length >= 4 : nameSearch.trim().length >= 2);
+
+  const { data, loading, error, refresh, resolveByPhone } = useCrmCustomerLookup(
+    searchMode,
+    searchText,
+    lookupEnabled,
+  );
   const [lastInquiryId, setLastInquiryId] = useState<string | null>(null);
   const [formSeed, setFormSeed] = useState({
     customerName: '',
@@ -60,15 +77,22 @@ export function CrmIntakePanel({
     memo: '',
     address: '',
   });
-  const autoFilledPhoneRef = useRef<string | null>(null);
+  const autoFilledKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (skipAutoFillPhone) autoFilledPhoneRef.current = skipAutoFillPhone;
+    if (skipAutoFillPhone) autoFilledKeyRef.current = skipAutoFillPhone;
   }, [skipAutoFillPhone]);
 
   useEffect(() => {
     if (lookupRefreshKey > 0 && mode === 'existing') refresh();
   }, [lookupRefreshKey, mode, refresh]);
+
+  useEffect(() => {
+    if (mode === 'new') {
+      autoFilledKeyRef.current = null;
+      setNameSearch('');
+    }
+  }, [mode]);
 
   const intakeSeed = useMemo(
     () => ({
@@ -81,7 +105,7 @@ export function CrmIntakePanel({
 
   const applyCustomer = (
     customer: TelecrmCustomerLookupDto['customer'],
-    latestInquiry?: TelecrmCustomerLookupDto['inquiries'][number],
+    latestInquiry?: TelecrmInquiryBriefDto,
   ) => {
     setFormSeed({
       customerName: customer.name ?? '',
@@ -90,6 +114,7 @@ export function CrmIntakePanel({
       memo: '',
       address: customer.lastAddress ?? latestInquiry?.address ?? '',
     });
+    onPhoneChange(customer.phone);
     onCustomerNameChange(customer.name ?? '');
     const nextPyeong = formatPyeongValue(latestInquiry?.areaPyeong);
     if (nextPyeong) onPyeongChange(nextPyeong);
@@ -97,15 +122,18 @@ export function CrmIntakePanel({
 
   useEffect(() => {
     if (mode !== 'existing' || loading || !data || data.match !== 'existing') return;
-    const key = phone.trim();
-    if (!key || autoFilledPhoneRef.current === key) return;
-    autoFilledPhoneRef.current = key;
+    const key = `${searchMode}:${data.customer.phone.trim()}`;
+    if (!key || autoFilledKeyRef.current === key) return;
+    autoFilledKeyRef.current = key;
     applyCustomer(data.customer, data.inquiries[0]);
-  }, [mode, loading, data, phone]);
+  }, [mode, loading, data, searchMode]);
 
-  useEffect(() => {
-    if (mode === 'new') autoFilledPhoneRef.current = null;
-  }, [mode]);
+  const handleSelectCandidate = (row: TelecrmCustomerCandidateDto) => {
+    autoFilledKeyRef.current = null;
+    onPhoneChange(row.customerPhone);
+    setSearchMode('phone');
+    void resolveByPhone(row.customerPhone);
+  };
 
   const handleSaved = (result: CrmIntakeSubmitResult) => {
     if (result.kind === 'inquiry') setLastInquiryId(result.inquiryId);
@@ -149,30 +177,77 @@ export function CrmIntakePanel({
           </button>
         </div>
 
-        <label className="block space-y-1">
-          <span className="text-fluid-xs font-medium text-gray-700">연락처</span>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => onPhoneChange(e.target.value)}
-            placeholder="010-0000-0000"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
-          />
-        </label>
-
         {mode === 'existing' ? (
-          <CrmCustomerHistoryPanel
-            data={data}
-            loading={loading}
-            error={error}
-            onSelectInquiry={(row) => {
-              onOpenInquiryEdit(row.id);
-            }}
-            onNewForCustomer={() => {
-              if (data?.customer) applyCustomer(data.customer, data.inquiries[0]);
-            }}
-          />
-        ) : null}
+          <>
+            <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setSearchMode('phone')}
+                className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium ${
+                  searchMode === 'phone' ? 'bg-slate-900 text-white' : 'text-gray-600'
+                }`}
+              >
+                전화번호
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchMode('name')}
+                className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium ${
+                  searchMode === 'name' ? 'bg-slate-900 text-white' : 'text-gray-600'
+                }`}
+              >
+                이름
+              </button>
+            </div>
+
+            {searchMode === 'phone' ? (
+              <label className="block space-y-1">
+                <span className="text-fluid-xs font-medium text-gray-700">연락처 검색</span>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => onPhoneChange(e.target.value)}
+                  placeholder="010-0000-0000"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
+                />
+              </label>
+            ) : (
+              <label className="block space-y-1">
+                <span className="text-fluid-xs font-medium text-gray-700">고객 이름 검색</span>
+                <input
+                  type="text"
+                  value={nameSearch}
+                  onChange={(e) => setNameSearch(e.target.value)}
+                  placeholder="홍길동 (2자 이상)"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                />
+                <p className="text-[10px] text-gray-500">동명이인이 있으면 연락처 목록에서 선택합니다.</p>
+              </label>
+            )}
+
+            <CrmCustomerHistoryPanel
+              data={lookupEnabled ? data : null}
+              loading={lookupEnabled && loading}
+              error={error}
+              onSelectCandidate={handleSelectCandidate}
+              onSelectInquiry={(row) => onOpenInquiryEdit(row.id)}
+              onNewForCustomer={() => {
+                if (data?.customer) applyCustomer(data.customer, data.inquiries[0]);
+              }}
+            />
+          </>
+        ) : (
+          <label className="block space-y-1">
+            <span className="text-fluid-xs font-medium text-gray-700">연락처</span>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => onPhoneChange(e.target.value)}
+              placeholder="010-0000-0000"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
+            />
+          </label>
+        )}
 
         <div className="border-t border-gray-100 pt-3">
           <CrmIntakeForm

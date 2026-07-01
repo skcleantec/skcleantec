@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import { requireTelecrmTenant } from './telecrm.helpers.js';
-import { lookupTelecrmCustomer } from './telecrmCustomerLookup.service.js';
+import { lookupTelecrmCustomer, searchTelecrmCustomer } from './telecrmCustomerLookup.service.js';
 
 const router = Router();
 router.use(authMiddleware, staffMarketerRoleOnly);
@@ -14,11 +14,12 @@ router.get(
     const tenantId = requireTelecrmTenant(req, res);
     if (!tenantId) return;
     const phone = typeof req.query.phone === 'string' ? req.query.phone : '';
-    if (!phone.trim()) {
-      res.status(400).json({ error: 'phone이 필요합니다.' });
+    const name = typeof req.query.name === 'string' ? req.query.name : '';
+    if (!phone.trim() && !name.trim()) {
+      res.status(400).json({ error: 'phone 또는 name(2자 이상)이 필요합니다.' });
       return;
     }
-    const result = await lookupTelecrmCustomer(tenantId, phone);
+    const result = await searchTelecrmCustomer(tenantId, { phone, name });
     res.json(result);
   },
 );

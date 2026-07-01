@@ -57,25 +57,58 @@ export type TelecrmPricingCatalogDto = {
   estimateConfig: { pricePerPyeong: number; depositAmount: number; minimumTotalAmount: number };
 };
 
+export type TelecrmCustomerCandidateDto = {
+  key: string;
+  customerName: string;
+  nickname: string | null;
+  customerPhone: string;
+  lastAddress: string | null;
+  inquiryCount: number;
+  latestAt: string;
+};
+
+export type TelecrmInquiryBriefDto = {
+  id: string;
+  status: string;
+  createdAt: string;
+  customerName: string;
+  nickname: string | null;
+  customerPhone: string;
+  memo: string | null;
+  specialNotes: string | null;
+  claimMemo: string | null;
+  address: string;
+  areaPyeong: number | null;
+  preferredDate: string | null;
+  preferredTime: string | null;
+  orderFormTemplate: {
+    id: string;
+    title: string;
+    icon: string | null;
+    fields: { fieldKey: string; label: string }[];
+  } | null;
+  orderForm: {
+    submittedAt: string | null;
+    totalAmount: number;
+    depositAmount: number;
+    balanceAmount: number;
+    customerSpecialNotes: string | null;
+    optionNote: string | null;
+    customAnswers: { key: string; label: string; value: string }[];
+  } | null;
+};
+
 export type TelecrmCustomerLookupDto = {
-  match: 'existing' | 'new';
+  match: 'existing' | 'new' | 'pick';
+  searchBy: 'phone' | 'name';
+  candidates: TelecrmCustomerCandidateDto[];
   customer: {
     name: string | null;
     nickname: string | null;
     phone: string;
     lastAddress: string | null;
   };
-  inquiries: {
-    id: string;
-    status: string;
-    createdAt: string;
-    customerName: string;
-    nickname: string | null;
-    customerPhone: string;
-    memo: string | null;
-    address: string;
-    areaPyeong: number | null;
-  }[];
+  inquiries: TelecrmInquiryBriefDto[];
   followups: {
     id: string;
     status: string;
@@ -100,10 +133,13 @@ export type TelecrmCustomerLookupDto = {
 
 export async function fetchTelecrmCustomerLookup(
   token: string,
-  phone: string,
+  params: { phone?: string; name?: string },
 ): Promise<TelecrmCustomerLookupDto> {
-  const q = encodeURIComponent(phone.trim());
-  const res = await fetch(`${API}/customer-lookup?phone=${q}`, { headers: authHeaders(token) });
+  const qs = new URLSearchParams();
+  if (params.phone?.trim()) qs.set('phone', params.phone.trim());
+  if (params.name?.trim()) qs.set('name', params.name.trim());
+  const q = qs.toString() ? `?${qs}` : '';
+  const res = await fetch(`${API}/customer-lookup${q}`, { headers: authHeaders(token) });
   return parseJson(res);
 }
 
