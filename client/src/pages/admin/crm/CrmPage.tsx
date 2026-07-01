@@ -12,6 +12,10 @@ import { CrmScriptPanel } from '../../../components/crm/scripts/CrmScriptPanel';
 import { CrmPricingPanel } from '../../../components/crm/pricing/CrmPricingPanel';
 import { CrmSessionBar } from '../../../components/crm/session/CrmSessionBar';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
+import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
+import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
+import { useCrmPanelUrl } from '../../../hooks/useCrmPanelUrl';
+import type { CrmOrderIssueSeed } from '../../../components/orderform/OrderIssueInlinePanel';
 import { crmIntakeRequiredPermission } from '../../../components/crm/intake/crmIntakeValidation';
 import type { CrmIntakeKind } from '../../../components/crm/intake/crmIntakeSubmit';
 import {
@@ -27,6 +31,8 @@ export function CrmPage() {
   const isPopup = searchParams.get('popup') === '1';
   const permissions = useMarketerPermissions();
   const canSettings = permissions.has('crm.settings');
+  const canOrderIssue =
+    permissions.me?.role === 'ADMIN' || permissions.has('orderform.issue');
   const canAdsSession = permissions.has('ads.sessions');
   const canView =
     permissions.me?.role === 'ADMIN' ||
@@ -38,12 +44,25 @@ export function CrmPage() {
   const [pyeong, setPyeong] = useState('');
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
   const [minimumTotalAmount, setMinimumTotalAmount] = useState(0);
+  const [depositAmount, setDepositAmount] = useState(0);
+  const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
   const [lookupRefreshKey, setLookupRefreshKey] = useState(0);
   const [initialFormDraft, setInitialFormDraft] = useState<Partial<CrmIntakeFormSnapshot> | null>(null);
   const [draftRestoredPhone, setDraftRestoredPhone] = useState<string | null>(null);
   const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
   const draftReadyRef = useRef(false);
   const formSnapshotRef = useRef<CrmIntakeFormSnapshot | null>(null);
+
+  const {
+    settingsTab,
+    pendingInquiryId: issuePendingInquiryId,
+    isSettingsOpen,
+    isIssueOpen,
+    openSettings,
+    openIssue,
+    closePanel,
+    setSettingsTab,
+  } = useCrmPanelUrl();
 
   const { openInquiryEdit, layer: inquiryEditLayer } = useCrmInquiryEdit(canView, () => {
     setLookupRefreshKey((k) => k + 1);
@@ -92,6 +111,7 @@ export function CrmPage() {
       .then((res) => {
         setPricePerPyeong(res.estimateConfig.pricePerPyeong);
         setMinimumTotalAmount(res.estimateConfig.minimumTotalAmount ?? 0);
+        setDepositAmount(res.estimateConfig.depositAmount ?? 0);
       })
       .catch(() => {
         /* estimate config optional for script placeholders */
@@ -175,6 +195,38 @@ export function CrmPage() {
     return computeEstimateTotalFromPyeong(pyeongNum, pricePerPyeong, minimumTotalAmount);
   }, [pyeongNum, pricePerPyeong, minimumTotalAmount]);
 
+  useEffect(() => {
+    if (catalogRefreshKey === 0) return;
+    const token = getToken();
+    if (!token) return;
+    void fetchTelecrmPricingCatalog(token)
+      .then((res) => {
+        setPricePerPyeong(res.estimateConfig.pricePerPyeong);
+        setMinimumTotalAmount(res.estimateConfig.minimumTotalAmount ?? 0);
+        setDepositAmount(res.estimateConfig.depositAmount ?? 0);
+      })
+      .catch(() => {});
+  }, [catalogRefreshKey]);
+
+  const handleCloseSettings = useCallback(() => {
+    closePanel();
+    setCatalogRefreshKey((k) => k + 1);
+  }, [closePanel]);
+
+  const issueSeed = useMemo((): CrmOrderIssueSeed => {
+    const form = formSnapshotRef.current;
+    return {
+      customerName: form?.customerName?.trim() || customerName.trim() || undefined,
+      customerPhone: phone.trim() || undefined,
+      areaPyeong: pyeong.trim() || undefined,
+      areaBasis: pyeong.trim() ? '공급' : undefined,
+      address: form?.address?.trim() || undefined,
+      preferredDate: form?.preferredMoveInCleanYmd?.trim() || undefined,
+      totalAmount: estimateWon != null ? String(estimateWon) : undefined,
+      depositAmount: depositAmount > 0 ? String(depositAmount) : undefined,
+    };
+  }, [customerName, phone, pyeong, depositAmount, estimateWon, isIssueOpen]);
+
   if (!getToken()) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 p-8 text-center">
@@ -237,15 +289,23 @@ export function CrmPage() {
                 ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                {canOrderIssue ? (
+                  <button
+                    type="button"
+                    onClick={() => openIssue()}
+                    className="rounded-lg border border-white/20 px-3 py-1.5 text-fluid-xs hover:bg-white/10"
+                  >
+                    발주서
+                  </button>
+                ) : null}
                 {canSettings ? (
-                  <Link
-                    to="/admin/crm/settings/scripts"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => openSettings('scripts')}
                     className="rounded-lg border border-white/20 px-3 py-1.5 text-fluid-xs hover:bg-white/10"
                   >
                     설정
-                  </Link>
+                  </button>
                 ) : null}
                 {isPopup ? (
                   <button
@@ -283,6 +343,7 @@ export function CrmPage() {
               skipAutoFillPhone={draftRestoredPhone}
               canSubmitKind={canSubmitIntakeKind}
               permissionsLoading={permissions.loading}
+              onOpenOrderIssue={canOrderIssue ? openIssue : undefined}
             />
           }
           center={
@@ -290,11 +351,37 @@ export function CrmPage() {
               customerName={customerName || undefined}
               pyeong={pyeong || undefined}
               estimateWon={estimateWon}
+              refreshKey={catalogRefreshKey}
+              onOpenSettings={canSettings ? () => openSettings('scripts') : undefined}
             />
           }
-          right={<CrmPricingPanel pyeong={pyeong} onPyeongChange={setPyeong} />}
+          right={
+            <CrmPricingPanel
+              pyeong={pyeong}
+              onPyeongChange={setPyeong}
+              refreshKey={catalogRefreshKey}
+              onOpenSettings={canSettings ? () => openSettings('pricing') : undefined}
+            />
+          }
         />
         {inquiryEditLayer}
+        {canSettings ? (
+          <CrmSettingsDrawer
+            open={isSettingsOpen}
+            tab={settingsTab}
+            onTabChange={setSettingsTab}
+            onClose={handleCloseSettings}
+          />
+        ) : null}
+        {canOrderIssue ? (
+          <CrmOrderIssueDrawer
+            open={isIssueOpen}
+            pendingInquiryId={issuePendingInquiryId || undefined}
+            crmSeed={issueSeed}
+            onClose={closePanel}
+            onIssued={() => setLookupRefreshKey((k) => k + 1)}
+          />
+        ) : null}
       </div>
     </FeatureGate>
   );

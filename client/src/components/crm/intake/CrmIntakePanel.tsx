@@ -31,6 +31,7 @@ export function CrmIntakePanel({
   skipAutoFillPhone,
   canSubmitKind,
   permissionsLoading,
+  onOpenOrderIssue,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
@@ -47,6 +48,7 @@ export function CrmIntakePanel({
   skipAutoFillPhone?: string | null;
   canSubmitKind: (kind: CrmIntakeKind) => boolean;
   permissionsLoading?: boolean;
+  onOpenOrderIssue?: (inquiryId: string | null) => void;
 }) {
   const lookupEnabled = mode === 'existing' && phone.trim().length >= 4;
   const { data, loading, error, refresh } = useCrmCustomerLookup(phone, lookupEnabled);
@@ -112,6 +114,10 @@ export function CrmIntakePanel({
   };
 
   const openOrderIssue = (inquiryId: string | null) => {
+    if (onOpenOrderIssue) {
+      onOpenOrderIssue(inquiryId);
+      return;
+    }
     const base = '/admin/inquiries/order-issue';
     const url = inquiryId
       ? `${base}?pendingInquiryId=${encodeURIComponent(inquiryId)}`

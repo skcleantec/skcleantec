@@ -105,6 +105,17 @@ export interface OrderFormEditorContext {
     pendingInquiryId?: string;
     internalCustomerTone?: InternalCustomerTone;
     onCreated: (order: OrderForm) => void;
+    /** 텔레CRM — 발급 폼 초기값 */
+    crmSeed?: {
+      customerName?: string;
+      customerPhone?: string;
+      areaPyeong?: string;
+      areaBasis?: string;
+      address?: string;
+      preferredDate?: string;
+      totalAmount?: string;
+      depositAmount?: string;
+    };
   };
   /** 관리자 화면 임베드(크롬리스: 전체화면·고정바·푸터 제거) */
   inline?: boolean;
@@ -415,6 +426,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const editorOrderFormId = editor?.orderFormId;
   const createTemplateId = editor?.create?.templateId;
   const createPendingInquiryId = editor?.create?.pendingInquiryId;
+  const createCrmSeed = editor?.create?.crmSeed;
   useEffect(() => {
     let loader: Promise<OrderFormPublic | null> | null = null;
     if (isCreate && editorAuthToken) {
@@ -596,6 +608,27 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             })
             .catch(() => setProfessionalOptions([]));
         }
+        if (isCreate && createCrmSeed) {
+          setForm((f) => ({
+            ...f,
+            customerName: createCrmSeed.customerName?.trim() || f.customerName,
+            customerPhone: createCrmSeed.customerPhone?.trim() || f.customerPhone,
+            address: createCrmSeed.address?.trim() || f.address,
+            areaPyeong: createCrmSeed.areaPyeong?.trim() || f.areaPyeong,
+            areaBasis:
+              createCrmSeed.areaBasis?.trim() ||
+              f.areaBasis ||
+              (createCrmSeed.areaPyeong?.trim() ? '공급' : f.areaBasis),
+            preferredDate: createCrmSeed.preferredDate?.trim() || f.preferredDate,
+          }));
+          if (createCrmSeed.totalAmount?.trim() || createCrmSeed.depositAmount?.trim()) {
+            setIssueAmounts((a) => ({
+              ...a,
+              totalAmount: createCrmSeed.totalAmount?.trim() || a.totalAmount,
+              depositAmount: createCrmSeed.depositAmount?.trim() || a.depositAmount,
+            }));
+          }
+        }
         setError(null);
       })
       .catch((e) => {
@@ -607,7 +640,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     return () => {
       cancelled = true;
     };
-  }, [token, isCreate, editorAuthToken, editorOrderFormId, createTemplateId, createPendingInquiryId]);
+  }, [token, isCreate, editorAuthToken, editorOrderFormId, createTemplateId, createPendingInquiryId, createCrmSeed]);
 
   useEffect(() => subscribeOrderGuideAgreeTerms(() => setAgreeToTerms(true)), []);
 

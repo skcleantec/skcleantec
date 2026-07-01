@@ -41,7 +41,7 @@ export function CrmIntakeForm({
   onFormChange?: (snapshot: CrmIntakeFormSnapshot) => void;
   onSaved: (result: CrmIntakeSubmitResult) => void;
   lastInquiryId: string | null;
-  onOpenOrderIssue: (inquiryId: string | null) => void;
+  onOpenOrderIssue?: (inquiryId: string | null) => void;
   canSubmitKind: (kind: CrmIntakeKind) => boolean;
   permissionsLoading?: boolean;
 }) {
@@ -312,13 +312,15 @@ export function CrmIntakeForm({
         >
           저장 후 계속
         </button>
-        <button
-          type="button"
-          onClick={() => onOpenOrderIssue(lastInquiryId)}
-          className="w-full rounded-lg border border-sky-200 bg-sky-50 py-2 text-fluid-sm text-sky-900 hover:bg-sky-100"
-        >
-          발주서 발급 화면 열기
-        </button>
+        {onOpenOrderIssue ? (
+          <button
+            type="button"
+            onClick={() => onOpenOrderIssue(lastInquiryId)}
+            className="w-full rounded-lg border border-sky-200 bg-sky-50 py-2 text-fluid-sm text-sky-900 hover:bg-sky-100"
+          >
+            발주서 발급
+          </button>
+        ) : null}
       </div>
     </div>
   );

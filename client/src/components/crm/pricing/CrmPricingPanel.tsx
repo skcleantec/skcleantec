@@ -24,9 +24,13 @@ function formatOrderOptionPrice(row: TelecrmOrderOptionDto): string {
 export function CrmPricingPanel({
   pyeong,
   onPyeongChange,
+  refreshKey = 0,
+  onOpenSettings,
 }: {
   pyeong: string;
   onPyeongChange: (v: string) => void;
+  refreshKey?: number;
+  onOpenSettings?: () => void;
 }) {
   const token = getToken();
   const [source, setSource] = useState<PriceSource>('telecrm');
@@ -83,6 +87,11 @@ export function CrmPricingPanel({
     }, search ? 250 : 0);
     return () => window.clearTimeout(t);
   }, [source, loadTelecrm, loadOrderOptions, search]);
+
+  useEffect(() => {
+    if (refreshKey === 0) return;
+    if (source === 'telecrm') void loadTelecrm();
+  }, [refreshKey, source, loadTelecrm]);
 
   const activeCategory = useMemo(
     () => categories.find((c) => c.id === categoryId) ?? categories[0] ?? null,
@@ -219,7 +228,18 @@ export function CrmPricingPanel({
 
             <ul className="space-y-2">
               {items.length === 0 ? (
-                <li className="text-fluid-sm text-gray-500">항목이 없습니다.</li>
+                <li className="text-fluid-sm text-gray-500 space-y-2">
+                  <p>항목이 없습니다.</p>
+                  {onOpenSettings ? (
+                    <button
+                      type="button"
+                      onClick={onOpenSettings}
+                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-fluid-xs text-gray-800 hover:bg-gray-50"
+                    >
+                      가격 항목 추가
+                    </button>
+                  ) : null}
+                </li>
               ) : (
                 items.map((item) => (
                   <li key={item.id}>
@@ -249,8 +269,19 @@ export function CrmPricingPanel({
         ) : (
           <ul className="space-y-2">
             {orderOptions.length === 0 ? (
-              <li className="text-fluid-sm text-gray-500">
-                금액이 있는 전문시공 옵션이 없습니다. 발주서 설정에서 옵션을 등록하세요.
+              <li className="text-fluid-sm text-gray-500 space-y-2">
+                <p>금액이 있는 전문시공 옵션이 없습니다.</p>
+                {onOpenSettings ? (
+                  <button
+                    type="button"
+                    onClick={onOpenSettings}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-fluid-xs text-gray-800 hover:bg-gray-50"
+                  >
+                    텔레CRM 가격 설정
+                  </button>
+                ) : (
+                  <p className="text-[10px]">발주서 설정에서 전문시공 옵션을 등록하세요.</p>
+                )}
               </li>
             ) : (
               orderOptions.map((row) => (

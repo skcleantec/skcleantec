@@ -18,10 +18,14 @@ export function CrmScriptPanel({
   customerName,
   pyeong,
   estimateWon,
+  refreshKey = 0,
+  onOpenSettings,
 }: {
   customerName?: string;
   pyeong?: string;
   estimateWon?: number | null;
+  refreshKey?: number;
+  onOpenSettings?: () => void;
 }) {
   const token = getToken();
   const [categories, setCategories] = useState<TelecrmScriptCategoryDto[]>([]);
@@ -51,7 +55,7 @@ export function CrmScriptPanel({
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   const activeCategory = useMemo(
     () => categories.find((c) => c.id === categoryId) ?? categories[0] ?? null,
@@ -138,7 +142,18 @@ export function CrmScriptPanel({
       ) : error ? (
         <p className="text-fluid-sm text-red-600">{error}</p>
       ) : categories.length === 0 ? (
-        <p className="text-fluid-sm text-gray-500">등록된 스크립트가 없습니다. 설정에서 추가해 주세요.</p>
+        <div className="space-y-2">
+          <p className="text-fluid-sm text-gray-500">등록된 스크립트가 없습니다.</p>
+          {onOpenSettings ? (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-fluid-xs text-gray-800 hover:bg-gray-50"
+            >
+              설정에서 스크립트 추가
+            </button>
+          ) : null}
+        </div>
       ) : (
         <div className="flex min-h-0 flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
