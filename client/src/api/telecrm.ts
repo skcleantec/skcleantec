@@ -10,6 +10,9 @@ function authHeaders(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
+export type TelecrmCatalogScope = 'work' | 'shared' | 'personal';
+export type TelecrmCatalogOwnerScope = 'shared' | 'personal';
+
 export type TelecrmScriptTabDto = {
   id: string;
   categoryId: string;
@@ -24,6 +27,8 @@ export type TelecrmScriptCategoryDto = {
   label: string;
   sortOrder: number;
   isActive: boolean;
+  ownerUserId?: string | null;
+  ownerScope?: TelecrmCatalogOwnerScope;
   tabs?: TelecrmScriptTabDto[];
 };
 
@@ -42,6 +47,8 @@ export type TelecrmPriceCategoryDto = {
   label: string;
   sortOrder: number;
   isActive: boolean;
+  ownerUserId?: string | null;
+  ownerScope?: TelecrmCatalogOwnerScope;
   items?: TelecrmPriceItemDto[];
 };
 
@@ -102,16 +109,19 @@ export async function fetchTelecrmCustomerLookup(
 
 export async function fetchTelecrmScripts(
   token: string,
-  opts?: { includeInactive?: boolean },
+  opts?: { includeInactive?: boolean; scope?: TelecrmCatalogScope },
 ): Promise<{ categories: TelecrmScriptCategoryDto[] }> {
-  const q = opts?.includeInactive ? '?includeInactive=1' : '';
+  const params = new URLSearchParams();
+  if (opts?.includeInactive) params.set('includeInactive', '1');
+  if (opts?.scope) params.set('scope', opts.scope);
+  const q = params.toString() ? `?${params}` : '';
   const res = await fetch(`${API}/script-categories${q}`, { headers: authHeaders(token) });
   return parseJson(res);
 }
 
 export async function createTelecrmScriptCategory(
   token: string,
-  body: { label: string },
+  body: { label: string; ownerScope?: TelecrmCatalogOwnerScope },
 ): Promise<TelecrmScriptCategoryDto> {
   const res = await fetch(`${API}/script-categories`, {
     method: 'POST',
@@ -212,16 +222,19 @@ export async function reorderTelecrmScriptTabs(
 
 export async function fetchTelecrmPriceCategories(
   token: string,
-  opts?: { includeInactive?: boolean },
+  opts?: { includeInactive?: boolean; scope?: TelecrmCatalogScope },
 ): Promise<{ categories: TelecrmPriceCategoryDto[] }> {
-  const q = opts?.includeInactive ? '?includeInactive=1' : '';
+  const params = new URLSearchParams();
+  if (opts?.includeInactive) params.set('includeInactive', '1');
+  if (opts?.scope) params.set('scope', opts.scope);
+  const q = params.toString() ? `?${params}` : '';
   const res = await fetch(`${API}/price-categories${q}`, { headers: authHeaders(token) });
   return parseJson(res);
 }
 
 export async function createTelecrmPriceCategory(
   token: string,
-  body: { label: string },
+  body: { label: string; ownerScope?: TelecrmCatalogOwnerScope },
 ): Promise<TelecrmPriceCategoryDto> {
   const res = await fetch(`${API}/price-categories`, {
     method: 'POST',

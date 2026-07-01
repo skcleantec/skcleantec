@@ -632,6 +632,8 @@ model User {
   inquiryExcelImportProfilesCreated InquiryExcelImportProfile[] @relation("InquiryExcelImportProfileCreator")
   inquiryExcelImportRunsAsActor InquiryExcelImportRun[] @relation("InquiryExcelImportRunActor")
   scheduleDayStaffMemosUpdated ScheduleDayStaffMemo[] @relation("ScheduleDayStaffMemoUpdater")
+  telecrmScriptCategoriesOwned TelecrmScriptCategory[] @relation("TelecrmScriptCategoryOwner")
+  telecrmPriceCategoriesOwned  TelecrmPriceCategory[]  @relation("TelecrmPriceCategoryOwner")
 
   @@unique([tenantId, email])
   @@unique([tenantId, platformSupportAccessId])
@@ -2611,17 +2613,20 @@ model InquiryExcelImportRun {
 
 /// 텔레CRM — 상담 스크립트 카테고리
 model TelecrmScriptCategory {
-  id        String   @id @default(uuid())
-  tenantId  String   @map("tenant_id")
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  label     String   @db.VarChar(120)
-  sortOrder Int      @default(0) @map("sort_order")
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  tabs      TelecrmScriptTab[]
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownerUserId String?  @map("owner_user_id")
+  ownerUser   User?    @relation("TelecrmScriptCategoryOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  label       String   @db.VarChar(120)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  tabs        TelecrmScriptTab[]
 
   @@index([tenantId, sortOrder])
+  @@index([tenantId, ownerUserId, sortOrder])
   @@map("telecrm_script_categories")
 }
 
@@ -2645,17 +2650,20 @@ model TelecrmScriptTab {
 
 /// 텔레CRM — 가격 카테고리
 model TelecrmPriceCategory {
-  id        String   @id @default(uuid())
-  tenantId  String   @map("tenant_id")
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  label     String   @db.VarChar(120)
-  sortOrder Int      @default(0) @map("sort_order")
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  items     TelecrmPriceItem[]
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownerUserId String?  @map("owner_user_id")
+  ownerUser   User?    @relation("TelecrmPriceCategoryOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  label       String   @db.VarChar(120)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  items       TelecrmPriceItem[]
 
   @@index([tenantId, sortOrder])
+  @@index([tenantId, ownerUserId, sortOrder])
   @@map("telecrm_price_categories")
 }
 

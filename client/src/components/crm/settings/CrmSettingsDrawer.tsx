@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { CrmDrawerShell } from '../layout/CrmDrawerShell';
-import type { CrmSettingsTab } from '../../../hooks/useCrmPanelUrl';
+import { TelecrmCatalogScopeSegment } from './telecrmSettingsUi';
+import type { CrmCatalogScope, CrmSettingsTab } from '../../../hooks/useCrmPanelUrl';
 
 const TelecrmScriptSettingsPage = lazy(() =>
   import('../../../pages/admin/crm/settings/TelecrmScriptSettingsPage').then((m) => ({
@@ -27,24 +28,35 @@ const TABS: { id: CrmSettingsTab; label: string }[] = [
 export function CrmSettingsDrawer({
   open,
   tab,
+  catalogScope,
+  canEditShared,
+  canEditPersonal,
   onTabChange,
+  onCatalogScopeChange,
   onClose,
 }: {
   open: boolean;
   tab: CrmSettingsTab;
+  catalogScope: CrmCatalogScope;
+  canEditShared: boolean;
+  canEditPersonal: boolean;
   onTabChange: (tab: CrmSettingsTab) => void;
+  onCatalogScopeChange: (scope: CrmCatalogScope) => void;
   onClose: () => void;
 }) {
+  const visibleTabs = TABS.filter((item) => item.id !== 'general' || canEditShared);
+  const showCatalogSegment = tab !== 'general' && (canEditShared || canEditPersonal);
+
   return (
     <CrmDrawerShell
       open={open}
       title="텔레CRM 설정"
-      subtitle="스크립트·가격·평당 단가를 이 창에서 편집합니다."
+      subtitle="개인 스크립트·가격 또는 업체 공통 설정을 편집합니다."
       onClose={onClose}
       widthClass="w-[min(640px,94vw)]"
     >
       <nav className="mb-4 flex flex-wrap gap-2 border-b border-gray-100 pb-3">
-        {TABS.map((item) => (
+        {visibleTabs.map((item) => (
           <button
             key={item.id}
             type="button"
@@ -58,11 +70,27 @@ export function CrmSettingsDrawer({
         ))}
       </nav>
 
+      {showCatalogSegment ? (
+        <div className="mb-4">
+          <TelecrmCatalogScopeSegment
+            value={catalogScope}
+            onChange={onCatalogScopeChange}
+            showPersonal={canEditPersonal}
+            showShared={canEditShared}
+          />
+          <p className="mt-2 text-[11px] text-gray-500">
+            {catalogScope === 'personal'
+              ? '본인만 보는 개인 카탈로그입니다. 작업 화면에서 내 항목이 먼저 표시됩니다.'
+              : '업체 전체 마케터가 공유하는 기본 스크립트·가격입니다.'}
+          </p>
+        </div>
+      ) : null}
+
       <Suspense fallback={<p className="text-fluid-sm text-gray-500">불러오는 중…</p>}>
-        <div key={tab} className="min-w-0">
-          {tab === 'scripts' ? <TelecrmScriptSettingsPage /> : null}
-          {tab === 'pricing' ? <TelecrmPricingSettingsPage /> : null}
-          {tab === 'general' ? <TelecrmGeneralSettingsPage /> : null}
+        <div key={`${tab}-${catalogScope}`} className="min-w-0">
+          {tab === 'scripts' ? <TelecrmScriptSettingsPage catalogScope={catalogScope} /> : null}
+          {tab === 'pricing' ? <TelecrmPricingSettingsPage catalogScope={catalogScope} /> : null}
+          {tab === 'general' && canEditShared ? <TelecrmGeneralSettingsPage /> : null}
         </div>
       </Suspense>
     </CrmDrawerShell>

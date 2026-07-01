@@ -12,7 +12,9 @@ const DEFAULT_PRICE_CATEGORIES = ['입주 기본', '추가 옵션', '원·투룸
 
 /** 테넌트에 텔레CRM 카탈로그가 없으면 기본 카테고리를 생성한다. */
 export async function ensureTelecrmDefaults(prisma: PrismaClient, tenantId: string): Promise<void> {
-  const scriptCount = await prisma.telecrmScriptCategory.count({ where: { tenantId } });
+  const scriptCount = await prisma.telecrmScriptCategory.count({
+    where: { tenantId, ownerUserId: null },
+  });
   if (scriptCount === 0) {
     await prisma.$transaction(
       DEFAULT_SCRIPT_CATEGORIES.map((row, index) =>
@@ -35,7 +37,9 @@ export async function ensureTelecrmDefaults(prisma: PrismaClient, tenantId: stri
     );
   }
 
-  const priceCount = await prisma.telecrmPriceCategory.count({ where: { tenantId } });
+  const priceCount = await prisma.telecrmPriceCategory.count({
+    where: { tenantId, ownerUserId: null },
+  });
   if (priceCount === 0) {
     await prisma.$transaction(
       DEFAULT_PRICE_CATEGORIES.map((label, index) =>

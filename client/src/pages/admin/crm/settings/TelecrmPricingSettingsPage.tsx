@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getToken } from '../../../../stores/auth';
 import {
   createTelecrmPriceCategory,
@@ -10,6 +11,7 @@ import {
   reorderTelecrmPriceItems,
   updateTelecrmPriceCategory,
   updateTelecrmPriceItem,
+  type TelecrmCatalogOwnerScope,
   type TelecrmPriceCategoryDto,
   type TelecrmPriceItemDto,
 } from '../../../../api/telecrm';
@@ -20,7 +22,15 @@ type DeleteTarget =
   | { kind: 'category'; row: TelecrmPriceCategoryDto }
   | { kind: 'item'; row: TelecrmPriceItemDto };
 
-export function TelecrmPricingSettingsPage() {
+export function TelecrmPricingSettingsPage({
+  catalogScope: catalogScopeProp,
+}: {
+  catalogScope?: TelecrmCatalogOwnerScope;
+} = {}) {
+  const [searchParams] = useSearchParams();
+  const catalogScope: TelecrmCatalogOwnerScope =
+    catalogScopeProp ??
+    (searchParams.get('catalog') === 'shared' ? 'shared' : 'personal');
   const token = getToken();
   const [categories, setCategories] = useState<TelecrmPriceCategoryDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +48,7 @@ export function TelecrmPricingSettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchTelecrmPriceCategories(token, { includeInactive: true });
+      const res = await fetchTelecrmPriceCategories(token, { includeInactive: true, scope: catalogScope });
       setCategories(res.categories);
       setSelectedCategoryId((prev) => {
         if (prev && res.categories.some((c) => c.id === prev)) return prev;
@@ -49,11 +59,15 @@ export function TelecrmPricingSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, catalogScope]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    setSelectedCategoryId(null);
+  }, [catalogScope]);
 
   const selectedCategory = useMemo(
     () => categories.find((c) => c.id === selectedCategoryId) ?? null,
@@ -66,7 +80,7 @@ export function TelecrmPricingSettingsPage() {
     if (!token || !newCategoryLabel.trim()) return;
     setBusy(true);
     try {
-      await createTelecrmPriceCategory(token, { label: newCategoryLabel.trim() });
+      await createTelecrmPriceCategory(token, { label: newCategoryLabel.trim(), ownerScope: catalogScope });
       setNewCategoryLabel('');
       await load();
     } catch (e) {
@@ -169,7 +183,7 @@ export function TelecrmPricingSettingsPage() {
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-700">{error}</p>
       ) : null}
 
-      <SettingsCard title="가격 카테고리 · 항목">
+      <SettingsCard title={catalogScope === 'personal' ? '내 가격 카테고리 · 항목' : '업체 공통 가격 카테고리 · 항목'}>
         <div className="flex flex-wrap gap-2 mb-4">
           <input
             type="text"

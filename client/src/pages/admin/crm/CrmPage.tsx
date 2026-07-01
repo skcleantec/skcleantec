@@ -30,7 +30,9 @@ export function CrmPage() {
   const [searchParams] = useSearchParams();
   const isPopup = searchParams.get('popup') === '1';
   const permissions = useMarketerPermissions();
-  const canSettings = permissions.has('crm.settings');
+  const canSharedSettings = permissions.has('crm.settings');
+  const canPersonalCatalog = permissions.has('crm.view');
+  const canOpenSettings = canSharedSettings || canPersonalCatalog;
   const canOrderIssue =
     permissions.me?.role === 'ADMIN' || permissions.has('orderform.issue');
   const canAdsSession = permissions.has('ads.sessions');
@@ -55,6 +57,7 @@ export function CrmPage() {
 
   const {
     settingsTab,
+    catalogScope,
     pendingInquiryId: issuePendingInquiryId,
     isSettingsOpen,
     isIssueOpen,
@@ -62,6 +65,7 @@ export function CrmPage() {
     openIssue,
     closePanel,
     setSettingsTab,
+    setCatalogScope,
   } = useCrmPanelUrl();
 
   const { openInquiryEdit, layer: inquiryEditLayer } = useCrmInquiryEdit(canView, () => {
@@ -298,10 +302,12 @@ export function CrmPage() {
                     발주서
                   </button>
                 ) : null}
-                {canSettings ? (
+                {canOpenSettings ? (
                   <button
                     type="button"
-                    onClick={() => openSettings('scripts')}
+                    onClick={() =>
+                      openSettings('scripts', canPersonalCatalog ? 'personal' : 'shared')
+                    }
                     className="rounded-lg border border-white/20 px-3 py-1.5 text-fluid-xs hover:bg-white/10"
                   >
                     설정
@@ -352,7 +358,11 @@ export function CrmPage() {
               pyeong={pyeong || undefined}
               estimateWon={estimateWon}
               refreshKey={catalogRefreshKey}
-              onOpenSettings={canSettings ? () => openSettings('scripts') : undefined}
+              onOpenSettings={
+                canOpenSettings
+                  ? () => openSettings('scripts', canPersonalCatalog ? 'personal' : 'shared')
+                  : undefined
+              }
             />
           }
           right={
@@ -360,16 +370,24 @@ export function CrmPage() {
               pyeong={pyeong}
               onPyeongChange={setPyeong}
               refreshKey={catalogRefreshKey}
-              onOpenSettings={canSettings ? () => openSettings('pricing') : undefined}
+              onOpenSettings={
+                canOpenSettings
+                  ? () => openSettings('pricing', canPersonalCatalog ? 'personal' : 'shared')
+                  : undefined
+              }
             />
           }
         />
         {inquiryEditLayer}
-        {canSettings ? (
+        {canOpenSettings ? (
           <CrmSettingsDrawer
             open={isSettingsOpen}
             tab={settingsTab}
+            catalogScope={catalogScope}
+            canEditShared={canSharedSettings}
+            canEditPersonal={canPersonalCatalog}
             onTabChange={setSettingsTab}
+            onCatalogScopeChange={setCatalogScope}
             onClose={handleCloseSettings}
           />
         ) : null}

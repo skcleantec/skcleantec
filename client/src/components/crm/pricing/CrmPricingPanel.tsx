@@ -6,7 +6,7 @@ import {
   type TelecrmOrderOptionDto,
   type TelecrmPriceCategoryDto,
 } from '../../../api/telecrm';
-import { formatWon } from '../settings/telecrmSettingsUi';
+import { formatWon, partitionTelecrmCategories } from '../settings/telecrmSettingsUi';
 import { CrmColumn } from '../layout/CrmShell';
 import { computeEstimateTotalFromPyeong } from '@shared/estimateTotal';
 
@@ -134,6 +134,27 @@ export function CrmPricingPanel({
     await copyText(row.id, `${row.labelPath} ${price}`);
   };
 
+  const { personal: personalCategories, shared: sharedCategories } = useMemo(
+    () => partitionTelecrmCategories(categories),
+    [categories],
+  );
+
+  const renderCategoryButtons = (list: TelecrmPriceCategoryDto[]) =>
+    list.map((c) => (
+      <button
+        key={c.id}
+        type="button"
+        onClick={() => setCategoryId(c.id)}
+        className={`rounded-lg px-3 py-1.5 text-fluid-xs font-medium ${
+          activeCategory?.id === c.id
+            ? 'bg-slate-900 text-white'
+            : 'border border-gray-200 bg-gray-50 text-gray-700'
+        }`}
+      >
+        {c.label}
+      </button>
+    ));
+
   return (
     <CrmColumn
       title="가격 안내"
@@ -209,21 +230,23 @@ export function CrmPricingPanel({
           <p className="text-fluid-sm text-red-600">{error}</p>
         ) : source === 'telecrm' ? (
           <>
-            <div className="flex flex-wrap gap-1.5">
-              {categories.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setCategoryId(c.id)}
-                  className={`rounded-lg px-3 py-1.5 text-fluid-xs font-medium ${
-                    activeCategory?.id === c.id
-                      ? 'bg-slate-900 text-white'
-                      : 'border border-gray-200 bg-gray-50 text-gray-700'
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
+            <div className="space-y-2">
+              {personalCategories.length > 0 ? (
+                <div>
+                  <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-indigo-600">
+                    내 가격
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">{renderCategoryButtons(personalCategories)}</div>
+                </div>
+              ) : null}
+              {sharedCategories.length > 0 ? (
+                <div>
+                  <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                    업체 공통
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">{renderCategoryButtons(sharedCategories)}</div>
+                </div>
+              ) : null}
             </div>
 
             <ul className="space-y-2">

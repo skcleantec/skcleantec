@@ -7,6 +7,7 @@ import {
 } from '../../../api/telecrm';
 import { CrmColumn } from '../layout/CrmShell';
 import { applyTelecrmScriptPlaceholders } from './applyTelecrmScriptPlaceholders';
+import { partitionTelecrmCategories } from '../settings/telecrmSettingsUi';
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -41,7 +42,7 @@ export function CrmScriptPanel({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchTelecrmScripts(token);
+      const res = await fetchTelecrmScripts(token, { scope: 'work' });
       setCategories(res.categories);
       if (res.categories.length > 0) {
         setCategoryId((prev) => prev ?? res.categories[0]?.id ?? null);
@@ -135,6 +136,31 @@ export function CrmScriptPanel({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [categories, tabs, tabId, selectCategory]);
 
+  const { personal: personalCategories, shared: sharedCategories } = useMemo(
+    () => partitionTelecrmCategories(categories),
+    [categories],
+  );
+
+  const renderCategoryButtons = (list: TelecrmScriptCategoryDto[], startIndex: number) =>
+    list.map((c, i) => {
+      const globalIndex = startIndex + i;
+      return (
+        <button
+          key={c.id}
+          type="button"
+          onClick={() => selectCategory(c.id)}
+          className={`rounded-lg px-3 py-1.5 text-fluid-xs font-medium transition-colors ${
+            activeCategory?.id === c.id
+              ? 'bg-slate-900 text-white'
+              : 'border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+          }`}
+          title={globalIndex < 5 ? `Ctrl+${globalIndex + 1}` : undefined}
+        >
+          {c.label}
+        </button>
+      );
+    });
+
   return (
     <CrmColumn title="상담 스크립트" subtitle="설정에서 등록한 스크립트를 읽기 전용으로 표시합니다">
       {loading ? (
@@ -170,22 +196,27 @@ export function CrmScriptPanel({
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
-            {categories.map((c, i) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => selectCategory(c.id)}
-                className={`rounded-lg px-3 py-1.5 text-fluid-xs font-medium transition-colors ${
-                  activeCategory?.id === c.id
-                    ? 'bg-slate-900 text-white'
-                    : 'border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
-                }`}
-                title={i < 5 ? `Ctrl+${i + 1}` : undefined}
-              >
-                {c.label}
-              </button>
-            ))}
+          <div className="space-y-2">
+            {personalCategories.length > 0 ? (
+              <div>
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-indigo-600">
+                  내 스크립트
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {renderCategoryButtons(personalCategories, 0)}
+                </div>
+              </div>
+            ) : null}
+            {sharedCategories.length > 0 ? (
+              <div>
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                  업체 공통
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {renderCategoryButtons(sharedCategories, personalCategories.length)}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {tabs.length > 1 ? (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getToken } from '../../../../stores/auth';
 import {
   createTelecrmScriptCategory,
@@ -10,6 +11,7 @@ import {
   reorderTelecrmScriptTabs,
   updateTelecrmScriptCategory,
   updateTelecrmScriptTab,
+  type TelecrmCatalogOwnerScope,
   type TelecrmScriptCategoryDto,
   type TelecrmScriptTabDto,
 } from '../../../../api/telecrm';
@@ -21,7 +23,15 @@ type DeleteTarget =
   | { kind: 'category'; row: TelecrmScriptCategoryDto }
   | { kind: 'tab'; row: TelecrmScriptTabDto };
 
-export function TelecrmScriptSettingsPage() {
+export function TelecrmScriptSettingsPage({
+  catalogScope: catalogScopeProp,
+}: {
+  catalogScope?: TelecrmCatalogOwnerScope;
+} = {}) {
+  const [searchParams] = useSearchParams();
+  const catalogScope: TelecrmCatalogOwnerScope =
+    catalogScopeProp ??
+    (searchParams.get('catalog') === 'shared' ? 'shared' : 'personal');
   const token = getToken();
   const [categories, setCategories] = useState<TelecrmScriptCategoryDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +51,7 @@ export function TelecrmScriptSettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchTelecrmScripts(token, { includeInactive: true });
+      const res = await fetchTelecrmScripts(token, { includeInactive: true, scope: catalogScope });
       setCategories(res.categories);
       setSelectedCategoryId((prev) => {
         if (prev && res.categories.some((c) => c.id === prev)) return prev;
@@ -52,11 +62,16 @@ export function TelecrmScriptSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, catalogScope]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    setSelectedCategoryId(null);
+    setSelectedTabId(null);
+  }, [catalogScope]);
 
   const selectedCategory = useMemo(
     () => categories.find((c) => c.id === selectedCategoryId) ?? null,
@@ -77,7 +92,7 @@ export function TelecrmScriptSettingsPage() {
     if (!token || !newCategoryLabel.trim()) return;
     setBusy(true);
     try {
-      await createTelecrmScriptCategory(token, { label: newCategoryLabel.trim() });
+      await createTelecrmScriptCategory(token, { label: newCategoryLabel.trim(), ownerScope: catalogScope });
       setNewCategoryLabel('');
       await load();
     } catch (e) {
@@ -187,9 +202,15 @@ export function TelecrmScriptSettingsPage() {
       ) : null}
 
       <SettingsCard
-        title="스크립트 카테고리"
+        title={catalogScope === 'personal' ? '내 스크립트 카테고리' : '업체 공통 스크립트'}
         actions={
-          <HelpTooltip text="카테고리와 탭을 추가·수정하면 텔레CRM 가운데 패널에 반영됩니다. {고객명} {평수} {예상가} 치환을 지원합니다." />
+          <HelpTooltip
+            text={
+              catalogScope === 'personal'
+                ? '본인만 보는 개인 스크립트입니다. 텔레CRM 작업 화면에서 「내 스크립트」로 표시됩니다. {고객명} {평수} {예상가} 치환을 지원합니다.'
+                : '업체 전체 마케터가 보는 공통 스크립트입니다. crm.settings 권한이 있어야 편집할 수 있습니다.'
+            }
+          />
         }
       >
         <div className="flex flex-wrap gap-2">

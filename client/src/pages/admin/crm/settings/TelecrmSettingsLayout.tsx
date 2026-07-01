@@ -1,6 +1,8 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { openTelecrmWindow } from '../../../../utils/openTelecrmWindow';
+import { TelecrmCatalogScopeSegment } from '../../../../components/crm/settings/telecrmSettingsUi';
+import { useMarketerPermissions } from '../../../../hooks/useMarketerPermissions';
 
 const NAV = [
   { to: '/admin/crm/settings/scripts', label: '스크립트' },
@@ -9,13 +11,35 @@ const NAV = [
 ] as const;
 
 export function TelecrmSettingsLayout() {
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const permissions = useMarketerPermissions();
+  const canShared = permissions.has('crm.settings');
+  const canPersonal = permissions.has('crm.view');
+  const isCatalogRoute =
+    location.pathname.endsWith('/scripts') || location.pathname.endsWith('/pricing');
+  const catalogScope = searchParams.get('catalog') === 'shared' ? 'shared' : 'personal';
+
+  const setCatalogScope = (scope: 'shared' | 'personal') => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('catalog', scope);
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  const visibleNav = NAV.filter((item) => item.to !== '/admin/crm/settings/general' || canShared);
+
   return (
     <div className="min-w-0 w-full max-w-5xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-gray-800">텔레CRM 설정</h1>
           <p className="mt-1 text-fluid-sm text-gray-500">
-            스크립트·가격 카테고리를 등록하면 텔레CRM 작업 화면에 바로 반영됩니다.
+            개인 스크립트·가격과 업체 공통 설정을 등록하면 텔레CRM 작업 화면에 바로 반영됩니다.
           </p>
         </div>
         <div className="flex gap-2">
@@ -36,7 +60,7 @@ export function TelecrmSettingsLayout() {
       </div>
 
       <nav className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
-        {NAV.map((item) => (
+        {visibleNav.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -50,6 +74,17 @@ export function TelecrmSettingsLayout() {
           </NavLink>
         ))}
       </nav>
+
+      {isCatalogRoute && (canShared || canPersonal) ? (
+        <div>
+          <TelecrmCatalogScopeSegment
+            value={catalogScope}
+            onChange={setCatalogScope}
+            showPersonal={canPersonal}
+            showShared={canShared}
+          />
+        </div>
+      ) : null}
 
       <Outlet />
     </div>

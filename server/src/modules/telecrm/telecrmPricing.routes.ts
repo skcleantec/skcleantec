@@ -9,6 +9,15 @@ import {
   requireTelecrmActorPassword,
   requireTelecrmTenant,
 } from './telecrm.helpers.js';
+import {
+  denyUnlessCanCreateTelecrmCatalog,
+  denyUnlessCanMutateTelecrmCategory,
+  parseTelecrmCatalogOwnerScope,
+  parseTelecrmCatalogScope,
+  sortTelecrmCategoriesForWork,
+  telecrmCategoryOwnerScope,
+  telecrmPriceCategoryWhere,
+} from './telecrmCatalogScope.helpers.js';
 import { ensureTelecrmDefaults } from './telecrmSeed.service.js';
 
 const categoriesRouter = Router();
@@ -19,6 +28,7 @@ function serializeCategory(row: {
   label: string;
   sortOrder: number;
   isActive: boolean;
+  ownerUserId?: string | null;
   items?: {
     id: string;
     categoryId: string;
@@ -34,6 +44,8 @@ function serializeCategory(row: {
     label: row.label,
     sortOrder: row.sortOrder,
     isActive: row.isActive,
+    ownerUserId: row.ownerUserId ?? null,
+    ownerScope: telecrmCategoryOwnerScope(row.ownerUserId ?? null),
     items: row.items?.map(serializeItem) ?? undefined,
   };
 }
@@ -64,11 +76,13 @@ categoriesRouter.get(
   async (req, res) => {
     const tenantId = requireTelecrmTenant(req, res);
     if (!tenantId) return;
+    const user = (req as unknown as { user: AuthPayload }).user;
+    const scope = parseTelecrmCatalogScope(req.query.scope);
     const includeInactive = req.query.includeInactive === '1' || req.query.includeInactive === 'true';
     await ensureTelecrmDefaults(prisma, tenantId);
-    const categories = await prisma.telecrmPriceCategory.findMany({
+    const rows = await prisma.telecrmPriceCategory.findMany({
       where: {
-        tenantId,
+        ...telecrmPriceCategoryWhere(scope, tenantId, user.userId),
         ...(includeInactive ? {} : { isActive: true }),
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -79,13 +93,20 @@ categoriesRouter.get(
         },
       },
     });
-    res.json({ categories: categories.map(serializeCategory) });
+    const categories = (scope === 'work' ? sortTelecrmCategoriesForWork(rows) : rows).map(serializeCategory);
+    res.json({ categories });
   },
 );
 
-categoriesRouter.post('/', requireStaffPermission('crm.settings'), async (req, res) => {
+categoriesRouter.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const ownerScope = parseTelecrmCatalogOwnerScope(
+    (req.body as { ownerScope?: string; scope?: string }).ownerScope ??
+      (req.body as { scope?: string }).scope,
+  );
+  if (!(await denyUnlessCanCreateTelecrmCatalog(res, user, ownerScope))) return;
   const { label, sortOrder } = req.body as { label?: string; sortOrder?: number };
   const trimmed = label?.trim() ?? '';
   if (!trimmed) {
@@ -93,12 +114,16 @@ categoriesRouter.post('/', requireStaffPermission('crm.settings'), async (req, r
     return;
   }
   const maxOrder = await prisma.telecrmPriceCategory.aggregate({
-    where: { tenantId },
+    where: {
+      tenantId,
+      ownerUserId: ownerScope === 'personal' ? user.userId : null,
+    },
     _max: { sortOrder: true },
   });
   const created = await prisma.telecrmPriceCategory.create({
     data: {
       tenantId,
+      ownerUserId: ownerScope === 'personal' ? user.userId : null,
       label: trimmed,
       sortOrder: sortOrder ?? (maxOrder._max.sortOrder ?? -1) + 1,
     },
@@ -106,15 +131,17 @@ categoriesRouter.post('/', requireStaffPermission('crm.settings'), async (req, r
   res.status(201).json(serializeCategory(created));
 });
 
-categoriesRouter.patch('/:id', requireStaffPermission('crm.settings'), async (req, res) => {
+categoriesRouter.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
   const { id } = req.params;
   const existing = await prisma.telecrmPriceCategory.findFirst({ where: { id, tenantId } });
   if (!existing) {
     res.status(404).json({ error: '카테고리를 찾을 수 없습니다.' });
     return;
   }
+  if (!(await denyUnlessCanMutateTelecrmCategory(res, user, existing))) return;
   const { label, sortOrder, isActive } = req.body as {
     label?: string;
     sortOrder?: number;
@@ -131,7 +158,7 @@ categoriesRouter.patch('/:id', requireStaffPermission('crm.settings'), async (re
   res.json(serializeCategory(updated));
 });
 
-categoriesRouter.delete('/:id', requireStaffPermission('crm.settings'), async (req, res) => {
+categoriesRouter.delete('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
@@ -144,13 +171,15 @@ categoriesRouter.delete('/:id', requireStaffPermission('crm.settings'), async (r
     res.status(404).json({ error: '카테고리를 찾을 수 없습니다.' });
     return;
   }
+  if (!(await denyUnlessCanMutateTelecrmCategory(res, user, existing))) return;
   await prisma.telecrmPriceCategory.delete({ where: { id: existing.id } });
   res.json({ ok: true });
 });
 
-categoriesRouter.post('/reorder', requireStaffPermission('crm.settings'), async (req, res) => {
+categoriesRouter.post('/reorder', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
   const { orderedIds } = req.body as { orderedIds?: string[] };
   if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
     res.status(400).json({ error: 'orderedIds가 필요합니다.' });
@@ -158,12 +187,17 @@ categoriesRouter.post('/reorder', requireStaffPermission('crm.settings'), async 
   }
   const rows = await prisma.telecrmPriceCategory.findMany({
     where: { tenantId, id: { in: orderedIds } },
-    select: { id: true },
   });
   if (rows.length !== orderedIds.length) {
     res.status(400).json({ error: '잘못된 카테고리 ID가 포함되어 있습니다.' });
     return;
   }
+  const ownerKey = rows[0]?.ownerUserId ?? null;
+  if (!rows.every((r) => (r.ownerUserId ?? null) === ownerKey)) {
+    res.status(400).json({ error: '같은 범위(내/공통) 카테고리만 함께 정렬할 수 있습니다.' });
+    return;
+  }
+  if (!(await denyUnlessCanMutateTelecrmCategory(res, user, rows[0]!))) return;
   await prisma.$transaction(
     orderedIds.map((categoryId, index) =>
       prisma.telecrmPriceCategory.updateMany({
@@ -207,9 +241,10 @@ itemsRouter.get('/', requireStaffPermission('crm.view', 'crm.settings'), async (
   res.json({ items: items.map(serializeItem) });
 });
 
-itemsRouter.post('/', requireStaffPermission('crm.settings'), async (req, res) => {
+itemsRouter.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
   const { categoryId, name, amountWon, description, sortOrder } = req.body as {
     categoryId?: string;
     name?: string;
@@ -228,6 +263,7 @@ itemsRouter.post('/', requireStaffPermission('crm.settings'), async (req, res) =
     res.status(404).json({ error: '카테고리를 찾을 수 없습니다.' });
     return;
   }
+  if (!(await denyUnlessCanMutateTelecrmCategory(res, user, category))) return;
   const trimmed = name?.trim() ?? '';
   if (!trimmed) {
     res.status(400).json({ error: '항목 이름을 입력해주세요.' });
@@ -255,15 +291,20 @@ itemsRouter.post('/', requireStaffPermission('crm.settings'), async (req, res) =
   res.status(201).json(serializeItem(created));
 });
 
-itemsRouter.patch('/:id', requireStaffPermission('crm.settings'), async (req, res) => {
+itemsRouter.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
   const { id } = req.params;
-  const existing = await prisma.telecrmPriceItem.findFirst({ where: { id, tenantId } });
+  const existing = await prisma.telecrmPriceItem.findFirst({
+    where: { id, tenantId },
+    include: { category: true },
+  });
   if (!existing) {
     res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     return;
   }
+  if (!(await denyUnlessCanMutateTelecrmCategory(res, user, existing.category))) return;
   const { name, amountWon, description, sortOrder, isActive } = req.body as {
     name?: string;
     amountWon?: number | string;
@@ -289,7 +330,7 @@ itemsRouter.patch('/:id', requireStaffPermission('crm.settings'), async (req, re
   res.json(serializeItem(updated));
 });
 
-itemsRouter.delete('/:id', requireStaffPermission('crm.settings'), async (req, res) => {
+itemsRouter.delete('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
@@ -297,18 +338,23 @@ itemsRouter.delete('/:id', requireStaffPermission('crm.settings'), async (req, r
   if (!(await requireTelecrmActorPassword(res, user.userId, tenantId, password))) return;
 
   const { id } = req.params;
-  const existing = await prisma.telecrmPriceItem.findFirst({ where: { id, tenantId } });
+  const existing = await prisma.telecrmPriceItem.findFirst({
+    where: { id, tenantId },
+    include: { category: true },
+  });
   if (!existing) {
     res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     return;
   }
+  if (!(await denyUnlessCanMutateTelecrmCategory(res, user, existing.category))) return;
   await prisma.telecrmPriceItem.delete({ where: { id: existing.id } });
   res.json({ ok: true });
 });
 
-itemsRouter.post('/reorder', requireStaffPermission('crm.settings'), async (req, res) => {
+itemsRouter.post('/reorder', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
   const { categoryId, orderedIds } = req.body as { categoryId?: string; orderedIds?: string[] };
   if (!categoryId || !Array.isArray(orderedIds) || orderedIds.length === 0) {
     res.status(400).json({ error: 'categoryId와 orderedIds가 필요합니다.' });
@@ -321,6 +367,7 @@ itemsRouter.post('/reorder', requireStaffPermission('crm.settings'), async (req,
     res.status(404).json({ error: '카테고리를 찾을 수 없습니다.' });
     return;
   }
+  if (!(await denyUnlessCanMutateTelecrmCategory(res, user, category))) return;
   const rows = await prisma.telecrmPriceItem.findMany({
     where: { tenantId, categoryId, id: { in: orderedIds } },
     select: { id: true },
@@ -349,11 +396,15 @@ catalogRouter.use(authMiddleware, staffMarketerRoleOnly);
 catalogRouter.get('/catalog', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
   await ensureTelecrmDefaults(prisma, tenantId);
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
 
-  const categories = await prisma.telecrmPriceCategory.findMany({
-    where: { tenantId, isActive: true },
+  const rows = await prisma.telecrmPriceCategory.findMany({
+    where: {
+      ...telecrmPriceCategoryWhere('work', tenantId, user.userId),
+      isActive: true,
+    },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     include: {
       items: {
@@ -373,10 +424,11 @@ catalogRouter.get('/catalog', requireStaffPermission('crm.view', 'crm.settings')
       },
     },
   });
+  const categories = sortTelecrmCategoriesForWork(rows).map(serializeCategory);
 
   const config = await getOrCreateEstimateConfig(prisma, tenantId);
   res.json({
-    categories: categories.map(serializeCategory),
+    categories,
     estimateConfig: {
       pricePerPyeong: config.pricePerPyeong,
       depositAmount: config.depositAmount,
