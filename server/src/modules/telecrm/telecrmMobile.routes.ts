@@ -8,6 +8,11 @@ import {
   getTelecrmCallSessionSummary,
   parseCreateTelecrmCallSessionBody,
 } from './telecrmCallSession.service.js';
+import {
+  drainTelecrmMobileDispatchQueue,
+  enqueueTelecrmMobileDispatch,
+  parseTelecrmMobileDispatchBody,
+} from './telecrmMobileDispatch.service.js';
 
 const router = Router();
 router.use(authMiddleware, staffMarketerRoleOnly);
@@ -19,11 +24,34 @@ router.get('/mobile-config', requireStaffPermission('crm.view', 'crm.settings'),
     distribution: 'internal',
     features: {
       callSessions: true,
-      smsDispatch: false,
+      smsDispatch: true,
       callRecording: false,
       pushNotifications: false,
     },
   });
+});
+
+/** PC CRM → 동일 마케터 휴대폰 앱 (통화·문자 큐) */
+router.post('/mobile-dispatch', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const parsed = parseTelecrmMobileDispatchBody(req.body);
+  if ('error' in parsed) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const item = enqueueTelecrmMobileDispatch(tenantId, user.userId, parsed);
+  res.status(201).json({ ok: true, id: item.id, action: item.action });
+});
+
+/** 앱 재개·WS 누락 시 대기 중 dispatch 소비 */
+router.get('/mobile-dispatch/pending', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const items = drainTelecrmMobileDispatchQueue(tenantId, user.userId);
+  res.json({ items });
 });
 
 router.post('/call-sessions', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {

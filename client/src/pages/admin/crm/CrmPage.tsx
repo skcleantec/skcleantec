@@ -58,6 +58,9 @@ export function CrmPage() {
   const [initialFormDraft, setInitialFormDraft] = useState<Partial<CrmIntakeFormSnapshot> | null>(null);
   const [draftRestoredPhone, setDraftRestoredPhone] = useState<string | null>(null);
   const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
+  const [smsPrefill, setSmsPrefill] = useState('');
+  const [dispatchNotice, setDispatchNotice] = useState<string | null>(null);
+  const dispatchNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const draftReadyRef = useRef(false);
   const formSnapshotRef = useRef<CrmIntakeFormSnapshot | null>(null);
 
@@ -188,10 +191,17 @@ export function CrmPage() {
     (snapshot: CrmIntakeFormSnapshot) => {
       formSnapshotRef.current = snapshot;
       if (snapshot.customerName !== customerName) setCustomerName(snapshot.customerName);
+      setSmsPrefill(snapshot.memo ?? '');
       persistDraft(snapshot);
     },
     [customerName, persistDraft],
   );
+
+  const showDispatchNotice = useCallback((message: string) => {
+    setDispatchNotice(message);
+    if (dispatchNoticeTimer.current) clearTimeout(dispatchNoticeTimer.current);
+    dispatchNoticeTimer.current = setTimeout(() => setDispatchNotice(null), 4000);
+  }, []);
 
   const handleIntakeSaved = useCallback(() => {
     clearCrmIntakeDraft();
@@ -361,6 +371,8 @@ export function CrmPage() {
               canSubmitKind={canSubmitIntakeKind}
               permissionsLoading={permissions.loading}
               onOpenOrderIssue={canOrderIssue ? openIssue : undefined}
+              smsPrefill={smsPrefill}
+              onDispatchNotice={showDispatchNotice}
             />
           }
           center={
@@ -368,7 +380,9 @@ export function CrmPage() {
               customerName={customerName || undefined}
               pyeong={pyeong || undefined}
               estimateWon={estimateWon}
+              customerPhone={phone}
               refreshKey={catalogRefreshKey}
+              onDispatchNotice={showDispatchNotice}
               onOpenSettings={
                 canOpenSettings
                   ? () => openSettings('scripts', canPersonalCatalog ? 'personal' : 'shared')
@@ -410,6 +424,11 @@ export function CrmPage() {
             onClose={closePanel}
             onIssued={() => setLookupRefreshKey((k) => k + 1)}
           />
+        ) : null}
+        {dispatchNotice ? (
+          <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-2.5 text-fluid-sm text-white shadow-lg">
+            {dispatchNotice}
+          </div>
         ) : null}
       </div>
     </FeatureGate>

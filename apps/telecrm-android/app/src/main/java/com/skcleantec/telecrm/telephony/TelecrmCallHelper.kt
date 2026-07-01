@@ -1,10 +1,17 @@
 package com.skcleantec.telecrm.telephony
 
+import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.skcleantec.telecrm.api.ApiClient
+import com.skcleantec.telecrm.dispatch.TelecrmDispatchExecutor
 import org.json.JSONObject
 
 object TelecrmCallHelper {
@@ -17,6 +24,36 @@ object TelecrmCallHelper {
         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$digits"))
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
+    }
+
+    /** 자동 발신(CALL_PHONE) 또는 다이얼 패드 + 통화 종료 후 앱 복귀 */
+    fun placeCall(activity: AppCompatActivity, phone: String) {
+        val digits = phone.filter { it.isDigit() }
+        if (digits.length < 4) {
+            Toast.makeText(activity, "전화번호(4자 이상)를 입력해 주세요.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        CallReturnMonitor.watch(activity)
+        val uri = Uri.parse("tel:$digits")
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CALL_PHONE) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            activity.startActivity(Intent(Intent.ACTION_CALL, uri))
+            return
+        }
+        ActivityCompat.requestPermissions(
+            activity,
+            arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE),
+            TelecrmDispatchExecutor.REQUEST_CALL_PHONE,
+        )
+        activity.startActivity(Intent(Intent.ACTION_DIAL, uri))
+    }
+
+    fun onCallPermissionGranted(activity: Activity, pendingPhone: String?) {
+        val digits = pendingPhone?.filter { it.isDigit() }.orEmpty()
+        if (digits.length < 4) return
+        CallReturnMonitor.watch(activity)
+        activity.startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$digits")))
     }
 
     fun openSms(context: Context, phone: String, body: String = "") {

@@ -7,14 +7,8 @@ import type {
 import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
-import {
-  CrmIconIntake,
-  CrmIconPhone,
-  CrmIconSearch,
-  CrmSegment,
-  CrmSegmentItem,
-  crmFieldClass,
-} from '../crmUi';
+import { CrmActionButton, CrmIconIntake, CrmIconPhone, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldClass } from '../crmUi';
+import { telecrmCall, telecrmSms, isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 import { CrmIntakeForm } from './CrmIntakeForm';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
@@ -47,6 +41,8 @@ export function CrmIntakePanel({
   canSubmitKind,
   permissionsLoading,
   onOpenOrderIssue,
+  smsPrefill = '',
+  onDispatchNotice,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
@@ -64,6 +60,8 @@ export function CrmIntakePanel({
   canSubmitKind: (kind: CrmIntakeKind) => boolean;
   permissionsLoading?: boolean;
   onOpenOrderIssue?: (inquiryId: string | null) => void;
+  smsPrefill?: string;
+  onDispatchNotice?: (message: string) => void;
 }) {
   const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
   const [nameSearch, setNameSearch] = useState('');
@@ -161,6 +159,32 @@ export function CrmIntakePanel({
     window.open(`${window.location.origin}${url}`, '_blank', 'noopener,noreferrer');
   };
 
+  const dialPhone = phone.trim();
+  const canDial = dialPhone.replace(/\D/g, '').length >= 8;
+
+  const handleCall = async () => {
+    if (!canDial) return;
+    const bridgeMode = await telecrmCall(dialPhone, {
+      customerMatch: mode === 'new' ? 'new' : 'existing',
+      inquiryId: lastInquiryId ?? undefined,
+    });
+    if (bridgeMode === 'dispatch') onDispatchNotice?.('휴대폰 앱으로 통화 요청을 보냈습니다.');
+  };
+
+  const handleSms = async () => {
+    if (!canDial) return;
+    const text = smsPrefill.trim();
+    if (!text) {
+      onDispatchNotice?.('문자 내용을 메모에 입력해 주세요.');
+      return;
+    }
+    const bridgeMode = await telecrmSms(dialPhone, text, {
+      inquiryId: lastInquiryId ?? undefined,
+      customerMatch: mode === 'new' ? 'new' : 'existing',
+    });
+    if (bridgeMode === 'dispatch') onDispatchNotice?.('휴대폰 앱으로 문자 내용을 보냈습니다.');
+  };
+
   return (
     <CrmColumn accent="intake" title="접수 · 고객" subtitle="전화 상담 중 고객 정보 등록">
       <div className="space-y-4">
@@ -205,16 +229,28 @@ export function CrmIntakePanel({
             </CrmSegment>
 
             {searchMode === 'phone' ? (
-              <label className="block space-y-1">
-                <span className="text-fluid-xs font-semibold text-emerald-800">연락처 검색</span>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => onPhoneChange(e.target.value)}
-                  placeholder="010-0000-0000"
-                  className={`${crmFieldClass} tabular-nums`}
-                />
-              </label>
+              <div className="space-y-2">
+                <label className="block space-y-1">
+                  <span className="text-fluid-xs font-semibold text-emerald-800">연락처 검색</span>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => onPhoneChange(e.target.value)}
+                    placeholder="010-0000-0000"
+                    className={`${crmFieldClass} tabular-nums`}
+                  />
+                </label>
+                {canDial ? (
+                  <div className="flex flex-wrap gap-2">
+                    <CrmActionButton accent="intake" variant="solid" onClick={handleCall}>
+                      {isTelecrmNativeApp() ? '앱 통화' : '통화'}
+                    </CrmActionButton>
+                    <CrmActionButton accent="script" onClick={handleSms}>
+                      문자
+                    </CrmActionButton>
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <label className="block space-y-1">
                 <span className="text-fluid-xs font-semibold text-emerald-800">고객 이름 검색</span>
@@ -241,16 +277,28 @@ export function CrmIntakePanel({
             />
           </>
         ) : (
-          <label className="block space-y-1">
-            <span className="text-fluid-xs font-semibold text-emerald-800">연락처</span>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => onPhoneChange(e.target.value)}
-              placeholder="010-0000-0000"
-              className={`${crmFieldClass} tabular-nums`}
-            />
-          </label>
+          <div className="space-y-2">
+            <label className="block space-y-1">
+              <span className="text-fluid-xs font-semibold text-emerald-800">연락처</span>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => onPhoneChange(e.target.value)}
+                placeholder="010-0000-0000"
+                className={`${crmFieldClass} tabular-nums`}
+              />
+            </label>
+            {canDial ? (
+              <div className="flex flex-wrap gap-2">
+                <CrmActionButton accent="intake" variant="solid" onClick={handleCall}>
+                  {isTelecrmNativeApp() ? '앱 통화' : '통화'}
+                </CrmActionButton>
+                <CrmActionButton accent="script" onClick={handleSms}>
+                  문자
+                </CrmActionButton>
+              </div>
+            ) : null}
+          </div>
         )}
 
         <div className="border-t border-emerald-100/80 pt-3">

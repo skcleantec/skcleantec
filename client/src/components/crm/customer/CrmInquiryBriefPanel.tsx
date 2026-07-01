@@ -9,7 +9,7 @@ import {
   effectiveCustomerOrderNotes,
 } from '../../../utils/inquirySpecialNotesDisplay';
 import { CrmActionButton } from '../crmUi';
-import { telecrmNativeCall, telecrmNativeSms, isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
+import { telecrmCall, telecrmSms, isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 import { formatWon } from '../settings/telecrmSettingsUi';
 
 function fmtDate(iso: string | null): string {
@@ -111,14 +111,19 @@ export function CrmInquiryBriefPanel({
             <CrmActionButton
               accent="intake"
               variant="solid"
-              onClick={() => telecrmNativeCall(inquiry.customerPhone, inquiry.id)}
+              onClick={() => void telecrmCall(inquiry.customerPhone, { inquiryId: inquiry.id, customerMatch: 'existing' })}
             >
               {isTelecrmNativeApp() ? '앱 통화' : '통화'}
             </CrmActionButton>
             {inquiry.memo?.trim() ? (
               <CrmActionButton
                 accent="script"
-                onClick={() => telecrmNativeSms(inquiry.customerPhone, inquiry.memo ?? '')}
+                onClick={() =>
+                  void telecrmSms(inquiry.customerPhone, inquiry.memo ?? '', {
+                    inquiryId: inquiry.id,
+                    customerMatch: 'existing',
+                  })
+                }
               >
                 문자
               </CrmActionButton>

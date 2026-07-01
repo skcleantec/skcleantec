@@ -77,6 +77,17 @@ class ApiClient {
     fun getAdminNavBadges(token: String): Result<JSONObject> =
         authorizedGet("/api/admin/nav-badges", token)
 
+    fun fetchPendingMobileDispatches(token: String): Result<List<com.skcleantec.telecrm.dispatch.TelecrmDispatchPayload>> {
+        return authorizedGet("/api/crm/mobile-dispatch/pending", token).map { json ->
+            val items = json.optJSONArray("items") ?: JSONArray()
+            buildList {
+                for (i in 0 until items.length()) {
+                    add(com.skcleantec.telecrm.dispatch.TelecrmDispatchPayload.fromJson(items.getJSONObject(i)))
+                }
+            }
+        }
+    }
+
     fun getUnreadMessageCount(token: String): Result<Int> =
         authorizedGet("/api/messages/unread-count", token).map { it.optInt("count", 0) }
 

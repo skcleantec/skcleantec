@@ -6,9 +6,26 @@ import org.json.JSONObject
 object AppEventBus {
     data class ToastAlert(val title: String, val body: String)
 
+    data class DialPrefill(
+        val phone: String,
+        val inquiryId: String?,
+        val customerMatch: String?,
+    )
+
+    data class DispatchPayload(
+        val id: String?,
+        val action: String,
+        val phone: String,
+        val body: String?,
+        val inquiryId: String?,
+        val customerMatch: String?,
+    )
+
     private val inboxRefreshListeners = linkedSetOf<() -> Unit>()
     private val connectionListeners = linkedSetOf<(Boolean) -> Unit>()
     private val toastListeners = linkedSetOf<(ToastAlert) -> Unit>()
+    private val dialPrefillListeners = linkedSetOf<(DialPrefill) -> Unit>()
+    private val dispatchListeners = linkedSetOf<(DispatchPayload) -> Unit>()
 
     fun addInboxRefreshListener(listener: () -> Unit) {
         inboxRefreshListeners.add(listener)
@@ -34,6 +51,22 @@ object AppEventBus {
         toastListeners.remove(listener)
     }
 
+    fun addDialPrefillListener(listener: (DialPrefill) -> Unit) {
+        dialPrefillListeners.add(listener)
+    }
+
+    fun removeDialPrefillListener(listener: (DialPrefill) -> Unit) {
+        dialPrefillListeners.remove(listener)
+    }
+
+    fun addDispatchListener(listener: (DispatchPayload) -> Unit) {
+        dispatchListeners.add(listener)
+    }
+
+    fun removeDispatchListener(listener: (DispatchPayload) -> Unit) {
+        dispatchListeners.remove(listener)
+    }
+
     fun emitInboxRefresh() {
         inboxRefreshListeners.forEach { runCatching { it() } }
     }
@@ -47,8 +80,29 @@ object AppEventBus {
         toastListeners.forEach { runCatching { it(alert) } }
     }
 
+    fun emitDialPrefill(phone: String, inquiryId: String?, customerMatch: String?) {
+        val payload = DialPrefill(phone, inquiryId, customerMatch)
+        dialPrefillListeners.forEach { runCatching { it(payload) } }
+    }
+
+    fun emitDispatch(payload: DispatchPayload) {
+        dispatchListeners.forEach { runCatching { it(payload) } }
+    }
+
     fun handlePayload(json: JSONObject) {
         when (json.optString("type")) {
+            "telecrm:dispatch" -> {
+                emitDispatch(
+                    DispatchPayload(
+                        id = json.optString("id").takeIf { it.isNotBlank() },
+                        action = json.optString("action", "call"),
+                        phone = json.optString("phone"),
+                        body = json.optString("body").takeIf { it.isNotBlank() },
+                        inquiryId = json.optString("inquiryId").takeIf { it.isNotBlank() },
+                        customerMatch = json.optString("customerMatch").takeIf { it.isNotBlank() },
+                    ),
+                )
+            }
             "inbox:refresh" -> emitInboxRefresh()
             "inquiry:celebrate" -> {
                 val customer = json.optString("customerName")

@@ -1,20 +1,34 @@
 package com.skcleantec.telecrm.main
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.skcleantec.telecrm.R
+import com.skcleantec.telecrm.api.ApiClient
 import com.skcleantec.telecrm.auth.LoginActivity
 import com.skcleantec.telecrm.auth.TokenStore
 import com.skcleantec.telecrm.databinding.ActivityMainBinding
+import com.skcleantec.telecrm.dispatch.TelecrmDispatchExecutor
+import com.skcleantec.telecrm.dispatch.TelecrmDispatchPayload
 import com.skcleantec.telecrm.realtime.AppEventBus
 import com.skcleantec.telecrm.realtime.InboxWebSocketClient
+import com.skcleantec.telecrm.telephony.CallReturnMonitor
+import com.skcleantec.telecrm.telephony.TelecrmCallHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val tokenStore by lazy { TokenStore(this) }
+    private val apiClient = ApiClient()
     private val webSocketClient = InboxWebSocketClient()
+    private lateinit var dispatchExecutor: TelecrmDispatchExecutor
+    private var pendingCallPhone: String? = null
 
     private val connectionListener: (Boolean) -> Unit = { connected ->
         binding.wsStatusChip.text = getString(
@@ -29,6 +43,19 @@ class MainActivity : AppCompatActivity() {
         Snackbar.make(binding.root, "${alert.title}: ${alert.body}", Snackbar.LENGTH_LONG).show()
     }
 
+    private val dispatchListener: (AppEventBus.DispatchPayload) -> Unit = { payload ->
+        dispatchExecutor.execute(
+            TelecrmDispatchPayload(
+                id = payload.id,
+                action = payload.action,
+                phone = payload.phone,
+                body = payload.body,
+                inquiryId = payload.inquiryId,
+                customerMatch = payload.customerMatch,
+            ),
+        )
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val token = tokenStore.getToken()
@@ -40,15 +67,12 @@ class MainActivity : AppCompatActivity() {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(binding.toolbar)
+        dispatchExecutor = TelecrmDispatchExecutor(this, binding, tokenStore, apiClient)
 
-        binding.toolbar.inflateMenu(R.menu.main_menu)
-        binding.toolbar.setOnMenuItemClickListener { item ->
-            if (item.itemId == R.id.action_logout) {
-                logout()
-                true
-            } else false
-        }
+        bindUserHeader()
+        requestTelephonyPermissions()
+
+        binding.logoutButton.setOnClickListener { logout() }
 
         binding.viewPager.adapter = MainPagerAdapter(this)
         binding.viewPager.isUserInputEnabled = false
@@ -68,13 +92,66 @@ class MainActivity : AppCompatActivity() {
         webSocketClient.connect(token)
         AppEventBus.addConnectionListener(connectionListener)
         AppEventBus.addToastListener(toastListener)
+        AppEventBus.addDispatchListener(dispatchListener)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        drainPendingDispatches()
     }
 
     override fun onDestroy() {
         AppEventBus.removeConnectionListener(connectionListener)
         AppEventBus.removeToastListener(toastListener)
+        AppEventBus.removeDispatchListener(dispatchListener)
+        CallReturnMonitor.unwatch()
         webSocketClient.disconnect()
         super.onDestroy()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == TelecrmDispatchExecutor.REQUEST_CALL_PHONE &&
+            grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED
+        ) {
+            TelecrmCallHelper.onCallPermissionGranted(this, pendingCallPhone)
+            pendingCallPhone = null
+        }
+    }
+
+    private fun bindUserHeader() {
+        val name = tokenStore.getUserName()?.takeIf { it.isNotBlank() } ?: tokenStore.getLoginId().orEmpty()
+        val tenant = tokenStore.getTenantSlug()?.uppercase().orEmpty()
+        binding.userNameText.text = name
+        binding.userTenantText.text = if (tenant.isNotBlank()) "업체 $tenant" else ""
+    }
+
+    private fun requestTelephonyPermissions() {
+        val needed = mutableListOf<String>()
+        if (checkSelfPermission(android.Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(android.Manifest.permission.CALL_PHONE)
+        }
+        if (checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(android.Manifest.permission.READ_PHONE_STATE)
+        }
+        if (needed.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, needed.toTypedArray(), TelecrmDispatchExecutor.REQUEST_CALL_PHONE)
+        }
+    }
+
+    private fun drainPendingDispatches() {
+        val token = tokenStore.getToken() ?: return
+        lifecycleScope.launch {
+            val items = withContext(Dispatchers.IO) {
+                apiClient.fetchPendingMobileDispatches(token).getOrNull().orEmpty()
+            }
+            items.forEach { payload -> dispatchExecutor.execute(payload) }
+        }
     }
 
     private fun logout() {

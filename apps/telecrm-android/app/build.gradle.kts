@@ -23,8 +23,8 @@ android {
         applicationId = "com.skcleantec.telecrm.internal"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0-internal"
+        versionCode = 4
+        versionName = "0.4.0-internal"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "ADMIN_TOKEN_KEY", "\"sk_admin_token\"")
     }
