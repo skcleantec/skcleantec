@@ -1,0 +1,57 @@
+---
+description: 텔레CRM·Android 동반 앱 API 계약 — CRM 수정 시 모바일 연동 고려 (필수)
+globs:
+  - server/src/modules/telecrm/**
+  - client/src/**/crm/**
+  - client/src/api/telecrm.ts
+  - docs/TELECRM.md
+  - docs/TELECRM_ANDROID_APP.md
+alwaysApply: false
+---
+
+# 텔레CRM ↔ Android 앱 연동 (CRM 개발 시 필수)
+
+> **전략 문서**: `docs/TELECRM_ANDROID_APP.md`  
+> **배경**: Android 앱은 **휴대폰(SIM)으로 통화·SMS**하고, CRM 데이터는 **`/api/crm/*` JSON**만 사용한다. 웹 DOM·`?popup=1`·WebSocket에 의존하지 않는다.
+
+## 적용 범위
+
+- `server/src/modules/telecrm/**`
+- `client/src/**/crm/**`, `client/src/api/telecrm.ts`
+- 텔레CRM API·DTO·고객 lookup·brief·스크립트·가격·접수 intake와 **직접 연결되는** 변경
+
+## API 계약 (모바ile-safe)
+
+1. **`/api/crm/*` 응답은 JSON DTO로 완결** — 앱이 관리자 `/inquiries/:id` 전체 상세를 추가 호출하지 않아도 상담 가능하도록 **brief·lookup에 필요 필드를 포함**한다.
+2. **Breaking change 금지** — 필드 삭제·rename 시 deprecated + `client/src/api/telecrm.ts` 타입·서버 serialize **동시** 갱신. 새 필드는 **optional**.
+3. **고객 검색** — `GET /api/crm/customer-lookup`의 `phone` \| `name`, `match: existing \| new \| pick`, `candidates[]`, `inquiries[]`(brief) 시맨틱을 유지한다.
+4. **카탈로그 scope** — `scope=work|shared|personal`, `ownerScope` — 앱도 **개인 우선 병합**(`work`)을 기본으로 한다.
+5. **인증·테넌트** — JWT `tenantId`, `crm.view` / `crm.settings` / `inquiry.create` — `.cursor/rules/multitenant-safety.mdc` 준수.
+6. **새 CRM API**는 `server/src/modules/telecrm/`에 모듈로 추가 — inquiries 등 타 도메인 라우트에 CRM 전용 로직을 흩뿌리지 않는다.
+
+## UI (웹) 변경 시
+
+- PC 3열·드로어 UX를 바꿀 때 **데이터·API 계약**이 앱 brief/lookup과 **동일 의미**인지 확인한다 (예: 상담 요약 필드 = `telecrmInquiryBrief.helpers.ts` + `CrmInquiryBriefPanel`).
+- **전화·이름 검색**, 동명이인 선택, 접수별 요약 흐름을 깨지 않는다.
+- 모바일 전용 레이아웃은 앱 Phase에서 처리 — **서버는 mobile-first JSON**, 웹은 표현층.
+
+## 네이티브(앱) 전제 — CRM 코드에서 하지 않을 것
+
+- 서버 CTI·자동 SMS·`SmsManager` — **앱 네이티브 + OS Intent** (`tel:`, `smsto:`). CRM API에 통신사 연동 넣지 않는다.
+- Play Store SMS/통화 권한 — **문자 앱 prefill + 사용자 전송**이 1차 표준.
+
+## 변경 마무리 체크리스트
+
+- [ ] `telecrm.ts` DTO와 서버 serialize가 **필드 일치**
+- [ ] lookup/brief **회귀** — 전화·이름·pick·brief 필드
+- [ ] `docs/TELECRM.md` API 표 또는 `docs/TELECRM_ANDROID_APP.md` §4·§8 갱신(계약 변경 시)
+- [ ] `npx tsc` server/client
+
+## 참고 구현
+
+| 항목 | 경로 |
+|------|------|
+| Lookup | `telecrmCustomerLookup.service.ts` |
+| Brief | `telecrmInquiryBrief.helpers.ts`, `CrmInquiryBriefPanel.tsx` |
+| API 타입 | `client/src/api/telecrm.ts` |
+| 앱 전략 | `docs/TELECRM_ANDROID_APP.md` |

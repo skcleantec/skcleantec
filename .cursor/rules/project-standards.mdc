@@ -102,6 +102,11 @@ alwaysApply: true
 - 팀장과 **주고받아 화면에 나타나는 DB 기반 데이터**는 **WebSocket `inbox:refresh` + 클라이언트 재조회**로 실시간에 맞춘다. 새 API·새 팀 페이지를 만들 때도 동일 패턴을 적용한다.
 - 상세 규칙·체크리스트·참고 파일: **`.cursor/rules/team-realtime-websocket.mdc`**
 
+## 8.1 텔레CRM · Android 앱 연동
+
+- **Android 동반 앱**(휴대폰 통화·SMS + CRM API)을 전제로, **`/api/crm/*` JSON 계약**과 고객 lookup·brief를 **모바일에서도 그대로 쓸 수 있게** 유지한다.
+- 텔레CRM·`telecrm` 모듈 수정 시: **`docs/TELECRM_ANDROID_APP.md`**, **`.cursor/rules/telecrm-mobile-app.mdc`**
+
 ## 9. 배포 (운영)
 
 - **운영 배포는 Railway만 사용한다. Vercel은 사용하지 않는다.**

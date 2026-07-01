@@ -27,7 +27,7 @@
 - **설정·발주서** — CRM 헤더 또는 `?panel=settings|issue` 드로어 (솔루션 탭 이동 없이 처리) — 접수 입력은 `localStorage`에 저장됩니다. 창을 닫기 전 미저장 시 브라우저 경고가 뜰 수 있습니다. 저장 성공 시 초안은 삭제됩니다.
 - **스크립트** — `Ctrl+1~5` 카테고리, `Ctrl+Shift+←→` 탭, 「스크립트 복사」 버튼
 - **가격** — 항목 클릭 시 금액 클립보드 복사
-- **기존 고객** — 연락처 lookup 후 이력 행 클릭 → `ScheduleInquiryDetailModal`로 접수 수정
+- **기존 고객** — **전화번호·이름** lookup, 동명이인 선택, 접수 **상담 요약**(발주서·메모·안내) — 행 「상세 수정」→ `ScheduleInquiryDetailModal`
 - **로그인 복귀** — `CrmPopupEntry` + `LoginPage` sessionStorage 보조로 `/admin/crm?popup=1` 유지
 
 ## API
@@ -35,9 +35,17 @@
 | 경로 | 설명 |
 |---|---|
 | `/api/crm/*` | 스크립트·가격·lookup 등 |
+| `/api/crm/customer-lookup?phone=` \| `?name=` | 기존 고객 검색·동명이인 pick·접수 brief |
 | `/api/crm/order-options` | 발주 전문시공 옵션(금액 리프) |
 
 코드: `server/src/modules/telecrm/`
+
+## Android 동반 앱 (전략)
+
+마케터 **휴대폰(SIM) 통화·SMS** + 동일 CRM API를 쓰는 Android 앱을 전제로, **API·brief·lookup 변경 시 모바일 호환**을 유지한다.
+
+- **전략 문서**: `docs/TELECRM_ANDROID_APP.md`
+- **개발 규칙**: `.cursor/rules/telecrm-mobile-app.mdc` (telecrm 경로 수정 시)
 
 ## 마케터 가이드
 
