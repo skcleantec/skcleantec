@@ -1,25 +1,38 @@
 import type { ReactNode } from 'react';
+import { CRM_ACCENT, CrmColumnIcon, type CrmAccent } from '../crmUi';
 
 export function CrmColumn({
   title,
   subtitle,
+  accent,
   children,
   className = '',
 }: {
   title: string;
   subtitle?: string;
+  accent: CrmAccent;
   children: ReactNode;
   className?: string;
 }) {
+  const tone = CRM_ACCENT[accent];
   return (
     <div
-      className={`flex min-h-0 min-w-0 flex-col rounded-2xl border border-gray-200 bg-white shadow-sm ${className}`}
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md shadow-slate-200/40 ${className}`}
     >
-      <div className="shrink-0 border-b border-gray-100 px-4 py-3">
-        <h2 className="text-fluid-sm font-semibold text-gray-900">{title}</h2>
-        {subtitle ? <p className="mt-0.5 text-fluid-xs text-gray-500">{subtitle}</p> : null}
+      <div
+        className={`shrink-0 border-b border-slate-100/80 bg-gradient-to-r ${tone.header} px-4 py-3.5`}
+      >
+        <div className="flex items-start gap-3">
+          <CrmColumnIcon accent={accent} />
+          <div className="min-w-0 pt-0.5">
+            <h2 className="text-fluid-sm font-bold tracking-tight text-slate-900">{title}</h2>
+            {subtitle ? <p className="mt-0.5 text-fluid-xs text-slate-600">{subtitle}</p> : null}
+          </div>
+        </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-white to-slate-50/40 p-4">
+        {children}
+      </div>
     </div>
   );
 }
@@ -36,7 +49,7 @@ export function CrmShell({
   right: ReactNode;
 }) {
   return (
-    <div className="flex h-screen min-w-[1280px] flex-col bg-slate-100">
+    <div className="flex h-screen min-w-[1280px] flex-col bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-100">
       {header}
       <div className="grid min-h-0 flex-1 grid-cols-[28%_40%_32%] gap-3 p-3">
         {left}

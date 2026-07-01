@@ -11,6 +11,7 @@ import { CrmIntakePanel, type CrmCustomerMode } from '../../../components/crm/in
 import { CrmScriptPanel } from '../../../components/crm/scripts/CrmScriptPanel';
 import { CrmPricingPanel } from '../../../components/crm/pricing/CrmPricingPanel';
 import { CrmSessionBar } from '../../../components/crm/session/CrmSessionBar';
+import { CrmIconPhone } from '../../../components/crm/crmUi';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
@@ -282,12 +283,16 @@ export function CrmPage() {
       <div className="min-w-[1280px]">
         <CrmShell
           header={
-            <header className="theme-dark-header flex shrink-0 items-center justify-between gap-4 px-4 py-3 text-white">
+            <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-4 py-3 text-white shadow-lg">
               <div className="flex min-w-0 items-center gap-3">
-                <h1 className="truncate text-fluid-sm font-semibold">텔레CRM</h1>
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 shadow-md shadow-indigo-900/40">
+                  <CrmIconPhone className="h-5 w-5" />
+                </span>
+                <h1 className="truncate text-fluid-sm font-bold tracking-tight">텔레CRM</h1>
                 <CrmSessionBar enabled={canAdsSession} />
                 {hasUnsavedDraft ? (
-                  <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-100">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-semibold text-amber-100 ring-1 ring-inset ring-amber-300/30">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
                     미저장 초안
                   </span>
                 ) : null}
@@ -297,7 +302,7 @@ export function CrmPage() {
                   <button
                     type="button"
                     onClick={() => openIssue()}
-                    className="rounded-lg border border-white/20 px-3 py-1.5 text-fluid-xs hover:bg-white/10"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-400/40 bg-sky-500/15 px-3 py-1.5 text-fluid-xs font-semibold text-sky-100 hover:bg-sky-500/25"
                   >
                     발주서
                   </button>
@@ -308,7 +313,7 @@ export function CrmPage() {
                     onClick={() =>
                       openSettings('scripts', canPersonalCatalog ? 'personal' : 'shared')
                     }
-                    className="rounded-lg border border-white/20 px-3 py-1.5 text-fluid-xs hover:bg-white/10"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3 py-1.5 text-fluid-xs font-semibold text-violet-100 hover:bg-violet-500/25"
                   >
                     설정
                   </button>
@@ -317,14 +322,14 @@ export function CrmPage() {
                   <button
                     type="button"
                     onClick={() => window.close()}
-                    className="rounded-lg bg-white/10 px-3 py-1.5 text-fluid-xs hover:bg-white/20"
+                    className="rounded-xl bg-white/10 px-3 py-1.5 text-fluid-xs font-medium hover:bg-white/20"
                   >
                     창 닫기
                   </button>
                 ) : (
                   <Link
                     to="/admin/dashboard"
-                    className="rounded-lg bg-white/10 px-3 py-1.5 text-fluid-xs hover:bg-white/20"
+                    className="rounded-xl bg-white/10 px-3 py-1.5 text-fluid-xs font-medium hover:bg-white/20"
                   >
                     관리자로
                   </Link>

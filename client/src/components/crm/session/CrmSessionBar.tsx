@@ -3,6 +3,14 @@ import { getToken } from '../../../stores/auth';
 import { getActiveAdSession, getAdChannels, startAdSession, type ActiveSession } from '../../../api/advertising';
 import { AdWorkSessionEndModal } from '../../advertising/AdWorkSessionEndModal';
 
+function SessionPulseIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path strokeLinecap="round" d="M4 12h4l2-7 4 14 2-7h4" />
+    </svg>
+  );
+}
+
 /** CRM 헤더 — 광고 세션 상태·종료 (mod_advertising + ads.sessions) */
 export function CrmSessionBar({ enabled }: { enabled: boolean }) {
   const token = getToken();
@@ -43,17 +51,21 @@ export function CrmSessionBar({ enabled }: { enabled: boolean }) {
 
   return (
     <>
-      <div className="flex items-center gap-2 text-fluid-xs">
+      <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-fluid-xs">
         {loading ? (
           <span className="text-white/60">세션…</span>
         ) : session ? (
           <>
-            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" aria-hidden />
-            <span className="text-white/90">광고 세션 진행 중</span>
+            <span className="relative inline-flex h-2 w-2" aria-hidden>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+            </span>
+            <SessionPulseIcon className="h-3.5 w-3.5 text-emerald-300" />
+            <span className="font-medium text-emerald-100">광고 세션</span>
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="rounded-md border border-white/25 px-2 py-0.5 hover:bg-white/10"
+              className="rounded-md bg-emerald-500/25 px-2 py-0.5 font-semibold text-emerald-50 hover:bg-emerald-500/40"
             >
               종료·정산
             </button>

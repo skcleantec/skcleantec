@@ -6,6 +6,13 @@ import {
   type TelecrmScriptTabDto,
 } from '../../../api/telecrm';
 import { CrmColumn } from '../layout/CrmShell';
+import {
+  CrmActionButton,
+  CrmChip,
+  CrmIconCopy,
+  CrmSectionLabel,
+  CRM_ACCENT,
+} from '../crmUi';
 import { applyTelecrmScriptPlaceholders } from './applyTelecrmScriptPlaceholders';
 import { partitionTelecrmCategories } from '../settings/telecrmSettingsUi';
 
@@ -145,24 +152,20 @@ export function CrmScriptPanel({
     list.map((c, i) => {
       const globalIndex = startIndex + i;
       return (
-        <button
+        <CrmChip
           key={c.id}
-          type="button"
+          accent="script"
+          active={activeCategory?.id === c.id}
           onClick={() => selectCategory(c.id)}
-          className={`rounded-lg px-3 py-1.5 text-fluid-xs font-medium transition-colors ${
-            activeCategory?.id === c.id
-              ? 'bg-slate-900 text-white'
-              : 'border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
-          }`}
           title={globalIndex < 5 ? `Ctrl+${globalIndex + 1}` : undefined}
         >
           {c.label}
-        </button>
+        </CrmChip>
       );
     });
 
   return (
-    <CrmColumn title="상담 스크립트" subtitle="설정에서 등록한 스크립트를 읽기 전용으로 표시합니다">
+    <CrmColumn accent="script" title="상담 스크립트" subtitle="설정에서 등록한 스크립트를 읽기 전용으로 표시합니다">
       {loading ? (
         <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
       ) : error ? (
@@ -171,13 +174,9 @@ export function CrmScriptPanel({
         <div className="space-y-2">
           <p className="text-fluid-sm text-gray-500">등록된 스크립트가 없습니다.</p>
           {onOpenSettings ? (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-fluid-xs text-gray-800 hover:bg-gray-50"
-            >
+            <CrmActionButton accent="script" onClick={onOpenSettings}>
               설정에서 스크립트 추가
-            </button>
+            </CrmActionButton>
           ) : null}
         </div>
       ) : (
@@ -186,22 +185,21 @@ export function CrmScriptPanel({
             <p className="text-[10px] text-gray-500">
               Ctrl+1~5 카테고리 · Ctrl+Shift+←→ 탭 · 복사 버튼으로 클립보드
             </p>
-            <button
-              type="button"
+            <CrmActionButton
+              accent="script"
+              variant="solid"
               onClick={() => void copyScript()}
               disabled={!body}
-              className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-40"
             >
+              <CrmIconCopy className="h-3.5 w-3.5" />
               {copied ? '복사됨' : '스크립트 복사'}
-            </button>
+            </CrmActionButton>
           </div>
 
           <div className="space-y-2">
             {personalCategories.length > 0 ? (
               <div>
-                <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-indigo-600">
-                  내 스크립트
-                </p>
+                <CrmSectionLabel accent="script">내 스크립트</CrmSectionLabel>
                 <div className="flex flex-wrap gap-1.5">
                   {renderCategoryButtons(personalCategories, 0)}
                 </div>
@@ -209,9 +207,7 @@ export function CrmScriptPanel({
             ) : null}
             {sharedCategories.length > 0 ? (
               <div>
-                <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                  업체 공통
-                </p>
+                <CrmSectionLabel accent="script">업체 공통</CrmSectionLabel>
                 <div className="flex flex-wrap gap-1.5">
                   {renderCategoryButtons(sharedCategories, personalCategories.length)}
                 </div>
@@ -226,10 +222,10 @@ export function CrmScriptPanel({
                   key={t.id}
                   type="button"
                   onClick={() => setTabId(t.id)}
-                  className={`rounded-md px-2.5 py-1 text-fluid-xs ${
+                  className={`rounded-lg px-2.5 py-1 text-fluid-xs font-medium transition-colors ${
                     activeTab?.id === t.id
-                      ? 'bg-indigo-50 text-indigo-700 font-medium'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-violet-600 text-white shadow-sm'
+                      : 'text-violet-700 hover:bg-violet-50'
                   }`}
                 >
                   {t.label}
@@ -257,7 +253,7 @@ export function CrmScriptPanel({
           </div>
 
           <div
-            className="whitespace-pre-wrap rounded-xl border border-gray-100 bg-slate-50 p-4 text-gray-800 leading-relaxed"
+            className={`whitespace-pre-wrap rounded-xl border p-4 leading-relaxed text-slate-800 shadow-inner ${CRM_ACCENT.script.panel}`}
             style={{ fontSize: `${fontScale}rem` }}
           >
             {body || '(스크립트 본문이 비어 있습니다)'}

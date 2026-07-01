@@ -8,6 +8,18 @@ import {
 } from '../../../api/telecrm';
 import { formatWon, partitionTelecrmCategories } from '../settings/telecrmSettingsUi';
 import { CrmColumn } from '../layout/CrmShell';
+import {
+  CrmActionButton,
+  CrmChip,
+  CrmIconCopy,
+  CrmIconPricing,
+  CrmIconSearch,
+  CrmSectionLabel,
+  CrmSegment,
+  CrmSegmentItem,
+  CRM_ACCENT,
+  crmSearchFieldClass,
+} from '../crmUi';
 import { computeEstimateTotalFromPyeong } from '@shared/estimateTotal';
 
 type PriceSource = 'telecrm' | 'orderform';
@@ -141,22 +153,19 @@ export function CrmPricingPanel({
 
   const renderCategoryButtons = (list: TelecrmPriceCategoryDto[]) =>
     list.map((c) => (
-      <button
+      <CrmChip
         key={c.id}
-        type="button"
+        accent="pricing"
+        active={activeCategory?.id === c.id}
         onClick={() => setCategoryId(c.id)}
-        className={`rounded-lg px-3 py-1.5 text-fluid-xs font-medium ${
-          activeCategory?.id === c.id
-            ? 'bg-slate-900 text-white'
-            : 'border border-gray-200 bg-gray-50 text-gray-700'
-        }`}
       >
         {c.label}
-      </button>
+      </CrmChip>
     ));
 
   return (
     <CrmColumn
+      accent="pricing"
       title="가격 안내"
       subtitle={
         source === 'telecrm'
@@ -165,38 +174,40 @@ export function CrmPricingPanel({
       }
     >
       <div className="space-y-4">
-        <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
-          <button
-            type="button"
+        <CrmSegment accent="pricing">
+          <CrmSegmentItem
+            accent="pricing"
+            active={source === 'telecrm'}
             onClick={() => setSource('telecrm')}
-            className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium ${
-              source === 'telecrm' ? 'bg-slate-900 text-white' : 'text-gray-600'
-            }`}
+            icon={<CrmIconPricing className="h-3.5 w-3.5" />}
           >
             텔레CRM 가격
-          </button>
-          <button
-            type="button"
+          </CrmSegmentItem>
+          <CrmSegmentItem
+            accent="pricing"
+            active={source === 'orderform'}
             onClick={() => setSource('orderform')}
-            className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium ${
-              source === 'orderform' ? 'bg-slate-900 text-white' : 'text-gray-600'
-            }`}
+            icon={<CrmIconCopy className="h-3.5 w-3.5" />}
           >
             발주 전문시공
-          </button>
+          </CrmSegmentItem>
+        </CrmSegment>
+
+        <div className="relative">
+          <CrmIconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-600/70" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="항목 검색…"
+            className={crmSearchFieldClass}
+          />
         </div>
 
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="항목 검색…"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
-        />
-
         {source === 'telecrm' ? (
-          <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 space-y-2">
-            <p className="text-fluid-xs font-medium text-indigo-900">
+          <div className={`rounded-xl border p-3 space-y-2 shadow-sm ${CRM_ACCENT.pricing.panel}`}>
+            <p className="flex items-center gap-1.5 text-fluid-xs font-semibold text-amber-900">
+              <CrmIconPricing className="h-4 w-4 shrink-0" />
               예상 총액 (평당 {formatWon(pricePerPyeong)}
               {minimumTotalAmount > 0 ? ` · 최소 ${formatWon(minimumTotalAmount)}` : ''})
             </p>
@@ -210,12 +221,12 @@ export function CrmPricingPanel({
                 className="w-24 rounded-lg border border-gray-300 px-2 py-1.5 text-fluid-sm text-center tabular-nums"
               />
               <span className="text-fluid-sm text-gray-600">평</span>
-              <span className="ml-auto text-fluid-sm font-semibold text-indigo-800 tabular-nums">
+              <span className="ml-auto text-fluid-sm font-bold text-amber-800 tabular-nums">
                 {estimatedTotal != null ? formatWon(estimatedTotal) : '—'}
               </span>
             </div>
             {minimumApplied ? (
-              <p className="text-[10px] text-indigo-700">최소 금액이 적용되었습니다.</p>
+              <p className="text-[10px] text-amber-800/90">최소 금액이 적용되었습니다.</p>
             ) : null}
           </div>
         ) : (
@@ -233,17 +244,13 @@ export function CrmPricingPanel({
             <div className="space-y-2">
               {personalCategories.length > 0 ? (
                 <div>
-                  <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-indigo-600">
-                    내 가격
-                  </p>
+                  <CrmSectionLabel accent="pricing">내 가격</CrmSectionLabel>
                   <div className="flex flex-wrap gap-1.5">{renderCategoryButtons(personalCategories)}</div>
                 </div>
               ) : null}
               {sharedCategories.length > 0 ? (
                 <div>
-                  <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                    업체 공통
-                  </p>
+                  <CrmSectionLabel accent="pricing">업체 공통</CrmSectionLabel>
                   <div className="flex flex-wrap gap-1.5">{renderCategoryButtons(sharedCategories)}</div>
                 </div>
               ) : null}
@@ -254,13 +261,9 @@ export function CrmPricingPanel({
                 <li className="text-fluid-sm text-gray-500 space-y-2">
                   <p>항목이 없습니다.</p>
                   {onOpenSettings ? (
-                    <button
-                      type="button"
-                      onClick={onOpenSettings}
-                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-fluid-xs text-gray-800 hover:bg-gray-50"
-                    >
+                    <CrmActionButton accent="pricing" onClick={onOpenSettings}>
                       가격 항목 추가
-                    </button>
+                    </CrmActionButton>
                   ) : null}
                 </li>
               ) : (
@@ -269,11 +272,11 @@ export function CrmPricingPanel({
                     <button
                       type="button"
                       onClick={() => void copyAmount(item.id, item.amountWon, item.name)}
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
+                      className="group w-full rounded-xl border border-amber-100/80 bg-white px-3 py-2.5 text-left shadow-sm transition-all hover:border-amber-300 hover:bg-amber-50/50 hover:shadow-md"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-fluid-sm font-medium text-gray-900">{item.name}</span>
-                        <span className="shrink-0 text-fluid-sm font-semibold text-indigo-700 tabular-nums">
+                        <span className="shrink-0 text-fluid-sm font-bold text-amber-700 tabular-nums">
                           {formatWon(item.amountWon)}
                         </span>
                       </div>
@@ -295,13 +298,9 @@ export function CrmPricingPanel({
               <li className="text-fluid-sm text-gray-500 space-y-2">
                 <p>금액이 있는 전문시공 옵션이 없습니다.</p>
                 {onOpenSettings ? (
-                  <button
-                    type="button"
-                    onClick={onOpenSettings}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-fluid-xs text-gray-800 hover:bg-gray-50"
-                  >
+                  <CrmActionButton accent="pricing" onClick={onOpenSettings}>
                     텔레CRM 가격 설정
-                  </button>
+                  </CrmActionButton>
                 ) : (
                   <p className="text-[10px]">발주서 설정에서 전문시공 옵션을 등록하세요.</p>
                 )}
@@ -312,7 +311,7 @@ export function CrmPricingPanel({
                   <button
                     type="button"
                     onClick={() => void copyOrderOption(row)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
+                    className="group w-full rounded-xl border border-amber-100/80 bg-white px-3 py-2.5 text-left shadow-sm transition-all hover:border-amber-300 hover:bg-amber-50/50 hover:shadow-md"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -324,7 +323,7 @@ export function CrmPricingPanel({
                           {row.labelPath}
                         </p>
                       </div>
-                      <span className="shrink-0 text-fluid-sm font-semibold text-indigo-700 tabular-nums">
+                      <span className="shrink-0 text-fluid-sm font-bold text-amber-700 tabular-nums">
                         {formatOrderOptionPrice(row)}
                       </span>
                     </div>

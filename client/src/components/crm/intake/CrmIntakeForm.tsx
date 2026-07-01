@@ -10,6 +10,7 @@ import {
   type CrmIntakeSubmitResult,
 } from './crmIntakeSubmit';
 import { crmIntakePermissionLabel } from './crmIntakeValidation';
+import { crmFieldClass } from '../crmUi';
 
 const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
   { value: 'absent', label: ORDER_FOLLOWUP_STATUS_LABEL.ABSENT, hint: '부재현황' },
@@ -151,7 +152,7 @@ export function CrmIntakeForm({
           type="text"
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+          className={crmFieldClass}
           disabled={saving}
         />
       </label>
@@ -161,7 +162,7 @@ export function CrmIntakeForm({
           type="text"
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+          className={crmFieldClass}
           disabled={saving}
         />
       </label>
@@ -175,10 +176,10 @@ export function CrmIntakeForm({
               type="button"
               onClick={() => setKind(opt.value)}
               disabled={saving}
-              className={`rounded-lg border px-2 py-2 text-left text-fluid-xs transition-colors ${
+              className={`rounded-xl border px-2 py-2 text-left text-fluid-xs transition-all ${
                 kind === opt.value
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-gray-200 bg-gray-50 text-gray-800 hover:bg-gray-100'
+                  ? 'border-emerald-600 bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-200/50'
+                  : 'border-emerald-100 bg-emerald-50/60 text-emerald-950 hover:bg-emerald-100'
               }`}
             >
               <span className="block font-medium">{opt.label}</span>
@@ -198,7 +199,7 @@ export function CrmIntakeForm({
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="실 주소를 입력해 주세요"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+            className={crmFieldClass}
             disabled={saving}
           />
         </label>
@@ -223,7 +224,7 @@ export function CrmIntakeForm({
       )}
 
       {showMore ? (
-        <div className="space-y-3 rounded-xl border border-gray-100 bg-slate-50/80 p-3">
+        <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
           <label className="block space-y-1">
             <span className="text-fluid-xs font-medium text-gray-700">평수</span>
             <input
@@ -244,7 +245,7 @@ export function CrmIntakeForm({
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                className={crmFieldClass}
                 disabled={saving}
               />
             </label>
@@ -255,7 +256,7 @@ export function CrmIntakeForm({
               type="date"
               value={preferredMoveInCleanYmd}
               onChange={(e) => setPreferredMoveInCleanYmd(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+              className={crmFieldClass}
               disabled={saving}
             />
             <span className="text-[10px] text-gray-500">
@@ -281,7 +282,7 @@ export function CrmIntakeForm({
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
           rows={3}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+          className={crmFieldClass}
           disabled={saving}
         />
       </label>
@@ -300,7 +301,7 @@ export function CrmIntakeForm({
           type="button"
           disabled={saving || permissionsLoading || !canSave}
           onClick={() => void submit(false)}
-          className="w-full rounded-lg bg-slate-900 py-2.5 text-fluid-sm font-medium text-white disabled:opacity-50"
+          className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-fluid-sm font-semibold text-white shadow-md shadow-emerald-200/40 disabled:opacity-50"
         >
           {saving ? '저장 중…' : '저장'}
         </button>
@@ -308,7 +309,7 @@ export function CrmIntakeForm({
           type="button"
           disabled={saving || permissionsLoading || !canSave}
           onClick={() => void submit(true)}
-          className="w-full rounded-lg border border-gray-300 py-2 text-fluid-sm text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+          className="w-full rounded-xl border border-emerald-200 bg-white py-2 text-fluid-sm font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
         >
           저장 후 계속
         </button>
@@ -316,7 +317,7 @@ export function CrmIntakeForm({
           <button
             type="button"
             onClick={() => onOpenOrderIssue(lastInquiryId)}
-            className="w-full rounded-lg border border-sky-200 bg-sky-50 py-2 text-fluid-sm text-sky-900 hover:bg-sky-100"
+            className="w-full rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-indigo-50/50 py-2 text-fluid-sm font-medium text-sky-900 hover:border-sky-300 hover:shadow-sm"
           >
             발주서 발급
           </button>

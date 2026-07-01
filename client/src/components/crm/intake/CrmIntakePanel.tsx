@@ -7,6 +7,14 @@ import type {
 import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
+import {
+  CrmIconIntake,
+  CrmIconPhone,
+  CrmIconSearch,
+  CrmSegment,
+  CrmSegmentItem,
+  crmFieldClass,
+} from '../crmUi';
 import { CrmIntakeForm } from './CrmIntakeForm';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
@@ -154,74 +162,70 @@ export function CrmIntakePanel({
   };
 
   return (
-    <CrmColumn title="접수 · 고객" subtitle="전화 상담 중 고객 정보 등록">
+    <CrmColumn accent="intake" title="접수 · 고객" subtitle="전화 상담 중 고객 정보 등록">
       <div className="space-y-4">
-        <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
-          <button
-            type="button"
+        <CrmSegment accent="intake">
+          <CrmSegmentItem
+            accent="intake"
+            active={mode === 'new'}
             onClick={() => onModeChange('new')}
-            className={`rounded-md px-4 py-2 text-fluid-sm font-medium ${
-              mode === 'new' ? 'bg-slate-900 text-white shadow-sm' : 'text-gray-600'
-            }`}
+            icon={<CrmIconIntake className="h-3.5 w-3.5" />}
           >
             신규
-          </button>
-          <button
-            type="button"
+          </CrmSegmentItem>
+          <CrmSegmentItem
+            accent="intake"
+            active={mode === 'existing'}
             onClick={() => onModeChange('existing')}
-            className={`rounded-md px-4 py-2 text-fluid-sm font-medium ${
-              mode === 'existing' ? 'bg-slate-900 text-white shadow-sm' : 'text-gray-600'
-            }`}
+            icon={<CrmIconSearch className="h-3.5 w-3.5" />}
           >
             기존
-          </button>
-        </div>
+          </CrmSegmentItem>
+        </CrmSegment>
 
         {mode === 'existing' ? (
           <>
-            <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
-              <button
-                type="button"
+            <CrmSegment accent="intake">
+              <CrmSegmentItem
+                accent="intake"
+                active={searchMode === 'phone'}
                 onClick={() => setSearchMode('phone')}
-                className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium ${
-                  searchMode === 'phone' ? 'bg-slate-900 text-white' : 'text-gray-600'
-                }`}
+                icon={<CrmIconPhone className="h-3.5 w-3.5" />}
               >
                 전화번호
-              </button>
-              <button
-                type="button"
+              </CrmSegmentItem>
+              <CrmSegmentItem
+                accent="intake"
+                active={searchMode === 'name'}
                 onClick={() => setSearchMode('name')}
-                className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium ${
-                  searchMode === 'name' ? 'bg-slate-900 text-white' : 'text-gray-600'
-                }`}
+                icon={<CrmIconSearch className="h-3.5 w-3.5" />}
               >
                 이름
-              </button>
-            </div>
+              </CrmSegmentItem>
+            </CrmSegment>
 
             {searchMode === 'phone' ? (
               <label className="block space-y-1">
-                <span className="text-fluid-xs font-medium text-gray-700">연락처 검색</span>
+                <span className="text-fluid-xs font-semibold text-emerald-800">연락처 검색</span>
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) => onPhoneChange(e.target.value)}
                   placeholder="010-0000-0000"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
+                  className={`${crmFieldClass} tabular-nums`}
                 />
               </label>
             ) : (
               <label className="block space-y-1">
-                <span className="text-fluid-xs font-medium text-gray-700">고객 이름 검색</span>
+                <span className="text-fluid-xs font-semibold text-emerald-800">고객 이름 검색</span>
                 <input
                   type="text"
                   value={nameSearch}
                   onChange={(e) => setNameSearch(e.target.value)}
                   placeholder="홍길동 (2자 이상)"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                  className={crmFieldClass}
                 />
-                <p className="text-[10px] text-gray-500">동명이인이 있으면 연락처 목록에서 선택합니다.</p>
+                <p className="text-[10px] text-slate-500">동명이인이 있으면 연락처 목록에서 선택합니다.</p>
               </label>
             )}
 
@@ -238,18 +242,18 @@ export function CrmIntakePanel({
           </>
         ) : (
           <label className="block space-y-1">
-            <span className="text-fluid-xs font-medium text-gray-700">연락처</span>
+            <span className="text-fluid-xs font-semibold text-emerald-800">연락처</span>
             <input
               type="tel"
               value={phone}
               onChange={(e) => onPhoneChange(e.target.value)}
               placeholder="010-0000-0000"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
+              className={`${crmFieldClass} tabular-nums`}
             />
           </label>
         )}
 
-        <div className="border-t border-gray-100 pt-3">
+        <div className="border-t border-emerald-100/80 pt-3">
           <CrmIntakeForm
             seed={intakeSeed}
             initialFormDraft={initialFormDraft}
