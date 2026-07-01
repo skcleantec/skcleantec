@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useHorizontalNavScroll } from './useHorizontalNavScroll';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -62,96 +63,62 @@ type AdminSubNavScrollProps = {
  * `mb-6` 포함.
  */
 export function AdminSubNavScroll({ children, 'aria-label': ariaLabel, className = '' }: AdminSubNavScrollProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [moreLeft, setMoreLeft] = useState(false);
-  const [moreRight, setMoreRight] = useState(false);
   const location = useLocation();
-
-  const updateHints = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const { scrollLeft, scrollWidth, clientWidth } = el;
-    const overflow = scrollWidth > clientWidth + 2;
-    const atStart = scrollLeft <= 3;
-    const atEnd = scrollLeft + clientWidth >= scrollWidth - 3;
-    setMoreLeft(overflow && !atStart);
-    setMoreRight(overflow && !atEnd);
-  }, []);
-
-  useEffect(() => {
-    queueMicrotask(() => updateHints());
-  }, [location.pathname, updateHints]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => updateHints());
-    ro.observe(el);
-    window.addEventListener('resize', updateHints);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', updateHints);
-    };
-  }, [updateHints]);
-
-  const scrollStep = () => {
-    const el = scrollRef.current;
-    if (!el) return 140;
-    return Math.min(160, Math.max(72, Math.round(el.clientWidth * 0.45)));
-  };
-
-  const scrollLeft = () => {
-    scrollRef.current?.scrollBy({ left: -scrollStep(), behavior: 'smooth' });
-  };
-  const scrollRight = () => {
-    scrollRef.current?.scrollBy({ left: scrollStep(), behavior: 'smooth' });
-  };
+  const { scrollRef, contentRef, moreLeft, moreRight, updateHints, scrollPrev, scrollNext } =
+    useHorizontalNavScroll(location.pathname);
 
   return (
     <div className={`mb-6 min-w-0 w-full max-w-full ${className}`}>
-      <div className="relative min-w-0">
+      <div className="relative min-w-0 w-full max-w-full">
         <div
           ref={scrollRef}
           role="navigation"
           aria-label={ariaLabel}
           onScroll={updateHints}
-          className="flex min-w-0 flex-nowrap items-center gap-0.5 sm:gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-gray-200 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className={`min-w-0 w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-gray-200 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+            moreLeft ? 'scroll-pl-10' : ''
+          } ${moreRight ? 'scroll-pr-10' : ''}`}
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          {children}
+          <div
+            ref={contentRef}
+            className="flex w-max min-w-0 flex-nowrap items-center gap-0.5 sm:gap-1"
+          >
+            {children}
+          </div>
         </div>
-        {moreLeft && (
+        {moreLeft ? (
           <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center justify-start">
             <div
-              className="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-gray-50 via-gray-50/95 to-transparent"
+              className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-gray-50 via-gray-50/95 to-transparent sm:w-14"
               aria-hidden
             />
             <button
               type="button"
-              onClick={scrollLeft}
-              className="pointer-events-auto relative ml-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50 sm:h-9 sm:w-9"
+              onClick={scrollPrev}
+              className="pointer-events-auto relative ml-0.5 flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50"
               aria-label="하위 메뉴가 왼쪽으로 더 있습니다. 탭하면 스크롤됩니다."
             >
               <ChevronLeftIcon className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
           </div>
-        )}
-        {moreRight && (
+        ) : null}
+        {moreRight ? (
           <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center justify-end">
             <div
-              className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-gray-50 via-gray-50/95 to-transparent"
+              className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-gray-50 via-gray-50/95 to-transparent sm:w-14"
               aria-hidden
             />
             <button
               type="button"
-              onClick={scrollRight}
-              className="pointer-events-auto relative mr-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50 sm:h-9 sm:w-9"
+              onClick={scrollNext}
+              className="pointer-events-auto relative mr-0.5 flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm active:bg-gray-50"
               aria-label="하위 메뉴가 오른쪽으로 더 있습니다. 탭하면 스크롤됩니다."
             >
               <ChevronRightIcon className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

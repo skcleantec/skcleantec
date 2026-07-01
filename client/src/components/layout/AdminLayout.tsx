@@ -43,40 +43,7 @@ import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { getDbMarketplaceNavCounts } from '../../api/dbMarketplace';
 import { AdminStaffPathGate } from './AdminStaffPathGate';
-
-function ChevronLeftIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M15 6l-6 6 6 6" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  );
-}
+import { DarkHeaderNavScroll } from './DarkHeaderNavScroll';
 
 function CalendarCuteIcon({ className }: { className?: string }) {
   return (
@@ -220,10 +187,6 @@ export function AdminLayout() {
   const [marketplaceBuyerPendingCount, setMarketplaceBuyerPendingCount] = useState(0);
   const [reviewPaybackToast, setReviewPaybackToast] = useState<string | null>(null);
   const reviewPaybackToastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [showNavMoreLeft, setShowNavMoreLeft] = useState(false);
-  const [showNavMoreRight, setShowNavMoreRight] = useState(false);
-  const navScrollRef = useRef<HTMLDivElement>(null);
-  const navInnerRef = useRef<HTMLElement>(null);
   const [meRole, setMeRole] = useState<string | null>(null);
   const [effectiveStaffAdmin, setEffectiveStaffAdmin] = useState(false);
   const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(null);
@@ -462,20 +425,6 @@ export function AdminLayout() {
     setDraggingNavId(null);
   };
 
-  const updateNavScrollHint = useCallback(() => {
-    const el = navScrollRef.current;
-    if (!el) return;
-    const scrollWidth = Math.ceil(el.scrollWidth);
-    const clientWidth = Math.floor(el.clientWidth);
-    const scrollLeft = Math.round(el.scrollLeft);
-    const maxScroll = Math.max(0, scrollWidth - clientWidth);
-    const hasOverflow = scrollWidth > clientWidth + 1;
-    const atStart = scrollLeft <= 2;
-    const atEnd = maxScroll <= 2 || scrollLeft >= maxScroll - 2;
-    setShowNavMoreLeft(hasOverflow && !atStart);
-    setShowNavMoreRight(hasOverflow && !atEnd);
-  }, []);
-
   const fetchNavBadges = useCallback(() => {
     const token = getToken();
     if (!token) return;
@@ -527,30 +476,6 @@ export function AdminLayout() {
   /** 웹소켓 연결 시 폴링 끔, 끊기면 15초 폴백 */
   useVisibilityInterval(fetchNavBadges, navWsConnected ? 0 : 15000);
 
-  useEffect(() => {
-    queueMicrotask(() => updateNavScrollHint());
-  }, [location.pathname, unreadCount, csPendingCount, reviewPaybackUnseenCount, navOrder, updateNavScrollHint]);
-
-  useEffect(() => {
-    const el = navScrollRef.current;
-    if (!el) return;
-    const run = () => updateNavScrollHint();
-    const ro = new ResizeObserver(run);
-    ro.observe(el);
-    const inner = navInnerRef.current;
-    if (inner) ro.observe(inner);
-    window.addEventListener('resize', run);
-    void document.fonts?.ready?.then(run);
-    const t1 = window.setTimeout(run, 100);
-    const t2 = window.setTimeout(run, 450);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', run);
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-    };
-  }, [updateNavScrollHint, navOrder]);
-
   const handleLogout = () => {
     clearToken();
     clearTeamToken();
@@ -559,19 +484,7 @@ export function AdminLayout() {
 
   const navClass = ({ isActive }: { isActive: boolean }) => adminGnbItemClass(isActive);
 
-  const scrollStep = () => {
-    const el = navScrollRef.current;
-    if (!el) return Math.min(160, 160);
-    return Math.min(160, Math.max(80, Math.round(el.clientWidth * 0.45)));
-  };
-
-  const scrollNavLeft = () => {
-    navScrollRef.current?.scrollBy({ left: -scrollStep(), behavior: 'smooth' });
-  };
-
-  const scrollNavRight = () => {
-    navScrollRef.current?.scrollBy({ left: scrollStep(), behavior: 'smooth' });
-  };
+  const adminNavHintKey = `${location.pathname}|${unreadCount}|${csPendingCount}|${reviewPaybackUnseenCount}|${marketplaceDraftCount}|${marketplaceSellerPendingCount}|${marketplaceBuyerPendingCount}|${navOrder.join(',')}`;
 
   const teamLeadersActive =
     location.pathname === '/admin/team-leaders' ||
@@ -799,11 +712,10 @@ export function AdminLayout() {
       <header className="px-4 py-2 shadow-md theme-dark-header sm:py-2.5">
         <div className="max-w-6xl mx-auto flex flex-nowrap items-center justify-between gap-2 min-w-0 sm:gap-3">
           <div className="relative flex-1 min-w-0">
-            <div
-              ref={navScrollRef}
-              onScroll={updateNavScrollHint}
-              className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              style={{ WebkitOverflowScrolling: 'touch' }}
+            <DarkHeaderNavScroll
+              className="w-full"
+              aria-label="관리자 메뉴"
+              hintKey={adminNavHintKey}
             >
               <button
                 type="button"
@@ -815,7 +727,7 @@ export function AdminLayout() {
                 <TenantBrandLogo height={28} className="md:hidden" />
                 <TenantBrandLogo height={32} className="hidden md:block" />
               </button>
-              <nav ref={navInnerRef} className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
+              <nav className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
                 {navOrder.map((id) => {
                   if (id === 'dashboard') return null;
                   if (!canShowAdminNavItem(id, navCtx)) return null;
@@ -1008,35 +920,7 @@ export function AdminLayout() {
                   );
                 })}
               </nav>
-            </div>
-            {showNavMoreLeft && (
-              <div className="pointer-events-none absolute inset-y-0 left-0 z-20 flex items-center justify-start">
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-slate-900 via-slate-900/90 to-transparent" aria-hidden />
-                <button
-                  type="button"
-                  data-admin-nav-scroll-btn
-                  onClick={scrollNavLeft}
-                  className="pointer-events-auto relative ml-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/30 bg-slate-700/95 text-white shadow-md shadow-black/25 transition-all hover:bg-slate-600 hover:border-white/40 active:scale-95"
-                  aria-label="메뉴가 왼쪽으로 더 있습니다. 탭하면 스크롤됩니다."
-                >
-                  <ChevronLeftIcon className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-            {showNavMoreRight && (
-              <div className="pointer-events-none absolute inset-y-0 right-0 z-20 flex items-center justify-end">
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-slate-900 via-slate-900/90 to-transparent" aria-hidden />
-                <button
-                  type="button"
-                  data-admin-nav-scroll-btn
-                  onClick={scrollNavRight}
-                  className="pointer-events-auto relative mr-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/30 bg-slate-700/95 text-white shadow-md shadow-black/25 transition-all hover:bg-slate-600 hover:border-white/40 active:scale-95"
-                  aria-label="메뉴가 오른쪽으로 더 있습니다. 탭하면 스크롤됩니다."
-                >
-                  <ChevronRightIcon className="h-4 w-4" />
-                </button>
-              </div>
-            )}
+            </DarkHeaderNavScroll>
           </div>
           <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-3">
             {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
