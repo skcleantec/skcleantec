@@ -282,7 +282,14 @@ html, body {
   color: #ffffff !important;
 }
 
-/* NavLinks inside dark header */
+/* NavLinks inside dark header — 아이콘·제목 가로 한 줄 */
+.theme-dark-header nav a,
+.theme-dark-header [data-admin-gnb-item] {
+  display: inline-flex !important;
+  flex-flow: row nowrap;
+  align-items: center;
+}
+
 .theme-dark-header nav a {
   transition: all 0.2s ease;
 }

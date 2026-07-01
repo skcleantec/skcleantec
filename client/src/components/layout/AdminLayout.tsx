@@ -43,7 +43,6 @@ import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { getDbMarketplaceNavCounts } from '../../api/dbMarketplace';
 import { AdminStaffPathGate } from './AdminStaffPathGate';
-import { openTelecrmWindow } from '../../utils/openTelecrmWindow';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -181,14 +180,28 @@ function AdminNavIcon({ id, className }: { id: string; className?: string }) {
       </svg>
     );
   }
-  if (id === 'telecrm') {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" />
-      </svg>
-    );
-  }
   return null;
+}
+
+/** GNB 메뉴 — 아이콘·제목 가로 한 줄 (좁은 화면은 가로 스크롤) */
+const ADMIN_GNB_ITEM_BASE =
+  'inline-flex flex-row flex-nowrap items-center gap-1 px-2 py-1 text-fluid-xs font-semibold rounded-xl whitespace-nowrap shrink-0 touch-manipulation transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] sm:gap-1.5 sm:px-3 sm:py-1.5';
+
+function adminGnbItemClass(isActive: boolean): string {
+  return `${ADMIN_GNB_ITEM_BASE} ${
+    isActive
+      ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/20'
+      : 'text-slate-300 hover:text-white hover:bg-white/10'
+  }`;
+}
+
+function AdminGnbItemContent({ id, label }: { id: string; label: string }) {
+  return (
+    <>
+      <AdminNavIcon id={id} className="h-4 w-4 shrink-0" />
+      <span className="whitespace-nowrap leading-none">{label}</span>
+    </>
+  );
 }
 
 export function AdminLayout() {
@@ -544,12 +557,7 @@ export function AdminLayout() {
     navigate('/login');
   };
 
-  const navClass = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex items-center px-3 py-1.5 text-fluid-xs font-semibold rounded-xl whitespace-nowrap shrink-0 flex-none break-keep transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] ${
-      isActive
-        ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/20'
-        : 'text-slate-300 hover:text-white hover:bg-white/10'
-    }`;
+  const navClass = ({ isActive }: { isActive: boolean }) => adminGnbItemClass(isActive);
 
   const scrollStep = () => {
     const el = navScrollRef.current;
@@ -788,42 +796,8 @@ export function AdminLayout() {
           </div>
         </div>
       )}
-      <header className="px-4 py-2.5 shadow-md theme-dark-header">
-        <div className="max-w-6xl mx-auto flex flex-col gap-2 min-w-0">
-          <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
-            <button
-              type="button"
-              onClick={() => navigate('/admin/dashboard')}
-              className="min-w-0 shrink-0 text-left hover:opacity-90 transition-opacity"
-              aria-label="청소비서 — 대시보드로 이동"
-              title="대시보드로 이동"
-            >
-              <TenantBrandLogo height={28} />
-            </button>
-            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0">
-              {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
-              {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
-              <UserProfileMenu
-                token={adminToken}
-                me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}
-                loading={meProfileLoading}
-                showStagingDbImport={showStagingDbImportMenu}
-                onStagingDbImport={() => setStagingDbImportModalOpen(true)}
-                onSaved={(next) => {
-                  setMeName(next.name);
-                  setMePhone(next.phone);
-                  setMeVehicleNumber(next.vehicleNumber);
-                }}
-                onLogout={handleLogout}
-                onSessionExpired={() => {
-                  clearToken();
-                  clearTeamToken();
-                  navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
-                }}
-              />
-            </div>
-          </div>
-          <div className="flex flex-nowrap items-center justify-between gap-3 min-w-0">
+      <header className="px-4 py-2 shadow-md theme-dark-header sm:py-2.5">
+        <div className="max-w-6xl mx-auto flex flex-nowrap items-center justify-between gap-2 min-w-0 sm:gap-3">
           <div className="relative flex-1 min-w-0">
             <div
               ref={navScrollRef}
@@ -834,11 +808,12 @@ export function AdminLayout() {
               <button
                 type="button"
                 onClick={() => navigate('/admin/dashboard')}
-                className="hidden md:block shrink-0 hover:opacity-90 transition-opacity"
+                className="shrink-0 hover:opacity-90 transition-opacity"
                 aria-label="청소비서 — 대시보드로 이동"
                 title="대시보드로 이동"
               >
-                <TenantBrandLogo height={32} />
+                <TenantBrandLogo height={28} className="md:hidden" />
+                <TenantBrandLogo height={32} className="hidden md:block" />
               </button>
               <nav ref={navInnerRef} className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
                 {navOrder.map((id) => {
@@ -856,7 +831,7 @@ export function AdminLayout() {
                         handleNavDragStart(e, id);
                       }}
                       onDragEnd={handleNavDragEnd}
-                      className="inline-grid grid-cols-2 gap-px px-0.5 py-1 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing select-none touch-none shrink-0"
+                      className="hidden md:inline-grid grid-cols-2 gap-px px-0.5 py-1 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing select-none touch-none shrink-0"
                     >
                       {Array.from({ length: 6 }).map((_, i) => (
                         <span key={i} className="w-[3px] h-[3px] rounded-full bg-current" aria-hidden />
@@ -878,9 +853,9 @@ export function AdminLayout() {
                         <NavLink
                           to={def.to}
                           className={() => navClass({ isActive: teamLeadersActive })}
+                          data-admin-gnb-item
                         >
-                          <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
-                          <span>{def.label}</span>
+                          <AdminGnbItemContent id={id} label={def.label} />
                         </NavLink>
                       </div>
                     );
@@ -898,12 +873,12 @@ export function AdminLayout() {
                           <NavLink
                             to={def.to}
                             className={navClass}
+                            data-admin-gnb-item
                             aria-label={
                               unreadCount > 0 ? `${def.label}, 새 메시지 ${unreadCount}건` : def.label
                             }
                           >
-                            <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
-                            <span>{def.label}</span>
+                            <AdminGnbItemContent id={id} label={def.label} />
                           </NavLink>
                           {unreadCount > 0 ? (
                             <span
@@ -931,14 +906,14 @@ export function AdminLayout() {
                           <NavLink
                             to={def.to}
                             className={navClass}
+                            data-admin-gnb-item
                             aria-label={
                               inquiriesNavBadge > 0
                                 ? `${def.label}, 하위 메뉴 알림 ${inquiriesNavBadge}건`
                                 : def.label
                             }
                           >
-                            <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
-                            <span>{def.label}</span>
+                            <AdminGnbItemContent id={id} label={def.label} />
                           </NavLink>
                           {inquiriesNavBadge > 0 ? (
                             <span
@@ -965,6 +940,7 @@ export function AdminLayout() {
                           <NavLink
                             to={def.to}
                             className={navClass}
+                            data-admin-gnb-item
                             aria-label={
                               marketplaceDraftCount > 0 ||
                               marketplaceSellerPendingCount > 0 ||
@@ -981,8 +957,7 @@ export function AdminLayout() {
                                 : def.label
                             }
                           >
-                            <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
-                            <span>{def.label}</span>
+                            <AdminGnbItemContent id={id} label={def.label} />
                           </NavLink>
                           {marketplaceSellerPendingCount > 0 ? (
                             <Link
@@ -1018,26 +993,6 @@ export function AdminLayout() {
                       </div>
                     );
                   }
-                  if (id === 'telecrm') {
-                    return (
-                      <div
-                        key={id}
-                        className={rowClass}
-                        onDragOver={handleNavDragOver}
-                        onDrop={(e) => handleNavDrop(e, id)}
-                      >
-                        {dragHandle}
-                        <button
-                          type="button"
-                          onClick={() => openTelecrmWindow()}
-                          className={`${navClass} w-full text-left`}
-                        >
-                          <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
-                          <span>{def.label}</span>
-                        </button>
-                      </div>
-                    );
-                  }
                   return (
                     <div
                       key={id}
@@ -1046,9 +1001,8 @@ export function AdminLayout() {
                       onDrop={(e) => handleNavDrop(e, id)}
                     >
                       {dragHandle}
-                      <NavLink to={def.to} className={navClass}>
-                        <AdminNavIcon id={id} className="w-4 h-4 mr-1.5 shrink-0" />
-                        <span>{def.label}</span>
+                      <NavLink to={def.to} className={navClass} data-admin-gnb-item>
+                        <AdminGnbItemContent id={id} label={def.label} />
                       </NavLink>
                     </div>
                   );
@@ -1084,7 +1038,7 @@ export function AdminLayout() {
               </div>
             )}
           </div>
-          <div className="hidden md:flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-3">
             {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
             {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
             <UserProfileMenu
@@ -1106,7 +1060,6 @@ export function AdminLayout() {
               }}
             />
           </div>
-        </div>
         </div>
       </header>
       </div>

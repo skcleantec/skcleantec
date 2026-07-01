@@ -15,8 +15,7 @@ export type AdminNavId =
   | 'db-marketplace'
   | 'team-leaders'
   | 'advertising'
-  | 'messages'
-  | 'telecrm';
+  | 'messages';
 
 export type AdminNavContext = {
   /** @deprecated marketerPermissions 기반 canShowAdminGnbItem 사용 */
@@ -62,7 +61,6 @@ export const ADMIN_NAV_DEF: Record<
   'team-leaders': { to: '/admin/team-leaders', label: '관리자 전용', adminOnly: true },
   advertising: { to: '/admin/advertising', label: '광고비' },
   messages: { to: '/admin/messages', label: '메시지' },
-  telecrm: { to: '/admin/crm?popup=1', label: '텔레CRM' },
 };
 
 const STORAGE_ADMIN = 'sk_admin_nav_order_v1_admin';
@@ -75,7 +73,6 @@ export const DEFAULT_ADMIN_NAV_ORDER: AdminNavId[] = [
   'db-marketplace',
   'team-leaders',
   'advertising',
-  'telecrm',
   'messages',
 ];
 
@@ -86,7 +83,6 @@ export const DEFAULT_NON_ADMIN_NAV_ORDER: AdminNavId[] = [
   'schedule',
   'db-marketplace',
   'advertising',
-  'telecrm',
   'messages',
 ];
 

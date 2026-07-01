@@ -7,12 +7,14 @@ import { DashboardChangeHistory } from '../../components/admin/DashboardChangeHi
 import { DashboardOpsHourlyStrip } from '../../components/admin/DashboardOpsHourlyStrip';
 import { TelemarketingSessionBlock } from '../../components/admin/TelemarketingSessionBlock';
 import { DashboardTenantSubscriptionBlock } from '../../components/admin/DashboardTenantSubscriptionBlock';
+import { DashboardTelecrmBlock } from '../../components/admin/DashboardTelecrmBlock';
 import { DashboardStatCard } from '../../components/admin/dashboard/DashboardStatCard';
 import { DashboardSalesBlock } from '../../components/admin/dashboard/DashboardSalesBlock';
 import { DashboardInquiryAnalyticsPanel } from '../../components/admin/dashboard/DashboardInquiryAnalyticsPanel';
 import { DashboardDrilldownModal } from '../../components/admin/dashboard/DashboardDrilldownModal';
 import type { DashboardDrillKind, DashboardDrillRequest } from '../../components/admin/dashboard/dashboardDrilldownTypes';
 import { kstMonthKeyNow } from '../../components/admin/dashboard/dashboardDrilldownTypes';
+import { useTelecrmDashboardVisible } from '../../hooks/useTelecrmDashboardVisible';
 
 function kstMonthTitleKo(): string {
   const k = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
@@ -23,6 +25,7 @@ function kstMonthTitleKo(): string {
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const token = getToken();
+  const showTelecrmDashboard = useTelecrmDashboardVisible();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [breakdown, setBreakdown] = useState<DashboardInquiryBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,9 +117,16 @@ export function AdminDashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div
+        className={
+          showTelecrmDashboard
+            ? 'grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3'
+            : 'grid grid-cols-1 gap-6 lg:grid-cols-2'
+        }
+      >
         <DashboardTenantSubscriptionBlock />
         <TelemarketingSessionBlock />
+        {showTelecrmDashboard ? <DashboardTelecrmBlock /> : null}
       </div>
 
       <DashboardOpsHourlyStrip onOpenDetail={(range) => openDrill('ops-hourly', undefined, range)} />

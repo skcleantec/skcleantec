@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
 import { useTenantSubscriptionData } from '../../hooks/useTenantSubscriptionData';
 import { DashboardTenantSubscriptionView } from './DashboardTenantSubscriptionView';
+import { DashboardTopCard } from './dashboard/DashboardTopCard';
 
 function CardShell({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm shadow-slate-100/50 flex items-center justify-center h-full min-h-[180px]">
-      {children}
-    </div>
+    <DashboardTopCard>
+      <div className="flex flex-1 flex-col items-center justify-center">{children}</div>
+    </DashboardTopCard>
   );
 }
 
