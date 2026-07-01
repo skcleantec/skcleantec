@@ -29,6 +29,7 @@ const PATH_ICON_RULES: { prefix: string; icon: AdminSideNavIconId }[] = [
   { prefix: '/admin/inquiries/order-customer', icon: 'settings' },
   { prefix: '/admin/inquiries/quotations', icon: 'calculator' },
   { prefix: '/admin/inquiries', icon: 'inbox' },
+  { prefix: '/admin/crm/settings', icon: 'settings' },
   { prefix: '/admin/advertising/settings', icon: 'settings' },
   { prefix: '/admin/advertising', icon: 'megaphone' },
   { prefix: '/admin/team-leaders/company-profile/subscription', icon: 'chart' },

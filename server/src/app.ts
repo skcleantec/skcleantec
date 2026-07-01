@@ -59,6 +59,7 @@ import platformHelpInquiryRoutes from './modules/help-inquiry/platformHelpInquir
 import { resolveHelpScreenshotFilePath } from './modules/help/helpScreenshotsPath.js';
 import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLeaderTraining.admin.routes.js';
 import marketerPermissionsRoutes from './modules/marketer-permissions/marketerPermissions.routes.js';
+import { telecrmRoutes } from './modules/telecrm/telecrm.routes.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
 
@@ -125,6 +126,7 @@ app.use('/api/admin/tenant-subscription', tenantSubscriptionRoutes);
 app.use('/api/admin/e-contracts', eContractAdminRoutes);
 app.use('/api/admin/team-leader-training', teamLeaderTrainingAdminRoutes);
 app.use('/api/e-contract', eContractPublicRoutes);
+app.use('/api/crm', telecrmRoutes);
 app.use('/api/help', helpRoutes);
 app.use('/api/help/inquiry', helpInquiryPublicRoutes);
 mountCustomModuleRoutes(app);

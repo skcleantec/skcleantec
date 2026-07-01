@@ -11,7 +11,8 @@ export type AdminNavId =
   | 'db-marketplace'
   | 'team-leaders'
   | 'advertising'
-  | 'messages';
+  | 'messages'
+  | 'telecrm';
 
 /** GNB 항목 — 마케터는 하나라도 있으면 표시 */
 export const ADMIN_GNB_PERMISSIONS: Record<AdminNavId, readonly MarketerPermissionId[]> = {
@@ -22,6 +23,7 @@ export const ADMIN_GNB_PERMISSIONS: Record<AdminNavId, readonly MarketerPermissi
   'team-leaders': ADMIN_MENU_MARKETER_PERMISSION_IDS,
   advertising: ['ads.sessions', 'ads.analytics', 'ads.settings'],
   messages: ['messages.send'],
+  telecrm: ['crm.view', 'crm.settings'],
 };
 
 export type AdminPathPermissionRule = {
@@ -65,6 +67,8 @@ export const ADMIN_PATH_PERMISSION_RULES: AdminPathPermissionRule[] = [
   { prefix: '/admin/inquiries/review-payback', permissions: ['inquiry.view'] },
   { prefix: '/admin/inquiries/cs', permissions: ['cs.view'] },
   { prefix: '/admin/inquiries', permissions: ['inquiry.view'] },
+  { prefix: '/admin/crm/settings', permissions: ['crm.settings'] },
+  { prefix: '/admin/crm', permissions: ['crm.view'] },
   { prefix: '/admin/advertising/settings', permissions: ['ads.settings'] },
   { prefix: '/admin/advertising', permissions: ['ads.sessions', 'ads.analytics', 'ads.settings'] },
   { prefix: '/admin/db-marketplace', permissions: ['marketplace.view'] },

@@ -8,6 +8,7 @@ const DELEGATED_PREFIXES = [
   '/admin/inquiries',
   '/admin/team-leaders',
   '/admin/advertising',
+  '/admin/crm/settings',
 ] as const;
 
 function isDelegatedAdminPath(pathname: string): boolean {

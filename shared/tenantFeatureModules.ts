@@ -18,6 +18,7 @@ export const TENANT_FEATURE_MODULES = {
   mod_crew: { label: '크루(현장)', tier: 'standard' as const, defaultOn: true },
   mod_team_stats: { label: '팀장 통계', tier: 'standard' as const, defaultOn: true },
   mod_inspection: { label: '현장 검수', tier: 'standard' as const, defaultOn: true },
+  mod_telecrm: { label: '텔레CRM', tier: 'standard' as const, defaultOn: false },
 } as const;
 
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;
@@ -60,6 +61,7 @@ export const TENANT_PLANS = {
       'mod_advertising',
       'mod_payroll',
       'mod_e_contract',
+      'mod_telecrm',
     ] as TenantFeatureModuleId[],
   },
 } as const;
@@ -87,6 +89,7 @@ export const ADMIN_NAV_MODULE_MAP = {
   advertising: 'mod_advertising',
   messages: 'core_messages',
   'db-marketplace': 'mod_db_marketplace',
+  telecrm: 'mod_telecrm',
 } as const satisfies Record<string, TenantFeatureModuleId | null>;
 
 export type AdminNavFeatureId = keyof typeof ADMIN_NAV_MODULE_MAP;

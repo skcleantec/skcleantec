@@ -273,3 +273,24 @@ export const PlatformHelpInquirySettingsPage = lazyWithRetry(() =>
 export const HelpPage = lazyWithRetry(() =>
   import('../pages/HelpPage').then((m) => ({ default: m.HelpPage }))
 );
+export const CrmPage = lazyWithRetry(() =>
+  import('../pages/admin/crm/CrmPage').then((m) => ({ default: m.CrmPage }))
+);
+export const TelecrmSettingsLayout = lazyWithRetry(() =>
+  import('../pages/admin/crm/settings/TelecrmSettingsLayout').then((m) => ({ default: m.TelecrmSettingsLayout }))
+);
+export const TelecrmScriptSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/crm/settings/TelecrmScriptSettingsPage').then((m) => ({
+    default: m.TelecrmScriptSettingsPage,
+  }))
+);
+export const TelecrmPricingSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/crm/settings/TelecrmPricingSettingsPage').then((m) => ({
+    default: m.TelecrmPricingSettingsPage,
+  }))
+);
+export const TelecrmGeneralSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/crm/settings/TelecrmGeneralSettingsPage').then((m) => ({
+    default: m.TelecrmGeneralSettingsPage,
+  }))
+);

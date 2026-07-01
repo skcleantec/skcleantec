@@ -42,7 +42,9 @@ export type MarketerPermissionId =
   | 'admin.inspectionTemplate'
   | 'admin.tenantPartners'
   | 'admin.serviceZones'
-  | 'staff.permissions.view';
+  | 'staff.permissions.view'
+  | 'crm.view'
+  | 'crm.settings';
 
 export type MarketerPermissionMap = Record<MarketerPermissionId, boolean>;
 
@@ -118,6 +120,24 @@ export const MARKETER_PERMISSION_GROUPS: MarketerPermissionGroup[] = [
       { id: 'cs.delete', label: 'C/S 삭제', description: 'C/S 접수 삭제' },
       { id: 'followup.view', label: '부재·보류 조회', description: '부재·보류 목록' },
       { id: 'followup.edit', label: '부재·보류 처리', description: '부재·보류 상태 변경' },
+    ],
+  },
+  {
+    id: 'telecrm',
+    label: '텔레CRM',
+    permissions: [
+      {
+        id: 'crm.view',
+        label: '텔레CRM 사용',
+        description: '텔레CRM 작업 화면·스크립트·가격 조회',
+        featureModuleId: 'mod_telecrm',
+      },
+      {
+        id: 'crm.settings',
+        label: '텔레CRM 설정',
+        description: '스크립트·가격 카테고리 등록·수정·삭제',
+        featureModuleId: 'mod_telecrm',
+      },
     ],
   },
   {
@@ -217,6 +237,7 @@ const NONE_PRESET: MarketerPermissionId[] = [
   'messages.send',
   'marketplace.view',
   'marketplace.trade',
+  'crm.view',
 ];
 
 const LIMITED_EXTRA: MarketerPermissionId[] = [
@@ -247,6 +268,7 @@ const FULL_EXTRA: MarketerPermissionId[] = [
   'admin.inspectionTemplate',
   'admin.tenantPartners',
   'admin.serviceZones',
+  'crm.settings',
 ];
 
 function emptyPermissionMap(): MarketerPermissionMap {

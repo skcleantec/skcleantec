@@ -99,6 +99,11 @@ import {
   PlatformDbMarketplacePage,
   PlatformHelpInquirySettingsPage,
   HelpPage,
+  CrmPage,
+  TelecrmSettingsLayout,
+  TelecrmScriptSettingsPage,
+  TelecrmPricingSettingsPage,
+  TelecrmGeneralSettingsPage,
 } from './routes/lazyPages';
 
 function SuspensePage({ children }: { children: ReactNode }) {
@@ -256,8 +261,33 @@ function App() {
             <Route index element={<SuspensePage><AdminAdvertisingPage /></SuspensePage>} />
             <Route path="settings" element={<SuspensePage><AdminAdvertisingSettingsPage /></SuspensePage>} />
           </Route>
+          <Route
+            path="crm/settings"
+            element={
+              <FeatureGate module="mod_telecrm">
+                <SuspensePage>
+                  <TelecrmSettingsLayout />
+                </SuspensePage>
+              </FeatureGate>
+            }
+          >
+            <Route index element={<Navigate to="scripts" replace />} />
+            <Route path="scripts" element={<SuspensePage><TelecrmScriptSettingsPage /></SuspensePage>} />
+            <Route path="pricing" element={<SuspensePage><TelecrmPricingSettingsPage /></SuspensePage>} />
+            <Route path="general" element={<SuspensePage><TelecrmGeneralSettingsPage /></SuspensePage>} />
+          </Route>
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
+        <Route
+          path="/admin/crm"
+          element={
+            <ProtectedRoute>
+              <SuspensePage>
+                <CrmPage />
+              </SuspensePage>
+            </ProtectedRoute>
+          }
+        />
         <Route path="/e-contract/sign/:token" element={<SuspensePage><EContractPublicSignPage /></SuspensePage>} />
         <Route
           path="/admin/order-prefill/:orderFormId"
