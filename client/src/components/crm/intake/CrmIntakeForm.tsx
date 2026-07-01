@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getToken } from '../../../stores/auth';
 import { ORDER_FOLLOWUP_STATUS_LABEL } from '../../../constants/orderFollowupStatus';
 import { INQUIRY_STATUS_LABELS } from '../../inquiries/inquiriesUiParts';
+import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import {
   submitCrmIntake,
   type CrmIntakeFormValues,
@@ -20,15 +21,19 @@ const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
 
 export function CrmIntakeForm({
   seed,
+  initialFormDraft,
   pyeong,
   onPyeongChange,
+  onFormChange,
   onSaved,
   lastInquiryId,
   onOpenOrderIssue,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
+  initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
   pyeong: string;
   onPyeongChange: (v: string) => void;
+  onFormChange?: (snapshot: CrmIntakeFormSnapshot) => void;
   onSaved: (result: CrmIntakeSubmitResult) => void;
   lastInquiryId: string | null;
   onOpenOrderIssue: (inquiryId: string | null) => void;
@@ -53,6 +58,39 @@ export function CrmIntakeForm({
     setMemo(seed.memo ?? '');
     setAddress(seed.address ?? '');
   }, [seed.customerName, seed.nickname, seed.phone, seed.memo, seed.address]);
+
+  const appliedDraftRef = useRef(false);
+
+  useEffect(() => {
+    if (appliedDraftRef.current || !initialFormDraft) return;
+    appliedDraftRef.current = true;
+    if (initialFormDraft.customerName != null) setCustomerName(initialFormDraft.customerName);
+    if (initialFormDraft.nickname != null) setNickname(initialFormDraft.nickname);
+    if (initialFormDraft.memo != null) setMemo(initialFormDraft.memo);
+    if (initialFormDraft.address != null) setAddress(initialFormDraft.address);
+    if (initialFormDraft.preferredMoveInCleanYmd != null) {
+      setPreferredMoveInCleanYmd(initialFormDraft.preferredMoveInCleanYmd);
+    }
+    if (initialFormDraft.kind != null) setKind(initialFormDraft.kind);
+    if (initialFormDraft.goldDb != null) setGoldDb(initialFormDraft.goldDb);
+    if (initialFormDraft.address || initialFormDraft.preferredMoveInCleanYmd) setShowMore(true);
+  }, [initialFormDraft]);
+
+  useEffect(() => {
+    if (!onFormChange) return;
+    const t = window.setTimeout(() => {
+      onFormChange({
+        customerName,
+        nickname,
+        memo,
+        address,
+        preferredMoveInCleanYmd,
+        kind,
+        goldDb,
+      });
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [customerName, nickname, memo, address, preferredMoveInCleanYmd, kind, goldDb, onFormChange]);
 
   const submit = async (keepForm: boolean) => {
     const token = getToken();

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TelecrmCustomerLookupDto } from '../../../api/telecrm';
+import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
 import { CrmIntakeForm } from './CrmIntakeForm';
@@ -24,6 +25,9 @@ export function CrmIntakePanel({
   onOpenInquiryEdit,
   lookupRefreshKey,
   onSaved,
+  initialFormDraft,
+  onFormChange,
+  skipAutoFillPhone,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
@@ -35,6 +39,9 @@ export function CrmIntakePanel({
   onOpenInquiryEdit: (inquiryId: string) => void;
   lookupRefreshKey: number;
   onSaved: () => void;
+  initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
+  onFormChange?: (snapshot: CrmIntakeFormSnapshot) => void;
+  skipAutoFillPhone?: string | null;
 }) {
   const lookupEnabled = mode === 'existing' && phone.trim().length >= 4;
   const { data, loading, error, refresh } = useCrmCustomerLookup(phone, lookupEnabled);
@@ -47,6 +54,10 @@ export function CrmIntakePanel({
     address: '',
   });
   const autoFilledPhoneRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (skipAutoFillPhone) autoFilledPhoneRef.current = skipAutoFillPhone;
+  }, [skipAutoFillPhone]);
 
   useEffect(() => {
     if (lookupRefreshKey > 0 && mode === 'existing') refresh();
@@ -155,8 +166,10 @@ export function CrmIntakePanel({
         <div className="border-t border-gray-100 pt-3">
           <CrmIntakeForm
             seed={intakeSeed}
+            initialFormDraft={initialFormDraft}
             pyeong={pyeong}
             onPyeongChange={onPyeongChange}
+            onFormChange={onFormChange}
             onSaved={handleSaved}
             lastInquiryId={lastInquiryId}
             onOpenOrderIssue={openOrderIssue}

@@ -6,12 +6,12 @@ import {
   type TelecrmScriptTabDto,
 } from '../../../api/telecrm';
 import { CrmColumn } from '../layout/CrmShell';
+import { applyTelecrmScriptPlaceholders } from './applyTelecrmScriptPlaceholders';
 
-function applyPlaceholders(body: string, ctx: { customerName?: string; pyeong?: string; estimate?: string }) {
-  return body
-    .replace(/\{고객명\}/g, ctx.customerName || '고객님')
-    .replace(/\{평수\}/g, ctx.pyeong || '—')
-    .replace(/\{예상가\}/g, ctx.estimate || '—');
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
 }
 
 export function CrmScriptPanel({
@@ -30,6 +30,7 @@ export function CrmScriptPanel({
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [tabId, setTabId] = useState<string | null>(null);
   const [fontScale, setFontScale] = useState(1);
+  const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -77,12 +78,58 @@ export function CrmScriptPanel({
       : undefined;
 
   const body = activeTab
-    ? applyPlaceholders(activeTab.body, {
+    ? applyTelecrmScriptPlaceholders(activeTab.body, {
         customerName,
         pyeong,
         estimate: estimateLabel,
       })
     : '';
+
+  const selectCategory = useCallback((id: string) => {
+    setCategoryId(id);
+    setTabId(null);
+  }, []);
+
+  const copyScript = useCallback(async () => {
+    if (!body) return;
+    try {
+      await navigator.clipboard.writeText(body);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* ignore */
+    }
+  }, [body]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+
+      if (e.key >= '1' && e.key <= '5') {
+        const idx = Number(e.key) - 1;
+        const cat = categories[idx];
+        if (cat) {
+          e.preventDefault();
+          selectCategory(cat.id);
+        }
+        return;
+      }
+
+      if (e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        if (tabs.length <= 1) return;
+        e.preventDefault();
+        const idx = tabs.findIndex((t) => t.id === tabId);
+        const delta = e.key === 'ArrowRight' ? 1 : -1;
+        const next = tabs[(idx + delta + tabs.length) % tabs.length];
+        if (next) setTabId(next.id);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [categories, tabs, tabId, selectCategory]);
 
   return (
     <CrmColumn title="상담 스크립트" subtitle="설정에서 등록한 스크립트를 읽기 전용으로 표시합니다">
@@ -94,20 +141,32 @@ export function CrmScriptPanel({
         <p className="text-fluid-sm text-gray-500">등록된 스크립트가 없습니다. 설정에서 추가해 주세요.</p>
       ) : (
         <div className="flex min-h-0 flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[10px] text-gray-500">
+              Ctrl+1~5 카테고리 · Ctrl+Shift+←→ 탭 · 복사 버튼으로 클립보드
+            </p>
+            <button
+              type="button"
+              onClick={() => void copyScript()}
+              disabled={!body}
+              className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+            >
+              {copied ? '복사됨' : '스크립트 복사'}
+            </button>
+          </div>
+
           <div className="flex flex-wrap gap-1.5">
-            {categories.map((c) => (
+            {categories.map((c, i) => (
               <button
                 key={c.id}
                 type="button"
-                onClick={() => {
-                  setCategoryId(c.id);
-                  setTabId(null);
-                }}
+                onClick={() => selectCategory(c.id)}
                 className={`rounded-lg px-3 py-1.5 text-fluid-xs font-medium transition-colors ${
                   activeCategory?.id === c.id
                     ? 'bg-slate-900 text-white'
                     : 'border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
                 }`}
+                title={i < 5 ? `Ctrl+${i + 1}` : undefined}
               >
                 {c.label}
               </button>

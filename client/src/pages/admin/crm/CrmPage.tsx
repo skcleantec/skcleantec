@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { canAccessAdminPath } from '@shared/marketerPermissionNav';
 import { getToken } from '../../../stores/auth';
@@ -11,6 +11,13 @@ import { CrmScriptPanel } from '../../../components/crm/scripts/CrmScriptPanel';
 import { CrmPricingPanel } from '../../../components/crm/pricing/CrmPricingPanel';
 import { CrmSessionBar } from '../../../components/crm/session/CrmSessionBar';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
+import {
+  clearCrmIntakeDraft,
+  crmIntakeDraftHasContent,
+  loadCrmIntakeDraft,
+  saveCrmIntakeDraft,
+  type CrmIntakeFormSnapshot,
+} from '../../../utils/crmIntakeDraft';
 
 export function CrmPage() {
   const [searchParams] = useSearchParams();
@@ -28,6 +35,11 @@ export function CrmPage() {
   const [pyeong, setPyeong] = useState('');
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
   const [lookupRefreshKey, setLookupRefreshKey] = useState(0);
+  const [initialFormDraft, setInitialFormDraft] = useState<Partial<CrmIntakeFormSnapshot> | null>(null);
+  const [draftRestoredPhone, setDraftRestoredPhone] = useState<string | null>(null);
+  const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
+  const draftReadyRef = useRef(false);
+  const formSnapshotRef = useRef<CrmIntakeFormSnapshot | null>(null);
 
   const { openInquiryEdit, layer: inquiryEditLayer } = useCrmInquiryEdit(canView, () => {
     setLookupRefreshKey((k) => k + 1);
@@ -38,11 +50,106 @@ export function CrmPage() {
   }, []);
 
   useEffect(() => {
+    const draft = loadCrmIntakeDraft();
+    if (draft && crmIntakeDraftHasContent(draft)) {
+      setMode(draft.mode);
+      setPhone(draft.phone);
+      setCustomerName(draft.customerName);
+      setPyeong(draft.pyeong);
+      setInitialFormDraft({
+        customerName: draft.customerName,
+        nickname: draft.nickname,
+        memo: draft.memo,
+        address: draft.address,
+        preferredMoveInCleanYmd: draft.preferredMoveInCleanYmd,
+        kind: draft.kind,
+        goldDb: draft.goldDb,
+      });
+      if (draft.phone.trim()) setDraftRestoredPhone(draft.phone.trim());
+      setHasUnsavedDraft(true);
+    }
+    draftReadyRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!hasUnsavedDraft) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [hasUnsavedDraft]);
+
+  useEffect(() => {
     const token = getToken();
     if (!token) return;
     void fetchTelecrmPricingCatalog(token).then((res) => {
       setPricePerPyeong(res.estimateConfig.pricePerPyeong);
     });
+  }, []);
+
+  const persistDraft = useCallback(
+    (form: CrmIntakeFormSnapshot) => {
+      if (!draftReadyRef.current) return;
+      formSnapshotRef.current = form;
+      const draft = {
+        mode,
+        phone,
+        pyeong,
+        ...form,
+        savedAt: Date.now(),
+      };
+      if (crmIntakeDraftHasContent(draft)) {
+        saveCrmIntakeDraft(draft);
+        setHasUnsavedDraft(true);
+      } else {
+        clearCrmIntakeDraft();
+        setHasUnsavedDraft(false);
+      }
+    },
+    [mode, phone, pyeong],
+  );
+
+  useEffect(() => {
+    if (!draftReadyRef.current) return;
+    const form = formSnapshotRef.current;
+    if (!form) {
+      const partial = { mode, phone, pyeong, customerName, savedAt: Date.now() };
+      if (crmIntakeDraftHasContent(partial)) {
+        saveCrmIntakeDraft({
+          mode,
+          phone,
+          pyeong,
+          customerName,
+          nickname: '',
+          memo: '',
+          address: '',
+          preferredMoveInCleanYmd: '',
+          kind: 'absent',
+          goldDb: false,
+          savedAt: Date.now(),
+        });
+        setHasUnsavedDraft(true);
+      }
+      return;
+    }
+    persistDraft(form);
+  }, [mode, phone, pyeong, customerName, persistDraft]);
+
+  const handleFormChange = useCallback(
+    (snapshot: CrmIntakeFormSnapshot) => {
+      formSnapshotRef.current = snapshot;
+      if (snapshot.customerName !== customerName) setCustomerName(snapshot.customerName);
+      persistDraft(snapshot);
+    },
+    [customerName, persistDraft],
+  );
+
+  const handleIntakeSaved = useCallback(() => {
+    clearCrmIntakeDraft();
+    setHasUnsavedDraft(false);
+    setLookupRefreshKey((k) => k + 1);
   }, []);
 
   const pyeongNum = parseFloat(pyeong.replace(/,/g, ''));
@@ -76,6 +183,11 @@ export function CrmPage() {
               <div className="flex min-w-0 items-center gap-3">
                 <h1 className="truncate text-fluid-sm font-semibold">텔레CRM</h1>
                 <CrmSessionBar enabled={canAdsSession} />
+                {hasUnsavedDraft ? (
+                  <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-100">
+                    미저장 초안
+                  </span>
+                ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {canSettings ? (
@@ -118,9 +230,10 @@ export function CrmPage() {
               onPyeongChange={setPyeong}
               onOpenInquiryEdit={openInquiryEdit}
               lookupRefreshKey={lookupRefreshKey}
-              onSaved={() => {
-                setLookupRefreshKey((k) => k + 1);
-              }}
+              onSaved={handleIntakeSaved}
+              initialFormDraft={initialFormDraft}
+              onFormChange={handleFormChange}
+              skipAutoFillPhone={draftRestoredPhone}
             />
           }
           center={
