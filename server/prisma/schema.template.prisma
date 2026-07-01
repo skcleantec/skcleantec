@@ -166,6 +166,7 @@ model Tenant {
   telecrmScriptTabs TelecrmScriptTab[]
   telecrmPriceCategories TelecrmPriceCategory[]
   telecrmPriceItems TelecrmPriceItem[]
+  telecrmCallSessions TelecrmCallSession[]
 
   @@map("tenants")
 }
@@ -634,6 +635,7 @@ model User {
   scheduleDayStaffMemosUpdated ScheduleDayStaffMemo[] @relation("ScheduleDayStaffMemoUpdater")
   telecrmScriptCategoriesOwned TelecrmScriptCategory[] @relation("TelecrmScriptCategoryOwner")
   telecrmPriceCategoriesOwned  TelecrmPriceCategory[]  @relation("TelecrmPriceCategoryOwner")
+  telecrmCallSessions          TelecrmCallSession[]
 
   @@unique([tenantId, email])
   @@unique([tenantId, platformSupportAccessId])
@@ -1194,6 +1196,7 @@ model Inquiry {
   dbListing           InquiryDbListing?
   crewMemberMeetingTimes InquiryCrewMemberMeetingTime[]
   customCalendarInquiryPins UserCustomCalendarInquiryPin[]
+  telecrmCallSessions       TelecrmCallSession[]
 
   @@index([createdAt])
   @@index([preferredDate])
@@ -2684,4 +2687,29 @@ model TelecrmPriceItem {
 
   @@index([tenantId, categoryId, sortOrder])
   @@map("telecrm_price_items")
+}
+
+/// 텔레CRM Android — 통화 세션(사무실 내부 앱 · Phase 1)
+model TelecrmCallSession {
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  userId           String    @map("user_id")
+  phone            String    @db.VarChar(32)
+  direction        String    @db.VarChar(16)
+  startedAt        DateTime? @map("started_at")
+  endedAt          DateTime? @map("ended_at")
+  durationSec      Int?      @map("duration_sec")
+  customerMatch    String?   @map("customer_match") @db.VarChar(16)
+  inquiryId        String?   @map("inquiry_id")
+  memo             String?   @db.Text
+  androidCallLogId String?   @map("android_call_log_id") @db.VarChar(64)
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inquiry Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, userId, androidCallLogId])
+  @@index([tenantId, userId, createdAt(sort: Desc)])
+  @@map("telecrm_call_sessions")
 }
