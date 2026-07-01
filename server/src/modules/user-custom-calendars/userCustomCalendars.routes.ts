@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { sanitizeCustomCalendarColorKey } from '../../constants/customCalendarColorKeys.js';
 
@@ -65,6 +66,7 @@ function asyncHandler(
 const router = Router();
 
 router.use(authMiddleware);
+router.use(requireStaffPermission('schedule.customCalendar'));
 router.use((req, res, next) => {
   const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {

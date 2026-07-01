@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { InquiryStatus, PayrollAccountLedgerManualDirection, PayrollLedgerManualPayrollLinkKind, Prisma, TeamLeaderPayrollPaymentBucket, TeamLeaderGeneralSettlementMode } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
@@ -55,7 +56,7 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware, adminOnly);
+router.use(authMiddleware, requireStaffPermission('admin.payroll'));
 router.use((req, res, next) => {
   const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {

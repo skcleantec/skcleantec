@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { ShortTtlCache } from '../../lib/shortTtlCache.js';
-import { authMiddleware, adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
+import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
-import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth, resolveTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import {
   kstDayRangeYmd,
@@ -272,7 +272,7 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
 });
 
 /** 관리자: 날짜별 휴무/근무 현황 */
-router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.edit.inquiry'), async (req, res) => {
   const tenantId = await resolveTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
@@ -674,7 +674,7 @@ router.get('/schedule-stats', authMiddleware, adminOrMarketer, async (req, res) 
 
 const SLOT_ADJ_LIMIT = 300;
 
-router.put('/schedule-slot-to-adjustment', authMiddleware, adminOrMarketer, async (req, res) => {
+router.put('/schedule-slot-to-adjustment', authMiddleware, requireStaffPermission('schedule.dayAvailability'), async (req, res) => {
   const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
@@ -713,7 +713,7 @@ router.put('/schedule-slot-to-adjustment', authMiddleware, adminOrMarketer, asyn
 });
 
 /** 관리·마케터: 해당일 팀장 휴무(강제·해제) 편집용 목록 */
-router.get('/team-leader-day-offs', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/team-leader-day-offs', authMiddleware, requireStaffPermission('schedule.dayAvailability'), async (req, res) => {
   const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
@@ -744,7 +744,7 @@ router.get('/team-leader-day-offs', authMiddleware, adminOrMarketer, async (req,
 });
 
 /** 관리·마케터: 해당일 팀장 휴무 일괄 저장 — 슬롯 계산(userDayOff)에 즉시 반영 */
-router.put('/team-leader-day-offs', authMiddleware, adminOrMarketer, async (req, res) => {
+router.put('/team-leader-day-offs', authMiddleware, requireStaffPermission('schedule.dayAvailability'), async (req, res) => {
   const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });

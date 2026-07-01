@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
+import { authMiddleware } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { resolveTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { notifyCrewGroupsInboxRefresh } from '../crew/crewFieldRealtime.js';
@@ -14,7 +15,7 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware, adminOnly);
+router.use(authMiddleware, requireStaffPermission('admin.users'));
 router.use(async (req, res, next) => {
   const tenantId = await resolveTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {

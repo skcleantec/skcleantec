@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOnly, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
   createOperatingCompany,
@@ -20,8 +21,7 @@ import type { OperatingCompanyPolicy } from './operatingCompanyPolicy.js';
 
 const router = Router();
 
-router.use(authMiddleware);
-router.use(adminOrMarketer);
+router.use(authMiddleware, staffMarketerRoleOnly);
 
 router.get('/', async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
@@ -32,14 +32,14 @@ router.get('/', async (req, res) => {
   res.json({ items });
 });
 
-router.get('/policy', adminOnly, async (req, res) => {
+router.get('/policy', requireStaffPermission('admin.users'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
   const policy = await getOperatingCompanyPolicyFromService(tenantId);
   res.json({ policy });
 });
 
-router.patch('/policy', adminOnly, async (req, res) => {
+router.patch('/policy', requireStaffPermission('admin.users'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
   const body = req.body as { policy?: Partial<OperatingCompanyPolicy> };
@@ -79,7 +79,7 @@ router.get('/my', async (req, res) => {
   res.json({ items, isAdmin: false });
 });
 
-router.post('/', adminOnly, async (req, res) => {
+router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
   try {
@@ -94,7 +94,7 @@ router.post('/', adminOnly, async (req, res) => {
   }
 });
 
-router.patch('/:id', adminOnly, async (req, res) => {
+router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
   try {

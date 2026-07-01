@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOrMarketer } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { dateToYmdKst, isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
@@ -22,7 +22,7 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
-router.use(adminOrMarketer);
+router.use(requireStaffPermission('inquiry.edit.assignment'));
 
 router.post('/', async (req, res) => {
   const { inquiryId, teamLeaderId, assignmentServiceZoneId: assignmentServiceZoneIdRaw } = req.body as {

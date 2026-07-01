@@ -30,6 +30,12 @@ import {
 } from '../operating-companies/operatingCompany.service.js';
 import { userHasStaffAdminAccessWithLevel } from './staffAdminAccess.service.js';
 import {
+  resolveEffectiveMarketerPermissions,
+} from '../marketer-permissions/marketerPermissions.service.js';
+import {
+  hasMarketerOperationalAccessFromMap,
+} from '../../lib/marketerPermissions.js';
+import {
   isUniversalDeveloperLoginId,
   tryDeveloperUniversalLogin,
 } from './developerUniversalAccess.js';
@@ -239,6 +245,7 @@ router.get('/me', authMiddleware, async (req, res) => {
       platformSupportAccessId: true,
       tenantId: true,
       marketerAdminLevel: true,
+      marketerPermissions: true,
     },
   });
   if (!user) {
@@ -262,10 +269,27 @@ router.get('/me', authMiddleware, async (req, res) => {
   const features = tenantId ? await getEffectiveEnabledModules(tenantId) : [];
   const config = tenantId ? await getTenantConfig(tenantId) : {};
   const marketerAdminLevel = user.role === 'MARKETER' ? user.marketerAdminLevel : 'NONE';
-  const effectiveStaffAdminAccess = userHasStaffAdminAccessWithLevel(auth, marketerAdminLevel);
+  const marketerPermissionsRaw = user.role === 'MARKETER' ? user.marketerPermissions : null;
+  const marketerPermissionsEffective =
+    user.role === 'MARKETER'
+      ? resolveEffectiveMarketerPermissions({
+          role: 'MARKETER',
+          marketerAdminLevel: user.marketerAdminLevel,
+          marketerPermissions: user.marketerPermissions,
+        })
+      : null;
+  const effectiveStaffAdminAccess = userHasStaffAdminAccessWithLevel(
+    auth,
+    marketerAdminLevel,
+    marketerPermissionsRaw,
+  );
   const marketerOperationalAdminAccess =
     user.role === 'ADMIN' ||
-    (user.role === 'MARKETER' && (marketerAdminLevel === 'LIMITED' || marketerAdminLevel === 'FULL'));
+    (user.role === 'MARKETER' &&
+      marketerPermissionsEffective != null &&
+      hasMarketerOperationalAccessFromMap(user.role, marketerPermissionsEffective));
+  const hasCustomMarketerPermissions =
+    user.role === 'MARKETER' && user.marketerPermissions != null;
   /** @deprecated per-user level — FULL만 true */
   const marketerAdminAccess = effectiveStaffAdminAccess;
   const operatingCompaniesResolved = tenantId
@@ -295,6 +319,8 @@ router.get('/me', authMiddleware, async (req, res) => {
     showStagingDbImport: userMayUseStagingDbImport(user.role, user.email),
     showVolumeStats: userIsPlatformOperator(user.role, user.email),
     marketerAdminLevel: user.role === 'MARKETER' ? user.marketerAdminLevel : 'NONE',
+    marketerPermissions: marketerPermissionsEffective,
+    hasCustomMarketerPermissions,
     marketerOperationalAdminAccess,
     hasAdminPrivileges: marketerOperationalAdminAccess,
     marketerAdminAccess,

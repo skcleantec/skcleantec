@@ -3,9 +3,9 @@ import { Router, type Request } from 'express';
 import bcrypt from 'bcryptjs';
 import {
   authMiddleware,
-  adminOnly,
   type AuthPayload,
 } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { prisma } from '../../lib/prisma.js';
@@ -50,7 +50,7 @@ import {
 import eContractFieldDefinitionRoutes from './eContractFieldDefinition.routes.js';
 
 const router = Router();
-router.use(authMiddleware, adminOnly);
+router.use(authMiddleware, requireStaffPermission('admin.eContract'));
 router.use((req, res, next) => {
   const tenantId = getTenantIdFromAuth((req as Request & { user: AuthPayload }).user);
   if (!tenantId) {

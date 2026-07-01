@@ -58,6 +58,7 @@ import helpInquiryPublicRoutes from './modules/help-inquiry/helpInquiry.public.r
 import platformHelpInquiryRoutes from './modules/help-inquiry/platformHelpInquiry.routes.js';
 import { resolveHelpScreenshotFilePath } from './modules/help/helpScreenshotsPath.js';
 import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLeaderTraining.admin.routes.js';
+import marketerPermissionsRoutes from './modules/marketer-permissions/marketerPermissions.routes.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
 
@@ -119,6 +120,7 @@ app.use('/api/team-crew-groups', teamCrewGroupsRoutes);
 app.use('/api/crew', crewRoutes);
 app.use('/api/admin/tenant-company-profile', tenantCompanyProfileRoutes);
 app.use('/api/admin/tenant-staff-access', tenantStaffAccessRoutes);
+app.use('/api/admin/marketer-permissions', marketerPermissionsRoutes);
 app.use('/api/admin/tenant-subscription', tenantSubscriptionRoutes);
 app.use('/api/admin/e-contracts', eContractAdminRoutes);
 app.use('/api/admin/team-leader-training', teamLeaderTrainingAdminRoutes);

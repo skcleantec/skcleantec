@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { ADMIN_INQUIRIES_NAV_ITEMS } from '../../constants/adminInquiriesNav';
 import { AdminCollapsibleSectionSideNav, type AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { getToken } from '../../stores/auth';
+import { getMe } from '../../api/auth';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { filterAdminSideNavItems } from '../../utils/filterAdminSideNavByFeatures';
+import {
+  filterAdminSideNavByPermissions,
+  firstAllowedAdminSideNavPath,
+} from '../../utils/filterAdminSideNavByPermissions';
+import { canAccessAdminPath } from '@shared/marketerPermissionNav';
+import type { StaffAdminMeFields } from '../../utils/staffAdminAccess';
 
 const ADMIN_INQUIRIES_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-inquiries-side-nav-collapsed';
 const REVIEW_PAYBACK_PATH = '/admin/inquiries/review-payback';
@@ -65,9 +72,26 @@ function MobileInquirySubNavTabs({ items }: { items: AdminSideNavItem[] }) {
 /** 접수목록(/admin/inquiries/*) — PC: 왼쪽 계층 메뉴 / 모바일: 가로 하위 탭 */
 export function AdminInquiriesLayout() {
   const token = getToken();
+  const location = useLocation();
   const { features } = useTenantCapabilities();
   const [reviewPaybackBadge, setReviewPaybackBadge] = useState(0);
   const [csPendingBadge, setCsPendingBadge] = useState(0);
+  const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(null);
+
+  useEffect(() => {
+    if (!token) {
+      setStaffMe(null);
+      return;
+    }
+    void getMe(token).then((u) => {
+      setStaffMe({
+        role: u.role,
+        effectiveStaffAdminAccess: u.effectiveStaffAdminAccess,
+        marketerAdminLevel: u.marketerAdminLevel,
+        marketerPermissions: u.marketerPermissions ?? null,
+      });
+    });
+  }, [token]);
 
   const refreshBadges = useCallback(async () => {
     if (!token) return;
@@ -96,8 +120,30 @@ export function AdminInquiriesLayout() {
       }
       return item;
     });
-    return filterAdminSideNavItems(withBadge, features);
-  }, [reviewPaybackBadge, csPendingBadge, features]);
+    const byFeature = filterAdminSideNavItems(withBadge, features);
+    return filterAdminSideNavByPermissions(byFeature, staffMe);
+  }, [reviewPaybackBadge, csPendingBadge, features, staffMe]);
+
+  const pathAllowed = useMemo(
+    () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),
+    [staffMe, location.pathname],
+  );
+
+  const fallbackPath = useMemo(
+    () => firstAllowedAdminSideNavPath(ADMIN_INQUIRIES_NAV_ITEMS, staffMe),
+    [staffMe],
+  );
+
+  if (staffMe && navItems.length === 0) {
+    return (
+      <div className="min-w-0 w-full max-w-full p-8 text-center text-fluid-sm text-gray-600">
+        서비스접수 메뉴에 접근할 권한이 없습니다.
+      </div>
+    );
+  }
+  if (staffMe && !pathAllowed && fallbackPath && fallbackPath !== location.pathname.split('?')[0]) {
+    return <Navigate to={fallbackPath} replace />;
+  }
 
   return (
     <div className="min-w-0 w-full max-w-full">
@@ -118,7 +164,13 @@ export function AdminInquiriesLayout() {
         </div>
 
         <div className="min-w-0 flex-1 overflow-x-hidden">
-          <Outlet />
+          {!pathAllowed && staffMe ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-900">
+              이 화면에 대한 권한이 없습니다.
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </div>
       </div>
     </div>

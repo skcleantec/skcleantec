@@ -514,6 +514,10 @@ export type ScheduleInquiryDetailModalProps =
       currentUserStaffAdmin?: boolean;
       /** ADMIN 또는 마케터 운영 권한(LIMITED·FULL) — 담당 마케터 변경 */
       currentUserOperationalAdmin?: boolean;
+      /** 세부 권한 — 담당 마케터 변경(inquiry.edit.marketer) */
+      currentUserCanEditMarketer?: boolean;
+      /** 세부 권한 — 접수 삭제(inquiry.delete) */
+      currentUserCanDeleteInquiry?: boolean;
       marketerOptions?: UserItem[];
       meUser?: { id: string; role: string; name: string; email?: string } | null;
       onClose: () => void;
@@ -549,6 +553,10 @@ export type ScheduleInquiryDetailModalProps =
       currentUserStaffAdmin?: boolean;
       /** ADMIN 또는 마케터 운영 권한(LIMITED·FULL) — 담당 마케터 변경 */
       currentUserOperationalAdmin?: boolean;
+      /** 세부 권한 — 담당 마케터 변경(inquiry.edit.marketer) */
+      currentUserCanEditMarketer?: boolean;
+      /** 세부 권한 — 접수 삭제(inquiry.delete) */
+      currentUserCanDeleteInquiry?: boolean;
       marketerOptions?: UserItem[];
       meUser?: { id: string; role: string; name: string; email?: string } | null;
       onClose: () => void;
@@ -717,6 +725,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     currentUserRole,
     currentUserStaffAdmin,
     currentUserOperationalAdmin,
+    currentUserCanEditMarketer,
+    currentUserCanDeleteInquiry,
     marketerOptions,
     meUser,
     onClose,
@@ -752,7 +762,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const activeServiceZoneId =
     (props as { activeServiceZoneId?: string | null }).activeServiceZoneId ?? null;
   const canEditMarketer =
-    currentUserRole === 'ADMIN' || currentUserOperationalAdmin === true;
+    currentUserCanEditMarketer ??
+    (currentUserRole === 'ADMIN' || currentUserOperationalAdmin === true);
 
   const [saving, setSaving] = useState(false);
   const [externalIntake, setExternalIntake] = useState(false);
@@ -810,7 +821,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [fetchedDayScheduleItems, setFetchedDayScheduleItems] = useState<ScheduleItem[]>([]);
   const effectiveScheduleStatsByDate = scheduleStatsByDate ?? fetchedScheduleStatsByDate;
   const effectiveDayScheduleItems = dayScheduleItems ?? fetchedDayScheduleItems;
-  const canDeleteInquiry = !isCreate && (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER');
+  const canDeleteInquiry =
+    !isCreate &&
+    (currentUserCanDeleteInquiry ??
+      (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER'));
   const isExistingExternalIntake = !isCreate && isManualIntakeInquiry(item?.source);
   const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
   const detailHasAssignment = (item?.assignments?.length ?? 0) > 0;

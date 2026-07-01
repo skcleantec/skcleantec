@@ -7,8 +7,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { findInquiryIdForCsReport } from './matchInquiryForCs.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOrMarketer } from '../auth/auth.middleware.js';
-import { adminOnly } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { csReportFullInclude } from './csReport.include.js';
 import { serializeCsReportRow, serializeCsReportRows } from './csReport.serialize.js';
@@ -126,7 +125,7 @@ router.post('/submit', async (req, res) => {
 });
 
 /** 관리자·마케터: C/S 목록 (접수일 필터·페이지네이션) */
-router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/', authMiddleware, requireStaffPermission('cs.view'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
@@ -162,7 +161,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
 });
 
 /** 관리자·마케터: 미처리(접수) C/S 건수 — 상단 메뉴 배지용 */
-router.get('/pending-count', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/pending-count', authMiddleware, requireStaffPermission('cs.view'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
@@ -174,7 +173,7 @@ router.get('/pending-count', authMiddleware, adminOrMarketer, async (req, res) =
 });
 
 /** 관리자·마케터: C/S를 팀장/타업체 계정에 전달(또는 전달 해제). 접수 미연결·미배정 건 대응 */
-router.post('/:id/forward', authMiddleware, adminOrMarketer, async (req, res) => {
+router.post('/:id/forward', authMiddleware, requireStaffPermission('cs.edit'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
@@ -230,7 +229,7 @@ router.post('/:id/forward', authMiddleware, adminOrMarketer, async (req, res) =>
 });
 
 /** 관리자·마케터: C/S 상세 열람 — 접수(RECEIVED)면 처리중(PROCESSING)으로 자동 전환(미확인 배지 해제) */
-router.post('/:id/acknowledge', authMiddleware, adminOrMarketer, async (req, res) => {
+router.post('/:id/acknowledge', authMiddleware, requireStaffPermission('cs.edit'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
@@ -264,7 +263,7 @@ router.post('/:id/acknowledge', authMiddleware, adminOrMarketer, async (req, res
 });
 
 /** 관리자·마케터: C/S 상세 */
-router.get('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/:id', authMiddleware, requireStaffPermission('cs.view'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
   if (!tenantId) {
@@ -284,7 +283,7 @@ router.get('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
 });
 
 /** 관리자·마케터: C/S 상태/메모/처리완료 */
-router.patch('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
+router.patch('/:id', authMiddleware, requireStaffPermission('cs.edit'), async (req, res) => {
   const { id } = req.params;
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
@@ -325,7 +324,7 @@ router.patch('/:id', authMiddleware, adminOrMarketer, async (req, res) => {
 });
 
 /** 관리자만 — 비밀번호 확인 후 C/S 영구 삭제 */
-router.delete('/:id', authMiddleware, adminOnly, async (req, res) => {
+router.delete('/:id', authMiddleware, requireStaffPermission('cs.delete'), async (req, res) => {
   const { id } = req.params;
   const body = req.body as { password?: unknown };
   const password = body.password != null ? String(body.password) : '';

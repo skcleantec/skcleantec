@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOrMarketer } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { happyCallDeadlineEnd } from '../inquiries/happyCall.helpers.js';
@@ -22,7 +22,7 @@ import { buildDashboardSettlementSummary } from './dashboardSettlementSummary.se
 const router = Router();
 
 router.use(authMiddleware);
-router.use(adminOrMarketer);
+router.use(requireStaffPermission('inquiry.view'));
 
 /** 이번 달 팀장별 현장 카드 — 접수일(KST) 이번 달·취소 제외·1차 배정이 팀장인 건만 */
 const HAPPY_CALL_STATS_STATUSES = [

@@ -12,7 +12,7 @@ import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAut
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
+import { resolveEffectiveStaffAdminFromMe, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
 import {
   useInboxRealtime,
   useInquiryCelebrateRealtime,
@@ -42,6 +42,7 @@ import { getScheduleDetailInquiryIdForOrderFab } from '../../utils/adminSchedule
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { getDbMarketplaceNavCounts } from '../../api/dbMarketplace';
+import { AdminStaffPathGate } from './AdminStaffPathGate';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
@@ -204,6 +205,7 @@ export function AdminLayout() {
   const navInnerRef = useRef<HTMLElement>(null);
   const [meRole, setMeRole] = useState<string | null>(null);
   const [effectiveStaffAdmin, setEffectiveStaffAdmin] = useState(false);
+  const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(null);
   const [meName, setMeName] = useState<string | null>(null);
   const [mePhone, setMePhone] = useState<string | null>(null);
   const [meVehicleNumber, setMeVehicleNumber] = useState<string | null>(null);
@@ -290,6 +292,7 @@ export function AdminLayout() {
     const token = getToken();
     if (!token) {
       setMeRole(null);
+      setStaffMe(null);
       setEffectiveStaffAdmin(false);
       setMeName(null);
       setMePhone(null);
@@ -320,6 +323,7 @@ export function AdminLayout() {
         isPlatformSupportAccess?: boolean;
         effectiveStaffAdminAccess?: boolean;
         marketerAdminAccess?: boolean;
+        marketerPermissions?: StaffAdminMeFields['marketerPermissions'];
         features?: string[];
         tenant?: { id?: string; plan?: string; name?: string; displayName?: string; slug?: string } | null;
         tenantId?: string;
@@ -327,6 +331,12 @@ export function AdminLayout() {
         if (cancelled) return;
         const role = typeof u.role === 'string' ? u.role : null;
         setMeRole(role);
+        setStaffMe({
+          role,
+          effectiveStaffAdminAccess: u.effectiveStaffAdminAccess,
+          marketerAdminLevel: (u as { marketerAdminLevel?: StaffAdminMeFields['marketerAdminLevel'] }).marketerAdminLevel,
+          marketerPermissions: u.marketerPermissions ?? null,
+        });
         setEffectiveStaffAdmin(resolveEffectiveStaffAdminFromMe(u));
         setMeName(typeof u.name === 'string' && u.name.trim() ? u.name.trim() : null);
         setMePhone(typeof u.phone === 'string' && u.phone.trim() ? u.phone.trim() : null);
@@ -393,7 +403,12 @@ export function AdminLayout() {
     setNavOrder(loadAdminNavOrder(effectiveStaffAdmin, tenantFeatures));
   }, [meRole, effectiveStaffAdmin, tenantFeatures]);
 
-  const navCtx = { isAdmin: effectiveStaffAdmin, enabledModules: tenantFeatures };
+  const navCtx = {
+    isAdmin: effectiveStaffAdmin,
+    role: meRole,
+    marketerPermissions: staffMe?.marketerPermissions ?? null,
+    enabledModules: tenantFeatures,
+  };
 
   const handleNavDragStart = (e: React.DragEvent, id: AdminNavId) => {
     setDraggingNavId(id);
@@ -1075,7 +1090,9 @@ export function AdminLayout() {
           </div>
         ) : null}
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan, tenantSlug }}>
-          <Outlet />
+          <AdminStaffPathGate staffMe={staffMe}>
+            <Outlet />
+          </AdminStaffPathGate>
         </TenantCapabilitiesProvider>
       </main>
       {showOrderIssueFab && (

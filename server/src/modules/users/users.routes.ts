@@ -2,9 +2,10 @@ import { Router } from 'express';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import type { TeamLeaderGeneralSettlementMode, MarketerAdminLevel } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
+import { requireStaffPermission, staffHasAnyPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
@@ -128,7 +129,7 @@ function mapAssignableUserRow(
 }
 
 /** 스케줄·접수 분배 드롭다운 — 팀장+타업체, strict 정책 시 operatingCompanyId 로 팀장 필터 */
-router.get('/assignable-schedule', adminOrMarketer, async (req, res) => {
+router.get('/assignable-schedule', requireStaffPermission('inquiry.edit.assignment'), async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(authUser);
   if (!tenantId) {
@@ -212,7 +213,7 @@ router.get('/assignable-schedule', adminOrMarketer, async (req, res) => {
 });
 
 /** 목록 조회 — 스케줄·접수에서 팀장/마케터 선택용 (기본: 해당일 재직자만) · scope=management 는 전체(관리자) */
-router.get('/', adminOrMarketer, async (req, res) => {
+router.get('/', staffMarketerRoleOnly, async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(authUser);
   if (!tenantId) {
@@ -227,8 +228,8 @@ router.get('/', adminOrMarketer, async (req, res) => {
   }
   const scope = typeof req.query.scope === 'string' ? req.query.scope : '';
   const management = scope === 'management';
-  if (management && authUser.role !== 'ADMIN') {
-    res.status(403).json({ error: '전체 목록은 관리자만 조회할 수 있습니다.' });
+  if (management && !(await staffHasAnyPermission(authUser, ['admin.users']))) {
+    res.status(403).json({ error: '전체 목록은 사용자 관리 권한이 필요합니다.' });
     return;
   }
   const employedOnRaw = typeof req.query.employedOn === 'string' ? req.query.employedOn.trim() : '';
@@ -356,7 +357,7 @@ router.get('/', adminOrMarketer, async (req, res) => {
 });
 
 /** 활성 팀장 전원의 본인 휴무일 등록 허용 일괄 변경 */
-router.post('/team-leaders/day-off-self-edit', adminOnly, async (req, res) => {
+router.post('/team-leaders/day-off-self-edit', requireStaffPermission('admin.users'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -372,7 +373,7 @@ router.post('/team-leaders/day-off-self-edit', adminOnly, async (req, res) => {
   res.json({ ok: true, updated: r.count });
 });
 
-router.post('/', adminOnly, async (req, res) => {
+router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(authUser);
   if (!tenantId) {
@@ -589,7 +590,7 @@ router.post('/', adminOnly, async (req, res) => {
 });
 
 /** 관리자: 팀장·마케터 영업 업체 다중 소속 */
-router.put('/:id/operating-companies', adminOnly, async (req, res) => {
+router.put('/:id/operating-companies', requireStaffPermission('admin.users'), async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, authUser);
   if (!tenantId) return;
@@ -622,7 +623,7 @@ router.put('/:id/operating-companies', adminOnly, async (req, res) => {
 });
 
 /** 관리자: 팀장·마케터 사원증 이미지 업로드 (Cloudinary) */
-router.post('/:id/staff-id-card', adminOnly, staffIdCardUpload.single('image'), async (req, res) => {
+router.post('/:id/staff-id-card', requireStaffPermission('admin.users'), staffIdCardUpload.single('image'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -667,7 +668,7 @@ router.post('/:id/staff-id-card', adminOnly, staffIdCardUpload.single('image'), 
 });
 
 /** 관리자: 팀장·마케터 사원증 이미지 삭제 */
-router.delete('/:id/staff-id-card', adminOnly, async (req, res) => {
+router.delete('/:id/staff-id-card', requireStaffPermission('admin.users'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -694,7 +695,7 @@ router.delete('/:id/staff-id-card', adminOnly, async (req, res) => {
   }
 });
 
-router.patch('/:id', adminOnly, async (req, res) => {
+router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => {
   const { id } = req.params;
   const body = req.body as {
     email?: string;
@@ -791,6 +792,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
     resignationDate?: Date | null;
     allowSelfDayOffEdit?: boolean;
     marketerAdminLevel?: MarketerAdminLevel;
+    marketerPermissions?: Prisma.NullableJsonNullValueInput;
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementMode | null;
@@ -895,8 +897,10 @@ router.patch('/:id', adminOnly, async (req, res) => {
         return;
       }
       data.marketerAdminLevel = level;
+      data.marketerPermissions = Prisma.JsonNull;
     } else {
       data.marketerAdminLevel = body.hasAdminPrivileges ? ('LIMITED' as MarketerAdminLevel) : ('NONE' as MarketerAdminLevel);
+      data.marketerPermissions = Prisma.JsonNull;
     }
   }
 
@@ -1082,7 +1086,7 @@ router.patch('/:id', adminOnly, async (req, res) => {
   });
 });
 
-router.delete('/:id', adminOnly, async (req, res) => {
+router.delete('/:id', requireStaffPermission('admin.users'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 

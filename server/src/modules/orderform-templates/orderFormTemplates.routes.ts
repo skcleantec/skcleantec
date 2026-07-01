@@ -2,7 +2,8 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
   ORDER_FORM_SYSTEM_FIELDS,
@@ -12,7 +13,7 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware, adminOnly);
+router.use(authMiddleware, requireStaffPermission('orderform.templates'));
 
 function authUser(req: unknown): AuthPayload {
   return (req as { user: AuthPayload }).user;

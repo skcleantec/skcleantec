@@ -1,14 +1,19 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { NavLink, Outlet, Navigate } from 'react-router-dom';
+import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
-import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
+import { resolveEffectiveStaffAdminFromMe, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
 import { isLikelyNetworkFailure } from '../../api/fetchNetwork';
 import { ADMIN_TEAM_LEADERS_NAV_ITEMS } from '../../constants/adminTeamLeadersNav';
 import { AdminCollapsibleSectionSideNav, type AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { filterAdminSideNavItems } from '../../utils/filterAdminSideNavByFeatures';
+import {
+  filterAdminSideNavByPermissions,
+  firstAllowedAdminSideNavPath,
+} from '../../utils/filterAdminSideNavByPermissions';
+import { canAccessAdminPath } from '@shared/marketerPermissionNav';
 
 const ADMIN_TEAM_LEADERS_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-team-leaders-side-nav-collapsed';
 
@@ -48,24 +53,37 @@ function MobileTeamLeadersSubNavTabs({ items }: { items: AdminSideNavItem[] }) {
 /** 관리자 전용(/admin/team-leaders/*) — PC: 왼쪽 접이식 사이드 / 모바일: 가로 하위 탭 */
 export function AdminTeamLeadersLayout() {
   const token = getToken();
+  const location = useLocation();
   const { features } = useTenantCapabilities();
   const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'other' | 'network_error'>('loading');
+  const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(null);
 
-  const navItems = useMemo(
-    () => filterAdminSideNavItems(ADMIN_TEAM_LEADERS_NAV_ITEMS, features),
-    [features],
-  );
+  const navItems = useMemo(() => {
+    const byFeature = filterAdminSideNavItems(ADMIN_TEAM_LEADERS_NAV_ITEMS, features);
+    return filterAdminSideNavByPermissions(byFeature, staffMe);
+  }, [features, staffMe]);
 
   const probeAdmin = useCallback(() => {
     const t = getToken();
     if (!t) {
       setRoleGate('other');
+      setStaffMe(null);
       return;
     }
     setRoleGate('loading');
     void getMe(t)
-      .then((u) => setRoleGate(resolveEffectiveStaffAdminFromMe(u) ? 'admin' : 'other'))
+      .then((u) => {
+        const me: StaffAdminMeFields = {
+          role: u.role,
+          effectiveStaffAdminAccess: u.effectiveStaffAdminAccess,
+          marketerAdminLevel: u.marketerAdminLevel,
+          marketerPermissions: u.marketerPermissions ?? null,
+        };
+        setStaffMe(me);
+        setRoleGate(resolveEffectiveStaffAdminFromMe(u) ? 'admin' : 'other');
+      })
       .catch((e: unknown) => {
+        setStaffMe(null);
         if (isAuthSessionExpiredError(e)) {
           clearToken();
           return;
@@ -84,6 +102,16 @@ export function AdminTeamLeadersLayout() {
   useEffect(() => {
     probeAdmin();
   }, [token, probeAdmin]);
+
+  const pathAllowed = useMemo(
+    () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),
+    [staffMe, location.pathname],
+  );
+
+  const fallbackPath = useMemo(
+    () => firstAllowedAdminSideNavPath(ADMIN_TEAM_LEADERS_NAV_ITEMS, staffMe),
+    [staffMe],
+  );
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -112,6 +140,16 @@ export function AdminTeamLeadersLayout() {
   if (roleGate !== 'admin') {
     return <Navigate to="/admin/dashboard" replace />;
   }
+  if (navItems.length === 0) {
+    return (
+      <div className="min-w-0 w-full max-w-full p-8 text-center text-fluid-sm text-gray-600">
+        관리자 전용 메뉴에 접근할 권한이 없습니다.
+      </div>
+    );
+  }
+  if (!pathAllowed && fallbackPath) {
+    return <Navigate to={fallbackPath} replace />;
+  }
 
   return (
     <div className="min-w-0 w-full max-w-full">
@@ -132,7 +170,13 @@ export function AdminTeamLeadersLayout() {
         </div>
 
         <div className="min-w-0 flex-1">
-          <Outlet />
+          {!pathAllowed ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-900">
+              이 화면에 대한 권한이 없습니다.
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </div>
       </div>
     </div>

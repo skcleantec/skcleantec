@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { getCelebrationFeedHeadId, listCelebrationFeedAfter } from './celebrationFeedStore.js';
 
@@ -9,7 +10,7 @@ const router = Router();
  * GET /api/realtime/celebrations — no `after`: { items: [], lastId } for client cursor sync.
  * GET ?after=N — items with eventId > N for **현재 JWT 테넌트만** (ADMIN/MARKETER).
  */
-router.get('/celebrations', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/celebrations', authMiddleware, requireStaffPermission('inquiry.view'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;

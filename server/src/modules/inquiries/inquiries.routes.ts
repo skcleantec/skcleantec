@@ -4,8 +4,8 @@ import bcrypt from 'bcryptjs';
 import type { Prisma, InquiryStatus, UserRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { ShortTtlCache } from '../../lib/shortTtlCache.js';
-import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
-import { userHasMarketerOperationalAdminAccess } from '../auth/staffAdminAccess.service.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission, staffHasPermission } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import {
@@ -184,7 +184,7 @@ const router = Router();
 const marketerOverviewCache = new ShortTtlCache<Awaited<ReturnType<typeof buildMarketerOverview>>>(25_000);
 
 router.use(authMiddleware);
-router.use(adminOrMarketer);
+router.use(requireStaffPermission('inquiry.view'));
 
 /** 마케터별 이번 달·오늘 예약완료(RECEIVED) — 서비스접수와 동일(접수일·접수자, KST) */
 router.get('/marketer-overview', async (req, res) => {
@@ -509,7 +509,7 @@ router.get('/', async (req, res) => {
 });
 
 /** 관리자만 — 접수일(createdAt) KST 하루 단위 영구 삭제 (배정·이력·현장사진 연쇄 삭제) */
-router.post('/admin/bulk-delete-by-day', adminOrMarketer, async (req, res) => {
+router.post('/admin/bulk-delete-by-day', requireStaffPermission('inquiry.bulkDelete'), async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(auth);
   if (!tenantId) {
@@ -531,7 +531,7 @@ router.post('/admin/bulk-delete-by-day', adminOrMarketer, async (req, res) => {
 });
 
 /** 관리자만 — 접수일(createdAt) KST 해당 월 영구 삭제 */
-router.post('/admin/bulk-delete-by-month', adminOrMarketer, async (req, res) => {
+router.post('/admin/bulk-delete-by-month', requireStaffPermission('inquiry.bulkDelete'), async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(auth);
   if (!tenantId) {
@@ -600,7 +600,7 @@ router.use('/:inquiryId/additional-receipts', inquiryAdditionalReceiptsAdminRout
 router.post('/:id/swap-crew-with-partner', handlePostSwapCrewWithPartner);
 
 /** 관리자만 — 비밀번호 확인 후 접수 영구 삭제 */
-router.delete('/:id', adminOrMarketer, async (req, res) => {
+router.delete('/:id', requireStaffPermission('inquiry.delete'), async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(auth);
   if (!tenantId) {
@@ -720,6 +720,10 @@ router.patch('/:id', async (req, res) => {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
+  if (!(await staffHasPermission(user, 'inquiry.edit.basic'))) {
+    res.status(403).json({ error: '접수 수정 권한이 없습니다.' });
+    return;
+  }
   const inquiry = await prisma.inquiry.findFirst({
     where: { id, tenantId },
     include: {
@@ -740,6 +744,18 @@ router.patch('/:id', async (req, res) => {
   /** 클라이언트가 teamLeaderIds를 보낸 경우에만 분배(Assignment) 동기화 — 배열이 아닌 형태도 normalize에서 처리 */
   let wantsTeamSync = Object.prototype.hasOwnProperty.call(body, 'teamLeaderIds');
   let teamLeaderIds = normalizeTeamLeaderIds(body.teamLeaderIds);
+  if (wantsTeamSync) {
+    const currentTeamKey = inquiry.assignments
+      .map((a) => a.teamLeaderId)
+      .slice()
+      .sort()
+      .join(',');
+    const nextTeamKey = teamLeaderIds.slice().sort().join(',');
+    if (currentTeamKey !== nextTeamKey && !(await staffHasPermission(user, 'inquiry.edit.assignment'))) {
+      res.status(403).json({ error: '팀장·타업체 배정 권한이 없습니다.' });
+      return;
+    }
+  }
 
   if (Object.prototype.hasOwnProperty.call(body, 'internalCustomerTone')) {
     if (!canEditInternalCustomerTone(user.role)) {
@@ -799,7 +815,7 @@ router.patch('/:id', async (req, res) => {
     const rawCb = body.createdById;
     const nextCreatedById = rawCb == null || rawCb === '' ? null : String(rawCb);
     const currentCreatedById = inquiry.createdById ?? null;
-    const canEditCreatedBy = await userHasMarketerOperationalAdminAccess(user);
+    const canEditCreatedBy = await staffHasPermission(user, 'inquiry.edit.marketer');
     if (!canEditCreatedBy) {
       if (nextCreatedById !== currentCreatedById) {
         res.status(403).json({ error: '담당 마케터 변경 권한이 없습니다.' });
@@ -1551,7 +1567,7 @@ router.patch('/:id', async (req, res) => {
 
 const CREATE_STATUSES = CREATE_INQUIRY_STATUSES;
 
-router.post('/', async (req, res) => {
+router.post('/', requireStaffPermission('inquiry.create'), async (req, res) => {
   const body = req.body as Record<string, unknown>;
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);

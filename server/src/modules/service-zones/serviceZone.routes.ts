@@ -1,7 +1,8 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOnly, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
   createServiceZone,
@@ -29,7 +30,7 @@ function asyncHandler(
 const router = Router();
 
 router.use(authMiddleware);
-router.use(adminOrMarketer);
+router.use(requireStaffPermission('inquiry.view'));
 
 router.get(
   '/',
@@ -46,7 +47,7 @@ router.get(
 
 router.post(
   '/',
-  adminOnly,
+  requireStaffPermission('admin.serviceZones'),
   asyncHandler(async (req, res) => {
     const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
     if (!tenantId) return;
@@ -65,7 +66,7 @@ router.post(
 
 router.patch(
   '/:id',
-  adminOnly,
+  requireStaffPermission('admin.serviceZones'),
   asyncHandler(async (req, res) => {
     const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
     if (!tenantId) return;
@@ -88,7 +89,7 @@ router.patch(
 
 router.delete(
   '/:id',
-  adminOnly,
+  requireStaffPermission('admin.serviceZones'),
   asyncHandler(async (req, res) => {
     const auth = (req as unknown as { user: AuthPayload }).user;
     const tenantId = await requireTenantIdFromAuth(res, auth);

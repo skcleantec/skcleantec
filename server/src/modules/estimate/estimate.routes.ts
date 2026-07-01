@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOnly, adminOrMarketer } from '../auth/auth.middleware.js';
+import { authMiddleware } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { getOrCreateEstimateConfig } from '../tenants/tenantConfigSeed.service.js';
@@ -17,16 +18,15 @@ function requireTenant(req: import('express').Request, res: import('express').Re
   return tenantId;
 }
 
-/** Read estimate defaults (order form UI for admin + marketer) */
-router.get('/config', adminOrMarketer, async (req, res) => {
+/** Read estimate defaults (order form UI) */
+router.get('/config', requireStaffPermission('inquiry.view', 'orderform.issue', 'orderform.formConfig'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const config = await getOrCreateEstimateConfig(prisma, tenantId);
   res.json(config);
 });
 
-/** Update estimate defaults — admin only */
-router.put('/config', adminOnly, async (req, res) => {
+router.put('/config', requireStaffPermission('orderform.formConfig'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const { pricePerPyeong, depositAmount } = req.body as {
@@ -45,7 +45,7 @@ router.put('/config', adminOnly, async (req, res) => {
 });
 
 /** Active add-on options only */
-router.get('/options', adminOrMarketer, async (req, res) => {
+router.get('/options', requireStaffPermission('inquiry.view', 'orderform.issue', 'orderform.formConfig'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const list = await prisma.estimateOption.findMany({
@@ -56,7 +56,7 @@ router.get('/options', adminOrMarketer, async (req, res) => {
 });
 
 /** All add-on options including inactive */
-router.get('/options/all', adminOrMarketer, async (req, res) => {
+router.get('/options/all', requireStaffPermission('orderform.formConfig'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const list = await prisma.estimateOption.findMany({
@@ -66,7 +66,7 @@ router.get('/options/all', adminOrMarketer, async (req, res) => {
   res.json({ items: list });
 });
 
-router.post('/options', adminOrMarketer, async (req, res) => {
+router.post('/options', requireStaffPermission('orderform.formConfig'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const { name, extraAmount, sortOrder } = req.body as {
@@ -89,7 +89,7 @@ router.post('/options', adminOrMarketer, async (req, res) => {
   res.json(created);
 });
 
-router.patch('/options/:id', adminOrMarketer, async (req, res) => {
+router.patch('/options/:id', requireStaffPermission('orderform.formConfig'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const { id } = req.params;
@@ -116,7 +116,7 @@ router.patch('/options/:id', adminOrMarketer, async (req, res) => {
   res.json(updated);
 });
 
-router.delete('/options/:id', adminOrMarketer, async (req, res) => {
+router.delete('/options/:id', requireStaffPermission('orderform.formConfig'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const { id } = req.params;

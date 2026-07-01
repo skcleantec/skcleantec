@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOrMarketer } from '../auth/auth.middleware.js';
+import { requireStaffPermissionByMethod } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import {
   createdAtRangeFromQuery,
@@ -73,7 +73,7 @@ async function syncInquiryWhenFollowupDepositPending(inquiryId: string, tenantId
   });
 }
 router.use(authMiddleware);
-router.use(adminOrMarketer);
+router.use(requireStaffPermissionByMethod(['followup.view'], ['followup.edit']));
 
 function parseNextContact(raw: unknown): Date | null | undefined {
   if (raw === undefined) return undefined;

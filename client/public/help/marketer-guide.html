@@ -273,7 +273,7 @@
     <div class="toc-item"><div class="toc-num">31</div><div class="toc-name">팀원</div><div class="toc-desc">크루·휴무·그룹</div></div>
     <div class="toc-item"><div class="toc-num">32</div><div class="toc-name">휴일캘린더</div><div class="toc-desc">팀장·팀원 휴무</div></div>
     <div class="toc-item"><div class="toc-num">33</div><div class="toc-name">페이지설정</div><div class="toc-desc">접수 축하 바</div></div>
-    <div class="toc-item"><div class="toc-num">34</div><div class="toc-name">직원권한</div><div class="toc-desc">마케터 3단계</div></div>
+    <div class="toc-item"><div class="toc-num">34</div><div class="toc-name">직원권한</div><div class="toc-desc">항목별 권한 설정</div></div>
     <div class="toc-item"><div class="toc-num">35</div><div class="toc-name">브랜드정책</div><div class="toc-desc">배정·목록 규칙</div></div>
     <div class="toc-item"><div class="toc-num">36</div><div class="toc-name">검수템플릿</div><div class="toc-desc">현장 체크리스트</div></div>
     <div class="toc-item"><div class="toc-num">37</div><div class="toc-name">팀장교육자료</div><div class="toc-desc">PDF 업로드</div></div>
@@ -321,24 +321,24 @@
       </div>
     </div>
     <div class="seq-tip" style="margin-bottom:14px;">
-      <strong>⚙️ 관리자 전용</strong> 메뉴(사용자 등록·정산·설정 등)는 <em>권한 레벨 「전체」</em>인 마케터와 관리자만 상단에 표시됩니다.
+      <strong>⚙️ 관리자 전용</strong> GNB는 마케터에게 <em>관리자 메뉴 권한(admin.*)</em>이 하나라도 있을 때만 표시됩니다. 상단·사이드·하위 메뉴도 <em>항목별 권한</em>에 맞게 자동으로 숨겨집니다.
     </div>
-    <p style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:10px;">마케터 권한 레벨 3단계</p>
+    <p style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:10px;">마케터 권한 — 3단계 프리셋 + 항목별 조정</p>
     <div class="perm-grid">
       <div class="perm-card none">
-        <div class="perm-icon">👁️</div>
-        <div class="perm-level">없음 (조회만)</div>
-        <div class="perm-desc">목록·상세 조회만 가능. 수정·삭제·배정·접수 등 모든 변경 작업 불가.</div>
+        <div class="perm-icon">📋</div>
+        <div class="perm-level">없음 (기본 업무)</div>
+        <div class="perm-desc">접수·발주·C/S·부재·광고비 입력·정보공유 등 일상 업무. 배정·삭제·관리자 메뉴는 없음.</div>
       </div>
       <div class="perm-card limited">
         <div class="perm-icon">✏️</div>
-        <div class="perm-level">일부 (운영 권한)</div>
-        <div class="perm-desc">배정·삭제·접수 고급 수정 가능. 관리자 전용 메뉴는 비표시.</div>
+        <div class="perm-level">일부 (운영)</div>
+        <div class="perm-desc">+ 팀장 배정·접수 삭제·담당 마케터 변경·엑셀 일괄 등. <em>관리자 전용</em> GNB는 숨김.</div>
       </div>
       <div class="perm-card full">
         <div class="perm-icon">🔑</div>
-        <div class="perm-level">전체 (관리자 동일)</div>
-        <div class="perm-desc">관리자와 동일한 모든 권한. 관리자 전용 메뉴 포함 전체 기능 사용.</div>
+        <div class="perm-level">전체 (관리자 메뉴)</div>
+        <div class="perm-desc">+ 사용자·정산·설정 등 관리자 메뉴. 체크리스트로 항목별 세부 조정 가능.</div>
       </div>
     </div>
   </div>
@@ -513,8 +513,8 @@
         </div>
       </div>
       <div class="tip-box">
-        <div class="tip-t">💡 마케터는 자신이 담당한 접수만 보임</div>
-        마케터는 기본적으로 본인이 접수한 건만 보입니다. 권한이 <em>「일부」 이상</em>이면 다른 직원의 접수도 조회·수정할 수 있습니다.
+        <div class="tip-t">💡 담당 마케터·목록 범위</div>
+        접수 목록은 <em>접수 조회</em> 권한이 있으면 볼 수 있습니다. 다른 직원 접수의 <em>담당 마케터 변경</em>은 <em>일부(운영)</em> 프리셋 이상 또는 해당 체크가 켜져 있어야 합니다.
       </div>
     </div>
   </div>
@@ -1256,7 +1256,7 @@
     <div class="desc-col">
       <div class="page-tag">관리자 전용 › 관리자 전용</div>
       <div class="page-title">관리자 전용 — 사이드바 구조</div>
-      <div class="page-sub">권한 <em>「전체」</em> 마케터와 ADMIN만 상단 GNB에 <em>「관리자 전용」</em> 이 보입니다. PC는 왼쪽 사이드·모바일은 가로 탭으로 하위 메뉴에 들어갑니다.</div>
+      <div class="page-sub"><em>admin.*</em> 관리자 메뉴 권한이 있는 마케터와 ADMIN만 상단 GNB에 <em>「관리자 전용」</em> 이 보입니다. 하위 메뉴도 항목별 권한에 맞게 표시됩니다. PC는 왼쪽 사이드·모바일은 가로 탭.</div>
       <div class="step-list">
         <div class="step">
           <div class="step-num">1</div>
@@ -1267,7 +1267,7 @@
         </div>
       </div>
       
-      <div class="warn-box"><div class="warn-t">⚠️ 주의</div>「없음」「일부」 권한 마케터는 이 메뉴 전체가 숨겨집니다. 마케터 권한 변경은 <em>사용자 등록 → 마케터</em> 또는 <em>직원권한</em> 안내를 따르세요.</div>
+      <div class="warn-box"><div class="warn-t">⚠️ 주의</div>마케터에게 <em>관리자 메뉴 권한</em>이 없으면 이 GNB·사이드 메뉴 전체가 숨겨집니다. 권한은 <em>관리자 전용 › 직원권한</em>에서 항목별로 설정합니다(ADMIN만).</div>
     </div>
   </div>
 </div>
@@ -1868,26 +1868,37 @@
     </div>
     <div class="desc-col">
       <div class="page-tag">관리자 전용 › 설정</div>
-      <div class="page-title">직원권한 — 마케터 관리자 권한</div>
-      <div class="page-sub">마케터 <em>관리자 권한</em> 단계 설명과 실제 설정 위치(<em>사용자 등록 → 마케터</em>) 안내입니다.</div>
+      <div class="page-title">직원권한 — 마케터 항목별 권한</div>
+      <div class="page-sub"><em>ADMIN</em> 전용. 마케터마다 <em>3단계 프리셋</em>으로 빠르게 채운 뒤, 도메인별 체크리스트로 세부 조정합니다. 저장 시 그 맵이 실제 메뉴·API 권한이 됩니다.</div>
       <div class="step-list">
         <div class="step">
           <div class="step-num">1</div>
           <div class="step-c">
-            <strong>권한 단계</strong>
-            <ul class="sub-li"><li><em>없음</em> — 접수·발주 기본만</li><li><em>일부</em> — 배정·고급 수정, 관리자 전용 GNB 숨김</li><li><em>전체</em> — 관리자와 동일 업무 메뉴(ADMIN 소유 기능 제외)</li></ul>
+            <strong>마케터 선택</strong>
+            <p>왼쪽 목록 또는 URL <em>?userId=</em> 로 대상 선택. 사용자 등록 모달의 「항목별 상세 권한 설정 →」 링크로도 바로 이동할 수 있습니다.</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">2</div>
           <div class="step-c">
-            <strong>설정</strong>
-            <p>「사용자 등록 · 마케터 탭으로 이동」→ 상세·수정 → 권한 저장. <em>ADMIN</em>만 변경 가능.</p>
+            <strong>3단계 라디오</strong>
+            <ul class="sub-li">
+              <li><em>없음</em> — 접수·발주·C/S·광고비 등 기본 업무</li>
+              <li><em>일부</em> — + 배정·삭제·고급 수정 (관리자 GNB 숨김)</li>
+              <li><em>전체</em> — + 사용자·정산·설정 등 관리자 메뉴</li>
+            </ul>
+            <p>프리셋 변경·되돌리기 시 확인 창이 뜹니다. 체크를 수동으로 바꾸면 「일부 수정됨」 표시.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-c">
+            <strong>도메인별 체크 · 저장</strong>
+            <p>접수·스케줄·발주·견적·C/S·광고·정보공유·관리자 메뉴 등 그룹별로 ON/OFF. <em>권한 저장</em> 후 GNB·사이드·버튼·API에 즉시 반영됩니다.</p>
+            <p class="sub-li" style="margin-top:6px;">잠금 항목(직원권한 화면 등)은 마케터에게 부여할 수 없습니다.</p>
           </div>
         </div>
       </div>
-      
-      
     </div>
   </div>
 </div>

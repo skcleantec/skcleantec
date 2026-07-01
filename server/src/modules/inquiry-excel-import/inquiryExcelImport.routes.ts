@@ -2,7 +2,8 @@ import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import type { UserRole } from '@prisma/client';
-import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { prisma } from '../../lib/prisma.js';
 import { normalizeUploadedFilename } from '../../lib/uploadFilename.js';
@@ -27,7 +28,7 @@ const upload = multer({
   limits: { fileSize: 8 * 1024 * 1024 },
 });
 
-router.use(authMiddleware, adminOrMarketer);
+router.use(authMiddleware, requireStaffPermission('inquiry.excelImport'));
 
 function tenantIdOr403(req: Request, res: { status: (n: number) => { json: (b: unknown) => void } }) {
   const user = (req as unknown as { user: AuthPayload }).user;

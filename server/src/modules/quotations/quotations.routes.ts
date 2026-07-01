@@ -1,12 +1,8 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
-import {
-  authMiddleware,
-  adminOnly,
-  adminOrMarketer,
-  type AuthPayload,
-} from '../auth/auth.middleware.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
 import { allocateNextQuotationNumber } from './quotationNumber.js';
@@ -45,7 +41,8 @@ import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 
 const router = Router();
 router.use(authMiddleware);
-router.use(adminOrMarketer);
+router.use(staffMarketerRoleOnly);
+router.use(requireStaffPermission('quotation.create', 'quotation.config'));
 
 function requireTenant(req: import('express').Request, res: import('express').Response): string | null {
   const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
@@ -91,7 +88,7 @@ router.get('/config', async (req, res) => {
   res.json(serializeQuotationConfig(config));
 });
 
-router.put('/config', adminOnly, async (req, res) => {
+router.put('/config', requireStaffPermission('quotation.config'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const body = req.body as {
@@ -201,7 +198,7 @@ router.get('/service-items/all', async (req, res) => {
   res.json({ items: items.map(serializeServiceItem) });
 });
 
-router.post('/service-items', adminOnly, async (req, res) => {
+router.post('/service-items', requireStaffPermission('quotation.config'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const body = req.body as {
@@ -234,7 +231,7 @@ router.post('/service-items', adminOnly, async (req, res) => {
   res.json(serializeServiceItem(created));
 });
 
-router.patch('/service-items/:id', adminOnly, async (req, res) => {
+router.patch('/service-items/:id', requireStaffPermission('quotation.config'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const { id } = req.params;
@@ -263,7 +260,7 @@ router.patch('/service-items/:id', adminOnly, async (req, res) => {
   res.json(serializeServiceItem(updated));
 });
 
-router.post('/service-items/:id/move', adminOnly, async (req, res) => {
+router.post('/service-items/:id/move', requireStaffPermission('quotation.config'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const { id } = req.params;
@@ -299,7 +296,7 @@ router.post('/service-items/:id/move', adminOnly, async (req, res) => {
   res.json({ items: refreshed.map(serializeServiceItem) });
 });
 
-router.delete('/service-items/:id', adminOnly, async (req, res) => {
+router.delete('/service-items/:id', requireStaffPermission('quotation.config'), async (req, res) => {
   const tenantId = requireTenant(req, res);
   if (!tenantId) return;
   const auth = (req as unknown as { user: AuthPayload }).user;

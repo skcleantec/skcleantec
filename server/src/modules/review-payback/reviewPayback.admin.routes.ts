@@ -2,7 +2,8 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { createdAtRangeFromQuery, kstDayRangeYmd } from '../inquiries/inquiryListDateRange.js';
 import {
@@ -16,7 +17,7 @@ import { notifyReviewPaybackListRefresh } from './reviewPaybackNotify.js';
 
 const router = Router();
 router.use(authMiddleware);
-router.use(adminOrMarketer);
+router.use(requireStaffPermission('inquiry.view'));
 
 const DEFAULT_PAGE_SIZE = 30;
 

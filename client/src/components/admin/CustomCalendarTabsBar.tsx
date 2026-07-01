@@ -6,6 +6,8 @@ export type CustomCalendarTabsBarProps = {
   activeId: string | null;
   onSelect: (id: string | null) => void;
   onClickAdd: () => void;
+  /** false면 +추가 버튼 숨김 */
+  showAddButton?: boolean;
   /** 전체 캘린더로 복귀하는 '전체' 칩을 함께 보여줄지 */
   showAllChip?: boolean;
   className?: string;
@@ -20,6 +22,7 @@ export function CustomCalendarTabsBar({
   activeId,
   onSelect,
   onClickAdd,
+  showAddButton = true,
   showAllChip = true,
   className = '',
 }: CustomCalendarTabsBarProps) {
@@ -27,6 +30,7 @@ export function CustomCalendarTabsBar({
     <div
       className={`flex w-full min-w-0 max-w-full flex-wrap items-center gap-1 pr-1 sm:flex-nowrap sm:overflow-x-auto sm:overscroll-x-contain sm:whitespace-nowrap sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden ${className}`}
     >
+      {showAddButton ? (
       <button
         type="button"
         onClick={onClickAdd}
@@ -35,6 +39,7 @@ export function CustomCalendarTabsBar({
       >
         +추가
       </button>
+      ) : null}
 
       {showAllChip && calendars.length > 0 && (
         <button

@@ -1892,6 +1892,14 @@ export function AdminTeamLeadersPage() {
                             </span>
                           </label>
                         ))}
+                        {editingUser.id ? (
+                          <Link
+                            to={`/admin/team-leaders/staff-access?userId=${encodeURIComponent(editingUser.id)}`}
+                            className="inline-block text-fluid-2xs text-sky-700 hover:text-sky-900 underline underline-offset-2"
+                          >
+                            항목별 상세 권한 설정 →
+                          </Link>
+                        ) : null}
                       </fieldset>
                     ) : null}
                     <div>

@@ -3,7 +3,8 @@ import bcrypt from 'bcryptjs';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOrMarketer, superAdminOnly } from '../auth/auth.middleware.js';
+import { superAdminOnly } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
@@ -13,7 +14,7 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
-router.use(adminOrMarketer);
+router.use(requireStaffPermission('inquiry.changeLog.view'));
 
 const logInclude = {
   inquiry: { select: { customerName: true } },

@@ -5,6 +5,8 @@ import {
   hasFeature,
   type TenantFeatureModuleId,
 } from '@shared/tenantFeatureModules';
+import type { MarketerPermissionMap } from '@shared/marketerPermissions';
+import { canShowAdminGnbItem, type AdminNavId as PermissionNavId } from '@shared/marketerPermissionNav';
 
 export type AdminNavId =
   | 'dashboard'
@@ -16,16 +18,30 @@ export type AdminNavId =
   | 'messages';
 
 export type AdminNavContext = {
+  /** @deprecated marketerPermissions 기반 canShowAdminGnbItem 사용 */
   isAdmin: boolean;
+  role?: string | null;
+  marketerPermissions?: MarketerPermissionMap | null;
   /** null = /auth/me features 로드 전 — 기존처럼 모듈 필터 생략 */
   enabledModules: readonly string[] | null;
 };
 
 export function canShowAdminNavItem(id: AdminNavId, ctx: AdminNavContext | boolean): boolean {
-  const isAdmin = typeof ctx === 'boolean' ? ctx : ctx.isAdmin;
-  const enabledModules = typeof ctx === 'boolean' ? null : ctx.enabledModules;
+  const isLegacyBoolean = typeof ctx === 'boolean';
+  const isAdmin = isLegacyBoolean ? ctx : ctx.isAdmin;
+  const enabledModules = isLegacyBoolean ? null : ctx.enabledModules;
+  const role = isLegacyBoolean ? (isAdmin ? 'ADMIN' : 'MARKETER') : ctx.role;
+  const permissions = isLegacyBoolean ? null : ctx.marketerPermissions;
+
   const d = ADMIN_NAV_DEF[id];
-  if (d.adminOnly && !isAdmin) return false;
+  if (d.adminOnly && !isAdmin && role !== 'ADMIN') return false;
+
+  if (role === 'MARKETER' && permissions) {
+    if (!canShowAdminGnbItem(id as PermissionNavId, role, permissions)) return false;
+  } else if (d.adminOnly && role !== 'ADMIN' && !isAdmin) {
+    return false;
+  }
+
   if (!enabledModules) return true;
   const mod = ADMIN_NAV_MODULE_MAP[id as keyof typeof ADMIN_NAV_MODULE_MAP];
   if (!mod) return true;

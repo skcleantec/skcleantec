@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermissionByMethod, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { prisma } from '../../lib/prisma.js';
@@ -51,7 +52,8 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware, adminOrMarketer, requireFeature('mod_db_marketplace'));
+router.use(authMiddleware, staffMarketerRoleOnly, requireFeature('mod_db_marketplace'));
+router.use(requireStaffPermissionByMethod(['marketplace.view'], ['marketplace.trade']));
 
 function mapError(res: import('express').Response, e: unknown): boolean {
   if (e instanceof DbMarketplaceError) {

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
-import { adminOrMarketer } from '../auth/auth.middleware.js';
+import { authMiddleware } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { resolveLeaderMorningAfternoon, resolveMemberAvailable } from './scheduleDayAvailability.helpers.js';
 import { countAvailableFieldStaffOnDate, tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.helpers.js';
 import { dateToYmdKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
@@ -32,7 +32,7 @@ async function tenantFromReq(req: import('express').Request, res: import('expres
 }
 
 router.use(authMiddleware);
-router.use(adminOrMarketer);
+router.use(requireStaffPermission('schedule.edit.inquiry'));
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_STAFF_MEMO_MAX_LEN = 4000;
@@ -67,7 +67,7 @@ router.get('/day-memo', async (req, res) => {
 });
 
 /** 관리자·마케터: 선택일 공유 메모 저장(덮어쓰기, 이력 없음) */
-router.put('/day-memo', async (req, res) => {
+router.put('/day-memo', requireStaffPermission('schedule.staffMemo'), async (req, res) => {
   const tenantId = await tenantFromReq(req, res);
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
@@ -291,7 +291,7 @@ router.get('/', async (req, res) => {
 });
 
 /** 관리자: 해당일 일정 마감(범위별 잔여 슬롯·TO 조정) */
-router.post('/closures', authMiddleware, adminOnly, async (req, res) => {
+router.post('/closures', authMiddleware, requireStaffPermission('schedule.closures'), async (req, res) => {
   const tenantId = await tenantFromReq(req, res);
   if (!tenantId) return;
   const { date, scope } = req.body as {
@@ -313,7 +313,7 @@ router.post('/closures', authMiddleware, adminOnly, async (req, res) => {
   res.json({ ok: true });
 });
 
-router.delete('/closures', authMiddleware, adminOnly, async (req, res) => {
+router.delete('/closures', authMiddleware, requireStaffPermission('schedule.closures'), async (req, res) => {
   const tenantId = await tenantFromReq(req, res);
   if (!tenantId) return;
   const { date } = req.query as { date?: string };
@@ -435,7 +435,7 @@ router.get('/day-availability', async (req, res) => {
 });
 
 /** 관리자: 해당일 가용 팀장·팀원 수동 설정(전체 교체) */
-router.put('/day-availability', authMiddleware, adminOnly, async (req, res) => {
+router.put('/day-availability', authMiddleware, requireStaffPermission('schedule.dayAvailability'), async (req, res) => {
   const tenantId = await tenantFromReq(req, res);
   if (!tenantId) return;
   const body = req.body as {

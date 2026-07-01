@@ -562,6 +562,8 @@ model User {
   platformSupportAccess   TenantSupportAccess? @relation(fields: [platformSupportAccessId], references: [id], onDelete: SetNull)
   /// 마케터 관리자 권한 — NONE: 기본, LIMITED: 배정·삭제 등 일부, FULL: 관리자 전용 메뉴 포함
   marketerAdminLevel MarketerAdminLevel @default(NONE) @map("marketer_admin_level")
+  /// 마케터 세부 권한 맵(JSON). null이면 marketerAdminLevel 프리셋만 적용
+  marketerPermissions Json? @map("marketer_permissions")
 
   assignmentsAssigned Assignment[] @relation("TeamLeaderAssignments")
   assignmentsGiven     Assignment[] @relation("AdminAssignments")

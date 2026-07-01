@@ -4,11 +4,10 @@ import type { InquiryStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
   authMiddleware,
-  adminOrMarketer,
-  adminOnly,
   type AuthPayload,
   superAdminOnly,
 } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { isTenantOwnerAdmin } from '../auth/tenantOwner.js';
 import {
   inclusiveDayCount,
@@ -63,7 +62,7 @@ function requireTenantFromReq(req: unknown, res: import('express').Response): st
 }
 
 /** 활성 채널 목록 (종료 시 금액 입력용). ?all=1 이면 최고 관리자만 비활성 포함. 과목(lineItems) 포함 */
-router.get('/channels', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/channels', authMiddleware, requireStaffPermission('ads.sessions', 'ads.analytics', 'ads.settings'), async (req, res) => {
   const user = authUser(req);
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
@@ -81,7 +80,7 @@ router.get('/channels', authMiddleware, adminOrMarketer, async (req, res) => {
 });
 
 /** 관리자 전용: 모든 채널·과목 설정 조회 (비활성 포함) */
-router.get('/settlement-config', authMiddleware, adminOnly, async (req, res) => {
+router.get('/settlement-config', authMiddleware, requireStaffPermission('ads.settings'), async (req, res) => {
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
   const items = await prisma.adChannel.findMany({
@@ -92,7 +91,7 @@ router.get('/settlement-config', authMiddleware, adminOnly, async (req, res) => 
   res.json({ items });
 });
 
-router.patch('/channels/:id/settlement-mode', authMiddleware, adminOnly, async (req, res) => {
+router.patch('/channels/:id/settlement-mode', authMiddleware, requireStaffPermission('ads.settings'), async (req, res) => {
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
   const { id } = req.params;
@@ -119,7 +118,7 @@ router.patch('/channels/:id/settlement-mode', authMiddleware, adminOnly, async (
   }
 });
 
-router.post('/channels/:channelId/line-items', authMiddleware, adminOnly, async (req, res) => {
+router.post('/channels/:channelId/line-items', authMiddleware, requireStaffPermission('ads.settings'), async (req, res) => {
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
   const { channelId } = req.params;
@@ -163,7 +162,7 @@ router.post('/channels/:channelId/line-items', authMiddleware, adminOnly, async 
   res.json(row);
 });
 
-router.patch('/line-items/:lineItemId', authMiddleware, adminOnly, async (req, res) => {
+router.patch('/line-items/:lineItemId', authMiddleware, requireStaffPermission('ads.settings'), async (req, res) => {
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
   const { lineItemId } = req.params;
@@ -218,7 +217,7 @@ router.patch('/line-items/:lineItemId', authMiddleware, adminOnly, async (req, r
   res.json(row);
 });
 
-router.delete('/line-items/:lineItemId', authMiddleware, adminOnly, async (req, res) => {
+router.delete('/line-items/:lineItemId', authMiddleware, requireStaffPermission('ads.settings'), async (req, res) => {
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
   const { lineItemId } = req.params;
@@ -238,7 +237,7 @@ router.delete('/line-items/:lineItemId', authMiddleware, adminOnly, async (req, 
   }
 });
 
-router.post('/channels', authMiddleware, adminOnly, async (req, res) => {
+router.post('/channels', authMiddleware, requireStaffPermission('ads.settings'), async (req, res) => {
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
   const { name, sortOrder } = req.body as { name?: string; sortOrder?: number };
@@ -334,7 +333,7 @@ router.delete('/channels/:id', authMiddleware, superAdminOnly, async (req, res) 
   }
 });
 
-router.patch('/channels/:id', authMiddleware, adminOnly, async (req, res) => {
+router.patch('/channels/:id', authMiddleware, requireStaffPermission('ads.settings'), async (req, res) => {
   const user = authUser(req);
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
@@ -376,7 +375,7 @@ router.patch('/channels/:id', authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-router.post('/sessions/start', authMiddleware, adminOrMarketer, async (req, res) => {
+router.post('/sessions/start', authMiddleware, requireStaffPermission('ads.sessions'), async (req, res) => {
   const user = authUser(req);
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
@@ -394,7 +393,7 @@ router.post('/sessions/start', authMiddleware, adminOrMarketer, async (req, res)
   res.json(session);
 });
 
-router.get('/sessions/active', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/sessions/active', authMiddleware, requireStaffPermission('ads.sessions'), async (req, res) => {
   const user = authUser(req);
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
@@ -406,7 +405,7 @@ router.get('/sessions/active', authMiddleware, adminOrMarketer, async (req, res)
 });
 
 /** 종료 입력 모달 — 확정 예약(고객 제출) 분모 미리보기 + 미제출 발급 참고 */
-router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/sessions/booking-denominator-preview', authMiddleware, requireStaffPermission('ads.sessions'), async (req, res) => {
   const user = authUser(req);
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
@@ -442,7 +441,7 @@ router.get('/sessions/booking-denominator-preview', authMiddleware, adminOrMarke
   });
 });
 
-router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) => {
+router.post('/sessions/end', authMiddleware, requireStaffPermission('ads.sessions'), async (req, res) => {
   const user = authUser(req);
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
@@ -580,7 +579,7 @@ router.post('/sessions/end', authMiddleware, adminOrMarketer, async (req, res) =
 });
 
 /** 마케터별 당월(또는 지정 월) KST 일자별 광고비·예약 분모·건당 비용 */
-router.get('/analytics/daily', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/analytics/daily', authMiddleware, requireStaffPermission('ads.analytics'), async (req, res) => {
   const user = authUser(req);
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
@@ -638,7 +637,7 @@ router.get('/analytics/daily', authMiddleware, adminOrMarketer, async (req, res)
   }
 });
 
-router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/analytics', authMiddleware, requireStaffPermission('ads.analytics'), async (req, res) => {
   const user = authUser(req);
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;
@@ -841,7 +840,7 @@ router.get('/analytics', authMiddleware, adminOrMarketer, async (req, res) => {
   });
 });
 
-router.get('/sessions/history', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/sessions/history', authMiddleware, requireStaffPermission('ads.sessions'), async (req, res) => {
   const user = authUser(req);
   const tenantId = requireTenantFromReq(req, res);
   if (!tenantId) return;

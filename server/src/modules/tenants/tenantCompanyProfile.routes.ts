@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
 import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { tenantCompanySealFolder } from '../../lib/quotationSeal.js';
-import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { requireTenantIdFromAuth } from './tenantScope.helpers.js';
 import {
   getTenantCompanyProfile,
@@ -13,7 +14,7 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware, adminOnly);
+router.use(authMiddleware, requireStaffPermission('admin.companyProfile'));
 
 /** GET /api/admin/tenant-company-profile — 업체등록정보·SMTP (관리자) */
 router.get('/', async (req, res) => {

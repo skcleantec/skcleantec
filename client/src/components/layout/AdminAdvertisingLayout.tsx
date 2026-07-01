@@ -2,13 +2,18 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
-import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
+import { hasStaffPermission, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
 import { isLikelyNetworkFailure } from '../../api/fetchNetwork';
 import { getAdminAdvertisingNavItems } from '../../constants/adminAdvertisingNav';
 import { AdminCollapsibleSectionSideNav } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { filterAdminSideNavItems } from '../../utils/filterAdminSideNavByFeatures';
+import {
+  filterAdminSideNavByPermissions,
+  firstAllowedAdminSideNavPath,
+} from '../../utils/filterAdminSideNavByPermissions';
+import { canAccessAdminPath } from '@shared/marketerPermissionNav';
 
 const ADMIN_ADVERTISING_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-advertising-side-nav-collapsed';
 
@@ -37,33 +42,38 @@ export function AdminAdvertisingLayout() {
   const token = getToken();
   const location = useLocation();
   const { features } = useTenantCapabilities();
-  const [roleGate, setRoleGate] = useState<'loading' | 'admin' | 'marketer' | 'other' | 'network_error'>(
-    'loading'
-  );
+  const [roleGate, setRoleGate] = useState<'loading' | 'staff' | 'other' | 'network_error'>('loading');
+  const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(null);
 
-  const isAdmin = roleGate === 'admin';
-  const navItems = useMemo(
-    () => filterAdminSideNavItems(getAdminAdvertisingNavItems(isAdmin), features),
-    [isAdmin, features],
-  );
+  const showSettingsNav = hasStaffPermission(staffMe, 'ads.settings');
+  const navItems = useMemo(() => {
+    const raw = getAdminAdvertisingNavItems(showSettingsNav);
+    const byFeature = filterAdminSideNavItems(raw, features);
+    return filterAdminSideNavByPermissions(byFeature, staffMe);
+  }, [showSettingsNav, features, staffMe]);
 
   const probe = useCallback(() => {
     const t = getToken();
     if (!t) {
       setRoleGate('other');
+      setStaffMe(null);
       return;
     }
     setRoleGate('loading');
     void getMe(t)
       .then((u) => {
-        if (resolveEffectiveStaffAdminFromMe(u)) {
-          setRoleGate('admin');
-          return;
-        }
-        if (u.role === 'MARKETER') setRoleGate('marketer');
+        const me: StaffAdminMeFields = {
+          role: u.role,
+          effectiveStaffAdminAccess: u.effectiveStaffAdminAccess,
+          marketerAdminLevel: u.marketerAdminLevel,
+          marketerPermissions: u.marketerPermissions ?? null,
+        };
+        setStaffMe(me);
+        if (u.role === 'ADMIN' || u.role === 'MARKETER') setRoleGate('staff');
         else setRoleGate('other');
       })
       .catch((e: unknown) => {
+        setStaffMe(null);
         if (isAuthSessionExpiredError(e)) {
           setRoleGate('other');
           return;
@@ -82,6 +92,16 @@ export function AdminAdvertisingLayout() {
   useEffect(() => {
     probe();
   }, [token, probe]);
+
+  const pathAllowed = useMemo(
+    () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),
+    [staffMe, location.pathname],
+  );
+
+  const fallbackPath = useMemo(
+    () => firstAllowedAdminSideNavPath(getAdminAdvertisingNavItems(showSettingsNav), staffMe),
+    [staffMe, showSettingsNav],
+  );
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -107,12 +127,18 @@ export function AdminAdvertisingLayout() {
       </div>
     );
   }
-  if (roleGate !== 'admin' && roleGate !== 'marketer') {
+  if (roleGate !== 'staff') {
     return <Navigate to="/admin/dashboard" replace />;
   }
-
-  if (location.pathname.includes('/advertising/settings') && !isAdmin) {
-    return <Navigate to="/admin/advertising" replace />;
+  if (navItems.length === 0) {
+    return (
+      <div className="min-w-0 w-full max-w-full p-8 text-center text-fluid-sm text-gray-600">
+        광고비 메뉴에 접근할 권한이 없습니다.
+      </div>
+    );
+  }
+  if (!pathAllowed && fallbackPath) {
+    return <Navigate to={fallbackPath} replace />;
   }
 
   return (
@@ -134,7 +160,13 @@ export function AdminAdvertisingLayout() {
         </div>
 
         <div className="min-w-0 flex-1">
-          <Outlet />
+          {!pathAllowed ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-900">
+              이 화면에 대한 권한이 없습니다.
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </div>
       </div>
     </div>

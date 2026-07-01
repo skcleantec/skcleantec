@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
@@ -27,7 +28,7 @@ import type { TenantPartnerSettlementRole } from '@prisma/client';
 
 const router = Router();
 
-router.use(authMiddleware, adminOnly, requireFeature('mod_tenant_exchange'));
+router.use(authMiddleware, requireStaffPermission('admin.tenantPartners'), requireFeature('mod_tenant_exchange'));
 
 function mapError(res: import('express').Response, e: unknown): boolean {
   if (

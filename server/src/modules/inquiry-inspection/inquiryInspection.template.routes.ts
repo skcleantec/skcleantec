@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { AuthPayload } from '../auth/auth.middleware.js';
-import { authMiddleware, adminOnly } from '../auth/auth.middleware.js';
+import { authMiddleware } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
@@ -11,7 +12,7 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware, adminOnly, requireFeature('mod_inspection'));
+router.use(authMiddleware, requireStaffPermission('admin.inspectionTemplate'), requireFeature('mod_inspection'));
 
 router.get('/', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);

@@ -2,7 +2,8 @@ import { Router, type Request } from 'express';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOnly, adminOrOperationalMarketer } from '../auth/auth.middleware.js';
+import { authMiddleware, adminOrOperationalMarketer } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import {
@@ -64,7 +65,7 @@ router.use(authMiddleware);
  * 접수 상세·스케줄에서 투입 팀원 검색 시, 선택된 팀장(자사)과 같이 마지막으로 간 예약일부터
  * 현재 편집 중 예약일까지 몇 칸의 날짜 차이인지(정보 표시만, 선택 제한 없음).
  */
-router.get('/crew-leader-member-spacing', adminOrOperationalMarketer, async (req, res) => {
+router.get('/crew-leader-member-spacing', requireStaffPermission('inquiry.edit.assignment'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -106,7 +107,7 @@ router.get('/crew-leader-member-spacing', adminOrOperationalMarketer, async (req
   res.json({ spacingByMemberName });
 });
 
-router.get('/members', adminOrOperationalMarketer, async (req, res) => {
+router.get('/members', requireStaffPermission('inquiry.edit.assignment'), async (req, res) => {
   try {
     const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
     if (!tenantId) return;
@@ -212,7 +213,7 @@ router.get('/members', adminOrOperationalMarketer, async (req, res) => {
   }
 });
 
-router.use(adminOnly);
+router.use(requireStaffPermission('admin.users'));
 
 /**
  * 팀장별 월간 배정·상태 집계

@@ -66,7 +66,7 @@ import {
   type UserItem,
 } from '../../api/users';
 import { getMe } from '../../api/auth';
-import { resolveMarketerOperationalAdminFromMe } from '../../utils/staffAdminAccess';
+import { resolveMarketerOperationalAdminFromMe, hasStaffPermission, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
 import { getToken } from '../../stores/auth';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import {
@@ -891,8 +891,16 @@ export function AdminInquiriesPage() {
     name: string;
     phone?: string | null;
     email?: string;
+    marketerPermissions?: import('@shared/marketerPermissions').MarketerPermissionMap | null;
   } | null>(null);
   const [operationalAdmin, setOperationalAdmin] = useState(false);
+  const staffMe = useMemo(
+    (): StaffAdminMeFields | null =>
+      me ? { role: me.role, marketerPermissions: me.marketerPermissions ?? null } : null,
+    [me],
+  );
+  const canDeleteInquiry = hasStaffPermission(staffMe, 'inquiry.delete');
+  const canEditMarketerField = hasStaffPermission(staffMe, 'inquiry.edit.marketer');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */
   const [marketerFilterId, setMarketerFilterId] = useState(
@@ -1034,13 +1042,21 @@ export function AdminInquiriesPage() {
       return;
     }
     getMe(token)
-      .then((u: { id: string; role: string; name: string; phone?: string | null; email?: string }) => {
+      .then((u: {
+        id: string;
+        role: string;
+        name: string;
+        phone?: string | null;
+        email?: string;
+        marketerPermissions?: import('@shared/marketerPermissions').MarketerPermissionMap | null;
+      }) => {
         setMe({
           id: u.id,
           role: u.role,
           name: u.name,
           phone: u.phone ?? null,
           email: typeof u.email === 'string' ? u.email : undefined,
+          marketerPermissions: u.marketerPermissions ?? null,
         });
         setOperationalAdmin(resolveMarketerOperationalAdminFromMe(u));
       })
@@ -2138,7 +2154,7 @@ export function AdminInquiriesPage() {
         delete patch.specialNotes;
       }
       // 운영 권한(LIMITED·FULL) 또는 ADMIN만 createdById 전송 — NONE 마케터는 키 자체를 보내지 않음
-      if (me?.role === 'ADMIN' || operationalAdmin) {
+      if (me?.role === 'ADMIN' || canEditMarketerField) {
         patch.createdById = editForm.createdById || null;
       }
       const basisTrim = editForm.areaBasis.trim();
@@ -2964,7 +2980,7 @@ export function AdminInquiriesPage() {
                             >
                               메모
                             </button>
-                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                            {canDeleteInquiry && (
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
@@ -3006,7 +3022,7 @@ export function AdminInquiriesPage() {
                             >
                               새창
                             </button>
-                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                            {canDeleteInquiry && (
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
@@ -3045,7 +3061,7 @@ export function AdminInquiriesPage() {
                             >
                               취소
                             </button>
-                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                            {canDeleteInquiry && (
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
@@ -3095,7 +3111,7 @@ export function AdminInquiriesPage() {
                                 취소
                               </button>
                             )}
-                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                            {canDeleteInquiry && (
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
@@ -3470,7 +3486,7 @@ export function AdminInquiriesPage() {
                             >
                               메모
                             </button>
-                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                            {canDeleteInquiry && (
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
@@ -3512,7 +3528,7 @@ export function AdminInquiriesPage() {
                             >
                               새창
                             </button>
-                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                            {canDeleteInquiry && (
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
@@ -3551,7 +3567,7 @@ export function AdminInquiriesPage() {
                             >
                               취소
                             </button>
-                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                            {canDeleteInquiry && (
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
@@ -3601,7 +3617,7 @@ export function AdminInquiriesPage() {
                                 취소
                               </button>
                             )}
-                            {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
+                            {canDeleteInquiry && (
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(item)}
@@ -3944,8 +3960,8 @@ export function AdminInquiriesPage() {
               {!isInquirySourceHiddenFromUi(editItem.source) ? (
                 <span>출처: {formatInquirySourceLabel(editItem.source)}</span>
               ) : null}
-              {(editItem.createdBy?.name || editItem.orderForm?.createdBy?.name || me?.role === 'ADMIN' || operationalAdmin) && (
-                me?.role === 'ADMIN' || operationalAdmin ? (
+              {(editItem.createdBy?.name || editItem.orderForm?.createdBy?.name || canEditMarketerField) && (
+                canEditMarketerField ? (
                   <button
                     type="button"
                     className="underline underline-offset-2 text-blue-700 hover:text-blue-900"
@@ -4833,6 +4849,8 @@ export function AdminInquiriesPage() {
           professionalCatalog={profCatalog}
           currentUserRole={me?.role ?? null}
           currentUserOperationalAdmin={operationalAdmin}
+          currentUserCanEditMarketer={canEditMarketerField}
+          currentUserCanDeleteInquiry={canDeleteInquiry}
           marketerOptions={marketers}
           meUser={
             me
@@ -4921,6 +4939,8 @@ export function AdminInquiriesPage() {
           scheduleStatsByDate={scheduleStatsForModal}
           currentUserRole={me?.role ?? null}
           currentUserOperationalAdmin={operationalAdmin}
+          currentUserCanEditMarketer={canEditMarketerField}
+          currentUserCanDeleteInquiry={canDeleteInquiry}
           marketerOptions={marketers}
           meUser={me}
           onClose={() => setCreateInquiryModalDate(null)}

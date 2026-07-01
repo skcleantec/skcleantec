@@ -30,7 +30,7 @@ import { ScheduleDayTeamLeaderAdjustModal } from '../../components/admin/Schedul
 import { ScheduleDayStaffMemoPanel } from '../../components/admin/ScheduleDayStaffMemoPanel';
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { getMe } from '../../api/auth';
-import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe } from '../../utils/staffAdminAccess';
+import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe, hasStaffPermission, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
 import { getScheduleStats, type ScheduleStatsByDate, type AsCsScheduleListItem } from '../../api/dayoffs';
 import {
   getAssignableScheduleUsers,
@@ -650,6 +650,12 @@ export function AdminSchedulePage() {
   const [meRole, setMeRole] = useState<string | null>(null);
   const [effectiveStaffAdmin, setEffectiveStaffAdmin] = useState(false);
   const [operationalAdmin, setOperationalAdmin] = useState(false);
+  const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(null);
+  const canEditMarketerField = hasStaffPermission(staffMe, 'inquiry.edit.marketer');
+  const canDeleteInquiry = hasStaffPermission(staffMe, 'inquiry.delete');
+  const canManageClosures = hasStaffPermission(staffMe, 'schedule.closures');
+  const canManageDayAvailability = hasStaffPermission(staffMe, 'schedule.dayAvailability');
+  const canManageCustomCalendar = hasStaffPermission(staffMe, 'schedule.customCalendar');
   const [meUser, setMeUser] = useState<{
     id: string;
     role: string;
@@ -918,12 +924,25 @@ export function AdminSchedulePage() {
       setMeRole(null);
       setEffectiveStaffAdmin(false);
       setOperationalAdmin(false);
+      setStaffMe(null);
       return;
     }
     getMe(token)
-      .then((u: { id?: string; role?: string; name?: string; email?: string }) => {
+      .then((u: {
+        id?: string;
+        role?: string;
+        name?: string;
+        email?: string;
+        marketerPermissions?: StaffAdminMeFields['marketerPermissions'];
+      }) => {
         const role = typeof u.role === 'string' ? u.role : null;
         setMeRole(role);
+        setStaffMe({
+          role,
+          effectiveStaffAdminAccess: (u as { effectiveStaffAdminAccess?: boolean }).effectiveStaffAdminAccess,
+          marketerPermissions: u.marketerPermissions ?? null,
+          marketerAdminLevel: (u as { marketerAdminLevel?: StaffAdminMeFields['marketerAdminLevel'] }).marketerAdminLevel,
+        });
         setEffectiveStaffAdmin(resolveEffectiveStaffAdminFromMe(u));
         setOperationalAdmin(resolveMarketerOperationalAdminFromMe(u));
         if (u.id && u.name && role)
@@ -939,6 +958,7 @@ export function AdminSchedulePage() {
         setMeRole(null);
         setEffectiveStaffAdmin(false);
         setOperationalAdmin(false);
+        setStaffMe(null);
         setMeUser(null);
       });
   }, [token]);
@@ -1412,6 +1432,7 @@ export function AdminSchedulePage() {
                   setCustomCalendarEditing(null);
                   setCustomCalendarModalOpen(true);
                 }}
+                showAddButton={canManageCustomCalendar}
               />
               <Link
                 to="/admin/service-zones"
@@ -1887,8 +1908,7 @@ export function AdminSchedulePage() {
                       배정현황
                     </button>
                   )}
-                  {effectiveStaffAdmin && token && (
-                    <>
+                  {token && canManageDayAvailability && (
                       <button
                         type="button"
                         onClick={() => setAvailabilityModalOpen(true)}
@@ -1896,7 +1916,9 @@ export function AdminSchedulePage() {
                       >
                         가용인원
                       </button>
-                      {hasScheduleClosure(stats[selectedDate]) ? (
+                  )}
+                  {token && canManageClosures && selectedDate && (
+                    hasScheduleClosure(stats[selectedDate]) ? (
                         <ScheduleReleaseDayButton
                           disabled={closureBusy}
                           onClick={async () => {
@@ -1916,8 +1938,7 @@ export function AdminSchedulePage() {
                           disabled={closureBusy}
                           onClick={() => setClosureModalOpen(true)}
                         />
-                      )}
-                    </>
+                      )
                   )}
                   {token && (byDate[selectedDate]?.length ?? 0) > 0 && (
                     <ScheduleToolbarButton
@@ -2763,6 +2784,8 @@ export function AdminSchedulePage() {
           currentUserRole={meRole}
           currentUserStaffAdmin={effectiveStaffAdmin}
           currentUserOperationalAdmin={operationalAdmin}
+          currentUserCanEditMarketer={canEditMarketerField}
+          currentUserCanDeleteInquiry={canDeleteInquiry}
           marketerOptions={marketers}
           meUser={meUser}
           leaderAssignmentCountsByLeaderId={detailLeaderAssignmentCounts}
@@ -2809,6 +2832,8 @@ export function AdminSchedulePage() {
           currentUserRole={meRole}
           currentUserStaffAdmin={effectiveStaffAdmin}
           currentUserOperationalAdmin={operationalAdmin}
+          currentUserCanEditMarketer={canEditMarketerField}
+          currentUserCanDeleteInquiry={canDeleteInquiry}
           marketerOptions={marketers}
           meUser={meUser}
           onClose={() => setCreateInquiryModalDate(null)}

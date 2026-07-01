@@ -8,8 +8,8 @@ import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware } from '../auth/auth.middleware.js';
-import { adminOnly, adminOrMarketer, adminOrMarketerOrTeamLeader } from '../auth/auth.middleware.js';
+import { authMiddleware, adminOrMarketerOrTeamLeader } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import {
@@ -310,7 +310,7 @@ router.get('/professional-options', async (req, res) => {
 });
 
 /** 관리자/마케터: 전문 시공 옵션 전체 (비활성 포함) */
-router.get('/professional-options/all', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/professional-options/all', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {
   try {
     const user = (req as unknown as { user: AuthPayload }).user;
     const tenantId = await requireTenantIdFromAuth(res, user);
@@ -328,7 +328,7 @@ router.get('/professional-options/all', authMiddleware, adminOrMarketer, async (
 });
 
 /** 관리자/마케터: 전문 시공 옵션 추가 */
-router.post('/professional-options', authMiddleware, adminOrMarketer, async (req, res) => {
+router.post('/professional-options', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {
   const body = req.body as {
     id?: string;
     label?: string;
@@ -424,7 +424,7 @@ router.post('/professional-options', authMiddleware, adminOrMarketer, async (req
 });
 
 /** 관리자/마케터: 전문 시공 옵션 수정 */
-router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async (req, res) => {
+router.patch('/professional-options/:id', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {
   const { id } = req.params;
   const body = req.body as {
     label?: string;
@@ -562,7 +562,7 @@ router.patch('/professional-options/:id', authMiddleware, adminOrMarketer, async
 });
 
 /** 관리자/마케터: 전문 시공 옵션 삭제 */
-router.delete('/professional-options/:id', authMiddleware, adminOrMarketer, async (req, res) => {
+router.delete('/professional-options/:id', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {
   const { id } = req.params;
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
@@ -797,7 +797,7 @@ async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: str
 }
 
 /** 관리자/마케터: 고객 발주서 편집 화면용 고정 미리보기 토큰 (없으면 생성, 호출 시 금액 동기화) */
-router.get('/designer-preview-token', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/designer-preview-token', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
@@ -816,7 +816,7 @@ router.get('/designer-preview-token', authMiddleware, adminOrMarketer, async (re
  * 더 많은 과거가 필요하면 필터(기간·고객명·발급자)로 좁힌다.
  */
 /** 관리자/마케터: 발주서 목록 (발급일·담당·제출 상태 필터) */
-router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/', authMiddleware, requireStaffPermission('orderform.issue', 'orderform.edit'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
@@ -917,7 +917,7 @@ router.get('/', authMiddleware, adminOrMarketer, async (req, res) => {
 });
 
 /** 관리자/마케터: 고객 제출 원본 스냅샷(제출 시점 저장 JSON). 미제출이거나 레거시면 null */
-router.get('/:id/customer-submission', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/:id/customer-submission', authMiddleware, requireStaffPermission('orderform.issue', 'orderform.edit'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
@@ -941,7 +941,7 @@ router.get('/:id/customer-submission', authMiddleware, adminOrMarketer, async (r
 });
 
 /** 관리자/마케터: 고객 제출 확인 메일 재발송(브랜드 → 공통 SMTP) */
-router.post('/:id/resend-submission-email', authMiddleware, adminOrMarketer, async (req, res) => {
+router.post('/:id/resend-submission-email', authMiddleware, requireStaffPermission('orderform.edit'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
@@ -1008,7 +1008,7 @@ router.post('/:id/resend-submission-email', authMiddleware, adminOrMarketer, asy
 });
 
 /** 관리자/마케터: 접수 강제 매칭 후보(고객 제출 완료 발주서) */
-router.get('/force-match-candidates', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/force-match-candidates', authMiddleware, requireStaffPermission('orderform.issue', 'orderform.edit'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
@@ -1073,7 +1073,7 @@ router.get('/force-match-candidates', authMiddleware, adminOrMarketer, async (re
 
 /** 관리자/마케터: 발주서 발급 (고객명, 견적 입력 → 링크 생성). `pendingInquiryId` 있으면 대기 접수에 발주서 연결  
  * `POST /` 는 `POST /:id/delete` 보다 **먼저** 등록해야 루트 경로가 잘못 매칭되지 않습니다. */
-router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
+router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), async (req, res) => {
   const { userId, role, tenantId: authTenantId } = (req as unknown as { user: AuthPayload }).user;
   if (!authTenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
@@ -1339,7 +1339,7 @@ router.post('/', authMiddleware, adminOrMarketer, async (req, res) => {
 });
 
 /** 관리자/마케터: 발급 화면 인라인 폼 데이터 — 선택 양식의 폼/옵션/설정(+선택 대기접수 프리필). 주문 생성 전 */
-router.get('/issue-form', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/issue-form', authMiddleware, requireStaffPermission('orderform.issue'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
@@ -1402,7 +1402,7 @@ router.get('/issue-form', authMiddleware, adminOrMarketer, async (req, res) => {
 });
 
 /** 관리자/마케터: 발주서 선입력(마케터 작성) 편집 화면용 데이터 — 제출 전만 */
-router.get('/:id/prefill-form', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/:id/prefill-form', authMiddleware, requireStaffPermission('orderform.issue', 'orderform.edit'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
@@ -1429,7 +1429,7 @@ router.get('/:id/prefill-form', authMiddleware, adminOrMarketer, async (req, res
 });
 
 /** 관리자/마케터: 발주서에 마케터 선입력 값 저장(고객 화면 잠금). 토큰 유지·제출 전만. */
-router.post('/:id/prefill', authMiddleware, adminOrMarketer, async (req, res) => {
+router.post('/:id/prefill', authMiddleware, requireStaffPermission('orderform.issue'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
@@ -1553,7 +1553,7 @@ router.post('/:id/prefill', authMiddleware, adminOrMarketer, async (req, res) =>
 });
 
 /** 관리자/마케터: 제출 완료 발주서를 기존 접수에 강제 매칭하고 접수 정보를 덮어쓴다. */
-router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (req, res) => {
+router.post('/:id/force-match-inquiry', authMiddleware, requireStaffPermission('orderform.edit'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
@@ -1729,7 +1729,7 @@ router.post('/:id/force-match-inquiry', authMiddleware, adminOrMarketer, async (
  * - 제출 완료: 발주서로 생성된 접수(Inquiry)도 함께 삭제된다. 복구 불가.
  *   (InquiryCleaningPhoto·Assignment 는 FK Cascade, InquiryChangeLog·CsReport 는 inquiryId SetNull)
  */
-router.post('/:id/delete', authMiddleware, adminOrMarketer, async (req, res) => {
+router.post('/:id/delete', authMiddleware, requireStaffPermission('orderform.edit'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
@@ -1897,7 +1897,7 @@ function resolvedPublicFormConfig(row: FormConfigRow) {
 }
 
 /** 관리자/마케터: 폼 메시지 설정 조회 (by-token보다 먼저 선언) */
-router.get('/form-config', authMiddleware, adminOrMarketer, async (req, res) => {
+router.get('/form-config', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {
   try {
     const user = (req as unknown as { user: AuthPayload }).user;
     const tenantId = await requireTenantIdFromAuth(res, user);
@@ -1911,7 +1911,7 @@ router.get('/form-config', authMiddleware, adminOrMarketer, async (req, res) => 
 });
 
 /** 관리자: 폼 메시지 설정 수정 */
-router.put('/form-config', authMiddleware, adminOnly, async (req, res) => {
+router.put('/form-config', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {
   const body = req.body as Record<string, unknown>;
   try {
     const user = (req as unknown as { user: AuthPayload }).user;

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
-import { authMiddleware, adminOrMarketer, type AuthPayload } from '../auth/auth.middleware.js';
+import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
@@ -20,9 +21,7 @@ import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlemen
 
 const router = Router();
 
-router.use(authMiddleware);
-/** 관리자·마케터(타업체·정산) — `adminOnly`이면 비관리자 계정(마케터)이 정산 POST/목록 403 */
-router.use(adminOrMarketer);
+router.use(authMiddleware, staffMarketerRoleOnly);
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const YM = /^\d{4}-\d{2}$/;
@@ -47,7 +46,7 @@ function kstYmd(d: Date): string {
 }
 
 /** 타업체 목록 + 소속 로그인 계정 수 */
-router.get('/', async (req, res) => {
+router.get('/', requireStaffPermission('admin.users'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -79,7 +78,7 @@ router.get('/', async (req, res) => {
  * 타업체 등록 + 로그인 계정 1개(EXTERNAL_PARTNER)
  * body: { name, bizNumber?, phone?, memo?, login: { email, password, contactName, phone? } }
  */
-router.post('/', async (req, res) => {
+router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(authUser);
   if (!tenantId) {
@@ -152,7 +151,7 @@ router.post('/', async (req, res) => {
   });
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -212,7 +211,7 @@ router.patch('/:id', async (req, res) => {
 });
 
 /** 타업체 비활성 + 소속 계정 비활성 */
-router.post('/:id/deactivate', async (req, res) => {
+router.post('/:id/deactivate', requireStaffPermission('admin.users'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -230,7 +229,7 @@ router.post('/:id/deactivate', async (req, res) => {
 });
 
 /** 업체별 누적 정산 요약 목록 (전체 기간) */
-router.get('/settlement/company-overview-list', async (req, res) => {
+router.get('/settlement/company-overview-list', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -333,7 +332,7 @@ router.get('/settlement/company-overview-list', async (req, res) => {
  * 타업체별 수수료 집계 (기간: 예약일 우선 · 정보공유 인계 확정일 보조)
  * query: from, to (yyyy-mm-dd)
  */
-router.get('/settlement/summary', async (req, res) => {
+router.get('/settlement/summary', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -474,7 +473,7 @@ router.get('/settlement/summary', async (req, res) => {
 });
 
 /** 월별/업체별/전체 정산 요약 */
-router.get('/settlement/monthly-overview', async (req, res) => {
+router.get('/settlement/monthly-overview', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -660,7 +659,7 @@ router.get('/settlement/monthly-overview', async (req, res) => {
 });
 
 /** 관리자: 특정 타업체 정산 상세(결제대상/정산완료/남은금액/히스토리) */
-router.get('/settlement/company-detail', async (req, res) => {
+router.get('/settlement/company-detail', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -806,7 +805,7 @@ router.get('/settlement/company-detail', async (req, res) => {
  * 업체별 수수료 누계(마지막 「정산완료」 이후 구간 + 예약일·정보공유 인계 확정일 기준 일·월·년)
  * 타업체(EXTERNAL_PARTNER) 배정 접수만, 수수료 입력 건만 합산
  */
-router.get('/settlement/accruals', async (req, res) => {
+router.get('/settlement/accruals', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -969,7 +968,7 @@ router.get('/settlement/accruals', async (req, res) => {
 });
 
 /** 정산 완료 후 누계 초기화(해당 업체·브랜드) */
-router.post('/settlement/reset-accrual', async (req, res) => {
+router.post('/settlement/reset-accrual', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -999,7 +998,7 @@ router.post('/settlement/reset-accrual', async (req, res) => {
 });
 
 /** 관리자: 타업체 정산완료(부분/전체) 금액 기록 */
-router.post('/settlement/payments', async (req, res) => {
+router.post('/settlement/payments', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
