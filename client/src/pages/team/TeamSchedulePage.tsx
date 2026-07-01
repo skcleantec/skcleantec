@@ -13,6 +13,7 @@ import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal } from '../../utils/sonEomneungNal';
+import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
 import { formatDateCompactWithWeekday, kstTodayYmd, weekdayKoFromYmd } from '../../utils/dateFormat';
 import {
   STATUS_LABELS,
@@ -189,9 +190,10 @@ export function TeamSchedulePage() {
           <span className="w-1 h-4 bg-gray-400 rounded shrink-0" />
           <TeamBiLine id="team.schedule.sectionCalendar" koClassName="text-base font-semibold text-gray-800" />
           <span
-            className="text-fluid-2xs font-normal text-gray-500 ml-auto sm:ml-1 max-w-[min(100%,14rem)] text-right"
+            className="inline-flex items-center gap-1 text-fluid-2xs font-normal text-gray-500 ml-auto sm:ml-1 max-w-[min(100%,14rem)] text-right"
             title={teamBiPlain('team.schedule.legendTealTooltip')}
           >
+            <SonEomneungNalIcon />
             <TeamBiLine id="team.schedule.legendTealNumbers" koClassName="text-fluid-2xs font-normal text-gray-500 inline-block" />
           </span>
         </h2>
@@ -266,9 +268,12 @@ export function TeamSchedulePage() {
                 >
                   <span
                     title={sonDay ? teamBiPlain('team.schedule.legendTealTooltip') : undefined}
-                    className="absolute top-0.5 left-1 right-1 text-center text-calendar-2xs font-medium leading-tight tabular-nums"
+                    className="absolute top-0.5 left-1 right-1 text-center text-calendar-2xs font-medium leading-tight tabular-nums inline-flex items-center justify-center flex-wrap gap-x-0.5 gap-y-0 min-w-0"
                   >
-                    <span className={dayNumClass}>{d}</span>{' '}
+                    <span className={`inline-flex items-center gap-0.5 shrink-0 ${dayNumClass}`}>
+                      <span>{d}</span>
+                      {sonDay ? <SonEomneungNalIcon /> : null}
+                    </span>
                     <span className={weekdayClass}>{weekdayKoFromYmd(year, month, d)}</span>
                   </span>
                   {hasEvents ? (

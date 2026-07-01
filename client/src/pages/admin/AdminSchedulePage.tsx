@@ -45,6 +45,7 @@ import { getInquiry } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
+import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
@@ -1391,7 +1392,7 @@ export function AdminSchedulePage() {
                 선택한 날
               </span>
               <span className="inline-flex items-center gap-2" title={SON_EOMNEUNG_NAL_HELP}>
-                <span className="text-calendar-xs font-bold text-teal-700 tabular-nums leading-none">12</span>
+                <SonEomneungNalIcon />
                 손없는날
               </span>
               <div className="flex w-full min-w-0 justify-end min-[520px]:w-auto min-[520px]:flex-1 min-[520px]:basis-0">
@@ -1607,17 +1608,22 @@ export function AdminSchedulePage() {
                   <div className="flex w-full items-center justify-between min-w-0">
                     <span
                       title={sonDay ? SON_EOMNEUNG_NAL_HELP : undefined}
-                      className={
-                        today
-                          ? sonDay
-                            ? 'inline-flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full bg-teal-700 text-calendar-xs font-bold text-white shadow-sm tabular-nums ring-1 ring-teal-500/90'
-                            : 'inline-flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-calendar-xs font-bold text-white shadow-sm tabular-nums'
-                          : sonDay
-                            ? 'text-calendar-xs font-extrabold tabular-nums text-teal-700'
-                            : 'text-calendar-xs font-bold tabular-nums text-slate-950'
-                      }
+                      className="inline-flex items-center gap-0.5 shrink-0 min-w-0"
                     >
-                      {d}
+                      <span
+                        className={
+                          today
+                            ? sonDay
+                              ? 'inline-flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full bg-teal-700 text-calendar-xs font-bold text-white shadow-sm tabular-nums ring-1 ring-teal-500/90'
+                              : 'inline-flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-calendar-xs font-bold text-white shadow-sm tabular-nums'
+                            : sonDay
+                              ? 'text-calendar-xs font-extrabold tabular-nums text-teal-700'
+                              : 'text-calendar-xs font-bold tabular-nums text-slate-950'
+                        }
+                      >
+                        {d}
+                      </span>
+                      {sonDay ? <SonEomneungNalIcon /> : null}
                     </span>
                     <span className={`text-[10px] font-semibold leading-none shrink-0 ${weekdayColor}`}>
                       {weekdayKoFromYmd(year, month, d)}
