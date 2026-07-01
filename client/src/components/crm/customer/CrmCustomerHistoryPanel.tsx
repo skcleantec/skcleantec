@@ -75,7 +75,10 @@ export function CrmCustomerHistoryPanel({
 
       {inquiries.length > 0 ? (
         <section>
-          <h3 className="mb-1.5 text-fluid-xs font-semibold text-gray-700">접수 ({inquiries.length})</h3>
+          <h3 className="mb-1.5 text-fluid-xs font-semibold text-gray-700">
+            접수 ({inquiries.length})
+            <span className="ml-1 font-normal text-gray-500">· 클릭 시 상세 수정</span>
+          </h3>
           <ul className="space-y-1.5 max-h-40 overflow-y-auto">
             {inquiries.map((row) => (
               <li key={row.id}>

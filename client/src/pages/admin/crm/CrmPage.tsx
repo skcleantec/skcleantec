@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { canAccessAdminPath } from '@shared/marketerPermissionNav';
 import { getToken } from '../../../stores/auth';
 import { useMarketerPermissions } from '../../../hooks/useMarketerPermissions';
+import { useCrmInquiryEdit } from '../../../hooks/useCrmInquiryEdit';
 import { fetchTelecrmPricingCatalog } from '../../../api/telecrm';
 import { CrmShell } from '../../../components/crm/layout/CrmShell';
 import { CrmIntakePanel, type CrmCustomerMode } from '../../../components/crm/intake/CrmIntakePanel';
@@ -26,6 +27,11 @@ export function CrmPage() {
   const [customerName, setCustomerName] = useState('');
   const [pyeong, setPyeong] = useState('');
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
+  const [lookupRefreshKey, setLookupRefreshKey] = useState(0);
+
+  const { openInquiryEdit, layer: inquiryEditLayer } = useCrmInquiryEdit(canView, () => {
+    setLookupRefreshKey((k) => k + 1);
+  });
 
   useEffect(() => {
     document.title = '텔레CRM — SK클린텍';
@@ -108,8 +114,12 @@ export function CrmPage() {
               phone={phone}
               onPhoneChange={setPhone}
               onCustomerNameChange={setCustomerName}
+              pyeong={pyeong}
+              onPyeongChange={setPyeong}
+              onOpenInquiryEdit={openInquiryEdit}
+              lookupRefreshKey={lookupRefreshKey}
               onSaved={() => {
-                /* lookup refresh handled inside panel */
+                setLookupRefreshKey((k) => k + 1);
               }}
             />
           }
@@ -122,6 +132,7 @@ export function CrmPage() {
           }
           right={<CrmPricingPanel pyeong={pyeong} onPyeongChange={setPyeong} />}
         />
+        {inquiryEditLayer}
       </div>
     </FeatureGate>
   );

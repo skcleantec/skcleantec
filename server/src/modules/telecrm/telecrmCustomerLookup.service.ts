@@ -31,6 +31,7 @@ export type TelecrmCustomerLookupResult = {
     customerPhone: string;
     memo: string | null;
     address: string;
+    areaPyeong: number | null;
   }[];
   followups: {
     id: string;
@@ -88,6 +89,7 @@ export async function lookupTelecrmCustomer(
         customerPhone2: true,
         memo: true,
         address: true,
+        areaPyeong: true,
       },
     }),
     prisma.orderFollowup.findMany({
@@ -138,6 +140,7 @@ export async function lookupTelecrmCustomer(
       customerPhone: row.customerPhone,
       memo: row.memo,
       address: row.address,
+      areaPyeong: row.areaPyeong,
     }));
 
   const followups = followupRows

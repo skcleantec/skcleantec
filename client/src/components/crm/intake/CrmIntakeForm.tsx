@@ -20,11 +20,15 @@ const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
 
 export function CrmIntakeForm({
   seed,
+  pyeong,
+  onPyeongChange,
   onSaved,
   lastInquiryId,
   onOpenOrderIssue,
 }: {
-  seed: Partial<CrmIntakeFormValues>;
+  seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
+  pyeong: string;
+  onPyeongChange: (v: string) => void;
   onSaved: (result: CrmIntakeSubmitResult) => void;
   lastInquiryId: string | null;
   onOpenOrderIssue: (inquiryId: string | null) => void;
@@ -149,6 +153,19 @@ export function CrmIntakeForm({
 
       {showMore ? (
         <div className="space-y-3 rounded-xl border border-gray-100 bg-slate-50/80 p-3">
+          <label className="block space-y-1">
+            <span className="text-fluid-xs font-medium text-gray-700">평수</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={pyeong}
+              onChange={(e) => onPyeongChange(e.target.value)}
+              placeholder="예: 33"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
+              disabled={saving}
+            />
+            <span className="text-[10px] text-gray-500">스크립트·가격 계산기와 연동됩니다.</span>
+          </label>
           <label className="block space-y-1">
             <span className="text-fluid-xs font-medium text-gray-700">주소 (예약완료 시)</span>
             <input

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TelecrmCustomerLookupDto } from '../../../api/telecrm';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
@@ -8,12 +8,21 @@ import { useCrmCustomerLookup } from '../../../hooks/useCrmCustomerLookup';
 
 export type CrmCustomerMode = 'new' | 'existing';
 
+function formatPyeongValue(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n <= 0) return '';
+  return String(n);
+}
+
 export function CrmIntakePanel({
   mode,
   onModeChange,
   phone,
   onPhoneChange,
   onCustomerNameChange,
+  pyeong,
+  onPyeongChange,
+  onOpenInquiryEdit,
+  lookupRefreshKey,
   onSaved,
 }: {
   mode: CrmCustomerMode;
@@ -21,6 +30,10 @@ export function CrmIntakePanel({
   phone: string;
   onPhoneChange: (v: string) => void;
   onCustomerNameChange: (name: string) => void;
+  pyeong: string;
+  onPyeongChange: (v: string) => void;
+  onOpenInquiryEdit: (inquiryId: string) => void;
+  lookupRefreshKey: number;
   onSaved: () => void;
 }) {
   const lookupEnabled = mode === 'existing' && phone.trim().length >= 4;
@@ -33,25 +46,48 @@ export function CrmIntakePanel({
     memo: '',
     address: '',
   });
+  const autoFilledPhoneRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (lookupRefreshKey > 0 && mode === 'existing') refresh();
+  }, [lookupRefreshKey, mode, refresh]);
 
   const intakeSeed = useMemo(
     () => ({
       ...formSeed,
       phone,
+      pyeong,
     }),
-    [formSeed, phone],
+    [formSeed, phone, pyeong],
   );
 
-  const applyCustomer = (customer: TelecrmCustomerLookupDto['customer']) => {
+  const applyCustomer = (
+    customer: TelecrmCustomerLookupDto['customer'],
+    latestInquiry?: TelecrmCustomerLookupDto['inquiries'][number],
+  ) => {
     setFormSeed({
       customerName: customer.name ?? '',
       nickname: customer.nickname ?? '',
       phone: customer.phone,
       memo: '',
-      address: customer.lastAddress ?? '',
+      address: customer.lastAddress ?? latestInquiry?.address ?? '',
     });
     onCustomerNameChange(customer.name ?? '');
+    const nextPyeong = formatPyeongValue(latestInquiry?.areaPyeong);
+    if (nextPyeong) onPyeongChange(nextPyeong);
   };
+
+  useEffect(() => {
+    if (mode !== 'existing' || loading || !data || data.match !== 'existing') return;
+    const key = phone.trim();
+    if (!key || autoFilledPhoneRef.current === key) return;
+    autoFilledPhoneRef.current = key;
+    applyCustomer(data.customer, data.inquiries[0]);
+  }, [mode, loading, data, phone]);
+
+  useEffect(() => {
+    if (mode === 'new') autoFilledPhoneRef.current = null;
+  }, [mode]);
 
   const handleSaved = (result: CrmIntakeSubmitResult) => {
     if (result.kind === 'inquiry') setLastInquiryId(result.inquiryId);
@@ -108,18 +144,10 @@ export function CrmIntakePanel({
             loading={loading}
             error={error}
             onSelectInquiry={(row) => {
-              setFormSeed({
-                customerName: row.customerName,
-                nickname: row.nickname ?? '',
-                phone: row.customerPhone,
-                memo: row.memo ?? '',
-                address: row.address ?? '',
-              });
-              onCustomerNameChange(row.customerName);
-              setLastInquiryId(row.id);
+              onOpenInquiryEdit(row.id);
             }}
             onNewForCustomer={() => {
-              if (data?.customer) applyCustomer(data.customer);
+              if (data?.customer) applyCustomer(data.customer, data.inquiries[0]);
             }}
           />
         ) : null}
@@ -127,6 +155,8 @@ export function CrmIntakePanel({
         <div className="border-t border-gray-100 pt-3">
           <CrmIntakeForm
             seed={intakeSeed}
+            pyeong={pyeong}
+            onPyeongChange={onPyeongChange}
             onSaved={handleSaved}
             lastInquiryId={lastInquiryId}
             onOpenOrderIssue={openOrderIssue}

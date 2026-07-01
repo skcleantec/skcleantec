@@ -67,6 +67,7 @@ export type TelecrmCustomerLookupDto = {
     customerPhone: string;
     memo: string | null;
     address: string;
+    areaPyeong: number | null;
   }[];
   followups: {
     id: string;
