@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SK 텔레CRM</string>
+    <string name="login_title">솔루션 로그인</string>
+    <string name="tenant_slug_hint">업체 코드</string>
+    <string name="login_id_hint">아이디</string>
+    <string name="password_hint">비밀번호</string>
+    <string name="login_button">로그인</string>
+    <string name="logout">로그아웃</string>
+    <string name="crm_loading">CRM 불러오는 중…</string>
+    <string name="internal_build_note">사무실 내부 테스트 빌드 (Play 미배포)</string>
+</resources>

@@ -42,6 +42,15 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Android 텔레CRM (apps/telecrm-android)
+apps/telecrm-android/.gradle/
+apps/telecrm-android/local.properties
+apps/telecrm-android/**/build/
+apps/telecrm-android/.idea/
+apps/telecrm-android/*.iml
+apps/telecrm-android/app/*.iml
+apps/telecrm-android/.kotlin/
+
 # 로컬 에이전트 — product/help 빌더 소스만 저장소 포함
 /agent/*
 !/agent/product/

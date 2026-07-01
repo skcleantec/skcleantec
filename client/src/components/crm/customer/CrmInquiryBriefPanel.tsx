@@ -9,6 +9,7 @@ import {
   effectiveCustomerOrderNotes,
 } from '../../../utils/inquirySpecialNotesDisplay';
 import { CrmActionButton } from '../crmUi';
+import { telecrmNativeCall, telecrmNativeSms, isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 import { formatWon } from '../settings/telecrmSettingsUi';
 
 function fmtDate(iso: string | null): string {
@@ -104,6 +105,25 @@ export function CrmInquiryBriefPanel({
           <CrmActionButton accent="intake" onClick={onOpenDetail}>
             상세 수정
           </CrmActionButton>
+        ) : null}
+        {inquiry.customerPhone ? (
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
+            <CrmActionButton
+              accent="intake"
+              variant="solid"
+              onClick={() => telecrmNativeCall(inquiry.customerPhone, inquiry.id)}
+            >
+              {isTelecrmNativeApp() ? '앱 통화' : '통화'}
+            </CrmActionButton>
+            {inquiry.memo?.trim() ? (
+              <CrmActionButton
+                accent="script"
+                onClick={() => telecrmNativeSms(inquiry.customerPhone, inquiry.memo ?? '')}
+              >
+                문자
+              </CrmActionButton>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

@@ -1,0 +1,4 @@
+# Android SDK 경로 (Android Studio가 자동 생성)
+sdk.dir=C\:\\Users\\user\\AppData\\Local\\Android\\Sdk
+# Railway 스테이징 또는 운영 HTTPS 호스트 (슬래시 없음)
+telecrm.apiBaseUrl=https://REPLACE_WITH_YOUR_HOST

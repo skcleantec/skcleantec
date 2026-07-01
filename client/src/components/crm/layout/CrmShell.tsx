@@ -42,12 +42,27 @@ export function CrmShell({
   left,
   center,
   right,
+  mobile = false,
 }: {
   header: ReactNode;
   left: ReactNode;
   center: ReactNode;
   right: ReactNode;
+  /** Android 앱 WebView — 1열 스택 */
+  mobile?: boolean;
 }) {
+  if (mobile) {
+    return (
+      <div className="flex h-dvh min-h-0 w-full flex-col bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-100">
+        {header}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain p-3">
+          {left}
+          {center}
+          {right}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex h-screen min-w-[1280px] flex-col bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-100">
       {header}

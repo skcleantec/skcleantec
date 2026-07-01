@@ -26,10 +26,15 @@ import {
   saveCrmIntakeDraft,
   type CrmIntakeFormSnapshot,
 } from '../../../utils/crmIntakeDraft';
+import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 
 export function CrmPage() {
   const [searchParams] = useSearchParams();
   const isPopup = searchParams.get('popup') === '1';
+  const isMobileApp =
+    searchParams.get('mobile') === '1' ||
+    searchParams.get('app') === '1' ||
+    isTelecrmNativeApp();
   const permissions = useMarketerPermissions();
   const canSharedSettings = permissions.has('crm.settings');
   const canPersonalCatalog = permissions.has('crm.view');
@@ -280,8 +285,9 @@ export function CrmPage() {
         </div>
       }
     >
-      <div className="min-w-[1280px]">
+      <div className={isMobileApp ? 'min-w-0 w-full' : 'min-w-[1280px]'}>
         <CrmShell
+          mobile={isMobileApp}
           header={
             <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-4 py-3 text-white shadow-lg">
               <div className="flex min-w-0 items-center gap-3">
@@ -289,7 +295,7 @@ export function CrmPage() {
                   <CrmIconPhone className="h-5 w-5" />
                 </span>
                 <h1 className="truncate text-fluid-sm font-bold tracking-tight">텔레CRM</h1>
-                <CrmSessionBar enabled={canAdsSession} />
+                {!isMobileApp ? <CrmSessionBar enabled={canAdsSession} /> : null}
                 {hasUnsavedDraft ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-semibold text-amber-100 ring-1 ring-inset ring-amber-300/30">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
@@ -326,7 +332,7 @@ export function CrmPage() {
                   >
                     창 닫기
                   </button>
-                ) : (
+                ) : isMobileApp ? null : (
                   <Link
                     to="/admin/dashboard"
                     className="rounded-xl bg-white/10 px-3 py-1.5 text-fluid-xs font-medium hover:bg-white/20"
