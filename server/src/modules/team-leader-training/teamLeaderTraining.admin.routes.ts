@@ -4,6 +4,7 @@ import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middle
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
   getTeamLeaderTrainingMeta,
+  TEAM_LEADER_TRAINING_PDF_FILENAME,
   uploadTeamLeaderTrainingPdf,
 } from './teamLeaderTraining.service.js';
 
@@ -52,7 +53,7 @@ router.post('/', pdfUpload.single('pdf'), async (req, res) => {
     const meta = await uploadTeamLeaderTrainingPdf({
       tenantId,
       buffer: file.buffer,
-      fileName: file.originalname || '현장팀장 교육자료.pdf',
+      fileName: TEAM_LEADER_TRAINING_PDF_FILENAME,
     });
     res.json(meta);
   } catch (e) {

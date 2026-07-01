@@ -96,18 +96,15 @@ export function TeamTrainingMaterialPage() {
 
   useEffect(() => () => revokePdfUrl(), [revokePdfUrl]);
 
-  const fileLabel = meta?.fileName?.trim() || '현장팀장 교육자료';
+  const downloadName = '현장팀장 교육자료.pdf';
   const updatedLabel = formatUpdatedAt(meta?.updatedAt ?? null);
 
   return (
     <div className="min-w-0 w-full max-w-full flex flex-col gap-4 pb-6">
       <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
         <h1 className="text-lg font-semibold text-gray-900">현장팀장 교육자료</h1>
-        <p className="mt-1 text-fluid-sm text-gray-600">
-          팀장 전용 교육 PDF입니다. 현장에서 확인·복습할 때 사용하세요.
-        </p>
         {updatedLabel ? (
-          <p className="mt-2 text-fluid-xs text-gray-500">최종 업데이트: {updatedLabel}</p>
+          <p className="mt-2 text-fluid-sm text-gray-500">최종 업데이트: {updatedLabel}</p>
         ) : null}
       </div>
 
@@ -136,21 +133,18 @@ export function TeamTrainingMaterialPage() {
             </a>
             <a
               href={pdfUrl}
-              download={fileLabel.endsWith('.pdf') ? fileLabel : `${fileLabel}.pdf`}
+              download={downloadName}
               className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50"
             >
               다운로드
             </a>
           </div>
-          <p className="text-fluid-2xs text-gray-500 lg:hidden">
-            화면이 작으면 「새 탭에서 열기」를 이용하면 더 편합니다.
-          </p>
           <div
             className="min-h-[60vh] w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-100"
             style={{ height: 'min(calc(100dvh - 14rem), 80vh)' }}
           >
             <iframe
-              title={fileLabel}
+              title="현장팀장 교육자료"
               src={pdfUrl}
               className="block h-full w-full border-0 bg-white"
             />

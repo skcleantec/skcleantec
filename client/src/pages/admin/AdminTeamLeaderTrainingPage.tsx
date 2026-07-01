@@ -116,9 +116,6 @@ export function AdminTeamLeaderTrainingPage() {
           <h2 className="text-base font-semibold text-gray-900">등록 상태</h2>
           {meta?.available ? (
             <ul className="mt-2 space-y-1 text-sm text-gray-700">
-              <li>
-                파일: <span className="font-medium">{meta.fileName ?? '현장팀장 교육자료.pdf'}</span>
-              </li>
               {updatedLabel ? <li>업데이트: {updatedLabel}</li> : null}
             </ul>
           ) : (

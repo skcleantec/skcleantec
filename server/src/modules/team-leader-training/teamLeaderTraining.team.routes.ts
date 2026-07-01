@@ -6,6 +6,7 @@ import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
   fetchTeamLeaderTrainingPdf,
   getTeamLeaderTrainingMeta,
+  TEAM_LEADER_TRAINING_PDF_FILENAME,
 } from './teamLeaderTraining.service.js';
 
 const router = Router();
@@ -53,8 +54,10 @@ router.get('/pdf', async (req, res) => {
   }
 
   try {
-    const { buffer, fileName, updatedAt } = await fetchTeamLeaderTrainingPdf({ tenantId });
-    const encoded = encodeURIComponent(fileName).replace(/['()]/g, escape).replace(/\*/g, '%2A');
+    const { buffer, updatedAt } = await fetchTeamLeaderTrainingPdf({ tenantId });
+    const encoded = encodeURIComponent(TEAM_LEADER_TRAINING_PDF_FILENAME)
+      .replace(/['()]/g, escape)
+      .replace(/\*/g, '%2A');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encoded}`);
     if (updatedAt) res.setHeader('X-Training-Updated-At', updatedAt);

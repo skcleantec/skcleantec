@@ -3,11 +3,55 @@ import { getTenantConfig, updateTenantConfig } from '../tenants/tenantConfig.ser
 import type { TenantTeamLeaderTrainingConfig } from '../tenants/tenantConfig.schema.js';
 import { assertSkTenantId, teamLeaderTrainingCloudinaryFolder } from './teamLeaderTraining.helpers.js';
 
+/** 표시·다운로드용 고정 파일명 — multipart 원본명(한글 깨짐) 저장하지 않음 */
+export const TEAM_LEADER_TRAINING_PDF_FILENAME = '현장팀장 교육자료.pdf';
+
 export type TeamLeaderTrainingMeta = {
   available: boolean;
   fileName: string | null;
   updatedAt: string | null;
 };
+
+function trainingPdfDownloadUrlCandidates(training: TenantTeamLeaderTrainingConfig | undefined): string[] {
+  const out: string[] = [];
+  const publicId = training?.pdfPublicId?.trim();
+  if (publicId && isCloudinaryConfigured()) {
+    out.push(
+      cloudinary.url(publicId, {
+        resource_type: 'raw',
+        type: 'upload',
+        format: 'pdf',
+        secure: true,
+        sign_url: Boolean(cloudinary.config().api_secret),
+      }),
+    );
+    out.push(
+      cloudinary.url(publicId, {
+        resource_type: 'raw',
+        type: 'upload',
+        secure: true,
+        sign_url: Boolean(cloudinary.config().api_secret),
+      }),
+    );
+  }
+  const stored = training?.pdfSecureUrl?.trim();
+  if (stored) out.push(stored);
+  return [...new Set(out.filter(Boolean))];
+}
+
+async function fetchPdfBufferFromUrls(urls: string[], publicId: string | null): Promise<ArrayBuffer> {
+  let lastStatus = 0;
+  for (const url of urls) {
+    const res = await fetch(url, { redirect: 'follow' });
+    if (res.ok) return res.arrayBuffer();
+    lastStatus = res.status;
+    console.error('[team-leader-training] cloudinary fetch failed', { status: res.status, publicId, url });
+  }
+  throw Object.assign(new Error('교육자료 파일을 불러올 수 없습니다.'), {
+    code: 'upstream',
+    status: lastStatus,
+  });
+}
 
 function readTrainingConfig(config: Awaited<ReturnType<typeof getTenantConfig>>): TenantTeamLeaderTrainingConfig | undefined {
   return config.teamLeaderTraining;
@@ -19,7 +63,7 @@ export function teamLeaderTrainingMetaFromConfig(
   const hasPdf = Boolean(training?.pdfPublicId?.trim() && training?.pdfSecureUrl?.trim());
   return {
     available: hasPdf,
-    fileName: hasPdf ? training?.fileName?.trim() || '현장팀장 교육자료.pdf' : null,
+    fileName: hasPdf ? TEAM_LEADER_TRAINING_PDF_FILENAME : null,
     updatedAt: hasPdf ? training?.updatedAt?.trim() || null : null,
   };
 }
@@ -70,12 +114,11 @@ export async function uploadTeamLeaderTrainingPdf(params: {
   });
 
   const updatedAt = new Date().toISOString();
-  const safeName = params.fileName.trim().slice(0, 200) || '현장팀장 교육자료.pdf';
   await updateTenantConfig(params.tenantId, {
     teamLeaderTraining: {
       pdfPublicId: result.public_id,
       pdfSecureUrl: result.secure_url,
-      fileName: safeName,
+      fileName: TEAM_LEADER_TRAINING_PDF_FILENAME,
       updatedAt,
     },
   });
@@ -86,7 +129,7 @@ export async function uploadTeamLeaderTrainingPdf(params: {
 
   return {
     available: true,
-    fileName: safeName,
+    fileName: TEAM_LEADER_TRAINING_PDF_FILENAME,
     updatedAt,
   };
 }
@@ -97,19 +140,15 @@ export async function fetchTeamLeaderTrainingPdf(params: {
   await assertSkTenantId(params.tenantId);
   const config = await getTenantConfig(params.tenantId);
   const training = readTrainingConfig(config);
-  const url = training?.pdfSecureUrl?.trim();
-  if (!url) {
+  const urls = trainingPdfDownloadUrlCandidates(training);
+  if (urls.length === 0) {
     throw Object.assign(new Error('등록된 교육자료가 없습니다.'), { code: 'not_found' });
   }
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw Object.assign(new Error('교육자료 파일을 불러올 수 없습니다.'), { code: 'upstream' });
-  }
-  const arrayBuffer = await res.arrayBuffer();
+  const arrayBuffer = await fetchPdfBufferFromUrls(urls, training?.pdfPublicId?.trim() ?? null);
   return {
     buffer: Buffer.from(arrayBuffer),
-    fileName: training?.fileName?.trim() || '현장팀장 교육자료.pdf',
+    fileName: TEAM_LEADER_TRAINING_PDF_FILENAME,
     updatedAt: training?.updatedAt?.trim() || null,
   };
 }
