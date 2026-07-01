@@ -709,8 +709,42 @@ export function AdminLayout() {
           </div>
         </div>
       )}
-      <header className="px-4 py-2 shadow-md theme-dark-header sm:py-2.5">
-        <div className="max-w-6xl mx-auto flex flex-nowrap items-center justify-between gap-2 min-w-0 sm:gap-3">
+      <header className="px-4 py-2.5 shadow-md theme-dark-header">
+        <div className="max-w-6xl mx-auto flex flex-col gap-2 min-w-0">
+          <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate('/admin/dashboard')}
+              className="min-w-0 shrink-0 text-left hover:opacity-90 transition-opacity"
+              aria-label="청소비서 — 대시보드로 이동"
+              title="대시보드로 이동"
+            >
+              <TenantBrandLogo height={28} />
+            </button>
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0">
+              {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
+              {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
+              <UserProfileMenu
+                token={adminToken}
+                me={{ name: meName, phone: mePhone, vehicleNumber: meVehicleNumber, role: meRole }}
+                loading={meProfileLoading}
+                showStagingDbImport={showStagingDbImportMenu}
+                onStagingDbImport={() => setStagingDbImportModalOpen(true)}
+                onSaved={(next) => {
+                  setMeName(next.name);
+                  setMePhone(next.phone);
+                  setMeVehicleNumber(next.vehicleNumber);
+                }}
+                onLogout={handleLogout}
+                onSessionExpired={() => {
+                  clearToken();
+                  clearTeamToken();
+                  navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
+                }}
+              />
+            </div>
+          </div>
+          <div className="flex flex-nowrap items-center justify-between gap-3 min-w-0">
           <div className="relative flex-1 min-w-0">
             <DarkHeaderNavScroll
               className="w-full"
@@ -720,12 +754,11 @@ export function AdminLayout() {
               <button
                 type="button"
                 onClick={() => navigate('/admin/dashboard')}
-                className="shrink-0 hover:opacity-90 transition-opacity"
+                className="hidden md:block shrink-0 hover:opacity-90 transition-opacity"
                 aria-label="청소비서 — 대시보드로 이동"
                 title="대시보드로 이동"
               >
-                <TenantBrandLogo height={28} className="md:hidden" />
-                <TenantBrandLogo height={32} className="hidden md:block" />
+                <TenantBrandLogo height={32} />
               </button>
               <nav className="flex flex-row flex-nowrap items-center gap-1 shrink-0">
                 {navOrder.map((id) => {
@@ -922,7 +955,7 @@ export function AdminLayout() {
               </nav>
             </DarkHeaderNavScroll>
           </div>
-          <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-3">
+          <div className="hidden md:flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
             {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
             {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
             <UserProfileMenu
@@ -943,6 +976,7 @@ export function AdminLayout() {
                 navigateRef.current('/login', { replace: true, state: { sessionExpired: true } });
               }}
             />
+          </div>
           </div>
         </div>
       </header>
