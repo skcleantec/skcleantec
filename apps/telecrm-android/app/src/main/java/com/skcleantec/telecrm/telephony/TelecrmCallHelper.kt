@@ -56,16 +56,46 @@ object TelecrmCallHelper {
         activity.startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$digits")))
     }
 
-    fun openSms(context: Context, phone: String, body: String = "") {
+    fun openSms(context: Context, phone: String, body: String = "", imageUrl: String? = null) {
         val digits = phone.filter { it.isDigit() }
         if (digits.isEmpty()) {
             Toast.makeText(context, "전화번호를 입력해 주세요.", Toast.LENGTH_SHORT).show()
             return
         }
-        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$digits"))
-        if (body.isNotBlank()) intent.putExtra("sms_body", body)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
+        if (imageUrl.isNullOrBlank()) {
+            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$digits"))
+            if (body.isNotBlank()) intent.putExtra("sms_body", body)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            return
+        }
+        Thread {
+            try {
+                val bytes = java.net.URL(imageUrl).openStream().use { it.readBytes() }
+                val file = java.io.File(context.cacheDir, "sms_attach_${System.currentTimeMillis()}.jpg")
+                file.writeBytes(bytes)
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file,
+                )
+                android.os.Handler(context.mainLooper).post {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "image/jpeg"
+                        putExtra("address", digits)
+                        if (body.isNotBlank()) putExtra("sms_body", body)
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(Intent.createChooser(intent, "문자 보내기"))
+                }
+            } catch (_: Exception) {
+                android.os.Handler(context.mainLooper).post {
+                    Toast.makeText(context, "사진 첨부 실패 · 문자만 엽니다", Toast.LENGTH_SHORT).show()
+                    openSms(context, digits, body, null)
+                }
+            }
+        }.start()
     }
 
     fun logCall(

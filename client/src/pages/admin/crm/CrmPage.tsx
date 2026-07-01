@@ -8,6 +8,8 @@ import { useCrmInquiryEdit } from '../../../hooks/useCrmInquiryEdit';
 import { fetchTelecrmPricingCatalog } from '../../../api/telecrm';
 import { CrmShell } from '../../../components/crm/layout/CrmShell';
 import { CrmIntakePanel, type CrmCustomerMode } from '../../../components/crm/intake/CrmIntakePanel';
+import { CrmCallMemoPanel } from '../../../components/crm/memo/CrmCallMemoPanel';
+import { CrmSmsPanel } from '../../../components/crm/sms/CrmSmsPanel';
 import { CrmScriptPanel } from '../../../components/crm/scripts/CrmScriptPanel';
 import { CrmPricingPanel } from '../../../components/crm/pricing/CrmPricingPanel';
 import { CrmSessionBar } from '../../../components/crm/session/CrmSessionBar';
@@ -58,8 +60,13 @@ export function CrmPage() {
   const [initialFormDraft, setInitialFormDraft] = useState<Partial<CrmIntakeFormSnapshot> | null>(null);
   const [draftRestoredPhone, setDraftRestoredPhone] = useState<string | null>(null);
   const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
-  const [smsPrefill, setSmsPrefill] = useState('');
   const [dispatchNotice, setDispatchNotice] = useState<string | null>(null);
+  const [crmContext, setCrmContext] = useState<{
+    inquiryId: string | null;
+    customerMatch: 'new' | 'existing' | 'pick' | 'unknown';
+  }>({ inquiryId: null, customerMatch: 'new' });
+  const [formResetKey, setFormResetKey] = useState(0);
+  const [callMemoResetKey, setCallMemoResetKey] = useState(0);
   const dispatchNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const draftReadyRef = useRef(false);
   const formSnapshotRef = useRef<CrmIntakeFormSnapshot | null>(null);
@@ -95,7 +102,6 @@ export function CrmPage() {
       setInitialFormDraft({
         customerName: draft.customerName,
         nickname: draft.nickname,
-        memo: draft.memo,
         address: draft.address,
         preferredMoveInCleanYmd: draft.preferredMoveInCleanYmd,
         kind: draft.kind,
@@ -173,7 +179,6 @@ export function CrmPage() {
           pyeong,
           customerName,
           nickname: '',
-          memo: '',
           address: '',
           preferredMoveInCleanYmd: '',
           kind: 'absent',
@@ -191,11 +196,28 @@ export function CrmPage() {
     (snapshot: CrmIntakeFormSnapshot) => {
       formSnapshotRef.current = snapshot;
       if (snapshot.customerName !== customerName) setCustomerName(snapshot.customerName);
-      setSmsPrefill(snapshot.memo ?? '');
       persistDraft(snapshot);
     },
     [customerName, persistDraft],
   );
+
+  const handleModeChange = useCallback((next: CrmCustomerMode) => {
+    if (next === 'new') {
+      setFormResetKey((k) => k + 1);
+      setCallMemoResetKey((k) => k + 1);
+      setCustomerName('');
+      setPyeong('');
+      setInitialFormDraft({
+        customerName: '',
+        nickname: '',
+        address: '',
+        preferredMoveInCleanYmd: '',
+        kind: 'absent',
+        goldDb: false,
+      });
+    }
+    setMode(next);
+  }, []);
 
   const showDispatchNotice = useCallback((message: string) => {
     setDispatchNotice(message);
@@ -354,35 +376,57 @@ export function CrmPage() {
             </header>
           }
           left={
-            <CrmIntakePanel
-              mode={mode}
-              onModeChange={setMode}
-              phone={phone}
-              onPhoneChange={setPhone}
-              onCustomerNameChange={setCustomerName}
-              pyeong={pyeong}
-              onPyeongChange={setPyeong}
-              onOpenInquiryEdit={openInquiryEdit}
-              lookupRefreshKey={lookupRefreshKey}
-              onSaved={handleIntakeSaved}
-              initialFormDraft={initialFormDraft}
-              onFormChange={handleFormChange}
-              skipAutoFillPhone={draftRestoredPhone}
-              canSubmitKind={canSubmitIntakeKind}
-              permissionsLoading={permissions.loading}
-              onOpenOrderIssue={canOrderIssue ? openIssue : undefined}
-              smsPrefill={smsPrefill}
-              onDispatchNotice={showDispatchNotice}
-            />
+            <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+              <CrmIntakePanel
+                mode={mode}
+                onModeChange={handleModeChange}
+                phone={phone}
+                onPhoneChange={setPhone}
+                onCustomerNameChange={setCustomerName}
+                pyeong={pyeong}
+                onPyeongChange={setPyeong}
+                onOpenInquiryEdit={openInquiryEdit}
+                lookupRefreshKey={lookupRefreshKey}
+                onSaved={handleIntakeSaved}
+                initialFormDraft={initialFormDraft}
+                onFormChange={handleFormChange}
+                skipAutoFillPhone={draftRestoredPhone}
+                canSubmitKind={canSubmitIntakeKind}
+                permissionsLoading={permissions.loading}
+                onOpenOrderIssue={canOrderIssue ? openIssue : undefined}
+                onDispatchNotice={showDispatchNotice}
+                onContextChange={setCrmContext}
+                formResetKey={formResetKey}
+              />
+              <CrmCallMemoPanel
+                phone={phone}
+                inquiryId={crmContext.inquiryId}
+                resetKey={callMemoResetKey}
+              />
+              <CrmSmsPanel
+                phone={phone}
+                customerName={customerName || undefined}
+                pyeong={pyeong || undefined}
+                estimateWon={estimateWon}
+                inquiryId={crmContext.inquiryId}
+                customerMatch={crmContext.customerMatch}
+                onDispatchNotice={showDispatchNotice}
+                refreshKey={catalogRefreshKey}
+                onOpenSettings={
+                  canOpenSettings
+                    ? () => openSettings('sms', canPersonalCatalog ? 'personal' : 'shared')
+                    : undefined
+                }
+                onOpenOrderIssue={canOrderIssue ? () => openIssue(crmContext.inquiryId) : undefined}
+              />
+            </div>
           }
           center={
             <CrmScriptPanel
               customerName={customerName || undefined}
               pyeong={pyeong || undefined}
               estimateWon={estimateWon}
-              customerPhone={phone}
               refreshKey={catalogRefreshKey}
-              onDispatchNotice={showDispatchNotice}
               onOpenSettings={
                 canOpenSettings
                   ? () => openSettings('scripts', canPersonalCatalog ? 'personal' : 'shared')

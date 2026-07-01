@@ -13,6 +13,8 @@ import {
 import { telecrmCustomerLookupRouter } from './telecrmCustomerLookup.routes.js';
 import { telecrmOrderOptionsRouter } from './telecrmOrderOptions.routes.js';
 import { telecrmMobileRouter } from './telecrmMobile.routes.js';
+import { telecrmSmsTemplatesRouter } from './telecrmSmsTemplates.routes.js';
+import { telecrmCallNotesRouter } from './telecrmCallNotes.routes.js';
 
 const router = Router();
 router.use(authMiddleware, requireFeature('mod_telecrm'));
@@ -24,6 +26,8 @@ router.use('/price-items', telecrmPriceItemsRouter);
 router.use('/pricing', telecrmPricingCatalogRouter);
 router.use('/customer-lookup', telecrmCustomerLookupRouter);
 router.use('/order-options', telecrmOrderOptionsRouter);
+router.use('/sms-templates', telecrmSmsTemplatesRouter);
+router.use('/call-notes', telecrmCallNotesRouter);
 router.use('/', telecrmMobileRouter);
 
 export const telecrmRoutes = router;

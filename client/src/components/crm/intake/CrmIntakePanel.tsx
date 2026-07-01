@@ -8,7 +8,7 @@ import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
 import { CrmActionButton, CrmIconIntake, CrmIconPhone, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldClass } from '../crmUi';
-import { telecrmCall, telecrmSms, isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
+import { telecrmCall, isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 import { CrmIntakeForm } from './CrmIntakeForm';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
@@ -41,8 +41,9 @@ export function CrmIntakePanel({
   canSubmitKind,
   permissionsLoading,
   onOpenOrderIssue,
-  smsPrefill = '',
   onDispatchNotice,
+  onContextChange,
+  formResetKey = 0,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
@@ -60,8 +61,9 @@ export function CrmIntakePanel({
   canSubmitKind: (kind: CrmIntakeKind) => boolean;
   permissionsLoading?: boolean;
   onOpenOrderIssue?: (inquiryId: string | null) => void;
-  smsPrefill?: string;
   onDispatchNotice?: (message: string) => void;
+  onContextChange?: (ctx: { inquiryId: string | null; customerMatch: 'new' | 'existing' | 'pick' | 'unknown' }) => void;
+  formResetKey?: number;
 }) {
   const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
   const [nameSearch, setNameSearch] = useState('');
@@ -97,8 +99,20 @@ export function CrmIntakePanel({
     if (mode === 'new') {
       autoFilledKeyRef.current = null;
       setNameSearch('');
+      setFormSeed({ customerName: '', nickname: '', phone: '', memo: '', address: '' });
+      onCustomerNameChange('');
+      onPyeongChange('');
+      setLastInquiryId(null);
     }
-  }, [mode]);
+  }, [mode, formResetKey, onCustomerNameChange, onPyeongChange]);
+
+  const activeInquiryId = lastInquiryId ?? data?.inquiries?.[0]?.id ?? null;
+  const activeCustomerMatch: 'new' | 'existing' | 'pick' | 'unknown' =
+    mode === 'new' ? 'new' : data?.match === 'pick' ? 'pick' : data?.match === 'existing' ? 'existing' : 'unknown';
+
+  useEffect(() => {
+    onContextChange?.({ inquiryId: activeInquiryId, customerMatch: activeCustomerMatch });
+  }, [activeInquiryId, activeCustomerMatch, onContextChange]);
 
   const intakeSeed = useMemo(
     () => ({
@@ -165,24 +179,21 @@ export function CrmIntakePanel({
   const handleCall = async () => {
     if (!canDial) return;
     const bridgeMode = await telecrmCall(dialPhone, {
-      customerMatch: mode === 'new' ? 'new' : 'existing',
-      inquiryId: lastInquiryId ?? undefined,
+      customerMatch: activeCustomerMatch,
+      inquiryId: activeInquiryId ?? undefined,
     });
     if (bridgeMode === 'dispatch') onDispatchNotice?.('휴대폰 앱으로 통화 요청을 보냈습니다.');
   };
 
-  const handleSms = async () => {
-    if (!canDial) return;
-    const text = smsPrefill.trim();
-    if (!text) {
-      onDispatchNotice?.('문자 내용을 메모에 입력해 주세요.');
-      return;
+  const switchMode = (next: CrmCustomerMode) => {
+    if (next === 'new' && mode === 'existing') {
+      setFormSeed({ customerName: '', nickname: '', phone: '', memo: '', address: '' });
+      onCustomerNameChange('');
+      onPyeongChange('');
+      setLastInquiryId(null);
+      autoFilledKeyRef.current = null;
     }
-    const bridgeMode = await telecrmSms(dialPhone, text, {
-      inquiryId: lastInquiryId ?? undefined,
-      customerMatch: mode === 'new' ? 'new' : 'existing',
-    });
-    if (bridgeMode === 'dispatch') onDispatchNotice?.('휴대폰 앱으로 문자 내용을 보냈습니다.');
+    onModeChange(next);
   };
 
   return (
@@ -192,7 +203,7 @@ export function CrmIntakePanel({
           <CrmSegmentItem
             accent="intake"
             active={mode === 'new'}
-            onClick={() => onModeChange('new')}
+            onClick={() => switchMode('new')}
             icon={<CrmIconIntake className="h-3.5 w-3.5" />}
           >
             신규
@@ -200,7 +211,7 @@ export function CrmIntakePanel({
           <CrmSegmentItem
             accent="intake"
             active={mode === 'existing'}
-            onClick={() => onModeChange('existing')}
+            onClick={() => switchMode('existing')}
             icon={<CrmIconSearch className="h-3.5 w-3.5" />}
           >
             기존
@@ -242,11 +253,8 @@ export function CrmIntakePanel({
                 </label>
                 {canDial ? (
                   <div className="flex flex-wrap gap-2">
-                    <CrmActionButton accent="intake" variant="solid" onClick={handleCall}>
+                    <CrmActionButton accent="intake" variant="solid" onClick={() => void handleCall()}>
                       {isTelecrmNativeApp() ? '앱 통화' : '통화'}
-                    </CrmActionButton>
-                    <CrmActionButton accent="script" onClick={handleSms}>
-                      문자
                     </CrmActionButton>
                   </div>
                 ) : null}
@@ -290,11 +298,8 @@ export function CrmIntakePanel({
             </label>
             {canDial ? (
               <div className="flex flex-wrap gap-2">
-                <CrmActionButton accent="intake" variant="solid" onClick={handleCall}>
+                <CrmActionButton accent="intake" variant="solid" onClick={() => void handleCall()}>
                   {isTelecrmNativeApp() ? '앱 통화' : '통화'}
-                </CrmActionButton>
-                <CrmActionButton accent="script" onClick={handleSms}>
-                  문자
                 </CrmActionButton>
               </div>
             ) : null}
@@ -314,6 +319,7 @@ export function CrmIntakePanel({
             onOpenOrderIssue={openOrderIssue}
             canSubmitKind={canSubmitKind}
             permissionsLoading={permissionsLoading}
+            formResetKey={formResetKey}
           />
         </div>
       </div>

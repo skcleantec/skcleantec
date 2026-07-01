@@ -6,7 +6,6 @@ const STORAGE_KEY = 'skcleantec:telecrm:intake-draft';
 export type CrmIntakeFormSnapshot = {
   customerName: string;
   nickname: string;
-  memo: string;
   address: string;
   preferredMoveInCleanYmd: string;
   kind: CrmIntakeKind;
@@ -54,7 +53,6 @@ export function crmIntakeDraftHasContent(draft: Partial<CrmIntakeDraft>): boolea
     draft.phone?.trim() ||
       draft.customerName?.trim() ||
       draft.nickname?.trim() ||
-      draft.memo?.trim() ||
       draft.address?.trim() ||
       draft.pyeong?.trim() ||
       draft.preferredMoveInCleanYmd?.trim(),

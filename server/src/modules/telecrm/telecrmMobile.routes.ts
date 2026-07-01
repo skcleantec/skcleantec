@@ -13,6 +13,7 @@ import {
   enqueueTelecrmMobileDispatch,
   parseTelecrmMobileDispatchBody,
 } from './telecrmMobileDispatch.service.js';
+import { resolveTelecrmOrderFormLink } from './telecrmOrderLink.service.js';
 
 const router = Router();
 router.use(authMiddleware, staffMarketerRoleOnly);
@@ -52,6 +53,27 @@ router.get('/mobile-dispatch/pending', requireStaffPermission('crm.view', 'crm.s
   const user = (req as unknown as { user: AuthPayload }).user;
   const items = drainTelecrmMobileDispatchQueue(tenantId, user.userId);
   res.json({ items });
+});
+
+/** 접수 발주서 공개 링크 (SMS 치환용) */
+router.get('/order-form-link', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const inquiryId = typeof req.query.inquiryId === 'string' ? req.query.inquiryId.trim() : '';
+  if (!inquiryId) {
+    res.status(400).json({ error: 'inquiryId가 필요합니다.' });
+    return;
+  }
+  const origin =
+    typeof req.query.origin === 'string' && req.query.origin.trim()
+      ? req.query.origin.trim()
+      : `${req.protocol}://${req.get('host') ?? ''}`;
+  const url = await resolveTelecrmOrderFormLink(tenantId, inquiryId, origin);
+  if (!url) {
+    res.status(404).json({ error: '연결된 발주서 링크가 없습니다.' });
+    return;
+  }
+  res.json({ url });
 });
 
 router.post('/call-sessions', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {

@@ -15,7 +15,6 @@ import {
 } from '../crmUi';
 import { applyTelecrmScriptPlaceholders } from './applyTelecrmScriptPlaceholders';
 import { partitionTelecrmCategories } from '../settings/telecrmSettingsUi';
-import { telecrmSms, isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -27,18 +26,14 @@ export function CrmScriptPanel({
   customerName,
   pyeong,
   estimateWon,
-  customerPhone,
   refreshKey = 0,
   onOpenSettings,
-  onDispatchNotice,
 }: {
   customerName?: string;
   pyeong?: string;
   estimateWon?: number | null;
-  customerPhone?: string;
   refreshKey?: number;
   onOpenSettings?: () => void;
-  onDispatchNotice?: (message: string) => void;
 }) {
   const token = getToken();
   const [categories, setCategories] = useState<TelecrmScriptCategoryDto[]>([]);
@@ -118,17 +113,6 @@ export function CrmScriptPanel({
     }
   }, [body]);
 
-  const sendScriptSms = useCallback(async () => {
-    const digits = (customerPhone ?? '').replace(/\D/g, '');
-    if (digits.length < 8) {
-      onDispatchNotice?.('왼쪽 고객 연락처를 먼저 입력해 주세요.');
-      return;
-    }
-    if (!body.trim()) return;
-    const bridgeMode = await telecrmSms(customerPhone ?? digits, body);
-    if (bridgeMode === 'dispatch') onDispatchNotice?.('휴대폰 앱으로 스크립트 문자를 보냈습니다.');
-  }, [body, customerPhone, onDispatchNotice]);
-
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) return;
@@ -201,20 +185,15 @@ export function CrmScriptPanel({
             <p className="text-[10px] text-gray-500">
               Ctrl+1~5 카테고리 · Ctrl+Shift+←→ 탭 · 복사 버튼으로 클립보드
             </p>
-            <div className="flex flex-wrap gap-2">
-              <CrmActionButton
-                accent="script"
-                variant="solid"
-                onClick={() => void copyScript()}
-                disabled={!body}
-              >
-                <CrmIconCopy className="h-3.5 w-3.5" />
-                {copied ? '복사됨' : '스크립트 복사'}
-              </CrmActionButton>
-              <CrmActionButton accent="intake" onClick={() => void sendScriptSms()} disabled={!body}>
-                {isTelecrmNativeApp() ? '앱 문자' : '휴대폰 문자'}
-              </CrmActionButton>
-            </div>
+            <CrmActionButton
+              accent="script"
+              variant="solid"
+              onClick={() => void copyScript()}
+              disabled={!body}
+            >
+              <CrmIconCopy className="h-3.5 w-3.5" />
+              {copied ? '복사됨' : '스크립트 복사'}
+            </CrmActionButton>
           </div>
 
           <div className="space-y-2">

@@ -33,6 +33,7 @@ export function CrmIntakeForm({
   onOpenOrderIssue,
   canSubmitKind,
   permissionsLoading,
+  formResetKey = 0,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
@@ -45,10 +46,10 @@ export function CrmIntakeForm({
   onOpenOrderIssue?: (inquiryId: string | null) => void;
   canSubmitKind: (kind: CrmIntakeKind) => boolean;
   permissionsLoading?: boolean;
+  formResetKey?: number;
 }) {
   const [customerName, setCustomerName] = useState('');
   const [nickname, setNickname] = useState('');
-  const [memo, setMemo] = useState('');
   const [preferredMoveInCleanYmd, setPreferredMoveInCleanYmd] = useState('');
   const [address, setAddress] = useState('');
   const [kind, setKind] = useState<CrmIntakeKind>('absent');
@@ -63,9 +64,8 @@ export function CrmIntakeForm({
   useEffect(() => {
     setCustomerName(seed.customerName ?? '');
     setNickname(seed.nickname ?? '');
-    setMemo(seed.memo ?? '');
     setAddress(seed.address ?? '');
-  }, [seed.customerName, seed.nickname, seed.memo, seed.address]);
+  }, [seed.customerName, seed.nickname, seed.address]);
 
   const appliedDraftRef = useRef(false);
 
@@ -74,7 +74,6 @@ export function CrmIntakeForm({
     appliedDraftRef.current = true;
     if (initialFormDraft.customerName != null) setCustomerName(initialFormDraft.customerName);
     if (initialFormDraft.nickname != null) setNickname(initialFormDraft.nickname);
-    if (initialFormDraft.memo != null) setMemo(initialFormDraft.memo);
     if (initialFormDraft.address != null) setAddress(initialFormDraft.address);
     if (initialFormDraft.preferredMoveInCleanYmd != null) {
       setPreferredMoveInCleanYmd(initialFormDraft.preferredMoveInCleanYmd);
@@ -89,12 +88,22 @@ export function CrmIntakeForm({
   }, [kind]);
 
   useEffect(() => {
+    setCustomerName('');
+    setNickname('');
+    setPreferredMoveInCleanYmd('');
+    setAddress('');
+    setKind('absent');
+    setGoldDb(false);
+    setShowMore(false);
+    appliedDraftRef.current = false;
+  }, [formResetKey]);
+
+  useEffect(() => {
     if (!onFormChange) return;
     const t = window.setTimeout(() => {
       onFormChange({
         customerName,
         nickname,
-        memo,
         address,
         preferredMoveInCleanYmd,
         kind,
@@ -102,7 +111,7 @@ export function CrmIntakeForm({
       });
     }, 400);
     return () => window.clearTimeout(t);
-  }, [customerName, nickname, memo, address, preferredMoveInCleanYmd, kind, goldDb, onFormChange]);
+  }, [customerName, nickname, address, preferredMoveInCleanYmd, kind, goldDb, onFormChange]);
 
   const submit = async (keepForm: boolean) => {
     const token = getToken();
@@ -121,7 +130,6 @@ export function CrmIntakeForm({
           customerName,
           nickname,
           phone,
-          memo,
           preferredMoveInCleanYmd,
           address,
           kind,
@@ -132,7 +140,6 @@ export function CrmIntakeForm({
       onSaved(result);
       setMsg('저장했습니다.');
       if (!keepForm) {
-        setMemo('');
         setPreferredMoveInCleanYmd('');
         if (kind === 'received') setAddress('');
       }
@@ -275,17 +282,6 @@ export function CrmIntakeForm({
           </label>
         </div>
       ) : null}
-
-      <label className="block space-y-1">
-        <span className="text-fluid-xs font-medium text-gray-700">메모</span>
-        <textarea
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-          rows={3}
-          className={crmFieldClass}
-          disabled={saving}
-        />
-      </label>
 
       {!permissionsLoading && !canSave ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-900">

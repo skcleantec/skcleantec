@@ -45,15 +45,23 @@ class TelecrmDispatchExecutor(
     private fun showSmsDialog(payload: TelecrmDispatchPayload) {
         val digits = payload.phone.filter { it.isDigit() }
         val body = payload.body.orEmpty()
-        if (digits.isEmpty() || body.isBlank()) return
+        val imageUrl = payload.imageUrl
+        if (digits.isEmpty() || (body.isBlank() && imageUrl.isNullOrBlank())) return
         binding.viewPager.currentItem = 0
         binding.bottomNav.selectedItemId = R.id.nav_dial
         AppEventBus.emitDialPrefill(digits, payload.inquiryId, payload.customerMatch)
+        val preview = buildString {
+            if (body.isNotBlank()) append(body)
+            if (!imageUrl.isNullOrBlank()) {
+                if (isNotEmpty()) append("\n\n")
+                append("[사진 첨부]")
+            }
+        }
         AlertDialog.Builder(activity)
             .setTitle("PC에서 문자 전송 요청")
-            .setMessage(body)
+            .setMessage(preview)
             .setPositiveButton("문자 앱에서 보내기") { _, _ ->
-                TelecrmCallHelper.openSms(activity, digits, body)
+                TelecrmCallHelper.openSms(activity, digits, body, imageUrl)
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()

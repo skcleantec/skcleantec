@@ -19,7 +19,7 @@ export function isTelecrmNativeApp(): boolean {
 export type TelecrmCallOptions = {
   inquiryId?: string | null;
   customerMatch?: 'new' | 'existing' | 'pick' | 'unknown' | null;
-  smsBody?: string;
+  imageUrl?: string | null;
 };
 
 function normalizePhone(phone: string): string {
@@ -55,17 +55,23 @@ export async function telecrmCall(phone: string, opts: TelecrmCallOptions = {}):
   }
 }
 
-/** 문자 — 네이티브 WebView 또는 PC→휴대폰 dispatch (본문 prefill) */
-export async function telecrmSms(phone: string, body: string, opts: TelecrmCallOptions = {}): Promise<TelecrmBridgeMode> {
+/** 문자 — 네이티브 WebView 또는 PC→휴대폰 dispatch (본문·이미지) */
+export async function telecrmSms(
+  phone: string,
+  body: string,
+  opts: TelecrmCallOptions & { imageUrl?: string | null } = {},
+): Promise<TelecrmBridgeMode> {
   const digits = normalizePhone(phone);
   if (!digits) return 'fallback';
   const text = body.trim();
+  const imageUrl = opts.imageUrl?.trim() || null;
+  if (!text && !imageUrl) return 'fallback';
   if (window.TelecrmApp?.sms) {
     window.TelecrmApp.sms(digits, text);
     return 'native';
   }
   const token = getToken();
-  if (!token || !text) {
+  if (!token) {
     const q = encodeURIComponent(text);
     window.location.href = `sms:${digits}?body=${q}`;
     return 'fallback';
@@ -75,6 +81,7 @@ export async function telecrmSms(phone: string, body: string, opts: TelecrmCallO
       action: 'sms',
       phone: digits,
       body: text,
+      imageUrl,
       inquiryId: opts.inquiryId ?? null,
       customerMatch: opts.customerMatch ?? 'unknown',
     });

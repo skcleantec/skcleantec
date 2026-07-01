@@ -167,6 +167,8 @@ model Tenant {
   telecrmPriceCategories TelecrmPriceCategory[]
   telecrmPriceItems TelecrmPriceItem[]
   telecrmCallSessions TelecrmCallSession[]
+  telecrmSmsTemplates TelecrmSmsTemplate[]
+  telecrmCallNotes    TelecrmCallNote[]
 
   @@map("tenants")
 }
@@ -636,6 +638,8 @@ model User {
   telecrmScriptCategoriesOwned TelecrmScriptCategory[] @relation("TelecrmScriptCategoryOwner")
   telecrmPriceCategoriesOwned  TelecrmPriceCategory[]  @relation("TelecrmPriceCategoryOwner")
   telecrmCallSessions          TelecrmCallSession[]
+  telecrmSmsTemplatesOwned     TelecrmSmsTemplate[] @relation("TelecrmSmsTemplateOwner")
+  telecrmCallNotes             TelecrmCallNote[]
 
   @@unique([tenantId, email])
   @@unique([tenantId, platformSupportAccessId])
@@ -1197,6 +1201,7 @@ model Inquiry {
   crewMemberMeetingTimes InquiryCrewMemberMeetingTime[]
   customCalendarInquiryPins UserCustomCalendarInquiryPin[]
   telecrmCallSessions       TelecrmCallSession[]
+  telecrmCallNotes          TelecrmCallNote[]
 
   @@index([createdAt])
   @@index([preferredDate])
@@ -2619,7 +2624,6 @@ model TelecrmScriptCategory {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  /// null = 업체 공통. 값 있으면 해당 마케터 전용.
   ownerUserId String?  @map("owner_user_id")
   ownerUser   User?    @relation("TelecrmScriptCategoryOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
   label       String   @db.VarChar(120)
@@ -2713,4 +2717,40 @@ model TelecrmCallSession {
   @@unique([tenantId, userId, androidCallLogId])
   @@index([tenantId, userId, createdAt(sort: Desc)])
   @@map("telecrm_call_sessions")
+}
+
+/// 텔레CRM — 문자 템플릿 (업체 공통·마케터 개인)
+model TelecrmSmsTemplate {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownerUserId String?  @map("owner_user_id")
+  ownerUser   User?    @relation("TelecrmSmsTemplateOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  label       String   @db.VarChar(120)
+  body        String   @db.Text
+  imageUrl    String?  @map("image_url") @db.VarChar(512)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId, ownerUserId, sortOrder])
+  @@map("telecrm_sms_templates")
+}
+
+/// 텔레CRM — 통화 메모 이력 (고객 SMS와 분리)
+model TelecrmCallNote {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone     String   @db.VarChar(32)
+  body      String   @db.Text
+  inquiryId String?  @map("inquiry_id")
+  inquiry   Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, userId, phone, createdAt(sort: Desc)])
+  @@map("telecrm_call_notes")
 }

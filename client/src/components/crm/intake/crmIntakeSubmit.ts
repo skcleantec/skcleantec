@@ -15,7 +15,6 @@ export type CrmIntakeFormValues = {
   customerName: string;
   nickname: string;
   phone: string;
-  memo: string;
   preferredMoveInCleanYmd: string;
   address: string;
   kind: CrmIntakeKind;
@@ -56,7 +55,7 @@ export async function submitCrmIntake(
       nickname: values.nickname.trim() || null,
       customerPhone: values.phone.trim(),
       status,
-      memo: values.memo.trim() || null,
+      memo: null,
       goldDb: values.goldDb,
       ...pmdBody,
     });
@@ -70,7 +69,7 @@ export async function submitCrmIntake(
       customerPhone: values.phone.trim() || '',
       address: values.address.trim(),
       addressDetail: null,
-      memo: values.memo.trim() || null,
+      memo: null,
       source: '전화',
       status: 'RECEIVED',
       ...extras,
@@ -85,8 +84,8 @@ export async function submitCrmIntake(
     customerPhone: values.phone.trim() || '',
     address: values.address.trim() || '',
     addressDetail: null,
-    memo: values.memo.trim() || null,
-    source: '전화',
+      memo: null,
+      source: '전화',
     status: inqSt,
     ...extras,
   })) as { id: string };
@@ -96,7 +95,7 @@ export async function submitCrmIntake(
     nickname: values.nickname.trim() || null,
     customerPhone: values.phone.trim(),
     status: fuSt,
-    memo: values.memo.trim() || null,
+    memo: null,
     goldDb: values.goldDb,
     inquiryId: created.id,
     ...pmdBody,

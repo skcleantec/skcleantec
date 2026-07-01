@@ -8,6 +8,7 @@ export type TelecrmMobileDispatchInput = {
   action: 'call' | 'sms';
   phone: string;
   body?: string;
+  imageUrl?: string | null;
   inquiryId?: string | null;
   customerMatch?: 'new' | 'existing' | 'pick' | 'unknown' | null;
 };
@@ -24,6 +25,7 @@ export async function postTelecrmMobileDispatch(
       action: input.action,
       phone: input.phone.replace(/\D/g, ''),
       body: input.body,
+      imageUrl: input.imageUrl ?? null,
       inquiryId: input.inquiryId ?? null,
       customerMatch: input.customerMatch ?? null,
     }),

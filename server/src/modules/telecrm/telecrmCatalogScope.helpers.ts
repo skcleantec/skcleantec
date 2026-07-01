@@ -43,6 +43,25 @@ export function telecrmPriceCategoryWhere(
   };
 }
 
+export function telecrmSmsTemplateWhere(
+  scope: TelecrmCatalogScope,
+  tenantId: string,
+  userId: string,
+): Prisma.TelecrmSmsTemplateWhereInput {
+  if (scope === 'shared') return { tenantId, ownerUserId: null };
+  if (scope === 'personal') return { tenantId, ownerUserId: userId };
+  return {
+    tenantId,
+    OR: [{ ownerUserId: null }, { ownerUserId: userId }],
+  };
+}
+
+export function sortTelecrmSmsTemplatesForWork<
+  T extends { ownerUserId: string | null; sortOrder: number; createdAt: Date },
+>(rows: T[]): T[] {
+  return sortTelecrmCategoriesForWork(rows);
+}
+
 export function sortTelecrmCategoriesForWork<
   T extends { ownerUserId: string | null; sortOrder: number; createdAt: Date },
 >(rows: T[]): T[] {

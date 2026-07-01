@@ -7,6 +7,7 @@ export type TelecrmMobileDispatchItem = {
   action: TelecrmMobileDispatchAction;
   phone: string;
   body: string | null;
+  imageUrl: string | null;
   inquiryId: string | null;
   customerMatch: string | null;
   createdAt: string;
@@ -45,7 +46,11 @@ export function parseTelecrmMobileDispatchBody(body: unknown):
   const phone = normalizePhone(typeof b.phone === 'string' ? b.phone : '');
   if (phone.length < 4) return { error: '전화번호(4자 이상)가 필요합니다.' };
   const smsBody = typeof b.body === 'string' ? b.body.trim().slice(0, 4000) : '';
-  if (actionRaw === 'sms' && !smsBody) return { error: '문자 내용(body)이 필요합니다.' };
+  const imageUrl =
+    typeof b.imageUrl === 'string' && b.imageUrl.trim() ? b.imageUrl.trim().slice(0, 512) : null;
+  if (actionRaw === 'sms' && !smsBody && !imageUrl) {
+    return { error: '문자 내용(body) 또는 imageUrl이 필요합니다.' };
+  }
   const inquiryId = typeof b.inquiryId === 'string' && b.inquiryId.trim() ? b.inquiryId.trim() : null;
   const customerMatch =
     typeof b.customerMatch === 'string' && b.customerMatch.trim()
@@ -54,7 +59,8 @@ export function parseTelecrmMobileDispatchBody(body: unknown):
   return {
     action: actionRaw,
     phone,
-    body: actionRaw === 'sms' ? smsBody : null,
+    body: actionRaw === 'sms' ? smsBody || null : null,
+    imageUrl: actionRaw === 'sms' ? imageUrl : null,
     inquiryId,
     customerMatch,
   };
@@ -81,6 +87,7 @@ export function enqueueTelecrmMobileDispatch(
       action: item.action,
       phone: item.phone,
       body: item.body,
+      imageUrl: item.imageUrl,
       inquiryId: item.inquiryId,
       customerMatch: item.customerMatch,
     },

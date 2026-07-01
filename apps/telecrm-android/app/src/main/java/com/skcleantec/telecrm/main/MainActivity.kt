@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
                 action = payload.action,
                 phone = payload.phone,
                 body = payload.body,
+                imageUrl = payload.imageUrl,
                 inquiryId = payload.inquiryId,
                 customerMatch = payload.customerMatch,
             ),

@@ -18,9 +18,15 @@ const TelecrmGeneralSettingsPage = lazy(() =>
     default: m.TelecrmGeneralSettingsPage,
   })),
 );
+const TelecrmSmsTemplateSettingsPage = lazy(() =>
+  import('../../../pages/admin/crm/settings/TelecrmSmsTemplateSettingsPage').then((m) => ({
+    default: m.TelecrmSmsTemplateSettingsPage,
+  })),
+);
 
 const TABS: { id: CrmSettingsTab; label: string }[] = [
   { id: 'scripts', label: '스크립트' },
+  { id: 'sms', label: '문자 템플릿' },
   { id: 'pricing', label: '가격' },
   { id: 'general', label: '기본 단가' },
 ];
@@ -89,6 +95,7 @@ export function CrmSettingsDrawer({
       <Suspense fallback={<p className="text-fluid-sm text-gray-500">불러오는 중…</p>}>
         <div key={`${tab}-${catalogScope}`} className="min-w-0">
           {tab === 'scripts' ? <TelecrmScriptSettingsPage catalogScope={catalogScope} /> : null}
+          {tab === 'sms' ? <TelecrmSmsTemplateSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'pricing' ? <TelecrmPricingSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'general' && canEditShared ? <TelecrmGeneralSettingsPage /> : null}
         </div>
