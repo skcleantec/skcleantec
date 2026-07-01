@@ -1,0 +1,146 @@
+package com.skcleantec.telecrm.main
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.view.View
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.skcleantec.telecrm.api.ApiClient
+import com.skcleantec.telecrm.auth.TokenStore
+import com.skcleantec.telecrm.databinding.FragmentIncomingBinding
+import com.skcleantec.telecrm.telephony.CallLogReader
+import com.skcleantec.telecrm.telephony.IncomingCallRow
+import com.skcleantec.telecrm.telephony.TelecrmCallHelper
+import com.skcleantec.telecrm.ui.SimpleRow
+import com.skcleantec.telecrm.ui.SimpleRowAdapter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+
+class IncomingFragment : Fragment() {
+    private var _binding: FragmentIncomingBinding? = null
+    private val binding get() = _binding!!
+    private val tokenStore by lazy { TokenStore(requireContext()) }
+    private val apiClient = ApiClient()
+    private val adapter = SimpleRowAdapter { pos -> onRowClick(pos) }
+    private var rows = listOf<IncomingCallRow>()
+    private var selectedLookup: JSONObject? = null
+    private var selectedPhone = ""
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) loadCallLog() else showPermissionUi(true)
+    }
+
+    override fun onCreateView(
+        inflater: android.view.LayoutInflater,
+        container: android.view.ViewGroup?,
+        savedInstanceState: Bundle?,
+    ): View {
+        _binding = FragmentIncomingBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        binding.incomingList.layoutManager = LinearLayoutManager(requireContext())
+        binding.incomingList.adapter = adapter
+        binding.grantButton.setOnClickListener {
+            permissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
+        }
+        binding.detailCall.setOnClickListener {
+            val phone = selectedPhone
+            TelecrmCallHelper.dial(requireContext(), phone)
+            val token = tokenStore.getToken() ?: return@setOnClickListener
+            val match = selectedLookup?.optString("match") ?: "unknown"
+            val inquiryId = selectedLookup?.optJSONArray("inquiries")?.optJSONObject(0)?.optString("id")
+            TelecrmCallHelper.logCall(requireContext(), apiClient, token, phone, "INBOUND", inquiryId, match)
+        }
+        binding.detailSms.setOnClickListener { TelecrmCallHelper.openSms(requireContext(), selectedPhone) }
+        ensurePermission()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (hasCallLogPermission()) loadCallLog()
+    }
+
+    private fun hasCallLogPermission() =
+        ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_CALL_LOG) ==
+            PackageManager.PERMISSION_GRANTED
+
+    private fun ensurePermission() {
+        if (hasCallLogPermission()) {
+            showPermissionUi(false)
+            loadCallLog()
+        } else {
+            showPermissionUi(true)
+        }
+    }
+
+    private fun showPermissionUi(need: Boolean) {
+        binding.permissionHint.visibility = if (need) View.VISIBLE else View.GONE
+        binding.grantButton.visibility = if (need) View.VISIBLE else View.GONE
+    }
+
+    private fun loadCallLog() {
+        rows = CallLogReader.readRecentIncoming(requireContext())
+        adapter.submit(rows.map {
+            SimpleRow(
+                title = it.number,
+                subtitle = "${CallLogReader.formatWhen(it.dateMs)} · ${it.durationSec}초",
+            )
+        })
+    }
+
+    private fun onRowClick(pos: Int) {
+        if (pos !in rows.indices) return
+        val row = rows[pos]
+        selectedPhone = row.number.filter { it.isDigit() }
+        binding.detailPanel.visibility = View.VISIBLE
+        binding.detailTitle.text = row.number
+        binding.detailBody.text = "서버에서 고객 정보 조회 중…"
+        val token = tokenStore.getToken() ?: return
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                apiClient.customerLookup(token, selectedPhone, null)
+            }
+            result.onSuccess { json ->
+                selectedLookup = json
+                val inq = json.optJSONArray("inquiries")?.optJSONObject(0)
+                val customer = json.optJSONObject("customer")
+                val name = inq?.optString("customerName")
+                    ?: customer?.optString("name")
+                    ?: "미등록"
+                val match = when (json.optString("match")) {
+                    "existing" -> "기존 고객"
+                    "new" -> "신규"
+                    else -> json.optString("match")
+                }
+                val memo = inq?.optString("memo").orEmpty()
+                binding.detailTitle.text = "$name · $match"
+                binding.detailBody.text = buildString {
+                    append(selectedPhone)
+                    inq?.optString("address")?.takeIf { it.isNotBlank() }?.let { append("\n$it") }
+                    if (memo.isNotBlank()) append("\n$memo")
+                }
+                TelecrmCallHelper.logCall(
+                    requireContext(), apiClient, token, selectedPhone, "INBOUND",
+                    inq?.optString("id"), json.optString("match"), row.durationSec,
+                )
+            }.onFailure {
+                binding.detailBody.text = it.message ?: "조회 실패"
+            }
+        }
+    }
+
+    override fun onDestroyView() {
+        _binding = null
+        super.onDestroyView()
+    }
+}

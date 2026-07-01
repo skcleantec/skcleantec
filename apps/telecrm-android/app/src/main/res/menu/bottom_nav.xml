@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_dial"
+        android:icon="@android:drawable/ic_menu_call"
+        android:title="@string/tab_dial" />
+    <item
+        android:id="@+id/nav_incoming"
+        android:icon="@android:drawable/ic_menu_recent_history"
+        android:title="@string/tab_incoming" />
+    <item
+        android:id="@+id/nav_work"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:title="@string/tab_work" />
+    <item
+        android:id="@+id/nav_messages"
+        android:icon="@android:drawable/ic_dialog_email"
+        android:title="@string/tab_messages" />
+</menu>

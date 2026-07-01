@@ -6,7 +6,7 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.skcleantec.telecrm.api.ApiClient
-import com.skcleantec.telecrm.crm.CrmActivity
+import com.skcleantec.telecrm.main.MainActivity
 import com.skcleantec.telecrm.databinding.ActivityLoginBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -52,7 +52,7 @@ class LoginActivity : AppCompatActivity() {
             }
             binding.loginButton.isEnabled = true
             result.onSuccess { session ->
-                tokenStore.saveSession(session.token, tenantSlug, loginId, session.userName)
+                tokenStore.saveSession(session.token, tenantSlug, loginId, session.userName, session.userId)
                 openCrm()
             }.onFailure { err ->
                 binding.loginError.text = err.message ?: "로그인에 실패했습니다."
@@ -62,7 +62,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun openCrm() {
-        startActivity(Intent(this, CrmActivity::class.java))
+        startActivity(Intent(this, MainActivity::class.java))
         finish()
     }
 }

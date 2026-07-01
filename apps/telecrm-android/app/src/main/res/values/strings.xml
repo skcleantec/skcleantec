@@ -1,12 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SK 텔레CRM</string>
+    <string name="app_name">청소비서 전화</string>
     <string name="login_title">솔루션 로그인</string>
     <string name="tenant_slug_hint">업체 코드</string>
     <string name="login_id_hint">아이디</string>
     <string name="password_hint">비밀번호</string>
     <string name="login_button">로그인</string>
     <string name="logout">로그아웃</string>
-    <string name="crm_loading">CRM 불러오는 중…</string>
-    <string name="internal_build_note">사무실 내부 테스트 빌드 (Play 미배포)</string>
+    <string name="internal_build_note">PC 마케터와 동일 계정 — 근무·예약 유치 일관성 유지</string>
+    <string name="tab_dial">발신</string>
+    <string name="tab_incoming">수신</string>
+    <string name="tab_work">업무</string>
+    <string name="tab_messages">메시지</string>
+    <string name="ws_connected">실시간 연결됨</string>
+    <string name="ws_disconnected">실시간 끊김</string>
+    <string name="customer_search_title">고객 검색 · 발신</string>
+    <string name="phone_hint">전화번호</string>
+    <string name="name_hint">이름 (선택, 2자 이상)</string>
+    <string name="search_button">검색</string>
+    <string name="call_button">통화</string>
+    <string name="sms_button">문자</string>
+    <string name="today_summary_title">오늘 통화</string>
+    <string name="summary_stats_format">통화 %1$d건 · 총 %2$s</string>
+    <string name="work_nav_title">업무 현황</string>
+    <string name="work_sync_note">PC 솔루션과 동일 계정 · WebSocket으로 접수·변동·메시지 동기화</string>
+    <string name="incoming_title">수신 전화</string>
+    <string name="incoming_permission_hint">수신 번호와 서버 고객 정보를 매칭하려면 통화 기록 권한이 필요합니다.</string>
+    <string name="grant_call_log">통화 기록 허용</string>
+    <string name="messages_title">솔루션 메시지</string>
+    <string name="message_hint">메시지 입력</string>
+    <string name="send_message">전송</string>
+    <string name="no_conversations">대화 상대가 없습니다.</string>
 </resources>
