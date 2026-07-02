@@ -13,6 +13,7 @@ import {
   parseInspectionRetentionOptionsFromEnv,
   purgeExpiredInspectionChecklists,
 } from './modules/inquiry-inspection/inquiryInspection.retention.service.js';
+import { isBenignClientAbortError } from './lib/httpClientAbort.js';
 
 async function bootstrap() {
   try {
@@ -108,6 +109,7 @@ async function bootstrap() {
 
 /** Express 4 async 라우트의 DB 일시 오류(P1001 등)가 프로세스 전체를 죽이지 않도록 */
 process.on('unhandledRejection', (reason) => {
+  if (isBenignClientAbortError(reason)) return;
   console.error('[unhandledRejection]', reason);
 });
 
@@ -117,6 +119,7 @@ process.on('unhandledRejection', (reason) => {
  * (요청 핸들러 오류는 각 라우트 try/catch + Express에서 처리됨)
  */
 process.on('uncaughtException', (err) => {
+  if (isBenignClientAbortError(err)) return;
   console.error('[uncaughtException]', err);
 });
 

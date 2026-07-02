@@ -62,6 +62,7 @@ import marketerPermissionsRoutes from './modules/marketer-permissions/marketerPe
 import { telecrmRoutes } from './modules/telecrm/telecrm.routes.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
+import { isBenignClientAbortError } from './lib/httpClientAbort.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -187,7 +188,7 @@ if (clientDir) {
     if (!filePath) return next();
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(filePath, (err) => {
-      if (err) next(err);
+      if (err && !isBenignClientAbortError(err)) next(err);
     });
   });
 
@@ -217,7 +218,7 @@ if (clientDir) {
     if (req.path.startsWith('/api')) return next();
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(path.join(clientDir, 'index.html'), (err) => {
-      if (err) next(err);
+      if (err && !isBenignClientAbortError(err)) next(err);
     });
   });
 } else {
@@ -233,5 +234,13 @@ if (clientDir) {
     );
   });
 }
+
+/** sendFile·static·API 응답 중 클라이언트 선행 종료는 무시 — Express 기본 핸들러 stderr 노출 방지 */
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (isBenignClientAbortError(err)) return;
+  console.error('[express]', err);
+  if (res.headersSent) return;
+  res.status(500).json({ error: 'internal_server_error' });
+});
 
 export default app;
