@@ -27,6 +27,9 @@ import {
 } from '../../api/team';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { formatInquiryListAreaLabel, formatInquiryAreaCompactKo } from '../../utils/inquiryAreaDisplay';
+import { operatingCompanyShortLabel } from '../../utils/operatingCompanyShortLabel';
+import { operatingCompanyBadgeColorClasses } from '../../utils/operatingCompanyBadgeColors';
+import type { OperatingCompanyBadgeData } from '../../components/admin/OperatingCompanyBadge';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey } from '../../utils/teamPreviewQuery';
 import { buildTeamInquiryReturnTo, teamInquiryNavState } from '../../utils/teamInquiryNavigation';
@@ -270,6 +273,8 @@ export interface InquiryItem {
   changeLogs?: InquiryChangeLogEntry[];
   /** 목록 API — 현장 검수 진행률 요약 */
   inspectionSummary?: InspectionListSummary | null;
+  /** 접수 영업 브랜드 (Operating Company) */
+  operatingCompany?: OperatingCompanyBadgeData | null;
 }
 
 export function formatScheduleLine(item: InquiryItem) {
@@ -366,6 +371,34 @@ export function teamInquirySpecialNotesPreview(item: InquiryItem): string {
 
 export function teamInquiryHasSpecialNotes(item: InquiryItem): boolean {
   return teamInquirySpecialNotesPreview(item) !== '';
+}
+
+/** 배정·스케줄 목록 — 영업 브랜드 약칭 pill (앞 2글자) */
+export function TeamInquiryBrandListBadge({
+  item,
+  className = '',
+}: {
+  item: Pick<InquiryItem, 'operatingCompany'>;
+  className?: string;
+}) {
+  const oc = item.operatingCompany;
+  const short = operatingCompanyShortLabel(oc?.name);
+  if (!oc?.name?.trim() || !short) return null;
+  const colorCls = operatingCompanyBadgeColorClasses({
+    id: oc.id,
+    slug: oc.slug,
+    name: oc.name,
+    badgeColorKey: oc.badgeColorKey,
+    inactive: oc.isActive === false,
+  });
+  return (
+    <span
+      className={`inline-flex h-5 min-w-[1.625rem] shrink-0 items-center justify-center rounded-md px-1 text-[10px] font-bold leading-none tracking-tight ring-1 ring-inset sm:text-fluid-2xs ${colorCls} ${className}`}
+      title={oc.name}
+    >
+      {short}
+    </span>
+  );
 }
 
 /** 배정·스케줄 목록 — 평수 pill (짧은 표기, 호버 시 공급/전용 상세) */

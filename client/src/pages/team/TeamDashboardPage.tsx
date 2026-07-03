@@ -24,6 +24,7 @@ import {
   TeamNoCrewMembersListBadge,
   TeamInquiryListAmountNotesBadges,
   TeamInquiryAreaListBadge,
+  TeamInquiryBrandListBadge,
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
@@ -263,6 +264,7 @@ export function TeamDashboardPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5 font-semibold text-gray-900">
+                        <TeamInquiryBrandListBadge item={item} />
                         <span>{primaryLabel}</span>
                         <TeamInquiryListAmountNotesBadges item={item} />
                         <TeamInquiryAreaListBadge item={item} />
@@ -355,6 +357,7 @@ export function TeamDashboardPage() {
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5 font-medium text-gray-900">
+                              <TeamInquiryBrandListBadge item={item} />
                               <span className="truncate">{primaryLabel}</span>
                               <TeamInquiryListAmountNotesBadges item={item} />
                               <TeamInquiryAreaListBadge item={item} />

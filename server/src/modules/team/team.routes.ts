@@ -29,7 +29,7 @@ import {
   sanitizeInquiriesForRestrictedViewer,
 } from '../inquiries/internalCustomerTone.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
-import { orderFormTemplateSelect } from '../inquiries/inquiryDetailInclude.js';
+import { orderFormTemplateSelect, operatingCompanySummarySelect } from '../inquiries/inquiryDetailInclude.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 import {
   parseSettlementListPaging,
@@ -72,6 +72,10 @@ import {
   whereExcludeAdminSlotAdjustInquiries,
 } from './teamLeaderDayOffInquiryVisibility.js';
 import teamLeaderTrainingTeamRoutes from '../team-leader-training/teamLeaderTraining.team.routes.js';
+import {
+  serializeTeamInquiryOperatingCompanies,
+  serializeTeamInquiryOperatingCompany,
+} from './teamInquiryResponse.helpers.js';
 
 const router = Router();
 
@@ -155,6 +159,7 @@ router.get('/me', async (req, res) => {
 });
 
 const teamInquiryInclude = {
+  operatingCompany: { select: operatingCompanySummarySelect },
   createdBy: { select: { id: true, name: true, phone: true } },
   orderForm: {
     select: {
@@ -1146,7 +1151,7 @@ router.get('/inquiries/:id', async (req, res) => {
     return;
   }
   const [item] = await attachProfessionalOptions(await attachCrewMembers([row], tenantId), tenantId);
-  res.json(attachInspectionSummaryToInquiry(item));
+  res.json(serializeTeamInquiryOperatingCompany(attachInspectionSummaryToInquiry(item)));
 });
 
 router.get('/inquiries', async (req, res) => {
@@ -1177,8 +1182,10 @@ router.get('/inquiries', async (req, res) => {
     });
     const items = await attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId);
     res.json({
-      items: attachInspectionSummaries(
-        items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+      items: serializeTeamInquiryOperatingCompanies(
+        attachInspectionSummaries(
+          items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+        ),
       ),
     });
     return;
@@ -1200,8 +1207,10 @@ router.get('/inquiries', async (req, res) => {
       extraInquiryWhere,
     );
     res.json({
-      items: attachInspectionSummaries(
-        items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+      items: serializeTeamInquiryOperatingCompanies(
+        attachInspectionSummaries(
+          items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+        ),
       ),
       total,
     });
@@ -1259,8 +1268,10 @@ router.get('/schedule', async (req, res) => {
   });
   const items = await attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId);
   res.json({
-    items: attachInspectionSummaries(
-      items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+    items: serializeTeamInquiryOperatingCompanies(
+      attachInspectionSummaries(
+        items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+      ),
     ),
   });
 });

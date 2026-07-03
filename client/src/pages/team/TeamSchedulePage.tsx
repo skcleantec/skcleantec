@@ -28,6 +28,7 @@ import {
   TeamCoLeadersListHint,
   TeamNoCrewMembersListBadge,
   TeamInquiryAreaListBadge,
+  TeamInquiryBrandListBadge,
 } from './teamInquiryShared';
 import { TeamCrewMemberContactChips } from '../../components/team/TeamCrewMemberContactChips';
 import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
@@ -311,6 +312,7 @@ export function TeamSchedulePage() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="font-medium text-gray-900 flex flex-wrap items-center gap-1.5">
+                              <TeamInquiryBrandListBadge item={item} />
                               <span>{primaryLabel}</span>
                               <TeamInquiryAreaListBadge item={item} />
                             </div>

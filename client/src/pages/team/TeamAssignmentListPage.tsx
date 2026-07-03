@@ -34,6 +34,7 @@ import {
   TeamInquiryCollectibleListBadge,
   TeamInquirySpecialNotesListBadge,
   TeamInquiryAreaListBadge,
+  TeamInquiryBrandListBadge,
   teamInquiryCollectibleAmount,
 } from './teamInquiryShared';
 import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
@@ -516,7 +517,8 @@ export function TeamAssignmentListPage() {
                   >
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <TeamInquiryBrandListBadge item={item} />
                           <span className="truncate text-fluid-sm font-semibold text-gray-900">{primaryLabel}</span>
                           {item.claimMemo ? (
                             <span
@@ -733,14 +735,17 @@ export function TeamAssignmentListPage() {
                           className={`align-middle py-2 px-2 font-medium text-gray-900 text-center whitespace-nowrap ${pBorder}`}
                         >
                           <div className="flex min-w-0 flex-col items-center leading-tight">
-                            <div className="min-w-0 max-w-full truncate">
-                              {primaryLabel}
-                              {item.claimMemo ? (
-                                <span className="ml-1 text-orange-600" title={item.claimMemo}>
-                                  ●
-                                </span>
-                              ) : null}
-                              <TeamInquirySpecialNotesListBadge item={item} className="ml-1 align-middle" />
+                            <div className="flex min-w-0 max-w-full flex-wrap items-center justify-center gap-1">
+                              <TeamInquiryBrandListBadge item={item} />
+                              <span className="min-w-0 truncate">
+                                {primaryLabel}
+                                {item.claimMemo ? (
+                                  <span className="ml-1 text-orange-600" title={item.claimMemo}>
+                                    ●
+                                  </span>
+                                ) : null}
+                              </span>
+                              <TeamInquirySpecialNotesListBadge item={item} className="align-middle" />
                             </div>
                             {memoSubtitle ? (
                               <div
