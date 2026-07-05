@@ -143,6 +143,7 @@ import {
   getOrderFormPublicUrl,
   labelOrderFormIssuer,
   normalizeMsgConfigForEditor,
+  orderFormBrandFromOperatingCompany,
 } from '../../utils/orderFormCustomerCopy';
 import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
 
@@ -481,6 +482,7 @@ interface InquiryItem {
     id: string;
     name: string;
     slug: string;
+    displayName?: string;
     isActive?: boolean;
     badgeColorKey?: string | null;
   } | null;
@@ -2041,7 +2043,12 @@ export function AdminInquiriesPage() {
       return;
     }
     window.open(
-      getOrderFormPublicUrl(tk, undefined, staffTenantSlug || null, item.operatingCompany?.slug ?? null),
+      getOrderFormPublicUrl(
+        tk,
+        undefined,
+        staffTenantSlug || null,
+        orderFormBrandFromOperatingCompany(item.operatingCompany).brandSlug,
+      ),
       '_blank',
       'noopener',
     );
@@ -2054,12 +2061,16 @@ export function AdminInquiriesPage() {
         alert('폼 설정을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
         return;
       }
+      const { brandSlug, brandDisplayName } = orderFormBrandFromOperatingCompany(
+        orderCustomerPreview.inquiry.operatingCompany,
+      );
       const text = buildOrderFormCustomerMessage(
         orderCustomerPreviewMsgConfig,
         orderCustomerPreview.order,
         undefined,
         staffTenantSlug || null,
-        orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
+        brandSlug,
+        brandDisplayName,
       );
       const ok = await copyTextToClipboard(text);
       alert(
@@ -2069,12 +2080,15 @@ export function AdminInquiriesPage() {
       );
       return;
     }
+    const { brandSlug } = orderFormBrandFromOperatingCompany(
+      orderCustomerPreview.inquiry.operatingCompany,
+    );
     const ok = await copyTextToClipboard(
       getOrderFormPublicUrl(
         orderCustomerPreview.order.token,
         undefined,
         staffTenantSlug || null,
-        orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
+        brandSlug,
       ),
     );
     alert(
@@ -3774,13 +3788,19 @@ export function AdminInquiriesPage() {
                     <p className="text-sm text-slate-600">불러오는 중…</p>
                   ) : (
                     <pre className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-slate-50 p-3 font-sans text-sm text-slate-800">
-                      {buildOrderFormCustomerMessage(
-                        orderCustomerPreviewMsgConfig,
-                        orderCustomerPreview.order,
-                        undefined,
-                        staffTenantSlug || null,
-                        orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
-                      )}
+                      {(() => {
+                        const { brandSlug, brandDisplayName } = orderFormBrandFromOperatingCompany(
+                          orderCustomerPreview.inquiry.operatingCompany,
+                        );
+                        return buildOrderFormCustomerMessage(
+                          orderCustomerPreviewMsgConfig,
+                          orderCustomerPreview.order,
+                          undefined,
+                          staffTenantSlug || null,
+                          brandSlug,
+                          brandDisplayName,
+                        );
+                      })()}
                     </pre>
                   )
                 ) : (
@@ -3790,12 +3810,17 @@ export function AdminInquiriesPage() {
                       readOnly
                       rows={4}
                       className="w-full resize-none rounded border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900"
-                      value={getOrderFormPublicUrl(
-                        orderCustomerPreview.order.token,
-                        undefined,
-                        staffTenantSlug || null,
-                        orderCustomerPreview.inquiry.operatingCompany?.slug ?? null,
-                      )}
+                      value={(() => {
+                        const { brandSlug } = orderFormBrandFromOperatingCompany(
+                          orderCustomerPreview.inquiry.operatingCompany,
+                        );
+                        return getOrderFormPublicUrl(
+                          orderCustomerPreview.order.token,
+                          undefined,
+                          staffTenantSlug || null,
+                          brandSlug,
+                        );
+                      })()}
                       onFocus={(e) => e.target.select()}
                     />
                   </label>

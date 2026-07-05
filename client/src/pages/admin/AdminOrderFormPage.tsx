@@ -38,6 +38,7 @@ import {
   getOrderFormPublicUrl,
   labelOrderFormIssuer,
   normalizeMsgConfigForEditor,
+  orderFormBrandFromOperatingCompany,
 } from '../../utils/orderFormCustomerCopy';
 import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
 import { InternalCustomerToneRadio } from '../../components/admin/InternalCustomerToneRadio';
@@ -520,14 +521,17 @@ export function AdminOrderFormPage() {
   const getOrderLink = (orderToken: string, brandSlug?: string | null) =>
     getOrderFormPublicUrl(orderToken, undefined, staffTenantSlug || null, brandSlug);
 
-  const getOrderMessage = (order: OrderForm) =>
-    buildOrderFormCustomerMessage(
+  const getOrderMessage = (order: OrderForm) => {
+    const { brandSlug, brandDisplayName } = orderFormBrandFromOperatingCompany(order.operatingCompany);
+    return buildOrderFormCustomerMessage(
       msgConfig,
       order,
       undefined,
       staffTenantSlug || null,
-      brandSlugForOrder(order),
+      brandSlug,
+      brandDisplayName,
     );
+  };
 
   const handleCopyPreviewModal = async () => {
     if (!previewModal) return;

@@ -9,15 +9,26 @@ export async function resolveTelecrmOrderFormLink(
   const inquiry = await prisma.inquiry.findFirst({
     where: { id: inquiryId, tenantId },
     select: {
-      orderForm: { select: { token: true } },
+      orderForm: {
+        select: {
+          token: true,
+          operatingCompany: { select: { slug: true } },
+        },
+      },
+      operatingCompany: { select: { slug: true } },
       tenant: { select: { slug: true } },
     },
   });
   const token = inquiry?.orderForm?.token;
   if (!token) return null;
   const base = origin.replace(/\/$/, '');
-  const slug = inquiry.tenant.slug?.trim();
+  const tenantSlug = inquiry.tenant.slug?.trim();
+  const brandSlug =
+    inquiry.orderForm?.operatingCompany?.slug?.trim() ||
+    inquiry.operatingCompany?.slug?.trim() ||
+    '';
   const url = new URL(`${base}/order/${encodeURIComponent(token)}`);
-  if (slug) url.searchParams.set('tenant', slug);
+  if (tenantSlug) url.searchParams.set('tenant', tenantSlug);
+  if (brandSlug) url.searchParams.set('brand', brandSlug.toLowerCase());
   return url.toString();
 }

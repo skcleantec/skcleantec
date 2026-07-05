@@ -36,6 +36,11 @@ import {
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { parseInternalCustomerToneInput } from '../inquiries/internalCustomerTone.js';
 import { resolveInquiryOperatingCompanyId } from '../operating-companies/operatingCompanyResolve.service.js';
+import { getOperatingCompanyPolicy } from '../operating-companies/operatingCompanyPolicy.js';
+import {
+  operatingCompanySummarySelect,
+  toOperatingCompanyPublicSummary,
+} from '../operating-companies/operatingCompanyPublicSummary.js';
 import { resolvePublicBrandingForCustomer } from '../operating-companies/publicOperatingCompanyBranding.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import {
@@ -654,11 +659,17 @@ function mapPendingInquiry(row: {
 }
 
 /** 미제출 발주서 편집 가능 페이로드(고객 `/order/:token`·마케터 편집기 공용) */
-const orderFormOperatingCompanySelect = {
-  id: true,
-  slug: true,
-  name: true,
-} as const;
+const orderFormOperatingCompanySelect = operatingCompanySummarySelect;
+
+function mapOrderFormOperatingCompany<T extends { operatingCompany?: Parameters<typeof toOperatingCompanyPublicSummary>[0] | null }>(
+  row: T,
+): T {
+  if (!row.operatingCompany) return row;
+  return {
+    ...row,
+    operatingCompany: toOperatingCompanyPublicSummary(row.operatingCompany),
+  };
+}
 
 async function buildEditableOrderPayload(
   form: Prisma.OrderFormGetPayload<{ include: { inquiries: true } }>,
@@ -910,10 +921,12 @@ router.get('/', authMiddleware, requireStaffPermission('orderform.issue', 'order
   }));
 
   const items = await attachReviewPaybackTokensToOrderForms(prisma, list);
-  const itemsWithEmail = items.map(({ submissionEmailLog, ...row }) => ({
-    ...row,
-    submissionEmail: serializeSubmissionEmailLog(submissionEmailLog),
-  }));
+  const itemsWithEmail = items.map(({ submissionEmailLog, ...row }) =>
+    mapOrderFormOperatingCompany({
+      ...row,
+      submissionEmail: serializeSubmissionEmailLog(submissionEmailLog),
+    }),
+  );
   res.json({ items: itemsWithEmail, issuers: issuerOptions, total });
 });
 
@@ -1182,14 +1195,27 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
       }
 
       const orderForm = await prisma.$transaction(async (tx) => {
+        const policy = await getOperatingCompanyPolicy(tx, authTenantId);
+        const ocResolveUserId =
+          policy.inquiryDefaultMode === 'creator_primary' && pending.createdById
+            ? pending.createdById
+            : userId;
+        let ocResolveRole = role as import('@prisma/client').UserRole;
+        if (ocResolveUserId !== userId) {
+          const creator = await tx.user.findFirst({
+            where: { id: ocResolveUserId, tenantId: authTenantId },
+            select: { role: true },
+          });
+          if (creator?.role) ocResolveRole = creator.role;
+        }
         const resolvedOcId = await resolveInquiryOperatingCompanyId({
           tx,
           tenantId: authTenantId,
-          userId,
-          userRole: role as import('@prisma/client').UserRole,
+          userId: ocResolveUserId,
+          userRole: ocResolveRole,
           bodyOperatingCompanyId: bodyOperatingCompanyIdRaw,
         });
-        const formOperatingCompanyId = pending.operatingCompanyId ?? resolvedOcId;
+        const formOperatingCompanyId = resolvedOcId;
         const created = await tx.orderForm.create({
           data: {
             tenantId: authTenantId,
@@ -1218,20 +1244,23 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
             orderFormId: created.id,
             status: 'ORDER_FORM_PENDING',
             source: '발주서',
+            operatingCompanyId: formOperatingCompanyId,
             internalCustomerTone: linkedTone,
             ...(issueAreaPyeong != null && issueAreaBasis
               ? { areaPyeong: issueAreaPyeong, areaBasis: issueAreaBasis, exclusiveAreaSqm: null }
               : {}),
           },
         });
-        return tx.orderForm.findUniqueOrThrow({
-          where: { id: created.id },
-          include: {
-            inquiries: { take: 1 },
-            createdBy: orderFormCreatedBySelect,
-            operatingCompany: { select: orderFormOperatingCompanySelect },
-          },
-        });
+        return mapOrderFormOperatingCompany(
+          await tx.orderForm.findUniqueOrThrow({
+            where: { id: created.id },
+            include: {
+              inquiries: { take: 1 },
+              createdBy: orderFormCreatedBySelect,
+              operatingCompany: { select: orderFormOperatingCompanySelect },
+            },
+          }),
+        );
       });
       const assigns = await prisma.assignment.findMany({
         where: { inquiryId: pid },
@@ -1306,14 +1335,16 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           areaBasis: issueAreaBasis,
         },
       });
-      return tx.orderForm.findUniqueOrThrow({
-        where: { id: created.id },
-        include: {
-          inquiries: { take: 1 },
-          createdBy: orderFormCreatedBySelect,
-          operatingCompany: { select: orderFormOperatingCompanySelect },
-        },
-      });
+      return mapOrderFormOperatingCompany(
+        await tx.orderForm.findUniqueOrThrow({
+          where: { id: created.id },
+          include: {
+            inquiries: { take: 1 },
+            createdBy: orderFormCreatedBySelect,
+            operatingCompany: { select: orderFormOperatingCompanySelect },
+          },
+        }),
+      );
     });
     res.json(orderForm);
   } catch (e) {

@@ -15,6 +15,7 @@ import {
   buildOrderFormCustomerMessage,
   getOrderFormPublicUrl,
   normalizeMsgConfigForEditor,
+  orderFormBrandFromOperatingCompany,
   type FormMessagesState,
 } from '../../utils/orderFormCustomerCopy';
 import { copyTextToClipboard } from '../../utils/clipboard';
@@ -151,14 +152,17 @@ export function OrderIssueInlinePanel({
   );
 
   const getOrderMessage = useCallback(
-    (order: OrderForm) =>
-      buildOrderFormCustomerMessage(
+    (order: OrderForm) => {
+      const { brandSlug, brandDisplayName } = orderFormBrandFromOperatingCompany(order.operatingCompany);
+      return buildOrderFormCustomerMessage(
         msgConfig,
         order,
         undefined,
         staffTenantSlug || null,
-        brandSlugForOrder(order),
-      ),
+        brandSlug,
+        brandDisplayName,
+      );
+    },
     [msgConfig, staffTenantSlug],
   );
 

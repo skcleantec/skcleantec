@@ -48,7 +48,7 @@ export interface OrderForm {
   /** 발급한 사용자(마케터·관리자) */
   createdBy?: OrderFormCreatedBy | null;
   operatingCompanyId?: string | null;
-  operatingCompany?: { id: string; slug: string; name: string } | null;
+  operatingCompany?: { id: string; slug: string; name: string; displayName?: string } | null;
   submissionEmail?: OrderFormSubmissionEmailInfo | null;
 }
 

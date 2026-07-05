@@ -23,6 +23,7 @@ export function toOperatingCompanyPublicSummary(row: {
     name: row.name,
     slug: row.slug,
     isActive: row.isActive,
+    displayName: config.branding?.displayName?.trim() || row.name,
     badgeColorKey: config.branding?.badgeColorKey ?? null,
   };
 }

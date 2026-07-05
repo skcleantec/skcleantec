@@ -97,6 +97,16 @@ export function labelOrderFormIssuer(user: OrderFormCreatedBy | null | undefined
   return user.name.trim();
 }
 
+/** 발주서·접수 embed 영업 브랜드 — URL ?brand= 및 고객 메시지 제목 */
+export function orderFormBrandFromOperatingCompany(
+  operatingCompany?: { slug?: string | null; displayName?: string | null; name?: string | null } | null,
+): { brandSlug: string | null; brandDisplayName: string | null } {
+  const brandSlug = operatingCompany?.slug?.trim() || null;
+  const brandDisplayName =
+    operatingCompany?.displayName?.trim() || operatingCompany?.name?.trim() || null;
+  return { brandSlug, brandDisplayName };
+}
+
 export function getOrderFormPublicUrl(
   orderToken: string,
   origin?: string,
@@ -140,10 +150,12 @@ export function buildOrderFormCustomerMessage(
   origin?: string,
   tenantSlug?: string | null,
   brandSlug?: string | null,
+  brandDisplayName?: string | null,
 ): string {
   const link = getOrderFormPublicUrl(order.token, origin, tenantSlug, brandSlug);
   const csLink = getCsPublicUrl(origin, tenantSlug, brandSlug);
-  const title = withDefaultText(msgConfig.formTitle, 'formTitle');
+  const title =
+    brandDisplayName?.trim() || withDefaultText(msgConfig.formTitle, 'formTitle');
   const priceLabel = withDefaultText(msgConfig.priceLabel, 'priceLabel');
   // 리뷰 문구는 비우면 숨김 (normalizeMsgConfigForEditor에서 ''는 그대로 유지)
   const reviewText = (msgConfig.reviewEventText ?? '').trim();
