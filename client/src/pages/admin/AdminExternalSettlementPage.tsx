@@ -493,6 +493,11 @@ export function AdminExternalSettlementPage() {
       ) : null}
 
       <div className="rounded-lg border border-gray-200 bg-white">
+        {loading && filteredRows.length > 0 ? (
+          <p className="px-3 py-1.5 text-center text-fluid-xs text-gray-500 border-b border-gray-100" aria-live="polite">
+            갱신 중…
+          </p>
+        ) : null}
         {shouldShowListBlockingLoading(loading, filteredRows.length) ? (
           <div className="px-3 py-10 text-center text-gray-500">불러오는 중...</div>
         ) : filteredRows.length === 0 ? (

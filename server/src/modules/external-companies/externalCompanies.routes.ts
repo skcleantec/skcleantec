@@ -18,7 +18,7 @@ import {
   resolveExternalSettlementEffectiveDate,
 } from '../../lib/externalSettlementEffectiveDate.js';
 import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlementOperatingCompanyScope.js';
-import { sumExternalSettlementSignedFeeByCompany } from './externalSettlementOverview.service.js';
+import { sumExternalSettlementSignedFeeByCompany, sumExternalSettlementPaidByCompany } from './externalSettlementOverview.service.js';
 
 const router = Router();
 
@@ -241,28 +241,18 @@ router.get('/settlement/company-overview-list', requireStaffPermission('admin.ex
   );
   if (!operatingCompanyId) return;
 
-  const companies = await prisma.externalCompany.findMany({
-    where: { tenantId, isActive: true },
-    select: { id: true, name: true },
-    orderBy: { name: 'asc' },
-  });
-
-  const signedByCompany = await sumExternalSettlementSignedFeeByCompany(
-    prisma,
-    tenantId,
-    operatingCompanyId,
-  );
+  const [companies, signedByCompany, paidByCompany] = await Promise.all([
+    prisma.externalCompany.findMany({
+      where: { tenantId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    sumExternalSettlementSignedFeeByCompany(prisma, tenantId, operatingCompanyId),
+    sumExternalSettlementPaidByCompany(prisma, tenantId, operatingCompanyId),
+  ]);
   for (const c of companies) {
     if (!signedByCompany.has(c.id)) signedByCompany.set(c.id, 0);
   }
-
-  const paidRows = await prisma.externalCompanySettlementPayment.groupBy({
-    by: ['externalCompanyId'],
-    where: { operatingCompanyId, externalCompany: { tenantId } },
-    _sum: { amount: true },
-  });
-  const paidByCompany = new Map<string, number>();
-  for (const r of paidRows) paidByCompany.set(r.externalCompanyId, r._sum.amount ?? 0);
 
   res.json({
     operatingCompanyId,
