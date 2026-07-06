@@ -87,11 +87,7 @@ export function AdminInquiriesLayout() {
     }
   }, [token]);
 
-  useEffect(() => {
-    void refreshBadges();
-  }, [refreshBadges]);
-
-  /** GNB 배지 갱신(AdminLayout WS·디바운스)과 동기 — 별도 WS 구독 없음 */
+  /** GNB 배지 갱신(AdminLayout WS·디바운스)과 동기 — 별도 WS·마운트 fetch 없음 */
   useEffect(() => {
     (window as { __refreshInquiriesSubNavBadges?: () => void }).__refreshInquiriesSubNavBadges = () => {
       void refreshBadges();

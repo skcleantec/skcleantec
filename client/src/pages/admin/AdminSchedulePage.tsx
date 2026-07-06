@@ -29,8 +29,9 @@ import { ScheduleDaySlotToAdjustModal } from '../../components/admin/ScheduleDay
 import { ScheduleDayTeamLeaderAdjustModal } from '../../components/admin/ScheduleDayTeamLeaderAdjustModal';
 import { ScheduleDayStaffMemoPanel } from '../../components/admin/ScheduleDayStaffMemoPanel';
 import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
-import { getMe } from '../../api/auth';
-import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe, hasStaffPermission, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
+import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe, hasStaffPermission } from '../../utils/staffAdminAccess';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
+import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { getScheduleStats, type ScheduleStatsByDate, type AsCsScheduleListItem } from '../../api/dayoffs';
 import {
   getAssignableScheduleUsers,
@@ -647,21 +648,29 @@ export function AdminSchedulePage() {
   const [externalCompanies, setExternalCompanies] = useState<Array<{ id: string; name: string }>>([]);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
-  const [meRole, setMeRole] = useState<string | null>(null);
-  const [effectiveStaffAdmin, setEffectiveStaffAdmin] = useState(false);
-  const [operationalAdmin, setOperationalAdmin] = useState(false);
-  const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(null);
+  const { ready, staffMe, role: meRole, userId, userName, userEmail } = useAdminStaffSession();
+  const effectiveStaffAdmin = useMemo(
+    () => resolveEffectiveStaffAdminFromMe(staffMe),
+    [staffMe],
+  );
+  const operationalAdmin = useMemo(
+    () => resolveMarketerOperationalAdminFromMe(staffMe),
+    [staffMe],
+  );
+  const meUser = useMemo(() => {
+    if (!ready || !userId || !userName || !meRole) return null;
+    return {
+      id: userId,
+      name: userName,
+      role: meRole,
+      email: userEmail ?? undefined,
+    };
+  }, [ready, userId, userName, meRole, userEmail]);
   const canEditMarketerField = hasStaffPermission(staffMe, 'inquiry.edit.marketer');
   const canDeleteInquiry = hasStaffPermission(staffMe, 'inquiry.delete');
   const canManageClosures = hasStaffPermission(staffMe, 'schedule.closures');
   const canManageDayAvailability = hasStaffPermission(staffMe, 'schedule.dayAvailability');
   const canManageCustomCalendar = hasStaffPermission(staffMe, 'schedule.customCalendar');
-  const [meUser, setMeUser] = useState<{
-    id: string;
-    role: string;
-    name: string;
-    email?: string;
-  } | null>(null);
   const [closureBusy, setClosureBusy] = useState(false);
   const [assignmentSummaryOpen, setAssignmentSummaryOpen] = useState(false);
   const [slotToAdjustOpen, setSlotToAdjustOpen] = useState(false);
@@ -902,102 +911,22 @@ export function AdminSchedulePage() {
   }, [year, month]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      setTeamLeaders([]);
+      return;
+    }
     const ymd = createInquiryModalDate ?? selectedDate ?? kstTodayYmd();
-    getAssignableScheduleUsers(token, { employedOn: ymd })
-      .then((r) => setTeamLeaders(r.items))
-      .catch(() => setTeamLeaders([]));
+    const load = () => {
+      getAssignableScheduleUsers(token, { employedOn: ymd })
+        .then((r) => setTeamLeaders(r.items))
+        .catch(() => setTeamLeaders([]));
+    };
+    if (selectedDate || createInquiryModalDate) {
+      load();
+      return;
+    }
+    return runWhenIdle(load);
   }, [token, selectedDate, createInquiryModalDate]);
-
-  useEffect(() => {
-    if (!token) {
-      setTeamLeadersWithZones([]);
-      return;
-    }
-    getUsers(token, 'TEAM_LEADER', { scope: 'management', employmentStatus: 'active' })
-      .then(setTeamLeadersWithZones)
-      .catch(() => setTeamLeadersWithZones([]));
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) {
-      setMeRole(null);
-      setEffectiveStaffAdmin(false);
-      setOperationalAdmin(false);
-      setStaffMe(null);
-      return;
-    }
-    getMe(token)
-      .then((u: {
-        id?: string;
-        role?: string;
-        name?: string;
-        email?: string;
-        marketerPermissions?: StaffAdminMeFields['marketerPermissions'];
-      }) => {
-        const role = typeof u.role === 'string' ? u.role : null;
-        setMeRole(role);
-        setStaffMe({
-          role,
-          effectiveStaffAdminAccess: (u as { effectiveStaffAdminAccess?: boolean }).effectiveStaffAdminAccess,
-          marketerPermissions: u.marketerPermissions ?? null,
-          marketerAdminLevel: (u as { marketerAdminLevel?: StaffAdminMeFields['marketerAdminLevel'] }).marketerAdminLevel,
-        });
-        setEffectiveStaffAdmin(resolveEffectiveStaffAdminFromMe(u));
-        setOperationalAdmin(resolveMarketerOperationalAdminFromMe(u));
-        if (u.id && u.name && role)
-          setMeUser({
-            id: u.id,
-            name: u.name,
-            role,
-            email: typeof u.email === 'string' ? u.email : undefined,
-          });
-        else setMeUser(null);
-      })
-      .catch(() => {
-        setMeRole(null);
-        setEffectiveStaffAdmin(false);
-        setOperationalAdmin(false);
-        setStaffMe(null);
-        setMeUser(null);
-      });
-  }, [token]);
-
-  useEffect(() => {
-    if (!token || (!effectiveStaffAdmin && !operationalAdmin)) {
-      setMarketers([]);
-      return;
-    }
-    getInquiryCreatorOptions(token)
-      .then(setMarketers)
-      .catch(() => setMarketers([]));
-  }, [token, effectiveStaffAdmin, operationalAdmin]);
-
-  useEffect(() => {
-    if (!token) {
-      setExternalCompanies([]);
-      return;
-    }
-    getUsers(token, 'EXTERNAL_PARTNER', { scope: 'management' })
-      .then((rows) => {
-        const map = new Map<string, string>();
-        for (const u of rows) {
-          const id = u.externalCompanyId?.trim();
-          const name = u.externalCompanyName?.trim();
-          if (!id || !name) continue;
-          if (!map.has(id)) map.set(id, name);
-        }
-        setExternalCompanies(Array.from(map.entries()).map(([id, name]) => ({ id, name })));
-      })
-      .catch(() => setExternalCompanies([]));
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) return;
-    getAllProfessionalOptions(token)
-      .then(setProfCatalog)
-      .catch(() => setProfCatalog([]));
-  }, [token]);
 
   /** 내가 만든 지역 캘린더 목록 로드 */
   const fetchCustomCalendars = useCallback(async () => {
@@ -1014,19 +943,53 @@ export function AdminSchedulePage() {
     }
   }, [token]);
 
-  useEffect(() => {
-    void fetchCustomCalendars();
-  }, [fetchCustomCalendars]);
-
+  /** 캘린더 본문(getSchedule) 이후 — 보조 데이터는 idle에 로드 */
   useEffect(() => {
     if (!token) {
+      setTeamLeadersWithZones([]);
+      setExternalCompanies([]);
+      setProfCatalog([]);
       setServiceZones([]);
+      setMarketers([]);
       return;
     }
-    void listServiceZones(token)
-      .then(setServiceZones)
-      .catch(() => setServiceZones([]));
-  }, [token]);
+    return runWhenIdle(() => {
+      getUsers(token, 'TEAM_LEADER', { scope: 'management', employmentStatus: 'active' })
+        .then(setTeamLeadersWithZones)
+        .catch(() => setTeamLeadersWithZones([]));
+
+      getUsers(token, 'EXTERNAL_PARTNER', { scope: 'management' })
+        .then((rows) => {
+          const map = new Map<string, string>();
+          for (const u of rows) {
+            const id = u.externalCompanyId?.trim();
+            const name = u.externalCompanyName?.trim();
+            if (!id || !name) continue;
+            if (!map.has(id)) map.set(id, name);
+          }
+          setExternalCompanies(Array.from(map.entries()).map(([id, name]) => ({ id, name })));
+        })
+        .catch(() => setExternalCompanies([]));
+
+      getAllProfessionalOptions(token)
+        .then(setProfCatalog)
+        .catch(() => setProfCatalog([]));
+
+      void listServiceZones(token)
+        .then(setServiceZones)
+        .catch(() => setServiceZones([]));
+
+      void fetchCustomCalendars();
+
+      if (effectiveStaffAdmin || operationalAdmin) {
+        getInquiryCreatorOptions(token)
+          .then(setMarketers)
+          .catch(() => setMarketers([]));
+      } else {
+        setMarketers([]);
+      }
+    });
+  }, [token, effectiveStaffAdmin, operationalAdmin, fetchCustomCalendars]);
 
   /**
    * 활성 지역 캘린더 id — URL 쿼리(`?customCalendarId=...`)에 동기화.

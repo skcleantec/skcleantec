@@ -14,6 +14,8 @@ import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { resolveEffectiveStaffAdminFromMe, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
 import { useDebouncedCallback } from '../../utils/debounceCallback';
+import { adminNavPrefetchHandlers, prefetchAdminNavPage } from '../../utils/prefetchAdminPages';
+import { runWhenIdle } from '../../utils/deferWhenIdle';
 import {
   useInboxRealtime,
   useInquiryCelebrateRealtime,
@@ -488,6 +490,16 @@ export function AdminLayout() {
     fetchNavBadgesNow();
   }, [fetchNavBadgesNow]);
 
+  /** 자주 쓰는 GNB 메뉴 청크 — 세션 준비 후 idle에 선로드 */
+  useEffect(() => {
+    if (!adminToken || meProfileLoading || !meRole) return;
+    return runWhenIdle(() => {
+      prefetchAdminNavPage('inquiries');
+      prefetchAdminNavPage('schedule');
+      prefetchAdminNavPage('messages');
+    });
+  }, [adminToken, meProfileLoading, meRole]);
+
   useReviewPaybackRealtime(
     adminToken,
     (p) => {
@@ -857,6 +869,7 @@ export function AdminLayout() {
                             to={def.to}
                             className={navClass}
                             data-admin-gnb-item
+                            {...adminNavPrefetchHandlers('messages')}
                             aria-label={
                               unreadCount > 0 ? `${def.label}, 새 메시지 ${unreadCount}건` : def.label
                             }
@@ -890,6 +903,7 @@ export function AdminLayout() {
                             to={def.to}
                             className={navClass}
                             data-admin-gnb-item
+                            {...adminNavPrefetchHandlers('inquiries')}
                             aria-label={
                               inquiriesNavBadge > 0
                                 ? `${def.label}, 하위 메뉴 알림 ${inquiriesNavBadge}건`
@@ -984,7 +998,14 @@ export function AdminLayout() {
                       onDrop={(e) => handleNavDrop(e, id)}
                     >
                       {dragHandle}
-                      <NavLink to={def.to} className={navClass} data-admin-gnb-item>
+                      <NavLink
+                        to={def.to}
+                        className={navClass}
+                        data-admin-gnb-item
+                        {...(id === 'schedule' || id === 'advertising'
+                          ? adminNavPrefetchHandlers(id)
+                          : {})}
+                      >
                         <AdminGnbItemContent id={id} label={def.label} />
                       </NavLink>
                     </div>

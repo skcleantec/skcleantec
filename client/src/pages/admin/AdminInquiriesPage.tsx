@@ -1650,14 +1650,14 @@ export function AdminInquiriesPage() {
   }, [total, listPageSize]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !ready) return;
     const prev = prevListQueryKeyRef.current;
     prevListQueryKeyRef.current = listQueryKey;
     if (prev !== null && prev !== listQueryKey) {
       scrollToTop();
     }
     refresh(true);
-  }, [token, listQueryKey, me?.role]);
+  }, [token, listQueryKey, ready]);
 
   const handleAssign = async (inquiryId: string, teamLeaderId: string) => {
     if (!token || !teamLeaderId) return;
