@@ -96,15 +96,23 @@ export function TeamSchedulePage() {
       const startedKey = capturePreviewKey();
       try {
         const { start, end } = getMonthRange(year, month);
-        const [inv, hc, me] = await Promise.all([
-          getTeamSchedule(token, start, end) as Promise<{ items: InquiryItem[] }>,
-          getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
-          getTeamMe(token).catch(() => null) as Promise<{ id: string } | null>,
-        ]);
+        const inv = (await getTeamSchedule(token, start, end)) as { items: InquiryItem[] };
         if (isPreviewFetchStale(startedKey)) return;
         setItems(inv.items);
-        setHappyStats(hc);
-        setMyId(me?.id ?? null);
+        if (!opts?.silent && !isPreviewFetchStale(startedKey)) setLoading(false);
+
+        void getTeamHappyCallStats(token)
+          .catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 }))
+          .then((hc) => {
+            if (isPreviewFetchStale(startedKey)) return;
+            setHappyStats(hc);
+          });
+        void getTeamMe(token)
+          .catch(() => null)
+          .then((me: { id: string } | null) => {
+            if (isPreviewFetchStale(startedKey)) return;
+            setMyId(me?.id ?? null);
+          });
       } catch {
         if (isPreviewFetchStale(startedKey)) return;
         setItems([]);

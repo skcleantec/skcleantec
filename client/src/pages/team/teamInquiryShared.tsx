@@ -21,6 +21,7 @@ import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeH
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import {
   getTeamMe,
+  getTeamInquiry,
   postTeamInquiryDetailViewed,
   patchTeamInquiryCrewMeetingTime,
   type TeamViewerMe,
@@ -891,7 +892,7 @@ function TeamModalRow({ label, children }: { label: ReactNode; children: ReactNo
 }
 
 export function TeamInquiryDetailModal({
-  item,
+  item: initialItem,
   onClose,
   enableHappyCall,
   onHappyCallComplete,
@@ -910,6 +911,7 @@ export function TeamInquiryDetailModal({
   /** 설정 시 본인 배정일·배정자·공동 배정 행 표시 (배정목록 등) */
   viewerTeamLeaderId?: string | null;
 }) {
+  const [item, setItem] = useState(initialItem);
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const location = useLocation();
@@ -918,6 +920,24 @@ export function TeamInquiryDetailModal({
   const [happySaving, setHappySaving] = useState(false);
   const [viewerMe, setViewerMe] = useState<TeamViewerMe | null>(null);
   const [shareCopyHint, setShareCopyHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    setItem(initialItem);
+  }, [initialItem]);
+
+  useEffect(() => {
+    if (!teamToken || !initialItem.id) return;
+    let cancelled = false;
+    void getTeamInquiry(teamToken, initialItem.id)
+      .then((full) => {
+        if (cancelled || !full || typeof full !== 'object') return;
+        setItem(full as InquiryItem);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [teamToken, initialItem.id, previewKey]);
 
   useEffect(() => {
     if (!teamToken || !item?.id) {

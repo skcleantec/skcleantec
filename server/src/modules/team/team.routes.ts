@@ -213,6 +213,60 @@ const teamInquiryInclude = {
   },
 } as const;
 
+/** 팀장 스케줄 달력 — changeLogs(80건)·정산·점검 등 상세 모달 전용 필드 제외 */
+const teamScheduleInquirySelect = {
+  id: true,
+  inquiryNumber: true,
+  customerName: true,
+  nickname: true,
+  customerPhone: true,
+  customerPhone2: true,
+  address: true,
+  addressDetail: true,
+  areaPyeong: true,
+  areaBasis: true,
+  roomCount: true,
+  bathroomCount: true,
+  balconyCount: true,
+  preferredDate: true,
+  preferredTime: true,
+  preferredTimeDetail: true,
+  status: true,
+  happyCallCompletedAt: true,
+  memo: true,
+  scheduleMemo: true,
+  crewMemberCount: true,
+  crewMemberNote: true,
+  crewMeetingTime: true,
+  crewMeetingTimeShared: true,
+  operatingCompanyId: true,
+  operatingCompany: { select: operatingCompanySummarySelect },
+  createdBy: { select: { id: true, name: true, phone: true } },
+  orderForm: {
+    select: {
+      id: true,
+      submittedAt: true,
+      createdBy: { select: { id: true, name: true, phone: true } },
+    },
+  },
+  assignments: {
+    orderBy: { sortOrder: 'asc' as const },
+    select: {
+      id: true,
+      inquiryId: true,
+      teamLeaderId: true,
+      assignedAt: true,
+      detailViewedAt: true,
+      sortOrder: true,
+      noCrewMembers: true,
+      teamLeader: { select: assignmentTeamLeaderSelect },
+    },
+  },
+  crewMemberMeetingTimes: {
+    select: { teamMemberId: true, meetingTime: true },
+  },
+} as const;
+
 /**
  * `crew_member_note`(이름을 `/ , · |` 중 하나로 구분한 문자열)을 파싱해
  * 등록된 `TeamMember` 레코드의 이름과 매칭, 각 접수에 `crewMembers: [{name, phone, homeAddress, ...}]`
@@ -1264,15 +1318,11 @@ router.get('/schedule', async (req, res) => {
   const rows = await prisma.inquiry.findMany({
     where,
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
-    include: teamInquiryInclude,
+    select: teamScheduleInquirySelect,
   });
-  const items = await attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId);
+  const items = await attachCrewMembers(rows, tenantId);
   res.json({
-    items: serializeTeamInquiryOperatingCompanies(
-      attachInspectionSummaries(
-        items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
-      ),
-    ),
+    items: serializeTeamInquiryOperatingCompanies(items),
   });
 });
 
