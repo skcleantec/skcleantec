@@ -323,27 +323,31 @@ export function CrmPage() {
         <CrmShell
           mobile={isMobileApp}
           header={
-            <header className="flex shrink-0 items-center gap-3 border-b border-white/10 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-4 py-3 text-white shadow-lg">
-              <div className="flex min-w-0 shrink-0 items-center gap-3 md:w-[220px]">
+            <header className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-2 border-b border-white/10 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-3 py-2.5 text-white shadow-lg sm:gap-x-3 sm:px-4 sm:py-3 lg:flex-nowrap">
+              <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 shadow-md shadow-indigo-900/40">
                   <CrmIconPhone className="h-5 w-5" />
                 </span>
-                <h1 className="truncate text-fluid-sm font-bold tracking-tight">텔레CRM</h1>
-                {!isMobileApp ? <CrmSessionBar enabled={canAdsSession} /> : null}
-                {hasUnsavedDraft ? (
-                  <span className="hidden items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-semibold text-amber-100 ring-1 ring-inset ring-amber-300/30 sm:inline-flex">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
-                    미저장
-                  </span>
-                ) : null}
+                <h1 className="shrink-0 text-fluid-sm font-bold tracking-tight whitespace-nowrap">텔레CRM</h1>
               </div>
+              {canAdsSession ? (
+                <div className="order-3 w-full min-w-0 sm:order-none sm:w-auto">
+                  <CrmSessionBar enabled={canAdsSession} />
+                </div>
+              ) : null}
+              {hasUnsavedDraft ? (
+                <span className="order-2 inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-amber-100 ring-1 ring-inset ring-amber-300/30 sm:order-none">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden />
+                  미저장
+                </span>
+              ) : null}
               <CrmHeaderStats refreshKey={statsRefreshKey} />
-              <div className="flex shrink-0 items-center justify-end gap-2 md:w-[220px]">
+              <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2 lg:ml-0">
                 {isMobileApp ? (
                   <button
                     type="button"
                     onClick={() => setSmsDrawerOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3 py-1.5 text-fluid-xs font-semibold text-violet-100"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap text-violet-100"
                   >
                     <CrmIconMessage className="h-4 w-4" />
                     문자
@@ -353,7 +357,7 @@ export function CrmPage() {
                   <button
                     type="button"
                     onClick={() => openIssue()}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-400/40 bg-sky-500/15 px-3 py-1.5 text-fluid-xs font-semibold text-sky-100 hover:bg-sky-500/25"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-sky-400/40 bg-sky-500/15 px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap text-sky-100 hover:bg-sky-500/25"
                   >
                     발주서
                   </button>
@@ -364,7 +368,7 @@ export function CrmPage() {
                     onClick={() =>
                       openSettings('scripts', canPersonalCatalog ? 'personal' : 'shared')
                     }
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3 py-1.5 text-fluid-xs font-semibold text-violet-100 hover:bg-violet-500/25"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-violet-400/40 bg-violet-500/15 px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap text-violet-100 hover:bg-violet-500/25"
                   >
                     설정
                   </button>
@@ -373,14 +377,14 @@ export function CrmPage() {
                   <button
                     type="button"
                     onClick={() => window.close()}
-                    className="rounded-xl bg-white/10 px-3 py-1.5 text-fluid-xs font-medium hover:bg-white/20"
+                    className="shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-fluid-xs font-medium whitespace-nowrap hover:bg-white/20"
                   >
                     창 닫기
                   </button>
                 ) : isMobileApp ? null : (
                   <Link
                     to="/admin/dashboard"
-                    className="rounded-xl bg-white/10 px-3 py-1.5 text-fluid-xs font-medium hover:bg-white/20"
+                    className="shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-fluid-xs font-medium whitespace-nowrap hover:bg-white/20"
                   >
                     관리자로
                   </Link>

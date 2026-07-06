@@ -51,21 +51,21 @@ export function CrmSessionBar({ enabled }: { enabled: boolean }) {
 
   return (
     <>
-      <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-fluid-xs">
+      <div className="inline-flex max-w-full shrink-0 flex-nowrap items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-fluid-xs whitespace-nowrap sm:gap-2 sm:px-2.5">
         {loading ? (
           <span className="text-white/60">세션…</span>
         ) : session ? (
           <>
-            <span className="relative inline-flex h-2 w-2" aria-hidden>
+            <span className="relative inline-flex h-2 w-2 shrink-0" aria-hidden>
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
             </span>
-            <SessionPulseIcon className="h-3.5 w-3.5 text-emerald-300" />
-            <span className="font-medium text-emerald-100">광고 세션</span>
+            <SessionPulseIcon className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
+            <span className="shrink-0 font-medium text-emerald-100">광고 세션</span>
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="rounded-md bg-emerald-500/25 px-2 py-0.5 font-semibold text-emerald-50 hover:bg-emerald-500/40"
+              className="shrink-0 rounded-md bg-emerald-500/25 px-2 py-0.5 font-semibold text-emerald-50 hover:bg-emerald-500/40"
             >
               종료·정산
             </button>
