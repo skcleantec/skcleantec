@@ -66,6 +66,7 @@ import { OrderFormSubmissionReceiptView } from '../../components/orderform/Order
 import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import type { PublicOperatingCompanyBranding } from '../../api/orderform';
+import { composeBrandedOrderFormTitle } from '@shared/publicBrandTitles';
 import {
   isMarketerLockedOrderFormAddress,
   isRealCustomerAddress,
@@ -231,11 +232,30 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   /** 고객이 「주소 검색」으로 선택했거나, 마케터가 주소를 잠근 경우 true */
   const [addressConfirmedViaSearch, setAddressConfirmedViaSearch] = useState(false);
   const [submittedReceipt, setSubmittedReceipt] = useState<OrderFormPublicSubmitted | null>(null);
-  useDocumentTitle(
-    publicBranding?.displayName ||
-      submittedReceipt?.publicBranding?.displayName ||
-      orderFormConfigLine(order?.formConfig?.formTitle, ORDER_FORM_CONFIG_DEFAULTS.formTitle),
-  );
+  const orderFormHeadingTitle = useMemo(() => {
+    const formTitleLine = orderFormConfigLine(
+      order?.formConfig?.formTitle ?? submittedReceipt?.formConfig?.formTitle,
+      ORDER_FORM_CONFIG_DEFAULTS.formTitle,
+    );
+    const brandName =
+      publicBranding?.displayName?.trim() ||
+      submittedReceipt?.publicBranding?.displayName?.trim() ||
+      null;
+    if (brandName) {
+      return composeBrandedOrderFormTitle(brandName, formTitleLine);
+    }
+    if (order?.template?.title && !order.template.isDefault) {
+      return `${order.template.icon ? `${order.template.icon} ` : ''}${order.template.title}`;
+    }
+    return formTitleLine;
+  }, [
+    publicBranding?.displayName,
+    submittedReceipt?.publicBranding?.displayName,
+    submittedReceipt?.formConfig?.formTitle,
+    order?.formConfig?.formTitle,
+    order?.template,
+  ]);
+  useDocumentTitle(orderFormHeadingTitle);
   const [submitErrorModal, setSubmitErrorModal] = useState<string | null>(null);
   /** 면적 기준 선택 전 안내·확인 */
   const [areaBasisAckModal, setAreaBasisAckModal] = useState<null | '공급' | '전용'>(null);
@@ -1064,10 +1084,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
         )}
         <h1 className="text-lg font-semibold text-gray-900 mb-1 whitespace-pre-line">
-          {publicBranding?.displayName ||
-            (order?.template?.title && !order.template.isDefault
-              ? `${order.template.icon ? `${order.template.icon} ` : ''}${order.template.title}`
-              : orderFormConfigLine(order?.formConfig?.formTitle, ORDER_FORM_CONFIG_DEFAULTS.formTitle))}
+          {orderFormHeadingTitle}
         </h1>
         {publicBranding?.publicSubtitle ? (
           <p className="mb-1 text-xs text-gray-500 whitespace-pre-line">{publicBranding.publicSubtitle}</p>

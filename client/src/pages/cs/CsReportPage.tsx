@@ -5,13 +5,14 @@ import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
 import { resolveInitialTenantSlug } from '../../utils/tenantHostResolve';
 import { resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { composeBrandedCsTitle } from '@shared/publicBrandTitles';
 
 const STAR_VALUES = [1, 2, 3, 4, 5] as const;
-/** slug 미확정·조회 실패 시 표시할 중립 헤더 (테넌트 확정되면 displayName으로 교체) */
-const DEFAULT_BRAND = '고객만족센터';
+/** slug 미확정·조회 실패 시 표시할 중립 헤더 */
+const DEFAULT_CS_HEADER = composeBrandedCsTitle(null);
 
 export function CsReportPage() {
-  const [brandName, setBrandName] = useState(DEFAULT_BRAND);
+  const [brandDisplayName, setBrandDisplayName] = useState<string | null>(null);
   const [brandSubtitle, setBrandSubtitle] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -25,7 +26,9 @@ export function CsReportPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useDocumentTitle(brandName);
+  const csHeaderTitle = composeBrandedCsTitle(brandDisplayName) || DEFAULT_CS_HEADER;
+
+  useDocumentTitle(csHeaderTitle);
 
   const formTextOk =
     customerName.trim().length > 0 &&
@@ -45,7 +48,7 @@ export function CsReportPage() {
     void fetch(`/api/tenant/public-info?${qs.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((body: { displayName?: string; publicSubtitle?: string | null } | null) => {
-        if (body?.displayName?.trim()) setBrandName(body.displayName.trim());
+        if (body?.displayName?.trim()) setBrandDisplayName(body.displayName.trim());
         setBrandSubtitle(body?.publicSubtitle?.trim() || null);
       })
       .catch(() => {});
@@ -132,7 +135,7 @@ export function CsReportPage() {
         <header className="bg-slate-900 text-white shrink-0">
           <div className="max-w-lg mx-auto px-4 py-4 sm:py-5">
             <p className="text-fluid-xs text-slate-400 uppercase tracking-wider">고객 지원</p>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">{brandName}</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">{csHeaderTitle}</h1>
             {brandSubtitle ? (
               <p className="text-fluid-sm text-slate-300 mt-1 leading-snug">{brandSubtitle}</p>
             ) : null}
@@ -160,7 +163,7 @@ export function CsReportPage() {
       <header className="bg-slate-900 text-white shrink-0">
         <div className="max-w-lg mx-auto px-4 py-4 sm:py-5">
           <p className="text-fluid-xs text-slate-400 uppercase tracking-wider">고객 지원</p>
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">{brandName}</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">{csHeaderTitle}</h1>
           <p className="text-fluid-sm text-slate-300 mt-1 leading-snug">
             {brandSubtitle || '칭찬하기 및 불편사항 접수 · 사진 첨부 가능'}
           </p>

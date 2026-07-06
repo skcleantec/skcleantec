@@ -392,6 +392,9 @@ export function AdminOperatingCompaniesPage() {
               </label>
               <label className="block text-sm">
                 <span className="font-medium text-gray-800">발주서 부제 (선택)</span>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  고객 발주서 제목 아래 회색 보조 문구. 비우면 표시하지 않습니다.
+                </p>
                 <input
                   value={form.publicSubtitle}
                   onChange={(e) => setForm((f) => ({ ...f, publicSubtitle: e.target.value }))}
@@ -483,6 +486,9 @@ export function AdminOperatingCompaniesPage() {
               </label>
               <label className="block text-sm">
                 <span className="font-medium text-gray-800">발주서 부제 (선택)</span>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  고객 발주서 제목 아래 회색 보조 문구. 비우면 표시하지 않습니다.
+                </p>
                 <input
                   value={editForm.publicSubtitle}
                   onChange={(e) => setEditForm((f) => ({ ...f, publicSubtitle: e.target.value }))}

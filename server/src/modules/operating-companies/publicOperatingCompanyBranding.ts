@@ -17,14 +17,14 @@ function toPublicBrandingDto(
   tenantFallback?: { displayName?: string; publicSubtitle?: string | null },
 ): PublicOperatingCompanyBrandingDto {
   const ocSubtitle = oc.config.orderForm?.publicSubtitle?.trim() || null;
-  const fallbackSubtitle = tenantFallback?.publicSubtitle?.trim() || null;
   const ocDisplay = oc.displayName?.trim() || '';
   const fallbackDisplay = tenantFallback?.displayName?.trim() || '';
   return {
     operatingCompanyId: oc.id,
     slug: oc.slug,
     displayName: ocDisplay || fallbackDisplay || oc.name,
-    publicSubtitle: ocSubtitle || fallbackSubtitle,
+    /** OC에만 저장 — 테넌트 부제 폴백 없음(타 브랜드에 tn 등 오염 방지) */
+    publicSubtitle: ocSubtitle,
   };
 }
 

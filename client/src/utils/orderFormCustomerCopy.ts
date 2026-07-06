@@ -9,6 +9,10 @@ import {
   resolveCustomerLinkCopy,
   type CustomerLinkCopyConfig,
 } from '@shared/orderFormCustomerLinkCopy';
+import {
+  composeBrandedCsUrlLabel,
+  composeBrandedOrderFormTitle,
+} from '@shared/publicBrandTitles';
 import { appendPublicQuery } from './publicTenantQuery';
 import { getReviewPaybackPublicUrl } from './reviewPaybackCustomerCopy';
 
@@ -154,15 +158,16 @@ export function buildOrderFormCustomerMessage(
 ): string {
   const link = getOrderFormPublicUrl(order.token, origin, tenantSlug, brandSlug);
   const csLink = getCsPublicUrl(origin, tenantSlug, brandSlug);
-  const title =
-    brandDisplayName?.trim() || withDefaultText(msgConfig.formTitle, 'formTitle');
+  const formTitleFallback = withDefaultText(msgConfig.formTitle, 'formTitle');
+  const title = composeBrandedOrderFormTitle(brandDisplayName, formTitleFallback);
+  const linkCopy = resolveCustomerLinkCopy(msgConfig);
+  const csUrlLabel = composeBrandedCsUrlLabel(brandDisplayName, linkCopy.customerLinkCsUrlLabel);
   const priceLabel = withDefaultText(msgConfig.priceLabel, 'priceLabel');
   // 리뷰 문구는 비우면 숨김 (normalizeMsgConfigForEditor에서 ''는 그대로 유지)
   const reviewText = (msgConfig.reviewEventText ?? '').trim();
   const footer1 = withDefaultText(msgConfig.footerNotice1, 'footerNotice1');
   const footer2 = footerNotice2ForMessage(msgConfig.footerNotice2);
   const paybackToken = order.reviewPaybackToken?.trim();
-  const linkCopy = resolveCustomerLinkCopy(msgConfig);
   const amountFmt = order.totalAmount.toLocaleString('ko-KR');
   const balanceFmt = order.balanceAmount.toLocaleString('ko-KR');
   const depositFmt = order.depositAmount.toLocaleString('ko-KR');
@@ -203,7 +208,7 @@ ${linkCopy.customerLinkOrderIntro}
 ${link}
 
 ${linkCopy.customerLinkCsNotice}
-${linkCopy.customerLinkCsUrlLabel} ${csLink}`;
+${csUrlLabel} ${csLink}`;
   if (paybackToken) {
     const paybackLink = getReviewPaybackPublicUrl(paybackToken, origin, tenantSlug, brandSlug);
     msg += `\n\n${applyCustomerLinkTemplate(linkCopy.customerLinkPaybackBlock, { paybackLink })}`;
