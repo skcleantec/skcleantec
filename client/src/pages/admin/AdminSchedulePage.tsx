@@ -1503,8 +1503,8 @@ export function AdminSchedulePage() {
             >
               <span className="font-semibold">팀장 슬롯 초과:</span>{' '}
               이번 달{' '}
-              <strong className="tabular-nums">{leaderSlotDeficitKeysInMonth.length}</strong>일에서 오전·오후 잔여(TO)가 마이너스입니다.
-              일부 접수를 다른 날짜로 옮기거나 배정을 조정해 주세요.{' '}
+              <strong className="tabular-nums">{leaderSlotDeficitKeysInMonth.length}</strong>개 날짜에서
+              오전·오후 잔여(TO)가 마이너스입니다. 일부 접수를 다른 날짜로 옮기거나 배정을 조정해 주세요.{' '}
               <button
                 type="button"
                 className="ml-1 font-medium text-rose-900 underline underline-offset-2 hover:text-rose-950"
