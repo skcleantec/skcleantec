@@ -7,12 +7,17 @@ export function CrmColumn({
   accent,
   children,
   className = '',
+  bodyClassName = '',
+  disableBodyScroll = false,
 }: {
   title: string;
   subtitle?: string;
   accent: CrmAccent;
   children: ReactNode;
   className?: string;
+  bodyClassName?: string;
+  /** 본문 내부에서 스크롤·푸터 분리 (가격 안내 등) */
+  disableBodyScroll?: boolean;
 }) {
   const tone = CRM_ACCENT[accent];
   return (
@@ -30,7 +35,11 @@ export function CrmColumn({
           </div>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-white to-slate-50/40 p-2.5">
+      <div
+        className={`min-h-0 flex-1 bg-gradient-to-b from-white to-slate-50/40 p-2.5 ${
+          disableBodyScroll ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
+        } ${bodyClassName}`}
+      >
         {children}
       </div>
     </div>

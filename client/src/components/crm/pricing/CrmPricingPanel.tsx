@@ -5,6 +5,7 @@ import {
   fetchTelecrmPricingCatalog,
   type TelecrmOrderOptionDto,
   type TelecrmPriceCategoryDto,
+  type TelecrmPriceItemDto,
 } from '../../../api/telecrm';
 import { formatWon, partitionTelecrmCategories } from '../settings/telecrmSettingsUi';
 import { CrmColumn } from '../layout/CrmShell';
@@ -12,17 +13,22 @@ import {
   CrmActionButton,
   CrmChip,
   CrmIconCopy,
-  CrmIconPricing,
   CrmIconSearch,
   CrmSectionLabel,
-  CrmSegment,
-  CrmSegmentItem,
   CRM_ACCENT,
-  crmSearchFieldClass,
 } from '../crmUi';
 import { computeEstimateTotalFromPyeong } from '@shared/estimateTotal';
 
-type PriceSource = 'telecrm' | 'orderform';
+/** 업체 공통에 표시하는 가상 카테고리 — 발주 전문시공 옵션 */
+const ORDERFORM_CATEGORY_ID = '__telecrm_orderform__';
+
+type QuoteLine = {
+  key: string;
+  label: string;
+  sublabel?: string;
+  amountWon: number | null;
+  copyText: string;
+};
 
 function formatOrderOptionPrice(row: TelecrmOrderOptionDto): string {
   const parts: string[] = [];
@@ -31,6 +37,11 @@ function formatOrderOptionPrice(row: TelecrmOrderOptionDto): string {
   }
   if (row.priceHint?.trim()) parts.push(row.priceHint.trim());
   return parts.join(' · ') || '—';
+}
+
+function orderOptionAmount(row: TelecrmOrderOptionDto): number | null {
+  if (row.priceAmount != null && row.priceAmount > 0) return row.priceAmount;
+  return null;
 }
 
 export function CrmPricingPanel({
@@ -45,7 +56,6 @@ export function CrmPricingPanel({
   onOpenSettings?: () => void;
 }) {
   const token = getToken();
-  const [source, setSource] = useState<PriceSource>('telecrm');
   const [categories, setCategories] = useState<TelecrmPriceCategoryDto[]>([]);
   const [orderOptions, setOrderOptions] = useState<TelecrmOrderOptionDto[]>([]);
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
@@ -54,23 +64,30 @@ export function CrmPricingPanel({
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [quoteLines, setQuoteLines] = useState<QuoteLine[]>([]);
+  const [copiedAll, setCopiedAll] = useState(false);
 
-  const loadTelecrm = useCallback(async () => {
+  const loadCatalog = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchTelecrmPricingCatalog(token, search);
-      setCategories(res.categories);
-      setPricePerPyeong(res.estimateConfig.pricePerPyeong);
-      setMinimumTotalAmount(res.estimateConfig.minimumTotalAmount ?? 0);
-      if (res.categories.length > 0) {
-        setCategoryId((prev) => {
-          if (prev && res.categories.some((c) => c.id === prev)) return prev;
-          return res.categories[0]?.id ?? null;
-        });
-      }
+      const [catalogRes, orderRes] = await Promise.all([
+        fetchTelecrmPricingCatalog(token, search),
+        fetchTelecrmOrderOptions(token, search),
+      ]);
+      setCategories(catalogRes.categories);
+      setOrderOptions(orderRes.items);
+      setPricePerPyeong(catalogRes.estimateConfig.pricePerPyeong);
+      setMinimumTotalAmount(catalogRes.estimateConfig.minimumTotalAmount ?? 0);
+
+      const hasOrderOptions = orderRes.items.length > 0;
+      const firstCatId = catalogRes.categories[0]?.id ?? null;
+      setCategoryId((prev) => {
+        if (prev === ORDERFORM_CATEGORY_ID && hasOrderOptions) return prev;
+        if (prev && catalogRes.categories.some((c) => c.id === prev)) return prev;
+        return firstCatId ?? (hasOrderOptions ? ORDERFORM_CATEGORY_ID : null);
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : '가격 정보를 불러올 수 없습니다.');
     } finally {
@@ -78,86 +95,138 @@ export function CrmPricingPanel({
     }
   }, [token, search]);
 
-  const loadOrderOptions = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetchTelecrmOrderOptions(token, search);
-      setOrderOptions(res.items);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '발주 옵션을 불러올 수 없습니다.');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, search]);
-
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      if (source === 'telecrm') void loadTelecrm();
-      else void loadOrderOptions();
-    }, search ? 250 : 0);
+    const t = window.setTimeout(() => void loadCatalog(), search ? 250 : 0);
     return () => window.clearTimeout(t);
-  }, [source, loadTelecrm, loadOrderOptions, search]);
+  }, [loadCatalog, search]);
 
   useEffect(() => {
     if (refreshKey === 0) return;
-    if (source === 'telecrm') void loadTelecrm();
-  }, [refreshKey, source, loadTelecrm]);
-
-  const activeCategory = useMemo(
-    () => categories.find((c) => c.id === categoryId) ?? categories[0] ?? null,
-    [categories, categoryId],
-  );
-
-  const items = activeCategory?.items ?? [];
+    void loadCatalog();
+  }, [refreshKey, loadCatalog]);
 
   const pyeongNum = parseFloat(pyeong.replace(/,/g, ''));
-  const estimatedTotal =
+  const estimatedBase =
     Number.isFinite(pyeongNum) && pyeongNum > 0 && pricePerPyeong > 0
       ? computeEstimateTotalFromPyeong(pyeongNum, pricePerPyeong, minimumTotalAmount)
       : null;
-  const rawTotal =
+  const rawBase =
     Number.isFinite(pyeongNum) && pyeongNum > 0 && pricePerPyeong > 0
       ? Math.round(pyeongNum * pricePerPyeong)
       : null;
   const minimumApplied =
     minimumTotalAmount > 0 &&
-    estimatedTotal != null &&
-    rawTotal != null &&
-    estimatedTotal > rawTotal;
+    estimatedBase != null &&
+    rawBase != null &&
+    estimatedBase > rawBase;
 
-  const copyText = async (id: string, text: string) => {
+  const extrasTotal = useMemo(
+    () => quoteLines.reduce((sum, line) => sum + (line.amountWon ?? 0), 0),
+    [quoteLines],
+  );
+  const grandTotal =
+    estimatedBase != null ? estimatedBase + extrasTotal : extrasTotal > 0 ? extrasTotal : null;
+
+  const { personal: personalCategories, shared: sharedCategories } = useMemo(() => {
+    const { personal, shared } = partitionTelecrmCategories(categories);
+    const sharedWithOrder =
+      orderOptions.length > 0
+        ? [
+            ...shared,
+            {
+              id: ORDERFORM_CATEGORY_ID,
+              label: '발주 전문시공',
+              sortOrder: 9999,
+              isActive: true,
+            } satisfies TelecrmPriceCategoryDto,
+          ]
+        : shared;
+    return { personal, shared: sharedWithOrder };
+  }, [categories, orderOptions.length]);
+
+  const isOrderformCategory = categoryId === ORDERFORM_CATEGORY_ID;
+
+  const activeCategory = useMemo(() => {
+    if (isOrderformCategory) return null;
+    return categories.find((c) => c.id === categoryId) ?? categories[0] ?? null;
+  }, [categories, categoryId, isOrderformCategory]);
+
+  const menuItems: { id: string; onAdd: () => void; label: string; sublabel?: string; price: string }[] =
+    useMemo(() => {
+      if (isOrderformCategory) {
+        return orderOptions.map((row) => ({
+          id: row.id,
+          label: row.emoji ? `${row.emoji} ${row.label}` : row.label,
+          sublabel: row.labelPath,
+          price: formatOrderOptionPrice(row),
+          onAdd: () => {
+            const amount = orderOptionAmount(row);
+            setQuoteLines((prev) => [
+              ...prev,
+              {
+                key: `order:${row.id}:${Date.now()}`,
+                label: row.emoji ? `${row.emoji} ${row.label}` : row.label,
+                sublabel: row.labelPath,
+                amountWon: amount,
+                copyText: `${row.labelPath} ${formatOrderOptionPrice(row)}`,
+              },
+            ]);
+          },
+        }));
+      }
+      return (activeCategory?.items ?? []).map((item: TelecrmPriceItemDto) => ({
+        id: item.id,
+        label: item.name,
+        sublabel: item.description ?? undefined,
+        price: formatWon(item.amountWon),
+        onAdd: () => {
+          setQuoteLines((prev) => [
+            ...prev,
+            {
+              key: `item:${item.id}:${Date.now()}`,
+              label: item.name,
+              amountWon: item.amountWon,
+              copyText: `${item.name} ${formatWon(item.amountWon)}`,
+            },
+          ]);
+        },
+      }));
+    }, [activeCategory?.items, isOrderformCategory, orderOptions]);
+
+  const buildQuoteCopyText = useCallback(() => {
+    const lines: string[] = [];
+    if (estimatedBase != null && Number.isFinite(pyeongNum) && pyeongNum > 0) {
+      lines.push(`${pyeongNum}평 기본견적 ${formatWon(estimatedBase)}`);
+    }
+    for (const line of quoteLines) {
+      lines.push(`+ ${line.copyText}`);
+    }
+    if (grandTotal != null) {
+      lines.push(`합계 ${formatWon(grandTotal)}`);
+    }
+    return lines.join('\n');
+  }, [estimatedBase, grandTotal, pyeongNum, quoteLines]);
+
+  const copyAll = async () => {
+    const text = buildQuoteCopyText();
+    if (!text.trim()) return;
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedId(id);
-      window.setTimeout(() => setCopiedId(null), 1500);
+      setCopiedAll(true);
+      window.setTimeout(() => setCopiedAll(false), 1500);
     } catch {
       /* ignore */
     }
   };
-
-  const copyAmount = async (itemId: string, amount: number, label: string) => {
-    await copyText(itemId, `${label} ${formatWon(amount)}`);
-  };
-
-  const copyOrderOption = async (row: TelecrmOrderOptionDto) => {
-    const price = formatOrderOptionPrice(row);
-    await copyText(row.id, `${row.labelPath} ${price}`);
-  };
-
-  const { personal: personalCategories, shared: sharedCategories } = useMemo(
-    () => partitionTelecrmCategories(categories),
-    [categories],
-  );
 
   const renderCategoryButtons = (list: TelecrmPriceCategoryDto[]) =>
     list.map((c) => (
       <CrmChip
         key={c.id}
         accent="pricing"
-        active={activeCategory?.id === c.id}
+        active={categoryId === c.id}
         onClick={() => setCategoryId(c.id)}
+        compact
       >
         {c.label}
       </CrmChip>
@@ -167,175 +236,170 @@ export function CrmPricingPanel({
     <CrmColumn
       accent="pricing"
       title="가격 안내"
-      subtitle={
-        source === 'telecrm'
-          ? '텔레CRM 단가표 · 클릭하면 복사'
-          : '발주서 전문시공 옵션 · 클릭하면 복사'
-      }
+      subtitle="항목 클릭 → 안내 목록에 추가 · 하단 합계"
+      disableBodyScroll
+      bodyClassName="p-0"
     >
-      <div className="space-y-4">
-        <CrmSegment accent="pricing">
-          <CrmSegmentItem
-            accent="pricing"
-            active={source === 'telecrm'}
-            onClick={() => setSource('telecrm')}
-            icon={<CrmIconPricing className="h-3.5 w-3.5" />}
-          >
-            텔레CRM 가격
-          </CrmSegmentItem>
-          <CrmSegmentItem
-            accent="pricing"
-            active={source === 'orderform'}
-            onClick={() => setSource('orderform')}
-            icon={<CrmIconCopy className="h-3.5 w-3.5" />}
-          >
-            발주 전문시공
-          </CrmSegmentItem>
-        </CrmSegment>
-
-        <div className="relative">
-          <CrmIconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-600/70" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="항목 검색…"
-            className={crmSearchFieldClass}
-          />
-        </div>
-
-        {source === 'telecrm' ? (
-          <div className={`rounded-xl border p-3 space-y-2 shadow-sm ${CRM_ACCENT.pricing.panel}`}>
-            <p className="flex items-center gap-1.5 text-fluid-xs font-semibold text-amber-900">
-              <CrmIconPricing className="h-4 w-4 shrink-0" />
-              예상 총액 (평당 {formatWon(pricePerPyeong)}
-              {minimumTotalAmount > 0 ? ` · 최소 ${formatWon(minimumTotalAmount)}` : ''})
-            </p>
-            <div className="flex items-center gap-2">
+      <div className="flex min-h-0 flex-1 flex-col">
+        {/* 상단: 검색·평수 — 컴팩트 */}
+        <div className={`shrink-0 space-y-1.5 border-b border-amber-100/80 px-2 py-1.5 ${CRM_ACCENT.pricing.panel}`}>
+          <div className="relative">
+            <CrmIconSearch className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-amber-600/70" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="항목 검색…"
+              className="w-full rounded-md border border-amber-200/80 bg-white py-1 pl-7 pr-2 text-[11px] outline-none focus:border-amber-400"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-amber-900/90">
+            <span className="font-semibold">평당 {formatWon(pricePerPyeong)}</span>
+            {minimumTotalAmount > 0 ? (
+              <span className="text-amber-800/70">· 최소 {formatWon(minimumTotalAmount)}</span>
+            ) : null}
+            <span className="ml-auto flex items-center gap-1">
               <input
                 type="text"
                 inputMode="decimal"
                 value={pyeong}
                 onChange={(e) => onPyeongChange(e.target.value)}
                 placeholder="평수"
-                className="w-24 rounded-lg border border-gray-300 px-2 py-1.5 text-fluid-sm text-center tabular-nums"
+                className="w-14 rounded border border-amber-200/80 bg-white px-1.5 py-0.5 text-center text-[11px] tabular-nums"
               />
-              <span className="text-fluid-sm text-gray-600">평</span>
-              <span className="ml-auto text-fluid-sm font-bold text-amber-800 tabular-nums">
-                {estimatedTotal != null ? formatWon(estimatedTotal) : '—'}
-              </span>
-            </div>
-            {minimumApplied ? (
-              <p className="text-[10px] text-amber-800/90">최소 금액이 적용되었습니다.</p>
+              <span>평</span>
+            </span>
+          </div>
+          {minimumApplied ? (
+            <p className="text-[9px] text-amber-800/80">최소 금액 적용됨</p>
+          ) : null}
+        </div>
+
+        {/* 카테고리 칩 */}
+        {!loading && !error ? (
+          <div className="shrink-0 space-y-1 border-b border-slate-100 px-2 py-1.5">
+            {personalCategories.length > 0 ? (
+              <div>
+                <CrmSectionLabel accent="pricing">내 가격</CrmSectionLabel>
+                <div className="flex flex-wrap gap-1">{renderCategoryButtons(personalCategories)}</div>
+              </div>
+            ) : null}
+            {sharedCategories.length > 0 ? (
+              <div>
+                <CrmSectionLabel accent="pricing">업체 공통</CrmSectionLabel>
+                <div className="flex flex-wrap gap-1">{renderCategoryButtons(sharedCategories)}</div>
+              </div>
             ) : null}
           </div>
-        ) : (
-          <p className="text-[10px] text-gray-500">
-            발주서 설정의 전문시공 옵션 금액입니다. 텔레CRM 단가표와 별도로 관리됩니다.
-          </p>
-        )}
+        ) : null}
 
-        {loading ? (
-          <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
-        ) : error ? (
-          <p className="text-fluid-sm text-red-600">{error}</p>
-        ) : source === 'telecrm' ? (
-          <>
-            <div className="space-y-2">
-              {personalCategories.length > 0 ? (
-                <div>
-                  <CrmSectionLabel accent="pricing">내 가격</CrmSectionLabel>
-                  <div className="flex flex-wrap gap-1.5">{renderCategoryButtons(personalCategories)}</div>
-                </div>
-              ) : null}
-              {sharedCategories.length > 0 ? (
-                <div>
-                  <CrmSectionLabel accent="pricing">업체 공통</CrmSectionLabel>
-                  <div className="flex flex-wrap gap-1.5">{renderCategoryButtons(sharedCategories)}</div>
-                </div>
+        {/* 메뉴 목록 — 스크롤 */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
+          {loading ? (
+            <p className="text-[11px] text-gray-500">불러오는 중…</p>
+          ) : error ? (
+            <p className="text-[11px] text-red-600">{error}</p>
+          ) : menuItems.length === 0 ? (
+            <div className="space-y-2 text-[11px] text-gray-500">
+              <p>{isOrderformCategory ? '전문시공 옵션이 없습니다.' : '항목이 없습니다.'}</p>
+              {onOpenSettings ? (
+                <CrmActionButton accent="pricing" onClick={onOpenSettings}>
+                  {isOrderformCategory ? '발주서 설정' : '가격 항목 추가'}
+                </CrmActionButton>
               ) : null}
             </div>
-
-            <ul className="space-y-2">
-              {items.length === 0 ? (
-                <li className="text-fluid-sm text-gray-500 space-y-2">
-                  <p>항목이 없습니다.</p>
-                  {onOpenSettings ? (
-                    <CrmActionButton accent="pricing" onClick={onOpenSettings}>
-                      가격 항목 추가
-                    </CrmActionButton>
-                  ) : null}
-                </li>
-              ) : (
-                items.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => void copyAmount(item.id, item.amountWon, item.name)}
-                      className="group w-full rounded-xl border border-amber-100/80 bg-white px-3 py-2.5 text-left shadow-sm transition-all hover:border-amber-300 hover:bg-amber-50/50 hover:shadow-md"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-fluid-sm font-medium text-gray-900">{item.name}</span>
-                        <span className="shrink-0 text-fluid-sm font-bold text-amber-700 tabular-nums">
-                          {formatWon(item.amountWon)}
-                        </span>
-                      </div>
-                      {item.description ? (
-                        <p className="mt-1 text-fluid-xs text-gray-500 line-clamp-2">{item.description}</p>
-                      ) : null}
-                      {copiedId === item.id ? (
-                        <p className="mt-1 text-fluid-xs text-green-600">복사됨</p>
-                      ) : null}
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
-          </>
-        ) : (
-          <ul className="space-y-2">
-            {orderOptions.length === 0 ? (
-              <li className="text-fluid-sm text-gray-500 space-y-2">
-                <p>금액이 있는 전문시공 옵션이 없습니다.</p>
-                {onOpenSettings ? (
-                  <CrmActionButton accent="pricing" onClick={onOpenSettings}>
-                    텔레CRM 가격 설정
-                  </CrmActionButton>
-                ) : (
-                  <p className="text-[10px]">발주서 설정에서 전문시공 옵션을 등록하세요.</p>
-                )}
-              </li>
-            ) : (
-              orderOptions.map((row) => (
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {menuItems.map((row) => (
                 <li key={row.id}>
                   <button
                     type="button"
-                    onClick={() => void copyOrderOption(row)}
-                    className="group w-full rounded-xl border border-amber-100/80 bg-white px-3 py-2.5 text-left shadow-sm transition-all hover:border-amber-300 hover:bg-amber-50/50 hover:shadow-md"
+                    onClick={row.onAdd}
+                    className="flex w-full items-center gap-2 py-1.5 text-left transition-colors hover:bg-amber-50/60"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-fluid-sm font-medium text-gray-900 truncate" title={row.label}>
-                          {row.emoji ? `${row.emoji} ` : ''}
-                          {row.label}
-                        </p>
-                        <p className="mt-0.5 text-[10px] text-gray-500 truncate" title={row.labelPath}>
-                          {row.labelPath}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-fluid-sm font-bold text-amber-700 tabular-nums">
-                        {formatOrderOptionPrice(row)}
-                      </span>
-                    </div>
-                    {copiedId === row.id ? (
-                      <p className="mt-1 text-fluid-xs text-green-600">복사됨</p>
-                    ) : null}
+                    <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-900" title={row.label}>
+                      {row.label}
+                    </span>
+                    <span className="shrink-0 text-[11px] font-bold tabular-nums text-amber-700">{row.price}</span>
                   </button>
+                  {row.sublabel ? (
+                    <p className="pb-1 pl-0 text-[9px] text-gray-400 line-clamp-1" title={row.sublabel}>
+                      {row.sublabel}
+                    </p>
+                  ) : null}
                 </li>
-              ))
-            )}
-          </ul>
-        )}
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* 안내 히스토리 + 하단 합계 */}
+        <div
+          className={`shrink-0 border-t border-amber-200/80 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.04)] ${CRM_ACCENT.pricing.panel}`}
+        >
+          {(estimatedBase != null || quoteLines.length > 0) && (
+            <div className="max-h-32 overflow-y-auto border-b border-amber-100/60 px-2 py-1">
+              <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800/70">
+                안내 목록
+              </p>
+              <ul className="space-y-0.5">
+                {estimatedBase != null && Number.isFinite(pyeongNum) && pyeongNum > 0 ? (
+                  <li className="flex items-center justify-between gap-2 text-[10px]">
+                    <span className="truncate text-gray-700">{pyeongNum}평 기본견적</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-amber-800">
+                      {formatWon(estimatedBase)}
+                    </span>
+                  </li>
+                ) : null}
+                {quoteLines.map((line) => (
+                  <li key={line.key} className="flex items-center gap-1 text-[10px]">
+                    <button
+                      type="button"
+                      title="제거"
+                      onClick={() => setQuoteLines((prev) => prev.filter((l) => l.key !== line.key))}
+                      className="shrink-0 rounded px-0.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                    >
+                      ×
+                    </button>
+                    <span className="min-w-0 flex-1 truncate text-gray-700" title={line.label}>
+                      + {line.label}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-amber-800">
+                      {line.amountWon != null ? formatWon(line.amountWon) : '—'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 px-2 py-1.5">
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-semibold text-amber-900/70">합계</p>
+              <p className="text-sm font-bold tabular-nums text-amber-900">
+                {grandTotal != null ? formatWon(grandTotal) : '—'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void copyAll()}
+              disabled={grandTotal == null && quoteLines.length === 0}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-300/80 bg-white px-2 py-1 text-[10px] font-semibold text-amber-900 transition-colors hover:bg-amber-50 disabled:opacity-40"
+            >
+              <CrmIconCopy className="h-3 w-3" />
+              {copiedAll ? '복사됨' : '전체 복사'}
+            </button>
+            {quoteLines.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setQuoteLines([])}
+                className="shrink-0 text-[10px] text-gray-500 underline hover:text-gray-800"
+              >
+                비우기
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
     </CrmColumn>
   );

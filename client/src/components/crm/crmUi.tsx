@@ -179,12 +179,14 @@ export function CrmChip({
   onClick,
   children,
   title,
+  compact = false,
 }: {
   accent: CrmAccent;
   active: boolean;
   onClick: () => void;
   children: ReactNode;
   title?: string;
+  compact?: boolean;
 }) {
   const tone = CRM_ACCENT[accent];
   return (
@@ -192,9 +194,9 @@ export function CrmChip({
       type="button"
       title={title}
       onClick={onClick}
-      className={`rounded-lg px-3 py-1.5 text-fluid-xs font-semibold transition-all ${
-        active ? tone.chipActive : tone.chipIdle
-      }`}
+      className={`font-semibold whitespace-nowrap transition-all ${
+        compact ? 'rounded-md px-2 py-0.5 text-[10px]' : 'rounded-lg px-3 py-1.5 text-fluid-xs'
+      } ${active ? tone.chipActive : tone.chipIdle}`}
     >
       {children}
     </button>
