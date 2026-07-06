@@ -192,18 +192,21 @@ router.get('/conversations', async (req, res) => {
   const todayYmd = kstTodayYmd();
 
   if (role === 'ADMIN' || role === 'MARKETER') {
-    const usersRaw = await prisma.user.findMany({
-      where: { tenantId, role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER'] }, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        role: true,
-        staffIdCardUrl: true,
-        hireDate: true,
-        resignationDate: true,
-        externalCompany: { select: { name: true } },
-      },
-    });
+    const [usersRaw, staffIdsMerge] = await Promise.all([
+      prisma.user.findMany({
+        where: { tenantId, role: { in: ['TEAM_LEADER', 'EXTERNAL_PARTNER'] }, isActive: true },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          staffIdCardUrl: true,
+          hireDate: true,
+          resignationDate: true,
+          externalCompany: { select: { name: true } },
+        },
+      }),
+      getEmployedStaffIds(tenantId),
+    ]);
     const users = usersRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd));
     const partners: PartnerRow[] = users.map((u) => ({
       id: u.id,
@@ -211,7 +214,6 @@ router.get('/conversations', async (req, res) => {
       role: u.role,
       staffIdCardUrl: u.staffIdCardUrl ?? null,
     }));
-    const staffIdsMerge = await getEmployedStaffIds(tenantId);
     const list = await buildConversationList(tenantId, userId, partners, { staffIdsMerge });
     res.json(list);
     return;

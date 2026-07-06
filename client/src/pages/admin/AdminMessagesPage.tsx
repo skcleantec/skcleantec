@@ -202,7 +202,7 @@ export function AdminMessagesPage() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [conversationsLoading, setConversationsLoading] = useState(true);
   const [broadcastText, setBroadcastText] = useState('');
   const [broadcasting, setBroadcasting] = useState(false);
   const [broadcastError, setBroadcastError] = useState<string | null>(null);
@@ -215,23 +215,28 @@ export function AdminMessagesPage() {
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
 
-  const loadConversations = useCallback(() => {
+  const loadConversations = useCallback((opts?: { refreshBadges?: boolean }) => {
     if (!token) return Promise.resolve();
+    const refreshBadges = opts?.refreshBadges !== false;
     return getConversations(token)
       .then((list) => {
         setConversations(list);
-        (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+        if (refreshBadges) {
+          (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+        }
       })
       .catch(() => {
         setConversations([]);
-        (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+        if (refreshBadges) {
+          (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
+        }
       });
   }, [token]);
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
-    void loadConversations().finally(() => setLoading(false));
+    setConversationsLoading(true);
+    void loadConversations({ refreshBadges: false }).finally(() => setConversationsLoading(false));
   }, [token, loadConversations]);
 
   useEffect(() => {
@@ -252,7 +257,7 @@ export function AdminMessagesPage() {
 
   const pollInbox = useCallback(() => {
     if (!token) return;
-    void loadConversations().then(() => {
+    void loadConversations({ refreshBadges: false }).then(() => {
       const sid = selectedIdRef.current;
       if (!sid) return;
       const el = chatScrollRef.current;
@@ -268,7 +273,7 @@ export function AdminMessagesPage() {
   }, [token, loadConversations]);
 
   const { connected: wsConnected } = useInboxRealtime(token, pollInbox, Boolean(token));
-  useMessageThreadPoll(Boolean(token) && !wsConnected, pollInbox);
+  useMessageThreadPoll(Boolean(token) && !wsConnected, pollInbox, 10000);
 
   const handleBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -317,12 +322,6 @@ export function AdminMessagesPage() {
   const selected = conversations.find((c) => c.id === selectedId);
   // 모바일에서 채팅방이 선택됐을 때
   const mobileChatActive = Boolean(selectedId);
-
-  if (loading) {
-    return (
-      <div className="py-12 text-center text-slate-500 text-fluid-sm">로딩 중…</div>
-    );
-  }
 
   return (
     <div
@@ -531,7 +530,11 @@ export function AdminMessagesPage() {
               overscrollBehavior: 'contain',
             }}
           >
-            {conversations.length === 0 ? (
+            {conversationsLoading && conversations.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: '#94a3b8' }}>
+                대화 목록 불러오는 중…
+              </div>
+            ) : conversations.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: '#94a3b8' }}>
                 대화 상대가 없습니다.
               </div>

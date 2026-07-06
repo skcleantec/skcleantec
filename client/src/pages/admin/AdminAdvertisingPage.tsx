@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useSearchParams } from 'react-router-dom';
-import { getMe } from '../../api/auth';
 import { getUsers } from '../../api/users';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
+import { runWhenIdle } from '../../utils/deferWhenIdle';
 import {
   getAdvertisingAnalytics,
   getAdSessionHistory,
@@ -89,8 +90,9 @@ function adPeriodSegmentLabel(id: DateRangePresetId, label: string): string {
 
 export function AdminAdvertisingPage() {
   const token = getToken();
+  const { ready, role } = useAdminStaffSession();
+  const isAdmin = role === 'ADMIN';
   const [searchParams, setSearchParams] = useSearchParams();
-  const [role, setRole] = useState<string | null>(null);
   const [marketers, setMarketers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [marketerFilter, setMarketerFilter] = useState<string>('');
 
@@ -164,20 +166,12 @@ export function AdminAdvertisingPage() {
 
   const [dailySettlement, setDailySettlement] = useState<{ userId: string; name: string } | null>(null);
 
-  const loadMain = useCallback(async () => {
-    if (!token) return;
+  const loadAnalytics = useCallback(async () => {
+    if (!token || !ready || !role) return;
     setLoading(true);
     setErr(null);
     try {
-      const me = await getMe(token);
-      setRole(me.role);
-
-      if (me.role === 'ADMIN') {
-        const list = await getUsers(token, 'MARKETER');
-        setMarketers(list.map((u) => ({ id: u.id, name: u.name, email: u.email })));
-      }
-
-      const mid = me.role === 'ADMIN' ? (marketerFilter || undefined) : undefined;
+      const mid = isAdmin ? (marketerFilter || undefined) : undefined;
       const an = await getAdvertisingAnalytics(token, from, to, mid ?? null);
       setAnalytics(an);
     } catch (e) {
@@ -185,10 +179,10 @@ export function AdminAdvertisingPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, from, to, marketerFilter]);
+  }, [token, ready, role, isAdmin, from, to, marketerFilter]);
 
   const loadHistory = useCallback(async () => {
-    if (!token || !role) return;
+    if (!token || !ready || !role) return;
     beginListRefresh({
       showLoading: true,
       itemCount: historyRef.current.length,
@@ -196,7 +190,7 @@ export function AdminAdvertisingPage() {
       preserveScroll,
     });
     try {
-      const mid = role === 'ADMIN' ? (marketerFilter || undefined) : undefined;
+      const mid = isAdmin ? (marketerFilter || undefined) : undefined;
       const offset = (effectiveHistoryPage - 1) * listPageSize;
       const hi = await getAdSessionHistory(token, from, to, {
         marketerId: mid ?? null,
@@ -214,15 +208,24 @@ export function AdminAdvertisingPage() {
     } finally {
       setHistoryLoading(false);
     }
-  }, [token, role, from, to, marketerFilter, effectiveHistoryPage, listPageSize, preserveScroll]);
+  }, [token, ready, role, isAdmin, from, to, marketerFilter, effectiveHistoryPage, listPageSize, preserveScroll]);
 
   useEffect(() => {
-    void loadMain();
-  }, [loadMain]);
+    void loadAnalytics();
+  }, [loadAnalytics]);
 
   useEffect(() => {
     void loadHistory();
   }, [loadHistory]);
+
+  useEffect(() => {
+    if (!token || !ready || !isAdmin) return;
+    return runWhenIdle(() => {
+      void getUsers(token, 'MARKETER')
+        .then((list) => setMarketers(list.map((u) => ({ id: u.id, name: u.name, email: u.email }))))
+        .catch(() => setMarketers([]));
+    });
+  }, [token, ready, isAdmin]);
 
   const s = analytics?.summary;
 
@@ -324,7 +327,7 @@ export function AdminAdvertisingPage() {
               />
             </>
           )}
-          {role === 'ADMIN' && (
+          {isAdmin && (
             <>
               <span className="mx-0.5 shrink-0 text-fluid-2xs text-gray-300" aria-hidden>
                 |
@@ -517,7 +520,7 @@ export function AdminAdvertisingPage() {
                         <td className="py-2 px-3 whitespace-nowrap text-gray-800 text-fluid-xs tabular-nums">
                           {h.endedAt ? formatDateTimeCompactWithWeekday(h.endedAt) : '—'}
                         </td>
-                        {role === 'ADMIN' && (
+                        {isAdmin && (
                           <td className="py-2 px-3 text-gray-800">
                             {h.user.name} <span className="text-gray-500 text-fluid-xs">({h.user.email})</span>
                           </td>

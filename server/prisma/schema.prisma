@@ -1974,6 +1974,7 @@ model AdWorkSession {
 
   @@index([tenantId, userId, startedAt])
   @@index([userId, endedAt])
+  @@index([tenantId, endedAt])
   @@map("ad_work_sessions")
 }
 
@@ -2046,6 +2047,7 @@ model OrderForm {
   @@index([createdAt(sort: Desc)])
   @@index([tenantId, templateId])
   @@index([tenantId, operatingCompanyId])
+  @@index([tenantId, submittedAt])
   @@map("order_forms")
 }
 

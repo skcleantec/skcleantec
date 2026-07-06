@@ -1,11 +1,9 @@
 import { useEffect, useRef } from 'react';
 
-const POLL_MS = 3000;
-
 /**
  * 메시지 스레드 폴링(탭이 보일 때만). 백그라운드에서는 호출 생략.
  */
-export function useMessageThreadPoll(enabled: boolean, tick: () => void) {
+export function useMessageThreadPoll(enabled: boolean, tick: () => void, intervalMs = 3000) {
   const tickRef = useRef(tick);
   useEffect(() => {
     tickRef.current = tick;
@@ -17,7 +15,7 @@ export function useMessageThreadPoll(enabled: boolean, tick: () => void) {
       if (document.visibilityState === 'visible') tickRef.current();
     };
     run();
-    const id = setInterval(run, POLL_MS);
+    const id = setInterval(run, intervalMs);
     const onVis = () => {
       if (document.visibilityState === 'visible') tickRef.current();
     };
@@ -26,5 +24,5 @@ export function useMessageThreadPoll(enabled: boolean, tick: () => void) {
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [enabled]);
+  }, [enabled, intervalMs]);
 }

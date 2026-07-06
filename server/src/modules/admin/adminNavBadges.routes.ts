@@ -34,7 +34,7 @@ router.get('/nav-badges', authMiddleware, staffMarketerRoleOnly, async (req, res
     const [unreadCount, csPendingCount, reviewPaybackUnseenCount] = await Promise.all([
       canMessages
         ? prisma.message.count({
-            where: { receiverId: userId, readAt: null },
+            where: { tenantId, receiverId: userId, readAt: null },
           })
         : Promise.resolve(0),
       canCs
