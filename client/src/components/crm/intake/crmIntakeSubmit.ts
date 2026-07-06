@@ -1,7 +1,7 @@
 import { createOrderFollowup } from '../../../api/orderFollowups';
 import { createInquiry } from '../../../api/inquiries';
 import type { OrderFollowupStatus } from '../../../constants/orderFollowupStatus';
-import { parseCrmIntakePyeong, validateCrmIntakeForm } from './crmIntakeValidation';
+import { parseCrmIntakePyeong, resolveCrmIntakeCustomerName, validateCrmIntakeForm } from './crmIntakeValidation';
 
 export type CrmIntakeKind =
   | 'requested'
@@ -42,7 +42,7 @@ export async function submitCrmIntake(
   const validationError = validateCrmIntakeForm(values, pyeong);
   if (validationError) throw new Error(validationError);
 
-  const n = values.customerName.trim();
+  const n = resolveCrmIntakeCustomerName(values);
   const pmd = values.preferredMoveInCleanYmd.trim();
   const pmdBody = pmd ? { preferredMoveInCleaningDate: pmd } : {};
   const extras = inquiryExtras(pyeong, values.preferredMoveInCleanYmd);

@@ -10,7 +10,7 @@ import {
   type CrmIntakeSubmitResult,
 } from './crmIntakeSubmit';
 import { crmIntakePermissionLabel } from './crmIntakeValidation';
-import { crmFieldClass } from '../crmUi';
+import { crmFieldCompactClass } from '../crmUi';
 
 const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
   { value: 'absent', label: ORDER_FOLLOWUP_STATUS_LABEL.ABSENT, hint: '부재현황' },
@@ -152,152 +152,143 @@ export function CrmIntakeForm({
   };
 
   return (
-    <div className="space-y-3">
-      <label className="block space-y-1">
-        <span className="text-fluid-xs font-medium text-gray-700">고객명 *</span>
-        <input
-          type="text"
-          value={customerName}
-          onChange={(e) => setCustomerName(e.target.value)}
-          className={crmFieldClass}
-          disabled={saving}
-        />
-      </label>
-      <label className="block space-y-1">
-        <span className="text-fluid-xs font-medium text-gray-700">닉네임</span>
-        <input
-          type="text"
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-          className={crmFieldClass}
-          disabled={saving}
-        />
-      </label>
+    <div className="space-y-2.5">
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block min-w-0 space-y-0.5">
+          <span className="text-[11px] font-medium text-slate-600">닉네임 · 호칭</span>
+          <input
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            placeholder="어머님, 관리실"
+            className={crmFieldCompactClass}
+            disabled={saving}
+          />
+        </label>
+        <label className="block min-w-0 space-y-0.5">
+          <span className="text-[11px] font-medium text-slate-600">고객명</span>
+          <input
+            type="text"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="확인 후 입력"
+            className={crmFieldCompactClass}
+            disabled={saving}
+          />
+        </label>
+      </div>
+      <p className="text-[10px] leading-snug text-slate-500">
+        최초 통화는 닉네임만으로 저장 가능합니다. 고객명은 통화·발주서 확인 후 입력하세요.
+      </p>
 
       <fieldset>
-        <legend className="mb-1.5 text-fluid-xs font-medium text-gray-700">처리 구분</legend>
-        <div className="grid grid-cols-2 gap-1.5">
+        <legend className="mb-1 text-[11px] font-semibold text-slate-700">처리 구분</legend>
+        <div className="flex flex-wrap gap-1">
           {KIND_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               type="button"
+              title={opt.hint}
               onClick={() => setKind(opt.value)}
               disabled={saving}
-              className={`rounded-xl border px-2 py-2 text-left text-fluid-xs transition-all ${
+              className={`rounded-md border px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors ${
                 kind === opt.value
-                  ? 'border-emerald-600 bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-200/50'
-                  : 'border-emerald-100 bg-emerald-50/60 text-emerald-950 hover:bg-emerald-100'
+                  ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50/80'
               }`}
             >
-              <span className="block font-medium">{opt.label}</span>
-              <span className={`block text-[10px] mt-0.5 ${kind === opt.value ? 'text-white/80' : 'text-gray-500'}`}>
-                {opt.hint}
-              </span>
+              {opt.label}
             </button>
           ))}
         </div>
       </fieldset>
 
       {kind === 'received' ? (
-        <label className="block space-y-1">
-          <span className="text-fluid-xs font-medium text-gray-700">주소 * (예약완료)</span>
+        <label className="block space-y-0.5">
+          <span className="text-[11px] font-medium text-slate-600">주소 * (예약완료)</span>
           <input
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="실 주소를 입력해 주세요"
-            className={crmFieldClass}
+            className={crmFieldCompactClass}
             disabled={saving}
           />
         </label>
       ) : null}
 
-      {kind !== 'received' ? (
-        <button
-          type="button"
-          onClick={() => setShowMore((v) => !v)}
-          className="text-fluid-xs text-sky-700 hover:underline"
-        >
-          {showMore ? '추가 필드 접기' : '주소·희망일 등 추가'}
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setShowMore((v) => !v)}
-          className="text-fluid-xs text-sky-700 hover:underline"
-        >
-          {showMore ? '추가 필드 접기' : '평수·희망일 등 추가'}
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => setShowMore((v) => !v)}
+        className="text-[11px] font-medium text-sky-700 hover:underline"
+      >
+        {showMore ? '추가 필드 접기' : kind === 'received' ? '평수·희망일 등 추가' : '주소·희망일 등 추가'}
+      </button>
 
       {showMore ? (
-        <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
-          <label className="block space-y-1">
-            <span className="text-fluid-xs font-medium text-gray-700">평수</span>
+        <div className="space-y-2 rounded-lg border border-emerald-100/80 bg-emerald-50/30 p-2.5">
+          <label className="block space-y-0.5">
+            <span className="text-[11px] font-medium text-slate-600">평수</span>
             <input
               type="text"
               inputMode="decimal"
               value={pyeong}
               onChange={(e) => onPyeongChange(e.target.value)}
               placeholder="예: 33"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm tabular-nums"
+              className={`${crmFieldCompactClass} tabular-nums`}
               disabled={saving}
             />
-            <span className="text-[10px] text-gray-500">스크립트·가격 계산기와 연동·접수에 저장됩니다.</span>
           </label>
           {kind !== 'received' ? (
-            <label className="block space-y-1">
-              <span className="text-fluid-xs font-medium text-gray-700">주소</span>
+            <label className="block space-y-0.5">
+              <span className="text-[11px] font-medium text-slate-600">주소</span>
               <input
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className={crmFieldClass}
+                className={crmFieldCompactClass}
                 disabled={saving}
               />
             </label>
           ) : null}
-          <label className="block space-y-1">
-            <span className="text-fluid-xs font-medium text-gray-700">입주청소 희망일</span>
+          <label className="block space-y-0.5">
+            <span className="text-[11px] font-medium text-slate-600">입주청소 희망일</span>
             <input
               type="date"
               value={preferredMoveInCleanYmd}
               onChange={(e) => setPreferredMoveInCleanYmd(e.target.value)}
-              className={crmFieldClass}
+              className={crmFieldCompactClass}
               disabled={saving}
             />
-            <span className="text-[10px] text-gray-500">
-              부재·입금 연동 시 부재현황에, 예약완료 시 접수 희망일에 반영됩니다.
-            </span>
           </label>
-          <label className="flex items-start gap-2 text-fluid-xs text-gray-700">
+          <label className="flex items-center gap-1.5 text-[11px] text-slate-700">
             <input
               type="checkbox"
               checked={goldDb}
               onChange={(e) => setGoldDb(e.target.checked)}
               disabled={saving}
-              className="mt-0.5"
+              className="rounded border-slate-300"
             />
-            골드DB (부재현황 강조)
+            골드DB
           </label>
         </div>
       ) : null}
 
       {!permissionsLoading && !canSave ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-900">
-          선택한 처리 구분을 저장하려면 <strong>{crmIntakePermissionLabel(kind)}</strong> 권한이 필요합니다.
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
+          <strong>{crmIntakePermissionLabel(kind)}</strong> 권한이 필요합니다.
         </p>
       ) : null}
 
-      {msg ? <p className="text-fluid-xs text-green-700">{msg}</p> : null}
-      {err ? <p className="text-fluid-xs text-red-600">{err}</p> : null}
+      {msg ? <p className="text-[11px] text-green-700">{msg}</p> : null}
+      {err ? <p className="text-[11px] text-red-600">{err}</p> : null}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2">
         <button
           type="button"
           disabled={saving || permissionsLoading || !canSave}
           onClick={() => void submit(false)}
-          className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-fluid-sm font-semibold text-white shadow-md shadow-emerald-200/40 disabled:opacity-50"
+          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {saving ? '저장 중…' : '저장'}
         </button>
@@ -305,7 +296,7 @@ export function CrmIntakeForm({
           type="button"
           disabled={saving || permissionsLoading || !canSave}
           onClick={() => void submit(true)}
-          className="w-full rounded-xl border border-emerald-200 bg-white py-2 text-fluid-sm font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
+          className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
         >
           저장 후 계속
         </button>
@@ -313,9 +304,9 @@ export function CrmIntakeForm({
           <button
             type="button"
             onClick={() => onOpenOrderIssue(lastInquiryId)}
-            className="w-full rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-indigo-50/50 py-2 text-fluid-sm font-medium text-sky-900 hover:border-sky-300 hover:shadow-sm"
+            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-medium text-sky-900 hover:bg-sky-100"
           >
-            발주서 발급
+            발주서
           </button>
         ) : null}
       </div>

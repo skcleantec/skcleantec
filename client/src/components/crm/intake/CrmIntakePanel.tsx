@@ -7,7 +7,7 @@ import type {
 import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
-import { CrmActionButton, CrmIconIntake, CrmIconPhone, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldClass } from '../crmUi';
+import { CrmIconIntake, CrmIconPhone, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldCompactClass } from '../crmUi';
 import { telecrmCall, isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 import { CrmIntakeForm } from './CrmIntakeForm';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
@@ -19,6 +19,59 @@ import {
 } from '../../../hooks/useCrmCustomerLookup';
 
 export type CrmCustomerMode = 'new' | 'existing';
+
+function CrmPhoneField({
+  label,
+  value,
+  onChange,
+  onClear,
+  canDial,
+  onCall,
+  callLabel,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onClear: () => void;
+  canDial: boolean;
+  onCall: () => void;
+  callLabel: string;
+}) {
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold text-emerald-800">{label}</span>
+        {value.trim() ? (
+          <button
+            type="button"
+            onClick={onClear}
+            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+          >
+            연락처 지우기
+          </button>
+        ) : null}
+      </div>
+      <div className="flex gap-1.5">
+        <input
+          type="tel"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="010-0000-0000"
+          className={`${crmFieldCompactClass} min-w-0 flex-1 tabular-nums`}
+        />
+        {canDial ? (
+          <button
+            type="button"
+            onClick={onCall}
+            className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+          >
+            {callLabel}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function formatPyeongValue(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n) || n <= 0) return '';
@@ -198,22 +251,24 @@ export function CrmIntakePanel({
   };
 
   return (
-    <CrmColumn accent="intake" title="접수 · 고객" subtitle="전화 상담 중 고객 정보 등록">
-      <div className="space-y-4">
-        <CrmSegment accent="intake">
+    <CrmColumn accent="intake" title="접수 · 고객" subtitle="연락처 · 처리 구분">
+      <div className="space-y-2.5">
+        <CrmSegment accent="intake" className="w-full flex flex-wrap">
           <CrmSegmentItem
             accent="intake"
+            compact
             active={mode === 'new'}
             onClick={() => switchMode('new')}
-            icon={<CrmIconIntake className="h-3.5 w-3.5" />}
+            icon={<CrmIconIntake className="h-3 w-3" />}
           >
             신규
           </CrmSegmentItem>
           <CrmSegmentItem
             accent="intake"
+            compact
             active={mode === 'existing'}
             onClick={() => switchMode('existing')}
-            icon={<CrmIconSearch className="h-3.5 w-3.5" />}
+            icon={<CrmIconSearch className="h-3 w-3" />}
           >
             기존
           </CrmSegmentItem>
@@ -221,56 +276,47 @@ export function CrmIntakePanel({
 
         {mode === 'existing' ? (
           <>
-            <CrmSegment accent="intake">
+            <CrmSegment accent="intake" className="w-full flex flex-wrap">
               <CrmSegmentItem
                 accent="intake"
+                compact
                 active={searchMode === 'phone'}
                 onClick={() => setSearchMode('phone')}
-                icon={<CrmIconPhone className="h-3.5 w-3.5" />}
+                icon={<CrmIconPhone className="h-3 w-3" />}
               >
                 전화번호
               </CrmSegmentItem>
               <CrmSegmentItem
                 accent="intake"
+                compact
                 active={searchMode === 'name'}
                 onClick={() => setSearchMode('name')}
-                icon={<CrmIconSearch className="h-3.5 w-3.5" />}
+                icon={<CrmIconSearch className="h-3 w-3" />}
               >
                 이름
               </CrmSegmentItem>
             </CrmSegment>
 
             {searchMode === 'phone' ? (
-              <div className="space-y-2">
-                <label className="block space-y-1">
-                  <span className="text-fluid-xs font-semibold text-emerald-800">연락처 검색</span>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => onPhoneChange(e.target.value)}
-                    placeholder="010-0000-0000"
-                    className={`${crmFieldClass} tabular-nums`}
-                  />
-                </label>
-                {canDial ? (
-                  <div className="flex flex-wrap gap-2">
-                    <CrmActionButton accent="intake" variant="solid" onClick={() => void handleCall()}>
-                      {isTelecrmNativeApp() ? '앱 통화' : '통화'}
-                    </CrmActionButton>
-                  </div>
-                ) : null}
-              </div>
+              <CrmPhoneField
+                label="연락처 검색"
+                value={phone}
+                onChange={onPhoneChange}
+                onClear={() => onPhoneChange('')}
+                canDial={canDial}
+                onCall={() => void handleCall()}
+                callLabel={isTelecrmNativeApp() ? '앱 통화' : '통화'}
+              />
             ) : (
-              <label className="block space-y-1">
-                <span className="text-fluid-xs font-semibold text-emerald-800">고객 이름 검색</span>
+              <label className="block space-y-0.5">
+                <span className="text-[11px] font-semibold text-emerald-800">고객 이름 검색</span>
                 <input
                   type="text"
                   value={nameSearch}
                   onChange={(e) => setNameSearch(e.target.value)}
                   placeholder="홍길동 (2자 이상)"
-                  className={crmFieldClass}
+                  className={crmFieldCompactClass}
                 />
-                <p className="text-[10px] text-slate-500">동명이인이 있으면 연락처 목록에서 선택합니다.</p>
               </label>
             )}
 
@@ -286,28 +332,18 @@ export function CrmIntakePanel({
             />
           </>
         ) : (
-          <div className="space-y-2">
-            <label className="block space-y-1">
-              <span className="text-fluid-xs font-semibold text-emerald-800">연락처</span>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => onPhoneChange(e.target.value)}
-                placeholder="010-0000-0000"
-                className={`${crmFieldClass} tabular-nums`}
-              />
-            </label>
-            {canDial ? (
-              <div className="flex flex-wrap gap-2">
-                <CrmActionButton accent="intake" variant="solid" onClick={() => void handleCall()}>
-                  {isTelecrmNativeApp() ? '앱 통화' : '통화'}
-                </CrmActionButton>
-              </div>
-            ) : null}
-          </div>
+          <CrmPhoneField
+            label="연락처"
+            value={phone}
+            onChange={onPhoneChange}
+            onClear={() => onPhoneChange('')}
+            canDial={canDial}
+            onCall={() => void handleCall()}
+            callLabel={isTelecrmNativeApp() ? '앱 통화' : '통화'}
+          />
         )}
 
-        <div className="border-t border-emerald-100/80 pt-3">
+        <div className="border-t border-emerald-100/80 pt-2">
           <CrmIntakeForm
             seed={intakeSeed}
             initialFormDraft={initialFormDraft}

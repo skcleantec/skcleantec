@@ -18,11 +18,23 @@ export function parseCrmIntakePyeong(pyeong: string): number | null {
   return n;
 }
 
+/** CRM 접수 표시명 — 고객명 미확인 시 닉네임·연락처 순으로 사용 */
+export function resolveCrmIntakeCustomerName(
+  values: Pick<CrmIntakeFormValues, 'customerName' | 'nickname' | 'phone'>,
+): string {
+  const name = values.customerName.trim();
+  if (name) return name;
+  const nick = values.nickname.trim();
+  if (nick) return nick;
+  const phone = values.phone.trim();
+  if (phone) return phone;
+  return '고객';
+}
+
 export function validateCrmIntakeForm(
   values: CrmIntakeFormValues,
   pyeong: string,
 ): string | null {
-  if (!values.customerName.trim()) return '고객명을 입력해 주세요.';
   if (!values.phone.trim()) return '연락처를 입력해 주세요.';
   if (values.kind === 'received' && !values.address.trim()) {
     return '예약완료는 주소가 필요합니다.';

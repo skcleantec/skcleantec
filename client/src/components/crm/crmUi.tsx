@@ -119,9 +119,9 @@ export function CrmColumnIcon({ accent }: { accent: CrmAccent }) {
   const Icon = accent === 'intake' ? CrmIconIntake : accent === 'script' ? CrmIconScript : CrmIconPricing;
   return (
     <span
-      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm ${tone.iconBg} ${tone.iconText}`}
+      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm ${tone.iconBg} ${tone.iconText}`}
     >
-      <Icon className="h-5 w-5" />
+      <Icon className="h-4 w-4" />
     </span>
   );
 }
@@ -149,23 +149,25 @@ export function CrmSegmentItem({
   onClick,
   children,
   icon,
+  compact = false,
 }: {
   accent: CrmAccent;
   active: boolean;
   onClick: () => void;
   children: ReactNode;
   icon?: ReactNode;
+  compact?: boolean;
 }) {
   const tone = CRM_ACCENT[accent];
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-fluid-xs font-semibold transition-all ${
-        active ? tone.segmentActive : 'text-slate-600 hover:bg-white/80'
-      }`}
+      className={`inline-flex items-center gap-1 rounded-lg font-semibold transition-all whitespace-nowrap ${
+        compact ? 'px-2 py-1 text-[11px]' : 'gap-1.5 px-3 py-2 text-fluid-xs'
+      } ${active ? tone.segmentActive : 'text-slate-600 hover:bg-white/80'}`}
     >
-      {icon ? <span className={active ? 'opacity-95' : 'opacity-70'}>{icon}</span> : null}
+      {icon ? <span className={`shrink-0 ${active ? 'opacity-95' : 'opacity-70'}`}>{icon}</span> : null}
       {children}
     </button>
   );
@@ -239,7 +241,10 @@ export function CrmSectionLabel({
 }
 
 export const crmFieldClass =
-  'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-fluid-sm shadow-sm transition-shadow focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80';
+  'w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-fluid-sm shadow-sm transition-shadow focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80';
+
+export const crmFieldCompactClass =
+  'w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-fluid-xs shadow-sm transition-shadow focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80';
 
 export const crmSearchFieldClass =
   'w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-fluid-sm shadow-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80';
