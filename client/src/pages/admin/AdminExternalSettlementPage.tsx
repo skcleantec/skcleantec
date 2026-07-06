@@ -6,12 +6,31 @@ import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/lis
 import { getToken } from '../../stores/auth';
 import {
   getExternalSettlementCompanyDetail,
-  getExternalSettlementCompanyOverviewList,
+  getExternalSettlementCompanyOverviewPayable,
+  getExternalSettlementCompanyOverviewShell,
   getExternalSettlementCompanyPayments,
   getExternalSettlementMonthlyOverview,
   postExternalSettlementPayment,
   type ExternalSettlementCompanyOverviewRow,
 } from '../../api/externalCompanies';
+
+function mergeOverviewPayableFees(
+  rows: ExternalSettlementCompanyOverviewRow[],
+  fees: Record<string, number>,
+): ExternalSettlementCompanyOverviewRow[] {
+  return rows.map((r) => {
+    const payableAmount = fees[r.externalCompanyId] ?? 0;
+    return {
+      ...r,
+      payableAmount,
+      remainingAmount: payableAmount - r.paidAmount,
+    };
+  });
+}
+
+function formatOverviewAmount(n: number, payableLoading: boolean): string {
+  return payableLoading ? '집계 중…' : won(n);
+}
 
 function won(n: number): string {
   return `${Number(n).toLocaleString('ko-KR')}원`;
@@ -123,6 +142,7 @@ export function AdminExternalSettlementPage() {
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<ExternalSettlementCompanyOverviewRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [payableLoading, setPayableLoading] = useState(false);
   const { preserveScroll } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
   const operatingCompanies = useOperatingCompanies(token);
@@ -218,7 +238,7 @@ export function AdminExternalSettlementPage() {
     );
   }, [resolvedOperatingCompanyId, setSearchParams]);
 
-  const loadList = useCallback(async () => {
+  const loadList = useCallback(async (options?: { skipPayableCache?: boolean }) => {
     if (!token || !resolvedOperatingCompanyId) return;
     beginListRefresh({
       showLoading: true,
@@ -227,14 +247,37 @@ export function AdminExternalSettlementPage() {
       preserveScroll,
     });
     setError(null);
+    setPayableLoading(true);
     try {
-      const r = await getExternalSettlementCompanyOverviewList(token, resolvedOperatingCompanyId);
-      setRows(r.items);
+      const shell = await getExternalSettlementCompanyOverviewShell(token, resolvedOperatingCompanyId);
+      setRows(
+        shell.items.map((item) => ({
+          externalCompanyId: item.externalCompanyId,
+          companyName: item.companyName,
+          paidAmount: item.paidAmount,
+          payableAmount: 0,
+          remainingAmount: 0,
+        })),
+      );
+      setLoading(false);
+
+      try {
+        const payable = await getExternalSettlementCompanyOverviewPayable(
+          token,
+          resolvedOperatingCompanyId,
+          options?.skipPayableCache,
+        );
+        setRows((prev) => mergeOverviewPayableFees(prev, payable.fees));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '누적 정산 금액 집계에 실패했습니다.');
+      } finally {
+        setPayableLoading(false);
+      }
     } catch (e) {
       setRows([]);
       setError(e instanceof Error ? e.message : '업체 정산 목록을 불러오지 못했습니다.');
-    } finally {
       setLoading(false);
+      setPayableLoading(false);
     }
   }, [token, resolvedOperatingCompanyId, rows.length, preserveScroll]);
 
@@ -480,7 +523,7 @@ export function AdminExternalSettlementPage() {
           />
           <button
             type="button"
-            onClick={() => void loadList()}
+            onClick={() => void loadList({ skipPayableCache: true })}
             className="rounded bg-gray-900 px-3 py-2 text-xs font-medium text-white hover:bg-gray-800"
           >
             새로고침
@@ -498,6 +541,11 @@ export function AdminExternalSettlementPage() {
             갱신 중…
           </p>
         ) : null}
+        {payableLoading && filteredRows.length > 0 ? (
+          <p className="px-3 py-1.5 text-center text-fluid-xs text-sky-700 border-b border-sky-100 bg-sky-50/60" aria-live="polite">
+            결재받을 누적금액·미수금액 집계 중…
+          </p>
+        ) : null}
         {shouldShowListBlockingLoading(loading, filteredRows.length) ? (
           <div className="px-3 py-10 text-center text-gray-500">불러오는 중...</div>
         ) : filteredRows.length === 0 ? (
@@ -511,7 +559,7 @@ export function AdminExternalSettlementPage() {
                   <div className="mt-2 space-y-1.5 text-xs">
                     <p className="flex items-center justify-between">
                       <span className="text-gray-500">결재받을 누적금액</span>
-                      <strong className="tabular-nums text-gray-900">{won(r.payableAmount)}</strong>
+                      <strong className="tabular-nums text-gray-900">{formatOverviewAmount(r.payableAmount, payableLoading)}</strong>
                     </p>
                     <p className="flex items-center justify-between">
                       <span className="text-gray-500">결재받은금액</span>
@@ -519,14 +567,15 @@ export function AdminExternalSettlementPage() {
                     </p>
                     <p className="flex items-center justify-between">
                       <span className="text-gray-500">미수금액</span>
-                      <strong className="tabular-nums text-rose-700">{won(r.remainingAmount)}</strong>
+                      <strong className="tabular-nums text-rose-700">{formatOverviewAmount(r.remainingAmount, payableLoading)}</strong>
                     </p>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-1.5">
                     <button
                       type="button"
                       onClick={() => openPayModal(r)}
-                      className="rounded bg-gray-900 px-2 py-1.5 text-[11px] font-medium text-white"
+                      disabled={payableLoading}
+                      className="rounded bg-gray-900 px-2 py-1.5 text-[11px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       정산
                     </button>
@@ -571,15 +620,16 @@ export function AdminExternalSettlementPage() {
                   {filteredRows.map((r) => (
                     <tr key={r.externalCompanyId} className="border-t border-gray-100">
                       <td className="px-3 py-2 text-center font-medium text-gray-900">{r.companyName}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{won(r.payableAmount)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatOverviewAmount(r.payableAmount, payableLoading)}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-emerald-700">{won(r.paidAmount)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-rose-700">{won(r.remainingAmount)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-rose-700">{formatOverviewAmount(r.remainingAmount, payableLoading)}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap justify-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => openPayModal(r)}
-                            className="rounded bg-gray-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-gray-800"
+                            disabled={payableLoading}
+                            className="rounded bg-gray-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             정산
                           </button>

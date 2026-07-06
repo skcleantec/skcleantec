@@ -19,6 +19,31 @@ import {
 } from '../../lib/externalSettlementEffectiveDate.js';
 import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlementOperatingCompanyScope.js';
 import { sumExternalSettlementSignedFeeByCompany, sumExternalSettlementPaidByCompany } from './externalSettlementOverview.service.js';
+import {
+  getExternalSettlementPayableFeesCached,
+  invalidateExternalSettlementOverviewPayableCache,
+} from './externalSettlementOverviewCache.js';
+
+function buildExternalSettlementOverviewItems(
+  companies: { id: string; name: string }[],
+  signedByCompany: Map<string, number>,
+  paidByCompany: Map<string, number>,
+) {
+  for (const c of companies) {
+    if (!signedByCompany.has(c.id)) signedByCompany.set(c.id, 0);
+  }
+  return companies.map((c) => {
+    const payableAmount = signedByCompany.get(c.id) ?? 0;
+    const paidAmount = paidByCompany.get(c.id) ?? 0;
+    return {
+      externalCompanyId: c.id,
+      companyName: c.name,
+      payableAmount,
+      paidAmount,
+      remainingAmount: payableAmount - paidAmount,
+    };
+  });
+}
 
 const router = Router();
 
@@ -229,7 +254,61 @@ router.post('/:id/deactivate', requireStaffPermission('admin.users'), async (req
   res.json({ ok: true });
 });
 
-/** 업체별 누적 정산 요약 목록 (전체 기간) */
+/** 업체·지급 누적만 (payable 집계 제외 — 목록 1차 렌더용) */
+router.get('/settlement/company-overview-shell', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
+  const operatingCompanyId = await resolveSettlementOperatingCompanyId(
+    res,
+    tenantId,
+    req.query.operatingCompanyId,
+  );
+  if (!operatingCompanyId) return;
+
+  const [companies, paidByCompany] = await Promise.all([
+    prisma.externalCompany.findMany({
+      where: { tenantId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    sumExternalSettlementPaidByCompany(prisma, tenantId, operatingCompanyId),
+  ]);
+
+  res.json({
+    operatingCompanyId,
+    items: companies.map((c) => ({
+      externalCompanyId: c.id,
+      companyName: c.name,
+      paidAmount: paidByCompany.get(c.id) ?? 0,
+    })),
+  });
+});
+
+/** 업체별 누적 payable 집계 (45초 TTL 캐시, skipCache=1 로 강제 재집계) */
+router.get('/settlement/company-overview-payable', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
+  const operatingCompanyId = await resolveSettlementOperatingCompanyId(
+    res,
+    tenantId,
+    req.query.operatingCompanyId,
+  );
+  if (!operatingCompanyId) return;
+
+  const skipCache = req.query.skipCache === '1';
+  const signedByCompany = skipCache
+    ? await sumExternalSettlementSignedFeeByCompany(prisma, tenantId, operatingCompanyId)
+    : await getExternalSettlementPayableFeesCached(prisma, tenantId, operatingCompanyId);
+
+  res.json({
+    operatingCompanyId,
+    fees: Object.fromEntries(signedByCompany),
+  });
+});
+
+/** 업체별 누적 정산 요약 목록 (전체 기간, 레거시·호환) */
 router.get('/settlement/company-overview-list', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
@@ -241,32 +320,22 @@ router.get('/settlement/company-overview-list', requireStaffPermission('admin.ex
   );
   if (!operatingCompanyId) return;
 
+  const skipCache = req.query.skipCache === '1';
   const [companies, signedByCompany, paidByCompany] = await Promise.all([
     prisma.externalCompany.findMany({
       where: { tenantId, isActive: true },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     }),
-    sumExternalSettlementSignedFeeByCompany(prisma, tenantId, operatingCompanyId),
+    skipCache
+      ? sumExternalSettlementSignedFeeByCompany(prisma, tenantId, operatingCompanyId)
+      : getExternalSettlementPayableFeesCached(prisma, tenantId, operatingCompanyId),
     sumExternalSettlementPaidByCompany(prisma, tenantId, operatingCompanyId),
   ]);
-  for (const c of companies) {
-    if (!signedByCompany.has(c.id)) signedByCompany.set(c.id, 0);
-  }
 
   res.json({
     operatingCompanyId,
-    items: companies.map((c) => {
-      const payableAmount = signedByCompany.get(c.id) ?? 0;
-      const paidAmount = paidByCompany.get(c.id) ?? 0;
-      return {
-        externalCompanyId: c.id,
-        companyName: c.name,
-        payableAmount,
-        paidAmount,
-        remainingAmount: payableAmount - paidAmount,
-      };
-    }),
+    items: buildExternalSettlementOverviewItems(companies, signedByCompany, paidByCompany),
   });
 });
 
@@ -1004,6 +1073,7 @@ router.post('/settlement/reset-accrual', requireStaffPermission('admin.externalS
       actorId,
     },
   });
+  invalidateExternalSettlementOverviewPayableCache(tenantId, operatingCompanyId);
   res.json({ ok: true });
 });
 
@@ -1065,6 +1135,7 @@ router.post('/settlement/payments', requireStaffPermission('admin.externalSettle
     },
     select: { id: true, amount: true, paidAt: true },
   });
+  invalidateExternalSettlementOverviewPayableCache(tenantId, operatingCompanyId);
   res.json({
     ok: true,
     payment: {

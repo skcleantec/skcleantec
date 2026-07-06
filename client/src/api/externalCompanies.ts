@@ -123,6 +123,53 @@ export async function getExternalSettlementSummary(
   return res.json();
 }
 
+export type ExternalSettlementCompanyOverviewShellRow = {
+  externalCompanyId: string;
+  companyName: string;
+  paidAmount: number;
+};
+
+export async function getExternalSettlementCompanyOverviewShell(
+  token: string,
+  operatingCompanyId?: string,
+): Promise<{ operatingCompanyId: string; items: ExternalSettlementCompanyOverviewShellRow[] }> {
+  const q = appendOperatingCompanyId(new URLSearchParams(), operatingCompanyId).toString();
+  const url = q
+    ? `${API}/external-companies/settlement/company-overview-shell?${q}`
+    : `${API}/external-companies/settlement/company-overview-shell`;
+  const res = await fetch(url, {
+    ...NO_STORE,
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '업체 정산 목록을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function getExternalSettlementCompanyOverviewPayable(
+  token: string,
+  operatingCompanyId?: string,
+  skipCache = false,
+): Promise<{ operatingCompanyId: string; fees: Record<string, number> }> {
+  const params = appendOperatingCompanyId(new URLSearchParams(), operatingCompanyId);
+  if (skipCache) params.set('skipCache', '1');
+  const q = params.toString();
+  const url = q
+    ? `${API}/external-companies/settlement/company-overview-payable?${q}`
+    : `${API}/external-companies/settlement/company-overview-payable`;
+  const res = await fetch(url, {
+    ...NO_STORE,
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '누적 정산 금액 집계에 실패했습니다.');
+  }
+  return res.json();
+}
+
 export async function getExternalSettlementCompanyOverviewList(
   token: string,
   operatingCompanyId?: string
