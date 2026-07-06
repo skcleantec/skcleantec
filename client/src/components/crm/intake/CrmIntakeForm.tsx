@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getToken } from '../../../stores/auth';
 import { ORDER_FOLLOWUP_STATUS_LABEL } from '../../../constants/orderFollowupStatus';
 import { INQUIRY_STATUS_LABELS } from '../../inquiries/inquiriesUiParts';
+import type { TelecrmConsultationQuotePayload } from '@shared/telecrmConsultationQuote';
 import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import {
   submitCrmIntake,
@@ -34,6 +35,7 @@ export function CrmIntakeForm({
   canSubmitKind,
   permissionsLoading,
   formResetKey = 0,
+  quotePayload = null,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
@@ -47,6 +49,7 @@ export function CrmIntakeForm({
   canSubmitKind: (kind: CrmIntakeKind) => boolean;
   permissionsLoading?: boolean;
   formResetKey?: number;
+  quotePayload?: TelecrmConsultationQuotePayload | null;
 }) {
   const [customerName, setCustomerName] = useState('');
   const [nickname, setNickname] = useState('');
@@ -136,6 +139,7 @@ export function CrmIntakeForm({
           goldDb,
         },
         pyeong,
+        { quotePayload },
       );
       onSaved(result);
       setMsg('저장했습니다.');

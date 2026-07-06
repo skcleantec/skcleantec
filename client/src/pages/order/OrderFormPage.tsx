@@ -67,10 +67,12 @@ import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGu
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import type { PublicOperatingCompanyBranding } from '../../api/orderform';
 import { composeBrandedOrderFormTitle } from '@shared/publicBrandTitles';
+import type { CrmOrderIssueSeed } from '../../components/orderform/OrderIssueInlinePanel';
 import {
   isMarketerLockedOrderFormAddress,
   isRealCustomerAddress,
 } from '@shared/orderFormPendingAddress';
+import { TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY } from '@shared/telecrmConsultationQuote';
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -107,16 +109,7 @@ export interface OrderFormEditorContext {
     internalCustomerTone?: InternalCustomerTone;
     onCreated: (order: OrderForm) => void;
     /** 텔레CRM — 발급 폼 초기값 */
-    crmSeed?: {
-      customerName?: string;
-      customerPhone?: string;
-      areaPyeong?: string;
-      areaBasis?: string;
-      address?: string;
-      preferredDate?: string;
-      totalAmount?: string;
-      depositAmount?: string;
-    };
+    crmSeed?: CrmOrderIssueSeed;
   };
   /** 관리자 화면 임베드(크롬리스: 전체화면·고정바·푸터 제거) */
   inline?: boolean;
@@ -453,6 +446,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       loader = getOrderFormIssueForm(editorAuthToken, {
         templateId: createTemplateId,
         pendingInquiryId: createPendingInquiryId,
+        telecrm: Boolean(createCrmSeed),
       }).then(
         (r) =>
           ({
@@ -546,6 +540,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           if (STD.has(k)) continue;
           if (v != null) baseCustom[k] = v;
         }
+        if (isCreate && createCrmSeed?.crmQuoteBreakdown?.trim()) {
+          baseCustom[TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY] =
+            createCrmSeed.crmQuoteBreakdown.trim();
+        }
         setCustomAnswers(baseCustom);
         const p = data.pendingInquiry;
         const areaLockedOnIssue = isOrderFormAreaLockedFromOrder({
@@ -609,9 +607,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             detectOneRoomFromNotes(pfStr('specialNotes') ?? data.draftCustomerSpecialNotes ?? ''),
         }));
         const pfProf = pf['professionalOptionIds'];
+        const crmProf =
+          isCreate && createCrmSeed?.professionalOptionIds?.length
+            ? createCrmSeed.professionalOptionIds
+            : null;
+        const profPrefillRaw = crmProf ?? pfProf;
         const applyProfPrefill = (catalog: ProfessionalSpecialtyOptionDto[]) => {
-          if (Array.isArray(pfProf) && pfProf.length > 0) {
-            setProfSelections(parseProfessionalOptionSelections(pfProf, catalog));
+          if (Array.isArray(profPrefillRaw) && profPrefillRaw.length > 0) {
+            setProfSelections(parseProfessionalOptionSelections(profPrefillRaw, catalog));
           }
         };
         const addrPrefillLocked = !isEditor && isMarketerLockedOrderFormAddress(pf);

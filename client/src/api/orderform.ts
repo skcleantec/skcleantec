@@ -490,11 +490,12 @@ export interface OrderFormIssueFormData {
 /** 관리자/마케터: 발급 화면에 인라인으로 띄울 선택 양식의 폼 데이터(주문 생성 전) */
 export async function getOrderFormIssueForm(
   authToken: string,
-  params?: { templateId?: string; pendingInquiryId?: string }
+  params?: { templateId?: string; pendingInquiryId?: string; telecrm?: boolean }
 ): Promise<OrderFormIssueFormData> {
   const qs = new URLSearchParams();
   if (params?.templateId?.trim()) qs.set('templateId', params.templateId.trim());
   if (params?.pendingInquiryId?.trim()) qs.set('pendingInquiryId', params.pendingInquiryId.trim());
+  if (params?.telecrm) qs.set('telecrm', '1');
   const q = qs.toString();
   const res = await fetch(`${API}/orderforms/issue-form${q ? `?${q}` : ''}`, {
     headers: headers(authToken),

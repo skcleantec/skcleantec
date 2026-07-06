@@ -1,4 +1,8 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import {
+  TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY,
+  TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_META,
+} from '../../lib/telecrmConsultationQuote.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -135,4 +139,44 @@ export function sanitizeCustomAnswers(
     void field;
   }
   return out;
+}
+
+/** 텔레CRM 발주 연동 — 견적 내역 커스텀 필드가 없으면 템플릿 끝에 추가(idempotent). */
+export async function ensureCrmQuoteBreakdownTemplateField(
+  db: Db,
+  tenantId: string,
+  templateId: string,
+): Promise<boolean> {
+  const existing = await db.orderFormTemplateField.findFirst({
+    where: {
+      tenantId,
+      templateId,
+      fieldKey: TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY,
+    },
+    select: { id: true },
+  });
+  if (existing) return false;
+
+  const maxSort = await db.orderFormTemplateField.aggregate({
+    where: { tenantId, templateId },
+    _max: { sortOrder: true },
+  });
+  const meta = TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_META;
+  await db.orderFormTemplateField.create({
+    data: {
+      tenantId,
+      templateId,
+      fieldKey: meta.fieldKey,
+      label: meta.label,
+      helpText: meta.helpText,
+      inputType: meta.inputType as Prisma.OrderFormTemplateFieldCreateInput['inputType'],
+      options: [],
+      placeholder: meta.placeholder,
+      required: meta.required,
+      sortOrder: (maxSort._max.sortOrder ?? -1) + 1,
+      systemField: null,
+      fillMode: meta.fillMode as Prisma.OrderFormTemplateFieldCreateInput['fillMode'],
+    },
+  });
+  return true;
 }

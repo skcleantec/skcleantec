@@ -1,3 +1,5 @@
+import type { TelecrmConsultationQuoteDto } from './telecrmConsultationQuote';
+
 const API = '/api/crm';
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -129,6 +131,7 @@ export type TelecrmCustomerLookupDto = {
     memo: string | null;
     inquiryId: string | null;
   }[];
+  latestQuote: TelecrmConsultationQuoteDto | null;
 };
 
 export async function fetchTelecrmCustomerLookup(

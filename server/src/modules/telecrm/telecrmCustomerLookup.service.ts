@@ -4,6 +4,10 @@ import {
   serializeTelecrmInquiryBrief,
   telecrmInquiryBriefSelect,
 } from './telecrmInquiryBrief.helpers.js';
+import {
+  getLatestTelecrmConsultationQuoteSummary,
+  type TelecrmConsultationQuoteDto,
+} from './telecrmConsultationQuote.service.js';
 
 function phonesMatch(a: string, b: string): boolean {
   const da = normalizeKrPhoneDigits(a);
@@ -59,6 +63,7 @@ export type TelecrmCustomerLookupResult = {
     memo: string | null;
     inquiryId: string | null;
   }[];
+  latestQuote: TelecrmConsultationQuoteDto | null;
 };
 
 function emptyResult(
@@ -73,6 +78,7 @@ function emptyResult(
     inquiries: [],
     followups: [],
     csReports: [],
+    latestQuote: null,
   };
 }
 
@@ -138,7 +144,7 @@ async function resolveTelecrmCustomerByPhone(
 
   const last4 = phoneDigits.slice(-4);
 
-  const [inquiryRows, followupRows, csRows] = await Promise.all([
+  const [inquiryRows, followupRows, csRows, latestQuote] = await Promise.all([
     prisma.inquiry.findMany({
       where: {
         tenantId,
@@ -178,6 +184,7 @@ async function resolveTelecrmCustomerByPhone(
         inquiryId: true,
       },
     }),
+    getLatestTelecrmConsultationQuoteSummary(tenantId, phoneDigits),
   ]);
 
   const inquiries = inquiryRows
@@ -217,7 +224,8 @@ async function resolveTelecrmCustomerByPhone(
       inquiryId: row.inquiryId,
     }));
 
-  const hasData = inquiries.length > 0 || followups.length > 0 || csReports.length > 0;
+  const hasData =
+    inquiries.length > 0 || followups.length > 0 || csReports.length > 0 || latestQuote != null;
   const latestInquiry = inquiries[0];
   const latestFollowup = followups[0];
 
@@ -241,6 +249,7 @@ async function resolveTelecrmCustomerByPhone(
     inquiries,
     followups,
     csReports,
+    latestQuote,
   };
 }
 
@@ -332,6 +341,7 @@ async function searchTelecrmCustomerByName(
     inquiries: [],
     followups: [],
     csReports: [],
+    latestQuote: null,
   };
 }
 

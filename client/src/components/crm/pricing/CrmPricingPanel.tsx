@@ -23,23 +23,12 @@ import {
   countOrderOptionTreeItems,
   type OrderOptionTreeNode,
 } from './crmOrderOptionTree';
+import type { CrmPricingQuoteLine } from '../../../utils/crmConsultationQuoteMap';
+import { CrmQuoteRestoreBanner } from './CrmQuoteRestoreBanner';
+import type { TelecrmConsultationQuoteDto } from '../../../api/telecrmConsultationQuote';
 
 /** 업체 공통에 표시하는 가상 카테고리 — 발주 전문시공 옵션 */
 const ORDERFORM_CATEGORY_ID = '__telecrm_orderform__';
-
-type QuoteLineSource = 'telecrm' | 'order';
-
-type QuoteLine = {
-  key: string;
-  label: string;
-  sublabel?: string;
-  source: QuoteLineSource;
-  /** 카탈로그 기본 금액(원) */
-  catalogAmountWon: number | null;
-  /** 안내에 쓰는 금액 — 마케터가 수정 가능 */
-  amountWon: number | null;
-  priceHint?: string | null;
-};
 
 function formatOrderOptionPrice(row: TelecrmOrderOptionDto): string {
   const parts: string[] = [];
@@ -63,7 +52,7 @@ function parseAmountInput(raw: string): number | null {
   return Math.floor(num);
 }
 
-function formatQuoteLineCopy(line: QuoteLine): string {
+function formatQuoteLineCopy(line: CrmPricingQuoteLine): string {
   const pricePart =
     line.amountWon != null ? formatWon(line.amountWon) : line.priceHint?.trim() || '—';
   if (line.source === 'order') {
@@ -158,11 +147,35 @@ function OrderOptionTreeSection({
 export function CrmPricingPanel({
   pyeong,
   onPyeongChange,
+  quoteLines,
+  onQuoteLinesChange,
+  pendingQuote = null,
+  onLoadPendingQuote,
+  onDismissPendingQuote,
+  onStartFreshQuote,
+  quoteSaveError = null,
+  quoteSaving = false,
+  canFinalizeHold = false,
+  onFinalizeHold,
+  quoteFinalizing = false,
+  quoteFinalizeError = null,
   refreshKey = 0,
   onOpenSettings,
 }: {
   pyeong: string;
   onPyeongChange: (v: string) => void;
+  quoteLines: CrmPricingQuoteLine[];
+  onQuoteLinesChange: (lines: CrmPricingQuoteLine[]) => void;
+  pendingQuote?: TelecrmConsultationQuoteDto | null;
+  onLoadPendingQuote?: () => void;
+  onDismissPendingQuote?: () => void;
+  onStartFreshQuote?: () => void;
+  quoteSaveError?: string | null;
+  quoteSaving?: boolean;
+  canFinalizeHold?: boolean;
+  onFinalizeHold?: () => void;
+  quoteFinalizing?: boolean;
+  quoteFinalizeError?: string | null;
   refreshKey?: number;
   onOpenSettings?: () => void;
 }) {
@@ -175,10 +188,11 @@ export function CrmPricingPanel({
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [quoteLines, setQuoteLines] = useState<QuoteLine[]>([]);
   const [copiedAll, setCopiedAll] = useState(false);
   const [expandedOrderGroups, setExpandedOrderGroups] = useState<Set<string>>(() => new Set());
   const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
+
+  const setQuoteLines = onQuoteLinesChange;
 
   const loadCatalog = useCallback(async () => {
     if (!token) return;
@@ -261,19 +275,20 @@ export function CrmPricingPanel({
 
   const addOrderOptionToQuote = useCallback((row: TelecrmOrderOptionDto) => {
     const catalogAmount = orderOptionAmount(row);
-    setQuoteLines((prev) => [
-      ...prev,
+    setQuoteLines([
+      ...quoteLines,
       {
         key: `order:${row.id}:${Date.now()}`,
         label: row.emoji ? `${row.emoji} ${row.label}` : row.label,
         sublabel: row.labelPath,
         source: 'order',
+        optionId: row.id,
         catalogAmountWon: catalogAmount,
         amountWon: catalogAmount,
         priceHint: row.priceHint,
       },
     ]);
-  }, []);
+  }, [quoteLines, setQuoteLines]);
 
   const activeCategory = useMemo(() => {
     if (isOrderformCategory) return null;
@@ -301,30 +316,34 @@ export function CrmPricingPanel({
     [expandedOrderGroups, searchExpanded],
   );
 
-  const updateQuoteLineAmount = useCallback((key: string, raw: string) => {
-    setAmountDrafts((prev) => ({ ...prev, [key]: raw }));
-    const parsed = parseAmountInput(raw);
-    if (raw.trim() !== '' && parsed === null) return;
-    setQuoteLines((prev) =>
-      prev.map((line) => (line.key === key ? { ...line, amountWon: parsed } : line)),
-    );
-  }, []);
+  const updateQuoteLineAmount = useCallback(
+    (key: string, raw: string) => {
+      setAmountDrafts((prev) => ({ ...prev, [key]: raw }));
+      const parsed = parseAmountInput(raw);
+      if (raw.trim() !== '' && parsed === null) return;
+      setQuoteLines(quoteLines.map((line) => (line.key === key ? { ...line, amountWon: parsed } : line)));
+    },
+    [quoteLines, setQuoteLines],
+  );
 
-  const resetQuoteLineAmount = useCallback((key: string) => {
-    setQuoteLines((prev) => {
-      const line = prev.find((l) => l.key === key);
-      if (!line) return prev;
+  const resetQuoteLineAmount = useCallback(
+    (key: string) => {
+      const line = quoteLines.find((l) => l.key === key);
+      if (!line) return;
       setAmountDrafts((drafts) => {
         const next = { ...drafts };
         if (line.catalogAmountWon != null) next[key] = String(line.catalogAmountWon);
         else delete next[key];
         return next;
       });
-      return prev.map((l) => (l.key === key ? { ...l, amountWon: l.catalogAmountWon } : l));
-    });
-  }, []);
+      setQuoteLines(
+        quoteLines.map((l) => (l.key === key ? { ...l, amountWon: l.catalogAmountWon } : l)),
+      );
+    },
+    [quoteLines, setQuoteLines],
+  );
 
-  const amountInputValue = (line: QuoteLine): string => {
+  const amountInputValue = (line: CrmPricingQuoteLine): string => {
     if (line.key in amountDrafts) return amountDrafts[line.key] ?? '';
     if (line.amountWon != null) return String(line.amountWon);
     return '';
@@ -338,19 +357,20 @@ export function CrmPricingPanel({
         sublabel: item.description ?? undefined,
         price: formatWon(item.amountWon),
         onAdd: () => {
-          setQuoteLines((prev) => [
-            ...prev,
+          setQuoteLines([
+            ...quoteLines,
             {
               key: `item:${item.id}:${Date.now()}`,
               label: item.name,
               source: 'telecrm',
+              itemId: item.id,
               catalogAmountWon: item.amountWon,
               amountWon: item.amountWon,
             },
           ]);
         },
       }));
-    }, [activeCategory?.items]);
+    }, [activeCategory?.items, quoteLines, setQuoteLines]);
 
   const buildQuoteCopyText = useCallback(() => {
     const lines: string[] = [];
@@ -391,7 +411,7 @@ export function CrmPricingPanel({
       </CrmChip>
     ));
 
-  const renderQuoteAmountEditor = (line: QuoteLine): ReactNode => {
+  const renderQuoteAmountEditor = (line: CrmPricingQuoteLine): ReactNode => {
     const showReset =
       line.catalogAmountWon !== line.amountWon ||
       (line.catalogAmountWon == null && line.amountWon != null);
@@ -436,6 +456,23 @@ export function CrmPricingPanel({
       bodyClassName="p-0"
     >
       <div className="flex min-h-0 flex-1 flex-col">
+        {pendingQuote && onLoadPendingQuote && onDismissPendingQuote && onStartFreshQuote ? (
+          <CrmQuoteRestoreBanner
+            quote={pendingQuote}
+            onLoad={onLoadPendingQuote}
+            onDismiss={onDismissPendingQuote}
+            onStartFresh={onStartFreshQuote}
+          />
+        ) : null}
+        {quoteSaveError ? (
+          <p className="shrink-0 border-b border-red-100 bg-red-50 px-2 py-1 text-[10px] text-red-700">{quoteSaveError}</p>
+        ) : null}
+        {quoteSaving ? (
+          <p className="shrink-0 border-b border-amber-50 px-2 py-0.5 text-[9px] text-amber-700/80">견적 저장 중…</p>
+        ) : null}
+        {quoteFinalizeError ? (
+          <p className="shrink-0 border-b border-red-100 bg-red-50 px-2 py-1 text-[10px] text-red-700">{quoteFinalizeError}</p>
+        ) : null}
         <div className={`shrink-0 space-y-1.5 border-b border-amber-100/80 px-2 py-1.5 ${CRM_ACCENT.pricing.panel}`}>
           <div className="relative">
             <CrmIconSearch className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-amber-600/70" />
@@ -571,7 +608,7 @@ export function CrmPricingPanel({
                     <button
                       type="button"
                       title="제거"
-                      onClick={() => setQuoteLines((prev) => prev.filter((l) => l.key !== line.key))}
+                      onClick={() => setQuoteLines(quoteLines.filter((l) => l.key !== line.key))}
                       className="shrink-0 rounded px-0.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
                     >
                       ×
@@ -586,34 +623,47 @@ export function CrmPricingPanel({
             </div>
           )}
 
-          <div className="flex items-center gap-2 px-2 py-1.5">
+          <div className="flex flex-col gap-1.5 px-2 py-1.5 sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1">
               <p className="text-[9px] font-semibold text-amber-900/70">합계</p>
               <p className="text-sm font-bold tabular-nums text-amber-900">
                 {grandTotal != null ? formatWon(grandTotal) : '—'}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void copyAll()}
-              disabled={grandTotal == null && quoteLines.length === 0}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-300/80 bg-white px-2 py-1 text-[10px] font-semibold text-amber-900 transition-colors hover:bg-amber-50 disabled:opacity-40"
-            >
-              <CrmIconCopy className="h-3 w-3" />
-              {copiedAll ? '복사됨' : '전체 복사'}
-            </button>
-            {quoteLines.length > 0 ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-1">
+              {canFinalizeHold && onFinalizeHold ? (
+                <button
+                  type="button"
+                  onClick={onFinalizeHold}
+                  disabled={quoteFinalizing || (grandTotal == null && quoteLines.length === 0 && estimatedBase == null)}
+                  className="inline-flex items-center rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+                  title="견적 확정 + 부재/보류 등록 (처리구분: 부재·보류)"
+                >
+                  {quoteFinalizing ? '저장 중…' : '견적 저장 · 보류'}
+                </button>
+              ) : null}
               <button
                 type="button"
-                onClick={() => {
-                  setQuoteLines([]);
-                  setAmountDrafts({});
-                }}
-                className="shrink-0 text-[10px] text-gray-500 underline hover:text-gray-800"
+                onClick={() => void copyAll()}
+                disabled={grandTotal == null && quoteLines.length === 0}
+                className="inline-flex items-center gap-1 rounded-md border border-amber-300/80 bg-white px-2 py-1 text-[10px] font-semibold text-amber-900 transition-colors hover:bg-amber-50 disabled:opacity-40"
               >
-                비우기
+                <CrmIconCopy className="h-3 w-3" />
+                {copiedAll ? '복사됨' : '전체 복사'}
               </button>
-            ) : null}
+              {quoteLines.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuoteLines([]);
+                    setAmountDrafts({});
+                  }}
+                  className="text-[10px] text-gray-500 underline hover:text-gray-800"
+                >
+                  비우기
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

@@ -1,6 +1,11 @@
 import { createOrderFollowup } from '../../../api/orderFollowups';
 import { createInquiry } from '../../../api/inquiries';
+import { finalizeTelecrmConsultationQuote } from '../../../api/telecrmConsultationQuote';
 import type { OrderFollowupStatus } from '../../../constants/orderFollowupStatus';
+import {
+  telecrmQuotePayloadHasContent,
+  type TelecrmConsultationQuotePayload,
+} from '@shared/telecrmConsultationQuote';
 import { parseCrmIntakePyeong, resolveCrmIntakeCustomerName, validateCrmIntakeForm } from './crmIntakeValidation';
 
 export type CrmIntakeKind =
@@ -38,6 +43,7 @@ export async function submitCrmIntake(
   token: string,
   values: CrmIntakeFormValues,
   pyeong: string,
+  opts?: { quotePayload?: TelecrmConsultationQuotePayload | null },
 ): Promise<CrmIntakeSubmitResult> {
   const validationError = validateCrmIntakeForm(values, pyeong);
   if (validationError) throw new Error(validationError);
@@ -50,6 +56,23 @@ export async function submitCrmIntake(
   if (values.kind === 'requested' || values.kind === 'absent' || values.kind === 'hold') {
     const status: OrderFollowupStatus =
       values.kind === 'requested' ? 'REQUESTED' : values.kind === 'absent' ? 'ABSENT' : 'ON_HOLD';
+    const quotePayload = opts?.quotePayload;
+    if (
+      (values.kind === 'absent' || values.kind === 'hold') &&
+      quotePayload &&
+      telecrmQuotePayloadHasContent(quotePayload)
+    ) {
+      await finalizeTelecrmConsultationQuote(token, {
+        phone: values.phone.trim(),
+        payload: quotePayload,
+        customerName: n,
+        nickname: values.nickname.trim() || null,
+        goldDb: values.goldDb,
+        ...(pmd ? { preferredMoveInCleaningDate: pmd } : {}),
+        followupStatus: status as 'ABSENT' | 'ON_HOLD',
+      });
+      return { kind: 'followup' };
+    }
     await createOrderFollowup(token, {
       customerName: n,
       nickname: values.nickname.trim() || null,

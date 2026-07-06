@@ -16,7 +16,7 @@ export type FollowupWithRelations = Prisma.OrderFollowupGetPayload<{
 }>;
 
 export async function appendFollowupLog(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   params: { followupId: string; actorId: string; action: string; detail?: string | null }
 ): Promise<OrderFollowupLog> {
   return prisma.orderFollowupLog.create({

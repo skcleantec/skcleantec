@@ -20,7 +20,7 @@ import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsD
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
 import { useCrmPanelUrl } from '../../../hooks/useCrmPanelUrl';
 import type { CrmOrderIssueSeed } from '../../../components/orderform/OrderIssueInlinePanel';
-import { crmIntakeRequiredPermission } from '../../../components/crm/intake/crmIntakeValidation';
+import { crmIntakeRequiredPermission, resolveCrmIntakeCustomerName } from '../../../components/crm/intake/crmIntakeValidation';
 import type { CrmIntakeKind } from '../../../components/crm/intake/crmIntakeSubmit';
 import {
   clearCrmIntakeDraft,
@@ -30,6 +30,17 @@ import {
   type CrmIntakeFormSnapshot,
 } from '../../../utils/crmIntakeDraft';
 import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
+import { useCrmConsultationQuote } from '../../../hooks/useCrmConsultationQuote';
+import { telecrmQuotePayloadHasContent } from '@shared/telecrmConsultationQuote';
+import {
+  crmQuoteGrandTotalWon,
+  crmQuoteLinesFromPayload,
+  crmQuotePayloadFromState,
+  crmQuoteProfessionalOptionIdsFromLines,
+  type CrmPricingQuoteLine,
+} from '../../../utils/crmConsultationQuoteMap';
+import { linkTelecrmConsultationQuoteInquiry } from '../../../api/telecrmConsultationQuote';
+import type { OrderForm } from '../../../api/orderform';
 
 export function CrmPage() {
   const [searchParams] = useSearchParams();
@@ -53,6 +64,8 @@ export function CrmPage() {
   const [phone, setPhone] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [pyeong, setPyeong] = useState('');
+  const [quoteLines, setQuoteLines] = useState<CrmPricingQuoteLine[]>([]);
+  const [intakeKind, setIntakeKind] = useState<CrmIntakeKind>('absent');
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
   const [minimumTotalAmount, setMinimumTotalAmount] = useState(0);
   const [depositAmount, setDepositAmount] = useState(0);
@@ -198,9 +211,10 @@ export function CrmPage() {
     (snapshot: CrmIntakeFormSnapshot) => {
       formSnapshotRef.current = snapshot;
       if (snapshot.customerName !== customerName) setCustomerName(snapshot.customerName);
+      if (snapshot.kind !== intakeKind) setIntakeKind(snapshot.kind);
       persistDraft(snapshot);
     },
-    [customerName, persistDraft],
+    [customerName, intakeKind, persistDraft],
   );
 
   const handleModeChange = useCallback((next: CrmCustomerMode) => {
@@ -239,6 +253,84 @@ export function CrmPage() {
     return computeEstimateTotalFromPyeong(pyeongNum, pricePerPyeong, minimumTotalAmount);
   }, [pyeongNum, pricePerPyeong, minimumTotalAmount]);
 
+  const quotePayload = useMemo(
+    () =>
+      crmQuotePayloadFromState({
+        pyeong,
+        pricePerPyeong,
+        minimumTotalAmount,
+        quoteLines,
+      }),
+    [pyeong, pricePerPyeong, minimumTotalAmount, quoteLines],
+  );
+  const quoteGrandTotal = crmQuoteGrandTotalWon(quotePayload);
+
+  const {
+    pendingQuote,
+    dismissPendingQuote,
+    startFreshQuote,
+    saveError: quoteSaveError,
+    saving: quoteSaving,
+    finalizing: quoteFinalizing,
+    finalizeError: quoteFinalizeError,
+    finalizeQuoteHold,
+  } = useCrmConsultationQuote({
+    phone,
+    pyeong,
+    pricePerPyeong,
+    minimumTotalAmount,
+    quoteLines,
+    hasLocalContent: telecrmQuotePayloadHasContent(quotePayload),
+  });
+
+  const applyPendingQuote = useCallback(() => {
+    if (!pendingQuote) return;
+    setPyeong(pendingQuote.payload.pyeong);
+    setQuoteLines(crmQuoteLinesFromPayload(pendingQuote.payload));
+    dismissPendingQuote();
+  }, [pendingQuote, dismissPendingQuote]);
+
+  const handleStartFreshQuote = useCallback(async () => {
+    setQuoteLines([]);
+    await startFreshQuote();
+  }, [startFreshQuote]);
+
+  const canFinalizeQuoteHold =
+    (permissions.me?.role === 'ADMIN' || permissions.has('followup.edit')) &&
+    (intakeKind === 'absent' || intakeKind === 'hold') &&
+    phone.replace(/\D/g, '').length >= 4 &&
+    telecrmQuotePayloadHasContent(quotePayload);
+
+  const handleFinalizeQuoteHold = useCallback(async () => {
+    const form = formSnapshotRef.current;
+    if (!form) return;
+    const kind = form.kind;
+    if (kind !== 'absent' && kind !== 'hold') return;
+    try {
+      const result = await finalizeQuoteHold({
+        customerName: resolveCrmIntakeCustomerName({
+          customerName: form.customerName,
+          nickname: form.nickname,
+          phone,
+        }),
+        nickname: form.nickname.trim() || null,
+        goldDb: form.goldDb,
+        preferredMoveInCleaningDate: form.preferredMoveInCleanYmd.trim() || null,
+        followupStatus: kind === 'absent' ? 'ABSENT' : 'ON_HOLD',
+      });
+      handleIntakeSaved();
+      showDispatchNotice(
+        result.followupCreated
+          ? '견적 저장 · 부재/보류 등록되었습니다.'
+          : '견적 저장 · 기존 부재/보류가 갱신되었습니다.',
+      );
+    } catch {
+      /* finalizeError in hook */
+    }
+  }, [finalizeQuoteHold, handleIntakeSaved, phone, showDispatchNotice]);
+
+  const scriptEstimateWon = quoteGrandTotal ?? estimateWon;
+
   useEffect(() => {
     if (catalogRefreshKey === 0) return;
     const token = getToken();
@@ -257,8 +349,29 @@ export function CrmPage() {
     setCatalogRefreshKey((k) => k + 1);
   }, [closePanel]);
 
+  const handleOrderIssued = useCallback(
+    async (order: OrderForm) => {
+      setLookupRefreshKey((k) => k + 1);
+      if (!telecrmQuotePayloadHasContent(quotePayload)) return;
+      const token = getToken();
+      const digits = phone.replace(/\D/g, '');
+      if (!token || digits.length < 4) return;
+      try {
+        await linkTelecrmConsultationQuoteInquiry(token, {
+          phone: digits,
+          orderFormId: order.id,
+          inquiryId: issuePendingInquiryId?.trim() || undefined,
+        });
+      } catch {
+        /* 견적 연결 실패는 발주서 발급 자체를 막지 않음 */
+      }
+    },
+    [issuePendingInquiryId, phone, quotePayload],
+  );
+
   const issueSeed = useMemo((): CrmOrderIssueSeed => {
     const form = formSnapshotRef.current;
+    const profIds = crmQuoteProfessionalOptionIdsFromLines(quoteLines);
     return {
       customerName: form?.customerName?.trim() || customerName.trim() || undefined,
       customerPhone: phone.trim() || undefined,
@@ -266,10 +379,27 @@ export function CrmPage() {
       areaBasis: pyeong.trim() ? '공급' : undefined,
       address: form?.address?.trim() || undefined,
       preferredDate: form?.preferredMoveInCleanYmd?.trim() || undefined,
-      totalAmount: estimateWon != null ? String(estimateWon) : undefined,
+      totalAmount:
+        quoteGrandTotal != null
+          ? String(quoteGrandTotal)
+          : estimateWon != null
+            ? String(estimateWon)
+            : undefined,
       depositAmount: depositAmount > 0 ? String(depositAmount) : undefined,
+      ...(profIds.length > 0 ? { professionalOptionIds: profIds } : {}),
+      ...(quotePayload.copyText.trim() ? { crmQuoteBreakdown: quotePayload.copyText } : {}),
     };
-  }, [customerName, phone, pyeong, depositAmount, estimateWon, isIssueOpen]);
+  }, [
+    customerName,
+    phone,
+    pyeong,
+    depositAmount,
+    estimateWon,
+    quoteGrandTotal,
+    quoteLines,
+    quotePayload.copyText,
+    isIssueOpen,
+  ]);
 
   if (!getToken()) {
     return (
@@ -429,6 +559,7 @@ export function CrmPage() {
                 onDispatchNotice={showDispatchNotice}
                 onContextChange={setCrmContext}
                 formResetKey={formResetKey}
+                quotePayload={telecrmQuotePayloadHasContent(quotePayload) ? quotePayload : null}
               />
             </div>
           }
@@ -436,7 +567,7 @@ export function CrmPage() {
             <CrmScriptPanel
               customerName={customerName || undefined}
               pyeong={pyeong || undefined}
-              estimateWon={estimateWon}
+              estimateWon={scriptEstimateWon}
               refreshKey={catalogRefreshKey}
               onOpenSettings={
                 canOpenSettings
@@ -449,6 +580,18 @@ export function CrmPage() {
             <CrmPricingPanel
               pyeong={pyeong}
               onPyeongChange={setPyeong}
+              quoteLines={quoteLines}
+              onQuoteLinesChange={setQuoteLines}
+              pendingQuote={pendingQuote}
+              onLoadPendingQuote={applyPendingQuote}
+              onDismissPendingQuote={dismissPendingQuote}
+              onStartFreshQuote={() => void handleStartFreshQuote()}
+              quoteSaveError={quoteSaveError}
+              quoteSaving={quoteSaving}
+              canFinalizeHold={canFinalizeQuoteHold}
+              onFinalizeHold={() => void handleFinalizeQuoteHold()}
+              quoteFinalizing={quoteFinalizing}
+              quoteFinalizeError={quoteFinalizeError}
               refreshKey={catalogRefreshKey}
               onOpenSettings={
                 canOpenSettings
@@ -477,7 +620,7 @@ export function CrmPage() {
             pendingInquiryId={issuePendingInquiryId || undefined}
             crmSeed={issueSeed}
             onClose={closePanel}
-            onIssued={() => setLookupRefreshKey((k) => k + 1)}
+            onIssued={(order) => void handleOrderIssued(order)}
           />
         ) : null}
         {dispatchNotice ? (
@@ -491,7 +634,7 @@ export function CrmPage() {
           phone={phone}
           customerName={customerName || undefined}
           pyeong={pyeong || undefined}
-          estimateWon={estimateWon}
+          estimateWon={scriptEstimateWon}
           inquiryId={crmContext.inquiryId}
           customerMatch={crmContext.customerMatch}
           onDispatchNotice={showDispatchNotice}

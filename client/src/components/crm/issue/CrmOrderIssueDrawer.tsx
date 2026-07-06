@@ -1,5 +1,6 @@
 import { CrmDrawerShell } from '../layout/CrmDrawerShell';
 import { OrderIssueInlinePanel, type CrmOrderIssueSeed } from '../../orderform/OrderIssueInlinePanel';
+import type { OrderForm } from '../../../api/orderform';
 
 export function CrmOrderIssueDrawer({
   open,
@@ -12,7 +13,7 @@ export function CrmOrderIssueDrawer({
   pendingInquiryId?: string;
   crmSeed?: CrmOrderIssueSeed;
   onClose: () => void;
-  onIssued?: () => void;
+  onIssued?: (order: OrderForm) => void;
 }) {
   return (
     <CrmDrawerShell

@@ -8,6 +8,7 @@ import { ORDER_FOLLOWUP_STATUS_LABEL, type OrderFollowupStatus } from '../../../
 import { INQUIRY_STATUS_LABELS } from '../../inquiries/inquiriesUiParts';
 import { CrmActionButton, CrmIconSearch, CrmIconUser, CrmSectionLabel } from '../crmUi';
 import { CrmInquiryBriefPanel } from './CrmInquiryBriefPanel';
+import { formatTelecrmQuoteWon } from '@shared/telecrmConsultationQuote';
 
 function fmtDate(iso: string): string {
   try {
@@ -130,10 +131,23 @@ export function CrmCustomerHistoryPanel({
 
   if (data.match === 'new') {
     return (
-      <div className="rounded-xl border border-dashed border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-teal-50/40 p-4 text-fluid-sm text-emerald-900">
-        {data.searchBy === 'name'
-          ? '이 이름으로 등록된 이력이 없습니다. 신규 접수를 진행하세요.'
-          : '이 연락처로 등록된 이력이 없습니다. 신규 접수를 진행하세요.'}
+      <div className="space-y-3">
+        <div className="rounded-xl border border-dashed border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-teal-50/40 p-4 text-fluid-sm text-emerald-900">
+          {data.searchBy === 'name'
+            ? '이 이름으로 등록된 이력이 없습니다. 신규 접수를 진행하세요.'
+            : '이 연락처로 등록된 이력이 없습니다. 신규 접수를 진행하세요.'}
+        </div>
+        {data.latestQuote ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] text-amber-950">
+            <p className="font-semibold">저장된 견적 · {fmtDate(data.latestQuote.updatedAt)}</p>
+            {data.latestQuote.payload.grandTotalWon != null ? (
+              <p className="tabular-nums">{formatTelecrmQuoteWon(data.latestQuote.payload.grandTotalWon)}</p>
+            ) : null}
+            {data.latestQuote.updatedByName ? (
+              <p className="text-amber-800/70">작성: {data.latestQuote.updatedByName}</p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -162,6 +176,19 @@ export function CrmCustomerHistoryPanel({
           </div>
         </div>
       </div>
+
+      {data.latestQuote ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] text-amber-950">
+          <p className="font-semibold">최근 견적 · {fmtDate(data.latestQuote.updatedAt)}</p>
+          {data.latestQuote.payload.grandTotalWon != null ? (
+            <p className="tabular-nums">{formatTelecrmQuoteWon(data.latestQuote.payload.grandTotalWon)}</p>
+          ) : null}
+          {data.latestQuote.updatedByName ? (
+            <p className="text-amber-800/70">작성: {data.latestQuote.updatedByName}</p>
+          ) : null}
+          <p className="mt-0.5 text-amber-800/70">가격 안내 패널에서 불러오기할 수 있습니다.</p>
+        </div>
+      ) : null}
 
       {selectedInquiry ? (
         <CrmInquiryBriefPanel inquiry={selectedInquiry} onOpenDetail={() => onSelectInquiry(selectedInquiry)} />

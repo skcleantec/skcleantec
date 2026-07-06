@@ -169,6 +169,7 @@ model Tenant {
   telecrmCallSessions TelecrmCallSession[]
   telecrmSmsTemplates TelecrmSmsTemplate[]
   telecrmCallNotes    TelecrmCallNote[]
+  telecrmConsultationQuotes TelecrmConsultationQuote[]
 
   @@map("tenants")
 }
@@ -640,6 +641,8 @@ model User {
   telecrmCallSessions          TelecrmCallSession[]
   telecrmSmsTemplatesOwned     TelecrmSmsTemplate[] @relation("TelecrmSmsTemplateOwner")
   telecrmCallNotes             TelecrmCallNote[]
+  telecrmConsultationQuotesCreated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteCreatedBy")
+  telecrmConsultationQuotesUpdated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteUpdatedBy")
 
   @@unique([tenantId, email])
   @@unique([tenantId, platformSupportAccessId])
@@ -1202,6 +1205,7 @@ model Inquiry {
   customCalendarInquiryPins UserCustomCalendarInquiryPin[]
   telecrmCallSessions       TelecrmCallSession[]
   telecrmCallNotes          TelecrmCallNote[]
+  telecrmConsultationQuotes TelecrmConsultationQuote[]
 
   @@index([createdAt])
   @@index([preferredDate])
@@ -2160,6 +2164,7 @@ model OrderFollowup {
   createdBy       User       @relation("OrderFollowupCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   handledBy       User?      @relation("OrderFollowupHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
   logs              OrderFollowupLog[]
+  telecrmConsultationQuotes TelecrmConsultationQuote[]
 
   @@index([tenantId, status, updatedAt])
   @@index([status, updatedAt])
@@ -2759,4 +2764,37 @@ model TelecrmCallNote {
 
   @@index([tenantId, userId, phone, createdAt(sort: Desc)])
   @@map("telecrm_call_notes")
+}
+
+enum TelecrmConsultationQuoteStatus {
+  DRAFT
+  QUOTED
+  ORDER_ISSUED
+  SUPERSEDED
+}
+
+/// 텔레CRM — 상담 견적 스냅샷 (연락처 기준 · 테넌트 공유)
+model TelecrmConsultationQuote {
+  id          String                         @id @default(uuid())
+  tenantId    String                         @map("tenant_id")
+  tenant      Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phone       String                         @db.VarChar(32)
+  status      TelecrmConsultationQuoteStatus @default(DRAFT)
+  payload     Json
+  followupId  String?                        @map("followup_id")
+  followup    OrderFollowup?                 @relation(fields: [followupId], references: [id], onDelete: SetNull)
+  inquiryId   String?                        @map("inquiry_id")
+  inquiry     Inquiry?                       @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  createdById String                         @map("created_by_id")
+  createdBy   User                           @relation("TelecrmConsultationQuoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedById String                         @map("updated_by_id")
+  updatedBy   User                           @relation("TelecrmConsultationQuoteUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  createdAt   DateTime                       @default(now()) @map("created_at")
+  updatedAt   DateTime                       @updatedAt @map("updated_at")
+
+  @@index([tenantId, phone, updatedAt(sort: Desc)])
+  @@index([tenantId, status, phone])
+  @@index([tenantId, followupId])
+  @@index([tenantId, inquiryId])
+  @@map("telecrm_consultation_quotes")
 }

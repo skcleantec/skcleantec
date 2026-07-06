@@ -30,6 +30,10 @@ export type CrmOrderIssueSeed = {
   preferredDate?: string;
   totalAmount?: string;
   depositAmount?: string;
+  /** CRM 견적 — source=order 전문시공 (수동 단가 포함) */
+  professionalOptionIds?: Array<{ id: string; quantity?: number; unitAmount?: number | null }>;
+  /** CRM 견적 항목별 내역 — 발주서 커스텀 필드 `crmQuoteBreakdown` prefill */
+  crmQuoteBreakdown?: string;
 };
 
 export function OrderIssueInlinePanel({
@@ -40,7 +44,7 @@ export function OrderIssueInlinePanel({
 }: {
   pendingInquiryId?: string;
   crmSeed?: CrmOrderIssueSeed;
-  onIssued?: () => void;
+  onIssued?: (order: OrderForm) => void;
   compact?: boolean;
 }) {
   const token = getToken();
@@ -171,7 +175,7 @@ export function OrderIssueInlinePanel({
       setNewOrder(order);
       setPendingLinkId('');
       setIssueFormKey((k) => k + 1);
-      onIssued?.();
+      onIssued?.(order);
       requestAnimationFrame(() => {
         completeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });

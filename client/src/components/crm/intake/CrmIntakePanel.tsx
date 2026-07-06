@@ -5,6 +5,7 @@ import type {
   TelecrmInquiryBriefDto,
 } from '../../../api/telecrm';
 import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
+import type { TelecrmConsultationQuotePayload } from '@shared/telecrmConsultationQuote';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
 import { CrmIconIntake, CrmIconPhone, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldCompactClass } from '../crmUi';
@@ -98,6 +99,7 @@ export function CrmIntakePanel({
   onDispatchNotice,
   onContextChange,
   formResetKey = 0,
+  quotePayload = null,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
@@ -118,6 +120,7 @@ export function CrmIntakePanel({
   onDispatchNotice?: (message: string) => void;
   onContextChange?: (ctx: { inquiryId: string | null; customerMatch: 'new' | 'existing' | 'pick' | 'unknown' }) => void;
   formResetKey?: number;
+  quotePayload?: TelecrmConsultationQuotePayload | null;
 }) {
   const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
   const [nameSearch, setNameSearch] = useState('');
@@ -357,6 +360,7 @@ export function CrmIntakePanel({
             canSubmitKind={canSubmitKind}
             permissionsLoading={permissionsLoading}
             formResetKey={formResetKey}
+            quotePayload={quotePayload}
           />
         </div>
 

@@ -80,6 +80,7 @@ import {
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
 import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
 import {
+  ensureCrmQuoteBreakdownTemplateField,
   getPublicTemplateForForm,
   resolveIssueTemplate,
   sanitizeCustomAnswers,
@@ -1378,6 +1379,7 @@ router.get('/issue-form', authMiddleware, requireStaffPermission('orderform.issu
   const templateIdRaw = typeof req.query.templateId === 'string' ? req.query.templateId : undefined;
   const pendingInquiryId =
     typeof req.query.pendingInquiryId === 'string' ? req.query.pendingInquiryId.trim() : '';
+  const fromTelecrm = req.query.telecrm === '1' || req.query.telecrm === 'true';
 
   try {
     const tenantRow = await prisma.tenant.findUnique({
@@ -1398,6 +1400,13 @@ router.get('/issue-form', authMiddleware, requireStaffPermission('orderform.issu
   if (resolved === 'invalid') {
     res.status(400).json({ error: '선택한 발주서 양식을 찾을 수 없거나 발행되지 않았습니다.' });
     return;
+  }
+  if (fromTelecrm && resolved) {
+    try {
+      await ensureCrmQuoteBreakdownTemplateField(prisma, tenantId, resolved.id);
+    } catch (err) {
+      console.error('issue-form ensure crmQuoteBreakdown field:', err);
+    }
   }
   const [professionalOptions, formConfig, template] = await Promise.all([
     prisma.professionalSpecialtyOption.findMany({
