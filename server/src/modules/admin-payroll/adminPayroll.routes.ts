@@ -623,6 +623,13 @@ router.get('/sheet', async (req, res) => {
       ? raw
       : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
 
+  const scopeRaw = typeof req.query.scope === 'string' ? req.query.scope.trim() : '';
+  const scope: 'pool' | 'staff' | 'leader' | 'full' =
+    scopeRaw === 'pool' || scopeRaw === 'staff' || scopeRaw === 'leader' ? scopeRaw : 'full';
+  const includePool = scope === 'pool' || scope === 'staff' || scope === 'leader' || scope === 'full';
+  const includeStaff = scope === 'staff' || scope === 'leader' || scope === 'full';
+  const includeLeaderCumulative = scope === 'leader' || scope === 'full';
+
   const range = kstMonthRangeYm(monthKey);
   if (!range) {
     res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
@@ -695,58 +702,64 @@ router.get('/sheet', async (req, res) => {
 
   const rows: SheetRow[] = [];
 
-  const poolMembers = await prisma.teamMember.findMany({
-    where: {
-      teamId: null,
-      isActive: true,
-      crewGroupMembers: { some: { group: { tenantId } } },
-    },
-    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-    select: {
-      id: true,
-      name: true,
-      nameTh: true,
-      monthlyPayDay: true,
-      payAmountPerJob: true,
-      sortOrder: true,
-      createdAt: true,
-    },
-  });
+  const poolMembers = includePool
+    ? await prisma.teamMember.findMany({
+        where: {
+          teamId: null,
+          isActive: true,
+          crewGroupMembers: { some: { group: { tenantId } } },
+        },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          name: true,
+          nameTh: true,
+          monthlyPayDay: true,
+          payAmountPerJob: true,
+          sortOrder: true,
+          createdAt: true,
+        },
+      })
+    : [];
 
-  const poolRows = await buildPoolMemberPayrollSheetRows(prisma, tenantId, monthKey, poolMembers);
-  for (const r of poolRows) {
-    rows.push(r);
+  if (includePool) {
+    const poolRows = await buildPoolMemberPayrollSheetRows(prisma, tenantId, monthKey, poolMembers);
+    for (const r of poolRows) {
+      rows.push(r);
+    }
   }
 
-  const staffUsers = await prisma.user.findMany({
-    where: {
-      tenantId,
-      role: { in: ['TEAM_LEADER', 'MARKETER', 'OFFICE_STAFF'] },
-      isActive: true,
-    },
-    select: {
-      id: true,
-      name: true,
-      role: true,
-      hireDate: true,
-      resignationDate: true,
-      payrollMonthlySalary: true,
-      payrollPayDay: true,
-      teamLeaderGeneralSettlementMode: true,
-      teamLeaderGeneralSettlementValue: true,
-      teamLeaderAdditionalReceiptCompanyShareBps: true,
-    },
-    orderBy: [{ role: 'asc' }, { name: 'asc' }],
-  });
+  const staffUsers = includeStaff
+    ? await prisma.user.findMany({
+        where: {
+          tenantId,
+          role: { in: ['TEAM_LEADER', 'MARKETER', 'OFFICE_STAFF'] },
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          hireDate: true,
+          resignationDate: true,
+          payrollMonthlySalary: true,
+          payrollPayDay: true,
+          teamLeaderGeneralSettlementMode: true,
+          teamLeaderGeneralSettlementValue: true,
+          teamLeaderAdditionalReceiptCompanyShareBps: true,
+        },
+        orderBy: [{ role: 'asc' }, { name: 'asc' }],
+      })
+    : [];
 
   const leaderIds = staffUsers.filter((u) => u.role === 'TEAM_LEADER').map((u) => u.id);
   const leaderPaymentsMonth =
-    leaderIds.length === 0
-      ? []
-      : await prisma.teamLeaderPayrollPayment.findMany({
+    includeStaff && leaderIds.length > 0
+      ? await prisma.teamLeaderPayrollPayment.findMany({
           where: { userId: { in: leaderIds }, monthKey },
           select: { userId: true, amount: true, settlementBucket: true },
-        });
+        })
+      : [];
   const leaderAgg = new Map<
     string,
     { sum: number; count: number; sumGeneral: number; sumAdditional: number }
@@ -782,12 +795,12 @@ router.get('/sheet', async (req, res) => {
   }));
 
   const leaderMonthAccrualById =
-    leaderProfilesForAccrual.length === 0
+    !includeStaff || leaderProfilesForAccrual.length === 0
       ? new Map()
       : await computeTeamLeaderPayrollMonthAccrualMap(prisma, monthKey, leaderProfilesForAccrual);
 
   const leaderCumulativeUnsettledById =
-    leaderStaffForAccrualMonth.length === 0
+    !includeStaff || !includeLeaderCumulative || leaderStaffForAccrualMonth.length === 0
       ? new Map<string, number>()
       : await computeLeaderCumulativeUnsettledThroughMonth(
           prisma,
@@ -805,10 +818,12 @@ router.get('/sheet', async (req, res) => {
     .filter((u) => u.role === 'MARKETER' || u.role === 'OFFICE_STAFF')
     .map((u) => u.id);
   const marketerAllSettleRows =
-    fixedSalaryUserIdsForSheet.length === 0
-      ? []
-      : await prisma.marketerPayrollSettlement.findMany({
-          where: { userId: { in: fixedSalaryUserIdsForSheet } },
+    includeStaff && fixedSalaryUserIdsForSheet.length > 0
+      ? await prisma.marketerPayrollSettlement.findMany({
+          where: {
+            userId: { in: fixedSalaryUserIdsForSheet },
+            monthKey: { lte: monthKey },
+          },
           select: {
             userId: true,
             monthKey: true,
@@ -819,7 +834,8 @@ router.get('/sheet', async (req, res) => {
             settledAt: true,
           },
           orderBy: [{ userId: 'asc' }, { monthKey: 'asc' }],
-        });
+        })
+      : [];
 
   const marketerAscSlicesByUserId = new Map<string, MarketerSettlementSlice[]>();
   const marketerCurrentMonthSettleByUserId = new Map<
@@ -920,7 +936,9 @@ router.get('/sheet', async (req, res) => {
         leaderMonthUnsettledAdditional: accrualFull.unsettledAdditional,
         leaderMonthUnsettledCombined: accrualFull.unsettledCombined,
         leaderMonthAdditionalReceiptInquiryCount: accrualFull.additionalReceiptInquiryCount,
-        leaderCumulativeUnsettledWon: leaderCumulativeUnsettledById.get(u.id) ?? 0,
+        leaderCumulativeUnsettledWon: includeLeaderCumulative
+          ? (leaderCumulativeUnsettledById.get(u.id) ?? 0)
+          : undefined,
       });
       continue;
     }

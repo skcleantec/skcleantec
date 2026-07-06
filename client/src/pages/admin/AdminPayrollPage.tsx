@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate, Link, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
@@ -44,14 +44,17 @@ import {
   type PayrollAdminSharedExpenseItem,
   type PayrollIncomeDepositItem,
   type PayrollExternalSettlementReceivedResponse,
+  type PayrollSheetScope,
 } from '../../api/adminPayroll';
 import { listExternalCompanies, type ExternalCompanyListItem } from '../../api/externalCompanies';
-import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
+import { useOperatingCompanies } from '../../hooks/useOperatingCompanies';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
+import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 
 type LedgerManualPayrollLinkKind =
   | 'none'
@@ -612,6 +615,12 @@ function payrollTabLabel(id: PayrollTabId): string {
   }
 }
 
+function payrollSheetScopeForTab(tab: PayrollTabId): PayrollSheetScope {
+  if (tab === 'pool') return 'pool';
+  if (tab === 'leader') return 'leader';
+  return 'staff';
+}
+
 function rowsForPayrollTab(rows: PayrollSheetRow[], tab: PayrollTabId): PayrollSheetRow[] {
   if (tab === 'settlement' || tab === 'unsettled' || tab === 'inout') return [];
   if (tab === 'pool') return rows.filter((r) => r.kind === 'POOL_MEMBER');
@@ -691,10 +700,13 @@ export function AdminPayrollPage() {
 
   const [month, setMonth] = useState(() => kstMonthKeyNow());
   const operatingCompanyIdParam = searchParams.get('operatingCompanyId') ?? '';
-  const [operatingCompanies, setOperatingCompanies] = useState<OperatingCompanyItem[]>([]);
+  const operatingCompanies = useOperatingCompanies(token);
   const [data, setData] = useState<PayrollSheetResponse | null>(null);
+  const sheetDataRef = useRef<PayrollSheetResponse | null>(null);
+  sheetDataRef.current = data;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { preserveScroll } = useStaffAppScrollPreserve();
   const [memberDetailForRow, setMemberDetailForRow] = useState<PayrollSheetRow | null>(null);
   const [memberDetail, setMemberDetail] = useState<PayrollPoolMemberDetailResponse | null>(null);
   const [memberDetailLoading, setMemberDetailLoading] = useState(false);
@@ -861,13 +873,6 @@ export function AdminPayrollPage() {
   );
 
   useEffect(() => {
-    if (!token) return;
-    listOperatingCompanies(token)
-      .then((r) => setOperatingCompanies(r.items ?? []))
-      .catch(() => setOperatingCompanies([]));
-  }, [token]);
-
-  useEffect(() => {
     if (!resolvedOperatingCompanyId) return;
     if (operatingCompanyIdParam === resolvedOperatingCompanyId) return;
     setSearchParams(
@@ -886,20 +891,113 @@ export function AdminPayrollPage() {
     setCrewExpenseDetailLoading(false);
   }, []);
 
-  const loadExpenseForward = useCallback(async () => {
+  const loadExpenseForward = useCallback(async (opts?: { silent?: boolean }) => {
     if (!token) return;
-    setExpenseForwardLoading(true);
-    setExpenseForwardError(null);
+    const silent = opts?.silent ?? false;
+    if (!silent) {
+      setExpenseForwardLoading(true);
+      setExpenseForwardError(null);
+    }
     try {
       const fwd = await getPayrollExpenseForward(token);
       setExpenseForward(fwd);
+      if (!silent) setExpenseForwardError(null);
     } catch (e) {
       setExpenseForward(null);
-      setExpenseForwardError(e instanceof Error ? e.message : '실시간 집계를 불러오지 못했습니다.');
+      if (!silent) {
+        setExpenseForwardError(e instanceof Error ? e.message : '실시간 집계를 불러오지 못했습니다.');
+      }
     } finally {
-      setExpenseForwardLoading(false);
+      if (!silent) setExpenseForwardLoading(false);
     }
   }, [token]);
+
+  const fetchSheetCore = useCallback(async () => {
+    if (!token) return;
+    const r = await getAdminPayrollSheet(token, month, { scope: payrollSheetScopeForTab(payrollTab) });
+    setData(r);
+    setError(null);
+    return r;
+  }, [token, month, payrollTab]);
+
+  const fetchSettlementExpenseItems = useCallback(async () => {
+    if (!token) return;
+    const [crewEx, adminPers, adminShared] = await Promise.all([
+      getPayrollCrewExpenses(token, month).catch(() => ({
+        month: '',
+        items: [] as PayrollCrewExpenseAdminItem[],
+      })),
+      getPayrollAdminPersonalExpenses(token, month).catch(() => ({
+        month: '',
+        items: [] as PayrollAdminPersonalExpenseItem[],
+      })),
+      getPayrollAdminSharedExpenses(token, month).catch(() => ({
+        month: '',
+        items: [] as PayrollAdminSharedExpenseItem[],
+      })),
+    ]);
+    setCrewExpenseAdminItems(crewEx.items ?? []);
+    setAdminPersonalExpenseItems(adminPers.items ?? []);
+    setAdminSharedExpenseItems(adminShared.items ?? []);
+  }, [token, month]);
+
+  const loadSettlementIncome = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!token) return;
+      const silent = opts?.silent ?? false;
+      if (!silent) {
+        setIncomeLoading(true);
+        setIncomeError(null);
+      }
+      try {
+        const [inc, dep, ext] = await Promise.all([
+          getPayrollIncomeSummary(token, month, resolvedOperatingCompanyId || undefined),
+          getPayrollIncomeDeposits(token, month).catch(() => ({
+            month,
+            items: [] as PayrollIncomeDepositItem[],
+          })),
+          getPayrollExternalSettlementReceived(token, month, resolvedOperatingCompanyId || undefined).catch(
+            () => ({
+              month,
+              monthLabel: '',
+              paymentCount: 0,
+              totalAmount: 0,
+              items: [],
+            }),
+          ),
+        ]);
+        setIncomeSummary(inc);
+        setIncomeDepositItems(dep.items ?? []);
+        setExternalSettlementReceived(ext);
+        if (!silent) setIncomeError(null);
+      } catch (e) {
+        setIncomeSummary(null);
+        setIncomeDepositItems([]);
+        setExternalSettlementReceived(null);
+        if (!silent) {
+          setIncomeError(e instanceof Error ? e.message : '수입 집계를 불러오지 못했습니다.');
+        }
+      } finally {
+        if (!silent) setIncomeLoading(false);
+      }
+    },
+    [token, month, resolvedOperatingCompanyId],
+  );
+
+  /** 탭별 보조 API — sheet·월 변경과 분리해 중복 호출 방지 */
+  const loadTabSupplement = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!token) return;
+      const silent = opts?.silent ?? true;
+      if (payrollTab === 'settlement' || payrollTab === 'unsettled') {
+        await loadExpenseForward({ silent });
+      }
+      if (payrollTab === 'settlement') {
+        await loadSettlementIncome({ silent });
+      }
+    },
+    [token, payrollTab, loadExpenseForward, loadSettlementIncome],
+  );
 
   const openPoolMemberDetail = useCallback((row: PayrollSheetRow) => {
     if (row.kind !== 'POOL_MEMBER') return;
@@ -1136,59 +1234,19 @@ export function AdminPayrollPage() {
 
   const load = useCallback(async () => {
     if (!token) return;
-    setLoading(true);
+    beginListRefresh({
+      showLoading: true,
+      itemCount: sheetDataRef.current ? 1 : 0,
+      setLoading,
+      preserveScroll,
+    });
     setError(null);
     try {
-      const [r, crewEx, adminPers, adminShared] = await Promise.all([
-        getAdminPayrollSheet(token, month),
-        getPayrollCrewExpenses(token, month).catch(() => ({
-          month: '',
-          items: [] as PayrollCrewExpenseAdminItem[],
-        })),
-        getPayrollAdminPersonalExpenses(token, month).catch(() => ({
-          month: '',
-          items: [] as PayrollAdminPersonalExpenseItem[],
-        })),
-        getPayrollAdminSharedExpenses(token, month).catch(() => ({
-          month: '',
-          items: [] as PayrollAdminSharedExpenseItem[],
-        })),
-      ]);
-      setData(r);
-      setCrewExpenseAdminItems(crewEx.items ?? []);
-      setAdminPersonalExpenseItems(adminPers.items ?? []);
-      setAdminSharedExpenseItems(adminShared.items ?? []);
-      if (payrollTab === 'settlement' || payrollTab === 'unsettled') {
-        void loadExpenseForward();
-      }
+      await fetchSheetCore();
       if (payrollTab === 'settlement') {
-        try {
-          const [inc, dep, ext] = await Promise.all([
-            getPayrollIncomeSummary(token, month, resolvedOperatingCompanyId || undefined),
-            getPayrollIncomeDeposits(token, month).catch(() => ({
-              month,
-              items: [] as PayrollIncomeDepositItem[],
-            })),
-            getPayrollExternalSettlementReceived(token, month, resolvedOperatingCompanyId || undefined).catch(() => ({
-              month,
-              monthLabel: '',
-              paymentCount: 0,
-              totalAmount: 0,
-              items: [],
-            })),
-          ]);
-          setIncomeSummary(inc);
-          setIncomeDepositItems(dep.items ?? []);
-          setExternalSettlementReceived(ext);
-          setIncomeError(null);
-        } catch {
-          setIncomeSummary(null);
-          setIncomeDepositItems([]);
-          setExternalSettlementReceived(null);
-          setIncomeError('수입 집계를 불러오지 못했습니다.');
-        }
+        await fetchSettlementExpenseItems();
       }
-      void refreshAccountLedger({ silent: true });
+      await loadTabSupplement({ silent: true });
     } catch (e) {
       setData(null);
       setCrewExpenseAdminItems([]);
@@ -1198,121 +1256,90 @@ export function AdminPayrollPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, month, payrollTab, loadExpenseForward, refreshAccountLedger, resolvedOperatingCompanyId]);
+  }, [
+    token,
+    payrollTab,
+    fetchSheetCore,
+    fetchSettlementExpenseItems,
+    loadTabSupplement,
+    preserveScroll,
+  ]);
 
   const silentReloadPayroll = useCallback(async () => {
     if (!token) return;
     try {
-      const [r, crewEx, adminPers, adminShared] = await Promise.all([
-        getAdminPayrollSheet(token, month),
-        getPayrollCrewExpenses(token, month).catch(() => ({
-          month: '',
-          items: [] as PayrollCrewExpenseAdminItem[],
-        })),
-        getPayrollAdminPersonalExpenses(token, month).catch(() => ({
-          month: '',
-          items: [] as PayrollAdminPersonalExpenseItem[],
-        })),
-        getPayrollAdminSharedExpenses(token, month).catch(() => ({
-          month: '',
-          items: [] as PayrollAdminSharedExpenseItem[],
-        })),
-      ]);
-      setData(r);
-      setCrewExpenseAdminItems(crewEx.items ?? []);
-      setAdminPersonalExpenseItems(adminPers.items ?? []);
-      setAdminSharedExpenseItems(adminShared.items ?? []);
-      if (payrollTab === 'settlement' || payrollTab === 'unsettled') {
-        try {
-          const fwd = await getPayrollExpenseForward(token);
-          setExpenseForward(fwd);
-          setExpenseForwardError(null);
-        } catch {
-          /* 무음 */
-        }
-      }
+      await fetchSheetCore();
       if (payrollTab === 'settlement') {
-        try {
-          const [inc, dep, ext] = await Promise.all([
-            getPayrollIncomeSummary(token, month, resolvedOperatingCompanyId || undefined),
-            getPayrollIncomeDeposits(token, month).catch(() => ({
-              month,
-              items: [] as PayrollIncomeDepositItem[],
-            })),
-            getPayrollExternalSettlementReceived(token, month, resolvedOperatingCompanyId || undefined).catch(() => ({
-              month,
-              monthLabel: '',
-              paymentCount: 0,
-              totalAmount: 0,
-              items: [],
-            })),
-          ]);
-          setIncomeSummary(inc);
-          setIncomeDepositItems(dep.items ?? []);
-          setExternalSettlementReceived(ext);
-          setIncomeError(null);
-        } catch {
+        await fetchSettlementExpenseItems().catch(() => {
           /* 무음 */
-        }
+        });
+      }
+      await loadTabSupplement({ silent: true });
+      if (payrollTab === 'inout') {
+        await refreshAccountLedger({ silent: true });
       }
     } catch {
       /* 무음 실패 무시 */
     }
-    await refreshAccountLedger({ silent: true });
-  }, [token, month, payrollTab, refreshAccountLedger, resolvedOperatingCompanyId]);
+  }, [
+    token,
+    payrollTab,
+    fetchSheetCore,
+    fetchSettlementExpenseItems,
+    loadTabSupplement,
+    refreshAccountLedger,
+  ]);
 
   useInboxRealtime(token, silentReloadPayroll, Boolean(token));
 
   useEffect(() => {
-    if (!token || (payrollTab !== 'settlement' && payrollTab !== 'unsettled')) return;
-    void loadExpenseForward();
-  }, [token, payrollTab, loadExpenseForward]);
-
-  useEffect(() => {
-    if (!token || payrollTab !== 'settlement') return;
+    if (!token) return;
     let cancelled = false;
-    setIncomeLoading(true);
-    setIncomeError(null);
-    setIncomeSummary(null);
-    setIncomeDepositItems([]);
-    setExternalSettlementReceived(null);
-    void Promise.all([
-      getPayrollIncomeSummary(token, month, resolvedOperatingCompanyId || undefined),
-      getPayrollIncomeDeposits(token, month).catch(() => ({
-        month,
-        items: [] as PayrollIncomeDepositItem[],
-      })),
-      getPayrollExternalSettlementReceived(token, month, resolvedOperatingCompanyId || undefined).catch(() => ({
-        month,
-        monthLabel: '',
-        paymentCount: 0,
-        totalAmount: 0,
-        items: [],
-      })),
-    ])
-      .then(([inc, dep, ext]) => {
-        if (!cancelled) {
-          setIncomeSummary(inc);
-          setIncomeDepositItems(dep.items ?? []);
-          setExternalSettlementReceived(ext);
-          setIncomeError(null);
-        }
-      })
+    beginListRefresh({
+      showLoading: true,
+      itemCount: sheetDataRef.current ? 1 : 0,
+      setLoading,
+      preserveScroll,
+    });
+    setError(null);
+    void fetchSheetCore()
       .catch((e) => {
-        if (!cancelled) {
-          setIncomeSummary(null);
-          setIncomeDepositItems([]);
-          setExternalSettlementReceived(null);
-          setIncomeError(e instanceof Error ? e.message : '수입 집계를 불러오지 못했습니다.');
-        }
+        if (cancelled) return;
+        setData(null);
+        setError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
       })
       .finally(() => {
-        if (!cancelled) setIncomeLoading(false);
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [token, payrollTab, month, resolvedOperatingCompanyId]);
+  }, [token, month, payrollTab, fetchSheetCore, preserveScroll]);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    const run = async () => {
+      if (payrollTab === 'settlement') {
+        try {
+          await fetchSettlementExpenseItems();
+        } catch {
+          if (!cancelled) {
+            setCrewExpenseAdminItems([]);
+            setAdminPersonalExpenseItems([]);
+            setAdminSharedExpenseItems([]);
+          }
+        }
+      }
+      if (!cancelled) {
+        await loadTabSupplement({ silent: false });
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, payrollTab, month, resolvedOperatingCompanyId, fetchSettlementExpenseItems, loadTabSupplement]);
 
   useEffect(() => {
     if (!token || !crewExpenseDetailId) {
@@ -1482,9 +1509,7 @@ export function AdminPayrollPage() {
     load,
   ]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const showBlockingLoad = shouldShowListBlockingLoading(loading, data ? 1 : 0);
 
   const filteredRows = useMemo(
     () => (data ? rowsForPayrollTab(data.rows, payrollTab) : []),
@@ -1874,7 +1899,13 @@ export function AdminPayrollPage() {
         <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>
       )}
 
-      {loading && !data ? (
+      {loading && data ? (
+        <p className="text-fluid-xs text-gray-500 text-center py-1" aria-live="polite">
+          갱신 중…
+        </p>
+      ) : null}
+
+      {showBlockingLoad ? (
         <p className="text-fluid-sm text-gray-500 py-12 text-center">불러오는 중…</p>
       ) : data ? (
         <>

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { useOperatingCompanies } from '../../hooks/useOperatingCompanies';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { getToken } from '../../stores/auth';
-import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import {
   getExternalSettlementCompanyDetail,
   getExternalSettlementCompanyOverviewList,
+  getExternalSettlementCompanyPayments,
   getExternalSettlementMonthlyOverview,
   postExternalSettlementPayment,
   type ExternalSettlementCompanyOverviewRow,
@@ -67,6 +68,19 @@ function kstTodayYmd(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
 }
 
+/** 정산완료 내역 조회 시작일 — 최근 36개월(과거 전량 inquiry 스캔 방지) */
+function externalSettlementHistoryFromYmd(): string {
+  const today = kstTodayYmd();
+  const [y, m] = today.split('-').map(Number);
+  let year = y;
+  let month = m - 36;
+  while (month <= 0) {
+    month += 12;
+    year -= 1;
+  }
+  return `${year}-${String(month).padStart(2, '0')}-01`;
+}
+
 /** 정산 `paidAt` — 내역에 날짜(한국)만 읽기 쉽게 */
 function formatKstDateLabel(iso: string): string {
   return new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'medium' });
@@ -111,7 +125,7 @@ export function AdminExternalSettlementPage() {
   const [loading, setLoading] = useState(false);
   const { preserveScroll } = useStaffAppScrollPreserve();
   const [error, setError] = useState<string | null>(null);
-  const [operatingCompanies, setOperatingCompanies] = useState<OperatingCompanyItem[]>([]);
+  const operatingCompanies = useOperatingCompanies(token);
   const [operatingCompanyId, setOperatingCompanyId] = useState(
     () => searchParams.get('operatingCompanyId') ?? ''
   );
@@ -187,13 +201,6 @@ export function AdminExternalSettlementPage() {
   }, [operatingCompanyId, activeOperatingCompanies]);
 
   useEffect(() => {
-    if (!token) return;
-    listOperatingCompanies(token)
-      .then((r) => setOperatingCompanies(r.items ?? []))
-      .catch(() => setOperatingCompanies([]));
-  }, [token]);
-
-  useEffect(() => {
     if (!resolvedOperatingCompanyId) return;
     if (operatingCompanyId === resolvedOperatingCompanyId) return;
     setOperatingCompanyId(resolvedOperatingCompanyId);
@@ -266,13 +273,24 @@ export function AdminExternalSettlementPage() {
       setHistoryLoading(true);
     }
     try {
-      const detail = await getExternalSettlementCompanyDetail(token, {
+      const historyFrom = externalSettlementHistoryFromYmd();
+      const detail = await getExternalSettlementCompanyPayments(token, {
         externalCompanyId: row.externalCompanyId,
-        from: '2000-01-01',
+        from: historyFrom,
         to: kstTodayYmd(),
         operatingCompanyId: resolvedOperatingCompanyId,
+        limit: 300,
       });
-      const merged = mergeHistoryRows(cached ?? [], detail.payments);
+      const merged = mergeHistoryRows(
+        cached ?? [],
+        detail.payments.map((p) => ({
+          id: p.id,
+          amount: p.amount,
+          paidAt: p.paidAt,
+          memo: p.memo,
+          actorName: p.actorName,
+        })),
+      );
       setHistoryRows(merged);
       setHistoryCacheByCompany((prev) => ({ ...prev, [cacheKey]: merged }));
     } catch {

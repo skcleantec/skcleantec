@@ -14,7 +14,11 @@ import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { resolveEffectiveStaffAdminFromMe, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
 import { useDebouncedCallback } from '../../utils/debounceCallback';
-import { adminNavPrefetchHandlers, prefetchAdminNavPage } from '../../utils/prefetchAdminPages';
+import {
+  adminNavPrefetchHandlers,
+  prefetchAdminNavPage,
+  prefetchTeamLeadersSettlementPages,
+} from '../../utils/prefetchAdminPages';
 import { runWhenIdle } from '../../utils/deferWhenIdle';
 import {
   useInboxRealtime,
@@ -497,6 +501,7 @@ export function AdminLayout() {
     return runWhenIdle(() => {
       prefetchAdminNavPage('inquiries');
       prefetchAdminNavPage('messages');
+      prefetchTeamLeadersSettlementPages();
     });
   }, [adminToken, meProfileLoading, meRole]);
 
@@ -849,6 +854,8 @@ export function AdminLayout() {
                           to={def.to}
                           className={() => navClass({ isActive: teamLeadersActive })}
                           data-admin-gnb-item
+                          onMouseEnter={() => prefetchTeamLeadersSettlementPages()}
+                          onFocus={() => prefetchTeamLeadersSettlementPages()}
                         >
                           <AdminGnbItemContent id={id} label={def.label} />
                         </NavLink>

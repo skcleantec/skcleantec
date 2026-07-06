@@ -233,9 +233,27 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
   operatingCompanyId: string;
   before: Date;
 }): Promise<number> {
-  const confirmAtMap = await loadMarketplaceExternalConfirmAtMap(opts.tenantId, {
-    externalCompanyId: opts.externalCompanyId,
+  const marketplaceRows = await prisma.inquiryDbListing.findMany({
+    where: {
+      tenantId: opts.tenantId,
+      status: 'CONFIRMED',
+      buyerKind: 'EXTERNAL_COMPANY',
+      buyerExternalCompanyId: opts.externalCompanyId,
+      sellerConfirmedAt: { lt: opts.before },
+    },
+    select: { inquiryId: true, sellerConfirmedAt: true },
   });
+  const confirmAtMap = new Map<string, Date>();
+  for (const row of marketplaceRows) {
+    if (row.sellerConfirmedAt) confirmAtMap.set(row.inquiryId, row.sellerConfirmedAt);
+  }
+  const marketplaceInquiryIds = marketplaceRows.map((r) => r.inquiryId);
+
+  const candidateOr: Prisma.InquiryWhereInput[] = [{ preferredDate: { lt: opts.before } }];
+  if (marketplaceInquiryIds.length > 0) {
+    candidateOr.push({ id: { in: marketplaceInquiryIds } });
+  }
+
   const assignmentSome = {
     some: {
       teamLeader: { role: 'EXTERNAL_PARTNER' as const, externalCompanyId: opts.externalCompanyId },
@@ -250,6 +268,7 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
         externalTransferFee: { not: null },
         status: { notIn: ['CANCELLED', 'ON_HOLD'] },
         assignments: assignmentSome,
+        OR: candidateOr,
       },
       select: { id: true, preferredDate: true, externalTransferFee: true },
     }),
@@ -259,14 +278,30 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
         operatingCompanyId: opts.operatingCompanyId,
         status: 'CANCELLED',
         externalTransferFee: { not: null },
-        OR: [
-          { cancelFeeExternalCompanyId: opts.externalCompanyId },
-          { assignments: assignmentSome },
+        AND: [
+          {
+            OR: [
+              { cancelFeeExternalCompanyId: opts.externalCompanyId },
+              { assignments: assignmentSome },
+            ],
+          },
+          { OR: candidateOr },
         ],
       },
       select: { id: true, preferredDate: true, externalTransferFee: true },
     }),
   ]);
+
+  const extraIds = [...activeRows, ...cancelledRows]
+    .map((r) => r.id)
+    .filter((id) => !confirmAtMap.has(id));
+  if (extraIds.length > 0) {
+    const extraConfirm = await loadMarketplaceExternalConfirmAtMap(opts.tenantId, {
+      externalCompanyId: opts.externalCompanyId,
+      inquiryIds: extraIds,
+    });
+    for (const [id, at] of extraConfirm) confirmAtMap.set(id, at);
+  }
 
   let signed = 0;
   for (const row of activeRows) {

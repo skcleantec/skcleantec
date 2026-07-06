@@ -103,8 +103,18 @@ export type PayrollSheetResponse = {
   };
 };
 
-export async function getAdminPayrollSheet(token: string, month?: string): Promise<PayrollSheetResponse> {
-  const q = month && /^\d{4}-\d{2}$/.test(month.trim()) ? `?month=${encodeURIComponent(month.trim())}` : '';
+export type PayrollSheetScope = 'pool' | 'staff' | 'leader';
+
+export async function getAdminPayrollSheet(
+  token: string,
+  month?: string,
+  opts?: { scope?: PayrollSheetScope },
+): Promise<PayrollSheetResponse> {
+  const params = new URLSearchParams();
+  const mk = month?.trim();
+  if (mk && /^\d{4}-\d{2}$/.test(mk)) params.set('month', mk);
+  if (opts?.scope) params.set('scope', opts.scope);
+  const q = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`${API}/admin/payroll/sheet${q}`, { headers: headers(token) });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

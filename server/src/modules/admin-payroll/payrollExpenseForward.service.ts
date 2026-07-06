@@ -168,11 +168,81 @@ export async function computePayrollExpenseForward(
 
   const poolOut: PayrollExpenseForwardPoolRow[] = [];
 
+  type PayDayPoolCtx = {
+    payDay: number;
+    members: typeof poolMembers;
+    bounds: ReturnType<typeof payrollCycleBoundsKst>;
+    partialEndYmd: string;
+    payMonthKey: string;
+    payrollDaysByMemberId: Map<string, Set<string>>;
+  };
+
+  const poolCtxByPayDay = new Map<number, PayDayPoolCtx>();
+
   for (const payDay of [...byPayDay.keys()].sort((a, b) => a - b)) {
     const members = byPayDay.get(payDay)!;
     const bounds = payrollCycleBoundsKst(payDay);
     const partialEndYmd = bounds.endYmd < todayYmd ? bounds.endYmd : todayYmd;
     const payMonthKey = payMonthKeyAfterAccrualEnd(bounds.endYmd);
+    const payrollDaysByMemberId = new Map<string, Set<string>>();
+    for (const m of members) {
+      payrollDaysByMemberId.set(m.id, new Set());
+    }
+    poolCtxByPayDay.set(payDay, {
+      payDay,
+      members,
+      bounds,
+      partialEndYmd,
+      payMonthKey,
+      payrollDaysByMemberId,
+    });
+  }
+
+  /** payDay별 inquiry 반복 스캔 → 전체 envelope 1회 스캔 후 payDay·팀원별 분배 */
+  let envelopeGte: Date | null = null;
+  let envelopeLte: Date | null = null;
+  for (const ctx of poolCtxByPayDay.values()) {
+    if (ctx.partialEndYmd < ctx.bounds.startYmd) continue;
+    const env = payrollCyclePreferredDateWhere(ctx.bounds.startYmd, ctx.partialEndYmd);
+    if (envelopeGte == null || env.gte < envelopeGte) envelopeGte = env.gte;
+    if (envelopeLte == null || env.lte > envelopeLte) envelopeLte = env.lte;
+  }
+
+  if (envelopeGte != null && envelopeLte != null) {
+    let cursorId: string | undefined;
+    for (;;) {
+      const batch = await prismaClient.inquiry.findMany({
+        where: {
+          tenantId,
+          preferredDate: { gte: envelopeGte, lte: envelopeLte },
+          status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+        },
+        select: { id: true, crewMemberNote: true, preferredDate: true },
+        orderBy: { id: 'asc' },
+        take: PAYROLL_INQUIRY_BATCH,
+        ...(cursorId ? { skip: 1, cursor: { id: cursorId } } : {}),
+      });
+      if (batch.length === 0) break;
+
+      for (const inq of batch) {
+        if (!inq.preferredDate) continue;
+        const ymd = dateToYmdKst(inq.preferredDate);
+        for (const ctx of poolCtxByPayDay.values()) {
+          if (ctx.partialEndYmd < ctx.bounds.startYmd) continue;
+          if (ymd < ctx.bounds.startYmd || ymd > ctx.partialEndYmd) continue;
+          for (const mem of ctx.members) {
+            if (!crewMemberNoteIncludesTeamMember(inq.crewMemberNote, mem)) continue;
+            ctx.payrollDaysByMemberId.get(mem.id)?.add(ymd);
+          }
+        }
+      }
+      cursorId = batch[batch.length - 1]!.id;
+    }
+  }
+
+  for (const payDay of [...poolCtxByPayDay.keys()].sort((a, b) => a - b)) {
+    const ctx = poolCtxByPayDay.get(payDay)!;
+    const { members, bounds, partialEndYmd, payMonthKey, payrollDaysByMemberId } = ctx;
 
     if (partialEndYmd < bounds.startYmd) {
       for (const m of members) {
@@ -198,39 +268,6 @@ export async function computePayrollExpenseForward(
         });
       }
       continue;
-    }
-
-    const env = payrollCyclePreferredDateWhere(bounds.startYmd, partialEndYmd);
-    const payrollDaysByMemberId = new Map<string, Set<string>>();
-    for (const pm of members) {
-      payrollDaysByMemberId.set(pm.id, new Set());
-    }
-
-    let cursorId: string | undefined;
-    for (;;) {
-      const batch = await prismaClient.inquiry.findMany({
-        where: {
-          tenantId,
-          preferredDate: { gte: env.gte, lte: env.lte },
-          status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-        },
-        select: { id: true, crewMemberNote: true, preferredDate: true },
-        orderBy: { id: 'asc' },
-        take: PAYROLL_INQUIRY_BATCH,
-        ...(cursorId ? { skip: 1, cursor: { id: cursorId } } : {}),
-      });
-      if (batch.length === 0) break;
-
-      for (const inq of batch) {
-        if (!inq.preferredDate) continue;
-        const ymd = dateToYmdKst(inq.preferredDate);
-        if (ymd < bounds.startYmd || ymd > partialEndYmd) continue;
-        for (const mem of members) {
-          if (!crewMemberNoteIncludesTeamMember(inq.crewMemberNote, mem)) continue;
-          payrollDaysByMemberId.get(mem.id)?.add(ymd);
-        }
-      }
-      cursorId = batch[batch.length - 1]!.id;
     }
 
     const ids = members.map((x) => x.id);

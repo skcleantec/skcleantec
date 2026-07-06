@@ -18,6 +18,7 @@ import {
   resolveExternalSettlementEffectiveDate,
 } from '../../lib/externalSettlementEffectiveDate.js';
 import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlementOperatingCompanyScope.js';
+import { sumExternalSettlementSignedFeeByCompany } from './externalSettlementOverview.service.js';
 
 const router = Router();
 
@@ -245,63 +246,14 @@ router.get('/settlement/company-overview-list', requireStaffPermission('admin.ex
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });
-  const signedByCompany = new Map<string, number>();
-  for (const c of companies) signedByCompany.set(c.id, 0);
 
-  const activeRows = await prisma.inquiry.findMany({
-    where: {
-      tenantId,
-      operatingCompanyId,
-      externalTransferFee: { not: null },
-      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-      assignments: {
-        some: { teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: { not: null } } },
-      },
-    },
-    select: {
-      externalTransferFee: true,
-      assignments: {
-        orderBy: { sortOrder: 'asc' },
-        select: { teamLeader: { select: { role: true, externalCompanyId: true } } },
-      },
-    },
-  });
-  for (const r of activeRows) {
-    const ext = r.assignments.find((a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId);
-    const cid = ext?.teamLeader.externalCompanyId ?? null;
-    if (!cid || !signedByCompany.has(cid)) continue;
-    signedByCompany.set(cid, (signedByCompany.get(cid) ?? 0) + (r.externalTransferFee ?? 0));
-  }
-
-  const cancelledRows = await prisma.inquiry.findMany({
-    where: {
-      tenantId,
-      operatingCompanyId,
-      status: 'CANCELLED',
-      externalTransferFee: { not: null },
-      OR: [
-        { cancelFeeExternalCompanyId: { not: null } },
-        {
-          assignments: {
-            some: { teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: { not: null } } },
-          },
-        },
-      ],
-    },
-    select: {
-      externalTransferFee: true,
-      cancelFeeExternalCompanyId: true,
-      assignments: {
-        orderBy: { sortOrder: 'asc' },
-        select: { teamLeader: { select: { role: true, externalCompanyId: true } } },
-      },
-    },
-  });
-  for (const r of cancelledRows) {
-    const ext = r.assignments.find((a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId);
-    const cid = r.cancelFeeExternalCompanyId ?? ext?.teamLeader.externalCompanyId ?? null;
-    if (!cid || !signedByCompany.has(cid)) continue;
-    signedByCompany.set(cid, (signedByCompany.get(cid) ?? 0) - (r.externalTransferFee ?? 0));
+  const signedByCompany = await sumExternalSettlementSignedFeeByCompany(
+    prisma,
+    tenantId,
+    operatingCompanyId,
+  );
+  for (const c of companies) {
+    if (!signedByCompany.has(c.id)) signedByCompany.set(c.id, 0);
   }
 
   const paidRows = await prisma.externalCompanySettlementPayment.groupBy({
@@ -655,6 +607,74 @@ router.get('/settlement/monthly-overview', requireStaffPermission('admin.externa
       paidAmount: overallPaid,
       remainingAmount: overallPayable - overallPaid,
     },
+  });
+});
+
+/** 관리자: 특정 타업체 정산 지급 이력만 (접수 스캔 없음) */
+router.get('/settlement/company-payments', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
+  const externalCompanyId =
+    typeof req.query.externalCompanyId === 'string' ? req.query.externalCompanyId.trim() : '';
+  if (!externalCompanyId) {
+    res.status(400).json({ error: 'externalCompanyId가 필요합니다.' });
+    return;
+  }
+  const company = await requireActiveExternalCompanyInTenant(res, tenantId, externalCompanyId);
+  if (!company) return;
+  const operatingCompanyId = await resolveSettlementOperatingCompanyId(
+    res,
+    tenantId,
+    req.query.operatingCompanyId,
+  );
+  if (!operatingCompanyId) return;
+
+  const fromRaw = typeof req.query.from === 'string' ? req.query.from.trim() : '';
+  const toRaw = typeof req.query.to === 'string' ? req.query.to.trim() : '';
+  const limitRaw = typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : 300;
+  const limit = Number.isFinite(limitRaw) ? Math.min(500, Math.max(1, limitRaw)) : 300;
+
+  const paidAtWhere: { gte?: Date; lte?: Date } = {};
+  if (YMD.test(fromRaw)) {
+    paidAtWhere.gte = new Date(`${fromRaw}T00:00:00+09:00`);
+  }
+  if (YMD.test(toRaw)) {
+    paidAtWhere.lte = new Date(`${toRaw}T23:59:59.999+09:00`);
+  }
+
+  const paymentRows = await prisma.externalCompanySettlementPayment.findMany({
+    where: {
+      externalCompanyId,
+      operatingCompanyId,
+      externalCompany: { tenantId },
+      ...(Object.keys(paidAtWhere).length > 0 ? { paidAt: paidAtWhere } : {}),
+    },
+    orderBy: [{ paidAt: 'desc' }],
+    take: limit,
+    select: {
+      id: true,
+      amount: true,
+      paidAt: true,
+      memo: true,
+      actor: { select: { name: true, role: true } },
+    },
+  });
+
+  res.json({
+    externalCompanyId: company.id,
+    externalCompanyName: company.name,
+    operatingCompanyId,
+    from: YMD.test(fromRaw) ? fromRaw : null,
+    to: YMD.test(toRaw) ? toRaw : null,
+    payments: paymentRows.map((r) => ({
+      id: r.id,
+      amount: r.amount,
+      paidAt: r.paidAt.toISOString(),
+      memo: r.memo ?? null,
+      actorName: r.actor?.name ?? null,
+      actorRole: r.actor?.role ?? null,
+    })),
   });
 });
 

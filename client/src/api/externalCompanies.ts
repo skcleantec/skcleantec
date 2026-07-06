@@ -259,6 +259,52 @@ export async function getExternalSettlementMonthlyOverview(
   return res.json();
 }
 
+export type ExternalSettlementCompanyPaymentsResponse = {
+  externalCompanyId: string;
+  externalCompanyName: string | null;
+  operatingCompanyId: string;
+  from: string | null;
+  to: string | null;
+  payments: Array<{
+    id: string;
+    amount: number;
+    paidAt: string;
+    memo: string | null;
+    actorName: string | null;
+    actorRole: string | null;
+  }>;
+};
+
+export async function getExternalSettlementCompanyPayments(
+  token: string,
+  params: {
+    externalCompanyId: string;
+    operatingCompanyId?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+  },
+): Promise<ExternalSettlementCompanyPaymentsResponse> {
+  const q = appendOperatingCompanyId(
+    new URLSearchParams({ externalCompanyId: params.externalCompanyId }),
+    params.operatingCompanyId,
+  );
+  if (params.from?.trim()) q.set('from', params.from.trim());
+  if (params.to?.trim()) q.set('to', params.to.trim());
+  if (params.limit != null && Number.isFinite(params.limit)) {
+    q.set('limit', String(Math.min(500, Math.max(1, Math.trunc(params.limit)))));
+  }
+  const res = await fetch(`${API}/external-companies/settlement/company-payments?${q.toString()}`, {
+    ...NO_STORE,
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '정산 지급 내역을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
 export async function getExternalSettlementCompanyDetail(
   token: string,
   params: { externalCompanyId: string; from: string; to: string; search?: string; operatingCompanyId?: string }
