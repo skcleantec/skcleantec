@@ -1,41 +1,19 @@
-import { useEffect, useState } from 'react';
-import { getMe } from '../api/auth';
-import { getToken } from '../stores/auth';
+import { useMemo } from 'react';
 import { useTenantCapabilities } from './useTenantCapabilities';
+import { useAdminStaffSession } from './useAdminStaffSession';
 import { canShowTelecrmDashboard } from '../utils/telecrmDashboardAccess';
 
-/** /auth/me + tenant features 로 대시보드 텔레CRM 카드 노출 여부 */
+/** tenant features + 세션 role/권한으로 대시보드 텔레CRM 카드 노출 여부 */
 export function useTelecrmDashboardVisible(): boolean {
   const { features } = useTenantCapabilities();
-  const [visible, setVisible] = useState(false);
+  const { ready, staffMe } = useAdminStaffSession();
 
-  useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      setVisible(false);
-      return;
-    }
-    let cancelled = false;
-    getMe(token)
-      .then((u) => {
-        if (cancelled) return;
-        const enabledModules =
-          features ?? (Array.isArray(u.features) ? u.features : null);
-        setVisible(
-          canShowTelecrmDashboard({
-            enabledModules,
-            role: typeof u.role === 'string' ? u.role : null,
-            marketerPermissions: u.marketerPermissions ?? null,
-          }),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setVisible(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [features]);
-
-  return visible;
+  return useMemo(() => {
+    if (!ready || !staffMe) return false;
+    return canShowTelecrmDashboard({
+      enabledModules: features,
+      role: staffMe.role ?? null,
+      marketerPermissions: staffMe.marketerPermissions ?? null,
+    });
+  }, [ready, staffMe, features]);
 }

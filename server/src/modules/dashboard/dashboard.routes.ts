@@ -66,6 +66,12 @@ router.get('/stats', async (req, res) => {
   const salesWindowStartYmd = sevenDaysAgoYmd < monthStartYmd ? sevenDaysAgoYmd : monthStartYmd;
   const salesWindowGte = new Date(`${salesWindowStartYmd}T00:00:00+09:00`);
 
+  /** 해피콜 미완 집계 — 예약일 KST ±운영 창(과거 전량 스캔 방지) */
+  const happyCallWindowStartYmd = kstYmdAddDays(todayYmd, -90);
+  const happyCallWindowEndYmd = kstYmdAddDays(todayYmd, 120);
+  const happyCallWindowGte = new Date(`${happyCallWindowStartYmd}T00:00:00+09:00`);
+  const happyCallWindowLte = new Date(`${happyCallWindowEndYmd}T23:59:59.999+09:00`);
+
   const todayOffDbDate = new Date(`${todayYmd}T12:00:00+09:00`);
 
   const [todayCount, unassignedCount, estimateConfig, inquiriesForSales, teamLeadersRaw, monthWorkloadInquiries, todayLeaderDayOffRows, rosterRestrictedMembers, rosterOnTodayRows, happyCallRows] =
@@ -155,7 +161,11 @@ router.get('/stats', async (req, res) => {
     prisma.inquiry.findMany({
       where: {
         tenantId,
-        preferredDate: { not: null },
+        preferredDate: {
+          not: null,
+          gte: happyCallWindowGte,
+          lte: happyCallWindowLte,
+        },
         happyCallCompletedAt: null,
         status: { in: [...HAPPY_CALL_STATS_STATUSES] },
         assignments: { some: {} },

@@ -5,16 +5,14 @@ import { AdminCollapsibleSectionSideNav, type AdminSideNavItem } from './AdminSe
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { getToken } from '../../stores/auth';
-import { getMe } from '../../api/auth';
-import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { filterAdminSideNavItems } from '../../utils/filterAdminSideNavByFeatures';
 import {
   filterAdminSideNavByPermissions,
   firstAllowedAdminSideNavPath,
 } from '../../utils/filterAdminSideNavByPermissions';
 import { canAccessAdminPath } from '@shared/marketerPermissionNav';
-import type { StaffAdminMeFields } from '../../utils/staffAdminAccess';
 
 const ADMIN_INQUIRIES_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-inquiries-side-nav-collapsed';
 const REVIEW_PAYBACK_PATH = '/admin/inquiries/review-payback';
@@ -74,24 +72,9 @@ export function AdminInquiriesLayout() {
   const token = getToken();
   const location = useLocation();
   const { features } = useTenantCapabilities();
+  const { ready, staffMe } = useAdminStaffSession();
   const [reviewPaybackBadge, setReviewPaybackBadge] = useState(0);
   const [csPendingBadge, setCsPendingBadge] = useState(0);
-  const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(null);
-
-  useEffect(() => {
-    if (!token) {
-      setStaffMe(null);
-      return;
-    }
-    void getMe(token).then((u) => {
-      setStaffMe({
-        role: u.role,
-        effectiveStaffAdminAccess: u.effectiveStaffAdminAccess,
-        marketerAdminLevel: u.marketerAdminLevel,
-        marketerPermissions: u.marketerPermissions ?? null,
-      });
-    });
-  }, [token]);
 
   const refreshBadges = useCallback(async () => {
     if (!token) return;
@@ -108,7 +91,15 @@ export function AdminInquiriesLayout() {
     void refreshBadges();
   }, [refreshBadges]);
 
-  useInboxRealtime(token, () => void refreshBadges(), Boolean(token));
+  /** GNB 배지 갱신(AdminLayout WS·디바운스)과 동기 — 별도 WS 구독 없음 */
+  useEffect(() => {
+    (window as { __refreshInquiriesSubNavBadges?: () => void }).__refreshInquiriesSubNavBadges = () => {
+      void refreshBadges();
+    };
+    return () => {
+      delete (window as { __refreshInquiriesSubNavBadges?: () => void }).__refreshInquiriesSubNavBadges;
+    };
+  }, [refreshBadges]);
 
   const navItems = useMemo(() => {
     const withBadge = ADMIN_INQUIRIES_NAV_ITEMS.map((item) => {
@@ -134,37 +125,45 @@ export function AdminInquiriesLayout() {
     [staffMe],
   );
 
-  if (staffMe && navItems.length === 0) {
+  if (ready && staffMe && navItems.length === 0) {
     return (
       <div className="min-w-0 w-full max-w-full p-8 text-center text-fluid-sm text-gray-600">
         서비스접수 메뉴에 접근할 권한이 없습니다.
       </div>
     );
   }
-  if (staffMe && !pathAllowed && fallbackPath && fallbackPath !== location.pathname.split('?')[0]) {
+  if (ready && staffMe && !pathAllowed && fallbackPath && fallbackPath !== location.pathname.split('?')[0]) {
     return <Navigate to={fallbackPath} replace />;
   }
 
   return (
     <div className="min-w-0 w-full max-w-full">
       <div className="lg:hidden">
-        <AdminSubNavScroll aria-label="서비스접수 하위 메뉴">
-          <MobileInquirySubNavTabs items={navItems} />
-        </AdminSubNavScroll>
+        {ready ? (
+          <AdminSubNavScroll aria-label="서비스접수 하위 메뉴">
+            <MobileInquirySubNavTabs items={navItems} />
+          </AdminSubNavScroll>
+        ) : (
+          <div className="h-9 rounded-lg bg-slate-100 animate-pulse" aria-hidden />
+        )}
       </div>
 
       <div className="min-w-0 w-full max-w-full lg:flex lg:gap-2.5 xl:gap-3 2xl:gap-4">
         <div className="shrink-0 lg:self-stretch">
-          <AdminCollapsibleSectionSideNav
-            title="서비스접수"
-            items={navItems}
-            aria-label="서비스접수 하위 메뉴"
-            collapseStorageKey={ADMIN_INQUIRIES_SIDE_NAV_COLLAPSED_KEY}
-          />
+          {ready ? (
+            <AdminCollapsibleSectionSideNav
+              title="서비스접수"
+              items={navItems}
+              aria-label="서비스접수 하위 메뉴"
+              collapseStorageKey={ADMIN_INQUIRIES_SIDE_NAV_COLLAPSED_KEY}
+            />
+          ) : (
+            <div className="hidden lg:block w-44 h-48 rounded-xl bg-slate-100 animate-pulse" aria-hidden />
+          )}
         </div>
 
         <div className="min-w-0 flex-1 overflow-x-hidden">
-          {!pathAllowed && staffMe ? (
+          {ready && staffMe && !pathAllowed ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-900">
               이 화면에 대한 권한이 없습니다.
             </div>

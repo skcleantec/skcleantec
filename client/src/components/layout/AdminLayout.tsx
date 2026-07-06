@@ -13,6 +13,7 @@ import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { resolveEffectiveStaffAdminFromMe, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
+import { useDebouncedCallback } from '../../utils/debounceCallback';
 import {
   useInboxRealtime,
   useInquiryCelebrateRealtime,
@@ -194,7 +195,9 @@ export function AdminLayout() {
   const [meRole, setMeRole] = useState<string | null>(null);
   const [effectiveStaffAdmin, setEffectiveStaffAdmin] = useState(false);
   const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(null);
+  const [meUserId, setMeUserId] = useState<string | null>(null);
   const [meName, setMeName] = useState<string | null>(null);
+  const [meEmail, setMeEmail] = useState<string | null>(null);
   const [mePhone, setMePhone] = useState<string | null>(null);
   const [meVehicleNumber, setMeVehicleNumber] = useState<string | null>(null);
   const [meProfileLoading, setMeProfileLoading] = useState(() => Boolean(adminToken));
@@ -285,7 +288,9 @@ export function AdminLayout() {
       setMeRole(null);
       setStaffMe(null);
       setEffectiveStaffAdmin(false);
+      setMeUserId(null);
       setMeName(null);
+      setMeEmail(null);
       setMePhone(null);
       setMeVehicleNumber(null);
       setTeamPreviewLink(false);
@@ -307,6 +312,7 @@ export function AdminLayout() {
     let cancelled = false;
     getMe(token)
       .then((u: {
+        id?: string;
         role?: string;
         email?: string;
         name?: string;
@@ -332,9 +338,14 @@ export function AdminLayout() {
           effectiveStaffAdminAccess: u.effectiveStaffAdminAccess,
           marketerAdminLevel: (u as { marketerAdminLevel?: StaffAdminMeFields['marketerAdminLevel'] }).marketerAdminLevel,
           marketerPermissions: u.marketerPermissions ?? null,
+          marketerOperationalAdminAccess: Boolean(
+            (u as { marketerOperationalAdminAccess?: boolean }).marketerOperationalAdminAccess,
+          ),
         });
         setEffectiveStaffAdmin(resolveEffectiveStaffAdminFromMe(u));
+        setMeUserId(typeof u.id === 'string' ? u.id : null);
         setMeName(typeof u.name === 'string' && u.name.trim() ? u.name.trim() : null);
+        setMeEmail(typeof u.email === 'string' && u.email.trim() ? u.email.trim() : null);
         setMePhone(typeof u.phone === 'string' && u.phone.trim() ? u.phone.trim() : null);
         setMeVehicleNumber(typeof u.vehicleNumber === 'string' && u.vehicleNumber.trim() ? u.vehicleNumber.trim() : null);
         setShowStagingDbImportMenu(Boolean(u.showStagingDbImport));
@@ -372,7 +383,9 @@ export function AdminLayout() {
         if (isAuthSessionExpiredError(e)) {
           setMeRole(null);
           setEffectiveStaffAdmin(false);
+          setMeUserId(null);
           setMeName(null);
+          setMeEmail(null);
           setMePhone(null);
           setMeVehicleNumber(null);
           setTeamPreviewLink(false);
@@ -443,7 +456,7 @@ export function AdminLayout() {
     setDraggingNavId(null);
   };
 
-  const fetchNavBadges = useCallback(() => {
+  const fetchNavBadgesNow = useCallback(() => {
     const token = getToken();
     if (!token) return;
     getAdminNavBadges(token)
@@ -451,6 +464,7 @@ export function AdminLayout() {
         setUnreadCount(r.unreadCount);
         setCsPendingCount(r.csPendingCount);
         setReviewPaybackUnseenCount(r.reviewPaybackUnseenCount);
+        (window as { __refreshInquiriesSubNavBadges?: () => void }).__refreshInquiriesSubNavBadges?.();
       })
       .catch(() => {});
     if (tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace')) {
@@ -467,6 +481,12 @@ export function AdminLayout() {
         });
     }
   }, [tenantFeatures]);
+
+  const fetchNavBadges = useDebouncedCallback(fetchNavBadgesNow, 400);
+
+  useEffect(() => {
+    fetchNavBadgesNow();
+  }, [fetchNavBadgesNow]);
 
   useReviewPaybackRealtime(
     adminToken,
@@ -1016,6 +1036,10 @@ export function AdminLayout() {
               isTenantOwner,
               isSuperAdmin,
               canCrmSettings,
+              userId: meUserId,
+              userName: meName,
+              userPhone: mePhone,
+              userEmail: meEmail,
             }}
           >
             <AdminStaffPathGate staffMe={staffMe}>

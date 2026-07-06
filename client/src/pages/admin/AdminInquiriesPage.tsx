@@ -65,9 +65,10 @@ import {
   getInquiryCreatorOptions,
   type UserItem,
 } from '../../api/users';
-import { getMe } from '../../api/auth';
-import { resolveMarketerOperationalAdminFromMe, hasStaffPermission, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
+import { resolveMarketerOperationalAdminFromMe, hasStaffPermission } from '../../utils/staffAdminAccess';
 import { getToken } from '../../stores/auth';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
+import { useDebouncedCallback } from '../../utils/debounceCallback';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import {
   InquiryDatePresetBar,
@@ -887,20 +888,22 @@ export function AdminInquiriesPage() {
     marketerId: string;
     marketerName: string;
   } | null>(null);
-  const [me, setMe] = useState<{
-    id: string;
-    role: string;
-    name: string;
-    phone?: string | null;
-    email?: string;
-    marketerPermissions?: import('@shared/marketerPermissions').MarketerPermissionMap | null;
-  } | null>(null);
-  const [operationalAdmin, setOperationalAdmin] = useState(false);
-  const staffMe = useMemo(
-    (): StaffAdminMeFields | null =>
-      me ? { role: me.role, marketerPermissions: me.marketerPermissions ?? null } : null,
-    [me],
+  const { ready, staffMe, role, userId, userName, userPhone, userEmail } = useAdminStaffSession();
+  const operationalAdmin = useMemo(
+    () => resolveMarketerOperationalAdminFromMe(staffMe),
+    [staffMe],
   );
+  const me = useMemo(() => {
+    if (!ready || !userId || !role || !userName) return null;
+    return {
+      id: userId,
+      role,
+      name: userName,
+      phone: userPhone ?? null,
+      email: userEmail ?? undefined,
+      marketerPermissions: staffMe?.marketerPermissions ?? null,
+    };
+  }, [ready, userId, role, userName, userPhone, userEmail, staffMe?.marketerPermissions]);
   const canDeleteInquiry = hasStaffPermission(staffMe, 'inquiry.delete');
   const canEditMarketerField = hasStaffPermission(staffMe, 'inquiry.edit.marketer');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
@@ -1035,37 +1038,6 @@ export function AdminInquiriesPage() {
     getAllProfessionalOptions(token)
       .then(setProfCatalog)
       .catch(() => setProfCatalog([]));
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) {
-      setMe(null);
-      setOperationalAdmin(false);
-      return;
-    }
-    getMe(token)
-      .then((u: {
-        id: string;
-        role: string;
-        name: string;
-        phone?: string | null;
-        email?: string;
-        marketerPermissions?: import('@shared/marketerPermissions').MarketerPermissionMap | null;
-      }) => {
-        setMe({
-          id: u.id,
-          role: u.role,
-          name: u.name,
-          phone: u.phone ?? null,
-          email: typeof u.email === 'string' ? u.email : undefined,
-          marketerPermissions: u.marketerPermissions ?? null,
-        });
-        setOperationalAdmin(resolveMarketerOperationalAdminFromMe(u));
-      })
-      .catch(() => {
-        setMe(null);
-        setOperationalAdmin(false);
-      });
   }, [token]);
 
   /** URL의 목록 필터 — page·pageSize 변경만으로는 실행하지 않음 */
@@ -1401,7 +1373,8 @@ export function AdminInquiriesPage() {
     refreshInquiriesSilent();
     refreshMarketerOverviewThrottled();
   }, [refreshInquiriesSilent, refreshMarketerOverviewThrottled]);
-  const { connected: inquiriesListWsConnected } = useInboxRealtime(token, handleInboxRefresh, Boolean(token));
+  const debouncedInboxRefresh = useDebouncedCallback(handleInboxRefresh, 400);
+  const { connected: inquiriesListWsConnected } = useInboxRealtime(token, debouncedInboxRefresh, Boolean(token));
   useVisibilityInterval(refreshInquiriesSilent, token && !inquiriesListWsConnected ? 25000 : 0);
 
   const openListIntakeModal = useCallback(() => {

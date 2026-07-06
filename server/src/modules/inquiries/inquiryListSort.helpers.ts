@@ -49,6 +49,38 @@ const inquiryListSortSelect = {
   orderForm: { select: { submittedAt: true, createdAt: true } },
 } as const;
 
+type SortRow = Prisma.InquiryGetPayload<{ select: typeof inquiryListSortSelect }>;
+
+function prismaOrderByForInquiryList(
+  sort: InquiryListSortOptions,
+): Prisma.InquiryOrderByWithRelationInput[] {
+  if (sort.field === 'createdAt') {
+    return [{ createdAt: sort.dir }];
+  }
+  if (sort.field === 'preferredDate') {
+    return [{ preferredDate: { sort: sort.dir, nulls: 'last' } }, { createdAt: 'desc' }];
+  }
+  return [{ status: sort.dir }, { createdAt: 'desc' }];
+}
+
+async function fetchFilteredInquiryPageIds(
+  db: PrismaClient,
+  filteredWhere: Prisma.InquiryWhereInput,
+  sort: InquiryListSortOptions,
+  skip: number,
+  take: number,
+): Promise<string[]> {
+  if (take <= 0) return [];
+  const rows = await db.inquiry.findMany({
+    where: filteredWhere,
+    select: { id: true },
+    orderBy: prismaOrderByForInquiryList(sort),
+    skip: Math.max(0, skip),
+    take,
+  });
+  return rows.map((r) => r.id);
+}
+
 type PrismaClient = typeof prisma;
 
 /**
@@ -68,24 +100,45 @@ export async function fetchInquiryListPageSorted<TInclude extends Prisma.Inquiry
   },
 ): Promise<{ items: Prisma.InquiryGetPayload<{ include: TInclude }>[]; total: number }> {
   const sort = args.sort ?? DEFAULT_INQUIRY_LIST_SORT;
-  const [pendingSortRows, filteredSortRows] = await Promise.all([
-    args.pinPendingWhere
-      ? db.inquiry.findMany({ where: args.pinPendingWhere, select: inquiryListSortSelect })
-      : Promise.resolve([]),
-    db.inquiry.findMany({ where: args.where, select: inquiryListSortSelect }),
-  ]);
 
-  const pendingIdSet = new Set(pendingSortRows.map((r) => r.id));
-  const pendingSorted = sortInquiryListSortables(
-    pendingSortRows.filter((r) => isInquiryOrderFormPendingSubmit(r)),
-    sort,
-  );
-  const filteredOnly = filteredSortRows.filter((r) => !pendingIdSet.has(r.id));
-  const filteredSorted = sortInquiryListSortables(filteredOnly, sort);
+  let pendingSorted: SortRow[] = [];
+  if (args.pinPendingWhere) {
+    const pendingSortRows = await db.inquiry.findMany({
+      where: args.pinPendingWhere,
+      select: inquiryListSortSelect,
+    });
+    pendingSorted = sortInquiryListSortables(
+      pendingSortRows.filter((r) => isInquiryOrderFormPendingSubmit(r)),
+      sort,
+    );
+  }
 
-  const merged = [...pendingSorted, ...filteredSorted];
-  const total = merged.length;
-  const pageIds = merged.slice(args.skip, args.skip + args.take).map((r) => r.id);
+  const pendingIds = pendingSorted.map((r) => r.id);
+  const filteredWhere: Prisma.InquiryWhereInput =
+    pendingIds.length > 0 ? { AND: [args.where, { id: { notIn: pendingIds } }] } : args.where;
+
+  const filteredCount = await db.inquiry.count({ where: filteredWhere });
+  const pendingCount = pendingSorted.length;
+  const total = pendingCount + filteredCount;
+
+  let pageIds: string[] = [];
+  if (args.skip < pendingCount) {
+    pageIds = pendingSorted.slice(args.skip, args.skip + args.take).map((r) => r.id);
+    const need = args.take - pageIds.length;
+    if (need > 0) {
+      const tailIds = await fetchFilteredInquiryPageIds(db, filteredWhere, sort, 0, need);
+      pageIds = [...pageIds, ...tailIds];
+    }
+  } else {
+    pageIds = await fetchFilteredInquiryPageIds(
+      db,
+      filteredWhere,
+      sort,
+      args.skip - pendingCount,
+      args.take,
+    );
+  }
+
   if (pageIds.length === 0) {
     return { items: [], total };
   }

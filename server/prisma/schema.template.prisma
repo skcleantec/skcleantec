@@ -1208,6 +1208,8 @@ model Inquiry {
   @@index([status, createdAt])
   @@index([createdById])
   @@index([tenantId, createdAt])
+  @@index([tenantId, preferredDate])
+  @@index([tenantId, status, createdAt(sort: Desc)])
   @@index([tenantId, operatingCompanyId, createdAt])
   @@index([tenantId, profOptionsAmountReviewPending])
   @@unique([tenantId, inquiryNumber])
@@ -1907,8 +1909,10 @@ model CsReport {
   @@index([inquiryId])
   @@index([completedById])
   @@index([status])
+  @@index([tenantId, status])
   @@index([forwardedToUserId])
   @@index([asServiceDate])
+  @@index([tenantId, asServiceDate])
   @@map("cs_reports")
 }
 

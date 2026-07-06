@@ -11,6 +11,10 @@ export type AdminStaffSessionValue = {
   isTenantOwner: boolean;
   isSuperAdmin: boolean;
   canCrmSettings: boolean;
+  userId: string | null;
+  userName: string | null;
+  userPhone: string | null;
+  userEmail: string | null;
 };
 
 const defaultValue: AdminStaffSessionValue = {
@@ -21,6 +25,10 @@ const defaultValue: AdminStaffSessionValue = {
   isTenantOwner: false,
   isSuperAdmin: false,
   canCrmSettings: false,
+  userId: null,
+  userName: null,
+  userPhone: null,
+  userEmail: null,
 };
 
 const AdminStaffSessionContext = createContext<AdminStaffSessionValue>(defaultValue);

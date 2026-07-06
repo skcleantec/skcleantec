@@ -98,7 +98,7 @@ export function TeamMessagesPage() {
   }, [token, previewKey, capturePreviewKey, isPreviewFetchStale]);
 
   const { connected: wsConnected } = useInboxRealtime(token, pollMessages, Boolean(token));
-  useMessageThreadPoll(Boolean(token) && !wsConnected, pollMessages);
+  useMessageThreadPoll(Boolean(token) && !wsConnected, pollMessages, 10000);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,14 +118,6 @@ export function TeamMessagesPage() {
       setSending(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="py-12 text-center text-gray-500 text-sm">
-        <TeamBiLine id="team.common.loading" koClassName="text-sm text-gray-500" />
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0 h-full overflow-hidden">
@@ -148,7 +140,11 @@ export function TeamMessagesPage() {
           className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 space-y-3"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          {messages.length === 0 ? (
+          {loading && messages.length === 0 ? (
+            <div className="py-12 text-center text-gray-500 text-sm">
+              <TeamBiLine id="team.common.loading" koClassName="text-sm text-gray-500" />
+            </div>
+          ) : messages.length === 0 ? (
             <div className="text-center text-sm text-gray-500 py-8">
               <TeamBiLine id="team.messages.empty" koClassName="text-sm text-gray-500" />
             </div>

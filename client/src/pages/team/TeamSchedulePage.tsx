@@ -9,6 +9,7 @@ import {
 } from '../../api/team';
 import { getTeamToken } from '../../stores/teamAuth';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
+import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { isPublicHoliday } from '../../utils/holidays';
@@ -154,7 +155,7 @@ export function TeamSchedulePage() {
 
   const mapPinLabel = teamBiPlain('team.schedule.mapThisInquiry');
 
-  if (loading) {
+  if (shouldShowListBlockingLoading(loading, items.length)) {
     return (
       <div className="py-12 text-center text-gray-500 text-fluid-sm">
         <TeamBiLine id="team.common.loading" koClassName="text-fluid-sm text-gray-500" />
