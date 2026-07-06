@@ -3,16 +3,26 @@ import type {
   TelecrmConsultationQuoteStatus,
 } from '@shared/telecrmConsultationQuote';
 
-const API = '/api/telecrm/consultation-quotes';
+const API = '/api/crm/consultation-quotes';
 
 function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
-async function parseJson(res: Response) {
-  const data = await res.json();
-  if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : '요청 실패');
-  return data;
+async function parseJson<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    if (text.trimStart().startsWith('<!DOCTYPE') || text.trimStart().startsWith('<html')) {
+      throw new Error('API 경로 오류 또는 서버 미기동 — 페이지 HTML이 반환되었습니다.');
+    }
+    throw new Error('서버 응답을 해석할 수 없습니다.');
+  }
+  const err = data as { error?: string } | null;
+  if (!res.ok) throw new Error(typeof err?.error === 'string' ? err.error : '요청 실패');
+  return data as T;
 }
 
 export type TelecrmConsultationQuoteDto = {
@@ -43,7 +53,7 @@ export async function fetchTelecrmConsultationQuotes(
 ): Promise<TelecrmConsultationQuotesListDto> {
   const qs = `?phone=${encodeURIComponent(phone.trim())}`;
   const res = await fetch(`${API}${qs}`, { headers: authHeaders(token) });
-  return parseJson(res);
+  return parseJson<TelecrmConsultationQuotesListDto>(res);
 }
 
 export async function upsertTelecrmConsultationQuoteDraft(
@@ -55,7 +65,7 @@ export async function upsertTelecrmConsultationQuoteDraft(
     headers: authHeaders(token),
     body: JSON.stringify(body),
   });
-  return parseJson(res);
+  return parseJson<TelecrmConsultationQuoteDto>(res);
 }
 
 export async function supersedeTelecrmConsultationQuotes(
@@ -67,7 +77,7 @@ export async function supersedeTelecrmConsultationQuotes(
     headers: authHeaders(token),
     body: JSON.stringify({ phone: phone.trim() }),
   });
-  await parseJson(res);
+  await parseJson<{ ok: true }>(res);
 }
 
 export type FinalizeTelecrmConsultationQuoteBody = {
@@ -97,7 +107,7 @@ export async function finalizeTelecrmConsultationQuote(
     headers: authHeaders(token),
     body: JSON.stringify(body),
   });
-  return parseJson(res);
+  return parseJson<FinalizeTelecrmConsultationQuoteResult>(res);
 }
 
 export async function linkTelecrmConsultationQuoteInquiry(
@@ -109,6 +119,6 @@ export async function linkTelecrmConsultationQuoteInquiry(
     headers: authHeaders(token),
     body: JSON.stringify(body),
   });
-  const data = await parseJson(res);
-  return data.quote as TelecrmConsultationQuoteDto;
+  const data = await parseJson<{ quote: TelecrmConsultationQuoteDto }>(res);
+  return data.quote;
 }
