@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getToken } from '../../../stores/auth';
 import {
   fetchTelecrmOrderOptions,
@@ -18,16 +18,27 @@ import {
   CRM_ACCENT,
 } from '../crmUi';
 import { computeEstimateTotalFromPyeong } from '@shared/estimateTotal';
+import {
+  buildOrderOptionTree,
+  countOrderOptionTreeItems,
+  type OrderOptionTreeNode,
+} from './crmOrderOptionTree';
 
 /** 업체 공통에 표시하는 가상 카테고리 — 발주 전문시공 옵션 */
 const ORDERFORM_CATEGORY_ID = '__telecrm_orderform__';
+
+type QuoteLineSource = 'telecrm' | 'order';
 
 type QuoteLine = {
   key: string;
   label: string;
   sublabel?: string;
+  source: QuoteLineSource;
+  /** 카탈로그 기본 금액(원) */
+  catalogAmountWon: number | null;
+  /** 안내에 쓰는 금액 — 마케터가 수정 가능 */
   amountWon: number | null;
-  copyText: string;
+  priceHint?: string | null;
 };
 
 function formatOrderOptionPrice(row: TelecrmOrderOptionDto): string {
@@ -44,41 +55,104 @@ function orderOptionAmount(row: TelecrmOrderOptionDto): number | null {
   return null;
 }
 
-type OrderOptionMenuItem = {
-  id: string;
-  label: string;
-  price: string;
-  row: TelecrmOrderOptionDto;
-};
+function parseAmountInput(raw: string): number | null {
+  const trimmed = raw.replace(/,/g, '').trim();
+  if (!trimmed) return null;
+  const num = Number(trimmed);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.floor(num);
+}
 
-type OrderOptionGroup = {
-  key: string;
-  label: string;
-  items: OrderOptionMenuItem[];
-};
-
-/** labelPath 상위 경로(마지막 항목명 제외)로 발주 전문시공 그룹화 */
-function groupOrderOptionsByCategory(orderOptions: TelecrmOrderOptionDto[]): OrderOptionGroup[] {
-  const map = new Map<string, OrderOptionGroup>();
-  for (const row of orderOptions) {
-    const parts = row.labelPath
-      .split('›')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const groupLabel = parts.length > 1 ? parts.slice(0, -1).join(' › ') : '기타';
-    let group = map.get(groupLabel);
-    if (!group) {
-      group = { key: groupLabel, label: groupLabel, items: [] };
-      map.set(groupLabel, group);
-    }
-    group.items.push({
-      id: row.id,
-      label: row.emoji ? `${row.emoji} ${row.label}` : row.label,
-      price: formatOrderOptionPrice(row),
-      row,
-    });
+function formatQuoteLineCopy(line: QuoteLine): string {
+  const pricePart =
+    line.amountWon != null ? formatWon(line.amountWon) : line.priceHint?.trim() || '—';
+  if (line.source === 'order') {
+    return `${line.sublabel ?? line.label} ${pricePart}`;
   }
-  return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+  return `${line.label} ${pricePart}`;
+}
+
+function OrderOptionTreeSection({
+  node,
+  depth,
+  isExpanded,
+  onToggle,
+  onAdd,
+}: {
+  node: OrderOptionTreeNode;
+  depth: number;
+  isExpanded: (key: string) => boolean;
+  onToggle: (key: string) => void;
+  onAdd: (row: TelecrmOrderOptionDto) => void;
+}) {
+  const expanded = isExpanded(node.key);
+  const count = countOrderOptionTreeItems(node);
+  const hasNested = node.children.length > 0 || node.items.length > 0;
+  const pad = depth === 0 ? 'px-2' : depth === 1 ? 'pl-5 pr-2' : 'pl-8 pr-2';
+
+  return (
+    <li className={depth === 0 ? 'rounded-md border border-amber-100/80 bg-white/60' : ''}>
+      {hasNested ? (
+        <button
+          type="button"
+          onClick={() => onToggle(node.key)}
+          className={`flex w-full items-center gap-1.5 py-1 text-left hover:bg-amber-50/50 ${pad}`}
+        >
+          <span
+            className={`shrink-0 text-[9px] text-amber-700 transition-transform ${expanded ? 'rotate-90' : ''}`}
+            aria-hidden
+          >
+            ▶
+          </span>
+          <span
+            className={`min-w-0 flex-1 truncate font-semibold text-amber-900 ${depth === 0 ? 'text-[10px]' : 'text-[9px]'}`}
+            title={node.label}
+          >
+            {node.label}
+          </span>
+          <span className="shrink-0 text-[9px] tabular-nums text-amber-800/70">{count}</span>
+        </button>
+      ) : null}
+
+      {expanded ? (
+        <>
+          {node.children.map((child) => (
+            <OrderOptionTreeSection
+              key={child.key}
+              node={child}
+              depth={depth + 1}
+              isExpanded={isExpanded}
+              onToggle={onToggle}
+              onAdd={onAdd}
+            />
+          ))}
+          {node.items.length > 0 ? (
+            <ul className={depth === 0 ? 'border-t border-amber-50 divide-y divide-slate-100' : 'divide-y divide-slate-50'}>
+              {node.items.map((row) => (
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    onClick={() => onAdd(row.row)}
+                    className={`flex w-full items-center gap-2 py-1 text-left transition-colors hover:bg-amber-50/60 ${pad}`}
+                  >
+                    <span
+                      className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-900"
+                      title={row.label}
+                    >
+                      {row.label}
+                    </span>
+                    <span className="shrink-0 text-[11px] font-bold tabular-nums text-amber-700">
+                      {row.price}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
+      ) : null}
+    </li>
+  );
 }
 
 export function CrmPricingPanel({
@@ -104,6 +178,7 @@ export function CrmPricingPanel({
   const [quoteLines, setQuoteLines] = useState<QuoteLine[]>([]);
   const [copiedAll, setCopiedAll] = useState(false);
   const [expandedOrderGroups, setExpandedOrderGroups] = useState<Set<string>>(() => new Set());
+  const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
 
   const loadCatalog = useCallback(async () => {
     if (!token) return;
@@ -185,15 +260,17 @@ export function CrmPricingPanel({
   const isOrderformCategory = categoryId === ORDERFORM_CATEGORY_ID;
 
   const addOrderOptionToQuote = useCallback((row: TelecrmOrderOptionDto) => {
-    const amount = orderOptionAmount(row);
+    const catalogAmount = orderOptionAmount(row);
     setQuoteLines((prev) => [
       ...prev,
       {
         key: `order:${row.id}:${Date.now()}`,
         label: row.emoji ? `${row.emoji} ${row.label}` : row.label,
         sublabel: row.labelPath,
-        amountWon: amount,
-        copyText: `${row.labelPath} ${formatOrderOptionPrice(row)}`,
+        source: 'order',
+        catalogAmountWon: catalogAmount,
+        amountWon: catalogAmount,
+        priceHint: row.priceHint,
       },
     ]);
   }, []);
@@ -203,8 +280,8 @@ export function CrmPricingPanel({
     return categories.find((c) => c.id === categoryId) ?? categories[0] ?? null;
   }, [categories, categoryId, isOrderformCategory]);
 
-  const orderOptionGroups = useMemo(
-    () => groupOrderOptionsByCategory(orderOptions),
+  const orderOptionTree = useMemo(
+    () => buildOrderOptionTree(orderOptions, formatOrderOptionPrice),
     [orderOptions],
   );
 
@@ -224,6 +301,35 @@ export function CrmPricingPanel({
     [expandedOrderGroups, searchExpanded],
   );
 
+  const updateQuoteLineAmount = useCallback((key: string, raw: string) => {
+    setAmountDrafts((prev) => ({ ...prev, [key]: raw }));
+    const parsed = parseAmountInput(raw);
+    if (raw.trim() !== '' && parsed === null) return;
+    setQuoteLines((prev) =>
+      prev.map((line) => (line.key === key ? { ...line, amountWon: parsed } : line)),
+    );
+  }, []);
+
+  const resetQuoteLineAmount = useCallback((key: string) => {
+    setQuoteLines((prev) => {
+      const line = prev.find((l) => l.key === key);
+      if (!line) return prev;
+      setAmountDrafts((drafts) => {
+        const next = { ...drafts };
+        if (line.catalogAmountWon != null) next[key] = String(line.catalogAmountWon);
+        else delete next[key];
+        return next;
+      });
+      return prev.map((l) => (l.key === key ? { ...l, amountWon: l.catalogAmountWon } : l));
+    });
+  }, []);
+
+  const amountInputValue = (line: QuoteLine): string => {
+    if (line.key in amountDrafts) return amountDrafts[line.key] ?? '';
+    if (line.amountWon != null) return String(line.amountWon);
+    return '';
+  };
+
   const priceMenuItems: { id: string; onAdd: () => void; label: string; sublabel?: string; price: string }[] =
     useMemo(() => {
       return (activeCategory?.items ?? []).map((item: TelecrmPriceItemDto) => ({
@@ -237,8 +343,9 @@ export function CrmPricingPanel({
             {
               key: `item:${item.id}:${Date.now()}`,
               label: item.name,
+              source: 'telecrm',
+              catalogAmountWon: item.amountWon,
               amountWon: item.amountWon,
-              copyText: `${item.name} ${formatWon(item.amountWon)}`,
             },
           ]);
         },
@@ -251,7 +358,7 @@ export function CrmPricingPanel({
       lines.push(`${pyeongNum}평 기본견적 ${formatWon(estimatedBase)}`);
     }
     for (const line of quoteLines) {
-      lines.push(`+ ${line.copyText}`);
+      lines.push(`+ ${formatQuoteLineCopy(line)}`);
     }
     if (grandTotal != null) {
       lines.push(`합계 ${formatWon(grandTotal)}`);
@@ -284,6 +391,42 @@ export function CrmPricingPanel({
       </CrmChip>
     ));
 
+  const renderQuoteAmountEditor = (line: QuoteLine): ReactNode => {
+    const showReset =
+      line.catalogAmountWon !== line.amountWon ||
+      (line.catalogAmountWon == null && line.amountWon != null);
+    return (
+      <span className="flex shrink-0 items-center gap-0.5">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={amountInputValue(line)}
+          placeholder={line.priceHint?.trim() || '원'}
+          onChange={(e) => updateQuoteLineAmount(line.key, e.target.value)}
+          onBlur={() => {
+            setAmountDrafts((prev) => {
+              const next = { ...prev };
+              delete next[line.key];
+              return next;
+            });
+          }}
+          className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-right text-[10px] tabular-nums"
+          title="안내 금액 (직접 입력)"
+        />
+        {showReset ? (
+          <button
+            type="button"
+            title="카탈로그 가격으로"
+            onClick={() => resetQuoteLineAmount(line.key)}
+            className="rounded px-0.5 text-[9px] text-amber-700 hover:bg-amber-100"
+          >
+            ↺
+          </button>
+        ) : null}
+      </span>
+    );
+  };
+
   return (
     <CrmColumn
       accent="pricing"
@@ -293,7 +436,6 @@ export function CrmPricingPanel({
       bodyClassName="p-0"
     >
       <div className="flex min-h-0 flex-1 flex-col">
-        {/* 상단: 검색·평수 — 컴팩트 */}
         <div className={`shrink-0 space-y-1.5 border-b border-amber-100/80 px-2 py-1.5 ${CRM_ACCENT.pricing.panel}`}>
           <div className="relative">
             <CrmIconSearch className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-amber-600/70" />
@@ -327,7 +469,6 @@ export function CrmPricingPanel({
           ) : null}
         </div>
 
-        {/* 카테고리 칩 */}
         {!loading && !error ? (
           <div className="shrink-0 space-y-1 border-b border-slate-100 px-2 py-1.5">
             {personalCategories.length > 0 ? (
@@ -345,14 +486,13 @@ export function CrmPricingPanel({
           </div>
         ) : null}
 
-        {/* 메뉴 목록 — 스크롤 */}
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
           {loading ? (
             <p className="text-[11px] text-gray-500">불러오는 중…</p>
           ) : error ? (
             <p className="text-[11px] text-red-600">{error}</p>
           ) : isOrderformCategory ? (
-            orderOptionGroups.length === 0 ? (
+            orderOptionTree.length === 0 ? (
               <div className="space-y-2 text-[11px] text-gray-500">
                 <p>전문시공 옵션이 없습니다.</p>
                 {onOpenSettings ? (
@@ -363,52 +503,16 @@ export function CrmPricingPanel({
               </div>
             ) : (
               <ul className="space-y-0.5">
-                {orderOptionGroups.map((group) => {
-                  const expanded = isOrderGroupExpanded(group.key);
-                  return (
-                    <li key={group.key} className="rounded-md border border-amber-100/80 bg-white/60">
-                      <button
-                        type="button"
-                        onClick={() => toggleOrderGroup(group.key)}
-                        className="flex w-full items-center gap-1.5 px-2 py-1 text-left hover:bg-amber-50/50"
-                      >
-                        <span
-                          className={`shrink-0 text-[9px] text-amber-700 transition-transform ${expanded ? 'rotate-90' : ''}`}
-                          aria-hidden
-                        >
-                          ▶
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-amber-900" title={group.label}>
-                          {group.label}
-                        </span>
-                        <span className="shrink-0 text-[9px] tabular-nums text-amber-800/70">{group.items.length}</span>
-                      </button>
-                      {expanded ? (
-                        <ul className="border-t border-amber-50 divide-y divide-slate-100">
-                          {group.items.map((row) => (
-                            <li key={row.id}>
-                              <button
-                                type="button"
-                                onClick={() => addOrderOptionToQuote(row.row)}
-                                className="flex w-full items-center gap-2 py-1 pl-5 pr-2 text-left transition-colors hover:bg-amber-50/60"
-                              >
-                                <span
-                                  className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-900"
-                                  title={row.label}
-                                >
-                                  {row.label}
-                                </span>
-                                <span className="shrink-0 text-[11px] font-bold tabular-nums text-amber-700">
-                                  {row.price}
-                                </span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </li>
-                  );
-                })}
+                {orderOptionTree.map((node) => (
+                  <OrderOptionTreeSection
+                    key={node.key}
+                    node={node}
+                    depth={0}
+                    isExpanded={isOrderGroupExpanded}
+                    onToggle={toggleOrderGroup}
+                    onAdd={addOrderOptionToQuote}
+                  />
+                ))}
               </ul>
             )
           ) : priceMenuItems.length === 0 ? (
@@ -445,16 +549,15 @@ export function CrmPricingPanel({
           )}
         </div>
 
-        {/* 안내 히스토리 + 하단 합계 */}
         <div
           className={`shrink-0 border-t border-amber-200/80 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.04)] ${CRM_ACCENT.pricing.panel}`}
         >
           {(estimatedBase != null || quoteLines.length > 0) && (
-            <div className="max-h-32 overflow-y-auto border-b border-amber-100/60 px-2 py-1">
+            <div className="max-h-36 overflow-y-auto border-b border-amber-100/60 px-2 py-1">
               <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800/70">
-                안내 목록
+                안내 목록 · 금액 입력/↺ 재설정
               </p>
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {estimatedBase != null && Number.isFinite(pyeongNum) && pyeongNum > 0 ? (
                   <li className="flex items-center justify-between gap-2 text-[10px]">
                     <span className="truncate text-gray-700">{pyeongNum}평 기본견적</span>
@@ -476,9 +579,7 @@ export function CrmPricingPanel({
                     <span className="min-w-0 flex-1 truncate text-gray-700" title={line.label}>
                       + {line.label}
                     </span>
-                    <span className="shrink-0 tabular-nums text-amber-800">
-                      {line.amountWon != null ? formatWon(line.amountWon) : '—'}
-                    </span>
+                    {renderQuoteAmountEditor(line)}
                   </li>
                 ))}
               </ul>
@@ -504,7 +605,10 @@ export function CrmPricingPanel({
             {quoteLines.length > 0 ? (
               <button
                 type="button"
-                onClick={() => setQuoteLines([])}
+                onClick={() => {
+                  setQuoteLines([]);
+                  setAmountDrafts({});
+                }}
                 className="shrink-0 text-[10px] text-gray-500 underline hover:text-gray-800"
               >
                 비우기
