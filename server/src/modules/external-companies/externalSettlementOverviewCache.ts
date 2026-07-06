@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { sumExternalSettlementSignedFeeByCompany } from './externalSettlementOverview.service.js';
 
-const TTL_MS = 45_000;
+const TTL_MS = 5 * 60_000;
 
 type CacheEntry = {
   at: number;

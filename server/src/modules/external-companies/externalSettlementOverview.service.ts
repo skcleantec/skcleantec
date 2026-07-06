@@ -16,8 +16,8 @@ export async function sumExternalSettlementSignedFeeByCompany(
     WITH fee_inquiries AS (
       SELECT id, external_transfer_fee, status, cancel_fee_external_company_id
       FROM inquiries
-      WHERE tenant_id = $1::uuid
-        AND operating_company_id = $2::uuid
+      WHERE tenant_id = $1
+        AND operating_company_id = $2
         AND external_transfer_fee IS NOT NULL
         AND status <> 'ON_HOLD'
     ),
@@ -30,7 +30,7 @@ export async function sumExternalSettlementSignedFeeByCompany(
         AND u.role = 'EXTERNAL_PARTNER'
         AND u.external_company_id IS NOT NULL
       INNER JOIN fee_inquiries fi ON fi.id = a.inquiry_id
-      WHERE a.tenant_id = $1::uuid
+      WHERE a.tenant_id = $1
       ORDER BY a.inquiry_id, a.sort_order ASC
     ),
     signed AS (
@@ -80,8 +80,8 @@ export async function sumExternalSettlementPaidByCompany(
     SELECT p.external_company_id, COALESCE(SUM(p.amount), 0)::bigint AS sum_paid
     FROM external_company_settlement_payments p
     INNER JOIN external_companies ec ON ec.id = p.external_company_id
-    WHERE p.operating_company_id = $2::uuid
-      AND ec.tenant_id = $1::uuid
+    WHERE p.operating_company_id = $2
+      AND ec.tenant_id = $1
     GROUP BY p.external_company_id
     `,
     tenantId,

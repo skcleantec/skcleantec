@@ -172,9 +172,12 @@ export async function getExternalSettlementCompanyOverviewPayable(
 
 export async function getExternalSettlementCompanyOverviewList(
   token: string,
-  operatingCompanyId?: string
+  operatingCompanyId?: string,
+  skipCache = false,
 ): Promise<{ operatingCompanyId: string; items: ExternalSettlementCompanyOverviewRow[] }> {
-  const q = appendOperatingCompanyId(new URLSearchParams(), operatingCompanyId).toString();
+  const params = appendOperatingCompanyId(new URLSearchParams(), operatingCompanyId);
+  if (skipCache) params.set('skipCache', '1');
+  const q = params.toString();
   const url = q
     ? `${API}/external-companies/settlement/company-overview-list?${q}`
     : `${API}/external-companies/settlement/company-overview-list`;
