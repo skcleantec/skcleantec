@@ -44,6 +44,43 @@ function orderOptionAmount(row: TelecrmOrderOptionDto): number | null {
   return null;
 }
 
+type OrderOptionMenuItem = {
+  id: string;
+  label: string;
+  price: string;
+  row: TelecrmOrderOptionDto;
+};
+
+type OrderOptionGroup = {
+  key: string;
+  label: string;
+  items: OrderOptionMenuItem[];
+};
+
+/** labelPath 상위 경로(마지막 항목명 제외)로 발주 전문시공 그룹화 */
+function groupOrderOptionsByCategory(orderOptions: TelecrmOrderOptionDto[]): OrderOptionGroup[] {
+  const map = new Map<string, OrderOptionGroup>();
+  for (const row of orderOptions) {
+    const parts = row.labelPath
+      .split('›')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const groupLabel = parts.length > 1 ? parts.slice(0, -1).join(' › ') : '기타';
+    let group = map.get(groupLabel);
+    if (!group) {
+      group = { key: groupLabel, label: groupLabel, items: [] };
+      map.set(groupLabel, group);
+    }
+    group.items.push({
+      id: row.id,
+      label: row.emoji ? `${row.emoji} ${row.label}` : row.label,
+      price: formatOrderOptionPrice(row),
+      row,
+    });
+  }
+  return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+}
+
 export function CrmPricingPanel({
   pyeong,
   onPyeongChange,
@@ -66,6 +103,7 @@ export function CrmPricingPanel({
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [quoteLines, setQuoteLines] = useState<QuoteLine[]>([]);
   const [copiedAll, setCopiedAll] = useState(false);
+  const [expandedOrderGroups, setExpandedOrderGroups] = useState<Set<string>>(() => new Set());
 
   const loadCatalog = useCallback(async () => {
     if (!token) return;
@@ -146,34 +184,48 @@ export function CrmPricingPanel({
 
   const isOrderformCategory = categoryId === ORDERFORM_CATEGORY_ID;
 
+  const addOrderOptionToQuote = useCallback((row: TelecrmOrderOptionDto) => {
+    const amount = orderOptionAmount(row);
+    setQuoteLines((prev) => [
+      ...prev,
+      {
+        key: `order:${row.id}:${Date.now()}`,
+        label: row.emoji ? `${row.emoji} ${row.label}` : row.label,
+        sublabel: row.labelPath,
+        amountWon: amount,
+        copyText: `${row.labelPath} ${formatOrderOptionPrice(row)}`,
+      },
+    ]);
+  }, []);
+
   const activeCategory = useMemo(() => {
     if (isOrderformCategory) return null;
     return categories.find((c) => c.id === categoryId) ?? categories[0] ?? null;
   }, [categories, categoryId, isOrderformCategory]);
 
-  const menuItems: { id: string; onAdd: () => void; label: string; sublabel?: string; price: string }[] =
+  const orderOptionGroups = useMemo(
+    () => groupOrderOptionsByCategory(orderOptions),
+    [orderOptions],
+  );
+
+  const searchExpanded = search.trim().length > 0;
+
+  const toggleOrderGroup = useCallback((key: string) => {
+    setExpandedOrderGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const isOrderGroupExpanded = useCallback(
+    (key: string) => searchExpanded || expandedOrderGroups.has(key),
+    [expandedOrderGroups, searchExpanded],
+  );
+
+  const priceMenuItems: { id: string; onAdd: () => void; label: string; sublabel?: string; price: string }[] =
     useMemo(() => {
-      if (isOrderformCategory) {
-        return orderOptions.map((row) => ({
-          id: row.id,
-          label: row.emoji ? `${row.emoji} ${row.label}` : row.label,
-          sublabel: row.labelPath,
-          price: formatOrderOptionPrice(row),
-          onAdd: () => {
-            const amount = orderOptionAmount(row);
-            setQuoteLines((prev) => [
-              ...prev,
-              {
-                key: `order:${row.id}:${Date.now()}`,
-                label: row.emoji ? `${row.emoji} ${row.label}` : row.label,
-                sublabel: row.labelPath,
-                amountWon: amount,
-                copyText: `${row.labelPath} ${formatOrderOptionPrice(row)}`,
-              },
-            ]);
-          },
-        }));
-      }
       return (activeCategory?.items ?? []).map((item: TelecrmPriceItemDto) => ({
         id: item.id,
         label: item.name,
@@ -191,7 +243,7 @@ export function CrmPricingPanel({
           ]);
         },
       }));
-    }, [activeCategory?.items, isOrderformCategory, orderOptions]);
+    }, [activeCategory?.items]);
 
   const buildQuoteCopyText = useCallback(() => {
     const lines: string[] = [];
@@ -299,18 +351,78 @@ export function CrmPricingPanel({
             <p className="text-[11px] text-gray-500">불러오는 중…</p>
           ) : error ? (
             <p className="text-[11px] text-red-600">{error}</p>
-          ) : menuItems.length === 0 ? (
+          ) : isOrderformCategory ? (
+            orderOptionGroups.length === 0 ? (
+              <div className="space-y-2 text-[11px] text-gray-500">
+                <p>전문시공 옵션이 없습니다.</p>
+                {onOpenSettings ? (
+                  <CrmActionButton accent="pricing" onClick={onOpenSettings}>
+                    발주서 설정
+                  </CrmActionButton>
+                ) : null}
+              </div>
+            ) : (
+              <ul className="space-y-0.5">
+                {orderOptionGroups.map((group) => {
+                  const expanded = isOrderGroupExpanded(group.key);
+                  return (
+                    <li key={group.key} className="rounded-md border border-amber-100/80 bg-white/60">
+                      <button
+                        type="button"
+                        onClick={() => toggleOrderGroup(group.key)}
+                        className="flex w-full items-center gap-1.5 px-2 py-1 text-left hover:bg-amber-50/50"
+                      >
+                        <span
+                          className={`shrink-0 text-[9px] text-amber-700 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                          aria-hidden
+                        >
+                          ▶
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-amber-900" title={group.label}>
+                          {group.label}
+                        </span>
+                        <span className="shrink-0 text-[9px] tabular-nums text-amber-800/70">{group.items.length}</span>
+                      </button>
+                      {expanded ? (
+                        <ul className="border-t border-amber-50 divide-y divide-slate-100">
+                          {group.items.map((row) => (
+                            <li key={row.id}>
+                              <button
+                                type="button"
+                                onClick={() => addOrderOptionToQuote(row.row)}
+                                className="flex w-full items-center gap-2 py-1 pl-5 pr-2 text-left transition-colors hover:bg-amber-50/60"
+                              >
+                                <span
+                                  className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-900"
+                                  title={row.label}
+                                >
+                                  {row.label}
+                                </span>
+                                <span className="shrink-0 text-[11px] font-bold tabular-nums text-amber-700">
+                                  {row.price}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )
+          ) : priceMenuItems.length === 0 ? (
             <div className="space-y-2 text-[11px] text-gray-500">
-              <p>{isOrderformCategory ? '전문시공 옵션이 없습니다.' : '항목이 없습니다.'}</p>
+              <p>항목이 없습니다.</p>
               {onOpenSettings ? (
                 <CrmActionButton accent="pricing" onClick={onOpenSettings}>
-                  {isOrderformCategory ? '발주서 설정' : '가격 항목 추가'}
+                  가격 항목 추가
                 </CrmActionButton>
               ) : null}
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {menuItems.map((row) => (
+              {priceMenuItems.map((row) => (
                 <li key={row.id}>
                   <button
                     type="button"
