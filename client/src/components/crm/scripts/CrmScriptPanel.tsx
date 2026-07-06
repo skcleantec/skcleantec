@@ -41,7 +41,7 @@ export function CrmScriptPanel({
   const [error, setError] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [tabId, setTabId] = useState<string | null>(null);
-  const [fontScale, setFontScale] = useState(1);
+  const [fontScale, setFontScale] = useState(0.875);
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
@@ -158,6 +158,7 @@ export function CrmScriptPanel({
           active={activeCategory?.id === c.id}
           onClick={() => selectCategory(c.id)}
           title={globalIndex < 5 ? `Ctrl+${globalIndex + 1}` : undefined}
+          compact
         >
           {c.label}
         </CrmChip>
@@ -165,98 +166,111 @@ export function CrmScriptPanel({
     });
 
   return (
-    <CrmColumn accent="script" title="상담 스크립트" subtitle="설정에서 등록한 스크립트를 읽기 전용으로 표시합니다">
+    <CrmColumn
+      accent="script"
+      title="상담 스크립트"
+      subtitle="Ctrl+1~5 · Shift+←→ · 복사"
+      disableBodyScroll
+      bodyClassName="p-0"
+    >
       {loading ? (
-        <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
+        <p className="px-2 py-1.5 text-[11px] text-gray-500">불러오는 중…</p>
       ) : error ? (
-        <p className="text-fluid-sm text-red-600">{error}</p>
+        <p className="px-2 py-1.5 text-[11px] text-red-600">{error}</p>
       ) : categories.length === 0 ? (
-        <div className="space-y-2">
-          <p className="text-fluid-sm text-gray-500">등록된 스크립트가 없습니다.</p>
+        <div className="space-y-2 px-2 py-1.5">
+          <p className="text-[11px] text-gray-500">등록된 스크립트가 없습니다.</p>
           {onOpenSettings ? (
-            <CrmActionButton accent="script" onClick={onOpenSettings}>
+            <CrmActionButton accent="script" onClick={onOpenSettings} className="!px-2 !py-1 !text-[10px]">
               설정에서 스크립트 추가
             </CrmActionButton>
           ) : null}
         </div>
       ) : (
-        <div className="flex min-h-0 flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] text-gray-500">
-              Ctrl+1~5 카테고리 · Ctrl+Shift+←→ 탭 · 복사 버튼으로 클립보드
-            </p>
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* 상단 툴바 */}
+          <div className="flex shrink-0 items-center gap-2 border-b border-violet-100/80 px-2 py-1">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+              {personalCategories.length > 0 ? (
+                <div className="min-w-0">
+                  <CrmSectionLabel accent="script">내 스크립트</CrmSectionLabel>
+                  <div className="flex flex-wrap gap-1">{renderCategoryButtons(personalCategories, 0)}</div>
+                </div>
+              ) : null}
+              {sharedCategories.length > 0 ? (
+                <div className="min-w-0">
+                  <CrmSectionLabel accent="script">업체 공통</CrmSectionLabel>
+                  <div className="flex flex-wrap gap-1">
+                    {renderCategoryButtons(sharedCategories, personalCategories.length)}
+                  </div>
+                </div>
+              ) : null}
+            </div>
             <CrmActionButton
               accent="script"
               variant="solid"
               onClick={() => void copyScript()}
               disabled={!body}
+              className="!shrink-0 !px-2 !py-1 !text-[10px]"
             >
-              <CrmIconCopy className="h-3.5 w-3.5" />
-              {copied ? '복사됨' : '스크립트 복사'}
+              <CrmIconCopy className="h-3 w-3" />
+              {copied ? '복사됨' : '복사'}
             </CrmActionButton>
           </div>
 
-          <div className="space-y-2">
-            {personalCategories.length > 0 ? (
-              <div>
-                <CrmSectionLabel accent="script">내 스크립트</CrmSectionLabel>
-                <div className="flex flex-wrap gap-1.5">
-                  {renderCategoryButtons(personalCategories, 0)}
-                </div>
+          {/* 탭 + 글자 크기 */}
+          <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-slate-100 px-2 py-1">
+            {tabs.length > 1 ? (
+              <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+                {tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTabId(t.id)}
+                    className={`rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors ${
+                      activeTab?.id === t.id
+                        ? 'bg-violet-600 text-white shadow-sm'
+                        : 'text-violet-700 hover:bg-violet-50'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
               </div>
+            ) : activeTab ? (
+              <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-violet-800" title={activeTab.label}>
+                {activeTab.label}
+              </span>
             ) : null}
-            {sharedCategories.length > 0 ? (
-              <div>
-                <CrmSectionLabel accent="script">업체 공통</CrmSectionLabel>
-                <div className="flex flex-wrap gap-1.5">
-                  {renderCategoryButtons(sharedCategories, personalCategories.length)}
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {tabs.length > 1 ? (
-            <div className="flex flex-wrap gap-1 border-b border-gray-100 pb-2">
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTabId(t.id)}
-                  className={`rounded-lg px-2.5 py-1 text-fluid-xs font-medium transition-colors ${
-                    activeTab?.id === t.id
-                      ? 'bg-violet-600 text-white shadow-sm'
-                      : 'text-violet-700 hover:bg-violet-50'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div className="ml-auto flex shrink-0 items-center gap-1 text-[10px] text-gray-500">
+              <span>글자</span>
+              <button
+                type="button"
+                onClick={() => setFontScale((s) => Math.max(0.75, s - 0.05))}
+                className="rounded border border-gray-300 px-1.5 py-0.5 leading-none hover:bg-gray-50"
+                aria-label="글자 크기 줄이기"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontScale((s) => Math.min(1.15, s + 0.05))}
+                className="rounded border border-gray-300 px-1.5 py-0.5 leading-none hover:bg-gray-50"
+                aria-label="글자 크기 키우기"
+              >
+                +
+              </button>
             </div>
-          ) : null}
-
-          <div className="flex items-center gap-2 text-fluid-xs text-gray-500">
-            <span>글자 크기</span>
-            <button
-              type="button"
-              onClick={() => setFontScale((s) => Math.max(0.85, s - 0.1))}
-              className="rounded border border-gray-300 px-2 py-0.5"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              onClick={() => setFontScale((s) => Math.min(1.4, s + 0.1))}
-              className="rounded border border-gray-300 px-2 py-0.5"
-            >
-              +
-            </button>
           </div>
 
-          <div
-            className={`whitespace-pre-wrap rounded-xl border p-4 leading-relaxed text-slate-800 shadow-inner ${CRM_ACCENT.script.panel}`}
-            style={{ fontSize: `${fontScale}rem` }}
-          >
-            {body || '(스크립트 본문이 비어 있습니다)'}
+          {/* 본문 — 스크롤 영역 */}
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
+            <div
+              className={`whitespace-pre-wrap rounded-lg border p-2 leading-snug text-slate-800 ${CRM_ACCENT.script.panel}`}
+              style={{ fontSize: `${fontScale}rem` }}
+            >
+              {body || '(스크립트 본문이 비어 있습니다)'}
+            </div>
           </div>
         </div>
       )}
