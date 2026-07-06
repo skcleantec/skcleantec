@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useInboxRealtime, useChangeLogRealtime } from '../../hooks/useInboxRealtime';
@@ -20,18 +20,13 @@ import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { matchesCustomCalendarFilter } from '../../utils/customCalendarMatch';
 import { computeRegionalDaySlotStats } from '../../utils/regionalSlotStats';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
-import { CustomCalendarCreateModal } from '../../components/admin/CustomCalendarCreateModal';
-import { CustomCalendarTabsBar } from '../../components/admin/CustomCalendarTabsBar';
 import { EditAppIcon } from '../../components/icons/EditAppIcon';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
-import { ScheduleDayAssignmentSummaryModal } from '../../components/admin/ScheduleDayAssignmentSummaryModal';
-import { ScheduleDaySlotToAdjustModal } from '../../components/admin/ScheduleDaySlotToAdjustModal';
-import { ScheduleDayTeamLeaderAdjustModal } from '../../components/admin/ScheduleDayTeamLeaderAdjustModal';
 import { ScheduleDayStaffMemoPanel } from '../../components/admin/ScheduleDayStaffMemoPanel';
-import { ScheduleDayAvailabilityModal } from '../../components/admin/ScheduleDayAvailabilityModal';
 import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe, hasStaffPermission } from '../../utils/staffAdminAccess';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { runWhenIdle } from '../../utils/deferWhenIdle';
+import { readScheduleMonthCache, writeScheduleMonthCache } from '../../utils/scheduleMonthCache';
 import { getScheduleStats, type ScheduleStatsByDate, type AsCsScheduleListItem } from '../../api/dayoffs';
 import {
   getAssignableScheduleUsers,
@@ -47,7 +42,7 @@ import { getToken } from '../../stores/auth';
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
 import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
-import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { CustomCalendarTabsBar } from '../../components/admin/CustomCalendarTabsBar';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
@@ -62,8 +57,6 @@ import {
 } from '../../components/schedule/scheduleUiParts';
 import { adminScheduleMapIconUrl } from '../../utils/scheduleMapIcon';
 import { setScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
-import { ScheduleInquiryMemoModal } from '../../components/admin/ScheduleInquiryMemoModal';
-import { ScheduleDayMapModal } from '../../components/admin/ScheduleDayMapModal';
 import { ProfessionalOptionDots } from '../../components/admin/ProfessionalOptionDots';
 import { PropertyTypeSticker } from '../../components/ui/PropertyTypeSticker';
 import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
@@ -85,6 +78,47 @@ import {
   buildLeaderDayAssignmentCounts,
   scheduleItemHasLeaderWithSingleAssignmentOnDay,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
+
+const ScheduleInquiryDetailModal = lazy(() =>
+  import('../../components/admin/ScheduleInquiryDetailModal').then((m) => ({
+    default: m.ScheduleInquiryDetailModal,
+  })),
+);
+const ScheduleInquiryMemoModal = lazy(() =>
+  import('../../components/admin/ScheduleInquiryMemoModal').then((m) => ({
+    default: m.ScheduleInquiryMemoModal,
+  })),
+);
+const CustomCalendarCreateModal = lazy(() =>
+  import('../../components/admin/CustomCalendarCreateModal').then((m) => ({
+    default: m.CustomCalendarCreateModal,
+  })),
+);
+const ScheduleDayAssignmentSummaryModal = lazy(() =>
+  import('../../components/admin/ScheduleDayAssignmentSummaryModal').then((m) => ({
+    default: m.ScheduleDayAssignmentSummaryModal,
+  })),
+);
+const ScheduleDaySlotToAdjustModal = lazy(() =>
+  import('../../components/admin/ScheduleDaySlotToAdjustModal').then((m) => ({
+    default: m.ScheduleDaySlotToAdjustModal,
+  })),
+);
+const ScheduleDayTeamLeaderAdjustModal = lazy(() =>
+  import('../../components/admin/ScheduleDayTeamLeaderAdjustModal').then((m) => ({
+    default: m.ScheduleDayTeamLeaderAdjustModal,
+  })),
+);
+const ScheduleDayAvailabilityModal = lazy(() =>
+  import('../../components/admin/ScheduleDayAvailabilityModal').then((m) => ({
+    default: m.ScheduleDayAvailabilityModal,
+  })),
+);
+const ScheduleDayMapModal = lazy(() =>
+  import('../../components/admin/ScheduleDayMapModal').then((m) => ({
+    default: m.ScheduleDayMapModal,
+  })),
+);
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -739,17 +773,30 @@ export function AdminSchedulePage() {
         preserveScroll();
       }
       const rid = ++fetchGenRef.current;
+      const { start, end } = getMonthRange(year, month);
+      const cached = readScheduleMonthCache(start, end);
       if (showLoading) {
         loadingFetchGenRef.current = rid;
-        setLoading(true);
+        if (!cached) setLoading(true);
       }
-      const { start, end } = getMonthRange(year, month);
 
       const finishInitialLoading = () => {
         if (showLoading && loadingFetchGenRef.current === rid) {
           setLoading(false);
         }
       };
+
+      if (cached) {
+        setItems(cached);
+        const grouped = groupScheduleItemsByKstDate(cached);
+        setSelectedDate((prev) => {
+          if (prev != null) return prev;
+          return pickDefaultSelectedDate(year, month, grouped);
+        });
+        if (showLoading) {
+          setLoading(false);
+        }
+      }
 
       try {
         if (!showLoading) {
@@ -764,6 +811,7 @@ export function AdminSchedulePage() {
 
           if (scheduleOutcome.status === 'fulfilled') {
             setItems(scheduleOutcome.value.items);
+            writeScheduleMonthCache(start, end, scheduleOutcome.value.items);
             const grouped = groupScheduleItemsByKstDate(scheduleOutcome.value.items);
             setSelectedDate((prev) => {
               if (prev != null) return prev;
@@ -818,6 +866,7 @@ export function AdminSchedulePage() {
 
         if (scheduleOutcome.status === 'fulfilled') {
           setItems(scheduleOutcome.value.items);
+          writeScheduleMonthCache(start, end, scheduleOutcome.value.items);
           const grouped = groupScheduleItemsByKstDate(scheduleOutcome.value.items);
           setSelectedDate((prev) => {
             if (prev != null) return prev;
@@ -1338,16 +1387,12 @@ export function AdminSchedulePage() {
       {loadError && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-fluid-sm text-red-700">{loadError}</div>
       )}
-      {!loading && statsLoading && (
+      {statsLoading && (
         <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-fluid-xs text-amber-900">
           일정 통계·가용 슬롯 정보를 불러오는 중입니다…
         </div>
       )}
-      {loading ? (
-        <div className="py-12 text-center text-slate-500 text-fluid-sm">로딩 중...</div>
-      ) : (
-        <>
-          {/* 범례 */}
+      {/* 범례 */}
           <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-fluid-xs text-slate-600 leading-relaxed">
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <span className="inline-flex items-center gap-2">
@@ -1512,8 +1557,19 @@ export function AdminSchedulePage() {
           </div>
 
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
-          <div
-            className="rounded-xl border border-slate-200 bg-slate-200/90 p-px shadow-sm overflow-hidden max-lg:[touch-action:pan-y]"
+          <div className="relative">
+            {loading && items.length === 0 ? (
+              <div
+                className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/80 backdrop-blur-[1px]"
+                aria-live="polite"
+              >
+                <span className="text-fluid-sm text-slate-500">일정 불러오는 중…</span>
+              </div>
+            ) : null}
+            <div
+              className={`rounded-xl border border-slate-200 bg-slate-200/90 p-px shadow-sm overflow-hidden max-lg:[touch-action:pan-y] ${
+                loading && items.length > 0 ? 'opacity-70 pointer-events-none' : ''
+              }`}
             onTouchStart={onCalendarSwipeTouchStart}
             onTouchEnd={onCalendarSwipeTouchEnd}
             onTouchCancel={() => {
@@ -1829,6 +1885,7 @@ export function AdminSchedulePage() {
                 );
               })}
             </div>
+          </div>
           </div>
 
           {/* 선택한 날짜의 일정 목록 + 상세 보기 */}
@@ -2734,10 +2791,9 @@ export function AdminSchedulePage() {
               ) : null}
             </div>
           )}
-        </>
-      )}
 
       {detailItem && token && (
+        <Suspense fallback={null}>
         <ScheduleInquiryDetailModal
           token={token}
           item={detailItem}
@@ -2773,18 +2829,22 @@ export function AdminSchedulePage() {
             }
           }}
         />
+        </Suspense>
       )}
 
       {memoModalItem && token && (
+        <Suspense fallback={null}>
         <ScheduleInquiryMemoModal
           token={token}
           item={memoModalItem}
           onClose={() => setMemoModalItem(null)}
           onSaved={() => fetchMonthData(false)}
         />
+        </Suspense>
       )}
 
       {createInquiryModalDate && token && (
+        <Suspense fallback={null}>
         <ScheduleInquiryDetailModal
           mode="create"
           token={token}
@@ -2805,6 +2865,7 @@ export function AdminSchedulePage() {
             fetchMonthData(false);
           }}
         />
+        </Suspense>
       )}
 
       {closureModalOpen && selectedDate && token && (
@@ -2868,6 +2929,7 @@ export function AdminSchedulePage() {
         </div>
       )}
 
+      <Suspense fallback={null}>
       {assignmentSummaryOpen && selectedDate && token && (
         <ScheduleDayAssignmentSummaryModal
           open={assignmentSummaryOpen}
@@ -2957,6 +3019,7 @@ export function AdminSchedulePage() {
             : undefined
         }
       />
+      </Suspense>
 
       <ConfirmPasswordModal
         open={!!customCalendarDeleting}

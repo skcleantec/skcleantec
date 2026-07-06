@@ -490,12 +490,12 @@ export function AdminLayout() {
     fetchNavBadgesNow();
   }, [fetchNavBadgesNow]);
 
-  /** 자주 쓰는 GNB 메뉴 청크 — 세션 준비 후 idle에 선로드 */
+  /** 자주 쓰는 GNB 메뉴 청크 — 세션 준비 직후 선로드(스케줄 우선) */
   useEffect(() => {
     if (!adminToken || meProfileLoading || !meRole) return;
+    prefetchAdminNavPage('schedule');
     return runWhenIdle(() => {
       prefetchAdminNavPage('inquiries');
-      prefetchAdminNavPage('schedule');
       prefetchAdminNavPage('messages');
     });
   }, [adminToken, meProfileLoading, meRole]);

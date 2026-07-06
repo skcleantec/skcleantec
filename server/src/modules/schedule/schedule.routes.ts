@@ -282,6 +282,12 @@ router.get('/', async (req, res) => {
   const items = await mergeRefreshedInquiryGeoFields(prisma, itemsRaw, touched);
 
   const itemsWithDistance = items.map((row) => attachDistanceFromJuanForInquiry(row));
+  if (useLite) {
+    res.json({
+      items: mapInquiriesInternalToneForRole(itemsWithDistance, user.role),
+    });
+    return;
+  }
   const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
   const itemsWithDbListing = await attachDbListingMetaToInquiries(tenantId, itemsWithShare);
   const itemsWithProfReview = await enrichInquiriesProfOptionsReviewStatus(prisma, itemsWithDbListing);
