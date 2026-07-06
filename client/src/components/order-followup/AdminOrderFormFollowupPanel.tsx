@@ -1229,7 +1229,7 @@ export function AdminOrderFormFollowupPanel({
             aria-labelledby="followup-edit-title"
           >
             <div className="absolute inset-0" aria-hidden onClick={() => setEdit(null)} />
-            <div className="relative flex max-h-[min(92dvh,640px)] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl border border-gray-200">
+            <div className="relative flex max-h-[min(95dvh,720px)] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl border border-gray-200">
               <ModalCloseButton onClick={() => setEdit(null)} />
               <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12 min-w-0">
                 <h2
@@ -1313,13 +1313,13 @@ export function AdminOrderFormFollowupPanel({
                     </p>
                   ) : null}
                 </div>
-                <div>
+                <div className="flex min-h-0 flex-col">
                   <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">메모</label>
                   <textarea
                     value={editMemo}
                     onChange={(e) => setEditMemo(e.target.value)}
-                    rows={3}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm resize-y"
+                    rows={10}
+                    className="min-h-[min(32vh,280px)] w-full resize-y rounded-lg border border-gray-200 px-2.5 py-2 text-[11px] leading-snug text-gray-900"
                   />
                 </div>
                 {!edit.inquiry && edit.status !== 'FULFILLED' ? (
@@ -1524,7 +1524,7 @@ export function AdminOrderFormFollowupPanel({
             aria-labelledby="followup-memo-title"
           >
             <div className="absolute inset-0" aria-hidden onClick={() => setMemoView(null)} />
-            <div className="relative flex max-h-[min(88dvh,560px)] w-full max-w-lg min-w-0 flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl border border-gray-200">
+            <div className="relative flex max-h-[min(92dvh,680px)] w-full max-w-lg min-w-0 flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl border border-gray-200">
               <ModalCloseButton onClick={() => setMemoView(null)} />
               <div className="shrink-0 border-b border-gray-100 px-4 pb-2 pt-4 pr-12 min-w-0">
                 <h2
@@ -1553,13 +1553,13 @@ export function AdminOrderFormFollowupPanel({
                   ) : null}
                 </div>
               </div>
-              <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 py-3">
+              <div className="min-h-[min(36vh,300px)] min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 py-3">
                 {memoView.memo?.trim() ? (
-                  <p className="whitespace-pre-wrap break-all text-fluid-sm leading-relaxed text-gray-800">
+                  <p className="whitespace-pre-wrap break-words text-[11px] leading-snug text-gray-800">
                     {memoView.memo}
                   </p>
                 ) : (
-                  <p className="text-fluid-sm text-gray-500">메모가 비어 있습니다.</p>
+                  <p className="text-fluid-2xs text-gray-500">메모가 비어 있습니다.</p>
                 )}
               </div>
               <div className="shrink-0 flex justify-end gap-2 border-t border-gray-100 bg-white px-4 py-3">
