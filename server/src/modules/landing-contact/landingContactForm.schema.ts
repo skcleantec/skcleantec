@@ -4,13 +4,43 @@ export const LANDING_CONTACT_INQUIRY_STATUSES = ['NEW', 'CONTACTED', 'CONVERTED'
 export type LandingContactCustomFieldDef = {
   key: string;
   label: string;
-  type: 'text' | 'textarea' | 'tel' | 'email' | 'number';
+  type: 'text' | 'textarea' | 'tel' | 'email' | 'number' | 'select';
   required?: boolean;
   placeholder?: string;
+  options?: string[];
 };
 
+const LANDING_CONTACT_PROPERTY_TYPE_OPTIONS = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'];
+
+export const DEFAULT_LANDING_CONTACT_CUSTOM_FIELDS: LandingContactCustomFieldDef[] = [
+  {
+    key: 'area_pyeong',
+    label: '평수',
+    type: 'number',
+    required: true,
+    placeholder: '예: 33',
+  },
+  {
+    key: 'property_type',
+    label: '건축물 유형',
+    type: 'select',
+    required: true,
+    options: [...LANDING_CONTACT_PROPERTY_TYPE_OPTIONS],
+  },
+];
+
 const FIELD_KEY_RE = /^[a-z][a-z0-9_]{0,47}$/;
-const ALLOWED_TYPES = new Set(['text', 'textarea', 'tel', 'email', 'number']);
+const ALLOWED_TYPES = new Set(['text', 'textarea', 'tel', 'email', 'number', 'select']);
+
+function parseFieldOptions(raw: unknown, type: string): string[] | undefined {
+  if (type !== 'select') return undefined;
+  if (!Array.isArray(raw)) return undefined;
+  const options = raw
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter(Boolean)
+    .slice(0, 50);
+  return options.length > 0 ? options : undefined;
+}
 
 export function parseLandingContactCustomFields(raw: unknown): LandingContactCustomFieldDef[] {
   if (!Array.isArray(raw)) return [];
@@ -23,6 +53,8 @@ export function parseLandingContactCustomFields(raw: unknown): LandingContactCus
     const label = typeof o.label === 'string' ? o.label.trim() : '';
     const type = typeof o.type === 'string' ? o.type.trim() : 'text';
     if (!key || !FIELD_KEY_RE.test(key) || !label || !ALLOWED_TYPES.has(type)) continue;
+    const options = parseFieldOptions(o.options, type);
+    if (type === 'select' && !options?.length) continue;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push({
@@ -31,10 +63,17 @@ export function parseLandingContactCustomFields(raw: unknown): LandingContactCus
       type: type as LandingContactCustomFieldDef['type'],
       required: o.required === true,
       placeholder: typeof o.placeholder === 'string' ? o.placeholder.trim() || undefined : undefined,
+      options,
     });
     if (out.length >= 20) break;
   }
   return out;
+}
+
+/** DB에 항목이 없으면 기본(평수·건축물 유형)을 사용 */
+export function resolveLandingContactCustomFields(raw: unknown): LandingContactCustomFieldDef[] {
+  const parsed = parseLandingContactCustomFields(raw);
+  return parsed.length > 0 ? parsed : DEFAULT_LANDING_CONTACT_CUSTOM_FIELDS;
 }
 
 export function validateLandingContactCustomFieldValues(
@@ -56,6 +95,9 @@ export function validateLandingContactCustomFieldValues(
       }
       if (field.type === 'number' && !Number.isFinite(Number(str))) {
         return { ok: false, error: `${field.label}에 숫자를 입력해 주세요.` };
+      }
+      if (field.type === 'select' && field.options?.length && !field.options.includes(str)) {
+        return { ok: false, error: `${field.label}을(를) 선택해 주세요.` };
       }
       values[field.key] = str.slice(0, 2000);
     }

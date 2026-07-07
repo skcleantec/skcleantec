@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { getDefaultOperatingCompanyId } from '../operating-companies/operatingCompany.service.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
+import { DEFAULT_LANDING_CONTACT_CUSTOM_FIELDS } from './landingContactForm.schema.js';
 
 type Db = PrismaClient;
 
@@ -35,6 +36,10 @@ export async function getOrCreateLandingContactFormConfig(
   });
   if (existing) return existing;
   return db.landingContactFormConfig.create({
-    data: { tenantId, operatingCompanyId },
+    data: {
+      tenantId,
+      operatingCompanyId,
+      customFields: DEFAULT_LANDING_CONTACT_CUSTOM_FIELDS,
+    },
   });
 }

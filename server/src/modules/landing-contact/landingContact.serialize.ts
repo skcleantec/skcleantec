@@ -1,6 +1,6 @@
 import type { LandingContactFormConfig, LandingContactInquiry, OperatingCompany, User } from '@prisma/client';
 import { toOperatingCompanyPublicSummary } from '../operating-companies/operatingCompanyPublicSummary.js';
-import { parseLandingContactCustomFields } from './landingContactForm.schema.js';
+import { parseLandingContactCustomFields, resolveLandingContactCustomFields } from './landingContactForm.schema.js';
 
 type Row = LandingContactInquiry & {
   operatingCompany: Pick<OperatingCompany, 'id' | 'name' | 'slug' | 'isActive' | 'config'>;
@@ -58,7 +58,7 @@ export function serializeLandingContactFormConfig(row: ConfigRow) {
     displayName: oc.displayName,
     title: row.title,
     introText: row.introText,
-    customFields: parseLandingContactCustomFields(row.customFields),
+    customFields: resolveLandingContactCustomFields(row.customFields),
     isActive: row.isActive,
     updatedAt: row.updatedAt.toISOString(),
   };

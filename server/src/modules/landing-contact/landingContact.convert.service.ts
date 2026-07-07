@@ -4,7 +4,7 @@ import { MANUAL_INTAKE_PLACEHOLDER_ADDRESS } from '../../lib/orderFormPendingAdd
 import { createInquiryFromBody, InquiryCreateError } from '../inquiries/inquiryCreate.service.js';
 import {
   formatCustomFieldsForInquiryMemo,
-  parseLandingContactCustomFields,
+  resolveLandingContactCustomFields,
 } from './landingContactForm.schema.js';
 
 const LANDING_INQUIRY_SOURCE = '랜딩문의';
@@ -35,7 +35,7 @@ export async function convertLandingContactToInquiry(params: {
     where: { tenantId: params.tenantId, operatingCompanyId: row.operatingCompanyId },
     select: { customFields: true },
   });
-  const customFields = parseLandingContactCustomFields(config?.customFields);
+  const customFields = resolveLandingContactCustomFields(config?.customFields);
   const customValues =
     row.customFieldValues && typeof row.customFieldValues === 'object' && !Array.isArray(row.customFieldValues)
       ? (row.customFieldValues as Record<string, string>)
@@ -44,6 +44,11 @@ export async function convertLandingContactToInquiry(params: {
   const memoParts = [row.content.trim()];
   if (customMemo) memoParts.push(customMemo);
   if (row.sourcePageUrl?.trim()) memoParts.push(`유입: ${row.sourcePageUrl.trim()}`);
+
+  const areaRaw = customValues.area_pyeong;
+  const areaPyeong =
+    areaRaw && Number.isFinite(Number(areaRaw)) && Number(areaRaw) > 0 ? Number(areaRaw) : null;
+  const propertyType = customValues.property_type?.trim() || null;
 
   const created = await createInquiryFromBody({
     tenantId: params.tenantId,
@@ -56,6 +61,8 @@ export async function convertLandingContactToInquiry(params: {
       status: 'PENDING',
       source: LANDING_INQUIRY_SOURCE,
       operatingCompanyId: row.operatingCompanyId,
+      areaPyeong,
+      propertyType,
       memo: memoParts.filter(Boolean).join('\n\n'),
     },
   });

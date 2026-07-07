@@ -12,7 +12,7 @@ import {
   resolveLandingContactOperatingCompanyId,
 } from './landingContact.resolve.service.js';
 import {
-  parseLandingContactCustomFields,
+  resolveLandingContactCustomFields,
   validateLandingContactCustomFieldValues,
 } from './landingContactForm.schema.js';
 import { serializeLandingContactPublicForm } from './landingContact.serialize.js';
@@ -100,7 +100,7 @@ router.post('/submit', async (req, res) => {
     res.status(403).json({ error: '문의 접수가 일시 중지되었습니다.' });
     return;
   }
-  const customFields = parseLandingContactCustomFields(configRow.customFields);
+  const customFields = resolveLandingContactCustomFields(configRow.customFields);
   const validated = validateLandingContactCustomFieldValues(customFields, customFieldValues);
   if (!validated.ok) {
     res.status(400).json({ error: validated.error });

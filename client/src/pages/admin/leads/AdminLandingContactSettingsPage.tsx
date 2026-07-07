@@ -5,12 +5,20 @@ import {
   updateLandingContactFormConfig,
 } from '../../../api/landingContact';
 import type { LandingContactCustomFieldDef, LandingContactFormConfigDto } from '@shared/landingContactForm';
+import { DEFAULT_LANDING_CONTACT_CUSTOM_FIELDS } from '@shared/landingContactForm';
 import { useStaffTenantSlugForLinks } from '../../../hooks/useStaffTenantSlugForLinks';
 import { getContactPublicUrl } from '../../../utils/landingContactPublicUrl';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { OperatingCompanyBadge } from '../../../components/admin/OperatingCompanyBadge';
 
-const FIELD_TYPES: LandingContactCustomFieldDef['type'][] = ['text', 'textarea', 'tel', 'email', 'number'];
+const FIELD_TYPES: LandingContactCustomFieldDef['type'][] = [
+  'text',
+  'textarea',
+  'tel',
+  'email',
+  'number',
+  'select',
+];
 
 function emptyField(): LandingContactCustomFieldDef {
   return { key: '', label: '', type: 'text', required: false };
@@ -203,8 +211,23 @@ export function AdminLandingContactSettingsPage() {
                   </button>
                 </div>
                 <p className="mb-2 text-fluid-2xs text-gray-500">
-                  성함·연락처·문의 내용은 기본 제공됩니다. 평수·주소 등 추가 항목만 설정하세요.
+                  성함·연락처·문의 내용은 기본 제공됩니다. 기본 추가 항목은{' '}
+                  <span className="font-medium text-gray-700">평수·건축물 유형</span>이며, 필요 시 아래에서
+                  수정·추가할 수 있습니다.
                 </p>
+                {draft.customFields.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateDraft(item.operatingCompanyId, {
+                        customFields: DEFAULT_LANDING_CONTACT_CUSTOM_FIELDS.map((f) => ({ ...f })),
+                      })
+                    }
+                    className="mb-2 text-fluid-xs font-medium text-sky-700 hover:underline"
+                  >
+                    기본 항목(평수·건축물 유형) 불러오기
+                  </button>
+                ) : null}
                 <div className="space-y-2">
                   {draft.customFields.map((field, idx) => (
                     <div
@@ -252,6 +275,21 @@ export function AdminLandingContactSettingsPage() {
                         />
                         필수
                       </label>
+                      {field.type === 'select' ? (
+                        <input
+                          className="rounded border border-gray-200 px-2 py-1.5 text-fluid-xs sm:col-span-12"
+                          placeholder="선택지 (쉼표로 구분)"
+                          value={(field.options ?? []).join(', ')}
+                          onChange={(e) =>
+                            updateCustomField(item.operatingCompanyId, idx, {
+                              options: e.target.value
+                                .split(',')
+                                .map((s) => s.trim())
+                                .filter(Boolean),
+                            })
+                          }
+                        />
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => removeCustomField(item.operatingCompanyId, idx)}
