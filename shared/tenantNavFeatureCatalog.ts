@@ -60,6 +60,7 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
         label: '문의 폼·링크',
         path: '/admin/inquiries/leads/settings',
         moduleId: 'mod_landing_inquiry',
+        group: '문의내역',
       },
     ],
   },

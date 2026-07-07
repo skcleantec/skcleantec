@@ -126,6 +126,11 @@ export const AdminReviewPaybackPage = lazyWithRetry(() =>
 export const AdminCsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminCsPage').then((m) => ({ default: m.AdminCsPage }))
 );
+export const AdminLandingContactLayout = lazyWithRetry(() =>
+  import('../components/layout/AdminLandingContactLayout').then((m) => ({
+    default: m.AdminLandingContactLayout,
+  }))
+);
 export const AdminLandingContactListPage = lazyWithRetry(() =>
   import('../pages/admin/leads/AdminLandingContactListPage').then((m) => ({
     default: m.AdminLandingContactListPage,

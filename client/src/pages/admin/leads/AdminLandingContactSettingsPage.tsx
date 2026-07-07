@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { getToken } from '../../../stores/auth';
 import {
   getLandingContactFormConfigs,
@@ -121,12 +120,9 @@ export function AdminLandingContactSettingsPage() {
 
   return (
     <div className="min-w-0 w-full max-w-full space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4">
         <p className="text-fluid-sm text-gray-600">
-          브랜드마다 문의 링크가 생성됩니다. 랜딩 페이지 「문의하기」 버튼에 아래 URL을 연결하세요.{' '}
-          <Link to="/admin/inquiries/leads" className="font-medium text-sky-700 hover:underline">
-            문의내역
-          </Link>
+          브랜드마다 문의 링크가 생성됩니다. 랜딩 페이지 「문의하기」 버튼에 아래 URL을 연결하세요.
         </p>
       </div>
       {error ? <p className="text-fluid-sm text-red-600">{error}</p> : null}

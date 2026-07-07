@@ -180,12 +180,7 @@ export function LandingContactWorkdesk() {
   return (
     <div className="min-w-0 w-full max-w-full space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-fluid-sm text-gray-600">
-          랜딩·외부 페이지에서 접수된 문의입니다.{' '}
-          <Link to="/admin/inquiries/leads/settings" className="font-medium text-sky-700 hover:underline">
-            브랜드별 링크·폼 설정
-          </Link>
-        </p>
+        <p className="text-fluid-sm text-gray-600">랜딩·외부 페이지에서 접수된 문의입니다.</p>
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">

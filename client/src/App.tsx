@@ -58,6 +58,7 @@ import {
   InspectionCustomerViewPage,
   AdminReviewPaybackPage,
   AdminCsPage,
+  AdminLandingContactLayout,
   AdminLandingContactListPage,
   AdminLandingContactSettingsPage,
   ContactInquiryPage,
@@ -183,18 +184,13 @@ function App() {
               path="leads"
               element={
                 <FeatureGate module="mod_landing_inquiry">
-                  <SuspensePage><AdminLandingContactListPage /></SuspensePage>
+                  <SuspensePage><AdminLandingContactLayout /></SuspensePage>
                 </FeatureGate>
               }
-            />
-            <Route
-              path="leads/settings"
-              element={
-                <FeatureGate module="mod_landing_inquiry">
-                  <SuspensePage><AdminLandingContactSettingsPage /></SuspensePage>
-                </FeatureGate>
-              }
-            />
+            >
+              <Route index element={<SuspensePage><AdminLandingContactListPage /></SuspensePage>} />
+              <Route path="settings" element={<SuspensePage><AdminLandingContactSettingsPage /></SuspensePage>} />
+            </Route>
           </Route>
           <Route path="schedule" element={<SuspensePage><AdminSchedulePage /></SuspensePage>} />
           <Route
