@@ -4,6 +4,7 @@ import {
   TENANT_PLANS,
   TENANT_USAGE_METRIC_LABELS,
   usageLimitForPlan,
+  TENANT_BILLING_NOTE,
   type TenantPlanId,
   type TenantUsageMetricId,
 } from './tenantFeatureCatalog.js';
@@ -145,7 +146,6 @@ export async function getTenantSubscriptionForAdmin(tenantId: string): Promise<T
     serviceUpdatedAt: readServiceUpdatedAt(tenant.config, tenant.createdAt),
     enabledServices,
     usage,
-    billingNote:
-      '현재는 플랜 포함 사용량만 표시합니다. 기본 제공량을 초과하는 사용량에 대한 과금은 추후 적용될 예정입니다.',
+    billingNote: TENANT_BILLING_NOTE,
   };
 }

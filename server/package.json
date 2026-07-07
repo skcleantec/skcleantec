@@ -27,6 +27,7 @@
     "deploy:seed-from-config": "tsx scripts/run-deploy-schedule-seed.ts",
     "deploy:ensure-tenant-admins": "tsx scripts/ensure-default-tenant-admins.ts",
     "deploy:ensure-platform-admin": "tsx scripts/ensure-platform-admin.ts",
+    "db:migrate:standard-plan-v2": "tsx scripts/migrate-standard-plan-v2.ts",
     "db:seed:unassigned-month": "tsx prisma/seed-unassigned-month-test.ts",
     "db:purge:unassigned-month-test": "tsx prisma/seed-unassigned-month-test.ts --purge",
     "db:seed:db-marketplace-test": "tsx prisma/seed-db-marketplace-test.ts",

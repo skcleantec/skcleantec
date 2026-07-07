@@ -31,18 +31,11 @@ import {
   PlatformAlert,
   StatusBadge,
 } from '../../utils/platformUi';
-
-const PLAN_DESCRIPTIONS: Record<string, { features: string[] }> = {
-  starter: {
-    features: ['서비스접수·발주서', '스케줄', '배정', '메시지'],
-  },
-  standard: {
-    features: ['Starter 전체 포함', 'C/S 관리', '타업체·외부정산', '크루(현장)', '팀장 통계'],
-  },
-  premium: {
-    features: ['Standard 전체 포함', '광고비 관리', '급여·정산', '전자계약'],
-  },
-};
+import {
+  TENANT_PLAN_PRESENTATIONS,
+  planLimitsSummary,
+  type TenantPlanPresentation,
+} from '@shared/tenantPlanCatalog';
 
 const SETTINGS_FIELDS: {
   key: keyof TenantConfigFormFields;
@@ -452,7 +445,8 @@ export function PlatformTenantDetailPage() {
             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
               {(['starter', 'standard', 'premium'] as const).map((pid) => {
                 const isSelected = plan === pid;
-                const desc = PLAN_DESCRIPTIONS[pid];
+                const desc: TenantPlanPresentation = TENANT_PLAN_PRESENTATIONS[pid];
+                const limits = planLimitsSummary(pid);
                 return (
                   <button
                     key={pid}
@@ -460,7 +454,7 @@ export function PlatformTenantDetailPage() {
                     disabled={saving}
                     onClick={() => void handlePlanSelect(pid)}
                     className={[
-                      'rounded-xl border-2 p-4 text-left transition-all',
+                      'relative rounded-xl border-2 p-4 text-left transition-all',
                       pid === 'premium' && isSelected
                         ? 'border-purple-500 bg-purple-50'
                         : pid === 'standard' && isSelected
@@ -470,9 +464,14 @@ export function PlatformTenantDetailPage() {
                             : 'border-gray-200 hover:border-gray-300',
                     ].join(' ')}
                   >
+                    {desc.recommended ? (
+                      <span className="absolute right-3 top-3 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-medium text-white">
+                        추천
+                      </span>
+                    ) : null}
                     <div
                       className={[
-                        'mb-2 text-sm font-bold capitalize',
+                        'mb-1 text-sm font-bold',
                         pid === 'premium' && isSelected
                           ? 'text-purple-700'
                           : pid === 'standard' && isSelected
@@ -480,13 +479,23 @@ export function PlatformTenantDetailPage() {
                             : 'text-gray-900',
                       ].join(' ')}
                     >
-                      {pid.charAt(0).toUpperCase() + pid.slice(1)}
+                      {desc.label}
                       {isSelected ? ' ✓' : ''}
                     </div>
+                    <p className="mb-2 text-[11px] text-gray-500">{desc.tagline}</p>
+                    <p className="mb-2 text-[11px] font-medium text-gray-700">{desc.monthlyPriceHint}</p>
+                    <p className="mb-2 text-[10px] text-gray-500">{desc.annualPriceHint}</p>
                     <ul className="space-y-1">
                       {desc.features.map((f) => (
-                        <li key={f} className="text-xs text-gray-500">
+                        <li key={f} className="text-xs text-gray-600">
                           · {f}
+                        </li>
+                      ))}
+                    </ul>
+                    <ul className="mt-2 space-y-0.5 border-t border-gray-100 pt-2">
+                      {limits.map((line) => (
+                        <li key={line} className="text-[10px] text-gray-400">
+                          {line}
                         </li>
                       ))}
                     </ul>

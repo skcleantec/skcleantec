@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { createPlatformTenant } from '../../api/platformTenants';
 import { getPlatformToken } from '../../stores/platformAuth';
 import { TENANT_PLANS } from '@shared/tenantFeatureModules';
+import { TENANT_PLAN_PRESENTATIONS, planLimitsSummary } from '@shared/tenantPlanCatalog';
 import { tenantLoginIdErrorMessage } from '@shared/tenantLoginId';
 
 export function PlatformTenantCreatePage() {
@@ -85,9 +86,27 @@ export function PlatformTenantCreatePage() {
               {Object.entries(TENANT_PLANS).map(([id, p]) => (
                 <option key={id} value={id}>
                   {p.label}
+                  {TENANT_PLAN_PRESENTATIONS[id as keyof typeof TENANT_PLAN_PRESENTATIONS]?.recommended
+                    ? ' (추천)'
+                    : ''}
                 </option>
               ))}
             </select>
+            {plan in TENANT_PLAN_PRESENTATIONS ? (
+              <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2 text-fluid-2xs text-slate-600">
+                <p className="font-medium text-slate-800">
+                  {TENANT_PLAN_PRESENTATIONS[plan as keyof typeof TENANT_PLAN_PRESENTATIONS].tagline}
+                </p>
+                <p className="mt-0.5">
+                  {TENANT_PLAN_PRESENTATIONS[plan as keyof typeof TENANT_PLAN_PRESENTATIONS].monthlyPriceHint}
+                  {' · '}
+                  {TENANT_PLAN_PRESENTATIONS[plan as keyof typeof TENANT_PLAN_PRESENTATIONS].annualPriceHint}
+                </p>
+                <p className="mt-1 text-slate-500">
+                  포함량: {planLimitsSummary(plan as keyof typeof TENANT_PLAN_PRESENTATIONS).join(' · ')}
+                </p>
+              </div>
+            ) : null}
           </div>
         </div>
 

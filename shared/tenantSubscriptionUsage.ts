@@ -20,13 +20,13 @@ export const TENANT_PLAN_USAGE_LIMITS: Record<
   Record<TenantUsageMetricId, TenantUsageLimit>
 > = {
   starter: {
-    activeUsers: 10,
-    inquiriesThisMonth: 500,
+    activeUsers: 8,
+    inquiriesThisMonth: 400,
     operatingBrands: 1,
   },
   standard: {
-    activeUsers: 30,
-    inquiriesThisMonth: 2_000,
+    activeUsers: 25,
+    inquiriesThisMonth: 1_500,
     operatingBrands: 3,
   },
   premium: {

@@ -297,14 +297,13 @@ export async function resetTenantFeaturesFromPlan(tenantId: string) {
   if (!tenant) throw new TenantNotFoundError();
 
   const planModules = modulesForPlan(tenant.plan);
-  await prisma.$transaction(async (tx) => {
-    await tx.tenantFeature.deleteMany({ where: { tenantId } });
-    for (const moduleId of planModules) {
-      await tx.tenantFeature.create({
-        data: { tenantId, moduleId, enabled: true },
-      });
-    }
-  });
+  await prisma.$transaction([
+    prisma.tenantFeature.deleteMany({ where: { tenantId } }),
+    prisma.tenantFeature.createMany({
+      data: planModules.map((moduleId) => ({ tenantId, moduleId, enabled: true })),
+      skipDuplicates: true,
+    }),
+  ]);
 }
 
 export async function updateTenantConfigForPlatform(tenantId: string, body: unknown) {
