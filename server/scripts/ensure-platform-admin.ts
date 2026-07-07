@@ -10,15 +10,13 @@
  *
  * 실행: cd server && npx tsx scripts/ensure-platform-admin.ts
  */
-import 'dotenv/config';
+import '../src/env.js';
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../src/lib/prisma.js';
 
 const DEFAULT_PLATFORM_LOGIN_ID = 'pyo';
 const password = (process.env.PLATFORM_ADMIN_PASSWORD ?? '1234').trim() || '1234';
 const resetExisting = process.env.ENSURE_PLATFORM_ADMIN_RESET_PASSWORD === 'true';
-
-const prisma = new PrismaClient();
 
 function bootstrapLoginIds(): string[] {
   const fromEnv = (process.env.PLATFORM_ADMIN_EMAIL ?? '').trim().toLowerCase();
