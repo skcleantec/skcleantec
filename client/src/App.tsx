@@ -58,6 +58,9 @@ import {
   InspectionCustomerViewPage,
   AdminReviewPaybackPage,
   AdminCsPage,
+  AdminLandingContactListPage,
+  AdminLandingContactSettingsPage,
+  ContactInquiryPage,
   AdminAdvertisingPage,
   AdminAdvertisingSettingsPage,
   AdminTeamsPage,
@@ -173,6 +176,22 @@ function App() {
               element={
                 <FeatureGate module="mod_cs">
                   <SuspensePage><AdminCsPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="leads"
+              element={
+                <FeatureGate module="mod_landing_inquiry">
+                  <SuspensePage><AdminLandingContactListPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
+            <Route
+              path="leads/settings"
+              element={
+                <FeatureGate module="mod_landing_inquiry">
+                  <SuspensePage><AdminLandingContactSettingsPage /></SuspensePage>
                 </FeatureGate>
               }
             />
@@ -299,6 +318,7 @@ function App() {
         <Route path="/info" element={<SuspensePage><OrderInfoPage /></SuspensePage>} />
         <Route path="/help" element={<SuspensePage><HelpPage /></SuspensePage>} />
         <Route path="/cs" element={<SuspensePage><CsReportPage /></SuspensePage>} />
+        <Route path="/contact" element={<SuspensePage><ContactInquiryPage /></SuspensePage>} />
         <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />
         <Route path="/inspection/:token" element={<SuspensePage><InspectionCustomerViewPage /></SuspensePage>} />
         <Route path="/team/login" element={<Navigate to="/login" replace />} />

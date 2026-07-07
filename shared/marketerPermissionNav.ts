@@ -66,6 +66,8 @@ export const ADMIN_PATH_PERMISSION_RULES: AdminPathPermissionRule[] = [
   { prefix: '/admin/inquiries/followup', permissions: ['followup.view'] },
   { prefix: '/admin/inquiries/review-payback', permissions: ['inquiry.view'] },
   { prefix: '/admin/inquiries/cs', permissions: ['cs.view'] },
+  { prefix: '/admin/inquiries/leads/settings', permissions: ['leads.edit'] },
+  { prefix: '/admin/inquiries/leads', permissions: ['leads.view'] },
   { prefix: '/admin/inquiries', permissions: ['inquiry.view'] },
   { prefix: '/admin/crm/settings', permissions: ['crm.settings'] },
   { prefix: '/admin/crm', permissions: ['crm.view'] },

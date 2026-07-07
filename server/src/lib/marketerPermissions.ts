@@ -29,6 +29,8 @@ export type MarketerPermissionId =
   | 'cs.view'
   | 'cs.edit'
   | 'cs.delete'
+  | 'leads.view'
+  | 'leads.edit'
   | 'followup.view'
   | 'followup.edit'
   | 'ads.sessions'
@@ -124,6 +126,18 @@ export const MARKETER_PERMISSION_GROUPS: MarketerPermissionGroup[] = [
       { id: 'cs.delete', label: 'C/S 삭제', description: 'C/S 접수 삭제' },
       { id: 'followup.view', label: '부재·보류 조회', description: '부재·보류 목록' },
       { id: 'followup.edit', label: '부재·보류 처리', description: '부재·보류 상태 변경' },
+      {
+        id: 'leads.view',
+        label: '문의내역 조회',
+        description: '랜딩·외부 페이지 문의 목록·상세',
+        featureModuleId: 'mod_landing_inquiry',
+      },
+      {
+        id: 'leads.edit',
+        label: '문의내역 처리',
+        description: '문의 상태 변경·접수 전환·폼 설정',
+        featureModuleId: 'mod_landing_inquiry',
+      },
     ],
   },
   {

@@ -90,6 +90,7 @@ export const TENANT_PLAN_PRESENTATIONS: Record<TenantPlanId, TenantPlanPresentat
       '급여·정산 · 전자계약',
       '텔레CRM',
       '파트너 접수 연계 · 정보공유(DB 마켓)',
+      '랜딩 문의내역',
     ],
   },
 };

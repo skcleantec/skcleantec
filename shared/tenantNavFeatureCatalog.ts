@@ -55,6 +55,12 @@ export const TENANT_NAV_FEATURE_CATALOG: TenantNavFeatureCategory[] = [
       { label: '견적 작성', path: '/admin/inquiries/quotations/new', moduleId: 'core_inquiries', group: '견적서' },
       { label: '견적 설정', path: '/admin/inquiries/quotations/settings', moduleId: 'core_inquiries', group: '견적서' },
       { label: 'C/S 관리', path: '/admin/inquiries/cs', moduleId: 'mod_cs' },
+      { label: '문의내역', path: '/admin/inquiries/leads', moduleId: 'mod_landing_inquiry' },
+      {
+        label: '문의 폼·링크',
+        path: '/admin/inquiries/leads/settings',
+        moduleId: 'mod_landing_inquiry',
+      },
     ],
   },
   {

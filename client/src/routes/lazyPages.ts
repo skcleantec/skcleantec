@@ -126,6 +126,19 @@ export const AdminReviewPaybackPage = lazyWithRetry(() =>
 export const AdminCsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminCsPage').then((m) => ({ default: m.AdminCsPage }))
 );
+export const AdminLandingContactListPage = lazyWithRetry(() =>
+  import('../pages/admin/leads/AdminLandingContactListPage').then((m) => ({
+    default: m.AdminLandingContactListPage,
+  }))
+);
+export const AdminLandingContactSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/leads/AdminLandingContactSettingsPage').then((m) => ({
+    default: m.AdminLandingContactSettingsPage,
+  }))
+);
+export const ContactInquiryPage = lazyWithRetry(() =>
+  import('../pages/contact/ContactInquiryPage').then((m) => ({ default: m.ContactInquiryPage }))
+);
 export const AdminAdvertisingPage = lazyWithRetry(() =>
   import('../pages/admin/AdminAdvertisingPage').then((m) => ({ default: m.AdminAdvertisingPage }))
 );

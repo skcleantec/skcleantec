@@ -170,6 +170,8 @@ model Tenant {
   telecrmSmsTemplates TelecrmSmsTemplate[]
   telecrmCallNotes    TelecrmCallNote[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
+  landingContactFormConfigs LandingContactFormConfig[]
+  landingContactInquiries   LandingContactInquiry[]
 
   @@map("tenants")
 }
@@ -444,6 +446,8 @@ model OperatingCompany {
   quotations        Quotation[]
   externalSettlementPayments ExternalCompanySettlementPayment[]
   externalSettlementResets   ExternalCompanySettlementReset[]
+  landingContactFormConfigs  LandingContactFormConfig[]
+  landingContactInquiries    LandingContactInquiry[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
@@ -592,6 +596,8 @@ model User {
   inquiryExtraChargesCreated    InquiryExtraCharge[]   @relation("InquiryExtraChargeCreatedBy")
   inquiryAdditionalReceiptsCreated InquiryAdditionalReceipt[] @relation("InquiryAdditionalReceiptCreatedBy")
   csReportsCompleted            CsReport[] @relation("CsReportCompletedBy")
+  landingContactInquiriesAssigned LandingContactInquiry[] @relation("LandingContactAssignedTo")
+  landingContactInquiriesConverted LandingContactInquiry[] @relation("LandingContactConvertedBy")
   inquiryChangeLogsAsActor      InquiryChangeLog[]     @relation("InquiryChangeLogActor")
   inquiryStatusEventsAsActor      InquiryStatusEvent[]   @relation("InquiryStatusEventActor")
   teamLeaderWebPushSubscriptions TeamLeaderWebPushSubscription[]
@@ -1206,6 +1212,7 @@ model Inquiry {
   telecrmCallSessions       TelecrmCallSession[]
   telecrmCallNotes          TelecrmCallNote[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
+  landingContactInquiries   LandingContactInquiry[]
 
   @@index([createdAt])
   @@index([preferredDate])
@@ -1919,6 +1926,57 @@ model CsReport {
   @@index([asServiceDate])
   @@index([tenantId, asServiceDate])
   @@map("cs_reports")
+}
+
+/// 랜딩·외부 페이지 문의 폼 설정 (브랜드별)
+model LandingContactFormConfig {
+  id                 String           @id @default(uuid())
+  tenantId           String           @map("tenant_id")
+  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String           @map("operating_company_id")
+  operatingCompany   OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
+  title              String?          @db.VarChar(200)
+  introText          String?          @map("intro_text") @db.Text
+  customFields       Json             @default("[]") @map("custom_fields")
+  isActive           Boolean          @default(true) @map("is_active")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  @@unique([tenantId, operatingCompanyId])
+  @@index([tenantId])
+  @@map("landing_contact_form_configs")
+}
+
+/// 랜딩·외부 페이지에서 수신한 고객 문의 (접수 전 리드)
+model LandingContactInquiry {
+  id                 String           @id @default(uuid())
+  tenantId           String           @map("tenant_id")
+  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String           @map("operating_company_id")
+  operatingCompany   OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
+  customerName       String           @map("customer_name")
+  customerPhone      String           @map("customer_phone")
+  content            String           @db.Text
+  customFieldValues  Json             @default("{}") @map("custom_field_values")
+  status             String           @default("NEW") @map("status")
+  source             String           @default("hosted_form") @map("source")
+  sourcePageUrl      String?          @map("source_page_url") @db.Text
+  inquiryId          String?          @map("inquiry_id")
+  inquiry            Inquiry?         @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  memo               String?          @db.Text
+  assignedToId       String?          @map("assigned_to_id")
+  assignedTo         User?            @relation("LandingContactAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  convertedById      String?          @map("converted_by_id")
+  convertedBy        User?            @relation("LandingContactConvertedBy", fields: [convertedById], references: [id], onDelete: SetNull)
+  convertedAt        DateTime?        @map("converted_at")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@index([tenantId, operatingCompanyId])
+  @@index([inquiryId])
+  @@map("landing_contact_inquiries")
 }
 
 /// 텔레마케팅 업무 종료 시 채널별 입력 방식

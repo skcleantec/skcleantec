@@ -24,6 +24,8 @@ import inquiryInspectionPublicRoutes from './modules/inquiry-inspection/inquiryI
 import inquiryInspectionTemplateRoutes from './modules/inquiry-inspection/inquiryInspection.template.routes.js';
 import orderFormTemplatesRoutes from './modules/orderform-templates/orderFormTemplates.routes.js';
 import csRoutes from './modules/cs/cs.routes.js';
+import landingContactRoutes from './modules/landing-contact/landingContact.routes.js';
+import landingContactPublicRoutes from './modules/landing-contact/landingContact.public.routes.js';
 import inquiryChangeLogsRoutes from './modules/inquiry-change-logs/inquiryChangeLogs.routes.js';
 import advertisingRoutes from './modules/advertising/advertising.routes.js';
 import teamsRoutes from './modules/teams/teams.routes.js';
@@ -102,6 +104,8 @@ app.use('/api/public/inspection', inquiryInspectionPublicRoutes);
 app.use('/api/inspection-template', inquiryInspectionTemplateRoutes);
 app.use('/api/review-paybacks', reviewPaybackAdminRoutes);
 app.use('/api/cs', csRoutes);
+app.use('/api/landing-contact', landingContactRoutes);
+app.use('/api/public/landing-contact', landingContactPublicRoutes);
 app.use('/api/admin', adminNavBadgesRoutes);
 app.use('/api/admin/cron', inspectionRetentionCronRoutes);
 app.use('/api/admin', stagingDbImportRoutes);

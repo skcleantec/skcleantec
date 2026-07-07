@@ -22,7 +22,7 @@ export function isManualIntakePlaceholderAddress(
 /** 구 `외부업체…` 출처와 신규 `수기등록` — 간편 등록(필수 항목 생략) 플로우 */
 export function isManualIntakeSource(source: string | null | undefined): boolean {
   const s = source ?? '';
-  return s.includes('외부업체') || s.includes('수기등록');
+  return s.includes('외부업체') || s.includes('수기등록') || s.includes('랜딩문의');
 }
 
 export function isRealCustomerAddress(address: string | null | undefined): boolean {
