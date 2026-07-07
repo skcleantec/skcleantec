@@ -182,11 +182,11 @@ export function TeamPreCleanPhotoPage() {
       )}
 
       {!readOnly && (
-        <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
+        <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-white/95 px-3 py-2 backdrop-blur">
           <Link
             to={`/team/inspection/${encodeURIComponent(inquiryId)}`}
             state={teamInquiryNavState(returnTo)}
-            className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-gray-900 py-3 text-fluid-sm font-semibold text-white touch-manipulation"
+            className="flex min-h-[34px] w-full items-center justify-center rounded-lg bg-gray-900 py-1.5 text-fluid-2xs font-semibold text-white touch-manipulation sm:text-fluid-xs"
           >
             현장 검수 · 청소완료로 이동
           </Link>

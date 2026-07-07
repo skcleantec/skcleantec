@@ -11,6 +11,7 @@ import {
 } from '../../api/inquiryInspection';
 import { getTeamToken, clearTeamToken } from '../../stores/teamAuth';
 import { isAuthSessionExpiredError } from '../../api/auth';
+import { markTeamInspectionMissed } from '../../api/team';
 import {
   InspectionBasicSection,
   InspectionConsentSection,
@@ -275,6 +276,22 @@ export function TeamInspectionPage() {
     }
   };
 
+  const handleMissed = async () => {
+    if (!token || !inquiryId || readOnly || !checklist) return;
+    if (checklist.status === 'COMPLETED' || checklist.status === 'VOID') return;
+    if (!window.confirm('현장 검수를 누락 처리할까요? 목록에 검수누락으로 표시됩니다.')) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await markTeamInspectionMissed(token, inquiryId);
+      navigate(returnTo);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : '검수 누락 처리에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!token) {
     return (
       <div className="p-4 text-fluid-sm text-gray-600">
@@ -457,16 +474,24 @@ export function TeamInspectionPage() {
       )}
 
       {!readOnly && (
-        <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
+        <div className="sticky bottom-0 -mx-4 space-y-1 border-t border-gray-200 bg-white/95 px-3 py-2 backdrop-blur">
           <button
             type="button"
             disabled={busy}
             onClick={() => void handleComplete()}
-            className="w-full rounded-xl bg-gray-900 py-3 text-fluid-sm font-semibold text-white touch-manipulation disabled:opacity-50"
+            className="flex min-h-[34px] w-full items-center justify-center rounded-lg bg-gray-900 py-1.5 text-fluid-2xs font-semibold text-white touch-manipulation disabled:opacity-50 sm:text-fluid-xs"
           >
             청소완료 (고객 확인·서명)
           </button>
-          <p className="mt-2 text-center text-fluid-2xs text-gray-500">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleMissed()}
+            className="flex min-h-[32px] w-full items-center justify-center rounded-lg border border-red-400 bg-red-50 py-1 text-fluid-2xs font-semibold text-red-900 touch-manipulation hover:bg-red-100 disabled:opacity-50 sm:text-fluid-xs"
+          >
+            검수 누락
+          </button>
+          <p className="text-center text-fluid-2xs leading-snug text-gray-500">
             필수 동의·이메일·고객 서명이 충족되면 완료할 수 있습니다. (사진은 모두 찍지 않아도 됩니다)
           </p>
         </div>

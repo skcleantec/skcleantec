@@ -22,12 +22,16 @@ import type { InquiryChangeLogEntry } from '../../api/schedule';
 import {
   resolveTeamInspectionDisplay,
   teamInspectionBadgeClass,
-  isTeamInspectionTrackingEligible,
+  teamInspectionFooterButton,
+  teamFooterPhotoAfterClass,
+  teamFooterPhotoBeforeClass,
+  teamFooterActionPrimaryClass,
+  teamFooterActionSecondaryClass,
+  teamFooterHappyCallClass,
 } from '../../utils/teamInspectionDisplay';
 import {
   getTeamMe,
   getTeamInquiry,
-  markTeamInspectionMissed,
   postTeamInquiryDetailViewed,
   patchTeamInquiryCrewMeetingTime,
   type TeamViewerMe,
@@ -959,7 +963,6 @@ export function TeamInquiryDetailModal({
   const previewKey = teamPreviewDepsKey(location.search);
   const inquiryReturnTo = buildTeamInquiryReturnTo(location, item.id);
   const [happySaving, setHappySaving] = useState(false);
-  const [inspectionSaving, setInspectionSaving] = useState(false);
   const [viewerMe, setViewerMe] = useState<TeamViewerMe | null>(null);
   const [shareCopyHint, setShareCopyHint] = useState<string | null>(null);
 
@@ -1024,11 +1027,7 @@ export function TeamInquiryDetailModal({
   const [crewMeetingSaveNotice, setCrewMeetingSaveNotice] = useState<ReactNode | null>(null);
   const canHappy = enableHappyCall && isHappyCallEligible(item.status, item.preferredDate);
   const showHappyBlock = enableHappyCall && item.preferredDate;
-  const inspectionDisplay = resolveTeamInspectionDisplay(item);
-  const showInspectionActions =
-    enableHappyCall && hasInspectionModule && isTeamInspectionTrackingEligible(item);
-  const inspectionCompleted = item.inspectionSummary?.status === 'COMPLETED';
-  const inspectionMissed = item.inspectionSummary?.status === 'MISSED';
+  const inspectionFooterBtn = teamInspectionFooterButton(item);
 
   useEffect(() => {
     setCrewMeetingSharedDraft(item.crewMeetingTimeShared !== false);
@@ -1059,23 +1058,6 @@ export function TeamInquiryDetailModal({
       );
     } finally {
       setHappySaving(false);
-    }
-  };
-
-  const handleInspectionMissed = async () => {
-    if (!teamToken) return;
-    if (inspectionCompleted) return;
-    if (inspectionMissed) return;
-    if (!window.confirm('현장 검수를 누락 처리할까요?')) return;
-    setInspectionSaving(true);
-    try {
-      const next = (await markTeamInspectionMissed(teamToken, item.id)) as InquiryItem;
-      setItem(next);
-      onInquiryPatched?.(next);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '검수 누락 처리에 실패했습니다.');
-    } finally {
-      setInspectionSaving(false);
     }
   };
 
@@ -1860,95 +1842,62 @@ export function TeamInquiryDetailModal({
           </div>
         </div>
 
-        <footer className="shrink-0 space-y-2 border-t border-gray-200 bg-gray-50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:rounded-b-2xl">
+        <footer className="shrink-0 space-y-1.5 border-t border-gray-200 bg-gray-50 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:rounded-b-2xl sm:px-4">
           {enableHappyCall && hasInspectionModule ? (
-            <>
-              <Link
-                to={`/team/pre-clean/${encodeURIComponent(item.id)}`}
-                state={teamInquiryNavState(inquiryReturnTo)}
-                className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-sky-700 bg-sky-600 text-fluid-sm font-medium text-white hover:bg-sky-700 touch-manipulation"
-              >
-                청소 전 촬영
-              </Link>
-              <Link
-                to={`/team/post-clean/${encodeURIComponent(item.id)}`}
-                state={teamInquiryNavState(inquiryReturnTo)}
-                className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-emerald-800 bg-emerald-700 text-fluid-sm font-medium text-white hover:bg-emerald-800 touch-manipulation"
-              >
-                청소 후 촬영
-              </Link>
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <Link
+                  to={`/team/pre-clean/${encodeURIComponent(item.id)}`}
+                  state={teamInquiryNavState(inquiryReturnTo)}
+                  className={teamFooterPhotoBeforeClass}
+                >
+                  청소 전 촬영
+                </Link>
+                <Link
+                  to={`/team/post-clean/${encodeURIComponent(item.id)}`}
+                  state={teamInquiryNavState(inquiryReturnTo)}
+                  className={teamFooterPhotoAfterClass}
+                >
+                  청소 후 촬영
+                </Link>
+              </div>
               <Link
                 to={`/team/inspection/${encodeURIComponent(item.id)}`}
                 state={teamInquiryNavState(inquiryReturnTo)}
-                className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-gray-800 bg-gray-900 text-fluid-sm font-medium text-white hover:bg-gray-950 touch-manipulation"
+                className={inspectionFooterBtn.className}
+                title={resolveTeamInspectionDisplay(item).title}
               >
-                현장 검수 · 청소완료
+                {inspectionFooterBtn.label}
               </Link>
-            </>
+            </div>
           ) : null}
           {enableHappyCall && canHappy && !item.happyCallCompletedAt && onHappyCallComplete ? (
             <button
               type="button"
-              disabled={happySaving || inspectionSaving}
+              disabled={happySaving}
               onClick={() => void handleHappyCallComplete()}
-              className="min-h-[48px] w-full rounded-xl bg-blue-600 text-fluid-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className={teamFooterHappyCallClass}
             >
               {happySaving ? (
-                <TeamBiLine id="team.modal.processing" koClassName="text-fluid-sm font-medium text-white" />
+                <TeamBiLine id="team.modal.processing" koClassName="text-fluid-2xs font-semibold text-white sm:text-fluid-xs" />
               ) : (
-                <TeamBiLine id="team.modal.happySubmit" koClassName="text-fluid-sm font-medium text-white" />
+                <TeamBiLine id="team.modal.happySubmit" koClassName="text-fluid-2xs font-semibold text-white sm:text-fluid-xs" />
               )}
             </button>
           ) : null}
-          {showInspectionActions ? (
-            <div className="grid grid-cols-2 gap-2">
-              {inspectionCompleted ? (
-                <div className="flex min-h-[48px] items-center justify-center rounded-xl border-2 border-emerald-600 bg-emerald-50 px-2 text-center text-fluid-sm font-semibold text-emerald-900">
-                  검수완료
-                </div>
-              ) : (
-                <Link
-                  to={`/team/inspection/${encodeURIComponent(item.id)}`}
-                  state={teamInquiryNavState(inquiryReturnTo)}
-                  className="flex min-h-[48px] items-center justify-center rounded-xl border-2 border-emerald-700 bg-emerald-600 px-2 text-center text-fluid-sm font-medium text-white hover:bg-emerald-700 touch-manipulation"
-                >
-                  검수완료
-                </Link>
-              )}
-              <button
-                type="button"
-                disabled={inspectionSaving || inspectionCompleted || inspectionMissed}
-                onClick={() => void handleInspectionMissed()}
-                className={[
-                  'min-h-[48px] rounded-xl border-2 px-2 text-fluid-sm font-semibold touch-manipulation disabled:opacity-60',
-                  inspectionMissed
-                    ? 'border-red-600 bg-red-50 text-red-900'
-                    : inspectionDisplay.tone === 'overdue' || inspectionDisplay.tone === 'dueToday'
-                      ? 'border-orange-600 bg-orange-50 text-orange-950 hover:bg-orange-100'
-                      : 'border-red-500 bg-red-50 text-red-800 hover:bg-red-100',
-                ].join(' ')}
-              >
-                {inspectionSaving ? '처리 중…' : inspectionMissed ? '검수누락됨' : '검수누락'}
-              </button>
-            </div>
-          ) : null}
-          <div className={`grid gap-2 ${showCardPayment ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <div className={`grid gap-1.5 ${showCardPayment ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {showCardPayment ? (
               <button
                 type="button"
                 onClick={handleOpenCardPayment}
-                className="min-h-[44px] w-full rounded-xl border border-emerald-600 bg-emerald-50 px-2 text-fluid-sm font-semibold text-emerald-900 hover:bg-emerald-100 active:bg-emerald-200/80 touch-manipulation"
+                className={teamFooterActionPrimaryClass}
                 title={teamBiPlain('team.modal.cardPaymentTitle')}
               >
                 {teamBiPlain('team.modal.cardPayment')}
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-[44px] w-full rounded-xl border border-gray-300 bg-white px-2 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
-            >
-              <TeamBiLine id="team.common.close" koClassName="text-fluid-sm font-medium text-gray-800" />
+            <button type="button" onClick={onClose} className={teamFooterActionSecondaryClass}>
+              <TeamBiLine id="team.common.close" koClassName="text-fluid-2xs font-medium text-gray-800 sm:text-fluid-xs" />
             </button>
           </div>
         </footer>
