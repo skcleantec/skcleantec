@@ -4,10 +4,15 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import com.skcleantec.telecrm.R
 import com.skcleantec.telecrm.api.ApiClient
-import com.skcleantec.telecrm.main.MainActivity
 import com.skcleantec.telecrm.databinding.ActivityLoginBinding
+import com.skcleantec.telecrm.main.MainActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -19,8 +24,10 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applyLoginWindowInsets()
 
         tokenStore.getTenantSlug()?.let { binding.inputTenantSlug.setText(it) }
         tokenStore.getLoginId()?.let { binding.inputLoginId.setText(it) }
@@ -31,6 +38,26 @@ class LoginActivity : AppCompatActivity() {
         }
 
         binding.loginButton.setOnClickListener { attemptLogin() }
+    }
+
+    private fun applyLoginWindowInsets() {
+        val baseHeroHeight = resources.getDimensionPixelSize(R.dimen.telecrm_login_hero_height)
+        val logoTopExtra = resources.getDimensionPixelSize(R.dimen.telecrm_login_logo_top)
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+
+            val heroLp = binding.loginHero.layoutParams
+            heroLp.height = baseHeroHeight + top
+            binding.loginHero.layoutParams = heroLp
+
+            val logoLp = binding.loginLogo.layoutParams as ConstraintLayout.LayoutParams
+            logoLp.topMargin = top + logoTopExtra
+            binding.loginLogo.layoutParams = logoLp
+
+            insets
+        }
+        ViewCompat.requestApplyInsets(binding.root)
     }
 
     private fun attemptLogin() {

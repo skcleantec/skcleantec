@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/slate_100"
+    android:background="@color/page_bg"
     tools:context=".main.MainActivity">
 
     <LinearLayout
@@ -14,8 +14,8 @@
         android:background="@color/slate_900"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingHorizontal="16dp"
-        android:paddingTop="12dp"
+        android:paddingHorizontal="@dimen/telecrm_header_padding_h"
+        android:paddingTop="@dimen/telecrm_header_padding_v"
         android:paddingBottom="10dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -25,22 +25,23 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:gravity="center_vertical"
             android:orientation="vertical">
 
-            <TextView
+            <ImageView
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/app_name"
-                android:textColor="@color/white"
-                android:textSize="17sp"
-                android:textStyle="bold" />
+                android:layout_height="28dp"
+                android:adjustViewBounds="true"
+                android:contentDescription="@string/logo_content_description"
+                android:scaleType="fitStart"
+                android:src="@drawable/clean_secretary_logo" />
 
             <TextView
                 android:id="@+id/userNameText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textColor="#E2E8F0"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/header_subtitle"
                 android:textSize="13sp"
                 tools:text="홍마케터" />
 
@@ -48,7 +49,7 @@
                 android:id="@+id/userTenantText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#94A3B8"
+                android:textColor="@color/header_meta"
                 android:textSize="11sp"
                 tools:text="업체 SKCLEAN" />
         </LinearLayout>
@@ -58,7 +59,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
-            android:background="@drawable/bg_header_emerald"
+            android:background="@drawable/bg_chip_disconnected"
             android:paddingHorizontal="10dp"
             android:paddingVertical="4dp"
             android:text="@string/ws_disconnected"
@@ -98,8 +99,8 @@
         android:id="@+id/bottomNav"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:background="@color/white"
-        app:elevation="8dp"
+        android:background="@drawable/bg_bottom_nav_top_border"
+        app:elevation="0dp"
         app:itemIconTint="@color/bottom_nav_item"
         app:itemTextColor="@color/bottom_nav_item"
         app:labelVisibilityMode="labeled"

@@ -33,7 +33,7 @@ class TelecrmDispatchExecutor(
         binding.viewPager.currentItem = 0
         binding.bottomNav.selectedItemId = R.id.nav_dial
         AppEventBus.emitDialPrefill(digits, payload.inquiryId, payload.customerMatch)
-        Snackbar.make(binding.root, "PC에서 통화 요청 · $digits", Snackbar.LENGTH_SHORT).show()
+        Snackbar.make(binding.root, digits, Snackbar.LENGTH_SHORT).show()
         val token = tokenStore.getToken() ?: return
         TelecrmCallHelper.placeCall(activity, digits)
         TelecrmCallHelper.logOutboundCall(
@@ -58,9 +58,9 @@ class TelecrmDispatchExecutor(
             }
         }
         AlertDialog.Builder(activity)
-            .setTitle("PC에서 문자 전송 요청")
+            .setTitle("문자 보내기")
             .setMessage(preview)
-            .setPositiveButton("문자 앱에서 보내기") { _, _ ->
+            .setPositiveButton("문자 앱 열기") { _, _ ->
                 TelecrmCallHelper.openSms(activity, digits, body, imageUrl)
             }
             .setNegativeButton(android.R.string.cancel, null)

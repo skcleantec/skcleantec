@@ -11,6 +11,26 @@ import { DashboardAdSettleButton } from '../dashboard/dashboardUiParts';
 import { AdWorkSessionEndModal } from '../advertising/AdWorkSessionEndModal';
 import { DashboardTopCard } from './dashboard/DashboardTopCard';
 
+function TelemarketingIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 11v2a2 2 0 002 2h1l3.5 3.5a2 2 0 002.83 0L19 11.5V9a2 2 0 00-2-2h-1.5" />
+      <path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2" />
+      <path d="M12 14v3" />
+      <path d="M8 17h8" />
+    </svg>
+  );
+}
+
 export function TelemarketingSessionBlock() {
   const token = getToken();
   const [session, setSession] = useState<ActiveSession | null>(null);
@@ -69,15 +89,24 @@ export function TelemarketingSessionBlock() {
   if (!token) return null;
 
   return (
-    <DashboardTopCard>
-      <h2 className="text-base font-semibold text-slate-900">텔레마케팅 · 광고비</h2>
-      <p className="mt-1.5 flex-1 text-fluid-xs leading-snug text-slate-600">
-        업무 종료 시 채널별로 당일 광고비를 저장합니다. 건수 방식 채널은 관리자 「광고비 → 설정」에서 과목·단가를
-        맞춘 뒤 건수만 입력하면 됩니다.
-      </p>
+    <DashboardTopCard accent="amber">
+      <div className="flex items-start gap-3">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-amber-200/80">
+          <TelemarketingIcon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-semibold text-amber-950">텔레마케팅 · 광고비</h2>
+          <p className="mt-1.5 flex-1 text-fluid-xs leading-snug text-slate-600">
+            업무 종료 시 채널별로 당일 광고비를 저장합니다. 건수 방식 채널은 관리자 「광고비 → 설정」에서 과목·단가를
+            맞춘 뒤 건수만 입력하면 됩니다.
+          </p>
+        </div>
+      </div>
 
       {error ? (
-        <div className="mb-3 text-fluid-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>
+        <div className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-fluid-xs text-red-600">
+          {error}
+        </div>
       ) : null}
 
       <div className="mt-auto pt-4">
@@ -87,7 +116,7 @@ export function TelemarketingSessionBlock() {
           <div className="flex flex-wrap items-center gap-3">
             <DashboardAdSettleButton onClick={() => setModalOpen(true)} disabled={channels.length === 0} />
             {channels.length === 0 ? (
-              <span className="text-fluid-2xs text-amber-700">
+              <span className="text-fluid-2xs text-amber-800">
                 채널이 없습니다. 관리자가 <strong className="text-slate-800">광고비 → 설정</strong>에서 채널을 추가하세요.
               </span>
             ) : null}

@@ -1,17 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="slate_900">#0F172A</color>
-    <color name="slate_700">#334155</color>
-    <color name="slate_500">#64748B</color>
+    <!-- SK클린텍 슬레이트 프리미엄 SaaS (docs/UI_DESIGN_GUIDE.md) -->
+    <color name="slate_50">#F8FAFC</color>
     <color name="slate_100">#F1F5F9</color>
+    <color name="slate_200">#E2E8F0</color>
+    <color name="slate_300">#CBD5E1</color>
+    <color name="slate_400">#94A3B8</color>
+    <color name="slate_500">#64748B</color>
+    <color name="slate_600">#475569</color>
+    <color name="slate_700">#334155</color>
+    <color name="slate_800">#1E293B</color>
+    <color name="slate_900">#0F172A</color>
+
+    <!-- 관리자 GNB active · 탭 선택 -->
+    <color name="blue_600">#2563EB</color>
+    <color name="blue_50">#EFF6FF</color>
+
+    <!-- 로그인·입력 포커스 -->
+    <color name="sky_500">#0EA5E9</color>
+
+    <!-- 지표·로딩 (관리자 indigo) -->
+    <color name="indigo_500">#6366F1</color>
+    <color name="indigo_50">#EEF2FF</color>
+
+    <!-- 의미색 — 상태·경고·성공만 -->
     <color name="emerald_600">#059669</color>
     <color name="emerald_50">#ECFDF5</color>
-    <color name="violet_600">#7C3AED</color>
-    <color name="violet_50">#F5F3FF</color>
     <color name="amber_500">#F59E0B</color>
     <color name="amber_50">#FFFBEB</color>
     <color name="rose_500">#F43F5E</color>
     <color name="rose_50">#FFF1F2</color>
-    <color name="sky_500">#0EA5E9</color>
+    <color name="red_600">#DC2626</color>
+    <color name="red_50">#FEF2F2</color>
+
+    <!-- 레거시 별칭 (코드 호환) -->
+    <color name="violet_600">@color/indigo_500</color>
+    <color name="violet_50">@color/indigo_50</color>
+
     <color name="white">#FFFFFF</color>
+    <color name="page_bg">#F4F6F8</color>
+    <color name="header_subtitle">#CBD5E1</color>
+    <color name="header_meta">#94A3B8</color>
 </resources>

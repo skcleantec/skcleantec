@@ -41,7 +41,7 @@ export function DashboardRealtimeBadge() {
 }
 
 export const dashboardAdSettleButtonClass =
-  'px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded hover:bg-gray-900 disabled:opacity-50';
+  'rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2 text-fluid-xs font-semibold text-white shadow-sm shadow-amber-200/60 hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed';
 
 export function DashboardAdSettleButton(props: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'>) {
   return (

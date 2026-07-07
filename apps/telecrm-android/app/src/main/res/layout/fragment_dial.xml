@@ -3,187 +3,347 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/slate_100"
+    android:background="@color/page_bg"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="@dimen/telecrm_page_padding">
 
-        <LinearLayout
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Telecrm.Card"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_header_emerald"
-            android:orientation="vertical"
-            android:padding="20dp">
+            android:layout_height="wrap_content">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/customer_search_title"
-                android:textColor="@color/white"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-
-            <TextView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="번호 검색 후 통화·문자 · PC CRM과 동일 계정"
-                android:textColor="#D1FAE5"
-                android:textSize="13sp" />
-        </LinearLayout>
+                android:orientation="vertical"
+                android:paddingHorizontal="12dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="12dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="@string/dial_pad_title"
+                    android:textAppearance="@style/TextAppearance.Telecrm.SectionLabel" />
 
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardBackgroundColor="@color/white"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
-                app:strokeColor="#E2E8F0"
-                app:strokeWidth="1dp">
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/inputPhone"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@android:color/transparent"
+                        android:focusable="true"
+                        android:focusableInTouchMode="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:hint="@string/phone_hint"
+                        android:inputType="phone"
+                        android:maxLines="1"
+                        android:minHeight="56dp"
+                        android:paddingEnd="44dp"
+                        android:textColor="@color/slate_900"
+                        android:textColorHint="@color/slate_300"
+                        android:textSize="30sp" />
+
+                    <ImageButton
+                        android:id="@+id/clearPhoneButton"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_gravity="end|center_vertical"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/dial_clear_phone"
+                        android:padding="8dp"
+                        android:src="@android:drawable/ic_menu_close_clear_cancel"
+                        android:visibility="gone"
+                        app:tint="@color/slate_500" />
+                </FrameLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/clearPhoneTextButton"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="2dp"
+                    android:minHeight="36dp"
+                    android:text="@string/dial_clear_phone"
+                    android:textColor="@color/slate_500"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:layout_marginTop="4dp"
+                    android:orientation="vertical">
 
-                    <com.google.android.material.textfield.TextInputLayout
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="@string/phone_hint"
-                        app:endIconMode="clear_text"
-                        app:boxBackgroundMode="outline"
-                        app:boxCornerRadiusBottomEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusTopStart="12dp">
+                        android:orientation="horizontal">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/inputPhone"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="phone"
-                            android:maxLines="1"
-                            android:textSize="16sp" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKey1"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="1" />
 
-                    <com.google.android.material.textfield.TextInputLayout
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKey2"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="2" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKey3"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="3" />
+                    </LinearLayout>
+
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:hint="@string/name_hint"
-                        app:endIconMode="clear_text"
-                        app:boxBackgroundMode="outline"
-                        app:boxCornerRadiusBottomEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusTopStart="12dp">
+                        android:orientation="horizontal">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/inputName"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="textPersonName"
-                            android:maxLines="1"
-                            android:textSize="16sp" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKey4"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="4" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKey5"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="5" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKey6"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="6" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKey7"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="7" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKey8"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="8" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKey9"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="9" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKeyStar"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="*" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKey0"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="0" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/dialKeyHash"
+                            style="@style/Widget.Telecrm.DialKey"
+                            android:text="#" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/actionRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/searchButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:layout_marginTop="12dp"
-                        android:backgroundTint="@color/emerald_600"
-                        android:text="@string/search_button"
-                        android:textSize="15sp"
-                        app:cornerRadius="12dp" />
+                        android:id="@+id/dialKeyBackspace"
+                        style="@style/Widget.Telecrm.DialKey.Action"
+                        android:layout_width="0dp"
+                        android:layout_height="@dimen/telecrm_dial_key_height"
+                        android:layout_margin="4dp"
+                        android:layout_weight="0.8"
+                        android:contentDescription="@string/dial_backspace"
+                        app:icon="@android:drawable/ic_input_delete"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconTint="@color/slate_600" />
 
-                    <TextView
-                        android:id="@+id/searchError"
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/callButton"
+                        style="@style/Widget.Telecrm.Button.Primary"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="4dp"
+                        android:layout_weight="1.4"
+                        android:text="@string/call_button"
+                        app:icon="@android:drawable/ic_menu_call"
+                        app:iconGravity="textStart"
+                        app:iconPadding="8dp"
+                        app:iconTint="@color/white" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/smsButton"
+                        style="@style/Widget.Telecrm.Button.Outlined"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="4dp"
+                        android:layout_weight="1"
+                        android:text="@string/sms_button"
+                        app:icon="@android:drawable/ic_dialog_email"
+                        app:iconGravity="textStart"
+                        app:iconPadding="6dp"
+                        app:iconTint="@color/slate_600"
+                        app:strokeColor="@color/slate_300" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Telecrm.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/telecrm_card_gap">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/telecrm_card_padding">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/sms_templates_title"
+                    android:textAppearance="@style/TextAppearance.Telecrm.SectionLabel" />
+
+                <TextView
+                    android:id="@+id/smsTemplateEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/sms_templates_empty"
+                    android:textAppearance="@style/TextAppearance.Telecrm.Caption"
+                    android:visibility="gone" />
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:clipToPadding="false"
+                    android:scrollbars="none">
+
+                    <LinearLayout
+                        android:id="@+id/smsTemplateChips"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal" />
+                </HorizontalScrollView>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/telecrm_card_gap"
+            android:text="@string/customer_search_title"
+            android:textAppearance="@style/TextAppearance.Telecrm.PageTitle" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Telecrm.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/telecrm_card_gap">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/telecrm_card_padding">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Telecrm.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/name_hint"
+                    app:endIconMode="clear_text">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/inputName"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:textColor="@color/rose_500"
-                        android:visibility="gone" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <LinearLayout
-                android:id="@+id/candidatesContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:orientation="vertical"
-                android:visibility="gone" />
-
-            <LinearLayout
-                android:id="@+id/inquiriesContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:orientation="vertical"
-                android:visibility="gone" />
-
-            <LinearLayout
-                android:id="@+id/actionRow"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:orientation="horizontal"
-                android:visibility="gone">
+                        android:inputType="textPersonName"
+                        android:maxLines="1"
+                        android:textSize="15sp" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/callButton"
-                    android:layout_width="0dp"
-                    android:layout_height="56dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1.2"
-                    android:backgroundTint="@color/emerald_600"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:text="@string/call_button"
-                    android:textSize="16sp"
-                    app:cornerRadius="14dp"
-                    app:icon="@android:drawable/ic_menu_call"
-                    app:iconGravity="textStart"
-                    app:iconPadding="8dp"
-                    app:iconTint="@color/white" />
+                    android:id="@+id/searchButton"
+                    style="@style/Widget.Telecrm.Button.Primary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/search_button" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/smsButton"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="0dp"
-                    android:layout_height="56dp"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:text="@string/sms_button"
-                    android:textSize="16sp"
-                    app:cornerRadius="14dp"
-                    app:icon="@android:drawable/ic_dialog_email"
-                    app:iconGravity="textStart"
-                    app:iconPadding="8dp"
-                    app:strokeColor="@color/emerald_600"
-                    app:strokeWidth="2dp" />
+                <TextView
+                    android:id="@+id/searchError"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/red_600"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-            <ProgressBar
-                android:id="@+id/progress"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="16dp"
-                android:visibility="gone" />
-        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/candidatesContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/telecrm_card_gap"
+            android:orientation="vertical"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/inquiriesContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/telecrm_card_gap"
+            android:orientation="vertical"
+            android:visibility="gone" />
+
+        <ProgressBar
+            android:id="@+id/progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
+            android:indeterminateTint="@color/indigo_500"
+            android:visibility="gone" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

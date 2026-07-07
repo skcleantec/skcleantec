@@ -179,11 +179,11 @@ export function DashboardTenantSubscriptionView({ data }: { data: TenantSubscrip
   }
 
   return (
-    <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm shadow-slate-100/50 flex flex-col justify-between h-full min-h-[180px]">
-      <div className="flex items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+    <div className="flex h-full min-h-[200px] flex-col justify-between rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/40 p-6 shadow-sm shadow-indigo-100/50">
+      <div className="mb-4 flex min-w-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="shrink-0 rounded-lg bg-indigo-100 p-1.5 text-indigo-600">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -191,9 +191,11 @@ export function DashboardTenantSubscriptionView({ data }: { data: TenantSubscrip
               />
             </svg>
           </div>
-          <span className="text-sm font-semibold text-slate-800">계정 및 서비스 이용 현황</span>
+          <span className="min-w-0 whitespace-nowrap font-semibold text-slate-800 text-[clamp(0.6875rem,1.7vw,0.875rem)] leading-tight">
+            계정 및 서비스 이용 현황
+          </span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 capitalize ring-1 ring-inset ring-slate-700/10">
             {tenant.planLabel}
           </span>

@@ -15,6 +15,13 @@ data class LoginResult(
     val userId: String?,
 )
 
+data class SmsTemplateDto(
+    val id: String,
+    val label: String,
+    val body: String,
+    val imageUrl: String?,
+)
+
 class ApiClient {
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -68,6 +75,30 @@ class ApiClient {
 
     fun getCallSessionSummary(token: String, dayYmd: String): Result<JSONObject> {
         return authorizedGet("/api/crm/call-sessions/summary?day=$dayYmd", token)
+    }
+
+    fun getSmsTemplates(token: String): Result<List<SmsTemplateDto>> {
+        return authorizedGet("/api/crm/sms-templates?scope=work", token).map { json ->
+            val arr = json.optJSONArray("templates") ?: JSONArray()
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val row = arr.getJSONObject(i)
+                    add(
+                        SmsTemplateDto(
+                            id = row.optString("id"),
+                            label = row.optString("label"),
+                            body = row.optString("body"),
+                            imageUrl = row.optString("imageUrl").takeIf { it.isNotBlank() },
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    fun getOrderFormLink(token: String, inquiryId: String): Result<String> {
+        return authorizedGet("/api/crm/order-form-link?inquiryId=${java.net.URLEncoder.encode(inquiryId, Charsets.UTF_8.name())}", token)
+            .map { it.optString("url") }
     }
 
     fun getMobileConfig(token: String): Result<JSONObject> {

@@ -28,34 +28,35 @@ export function DashboardTelecrmBlock() {
   if (!token) return null;
 
   return (
-    <DashboardTopCard>
+    <DashboardTopCard accent="violet">
       <div className="flex items-start gap-3">
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-md">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-md shadow-violet-200/80">
           <TelecrmPhoneIcon className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-base font-semibold text-slate-900">텔레CRM</h2>
-          <p className="mt-1.5 text-fluid-xs leading-snug text-slate-600">
+          <h2 className="text-base font-semibold text-violet-950">텔레CRM</h2>
+          <p className="mt-1.5 flex-1 text-fluid-xs leading-snug text-slate-600">
             전화 상담·접수·스크립트·문자 발송을 한 화면에서 처리합니다.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => openTelecrmWindow()}
-              className="rounded-xl bg-slate-900 px-4 py-2 text-fluid-xs font-semibold text-white hover:bg-slate-800"
-            >
-              텔레CRM 열기
-            </button>
-            {canCrmSettings ? (
-              <Link
-                to="/admin/crm/settings"
-                className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-fluid-xs font-semibold text-violet-800 hover:bg-violet-100"
-              >
-                CRM 설정
-              </Link>
-            ) : null}
-          </div>
         </div>
+      </div>
+
+      <div className="mt-auto flex flex-wrap gap-2 pt-4">
+        <button
+          type="button"
+          onClick={() => openTelecrmWindow()}
+          className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-fluid-xs font-semibold text-white shadow-sm shadow-violet-200/60 hover:from-violet-700 hover:to-indigo-700"
+        >
+          텔레CRM 열기
+        </button>
+        {canCrmSettings ? (
+          <Link
+            to="/admin/crm/settings"
+            className="rounded-xl border border-violet-300 bg-white/80 px-4 py-2 text-fluid-xs font-semibold text-violet-800 hover:bg-violet-50"
+          >
+            CRM 설정
+          </Link>
+        ) : null}
       </div>
     </DashboardTopCard>
   );

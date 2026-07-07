@@ -2,47 +2,41 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/slate_100"
+    android:background="@color/page_bg"
     android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/bg_header_violet"
         android:orientation="vertical"
-        android:padding="20dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/messages_title"
-            android:textColor="@color/white"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+        android:paddingHorizontal="@dimen/telecrm_page_padding"
+        android:paddingTop="@dimen/telecrm_page_padding"
+        android:paddingBottom="8dp">
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="PC 솔루션 메시지와 동일"
-            android:textColor="#EDE9FE"
-            android:textSize="13sp" />
+            android:text="@string/messages_title"
+            android:textAppearance="@style/TextAppearance.Telecrm.PageTitle" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/conversationList"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:clipToPadding="false"
-        android:padding="12dp" />
+        android:paddingHorizontal="@dimen/telecrm_page_padding"
+        android:paddingBottom="@dimen/telecrm_page_padding" />
 
     <TextView
         android:id="@+id/emptyText"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:gravity="center"
         android:text="@string/no_conversations"
-        android:textColor="@color/slate_500"
+        android:textAppearance="@style/TextAppearance.Telecrm.Caption"
         android:visibility="gone" />
 
     <ProgressBar
@@ -50,5 +44,6 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
+        android:indeterminateTint="@color/indigo_500"
         android:visibility="gone" />
 </LinearLayout>

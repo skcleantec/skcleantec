@@ -5,6 +5,9 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.skcleantec.telecrm.R
@@ -35,7 +38,7 @@ class MainActivity : AppCompatActivity() {
             if (connected) R.string.ws_connected else R.string.ws_disconnected,
         )
         binding.wsStatusChip.setBackgroundResource(
-            if (connected) R.drawable.bg_header_emerald else R.drawable.bg_header_rose,
+            if (connected) R.drawable.bg_chip_connected else R.drawable.bg_chip_disconnected,
         )
     }
 
@@ -68,6 +71,8 @@ class MainActivity : AppCompatActivity() {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        applyMainWindowInsets()
         dispatchExecutor = TelecrmDispatchExecutor(this, binding, tokenStore, apiClient)
 
         bindUserHeader()
@@ -78,6 +83,7 @@ class MainActivity : AppCompatActivity() {
         binding.viewPager.adapter = MainPagerAdapter(this)
         binding.viewPager.isUserInputEnabled = false
         binding.viewPager.offscreenPageLimit = 4
+        binding.bottomNav.selectedItemId = R.id.nav_dial
 
         binding.bottomNav.setOnItemSelectedListener { item ->
             binding.viewPager.currentItem = when (item.itemId) {
@@ -130,6 +136,16 @@ class MainActivity : AppCompatActivity() {
         val tenant = tokenStore.getTenantSlug()?.uppercase().orEmpty()
         binding.userNameText.text = name
         binding.userTenantText.text = if (tenant.isNotBlank()) "업체 $tenant" else ""
+    }
+
+    private fun applyMainWindowInsets() {
+        val baseHeaderPadTop = resources.getDimensionPixelSize(R.dimen.telecrm_header_padding_v)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.headerBar) { view, insets ->
+            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            view.setPadding(view.paddingLeft, top + baseHeaderPadTop, view.paddingRight, view.paddingBottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(binding.headerBar)
     }
 
     private fun requestTelephonyPermissions() {

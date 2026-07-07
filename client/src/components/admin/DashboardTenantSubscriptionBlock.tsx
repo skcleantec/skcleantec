@@ -5,7 +5,7 @@ import { DashboardTopCard } from './dashboard/DashboardTopCard';
 
 function CardShell({ children }: { children: ReactNode }) {
   return (
-    <DashboardTopCard>
+    <DashboardTopCard accent="indigo">
       <div className="flex flex-1 flex-col items-center justify-center">{children}</div>
     </DashboardTopCard>
   );

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="telecrm_page_padding">16dp</dimen>
+    <dimen name="telecrm_card_padding">16dp</dimen>
+    <dimen name="telecrm_card_gap">12dp</dimen>
+    <dimen name="telecrm_radius_xl">12dp</dimen>
+    <dimen name="telecrm_radius_2xl">16dp</dimen>
+    <dimen name="telecrm_radius_3xl">24dp</dimen>
+    <dimen name="telecrm_button_height">48dp</dimen>
+    <dimen name="telecrm_header_padding_h">16dp</dimen>
+    <dimen name="telecrm_header_padding_v">12dp</dimen>
+    <dimen name="telecrm_login_logo_top">16dp</dimen>
+    <dimen name="telecrm_login_hero_height">200dp</dimen>
+    <dimen name="telecrm_dial_key_height">52dp</dimen>
+</resources>

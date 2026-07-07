@@ -10,6 +10,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.skcleantec.telecrm.api.ApiClient
+import com.skcleantec.telecrm.api.SmsTemplateDto
 import com.skcleantec.telecrm.auth.TokenStore
 import com.skcleantec.telecrm.databinding.FragmentIncomingBinding
 import com.skcleantec.telecrm.telephony.CallLogReader
@@ -17,6 +18,7 @@ import com.skcleantec.telecrm.telephony.IncomingCallRow
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 import com.skcleantec.telecrm.ui.SimpleRow
 import com.skcleantec.telecrm.ui.SimpleRowAdapter
+import com.skcleantec.telecrm.ui.SmsTemplateHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,6 +33,7 @@ class IncomingFragment : Fragment() {
     private var rows = listOf<IncomingCallRow>()
     private var selectedLookup: JSONObject? = null
     private var selectedPhone = ""
+    private var smsTemplates = listOf<SmsTemplateDto>()
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -62,12 +65,14 @@ class IncomingFragment : Fragment() {
             TelecrmCallHelper.logCall(requireContext(), apiClient, token, phone, "INBOUND", inquiryId, match)
         }
         binding.detailSms.setOnClickListener { TelecrmCallHelper.openSms(requireContext(), selectedPhone) }
+        loadSmsTemplates()
         ensurePermission()
     }
 
     override fun onResume() {
         super.onResume()
         if (hasCallLogPermission()) loadCallLog()
+        loadSmsTemplates()
     }
 
     private fun hasCallLogPermission() =
@@ -98,13 +103,41 @@ class IncomingFragment : Fragment() {
         })
     }
 
+    private fun loadSmsTemplates() {
+        val token = tokenStore.getToken() ?: return
+        lifecycleScope.launch {
+            smsTemplates = withContext(Dispatchers.IO) { apiClient.getSmsTemplates(token).getOrDefault(emptyList()) }
+            bindIncomingTemplateChips()
+        }
+    }
+
+    private fun bindIncomingTemplateChips() {
+        SmsTemplateHelper.bindTemplateChips(
+            requireContext(),
+            binding.incomingSmsTemplateChips,
+            null,
+            smsTemplates,
+        ) { template -> sendIncomingTemplate(template) }
+    }
+
+    private fun sendIncomingTemplate(template: SmsTemplateDto) {
+        val token = tokenStore.getToken() ?: return
+        lifecycleScope.launch {
+            var ctx = SmsTemplateHelper.placeholderCtxFromLookup(selectedPhone, selectedLookup)
+            val inquiryId = selectedLookup?.optJSONArray("inquiries")?.optJSONObject(0)?.optString("id")
+            ctx = SmsTemplateHelper.enrichOrderLink(apiClient, token, ctx, inquiryId)
+            SmsTemplateHelper.sendTemplate(requireContext(), selectedPhone, template, ctx)
+        }
+    }
+
     private fun onRowClick(pos: Int) {
         if (pos !in rows.indices) return
         val row = rows[pos]
         selectedPhone = row.number.filter { it.isDigit() }
         binding.detailPanel.visibility = View.VISIBLE
         binding.detailTitle.text = row.number
-        binding.detailBody.text = "서버에서 고객 정보 조회 중…"
+        binding.detailBody.text = "조회 중…"
+        bindIncomingTemplateChips()
         val token = tokenStore.getToken() ?: return
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {

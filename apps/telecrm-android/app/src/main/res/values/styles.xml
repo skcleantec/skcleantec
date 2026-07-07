@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="TextAppearance.Telecrm.PageTitle" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:textSize">20sp</item>
+        <item name="android:textColor">@color/slate_900</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">-0.02</item>
+    </style>
+
+    <style name="TextAppearance.Telecrm.PageSubtitle" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/slate_500</item>
+        <item name="android:lineSpacingExtra">2dp</item>
+    </style>
+
+    <style name="TextAppearance.Telecrm.SectionLabel" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">@color/slate_400</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.06</item>
+    </style>
+
+    <style name="TextAppearance.Telecrm.CardTitle" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/slate_900</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="TextAppearance.Telecrm.Body" parent="TextAppearance.MaterialComponents.Body1">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/slate_700</item>
+    </style>
+
+    <style name="TextAppearance.Telecrm.Caption" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/slate_500</item>
+    </style>
+
+    <style name="Widget.Telecrm.Card" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/white</item>
+        <item name="cardCornerRadius">@dimen/telecrm_radius_2xl</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/slate_200</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.Telecrm.Card.Elevated" parent="Widget.Telecrm.Card">
+        <item name="cardElevation">6dp</item>
+        <item name="strokeWidth">0dp</item>
+    </style>
+
+    <style name="Widget.Telecrm.Card.Login" parent="Widget.Telecrm.Card.Elevated">
+        <item name="cardCornerRadius">@dimen/telecrm_radius_3xl</item>
+    </style>
+
+    <style name="Widget.Telecrm.Card.Accent" parent="Widget.Telecrm.Card">
+        <item name="cardBackgroundColor">@color/indigo_50</item>
+        <item name="strokeColor">@color/slate_200</item>
+    </style>
+
+    <style name="Widget.Telecrm.Button.Primary" parent="Widget.MaterialComponents.Button">
+        <item name="android:minHeight">@dimen/telecrm_button_height</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="backgroundTint">@color/slate_900</item>
+        <item name="cornerRadius">@dimen/telecrm_radius_xl</item>
+    </style>
+
+    <style name="Widget.Telecrm.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:minHeight">@dimen/telecrm_button_height</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/slate_700</item>
+        <item name="cornerRadius">@dimen/telecrm_radius_xl</item>
+        <item name="strokeColor">@color/slate_300</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.Telecrm.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxBackgroundMode">filled</item>
+        <item name="boxBackgroundColor">@color/slate_50</item>
+        <item name="boxStrokeColor">@color/telecrm_input_stroke</item>
+        <item name="boxCornerRadiusTopStart">@dimen/telecrm_radius_xl</item>
+        <item name="boxCornerRadiusTopEnd">@dimen/telecrm_radius_xl</item>
+        <item name="boxCornerRadiusBottomStart">@dimen/telecrm_radius_xl</item>
+        <item name="boxCornerRadiusBottomEnd">@dimen/telecrm_radius_xl</item>
+        <item name="hintTextColor">@color/slate_500</item>
+    </style>
+
+    <style name="Widget.Telecrm.EditText" parent="Widget.AppCompat.EditText">
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/slate_900</item>
+        <item name="android:textColorHint">@color/slate_400</item>
+        <item name="android:background">@drawable/bg_input_field</item>
+        <item name="android:paddingHorizontal">12dp</item>
+        <item name="android:paddingVertical">10dp</item>
+        <item name="android:minHeight">44dp</item>
+    </style>
+
+    <style name="Widget.Telecrm.DialKey" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">@dimen/telecrm_dial_key_height</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textColor">@color/slate_900</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="backgroundTint">@color/white</item>
+        <item name="cornerRadius">999dp</item>
+        <item name="strokeColor">@color/slate_200</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.Telecrm.DialKey.Action" parent="Widget.Telecrm.DialKey">
+        <item name="android:textSize">14sp</item>
+    </style>
+</resources>

@@ -1,16 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/slate_100"
+    android:background="@color/page_bg"
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/threadToolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/violet_600"
-        android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar" />
+        android:background="@color/slate_900"
+        android:minHeight="?attr/actionBarSize"
+        android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar"
+        app:titleTextColor="@color/white" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/messageList"
@@ -18,18 +21,18 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:padding="12dp" />
+        android:padding="@dimen/telecrm_page_padding" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/white"
-        android:elevation="4dp"
+        android:background="@drawable/bg_bottom_nav_top_border"
         android:orientation="horizontal"
         android:padding="8dp">
 
         <EditText
             android:id="@+id/inputMessage"
+            style="@style/Widget.Telecrm.EditText"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -39,10 +42,11 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/sendButton"
+            style="@style/Widget.Telecrm.Button.Primary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:backgroundTint="@color/violet_600"
+            android:minWidth="72dp"
             android:text="@string/send_message" />
     </LinearLayout>
 </LinearLayout>

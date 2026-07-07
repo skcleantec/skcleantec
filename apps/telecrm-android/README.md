@@ -13,6 +13,15 @@
 
 **실시간:** `/ws?token=JWT` — `inbox:refresh`, 접수 축하, 접수 변동, 페이백 등 → Snackbar + 목록 재조회
 
+## 디자인
+
+`docs/UI_DESIGN_GUIDE.md` **슬레이트 프리미엄 SaaS** + 커뮤니티 APP형 여백·카드 레이아웃.
+
+- **로그인**: slate 히어로 + **청소비서 로고** + 겹치는 흰 카드 (`clean-secretary-logo.png`)
+- **헤더**: 다크 GNB + 로고 · **탭 선택** `blue-600`
+- **본문**: `#f4f6f8` 배경 · 둥근 카드 · 리스트 원형 아이콘 + chevron
+- **폰트**: `sans-serif` (시스템 Noto Sans KR 계열)
+
 ## 설정·빌드
 
 `local.properties`:
