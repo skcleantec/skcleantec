@@ -175,6 +175,17 @@ function parseBodyInt(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** 발주서 발급 금액 상한(원) — PostgreSQL INT4·모바일 만원 오입력 방어 */
+const ORDER_FORM_ISSUE_AMOUNT_MAX_WON = 500_000_000;
+
+function validateOrderFormIssueAmountWon(value: number, label: string): string | null {
+  if (!Number.isFinite(value) || value < 0) return `${label}이(가) 올바르지 않습니다.`;
+  if (value > ORDER_FORM_ISSUE_AMOUNT_MAX_WON) {
+    return `${label}은(는) ${(ORDER_FORM_ISSUE_AMOUNT_MAX_WON / 10_000).toLocaleString('ko-KR')}만원 이하여야 합니다.`;
+  }
+  return null;
+}
+
 function parseBodyAreaFloat(value: unknown): number | null {
   if (value == null || value === '') return null;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -1147,11 +1158,26 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     res.status(400).json({ error: '총 금액을 입력해주세요.' });
     return;
   }
+  const totalAmountErr = validateOrderFormIssueAmountWon(totalAmount, '총 금액');
+  if (totalAmountErr) {
+    res.status(400).json({ error: totalAmountErr });
+    return;
+  }
   const depositParsed = parseBodyInt(depositRaw);
   const deposit = depositParsed != null && depositParsed >= 0 ? depositParsed : 20000;
+  const depositErr = validateOrderFormIssueAmountWon(deposit, '예약금');
+  if (depositErr) {
+    res.status(400).json({ error: depositErr });
+    return;
+  }
   const balanceParsed = parseBodyInt(balanceRaw);
   const balance =
     balanceParsed != null && balanceParsed >= 0 ? balanceParsed : Math.max(0, totalAmount - deposit);
+  const balanceErr = validateOrderFormIssueAmountWon(balance, '잔금');
+  if (balanceErr) {
+    res.status(400).json({ error: balanceErr });
+    return;
+  }
   const token = randomBytes(12).toString('hex');
 
   const resolvedTemplate = await resolveIssueTemplate(prisma, authTenantId, templateIdRaw);

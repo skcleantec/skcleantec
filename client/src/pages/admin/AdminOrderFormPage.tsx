@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
-import { scrollStaffAppElementIntoView } from '../../utils/staffAppScrollRestore';
+import { scrollElementIntoNearestScrollContainer } from '../../utils/staffAppScrollRestore';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { createPortal } from 'react-dom';
 import { Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
@@ -498,23 +498,28 @@ export function AdminOrderFormPage() {
   }, [token, inquiriesEmbed, searchParams, setSearchParams]);
 
 
-  /** 인라인 발급 폼에서 발주서가 생성되면 호출 — 완료 카드 표시 + 폼 초기화 */
+  /** 인라인 발급 폼에서 발주서가 생성되면 호출 — 완료 카드 표시(폼 remount 없음 → 스크롤 유지) */
   const handleOrderCreated = (order: OrderForm) => {
     pendingIssueScrollRef.current = true;
     setNewOrder(order);
+  };
+
+  const startNewIssue = () => {
+    pendingIssueScrollRef.current = false;
+    setNewOrder(null);
     setPendingLinkId('');
     setIssueFormKey((k) => k + 1);
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!pendingIssueScrollRef.current || !newOrder || tab !== 'issue') return;
     const el = issueCompleteRef.current;
     if (!el) return;
     pendingIssueScrollRef.current = false;
     requestAnimationFrame(() => {
-      scrollStaffAppElementIntoView(el);
+      scrollElementIntoNearestScrollContainer(el, 'smooth', 16);
     });
-  }, [newOrder, issueFormKey, tab]);
+  }, [newOrder, tab]);
 
   const brandSlugForOrder = (order: OrderForm) => order.operatingCompany?.slug ?? null;
 
@@ -716,7 +721,7 @@ export function AdminOrderFormPage() {
                     <p className="py-6 text-center text-fluid-sm text-gray-500">발주서 양식 불러오는 중…</p>
                   ) : (
                     <OrderFormPage
-                      key={`issue-${issueTemplateId}-${pendingLinkId}-${issueFormKey}`}
+                      key={`issue-${issueTemplateId}-${issueFormKey}`}
                       editor={{
                         authToken: token,
                         inline: true,
@@ -775,6 +780,13 @@ export function AdminOrderFormPage() {
                           className="rounded-md bg-emerald-600 px-4 py-2 text-fluid-sm font-medium text-white shadow-sm hover:bg-emerald-700"
                         >
                           미리 작성
+                        </button>
+                        <button
+                          type="button"
+                          onClick={startNewIssue}
+                          className="rounded-md border border-sky-300 bg-sky-50 px-4 py-2 text-fluid-sm font-medium text-sky-900 shadow-sm hover:bg-sky-100"
+                        >
+                          새로 발급
                         </button>
                       </div>
                       <p className="mt-2 text-fluid-2xs text-gray-600">

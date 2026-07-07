@@ -30,11 +30,39 @@ export function scrollStaffAppToTop(): void {
 export function scrollStaffAppElementIntoView(el: HTMLElement, behavior: ScrollBehavior = 'smooth'): void {
   const container = getStaffAppScrollElement();
   if (!container) {
-    el.scrollIntoView({ behavior, block: 'start' });
+    scrollElementIntoNearestScrollContainer(el, behavior);
     return;
   }
   const containerRect = container.getBoundingClientRect();
   const elRect = el.getBoundingClientRect();
   const top = elRect.top - containerRect.top + container.scrollTop - 12;
   container.scrollTo({ top: Math.max(0, top), behavior });
+}
+
+/** 드로어·모달 등 가장 가까운 overflow 스크롤 컨테이너 안에서 요소를 보이게 한다. */
+export function scrollElementIntoNearestScrollContainer(
+  el: HTMLElement,
+  behavior: ScrollBehavior = 'smooth',
+  offsetPx = 12,
+): void {
+  const staffMain = getStaffAppScrollElement();
+  let container: HTMLElement | null = el.parentElement;
+  while (container) {
+    const style = window.getComputedStyle(container);
+    const overflowY = style.overflowY;
+    const scrollable =
+      (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') &&
+      container.scrollHeight > container.clientHeight + 1;
+    if (scrollable) break;
+    if (container === staffMain) break;
+    container = container.parentElement;
+  }
+  if (container && container !== document.documentElement && container !== document.body) {
+    const containerRect = container.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const top = elRect.top - containerRect.top + container.scrollTop - offsetPx;
+    container.scrollTo({ top: Math.max(0, top), behavior });
+    return;
+  }
+  el.scrollIntoView({ behavior, block: 'nearest' });
 }

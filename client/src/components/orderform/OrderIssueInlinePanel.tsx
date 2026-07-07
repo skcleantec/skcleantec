@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getToken } from '../../stores/auth';
 import { getInquiries } from '../../api/inquiries';
 import { getFormConfig, type OrderForm } from '../../api/orderform';
@@ -19,6 +19,7 @@ import {
   type FormMessagesState,
 } from '../../utils/orderFormCustomerCopy';
 import { copyTextToClipboard } from '../../utils/clipboard';
+import { scrollElementIntoNearestScrollContainer } from '../../utils/staffAppScrollRestore';
 import { HelpTooltip } from '../ui/HelpTooltip';
 
 export type CrmOrderIssueSeed = {
@@ -173,15 +174,25 @@ export function OrderIssueInlinePanel({
   const handleOrderCreated = useCallback(
     (order: OrderForm) => {
       setNewOrder(order);
-      setPendingLinkId('');
-      setIssueFormKey((k) => k + 1);
       onIssued?.(order);
-      requestAnimationFrame(() => {
-        completeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      });
     },
     [onIssued],
   );
+
+  useLayoutEffect(() => {
+    if (!newOrder) return;
+    const el = completeRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      scrollElementIntoNearestScrollContainer(el, 'smooth', 16);
+    });
+  }, [newOrder]);
+
+  const startNewIssue = useCallback(() => {
+    setNewOrder(null);
+    setPendingLinkId('');
+    setIssueFormKey((k) => k + 1);
+  }, []);
 
   const copyMessage = async () => {
     if (!newOrder) return;
@@ -277,7 +288,7 @@ export function OrderIssueInlinePanel({
           <p className="py-4 text-center text-fluid-sm text-gray-500">발주서 양식 불러오는 중…</p>
         ) : (
           <OrderFormPage
-            key={`crm-issue-${issueTemplateId}-${pendingLinkId}-${issueFormKey}`}
+            key={`crm-issue-${issueTemplateId}-${issueFormKey}`}
             editor={{
               authToken: token,
               inline: true,
@@ -317,6 +328,13 @@ export function OrderIssueInlinePanel({
               className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs text-gray-800"
             >
               새 창
+            </button>
+            <button
+              type="button"
+              onClick={startNewIssue}
+              className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-fluid-xs font-medium text-sky-900"
+            >
+              새로 발급
             </button>
           </div>
         </div>

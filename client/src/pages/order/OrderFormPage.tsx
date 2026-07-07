@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -45,9 +45,10 @@ import { ProfOptionLeafControl } from '../../components/orderform/ProfOptionLeaf
 import { ProfOptionSelectionSummary } from '../../components/orderform/ProfOptionSelectionSummary';
 import {
   addIssueTotalWon,
-  formatIssueTotalManwonDisplay,
-  parseIssueTotalManwonInput,
+  applyManwonUnitZeros,
+  parseIssueAmountWon,
   sanitizeIssueTotalWonInput,
+  validateIssueAmountWon,
 } from '../../utils/orderFormIssueAmountInput';
 
 const ORDER_TIME_SLOT_VALUE_SET = new Set<string>(ORDER_TIME_SLOT_OPTIONS.map((o) => o.value));
@@ -144,16 +145,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     balanceAmount: '',
     optionNote: '',
   });
-  /** sm 미만 — 총액 숫자 입력은 만원 단위 (+천/만/십만 버튼은 기존처럼 원화 가산) */
-  const issueTotalMobileManwon = useSyncExternalStore(
-    (cb) => {
-      const mq = window.matchMedia('(max-width: 639px)');
-      mq.addEventListener('change', cb);
-      return () => mq.removeEventListener('change', cb);
-    },
-    () => window.matchMedia('(max-width: 639px)').matches,
-    () => false,
-  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<{
@@ -938,9 +929,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       setSubmitErrorModal('고객명을 입력해주세요.');
       return;
     }
-    const total = parseInt(issueAmounts.totalAmount.replace(/,/g, ''), 10);
-    if (Number.isNaN(total) || total < 0) {
-      setSubmitErrorModal('총 금액을 입력해주세요.');
+    const total = parseIssueAmountWon(issueAmounts.totalAmount);
+    const totalErr = validateIssueAmountWon(total, '총 금액');
+    if (totalErr) {
+      setSubmitErrorModal(totalErr);
       return;
     }
     const basisOk = form.areaBasis === '공급' || form.areaBasis === '전용';
@@ -967,14 +959,24 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       setSubmitErrorModal('청소 날짜를 선택했다면 시간대도 선택해 주세요.');
       return;
     }
+    const deposit = issueAmounts.depositAmount
+      ? parseIssueAmountWon(issueAmounts.depositAmount)
+      : 20000;
+    const depositErr = validateIssueAmountWon(deposit, '예약금');
+    if (depositErr) {
+      setSubmitErrorModal(depositErr);
+      return;
+    }
+    const balance = issueAmounts.balanceAmount
+      ? parseIssueAmountWon(issueAmounts.balanceAmount)
+      : Math.max(0, total - deposit);
+    const balanceErr = validateIssueAmountWon(balance, '잔금');
+    if (balanceErr) {
+      setSubmitErrorModal(balanceErr);
+      return;
+    }
     setPrefillSaving(true);
     try {
-      const deposit = issueAmounts.depositAmount
-        ? parseInt(issueAmounts.depositAmount.replace(/,/g, ''), 10)
-        : 20000;
-      const balance = issueAmounts.balanceAmount
-        ? parseInt(issueAmounts.balanceAmount.replace(/,/g, ''), 10)
-        : Math.max(0, total - deposit);
       const hasDate = Boolean(form.preferredDate.trim());
       const order = await createOrderForm(editor.authToken, {
         customerName: name,
@@ -1121,34 +1123,24 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <p className="mb-3 text-sm font-semibold text-gray-900">발급 금액</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-bold text-red-600">
-                  {issueTotalMobileManwon ? '총 금액 (만원) *' : '총 금액 (원) *'}
-                </label>
+                <label className="mb-1 block text-xs font-bold text-red-600">총 금액 (원) *</label>
                 <input
                   type="text"
-                  inputMode="decimal"
+                  inputMode="numeric"
                   className={inputCls}
-                  placeholder={issueTotalMobileManwon ? '24' : '150000'}
-                  value={
-                    issueTotalMobileManwon
-                      ? formatIssueTotalManwonDisplay(issueAmounts.totalAmount)
-                      : issueAmounts.totalAmount
-                  }
+                  placeholder="240000"
+                  value={issueAmounts.totalAmount}
                   onChange={(e) =>
                     setIssueAmounts((a) => ({
                       ...a,
-                      totalAmount: issueTotalMobileManwon
-                        ? parseIssueTotalManwonInput(e.target.value)
-                        : sanitizeIssueTotalWonInput(e.target.value),
+                      totalAmount: sanitizeIssueTotalWonInput(e.target.value),
                     }))
                   }
                 />
-                {issueTotalMobileManwon ? (
-                  <p className="mt-1 text-fluid-2xs text-gray-500">
-                    숫자만 입력 시 만원 단위입니다. (예: 24 → 240,000원) · +천/만/십만 버튼은 그대로 원 단위로
-                    더해집니다.
-                  </p>
-                ) : null}
+                <p className="mt-1 text-fluid-2xs text-gray-500 sm:hidden">
+                  예: 24만원 → <span className="font-medium">24</span> 입력 후 「단위만원」 →{' '}
+                  <span className="font-medium tabular-nums">240000</span>
+                </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {[
                     { label: '+천원', v: 1000 },
@@ -1169,6 +1161,18 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                       {b.label}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIssueAmounts((a) => ({
+                        ...a,
+                        totalAmount: applyManwonUnitZeros(a.totalAmount),
+                      }))
+                    }
+                    className="rounded-md border border-sky-600 bg-sky-50 px-3 py-1.5 text-sm font-semibold text-sky-900 shadow-sm hover:bg-sky-100"
+                  >
+                    단위만원
+                  </button>
                 </div>
               </div>
               <div>
