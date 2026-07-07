@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   convertLandingContactInquiry,
+  deleteLandingContactInquiry,
   getLandingContactInquiries,
   patchLandingContactInquiry,
   type LandingContactInquiry,
@@ -11,6 +12,8 @@ import {
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
+import { hasStaffPermission } from '../../utils/staffAdminAccess';
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { YearMonthSelect, YmdSelect } from '../ui/DateQuerySelects';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
@@ -30,6 +33,7 @@ import {
 import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
+import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 
 const DATE_PRESETS: { id: LandingContactListDatePreset; label: string }[] = [
   { id: 'last3months', label: '3개월' },
@@ -39,6 +43,8 @@ const DATE_PRESETS: { id: LandingContactListDatePreset; label: string }[] = [
 
 export function LandingContactWorkdesk() {
   const token = getToken();
+  const { staffMe } = useAdminStaffSession();
+  const canEditLeads = hasStaffPermission(staffMe, 'leads.edit');
   const [searchParams, setSearchParams] = useSearchParams();
   const isLg = useIsLgUp();
   const { scrollToTop, preserveScroll } = useStaffAppScrollPreserve();
@@ -57,6 +63,7 @@ export function LandingContactWorkdesk() {
   const [brands, setBrands] = useState<OperatingCompanyItem[]>([]);
   const [detail, setDetail] = useState<LandingContactInquiry | null>(null);
   const [detailMemo, setDetailMemo] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<LandingContactInquiry | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -132,6 +139,16 @@ export function LandingContactWorkdesk() {
   const openDetail = (row: LandingContactInquiry) => {
     setDetail(row);
     setDetailMemo(row.memo ?? '');
+    setError(null);
+  };
+
+  const closeDetail = () => {
+    setDetail(null);
+    setError(null);
+  };
+
+  const refreshNavBadges = () => {
+    (window as { __refreshUnreadCount?: () => void }).__refreshUnreadCount?.();
   };
 
   const handleConvert = async () => {
@@ -361,16 +378,30 @@ export function LandingContactWorkdesk() {
       </div>
 
       {detail ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-          <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl">
-            <div className="mb-4 flex items-start justify-between gap-2">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">문의 상세</h2>
-                <div className="mt-1">
-                  <OperatingCompanyBadge company={{ ...detail.operatingCompany, name: detail.operatingCompany.displayName || detail.operatingCompany.name }} />
-                </div>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          onClick={closeDetail}
+        >
+          <div
+            className="relative max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 pt-12 shadow-xl sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="landing-contact-detail-title"
+          >
+            <ModalCloseButton onClick={closeDetail} />
+            <div className="mb-4 pr-2">
+              <h2 id="landing-contact-detail-title" className="text-lg font-semibold text-gray-900">
+                문의 상세
+              </h2>
+              <div className="mt-1">
+                <OperatingCompanyBadge
+                  company={{
+                    ...detail.operatingCompany,
+                    name: detail.operatingCompany.displayName || detail.operatingCompany.name,
+                  }}
+                />
               </div>
-              <ModalCloseButton onClick={() => setDetail(null)} />
             </div>
             <dl className="space-y-3 text-fluid-sm">
               <div>
@@ -457,10 +488,48 @@ export function LandingContactWorkdesk() {
                   접수 #{detail.inquiry.inquiryNumber ?? detail.inquiry.id.slice(0, 8)} 보기
                 </Link>
               )}
+              {canEditLeads ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setDeleteTarget(detail)}
+                  className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-fluid-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-60"
+                >
+                  문의 삭제…
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
       ) : null}
+
+      <ConfirmPasswordModal
+        open={deleteTarget != null}
+        zIndexClassName="z-[60]"
+        title={
+          deleteTarget
+            ? `「${deleteTarget.customerName}」 랜딩 문의를 영구 삭제합니다. 복구할 수 없습니다.`
+            : ''
+        }
+        description={
+          deleteTarget?.inquiry
+            ? '접수로 전환된 건입니다. 문의내역만 삭제되며, 연결된 접수는 유지됩니다.'
+            : undefined
+        }
+        confirmLabel="삭제"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={async (password) => {
+          if (!token || !deleteTarget) return;
+          await deleteLandingContactInquiry(token, deleteTarget.id, password);
+          const deletedId = deleteTarget.id;
+          closeDetail();
+          setDeleteTarget(null);
+          setItems((prev) => prev.filter((i) => i.id !== deletedId));
+          setTotal((t) => Math.max(0, t - 1));
+          refreshNavBadges();
+          await fetchList(true);
+        }}
+      />
     </div>
   );
 }

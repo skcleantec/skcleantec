@@ -146,6 +146,23 @@ export async function convertLandingContactInquiry(
   return res.json();
 }
 
+/** 비밀번호 확인 후 랜딩 문의 영구 삭제 */
+export async function deleteLandingContactInquiry(
+  token: string,
+  id: string,
+  password: string,
+): Promise<void> {
+  const res = await fetch(`${API}/landing-contact/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: headers(token),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '삭제에 실패했습니다.');
+  }
+}
+
 export async function fetchLandingContactPublicForm(tenantSlug: string, brandSlug?: string | null): Promise<LandingContactPublicForm> {
   const q = new URLSearchParams({ tenant: tenantSlug });
   if (brandSlug?.trim()) q.set('brand', brandSlug.trim());

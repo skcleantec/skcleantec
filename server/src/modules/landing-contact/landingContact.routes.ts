@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
@@ -249,6 +250,45 @@ router.post('/:id/convert', requireStaffPermission('leads.edit'), async (req, re
     }
     throw e;
   }
+});
+
+/** 비밀번호 확인 후 랜딩 문의 영구 삭제 (접수 전환 건은 Inquiry는 유지) */
+router.delete('/:id', requireStaffPermission('leads.edit'), async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const body = req.body as { password?: unknown };
+  const password = body.password != null ? String(body.password) : '';
+  if (!password) {
+    res.status(400).json({ error: '비밀번호를 입력해주세요.' });
+    return;
+  }
+  const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
+  if (!dbUser) {
+    res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    return;
+  }
+  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    return;
+  }
+
+  const existing = await prisma.landingContactInquiry.findFirst({
+    where: { id: req.params.id, tenantId },
+    select: { id: true },
+  });
+  if (!existing) {
+    res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
+    return;
+  }
+
+  await prisma.landingContactInquiry.delete({ where: { id: existing.id } });
+  void notifyLandingContactListRefresh(tenantId);
+  res.json({ ok: true });
 });
 
 export default router;
