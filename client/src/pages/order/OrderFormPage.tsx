@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -43,6 +43,12 @@ import {
 import { ORDER_FORM_PROFESSIONAL_OPTIONS_SECTION_LABEL } from '../../constants/orderFormProfessionalOptions';
 import { ProfOptionLeafControl } from '../../components/orderform/ProfOptionLeafControl';
 import { ProfOptionSelectionSummary } from '../../components/orderform/ProfOptionSelectionSummary';
+import {
+  addIssueTotalWon,
+  formatIssueTotalManwonDisplay,
+  parseIssueTotalManwonInput,
+  sanitizeIssueTotalWonInput,
+} from '../../utils/orderFormIssueAmountInput';
 
 const ORDER_TIME_SLOT_VALUE_SET = new Set<string>(ORDER_TIME_SLOT_OPTIONS.map((o) => o.value));
 
@@ -138,6 +144,16 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     balanceAmount: '',
     optionNote: '',
   });
+  /** sm 미만 — 총액 숫자 입력은 만원 단위 (+천/만/십만 버튼은 기존처럼 원화 가산) */
+  const issueTotalMobileManwon = useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia('(max-width: 639px)');
+      mq.addEventListener('change', cb);
+      return () => mq.removeEventListener('change', cb);
+    },
+    () => window.matchMedia('(max-width: 639px)').matches,
+    () => false,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<{
@@ -1105,15 +1121,34 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <p className="mb-3 text-sm font-semibold text-gray-900">발급 금액</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-bold text-red-600">총 금액 (원) *</label>
+                <label className="mb-1 block text-xs font-bold text-red-600">
+                  {issueTotalMobileManwon ? '총 금액 (만원) *' : '총 금액 (원) *'}
+                </label>
                 <input
                   type="text"
-                  inputMode="numeric"
+                  inputMode="decimal"
                   className={inputCls}
-                  placeholder="150000"
-                  value={issueAmounts.totalAmount}
-                  onChange={(e) => setIssueAmounts((a) => ({ ...a, totalAmount: e.target.value }))}
+                  placeholder={issueTotalMobileManwon ? '24' : '150000'}
+                  value={
+                    issueTotalMobileManwon
+                      ? formatIssueTotalManwonDisplay(issueAmounts.totalAmount)
+                      : issueAmounts.totalAmount
+                  }
+                  onChange={(e) =>
+                    setIssueAmounts((a) => ({
+                      ...a,
+                      totalAmount: issueTotalMobileManwon
+                        ? parseIssueTotalManwonInput(e.target.value)
+                        : sanitizeIssueTotalWonInput(e.target.value),
+                    }))
+                  }
                 />
+                {issueTotalMobileManwon ? (
+                  <p className="mt-1 text-fluid-2xs text-gray-500">
+                    숫자만 입력 시 만원 단위입니다. (예: 24 → 240,000원) · +천/만/십만 버튼은 그대로 원 단위로
+                    더해집니다.
+                  </p>
+                ) : null}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {[
                     { label: '+천원', v: 1000 },
@@ -1124,11 +1159,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                       key={b.v}
                       type="button"
                       onClick={() =>
-                        setIssueAmounts((a) => {
-                          const cur = parseInt(a.totalAmount.replace(/,/g, ''), 10);
-                          const next = (Number.isNaN(cur) ? 0 : cur) + b.v;
-                          return { ...a, totalAmount: String(next) };
-                        })
+                        setIssueAmounts((a) => ({
+                          ...a,
+                          totalAmount: addIssueTotalWon(a.totalAmount, b.v),
+                        }))
                       }
                       className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-800 shadow-sm hover:bg-gray-50"
                     >

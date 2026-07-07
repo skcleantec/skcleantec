@@ -2702,12 +2702,15 @@ export function AdminSchedulePage() {
                       </details>
                     )}
                     {shelfInactive.length > 0 && (
-                      <div className="min-w-0 border-t border-slate-200 pt-3 mt-1">
-                        <div className="flex items-center gap-2 mb-2 border-b border-slate-300 pb-1.5">
-                          <span className="text-fluid-sm font-bold text-slate-800">취소·보류</span>
-                          <span className="text-fluid-xs text-slate-600 tabular-nums">{shelfInactive.length}건</span>
-                        </div>
-                        <div className="flex flex-col gap-1">
+                      <details className="group min-w-0 border-t border-slate-200 pt-3 mt-1 [&_summary::-webkit-details-marker]:hidden">
+                        <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-2 rounded-md px-1 py-1.5 hover:bg-slate-50/80">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-fluid-sm font-bold text-slate-800">취소·보류</span>
+                            <span className="text-fluid-xs text-slate-600 tabular-nums">{shelfInactive.length}건</span>
+                          </div>
+                          <ChevronDownIcon className="h-4 w-4 shrink-0 text-slate-600 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="flex flex-col gap-1 border-t border-slate-200 pt-2 mt-1">
                           {shelfInactive.map((item) => (
                             <ScheduleDayListItem
                               key={item.id}
@@ -2728,7 +2731,7 @@ export function AdminSchedulePage() {
                             />
                           ))}
                         </div>
-                      </div>
+                      </details>
                     )}
                   </div>
                 );

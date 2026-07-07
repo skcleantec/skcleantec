@@ -1388,25 +1388,7 @@ export function AdminInquiriesPage() {
       navigate('/admin/inquiries/followup');
       return;
     }
-    if (result.kind === 'updated_inquiry') {
-      refresh(true);
-      return;
-    }
-    const inqSt = result.inquiryStatus;
-    const todayYmd = kstTodayYmd();
-    const month = kstMonthKeyNow();
-    flushSync(() => {
-      setDateBasis('createdAt');
-      setDatePreset('today');
-      setMonthKey(month);
-      setDayKey(todayYmd);
-      setStatusFilter(inqSt);
-      setMarketerFilterId('');
-      setTeamLeaderFilterId('');
-      setSearchInput('');
-      setAppliedSearchQuery('');
-      setInquiryListBump((n) => n + 1);
-    });
+    refresh(true);
   };
 
   const openListIntakeEditModal = (item: InquiryItem) => {
