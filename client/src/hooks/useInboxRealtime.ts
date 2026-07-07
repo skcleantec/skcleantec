@@ -118,6 +118,27 @@ function parseReviewPaybackPayload(d: unknown): ReviewPaybackRtPayload | null {
   };
 }
 
+export type LandingContactRtPayload = {
+  type: 'landing-contact:new';
+  landingContactId: string;
+  customerName: string;
+  brandName: string | null;
+  summary: string;
+};
+
+function parseLandingContactPayload(d: unknown): LandingContactRtPayload | null {
+  if (!d || typeof d !== 'object') return null;
+  const o = d as Record<string, unknown>;
+  if (o.type !== 'landing-contact:new') return null;
+  return {
+    type: 'landing-contact:new',
+    landingContactId: typeof o.landingContactId === 'string' ? o.landingContactId : '',
+    customerName: typeof o.customerName === 'string' ? o.customerName : '',
+    brandName: typeof o.brandName === 'string' ? o.brandName : null,
+    summary: typeof o.summary === 'string' ? o.summary : '',
+  };
+}
+
 export type ScheduleDayMemoRtPayload = {
   type: 'schedule-day-memo:refresh';
   date: string;
@@ -142,6 +163,7 @@ type Bucket = {
   rosterAckListeners: Set<(p: RosterAckPayload) => void>;
   changeLogListeners: Set<(p: ChangeLogRtPayload) => void>;
   reviewPaybackListeners: Set<(p: ReviewPaybackRtPayload) => void>;
+  landingContactListeners: Set<(p: LandingContactRtPayload) => void>;
   scheduleDayMemoListeners: Set<(p: ScheduleDayMemoRtPayload) => void>;
 };
 
@@ -154,6 +176,7 @@ function bucketHasSubscribers(bucket: Bucket): boolean {
     bucket.rosterAckListeners.size > 0 ||
     bucket.changeLogListeners.size > 0 ||
     bucket.reviewPaybackListeners.size > 0 ||
+    bucket.landingContactListeners.size > 0 ||
     bucket.scheduleDayMemoListeners.size > 0
   );
 }
@@ -236,6 +259,16 @@ function connectBucket(bucket: Bucket) {
           }
         }
       }
+      const landingContact = parseLandingContactPayload(data);
+      if (landingContact) {
+        for (const fn of bucket.landingContactListeners) {
+          try {
+            fn(landingContact);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
       const scheduleDayMemo = parseScheduleDayMemoPayload(data);
       if (scheduleDayMemo) {
         for (const fn of bucket.scheduleDayMemoListeners) {
@@ -295,6 +328,7 @@ function destroyBucketIfIdle(token: string) {
     bucket.rosterAckListeners.size > 0 ||
     bucket.changeLogListeners.size > 0 ||
     bucket.reviewPaybackListeners.size > 0 ||
+    bucket.landingContactListeners.size > 0 ||
     bucket.scheduleDayMemoListeners.size > 0
   )
     return;
@@ -345,6 +379,7 @@ export function useInboxRealtime(
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
       };
       buckets.set(token, b);
@@ -447,6 +482,7 @@ export function useInquiryCelebrateRealtime(
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
       };
       buckets.set(token, b);
@@ -525,6 +561,7 @@ export function useRosterAckRealtime(
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
       };
       buckets.set(token, b);
@@ -582,6 +619,7 @@ export function useChangeLogRealtime(
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
       };
       buckets.set(token, b);
@@ -633,6 +671,7 @@ export function useReviewPaybackRealtime(
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
       };
       buckets.set(token, b);
@@ -650,6 +689,58 @@ export function useReviewPaybackRealtime(
       const bucket = buckets.get(token);
       if (bucket) {
         bucket.reviewPaybackListeners.delete(listener);
+        bucket.connectionListeners.delete(noopConn);
+      }
+      destroyBucketIfIdle(token);
+    };
+  }, [token, enabled]);
+}
+
+/** 스태프: 랜딩 문의 신규 접수 — 상단 알림 바·배지 갱신 */
+export function useLandingContactRealtime(
+  token: string | null,
+  onLandingContact: (p: LandingContactRtPayload) => void,
+  enabled: boolean,
+): void {
+  const onRef = useRef(onLandingContact);
+  useEffect(() => {
+    onRef.current = onLandingContact;
+  });
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+
+    let b = buckets.get(token);
+    if (!b) {
+      b = {
+        token,
+        ws: null,
+        reconnectTimer: undefined,
+        tearDown: false,
+        refreshListeners: new Set(),
+        connectionListeners: new Set(),
+        celebrationListeners: new Set(),
+        rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
+        reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
+      };
+      buckets.set(token, b);
+    } else {
+      b.tearDown = false;
+    }
+
+    const listener = (p: LandingContactRtPayload) => onRef.current(p);
+    b.landingContactListeners.add(listener);
+    const noopConn = () => {};
+    b.connectionListeners.add(noopConn);
+    connectBucket(b);
+
+    return () => {
+      const bucket = buckets.get(token);
+      if (bucket) {
+        bucket.landingContactListeners.delete(listener);
         bucket.connectionListeners.delete(noopConn);
       }
       destroyBucketIfIdle(token);
@@ -684,6 +775,7 @@ export function useScheduleDayStaffMemoRealtime(
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
         reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
       };
       buckets.set(token, b);

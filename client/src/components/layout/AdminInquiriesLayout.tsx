@@ -17,6 +17,7 @@ import { canAccessAdminPath } from '@shared/marketerPermissionNav';
 const ADMIN_INQUIRIES_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-inquiries-side-nav-collapsed';
 const REVIEW_PAYBACK_PATH = '/admin/inquiries/review-payback';
 const CS_PATH = '/admin/inquiries/cs';
+const LEADS_PATH = '/admin/inquiries/leads';
 
 function MobileInquirySubNavTabs({ items }: { items: AdminSideNavItem[] }) {
   return (
@@ -75,6 +76,7 @@ export function AdminInquiriesLayout() {
   const { ready, staffMe } = useAdminStaffSession();
   const [reviewPaybackBadge, setReviewPaybackBadge] = useState(0);
   const [csPendingBadge, setCsPendingBadge] = useState(0);
+  const [leadsPendingBadge, setLeadsPendingBadge] = useState(0);
 
   const refreshBadges = useCallback(async () => {
     if (!token) return;
@@ -82,6 +84,7 @@ export function AdminInquiriesLayout() {
       const r = await getAdminNavBadges(token);
       setReviewPaybackBadge(r.reviewPaybackUnseenCount);
       setCsPendingBadge(r.csPendingCount);
+      setLeadsPendingBadge(r.leadsPendingCount);
     } catch {
       /* ignore */
     }
@@ -105,11 +108,14 @@ export function AdminInquiriesLayout() {
       if (item.type === 'link' && item.to === CS_PATH) {
         return { ...item, badge: csPendingBadge };
       }
+      if (item.type === 'link' && item.to === LEADS_PATH) {
+        return { ...item, badge: leadsPendingBadge };
+      }
       return item;
     });
     const byFeature = filterAdminSideNavItems(withBadge, features);
     return filterAdminSideNavByPermissions(byFeature, staffMe);
-  }, [reviewPaybackBadge, csPendingBadge, features, staffMe]);
+  }, [reviewPaybackBadge, csPendingBadge, leadsPendingBadge, features, staffMe]);
 
   const pathAllowed = useMemo(
     () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),

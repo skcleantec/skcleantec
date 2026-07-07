@@ -16,8 +16,7 @@ import {
   validateLandingContactCustomFieldValues,
 } from './landingContactForm.schema.js';
 import { serializeLandingContactPublicForm } from './landingContact.serialize.js';
-import { getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
-import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { notifyLandingContactSubmitted } from './landingContactNotify.js';
 
 const router = Router();
 
@@ -124,10 +123,24 @@ router.post('/submit', async (req, res) => {
       source: 'hosted_form',
       sourcePageUrl: pageUrl,
     },
+    include: {
+      operatingCompany: { select: { name: true, config: true } },
+    },
   });
   res.json({ ok: true, id: row.id });
-  const staffIds = await getEmployedStaffUserIds(tenantId);
-  void notifyInboxRefresh(staffIds);
+  const ocConfig =
+    row.operatingCompany.config && typeof row.operatingCompany.config === 'object'
+      ? (row.operatingCompany.config as { displayName?: string })
+      : null;
+  const brandName =
+    (typeof ocConfig?.displayName === 'string' && ocConfig.displayName.trim()) ||
+    row.operatingCompany.name;
+  void notifyLandingContactSubmitted({
+    tenantId,
+    landingContactId: row.id,
+    customerName: row.customerName,
+    brandName,
+  });
 });
 
 export default router;

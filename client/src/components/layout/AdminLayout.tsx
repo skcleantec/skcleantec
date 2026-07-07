@@ -12,7 +12,7 @@ import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAut
 import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { resolveEffectiveStaffAdminFromMe, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
+import { resolveEffectiveStaffAdminFromMe, hasStaffPermission, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
 import { useDebouncedCallback } from '../../utils/debounceCallback';
 import {
   adminNavPrefetchHandlers,
@@ -24,7 +24,9 @@ import {
   useInboxRealtime,
   useInquiryCelebrateRealtime,
   useReviewPaybackRealtime,
+  useLandingContactRealtime,
   type InquiryCelebratePayload,
+  type LandingContactRtPayload,
 } from '../../hooks/useInboxRealtime';
 import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import {
@@ -193,6 +195,7 @@ export function AdminLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
   const [reviewPaybackUnseenCount, setReviewPaybackUnseenCount] = useState(0);
+  const [leadsPendingCount, setLeadsPendingCount] = useState(0);
   const [marketplaceDraftCount, setMarketplaceDraftCount] = useState(0);
   const [marketplaceSellerPendingCount, setMarketplaceSellerPendingCount] = useState(0);
   const [marketplaceBuyerPendingCount, setMarketplaceBuyerPendingCount] = useState(0);
@@ -239,6 +242,9 @@ export function AdminLayout() {
   const [celebration, setCelebration] = useState<InquiryCelebratePayload | null>(null);
   const [celebrationOpen, setCelebrationOpen] = useState(false);
   const celebAnimRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [landingContactAlert, setLandingContactAlert] = useState<LandingContactRtPayload | null>(null);
+  const [landingContactAlertOpen, setLandingContactAlertOpen] = useState(false);
+  const landingContactAnimRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const closeCelebrateStrip = useCallback(() => {
     setCelebrationOpen(false);
@@ -260,6 +266,27 @@ export function AdminLayout() {
     if (celebAnimRef.current) clearTimeout(celebAnimRef.current);
     celebAnimRef.current = null;
   }, []);
+
+  const closeLandingContactStrip = useCallback(() => {
+    setLandingContactAlertOpen(false);
+    if (landingContactAnimRef.current) clearTimeout(landingContactAnimRef.current);
+    landingContactAnimRef.current = setTimeout(() => setLandingContactAlert(null), 360);
+  }, []);
+
+  const openLandingContactStrip = useCallback(
+    (p: LandingContactRtPayload) => {
+      setLandingContactAlert(p);
+      setLandingContactAlertOpen(true);
+      if (landingContactAnimRef.current) clearTimeout(landingContactAnimRef.current);
+      landingContactAnimRef.current = null;
+    },
+    [],
+  );
+
+  const openLandingContactLeads = useCallback(() => {
+    closeLandingContactStrip();
+    navigate('/admin/inquiries/leads');
+  }, [closeLandingContactStrip, navigate]);
 
   useInquiryCelebrateRealtime(
     adminToken,
@@ -470,6 +497,7 @@ export function AdminLayout() {
         setUnreadCount(r.unreadCount);
         setCsPendingCount(r.csPendingCount);
         setReviewPaybackUnseenCount(r.reviewPaybackUnseenCount);
+        setLeadsPendingCount(r.leadsPendingCount);
         (window as { __refreshInquiriesSubNavBadges?: () => void }).__refreshInquiriesSubNavBadges?.();
       })
       .catch(() => {});
@@ -516,6 +544,23 @@ export function AdminLayout() {
     Boolean(adminToken && (meRole === 'ADMIN' || meRole === 'MARKETER')),
   );
 
+  const canReceiveLandingContactAlert = Boolean(
+    adminToken &&
+      (meRole === 'ADMIN' || meRole === 'MARKETER') &&
+      tenantFeatures &&
+      hasFeature(tenantFeatures, 'mod_landing_inquiry') &&
+      hasStaffPermission(staffMe, 'leads.view'),
+  );
+
+  useLandingContactRealtime(
+    adminToken,
+    (p) => {
+      openLandingContactStrip(p);
+      fetchNavBadges();
+    },
+    canReceiveLandingContactAlert,
+  );
+
   useEffect(() => {
     const token = getToken();
     if (!token) return;
@@ -539,7 +584,7 @@ export function AdminLayout() {
 
   const navClass = ({ isActive }: { isActive: boolean }) => adminGnbItemClass(isActive);
 
-  const adminNavHintKey = `${location.pathname}|${unreadCount}|${csPendingCount}|${reviewPaybackUnseenCount}|${marketplaceDraftCount}|${marketplaceSellerPendingCount}|${marketplaceBuyerPendingCount}|${navOrder.join(',')}`;
+  const adminNavHintKey = `${location.pathname}|${unreadCount}|${csPendingCount}|${reviewPaybackUnseenCount}|${leadsPendingCount}|${marketplaceDraftCount}|${marketplaceSellerPendingCount}|${marketplaceBuyerPendingCount}|${navOrder.join(',')}`;
 
   const teamLeadersActive =
     location.pathname === '/admin/team-leaders' ||
@@ -764,6 +809,51 @@ export function AdminLayout() {
           </div>
         </div>
       )}
+      {landingContactAlert != null ? (
+        <div
+          className="grid shrink-0 transition-[grid-template-rows] duration-300 ease-out"
+          style={{ gridTemplateRows: landingContactAlertOpen ? '1fr' : '0fr' }}
+          aria-hidden={!landingContactAlertOpen}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="relative border-b border-red-800/30 bg-gradient-to-r from-red-600 to-red-700 text-white">
+              <button
+                type="button"
+                role="status"
+                aria-live="polite"
+                aria-label="문의내역 열기"
+                onClick={openLandingContactLeads}
+                className="flex w-full flex-col items-center justify-center bg-gradient-to-r from-red-600 to-red-700 px-8 py-2 hover:from-red-700 hover:to-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-10 sm:py-2"
+              >
+                <p className="max-w-4xl text-center text-xs font-semibold leading-snug [text-wrap:pretty] sm:text-sm">
+                  {landingContactAlert.customerName ? (
+                    <>
+                      <span className="font-bold">{landingContactAlert.customerName}</span>님 랜딩 문의가
+                      접수되었습니다
+                    </>
+                  ) : (
+                    '신규 랜딩 문의가 접수되었습니다'
+                  )}
+                  {landingContactAlert.brandName ? (
+                    <span className="font-normal text-red-100"> · {landingContactAlert.brandName}</span>
+                  ) : null}
+                </p>
+                <span className="mt-0.5 text-[10px] text-red-100/90">탭하여 문의내역 열기</span>
+              </button>
+              <button
+                type="button"
+                aria-label="닫기"
+                onClick={closeLandingContactStrip}
+                className="absolute right-1.5 top-1/2 flex h-8 w-8 shrink-0 -translate-y-1/2 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                  <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <header className="px-4 py-2.5 shadow-md theme-dark-header">
         <div className="max-w-6xl mx-auto flex flex-col gap-2 min-w-0">
           <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
@@ -896,7 +986,7 @@ export function AdminLayout() {
                     );
                   }
                   if (id === 'inquiries') {
-                    const inquiriesNavBadge = reviewPaybackUnseenCount + csPendingCount;
+                    const inquiriesNavBadge = reviewPaybackUnseenCount + csPendingCount + leadsPendingCount;
                     return (
                       <div
                         key={id}

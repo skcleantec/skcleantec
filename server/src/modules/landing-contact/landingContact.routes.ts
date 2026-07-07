@@ -20,6 +20,7 @@ import {
 } from './landingContactForm.schema.js';
 import { convertLandingContactToInquiry } from './landingContact.convert.service.js';
 import { InquiryCreateError } from '../inquiries/inquiryCreate.service.js';
+import { notifyLandingContactListRefresh } from './landingContactNotify.js';
 import { LANDING_CONTACT_INQUIRY_STATUSES } from './landingContactForm.schema.js';
 import type { UserRole } from '@prisma/client';
 
@@ -216,6 +217,9 @@ router.patch('/:id', requireStaffPermission('leads.edit'), async (req, res) => {
     include: inquiryInclude,
   });
   res.json(serializeLandingContactInquiry(updated));
+  if (body.status !== undefined && body.status !== row.status) {
+    void notifyLandingContactListRefresh(tenantId);
+  }
 });
 
 router.post('/:id/convert', requireStaffPermission('leads.edit'), async (req, res) => {
@@ -237,6 +241,7 @@ router.post('/:id/convert', requireStaffPermission('leads.edit'), async (req, re
       include: inquiryInclude,
     });
     res.json({ inquiryId: result.inquiryId, item: serializeLandingContactInquiry(row) });
+    void notifyLandingContactListRefresh(tenantId);
   } catch (e) {
     if (e instanceof InquiryCreateError) {
       res.status(e.statusCode).json({ error: e.message });
