@@ -20,8 +20,14 @@ import { TeamInlineNoticeModule } from '../../components/team/TeamInlineNoticeMo
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import {
+  resolveTeamInspectionDisplay,
+  teamInspectionBadgeClass,
+  isTeamInspectionTrackingEligible,
+} from '../../utils/teamInspectionDisplay';
+import {
   getTeamMe,
   getTeamInquiry,
+  markTeamInspectionMissed,
   postTeamInquiryDetailViewed,
   patchTeamInquiryCrewMeetingTime,
   type TeamViewerMe,
@@ -154,6 +160,41 @@ export function TeamHappyCallBadge({
     );
   }
   return null;
+}
+
+/** 팀장 목록·일정 — 검수 완료/누락/미완 경각심 표시 */
+export function TeamInspectionStatusBadge({
+  item,
+  className = '',
+  variant = 'default',
+}: {
+  item: InquiryItem;
+  className?: string;
+  variant?: 'default' | 'list';
+}) {
+  const display = resolveTeamInspectionDisplay(item);
+  if (display.tone === 'na') {
+    if (variant === 'list') {
+      return <span className={`text-fluid-xs text-gray-400 tabular-nums ${className}`}>—</span>;
+    }
+    return null;
+  }
+  const toneClass = teamInspectionBadgeClass(display.tone, variant);
+  if (variant === 'list') {
+    return (
+      <span className={`${toneClass} ${className}`} title={display.title}>
+        {display.label}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-fluid-2xs font-semibold shrink-0 ${toneClass} ${className}`}
+      title={display.title}
+    >
+      {display.label}
+    </span>
+  );
 }
 
 export const STATUS_LABELS = teamInquiryStatusKoRecord();
@@ -906,7 +947,7 @@ export function TeamInquiryDetailModal({
   enableHappyCall?: boolean;
   onHappyCallComplete?: () => Promise<void>;
   onPreferredDateChange?: (preferredDate: string) => Promise<void>;
-  /** PATCH 응답으로 상세 state 갱신 (미팅 시각 등) */
+  /** PATCH 응답으로 상세 state 갱신 (미팅 시각·검수 상태 등) */
   onInquiryPatched?: (next: InquiryItem) => void;
   /** 설정 시 본인 배정일·배정자·공동 배정 행 표시 (배정목록 등) */
   viewerTeamLeaderId?: string | null;
@@ -918,6 +959,7 @@ export function TeamInquiryDetailModal({
   const previewKey = teamPreviewDepsKey(location.search);
   const inquiryReturnTo = buildTeamInquiryReturnTo(location, item.id);
   const [happySaving, setHappySaving] = useState(false);
+  const [inspectionSaving, setInspectionSaving] = useState(false);
   const [viewerMe, setViewerMe] = useState<TeamViewerMe | null>(null);
   const [shareCopyHint, setShareCopyHint] = useState<string | null>(null);
 
@@ -982,6 +1024,11 @@ export function TeamInquiryDetailModal({
   const [crewMeetingSaveNotice, setCrewMeetingSaveNotice] = useState<ReactNode | null>(null);
   const canHappy = enableHappyCall && isHappyCallEligible(item.status, item.preferredDate);
   const showHappyBlock = enableHappyCall && item.preferredDate;
+  const inspectionDisplay = resolveTeamInspectionDisplay(item);
+  const showInspectionActions =
+    enableHappyCall && hasInspectionModule && isTeamInspectionTrackingEligible(item);
+  const inspectionCompleted = item.inspectionSummary?.status === 'COMPLETED';
+  const inspectionMissed = item.inspectionSummary?.status === 'MISSED';
 
   useEffect(() => {
     setCrewMeetingSharedDraft(item.crewMeetingTimeShared !== false);
@@ -1012,6 +1059,23 @@ export function TeamInquiryDetailModal({
       );
     } finally {
       setHappySaving(false);
+    }
+  };
+
+  const handleInspectionMissed = async () => {
+    if (!teamToken) return;
+    if (inspectionCompleted) return;
+    if (inspectionMissed) return;
+    if (!window.confirm('현장 검수를 누락 처리할까요?')) return;
+    setInspectionSaving(true);
+    try {
+      const next = (await markTeamInspectionMissed(teamToken, item.id)) as InquiryItem;
+      setItem(next);
+      onInquiryPatched?.(next);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '검수 누락 처리에 실패했습니다.');
+    } finally {
+      setInspectionSaving(false);
     }
   };
 
@@ -1195,7 +1259,9 @@ export function TeamInquiryDetailModal({
                 ) : null}
                 <TeamInquiryStatusBi code={item.status} />
                 {enableHappyCall ? <TeamHappyCallBadge item={item} /> : null}
-                {hasInspectionModule ? (
+                {hasInspectionModule && enableHappyCall ? (
+                  <TeamInspectionStatusBadge item={item} />
+                ) : hasInspectionModule ? (
                   <InspectionProgressBadge summary={item.inspectionSummary} />
                 ) : null}
                 {item.orderForm?.template && !item.orderForm.template.isDefault ? (
@@ -1823,7 +1889,7 @@ export function TeamInquiryDetailModal({
           {enableHappyCall && canHappy && !item.happyCallCompletedAt && onHappyCallComplete ? (
             <button
               type="button"
-              disabled={happySaving}
+              disabled={happySaving || inspectionSaving}
               onClick={() => void handleHappyCallComplete()}
               className="min-h-[48px] w-full rounded-xl bg-blue-600 text-fluid-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
@@ -1833,6 +1899,38 @@ export function TeamInquiryDetailModal({
                 <TeamBiLine id="team.modal.happySubmit" koClassName="text-fluid-sm font-medium text-white" />
               )}
             </button>
+          ) : null}
+          {showInspectionActions ? (
+            <div className="grid grid-cols-2 gap-2">
+              {inspectionCompleted ? (
+                <div className="flex min-h-[48px] items-center justify-center rounded-xl border-2 border-emerald-600 bg-emerald-50 px-2 text-center text-fluid-sm font-semibold text-emerald-900">
+                  검수완료
+                </div>
+              ) : (
+                <Link
+                  to={`/team/inspection/${encodeURIComponent(item.id)}`}
+                  state={teamInquiryNavState(inquiryReturnTo)}
+                  className="flex min-h-[48px] items-center justify-center rounded-xl border-2 border-emerald-700 bg-emerald-600 px-2 text-center text-fluid-sm font-medium text-white hover:bg-emerald-700 touch-manipulation"
+                >
+                  검수완료
+                </Link>
+              )}
+              <button
+                type="button"
+                disabled={inspectionSaving || inspectionCompleted || inspectionMissed}
+                onClick={() => void handleInspectionMissed()}
+                className={[
+                  'min-h-[48px] rounded-xl border-2 px-2 text-fluid-sm font-semibold touch-manipulation disabled:opacity-60',
+                  inspectionMissed
+                    ? 'border-red-600 bg-red-50 text-red-900'
+                    : inspectionDisplay.tone === 'overdue' || inspectionDisplay.tone === 'dueToday'
+                      ? 'border-orange-600 bg-orange-50 text-orange-950 hover:bg-orange-100'
+                      : 'border-red-500 bg-red-50 text-red-800 hover:bg-red-100',
+                ].join(' ')}
+              >
+                {inspectionSaving ? '처리 중…' : inspectionMissed ? '검수누락됨' : '검수누락'}
+              </button>
+            </div>
           ) : null}
           <div className={`grid gap-2 ${showCardPayment ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {showCardPayment ? (

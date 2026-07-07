@@ -231,6 +231,18 @@ export async function completeTeamHappyCall(token: string, inquiryId: string): P
   }
 }
 
+export async function markTeamInspectionMissed(token: string, inquiryId: string): Promise<unknown> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/inquiries/${encodeURIComponent(inquiryId)}/inspection-missed`), {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(typeof err?.error === 'string' ? err.error : '검수 누락 처리에 실패했습니다.');
+  }
+  return res.json();
+}
+
 export async function patchTeamInquiryPreferredDate(
   token: string,
   inquiryId: string,

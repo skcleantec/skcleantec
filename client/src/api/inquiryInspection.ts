@@ -3,7 +3,7 @@ import { AuthSessionExpiredError } from './auth';
 import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
 import type { InspectionBasicAnswers } from '@shared/inquiryInspectionTemplate';
 
-export type InspectionStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'AWAITING_CUSTOMER' | 'COMPLETED' | 'VOID';
+export type InspectionStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'AWAITING_CUSTOMER' | 'COMPLETED' | 'VOID' | 'MISSED';
 
 export type InspectionListSummary = {
   status: InspectionStatus;
@@ -471,4 +471,5 @@ export const INSPECTION_STATUS_LABELS: Record<InspectionStatus, string> = {
   AWAITING_CUSTOMER: '고객 확인 대기',
   COMPLETED: '완료',
   VOID: '무효',
+  MISSED: '누락',
 };

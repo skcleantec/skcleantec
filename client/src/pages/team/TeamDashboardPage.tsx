@@ -20,6 +20,7 @@ import {
   formatRoomInfo,
   relativeDateHint,
   TeamHappyCallBadge,
+  TeamInspectionStatusBadge,
   TeamInquiryDetailModal,
   TeamCoLeadersListHint,
   TeamNoCrewMembersListBadge,
@@ -30,6 +31,7 @@ import {
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
+import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 
 /** 대시보드 상단 — 모바일 4열×2행 고정 요약 */
 const DASHBOARD_SUMMARY_KEYS = [
@@ -79,6 +81,7 @@ export function TeamDashboardPage() {
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
   const [myId, setMyId] = useState<string | null>(null);
+  const hasInspectionModule = useHasTenantFeature('mod_inspection');
 
   useTeamOpenInquiryDeepLink(token, setDetailItem);
 
@@ -305,6 +308,7 @@ export function TeamDashboardPage() {
                       {STATUS_LABELS[item.status] ?? item.status}
                     </span>
                     <TeamHappyCallBadge item={item} />
+                    {hasInspectionModule ? <TeamInspectionStatusBadge item={item} /> : null}
                     <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                   </div>
                 </div>

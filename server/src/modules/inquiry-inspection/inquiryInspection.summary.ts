@@ -105,6 +105,7 @@ export function whereInspectionStatusFilter(raw: string): Prisma.InquiryWhereInp
     };
   }
   if (v === 'COMPLETED') return { inspectionChecklist: { is: { status: 'COMPLETED' } } };
+  if (v === 'MISSED') return { inspectionChecklist: { is: { status: 'MISSED' } } };
   if (v === 'VOID') return { inspectionChecklist: { is: { status: 'VOID' } } };
   return null;
 }

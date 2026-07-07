@@ -25,6 +25,7 @@ import {
   formatCrewInfo,
   marketerInfo,
   TeamHappyCallBadge,
+  TeamInspectionStatusBadge,
   TeamInquiryDetailModal,
   formatTeamInquiryAreaSummary,
   formatTeamInquiryAreaCompact,
@@ -37,7 +38,6 @@ import {
   TeamInquiryBrandListBadge,
   teamInquiryCollectibleAmount,
 } from './teamInquiryShared';
-import { InspectionProgressBadge } from '../../components/inquiry-inspection/InspectionProgressBadge';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { addressListShortSiGu, inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
@@ -595,7 +595,7 @@ export function TeamAssignmentListPage() {
                       <TeamHappyCallBadge item={item} variant="list" />
                       <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                       {hasInspectionModule ? (
-                        <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
+                        <TeamInspectionStatusBadge item={item} variant="list" />
                       ) : null}
                     </div>
                     <p className="mt-1.5 line-clamp-2 text-fluid-2xs text-gray-600" title={formatCrewInfo(item)}>
@@ -819,7 +819,7 @@ export function TeamAssignmentListPage() {
                         </td>
                         {hasInspectionModule ? (
                           <td className={`align-middle py-2 px-2 text-center ${pBorder}`}>
-                            <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />
+                            <TeamInspectionStatusBadge item={item} variant="list" />
                           </td>
                         ) : null}
                         <td
@@ -854,7 +854,10 @@ export function TeamAssignmentListPage() {
           viewerTeamLeaderId={myId}
           onClose={() => setDetailItem(null)}
           enableHappyCall
-          onInquiryPatched={(next) => setDetailItem(next)}
+          onInquiryPatched={(next) => {
+            setDetailItem(next);
+            setItems((prev) => prev.map((row) => (row.id === next.id ? next : row)));
+          }}
           onPreferredDateChange={async (preferredDate) => {
             if (!token) return;
             await patchTeamInquiryPreferredDate(token, detailItem.id, preferredDate);

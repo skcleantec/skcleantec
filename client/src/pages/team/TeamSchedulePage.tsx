@@ -25,6 +25,7 @@ import {
   formatRoomInfo,
   getCalendarDays,
   TeamHappyCallBadge,
+  TeamInspectionStatusBadge,
   TeamInquiryDetailModal,
   TeamCoLeadersListHint,
   TeamNoCrewMembersListBadge,
@@ -43,6 +44,7 @@ import {
   teamT,
 } from '../../i18n/team/teamI18n';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
+import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 
 /** 관리자 스케줄과 동일 아이콘. `client/.env`의 VITE_ADMIN_SCHEDULE_MAP_ICON_URL 로 덮어쓰기 */
 const DEFAULT_SCHEDULE_MAP_ICON =
@@ -86,6 +88,7 @@ export function TeamSchedulePage() {
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
   const [mapModalItems, setMapModalItems] = useState<ScheduleItem[]>([]);
   const [myId, setMyId] = useState<string | null>(null);
+  const hasInspectionModule = useHasTenantFeature('mod_inspection');
 
   useTeamOpenInquiryDeepLink(token, setDetailItem);
 
@@ -401,6 +404,7 @@ export function TeamSchedulePage() {
                             {STATUS_LABELS[item.status] ?? item.status}
                           </span>
                           <TeamHappyCallBadge item={item} />
+                          {hasInspectionModule ? <TeamInspectionStatusBadge item={item} /> : null}
                           <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
                         </div>
                       </div>
@@ -423,7 +427,10 @@ export function TeamSchedulePage() {
           viewerTeamLeaderId={myId}
           onClose={() => setDetailItem(null)}
           enableHappyCall
-          onInquiryPatched={(next) => setDetailItem(next)}
+          onInquiryPatched={(next) => {
+            setDetailItem(next);
+            setItems((prev) => prev.map((row) => (row.id === next.id ? next : row)));
+          }}
           onPreferredDateChange={async (preferredDate) => {
             if (!token) return;
             await patchTeamInquiryPreferredDate(token, detailItem.id, preferredDate);

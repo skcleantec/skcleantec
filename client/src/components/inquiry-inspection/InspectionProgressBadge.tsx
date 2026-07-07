@@ -37,6 +37,13 @@ export function InspectionProgressBadge({
         </span>
       );
     }
+    if (summary.status === 'MISSED') {
+      return (
+        <span className={`text-fluid-xs font-semibold text-red-700 ${className}`} title="현장 검수 누락">
+          검수누락
+        </span>
+      );
+    }
     if (summary.status === 'VOID') {
       return (
         <span className={`text-fluid-xs font-medium text-rose-700 ${className}`} title={label}>
@@ -54,7 +61,9 @@ export function InspectionProgressBadge({
   const tone =
     summary.status === 'COMPLETED'
       ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-      : summary.status === 'VOID'
+      : summary.status === 'MISSED'
+        ? 'bg-red-50 text-red-900 border-red-300'
+        : summary.status === 'VOID'
         ? 'bg-rose-50 text-rose-900 border-rose-200'
         : summary.status === 'NOT_STARTED'
           ? 'bg-slate-50 text-slate-700 border-slate-200'

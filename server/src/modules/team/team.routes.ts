@@ -17,6 +17,7 @@ import {
   attachInspectionSummaries,
   attachInspectionSummaryToInquiry,
 } from '../inquiry-inspection/inquiryInspection.summary.js';
+import { markInspectionMissedForTeamLeader } from '../inquiry-inspection/inquiryInspection.service.js';
 import { csReportFullInclude } from '../cs/csReport.include.js';
 import { serializeCsReportRow, serializeCsReportRows } from '../cs/csReport.serialize.js';
 import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
@@ -265,6 +266,7 @@ const teamScheduleInquirySelect = {
   crewMemberMeetingTimes: {
     select: { teamMemberId: true, meetingTime: true },
   },
+  inspectionChecklist: inspectionChecklistListInclude,
 } as const;
 
 /**
@@ -729,6 +731,72 @@ router.post('/inquiries/:id/happy-call-complete', async (req, res) => {
     data: { happyCallCompletedAt: new Date() },
   });
   res.json({ ok: true });
+});
+
+/** 팀장 — 담당 접수 현장 검수 누락 처리 */
+router.post('/inquiries/:id/inspection-missed', async (req, res) => {
+  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const { id } = req.params;
+  const inquiry = await prisma.inquiry.findFirst({
+    where: {
+      id,
+      assignments: { some: { teamLeaderId: userId } },
+    },
+    select: {
+      id: true,
+      tenantId: true,
+      status: true,
+      preferredDate: true,
+      customerName: true,
+      roomCount: true,
+      isOneRoom: true,
+      kitchenCount: true,
+      bathroomCount: true,
+    },
+  });
+  if (!inquiry) {
+    res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
+    return;
+  }
+  if (inquiry.status === 'CANCELLED' || inquiry.status === 'ON_HOLD') {
+    res.status(400).json({ error: '취소·보류 접수는 검수 상태를 변경할 수 없습니다.' });
+    return;
+  }
+  if (!inquiry.preferredDate) {
+    res.status(400).json({ error: '예약일이 없는 접수입니다.' });
+    return;
+  }
+
+  try {
+    await markInspectionMissedForTeamLeader({
+      inquiryId: inquiry.id,
+      tenantId: inquiry.tenantId,
+      teamLeaderId: userId,
+      roomCount: inquiry.roomCount,
+      isOneRoom: inquiry.isOneRoom,
+      kitchenCount: inquiry.kitchenCount,
+      bathroomCount: inquiry.bathroomCount,
+      customerName: inquiry.customerName,
+      preferredDate: inquiry.preferredDate,
+    });
+  } catch (e) {
+    const code = (e as { code?: string }).code;
+    if (code === 'already_completed') {
+      res.status(400).json({ error: '이미 검수가 완료된 접수입니다.' });
+      return;
+    }
+    if (code === 'voided') {
+      res.status(400).json({ error: '무효 처리된 검수입니다.' });
+      return;
+    }
+    throw e;
+  }
+
+  const refreshed = await prisma.inquiry.findUnique({
+    where: { id: inquiry.id },
+    include: teamInquiryInclude,
+  });
+  res.json(await attachCrewMembersOne(refreshed, inquiry.tenantId));
 });
 
 /** 팀장: 본인 배정 건 예약일 변경 */
@@ -1320,7 +1388,8 @@ router.get('/schedule', async (req, res) => {
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
     select: teamScheduleInquirySelect,
   });
-  const items = await attachCrewMembers(rows, tenantId);
+  const withCrew = await attachCrewMembers(rows, tenantId);
+  const items = attachInspectionSummaries(withCrew);
   res.json({
     items: serializeTeamInquiryOperatingCompanies(items),
   });

@@ -48,7 +48,12 @@ export async function getOrCreateInspectionChecklist(params: {
     include: inspectionChecklistInclude,
   });
   if (existing) {
-    if (isEditableStatus(existing.status)) {
+    if (existing.status === InquiryInspectionStatus.MISSED) {
+      await prisma.inquiryInspectionChecklist.update({
+        where: { id: existing.id },
+        data: { status: InquiryInspectionStatus.IN_PROGRESS },
+      });
+    } else if (isEditableStatus(existing.status)) {
       await syncChecklistAreasFromInquiry({
         checklistId: existing.id,
         tenantId: params.tenantId,
@@ -280,6 +285,9 @@ export async function completeInspectionChecklist(params: {
   if (row.status === InquiryInspectionStatus.VOID) {
     throw Object.assign(new Error('voided'), { code: 'voided' as const });
   }
+  if (row.status === InquiryInspectionStatus.MISSED) {
+    throw Object.assign(new Error('missed'), { code: 'missed' as const });
+  }
 
   const issues = validateInspectionCompletion(row);
   if (issues.length) {
@@ -369,4 +377,74 @@ export async function assertChecklistEditableForTeam(params: {
     throw Object.assign(new Error('locked'), { code: 'locked' as const });
   }
   return row;
+}
+
+/** 팀장 — 현장 검수 누락 처리(일정·배정목록 표시용) */
+export async function markInspectionMissedForTeamLeader(params: {
+  inquiryId: string;
+  tenantId: string;
+  teamLeaderId: string;
+  roomCount?: number | null;
+  isOneRoom?: boolean | null;
+  kitchenCount?: number | null;
+  bathroomCount?: number | null;
+  customerName: string;
+  preferredDate: Date | null;
+}) {
+  const existing = await prisma.inquiryInspectionChecklist.findFirst({
+    where: { inquiryId: params.inquiryId, tenantId: params.tenantId },
+    include: inspectionChecklistInclude,
+  });
+  if (existing?.status === InquiryInspectionStatus.COMPLETED) {
+    throw Object.assign(new Error('already_completed'), { code: 'already_completed' as const });
+  }
+  if (existing?.status === InquiryInspectionStatus.VOID) {
+    throw Object.assign(new Error('voided'), { code: 'voided' as const });
+  }
+  if (existing?.status === InquiryInspectionStatus.MISSED) {
+    return existing;
+  }
+
+  if (existing) {
+    return prisma.inquiryInspectionChecklist.update({
+      where: { id: existing.id },
+      data: { status: InquiryInspectionStatus.MISSED, teamLeaderId: params.teamLeaderId },
+      include: inspectionChecklistInclude,
+    });
+  }
+
+  const structure = inquiryAreaStructure(params);
+  const areas = buildStandardInspectionAreas(structure);
+  const tenantConfig = await getTenantConfig(params.tenantId);
+  const inspectionTemplate = tenantConfig.inspection ?? null;
+
+  return prisma.inquiryInspectionChecklist.create({
+    data: {
+      tenantId: params.tenantId,
+      inquiryId: params.inquiryId,
+      teamLeaderId: params.teamLeaderId,
+      status: InquiryInspectionStatus.MISSED,
+      templateVersion: INSPECTION_TEMPLATE_VERSION,
+      areas: {
+        create: areas.map((a) => {
+          const itemDefs = resolveInspectionItemsForArea(a.areaKey, inspectionTemplate);
+          return {
+            areaKey: a.areaKey,
+            label: a.label,
+            sortOrder: a.sortOrder,
+            isCustom: false,
+            items: {
+              create: itemDefs.map((it, idx) => ({
+                itemKey: it.itemKey,
+                label: it.label,
+                sortOrder: idx,
+                isCustom: false,
+              })),
+            },
+          };
+        }),
+      },
+    },
+    include: inspectionChecklistInclude,
+  });
 }
