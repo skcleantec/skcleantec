@@ -2,12 +2,12 @@
 ; 빌드: scripts\build-installer.ps1 -Version 2.0.2
 
 #ifndef MyAppVersion
-#define MyAppVersion "2.1.2"
+#define MyAppVersion "2.1.3"
 #endif
 
 #define MyAppName "청소비서 숨고 연동"
 #define MyAppPublisher "청소비서"
-#define MyAppExeName "launch-desktop.vbs"
+#define MyAppLaunchScript "launch-desktop.vbs"
 #define MyAppURL "https://www.cbiseo.com"
 
 [Setup]
@@ -28,7 +28,7 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64
-UninstallDisplayIcon={app}\launch-desktop.vbs
+UninstallDisplayIcon={sys}\wscript.exe
 
 [Tasks]
 Name: "desktopicon"; Description: "바탕화면 바로 가기 만들기"; GroupDescription: "추가 작업:"
@@ -38,12 +38,12 @@ Name: "startup"; Description: "Windows 시작 시 자동 실행 (권장)"; Group
 Source: "..\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "installer\*,dist\*,__pycache__\*,*.pyc,.git\*"
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
-Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: startup
+Name: "{group}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppLaunchScript}"""; WorkingDir: "{app}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppLaunchScript}"""; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{userstartup}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppLaunchScript}"""; WorkingDir: "{app}"; Tasks: startup
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "청소비서 숨고 연동 실행"; Flags: nowait postinstall skipifsilent
+Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppLaunchScript}"""; WorkingDir: "{app}"; Description: "청소비서 숨고 연동 실행"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
