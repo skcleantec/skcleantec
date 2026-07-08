@@ -33,7 +33,7 @@ export function CrmSoomgoTopBar({
   const onRequestsPage = status?.onRequestsPage;
 
   const pageHint = inRoom
-    ? '상세 채팅방 · 정보 갖고오기·통화·메시지 가능'
+    ? '채팅방에서 전화 아이콘 → 「안심번호로 통화하기」를 누르면 연락처·앱에 번호가 들어갑니다'
     : onChatList
       ? '채팅 목록 · 고객 채팅방을 연 뒤 왼쪽 도구 사용'
       : onRequestsPage

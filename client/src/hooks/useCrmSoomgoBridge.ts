@@ -3,15 +3,19 @@ import type { SoomgoExtractedChat, SoomgoBridgeStatus } from '@shared/soomgoBrid
 import { getToken } from '../stores/auth';
 import { fetchTelecrmSoomgoCredentials } from '../api/telecrmSoomgo';
 import {
+  ackSoomgoPendingCall,
+  extractSoomgoCallNumber,
   extractSoomgoCurrentChat,
   fetchSoomgoBridgeStatus,
   isSoomgoBridgeReachable,
   loginSoomgoBridge,
+  openSoomgoCallModal,
   openSoomgoChats,
   SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE,
   startSoomgoBridge,
+  watchSoomgoCallButton,
 } from '../api/soomgoBridge';
-import { telecrmCall, telecrmDispatchNotice } from '../utils/telecrmNativeBridge';
+import { telecrmDispatchNotice, telecrmPrefillPhone } from '../utils/telecrmNativeBridge';
 
 export function useCrmSoomgoBridge({
   onImport,
@@ -28,13 +32,69 @@ export function useCrmSoomgoBridge({
   const [error, setError] = useState<string | null>(null);
   const previewRef = useRef(preview);
   previewRef.current = preview;
+  const lastHandledCallAtRef = useRef<number | null>(null);
+  const watchStartedRef = useRef(false);
 
   const notify = useCallback((msg: string) => onDispatchNotice?.(msg), [onDispatchNotice]);
+
+  const applyCallPhone = useCallback(
+    async (phone: string, nickname?: string | null) => {
+      const data: SoomgoExtractedChat = {
+        chatId: status?.chatId ?? null,
+        nickname: nickname ?? status?.nickname ?? null,
+        phone,
+        address: null,
+        pyeong: null,
+        memo: null,
+        lastMessage: null,
+        customerMessages: [],
+      };
+      setPreview(data);
+      onImport(data);
+      const result = await telecrmPrefillPhone(phone, { customerMatch: 'new' });
+      const notice = telecrmDispatchNotice(result, 'prefill');
+      if (notice) notify(notice);
+      notify('숨고 안심번호가 연락처에 입력되었습니다.');
+    },
+    [notify, onImport, status?.chatId, status?.nickname],
+  );
+
+  const handlePendingCall = useCallback(
+    async (s: SoomgoBridgeStatus) => {
+      const phone = s.pendingCallPhone?.trim();
+      const at = s.pendingCallAt;
+      if (!phone || at == null) return;
+      if (lastHandledCallAtRef.current === at) return;
+      lastHandledCallAtRef.current = at;
+      try {
+        await applyCallPhone(phone, s.nickname);
+        await ackSoomgoPendingCall(at);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '안심번호 연동에 실패했습니다.';
+        notify(msg);
+        lastHandledCallAtRef.current = null;
+      }
+    },
+    [applyCallPhone, notify],
+  );
 
   const refreshStatus = useCallback(async () => {
     const s = await fetchSoomgoBridgeStatus();
     setStatus(s);
+    if (s.pendingCallPhone && s.pendingCallAt != null) {
+      void handlePendingCall(s);
+    }
     return s;
+  }, [handlePendingCall]);
+
+  const ensureCallWatch = useCallback(async (s: SoomgoBridgeStatus) => {
+    if (!s.inChatRoom || watchStartedRef.current) return;
+    try {
+      await watchSoomgoCallButton();
+      watchStartedRef.current = true;
+    } catch {
+      watchStartedRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
@@ -45,14 +105,19 @@ export function useCrmSoomgoBridge({
       if (cancelled) return;
       const s = await refreshStatus();
       if (cancelled) return;
-      timer = window.setTimeout(poll, s.bridgeRunning ? 4000 : 12000);
+      if (s.inChatRoom && s.bridgeRunning) {
+        void ensureCallWatch(s);
+      } else if (!s.inChatRoom) {
+        watchStartedRef.current = false;
+      }
+      timer = window.setTimeout(poll, s.bridgeRunning ? 3000 : 12000);
     };
     void poll();
     return () => {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [pollEnabled, refreshStatus]);
+  }, [pollEnabled, refreshStatus, ensureCallWatch]);
 
   const openSoomgo = useCallback(async () => {
     setBusy(true);
@@ -71,7 +136,8 @@ export function useCrmSoomgoBridge({
       await openSoomgoChats();
       const finalStatus = await refreshStatus();
       if (finalStatus.inChatRoom) {
-        notify('숨고 채팅방이 연결되어 있습니다. 왼쪽 도구로 작업하세요.');
+        await ensureCallWatch(finalStatus);
+        notify('숨고 채팅방이 연결되어 있습니다. 전화 아이콘 → 안심번호로 통화하기를 누르면 연락처에 들어갑니다.');
       } else if (finalStatus.onChatList) {
         notify('숨고 채팅 목록이 열렸습니다. 고객 채팅방을 연 뒤 왼쪽 도구를 사용하세요.');
       } else if (finalStatus.onRequestsPage) {
@@ -88,7 +154,7 @@ export function useCrmSoomgoBridge({
     } finally {
       setBusy(false);
     }
-  }, [notify, refreshStatus]);
+  }, [ensureCallWatch, notify, refreshStatus]);
 
   const extract = useCallback(async () => {
     setBusy(true);
@@ -113,27 +179,17 @@ export function useCrmSoomgoBridge({
     setBusy(true);
     setError(null);
     try {
-      let data = previewRef.current;
-      if (!data?.phone) {
-        data = await extractSoomgoCurrentChat();
-        setPreview(data);
-        onImport(data);
-      }
-      const digits = (data?.phone ?? '').replace(/\D/g, '');
-      if (digits.length < 8) {
-        throw new Error('채팅에서 전화번호를 찾지 못했습니다. 먼저 「정보 갖고오기」를 시도해 주세요.');
-      }
-      const result = await telecrmCall(data!.phone!, { customerMatch: 'new' });
-      const notice = telecrmDispatchNotice(result, 'call');
-      if (notice) notify(notice);
+      await openSoomgoCallModal();
+      const phone = await extractSoomgoCallNumber();
+      await applyCallPhone(phone);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '통화 연결에 실패했습니다.';
+      const msg = e instanceof Error ? e.message : '안심번호를 가져오지 못했습니다.';
       setError(msg);
       notify(msg);
     } finally {
       setBusy(false);
     }
-  }, [notify, onImport]);
+  }, [applyCallPhone, notify]);
 
   const bridgeUp = isSoomgoBridgeReachable(status);
 

@@ -36,6 +36,45 @@ export type TelecrmBridgeResult = {
   errorMessage?: string;
 };
 
+/** 휴대폰 앱 다이얼에 번호만 채우기 (자동 발신 없음) */
+export async function telecrmPrefillPhone(
+  phone: string,
+  opts: TelecrmCallOptions = {},
+): Promise<TelecrmBridgeResult> {
+  const digits = normalizePhone(phone);
+  if (digits.length < 4) {
+    return { mode: 'fallback', errorMessage: '전화번호(4자 이상)를 입력해 주세요.' };
+  }
+  if (window.TelecrmApp?.call) {
+    window.TelecrmApp.call(digits, opts.inquiryId ?? '');
+    return { mode: 'native' };
+  }
+  const token = getToken();
+  if (!token) {
+    return { mode: 'fallback', errorMessage: '로그인이 필요합니다.' };
+  }
+  try {
+    const res = await postTelecrmMobileDispatch(token, {
+      action: 'prefill',
+      phone: digits,
+      inquiryId: opts.inquiryId ?? null,
+      customerMatch: opts.customerMatch ?? 'unknown',
+    });
+    return { mode: 'dispatch', wsDelivered: res.wsDelivered };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : '휴대폰 앱 전송에 실패했습니다.';
+    return { mode: 'fallback', errorMessage: message };
+  }
+}
+
+function dispatchNoticeForPrefill(result: TelecrmBridgeResult): string | null {
+  if (result.mode !== 'dispatch') return result.errorMessage ?? null;
+  if (result.wsDelivered === false) {
+    return '휴대폰 앱이 오프라인입니다. 텔레CRM 앱을 켜면 번호가 전달됩니다.';
+  }
+  return '휴대폰 앱 다이얼에 번호를 넣었습니다.';
+}
+
 /** 통화 — 네이티브 WebView 또는 PC→휴대폰 dispatch */
 export async function telecrmCall(
   phone: string,
@@ -126,8 +165,9 @@ function dispatchNoticeForSms(result: TelecrmBridgeResult): string | null {
 /** dispatch 결과를 사용자 안내 문구로 변환 */
 export function telecrmDispatchNotice(
   result: TelecrmBridgeResult,
-  kind: 'call' | 'sms',
+  kind: 'call' | 'sms' | 'prefill',
 ): string | null {
+  if (kind === 'prefill') return dispatchNoticeForPrefill(result);
   return kind === 'call' ? dispatchNoticeForCall(result) : dispatchNoticeForSms(result);
 }
 

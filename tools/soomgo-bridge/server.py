@@ -12,6 +12,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from automation.browser import BrowserManager
+from automation.call_modal import CallModalManager
 from automation.chat_room import ChatRoomManager
 from automation.login import goto_chat_list, is_logged_in, login_to_soomgo
 from automation.navigation import (
@@ -29,6 +30,62 @@ _browser = BrowserManager(headless=False)
 _lock = threading.Lock()
 _logged_in = False
 _last_error: str | None = None
+_pending_call_phone: str | None = None
+_pending_call_at: int | None = None
+_call_watch_active = False
+_watch_stop = threading.Event()
+_watch_thread: threading.Thread | None = None
+
+
+def _clear_pending_call_locked(modal: CallModalManager | None = None):
+    global _pending_call_phone, _pending_call_at
+    _pending_call_phone = None
+    _pending_call_at = None
+    if modal:
+        modal.clear_pending_call()
+
+
+def _set_pending_call(phone: str, at_ms: int):
+    global _pending_call_phone, _pending_call_at
+    _pending_call_phone = phone
+    _pending_call_at = at_ms
+
+
+def _call_watch_loop():
+    while not _watch_stop.is_set():
+        try:
+            with _lock:
+                if not _call_watch_active or not _browser.is_running() or not _browser.driver:
+                    _watch_stop.wait(1.5)
+                    continue
+                driver = _browser.driver
+                modal = CallModalManager(driver)
+                if not modal._watcher_installed:
+                    modal.install_call_button_watcher()
+                pending = modal.poll_pending_call()
+                if pending and pending.get('phone'):
+                    at_ms = int(pending.get('at') or 0)
+                    if at_ms != _pending_call_at or _pending_call_phone != pending['phone']:
+                        _set_pending_call(str(pending['phone']), at_ms)
+        except Exception as e:
+            logger.debug('call watch: %s', e)
+        _watch_stop.wait(1.0)
+
+
+def _ensure_call_watch():
+    global _call_watch_active, _watch_thread
+    if _call_watch_active and _watch_thread and _watch_thread.is_alive():
+        return
+    _call_watch_active = True
+    _watch_stop.clear()
+    _watch_thread = threading.Thread(target=_call_watch_loop, name='soomgo-call-watch', daemon=True)
+    _watch_thread.start()
+
+
+def _stop_call_watch():
+    global _call_watch_active
+    _call_watch_active = False
+    _watch_stop.set()
 
 
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]):
@@ -73,6 +130,7 @@ def _status_payload() -> dict[str, Any]:
     nickname = None
     page_mode = 'other'
     current_url = None
+    call_modal_open = False
     if running and _browser.driver:
         room = ChatRoomManager(_browser.driver)
         try:
@@ -84,6 +142,10 @@ def _status_payload() -> dict[str, Any]:
         nickname = room.get_nickname()
         if current_url:
             page_mode = _page_mode(current_url, in_room)
+        try:
+            call_modal_open = CallModalManager(_browser.driver).is_call_modal_open()
+        except Exception:
+            call_modal_open = False
     return {
         'ok': True,
         'bridgeRunning': True,
@@ -96,6 +158,10 @@ def _status_payload() -> dict[str, Any]:
         'currentUrl': current_url,
         'chatId': chat_id,
         'nickname': nickname,
+        'pendingCallPhone': _pending_call_phone,
+        'pendingCallAt': _pending_call_at,
+        'callModalOpen': call_modal_open,
+        'callWatchActive': _call_watch_active,
         'lastError': _last_error,
         'port': PORT,
     }
@@ -205,6 +271,61 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     return
                 ok = room.send_message(message)
                 _json_response(self, 200 if ok else 500, {'ok': ok, 'error': None if ok else '메시지 전송 실패'})
+                return
+
+            if path == '/watch-call-button':
+                room = ChatRoomManager(driver)
+                if not room.is_in_chat_room():
+                    _json_response(self, 400, {
+                        'ok': False,
+                        'error': '채팅방에서 안심번호 통화 감시를 시작할 수 없습니다.',
+                    })
+                    return
+                modal = CallModalManager(driver)
+                modal.install_call_button_watcher()
+                _ensure_call_watch()
+                _json_response(self, 200, _status_payload())
+                return
+
+            if path == '/ack-pending-call':
+                at_ms = body.get('pendingCallAt')
+                if at_ms is not None and _pending_call_at is not None and int(at_ms) != int(_pending_call_at):
+                    _json_response(self, 200, {'ok': True, 'acked': False})
+                    return
+                modal = CallModalManager(driver)
+                _clear_pending_call_locked(modal)
+                _json_response(self, 200, {'ok': True, 'acked': True, **_status_payload()})
+                return
+
+            if path == '/open-call-modal':
+                room = ChatRoomManager(driver)
+                if not room.is_in_chat_room():
+                    _json_response(self, 400, {
+                        'ok': False,
+                        'error': '숨고 Chrome 창에서 채팅방을 연 뒤 다시 시도해 주세요.',
+                    })
+                    return
+                modal = CallModalManager(driver)
+                ok = modal.open_call_modal()
+                if not ok:
+                    _json_response(self, 400, {
+                        'ok': False,
+                        'error': '숨고 전화 모달을 열지 못했습니다. 채팅방에서 전화 아이콘을 눌러 주세요.',
+                    })
+                    return
+                _json_response(self, 200, _status_payload())
+                return
+
+            if path == '/extract-call-number':
+                modal = CallModalManager(driver)
+                phone = modal.extract_call_number_from_modal()
+                if not phone:
+                    _json_response(self, 400, {
+                        'ok': False,
+                        'error': '안심번호를 찾지 못했습니다. 숨고 전화 모달을 연 뒤 다시 시도해 주세요.',
+                    })
+                    return
+                _json_response(self, 200, {'ok': True, 'phone': phone, **_status_payload()})
                 return
 
         _json_response(self, 404, {'ok': False, 'error': 'not found'})

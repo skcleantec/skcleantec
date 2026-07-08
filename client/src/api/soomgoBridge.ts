@@ -87,3 +87,26 @@ export async function sendSoomgoBridgeMessage(message: string): Promise<void> {
     body: JSON.stringify({ message }),
   });
 }
+
+export async function watchSoomgoCallButton(): Promise<SoomgoBridgeStatus> {
+  return bridgeFetch<SoomgoBridgeStatus>('/watch-call-button', { method: 'POST', body: '{}' });
+}
+
+export async function ackSoomgoPendingCall(pendingCallAt: number): Promise<void> {
+  await bridgeFetch<{ ok: boolean }>('/ack-pending-call', {
+    method: 'POST',
+    body: JSON.stringify({ pendingCallAt }),
+  });
+}
+
+export async function openSoomgoCallModal(): Promise<SoomgoBridgeStatus> {
+  return bridgeFetch<SoomgoBridgeStatus>('/open-call-modal', { method: 'POST', body: '{}' });
+}
+
+export async function extractSoomgoCallNumber(): Promise<string> {
+  const res = await bridgeFetch<{ ok: boolean; phone: string }>('/extract-call-number', {
+    method: 'POST',
+    body: '{}',
+  });
+  return res.phone;
+}

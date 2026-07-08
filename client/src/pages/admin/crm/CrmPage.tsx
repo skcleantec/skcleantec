@@ -607,7 +607,7 @@ export function CrmPage() {
                   },
                   {
                     id: 'soomgo-call',
-                    label: '숨고 통화',
+                    label: '숨고 안심번호',
                     icon: <CrmIconPhone />,
                     active: false,
                     onClick: () => void callFromChat(),

@@ -15,6 +15,12 @@ export type SoomgoBridgeStatus = {
   currentUrl?: string | null;
   chatId?: string | null;
   nickname?: string | null;
+  /** 숨고 모달 「안심번호로 통화하기」 클릭으로 감지된 번호 */
+  pendingCallPhone?: string | null;
+  /** pendingCallPhone 감지 시각(ms) — 중복 처리·ack용 */
+  pendingCallAt?: number | null;
+  callModalOpen?: boolean;
+  callWatchActive?: boolean;
   lastError?: string | null;
   port?: number;
 };

@@ -5,7 +5,7 @@ function authHeaders(token: string): HeadersInit {
 }
 
 export type TelecrmMobileDispatchInput = {
-  action: 'call' | 'sms';
+  action: 'call' | 'sms' | 'prefill';
   phone: string;
   body?: string;
   imageUrl?: string | null;

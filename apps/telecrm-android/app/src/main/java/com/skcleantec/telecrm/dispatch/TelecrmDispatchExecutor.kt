@@ -23,6 +23,7 @@ class TelecrmDispatchExecutor(
     fun execute(payload: TelecrmDispatchPayload) {
         when (payload.action) {
             "sms" -> showSmsDialog(payload)
+            "prefill", "call" -> executeCall(payload)
             else -> executeCall(payload)
         }
     }
@@ -34,6 +35,7 @@ class TelecrmDispatchExecutor(
         binding.bottomNav.selectedItemId = R.id.nav_dial
         AppEventBus.emitDialPrefill(digits, payload.inquiryId, payload.customerMatch)
         Snackbar.make(binding.root, digits, Snackbar.LENGTH_SHORT).show()
+        if (payload.action == "prefill") return
         val token = tokenStore.getToken() ?: return
         TelecrmCallHelper.placeCall(activity, digits)
         TelecrmCallHelper.logOutboundCall(

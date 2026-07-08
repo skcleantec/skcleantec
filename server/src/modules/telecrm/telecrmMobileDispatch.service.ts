@@ -1,6 +1,6 @@
 import { sendJsonToUser } from '../realtime/realtimeHub.js';
 
-export type TelecrmMobileDispatchAction = 'call' | 'sms';
+export type TelecrmMobileDispatchAction = 'call' | 'sms' | 'prefill';
 
 export type TelecrmMobileDispatchItem = {
   id: string;
@@ -40,8 +40,8 @@ export function parseTelecrmMobileDispatchBody(body: unknown):
   if (!body || typeof body !== 'object') return { error: '요청 본문이 필요합니다.' };
   const b = body as Record<string, unknown>;
   const actionRaw = typeof b.action === 'string' ? b.action.trim().toLowerCase() : '';
-  if (actionRaw !== 'call' && actionRaw !== 'sms') {
-    return { error: 'action은 call 또는 sms 여야 합니다.' };
+  if (actionRaw !== 'call' && actionRaw !== 'sms' && actionRaw !== 'prefill') {
+    return { error: 'action은 call, sms, prefill 중 하나여야 합니다.' };
   }
   const phone = normalizePhone(typeof b.phone === 'string' ? b.phone : '');
   if (phone.length < 4) return { error: '전화번호(4자 이상)가 필요합니다.' };
