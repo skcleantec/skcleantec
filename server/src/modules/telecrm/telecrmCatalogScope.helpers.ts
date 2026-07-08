@@ -70,16 +70,9 @@ export function telecrmSoomgoMessagePresetWhere(
 }
 
 export function sortTelecrmSoomgoMessagePresetsForWork<
-  T extends { ownerUserId: string | null; slotNumber: number; sortOrder: number; createdAt: Date },
+  T extends { ownerUserId: string | null; sortOrder: number; createdAt: Date },
 >(rows: T[]): T[] {
-  return [...rows].sort((a, b) => {
-    const aPersonal = a.ownerUserId != null ? 0 : 1;
-    const bPersonal = b.ownerUserId != null ? 0 : 1;
-    if (aPersonal !== bPersonal) return aPersonal - bPersonal;
-    if (a.slotNumber !== b.slotNumber) return a.slotNumber - b.slotNumber;
-    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-    return a.createdAt.getTime() - b.createdAt.getTime();
-  });
+  return sortTelecrmCategoriesForWork(rows);
 }
 
 export function sortTelecrmSmsTemplatesForWork<

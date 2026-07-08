@@ -562,8 +562,8 @@ export function CrmPage() {
                 onOpenSoomgo={() => void openSoomgo()}
                 onRefresh={() => void refreshSoomgoStatus()}
                 onOpenSettings={
-                  canSharedSettings
-                    ? () => openSettings('soomgo', 'shared')
+                  canOpenSettings
+                    ? () => openSettings('soomgo', canPersonalCatalog ? 'personal' : 'shared')
                     : undefined
                 }
                 bridgeManifest={soomgoBridgeManifest}

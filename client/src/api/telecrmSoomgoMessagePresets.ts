@@ -26,8 +26,8 @@ export async function createTelecrmSoomgoMessagePreset(
   input: {
     label: string;
     steps: SoomgoMessageStep[];
-    slotNumber: number;
     ownerScope?: 'shared' | 'personal';
+    sortOrder?: number;
   },
 ): Promise<SoomgoMessagePresetDto> {
   const res = await fetch(`${API}/soomgo-message-presets`, {

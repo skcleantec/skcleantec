@@ -8,6 +8,7 @@ export type SoomgoMessageStep =
 
 export type SoomgoMessagePresetDto = {
   id: string;
+  /** 레거시 호환 — 신규 프리셋은 0, 정렬은 sortOrder 기준 */
   slotNumber: number;
   label: string;
   steps: SoomgoMessageStep[];
@@ -17,7 +18,8 @@ export type SoomgoMessagePresetDto = {
   ownerScope: 'shared' | 'personal';
 };
 
-export const SOOMGO_MESSAGE_PRESET_SLOTS = [1, 2, 3] as const;
+/** 사용자(또는 공유 카탈로그)당 프리셋 상한 */
+export const SOOMGO_MESSAGE_PRESET_MAX = 100;
 
 export const SOOMGO_MESSAGE_STEP_LIMIT = 20;
 export const SOOMGO_MESSAGE_TEXT_MAX = 4000;

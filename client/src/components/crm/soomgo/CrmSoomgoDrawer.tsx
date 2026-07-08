@@ -30,7 +30,7 @@ export function CrmSoomgoDrawer({
   const token = getToken();
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
-  const [presetBusySlot, setPresetBusySlot] = useState<number | null>(null);
+  const [presetBusyId, setPresetBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [presets, setPresets] = useState<SoomgoMessagePresetDto[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(false);
@@ -41,7 +41,7 @@ export function CrmSoomgoDrawer({
     () =>
       presets
         .filter((p) => p.isActive && p.steps.length > 0)
-        .sort((a, b) => a.slotNumber - b.slotNumber),
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, 'ko')),
     [presets],
   );
 
@@ -51,7 +51,7 @@ export function CrmSoomgoDrawer({
     if (!token || !open) return;
     setPresetsLoading(true);
     try {
-      const res = await fetchTelecrmSoomgoMessagePresets(token, { scope: 'work' });
+      const res = await fetchTelecrmSoomgoMessagePresets(token, { scope: 'personal' });
       setPresets(res.presets);
     } catch {
       setPresets([]);
@@ -93,18 +93,18 @@ export function CrmSoomgoDrawer({
       notify(msg);
       return;
     }
-    setPresetBusySlot(preset.slotNumber);
+    setPresetBusyId(preset.id);
     setError(null);
     try {
       await sendSoomgoBridgeSequence(preset.steps, bridgeStatus);
-      notify(`프리셋 ${preset.slotNumber}번(${preset.label})을 전송했습니다.`);
+      notify(`「${preset.label}」 프리셋을 전송했습니다.`);
       onClose();
     } catch (e) {
       const msg = e instanceof Error ? e.message : '프리셋 전송에 실패했습니다.';
       setError(msg);
       notify(msg);
     } finally {
-      setPresetBusySlot(null);
+      setPresetBusyId(null);
     }
   };
 
@@ -118,26 +118,24 @@ export function CrmSoomgoDrawer({
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         <p className="text-fluid-xs text-gray-500">
-          숨고 Chrome 창에서 채팅방을 연 상태에서 보내 주세요.
+          숨고 Chrome 창에서 채팅방을 연 상태에서 보내 주세요. 프리셋은 본인 계정에 저장한 항목만 표시됩니다.
         </p>
 
         {presetsLoading ? (
           <p className="text-fluid-xs text-gray-400">프리셋 불러오는 중…</p>
         ) : activePresets.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-fluid-xs font-medium text-gray-700">저장된 프리셋</p>
+            <p className="text-fluid-xs font-medium text-gray-700">내 프리셋</p>
             <div className="grid gap-2">
               {activePresets.map((preset) => (
                 <CrmActionButton
                   key={preset.id}
                   accent="soomgo"
                   variant="soft"
-                  disabled={busy || sending || presetBusySlot != null}
+                  disabled={busy || sending || presetBusyId != null}
                   onClick={() => void handlePreset(preset)}
                 >
-                  {presetBusySlot === preset.slotNumber
-                    ? `프리셋 ${preset.slotNumber} 전송 중…`
-                    : `${preset.slotNumber}. ${preset.label}`}
+                  {presetBusyId === preset.id ? `「${preset.label}」 전송 중…` : preset.label}
                 </CrmActionButton>
               ))}
             </div>
@@ -147,7 +145,11 @@ export function CrmSoomgoDrawer({
               </p>
             ) : null}
           </div>
-        ) : null}
+        ) : (
+          <p className="text-fluid-xs text-gray-500">
+            저장된 프리셋이 없습니다. 텔레CRM 설정 → 숨고 연동에서 프리셋을 추가해 주세요.
+          </p>
+        )}
 
         <div className="border-t border-gray-100 pt-3">
           <p className="mb-2 text-fluid-xs font-medium text-gray-700">직접 입력</p>
@@ -164,7 +166,7 @@ export function CrmSoomgoDrawer({
         <CrmActionButton
           accent="soomgo"
           variant="solid"
-          disabled={busy || sending || presetBusySlot != null || !message.trim()}
+          disabled={busy || sending || presetBusyId != null || !message.trim()}
           onClick={() => void handleSend()}
         >
           {sending ? '전송 중…' : '메시지 보내기'}

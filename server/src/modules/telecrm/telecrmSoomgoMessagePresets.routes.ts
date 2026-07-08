@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
-import { parseSoomgoMessageSteps } from '../../lib/soomgoMessagePresets.js';
+import { parseSoomgoMessageSteps, SOOMGO_MESSAGE_PRESET_MAX } from '../../lib/soomgoMessagePresets.js';
 import {
   parseSortOrder,
   requireTelecrmActorPassword,
@@ -28,10 +28,12 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-function parseSlotNumber(raw: unknown): number | null {
-  const n = typeof raw === 'number' ? raw : parseInt(String(raw ?? ''), 10);
-  if (!Number.isFinite(n) || n < 1 || n > 3) return null;
-  return n;
+async function nextPresetSortOrder(tenantId: string, ownerUserId: string | null): Promise<number> {
+  const agg = await prisma.telecrmSoomgoMessagePreset.aggregate({
+    where: { tenantId, ownerUserId },
+    _max: { sortOrder: true },
+  });
+  return (agg._max.sortOrder ?? -1) + 1;
 }
 
 function serializePreset(row: {
@@ -72,7 +74,7 @@ router.get('/', requireStaffPermission('crm.view', 'crm.settings'), async (req, 
       ...telecrmSoomgoMessagePresetWhere(scope, tenantId, user.userId),
       ...(includeInactive ? {} : { isActive: true }),
     },
-    orderBy: [{ slotNumber: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   });
   const presets =
     scope === 'work'
@@ -90,17 +92,11 @@ router.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req,
   );
   if (!(await denyUnlessCanCreateTelecrmCatalog(res, user, ownerScope))) return;
 
-  const { label, steps, slotNumber, sortOrder } = req.body as {
+  const { label, steps, sortOrder } = req.body as {
     label?: string;
     steps?: unknown;
-    slotNumber?: number;
     sortOrder?: number;
   };
-  const slot = parseSlotNumber(slotNumber);
-  if (!slot) {
-    res.status(400).json({ error: '프리셋 번호는 1~3만 가능합니다.' });
-    return;
-  }
   const parsedSteps = parseSoomgoMessageSteps(steps);
   if (!parsedSteps?.length) {
     res.status(400).json({ error: '전송 스텝을 1개 이상 입력해 주세요.' });
@@ -113,22 +109,23 @@ router.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req,
   }
 
   const ownerUserId = ownerScope === 'personal' ? user.userId : null;
-  const duplicate = await prisma.telecrmSoomgoMessagePreset.findFirst({
-    where: { tenantId, ownerUserId, slotNumber: slot },
+  const count = await prisma.telecrmSoomgoMessagePreset.count({
+    where: { tenantId, ownerUserId },
   });
-  if (duplicate) {
-    res.status(409).json({ error: `프리셋 ${slot}번이 이미 있습니다. 수정해 주세요.` });
+  if (count >= SOOMGO_MESSAGE_PRESET_MAX) {
+    res.status(400).json({ error: `프리셋은 최대 ${SOOMGO_MESSAGE_PRESET_MAX}개까지 등록할 수 있습니다.` });
     return;
   }
 
+  const nextOrder = await nextPresetSortOrder(tenantId, ownerUserId);
   const created = await prisma.telecrmSoomgoMessagePreset.create({
     data: {
       tenantId,
       ownerUserId,
-      slotNumber: slot,
+      slotNumber: 0,
       label: trimmedLabel.slice(0, 120),
       stepsJson: JSON.stringify(parsedSteps),
-      sortOrder: parseSortOrder(sortOrder, slot - 1),
+      sortOrder: parseSortOrder(sortOrder, nextOrder),
     },
   });
   res.status(201).json(serializePreset(created));
@@ -146,10 +143,9 @@ router.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (
   }
   if (!(await denyUnlessCanMutateTelecrmCategory(res, user, existing))) return;
 
-  const { label, steps, slotNumber, sortOrder, isActive } = req.body as {
+  const { label, steps, sortOrder, isActive } = req.body as {
     label?: string;
     steps?: unknown;
-    slotNumber?: number;
     sortOrder?: number;
     isActive?: boolean;
   };
@@ -169,26 +165,6 @@ router.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (
       return;
     }
     data.stepsJson = JSON.stringify(parsedSteps);
-  }
-  if (slotNumber != null) {
-    const slot = parseSlotNumber(slotNumber);
-    if (!slot) {
-      res.status(400).json({ error: '프리셋 번호는 1~3만 가능합니다.' });
-      return;
-    }
-    const duplicate = await prisma.telecrmSoomgoMessagePreset.findFirst({
-      where: {
-        tenantId,
-        ownerUserId: existing.ownerUserId,
-        slotNumber: slot,
-        NOT: { id },
-      },
-    });
-    if (duplicate) {
-      res.status(409).json({ error: `프리셋 ${slot}번이 이미 있습니다.` });
-      return;
-    }
-    data.slotNumber = slot;
   }
   if (sortOrder != null) data.sortOrder = parseSortOrder(sortOrder, existing.sortOrder);
   if (typeof isActive === 'boolean') data.isActive = isActive;

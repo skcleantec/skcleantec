@@ -2,7 +2,7 @@
 ; 빌드: scripts\build-installer.ps1 -Version 2.0.2
 
 #ifndef MyAppVersion
-#define MyAppVersion "2.1.3"
+#define MyAppVersion "2.1.4"
 #endif
 
 #define MyAppName "청소비서 숨고 연동"

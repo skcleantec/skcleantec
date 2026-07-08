@@ -15,7 +15,6 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
 
 from automation.browser import BrowserManager
 from automation.call_modal import CallModalManager
@@ -23,6 +22,7 @@ from automation.chat_room import ChatRoomManager
 from automation.login import goto_chat_list, is_logged_in, login_to_soomgo
 from automation.overlay_modals import dismiss_blocking_overlays
 from automation.sequence_sender import run_send_sequence
+from automation.http_download import download_bytes
 from automation.navigation import (
     is_in_chat_room_url,
     is_on_chat_list_url,
@@ -143,9 +143,7 @@ def _download_sequence_images(steps: list[dict[str, Any]]) -> tuple[dict[str, st
                     ext = candidate if candidate != '.jpeg' else '.jpg'
                     break
             dest = temp_dir / f'img_{index}{ext}'
-            req = Request(url, headers={'User-Agent': 'Cbiseo-SoomgoBridge/2.1'})
-            with urlopen(req, timeout=30) as resp:
-                data = resp.read()
+            data = download_bytes(url)
             if not data:
                 raise ValueError(f'empty image: {url}')
             dest.write_bytes(data)

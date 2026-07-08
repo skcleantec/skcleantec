@@ -57,10 +57,14 @@ export function CrmSettingsDrawer({
   onClose: () => void;
 }) {
   const visibleTabs = TABS.filter((item) => {
-    if (item.id === 'general' || item.id === 'soomgo') return canEditShared;
+    if (item.id === 'general') return canEditShared;
+    if (item.id === 'soomgo') return canEditShared || canEditPersonal;
     return true;
   });
-  const showCatalogSegment = tab !== 'general' && tab !== 'soomgo' && (canEditShared || canEditPersonal);
+  const showCatalogSegment =
+    tab !== 'general' &&
+    (canEditShared || canEditPersonal) &&
+    (tab === 'soomgo' ? canEditShared && canEditPersonal : true);
 
   return (
     <CrmDrawerShell
@@ -107,7 +111,9 @@ export function CrmSettingsDrawer({
           {tab === 'sms' ? <TelecrmSmsTemplateSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'pricing' ? <TelecrmPricingSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'general' && canEditShared ? <TelecrmGeneralSettingsPage /> : null}
-          {tab === 'soomgo' && canEditShared ? <TelecrmSoomgoSettingsPage /> : null}
+          {tab === 'soomgo' && (canEditPersonal || canEditShared) ? (
+            <TelecrmSoomgoSettingsPage catalogScope={canEditShared ? catalogScope : 'personal'} />
+          ) : null}
         </div>
       </Suspense>
     </CrmDrawerShell>

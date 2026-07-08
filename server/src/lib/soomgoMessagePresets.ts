@@ -10,6 +10,9 @@ const STEP_LIMIT = 20;
 const TEXT_MAX = 4000;
 const IMAGES_PER_STEP_MAX = 10;
 
+/** @see shared/soomgoMessagePresets.ts SOOMGO_MESSAGE_PRESET_MAX */
+export const SOOMGO_MESSAGE_PRESET_MAX = 100;
+
 function isStep(value: unknown): value is SoomgoMessageStep {
   if (!value || typeof value !== 'object') return false;
   const row = value as Record<string, unknown>;
