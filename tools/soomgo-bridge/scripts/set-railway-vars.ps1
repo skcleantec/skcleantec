@@ -7,14 +7,14 @@
 param(
     [ValidateSet('staging', 'production', 'both')]
     [string]$Target = 'both',
-    [string]$Version = '2.1.0'
+    [string]$Version = '2.1.1',
+    [string]$Sha256 = ''
 )
 
 $ErrorActionPreference = 'Stop'
 
 $SetupExe = "SoomgoBridge-Setup-$Version.exe"
 $DownloadUrl = "https://github.com/skcleantec/skcleantec/releases/download/soomgo-bridge-v$Version/$SetupExe"
-$Sha256 = ''
 $ManifestProduction = 'https://www.cbiseo.com/api/public/soomgo-bridge/manifest'
 $ManifestStaging = 'https://clean-solution-staging.up.railway.app/api/public/soomgo-bridge/manifest'
 
