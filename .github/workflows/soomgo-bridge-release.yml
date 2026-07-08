@@ -1,0 +1,62 @@
+# 숨고 브릿지 데스크톱 ZIP — GitHub Releases 업로드
+# 트리거: 태그 soomgo-bridge-v* 푸시 또는 workflow_dispatch
+
+name: Soomgo Bridge Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver (예: 2.0.0)'
+        required: true
+        default: '2.0.0'
+  push:
+    tags:
+      - 'soomgo-bridge-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'
+          if ($tag -match '^soomgo-bridge-v(.+)$') {
+            $v = $Matches[1]
+          } else {
+            $v = '${{ inputs.version }}'
+            if (-not $v) { $v = '2.0.0' }
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Packaging version: $v"
+
+      - name: Build ZIP package
+        shell: pwsh
+        run: ./tools/soomgo-bridge/scripts/build-package.ps1 -Version ${{ steps.ver.outputs.version }}
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: soomgo-bridge-v${{ steps.ver.outputs.version }}
+          name: Soomgo Bridge v${{ steps.ver.outputs.version }}
+          body: |
+            SK클린텍 숨고 연동 데스크톱 v${{ steps.ver.outputs.version }}
+
+            - 상담사 PC: ZIP 압축 해제 후 `run-desktop.bat` 실행 (또는 Inno Setup EXE)
+            - Railway: `tools/soomgo-bridge/dist/railway-env-*.txt` 의 SHA256·DOWNLOAD_URL 반영
+            - PC config: `%LOCALAPPDATA%\SKCleantec\SoomgoBridge\config.json` 에 manifestUrl 설정
+          files: |
+            tools/soomgo-bridge/dist/SoomgoBridge-${{ steps.ver.outputs.version }}.zip
+            tools/soomgo-bridge/dist/railway-env-${{ steps.ver.outputs.version }}.txt
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

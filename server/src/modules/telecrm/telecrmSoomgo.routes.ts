@@ -7,8 +7,14 @@ import {
   getTelecrmSoomgoCredentials,
   upsertTelecrmSoomgoConfig,
 } from './telecrmSoomgo.service.js';
+import { getSoomgoBridgeManifest } from './soomgoBridgeManifest.js';
 
 const router = Router();
+
+/** 데스크톱 브릿지 설치·업데이트 매니페스트 */
+router.get('/bridge-manifest', requireStaffPermission('crm.view', 'crm.settings'), async (_req, res) => {
+  res.json(getSoomgoBridgeManifest());
+});
 
 /** 설정 조회 (비밀번호 미포함) */
 router.get('/config', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {

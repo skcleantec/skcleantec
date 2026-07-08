@@ -1,3 +1,5 @@
+import type { SoomgoBridgeManifest } from '@shared/soomgoBridge';
+
 const API = '/api/crm/soomgo';
 
 function authHeaders(token: string): HeadersInit {
@@ -40,4 +42,11 @@ export async function fetchTelecrmSoomgoCredentials(
   if (!res.ok) throw new Error(data.error ?? '숨고 계정 정보를 불러오지 못했습니다.');
   if (!data.email || !data.password) throw new Error('숨고 계정이 설정되지 않았습니다.');
   return { email: data.email, password: data.password };
+}
+
+export async function fetchTelecrmSoomgoBridgeManifest(token: string): Promise<SoomgoBridgeManifest> {
+  const res = await fetch(`${API}/bridge-manifest`, { headers: authHeaders(token) });
+  const data = (await res.json()) as SoomgoBridgeManifest & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '브릿지 배포 정보를 불러오지 못했습니다.');
+  return data;
 }

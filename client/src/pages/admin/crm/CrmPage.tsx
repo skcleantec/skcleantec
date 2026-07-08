@@ -17,8 +17,10 @@ import { CrmSmsDrawer } from '../../../components/crm/sms/CrmSmsDrawer';
 import { CrmSoomgoDrawer } from '../../../components/crm/soomgo/CrmSoomgoDrawer';
 import { CrmSoomgoTopBar } from '../../../components/crm/soomgo/CrmSoomgoTopBar';
 import { CrmIconPhone, CrmIconSoomgo } from '../../../components/crm/crmUi';
-import type { SoomgoExtractedChat } from '@shared/soomgoBridge';
+import type { SoomgoExtractedChat, SoomgoBridgeManifest } from '@shared/soomgoBridge';
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
+import { fetchTelecrmSoomgoBridgeManifest } from '../../../api/telecrmSoomgo';
+import { requestSoomgoBridgeUpdate } from '../../../api/soomgoBridge';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
@@ -94,6 +96,7 @@ export function CrmPage() {
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [smsDrawerOpen, setSmsDrawerOpen] = useState(false);
   const [soomgoDrawerOpen, setSoomgoDrawerOpen] = useState(false);
+  const [soomgoBridgeManifest, setSoomgoBridgeManifest] = useState<SoomgoBridgeManifest | null>(null);
   const dispatchNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const draftReadyRef = useRef(false);
   const formSnapshotRef = useRef<CrmIntakeFormSnapshot | null>(null);
@@ -119,6 +122,16 @@ export function CrmPage() {
 
   useEffect(() => {
     document.title = '텔레CRM — SK클린텍';
+  }, []);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    void fetchTelecrmSoomgoBridgeManifest(token)
+      .then(setSoomgoBridgeManifest)
+      .catch(() => {
+        /* 다운로드 URL 없을 때 무시 */
+      });
   }, []);
 
   useEffect(() => {
@@ -552,6 +565,8 @@ export function CrmPage() {
                     ? () => openSettings('soomgo', 'shared')
                     : undefined
                 }
+                bridgeManifest={soomgoBridgeManifest}
+                onRequestUpdate={() => void requestSoomgoBridgeUpdate()}
               />
             ) : undefined
           }

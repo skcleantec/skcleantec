@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { SoomgoBridgeManifest } from '@shared/soomgoBridge';
 import { getToken } from '../../../../stores/auth';
 import {
+  fetchTelecrmSoomgoBridgeManifest,
   fetchTelecrmSoomgoConfig,
   updateTelecrmSoomgoConfig,
 } from '../../../../api/telecrmSoomgo';
@@ -18,16 +20,21 @@ export function TelecrmSoomgoSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [pwdModalOpen, setPwdModalOpen] = useState(false);
   const [actorPassword, setActorPassword] = useState('');
+  const [bridgeManifest, setBridgeManifest] = useState<SoomgoBridgeManifest | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      const cfg = await fetchTelecrmSoomgoConfig(token);
+      const [cfg, manifest] = await Promise.all([
+        fetchTelecrmSoomgoConfig(token),
+        fetchTelecrmSoomgoBridgeManifest(token).catch(() => null),
+      ]);
       setEmail(cfg.email);
       setHasPassword(cfg.hasPassword);
       setEnabled(cfg.enabled);
+      setBridgeManifest(manifest);
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
     } finally {
@@ -140,12 +147,44 @@ export function TelecrmSoomgoSettingsPage() {
         )}
       </SettingsCard>
 
-      <SettingsCard title="로컬 브릿지 실행">
-        <p className="text-fluid-sm text-gray-600">
-          마케터 PC에서{' '}
-          <code className="rounded bg-gray-100 px-1.5 py-0.5 text-fluid-xs">tools/soomgo-bridge/run-bridge.bat</code>{' '}
-          실행 후, 텔레CRM 왼쪽 도구의 <strong>숨고 연동</strong>으로 상단 바를 열고 Chrome 숨고를 연결합니다.
-        </p>
+      <SettingsCard title="숨고 연동 프로그램 (PC)">
+        <div className="space-y-3 text-fluid-sm text-gray-600">
+          <p>
+            상담사 PC에 <strong>「SK클린텍 숨고 연동」</strong> 프로그램을 설치·실행합니다. 트레이 아이콘이
+            떠 있으면 텔레CRM 상단 <strong>숨고 연동</strong> 바에서 Chrome 숨고와 연결할 수 있습니다.
+          </p>
+          {bridgeManifest ? (
+            <p>
+              최신 버전: <strong>v{bridgeManifest.latestVersion}</strong>
+              {bridgeManifest.releaseNotes ? (
+                <span className="text-gray-500"> — {bridgeManifest.releaseNotes}</span>
+              ) : null}
+            </p>
+          ) : null}
+          {bridgeManifest?.downloadUrl ? (
+            <a
+              href={bridgeManifest.downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm font-semibold text-white hover:bg-slate-800"
+            >
+              설치 파일 다운로드
+            </a>
+          ) : (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+              설치 파일 URL이 아직 설정되지 않았습니다. 개발 PC에서는 저장소의{' '}
+              <code className="rounded bg-white px-1 py-0.5 text-fluid-xs">tools/soomgo-bridge/run-desktop.bat</code>{' '}
+              로 실행할 수 있습니다.
+            </p>
+          )}
+          <p className="text-fluid-xs text-gray-500">
+            개발용:{' '}
+            <code className="rounded bg-gray-100 px-1 py-0.5">run-desktop.bat</code> (트레이·자동 업데이트) 또는{' '}
+            <code className="rounded bg-gray-100 px-1 py-0.5">run-bridge.bat</code> (브릿지만). 매니페스트 URL은{' '}
+            <code className="rounded bg-gray-100 px-1 py-0.5">%LOCALAPPDATA%\SKCleantec\SoomgoBridge\config.json</code>{' '}
+            에 설정할 수 있습니다.
+          </p>
+        </div>
       </SettingsCard>
 
       <DeletePasswordModal

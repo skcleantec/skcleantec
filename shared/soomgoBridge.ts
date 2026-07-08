@@ -4,6 +4,17 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 /** 안심번호·2분할 등 신규 API 최소 버전 */
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
+/** 데스크톱 설치 프로그램 표시 버전 (semver) */
+export const SOOMGO_BRIDGE_APP_VERSION = '2.0.0';
+
+export type SoomgoBridgeManifest = {
+  requiredVersion: number;
+  latestVersion: string;
+  downloadUrl: string;
+  releaseNotes?: string;
+  sha256?: string;
+};
+
 export type SoomgoBridgeStatus = {
   ok: boolean;
   bridgeVersion?: number;
@@ -27,6 +38,10 @@ export type SoomgoBridgeStatus = {
   callWatchActive?: boolean;
   lastError?: string | null;
   port?: number;
+  /** 데스크톱 프로그램 semver */
+  appVersion?: string | null;
+  /** 트레이 앱 실행 중 */
+  desktopRunning?: boolean;
 };
 
 export type SoomgoRequestPair = {

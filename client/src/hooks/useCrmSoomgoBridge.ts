@@ -13,6 +13,7 @@ import {
   loginSoomgoBridge,
   openSoomgoCallModal,
   openSoomgoChats,
+  requestSoomgoBridgeUpdate,
   SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE,
   SOOMGO_BRIDGE_OUTDATED_MESSAGE,
   startSoomgoBridge,
@@ -115,6 +116,7 @@ export function useCrmSoomgoBridge({
       watchBlockedRef.current = true;
       setError(SOOMGO_BRIDGE_OUTDATED_MESSAGE);
       notify(SOOMGO_BRIDGE_OUTDATED_MESSAGE);
+      void requestSoomgoBridgeUpdate();
     }
     if (s.pendingCallPhone && s.pendingCallAt != null && !isSoomgoBridgeOutdated(s)) {
       void handlePendingCall(s);

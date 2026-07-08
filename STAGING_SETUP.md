@@ -60,6 +60,11 @@
 | `JWT_EXPIRES_IN` | 예: `7d` (운영과 동일해도 됨) |
 | `NODE_ENV` | 보통 `production` (빌드·동작을 운영과 동일하게 맞출 때) |
 | `CLOUDINARY_URL` | 가능하면 **스테이징 전용** 업로드 프리픽스/환경, 없으면 운영과 동일 키는 **삭제 테스트 주의** |
+| `SOOMGO_BRIDGE_LATEST_VERSION` | 숨고 연동 데스크톱 semver (예: `2.0.0`) |
+| `SOOMGO_BRIDGE_DOWNLOAD_URL` | GitHub Releases ZIP/EXE URL (비우면 CRM 다운로드 버튼 비활성) |
+| `SOOMGO_BRIDGE_SHA256` | (선택) 설치 파일 SHA256 — 자동 업데이트 검증 |
+| `SOOMGO_BRIDGE_RELEASE_NOTES` | (선택) CRM 설정·상단 바에 표시할 한 줄 안내 |
+| `SOOMGO_BRIDGE_REQUIRED_VERSION` | (선택) 최소 브릿지 API 버전, 기본 `2` |
 | 기타 Kakao 등 | 있으면 스테이징용 키 또는 비활성 |
 
 Railway가 주입하는 `PORT` 등은 그대로 두면 된다.

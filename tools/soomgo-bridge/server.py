@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import pathlib
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
@@ -21,11 +24,14 @@ from automation.navigation import (
     is_on_non_chat_pro_page,
 )
 
+from version_info import APP_VERSION, BRIDGE_API_VERSION
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger('soomgo-bridge')
 
 PORT = 17890
-BRIDGE_VERSION = 2
+BRIDGE_VERSION = BRIDGE_API_VERSION
+UPDATE_FLAG_PATH = pathlib.Path(os.environ.get('LOCALAPPDATA', '')) / 'SKCleantec' / 'SoomgoBridge' / 'update.request'
 
 _browser = BrowserManager(headless=False)
 _lock = threading.Lock()
@@ -173,6 +179,8 @@ def _status_payload() -> dict[str, Any]:
         'callWatchActive': _call_watch_active,
         'lastError': _last_error,
         'port': PORT,
+        'appVersion': os.environ.get('SOOMGO_APP_VERSION', APP_VERSION),
+        'desktopRunning': os.environ.get('SOOMGO_DESKTOP_RUNNING') == '1',
     }
 
 
@@ -349,6 +357,15 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     })
                     return
                 _json_response(self, 200, {'ok': True, 'phone': phone, **_status_payload()})
+                return
+
+            if path == '/request-update':
+                try:
+                    UPDATE_FLAG_PATH.parent.mkdir(parents=True, exist_ok=True)
+                    UPDATE_FLAG_PATH.write_text(str(int(time.time() * 1000)), encoding='utf-8')
+                    _json_response(self, 200, {'ok': True, 'message': '업데이트 확인을 요청했습니다.'})
+                except OSError as e:
+                    _json_response(self, 500, {'ok': False, 'error': f'업데이트 요청 실패: {e}'})
                 return
 
         _json_response(self, 404, {'ok': False, 'error': 'not found'})
