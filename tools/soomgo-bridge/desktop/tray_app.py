@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -34,10 +35,38 @@ from version_info import APP_DISPLAY_NAME, APP_VERSION, BRIDGE_API_VERSION
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger('soomgo-bridge-desktop')
 
+_BRIDGE_PORT = 17890
+_WIN_CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+
+
+def _python_exe() -> str:
+    """pythonw로 실행될 때 서버·pip는 python.exe 사용."""
+    exe = sys.executable
+    if sys.platform == 'win32' and exe.lower().endswith('pythonw.exe'):
+        candidate = exe[:-5] + '.exe'
+        if os.path.isfile(candidate):
+            return candidate
+    return exe
+
+
+class _StatusWindowLogHandler(logging.Handler):
+    def __init__(self, window: StatusWindow) -> None:
+        super().__init__()
+        self._window = window
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = self.format(record)
+            level = 'error' if record.levelno >= logging.ERROR else 'info'
+            self._window.append_log_async(msg, level=level)
+        except Exception:
+            pass
+
 
 class TrayApp:
     def __init__(self) -> None:
-        self._bridge_proc: subprocess.Popen | None = None
+        self._bridge_proc: subprocess.Popen[str] | None = None
+        self._bridge_log_thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._icon: pystray.Icon | None = None
         self._status: dict[str, Any] | None = None
@@ -48,6 +77,79 @@ class TrayApp:
         self._tk_thread.start()
         if not self._window.wait_ready():
             logger.warning('status window did not initialize in time')
+        else:
+            logging.getLogger().addHandler(_StatusWindowLogHandler(self._window))
+
+    def _subprocess_flags(self) -> int:
+        return _WIN_CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+
+    def _log(self, message: str, *, level: str = 'info') -> None:
+        if level == 'error':
+            logger.error(message)
+        else:
+            logger.info(message)
+
+    def _kill_stale_bridge_listeners(self) -> None:
+        if sys.platform != 'win32':
+            return
+        try:
+            result = subprocess.run(
+                ['netstat', '-ano'],
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                creationflags=self._subprocess_flags(),
+                timeout=8,
+            )
+            pids: set[str] = set()
+            needle = f':{_BRIDGE_PORT}'
+            for line in result.stdout.splitlines():
+                if needle not in line or 'LISTENING' not in line.upper():
+                    continue
+                parts = line.split()
+                if parts:
+                    pid = parts[-1]
+                    if pid.isdigit():
+                        pids.add(pid)
+            current_pid = str(os.getpid())
+            for pid in pids:
+                if pid == current_pid:
+                    continue
+                subprocess.run(
+                    ['taskkill', '/F', '/PID', pid],
+                    capture_output=True,
+                    creationflags=self._subprocess_flags(),
+                    timeout=8,
+                )
+                self._log(f'이전 브릿지 프로세스 종료 (PID {pid})')
+        except Exception as exc:
+            self._log(f'포트 {_BRIDGE_PORT} 정리 실패: {exc}', level='error')
+
+    def _ensure_dependencies(self) -> None:
+        req = BRIDGE_DIR / 'requirements.txt'
+        req_desktop = BRIDGE_DIR / 'requirements-desktop.txt'
+        if not req.exists():
+            return
+        args = [_python_exe(), '-m', 'pip', 'install', '-r', str(req)]
+        if req_desktop.exists():
+            args.extend(['-r', str(req_desktop)])
+        args.append('-q')
+        try:
+            self._log('Python 패키지 확인 중…')
+            subprocess.run(
+                args,
+                cwd=str(BRIDGE_DIR),
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                creationflags=self._subprocess_flags(),
+                timeout=180,
+            )
+            self._log('Python 패키지 준비 완료')
+        except Exception as exc:
+            self._log(f'패키지 설치 확인 실패: {exc}', level='error')
 
     def _make_icon(self, color: str) -> Image.Image:
         size = 64
@@ -78,19 +180,43 @@ class TrayApp:
             return None
         return None
 
+    def _read_bridge_output(self) -> None:
+        proc = self._bridge_proc
+        if not proc or not proc.stdout:
+            return
+        try:
+            for line in proc.stdout:
+                if self._stop.is_set():
+                    break
+                text = line.rstrip()
+                if text:
+                    level = 'error' if re.search(r'error|exception|traceback', text, re.I) else 'info'
+                    self._window.append_log_async(text, level=level)
+        except Exception as exc:
+            self._window.append_log_async(f'브릿지 로그 수신 종료: {exc}', level='error')
+
     def _start_bridge(self) -> None:
         if self._bridge_proc and self._bridge_proc.poll() is None:
             return
         env = os.environ.copy()
         env['SOOMGO_DESKTOP_RUNNING'] = '1'
         env['SOOMGO_APP_VERSION'] = APP_VERSION
+        env['PYTHONUNBUFFERED'] = '1'
         server_py = BRIDGE_DIR / 'server.py'
         self._bridge_proc = subprocess.Popen(
-            [sys.executable, str(server_py)],
+            [_python_exe(), '-u', str(server_py)],
             cwd=str(BRIDGE_DIR),
             env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            creationflags=self._subprocess_flags(),
         )
-        logger.info('bridge server started pid=%s', self._bridge_proc.pid)
+        self._log(f'브릿지 서버 시작 (PID {self._bridge_proc.pid})')
+        self._bridge_log_thread = threading.Thread(target=self._read_bridge_output, daemon=True)
+        self._bridge_log_thread.start()
 
     def _stop_bridge(self) -> None:
         if self._bridge_proc and self._bridge_proc.poll() is None:
@@ -111,6 +237,11 @@ class TrayApp:
 
     def _poll_loop(self) -> None:
         while not self._stop.is_set():
+            proc_dead = self._bridge_proc is not None and self._bridge_proc.poll() is not None
+            if proc_dead:
+                code = self._bridge_proc.poll() if self._bridge_proc else None
+                self._log(f'브릿지 서버가 종료되었습니다 (코드 {code})', level='error')
+                self._bridge_proc = None
             self._status = self._fetch_status()
             hint = None
             if self._manifest and (is_update_required(self._manifest) or is_update_available(self._manifest)):
@@ -191,8 +322,10 @@ class TrayApp:
         )
 
     def _restart_bridge(self, *_args) -> None:
+        self._log('브릿지 재시작…')
         self._stop_bridge()
         time.sleep(0.5)
+        self._kill_stale_bridge_listeners()
         self._start_bridge()
 
     def _quit(self, *_args) -> None:
@@ -205,6 +338,8 @@ class TrayApp:
 
     def run(self) -> None:
         ensure_app_data()
+        self._kill_stale_bridge_listeners()
+        threading.Thread(target=self._ensure_dependencies, daemon=True).start()
         self._start_bridge()
         self._manifest = fetch_manifest()
         if self._manifest and is_update_required(self._manifest):

@@ -2,12 +2,12 @@
 ; 빌드: scripts\build-installer.ps1 -Version 2.0.2
 
 #ifndef MyAppVersion
-#define MyAppVersion "2.1.1"
+#define MyAppVersion "2.1.2"
 #endif
 
 #define MyAppName "청소비서 숨고 연동"
 #define MyAppPublisher "청소비서"
-#define MyAppExeName "run-desktop.bat"
+#define MyAppExeName "launch-desktop.vbs"
 #define MyAppURL "https://www.cbiseo.com"
 
 [Setup]
@@ -28,7 +28,7 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64
-UninstallDisplayIcon={app}\run-desktop.bat
+UninstallDisplayIcon={app}\launch-desktop.vbs
 
 [Tasks]
 Name: "desktopicon"; Description: "바탕화면 바로 가기 만들기"; GroupDescription: "추가 작업:"

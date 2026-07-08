@@ -113,8 +113,21 @@ def perform_update(manifest: dict[str, Any]) -> tuple[bool, str]:
 
 
 def restart_self() -> None:
-    """트레이 앱 재시작."""
-    python = sys.executable
-    tray = BRIDGE_DIR / 'desktop' / 'tray_app.py'
-    subprocess.Popen([python, str(tray)], cwd=str(BRIDGE_DIR), close_fds=True)
+    """트레이 앱 재시작 (콘솔 없음)."""
+    flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+    vbs = BRIDGE_DIR / 'launch-desktop.vbs'
+    if sys.platform == 'win32' and vbs.exists():
+        subprocess.Popen(
+            ['wscript.exe', str(vbs)],
+            cwd=str(BRIDGE_DIR),
+            creationflags=flags,
+            close_fds=True,
+        )
+    else:
+        subprocess.Popen(
+            [sys.executable, '-m', 'desktop.tray_app'],
+            cwd=str(BRIDGE_DIR),
+            creationflags=flags,
+            close_fds=True,
+        )
     os._exit(0)

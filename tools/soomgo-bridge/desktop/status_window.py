@@ -4,10 +4,12 @@ from __future__ import annotations
 import queue
 import threading
 import tkinter as tk
-from tkinter import ttk
+from tkinter import scrolledtext, ttk
 from typing import Any, Callable
 
 from version_info import APP_DISPLAY_NAME, APP_VERSION, BRIDGE_API_VERSION
+
+_LOG_MAX_LINES = 300
 
 
 class StatusWindow:
@@ -17,6 +19,8 @@ class StatusWindow:
         self.status_var: tk.StringVar | None = None
         self.rows: dict[str, tk.StringVar] = {}
         self.hint_var: tk.StringVar | None = None
+        self._log_text: scrolledtext.ScrolledText | None = None
+        self._log_line_count = 0
         self._visible = False
         self._ready = threading.Event()
 
@@ -37,28 +41,52 @@ class StatusWindow:
                 fn = self._queue.get_nowait()
                 try:
                     fn()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self._append_log_line(f'UI 오류: {exc}', level='error')
         except queue.Empty:
             pass
         self.root.after(80, self._process_queue)
+
+    def _append_log_line(self, line: str, *, level: str = 'info') -> None:
+        if not self._log_text:
+            return
+        text = (line or '').rstrip()
+        if not text:
+            return
+        tag = 'error' if level == 'error' else 'info'
+        if 'ERROR' in text or 'Exception' in text or 'Traceback' in text:
+            tag = 'error'
+        self._log_text.configure(state='normal')
+        self._log_text.insert('end', text + '\n', tag)
+        self._log_line_count += 1
+        if self._log_line_count > _LOG_MAX_LINES:
+            self._log_text.delete('1.0', '2.0')
+            self._log_line_count -= 1
+        self._log_text.see('end')
+        self._log_text.configure(state='disabled')
+
+    def append_log(self, line: str, *, level: str = 'info') -> None:
+        self._append_log_line(line, level=level)
+
+    def append_log_async(self, line: str, *, level: str = 'info') -> None:
+        self.run_on_ui(lambda: self._append_log_line(line, level=level))
 
     def _build_ui(self) -> None:
         root = tk.Tk()
         self.root = root
         root.title(APP_DISPLAY_NAME)
-        root.geometry('420x320')
-        root.minsize(360, 280)
+        root.geometry('460x520')
+        root.minsize(400, 420)
         root.protocol('WM_DELETE_WINDOW', self.hide)
 
         header = ttk.Label(root, text='숨고 브릿지 실행 중', font=('Segoe UI', 12, 'bold'))
         header.pack(anchor='w', padx=12, pady=(12, 4))
 
         self.status_var = tk.StringVar(value='시작 중…')
-        ttk.Label(root, textvariable=self.status_var, wraplength=380).pack(anchor='w', padx=12, pady=4)
+        ttk.Label(root, textvariable=self.status_var, wraplength=420).pack(anchor='w', padx=12, pady=4)
 
         frame = ttk.Frame(root)
-        frame.pack(fill='both', expand=True, padx=12, pady=8)
+        frame.pack(fill='x', padx=12, pady=6)
 
         self.rows = {}
         for key, label in [
@@ -76,11 +104,28 @@ class StatusWindow:
             self.rows[key] = var
             ttk.Label(row, textvariable=var).pack(side='left', fill='x', expand=True)
 
+        log_label = ttk.Label(root, text='실행 로그', font=('Segoe UI', 9, 'bold'))
+        log_label.pack(anchor='w', padx=12, pady=(8, 2))
+
+        self._log_text = scrolledtext.ScrolledText(
+            root,
+            height=10,
+            wrap='word',
+            font=('Consolas', 9),
+            state='disabled',
+            background='#f8fafc',
+            foreground='#334155',
+        )
+        self._log_text.pack(fill='both', expand=True, padx=12, pady=(0, 6))
+        self._log_text.tag_config('error', foreground='#b91c1c')
+        self._log_text.tag_config('info', foreground='#334155')
+
         self.hint_var = tk.StringVar(value='텔레CRM에서 「숨고 연동」·「정보 갖고오기」를 사용하세요.')
-        ttk.Label(root, textvariable=self.hint_var, wraplength=380, foreground='#475569').pack(
-            anchor='w', padx=12, pady=(4, 12)
+        ttk.Label(root, textvariable=self.hint_var, wraplength=420, foreground='#475569').pack(
+            anchor='w', padx=12, pady=(0, 12)
         )
 
+        self._append_log_line('프로그램을 시작했습니다.')
         root.after(80, self._process_queue)
         self._ready.set()
 
