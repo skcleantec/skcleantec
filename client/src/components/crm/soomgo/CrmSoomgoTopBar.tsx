@@ -72,7 +72,7 @@ export function CrmSoomgoTopBar({
                 rel="noopener noreferrer"
                 className="rounded-lg border border-amber-300 bg-white px-2.5 py-1 font-semibold hover:bg-amber-50"
               >
-                다운로드
+                설치
               </a>
             ) : null}
             <button
@@ -105,7 +105,7 @@ export function CrmSoomgoTopBar({
                 rel="noopener noreferrer"
                 className="rounded-lg border border-rose-300 bg-white px-2.5 py-1 font-semibold hover:bg-rose-50"
               >
-                다운로드
+                설치
               </a>
             ) : null}
             <button

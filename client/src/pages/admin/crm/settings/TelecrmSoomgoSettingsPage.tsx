@@ -168,22 +168,21 @@ export function TelecrmSoomgoSettingsPage() {
               rel="noopener noreferrer"
               className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm font-semibold text-white hover:bg-slate-800"
             >
-              설치 파일 다운로드
+              설치 프로그램 다운로드
             </a>
           ) : (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
-              설치 파일 URL이 아직 설정되지 않았습니다. 개발 PC에서는 저장소의{' '}
-              <code className="rounded bg-white px-1 py-0.5 text-fluid-xs">tools/soomgo-bridge/run-desktop.bat</code>{' '}
-              로 실행할 수 있습니다.
+              설치 파일 URL이 아직 설정되지 않았습니다. 관리자가 Railway에 다운로드 주소를 등록하면
+              여기서 Setup 설치 파일을 받을 수 있습니다. 개발 PC는{' '}
+              <code className="rounded bg-white px-1 py-0.5 text-fluid-xs">run-desktop.bat</code> 로 실행하세요.
             </p>
           )}
-          <p className="text-fluid-xs text-gray-500">
-            개발용:{' '}
-            <code className="rounded bg-gray-100 px-1 py-0.5">run-desktop.bat</code> (트레이·자동 업데이트) 또는{' '}
-            <code className="rounded bg-gray-100 px-1 py-0.5">run-bridge.bat</code> (브릿지만). 매니페스트 URL은{' '}
-            <code className="rounded bg-gray-100 px-1 py-0.5">%LOCALAPPDATA%\SKCleantec\SoomgoBridge\config.json</code>{' '}
-            에 설정할 수 있습니다.
-          </p>
+          <ul className="list-disc space-y-1 pl-5 text-fluid-xs text-gray-500">
+            <li>Setup 설치 시 매니페스트 URL을 입력하면 자동 업데이트·CRM 다운로드가 연결됩니다.</li>
+            <li>설치 후 트레이 아이콘이 보이면 텔레CRM 숨고 연동을 사용할 수 있습니다.</li>
+            <li>개발용: <code className="rounded bg-gray-100 px-1 py-0.5">run-desktop.bat</code> 또는{' '}
+              <code className="rounded bg-gray-100 px-1 py-0.5">run-bridge.bat</code></li>
+          </ul>
         </div>
       </SettingsCard>
 

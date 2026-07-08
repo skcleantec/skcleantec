@@ -1,4 +1,4 @@
-# 숨고 브릿지 데스크톱 ZIP — GitHub Releases 업로드
+# 숨고 브릿지 데스크톱 — GitHub Releases (Setup.exe + ZIP)
 # 트리거: 태그 soomgo-bridge-v* 푸시 또는 workflow_dispatch
 
 name: Soomgo Bridge Release
@@ -37,11 +37,14 @@ jobs:
           "version=$v" >> $env:GITHUB_OUTPUT
           Write-Host "Packaging version: $v"
 
-      - name: Build ZIP package
-        shell: pwsh
-        run: ./tools/soomgo-bridge/scripts/build-package.ps1 -Version ${{ steps.ver.outputs.version }}
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
 
-      - name: Upload release asset
+      - name: Build Setup.exe and ZIP
+        shell: pwsh
+        run: ./tools/soomgo-bridge/scripts/build-release.ps1 -Version ${{ steps.ver.outputs.version }}
+
+      - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: soomgo-bridge-v${{ steps.ver.outputs.version }}
@@ -49,10 +52,15 @@ jobs:
           body: |
             SK클린텍 숨고 연동 데스크톱 v${{ steps.ver.outputs.version }}
 
-            - 상담사 PC: ZIP 압축 해제 후 `run-desktop.bat` 실행 (또는 Inno Setup EXE)
-            - Railway: `tools/soomgo-bridge/dist/railway-env-*.txt` 의 SHA256·DOWNLOAD_URL 반영
-            - PC config: `%LOCALAPPDATA%\SKCleantec\SoomgoBridge\config.json` 에 manifestUrl 설정
+            **상담사 PC (권장):** `SoomgoBridge-Setup-*.exe` 더블클릭 → 설치 마법사 → 트레이 실행
+            - 설치 중 매니페스트 URL 입력 (스테이징/운영 `/api/public/soomgo-bridge/manifest`)
+            - CRM **업데이트**는 Setup `/SILENT` 자동 설치 지원
+
+            **개발·수동:** `SoomgoBridge-*.zip` 압축 해제 후 `run-desktop.bat`
+
+            Railway: `railway-env-*.txt` 의 `DOWNLOAD_URL`·`SHA256` → Setup.exe 기준
           files: |
+            tools/soomgo-bridge/dist/SoomgoBridge-Setup-${{ steps.ver.outputs.version }}.exe
             tools/soomgo-bridge/dist/SoomgoBridge-${{ steps.ver.outputs.version }}.zip
             tools/soomgo-bridge/dist/railway-env-${{ steps.ver.outputs.version }}.txt
           draft: false
