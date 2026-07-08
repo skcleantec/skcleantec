@@ -105,6 +105,11 @@ export function CrmSoomgoTopBar({
                 {preview.pyeong}평
               </span>
             ) : null}
+            {preview?.serviceType ? (
+              <span className="max-w-[100px] truncate rounded-full bg-white px-2 py-0.5 text-slate-700 ring-1 ring-sky-100">
+                {preview.serviceType}
+              </span>
+            ) : null}
             {inRoom ? (
               <span className="rounded-full bg-violet-100 px-2 py-0.5 font-semibold text-violet-800">채팅방</span>
             ) : onChatList ? (

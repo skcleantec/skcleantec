@@ -10,6 +10,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
 from automation.selectors import URLS
+from automation.customer_request import CustomerRequestManager
 
 logger = logging.getLogger(__name__)
 
@@ -41,18 +42,26 @@ function isVisible(el) {
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0';
 }
+function setNativeValue(el, text) {
+  var proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+  var desc = Object.getOwnPropertyDescriptor(proto, 'value');
+  if (desc && desc.set) desc.set.call(el, text);
+  else el.value = text;
+  el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: text }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
 document.querySelectorAll('.quick-message-tooltip, [class*="tooltip"]').forEach(function(t) {
   try { t.style.display = 'none'; } catch (e) {}
 });
 function setInputValue(el, text) {
   el.focus();
   if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
-    el.value = text;
+    setNativeValue(el, text);
   } else {
     el.textContent = text;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  el.dispatchEvent(new Event('input', { bubbles: true }));
-  el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 var input = document.querySelector('textarea[name="message-input"], textarea.message-input');
 if (!input || !isVisible(input)) {
@@ -84,20 +93,25 @@ for (var j = 0; j < buttons.length; j++) {
 }
 if (!sendBtn) {
   var allBtns = document.querySelectorAll('button, [role="button"]');
-  for (var k = allBtns.length - 1; k >= 0; k--) {
+  var ir = input.getBoundingClientRect();
+  var best = null;
+  var bestDist = 99999;
+  for (var k = 0; k < allBtns.length; k++) {
     var b = allBtns[k];
     if (!isVisible(b)) continue;
     var br = b.getBoundingClientRect();
-    var ir = input.getBoundingClientRect();
-    if (Math.abs(br.bottom - ir.bottom) < 80 && br.left >= ir.left - 40) {
-      sendBtn = b;
-      break;
-    }
+    if (br.left < ir.right - 8) continue;
+    if (Math.abs(br.bottom - ir.bottom) > 72) continue;
+    if (br.width < 28 || br.height < 28) continue;
+    var dist = br.left - ir.right;
+    if (dist < bestDist) { bestDist = dist; best = b; }
   }
+  sendBtn = best;
 }
 if (sendBtn) {
   sendBtn.click();
-  return { ok: true, reason: 'clicked' };
+  var cleared = !input.value || input.value.trim() === '';
+  return { ok: true, reason: cleared ? 'clicked_cleared' : 'clicked' };
 }
 try {
   input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
@@ -170,13 +184,17 @@ class ChatRoomManager:
 
     def get_nickname(self) -> str | None:
         try:
+            req = CustomerRequestManager(self.driver, self.delay)
+            name = req.get_header_customer_name()
+            if name:
+                return name
             name = self.driver.execute_script("""
                 var selectors = ['h1','h2','h3','header h2','header h3','[class*="nickname"]','[class*="user-name"]'];
                 for (var i = 0; i < selectors.length; i++) {
                     var el = document.querySelector(selectors[i]);
                     if (!el) continue;
-                    var t = (el.textContent || '').trim();
-                    if (t && t.length < 40 && !t.includes('채팅')) return t;
+                    var t = (el.textContent || '').trim().split('\\n')[0];
+                    if (t && t.length < 40 && !t.includes('채팅') && t !== '접속 중') return t;
                 }
                 return null;
             """)
@@ -208,17 +226,36 @@ class ChatRoomManager:
 
     def extract_current_chat(self) -> dict[str, Any]:
         chat_id = self.get_current_chat_id()
-        nickname = self.get_nickname()
+        req_mgr = CustomerRequestManager(self.driver, self.delay)
+        request_data = req_mgr.extract_customer_request()
+        nickname = (
+            request_data.get('customerName')
+            or self.get_nickname()
+            or req_mgr.get_header_customer_name()
+        )
         customer_messages = self.get_customer_messages()
         parsed = parse_fields_from_texts(customer_messages)
+        if request_data.get('pyeong'):
+            parsed['pyeong'] = str(request_data['pyeong'])
+        if request_data.get('region'):
+            parsed['address'] = str(request_data['region'])
+        if request_data.get('requestMemo'):
+            parsed['memo'] = str(request_data['requestMemo'])
         last_message = customer_messages[-1] if customer_messages else None
         return {
             'chatId': chat_id,
             'nickname': nickname,
+            'customerName': nickname,
             'phone': parsed.get('phone'),
             'address': parsed.get('address'),
             'pyeong': parsed.get('pyeong'),
             'memo': parsed.get('memo'),
+            'preferredDate': request_data.get('preferredDate'),
+            'serviceType': request_data.get('serviceType'),
+            'buildingType': request_data.get('buildingType'),
+            'region': request_data.get('region'),
+            'requestMemo': request_data.get('requestMemo'),
+            'requestPairs': request_data.get('requestPairs', []),
             'lastMessage': last_message,
             'customerMessages': customer_messages[-12:],
             'currentUrl': self.driver.current_url,
@@ -251,7 +288,18 @@ class ChatRoomManager:
             time.sleep(self.delay * 0.4)
 
             send_btn = None
-            for selector in ['.btn-submit', 'img.btn-submit', "button[type='submit']", 'button']:
+            input_rect = input_elem.rect
+            for elem in self.driver.find_elements(By.CSS_SELECTOR, 'button, [role="button"]'):
+                if not elem.is_displayed() or send_btn is not None:
+                    continue
+                try:
+                    r = elem.rect
+                    if r['x'] >= input_rect['x'] + input_rect['width'] - 20 and abs(r['y'] - input_rect['y']) < 60:
+                        if r['width'] >= 28 and r['height'] >= 28:
+                            send_btn = elem
+                except Exception:
+                    continue
+            for selector in ['button[class*="send"]', '.btn-submit', 'img.btn-submit', "button[type='submit']"]:
                 for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
                     if not elem.is_displayed() or send_btn is not None:
                         continue

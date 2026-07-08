@@ -208,7 +208,7 @@ export function useCrmSoomgoBridge({
       const data = await extractSoomgoCurrentChat();
       setPreview(data);
       onImport(data);
-      notify('고객 정보를 접수란에 채웠습니다.');
+      notify('고객 요청 정보를 접수란에 채웠습니다.');
       return data;
     } catch (e) {
       const msg = e instanceof Error ? e.message : '정보를 가져오지 못했습니다.';

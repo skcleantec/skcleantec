@@ -249,15 +249,15 @@ export function CrmPage() {
 
   const handleSoomgoImport = useCallback((data: SoomgoExtractedChat) => {
     if (data.phone) setPhone(data.phone);
-    const name = data.nickname?.trim() || '';
+    const name = (data.customerName || data.nickname)?.trim() || '';
     if (name) setCustomerName(name);
     if (data.pyeong) setPyeong(String(data.pyeong));
     setMode('new');
     setInitialFormDraft({
       customerName: name,
       nickname: name,
-      address: data.address?.trim() || '',
-      preferredMoveInCleanYmd: '',
+      address: (data.region || data.address)?.trim() || '',
+      preferredMoveInCleanYmd: data.preferredDate?.trim() || '',
       kind: 'absent',
       goldDb: false,
     });

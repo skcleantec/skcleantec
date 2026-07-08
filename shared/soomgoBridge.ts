@@ -29,13 +29,25 @@ export type SoomgoBridgeStatus = {
   port?: number;
 };
 
+export type SoomgoRequestPair = {
+  question: string;
+  answer: string;
+};
+
 export type SoomgoExtractedChat = {
   chatId: string | null;
   nickname: string | null;
+  customerName?: string | null;
   phone: string | null;
   address: string | null;
   pyeong: string | null;
   memo: string | null;
+  preferredDate?: string | null;
+  serviceType?: string | null;
+  buildingType?: string | null;
+  region?: string | null;
+  requestMemo?: string | null;
+  requestPairs?: SoomgoRequestPair[];
   lastMessage: string | null;
   customerMessages: string[];
   currentUrl?: string;
