@@ -48,6 +48,7 @@ export function CrmColumn({
 
 export function CrmShell({
   header,
+  topBar,
   toolNav,
   left,
   center,
@@ -55,6 +56,7 @@ export function CrmShell({
   mobile = false,
 }: {
   header: ReactNode;
+  topBar?: ReactNode;
   toolNav?: ReactNode;
   left: ReactNode;
   center: ReactNode;
@@ -66,6 +68,7 @@ export function CrmShell({
     return (
       <div className="flex h-dvh min-h-0 w-full flex-col bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-100">
         {header}
+        {topBar}
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain p-3">
           {left}
           {center}
@@ -77,6 +80,7 @@ export function CrmShell({
   return (
     <div className="flex h-screen min-w-[1280px] flex-col bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-100">
       {header}
+      {topBar}
       <div className="flex min-h-0 flex-1 gap-3 p-3">
         {toolNav}
         <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[28%_40%_32%] gap-3">

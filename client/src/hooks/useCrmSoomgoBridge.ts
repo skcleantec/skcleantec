@@ -69,8 +69,16 @@ export function useCrmSoomgoBridge({
       const loginRes = await loginSoomgoBridge(creds.email, creds.password);
       if (!loginRes.loggedIn) throw new Error(loginRes.lastError ?? '숨고 로그인에 실패했습니다.');
       await openSoomgoChats();
-      await refreshStatus();
-      notify('숨고 Chrome 창이 열렸습니다. 채팅방을 연 뒤 왼쪽 도구를 사용하세요.');
+      const finalStatus = await refreshStatus();
+      if (finalStatus.inChatRoom) {
+        notify('숨고 채팅방이 연결되어 있습니다. 왼쪽 도구로 작업하세요.');
+      } else if (finalStatus.onChatList) {
+        notify('숨고 채팅 목록이 열렸습니다. 고객 채팅방을 연 뒤 왼쪽 도구를 사용하세요.');
+      } else if (finalStatus.onRequestsPage) {
+        notify('받은요청 화면에서 채팅으로 이동 중입니다. 채팅방을 연 뒤 다시 시도해 주세요.');
+      } else {
+        notify('숨고 Chrome 창이 열렸습니다. 채팅방을 연 뒤 왼쪽 도구를 사용하세요.');
+      }
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : '숨고 연동에 실패했습니다.';

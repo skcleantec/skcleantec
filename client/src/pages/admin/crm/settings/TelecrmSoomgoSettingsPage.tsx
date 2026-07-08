@@ -144,7 +144,7 @@ export function TelecrmSoomgoSettingsPage() {
         <p className="text-fluid-sm text-gray-600">
           마케터 PC에서{' '}
           <code className="rounded bg-gray-100 px-1.5 py-0.5 text-fluid-xs">tools/soomgo-bridge/run-bridge.bat</code>{' '}
-          실행 후, 텔레CRM 왼쪽 도구의 <strong>숨고 보조창</strong>으로 Chrome 숨고를 엽니다.
+          실행 후, 텔레CRM 왼쪽 도구의 <strong>숨고 연동</strong>으로 상단 바를 열고 Chrome 숨고를 연결합니다.
         </p>
       </SettingsCard>
 

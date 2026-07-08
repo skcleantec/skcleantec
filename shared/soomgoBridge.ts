@@ -7,6 +7,12 @@ export type SoomgoBridgeStatus = {
   browserRunning?: boolean;
   loggedIn?: boolean;
   inChatRoom?: boolean;
+  /** 채팅 목록(/pro/chats) */
+  onChatList?: boolean;
+  /** 받은요청 등 비채팅 고수 화면 */
+  onRequestsPage?: boolean;
+  pageMode?: 'chat_room' | 'chat_list' | 'requests' | 'other';
+  currentUrl?: string | null;
   chatId?: string | null;
   nickname?: string | null;
   lastError?: string | null;

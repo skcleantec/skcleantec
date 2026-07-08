@@ -15,10 +15,10 @@ import { CrmHeaderStats } from '../../../components/crm/session/CrmHeaderStats';
 import { CrmToolSideNav, CrmIconMessage } from '../../../components/crm/layout/CrmToolSideNav';
 import { CrmSmsDrawer } from '../../../components/crm/sms/CrmSmsDrawer';
 import { CrmSoomgoDrawer } from '../../../components/crm/soomgo/CrmSoomgoDrawer';
+import { CrmSoomgoTopBar } from '../../../components/crm/soomgo/CrmSoomgoTopBar';
 import { CrmIconPhone, CrmIconSoomgo } from '../../../components/crm/crmUi';
 import type { SoomgoExtractedChat } from '@shared/soomgoBridge';
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
-import { openCrmSoomgoCompanionWindow } from '../../../utils/crmSoomgoWindow';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
@@ -102,6 +102,8 @@ export function CrmPage() {
     closePanel,
     setSettingsTab,
     setCatalogScope,
+    soomgoBarOpen,
+    setSoomgoBarOpen,
   } = useCrmPanelUrl();
 
   const { openInquiryEdit, layer: inquiryEditLayer } = useCrmInquiryEdit(canView, () => {
@@ -268,12 +270,13 @@ export function CrmPage() {
     pollEnabled: !isMobileApp,
   });
 
-  const { openSoomgo, extract, callFromChat, busy: soomgoBusy } = soomgoBridge;
+  const { openSoomgo, extract, callFromChat, busy: soomgoBusy, status: soomgoStatus, preview: soomgoPreview, bridgeUp: soomgoBridgeUp, error: soomgoError, refreshStatus: refreshSoomgoStatus } = soomgoBridge;
 
-  const handleOpenSoomgoDualWindow = useCallback(() => {
-    openCrmSoomgoCompanionWindow();
-    void openSoomgo();
-  }, [openSoomgo]);
+  const handleToggleSoomgoBar = useCallback(() => {
+    const next = !soomgoBarOpen;
+    setSoomgoBarOpen(next);
+    if (next) void openSoomgo();
+  }, [soomgoBarOpen, setSoomgoBarOpen, openSoomgo]);
 
   const handleIntakeSaved = useCallback(() => {
     clearCrmIntakeDraft();
@@ -487,6 +490,26 @@ export function CrmPage() {
       <div className={isMobileApp ? 'min-w-0 w-full' : 'min-w-[1280px]'}>
         <CrmShell
           mobile={isMobileApp}
+          topBar={
+            !isMobileApp ? (
+              <CrmSoomgoTopBar
+                open={soomgoBarOpen}
+                onClose={() => setSoomgoBarOpen(false)}
+                status={soomgoStatus}
+                preview={soomgoPreview}
+                bridgeUp={soomgoBridgeUp}
+                busy={soomgoBusy}
+                error={soomgoError}
+                onOpenSoomgo={() => void openSoomgo()}
+                onRefresh={() => void refreshSoomgoStatus()}
+                onOpenSettings={
+                  canSharedSettings
+                    ? () => openSettings('soomgo', 'shared')
+                    : undefined
+                }
+              />
+            ) : undefined
+          }
           header={
             <header className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-2 border-b border-white/10 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-3 py-2.5 text-white shadow-lg sm:gap-x-3 sm:px-4 sm:py-3 lg:flex-nowrap">
               <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
@@ -570,10 +593,10 @@ export function CrmPage() {
                   },
                   {
                     id: 'soomgo-dual',
-                    label: '숨고 보조창',
+                    label: '숨고 연동',
                     icon: <CrmIconSoomgo />,
-                    active: false,
-                    onClick: handleOpenSoomgoDualWindow,
+                    active: soomgoBarOpen,
+                    onClick: handleToggleSoomgoBar,
                   },
                   {
                     id: 'soomgo-extract',

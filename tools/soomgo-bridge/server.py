@@ -14,6 +14,11 @@ from urllib.parse import urlparse
 from automation.browser import BrowserManager
 from automation.chat_room import ChatRoomManager
 from automation.login import goto_chat_list, is_logged_in, login_to_soomgo
+from automation.navigation import (
+    is_in_chat_room_url,
+    is_on_chat_list_url,
+    is_on_non_chat_pro_page,
+)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger('soomgo-bridge')
@@ -49,22 +54,46 @@ def _read_json(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
         return {}
 
 
+def _page_mode(url: str, in_room: bool) -> str:
+    if in_room:
+        return 'chat_room'
+    if is_on_chat_list_url(url):
+        return 'chat_list'
+    if is_on_non_chat_pro_page(url):
+        return 'requests'
+    if '/pro/chats' in url.lower():
+        return 'chat_list'
+    return 'other'
+
+
 def _status_payload() -> dict[str, Any]:
     running = _browser.is_running()
     in_room = False
     chat_id = None
     nickname = None
+    page_mode = 'other'
+    current_url = None
     if running and _browser.driver:
         room = ChatRoomManager(_browser.driver)
+        try:
+            current_url = _browser.driver.current_url
+        except Exception:
+            current_url = None
         in_room = room.is_in_chat_room()
         chat_id = room.get_current_chat_id()
         nickname = room.get_nickname()
+        if current_url:
+            page_mode = _page_mode(current_url, in_room)
     return {
         'ok': True,
         'bridgeRunning': True,
         'browserRunning': running,
         'loggedIn': _logged_in and is_logged_in(_browser.driver) if running else False,
         'inChatRoom': in_room,
+        'onChatList': page_mode == 'chat_list',
+        'onRequestsPage': page_mode == 'requests',
+        'pageMode': page_mode,
+        'currentUrl': current_url,
         'chatId': chat_id,
         'nickname': nickname,
         'lastError': _last_error,
@@ -126,6 +155,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
             if path == '/login':
                 email = str(body.get('email', '')).strip()
                 password = str(body.get('password', '')).strip()
+                if is_logged_in(driver):
+                    goto_chat_list(driver)
+                    _logged_in = True
+                    _last_error = None
+                    _json_response(self, 200, {**_status_payload(), 'loginOk': True, 'reusedSession': True})
+                    return
                 if not email or not password:
                     _json_response(self, 400, {'ok': False, 'error': 'email/password required'})
                     return
@@ -140,7 +175,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if not is_logged_in(driver):
                     _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
                     return
-                goto_chat_list(driver)
+                goto_chat_list(driver, force_list=False)
                 _json_response(self, 200, _status_payload())
                 return
 

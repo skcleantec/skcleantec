@@ -92,6 +92,18 @@ export function useCrmPanelUrl() {
     [patchParams],
   );
 
+  const soomgoBarOpen = searchParams.get('soomgoBar') === '1';
+
+  const setSoomgoBarOpen = useCallback(
+    (open: boolean) => {
+      patchParams((next) => {
+        if (open) next.set('soomgoBar', '1');
+        else next.delete('soomgoBar');
+      });
+    },
+    [patchParams],
+  );
+
   return {
     panel,
     settingsTab,
@@ -104,5 +116,7 @@ export function useCrmPanelUrl() {
     closePanel,
     setSettingsTab,
     setCatalogScope,
+    soomgoBarOpen,
+    setSoomgoBarOpen,
   };
 }

@@ -8,6 +8,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
 
 from automation.selectors import URLS, LOGIN
+from automation.navigation import ensure_chat_workspace, is_pro_session_url
 
 logger = logging.getLogger(__name__)
 
@@ -58,13 +59,12 @@ def login_to_soomgo(driver, email: str, password: str, delay: float = 1.0) -> bo
         login_button.click()
         time.sleep(delay * 2)
 
-        driver.get(URLS['CHAT_LIST'])
-        time.sleep(delay * 2)
+        ensure_chat_workspace(driver, delay=delay)
 
         current_url = driver.current_url.lower()
         if 'login' in current_url or '/sign' in current_url:
             return False
-        return '/pro/chats' in current_url
+        return is_pro_session_url(driver.current_url)
     except TimeoutException:
         return False
     except Exception as e:
@@ -74,18 +74,10 @@ def login_to_soomgo(driver, email: str, password: str, delay: float = 1.0) -> bo
 
 def is_logged_in(driver) -> bool:
     try:
-        current_url = driver.current_url.lower()
-        if 'login' in current_url or '/sign' in current_url:
-            return False
-        return '/pro/chats' in current_url
+        return is_pro_session_url(driver.current_url)
     except Exception:
         return False
 
 
-def goto_chat_list(driver, delay: float = 1.0) -> bool:
-    try:
-        driver.get(URLS['CHAT_LIST'])
-        time.sleep(delay * 2)
-        return True
-    except Exception:
-        return False
+def goto_chat_list(driver, delay: float = 1.0, force_list: bool = False) -> bool:
+    return ensure_chat_workspace(driver, delay=delay, force_list=force_list)

@@ -1,29 +1,10 @@
-const SOOMGO_COMPANION_WINDOW_NAME = 'telecrm_soomgo_companion';
-
-/** 숨고 보조 창 URL (듀얼 모니터·2중 창 배치용) */
-export function crmSoomgoCompanionUrl(): string {
-  const url = new URL('/admin/crm/soomgo', window.location.origin);
-  url.searchParams.set('popup', '1');
-  return url.toString();
-}
-
-let companionWindow: Window | null = null;
-
-/** 숨고 보조 창 열기 — 이미 열려 있으면 포커스 */
+/** @deprecated 메인 CRM 상단 바 사용 — /admin/crm?soomgoBar=1 */
 export function openCrmSoomgoCompanionWindow(): Window | null {
-  const href = crmSoomgoCompanionUrl();
-  if (companionWindow && !companionWindow.closed) {
-    companionWindow.focus();
-    return companionWindow;
+  const url = new URL('/admin/crm', window.location.origin);
+  url.searchParams.set('soomgoBar', '1');
+  if (new URLSearchParams(window.location.search).get('popup') === '1') {
+    url.searchParams.set('popup', '1');
   }
-  companionWindow = window.open(
-    href,
-    SOOMGO_COMPANION_WINDOW_NAME,
-    'width=440,height=760,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes',
-  );
-  return companionWindow;
-}
-
-export function isCrmSoomgoCompanionOpen(): boolean {
-  return Boolean(companionWindow && !companionWindow.closed);
+  window.location.href = url.toString();
+  return null;
 }
