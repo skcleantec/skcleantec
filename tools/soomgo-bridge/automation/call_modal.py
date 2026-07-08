@@ -8,6 +8,8 @@ from typing import Any
 
 from selenium.webdriver.common.by import By
 
+from automation.overlay_modals import dismiss_blocking_overlays
+
 logger = logging.getLogger(__name__)
 
 _SAFE_PHONE_RE = re.compile(r'050\d[-\s]?\d{3,4}[-\s]?\d{4}')
@@ -217,6 +219,7 @@ class CallModalManager:
             return False
 
     def open_call_modal(self) -> bool:
+        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
         if self.is_call_modal_open():
             return True
         try:
@@ -281,13 +284,14 @@ class CallModalManager:
     def try_extract_safe_phone(self) -> str | None:
         """전화 모달 열기 → 050 안심번호 추출 → 없으면 모달 닫고 None (채팅방 유지)."""
         try:
+            dismiss_blocking_overlays(self.driver, self.delay * 0.3)
             opened = self.open_call_modal()
             if not opened:
                 return None
-            time.sleep(self.delay * 0.45)
+            time.sleep(self.delay * 0.65)
             phone = self.extract_call_number_from_modal()
             self.close_call_modal()
-            time.sleep(self.delay * 0.25)
+            time.sleep(self.delay * 0.45)
             if phone and re.sub(r'\D', '', phone).startswith('050'):
                 return phone
             if phone:

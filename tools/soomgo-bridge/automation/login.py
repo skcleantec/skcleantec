@@ -9,6 +9,7 @@ from selenium.common.exceptions import TimeoutException
 
 from automation.selectors import URLS, LOGIN
 from automation.navigation import ensure_chat_workspace, is_pro_session_url
+from automation.overlay_modals import dismiss_blocking_overlays
 
 logger = logging.getLogger(__name__)
 
@@ -29,44 +30,61 @@ def _find_first(driver, selectors_str: str, wait=None):
 
 def login_to_soomgo(driver, email: str, password: str, delay: float = 1.0) -> bool:
     try:
-        driver.get(URLS['LOGIN'])
-        time.sleep(delay)
-        wait = WebDriverWait(driver, 15)
+        for attempt in range(2):
+            driver.get(URLS['LOGIN'])
+            time.sleep(delay)
+            dismiss_blocking_overlays(driver, delay * 0.6)
 
-        email_input = _find_first(driver, LOGIN['EMAIL_INPUT'], wait)
-        if not email_input:
-            logger.error('email input not found')
-            return False
+            wait = WebDriverWait(driver, 15)
+            email_input = _find_first(driver, LOGIN['EMAIL_INPUT'], wait)
+            if not email_input:
+                logger.error('email input not found')
+                if attempt == 0:
+                    dismiss_blocking_overlays(driver, delay)
+                    continue
+                return False
 
-        email_input.clear()
-        email_input.send_keys(email)
-        time.sleep(delay * 0.5)
+            dismiss_blocking_overlays(driver, delay * 0.4)
+            email_input.clear()
+            email_input.send_keys(email)
+            time.sleep(delay * 0.5)
 
-        password_input = _find_first(driver, LOGIN['PASSWORD_INPUT'])
-        if not password_input:
-            logger.error('password input not found')
-            return False
+            password_input = _find_first(driver, LOGIN['PASSWORD_INPUT'])
+            if not password_input:
+                logger.error('password input not found')
+                return False
 
-        password_input.clear()
-        password_input.send_keys(password)
-        time.sleep(delay * 0.5)
+            dismiss_blocking_overlays(driver, delay * 0.4)
+            password_input.clear()
+            password_input.send_keys(password)
+            time.sleep(delay * 0.5)
 
-        login_button = _find_first(driver, LOGIN['LOGIN_BUTTON'])
-        if not login_button:
-            logger.error('login button not found')
-            return False
+            login_button = _find_first(driver, LOGIN['LOGIN_BUTTON'])
+            if not login_button:
+                logger.error('login button not found')
+                return False
 
-        login_button.click()
-        time.sleep(delay * 2)
+            login_button.click()
+            time.sleep(delay * 1.5)
+            dismiss_blocking_overlays(driver, delay * 0.6)
+            time.sleep(delay)
 
-        ensure_chat_workspace(driver, delay=delay)
+            ensure_chat_workspace(driver, delay=delay)
+            dismiss_blocking_overlays(driver, delay * 0.5)
 
-        current_url = driver.current_url.lower()
-        if 'login' in current_url or '/sign' in current_url:
-            return False
+            if is_pro_session_url(driver.current_url):
+                return True
+
+            current_url = driver.current_url.lower()
+            if 'login' not in current_url and '/sign' not in current_url and is_pro_session_url(driver.current_url):
+                return True
+
+            logger.warning('login attempt %s still on login page, retrying after overlay dismiss', attempt + 1)
+            dismiss_blocking_overlays(driver, delay)
+
         return is_pro_session_url(driver.current_url)
     except TimeoutException:
-        return False
+        return is_pro_session_url(driver.current_url)
     except Exception as e:
         logger.error('login error: %s', e)
         return False

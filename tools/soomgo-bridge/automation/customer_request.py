@@ -3,9 +3,15 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from typing import Any
 
+from automation.overlay_modals import dismiss_blocking_overlays
+
 logger = logging.getLogger(__name__)
+
+REQUEST_MODAL_DELAY = 1.6
+REQUEST_MODAL_READY_TIMEOUT = 10.0
 
 _DATE_RE = re.compile(r'(\d{4}-\d{2}-\d{2})')
 _PYEONG_ANSWER_RE = re.compile(r'(\d{1,4})\s*평')
@@ -243,9 +249,32 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
 
 
 class CustomerRequestManager:
-    def __init__(self, driver, delay: float = 1.2):
+    def __init__(self, driver, delay: float = REQUEST_MODAL_DELAY):
         self.driver = driver
         self.delay = delay
+
+    def _modal_has_content(self) -> bool:
+        data = self.extract_request_modal()
+        if not data:
+            return False
+        pairs = data.get('requestPairs')
+        if isinstance(pairs, list) and len(pairs) >= 1:
+            return True
+        if data.get('customerName'):
+            return True
+        raw = str(data.get('requestRawText', ''))
+        return '요청 상세' in raw and len(raw) > 40
+
+    def wait_for_request_modal_ready(self, timeout: float = REQUEST_MODAL_READY_TIMEOUT) -> bool:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if not self.is_request_modal_open():
+                time.sleep(0.35)
+                continue
+            if self._modal_has_content():
+                return True
+            time.sleep(0.45)
+        return self.is_request_modal_open() and self._modal_has_content()
 
     def get_header_customer_name(self) -> str | None:
         try:
@@ -263,13 +292,23 @@ class CustomerRequestManager:
             return False
 
     def open_request_modal(self) -> bool:
-        if self.is_request_modal_open():
+        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
+        if self.is_request_modal_open() and self._modal_has_content():
             return True
         try:
-            clicked = self.driver.execute_script(_OPEN_REQUEST_MODAL_JS)
-            if clicked:
-                import time
-                time.sleep(self.delay)
+            for attempt in range(3):
+                dismiss_blocking_overlays(self.driver, self.delay * 0.3)
+                clicked = self.driver.execute_script(_OPEN_REQUEST_MODAL_JS)
+                if clicked:
+                    time.sleep(self.delay * 0.6)
+                    if self.wait_for_request_modal_ready(timeout=8.0):
+                        return True
+                if self.is_request_modal_open():
+                    time.sleep(self.delay * 0.5)
+                    if self.wait_for_request_modal_ready(timeout=5.0):
+                        return True
+                time.sleep(self.delay * 0.4)
+                logger.debug('open_request_modal retry %s', attempt + 1)
             return self.is_request_modal_open()
         except Exception as e:
             logger.error('open_request_modal: %s', e)
@@ -296,8 +335,14 @@ class CustomerRequestManager:
         try:
             if not self.is_request_modal_open():
                 return True
-            self.driver.execute_script(_CLOSE_REQUEST_MODAL_JS)
-            import time
+            for _ in range(2):
+                self.driver.execute_script(_CLOSE_REQUEST_MODAL_JS)
+                time.sleep(self.delay * 0.45)
+                if not self.is_request_modal_open():
+                    return True
+            self.driver.execute_script(
+                "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));"
+            )
             time.sleep(self.delay * 0.35)
             return not self.is_request_modal_open()
         except Exception as e:
@@ -305,20 +350,30 @@ class CustomerRequestManager:
             return False
 
     def extract_customer_request(self) -> dict[str, Any]:
-        import time
         empty: dict[str, Any] = {}
+        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
+
         name = self.get_header_customer_name()
         if name:
             empty['customerName'] = name
+
         if not self.open_request_modal():
             return empty
-        time.sleep(self.delay * 0.5)
+
+        if not self.wait_for_request_modal_ready(timeout=REQUEST_MODAL_READY_TIMEOUT):
+            logger.warning('customer request modal opened but content not ready')
+
+        time.sleep(self.delay * 0.35)
         data = self.extract_request_modal() or {}
         header_name = name or self.get_header_customer_name()
         if header_name and not data.get('customerName'):
             data['customerName'] = header_name
         elif data.get('customerName') and header_name:
             data['customerName'] = str(data['customerName']).strip() or header_name
+
         self.close_request_modal()
-        time.sleep(self.delay * 0.25)
+        time.sleep(self.delay * 0.55)
+        if self.is_request_modal_open():
+            self.close_request_modal()
+            time.sleep(self.delay * 0.4)
         return data

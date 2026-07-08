@@ -11,8 +11,9 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
 from automation.selectors import URLS
-from automation.customer_request import CustomerRequestManager
+from automation.customer_request import CustomerRequestManager, REQUEST_MODAL_DELAY
 from automation.call_modal import CallModalManager
+from automation.overlay_modals import dismiss_blocking_overlays
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +177,7 @@ def parse_fields_from_texts(texts: list[str]) -> dict[str, Any]:
 
 
 class ChatRoomManager:
-    def __init__(self, driver, delay: float = 1.2):
+    def __init__(self, driver, delay: float = REQUEST_MODAL_DELAY):
         self.driver = driver
         self.delay = delay
 
@@ -319,9 +320,13 @@ class ChatRoomManager:
             return []
 
     def extract_current_chat(self) -> dict[str, Any]:
+        """① 고객명 클릭 → 요청 모달 파싱 → X 닫기 → ② 전화 아이콘 → 안심번호 (순차 매크로)."""
         chat_id = self.get_current_chat_id()
+        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
+
         req_mgr = CustomerRequestManager(self.driver, self.delay)
         request_data = req_mgr.extract_customer_request()
+
         customer_name = (
             request_data.get('customerName')
             or self.get_nickname()
@@ -339,6 +344,11 @@ class ChatRoomManager:
         if request_data.get('requestMemo'):
             parsed['memo'] = str(request_data['requestMemo'])
         last_message = customer_messages[-1] if customer_messages else None
+
+        # 고객 요청 모달이 완전히 닫힌 뒤 전화 모달 진행
+        req_mgr.close_request_modal()
+        time.sleep(self.delay * 0.55)
+        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
 
         call_mgr = CallModalManager(self.driver, self.delay)
         safe_phone = call_mgr.try_extract_safe_phone()

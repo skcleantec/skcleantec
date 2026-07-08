@@ -145,6 +145,20 @@ def _page_mode(url: str, in_room: bool) -> str:
     return 'other'
 
 
+def _sync_logged_in_from_browser() -> bool:
+    """Chrome URL 기준 로그인 상태 — 메모리 플래그와 동기화."""
+    global _logged_in
+    if not _browser.is_running() or not _browser.driver:
+        return False
+    try:
+        url_ok = is_logged_in(_browser.driver)
+    except Exception:
+        url_ok = False
+    if url_ok:
+        _logged_in = True
+    return url_ok
+
+
 def _status_payload() -> dict[str, Any]:
     running = _browser.is_running()
     in_room = False
@@ -173,7 +187,7 @@ def _status_payload() -> dict[str, Any]:
         'bridgeVersion': BRIDGE_VERSION,
         'bridgeRunning': True,
         'browserRunning': running,
-        'loggedIn': _logged_in and is_logged_in(_browser.driver) if running else False,
+        'loggedIn': _sync_logged_in_from_browser() if running else False,
         'inChatRoom': in_room,
         'onChatList': page_mode == 'chat_list',
         'onRequestsPage': page_mode == 'requests',
@@ -257,6 +271,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     _json_response(self, 400, {'ok': False, 'error': 'email/password required'})
                     return
                 ok = login_to_soomgo(driver, email, password)
+                if not ok and is_logged_in(driver):
+                    goto_chat_list(driver)
+                    ok = True
                 _logged_in = ok
                 _last_error = None if ok else '숨고 로그인에 실패했습니다.'
                 status = 200 if ok else 401
@@ -264,7 +281,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 return
 
             if path == '/open-chats':
-                if not is_logged_in(driver):
+                if not _sync_logged_in_from_browser():
                     _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
                     return
                 goto_chat_list(driver, force_list=False)
