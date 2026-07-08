@@ -3,7 +3,7 @@ import { SOOMGO_BRIDGE_BASE_URL, SOOMGO_BRIDGE_MIN_VERSION } from '@shared/soomg
 import type { SoomgoSplitScreenBounds } from '../utils/crmSoomgoSplitLayout';
 
 export const SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE =
-  '숨고 연동 프로그램이 실행 중이 아닙니다. PC에서「SK클린텍 숨고 연동」을 실행한 뒤 다시 시도해 주세요.';
+  '숨고 연동 프로그램이 실행 중이 아닙니다. PC에서「청소비서 숨고 연동」을 실행한 뒤 다시 시도해 주세요.';
 
 export const SOOMGO_BRIDGE_OUTDATED_MESSAGE =
   '숨고 연동 프로그램 업데이트가 필요합니다. 트레이 아이콘 → 업데이트 확인 또는 CRM 설정에서 다운로드하세요.';

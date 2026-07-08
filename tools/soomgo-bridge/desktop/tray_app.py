@@ -1,4 +1,4 @@
-"""SK클린텍 숨고 브릿지 — 트레이·상태창·자동 업데이트"""
+"""청소비서 숨고 브릿지 — 트레이·상태창·자동 업데이트"""
 from __future__ import annotations
 
 import logging
@@ -29,7 +29,7 @@ from desktop.manifest_client import (
 )
 from desktop.status_window import StatusWindow
 from desktop.update_manager import perform_update, restart_self
-from version_info import APP_VERSION, BRIDGE_API_VERSION
+from version_info import APP_DISPLAY_NAME, APP_VERSION, BRIDGE_API_VERSION
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger('soomgo-bridge-desktop')
@@ -208,7 +208,7 @@ class TrayApp:
         self._icon = pystray.Icon(
             'soomgo-bridge',
             self._icon_image(),
-            'SK클린텍 숨고 연동',
+            APP_DISPLAY_NAME,
             menu=self._build_menu(),
         )
         self._window.show()

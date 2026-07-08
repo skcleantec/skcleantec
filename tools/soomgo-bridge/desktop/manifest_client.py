@@ -6,22 +6,24 @@ from typing import Any
 
 import requests
 
-from desktop.config import manifest_url
+from desktop.config import iter_manifest_urls, save_resolved_manifest_url
 from version_info import APP_VERSION, BRIDGE_API_VERSION
 
 logger = logging.getLogger(__name__)
 
 
 def fetch_manifest() -> dict[str, Any] | None:
-    url = manifest_url()
-    try:
-        res = requests.get(url, timeout=12)
-        res.raise_for_status()
-        data = res.json()
-        if isinstance(data, dict):
-            return data
-    except Exception as e:
-        logger.warning('manifest fetch failed (%s): %s', url, e)
+    for url in iter_manifest_urls():
+        try:
+            res = requests.get(url, timeout=12)
+            res.raise_for_status()
+            data = res.json()
+            if isinstance(data, dict) and data.get('latestVersion'):
+                save_resolved_manifest_url(url)
+                logger.info('manifest ok: %s', url)
+                return data
+        except Exception as e:
+            logger.warning('manifest fetch failed (%s): %s', url, e)
     return None
 
 
@@ -57,7 +59,7 @@ def is_update_available(manifest: dict[str, Any] | None, app_version: str = APP_
 
 def manifest_summary(manifest: dict[str, Any] | None) -> str:
     if not manifest:
-        return '매니페스트를 불러오지 못했습니다.'
+        return '업데이트 서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.'
     latest = manifest.get('latestVersion', '?')
     required = manifest.get('requiredVersion', '?')
     notes = str(manifest.get('releaseNotes', '')).strip()

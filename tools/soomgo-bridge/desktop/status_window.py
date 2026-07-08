@@ -5,13 +5,13 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any
 
-from version_info import APP_VERSION, BRIDGE_API_VERSION
+from version_info import APP_DISPLAY_NAME, APP_VERSION, BRIDGE_API_VERSION
 
 
 class StatusWindow:
     def __init__(self) -> None:
         self.root = tk.Tk()
-        self.root.title('SK클린텍 숨고 연동')
+        self.root.title(APP_DISPLAY_NAME)
         self.root.geometry('420x320')
         self.root.minsize(360, 280)
         self.root.protocol('WM_DELETE_WINDOW', self.hide)

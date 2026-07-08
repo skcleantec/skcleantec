@@ -5,9 +5,8 @@
 ## 상담사 PC — 설치 프로그램 (권장)
 
 1. 텔레CRM **설정 → 숨고 연동** 또는 상단 바에서 **설치 프로그램** 다운로드
-2. `SoomgoBridge-Setup-x.y.z.exe` 실행
-3. 설치 마법사에서 **매니페스트 URL** 입력 (예: `https://your-app.up.railway.app/api/public/soomgo-bridge/manifest`)
-4. 완료 후 트레이 아이콘 확인 → 텔레CRM **숨고 연동** 사용
+2. `SoomgoBridge-Setup-x.y.z.exe` 실행 — **서버 주소 입력 없음** (cbiseo.com·스테이징 자동 연결)
+3. 완료 후 트레이 **「청소비서 숨고 연동」** 아이콘 확인 → 텔레CRM **숨고 연동** 사용
 
 Setup 방식의 장점:
 
@@ -25,12 +24,12 @@ cd tools\soomgo-bridge
 run-desktop.bat
 ```
 
-- 시스템 트레이에 **「SK클린텍 숨고 연동」** 아이콘이 표시됩니다.
+- 시스템 트레이에 **「청소비서 숨고 연동」** 아이콘이 표시됩니다.
 - 브릿지 API 서버를 백그라운드로 기동하고, 상태창·자동 업데이트를 제공합니다.
 
 ### 설정 (수동)
 
-`%LOCALAPPDATA%\SKCleantec\SoomgoBridge\config.json` — Setup 설치 시 마법사가 자동 생성합니다.
+`%LOCALAPPDATA%\SKCleantec\SoomgoBridge\config.json` — 기본 `manifestMode: auto` (주소 자동).
 
 ```json
 {

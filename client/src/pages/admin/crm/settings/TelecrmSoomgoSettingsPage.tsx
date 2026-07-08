@@ -150,8 +150,9 @@ export function TelecrmSoomgoSettingsPage() {
       <SettingsCard title="숨고 연동 프로그램 (PC)">
         <div className="space-y-3 text-fluid-sm text-gray-600">
           <p>
-            상담사 PC에 <strong>「SK클린텍 숨고 연동」</strong> 프로그램을 설치·실행합니다. 트레이 아이콘이
+            상담사 PC에 <strong>「청소비서 숨고 연동」</strong> 프로그램을 설치·실행합니다. 트레이 아이콘이
             떠 있으면 텔레CRM 상단 <strong>숨고 연동</strong> 바에서 Chrome 숨고와 연결할 수 있습니다.
+            별도 주소 입력 없이 cbiseo.com·스테이징·개발 환경을 자동으로 연결합니다.
           </p>
           {bridgeManifest ? (
             <p>
@@ -178,7 +179,7 @@ export function TelecrmSoomgoSettingsPage() {
             </p>
           )}
           <ul className="list-disc space-y-1 pl-5 text-fluid-xs text-gray-500">
-            <li>Setup 설치 시 매니페스트 URL을 입력하면 자동 업데이트·CRM 다운로드가 연결됩니다.</li>
+            <li>설치 파일을 실행하면 안내에 따라 진행합니다. 서버 주소는 입력하지 않아도 됩니다.</li>
             <li>설치 후 트레이 아이콘이 보이면 텔레CRM 숨고 연동을 사용할 수 있습니다.</li>
             <li>개발용: <code className="rounded bg-gray-100 px-1 py-0.5">run-desktop.bat</code> 또는{' '}
               <code className="rounded bg-gray-100 px-1 py-0.5">run-bridge.bat</code></li>

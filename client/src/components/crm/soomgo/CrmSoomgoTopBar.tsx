@@ -63,7 +63,7 @@ export function CrmSoomgoTopBar({
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[11px] text-amber-900">
             <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold">브릿지 미실행</span>
             <span className="hidden min-w-0 truncate sm:inline" title={SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE}>
-              「SK클린텍 숨고 연동」프로그램 실행 후 연결
+              「청소비서 숨고 연동」프로그램 실행 후 연결
             </span>
             {downloadUrl ? (
               <a
