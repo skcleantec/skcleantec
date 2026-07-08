@@ -6,19 +6,22 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import pathlib
+import shutil
+import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 from automation.browser import BrowserManager
 from automation.call_modal import CallModalManager
 from automation.chat_room import ChatRoomManager
 from automation.login import goto_chat_list, is_logged_in, login_to_soomgo
 from automation.overlay_modals import dismiss_blocking_overlays
+from automation.sequence_sender import run_send_sequence
 from automation.navigation import (
     is_in_chat_room_url,
     is_on_chat_list_url,
@@ -109,6 +112,47 @@ def _arrange_soomgo_layout(body: dict[str, Any]) -> bool:
         return False
     bounds = body.get('screen') if isinstance(body.get('screen'), dict) else body
     return _browser.arrange_right_half(bounds if isinstance(bounds, dict) else None)
+
+
+def _download_sequence_images(steps: list[dict[str, Any]]) -> tuple[dict[str, str], str | None, pathlib.Path | None]:
+    """HTTPS 이미지 URL → 임시 파일. (url→path 맵, 오류, 정리용 tempdir)"""
+    urls: list[str] = []
+    for step in steps:
+        if not isinstance(step, dict) or step.get('type') != 'images':
+            continue
+        raw_urls = step.get('urls')
+        if not isinstance(raw_urls, list):
+            continue
+        for raw in raw_urls:
+            url = str(raw).strip()
+            if url.startswith('https://') and url not in urls:
+                urls.append(url)
+
+    if not urls:
+        return {}, None, None
+
+    temp_dir = pathlib.Path(tempfile.mkdtemp(prefix='soomgo-seq-'))
+    mapping: dict[str, str] = {}
+    try:
+        for index, url in enumerate(urls, start=1):
+            ext = '.jpg'
+            lower = url.split('?')[0].lower()
+            for candidate in ('.png', '.jpeg', '.jpg', '.gif', '.webp'):
+                if lower.endswith(candidate):
+                    ext = candidate if candidate != '.jpeg' else '.jpg'
+                    break
+            dest = temp_dir / f'img_{index}{ext}'
+            req = Request(url, headers={'User-Agent': 'Cbiseo-SoomgoBridge/2.1'})
+            with urlopen(req, timeout=30) as resp:
+                data = resp.read()
+            if not data:
+                raise ValueError(f'empty image: {url}')
+            dest.write_bytes(data)
+            mapping[url] = str(dest)
+        return mapping, None, temp_dir
+    except Exception as e:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return {}, f'이미지 다운로드 실패: {e}', None
 
 
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]):
@@ -344,6 +388,40 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         'ok': False,
                         'error': send_err or '메시지 전송 실패. 숨고 채팅방이 열려 있는지 확인해 주세요.',
                     })
+                return
+
+            if path == '/send-sequence':
+                raw_steps = body.get('steps')
+                if not isinstance(raw_steps, list) or not raw_steps:
+                    _json_response(self, 400, {'ok': False, 'error': 'steps required'})
+                    return
+                room = ChatRoomManager(driver)
+                if not room.is_in_chat_room():
+                    _json_response(self, 400, {
+                        'ok': False,
+                        'error': '숨고 Chrome 창에서 채팅방을 연 뒤 다시 시도해 주세요.',
+                    })
+                    return
+                image_map, dl_err, temp_dir = _download_sequence_images(raw_steps)
+                if dl_err:
+                    _json_response(self, 400, {'ok': False, 'error': dl_err})
+                    return
+                try:
+                    ok, seq_err = run_send_sequence(
+                        room,
+                        raw_steps,
+                        image_paths_by_url=image_map,
+                    )
+                    if ok:
+                        _json_response(self, 200, {'ok': True})
+                    else:
+                        _json_response(self, 500, {
+                            'ok': False,
+                            'error': seq_err or '순차 전송에 실패했습니다.',
+                        })
+                finally:
+                    if temp_dir and temp_dir.exists():
+                        shutil.rmtree(temp_dir, ignore_errors=True)
                 return
 
             if path == '/watch-call-button':

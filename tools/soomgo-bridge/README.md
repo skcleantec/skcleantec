@@ -88,6 +88,7 @@ GitHub Actions: 태그 `soomgo-bridge-v*` 푸시 시 Setup+ZIP 자동 빌드
 | POST | `/open-call-modal` | 전화 아이콘 → 통화 모달 |
 | POST | `/extract-call-number` | 모달에서 0504 안심번호 추출 |
 | POST | `/send-message` | `{ message }` 숨고 채팅 전송 |
+| POST | `/send-sequence` | `{ steps: [{type,text}|{type,urls,mode}] }` 순차 전송 |
 | POST | `/request-update` | 트레이 앱에 업데이트 확인 요청 |
 
 `bridgeVersion: 2` 이상이 필요합니다 (안심번호·2분할·원스톱 extract).

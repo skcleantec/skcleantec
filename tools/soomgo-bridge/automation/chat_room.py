@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
-from typing import Any
+from typing import Any, Literal
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -375,6 +376,93 @@ class ChatRoomManager:
             'customerMessages': customer_messages[-12:],
             'currentUrl': self.driver.current_url,
         }
+
+    def _click_attachment_and_find_file_input(self):
+        input_elem = self._find_message_input()
+        if input_elem:
+            try:
+                input_elem.click()
+                time.sleep(0.2)
+            except Exception:
+                pass
+
+        for selector in ['input[type="file"]', 'input[accept*="image"]']:
+            for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
+                try:
+                    if elem.is_enabled():
+                        return elem
+                except Exception:
+                    continue
+
+        attach_selectors = [
+            'button[aria-label*="이미지"]',
+            'button[aria-label*="사진"]',
+            'button[aria-label*="첨부"]',
+            '[class*="attach"]',
+            'img[alt*="첨부"]',
+            'img[alt*="이미지"]',
+        ]
+        for selector in attach_selectors:
+            for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
+                if not elem.is_displayed():
+                    continue
+                try:
+                    elem.click()
+                    time.sleep(0.35)
+                except Exception:
+                    continue
+                for file_selector in ['input[type="file"]', 'input[accept*="image"]']:
+                    for file_input in self.driver.find_elements(By.CSS_SELECTOR, file_selector):
+                        try:
+                            if file_input.is_enabled():
+                                return file_input
+                        except Exception:
+                            continue
+        return None
+
+    def upload_images(
+        self,
+        image_paths: list[str],
+        mode: Literal['bundle', 'single'] = 'bundle',
+    ) -> tuple[bool, str | None]:
+        """채팅 입력창 포커스 → 첨부 아이콘 → file input send_keys."""
+        try:
+            existing = [p for p in image_paths if p and os.path.isfile(p)]
+            if not existing:
+                return False, '전송할 이미지 파일이 없습니다.'
+
+            self._hide_tooltips()
+            batches = [existing] if mode == 'bundle' else [[p] for p in existing]
+
+            for batch in batches:
+                file_input = self._click_attachment_and_find_file_input()
+                if not file_input:
+                    return False, '숨고 채팅 이미지 첨부 입력을 찾지 못했습니다.'
+
+                abs_paths = [os.path.abspath(p) for p in batch]
+                payload = '\n'.join(abs_paths)
+                try:
+                    file_input.send_keys(payload)
+                except Exception as e:
+                    logger.warning('upload_images send_keys: %s', e)
+                    return False, '이미지 첨부에 실패했습니다. 채팅방 입력창을 확인해 주세요.'
+
+                time.sleep(self.delay * 1.2)
+
+                input_elem = self._find_message_input()
+                if input_elem:
+                    send_btn = self._find_send_button(input_elem)
+                    if send_btn:
+                        try:
+                            send_btn.click()
+                        except Exception:
+                            pass
+                        time.sleep(self.delay * 0.8)
+
+            return True, None
+        except Exception as e:
+            logger.error('upload_images: %s', e)
+            return False, f'이미지 전송 중 오류: {e}'
 
     def send_message(self, message: str) -> tuple[bool, str | None]:
         try:

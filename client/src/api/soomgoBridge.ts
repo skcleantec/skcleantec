@@ -2,8 +2,11 @@ import type { SoomgoBridgeStatus, SoomgoExtractedChat, SoomgoBridgeManifest } fr
 import {
   SOOMGO_BRIDGE_BASE_URL,
   SOOMGO_BRIDGE_MIN_VERSION,
+  SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION,
+  compareSoomgoSemver,
   isSoomgoAppOutdated,
 } from '@shared/soomgoBridge';
+import type { SoomgoMessageStep } from '@shared/soomgoMessagePresets';
 import type { SoomgoSplitScreenBounds } from '../utils/crmSoomgoSplitLayout';
 
 export const SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE =
@@ -146,10 +149,32 @@ export async function extractSoomgoCurrentChat(): Promise<SoomgoExtractedChat> {
   return res.data;
 }
 
+export const SOOMGO_BRIDGE_SEQUENCE_OUTDATED_MESSAGE =
+  '숨고 연동 v2.1.0 이상이 필요합니다. 설정에서 프로그램을 업데이트한 뒤 프리셋 전송을 사용해 주세요.';
+
+export function isSoomgoBridgeSequenceSupported(status: SoomgoBridgeStatus | null | undefined): boolean {
+  const current = status?.appVersion?.trim();
+  if (!current) return false;
+  return compareSoomgoSemver(current, SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION) >= 0;
+}
+
 export async function sendSoomgoBridgeMessage(message: string): Promise<void> {
   await bridgeFetch<{ ok: boolean }>('/send-message', {
     method: 'POST',
     body: JSON.stringify({ message }),
+  });
+}
+
+export async function sendSoomgoBridgeSequence(
+  steps: SoomgoMessageStep[],
+  status?: SoomgoBridgeStatus | null,
+): Promise<void> {
+  if (!isSoomgoBridgeSequenceSupported(status)) {
+    throw new Error(SOOMGO_BRIDGE_SEQUENCE_OUTDATED_MESSAGE);
+  }
+  await bridgeFetch<{ ok: boolean }>('/send-sequence', {
+    method: 'POST',
+    body: JSON.stringify({ steps }),
   });
 }
 

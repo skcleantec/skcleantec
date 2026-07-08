@@ -1,0 +1,73 @@
+---
+description: 텔레CRM·숨고 연동(데스크톱) 수정 시 자동 업데이트·릴리스 절차 (현행 방식 유지 필수)
+globs: tools/soomgo-bridge/**,client/src/**/crm/**,client/src/hooks/useCrmSoomgoBridge.ts,client/src/api/soomgoBridge.ts,shared/soomgoBridge.ts,server/src/modules/telecrm/**
+alwaysApply: false
+---
+
+# 숨고 연동 · CRM — 자동 업데이트 (현행 방식 고정)
+
+**텔레CRM 숨고 연동 UI** 또는 **`tools/soomgo-bridge` 데스크톱·브릿지**를 바꿀 때, 상담사 PC 업데이트는 **아래 파이프라인만** 사용한다. ZIP 수동 배포·매니페스트 URL 수동 입력·버전만 올리고 Railway 미반영 등 **우회 금지**.
+
+## 아키텍처 (단일 소스)
+
+| 계층 | 역할 |
+|------|------|
+| **Railway Variables** | `SOOMGO_BRIDGE_LATEST_VERSION`, `DOWNLOAD_URL`(Setup.exe), `SHA256`, `REQUIRED_VERSION` |
+| **공개 매니페스트** | `GET /api/public/soomgo-bridge/manifest` (운영 `www.cbiseo.com`) |
+| **GitHub Release** | `SoomgoBridge-Setup-{semver}.exe` + `railway-env-{semver}.txt` |
+| **데스크톱 트레이** | `manifestMode: auto` — cbiseo.com → 스테이징 → 로컬 순 매니페스트 조회 |
+| **CRM** | `status.appVersion` vs 매니페스트 `latestVersion` — 구버전이면 **연결·로그인 차단** + 「업데이트」「설치」 |
+
+## 버전 bump (한 세트)
+
+데스크톱·브릿지 의미 있는 변경 시 **semver를 함께** 올린다:
+
+- `tools/soomgo-bridge/version_info.py` — `APP_VERSION`
+- `tools/soomgo-bridge/installer/soomgo-bridge.iss` — `MyAppVersion`
+- `shared/soomgoBridge.ts` — `SOOMGO_BRIDGE_APP_VERSION`
+- `server/src/modules/telecrm/soomgoBridgeManifest.ts` — fallback semver
+
+`BRIDGE_API_VERSION`(정수)는 **호환 깨는 API 변경** 때만 올리고 `SOOMGO_BRIDGE_REQUIRED_VERSION`·`SOOMGO_BRIDGE_MIN_VERSION`과 맞춘다.
+
+## 릴리스 절차 (에이전트 마무리)
+
+1. `staging`에 커밋·푸시
+2. 태그 **`soomgo-bridge-v{semver}`** 푸시 → Actions **Soomgo Bridge Release** → Setup.exe·ZIP·`railway-env-*.txt` 업로드
+3. `main` fast-forward 머지(운영 반영 시)
+4. **Railway** (cbiseo.com 웹 서비스, staging·production):
+   ```powershell
+   cd tools\soomgo-bridge\scripts
+   .\set-railway-vars.ps1 -Target both -Version {semver}
+   ```
+   (`railway-env-*.txt`의 `SHA256`·`DOWNLOAD_URL`과 일치)
+5. 매니페스트 확인: `https://www.cbiseo.com/api/public/soomgo-bridge/manifest` → `latestVersion`·URL·sha256
+
+## CRM 쪽 규칙 (유지)
+
+- `isSoomgoBridgeOutdated(status, manifest)` — **API 버전 + 앱 semver** 둘 다 검사
+- `openSoomgo` / 폴링: 구버전이면 로그인·추출 **시작하지 않음**, `requestSoomgoBridgeUpdate()` 호출
+- 상담사에게 **매니페스트 URL·서버 주소 입력 요구 금지** (Inno Setup 마법사에도 URL 단계 없음)
+
+## 데스크톱 쪽 규칙 (유지)
+
+- 트레이 **업데이트 확인** · CRM `POST /request-update` → `update.request` 플래그 → `perform_update` (Setup.exe, SHA256 검증)
+- 설치 기본: **`{autopf}\Cbiseo\SoomgoBridge`**, 설정 `%LOCALAPPDATA%\Cbiseo\SoomgoBridge`
+- 제품명: **「청소비서 숨고 연동」** (`.cursor/rules/no-skcleantec-branding.mdc`)
+
+## 금지
+
+- Setup 없이 ZIP만 Railway에 올려 상담사 기본 배포로 쓰기
+- `LATEST_VERSION`만 바꾸고 GitHub Release·SHA256 미갱신
+- CRM에서 구버전인데 「채팅 열기 / 로그인」 허용
+- 상담사 PC에 **수동 매니페스트 URL** 입력을 다시 요구하는 UI·설치 단계 추가
+
+## 참고 파일
+
+| 항목 | 경로 |
+|------|------|
+| 릴리스 CI | `.github/workflows/soomgo-bridge-release.yml` |
+| 빌드 | `tools/soomgo-bridge/scripts/build-release.ps1` |
+| Railway 일괄 설정 | `tools/soomgo-bridge/scripts/set-railway-vars.ps1` |
+| 트레이·업데이트 | `desktop/tray_app.py`, `desktop/update_manager.py`, `desktop/manifest_client.py` |
+| CRM 훅·API | `useCrmSoomgoBridge.ts`, `api/soomgoBridge.ts`, `CrmSoomgoTopBar.tsx` |
+| 매니페스트 서버 | `server/src/modules/telecrm/soomgoBridgeManifest.ts` |

@@ -804,6 +804,7 @@ export function CrmPage() {
             open={soomgoDrawerOpen}
             onClose={() => setSoomgoDrawerOpen(false)}
             busy={soomgoBusy}
+            bridgeStatus={soomgoStatus}
             onDispatchNotice={showDispatchNotice}
           />
         ) : null}

@@ -1,7 +1,7 @@
 /** @see shared/soomgoBridge.ts — 클라이언트와 값 동기화 */
 
 const SOOMGO_BRIDGE_MIN_VERSION = 2;
-const SOOMGO_BRIDGE_APP_VERSION = '2.0.7';
+const SOOMGO_BRIDGE_APP_VERSION = '2.1.0';
 
 export type SoomgoBridgeManifest = {
   requiredVersion: number;

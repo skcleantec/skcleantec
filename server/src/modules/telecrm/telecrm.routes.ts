@@ -17,6 +17,7 @@ import { telecrmSmsTemplatesRouter } from './telecrmSmsTemplates.routes.js';
 import { telecrmCallNotesRouter } from './telecrmCallNotes.routes.js';
 import { telecrmConsultationQuotesRouter } from './telecrmConsultationQuotes.routes.js';
 import { telecrmSoomgoRouter } from './telecrmSoomgo.routes.js';
+import { telecrmSoomgoMessagePresetsRouter } from './telecrmSoomgoMessagePresets.routes.js';
 
 const router = Router();
 router.use(authMiddleware, requireFeature('mod_telecrm'));
@@ -32,6 +33,7 @@ router.use('/sms-templates', telecrmSmsTemplatesRouter);
 router.use('/call-notes', telecrmCallNotesRouter);
 router.use('/consultation-quotes', telecrmConsultationQuotesRouter);
 router.use('/soomgo', telecrmSoomgoRouter);
+router.use('/soomgo-message-presets', telecrmSoomgoMessagePresetsRouter);
 router.use('/', telecrmMobileRouter);
 
 export const telecrmRoutes = router;

@@ -7,6 +7,7 @@ import {
   updateTelecrmSoomgoConfig,
 } from '../../../../api/telecrmSoomgo';
 import { DeletePasswordModal, SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
+import { TelecrmSoomgoMessagePresetsSection } from '../../../../components/crm/settings/TelecrmSoomgoMessagePresetsSection';
 
 export function TelecrmSoomgoSettingsPage() {
   const token = getToken();
@@ -185,6 +186,10 @@ export function TelecrmSoomgoSettingsPage() {
               <code className="rounded bg-gray-100 px-1 py-0.5">run-bridge.bat</code></li>
           </ul>
         </div>
+      </SettingsCard>
+
+      <SettingsCard title="숨고 메시지 프리셋 (1·2·3번)">
+        <TelecrmSoomgoMessagePresetsSection />
       </SettingsCard>
 
       <DeletePasswordModal

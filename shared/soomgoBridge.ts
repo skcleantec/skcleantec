@@ -5,7 +5,10 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.0.7';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.1.0';
+
+/** 순차 메시지 매크로(`/send-sequence`) 최소 앱 버전 */
+export const SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION = '2.1.0';
 
 /** semver → 정수 배열 (비교용) */
 export function parseSoomgoSemver(version: string): number[] {

@@ -171,6 +171,7 @@ model Tenant {
   telecrmCallNotes    TelecrmCallNote[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
   telecrmSoomgoConfig       TelecrmSoomgoConfig?
+  telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   landingContactFormConfigs LandingContactFormConfig[]
   landingContactInquiries   LandingContactInquiry[]
 
@@ -647,6 +648,7 @@ model User {
   telecrmPriceCategoriesOwned  TelecrmPriceCategory[]  @relation("TelecrmPriceCategoryOwner")
   telecrmCallSessions          TelecrmCallSession[]
   telecrmSmsTemplatesOwned     TelecrmSmsTemplate[] @relation("TelecrmSmsTemplateOwner")
+  telecrmSoomgoMessagePresetsOwned TelecrmSoomgoMessagePreset[] @relation("TelecrmSoomgoMessagePresetOwner")
   telecrmCallNotes             TelecrmCallNote[]
   telecrmConsultationQuotesCreated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteCreatedBy")
   telecrmConsultationQuotesUpdated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteUpdatedBy")
@@ -2838,6 +2840,26 @@ model TelecrmSoomgoConfig {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("telecrm_soomgo_configs")
+}
+
+/// 텔레CRM — 숨고 메시지 프리셋 (1·2·3번 순차 매크로)
+model TelecrmSoomgoMessagePreset {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownerUserId String?  @map("owner_user_id")
+  ownerUser   User?    @relation("TelecrmSoomgoMessagePresetOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  slotNumber  Int      @map("slot_number")
+  label       String   @db.VarChar(120)
+  stepsJson   String   @map("steps_json") @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId, ownerUserId, slotNumber])
+  @@index([tenantId, ownerUserId, sortOrder])
+  @@map("telecrm_soomgo_message_presets")
 }
 
 enum TelecrmConsultationQuoteStatus {
