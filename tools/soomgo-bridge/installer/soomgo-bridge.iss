@@ -2,7 +2,7 @@
 ; 빌드: scripts\build-installer.ps1 -Version 2.0.2
 
 #ifndef MyAppVersion
-#define MyAppVersion "2.0.2"
+#define MyAppVersion "2.0.3"
 #endif
 
 #define MyAppName "청소비서 숨고 연동"
@@ -18,7 +18,7 @@ AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-DefaultDirName={autopf}\SKCleantec\SoomgoBridge
+DefaultDirName={autopf}\Cbiseo\SoomgoBridge
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist
@@ -79,7 +79,7 @@ var
 begin
   if CurStep = ssPostInstall then
   begin
-    ConfigDir := ExpandConstant('{localappdata}\SKCleantec\SoomgoBridge');
+    ConfigDir := ExpandConstant('{localappdata}\Cbiseo\SoomgoBridge');
     ForceDirectories(ConfigDir);
     ConfigPath := ConfigDir + '\config.json';
     Json := '{' + #13#10 +

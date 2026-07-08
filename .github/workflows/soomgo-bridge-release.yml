@@ -50,7 +50,7 @@ jobs:
           tag_name: soomgo-bridge-v${{ steps.ver.outputs.version }}
           name: Soomgo Bridge v${{ steps.ver.outputs.version }}
           body: |
-            SK클린텍 숨고 연동 데스크톱 v${{ steps.ver.outputs.version }}
+            청소비서 숨고 연동 데스크톱 v${{ steps.ver.outputs.version }}
 
             **상담사 PC (권장):** `SoomgoBridge-Setup-*.exe` 더블클릭 → 설치 마법사 → 트레이 실행
             - 설치 중 매니페스트 URL 입력 (스테이징/운영 `/api/public/soomgo-bridge/manifest`)

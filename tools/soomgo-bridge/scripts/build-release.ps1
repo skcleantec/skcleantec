@@ -1,4 +1,4 @@
-# SK클린텍 숨고 브릿지 — 릴리스 빌드 (Setup.exe 권장 + ZIP 보조)
+# 청소비서 숨고 연동 — 릴리스 빌드 (Setup.exe 권장 + ZIP 보조)
 param(
     [string]$Version = '2.0.0',
     [switch]$SkipSetup

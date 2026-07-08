@@ -5,7 +5,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AppData = Join-Path $env:LOCALAPPDATA 'SKCleantec\SoomgoBridge'
+$AppData = Join-Path $env:LOCALAPPDATA 'Cbiseo\SoomgoBridge'
 $ConfigPath = Join-Path $AppData 'config.json'
 
 if (-not (Test-Path $AppData)) {

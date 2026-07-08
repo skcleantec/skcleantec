@@ -1,0 +1,43 @@
+---
+description: 사용자·상담사 대면 브랜딩·경로에 skcleantec/SKCleantec 금지 — 청소비서·Cbiseo 사용
+alwaysApply: true
+---
+
+# 브랜딩·경로 — skcleantec / SKCleantec 사용 금지
+
+## 원칙
+
+- **SK클린텍·SKCleantec·skcleantec** 는 **테넌트(업체) 내부명**이다. **상담사·고객·설치 프로그램·CRM 안내**에는 쓰지 않는다.
+- 대면 제품명·설치 경로·트레이·설정 폴더·에러 메시지·릴리스 안내 문구는 **「청소비서」** 와 **「Cbiseo」** (또는 cbiseo.com) 기준으로 통일한다.
+
+## 필수 표기
+
+| 용도 | 사용 |
+|------|------|
+| 숨고 PC 연동 프로그램명 | **청소비서 숨고 연동** |
+| Windows 설치 폴더 | `{autopf}\Cbiseo\SoomgoBridge` |
+| 설정·업데이트 플래그 | `%LOCALAPPDATA%\Cbiseo\SoomgoBridge` |
+| 운영 URL·매니페스트 | `https://www.cbiseo.com/...` |
+
+## 금지 (신규·수정 시)
+
+- 설치 프로그램 제목·Publisher·바로 가기에 **SK클린텍 / SKCleantec**
+- `%LOCALAPPDATA%\SKCleantec\` 또는 `Programs\SKCleantec\` 경로 **신규 추가**
+- CRM·설치 안내: 「SK클린텍 숨고 연동」 등 **테넌트명을 제품명처럼** 노출
+
+## 예외 (인프라·레거시만)
+
+- **GitHub 저장소 URL** (`github.com/.../skcleantec`) — 호스트 경로라 불가피할 때만. 사용자에게 보이는 문구로 쓰지 않는다.
+- **DB·시드·테넌트 slug `sk`** — 멀티테넌트 데이터·마이그레이션 레거시. UI 라벨로 노출하지 않는다.
+- **구 설치 폴더 `SKCleantec\SoomgoBridge`** — 읽기·마이그레이션만 허용. 신규 기본 경로는 **Cbiseo** (`tools/soomgo-bridge/desktop/config.py`).
+
+## 체크리스트 (숨고 브릿지·CRM 연동 수정 시)
+
+1. Inno Setup `DefaultDirName`·`config.json` 경로가 **Cbiseo** 인가?
+2. 트레이·상태창·`SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE` 가 **청소비서** 인가?
+3. 상담사에게 **URL·매니페스트·서버** 입력을 요구하지 않는가?
+
+## 참고
+
+- 구현: `tools/soomgo-bridge/`
+- 매니페스트: `GET /api/public/soomgo-bridge/manifest`

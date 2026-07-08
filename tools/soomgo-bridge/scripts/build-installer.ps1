@@ -1,4 +1,4 @@
-# SK클린텍 숨고 브릿지 — Inno Setup 설치 파일(.exe) 빌드
+# 청소비서 숨고 연동 — Inno Setup 설치 파일(.exe) 빌드
 param(
     [string]$Version = '2.0.0'
 )

@@ -31,7 +31,15 @@ logger = logging.getLogger('soomgo-bridge')
 
 PORT = 17890
 BRIDGE_VERSION = BRIDGE_API_VERSION
-UPDATE_FLAG_PATH = pathlib.Path(os.environ.get('LOCALAPPDATA', '')) / 'SKCleantec' / 'SoomgoBridge' / 'update.request'
+
+
+def _update_flag_path() -> pathlib.Path:
+    try:
+        from desktop.config import resolve_update_flag_path
+
+        return resolve_update_flag_path()
+    except ImportError:
+        return pathlib.Path(os.environ.get('LOCALAPPDATA', '')) / 'Cbiseo' / 'SoomgoBridge' / 'update.request'
 
 _browser = BrowserManager(headless=False)
 _lock = threading.Lock()
@@ -361,8 +369,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             if path == '/request-update':
                 try:
-                    UPDATE_FLAG_PATH.parent.mkdir(parents=True, exist_ok=True)
-                    UPDATE_FLAG_PATH.write_text(str(int(time.time() * 1000)), encoding='utf-8')
+                    flag_path = _update_flag_path()
+                    flag_path.parent.mkdir(parents=True, exist_ok=True)
+                    flag_path.write_text(str(int(time.time() * 1000)), encoding='utf-8')
                     _json_response(self, 200, {'ok': True, 'message': '업데이트 확인을 요청했습니다.'})
                 except OSError as e:
                     _json_response(self, 500, {'ok': False, 'error': f'업데이트 요청 실패: {e}'})

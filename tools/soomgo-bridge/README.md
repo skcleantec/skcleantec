@@ -29,7 +29,9 @@ run-desktop.bat
 
 ### 설정 (수동)
 
-`%LOCALAPPDATA%\SKCleantec\SoomgoBridge\config.json` — 기본 `manifestMode: auto` (주소 자동).
+`%LOCALAPPDATA%\Cbiseo\SoomgoBridge\config.json` — 기본 `manifestMode: auto` (주소 자동).
+
+설치 경로: `%LOCALAPPDATA%\Programs\Cbiseo\SoomgoBridge` (또는 `Program Files\Cbiseo\SoomgoBridge`).
 
 ```json
 {

@@ -4,15 +4,31 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import shutil
 
 from version_info import APP_VERSION, BRIDGE_API_VERSION
 
 BRIDGE_DIR = pathlib.Path(__file__).resolve().parent.parent
-APP_DATA_DIR = pathlib.Path(os.environ.get('LOCALAPPDATA', '')) / 'SKCleantec' / 'SoomgoBridge'
+
+# 상담사 PC 경로 — Cbiseo (구 SKCleantec 폴더는 마이그레이션만)
+_APP_BRAND_DIR = 'Cbiseo'
+_APP_MODULE_DIR = 'SoomgoBridge'
+_LEGACY_BRAND_DIR = 'SKCleantec'
+
+
+def _local_appdata() -> pathlib.Path:
+    return pathlib.Path(os.environ.get('LOCALAPPDATA', ''))
+
+
+APP_DATA_DIR = _local_appdata() / _APP_BRAND_DIR / _APP_MODULE_DIR
+LEGACY_APP_DATA_DIR = _local_appdata() / _LEGACY_BRAND_DIR / _APP_MODULE_DIR
 CONFIG_PATH = APP_DATA_DIR / 'config.json'
 UPDATE_FLAG_PATH = APP_DATA_DIR / 'update.request'
 BRIDGE_STATUS_URL = 'http://127.0.0.1:17890/status'
 BRIDGE_REQUEST_UPDATE_URL = 'http://127.0.0.1:17890/request-update'
+
+# Inno Setup DefaultDirName 과 동일
+INSTALL_DIR_NAME = rf'{{autopf}}\{_APP_BRAND_DIR}\{_APP_MODULE_DIR}'
 
 # 운영·스테이징·로컬 — 상담사는 URL 입력 없이 자동 시도
 MANIFEST_URL_CANDIDATES: tuple[str, ...] = (
@@ -23,8 +39,38 @@ MANIFEST_URL_CANDIDATES: tuple[str, ...] = (
 )
 
 
+def _migrate_legacy_app_data() -> None:
+    """구 SKCleantec\\SoomgoBridge 설정을 Cbiseo로 한 번 이전."""
+    if CONFIG_PATH.exists() or not LEGACY_APP_DATA_DIR.is_dir():
+        return
+    ensure_app_data()
+    legacy_config = LEGACY_APP_DATA_DIR / 'config.json'
+    if legacy_config.is_file():
+        try:
+            shutil.copy2(legacy_config, CONFIG_PATH)
+        except OSError:
+            pass
+    legacy_flag = LEGACY_APP_DATA_DIR / 'update.request'
+    if legacy_flag.is_file() and not UPDATE_FLAG_PATH.exists():
+        try:
+            shutil.copy2(legacy_flag, UPDATE_FLAG_PATH)
+        except OSError:
+            pass
+
+
 def ensure_app_data() -> None:
     APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    _migrate_legacy_app_data()
+
+
+def resolve_update_flag_path() -> pathlib.Path:
+    ensure_app_data()
+    if UPDATE_FLAG_PATH.exists():
+        return UPDATE_FLAG_PATH
+    legacy = LEGACY_APP_DATA_DIR / 'update.request'
+    if legacy.is_file():
+        return legacy
+    return UPDATE_FLAG_PATH
 
 
 def load_config() -> dict:
@@ -49,7 +95,6 @@ def _is_auto_manifest(cfg: dict) -> bool:
     mode = str(cfg.get('manifestMode', '')).strip().lower()
     if mode == 'auto':
         return True
-    # 구버전: manifestUrl 없음 → 자동
     explicit = str(cfg.get('manifestUrl', '')).strip()
     return not explicit
 
@@ -87,6 +132,5 @@ def iter_manifest_urls() -> list[str]:
 
 
 def manifest_url() -> str:
-    """레거시 단일 URL (첫 후보). 실제 조회는 manifest_client.fetch_manifest 사용."""
     urls = iter_manifest_urls()
     return urls[0] if urls else MANIFEST_URL_CANDIDATES[0]

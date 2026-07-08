@@ -1,4 +1,4 @@
-# SK클린텍 숨고 브릿지 — Railway Variables 일괄 설정
+# 청소비서 숨고 연동 — Railway Variables 일괄 설정
 # 사전: npx @railway/cli login (또는 RAILWAY_TOKEN 환경변수)
 # 사용: .\set-railway-vars.ps1 -Target production
 #       .\set-railway-vars.ps1 -Target staging
@@ -67,7 +67,7 @@ if (-not $linked) {
 
 프로젝트 연결이 필요합니다. 저장소 루트에서:
   npx @railway/cli link
-(skcleantec Railway 프로젝트 · cbiseo.com 웹 서비스가 있는 프로젝트)
+(Cbiseo Railway 프로젝트 · cbiseo.com 웹 서비스가 있는 프로젝트)
 
 "@ -ForegroundColor Yellow
     npx @railway/cli link
