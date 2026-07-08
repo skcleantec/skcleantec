@@ -257,6 +257,30 @@ export function CrmPage() {
     dispatchNoticeTimer.current = setTimeout(() => setDispatchNotice(null), 4000);
   }, []);
 
+  const handleIntakeReset = useCallback(() => {
+    setPhone('');
+    setCustomerName('');
+    setPyeong('');
+    setMode('new');
+    setIntakeKind('absent');
+    setFormResetKey((k) => k + 1);
+    setInitialFormDraft({
+      customerName: '',
+      nickname: '',
+      address: '',
+      preferredMoveInCleanYmd: '',
+      requestMemo: '',
+      kind: 'absent',
+      goldDb: false,
+    });
+    setSoomgoImportBanner(null);
+    setSoomgoImportFlashKey(0);
+    clearCrmIntakeDraft();
+    setHasUnsavedDraft(false);
+    formSnapshotRef.current = null;
+    showDispatchNotice('접수란을 초기화했습니다.');
+  }, [showDispatchNotice]);
+
   const handleSoomgoImport = useCallback((data: SoomgoExtractedChat) => {
     if (data.phone) setPhone(data.phone);
     const name = (data.customerName || data.nickname)?.trim() || '';
@@ -558,6 +582,20 @@ export function CrmPage() {
                     문자
                   </button>
                 ) : null}
+                {!isMobileApp ? (
+                  <button
+                    type="button"
+                    onClick={handleToggleSoomgoBar}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap ${
+                      soomgoBarOpen
+                        ? 'border-cyan-300/60 bg-cyan-400/25 text-white'
+                        : 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25'
+                    }`}
+                  >
+                    <CrmIconSoomgo className="h-4 w-4" />
+                    숨고 연동
+                  </button>
+                ) : null}
                 {canOrderIssue ? (
                   <button
                     type="button"
@@ -609,13 +647,6 @@ export function CrmPage() {
                     onClick: () => setSmsDrawerOpen(true),
                   },
                   {
-                    id: 'soomgo-dual',
-                    label: '숨고 연동',
-                    icon: <CrmIconSoomgo />,
-                    active: soomgoBarOpen,
-                    onClick: handleToggleSoomgoBar,
-                  },
-                  {
                     id: 'soomgo-extract',
                     label: '정보 갖고오기',
                     icon: <CrmIconSoomgo />,
@@ -665,6 +696,7 @@ export function CrmPage() {
                 quotePayload={telecrmQuotePayloadHasContent(quotePayload) ? quotePayload : null}
                 soomgoImportBanner={soomgoImportBanner}
                 soomgoImportFlashKey={soomgoImportFlashKey}
+                onIntakeReset={handleIntakeReset}
               />
             </div>
           }

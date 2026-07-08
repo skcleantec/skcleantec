@@ -132,6 +132,16 @@ export function CrmIconUser({ className }: { className?: string }) {
   );
 }
 
+export function CrmIconReset({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20 20v-5h-5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 9a7 7 0 0112.5-2.5L20 4M19 15a7 7 0 01-12.5 2.5L4 20" />
+    </svg>
+  );
+}
+
 export function CrmColumnIcon({ accent }: { accent: CrmAccent }) {
   const tone = CRM_ACCENT[accent];
   const Icon =

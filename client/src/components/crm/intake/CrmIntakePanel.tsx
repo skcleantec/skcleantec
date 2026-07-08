@@ -8,7 +8,7 @@ import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import type { TelecrmConsultationQuotePayload } from '@shared/telecrmConsultationQuote';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
-import { CrmIconIntake, CrmIconPhone, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldCompactClass } from '../crmUi';
+import { CrmIconIntake, CrmIconPhone, CrmIconReset, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldCompactClass } from '../crmUi';
 import { telecrmCall, isTelecrmNativeApp, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
 import { CrmIntakeForm } from './CrmIntakeForm';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
@@ -104,6 +104,7 @@ export function CrmIntakePanel({
   quotePayload = null,
   soomgoImportBanner = null,
   soomgoImportFlashKey = 0,
+  onIntakeReset,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
@@ -127,6 +128,7 @@ export function CrmIntakePanel({
   quotePayload?: TelecrmConsultationQuotePayload | null;
   soomgoImportBanner?: string | null;
   soomgoImportFlashKey?: number;
+  onIntakeReset?: () => void;
 }) {
   const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
   const [nameSearch, setNameSearch] = useState('');
@@ -258,7 +260,24 @@ export function CrmIntakePanel({
   };
 
   return (
-    <CrmColumn accent="intake" title="접수 · 고객" subtitle="연락처 · 처리 구분">
+    <CrmColumn
+      accent="intake"
+      title="접수 · 고객"
+      subtitle="연락처 · 처리 구분"
+      headerAction={
+        onIntakeReset ? (
+          <button
+            type="button"
+            onClick={onIntakeReset}
+            title="접수란 초기화"
+            aria-label="접수란 초기화"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200/90 bg-white text-slate-500 shadow-sm transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+          >
+            <CrmIconReset className="h-4 w-4" />
+          </button>
+        ) : null
+      }
+    >
       <div className="space-y-2.5">
         <CrmSegment accent="intake" className="w-full flex flex-wrap">
           <CrmSegmentItem
