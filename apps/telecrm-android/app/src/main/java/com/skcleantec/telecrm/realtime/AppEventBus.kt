@@ -26,6 +26,7 @@ object AppEventBus {
     private val connectionListeners = linkedSetOf<(Boolean) -> Unit>()
     private val toastListeners = linkedSetOf<(ToastAlert) -> Unit>()
     private val dialPrefillListeners = linkedSetOf<(DialPrefill) -> Unit>()
+    private var pendingDialPrefill: DialPrefill? = null
     private val dispatchListeners = linkedSetOf<(DispatchPayload) -> Unit>()
 
     fun addInboxRefreshListener(listener: () -> Unit) {
@@ -54,6 +55,7 @@ object AppEventBus {
 
     fun addDialPrefillListener(listener: (DialPrefill) -> Unit) {
         dialPrefillListeners.add(listener)
+        pendingDialPrefill?.let { runCatching { listener(it) } }
     }
 
     fun removeDialPrefillListener(listener: (DialPrefill) -> Unit) {
@@ -83,6 +85,7 @@ object AppEventBus {
 
     fun emitDialPrefill(phone: String, inquiryId: String?, customerMatch: String?) {
         val payload = DialPrefill(phone, inquiryId, customerMatch)
+        pendingDialPrefill = payload
         dialPrefillListeners.forEach { runCatching { it(payload) } }
     }
 

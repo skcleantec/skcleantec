@@ -9,7 +9,7 @@ import {
 import { CrmColumn } from '../layout/CrmShell';
 import { CrmActionButton, CrmSegment, CrmSegmentItem, crmFieldClass } from '../crmUi';
 import { applyTelecrmSmsPlaceholders } from '../../../utils/telecrmSmsPlaceholders';
-import { telecrmSms, isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
+import { telecrmSms, isTelecrmNativeApp, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
 
 type SmsMode = 'template' | 'live';
 
@@ -101,12 +101,13 @@ export function CrmSmsPanel({
       onDispatchNotice?.('보낼 문자 내용이 없습니다.');
       return;
     }
-    const bridgeMode = await telecrmSms(digits, resolved, {
+    const result = await telecrmSms(digits, resolved, {
       inquiryId: inquiryId ?? undefined,
       customerMatch,
       imageUrl,
     });
-    if (bridgeMode === 'dispatch') onDispatchNotice?.('휴대폰 앱으로 문자를 보냈습니다.');
+    const notice = telecrmDispatchNotice(result, 'sms');
+    if (notice) onDispatchNotice?.(notice);
   };
 
   const onLiveImagePick = async (file: File | null) => {

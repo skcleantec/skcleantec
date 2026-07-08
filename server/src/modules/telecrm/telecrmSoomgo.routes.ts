@@ -1,0 +1,65 @@
+import { Router } from 'express';
+import type { AuthPayload } from '../auth/auth.middleware.js';
+import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
+import { requireTelecrmActorPassword, requireTelecrmTenant } from './telecrm.helpers.js';
+import {
+  getTelecrmSoomgoConfig,
+  getTelecrmSoomgoCredentials,
+  upsertTelecrmSoomgoConfig,
+} from './telecrmSoomgo.service.js';
+
+const router = Router();
+
+/** 설정 조회 (비밀번호 미포함) */
+router.get('/config', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const config = await getTelecrmSoomgoConfig(tenantId);
+  res.json(config);
+});
+
+/** 브릿지 로그인용 자격증명 (인증된 스태프만) */
+router.get('/credentials', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const creds = await getTelecrmSoomgoCredentials(tenantId);
+  if (!creds) {
+    res.status(404).json({ error: '숨고 연동 계정이 설정되지 않았습니다. 텔레CRM 설정에서 등록해 주세요.' });
+    return;
+  }
+  res.json(creds);
+});
+
+/** 설정 저장 — 숨고 비밀번호 변경 시 본인 비밀번호 확인 */
+router.put('/config', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const body = req.body as Record<string, unknown>;
+  const email = typeof body.email === 'string' ? body.email : '';
+  const password = typeof body.password === 'string' ? body.password : undefined;
+  const enabled = body.enabled !== false;
+  const actorPassword = body.actorPassword;
+
+  if (password?.trim()) {
+    const ok = await requireTelecrmActorPassword(res, user.userId, tenantId, actorPassword);
+    if (!ok) return;
+  }
+
+  try {
+    const config = await upsertTelecrmSoomgoConfig(tenantId, { email, password, enabled });
+    res.json(config);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'EMAIL_REQUIRED') {
+      res.status(400).json({ error: '숨고 이메일을 입력해 주세요.' });
+      return;
+    }
+    if (e instanceof Error && e.message === 'PASSWORD_REQUIRED') {
+      res.status(400).json({ error: '숨고 비밀번호를 입력해 주세요.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+export const telecrmSoomgoRouter = router;

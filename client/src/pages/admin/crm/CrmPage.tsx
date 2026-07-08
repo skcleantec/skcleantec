@@ -14,7 +14,9 @@ import { CrmSessionBar } from '../../../components/crm/session/CrmSessionBar';
 import { CrmHeaderStats } from '../../../components/crm/session/CrmHeaderStats';
 import { CrmToolSideNav, CrmIconMessage } from '../../../components/crm/layout/CrmToolSideNav';
 import { CrmSmsDrawer } from '../../../components/crm/sms/CrmSmsDrawer';
-import { CrmIconPhone } from '../../../components/crm/crmUi';
+import { CrmIconPhone, CrmIconSoomgo } from '../../../components/crm/crmUi';
+import { CrmSoomgoPanel } from '../../../components/crm/soomgo/CrmSoomgoPanel';
+import type { SoomgoExtractedChat } from '@shared/soomgoBridge';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
@@ -97,6 +99,8 @@ export function CrmPage() {
     closePanel,
     setSettingsTab,
     setCatalogScope,
+    soomgoOpen,
+    setSoomgoOpen,
   } = useCrmPanelUrl();
 
   const { openInquiryEdit, layer: inquiryEditLayer } = useCrmInquiryEdit(canView, () => {
@@ -238,6 +242,23 @@ export function CrmPage() {
     setDispatchNotice(message);
     if (dispatchNoticeTimer.current) clearTimeout(dispatchNoticeTimer.current);
     dispatchNoticeTimer.current = setTimeout(() => setDispatchNotice(null), 4000);
+  }, []);
+
+  const handleSoomgoImport = useCallback((data: SoomgoExtractedChat) => {
+    if (data.phone) setPhone(data.phone);
+    const name = data.nickname?.trim() || '';
+    if (name) setCustomerName(name);
+    if (data.pyeong) setPyeong(String(data.pyeong));
+    setMode('new');
+    setInitialFormDraft({
+      customerName: name,
+      nickname: name,
+      address: data.address?.trim() || '',
+      preferredMoveInCleanYmd: '',
+      kind: 'absent',
+      goldDb: false,
+    });
+    setFormResetKey((k) => k + 1);
   }, []);
 
   const handleIntakeSaved = useCallback(() => {
@@ -449,9 +470,15 @@ export function CrmPage() {
         </div>
       }
     >
-      <div className={isMobileApp ? 'min-w-0 w-full' : 'min-w-[1280px]'}>
+      <div className={isMobileApp ? 'min-w-0 w-full' : soomgoOpen ? 'min-w-[1680px]' : 'min-w-[1280px]'}>
         <CrmShell
           mobile={isMobileApp}
+          soomgoOpen={soomgoOpen}
+          soomgo={
+            !isMobileApp ? (
+              <CrmSoomgoPanel onImport={handleSoomgoImport} onDispatchNotice={showDispatchNotice} />
+            ) : undefined
+          }
           header={
             <header className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-2 border-b border-white/10 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-3 py-2.5 text-white shadow-lg sm:gap-x-3 sm:px-4 sm:py-3 lg:flex-nowrap">
               <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
@@ -490,6 +517,20 @@ export function CrmPage() {
                     className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-sky-400/40 bg-sky-500/15 px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap text-sky-100 hover:bg-sky-500/25"
                   >
                     발주서
+                  </button>
+                ) : null}
+                {!isMobileApp ? (
+                  <button
+                    type="button"
+                    onClick={() => setSoomgoOpen(!soomgoOpen)}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap ${
+                      soomgoOpen
+                        ? 'border-sky-300 bg-sky-400/25 text-white'
+                        : 'border-sky-400/40 bg-sky-500/15 text-sky-100 hover:bg-sky-500/25'
+                    }`}
+                  >
+                    <CrmIconSoomgo className="h-4 w-4" />
+                    숨고
                   </button>
                 ) : null}
                 {canOpenSettings ? (

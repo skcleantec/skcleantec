@@ -70,7 +70,7 @@ export function enqueueTelecrmMobileDispatch(
   tenantId: string,
   userId: string,
   parsed: Omit<TelecrmMobileDispatchItem, 'id' | 'createdAt'>,
-): TelecrmMobileDispatchItem {
+): { item: TelecrmMobileDispatchItem; wsDelivered: boolean } {
   const item: TelecrmMobileDispatchItem = {
     ...parsed,
     id: crypto.randomUUID(),
@@ -79,7 +79,7 @@ export function enqueueTelecrmMobileDispatch(
   const key = queueKey(tenantId, userId);
   const next = pruneQueue([...(queues.get(key) ?? []), item]);
   queues.set(key, next);
-  sendJsonToUser(
+  const wsDelivered = sendJsonToUser(
     userId,
     {
       type: 'telecrm:dispatch',
@@ -93,7 +93,7 @@ export function enqueueTelecrmMobileDispatch(
     },
     tenantId,
   );
-  return item;
+  return { item, wsDelivered };
 }
 
 export function drainTelecrmMobileDispatchQueue(

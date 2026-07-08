@@ -9,7 +9,7 @@ import {
   effectiveCustomerOrderNotes,
 } from '../../../utils/inquirySpecialNotesDisplay';
 import { CrmActionButton } from '../crmUi';
-import { telecrmCall, isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
+import { telecrmCall, isTelecrmNativeApp, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
 import { formatWon } from '../settings/telecrmSettingsUi';
 
 function fmtDate(iso: string | null): string {
@@ -53,9 +53,11 @@ function NoteBlock({ title, body, tint = 'emerald' }: { title: string; body: str
 export function CrmInquiryBriefPanel({
   inquiry,
   onOpenDetail,
+  onDispatchNotice,
 }: {
   inquiry: TelecrmInquiryBriefDto;
   onOpenDetail?: () => void;
+  onDispatchNotice?: (message: string) => void;
 }) {
   const of = inquiry.orderForm;
   const customerNotes = effectiveCustomerOrderNotes({
@@ -111,7 +113,14 @@ export function CrmInquiryBriefPanel({
             <CrmActionButton
               accent="intake"
               variant="solid"
-              onClick={() => void telecrmCall(inquiry.customerPhone, { inquiryId: inquiry.id, customerMatch: 'existing' })}
+              onClick={async () => {
+                const result = await telecrmCall(inquiry.customerPhone, {
+                  inquiryId: inquiry.id,
+                  customerMatch: 'existing',
+                });
+                const notice = telecrmDispatchNotice(result, 'call');
+                if (notice) onDispatchNotice?.(notice);
+              }}
             >
               {isTelecrmNativeApp() ? '앱 통화' : '통화'}
             </CrmActionButton>

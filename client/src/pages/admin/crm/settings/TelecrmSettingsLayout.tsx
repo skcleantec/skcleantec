@@ -8,6 +8,7 @@ const NAV = [
   { to: '/admin/crm/settings/scripts', label: '스크립트' },
   { to: '/admin/crm/settings/pricing', label: '가격' },
   { to: '/admin/crm/settings/general', label: '기본 단가' },
+  { to: '/admin/crm/settings/soomgo', label: '숨고 연동' },
 ] as const;
 
 export function TelecrmSettingsLayout() {
@@ -31,7 +32,11 @@ export function TelecrmSettingsLayout() {
     );
   };
 
-  const visibleNav = NAV.filter((item) => item.to !== '/admin/crm/settings/general' || canShared);
+  const visibleNav = NAV.filter((item) => {
+    if (item.to === '/admin/crm/settings/general') return canShared;
+    if (item.to === '/admin/crm/settings/soomgo') return canShared;
+    return true;
+  });
 
   return (
     <div className="min-w-0 w-full max-w-5xl space-y-6">

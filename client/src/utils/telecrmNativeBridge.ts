@@ -28,30 +28,43 @@ function normalizePhone(phone: string): string {
 
 export type TelecrmBridgeMode = 'native' | 'dispatch' | 'fallback';
 
+export type TelecrmBridgeResult = {
+  mode: TelecrmBridgeMode;
+  /** PC→앱 dispatch 시 앱 WebSocket 즉시 수신 여부 */
+  wsDelivered?: boolean;
+  /** dispatch 실패 등 사용자 안내용 */
+  errorMessage?: string;
+};
+
 /** 통화 — 네이티브 WebView 또는 PC→휴대폰 dispatch */
-export async function telecrmCall(phone: string, opts: TelecrmCallOptions = {}): Promise<TelecrmBridgeMode> {
+export async function telecrmCall(
+  phone: string,
+  opts: TelecrmCallOptions = {},
+): Promise<TelecrmBridgeResult> {
   const digits = normalizePhone(phone);
-  if (digits.length < 4) return 'fallback';
+  if (digits.length < 4) {
+    return { mode: 'fallback', errorMessage: '전화번호(4자 이상)를 입력해 주세요.' };
+  }
   if (window.TelecrmApp?.call) {
     window.TelecrmApp.call(digits, opts.inquiryId ?? '');
-    return 'native';
+    return { mode: 'native' };
   }
   const token = getToken();
   if (!token) {
     window.location.href = `tel:${digits}`;
-    return 'fallback';
+    return { mode: 'fallback' };
   }
   try {
-    await postTelecrmMobileDispatch(token, {
+    const res = await postTelecrmMobileDispatch(token, {
       action: 'call',
       phone: digits,
       inquiryId: opts.inquiryId ?? null,
       customerMatch: opts.customerMatch ?? 'unknown',
     });
-    return 'dispatch';
-  } catch {
-    window.location.href = `tel:${digits}`;
-    return 'fallback';
+    return { mode: 'dispatch', wsDelivered: res.wsDelivered };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : '휴대폰 앱 전송에 실패했습니다.';
+    return { mode: 'fallback', errorMessage: message };
   }
 }
 
@@ -60,24 +73,24 @@ export async function telecrmSms(
   phone: string,
   body: string,
   opts: TelecrmCallOptions & { imageUrl?: string | null } = {},
-): Promise<TelecrmBridgeMode> {
+): Promise<TelecrmBridgeResult> {
   const digits = normalizePhone(phone);
-  if (!digits) return 'fallback';
+  if (!digits) return { mode: 'fallback', errorMessage: '전화번호를 입력해 주세요.' };
   const text = body.trim();
   const imageUrl = opts.imageUrl?.trim() || null;
-  if (!text && !imageUrl) return 'fallback';
+  if (!text && !imageUrl) return { mode: 'fallback', errorMessage: '문자 내용을 입력해 주세요.' };
   if (window.TelecrmApp?.sms) {
     window.TelecrmApp.sms(digits, text);
-    return 'native';
+    return { mode: 'native' };
   }
   const token = getToken();
   if (!token) {
     const q = encodeURIComponent(text);
     window.location.href = `sms:${digits}?body=${q}`;
-    return 'fallback';
+    return { mode: 'fallback' };
   }
   try {
-    await postTelecrmMobileDispatch(token, {
+    const res = await postTelecrmMobileDispatch(token, {
       action: 'sms',
       phone: digits,
       body: text,
@@ -85,12 +98,37 @@ export async function telecrmSms(
       inquiryId: opts.inquiryId ?? null,
       customerMatch: opts.customerMatch ?? 'unknown',
     });
-    return 'dispatch';
-  } catch {
+    return { mode: 'dispatch', wsDelivered: res.wsDelivered };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : '휴대폰 앱 전송에 실패했습니다.';
     const q = encodeURIComponent(text);
     window.location.href = `sms:${digits}?body=${q}`;
-    return 'fallback';
+    return { mode: 'fallback', errorMessage: message };
   }
+}
+
+function dispatchNoticeForCall(result: TelecrmBridgeResult): string | null {
+  if (result.mode !== 'dispatch') return result.errorMessage ?? null;
+  if (result.wsDelivered === false) {
+    return '휴대폰 앱이 오프라인입니다. 텔레CRM 앱을 켜면 통화 요청이 전달됩니다.';
+  }
+  return '휴대폰 앱으로 통화 요청을 보냈습니다.';
+}
+
+function dispatchNoticeForSms(result: TelecrmBridgeResult): string | null {
+  if (result.mode !== 'dispatch') return result.errorMessage ?? null;
+  if (result.wsDelivered === false) {
+    return '휴대폰 앱이 오프라인입니다. 텔레CRM 앱을 켜면 문자 요청이 전달됩니다.';
+  }
+  return '휴대폰 앱으로 문자를 보냈습니다.';
+}
+
+/** dispatch 결과를 사용자 안내 문구로 변환 */
+export function telecrmDispatchNotice(
+  result: TelecrmBridgeResult,
+  kind: 'call' | 'sms',
+): string | null {
+  return kind === 'call' ? dispatchNoticeForCall(result) : dispatchNoticeForSms(result);
 }
 
 /** @deprecated telecrmCall 사용 */

@@ -144,6 +144,8 @@ class DialFragment : Fragment() {
 
         updateActionRowVisibility()
 
+        AppEventBus.addDialPrefillListener(dialPrefillListener)
+
     }
 
 
@@ -308,8 +310,6 @@ class DialFragment : Fragment() {
 
         AppEventBus.addInboxRefreshListener(refreshListener)
 
-        AppEventBus.addDialPrefillListener(dialPrefillListener)
-
         loadSmsTemplates()
 
     }
@@ -317,8 +317,6 @@ class DialFragment : Fragment() {
 
 
     override fun onPause() {
-
-        AppEventBus.removeDialPrefillListener(dialPrefillListener)
 
         AppEventBus.removeInboxRefreshListener(refreshListener)
 
@@ -473,6 +471,8 @@ class DialFragment : Fragment() {
 
 
     override fun onDestroyView() {
+
+        AppEventBus.removeDialPrefillListener(dialPrefillListener)
 
         binding.inputPhone.removeTextChangedListener(phoneWatcher)
 

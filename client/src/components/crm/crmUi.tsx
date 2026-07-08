@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-export type CrmAccent = 'intake' | 'script' | 'pricing';
+export type CrmAccent = 'intake' | 'script' | 'pricing' | 'soomgo';
 
 export const CRM_ACCENT: Record<
   CrmAccent,
@@ -45,6 +45,16 @@ export const CRM_ACCENT: Record<
     panel: 'border-amber-100 bg-amber-50/50',
     ring: 'ring-amber-200',
   },
+  soomgo: {
+    header: 'from-sky-500/12 via-cyan-500/8 to-white',
+    iconBg: 'bg-gradient-to-br from-sky-500 to-cyan-600',
+    iconText: 'text-white',
+    chipActive: 'bg-sky-600 text-white shadow-sm shadow-sky-200',
+    chipIdle: 'border border-sky-100 bg-sky-50/80 text-sky-800 hover:bg-sky-100',
+    segmentActive: 'bg-sky-600 text-white shadow-sm',
+    panel: 'border-sky-100 bg-sky-50/40',
+    ring: 'ring-sky-200',
+  },
 };
 
 export function CrmIconIntake({ className }: { className?: string }) {
@@ -71,6 +81,14 @@ export function CrmIconPricing({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
       <circle cx="12" cy="12" r="8.5" />
       <path strokeLinecap="round" d="M12 7v10M9.5 9.5h3a1.5 1.5 0 010 3h-2a1.5 1.5 0 000 3h4" />
+    </svg>
+  );
+}
+
+export function CrmIconSoomgo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" />
     </svg>
   );
 }
@@ -116,7 +134,14 @@ export function CrmIconUser({ className }: { className?: string }) {
 
 export function CrmColumnIcon({ accent }: { accent: CrmAccent }) {
   const tone = CRM_ACCENT[accent];
-  const Icon = accent === 'intake' ? CrmIconIntake : accent === 'script' ? CrmIconScript : CrmIconPricing;
+  const Icon =
+    accent === 'intake'
+      ? CrmIconIntake
+      : accent === 'script'
+        ? CrmIconScript
+        : accent === 'soomgo'
+          ? CrmIconSoomgo
+          : CrmIconPricing;
   return (
     <span
       className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm ${tone.iconBg} ${tone.iconText}`}

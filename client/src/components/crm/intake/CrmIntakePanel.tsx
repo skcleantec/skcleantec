@@ -9,7 +9,7 @@ import type { TelecrmConsultationQuotePayload } from '@shared/telecrmConsultatio
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
 import { CrmIconIntake, CrmIconPhone, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldCompactClass } from '../crmUi';
-import { telecrmCall, isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
+import { telecrmCall, isTelecrmNativeApp, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
 import { CrmIntakeForm } from './CrmIntakeForm';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
@@ -235,11 +235,12 @@ export function CrmIntakePanel({
 
   const handleCall = async () => {
     if (!canDial) return;
-    const bridgeMode = await telecrmCall(dialPhone, {
+    const result = await telecrmCall(dialPhone, {
       customerMatch: activeCustomerMatch,
       inquiryId: activeInquiryId ?? undefined,
     });
-    if (bridgeMode === 'dispatch') onDispatchNotice?.('휴대폰 앱으로 통화 요청을 보냈습니다.');
+    const notice = telecrmDispatchNotice(result, 'call');
+    if (notice) onDispatchNotice?.(notice);
   };
 
   const switchMode = (next: CrmCustomerMode) => {
@@ -332,6 +333,7 @@ export function CrmIntakePanel({
               onNewForCustomer={() => {
                 if (data?.customer) applyCustomer(data.customer, data.inquiries[0]);
               }}
+              onDispatchNotice={onDispatchNotice}
             />
           </>
         ) : (

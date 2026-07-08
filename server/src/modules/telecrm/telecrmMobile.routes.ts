@@ -43,8 +43,8 @@ router.post('/mobile-dispatch', requireStaffPermission('crm.view', 'crm.settings
     res.status(400).json({ error: parsed.error });
     return;
   }
-  const item = enqueueTelecrmMobileDispatch(tenantId, user.userId, parsed);
-  res.status(201).json({ ok: true, id: item.id, action: item.action });
+  const { item, wsDelivered } = enqueueTelecrmMobileDispatch(tenantId, user.userId, parsed);
+  res.status(201).json({ ok: true, id: item.id, action: item.action, wsDelivered });
 });
 
 /** 앱 재개·WS 누락 시 대기 중 dispatch 소비 */

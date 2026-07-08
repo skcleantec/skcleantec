@@ -170,6 +170,7 @@ model Tenant {
   telecrmSmsTemplates TelecrmSmsTemplate[]
   telecrmCallNotes    TelecrmCallNote[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
+  telecrmSoomgoConfig       TelecrmSoomgoConfig?
   landingContactFormConfigs LandingContactFormConfig[]
   landingContactInquiries   LandingContactInquiry[]
 
@@ -2823,6 +2824,20 @@ model TelecrmCallNote {
 
   @@index([tenantId, userId, phone, createdAt(sort: Desc)])
   @@map("telecrm_call_notes")
+}
+
+/// 텔레CRM — 숨고 연동 계정 (테넌트당 1건, 브릿지 로그인용)
+model TelecrmSoomgoConfig {
+  id          String   @id @default(uuid())
+  tenantId    String   @unique @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email       String   @db.VarChar(255)
+  passwordEnc String   @map("password_enc") @db.Text
+  enabled     Boolean  @default(true) @map("enabled")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("telecrm_soomgo_configs")
 }
 
 enum TelecrmConsultationQuoteStatus {

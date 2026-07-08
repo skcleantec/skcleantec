@@ -12,6 +12,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.skcleantec.telecrm.api.ApiClient
 import com.skcleantec.telecrm.dispatch.TelecrmDispatchExecutor
+import com.skcleantec.telecrm.main.MainActivity
 import org.json.JSONObject
 
 object TelecrmCallHelper {
@@ -40,6 +41,9 @@ object TelecrmCallHelper {
         ) {
             activity.startActivity(Intent(Intent.ACTION_CALL, uri))
             return
+        }
+        if (activity is MainActivity) {
+            activity.armPendingCall(digits)
         }
         ActivityCompat.requestPermissions(
             activity,

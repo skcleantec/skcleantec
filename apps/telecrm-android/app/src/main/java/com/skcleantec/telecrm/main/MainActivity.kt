@@ -31,7 +31,13 @@ class MainActivity : AppCompatActivity() {
     private val apiClient = ApiClient()
     private val webSocketClient = InboxWebSocketClient()
     private lateinit var dispatchExecutor: TelecrmDispatchExecutor
-    private var pendingCallPhone: String? = null
+    var pendingCallPhone: String? = null
+        private set
+
+    fun armPendingCall(phone: String) {
+        val digits = phone.filter { it.isDigit() }
+        pendingCallPhone = digits.takeIf { it.length >= 4 }
+    }
 
     private val connectionListener: (Boolean) -> Unit = { connected ->
         binding.wsStatusChip.text = getString(
