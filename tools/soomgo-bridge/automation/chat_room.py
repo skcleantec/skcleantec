@@ -320,7 +320,7 @@ class ChatRoomManager:
             return []
 
     def extract_current_chat(self) -> dict[str, Any]:
-        """① 고객명 클릭 → 요청 모달 파싱 → X 닫기 → ② 전화 아이콘 → 안심번호 (순차 매크로)."""
+        """① 이름 클릭→고객요청 파싱→닫기 ② 전화→번호→취소 (순차 매크로)."""
         chat_id = self.get_current_chat_id()
         dismiss_blocking_overlays(self.driver, self.delay * 0.35)
 
@@ -333,6 +333,15 @@ class ChatRoomManager:
             or req_mgr.get_header_customer_name()
         )
         region = request_data.get('region')
+
+        # 고객 요청 모달 완전히 닫힌 뒤 전화 모달
+        req_mgr.close_request_modal()
+        time.sleep(self.delay * 0.7)
+        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
+
+        call_mgr = CallModalManager(self.driver, self.delay)
+        safe_phone = call_mgr.try_extract_safe_phone()
+
         customer_messages = self.get_customer_messages()
         parsed = parse_fields_from_texts(customer_messages)
         if request_data.get('pyeong'):
@@ -343,16 +352,8 @@ class ChatRoomManager:
             parsed['address'] = str(request_data['region'])
         if request_data.get('requestMemo'):
             parsed['memo'] = str(request_data['requestMemo'])
-        last_message = customer_messages[-1] if customer_messages else None
-
-        # 고객 요청 모달이 완전히 닫힌 뒤 전화 모달 진행
-        req_mgr.close_request_modal()
-        time.sleep(self.delay * 0.55)
-        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
-
-        call_mgr = CallModalManager(self.driver, self.delay)
-        safe_phone = call_mgr.try_extract_safe_phone()
         phone = safe_phone or parsed.get('phone')
+        last_message = customer_messages[-1] if customer_messages else None
 
         return {
             'chatId': chat_id,

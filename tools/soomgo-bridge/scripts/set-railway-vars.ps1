@@ -7,7 +7,7 @@
 param(
     [ValidateSet('staging', 'production', 'both')]
     [string]$Target = 'both',
-    [string]$Version = '2.0.6'
+    [string]$Version = '2.0.7'
 )
 
 $ErrorActionPreference = 'Stop'

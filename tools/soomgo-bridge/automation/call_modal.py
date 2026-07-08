@@ -114,44 +114,69 @@ function visible(el) {
   var r = el.getBoundingClientRect();
   if (r.width < 8 || r.height < 8) return false;
   var st = window.getComputedStyle(el);
-  return st.display !== 'none' && st.visibility !== 'hidden';
+  return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
 }
 function findCallModal() {
-  var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="overlay"], [class*="Overlay"]');
+  var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="overlay"], [class*="Overlay"], [class*="sheet"], [class*="Sheet"]');
   for (var i = 0; i < roots.length; i++) {
     var t = (roots[i].innerText || '');
-    if (t.indexOf('안심번호') >= 0 || t.indexOf('숨고전화') >= 0 || /050\\d/.test(t)) return roots[i];
+    if (t.indexOf('숨고전화') >= 0 || t.indexOf('안심번호로 통화') >= 0 || /050\\d/.test(t)) return roots[i];
   }
+  var body = (document.body.innerText || '');
+  if (body.indexOf('숨고전화로 통화') >= 0 || body.indexOf('안심번호로 통화하기') >= 0) return document.body;
   return null;
+}
+function normLabel(el) {
+  return ((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '') + ' ' + (el.getAttribute('title') || '')).replace(/\\s+/g, ' ').trim();
 }
 var modal = findCallModal();
 if (!modal) {
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-  return true;
+  return 'escape';
 }
 var modalRect = modal.getBoundingClientRect();
+var nodes = modal.querySelectorAll('button, [role="button"], a, span, p, div');
+var cancelBest = null;
+var cancelScore = -1;
+for (var i = 0; i < nodes.length; i++) {
+  var el = nodes[i];
+  if (!visible(el)) continue;
+  var label = normLabel(el);
+  if (!label || label.length > 24) continue;
+  if (label !== '취소' && !/^취소$/i.test(label)) continue;
+  var r = el.getBoundingClientRect();
+  var score = 100;
+  if (r.bottom >= modalRect.bottom - 140) score += 60;
+  if (r.top >= modalRect.top + 80) score += 20;
+  if (el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button') score += 25;
+  if (score > cancelScore) { cancelScore = score; cancelBest = el; }
+}
+if (cancelBest && cancelScore >= 100) {
+  cancelBest.click();
+  return 'cancel';
+}
 var best = null;
 var bestScore = -1;
-var buttons = modal.querySelectorAll('button, [role="button"], a');
-for (var i = 0; i < buttons.length; i++) {
-  var btn = buttons[i];
+var buttons = modal.querySelectorAll('button, [role="button"], a, span, p');
+for (var j = 0; j < buttons.length; j++) {
+  var btn = buttons[j];
   if (!visible(btn)) continue;
-  var r = btn.getBoundingClientRect();
-  var label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.textContent || '')).trim();
-  var score = 0;
-  if (r.top <= modalRect.top + 80) score += 25;
-  if (r.right >= modalRect.right - 80) score += 35;
-  if (/닫기|close|취소/i.test(label)) score += 50;
-  if (label === '' || label === '×' || label === '✕' || label === 'X') score += 30;
-  if (btn.querySelector('svg, img')) score += 15;
-  if (score > bestScore) { bestScore = score; best = btn; }
+  var lbl = normLabel(btn);
+  var br = btn.getBoundingClientRect();
+  var sc = 0;
+  if (/^취소$/i.test(lbl)) sc += 90;
+  if (/닫기|close/i.test(lbl)) sc += 40;
+  if (/안심번호|통화하기/i.test(lbl)) sc -= 200;
+  if (br.bottom >= modalRect.bottom - 120) sc += 30;
+  if (br.top <= modalRect.top + 80 && br.right >= modalRect.right - 80) sc += 15;
+  if (sc > bestScore) { bestScore = sc; best = btn; }
 }
-if (best && bestScore >= 35) {
+if (best && bestScore >= 40) {
   best.click();
-  return true;
+  return 'fallback';
 }
 document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-return true;
+return 'escape';
 """
 
 
@@ -268,8 +293,12 @@ class CallModalManager:
         try:
             if not self.is_call_modal_open():
                 return True
-            self.driver.execute_script(_CLOSE_CALL_MODAL_JS)
-            time.sleep(self.delay * 0.35)
+            for _ in range(3):
+                result = self.driver.execute_script(_CLOSE_CALL_MODAL_JS)
+                time.sleep(self.delay * 0.5)
+                if not self.is_call_modal_open():
+                    logger.debug('close_call_modal via %s', result)
+                    return True
             return not self.is_call_modal_open()
         except Exception as e:
             logger.debug('close_call_modal: %s', e)
@@ -282,16 +311,19 @@ class CallModalManager:
             return False
 
     def try_extract_safe_phone(self) -> str | None:
-        """전화 모달 열기 → 050 안심번호 추출 → 없으면 모달 닫고 None (채팅방 유지)."""
+        """전화 모달 열기 → 050 추출 → 취소로 채팅방 복귀."""
         try:
             dismiss_blocking_overlays(self.driver, self.delay * 0.3)
             opened = self.open_call_modal()
             if not opened:
                 return None
-            time.sleep(self.delay * 0.65)
+            time.sleep(self.delay * 0.75)
             phone = self.extract_call_number_from_modal()
             self.close_call_modal()
-            time.sleep(self.delay * 0.45)
+            time.sleep(self.delay * 0.65)
+            if self.is_call_modal_open():
+                self.close_call_modal()
+                time.sleep(self.delay * 0.45)
             if phone and re.sub(r'\D', '', phone).startswith('050'):
                 return phone
             if phone:
