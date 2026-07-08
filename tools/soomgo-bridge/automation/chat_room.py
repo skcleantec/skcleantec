@@ -22,11 +22,90 @@ const elem = arguments[0];
 const message = arguments[1];
 if (elem.tagName.toLowerCase() === 'textarea' || elem.tagName.toLowerCase() === 'input') {
     elem.value = message;
-} else if (elem.hasAttribute('contenteditable')) {
+    elem.dispatchEvent(new Event('input', { bubbles: true }));
+    elem.dispatchEvent(new Event('change', { bubbles: true }));
+} else if (elem.hasAttribute('contenteditable') || elem.getAttribute('role') === 'textbox') {
+    elem.focus();
     elem.textContent = message;
+    elem.dispatchEvent(new Event('input', { bubbles: true }));
+    elem.dispatchEvent(new Event('change', { bubbles: true }));
 }
-elem.dispatchEvent(new Event('input', { bubbles: true }));
-elem.dispatchEvent(new Event('change', { bubbles: true }));
+"""
+
+_SEND_MESSAGE_JS = """
+var message = arguments[0];
+function isVisible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 20 || r.height < 8) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0';
+}
+document.querySelectorAll('.quick-message-tooltip, [class*="tooltip"]').forEach(function(t) {
+  try { t.style.display = 'none'; } catch (e) {}
+});
+function setInputValue(el, text) {
+  el.focus();
+  if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+    el.value = text;
+  } else {
+    el.textContent = text;
+  }
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+var input = document.querySelector('textarea[name="message-input"], textarea.message-input');
+if (!input || !isVisible(input)) {
+  var inputs = document.querySelectorAll('textarea, [contenteditable="true"], [contenteditable=""], div[role="textbox"]');
+  var bestBottom = -1;
+  for (var i = 0; i < inputs.length; i++) {
+    var el = inputs[i];
+    if (!isVisible(el)) continue;
+    var r = el.getBoundingClientRect();
+    if (r.bottom >= bestBottom) {
+      bestBottom = r.bottom;
+      input = el;
+    }
+  }
+}
+if (!input) return { ok: false, reason: 'input_not_found' };
+setInputValue(input, message);
+var root = input.closest('form, footer, [class*="chat"], [class*="Chat"], [class*="composer"], [class*="input"]') || input.parentElement || document;
+var buttons = root.querySelectorAll('button, [role="button"], img.btn-submit, .btn-submit');
+var sendBtn = null;
+for (var j = 0; j < buttons.length; j++) {
+  var btn = buttons[j];
+  if (!isVisible(btn)) continue;
+  var label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.textContent || '') + ' ' + (btn.getAttribute('alt') || '')).trim();
+  if (/전송|보내기|submit|send/i.test(label) || btn.className.indexOf('submit') >= 0) {
+    sendBtn = btn;
+    break;
+  }
+}
+if (!sendBtn) {
+  var allBtns = document.querySelectorAll('button, [role="button"]');
+  for (var k = allBtns.length - 1; k >= 0; k--) {
+    var b = allBtns[k];
+    if (!isVisible(b)) continue;
+    var br = b.getBoundingClientRect();
+    var ir = input.getBoundingClientRect();
+    if (Math.abs(br.bottom - ir.bottom) < 80 && br.left >= ir.left - 40) {
+      sendBtn = b;
+      break;
+    }
+  }
+}
+if (sendBtn) {
+  sendBtn.click();
+  return { ok: true, reason: 'clicked' };
+}
+try {
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+  return { ok: true, reason: 'enter' };
+} catch (e) {
+  return { ok: false, reason: 'send_button_not_found' };
+}
 """
 
 
@@ -145,8 +224,16 @@ class ChatRoomManager:
             'currentUrl': self.driver.current_url,
         }
 
-    def send_message(self, message: str) -> bool:
+    def send_message(self, message: str) -> tuple[bool, str | None]:
         try:
+            result = self.driver.execute_script(_SEND_MESSAGE_JS, message)
+            if isinstance(result, dict) and result.get('ok'):
+                time.sleep(self.delay)
+                return True, None
+
+            reason = result.get('reason') if isinstance(result, dict) else 'unknown'
+            logger.warning('send_message js failed: %s', reason)
+
             input_elem = None
             for selector in ['textarea', "[contenteditable='true']", "div[role='textbox']"]:
                 for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
@@ -155,21 +242,21 @@ class ChatRoomManager:
                 if input_elem:
                     break
             if not input_elem:
-                return False
+                return False, '채팅 입력창을 찾지 못했습니다. 숨고 채팅방을 연 상태인지 확인해 주세요.'
 
-            input_elem.click()
-            time.sleep(self.delay * 0.3)
-            try:
-                input_elem.clear()
-            except Exception:
-                pass
+            self.driver.execute_script(
+                "document.querySelectorAll('.quick-message-tooltip,[class*=\"tooltip\"]').forEach(function(t){t.style.display='none';});"
+            )
             self.driver.execute_script(_INPUT_JS, input_elem, message)
             time.sleep(self.delay * 0.4)
 
             send_btn = None
-            for selector in ['.btn-submit', 'img.btn-submit', "button[type='submit']"]:
+            for selector in ['.btn-submit', 'img.btn-submit', "button[type='submit']", 'button']:
                 for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
-                    if elem.is_displayed() and send_btn is None:
+                    if not elem.is_displayed() or send_btn is not None:
+                        continue
+                    label = (elem.get_attribute('aria-label') or '') + (elem.text or '')
+                    if '전송' in label or '보내기' in label or selector != 'button':
                         send_btn = elem
                 if send_btn:
                     break
@@ -180,10 +267,10 @@ class ChatRoomManager:
                 input_elem.send_keys(Keys.RETURN)
 
             time.sleep(self.delay)
-            return True
+            return True, None
         except Exception as e:
             logger.error('send_message: %s', e)
-            return False
+            return False, f'메시지 전송 중 오류: {e}'
 
     def open_chat_list(self) -> bool:
         try:

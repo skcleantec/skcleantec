@@ -64,19 +64,30 @@ return clicked;
 """
 
 _EXTRACT_MODAL_PHONE_JS = """
-var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"]');
-var texts = [];
+function visibleText(el) {
+  if (!el) return '';
+  var style = window.getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return '';
+  return (el.innerText || el.textContent || '').trim();
+}
+var chunks = [];
+var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="overlay"], [class*="Overlay"]');
 for (var i = 0; i < roots.length; i++) {
-  var el = roots[i];
-  if (!el || !el.offsetParent) continue;
-  var t = (el.innerText || el.textContent || '').trim();
-  if (t.includes('숨고전화') || t.includes('안심번호')) texts.push(t);
+  var t = visibleText(roots[i]);
+  if (t && (t.indexOf('숨고전화') >= 0 || t.indexOf('안심번호') >= 0 || /050\\d/.test(t))) chunks.push(t);
 }
-if (!texts.length) {
+var all = document.querySelectorAll('button, p, span, div, h1, h2, h3, strong');
+for (var j = 0; j < all.length; j++) {
+  var el = all[j];
+  var t2 = visibleText(el);
+  if (!t2 || t2.length > 120) continue;
+  if (/050\\d[-\\s]?\\d{3,4}[-\\s]?\\d{4}/.test(t2)) chunks.push(t2);
+}
+if (!chunks.length) {
   var body = (document.body.innerText || '');
-  if (body.includes('숨고전화') || body.includes('안심번호로 통화하기')) texts.push(body);
+  if (body.indexOf('숨고전화') >= 0 || body.indexOf('안심번호로 통화하기') >= 0) chunks.push(body);
 }
-return texts.join('\\n');
+return chunks.join('\\n');
 """
 
 

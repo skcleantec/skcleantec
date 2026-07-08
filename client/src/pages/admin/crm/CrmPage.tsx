@@ -268,6 +268,7 @@ export function CrmPage() {
     onImport: handleSoomgoImport,
     onDispatchNotice: showDispatchNotice,
     pollEnabled: !isMobileApp,
+    isPopup,
   });
 
   const { openSoomgo, extract, callFromChat, busy: soomgoBusy, status: soomgoStatus, preview: soomgoPreview, bridgeUp: soomgoBridgeUp, error: soomgoError, refreshStatus: refreshSoomgoStatus } = soomgoBridge;

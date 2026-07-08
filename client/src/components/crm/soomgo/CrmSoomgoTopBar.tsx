@@ -66,6 +66,20 @@ export function CrmSoomgoTopBar({
               다시 확인
             </button>
           </div>
+        ) : status?.lastError?.includes('구버전') ? (
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[11px] text-rose-900">
+            <span className="rounded-full bg-rose-100 px-2 py-0.5 font-semibold">브릿지 구버전</span>
+            <span className="hidden min-w-0 truncate sm:inline">
+              run-bridge.bat 창을 닫고 다시 실행하세요
+            </span>
+            <button
+              type="button"
+              onClick={() => void onRefresh()}
+              className="rounded-lg border border-rose-300 bg-white px-2.5 py-1 font-semibold hover:bg-rose-50"
+            >
+              다시 확인
+            </button>
+          </div>
         ) : (
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-[10px]">
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">브릿지 연결</span>

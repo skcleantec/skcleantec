@@ -25,6 +25,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger('soomgo-bridge')
 
 PORT = 17890
+BRIDGE_VERSION = 2
 
 _browser = BrowserManager(headless=False)
 _lock = threading.Lock()
@@ -88,6 +89,13 @@ def _stop_call_watch():
     _watch_stop.set()
 
 
+def _arrange_soomgo_layout(body: dict[str, Any]) -> bool:
+    if not _browser.is_running() or not _browser.driver:
+        return False
+    bounds = body.get('screen') if isinstance(body.get('screen'), dict) else body
+    return _browser.arrange_right_half(bounds if isinstance(bounds, dict) else None)
+
+
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]):
     body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
     handler.send_response(status)
@@ -148,6 +156,7 @@ def _status_payload() -> dict[str, Any]:
             call_modal_open = False
     return {
         'ok': True,
+        'bridgeVersion': BRIDGE_VERSION,
         'bridgeRunning': True,
         'browserRunning': running,
         'loggedIn': _logged_in and is_logged_in(_browser.driver) if running else False,
@@ -184,7 +193,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             _json_response(self, 200, _status_payload())
             return
         if path == '/health':
-            _json_response(self, 200, {'ok': True})
+            _json_response(self, 200, {'ok': True, 'bridgeVersion': BRIDGE_VERSION})
             return
         _json_response(self, 404, {'ok': False, 'error': 'not found'})
 
@@ -200,6 +209,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         _last_error = 'Chrome을 시작할 수 없습니다.'
                         _json_response(self, 500, {'ok': False, 'error': _last_error})
                         return
+                _arrange_soomgo_layout(body)
                 _json_response(self, 200, _status_payload())
                 return
 
@@ -242,7 +252,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
                     return
                 goto_chat_list(driver, force_list=False)
+                _arrange_soomgo_layout(body)
                 _json_response(self, 200, _status_payload())
+                return
+
+            if path == '/arrange-layout':
+                ok = _arrange_soomgo_layout(body)
+                _json_response(self, 200, {**_status_payload(), 'layoutOk': ok})
                 return
 
             if path == '/extract':
@@ -269,8 +285,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         'error': '숨고 Chrome 창에서 채팅방을 연 뒤 다시 시도해 주세요.',
                     })
                     return
-                ok = room.send_message(message)
-                _json_response(self, 200 if ok else 500, {'ok': ok, 'error': None if ok else '메시지 전송 실패'})
+                ok, send_err = room.send_message(message)
+                if ok:
+                    _json_response(self, 200, {'ok': True})
+                else:
+                    _json_response(self, 500, {
+                        'ok': False,
+                        'error': send_err or '메시지 전송 실패. 숨고 채팅방이 열려 있는지 확인해 주세요.',
+                    })
                 return
 
             if path == '/watch-call-button':
@@ -333,7 +355,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
 def main():
     server = ThreadingHTTPServer(('127.0.0.1', PORT), BridgeHandler)
-    logger.info('Soomgo bridge listening on http://127.0.0.1:%s', PORT)
+    logger.info('Soomgo bridge v%s listening on http://127.0.0.1:%s', BRIDGE_VERSION, PORT)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -1,8 +1,12 @@
 /** 텔레CRM ↔ 로컬 숨고 브릿지 (127.0.0.1) */
 export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 
+/** 안심번호·2분할 등 신규 API 최소 버전 */
+export const SOOMGO_BRIDGE_MIN_VERSION = 2;
+
 export type SoomgoBridgeStatus = {
   ok: boolean;
+  bridgeVersion?: number;
   bridgeRunning?: boolean;
   browserRunning?: boolean;
   loggedIn?: boolean;

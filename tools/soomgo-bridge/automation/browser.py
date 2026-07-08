@@ -61,6 +61,12 @@ class BrowserManager:
             logger.error('browser start: %s', e)
             return False
 
+    def arrange_right_half(self, bounds: dict | None = None) -> bool:
+        if not self.driver:
+            return False
+        from automation.window_layout import arrange_soomgo_right_half
+        return arrange_soomgo_right_half(self.driver, bounds)
+
     def stop(self):
         if not self.driver:
             return
