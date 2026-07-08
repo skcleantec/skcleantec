@@ -36,31 +36,47 @@ return true;
 """
 
 _OPEN_MODAL_JS = """
-var clicked = false;
-var selectors = [
-  'button[aria-label*="전화"]',
-  'button[aria-label*="통화"]',
-  'a[aria-label*="전화"]',
-  '[class*="phone"] button',
-  'header button',
-  'button'
-];
-for (var s = 0; s < selectors.length && !clicked; s++) {
-  var nodes = document.querySelectorAll(selectors[s]);
-  for (var i = 0; i < nodes.length; i++) {
-    var el = nodes[i];
-    if (!el || !el.offsetParent) continue;
-    var label = ((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '')).trim();
-    var hasPhoneIcon = !!el.querySelector('svg, img, [class*="phone"], [class*="Phone"]');
-    if (label.includes('전화') || label.includes('통화') || hasPhoneIcon) {
-      if (label.includes('안심번호')) continue;
-      el.click();
-      clicked = true;
-      break;
-    }
-  }
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 16 || r.height < 16) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0';
 }
-return clicked;
+function hasPhoneIcon(el) {
+  if (!el) return false;
+  if (el.querySelector('svg, img, [class*="phone"], [class*="Phone"], [class*="call"], [class*="Call"]')) return true;
+  var label = ((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '') + ' ' + (el.getAttribute('title') || '')).trim();
+  return /전화|통화|call/i.test(label);
+}
+function scorePhoneButton(el) {
+  if (!visible(el)) return -1;
+  var r = el.getBoundingClientRect();
+  if (r.top > 140) return -1;
+  var vw = window.innerWidth || 1200;
+  var score = 0;
+  if (r.right > vw * 0.72) score += 40;
+  if (r.top < 90) score += 20;
+  if (hasPhoneIcon(el)) score += 50;
+  var label = ((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '')).trim();
+  if (/전화|통화/i.test(label)) score += 30;
+  if (/안심번호|채팅|메시지|더보기|설정/i.test(label)) score -= 80;
+  if (el.closest('footer, [class*="composer"], [class*="input"]')) score -= 100;
+  return score;
+}
+var best = null;
+var bestScore = -1;
+var nodes = document.querySelectorAll('header button, header a, [class*="header"] button, [class*="Header"] button, [class*="toolbar"] button, button, a[role="button"], [role="button"]');
+for (var i = 0; i < nodes.length; i++) {
+  var el = nodes[i];
+  var sc = scorePhoneButton(el);
+  if (sc > bestScore) { bestScore = sc; best = el; }
+}
+if (best && bestScore >= 30) {
+  best.click();
+  return true;
+}
+return false;
 """
 
 _EXTRACT_MODAL_PHONE_JS = """
@@ -158,21 +174,32 @@ class CallModalManager:
         if self.is_call_modal_open():
             return True
         try:
-            clicked = self.driver.execute_script(_OPEN_MODAL_JS)
-            if clicked:
-                time.sleep(self.delay)
-                return self.is_call_modal_open()
-            for selector in [
-                "button[class*='phone']",
-                "[data-testid*='phone']",
-                "img[alt*='전화']",
-            ]:
-                for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
-                    if elem.is_displayed():
+            for attempt in range(3):
+                clicked = self.driver.execute_script(_OPEN_MODAL_JS)
+                if clicked:
+                    time.sleep(self.delay)
+                    if self.is_call_modal_open():
+                        return True
+                for selector in [
+                    "button[class*='phone']",
+                    "[data-testid*='phone']",
+                    "img[alt*='전화']",
+                    "header button",
+                ]:
+                    for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
+                        if not elem.is_displayed():
+                            continue
+                        try:
+                            rect = elem.rect
+                            if rect.get('y', 999) > 160:
+                                continue
+                        except Exception:
+                            pass
                         elem.click()
-                        time.sleep(self.delay)
+                        time.sleep(self.delay * 0.6)
                         if self.is_call_modal_open():
                             return True
+                time.sleep(self.delay * 0.4)
             return self.is_call_modal_open()
         except Exception as e:
             logger.error('open_call_modal: %s', e)

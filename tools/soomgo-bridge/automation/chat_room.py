@@ -8,6 +8,7 @@ from typing import Any
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 
 from automation.selectors import URLS
 from automation.customer_request import CustomerRequestManager
@@ -109,13 +110,23 @@ if (!sendBtn) {
   sendBtn = best;
 }
 if (sendBtn) {
-  sendBtn.click();
+  try {
+    sendBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+    sendBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
+    sendBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    sendBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+    sendBtn.click();
+  } catch (e) { sendBtn.click(); }
   var cleared = !input.value || input.value.trim() === '';
+  if (!cleared && input.textContent != null) cleared = !input.textContent.trim();
   return { ok: true, reason: cleared ? 'clicked_cleared' : 'clicked' };
 }
 try {
-  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-  input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+  ['keydown','keypress','keyup'].forEach(function(type) {
+    input.dispatchEvent(new KeyboardEvent(type, {
+      key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
+    }));
+  });
   return { ok: true, reason: 'enter' };
 } catch (e) {
   return { ok: false, reason: 'send_button_not_found' };
@@ -167,6 +178,88 @@ class ChatRoomManager:
     def __init__(self, driver, delay: float = 1.2):
         self.driver = driver
         self.delay = delay
+
+    def _hide_tooltips(self) -> None:
+        self.driver.execute_script(
+            "document.querySelectorAll('.quick-message-tooltip,[class*=\"tooltip\"]').forEach(function(t){try{t.style.display='none';}catch(e){}});"
+        )
+
+    def _find_message_input(self):
+        for selector in [
+            'textarea[name="message-input"]',
+            'textarea.message-input',
+            'textarea',
+            "[contenteditable='true']",
+            "[contenteditable='']",
+            "div[role='textbox']",
+        ]:
+            best = None
+            best_bottom = -1
+            for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
+                if not elem.is_displayed():
+                    continue
+                try:
+                    bottom = elem.rect['y'] + elem.rect['height']
+                    if bottom >= best_bottom:
+                        best_bottom = bottom
+                        best = elem
+                except Exception:
+                    if best is None:
+                        best = elem
+            if best is not None:
+                return best
+        return None
+
+    def _find_send_button(self, input_elem):
+        input_rect = input_elem.rect
+        send_btn = None
+        best_dist = 99999
+        for elem in self.driver.find_elements(By.CSS_SELECTOR, 'button, [role="button"], img.btn-submit, .btn-submit'):
+            if not elem.is_displayed():
+                continue
+            label = (elem.get_attribute('aria-label') or '') + (elem.text or '') + (elem.get_attribute('alt') or '')
+            if re.search(r'전송|보내기|submit|send', label, re.I) or 'submit' in (elem.get_attribute('class') or ''):
+                return elem
+            try:
+                r = elem.rect
+                if r['x'] >= input_rect['x'] + input_rect['width'] - 24 and abs(r['y'] - input_rect['y']) < 72:
+                    if r['width'] >= 28 and r['height'] >= 28:
+                        dist = r['x'] - input_rect['x'] - input_rect['width']
+                        if dist < best_dist:
+                            best_dist = dist
+                            send_btn = elem
+            except Exception:
+                continue
+        return send_btn
+
+    def _input_still_has_text(self, input_elem, message: str) -> bool:
+        try:
+            remaining = (input_elem.get_attribute('value') or input_elem.text or '').strip()
+            return remaining == message.strip()
+        except Exception:
+            return False
+
+    def _send_via_keyboard(self, input_elem, message: str) -> bool:
+        self._hide_tooltips()
+        input_elem.click()
+        time.sleep(0.15)
+        chains = ActionChains(self.driver)
+        chains.click(input_elem)
+        chains.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL)
+        chains.send_keys(Keys.DELETE)
+        chains.send_keys(message)
+        chains.perform()
+        time.sleep(0.35)
+        send_btn = self._find_send_button(input_elem)
+        if send_btn:
+            try:
+                ActionChains(self.driver).move_to_element(send_btn).click().perform()
+            except Exception:
+                send_btn.click()
+        else:
+            input_elem.send_keys(Keys.RETURN)
+        time.sleep(self.delay * 0.5)
+        return not self._input_still_has_text(input_elem, message)
 
     def is_in_chat_room(self) -> bool:
         try:
@@ -263,59 +356,32 @@ class ChatRoomManager:
 
     def send_message(self, message: str) -> tuple[bool, str | None]:
         try:
+            self._hide_tooltips()
             result = self.driver.execute_script(_SEND_MESSAGE_JS, message)
             if isinstance(result, dict) and result.get('ok'):
-                time.sleep(self.delay)
-                return True, None
+                reason = str(result.get('reason', ''))
+                if reason == 'clicked_cleared':
+                    time.sleep(self.delay * 0.3)
+                    return True, None
 
-            reason = result.get('reason') if isinstance(result, dict) else 'unknown'
-            logger.warning('send_message js failed: %s', reason)
-
-            input_elem = None
-            for selector in ['textarea', "[contenteditable='true']", "div[role='textbox']"]:
-                for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
-                    if elem.is_displayed() and input_elem is None:
-                        input_elem = elem
-                if input_elem:
-                    break
+            input_elem = self._find_message_input()
             if not input_elem:
                 return False, '채팅 입력창을 찾지 못했습니다. 숨고 채팅방을 연 상태인지 확인해 주세요.'
 
-            self.driver.execute_script(
-                "document.querySelectorAll('.quick-message-tooltip,[class*=\"tooltip\"]').forEach(function(t){t.style.display='none';});"
-            )
-            self.driver.execute_script(_INPUT_JS, input_elem, message)
-            time.sleep(self.delay * 0.4)
+            if self._send_via_keyboard(input_elem, message):
+                time.sleep(self.delay * 0.3)
+                return True, None
 
-            send_btn = None
-            input_rect = input_elem.rect
-            for elem in self.driver.find_elements(By.CSS_SELECTOR, 'button, [role="button"]'):
-                if not elem.is_displayed() or send_btn is not None:
-                    continue
-                try:
-                    r = elem.rect
-                    if r['x'] >= input_rect['x'] + input_rect['width'] - 20 and abs(r['y'] - input_rect['y']) < 60:
-                        if r['width'] >= 28 and r['height'] >= 28:
-                            send_btn = elem
-                except Exception:
-                    continue
-            for selector in ['button[class*="send"]', '.btn-submit', 'img.btn-submit', "button[type='submit']"]:
-                for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
-                    if not elem.is_displayed() or send_btn is not None:
-                        continue
-                    label = (elem.get_attribute('aria-label') or '') + (elem.text or '')
-                    if '전송' in label or '보내기' in label or selector != 'button':
-                        send_btn = elem
-                if send_btn:
-                    break
+            reason = result.get('reason') if isinstance(result, dict) else 'unknown'
+            logger.warning('send_message retry js after keyboard: %s', reason)
+            retry = self.driver.execute_script(_SEND_MESSAGE_JS, message)
+            if isinstance(retry, dict) and retry.get('ok') and retry.get('reason') == 'clicked_cleared':
+                return True, None
 
-            if send_btn:
-                send_btn.click()
-            else:
-                input_elem.send_keys(Keys.RETURN)
+            if not self._input_still_has_text(input_elem, message):
+                return True, None
 
-            time.sleep(self.delay)
-            return True, None
+            return False, '메시지가 입력만 되고 전송되지 않았습니다. 숨고 채팅방·전송 버튼을 확인해 주세요.'
         except Exception as e:
             logger.error('send_message: %s', e)
             return False, f'메시지 전송 중 오류: {e}'

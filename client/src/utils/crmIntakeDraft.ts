@@ -8,6 +8,7 @@ export type CrmIntakeFormSnapshot = {
   nickname: string;
   address: string;
   preferredMoveInCleanYmd: string;
+  requestMemo: string;
   kind: CrmIntakeKind;
   goldDb: boolean;
 };
@@ -55,6 +56,7 @@ export function crmIntakeDraftHasContent(draft: Partial<CrmIntakeDraft>): boolea
       draft.nickname?.trim() ||
       draft.address?.trim() ||
       draft.pyeong?.trim() ||
-      draft.preferredMoveInCleanYmd?.trim(),
+      draft.preferredMoveInCleanYmd?.trim() ||
+      draft.requestMemo?.trim(),
   );
 }

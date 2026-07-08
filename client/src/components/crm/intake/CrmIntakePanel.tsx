@@ -29,6 +29,7 @@ function CrmPhoneField({
   canDial,
   onCall,
   callLabel,
+  highlight = false,
 }: {
   label: string;
   value: string;
@@ -37,6 +38,7 @@ function CrmPhoneField({
   canDial: boolean;
   onCall: () => void;
   callLabel: string;
+  highlight?: boolean;
 }) {
   return (
     <div className="space-y-0.5">
@@ -58,7 +60,7 @@ function CrmPhoneField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="010-0000-0000"
-          className={`${crmFieldCompactClass} min-w-0 flex-1 tabular-nums`}
+          className={`${crmFieldCompactClass} min-w-0 flex-1 tabular-nums ${highlight ? 'ring-2 ring-sky-400/80 ring-offset-1' : ''}`}
         />
         {canDial ? (
           <button
@@ -100,6 +102,8 @@ export function CrmIntakePanel({
   onContextChange,
   formResetKey = 0,
   quotePayload = null,
+  soomgoImportBanner = null,
+  soomgoImportFlashKey = 0,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
@@ -121,6 +125,8 @@ export function CrmIntakePanel({
   onContextChange?: (ctx: { inquiryId: string | null; customerMatch: 'new' | 'existing' | 'pick' | 'unknown' }) => void;
   formResetKey?: number;
   quotePayload?: TelecrmConsultationQuotePayload | null;
+  soomgoImportBanner?: string | null;
+  soomgoImportFlashKey?: number;
 }) {
   const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
   const [nameSearch, setNameSearch] = useState('');
@@ -153,15 +159,12 @@ export function CrmIntakePanel({
   }, [lookupRefreshKey, mode, refresh]);
 
   useEffect(() => {
-    if (mode === 'new') {
-      autoFilledKeyRef.current = null;
-      setNameSearch('');
-      setFormSeed({ customerName: '', nickname: '', phone: '', memo: '', address: '' });
-      onCustomerNameChange('');
-      onPyeongChange('');
-      setLastInquiryId(null);
-    }
-  }, [mode, formResetKey, onCustomerNameChange, onPyeongChange]);
+    if (mode !== 'new') return;
+    autoFilledKeyRef.current = null;
+    setNameSearch('');
+    setFormSeed({ customerName: '', nickname: '', phone: '', memo: '', address: '' });
+    setLastInquiryId(null);
+  }, [mode]);
 
   const activeInquiryId = lastInquiryId ?? data?.inquiries?.[0]?.id ?? null;
   const activeCustomerMatch: 'new' | 'existing' | 'pick' | 'unknown' =
@@ -345,10 +348,17 @@ export function CrmIntakePanel({
             canDial={canDial}
             onCall={() => void handleCall()}
             callLabel={isTelecrmNativeApp() ? '앱 통화' : '통화'}
+            highlight={soomgoImportFlashKey > 0 && phone.trim().length > 0}
           />
         )}
 
         <div className="border-t border-emerald-100/80 pt-2">
+          {soomgoImportBanner ? (
+            <div className="mb-2 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-2 text-[11px] leading-snug text-sky-950">
+              <p className="font-semibold text-sky-900">숨고에서 가져온 정보</p>
+              <p className="mt-0.5 whitespace-pre-wrap">{soomgoImportBanner}</p>
+            </div>
+          ) : null}
           <CrmIntakeForm
             seed={intakeSeed}
             initialFormDraft={initialFormDraft}
@@ -363,6 +373,7 @@ export function CrmIntakePanel({
             permissionsLoading={permissionsLoading}
             formResetKey={formResetKey}
             quotePayload={quotePayload}
+            soomgoImportFlashKey={soomgoImportFlashKey}
           />
         </div>
 

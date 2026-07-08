@@ -24,11 +24,13 @@ import { telecrmDispatchNotice, telecrmPrefillPhone } from '../utils/telecrmNati
 export function useCrmSoomgoBridge({
   onImport,
   onDispatchNotice,
+  onImportNotice,
   pollEnabled = true,
   isPopup = false,
 }: {
   onImport: (data: SoomgoExtractedChat) => void;
   onDispatchNotice?: (message: string) => void;
+  onImportNotice?: (data: SoomgoExtractedChat) => void;
   pollEnabled?: boolean;
   isPopup?: boolean;
 }) {
@@ -182,7 +184,7 @@ export function useCrmSoomgoBridge({
       const finalStatus = await refreshStatus();
       if (finalStatus.inChatRoom) {
         await ensureCallWatch(finalStatus);
-        notify('숨고 채팅방이 연결되었습니다. 전화 아이콘 → 안심번호로 통화하기를 누르면 연락처에 들어갑니다.');
+        notify('숨고 채팅방이 연결되었습니다. 「숨고 안심번호」를 누르면 전화 모달에서 번호를 가져옵니다.');
       } else if (finalStatus.onChatList) {
         notify('숨고 채팅 목록이 열렸습니다. 고객 채팅방을 연 뒤 왼쪽 도구를 사용하세요.');
       } else if (finalStatus.onRequestsPage) {
@@ -208,7 +210,7 @@ export function useCrmSoomgoBridge({
       const data = await extractSoomgoCurrentChat();
       setPreview(data);
       onImport(data);
-      notify('고객 요청 정보를 접수란에 채웠습니다.');
+      onImportNotice?.(data);
       return data;
     } catch (e) {
       const msg = e instanceof Error ? e.message : '정보를 가져오지 못했습니다.';
@@ -218,14 +220,25 @@ export function useCrmSoomgoBridge({
     } finally {
       setBusy(false);
     }
-  }, [notify, onImport]);
+  }, [notify, onImport, onImportNotice]);
 
   const callFromChat = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
+      notify('숨고 채팅방 상단 전화 아이콘을 눌러 모달을 여는 중…');
       await openSoomgoCallModal();
-      const phone = await extractSoomgoCallNumber();
+      await new Promise((r) => window.setTimeout(r, 600));
+      let phone: string | null = null;
+      for (let i = 0; i < 4; i += 1) {
+        try {
+          phone = await extractSoomgoCallNumber();
+          break;
+        } catch {
+          await new Promise((r) => window.setTimeout(r, 500));
+        }
+      }
+      if (!phone) throw new Error('안심번호를 찾지 못했습니다. 채팅방 상단 전화 아이콘·모달을 확인해 주세요.');
       await applyCallPhone(phone);
     } catch (e) {
       const msg = e instanceof Error ? e.message : '안심번호를 가져오지 못했습니다.';

@@ -34,6 +34,11 @@ import {
   type CrmIntakeFormSnapshot,
 } from '../../../utils/crmIntakeDraft';
 import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
+import {
+  normalizeSoomgoPreferredDate,
+  soomgoImportNoticeText,
+  summarizeSoomgoImport,
+} from '../../../utils/crmSoomgoImport';
 import { useCrmConsultationQuote } from '../../../hooks/useCrmConsultationQuote';
 import { telecrmQuotePayloadHasContent } from '@shared/telecrmConsultationQuote';
 import {
@@ -84,6 +89,8 @@ export function CrmPage() {
     customerMatch: 'new' | 'existing' | 'pick' | 'unknown';
   }>({ inquiryId: null, customerMatch: 'new' });
   const [formResetKey, setFormResetKey] = useState(0);
+  const [soomgoImportBanner, setSoomgoImportBanner] = useState<string | null>(null);
+  const [soomgoImportFlashKey, setSoomgoImportFlashKey] = useState(0);
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [smsDrawerOpen, setSmsDrawerOpen] = useState(false);
   const [soomgoDrawerOpen, setSoomgoDrawerOpen] = useState(false);
@@ -126,6 +133,7 @@ export function CrmPage() {
         nickname: draft.nickname,
         address: draft.address,
         preferredMoveInCleanYmd: draft.preferredMoveInCleanYmd,
+        requestMemo: draft.requestMemo ?? '',
         kind: draft.kind,
         goldDb: draft.goldDb,
       });
@@ -203,6 +211,7 @@ export function CrmPage() {
           nickname: '',
           address: '',
           preferredMoveInCleanYmd: '',
+          requestMemo: '',
           kind: 'absent',
           goldDb: false,
           savedAt: Date.now(),
@@ -234,6 +243,7 @@ export function CrmPage() {
         nickname: '',
         address: '',
         preferredMoveInCleanYmd: '',
+        requestMemo: '',
         kind: 'absent',
         goldDb: false,
       });
@@ -253,20 +263,26 @@ export function CrmPage() {
     if (name) setCustomerName(name);
     if (data.pyeong) setPyeong(String(data.pyeong));
     setMode('new');
+    const preferredYmd = normalizeSoomgoPreferredDate(data.preferredDate);
+    const requestMemo = (data.requestMemo || data.memo)?.trim() || '';
+    const summary = summarizeSoomgoImport(data);
+    setSoomgoImportBanner(summary.lines.join('\n'));
+    setSoomgoImportFlashKey((k) => k + 1);
     setInitialFormDraft({
       customerName: name,
       nickname: name,
       address: (data.region || data.address)?.trim() || '',
-      preferredMoveInCleanYmd: data.preferredDate?.trim() || '',
+      preferredMoveInCleanYmd: preferredYmd,
+      requestMemo,
       kind: 'absent',
       goldDb: false,
     });
-    setFormResetKey((k) => k + 1);
   }, []);
 
   const soomgoBridge = useCrmSoomgoBridge({
     onImport: handleSoomgoImport,
     onDispatchNotice: showDispatchNotice,
+    onImportNotice: (data) => showDispatchNotice(soomgoImportNoticeText(summarizeSoomgoImport(data))),
     pollEnabled: !isMobileApp,
     isPopup,
   });
@@ -647,6 +663,8 @@ export function CrmPage() {
                 onContextChange={setCrmContext}
                 formResetKey={formResetKey}
                 quotePayload={telecrmQuotePayloadHasContent(quotePayload) ? quotePayload : null}
+                soomgoImportBanner={soomgoImportBanner}
+                soomgoImportFlashKey={soomgoImportFlashKey}
               />
             </div>
           }

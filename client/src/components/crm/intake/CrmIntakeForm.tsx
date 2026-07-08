@@ -36,6 +36,7 @@ export function CrmIntakeForm({
   permissionsLoading,
   formResetKey = 0,
   quotePayload = null,
+  soomgoImportFlashKey = 0,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
@@ -50,11 +51,13 @@ export function CrmIntakeForm({
   permissionsLoading?: boolean;
   formResetKey?: number;
   quotePayload?: TelecrmConsultationQuotePayload | null;
+  soomgoImportFlashKey?: number;
 }) {
   const [customerName, setCustomerName] = useState('');
   const [nickname, setNickname] = useState('');
   const [preferredMoveInCleanYmd, setPreferredMoveInCleanYmd] = useState('');
   const [address, setAddress] = useState('');
+  const [requestMemo, setRequestMemo] = useState('');
   const [kind, setKind] = useState<CrmIntakeKind>('absent');
   const [goldDb, setGoldDb] = useState(false);
   const [showMore, setShowMore] = useState(false);
@@ -70,21 +73,29 @@ export function CrmIntakeForm({
     setAddress(seed.address ?? '');
   }, [seed.customerName, seed.nickname, seed.address]);
 
-  const appliedDraftRef = useRef(false);
+  const appliedDraftRef = useRef(0);
 
   useEffect(() => {
-    if (appliedDraftRef.current || !initialFormDraft) return;
-    appliedDraftRef.current = true;
+    if (!initialFormDraft) return;
     if (initialFormDraft.customerName != null) setCustomerName(initialFormDraft.customerName);
     if (initialFormDraft.nickname != null) setNickname(initialFormDraft.nickname);
     if (initialFormDraft.address != null) setAddress(initialFormDraft.address);
     if (initialFormDraft.preferredMoveInCleanYmd != null) {
       setPreferredMoveInCleanYmd(initialFormDraft.preferredMoveInCleanYmd);
     }
+    if (initialFormDraft.requestMemo != null) setRequestMemo(initialFormDraft.requestMemo);
     if (initialFormDraft.kind != null) setKind(initialFormDraft.kind);
     if (initialFormDraft.goldDb != null) setGoldDb(initialFormDraft.goldDb);
-    if (initialFormDraft.address || initialFormDraft.preferredMoveInCleanYmd) setShowMore(true);
-  }, [initialFormDraft]);
+    if (
+      initialFormDraft.address ||
+      initialFormDraft.preferredMoveInCleanYmd ||
+      initialFormDraft.requestMemo ||
+      pyeong.trim()
+    ) {
+      setShowMore(true);
+    }
+    appliedDraftRef.current = soomgoImportFlashKey;
+  }, [initialFormDraft, soomgoImportFlashKey, pyeong]);
 
   useEffect(() => {
     if (kind === 'received') setShowMore(true);
@@ -95,10 +106,11 @@ export function CrmIntakeForm({
     setNickname('');
     setPreferredMoveInCleanYmd('');
     setAddress('');
+    setRequestMemo('');
     setKind('absent');
     setGoldDb(false);
     setShowMore(false);
-    appliedDraftRef.current = false;
+    appliedDraftRef.current = 0;
   }, [formResetKey]);
 
   useEffect(() => {
@@ -109,12 +121,13 @@ export function CrmIntakeForm({
         nickname,
         address,
         preferredMoveInCleanYmd,
+        requestMemo,
         kind,
         goldDb,
       });
     }, 400);
     return () => window.clearTimeout(t);
-  }, [customerName, nickname, address, preferredMoveInCleanYmd, kind, goldDb, onFormChange]);
+  }, [customerName, nickname, address, preferredMoveInCleanYmd, requestMemo, kind, goldDb, onFormChange]);
 
   const submit = async (keepForm: boolean) => {
     const token = getToken();
@@ -155,6 +168,11 @@ export function CrmIntakeForm({
     }
   };
 
+  const flashRing =
+    soomgoImportFlashKey > 0
+      ? 'ring-2 ring-sky-400/80 ring-offset-1 transition-shadow duration-500'
+      : '';
+
   return (
     <div className="space-y-2.5">
       <div className="grid grid-cols-2 gap-2">
@@ -165,7 +183,7 @@ export function CrmIntakeForm({
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             placeholder="어머님, 관리실"
-            className={crmFieldCompactClass}
+            className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 && nickname.trim() ? flashRing : ''}`}
             disabled={saving}
           />
         </label>
@@ -176,7 +194,7 @@ export function CrmIntakeForm({
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             placeholder="확인 후 입력"
-            className={crmFieldCompactClass}
+            className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 && customerName.trim() ? flashRing : ''}`}
             disabled={saving}
           />
         </label>
@@ -239,7 +257,7 @@ export function CrmIntakeForm({
               value={pyeong}
               onChange={(e) => onPyeongChange(e.target.value)}
               placeholder="예: 33"
-              className={`${crmFieldCompactClass} tabular-nums`}
+              className={`${crmFieldCompactClass} tabular-nums ${soomgoImportFlashKey > 0 && pyeong.trim() ? flashRing : ''}`}
               disabled={saving}
             />
           </label>
@@ -250,7 +268,7 @@ export function CrmIntakeForm({
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className={crmFieldCompactClass}
+                className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 && address.trim() ? flashRing : ''}`}
                 disabled={saving}
               />
             </label>
@@ -261,7 +279,18 @@ export function CrmIntakeForm({
               type="date"
               value={preferredMoveInCleanYmd}
               onChange={(e) => setPreferredMoveInCleanYmd(e.target.value)}
-              className={crmFieldCompactClass}
+              className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 && preferredMoveInCleanYmd ? flashRing : ''}`}
+              disabled={saving}
+            />
+          </label>
+          <label className="block space-y-0.5">
+            <span className="text-[11px] font-medium text-slate-600">숨고 요청 메모</span>
+            <textarea
+              value={requestMemo}
+              onChange={(e) => setRequestMemo(e.target.value)}
+              rows={4}
+              placeholder="고객 요청 모달에서 가져온 상세"
+              className={`${crmFieldCompactClass} min-h-[72px] resize-y ${soomgoImportFlashKey > 0 && requestMemo.trim() ? flashRing : ''}`}
               disabled={saving}
             />
           </label>
