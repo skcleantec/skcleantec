@@ -18,6 +18,7 @@ from automation.browser import BrowserManager
 from automation.call_modal import CallModalManager
 from automation.chat_room import ChatRoomManager
 from automation.login import goto_chat_list, is_logged_in, login_to_soomgo
+from automation.overlay_modals import dismiss_blocking_overlays
 from automation.navigation import (
     is_in_chat_room_url,
     is_on_chat_list_url,
@@ -146,17 +147,31 @@ def _page_mode(url: str, in_room: bool) -> str:
 
 
 def _sync_logged_in_from_browser() -> bool:
-    """Chrome URL 기준 로그인 상태 — 메모리 플래그와 동기화."""
-    global _logged_in
+    """Chrome URL 기준 로그인 상태 — 메모리 플래그·lastError 동기화."""
+    global _logged_in, _last_error
     if not _browser.is_running() or not _browser.driver:
         return False
     try:
+        dismiss_blocking_overlays(_browser.driver, 0.25, max_rounds=2)
         url_ok = is_logged_in(_browser.driver)
     except Exception:
         url_ok = False
     if url_ok:
         _logged_in = True
+        _last_error = None
     return url_ok
+
+
+def _wait_for_manual_login(driver, *, timeout_sec: float = 28.0) -> bool:
+    """자동 로그인 실패 후 상담사 수동 로그인·점검 모달 닫기 대기."""
+    deadline = time.time() + timeout_sec
+    while time.time() < deadline:
+        dismiss_blocking_overlays(driver, 0.35, max_rounds=3)
+        if is_logged_in(driver):
+            goto_chat_list(driver)
+            return True
+        time.sleep(1.0)
+    return is_logged_in(driver)
 
 
 def _status_payload() -> dict[str, Any]:
@@ -261,6 +276,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             if path == '/login':
                 email = str(body.get('email', '')).strip()
                 password = str(body.get('password', '')).strip()
+                dismiss_blocking_overlays(driver, 0.5, max_rounds=4)
                 if is_logged_in(driver):
                     goto_chat_list(driver)
                     _logged_in = True
@@ -274,6 +290,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if not ok and is_logged_in(driver):
                     goto_chat_list(driver)
                     ok = True
+                if not ok:
+                    ok = _wait_for_manual_login(driver)
                 _logged_in = ok
                 _last_error = None if ok else '숨고 로그인에 실패했습니다.'
                 status = 200 if ok else 401

@@ -30,8 +30,12 @@ function isBlocking(text) {
     if (text.indexOf(keys[i]) >= 0) return true;
   }
   if (text.indexOf('점검') >= 0 && (text.indexOf('안내') >= 0 || text.indexOf('진행') >= 0)) return true;
+  if (text.indexOf('점검 사전') >= 0) return true;
   return false;
 }
+var bodyAll = (document.body.innerText || '');
+if (bodyAll.indexOf('시스템 점검 사전 안내') >= 0) return true;
+if (bodyAll.indexOf('시스템 점검') >= 0 && bodyAll.indexOf('점검 종료') >= 0) return true;
 var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="popup"], [class*="Popup"], [class*="overlay"], [class*="Overlay"], [class*="drawer"], [class*="Drawer"]');
 for (var i = 0; i < roots.length; i++) {
   var el = roots[i];
@@ -86,6 +90,7 @@ function scoreDismiss(btn, rootRect) {
   if (/^확인$|^닫기$|^OK$|^Close$/i.test(label)) score += 60;
   if (/나중에|다음에|건너|skip|later/i.test(label)) score += 45;
   if (/닫기|close|취소|확인/i.test(label)) score += 35;
+  if (/자세히|more|detail/i.test(label)) score -= 80;
   if (label === '' || label === '×' || label === '✕' || label === 'X') score += 40;
   if (r.top <= rootRect.top + 80) score += 20;
   if (r.right >= rootRect.right - 80) score += 30;
@@ -111,6 +116,39 @@ document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Esca
 return true;
 """
 
+_DISMISS_MAINTENANCE_FALLBACK_JS = """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 4 || r.height < 4) return false;
+  var st = window.getComputedStyle(el);
+  if (st.display === 'none' || st.visibility === 'hidden' || parseFloat(st.opacity || '1') < 0.05) return false;
+  return true;
+}
+var body = (document.body.innerText || '');
+if (body.indexOf('시스템 점검') < 0 && body.indexOf('점검 사전') < 0) return false;
+var nodes = document.querySelectorAll('button, a, [role="button"], span, p, div');
+var best = null;
+var bestScore = -1;
+for (var i = 0; i < nodes.length; i++) {
+  var el = nodes[i];
+  if (!visible(el)) continue;
+  var t = (el.textContent || '').trim();
+  if (t !== '닫기') continue;
+  var r = el.getBoundingClientRect();
+  var score = 0;
+  if (el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button') score += 30;
+  if (r.width < 180 && r.height < 56) score += 20;
+  score += Math.min(r.top, 400) * 0.05;
+  if (score > bestScore) { bestScore = score; best = el; }
+}
+if (best && bestScore >= 20) {
+  best.click();
+  return true;
+}
+return false;
+"""
+
 
 def dismiss_blocking_overlays(driver, delay: float = 0.5, max_rounds: int = 4) -> int:
     """방해 오버레이(시스템 점검 등)를 닫고 닫은 횟수를 반환."""
@@ -124,6 +162,8 @@ def dismiss_blocking_overlays(driver, delay: float = 0.5, max_rounds: int = 4) -
             break
         try:
             dismissed = bool(driver.execute_script(_DISMISS_BLOCKING_JS))
+            if not dismissed:
+                dismissed = bool(driver.execute_script(_DISMISS_MAINTENANCE_FALLBACK_JS))
         except Exception as e:
             logger.debug('dismiss_blocking_overlays: %s', e)
             break

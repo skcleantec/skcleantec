@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SoomgoExtractedChat, SoomgoBridgeStatus } from '@shared/soomgoBridge';
+import type { SoomgoExtractedChat, SoomgoBridgeStatus, SoomgoBridgeManifest } from '@shared/soomgoBridge';
 import { getToken } from '../stores/auth';
 import { fetchTelecrmSoomgoCredentials } from '../api/telecrmSoomgo';
 import {
@@ -16,6 +16,7 @@ import {
   requestSoomgoBridgeUpdate,
   SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE,
   SOOMGO_BRIDGE_OUTDATED_MESSAGE,
+  soomgoBridgeOutdatedMessage,
   startSoomgoBridge,
   watchSoomgoCallButton,
 } from '../api/soomgoBridge';
@@ -29,6 +30,7 @@ export function useCrmSoomgoBridge({
   onImportNotice,
   pollEnabled = true,
   isPopup = false,
+  bridgeManifest = null,
 }: {
   onImport: (data: SoomgoExtractedChat) => void;
   onImportPhone?: (phone: string) => void;
@@ -36,6 +38,7 @@ export function useCrmSoomgoBridge({
   onImportNotice?: (data: SoomgoExtractedChat) => void;
   pollEnabled?: boolean;
   isPopup?: boolean;
+  bridgeManifest?: SoomgoBridgeManifest | null;
 }) {
   const [status, setStatus] = useState<SoomgoBridgeStatus | null>(null);
   const [preview, setPreview] = useState<SoomgoExtractedChat | null>(null);
@@ -106,27 +109,31 @@ export function useCrmSoomgoBridge({
   );
 
   const refreshStatus = useCallback(async () => {
-    const s = await fetchSoomgoBridgeStatus();
+    const s = await fetchSoomgoBridgeStatus(bridgeManifest);
     setStatus(s);
-    if (!isSoomgoBridgeOutdated(s)) {
+    const outdatedMsg = soomgoBridgeOutdatedMessage(s, bridgeManifest);
+    if (!isSoomgoBridgeOutdated(s, bridgeManifest)) {
       watchBlockedRef.current = false;
+      setError((prev) =>
+        prev && (prev.includes('업데이트') || prev === SOOMGO_BRIDGE_OUTDATED_MESSAGE) ? null : prev,
+      );
     }
-    if (isSoomgoBridgeOutdated(s) && !outdatedNotifiedRef.current) {
+    if (isSoomgoBridgeOutdated(s, bridgeManifest) && !outdatedNotifiedRef.current) {
       outdatedNotifiedRef.current = true;
       watchBlockedRef.current = true;
-      setError(SOOMGO_BRIDGE_OUTDATED_MESSAGE);
-      notify(SOOMGO_BRIDGE_OUTDATED_MESSAGE);
+      setError(outdatedMsg);
+      notify(outdatedMsg);
       void requestSoomgoBridgeUpdate();
     }
-    if (s.pendingCallPhone && s.pendingCallAt != null && !isSoomgoBridgeOutdated(s)) {
+    if (s.pendingCallPhone && s.pendingCallAt != null && !isSoomgoBridgeOutdated(s, bridgeManifest)) {
       void handlePendingCall(s);
     }
     return s;
-  }, [handlePendingCall, notify]);
+  }, [bridgeManifest, handlePendingCall, notify]);
 
   const ensureCallWatch = useCallback(
     async (s: SoomgoBridgeStatus) => {
-      if (!s.inChatRoom || watchStartedRef.current || watchBlockedRef.current || isSoomgoBridgeOutdated(s)) {
+      if (!s.inChatRoom || watchStartedRef.current || watchBlockedRef.current || isSoomgoBridgeOutdated(s, bridgeManifest)) {
         return;
       }
       try {
@@ -143,7 +150,7 @@ export function useCrmSoomgoBridge({
         }
       }
     },
-    [notify],
+    [bridgeManifest, notify],
   );
 
   useEffect(() => {
@@ -154,7 +161,7 @@ export function useCrmSoomgoBridge({
       if (cancelled) return;
       const s = await refreshStatus();
       if (cancelled) return;
-      if (s.inChatRoom && s.bridgeRunning && !isSoomgoBridgeOutdated(s) && !watchBlockedRef.current) {
+      if (s.inChatRoom && s.bridgeRunning && !isSoomgoBridgeOutdated(s, bridgeManifest) && !watchBlockedRef.current) {
         void ensureCallWatch(s);
       } else if (!s.inChatRoom) {
         watchStartedRef.current = false;
@@ -166,7 +173,7 @@ export function useCrmSoomgoBridge({
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [pollEnabled, refreshStatus, ensureCallWatch]);
+  }, [bridgeManifest, pollEnabled, refreshStatus, ensureCallWatch]);
 
   const openSoomgo = useCallback(async () => {
     setBusy(true);
@@ -176,8 +183,10 @@ export function useCrmSoomgoBridge({
       if (!isSoomgoBridgeReachable(current)) {
         throw new Error(SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE);
       }
-      if (isSoomgoBridgeOutdated(current)) {
-        throw new Error(SOOMGO_BRIDGE_OUTDATED_MESSAGE);
+      if (isSoomgoBridgeOutdated(current, bridgeManifest)) {
+        const outdatedMsg = soomgoBridgeOutdatedMessage(current, bridgeManifest);
+        void requestSoomgoBridgeUpdate();
+        throw new Error(outdatedMsg);
       }
       const screen = readSoomgoSplitScreenBounds();
       if (isPopup) arrangeCrmPopupLeftHalf();
@@ -209,7 +218,7 @@ export function useCrmSoomgoBridge({
     } finally {
       setBusy(false);
     }
-  }, [applySplitLayout, ensureCallWatch, isPopup, notify, refreshStatus]);
+  }, [applySplitLayout, bridgeManifest, ensureCallWatch, isPopup, notify, refreshStatus]);
 
   const extract = useCallback(async () => {
     setBusy(true);

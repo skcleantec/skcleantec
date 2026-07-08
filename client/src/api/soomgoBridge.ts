@@ -1,12 +1,28 @@
-import type { SoomgoBridgeStatus, SoomgoExtractedChat } from '@shared/soomgoBridge';
-import { SOOMGO_BRIDGE_BASE_URL, SOOMGO_BRIDGE_MIN_VERSION } from '@shared/soomgoBridge';
+import type { SoomgoBridgeStatus, SoomgoExtractedChat, SoomgoBridgeManifest } from '@shared/soomgoBridge';
+import {
+  SOOMGO_BRIDGE_BASE_URL,
+  SOOMGO_BRIDGE_MIN_VERSION,
+  isSoomgoAppOutdated,
+} from '@shared/soomgoBridge';
 import type { SoomgoSplitScreenBounds } from '../utils/crmSoomgoSplitLayout';
 
 export const SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE =
   '숨고 연동 프로그램이 실행 중이 아닙니다. PC에서「청소비서 숨고 연동」을 실행한 뒤 다시 시도해 주세요.';
 
 export const SOOMGO_BRIDGE_OUTDATED_MESSAGE =
-  '숨고 연동 프로그램 업데이트가 필요합니다. 트레이 아이콘 → 업데이트 확인 또는 CRM 설정에서 다운로드하세요.';
+  '숨고 연동 프로그램 업데이트가 필요합니다. 「업데이트」 또는 「설치」로 최신 버전을 설치한 뒤 다시 연결해 주세요.';
+
+export function soomgoBridgeOutdatedMessage(
+  status: SoomgoBridgeStatus | null | undefined,
+  manifest?: SoomgoBridgeManifest | null,
+): string {
+  const latest = manifest?.latestVersion?.trim();
+  const current = status?.appVersion?.trim();
+  if (latest && current && isSoomgoAppOutdated(current, manifest)) {
+    return `숨고 연동 v${current} → v${latest} 업데이트가 필요합니다. 「업데이트」 또는 「설치」를 눌러 주세요.`;
+  }
+  return SOOMGO_BRIDGE_OUTDATED_MESSAGE;
+}
 
 function isBridgeConnectionError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
@@ -55,17 +71,23 @@ export function isSoomgoBridgeReachable(status: SoomgoBridgeStatus | null | unde
   return Boolean(status?.bridgeRunning);
 }
 
-export function isSoomgoBridgeOutdated(status: SoomgoBridgeStatus | null | undefined): boolean {
+export function isSoomgoBridgeOutdated(
+  status: SoomgoBridgeStatus | null | undefined,
+  manifest?: SoomgoBridgeManifest | null,
+): boolean {
   if (!status?.bridgeRunning) return false;
   const v = status.bridgeVersion;
-  return v == null || v < SOOMGO_BRIDGE_MIN_VERSION;
+  if (v == null || v < SOOMGO_BRIDGE_MIN_VERSION) return true;
+  return isSoomgoAppOutdated(status.appVersion, manifest);
 }
 
-export async function fetchSoomgoBridgeStatus(): Promise<SoomgoBridgeStatus> {
+export async function fetchSoomgoBridgeStatus(
+  manifest?: SoomgoBridgeManifest | null,
+): Promise<SoomgoBridgeStatus> {
   try {
     const status = await bridgeFetch<SoomgoBridgeStatus>('/status');
-    if (isSoomgoBridgeOutdated(status)) {
-      return { ...status, lastError: SOOMGO_BRIDGE_OUTDATED_MESSAGE };
+    if (isSoomgoBridgeOutdated(status, manifest)) {
+      return { ...status, lastError: soomgoBridgeOutdatedMessage(status, manifest) };
     }
     return status;
   } catch (e) {

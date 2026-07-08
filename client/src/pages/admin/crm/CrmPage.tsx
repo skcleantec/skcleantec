@@ -318,6 +318,7 @@ export function CrmPage() {
 
   const soomgoBridge = useCrmSoomgoBridge({
     onImport: handleSoomgoImport,
+    bridgeManifest: soomgoBridgeManifest,
     onImportPhone: setPhone,
     onDispatchNotice: showDispatchNotice,
     onImportNotice: (data) =>

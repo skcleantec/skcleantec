@@ -46,8 +46,10 @@ export function CrmSoomgoTopBar({
           ? '채팅방을 연 뒤 왼쪽 도구 사용'
           : null;
 
-  const outdated = isSoomgoBridgeOutdated(status);
+  const outdated = isSoomgoBridgeOutdated(status, bridgeManifest);
   const downloadUrl = bridgeManifest?.downloadUrl?.trim() || '';
+  const latestLabel = bridgeManifest?.latestVersion?.trim();
+  const currentLabel = status?.appVersion?.trim();
 
   return (
     <div className="shrink-0 border-b border-sky-200/90 bg-gradient-to-r from-sky-50 via-cyan-50/40 to-sky-50 shadow-sm">
@@ -87,7 +89,9 @@ export function CrmSoomgoTopBar({
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[11px] text-rose-900">
             <span className="rounded-full bg-rose-100 px-2 py-0.5 font-semibold">업데이트 필요</span>
             <span className="hidden min-w-0 truncate sm:inline">
-              숨고 연동 프로그램을 최신 버전으로 업데이트하세요
+              {currentLabel && latestLabel
+                ? `v${currentLabel} → v${latestLabel} 업데이트 후 다시 연결해 주세요`
+                : '숨고 연동 프로그램을 최신 버전으로 업데이트하세요'}
             </span>
             {onRequestUpdate ? (
               <button
@@ -173,7 +177,7 @@ export function CrmSoomgoTopBar({
           ) : null}
           <button
             type="button"
-            disabled={busy || !bridgeUp}
+            disabled={busy || !bridgeUp || outdated}
             onClick={() => void onOpenSoomgo()}
             className="rounded-lg bg-sky-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
           >
