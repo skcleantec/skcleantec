@@ -41,8 +41,13 @@ export function TelecrmSoomgoSettingsPage() {
 
   const save = async (confirmedPassword?: string) => {
     if (!token) return;
-    const needsActor = password.trim().length > 0 || !hasPassword;
-    if (needsActor && !confirmedPassword?.trim()) {
+    const soomgoPasswordToSend = password.trim() || undefined;
+    if (!hasPassword && !soomgoPasswordToSend) {
+      setError('숨고 비밀번호를 입력해 주세요.');
+      return;
+    }
+    if (soomgoPasswordToSend && !confirmedPassword?.trim()) {
+      setError(null);
       setPwdModalOpen(true);
       return;
     }
@@ -52,7 +57,7 @@ export function TelecrmSoomgoSettingsPage() {
     try {
       const cfg = await updateTelecrmSoomgoConfig(token, {
         email,
-        password: password.trim() || undefined,
+        password: soomgoPasswordToSend,
         enabled,
         actorPassword: confirmedPassword,
       });
@@ -146,14 +151,19 @@ export function TelecrmSoomgoSettingsPage() {
       <DeletePasswordModal
         open={pwdModalOpen}
         title="숨고 계정 저장 확인"
+        description="숨고 비밀번호를 저장하려면 텔레CRM 로그인 비밀번호를 입력해 주세요."
+        confirmLabel="저장"
+        confirmBusyLabel="저장 중…"
+        variant="primary"
         busy={saving}
         password={actorPassword}
-        error={error}
+        error={pwdModalOpen ? error : null}
         onPasswordChange={setActorPassword}
         onConfirm={() => void save(actorPassword)}
         onClose={() => {
           setPwdModalOpen(false);
           setActorPassword('');
+          setError(null);
         }}
       />
     </div>

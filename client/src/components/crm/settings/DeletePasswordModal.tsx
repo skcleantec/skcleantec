@@ -3,6 +3,10 @@ import type { ReactNode } from 'react';
 export function DeletePasswordModal({
   open,
   title,
+  description = '본인 비밀번호를 입력해 주세요.',
+  confirmLabel = '삭제',
+  confirmBusyLabel = '삭제 중…',
+  variant = 'danger',
   busy,
   password,
   error,
@@ -12,6 +16,10 @@ export function DeletePasswordModal({
 }: {
   open: boolean;
   title: string;
+  description?: string;
+  confirmLabel?: string;
+  confirmBusyLabel?: string;
+  variant?: 'danger' | 'primary';
   busy?: boolean;
   password: string;
   error?: string | null;
@@ -20,8 +28,12 @@ export function DeletePasswordModal({
   onClose: () => void;
 }) {
   if (!open) return null;
+  const confirmClass =
+    variant === 'primary'
+      ? 'rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm text-white disabled:opacity-50'
+      : 'rounded-lg bg-red-600 px-4 py-2 text-fluid-sm text-white disabled:opacity-50';
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
       <div
         className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-xl"
         role="dialog"
@@ -31,7 +43,7 @@ export function DeletePasswordModal({
         <h2 id="delete-password-title" className="text-base font-semibold text-gray-900">
           {title}
         </h2>
-        <p className="mt-2 text-fluid-sm text-gray-600">본인 비밀번호를 입력해 주세요.</p>
+        <p className="mt-2 text-fluid-sm text-gray-600">{description}</p>
         <input
           type="password"
           autoFocus
@@ -54,9 +66,9 @@ export function DeletePasswordModal({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="rounded-lg bg-red-600 px-4 py-2 text-fluid-sm text-white disabled:opacity-50"
+            className={confirmClass}
           >
-            {busy ? '삭제 중…' : '삭제'}
+            {busy ? confirmBusyLabel : confirmLabel}
           </button>
         </div>
       </div>
