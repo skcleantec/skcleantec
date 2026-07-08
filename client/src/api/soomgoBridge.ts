@@ -1,19 +1,47 @@
 import type { SoomgoBridgeStatus, SoomgoExtractedChat } from '@shared/soomgoBridge';
 import { SOOMGO_BRIDGE_BASE_URL } from '@shared/soomgoBridge';
 
+export const SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE =
+  '숨고 브릿지가 실행 중이 아닙니다. PC에서 tools\\soomgo-bridge\\run-bridge.bat 을 실행한 뒤 다시 시도해 주세요.';
+
+function isBridgeConnectionError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg === 'failed to fetch' ||
+    msg.includes('networkerror') ||
+    msg.includes('connection refused') ||
+    msg.includes('load failed')
+  );
+}
+
+function bridgeConnectionError(): Error {
+  return new Error(SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE);
+}
+
 async function bridgeFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${SOOMGO_BRIDGE_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${SOOMGO_BRIDGE_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (err) {
+    if (isBridgeConnectionError(err)) throw bridgeConnectionError();
+    throw err instanceof Error ? err : new Error('숨고 브릿지 통신에 실패했습니다.');
+  }
   const data = (await res.json()) as T & { error?: string; ok?: boolean };
   if (!res.ok) {
     throw new Error((data as { error?: string }).error ?? `브릿지 오류 (${res.status})`);
   }
   return data;
+}
+
+export function isSoomgoBridgeReachable(status: SoomgoBridgeStatus | null | undefined): boolean {
+  return Boolean(status?.bridgeRunning);
 }
 
 export async function fetchSoomgoBridgeStatus(): Promise<SoomgoBridgeStatus> {
@@ -25,7 +53,7 @@ export async function fetchSoomgoBridgeStatus(): Promise<SoomgoBridgeStatus> {
       bridgeRunning: false,
       browserRunning: false,
       loggedIn: false,
-      lastError: '숨고 브릿지가 실행 중이 아닙니다. tools/soomgo-bridge/run-bridge.bat 을 실행해 주세요.',
+      lastError: SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE,
     };
   }
 }

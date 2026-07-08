@@ -6,9 +6,11 @@ import type { SoomgoBridgeStatus } from '@shared/soomgoBridge';
 import {
   extractSoomgoCurrentChat,
   fetchSoomgoBridgeStatus,
+  isSoomgoBridgeReachable,
   loginSoomgoBridge,
   openSoomgoChats,
   sendSoomgoBridgeMessage,
+  SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE,
   startSoomgoBridge,
 } from '../../../api/soomgoBridge';
 import { telecrmCall, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
@@ -35,9 +37,19 @@ export function CrmSoomgoPanel({
   }, []);
 
   useEffect(() => {
-    void refreshStatus();
-    const id = window.setInterval(() => void refreshStatus(), 4000);
-    return () => window.clearInterval(id);
+    let cancelled = false;
+    let timer: ReturnType<typeof window.setTimeout> | undefined;
+    const poll = async () => {
+      if (cancelled) return;
+      const s = await refreshStatus();
+      if (cancelled) return;
+      timer = window.setTimeout(poll, s.bridgeRunning ? 4000 : 12000);
+    };
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
   }, [refreshStatus]);
 
   const notify = (msg: string) => onDispatchNotice?.(msg);
@@ -46,6 +58,10 @@ export function CrmSoomgoPanel({
     setBusy(true);
     setError(null);
     try {
+      const current = await refreshStatus();
+      if (!isSoomgoBridgeReachable(current)) {
+        throw new Error(SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE);
+      }
       await startSoomgoBridge();
       const token = getToken();
       if (!token) throw new Error('로그인이 필요합니다.');
@@ -128,22 +144,41 @@ export function CrmSoomgoPanel({
     }
   };
 
-  const connected = status?.bridgeRunning && status?.browserRunning;
+  const bridgeUp = isSoomgoBridgeReachable(status);
   const loggedIn = status?.loggedIn;
   const inRoom = status?.inChatRoom;
 
   return (
     <CrmColumn accent="soomgo" title="숨고 연동" subtitle="채팅방 · 정보 가져오기 · 통화" disableBodyScroll>
       <div className="flex min-h-0 flex-1 flex-col gap-2.5">
+        {!bridgeUp ? (
+          <div className="shrink-0 space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-950">
+            <p className="font-semibold">1단계 — 브릿지 먼저 실행</p>
+            <p className="leading-relaxed">
+              이 PC에서 아래 파일을 더블클릭해 검은 창을 켠 뒤, 「브릿지 연결」이 뜨면 「숨고 열기 / 로그인」을
+              누르세요.
+            </p>
+            <p className="rounded-lg bg-white/80 px-2 py-1.5 font-mono text-[10px] text-slate-700">
+              tools\soomgo-bridge\run-bridge.bat
+            </p>
+            <button
+              type="button"
+              onClick={() => void refreshStatus()}
+              className="w-full rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
+            >
+              연결 다시 확인
+            </button>
+          </div>
+        ) : null}
         <div className="shrink-0 space-y-2 rounded-xl border border-sky-100 bg-white/90 p-2.5 text-fluid-xs">
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                connected ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                bridgeUp ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
               }`}
             >
-              <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-              {connected ? '브릿지 연결' : '브릿지 미실행'}
+              <span className={`h-1.5 w-1.5 rounded-full ${bridgeUp ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+              {bridgeUp ? '브릿지 연결' : '브릿지 미실행'}
             </span>
             {loggedIn ? (
               <span className="text-[10px] text-sky-800">숨고 로그인됨</span>
@@ -155,16 +190,17 @@ export function CrmSoomgoPanel({
             ) : null}
           </div>
           <p className="text-[10px] leading-relaxed text-slate-500">
-            `tools/soomgo-bridge/run-bridge.bat` 실행 후 「숨고 열기」로 Chrome에서 채팅방을 연 다음 버튼을
-            사용하세요.
+            {bridgeUp
+              ? '2단계 — Chrome에서 채팅방을 연 뒤 정보 갖고오기·통화·메시지를 사용하세요.'
+              : '브릿지 실행 후 아래 버튼을 눌러 숨고 Chrome을 엽니다.'}
           </p>
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || !bridgeUp}
             onClick={() => void handleOpenSoomgo()}
             className="w-full rounded-lg bg-sky-600 px-3 py-2 text-[11px] font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
           >
-            {busy ? '연결 중…' : '숨고 열기 / 로그인'}
+            {busy ? '연결 중…' : bridgeUp ? '숨고 열기 / 로그인' : '브릿지 실행 후 이용'}
           </button>
         </div>
 
