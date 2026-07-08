@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.0.3';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.0.4';
 
 export type SoomgoBridgeManifest = {
   requiredVersion: number;

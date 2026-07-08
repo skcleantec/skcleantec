@@ -18,8 +18,8 @@ from desktop.config import (
     BRIDGE_DIR,
     BRIDGE_REQUEST_UPDATE_URL,
     BRIDGE_STATUS_URL,
-    UPDATE_FLAG_PATH,
     ensure_app_data,
+    resolve_update_flag_path,
 )
 from desktop.manifest_client import (
     fetch_manifest,
@@ -46,6 +46,8 @@ class TrayApp:
         self._window = StatusWindow()
         self._tk_thread = threading.Thread(target=self._window.run_tk_loop, daemon=True)
         self._tk_thread.start()
+        if not self._window.wait_ready():
+            logger.warning('status window did not initialize in time')
 
     def _make_icon(self, color: str) -> Image.Image:
         size = 64
@@ -113,11 +115,12 @@ class TrayApp:
             hint = None
             if self._manifest and (is_update_required(self._manifest) or is_update_available(self._manifest)):
                 hint = '새 버전이 있습니다. 트레이 → 업데이트 확인'
-            self._window.root.after(0, lambda: self._window.update_bridge_status(self._status, update_hint=hint))
+            self._window.update_bridge_status_async(self._status, update_hint=hint)
             self._refresh_icon()
-            if UPDATE_FLAG_PATH.exists():
+            flag_path = resolve_update_flag_path()
+            if flag_path.exists():
                 try:
-                    UPDATE_FLAG_PATH.unlink(missing_ok=True)
+                    flag_path.unlink(missing_ok=True)
                 except OSError:
                     pass
                 threading.Thread(target=lambda: self._check_update_prompt(force=True), daemon=True).start()
@@ -146,7 +149,7 @@ class TrayApp:
             if mb.askyesno(title, body):
                 threading.Thread(target=lambda: self._run_update(manifest), daemon=True).start()
 
-        self._window.root.after(0, ui)
+        self._window.run_on_ui(ui)
 
     def _run_update(self, manifest: dict[str, Any]) -> None:
         self._update_busy = True
@@ -158,15 +161,18 @@ class TrayApp:
 
             mb.showinfo('업데이트' if ok else '업데이트 실패', msg)
 
-        self._window.root.after(0, done)
+        self._window.run_on_ui(done)
         if ok and str(manifest.get('downloadUrl', '')).lower().endswith('.zip'):
             self._stop_bridge()
             restart_self()
 
     def _show_message(self, title: str, message: str) -> None:
-        import tkinter.messagebox as mb
+        def ui() -> None:
+            import tkinter.messagebox as mb
 
-        self._window.root.after(0, lambda: mb.showinfo(title, message))
+            mb.showinfo(title, message)
+
+        self._window.run_on_ui(ui)
 
     def _request_update_from_crm(self) -> None:
         try:
@@ -194,7 +200,7 @@ class TrayApp:
         self._stop_bridge()
         if self._icon:
             self._icon.stop()
-        self._window.root.after(0, self._window.root.destroy)
+        self._window.run_on_ui(self._window.destroy)
         os._exit(0)
 
     def run(self) -> None:
