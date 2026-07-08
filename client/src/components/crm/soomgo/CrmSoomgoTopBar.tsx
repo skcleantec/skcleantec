@@ -33,7 +33,7 @@ export function CrmSoomgoTopBar({
   const onRequestsPage = status?.onRequestsPage;
 
   const pageHint = inRoom
-    ? '「숨고 안심번호」를 누르면 채팅방 상단 전화 아이콘 → 모달에서 번호를 가져옵니다'
+    ? '「정보 갖고오기」로 고객 요청·안심번호를 한 번에 가져옵니다 (채팅만 희망 시 번호 없이 채팅방 유지)'
     : onChatList
       ? '채팅 목록 · 고객 채팅방을 연 뒤 왼쪽 도구 사용'
       : onRequestsPage

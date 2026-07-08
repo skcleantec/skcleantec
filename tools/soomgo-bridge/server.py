@@ -341,10 +341,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
             if path == '/extract-call-number':
                 modal = CallModalManager(driver)
                 phone = modal.extract_call_number_from_modal()
+                modal.close_call_modal()
                 if not phone:
                     _json_response(self, 400, {
                         'ok': False,
-                        'error': '안심번호를 찾지 못했습니다. 숨고 전화 모달을 연 뒤 다시 시도해 주세요.',
+                        'error': '안심번호를 찾지 못했습니다. 채팅만 희망 고객일 수 있습니다.',
                     })
                     return
                 _json_response(self, 200, {'ok': True, 'phone': phone, **_status_payload()})

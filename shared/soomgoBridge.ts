@@ -51,4 +51,8 @@ export type SoomgoExtractedChat = {
   lastMessage: string | null;
   customerMessages: string[];
   currentUrl?: string;
+  /** 원스톱 추출 시 050 안심번호 (있을 때만) */
+  safePhone?: string | null;
+  /** 전화 모달에 안심번호 없음 — 채팅만 희망 등 */
+  safePhoneSkipped?: boolean;
 };

@@ -12,6 +12,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 
 from automation.selectors import URLS
 from automation.customer_request import CustomerRequestManager
+from automation.call_modal import CallModalManager
 
 logger = logging.getLogger(__name__)
 
@@ -321,32 +322,42 @@ class ChatRoomManager:
         chat_id = self.get_current_chat_id()
         req_mgr = CustomerRequestManager(self.driver, self.delay)
         request_data = req_mgr.extract_customer_request()
-        nickname = (
+        customer_name = (
             request_data.get('customerName')
             or self.get_nickname()
             or req_mgr.get_header_customer_name()
         )
+        region = request_data.get('region')
         customer_messages = self.get_customer_messages()
         parsed = parse_fields_from_texts(customer_messages)
         if request_data.get('pyeong'):
             parsed['pyeong'] = str(request_data['pyeong'])
-        if request_data.get('region'):
+        if region:
+            parsed['address'] = str(region)
+        elif request_data.get('region'):
             parsed['address'] = str(request_data['region'])
         if request_data.get('requestMemo'):
             parsed['memo'] = str(request_data['requestMemo'])
         last_message = customer_messages[-1] if customer_messages else None
+
+        call_mgr = CallModalManager(self.driver, self.delay)
+        safe_phone = call_mgr.try_extract_safe_phone()
+        phone = safe_phone or parsed.get('phone')
+
         return {
             'chatId': chat_id,
-            'nickname': nickname,
-            'customerName': nickname,
-            'phone': parsed.get('phone'),
+            'nickname': customer_name,
+            'customerName': customer_name,
+            'phone': phone,
+            'safePhone': safe_phone,
+            'safePhoneSkipped': safe_phone is None,
             'address': parsed.get('address'),
             'pyeong': parsed.get('pyeong'),
             'memo': parsed.get('memo'),
             'preferredDate': request_data.get('preferredDate'),
             'serviceType': request_data.get('serviceType'),
             'buildingType': request_data.get('buildingType'),
-            'region': request_data.get('region'),
+            'region': region or request_data.get('region'),
             'requestMemo': request_data.get('requestMemo'),
             'requestPairs': request_data.get('requestPairs', []),
             'lastMessage': last_message,

@@ -77,7 +77,10 @@ export function summarizeSoomgoImport(data: SoomgoExtractedChat): SoomgoImportSu
   return { filled, lines, empty };
 }
 
-export function soomgoImportNoticeText(summary: SoomgoImportSummary): string {
+export function soomgoImportNoticeText(
+  summary: SoomgoImportSummary,
+  opts?: { safePhoneSkipped?: boolean },
+): string {
   if (summary.lines.length === 0) {
     return '숨고에서 가져올 정보가 없습니다. 채팅방에서 고객명·고객 요청 모달을 확인해 주세요.';
   }
@@ -85,5 +88,11 @@ export function soomgoImportNoticeText(summary: SoomgoImportSummary): string {
     summary.filled.some((k) => k === 'pyeong' || k === 'address' || k === 'preferredMoveInCleanYmd' || k === 'requestMemo')
       ? ' 평수·주소·희망일은 접수란 「주소·희망일 등 추가」를 펼쳐 확인하세요.'
       : '';
-  return `숨고 정보를 접수란에 채웠습니다: ${summary.lines.join(' · ')}.${hint}`;
+  let tail = '';
+  if (opts?.safePhoneSkipped && !summary.filled.includes('phone')) {
+    tail = ' 안심번호 없음(채팅만 희망) — 채팅방 유지됨.';
+  } else if (summary.filled.includes('phone')) {
+    tail = ' 안심번호를 연락처에 넣었습니다.';
+  }
+  return `숨고 정보를 접수란에 채웠습니다: ${summary.lines.join(' · ')}.${hint}${tail}`;
 }

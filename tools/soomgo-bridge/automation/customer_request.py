@@ -21,8 +21,9 @@ function visible(el) {
 function isName(t) {
   if (!t) return false;
   t = t.split('\\n')[0].trim();
-  if (t === '접속 중' || t.indexOf('채팅') >= 0) return false;
-  return /^[가-힣]{2,6}$/.test(t);
+  if (t === '접속 중' || t.indexOf('채팅') >= 0 || t === '고객 요청' || t === '요청 상세') return false;
+  if (t.length < 2 || t.length > 12) return false;
+  return /^[가-힣]{2,12}$/.test(t) || /^[가-힣]{2,8}[0-9]?$/.test(t);
 }
 var header = document.querySelector('header, [class*="chat-header"], [class*="ChatHeader"], [class*="room-header"]');
 if (!header) {
@@ -53,8 +54,9 @@ function visible(el) {
 function isName(t) {
   if (!t) return false;
   t = t.split('\\n')[0].trim();
-  if (t === '접속 중' || t.indexOf('채팅') >= 0) return false;
-  return /^[가-힣]{2,6}$/.test(t);
+  if (t === '접속 중' || t.indexOf('채팅') >= 0 || t === '고객 요청' || t === '요청 상세') return false;
+  if (t.length < 2 || t.length > 12) return false;
+  return /^[가-힣]{2,12}$/.test(t) || /^[가-힣]{2,8}[0-9]?$/.test(t);
 }
 var header = document.querySelector('header, [class*="chat-header"], [class*="ChatHeader"], [class*="room-header"]');
 if (!header) header = document.body;
@@ -115,9 +117,11 @@ for (var j = 0; j < lines.length; j++) {
   }
 }
 var customerName = null;
-for (var k = 0; k < Math.min(lines.length, 15); k++) {
+var skipWords = ['고객 요청', '요청 상세', '인터넷', '선택', '입력', '알려'];
+for (var k = 0; k < Math.min(lines.length, 20); k++) {
   var cand = lines[k];
-  if (/^[가-힣]{2,6}$/.test(cand) && cand !== '고객 요청' && cand !== '요청 상세') {
+  if (skipWords.indexOf(cand) >= 0) continue;
+  if (/^[가-힣]{2,12}$/.test(cand)) {
     customerName = cand;
     break;
   }
@@ -132,6 +136,49 @@ for (var i = 0; i < roots.length; i++) {
   if (t.indexOf('고객 요청') >= 0 || t.indexOf('요청 상세') >= 0) return true;
 }
 return false;
+"""
+
+_CLOSE_REQUEST_MODAL_JS = """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 8 || r.height < 8) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden';
+}
+function findRequestModal() {
+  var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="drawer"], [class*="Drawer"]');
+  for (var i = 0; i < roots.length; i++) {
+    var t = (roots[i].innerText || '');
+    if (t.indexOf('고객 요청') >= 0 || t.indexOf('요청 상세') >= 0) return roots[i];
+  }
+  return null;
+}
+var modal = findRequestModal();
+if (!modal) return false;
+var modalRect = modal.getBoundingClientRect();
+var best = null;
+var bestScore = -1;
+var buttons = modal.querySelectorAll('button, [role="button"], a');
+for (var i = 0; i < buttons.length; i++) {
+  var btn = buttons[i];
+  if (!visible(btn)) continue;
+  var r = btn.getBoundingClientRect();
+  var label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.textContent || '') + ' ' + (btn.getAttribute('title') || '')).trim();
+  var score = 0;
+  if (r.top <= modalRect.top + 72) score += 25;
+  if (r.right >= modalRect.right - 72) score += 35;
+  if (/닫기|close|취소/i.test(label)) score += 50;
+  if (label === '' || label === '×' || label === '✕' || label === 'X') score += 30;
+  if (btn.querySelector('svg, img')) score += 15;
+  if (score > bestScore) { bestScore = score; best = btn; }
+}
+if (best && bestScore >= 35) {
+  best.click();
+  return true;
+}
+document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+return true;
 """
 
 
@@ -178,13 +225,20 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
         elif '희망일' in q or '날짜' in q:
             dm = _DATE_RE.search(a)
             result['preferredDate'] = dm.group(1) if dm else a
-        elif '지역' in q:
+        elif '지역' in q or '주소' in q or '위치' in q or '어디' in q or '거주' in q:
             result['region'] = a
         elif '문의' in q:
             result['inquiryNote'] = a
 
     if memo_lines:
         result['requestMemo'] = '\n\n'.join(memo_lines)[:3000]
+
+    if not result.get('region'):
+        for item in pairs:
+            a = str(item.get('answer', '')).strip()
+            if re.search(r'[가-힣]+(?:시|군|구|동|로|길)', a) and len(a) >= 4:
+                result['region'] = a
+                break
     return result
 
 
@@ -238,6 +292,18 @@ class CustomerRequestManager:
             logger.error('extract_request_modal: %s', e)
             return None
 
+    def close_request_modal(self) -> bool:
+        try:
+            if not self.is_request_modal_open():
+                return True
+            self.driver.execute_script(_CLOSE_REQUEST_MODAL_JS)
+            import time
+            time.sleep(self.delay * 0.35)
+            return not self.is_request_modal_open()
+        except Exception as e:
+            logger.debug('close_request_modal: %s', e)
+            return False
+
     def extract_customer_request(self) -> dict[str, Any]:
         import time
         empty: dict[str, Any] = {}
@@ -248,6 +314,11 @@ class CustomerRequestManager:
             return empty
         time.sleep(self.delay * 0.5)
         data = self.extract_request_modal() or {}
-        if name and not data.get('customerName'):
-            data['customerName'] = name
+        header_name = name or self.get_header_customer_name()
+        if header_name and not data.get('customerName'):
+            data['customerName'] = header_name
+        elif data.get('customerName') and header_name:
+            data['customerName'] = str(data['customerName']).strip() or header_name
+        self.close_request_modal()
+        time.sleep(self.delay * 0.25)
         return data

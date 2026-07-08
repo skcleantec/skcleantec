@@ -106,6 +106,52 @@ if (!chunks.length) {
 return chunks.join('\\n');
 """
 
+_CLOSE_CALL_MODAL_JS = """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 8 || r.height < 8) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden';
+}
+function findCallModal() {
+  var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="overlay"], [class*="Overlay"]');
+  for (var i = 0; i < roots.length; i++) {
+    var t = (roots[i].innerText || '');
+    if (t.indexOf('안심번호') >= 0 || t.indexOf('숨고전화') >= 0 || /050\\d/.test(t)) return roots[i];
+  }
+  return null;
+}
+var modal = findCallModal();
+if (!modal) {
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+  return true;
+}
+var modalRect = modal.getBoundingClientRect();
+var best = null;
+var bestScore = -1;
+var buttons = modal.querySelectorAll('button, [role="button"], a');
+for (var i = 0; i < buttons.length; i++) {
+  var btn = buttons[i];
+  if (!visible(btn)) continue;
+  var r = btn.getBoundingClientRect();
+  var label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.textContent || '')).trim();
+  var score = 0;
+  if (r.top <= modalRect.top + 80) score += 25;
+  if (r.right >= modalRect.right - 80) score += 35;
+  if (/닫기|close|취소/i.test(label)) score += 50;
+  if (label === '' || label === '×' || label === '✕' || label === 'X') score += 30;
+  if (btn.querySelector('svg, img')) score += 15;
+  if (score > bestScore) { bestScore = score; best = btn; }
+}
+if (best && bestScore >= 35) {
+  best.click();
+  return true;
+}
+document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+return true;
+"""
+
 
 def format_safe_phone(raw: str) -> str:
     digits = re.sub(r'\D', '', raw)
@@ -213,4 +259,41 @@ class CallModalManager:
             return extract_phone_from_text(text)
         except Exception as e:
             logger.error('extract_call_number_from_modal: %s', e)
+            return None
+
+    def close_call_modal(self) -> bool:
+        try:
+            if not self.is_call_modal_open():
+                return True
+            self.driver.execute_script(_CLOSE_CALL_MODAL_JS)
+            time.sleep(self.delay * 0.35)
+            return not self.is_call_modal_open()
+        except Exception as e:
+            logger.debug('close_call_modal: %s', e)
+            try:
+                self.driver.execute_script(
+                    "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));"
+                )
+            except Exception:
+                pass
+            return False
+
+    def try_extract_safe_phone(self) -> str | None:
+        """전화 모달 열기 → 050 안심번호 추출 → 없으면 모달 닫고 None (채팅방 유지)."""
+        try:
+            opened = self.open_call_modal()
+            if not opened:
+                return None
+            time.sleep(self.delay * 0.45)
+            phone = self.extract_call_number_from_modal()
+            self.close_call_modal()
+            time.sleep(self.delay * 0.25)
+            if phone and re.sub(r'\D', '', phone).startswith('050'):
+                return phone
+            if phone:
+                return phone
+            return None
+        except Exception as e:
+            logger.error('try_extract_safe_phone: %s', e)
+            self.close_call_modal()
             return None

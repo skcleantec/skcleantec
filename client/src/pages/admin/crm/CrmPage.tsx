@@ -305,8 +305,12 @@ export function CrmPage() {
 
   const soomgoBridge = useCrmSoomgoBridge({
     onImport: handleSoomgoImport,
+    onImportPhone: setPhone,
     onDispatchNotice: showDispatchNotice,
-    onImportNotice: (data) => showDispatchNotice(soomgoImportNoticeText(summarizeSoomgoImport(data))),
+    onImportNotice: (data) =>
+      showDispatchNotice(
+        soomgoImportNoticeText(summarizeSoomgoImport(data), { safePhoneSkipped: data.safePhoneSkipped }),
+      ),
     pollEnabled: !isMobileApp,
     isPopup,
   });

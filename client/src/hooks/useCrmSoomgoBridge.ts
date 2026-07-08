@@ -23,12 +23,14 @@ import { telecrmDispatchNotice, telecrmPrefillPhone } from '../utils/telecrmNati
 
 export function useCrmSoomgoBridge({
   onImport,
+  onImportPhone,
   onDispatchNotice,
   onImportNotice,
   pollEnabled = true,
   isPopup = false,
 }: {
   onImport: (data: SoomgoExtractedChat) => void;
+  onImportPhone?: (phone: string) => void;
   onDispatchNotice?: (message: string) => void;
   onImportNotice?: (data: SoomgoExtractedChat) => void;
   pollEnabled?: boolean;
@@ -59,24 +61,28 @@ export function useCrmSoomgoBridge({
 
   const applyCallPhone = useCallback(
     async (phone: string, nickname?: string | null) => {
-      const data: SoomgoExtractedChat = {
-        chatId: status?.chatId ?? null,
-        nickname: nickname ?? status?.nickname ?? null,
-        phone,
-        address: null,
-        pyeong: null,
-        memo: null,
-        lastMessage: null,
-        customerMessages: [],
-      };
-      setPreview(data);
-      onImport(data);
+      setPreview((prev) =>
+        prev
+          ? { ...prev, phone, safePhone: phone }
+          : {
+              chatId: status?.chatId ?? null,
+              nickname: nickname ?? status?.nickname ?? null,
+              phone,
+              safePhone: phone,
+              address: null,
+              pyeong: null,
+              memo: null,
+              lastMessage: null,
+              customerMessages: [],
+            },
+      );
+      onImportPhone?.(phone);
       const result = await telecrmPrefillPhone(phone, { customerMatch: 'new' });
       const notice = telecrmDispatchNotice(result, 'prefill');
       if (notice) notify(notice);
       notify('숨고 안심번호가 연락처에 입력되었습니다.');
     },
-    [notify, onImport, status?.chatId, status?.nickname],
+    [notify, onImportPhone, status?.chatId, status?.nickname],
   );
 
   const handlePendingCall = useCallback(
@@ -184,7 +190,7 @@ export function useCrmSoomgoBridge({
       const finalStatus = await refreshStatus();
       if (finalStatus.inChatRoom) {
         await ensureCallWatch(finalStatus);
-        notify('숨고 채팅방이 연결되었습니다. 「숨고 안심번호」를 누르면 전화 모달에서 번호를 가져옵니다.');
+        notify('숨고 채팅방이 연결되었습니다. 「정보 갖고오기」로 고객 정보·안심번호를 한 번에 가져올 수 있습니다.');
       } else if (finalStatus.onChatList) {
         notify('숨고 채팅 목록이 열렸습니다. 고객 채팅방을 연 뒤 왼쪽 도구를 사용하세요.');
       } else if (finalStatus.onRequestsPage) {
@@ -207,9 +213,15 @@ export function useCrmSoomgoBridge({
     setBusy(true);
     setError(null);
     try {
+      notify('고객 요청 정보를 가져오는 중…');
       const data = await extractSoomgoCurrentChat();
       setPreview(data);
       onImport(data);
+      if (data.phone?.trim()) {
+        const result = await telecrmPrefillPhone(data.phone.trim(), { customerMatch: 'new' });
+        const prefillNotice = telecrmDispatchNotice(result, 'prefill');
+        if (prefillNotice) notify(prefillNotice);
+      }
       onImportNotice?.(data);
       return data;
     } catch (e) {
@@ -238,7 +250,7 @@ export function useCrmSoomgoBridge({
           await new Promise((r) => window.setTimeout(r, 500));
         }
       }
-      if (!phone) throw new Error('안심번호를 찾지 못했습니다. 채팅방 상단 전화 아이콘·모달을 확인해 주세요.');
+      if (!phone) throw new Error('안심번호가 없습니다. 채팅만 희망 고객일 수 있습니다.');
       await applyCallPhone(phone);
     } catch (e) {
       const msg = e instanceof Error ? e.message : '안심번호를 가져오지 못했습니다.';
