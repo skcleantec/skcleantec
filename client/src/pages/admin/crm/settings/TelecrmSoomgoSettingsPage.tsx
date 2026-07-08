@@ -96,8 +96,8 @@ export function TelecrmSoomgoSettingsPage() {
         ) : (
           <div className="space-y-4">
             <p className="text-fluid-sm text-gray-600">
-              텔레CRM 「숨고 열기」 시 이 계정으로 로컬 브릿지가 숨고에 로그인합니다. 비밀번호는 암호화되어
-              저장됩니다.
+              텔레CRM 작업 화면 <strong>설정 → 숨고 연동</strong> 또는 관리자 메뉴의 숨고 연동에서 저장합니다.
+              「숨고 보조창」 열기 시 이 계정으로 자동 로그인됩니다.
             </p>
             <label className="block space-y-1">
               <span className="text-fluid-sm font-medium text-gray-700">숨고 이메일</span>
@@ -137,9 +137,9 @@ export function TelecrmSoomgoSettingsPage() {
 
       <SettingsCard title="로컬 브릿지 실행">
         <p className="text-fluid-sm text-gray-600">
-          마케터 PC에서 저장소의{' '}
+          마케터 PC에서{' '}
           <code className="rounded bg-gray-100 px-1.5 py-0.5 text-fluid-xs">tools/soomgo-bridge/run-bridge.bat</code>{' '}
-          을 실행한 뒤 텔레CRM 4열 패널을 사용하세요.
+          실행 후, 텔레CRM 왼쪽 도구의 <strong>숨고 보조창</strong>으로 Chrome 숨고를 엽니다.
         </p>
       </SettingsCard>
 

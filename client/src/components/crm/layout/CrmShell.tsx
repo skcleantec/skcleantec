@@ -52,8 +52,6 @@ export function CrmShell({
   left,
   center,
   right,
-  soomgo,
-  soomgoOpen = false,
   mobile = false,
 }: {
   header: ReactNode;
@@ -61,8 +59,6 @@ export function CrmShell({
   left: ReactNode;
   center: ReactNode;
   right: ReactNode;
-  soomgo?: ReactNode;
-  soomgoOpen?: boolean;
   /** Android 앱 WebView — 1열 스택 */
   mobile?: boolean;
 }) {
@@ -74,29 +70,19 @@ export function CrmShell({
           {left}
           {center}
           {right}
-          {soomgoOpen && soomgo ? soomgo : null}
         </div>
       </div>
     );
   }
   return (
-    <div
-      className={`flex h-screen flex-col bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-100 ${
-        soomgoOpen ? 'min-w-[1680px]' : 'min-w-[1280px]'
-      }`}
-    >
+    <div className="flex h-screen min-w-[1280px] flex-col bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-100">
       {header}
       <div className="flex min-h-0 flex-1 gap-3 p-3">
         {toolNav}
-        <div
-          className={`grid min-h-0 min-w-0 flex-1 gap-3 ${
-            soomgoOpen && soomgo ? 'grid-cols-4' : 'grid-cols-[28%_40%_32%]'
-          }`}
-        >
+        <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[28%_40%_32%] gap-3">
           {left}
           {center}
           {right}
-          {soomgoOpen && soomgo ? soomgo : null}
         </div>
       </div>
     </div>

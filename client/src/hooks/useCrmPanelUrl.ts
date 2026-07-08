@@ -2,10 +2,10 @@ import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 export type CrmPanel = 'settings' | 'issue';
-export type CrmSettingsTab = 'scripts' | 'pricing' | 'general' | 'sms';
+export type CrmSettingsTab = 'scripts' | 'pricing' | 'general' | 'sms' | 'soomgo';
 export type CrmCatalogScope = 'shared' | 'personal';
 
-const SETTINGS_TABS: CrmSettingsTab[] = ['scripts', 'pricing', 'general', 'sms'];
+const SETTINGS_TABS: CrmSettingsTab[] = ['scripts', 'pricing', 'general', 'sms', 'soomgo'];
 
 function parseSettingsTab(raw: string | null): CrmSettingsTab {
   if (raw && SETTINGS_TABS.includes(raw as CrmSettingsTab)) return raw as CrmSettingsTab;
@@ -92,18 +92,6 @@ export function useCrmPanelUrl() {
     [patchParams],
   );
 
-  const soomgoOpen = searchParams.get('soomgo') === '1';
-
-  const setSoomgoOpen = useCallback(
-    (open: boolean) => {
-      patchParams((next) => {
-        if (open) next.set('soomgo', '1');
-        else next.delete('soomgo');
-      });
-    },
-    [patchParams],
-  );
-
   return {
     panel,
     settingsTab,
@@ -116,7 +104,5 @@ export function useCrmPanelUrl() {
     closePanel,
     setSettingsTab,
     setCatalogScope,
-    soomgoOpen,
-    setSoomgoOpen,
   };
 }

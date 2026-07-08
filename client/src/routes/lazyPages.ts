@@ -297,6 +297,9 @@ export const CrmPage = lazyWithRetry(() =>
 export const CrmPopupEntry = lazyWithRetry(() =>
   import('../pages/admin/crm/CrmPopupEntry').then((m) => ({ default: m.CrmPopupEntry }))
 );
+export const CrmSoomgoCompanionEntry = lazyWithRetry(() =>
+  import('../pages/admin/crm/CrmSoomgoCompanionEntry').then((m) => ({ default: m.CrmSoomgoCompanionEntry }))
+);
 export const TelecrmSettingsLayout = lazyWithRetry(() =>
   import('../pages/admin/crm/settings/TelecrmSettingsLayout').then((m) => ({ default: m.TelecrmSettingsLayout }))
 );

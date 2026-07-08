@@ -104,6 +104,7 @@ import {
   PlatformHelpInquirySettingsPage,
   HelpPage,
   CrmPopupEntry,
+  CrmSoomgoCompanionEntry,
   TelecrmSettingsLayout,
   TelecrmScriptSettingsPage,
   TelecrmPricingSettingsPage,
@@ -300,6 +301,14 @@ function App() {
           element={
             <SuspensePage>
               <CrmPopupEntry />
+            </SuspensePage>
+          }
+        />
+        <Route
+          path="/admin/crm/soomgo"
+          element={
+            <SuspensePage>
+              <CrmSoomgoCompanionEntry />
             </SuspensePage>
           }
         />

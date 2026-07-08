@@ -23,12 +23,18 @@ const TelecrmSmsTemplateSettingsPage = lazy(() =>
     default: m.TelecrmSmsTemplateSettingsPage,
   })),
 );
+const TelecrmSoomgoSettingsPage = lazy(() =>
+  import('../../../pages/admin/crm/settings/TelecrmSoomgoSettingsPage').then((m) => ({
+    default: m.TelecrmSoomgoSettingsPage,
+  })),
+);
 
 const TABS: { id: CrmSettingsTab; label: string }[] = [
   { id: 'scripts', label: '스크립트' },
   { id: 'sms', label: '문자 템플릿' },
   { id: 'pricing', label: '가격' },
   { id: 'general', label: '기본 단가' },
+  { id: 'soomgo', label: '숨고 연동' },
 ];
 
 export function CrmSettingsDrawer({
@@ -50,8 +56,11 @@ export function CrmSettingsDrawer({
   onCatalogScopeChange: (scope: CrmCatalogScope) => void;
   onClose: () => void;
 }) {
-  const visibleTabs = TABS.filter((item) => item.id !== 'general' || canEditShared);
-  const showCatalogSegment = tab !== 'general' && (canEditShared || canEditPersonal);
+  const visibleTabs = TABS.filter((item) => {
+    if (item.id === 'general' || item.id === 'soomgo') return canEditShared;
+    return true;
+  });
+  const showCatalogSegment = tab !== 'general' && tab !== 'soomgo' && (canEditShared || canEditPersonal);
 
   return (
     <CrmDrawerShell
@@ -98,6 +107,7 @@ export function CrmSettingsDrawer({
           {tab === 'sms' ? <TelecrmSmsTemplateSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'pricing' ? <TelecrmPricingSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'general' && canEditShared ? <TelecrmGeneralSettingsPage /> : null}
+          {tab === 'soomgo' && canEditShared ? <TelecrmSoomgoSettingsPage /> : null}
         </div>
       </Suspense>
     </CrmDrawerShell>
