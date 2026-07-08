@@ -14,7 +14,7 @@ UPDATE_FLAG_PATH = APP_DATA_DIR / 'update.request'
 BRIDGE_STATUS_URL = 'http://127.0.0.1:17890/status'
 BRIDGE_REQUEST_UPDATE_URL = 'http://127.0.0.1:17890/request-update'
 
-DEFAULT_MANIFEST_URL = 'http://127.0.0.1:3000/api/public/soomgo-bridge/manifest'
+DEFAULT_MANIFEST_URL = 'https://www.cbiseo.com/api/public/soomgo-bridge/manifest'
 
 
 def ensure_app_data() -> None:

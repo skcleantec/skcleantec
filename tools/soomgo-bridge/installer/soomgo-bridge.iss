@@ -83,7 +83,7 @@ begin
     '운영·스테이징 URL을 입력하세요. 비우면 로컬 개발용 주소가 사용됩니다.' + #13#10 +
     '예: https://your-app.up.railway.app/api/public/soomgo-bridge/manifest');
   ManifestPage.Add('매니페스트 URL:', False);
-  ManifestPage.Values[0] := '';
+  ManifestPage.Values[0] := 'https://www.cbiseo.com/api/public/soomgo-bridge/manifest';
 end;
 
 function JsonEscape(const S: String): String;
@@ -113,7 +113,7 @@ begin
   ConfigPath := ConfigDir + '\config.json';
   ManifestUrl := Trim(Url);
   if ManifestUrl = '' then
-    ManifestUrl := 'http://127.0.0.1:3000/api/public/soomgo-bridge/manifest';
+    ManifestUrl := 'https://www.cbiseo.com/api/public/soomgo-bridge/manifest';
   Json := '{' + #13#10 +
     '  "manifestUrl": "' + JsonEscape(ManifestUrl) + '"' + #13#10 +
     '}' + #13#10;
