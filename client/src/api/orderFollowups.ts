@@ -226,3 +226,29 @@ export async function listOrderFollowupLogs(
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }
+
+export interface OrderFollowupCallNoteItem {
+  id: string;
+  phone: string;
+  body: string;
+  inquiryId: string | null;
+  createdAt: string;
+  author: OrderFollowupUserBrief;
+}
+
+export async function fetchOrderFollowupCallNotes(
+  token: string,
+  opts: { phone: string; phone2?: string | null; limit?: number },
+): Promise<{ items: OrderFollowupCallNoteItem[] }> {
+  const q = new URLSearchParams();
+  q.set('phone', opts.phone.replace(/\D/g, ''));
+  if (opts.phone2?.replace(/\D/g, '').length) {
+    q.set('phone2', opts.phone2.replace(/\D/g, ''));
+  }
+  if (opts.limit != null) q.set('limit', String(opts.limit));
+  const res = await fetch(`${API}/order-followups/call-notes?${q}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}

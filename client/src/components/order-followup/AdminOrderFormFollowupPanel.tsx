@@ -28,6 +28,10 @@ import {
 } from '../../constants/orderFollowupStatus';
 import { formatDateCompactWithWeekday, formatDateTimeCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
+import {
+  FollowupCallNotesHistory,
+  FollowupDetailTabBar,
+} from './FollowupCallNotesHistory';
 
 function toLocalDatetimeValue(iso: string | null): string {
   if (!iso) return '';
@@ -453,6 +457,10 @@ export function AdminOrderFormFollowupPanel({
   const [deferSaving, setDeferSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OrderFollowupItem | null>(null);
   const [memoView, setMemoView] = useState<OrderFollowupItem | null>(null);
+  const [editDetailTab, setEditDetailTab] = useState<'followupMemo' | 'callNotes'>('followupMemo');
+  const [memoViewTab, setMemoViewTab] = useState<'followupMemo' | 'callNotes'>('followupMemo');
+  const editOpenIdRef = useRef<string | null>(null);
+  const memoViewOpenIdRef = useRef<string | null>(null);
 
   const itemsLengthRef = useRef(items.length);
   itemsLengthRef.current = items.length;
@@ -593,7 +601,27 @@ export function AdminOrderFormFollowupPanel({
   }, [items, memoView]);
 
   useEffect(() => {
-    if (!edit) return;
+    if (!memoView) {
+      memoViewOpenIdRef.current = null;
+      setMemoViewTab('followupMemo');
+      return;
+    }
+    if (memoViewOpenIdRef.current !== memoView.id) {
+      memoViewOpenIdRef.current = memoView.id;
+      setMemoViewTab('followupMemo');
+    }
+  }, [memoView]);
+
+  useEffect(() => {
+    if (!edit) {
+      editOpenIdRef.current = null;
+      setEditDetailTab('followupMemo');
+      return;
+    }
+    if (editOpenIdRef.current !== edit.id) {
+      editOpenIdRef.current = edit.id;
+      setEditDetailTab('followupMemo');
+    }
     setEditName(edit.customerName);
     setEditNickname(edit.nickname ?? '');
     setEditPhone(edit.customerPhone ?? '');
@@ -1350,14 +1378,32 @@ export function AdminOrderFormFollowupPanel({
                     </p>
                   ) : null}
                 </div>
-                <div className="flex min-h-0 flex-col">
-                  <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">메모</label>
-                  <textarea
-                    value={editMemo}
-                    onChange={(e) => setEditMemo(e.target.value)}
-                    rows={10}
-                    className="min-h-[min(32vh,280px)] w-full resize-y rounded-lg border border-gray-200 px-2.5 py-2 text-[11px] leading-snug text-gray-900"
-                  />
+                <div className="flex min-h-0 flex-col space-y-2">
+                  <FollowupDetailTabBar tab={editDetailTab} onChange={setEditDetailTab} />
+                  {editDetailTab === 'followupMemo' ? (
+                    <div className="min-h-0 flex-1 flex flex-col">
+                      <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">
+                        부재·보류 메모
+                      </label>
+                      <textarea
+                        value={editMemo}
+                        onChange={(e) => setEditMemo(e.target.value)}
+                        rows={10}
+                        className="min-h-[min(32vh,280px)] w-full resize-y rounded-lg border border-gray-200 px-2.5 py-2 text-[11px] leading-snug text-gray-900"
+                      />
+                    </div>
+                  ) : (
+                    <div className="min-h-[min(28vh,240px)]">
+                      <p className="mb-2 text-fluid-2xs text-gray-500 leading-snug">
+                        CRM에서 남긴 통화 메모입니다. 부재·보류 메모와 별도로 저장됩니다.
+                      </p>
+                      <FollowupCallNotesHistory
+                        token={token}
+                        phone={editPhone}
+                        phone2={edit.customerPhone2}
+                      />
+                    </div>
+                  )}
                 </div>
                 {!edit.inquiry && edit.status !== 'FULFILLED' ? (
                   <div className="rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2.5 space-y-2">
@@ -1590,13 +1636,24 @@ export function AdminOrderFormFollowupPanel({
                   ) : null}
                 </div>
               </div>
+              <div className="shrink-0 border-b border-gray-100 px-4 pb-2">
+                <FollowupDetailTabBar tab={memoViewTab} onChange={setMemoViewTab} />
+              </div>
               <div className="min-h-[min(36vh,300px)] min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 py-3">
-                {memoView.memo?.trim() ? (
-                  <p className="whitespace-pre-wrap break-words text-[11px] leading-snug text-gray-800">
-                    {memoView.memo}
-                  </p>
+                {memoViewTab === 'followupMemo' ? (
+                  memoView.memo?.trim() ? (
+                    <p className="whitespace-pre-wrap break-words text-[11px] leading-snug text-gray-800">
+                      {memoView.memo}
+                    </p>
+                  ) : (
+                    <p className="text-fluid-2xs text-gray-500">부재·보류 메모가 비어 있습니다.</p>
+                  )
                 ) : (
-                  <p className="text-fluid-2xs text-gray-500">메모가 비어 있습니다.</p>
+                  <FollowupCallNotesHistory
+                    token={token}
+                    phone={memoView.customerPhone}
+                    phone2={memoView.customerPhone2}
+                  />
                 )}
               </div>
               <div className="shrink-0 flex justify-end gap-2 border-t border-gray-100 bg-white px-4 py-3">

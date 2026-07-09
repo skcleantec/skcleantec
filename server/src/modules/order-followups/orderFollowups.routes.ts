@@ -302,6 +302,56 @@ router.get('/', async (req, res) => {
   res.json({ items: rows.map((r) => serializeFollowup(r)), total });
 });
 
+function normalizeFollowupCallNotePhone(raw: string): string {
+  return raw.replace(/\D/g, '').slice(0, 20);
+}
+
+/** 부재·보류 — 연락처 기준 CRM 통화 메모 이력(테넌트 전체, 조회 전용) */
+router.get('/call-notes', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const phone = normalizeFollowupCallNotePhone(typeof req.query.phone === 'string' ? req.query.phone : '');
+  const phone2Raw = typeof req.query.phone2 === 'string' ? req.query.phone2 : '';
+  const phone2 = phone2Raw.trim() ? normalizeFollowupCallNotePhone(phone2Raw) : '';
+  const phones = [...new Set([phone, phone2].filter((p) => p.length >= 4))];
+  if (phones.length === 0) {
+    res.status(400).json({ error: '전화번호(4자 이상)가 필요합니다.' });
+    return;
+  }
+  const limitRaw = typeof req.query.limit === 'string' ? Number(req.query.limit) : 50;
+  const limit = Number.isFinite(limitRaw) ? Math.min(100, Math.max(1, Math.floor(limitRaw))) : 50;
+  const rows = await prisma.telecrmCallNote.findMany({
+    where: {
+      tenantId,
+      phone: phones.length === 1 ? phones[0]! : { in: phones },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    select: {
+      id: true,
+      phone: true,
+      body: true,
+      inquiryId: true,
+      createdAt: true,
+      user: { select: { id: true, name: true, email: true, role: true } },
+    },
+  });
+  res.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      phone: r.phone,
+      body: r.body,
+      inquiryId: r.inquiryId,
+      createdAt: r.createdAt.toISOString(),
+      author: r.user,
+    })),
+  });
+});
+
 router.get('/:id/logs', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
