@@ -1,15 +1,17 @@
 package com.skcleantec.telecrm.main
 
+import android.Manifest
 import android.content.Intent
-import android.net.Uri
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.skcleantec.telecrm.R
 import com.skcleantec.telecrm.api.ApiClient
@@ -20,24 +22,24 @@ import com.skcleantec.telecrm.databinding.ActivityMainBinding
 import com.skcleantec.telecrm.dispatch.TelecrmDispatchExecutor
 import com.skcleantec.telecrm.dispatch.TelecrmDispatchPayload
 import com.skcleantec.telecrm.realtime.AppEventBus
-import com.skcleantec.telecrm.realtime.InboxWebSocketClient
+import com.skcleantec.telecrm.service.TelecrmAppState
+import com.skcleantec.telecrm.service.TelecrmDeviceHints
+import com.skcleantec.telecrm.service.TelecrmRealtimeService
 import com.skcleantec.telecrm.telephony.CallReturnMonitor
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_API_BASE_URL = "extra_api_base_url"
         const val EXTRA_JWT = "extra_jwt"
+        private const val PREFS_SETUP = "telecrm_setup_hints"
+        private const val KEY_HINT_SHOWN = "galaxy_hints_shown"
     }
 
     private lateinit var binding: ActivityMainBinding
     private val tokenStore by lazy { TokenStore(this) }
     private lateinit var apiBaseUrl: String
     private lateinit var apiClient: ApiClient
-    private val webSocketClient = InboxWebSocketClient()
     private lateinit var dispatchExecutor: TelecrmDispatchExecutor
     var pendingCallPhone: String? = null
         private set
@@ -47,15 +49,6 @@ class MainActivity : AppCompatActivity() {
         pendingCallPhone = digits.takeIf { it.length >= 4 }
     }
 
-    private val pollIntervalMs = 1000L
-    private val pollRunnable = object : Runnable {
-        override fun run() {
-            if (isDestroyed) return
-            drainPendingDispatches()
-            binding.root.postDelayed(this, pollIntervalMs)
-        }
-    }
-
     private val connectionListener: (Boolean) -> Unit = { connected ->
         binding.wsStatusChip.text = getString(
             if (connected) R.string.ws_connected else R.string.ws_disconnected,
@@ -63,7 +56,6 @@ class MainActivity : AppCompatActivity() {
         binding.wsStatusChip.setBackgroundResource(
             if (connected) R.drawable.bg_chip_connected else R.drawable.bg_chip_disconnected,
         )
-        if (connected) drainPendingDispatches()
     }
 
     private val toastListener: (AppEventBus.ToastAlert) -> Unit = { alert ->
@@ -103,7 +95,8 @@ class MainActivity : AppCompatActivity() {
         dispatchExecutor = TelecrmDispatchExecutor(this, binding, tokenStore, apiClient)
 
         bindUserHeader()
-        requestTelephonyPermissions()
+        requestRuntimePermissions()
+        maybeShowGalaxySetupHints()
 
         binding.logoutButton.setOnClickListener { logout() }
 
@@ -123,25 +116,27 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        webSocketClient.connect(token, apiBaseUrl)
+        TelecrmRealtimeService.start(this)
         AppEventBus.addConnectionListener(connectionListener)
         AppEventBus.addToastListener(toastListener)
         AppEventBus.addDispatchListener(dispatchListener)
-        binding.root.postDelayed(pollRunnable, pollIntervalMs)
     }
 
     override fun onResume() {
         super.onResume()
-        drainPendingDispatches()
+        TelecrmAppState.isMainInForeground = true
+    }
+
+    override fun onPause() {
+        TelecrmAppState.isMainInForeground = false
+        super.onPause()
     }
 
     override fun onDestroy() {
-        binding.root.removeCallbacks(pollRunnable)
         AppEventBus.removeConnectionListener(connectionListener)
         AppEventBus.removeToastListener(toastListener)
         AppEventBus.removeDispatchListener(dispatchListener)
         CallReturnMonitor.unwatch()
-        webSocketClient.disconnect()
         super.onDestroy()
     }
 
@@ -189,39 +184,50 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.requestApplyInsets(binding.headerBar)
     }
 
-    private fun requestTelephonyPermissions() {
+    private fun requestRuntimePermissions() {
         val needed = mutableListOf<String>()
-        if (checkSelfPermission(android.Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-            needed.add(android.Manifest.permission.CALL_PHONE)
+        if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.CALL_PHONE)
         }
-        if (checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
-            needed.add(android.Manifest.permission.READ_PHONE_STATE)
+        if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.READ_PHONE_STATE)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed.add(Manifest.permission.POST_NOTIFICATIONS)
         }
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), TelecrmDispatchExecutor.REQUEST_CALL_PHONE)
         }
     }
 
-    private fun drainPendingDispatches() {
-        val token = tokenStore.getToken() ?: return
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                apiClient.fetchPendingMobileDispatches(token)
-            }
-            result.onSuccess { items ->
-                items.forEach { payload -> dispatchExecutor.execute(payload) }
-            }.onFailure { err ->
-                Snackbar.make(
-                    binding.root,
-                    "통화 대기열 조회 실패: ${err.message ?: "알 수 없음"}",
-                    Snackbar.LENGTH_SHORT,
-                ).show()
-            }
+    private fun maybeShowGalaxySetupHints() {
+        val prefs = getSharedPreferences(PREFS_SETUP, MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_HINT_SHOWN, false)) return
+
+        val needsFullScreen = TelecrmDeviceHints.shouldPromptFullScreenIntent(this)
+        if (!needsFullScreen) {
+            prefs.edit().putBoolean(KEY_HINT_SHOWN, true).apply()
+            return
         }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.galaxy_setup_title)
+            .setMessage(R.string.galaxy_setup_message)
+            .setPositiveButton(R.string.galaxy_setup_fullscreen) { _, _ ->
+                TelecrmDeviceHints.openFullScreenIntentSettings(this)
+            }
+            .setNeutralButton(R.string.galaxy_setup_battery) { _, _ ->
+                TelecrmDeviceHints.openBatteryOptimizationSettings(this)
+            }
+            .setNegativeButton(android.R.string.ok, null)
+            .show()
+        prefs.edit().putBoolean(KEY_HINT_SHOWN, true).apply()
     }
 
     private fun logout() {
-        webSocketClient.disconnect()
+        TelecrmRealtimeService.stop(this)
         tokenStore.clearSession()
         startActivity(Intent(this, LoginActivity::class.java))
         finish()
