@@ -23,11 +23,16 @@ class InboxWebSocketClient(
     private var activeBaseUrl: String? = null
     private var closed = false
     private var reconnectRunnable: Runnable? = null
+    @Volatile
+    private var connected = false
+
+    fun isConnected(): Boolean = connected && webSocket != null && !closed
 
     fun connect(jwt: String, apiBaseUrl: String) {
-        if (!closed && token == jwt && activeBaseUrl == apiBaseUrl && webSocket != null) return
+        if (!closed && token == jwt && activeBaseUrl == apiBaseUrl && isConnected()) return
         reconnectRunnable?.let { mainHandler.removeCallbacks(it) }
         reconnectRunnable = null
+        connected = false
         webSocket?.close(1000, "reconnect")
         webSocket = null
         closed = false
@@ -38,6 +43,7 @@ class InboxWebSocketClient(
 
     fun disconnect() {
         closed = true
+        connected = false
         reconnectRunnable?.let { mainHandler.removeCallbacks(it) }
         reconnectRunnable = null
         webSocket?.close(1000, "logout")
@@ -55,7 +61,10 @@ class InboxWebSocketClient(
         val request = Request.Builder().url("$wsBase/ws?token=$encoded&client=telecrm-app").build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                mainHandler.post { AppEventBus.emitConnection(true) }
+                mainHandler.post {
+                    connected = true
+                    AppEventBus.emitConnection(true)
+                }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -67,13 +76,17 @@ class InboxWebSocketClient(
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 mainHandler.post {
-                    AppEventBus.emitConnection(false)
+                    connected = false
+                    if (reason != "reconnect") {
+                        AppEventBus.emitConnection(false)
+                    }
                     scheduleReconnect(code)
                 }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 mainHandler.post {
+                    connected = false
                     AppEventBus.emitConnection(false)
                     scheduleReconnect(null)
                 }

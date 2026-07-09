@@ -1,4 +1,5 @@
 import type { TelecrmConsultationQuoteDto } from './telecrmConsultationQuote';
+import { appendCrmWorkBrandQuery } from '../utils/crmWorkBrandQuery';
 
 const API = '/api/crm';
 
@@ -137,10 +138,12 @@ export type TelecrmCustomerLookupDto = {
 export async function fetchTelecrmCustomerLookup(
   token: string,
   params: { phone?: string; name?: string },
+  operatingCompanyId?: string | null,
 ): Promise<TelecrmCustomerLookupDto> {
   const qs = new URLSearchParams();
   if (params.phone?.trim()) qs.set('phone', params.phone.trim());
   if (params.name?.trim()) qs.set('name', params.name.trim());
+  appendCrmWorkBrandQuery(qs, operatingCompanyId);
   const q = qs.toString() ? `?${qs}` : '';
   const res = await fetch(`${API}/customer-lookup${q}`, { headers: authHeaders(token) });
   return parseJson(res);

@@ -3,12 +3,13 @@ package com.skcleantec.telecrm.main
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -50,33 +51,36 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val connectionListener: (Boolean) -> Unit = { connected ->
-        if (!::binding.isInitialized || isDestroyed) return@Unit
-        binding.wsStatusChip.text = getString(
-            if (connected) R.string.ws_connected else R.string.ws_disconnected,
-        )
-        binding.wsStatusChip.setBackgroundResource(
-            if (connected) R.drawable.bg_chip_connected else R.drawable.bg_chip_disconnected,
-        )
+        if (::binding.isInitialized && !isDestroyed) {
+            binding.wsStatusChip.text = getString(
+                if (connected) R.string.ws_connected else R.string.ws_disconnected,
+            )
+            binding.wsStatusChip.setBackgroundResource(
+                if (connected) R.drawable.bg_chip_connected else R.drawable.bg_chip_disconnected,
+            )
+        }
     }
 
     private val toastListener: (AppEventBus.ToastAlert) -> Unit = { alert ->
-        if (!::binding.isInitialized || isDestroyed) return@Unit
-        Snackbar.make(binding.root, "${alert.title}: ${alert.body}", Snackbar.LENGTH_LONG).show()
+        if (::binding.isInitialized && !isDestroyed) {
+            Snackbar.make(binding.root, "${alert.title}: ${alert.body}", Snackbar.LENGTH_LONG).show()
+        }
     }
 
     private val dispatchListener: (AppEventBus.DispatchPayload) -> Unit = { payload ->
-        if (!::dispatchExecutor.isInitialized || isDestroyed) return@Unit
-        dispatchExecutor.execute(
-            TelecrmDispatchPayload(
-                id = payload.id,
-                action = payload.action,
-                phone = payload.phone,
-                body = payload.body,
-                imageUrl = payload.imageUrl,
-                inquiryId = payload.inquiryId,
-                customerMatch = payload.customerMatch,
-            ),
-        )
+        if (::dispatchExecutor.isInitialized && !isDestroyed) {
+            dispatchExecutor.execute(
+                TelecrmDispatchPayload(
+                    id = payload.id,
+                    action = payload.action,
+                    phone = payload.phone,
+                    body = payload.body,
+                    imageUrl = payload.imageUrl,
+                    inquiryId = payload.inquiryId,
+                    customerMatch = payload.customerMatch,
+                ),
+            )
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -119,7 +123,9 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        TelecrmRealtimeService.start(this)
+        binding.root.post {
+            TelecrmRealtimeService.start(this@MainActivity)
+        }
         AppEventBus.addConnectionListener(connectionListener)
         AppEventBus.addToastListener(toastListener)
         AppEventBus.addDispatchListener(dispatchListener)
@@ -161,7 +167,7 @@ class MainActivity : AppCompatActivity() {
     private fun bindUserHeader() {
         val name = tokenStore.getUserName()?.takeIf { it.isNotBlank() } ?: tokenStore.getLoginId().orEmpty()
         val tenant = tokenStore.getTenantSlug()?.uppercase().orEmpty()
-        val host = Uri.parse(apiBaseUrl).host.orEmpty()
+        val host = apiBaseUrl.toUri().host.orEmpty()
         val envLabel = when (ApiEnvironment.presetForUrl(apiBaseUrl)) {
             ApiEnvironment.Preset.PRODUCTION -> "운영"
             ApiEnvironment.Preset.STAGING -> "스테이징"
@@ -211,7 +217,7 @@ class MainActivity : AppCompatActivity() {
 
         val needsFullScreen = TelecrmDeviceHints.shouldPromptFullScreenIntent(this)
         if (!needsFullScreen) {
-            prefs.edit().putBoolean(KEY_HINT_SHOWN, true).apply()
+            prefs.edit { putBoolean(KEY_HINT_SHOWN, true) }
             return
         }
 
@@ -226,7 +232,7 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton(android.R.string.ok, null)
             .show()
-        prefs.edit().putBoolean(KEY_HINT_SHOWN, true).apply()
+        prefs.edit { putBoolean(KEY_HINT_SHOWN, true) }
     }
 
     private fun logout() {

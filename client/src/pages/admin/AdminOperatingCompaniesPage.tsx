@@ -16,6 +16,12 @@ import {
   emptyCompanyRegistrationForm,
   OperatingCompanyRegistrationFields,
 } from '../../components/admin/OperatingCompanyRegistrationFields';
+import {
+  emptyOperatingCompanySoomgoForm,
+  OperatingCompanySoomgoFields,
+  type OperatingCompanySoomgoForm,
+} from '../../components/admin/OperatingCompanySoomgoFields';
+import { DeletePasswordModal } from '../../components/crm/settings/DeletePasswordModal';
 import type { TenantCompanyRegistration } from '@shared/tenantCompanyProfile';
 
 type BrandForm = {
@@ -26,6 +32,7 @@ type BrandForm = {
   publicSubtitle: string;
   badgeColorKey: OperatingCompanyBadgeColorKey | '';
   companyRegistration: TenantCompanyRegistration;
+  soomgo: OperatingCompanySoomgoForm;
 };
 
 function emptyCreateForm(): BrandForm {
@@ -37,6 +44,31 @@ function emptyCreateForm(): BrandForm {
     publicSubtitle: '',
     badgeColorKey: '',
     companyRegistration: emptyCompanyRegistrationForm(),
+    soomgo: emptyOperatingCompanySoomgoForm(),
+  };
+}
+
+function soomgoListLabel(config: OperatingCompanyConfig): { text: string; className: string } {
+  const sg = config.soomgo;
+  if (sg?.configured) {
+    return { text: '브랜드', className: 'bg-sky-50 text-sky-800' };
+  }
+  if (sg?.email?.trim() || sg?.hasPassword) {
+    return { text: '미완료', className: 'bg-amber-50 text-amber-800' };
+  }
+  return { text: '공통', className: 'bg-gray-100 text-gray-600' };
+}
+
+function buildSoomgoConfig(f: BrandForm): OperatingCompanyConfig['soomgo'] | undefined {
+  const email = f.soomgo.email.trim();
+  const password = f.soomgo.password.trim();
+  if (!email && !password && !f.soomgo.hasPassword) {
+    return undefined;
+  }
+  return {
+    email: email || undefined,
+    enabled: f.soomgo.enabled,
+    ...(password ? { password } : {}),
   };
 }
 
@@ -60,6 +92,10 @@ export function AdminOperatingCompaniesPage() {
   const [form, setForm] = useState(emptyCreateForm());
   const [editing, setEditing] = useState<OperatingCompanyItem | null>(null);
   const [editForm, setEditForm] = useState(emptyCreateForm());
+  const [pwdModalOpen, setPwdModalOpen] = useState(false);
+  const [pwdModalMode, setPwdModalMode] = useState<'create' | 'edit'>('edit');
+  const [actorPassword, setActorPassword] = useState('');
+  const [pwdModalError, setPwdModalError] = useState<string | null>(null);
 
   const load = () => {
     if (!token) return;
@@ -85,6 +121,7 @@ export function AdminOperatingCompaniesPage() {
       publicSubtitle: row.config.orderForm?.publicSubtitle ?? '',
       badgeColorKey: row.config.branding?.badgeColorKey ?? '',
       companyRegistration: emptyCompanyRegistrationForm(row.config.companyRegistration),
+      soomgo: emptyOperatingCompanySoomgoForm(row.config.soomgo),
     });
   };
 
@@ -93,30 +130,90 @@ export function AdminOperatingCompaniesPage() {
     if (f.displayName.trim()) branding.displayName = f.displayName.trim();
     if (f.badgeColorKey) branding.badgeColorKey = f.badgeColorKey;
     const companyRegistration = companyRegistrationFromForm(f.companyRegistration);
+    const soomgo = buildSoomgoConfig(f);
     return {
       branding: Object.keys(branding).length > 0 ? branding : undefined,
       orderForm: { publicSubtitle: f.publicSubtitle.trim() },
       inquiry: { numberPrefix: f.numberPrefix.trim() },
       companyRegistration,
+      ...(soomgo ? { soomgo } : {}),
     };
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateSoomgoBeforeSave = (f: BrandForm, setErr: (msg: string) => void): boolean => {
+    const email = f.soomgo.email.trim();
+    const password = f.soomgo.password.trim();
+    if (email && !f.soomgo.hasPassword && !password) {
+      setErr('숨고 이메일을 입력했다면 비밀번호도 입력해 주세요.');
+      return false;
+    }
+    return true;
+  };
+
+  const performCreate = async (confirmedActorPassword?: string) => {
     if (!token) return;
     setSubmitting(true);
     setCreateErr(null);
+    setPwdModalError(null);
     try {
       await createOperatingCompany(token, {
         name: form.name.trim(),
         slug: form.slug.trim() || slugFromName(form.name),
         config: buildConfig(form),
+        ...(confirmedActorPassword?.trim() ? { actorPassword: confirmedActorPassword.trim() } : {}),
       });
       setShowCreate(false);
       setForm(emptyCreateForm());
+      setPwdModalOpen(false);
+      setActorPassword('');
       load();
     } catch (err) {
-      setCreateErr(err instanceof Error ? err.message : '등록 실패');
+      const message = err instanceof Error ? err.message : '등록 실패';
+      if (pwdModalOpen) {
+        setPwdModalError(message);
+      } else {
+        setCreateErr(message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    if (!validateSoomgoBeforeSave(form, setCreateErr)) return;
+    if (form.soomgo.password.trim()) {
+      setPwdModalMode('create');
+      setPwdModalError(null);
+      setPwdModalOpen(true);
+      return;
+    }
+    await performCreate();
+  };
+
+  const performEditSave = async (confirmedActorPassword?: string) => {
+    if (!token || !editing) return;
+    setSubmitting(true);
+    setPwdModalError(null);
+    try {
+      await updateOperatingCompany(token, editing.id, {
+        name: editForm.name.trim(),
+        slug: editForm.slug.trim(),
+        config: buildConfig(editForm),
+        ...(confirmedActorPassword?.trim() ? { actorPassword: confirmedActorPassword.trim() } : {}),
+      });
+      setEditing(null);
+      setPwdModalOpen(false);
+      setActorPassword('');
+      load();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '수정 실패';
+      if (pwdModalOpen) {
+        setPwdModalError(message);
+      } else {
+        alert(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -125,19 +222,25 @@ export function AdminOperatingCompaniesPage() {
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !editing) return;
-    setSubmitting(true);
-    try {
-      await updateOperatingCompany(token, editing.id, {
-        name: editForm.name.trim(),
-        slug: editForm.slug.trim(),
-        config: buildConfig(editForm),
-      });
-      setEditing(null);
-      load();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '수정 실패');
-    } finally {
-      setSubmitting(false);
+    if (!validateSoomgoBeforeSave(editForm, (msg) => alert(msg))) return;
+    if (editForm.soomgo.password.trim()) {
+      setPwdModalMode('edit');
+      setPwdModalError(null);
+      setPwdModalOpen(true);
+      return;
+    }
+    await performEditSave();
+  };
+
+  const handlePwdModalConfirm = () => {
+    if (!actorPassword.trim()) {
+      setPwdModalError('본인 비밀번호를 입력해 주세요.');
+      return;
+    }
+    if (pwdModalMode === 'create') {
+      void performCreate(actorPassword);
+    } else {
+      void performEditSave(actorPassword);
     }
   };
 
@@ -210,18 +313,20 @@ export function AdminOperatingCompaniesPage() {
             <div className="hidden lg:block overflow-x-auto">
               <table className="w-full table-fixed text-fluid-sm border-collapse">
                 <colgroup>
-                  <col className="w-[22%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[12%]" />
+                  <col className="w-[20%]" />
                   <col className="w-[12%]" />
                   <col className="w-[10%]" />
-                  <col className="w-[18%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[16%]" />
                 </colgroup>
                 <thead>
                   <tr className="bg-gray-100 text-gray-600">
                     <th className="px-3 py-2 text-center font-medium">표시명</th>
                     <th className="px-3 py-2 text-center font-medium">영문 표시명</th>
                     <th className="px-3 py-2 text-center font-medium">접수 접두</th>
+                    <th className="px-3 py-2 text-center font-medium">숨고</th>
                     <th className="px-3 py-2 text-center font-medium">상태</th>
                     <th className="px-3 py-2 text-center font-medium">기본</th>
                     <th className="px-3 py-2 text-center font-medium">작업</th>
@@ -245,6 +350,23 @@ export function AdminOperatingCompaniesPage() {
                       <td className="px-3 py-2 text-center font-mono text-xs text-gray-600">{row.slug}</td>
                       <td className="px-3 py-2 text-center text-gray-600">
                         {row.config.inquiry?.numberPrefix ?? '—'}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {(() => {
+                          const label = soomgoListLabel(row.config);
+                          return (
+                            <span
+                              className={`inline-block text-xs px-2 py-0.5 rounded ${label.className}`}
+                              title={
+                                row.config.soomgo?.email?.trim()
+                                  ? row.config.soomgo.email
+                                  : '텔레CRM 공통 숨고 설정 사용'
+                              }
+                            >
+                              {label.text}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-2 text-center">
                         {row.isActive ? (
@@ -317,6 +439,13 @@ export function AdminOperatingCompaniesPage() {
                   </div>
                   <p className="text-xs text-gray-600">
                     접수 접두: {row.config.inquiry?.numberPrefix ?? '없음'}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    숨고:{' '}
+                    <span className={`inline-block px-1.5 py-0.5 rounded ${soomgoListLabel(row.config).className}`}>
+                      {soomgoListLabel(row.config).text}
+                    </span>
+                    {row.config.soomgo?.email?.trim() ? ` · ${row.config.soomgo.email}` : ''}
                   </p>
                   <div className="flex gap-3 pt-1">
                     <button type="button" onClick={() => openEdit(row)} className="text-sm text-blue-600">
@@ -417,6 +546,11 @@ export function AdminOperatingCompaniesPage() {
                 value={form.companyRegistration}
                 onChange={(companyRegistration) => setForm((f) => ({ ...f, companyRegistration }))}
               />
+              <OperatingCompanySoomgoFields
+                idPrefix="create"
+                value={form.soomgo}
+                onChange={(soomgo) => setForm((f) => ({ ...f, soomgo }))}
+              />
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"
@@ -512,6 +646,11 @@ export function AdminOperatingCompaniesPage() {
                 value={editForm.companyRegistration}
                 onChange={(companyRegistration) => setEditForm((f) => ({ ...f, companyRegistration }))}
               />
+              <OperatingCompanySoomgoFields
+                idPrefix="edit"
+                value={editForm.soomgo}
+                onChange={(soomgo) => setEditForm((f) => ({ ...f, soomgo }))}
+              />
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"
@@ -532,6 +671,26 @@ export function AdminOperatingCompaniesPage() {
           </div>
         </div>
       ) : null}
+
+      <DeletePasswordModal
+        open={pwdModalOpen}
+        title="숨고 비밀번호 저장 확인"
+        description="브랜드 숨고 계정 비밀번호를 저장하려면 본인 로그인 비밀번호를 입력해 주세요."
+        confirmLabel="저장"
+        confirmBusyLabel="저장 중…"
+        variant="primary"
+        busy={submitting}
+        password={actorPassword}
+        error={pwdModalError}
+        onPasswordChange={setActorPassword}
+        onConfirm={handlePwdModalConfirm}
+        onClose={() => {
+          if (submitting) return;
+          setPwdModalOpen(false);
+          setActorPassword('');
+          setPwdModalError(null);
+        }}
+      />
     </div>
   );
 }

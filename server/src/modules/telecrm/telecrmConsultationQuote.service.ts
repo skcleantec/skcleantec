@@ -135,6 +135,7 @@ const quoteSelect = {
 
 export async function listTelecrmConsultationQuotesForPhone(
   tenantId: string,
+  operatingCompanyId: string,
   phoneRaw: string,
   opts?: { historyLimit?: number },
 ): Promise<{
@@ -151,18 +152,19 @@ export async function listTelecrmConsultationQuotesForPhone(
 
   const [draftRow, quotedRow, historyRows] = await Promise.all([
     prisma.telecrmConsultationQuote.findFirst({
-      where: { tenantId, phone, status: 'DRAFT' },
+      where: { tenantId, operatingCompanyId, phone, status: 'DRAFT' },
       orderBy: { updatedAt: 'desc' },
       select: quoteSelect,
     }),
     prisma.telecrmConsultationQuote.findFirst({
-      where: { tenantId, phone, status: 'QUOTED' },
+      where: { tenantId, operatingCompanyId, phone, status: 'QUOTED' },
       orderBy: { updatedAt: 'desc' },
       select: quoteSelect,
     }),
     prisma.telecrmConsultationQuote.findMany({
       where: {
         tenantId,
+        operatingCompanyId,
         phone,
         status: { in: ['DRAFT', 'QUOTED', 'ORDER_ISSUED'] },
       },
@@ -185,6 +187,7 @@ export async function listTelecrmConsultationQuotesForPhone(
 
 export async function upsertTelecrmConsultationQuoteDraft(
   tenantId: string,
+  operatingCompanyId: string,
   userId: string,
   phoneRaw: string,
   payload: TelecrmConsultationQuotePayload,
@@ -194,7 +197,7 @@ export async function upsertTelecrmConsultationQuoteDraft(
 
   const jsonPayload = payload as unknown as Prisma.InputJsonValue;
   const existing = await prisma.telecrmConsultationQuote.findFirst({
-    where: { tenantId, phone, status: 'DRAFT' },
+    where: { tenantId, operatingCompanyId, phone, status: 'DRAFT' },
     orderBy: { updatedAt: 'desc' },
     select: { id: true },
   });
@@ -211,6 +214,7 @@ export async function upsertTelecrmConsultationQuoteDraft(
   const row = await prisma.telecrmConsultationQuote.create({
     data: {
       tenantId,
+      operatingCompanyId,
       phone,
       status: 'DRAFT',
       payload: jsonPayload,
@@ -224,6 +228,7 @@ export async function upsertTelecrmConsultationQuoteDraft(
 
 export async function supersedeTelecrmConsultationQuotesForPhone(
   tenantId: string,
+  operatingCompanyId: string,
   userId: string,
   phoneRaw: string,
 ): Promise<void> {
@@ -232,6 +237,7 @@ export async function supersedeTelecrmConsultationQuotesForPhone(
   await prisma.telecrmConsultationQuote.updateMany({
     where: {
       tenantId,
+      operatingCompanyId,
       phone,
       status: { in: ['DRAFT', 'QUOTED'] },
     },
@@ -241,9 +247,15 @@ export async function supersedeTelecrmConsultationQuotesForPhone(
 
 export async function getLatestTelecrmConsultationQuoteSummary(
   tenantId: string,
+  operatingCompanyId: string,
   phoneRaw: string,
 ): Promise<TelecrmConsultationQuoteDto | null> {
-  const { active } = await listTelecrmConsultationQuotesForPhone(tenantId, phoneRaw, { historyLimit: 1 });
+  const { active } = await listTelecrmConsultationQuotesForPhone(
+    tenantId,
+    operatingCompanyId,
+    phoneRaw,
+    { historyLimit: 1 },
+  );
   return active;
 }
 
@@ -252,6 +264,7 @@ const OPEN_FOLLOWUP_STATUSES = ['ABSENT', 'ON_HOLD'] as const;
 async function findOpenFollowupForPhone(
   tx: Prisma.TransactionClient,
   tenantId: string,
+  operatingCompanyId: string,
   phone: string,
 ) {
   const tail = phone.slice(-4);
@@ -259,6 +272,7 @@ async function findOpenFollowupForPhone(
   const candidates = await tx.orderFollowup.findMany({
     where: {
       tenantId,
+      operatingCompanyId,
       status: { in: [...OPEN_FOLLOWUP_STATUSES] },
       customerPhone: { contains: tail },
     },
@@ -288,6 +302,7 @@ export type FinalizeTelecrmConsultationQuoteResult = {
 
 export async function finalizeTelecrmConsultationQuote(
   tenantId: string,
+  operatingCompanyId: string,
   userId: string,
   input: FinalizeTelecrmConsultationQuoteInput,
 ): Promise<FinalizeTelecrmConsultationQuoteResult> {
@@ -325,7 +340,7 @@ export async function finalizeTelecrmConsultationQuote(
   const followupMemo = extraMemo ? `${autoMemo}\n${extraMemo}` : autoMemo;
 
   return prisma.$transaction(async (tx) => {
-    let followup = await findOpenFollowupForPhone(tx, tenantId, phone);
+    let followup = await findOpenFollowupForPhone(tx, tenantId, operatingCompanyId, phone);
     let followupCreated = false;
 
     if (followup) {
@@ -354,6 +369,7 @@ export async function finalizeTelecrmConsultationQuote(
       followup = await tx.orderFollowup.create({
         data: {
           tenantId,
+          operatingCompanyId,
           customerName,
           nickname,
           customerPhone: phone,
@@ -382,7 +398,7 @@ export async function finalizeTelecrmConsultationQuote(
     }
 
     const draftRow = await tx.telecrmConsultationQuote.findFirst({
-      where: { tenantId, phone, status: 'DRAFT' },
+      where: { tenantId, operatingCompanyId, phone, status: 'DRAFT' },
       orderBy: { updatedAt: 'desc' },
       select: { id: true },
     });
@@ -401,7 +417,7 @@ export async function finalizeTelecrmConsultationQuote(
       });
     } else {
       const quotedRow = await tx.telecrmConsultationQuote.findFirst({
-        where: { tenantId, phone, status: 'QUOTED' },
+        where: { tenantId, operatingCompanyId, phone, status: 'QUOTED' },
         orderBy: { updatedAt: 'desc' },
         select: { id: true },
       });
@@ -419,6 +435,7 @@ export async function finalizeTelecrmConsultationQuote(
         quoteRow = await tx.telecrmConsultationQuote.create({
           data: {
             tenantId,
+            operatingCompanyId,
             phone,
             status: 'QUOTED',
             payload: jsonPayload,
@@ -451,6 +468,7 @@ export async function finalizeTelecrmConsultationQuote(
 
 export async function linkTelecrmConsultationQuoteInquiry(
   tenantId: string,
+  operatingCompanyId: string,
   userId: string,
   input: {
     phone: string;
@@ -483,6 +501,7 @@ export async function linkTelecrmConsultationQuoteInquiry(
   const quoteRow = await prisma.telecrmConsultationQuote.findFirst({
     where: {
       tenantId,
+      operatingCompanyId,
       phone,
       status: { in: ['DRAFT', 'QUOTED'] },
     },

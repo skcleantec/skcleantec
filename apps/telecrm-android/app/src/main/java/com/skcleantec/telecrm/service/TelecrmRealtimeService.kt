@@ -1,5 +1,6 @@
 package com.skcleantec.telecrm.service
 
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -37,12 +38,11 @@ class TelecrmRealtimeService : Service() {
     private var sessionToken: String? = null
     private var sessionApiBaseUrl: String? = null
 
+    /** WS는 AppEventBus로 이미 emit — 여기서 재emit하면 리스너 무한 루프·ANR */
     private val connectionListener: (Boolean) -> Unit = { connected ->
         wsConnected = connected
-        scope.launch(Dispatchers.Main.immediate) {
-            refreshForegroundNotification()
-            AppEventBus.emitConnection(connected)
-        }
+        updateOngoingNotification()
+        if (connected) scheduleDrain()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -77,6 +77,9 @@ class TelecrmRealtimeService : Service() {
 
         val sameSession = sessionToken == token && sessionApiBaseUrl == apiBaseUrl
         if (sameSession) {
+            if (!webSocketClient.isConnected()) {
+                webSocketClient.connect(token, apiBaseUrl)
+            }
             return START_STICKY
         }
 
@@ -112,12 +115,17 @@ class TelecrmRealtimeService : Service() {
         }
     }
 
-    private fun refreshForegroundNotification() {
+    private fun updateOngoingNotification() {
         val notification = TelecrmNotificationHelper.buildOngoingNotification(this, wsConnected)
-        startForeground(TelecrmNotificationHelper.NOTIFICATION_ONGOING, notification)
+        val manager = getSystemService(NotificationManager::class.java)
+        if (manager != null) {
+            manager.notify(TelecrmNotificationHelper.NOTIFICATION_ONGOING, notification)
+        } else {
+            startForeground(TelecrmNotificationHelper.NOTIFICATION_ONGOING, notification)
+        }
     }
 
-    /** 동시 drain 1건만 — 1초마다 EncryptedSharedPreferences·HTTP 폭주 방지 */
+    /** 동시 drain 1건만 — EncryptedSharedPreferences·HTTP 폭주 방지 */
     private fun scheduleDrain() {
         if (drainJob?.isActive == true) return
         drainJob = scope.launch {
@@ -147,8 +155,8 @@ class TelecrmRealtimeService : Service() {
     companion object {
         private const val ACTION_START = "com.skcleantec.telecrm.action.START_REALTIME"
         private const val ACTION_STOP = "com.skcleantec.telecrm.action.STOP_REALTIME"
-        private const val POLL_INTERVAL_CONNECTED_MS = 5000L
-        private const val POLL_INTERVAL_DISCONNECTED_MS = 3000L
+        private const val POLL_INTERVAL_CONNECTED_MS = 8000L
+        private const val POLL_INTERVAL_DISCONNECTED_MS = 5000L
 
         @Volatile
         var isRunning: Boolean = false

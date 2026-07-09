@@ -3,6 +3,13 @@ import type { Response } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth, resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import type { UserRole } from '@prisma/client';
+import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
+import {
+  mapOperatingCompanyResolveError,
+  readCrmWorkBrandInput,
+  resolveCrmWorkOperatingCompanyId,
+} from './crmWorkBrandResolve.service.js';
 
 export function requireTelecrmTenant(
   req: import('express').Request,
@@ -71,4 +78,36 @@ export function parseAmountWon(raw: unknown): number | null {
     return Number.isFinite(n) && n >= 0 ? n : null;
   }
   return null;
+}
+
+/** CRM 작업 브랜드 — 쿼리 workBrand / operatingCompanyId 또는 body 동일 필드 */
+export async function requireCrmWorkOperatingCompanyId(
+  req: import('express').Request,
+  res: Response,
+): Promise<string | null> {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return null;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const body =
+    req.method !== 'GET' && req.body && typeof req.body === 'object'
+      ? (req.body as Record<string, unknown>)
+      : undefined;
+  const brandInput = readCrmWorkBrandInput(req.query as Record<string, unknown>, body);
+  try {
+    const isStaffAdmin = await userHasStaffAdminAccess(user);
+    return await resolveCrmWorkOperatingCompanyId({
+      tenantId,
+      userId: user.userId,
+      userRole: user.role as UserRole,
+      isStaffAdmin,
+      ...brandInput,
+    });
+  } catch (e) {
+    const mapped = mapOperatingCompanyResolveError(e);
+    if (mapped) {
+      res.status(mapped.status).json({ error: mapped.message });
+      return null;
+    }
+    throw e;
+  }
 }

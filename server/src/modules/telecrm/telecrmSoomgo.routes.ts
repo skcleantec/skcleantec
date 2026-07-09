@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
-import { requireTelecrmActorPassword, requireTelecrmTenant } from './telecrm.helpers.js';
+import { requireCrmWorkOperatingCompanyId, requireTelecrmActorPassword, requireTelecrmTenant } from './telecrm.helpers.js';
 import {
   getTelecrmSoomgoConfig,
   getTelecrmSoomgoCredentials,
@@ -24,13 +24,15 @@ router.get('/config', requireStaffPermission('crm.view', 'crm.settings'), async 
   res.json(config);
 });
 
-/** 브릿지 로그인용 자격증명 (인증된 스태프만) */
+/** 브릿지 로그인용 자격증명 (인증된 스태프만 · 작업 브랜드 우선) */
 router.get('/credentials', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
-  const creds = await getTelecrmSoomgoCredentials(tenantId);
+  const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
+  if (!operatingCompanyId) return;
+  const creds = await getTelecrmSoomgoCredentials(tenantId, operatingCompanyId);
   if (!creds) {
-    res.status(404).json({ error: '숨고 연동 계정이 설정되지 않았습니다. 텔레CRM 설정에서 등록해 주세요.' });
+    res.status(404).json({ error: '숨고 연동 계정이 설정되지 않았습니다. 텔레CRM 설정 또는 영업 브랜드 설정에서 등록해 주세요.' });
     return;
   }
   res.json(creds);

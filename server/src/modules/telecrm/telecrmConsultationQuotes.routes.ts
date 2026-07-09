@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
-import { requireTelecrmTenant } from './telecrm.helpers.js';
+import { requireCrmWorkOperatingCompanyId, requireTelecrmTenant } from './telecrm.helpers.js';
 import {
   finalizeTelecrmConsultationQuote,
   linkTelecrmConsultationQuoteInquiry,
@@ -18,19 +18,23 @@ router.use(authMiddleware, staffMarketerRoleOnly);
 router.get('/', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
+  if (!operatingCompanyId) return;
   const phoneRaw = typeof req.query.phone === 'string' ? req.query.phone : '';
   const phone = normalizeTelecrmQuotePhone(phoneRaw);
   if (phone.length < 4) {
     res.status(400).json({ error: '전화번호(4자 이상)가 필요합니다.' });
     return;
   }
-  const result = await listTelecrmConsultationQuotesForPhone(tenantId, phone);
+  const result = await listTelecrmConsultationQuotesForPhone(tenantId, operatingCompanyId, phone);
   res.json(result);
 });
 
 router.put('/current', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
+  if (!operatingCompanyId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
   const { phone: phoneRaw, payload } = req.body as { phone?: string; payload?: unknown };
   const phone = normalizeTelecrmQuotePhone(typeof phoneRaw === 'string' ? phoneRaw : '');
@@ -43,13 +47,21 @@ router.put('/current', requireStaffPermission('crm.view', 'crm.settings'), async
     res.status(400).json({ error: '저장할 견적 내용이 없습니다.' });
     return;
   }
-  const row = await upsertTelecrmConsultationQuoteDraft(tenantId, user.userId, phone, parsed);
+  const row = await upsertTelecrmConsultationQuoteDraft(
+    tenantId,
+    operatingCompanyId,
+    user.userId,
+    phone,
+    parsed,
+  );
   res.json(row);
 });
 
 router.post('/supersede-active', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
+  if (!operatingCompanyId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
   const { phone: phoneRaw } = req.body as { phone?: string };
   const phone = normalizeTelecrmQuotePhone(typeof phoneRaw === 'string' ? phoneRaw : '');
@@ -57,13 +69,15 @@ router.post('/supersede-active', requireStaffPermission('crm.view', 'crm.setting
     res.status(400).json({ error: '전화번호(4자 이상)가 필요합니다.' });
     return;
   }
-  await supersedeTelecrmConsultationQuotesForPhone(tenantId, user.userId, phone);
+  await supersedeTelecrmConsultationQuotesForPhone(tenantId, operatingCompanyId, user.userId, phone);
   res.json({ ok: true });
 });
 
 router.post('/finalize', requireStaffPermission('followup.edit', 'crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
+  if (!operatingCompanyId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
   const body = req.body as Record<string, unknown>;
   const phoneRaw = typeof body.phone === 'string' ? body.phone : '';
@@ -105,7 +119,7 @@ router.post('/finalize', requireStaffPermission('followup.edit', 'crm.view', 'cr
     }
   }
   try {
-    const result = await finalizeTelecrmConsultationQuote(tenantId, user.userId, {
+    const result = await finalizeTelecrmConsultationQuote(tenantId, operatingCompanyId, user.userId, {
       phone,
       payload: parsed,
       customerName,
@@ -125,6 +139,8 @@ router.post('/finalize', requireStaffPermission('followup.edit', 'crm.view', 'cr
 router.post('/link-inquiry', requireStaffPermission('orderform.issue', 'crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
+  const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
+  if (!operatingCompanyId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
   const body = req.body as Record<string, unknown>;
   const phoneRaw = typeof body.phone === 'string' ? body.phone : '';
@@ -134,7 +150,7 @@ router.post('/link-inquiry', requireStaffPermission('orderform.issue', 'crm.view
     return;
   }
   try {
-    const quote = await linkTelecrmConsultationQuoteInquiry(tenantId, user.userId, {
+    const quote = await linkTelecrmConsultationQuoteInquiry(tenantId, operatingCompanyId, user.userId, {
       phone,
       inquiryId: typeof body.inquiryId === 'string' ? body.inquiryId : null,
       orderFormId: typeof body.orderFormId === 'string' ? body.orderFormId : null,

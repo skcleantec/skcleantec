@@ -1,6 +1,7 @@
 package com.skcleantec.telecrm.service
 
 import android.content.Context
+import com.skcleantec.telecrm.auth.TokenStore
 import com.skcleantec.telecrm.dispatch.TelecrmDispatchDeduper
 import com.skcleantec.telecrm.dispatch.TelecrmDispatchPayload
 import com.skcleantec.telecrm.realtime.AppEventBus
@@ -16,9 +17,20 @@ object TelecrmDispatchRouter {
             imageUrl = json.optString("imageUrl").takeIf { it.isNotBlank() },
             inquiryId = json.optString("inquiryId").takeIf { it.isNotBlank() },
             customerMatch = json.optString("customerMatch").takeIf { it.isNotBlank() },
+            targetUserId = json.optString("targetUserId").takeIf { it.isNotBlank() },
+            broadcastToTenant = json.optBoolean("broadcastToTenant", false),
         )
 
+    /** 마케터 — 본인 targetUserId만. ADMIN broadcast는 broadcastToTenant=true만 수신 */
+    private fun shouldAcceptDispatch(context: Context, payload: AppEventBus.DispatchPayload): Boolean {
+        if (payload.broadcastToTenant) return true
+        val target = payload.targetUserId?.takeIf { it.isNotBlank() } ?: return true
+        val myId = TokenStore.get(context).getUserId()?.takeIf { it.isNotBlank() } ?: return true
+        return target == myId
+    }
+
     fun route(context: Context, payload: AppEventBus.DispatchPayload) {
+        if (!shouldAcceptDispatch(context, payload)) return
         val item = TelecrmDispatchPayload(
             id = payload.id,
             action = payload.action,

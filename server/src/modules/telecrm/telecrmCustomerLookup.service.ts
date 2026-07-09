@@ -135,6 +135,7 @@ function mapToCandidates(map: Map<string, CandidateAcc>): TelecrmCustomerCandida
 
 async function resolveTelecrmCustomerByPhone(
   tenantId: string,
+  operatingCompanyId: string,
   rawPhone: string,
   searchBy: 'phone' | 'name' = 'phone',
 ): Promise<TelecrmCustomerLookupResult> {
@@ -148,6 +149,7 @@ async function resolveTelecrmCustomerByPhone(
     prisma.inquiry.findMany({
       where: {
         tenantId,
+        operatingCompanyId,
         OR: [{ customerPhone: { endsWith: last4 } }, { customerPhone2: { endsWith: last4 } }],
       },
       orderBy: { createdAt: 'desc' },
@@ -155,7 +157,7 @@ async function resolveTelecrmCustomerByPhone(
       select: telecrmInquiryBriefSelect,
     }),
     prisma.orderFollowup.findMany({
-      where: { tenantId, customerPhone: { endsWith: last4 } },
+      where: { tenantId, operatingCompanyId, customerPhone: { endsWith: last4 } },
       orderBy: { createdAt: 'desc' },
       take: 100,
       select: {
@@ -170,7 +172,11 @@ async function resolveTelecrmCustomerByPhone(
       },
     }),
     prisma.csReport.findMany({
-      where: { tenantId, customerPhone: { endsWith: last4 } },
+      where: {
+        tenantId,
+        customerPhone: { endsWith: last4 },
+        inquiry: { operatingCompanyId },
+      },
       orderBy: { createdAt: 'desc' },
       take: 50,
       select: {
@@ -184,7 +190,7 @@ async function resolveTelecrmCustomerByPhone(
         inquiryId: true,
       },
     }),
-    getLatestTelecrmConsultationQuoteSummary(tenantId, phoneDigits),
+    getLatestTelecrmConsultationQuoteSummary(tenantId, operatingCompanyId, phoneDigits),
   ]);
 
   const inquiries = inquiryRows
@@ -255,6 +261,7 @@ async function resolveTelecrmCustomerByPhone(
 
 async function searchTelecrmCustomerByName(
   tenantId: string,
+  operatingCompanyId: string,
   rawName: string,
 ): Promise<TelecrmCustomerLookupResult> {
   const nameTrim = rawName.trim();
@@ -265,7 +272,7 @@ async function searchTelecrmCustomerByName(
 
   const [inquiryRows, followupRows, csRows] = await Promise.all([
     prisma.inquiry.findMany({
-      where: { tenantId, customerName: nameFilter },
+      where: { tenantId, operatingCompanyId, customerName: nameFilter },
       orderBy: { createdAt: 'desc' },
       take: 120,
       select: {
@@ -277,7 +284,7 @@ async function searchTelecrmCustomerByName(
       },
     }),
     prisma.orderFollowup.findMany({
-      where: { tenantId, customerName: nameFilter },
+      where: { tenantId, operatingCompanyId, customerName: nameFilter },
       orderBy: { createdAt: 'desc' },
       take: 60,
       select: {
@@ -288,7 +295,7 @@ async function searchTelecrmCustomerByName(
       },
     }),
     prisma.csReport.findMany({
-      where: { tenantId, customerName: nameFilter },
+      where: { tenantId, customerName: nameFilter, inquiry: { operatingCompanyId } },
       orderBy: { createdAt: 'desc' },
       take: 40,
       select: {
@@ -329,7 +336,12 @@ async function searchTelecrmCustomerByName(
   const candidates = mapToCandidates(map);
   if (candidates.length === 0) return empty;
   if (candidates.length === 1) {
-    const resolved = await resolveTelecrmCustomerByPhone(tenantId, candidates[0]!.customerPhone, 'name');
+    const resolved = await resolveTelecrmCustomerByPhone(
+      tenantId,
+      operatingCompanyId,
+      candidates[0]!.customerPhone,
+      'name',
+    );
     return { ...resolved, searchBy: 'name', candidates: [] };
   }
 
@@ -347,18 +359,20 @@ async function searchTelecrmCustomerByName(
 
 export async function lookupTelecrmCustomer(
   tenantId: string,
+  operatingCompanyId: string,
   rawPhone: string,
 ): Promise<TelecrmCustomerLookupResult> {
-  return resolveTelecrmCustomerByPhone(tenantId, rawPhone, 'phone');
+  return resolveTelecrmCustomerByPhone(tenantId, operatingCompanyId, rawPhone, 'phone');
 }
 
 export async function searchTelecrmCustomer(
   tenantId: string,
+  operatingCompanyId: string,
   params: { phone?: string; name?: string },
 ): Promise<TelecrmCustomerLookupResult> {
   const phone = params.phone?.trim() ?? '';
   const name = params.name?.trim() ?? '';
-  if (phone) return resolveTelecrmCustomerByPhone(tenantId, phone, 'phone');
-  if (name) return searchTelecrmCustomerByName(tenantId, name);
+  if (phone) return resolveTelecrmCustomerByPhone(tenantId, operatingCompanyId, phone, 'phone');
+  if (name) return searchTelecrmCustomerByName(tenantId, operatingCompanyId, name);
   return emptyResult('phone');
 }

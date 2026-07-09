@@ -24,16 +24,24 @@ _ADDRESS_HINT = re.compile(r'[가-힣]{2,}(?:시|군|구|동|로|길|아파트|A
 
 _INPUT_JS = """
 const elem = arguments[0];
-const message = arguments[1];
+const message = String(arguments[1] ?? '');
+function setMultilineContentEditable(el, text) {
+  el.focus();
+  el.innerHTML = '';
+  var lines = text.split('\\n');
+  for (var i = 0; i < lines.length; i++) {
+    if (i > 0) el.appendChild(document.createElement('br'));
+    if (lines[i].length) el.appendChild(document.createTextNode(lines[i]));
+  }
+  el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText' }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
 if (elem.tagName.toLowerCase() === 'textarea' || elem.tagName.toLowerCase() === 'input') {
     elem.value = message;
     elem.dispatchEvent(new Event('input', { bubbles: true }));
     elem.dispatchEvent(new Event('change', { bubbles: true }));
 } else if (elem.hasAttribute('contenteditable') || elem.getAttribute('role') === 'textbox') {
-    elem.focus();
-    elem.textContent = message;
-    elem.dispatchEvent(new Event('input', { bubbles: true }));
-    elem.dispatchEvent(new Event('change', { bubbles: true }));
+    setMultilineContentEditable(elem, message);
 }
 """
 
@@ -57,14 +65,23 @@ function setNativeValue(el, text) {
 document.querySelectorAll('.quick-message-tooltip, [class*="tooltip"]').forEach(function(t) {
   try { t.style.display = 'none'; } catch (e) {}
 });
+function setContentEditableMultiline(el, text) {
+  el.focus();
+  el.innerHTML = '';
+  var lines = String(text).split('\\n');
+  for (var li = 0; li < lines.length; li++) {
+    if (li > 0) el.appendChild(document.createElement('br'));
+    if (lines[li].length) el.appendChild(document.createTextNode(lines[li]));
+  }
+  el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText' }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
 function setInputValue(el, text) {
   el.focus();
   if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
     setNativeValue(el, text);
   } else {
-    el.textContent = text;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
+    setContentEditableMultiline(el, text);
   }
 }
 var input = document.querySelector('textarea[name="message-input"], textarea.message-input');
@@ -242,16 +259,18 @@ class ChatRoomManager:
         except Exception:
             return False
 
-    def _send_via_keyboard(self, input_elem, message: str) -> bool:
+    def _send_via_dom_fill(self, input_elem, message: str) -> bool:
+        """DOM으로 전체 문자열을 넣고 전송 버튼 1회 클릭.
+
+        Selenium send_keys는 줄바꿈(\\n)마다 Enter를 보내 숨고 채팅에서 메시지가 분할 발송된다.
+        """
         self._hide_tooltips()
-        input_elem.click()
+        try:
+            input_elem.click()
+        except Exception:
+            pass
         time.sleep(0.15)
-        chains = ActionChains(self.driver)
-        chains.click(input_elem)
-        chains.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL)
-        chains.send_keys(Keys.DELETE)
-        chains.send_keys(message)
-        chains.perform()
+        self.driver.execute_script(_INPUT_JS, input_elem, message)
         time.sleep(0.35)
         send_btn = self._find_send_button(input_elem)
         if send_btn:
@@ -262,6 +281,12 @@ class ChatRoomManager:
         else:
             input_elem.send_keys(Keys.RETURN)
         time.sleep(self.delay * 0.5)
+        return not self._input_still_has_text(input_elem, message)
+
+    def _message_input_cleared(self, message: str) -> bool:
+        input_elem = self._find_message_input()
+        if not input_elem:
+            return True
         return not self._input_still_has_text(input_elem, message)
 
     def is_in_chat_room(self) -> bool:
@@ -478,24 +503,28 @@ class ChatRoomManager:
             self._hide_tooltips()
             result = self.driver.execute_script(_SEND_MESSAGE_JS, message)
             if isinstance(result, dict) and result.get('ok'):
-                reason = str(result.get('reason', ''))
-                if reason == 'clicked_cleared':
-                    time.sleep(self.delay * 0.3)
+                time.sleep(self.delay * 0.35)
+                if self._message_input_cleared(message):
                     return True, None
 
             input_elem = self._find_message_input()
             if not input_elem:
                 return False, '채팅 입력창을 찾지 못했습니다. 숨고 채팅방을 연 상태인지 확인해 주세요.'
 
-            if self._send_via_keyboard(input_elem, message):
+            if self._message_input_cleared(message):
+                return True, None
+
+            if self._send_via_dom_fill(input_elem, message):
                 time.sleep(self.delay * 0.3)
                 return True, None
 
             reason = result.get('reason') if isinstance(result, dict) else 'unknown'
-            logger.warning('send_message retry js after keyboard: %s', reason)
+            logger.warning('send_message retry js after dom fill: %s', reason)
             retry = self.driver.execute_script(_SEND_MESSAGE_JS, message)
-            if isinstance(retry, dict) and retry.get('ok') and retry.get('reason') == 'clicked_cleared':
-                return True, None
+            if isinstance(retry, dict) and retry.get('ok'):
+                time.sleep(self.delay * 0.35)
+                if self._message_input_cleared(message):
+                    return True, None
 
             if not self._input_still_has_text(input_elem, message):
                 return True, None

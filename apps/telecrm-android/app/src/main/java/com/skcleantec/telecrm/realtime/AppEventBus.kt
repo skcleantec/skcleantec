@@ -1,5 +1,7 @@
 package com.skcleantec.telecrm.realtime
 
+import android.os.Handler
+import android.os.Looper
 import org.json.JSONObject
 
 /** WebSocket → UI 이벤트 버스 (MainActivity·Fragment 공유) */
@@ -20,6 +22,8 @@ object AppEventBus {
         val imageUrl: String?,
         val inquiryId: String?,
         val customerMatch: String?,
+        val targetUserId: String? = null,
+        val broadcastToTenant: Boolean = false,
     )
 
     private val inboxRefreshListeners = linkedSetOf<() -> Unit>()
@@ -28,6 +32,16 @@ object AppEventBus {
     private val dialPrefillListeners = linkedSetOf<(DialPrefill) -> Unit>()
     private var pendingDialPrefill: DialPrefill? = null
     private val dispatchListeners = linkedSetOf<(DispatchPayload) -> Unit>()
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private inline fun onMain(crossinline block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            runCatching { block() }
+        } else {
+            mainHandler.post { runCatching { block() } }
+        }
+    }
 
     fun addInboxRefreshListener(listener: () -> Unit) {
         inboxRefreshListeners.add(listener)
@@ -71,26 +85,26 @@ object AppEventBus {
     }
 
     fun emitInboxRefresh() {
-        inboxRefreshListeners.forEach { runCatching { it() } }
+        onMain { inboxRefreshListeners.forEach { runCatching { it() } } }
     }
 
     fun emitConnection(connected: Boolean) {
-        connectionListeners.forEach { runCatching { it(connected) } }
+        onMain { connectionListeners.forEach { runCatching { it(connected) } } }
     }
 
     fun emitToast(title: String, body: String) {
         val alert = ToastAlert(title, body)
-        toastListeners.forEach { runCatching { it(alert) } }
+        onMain { toastListeners.forEach { runCatching { it(alert) } } }
     }
 
     fun emitDialPrefill(phone: String, inquiryId: String?, customerMatch: String?) {
         val payload = DialPrefill(phone, inquiryId, customerMatch)
         pendingDialPrefill = payload
-        dialPrefillListeners.forEach { runCatching { it(payload) } }
+        onMain { dialPrefillListeners.forEach { runCatching { it(payload) } } }
     }
 
     fun emitDispatch(payload: DispatchPayload) {
-        dispatchListeners.forEach { runCatching { it(payload) } }
+        onMain { dispatchListeners.forEach { runCatching { it(payload) } } }
     }
 
     fun handlePayload(json: JSONObject) {

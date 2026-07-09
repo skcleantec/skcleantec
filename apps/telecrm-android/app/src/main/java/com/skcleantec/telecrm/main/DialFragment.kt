@@ -55,19 +55,20 @@ class DialFragment : Fragment() {
     private val lookupState = CustomerLookupState()
 
     private var smsTemplates = listOf<SmsTemplateDto>()
-
-
+    private var pendingPrefill: AppEventBus.DialPrefill? = null
 
     private val refreshListener = { loadSmsTemplates() }
-
-
 
     private val dialPrefillListener: (AppEventBus.DialPrefill) -> Unit = { prefill ->
         applyPrefill(prefill.phone, prefill.inquiryId, prefill.customerMatch)
     }
 
     fun applyPrefill(phone: String, inquiryId: String?, customerMatch: String?) {
-        if (_binding == null) return
+        if (_binding == null) {
+            pendingPrefill = AppEventBus.DialPrefill(phone, inquiryId, customerMatch)
+            return
+        }
+        pendingPrefill = null
         binding.inputPhone.setText(phone)
         lookupState.selectedPhone = phone
         lookupState.selectedInquiryId = inquiryId
@@ -143,7 +144,9 @@ class DialFragment : Fragment() {
         updateActionRowVisibility()
 
         AppEventBus.addDialPrefillListener(dialPrefillListener)
-
+        pendingPrefill?.let { prefill ->
+            applyPrefill(prefill.phone, prefill.inquiryId, prefill.customerMatch)
+        }
     }
 
 

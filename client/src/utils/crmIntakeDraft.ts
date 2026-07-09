@@ -19,6 +19,7 @@ export type CrmIntakeFormSnapshot = {
 export type CrmIntakeDraft = CrmIntakeFormSnapshot & {
   mode: CrmCustomerMode;
   phone: string;
+  phoneUnknown?: boolean;
   pyeong: string;
   savedAt: number;
 };
@@ -54,7 +55,8 @@ export function clearCrmIntakeDraft(): void {
 
 export function crmIntakeDraftHasContent(draft: Partial<CrmIntakeDraft>): boolean {
   return Boolean(
-    draft.phone?.trim() ||
+    draft.phoneUnknown ||
+      draft.phone?.trim() ||
       draft.customerName?.trim() ||
       draft.nickname?.trim() ||
       draft.address?.trim() ||

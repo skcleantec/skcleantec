@@ -3,6 +3,11 @@
  */
 
 import { parseSmtpConfigStored } from '../../lib/smtpConfigStored.js';
+import {
+  parseOperatingCompanySoomgoStored,
+  soomgoPublicFromStored,
+  type OperatingCompanySoomgoStored,
+} from '../../lib/operatingCompanySoomgoConfig.js';
 import { resolveQuotationSealDisplayWidth, tenantCompanySealLooksValid } from '../../lib/quotationSeal.js';
 import type {
   TenantCompanyRegistrationConfig,
@@ -45,6 +50,21 @@ export type OperatingCompanyConfig = {
   inquiry?: OperatingCompanyInquiryConfig;
   companyRegistration?: Partial<TenantCompanyRegistrationConfig>;
   smtp?: TenantSmtpConfigStored;
+  /** 텔레CRM 숨고 — 브랜드별 계정 (DB 저장 · passwordEnc) */
+  soomgo?: OperatingCompanySoomgoStored;
+};
+
+/** API 응답용 — 비밀번호 암호문 제외 */
+export type OperatingCompanySoomgoConfigPublic = {
+  email?: string;
+  enabled?: boolean;
+  hasPassword?: boolean;
+  configured?: boolean;
+};
+
+export type OperatingCompanyConfigPublic = Omit<OperatingCompanyConfig, 'soomgo' | 'smtp'> & {
+  smtp?: TenantSmtpConfigStored;
+  soomgo?: OperatingCompanySoomgoConfigPublic;
 };
 
 const MAX_STRING = 512;
@@ -237,7 +257,20 @@ export function parseOperatingCompanyConfig(raw: unknown): OperatingCompanyConfi
   }
   const smtp = parseSmtpConfigStored(o.smtp);
   if (smtp) out.smtp = smtp;
+  const soomgo = parseOperatingCompanySoomgoStored(o.soomgo);
+  if (soomgo) out.soomgo = soomgo;
   return out;
+}
+
+export function operatingCompanyConfigPublic(config: OperatingCompanyConfig): OperatingCompanyConfigPublic {
+  const pub: OperatingCompanyConfigPublic = { ...config };
+  if (config.soomgo) {
+    pub.soomgo = soomgoPublicFromStored(config.soomgo);
+  }
+  if (config.smtp?.passEnc) {
+    pub.smtp = { ...config.smtp, passEnc: undefined };
+  }
+  return pub;
 }
 
 export function mergeOperatingCompanyConfig(
@@ -254,6 +287,7 @@ export function mergeOperatingCompanyConfig(
         ? mergeCompanyRegistrationSection(existing.companyRegistration, patch.companyRegistration)
         : existing.companyRegistration,
     smtp: patch.smtp !== undefined ? patch.smtp : existing.smtp,
+    soomgo: patch.soomgo !== undefined ? patch.soomgo : existing.soomgo,
   };
   if (tenantId && merged.companyRegistration) {
     merged.companyRegistration = finalizeCompanyRegistrationSection(merged.companyRegistration, tenantId);
@@ -271,6 +305,9 @@ export function operatingCompanyConfigToJson(config: OperatingCompanyConfig): Re
   }
   if (config.smtp && Object.keys(config.smtp).length > 0) {
     out.smtp = config.smtp;
+  }
+  if (config.soomgo && Object.keys(config.soomgo).length > 0) {
+    out.soomgo = config.soomgo;
   }
   return out;
 }

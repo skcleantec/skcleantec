@@ -13,6 +13,8 @@ import com.skcleantec.telecrm.api.SmsTemplateDto
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 import java.text.NumberFormat
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 object SmsTemplateHelper {
@@ -102,7 +104,9 @@ object SmsTemplateHelper {
     suspend fun enrichOrderLink(apiClient: ApiClient, token: String, ctx: TelecrmSmsPlaceholderCtx, inquiryId: String?): TelecrmSmsPlaceholderCtx {
         val id = inquiryId?.takeIf { it.isNotBlank() } ?: return ctx
         if (!ctx.orderLink.isNullOrBlank()) return ctx
-        val link = apiClient.getOrderFormLink(token, id).getOrNull()
+        val link = withContext(Dispatchers.IO) {
+            apiClient.getOrderFormLink(token, id).getOrNull()
+        }
         return if (link.isNullOrBlank()) ctx else ctx.copy(orderLink = link)
     }
 

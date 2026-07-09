@@ -18,6 +18,8 @@ import {
 import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 import { getTenantConfig, updateTenantConfig } from '../tenants/tenantConfig.service.js';
 import type { OperatingCompanyPolicy } from './operatingCompanyPolicy.js';
+import { extractOperatingCompanySoomgoPatch } from '../../lib/operatingCompanySoomgoConfig.js';
+import { requireTelecrmActorPassword } from '../telecrm/telecrm.helpers.js';
 
 const router = Router();
 
@@ -80,8 +82,17 @@ router.get('/my', async (req, res) => {
 });
 
 router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
-  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
   if (!tenantId) return;
+  const soomgoPatch = extractOperatingCompanySoomgoPatch(
+    (req.body as { config?: unknown })?.config,
+  );
+  if (soomgoPatch?.password?.trim()) {
+    const actorPassword = (req.body as { actorPassword?: unknown }).actorPassword;
+    const ok = await requireTelecrmActorPassword(res, auth.userId, tenantId, actorPassword);
+    if (!ok) return;
+  }
   try {
     const created = await createOperatingCompany(prisma, tenantId, req.body);
     res.status(201).json(created);
@@ -95,8 +106,17 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
 });
 
 router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => {
-  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
   if (!tenantId) return;
+  const soomgoPatch = extractOperatingCompanySoomgoPatch(
+    (req.body as { config?: unknown })?.config,
+  );
+  if (soomgoPatch?.password?.trim()) {
+    const actorPassword = (req.body as { actorPassword?: unknown }).actorPassword;
+    const ok = await requireTelecrmActorPassword(res, auth.userId, tenantId, actorPassword);
+    if (!ok) return;
+  }
   try {
     const updated = await updateOperatingCompany(prisma, tenantId, req.params.id, req.body);
     res.json(updated);

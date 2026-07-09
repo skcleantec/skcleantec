@@ -1,4 +1,5 @@
 import type { SoomgoBridgeManifest } from '@shared/soomgoBridge';
+import { appendCrmWorkBrandQuery } from '../utils/crmWorkBrandQuery';
 
 const API = '/api/crm/soomgo';
 
@@ -36,8 +37,12 @@ export async function updateTelecrmSoomgoConfig(
 
 export async function fetchTelecrmSoomgoCredentials(
   token: string,
+  operatingCompanyId?: string | null,
 ): Promise<{ email: string; password: string }> {
-  const res = await fetch(`${API}/credentials`, { headers: authHeaders(token) });
+  const qs = new URLSearchParams();
+  appendCrmWorkBrandQuery(qs, operatingCompanyId);
+  const q = qs.toString() ? `?${qs}` : '';
+  const res = await fetch(`${API}/credentials${q}`, { headers: authHeaders(token) });
   const data = (await res.json()) as { email?: string; password?: string; error?: string };
   if (!res.ok) throw new Error(data.error ?? '숨고 계정 정보를 불러오지 못했습니다.');
   if (!data.email || !data.password) throw new Error('숨고 계정이 설정되지 않았습니다.');

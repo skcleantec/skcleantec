@@ -26,6 +26,7 @@ export function CrmIntakeForm({
   seed,
   initialFormDraft,
   phone,
+  phoneUnknown,
   pyeong,
   onPyeongChange,
   onFormChange,
@@ -37,15 +38,18 @@ export function CrmIntakeForm({
   formResetKey = 0,
   quotePayload = null,
   soomgoImportFlashKey = 0,
+  operatingCompanyId = null,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
   phone: string;
+  phoneUnknown: boolean;
   pyeong: string;
   onPyeongChange: (v: string) => void;
   onFormChange?: (snapshot: CrmIntakeFormSnapshot) => void;
   onSaved: (result: CrmIntakeSubmitResult) => void;
   lastInquiryId: string | null;
+  operatingCompanyId?: string | null;
   onOpenOrderIssue?: (inquiryId: string | null) => void;
   canSubmitKind: (kind: CrmIntakeKind) => boolean;
   permissionsLoading?: boolean;
@@ -163,6 +167,10 @@ export function CrmIntakeForm({
       setErr(`${crmIntakePermissionLabel(kind)} 권한이 필요합니다.`);
       return;
     }
+    if (!operatingCompanyId) {
+      setErr('작업 브랜드가 선택되지 않았습니다. 상단에서 브랜드를 선택해 주세요.');
+      return;
+    }
     setSaving(true);
     setErr(null);
     setMsg(null);
@@ -173,6 +181,7 @@ export function CrmIntakeForm({
           customerName,
           nickname,
           phone,
+          phoneUnknown,
           preferredMoveInCleanYmd,
           address,
           roomCount,
@@ -182,7 +191,7 @@ export function CrmIntakeForm({
           goldDb,
         },
         pyeong,
-        { quotePayload },
+        { operatingCompanyId, quotePayload },
       );
       onSaved(result);
       setMsg('저장했습니다.');
