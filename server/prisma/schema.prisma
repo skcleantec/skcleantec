@@ -2865,6 +2865,10 @@ model TelecrmSoomgoConfig {
   email       String   @db.VarChar(255)
   passwordEnc String   @map("password_enc") @db.Text
   enabled     Boolean  @default(true) @map("enabled")
+  followupAbsentAutoEnabled Boolean @default(false) @map("followup_absent_auto_enabled")
+  followupAbsentMessage     String? @map("followup_absent_message") @db.Text
+  followupHoldAutoEnabled   Boolean @default(false) @map("followup_hold_auto_enabled")
+  followupHoldMessage       String? @map("followup_hold_message") @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 

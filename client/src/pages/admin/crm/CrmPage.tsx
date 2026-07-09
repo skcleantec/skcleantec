@@ -636,7 +636,7 @@ export function CrmPage() {
                     ? () =>
                         openSettings(
                           canSharedSettings ? 'soomgo' : 'soomgo-presets',
-                          canPersonalCatalog ? 'personal' : 'shared',
+                          canSharedSettings ? 'shared' : canPersonalCatalog ? 'personal' : 'shared',
                         )
                     : undefined
                 }

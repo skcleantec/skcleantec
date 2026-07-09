@@ -31,9 +31,20 @@ export type CrmIntakeFormValues = {
   goldDb: boolean;
 };
 
+export type CrmIntakeFollowupKind = 'requested' | 'absent' | 'hold';
+
 export type CrmIntakeSubmitResult =
-  | { kind: 'followup' }
+  | { kind: 'followup'; intakeKind: CrmIntakeFollowupKind; customerName: string; nickname: string }
   | { kind: 'inquiry'; inquiryId: string; status: string };
+
+function followupSubmitResult(values: CrmIntakeFormValues): CrmIntakeSubmitResult {
+  return {
+    kind: 'followup',
+    intakeKind: values.kind as CrmIntakeFollowupKind,
+    customerName: resolveCrmIntakeCustomerName(values),
+    nickname: values.nickname.trim(),
+  };
+}
 
 function inquiryExtras(
   pyeong: string,
@@ -99,7 +110,7 @@ export async function submitCrmIntake(
         },
         operatingCompanyId,
       );
-      return { kind: 'followup' };
+      return followupSubmitResult(values);
     }
     await createOrderFollowup(token, {
       customerName: n,
@@ -111,7 +122,7 @@ export async function submitCrmIntake(
       ...pmdBody,
       ...brandBody,
     });
-    return { kind: 'followup' };
+    return followupSubmitResult(values);
   }
 
   if (values.kind === 'received') {

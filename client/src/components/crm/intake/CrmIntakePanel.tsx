@@ -18,6 +18,11 @@ import {
   useCrmCustomerLookup,
   type CrmCustomerSearchMode,
 } from '../../../hooks/useCrmCustomerLookup';
+import { getToken } from '../../../stores/auth';
+import {
+  noticeForSoomgoFollowupAutoSend,
+  trySoomgoFollowupAutoMessage,
+} from '../../../utils/soomgoFollowupAutoSend';
 
 export type CrmCustomerMode = 'new' | 'existing';
 
@@ -246,6 +251,17 @@ export function CrmIntakePanel({
     if (result.kind === 'inquiry') setLastInquiryId(result.inquiryId);
     onSaved();
     if (mode === 'existing') refresh();
+    if (result.kind === 'followup') {
+      const token = getToken();
+      if (!token) return;
+      void trySoomgoFollowupAutoMessage(token, result.intakeKind, {
+        customerName: result.customerName,
+        nickname: result.nickname,
+      }).then((auto) => {
+        const notice = noticeForSoomgoFollowupAutoSend(auto);
+        if (notice) onDispatchNotice?.(notice);
+      });
+    }
   };
 
   const openOrderIssue = (inquiryId: string | null) => {

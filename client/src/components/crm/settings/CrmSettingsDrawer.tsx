@@ -71,16 +71,23 @@ export function CrmSettingsDrawer({
   const presetCatalogScope = canEditShared ? catalogScope : 'personal';
   const showCatalogSegment =
     tab !== 'general' &&
+    tab !== 'soomgo' &&
     (canEditShared || canEditPersonal) &&
-    (tab === 'soomgo' || tab === 'soomgo-presets' ? canEditShared && canEditPersonal : true);
+    (tab === 'soomgo-presets' ? canEditShared && canEditPersonal : true);
   const drawerWidth =
     tab === 'soomgo-presets' ? 'w-[min(760px,96vw)]' : 'w-[min(640px,94vw)]';
+  const drawerSubtitle =
+    tab === 'soomgo'
+      ? '업체 공통 숨고 계정·PC 프로그램·브랜드·자동 안내를 설정합니다.'
+      : tab === 'soomgo-presets'
+        ? '숨고 채팅에 보낼 메시지 프리셋을 편집합니다.'
+        : '개인 스크립트·가격 또는 업체 공통 설정을 편집합니다.';
 
   return (
     <CrmDrawerShell
       open={open}
       title="텔레CRM 설정"
-      subtitle="개인 스크립트·가격 또는 업체 공통 설정을 편집합니다."
+      subtitle={drawerSubtitle}
       onClose={onClose}
       widthClass={drawerWidth}
     >
@@ -129,7 +136,7 @@ export function CrmSettingsDrawer({
             <TelecrmSoomgoMessagePresetsSection catalogScope={presetCatalogScope} />
           ) : null}
           {tab === 'soomgo' && canEditShared ? (
-            <TelecrmSoomgoSettingsPage catalogScope={catalogScope} presetsInDrawer />
+            <TelecrmSoomgoSettingsPage presetsInDrawer />
           ) : null}
         </div>
       </Suspense>
