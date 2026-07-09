@@ -51,6 +51,8 @@ export function useCrmSoomgoBridge({
   const [error, setError] = useState<string | null>(null);
   const previewRef = useRef(preview);
   previewRef.current = preview;
+  const busyActionRef = useRef(busyAction);
+  busyActionRef.current = busyAction;
   const lastHandledCallAtRef = useRef<number | null>(null);
   const watchStartedRef = useRef(false);
   const watchBlockedRef = useRef(false);
@@ -114,8 +116,8 @@ export function useCrmSoomgoBridge({
     [applyCallPhone, notify],
   );
 
-  const refreshStatus = useCallback(async () => {
-    const s = await fetchSoomgoBridgeStatus(bridgeManifest);
+  const refreshStatus = useCallback(async (options?: { lite?: boolean }) => {
+    const s = await fetchSoomgoBridgeStatus(bridgeManifest, { lite: options?.lite });
     setStatus(s);
     const outdatedMsg = soomgoBridgeOutdatedMessage(s, bridgeManifest);
     if (!isSoomgoBridgeOutdated(s, bridgeManifest)) {
@@ -176,14 +178,20 @@ export function useCrmSoomgoBridge({
     let timer: ReturnType<typeof window.setTimeout> | undefined;
     const poll = async () => {
       if (cancelled) return;
-      const s = await refreshStatus();
+      const busy = busyActionRef.current;
+      if (busy === 'extract' || busy === 'call') {
+        timer = window.setTimeout(poll, 6000);
+        return;
+      }
+      const s = await refreshStatus({ lite: busy !== 'open' });
       if (cancelled) return;
       if (s.inChatRoom && s.bridgeRunning && !isSoomgoBridgeOutdated(s, bridgeManifest) && !watchBlockedRef.current) {
         void ensureCallWatch(s);
       } else if (!s.inChatRoom) {
         watchStartedRef.current = false;
       }
-      timer = window.setTimeout(poll, s.bridgeRunning ? 3000 : 12000);
+      const interval = busy === 'open' ? 5000 : s.bridgeRunning ? 5000 : 12000;
+      timer = window.setTimeout(poll, interval);
     };
     void poll();
     return () => {
@@ -207,10 +215,12 @@ export function useCrmSoomgoBridge({
       }
       const screen = readSoomgoSplitScreenBounds();
       if (isPopup) arrangeCrmPopupLeftHalf();
-      await startSoomgoBridge(screen);
       const token = getToken();
       if (!token) throw new Error('로그인이 필요합니다.');
-      const creds = await fetchTelecrmSoomgoCredentials(token);
+      const [, creds] = await Promise.all([
+        startSoomgoBridge(screen),
+        fetchTelecrmSoomgoCredentials(token),
+      ]);
       const loginRes = await loginSoomgoBridge(creds.email, creds.password);
       if (!loginRes.loggedIn) throw new Error(loginRes.lastError ?? '숨고 로그인에 실패했습니다.');
       await openSoomgoChats(screen);
@@ -268,14 +278,14 @@ export function useCrmSoomgoBridge({
     try {
       notify('숨고 안심번호를 가져오는 중입니다. Chrome 창을 건드리지 마세요.');
       await openSoomgoCallModal();
-      await new Promise((r) => window.setTimeout(r, 600));
+      await new Promise((r) => window.setTimeout(r, 280));
       let phone: string | null = null;
-      for (let i = 0; i < 4; i += 1) {
+      for (let i = 0; i < 3; i += 1) {
         try {
           phone = await extractSoomgoCallNumber();
           break;
         } catch {
-          await new Promise((r) => window.setTimeout(r, 500));
+          if (i < 2) await new Promise((r) => window.setTimeout(r, 250));
         }
       }
       if (!phone) throw new Error('안심번호가 없습니다. 채팅만 희망 고객일 수 있습니다.');

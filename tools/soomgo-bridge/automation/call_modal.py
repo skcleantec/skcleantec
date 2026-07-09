@@ -38,6 +38,19 @@ if (!window.__soomgoBridgeCallWatch) {
 return true;
 """
 
+_SCAN_VISIBLE_PHONE_JS = """
+var re = /050\\d[-\\s]?\\d{3,4}[-\\s]?\\d{4}/;
+var dialogs = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"]');
+for (var i = 0; i < dialogs.length; i++) {
+  var t = dialogs[i].innerText || dialogs[i].textContent || '';
+  if ((t.indexOf('안심번호') >= 0 || t.indexOf('숨고전화') >= 0) && re.test(t)) {
+    var m = t.match(re);
+    if (m) return m[0];
+  }
+}
+return null;
+"""
+
 _OPEN_MODAL_JS = """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
@@ -311,17 +324,34 @@ class CallModalManager:
                 pass
             return False
 
-    def try_extract_safe_phone(self) -> str | None:
-        """전화 모달 열기 → 050 추출 → 취소로 채팅방 복귀."""
+    def peek_safe_phone_without_modal(self) -> str | None:
+        """이미 열린 통화 모달에서만 번호 스캔 (클릭 없음)."""
         try:
-            dismiss_blocking_overlays(self.driver, self.delay * 0.2, max_rounds=2)
+            if not self.is_call_modal_open():
+                return None
+            return self.extract_call_number_from_modal()
+        except Exception as e:
+            logger.debug('peek_safe_phone_without_modal: %s', e)
+            return None
+
+    def try_extract_safe_phone(self, known_phone: str | None = None) -> str | None:
+        """전화 모달 열기 → 050 추출 → 취소로 채팅방 복귀."""
+        if known_phone:
+            digits = re.sub(r'\D', '', known_phone)
+            if len(digits) >= 10:
+                return format_safe_phone(known_phone)
+        try:
+            peeked = self.peek_safe_phone_without_modal()
+            if peeked:
+                return peeked
+            dismiss_blocking_overlays(self.driver, self.delay * 0.15, max_rounds=1)
             opened = self.open_call_modal()
             if not opened:
                 return None
-            time.sleep(self.delay * 0.22)
+            time.sleep(self.delay * 0.15)
             phone = self.extract_call_number_from_modal()
             self.close_call_modal()
-            time.sleep(self.delay * 0.15)
+            time.sleep(self.delay * 0.1)
             if self.is_call_modal_open():
                 self.close_call_modal()
             if phone and re.sub(r'\D', '', phone).startswith('050'):

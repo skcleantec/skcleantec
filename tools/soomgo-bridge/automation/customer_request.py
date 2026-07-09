@@ -10,11 +10,11 @@ from automation.overlay_modals import dismiss_blocking_overlays
 
 logger = logging.getLogger(__name__)
 
-REQUEST_MODAL_DELAY = 0.75
-REQUEST_MODAL_READY_TIMEOUT = 4.5
-REQUEST_MODAL_POLL_SEC = 0.1
-REQUEST_MODAL_OPEN_WAIT_SEC = 3.0
-REQUEST_MODAL_RETRY_WAIT_SEC = 2.0
+REQUEST_MODAL_DELAY = 0.45
+REQUEST_MODAL_READY_TIMEOUT = 3.0
+REQUEST_MODAL_POLL_SEC = 0.05
+REQUEST_MODAL_OPEN_WAIT_SEC = 1.8
+REQUEST_MODAL_RETRY_WAIT_SEC = 1.2
 
 _DATE_RE = re.compile(r'(\d{4}-\d{2}-\d{2})')
 _PYEONG_ANSWER_RE = re.compile(r'(\d{1,4})\s*평')
@@ -419,11 +419,11 @@ class CustomerRequestManager:
         if self.is_request_modal_open() and self._modal_ready_light():
             return True
         try:
-            for attempt in range(3):
+            for attempt in range(2):
                 dismiss_blocking_overlays(self.driver, self.delay * 0.2, max_rounds=2)
                 clicked = self.driver.execute_script(_OPEN_REQUEST_MODAL_JS)
                 if clicked:
-                    time.sleep(self.delay * 0.35)
+                    time.sleep(self.delay * 0.28)
                     if self.wait_for_request_modal_ready(timeout=REQUEST_MODAL_OPEN_WAIT_SEC):
                         return True
                 if self.is_request_modal_open():
@@ -524,7 +524,7 @@ class CustomerRequestManager:
         if not self.wait_for_request_modal_ready(timeout=REQUEST_MODAL_READY_TIMEOUT):
             logger.warning('customer request modal content not ready')
 
-        time.sleep(self.delay * 0.12)
+        time.sleep(self.delay * 0.08)
         data = self.extract_request_modal() or {}
         if header_name and not data.get('customerName'):
             data['customerName'] = header_name
@@ -532,7 +532,7 @@ class CustomerRequestManager:
             data['customerName'] = str(data.get('customerName') or header_name).strip() or header_name
 
         self.close_request_modal()
-        time.sleep(self.delay * 0.15)
+        time.sleep(self.delay * 0.08)
         if self.is_request_modal_open():
             self.close_request_modal()
         return data

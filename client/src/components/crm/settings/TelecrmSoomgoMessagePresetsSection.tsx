@@ -14,9 +14,9 @@ import { DeletePasswordModal, SettingsCard } from './DeletePasswordModal';
 import { crmFieldClass } from '../crmUi';
 import {
   persistPresetSortOrder,
-  reorderPresetRows,
+  PresetDragReorderList,
+  reorderPresetToSlot,
   SoomgoPresetDragHandle,
-  usePresetDropTarget,
 } from '../soomgo/soomgoPresetReorder';
 
 type PresetDraft = {
@@ -234,11 +234,9 @@ function PresetOrderPanel({
 }: {
   drafts: PresetDraft[];
   busy: boolean;
-  onReorder: (dragId: string, targetId: string) => void;
+  onReorder: (dragId: string, slotIndex: number) => void;
 }) {
   const saved = drafts.filter((d): d is PresetDraft & { id: string } => d.id != null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const drop = usePresetDropTarget(onReorder, draggingId, setDraggingId);
 
   if (saved.length < 2) return null;
 
@@ -246,37 +244,28 @@ function PresetOrderPanel({
     <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-fluid-xs font-semibold text-slate-800">표시 순서</p>
-        <p className="text-[10px] text-slate-500">⋮⋮ 드래그하여 변경 · 상담 화면에 동일 순서로 표시</p>
+        <p className="text-[10px] text-slate-500">⋮⋮ 드래그 후 항목 사이에 놓기</p>
       </div>
-      <ul className="space-y-1">
-        {saved.map((draft, index) => {
-          const isTarget = draggingId === draft.id;
-          return (
-            <li
-              key={draft.id}
-              className={[
-                'flex items-center gap-2 rounded-lg border bg-white px-2 py-1.5 transition',
-                isTarget ? 'border-sky-400 ring-2 ring-sky-100' : 'border-slate-200',
-              ].join(' ')}
-              onDragOver={drop.onDragOver}
-              onDragEnter={(e) => drop.onDragEnter(e, draft.id)}
-              onDrop={(e) => drop.onDrop(e, draft.id)}
-            >
-              <SoomgoPresetDragHandle
-                presetId={draft.id}
-                label={draft.label || `프리셋 ${index + 1}`}
-                disabled={busy}
-                onDragStart={() => setDraggingId(draft.id)}
-                onDragEnd={drop.onDragEnd}
-              />
-              <span className="min-w-0 flex-1 truncate text-fluid-xs font-medium text-slate-800">
-                {draft.label.trim() || `프리셋 ${index + 1}`}
-              </span>
-              <span className="shrink-0 text-[10px] tabular-nums text-slate-400">{index + 1}</span>
-            </li>
-          );
-        })}
-      </ul>
+      <PresetDragReorderList
+        items={saved}
+        disabled={busy}
+        onReorder={onReorder}
+        renderItem={(draft, index, { dragHandleProps }) => (
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 transition">
+            <SoomgoPresetDragHandle
+              presetId={draft.id}
+              label={draft.label || `프리셋 ${index + 1}`}
+              disabled={busy}
+              onDragStart={dragHandleProps.onDragStart}
+              onDragEnd={dragHandleProps.onDragEnd}
+            />
+            <span className="min-w-0 flex-1 truncate text-fluid-xs font-medium text-slate-800">
+              {draft.label.trim() || `프리셋 ${index + 1}`}
+            </span>
+            <span className="shrink-0 text-[10px] tabular-nums text-slate-400">{index + 1}</span>
+          </div>
+        )}
+      />
     </div>
   );
 }
@@ -353,10 +342,14 @@ export function TelecrmSoomgoMessagePresetsSection({
     }
   };
 
-  const handleReorderPresets = async (dragId: string, targetId: string) => {
+  const handleReorderPresets = async (dragId: string, slotIndex: number) => {
     if (!token) return;
     const saved = drafts.filter((d): d is PresetDraft & { id: string } => d.id != null);
-    const nextSaved = reorderPresetRows(saved, dragId, targetId).map((d, i) => ({ ...d, sortOrder: i }));
+    const nextSaved = reorderPresetToSlot(saved, dragId, slotIndex).map((d, i) => ({ ...d, sortOrder: i }));
+    const unchanged =
+      nextSaved.length === saved.length && nextSaved.every((d, i) => d.id === saved[i]?.id);
+    if (unchanged) return;
+
     const orderMap = new Map(nextSaved.map((d) => [d.id, d.sortOrder]));
     setDrafts((prev) =>
       [...prev]

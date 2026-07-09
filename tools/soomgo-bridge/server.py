@@ -64,6 +64,8 @@ _pending_call_at: int | None = None
 _call_watch_active = False
 _watch_stop = threading.Event()
 _watch_thread: threading.Thread | None = None
+_extract_in_progress = False
+_status_nickname_cache: str | None = None
 
 
 def _clear_pending_call_locked(modal: CallModalManager | None = None):
@@ -226,14 +228,16 @@ def _wait_for_manual_login(driver, *, timeout_sec: float = 28.0) -> bool:
     return is_logged_in(driver)
 
 
-def _status_payload() -> dict[str, Any]:
+def _status_payload(*, lite: bool = False) -> dict[str, Any]:
+    global _status_nickname_cache
     running = _browser.is_running()
     in_room = False
     chat_id = None
-    nickname = None
+    nickname = _status_nickname_cache
     page_mode = 'other'
     current_url = None
     call_modal_open = False
+    light = lite or _extract_in_progress
     if running and _browser.driver:
         room = ChatRoomManager(_browser.driver)
         try:
@@ -242,19 +246,22 @@ def _status_payload() -> dict[str, Any]:
             current_url = None
         in_room = room.is_in_chat_room()
         chat_id = room.get_current_chat_id()
-        nickname = room.get_nickname()
+        if not light:
+            nickname = room.get_nickname()
+            if nickname:
+                _status_nickname_cache = nickname
+            try:
+                call_modal_open = CallModalManager(_browser.driver).is_call_modal_open()
+            except Exception:
+                call_modal_open = False
         if current_url:
             page_mode = _page_mode(current_url, in_room)
-        try:
-            call_modal_open = CallModalManager(_browser.driver).is_call_modal_open()
-        except Exception:
-            call_modal_open = False
     payload = {
         'ok': True,
         'bridgeVersion': BRIDGE_VERSION,
         'bridgeRunning': True,
         'browserRunning': running,
-        'loggedIn': _sync_logged_in_from_browser() if running else False,
+        'loggedIn': (_logged_in if light else _sync_logged_in_from_browser()) if running else False,
         'inChatRoom': in_room,
         'onChatList': page_mode == 'chat_list',
         'onRequestsPage': page_mode == 'requests',
@@ -266,6 +273,7 @@ def _status_payload() -> dict[str, Any]:
         'pendingCallAt': _pending_call_at,
         'callModalOpen': call_modal_open,
         'callWatchActive': _call_watch_active,
+        'extractInProgress': _extract_in_progress,
         'lastError': _last_error,
         'port': PORT,
         'appVersion': os.environ.get('SOOMGO_APP_VERSION', APP_VERSION),
@@ -293,8 +301,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):  # noqa: N802
         path = urlparse(self.path).path
+        query = urlparse(self.path).query
         if path == '/status':
-            _json_response(self, 200, _status_payload())
+            lite = 'lite=1' in query or 'lite=true' in query
+            _json_response(self, 200, _status_payload(lite=lite))
             return
         if path == '/health':
             _json_response(self, 200, {'ok': True, 'bridgeVersion': BRIDGE_VERSION})
@@ -372,6 +382,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 return
 
             if path == '/extract':
+                global _extract_in_progress
                 room = ChatRoomManager(driver)
                 if not room.is_in_chat_room():
                     _json_response(self, 400, {
@@ -379,7 +390,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         'error': '숨고 Chrome 창에서 채팅방을 연 뒤 다시 시도해 주세요.',
                     })
                     return
-                data = room.extract_current_chat()
+                known_phone = _pending_call_phone
+                _extract_in_progress = True
+                try:
+                    data = room.extract_current_chat(known_safe_phone=known_phone)
+                finally:
+                    _extract_in_progress = False
                 _json_response(self, 200, {'ok': True, 'data': data})
                 return
 

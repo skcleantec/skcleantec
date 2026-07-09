@@ -11,10 +11,11 @@ import {
 } from '../../../api/soomgoBridge';
 import { fetchTelecrmSoomgoMessagePresets } from '../../../api/telecrmSoomgoMessagePresets';
 import {
+  applyPresetSortOrder,
   persistPresetSortOrder,
-  reorderPresetRows,
+  PresetDragReorderList,
+  reorderPresetToSlot,
   SoomgoPresetDragHandle,
-  usePresetDropTarget,
 } from './soomgoPresetReorder';
 
 function presetStepCount(steps: SoomgoMessageStep[]): { texts: number; images: number } {
@@ -97,7 +98,6 @@ export function CrmSoomgoDrawer({
   const [error, setError] = useState<string | null>(null);
   const [presets, setPresets] = useState<SoomgoMessagePresetDto[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(false);
-  const [draggingPresetId, setDraggingPresetId] = useState<string | null>(null);
   const [reorderBusy, setReorderBusy] = useState(false);
 
   const sequenceSupported = isSoomgoBridgeSequenceSupported(bridgeStatus);
@@ -153,13 +153,14 @@ export function CrmSoomgoDrawer({
   };
 
   const handlePresetReorder = useCallback(
-    async (dragId: string, targetId: string) => {
+    async (dragId: string, slotIndex: number) => {
       if (!token) return;
-      const next = reorderPresetRows(activePresets, dragId, targetId);
-      const orderMap = new Map(next.map((p, i) => [p.id, i]));
-      setPresets((prev) =>
-        [...prev].sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999)),
-      );
+      const next = reorderPresetToSlot(activePresets, dragId, slotIndex);
+      const unchanged =
+        next.length === activePresets.length && next.every((p, i) => p.id === activePresets[i]?.id);
+      if (unchanged) return;
+
+      setPresets((prev) => applyPresetSortOrder(prev, next));
       setReorderBusy(true);
       setError(null);
       try {
@@ -175,12 +176,6 @@ export function CrmSoomgoDrawer({
       }
     },
     [token, activePresets, notify, loadPresets],
-  );
-
-  const presetDrop = usePresetDropTarget(
-    (dragId, targetId) => void handlePresetReorder(dragId, targetId),
-    draggingPresetId,
-    setDraggingPresetId,
   );
 
   const handlePreset = async (preset: SoomgoMessagePresetDto) => {
@@ -258,7 +253,7 @@ export function CrmSoomgoDrawer({
             <div>
               <p className="text-[11px] font-semibold text-slate-800">내 프리셋</p>
               <p className="text-[10px] text-slate-500">
-                버튼 클릭 시 전송 · ⋮⋮ 드래그로 순서 변경
+                버튼 클릭 시 전송 · ⋮⋮ 드래그 후 항목 사이에 놓기
               </p>
             </div>
             {onOpenPresetSettings ? (
@@ -275,34 +270,31 @@ export function CrmSoomgoDrawer({
           {presetsLoading ? (
             <p className="py-4 text-center text-[11px] text-slate-400">프리셋 불러오는 중…</p>
           ) : activePresets.length > 0 ? (
-            <ul className="max-h-[min(52vh,420px)] space-y-1.5 overflow-y-auto overscroll-contain pr-0.5">
-              {activePresets.map((preset) => {
+            <PresetDragReorderList
+              className="max-h-[min(52vh,420px)] overflow-y-auto overscroll-contain pr-0.5"
+              items={activePresets}
+              disabled={sendDisabled}
+              onReorder={(dragId, slotIndex) => void handlePresetReorder(dragId, slotIndex)}
+              renderItem={(preset, _index, { dragHandleProps }) => {
                 const isBusy = presetBusyId === preset.id;
                 const isHover = hoverPresetId === preset.id;
-                const isDragTarget = draggingPresetId === preset.id;
                 return (
-                  <li
-                    key={preset.id}
+                  <div
                     className={[
                       'flex items-stretch gap-1.5 rounded-xl border p-1.5 transition-colors',
-                      isDragTarget
-                        ? 'border-sky-400 bg-sky-50 ring-2 ring-sky-200'
-                        : isHover || isBusy
-                          ? 'border-sky-300 bg-sky-50/60 shadow-sm'
-                          : 'border-slate-200/90 bg-slate-50/40 hover:border-slate-300 hover:bg-white',
+                      isHover || isBusy
+                        ? 'border-sky-300 bg-sky-50/60 shadow-sm'
+                        : 'border-slate-200/90 bg-slate-50/40 hover:border-slate-300 hover:bg-white',
                     ].join(' ')}
                     onMouseEnter={() => setHoverPresetId(preset.id)}
                     onMouseLeave={() => setHoverPresetId(null)}
-                    onDragOver={presetDrop.onDragOver}
-                    onDragEnter={(e) => presetDrop.onDragEnter(e, preset.id)}
-                    onDrop={(e) => presetDrop.onDrop(e, preset.id)}
                   >
                     <SoomgoPresetDragHandle
                       presetId={preset.id}
                       label={preset.label}
                       disabled={sendDisabled}
-                      onDragStart={() => setDraggingPresetId(preset.id)}
-                      onDragEnd={presetDrop.onDragEnd}
+                      onDragStart={dragHandleProps.onDragStart}
+                      onDragEnd={dragHandleProps.onDragEnd}
                     />
                     <button
                       type="button"
@@ -321,10 +313,10 @@ export function CrmSoomgoDrawer({
                     <div className="min-w-0 flex-1 rounded-lg border border-slate-100 bg-white px-2 py-1.5">
                       <PresetPreview steps={preset.steps} />
                     </div>
-                  </li>
+                  </div>
                 );
-              })}
-            </ul>
+              }}
+            />
           ) : (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3 py-4 text-center">
               <p className="text-[11px] text-slate-600">저장된 프리셋이 없습니다.</p>
