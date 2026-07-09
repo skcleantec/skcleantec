@@ -26,6 +26,9 @@ Inno Setup 6이 설치되어 있지 않습니다.
 New-Item -ItemType Directory -Force -Path $DistDir | Out-Null
 if (Test-Path $SetupPath) { Remove-Item -Force $SetupPath }
 
+Write-Host "Building embedded Python runtime..."
+& (Join-Path $PSScriptRoot 'build-python-runtime.ps1')
+
 Push-Location $BridgeRoot
 try {
     & $Iscc "/DMyAppVersion=$Version" $IssPath

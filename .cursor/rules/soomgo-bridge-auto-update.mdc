@@ -1,5 +1,5 @@
 ---
-description: 텔레CRM·숨고 연동(데스크톱) 수정 시 자동 업데이트·릴리스 절차 (현행 방식 유지 필수)
+description: 텔레CRM·숨고 연동(데스크톱) 수정 시 — 에이전트가 semver·GitHub Release·Railway까지 릴리스 (현행 방식 필수)
 globs: tools/soomgo-bridge/**,client/src/**/crm/**,client/src/hooks/useCrmSoomgoBridge.ts,client/src/api/soomgoBridge.ts,shared/soomgoBridge.ts,server/src/modules/telecrm/**
 alwaysApply: false
 ---
@@ -7,6 +7,33 @@ alwaysApply: false
 # 숨고 연동 · CRM — 자동 업데이트 (현행 방식 고정)
 
 **텔레CRM 숨고 연동 UI** 또는 **`tools/soomgo-bridge` 데스크톱·브릿지**를 바꿀 때, 상담사 PC 업데이트는 **아래 파이프라인만** 사용한다. ZIP 수동 배포·매니페스트 URL 수동 입력·버전만 올리고 Railway 미반영 등 **우회 금지**.
+
+## 에이전트 의무 — 업데이트 시 릴리스 (사용자 재요청 없이)
+
+`tools/soomgo-bridge/**` 또는 CRM·매니페스트·`shared/soomgoBridge.ts` 등 **상담사 PC에 배포되는 숨고 연동**을 의미 있게 바꾼 작업을 **완료**할 때, 에이전트는 **코드만 커밋하고 끝내지 않는다.** 아래 **릴리스 체크리스트**를 **직접 실행**한다 (명령만 안내하고 끝내기 금지 — `.cursor/rules/project-standards.mdc`).
+
+**릴리스 대상 변경 예:** 브릿지 API·트레이·Inno Setup·embed Python 빌드·CRM 구버전 차단·매니페스트 fallback semver 등.
+
+**예외 (릴리스 생략 가능):** 사용자가 **「릴리스하지 마」「Railway 건드리지 마」** 등으로 명시한 경우, 또는 **주석·문서만**이고 semver·바이너리 의미 없음.
+
+### 릴리스 체크리스트 (에이전트가 순서대로 수행)
+
+1. **semver bump** (패치 올림 기본 — 아래 「버전 bump」 파일 한 세트 동기화)
+2. **`staging` 커밋·푸시** (`.cursor/rules/git-staging-main-push.mdc`)
+3. **GitHub Release**
+   - 태그 **`soomgo-bridge-v{semver}`** 생성·푸시 → Actions **Soomgo Bridge Release**
+   - Setup.exe에는 **`build-python-runtime.ps1` 포함 Python·패키지가 자동 번들** (`build-installer.ps1` 경유) — 별도 수동 작업 없음
+   - Actions 완료·Release 자산(Setup·`railway-env-*.txt`) 업로드 확인 (실패 시 로그 확인·재시도)
+4. **Railway Variables** — `dist/railway-env-{semver}.txt`의 URL·SHA256과 일치하게:
+   ```powershell
+   cd tools\soomgo-bridge\scripts
+   .\set-railway-vars.ps1 -Target staging -Version {semver} -Sha256 {sha256}
+   ```
+   - **운영(production)** 은 사용자가 **`main` 반영·운영 배포**를 요청했을 때만 `-Target production` 또는 `-Target both`
+5. **매니페스트 확인** — 스테이징·(운영 반영 시) 운영 URL에서 `latestVersion`·`downloadUrl`·`sha256` 일치
+6. 작업 보고에 **릴리스 semver·Release URL·Railway 반영 환경(staging/production)** 를 한 줄로 남긴다
+
+**`main` 머지·운영 Railway**는 사용자가 운영 배포를 명시했을 때만 (git-staging-main-push).
 
 ## 아키텍처 (단일 소스)
 
@@ -29,18 +56,18 @@ alwaysApply: false
 
 `BRIDGE_API_VERSION`(정수)는 **호환 깨는 API 변경** 때만 올리고 `SOOMGO_BRIDGE_REQUIRED_VERSION`·`SOOMGO_BRIDGE_MIN_VERSION`과 맞춘다.
 
-## 릴리스 절차 (에이전트 마무리)
+## 릴리스 절차 (참고 — 상세는 위 「에이전트 의무」)
 
 1. `staging`에 커밋·푸시
 2. 태그 **`soomgo-bridge-v{semver}`** 푸시 → Actions **Soomgo Bridge Release** → Setup.exe·ZIP·`railway-env-*.txt` 업로드
-3. `main` fast-forward 머지(운영 반영 시)
-4. **Railway** (cbiseo.com 웹 서비스, staging·production):
-   ```powershell
-   cd tools\soomgo-bridge\scripts
-   .\set-railway-vars.ps1 -Target both -Version {semver}
-   ```
-   (`railway-env-*.txt`의 `SHA256`·`DOWNLOAD_URL`과 일치)
-5. 매니페스트 확인: `https://www.cbiseo.com/api/public/soomgo-bridge/manifest` → `latestVersion`·URL·sha256
+3. `main` fast-forward 머지(**운영 반영 시**, 사용자 명시)
+4. **Railway** — 기본 **staging**; production은 운영 배포 요청 시
+5. 매니페스트 확인: 스테이징 / `https://www.cbiseo.com/api/public/soomgo-bridge/manifest`
+
+## 데스크톱 Setup 빌드 (Python 번들)
+
+- `scripts/build-release.ps1` → `build-installer.ps1` → **`build-python-runtime.ps1`**
+- 상담사 PC: **Python·pip·run-desktop-debug.bat 수동 불필요** — Setup 설치 후 `launch-desktop.vbs` 자동 실행
 
 ## CRM 쪽 규칙 (유지)
 

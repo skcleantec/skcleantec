@@ -14,6 +14,7 @@ dist/
 client/dist/
 server/dist/
 tools/soomgo-bridge/dist/
+tools/soomgo-bridge/runtime/python/
 tools/soomgo-bridge/**/__pycache__/
 
 # 정적 의존성 사본 (postinstall 로 자동 생성됨 — pagedjs polyfill 등)

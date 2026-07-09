@@ -15,6 +15,7 @@ import requests
 from PIL import Image, ImageDraw
 from pystray import MenuItem as item
 
+from desktop.python_runtime import resolve_python_exe
 from desktop.config import (
     BRIDGE_DIR,
     BRIDGE_REQUEST_UPDATE_URL,
@@ -50,12 +51,7 @@ _WIN_CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
 
 def _python_exe() -> str:
     """pythonw로 실행될 때 서버·pip는 python.exe 사용."""
-    exe = sys.executable
-    if sys.platform == 'win32' and exe.lower().endswith('pythonw.exe'):
-        candidate = exe[:-5] + '.exe'
-        if os.path.isfile(candidate):
-            return candidate
-    return exe
+    return resolve_python_exe(windowed=False)
 
 
 class _StatusWindowLogHandler(logging.Handler):
@@ -142,13 +138,13 @@ class TrayApp:
         req_desktop = BRIDGE_DIR / 'requirements-desktop.txt'
         if not req.exists():
             return
-        args = [_python_exe(), '-m', 'pip', 'install', '-r', str(req)]
+        args = [resolve_python_exe(windowed=False), '-m', 'pip', 'install', '-r', str(req)]
         if req_desktop.exists():
             args.extend(['-r', str(req_desktop)])
-        args.append('-q')
+        args.extend(['-q', '--disable-pip-version-check'])
         try:
             self._log('Python 패키지 확인 중…')
-            subprocess.run(
+            result = subprocess.run(
                 args,
                 cwd=str(BRIDGE_DIR),
                 capture_output=True,
@@ -156,8 +152,13 @@ class TrayApp:
                 encoding='utf-8',
                 errors='replace',
                 creationflags=self._subprocess_flags(),
-                timeout=180,
+                timeout=300,
             )
+            if result.returncode != 0:
+                tail = (result.stderr or result.stdout or '').strip().splitlines()
+                hint = tail[-1] if tail else f'exit {result.returncode}'
+                self._log(f'패키지 설치 확인 실패: {hint}', level='error')
+                return
             self._log('Python 패키지 준비 완료')
         except Exception as exc:
             self._log(f'패키지 설치 확인 실패: {exc}', level='error')
@@ -456,7 +457,7 @@ class TrayApp:
     def run(self) -> None:
         ensure_app_data()
         self._kill_stale_bridge_listeners()
-        threading.Thread(target=self._ensure_dependencies, daemon=True).start()
+        self._ensure_dependencies()
         self._start_bridge()
         self._manifest = fetch_manifest()
         if self._manifest and is_update_required(self._manifest):
