@@ -1,6 +1,6 @@
 import type { Prisma, TelecrmMobileDispatchPending } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { deliverTelecrmDispatch } from '../realtime/realtimeHub.js';
+import { deliverTelecrmDispatch, countTelecrmAppsInTenant } from '../realtime/realtimeHub.js';
 
 export type TelecrmMobileDispatchAction = 'call' | 'sms' | 'prefill';
 
@@ -100,8 +100,14 @@ export async function enqueueTelecrmMobileDispatch(
   actorUserId: string,
   actorRole: string,
   parsed: Omit<TelecrmMobileDispatchItem, 'id' | 'createdAt'>,
-): Promise<{ item: TelecrmMobileDispatchItem; wsDelivered: boolean; queued: boolean; broadcastToTenant: boolean }> {
-  const broadcastToTenant = actorRole === 'ADMIN';
+): Promise<{
+  item: TelecrmMobileDispatchItem;
+  wsDelivered: boolean;
+  queued: boolean;
+  broadcastToTenant: boolean;
+  telecrmAppsConnected: number;
+}> {
+  const broadcastToTenant = true;
   const item: TelecrmMobileDispatchItem = {
     ...parsed,
     id: crypto.randomUUID(),
@@ -129,8 +135,18 @@ export async function enqueueTelecrmMobileDispatch(
     dispatchWsPayload(item),
     tenantId,
   );
+  const telecrmAppsConnected = countTelecrmAppsInTenant(tenantId);
 
-  return { item, wsDelivered, queued: true, broadcastToTenant };
+  return { item, wsDelivered, queued: true, broadcastToTenant, telecrmAppsConnected };
+}
+
+export async function countTelecrmMobileDispatchPending(
+  tenantId: string,
+  userId: string,
+): Promise<number> {
+  return prisma.telecrmMobileDispatchPending.count({
+    where: pendingWhereForUser(tenantId, userId),
+  });
 }
 
 export async function drainTelecrmMobileDispatchQueue(

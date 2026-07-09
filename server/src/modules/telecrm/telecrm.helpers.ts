@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import type { Response } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
-import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { getTenantIdFromAuth, resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 
 export function requireTelecrmTenant(
   req: import('express').Request,
@@ -11,6 +11,20 @@ export function requireTelecrmTenant(
   const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return null;
+  }
+  return tenantId;
+}
+
+/** JWT tenantId 없을 때 users.tenant_id 폴백 (레거시 토큰·앱 폴링) */
+export async function requireTelecrmTenantAsync(
+  req: import('express').Request,
+  res: Response,
+): Promise<string | null> {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await resolveTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다. 다시 로그인해 주세요.' });
     return null;
   }
   return tenantId;

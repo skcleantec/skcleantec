@@ -2,17 +2,19 @@ import { Router } from 'express';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
-import { requireTelecrmTenant } from './telecrm.helpers.js';
+import { requireTelecrmTenant, requireTelecrmTenantAsync } from './telecrm.helpers.js';
 import {
   createTelecrmCallSession,
   getTelecrmCallSessionSummary,
   parseCreateTelecrmCallSessionBody,
 } from './telecrmCallSession.service.js';
 import {
+  countTelecrmMobileDispatchPending,
   drainTelecrmMobileDispatchQueue,
   enqueueTelecrmMobileDispatch,
   parseTelecrmMobileDispatchBody,
 } from './telecrmMobileDispatch.service.js';
+import { countTelecrmAppsInTenant } from '../realtime/realtimeHub.js';
 import { resolveTelecrmOrderFormLink } from './telecrmOrderLink.service.js';
 import { getTelecrmWorkdeskStats } from './telecrmWorkdeskStats.service.js';
 
@@ -35,7 +37,7 @@ router.get('/mobile-config', requireStaffPermission('crm.view', 'crm.settings'),
 
 /** PC CRM → 동일 마케터 휴대폰 앱 (통화·문자 큐) */
 router.post('/mobile-dispatch', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
-  const tenantId = requireTelecrmTenant(req, res);
+  const tenantId = await requireTelecrmTenantAsync(req, res);
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
   const parsed = parseTelecrmMobileDispatchBody(req.body);
@@ -43,7 +45,8 @@ router.post('/mobile-dispatch', requireStaffPermission('crm.view', 'crm.settings
     res.status(400).json({ error: parsed.error });
     return;
   }
-  const { item, wsDelivered, queued, broadcastToTenant } = await enqueueTelecrmMobileDispatch(
+  const { item, wsDelivered, queued, broadcastToTenant, telecrmAppsConnected } =
+    await enqueueTelecrmMobileDispatch(
     tenantId,
     user.userId,
     user.role ?? 'MARKETER',
@@ -56,16 +59,32 @@ router.post('/mobile-dispatch', requireStaffPermission('crm.view', 'crm.settings
     wsDelivered,
     queued,
     broadcastToTenant,
+    telecrmAppsConnected,
   });
 });
 
 /** 앱 재개·WS 누락·ADMIN PC 통화 시 대기 중 dispatch 소비 */
 router.get('/mobile-dispatch/pending', async (req, res) => {
-  const tenantId = requireTelecrmTenant(req, res);
+  const tenantId = await requireTelecrmTenantAsync(req, res);
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
   const items = await drainTelecrmMobileDispatchQueue(tenantId, user.userId);
   res.json({ items });
+});
+
+/** 연결 진단 — PC CRM·앱 서버 일치 확인용 */
+router.get('/mobile-dispatch/status', async (req, res) => {
+  const tenantId = await requireTelecrmTenantAsync(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const pendingCount = await countTelecrmMobileDispatchPending(tenantId, user.userId);
+  res.json({
+    userId: user.userId,
+    email: user.email ?? null,
+    tenantId,
+    telecrmAppsConnected: countTelecrmAppsInTenant(tenantId),
+    pendingCount,
+  });
 });
 
 /** 접수 발주서 공개 링크 (SMS 치환용) */
