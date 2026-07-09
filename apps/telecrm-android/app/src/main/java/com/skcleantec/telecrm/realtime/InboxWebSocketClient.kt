@@ -2,7 +2,6 @@ package com.skcleantec.telecrm.realtime
 
 import android.os.Handler
 import android.os.Looper
-import com.skcleantec.telecrm.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -19,15 +18,17 @@ class InboxWebSocketClient {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var webSocket: WebSocket? = null
     private var token: String? = null
+    private var activeBaseUrl: String? = null
     private var closed = false
     private var reconnectRunnable: Runnable? = null
 
-    fun connect(jwt: String) {
-        if (token == jwt && webSocket != null) return
+    fun connect(jwt: String, apiBaseUrl: String) {
+        if (token == jwt && webSocket != null && activeBaseUrl == apiBaseUrl) return
         disconnect()
         token = jwt
+        activeBaseUrl = apiBaseUrl
         closed = false
-        openSocket(jwt)
+        openSocket(jwt, apiBaseUrl)
     }
 
     fun disconnect() {
@@ -37,12 +38,13 @@ class InboxWebSocketClient {
         webSocket?.close(1000, "logout")
         webSocket = null
         token = null
+        activeBaseUrl = null
         AppEventBus.emitConnection(false)
     }
 
-    private fun openSocket(jwt: String) {
+    private fun openSocket(jwt: String, apiBaseUrl: String) {
         val encoded = URLEncoder.encode(jwt, Charsets.UTF_8.name())
-        val wsBase = BuildConfig.API_BASE_URL
+        val wsBase = apiBaseUrl
             .replace("https://", "wss://")
             .replace("http://", "ws://")
         val request = Request.Builder().url("$wsBase/ws?token=$encoded&client=telecrm-app").build()
@@ -78,9 +80,10 @@ class InboxWebSocketClient {
         if (closed) return
         if (closeCode == 4001 || closeCode == 4002) return
         val jwt = token ?: return
+        val base = activeBaseUrl ?: return
         reconnectRunnable?.let { mainHandler.removeCallbacks(it) }
         reconnectRunnable = Runnable {
-            if (!closed && token == jwt) openSocket(jwt)
+            if (!closed && token == jwt) openSocket(jwt, base)
         }
         mainHandler.postDelayed(reconnectRunnable!!, 3000)
     }

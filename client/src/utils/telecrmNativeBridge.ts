@@ -154,8 +154,10 @@ function dispatchNoticeForCall(result: TelecrmBridgeResult): string | null {
   if (result.mode === 'native') return '휴대폰 앱으로 통화를 요청했습니다.';
   if (result.errorMessage) return result.errorMessage;
   if (result.mode !== 'dispatch') return null;
+  const host = typeof window !== 'undefined' ? window.location.host : '';
   if (result.telecrmAppsConnected === 0) {
-    return '이 서버에 연결된 텔레CRM 앱이 없습니다. 앱·PC가 같은 주소(스테이징/운영)인지, 앱 업체코드·아이디가 PC와 같은지 확인해 주세요.';
+    const serverHint = host ? ` (현재 PC: ${host})` : '';
+    return `이 서버에 연결된 텔레CRM 앱이 없습니다${serverHint}. 앱 로그인 화면에서 PC CRM과 같은 서버(운영/스테이징)를 선택했는지, 업체코드·아이디가 PC와 같은지 확인해 주세요.`;
   }
   if (result.wsDelivered === false) {
     return '연결된 휴대폰 앱 대기열에 넣었습니다. 앱이 켜져 있으면 곧 통화가 시작됩니다.';

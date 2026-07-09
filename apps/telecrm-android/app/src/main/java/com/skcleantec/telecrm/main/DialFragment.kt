@@ -50,7 +50,7 @@ class DialFragment : Fragment() {
 
     private val tokenStore by lazy { TokenStore(requireContext()) }
 
-    private val apiClient = ApiClient()
+    private val apiClient by lazy { ApiClient.fromContext(requireContext()) }
 
     private val lookupState = CustomerLookupState()
 

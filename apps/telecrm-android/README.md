@@ -24,12 +24,19 @@
 
 ## 설정·빌드
 
-`local.properties`:
+`local.properties` (선택 — 빌드 기본값):
 
 ```properties
 sdk.dir=C\:\\Users\\user\\AppData\\Local\\Android\\Sdk
-telecrm.apiBaseUrl=https://YOUR-STAGING-HOST
+telecrm.apiBaseUrl=https://clean-solution-staging.up.railway.app
 ```
+
+**로그인 화면에서 「운영 / 스테이징」** — **`pyo` 아이디만** 선택 가능합니다. 그 외 계정은 **항상 운영(`www.cbiseo.com`)** 에 연결됩니다.
+
+| PC CRM 주소 | 앱 서버 | 대상 |
+|-------------|---------|------|
+| `www.cbiseo.com` | **운영** (자동) | 일반 계정 |
+| Railway 스테이징 | **스테이징** (선택) | `pyo`만 |
 
 Android Studio → `apps/telecrm-android` → Run ▶
 

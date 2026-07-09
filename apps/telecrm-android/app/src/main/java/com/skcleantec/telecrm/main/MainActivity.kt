@@ -11,9 +11,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
-import com.skcleantec.telecrm.BuildConfig
 import com.skcleantec.telecrm.R
 import com.skcleantec.telecrm.api.ApiClient
+import com.skcleantec.telecrm.api.ApiEnvironment
 import com.skcleantec.telecrm.auth.LoginActivity
 import com.skcleantec.telecrm.auth.TokenStore
 import com.skcleantec.telecrm.databinding.ActivityMainBinding
@@ -28,9 +28,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        const val EXTRA_API_BASE_URL = "extra_api_base_url"
+        const val EXTRA_JWT = "extra_jwt"
+    }
+
     private lateinit var binding: ActivityMainBinding
     private val tokenStore by lazy { TokenStore(this) }
-    private val apiClient = ApiClient()
+    private lateinit var apiBaseUrl: String
+    private lateinit var apiClient: ApiClient
     private val webSocketClient = InboxWebSocketClient()
     private lateinit var dispatchExecutor: TelecrmDispatchExecutor
     var pendingCallPhone: String? = null
@@ -80,12 +86,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val token = tokenStore.getToken()
+        val token = intent.getStringExtra(EXTRA_JWT) ?: tokenStore.getToken()
+        apiBaseUrl = intent.getStringExtra(EXTRA_API_BASE_URL)
+            ?: ApiEnvironment.resolveForUser(tokenStore.getLoginId(), tokenStore.getApiBaseUrl())
         if (token.isNullOrBlank()) {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
             return
         }
+        apiClient = ApiClient(apiBaseUrl)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -114,7 +123,7 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        webSocketClient.connect(token)
+        webSocketClient.connect(token, apiBaseUrl)
         AppEventBus.addConnectionListener(connectionListener)
         AppEventBus.addToastListener(toastListener)
         AppEventBus.addDispatchListener(dispatchListener)
@@ -154,13 +163,18 @@ class MainActivity : AppCompatActivity() {
     private fun bindUserHeader() {
         val name = tokenStore.getUserName()?.takeIf { it.isNotBlank() } ?: tokenStore.getLoginId().orEmpty()
         val tenant = tokenStore.getTenantSlug()?.uppercase().orEmpty()
-        val host = Uri.parse(BuildConfig.API_BASE_URL).host.orEmpty()
+        val host = Uri.parse(apiBaseUrl).host.orEmpty()
+        val envLabel = when (ApiEnvironment.presetForUrl(apiBaseUrl)) {
+            ApiEnvironment.Preset.PRODUCTION -> "운영"
+            ApiEnvironment.Preset.STAGING -> "스테이징"
+            else -> "서버"
+        }
         binding.userNameText.text = name
         binding.userTenantText.text = buildString {
             if (tenant.isNotBlank()) append("업체 $tenant")
             if (host.isNotBlank()) {
                 if (isNotEmpty()) append(" · ")
-                append(host)
+                append("$envLabel · $host")
             }
         }
     }
