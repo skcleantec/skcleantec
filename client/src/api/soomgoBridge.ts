@@ -117,9 +117,11 @@ export { isSoomgoAppUpdateAvailable, isSoomgoBridgeApiOutdated };
 
 export async function fetchSoomgoBridgeStatus(
   manifest?: SoomgoBridgeManifest | null,
+  options?: { lite?: boolean },
 ): Promise<SoomgoBridgeStatus> {
   try {
-    const status = await bridgeFetch<SoomgoBridgeStatus>('/status');
+    const lite = options?.lite ? '?lite=1' : '';
+    const status = await bridgeFetch<SoomgoBridgeStatus>(`/status${lite}`);
     if (isSoomgoBridgeOutdated(status, manifest)) {
       return { ...status, lastError: soomgoBridgeOutdatedMessage(status, manifest) };
     }

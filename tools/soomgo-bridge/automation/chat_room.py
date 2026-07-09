@@ -320,25 +320,19 @@ class ChatRoomManager:
             logger.error('get_customer_messages: %s', e)
             return []
 
-    def extract_current_chat(self) -> dict[str, Any]:
+    def extract_current_chat(self, known_safe_phone: str | None = None) -> dict[str, Any]:
         """① 이름 클릭→고객요청 파싱→닫기 ② 전화→번호→취소 (순차 매크로)."""
         chat_id = self.get_current_chat_id()
-        dismiss_blocking_overlays(self.driver, self.delay * 0.25, max_rounds=2)
+        dismiss_blocking_overlays(self.driver, self.delay * 0.2, max_rounds=1)
 
         req_mgr = CustomerRequestManager(self.driver, self.delay)
         request_data = req_mgr.extract_customer_request()
 
         customer_name = (
             request_data.get('customerName')
-            or self.get_nickname()
             or req_mgr.get_header_customer_name()
         )
         region = request_data.get('region')
-
-        dismiss_blocking_overlays(self.driver, self.delay * 0.2, max_rounds=2)
-
-        call_mgr = CallModalManager(self.driver, self.delay)
-        safe_phone = call_mgr.try_extract_safe_phone()
 
         customer_messages = self.get_customer_messages()
         parsed = parse_fields_from_texts(customer_messages)
@@ -350,6 +344,21 @@ class ChatRoomManager:
             parsed['address'] = str(request_data['region'])
         if request_data.get('requestMemo'):
             parsed['memo'] = str(request_data['requestMemo'])
+
+        safe_phone: str | None = None
+        safe_phone_skipped = False
+        known = (known_safe_phone or '').strip() or None
+        if known and len(re.sub(r'\D', '', known)) >= 10:
+            safe_phone = known
+            safe_phone_skipped = True
+        elif parsed.get('phone'):
+            safe_phone = str(parsed['phone'])
+            safe_phone_skipped = True
+        else:
+            dismiss_blocking_overlays(self.driver, self.delay * 0.15, max_rounds=1)
+            call_mgr = CallModalManager(self.driver, self.delay)
+            safe_phone = call_mgr.try_extract_safe_phone()
+
         phone = safe_phone or parsed.get('phone')
         last_message = customer_messages[-1] if customer_messages else None
 
@@ -359,7 +368,7 @@ class ChatRoomManager:
             'customerName': customer_name,
             'phone': phone,
             'safePhone': safe_phone,
-            'safePhoneSkipped': safe_phone is None,
+            'safePhoneSkipped': safe_phone is None and not safe_phone_skipped,
             'address': parsed.get('address'),
             'pyeong': parsed.get('pyeong'),
             'memo': parsed.get('memo'),
