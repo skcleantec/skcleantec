@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
 class WorkFragment : Fragment() {
     private var _binding: FragmentWorkBinding? = null
     private val binding get() = _binding!!
-    private val tokenStore by lazy { TokenStore(requireContext()) }
+    private val tokenStore by lazy { TokenStore.get(requireContext()) }
     private val apiClient by lazy { ApiClient.fromContext(requireContext()) }
 
     private val refreshListener = { loadAll() }

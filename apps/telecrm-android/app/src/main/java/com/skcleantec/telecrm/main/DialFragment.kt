@@ -48,7 +48,7 @@ class DialFragment : Fragment() {
 
     private val binding get() = _binding!!
 
-    private val tokenStore by lazy { TokenStore(requireContext()) }
+    private val tokenStore by lazy { TokenStore.get(requireContext()) }
 
     private val apiClient by lazy { ApiClient.fromContext(requireContext()) }
 

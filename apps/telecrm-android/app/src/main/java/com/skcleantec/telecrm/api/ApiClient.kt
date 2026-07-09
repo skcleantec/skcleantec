@@ -33,7 +33,7 @@ class ApiClient(private val baseUrl: String) {
 
     companion object {
         fun fromContext(context: Context): ApiClient {
-            val store = TokenStore(context.applicationContext)
+            val store = TokenStore.get(context.applicationContext)
             return ApiClient(ApiEnvironment.resolveForUser(store.getLoginId(), store.getApiBaseUrl()))
         }
     }

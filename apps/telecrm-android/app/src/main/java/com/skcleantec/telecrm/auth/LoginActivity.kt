@@ -23,7 +23,7 @@ import kotlinx.coroutines.withContext
 
 class LoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLoginBinding
-    private val tokenStore by lazy { TokenStore(this) }
+    private val tokenStore by lazy { TokenStore.get(this) }
     private var serverPresetBound = false
 
     override fun onCreate(savedInstanceState: Bundle?) {

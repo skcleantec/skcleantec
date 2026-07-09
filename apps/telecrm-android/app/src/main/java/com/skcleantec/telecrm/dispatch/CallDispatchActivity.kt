@@ -18,9 +18,10 @@ import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 /** PC CRM 통화 dispatch — 잠금 화면 full-screen intent 진입 */
 class CallDispatchActivity : AppCompatActivity() {
     private lateinit var binding: ActivityCallDispatchBinding
-    private val tokenStore by lazy { TokenStore(this) }
+    private val tokenStore by lazy { TokenStore.get(this) }
     private val apiClient by lazy { ApiClient.fromContext(this) }
     private var pendingPhone: String? = null
+    private var callFlowStarted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +80,8 @@ class CallDispatchActivity : AppCompatActivity() {
         dispatchId: String?,
         autoCall: Boolean,
     ) {
+        if (callFlowStarted) return
+        callFlowStarted = true
         TelecrmNotificationHelper.cancelCallNotification(this, dispatchId)
         if (!autoCall) {
             TelecrmCallHelper.dial(this, phone)

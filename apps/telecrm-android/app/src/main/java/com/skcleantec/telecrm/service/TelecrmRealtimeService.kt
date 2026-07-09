@@ -22,7 +22,9 @@ import kotlinx.coroutines.withContext
 
 /** PC CRM dispatch 수신 — Foreground Service(WebSocket + 폴링) */
 class TelecrmRealtimeService : Service() {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val tokenStore by lazy { TokenStore.get(this) }
+    private val apiClient by lazy { ApiClient.fromContext(this) }
     private val webSocketClient = InboxWebSocketClient { json ->
         when (json.optString("type")) {
             "telecrm:dispatch" -> TelecrmDispatchRouter.route(this, TelecrmDispatchRouter.fromJson(json))
@@ -30,19 +32,24 @@ class TelecrmRealtimeService : Service() {
         }
     }
     private var pollJob: Job? = null
+    private var drainJob: Job? = null
     private var wsConnected = false
+    private var sessionToken: String? = null
+    private var sessionApiBaseUrl: String? = null
 
     private val connectionListener: (Boolean) -> Unit = { connected ->
         wsConnected = connected
-        refreshForegroundNotification()
-        AppEventBus.emitConnection(connected)
-        if (connected) drainPendingDispatches()
+        scope.launch(Dispatchers.Main.immediate) {
+            refreshForegroundNotification()
+            AppEventBus.emitConnection(connected)
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         TelecrmNotificationHelper.ensureChannels(this)
         AppEventBus.addConnectionListener(connectionListener)
     }
@@ -55,7 +62,6 @@ class TelecrmRealtimeService : Service() {
             }
         }
 
-        val tokenStore = TokenStore(this)
         val token = tokenStore.getToken()
         if (token.isNullOrBlank()) {
             stopSelf()
@@ -69,18 +75,29 @@ class TelecrmRealtimeService : Service() {
             TelecrmNotificationHelper.buildOngoingNotification(this, wsConnected),
         )
 
+        val sameSession = sessionToken == token && sessionApiBaseUrl == apiBaseUrl
+        if (sameSession) {
+            return START_STICKY
+        }
+
+        sessionToken = token
+        sessionApiBaseUrl = apiBaseUrl
         webSocketClient.connect(token, apiBaseUrl)
         startPolling()
-        drainPendingDispatches()
+        scheduleDrain()
 
         return START_STICKY
     }
 
     override fun onDestroy() {
+        isRunning = false
         pollJob?.cancel()
+        drainJob?.cancel()
         scope.cancel()
         AppEventBus.removeConnectionListener(connectionListener)
         webSocketClient.disconnect()
+        sessionToken = null
+        sessionApiBaseUrl = null
         super.onDestroy()
     }
 
@@ -88,8 +105,9 @@ class TelecrmRealtimeService : Service() {
         pollJob?.cancel()
         pollJob = scope.launch {
             while (isActive) {
-                delay(POLL_INTERVAL_MS)
-                drainPendingDispatches()
+                val interval = if (wsConnected) POLL_INTERVAL_CONNECTED_MS else POLL_INTERVAL_DISCONNECTED_MS
+                delay(interval)
+                scheduleDrain()
             }
         }
     }
@@ -99,12 +117,11 @@ class TelecrmRealtimeService : Service() {
         startForeground(TelecrmNotificationHelper.NOTIFICATION_ONGOING, notification)
     }
 
-    private fun drainPendingDispatches() {
-        val tokenStore = TokenStore(this)
-        val token = tokenStore.getToken() ?: return
-        val apiClient = ApiClient.fromContext(this)
-
-        scope.launch {
+    /** 동시 drain 1건만 — 1초마다 EncryptedSharedPreferences·HTTP 폭주 방지 */
+    private fun scheduleDrain() {
+        if (drainJob?.isActive == true) return
+        drainJob = scope.launch {
+            val token = tokenStore.getToken() ?: return@launch
             val result = withContext(Dispatchers.IO) {
                 apiClient.fetchPendingMobileDispatches(token)
             }
@@ -130,7 +147,12 @@ class TelecrmRealtimeService : Service() {
     companion object {
         private const val ACTION_START = "com.skcleantec.telecrm.action.START_REALTIME"
         private const val ACTION_STOP = "com.skcleantec.telecrm.action.STOP_REALTIME"
-        private const val POLL_INTERVAL_MS = 1000L
+        private const val POLL_INTERVAL_CONNECTED_MS = 5000L
+        private const val POLL_INTERVAL_DISCONNECTED_MS = 3000L
+
+        @Volatile
+        var isRunning: Boolean = false
+            private set
 
         fun start(context: Context) {
             val intent = Intent(context, TelecrmRealtimeService::class.java).apply {

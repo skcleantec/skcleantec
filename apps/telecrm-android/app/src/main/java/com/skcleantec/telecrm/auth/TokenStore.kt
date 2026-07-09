@@ -4,11 +4,11 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
-class TokenStore(context: Context) {
+class TokenStore private constructor(context: Context) {
     private val prefs = EncryptedSharedPreferences.create(
-        context,
+        context.applicationContext,
         PREFS_NAME,
-        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+        MasterKey.Builder(context.applicationContext).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
     )
@@ -69,5 +69,16 @@ class TokenStore(context: Context) {
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_API_BASE_URL = "api_base_url"
+
+        @Volatile
+        private var instance: TokenStore? = null
+
+        /** EncryptedSharedPreferences 초기화는 무겁 — 앱 전역 싱글톤 */
+        fun get(context: Context): TokenStore {
+            val appContext = context.applicationContext
+            return instance ?: synchronized(this) {
+                instance ?: TokenStore(appContext).also { instance = it }
+            }
+        }
     }
 }
