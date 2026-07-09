@@ -21,7 +21,7 @@ import org.json.JSONArray
 class MessagesFragment : Fragment() {
     private var _binding: FragmentMessagesBinding? = null
     private val binding get() = _binding!!
-    private val tokenStore by lazy { TokenStore(requireContext()) }
+    private val tokenStore by lazy { TokenStore.get(requireContext()) }
     private val apiClient by lazy { ApiClient.fromContext(requireContext()) }
     private val adapter = SimpleRowAdapter { pos -> openThread(pos) }
     private var conversations = JSONArray()

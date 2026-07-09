@@ -25,11 +25,14 @@ class InboxWebSocketClient(
     private var reconnectRunnable: Runnable? = null
 
     fun connect(jwt: String, apiBaseUrl: String) {
-        if (token == jwt && webSocket != null && activeBaseUrl == apiBaseUrl) return
-        disconnect()
+        if (!closed && token == jwt && activeBaseUrl == apiBaseUrl && webSocket != null) return
+        reconnectRunnable?.let { mainHandler.removeCallbacks(it) }
+        reconnectRunnable = null
+        webSocket?.close(1000, "reconnect")
+        webSocket = null
+        closed = false
         token = jwt
         activeBaseUrl = apiBaseUrl
-        closed = false
         openSocket(jwt, apiBaseUrl)
     }
 

@@ -27,7 +27,7 @@ import org.json.JSONObject
 class IncomingFragment : Fragment() {
     private var _binding: FragmentIncomingBinding? = null
     private val binding get() = _binding!!
-    private val tokenStore by lazy { TokenStore(requireContext()) }
+    private val tokenStore by lazy { TokenStore.get(requireContext()) }
     private val apiClient by lazy { ApiClient.fromContext(requireContext()) }
     private val adapter = SimpleRowAdapter { pos -> onRowClick(pos) }
     private var rows = listOf<IncomingCallRow>()

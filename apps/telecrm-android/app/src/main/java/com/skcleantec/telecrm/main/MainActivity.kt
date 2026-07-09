@@ -37,7 +37,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var binding: ActivityMainBinding
-    private val tokenStore by lazy { TokenStore(this) }
+    private val tokenStore by lazy { TokenStore.get(this) }
     private lateinit var apiBaseUrl: String
     private lateinit var apiClient: ApiClient
     private lateinit var dispatchExecutor: TelecrmDispatchExecutor
@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val connectionListener: (Boolean) -> Unit = { connected ->
+        if (!::binding.isInitialized || isDestroyed) return@Unit
         binding.wsStatusChip.text = getString(
             if (connected) R.string.ws_connected else R.string.ws_disconnected,
         )
@@ -59,10 +60,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val toastListener: (AppEventBus.ToastAlert) -> Unit = { alert ->
+        if (!::binding.isInitialized || isDestroyed) return@Unit
         Snackbar.make(binding.root, "${alert.title}: ${alert.body}", Snackbar.LENGTH_LONG).show()
     }
 
     private val dispatchListener: (AppEventBus.DispatchPayload) -> Unit = { payload ->
+        if (!::dispatchExecutor.isInitialized || isDestroyed) return@Unit
         dispatchExecutor.execute(
             TelecrmDispatchPayload(
                 id = payload.id,
@@ -96,13 +99,13 @@ class MainActivity : AppCompatActivity() {
 
         bindUserHeader()
         requestRuntimePermissions()
-        maybeShowGalaxySetupHints()
+        binding.root.post { maybeShowGalaxySetupHints() }
 
         binding.logoutButton.setOnClickListener { logout() }
 
         binding.viewPager.adapter = MainPagerAdapter(this)
         binding.viewPager.isUserInputEnabled = false
-        binding.viewPager.offscreenPageLimit = 4
+        binding.viewPager.offscreenPageLimit = 1
         binding.bottomNav.selectedItemId = R.id.nav_dial
 
         binding.bottomNav.setOnItemSelectedListener { item ->
