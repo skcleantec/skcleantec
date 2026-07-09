@@ -17,6 +17,7 @@ from pystray import MenuItem as item
 
 from desktop.python_runtime import resolve_python_exe
 from desktop.config import (
+    APP_DATA_DIR,
     BRIDGE_DIR,
     BRIDGE_REQUEST_UPDATE_URL,
     BRIDGE_STATUS_URL,
@@ -32,6 +33,7 @@ from desktop.manifest_client import (
 )
 from desktop.single_instance import (
     consume_show_window_request,
+    release_single_instance,
     request_show_existing_window,
     try_acquire_single_instance,
 )
@@ -52,6 +54,17 @@ logger = logging.getLogger('soomgo-bridge-desktop')
 
 _BRIDGE_PORT = 17890
 _WIN_CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+_LAUNCH_LOG = APP_DATA_DIR / 'launch.log'
+
+
+def _append_launch_log(message: str) -> None:
+    try:
+        ensure_app_data()
+        stamp = time.strftime('%Y-%m-%d %H:%M:%S')
+        with _LAUNCH_LOG.open('a', encoding='utf-8') as f:
+            f.write(f'{stamp} {message}\n')
+    except OSError:
+        pass
 
 
 def _python_exe() -> str:
@@ -299,6 +312,13 @@ class TrayApp:
             self._maybe_idle_auto_install()
             time.sleep(3)
 
+    def _show_window_watch_loop(self) -> None:
+        """바탕화면 재실행 시 상태창 표시 요청을 빠르게 반영."""
+        while not self._stop.is_set():
+            if consume_show_window_request():
+                self._window.show()
+            time.sleep(0.25)
+
     def _maybe_background_download(self) -> None:
         if self._update_busy or not self._manifest:
             return
@@ -456,6 +476,7 @@ class TrayApp:
         self._stop.set()
         self._stop_bridge()
         self._kill_stale_bridge_listeners()
+        release_single_instance()
         if self._icon:
             try:
                 self._icon.stop()
@@ -465,9 +486,11 @@ class TrayApp:
     def run(self) -> None:
         if not try_acquire_single_instance():
             request_show_existing_window()
+            _append_launch_log('duplicate launch — requested show existing window')
             logger.info('이미 실행 중 — 상태창 표시만 요청하고 종료합니다.')
             return
 
+        _append_launch_log(f'start v{APP_VERSION}')
         ensure_app_data()
         self._kill_stale_bridge_listeners()
         self._ensure_dependencies()
@@ -477,6 +500,8 @@ class TrayApp:
             threading.Thread(target=lambda: self._check_update_prompt(force=True), daemon=True).start()
         poll = threading.Thread(target=self._poll_loop, daemon=True)
         poll.start()
+        show_watch = threading.Thread(target=self._show_window_watch_loop, daemon=True, name='show-window-watch')
+        show_watch.start()
         self._icon = pystray.Icon(
             'soomgo-bridge',
             self._icon_image(),
@@ -501,6 +526,7 @@ class TrayApp:
         try:
             self._window.run_tk_loop(on_ready=_on_window_ready)
         finally:
+            _append_launch_log('shutdown')
             self._shutdown()
 
 

@@ -11,20 +11,46 @@ _MUTEX_NAME = 'Global\\CbiseoSoomgoBridge_V1'
 _SHOW_WINDOW_FLAG = APP_DATA_DIR / 'show.window'
 _ERROR_ALREADY_EXISTS = 183
 
+# CreateMutex 핸들을 프로세스 종료까지 유지해야 잠금이 풀리지 않음
+_mutex_handle: int | None = None
+
 
 def try_acquire_single_instance() -> bool:
     """True면 이 프로세스가 유일한 인스턴스."""
+    global _mutex_handle
     if sys.platform != 'win32':
         return True
+    if _mutex_handle is not None:
+        return True
+
     k32 = ctypes.WinDLL('kernel32', use_last_error=True)
     k32.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
     k32.CreateMutexW.restype = wintypes.HANDLE
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    k32.CloseHandle.restype = wintypes.BOOL
+
     handle = k32.CreateMutexW(None, False, _MUTEX_NAME)
-    if ctypes.get_last_error() == _ERROR_ALREADY_EXISTS:
+    last_err = ctypes.get_last_error()
+    if last_err == _ERROR_ALREADY_EXISTS:
         if handle:
             k32.CloseHandle(handle)
         return False
+
+    _mutex_handle = int(handle)
     return True
+
+
+def release_single_instance() -> None:
+    global _mutex_handle
+    if sys.platform != 'win32' or _mutex_handle is None:
+        return
+    try:
+        k32 = ctypes.WinDLL('kernel32')
+        k32.CloseHandle.argtypes = [wintypes.HANDLE]
+        k32.CloseHandle(_mutex_handle)
+    except Exception:
+        pass
+    _mutex_handle = None
 
 
 def request_show_existing_window() -> None:
