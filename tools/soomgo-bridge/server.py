@@ -249,7 +249,7 @@ def _status_payload() -> dict[str, Any]:
             call_modal_open = CallModalManager(_browser.driver).is_call_modal_open()
         except Exception:
             call_modal_open = False
-    return {
+    payload = {
         'ok': True,
         'bridgeVersion': BRIDGE_VERSION,
         'bridgeRunning': True,
@@ -271,6 +271,13 @@ def _status_payload() -> dict[str, Any]:
         'appVersion': os.environ.get('SOOMGO_APP_VERSION', APP_VERSION),
         'desktopRunning': os.environ.get('SOOMGO_DESKTOP_RUNNING') == '1',
     }
+    try:
+        from bridge_status_extras import build_update_status_fields
+
+        payload.update(build_update_status_fields())
+    except Exception as e:
+        logger.debug('update status fields skipped: %s', e)
+    return payload
 
 
 class BridgeHandler(BaseHTTPRequestHandler):
@@ -490,10 +497,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             if path == '/request-update':
                 try:
+                    mode = str(body.get('mode', 'prompt')).strip().lower()
+                    if mode not in ('prompt', 'background', 'install'):
+                        mode = 'prompt'
                     flag_path = _update_flag_path()
                     flag_path.parent.mkdir(parents=True, exist_ok=True)
-                    flag_path.write_text(str(int(time.time() * 1000)), encoding='utf-8')
-                    _json_response(self, 200, {'ok': True, 'message': '업데이트 확인을 요청했습니다.'})
+                    flag_path.write_text(mode, encoding='utf-8')
+                    _json_response(self, 200, {'ok': True, 'message': '업데이트 확인을 요청했습니다.', 'mode': mode})
                 except OSError as e:
                     _json_response(self, 500, {'ok': False, 'error': f'업데이트 요청 실패: {e}'})
                 return

@@ -1,10 +1,11 @@
 import type { SoomgoBridgeStatus, SoomgoExtractedChat, SoomgoBridgeManifest } from '@shared/soomgoBridge';
 import {
   SOOMGO_BRIDGE_BASE_URL,
-  SOOMGO_BRIDGE_MIN_VERSION,
   SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION,
   compareSoomgoSemver,
   isSoomgoAppOutdated,
+  isSoomgoAppUpdateAvailable,
+  isSoomgoBridgeApiOutdated,
 } from '@shared/soomgoBridge';
 import type { SoomgoMessageStep } from '@shared/soomgoMessagePresets';
 import type { SoomgoSplitScreenBounds } from '../utils/crmSoomgoSplitLayout';
@@ -27,12 +28,34 @@ export function soomgoBridgeOutdatedMessage(
   status: SoomgoBridgeStatus | null | undefined,
   manifest?: SoomgoBridgeManifest | null,
 ): string {
-  const latest = manifest?.latestVersion?.trim();
+  if (isSoomgoBridgeApiOutdated(status, manifest)) {
+    const latest = manifest?.latestVersion?.trim();
+    const current = status?.appVersion?.trim();
+    if (latest && current) {
+      return `숨고 연동 API 업데이트가 필요합니다 (v${current} → v${latest}). 「업데이트」 또는 「설치」를 눌러 주세요.`;
+    }
+    return SOOMGO_BRIDGE_OUTDATED_MESSAGE;
+  }
+  const latest = manifest?.latestVersion?.trim() || status?.latestVersion?.trim();
   const current = status?.appVersion?.trim();
-  if (latest && current && isSoomgoAppOutdated(current, manifest)) {
-    return `숨고 연동 v${current} → v${latest} 업데이트가 필요합니다. 「업데이트」 또는 「설치」를 눌러 주세요.`;
+  if (latest && current && isSoomgoAppOutdated(current, manifest ?? { latestVersion: latest } as SoomgoBridgeManifest)) {
+    if (status?.updatePhase === 'ready') {
+      return `숨고 연동 v${latest} 업데이트가 준비되었습니다. 「지금 업데이트」를 눌러 설치해 주세요.`;
+    }
+    if (status?.updatePhase === 'downloading') {
+      return `숨고 연동 v${latest} 다운로드 중입니다…`;
+    }
+    return `새 버전 v${latest}이 있습니다 (현재 v${current}). 「지금 업데이트」로 설치할 수 있습니다.`;
   }
   return SOOMGO_BRIDGE_OUTDATED_MESSAGE;
+}
+
+export function soomgoBridgeSoftUpdateMessage(
+  status: SoomgoBridgeStatus | null | undefined,
+  manifest?: SoomgoBridgeManifest | null,
+): string | null {
+  if (!isSoomgoAppUpdateAvailable(status, manifest)) return null;
+  return soomgoBridgeOutdatedMessage(status, manifest);
 }
 
 function isBridgeConnectionError(err: unknown): boolean {
@@ -87,10 +110,10 @@ export function isSoomgoBridgeOutdated(
   manifest?: SoomgoBridgeManifest | null,
 ): boolean {
   if (!status?.bridgeRunning) return false;
-  const v = status.bridgeVersion;
-  if (v == null || v < SOOMGO_BRIDGE_MIN_VERSION) return true;
-  return isSoomgoAppOutdated(status.appVersion, manifest);
+  return isSoomgoBridgeApiOutdated(status, manifest);
 }
+
+export { isSoomgoAppUpdateAvailable, isSoomgoBridgeApiOutdated };
 
 export async function fetchSoomgoBridgeStatus(
   manifest?: SoomgoBridgeManifest | null,
@@ -209,9 +232,12 @@ export async function extractSoomgoCallNumber(): Promise<string> {
   return res.phone;
 }
 
-export async function requestSoomgoBridgeUpdate(): Promise<void> {
+export async function requestSoomgoBridgeUpdate(mode: 'prompt' | 'background' | 'install' = 'prompt'): Promise<void> {
   try {
-    await bridgeFetch<{ ok: boolean }>('/request-update', { method: 'POST', body: '{}' });
+    await bridgeFetch<{ ok: boolean }>('/request-update', {
+      method: 'POST',
+      body: JSON.stringify({ mode }),
+    });
   } catch {
     /* 트레이 미실행 시 무시 */
   }

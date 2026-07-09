@@ -19,7 +19,7 @@ import { CrmSoomgoTopBar } from '../../../components/crm/soomgo/CrmSoomgoTopBar'
 import { CrmIconPhone, CrmIconSoomgo } from '../../../components/crm/crmUi';
 import type { SoomgoExtractedChat, SoomgoBridgeManifest } from '@shared/soomgoBridge';
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
-import { fetchTelecrmSoomgoBridgeManifest } from '../../../api/telecrmSoomgo';
+import { useSoomgoBridgeManifestRefresh } from '../../../hooks/useSoomgoBridgeManifestRefresh';
 import { requestSoomgoBridgeUpdate } from '../../../api/soomgoBridge';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
@@ -126,15 +126,7 @@ export function CrmPage() {
     document.title = '텔레CRM — SK클린텍';
   }, []);
 
-  useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    void fetchTelecrmSoomgoBridgeManifest(token)
-      .then(setSoomgoBridgeManifest)
-      .catch(() => {
-        /* 다운로드 URL 없을 때 무시 */
-      });
-  }, []);
+  useSoomgoBridgeManifestRefresh(Boolean(getToken()), setSoomgoBridgeManifest);
 
   useEffect(() => {
     const draft = loadCrmIntakeDraft();
@@ -604,7 +596,7 @@ export function CrmPage() {
                     : undefined
                 }
                 bridgeManifest={soomgoBridgeManifest}
-                onRequestUpdate={() => void requestSoomgoBridgeUpdate()}
+                onRequestUpdate={() => void requestSoomgoBridgeUpdate('install')}
               />
             ) : undefined
           }

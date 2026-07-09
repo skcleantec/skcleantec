@@ -11,6 +11,7 @@ import {
   fetchSoomgoBridgeStatus,
   isSoomgoBridgeOutdated,
   isSoomgoBridgeReachable,
+  isSoomgoAppUpdateAvailable,
   loginSoomgoBridge,
   openSoomgoCallModal,
   openSoomgoChats,
@@ -20,6 +21,7 @@ import {
   SOOMGO_BRIDGE_OUTDATED_MESSAGE,
   SOOMGO_BUSY_LABELS,
   soomgoBridgeOutdatedMessage,
+  soomgoBridgeSoftUpdateMessage,
   startSoomgoBridge,
   watchSoomgoCallButton,
 } from '../api/soomgoBridge';
@@ -53,6 +55,7 @@ export function useCrmSoomgoBridge({
   const watchStartedRef = useRef(false);
   const watchBlockedRef = useRef(false);
   const outdatedNotifiedRef = useRef(false);
+  const softUpdateNotifiedRef = useRef(false);
 
   const notify = useCallback((msg: string) => onDispatchNotice?.(msg), [onDispatchNotice]);
 
@@ -117,16 +120,27 @@ export function useCrmSoomgoBridge({
     const outdatedMsg = soomgoBridgeOutdatedMessage(s, bridgeManifest);
     if (!isSoomgoBridgeOutdated(s, bridgeManifest)) {
       watchBlockedRef.current = false;
+      outdatedNotifiedRef.current = false;
       setError((prev) =>
-        prev && (prev.includes('업데이트') || prev === SOOMGO_BRIDGE_OUTDATED_MESSAGE) ? null : prev,
+        prev && (prev.includes('API 업데이트') || prev === SOOMGO_BRIDGE_OUTDATED_MESSAGE) ? null : prev,
       );
     }
     if (isSoomgoBridgeOutdated(s, bridgeManifest) && !outdatedNotifiedRef.current) {
       outdatedNotifiedRef.current = true;
+      softUpdateNotifiedRef.current = true;
       watchBlockedRef.current = true;
       setError(outdatedMsg);
       notify(outdatedMsg);
-      void requestSoomgoBridgeUpdate();
+      void requestSoomgoBridgeUpdate('install');
+    } else if (
+      isSoomgoAppUpdateAvailable(s, bridgeManifest) &&
+      !softUpdateNotifiedRef.current &&
+      !isSoomgoBridgeOutdated(s, bridgeManifest)
+    ) {
+      softUpdateNotifiedRef.current = true;
+      const softMsg = soomgoBridgeSoftUpdateMessage(s, bridgeManifest);
+      if (softMsg) notify(softMsg);
+      void requestSoomgoBridgeUpdate('background');
     }
     if (s.pendingCallPhone && s.pendingCallAt != null && !isSoomgoBridgeOutdated(s, bridgeManifest)) {
       void handlePendingCall(s);
@@ -188,7 +202,7 @@ export function useCrmSoomgoBridge({
       }
       if (isSoomgoBridgeOutdated(current, bridgeManifest)) {
         const outdatedMsg = soomgoBridgeOutdatedMessage(current, bridgeManifest);
-        void requestSoomgoBridgeUpdate();
+        void requestSoomgoBridgeUpdate('install');
         throw new Error(outdatedMsg);
       }
       const screen = readSoomgoSplitScreenBounds();

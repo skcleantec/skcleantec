@@ -1,5 +1,5 @@
 import type { SoomgoBridgeManifest, SoomgoBridgeStatus, SoomgoExtractedChat } from '@shared/soomgoBridge';
-import { isSoomgoBridgeOutdated, SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE } from '../../../api/soomgoBridge';
+import { isSoomgoBridgeOutdated, isSoomgoAppUpdateAvailable, SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE } from '../../../api/soomgoBridge';
 import { CrmIconSoomgo } from '../crmUi';
 
 export function CrmSoomgoTopBar({
@@ -51,9 +51,12 @@ export function CrmSoomgoTopBar({
           : null;
 
   const outdated = isSoomgoBridgeOutdated(status, bridgeManifest);
+  const softUpdate = !outdated && isSoomgoAppUpdateAvailable(status, bridgeManifest);
   const downloadUrl = bridgeManifest?.downloadUrl?.trim() || '';
-  const latestLabel = bridgeManifest?.latestVersion?.trim();
+  const latestLabel = bridgeManifest?.latestVersion?.trim() || status?.latestVersion?.trim();
   const currentLabel = status?.appVersion?.trim();
+  const updatePhase = status?.updatePhase;
+  const updateReady = updatePhase === 'ready';
 
   return (
     <div className="shrink-0 border-b border-sky-200/90 bg-gradient-to-r from-sky-50 via-cyan-50/40 to-sky-50 shadow-sm">
@@ -124,6 +127,47 @@ export function CrmSoomgoTopBar({
               다시 확인
             </button>
           </div>
+        ) : softUpdate ? (
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[11px] text-amber-900">
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold">
+              {updateReady ? '업데이트 준비됨' : updatePhase === 'downloading' ? '다운로드 중' : '새 버전'}
+            </span>
+            <span className="hidden min-w-0 truncate sm:inline">
+              {currentLabel && latestLabel
+                ? updateReady
+                  ? `v${latestLabel} 설치 준비 완료 (현재 v${currentLabel})`
+                  : updatePhase === 'downloading'
+                    ? `v${latestLabel} 다운로드 중… (현재 v${currentLabel})`
+                    : `v${latestLabel}이 나왔습니다 (현재 v${currentLabel})`
+                : '숨고 연동 프로그램을 최신 버전으로 업데이트하세요'}
+            </span>
+            {onRequestUpdate ? (
+              <button
+                type="button"
+                onClick={onRequestUpdate}
+                className="rounded-lg border border-amber-300 bg-white px-2.5 py-1 font-semibold hover:bg-amber-50"
+              >
+                {updateReady ? '지금 업데이트' : '업데이트'}
+              </button>
+            ) : null}
+            {downloadUrl ? (
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-amber-300 bg-white px-2.5 py-1 font-semibold hover:bg-amber-50"
+              >
+                설치
+              </a>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void onRefresh()}
+              className="rounded-lg border border-amber-300 bg-white px-2.5 py-1 font-semibold hover:bg-amber-50"
+            >
+              다시 확인
+            </button>
+          </div>
         ) : (
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-[10px]">
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">브릿지 연결</span>
@@ -170,7 +214,7 @@ export function CrmSoomgoTopBar({
         )}
 
         <div className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5">
-          {onRestartBridge && bridgeUp && !outdated ? (
+          {onRestartBridge && bridgeUp && !outdated && !softUpdate ? (
             <button
               type="button"
               disabled={busy}
