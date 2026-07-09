@@ -1,6 +1,5 @@
 package com.skcleantec.telecrm.api
 
-import com.skcleantec.telecrm.BuildConfig
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -8,6 +7,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import android.content.Context
+import com.skcleantec.telecrm.auth.TokenStore
 
 data class LoginResult(
     val token: String,
@@ -22,13 +23,20 @@ data class SmsTemplateDto(
     val imageUrl: String?,
 )
 
-class ApiClient {
+class ApiClient(private val baseUrl: String) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
+
+    companion object {
+        fun fromContext(context: Context): ApiClient {
+            val store = TokenStore(context.applicationContext)
+            return ApiClient(ApiEnvironment.resolveForUser(store.getLoginId(), store.getApiBaseUrl()))
+        }
+    }
 
     fun login(tenantSlug: String, loginId: String, password: String): Result<LoginResult> {
         return runCatching {
@@ -40,7 +48,7 @@ class ApiClient {
                 .toRequestBody(jsonMedia)
 
             val request = Request.Builder()
-                .url("${BuildConfig.API_BASE_URL}/api/auth/login")
+                .url("$baseUrl/api/auth/login")
                 .post(body)
                 .build()
 
@@ -136,7 +144,7 @@ class ApiClient {
                 .toString()
                 .toRequestBody(jsonMedia)
             val request = Request.Builder()
-                .url("${BuildConfig.API_BASE_URL}/api/messages")
+                .url("$baseUrl/api/messages")
                 .addHeader("Authorization", "Bearer $token")
                 .post(body)
                 .build()
@@ -154,7 +162,7 @@ class ApiClient {
         return runCatching {
             val body = payload.toString().toRequestBody(jsonMedia)
             val request = Request.Builder()
-                .url("${BuildConfig.API_BASE_URL}/api/crm/call-sessions")
+                .url("$baseUrl/api/crm/call-sessions")
                 .addHeader("Authorization", "Bearer $token")
                 .post(body)
                 .build()
@@ -181,7 +189,7 @@ class ApiClient {
     private fun authorizedGetRaw(path: String, token: String): Result<String> {
         return runCatching {
             val request = Request.Builder()
-                .url("${BuildConfig.API_BASE_URL}$path")
+                .url("$baseUrl$path")
                 .addHeader("Authorization", "Bearer $token")
                 .get()
                 .build()

@@ -21,7 +21,7 @@ import java.util.Locale
 class MessageThreadActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMessageThreadBinding
     private val tokenStore by lazy { TokenStore(this) }
-    private val apiClient = ApiClient()
+    private val apiClient by lazy { ApiClient.fromContext(this) }
     private val adapter = SimpleRowAdapter { }
     private var peerId: String = ""
 

@@ -22,7 +22,7 @@ class MessagesFragment : Fragment() {
     private var _binding: FragmentMessagesBinding? = null
     private val binding get() = _binding!!
     private val tokenStore by lazy { TokenStore(requireContext()) }
-    private val apiClient = ApiClient()
+    private val apiClient by lazy { ApiClient.fromContext(requireContext()) }
     private val adapter = SimpleRowAdapter { pos -> openThread(pos) }
     private var conversations = JSONArray()
 

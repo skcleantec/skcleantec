@@ -22,10 +22,19 @@ const router = Router();
 router.use(authMiddleware, staffMarketerRoleOnly);
 
 /** Android 내부 앱 — 기능 플래그·최소 버전 (Play 심사 전 사무실 sideload용) */
-router.get('/mobile-config', requireStaffPermission('crm.view', 'crm.settings'), async (_req, res) => {
+router.get('/mobile-config', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const host = req.get('host') ?? '';
+  const origin = `${req.protocol}://${host}`;
+  const railwayEnv = (process.env.RAILWAY_ENVIRONMENT ?? '').trim().toLowerCase();
+  const serverLabel =
+    railwayEnv === 'staging' || host.includes('staging') || host.includes('railway.app')
+      ? 'staging'
+      : 'production';
   res.json({
     minAppVersion: '0.1.0',
     distribution: 'internal',
+    serverOrigin: origin,
+    serverLabel,
     features: {
       callSessions: true,
       smsDispatch: true,
@@ -78,10 +87,12 @@ router.get('/mobile-dispatch/status', async (req, res) => {
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
   const pendingCount = await countTelecrmMobileDispatchPending(tenantId, user.userId);
+  const host = req.get('host') ?? '';
   res.json({
     userId: user.userId,
     email: user.email ?? null,
     tenantId,
+    serverOrigin: `${req.protocol}://${host}`,
     telecrmAppsConnected: countTelecrmAppsInTenant(tenantId),
     pendingCount,
   });
