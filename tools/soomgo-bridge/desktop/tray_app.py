@@ -97,6 +97,7 @@ class TrayApp:
         self._update_busy = False
         self._idle_install_ticks = 0
         self._last_bg_download_at = 0.0
+        self._bridge_failures = 0
         self._window = StatusWindow()
         self._icon_thread: threading.Thread | None = None
 
@@ -220,16 +221,44 @@ class TrayApp:
         except Exception as exc:
             self._window.append_log_async(f'브릿지 로그 수신 종료: {exc}', level='error')
 
+    def _verify_bridge_runtime(self) -> tuple[bool, str]:
+        exe = _python_exe()
+        probe = (
+            'import sys; import selenium; from http.server import HTTPServer; '
+            'print(sys.executable)'
+        )
+        try:
+            result = subprocess.run(
+                [exe, '-c', probe],
+                cwd=str(BRIDGE_DIR),
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                timeout=90,
+                creationflags=self._subprocess_flags(),
+            )
+            if result.returncode == 0:
+                lines = [ln.strip() for ln in (result.stdout or '').splitlines() if ln.strip()]
+                return True, lines[-1] if lines else exe
+            detail = ((result.stderr or '') + '\n' + (result.stdout or '')).strip()
+            return False, detail[-800:] if detail else f'exit {result.returncode}'
+        except Exception as exc:
+            return False, str(exc)
+
     def _start_bridge(self) -> None:
         if self._bridge_proc and self._bridge_proc.poll() is None:
             return
+        py = _python_exe()
         env = os.environ.copy()
         env['SOOMGO_DESKTOP_RUNNING'] = '1'
         env['SOOMGO_APP_VERSION'] = APP_VERSION
         env['PYTHONUNBUFFERED'] = '1'
         server_py = BRIDGE_DIR / 'server.py'
+        self._log(f'브릿지 Python: {py}')
+        _append_launch_log(f'start bridge python={py}')
         self._bridge_proc = subprocess.Popen(
-            [_python_exe(), '-u', str(server_py)],
+            [py, '-u', str(server_py)],
             cwd=str(BRIDGE_DIR),
             env=env,
             stdout=subprocess.PIPE,
@@ -266,8 +295,17 @@ class TrayApp:
             if proc_dead:
                 code = self._bridge_proc.poll() if self._bridge_proc else None
                 self._log(f'브릿지 서버가 종료되었습니다 (코드 {code})', level='error')
+                _append_launch_log(f'bridge exit code={code}')
                 self._bridge_proc = None
+                self._bridge_failures += 1
+                if not self._stop.is_set() and self._bridge_failures <= 5 and code not in (0, None):
+                    self._log('브릿지 자동 재시작…')
+                    time.sleep(1.0)
+                    self._kill_stale_bridge_listeners()
+                    self._start_bridge()
             self._status = self._fetch_status()
+            if self._status:
+                self._bridge_failures = 0
             hint = None
             if self._manifest and (is_update_required(self._manifest) or is_update_available(self._manifest)):
                 hint = '새 버전이 있습니다. 트레이 → 업데이트 확인'
@@ -494,6 +532,12 @@ class TrayApp:
         ensure_app_data()
         self._kill_stale_bridge_listeners()
         self._ensure_dependencies()
+        ok, detail = self._verify_bridge_runtime()
+        _append_launch_log(f'bridge runtime ok={ok} detail={detail[:240]}')
+        if not ok:
+            self._log(f'브릿지 Python 환경 오류:\n{detail}', level='error')
+        else:
+            self._log(f'브릿지 Python 확인: {detail}')
         self._start_bridge()
         self._manifest = fetch_manifest()
         if self._manifest and is_update_required(self._manifest):
@@ -531,7 +575,22 @@ class TrayApp:
 
 
 def main() -> None:
-    TrayApp().run()
+    try:
+        TrayApp().run()
+    except Exception as exc:
+        _append_launch_log(f'fatal: {exc}')
+        logger.exception('프로그램 시작 실패')
+        try:
+            import tkinter.messagebox as mb
+
+            mb.showerror(
+                APP_DISPLAY_NAME,
+                f'프로그램을 시작하지 못했습니다.\n\n{exc}\n\n'
+                f'로그: %LOCALAPPDATA%\\Cbiseo\\SoomgoBridge\\launch.log',
+            )
+        except Exception:
+            pass
+        raise
 
 
 if __name__ == '__main__':
