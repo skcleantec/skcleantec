@@ -17,4 +17,9 @@
         <item name="android:fontFamily">sans-serif</item>
         <item name="fontFamily">sans-serif</item>
     </style>
+
+    <style name="Theme.Telecrm.CallDispatch" parent="Theme.TelecrmInternal">
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowBackground">@color/slate_900</item>
+    </style>
 </resources>

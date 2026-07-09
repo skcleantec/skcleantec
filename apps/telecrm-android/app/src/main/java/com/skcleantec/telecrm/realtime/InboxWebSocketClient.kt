@@ -11,7 +11,9 @@ import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
-class InboxWebSocketClient {
+class InboxWebSocketClient(
+    private val onMessagePayload: (JSONObject) -> Unit = { AppEventBus.handlePayload(it) },
+) {
     private val client = OkHttpClient.Builder()
         .pingInterval(25, TimeUnit.SECONDS)
         .build()
@@ -56,7 +58,7 @@ class InboxWebSocketClient {
             override fun onMessage(webSocket: WebSocket, text: String) {
                 runCatching {
                     val json = JSONObject(text)
-                    mainHandler.post { AppEventBus.handlePayload(json) }
+                    mainHandler.post { onMessagePayload(json) }
                 }
             }
 

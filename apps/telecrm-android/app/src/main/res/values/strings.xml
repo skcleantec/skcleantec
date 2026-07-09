@@ -87,5 +87,29 @@
 
     <string name="no_conversations">대화 상대가 없습니다.</string>
 
+    <string name="notification_channel_ongoing">PC 연결 유지</string>
+    <string name="notification_channel_ongoing_desc">청소비서 전화 앱이 PC CRM과 연결을 유지합니다.</string>
+    <string name="notification_channel_call">PC 통화 요청</string>
+    <string name="notification_channel_call_desc">PC CRM에서 보낸 통화 요청 알림</string>
+    <string name="notification_channel_sms">PC 문자 요청</string>
+    <string name="notification_channel_sms_desc">PC CRM에서 보낸 문자 요청 알림</string>
+    <string name="notification_ongoing_title">청소비서 전화 · PC 연결</string>
+    <string name="notification_ongoing_connected">PC CRM과 연결됨</string>
+    <string name="notification_ongoing_reconnecting">다시 연결 중…</string>
+    <string name="notification_call_title">PC 통화 요청</string>
+    <string name="notification_call_body">%1$s 으로 전화를 겁니다</string>
+    <string name="notification_sms_title">PC 문자 요청</string>
+    <string name="notification_sms_body">%1$s · 문자 앱에서 확인</string>
+
+    <string name="call_dispatch_title">PC 통화 요청</string>
+    <string name="call_dispatch_auto_hint">잠시 후 전화 앱으로 연결합니다.</string>
+    <string name="call_dispatch_prefill_hint">다이얼에 번호를 넣었습니다.</string>
+    <string name="call_dispatch_button">지금 통화</string>
+
+    <string name="galaxy_setup_title">갤럭시 설정 안내</string>
+    <string name="galaxy_setup_message">잠금 화면·다른 앱 사용 중에도 PC 통화를 받으려면 아래 설정을 권장합니다.\n\n· 전체 화면 알림 허용\n· 배터리 사용량 「제한 없음」(설정 → 배터리 → 백그라운드 사용 제한)</string>
+    <string name="galaxy_setup_fullscreen">전체 화면 알림</string>
+    <string name="galaxy_setup_battery">배터리 설정</string>
+
 </resources>
 
