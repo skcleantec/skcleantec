@@ -30,6 +30,8 @@ function CrmPhoneField({
   onCall,
   callLabel,
   highlight = false,
+  phoneUnknown = false,
+  onPhoneUnknownChange,
 }: {
   label: string;
   value: string;
@@ -39,30 +41,46 @@ function CrmPhoneField({
   onCall: () => void;
   callLabel: string;
   highlight?: boolean;
+  phoneUnknown?: boolean;
+  onPhoneUnknownChange?: (checked: boolean) => void;
 }) {
   return (
     <div className="space-y-0.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] font-semibold text-emerald-800">{label}</span>
-        {value.trim() ? (
-          <button
-            type="button"
-            onClick={onClear}
-            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600"
-          >
-            연락처 지우기
-          </button>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {onPhoneUnknownChange ? (
+            <label className="flex cursor-pointer items-center gap-1 text-[10px] font-medium text-slate-600">
+              <input
+                type="checkbox"
+                checked={phoneUnknown}
+                onChange={(e) => onPhoneUnknownChange(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              전화번호 없음
+            </label>
+          ) : null}
+          {value.trim() && !phoneUnknown ? (
+            <button
+              type="button"
+              onClick={onClear}
+              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+            >
+              연락처 지우기
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="flex gap-1.5">
         <input
           type="tel"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="010-0000-0000"
-          className={`${crmFieldCompactClass} min-w-0 flex-1 tabular-nums ${highlight ? 'ring-2 ring-sky-400/80 ring-offset-1' : ''}`}
+          placeholder={phoneUnknown ? '전화번호 없음' : '010-0000-0000'}
+          disabled={phoneUnknown}
+          className={`${crmFieldCompactClass} min-w-0 flex-1 tabular-nums disabled:bg-slate-100 disabled:text-slate-500 ${highlight ? 'ring-2 ring-sky-400/80 ring-offset-1' : ''}`}
         />
-        {canDial ? (
+        {canDial && !phoneUnknown ? (
           <button
             type="button"
             onClick={onCall}
@@ -86,6 +104,8 @@ export function CrmIntakePanel({
   onModeChange,
   phone,
   onPhoneChange,
+  phoneUnknown,
+  onPhoneUnknownChange,
   onCustomerNameChange,
   pyeong,
   onPyeongChange,
@@ -105,11 +125,14 @@ export function CrmIntakePanel({
   soomgoImportBanner = null,
   soomgoImportFlashKey = 0,
   onIntakeReset,
+  operatingCompanyId = null,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
   phone: string;
   onPhoneChange: (v: string) => void;
+  phoneUnknown: boolean;
+  onPhoneUnknownChange: (v: boolean) => void;
   onCustomerNameChange: (name: string) => void;
   pyeong: string;
   onPyeongChange: (v: string) => void;
@@ -129,6 +152,7 @@ export function CrmIntakePanel({
   soomgoImportBanner?: string | null;
   soomgoImportFlashKey?: number;
   onIntakeReset?: () => void;
+  operatingCompanyId?: string | null;
 }) {
   const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
   const [nameSearch, setNameSearch] = useState('');
@@ -141,6 +165,7 @@ export function CrmIntakePanel({
     searchMode,
     searchText,
     lookupEnabled,
+    operatingCompanyId,
   );
   const [lastInquiryId, setLastInquiryId] = useState<string | null>(null);
   const [formSeed, setFormSeed] = useState({
@@ -362,12 +387,20 @@ export function CrmIntakePanel({
           <CrmPhoneField
             label="연락처"
             value={phone}
-            onChange={onPhoneChange}
+            onChange={(v) => {
+              onPhoneChange(v);
+              if (v.trim()) onPhoneUnknownChange(false);
+            }}
             onClear={() => onPhoneChange('')}
             canDial={canDial}
             onCall={() => void handleCall()}
             callLabel={isTelecrmNativeApp() ? '앱 통화' : '통화'}
             highlight={soomgoImportFlashKey > 0 && phone.trim().length > 0}
+            phoneUnknown={phoneUnknown}
+            onPhoneUnknownChange={(checked) => {
+              onPhoneUnknownChange(checked);
+              if (checked) onPhoneChange('');
+            }}
           />
         )}
 
@@ -382,6 +415,7 @@ export function CrmIntakePanel({
             seed={intakeSeed}
             initialFormDraft={initialFormDraft}
             phone={phone}
+            phoneUnknown={phoneUnknown}
             pyeong={pyeong}
             onPyeongChange={onPyeongChange}
             onFormChange={onFormChange}
@@ -393,6 +427,7 @@ export function CrmIntakePanel({
             formResetKey={formResetKey}
             quotePayload={quotePayload}
             soomgoImportFlashKey={soomgoImportFlashKey}
+            operatingCompanyId={operatingCompanyId}
           />
         </div>
 

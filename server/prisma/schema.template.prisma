@@ -451,6 +451,8 @@ model OperatingCompany {
   externalSettlementResets   ExternalCompanySettlementReset[]
   landingContactFormConfigs  LandingContactFormConfig[]
   landingContactInquiries    LandingContactInquiry[]
+  orderFollowups             OrderFollowup[]
+  telecrmConsultationQuotes  TelecrmConsultationQuote[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
@@ -2207,6 +2209,8 @@ model OrderFollowup {
   id                 String               @id @default(uuid())
   tenantId           String               @map("tenant_id")
   tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String               @map("operating_company_id")
+  operatingCompany   OperatingCompany     @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
   inquiryId          String?              @map("inquiry_id")
   customerName       String               @map("customer_name")
   nickname           String?              @map("nickname")
@@ -2231,6 +2235,7 @@ model OrderFollowup {
   telecrmConsultationQuotes TelecrmConsultationQuote[]
 
   @@index([tenantId, status, updatedAt])
+  @@index([tenantId, operatingCompanyId, updatedAt])
   @@index([status, updatedAt])
   @@index([status, createdAt(sort: Desc)])
   @@index([handledById])
@@ -2895,10 +2900,12 @@ enum TelecrmConsultationQuoteStatus {
 
 /// 텔레CRM — 상담 견적 스냅샷 (연락처 기준 · 테넌트 공유)
 model TelecrmConsultationQuote {
-  id          String                         @id @default(uuid())
-  tenantId    String                         @map("tenant_id")
-  tenant      Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  phone       String                         @db.VarChar(32)
+  id                 String                         @id @default(uuid())
+  tenantId           String                         @map("tenant_id")
+  tenant             Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId String                         @map("operating_company_id")
+  operatingCompany   OperatingCompany               @relation(fields: [operatingCompanyId], references: [id], onDelete: Restrict)
+  phone              String                         @db.VarChar(32)
   status      TelecrmConsultationQuoteStatus @default(DRAFT)
   payload     Json
   followupId  String?                        @map("followup_id")
@@ -2913,6 +2920,8 @@ model TelecrmConsultationQuote {
   updatedAt   DateTime                       @updatedAt @map("updated_at")
 
   @@index([tenantId, phone, updatedAt(sort: Desc)])
+  @@index([tenantId, operatingCompanyId, phone, updatedAt(sort: Desc)], map: "telecrm_quotes_tenant_oc_phone_updated_idx")
+  @@index([tenantId, operatingCompanyId, status, phone], map: "telecrm_quotes_tenant_oc_status_phone_idx")
   @@index([tenantId, status, phone])
   @@index([tenantId, followupId])
   @@index([tenantId, inquiryId])

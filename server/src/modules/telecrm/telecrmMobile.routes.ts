@@ -77,7 +77,7 @@ router.get('/mobile-dispatch/pending', async (req, res) => {
   const tenantId = await requireTelecrmTenantAsync(req, res);
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
-  const items = await drainTelecrmMobileDispatchQueue(tenantId, user.userId);
+  const items = await drainTelecrmMobileDispatchQueue(tenantId, user.userId, user.role ?? 'MARKETER');
   res.json({ items });
 });
 
@@ -86,7 +86,11 @@ router.get('/mobile-dispatch/status', async (req, res) => {
   const tenantId = await requireTelecrmTenantAsync(req, res);
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
-  const pendingCount = await countTelecrmMobileDispatchPending(tenantId, user.userId);
+  const pendingCount = await countTelecrmMobileDispatchPending(
+    tenantId,
+    user.userId,
+    user.role ?? 'MARKETER',
+  );
   const host = req.get('host') ?? '';
   res.json({
     userId: user.userId,

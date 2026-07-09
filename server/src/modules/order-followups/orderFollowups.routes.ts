@@ -25,7 +25,13 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { tenantIdForUserId } from '../tenants/tenant.service.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
-import { resolveInquiryOperatingCompanyId } from '../operating-companies/operatingCompanyResolve.service.js';
+import {
+  resolveInquiryOperatingCompanyId,
+  mapOperatingCompanyResolveError,
+} from '../operating-companies/operatingCompanyResolve.service.js';
+import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
+import type { UserRole } from '@prisma/client';
+import { readCrmWorkBrandInput, resolveCrmWorkOperatingCompanyId } from '../telecrm/crmWorkBrandResolve.service.js';
 
 const router = Router();
 
@@ -370,9 +376,29 @@ router.post('/', async (req, res) => {
       followupStatus: status,
     });
   }
+  let operatingCompanyId: string;
+  try {
+    const isStaffAdmin = await userHasStaffAdminAccess(user);
+    const brandInput = readCrmWorkBrandInput({}, body);
+    operatingCompanyId = await resolveCrmWorkOperatingCompanyId({
+      tenantId,
+      userId: user.userId,
+      userRole: user.role as UserRole,
+      isStaffAdmin,
+      ...brandInput,
+    });
+  } catch (e) {
+    const mapped = mapOperatingCompanyResolveError(e);
+    if (mapped) {
+      res.status(mapped.status).json({ error: mapped.message });
+      return;
+    }
+    throw e;
+  }
   const row = await prisma.orderFollowup.create({
     data: {
       tenantId,
+      operatingCompanyId,
       customerName,
       nickname,
       customerPhone,

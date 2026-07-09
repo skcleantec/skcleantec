@@ -2,10 +2,15 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import {
   mergeOperatingCompanyConfig,
   normalizeOperatingCompanySlug,
+  operatingCompanyConfigPublic,
   operatingCompanyConfigToJson,
   parseOperatingCompanyConfig,
   type OperatingCompanyConfig,
 } from './operatingCompany.schema.js';
+import {
+  extractOperatingCompanySoomgoPatch,
+  mergeOperatingCompanySoomgoStored,
+} from '../../lib/operatingCompanySoomgoConfig.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -40,9 +45,30 @@ export function operatingCompanySummary(row: {
     isDefault: row.isDefault,
     isActive: row.isActive,
     sortOrder: row.sortOrder,
-    config,
+    config: operatingCompanyConfigPublic(config),
     displayName: config.branding?.displayName?.trim() || row.name,
   };
+}
+
+function applyConfigPatchFromBody(
+  existingConfig: OperatingCompanyConfig,
+  bodyConfig: unknown,
+  tenantId: string,
+): OperatingCompanyConfig {
+  const soomgoPatch = extractOperatingCompanySoomgoPatch(bodyConfig);
+  const patch = parseOperatingCompanyConfig(bodyConfig);
+  delete patch.soomgo;
+  if (soomgoPatch !== undefined) {
+    patch.soomgo = mergeOperatingCompanySoomgoStored(existingConfig.soomgo, soomgoPatch);
+  }
+  try {
+    return mergeOperatingCompanyConfig(existingConfig, patch, tenantId);
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('companyRegistration.seal')) {
+      throw new OperatingCompanyValidationError(e.message);
+    }
+    throw e;
+  }
 }
 
 export async function listOperatingCompanies(db: Db, tenantId: string, opts?: { includeInactive?: boolean }) {
@@ -134,14 +160,7 @@ export async function createOperatingCompany(
 
   let config: OperatingCompanyConfig = {};
   if (body.config !== undefined) {
-    try {
-      config = mergeOperatingCompanyConfig({}, parseOperatingCompanyConfig(body.config), tenantId);
-    } catch (e) {
-      if (e instanceof Error && e.message.includes('companyRegistration.seal')) {
-        throw new OperatingCompanyValidationError(e.message);
-      }
-      throw e;
-    }
+    config = applyConfigPatchFromBody({}, body.config, tenantId);
   }
 
   const row = await db.operatingCompany.create({
@@ -201,20 +220,9 @@ export async function updateOperatingCompany(
   }
 
   if (body.config !== undefined) {
-    const patch = parseOperatingCompanyConfig(body.config);
-    try {
-      const merged = mergeOperatingCompanyConfig(
-        parseOperatingCompanyConfig(existing.config),
-        patch,
-        tenantId,
-      );
-      data.config = operatingCompanyConfigToJson(merged) as Prisma.InputJsonValue;
-    } catch (e) {
-      if (e instanceof Error && e.message.includes('companyRegistration.seal')) {
-        throw new OperatingCompanyValidationError(e.message);
-      }
-      throw e;
-    }
+    const existingConfig = parseOperatingCompanyConfig(existing.config);
+    const merged = applyConfigPatchFromBody(existingConfig, body.config, tenantId);
+    data.config = operatingCompanyConfigToJson(merged) as Prisma.InputJsonValue;
   }
 
   const nextIsActive = body.isActive === false ? false : body.isActive === true ? true : existing.isActive;

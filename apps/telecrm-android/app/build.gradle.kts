@@ -11,7 +11,7 @@ if (localFile.exists()) {
     localFile.inputStream().use { localProps.load(it) }
 }
 val apiBaseUrl =
-    (localProps.getProperty("telecrm.apiBaseUrl") ?: "https://REPLACE_WITH_RAILWAY_HOST")
+    (localProps.getProperty("telecrm.apiBaseUrl") ?: "https://www.cbiseo.com")
         .trim()
         .trimEnd('/')
 
@@ -23,8 +23,8 @@ android {
         applicationId = "com.skcleantec.telecrm.internal"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "0.6.1-internal"
+        versionCode = 13
+        versionName = "0.6.3-internal"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "ADMIN_TOKEN_KEY", "\"sk_admin_token\"")
     }

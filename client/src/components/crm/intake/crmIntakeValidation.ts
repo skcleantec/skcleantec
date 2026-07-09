@@ -35,7 +35,10 @@ export function validateCrmIntakeForm(
   values: CrmIntakeFormValues,
   pyeong: string,
 ): string | null {
-  if (!values.phone.trim()) return '연락처를 입력해 주세요.';
+  if (!values.phoneUnknown && !values.phone.trim()) return '연락처를 입력해 주세요.';
+  if (values.phoneUnknown && !values.nickname.trim() && !values.customerName.trim()) {
+    return '전화번호 없음일 때는 닉네임 또는 고객명을 입력해 주세요.';
+  }
   if (values.kind === 'received' && !values.address.trim()) {
     return '예약완료는 주소가 필요합니다.';
   }

@@ -36,6 +36,7 @@ export function useCrmSoomgoBridge({
   pollEnabled = true,
   isPopup = false,
   bridgeManifest = null,
+  operatingCompanyId = null,
 }: {
   onImport: (data: SoomgoExtractedChat) => void;
   onImportPhone?: (phone: string) => void;
@@ -44,6 +45,7 @@ export function useCrmSoomgoBridge({
   pollEnabled?: boolean;
   isPopup?: boolean;
   bridgeManifest?: SoomgoBridgeManifest | null;
+  operatingCompanyId?: string | null;
 }) {
   const [status, setStatus] = useState<SoomgoBridgeStatus | null>(null);
   const [preview, setPreview] = useState<SoomgoExtractedChat | null>(null);
@@ -60,6 +62,18 @@ export function useCrmSoomgoBridge({
   const softUpdateNotifiedRef = useRef(false);
 
   const notify = useCallback((msg: string) => onDispatchNotice?.(msg), [onDispatchNotice]);
+
+  const prevOperatingCompanyIdRef = useRef(operatingCompanyId);
+  useEffect(() => {
+    if (prevOperatingCompanyIdRef.current === operatingCompanyId) return;
+    prevOperatingCompanyIdRef.current = operatingCompanyId;
+    watchStartedRef.current = false;
+    watchBlockedRef.current = false;
+    setPreview(null);
+    if (operatingCompanyId) {
+      notify('작업 브랜드가 변경되었습니다. 숨고 연동 시 해당 브랜드 계정으로 다시 로그인합니다.');
+    }
+  }, [notify, operatingCompanyId]);
 
   const applySplitLayout = useCallback(async () => {
     if (isPopup) arrangeCrmPopupLeftHalf();
@@ -219,7 +233,7 @@ export function useCrmSoomgoBridge({
       if (!token) throw new Error('로그인이 필요합니다.');
       const [, creds] = await Promise.all([
         startSoomgoBridge(screen),
-        fetchTelecrmSoomgoCredentials(token),
+        fetchTelecrmSoomgoCredentials(token, operatingCompanyId),
       ]);
       const loginRes = await loginSoomgoBridge(creds.email, creds.password);
       if (!loginRes.loggedIn) throw new Error(loginRes.lastError ?? '숨고 로그인에 실패했습니다.');
@@ -245,7 +259,7 @@ export function useCrmSoomgoBridge({
     } finally {
       setBusyAction(null);
     }
-  }, [applySplitLayout, bridgeManifest, ensureCallWatch, isPopup, notify, refreshStatus]);
+  }, [applySplitLayout, bridgeManifest, ensureCallWatch, isPopup, notify, operatingCompanyId, refreshStatus]);
 
   const extract = useCallback(async () => {
     setBusyAction('extract');

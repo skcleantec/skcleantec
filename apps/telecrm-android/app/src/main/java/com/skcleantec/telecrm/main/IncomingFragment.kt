@@ -94,13 +94,19 @@ class IncomingFragment : Fragment() {
     }
 
     private fun loadCallLog() {
-        rows = CallLogReader.readRecentIncoming(requireContext())
-        adapter.submit(rows.map {
-            SimpleRow(
-                title = it.number,
-                subtitle = "${CallLogReader.formatWhen(it.dateMs)} · ${it.durationSec}초",
-            )
-        })
+        lifecycleScope.launch {
+            val loaded = withContext(Dispatchers.IO) {
+                CallLogReader.readRecentIncoming(requireContext())
+            }
+            if (_binding == null) return@launch
+            rows = loaded
+            adapter.submit(rows.map {
+                SimpleRow(
+                    title = it.number,
+                    subtitle = "${CallLogReader.formatWhen(it.dateMs)} · ${it.durationSec}초",
+                )
+            })
+        }
     }
 
     private fun loadSmsTemplates() {

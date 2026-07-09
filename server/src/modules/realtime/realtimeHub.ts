@@ -169,7 +169,7 @@ function deliverTelecrmDispatchLegacy(userId: string, data: object, tenantId?: s
 }
 
 /**
- * 텔레CRM dispatch 전달 — 본인 앱 우선, ADMIN은 업체 내 모든 telecrm-app, 구버전 단일 소켓 폴백.
+ * 텔레CRM dispatch 전달 — 마케터는 본인 telecrm-app만, ADMIN만 업체 내 전체 앱, 구버전 단일 소켓 폴백.
  * DB 대기열과 병행하므로 WS만으로 성공 여부를 판단하지 않는다.
  */
 export function deliverTelecrmDispatch(
@@ -179,7 +179,9 @@ export function deliverTelecrmDispatch(
   tenantId: string,
 ): boolean {
   let delivered = sendJsonToTelecrmApp(actorUserId, data, tenantId);
-  delivered = broadcastJsonToTelecrmAppsInTenant(tenantId, data) || delivered;
+  if (actorRole === 'ADMIN') {
+    delivered = broadcastJsonToTelecrmAppsInTenant(tenantId, data) || delivered;
+  }
   if (delivered) return true;
   return deliverTelecrmDispatchLegacy(actorUserId, data, tenantId);
 }

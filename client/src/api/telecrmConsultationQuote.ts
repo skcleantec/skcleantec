@@ -2,6 +2,7 @@ import type {
   TelecrmConsultationQuotePayload,
   TelecrmConsultationQuoteStatus,
 } from '@shared/telecrmConsultationQuote';
+import { appendCrmWorkBrandQuery } from '../utils/crmWorkBrandQuery';
 
 const API = '/api/crm/consultation-quotes';
 
@@ -50,20 +51,24 @@ export type TelecrmConsultationQuotesListDto = {
 export async function fetchTelecrmConsultationQuotes(
   token: string,
   phone: string,
+  operatingCompanyId?: string | null,
 ): Promise<TelecrmConsultationQuotesListDto> {
-  const qs = `?phone=${encodeURIComponent(phone.trim())}`;
-  const res = await fetch(`${API}${qs}`, { headers: authHeaders(token) });
+  const qs = new URLSearchParams();
+  qs.set('phone', phone.trim());
+  appendCrmWorkBrandQuery(qs, operatingCompanyId);
+  const res = await fetch(`${API}?${qs}`, { headers: authHeaders(token) });
   return parseJson<TelecrmConsultationQuotesListDto>(res);
 }
 
 export async function upsertTelecrmConsultationQuoteDraft(
   token: string,
   body: { phone: string; payload: TelecrmConsultationQuotePayload },
+  operatingCompanyId?: string | null,
 ): Promise<TelecrmConsultationQuoteDto> {
   const res = await fetch(`${API}/current`, {
     method: 'PUT',
     headers: authHeaders(token),
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, operatingCompanyId: operatingCompanyId ?? undefined }),
   });
   return parseJson<TelecrmConsultationQuoteDto>(res);
 }
@@ -71,11 +76,12 @@ export async function upsertTelecrmConsultationQuoteDraft(
 export async function supersedeTelecrmConsultationQuotes(
   token: string,
   phone: string,
+  operatingCompanyId?: string | null,
 ): Promise<void> {
   const res = await fetch(`${API}/supersede-active`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ phone: phone.trim() }),
+    body: JSON.stringify({ phone: phone.trim(), operatingCompanyId: operatingCompanyId ?? undefined }),
   });
   await parseJson<{ ok: true }>(res);
 }
@@ -101,11 +107,12 @@ export type FinalizeTelecrmConsultationQuoteResult = {
 export async function finalizeTelecrmConsultationQuote(
   token: string,
   body: FinalizeTelecrmConsultationQuoteBody,
+  operatingCompanyId?: string | null,
 ): Promise<FinalizeTelecrmConsultationQuoteResult> {
   const res = await fetch(`${API}/finalize`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, operatingCompanyId: operatingCompanyId ?? undefined }),
   });
   return parseJson<FinalizeTelecrmConsultationQuoteResult>(res);
 }
@@ -113,11 +120,12 @@ export async function finalizeTelecrmConsultationQuote(
 export async function linkTelecrmConsultationQuoteInquiry(
   token: string,
   body: { phone: string; inquiryId?: string; orderFormId?: string },
+  operatingCompanyId?: string | null,
 ): Promise<TelecrmConsultationQuoteDto> {
   const res = await fetch(`${API}/link-inquiry`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, operatingCompanyId: operatingCompanyId ?? undefined }),
   });
   const data = await parseJson<{ quote: TelecrmConsultationQuoteDto }>(res);
   return data.quote;

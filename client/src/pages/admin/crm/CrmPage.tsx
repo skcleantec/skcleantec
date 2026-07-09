@@ -54,6 +54,8 @@ import {
 import { linkTelecrmConsultationQuoteInquiry } from '../../../api/telecrmConsultationQuote';
 import type { OrderForm } from '../../../api/orderform';
 import { fitCrmPopupWindow } from '../../../utils/crmSoomgoSplitLayout';
+import { useCrmWorkBrand } from '../../../hooks/useCrmWorkBrand';
+import { CrmWorkBrandBar } from '../../../components/crm/workBrand/CrmWorkBrandBar';
 
 export function CrmPage() {
   const [searchParams] = useSearchParams();
@@ -73,8 +75,27 @@ export function CrmPage() {
     permissions.me?.role === 'ADMIN' ||
     canAccessAdminPath(permissions.me?.role, permissions.permissions, '/admin/crm');
 
+  const {
+    loading: workBrandLoading,
+    items: workBrandItems,
+    active: workBrandActive,
+    activeOperatingCompanyId,
+    switchBrand,
+    showSwitcher: showWorkBrandSwitcher,
+  } = useCrmWorkBrand();
+
+  const handleWorkBrandSwitch = useCallback(
+    (slug: string) => {
+      switchBrand(slug);
+      setLookupRefreshKey((k) => k + 1);
+      setQuoteLines([]);
+    },
+    [switchBrand],
+  );
+
   const [mode, setMode] = useState<CrmCustomerMode>('new');
   const [phone, setPhone] = useState('');
+  const [phoneUnknown, setPhoneUnknown] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [pyeong, setPyeong] = useState('');
   const [quoteLines, setQuoteLines] = useState<CrmPricingQuoteLine[]>([]);
@@ -133,6 +154,7 @@ export function CrmPage() {
     if (draft && crmIntakeDraftHasContent(draft)) {
       setMode(draft.mode);
       setPhone(draft.phone);
+      setPhoneUnknown(Boolean(draft.phoneUnknown));
       setCustomerName(draft.customerName);
       setPyeong(draft.pyeong);
       setInitialFormDraft({
@@ -192,6 +214,7 @@ export function CrmPage() {
       const draft = {
         mode,
         phone,
+        phoneUnknown,
         pyeong,
         ...form,
         savedAt: Date.now(),
@@ -204,18 +227,19 @@ export function CrmPage() {
         setHasUnsavedDraft(false);
       }
     },
-    [mode, phone, pyeong],
+    [mode, phone, phoneUnknown, pyeong],
   );
 
   useEffect(() => {
     if (!draftReadyRef.current) return;
     const form = formSnapshotRef.current;
     if (!form) {
-      const partial = { mode, phone, pyeong, customerName, savedAt: Date.now() };
+      const partial = { mode, phone, phoneUnknown, pyeong, customerName, savedAt: Date.now() };
       if (crmIntakeDraftHasContent(partial)) {
         saveCrmIntakeDraft({
           mode,
           phone,
+          phoneUnknown,
           pyeong,
           customerName,
           nickname: '',
@@ -234,7 +258,7 @@ export function CrmPage() {
       return;
     }
     persistDraft(form);
-  }, [mode, phone, pyeong, customerName, persistDraft]);
+  }, [mode, phone, phoneUnknown, pyeong, customerName, persistDraft]);
 
   const handleFormChange = useCallback(
     (snapshot: CrmIntakeFormSnapshot) => {
@@ -272,6 +296,7 @@ export function CrmPage() {
 
   const handleIntakeReset = useCallback(() => {
     setPhone('');
+    setPhoneUnknown(false);
     setCustomerName('');
     setPyeong('');
     setMode('new');
@@ -298,7 +323,10 @@ export function CrmPage() {
   }, [showDispatchNotice]);
 
   const handleSoomgoImport = useCallback((data: SoomgoExtractedChat) => {
-    if (data.phone) setPhone(data.phone);
+    if (data.phone) {
+      setPhone(data.phone);
+      setPhoneUnknown(false);
+    }
     const name = (data.customerName || data.nickname)?.trim() || '';
     if (name) setCustomerName(name);
     if (data.pyeong) setPyeong(String(data.pyeong));
@@ -333,6 +361,7 @@ export function CrmPage() {
       ),
     pollEnabled: !isMobileApp,
     isPopup,
+    operatingCompanyId: activeOperatingCompanyId,
   });
 
   const {
@@ -398,6 +427,8 @@ export function CrmPage() {
     minimumTotalAmount,
     quoteLines,
     hasLocalContent: telecrmQuotePayloadHasContent(quotePayload),
+    operatingCompanyId: activeOperatingCompanyId,
+    enabled: Boolean(activeOperatingCompanyId),
   });
 
   const applyPendingQuote = useCallback(() => {
@@ -474,16 +505,20 @@ export function CrmPage() {
       const digits = phone.replace(/\D/g, '');
       if (!token || digits.length < 4) return;
       try {
-        await linkTelecrmConsultationQuoteInquiry(token, {
-          phone: digits,
-          orderFormId: order.id,
-          inquiryId: issuePendingInquiryId?.trim() || undefined,
-        });
+        await linkTelecrmConsultationQuoteInquiry(
+          token,
+          {
+            phone: digits,
+            orderFormId: order.id,
+            inquiryId: issuePendingInquiryId?.trim() || undefined,
+          },
+          activeOperatingCompanyId,
+        );
       } catch {
         /* 견적 연결 실패는 발주서 발급 자체를 막지 않음 */
       }
     },
-    [issuePendingInquiryId, phone, quotePayload],
+    [activeOperatingCompanyId, issuePendingInquiryId, phone, quotePayload],
   );
 
   const issueSeed = useMemo((): CrmOrderIssueSeed => {
@@ -573,8 +608,18 @@ export function CrmPage() {
         <CrmShell
           mobile={isMobileApp}
           topBar={
-            !isMobileApp ? (
-              <CrmSoomgoTopBar
+            !isMobileApp || showWorkBrandSwitcher ? (
+              <>
+                {showWorkBrandSwitcher ? (
+                  <CrmWorkBrandBar
+                    items={workBrandItems}
+                    activeSlug={workBrandActive?.slug ?? null}
+                    onSwitch={handleWorkBrandSwitch}
+                    switching={workBrandLoading}
+                  />
+                ) : null}
+                {!isMobileApp ? (
+                  <CrmSoomgoTopBar
                 open={soomgoBarOpen}
                 onClose={() => setSoomgoBarOpen(false)}
                 status={soomgoStatus}
@@ -597,7 +642,9 @@ export function CrmPage() {
                 }
                 bridgeManifest={soomgoBridgeManifest}
                 onRequestUpdate={() => void requestSoomgoBridgeUpdate('install')}
-              />
+                  />
+                ) : null}
+              </>
             ) : undefined
           }
           header={
@@ -733,11 +780,14 @@ export function CrmPage() {
                 onModeChange={handleModeChange}
                 phone={phone}
                 onPhoneChange={setPhone}
+                phoneUnknown={phoneUnknown}
+                onPhoneUnknownChange={setPhoneUnknown}
                 onCustomerNameChange={setCustomerName}
                 pyeong={pyeong}
                 onPyeongChange={setPyeong}
                 onOpenInquiryEdit={openInquiryEdit}
                 lookupRefreshKey={lookupRefreshKey}
+                operatingCompanyId={activeOperatingCompanyId}
                 onSaved={handleIntakeSaved}
                 initialFormDraft={initialFormDraft}
                 onFormChange={handleFormChange}

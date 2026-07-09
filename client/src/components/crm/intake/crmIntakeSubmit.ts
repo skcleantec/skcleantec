@@ -21,6 +21,7 @@ export type CrmIntakeFormValues = {
   customerName: string;
   nickname: string;
   phone: string;
+  phoneUnknown: boolean;
   preferredMoveInCleanYmd: string;
   address: string;
   roomCount: string;
@@ -57,34 +58,47 @@ export async function submitCrmIntake(
   token: string,
   values: CrmIntakeFormValues,
   pyeong: string,
-  opts?: { quotePayload?: TelecrmConsultationQuotePayload | null },
+  opts: {
+    operatingCompanyId: string;
+    quotePayload?: TelecrmConsultationQuotePayload | null;
+  },
 ): Promise<CrmIntakeSubmitResult> {
   const validationError = validateCrmIntakeForm(values, pyeong);
   if (validationError) throw new Error(validationError);
+
+  const operatingCompanyId = opts.operatingCompanyId?.trim();
+  if (!operatingCompanyId) throw new Error('작업 브랜드가 선택되지 않았습니다.');
 
   const n = resolveCrmIntakeCustomerName(values);
   const pmd = values.preferredMoveInCleanYmd.trim();
   const pmdBody = pmd ? { preferredMoveInCleaningDate: pmd } : {};
   const extras = inquiryExtras(pyeong, values.preferredMoveInCleanYmd, values);
+  const brandBody = { operatingCompanyId };
 
   if (values.kind === 'requested' || values.kind === 'absent' || values.kind === 'hold') {
     const status: OrderFollowupStatus =
       values.kind === 'requested' ? 'REQUESTED' : values.kind === 'absent' ? 'ABSENT' : 'ON_HOLD';
-    const quotePayload = opts?.quotePayload;
+    const quotePayload = opts.quotePayload;
     if (
       (values.kind === 'absent' || values.kind === 'hold') &&
       quotePayload &&
-      telecrmQuotePayloadHasContent(quotePayload)
+      telecrmQuotePayloadHasContent(quotePayload) &&
+      !values.phoneUnknown &&
+      values.phone.trim().replace(/\D/g, '').length >= 4
     ) {
-      await finalizeTelecrmConsultationQuote(token, {
-        phone: values.phone.trim(),
-        payload: quotePayload,
-        customerName: n,
-        nickname: values.nickname.trim() || null,
-        goldDb: values.goldDb,
-        ...(pmd ? { preferredMoveInCleaningDate: pmd } : {}),
-        followupStatus: status as 'ABSENT' | 'ON_HOLD',
-      });
+      await finalizeTelecrmConsultationQuote(
+        token,
+        {
+          phone: values.phone.trim(),
+          payload: quotePayload,
+          customerName: n,
+          nickname: values.nickname.trim() || null,
+          goldDb: values.goldDb,
+          ...(pmd ? { preferredMoveInCleaningDate: pmd } : {}),
+          followupStatus: status as 'ABSENT' | 'ON_HOLD',
+        },
+        operatingCompanyId,
+      );
       return { kind: 'followup' };
     }
     await createOrderFollowup(token, {
@@ -95,6 +109,7 @@ export async function submitCrmIntake(
       memo: null,
       goldDb: values.goldDb,
       ...pmdBody,
+      ...brandBody,
     });
     return { kind: 'followup' };
   }
@@ -110,6 +125,7 @@ export async function submitCrmIntake(
       source: '전화',
       status: 'RECEIVED',
       ...extras,
+      ...brandBody,
     })) as { id: string };
     return { kind: 'inquiry', inquiryId: created.id, status: 'RECEIVED' };
   }
@@ -121,10 +137,11 @@ export async function submitCrmIntake(
     customerPhone: values.phone.trim() || '',
     address: values.address.trim() || '',
     addressDetail: null,
-      memo: null,
-      source: '전화',
+    memo: null,
+    source: '전화',
     status: inqSt,
     ...extras,
+    ...brandBody,
   })) as { id: string };
   const fuSt: OrderFollowupStatus = values.kind === 'deposit' ? 'DEPOSIT_PENDING' : 'RESERVED';
   await createOrderFollowup(token, {
@@ -136,6 +153,7 @@ export async function submitCrmIntake(
     goldDb: values.goldDb,
     inquiryId: created.id,
     ...pmdBody,
+    ...brandBody,
   });
   return { kind: 'inquiry', inquiryId: created.id, status: inqSt };
 }

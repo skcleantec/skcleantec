@@ -22,7 +22,6 @@ class TelecrmDispatchExecutor(
     private val apiClient: ApiClient,
 ) {
     fun execute(payload: TelecrmDispatchPayload) {
-        if (!TelecrmDispatchDeduper.shouldRun(payload.id)) return
         when (payload.action) {
             "sms" -> showSmsDialog(payload)
             "prefill", "call" -> executeCall(payload)
@@ -52,15 +51,12 @@ class TelecrmDispatchExecutor(
     }
 
     private fun applyPrefillToDial(phone: String, inquiryId: String?, customerMatch: String?) {
+        AppEventBus.emitDialPrefill(phone, inquiryId, customerMatch)
         val dial = (activity.supportFragmentManager.findFragmentByTag("f0") as? DialFragment)
             ?: activity.supportFragmentManager.fragments
                 .filterIsInstance<DialFragment>()
                 .firstOrNull { it.isAdded }
-        if (dial != null) {
-            dial.applyPrefill(phone, inquiryId, customerMatch)
-        } else {
-            AppEventBus.emitDialPrefill(phone, inquiryId, customerMatch)
-        }
+        dial?.applyPrefill(phone, inquiryId, customerMatch)
     }
 
     private fun showSmsDialog(payload: TelecrmDispatchPayload) {

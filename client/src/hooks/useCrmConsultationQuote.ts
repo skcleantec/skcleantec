@@ -18,6 +18,7 @@ export function useCrmConsultationQuote({
   minimumTotalAmount,
   quoteLines,
   hasLocalContent,
+  operatingCompanyId,
   enabled = true,
 }: {
   phone: string;
@@ -26,6 +27,7 @@ export function useCrmConsultationQuote({
   minimumTotalAmount: number;
   quoteLines: CrmPricingQuoteLine[];
   hasLocalContent: boolean;
+  operatingCompanyId?: string | null;
   enabled?: boolean;
 }) {
   const [pendingQuote, setPendingQuote] = useState<TelecrmConsultationQuoteDto | null>(null);
@@ -48,23 +50,26 @@ export function useCrmConsultationQuote({
     [minimumTotalAmount, pricePerPyeong, pyeong, quoteLines],
   );
 
-  const loadForPhone = useCallback(async (phoneDigits: string) => {
-    const token = getToken();
-    if (!token || phoneDigits.length < 4) {
-      setPendingQuote(null);
-      return;
-    }
-    try {
-      const res = await fetchTelecrmConsultationQuotes(token, phoneDigits);
-      const candidate = res.draft ?? res.latestQuoted;
-      setPendingQuote(candidate && !hasLocalContent ? candidate : null);
-    } catch {
-      setPendingQuote(null);
-    }
-  }, [hasLocalContent]);
+  const loadForPhone = useCallback(
+    async (phoneDigits: string) => {
+      const token = getToken();
+      if (!token || !operatingCompanyId || phoneDigits.length < 4) {
+        setPendingQuote(null);
+        return;
+      }
+      try {
+        const res = await fetchTelecrmConsultationQuotes(token, phoneDigits, operatingCompanyId);
+        const candidate = res.draft ?? res.latestQuoted;
+        setPendingQuote(candidate && !hasLocalContent ? candidate : null);
+      } catch {
+        setPendingQuote(null);
+      }
+    },
+    [hasLocalContent, operatingCompanyId],
+  );
 
   useEffect(() => {
-    if (!enabled || digits.length < 4) {
+    if (!enabled || !operatingCompanyId || digits.length < 4) {
       setPendingQuote(null);
       return;
     }
@@ -73,10 +78,10 @@ export function useCrmConsultationQuote({
       return;
     }
     void loadForPhone(digits);
-  }, [digits, enabled, hasLocalContent, loadForPhone]);
+  }, [digits, enabled, hasLocalContent, loadForPhone, operatingCompanyId]);
 
   useEffect(() => {
-    if (!enabled || digits.length < 4) return;
+    if (!enabled || !operatingCompanyId || digits.length < 4) return;
     const payload = buildPayload();
     if (!telecrmQuotePayloadHasContent(payload)) return;
     if (skipSaveRef.current) {
@@ -90,13 +95,13 @@ export function useCrmConsultationQuote({
     const t = window.setTimeout(() => {
       setSaving(true);
       setSaveError(null);
-      void upsertTelecrmConsultationQuoteDraft(token, { phone: digits, payload })
+      void upsertTelecrmConsultationQuoteDraft(token, { phone: digits, payload }, operatingCompanyId)
         .catch((e) => setSaveError(e instanceof Error ? e.message : '견적 저장 실패'))
         .finally(() => setSaving(false));
     }, 2000);
 
     return () => window.clearTimeout(t);
-  }, [buildPayload, digits, enabled]);
+  }, [buildPayload, digits, enabled, operatingCompanyId]);
 
   const dismissPendingQuote = useCallback(() => {
     setPendingQuote(null);
@@ -104,11 +109,11 @@ export function useCrmConsultationQuote({
 
   const startFreshQuote = useCallback(async () => {
     const token = getToken();
-    if (!token || digits.length < 4) return;
+    if (!token || !operatingCompanyId || digits.length < 4) return;
     skipSaveRef.current = true;
-    await supersedeTelecrmConsultationQuotes(token, digits);
+    await supersedeTelecrmConsultationQuotes(token, digits, operatingCompanyId);
     setPendingQuote(null);
-  }, [digits]);
+  }, [digits, operatingCompanyId]);
 
   const finalizeQuoteHold = useCallback(
     async (
@@ -116,6 +121,7 @@ export function useCrmConsultationQuote({
     ): Promise<{ followupId: string; followupCreated: boolean }> => {
       const token = getToken();
       if (!token) throw new Error('로그인이 필요합니다.');
+      if (!operatingCompanyId) throw new Error('작업 브랜드가 선택되지 않았습니다.');
       if (digits.length < 4) throw new Error('연락처(4자 이상)가 필요합니다.');
       const payload = buildPayload();
       if (!telecrmQuotePayloadHasContent(payload)) {
@@ -125,11 +131,15 @@ export function useCrmConsultationQuote({
       setFinalizing(true);
       setFinalizeError(null);
       try {
-        const result = await finalizeTelecrmConsultationQuote(token, {
-          phone: digits,
-          payload,
-          ...input,
-        });
+        const result = await finalizeTelecrmConsultationQuote(
+          token,
+          {
+            phone: digits,
+            payload,
+            ...input,
+          },
+          operatingCompanyId,
+        );
         setPendingQuote(null);
         return { followupId: result.followupId, followupCreated: result.followupCreated };
       } catch (e) {
@@ -140,7 +150,7 @@ export function useCrmConsultationQuote({
         setFinalizing(false);
       }
     },
-    [buildPayload, digits],
+    [buildPayload, digits, operatingCompanyId],
   );
 
   return {

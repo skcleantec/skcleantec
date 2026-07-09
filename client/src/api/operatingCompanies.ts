@@ -19,6 +19,14 @@ export type OperatingCompanyConfig = {
   orderForm?: { publicSubtitle?: string };
   inquiry?: { numberPrefix?: string };
   companyRegistration?: Partial<TenantCompanyRegistration>;
+  soomgo?: {
+    email?: string;
+    enabled?: boolean;
+    hasPassword?: boolean;
+    configured?: boolean;
+    /** 저장 요청 시에만 — 서버에서 암호화 */
+    password?: string;
+  };
 };
 
 export type OperatingCompanyItem = {
@@ -64,6 +72,7 @@ export async function createOperatingCompany(
     slug: string;
     config?: OperatingCompanyConfig;
     sortOrder?: number;
+    actorPassword?: string;
   },
 ): Promise<OperatingCompanyItem> {
   const res = await fetch(`${API}/operating-companies`, {
@@ -88,6 +97,7 @@ export async function updateOperatingCompany(
     isDefault?: boolean;
     sortOrder?: number;
     config?: OperatingCompanyConfig;
+    actorPassword?: string;
   },
 ): Promise<OperatingCompanyItem> {
   const res = await fetch(`${API}/operating-companies/${encodeURIComponent(id)}`, {
@@ -125,4 +135,47 @@ export async function updateOperatingCompanyPolicy(
     throw new Error((err as { error?: string }).error || '운영 정책 저장에 실패했습니다.');
   }
   return res.json();
+}
+
+export type MyOperatingCompanyItem = {
+  operatingCompanyId: string;
+  name: string;
+  slug: string;
+  displayName: string;
+  isPrimary: boolean;
+  isActive: boolean;
+  isDefault?: boolean;
+  config?: OperatingCompanyConfig;
+};
+
+export async function fetchMyOperatingCompanies(
+  token: string,
+): Promise<{ items: MyOperatingCompanyItem[]; isAdmin: boolean }> {
+  const res = await fetch(`${API}/operating-companies/my`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '소속 브랜드 목록을 불러올 수 없습니다.');
+  }
+  const data = (await res.json()) as {
+    items: Array<
+      OperatingCompanyItem & {
+        operatingCompanyId?: string;
+        isPrimary?: boolean;
+      }
+    >;
+    isAdmin: boolean;
+  };
+  return {
+    isAdmin: data.isAdmin,
+    items: data.items.map((row) => ({
+      operatingCompanyId: row.operatingCompanyId ?? row.id,
+      name: row.name,
+      slug: row.slug,
+      displayName: row.displayName ?? row.name,
+      isPrimary: row.isPrimary ?? row.isDefault ?? false,
+      isActive: row.isActive,
+      isDefault: row.isDefault,
+      config: row.config,
+    })),
+  };
 }

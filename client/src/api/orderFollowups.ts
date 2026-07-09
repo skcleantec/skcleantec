@@ -144,6 +144,7 @@ export async function createOrderFollowup(
     preferredMoveInCleaningDate?: string | null;
     goldDb?: boolean;
     inquiryId?: string;
+    operatingCompanyId?: string;
   }
 ): Promise<{ item: OrderFollowupItem }> {
   const res = await fetch(`${API}/order-followups`, {

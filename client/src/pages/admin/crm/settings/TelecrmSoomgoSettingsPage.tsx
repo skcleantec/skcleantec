@@ -130,6 +130,11 @@ export function TelecrmSoomgoSettingsPage({
                   텔레CRM 작업 화면 <strong>설정 → 숨고 연동</strong>에서 저장합니다.
                   「숨고 보조창」 열기 시 이 계정으로 자동 로그인됩니다.
                 </p>
+                <p className="text-fluid-sm text-sky-900/90 rounded-lg border border-sky-100 bg-sky-50/80 px-3 py-2">
+                  영업 브랜드마다 다른 숨고 계정을 쓰려면{' '}
+                  <strong>관리자 → 영업 브랜드</strong>에서 브랜드별 숨고 설정을 입력하세요. 작업 브랜드에
+                  설정이 있으면 아래 공통 계정보다 우선합니다.
+                </p>
                 <label className="block space-y-1">
                   <span className="text-fluid-sm font-medium text-gray-700">숨고 이메일</span>
                   <input
