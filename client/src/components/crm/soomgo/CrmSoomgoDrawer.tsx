@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SoomgoBridgeStatus } from '@shared/soomgoBridge';
+import type { SoomgoMessagePresetDto, SoomgoMessageStep } from '@shared/soomgoMessagePresets';
 import { CrmSlideDrawer } from '../layout/CrmSlideDrawer';
-import { CrmActionButton } from '../crmUi';
 import { getToken } from '../../../stores/auth';
 import {
   isSoomgoBridgeSequenceSupported,
@@ -9,10 +9,64 @@ import {
   sendSoomgoBridgeSequence,
   SOOMGO_BRIDGE_SEQUENCE_OUTDATED_MESSAGE,
 } from '../../../api/soomgoBridge';
-import {
-  fetchTelecrmSoomgoMessagePresets,
-  type SoomgoMessagePresetDto,
-} from '../../../api/telecrmSoomgoMessagePresets';
+import { fetchTelecrmSoomgoMessagePresets } from '../../../api/telecrmSoomgoMessagePresets';
+
+function presetStepCount(steps: SoomgoMessageStep[]): { texts: number; images: number } {
+  let texts = 0;
+  let images = 0;
+  for (const s of steps) {
+    if (s.type === 'text') texts += 1;
+    else images += s.urls.length;
+  }
+  return { texts, images };
+}
+
+function PresetPreview({ steps }: { steps: SoomgoMessageStep[] }) {
+  if (steps.length === 0) {
+    return <span className="text-[10px] text-slate-400">내용 없음</span>;
+  }
+
+  const firstText = steps.find((s) => s.type === 'text');
+  const imageSteps = steps.filter((s) => s.type === 'images');
+  const thumbUrls = imageSteps.flatMap((s) => s.urls).slice(0, 3);
+  const totalImages = imageSteps.reduce((n, s) => n + s.urls.length, 0);
+  const { texts, images } = presetStepCount(steps);
+
+  return (
+    <div className="min-w-0 space-y-1">
+      {firstText ? (
+        <p className="line-clamp-2 text-[10px] leading-snug text-slate-600" title={firstText.text}>
+          {firstText.text}
+        </p>
+      ) : (
+        <p className="text-[10px] text-slate-400">텍스트 없음</p>
+      )}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {thumbUrls.length > 0 ? (
+          <div className="flex items-center gap-0.5">
+            {thumbUrls.map((url) => (
+              <img
+                key={url}
+                src={url}
+                alt=""
+                className="h-6 w-6 shrink-0 rounded border border-slate-200 object-cover"
+              />
+            ))}
+            {totalImages > thumbUrls.length ? (
+              <span className="text-[9px] tabular-nums text-slate-400">+{totalImages - thumbUrls.length}</span>
+            ) : null}
+          </div>
+        ) : null}
+        <span className="text-[9px] tabular-nums text-slate-400">
+          {texts > 0 ? `문구 ${texts}` : null}
+          {texts > 0 && images > 0 ? ' · ' : null}
+          {images > 0 ? `이미지 ${images}` : null}
+          {steps.length > 1 ? ` · ${steps.length}단계` : null}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function CrmSoomgoDrawer({
   open,
@@ -33,11 +87,13 @@ export function CrmSoomgoDrawer({
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [presetBusyId, setPresetBusyId] = useState<string | null>(null);
+  const [hoverPresetId, setHoverPresetId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [presets, setPresets] = useState<SoomgoMessagePresetDto[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(false);
 
   const sequenceSupported = isSoomgoBridgeSequenceSupported(bridgeStatus);
+  const sendDisabled = busy || sending || presetBusyId != null;
 
   const activePresets = useMemo(
     () =>
@@ -116,85 +172,128 @@ export function CrmSoomgoDrawer({
       onClose={onClose}
       title="숨고 메시지"
       subtitle="Chrome 숨고 채팅방에 전송합니다."
-      widthClass="w-[min(420px,94vw)]"
+      widthClass="w-[min(500px,94vw)]"
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <p className="text-fluid-xs text-gray-500">
-          숨고 Chrome 창에서 채팅방을 연 상태에서 보내 주세요. 프리셋은 본인 계정에 저장한 항목만 표시됩니다.
-        </p>
-
-        {presetsLoading ? (
-          <p className="text-fluid-xs text-gray-400">프리셋 불러오는 중…</p>
-        ) : activePresets.length > 0 ? (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-fluid-xs font-medium text-gray-700">내 프리셋</p>
-              {onOpenPresetSettings ? (
-                <button
-                  type="button"
-                  onClick={onOpenPresetSettings}
-                  className="text-fluid-xs font-medium text-sky-700 hover:text-sky-900 hover:underline"
-                >
-                  프리셋 편집
-                </button>
-              ) : null}
-            </div>
-            <div className="grid gap-2">
-              {activePresets.map((preset) => (
-                <CrmActionButton
-                  key={preset.id}
-                  accent="soomgo"
-                  variant="soft"
-                  disabled={busy || sending || presetBusyId != null}
-                  onClick={() => void handlePreset(preset)}
-                >
-                  {presetBusyId === preset.id ? `「${preset.label}」 전송 중…` : preset.label}
-                </CrmActionButton>
-              ))}
-            </div>
-            {!sequenceSupported ? (
-              <p className="text-fluid-xs text-amber-700">
-                프리셋(이미지·순차 전송)은 숨고 연동 v2.1.0 이상이 필요합니다. 아래 직접 입력은 사용할 수 있습니다.
-              </p>
-            ) : null}
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        {/* 직접 입력 — 최상단 */}
+        <section className="shrink-0 rounded-2xl border border-sky-200/90 bg-gradient-to-b from-sky-50/80 to-white p-3 shadow-sm">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold text-sky-950">직접 보내기</p>
+            <span className="text-[10px] text-sky-700/80">채팅방 연결 후 전송</span>
           </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-sky-200 bg-sky-50/50 px-3 py-3 text-fluid-xs text-gray-600">
-            <p>저장된 프리셋이 없습니다.</p>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={4}
+            placeholder="채팅방에 보낼 내용을 입력하세요"
+            className="min-h-[88px] w-full resize-y rounded-xl border border-sky-200/80 bg-white px-3 py-2 text-fluid-sm text-slate-800 shadow-inner placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200/60"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && message.trim()) {
+                e.preventDefault();
+                void handleSend();
+              }
+            }}
+          />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-[10px] text-slate-400">Ctrl+Enter로 전송</span>
+            <button
+              type="button"
+              disabled={sendDisabled || !message.trim()}
+              onClick={() => void handleSend()}
+              className="rounded-lg bg-sky-600 px-4 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-40"
+            >
+              {sending ? '전송 중…' : '메시지 보내기'}
+            </button>
+          </div>
+        </section>
+
+        {error ? (
+          <p className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] text-rose-700">
+            {error}
+          </p>
+        ) : null}
+
+        {/* 프리셋 */}
+        <section className="min-h-0 flex-1 space-y-2">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-800">내 프리셋</p>
+              <p className="text-[10px] text-slate-500">버튼 클릭 시 문구·이미지 순서대로 전송</p>
+            </div>
             {onOpenPresetSettings ? (
               <button
                 type="button"
                 onClick={onOpenPresetSettings}
-                className="mt-2 rounded-lg bg-slate-900 px-3 py-1.5 font-semibold text-white hover:bg-slate-800"
+                className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50"
               >
-                프리셋 설정
+                편집
               </button>
-            ) : (
-              <p className="mt-1 text-gray-500">텔레CRM 상단 설정 → 숨고 프리셋에서 추가해 주세요.</p>
-            )}
+            ) : null}
           </div>
-        )}
 
-        <div className="border-t border-gray-100 pt-3">
-          <p className="mb-2 text-fluid-xs font-medium text-gray-700">직접 입력</p>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={6}
-            placeholder="채팅방에 보낼 내용"
-            className="min-h-[120px] w-full resize-y rounded-xl border border-sky-200 bg-white px-3 py-2 text-fluid-sm"
-          />
-        </div>
+          {presetsLoading ? (
+            <p className="py-4 text-center text-[11px] text-slate-400">프리셋 불러오는 중…</p>
+          ) : activePresets.length > 0 ? (
+            <ul className="max-h-[min(52vh,420px)] space-y-1.5 overflow-y-auto overscroll-contain pr-0.5">
+              {activePresets.map((preset) => {
+                const isBusy = presetBusyId === preset.id;
+                const isHover = hoverPresetId === preset.id;
+                return (
+                  <li
+                    key={preset.id}
+                    className={[
+                      'flex items-stretch gap-2 rounded-xl border p-1.5 transition-colors',
+                      isHover || isBusy
+                        ? 'border-sky-300 bg-sky-50/60 shadow-sm'
+                        : 'border-slate-200/90 bg-slate-50/40 hover:border-slate-300 hover:bg-white',
+                    ].join(' ')}
+                    onMouseEnter={() => setHoverPresetId(preset.id)}
+                    onMouseLeave={() => setHoverPresetId(null)}
+                  >
+                    <button
+                      type="button"
+                      disabled={sendDisabled}
+                      onClick={() => void handlePreset(preset)}
+                      className={[
+                        'flex w-[72px] shrink-0 flex-col items-center justify-center rounded-lg px-1 py-2 text-center transition',
+                        'border border-sky-200/90 bg-white text-[10px] font-semibold leading-tight text-sky-900',
+                        'hover:border-sky-400 hover:bg-sky-50 disabled:opacity-40',
+                        isBusy ? 'animate-pulse border-sky-400 bg-sky-100' : '',
+                      ].join(' ')}
+                      title={preset.label}
+                    >
+                      <span className="line-clamp-3 break-all">{isBusy ? '전송…' : preset.label}</span>
+                    </button>
+                    <div className="min-w-0 flex-1 rounded-lg border border-slate-100 bg-white px-2 py-1.5">
+                      <PresetPreview steps={preset.steps} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3 py-4 text-center">
+              <p className="text-[11px] text-slate-600">저장된 프리셋이 없습니다.</p>
+              {onOpenPresetSettings ? (
+                <button
+                  type="button"
+                  onClick={onOpenPresetSettings}
+                  className="mt-2 rounded-lg bg-slate-800 px-3 py-1.5 text-[10px] font-semibold text-white hover:bg-slate-700"
+                >
+                  프리셋 추가
+                </button>
+              ) : (
+                <p className="mt-1 text-[10px] text-slate-500">설정 → 숨고 프리셋에서 추가해 주세요.</p>
+              )}
+            </div>
+          )}
 
-        {error ? <p className="text-fluid-xs text-rose-600">{error}</p> : null}
-        <CrmActionButton
-          accent="soomgo"
-          variant="solid"
-          disabled={busy || sending || presetBusyId != null || !message.trim()}
-          onClick={() => void handleSend()}
-        >
-          {sending ? '전송 중…' : '메시지 보내기'}
-        </CrmActionButton>
+          {!sequenceSupported && activePresets.length > 0 ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] text-amber-900">
+              프리셋(이미지·순차 전송)은 숨고 연동 v2.1.0 이상이 필요합니다. 위 「직접 보내기」는 사용할 수 있습니다.
+            </p>
+          ) : null}
+        </section>
       </div>
     </CrmSlideDrawer>
   );
