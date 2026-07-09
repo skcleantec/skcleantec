@@ -143,3 +143,15 @@ def iter_manifest_urls() -> list[str]:
 def manifest_url() -> str:
     urls = iter_manifest_urls()
     return urls[0] if urls else MANIFEST_URL_CANDIDATES[0]
+
+
+def bridge_python_env(extra: dict[str, str] | None = None) -> dict[str, str]:
+    """embed Python 서브프로세스용 — 앱 루트(desktop·automation)를 PYTHONPATH에 포함."""
+    env = os.environ.copy()
+    root = str(BRIDGE_DIR)
+    existing = env.get('PYTHONPATH', '').strip()
+    env['PYTHONPATH'] = root if not existing else f'{root}{os.pathsep}{existing}'
+    env.setdefault('PYTHONUNBUFFERED', '1')
+    if extra:
+        env.update(extra)
+    return env

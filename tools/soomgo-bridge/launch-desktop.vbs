@@ -13,5 +13,6 @@ Else
   Else
     pyw = "pythonw"
   End If
-  sh.Run pyw & " -m desktop.tray_app", 0, False
+  sh.Environment("Process")("PYTHONPATH") = appDir
+  sh.Run "cmd /c cd /d """ & appDir & """ && set PYTHONPATH=""" & appDir & """ && " & pyw & " -u -m desktop.tray_app", 0, False
 End If

@@ -21,6 +21,7 @@ from desktop.config import (
     BRIDGE_DIR,
     BRIDGE_REQUEST_UPDATE_URL,
     BRIDGE_STATUS_URL,
+    bridge_python_env,
     ensure_app_data,
     resolve_restart_flag_path,
     resolve_update_flag_path,
@@ -250,10 +251,12 @@ class TrayApp:
         if self._bridge_proc and self._bridge_proc.poll() is None:
             return
         py = _python_exe()
-        env = os.environ.copy()
-        env['SOOMGO_DESKTOP_RUNNING'] = '1'
-        env['SOOMGO_APP_VERSION'] = APP_VERSION
-        env['PYTHONUNBUFFERED'] = '1'
+        env = bridge_python_env(
+            {
+                'SOOMGO_DESKTOP_RUNNING': '1',
+                'SOOMGO_APP_VERSION': APP_VERSION,
+            }
+        )
         server_py = BRIDGE_DIR / 'server.py'
         self._log(f'브릿지 Python: {py}')
         _append_launch_log(f'start bridge python={py}')
