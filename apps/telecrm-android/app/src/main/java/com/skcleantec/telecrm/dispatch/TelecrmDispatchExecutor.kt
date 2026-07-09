@@ -33,15 +33,19 @@ class TelecrmDispatchExecutor(
         if (digits.length < 4) return
         binding.viewPager.currentItem = 0
         binding.bottomNav.selectedItemId = R.id.nav_dial
-        AppEventBus.emitDialPrefill(digits, payload.inquiryId, payload.customerMatch)
-        Snackbar.make(binding.root, digits, Snackbar.LENGTH_SHORT).show()
-        if (payload.action == "prefill") return
-        val token = tokenStore.getToken() ?: return
-        TelecrmCallHelper.placeCall(activity, digits)
-        TelecrmCallHelper.logOutboundCall(
-            activity, apiClient, token, digits, payload.inquiryId,
-            payload.customerMatch?.takeIf { it.isNotBlank() } ?: "unknown",
-        )
+        binding.root.post {
+            AppEventBus.emitDialPrefill(digits, payload.inquiryId, payload.customerMatch)
+            Snackbar.make(binding.root, digits, Snackbar.LENGTH_SHORT).show()
+            if (payload.action == "prefill") return@post
+            binding.root.postDelayed({
+                val token = tokenStore.getToken() ?: return@postDelayed
+                TelecrmCallHelper.placeCall(activity, digits)
+                TelecrmCallHelper.logOutboundCall(
+                    activity, apiClient, token, digits, payload.inquiryId,
+                    payload.customerMatch?.takeIf { it.isNotBlank() } ?: "unknown",
+                )
+            }, 150)
+        }
     }
 
     private fun showSmsDialog(payload: TelecrmDispatchPayload) {

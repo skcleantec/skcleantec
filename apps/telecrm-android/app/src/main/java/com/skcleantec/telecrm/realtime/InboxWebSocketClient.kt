@@ -45,7 +45,7 @@ class InboxWebSocketClient {
         val wsBase = BuildConfig.API_BASE_URL
             .replace("https://", "wss://")
             .replace("http://", "ws://")
-        val request = Request.Builder().url("$wsBase/ws?token=$encoded").build()
+        val request = Request.Builder().url("$wsBase/ws?token=$encoded&client=telecrm-app").build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 mainHandler.post { AppEventBus.emitConnection(true) }

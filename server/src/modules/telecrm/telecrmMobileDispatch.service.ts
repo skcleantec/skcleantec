@@ -1,4 +1,4 @@
-import { sendJsonToUser } from '../realtime/realtimeHub.js';
+import { sendJsonToTelecrmApp } from '../realtime/realtimeHub.js';
 
 export type TelecrmMobileDispatchAction = 'call' | 'sms' | 'prefill';
 
@@ -77,9 +77,7 @@ export function enqueueTelecrmMobileDispatch(
     createdAt: new Date().toISOString(),
   };
   const key = queueKey(tenantId, userId);
-  const next = pruneQueue([...(queues.get(key) ?? []), item]);
-  queues.set(key, next);
-  const wsDelivered = sendJsonToUser(
+  const wsDelivered = sendJsonToTelecrmApp(
     userId,
     {
       type: 'telecrm:dispatch',
@@ -93,6 +91,10 @@ export function enqueueTelecrmMobileDispatch(
     },
     tenantId,
   );
+  if (!wsDelivered) {
+    const next = pruneQueue([...(queues.get(key) ?? []), item]);
+    queues.set(key, next);
+  }
   return { item, wsDelivered };
 }
 

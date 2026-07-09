@@ -1,7 +1,14 @@
 import { WebSocket } from 'ws';
 
+export type RealtimeClientPlatform = 'web' | 'telecrm-app';
+
+type RegisteredSocket = {
+  ws: WebSocket;
+  platform: RealtimeClientPlatform;
+};
+
 /** `${tenantId}:${userId}` 또는 크루 `crew:${groupId}` → open WebSocket tabs */
-const socketsByUser = new Map<string, Set<WebSocket>>();
+const socketsByUser = new Map<string, Set<RegisteredSocket>>();
 /** tenantId → ADMIN·MARKETER tabs (테넌트별 staff broadcast) */
 const staffBroadcastByTenant = new Map<string, Set<WebSocket>>();
 
@@ -16,19 +23,25 @@ export function userSocketKey(userId: string, tenantId?: string): string {
   return userId;
 }
 
-export function registerUserSocket(
-  userId: string,
-  role: string,
-  ws: WebSocket,
-  tenantId?: string,
-): void {
-  const key = userSocketKey(userId, tenantId);
+function addSocketToUser(key: string, entry: RegisteredSocket): void {
   let set = socketsByUser.get(key);
   if (!set) {
     set = new Set();
     socketsByUser.set(key, set);
   }
-  set.add(ws);
+  set.add(entry);
+}
+
+export function registerUserSocket(
+  userId: string,
+  role: string,
+  ws: WebSocket,
+  tenantId?: string,
+  platform: RealtimeClientPlatform = 'web',
+): void {
+  const key = userSocketKey(userId, tenantId);
+  const entry: RegisteredSocket = { ws, platform };
+  addSocketToUser(key, entry);
   if (isStaffRole(role) && tenantId) {
     let staffSet = staffBroadcastByTenant.get(tenantId);
     if (!staffSet) {
@@ -38,7 +51,8 @@ export function registerUserSocket(
     staffSet.add(ws);
   }
   const onDone = () => {
-    set?.delete(ws);
+    const set = socketsByUser.get(key);
+    set?.delete(entry);
     if (tenantId) {
       const staffSet = staffBroadcastByTenant.get(tenantId);
       staffSet?.delete(ws);
@@ -68,16 +82,22 @@ export function broadcastJsonToStaff(data: object, tenantId: string): void {
   }
 }
 
-export function sendJsonToUser(userId: string, data: object, tenantId?: string): boolean {
+function sendJsonToMatchingSockets(
+  userId: string,
+  data: object,
+  tenantId: string | undefined,
+  platformFilter?: RealtimeClientPlatform,
+): boolean {
   const key = userSocketKey(userId, tenantId);
   const set = socketsByUser.get(key);
   if (!set || set.size === 0) return false;
   const payload = JSON.stringify(data);
   let delivered = false;
-  for (const ws of set) {
-    if (ws.readyState === WebSocket.OPEN) {
+  for (const entry of set) {
+    if (platformFilter && entry.platform !== platformFilter) continue;
+    if (entry.ws.readyState === WebSocket.OPEN) {
       try {
-        ws.send(payload);
+        entry.ws.send(payload);
         delivered = true;
       } catch {
         /* ignore */
@@ -85,4 +105,13 @@ export function sendJsonToUser(userId: string, data: object, tenantId?: string):
     }
   }
   return delivered;
+}
+
+export function sendJsonToUser(userId: string, data: object, tenantId?: string): boolean {
+  return sendJsonToMatchingSockets(userId, data, tenantId);
+}
+
+/** PC CRM → 텔레CRM Android 앱 전용 (브라우저 WS는 제외) */
+export function sendJsonToTelecrmApp(userId: string, data: object, tenantId?: string): boolean {
+  return sendJsonToMatchingSockets(userId, data, tenantId, 'telecrm-app');
 }
