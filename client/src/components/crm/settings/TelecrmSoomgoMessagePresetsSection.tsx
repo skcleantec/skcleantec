@@ -12,16 +12,23 @@ import {
 } from '../../../api/telecrmSoomgoMessagePresets';
 import { DeletePasswordModal, SettingsCard } from './DeletePasswordModal';
 import { crmFieldClass } from '../crmUi';
+import {
+  persistPresetSortOrder,
+  reorderPresetRows,
+  SoomgoPresetDragHandle,
+  usePresetDropTarget,
+} from '../soomgo/soomgoPresetReorder';
 
 type PresetDraft = {
   id: string | null;
   label: string;
   steps: SoomgoMessageStep[];
   isActive: boolean;
+  sortOrder: number;
 };
 
 function emptyDraft(): PresetDraft {
-  return { id: null, label: '', steps: [], isActive: true };
+  return { id: null, label: '', steps: [], isActive: true, sortOrder: 0 };
 }
 
 function stepSummary(step: SoomgoMessageStep): string {
@@ -220,6 +227,60 @@ function PresetEditor({
   );
 }
 
+function PresetOrderPanel({
+  drafts,
+  busy,
+  onReorder,
+}: {
+  drafts: PresetDraft[];
+  busy: boolean;
+  onReorder: (dragId: string, targetId: string) => void;
+}) {
+  const saved = drafts.filter((d): d is PresetDraft & { id: string } => d.id != null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const drop = usePresetDropTarget(onReorder, draggingId, setDraggingId);
+
+  if (saved.length < 2) return null;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-fluid-xs font-semibold text-slate-800">표시 순서</p>
+        <p className="text-[10px] text-slate-500">⋮⋮ 드래그하여 변경 · 상담 화면에 동일 순서로 표시</p>
+      </div>
+      <ul className="space-y-1">
+        {saved.map((draft, index) => {
+          const isTarget = draggingId === draft.id;
+          return (
+            <li
+              key={draft.id}
+              className={[
+                'flex items-center gap-2 rounded-lg border bg-white px-2 py-1.5 transition',
+                isTarget ? 'border-sky-400 ring-2 ring-sky-100' : 'border-slate-200',
+              ].join(' ')}
+              onDragOver={drop.onDragOver}
+              onDragEnter={(e) => drop.onDragEnter(e, draft.id)}
+              onDrop={(e) => drop.onDrop(e, draft.id)}
+            >
+              <SoomgoPresetDragHandle
+                presetId={draft.id}
+                label={draft.label || `프리셋 ${index + 1}`}
+                disabled={busy}
+                onDragStart={() => setDraggingId(draft.id)}
+                onDragEnd={drop.onDragEnd}
+              />
+              <span className="min-w-0 flex-1 truncate text-fluid-xs font-medium text-slate-800">
+                {draft.label.trim() || `프리셋 ${index + 1}`}
+              </span>
+              <span className="shrink-0 text-[10px] tabular-nums text-slate-400">{index + 1}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export function TelecrmSoomgoMessagePresetsSection({
   catalogScope = 'personal',
 }: {
@@ -235,6 +296,7 @@ export function TelecrmSoomgoMessagePresetsSection({
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [draggingOrder, setDraggingOrder] = useState(false);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -243,12 +305,15 @@ export function TelecrmSoomgoMessagePresetsSection({
     try {
       const res = await fetchTelecrmSoomgoMessagePresets(token, { scope: catalogScope, includeInactive: true });
       setDrafts(
-        res.presets.map((preset) => ({
-          id: preset.id,
-          label: preset.label,
-          steps: preset.steps,
-          isActive: preset.isActive,
-        })),
+        res.presets
+          .map((preset) => ({
+            id: preset.id,
+            label: preset.label,
+            steps: preset.steps,
+            isActive: preset.isActive,
+            sortOrder: preset.sortOrder,
+          }))
+          .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, 'ko')),
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
@@ -285,6 +350,34 @@ export function TelecrmSoomgoMessagePresetsSection({
       setError(e instanceof Error ? e.message : '이미지 업로드 실패');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleReorderPresets = async (dragId: string, targetId: string) => {
+    if (!token) return;
+    const saved = drafts.filter((d): d is PresetDraft & { id: string } => d.id != null);
+    const nextSaved = reorderPresetRows(saved, dragId, targetId).map((d, i) => ({ ...d, sortOrder: i }));
+    const orderMap = new Map(nextSaved.map((d) => [d.id, d.sortOrder]));
+    setDrafts((prev) =>
+      [...prev]
+        .sort((a, b) => {
+          const ao = a.id ? (orderMap.get(a.id) ?? 999) : 1000;
+          const bo = b.id ? (orderMap.get(b.id) ?? 999) : 1000;
+          return ao - bo;
+        })
+        .map((d) => (d.id && orderMap.has(d.id) ? { ...d, sortOrder: orderMap.get(d.id)! } : d)),
+    );
+    setDraggingOrder(true);
+    setError(null);
+    try {
+      await persistPresetSortOrder(token, nextSaved);
+      setMsg('프리셋 순서를 저장했습니다.');
+      window.setTimeout(() => setMsg(null), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '순서 저장 실패');
+      await load();
+    } finally {
+      setDraggingOrder(false);
     }
   };
 
@@ -335,6 +428,10 @@ export function TelecrmSoomgoMessagePresetsSection({
       ) : null}
       {error ? <p className="text-fluid-sm text-red-600">{error}</p> : null}
       {loading ? <p className="text-fluid-sm text-gray-500">불러오는 중…</p> : null}
+
+      {!loading && drafts.length >= 2 ? (
+        <PresetOrderPanel drafts={drafts} busy={busy || draggingOrder} onReorder={(a, b) => void handleReorderPresets(a, b)} />
+      ) : null}
 
       {drafts.map((draft, index) => (
         <PresetEditor

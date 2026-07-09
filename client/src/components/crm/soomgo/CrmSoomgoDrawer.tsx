@@ -10,6 +10,12 @@ import {
   SOOMGO_BRIDGE_SEQUENCE_OUTDATED_MESSAGE,
 } from '../../../api/soomgoBridge';
 import { fetchTelecrmSoomgoMessagePresets } from '../../../api/telecrmSoomgoMessagePresets';
+import {
+  persistPresetSortOrder,
+  reorderPresetRows,
+  SoomgoPresetDragHandle,
+  usePresetDropTarget,
+} from './soomgoPresetReorder';
 
 function presetStepCount(steps: SoomgoMessageStep[]): { texts: number; images: number } {
   let texts = 0;
@@ -91,9 +97,11 @@ export function CrmSoomgoDrawer({
   const [error, setError] = useState<string | null>(null);
   const [presets, setPresets] = useState<SoomgoMessagePresetDto[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(false);
+  const [draggingPresetId, setDraggingPresetId] = useState<string | null>(null);
+  const [reorderBusy, setReorderBusy] = useState(false);
 
   const sequenceSupported = isSoomgoBridgeSequenceSupported(bridgeStatus);
-  const sendDisabled = busy || sending || presetBusyId != null;
+  const sendDisabled = busy || sending || presetBusyId != null || reorderBusy;
 
   const activePresets = useMemo(
     () =>
@@ -143,6 +151,37 @@ export function CrmSoomgoDrawer({
       setSending(false);
     }
   };
+
+  const handlePresetReorder = useCallback(
+    async (dragId: string, targetId: string) => {
+      if (!token) return;
+      const next = reorderPresetRows(activePresets, dragId, targetId);
+      const orderMap = new Map(next.map((p, i) => [p.id, i]));
+      setPresets((prev) =>
+        [...prev].sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999)),
+      );
+      setReorderBusy(true);
+      setError(null);
+      try {
+        await persistPresetSortOrder(token, next);
+        notify('프리셋 순서를 저장했습니다.');
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '순서 저장에 실패했습니다.';
+        setError(msg);
+        notify(msg);
+        await loadPresets();
+      } finally {
+        setReorderBusy(false);
+      }
+    },
+    [token, activePresets, notify, loadPresets],
+  );
+
+  const presetDrop = usePresetDropTarget(
+    (dragId, targetId) => void handlePresetReorder(dragId, targetId),
+    draggingPresetId,
+    setDraggingPresetId,
+  );
 
   const handlePreset = async (preset: SoomgoMessagePresetDto) => {
     if (!sequenceSupported) {
@@ -218,7 +257,9 @@ export function CrmSoomgoDrawer({
           <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
             <div>
               <p className="text-[11px] font-semibold text-slate-800">내 프리셋</p>
-              <p className="text-[10px] text-slate-500">버튼 클릭 시 문구·이미지 순서대로 전송</p>
+              <p className="text-[10px] text-slate-500">
+                버튼 클릭 시 전송 · ⋮⋮ 드래그로 순서 변경
+              </p>
             </div>
             {onOpenPresetSettings ? (
               <button
@@ -238,18 +279,31 @@ export function CrmSoomgoDrawer({
               {activePresets.map((preset) => {
                 const isBusy = presetBusyId === preset.id;
                 const isHover = hoverPresetId === preset.id;
+                const isDragTarget = draggingPresetId === preset.id;
                 return (
                   <li
                     key={preset.id}
                     className={[
-                      'flex items-stretch gap-2 rounded-xl border p-1.5 transition-colors',
-                      isHover || isBusy
-                        ? 'border-sky-300 bg-sky-50/60 shadow-sm'
-                        : 'border-slate-200/90 bg-slate-50/40 hover:border-slate-300 hover:bg-white',
+                      'flex items-stretch gap-1.5 rounded-xl border p-1.5 transition-colors',
+                      isDragTarget
+                        ? 'border-sky-400 bg-sky-50 ring-2 ring-sky-200'
+                        : isHover || isBusy
+                          ? 'border-sky-300 bg-sky-50/60 shadow-sm'
+                          : 'border-slate-200/90 bg-slate-50/40 hover:border-slate-300 hover:bg-white',
                     ].join(' ')}
                     onMouseEnter={() => setHoverPresetId(preset.id)}
                     onMouseLeave={() => setHoverPresetId(null)}
+                    onDragOver={presetDrop.onDragOver}
+                    onDragEnter={(e) => presetDrop.onDragEnter(e, preset.id)}
+                    onDrop={(e) => presetDrop.onDrop(e, preset.id)}
                   >
+                    <SoomgoPresetDragHandle
+                      presetId={preset.id}
+                      label={preset.label}
+                      disabled={sendDisabled}
+                      onDragStart={() => setDraggingPresetId(preset.id)}
+                      onDragEnd={presetDrop.onDragEnd}
+                    />
                     <button
                       type="button"
                       disabled={sendDisabled}
