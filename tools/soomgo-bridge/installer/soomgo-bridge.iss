@@ -2,7 +2,7 @@
 ; 빌드: scripts\build-installer.ps1 -Version 2.0.2
 
 #ifndef MyAppVersion
-#define MyAppVersion "2.1.4"
+#define MyAppVersion "2.1.5"
 #endif
 
 #define MyAppName "청소비서 숨고 연동"
@@ -43,7 +43,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: "
 Name: "{userstartup}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppLaunchScript}"""; WorkingDir: "{app}"; Tasks: startup
 
 [Run]
-Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppLaunchScript}"""; WorkingDir: "{app}"; Description: "청소비서 숨고 연동 실행"; Flags: nowait postinstall skipifsilent
+Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppLaunchScript}"""; WorkingDir: "{app}"; Description: "청소비서 숨고 연동 실행"; Flags: nowait postinstall
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"

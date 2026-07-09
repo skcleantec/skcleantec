@@ -337,7 +337,7 @@ class ChatRoomManager:
 
         # 고객 요청 모달 완전히 닫힌 뒤 전화 모달
         req_mgr.close_request_modal()
-        time.sleep(self.delay * 0.7)
+        time.sleep(self.delay * 0.45)
         dismiss_blocking_overlays(self.driver, self.delay * 0.35)
 
         call_mgr = CallModalManager(self.driver, self.delay)

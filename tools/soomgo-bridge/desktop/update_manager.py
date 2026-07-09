@@ -101,7 +101,7 @@ def perform_update(manifest: dict[str, Any]) -> tuple[bool, str]:
     lower = filename.lower()
     if lower.endswith('.exe'):
         if run_installer(dest):
-            return True, '설치 프로그램을 실행했습니다. 완료 후 앱이 다시 시작됩니다.'
+            return True, '업데이트 설치 중입니다. 잠시 후 프로그램이 자동으로 다시 시작됩니다.'
         return False, '설치 프로그램 실행에 실패했습니다.'
 
     if lower.endswith('.zip'):
@@ -110,6 +110,25 @@ def perform_update(manifest: dict[str, Any]) -> tuple[bool, str]:
         return False, 'ZIP 업데이트 적용에 실패했습니다.'
 
     return False, '지원하지 않는 배포 형식입니다 (.exe 또는 .zip).'
+
+
+def schedule_post_setup_restart(wait_sec: float = 14.0) -> bool:
+    """Setup.exe 무인 설치 후 트레이 앱을 다시 띄웁니다."""
+    helper = BRIDGE_DIR / 'desktop' / 'post_update_restart.py'
+    if not helper.is_file():
+        return False
+    flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+    try:
+        subprocess.Popen(
+            [sys.executable, str(helper)],
+            cwd=str(BRIDGE_DIR),
+            creationflags=flags,
+            close_fds=True,
+        )
+        return True
+    except OSError as e:
+        logger.error('post-update restart schedule failed: %s', e)
+        return False
 
 
 def restart_self() -> None:

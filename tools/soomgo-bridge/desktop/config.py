@@ -24,8 +24,10 @@ APP_DATA_DIR = _local_appdata() / _APP_BRAND_DIR / _APP_MODULE_DIR
 LEGACY_APP_DATA_DIR = _local_appdata() / _LEGACY_BRAND_DIR / _APP_MODULE_DIR
 CONFIG_PATH = APP_DATA_DIR / 'config.json'
 UPDATE_FLAG_PATH = APP_DATA_DIR / 'update.request'
+RESTART_FLAG_PATH = APP_DATA_DIR / 'restart.request'
 BRIDGE_STATUS_URL = 'http://127.0.0.1:17890/status'
 BRIDGE_REQUEST_UPDATE_URL = 'http://127.0.0.1:17890/request-update'
+BRIDGE_RESTART_URL = 'http://127.0.0.1:17890/restart-bridge'
 
 # Inno Setup DefaultDirName 과 동일
 INSTALL_DIR_NAME = rf'{{autopf}}\{_APP_BRAND_DIR}\{_APP_MODULE_DIR}'
@@ -61,6 +63,11 @@ def _migrate_legacy_app_data() -> None:
 def ensure_app_data() -> None:
     APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
     _migrate_legacy_app_data()
+
+
+def resolve_restart_flag_path() -> pathlib.Path:
+    ensure_app_data()
+    return RESTART_FLAG_PATH
 
 
 def resolve_update_flag_path() -> pathlib.Path:

@@ -329,7 +329,20 @@ export function CrmPage() {
     isPopup,
   });
 
-  const { openSoomgo, extract, callFromChat, busy: soomgoBusy, status: soomgoStatus, preview: soomgoPreview, bridgeUp: soomgoBridgeUp, error: soomgoError, refreshStatus: refreshSoomgoStatus } = soomgoBridge;
+  const {
+    openSoomgo,
+    extract,
+    callFromChat,
+    restartBridge,
+    busy: soomgoBusy,
+    busyAction: soomgoBusyAction,
+    busyLabel: soomgoBusyLabel,
+    status: soomgoStatus,
+    preview: soomgoPreview,
+    bridgeUp: soomgoBridgeUp,
+    error: soomgoError,
+    refreshStatus: refreshSoomgoStatus,
+  } = soomgoBridge;
 
   const handleToggleSoomgoBar = useCallback(() => {
     const next = !soomgoBarOpen;
@@ -558,9 +571,11 @@ export function CrmPage() {
                 preview={soomgoPreview}
                 bridgeUp={soomgoBridgeUp}
                 busy={soomgoBusy}
+                busyLabel={soomgoBusyLabel}
                 error={soomgoError}
                 onOpenSoomgo={() => void openSoomgo()}
                 onRefresh={() => void refreshSoomgoStatus()}
+                onRestartBridge={() => void restartBridge()}
                 onOpenSettings={
                   canOpenSettings
                     ? () => openSettings('soomgo', canPersonalCatalog ? 'personal' : 'shared')
@@ -664,6 +679,7 @@ export function CrmPage() {
                     label: '문자 발송',
                     icon: <CrmIconMessage />,
                     active: smsDrawerOpen,
+                    disabled: soomgoBusy,
                     onClick: () => setSmsDrawerOpen(true),
                   },
                   {
@@ -671,6 +687,8 @@ export function CrmPage() {
                     label: '정보 갖고오기',
                     icon: <CrmIconSoomgo />,
                     active: false,
+                    loading: soomgoBusyAction === 'extract',
+                    disabled: soomgoBusy && soomgoBusyAction !== 'extract',
                     onClick: () => void extract(),
                   },
                   {
@@ -678,6 +696,8 @@ export function CrmPage() {
                     label: '숨고 안심번호',
                     icon: <CrmIconPhone />,
                     active: false,
+                    loading: soomgoBusyAction === 'call',
+                    disabled: soomgoBusy && soomgoBusyAction !== 'call',
                     onClick: () => void callFromChat(),
                   },
                   {
@@ -685,6 +705,7 @@ export function CrmPage() {
                     label: '숨고 메시지',
                     icon: <CrmIconMessage />,
                     active: soomgoDrawerOpen,
+                    disabled: soomgoBusy,
                     onClick: () => setSoomgoDrawerOpen(true),
                   },
                 ]}

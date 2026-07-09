@@ -9,9 +9,11 @@ export function CrmSoomgoTopBar({
   preview,
   bridgeUp,
   busy,
+  busyLabel,
   error,
   onOpenSoomgo,
   onRefresh,
+  onRestartBridge,
   onOpenSettings,
   bridgeManifest,
   onRequestUpdate,
@@ -22,9 +24,11 @@ export function CrmSoomgoTopBar({
   preview: SoomgoExtractedChat | null;
   bridgeUp: boolean;
   busy: boolean;
+  busyLabel?: string | null;
   error: string | null;
   onOpenSoomgo: () => void;
   onRefresh: () => void;
+  onRestartBridge?: () => void;
   onOpenSettings?: () => void;
   bridgeManifest?: SoomgoBridgeManifest | null;
   onRequestUpdate?: () => void;
@@ -166,6 +170,16 @@ export function CrmSoomgoTopBar({
         )}
 
         <div className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5">
+          {onRestartBridge && bridgeUp && !outdated ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void onRestartBridge()}
+              className="rounded-lg border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-medium text-sky-800 hover:bg-sky-50 disabled:opacity-50"
+            >
+              재시작
+            </button>
+          ) : null}
           {onOpenSettings ? (
             <button
               type="button"
@@ -194,7 +208,13 @@ export function CrmSoomgoTopBar({
         </div>
       </div>
 
-      {pageHint && !error ? (
+      {busyLabel ? (
+        <p className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2 text-[11px] font-medium text-amber-900">
+          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" aria-hidden />
+          {busyLabel} Chrome 숨고 창을 건드리지 마세요.
+        </p>
+      ) : null}
+      {pageHint && !error && !busyLabel ? (
         <p className="border-t border-sky-100/80 bg-white/60 px-4 py-1.5 text-[11px] text-sky-800">{pageHint}</p>
       ) : null}
       {error ? (

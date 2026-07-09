@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SoomgoExtractedChat, SoomgoBridgeStatus, SoomgoBridgeManifest } from '@shared/soomgoBridge';
 import { getToken } from '../stores/auth';
 import { fetchTelecrmSoomgoCredentials } from '../api/telecrmSoomgo';
+import type { SoomgoBusyAction } from '../api/soomgoBridge';
 import {
   ackSoomgoPendingCall,
   arrangeSoomgoBridgeLayout,
@@ -13,9 +14,11 @@ import {
   loginSoomgoBridge,
   openSoomgoCallModal,
   openSoomgoChats,
+  requestSoomgoBridgeRestart,
   requestSoomgoBridgeUpdate,
   SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE,
   SOOMGO_BRIDGE_OUTDATED_MESSAGE,
+  SOOMGO_BUSY_LABELS,
   soomgoBridgeOutdatedMessage,
   startSoomgoBridge,
   watchSoomgoCallButton,
@@ -42,7 +45,7 @@ export function useCrmSoomgoBridge({
 }) {
   const [status, setStatus] = useState<SoomgoBridgeStatus | null>(null);
   const [preview, setPreview] = useState<SoomgoExtractedChat | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<SoomgoBusyAction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const previewRef = useRef(preview);
   previewRef.current = preview;
@@ -176,7 +179,7 @@ export function useCrmSoomgoBridge({
   }, [bridgeManifest, pollEnabled, refreshStatus, ensureCallWatch]);
 
   const openSoomgo = useCallback(async () => {
-    setBusy(true);
+    setBusyAction('open');
     setError(null);
     try {
       const current = await refreshStatus();
@@ -216,15 +219,15 @@ export function useCrmSoomgoBridge({
       notify(msg);
       return false;
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   }, [applySplitLayout, bridgeManifest, ensureCallWatch, isPopup, notify, refreshStatus]);
 
   const extract = useCallback(async () => {
-    setBusy(true);
+    setBusyAction('extract');
     setError(null);
     try {
-      notify('고객 요청 정보를 가져오는 중…');
+      notify('숨고에서 고객 정보를 가져오는 중입니다. Chrome 창을 건드리지 마세요.');
       const data = await extractSoomgoCurrentChat();
       setPreview(data);
       onImport(data);
@@ -241,15 +244,15 @@ export function useCrmSoomgoBridge({
       notify(msg);
       return null;
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   }, [notify, onImport, onImportNotice]);
 
   const callFromChat = useCallback(async () => {
-    setBusy(true);
+    setBusyAction('call');
     setError(null);
     try {
-      notify('숨고 채팅방 상단 전화 아이콘을 눌러 모달을 여는 중…');
+      notify('숨고 안심번호를 가져오는 중입니다. Chrome 창을 건드리지 마세요.');
       await openSoomgoCallModal();
       await new Promise((r) => window.setTimeout(r, 600));
       let phone: string | null = null;
@@ -268,21 +271,43 @@ export function useCrmSoomgoBridge({
       setError(msg);
       notify(msg);
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   }, [applyCallPhone, notify]);
 
+  const restartBridge = useCallback(async () => {
+    setBusyAction('open');
+    setError(null);
+    try {
+      await requestSoomgoBridgeRestart('bridge');
+      notify('숨고 연동 프로그램 재시작을 요청했습니다.');
+      await new Promise((r) => window.setTimeout(r, 1200));
+      await refreshStatus();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '재시작 요청에 실패했습니다.';
+      setError(msg);
+      notify(msg);
+    } finally {
+      setBusyAction(null);
+    }
+  }, [notify, refreshStatus]);
+
   const bridgeUp = isSoomgoBridgeReachable(status);
+  const busy = busyAction != null;
+  const busyLabel = busyAction ? SOOMGO_BUSY_LABELS[busyAction] : null;
 
   return {
     status,
     preview,
     busy,
+    busyAction,
+    busyLabel,
     error,
     bridgeUp,
     refreshStatus,
     openSoomgo,
     extract,
     callFromChat,
+    restartBridge,
   };
 }

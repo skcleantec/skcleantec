@@ -46,6 +46,15 @@ def _update_flag_path() -> pathlib.Path:
     except ImportError:
         return pathlib.Path(os.environ.get('LOCALAPPDATA', '')) / 'Cbiseo' / 'SoomgoBridge' / 'update.request'
 
+
+def _restart_flag_path() -> pathlib.Path:
+    try:
+        from desktop.config import resolve_restart_flag_path
+
+        return resolve_restart_flag_path()
+    except ImportError:
+        return pathlib.Path(os.environ.get('LOCALAPPDATA', '')) / 'Cbiseo' / 'SoomgoBridge' / 'restart.request'
+
 _browser = BrowserManager(headless=False)
 _lock = threading.Lock()
 _logged_in = False
@@ -487,6 +496,19 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     _json_response(self, 200, {'ok': True, 'message': '업데이트 확인을 요청했습니다.'})
                 except OSError as e:
                     _json_response(self, 500, {'ok': False, 'error': f'업데이트 요청 실패: {e}'})
+                return
+
+            if path == '/restart-bridge':
+                try:
+                    mode = str(body.get('mode', 'bridge')).strip().lower()
+                    if mode not in ('bridge', 'desktop'):
+                        mode = 'bridge'
+                    flag_path = _restart_flag_path()
+                    flag_path.parent.mkdir(parents=True, exist_ok=True)
+                    flag_path.write_text(mode, encoding='utf-8')
+                    _json_response(self, 200, {'ok': True, 'message': '재시작을 요청했습니다.'})
+                except OSError as e:
+                    _json_response(self, 500, {'ok': False, 'error': f'재시작 요청 실패: {e}'})
                 return
 
         _json_response(self, 404, {'ok': False, 'error': 'not found'})

@@ -20,6 +20,7 @@ from desktop.config import (
     BRIDGE_REQUEST_UPDATE_URL,
     BRIDGE_STATUS_URL,
     ensure_app_data,
+    resolve_restart_flag_path,
     resolve_update_flag_path,
 )
 from desktop.manifest_client import (
@@ -29,7 +30,7 @@ from desktop.manifest_client import (
     manifest_summary,
 )
 from desktop.status_window import StatusWindow
-from desktop.update_manager import perform_update, restart_self
+from desktop.update_manager import perform_update, restart_self, schedule_post_setup_restart
 from version_info import APP_DISPLAY_NAME, APP_VERSION, BRIDGE_API_VERSION
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -255,6 +256,20 @@ class TrayApp:
                 except OSError:
                     pass
                 threading.Thread(target=lambda: self._check_update_prompt(force=True), daemon=True).start()
+            restart_flag = resolve_restart_flag_path()
+            if restart_flag.exists():
+                mode = 'bridge'
+                try:
+                    mode = restart_flag.read_text(encoding='utf-8').strip() or 'bridge'
+                    restart_flag.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                if mode == 'desktop':
+                    self._log('데스크톱 앱 재시작…')
+                    self._stop_bridge()
+                    restart_self()
+                else:
+                    self._restart_bridge()
             time.sleep(3)
 
     def _check_update_prompt(self, *, force: bool = False) -> None:
@@ -293,9 +308,18 @@ class TrayApp:
             mb.showinfo('업데이트' if ok else '업데이트 실패', msg)
 
         self._window.run_on_ui(done)
-        if ok and str(manifest.get('downloadUrl', '')).lower().endswith('.zip'):
+        if not ok:
+            return
+        url_lower = str(manifest.get('downloadUrl', '')).lower()
+        if url_lower.endswith('.zip'):
             self._stop_bridge()
             restart_self()
+            return
+        if url_lower.endswith('.exe'):
+            self._log('설치 프로그램 실행 — 완료 후 자동 재시작 예약')
+            schedule_post_setup_restart()
+            self._stop_bridge()
+            os._exit(0)
 
     def _show_message(self, title: str, message: str) -> None:
         def ui() -> None:

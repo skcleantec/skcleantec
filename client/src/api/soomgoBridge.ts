@@ -9,6 +9,14 @@ import {
 import type { SoomgoMessageStep } from '@shared/soomgoMessagePresets';
 import type { SoomgoSplitScreenBounds } from '../utils/crmSoomgoSplitLayout';
 
+export type SoomgoBusyAction = 'open' | 'extract' | 'call';
+
+export const SOOMGO_BUSY_LABELS: Record<SoomgoBusyAction, string> = {
+  open: '숨고 연결 중…',
+  extract: '숨고 정보 가져오는 중…',
+  call: '숨고 안심번호 가져오는 중…',
+};
+
 export const SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE =
   '숨고 연동 프로그램이 실행 중이 아닙니다. PC에서「청소비서 숨고 연동」을 실행한 뒤 다시 시도해 주세요.';
 
@@ -207,4 +215,11 @@ export async function requestSoomgoBridgeUpdate(): Promise<void> {
   } catch {
     /* 트레이 미실행 시 무시 */
   }
+}
+
+export async function requestSoomgoBridgeRestart(mode: 'bridge' | 'desktop' = 'bridge'): Promise<void> {
+  await bridgeFetch<{ ok: boolean }>('/restart-bridge', {
+    method: 'POST',
+    body: JSON.stringify({ mode }),
+  });
 }

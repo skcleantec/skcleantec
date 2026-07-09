@@ -317,13 +317,13 @@ class CallModalManager:
             opened = self.open_call_modal()
             if not opened:
                 return None
-            time.sleep(self.delay * 0.75)
+            time.sleep(self.delay * 0.5)
             phone = self.extract_call_number_from_modal()
             self.close_call_modal()
-            time.sleep(self.delay * 0.65)
+            time.sleep(self.delay * 0.4)
             if self.is_call_modal_open():
                 self.close_call_modal()
-                time.sleep(self.delay * 0.45)
+                time.sleep(self.delay * 0.3)
             if phone and re.sub(r'\D', '', phone).startswith('050'):
                 return phone
             if phone:

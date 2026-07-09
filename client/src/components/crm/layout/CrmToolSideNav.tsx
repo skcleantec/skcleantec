@@ -32,6 +32,8 @@ export type CrmToolNavItem = {
   icon: ReactNode;
   onClick: () => void;
   active?: boolean;
+  disabled?: boolean;
+  loading?: boolean;
 };
 
 /** CRM 좌측 접이식 도구 메뉴 (관리자 솔루션 사이드와 유사) */
@@ -79,12 +81,15 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
               <li key={item.id}>
                 <button
                   type="button"
-                  title={item.label}
+                  title={item.loading ? `${item.label} 처리 중` : item.label}
+                  disabled={item.disabled || item.loading}
                   onClick={item.onClick}
                   className={[
                     'relative flex w-full items-center rounded-xl text-slate-300 transition-colors',
                     'hover:bg-white/10 hover:text-white active:bg-white/10',
                     item.active ? 'bg-white/10 text-white' : '',
+                    item.loading ? 'cursor-wait opacity-90' : '',
+                    item.disabled && !item.loading ? 'cursor-not-allowed opacity-40' : '',
                     collapsed ? 'justify-center py-2.5' : 'gap-2 px-2.5 py-2',
                   ].join(' ')}
                 >
@@ -96,7 +101,9 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
                   ) : null}
                   <span className="shrink-0 [&>svg]:h-[18px] [&>svg]:w-[18px]">{item.icon}</span>
                   {!collapsed ? (
-                    <span className="min-w-0 truncate text-[11px] font-medium">{item.label}</span>
+                    <span className="min-w-0 truncate text-[11px] font-medium">
+                      {item.loading ? '가져오는 중…' : item.label}
+                    </span>
                   ) : null}
                 </button>
               </li>
