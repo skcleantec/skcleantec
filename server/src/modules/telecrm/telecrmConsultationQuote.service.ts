@@ -10,7 +10,7 @@ import {
   buildTelecrmQuoteFollowupMemo,
   telecrmQuotePayloadHasContent,
 } from '../../lib/telecrmConsultationQuote.js';
-import { appendFollowupLog } from '../order-followups/orderFollowups.service.js';
+import { appendFollowupLog, findOpenFollowupForPhones } from '../order-followups/orderFollowups.service.js';
 
 export type TelecrmConsultationQuoteDto = {
   id: string;
@@ -259,29 +259,6 @@ export async function getLatestTelecrmConsultationQuoteSummary(
   return active;
 }
 
-const OPEN_FOLLOWUP_STATUSES = ['ABSENT', 'ON_HOLD'] as const;
-
-async function findOpenFollowupForPhone(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  operatingCompanyId: string,
-  phone: string,
-) {
-  const tail = phone.slice(-4);
-  if (tail.length < 4) return null;
-  const candidates = await tx.orderFollowup.findMany({
-    where: {
-      tenantId,
-      operatingCompanyId,
-      status: { in: [...OPEN_FOLLOWUP_STATUSES] },
-      customerPhone: { contains: tail },
-    },
-    orderBy: { updatedAt: 'desc' },
-    take: 12,
-  });
-  return candidates.find((row) => normalizeTelecrmQuotePhone(row.customerPhone) === phone) ?? null;
-}
-
 export type FinalizeTelecrmConsultationQuoteInput = {
   phone: string;
   payload: TelecrmConsultationQuotePayload;
@@ -340,12 +317,17 @@ export async function finalizeTelecrmConsultationQuote(
   const followupMemo = extraMemo ? `${autoMemo}\n${extraMemo}` : autoMemo;
 
   return prisma.$transaction(async (tx) => {
-    let followup = await findOpenFollowupForPhone(tx, tenantId, operatingCompanyId, phone);
+    const existing = await findOpenFollowupForPhones(tx, {
+      tenantId,
+      operatingCompanyId,
+      customerPhone: phone,
+    });
+    let followup: { id: string };
     let followupCreated = false;
 
-    if (followup) {
+    if (existing) {
       followup = await tx.orderFollowup.update({
-        where: { id: followup.id },
+        where: { id: existing.id },
         data: {
           customerName,
           nickname,
@@ -358,6 +340,7 @@ export async function finalizeTelecrmConsultationQuote(
             ? { preferredMoveInCleaningDate }
             : {}),
         },
+        select: { id: true },
       });
       await appendFollowupLog(tx, {
         followupId: followup.id,
@@ -382,6 +365,7 @@ export async function finalizeTelecrmConsultationQuote(
             ? { preferredMoveInCleaningDate }
             : {}),
         },
+        select: { id: true },
       });
       followupCreated = true;
       await appendFollowupLog(tx, {

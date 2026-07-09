@@ -15,7 +15,9 @@ import {
 import { orderFollowupIdsMatchingKstHour } from '../ops-analytics/kstHourFilterQueries.js';
 import {
   appendFollowupLog,
+  findOpenFollowupForPhones,
   FOLLOWUP_INCLUDE,
+  OPEN_FOLLOWUP_DEDUP_STATUSES,
   parseStatus,
   serializeFollowup,
   serializeLog,
@@ -30,7 +32,7 @@ import {
   mapOperatingCompanyResolveError,
 } from '../operating-companies/operatingCompanyResolve.service.js';
 import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
-import type { UserRole } from '@prisma/client';
+import type { UserRole, OrderFollowupStatus } from '@prisma/client';
 import { readCrmWorkBrandInput, resolveCrmWorkOperatingCompanyId } from '../telecrm/crmWorkBrandResolve.service.js';
 
 const router = Router();
@@ -453,6 +455,87 @@ router.post('/', async (req, res) => {
     }
     throw e;
   }
+
+  const dedupStatuses = OPEN_FOLLOWUP_DEDUP_STATUSES as readonly OrderFollowupStatus[];
+  if ((dedupStatuses as OrderFollowupStatus[]).includes(status)) {
+    const existing = await findOpenFollowupForPhones(prisma, {
+      tenantId,
+      operatingCompanyId,
+      customerPhone,
+      customerPhone2: customerPhone2 ?? null,
+    });
+    if (existing) {
+      const updateData: import('@prisma/client').Prisma.OrderFollowupUpdateInput = {
+        customerName,
+        nickname,
+        customerPhone,
+        ...(customerPhone2 !== undefined ? { customerPhone2 } : {}),
+        status,
+        goldDb,
+        memo,
+        nextContactAt: nextContactAt === undefined ? undefined : nextContactAt,
+        handledBy: { connect: { id: user.userId } },
+        ...(preferredMoveInCleaningDate !== undefined ? { preferredMoveInCleaningDate } : {}),
+        ...(connectInquiryId && !existing.inquiryId ? { inquiry: { connect: { id: connectInquiryId } } } : {}),
+      };
+
+      await prisma.orderFollowup.update({
+        where: { id: existing.id },
+        data: updateData,
+      });
+
+      if (existing.status !== status) {
+        await appendFollowupLog(prisma, {
+          followupId: existing.id,
+          actorId: user.userId,
+          action: 'STATUS',
+          detail: JSON.stringify({ from: existing.status, to: status }),
+        });
+      }
+      if ((existing.memo ?? null) !== (memo ?? null)) {
+        await appendFollowupLog(prisma, {
+          followupId: existing.id,
+          actorId: user.userId,
+          action: 'MEMO',
+          detail: memo ?? null,
+        });
+      }
+      await appendFollowupLog(prisma, {
+        followupId: existing.id,
+        actorId: user.userId,
+        action: 'UPSERT',
+        detail: JSON.stringify({
+          source: 'create_dedup',
+          customerName,
+          nickname,
+          customerPhone,
+          customerPhone2: customerPhone2 ?? existing.customerPhone2 ?? null,
+          status,
+          goldDb,
+          ...(connectInquiryId ? { inquiryId: connectInquiryId } : {}),
+          ...(preferredMoveInCleaningDate !== undefined
+            ? { preferredMoveInCleaningDate: preferredMoveInCleaningDate ?? null }
+            : {}),
+        }),
+      });
+
+      const full = await prisma.orderFollowup.findUniqueOrThrow({
+        where: { id: existing.id },
+        include: FOLLOWUP_INCLUDE,
+      });
+      const linkedInquiryId = full.inquiryId;
+      if (linkedInquiryId) {
+        if (status === 'DEPOSIT_PENDING') {
+          await syncInquiryWhenFollowupDepositPending(linkedInquiryId, tenantId);
+        } else if (status === 'RESERVED') {
+          await syncInquiryWhenFollowupDepositComplete(linkedInquiryId, tenantId);
+        }
+      }
+      res.json({ item: serializeFollowup(full), deduped: true });
+      return;
+    }
+  }
+
   const row = await prisma.orderFollowup.create({
     data: {
       tenantId,
