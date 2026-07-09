@@ -43,12 +43,24 @@ router.post('/mobile-dispatch', requireStaffPermission('crm.view', 'crm.settings
     res.status(400).json({ error: parsed.error });
     return;
   }
-  const { item, wsDelivered, queued } = await enqueueTelecrmMobileDispatch(tenantId, user.userId, parsed);
-  res.status(201).json({ ok: true, id: item.id, action: item.action, wsDelivered, queued });
+  const { item, wsDelivered, queued, broadcastToTenant } = await enqueueTelecrmMobileDispatch(
+    tenantId,
+    user.userId,
+    user.role ?? 'MARKETER',
+    parsed,
+  );
+  res.status(201).json({
+    ok: true,
+    id: item.id,
+    action: item.action,
+    wsDelivered,
+    queued,
+    broadcastToTenant,
+  });
 });
 
-/** 앱 재개·WS 누락 시 대기 중 dispatch 소비 */
-router.get('/mobile-dispatch/pending', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+/** 앱 재개·WS 누락·ADMIN PC 통화 시 대기 중 dispatch 소비 */
+router.get('/mobile-dispatch/pending', async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
