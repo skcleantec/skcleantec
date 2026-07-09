@@ -1,6 +1,7 @@
 package com.skcleantec.telecrm.main
 
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -10,6 +11,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
+import com.skcleantec.telecrm.BuildConfig
 import com.skcleantec.telecrm.R
 import com.skcleantec.telecrm.api.ApiClient
 import com.skcleantec.telecrm.auth.LoginActivity
@@ -39,7 +41,7 @@ class MainActivity : AppCompatActivity() {
         pendingCallPhone = digits.takeIf { it.length >= 4 }
     }
 
-    private val pollIntervalMs = 2500L
+    private val pollIntervalMs = 1000L
     private val pollRunnable = object : Runnable {
         override fun run() {
             if (isDestroyed) return
@@ -152,8 +154,15 @@ class MainActivity : AppCompatActivity() {
     private fun bindUserHeader() {
         val name = tokenStore.getUserName()?.takeIf { it.isNotBlank() } ?: tokenStore.getLoginId().orEmpty()
         val tenant = tokenStore.getTenantSlug()?.uppercase().orEmpty()
+        val host = Uri.parse(BuildConfig.API_BASE_URL).host.orEmpty()
         binding.userNameText.text = name
-        binding.userTenantText.text = if (tenant.isNotBlank()) "업체 $tenant" else ""
+        binding.userTenantText.text = buildString {
+            if (tenant.isNotBlank()) append("업체 $tenant")
+            if (host.isNotBlank()) {
+                if (isNotEmpty()) append(" · ")
+                append(host)
+            }
+        }
     }
 
     private fun applyMainWindowInsets() {
@@ -182,10 +191,18 @@ class MainActivity : AppCompatActivity() {
     private fun drainPendingDispatches() {
         val token = tokenStore.getToken() ?: return
         lifecycleScope.launch {
-            val items = withContext(Dispatchers.IO) {
-                apiClient.fetchPendingMobileDispatches(token).getOrNull().orEmpty()
+            val result = withContext(Dispatchers.IO) {
+                apiClient.fetchPendingMobileDispatches(token)
             }
-            items.forEach { payload -> dispatchExecutor.execute(payload) }
+            result.onSuccess { items ->
+                items.forEach { payload -> dispatchExecutor.execute(payload) }
+            }.onFailure { err ->
+                Snackbar.make(
+                    binding.root,
+                    "통화 대기열 조회 실패: ${err.message ?: "알 수 없음"}",
+                    Snackbar.LENGTH_SHORT,
+                ).show()
+            }
         }
     }
 

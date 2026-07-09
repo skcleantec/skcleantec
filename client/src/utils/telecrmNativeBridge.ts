@@ -32,6 +32,8 @@ export type TelecrmBridgeResult = {
   mode: TelecrmBridgeMode;
   /** PC→앱 dispatch 시 앱 WebSocket 즉시 수신 여부 */
   wsDelivered?: boolean;
+  /** 동일 서버에 연결된 텔레CRM 앱 수 */
+  telecrmAppsConnected?: number;
   /** dispatch 실패 등 사용자 안내용 */
   errorMessage?: string;
 };
@@ -60,7 +62,7 @@ export async function telecrmPrefillPhone(
       inquiryId: opts.inquiryId ?? null,
       customerMatch: opts.customerMatch ?? 'unknown',
     });
-    return { mode: 'dispatch', wsDelivered: res.wsDelivered };
+    return { mode: 'dispatch', wsDelivered: res.wsDelivered, telecrmAppsConnected: res.telecrmAppsConnected };
   } catch (e) {
     const message = e instanceof Error ? e.message : '휴대폰 앱 전송에 실패했습니다.';
     return { mode: 'fallback', errorMessage: message };
@@ -102,7 +104,7 @@ export async function telecrmCall(
       inquiryId: opts.inquiryId ?? null,
       customerMatch: opts.customerMatch ?? 'unknown',
     });
-    return { mode: 'dispatch', wsDelivered: res.wsDelivered };
+    return { mode: 'dispatch', wsDelivered: res.wsDelivered, telecrmAppsConnected: res.telecrmAppsConnected };
   } catch (e) {
     const message = e instanceof Error ? e.message : '휴대폰 앱 전송에 실패했습니다.';
     return { mode: 'fallback', errorMessage: message };
@@ -139,7 +141,7 @@ export async function telecrmSms(
       inquiryId: opts.inquiryId ?? null,
       customerMatch: opts.customerMatch ?? 'unknown',
     });
-    return { mode: 'dispatch', wsDelivered: res.wsDelivered };
+    return { mode: 'dispatch', wsDelivered: res.wsDelivered, telecrmAppsConnected: res.telecrmAppsConnected };
   } catch (e) {
     const message = e instanceof Error ? e.message : '휴대폰 앱 전송에 실패했습니다.';
     const q = encodeURIComponent(text);
@@ -152,6 +154,9 @@ function dispatchNoticeForCall(result: TelecrmBridgeResult): string | null {
   if (result.mode === 'native') return '휴대폰 앱으로 통화를 요청했습니다.';
   if (result.errorMessage) return result.errorMessage;
   if (result.mode !== 'dispatch') return null;
+  if (result.telecrmAppsConnected === 0) {
+    return '이 서버에 연결된 텔레CRM 앱이 없습니다. 앱·PC가 같은 주소(스테이징/운영)인지, 앱 업체코드·아이디가 PC와 같은지 확인해 주세요.';
+  }
   if (result.wsDelivered === false) {
     return '연결된 휴대폰 앱 대기열에 넣었습니다. 앱이 켜져 있으면 곧 통화가 시작됩니다.';
   }

@@ -138,6 +138,19 @@ export function broadcastJsonToTelecrmAppsInTenant(tenantId: string, data: objec
   return delivered;
 }
 
+/** 업체 내 telecrm-app 연결 수 (진단용) */
+export function countTelecrmAppsInTenant(tenantId: string): number {
+  const prefix = `${tenantId}:`;
+  let count = 0;
+  for (const [key, set] of socketsByUser) {
+    if (!key.startsWith(prefix)) continue;
+    for (const entry of set) {
+      if (entry.platform === 'telecrm-app' && entry.ws.readyState === WebSocket.OPEN) count += 1;
+    }
+  }
+  return count;
+}
+
 function deliverTelecrmDispatchLegacy(userId: string, data: object, tenantId?: string): boolean {
   const key = userSocketKey(userId, tenantId);
   const set = socketsByUser.get(key);
@@ -165,7 +178,8 @@ export function deliverTelecrmDispatch(
   data: object,
   tenantId: string,
 ): boolean {
-  if (sendJsonToTelecrmApp(actorUserId, data, tenantId)) return true;
-  if (actorRole === 'ADMIN' && broadcastJsonToTelecrmAppsInTenant(tenantId, data)) return true;
+  let delivered = sendJsonToTelecrmApp(actorUserId, data, tenantId);
+  delivered = broadcastJsonToTelecrmAppsInTenant(tenantId, data) || delivered;
+  if (delivered) return true;
   return deliverTelecrmDispatchLegacy(actorUserId, data, tenantId);
 }

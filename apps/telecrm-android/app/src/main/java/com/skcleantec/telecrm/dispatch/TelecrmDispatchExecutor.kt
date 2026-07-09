@@ -10,6 +10,7 @@ import com.skcleantec.telecrm.R
 import com.skcleantec.telecrm.api.ApiClient
 import com.skcleantec.telecrm.auth.TokenStore
 import com.skcleantec.telecrm.databinding.ActivityMainBinding
+import com.skcleantec.telecrm.main.DialFragment
 import com.skcleantec.telecrm.realtime.AppEventBus
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 
@@ -35,7 +36,7 @@ class TelecrmDispatchExecutor(
         binding.viewPager.currentItem = 0
         binding.bottomNav.selectedItemId = R.id.nav_dial
         binding.root.post {
-            AppEventBus.emitDialPrefill(digits, payload.inquiryId, payload.customerMatch)
+            applyPrefillToDial(digits, payload.inquiryId, payload.customerMatch)
             val label = if (payload.action == "call") "PC 통화 요청" else "PC 번호 전달"
             Snackbar.make(binding.root, "$label · $digits", Snackbar.LENGTH_SHORT).show()
             if (payload.action == "prefill") return@post
@@ -50,6 +51,18 @@ class TelecrmDispatchExecutor(
         }
     }
 
+    private fun applyPrefillToDial(phone: String, inquiryId: String?, customerMatch: String?) {
+        val dial = (activity.supportFragmentManager.findFragmentByTag("f0") as? DialFragment)
+            ?: activity.supportFragmentManager.fragments
+                .filterIsInstance<DialFragment>()
+                .firstOrNull { it.isAdded }
+        if (dial != null) {
+            dial.applyPrefill(phone, inquiryId, customerMatch)
+        } else {
+            AppEventBus.emitDialPrefill(phone, inquiryId, customerMatch)
+        }
+    }
+
     private fun showSmsDialog(payload: TelecrmDispatchPayload) {
         val digits = payload.phone.filter { it.isDigit() }
         val body = payload.body.orEmpty()
@@ -58,6 +71,7 @@ class TelecrmDispatchExecutor(
         binding.viewPager.currentItem = 0
         binding.bottomNav.selectedItemId = R.id.nav_dial
         AppEventBus.emitDialPrefill(digits, payload.inquiryId, payload.customerMatch)
+        applyPrefillToDial(digits, payload.inquiryId, payload.customerMatch)
         val preview = buildString {
             if (body.isNotBlank()) append(body)
             if (!imageUrl.isNullOrBlank()) {

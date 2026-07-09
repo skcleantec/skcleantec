@@ -63,19 +63,17 @@ class DialFragment : Fragment() {
 
 
     private val dialPrefillListener: (AppEventBus.DialPrefill) -> Unit = { prefill ->
+        applyPrefill(prefill.phone, prefill.inquiryId, prefill.customerMatch)
+    }
 
-        binding.inputPhone.setText(prefill.phone)
-
-        lookupState.selectedPhone = prefill.phone
-
-        lookupState.selectedInquiryId = prefill.inquiryId
-
-        prefill.customerMatch?.let { lookupState.match = it }
-
+    fun applyPrefill(phone: String, inquiryId: String?, customerMatch: String?) {
+        if (_binding == null) return
+        binding.inputPhone.setText(phone)
+        lookupState.selectedPhone = phone
+        lookupState.selectedInquiryId = inquiryId
+        customerMatch?.let { lookupState.match = it }
         updatePhoneClearUi()
-
         updateActionRowVisibility()
-
     }
 
 

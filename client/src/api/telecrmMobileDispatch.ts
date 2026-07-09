@@ -17,7 +17,7 @@ export type TelecrmMobileDispatchInput = {
 export async function postTelecrmMobileDispatch(
   token: string,
   input: TelecrmMobileDispatchInput,
-): Promise<{ ok: boolean; id: string; wsDelivered?: boolean }> {
+): Promise<{ ok: boolean; id: string; wsDelivered?: boolean; telecrmAppsConnected?: number }> {
   const res = await fetch(`${API}/mobile-dispatch`, {
     method: 'POST',
     headers: authHeaders(token),
@@ -30,7 +30,18 @@ export async function postTelecrmMobileDispatch(
       customerMatch: input.customerMatch ?? null,
     }),
   });
-  const data = (await res.json()) as { error?: string; ok?: boolean; id?: string; wsDelivered?: boolean };
+  const data = (await res.json()) as {
+    error?: string;
+    ok?: boolean;
+    id?: string;
+    wsDelivered?: boolean;
+    telecrmAppsConnected?: number;
+  };
   if (!res.ok) throw new Error(data.error ?? '휴대폰 앱 전송에 실패했습니다.');
-  return { ok: Boolean(data.ok), id: data.id ?? '', wsDelivered: data.wsDelivered };
+  return {
+    ok: Boolean(data.ok),
+    id: data.id ?? '',
+    wsDelivered: data.wsDelivered,
+    telecrmAppsConnected: data.telecrmAppsConnected,
+  };
 }

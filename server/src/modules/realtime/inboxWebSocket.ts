@@ -3,6 +3,7 @@ import { WebSocketServer } from 'ws';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
+import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { registerUserSocket } from './realtimeHub.js';
 
 /**
@@ -13,26 +14,30 @@ export function attachInboxWebSocket(server: Server): void {
   const wss = new WebSocketServer({ server, path: '/ws' });
 
   wss.on('connection', (ws, req) => {
-    try {
-      const host = req.headers.host ?? 'localhost';
-      const url = new URL(req.url ?? '', `http://${host}`);
-      const token = url.searchParams.get('token');
-      if (!token) {
-        ws.close(4001, 'token required');
-        return;
-      }
-      const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
-      const client = url.searchParams.get('client')?.trim().toLowerCase();
-      const platform = client === 'telecrm-app' ? 'telecrm-app' : 'web';
-      registerUserSocket(payload.userId, payload.role ?? '', ws, payload.tenantId, platform);
+    void (async () => {
       try {
-        ws.send(JSON.stringify({ type: 'connected', v: 1 }));
+        const host = req.headers.host ?? 'localhost';
+        const url = new URL(req.url ?? '', `http://${host}`);
+        const token = url.searchParams.get('token');
+        if (!token) {
+          ws.close(4001, 'token required');
+          return;
+        }
+        const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
+        const client = url.searchParams.get('client')?.trim().toLowerCase();
+        const platform = client === 'telecrm-app' ? 'telecrm-app' : 'web';
+        const tenantId =
+          payload.tenantId ?? (await resolveTenantIdFromAuth(payload)) ?? undefined;
+        registerUserSocket(payload.userId, payload.role ?? '', ws, tenantId, platform);
+        try {
+          ws.send(JSON.stringify({ type: 'connected', v: 1 }));
+        } catch {
+          /* ignore */
+        }
       } catch {
-        /* ignore */
+        ws.close(4002, 'invalid token');
       }
-    } catch {
-      ws.close(4002, 'invalid token');
-    }
+    })();
   });
 
   console.info('[ws] /ws (inbox refresh)');
