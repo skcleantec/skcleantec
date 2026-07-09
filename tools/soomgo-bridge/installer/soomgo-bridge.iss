@@ -1,8 +1,8 @@
-; 청소비서 숨고 연동 — Inno Setup (상담사 PC, URL 입력 없음)
-; 빌드: scripts\build-installer.ps1 -Version 2.0.2
+; 청소비서 숨고 연동 — Inno Setup (상담사 PC, Python 별도 설치 불필요)
+; 빌드: scripts\build-installer.ps1 -Version 2.1.9
 
 #ifndef MyAppVersion
-#define MyAppVersion "2.1.8"
+#define MyAppVersion "2.1.9"
 #endif
 
 #define MyAppName "청소비서 숨고 연동"
@@ -35,7 +35,8 @@ Name: "desktopicon"; Description: "바탕화면 바로 가기 만들기"; GroupD
 Name: "startup"; Description: "Windows 시작 시 자동 실행 (권장)"; GroupDescription: "추가 작업:"; Flags: checkedonce
 
 [Files]
-Source: "..\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "installer\*,dist\*,__pycache__\*,*.pyc,.git\*"
+Source: "..\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "installer\*,dist\*,runtime\*,__pycache__\*,*.pyc,.git\*"
+Source: "..\runtime\python\*"; DestDir: "{app}\python"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppLaunchScript}"""; WorkingDir: "{app}"
@@ -43,34 +44,26 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: "
 Name: "{userstartup}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppLaunchScript}"""; WorkingDir: "{app}"; Tasks: startup
 
 [Run]
-Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppLaunchScript}"""; WorkingDir: "{app}"; Description: "청소비서 숨고 연동 실행"; Flags: nowait postinstall
+Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppLaunchScript}"""; WorkingDir: "{app}"; Description: "청소비서 숨고 연동 실행"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
 
 [Code]
-function PythonInstalled(): Boolean;
+function BundledPythonReady(): Boolean;
 var
-  ResultCode: Integer;
+  FindRec: TFindRec;
 begin
-  Result := Exec('python', '--version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
-  if not Result then
-    Result := Exec('py', '-3 --version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+  Result := False;
+  if FindFirst(ExpandConstant('{app}\python\pythonw.exe'), FindRec) then
+    Exit;
+  FindClose(FindRec);
+  Result := True;
 end;
 
 function InitializeSetup(): Boolean;
 begin
   Result := True;
-  if not PythonInstalled() then
-  begin
-    MsgBox(
-      '청소비서 숨고 연동을 쓰려면 Python 3가 필요합니다.' + #13#10 + #13#10 +
-      'https://www.python.org/downloads/ 에서 Python 3.11 이상을 설치하고' + #13#10 +
-      '설치 화면에서 「Add python.exe to PATH」에 체크한 뒤' + #13#10 +
-      '이 설치 프로그램을 다시 실행해 주세요.',
-      mbError, MB_OK);
-    Result := False;
-  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -86,5 +79,11 @@ begin
       '  "manifestMode": "auto"' + #13#10 +
       '}' + #13#10;
     SaveStringToFile(ConfigPath, Json, False);
+    if not BundledPythonReady() then
+      MsgBox(
+        '설치는 완료되었지만 내장 Python이 없습니다.' + #13#10 +
+        '개발용 빌드이거나 runtime이 누락되었을 수 있습니다.' + #13#10 +
+        '릴리스 Setup.exe를 사용하거나 Python 3.11+를 설치해 주세요.',
+        mbInformation, MB_OK);
   end;
 end;

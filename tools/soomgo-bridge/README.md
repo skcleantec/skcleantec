@@ -5,8 +5,8 @@
 ## 상담사 PC — 설치 프로그램 (권장)
 
 1. 텔레CRM **설정 → 숨고 연동** 또는 상단 바에서 **설치 프로그램** 다운로드
-2. `SoomgoBridge-Setup-x.y.z.exe` 실행 — **서버 주소 입력 없음** (cbiseo.com·스테이징 자동 연결)
-3. 완료 후 트레이 **「청소비서 숨고 연동」** 아이콘 확인 → 텔레CRM **숨고 연동** 사용
+2. `SoomgoBridge-Setup-x.y.z.exe` 실행 — **Python 별도 설치 불필요** · 서버 주소 입력 없음
+3. 설치 마지막에 **자동 실행** — 트레이 **「청소비서 숨고 연동」** 아이콘 확인 → 텔레CRM **숨고 연동** 사용
 
 Setup 방식의 장점:
 
@@ -14,8 +14,9 @@ Setup 방식의 장점:
 - 시작 프로그램·바탕화면 바로 가기
 - CRM **업데이트** 시 `/SILENT` 자동 재설치
 - Windows **앱 제거**로 깔끔하게 삭제
+- **Python·pip·run-desktop-debug.bat 수동 실행 불필요** (Setup에 Python·패키지 포함)
 
-**사전 요구:** Python 3.11+ (`PATH`에 등록). 설치 파일이 없으면 Python 미설치 시 안내합니다.
+**사전 요구:** Google Chrome (숨고 웹). 개발 PC만 시스템 Python 3.11+ 로 `run-desktop.bat` 사용 가능.
 
 ## 개발 PC — 소스에서 실행
 
