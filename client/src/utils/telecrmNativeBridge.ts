@@ -68,7 +68,9 @@ export async function telecrmPrefillPhone(
 }
 
 function dispatchNoticeForPrefill(result: TelecrmBridgeResult): string | null {
-  if (result.mode !== 'dispatch') return result.errorMessage ?? null;
+  if (result.mode === 'native') return '휴대폰 앱 다이얼에 번호를 넣었습니다.';
+  if (result.errorMessage) return result.errorMessage;
+  if (result.mode !== 'dispatch') return null;
   if (result.wsDelivered === false) {
     return '휴대폰 앱이 오프라인입니다. 텔레CRM 앱을 켜면 번호가 전달됩니다.';
   }
@@ -147,7 +149,9 @@ export async function telecrmSms(
 }
 
 function dispatchNoticeForCall(result: TelecrmBridgeResult): string | null {
-  if (result.mode !== 'dispatch') return result.errorMessage ?? null;
+  if (result.mode === 'native') return '휴대폰 앱으로 통화를 요청했습니다.';
+  if (result.errorMessage) return result.errorMessage;
+  if (result.mode !== 'dispatch') return null;
   if (result.wsDelivered === false) {
     return '휴대폰 앱이 오프라인입니다. 텔레CRM 앱을 켜면 통화 요청이 전달됩니다.';
   }

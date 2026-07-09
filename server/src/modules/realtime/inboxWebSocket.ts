@@ -22,7 +22,9 @@ export function attachInboxWebSocket(server: Server): void {
         return;
       }
       const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
-      registerUserSocket(payload.userId, payload.role ?? '', ws, payload.tenantId);
+      const client = url.searchParams.get('client')?.trim().toLowerCase();
+      const platform = client === 'telecrm-app' ? 'telecrm-app' : 'web';
+      registerUserSocket(payload.userId, payload.role ?? '', ws, payload.tenantId, platform);
       try {
         ws.send(JSON.stringify({ type: 'connected', v: 1 }));
       } catch {

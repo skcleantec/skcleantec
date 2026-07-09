@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity() {
         binding.wsStatusChip.setBackgroundResource(
             if (connected) R.drawable.bg_chip_connected else R.drawable.bg_chip_disconnected,
         )
+        if (connected) drainPendingDispatches()
     }
 
     private val toastListener: (AppEventBus.ToastAlert) -> Unit = { alert ->
