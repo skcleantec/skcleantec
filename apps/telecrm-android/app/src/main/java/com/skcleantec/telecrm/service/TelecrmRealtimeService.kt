@@ -145,6 +145,8 @@ class TelecrmRealtimeService : Service() {
                             imageUrl = item.imageUrl,
                             inquiryId = item.inquiryId,
                             customerMatch = item.customerMatch,
+                            targetUserId = item.targetUserId,
+                            broadcastToTenant = false,
                         ),
                     )
                 }

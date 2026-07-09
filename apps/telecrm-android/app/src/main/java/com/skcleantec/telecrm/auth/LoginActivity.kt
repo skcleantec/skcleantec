@@ -17,6 +17,7 @@ import com.skcleantec.telecrm.api.ApiClient
 import com.skcleantec.telecrm.api.ApiEnvironment
 import com.skcleantec.telecrm.databinding.ActivityLoginBinding
 import com.skcleantec.telecrm.main.MainActivity
+import com.skcleantec.telecrm.ui.AppVersion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,6 +32,7 @@ class LoginActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.appVersionText.text = AppVersion.displayLabel(this)
         applyLoginWindowInsets()
 
         tokenStore.getTenantSlug()?.let { binding.inputTenantSlug.setText(it) }

@@ -22,6 +22,8 @@
 
     <string name="login_button">로그인</string>
 
+    <string name="app_version_label">앱 v%1$s (%2$d)</string>
+
     <string name="server_preset_label">서버 (PC CRM과 동일 · pyo 전용)</string>
     <string name="server_preset_production">운영</string>
     <string name="server_preset_staging">스테이징</string>

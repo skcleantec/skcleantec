@@ -21,11 +21,11 @@ object TelecrmDispatchRouter {
             broadcastToTenant = json.optBoolean("broadcastToTenant", false),
         )
 
-    /** 마케터 — 본인 targetUserId만. ADMIN broadcast는 broadcastToTenant=true만 수신 */
+    /** 본인 targetUserId만 수신 — 불명확하면 거부 (fail-closed) */
     private fun shouldAcceptDispatch(context: Context, payload: AppEventBus.DispatchPayload): Boolean {
-        if (payload.broadcastToTenant) return true
-        val target = payload.targetUserId?.takeIf { it.isNotBlank() } ?: return true
-        val myId = TokenStore.get(context).getUserId()?.takeIf { it.isNotBlank() } ?: return true
+        if (payload.broadcastToTenant) return false
+        val target = payload.targetUserId?.takeIf { it.isNotBlank() } ?: return false
+        val myId = TokenStore.get(context).resolveUserId()?.takeIf { it.isNotBlank() } ?: return false
         return target == myId
     }
 

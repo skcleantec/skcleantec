@@ -10,6 +10,7 @@ data class TelecrmDispatchPayload(
     val imageUrl: String?,
     val inquiryId: String?,
     val customerMatch: String?,
+    val targetUserId: String? = null,
 ) {
     companion object {
         fun fromJson(json: JSONObject): TelecrmDispatchPayload =
@@ -21,6 +22,7 @@ data class TelecrmDispatchPayload(
                 imageUrl = json.optString("imageUrl").takeIf { it.isNotBlank() },
                 inquiryId = json.optString("inquiryId").takeIf { it.isNotBlank() },
                 customerMatch = json.optString("customerMatch").takeIf { it.isNotBlank() },
+                targetUserId = json.optString("targetUserId").takeIf { it.isNotBlank() },
             )
     }
 }

@@ -28,6 +28,7 @@ import com.skcleantec.telecrm.service.TelecrmDeviceHints
 import com.skcleantec.telecrm.service.TelecrmRealtimeService
 import com.skcleantec.telecrm.telephony.CallReturnMonitor
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
+import com.skcleantec.telecrm.ui.AppVersion
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -181,6 +182,7 @@ class MainActivity : AppCompatActivity() {
                 append("$envLabel · $host")
             }
         }
+        binding.appVersionText.text = AppVersion.displayLabel(this)
     }
 
     private fun applyMainWindowInsets() {
