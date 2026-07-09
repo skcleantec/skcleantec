@@ -147,6 +147,10 @@ function OrderOptionTreeSection({
 export function CrmPricingPanel({
   pyeong,
   onPyeongChange,
+  pricePerPyeong,
+  minimumTotalAmount,
+  onPricePerPyeongChange,
+  onMinimumTotalAmountChange,
   quoteLines,
   onQuoteLinesChange,
   pendingQuote = null,
@@ -164,6 +168,10 @@ export function CrmPricingPanel({
 }: {
   pyeong: string;
   onPyeongChange: (v: string) => void;
+  pricePerPyeong: number;
+  minimumTotalAmount: number;
+  onPricePerPyeongChange: (v: number) => void;
+  onMinimumTotalAmountChange: (v: number) => void;
   quoteLines: CrmPricingQuoteLine[];
   onQuoteLinesChange: (lines: CrmPricingQuoteLine[]) => void;
   pendingQuote?: TelecrmConsultationQuoteDto | null;
@@ -182,8 +190,6 @@ export function CrmPricingPanel({
   const token = getToken();
   const [categories, setCategories] = useState<TelecrmPriceCategoryDto[]>([]);
   const [orderOptions, setOrderOptions] = useState<TelecrmOrderOptionDto[]>([]);
-  const [pricePerPyeong, setPricePerPyeong] = useState(0);
-  const [minimumTotalAmount, setMinimumTotalAmount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -205,8 +211,8 @@ export function CrmPricingPanel({
       ]);
       setCategories(catalogRes.categories);
       setOrderOptions(orderRes.items);
-      setPricePerPyeong(catalogRes.estimateConfig.pricePerPyeong);
-      setMinimumTotalAmount(catalogRes.estimateConfig.minimumTotalAmount ?? 0);
+      onPricePerPyeongChange(catalogRes.estimateConfig.pricePerPyeong);
+      onMinimumTotalAmountChange(catalogRes.estimateConfig.minimumTotalAmount ?? 0);
 
       const hasOrderOptions = orderRes.items.length > 0;
       const firstCatId = catalogRes.categories[0]?.id ?? null;
@@ -220,7 +226,7 @@ export function CrmPricingPanel({
     } finally {
       setLoading(false);
     }
-  }, [token, search]);
+  }, [token, search, onPricePerPyeongChange, onMinimumTotalAmountChange]);
 
   useEffect(() => {
     const t = window.setTimeout(() => void loadCatalog(), search ? 250 : 0);
@@ -596,11 +602,49 @@ export function CrmPricingPanel({
               </p>
               <ul className="space-y-1">
                 {estimatedBase != null && Number.isFinite(pyeongNum) && pyeongNum > 0 ? (
-                  <li className="flex items-center justify-between gap-2 text-[10px]">
-                    <span className="truncate text-gray-700">{pyeongNum}평 기본견적</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-amber-800">
-                      {formatWon(estimatedBase)}
-                    </span>
+                  <li className="space-y-1 text-[10px]">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-medium text-gray-800">{pyeongNum}평 기본견적</span>
+                      <span className="shrink-0 font-semibold tabular-nums text-amber-800">
+                        {formatWon(estimatedBase)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] text-amber-900/85">
+                      <label className="inline-flex items-center gap-1">
+                        <span>평당</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={pricePerPyeong > 0 ? String(pricePerPyeong) : ''}
+                          onChange={(e) => {
+                            const n = parseAmountInput(e.target.value);
+                            if (n != null) onPricePerPyeongChange(n);
+                          }}
+                          className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-center tabular-nums"
+                        />
+                        <span>원</span>
+                      </label>
+                      <label className="inline-flex items-center gap-1">
+                        <span>최소</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={minimumTotalAmount > 0 ? String(minimumTotalAmount) : ''}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/,/g, '').trim();
+                            if (!raw) {
+                              onMinimumTotalAmountChange(0);
+                              return;
+                            }
+                            const n = parseAmountInput(raw);
+                            if (n != null) onMinimumTotalAmountChange(n);
+                          }}
+                          placeholder="0"
+                          className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-center tabular-nums"
+                        />
+                        <span>원</span>
+                      </label>
+                    </div>
                   </li>
                 ) : null}
                 {quoteLines.map((line) => (

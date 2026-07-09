@@ -493,6 +493,7 @@ export function CrmPage() {
         nickname: form.nickname.trim() || null,
         goldDb: form.goldDb,
         preferredMoveInCleaningDate: form.preferredMoveInCleanYmd.trim() || null,
+        extraMemo: form.requestMemo?.trim() || null,
         followupStatus: kind === 'absent' ? 'ABSENT' : 'ON_HOLD',
       });
       handleIntakeSaved();
@@ -853,6 +854,10 @@ export function CrmPage() {
             <CrmPricingPanel
               pyeong={pyeong}
               onPyeongChange={setPyeong}
+              pricePerPyeong={pricePerPyeong}
+              minimumTotalAmount={minimumTotalAmount}
+              onPricePerPyeongChange={setPricePerPyeong}
+              onMinimumTotalAmountChange={setMinimumTotalAmount}
               quoteLines={quoteLines}
               onQuoteLinesChange={setQuoteLines}
               pendingQuote={pendingQuote}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CrmHoverTextPreview } from '../crm/CrmHoverTextPreview';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { createPortal } from 'react-dom';
@@ -309,6 +310,32 @@ function StatusBadgeWithMemo({
         {preview}
       </span>
     </span>
+  );
+}
+
+function FollowupMemoCell({
+  row,
+  onOpenMemo,
+}: {
+  row: OrderFollowupItem;
+  onOpenMemo: (row: OrderFollowupItem) => void;
+}) {
+  const memo = row.memo?.trim();
+  if (!memo) {
+    return <span className="text-slate-300">—</span>;
+  }
+  const short = memo.length > 56 ? `${memo.slice(0, 56)}…` : memo;
+  return (
+    <CrmHoverTextPreview text={memo} label="메모 · 숨고 요청·견적">
+      <button
+        type="button"
+        onClick={() => onOpenMemo(row)}
+        className="mx-auto block max-w-full truncate text-[11px] text-slate-700 hover:text-sky-800"
+        title="클릭하면 전체 메모"
+      >
+        {short}
+      </button>
+    </CrmHoverTextPreview>
   );
 }
 
@@ -957,16 +984,17 @@ export function AdminOrderFormFollowupPanel({
         ) : (
           <>
             <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full min-w-[680px] border-collapse text-fluid-xs text-center table-fixed">
+              <table className="w-full min-w-[760px] border-collapse text-fluid-xs text-center table-fixed">
                 <colgroup>
-                  <col style={{ width: '13%' }} />
-                  <col style={{ width: '13%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '7%' }} />
-                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '12%' }} />
                   <col style={{ width: '11%' }} />
-                  <col style={{ width: '11%' }} />
-                  <col style={{ width: '25%' }} />
+                  <col style={{ width: '9%' }} />
+                  <col style={{ width: '6%' }} />
+                  <col style={{ width: '9%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '18%' }} />
+                  <col style={{ width: '15%' }} />
                 </colgroup>
                 <thead>
                   <tr className="border-b border-slate-200/60 bg-slate-50/80">
@@ -977,6 +1005,7 @@ export function AdminOrderFormFollowupPanel({
                     <th className="py-2.5 px-2 font-semibold text-slate-500">담당</th>
                     <th className="py-2.5 px-2 font-semibold text-slate-500">등록일</th>
                     <th className="py-2.5 px-2 font-semibold text-slate-500">희망일</th>
+                    <th className="py-2.5 px-2 font-semibold text-slate-500">메모</th>
                     <th className="py-2.5 px-2 font-semibold text-slate-500">작업</th>
                   </tr>
                 </thead>
@@ -1023,6 +1052,9 @@ export function AdminOrderFormFollowupPanel({
                         {row.preferredMoveInCleaningDate
                           ? formatDateCompactWithWeekday(row.preferredMoveInCleaningDate)
                           : '—'}
+                      </td>
+                      <td className="py-2.5 px-2 max-w-0">
+                        <FollowupMemoCell row={row} onOpenMemo={setMemoView} />
                       </td>
                       <td className="py-2.5 px-2">
                         <div className="flex flex-wrap justify-center gap-1 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-lg [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2.5 [&>button]:py-1 [&>button]:text-fluid-2xs [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm [&>button]:transition-all [&>button]:duration-150 hover:[&>button]:scale-[1.03] active:[&>button]:scale-[0.97] hover:[&>button]:bg-slate-50 hover:[&>button]:border-slate-300">
@@ -1115,6 +1147,11 @@ export function AdminOrderFormFollowupPanel({
                         : '—'}
                     </span>
                   </p>
+                  {row.memo?.trim() ? (
+                    <div className="mt-1">
+                      <FollowupMemoCell row={row} onOpenMemo={setMemoView} />
+                    </div>
+                  ) : null}
                   <div className="mt-1.5 flex flex-wrap gap-1 border-t border-slate-100/80 pt-1.5 [&>button]:inline-flex [&>button]:items-center [&>button]:rounded-md [&>button]:border [&>button]:border-slate-200 [&>button]:bg-white [&>button]:px-2 [&>button]:py-0.5 [&>button]:text-[10px] [&>button]:font-semibold [&>button]:leading-tight [&>button]:shadow-sm">
                     <Link
                       to="/admin/inquiries/order-issue"

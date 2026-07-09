@@ -27,6 +27,7 @@ export type CrmIntakeFormValues = {
   contactPhone: string;
   safePhone: string;
   contactUnknown: boolean;
+  requestMemo: string;
   preferredMoveInCleanYmd: string;
   address: string;
   roomCount: string;
@@ -94,6 +95,7 @@ export async function submitCrmIntake(
   const brandBody = { operatingCompanyId };
   const stored = resolveCrmStoredPhones(values.contactPhone, values.safePhone);
   const outbound = resolveCrmOutboundPhone(values.contactPhone, values.safePhone);
+  const followupMemo = values.requestMemo.trim() || null;
 
   if (values.kind === 'requested' || values.kind === 'absent' || values.kind === 'hold') {
     const status: OrderFollowupStatus =
@@ -116,6 +118,7 @@ export async function submitCrmIntake(
           goldDb: values.goldDb,
           ...(pmd ? { preferredMoveInCleaningDate: pmd } : {}),
           followupStatus: status as 'ABSENT' | 'ON_HOLD',
+          extraMemo: followupMemo,
         },
         operatingCompanyId,
       );
@@ -127,7 +130,7 @@ export async function submitCrmIntake(
       customerPhone: stored.customerPhone,
       customerPhone2: stored.customerPhone2,
       status,
-      memo: null,
+      memo: followupMemo,
       goldDb: values.goldDb,
       ...pmdBody,
       ...brandBody,
@@ -143,7 +146,7 @@ export async function submitCrmIntake(
       customerPhone2: stored.customerPhone2,
       address: values.address.trim(),
       addressDetail: null,
-      memo: null,
+      memo: followupMemo,
       source: '전화',
       status: 'RECEIVED',
       ...extras,
@@ -160,7 +163,7 @@ export async function submitCrmIntake(
     customerPhone2: stored.customerPhone2,
     address: values.address.trim() || '',
     addressDetail: null,
-    memo: null,
+    memo: followupMemo,
     source: '전화',
     status: inqSt,
     ...extras,
@@ -173,7 +176,7 @@ export async function submitCrmIntake(
     customerPhone: stored.customerPhone,
     customerPhone2: stored.customerPhone2,
     status: fuSt,
-    memo: null,
+    memo: followupMemo,
     goldDb: values.goldDb,
     inquiryId: created.id,
     ...pmdBody,
