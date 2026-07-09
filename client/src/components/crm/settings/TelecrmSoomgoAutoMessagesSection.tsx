@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SoomgoAutoTriggerKind } from '@shared/soomgoMessagePresets';
-import { SOOMGO_AUTO_TRIGGER_KINDS, SOOMGO_AUTO_TRIGGER_LABELS } from '@shared/soomgoMessagePresets';
+import {
+  SOOMGO_AUTO_TRIGGER_KINDS,
+  SOOMGO_AUTO_TRIGGER_LABELS,
+} from '@shared/soomgoMessagePresets';
 import { getToken } from '../../../stores/auth';
 import {
   fetchTelecrmSoomgoAutoMessages,
@@ -16,15 +19,22 @@ import { invalidateSoomgoFollowupAutoConfigCache } from '../../../utils/soomgoFo
 
 type AutoDraft = SoomgoPresetDraft & { triggerKind: SoomgoAutoTriggerKind };
 
-const PLACEHOLDER_HINT =
-  '텍스트에 {고객명}, {닉네임} 을 넣으면 저장 시 자동 치환됩니다.';
+const INTAKE_HINT: Record<SoomgoAutoTriggerKind, string> = {
+  auto_requested: '「요청」 저장 시',
+  auto_absent: '「부재」 저장 시',
+  auto_hold: '「보류·고민」 저장 시',
+  auto_deposit: '「예약금 대기」 저장 시',
+  auto_reserved: '「입금 완료」 저장 시',
+  auto_received: '「예약완료」 저장 시',
+};
 
-/** 숨고 프리셋 — 부재·보류 자동 전송 (업체 공통, 스텝 시퀀스) */
+/** 숨고 프리셋 — 처리 구분별 자동 전송 (업체 공통) */
 export function TelecrmSoomgoAutoMessagesSection() {
   const token = getToken();
   const [drafts, setDrafts] = useState<AutoDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyKind, setBusyKind] = useState<SoomgoAutoTriggerKind | null>(null);
+  const [expanded, setExpanded] = useState<SoomgoAutoTriggerKind | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -58,6 +68,12 @@ export function TelecrmSoomgoAutoMessagesSection() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const patchDraft = (triggerKind: SoomgoAutoTriggerKind, patch: Partial<AutoDraft>) => {
+    setDrafts((prev) =>
+      prev.map((d) => (d.triggerKind === triggerKind ? { ...d, ...patch } : d)),
+    );
+  };
 
   const onImagePick = async (triggerKind: SoomgoAutoTriggerKind, stepIndex: number, file: File) => {
     if (!token) return;
@@ -97,18 +113,11 @@ export function TelecrmSoomgoAutoMessagesSection() {
         isActive: draft.isActive,
       });
       invalidateSoomgoFollowupAutoConfigCache();
-      setDrafts((prev) =>
-        prev.map((d) =>
-          d.triggerKind === draft.triggerKind
-            ? {
-                ...d,
-                id: updated.id,
-                steps: updated.steps,
-                isActive: updated.isActive,
-              }
-            : d,
-        ),
-      );
+      patchDraft(draft.triggerKind, {
+        id: updated.id,
+        steps: updated.steps,
+        isActive: updated.isActive,
+      });
       setMsg(`${SOOMGO_AUTO_TRIGGER_LABELS[draft.triggerKind]} 자동 메시지를 저장했습니다.`);
       window.setTimeout(() => setMsg(null), 3500);
     } catch (e) {
@@ -123,50 +132,84 @@ export function TelecrmSoomgoAutoMessagesSection() {
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-fluid-sm text-gray-600">
-        접수란에서 <strong>부재</strong> 또는 <strong>보류·고민</strong>으로 저장할 때, 열려 있는 숨고
-        채팅방으로 아래 스텝을 순서대로 전송합니다. 매크로 프리셋과 동일하게 텍스트·이미지를 조합할 수
-        있습니다.
+    <div className="space-y-3">
+      <p className="text-[11px] leading-snug text-gray-600">
+        접수란 처리 구분별로 숨고 채팅 자동 전송 ON/OFF·메시지를 설정합니다.{' '}
+        <span className="text-gray-500">{'{고객명}'}, {'{닉네임}'} 치환 가능.</span>
       </p>
-      <p className="text-[11px] text-gray-500">{PLACEHOLDER_HINT}</p>
       {msg ? (
-        <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-fluid-sm text-green-800">
+        <p className="rounded-md border border-green-200 bg-green-50 px-2.5 py-1.5 text-[11px] text-green-800">
           {msg}
         </p>
       ) : null}
       {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-700">
+        <p className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] text-red-700">
           {error}
         </p>
       ) : null}
-      {drafts.map((draft, index) => (
-        <SoomgoMessagePresetEditor
-          key={draft.triggerKind}
-          draft={draft}
-          index={index}
-          busy={busyKind === draft.triggerKind}
-          hideLabel
-          fixedTitle={SOOMGO_AUTO_TRIGGER_LABELS[draft.triggerKind]}
-          activeCheckboxLabel="저장 시 숨고 채팅 자동 전송"
-          textPlaceholder="예: {닉네임}님, 연락 드렸으나 부재중이라 메시지 남깁니다."
-          hint={
-            draft.triggerKind === 'auto_absent'
-              ? '처리 구분 「부재」 저장 시 전송됩니다.'
-              : '처리 구분 「보류·고민」 저장 시 전송됩니다.'
-          }
-          onChange={(patch) =>
-            setDrafts((prev) =>
-              prev.map((d) => (d.triggerKind === draft.triggerKind ? { ...d, ...patch } : d)),
-            )
-          }
-          onSave={() => {
-            const current = drafts.find((d) => d.triggerKind === draft.triggerKind);
-            if (current) void saveDraft(current);
-          }}
-          onImagePick={(stepIndex, file) => void onImagePick(draft.triggerKind, stepIndex, file)}
-        />
-      ))}
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        {drafts.map((draft) => {
+          const open = expanded === draft.triggerKind;
+          const stepCount = draft.steps.length;
+          const busy = busyKind === draft.triggerKind;
+          return (
+            <div key={draft.triggerKind} className="border-b border-gray-100 last:border-b-0">
+              <div className="flex min-w-0 items-center gap-2 px-2.5 py-2">
+                <label className="flex shrink-0 items-center gap-1.5" title="자동 전송">
+                  <input
+                    type="checkbox"
+                    checked={draft.isActive}
+                    onChange={(e) => patchDraft(draft.triggerKind, { isActive: e.target.checked })}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-fluid-xs font-medium text-gray-900">
+                    {SOOMGO_AUTO_TRIGGER_LABELS[draft.triggerKind]}
+                  </span>
+                </label>
+                <span className="min-w-0 flex-1 truncate text-[10px] text-gray-500">
+                  {INTAKE_HINT[draft.triggerKind]}
+                  {stepCount > 0 ? ` · ${stepCount}스텝` : ' · 미설정'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(open ? null : draft.triggerKind)}
+                  className="shrink-0 rounded border border-gray-200 px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-50"
+                >
+                  {open ? '접기' : '편집'}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void saveDraft(draft)}
+                  className="shrink-0 rounded bg-slate-900 px-2 py-0.5 text-[10px] text-white disabled:opacity-50"
+                >
+                  저장
+                </button>
+              </div>
+              {open ? (
+                <div className="border-t border-gray-100 bg-gray-50/80 px-2 pb-2 pt-1">
+                  <SoomgoMessagePresetEditor
+                    draft={draft}
+                    index={0}
+                    busy={busy}
+                    hideLabel
+                    fixedTitle={SOOMGO_AUTO_TRIGGER_LABELS[draft.triggerKind]}
+                    activeCheckboxLabel="자동 전송 사용"
+                    textPlaceholder="예: {닉네임}님, 안내드립니다."
+                    hint={INTAKE_HINT[draft.triggerKind]}
+                    compact
+                    onChange={(patch) => patchDraft(draft.triggerKind, patch)}
+                    onSave={() => void saveDraft(draft)}
+                    onImagePick={(stepIndex, file) =>
+                      void onImagePick(draft.triggerKind, stepIndex, file)
+                    }
+                  />
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

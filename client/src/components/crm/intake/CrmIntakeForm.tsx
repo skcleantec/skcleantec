@@ -25,8 +25,9 @@ const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
 export function CrmIntakeForm({
   seed,
   initialFormDraft,
-  phone,
-  phoneUnknown,
+  contactPhone,
+  safePhone,
+  contactUnknown,
   pyeong,
   onPyeongChange,
   onFormChange,
@@ -42,8 +43,9 @@ export function CrmIntakeForm({
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
-  phone: string;
-  phoneUnknown: boolean;
+  contactPhone: string;
+  safePhone: string;
+  contactUnknown: boolean;
   pyeong: string;
   onPyeongChange: (v: string) => void;
   onFormChange?: (snapshot: CrmIntakeFormSnapshot) => void;
@@ -180,8 +182,9 @@ export function CrmIntakeForm({
         {
           customerName,
           nickname,
-          phone,
-          phoneUnknown,
+          contactPhone,
+          safePhone,
+          contactUnknown,
           preferredMoveInCleanYmd,
           address,
           roomCount,

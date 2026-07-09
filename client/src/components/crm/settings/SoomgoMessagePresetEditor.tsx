@@ -44,6 +44,7 @@ export function SoomgoMessagePresetEditor({
   activeCheckboxLabel = '사용',
   textPlaceholder = '채팅 메시지',
   hint,
+  compact = false,
 }: {
   draft: SoomgoPresetDraft;
   index: number;
@@ -57,6 +58,7 @@ export function SoomgoMessagePresetEditor({
   activeCheckboxLabel?: string;
   textPlaceholder?: string;
   hint?: string;
+  compact?: boolean;
 }) {
   const patchStep = (stepIndex: number, step: SoomgoMessageStep) => {
     const steps = [...draft.steps];
@@ -80,38 +82,19 @@ export function SoomgoMessagePresetEditor({
     fixedTitle ??
     (draft.id ? draft.label || `프리셋 ${index + 1}` : `새 프리셋 ${index + 1}`);
 
-  return (
-    <SettingsCard
-      title={title}
-      actions={
-        <div className="flex flex-wrap gap-2">
-          {draft.id && onDelete ? (
-            <button type="button" className="text-fluid-xs text-rose-600" onClick={onDelete}>
-              삭제
-            </button>
-          ) : null}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onSave}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs text-white disabled:opacity-50"
-          >
-            저장
-          </button>
-        </div>
-      }
-    >
-      <div className="space-y-3">
-        {hint ? <p className="text-fluid-xs text-gray-600">{hint}</p> : null}
-        {!hideLabel ? (
-          <input
-            type="text"
-            value={draft.label}
-            onChange={(e) => onChange({ label: e.target.value })}
-            placeholder="프리셋 이름 (예: 견적 안내)"
-            className={crmFieldClass}
-          />
-        ) : null}
+  const body = (
+    <div className={compact ? 'space-y-2' : 'space-y-3'}>
+      {hint && !compact ? <p className="text-fluid-xs text-gray-600">{hint}</p> : null}
+      {!hideLabel ? (
+        <input
+          type="text"
+          value={draft.label}
+          onChange={(e) => onChange({ label: e.target.value })}
+          placeholder="프리셋 이름 (예: 견적 안내)"
+          className={crmFieldClass}
+        />
+      ) : null}
+      {!compact ? (
         <label className="flex items-center gap-2 text-fluid-xs text-gray-700">
           <input
             type="checkbox"
@@ -121,9 +104,17 @@ export function SoomgoMessagePresetEditor({
           />
           {activeCheckboxLabel}
         </label>
-        <div className="space-y-2">
-          {draft.steps.map((step, stepIndex) => (
-            <div key={`${draft.id ?? 'new'}-${stepIndex}`} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+      ) : null}
+      <div className="space-y-2">
+        {draft.steps.map((step, stepIndex) => (
+          <div
+            key={`${draft.id ?? 'new'}-${stepIndex}`}
+            className={
+              compact
+                ? 'rounded border border-gray-200 bg-white p-2'
+                : 'rounded-lg border border-gray-200 bg-gray-50 p-3'
+            }
+          >
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-fluid-xs font-medium text-gray-700">{stepSummary(step)}</span>
                 <div className="flex gap-1">
@@ -223,6 +214,34 @@ export function SoomgoMessagePresetEditor({
           </button>
         </div>
       </div>
+  );
+
+  if (compact) {
+    return body;
+  }
+
+  return (
+    <SettingsCard
+      title={title}
+      actions={
+        <div className="flex flex-wrap gap-2">
+          {draft.id && onDelete ? (
+            <button type="button" className="text-fluid-xs text-rose-600" onClick={onDelete}>
+              삭제
+            </button>
+          ) : null}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onSave}
+            className="rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs text-white disabled:opacity-50"
+          >
+            저장
+          </button>
+        </div>
+      }
+    >
+      {body}
     </SettingsCard>
   );
 }

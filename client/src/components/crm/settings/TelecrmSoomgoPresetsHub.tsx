@@ -18,8 +18,9 @@ export function TelecrmSoomgoPresetsHub({
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [localView, setLocalView] = useState<SoomgoPresetsView>('macro');
+  const showAutoTab = canEditAuto && catalogScope === 'shared';
   const urlView: SoomgoPresetsView =
-    searchParams.get('view') === 'auto' && canEditAuto ? 'auto' : 'macro';
+    searchParams.get('view') === 'auto' && showAutoTab ? 'auto' : 'macro';
   const view = syncViewToUrl ? urlView : localView;
 
   const setView = (next: SoomgoPresetsView) => {
@@ -50,7 +51,7 @@ export function TelecrmSoomgoPresetsHub({
         >
           매크로
         </button>
-        {canEditAuto ? (
+        {showAutoTab ? (
           <button
             type="button"
             onClick={() => setView('auto')}

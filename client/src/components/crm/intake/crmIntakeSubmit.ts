@@ -7,6 +7,10 @@ import {
   type TelecrmConsultationQuotePayload,
 } from '@shared/telecrmConsultationQuote';
 import { parseCrmRoomCountInput } from '../../../utils/crmSoomgoImport';
+import {
+  resolveCrmOutboundPhone,
+  resolveCrmStoredPhones,
+} from '../../../utils/crmContactPhone';
 import { parseCrmIntakePyeong, resolveCrmIntakeCustomerName, validateCrmIntakeForm } from './crmIntakeValidation';
 
 export type CrmIntakeKind =
@@ -20,8 +24,9 @@ export type CrmIntakeKind =
 export type CrmIntakeFormValues = {
   customerName: string;
   nickname: string;
-  phone: string;
-  phoneUnknown: boolean;
+  contactPhone: string;
+  safePhone: string;
+  contactUnknown: boolean;
   preferredMoveInCleanYmd: string;
   address: string;
   roomCount: string;
@@ -31,16 +36,18 @@ export type CrmIntakeFormValues = {
   goldDb: boolean;
 };
 
-export type CrmIntakeFollowupKind = 'requested' | 'absent' | 'hold';
+export type CrmIntakeSubmitResult = {
+  intakeKind: CrmIntakeKind;
+  customerName: string;
+  nickname: string;
+} & (
+  | { kind: 'followup' }
+  | { kind: 'inquiry'; inquiryId: string; status: string }
+);
 
-export type CrmIntakeSubmitResult =
-  | { kind: 'followup'; intakeKind: CrmIntakeFollowupKind; customerName: string; nickname: string }
-  | { kind: 'inquiry'; inquiryId: string; status: string };
-
-function followupSubmitResult(values: CrmIntakeFormValues): CrmIntakeSubmitResult {
+function submitMeta(values: CrmIntakeFormValues): Pick<CrmIntakeSubmitResult, 'intakeKind' | 'customerName' | 'nickname'> {
   return {
-    kind: 'followup',
-    intakeKind: values.kind as CrmIntakeFollowupKind,
+    intakeKind: values.kind,
     customerName: resolveCrmIntakeCustomerName(values),
     nickname: values.nickname.trim(),
   };
@@ -85,6 +92,8 @@ export async function submitCrmIntake(
   const pmdBody = pmd ? { preferredMoveInCleaningDate: pmd } : {};
   const extras = inquiryExtras(pyeong, values.preferredMoveInCleanYmd, values);
   const brandBody = { operatingCompanyId };
+  const stored = resolveCrmStoredPhones(values.contactPhone, values.safePhone);
+  const outbound = resolveCrmOutboundPhone(values.contactPhone, values.safePhone);
 
   if (values.kind === 'requested' || values.kind === 'absent' || values.kind === 'hold') {
     const status: OrderFollowupStatus =
@@ -94,13 +103,13 @@ export async function submitCrmIntake(
       (values.kind === 'absent' || values.kind === 'hold') &&
       quotePayload &&
       telecrmQuotePayloadHasContent(quotePayload) &&
-      !values.phoneUnknown &&
-      values.phone.trim().replace(/\D/g, '').length >= 4
+      !values.contactUnknown &&
+      outbound.replace(/\D/g, '').length >= 4
     ) {
       await finalizeTelecrmConsultationQuote(
         token,
         {
-          phone: values.phone.trim(),
+          phone: outbound,
           payload: quotePayload,
           customerName: n,
           nickname: values.nickname.trim() || null,
@@ -110,26 +119,28 @@ export async function submitCrmIntake(
         },
         operatingCompanyId,
       );
-      return followupSubmitResult(values);
+      return { kind: 'followup', ...submitMeta(values) };
     }
     await createOrderFollowup(token, {
       customerName: n,
       nickname: values.nickname.trim() || null,
-      customerPhone: values.phone.trim(),
+      customerPhone: stored.customerPhone,
+      customerPhone2: stored.customerPhone2,
       status,
       memo: null,
       goldDb: values.goldDb,
       ...pmdBody,
       ...brandBody,
     });
-    return followupSubmitResult(values);
+    return { kind: 'followup', ...submitMeta(values) };
   }
 
   if (values.kind === 'received') {
     const created = (await createInquiry(token, {
       customerName: n,
       nickname: values.nickname.trim() || null,
-      customerPhone: values.phone.trim() || '',
+      customerPhone: stored.customerPhone,
+      customerPhone2: stored.customerPhone2,
       address: values.address.trim(),
       addressDetail: null,
       memo: null,
@@ -138,14 +149,15 @@ export async function submitCrmIntake(
       ...extras,
       ...brandBody,
     })) as { id: string };
-    return { kind: 'inquiry', inquiryId: created.id, status: 'RECEIVED' };
+    return { kind: 'inquiry', inquiryId: created.id, status: 'RECEIVED', ...submitMeta(values) };
   }
 
   const inqSt = values.kind === 'deposit' ? 'DEPOSIT_PENDING' : 'DEPOSIT_COMPLETED';
   const created = (await createInquiry(token, {
     customerName: n,
     nickname: values.nickname.trim() || null,
-    customerPhone: values.phone.trim() || '',
+    customerPhone: stored.customerPhone,
+    customerPhone2: stored.customerPhone2,
     address: values.address.trim() || '',
     addressDetail: null,
     memo: null,
@@ -158,7 +170,8 @@ export async function submitCrmIntake(
   await createOrderFollowup(token, {
     customerName: n,
     nickname: values.nickname.trim() || null,
-    customerPhone: values.phone.trim(),
+    customerPhone: stored.customerPhone,
+    customerPhone2: stored.customerPhone2,
     status: fuSt,
     memo: null,
     goldDb: values.goldDb,
@@ -166,5 +179,5 @@ export async function submitCrmIntake(
     ...pmdBody,
     ...brandBody,
   });
-  return { kind: 'inquiry', inquiryId: created.id, status: inqSt };
+  return { kind: 'inquiry', inquiryId: created.id, status: inqSt, ...submitMeta(values) };
 }

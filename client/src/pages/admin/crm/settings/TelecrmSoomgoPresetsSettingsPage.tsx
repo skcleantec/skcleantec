@@ -9,7 +9,7 @@ export function TelecrmSoomgoPresetsSettingsPage() {
   const permissions = useMarketerPermissions();
   const catalogScope: TelecrmCatalogOwnerScope =
     searchParams.get('catalog') === 'shared' ? 'shared' : 'personal';
-  const canEditAuto = permissions.has('crm.settings');
+  const canEditAuto = catalogScope === 'shared' && permissions.has('crm.settings');
 
   return (
     <div className="min-w-0">

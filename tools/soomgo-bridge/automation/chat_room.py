@@ -370,21 +370,23 @@ class ChatRoomManager:
         if request_data.get('requestMemo'):
             parsed['memo'] = str(request_data['requestMemo'])
 
+        mobile_phone: str | None = None
+        parsed_phone = parsed.get('phone')
+        if parsed_phone and re.sub(r'\D', '', str(parsed_phone)).startswith('01'):
+            mobile_phone = str(parsed_phone)
+
         safe_phone: str | None = None
         safe_phone_skipped = False
         known = (known_safe_phone or '').strip() or None
         if known and len(re.sub(r'\D', '', known)) >= 10:
             safe_phone = known
             safe_phone_skipped = True
-        elif parsed.get('phone'):
-            safe_phone = str(parsed['phone'])
-            safe_phone_skipped = True
         else:
             dismiss_blocking_overlays(self.driver, self.delay * 0.15, max_rounds=1)
             call_mgr = CallModalManager(self.driver, self.delay)
             safe_phone = call_mgr.try_extract_safe_phone()
 
-        phone = safe_phone or parsed.get('phone')
+        phone = mobile_phone or safe_phone
         last_message = customer_messages[-1] if customer_messages else None
 
         return {
@@ -392,6 +394,7 @@ class ChatRoomManager:
             'nickname': customer_name,
             'customerName': customer_name,
             'phone': phone,
+            'mobilePhone': mobile_phone,
             'safePhone': safe_phone,
             'safePhoneSkipped': safe_phone is None and not safe_phone_skipped,
             'address': parsed.get('address'),

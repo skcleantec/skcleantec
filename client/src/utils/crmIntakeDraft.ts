@@ -18,7 +18,11 @@ export type CrmIntakeFormSnapshot = {
 
 export type CrmIntakeDraft = CrmIntakeFormSnapshot & {
   mode: CrmCustomerMode;
-  phone: string;
+  contactPhone: string;
+  safePhone: string;
+  contactUnknown?: boolean;
+  /** @deprecated 레거시 — contactPhone으로 이전 */
+  phone?: string;
   phoneUnknown?: boolean;
   pyeong: string;
   savedAt: number;
@@ -31,6 +35,14 @@ export function loadCrmIntakeDraft(): CrmIntakeDraft | null {
     const parsed = JSON.parse(raw) as CrmIntakeDraft;
     if (!parsed || typeof parsed !== 'object') return null;
     if (parsed.mode !== 'new' && parsed.mode !== 'existing') return null;
+    if (!parsed.contactPhone && parsed.phone) {
+      parsed.contactPhone = parsed.phone;
+    }
+    parsed.contactPhone ??= '';
+    parsed.safePhone ??= '';
+    if (parsed.contactUnknown == null && parsed.phoneUnknown != null) {
+      parsed.contactUnknown = Boolean(parsed.phoneUnknown);
+    }
     return parsed;
   } catch {
     return null;
@@ -55,7 +67,10 @@ export function clearCrmIntakeDraft(): void {
 
 export function crmIntakeDraftHasContent(draft: Partial<CrmIntakeDraft>): boolean {
   return Boolean(
-    draft.phoneUnknown ||
+    draft.contactUnknown ||
+      draft.phoneUnknown ||
+      draft.contactPhone?.trim() ||
+      draft.safePhone?.trim() ||
       draft.phone?.trim() ||
       draft.customerName?.trim() ||
       draft.nickname?.trim() ||

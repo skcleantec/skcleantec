@@ -42,6 +42,7 @@ export interface OrderFollowupItem {
   customerName: string;
   nickname: string | null;
   customerPhone: string;
+  customerPhone2?: string | null;
   status: OrderFollowupStatus;
   deferCount: number;
   goldDb: boolean;
@@ -137,6 +138,7 @@ export async function createOrderFollowup(
     nickname?: string | null;
     /** 비우면 저장 시 빈 문자열(미입력) */
     customerPhone?: string;
+    customerPhone2?: string | null;
     status?: OrderFollowupStatus;
     memo?: string | null;
     nextContactAt?: string | null;
@@ -164,6 +166,7 @@ export async function patchOrderFollowup(
     customerName?: string;
     /** 편집 시 연락처 수정 */
     customerPhone?: string;
+    customerPhone2?: string | null;
     /** 편집 시 닉네임 수정 (`null`·빈 문자열로 제거 가능) */
     nickname?: string | null;
     status?: OrderFollowupStatus;

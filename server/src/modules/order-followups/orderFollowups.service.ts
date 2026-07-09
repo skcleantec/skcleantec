@@ -44,6 +44,7 @@ export function serializeFollowup(row: FollowupWithRelations) {
     customerName: row.customerName,
     nickname: row.nickname,
     customerPhone: row.customerPhone,
+    customerPhone2: row.customerPhone2 ?? null,
     status: row.status,
     deferCount: row.deferCount,
     goldDb: row.goldDb,

@@ -8,8 +8,21 @@ import {
 } from '../../lib/soomgoMessagePresets.js';
 
 const AUTO_LABELS: Record<SoomgoAutoTriggerKind, string> = {
+  auto_requested: '요청 자동 안내',
   auto_absent: '부재 자동 안내',
   auto_hold: '보류·고민 자동 안내',
+  auto_deposit: '예약금 대기 자동 안내',
+  auto_reserved: '입금 완료 자동 안내',
+  auto_received: '예약완료 자동 안내',
+};
+
+const AUTO_SORT: Record<SoomgoAutoTriggerKind, number> = {
+  auto_requested: 0,
+  auto_absent: 1,
+  auto_hold: 2,
+  auto_deposit: 3,
+  auto_reserved: 4,
+  auto_received: 5,
 };
 
 function parseStepsJson(stepsJson: string) {
@@ -53,7 +66,7 @@ async function ensureAutoPresetRow(tenantId: string, triggerKind: SoomgoAutoTrig
       slotNumber: 0,
       label: AUTO_LABELS[triggerKind],
       stepsJson: '[]',
-      sortOrder: triggerKind === 'auto_absent' ? 0 : 1,
+      sortOrder: AUTO_SORT[triggerKind],
       isActive: false,
       triggerKind,
     },
@@ -64,6 +77,11 @@ export async function listTelecrmSoomgoAutoMessages(tenantId: string) {
   const rows = await Promise.all(
     SOOMGO_AUTO_TRIGGER_KINDS.map((kind) => ensureAutoPresetRow(tenantId, kind)),
   );
+  rows.sort((a, b) => {
+    const ak = a.triggerKind as SoomgoAutoTriggerKind;
+    const bk = b.triggerKind as SoomgoAutoTriggerKind;
+    return (AUTO_SORT[ak] ?? 0) - (AUTO_SORT[bk] ?? 0);
+  });
   return {
     items: rows.map(serializeAutoRow),
     labels: SOOMGO_AUTO_TRIGGER_LABELS,
@@ -94,20 +112,6 @@ export async function upsertTelecrmSoomgoAutoMessage(
     },
   });
   return serializeAutoRow(updated);
-}
-
-export async function getTelecrmSoomgoAutoMessageForIntake(
-  tenantId: string,
-  intakeKind: 'absent' | 'hold',
-) {
-  const triggerKind: SoomgoAutoTriggerKind = intakeKind === 'absent' ? 'auto_absent' : 'auto_hold';
-  const row = await prisma.telecrmSoomgoMessagePreset.findFirst({
-    where: { tenantId, triggerKind, isActive: true },
-  });
-  if (!row) return null;
-  const steps = parseStepsJson(row.stepsJson);
-  if (!steps.length) return null;
-  return { triggerKind, steps };
 }
 
 /** 수동 매크로 목록 — 자동 트리거 프리셋 제외 */

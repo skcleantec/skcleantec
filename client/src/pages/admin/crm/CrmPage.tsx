@@ -27,6 +27,11 @@ import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssue
 import { useCrmPanelUrl } from '../../../hooks/useCrmPanelUrl';
 import type { CrmOrderIssueSeed } from '../../../components/orderform/OrderIssueInlinePanel';
 import { crmIntakeRequiredPermission, resolveCrmIntakeCustomerName } from '../../../components/crm/intake/crmIntakeValidation';
+import {
+  isCrmSafePhone,
+  resolveCrmOutboundPhone,
+  splitSoomgoPhones,
+} from '../../../utils/crmContactPhone';
 import type { CrmIntakeKind } from '../../../components/crm/intake/crmIntakeSubmit';
 import {
   clearCrmIntakeDraft,
@@ -94,8 +99,13 @@ export function CrmPage() {
   );
 
   const [mode, setMode] = useState<CrmCustomerMode>('new');
-  const [phone, setPhone] = useState('');
-  const [phoneUnknown, setPhoneUnknown] = useState(false);
+  const [contactPhone, setContactPhone] = useState('');
+  const [safePhone, setSafePhone] = useState('');
+  const [contactUnknown, setContactUnknown] = useState(false);
+  const outboundPhone = useMemo(
+    () => resolveCrmOutboundPhone(contactPhone, safePhone),
+    [contactPhone, safePhone],
+  );
   const [customerName, setCustomerName] = useState('');
   const [pyeong, setPyeong] = useState('');
   const [quoteLines, setQuoteLines] = useState<CrmPricingQuoteLine[]>([]);
@@ -153,8 +163,9 @@ export function CrmPage() {
     const draft = loadCrmIntakeDraft();
     if (draft && crmIntakeDraftHasContent(draft)) {
       setMode(draft.mode);
-      setPhone(draft.phone);
-      setPhoneUnknown(Boolean(draft.phoneUnknown));
+      setContactPhone(draft.contactPhone ?? draft.phone ?? '');
+      setSafePhone(draft.safePhone ?? '');
+      setContactUnknown(Boolean(draft.contactUnknown ?? draft.phoneUnknown));
       setCustomerName(draft.customerName);
       setPyeong(draft.pyeong);
       setInitialFormDraft({
@@ -169,7 +180,8 @@ export function CrmPage() {
         kind: draft.kind,
         goldDb: draft.goldDb,
       });
-      if (draft.phone.trim()) setDraftRestoredPhone(draft.phone.trim());
+      const restored = (draft.contactPhone ?? draft.phone ?? '').trim();
+      if (restored) setDraftRestoredPhone(restored);
       setHasUnsavedDraft(true);
     }
     draftReadyRef.current = true;
@@ -213,8 +225,9 @@ export function CrmPage() {
       formSnapshotRef.current = form;
       const draft = {
         mode,
-        phone,
-        phoneUnknown,
+        contactPhone,
+        safePhone,
+        contactUnknown,
         pyeong,
         ...form,
         savedAt: Date.now(),
@@ -227,19 +240,28 @@ export function CrmPage() {
         setHasUnsavedDraft(false);
       }
     },
-    [mode, phone, phoneUnknown, pyeong],
+    [mode, contactPhone, safePhone, contactUnknown, pyeong],
   );
 
   useEffect(() => {
     if (!draftReadyRef.current) return;
     const form = formSnapshotRef.current;
     if (!form) {
-      const partial = { mode, phone, phoneUnknown, pyeong, customerName, savedAt: Date.now() };
+      const partial = {
+        mode,
+        contactPhone,
+        safePhone,
+        contactUnknown,
+        pyeong,
+        customerName,
+        savedAt: Date.now(),
+      };
       if (crmIntakeDraftHasContent(partial)) {
         saveCrmIntakeDraft({
           mode,
-          phone,
-          phoneUnknown,
+          contactPhone,
+          safePhone,
+          contactUnknown,
           pyeong,
           customerName,
           nickname: '',
@@ -258,7 +280,7 @@ export function CrmPage() {
       return;
     }
     persistDraft(form);
-  }, [mode, phone, phoneUnknown, pyeong, customerName, persistDraft]);
+  }, [mode, contactPhone, safePhone, contactUnknown, pyeong, customerName, persistDraft]);
 
   const handleFormChange = useCallback(
     (snapshot: CrmIntakeFormSnapshot) => {
@@ -295,8 +317,9 @@ export function CrmPage() {
   }, []);
 
   const handleIntakeReset = useCallback(() => {
-    setPhone('');
-    setPhoneUnknown(false);
+    setContactPhone('');
+    setSafePhone('');
+    setContactUnknown(false);
     setCustomerName('');
     setPyeong('');
     setMode('new');
@@ -323,10 +346,12 @@ export function CrmPage() {
   }, [showDispatchNotice]);
 
   const handleSoomgoImport = useCallback((data: SoomgoExtractedChat) => {
-    if (data.phone) {
-      setPhone(data.phone);
-      setPhoneUnknown(false);
+    const split = splitSoomgoPhones(data);
+    if (split.contactPhone) {
+      setContactPhone(split.contactPhone);
+      setContactUnknown(false);
     }
+    if (split.safePhone) setSafePhone(split.safePhone);
     const name = (data.customerName || data.nickname)?.trim() || '';
     if (name) setCustomerName(name);
     if (data.pyeong) setPyeong(String(data.pyeong));
@@ -353,7 +378,10 @@ export function CrmPage() {
   const soomgoBridge = useCrmSoomgoBridge({
     onImport: handleSoomgoImport,
     bridgeManifest: soomgoBridgeManifest,
-    onImportPhone: setPhone,
+    onImportPhone: (phoneValue) => {
+      if (isCrmSafePhone(phoneValue)) setSafePhone(phoneValue);
+      else setContactPhone(phoneValue);
+    },
     onDispatchNotice: showDispatchNotice,
     onImportNotice: (data) =>
       showDispatchNotice(
@@ -421,7 +449,7 @@ export function CrmPage() {
     finalizeError: quoteFinalizeError,
     finalizeQuoteHold,
   } = useCrmConsultationQuote({
-    phone,
+    phone: outboundPhone,
     pyeong,
     pricePerPyeong,
     minimumTotalAmount,
@@ -446,7 +474,7 @@ export function CrmPage() {
   const canFinalizeQuoteHold =
     (permissions.me?.role === 'ADMIN' || permissions.has('followup.edit')) &&
     (intakeKind === 'absent' || intakeKind === 'hold') &&
-    phone.replace(/\D/g, '').length >= 4 &&
+    outboundPhone.replace(/\D/g, '').length >= 4 &&
     telecrmQuotePayloadHasContent(quotePayload);
 
   const handleFinalizeQuoteHold = useCallback(async () => {
@@ -459,7 +487,8 @@ export function CrmPage() {
         customerName: resolveCrmIntakeCustomerName({
           customerName: form.customerName,
           nickname: form.nickname,
-          phone,
+          contactPhone,
+          safePhone,
         }),
         nickname: form.nickname.trim() || null,
         goldDb: form.goldDb,
@@ -475,7 +504,7 @@ export function CrmPage() {
     } catch {
       /* finalizeError in hook */
     }
-  }, [finalizeQuoteHold, handleIntakeSaved, phone, showDispatchNotice]);
+  }, [finalizeQuoteHold, handleIntakeSaved, contactPhone, safePhone, showDispatchNotice]);
 
   const scriptEstimateWon = quoteGrandTotal ?? estimateWon;
 
@@ -502,7 +531,7 @@ export function CrmPage() {
       setLookupRefreshKey((k) => k + 1);
       if (!telecrmQuotePayloadHasContent(quotePayload)) return;
       const token = getToken();
-      const digits = phone.replace(/\D/g, '');
+      const digits = outboundPhone.replace(/\D/g, '');
       if (!token || digits.length < 4) return;
       try {
         await linkTelecrmConsultationQuoteInquiry(
@@ -518,7 +547,7 @@ export function CrmPage() {
         /* 견적 연결 실패는 발주서 발급 자체를 막지 않음 */
       }
     },
-    [activeOperatingCompanyId, issuePendingInquiryId, phone, quotePayload],
+    [activeOperatingCompanyId, issuePendingInquiryId, outboundPhone, quotePayload],
   );
 
   const issueSeed = useMemo((): CrmOrderIssueSeed => {
@@ -526,7 +555,7 @@ export function CrmPage() {
     const profIds = crmQuoteProfessionalOptionIdsFromLines(quoteLines);
     return {
       customerName: form?.customerName?.trim() || customerName.trim() || undefined,
-      customerPhone: phone.trim() || undefined,
+      customerPhone: outboundPhone.trim() || undefined,
       areaPyeong: pyeong.trim() || undefined,
       areaBasis: pyeong.trim() ? '공급' : undefined,
       address: form?.address?.trim() || undefined,
@@ -546,7 +575,7 @@ export function CrmPage() {
     };
   }, [
     customerName,
-    phone,
+    outboundPhone,
     pyeong,
     depositAmount,
     estimateWon,
@@ -778,10 +807,12 @@ export function CrmPage() {
               <CrmIntakePanel
                 mode={mode}
                 onModeChange={handleModeChange}
-                phone={phone}
-                onPhoneChange={setPhone}
-                phoneUnknown={phoneUnknown}
-                onPhoneUnknownChange={setPhoneUnknown}
+                contactPhone={contactPhone}
+                onContactPhoneChange={setContactPhone}
+                safePhone={safePhone}
+                onSafePhoneChange={setSafePhone}
+                contactUnknown={contactUnknown}
+                onContactUnknownChange={setContactUnknown}
                 onCustomerNameChange={setCustomerName}
                 pyeong={pyeong}
                 onPyeongChange={setPyeong}
@@ -873,7 +904,7 @@ export function CrmPage() {
         <CrmSmsDrawer
           open={smsDrawerOpen}
           onClose={() => setSmsDrawerOpen(false)}
-          phone={phone}
+          phone={outboundPhone}
           customerName={customerName || undefined}
           pyeong={pyeong || undefined}
           estimateWon={scriptEstimateWon}

@@ -1,5 +1,5 @@
 import { applyPlaceholdersToSoomgoSteps } from '@shared/telecrmSoomgoFollowupAuto';
-import type { SoomgoAutoTriggerKind } from '@shared/soomgoMessagePresets';
+import { soomgoAutoTriggerForIntakeKind } from '@shared/soomgoMessagePresets';
 import { fetchTelecrmSoomgoAutoMessages } from '../api/telecrmSoomgoMessagePresets';
 import { fetchSoomgoBridgeStatus, sendSoomgoBridgeSequence } from '../api/soomgoBridge';
 import type { CrmIntakeKind } from '../components/crm/intake/crmIntakeSubmit';
@@ -29,19 +29,13 @@ export function invalidateSoomgoFollowupAutoConfigCache(): void {
   cache = null;
 }
 
-function triggerForIntake(kind: CrmIntakeKind): SoomgoAutoTriggerKind | null {
-  if (kind === 'absent') return 'auto_absent';
-  if (kind === 'hold') return 'auto_hold';
-  return null;
-}
-
-/** 부재·보류·고민 저장 직후 — 프리셋 스텝 시퀀스로 숨고 채팅 자동 전송 */
+/** 접수란 저장 직후 — 처리 구분별 프리셋 ON이면 숨고 채팅 자동 전송 */
 export async function trySoomgoFollowupAutoMessage(
   token: string,
   kind: CrmIntakeKind,
   ctx: { customerName: string; nickname: string },
 ): Promise<SoomgoFollowupAutoSendResult> {
-  const triggerKind = triggerForIntake(kind);
+  const triggerKind = soomgoAutoTriggerForIntakeKind(kind);
   if (!triggerKind) return { sent: false, reason: 'skipped' };
 
   try {

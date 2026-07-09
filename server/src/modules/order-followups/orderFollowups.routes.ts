@@ -110,6 +110,7 @@ async function createInquiryForDepositFlow(params: {
   customerName: string;
   nickname: string | null;
   customerPhone: string;
+  customerPhone2?: string | null;
   memo: string | null;
   followupStatus: DepositFlowStatus;
 }): Promise<string> {
@@ -143,7 +144,7 @@ async function createInquiryForDepositFlow(params: {
         customerName: params.customerName,
         nickname: params.nickname,
         customerPhone: params.customerPhone,
-        customerPhone2: null,
+        customerPhone2: params.customerPhone2 ?? null,
         address: '',
         addressDetail: null,
         preferredDate: null,
@@ -334,6 +335,12 @@ router.post('/', async (req, res) => {
   const customerName = typeof body.customerName === 'string' ? body.customerName.trim() : '';
   const nickname = typeof body.nickname === 'string' ? body.nickname.trim() || null : null;
   const customerPhone = typeof body.customerPhone === 'string' ? body.customerPhone.trim() : '';
+  const customerPhone2 =
+    typeof body.customerPhone2 === 'string'
+      ? body.customerPhone2.trim() || null
+      : body.customerPhone2 === null
+        ? null
+        : undefined;
   if (!customerName) {
     res.status(400).json({ error: '고객명은 필수입니다.' });
     return;
@@ -372,6 +379,7 @@ router.post('/', async (req, res) => {
       customerName,
       nickname,
       customerPhone,
+      customerPhone2: customerPhone2 ?? null,
       memo,
       followupStatus: status,
     });
@@ -402,6 +410,7 @@ router.post('/', async (req, res) => {
       customerName,
       nickname,
       customerPhone,
+      ...(customerPhone2 !== undefined ? { customerPhone2 } : {}),
       status,
       goldDb,
       memo,
@@ -474,6 +483,19 @@ router.patch('/:id', async (req, res) => {
         action: 'CUSTOMER_PHONE',
         detail: JSON.stringify({ from: prev.customerPhone, to: next }),
       });
+    }
+  }
+
+  if ('customerPhone2' in body) {
+    const raw = body.customerPhone2;
+    const next =
+      raw === null || raw === ''
+        ? null
+        : typeof raw === 'string'
+          ? raw.trim() || null
+          : undefined;
+    if (next !== undefined && next !== (prev.customerPhone2 ?? null)) {
+      data.customerPhone2 = next;
     }
   }
 
@@ -626,6 +648,14 @@ router.patch('/:id', async (req, res) => {
             : prev.nickname ?? null,
         customerPhone:
           typeof body.customerPhone === 'string' ? body.customerPhone.trim() : prev.customerPhone,
+        customerPhone2:
+          'customerPhone2' in body
+            ? body.customerPhone2 === null || body.customerPhone2 === ''
+              ? null
+              : typeof body.customerPhone2 === 'string'
+                ? body.customerPhone2.trim() || null
+                : prev.customerPhone2 ?? null
+            : prev.customerPhone2 ?? null,
         memo:
           typeof body.memo === 'string'
             ? body.memo.trim() || null
