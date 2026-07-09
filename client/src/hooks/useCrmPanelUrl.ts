@@ -2,10 +2,10 @@ import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 export type CrmPanel = 'settings' | 'issue';
-export type CrmSettingsTab = 'scripts' | 'pricing' | 'general' | 'sms' | 'soomgo';
+export type CrmSettingsTab = 'scripts' | 'pricing' | 'general' | 'sms' | 'soomgo' | 'soomgo-presets';
 export type CrmCatalogScope = 'shared' | 'personal';
 
-const SETTINGS_TABS: CrmSettingsTab[] = ['scripts', 'pricing', 'general', 'sms', 'soomgo'];
+const SETTINGS_TABS: CrmSettingsTab[] = ['scripts', 'pricing', 'general', 'sms', 'soomgo', 'soomgo-presets'];
 
 function parseSettingsTab(raw: string | null): CrmSettingsTab {
   if (raw && SETTINGS_TABS.includes(raw as CrmSettingsTab)) return raw as CrmSettingsTab;

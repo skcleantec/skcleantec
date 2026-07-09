@@ -9,6 +9,9 @@ export type CrmIntakeFormSnapshot = {
   address: string;
   preferredMoveInCleanYmd: string;
   requestMemo: string;
+  roomCount: string;
+  bathroomCount: string;
+  balconyCount: string;
   kind: CrmIntakeKind;
   goldDb: boolean;
 };
@@ -57,6 +60,9 @@ export function crmIntakeDraftHasContent(draft: Partial<CrmIntakeDraft>): boolea
       draft.address?.trim() ||
       draft.pyeong?.trim() ||
       draft.preferredMoveInCleanYmd?.trim() ||
-      draft.requestMemo?.trim(),
+      draft.requestMemo?.trim() ||
+      draft.roomCount?.trim() ||
+      draft.bathroomCount?.trim() ||
+      draft.balconyCount?.trim(),
   );
 }

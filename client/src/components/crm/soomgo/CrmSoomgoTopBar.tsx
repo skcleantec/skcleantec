@@ -186,7 +186,7 @@ export function CrmSoomgoTopBar({
               onClick={onOpenSettings}
               className="rounded-lg border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-medium text-sky-800 hover:bg-sky-50"
             >
-              계정 설정
+              계정·연동
             </button>
           ) : null}
           <button

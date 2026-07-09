@@ -13,8 +13,11 @@ import { TelecrmSoomgoMessagePresetsSection } from '../../../../components/crm/s
 
 export function TelecrmSoomgoSettingsPage({
   catalogScope: catalogScopeProp,
+  presetsInDrawer = false,
 }: {
   catalogScope?: TelecrmCatalogOwnerScope;
+  /** CRM 설정 드로어 — 프리셋은 「숨고 프리셋」 탭에서 편집 */
+  presetsInDrawer?: boolean;
 } = {}) {
   const [searchParams] = useSearchParams();
   const catalogScope: TelecrmCatalogOwnerScope =
@@ -124,7 +127,7 @@ export function TelecrmSoomgoSettingsPage({
             ) : (
               <div className="space-y-4">
                 <p className="text-fluid-sm text-gray-600">
-                  텔레CRM 작업 화면 <strong>설정 → 숨고 연동</strong> 또는 관리자 메뉴의 숨고 연동에서 저장합니다.
+                  텔레CRM 작업 화면 <strong>설정 → 숨고 연동</strong>에서 저장합니다.
                   「숨고 보조창」 열기 시 이 계정으로 자동 로그인됩니다.
                 </p>
                 <label className="block space-y-1">
@@ -207,9 +210,11 @@ export function TelecrmSoomgoSettingsPage({
         </>
       ) : null}
 
-      <SettingsCard title={catalogScope === 'personal' ? '내 숨고 메시지 프리셋' : '공유 숨고 메시지 프리셋'}>
-        <TelecrmSoomgoMessagePresetsSection catalogScope={catalogScope} />
-      </SettingsCard>
+      {!presetsInDrawer ? (
+        <SettingsCard title={catalogScope === 'personal' ? '내 숨고 메시지 프리셋' : '공유 숨고 메시지 프리셋'}>
+          <TelecrmSoomgoMessagePresetsSection catalogScope={catalogScope} />
+        </SettingsCard>
+      ) : null}
 
       <DeletePasswordModal
         open={pwdModalOpen}

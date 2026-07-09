@@ -10,11 +10,31 @@ from automation.overlay_modals import dismiss_blocking_overlays
 
 logger = logging.getLogger(__name__)
 
-REQUEST_MODAL_DELAY = 1.2
-REQUEST_MODAL_READY_TIMEOUT = 8.0
+REQUEST_MODAL_DELAY = 0.75
+REQUEST_MODAL_READY_TIMEOUT = 4.5
+REQUEST_MODAL_POLL_SEC = 0.1
+REQUEST_MODAL_OPEN_WAIT_SEC = 3.0
+REQUEST_MODAL_RETRY_WAIT_SEC = 2.0
 
 _DATE_RE = re.compile(r'(\d{4}-\d{2}-\d{2})')
 _PYEONG_ANSWER_RE = re.compile(r'(\d{1,4})\s*평')
+_COUNT_ANSWER_RE = re.compile(r'(\d{1,2})')
+
+
+def parse_soomgo_count(raw: Any) -> int | None:
+    """숨고 고객요청 답변 → 방·화장실·베란다 개수 (0~99)."""
+    if raw is None:
+        return None
+    if isinstance(raw, int):
+        return raw if 0 <= raw <= 99 else None
+    s = str(raw).strip()
+    if not s or re.search(r'없|무|해당\s*없|0개', s):
+        return None
+    m = _COUNT_ANSWER_RE.search(s)
+    if not m:
+        return None
+    n = int(m.group(1))
+    return n if 0 <= n <= 99 else None
 
 _GET_HEADER_NAME_JS = """
 function visible(el) {
@@ -192,6 +212,23 @@ for (var i = 0; i < roots.length; i++) {
 return false;
 """
 
+_MODAL_READY_LIGHT_JS = """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 80 || r.height < 80) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden';
+}
+var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="drawer"], [class*="Drawer"], [class*="sheet"], [class*="Sheet"], aside, section, div');
+for (var i = 0; i < roots.length; i++) {
+  if (!visible(roots[i])) continue;
+  var t = (roots[i].innerText || '');
+  if (t.indexOf('고객 요청') >= 0 && t.indexOf('요청 상세') >= 0 && t.length > 72) return true;
+}
+return false;
+"""
+
 _CLOSE_REQUEST_MODAL_JS = """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
@@ -329,7 +366,15 @@ class CustomerRequestManager:
         self.driver = driver
         self.delay = delay
 
+    def _modal_ready_light(self) -> bool:
+        try:
+            return bool(self.driver.execute_script(_MODAL_READY_LIGHT_JS))
+        except Exception:
+            return False
+
     def _modal_has_content(self) -> bool:
+        if not self._modal_ready_light():
+            return False
         data = self.extract_request_modal()
         if not data:
             return False
@@ -347,12 +392,12 @@ class CustomerRequestManager:
         deadline = time.time() + timeout
         while time.time() < deadline:
             if not self.is_request_modal_open():
-                time.sleep(0.25)
+                time.sleep(REQUEST_MODAL_POLL_SEC)
                 continue
-            if self._modal_has_content():
+            if self._modal_ready_light():
                 return True
-            time.sleep(0.3)
-        return self.is_request_modal_open() and self._modal_has_content()
+            time.sleep(REQUEST_MODAL_POLL_SEC)
+        return self.is_request_modal_open() and self._modal_ready_light()
 
     def get_header_customer_name(self) -> str | None:
         try:
@@ -370,22 +415,22 @@ class CustomerRequestManager:
             return False
 
     def open_request_modal(self) -> bool:
-        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
-        if self.is_request_modal_open() and self._modal_has_content():
+        dismiss_blocking_overlays(self.driver, self.delay * 0.25, max_rounds=2)
+        if self.is_request_modal_open() and self._modal_ready_light():
             return True
         try:
             for attempt in range(3):
-                dismiss_blocking_overlays(self.driver, self.delay * 0.3)
+                dismiss_blocking_overlays(self.driver, self.delay * 0.2, max_rounds=2)
                 clicked = self.driver.execute_script(_OPEN_REQUEST_MODAL_JS)
                 if clicked:
-                    time.sleep(self.delay * 0.6)
-                    if self.wait_for_request_modal_ready(timeout=8.0):
+                    time.sleep(self.delay * 0.35)
+                    if self.wait_for_request_modal_ready(timeout=REQUEST_MODAL_OPEN_WAIT_SEC):
                         return True
                 if self.is_request_modal_open():
-                    time.sleep(self.delay * 0.5)
-                    if self.wait_for_request_modal_ready(timeout=5.0):
+                    time.sleep(self.delay * 0.25)
+                    if self.wait_for_request_modal_ready(timeout=REQUEST_MODAL_RETRY_WAIT_SEC):
                         return True
-                time.sleep(self.delay * 0.4)
+                time.sleep(self.delay * 0.2)
                 logger.debug('open_request_modal retry %s', attempt + 1)
             return self.is_request_modal_open()
         except Exception as e:
@@ -424,13 +469,13 @@ class CustomerRequestManager:
                 return True
             for _ in range(2):
                 self.driver.execute_script(_CLOSE_REQUEST_MODAL_JS)
-                time.sleep(self.delay * 0.45)
+                time.sleep(self.delay * 0.22)
                 if not self.is_request_modal_open():
                     return True
             self.driver.execute_script(
                 "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));"
             )
-            time.sleep(self.delay * 0.35)
+            time.sleep(self.delay * 0.18)
             return not self.is_request_modal_open()
         except Exception as e:
             logger.debug('close_request_modal: %s', e)
@@ -439,22 +484,38 @@ class CustomerRequestManager:
     def extract_customer_request(self) -> dict[str, Any]:
         """순차: 채팅 기본화 → 좌상단 이름 클릭 → 대기 → 파싱 → X 닫기."""
         empty: dict[str, Any] = {}
-        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
+        dismiss_blocking_overlays(self.driver, self.delay * 0.25, max_rounds=2)
 
-        # 전화·고객요청 모달이 열려 있으면 먼저 닫기
         try:
             from automation.call_modal import CallModalManager
 
-            CallModalManager(self.driver, self.delay).close_call_modal()
-            time.sleep(self.delay * 0.4)
+            call_mgr = CallModalManager(self.driver, self.delay)
+            if call_mgr.is_call_modal_open():
+                call_mgr.close_call_modal()
+                time.sleep(self.delay * 0.18)
         except Exception:
             pass
-        self.close_request_modal()
-        time.sleep(self.delay * 0.45)
 
         header_name = self.get_header_customer_name()
         if header_name:
             empty['customerName'] = header_name
+
+        if self.is_request_modal_open() and self._modal_ready_light():
+            if self.wait_for_request_modal_ready(timeout=min(2.5, REQUEST_MODAL_READY_TIMEOUT)):
+                time.sleep(self.delay * 0.1)
+                data = self.extract_request_modal() or {}
+                if header_name and not data.get('customerName'):
+                    data['customerName'] = header_name
+                elif header_name:
+                    data['customerName'] = str(data.get('customerName') or header_name).strip() or header_name
+                self.close_request_modal()
+                time.sleep(self.delay * 0.15)
+                return data
+            self.close_request_modal()
+            time.sleep(self.delay * 0.15)
+        else:
+            self.close_request_modal()
+            time.sleep(self.delay * 0.18)
 
         if not self.open_request_modal():
             logger.warning('open_request_modal failed; header=%s', header_name)
@@ -463,7 +524,7 @@ class CustomerRequestManager:
         if not self.wait_for_request_modal_ready(timeout=REQUEST_MODAL_READY_TIMEOUT):
             logger.warning('customer request modal content not ready')
 
-        time.sleep(self.delay * 0.35)
+        time.sleep(self.delay * 0.12)
         data = self.extract_request_modal() or {}
         if header_name and not data.get('customerName'):
             data['customerName'] = header_name
@@ -471,8 +532,7 @@ class CustomerRequestManager:
             data['customerName'] = str(data.get('customerName') or header_name).strip() or header_name
 
         self.close_request_modal()
-        time.sleep(self.delay * 0.4)
+        time.sleep(self.delay * 0.15)
         if self.is_request_modal_open():
             self.close_request_modal()
-            time.sleep(self.delay * 0.35)
         return data

@@ -29,6 +29,9 @@ export type CrmOrderIssueSeed = {
   areaBasis?: string;
   address?: string;
   preferredDate?: string;
+  roomCount?: string;
+  bathroomCount?: string;
+  balconyCount?: string;
   totalAmount?: string;
   depositAmount?: string;
   /** CRM 견적 — source=order 전문시공 (수동 단가 포함) */

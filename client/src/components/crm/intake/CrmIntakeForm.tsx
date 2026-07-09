@@ -58,6 +58,9 @@ export function CrmIntakeForm({
   const [preferredMoveInCleanYmd, setPreferredMoveInCleanYmd] = useState('');
   const [address, setAddress] = useState('');
   const [requestMemo, setRequestMemo] = useState('');
+  const [roomCount, setRoomCount] = useState('');
+  const [bathroomCount, setBathroomCount] = useState('');
+  const [balconyCount, setBalconyCount] = useState('');
   const [kind, setKind] = useState<CrmIntakeKind>('absent');
   const [goldDb, setGoldDb] = useState(false);
   const [showMore, setShowMore] = useState(false);
@@ -84,12 +87,18 @@ export function CrmIntakeForm({
       setPreferredMoveInCleanYmd(initialFormDraft.preferredMoveInCleanYmd);
     }
     if (initialFormDraft.requestMemo != null) setRequestMemo(initialFormDraft.requestMemo);
+    if (initialFormDraft.roomCount != null) setRoomCount(initialFormDraft.roomCount);
+    if (initialFormDraft.bathroomCount != null) setBathroomCount(initialFormDraft.bathroomCount);
+    if (initialFormDraft.balconyCount != null) setBalconyCount(initialFormDraft.balconyCount);
     if (initialFormDraft.kind != null) setKind(initialFormDraft.kind);
     if (initialFormDraft.goldDb != null) setGoldDb(initialFormDraft.goldDb);
     if (
       initialFormDraft.address ||
       initialFormDraft.preferredMoveInCleanYmd ||
       initialFormDraft.requestMemo ||
+      initialFormDraft.roomCount?.trim() ||
+      initialFormDraft.bathroomCount?.trim() ||
+      initialFormDraft.balconyCount?.trim() ||
       pyeong.trim()
     ) {
       setShowMore(true);
@@ -107,6 +116,9 @@ export function CrmIntakeForm({
     setPreferredMoveInCleanYmd('');
     setAddress('');
     setRequestMemo('');
+    setRoomCount('');
+    setBathroomCount('');
+    setBalconyCount('');
     setKind('absent');
     setGoldDb(false);
     setShowMore(false);
@@ -122,12 +134,27 @@ export function CrmIntakeForm({
         address,
         preferredMoveInCleanYmd,
         requestMemo,
+        roomCount,
+        bathroomCount,
+        balconyCount,
         kind,
         goldDb,
       });
     }, 400);
     return () => window.clearTimeout(t);
-  }, [customerName, nickname, address, preferredMoveInCleanYmd, requestMemo, kind, goldDb, onFormChange]);
+  }, [
+    customerName,
+    nickname,
+    address,
+    preferredMoveInCleanYmd,
+    requestMemo,
+    roomCount,
+    bathroomCount,
+    balconyCount,
+    kind,
+    goldDb,
+    onFormChange,
+  ]);
 
   const submit = async (keepForm: boolean) => {
     const token = getToken();
@@ -148,6 +175,9 @@ export function CrmIntakeForm({
           phone,
           preferredMoveInCleanYmd,
           address,
+          roomCount,
+          bathroomCount,
+          balconyCount,
           kind,
           goldDb,
         },
@@ -261,6 +291,44 @@ export function CrmIntakeForm({
               disabled={saving}
             />
           </label>
+          <div className="grid grid-cols-3 gap-2">
+            <label className="block min-w-0 space-y-0.5">
+              <span className="text-[11px] font-medium text-slate-600">방</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={roomCount}
+                onChange={(e) => setRoomCount(e.target.value)}
+                placeholder="개수"
+                className={`${crmFieldCompactClass} tabular-nums ${soomgoImportFlashKey > 0 && roomCount.trim() ? flashRing : ''}`}
+                disabled={saving}
+              />
+            </label>
+            <label className="block min-w-0 space-y-0.5">
+              <span className="text-[11px] font-medium text-slate-600">화장실</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={bathroomCount}
+                onChange={(e) => setBathroomCount(e.target.value)}
+                placeholder="개수"
+                className={`${crmFieldCompactClass} tabular-nums ${soomgoImportFlashKey > 0 && bathroomCount.trim() ? flashRing : ''}`}
+                disabled={saving}
+              />
+            </label>
+            <label className="block min-w-0 space-y-0.5">
+              <span className="text-[11px] font-medium text-slate-600">베란다</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={balconyCount}
+                onChange={(e) => setBalconyCount(e.target.value)}
+                placeholder="개수"
+                className={`${crmFieldCompactClass} tabular-nums ${soomgoImportFlashKey > 0 && balconyCount.trim() ? flashRing : ''}`}
+                disabled={saving}
+              />
+            </label>
+          </div>
           {kind !== 'received' ? (
             <label className="block space-y-0.5">
               <span className="text-[11px] font-medium text-slate-600">주소</span>
