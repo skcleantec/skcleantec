@@ -51,14 +51,8 @@ Type: filesandordirs; Name: "{app}"
 
 [Code]
 function BundledPythonReady(): Boolean;
-var
-  FindRec: TFindRec;
 begin
-  Result := False;
-  if FindFirst(ExpandConstant('{app}\python\pythonw.exe'), FindRec) then
-    Exit;
-  FindClose(FindRec);
-  Result := True;
+  Result := FileExists(ExpandConstant('{app}\python\pythonw.exe'));
 end;
 
 function InitializeSetup(): Boolean;

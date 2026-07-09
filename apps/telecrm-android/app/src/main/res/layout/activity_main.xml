@@ -52,6 +52,15 @@
                 android:textColor="@color/header_meta"
                 android:textSize="11sp"
                 tools:text="업체 SKCLEAN" />
+
+            <TextView
+                android:id="@+id/appVersionText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/header_meta"
+                android:textSize="10sp"
+                tools:text="앱 v0.6.4-internal (14)" />
         </LinearLayout>
 
         <TextView

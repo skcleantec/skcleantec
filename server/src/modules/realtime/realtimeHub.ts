@@ -151,37 +151,9 @@ export function countTelecrmAppsInTenant(tenantId: string): number {
   return count;
 }
 
-function deliverTelecrmDispatchLegacy(userId: string, data: object, tenantId?: string): boolean {
-  const key = userSocketKey(userId, tenantId);
-  const set = socketsByUser.get(key);
-  if (!set || set.size === 0) return false;
-
-  const open = [...set].filter((entry) => entry.ws.readyState === WebSocket.OPEN);
-  if (open.length !== 1) return false;
-
-  const payload = JSON.stringify(data);
-  try {
-    open[0].ws.send(payload);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
- * 텔레CRM dispatch 전달 — 마케터는 본인 telecrm-app만, ADMIN만 업체 내 전체 앱, 구버전 단일 소켓 폴백.
- * DB 대기열과 병행하므로 WS만으로 성공 여부를 판단하지 않는다.
+ * PC CRM dispatch → 요청한 계정의 telecrm-app 소켓만 (브라우저 WS·타 마케터 앱 제외).
  */
-export function deliverTelecrmDispatch(
-  actorUserId: string,
-  actorRole: string,
-  data: object,
-  tenantId: string,
-): boolean {
-  let delivered = sendJsonToTelecrmApp(actorUserId, data, tenantId);
-  if (actorRole === 'ADMIN') {
-    delivered = broadcastJsonToTelecrmAppsInTenant(tenantId, data) || delivered;
-  }
-  if (delivered) return true;
-  return deliverTelecrmDispatchLegacy(actorUserId, data, tenantId);
+export function deliverTelecrmDispatch(actorUserId: string, data: object, tenantId: string): boolean {
+  return sendJsonToTelecrmApp(actorUserId, data, tenantId);
 }

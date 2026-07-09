@@ -12,8 +12,15 @@ export type TelecrmMobileDispatchItem = {
   imageUrl: string | null;
   inquiryId: string | null;
   customerMatch: string | null;
+  /** PC CRM에서 통화·문자를 누른 마케터/관리자 user.id — 해당 계정의 앱만 수신 */
+  targetUserId: string;
   createdAt: string;
 };
+
+export type TelecrmMobileDispatchInput = Omit<
+  TelecrmMobileDispatchItem,
+  'id' | 'createdAt' | 'targetUserId'
+>;
 
 const TTL_MS = 5 * 60 * 1000;
 const MAX_BATCH = 8;
@@ -31,6 +38,7 @@ function rowToItem(row: TelecrmMobileDispatchPending): TelecrmMobileDispatchItem
     imageUrl: row.imageUrl,
     inquiryId: row.inquiryId,
     customerMatch: row.customerMatch,
+    targetUserId: row.userId,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -54,34 +62,23 @@ function dispatchWsPayload(
   };
 }
 
-function isAdminActor(role: string): boolean {
-  return role === 'ADMIN';
-}
-
-/** 마케터 — 본인 큐만. ADMIN — 본인 + 업체 공통(broadcast) 큐 */
+/** 통화·문자 dispatch — 항상 요청한 계정(userId) 큐만 */
 function pendingWhereForUser(
   tenantId: string,
   userId: string,
-  role: string,
 ): Prisma.TelecrmMobileDispatchPendingWhereInput {
-  if (isAdminActor(role)) {
-    return {
-      tenantId,
-      OR: [{ userId, broadcastToTenant: false }, { broadcastToTenant: true }],
-    };
-  }
   return { tenantId, userId, broadcastToTenant: false };
 }
 
-async function pruneExpired(tenantId: string, userId: string, role: string): Promise<void> {
+async function pruneExpired(tenantId: string, userId: string): Promise<void> {
   const cutoff = new Date(Date.now() - TTL_MS);
   await prisma.telecrmMobileDispatchPending.deleteMany({
-    where: { ...pendingWhereForUser(tenantId, userId, role), createdAt: { lt: cutoff } },
+    where: { ...pendingWhereForUser(tenantId, userId), createdAt: { lt: cutoff } },
   });
 }
 
 export function parseTelecrmMobileDispatchBody(body: unknown):
-  | Omit<TelecrmMobileDispatchItem, 'id' | 'createdAt'>
+  | TelecrmMobileDispatchInput
   | { error: string } {
   if (!body || typeof body !== 'object') return { error: '요청 본문이 필요합니다.' };
   const b = body as Record<string, unknown>;
@@ -116,8 +113,8 @@ export function parseTelecrmMobileDispatchBody(body: unknown):
 export async function enqueueTelecrmMobileDispatch(
   tenantId: string,
   actorUserId: string,
-  actorRole: string,
-  parsed: Omit<TelecrmMobileDispatchItem, 'id' | 'createdAt'>,
+  _actorRole: string,
+  parsed: TelecrmMobileDispatchInput,
 ): Promise<{
   item: TelecrmMobileDispatchItem;
   wsDelivered: boolean;
@@ -125,10 +122,12 @@ export async function enqueueTelecrmMobileDispatch(
   broadcastToTenant: boolean;
   telecrmAppsConnected: number;
 }> {
-  const broadcastToTenant = isAdminActor(actorRole);
+  /** ADMIN 포함 — PC에서 통화를 누른 본인 휴대폰 앱만 (업체 전체 브로드캐스트 없음) */
+  const broadcastToTenant = false;
   const item: TelecrmMobileDispatchItem = {
     ...parsed,
     id: crypto.randomUUID(),
+    targetUserId: actorUserId,
     createdAt: new Date().toISOString(),
   };
 
@@ -149,7 +148,6 @@ export async function enqueueTelecrmMobileDispatch(
 
   const wsDelivered = deliverTelecrmDispatch(
     actorUserId,
-    actorRole,
     dispatchWsPayload(item, actorUserId, broadcastToTenant),
     tenantId,
   );
@@ -161,21 +159,21 @@ export async function enqueueTelecrmMobileDispatch(
 export async function countTelecrmMobileDispatchPending(
   tenantId: string,
   userId: string,
-  role: string,
+  _role: string,
 ): Promise<number> {
   return prisma.telecrmMobileDispatchPending.count({
-    where: pendingWhereForUser(tenantId, userId, role),
+    where: pendingWhereForUser(tenantId, userId),
   });
 }
 
 export async function drainTelecrmMobileDispatchQueue(
   tenantId: string,
   userId: string,
-  role: string,
+  _role: string,
 ): Promise<TelecrmMobileDispatchItem[]> {
-  await pruneExpired(tenantId, userId, role);
+  await pruneExpired(tenantId, userId);
   const rows = await prisma.telecrmMobileDispatchPending.findMany({
-    where: pendingWhereForUser(tenantId, userId, role),
+    where: pendingWhereForUser(tenantId, userId),
     orderBy: { createdAt: 'asc' },
     take: MAX_BATCH,
   });

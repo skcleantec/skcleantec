@@ -47,6 +47,10 @@ class TokenStore private constructor(context: Context) {
 
     fun getUserId(): String? = prefs.getString(KEY_USER_ID, null)
 
+    /** 저장된 userId 없으면 JWT에서 복구 (구버전 로그인 세션) */
+    fun resolveUserId(): String? =
+        getUserId()?.takeIf { it.isNotBlank() } ?: JwtUserId.fromToken(getToken())
+
     fun clearSession() {
         val apiBaseUrl = getApiBaseUrl()
         val tenantSlug = getTenantSlug()
