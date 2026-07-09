@@ -172,6 +172,7 @@ model Tenant {
   telecrmConsultationQuotes TelecrmConsultationQuote[]
   telecrmSoomgoConfig       TelecrmSoomgoConfig?
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
+  telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
   landingContactFormConfigs LandingContactFormConfig[]
   landingContactInquiries   LandingContactInquiry[]
 
@@ -652,6 +653,7 @@ model User {
   telecrmCallNotes             TelecrmCallNote[]
   telecrmConsultationQuotesCreated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteCreatedBy")
   telecrmConsultationQuotesUpdated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteUpdatedBy")
+  telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
 
   @@unique([tenantId, email])
   @@unique([tenantId, platformSupportAccessId])
@@ -2790,6 +2792,26 @@ model TelecrmCallSession {
   @@unique([tenantId, userId, androidCallLogId])
   @@index([tenantId, userId, createdAt(sort: Desc)])
   @@map("telecrm_call_sessions")
+}
+
+/// PC CRM → 텔레CRM Android dispatch 대기열 (멀티 인스턴스·WS 누락 폴백)
+model TelecrmMobileDispatchPending {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  userId        String   @map("user_id")
+  action        String   @db.VarChar(16)
+  phone         String   @db.VarChar(32)
+  body          String?  @db.Text
+  imageUrl      String?  @map("image_url") @db.VarChar(512)
+  inquiryId     String?  @map("inquiry_id")
+  customerMatch String?  @map("customer_match") @db.VarChar(16)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, createdAt])
+  @@map("telecrm_mobile_dispatch_pending")
 }
 
 /// 텔레CRM — 문자 템플릿 (업체 공통·마케터 개인)

@@ -1,4 +1,6 @@
-import { sendJsonToTelecrmApp } from '../realtime/realtimeHub.js';
+import type { TelecrmMobileDispatchPending } from '@prisma/client';
+import { prisma } from '../../lib/prisma.js';
+import { deliverTelecrmDispatch } from '../realtime/realtimeHub.js';
 
 export type TelecrmMobileDispatchAction = 'call' | 'sms' | 'prefill';
 
@@ -13,25 +15,44 @@ export type TelecrmMobileDispatchItem = {
   createdAt: string;
 };
 
-type QueueKey = string;
-
 const TTL_MS = 5 * 60 * 1000;
-const MAX_QUEUE = 8;
-
-/** tenantId:userId → pending dispatches (WS miss fallback) */
-const queues = new Map<QueueKey, TelecrmMobileDispatchItem[]>();
-
-function queueKey(tenantId: string, userId: string): QueueKey {
-  return `${tenantId}:${userId}`;
-}
-
-function pruneQueue(items: TelecrmMobileDispatchItem[]): TelecrmMobileDispatchItem[] {
-  const cutoff = Date.now() - TTL_MS;
-  return items.filter((i) => new Date(i.createdAt).getTime() >= cutoff).slice(-MAX_QUEUE);
-}
+const MAX_BATCH = 8;
 
 function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, '').slice(0, 20);
+}
+
+function rowToItem(row: TelecrmMobileDispatchPending): TelecrmMobileDispatchItem {
+  return {
+    id: row.id,
+    action: row.action as TelecrmMobileDispatchAction,
+    phone: row.phone,
+    body: row.body,
+    imageUrl: row.imageUrl,
+    inquiryId: row.inquiryId,
+    customerMatch: row.customerMatch,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function dispatchWsPayload(item: TelecrmMobileDispatchItem): object {
+  return {
+    type: 'telecrm:dispatch',
+    id: item.id,
+    action: item.action,
+    phone: item.phone,
+    body: item.body,
+    imageUrl: item.imageUrl,
+    inquiryId: item.inquiryId,
+    customerMatch: item.customerMatch,
+  };
+}
+
+async function pruneExpired(tenantId: string, userId: string): Promise<void> {
+  const cutoff = new Date(Date.now() - TTL_MS);
+  await prisma.telecrmMobileDispatchPending.deleteMany({
+    where: { tenantId, userId, createdAt: { lt: cutoff } },
+  });
 }
 
 export function parseTelecrmMobileDispatchBody(body: unknown):
@@ -66,22 +87,23 @@ export function parseTelecrmMobileDispatchBody(body: unknown):
   };
 }
 
-export function enqueueTelecrmMobileDispatch(
+/** DB에 항상 적재 후 WS 즉시 전달 시도 (멀티 인스턴스·브라우저 WS 분리 대응) */
+export async function enqueueTelecrmMobileDispatch(
   tenantId: string,
   userId: string,
   parsed: Omit<TelecrmMobileDispatchItem, 'id' | 'createdAt'>,
-): { item: TelecrmMobileDispatchItem; wsDelivered: boolean } {
+): Promise<{ item: TelecrmMobileDispatchItem; wsDelivered: boolean; queued: boolean }> {
   const item: TelecrmMobileDispatchItem = {
     ...parsed,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   };
-  const key = queueKey(tenantId, userId);
-  const wsDelivered = sendJsonToTelecrmApp(
-    userId,
-    {
-      type: 'telecrm:dispatch',
+
+  await prisma.telecrmMobileDispatchPending.create({
+    data: {
       id: item.id,
+      tenantId,
+      userId,
       action: item.action,
       phone: item.phone,
       body: item.body,
@@ -89,21 +111,29 @@ export function enqueueTelecrmMobileDispatch(
       inquiryId: item.inquiryId,
       customerMatch: item.customerMatch,
     },
-    tenantId,
-  );
-  if (!wsDelivered) {
-    const next = pruneQueue([...(queues.get(key) ?? []), item]);
-    queues.set(key, next);
-  }
-  return { item, wsDelivered };
+  });
+
+  const wsDelivered = deliverTelecrmDispatch(userId, dispatchWsPayload(item), tenantId);
+
+  return { item, wsDelivered, queued: true };
 }
 
-export function drainTelecrmMobileDispatchQueue(
+export async function drainTelecrmMobileDispatchQueue(
   tenantId: string,
   userId: string,
-): TelecrmMobileDispatchItem[] {
-  const key = queueKey(tenantId, userId);
-  const items = pruneQueue(queues.get(key) ?? []);
-  queues.delete(key);
-  return items;
+): Promise<TelecrmMobileDispatchItem[]> {
+  await pruneExpired(tenantId, userId);
+  const rows = await prisma.telecrmMobileDispatchPending.findMany({
+    where: { tenantId, userId },
+    orderBy: { createdAt: 'asc' },
+    take: MAX_BATCH,
+  });
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((row) => row.id);
+  await prisma.telecrmMobileDispatchPending.deleteMany({
+    where: { tenantId, userId, id: { in: ids } },
+  });
+
+  return rows.map(rowToItem);
 }

@@ -72,7 +72,7 @@ function dispatchNoticeForPrefill(result: TelecrmBridgeResult): string | null {
   if (result.errorMessage) return result.errorMessage;
   if (result.mode !== 'dispatch') return null;
   if (result.wsDelivered === false) {
-    return '휴대폰 앱이 오프라인입니다. 텔레CRM 앱을 켜면 번호가 전달됩니다.';
+    return '휴대폰 앱 대기열에 넣었습니다. 앱이 켜져 있으면 곧 번호가 전달됩니다.';
   }
   return '휴대폰 앱 다이얼에 번호를 넣었습니다.';
 }
@@ -153,7 +153,7 @@ function dispatchNoticeForCall(result: TelecrmBridgeResult): string | null {
   if (result.errorMessage) return result.errorMessage;
   if (result.mode !== 'dispatch') return null;
   if (result.wsDelivered === false) {
-    return '휴대폰 앱이 오프라인입니다. 텔레CRM 앱을 켜면 통화 요청이 전달됩니다.';
+    return '휴대폰 앱 대기열에 넣었습니다. 앱이 켜져 있으면 곧 통화가 시작됩니다.';
   }
   return '휴대폰 앱으로 통화 요청을 보냈습니다.';
 }
@@ -161,7 +161,7 @@ function dispatchNoticeForCall(result: TelecrmBridgeResult): string | null {
 function dispatchNoticeForSms(result: TelecrmBridgeResult): string | null {
   if (result.mode !== 'dispatch') return result.errorMessage ?? null;
   if (result.wsDelivered === false) {
-    return '휴대폰 앱이 오프라인입니다. 텔레CRM 앱을 켜면 문자 요청이 전달됩니다.';
+    return '휴대폰 앱 대기열에 넣었습니다. 앱이 켜져 있으면 곧 문자 요청이 전달됩니다.';
   }
   return '휴대폰 앱으로 문자를 보냈습니다.';
 }

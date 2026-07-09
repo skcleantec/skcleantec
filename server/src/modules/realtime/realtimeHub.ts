@@ -115,3 +115,26 @@ export function sendJsonToUser(userId: string, data: object, tenantId?: string):
 export function sendJsonToTelecrmApp(userId: string, data: object, tenantId?: string): boolean {
   return sendJsonToMatchingSockets(userId, data, tenantId, 'telecrm-app');
 }
+
+/**
+ * 텔레CRM dispatch 전달 — telecrm-app 소켓 우선, 없으면 단일 OPEN 소켓(구버전 APK) 폴백.
+ * DB 대기열과 병행하므로 WS만으로 성공 여부를 판단하지 않는다.
+ */
+export function deliverTelecrmDispatch(userId: string, data: object, tenantId?: string): boolean {
+  if (sendJsonToTelecrmApp(userId, data, tenantId)) return true;
+
+  const key = userSocketKey(userId, tenantId);
+  const set = socketsByUser.get(key);
+  if (!set || set.size === 0) return false;
+
+  const open = [...set].filter((entry) => entry.ws.readyState === WebSocket.OPEN);
+  if (open.length !== 1) return false;
+
+  const payload = JSON.stringify(data);
+  try {
+    open[0].ws.send(payload);
+    return true;
+  } catch {
+    return false;
+  }
+}
