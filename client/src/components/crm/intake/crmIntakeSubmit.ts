@@ -6,6 +6,7 @@ import {
   telecrmQuotePayloadHasContent,
   type TelecrmConsultationQuotePayload,
 } from '@shared/telecrmConsultationQuote';
+import { parseCrmRoomCountInput } from '../../../utils/crmSoomgoImport';
 import { parseCrmIntakePyeong, resolveCrmIntakeCustomerName, validateCrmIntakeForm } from './crmIntakeValidation';
 
 export type CrmIntakeKind =
@@ -22,6 +23,9 @@ export type CrmIntakeFormValues = {
   phone: string;
   preferredMoveInCleanYmd: string;
   address: string;
+  roomCount: string;
+  bathroomCount: string;
+  balconyCount: string;
   kind: CrmIntakeKind;
   goldDb: boolean;
 };
@@ -30,12 +34,22 @@ export type CrmIntakeSubmitResult =
   | { kind: 'followup' }
   | { kind: 'inquiry'; inquiryId: string; status: string };
 
-function inquiryExtras(pyeong: string, preferredMoveInCleanYmd: string) {
+function inquiryExtras(
+  pyeong: string,
+  preferredMoveInCleanYmd: string,
+  structure: Pick<CrmIntakeFormValues, 'roomCount' | 'bathroomCount' | 'balconyCount'>,
+) {
   const areaPyeong = parseCrmIntakePyeong(pyeong);
   const pmd = preferredMoveInCleanYmd.trim();
+  const roomCount = parseCrmRoomCountInput(structure.roomCount);
+  const bathroomCount = parseCrmRoomCountInput(structure.bathroomCount);
+  const balconyCount = parseCrmRoomCountInput(structure.balconyCount);
   return {
     ...(areaPyeong != null ? { areaPyeong } : {}),
     ...(pmd ? { preferredDate: pmd } : {}),
+    ...(roomCount != null ? { roomCount } : {}),
+    ...(bathroomCount != null ? { bathroomCount } : {}),
+    ...(balconyCount != null ? { balconyCount } : {}),
   };
 }
 
@@ -51,7 +65,7 @@ export async function submitCrmIntake(
   const n = resolveCrmIntakeCustomerName(values);
   const pmd = values.preferredMoveInCleanYmd.trim();
   const pmdBody = pmd ? { preferredMoveInCleaningDate: pmd } : {};
-  const extras = inquiryExtras(pyeong, values.preferredMoveInCleanYmd);
+  const extras = inquiryExtras(pyeong, values.preferredMoveInCleanYmd, values);
 
   if (values.kind === 'requested' || values.kind === 'absent' || values.kind === 'hold') {
     const status: OrderFollowupStatus =

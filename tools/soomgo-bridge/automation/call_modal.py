@@ -8,6 +8,7 @@ from typing import Any
 
 from selenium.webdriver.common.by import By
 
+from automation.customer_request import REQUEST_MODAL_DELAY
 from automation.overlay_modals import dismiss_blocking_overlays
 
 logger = logging.getLogger(__name__)
@@ -198,7 +199,7 @@ def extract_phone_from_text(text: str) -> str | None:
 
 
 class CallModalManager:
-    def __init__(self, driver, delay: float = 1.2):
+    def __init__(self, driver, delay: float = REQUEST_MODAL_DELAY):
         self.driver = driver
         self.delay = delay
         self._watcher_installed = False
@@ -244,14 +245,14 @@ class CallModalManager:
             return False
 
     def open_call_modal(self) -> bool:
-        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
+        dismiss_blocking_overlays(self.driver, self.delay * 0.25, max_rounds=2)
         if self.is_call_modal_open():
             return True
         try:
             for attempt in range(3):
                 clicked = self.driver.execute_script(_OPEN_MODAL_JS)
                 if clicked:
-                    time.sleep(self.delay)
+                    time.sleep(self.delay * 0.35)
                     if self.is_call_modal_open():
                         return True
                 for selector in [
@@ -270,10 +271,10 @@ class CallModalManager:
                         except Exception:
                             pass
                         elem.click()
-                        time.sleep(self.delay * 0.6)
+                        time.sleep(self.delay * 0.3)
                         if self.is_call_modal_open():
                             return True
-                time.sleep(self.delay * 0.4)
+                time.sleep(self.delay * 0.2)
             return self.is_call_modal_open()
         except Exception as e:
             logger.error('open_call_modal: %s', e)
@@ -295,7 +296,7 @@ class CallModalManager:
                 return True
             for _ in range(3):
                 result = self.driver.execute_script(_CLOSE_CALL_MODAL_JS)
-                time.sleep(self.delay * 0.5)
+                time.sleep(self.delay * 0.22)
                 if not self.is_call_modal_open():
                     logger.debug('close_call_modal via %s', result)
                     return True
@@ -313,17 +314,16 @@ class CallModalManager:
     def try_extract_safe_phone(self) -> str | None:
         """전화 모달 열기 → 050 추출 → 취소로 채팅방 복귀."""
         try:
-            dismiss_blocking_overlays(self.driver, self.delay * 0.3)
+            dismiss_blocking_overlays(self.driver, self.delay * 0.2, max_rounds=2)
             opened = self.open_call_modal()
             if not opened:
                 return None
-            time.sleep(self.delay * 0.5)
+            time.sleep(self.delay * 0.22)
             phone = self.extract_call_number_from_modal()
             self.close_call_modal()
-            time.sleep(self.delay * 0.4)
+            time.sleep(self.delay * 0.15)
             if self.is_call_modal_open():
                 self.close_call_modal()
-                time.sleep(self.delay * 0.3)
             if phone and re.sub(r'\D', '', phone).startswith('050'):
                 return phone
             if phone:

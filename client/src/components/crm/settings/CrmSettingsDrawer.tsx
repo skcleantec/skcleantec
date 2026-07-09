@@ -28,10 +28,16 @@ const TelecrmSoomgoSettingsPage = lazy(() =>
     default: m.TelecrmSoomgoSettingsPage,
   })),
 );
+const TelecrmSoomgoMessagePresetsSection = lazy(() =>
+  import('./TelecrmSoomgoMessagePresetsSection').then((m) => ({
+    default: m.TelecrmSoomgoMessagePresetsSection,
+  })),
+);
 
 const TABS: { id: CrmSettingsTab; label: string }[] = [
   { id: 'scripts', label: '스크립트' },
   { id: 'sms', label: '문자 템플릿' },
+  { id: 'soomgo-presets', label: '숨고 프리셋' },
   { id: 'pricing', label: '가격' },
   { id: 'general', label: '기본 단가' },
   { id: 'soomgo', label: '숨고 연동' },
@@ -58,13 +64,17 @@ export function CrmSettingsDrawer({
 }) {
   const visibleTabs = TABS.filter((item) => {
     if (item.id === 'general') return canEditShared;
-    if (item.id === 'soomgo') return canEditShared || canEditPersonal;
+    if (item.id === 'soomgo') return canEditShared;
+    if (item.id === 'soomgo-presets') return canEditShared || canEditPersonal;
     return true;
   });
+  const presetCatalogScope = canEditShared ? catalogScope : 'personal';
   const showCatalogSegment =
     tab !== 'general' &&
     (canEditShared || canEditPersonal) &&
-    (tab === 'soomgo' ? canEditShared && canEditPersonal : true);
+    (tab === 'soomgo' || tab === 'soomgo-presets' ? canEditShared && canEditPersonal : true);
+  const drawerWidth =
+    tab === 'soomgo-presets' ? 'w-[min(760px,96vw)]' : 'w-[min(640px,94vw)]';
 
   return (
     <CrmDrawerShell
@@ -72,7 +82,7 @@ export function CrmSettingsDrawer({
       title="텔레CRM 설정"
       subtitle="개인 스크립트·가격 또는 업체 공통 설정을 편집합니다."
       onClose={onClose}
-      widthClass="w-[min(640px,94vw)]"
+      widthClass={drawerWidth}
     >
       <nav className="mb-4 flex flex-wrap gap-2 border-b border-gray-100 pb-3">
         {visibleTabs.map((item) => (
@@ -98,9 +108,13 @@ export function CrmSettingsDrawer({
             showShared={canEditShared}
           />
           <p className="mt-2 text-[11px] text-gray-500">
-            {catalogScope === 'personal'
-              ? '본인만 보는 개인 카탈로그입니다. 작업 화면에서 내 항목이 먼저 표시됩니다.'
-              : '업체 전체 마케터가 공유하는 기본 스크립트·가격입니다.'}
+            {tab === 'soomgo-presets'
+              ? catalogScope === 'personal'
+                ? '본인 숨고 메시지 프리셋입니다. 상담 화면 「숨고 메시지」에서 바로 전송할 수 있습니다.'
+                : '업체 공유 숨고 메시지 프리셋입니다.'
+              : catalogScope === 'personal'
+                ? '본인만 보는 개인 카탈로그입니다. 작업 화면에서 내 항목이 먼저 표시됩니다.'
+                : '업체 전체 마케터가 공유하는 기본 스크립트·가격입니다.'}
           </p>
         </div>
       ) : null}
@@ -111,8 +125,11 @@ export function CrmSettingsDrawer({
           {tab === 'sms' ? <TelecrmSmsTemplateSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'pricing' ? <TelecrmPricingSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'general' && canEditShared ? <TelecrmGeneralSettingsPage /> : null}
-          {tab === 'soomgo' && (canEditPersonal || canEditShared) ? (
-            <TelecrmSoomgoSettingsPage catalogScope={canEditShared ? catalogScope : 'personal'} />
+          {tab === 'soomgo-presets' && (canEditPersonal || canEditShared) ? (
+            <TelecrmSoomgoMessagePresetsSection catalogScope={presetCatalogScope} />
+          ) : null}
+          {tab === 'soomgo' && canEditShared ? (
+            <TelecrmSoomgoSettingsPage catalogScope={catalogScope} presetsInDrawer />
           ) : null}
         </div>
       </Suspense>

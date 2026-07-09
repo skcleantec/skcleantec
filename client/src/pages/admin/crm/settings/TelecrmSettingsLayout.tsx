@@ -34,7 +34,7 @@ export function TelecrmSettingsLayout() {
 
   const visibleNav = NAV.filter((item) => {
     if (item.to === '/admin/crm/settings/general') return canShared;
-    if (item.to === '/admin/crm/settings/soomgo') return canShared;
+    if (item.to === '/admin/crm/settings/soomgo') return canShared || canPersonal;
     return true;
   });
 

@@ -37,6 +37,7 @@ import {
 } from '../../../utils/crmIntakeDraft';
 import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 import {
+  formatSoomgoCountForCrm,
   normalizeSoomgoPreferredDate,
   soomgoImportNoticeText,
   summarizeSoomgoImport,
@@ -148,6 +149,9 @@ export function CrmPage() {
         address: draft.address,
         preferredMoveInCleanYmd: draft.preferredMoveInCleanYmd,
         requestMemo: draft.requestMemo ?? '',
+        roomCount: draft.roomCount ?? '',
+        bathroomCount: draft.bathroomCount ?? '',
+        balconyCount: draft.balconyCount ?? '',
         kind: draft.kind,
         goldDb: draft.goldDb,
       });
@@ -226,6 +230,9 @@ export function CrmPage() {
           address: '',
           preferredMoveInCleanYmd: '',
           requestMemo: '',
+          roomCount: '',
+          bathroomCount: '',
+          balconyCount: '',
           kind: 'absent',
           goldDb: false,
           savedAt: Date.now(),
@@ -284,6 +291,9 @@ export function CrmPage() {
       address: '',
       preferredMoveInCleanYmd: '',
       requestMemo: '',
+      roomCount: '',
+      bathroomCount: '',
+      balconyCount: '',
       kind: 'absent',
       goldDb: false,
     });
@@ -312,6 +322,9 @@ export function CrmPage() {
       address: (data.region || data.address)?.trim() || '',
       preferredMoveInCleanYmd: preferredYmd,
       requestMemo,
+      roomCount: formatSoomgoCountForCrm(data.roomCount),
+      bathroomCount: formatSoomgoCountForCrm(data.bathroomCount),
+      balconyCount: formatSoomgoCountForCrm(data.balconyCount),
       kind: 'absent',
       goldDb: false,
     });
@@ -491,6 +504,9 @@ export function CrmPage() {
       areaBasis: pyeong.trim() ? '공급' : undefined,
       address: form?.address?.trim() || undefined,
       preferredDate: form?.preferredMoveInCleanYmd?.trim() || undefined,
+      roomCount: form?.roomCount?.trim() || undefined,
+      bathroomCount: form?.bathroomCount?.trim() || undefined,
+      balconyCount: form?.balconyCount?.trim() || undefined,
       totalAmount:
         quoteGrandTotal != null
           ? String(quoteGrandTotal)
@@ -580,7 +596,11 @@ export function CrmPage() {
                 onRestartBridge={() => void restartBridge()}
                 onOpenSettings={
                   canOpenSettings
-                    ? () => openSettings('soomgo', canPersonalCatalog ? 'personal' : 'shared')
+                    ? () =>
+                        openSettings(
+                          canSharedSettings ? 'soomgo' : 'soomgo-presets',
+                          canPersonalCatalog ? 'personal' : 'shared',
+                        )
                     : undefined
                 }
                 bridgeManifest={soomgoBridgeManifest}
@@ -829,6 +849,14 @@ export function CrmPage() {
             busy={soomgoBusy}
             bridgeStatus={soomgoStatus}
             onDispatchNotice={showDispatchNotice}
+            onOpenPresetSettings={
+              canOpenSettings
+                ? () => {
+                    setSoomgoDrawerOpen(false);
+                    openSettings('soomgo-presets', 'personal');
+                  }
+                : undefined
+            }
           />
         ) : null}
       </div>

@@ -12,7 +12,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
 from automation.selectors import URLS
-from automation.customer_request import CustomerRequestManager, REQUEST_MODAL_DELAY
+from automation.customer_request import CustomerRequestManager, REQUEST_MODAL_DELAY, parse_soomgo_count
 from automation.call_modal import CallModalManager
 from automation.overlay_modals import dismiss_blocking_overlays
 
@@ -323,7 +323,7 @@ class ChatRoomManager:
     def extract_current_chat(self) -> dict[str, Any]:
         """① 이름 클릭→고객요청 파싱→닫기 ② 전화→번호→취소 (순차 매크로)."""
         chat_id = self.get_current_chat_id()
-        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
+        dismiss_blocking_overlays(self.driver, self.delay * 0.25, max_rounds=2)
 
         req_mgr = CustomerRequestManager(self.driver, self.delay)
         request_data = req_mgr.extract_customer_request()
@@ -335,10 +335,7 @@ class ChatRoomManager:
         )
         region = request_data.get('region')
 
-        # 고객 요청 모달 완전히 닫힌 뒤 전화 모달
-        req_mgr.close_request_modal()
-        time.sleep(self.delay * 0.45)
-        dismiss_blocking_overlays(self.driver, self.delay * 0.35)
+        dismiss_blocking_overlays(self.driver, self.delay * 0.2, max_rounds=2)
 
         call_mgr = CallModalManager(self.driver, self.delay)
         safe_phone = call_mgr.try_extract_safe_phone()
@@ -372,6 +369,9 @@ class ChatRoomManager:
             'region': region or request_data.get('region'),
             'requestMemo': request_data.get('requestMemo'),
             'requestPairs': request_data.get('requestPairs', []),
+            'roomCount': parse_soomgo_count(request_data.get('roomCount')),
+            'bathroomCount': parse_soomgo_count(request_data.get('bathroomCount')),
+            'balconyCount': parse_soomgo_count(request_data.get('verandaCount')),
             'lastMessage': last_message,
             'customerMessages': customer_messages[-12:],
             'currentUrl': self.driver.current_url,

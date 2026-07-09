@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.1.5';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.1.6';
 
 /** 순차 메시지 매크로(`/send-sequence`) 최소 앱 버전 */
 export const SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION = '2.1.0';
@@ -107,4 +107,8 @@ export type SoomgoExtractedChat = {
   safePhone?: string | null;
   /** 전화 모달에 안심번호 없음 — 채팅만 희망 등 */
   safePhoneSkipped?: boolean;
+  /** 고객 요청 모달 — 방·화장실·베란다(발주서 balconyCount) */
+  roomCount?: number | null;
+  bathroomCount?: number | null;
+  balconyCount?: number | null;
 };

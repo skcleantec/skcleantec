@@ -650,6 +650,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               f.areaBasis ||
               (createCrmSeed.areaPyeong?.trim() ? '공급' : f.areaBasis),
             preferredDate: createCrmSeed.preferredDate?.trim() || f.preferredDate,
+            roomCount: createCrmSeed.roomCount?.trim() || f.roomCount,
+            bathroomCount: createCrmSeed.bathroomCount?.trim() || f.bathroomCount,
+            balconyCount: createCrmSeed.balconyCount?.trim() || f.balconyCount,
           }));
           if (createCrmSeed.totalAmount?.trim() || createCrmSeed.depositAmount?.trim()) {
             setIssueAmounts((a) => ({

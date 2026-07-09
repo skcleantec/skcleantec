@@ -20,12 +20,14 @@ export function CrmSoomgoDrawer({
   busy,
   bridgeStatus,
   onDispatchNotice,
+  onOpenPresetSettings,
 }: {
   open: boolean;
   onClose: () => void;
   busy?: boolean;
   bridgeStatus?: SoomgoBridgeStatus | null;
   onDispatchNotice?: (message: string) => void;
+  onOpenPresetSettings?: () => void;
 }) {
   const token = getToken();
   const [message, setMessage] = useState('');
@@ -125,7 +127,18 @@ export function CrmSoomgoDrawer({
           <p className="text-fluid-xs text-gray-400">프리셋 불러오는 중…</p>
         ) : activePresets.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-fluid-xs font-medium text-gray-700">내 프리셋</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-fluid-xs font-medium text-gray-700">내 프리셋</p>
+              {onOpenPresetSettings ? (
+                <button
+                  type="button"
+                  onClick={onOpenPresetSettings}
+                  className="text-fluid-xs font-medium text-sky-700 hover:text-sky-900 hover:underline"
+                >
+                  프리셋 편집
+                </button>
+              ) : null}
+            </div>
             <div className="grid gap-2">
               {activePresets.map((preset) => (
                 <CrmActionButton
@@ -146,9 +159,20 @@ export function CrmSoomgoDrawer({
             ) : null}
           </div>
         ) : (
-          <p className="text-fluid-xs text-gray-500">
-            저장된 프리셋이 없습니다. 텔레CRM 설정 → 숨고 연동에서 프리셋을 추가해 주세요.
-          </p>
+          <div className="rounded-xl border border-dashed border-sky-200 bg-sky-50/50 px-3 py-3 text-fluid-xs text-gray-600">
+            <p>저장된 프리셋이 없습니다.</p>
+            {onOpenPresetSettings ? (
+              <button
+                type="button"
+                onClick={onOpenPresetSettings}
+                className="mt-2 rounded-lg bg-slate-900 px-3 py-1.5 font-semibold text-white hover:bg-slate-800"
+              >
+                프리셋 설정
+              </button>
+            ) : (
+              <p className="mt-1 text-gray-500">텔레CRM 상단 설정 → 숨고 프리셋에서 추가해 주세요.</p>
+            )}
+          </div>
         )}
 
         <div className="border-t border-gray-100 pt-3">

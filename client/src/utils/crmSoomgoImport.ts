@@ -7,7 +7,24 @@ export type SoomgoImportFieldKey =
   | 'pyeong'
   | 'address'
   | 'preferredMoveInCleanYmd'
-  | 'requestMemo';
+  | 'requestMemo'
+  | 'roomCount'
+  | 'bathroomCount'
+  | 'balconyCount';
+
+export function formatSoomgoCountForCrm(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '';
+  return String(value);
+}
+
+/** CRM·접수 API용 — 빈 문자열이면 undefined */
+export function parseCrmRoomCountInput(raw: string): number | undefined {
+  const t = raw.trim();
+  if (!t) return undefined;
+  const n = parseInt(t, 10);
+  if (!Number.isFinite(n) || n < 0 || n > 99) return undefined;
+  return n;
+}
 
 export type SoomgoImportSummary = {
   filled: SoomgoImportFieldKey[];
@@ -74,6 +91,19 @@ export function summarizeSoomgoImport(data: SoomgoExtractedChat): SoomgoImportSu
     lines.push('요청 상세 → 추가 필드 메모');
   }
 
+  if (data.roomCount != null) {
+    filled.push('roomCount');
+    lines.push(`방 ${data.roomCount}개 → 추가 필드`);
+  }
+  if (data.bathroomCount != null) {
+    filled.push('bathroomCount');
+    lines.push(`화장실 ${data.bathroomCount}개 → 추가 필드`);
+  }
+  if (data.balconyCount != null) {
+    filled.push('balconyCount');
+    lines.push(`베란다 ${data.balconyCount}개 → 추가 필드`);
+  }
+
   return { filled, lines, empty };
 }
 
@@ -85,8 +115,16 @@ export function soomgoImportNoticeText(
     return '숨고에서 가져올 정보가 없습니다. 채팅방에서 고객명·고객 요청 모달을 확인해 주세요.';
   }
   const hint =
-    summary.filled.some((k) => k === 'pyeong' || k === 'address' || k === 'preferredMoveInCleanYmd' || k === 'requestMemo')
-      ? ' 평수·주소·희망일은 접수란 「주소·희망일 등 추가」를 펼쳐 확인하세요.'
+    summary.filled.some((k) =>
+      k === 'pyeong' ||
+      k === 'address' ||
+      k === 'preferredMoveInCleanYmd' ||
+      k === 'requestMemo' ||
+      k === 'roomCount' ||
+      k === 'bathroomCount' ||
+      k === 'balconyCount',
+    )
+      ? ' 평수·주소·희망일·방/화장실/베란다는 접수란 「주소·희망일 등 추가」를 펼쳐 확인하세요.'
       : '';
   let tail = '';
   if (opts?.safePhoneSkipped && !summary.filled.includes('phone')) {
