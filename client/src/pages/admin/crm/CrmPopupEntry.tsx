@@ -5,6 +5,7 @@ import {
   TenantCapabilitiesProvider,
 } from '../../../hooks/useTenantCapabilities';
 import { useStandaloneTenantCapabilities } from '../../../hooks/useStandaloneTenantCapabilities';
+import { fitCrmPopupWindow } from '../../../utils/crmSoomgoSplitLayout';
 import { CrmPage } from './CrmPage';
 
 /**
@@ -22,6 +23,17 @@ export function CrmPopupEntry() {
     return () => {
       delete document.documentElement.dataset.telecrmPopup;
     };
+  }, [location.search]);
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('popup') !== '1') return;
+    if (new URLSearchParams(location.search).get('soomgoBar') === '1') return;
+    const run = () => {
+      fitCrmPopupWindow();
+    };
+    run();
+    const t = window.setTimeout(run, 120);
+    return () => window.clearTimeout(t);
   }, [location.search]);
 
   if (!token) {

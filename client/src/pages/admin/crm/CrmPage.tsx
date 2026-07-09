@@ -52,6 +52,7 @@ import {
 } from '../../../utils/crmConsultationQuoteMap';
 import { linkTelecrmConsultationQuoteInquiry } from '../../../api/telecrmConsultationQuote';
 import type { OrderForm } from '../../../api/orderform';
+import { fitCrmPopupWindow } from '../../../utils/crmSoomgoSplitLayout';
 
 export function CrmPage() {
   const [searchParams] = useSearchParams();
@@ -348,7 +349,8 @@ export function CrmPage() {
     const next = !soomgoBarOpen;
     setSoomgoBarOpen(next);
     if (next) void openSoomgo();
-  }, [soomgoBarOpen, setSoomgoBarOpen, openSoomgo]);
+    else if (isPopup) fitCrmPopupWindow();
+  }, [isPopup, soomgoBarOpen, setSoomgoBarOpen, openSoomgo]);
 
   const handleIntakeSaved = useCallback(() => {
     clearCrmIntakeDraft();
