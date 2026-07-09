@@ -44,7 +44,7 @@ export function useCrmPanelUrl() {
       patchParams((next) => {
         next.set('panel', 'settings');
         next.set('tab', tab);
-        next.set('catalog', catalog);
+        next.set('catalog', tab === 'soomgo' || tab === 'general' ? 'shared' : catalog);
         next.delete('pendingInquiryId');
       });
     },
@@ -77,6 +77,9 @@ export function useCrmPanelUrl() {
       patchParams((next) => {
         next.set('panel', 'settings');
         next.set('tab', tab);
+        if (tab === 'soomgo' || tab === 'general') {
+          next.set('catalog', 'shared');
+        }
       });
     },
     [patchParams],

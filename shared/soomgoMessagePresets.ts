@@ -16,6 +16,61 @@ export type SoomgoMessagePresetDto = {
   isActive: boolean;
   ownerUserId: string | null;
   ownerScope: 'shared' | 'personal';
+  /** 수동 매크로는 null. 접수 처리 구분별 자동 전송 */
+  triggerKind?: SoomgoAutoTriggerKind | null;
+};
+
+/** 접수 저장 시 자동 전송 (업체 공통, 프리셋 탭 「자동메시지」) */
+export type SoomgoAutoTriggerKind =
+  | 'auto_requested'
+  | 'auto_absent'
+  | 'auto_hold'
+  | 'auto_deposit'
+  | 'auto_reserved'
+  | 'auto_received';
+
+export const SOOMGO_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = [
+  'auto_requested',
+  'auto_absent',
+  'auto_hold',
+  'auto_deposit',
+  'auto_reserved',
+  'auto_received',
+];
+
+export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoAutoTriggerKind, string> = {
+  auto_requested: '요청',
+  auto_absent: '부재',
+  auto_hold: '보류·고민',
+  auto_deposit: '예약금 대기',
+  auto_reserved: '입금 완료',
+  auto_received: '예약완료',
+};
+
+/** CRM 처리 구분 → 자동 트리거 (1:1) */
+export const SOOMGO_AUTO_TRIGGER_BY_INTAKE: Record<string, SoomgoAutoTriggerKind> = {
+  requested: 'auto_requested',
+  absent: 'auto_absent',
+  hold: 'auto_hold',
+  deposit: 'auto_deposit',
+  reserved: 'auto_reserved',
+  received: 'auto_received',
+};
+
+export function soomgoAutoTriggerForIntakeKind(kind: string): SoomgoAutoTriggerKind | null {
+  return SOOMGO_AUTO_TRIGGER_BY_INTAKE[kind] ?? null;
+}
+
+export function isSoomgoAutoTriggerKind(value: unknown): value is SoomgoAutoTriggerKind {
+  return typeof value === 'string' && (SOOMGO_AUTO_TRIGGER_KINDS as string[]).includes(value);
+}
+
+export type SoomgoAutoMessagePresetDto = {
+  triggerKind: SoomgoAutoTriggerKind;
+  id: string | null;
+  label: string;
+  steps: SoomgoMessageStep[];
+  isActive: boolean;
 };
 
 /** 사용자(또는 공유 카탈로그)당 프리셋 상한 */

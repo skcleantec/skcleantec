@@ -1,6 +1,18 @@
 import { prisma } from '../../lib/prisma.js';
 import { decryptTenantSecret, encryptTenantSecret } from '../../lib/tenantSecretCrypto.js';
-import { parseOperatingCompanyConfig } from '../operating-companies/operatingCompany.schema.js';
+import {
+  mergeOperatingCompanySoomgoStored,
+  soomgoPublicFromStored,
+  type OperatingCompanySoomgoPatch,
+} from '../../lib/operatingCompanySoomgoConfig.js';
+import {
+  parseOperatingCompanyConfig,
+  operatingCompanyConfigToJson,
+} from '../operating-companies/operatingCompany.schema.js';
+import {
+  listOperatingCompanies,
+  operatingCompanySummary,
+} from '../operating-companies/operatingCompany.service.js';
 
 export type TelecrmSoomgoConfigDto = {
   email: string;
@@ -9,6 +21,16 @@ export type TelecrmSoomgoConfigDto = {
   updatedAt: string | null;
   source?: 'brand' | 'tenant';
   operatingCompanyId?: string | null;
+};
+
+export type TelecrmSoomgoBrandConfigDto = {
+  id: string;
+  name: string;
+  displayName: string;
+  slug: string;
+  isActive: boolean;
+  isDefault: boolean;
+  soomgo: ReturnType<typeof soomgoPublicFromStored>;
 };
 
 async function credentialsFromOperatingCompany(
@@ -42,6 +64,13 @@ async function credentialsFromTenant(tenantId: string): Promise<{ email: string;
   return { email: row.email.trim(), password };
 }
 
+const telecrmSoomgoConfigSelect = {
+  email: true,
+  passwordEnc: true,
+  enabled: true,
+  updatedAt: true,
+} as const;
+
 export async function getTelecrmSoomgoConfig(
   tenantId: string,
   operatingCompanyId?: string | null,
@@ -69,10 +98,16 @@ export async function getTelecrmSoomgoConfig(
 
   const row = await prisma.telecrmSoomgoConfig.findUnique({
     where: { tenantId },
-    select: { email: true, passwordEnc: true, enabled: true, updatedAt: true },
+    select: telecrmSoomgoConfigSelect,
   });
   if (!row) {
-    return { email: '', hasPassword: false, enabled: false, updatedAt: null, source: 'tenant' };
+    return {
+      email: '',
+      hasPassword: false,
+      enabled: false,
+      updatedAt: null,
+      source: 'tenant',
+    };
   }
   return {
     email: row.email,
@@ -97,36 +132,42 @@ export async function getTelecrmSoomgoCredentials(
 
 export async function upsertTelecrmSoomgoConfig(
   tenantId: string,
-  input: { email: string; password?: string; enabled: boolean },
+  input: {
+    email: string;
+    password?: string;
+    enabled: boolean;
+  },
 ): Promise<TelecrmSoomgoConfigDto> {
   const email = input.email.trim().toLowerCase();
-  if (!email) throw new Error('EMAIL_REQUIRED');
 
   const existing = await prisma.telecrmSoomgoConfig.findUnique({
     where: { tenantId },
-    select: { passwordEnc: true },
+    select: { passwordEnc: true, email: true, enabled: true },
   });
 
   let passwordEnc = existing?.passwordEnc ?? '';
   if (typeof input.password === 'string' && input.password.trim()) {
     passwordEnc = encryptTenantSecret(input.password.trim());
   }
-  if (!passwordEnc) throw new Error('PASSWORD_REQUIRED');
+
+  const wantsAccount = Boolean(email);
+  if (wantsAccount && !passwordEnc) throw new Error('PASSWORD_REQUIRED');
+  if (!existing && !wantsAccount) throw new Error('EMAIL_REQUIRED');
 
   const row = await prisma.telecrmSoomgoConfig.upsert({
     where: { tenantId },
     create: {
       tenantId,
-      email,
-      passwordEnc,
-      enabled: input.enabled,
+      email: wantsAccount ? email : '',
+      passwordEnc: passwordEnc || '',
+      enabled: wantsAccount ? input.enabled : false,
     },
     update: {
-      email,
-      passwordEnc,
-      enabled: input.enabled,
+      ...(wantsAccount
+        ? { email, enabled: input.enabled, ...(passwordEnc ? { passwordEnc } : {}) }
+        : {}),
     },
-    select: { email: true, passwordEnc: true, enabled: true, updatedAt: true },
+    select: telecrmSoomgoConfigSelect,
   });
 
   return {
@@ -135,5 +176,60 @@ export async function upsertTelecrmSoomgoConfig(
     enabled: row.enabled,
     updatedAt: row.updatedAt.toISOString(),
     source: 'tenant',
+  };
+}
+
+export async function listTelecrmSoomgoBrandConfigs(
+  tenantId: string,
+): Promise<TelecrmSoomgoBrandConfigDto[]> {
+  const items = await listOperatingCompanies(prisma, tenantId, { includeInactive: true });
+  return items.map((item) => {
+    const pub = item.config.soomgo;
+    return {
+      id: item.id,
+      name: item.name,
+      displayName: item.displayName,
+      slug: item.slug,
+      isActive: item.isActive,
+      isDefault: item.isDefault,
+      soomgo: {
+        email: pub?.email?.trim() ?? '',
+        enabled: pub?.enabled !== false,
+        hasPassword: pub?.hasPassword === true,
+        configured: pub?.configured === true,
+      },
+    };
+  });
+}
+
+export async function updateTelecrmSoomgoBrandConfig(
+  tenantId: string,
+  operatingCompanyId: string,
+  patch: OperatingCompanySoomgoPatch,
+): Promise<TelecrmSoomgoBrandConfigDto> {
+  const existing = await prisma.operatingCompany.findFirst({
+    where: { id: operatingCompanyId, tenantId },
+  });
+  if (!existing) throw new Error('OPERATING_COMPANY_NOT_FOUND');
+
+  const existingConfig = parseOperatingCompanyConfig(existing.config);
+  const mergedSoomgo = mergeOperatingCompanySoomgoStored(existingConfig.soomgo, patch);
+  const nextConfig = { ...existingConfig, soomgo: mergedSoomgo };
+
+  const row = await prisma.operatingCompany.update({
+    where: { id: operatingCompanyId },
+    data: {
+      config: operatingCompanyConfigToJson(nextConfig) as object,
+    },
+  });
+  const summary = operatingCompanySummary(row);
+  return {
+    id: summary.id,
+    name: summary.name,
+    displayName: summary.displayName,
+    slug: summary.slug,
+    isActive: summary.isActive,
+    isDefault: summary.isDefault,
+    soomgo: soomgoPublicFromStored(parseOperatingCompanyConfig(row.config).soomgo),
   };
 }

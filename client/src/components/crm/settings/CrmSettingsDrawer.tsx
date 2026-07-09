@@ -28,9 +28,9 @@ const TelecrmSoomgoSettingsPage = lazy(() =>
     default: m.TelecrmSoomgoSettingsPage,
   })),
 );
-const TelecrmSoomgoMessagePresetsSection = lazy(() =>
-  import('./TelecrmSoomgoMessagePresetsSection').then((m) => ({
-    default: m.TelecrmSoomgoMessagePresetsSection,
+const TelecrmSoomgoPresetsHub = lazy(() =>
+  import('./TelecrmSoomgoPresetsHub').then((m) => ({
+    default: m.TelecrmSoomgoPresetsHub,
   })),
 );
 
@@ -71,16 +71,23 @@ export function CrmSettingsDrawer({
   const presetCatalogScope = canEditShared ? catalogScope : 'personal';
   const showCatalogSegment =
     tab !== 'general' &&
+    tab !== 'soomgo' &&
     (canEditShared || canEditPersonal) &&
-    (tab === 'soomgo' || tab === 'soomgo-presets' ? canEditShared && canEditPersonal : true);
+    (tab === 'soomgo-presets' ? canEditShared && canEditPersonal : true);
   const drawerWidth =
     tab === 'soomgo-presets' ? 'w-[min(760px,96vw)]' : 'w-[min(640px,94vw)]';
+  const drawerSubtitle =
+    tab === 'soomgo'
+      ? '업체 공통 숨고 계정·PC 프로그램·브랜드별 계정을 설정합니다.'
+      : tab === 'soomgo-presets'
+        ? '숨고 채팅 매크로·처리 구분별 자동 메시지(업체 공통)를 편집합니다.'
+        : '개인 스크립트·가격 또는 업체 공통 설정을 편집합니다.';
 
   return (
     <CrmDrawerShell
       open={open}
       title="텔레CRM 설정"
-      subtitle="개인 스크립트·가격 또는 업체 공통 설정을 편집합니다."
+      subtitle={drawerSubtitle}
       onClose={onClose}
       widthClass={drawerWidth}
     >
@@ -110,8 +117,8 @@ export function CrmSettingsDrawer({
           <p className="mt-2 text-[11px] text-gray-500">
             {tab === 'soomgo-presets'
               ? catalogScope === 'personal'
-                ? '본인 숨고 메시지 프리셋입니다. 상담 화면 「숨고 메시지」에서 바로 전송할 수 있습니다.'
-                : '업체 공유 숨고 메시지 프리셋입니다.'
+                ? '본인 숨고 메시지 매크로입니다. 자동 안내는 「자동메시지」 탭(업체 공통)에서 설정합니다.'
+                : '업체 공유 숨고 매크로입니다.'
               : catalogScope === 'personal'
                 ? '본인만 보는 개인 카탈로그입니다. 작업 화면에서 내 항목이 먼저 표시됩니다.'
                 : '업체 전체 마케터가 공유하는 기본 스크립트·가격입니다.'}
@@ -126,10 +133,14 @@ export function CrmSettingsDrawer({
           {tab === 'pricing' ? <TelecrmPricingSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'general' && canEditShared ? <TelecrmGeneralSettingsPage /> : null}
           {tab === 'soomgo-presets' && (canEditPersonal || canEditShared) ? (
-            <TelecrmSoomgoMessagePresetsSection catalogScope={presetCatalogScope} />
+            <TelecrmSoomgoPresetsHub
+              catalogScope={presetCatalogScope}
+              canEditAuto={canEditShared}
+              syncViewToUrl={false}
+            />
           ) : null}
           {tab === 'soomgo' && canEditShared ? (
-            <TelecrmSoomgoSettingsPage catalogScope={catalogScope} presetsInDrawer />
+            <TelecrmSoomgoSettingsPage presetsInDrawer />
           ) : null}
         </div>
       </Suspense>

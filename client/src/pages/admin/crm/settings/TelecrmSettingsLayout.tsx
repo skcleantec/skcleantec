@@ -9,6 +9,7 @@ const NAV = [
   { to: '/admin/crm/settings/pricing', label: '가격' },
   { to: '/admin/crm/settings/general', label: '기본 단가' },
   { to: '/admin/crm/settings/soomgo', label: '숨고 연동' },
+  { to: '/admin/crm/settings/soomgo-presets', label: '숨고 프리셋' },
 ] as const;
 
 export function TelecrmSettingsLayout() {
@@ -18,7 +19,9 @@ export function TelecrmSettingsLayout() {
   const canShared = permissions.has('crm.settings');
   const canPersonal = permissions.has('crm.view');
   const isCatalogRoute =
-    location.pathname.endsWith('/scripts') || location.pathname.endsWith('/pricing');
+    location.pathname.endsWith('/scripts') ||
+    location.pathname.endsWith('/pricing') ||
+    (location.pathname.endsWith('/soomgo-presets') && searchParams.get('view') !== 'auto');
   const catalogScope = searchParams.get('catalog') === 'shared' ? 'shared' : 'personal';
 
   const setCatalogScope = (scope: 'shared' | 'personal') => {
@@ -34,7 +37,8 @@ export function TelecrmSettingsLayout() {
 
   const visibleNav = NAV.filter((item) => {
     if (item.to === '/admin/crm/settings/general') return canShared;
-    if (item.to === '/admin/crm/settings/soomgo') return canShared || canPersonal;
+    if (item.to === '/admin/crm/settings/soomgo') return canShared;
+    if (item.to === '/admin/crm/settings/soomgo-presets') return canShared || canPersonal;
     return true;
   });
 
@@ -88,6 +92,13 @@ export function TelecrmSettingsLayout() {
             showPersonal={canPersonal}
             showShared={canShared}
           />
+          {location.pathname.endsWith('/soomgo-presets') ? (
+            <p className="mt-2 text-[11px] text-gray-500">
+              {catalogScope === 'personal'
+                ? '본인 숨고 메시지 프리셋입니다.'
+                : '업체 공유 숨고 메시지 프리셋입니다.'}
+            </p>
+          ) : null}
         </div>
       ) : null}
 

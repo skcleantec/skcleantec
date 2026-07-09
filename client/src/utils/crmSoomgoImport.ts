@@ -1,9 +1,11 @@
 import type { SoomgoExtractedChat } from '@shared/soomgoBridge';
+import { splitSoomgoPhones } from './crmContactPhone';
 
 export type SoomgoImportFieldKey =
   | 'customerName'
   | 'nickname'
-  | 'phone'
+  | 'contactPhone'
+  | 'safePhone'
   | 'pyeong'
   | 'address'
   | 'preferredMoveInCleanYmd'
@@ -55,9 +57,14 @@ export function summarizeSoomgoImport(data: SoomgoExtractedChat): SoomgoImportSu
     empty.push('고객명');
   }
 
-  if (data.phone?.trim()) {
-    filled.push('phone');
-    lines.push(`연락처 → 접수란 연락처 (${data.phone.trim()})`);
+  const { contactPhone, safePhone } = splitSoomgoPhones(data);
+  if (contactPhone) {
+    filled.push('contactPhone');
+    lines.push(`연락처 → 접수란 (${contactPhone})`);
+  }
+  if (safePhone) {
+    filled.push('safePhone');
+    lines.push(`안심번호 → 접수란 (${safePhone})`);
   }
 
   if (data.pyeong) {
@@ -127,10 +134,14 @@ export function soomgoImportNoticeText(
       ? ' 평수·주소·희망일·방/화장실/베란다는 접수란 「주소·희망일 등 추가」를 펼쳐 확인하세요.'
       : '';
   let tail = '';
-  if (opts?.safePhoneSkipped && !summary.filled.includes('phone')) {
+  const hasContact = summary.filled.includes('contactPhone');
+  const hasSafe = summary.filled.includes('safePhone');
+  if (opts?.safePhoneSkipped && !hasContact && !hasSafe) {
     tail = ' 안심번호 없음(채팅만 희망) — 채팅방 유지됨.';
-  } else if (summary.filled.includes('phone')) {
-    tail = ' 안심번호를 연락처에 넣었습니다.';
+  } else if (hasSafe && hasContact) {
+    tail = ' 연락처·안심번호를 각각 넣었습니다.';
+  } else if (hasSafe) {
+    tail = ' 안심번호를 넣었습니다.';
   }
   return `숨고 정보를 접수란에 채웠습니다: ${summary.lines.join(' · ')}.${hint}${tail}`;
 }

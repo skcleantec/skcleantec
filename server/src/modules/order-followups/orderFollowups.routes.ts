@@ -15,7 +15,9 @@ import {
 import { orderFollowupIdsMatchingKstHour } from '../ops-analytics/kstHourFilterQueries.js';
 import {
   appendFollowupLog,
+  findOpenFollowupForPhones,
   FOLLOWUP_INCLUDE,
+  OPEN_FOLLOWUP_DEDUP_STATUSES,
   parseStatus,
   serializeFollowup,
   serializeLog,
@@ -30,7 +32,7 @@ import {
   mapOperatingCompanyResolveError,
 } from '../operating-companies/operatingCompanyResolve.service.js';
 import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
-import type { UserRole } from '@prisma/client';
+import type { UserRole, OrderFollowupStatus } from '@prisma/client';
 import { readCrmWorkBrandInput, resolveCrmWorkOperatingCompanyId } from '../telecrm/crmWorkBrandResolve.service.js';
 
 const router = Router();
@@ -110,6 +112,7 @@ async function createInquiryForDepositFlow(params: {
   customerName: string;
   nickname: string | null;
   customerPhone: string;
+  customerPhone2?: string | null;
   memo: string | null;
   followupStatus: DepositFlowStatus;
 }): Promise<string> {
@@ -143,7 +146,7 @@ async function createInquiryForDepositFlow(params: {
         customerName: params.customerName,
         nickname: params.nickname,
         customerPhone: params.customerPhone,
-        customerPhone2: null,
+        customerPhone2: params.customerPhone2 ?? null,
         address: '',
         addressDetail: null,
         preferredDate: null,
@@ -301,6 +304,56 @@ router.get('/', async (req, res) => {
   res.json({ items: rows.map((r) => serializeFollowup(r)), total });
 });
 
+function normalizeFollowupCallNotePhone(raw: string): string {
+  return raw.replace(/\D/g, '').slice(0, 20);
+}
+
+/** 부재·보류 — 연락처 기준 CRM 통화 메모 이력(테넌트 전체, 조회 전용) */
+router.get('/call-notes', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const phone = normalizeFollowupCallNotePhone(typeof req.query.phone === 'string' ? req.query.phone : '');
+  const phone2Raw = typeof req.query.phone2 === 'string' ? req.query.phone2 : '';
+  const phone2 = phone2Raw.trim() ? normalizeFollowupCallNotePhone(phone2Raw) : '';
+  const phones = [...new Set([phone, phone2].filter((p) => p.length >= 4))];
+  if (phones.length === 0) {
+    res.status(400).json({ error: '전화번호(4자 이상)가 필요합니다.' });
+    return;
+  }
+  const limitRaw = typeof req.query.limit === 'string' ? Number(req.query.limit) : 50;
+  const limit = Number.isFinite(limitRaw) ? Math.min(100, Math.max(1, Math.floor(limitRaw))) : 50;
+  const rows = await prisma.telecrmCallNote.findMany({
+    where: {
+      tenantId,
+      phone: phones.length === 1 ? phones[0]! : { in: phones },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    select: {
+      id: true,
+      phone: true,
+      body: true,
+      inquiryId: true,
+      createdAt: true,
+      user: { select: { id: true, name: true, email: true, role: true } },
+    },
+  });
+  res.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      phone: r.phone,
+      body: r.body,
+      inquiryId: r.inquiryId,
+      createdAt: r.createdAt.toISOString(),
+      author: r.user,
+    })),
+  });
+});
+
 router.get('/:id/logs', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);
@@ -334,6 +387,12 @@ router.post('/', async (req, res) => {
   const customerName = typeof body.customerName === 'string' ? body.customerName.trim() : '';
   const nickname = typeof body.nickname === 'string' ? body.nickname.trim() || null : null;
   const customerPhone = typeof body.customerPhone === 'string' ? body.customerPhone.trim() : '';
+  const customerPhone2 =
+    typeof body.customerPhone2 === 'string'
+      ? body.customerPhone2.trim() || null
+      : body.customerPhone2 === null
+        ? null
+        : undefined;
   if (!customerName) {
     res.status(400).json({ error: '고객명은 필수입니다.' });
     return;
@@ -372,6 +431,7 @@ router.post('/', async (req, res) => {
       customerName,
       nickname,
       customerPhone,
+      customerPhone2: customerPhone2 ?? null,
       memo,
       followupStatus: status,
     });
@@ -395,6 +455,87 @@ router.post('/', async (req, res) => {
     }
     throw e;
   }
+
+  const dedupStatuses = OPEN_FOLLOWUP_DEDUP_STATUSES as readonly OrderFollowupStatus[];
+  if ((dedupStatuses as OrderFollowupStatus[]).includes(status)) {
+    const existing = await findOpenFollowupForPhones(prisma, {
+      tenantId,
+      operatingCompanyId,
+      customerPhone,
+      customerPhone2: customerPhone2 ?? null,
+    });
+    if (existing) {
+      const updateData: import('@prisma/client').Prisma.OrderFollowupUpdateInput = {
+        customerName,
+        nickname,
+        customerPhone,
+        ...(customerPhone2 !== undefined ? { customerPhone2 } : {}),
+        status,
+        goldDb,
+        memo,
+        nextContactAt: nextContactAt === undefined ? undefined : nextContactAt,
+        handledBy: { connect: { id: user.userId } },
+        ...(preferredMoveInCleaningDate !== undefined ? { preferredMoveInCleaningDate } : {}),
+        ...(connectInquiryId && !existing.inquiryId ? { inquiry: { connect: { id: connectInquiryId } } } : {}),
+      };
+
+      await prisma.orderFollowup.update({
+        where: { id: existing.id },
+        data: updateData,
+      });
+
+      if (existing.status !== status) {
+        await appendFollowupLog(prisma, {
+          followupId: existing.id,
+          actorId: user.userId,
+          action: 'STATUS',
+          detail: JSON.stringify({ from: existing.status, to: status }),
+        });
+      }
+      if ((existing.memo ?? null) !== (memo ?? null)) {
+        await appendFollowupLog(prisma, {
+          followupId: existing.id,
+          actorId: user.userId,
+          action: 'MEMO',
+          detail: memo ?? null,
+        });
+      }
+      await appendFollowupLog(prisma, {
+        followupId: existing.id,
+        actorId: user.userId,
+        action: 'UPSERT',
+        detail: JSON.stringify({
+          source: 'create_dedup',
+          customerName,
+          nickname,
+          customerPhone,
+          customerPhone2: customerPhone2 ?? existing.customerPhone2 ?? null,
+          status,
+          goldDb,
+          ...(connectInquiryId ? { inquiryId: connectInquiryId } : {}),
+          ...(preferredMoveInCleaningDate !== undefined
+            ? { preferredMoveInCleaningDate: preferredMoveInCleaningDate ?? null }
+            : {}),
+        }),
+      });
+
+      const full = await prisma.orderFollowup.findUniqueOrThrow({
+        where: { id: existing.id },
+        include: FOLLOWUP_INCLUDE,
+      });
+      const linkedInquiryId = full.inquiryId;
+      if (linkedInquiryId) {
+        if (status === 'DEPOSIT_PENDING') {
+          await syncInquiryWhenFollowupDepositPending(linkedInquiryId, tenantId);
+        } else if (status === 'RESERVED') {
+          await syncInquiryWhenFollowupDepositComplete(linkedInquiryId, tenantId);
+        }
+      }
+      res.json({ item: serializeFollowup(full), deduped: true });
+      return;
+    }
+  }
+
   const row = await prisma.orderFollowup.create({
     data: {
       tenantId,
@@ -402,6 +543,7 @@ router.post('/', async (req, res) => {
       customerName,
       nickname,
       customerPhone,
+      ...(customerPhone2 !== undefined ? { customerPhone2 } : {}),
       status,
       goldDb,
       memo,
@@ -474,6 +616,19 @@ router.patch('/:id', async (req, res) => {
         action: 'CUSTOMER_PHONE',
         detail: JSON.stringify({ from: prev.customerPhone, to: next }),
       });
+    }
+  }
+
+  if ('customerPhone2' in body) {
+    const raw = body.customerPhone2;
+    const next =
+      raw === null || raw === ''
+        ? null
+        : typeof raw === 'string'
+          ? raw.trim() || null
+          : undefined;
+    if (next !== undefined && next !== (prev.customerPhone2 ?? null)) {
+      data.customerPhone2 = next;
     }
   }
 
@@ -626,6 +781,14 @@ router.patch('/:id', async (req, res) => {
             : prev.nickname ?? null,
         customerPhone:
           typeof body.customerPhone === 'string' ? body.customerPhone.trim() : prev.customerPhone,
+        customerPhone2:
+          'customerPhone2' in body
+            ? body.customerPhone2 === null || body.customerPhone2 === ''
+              ? null
+              : typeof body.customerPhone2 === 'string'
+                ? body.customerPhone2.trim() || null
+                : prev.customerPhone2 ?? null
+            : prev.customerPhone2 ?? null,
         memo:
           typeof body.memo === 'string'
             ? body.memo.trim() || null

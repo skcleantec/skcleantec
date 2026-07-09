@@ -12,6 +12,7 @@ import {
 } from './crmIntakeSubmit';
 import { crmIntakePermissionLabel } from './crmIntakeValidation';
 import { crmFieldCompactClass } from '../crmUi';
+import { CrmRequestMemoField } from './CrmRequestMemoField';
 
 const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
   { value: 'absent', label: ORDER_FOLLOWUP_STATUS_LABEL.ABSENT, hint: '부재현황' },
@@ -25,8 +26,9 @@ const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
 export function CrmIntakeForm({
   seed,
   initialFormDraft,
-  phone,
-  phoneUnknown,
+  contactPhone,
+  safePhone,
+  contactUnknown,
   pyeong,
   onPyeongChange,
   onFormChange,
@@ -42,8 +44,9 @@ export function CrmIntakeForm({
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
-  phone: string;
-  phoneUnknown: boolean;
+  contactPhone: string;
+  safePhone: string;
+  contactUnknown: boolean;
   pyeong: string;
   onPyeongChange: (v: string) => void;
   onFormChange?: (snapshot: CrmIntakeFormSnapshot) => void;
@@ -180,8 +183,10 @@ export function CrmIntakeForm({
         {
           customerName,
           nickname,
-          phone,
-          phoneUnknown,
+          contactPhone,
+          safePhone,
+          contactUnknown,
+          requestMemo,
           preferredMoveInCleanYmd,
           address,
           roomCount,
@@ -360,17 +365,12 @@ export function CrmIntakeForm({
               disabled={saving}
             />
           </label>
-          <label className="block space-y-0.5">
-            <span className="text-[11px] font-medium text-slate-600">숨고 요청 메모</span>
-            <textarea
-              value={requestMemo}
-              onChange={(e) => setRequestMemo(e.target.value)}
-              rows={4}
-              placeholder="고객 요청 모달에서 가져온 상세"
-              className={`${crmFieldCompactClass} min-h-[72px] resize-y ${soomgoImportFlashKey > 0 && requestMemo.trim() ? flashRing : ''}`}
-              disabled={saving}
-            />
-          </label>
+          <CrmRequestMemoField
+            value={requestMemo}
+            onChange={setRequestMemo}
+            disabled={saving}
+            highlight={soomgoImportFlashKey > 0 && requestMemo.trim().length > 0}
+          />
           <label className="flex items-center gap-1.5 text-[11px] text-slate-700">
             <input
               type="checkbox"

@@ -18,6 +18,12 @@ import {
   useCrmCustomerLookup,
   type CrmCustomerSearchMode,
 } from '../../../hooks/useCrmCustomerLookup';
+import { getToken } from '../../../stores/auth';
+import {
+  noticeForSoomgoFollowupAutoSend,
+  trySoomgoFollowupAutoMessage,
+} from '../../../utils/soomgoFollowupAutoSend';
+import { resolveCrmOutboundPhone } from '../../../utils/crmContactPhone';
 
 export type CrmCustomerMode = 'new' | 'existing';
 
@@ -102,10 +108,12 @@ function formatPyeongValue(n: number | null | undefined): string {
 export function CrmIntakePanel({
   mode,
   onModeChange,
-  phone,
-  onPhoneChange,
-  phoneUnknown,
-  onPhoneUnknownChange,
+  contactPhone,
+  onContactPhoneChange,
+  safePhone,
+  onSafePhoneChange,
+  contactUnknown,
+  onContactUnknownChange,
   onCustomerNameChange,
   pyeong,
   onPyeongChange,
@@ -129,10 +137,12 @@ export function CrmIntakePanel({
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
-  phone: string;
-  onPhoneChange: (v: string) => void;
-  phoneUnknown: boolean;
-  onPhoneUnknownChange: (v: boolean) => void;
+  contactPhone: string;
+  onContactPhoneChange: (v: string) => void;
+  safePhone: string;
+  onSafePhoneChange: (v: string) => void;
+  contactUnknown: boolean;
+  onContactUnknownChange: (v: boolean) => void;
   onCustomerNameChange: (name: string) => void;
   pyeong: string;
   onPyeongChange: (v: string) => void;
@@ -154,12 +164,13 @@ export function CrmIntakePanel({
   onIntakeReset?: () => void;
   operatingCompanyId?: string | null;
 }) {
+  const outboundPhone = resolveCrmOutboundPhone(contactPhone, safePhone);
   const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
   const [nameSearch, setNameSearch] = useState('');
-  const searchText = searchMode === 'phone' ? phone : nameSearch;
+  const searchText = searchMode === 'phone' ? outboundPhone : nameSearch;
   const lookupEnabled =
     mode === 'existing' &&
-    (searchMode === 'phone' ? phone.trim().length >= 4 : nameSearch.trim().length >= 2);
+    (searchMode === 'phone' ? outboundPhone.trim().length >= 4 : nameSearch.trim().length >= 2);
 
   const { data, loading, error, refresh, resolveByPhone } = useCrmCustomerLookup(
     searchMode,
@@ -204,10 +215,11 @@ export function CrmIntakePanel({
   const intakeSeed = useMemo(
     () => ({
       ...formSeed,
-      phone,
+      contactPhone,
+      safePhone,
       pyeong,
     }),
-    [formSeed, phone, pyeong],
+    [formSeed, contactPhone, safePhone, pyeong],
   );
 
   const applyCustomer = (
@@ -221,7 +233,7 @@ export function CrmIntakePanel({
       memo: '',
       address: customer.lastAddress ?? latestInquiry?.address ?? '',
     });
-    onPhoneChange(customer.phone);
+    onContactPhoneChange(customer.phone);
     onCustomerNameChange(customer.name ?? '');
     const nextPyeong = formatPyeongValue(latestInquiry?.areaPyeong);
     if (nextPyeong) onPyeongChange(nextPyeong);
@@ -237,7 +249,7 @@ export function CrmIntakePanel({
 
   const handleSelectCandidate = (row: TelecrmCustomerCandidateDto) => {
     autoFilledKeyRef.current = null;
-    onPhoneChange(row.customerPhone);
+    onContactPhoneChange(row.customerPhone);
     setSearchMode('phone');
     void resolveByPhone(row.customerPhone);
   };
@@ -246,6 +258,15 @@ export function CrmIntakePanel({
     if (result.kind === 'inquiry') setLastInquiryId(result.inquiryId);
     onSaved();
     if (mode === 'existing') refresh();
+    const token = getToken();
+    if (!token) return;
+    void trySoomgoFollowupAutoMessage(token, result.intakeKind, {
+      customerName: result.customerName,
+      nickname: result.nickname,
+    }).then((auto) => {
+      const notice = noticeForSoomgoFollowupAutoSend(auto);
+      if (notice) onDispatchNotice?.(notice);
+    });
   };
 
   const openOrderIssue = (inquiryId: string | null) => {
@@ -260,7 +281,7 @@ export function CrmIntakePanel({
     window.open(`${window.location.origin}${url}`, '_blank', 'noopener,noreferrer');
   };
 
-  const dialPhone = phone.trim();
+  const dialPhone = outboundPhone.trim();
   const canDial = dialPhone.replace(/\D/g, '').length >= 8;
 
   const handleCall = async () => {
@@ -351,9 +372,12 @@ export function CrmIntakePanel({
             {searchMode === 'phone' ? (
               <CrmPhoneField
                 label="연락처 검색"
-                value={phone}
-                onChange={onPhoneChange}
-                onClear={() => onPhoneChange('')}
+                value={outboundPhone}
+                onChange={onContactPhoneChange}
+                onClear={() => {
+                  onContactPhoneChange('');
+                  onSafePhoneChange('');
+                }}
                 canDial={canDial}
                 onCall={() => void handleCall()}
                 callLabel={isTelecrmNativeApp() ? '앱 통화' : '통화'}
@@ -384,24 +408,36 @@ export function CrmIntakePanel({
             />
           </>
         ) : (
+          <div className="space-y-2">
+          <CrmPhoneField
+            label="안심번호"
+            value={safePhone}
+            onChange={onSafePhoneChange}
+            onClear={() => onSafePhoneChange('')}
+            canDial={false}
+            onCall={() => {}}
+            callLabel="통화"
+            highlight={soomgoImportFlashKey > 0 && safePhone.trim().length > 0}
+          />
           <CrmPhoneField
             label="연락처"
-            value={phone}
+            value={contactPhone}
             onChange={(v) => {
-              onPhoneChange(v);
-              if (v.trim()) onPhoneUnknownChange(false);
+              onContactPhoneChange(v);
+              if (v.trim()) onContactUnknownChange(false);
             }}
-            onClear={() => onPhoneChange('')}
+            onClear={() => onContactPhoneChange('')}
             canDial={canDial}
             onCall={() => void handleCall()}
             callLabel={isTelecrmNativeApp() ? '앱 통화' : '통화'}
-            highlight={soomgoImportFlashKey > 0 && phone.trim().length > 0}
-            phoneUnknown={phoneUnknown}
+            highlight={soomgoImportFlashKey > 0 && contactPhone.trim().length > 0}
+            phoneUnknown={contactUnknown}
             onPhoneUnknownChange={(checked) => {
-              onPhoneUnknownChange(checked);
-              if (checked) onPhoneChange('');
+              onContactUnknownChange(checked);
+              if (checked) onContactPhoneChange('');
             }}
           />
+          </div>
         )}
 
         <div className="border-t border-emerald-100/80 pt-2">
@@ -414,8 +450,9 @@ export function CrmIntakePanel({
           <CrmIntakeForm
             seed={intakeSeed}
             initialFormDraft={initialFormDraft}
-            phone={phone}
-            phoneUnknown={phoneUnknown}
+            contactPhone={contactPhone}
+            safePhone={safePhone}
+            contactUnknown={contactUnknown}
             pyeong={pyeong}
             onPyeongChange={onPyeongChange}
             onFormChange={onFormChange}
@@ -431,7 +468,7 @@ export function CrmIntakePanel({
           />
         </div>
 
-        <CrmCallMemoSection phone={phone} inquiryId={activeInquiryId} resetKey={formResetKey} />
+        <CrmCallMemoSection phone={outboundPhone} inquiryId={activeInquiryId} resetKey={formResetKey} />
       </div>
     </CrmColumn>
   );

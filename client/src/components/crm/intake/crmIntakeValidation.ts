@@ -1,5 +1,6 @@
 import type { CrmIntakeKind, CrmIntakeFormValues } from './crmIntakeSubmit';
 import type { MarketerPermissionId } from '@shared/marketerPermissions';
+import { resolveCrmOutboundPhone } from '../../../utils/crmContactPhone';
 
 export function crmIntakeRequiredPermission(kind: CrmIntakeKind): MarketerPermissionId {
   if (kind === 'requested' || kind === 'absent' || kind === 'hold') return 'followup.edit';
@@ -20,13 +21,13 @@ export function parseCrmIntakePyeong(pyeong: string): number | null {
 
 /** CRM 접수 표시명 — 고객명 미확인 시 닉네임·연락처 순으로 사용 */
 export function resolveCrmIntakeCustomerName(
-  values: Pick<CrmIntakeFormValues, 'customerName' | 'nickname' | 'phone'>,
+  values: Pick<CrmIntakeFormValues, 'customerName' | 'nickname' | 'contactPhone' | 'safePhone'>,
 ): string {
   const name = values.customerName.trim();
   if (name) return name;
   const nick = values.nickname.trim();
   if (nick) return nick;
-  const phone = values.phone.trim();
+  const phone = resolveCrmOutboundPhone(values.contactPhone, values.safePhone);
   if (phone) return phone;
   return '고객';
 }
@@ -35,8 +36,12 @@ export function validateCrmIntakeForm(
   values: CrmIntakeFormValues,
   pyeong: string,
 ): string | null {
-  if (!values.phoneUnknown && !values.phone.trim()) return '연락처를 입력해 주세요.';
-  if (values.phoneUnknown && !values.nickname.trim() && !values.customerName.trim()) {
+  const hasPhone =
+    values.contactPhone.trim().length > 0 || values.safePhone.trim().length > 0;
+  if (!values.contactUnknown && !hasPhone) {
+    return '연락처 또는 안심번호를 입력해 주세요.';
+  }
+  if (values.contactUnknown && !values.nickname.trim() && !values.customerName.trim()) {
     return '전화번호 없음일 때는 닉네임 또는 고객명을 입력해 주세요.';
   }
   if (values.kind === 'received' && !values.address.trim()) {

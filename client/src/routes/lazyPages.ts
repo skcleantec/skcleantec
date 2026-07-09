@@ -323,3 +323,8 @@ export const TelecrmSoomgoSettingsPage = lazyWithRetry(() =>
     default: m.TelecrmSoomgoSettingsPage,
   }))
 );
+export const TelecrmSoomgoPresetsSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/crm/settings/TelecrmSoomgoPresetsSettingsPage').then((m) => ({
+    default: m.TelecrmSoomgoPresetsSettingsPage,
+  }))
+);

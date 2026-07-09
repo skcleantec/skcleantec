@@ -14,6 +14,21 @@ export type TelecrmSoomgoConfigDto = {
   updatedAt: string | null;
 };
 
+export type TelecrmSoomgoBrandConfigDto = {
+  id: string;
+  name: string;
+  displayName: string;
+  slug: string;
+  isActive: boolean;
+  isDefault: boolean;
+  soomgo: {
+    email: string;
+    enabled: boolean;
+    hasPassword: boolean;
+    configured: boolean;
+  };
+};
+
 export async function fetchTelecrmSoomgoConfig(token: string): Promise<TelecrmSoomgoConfigDto> {
   const res = await fetch(`${API}/config`, { headers: authHeaders(token) });
   const data = (await res.json()) as TelecrmSoomgoConfigDto & { error?: string };
@@ -23,7 +38,12 @@ export async function fetchTelecrmSoomgoConfig(token: string): Promise<TelecrmSo
 
 export async function updateTelecrmSoomgoConfig(
   token: string,
-  input: { email: string; password?: string; enabled: boolean; actorPassword?: string },
+  input: {
+    email: string;
+    password?: string;
+    enabled: boolean;
+    actorPassword?: string;
+  },
 ): Promise<TelecrmSoomgoConfigDto> {
   const res = await fetch(`${API}/config`, {
     method: 'PUT',
@@ -32,6 +52,35 @@ export async function updateTelecrmSoomgoConfig(
   });
   const data = (await res.json()) as TelecrmSoomgoConfigDto & { error?: string };
   if (!res.ok) throw new Error(data.error ?? '숨고 설정 저장에 실패했습니다.');
+  return data;
+}
+
+export async function fetchTelecrmSoomgoBrandConfigs(
+  token: string,
+): Promise<TelecrmSoomgoBrandConfigDto[]> {
+  const res = await fetch(`${API}/brand-configs`, { headers: authHeaders(token) });
+  const data = (await res.json()) as { items?: TelecrmSoomgoBrandConfigDto[]; error?: string };
+  if (!res.ok) throw new Error(data.error ?? '브랜드 숨고 설정을 불러오지 못했습니다.');
+  return data.items ?? [];
+}
+
+export async function updateTelecrmSoomgoBrandConfig(
+  token: string,
+  operatingCompanyId: string,
+  input: {
+    email: string;
+    password?: string;
+    enabled: boolean;
+    actorPassword?: string;
+  },
+): Promise<TelecrmSoomgoBrandConfigDto> {
+  const res = await fetch(`${API}/brand-configs/${encodeURIComponent(operatingCompanyId)}`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+  const data = (await res.json()) as TelecrmSoomgoBrandConfigDto & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '브랜드 숨고 설정 저장에 실패했습니다.');
   return data;
 }
 

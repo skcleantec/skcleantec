@@ -5,9 +5,12 @@ import { requireCrmWorkOperatingCompanyId, requireTelecrmActorPassword, requireT
 import {
   getTelecrmSoomgoConfig,
   getTelecrmSoomgoCredentials,
+  listTelecrmSoomgoBrandConfigs,
+  updateTelecrmSoomgoBrandConfig,
   upsertTelecrmSoomgoConfig,
 } from './telecrmSoomgo.service.js';
 import { getSoomgoBridgeManifest } from './soomgoBridgeManifest.js';
+import { extractOperatingCompanySoomgoPatch } from '../../lib/operatingCompanySoomgoConfig.js';
 
 const router = Router();
 
@@ -55,7 +58,11 @@ router.put('/config', requireStaffPermission('crm.settings'), async (req, res) =
   }
 
   try {
-    const config = await upsertTelecrmSoomgoConfig(tenantId, { email, password, enabled });
+    const config = await upsertTelecrmSoomgoConfig(tenantId, {
+      email,
+      password,
+      enabled,
+    });
     res.json(config);
   } catch (e) {
     if (e instanceof Error && e.message === 'EMAIL_REQUIRED') {
@@ -64,6 +71,46 @@ router.put('/config', requireStaffPermission('crm.settings'), async (req, res) =
     }
     if (e instanceof Error && e.message === 'PASSWORD_REQUIRED') {
       res.status(400).json({ error: '숨고 비밀번호를 입력해 주세요.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+/** 브랜드별 숨고 계정 목록 (텔레CRM 설정) */
+router.get('/brand-configs', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const items = await listTelecrmSoomgoBrandConfigs(tenantId);
+  res.json({ items });
+});
+
+/** 브랜드별 숨고 계정 저장 */
+router.put('/brand-configs/:operatingCompanyId', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const operatingCompanyId = typeof req.params.operatingCompanyId === 'string' ? req.params.operatingCompanyId.trim() : '';
+  if (!operatingCompanyId) {
+    res.status(400).json({ error: 'operatingCompanyId가 필요합니다.' });
+    return;
+  }
+  const patch = extractOperatingCompanySoomgoPatch({ soomgo: req.body });
+  if (!patch) {
+    res.status(400).json({ error: '숨고 설정이 필요합니다.' });
+    return;
+  }
+  if (patch.password?.trim()) {
+    const actorPassword = (req.body as { actorPassword?: unknown }).actorPassword;
+    const ok = await requireTelecrmActorPassword(res, user.userId, tenantId, actorPassword);
+    if (!ok) return;
+  }
+  try {
+    const item = await updateTelecrmSoomgoBrandConfig(tenantId, operatingCompanyId, patch);
+    res.json(item);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'OPERATING_COMPANY_NOT_FOUND') {
+      res.status(404).json({ error: '영업 브랜드를 찾을 수 없습니다.' });
       return;
     }
     throw e;

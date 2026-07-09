@@ -135,6 +135,8 @@ export type SoomgoExtractedChat = {
   currentUrl?: string;
   /** 원스톱 추출 시 050 안심번호 (있을 때만) */
   safePhone?: string | null;
+  /** 채팅 등에서 파싱한 실제 연락처(010 등) */
+  mobilePhone?: string | null;
   /** 전화 모달에 안심번호 없음 — 채팅만 희망 등 */
   safePhoneSkipped?: boolean;
   /** 고객 요청 모달 — 방·화장실·베란다(발주서 balconyCount) */

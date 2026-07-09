@@ -42,6 +42,7 @@ export interface OrderFollowupItem {
   customerName: string;
   nickname: string | null;
   customerPhone: string;
+  customerPhone2?: string | null;
   status: OrderFollowupStatus;
   deferCount: number;
   goldDb: boolean;
@@ -137,6 +138,7 @@ export async function createOrderFollowup(
     nickname?: string | null;
     /** 비우면 저장 시 빈 문자열(미입력) */
     customerPhone?: string;
+    customerPhone2?: string | null;
     status?: OrderFollowupStatus;
     memo?: string | null;
     nextContactAt?: string | null;
@@ -164,6 +166,7 @@ export async function patchOrderFollowup(
     customerName?: string;
     /** 편집 시 연락처 수정 */
     customerPhone?: string;
+    customerPhone2?: string | null;
     /** 편집 시 닉네임 수정 (`null`·빈 문자열로 제거 가능) */
     nickname?: string | null;
     status?: OrderFollowupStatus;
@@ -218,6 +221,32 @@ export async function listOrderFollowupLogs(
   id: string
 ): Promise<{ items: OrderFollowupLogItem[] }> {
   const res = await fetch(`${API}/order-followups/${encodeURIComponent(id)}/logs`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export interface OrderFollowupCallNoteItem {
+  id: string;
+  phone: string;
+  body: string;
+  inquiryId: string | null;
+  createdAt: string;
+  author: OrderFollowupUserBrief;
+}
+
+export async function fetchOrderFollowupCallNotes(
+  token: string,
+  opts: { phone: string; phone2?: string | null; limit?: number },
+): Promise<{ items: OrderFollowupCallNoteItem[] }> {
+  const q = new URLSearchParams();
+  q.set('phone', opts.phone.replace(/\D/g, ''));
+  if (opts.phone2?.replace(/\D/g, '').length) {
+    q.set('phone2', opts.phone2.replace(/\D/g, ''));
+  }
+  if (opts.limit != null) q.set('limit', String(opts.limit));
+  const res = await fetch(`${API}/order-followups/call-notes?${q}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error(await readError(res));

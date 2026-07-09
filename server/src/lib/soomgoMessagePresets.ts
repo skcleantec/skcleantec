@@ -53,3 +53,34 @@ export function parseSoomgoMessageSteps(raw: unknown): SoomgoMessageStep[] | nul
   }
   return steps;
 }
+
+/** @see shared/soomgoMessagePresets.ts */
+export type SoomgoAutoTriggerKind =
+  | 'auto_requested'
+  | 'auto_absent'
+  | 'auto_hold'
+  | 'auto_deposit'
+  | 'auto_reserved'
+  | 'auto_received';
+
+export const SOOMGO_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = [
+  'auto_requested',
+  'auto_absent',
+  'auto_hold',
+  'auto_deposit',
+  'auto_reserved',
+  'auto_received',
+];
+
+export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoAutoTriggerKind, string> = {
+  auto_requested: '요청',
+  auto_absent: '부재',
+  auto_hold: '보류·고민',
+  auto_deposit: '예약금 대기',
+  auto_reserved: '입금 완료',
+  auto_received: '예약완료',
+};
+
+export function isSoomgoAutoTriggerKind(value: unknown): value is SoomgoAutoTriggerKind {
+  return typeof value === 'string' && (SOOMGO_AUTO_TRIGGER_KINDS as string[]).includes(value);
+}
