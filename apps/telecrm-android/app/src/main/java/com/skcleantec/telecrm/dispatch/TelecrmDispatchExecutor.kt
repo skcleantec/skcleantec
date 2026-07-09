@@ -36,7 +36,8 @@ class TelecrmDispatchExecutor(
         binding.bottomNav.selectedItemId = R.id.nav_dial
         binding.root.post {
             AppEventBus.emitDialPrefill(digits, payload.inquiryId, payload.customerMatch)
-            Snackbar.make(binding.root, digits, Snackbar.LENGTH_SHORT).show()
+            val label = if (payload.action == "call") "PC 통화 요청" else "PC 번호 전달"
+            Snackbar.make(binding.root, "$label · $digits", Snackbar.LENGTH_SHORT).show()
             if (payload.action == "prefill") return@post
             binding.root.postDelayed({
                 val token = tokenStore.getToken() ?: return@postDelayed

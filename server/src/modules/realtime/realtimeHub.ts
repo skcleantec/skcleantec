@@ -116,13 +116,29 @@ export function sendJsonToTelecrmApp(userId: string, data: object, tenantId?: st
   return sendJsonToMatchingSockets(userId, data, tenantId, 'telecrm-app');
 }
 
-/**
- * 텔레CRM dispatch 전달 — telecrm-app 소켓 우선, 없으면 단일 OPEN 소켓(구버전 APK) 폴백.
- * DB 대기열과 병행하므로 WS만으로 성공 여부를 판단하지 않는다.
- */
-export function deliverTelecrmDispatch(userId: string, data: object, tenantId?: string): boolean {
-  if (sendJsonToTelecrmApp(userId, data, tenantId)) return true;
+/** 업체 내 연결된 모든 텔레CRM 앱 소켓 (ADMIN PC → 사무실 휴대폰) */
+export function broadcastJsonToTelecrmAppsInTenant(tenantId: string, data: object): boolean {
+  const prefix = `${tenantId}:`;
+  const payload = JSON.stringify(data);
+  let delivered = false;
+  for (const [key, set] of socketsByUser) {
+    if (!key.startsWith(prefix)) continue;
+    for (const entry of set) {
+      if (entry.platform !== 'telecrm-app') continue;
+      if (entry.ws.readyState === WebSocket.OPEN) {
+        try {
+          entry.ws.send(payload);
+          delivered = true;
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+  return delivered;
+}
 
+function deliverTelecrmDispatchLegacy(userId: string, data: object, tenantId?: string): boolean {
   const key = userSocketKey(userId, tenantId);
   const set = socketsByUser.get(key);
   if (!set || set.size === 0) return false;
@@ -137,4 +153,19 @@ export function deliverTelecrmDispatch(userId: string, data: object, tenantId?: 
   } catch {
     return false;
   }
+}
+
+/**
+ * 텔레CRM dispatch 전달 — 본인 앱 우선, ADMIN은 업체 내 모든 telecrm-app, 구버전 단일 소켓 폴백.
+ * DB 대기열과 병행하므로 WS만으로 성공 여부를 판단하지 않는다.
+ */
+export function deliverTelecrmDispatch(
+  actorUserId: string,
+  actorRole: string,
+  data: object,
+  tenantId: string,
+): boolean {
+  if (sendJsonToTelecrmApp(actorUserId, data, tenantId)) return true;
+  if (actorRole === 'ADMIN' && broadcastJsonToTelecrmAppsInTenant(tenantId, data)) return true;
+  return deliverTelecrmDispatchLegacy(actorUserId, data, tenantId);
 }
