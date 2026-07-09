@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SoomgoBridgeManifest } from '@shared/soomgoBridge';
-import {
-  EMPTY_TELECRM_SOOMGO_FOLLOWUP_AUTO,
-  type TelecrmSoomgoFollowupAutoMessages,
-} from '@shared/telecrmSoomgoFollowupAuto';
 import { getToken } from '../../../../stores/auth';
 import {
   fetchTelecrmSoomgoBridgeManifest,
@@ -12,10 +8,8 @@ import {
 } from '../../../../api/telecrmSoomgo';
 import { DeletePasswordModal, SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
 import { TelecrmBrandSoomgoSettingsSection } from '../../../../components/crm/settings/TelecrmBrandSoomgoSettingsSection';
-import { TelecrmSoomgoFollowupAutoFields } from '../../../../components/crm/settings/TelecrmSoomgoFollowupAutoFields';
-import { invalidateSoomgoFollowupAutoConfigCache } from '../../../../utils/soomgoFollowupAutoSend';
 
-/** 업체 공통 숨고 연동 설정 (계정·PC 프로그램 — 프리셋은 「숨고 프리셋」 탭) */
+/** 업체 공통 숨고 연동 설정 (계정·PC 프로그램) */
 export function TelecrmSoomgoSettingsPage({
   presetsInDrawer: _presetsInDrawer = false,
 }: {
@@ -27,9 +21,6 @@ export function TelecrmSoomgoSettingsPage({
   const [password, setPassword] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [hasPassword, setHasPassword] = useState(false);
-  const [followupAuto, setFollowupAuto] = useState<TelecrmSoomgoFollowupAutoMessages>(
-    EMPTY_TELECRM_SOOMGO_FOLLOWUP_AUTO,
-  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -50,7 +41,6 @@ export function TelecrmSoomgoSettingsPage({
       setEmail(cfg.email);
       setHasPassword(cfg.hasPassword);
       setEnabled(cfg.enabled);
-      setFollowupAuto(cfg.followupAuto ?? EMPTY_TELECRM_SOOMGO_FOLLOWUP_AUTO);
       setBridgeManifest(manifest);
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
@@ -83,14 +73,11 @@ export function TelecrmSoomgoSettingsPage({
         email,
         password: soomgoPasswordToSend,
         enabled,
-        followupAuto,
         actorPassword: confirmedPassword,
       });
       setHasPassword(cfg.hasPassword);
       setPassword('');
-      setFollowupAuto(cfg.followupAuto ?? EMPTY_TELECRM_SOOMGO_FOLLOWUP_AUTO);
-      invalidateSoomgoFollowupAutoConfigCache();
-      setMsg('숨고 연동 설정을 저장했습니다.');
+      setMsg('숨고 연동 계정을 저장했습니다.');
       window.setTimeout(() => setMsg(null), 4000);
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
@@ -104,8 +91,8 @@ export function TelecrmSoomgoSettingsPage({
   return (
     <div className="space-y-4">
       <p className="text-fluid-sm text-gray-600">
-        <strong>업체 공통</strong> 숨고 연동 설정입니다. 스크립트·가격과 달리 개인별로 나뉘지 않습니다.
-        숨고 채팅 매크로는 설정 <strong>「숨고 프리셋」</strong> 탭에서 편집합니다.
+        <strong>업체 공통</strong> 숨고 연동 계정·PC 프로그램입니다. 채팅 매크로·자동 안내는 설정{' '}
+        <strong>「숨고 프리셋」</strong> 탭에서 편집합니다.
       </p>
 
       {msg ? (
@@ -133,8 +120,8 @@ export function TelecrmSoomgoSettingsPage({
         ) : (
           <div className="space-y-4">
             <p className="text-fluid-sm text-gray-600">
-              「숨고 보조창」 열기 시 이 계정으로 자동 로그인됩니다. 작업 브랜드에 별도 숨고 계정이 있으면
-              브랜드 설정이 우선합니다.
+              「숨고 보조창」 열기 시 이 계정으로 자동 로그인됩니다. 아래에서 다른 계정이 필요한 브랜드만
+              따로 등록할 수 있습니다.
             </p>
             <label className="block space-y-1">
               <span className="text-fluid-sm font-medium text-gray-700">숨고 이메일</span>
@@ -172,32 +159,8 @@ export function TelecrmSoomgoSettingsPage({
         )}
       </SettingsCard>
 
-      <SettingsCard title="영업 브랜드별 숨고 계정">
+      <SettingsCard title="다른 숨고 계정이 필요한 브랜드">
         <TelecrmBrandSoomgoSettingsSection />
-      </SettingsCard>
-
-      <SettingsCard
-        title="부재·보류·고민 — 숨고 자동 안내"
-        actions={
-          <button
-            type="button"
-            disabled={saving || loading}
-            onClick={() => void save()}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm text-white disabled:opacity-50"
-          >
-            {saving ? '저장 중…' : '저장'}
-          </button>
-        }
-      >
-        {loading ? (
-          <p className="text-fluid-sm text-gray-500">불러오는 중…</p>
-        ) : (
-          <TelecrmSoomgoFollowupAutoFields
-            value={followupAuto}
-            onChange={setFollowupAuto}
-            disabled={saving}
-          />
-        )}
       </SettingsCard>
 
       <SettingsCard title="숨고 연동 프로그램 (PC)">
@@ -205,7 +168,6 @@ export function TelecrmSoomgoSettingsPage({
           <p>
             상담사 PC에 <strong>「청소비서 숨고 연동」</strong> 프로그램을 설치·실행합니다. 트레이 아이콘이
             떠 있으면 텔레CRM 상단 <strong>숨고 연동</strong> 바에서 Chrome 숨고와 연결할 수 있습니다.
-            별도 주소 입력 없이 cbiseo.com·스테이징·개발 환경을 자동으로 연결합니다.
           </p>
           {bridgeManifest ? (
             <p>
@@ -226,19 +188,9 @@ export function TelecrmSoomgoSettingsPage({
             </a>
           ) : (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
-              설치 파일 URL이 아직 설정되지 않았습니다. 관리자가 Railway에 다운로드 주소를 등록하면
-              여기서 Setup 설치 파일을 받을 수 있습니다. 개발 PC는{' '}
-              <code className="rounded bg-white px-1 py-0.5 text-fluid-xs">run-desktop.bat</code> 로 실행하세요.
+              설치 파일 URL이 아직 설정되지 않았습니다.
             </p>
           )}
-          <ul className="list-disc space-y-1 pl-5 text-fluid-xs text-gray-500">
-            <li>설치 파일을 실행하면 안내에 따라 진행합니다. 서버 주소는 입력하지 않아도 됩니다.</li>
-            <li>설치 후 트레이 아이콘이 보이면 텔레CRM 숨고 연동을 사용할 수 있습니다.</li>
-            <li>
-              개발용: <code className="rounded bg-gray-100 px-1 py-0.5">run-desktop.bat</code> 또는{' '}
-              <code className="rounded bg-gray-100 px-1 py-0.5">run-bridge.bat</code>
-            </li>
-          </ul>
         </div>
       </SettingsCard>
 

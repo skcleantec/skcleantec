@@ -16,6 +16,30 @@ export type SoomgoMessagePresetDto = {
   isActive: boolean;
   ownerUserId: string | null;
   ownerScope: 'shared' | 'personal';
+  /** 수동 매크로는 null. 부재·보류 자동 안내는 auto_absent / auto_hold */
+  triggerKind?: SoomgoAutoTriggerKind | null;
+};
+
+/** 접수 저장 시 자동 전송 (업체 공통, 프리셋 탭 「자동메시지」) */
+export type SoomgoAutoTriggerKind = 'auto_absent' | 'auto_hold';
+
+export const SOOMGO_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = ['auto_absent', 'auto_hold'];
+
+export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoAutoTriggerKind, string> = {
+  auto_absent: '부재',
+  auto_hold: '보류·고민',
+};
+
+export function isSoomgoAutoTriggerKind(value: unknown): value is SoomgoAutoTriggerKind {
+  return value === 'auto_absent' || value === 'auto_hold';
+}
+
+export type SoomgoAutoMessagePresetDto = {
+  triggerKind: SoomgoAutoTriggerKind;
+  id: string | null;
+  label: string;
+  steps: SoomgoMessageStep[];
+  isActive: boolean;
 };
 
 /** 사용자(또는 공유 카탈로그)당 프리셋 상한 */

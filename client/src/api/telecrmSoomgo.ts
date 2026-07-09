@@ -1,5 +1,4 @@
 import type { SoomgoBridgeManifest } from '@shared/soomgoBridge';
-import type { TelecrmSoomgoFollowupAutoMessages } from '@shared/telecrmSoomgoFollowupAuto';
 import { appendCrmWorkBrandQuery } from '../utils/crmWorkBrandQuery';
 
 const API = '/api/crm/soomgo';
@@ -13,7 +12,6 @@ export type TelecrmSoomgoConfigDto = {
   hasPassword: boolean;
   enabled: boolean;
   updatedAt: string | null;
-  followupAuto: TelecrmSoomgoFollowupAutoMessages;
 };
 
 export type TelecrmSoomgoBrandConfigDto = {
@@ -22,6 +20,7 @@ export type TelecrmSoomgoBrandConfigDto = {
   displayName: string;
   slug: string;
   isActive: boolean;
+  isDefault: boolean;
   soomgo: {
     email: string;
     enabled: boolean;
@@ -43,7 +42,6 @@ export async function updateTelecrmSoomgoConfig(
     email: string;
     password?: string;
     enabled: boolean;
-    followupAuto?: TelecrmSoomgoFollowupAutoMessages;
     actorPassword?: string;
   },
 ): Promise<TelecrmSoomgoConfigDto> {

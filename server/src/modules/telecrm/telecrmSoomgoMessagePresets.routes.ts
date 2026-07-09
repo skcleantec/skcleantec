@@ -5,6 +5,12 @@ import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import { parseSoomgoMessageSteps, SOOMGO_MESSAGE_PRESET_MAX } from '../../lib/soomgoMessagePresets.js';
+import { isSoomgoAutoTriggerKind } from '../../lib/soomgoMessagePresets.js';
+import {
+  listTelecrmSoomgoAutoMessages,
+  manualSoomgoPresetWhereExtra,
+  upsertTelecrmSoomgoAutoMessage,
+} from './telecrmSoomgoAutoMessages.service.js';
 import {
   parseSortOrder,
   requireTelecrmActorPassword,
@@ -30,7 +36,7 @@ const upload = multer({
 
 async function nextPresetSortOrder(tenantId: string, ownerUserId: string | null): Promise<number> {
   const agg = await prisma.telecrmSoomgoMessagePreset.aggregate({
-    where: { tenantId, ownerUserId },
+    where: { tenantId, ownerUserId, ...manualSoomgoPresetWhereExtra() },
     _max: { sortOrder: true },
   });
   return (agg._max.sortOrder ?? -1) + 1;
@@ -44,6 +50,7 @@ function serializePreset(row: {
   sortOrder: number;
   isActive: boolean;
   ownerUserId?: string | null;
+  triggerKind?: string | null;
 }) {
   let steps: ReturnType<typeof parseSoomgoMessageSteps> = [];
   try {
@@ -60,8 +67,39 @@ function serializePreset(row: {
     isActive: row.isActive,
     ownerUserId: row.ownerUserId ?? null,
     ownerScope: telecrmCategoryOwnerScope(row.ownerUserId ?? null),
+    triggerKind: isSoomgoAutoTriggerKind(row.triggerKind) ? row.triggerKind : null,
   };
 }
+
+router.get('/auto-messages', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  res.json(await listTelecrmSoomgoAutoMessages(tenantId));
+});
+
+router.put('/auto-messages/:triggerKind', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const triggerKind = req.params.triggerKind;
+  const { steps, isActive } = req.body as { steps?: unknown; isActive?: boolean };
+  try {
+    const item = await upsertTelecrmSoomgoAutoMessage(tenantId, triggerKind, {
+      steps,
+      isActive: isActive === true,
+    });
+    res.json(item);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_TRIGGER') {
+      res.status(400).json({ error: '자동 메시지 종류가 올바르지 않습니다.' });
+      return;
+    }
+    if (e instanceof Error && e.message === 'STEPS_REQUIRED') {
+      res.status(400).json({ error: '자동 전송을 켜려면 스텝을 1개 이상 추가해 주세요.' });
+      return;
+    }
+    throw e;
+  }
+});
 
 router.get('/', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
@@ -72,6 +110,7 @@ router.get('/', requireStaffPermission('crm.view', 'crm.settings'), async (req, 
   const rows = await prisma.telecrmSoomgoMessagePreset.findMany({
     where: {
       ...telecrmSoomgoMessagePresetWhere(scope, tenantId, user.userId),
+      ...manualSoomgoPresetWhereExtra(),
       ...(includeInactive ? {} : { isActive: true }),
     },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -110,7 +149,7 @@ router.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req,
 
   const ownerUserId = ownerScope === 'personal' ? user.userId : null;
   const count = await prisma.telecrmSoomgoMessagePreset.count({
-    where: { tenantId, ownerUserId },
+    where: { tenantId, ownerUserId, ...manualSoomgoPresetWhereExtra() },
   });
   if (count >= SOOMGO_MESSAGE_PRESET_MAX) {
     res.status(400).json({ error: `프리셋은 최대 ${SOOMGO_MESSAGE_PRESET_MAX}개까지 등록할 수 있습니다.` });
@@ -184,6 +223,10 @@ router.delete('/:id', requireStaffPermission('crm.view', 'crm.settings'), async 
     return;
   }
   if (!(await denyUnlessCanMutateTelecrmCategory(res, user, existing))) return;
+  if (isSoomgoAutoTriggerKind(existing.triggerKind)) {
+    res.status(400).json({ error: '자동 메시지는 삭제할 수 없습니다. 「자동메시지」 탭에서 끄거나 수정해 주세요.' });
+    return;
+  }
   const { password } = req.body as { password?: string };
   if (!(await requireTelecrmActorPassword(res, user.userId, tenantId, password))) return;
   await prisma.telecrmSoomgoMessagePreset.delete({ where: { id } });

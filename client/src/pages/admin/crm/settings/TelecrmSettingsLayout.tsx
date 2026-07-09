@@ -21,7 +21,7 @@ export function TelecrmSettingsLayout() {
   const isCatalogRoute =
     location.pathname.endsWith('/scripts') ||
     location.pathname.endsWith('/pricing') ||
-    location.pathname.endsWith('/soomgo-presets');
+    (location.pathname.endsWith('/soomgo-presets') && searchParams.get('view') !== 'auto');
   const catalogScope = searchParams.get('catalog') === 'shared' ? 'shared' : 'personal';
 
   const setCatalogScope = (scope: 'shared' | 'personal') => {

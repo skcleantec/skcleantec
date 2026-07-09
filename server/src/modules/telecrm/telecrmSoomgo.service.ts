@@ -6,10 +6,6 @@ import {
   type OperatingCompanySoomgoPatch,
 } from '../../lib/operatingCompanySoomgoConfig.js';
 import {
-  normalizeTelecrmSoomgoFollowupAutoMessages,
-  type TelecrmSoomgoFollowupAutoMessages,
-} from '../../lib/telecrmSoomgoFollowupAuto.js';
-import {
   parseOperatingCompanyConfig,
   operatingCompanyConfigToJson,
 } from '../operating-companies/operatingCompany.schema.js';
@@ -23,7 +19,6 @@ export type TelecrmSoomgoConfigDto = {
   hasPassword: boolean;
   enabled: boolean;
   updatedAt: string | null;
-  followupAuto: TelecrmSoomgoFollowupAutoMessages;
   source?: 'brand' | 'tenant';
   operatingCompanyId?: string | null;
 };
@@ -34,6 +29,7 @@ export type TelecrmSoomgoBrandConfigDto = {
   displayName: string;
   slug: string;
   isActive: boolean;
+  isDefault: boolean;
   soomgo: ReturnType<typeof soomgoPublicFromStored>;
 };
 
@@ -57,34 +53,6 @@ async function credentialsFromOperatingCompany(
   return { email, password };
 }
 
-function followupAutoFromRow(row: {
-  followupAbsentAutoEnabled: boolean;
-  followupAbsentMessage: string | null;
-  followupHoldAutoEnabled: boolean;
-  followupHoldMessage: string | null;
-}): TelecrmSoomgoFollowupAutoMessages {
-  return normalizeTelecrmSoomgoFollowupAutoMessages({
-    absent: {
-      enabled: row.followupAbsentAutoEnabled,
-      message: row.followupAbsentMessage ?? '',
-    },
-    hold: {
-      enabled: row.followupHoldAutoEnabled,
-      message: row.followupHoldMessage ?? '',
-    },
-  });
-}
-
-function followupAutoToData(followupAuto: TelecrmSoomgoFollowupAutoMessages) {
-  const normalized = normalizeTelecrmSoomgoFollowupAutoMessages(followupAuto);
-  return {
-    followupAbsentAutoEnabled: normalized.absent.enabled,
-    followupAbsentMessage: normalized.absent.message || null,
-    followupHoldAutoEnabled: normalized.hold.enabled,
-    followupHoldMessage: normalized.hold.message || null,
-  };
-}
-
 async function credentialsFromTenant(tenantId: string): Promise<{ email: string; password: string } | null> {
   const row = await prisma.telecrmSoomgoConfig.findUnique({
     where: { tenantId },
@@ -96,37 +64,17 @@ async function credentialsFromTenant(tenantId: string): Promise<{ email: string;
   return { email: row.email.trim(), password };
 }
 
-async function loadTenantFollowupAuto(tenantId: string): Promise<TelecrmSoomgoFollowupAutoMessages> {
-  const row = await prisma.telecrmSoomgoConfig.findUnique({
-    where: { tenantId },
-    select: {
-      followupAbsentAutoEnabled: true,
-      followupAbsentMessage: true,
-      followupHoldAutoEnabled: true,
-      followupHoldMessage: true,
-    },
-  });
-  if (!row) return normalizeTelecrmSoomgoFollowupAutoMessages(null);
-  return followupAutoFromRow(row);
-}
-
 const telecrmSoomgoConfigSelect = {
   email: true,
   passwordEnc: true,
   enabled: true,
   updatedAt: true,
-  followupAbsentAutoEnabled: true,
-  followupAbsentMessage: true,
-  followupHoldAutoEnabled: true,
-  followupHoldMessage: true,
 } as const;
 
 export async function getTelecrmSoomgoConfig(
   tenantId: string,
   operatingCompanyId?: string | null,
 ): Promise<TelecrmSoomgoConfigDto> {
-  const followupAuto = await loadTenantFollowupAuto(tenantId);
-
   if (operatingCompanyId) {
     const oc = await prisma.operatingCompany.findFirst({
       where: { id: operatingCompanyId, tenantId },
@@ -141,7 +89,6 @@ export async function getTelecrmSoomgoConfig(
           hasPassword: Boolean(soomgo.passwordEnc?.trim()),
           enabled: soomgo.enabled !== false,
           updatedAt: oc.updatedAt.toISOString(),
-          followupAuto,
           source: 'brand',
           operatingCompanyId,
         };
@@ -159,7 +106,6 @@ export async function getTelecrmSoomgoConfig(
       hasPassword: false,
       enabled: false,
       updatedAt: null,
-      followupAuto,
       source: 'tenant',
     };
   }
@@ -168,7 +114,6 @@ export async function getTelecrmSoomgoConfig(
     hasPassword: Boolean(row.passwordEnc?.trim()),
     enabled: row.enabled,
     updatedAt: row.updatedAt.toISOString(),
-    followupAuto: followupAutoFromRow(row),
     source: 'tenant',
     operatingCompanyId: operatingCompanyId ?? null,
   };
@@ -191,13 +136,9 @@ export async function upsertTelecrmSoomgoConfig(
     email: string;
     password?: string;
     enabled: boolean;
-    followupAuto?: TelecrmSoomgoFollowupAutoMessages;
   },
 ): Promise<TelecrmSoomgoConfigDto> {
   const email = input.email.trim().toLowerCase();
-  const followupData = input.followupAuto
-    ? followupAutoToData(input.followupAuto)
-    : undefined;
 
   const existing = await prisma.telecrmSoomgoConfig.findUnique({
     where: { tenantId },
@@ -211,7 +152,7 @@ export async function upsertTelecrmSoomgoConfig(
 
   const wantsAccount = Boolean(email);
   if (wantsAccount && !passwordEnc) throw new Error('PASSWORD_REQUIRED');
-  if (!existing && !wantsAccount && !followupData) throw new Error('EMAIL_REQUIRED');
+  if (!existing && !wantsAccount) throw new Error('EMAIL_REQUIRED');
 
   const row = await prisma.telecrmSoomgoConfig.upsert({
     where: { tenantId },
@@ -220,13 +161,11 @@ export async function upsertTelecrmSoomgoConfig(
       email: wantsAccount ? email : '',
       passwordEnc: passwordEnc || '',
       enabled: wantsAccount ? input.enabled : false,
-      ...(followupData ?? {}),
     },
     update: {
       ...(wantsAccount
         ? { email, enabled: input.enabled, ...(passwordEnc ? { passwordEnc } : {}) }
         : {}),
-      ...(followupData ?? {}),
     },
     select: telecrmSoomgoConfigSelect,
   });
@@ -236,7 +175,6 @@ export async function upsertTelecrmSoomgoConfig(
     hasPassword: Boolean(row.passwordEnc?.trim()),
     enabled: row.enabled,
     updatedAt: row.updatedAt.toISOString(),
-    followupAuto: followupAutoFromRow(row),
     source: 'tenant',
   };
 }
@@ -253,6 +191,7 @@ export async function listTelecrmSoomgoBrandConfigs(
       displayName: item.displayName,
       slug: item.slug,
       isActive: item.isActive,
+      isDefault: item.isDefault,
       soomgo: {
         email: pub?.email?.trim() ?? '',
         enabled: pub?.enabled !== false,
@@ -290,6 +229,7 @@ export async function updateTelecrmSoomgoBrandConfig(
     displayName: summary.displayName,
     slug: summary.slug,
     isActive: summary.isActive,
+    isDefault: summary.isDefault,
     soomgo: soomgoPublicFromStored(parseOperatingCompanyConfig(row.config).soomgo),
   };
 }

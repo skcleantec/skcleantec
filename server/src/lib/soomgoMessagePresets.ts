@@ -53,3 +53,17 @@ export function parseSoomgoMessageSteps(raw: unknown): SoomgoMessageStep[] | nul
   }
   return steps;
 }
+
+/** @see shared/soomgoMessagePresets.ts */
+export type SoomgoAutoTriggerKind = 'auto_absent' | 'auto_hold';
+
+export const SOOMGO_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = ['auto_absent', 'auto_hold'];
+
+export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoAutoTriggerKind, string> = {
+  auto_absent: '부재',
+  auto_hold: '보류·고민',
+};
+
+export function isSoomgoAutoTriggerKind(value: unknown): value is SoomgoAutoTriggerKind {
+  return value === 'auto_absent' || value === 'auto_hold';
+}

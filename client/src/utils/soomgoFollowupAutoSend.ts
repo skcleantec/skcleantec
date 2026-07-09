@@ -1,10 +1,7 @@
-import type { TelecrmSoomgoFollowupAutoMessages } from '@shared/telecrmSoomgoFollowupAuto';
-import {
-  applyTelecrmSoomgoFollowupPlaceholders,
-  EMPTY_TELECRM_SOOMGO_FOLLOWUP_AUTO,
-} from '@shared/telecrmSoomgoFollowupAuto';
-import { fetchTelecrmSoomgoConfig } from '../api/telecrmSoomgo';
-import { sendSoomgoBridgeMessage } from '../api/soomgoBridge';
+import { applyPlaceholdersToSoomgoSteps } from '@shared/telecrmSoomgoFollowupAuto';
+import type { SoomgoAutoTriggerKind } from '@shared/soomgoMessagePresets';
+import { fetchTelecrmSoomgoAutoMessages } from '../api/telecrmSoomgoMessagePresets';
+import { fetchSoomgoBridgeStatus, sendSoomgoBridgeSequence } from '../api/soomgoBridge';
 import type { CrmIntakeKind } from '../components/crm/intake/crmIntakeSubmit';
 
 export type SoomgoFollowupAutoSendResult =
@@ -12,44 +9,52 @@ export type SoomgoFollowupAutoSendResult =
   | { sent: false; reason: 'disabled' | 'empty' | 'bridge' | 'skipped' }
   | { sent: false; reason: 'error'; message: string };
 
-let configCache: TelecrmSoomgoFollowupAutoMessages | null = null;
-let configCacheAt = 0;
+type AutoMessagesCache = {
+  items: Awaited<ReturnType<typeof fetchTelecrmSoomgoAutoMessages>>['items'];
+  at: number;
+};
+
+let cache: AutoMessagesCache | null = null;
 const CACHE_MS = 60_000;
 
-async function loadFollowupAutoConfig(token: string): Promise<TelecrmSoomgoFollowupAutoMessages> {
+async function loadAutoMessages(token: string) {
   const now = Date.now();
-  if (configCache && now - configCacheAt < CACHE_MS) return configCache;
-  const cfg = await fetchTelecrmSoomgoConfig(token);
-  configCache = cfg.followupAuto ?? EMPTY_TELECRM_SOOMGO_FOLLOWUP_AUTO;
-  configCacheAt = now;
-  return configCache;
+  if (cache && now - cache.at < CACHE_MS) return cache.items;
+  const res = await fetchTelecrmSoomgoAutoMessages(token);
+  cache = { items: res.items, at: now };
+  return res.items;
 }
 
 export function invalidateSoomgoFollowupAutoConfigCache(): void {
-  configCache = null;
-  configCacheAt = 0;
+  cache = null;
 }
 
-/** 부재·보류·고민 저장 직후 — 현재 숨고 채팅방으로 자동 안내 */
+function triggerForIntake(kind: CrmIntakeKind): SoomgoAutoTriggerKind | null {
+  if (kind === 'absent') return 'auto_absent';
+  if (kind === 'hold') return 'auto_hold';
+  return null;
+}
+
+/** 부재·보류·고민 저장 직후 — 프리셋 스텝 시퀀스로 숨고 채팅 자동 전송 */
 export async function trySoomgoFollowupAutoMessage(
   token: string,
   kind: CrmIntakeKind,
   ctx: { customerName: string; nickname: string },
 ): Promise<SoomgoFollowupAutoSendResult> {
-  if (kind !== 'absent' && kind !== 'hold') {
-    return { sent: false, reason: 'skipped' };
-  }
+  const triggerKind = triggerForIntake(kind);
+  if (!triggerKind) return { sent: false, reason: 'skipped' };
+
   try {
-    const followupAuto = await loadFollowupAutoConfig(token);
-    const slot = kind === 'absent' ? followupAuto.absent : followupAuto.hold;
-    if (!slot.enabled) return { sent: false, reason: 'disabled' };
-    const template = slot.message.trim();
-    if (!template) return { sent: false, reason: 'empty' };
+    const items = await loadAutoMessages(token);
+    const preset = items.find((item) => item.triggerKind === triggerKind);
+    if (!preset?.isActive) return { sent: false, reason: 'disabled' };
+    if (!preset.steps.length) return { sent: false, reason: 'empty' };
 
-    const body = applyTelecrmSoomgoFollowupPlaceholders(template, ctx).trim();
-    if (!body) return { sent: false, reason: 'empty' };
+    const steps = applyPlaceholdersToSoomgoSteps(preset.steps, ctx);
+    if (!steps.length) return { sent: false, reason: 'empty' };
 
-    await sendSoomgoBridgeMessage(body);
+    const status = await fetchSoomgoBridgeStatus();
+    await sendSoomgoBridgeSequence(steps, status);
     return { sent: true };
   } catch (e) {
     const message = e instanceof Error ? e.message : '숨고 자동 안내 전송 실패';
@@ -57,7 +62,8 @@ export async function trySoomgoFollowupAutoMessage(
       message.includes('연결') ||
       message.includes('실행') ||
       message.includes('브릿지') ||
-      message.includes('127.0.0.1')
+      message.includes('127.0.0.1') ||
+      message.includes('v2.1.0')
     ) {
       return { sent: false, reason: 'bridge' };
     }

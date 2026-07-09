@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchTelecrmSoomgoBrandConfigs,
   updateTelecrmSoomgoBrandConfig,
@@ -28,10 +28,12 @@ function draftFromBrand(brand: TelecrmSoomgoBrandConfigDto): BrandDraft {
   };
 }
 
-/** 텔레CRM 설정 — 영업 브랜드별 숨고 계정 */
+/** 공통 계정과 다른 브랜드만 — 기본 브랜드(SK 등)는 별도 입력 불필요 */
 export function TelecrmBrandSoomgoSettingsSection() {
   const token = getToken();
+  const [allBrands, setAllBrands] = useState<TelecrmSoomgoBrandConfigDto[]>([]);
   const [drafts, setDrafts] = useState<BrandDraft[]>([]);
+  const [addBrandId, setAddBrandId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -45,7 +47,9 @@ export function TelecrmBrandSoomgoSettingsSection() {
     setError(null);
     try {
       const items = await fetchTelecrmSoomgoBrandConfigs(token);
-      setDrafts(items.map(draftFromBrand));
+      setAllBrands(items);
+      const configured = items.filter((b) => b.soomgo.configured);
+      setDrafts(configured.map(draftFromBrand));
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
     } finally {
@@ -56,6 +60,24 @@ export function TelecrmBrandSoomgoSettingsSection() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const brandsAvailableToAdd = useMemo(() => {
+    const shownIds = new Set(drafts.map((d) => d.brand.id));
+    return allBrands.filter(
+      (b) =>
+        !shownIds.has(b.id) &&
+        !b.soomgo.configured &&
+        b.isActive &&
+        !b.isDefault,
+    );
+  }, [allBrands, drafts]);
+
+  const addBrandDraft = () => {
+    const brand = allBrands.find((b) => b.id === addBrandId);
+    if (!brand) return;
+    setDrafts((prev) => [...prev, draftFromBrand(brand)]);
+    setAddBrandId('');
+  };
 
   const saveBrand = async (brandId: string, confirmedPassword?: string) => {
     if (!token) return;
@@ -82,6 +104,7 @@ export function TelecrmBrandSoomgoSettingsSection() {
         enabled: form.enabled,
         actorPassword: confirmedPassword,
       });
+      setAllBrands((prev) => prev.map((b) => (b.id === brandId ? updated : b)));
       setDrafts((prev) =>
         prev.map((d) => (d.brand.id === brandId ? draftFromBrand(updated) : d)),
       );
@@ -96,16 +119,29 @@ export function TelecrmBrandSoomgoSettingsSection() {
     }
   };
 
+  const clearBrandOverride = async (brandId: string) => {
+    if (!token) return;
+    setSavingId(brandId);
+    setError(null);
+    try {
+      await updateTelecrmSoomgoBrandConfig(token, brandId, {
+        email: '',
+        password: '',
+        enabled: false,
+      });
+      setDrafts((prev) => prev.filter((d) => d.brand.id !== brandId));
+      await load();
+      setMsg('브랜드별 계정을 제거했습니다. 업체 공통 계정을 사용합니다.');
+      window.setTimeout(() => setMsg(null), 3500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '제거 실패');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   if (loading) {
     return <p className="text-fluid-sm text-gray-500">브랜드 목록 불러오는 중…</p>;
-  }
-
-  if (drafts.length === 0) {
-    return (
-      <p className="text-fluid-sm text-gray-500">
-        등록된 영업 브랜드가 없습니다. 관리자 → 영업 브랜드에서 먼저 브랜드를 추가해 주세요.
-      </p>
-    );
   }
 
   return (
@@ -121,42 +157,85 @@ export function TelecrmBrandSoomgoSettingsSection() {
         </p>
       ) : null}
       <p className="text-fluid-sm text-gray-600">
-        작업 브랜드에 숨고 계정이 있으면 아래 <strong>업체 공통</strong> 계정보다 우선합니다. 비우면
-        공통 계정을 사용합니다.
+        <strong>업체 공통</strong> 숨고 계정과 다른 계정을 쓰는 브랜드만 등록합니다. 기본 브랜드·공통과
+        같은 계정은 여기에 넣지 않아도 됩니다.
       </p>
-      {drafts.map((draft, index) => (
-        <div
-          key={draft.brand.id}
-          className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-fluid-sm font-semibold text-gray-900">{draft.brand.displayName}</p>
-              <p className="text-[11px] text-gray-500">
-                {draft.brand.slug}
-                {!draft.brand.isActive ? ' · 비활성' : ''}
-              </p>
+
+      {drafts.length === 0 ? (
+        <p className="text-fluid-sm text-gray-500 rounded-lg border border-dashed border-gray-200 px-3 py-4 text-center">
+          별도 숨고 계정이 필요한 브랜드가 없습니다.
+        </p>
+      ) : (
+        drafts.map((draft, index) => (
+          <div
+            key={draft.brand.id}
+            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-fluid-sm font-semibold text-gray-900">{draft.brand.displayName}</p>
+                <p className="text-[11px] text-gray-500">{draft.brand.slug}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={savingId === draft.brand.id}
+                  onClick={() => void clearBrandOverride(draft.brand.id)}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-fluid-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  공통 계정 사용
+                </button>
+                <button
+                  type="button"
+                  disabled={savingId === draft.brand.id}
+                  onClick={() => void saveBrand(draft.brand.id)}
+                  className="rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-sm text-white disabled:opacity-50"
+                >
+                  {savingId === draft.brand.id ? '저장 중…' : '저장'}
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              disabled={savingId === draft.brand.id}
-              onClick={() => void saveBrand(draft.brand.id)}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-sm text-white disabled:opacity-50"
-            >
-              {savingId === draft.brand.id ? '저장 중…' : '저장'}
-            </button>
+            <OperatingCompanySoomgoFields
+              idPrefix={`crm-brand-${index}`}
+              value={draft.form}
+              onChange={(form) =>
+                setDrafts((prev) =>
+                  prev.map((d) => (d.brand.id === draft.brand.id ? { ...d, form } : d)),
+                )
+              }
+            />
           </div>
-          <OperatingCompanySoomgoFields
-            idPrefix={`crm-brand-${index}`}
-            value={draft.form}
-            onChange={(form) =>
-              setDrafts((prev) =>
-                prev.map((d) => (d.brand.id === draft.brand.id ? { ...d, form } : d)),
-              )
-            }
-          />
+        ))
+      )}
+
+      {brandsAvailableToAdd.length > 0 ? (
+        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-200 bg-gray-50/80 p-3">
+          <label className="min-w-[12rem] flex-1 space-y-1">
+            <span className="text-fluid-xs font-medium text-gray-700">다른 숨고 계정이 필요한 브랜드</span>
+            <select
+              value={addBrandId}
+              onChange={(e) => setAddBrandId(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+            >
+              <option value="">브랜드 선택…</option>
+              {brandsAvailableToAdd.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.displayName} ({b.slug})
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            disabled={!addBrandId}
+            onClick={addBrandDraft}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm text-white disabled:opacity-50"
+          >
+            추가
+          </button>
         </div>
-      ))}
+      ) : null}
+
       <DeletePasswordModal
         open={pwdModal != null}
         title="브랜드 숨고 계정 저장 확인"

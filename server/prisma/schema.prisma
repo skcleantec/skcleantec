@@ -2887,6 +2887,7 @@ model TelecrmSoomgoMessagePreset {
   stepsJson   String   @map("steps_json") @db.Text
   sortOrder   Int      @default(0) @map("sort_order")
   isActive    Boolean  @default(true) @map("is_active")
+  triggerKind String?  @map("trigger_kind") @db.VarChar(20)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 

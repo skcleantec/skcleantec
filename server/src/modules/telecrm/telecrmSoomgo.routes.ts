@@ -11,7 +11,6 @@ import {
 } from './telecrmSoomgo.service.js';
 import { getSoomgoBridgeManifest } from './soomgoBridgeManifest.js';
 import { extractOperatingCompanySoomgoPatch } from '../../lib/operatingCompanySoomgoConfig.js';
-import { normalizeTelecrmSoomgoFollowupAutoMessages } from '../../lib/telecrmSoomgoFollowupAuto.js';
 
 const router = Router();
 
@@ -52,7 +51,6 @@ router.put('/config', requireStaffPermission('crm.settings'), async (req, res) =
   const password = typeof body.password === 'string' ? body.password : undefined;
   const enabled = body.enabled !== false;
   const actorPassword = body.actorPassword;
-  const followupAuto = normalizeTelecrmSoomgoFollowupAutoMessages(body.followupAuto);
 
   if (password?.trim()) {
     const ok = await requireTelecrmActorPassword(res, user.userId, tenantId, actorPassword);
@@ -64,7 +62,6 @@ router.put('/config', requireStaffPermission('crm.settings'), async (req, res) =
       email,
       password,
       enabled,
-      followupAuto,
     });
     res.json(config);
   } catch (e) {

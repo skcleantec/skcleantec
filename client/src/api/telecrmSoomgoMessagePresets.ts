@@ -1,4 +1,5 @@
-import type { SoomgoMessagePresetDto, SoomgoMessageStep } from '@shared/soomgoMessagePresets';
+import type { SoomgoMessagePresetDto, SoomgoMessageStep, SoomgoAutoMessagePresetDto } from '@shared/soomgoMessagePresets';
+import type { SoomgoAutoTriggerKind } from '@shared/soomgoMessagePresets';
 
 const API = '/api/crm';
 
@@ -63,6 +64,30 @@ export async function deleteTelecrmSoomgoMessagePreset(token: string, id: string
   });
   const data = (await res.json()) as { error?: string };
   if (!res.ok) throw new Error(data.error ?? '프리셋 삭제 실패');
+}
+
+export async function fetchTelecrmSoomgoAutoMessages(token: string): Promise<{
+  items: SoomgoAutoMessagePresetDto[];
+}> {
+  const res = await fetch(`${API}/soomgo-message-presets/auto-messages`, { headers: authHeaders(token) });
+  const data = (await res.json()) as { error?: string; items?: SoomgoAutoMessagePresetDto[] };
+  if (!res.ok) throw new Error(data.error ?? '자동 메시지 설정을 불러올 수 없습니다.');
+  return { items: data.items ?? [] };
+}
+
+export async function updateTelecrmSoomgoAutoMessage(
+  token: string,
+  triggerKind: SoomgoAutoTriggerKind,
+  input: { steps: SoomgoMessageStep[]; isActive: boolean },
+): Promise<SoomgoAutoMessagePresetDto> {
+  const res = await fetch(`${API}/soomgo-message-presets/auto-messages/${encodeURIComponent(triggerKind)}`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+  const data = (await res.json()) as SoomgoAutoMessagePresetDto & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '자동 메시지 저장 실패');
+  return data;
 }
 
 export async function uploadTelecrmSoomgoPresetImage(token: string, file: File): Promise<string> {
