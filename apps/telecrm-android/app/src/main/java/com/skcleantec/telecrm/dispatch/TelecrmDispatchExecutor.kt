@@ -21,6 +21,7 @@ class TelecrmDispatchExecutor(
     private val apiClient: ApiClient,
 ) {
     fun execute(payload: TelecrmDispatchPayload) {
+        if (!TelecrmDispatchDeduper.shouldRun(payload.id)) return
         when (payload.action) {
             "sms" -> showSmsDialog(payload)
             "prefill", "call" -> executeCall(payload)

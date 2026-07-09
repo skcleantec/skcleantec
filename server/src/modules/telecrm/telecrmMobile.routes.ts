@@ -43,8 +43,8 @@ router.post('/mobile-dispatch', requireStaffPermission('crm.view', 'crm.settings
     res.status(400).json({ error: parsed.error });
     return;
   }
-  const { item, wsDelivered } = enqueueTelecrmMobileDispatch(tenantId, user.userId, parsed);
-  res.status(201).json({ ok: true, id: item.id, action: item.action, wsDelivered });
+  const { item, wsDelivered, queued } = await enqueueTelecrmMobileDispatch(tenantId, user.userId, parsed);
+  res.status(201).json({ ok: true, id: item.id, action: item.action, wsDelivered, queued });
 });
 
 /** 앱 재개·WS 누락 시 대기 중 dispatch 소비 */
@@ -52,7 +52,7 @@ router.get('/mobile-dispatch/pending', requireStaffPermission('crm.view', 'crm.s
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
-  const items = drainTelecrmMobileDispatchQueue(tenantId, user.userId);
+  const items = await drainTelecrmMobileDispatchQueue(tenantId, user.userId);
   res.json({ items });
 });
 

@@ -39,6 +39,15 @@ class MainActivity : AppCompatActivity() {
         pendingCallPhone = digits.takeIf { it.length >= 4 }
     }
 
+    private val pollIntervalMs = 2500L
+    private val pollRunnable = object : Runnable {
+        override fun run() {
+            if (isDestroyed) return
+            drainPendingDispatches()
+            binding.root.postDelayed(this, pollIntervalMs)
+        }
+    }
+
     private val connectionListener: (Boolean) -> Unit = { connected ->
         binding.wsStatusChip.text = getString(
             if (connected) R.string.ws_connected else R.string.ws_disconnected,
@@ -107,6 +116,7 @@ class MainActivity : AppCompatActivity() {
         AppEventBus.addConnectionListener(connectionListener)
         AppEventBus.addToastListener(toastListener)
         AppEventBus.addDispatchListener(dispatchListener)
+        binding.root.postDelayed(pollRunnable, pollIntervalMs)
     }
 
     override fun onResume() {
@@ -115,6 +125,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        binding.root.removeCallbacks(pollRunnable)
         AppEventBus.removeConnectionListener(connectionListener)
         AppEventBus.removeToastListener(toastListener)
         AppEventBus.removeDispatchListener(dispatchListener)
