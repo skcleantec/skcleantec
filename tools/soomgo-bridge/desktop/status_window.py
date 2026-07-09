@@ -126,6 +126,8 @@ class StatusWindow:
         )
 
         self._append_log_line('프로그램을 시작했습니다.')
+        root.withdraw()
+        self._visible = False
         root.after(80, self._process_queue)
         self._ready.set()
 
@@ -138,7 +140,14 @@ class StatusWindow:
         def _do() -> None:
             if self.root:
                 self.root.deiconify()
+                self.root.update_idletasks()
                 self.root.lift()
+                self.root.attributes('-topmost', True)
+                self.root.after(150, lambda: self.root.attributes('-topmost', False) if self.root else None)
+                try:
+                    self.root.focus_force()
+                except tk.TclError:
+                    pass
             self._visible = True
 
         self.run_on_ui(_do)
@@ -175,8 +184,13 @@ class StatusWindow:
     ) -> None:
         self.run_on_ui(lambda: self.update_bridge_status(status, update_hint=update_hint))
 
-    def run_tk_loop(self) -> None:
+    def run_tk_loop(self, on_ready: Callable[[], None] | None = None) -> None:
         self._build_ui()
+        if on_ready:
+            try:
+                on_ready()
+            except Exception as exc:
+                self._append_log_line(f'초기화 오류: {exc}', level='error')
         if self.root:
             self.root.mainloop()
 

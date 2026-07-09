@@ -30,6 +30,11 @@ from desktop.manifest_client import (
     is_update_required,
     manifest_summary,
 )
+from desktop.single_instance import (
+    consume_show_window_request,
+    request_show_existing_window,
+    try_acquire_single_instance,
+)
 from desktop.status_window import StatusWindow
 from desktop.update_manager import (
     download_update_artifact,
@@ -80,12 +85,7 @@ class TrayApp:
         self._idle_install_ticks = 0
         self._last_bg_download_at = 0.0
         self._window = StatusWindow()
-        self._tk_thread = threading.Thread(target=self._window.run_tk_loop, daemon=True)
-        self._tk_thread.start()
-        if not self._window.wait_ready():
-            logger.warning('status window did not initialize in time')
-        else:
-            logging.getLogger().addHandler(_StatusWindowLogHandler(self._window))
+        self._icon_thread: threading.Thread | None = None
 
     def _subprocess_flags(self) -> int:
         return _WIN_CREATE_NO_WINDOW if sys.platform == 'win32' else 0
@@ -260,6 +260,8 @@ class TrayApp:
                 hint = '새 버전이 있습니다. 트레이 → 업데이트 확인'
             self._window.update_bridge_status_async(self._status, update_hint=hint)
             self._refresh_icon()
+            if consume_show_window_request():
+                self._window.show()
             flag_path = resolve_update_flag_path()
             if flag_path.exists():
                 mode = 'prompt'
@@ -432,7 +434,7 @@ class TrayApp:
 
     def _build_menu(self) -> pystray.Menu:
         return pystray.Menu(
-            item('상태 보기', lambda: self._window.show()),
+            item('상태 보기', lambda: self._window.show(), default=True),
             item('업데이트 확인', lambda: self._check_update_prompt(force=True)),
             item('브릿지 재시작', self._restart_bridge),
             pystray.Menu.SEPARATOR,
@@ -447,14 +449,25 @@ class TrayApp:
         self._start_bridge()
 
     def _quit(self, *_args) -> None:
+        """트레이 메뉴 종료 — Tk mainloop가 끝나면 run()에서 정리."""
+        self._window.run_on_ui(self._window.destroy)
+
+    def _shutdown(self) -> None:
         self._stop.set()
         self._stop_bridge()
+        self._kill_stale_bridge_listeners()
         if self._icon:
-            self._icon.stop()
-        self._window.run_on_ui(self._window.destroy)
-        os._exit(0)
+            try:
+                self._icon.stop()
+            except Exception:
+                pass
 
     def run(self) -> None:
+        if not try_acquire_single_instance():
+            request_show_existing_window()
+            logger.info('이미 실행 중 — 상태창 표시만 요청하고 종료합니다.')
+            return
+
         ensure_app_data()
         self._kill_stale_bridge_listeners()
         self._ensure_dependencies()
@@ -470,8 +483,25 @@ class TrayApp:
             APP_DISPLAY_NAME,
             menu=self._build_menu(),
         )
-        self._window.show()
-        self._icon.run()
+
+        def _run_tray() -> None:
+            try:
+                assert self._icon is not None
+                self._icon.run()
+            except Exception as exc:
+                logger.error('트레이 종료: %s', exc)
+
+        self._icon_thread = threading.Thread(target=_run_tray, daemon=True, name='pystray')
+        self._icon_thread.start()
+
+        def _on_window_ready() -> None:
+            logging.getLogger().addHandler(_StatusWindowLogHandler(self._window))
+            self._window.show()
+
+        try:
+            self._window.run_tk_loop(on_ready=_on_window_ready)
+        finally:
+            self._shutdown()
 
 
 def main() -> None:
