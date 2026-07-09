@@ -9,9 +9,11 @@ import logging
 import os
 import pathlib
 import shutil
+import signal
 import tempfile
 import threading
 import time
+import atexit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
@@ -540,15 +542,36 @@ class BridgeHandler(BaseHTTPRequestHandler):
         _json_response(self, 404, {'ok': False, 'error': 'not found'})
 
 
+def _shutdown_bridge() -> None:
+    logger.info('브릿지 종료 — Chrome·감시 스레드 정리')
+    _stop_call_watch()
+    _browser.stop()
+
+
+atexit.register(_shutdown_bridge)
+
+
 def main():
     server = ThreadingHTTPServer(('127.0.0.1', PORT), BridgeHandler)
     logger.info('Soomgo bridge v%s listening on http://127.0.0.1:%s', BRIDGE_VERSION, PORT)
+
+    def _handle_stop(*_args) -> None:
+        _shutdown_bridge()
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, _handle_stop)
+    if hasattr(signal, 'SIGINT'):
+        signal.signal(signal.SIGINT, _handle_stop)
+    if hasattr(signal, 'SIGBREAK'):
+        signal.signal(signal.SIGBREAK, _handle_stop)
+
     try:
         server.serve_forever()
-    except KeyboardInterrupt:
-        logger.info('shutting down')
-        _browser.stop()
+    except (KeyboardInterrupt, SystemExit):
+        pass
+    finally:
         server.server_close()
+        _shutdown_bridge()
 
 
 if __name__ == '__main__':
