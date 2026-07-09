@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.1.6';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.1.7';
 
 /** 순차 메시지 매크로(`/send-sequence`) 최소 앱 버전 */
 export const SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION = '2.1.0';
@@ -44,6 +44,27 @@ export function isSoomgoAppOutdated(
   return compareSoomgoSemver(current, latest) < 0;
 }
 
+/** API 호환 깨짐 — 연동 차단(하드 업데이트) */
+export function isSoomgoBridgeApiOutdated(
+  status: SoomgoBridgeStatus | null | undefined,
+  manifest?: SoomgoBridgeManifest | null,
+): boolean {
+  const v = status?.bridgeVersion;
+  if (v == null || v < SOOMGO_BRIDGE_MIN_VERSION) return true;
+  const required = manifest?.requiredVersion;
+  if (required != null && Number.isFinite(required) && v < required) return true;
+  return false;
+}
+
+/** 앱 semver만 뒤처짐 — 연동 유지·안내(소프트 업데이트) */
+export function isSoomgoAppUpdateAvailable(
+  status: SoomgoBridgeStatus | null | undefined,
+  manifest?: SoomgoBridgeManifest | null,
+): boolean {
+  if (!status?.bridgeRunning) return false;
+  return isSoomgoAppOutdated(status.appVersion, manifest);
+}
+
 export type SoomgoBridgeManifest = {
   requiredVersion: number;
   latestVersion: string;
@@ -79,6 +100,15 @@ export type SoomgoBridgeStatus = {
   appVersion?: string | null;
   /** 트레이 앱 실행 중 */
   desktopRunning?: boolean;
+  /** 서버 manifest 최신 semver (브릿지 캐시) */
+  latestVersion?: string | null;
+  /** 앱 semver < latest */
+  updateAvailable?: boolean;
+  /** API < required — 하드 업데이트 */
+  updateRequired?: boolean;
+  /** idle | downloading | ready | installing */
+  updatePhase?: 'idle' | 'downloading' | 'ready' | 'installing' | null;
+  updateMessage?: string | null;
 };
 
 export type SoomgoRequestPair = {

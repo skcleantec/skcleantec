@@ -30,7 +30,15 @@ from desktop.manifest_client import (
     manifest_summary,
 )
 from desktop.status_window import StatusWindow
-from desktop.update_manager import perform_update, restart_self, schedule_post_setup_restart
+from desktop.update_manager import (
+    download_update_artifact,
+    install_cached_artifact,
+    is_bridge_idle_for_auto_install,
+    perform_update,
+    read_update_state,
+    restart_self,
+    schedule_post_setup_restart,
+)
 from version_info import APP_DISPLAY_NAME, APP_VERSION, BRIDGE_API_VERSION
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -73,6 +81,8 @@ class TrayApp:
         self._status: dict[str, Any] | None = None
         self._manifest: dict[str, Any] | None = None
         self._update_busy = False
+        self._idle_install_ticks = 0
+        self._last_bg_download_at = 0.0
         self._window = StatusWindow()
         self._tk_thread = threading.Thread(target=self._window.run_tk_loop, daemon=True)
         self._tk_thread.start()
@@ -251,11 +261,23 @@ class TrayApp:
             self._refresh_icon()
             flag_path = resolve_update_flag_path()
             if flag_path.exists():
+                mode = 'prompt'
+                try:
+                    raw = flag_path.read_text(encoding='utf-8').strip().lower()
+                    if raw in ('background', 'install', 'prompt'):
+                        mode = raw
+                except OSError:
+                    pass
                 try:
                     flag_path.unlink(missing_ok=True)
                 except OSError:
                     pass
-                threading.Thread(target=lambda: self._check_update_prompt(force=True), daemon=True).start()
+                if mode == 'background':
+                    threading.Thread(target=self._run_background_download, daemon=True).start()
+                elif mode == 'install':
+                    threading.Thread(target=self._run_install_ready, daemon=True).start()
+                else:
+                    threading.Thread(target=lambda: self._check_update_prompt(force=True), daemon=True).start()
             restart_flag = resolve_restart_flag_path()
             if restart_flag.exists():
                 mode = 'bridge'
@@ -270,9 +292,71 @@ class TrayApp:
                     restart_self()
                 else:
                     self._restart_bridge()
+            self._maybe_background_download()
+            self._maybe_idle_auto_install()
             time.sleep(3)
 
-    def _check_update_prompt(self, *, force: bool = False) -> None:
+    def _maybe_background_download(self) -> None:
+        if self._update_busy or not self._manifest:
+            return
+        if not is_update_available(self._manifest):
+            return
+        now = time.time()
+        if now - self._last_bg_download_at < 600:
+            return
+        state = read_update_state()
+        if state.get('phase') in ('downloading', 'ready', 'installing'):
+            return
+        self._last_bg_download_at = now
+        threading.Thread(target=self._run_background_download, daemon=True).start()
+
+    def _maybe_idle_auto_install(self) -> None:
+        if self._update_busy or not self._manifest:
+            return
+        state = read_update_state()
+        if state.get('phase') != 'ready':
+            self._idle_install_ticks = 0
+            return
+        if not is_bridge_idle_for_auto_install(self._status):
+            self._idle_install_ticks = 0
+            return
+        self._idle_install_ticks += 1
+        if self._idle_install_ticks < 20:
+            return
+        self._idle_install_ticks = 0
+        self._log('유휴 상태 — 예약된 업데이트를 자동 설치합니다.')
+        threading.Thread(target=self._run_install_ready, daemon=True).start()
+
+    def _run_background_download(self) -> None:
+        if self._update_busy:
+            return
+        manifest = self._manifest or fetch_manifest()
+        if not manifest or not is_update_available(manifest):
+            return
+        self._update_busy = True
+        ok, msg = download_update_artifact(manifest)
+        self._update_busy = False
+        self._manifest = manifest
+        if ok:
+            self._log(msg)
+        else:
+            self._log(msg, level='error')
+
+    def _run_install_ready(self) -> None:
+        if self._update_busy:
+            return
+        manifest = self._manifest or fetch_manifest()
+        if not manifest:
+            return
+        state = read_update_state()
+        if state.get('phase') != 'ready':
+            ok, msg = download_update_artifact(manifest, force=True)
+            if not ok:
+                self._log(msg, level='error')
+                return
+        threading.Thread(target=lambda: self._run_update(manifest), daemon=True).start()
+
+    def _check_update_prompt(self, *, force: bool = False, auto_install: bool = False) -> None:
         def ui() -> None:
             import tkinter.messagebox as mb
 
@@ -290,7 +374,12 @@ class TrayApp:
                 if force:
                     mb.showinfo('업데이트', f'현재 최신 버전입니다.\n\n{manifest_summary(manifest)}')
                 return
-            title = '업데이트 필요' if required else '업데이트 안내'
+            if auto_install or required:
+                threading.Thread(target=lambda: self._run_update(manifest), daemon=True).start()
+                return
+            if not force and not available:
+                return
+            title = '업데이트 안내'
             body = manifest_summary(manifest) + '\n\n지금 업데이트하시겠습니까?'
             if mb.askyesno(title, body):
                 threading.Thread(target=lambda: self._run_update(manifest), daemon=True).start()
@@ -299,7 +388,11 @@ class TrayApp:
 
     def _run_update(self, manifest: dict[str, Any]) -> None:
         self._update_busy = True
-        ok, msg = perform_update(manifest)
+        state = read_update_state()
+        if state.get('phase') == 'ready':
+            ok, msg = install_cached_artifact(manifest)
+        else:
+            ok, msg = perform_update(manifest)
         self._update_busy = False
 
         def done() -> None:
