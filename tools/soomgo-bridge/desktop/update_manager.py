@@ -256,9 +256,12 @@ def restart_self() -> None:
             close_fds=True,
         )
     else:
+        from desktop.config import bridge_python_env
+
         subprocess.Popen(
             [sys.executable, '-m', 'desktop.tray_app'],
             cwd=str(BRIDGE_DIR),
+            env=bridge_python_env(),
             creationflags=flags,
             close_fds=True,
         )

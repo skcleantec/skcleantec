@@ -37,9 +37,11 @@ if (-not $PthFile) {
 $SitePackages = Join-Path $RuntimeDir 'Lib\site-packages'
 New-Item -ItemType Directory -Force -Path $SitePackages | Out-Null
 
+# embed Python: '.' 은 python.exe 폴더만 가리킴 — 상위(앱 루트)에 desktop·automation 패키지
 $PthLines = @(
     (Split-Path -Leaf $PthFile.Name).Replace('._pth', '.zip')
     '.'
+    '..'
     'Lib\site-packages'
     ''
     'import site'
