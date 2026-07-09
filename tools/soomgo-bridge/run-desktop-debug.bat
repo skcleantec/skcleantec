@@ -7,4 +7,7 @@ ping 127.0.0.1 -n 2 > NUL
 echo [debug] Python packages...
 python -m pip install -r requirements.txt -r requirements-desktop.txt -q
 echo [debug] Start tray (console visible)...
+echo [debug] Tray Python: 
+python -c "import sys; print(sys.executable)"
+echo [debug] Bridge will use same Python as tray (see status window log).
 python -m desktop.tray_app

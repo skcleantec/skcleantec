@@ -7,7 +7,7 @@
 param(
     [ValidateSet('staging', 'production', 'both')]
     [string]$Target = 'both',
-    [string]$Version = '2.1.11',
+    [string]$Version = '2.1.12',
     [string]$Sha256 = ''
 )
 
