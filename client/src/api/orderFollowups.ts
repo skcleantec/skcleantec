@@ -88,6 +88,10 @@ export async function listOrderFollowups(
     preferredDay?: string;
     /** 해당 접수에 연결된 부재현황만 */
     inquiryId?: string;
+    /** CRM — 연락처 끝 4자리 이상 일치 */
+    phone?: string;
+    /** CRM 작업 브랜드 */
+    operatingCompanyId?: string;
     /** 접수 미연결 행만 + 고객명(2자 이상) — 기존 행을 접수에 붙일 때 검색 */
     missingInquiryLink?: boolean;
     limit?: number;
@@ -100,6 +104,8 @@ export async function listOrderFollowups(
   if (opts?.customerName?.trim()) q.set('customerName', opts.customerName.trim());
   if (opts?.goldDbOnly) q.set('goldDbOnly', '1');
   if (opts?.inquiryId?.trim()) q.set('inquiryId', opts.inquiryId.trim());
+  if (opts?.phone?.trim()) q.set('phone', opts.phone.trim());
+  if (opts?.operatingCompanyId?.trim()) q.set('operatingCompanyId', opts.operatingCompanyId.trim());
   if (opts?.missingInquiryLink) q.set('missingInquiryLink', '1');
   if (opts?.limit != null) q.set('limit', String(opts.limit));
   if (opts?.offset != null) q.set('offset', String(opts.offset));
@@ -126,6 +132,17 @@ export async function listOrderFollowups(
   }
   const qs = q.toString();
   const res = await fetch(`${API}/order-followups${qs ? `?${qs}` : ''}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json();
+}
+
+export async function fetchOrderFollowup(
+  token: string,
+  id: string,
+): Promise<{ item: OrderFollowupItem }> {
+  const res = await fetch(`${API}/order-followups/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (!res.ok) throw new Error(await readError(res));
   return res.json();
 }

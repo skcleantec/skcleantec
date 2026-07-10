@@ -45,6 +45,7 @@ export function CrmCustomerHistoryPanel({
   onSelectInquiry,
   onNewForCustomer,
   onDispatchNotice,
+  onSelectFollowup,
 }: {
   data: TelecrmCustomerLookupDto | null;
   loading: boolean;
@@ -53,6 +54,7 @@ export function CrmCustomerHistoryPanel({
   onSelectInquiry: (row: TelecrmInquiryBriefDto) => void;
   onNewForCustomer: () => void;
   onDispatchNotice?: (message: string) => void;
+  onSelectFollowup?: (row: TelecrmCustomerLookupDto['followups'][number]) => void;
 }) {
   const [selectedInquiryId, setSelectedInquiryId] = useState<string | null>(null);
 
@@ -241,11 +243,22 @@ export function CrmCustomerHistoryPanel({
           <CrmSectionLabel accent="intake">부재·보류 ({followups.length})</CrmSectionLabel>
           <ul className="max-h-28 space-y-1 overflow-y-auto text-fluid-2xs text-gray-700">
             {followups.map((row) => (
-              <li key={row.id} className="rounded-lg border border-amber-100 bg-amber-50/50 px-2 py-1.5">
+              <li key={row.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelectFollowup?.(row)}
+                  className={`w-full rounded-lg border border-amber-100 bg-amber-50/50 px-2 py-1.5 text-left transition-colors hover:bg-amber-100/60 ${
+                    onSelectFollowup ? 'cursor-pointer' : ''
+                  }`}
+                >
                 <span className="font-semibold text-amber-900">{followupStatusLabel(row.status)}</span>
                 <span className="mx-1 text-gray-400">·</span>
                 {fmtDate(row.createdAt)}
                 {row.memo ? <p className="line-clamp-1 text-gray-600">{row.memo}</p> : null}
+                {onSelectFollowup ? (
+                  <p className="mt-0.5 text-[10px] font-medium text-emerald-700">탭하여 CRM에 가져오기</p>
+                ) : null}
+                </button>
               </li>
             ))}
           </ul>

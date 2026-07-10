@@ -194,6 +194,22 @@ router.get('/', async (req, res) => {
     }
   }
   const where: import('@prisma/client').Prisma.OrderFollowupWhereInput = { tenantId };
+  const operatingCompanyIdRaw =
+    typeof req.query.operatingCompanyId === 'string' ? req.query.operatingCompanyId.trim() : '';
+  if (operatingCompanyIdRaw) {
+    where.operatingCompanyId = operatingCompanyIdRaw;
+  }
+  const phoneDigits =
+    typeof req.query.phone === 'string' ? req.query.phone.replace(/\D/g, '') : '';
+  if (phoneDigits.length >= 4) {
+    const last4 = phoneDigits.slice(-4);
+    where.OR = [
+      { customerPhone: { endsWith: last4 } },
+      ...(phoneDigits.length >= 8
+        ? [{ customerPhone2: { endsWith: last4 } }]
+        : []),
+    ];
+  }
   /** 부재·보류 화면은 항상 부재/보류 상태만 조회한다. (대시보드 drill-down은 opsDrill로 예외) */
   const absHoldOnly: import('@prisma/client').Prisma.OrderFollowupWhereInput = {
     status: { in: ['REQUESTED', 'ABSENT', 'ON_HOLD'] },
@@ -352,6 +368,25 @@ router.get('/call-notes', async (req, res) => {
       author: r.user,
     })),
   });
+});
+
+router.get('/:id', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const { id } = req.params;
+  const row = await prisma.orderFollowup.findFirst({
+    where: { id, tenantId },
+    include: FOLLOWUP_INCLUDE,
+  });
+  if (!row) {
+    res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+    return;
+  }
+  res.json({ item: serializeFollowup(row) });
 });
 
 router.get('/:id/logs', async (req, res) => {

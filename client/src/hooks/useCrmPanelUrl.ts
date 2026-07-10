@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-export type CrmPanel = 'settings' | 'issue';
+export type CrmPanel = 'settings' | 'issue' | 'followup';
 export type CrmSettingsTab = 'scripts' | 'pricing' | 'general' | 'sms' | 'soomgo' | 'soomgo-presets';
 export type CrmCatalogScope = 'shared' | 'personal';
 
@@ -20,10 +20,12 @@ function parseCatalogScope(raw: string | null): CrmCatalogScope {
 export function useCrmPanelUrl() {
   const [searchParams, setSearchParams] = useSearchParams();
   const panelRaw = searchParams.get('panel');
-  const panel = panelRaw === 'settings' || panelRaw === 'issue' ? panelRaw : null;
+  const panel =
+    panelRaw === 'settings' || panelRaw === 'issue' || panelRaw === 'followup' ? panelRaw : null;
   const settingsTab = parseSettingsTab(searchParams.get('tab'));
   const catalogScope = parseCatalogScope(searchParams.get('catalog'));
   const pendingInquiryId = searchParams.get('pendingInquiryId')?.trim() || '';
+  const followupId = searchParams.get('followupId')?.trim() || '';
 
   const patchParams = useCallback(
     (patch: (next: URLSearchParams) => void) => {
@@ -46,6 +48,7 @@ export function useCrmPanelUrl() {
         next.set('tab', tab);
         next.set('catalog', tab === 'soomgo' || tab === 'general' ? 'shared' : catalog);
         next.delete('pendingInquiryId');
+        next.delete('followupId');
       });
     },
     [patchParams],
@@ -56,8 +59,32 @@ export function useCrmPanelUrl() {
       patchParams((next) => {
         next.set('panel', 'issue');
         next.delete('tab');
+        next.delete('followupId');
         if (inquiryId?.trim()) next.set('pendingInquiryId', inquiryId.trim());
         else next.delete('pendingInquiryId');
+      });
+    },
+    [patchParams],
+  );
+
+  const openFollowup = useCallback(
+    (id?: string | null) => {
+      patchParams((next) => {
+        next.set('panel', 'followup');
+        next.delete('tab');
+        next.delete('pendingInquiryId');
+        if (id?.trim()) next.set('followupId', id.trim());
+        else next.delete('followupId');
+      });
+    },
+    [patchParams],
+  );
+
+  const setFollowupId = useCallback(
+    (id: string | null) => {
+      patchParams((next) => {
+        if (id?.trim()) next.set('followupId', id.trim());
+        else next.delete('followupId');
       });
     },
     [patchParams],
@@ -69,6 +96,7 @@ export function useCrmPanelUrl() {
       next.delete('tab');
       next.delete('catalog');
       next.delete('pendingInquiryId');
+      next.delete('followupId');
     });
   }, [patchParams]);
 
@@ -112,10 +140,14 @@ export function useCrmPanelUrl() {
     settingsTab,
     catalogScope,
     pendingInquiryId,
+    followupId,
     isSettingsOpen: panel === 'settings',
     isIssueOpen: panel === 'issue',
+    isFollowupOpen: panel === 'followup',
     openSettings,
     openIssue,
+    openFollowup,
+    setFollowupId,
     closePanel,
     setSettingsTab,
     setCatalogScope,

@@ -24,6 +24,7 @@ import { requestSoomgoBridgeUpdate } from '../../../api/soomgoBridge';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
+import { CrmFollowupDrawer } from '../../../components/crm/followup/CrmFollowupDrawer';
 import { useCrmPanelUrl } from '../../../hooks/useCrmPanelUrl';
 import type { CrmOrderIssueSeed } from '../../../components/orderform/OrderIssueInlinePanel';
 import { crmIntakeRequiredPermission, resolveCrmIntakeCustomerName } from '../../../components/crm/intake/crmIntakeValidation';
@@ -62,6 +63,13 @@ import { fitCrmPopupWindow } from '../../../utils/crmSoomgoSplitLayout';
 import { useCrmWorkBrand } from '../../../hooks/useCrmWorkBrand';
 import { CrmWorkBrandBar } from '../../../components/crm/workBrand/CrmWorkBrandBar';
 import {
+  crmFollowupApplyFromItem,
+  crmFollowupApplyFromLookupRow,
+  type CrmFollowupApplySnapshot,
+} from '../../../utils/crmFollowupApply';
+import type { OrderFollowupItem } from '../../../api/orderFollowups';
+import type { TelecrmCustomerLookupDto } from '../../../api/telecrm';
+import {
   noticeForSoomgoQuoteAutoSend,
   sendSoomgoQuoteAutoMessage,
 } from '../../../utils/soomgoQuoteAutoSend';
@@ -79,6 +87,8 @@ export function CrmPage() {
   const canOpenSettings = canSharedSettings || canPersonalCatalog;
   const canOrderIssue =
     permissions.me?.role === 'ADMIN' || permissions.has('orderform.issue');
+  const canFollowupEdit =
+    permissions.me?.role === 'ADMIN' || permissions.has('followup.edit');
   const canAdsSession = permissions.has('ads.sessions');
   const canView =
     permissions.me?.role === 'ADMIN' ||
@@ -137,6 +147,11 @@ export function CrmPage() {
   const [soomgoDrawerOpen, setSoomgoDrawerOpen] = useState(false);
   const [soomgoQuoteSending, setSoomgoQuoteSending] = useState(false);
   const [soomgoBridgeManifest, setSoomgoBridgeManifest] = useState<SoomgoBridgeManifest | null>(null);
+  const [followupImportKey, setFollowupImportKey] = useState(0);
+  const [followupImport, setFollowupImport] = useState<{
+    key: number;
+    snapshot: CrmFollowupApplySnapshot;
+  } | null>(null);
   const dispatchNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const draftReadyRef = useRef(false);
   const formSnapshotRef = useRef<CrmIntakeFormSnapshot | null>(null);
@@ -147,8 +162,12 @@ export function CrmPage() {
     pendingInquiryId: issuePendingInquiryId,
     isSettingsOpen,
     isIssueOpen,
+    isFollowupOpen,
+    followupId: panelFollowupId,
     openSettings,
     openIssue,
+    openFollowup,
+    setFollowupId,
     closePanel,
     setSettingsTab,
     setCatalogScope,
@@ -564,6 +583,57 @@ export function CrmPage() {
     showDispatchNotice,
   ]);
 
+  const applyFollowupToCrm = useCallback(
+    (snapshot: CrmFollowupApplySnapshot, opts?: { closeDrawer?: boolean }) => {
+      setMode('existing');
+      setContactPhone(snapshot.contactPhone);
+      setSafePhone(snapshot.safePhone);
+      setContactUnknown(false);
+      setCustomerName(snapshot.customerName);
+      if (snapshot.pyeong) setPyeong(snapshot.pyeong);
+      setIntakeKind(snapshot.kind);
+      setInitialFormDraft({
+        customerName: snapshot.customerName,
+        nickname: snapshot.nickname,
+        address: snapshot.address,
+        preferredMoveInCleanYmd: snapshot.preferredMoveInCleanYmd,
+        requestMemo: snapshot.requestMemo,
+        kind: snapshot.kind,
+        goldDb: snapshot.goldDb,
+      });
+      setFormResetKey((k) => k + 1);
+      const nextKey = followupImportKey + 1;
+      setFollowupImportKey(nextKey);
+      setFollowupImport({ key: nextKey, snapshot });
+      setCrmContext({
+        inquiryId: snapshot.inquiryId,
+        customerMatch: snapshot.inquiryId ? 'existing' : 'unknown',
+      });
+      showDispatchNotice('부재·보류 정보를 CRM 접수란으로 가져왔습니다.');
+      if (opts?.closeDrawer !== false) closePanel();
+    },
+    [followupImportKey, closePanel, showDispatchNotice],
+  );
+
+  const handleApplyFollowupItem = useCallback(
+    (item: OrderFollowupItem) => {
+      applyFollowupToCrm(crmFollowupApplyFromItem(item));
+    },
+    [applyFollowupToCrm],
+  );
+
+  const handleSelectFollowupFromLookup = useCallback(
+    (row: TelecrmCustomerLookupDto['followups'][number]) => {
+      applyFollowupToCrm(crmFollowupApplyFromLookupRow(row), { closeDrawer: false });
+    },
+    [applyFollowupToCrm],
+  );
+
+  const handleFollowupSaved = useCallback(() => {
+    setLookupRefreshKey((k) => k + 1);
+    setStatsRefreshKey((k) => k + 1);
+  }, []);
+
   const scriptEstimateWon = quoteGrandTotal ?? estimateWon;
 
   useEffect(() => {
@@ -779,6 +849,15 @@ export function CrmPage() {
                     숨고 연동
                   </button>
                 ) : null}
+                {canFollowupEdit ? (
+                  <button
+                    type="button"
+                    onClick={() => openFollowup()}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap text-amber-100 hover:bg-amber-500/25"
+                  >
+                    부재·보류
+                  </button>
+                ) : null}
                 {canOrderIssue ? (
                   <button
                     type="button"
@@ -891,6 +970,8 @@ export function CrmPage() {
                 soomgoImportBanner={soomgoImportBanner}
                 soomgoImportFlashKey={soomgoImportFlashKey}
                 onIntakeReset={handleIntakeReset}
+                followupImport={followupImport}
+                onSelectFollowup={canFollowupEdit ? handleSelectFollowupFromLookup : undefined}
               />
             </div>
           }
@@ -961,6 +1042,18 @@ export function CrmPage() {
             crmSeed={issueSeed}
             onClose={closePanel}
             onIssued={(order) => void handleOrderIssued(order)}
+          />
+        ) : null}
+        {canFollowupEdit ? (
+          <CrmFollowupDrawer
+            open={isFollowupOpen}
+            followupId={panelFollowupId || null}
+            operatingCompanyId={activeOperatingCompanyId}
+            crmPhone={outboundPhone}
+            onClose={closePanel}
+            onSelectFollowupId={setFollowupId}
+            onApplyToCrm={handleApplyFollowupItem}
+            onSaved={handleFollowupSaved}
           />
         ) : null}
         {dispatchNotice ? (
