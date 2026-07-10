@@ -27,11 +27,11 @@ New-Item -ItemType Directory -Force -Path $DistDir | Out-Null
 if (Test-Path $SetupPath) { Remove-Item -Force $SetupPath }
 
 Write-Host "Building embedded Python runtime..."
-$runtimeArgs = @()
 if ($env:CI -eq 'true') {
-    $runtimeArgs += '-Force'
+    & (Join-Path $PSScriptRoot 'build-python-runtime.ps1') -Force
+} else {
+    & (Join-Path $PSScriptRoot 'build-python-runtime.ps1')
 }
-& (Join-Path $PSScriptRoot 'build-python-runtime.ps1') @runtimeArgs
 
 $BundledPy = Join-Path $BridgeRoot 'runtime\python\python.exe'
 if (-not (Test-Path $BundledPy)) {
