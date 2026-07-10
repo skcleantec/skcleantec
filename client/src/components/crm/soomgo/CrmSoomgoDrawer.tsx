@@ -117,7 +117,7 @@ export function CrmSoomgoDrawer({
     if (!token || !open) return;
     setPresetsLoading(true);
     try {
-      const res = await fetchTelecrmSoomgoMessagePresets(token, { scope: 'personal' });
+      const res = await fetchTelecrmSoomgoMessagePresets(token, { scope: 'work' });
       setPresets(res.presets);
     } catch {
       setPresets([]);
@@ -251,9 +251,9 @@ export function CrmSoomgoDrawer({
         <section className="min-h-0 flex-1 space-y-2">
           <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
             <div>
-              <p className="text-[11px] font-semibold text-slate-800">내 프리셋</p>
+              <p className="text-[11px] font-semibold text-slate-800">프리셋</p>
               <p className="text-[10px] text-slate-500">
-                버튼 클릭 시 전송 · ⋮⋮ 드래그 후 항목 사이에 놓기
+                내 프리셋 · 업체 공통 · ⋮⋮ 드래그로 순서 변경(개인만)
               </p>
             </div>
             {onOpenPresetSettings ? (
@@ -278,6 +278,7 @@ export function CrmSoomgoDrawer({
               renderItem={(preset, _index, { dragHandleProps }) => {
                 const isBusy = presetBusyId === preset.id;
                 const isHover = hoverPresetId === preset.id;
+                const isShared = preset.ownerScope === 'shared';
                 return (
                   <div
                     className={[
@@ -292,7 +293,7 @@ export function CrmSoomgoDrawer({
                     <SoomgoPresetDragHandle
                       presetId={preset.id}
                       label={preset.label}
-                      disabled={sendDisabled}
+                      disabled={sendDisabled || isShared}
                       onDragStart={dragHandleProps.onDragStart}
                       onDragEnd={dragHandleProps.onDragEnd}
                     />
@@ -308,6 +309,11 @@ export function CrmSoomgoDrawer({
                       ].join(' ')}
                       title={preset.label}
                     >
+                      {isShared ? (
+                        <span className="mb-0.5 rounded bg-slate-200/80 px-1 text-[8px] font-medium text-slate-600">
+                          공통
+                        </span>
+                      ) : null}
                       <span className="line-clamp-3 break-all">{isBusy ? '전송…' : preset.label}</span>
                     </button>
                     <div className="min-w-0 flex-1 rounded-lg border border-slate-100 bg-white px-2 py-1.5">
