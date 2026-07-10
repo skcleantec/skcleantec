@@ -144,11 +144,15 @@ function OrderOptionTreeSection({
   );
 }
 
+const BASE_ESTIMATE_AMOUNT_KEY = '__base_estimate__';
+
 export function CrmPricingPanel({
   pyeong,
   onPyeongChange,
   pricePerPyeong,
   minimumTotalAmount,
+  baseEstimateOverrideWon = null,
+  onBaseEstimateOverrideChange,
   onPricePerPyeongChange,
   onMinimumTotalAmountChange,
   quoteLines,
@@ -173,6 +177,8 @@ export function CrmPricingPanel({
   onPyeongChange: (v: string) => void;
   pricePerPyeong: number;
   minimumTotalAmount: number;
+  baseEstimateOverrideWon?: number | null;
+  onBaseEstimateOverrideChange?: (v: number | null) => void;
   onPricePerPyeongChange: (v: number) => void;
   onMinimumTotalAmountChange: (v: number) => void;
   quoteLines: CrmPricingQuoteLine[];
@@ -245,19 +251,21 @@ export function CrmPricingPanel({
   }, [refreshKey, loadCatalog]);
 
   const pyeongNum = parseFloat(pyeong.replace(/,/g, ''));
-  const estimatedBase =
+  const catalogBaseEstimate =
     Number.isFinite(pyeongNum) && pyeongNum > 0 && pricePerPyeong > 0
       ? computeEstimateTotalFromPyeong(pyeongNum, pricePerPyeong, minimumTotalAmount)
       : null;
+  const estimatedBase = baseEstimateOverrideWon ?? catalogBaseEstimate;
   const rawBase =
     Number.isFinite(pyeongNum) && pyeongNum > 0 && pricePerPyeong > 0
       ? Math.round(pyeongNum * pricePerPyeong)
       : null;
   const minimumApplied =
+    baseEstimateOverrideWon == null &&
     minimumTotalAmount > 0 &&
-    estimatedBase != null &&
+    catalogBaseEstimate != null &&
     rawBase != null &&
-    estimatedBase > rawBase;
+    catalogBaseEstimate > rawBase;
 
   const extrasTotal = useMemo(
     () => quoteLines.reduce((sum, line) => sum + (line.amountWon ?? 0), 0),
@@ -338,6 +346,25 @@ export function CrmPricingPanel({
     [quoteLines, setQuoteLines],
   );
 
+  const updateBaseEstimateAmount = useCallback(
+    (raw: string) => {
+      setAmountDrafts((prev) => ({ ...prev, [BASE_ESTIMATE_AMOUNT_KEY]: raw }));
+      const parsed = parseAmountInput(raw);
+      if (raw.trim() !== '' && parsed === null) return;
+      onBaseEstimateOverrideChange?.(parsed);
+    },
+    [onBaseEstimateOverrideChange],
+  );
+
+  const resetBaseEstimateAmount = useCallback(() => {
+    setAmountDrafts((drafts) => {
+      const next = { ...drafts };
+      delete next[BASE_ESTIMATE_AMOUNT_KEY];
+      return next;
+    });
+    onBaseEstimateOverrideChange?.(null);
+  }, [onBaseEstimateOverrideChange]);
+
   const resetQuoteLineAmount = useCallback(
     (key: string) => {
       const line = quoteLines.find((l) => l.key === key);
@@ -360,6 +387,14 @@ export function CrmPricingPanel({
     if (line.amountWon != null) return String(line.amountWon);
     return '';
   };
+
+  const baseAmountInputValue = (): string => {
+    if (BASE_ESTIMATE_AMOUNT_KEY in amountDrafts) return amountDrafts[BASE_ESTIMATE_AMOUNT_KEY] ?? '';
+    if (estimatedBase != null) return String(estimatedBase);
+    return '';
+  };
+
+  const showBaseAmountReset = baseEstimateOverrideWon != null;
 
   const priceMenuItems: { id: string; onAdd: () => void; label: string; sublabel?: string; price: string }[] =
     useMemo(() => {
@@ -608,49 +643,37 @@ export function CrmPricingPanel({
               </p>
               <ul className="space-y-1">
                 {estimatedBase != null && Number.isFinite(pyeongNum) && pyeongNum > 0 ? (
-                  <li className="space-y-1 text-[10px]">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-medium text-gray-800">{pyeongNum}평 기본견적</span>
-                      <span className="shrink-0 font-semibold tabular-nums text-amber-800">
-                        {formatWon(estimatedBase)}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] text-amber-900/85">
-                      <label className="inline-flex items-center gap-1">
-                        <span>평당</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={pricePerPyeong > 0 ? String(pricePerPyeong) : ''}
-                          onChange={(e) => {
-                            const n = parseAmountInput(e.target.value);
-                            if (n != null) onPricePerPyeongChange(n);
-                          }}
-                          className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-center tabular-nums"
-                        />
-                        <span>원</span>
-                      </label>
-                      <label className="inline-flex items-center gap-1">
-                        <span>최소</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={minimumTotalAmount > 0 ? String(minimumTotalAmount) : ''}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/,/g, '').trim();
-                            if (!raw) {
-                              onMinimumTotalAmountChange(0);
-                              return;
-                            }
-                            const n = parseAmountInput(raw);
-                            if (n != null) onMinimumTotalAmountChange(n);
-                          }}
-                          placeholder="0"
-                          className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-center tabular-nums"
-                        />
-                        <span>원</span>
-                      </label>
-                    </div>
+                  <li className="flex items-center gap-1 text-[10px]">
+                    <span className="min-w-0 flex-1 truncate font-medium text-gray-800" title={`${pyeongNum}평 기본견적`}>
+                      {pyeongNum}평 기본견적
+                    </span>
+                    <span className="flex shrink-0 items-center gap-0.5">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={baseAmountInputValue()}
+                        onChange={(e) => updateBaseEstimateAmount(e.target.value)}
+                        onBlur={() => {
+                          setAmountDrafts((prev) => {
+                            const next = { ...prev };
+                            delete next[BASE_ESTIMATE_AMOUNT_KEY];
+                            return next;
+                          });
+                        }}
+                        className="w-[4.5rem] rounded border border-amber-200/80 bg-white px-1 py-0.5 text-right text-[10px] tabular-nums"
+                        title="기본견적 금액 (직접 입력)"
+                      />
+                      {showBaseAmountReset ? (
+                        <button
+                          type="button"
+                          title="평당·최소 설정 기준으로"
+                          onClick={resetBaseEstimateAmount}
+                          className="rounded px-0.5 text-[9px] text-amber-700 hover:bg-amber-100"
+                        >
+                          ↺
+                        </button>
+                      ) : null}
+                    </span>
                   </li>
                 ) : null}
                 {quoteLines.map((line) => (

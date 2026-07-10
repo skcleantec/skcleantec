@@ -17,6 +17,7 @@ export function useCrmConsultationQuote({
   pricePerPyeong,
   minimumTotalAmount,
   quoteLines,
+  baseEstimateOverrideWon,
   hasLocalContent,
   operatingCompanyId,
   enabled = true,
@@ -26,6 +27,7 @@ export function useCrmConsultationQuote({
   pricePerPyeong: number;
   minimumTotalAmount: number;
   quoteLines: CrmPricingQuoteLine[];
+  baseEstimateOverrideWon?: number | null;
   hasLocalContent: boolean;
   operatingCompanyId?: string | null;
   enabled?: boolean;
@@ -46,8 +48,9 @@ export function useCrmConsultationQuote({
         pricePerPyeong,
         minimumTotalAmount,
         quoteLines,
+        baseEstimateOverrideWon,
       }),
-    [minimumTotalAmount, pricePerPyeong, pyeong, quoteLines],
+    [minimumTotalAmount, pricePerPyeong, pyeong, quoteLines, baseEstimateOverrideWon],
   );
 
   const loadForPhone = useCallback(
