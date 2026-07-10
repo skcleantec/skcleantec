@@ -27,7 +27,7 @@ export function CrmFollowupDrawer({
       title="부재 · 보류"
       subtitle="건을 선택해 편집하거나 CRM 접수란으로 가져옵니다."
       onClose={onClose}
-      widthClass="w-[min(720px,96vw)]"
+      widthClass="w-[min(840px,96vw)]"
     >
       <FollowupInlinePanel
         operatingCompanyId={operatingCompanyId}
