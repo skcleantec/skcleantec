@@ -36,21 +36,25 @@ export function crmQuotePayloadFromState(input: {
   pricePerPyeong: number;
   minimumTotalAmount: number;
   quoteLines: CrmPricingQuoteLine[];
+  baseEstimateOverrideWon?: number | null;
 }): TelecrmConsultationQuotePayload {
   const pyeongNum = parseFloat(input.pyeong.replace(/,/g, ''));
-  const baseEstimateWon =
+  const catalogBaseEstimateWon =
     Number.isFinite(pyeongNum) && pyeongNum > 0 && input.pricePerPyeong > 0
       ? computeEstimateTotalFromPyeong(pyeongNum, input.pricePerPyeong, input.minimumTotalAmount)
       : null;
+  const baseEstimateWon =
+    input.baseEstimateOverrideWon != null ? input.baseEstimateOverrideWon : catalogBaseEstimateWon;
   const rawBase =
     Number.isFinite(pyeongNum) && pyeongNum > 0 && input.pricePerPyeong > 0
       ? Math.round(pyeongNum * input.pricePerPyeong)
       : null;
   const minimumApplied =
     input.minimumTotalAmount > 0 &&
-    baseEstimateWon != null &&
+    catalogBaseEstimateWon != null &&
     rawBase != null &&
-    baseEstimateWon > rawBase;
+    catalogBaseEstimateWon > rawBase &&
+    input.baseEstimateOverrideWon == null;
 
   const lines: TelecrmConsultationQuoteLine[] = input.quoteLines.map((line) => ({
     source: line.source,

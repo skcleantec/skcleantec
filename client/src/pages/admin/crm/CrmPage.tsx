@@ -98,6 +98,7 @@ export function CrmPage() {
       switchBrand(slug);
       setLookupRefreshKey((k) => k + 1);
       setQuoteLines([]);
+      setBaseEstimateOverrideWon(null);
     },
     [switchBrand],
   );
@@ -116,6 +117,7 @@ export function CrmPage() {
   const [intakeKind, setIntakeKind] = useState<CrmIntakeKind>('absent');
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
   const [minimumTotalAmount, setMinimumTotalAmount] = useState(0);
+  const [baseEstimateOverrideWon, setBaseEstimateOverrideWon] = useState<number | null>(null);
   const [depositAmount, setDepositAmount] = useState(0);
   const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
   const [lookupRefreshKey, setLookupRefreshKey] = useState(0);
@@ -439,8 +441,9 @@ export function CrmPage() {
         pricePerPyeong,
         minimumTotalAmount,
         quoteLines,
+        baseEstimateOverrideWon,
       }),
-    [pyeong, pricePerPyeong, minimumTotalAmount, quoteLines],
+    [pyeong, pricePerPyeong, minimumTotalAmount, quoteLines, baseEstimateOverrideWon],
   );
   const quoteGrandTotal = crmQuoteGrandTotalWon(quotePayload);
 
@@ -459,6 +462,7 @@ export function CrmPage() {
     pricePerPyeong,
     minimumTotalAmount,
     quoteLines,
+    baseEstimateOverrideWon,
     hasLocalContent: telecrmQuotePayloadHasContent(quotePayload),
     operatingCompanyId: activeOperatingCompanyId,
     enabled: Boolean(activeOperatingCompanyId),
@@ -466,13 +470,26 @@ export function CrmPage() {
 
   const applyPendingQuote = useCallback(() => {
     if (!pendingQuote) return;
-    setPyeong(pendingQuote.payload.pyeong);
-    setQuoteLines(crmQuoteLinesFromPayload(pendingQuote.payload));
+    const payload = pendingQuote.payload;
+    setPyeong(payload.pyeong);
+    setQuoteLines(crmQuoteLinesFromPayload(payload));
+    const pyeongNum = parseFloat(payload.pyeong.replace(/,/g, ''));
+    const catalogBase =
+      Number.isFinite(pyeongNum) && pyeongNum > 0 && pricePerPyeong > 0
+        ? computeEstimateTotalFromPyeong(pyeongNum, pricePerPyeong, minimumTotalAmount)
+        : null;
+    setBaseEstimateOverrideWon(
+      payload.baseEstimateWon != null &&
+        (catalogBase == null || payload.baseEstimateWon !== catalogBase)
+        ? payload.baseEstimateWon
+        : null,
+    );
     dismissPendingQuote();
-  }, [pendingQuote, dismissPendingQuote]);
+  }, [pendingQuote, dismissPendingQuote, pricePerPyeong, minimumTotalAmount]);
 
   const handleStartFreshQuote = useCallback(async () => {
     setQuoteLines([]);
+    setBaseEstimateOverrideWon(null);
     await startFreshQuote();
   }, [startFreshQuote]);
 
@@ -896,6 +913,8 @@ export function CrmPage() {
               onPyeongChange={setPyeong}
               pricePerPyeong={pricePerPyeong}
               minimumTotalAmount={minimumTotalAmount}
+              baseEstimateOverrideWon={baseEstimateOverrideWon}
+              onBaseEstimateOverrideChange={setBaseEstimateOverrideWon}
               onPricePerPyeongChange={setPricePerPyeong}
               onMinimumTotalAmountChange={setMinimumTotalAmount}
               quoteLines={quoteLines}
