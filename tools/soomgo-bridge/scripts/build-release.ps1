@@ -53,11 +53,10 @@ Write-Host "ZIP: $ZipPath"
 # --- Setup.exe (상담사 PC 기본) ---
 $setupBuilt = $false
 if (-not $SkipSetup) {
-    try {
-        & (Join-Path $PSScriptRoot 'build-installer.ps1') -Version $Version | Out-Null
-        $setupBuilt = Test-Path $SetupPath
-    } catch {
-        Write-Warning $_.Exception.Message
+    & (Join-Path $PSScriptRoot 'build-installer.ps1') -Version $Version | Out-Null
+    $setupBuilt = Test-Path $SetupPath
+    if (-not $setupBuilt) {
+        throw "Setup.exe build failed: $SetupPath not found"
     }
 }
 
