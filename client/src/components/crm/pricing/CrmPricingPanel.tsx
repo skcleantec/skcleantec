@@ -165,6 +165,9 @@ export function CrmPricingPanel({
   quoteFinalizeError = null,
   refreshKey = 0,
   onOpenSettings,
+  canSendSoomgoQuote = false,
+  onSendSoomgoQuote,
+  soomgoQuoteSending = false,
 }: {
   pyeong: string;
   onPyeongChange: (v: string) => void;
@@ -186,6 +189,9 @@ export function CrmPricingPanel({
   quoteFinalizeError?: string | null;
   refreshKey?: number;
   onOpenSettings?: () => void;
+  canSendSoomgoQuote?: boolean;
+  onSendSoomgoQuote?: () => void;
+  soomgoQuoteSending?: boolean;
 }) {
   const token = getToken();
   const [categories, setCategories] = useState<TelecrmPriceCategoryDto[]>([]);
@@ -675,6 +681,17 @@ export function CrmPricingPanel({
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-1">
+              {canSendSoomgoQuote && onSendSoomgoQuote ? (
+                <button
+                  type="button"
+                  onClick={onSendSoomgoQuote}
+                  disabled={soomgoQuoteSending || (grandTotal == null && quoteLines.length === 0 && estimatedBase == null)}
+                  className="inline-flex items-center rounded-md bg-sky-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-sky-700 disabled:opacity-40"
+                  title="설정된 견적보내기 서식으로 숨고 채팅 전송"
+                >
+                  {soomgoQuoteSending ? '전송 중…' : '견적보내기'}
+                </button>
+              ) : null}
               {canFinalizeHold && onFinalizeHold ? (
                 <button
                   type="button"

@@ -3,11 +3,13 @@ import { parseSoomgoMessageSteps } from '../../lib/soomgoMessagePresets.js';
 import type { SoomgoAutoTriggerKind } from '../../lib/soomgoMessagePresets.js';
 import {
   isSoomgoAutoTriggerKind,
-  SOOMGO_AUTO_TRIGGER_KINDS,
-  SOOMGO_AUTO_TRIGGER_LABELS,
+  isSoomgoIntakeAutoTriggerKind,
+  SOOMGO_INTAKE_AUTO_TRIGGER_KINDS,
+  SOOMGO_INTAKE_AUTO_TRIGGER_LABELS,
+  SOOMGO_ALL_AUTO_TRIGGER_KINDS,
 } from '../../lib/soomgoMessagePresets.js';
 
-const AUTO_LABELS: Record<SoomgoAutoTriggerKind, string> = {
+const AUTO_LABELS: Record<string, string> = {
   auto_requested: '요청 자동 안내',
   auto_absent: '부재 자동 안내',
   auto_hold: '보류·고민 자동 안내',
@@ -16,7 +18,7 @@ const AUTO_LABELS: Record<SoomgoAutoTriggerKind, string> = {
   auto_received: '예약완료 자동 안내',
 };
 
-const AUTO_SORT: Record<SoomgoAutoTriggerKind, number> = {
+const AUTO_SORT: Record<string, number> = {
   auto_requested: 0,
   auto_absent: 1,
   auto_hold: 2,
@@ -55,7 +57,7 @@ function serializeAutoRow(row: {
 
 async function ensureAutoPresetRow(tenantId: string, triggerKind: SoomgoAutoTriggerKind) {
   const existing = await prisma.telecrmSoomgoMessagePreset.findFirst({
-    where: { tenantId, triggerKind },
+    where: { tenantId, triggerKind, operatingCompanyId: null },
   });
   if (existing) return existing;
 
@@ -75,7 +77,7 @@ async function ensureAutoPresetRow(tenantId: string, triggerKind: SoomgoAutoTrig
 
 export async function listTelecrmSoomgoAutoMessages(tenantId: string) {
   const rows = await Promise.all(
-    SOOMGO_AUTO_TRIGGER_KINDS.map((kind) => ensureAutoPresetRow(tenantId, kind)),
+    SOOMGO_INTAKE_AUTO_TRIGGER_KINDS.map((kind) => ensureAutoPresetRow(tenantId, kind)),
   );
   rows.sort((a, b) => {
     const ak = a.triggerKind as SoomgoAutoTriggerKind;
@@ -84,7 +86,7 @@ export async function listTelecrmSoomgoAutoMessages(tenantId: string) {
   });
   return {
     items: rows.map(serializeAutoRow),
-    labels: SOOMGO_AUTO_TRIGGER_LABELS,
+    labels: SOOMGO_INTAKE_AUTO_TRIGGER_LABELS,
   };
 }
 
@@ -93,7 +95,7 @@ export async function upsertTelecrmSoomgoAutoMessage(
   triggerKindRaw: string,
   input: { steps: unknown; isActive: boolean },
 ) {
-  if (!isSoomgoAutoTriggerKind(triggerKindRaw)) {
+  if (!isSoomgoIntakeAutoTriggerKind(triggerKindRaw)) {
     throw new Error('INVALID_TRIGGER');
   }
   const triggerKind = triggerKindRaw;
@@ -117,6 +119,6 @@ export async function upsertTelecrmSoomgoAutoMessage(
 /** 수동 매크로 목록 — 자동 트리거 프리셋 제외 */
 export function manualSoomgoPresetWhereExtra() {
   return {
-    OR: [{ triggerKind: null }, { triggerKind: { notIn: [...SOOMGO_AUTO_TRIGGER_KINDS] } }],
+    OR: [{ triggerKind: null }, { triggerKind: { notIn: [...SOOMGO_ALL_AUTO_TRIGGER_KINDS] } }],
   };
 }

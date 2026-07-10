@@ -12,6 +12,11 @@ import {
   upsertTelecrmSoomgoAutoMessage,
 } from './telecrmSoomgoAutoMessages.service.js';
 import {
+  getTelecrmSoomgoQuoteAutoMessage,
+  resolveTelecrmSoomgoQuoteAutoMessageForSend,
+  upsertTelecrmSoomgoQuoteAutoMessage,
+} from './telecrmSoomgoQuoteAutoMessage.service.js';
+import {
   parseSortOrder,
   requireTelecrmActorPassword,
   requireTelecrmTenant,
@@ -75,6 +80,72 @@ router.get('/auto-messages', requireStaffPermission('crm.view', 'crm.settings'),
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
   res.json(await listTelecrmSoomgoAutoMessages(tenantId));
+});
+
+router.get('/auto-messages/auto_quote/resolve', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  try {
+    const operatingCompanyId =
+      req.query.operatingCompanyId == null || req.query.operatingCompanyId === ''
+        ? null
+        : String(req.query.operatingCompanyId);
+    const item = await resolveTelecrmSoomgoQuoteAutoMessageForSend(tenantId, operatingCompanyId);
+    res.json({ item });
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.get('/auto-messages/auto_quote', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  try {
+    res.json(await getTelecrmSoomgoQuoteAutoMessage(tenantId, req.query.operatingCompanyId));
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.put('/auto-messages/auto_quote', requireStaffPermission('crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const { steps, isActive, paybackWon, operatingCompanyId } = req.body as {
+    steps?: unknown;
+    isActive?: boolean;
+    paybackWon?: unknown;
+    operatingCompanyId?: string | null;
+  };
+  try {
+    const item = await upsertTelecrmSoomgoQuoteAutoMessage(tenantId, operatingCompanyId ?? null, {
+      steps,
+      isActive: isActive === true,
+      paybackWon,
+    });
+    res.json(item);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'STEPS_REQUIRED') {
+      res.status(400).json({ error: '자동 전송을 켜려면 스텝을 1개 이상 추가해 주세요.' });
+      return;
+    }
+    if (e instanceof Error && e.message === 'INVALID_PAYBACK') {
+      res.status(400).json({ error: '페이백 금액이 올바르지 않습니다.' });
+      return;
+    }
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
 });
 
 router.put('/auto-messages/:triggerKind', requireStaffPermission('crm.settings'), async (req, res) => {

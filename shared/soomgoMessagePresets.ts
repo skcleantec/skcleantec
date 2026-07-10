@@ -21,7 +21,7 @@ export type SoomgoMessagePresetDto = {
 };
 
 /** 접수 저장 시 자동 전송 (업체 공통, 프리셋 탭 「자동메시지」) */
-export type SoomgoAutoTriggerKind =
+export type SoomgoIntakeAutoTriggerKind =
   | 'auto_requested'
   | 'auto_absent'
   | 'auto_hold'
@@ -29,7 +29,14 @@ export type SoomgoAutoTriggerKind =
   | 'auto_reserved'
   | 'auto_received';
 
-export const SOOMGO_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = [
+/** CRM 견적보내기 — 브랜드별 서식 (업체 공통 자동메시지 탭) */
+export type SoomgoQuoteAutoTriggerKind = 'auto_quote';
+
+export type SoomgoAutoTriggerKind = SoomgoIntakeAutoTriggerKind | SoomgoQuoteAutoTriggerKind;
+
+export const SOOMGO_QUOTE_AUTO_TRIGGER_KIND: SoomgoQuoteAutoTriggerKind = 'auto_quote';
+
+export const SOOMGO_INTAKE_AUTO_TRIGGER_KINDS: SoomgoIntakeAutoTriggerKind[] = [
   'auto_requested',
   'auto_absent',
   'auto_hold',
@@ -38,7 +45,15 @@ export const SOOMGO_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = [
   'auto_received',
 ];
 
-export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoAutoTriggerKind, string> = {
+/** @deprecated intake 전용 — 견적보내기는 SOOMGO_QUOTE_AUTO_TRIGGER_KIND */
+export const SOOMGO_AUTO_TRIGGER_KINDS = SOOMGO_INTAKE_AUTO_TRIGGER_KINDS;
+
+export const SOOMGO_ALL_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = [
+  ...SOOMGO_INTAKE_AUTO_TRIGGER_KINDS,
+  SOOMGO_QUOTE_AUTO_TRIGGER_KIND,
+];
+
+export const SOOMGO_INTAKE_AUTO_TRIGGER_LABELS: Record<SoomgoIntakeAutoTriggerKind, string> = {
   auto_requested: '요청',
   auto_absent: '부재',
   auto_hold: '보류·고민',
@@ -46,6 +61,11 @@ export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoAutoTriggerKind, string> =
   auto_reserved: '입금 완료',
   auto_received: '예약완료',
 };
+
+export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoIntakeAutoTriggerKind, string> =
+  SOOMGO_INTAKE_AUTO_TRIGGER_LABELS;
+
+export const SOOMGO_QUOTE_AUTO_TRIGGER_LABEL = '견적보내기';
 
 /** CRM 처리 구분 → 자동 트리거 (1:1) */
 export const SOOMGO_AUTO_TRIGGER_BY_INTAKE: Record<string, SoomgoAutoTriggerKind> = {
@@ -62,15 +82,32 @@ export function soomgoAutoTriggerForIntakeKind(kind: string): SoomgoAutoTriggerK
 }
 
 export function isSoomgoAutoTriggerKind(value: unknown): value is SoomgoAutoTriggerKind {
-  return typeof value === 'string' && (SOOMGO_AUTO_TRIGGER_KINDS as string[]).includes(value);
+  return (
+    typeof value === 'string' &&
+    ((SOOMGO_INTAKE_AUTO_TRIGGER_KINDS as string[]).includes(value) || value === SOOMGO_QUOTE_AUTO_TRIGGER_KIND)
+  );
+}
+
+export function isSoomgoIntakeAutoTriggerKind(value: unknown): value is SoomgoIntakeAutoTriggerKind {
+  return typeof value === 'string' && (SOOMGO_INTAKE_AUTO_TRIGGER_KINDS as string[]).includes(value);
 }
 
 export type SoomgoAutoMessagePresetDto = {
-  triggerKind: SoomgoAutoTriggerKind;
+  triggerKind: SoomgoIntakeAutoTriggerKind;
   id: string | null;
   label: string;
   steps: SoomgoMessageStep[];
   isActive: boolean;
+};
+
+export type SoomgoQuoteAutoMessagePresetDto = {
+  triggerKind: SoomgoQuoteAutoTriggerKind;
+  id: string | null;
+  label: string;
+  steps: SoomgoMessageStep[];
+  isActive: boolean;
+  paybackWon: number | null;
+  operatingCompanyId: string | null;
 };
 
 /** 사용자(또는 공유 카탈로그)당 프리셋 상한 */

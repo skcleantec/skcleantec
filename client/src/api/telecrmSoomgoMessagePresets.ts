@@ -1,5 +1,10 @@
-import type { SoomgoMessagePresetDto, SoomgoMessageStep, SoomgoAutoMessagePresetDto } from '@shared/soomgoMessagePresets';
-import type { SoomgoAutoTriggerKind } from '@shared/soomgoMessagePresets';
+import type {
+  SoomgoMessagePresetDto,
+  SoomgoMessageStep,
+  SoomgoAutoMessagePresetDto,
+  SoomgoQuoteAutoMessagePresetDto,
+} from '@shared/soomgoMessagePresets';
+import type { SoomgoIntakeAutoTriggerKind } from '@shared/soomgoMessagePresets';
 
 const API = '/api/crm';
 
@@ -77,7 +82,7 @@ export async function fetchTelecrmSoomgoAutoMessages(token: string): Promise<{
 
 export async function updateTelecrmSoomgoAutoMessage(
   token: string,
-  triggerKind: SoomgoAutoTriggerKind,
+  triggerKind: SoomgoIntakeAutoTriggerKind,
   input: { steps: SoomgoMessageStep[]; isActive: boolean },
 ): Promise<SoomgoAutoMessagePresetDto> {
   const res = await fetch(`${API}/soomgo-message-presets/auto-messages/${encodeURIComponent(triggerKind)}`, {
@@ -87,6 +92,70 @@ export async function updateTelecrmSoomgoAutoMessage(
   });
   const data = (await res.json()) as SoomgoAutoMessagePresetDto & { error?: string };
   if (!res.ok) throw new Error(data.error ?? '자동 메시지 저장 실패');
+  return data;
+}
+
+export async function fetchTelecrmSoomgoQuoteAutoMessage(
+  token: string,
+  operatingCompanyId?: string | null,
+): Promise<{
+  item: SoomgoQuoteAutoMessagePresetDto;
+  fallbackFromDefault?: boolean;
+  defaultItem?: SoomgoQuoteAutoMessagePresetDto;
+}> {
+  const q = new URLSearchParams();
+  if (operatingCompanyId) q.set('operatingCompanyId', operatingCompanyId);
+  const res = await fetch(`${API}/soomgo-message-presets/auto-messages/auto_quote?${q}`, {
+    headers: authHeaders(token),
+  });
+  const data = (await res.json()) as {
+    error?: string;
+    item?: SoomgoQuoteAutoMessagePresetDto;
+    fallbackFromDefault?: boolean;
+    defaultItem?: SoomgoQuoteAutoMessagePresetDto;
+  };
+  if (!res.ok) throw new Error(data.error ?? '견적보내기 설정을 불러올 수 없습니다.');
+  if (!data.item) throw new Error('견적보내기 설정을 불러올 수 없습니다.');
+  return {
+    item: data.item,
+    fallbackFromDefault: data.fallbackFromDefault,
+    defaultItem: data.defaultItem,
+  };
+}
+
+export async function resolveTelecrmSoomgoQuoteAutoMessageForSend(
+  token: string,
+  operatingCompanyId?: string | null,
+): Promise<{ item: SoomgoQuoteAutoMessagePresetDto | null }> {
+  const q = new URLSearchParams();
+  if (operatingCompanyId) q.set('operatingCompanyId', operatingCompanyId);
+  const res = await fetch(`${API}/soomgo-message-presets/auto-messages/auto_quote/resolve?${q}`, {
+    headers: authHeaders(token),
+  });
+  const data = (await res.json()) as {
+    error?: string;
+    item?: SoomgoQuoteAutoMessagePresetDto | null;
+  };
+  if (!res.ok) throw new Error(data.error ?? '견적보내기 서식을 불러올 수 없습니다.');
+  return { item: data.item ?? null };
+}
+
+export async function updateTelecrmSoomgoQuoteAutoMessage(
+  token: string,
+  input: {
+    steps: SoomgoMessageStep[];
+    isActive: boolean;
+    paybackWon?: number | null;
+    operatingCompanyId?: string | null;
+  },
+): Promise<SoomgoQuoteAutoMessagePresetDto> {
+  const res = await fetch(`${API}/soomgo-message-presets/auto-messages/auto_quote`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+  const data = (await res.json()) as SoomgoQuoteAutoMessagePresetDto & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '견적보내기 설정 저장 실패');
   return data;
 }
 

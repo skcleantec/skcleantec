@@ -61,6 +61,10 @@ import type { OrderForm } from '../../../api/orderform';
 import { fitCrmPopupWindow } from '../../../utils/crmSoomgoSplitLayout';
 import { useCrmWorkBrand } from '../../../hooks/useCrmWorkBrand';
 import { CrmWorkBrandBar } from '../../../components/crm/workBrand/CrmWorkBrandBar';
+import {
+  noticeForSoomgoQuoteAutoSend,
+  sendSoomgoQuoteAutoMessage,
+} from '../../../utils/soomgoQuoteAutoSend';
 
 export function CrmPage() {
   const [searchParams] = useSearchParams();
@@ -129,6 +133,7 @@ export function CrmPage() {
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [smsDrawerOpen, setSmsDrawerOpen] = useState(false);
   const [soomgoDrawerOpen, setSoomgoDrawerOpen] = useState(false);
+  const [soomgoQuoteSending, setSoomgoQuoteSending] = useState(false);
   const [soomgoBridgeManifest, setSoomgoBridgeManifest] = useState<SoomgoBridgeManifest | null>(null);
   const dispatchNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const draftReadyRef = useRef(false);
@@ -507,6 +512,41 @@ export function CrmPage() {
     }
   }, [finalizeQuoteHold, handleIntakeSaved, contactPhone, safePhone, showDispatchNotice]);
 
+  const handleSendSoomgoQuote = useCallback(async () => {
+    const t = getToken();
+    if (!t) return;
+    const form = formSnapshotRef.current;
+    const nickname = form?.nickname?.trim() || customerName.trim();
+    const name = resolveCrmIntakeCustomerName({
+      customerName: form?.customerName ?? customerName,
+      nickname,
+      contactPhone,
+      safePhone,
+    });
+    setSoomgoQuoteSending(true);
+    try {
+      const result = await sendSoomgoQuoteAutoMessage(t, {
+        operatingCompanyId: activeOperatingCompanyId,
+        customerName: name,
+        nickname,
+        quoteTotalWon: quoteGrandTotal,
+        pyeong,
+      });
+      const notice = noticeForSoomgoQuoteAutoSend(result);
+      if (notice) showDispatchNotice(notice);
+    } finally {
+      setSoomgoQuoteSending(false);
+    }
+  }, [
+    activeOperatingCompanyId,
+    customerName,
+    contactPhone,
+    safePhone,
+    quoteGrandTotal,
+    pyeong,
+    showDispatchNotice,
+  ]);
+
   const scriptEstimateWon = quoteGrandTotal ?? estimateWon;
 
   useEffect(() => {
@@ -876,6 +916,9 @@ export function CrmPage() {
                   ? () => openSettings('pricing', canPersonalCatalog ? 'personal' : 'shared')
                   : undefined
               }
+              canSendSoomgoQuote={Boolean(activeOperatingCompanyId)}
+              onSendSoomgoQuote={() => void handleSendSoomgoQuote()}
+              soomgoQuoteSending={soomgoQuoteSending}
             />
           }
         />

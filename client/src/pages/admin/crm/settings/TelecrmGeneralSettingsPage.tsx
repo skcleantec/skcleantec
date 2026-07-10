@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getToken } from '../../../../stores/auth';
 import { getEstimateConfig, updateEstimateConfig } from '../../../../api/estimate';
 import { SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
+import { TelecrmSoomgoQuotePaybackSection } from '../../../../components/crm/settings/TelecrmSoomgoQuotePaybackSection';
 import { parsePriceInt, formatWon } from '../../../../components/crm/settings/telecrmSettingsUi';
 import { computeEstimateTotalFromPyeong } from '@shared/estimateTotal';
 
@@ -135,6 +136,8 @@ export function TelecrmGeneralSettingsPage() {
           </div>
         )}
       </SettingsCard>
+
+      <TelecrmSoomgoQuotePaybackSection />
     </div>
   );
 }
