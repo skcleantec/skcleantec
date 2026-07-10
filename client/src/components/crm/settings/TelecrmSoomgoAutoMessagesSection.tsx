@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { SoomgoAutoTriggerKind } from '@shared/soomgoMessagePresets';
+import type { SoomgoIntakeAutoTriggerKind } from '@shared/soomgoMessagePresets';
 import {
   SOOMGO_AUTO_TRIGGER_KINDS,
   SOOMGO_AUTO_TRIGGER_LABELS,
@@ -17,9 +17,11 @@ import {
 } from './SoomgoMessagePresetEditor';
 import { invalidateSoomgoFollowupAutoConfigCache } from '../../../utils/soomgoFollowupAutoSend';
 
-type AutoDraft = SoomgoPresetDraft & { triggerKind: SoomgoAutoTriggerKind };
+import { TelecrmSoomgoQuoteAutoMessageSection } from './TelecrmSoomgoQuoteAutoMessageSection';
 
-const INTAKE_HINT: Record<SoomgoAutoTriggerKind, string> = {
+type AutoDraft = SoomgoPresetDraft & { triggerKind: SoomgoIntakeAutoTriggerKind };
+
+const INTAKE_HINT: Record<SoomgoIntakeAutoTriggerKind, string> = {
   auto_requested: '「요청」 저장 시',
   auto_absent: '「부재」 저장 시',
   auto_hold: '「보류·고민」 저장 시',
@@ -33,8 +35,8 @@ export function TelecrmSoomgoAutoMessagesSection() {
   const token = getToken();
   const [drafts, setDrafts] = useState<AutoDraft[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busyKind, setBusyKind] = useState<SoomgoAutoTriggerKind | null>(null);
-  const [expanded, setExpanded] = useState<SoomgoAutoTriggerKind | null>(null);
+  const [busyKind, setBusyKind] = useState<SoomgoIntakeAutoTriggerKind | null>(null);
+  const [expanded, setExpanded] = useState<SoomgoIntakeAutoTriggerKind | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -69,13 +71,13 @@ export function TelecrmSoomgoAutoMessagesSection() {
     void load();
   }, [load]);
 
-  const patchDraft = (triggerKind: SoomgoAutoTriggerKind, patch: Partial<AutoDraft>) => {
+  const patchDraft = (triggerKind: SoomgoIntakeAutoTriggerKind, patch: Partial<AutoDraft>) => {
     setDrafts((prev) =>
       prev.map((d) => (d.triggerKind === triggerKind ? { ...d, ...patch } : d)),
     );
   };
 
-  const onImagePick = async (triggerKind: SoomgoAutoTriggerKind, stepIndex: number, file: File) => {
+  const onImagePick = async (triggerKind: SoomgoIntakeAutoTriggerKind, stepIndex: number, file: File) => {
     if (!token) return;
     setBusyKind(triggerKind);
     try {
@@ -210,6 +212,7 @@ export function TelecrmSoomgoAutoMessagesSection() {
           );
         })}
       </div>
+      <TelecrmSoomgoQuoteAutoMessageSection />
     </div>
   );
 }

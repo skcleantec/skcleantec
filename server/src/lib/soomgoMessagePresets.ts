@@ -55,7 +55,7 @@ export function parseSoomgoMessageSteps(raw: unknown): SoomgoMessageStep[] | nul
 }
 
 /** @see shared/soomgoMessagePresets.ts */
-export type SoomgoAutoTriggerKind =
+export type SoomgoIntakeAutoTriggerKind =
   | 'auto_requested'
   | 'auto_absent'
   | 'auto_hold'
@@ -63,7 +63,13 @@ export type SoomgoAutoTriggerKind =
   | 'auto_reserved'
   | 'auto_received';
 
-export const SOOMGO_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = [
+export type SoomgoQuoteAutoTriggerKind = 'auto_quote';
+
+export type SoomgoAutoTriggerKind = SoomgoIntakeAutoTriggerKind | SoomgoQuoteAutoTriggerKind;
+
+export const SOOMGO_QUOTE_AUTO_TRIGGER_KIND: SoomgoQuoteAutoTriggerKind = 'auto_quote';
+
+export const SOOMGO_INTAKE_AUTO_TRIGGER_KINDS: SoomgoIntakeAutoTriggerKind[] = [
   'auto_requested',
   'auto_absent',
   'auto_hold',
@@ -72,7 +78,14 @@ export const SOOMGO_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = [
   'auto_received',
 ];
 
-export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoAutoTriggerKind, string> = {
+export const SOOMGO_AUTO_TRIGGER_KINDS = SOOMGO_INTAKE_AUTO_TRIGGER_KINDS;
+
+export const SOOMGO_ALL_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = [
+  ...SOOMGO_INTAKE_AUTO_TRIGGER_KINDS,
+  SOOMGO_QUOTE_AUTO_TRIGGER_KIND,
+];
+
+export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoIntakeAutoTriggerKind, string> = {
   auto_requested: '요청',
   auto_absent: '부재',
   auto_hold: '보류·고민',
@@ -81,6 +94,15 @@ export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoAutoTriggerKind, string> =
   auto_received: '예약완료',
 };
 
+export const SOOMGO_INTAKE_AUTO_TRIGGER_LABELS = SOOMGO_AUTO_TRIGGER_LABELS;
+
 export function isSoomgoAutoTriggerKind(value: unknown): value is SoomgoAutoTriggerKind {
-  return typeof value === 'string' && (SOOMGO_AUTO_TRIGGER_KINDS as string[]).includes(value);
+  return (
+    typeof value === 'string' &&
+    ((SOOMGO_INTAKE_AUTO_TRIGGER_KINDS as string[]).includes(value) || value === SOOMGO_QUOTE_AUTO_TRIGGER_KIND)
+  );
+}
+
+export function isSoomgoIntakeAutoTriggerKind(value: unknown): value is SoomgoIntakeAutoTriggerKind {
+  return typeof value === 'string' && (SOOMGO_INTAKE_AUTO_TRIGGER_KINDS as string[]).includes(value);
 }

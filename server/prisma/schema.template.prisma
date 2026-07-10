@@ -453,6 +453,7 @@ model OperatingCompany {
   landingContactInquiries    LandingContactInquiry[]
   orderFollowups             OrderFollowup[]
   telecrmConsultationQuotes  TelecrmConsultationQuote[]
+  telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
@@ -2889,11 +2890,17 @@ model TelecrmSoomgoMessagePreset {
   sortOrder   Int      @default(0) @map("sort_order")
   isActive    Boolean  @default(true) @map("is_active")
   triggerKind String?  @map("trigger_kind") @db.VarChar(20)
+  /// 견적보내기(auto_quote) 등 브랜드별 자동메시지 — null이면 테넌트 기본
+  operatingCompanyId String? @map("operating_company_id")
+  operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
+  /// 견적보내기 서식 — 리뷰 페이백 차감액(원). {이벤트가} 계산용
+  paybackWon  Int?     @map("payback_won")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@index([tenantId, ownerUserId, slotNumber])
   @@index([tenantId, ownerUserId, sortOrder])
+  @@index([tenantId, operatingCompanyId, triggerKind])
   @@map("telecrm_soomgo_message_presets")
 }
 
