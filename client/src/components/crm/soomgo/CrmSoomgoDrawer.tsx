@@ -10,6 +10,7 @@ import {
   SOOMGO_BRIDGE_SEQUENCE_OUTDATED_MESSAGE,
 } from '../../../api/soomgoBridge';
 import { fetchTelecrmSoomgoMessagePresets } from '../../../api/telecrmSoomgoMessagePresets';
+import { CrmSegment, CrmSegmentItem } from '../crmUi';
 import {
   applyPresetSortOrder,
   persistPresetSortOrder,
@@ -17,6 +18,30 @@ import {
   reorderPresetToSlot,
   SoomgoPresetDragHandle,
 } from './soomgoPresetReorder';
+
+export type SoomgoDrawerPresetView = 'personal' | 'shared' | 'work';
+
+const SOOMGO_DRAWER_PRESET_VIEW_KEY = 'crm.soomgoDrawer.presetView';
+
+function readSoomgoDrawerPresetView(): SoomgoDrawerPresetView {
+  try {
+    const raw = localStorage.getItem(SOOMGO_DRAWER_PRESET_VIEW_KEY);
+    if (raw === 'personal' || raw === 'shared' || raw === 'work') return raw;
+  } catch {
+    /* ignore */
+  }
+  return 'work';
+}
+
+function sortPresetsForWork(presets: SoomgoMessagePresetDto[]): SoomgoMessagePresetDto[] {
+  return [...presets].sort((a, b) => {
+    const aPersonal = a.ownerScope === 'personal' ? 0 : 1;
+    const bPersonal = b.ownerScope === 'personal' ? 0 : 1;
+    if (aPersonal !== bPersonal) return aPersonal - bPersonal;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.label.localeCompare(b.label, 'ko');
+  });
+}
 
 function presetStepCount(steps: SoomgoMessageStep[]): { texts: number; images: number } {
   let texts = 0;
@@ -99,32 +124,40 @@ export function CrmSoomgoDrawer({
   const [presets, setPresets] = useState<SoomgoMessagePresetDto[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [reorderBusy, setReorderBusy] = useState(false);
+  const [presetView, setPresetView] = useState<SoomgoDrawerPresetView>(() => readSoomgoDrawerPresetView());
 
   const sequenceSupported = isSoomgoBridgeSequenceSupported(bridgeStatus);
   const sendDisabled = busy || sending || presetBusyId != null || reorderBusy;
 
-  const activePresets = useMemo(
-    () =>
-      presets
-        .filter((p) => p.isActive && p.steps.length > 0)
-        .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, 'ko')),
-    [presets],
-  );
+  const activePresets = useMemo(() => {
+    const rows = presets.filter((p) => p.isActive && p.steps.length > 0);
+    if (presetView === 'work') return sortPresetsForWork(rows);
+    return [...rows].sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, 'ko'));
+  }, [presets, presetView]);
 
   const notify = (msg: string) => onDispatchNotice?.(msg);
+
+  const handlePresetViewChange = useCallback((next: SoomgoDrawerPresetView) => {
+    setPresetView(next);
+    try {
+      localStorage.setItem(SOOMGO_DRAWER_PRESET_VIEW_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const loadPresets = useCallback(async () => {
     if (!token || !open) return;
     setPresetsLoading(true);
     try {
-      const res = await fetchTelecrmSoomgoMessagePresets(token, { scope: 'work' });
+      const res = await fetchTelecrmSoomgoMessagePresets(token, { scope: presetView });
       setPresets(res.presets);
     } catch {
       setPresets([]);
     } finally {
       setPresetsLoading(false);
     }
-  }, [token, open]);
+  }, [token, open, presetView]);
 
   useEffect(() => {
     if (open) void loadPresets();
@@ -155,17 +188,21 @@ export function CrmSoomgoDrawer({
   const handlePresetReorder = useCallback(
     async (dragId: string, slotIndex: number) => {
       if (!token) return;
+      const dragged = activePresets.find((p) => p.id === dragId);
+      if (!dragged || dragged.ownerScope !== 'personal') return;
+
       const next = reorderPresetToSlot(activePresets, dragId, slotIndex);
       const unchanged =
         next.length === activePresets.length && next.every((p, i) => p.id === activePresets[i]?.id);
       if (unchanged) return;
 
-      setPresets((prev) => applyPresetSortOrder(prev, next));
+      const personalOrdered = next.filter((p) => p.ownerScope === 'personal');
+      setPresets((prev) => applyPresetSortOrder(prev, personalOrdered));
       setReorderBusy(true);
       setError(null);
       try {
-        await persistPresetSortOrder(token, next);
-        notify('프리셋 순서를 저장했습니다.');
+        await persistPresetSortOrder(token, personalOrdered);
+        notify('내 프리셋 순서를 저장했습니다.');
       } catch (e) {
         const msg = e instanceof Error ? e.message : '순서 저장에 실패했습니다.';
         setError(msg);
@@ -249,22 +286,48 @@ export function CrmSoomgoDrawer({
 
         {/* 프리셋 */}
         <section className="min-h-0 flex-1 space-y-2">
-          <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-            <div>
-              <p className="text-[11px] font-semibold text-slate-800">프리셋</p>
-              <p className="text-[10px] text-slate-500">
-                내 프리셋 · 업체 공통 · ⋮⋮ 드래그로 순서 변경(개인만)
-              </p>
+          <div className="space-y-2 border-b border-slate-100 pb-2">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[11px] font-semibold text-slate-800">프리셋</p>
+                <p className="text-[10px] text-slate-500">⋮⋮ 드래그로 내 프리셋 순서 변경</p>
+              </div>
+              {onOpenPresetSettings ? (
+                <button
+                  type="button"
+                  onClick={onOpenPresetSettings}
+                  className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  편집
+                </button>
+              ) : null}
             </div>
-            {onOpenPresetSettings ? (
-              <button
-                type="button"
-                onClick={onOpenPresetSettings}
-                className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50"
+            <CrmSegment className="w-full flex flex-wrap">
+              <CrmSegmentItem
+                accent="soomgo"
+                compact
+                active={presetView === 'personal'}
+                onClick={() => handlePresetViewChange('personal')}
               >
-                편집
-              </button>
-            ) : null}
+                내 프리셋
+              </CrmSegmentItem>
+              <CrmSegmentItem
+                accent="soomgo"
+                compact
+                active={presetView === 'shared'}
+                onClick={() => handlePresetViewChange('shared')}
+              >
+                업체 공통
+              </CrmSegmentItem>
+              <CrmSegmentItem
+                accent="soomgo"
+                compact
+                active={presetView === 'work'}
+                onClick={() => handlePresetViewChange('work')}
+              >
+                모두 보기
+              </CrmSegmentItem>
+            </CrmSegment>
           </div>
 
           {presetsLoading ? (
@@ -273,7 +336,7 @@ export function CrmSoomgoDrawer({
             <PresetDragReorderList
               className="max-h-[min(52vh,420px)] overflow-y-auto overscroll-contain pr-0.5"
               items={activePresets}
-              disabled={sendDisabled}
+              disabled={sendDisabled || presetView === 'shared'}
               onReorder={(dragId, slotIndex) => void handlePresetReorder(dragId, slotIndex)}
               renderItem={(preset, _index, { dragHandleProps }) => {
                 const isBusy = presetBusyId === preset.id;
@@ -325,7 +388,13 @@ export function CrmSoomgoDrawer({
             />
           ) : (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3 py-4 text-center">
-              <p className="text-[11px] text-slate-600">저장된 프리셋이 없습니다.</p>
+              <p className="text-[11px] text-slate-600">
+                {presetView === 'personal'
+                  ? '내 프리셋이 없습니다.'
+                  : presetView === 'shared'
+                    ? '업체 공통 프리셋이 없습니다.'
+                    : '표시할 프리셋이 없습니다.'}
+              </p>
               {onOpenPresetSettings ? (
                 <button
                   type="button"
