@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   deferOrderFollowup,
   fetchOrderFollowup,
@@ -7,22 +8,22 @@ import {
   type OrderFollowupItem,
 } from '../../../api/orderFollowups';
 import {
-  ORDER_FOLLOWUP_STATUS_LABEL,
   ORDER_FOLLOWUP_STATUS_OPTIONS,
   type OrderFollowupStatus,
 } from '../../../constants/orderFollowupStatus';
 import { FollowupListFilters } from '../../order-followup/FollowupListFilters';
+import { FollowupListTable } from '../../order-followup/FollowupListTable';
 import {
   buildFollowupListQuery,
   followupListQueryKey,
 } from '../../order-followup/followupListQuery';
+import { ModalCloseButton } from '../../admin/ModalCloseButton';
 import { ListPaginationBar } from '../../ui/ListPaginationBar';
 import { getToken } from '../../../stores/auth';
 import { useCrmFollowupListFilters } from '../../../hooks/useCrmFollowupListFilters';
 import { crmFollowupApplyFromItem } from '../../../utils/crmFollowupApply';
 import { telecrmCall, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
 import { resolveCrmOutboundPhone } from '../../../utils/crmContactPhone';
-import { formatDateCompactWithWeekday } from '../../../utils/dateFormat';
 import { shouldShowListBlockingLoading } from '../../../utils/listRefreshDisplay';
 
 type DetailDraft = {
@@ -48,11 +49,6 @@ function itemToDraft(item: OrderFollowupItem): DetailDraft {
     preferredMoveInCleanYmd: item.preferredMoveInCleaningDate?.trim() ?? '',
     goldDb: item.goldDb,
   };
-}
-
-function displayPhone(row: OrderFollowupItem): string {
-  const t = row.customerPhone?.trim();
-  return t || '—';
 }
 
 /** CRM 부재·보류 — 목록 + 상세 편집 (인라인) */
@@ -90,6 +86,7 @@ export function FollowupInlinePanel({
   const [draft, setDraft] = useState<DetailDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [memoView, setMemoView] = useState<OrderFollowupItem | null>(null);
 
   const crmPhoneDigits = useMemo(() => crmPhone.replace(/\D/g, ''), [crmPhone]);
   const crmPhoneAvailable = crmPhoneDigits.length >= 4;
@@ -268,6 +265,8 @@ export function FollowupInlinePanel({
 
       <FollowupListFilters
         compact
+        filters={filters}
+        defaultCollapsed
         listDateBasis={filters.listDateBasis}
         onListDateBasisChange={(v) => patchFilters({ listDateBasis: v })}
         datePreset={filters.datePreset}
@@ -296,51 +295,22 @@ export function FollowupInlinePanel({
       />
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <p className="border-b border-slate-100 px-2 py-1 text-[10px] text-slate-500 lg:hidden">
+          표는 좌우로 스크롤할 수 있습니다.
+        </p>
         {shouldShowListBlockingLoading(loading, items.length) ? (
           <p className="p-4 text-center text-fluid-xs text-gray-500">불러오는 중…</p>
         ) : items.length === 0 ? (
           <p className="p-4 text-center text-fluid-xs text-gray-500">{emptyMessage}</p>
         ) : (
-          <ul className="max-h-48 divide-y divide-gray-100 overflow-y-auto overscroll-contain">
-            {items.map((row) => {
-              const active = row.id === selectedFollowupId;
-              return (
-                <li key={row.id}>
-                  <button
-                    type="button"
-                    onClick={() => selectRow(row)}
-                    className={`flex w-full items-start gap-2 px-3 py-2 text-left text-fluid-xs hover:bg-amber-50/60 ${
-                      active ? 'bg-amber-50 ring-1 ring-inset ring-amber-200' : ''
-                    } ${row.goldDb ? 'bg-amber-50/30' : ''}`}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="font-semibold text-gray-900">{row.customerName}</span>
-                      {row.nickname?.trim() ? (
-                        <span className="ml-1 text-gray-500">({row.nickname})</span>
-                      ) : null}
-                      {row.goldDb ? (
-                        <span className="ml-1 rounded bg-amber-200/80 px-1 text-[9px] font-semibold text-amber-900">
-                          골드
-                        </span>
-                      ) : null}
-                      <span className="ml-2 tabular-nums text-gray-600">{displayPhone(row)}</span>
-                      {row.memo ? (
-                        <p className="mt-0.5 line-clamp-1 text-[10px] text-gray-500">{row.memo}</p>
-                      ) : null}
-                    </span>
-                    <span className="shrink-0 text-right">
-                      <span className="block font-medium text-amber-900">
-                        {ORDER_FOLLOWUP_STATUS_LABEL[row.status]}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {formatDateCompactWithWeekday(row.createdAt)}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="max-h-[min(42vh,360px)] overflow-y-auto overscroll-contain">
+            <FollowupListTable
+              items={items}
+              selectedId={selectedFollowupId}
+              onSelect={selectRow}
+              onOpenMemo={setMemoView}
+            />
+          </div>
         )}
       </div>
 
@@ -487,6 +457,30 @@ export function FollowupInlinePanel({
       ) : (
         <p className="text-fluid-xs text-gray-500">목록에서 건을 선택하면 상세·편집할 수 있습니다.</p>
       )}
+
+      {memoView
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="crm-followup-memo-title"
+            >
+              <div className="max-h-[min(80vh,520px)] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                  <h2 id="crm-followup-memo-title" className="text-fluid-sm font-semibold text-gray-900">
+                    메모 — {memoView.customerName}
+                  </h2>
+                  <ModalCloseButton onClick={() => setMemoView(null)} />
+                </div>
+                <div className="max-h-[min(60vh,400px)] overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 text-fluid-sm text-gray-800">
+                  {memoView.memo?.trim() || '—'}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
