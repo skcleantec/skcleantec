@@ -180,9 +180,11 @@ router.get('/', requireStaffPermission('crm.view', 'crm.settings'), async (req, 
   const includeInactive = req.query.includeInactive === '1' || req.query.includeInactive === 'true';
   const rows = await prisma.telecrmSoomgoMessagePreset.findMany({
     where: {
-      ...telecrmSoomgoMessagePresetWhere(scope, tenantId, user.userId),
-      ...manualSoomgoPresetWhereExtra(),
-      ...(includeInactive ? {} : { isActive: true }),
+      AND: [
+        telecrmSoomgoMessagePresetWhere(scope, tenantId, user.userId),
+        manualSoomgoPresetWhereExtra(),
+        ...(includeInactive ? [] : [{ isActive: true }]),
+      ],
     },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   });
