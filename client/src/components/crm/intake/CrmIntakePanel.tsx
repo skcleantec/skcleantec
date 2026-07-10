@@ -24,6 +24,7 @@ import {
   trySoomgoFollowupAutoMessage,
 } from '../../../utils/soomgoFollowupAutoSend';
 import { resolveCrmOutboundPhone } from '../../../utils/crmContactPhone';
+import type { CrmFollowupApplySnapshot } from '../../../utils/crmFollowupApply';
 
 export type CrmCustomerMode = 'new' | 'existing';
 
@@ -134,6 +135,8 @@ export function CrmIntakePanel({
   soomgoImportFlashKey = 0,
   onIntakeReset,
   operatingCompanyId = null,
+  followupImport = null,
+  onSelectFollowup,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
@@ -163,6 +166,8 @@ export function CrmIntakePanel({
   soomgoImportFlashKey?: number;
   onIntakeReset?: () => void;
   operatingCompanyId?: string | null;
+  followupImport?: { key: number; snapshot: CrmFollowupApplySnapshot } | null;
+  onSelectFollowup?: (row: TelecrmCustomerLookupDto['followups'][number]) => void;
 }) {
   const outboundPhone = resolveCrmOutboundPhone(contactPhone, safePhone);
   const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
@@ -195,6 +200,31 @@ export function CrmIntakePanel({
   useEffect(() => {
     if (lookupRefreshKey > 0 && mode === 'existing') refresh();
   }, [lookupRefreshKey, mode, refresh]);
+
+  useEffect(() => {
+    if (!followupImport?.snapshot) return;
+    const s = followupImport.snapshot;
+    onModeChange('existing');
+    onContactPhoneChange(s.contactPhone);
+    onSafePhoneChange(s.safePhone);
+    onContactUnknownChange(false);
+    onCustomerNameChange(s.customerName);
+    if (s.pyeong) onPyeongChange(s.pyeong);
+    setFormSeed({
+      customerName: s.customerName,
+      nickname: s.nickname,
+      phone: s.contactPhone || s.safePhone,
+      memo: s.requestMemo,
+      address: s.address,
+    });
+    setLastInquiryId(s.inquiryId);
+    autoFilledKeyRef.current = null;
+    const dial = s.contactPhone.trim() || s.safePhone.trim();
+    if (dial.replace(/\D/g, '').length >= 4) {
+      setSearchMode('phone');
+      void resolveByPhone(dial);
+    }
+  }, [followupImport?.key]);
 
   useEffect(() => {
     if (mode !== 'new') return;
@@ -405,6 +435,7 @@ export function CrmIntakePanel({
                 if (data?.customer) applyCustomer(data.customer, data.inquiries[0]);
               }}
               onDispatchNotice={onDispatchNotice}
+              onSelectFollowup={onSelectFollowup}
             />
           </>
         ) : (
