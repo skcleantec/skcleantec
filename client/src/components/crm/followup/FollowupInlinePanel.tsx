@@ -4,7 +4,6 @@ import {
   fetchOrderFollowup,
   listOrderFollowups,
   patchOrderFollowup,
-  type OrderFollowupDatePreset,
   type OrderFollowupItem,
 } from '../../../api/orderFollowups';
 import {
@@ -12,11 +11,19 @@ import {
   ORDER_FOLLOWUP_STATUS_OPTIONS,
   type OrderFollowupStatus,
 } from '../../../constants/orderFollowupStatus';
+import { FollowupListFilters } from '../../order-followup/FollowupListFilters';
+import {
+  buildFollowupListQuery,
+  followupListQueryKey,
+} from '../../order-followup/followupListQuery';
+import { ListPaginationBar } from '../../ui/ListPaginationBar';
 import { getToken } from '../../../stores/auth';
+import { useCrmFollowupListFilters } from '../../../hooks/useCrmFollowupListFilters';
 import { crmFollowupApplyFromItem } from '../../../utils/crmFollowupApply';
 import { telecrmCall, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
 import { resolveCrmOutboundPhone } from '../../../utils/crmContactPhone';
 import { formatDateCompactWithWeekday } from '../../../utils/dateFormat';
+import { shouldShowListBlockingLoading } from '../../../utils/listRefreshDisplay';
 
 type DetailDraft = {
   customerName: string;
@@ -65,9 +72,18 @@ export function FollowupInlinePanel({
   onSaved?: () => void;
 }) {
   const token = getToken();
-  const [datePreset, setDatePreset] = useState<OrderFollowupDatePreset>('today');
+  const {
+    filters,
+    patchFilters,
+    listPage,
+    listPageSize,
+    total,
+    setTotal,
+    handleListPageChange,
+    handleListPageSizeChange,
+  } = useCrmFollowupListFilters();
+
   const [items, setItems] = useState<OrderFollowupItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<OrderFollowupItem | null>(null);
@@ -75,32 +91,47 @@ export function FollowupInlinePanel({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const phoneFilter = useMemo(() => crmPhone.replace(/\D/g, ''), [crmPhone]);
+  const crmPhoneDigits = useMemo(() => crmPhone.replace(/\D/g, ''), [crmPhone]);
+  const crmPhoneAvailable = crmPhoneDigits.length >= 4;
 
-  const loadList = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await listOrderFollowups(token, {
-        datePreset: phoneFilter.length >= 4 ? 'all' : datePreset,
-        phone: phoneFilter.length >= 4 ? phoneFilter : undefined,
-        operatingCompanyId: operatingCompanyId ?? undefined,
-        limit: 50,
-        offset: 0,
-      });
-      setItems(res.items);
-      setTotal(res.total);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '목록을 불러올 수 없습니다.');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, datePreset, phoneFilter, operatingCompanyId]);
+  const listQueryKey = useMemo(
+    () => followupListQueryKey(filters, listPage, listPageSize),
+    [filters, listPage, listPageSize],
+  );
+
+  const loadList = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!token) return;
+      const silent = opts?.silent === true;
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const res = await listOrderFollowups(
+          token,
+          buildFollowupListQuery({
+            filters,
+            operatingCompanyId,
+            crmPhone,
+            listPage,
+            listPageSize,
+          }),
+        );
+        setItems(res.items);
+        setTotal(typeof res.total === 'number' ? res.total : res.items.length);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '목록을 불러올 수 없습니다.');
+        setItems([]);
+        setTotal(0);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [token, filters, operatingCompanyId, crmPhone, listPage, listPageSize, setTotal],
+  );
 
   useEffect(() => {
     void loadList();
-  }, [loadList]);
+  }, [listQueryKey, loadList]);
 
   const loadSelected = useCallback(
     async (id: string) => {
@@ -137,6 +168,11 @@ export function FollowupInlinePanel({
     setDraft(itemToDraft(row));
   };
 
+  const refreshAfterMutation = useCallback(async () => {
+    await loadList({ silent: true });
+    onSaved?.();
+  }, [loadList, onSaved]);
+
   const saveDetail = async () => {
     if (!token || !selected || !draft) return;
     if (!draft.customerName.trim()) {
@@ -163,8 +199,7 @@ export function FollowupInlinePanel({
       setDraft(itemToDraft(res.item));
       setMsg('저장했습니다.');
       window.setTimeout(() => setMsg(null), 3000);
-      await loadList();
-      onSaved?.();
+      await refreshAfterMutation();
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
     } finally {
@@ -182,8 +217,7 @@ export function FollowupInlinePanel({
       setDraft(itemToDraft(res.item));
       setMsg('부재 횟수를 누적했습니다.');
       window.setTimeout(() => setMsg(null), 3000);
-      await loadList();
-      onSaved?.();
+      await refreshAfterMutation();
     } catch (e) {
       setError(e instanceof Error ? e.message : '부재+1 실패');
     } finally {
@@ -211,6 +245,14 @@ export function FollowupInlinePanel({
     onApplyToCrm(selected);
   };
 
+  const emptyMessage = filters.filterGoldDbOnly
+    ? '골드DB 건이 없습니다.'
+    : filters.listDateBasis === 'preferredMoveIn' && filters.datePreset !== 'all'
+      ? '선택한 희망일 범위에 맞는 건이 없습니다.'
+      : filters.phoneLock && crmPhoneAvailable
+        ? 'CRM 연락처와 일치하는 부재·보류 건이 없습니다.'
+        : '부재·보류 건이 없습니다.';
+
   return (
     <div className="flex min-h-0 flex-col gap-3">
       {msg ? (
@@ -224,44 +266,42 @@ export function FollowupInlinePanel({
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-fluid-xs font-medium text-gray-700">기간</span>
-        {(['today', 'all'] as const).map((preset) => (
-          <button
-            key={preset}
-            type="button"
-            disabled={phoneFilter.length >= 4}
-            onClick={() => setDatePreset(preset)}
-            className={`rounded-lg px-3 py-1 text-fluid-xs font-medium ${
-              datePreset === preset
-                ? 'bg-slate-900 text-white'
-                : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-            } disabled:opacity-40`}
-          >
-            {preset === 'today' ? '당일' : '전체'}
-          </button>
-        ))}
-        {phoneFilter.length >= 4 ? (
-          <span className="text-[11px] text-amber-800">CRM 연락처 기준 조회</span>
-        ) : (
-          <span className="text-[11px] text-gray-500">총 {total}건</span>
-        )}
-        <button
-          type="button"
-          onClick={() => void loadList()}
-          className="ml-auto rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] text-gray-600 hover:bg-gray-50"
-        >
-          새로고침
-        </button>
-      </div>
+      <FollowupListFilters
+        compact
+        listDateBasis={filters.listDateBasis}
+        onListDateBasisChange={(v) => patchFilters({ listDateBasis: v })}
+        datePreset={filters.datePreset}
+        onDatePresetChange={(v) => patchFilters({ datePreset: v })}
+        dateMonthKey={filters.dateMonthKey}
+        onDateMonthKeyChange={(v) => patchFilters({ dateMonthKey: v })}
+        dateDayKey={filters.dateDayKey}
+        onDateDayKeyChange={(v) => patchFilters({ dateDayKey: v })}
+        filterStatus={filters.filterStatus}
+        onFilterStatusChange={(v) => patchFilters({ filterStatus: v })}
+        filterCustomerName={filters.filterCustomerName}
+        onFilterCustomerNameChange={(v) => patchFilters({ filterCustomerName: v })}
+        filterGoldDbOnly={filters.filterGoldDbOnly}
+        onFilterGoldDbOnlyChange={(v) => patchFilters({ filterGoldDbOnly: v })}
+        brandScope={filters.brandScope}
+        onBrandScopeChange={(v) => patchFilters({ brandScope: v })}
+        showBrandScope
+        phoneLock={filters.phoneLock}
+        onPhoneLockChange={(v) => patchFilters({ phoneLock: v })}
+        crmPhoneAvailable={crmPhoneAvailable}
+        listPage={listPage}
+        listPageSize={listPageSize}
+        total={total}
+        onPageChange={handleListPageChange}
+        onPageSizeChange={handleListPageSizeChange}
+      />
 
-      <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-white">
-        {loading ? (
-          <p className="p-3 text-fluid-xs text-gray-500">불러오는 중…</p>
+      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white">
+        {shouldShowListBlockingLoading(loading, items.length) ? (
+          <p className="p-4 text-center text-fluid-xs text-gray-500">불러오는 중…</p>
         ) : items.length === 0 ? (
-          <p className="p-3 text-fluid-xs text-gray-500">부재·보류 건이 없습니다.</p>
+          <p className="p-4 text-center text-fluid-xs text-gray-500">{emptyMessage}</p>
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className="max-h-48 divide-y divide-gray-100 overflow-y-auto overscroll-contain">
             {items.map((row) => {
               const active = row.id === selectedFollowupId;
               return (
@@ -271,12 +311,17 @@ export function FollowupInlinePanel({
                     onClick={() => selectRow(row)}
                     className={`flex w-full items-start gap-2 px-3 py-2 text-left text-fluid-xs hover:bg-amber-50/60 ${
                       active ? 'bg-amber-50 ring-1 ring-inset ring-amber-200' : ''
-                    }`}
+                    } ${row.goldDb ? 'bg-amber-50/30' : ''}`}
                   >
                     <span className="min-w-0 flex-1">
                       <span className="font-semibold text-gray-900">{row.customerName}</span>
                       {row.nickname?.trim() ? (
                         <span className="ml-1 text-gray-500">({row.nickname})</span>
+                      ) : null}
+                      {row.goldDb ? (
+                        <span className="ml-1 rounded bg-amber-200/80 px-1 text-[9px] font-semibold text-amber-900">
+                          골드
+                        </span>
                       ) : null}
                       <span className="ml-2 tabular-nums text-gray-600">{displayPhone(row)}</span>
                       {row.memo ? (
@@ -298,6 +343,17 @@ export function FollowupInlinePanel({
           </ul>
         )}
       </div>
+
+      {!loading ? (
+        <ListPaginationBar
+          mode="nav"
+          page={listPage}
+          pageSize={listPageSize}
+          total={total}
+          onPageChange={handleListPageChange}
+          onPageSizeChange={handleListPageSizeChange}
+        />
+      ) : null}
 
       {selected && draft ? (
         <div className="space-y-3 rounded-xl border border-amber-200/80 bg-amber-50/30 p-3">
@@ -326,6 +382,13 @@ export function FollowupInlinePanel({
                 부재+1 ({selected.deferCount})
               </button>
             ) : null}
+            <button
+              type="button"
+              onClick={() => void loadList()}
+              className="ml-auto rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-fluid-xs text-gray-600 hover:bg-gray-50"
+            >
+              새로고침
+            </button>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2">
