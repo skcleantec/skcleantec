@@ -6,7 +6,7 @@ import { TENANT_PLAN_USAGE_LIMITS, TENANT_USAGE_METRIC_LABELS } from './tenantSu
 
 /** 월 정액 (원, VAT 별도) — 2026-06 확정 */
 export const TENANT_PLAN_MONTHLY_PRICE_KRW: Record<TenantPlanId, number> = {
-  starter: 90_000,
+  starter: 100_000,
   standard: 250_000,
   premium: 400_000,
 };
@@ -100,4 +100,4 @@ export function planLimitsSummary(plan: TenantPlanId): string[] {
 }
 
 export const TENANT_BILLING_NOTE =
-  '월 정액 플랜(Starter 9만·Standard 25만·Premium 40만 원, VAT 별도)에 포함된 업무 계정·접수·브랜드 한도를 기준으로 표시합니다. 포함량 초과분은 별도 과금(계정·접수·브랜드 단위)으로 추후 적용될 예정이며, 플랜 업그레이드는 플랫폼 담당자에게 문의해 주세요.';
+  '월 정액 플랜(Starter 10만·Standard 25만·Premium 40만 원, VAT 별도)에 포함된 업무 계정·접수·브랜드 한도를 기준으로 표시합니다. 포함량 초과분은 별도 과금(계정·접수·브랜드 단위)으로 추후 적용될 예정이며, 플랜 업그레이드는 플랫폼 담당자에게 문의해 주세요.';
