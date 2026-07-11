@@ -1,15 +1,18 @@
 import { prisma } from '../../lib/prisma.js';
 import { parseSoomgoMessageSteps } from '../../lib/soomgoMessagePresets.js';
-import type { SoomgoAutoTriggerKind } from '../../lib/soomgoMessagePresets.js';
+import type { SoomgoIntakeAutoTriggerKind } from '../../lib/soomgoMessagePresets.js';
 import {
-  isSoomgoAutoTriggerKind,
   isSoomgoIntakeAutoTriggerKind,
   SOOMGO_INTAKE_AUTO_TRIGGER_KINDS,
   SOOMGO_INTAKE_AUTO_TRIGGER_LABELS,
   SOOMGO_ALL_AUTO_TRIGGER_KINDS,
 } from '../../lib/soomgoMessagePresets.js';
+import {
+  assertOperatingCompanyForTenant,
+  parseTelecrmOperatingCompanyId,
+} from './telecrmBrand.helpers.js';
 
-const AUTO_LABELS: Record<string, string> = {
+const AUTO_LABELS: Record<SoomgoIntakeAutoTriggerKind, string> = {
   auto_requested: '요청 자동 안내',
   auto_absent: '부재 자동 안내',
   auto_hold: '보류·고민 자동 안내',
@@ -18,7 +21,7 @@ const AUTO_LABELS: Record<string, string> = {
   auto_received: '예약완료 자동 안내',
 };
 
-const AUTO_SORT: Record<string, number> = {
+const AUTO_SORT: Record<SoomgoIntakeAutoTriggerKind, number> = {
   auto_requested: 0,
   auto_absent: 1,
   auto_hold: 2,
@@ -35,15 +38,19 @@ function parseStepsJson(stepsJson: string) {
   }
 }
 
-function serializeAutoRow(row: {
-  id: string;
-  label: string;
-  stepsJson: string;
-  isActive: boolean;
-  triggerKind: string | null;
-}) {
+function serializeAutoRow(
+  row: {
+    id: string;
+    label: string;
+    stepsJson: string;
+    isActive: boolean;
+    triggerKind: string | null;
+    operatingCompanyId: string | null;
+  },
+  opts?: { fallbackFromDefault?: boolean },
+) {
   const triggerKind = row.triggerKind;
-  if (!isSoomgoAutoTriggerKind(triggerKind)) {
+  if (!isSoomgoIntakeAutoTriggerKind(triggerKind)) {
     throw new Error('INVALID_AUTO_TRIGGER');
   }
   return {
@@ -52,12 +59,18 @@ function serializeAutoRow(row: {
     label: row.label,
     steps: parseStepsJson(row.stepsJson),
     isActive: row.isActive,
+    operatingCompanyId: row.operatingCompanyId,
+    ...(opts?.fallbackFromDefault ? { fallbackFromDefault: true as const } : {}),
   };
 }
 
-async function ensureAutoPresetRow(tenantId: string, triggerKind: SoomgoAutoTriggerKind) {
+async function ensureAutoPresetRow(
+  tenantId: string,
+  triggerKind: SoomgoIntakeAutoTriggerKind,
+  operatingCompanyId: string | null,
+) {
   const existing = await prisma.telecrmSoomgoMessagePreset.findFirst({
-    where: { tenantId, triggerKind, operatingCompanyId: null },
+    where: { tenantId, triggerKind, operatingCompanyId },
   });
   if (existing) return existing;
 
@@ -65,6 +78,7 @@ async function ensureAutoPresetRow(tenantId: string, triggerKind: SoomgoAutoTrig
     data: {
       tenantId,
       ownerUserId: null,
+      operatingCompanyId,
       slotNumber: 0,
       label: AUTO_LABELS[triggerKind],
       stepsJson: '[]',
@@ -75,36 +89,139 @@ async function ensureAutoPresetRow(tenantId: string, triggerKind: SoomgoAutoTrig
   });
 }
 
-export async function listTelecrmSoomgoAutoMessages(tenantId: string) {
-  const rows = await Promise.all(
-    SOOMGO_INTAKE_AUTO_TRIGGER_KINDS.map((kind) => ensureAutoPresetRow(tenantId, kind)),
-  );
-  rows.sort((a, b) => {
-    const ak = a.triggerKind as SoomgoAutoTriggerKind;
-    const bk = b.triggerKind as SoomgoAutoTriggerKind;
-    return (AUTO_SORT[ak] ?? 0) - (AUTO_SORT[bk] ?? 0);
+async function getAutoPresetForBrand(
+  tenantId: string,
+  triggerKind: SoomgoIntakeAutoTriggerKind,
+  operatingCompanyId: string | null,
+) {
+  const defaultRow = await ensureAutoPresetRow(tenantId, triggerKind, null);
+
+  if (!operatingCompanyId) {
+    return {
+      item: serializeAutoRow(defaultRow),
+      fallbackFromDefault: false as const,
+      defaultItem: undefined,
+    };
+  }
+
+  const brandRow = await prisma.telecrmSoomgoMessagePreset.findFirst({
+    where: { tenantId, triggerKind, operatingCompanyId },
   });
+
+  if (brandRow) {
+    const hasOwnContent =
+      brandRow.isActive || parseStepsJson(brandRow.stepsJson).length > 0;
+    if (hasOwnContent) {
+      return {
+        item: serializeAutoRow(brandRow),
+        fallbackFromDefault: false as const,
+        defaultItem: serializeAutoRow(defaultRow),
+      };
+    }
+  }
+
+  const draftRow = brandRow ?? (await ensureAutoPresetRow(tenantId, triggerKind, operatingCompanyId));
   return {
-    items: rows.map(serializeAutoRow),
-    labels: SOOMGO_INTAKE_AUTO_TRIGGER_LABELS,
+    item: serializeAutoRow(
+      {
+        ...draftRow,
+        stepsJson: defaultRow.stepsJson,
+        isActive: defaultRow.isActive,
+      },
+      { fallbackFromDefault: true },
+    ),
+    fallbackFromDefault: true as const,
+    defaultItem: serializeAutoRow(defaultRow),
   };
 }
 
-export async function upsertTelecrmSoomgoAutoMessage(
+export async function listTelecrmSoomgoAutoMessages(
   tenantId: string,
+  operatingCompanyIdRaw?: unknown,
+) {
+  const operatingCompanyId = parseTelecrmOperatingCompanyId(operatingCompanyIdRaw);
+  if (operatingCompanyId) {
+    await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
+  }
+
+  const results = await Promise.all(
+    SOOMGO_INTAKE_AUTO_TRIGGER_KINDS.map((kind) =>
+      getAutoPresetForBrand(tenantId, kind, operatingCompanyId),
+    ),
+  );
+
+  results.sort(
+    (a, b) =>
+      AUTO_SORT[a.item.triggerKind] - AUTO_SORT[b.item.triggerKind],
+  );
+
+  return {
+    items: results.map((r) => r.item),
+    fallbackFromDefault: results.some((r) => r.fallbackFromDefault),
+    labels: SOOMGO_INTAKE_AUTO_TRIGGER_LABELS,
+    operatingCompanyId,
+  };
+}
+
+export async function resolveTelecrmSoomgoIntakeAutoMessageForSend(
+  tenantId: string,
+  operatingCompanyId: string | null,
   triggerKindRaw: string,
-  input: { steps: unknown; isActive: boolean },
 ) {
   if (!isSoomgoIntakeAutoTriggerKind(triggerKindRaw)) {
     throw new Error('INVALID_TRIGGER');
   }
   const triggerKind = triggerKindRaw;
+
+  if (operatingCompanyId) {
+    await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
+    const brand = await prisma.telecrmSoomgoMessagePreset.findFirst({
+      where: {
+        tenantId,
+        triggerKind,
+        operatingCompanyId,
+        isActive: true,
+      },
+    });
+    if (brand && parseStepsJson(brand.stepsJson).length > 0) {
+      return serializeAutoRow(brand);
+    }
+  }
+
+  const fallback = await prisma.telecrmSoomgoMessagePreset.findFirst({
+    where: {
+      tenantId,
+      triggerKind,
+      operatingCompanyId: null,
+      isActive: true,
+    },
+  });
+  if (fallback && parseStepsJson(fallback.stepsJson).length > 0) {
+    return serializeAutoRow(fallback);
+  }
+  return null;
+}
+
+export async function upsertTelecrmSoomgoAutoMessage(
+  tenantId: string,
+  triggerKindRaw: string,
+  input: { steps: unknown; isActive: boolean; operatingCompanyId?: unknown },
+) {
+  if (!isSoomgoIntakeAutoTriggerKind(triggerKindRaw)) {
+    throw new Error('INVALID_TRIGGER');
+  }
+  const triggerKind = triggerKindRaw;
+  const operatingCompanyId = parseTelecrmOperatingCompanyId(input.operatingCompanyId);
+  if (operatingCompanyId) {
+    await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
+  }
+
   const parsedSteps = parseSoomgoMessageSteps(input.steps);
   if (input.isActive && (!parsedSteps || parsedSteps.length === 0)) {
     throw new Error('STEPS_REQUIRED');
   }
 
-  const row = await ensureAutoPresetRow(tenantId, triggerKind);
+  const row = await ensureAutoPresetRow(tenantId, triggerKind, operatingCompanyId);
   const updated = await prisma.telecrmSoomgoMessagePreset.update({
     where: { id: row.id },
     data: {

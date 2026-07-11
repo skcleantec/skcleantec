@@ -1,6 +1,7 @@
 import { applyPlaceholdersToSoomgoSteps } from '@shared/telecrmSoomgoFollowupAuto';
 import { soomgoAutoTriggerForIntakeKind } from '@shared/soomgoMessagePresets';
-import { fetchTelecrmSoomgoAutoMessages } from '../api/telecrmSoomgoMessagePresets';
+import type { SoomgoIntakeAutoTriggerKind } from '@shared/soomgoMessagePresets';
+import { resolveTelecrmSoomgoIntakeAutoMessageForSend } from '../api/telecrmSoomgoMessagePresets';
 import { fetchSoomgoBridgeStatus, sendSoomgoBridgeSequence } from '../api/soomgoBridge';
 import type { CrmIntakeKind } from '../components/crm/intake/crmIntakeSubmit';
 
@@ -9,38 +10,26 @@ export type SoomgoFollowupAutoSendResult =
   | { sent: false; reason: 'disabled' | 'empty' | 'bridge' | 'skipped' }
   | { sent: false; reason: 'error'; message: string };
 
-type AutoMessagesCache = {
-  items: Awaited<ReturnType<typeof fetchTelecrmSoomgoAutoMessages>>['items'];
-  at: number;
-};
-
-let cache: AutoMessagesCache | null = null;
-const CACHE_MS = 60_000;
-
-async function loadAutoMessages(token: string) {
-  const now = Date.now();
-  if (cache && now - cache.at < CACHE_MS) return cache.items;
-  const res = await fetchTelecrmSoomgoAutoMessages(token);
-  cache = { items: res.items, at: now };
-  return res.items;
-}
-
 export function invalidateSoomgoFollowupAutoConfigCache(): void {
-  cache = null;
+  /* resolve API 직접 호출 — 캐시 없음 */
 }
 
-/** 접수란 저장 직후 — 처리 구분별 프리셋 ON이면 숨고 채팅 자동 전송 */
+/** 접수란 저장 직후 — 처리 구분·작업 브랜드별 프리셋 ON이면 숨고 채팅 자동 전송 */
 export async function trySoomgoFollowupAutoMessage(
   token: string,
   kind: CrmIntakeKind,
-  ctx: { customerName: string; nickname: string },
+  ctx: { customerName: string; nickname: string; operatingCompanyId?: string | null },
 ): Promise<SoomgoFollowupAutoSendResult> {
   const triggerKind = soomgoAutoTriggerForIntakeKind(kind);
-  if (!triggerKind) return { sent: false, reason: 'skipped' };
+  if (!triggerKind || triggerKind === 'auto_quote') return { sent: false, reason: 'skipped' };
+  const intakeTrigger = triggerKind as SoomgoIntakeAutoTriggerKind;
 
   try {
-    const items = await loadAutoMessages(token);
-    const preset = items.find((item) => item.triggerKind === triggerKind);
+    const { item: preset } = await resolveTelecrmSoomgoIntakeAutoMessageForSend(
+      token,
+      intakeTrigger,
+      ctx.operatingCompanyId ?? null,
+    );
     if (!preset?.isActive) return { sent: false, reason: 'disabled' };
     if (!preset.steps.length) return { sent: false, reason: 'empty' };
 

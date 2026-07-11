@@ -454,6 +454,7 @@ model OperatingCompany {
   orderFollowups             OrderFollowup[]
   telecrmConsultationQuotes  TelecrmConsultationQuote[]
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
+  telecrmSmsTemplates         TelecrmSmsTemplate[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
@@ -2830,6 +2831,9 @@ model TelecrmSmsTemplate {
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   ownerUserId String?  @map("owner_user_id")
   ownerUser   User?    @relation("TelecrmSmsTemplateOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  /// null = 업체 기본(모든 브랜드 공통) · 브랜드별 문자 템플릿
+  operatingCompanyId String? @map("operating_company_id")
+  operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
   label       String   @db.VarChar(120)
   body        String   @db.Text
   imageUrl    String?  @map("image_url") @db.VarChar(512)
@@ -2839,6 +2843,7 @@ model TelecrmSmsTemplate {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@index([tenantId, ownerUserId, sortOrder])
+  @@index([tenantId, operatingCompanyId])
   @@map("telecrm_sms_templates")
 }
 
@@ -2890,7 +2895,7 @@ model TelecrmSoomgoMessagePreset {
   sortOrder   Int      @default(0) @map("sort_order")
   isActive    Boolean  @default(true) @map("is_active")
   triggerKind String?  @map("trigger_kind") @db.VarChar(20)
-  /// 견적보내기(auto_quote) 등 브랜드별 자동메시지 — null이면 테넌트 기본
+  /// 견적보내기(auto_quote) · 접수 처리 6종 등 브랜드별 자동메시지 — null이면 테넌트 기본
   operatingCompanyId String? @map("operating_company_id")
   operatingCompany   OperatingCompany? @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
   /// 견적보내기 서식 — 리뷰 페이백 차감액(원). {이벤트가} 계산용

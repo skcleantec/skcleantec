@@ -18,6 +18,10 @@ import {
   telecrmCategoryOwnerScope,
   telecrmSmsTemplateWhere,
 } from './telecrmCatalogScope.helpers.js';
+import {
+  assertOperatingCompanyForTenant,
+  parseTelecrmOperatingCompanyId,
+} from './telecrmBrand.helpers.js';
 
 const router = Router();
 router.use(authMiddleware, staffMarketerRoleOnly);
@@ -35,6 +39,7 @@ function serializeTemplate(row: {
   sortOrder: number;
   isActive: boolean;
   ownerUserId?: string | null;
+  operatingCompanyId?: string | null;
 }) {
   return {
     id: row.id,
@@ -45,6 +50,7 @@ function serializeTemplate(row: {
     isActive: row.isActive,
     ownerUserId: row.ownerUserId ?? null,
     ownerScope: telecrmCategoryOwnerScope(row.ownerUserId ?? null),
+    operatingCompanyId: row.operatingCompanyId ?? null,
   };
 }
 
@@ -54,16 +60,30 @@ router.get('/', requireStaffPermission('crm.view', 'crm.settings'), async (req, 
   const user = (req as unknown as { user: AuthPayload }).user;
   const scope = parseTelecrmCatalogScope(req.query.scope);
   const includeInactive = req.query.includeInactive === '1' || req.query.includeInactive === 'true';
-  const rows = await prisma.telecrmSmsTemplate.findMany({
-    where: {
-      ...telecrmSmsTemplateWhere(scope, tenantId, user.userId),
-      ...(includeInactive ? {} : { isActive: true }),
-    },
-    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-  });
-  const templates =
-    scope === 'work' ? sortTelecrmSmsTemplatesForWork(rows).map(serializeTemplate) : rows.map(serializeTemplate);
-  res.json({ templates });
+  const operatingCompanyId = parseTelecrmOperatingCompanyId(req.query.operatingCompanyId);
+  try {
+    if (operatingCompanyId) {
+      await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
+    }
+    const rows = await prisma.telecrmSmsTemplate.findMany({
+      where: {
+        ...telecrmSmsTemplateWhere(scope, tenantId, user.userId, operatingCompanyId),
+        ...(includeInactive ? {} : { isActive: true }),
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    const templates =
+      scope === 'work'
+        ? sortTelecrmSmsTemplatesForWork(rows, operatingCompanyId).map(serializeTemplate)
+        : rows.map(serializeTemplate);
+    res.json({ templates });
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
 });
 
 router.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
@@ -74,11 +94,12 @@ router.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req,
     (req.body as { ownerScope?: string }).ownerScope ?? (req.body as { scope?: string }).scope,
   );
   if (!(await denyUnlessCanCreateTelecrmCatalog(res, user, ownerScope))) return;
-  const { label, body, imageUrl, sortOrder } = req.body as {
+  const { label, body, imageUrl, sortOrder, operatingCompanyId: operatingCompanyIdRaw } = req.body as {
     label?: string;
     body?: string;
     imageUrl?: string | null;
     sortOrder?: number;
+    operatingCompanyId?: string | null;
   };
   const trimmedLabel = label?.trim() ?? '';
   const trimmedBody = body?.trim() ?? '';
@@ -90,21 +111,39 @@ router.post('/', requireStaffPermission('crm.view', 'crm.settings'), async (req,
     res.status(400).json({ error: '문자 내용을 입력해주세요.' });
     return;
   }
-  const maxOrder = await prisma.telecrmSmsTemplate.aggregate({
-    where: { tenantId, ownerUserId: ownerScope === 'personal' ? user.userId : null },
-    _max: { sortOrder: true },
-  });
-  const created = await prisma.telecrmSmsTemplate.create({
-    data: {
-      tenantId,
-      ownerUserId: ownerScope === 'personal' ? user.userId : null,
-      label: trimmedLabel.slice(0, 120),
-      body: trimmedBody.slice(0, 4000),
-      imageUrl: typeof imageUrl === 'string' && imageUrl.trim() ? imageUrl.trim().slice(0, 512) : null,
-      sortOrder: parseSortOrder(sortOrder, (maxOrder._max.sortOrder ?? -1) + 1),
-    },
-  });
-  res.status(201).json(serializeTemplate(created));
+  const operatingCompanyId =
+    ownerScope === 'shared' ? parseTelecrmOperatingCompanyId(operatingCompanyIdRaw) : null;
+  try {
+    if (operatingCompanyId) {
+      await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
+    }
+    const maxOrder = await prisma.telecrmSmsTemplate.aggregate({
+      where: {
+        tenantId,
+        ownerUserId: ownerScope === 'personal' ? user.userId : null,
+        operatingCompanyId: operatingCompanyId ?? null,
+      },
+      _max: { sortOrder: true },
+    });
+    const created = await prisma.telecrmSmsTemplate.create({
+      data: {
+        tenantId,
+        ownerUserId: ownerScope === 'personal' ? user.userId : null,
+        operatingCompanyId,
+        label: trimmedLabel.slice(0, 120),
+        body: trimmedBody.slice(0, 4000),
+        imageUrl: typeof imageUrl === 'string' && imageUrl.trim() ? imageUrl.trim().slice(0, 512) : null,
+        sortOrder: parseSortOrder(sortOrder, (maxOrder._max.sortOrder ?? -1) + 1),
+      },
+    });
+    res.status(201).json(serializeTemplate(created));
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
 });
 
 router.patch('/:id', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {

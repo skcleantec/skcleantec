@@ -11,6 +11,7 @@ import {
 import type { TelecrmCatalogOwnerScope } from '../../../../api/telecrm';
 import { DeletePasswordModal, SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
 import { crmFieldClass } from '../../../../components/crm/crmUi';
+import { TelecrmBrandSelect } from '../../../../components/crm/settings/TelecrmBrandSelect';
 
 export function TelecrmSmsTemplateSettingsPage({
   catalogScope: catalogScopeProp,
@@ -21,6 +22,8 @@ export function TelecrmSmsTemplateSettingsPage({
   const catalogScope: TelecrmCatalogOwnerScope =
     catalogScopeProp ?? (searchParams.get('catalog') === 'shared' ? 'shared' : 'personal');
   const token = getToken();
+  const [brandId, setBrandId] = useState('default');
+  const operatingCompanyId = catalogScope === 'shared' && brandId !== 'default' ? brandId : null;
   const [templates, setTemplates] = useState<TelecrmSmsTemplateDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,14 +38,18 @@ export function TelecrmSmsTemplateSettingsPage({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchTelecrmSmsTemplates(token, { includeInactive: true, scope: catalogScope });
+      const res = await fetchTelecrmSmsTemplates(token, {
+        includeInactive: true,
+        scope: catalogScope,
+        operatingCompanyId: catalogScope === 'shared' ? operatingCompanyId : undefined,
+      });
       setTemplates(res.templates);
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
     } finally {
       setLoading(false);
     }
-  }, [token, catalogScope]);
+  }, [token, catalogScope, operatingCompanyId]);
 
   useEffect(() => {
     void load();
@@ -57,6 +64,7 @@ export function TelecrmSmsTemplateSettingsPage({
         body: form.body.trim(),
         imageUrl: form.imageUrl.trim() || null,
         ownerScope: catalogScope,
+        operatingCompanyId: catalogScope === 'shared' ? operatingCompanyId : null,
       });
       setForm({ label: '', body: '', imageUrl: '' });
       await load();
@@ -82,6 +90,15 @@ export function TelecrmSmsTemplateSettingsPage({
 
   return (
     <div className="space-y-4">
+      {catalogScope === 'shared' ? (
+        <>
+          <TelecrmBrandSelect token={token} value={brandId} onChange={setBrandId} />
+          <p className="text-fluid-xs text-gray-600">
+            업체 공유 문자 템플릿을 브랜드별로 관리합니다. <strong>업체 기본</strong>은 모든 브랜드에서
+            함께 보입니다.
+          </p>
+        </>
+      ) : null}
       <p className="text-fluid-xs text-gray-600">
         치환: {'{고객명}'} {'{연락처}'} {'{평수}'} {'{예상가}'} {'{발주서링크}'}
       </p>

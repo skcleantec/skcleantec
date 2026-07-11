@@ -9,6 +9,7 @@ import { isSoomgoAutoTriggerKind } from '../../lib/soomgoMessagePresets.js';
 import {
   listTelecrmSoomgoAutoMessages,
   manualSoomgoPresetWhereExtra,
+  resolveTelecrmSoomgoIntakeAutoMessageForSend,
   upsertTelecrmSoomgoAutoMessage,
 } from './telecrmSoomgoAutoMessages.service.js';
 import {
@@ -79,7 +80,43 @@ function serializePreset(row: {
 router.get('/auto-messages', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
-  res.json(await listTelecrmSoomgoAutoMessages(tenantId));
+  try {
+    res.json(await listTelecrmSoomgoAutoMessages(tenantId, req.query.operatingCompanyId));
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.get('/auto-messages/resolve', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const triggerKind = String(req.query.triggerKind ?? '');
+  const operatingCompanyId =
+    req.query.operatingCompanyId == null || req.query.operatingCompanyId === ''
+      ? null
+      : String(req.query.operatingCompanyId);
+  try {
+    const item = await resolveTelecrmSoomgoIntakeAutoMessageForSend(
+      tenantId,
+      operatingCompanyId,
+      triggerKind,
+    );
+    res.json({ item });
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_TRIGGER') {
+      res.status(400).json({ error: '자동 메시지 종류가 올바르지 않습니다.' });
+      return;
+    }
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
 });
 
 router.get('/auto-messages/auto_quote/resolve', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
@@ -152,16 +189,25 @@ router.put('/auto-messages/:triggerKind', requireStaffPermission('crm.settings')
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
   const triggerKind = req.params.triggerKind;
-  const { steps, isActive } = req.body as { steps?: unknown; isActive?: boolean };
+  const { steps, isActive, operatingCompanyId } = req.body as {
+    steps?: unknown;
+    isActive?: boolean;
+    operatingCompanyId?: string | null;
+  };
   try {
     const item = await upsertTelecrmSoomgoAutoMessage(tenantId, triggerKind, {
       steps,
       isActive: isActive === true,
+      operatingCompanyId,
     });
     res.json(item);
   } catch (e) {
     if (e instanceof Error && e.message === 'INVALID_TRIGGER') {
       res.status(400).json({ error: '자동 메시지 종류가 올바르지 않습니다.' });
+      return;
+    }
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
       return;
     }
     if (e instanceof Error && e.message === 'STEPS_REQUIRED') {

@@ -20,7 +20,7 @@ export type SoomgoMessagePresetDto = {
   triggerKind?: SoomgoAutoTriggerKind | null;
 };
 
-/** 접수 저장 시 자동 전송 (업체 공통, 프리셋 탭 「자동메시지」) */
+/** 접수 저장 시 자동 전송 — 브랜드별(미설정 시 업체 기본 폴백) */
 export type SoomgoIntakeAutoTriggerKind =
   | 'auto_requested'
   | 'auto_absent'
@@ -98,6 +98,9 @@ export type SoomgoAutoMessagePresetDto = {
   label: string;
   steps: SoomgoMessageStep[];
   isActive: boolean;
+  operatingCompanyId: string | null;
+  /** 브랜드별 미저장·미설정 시 업체 기본 문구를 미리보기로 표시 */
+  fallbackFromDefault?: boolean;
 };
 
 export type SoomgoQuoteAutoMessagePresetDto = {

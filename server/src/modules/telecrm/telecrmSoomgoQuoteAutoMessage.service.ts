@@ -57,30 +57,16 @@ async function ensureQuotePresetRow(tenantId: string, operatingCompanyId: string
   });
 }
 
-export async function assertOperatingCompanyForTenant(tenantId: string, operatingCompanyId: string) {
-  const row = await prisma.operatingCompany.findFirst({
-    where: { id: operatingCompanyId, tenantId, isActive: true },
-    select: { id: true },
-  });
-  if (!row) throw new Error('INVALID_BRAND');
-}
-
-function parseOperatingCompanyId(raw: unknown): string | null {
-  if (raw == null || raw === '' || raw === 'default') return null;
-  if (typeof raw !== 'string') return null;
-  const trimmed = raw.trim();
-  return trimmed || null;
-}
-
-export function parseQuoteAutoOperatingCompanyId(raw: unknown): string | null {
-  return parseOperatingCompanyId(raw);
-}
+import {
+  assertOperatingCompanyForTenant,
+  parseTelecrmOperatingCompanyId,
+} from './telecrmBrand.helpers.js';
 
 export async function getTelecrmSoomgoQuoteAutoMessage(
   tenantId: string,
   operatingCompanyIdRaw: unknown,
 ) {
-  const operatingCompanyId = parseOperatingCompanyId(operatingCompanyIdRaw);
+  const operatingCompanyId = parseTelecrmOperatingCompanyId(operatingCompanyIdRaw);
   if (operatingCompanyId) {
     await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
   }
@@ -143,7 +129,7 @@ export async function upsertTelecrmSoomgoQuoteAutoMessage(
   operatingCompanyIdRaw: unknown,
   input: { steps: unknown; isActive: boolean; paybackWon?: unknown },
 ) {
-  const operatingCompanyId = parseOperatingCompanyId(operatingCompanyIdRaw);
+  const operatingCompanyId = parseTelecrmOperatingCompanyId(operatingCompanyIdRaw);
   if (operatingCompanyId) {
     await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
   }

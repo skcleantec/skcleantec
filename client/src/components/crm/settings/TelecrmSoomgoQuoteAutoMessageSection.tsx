@@ -16,11 +16,21 @@ import {
 
 type QuoteDraft = SoomgoPresetDraft & { paybackWon: string };
 
-/** 숨고 프리셋 — 견적보내기 서식 (브랜드별, 업체 공통) */
-export function TelecrmSoomgoQuoteAutoMessageSection() {
+/** 숨고 프리셋 — 견적보내기 서식 (브랜드별, 업체 기본 폴백) */
+export function TelecrmSoomgoQuoteAutoMessageSection({
+  brandId: brandIdProp,
+  onBrandIdChange,
+  hideBrandSelector = false,
+}: {
+  brandId?: string;
+  onBrandIdChange?: (id: string) => void;
+  hideBrandSelector?: boolean;
+} = {}) {
   const token = getToken();
   const brands = useOperatingCompanies(token);
-  const [brandId, setBrandId] = useState<string>('default');
+  const [internalBrandId, setInternalBrandId] = useState<string>('default');
+  const brandId = brandIdProp ?? internalBrandId;
+  const setBrandId = onBrandIdChange ?? setInternalBrandId;
   const [draft, setDraft] = useState<QuoteDraft | null>(null);
   const [fallbackFromDefault, setFallbackFromDefault] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -142,19 +152,23 @@ export function TelecrmSoomgoQuoteAutoMessageSection() {
       </div>
 
       <label className="flex flex-wrap items-center gap-2 text-[11px] text-gray-700">
-        <span className="font-medium">브랜드</span>
-        <select
-          value={brandId}
-          onChange={(e) => setBrandId(e.target.value)}
-          className="min-w-[8rem] rounded border border-gray-300 bg-white px-2 py-1 text-[11px]"
-        >
-          <option value="default">업체 기본</option>
-          {brands.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.displayName}
-            </option>
-          ))}
-        </select>
+        {!hideBrandSelector ? (
+          <>
+            <span className="font-medium">브랜드</span>
+            <select
+              value={brandId}
+              onChange={(e) => setBrandId(e.target.value)}
+              className="min-w-[8rem] rounded border border-gray-300 bg-white px-2 py-1 text-[11px]"
+            >
+              <option value="default">업체 기본</option>
+              {brands.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.displayName}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : null}
         {fallbackFromDefault ? (
           <span className="text-amber-700">이 브랜드 전용 서식 없음 — 저장 시 브랜드별로 생성됩니다.</span>
         ) : null}
