@@ -271,23 +271,30 @@ router.get('/runs/:id', async (req, res) => {
 });
 
 /** 비밀번호 확인 후 — 해당 실행으로 등록(CREATED)된 접수 일괄 영구 삭제 */
-router.delete('/runs/:id/inquiries', async (req, res) => {
+async function handleUndoImportRun(req: Request, res: Response) {
   const tenantId = tenantIdOr403(req, res);
   if (!tenantId) return;
   const user = (req as unknown as { user: AuthPayload }).user;
   const body = req.body as { password?: string };
   if (!(await verifyPasswordForRequest(req, res, body.password))) return;
 
-  const result = await undoInquiryExcelImportRun({
-    tenantId,
-    runId: req.params.id,
-    actorId: user.userId,
-  });
-  if (!result) {
-    res.status(404).json({ error: '실행 이력을 찾을 수 없습니다.' });
-    return;
+  try {
+    const result = await undoInquiryExcelImportRun({
+      tenantId,
+      runId: req.params.id,
+      actorId: user.userId,
+    });
+    if (!result) {
+      res.status(404).json({ error: '실행 이력을 찾을 수 없습니다.' });
+      return;
+    }
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '일괄 삭제 실패' });
   }
-  res.json({ ok: true, ...result });
-});
+}
+
+router.delete('/runs/:id/inquiries', handleUndoImportRun);
+router.post('/runs/:id/inquiries/delete', handleUndoImportRun);
 
 export default router;

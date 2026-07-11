@@ -371,27 +371,49 @@ export async function undoInquiryExcelImportRun(params: {
 }) {
   const run = await prisma.inquiryExcelImportRun.findFirst({
     where: { id: params.runId, tenantId: params.tenantId },
-    select: { id: true, fileName: true, rowResults: true },
+    select: { id: true, fileName: true, rowResults: true, totalRows: true },
   });
   if (!run) return null;
 
   const rowResults = parseRowResults(run.rowResults);
   const pendingCount = rowResults.filter((r) => r.kind === 'CREATED').length;
   if (pendingCount === 0) {
-    return { deletedCount: 0, notFoundCount: 0, alreadyDeletedCount: rowResults.filter((r) => r.kind === 'DELETED').length };
+    return {
+      deletedCount: 0,
+      notFoundCount: 0,
+      alreadyDeletedCount: rowResults.filter((r) => r.kind === 'DELETED').length,
+      attemptedCount: 0,
+      missingInquiryIdRows: 0,
+      unresolvedRows: 0,
+    };
   }
 
   const label = run.fileName?.trim() || run.id.slice(0, 8);
-  return prisma.$transaction((tx) =>
+  const result = await prisma.$transaction((tx) =>
     deleteInquiriesFromExcelImportRun({
       db: tx,
       tenantId: params.tenantId,
       runId: run.id,
+      totalRows: run.totalRows,
       actorId: params.actorId,
       rowResults,
       runLabel: label,
     }),
   );
+
+  if (result.deletedCount === 0 && result.attemptedCount > 0) {
+    const parts = [
+      '삭제된 접수가 0건입니다.',
+      result.alreadyDeletedCount > 0 ? `이미 삭제 표시 ${result.alreadyDeletedCount}건` : null,
+      result.notFoundCount > 0 ? `DB 미발견 ${result.notFoundCount}건` : null,
+      result.unresolvedRows > 0 ? `접수 ID·번호로 찾지 못한 행 ${result.unresolvedRows}건` : null,
+      result.missingInquiryIdRows > 0 ? `이력에 접수 ID 없음 ${result.missingInquiryIdRows}건` : null,
+      '다른 실행 이력으로 등록됐거나 이미 개별 삭제됐을 수 있습니다.',
+    ].filter(Boolean);
+    throw new Error(parts.join(' '));
+  }
+
+  return result;
 }
 
 export { extractExcelHeaders, parseMappingSpec };
