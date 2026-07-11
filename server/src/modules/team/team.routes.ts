@@ -24,6 +24,10 @@ import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
+import {
+  attachTenantShareMetaToInquiries,
+  attachTenantShareMetaToInquiry,
+} from '../tenant-partners/tenantInquiryShare.service.js';
 import { toChangeHistoryItemDto } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import {
   filterMarketerOnlyChangeLogLines,
@@ -1273,7 +1277,8 @@ router.get('/inquiries/:id', async (req, res) => {
     return;
   }
   const [item] = await attachProfessionalOptions(await attachCrewMembers([row], tenantId), tenantId);
-  res.json(serializeTeamInquiryOperatingCompany(attachInspectionSummaryToInquiry(item)));
+  const withShare = await attachTenantShareMetaToInquiry(tenantId, item);
+  res.json(serializeTeamInquiryOperatingCompany(attachInspectionSummaryToInquiry(withShare)));
 });
 
 router.get('/inquiries', async (req, res) => {
@@ -1303,10 +1308,11 @@ router.get('/inquiries', async (req, res) => {
       include: teamInquiryInclude,
     });
     const items = await attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId);
+    const withShare = await attachTenantShareMetaToInquiries(tenantId, items);
     res.json({
       items: serializeTeamInquiryOperatingCompanies(
         attachInspectionSummaries(
-          items as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+          withShare as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
         ),
       ),
     });

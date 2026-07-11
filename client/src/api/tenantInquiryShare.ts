@@ -45,3 +45,35 @@ export async function createTenantInquiryShare(
   }
   return res.json();
 }
+
+export async function patchTenantInquiryShareTransferFee(
+  token: string,
+  shareId: string,
+  transferFee: number | null,
+): Promise<{ share: TenantInquiryShareMeta }> {
+  const res = await fetch(`${API}/tenant-partners/shares/${encodeURIComponent(shareId)}`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify({ transferFee }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '파트너 수수료 저장에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function revokeTenantInquiryShare(
+  token: string,
+  shareId: string,
+): Promise<{ share: TenantInquiryShareMeta }> {
+  const res = await fetch(`${API}/tenant-partners/shares/${encodeURIComponent(shareId)}/revoke`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '접수 연계 취소에 실패했습니다.');
+  }
+  return res.json();
+}

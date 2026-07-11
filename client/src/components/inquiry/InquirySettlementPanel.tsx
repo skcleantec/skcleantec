@@ -16,10 +16,9 @@ import {
   type InquiryAdditionalReceipt,
   type AdditionalReceiptSettlementChannel,
 } from '../../api/inquiryAdditionalReceipts';
-import {
-  coerceInquiryWonAmount,
-  resolveCollectibleBaseBalance,
-} from '../../utils/inquiryCollectibleAmount';
+import { coerceInquiryWonAmount } from '../../utils/inquiryCollectibleAmount';
+import type { TenantInquiryShareMeta } from '../../api/tenantInquiryShare';
+import { resolveTenantShareCollectibleBaseBalance } from '../../utils/tenantShareSettlement';
 
 interface Props {
   inquiryId: string;
@@ -55,6 +54,8 @@ interface Props {
   readOnly?: boolean;
   /** 변경 발생 시 부모가 캐시를 갱신하도록 */
   onChanged?: () => void;
+  /** 파트너 접수 연계 — 잔금·수수료 표시 규칙 */
+  tenantShare?: TenantInquiryShareMeta | null;
 }
 
 function formatWon(n: number): string {
@@ -374,6 +375,7 @@ export function InquirySettlementPanel({
   initialAdditionalReceipts,
   readOnly = false,
   onChanged,
+  tenantShare = null,
 }: Props) {
   const extraListApi =
     mode === 'admin' ? listAdminInquiryExtraCharges : listTeamInquiryExtraCharges;
@@ -537,11 +539,19 @@ export function InquirySettlementPanel({
     [arcItems],
   );
 
-  const resolvedBaseBalance = resolveCollectibleBaseBalance(
-    serviceTotalAmount,
-    serviceDepositAmount,
-    serviceBalanceAmount,
+  const tenantShareBalance = useMemo(
+    () =>
+      resolveTenantShareCollectibleBaseBalance(
+        serviceTotalAmount,
+        serviceDepositAmount,
+        serviceBalanceAmount,
+        tenantShare,
+        mode,
+      ),
+    [serviceTotalAmount, serviceDepositAmount, serviceBalanceAmount, tenantShare, mode],
   );
+
+  const resolvedBaseBalance = tenantShareBalance.baseBalance;
 
   /** DB 서비스 잔금 + 회사입금 추가결재 + 레거시 현장 추가 */
   const collectibleBalanceAmount =
@@ -682,6 +692,13 @@ export function InquirySettlementPanel({
       <div className="divide-y divide-gray-100 bg-white">
         {row('총 결제금액 (서비스)', totalDisplay)}
         {row('예약금(선결제)', depositDisplay, 'minus')}
+        {tenantShareBalance.showPartnerFeeRow && tenantShareBalance.partnerFee > 0
+          ? row(
+              '파트너 수수료',
+              `-${tenantShareBalance.partnerFee.toLocaleString('ko-KR')}원`,
+              'minus',
+            )
+          : null}
         {arcItems.map((it) => (
           <div
             key={it.id}
@@ -725,6 +742,11 @@ export function InquirySettlementPanel({
           </div>
         ) : null}
         {row('잔금 (회사 수금·회사입금 추가 포함)', balanceDisplay, 'accent')}
+        {tenantShareBalance.sourceLinkedHint ? (
+          <div className="bg-slate-50/90 px-3 py-2 sm:px-4">
+            <p className="text-fluid-2xs leading-snug text-slate-600">{tenantShareBalance.sourceLinkedHint}</p>
+          </div>
+        ) : null}
       </div>
 
       {items.length > 0 ? (

@@ -1,6 +1,7 @@
 import type { Inquiry, InquiryStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { stampTenantShareCancelFeeDirection } from './tenantPartnerSettlement.service.js';
+import { computeTargetMirrorBalanceAmount } from './tenantInquiryShareBalance.helpers.js';
 import { filterKeysByShareMask, normalizeShareFieldMask } from './tenantInquiryShareFields.js';
 
 export const TENANT_SHARE_SYNC_LOG_PREFIX = '[파트너연계동기화]';
@@ -109,6 +110,7 @@ type ShareSyncRow = {
   sourceInquiryId: string;
   targetTenantId: string;
   targetInquiryId: string;
+  transferFee: number | null;
   syncStatus: 'ACTIVE' | 'PAUSED' | 'REVOKED';
   syncFieldMask: unknown;
   partnership: { status: string };
@@ -123,6 +125,7 @@ async function loadShareForInquiry(inquiryId: string): Promise<ShareSyncRow | nu
       sourceInquiryId: true,
       targetTenantId: true,
       targetInquiryId: true,
+      transferFee: true,
       syncStatus: true,
       syncFieldMask: true,
       partnership: { select: { status: true } },
@@ -137,6 +140,7 @@ async function loadShareForInquiry(inquiryId: string): Promise<ShareSyncRow | nu
       sourceInquiryId: true,
       targetTenantId: true,
       targetInquiryId: true,
+      transferFee: true,
       syncStatus: true,
       syncFieldMask: true,
       partnership: { select: { status: true } },
@@ -205,6 +209,23 @@ export async function syncTenantShareAfterInquiryPatch(opts: {
 
   const payload = pickSyncPayload(inquiryAfter, effectiveChangedKeys, { syncWhitelist, syncStatus });
   if (Object.keys(payload).length === 0) return;
+
+  const amountKeys = ['serviceTotalAmount', 'serviceDepositAmount', 'serviceBalanceAmount'] as const;
+  const amountTouched = isSource && amountKeys.some((k) => k in payload);
+  if (amountTouched && isSource) {
+    const adjusted = computeTargetMirrorBalanceAmount({
+      serviceTotalAmount:
+        (payload.serviceTotalAmount as number | null | undefined) ?? inquiryAfter.serviceTotalAmount,
+      serviceDepositAmount:
+        (payload.serviceDepositAmount as number | null | undefined) ?? inquiryAfter.serviceDepositAmount,
+      serviceBalanceAmount:
+        (payload.serviceBalanceAmount as number | null | undefined) ?? inquiryAfter.serviceBalanceAmount,
+      transferFee: share.transferFee,
+    });
+    if (adjusted != null) {
+      payload.serviceBalanceAmount = adjusted;
+    }
+  }
 
   await prisma.$transaction(async (tx) => {
     const peerBefore = await tx.inquiry.findUnique({ where: { id: peerId } });

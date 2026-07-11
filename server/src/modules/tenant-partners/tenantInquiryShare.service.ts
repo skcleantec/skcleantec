@@ -9,7 +9,11 @@ import {
   shareMaskFromPreset,
 } from './tenantInquiryShareFields.js';
 import { copyExistingConsultationPhotosToShareMirror } from './tenantInquiryPhotoSync.service.js';
-import { notifyTenantShareReceived } from './tenantInquiryShareNotify.js';
+import { notifyTenantShareReceived, notifyTenantShareRevoked } from './tenantInquiryShareNotify.js';
+import {
+  computeSourceMirrorBalanceAmount,
+  computeTargetMirrorBalanceAmount,
+} from './tenantInquiryShareBalance.helpers.js';
 
 export class TenantInquiryShareError extends Error {
   constructor(
@@ -226,6 +230,19 @@ export async function createTenantInquiryShare(opts: {
 
     const mirror = await tx.inquiry.create({ data: mirrorData });
 
+    const adjustedBalance = computeTargetMirrorBalanceAmount({
+      serviceTotalAmount: source.serviceTotalAmount,
+      serviceDepositAmount: source.serviceDepositAmount,
+      serviceBalanceAmount: source.serviceBalanceAmount,
+      transferFee,
+    });
+    if (adjustedBalance != null) {
+      await tx.inquiry.update({
+        where: { id: mirror.id },
+        data: { serviceBalanceAmount: adjustedBalance },
+      });
+    }
+
     const share = await tx.tenantInquiryShare.create({
       data: {
         partnershipId,
@@ -268,6 +285,195 @@ export async function createTenantInquiryShare(opts: {
     targetInquiryId: result.mirror.id,
     targetInquiryNumber: result.mirror.inquiryNumber,
   };
+}
+
+function parseTransferFeeInput(raw: unknown): number | null {
+  if (raw === undefined || raw === null || raw === '') return null;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return Math.trunc(raw);
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const n = parseInt(raw.replace(/,/g, ''), 10);
+    if (Number.isNaN(n)) throw new TenantInquiryShareError('수수료는 숫자로 입력해 주세요.');
+    return n;
+  }
+  throw new TenantInquiryShareError('수수료 형식이 올바르지 않습니다.');
+}
+
+async function applyMirrorBalanceForShare(
+  tx: Prisma.TransactionClient,
+  share: { targetInquiryId: string; transferFee: number | null; syncStatus: string },
+  source: Pick<Inquiry, 'serviceTotalAmount' | 'serviceDepositAmount' | 'serviceBalanceAmount'>,
+) {
+  if (share.syncStatus !== 'ACTIVE') {
+    const restored = computeSourceMirrorBalanceAmount(source);
+    if (restored != null) {
+      await tx.inquiry.update({
+        where: { id: share.targetInquiryId },
+        data: { serviceBalanceAmount: restored },
+      });
+    }
+    return;
+  }
+  const adjusted = computeTargetMirrorBalanceAmount({
+    serviceTotalAmount: source.serviceTotalAmount,
+    serviceDepositAmount: source.serviceDepositAmount,
+    serviceBalanceAmount: source.serviceBalanceAmount,
+    transferFee: share.transferFee,
+  });
+  if (adjusted != null) {
+    await tx.inquiry.update({
+      where: { id: share.targetInquiryId },
+      data: { serviceBalanceAmount: adjusted },
+    });
+  }
+}
+
+/** 송신 테넌트 — 파트너 수수료 수정 */
+export async function patchTenantInquiryShareTransferFee(opts: {
+  viewerTenantId: string;
+  shareId: string;
+  transferFee: unknown;
+}) {
+  const transferFee = parseTransferFeeInput(opts.transferFee);
+  if (transferFee != null && transferFee < 0) {
+    throw new TenantInquiryShareError('수수료는 0 이상 정수로 입력해 주세요.');
+  }
+
+  const share = await prisma.tenantInquiryShare.findFirst({
+    where: { id: opts.shareId, sourceTenantId: opts.viewerTenantId },
+    include: shareMetaInclude,
+  });
+  if (!share) {
+    throw new TenantInquiryShareError('연계 정보를 찾을 수 없습니다.', 404);
+  }
+  if (share.syncStatus !== 'ACTIVE') {
+    throw new TenantInquiryShareError('활성 연계만 수수료를 수정할 수 있습니다.');
+  }
+
+  const source = await prisma.inquiry.findFirst({
+    where: { id: share.sourceInquiryId, tenantId: opts.viewerTenantId },
+    select: {
+      serviceTotalAmount: true,
+      serviceDepositAmount: true,
+      serviceBalanceAmount: true,
+      customerName: true,
+    },
+  });
+  if (!source) {
+    throw new TenantInquiryShareError('원본 접수를 찾을 수 없습니다.', 404);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tenantInquiryShare.update({
+      where: { id: share.id },
+      data: { transferFee },
+    });
+    await applyMirrorBalanceForShare(tx, { ...share, transferFee }, source);
+    await tx.inquiryChangeLog.create({
+      data: {
+        inquiryId: share.sourceInquiryId,
+        customerName: source.customerName,
+        actorId: null,
+        lines: [
+          `[파트너연계] 파트너 수수료: ${share.transferFee ?? '(없음)'} → ${transferFee ?? '(없음)'}`,
+        ],
+      },
+    });
+  });
+
+  const updated = await prisma.tenantInquiryShare.findUniqueOrThrow({
+    where: { id: share.id },
+    include: shareMetaInclude,
+  });
+  return serializeShareMeta(updated, opts.viewerTenantId);
+}
+
+/** 송신 테넌트 — 접수 연계 취소(회수) */
+export async function revokeTenantInquiryShare(opts: {
+  viewerTenantId: string;
+  viewerUserId: string;
+  shareId: string;
+}) {
+  const share = await prisma.tenantInquiryShare.findFirst({
+    where: { id: opts.shareId, sourceTenantId: opts.viewerTenantId },
+    include: shareMetaInclude,
+  });
+  if (!share) {
+    throw new TenantInquiryShareError('연계 정보를 찾을 수 없습니다.', 404);
+  }
+  if (share.syncStatus !== 'ACTIVE') {
+    throw new TenantInquiryShareError('이미 취소되었거나 중지된 연계입니다.');
+  }
+
+  const source = await prisma.inquiry.findFirst({
+    where: { id: share.sourceInquiryId, tenantId: opts.viewerTenantId },
+    select: {
+      customerName: true,
+      inquiryNumber: true,
+      serviceTotalAmount: true,
+      serviceDepositAmount: true,
+      serviceBalanceAmount: true,
+    },
+  });
+  if (!source) {
+    throw new TenantInquiryShareError('원본 접수를 찾을 수 없습니다.', 404);
+  }
+
+  const targetInquiry = await prisma.inquiry.findFirst({
+    where: { id: share.targetInquiryId, tenantId: share.targetTenantId },
+    select: { customerName: true, inquiryNumber: true },
+  });
+
+  const partnerName =
+    share.partnership.tenantLow.id === opts.viewerTenantId
+      ? share.partnership.tenantHigh.name
+      : share.partnership.tenantLow.name;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tenantInquiryShare.update({
+      where: { id: share.id },
+      data: { syncStatus: 'REVOKED' },
+    });
+    await applyMirrorBalanceForShare(
+      tx,
+      { ...share, syncStatus: 'REVOKED' },
+      source,
+    );
+    await tx.inquiryChangeLog.create({
+      data: {
+        inquiryId: share.sourceInquiryId,
+        customerName: source.customerName,
+        actorId: opts.viewerUserId,
+        lines: [`[파트너연계] ${partnerName}에 대한 접수 연계를 취소했습니다.`],
+      },
+    });
+    if (targetInquiry) {
+      await tx.inquiryChangeLog.create({
+        data: {
+          inquiryId: share.targetInquiryId,
+          customerName: targetInquiry.customerName,
+          actorId: null,
+          lines: [`[파트너연계] ${partnerName}에서 접수 연계가 취소되었습니다. (연계 취소됨)`],
+        },
+      });
+    }
+  });
+
+  await notifyTenantShareRevoked({
+    sourceTenantId: opts.viewerTenantId,
+    sourceInquiryId: share.sourceInquiryId,
+    targetTenantId: share.targetTenantId,
+    targetInquiryId: share.targetInquiryId,
+    customerName: source.customerName,
+    partnerName,
+    sourceInquiryNumber: source.inquiryNumber,
+    targetInquiryNumber: targetInquiry?.inquiryNumber ?? null,
+  });
+
+  const updated = await prisma.tenantInquiryShare.findUniqueOrThrow({
+    where: { id: share.id },
+    include: shareMetaInclude,
+  });
+  return serializeShareMeta(updated, opts.viewerTenantId);
 }
 
 export async function loadShareMetaMapForInquiries(

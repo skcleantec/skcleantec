@@ -40,3 +40,33 @@ export async function notifyTenantShareReceived(params: {
     lines: [line],
   });
 }
+
+const TENANT_SHARE_REVOKED_LOG_PREFIX = '[파트너연계]';
+
+/** 연계 취소 — 송신·수신 테넌트 알림 */
+export async function notifyTenantShareRevoked(params: {
+  sourceTenantId: string;
+  sourceInquiryId: string;
+  targetTenantId: string;
+  targetInquiryId: string;
+  customerName: string;
+  partnerName: string;
+  sourceInquiryNumber: string | null;
+  targetInquiryNumber: string | null;
+}): Promise<void> {
+  const srcLine = `${TENANT_SHARE_REVOKED_LOG_PREFIX} ${params.partnerName}에 대한 접수 연계를 취소했습니다.`;
+  const tgtLine = `${TENANT_SHARE_REVOKED_LOG_PREFIX} ${params.partnerName}에서 접수 연계가 취소되었습니다. (연계 취소됨)`;
+
+  notifyChangeLogToStaff({
+    tenantId: params.sourceTenantId,
+    customerName: params.customerName,
+    inquiryId: params.sourceInquiryId,
+    lines: [srcLine],
+  });
+  notifyChangeLogToStaff({
+    tenantId: params.targetTenantId,
+    customerName: params.customerName,
+    inquiryId: params.targetInquiryId,
+    lines: [tgtLine],
+  });
+}

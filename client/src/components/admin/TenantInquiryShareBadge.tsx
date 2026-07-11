@@ -9,12 +9,17 @@ type Props = {
 
 export function TenantInquiryShareBadge({ share, className = '', compact = false }: Props) {
   const isSource = share.role === 'SOURCE';
+  const revoked = share.syncStatus === 'REVOKED';
   const viaMarketplace = Boolean(share.viaMarketplace);
-  const label = isSource
-    ? `🔗 ${share.partnerName}에 연계`
-    : `📥 ${share.partnerName}에서 연계`;
+  const label = revoked
+    ? '연계 취소됨'
+    : isSource
+      ? `🔗 ${share.partnerName}에 연계`
+      : `📥 ${share.partnerName}에서 연계`;
   const sourceNo = share.sourceInquiryNumberSnapshot?.trim();
-  const title = isSource
+  const title = revoked
+    ? '접수 연계가 취소되었습니다.'
+    : isSource
     ? viaMarketplace
       ? '정보공유(마켓) 확정 후 연계된 접수입니다. 수정 시 파트너 업체에도 반영됩니다.'
       : '수정 시 파트너 업체에도 반영됩니다(고객·일정·금액 등). 완료·취소는 양쪽 자동 반영됩니다.'
@@ -27,7 +32,9 @@ export function TenantInquiryShareBadge({ share, className = '', compact = false
   return (
     <span
       className={`inline-flex max-w-full items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-tight sm:text-fluid-2xs ${
-        isSource
+        revoked
+          ? 'border-gray-300 bg-gray-100 text-gray-600 line-through decoration-gray-400'
+          : isSource
           ? 'border-indigo-200 bg-indigo-50 text-indigo-900'
           : 'border-sky-200 bg-sky-50 text-sky-900'
       } ${className}`}
