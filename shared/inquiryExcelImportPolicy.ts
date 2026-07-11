@@ -1,5 +1,5 @@
-/** 엑셀 일괄 접수 — 1회 최대 행 수 */
-export const INQUIRY_EXCEL_IMPORT_MAX_ROWS = 500;
+/** 엑셀 일괄 접수 — 1회 최대 행 수 (타임트리 대량 이관 등) */
+export const INQUIRY_EXCEL_IMPORT_MAX_ROWS = 2000;
 
 export type InquiryExcelUnmappedValuePolicy = 'ERROR' | 'USE_DEFAULT' | 'SKIP_ROW';
 
