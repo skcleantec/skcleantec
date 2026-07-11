@@ -68,6 +68,7 @@ import {
   weekdayKoFromYmd,
 } from '../../utils/dateFormat';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
+import { formatPartnerAssignmentLabel } from '../../utils/tenantShareSettlement';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
@@ -383,15 +384,19 @@ function ScheduleDayListItem({
       : bucket === 'afternoon'
         ? '오후'
         : '기타';
-  const leaderNamesJoined = item.assignments
-    .map((a) => {
-      const u = a.teamLeader;
-      if (u.role === 'EXTERNAL_PARTNER') {
-        return u.externalCompany?.name ? `[타업체] ${u.externalCompany.name}` : `[타업체] ${u.name}`;
-      }
-      return u.name;
-    })
-    .join('/');
+  const leaderNamesJoined =
+    formatPartnerAssignmentLabel(item.tenantShare) ??
+    (item.assignments.length > 0
+      ? item.assignments
+          .map((a) => {
+            const u = a.teamLeader;
+            if (u.role === 'EXTERNAL_PARTNER') {
+              return u.externalCompany?.name ? `[타업체] ${u.externalCompany.name}` : `[타업체] ${u.name}`;
+            }
+            return u.name;
+          })
+          .join('/')
+      : '');
   const crewN = item.crewMemberCount ?? 0;
   const crewNote = item.crewMemberNote?.trim() ?? '';
   const scheduleMemoLine = item.scheduleMemo?.trim() ?? '';
