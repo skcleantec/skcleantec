@@ -7,6 +7,7 @@ import { requireStaffPermission } from '../auth/marketerPermission.middleware.js
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { prisma } from '../../lib/prisma.js';
 import { normalizeUploadedFilename } from '../../lib/uploadFilename.js';
+import { INQUIRY_EXCEL_IMPORT_MAX_FILE_BYTES } from '../../lib/inquiryExcelImportPolicy.js';
 import {
   createInquiryExcelProfile,
   deleteInquiryExcelProfile,
@@ -25,7 +26,7 @@ import {
 const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
+  limits: { fileSize: INQUIRY_EXCEL_IMPORT_MAX_FILE_BYTES },
 });
 
 router.use(authMiddleware, requireStaffPermission('inquiry.excelImport'));
