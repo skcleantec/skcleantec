@@ -1,6 +1,7 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import type { InquiryExcelRowExecuteResult } from '../../lib/inquiryExcelImportPolicy.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
+import { summarizeRowResults } from './inquiryExcelImport.runSummary.js';
 
 export function parseRowResults(raw: unknown): InquiryExcelRowExecuteResult[] {
   if (!Array.isArray(raw)) return [];
@@ -15,6 +16,50 @@ export function collectDeletableInquiryIds(rowResults: InquiryExcelRowExecuteRes
     if (row.kind === 'CREATED' && row.inquiryId) ids.add(row.inquiryId);
   }
   return [...ids];
+}
+
+export async function resolveDeletableInquiryIds(
+  db: PrismaClient | Prisma.TransactionClient,
+  tenantId: string,
+  rowResults: InquiryExcelRowExecuteResult[],
+): Promise<{
+  ids: string[];
+  pendingCreatedRows: number;
+  missingInquiryIdRows: number;
+  unresolvedRows: number;
+}> {
+  const ids = new Set<string>();
+  let pendingCreatedRows = 0;
+  let missingInquiryIdRows = 0;
+  let unresolvedRows = 0;
+
+  for (const row of rowResults) {
+    if (row.kind !== 'CREATED') continue;
+    pendingCreatedRows++;
+    if (row.inquiryId) {
+      ids.add(row.inquiryId);
+      continue;
+    }
+    missingInquiryIdRows++;
+    const num = row.inquiryNumber?.trim();
+    if (!num) {
+      unresolvedRows++;
+      continue;
+    }
+    const found = await db.inquiry.findFirst({
+      where: { tenantId, inquiryNumber: num },
+      select: { id: true },
+    });
+    if (found) ids.add(found.id);
+    else unresolvedRows++;
+  }
+
+  return {
+    ids: [...ids],
+    pendingCreatedRows,
+    missingInquiryIdRows,
+    unresolvedRows,
+  };
 }
 
 export function countDeletedFromRowResults(rowResults: InquiryExcelRowExecuteResult[]): number {
@@ -33,35 +78,76 @@ export function markRowResultsDeleted(
   });
 }
 
+/** inquiryId 또는 접수번호로 CREATED 행을 DELETED로 표시 */
+export function markRowResultsDeletedResolved(
+  rowResults: InquiryExcelRowExecuteResult[],
+  deletedInquiryIds: Set<string>,
+  inquiryNumberToId: Map<string, string>,
+): InquiryExcelRowExecuteResult[] {
+  return rowResults.map((row) => {
+    if (row.kind !== 'CREATED') return row;
+    const id =
+      row.inquiryId ??
+      (row.inquiryNumber?.trim() ? inquiryNumberToId.get(row.inquiryNumber.trim()) : undefined);
+    if (id && deletedInquiryIds.has(id)) {
+      return { ...row, kind: 'DELETED' as const, inquiryId: id };
+    }
+    return row;
+  });
+}
+
 export async function deleteInquiriesFromExcelImportRun(params: {
   db: Prisma.TransactionClient;
   tenantId: string;
   runId: string;
+  totalRows: number;
   actorId: string;
   rowResults: InquiryExcelRowExecuteResult[];
   runLabel: string;
-}): Promise<{ deletedCount: number; notFoundCount: number; alreadyDeletedCount: number }> {
-  const inquiryIds = collectDeletableInquiryIds(params.rowResults);
-  if (inquiryIds.length === 0) {
-    return { deletedCount: 0, notFoundCount: 0, alreadyDeletedCount: 0 };
+}): Promise<{
+  deletedCount: number;
+  notFoundCount: number;
+  alreadyDeletedCount: number;
+  attemptedCount: number;
+  missingInquiryIdRows: number;
+  unresolvedRows: number;
+}> {
+  const alreadyDeletedCount = params.rowResults.filter((r) => r.kind === 'DELETED').length;
+  const resolved = await resolveDeletableInquiryIds(params.db, params.tenantId, params.rowResults);
+
+  if (resolved.pendingCreatedRows === 0) {
+    return {
+      deletedCount: 0,
+      notFoundCount: 0,
+      alreadyDeletedCount,
+      attemptedCount: 0,
+      missingInquiryIdRows: 0,
+      unresolvedRows: 0,
+    };
   }
 
-  const alreadyDeletedCount = params.rowResults.filter((r) => r.kind === 'DELETED').length;
-  const pendingIds = inquiryIds.filter((id) => {
-    const row = params.rowResults.find((r) => r.inquiryId === id);
-    return row?.kind === 'CREATED';
-  });
-
-  if (pendingIds.length === 0) {
-    return { deletedCount: 0, notFoundCount: 0, alreadyDeletedCount };
+  if (resolved.ids.length === 0) {
+    return {
+      deletedCount: 0,
+      notFoundCount: 0,
+      alreadyDeletedCount,
+      attemptedCount: resolved.pendingCreatedRows,
+      missingInquiryIdRows: resolved.missingInquiryIdRows,
+      unresolvedRows: resolved.unresolvedRows,
+    };
   }
 
   const inquiries = await params.db.inquiry.findMany({
-    where: { tenantId: params.tenantId, id: { in: pendingIds } },
+    where: { tenantId: params.tenantId, id: { in: resolved.ids } },
     select: { id: true, customerName: true, inquiryNumber: true },
   });
   const foundIds = new Set(inquiries.map((i) => i.id));
-  const notFoundCount = pendingIds.filter((id) => !foundIds.has(id)).length;
+  const notFoundCount = resolved.ids.filter((id) => !foundIds.has(id)).length;
+  const inquiryNumberToId = new Map(
+    inquiries
+      .filter((i) => i.inquiryNumber)
+      .map((i) => [i.inquiryNumber!.trim(), i.id] as const),
+  );
 
   for (const inquiry of inquiries) {
     await params.db.inquiryChangeLog.create({
@@ -78,10 +164,19 @@ export async function deleteInquiriesFromExcelImportRun(params: {
   }
 
   const deletedIds = new Set(inquiries.map((i) => i.id));
-  const nextRowResults = markRowResultsDeleted(params.rowResults, deletedIds);
+  const nextRowResults = markRowResultsDeletedResolved(
+    params.rowResults,
+    deletedIds,
+    inquiryNumberToId,
+  );
+  const summary = summarizeRowResults(nextRowResults, params.totalRows);
   await params.db.inquiryExcelImportRun.update({
     where: { id: params.runId },
-    data: { rowResults: nextRowResults as unknown as Prisma.InputJsonValue },
+    data: {
+      rowResults: nextRowResults as unknown as Prisma.InputJsonValue,
+      skippedCount: summary.skippedCount,
+      errorCount: summary.errorCount,
+    },
   });
 
   if (inquiries.length > 0) {
@@ -97,5 +192,8 @@ export async function deleteInquiriesFromExcelImportRun(params: {
     deletedCount: inquiries.length,
     notFoundCount,
     alreadyDeletedCount,
+    attemptedCount: resolved.pendingCreatedRows,
+    missingInquiryIdRows: resolved.missingInquiryIdRows,
+    unresolvedRows: resolved.unresolvedRows,
   };
 }
