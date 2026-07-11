@@ -29,17 +29,8 @@ router.get('/meta', async (req, res) => {
     return;
   }
 
-  try {
-    const meta = await getTeamLeaderTrainingMeta(tenantId);
-    res.json(meta);
-  } catch (e) {
-    const err = e as { code?: string; message?: string };
-    if (err.code === 'forbidden') {
-      res.json({ available: false, fileName: null, updatedAt: null });
-      return;
-    }
-    throw e;
-  }
+  const meta = await getTeamLeaderTrainingMeta(tenantId);
+  res.json(meta);
 });
 
 /** GET /api/team/training-material/pdf — 인증 프록시 (Cloudinary URL 비노출) */
@@ -67,10 +58,6 @@ router.get('/pdf', async (req, res) => {
     const err = e as { code?: string; message?: string };
     if (err.code === 'not_found') {
       res.status(404).json({ error: err.message ?? '등록된 교육자료가 없습니다.' });
-      return;
-    }
-    if (err.code === 'forbidden') {
-      res.status(403).json({ error: err.message ?? 'SK클린텍 전용 기능입니다.' });
       return;
     }
     if (err.code === 'upstream') {

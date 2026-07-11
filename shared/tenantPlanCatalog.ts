@@ -63,7 +63,7 @@ export const TENANT_PLAN_PRESENTATIONS: Record<TenantPlanId, TenantPlanPresentat
     tagline: '소형 본사 · 접수·배정 중심',
     monthlyPriceHint: monthlyPriceLabel('starter'),
     annualPriceHint: annualPriceLabel('starter'),
-    features: ['서비스접수·발주서', '스케줄·배정·메시지'],
+    features: ['서비스접수·발주서', '스케줄·배정·메시지', '정보공유(DB 마켓)'],
   },
   standard: {
     id: 'standard',
@@ -89,7 +89,7 @@ export const TENANT_PLAN_PRESENTATIONS: Record<TenantPlanId, TenantPlanPresentat
       'Standard 전체 포함',
       '급여·정산 · 전자계약',
       '텔레CRM',
-      '파트너 접수 연계 · 정보공유(DB 마켓)',
+      '파트너 접수 연계',
       '랜딩 문의내역',
     ],
   },

@@ -6,8 +6,6 @@ import {
   type TeamLeaderTrainingMeta,
 } from '../../api/teamLeaderTraining';
 import { isAuthSessionExpiredError } from '../../api/auth';
-import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
-import { isSkTenantSlug } from '@shared/skTenant';
 
 function formatUpdatedAt(iso: string | null): string | null {
   if (!iso) return null;
@@ -18,8 +16,6 @@ function formatUpdatedAt(iso: string | null): string | null {
 
 export function AdminTeamLeaderTrainingPage() {
   const token = getToken();
-  const { tenantSlug } = useTenantCapabilities();
-  const skTenant = isSkTenantSlug(tenantSlug);
 
   const [meta, setMeta] = useState<TeamLeaderTrainingMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,7 +24,7 @@ export function AdminTeamLeaderTrainingPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!token || !skTenant) {
+    if (!token) {
       setLoading(false);
       return;
     }
@@ -46,7 +42,7 @@ export function AdminTeamLeaderTrainingPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, skTenant]);
+  }, [token]);
 
   useEffect(() => {
     void load();
@@ -76,15 +72,6 @@ export function AdminTeamLeaderTrainingPage() {
     }
   };
 
-  if (!skTenant) {
-    return (
-      <div className="min-w-0 w-full max-w-3xl space-y-4 pb-8">
-        <h1 className="text-xl font-semibold text-gray-800">현장팀장 교육자료</h1>
-        <p className="text-sm text-gray-600">SK클린텍 테넌트 전용 기능입니다.</p>
-      </div>
-    );
-  }
-
   if (loading) {
     return <div className="p-8 text-center text-gray-500 text-sm">불러오는 중…</div>;
   }
@@ -96,7 +83,8 @@ export function AdminTeamLeaderTrainingPage() {
       <div>
         <h1 className="text-xl font-semibold text-gray-800">현장팀장 교육자료</h1>
         <p className="mt-1 text-sm text-gray-500">
-          팀장 GNB 이름 메뉴에 「현장팀장 교육자료」로 노출됩니다. PDF를 교체하면 팀장 화면에 즉시 반영됩니다.
+          업체별로 PDF를 등록·교체합니다. 팀장 GNB 이름 메뉴에 「현장팀장 교육자료」로 노출되며, 교체 시 팀장 화면에
+          즉시 반영됩니다.
         </p>
       </div>
 

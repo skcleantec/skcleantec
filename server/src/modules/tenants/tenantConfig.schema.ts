@@ -30,7 +30,7 @@ export type TenantCompanyRegistrationConfig = {
   sealDisplayWidthPx?: number;
 };
 
-/** SK 현장팀장 교육자료 PDF (Cloudinary) */
+/** 현장팀장 교육자료 PDF (Cloudinary, 테넌트별) */
 export type TenantTeamLeaderTrainingConfig = {
   pdfPublicId?: string;
   pdfSecureUrl?: string;

@@ -105,6 +105,7 @@ async function main() {
   assert(detailRes.ok, '상세 조회 실패');
   const effectiveIds = detail.features!.filter((f) => f.effective).map((f) => f.moduleId);
   assert(effectiveIds.includes('core_inquiries'), 'starter core_inquiries 없음');
+  assert(effectiveIds.includes('mod_db_marketplace'), 'starter에 mod_db_marketplace 없음');
   assert(!effectiveIds.includes('mod_advertising'), 'starter에 mod_advertising 노출');
   assert(!effectiveIds.includes('mod_payroll'), 'starter에 mod_payroll 노출');
   console.log('✓ 플랫폼 상세 — starter 모듈만 effective');
@@ -116,6 +117,7 @@ async function main() {
   const me = (await meRes.json()) as { features?: string[]; tenant?: { plan?: string } };
   assert(meRes.ok, '/auth/me 실패');
   assert(me.tenant?.plan === 'starter', 'tenant plan starter 아님');
+  assert(me.features!.includes('mod_db_marketplace'), 'starter tenant /me에 mod_db_marketplace 없음');
   assert(!me.features!.includes('mod_advertising'), 'tenant /me에 mod_advertising 포함');
   assert(!me.features!.includes('mod_cs'), 'starter tenant /me에 mod_cs 포함');
   console.log('✓ 테넌트 로그인 — starter features만');
