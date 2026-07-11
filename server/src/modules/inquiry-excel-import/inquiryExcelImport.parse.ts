@@ -58,7 +58,10 @@ export function parseExcelBuffer(buffer: Buffer, fileName?: string): ParsedExcel
       obj[header] = value;
     }
     rows.push(obj);
-    if (rows.length > INQUIRY_EXCEL_IMPORT_MAX_ROWS) {
+    if (
+      INQUIRY_EXCEL_IMPORT_MAX_ROWS > 0 &&
+      rows.length > INQUIRY_EXCEL_IMPORT_MAX_ROWS
+    ) {
       throw new Error(`엑셀 행 수가 ${INQUIRY_EXCEL_IMPORT_MAX_ROWS}건을 초과합니다.`);
     }
   }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
-import { INQUIRY_EXCEL_IMPORT_MAX_ROWS } from '@shared/inquiryExcelImportPolicy';
+import { INQUIRY_EXCEL_IMPORT_MAX_FILE_BYTES, INQUIRY_EXCEL_IMPORT_MAX_ROWS } from '@shared/inquiryExcelImportPolicy';
 import { INQUIRY_EXCEL_STATUS_LABELS } from '@shared/inquiryExcelImportFields';
 import {
   executeInquiryExcelImport,
@@ -109,7 +109,11 @@ export function AdminInquiryExcelImportPage() {
       <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
         <h1 className="text-fluid-lg font-semibold text-slate-900">일괄 등록</h1>
         <p className="mt-1 text-fluid-sm text-slate-600">
-          저장된 매칭 서식으로 엑셀을 업로드해 접수를 등록합니다. (최대 {INQUIRY_EXCEL_IMPORT_MAX_ROWS}행/회)
+          저장된 매칭 서식으로 엑셀을 업로드해 접수를 등록합니다. (
+          {INQUIRY_EXCEL_IMPORT_MAX_ROWS > 0
+            ? `최대 ${INQUIRY_EXCEL_IMPORT_MAX_ROWS}행/회`
+            : `행 수 제한 없음 · 파일 최대 ${Math.round(INQUIRY_EXCEL_IMPORT_MAX_FILE_BYTES / (1024 * 1024))}MB`}
+          )
         </p>
         <p className="mt-2 text-fluid-xs text-slate-500">
           <Link to="/admin/inquiries/bulk-excel/mappings" className="text-sky-700 underline">

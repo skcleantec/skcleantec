@@ -1,5 +1,8 @@
-/** 엑셀 일괄 접수 — 1회 최대 행 수 */
-export const INQUIRY_EXCEL_IMPORT_MAX_ROWS = 500;
+/** 엑셀 일괄 접수 — 1회 최대 행 수. 0이면 행 수 제한 없음(파일 크기·서버 타임아웃이 실질 한도). */
+export const INQUIRY_EXCEL_IMPORT_MAX_ROWS = 0;
+
+/** 업로드 파일 최대 크기(바이트) — multer·안내 문구와 동기화 */
+export const INQUIRY_EXCEL_IMPORT_MAX_FILE_BYTES = 32 * 1024 * 1024;
 
 export type InquiryExcelUnmappedValuePolicy = 'ERROR' | 'USE_DEFAULT' | 'SKIP_ROW';
 
