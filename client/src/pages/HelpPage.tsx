@@ -12,6 +12,7 @@ import {
   groupHelpByModule,
   HELP_ROLE_LABELS,
   parseHelpRole,
+  WORKFLOW_GUIDE_URL,
 } from '../utils/helpContent';
 import { checkHelpEditPermission } from '../api/help';
 import { HelpInquiryBoard } from '../components/help/HelpInquiryBoard';
@@ -181,6 +182,14 @@ export function HelpPage() {
                   UI 갤러리
                 </a>
               ) : null}
+              <a
+                href={WORKFLOW_GUIDE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-slate-500 bg-slate-800 px-4 py-1.5 text-fluid-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700"
+              >
+                소개서
+              </a>
             </nav>
           </div>
 

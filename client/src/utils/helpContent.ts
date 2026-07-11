@@ -1,6 +1,7 @@
 import type { HelpModuleGroup, HelpRole, HelpScreenEntry } from '../types/helpContent';
 
 export const HELP_DATA_URL = '/help/data.json';
+export const WORKFLOW_GUIDE_URL = '/help/workflow-guide.html';
 
 export const HELP_ROLE_LABELS: Record<HelpRole, string> = {
   admin: '관리자',

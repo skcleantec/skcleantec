@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>청소비서 실사용자 워크플로우 가이드</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css" />
+    <style>
+        :root {
+            --primary: #2563eb; /* Blue 600 */
+            --primary-dark: #1e40af; /* Blue 800 */
+            --primary-light: #eff6ff; /* Blue 50 */
+            --slate-900: #0f172a;
+            --slate-800: #1e293b;
+            --slate-100: #f1f5f9;
+            --slate-50: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+        }
+
+        body {
+            background-color: #cbd5e1;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* 16:9 슬라이드 규격 (구글 슬라이드 호환) */
+        .slide {
+            width: 1280px;
+            height: 720px;
+            background-color: white;
+            background-image: url('workflow/content_bg.png');
+            background-size: cover;
+            background-position: center;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        /* 슬라이드 헤더 */
+        .slide-header {
+            padding: 40px 60px 20px;
+            border-bottom: 2px solid rgba(241, 245, 249, 0.5); /* 투명도 추가 */
+        }
+        .slide-header .badge {
+            display: inline-block;
+            background-color: rgba(239, 246, 255, 0.8);
+            color: var(--primary);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 12px;
+            backdrop-filter: blur(4px);
+        }
+        .slide-header h1 {
+            font-size: 38px;
+            color: var(--slate-900);
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-shadow: 0 2px 10px rgba(255,255,255,0.8); /* 배경 위 가독성 */
+        }
+
+        /* 슬라이드 본문 (좌우 분할) */
+        .slide-body {
+            display: flex;
+            flex: 1;
+            padding: 30px 60px;
+            gap: 40px;
+        }
+
+        /* 텍스트 영역 */
+        .text-content {
+            flex: 1.15;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.6); /* 유리 질감 배경 */
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+        .text-content ul {
+            list-style: none;
+        }
+        .text-content li {
+            font-size: 21px;
+            color: var(--text-main);
+            margin-bottom: 24px;
+            line-height: 1.6;
+            position: relative;
+            padding-left: 36px;
+            word-break: keep-all;
+        }
+        .text-content li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+            font-weight: bold;
+            font-size: 26px;
+        }
+        .text-content li strong {
+            color: var(--slate-900);
+        }
+        
+        /* 아이콘 리스트 스타일 */
+        .icon-list li {
+            padding-left: 50px;
+        }
+        .icon-list li::before {
+            content: none; /* 기본 체크마크 제거 */
+        }
+        .icon-list .icon {
+            position: absolute;
+            left: 0;
+            top: 2px;
+            font-size: 32px;
+        }
+
+        .highlight-box {
+            background-color: var(--primary-light);
+            border-left: 6px solid var(--primary);
+            padding: 24px;
+            border-radius: 0 12px 12px 0;
+            margin-top: 10px;
+        }
+        .highlight-box h3 {
+            color: var(--primary-dark);
+            font-size: 20px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .highlight-box p {
+            font-size: 18px;
+            color: var(--text-main);
+            line-height: 1.5;
+            word-break: keep-all;
+        }
+
+        /* 이미지 영역 (플레이스홀더) */
+        .image-content {
+            flex: 0.85;
+            background-color: var(--slate-50);
+            border: 3px dashed #94a3b8;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .image-content img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+            background-color: white;
+            display: none;
+        }
+        .image-content img[src]:not([src=""]) {
+            display: block;
+        }
+        .placeholder-text {
+            text-align: center;
+            color: var(--text-muted);
+            z-index: 1;
+        }
+        .placeholder-text span {
+            display: block;
+            font-size: 56px;
+            margin-bottom: 16px;
+        }
+        .placeholder-text p {
+            font-size: 20px;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+
+        /* 표지 전용 스타일 */
+        .cover-slide {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background-color: var(--slate-900);
+            background-image: url('workflow/cover_bg.png');
+            background-size: cover;
+            background-position: center;
+            color: white;
+        }
+        .cover-slide .logo-emoji {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        .cover-slide h1 {
+            font-size: 64px;
+            margin-bottom: 24px;
+            color: white;
+            font-weight: 800;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.5); /* 배경 위 가독성 */
+        }
+        .cover-slide p {
+            font-size: 28px;
+            color: #cbd5e1;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        /* 플랜 카드 스타일 */
+        .plan-container {
+            display: flex;
+            gap: 30px;
+            width: 100%;
+            height: 100%;
+            padding: 20px 0;
+        }
+        .plan-card {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.85); /* 유리 질감 */
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 16px;
+            padding: 40px 30px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+        .plan-card.recommended {
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.15);
+            transform: translateY(-10px);
+        }
+        .plan-card.recommended::before {
+            content: '가장 많이 선택해요';
+            position: absolute;
+            top: -16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .plan-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--slate-900);
+            margin-bottom: 8px;
+        }
+        .plan-desc {
+            font-size: 16px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            height: 48px;
+        }
+        .plan-price {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 30px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid var(--slate-100);
+        }
+        .plan-price span {
+            font-size: 18px;
+            color: var(--text-muted);
+            font-weight: normal;
+        }
+        .plan-features {
+            list-style: none;
+            padding: 0;
+        }
+        .plan-features li {
+            font-size: 18px;
+            color: var(--text-main);
+            margin-bottom: 16px;
+            padding-left: 28px;
+            position: relative;
+        }
+        .plan-features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        /* 로드맵 카드 스타일 */
+        .roadmap-container {
+            display: flex;
+            gap: 40px;
+            width: 100%;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+        }
+        .roadmap-card {
+            flex: 1;
+            background: var(--slate-50);
+            border-radius: 20px;
+            padding: 50px 40px;
+            text-align: center;
+        }
+        .roadmap-icon {
+            font-size: 72px;
+            margin-bottom: 24px;
+        }
+        .roadmap-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--slate-900);
+            margin-bottom: 16px;
+        }
+        .roadmap-desc {
+            font-size: 20px;
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+
+        /* 페이지 번호 */
+        .page-number {
+            position: absolute;
+            bottom: 24px;
+            right: 32px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-muted);
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.6);
+            padding: 6px 14px;
+            border-radius: 20px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .cover-slide .page-number {
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.3);
+            box-shadow: none;
+        }
+        /* 인쇄용 CSS (PDF 저장 시 슬라이드만 딱 맞게 출력) */
+        @media print {
+            @page {
+                size: 1280px 720px;
+                margin: 0;
+            }
+            body {
+                background-color: white;
+                padding: 0;
+                gap: 0;
+            }
+            .slide {
+                border-radius: 0;
+                box-shadow: none;
+                page-break-after: always;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <style>
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+    </style>
+
+    <!-- 슬라이드 1: 표지 -->
+    <div class="slide cover-slide" style="flex-direction: row; text-align: left; padding: 0 80px; justify-content: space-between; overflow: hidden; position: relative;">
+        <div class="page-number">1 / 15</div>
+        <!-- 배경 장식 원형 제거 (이미지 배경이 있으므로) -->
+        
+        <div style="flex: 1.2; z-index: 2; padding-right: 40px;">
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 30px;">
+                <div style="background: rgba(255,255,255,0.9); backdrop-filter: blur(4px); padding: 12px 16px; border-radius: 20px; display: inline-flex; box-shadow: 0 10px 20px rgba(0,0,0,0.2);">
+                    <span style="font-size: 36px; line-height: 1;">✨</span>
+                </div>
+                <span style="font-size: 36px; font-weight: 800; color: white; letter-spacing: -1px; text-shadow: 0 2px 10px rgba(0,0,0,0.5);">청소비서</span>
+            </div>
+            <h1 style="font-size: 64px; margin-bottom: 24px; color: white; font-weight: 800; line-height: 1.3; text-align: left; letter-spacing: -1.5px; text-shadow: 0 4px 20px rgba(0,0,0,0.6);">타임트리를 넘어,<br>진짜 '일'에<br>집중하는 방법</h1>
+            <p style="font-size: 26px; color: #e2e8f0; line-height: 1.6; font-weight: 500; text-shadow: 0 2px 10px rgba(0,0,0,0.6);">마케터 & 팀장 실무 워크플로우 가이드<br>스마트한 청소업체 관리의 시작</p>
+        </div>
+        
+        <div style="flex: 1; display: flex; justify-content: center; align-items: center; z-index: 2;">
+            <!-- 로봇 이미지는 유지하되 테두리를 더 세련되게 -->
+            <img src="workflow/cover_image.png" alt="청소비서 스마트 로봇 일러스트" style="width: 100%; max-width: 500px; height: auto; border-radius: 32px; box-shadow: 0 24px 48px rgba(0,0,0,0.5); animation: float 6s ease-in-out infinite; border: 4px solid rgba(255,255,255,0.2);">
+        </div>
+    </div>
+
+    <!-- 슬라이드 2: 타임트리 비교 -->
+    <div class="slide">
+        <div class="page-number">2 / 15</div>
+        <div class="slide-header">
+            <div class="badge">도입</div>
+            <h1>🤔 일정만 공유하던 타임트리, 이런 점이 불편하셨죠?</h1>
+        </div>
+        <div class="slide-body">
+            <div class="text-content" style="padding: 20px 30px;">
+                <ul class="icon-list" style="margin-bottom: 0;">
+                    <li style="font-size: 17px; margin-bottom: 12px; line-height: 1.4;"><span class="icon" style="font-size: 24px; top: -2px;">❌</span>접수건 적어 넣는 것 자체가 <strong>난이도 헬</strong> (수기 입력의 한계)</li>
+                    <li style="font-size: 17px; margin-bottom: 12px; line-height: 1.4;"><span class="icon" style="font-size: 24px; top: -2px;">❌</span>문자/전화번호 하나 잘못 적으면 <strong>현장에서 대혼란 발생</strong></li>
+                    <li style="font-size: 17px; margin-bottom: 12px; line-height: 1.4;"><span class="icon" style="font-size: 24px; top: -2px;">❌</span>깜빡하거나 누락되면 곧바로 <strong>대형 사고로 직결</strong></li>
+                    <li style="font-size: 17px; margin-bottom: 12px; line-height: 1.4;"><span class="icon" style="font-size: 24px; top: -2px;">❌</span>접수건 현황을 <strong>일일이 계속 확인</strong>해야 하는 번거로움</li>
+                    <li style="font-size: 17px; margin-bottom: 12px; line-height: 1.4;"><span class="icon" style="font-size: 24px; top: -2px;">❌</span>접수처와 현장 소통 중에 발생하는 <strong>수많은 커뮤니케이션 문제</strong></li>
+                    <li style="font-size: 17px; margin-bottom: 12px; line-height: 1.4;"><span class="icon" style="font-size: 24px; top: -2px;">❌</span>해피콜 관리, 자료 관리, 고객 관리가 <strong>전혀 되지 않음</strong></li>
+                </ul>
+                <div class="highlight-box" style="padding: 16px 24px; margin-top: 0;">
+                    <h3 style="font-size: 20px; margin-bottom: 8px;">💡 청소비서의 해결책</h3>
+                    <p style="font-size: 17px;"><strong>[접수 ➔ 배정 ➔ 현장보고 ➔ 정산]</strong>이 하나의 흐름으로 연결되어 단순 반복 업무와 휴먼 에러가 완벽히 사라집니다.</p>
+                </div>
+            </div>
+            <div class="image-content" style="background: none; border: none; overflow: visible;">
+                <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    <img src="workflow/timetree_app.png" alt="타임트리 화면" style="width: 95%; height: auto; max-height: 100%; object-fit: contain; filter: grayscale(20%) contrast(0.9); display: block; position: relative;">
+                    
+                    <!-- 불편함 부각 오버레이 -->
+                    <div style="position: absolute; top: 15%; left: 0%; background: rgba(239, 68, 68, 0.95); color: white; padding: 12px 24px; border-radius: 16px; font-weight: 800; font-size: 22px; box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4); transform: rotate(-8deg); backdrop-filter: blur(4px); z-index: 20;">
+                        ✍️ 수기 입력 지옥
+                    </div>
+                    <div style="position: absolute; bottom: 25%; right: -5%; background: rgba(239, 68, 68, 0.95); color: white; padding: 12px 24px; border-radius: 16px; font-weight: 800; font-size: 22px; box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4); transform: rotate(6deg); backdrop-filter: blur(4px); z-index: 20;">
+                        💥 잦은 누락·오류
+                    </div>
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 150px; opacity: 0.8; text-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 15;">
+                        ❌
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 3: 전체 워크플로우 -->
+    <div class="slide">
+        <div class="page-number">3 / 15</div>
+        <div class="slide-header">
+            <div class="badge">Big Picture</div>
+            <h1>🔄 청소비서가 만드는 막힘없는 업무 흐름</h1>
+        </div>
+        <div class="slide-body">
+            <div class="text-content">
+                <ul class="icon-list">
+                    <li><span class="icon">👩‍💻</span><strong>[마케터]</strong> 1분 만에 고객 접수 & 발주서 생성</li>
+                    <li><span class="icon">📅</span><strong>[마케터]</strong> 캘린더 보고 빈 일정에 팀장 즉시 배정</li>
+                    <li><span class="icon">📱</span><strong>[팀장]</strong> 모바일로 내 일정 확인 & 현장 출동</li>
+                    <li><span class="icon">📸</span><strong>[팀장]</strong> 현장 전/후 사진 업로드 및 특이사항 보고</li>
+                    <li><span class="icon">💰</span><strong>[공통]</strong> 버튼 한 번으로 끝나는 투명한 자동 정산</li>
+                </ul>
+            </div>
+            <div class="image-content" style="background: none; border: none; overflow: visible;">
+                <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    
+                    <!-- 중앙 로고 -->
+                    <div style="position: absolute; width: 130px; height: 130px; background: var(--primary); border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; box-shadow: 0 10px 25px rgba(37,99,235,0.4); z-index: 10;">
+                        <span style="font-size: 32px; margin-bottom: 4px;">✨</span>
+                        <span style="font-weight: 800; font-size: 20px;">청소비서</span>
+                    </div>
+                    
+                    <!-- 순환 연결선 -->
+                    <div style="position: absolute; width: 340px; height: 340px; border: 6px dashed rgba(37,99,235,0.3); border-radius: 50%; z-index: 1;"></div>
+                    
+                    <!-- 1. 접수 (Top) -->
+                    <div style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); padding: 16px 20px; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); text-align: center; z-index: 5; border: 2px solid var(--primary-light); width: 240px;">
+                        <div style="font-size: 36px; margin-bottom: 8px;">📝</div>
+                        <div style="font-weight: 800; color: var(--slate-900); font-size: 18px;">1. 고객 접수 & 발주</div>
+                        <div style="font-size: 15px; color: var(--primary); font-weight: 600; margin-top: 4px;">마케터 1분 컷</div>
+                    </div>
+                    
+                    <!-- 2. 배정 (Right) -->
+                    <div style="position: absolute; top: 50%; right: -30px; transform: translateY(-50%); background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); padding: 16px 20px; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); text-align: center; z-index: 5; border: 2px solid var(--primary-light); width: 240px;">
+                        <div style="font-size: 36px; margin-bottom: 8px;">📅</div>
+                        <div style="font-weight: 800; color: var(--slate-900); font-size: 18px;">2. 스케줄 & 배정</div>
+                        <div style="font-size: 15px; color: var(--primary); font-weight: 600; margin-top: 4px;">겹침 없는 즉시 배정</div>
+                    </div>
+                    
+                    <!-- 3. 현장 (Bottom) -->
+                    <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); padding: 16px 20px; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); text-align: center; z-index: 5; border: 2px solid var(--primary-light); width: 240px;">
+                        <div style="font-size: 36px; margin-bottom: 8px;">📸</div>
+                        <div style="font-weight: 800; color: var(--slate-900); font-size: 18px;">3. 현장 출동 & 보고</div>
+                        <div style="font-size: 15px; color: var(--primary); font-weight: 600; margin-top: 4px;">팀장 모바일 전/후 사진</div>
+                    </div>
+                    
+                    <!-- 4. 정산 (Left) -->
+                    <div style="position: absolute; top: 50%; left: -30px; transform: translateY(-50%); background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); padding: 16px 20px; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); text-align: center; z-index: 5; border: 2px solid var(--primary-light); width: 240px;">
+                        <div style="font-size: 36px; margin-bottom: 8px;">💰</div>
+                        <div style="font-weight: 800; color: var(--slate-900); font-size: 18px;">4. 투명한 자동 정산</div>
+                        <div style="font-size: 15px; color: var(--primary); font-weight: 600; margin-top: 4px;">수수료·매출 실시간 확인</div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 4: 마케터 워크플로우 1 -->
+    <div class="slide">
+        <div class="page-number">4 / 15</div>
+        <div class="slide-header">
+            <div class="badge">마케터 워크플로우 ①</div>
+            <h1>📝 누락 제로! 1분 만에 끝내는 고객 접수</h1>
+        </div>
+        <div class="slide-body">
+            <div class="text-content">
+                <ul>
+                    <li>숨고, 전화 등으로 들어온 문의를 <strong>규격화된 폼</strong>에 입력합니다.</li>
+                    <li>클릭 몇 번으로 깔끔한 <strong>'발주서'가 자동 생성</strong>됩니다.</li>
+                </ul>
+                <div class="highlight-box">
+                    <h3>✨ 타임트리 대비 장점</h3>
+                    <p>텍스트 복붙 실수로 인한 <strong>주소/평수 누락이 완벽히 사라집니다.</strong> 필수 정보가 체계적으로 관리되어 실수가 없습니다.</p>
+                </div>
+            </div>
+            <div class="image-content" style="background: none; border: none; overflow: visible;">
+                <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    
+                    <!-- 1번 사진 (PC 화면 - 배경) -->
+                    <div style="position: absolute; left: 0; top: 10%; width: 75%; height: 80%; border-radius: 12px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.8); z-index: 1;">
+                        <!-- 브라우저 상단바(가짜) -->
+                        <div style="height: 24px; background: #f1f5f9; display: flex; align-items: center; padding: 0 10px; gap: 6px; border-bottom: 1px solid #e2e8f0;">
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></div>
+                        </div>
+                        <img src="workflow/slide4_img1.png" alt="서비스 접수 화면" style="width: 100%; height: calc(100% - 24px); object-fit: cover; object-position: left top; display: block; position: relative;">
+                    </div>
+                    
+                    <!-- 2번 사진 (모바일 폰 목업 - 우측 하단 겹치기) -->
+                    <div style="position: absolute; right: 0; bottom: 5%; width: 40%; height: 85%; z-index: 5; filter: drop-shadow(0 20px 40px rgba(0,0,0,0.25));">
+                        <!-- 스마트폰 프레임 -->
+                        <div style="position: absolute; inset: 0; background: #1e293b; border-radius: 36px; padding: 12px; box-shadow: inset 0 0 0 2px #334155;">
+                            <!-- 폰 화면 영역 -->
+                            <div style="position: relative; width: 100%; height: 100%; background: white; border-radius: 24px; overflow: hidden;">
+                                <!-- 노치(가짜) -->
+                                <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 40%; height: 20px; background: #1e293b; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; z-index: 10;"></div>
+                                
+                                <img src="workflow/slide4_img2.png" alt="모바일 발주서 화면" style="width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; position: relative;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 5: 마케터 워크플로우 2 -->
+    <div class="slide">
+        <div class="page-number">5 / 15</div>
+        <div class="slide-header">
+            <div class="badge">마케터 워크플로우 ②</div>
+            <h1>📅 겹침 방지! 한눈에 보는 스케줄과 즉시 배정</h1>
+        </div>
+        <div class="slide-body">
+            <div class="text-content">
+                <ul>
+                    <li>'관리 스케줄'에서 전체 팀장님의 일정을 <strong>한눈에 파악</strong>합니다.</li>
+                    <li>빈 일정을 확인하고 최적의 팀장님에게 <strong>즉시 배정</strong>합니다.</li>
+                </ul>
+                <div class="highlight-box">
+                    <h3>✨ 타임트리 대비 장점</h3>
+                    <p>팀장님 일정이 겹칠 위험이 없고, 배정 즉시 해당 팀장님 앱으로 실시간 알림이 갑니다. <strong>"이 날짜 되시나요?" 물어볼 필요가 없습니다.</strong></p>
+                </div>
+            </div>
+            <div class="image-content" style="background: none; border: none; overflow: visible;">
+                <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    
+                    <!-- 1번 사진 (월간 캘린더 뷰 - 배경 좌측 상단) -->
+                    <div style="position: absolute; left: 0; top: 5%; width: 75%; height: 70%; border-radius: 12px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.8); z-index: 1;">
+                        <!-- 브라우저 상단바(가짜) -->
+                        <div style="height: 24px; background: #f1f5f9; display: flex; align-items: center; padding: 0 10px; gap: 6px; border-bottom: 1px solid #e2e8f0;">
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></div>
+                        </div>
+                        <img src="workflow/slide5_img1.png" alt="월간 스케줄 화면" style="width: 100%; height: calc(100% - 24px); object-fit: cover; object-position: top; display: block;">
+                    </div>
+                    
+                    <!-- 2번 사진 (일간 상세 리스트 뷰 - 전경 우측 하단) -->
+                    <div style="position: absolute; right: 0; bottom: 5%; width: 65%; height: 75%; border-radius: 12px; overflow: hidden; box-shadow: -10px 20px 40px rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.9); z-index: 5;">
+                        <!-- 브라우저 상단바(가짜) -->
+                        <div style="height: 24px; background: #e2e8f0; display: flex; align-items: center; padding: 0 10px; gap: 6px; border-bottom: 1px solid #cbd5e1;">
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8;"></div>
+                        </div>
+                        <img src="workflow/slide5_img2.png" alt="일간 상세 스케줄 화면" style="width: 100%; height: calc(100% - 24px); object-fit: cover; object-position: top; display: block;">
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 6: 팀장 워크플로우 1 -->
+    <div class="slide">
+        <div class="page-number">6 / 15</div>
+        <div class="slide-header">
+            <div class="badge">팀장 워크플로우 ①</div>
+            <h1>📱 오늘 내 일정, 모바일로 쏙!</h1>
+        </div>
+        <div class="slide-body">
+            <div class="text-content">
+                <ul>
+                    <li>아침에 현장 가기 전, <strong>'팀장 앱'</strong>을 켭니다.</li>
+                    <li>오늘 가야 할 현장 주소, 오염도, 고객 특이사항을 <strong>바로 확인</strong>합니다.</li>
+                </ul>
+                <div class="highlight-box">
+                    <h3>✨ 타임트리 대비 장점</h3>
+                    <p>수많은 전체 일정 속에서 내 것만 힘들게 찾을 필요가 없습니다. <strong>나에게 배정된 일정만 깔끔하게 모아서</strong> 보여줍니다.</p>
+                </div>
+            </div>
+            <div class="image-content" style="background: none; border: none; overflow: visible;">
+                <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    
+                    <!-- 1번 폰 (좌측 뒤) -->
+                    <div style="position: absolute; left: 2%; top: 15%; width: 38%; height: 75%; z-index: 1; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.15)); transform: rotate(-5deg);">
+                        <div style="position: absolute; inset: 0; background: #1e293b; border-radius: 24px; padding: 6px; box-shadow: inset 0 0 0 1px #334155;">
+                            <div style="position: relative; width: 100%; height: 100%; background: white; border-radius: 18px; overflow: hidden;">
+                                <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 30%; height: 12px; background: #1e293b; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; z-index: 10;"></div>
+                                <img src="workflow/slide6_img1.png" alt="팀장 배정목록" style="width: 100%; height: 100%; object-fit: contain; object-position: top; background: white;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 2번 폰 (우측 뒤) -->
+                    <div style="position: absolute; right: 2%; top: 10%; width: 38%; height: 75%; z-index: 2; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.15)); transform: rotate(5deg);">
+                        <div style="position: absolute; inset: 0; background: #1e293b; border-radius: 24px; padding: 6px; box-shadow: inset 0 0 0 1px #334155;">
+                            <div style="position: relative; width: 100%; height: 100%; background: white; border-radius: 18px; overflow: hidden;">
+                                <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 30%; height: 12px; background: #1e293b; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; z-index: 10;"></div>
+                                <img src="workflow/slide6_img2.png" alt="팀장 달력상세" style="width: 100%; height: 100%; object-fit: contain; object-position: top; background: white;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 3번 폰 (중앙 앞) -->
+                    <div style="position: absolute; left: 50%; top: 20%; transform: translateX(-50%); width: 45%; height: 85%; z-index: 5; filter: drop-shadow(0 25px 50px rgba(0,0,0,0.3));">
+                        <div style="position: absolute; inset: 0; background: #0f172a; border-radius: 28px; padding: 8px; box-shadow: inset 0 0 0 1px #475569;">
+                            <div style="position: relative; width: 100%; height: 100%; background: white; border-radius: 20px; overflow: hidden;">
+                                <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 30%; height: 14px; background: #0f172a; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; z-index: 10;"></div>
+                                <img src="workflow/slide6_img3.png" alt="팀장 접수상세" style="width: 100%; height: 100%; object-fit: contain; object-position: top; background: white;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 7: 팀장 워크플로우 2 -->
+    <div class="slide">
+        <div class="page-number">7 / 15</div>
+        <div class="slide-header">
+            <div class="badge">팀장 워크플로우 ②</div>
+            <h1>📸 카톡 보고는 그만! 현장 전/후 사진 간편 업로드</h1>
+        </div>
+        <div class="slide-body">
+            <div class="text-content">
+                <ul>
+                    <li>현장 도착 후 <strong>'청소 전 사진'</strong>을 찍어 바로 올립니다.</li>
+                    <li>청소 완료 후 <strong>'청소 후 사진'</strong>과 현장 추가금, 특이사항을 입력합니다.</li>
+                </ul>
+                <div class="highlight-box">
+                    <h3>✨ 타임트리 대비 장점</h3>
+                    <p>단톡방에 수십 장씩 사진을 올리다 섞일 일이 없습니다. 해당 고객 건에 <strong>사진이 영구 보관</strong>되어 나중에 C/S가 들어와도 즉시 확인 가능합니다.</p>
+                </div>
+            </div>
+            <div class="image-content" style="background: none; border: none; overflow: visible;">
+                <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    
+                    <!-- 2번 사진 (마케터 확인용 PC 화면 - 배경 좌측 상단) -->
+                    <div style="position: absolute; left: 0; top: 10%; width: 75%; height: 75%; border-radius: 12px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.8); z-index: 1;">
+                        <!-- 브라우저 상단바(가짜) -->
+                        <div style="height: 24px; background: #f1f5f9; display: flex; align-items: center; padding: 0 10px; gap: 6px; border-bottom: 1px solid #e2e8f0;">
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></div>
+                        </div>
+                        <img src="workflow/slide7_img2.png" alt="마케터 확인용 PC 화면" style="width: 100%; height: calc(100% - 24px); object-fit: cover; object-position: left top; display: block;">
+                    </div>
+                    
+                    <!-- 1번 사진 (팀장 업로드용 모바일 폰 목업 - 전경 우측 하단) -->
+                    <div style="position: absolute; right: 0; bottom: 5%; width: 40%; height: 85%; z-index: 5; filter: drop-shadow(-10px 20px 40px rgba(0,0,0,0.3));">
+                        <!-- 스마트폰 프레임 -->
+                        <div style="position: absolute; inset: 0; background: #1e293b; border-radius: 32px; padding: 10px; box-shadow: inset 0 0 0 2px #334155;">
+                            <!-- 폰 화면 영역 -->
+                            <div style="position: relative; width: 100%; height: 100%; background: white; border-radius: 22px; overflow: hidden;">
+                                <!-- 노치(가짜) -->
+                                <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 35%; height: 16px; background: #1e293b; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; z-index: 10;"></div>
+                                
+                                <img src="workflow/slide7_img1.png" alt="팀장 모바일 사진 업로드 화면" style="width: 100%; height: 100%; object-fit: contain; object-position: top; display: block; background: white;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 8: 공통 워크플로우 -->
+    <div class="slide">
+        <div class="page-number">8 / 15</div>
+        <div class="slide-header">
+            <div class="badge">공통 워크플로우</div>
+            <h1>💰 머리 아픈 정산 끝! 투명하고 정확한 자동 정산</h1>
+        </div>
+        <div class="slide-body">
+            <div class="text-content">
+                <ul>
+                    <li>마케터가 예약금/잔금을 입력하고, 팀장이 현장 추가금을 입력하면 <strong>팀장 수수료가 자동 계산</strong>됩니다.</li>
+                    <li>마케터는 업체 총매출을, 팀장은 이번 달 내 수익을 <strong>실시간으로 확인</strong>합니다.</li>
+                </ul>
+                <div class="highlight-box">
+                    <h3>✨ 타임트리 대비 장점</h3>
+                    <p>월말마다 타임트리 일정 세어가며 엑셀 켜고 계산기 두드릴 필요가 <strong>100% 사라집니다.</strong></p>
+                </div>
+            </div>
+            <div class="image-content" style="background: none; border: none; overflow: visible;">
+                <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    
+                    <!-- 정산 화면 (PC 브라우저 목업) -->
+                    <div style="position: absolute; width: 95%; height: 85%; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.8); z-index: 1; transform: perspective(1000px) rotateY(-5deg); transform-style: preserve-3d;">
+                        <!-- 브라우저 상단바(가짜) -->
+                        <div style="height: 24px; background: #f1f5f9; display: flex; align-items: center; padding: 0 10px; gap: 6px; border-bottom: 1px solid #e2e8f0;">
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></div>
+                        </div>
+                        <img src="workflow/slide8_img.png" alt="자동 정산 화면" style="width: 100%; height: calc(100% - 24px); object-fit: cover; object-position: top; display: block;">
+                    </div>
+                    
+                    <!-- 강조 포인트 (떠있는 동전 아이콘) -->
+                    <div style="position: absolute; bottom: 15%; right: 5%; font-size: 60px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.3)); animation: float 4s ease-in-out infinite; z-index: 10;">
+                        💰
+                    </div>
+                    <div style="position: absolute; top: 20%; left: 0%; font-size: 40px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.3)); animation: float 5s ease-in-out infinite reverse; z-index: 10;">
+                        💸
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 9: 프리미엄 기능 (CRM) -->
+    <div class="slide">
+        <div class="page-number">9 / 15</div>
+        <div class="slide-header">
+            <div class="badge">강력한 부가기능 ①</div>
+            <h1>📞 텔레 CRM & 숨고 연동: 한 번의 소통으로 끝내세요</h1>
+        </div>
+        <div class="slide-body">
+            <div class="text-content">
+                <ul>
+                    <li><strong>숨고 계정과 완벽하게 연동</strong>되어, 여러 번 나눠서 해야 했던 고객과의 소통이 단 한 번으로 줄어듭니다.</li>
+                    <li>고객과의 통화 내역, 이전 상담 이력을 한눈에 파악하여 <strong>초보 마케터도 전문가처럼</strong> 맞춤형 응대가 가능합니다.</li>
+                </ul>
+                <div class="highlight-box">
+                    <h3>✨ 타임트리/수기 관리 대비 장점</h3>
+                    <p>고객이 무슨 문의를 했는지 매번 묻지 않아도 됩니다. 전화가 오는 순간 <strong>모든 히스토리가 펼쳐집니다.</strong></p>
+                </div>
+            </div>
+            <div class="image-content" style="background: none; border: none; overflow: visible;">
+                <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    
+                    <!-- 텔레 CRM 화면 (PC 브라우저 목업) -->
+                    <div style="position: absolute; width: 100%; height: 95%; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.8); z-index: 1;">
+                        <!-- 브라우저 상단바(가짜) -->
+                        <div style="height: 24px; background: #1e293b; display: flex; align-items: center; padding: 0 10px; gap: 6px; border-bottom: 1px solid #0f172a;">
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></div>
+                        </div>
+                        <img src="workflow/slide9_img.png" alt="텔레 CRM 및 숨고 연동 화면" style="width: 100%; height: calc(100% - 24px); object-fit: contain; background-color: #f8fafc; display: block;">
+                    </div>
+                    
+                    <!-- 강조 포인트 (숨고 로고 느낌의 말풍선) -->
+                    <div style="position: absolute; top: -5%; right: -5%; background: #00c7ae; color: white; padding: 12px 24px; border-radius: 20px; font-weight: 800; font-size: 20px; box-shadow: 0 8px 20px rgba(0, 199, 174, 0.4); transform: rotate(5deg); z-index: 10; animation: float 3s ease-in-out infinite;">
+                        💬 숨고 채팅 완벽 연동
+                    </div>
+                    
+                    <!-- 강조 포인트 (전화 아이콘) -->
+                    <div style="position: absolute; bottom: 0%; left: -5%; background: var(--primary); color: white; padding: 12px 24px; border-radius: 20px; font-weight: 800; font-size: 20px; box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4); transform: rotate(-5deg); z-index: 10; animation: float 4s ease-in-out infinite reverse;">
+                        📞 클릭 한 번에 전화 연결
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 10: 프리미엄 기능 (견적서) -->
+    <div class="slide">
+        <div class="page-number">10 / 15</div>
+        <div class="slide-header">
+            <div class="badge">강력한 부가기능 ②</div>
+            <h1>🧾 클릭 몇 번으로 완성되는 전문적인 견적서</h1>
+        </div>
+        <div class="slide-body">
+            <div class="text-content">
+                <ul>
+                    <li>복잡한 엑셀이나 워드 작업 없이, 시스템 내에서 클릭 몇 번으로 <strong>깔끔하고 신뢰감 있는 견적서</strong>를 생성합니다.</li>
+                    <li>항목별 단가, 부가세 등이 <strong>자동 계산</strong>되어 오차가 발생하지 않습니다.</li>
+                </ul>
+                <div class="highlight-box">
+                    <h3>✨ 타임트리/수기 관리 대비 장점</h3>
+                    <p>주먹구구식 텍스트 견적 대신, <strong>로고가 박힌 전문적인 견적서</strong>로 고객의 신뢰를 100% 끌어올립니다.</p>
+                </div>
+            </div>
+            <div class="image-content" style="background: none; border: none; overflow: visible;">
+                <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    
+                    <!-- 견적서 화면 (PC 브라우저 목업) -->
+                    <div style="position: absolute; width: 95%; height: 85%; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.8); z-index: 1; transform: perspective(1000px) rotateY(5deg); transform-style: preserve-3d;">
+                        <!-- 브라우저 상단바(가짜) -->
+                        <div style="height: 24px; background: #f1f5f9; display: flex; align-items: center; padding: 0 10px; gap: 6px; border-bottom: 1px solid #e2e8f0;">
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></div>
+                        </div>
+                        <img src="workflow/slide10_img.png" alt="견적서 생성 화면" style="width: 100%; height: calc(100% - 24px); object-fit: cover; object-position: top; display: block;">
+                    </div>
+                    
+                    <!-- 강조 포인트 (도장 아이콘) -->
+                    <div style="position: absolute; bottom: 20%; right: -5%; background: white; padding: 16px; border-radius: 50%; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 10; animation: float 4s ease-in-out infinite;">
+                        <span style="font-size: 50px; display: block; line-height: 1;">💮</span>
+                    </div>
+                    
+                    <!-- 강조 포인트 (계산기 아이콘) -->
+                    <div style="position: absolute; top: 15%; left: -5%; background: white; padding: 16px; border-radius: 50%; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 10; animation: float 5s ease-in-out infinite reverse;">
+                        <span style="font-size: 50px; display: block; line-height: 1;">🧮</span>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 11: 프리미엄 기능 (발주서 링크 발송) -->
+    <div class="slide">
+        <div class="page-number">11 / 15</div>
+        <div class="slide-header">
+            <div class="badge">강력한 부가기능 ③</div>
+            <h1>🔗 모바일로 쏙! 고객 맞춤형 발주서 링크 발송</h1>
+        </div>
+        <div class="slide-body">
+            <div class="text-content">
+                <ul>
+                    <li>예약이 확정되면, 고객에게 모바일로 바로 확인 가능한 <strong>발주서(안내장) 링크를 전송</strong>합니다.</li>
+                    <li>청소 범위, 주의사항, 결제 정보 등이 <strong>깔끔하게 정리되어 전달</strong>됩니다.</li>
+                </ul>
+                <div class="highlight-box">
+                    <h3>✨ 타임트리/수기 관리 대비 장점</h3>
+                    <p>"어디까지 청소해주나요?", "계좌번호가 뭐죠?" 같은 반복적인 질문을 <strong>원천 차단하고 브랜드 신뢰도를 높입니다.</strong></p>
+                </div>
+            </div>
+            <div class="image-content" style="background: none; border: none; overflow: visible;">
+                <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    
+                    <!-- 1번 사진 (마케터 발송용 PC 화면 - 배경 좌측 상단) -->
+                    <div style="position: absolute; left: 0; top: 10%; width: 75%; height: 75%; border-radius: 12px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.8); z-index: 1;">
+                        <!-- 브라우저 상단바(가짜) -->
+                        <div style="height: 24px; background: #f1f5f9; display: flex; align-items: center; padding: 0 10px; gap: 6px; border-bottom: 1px solid #e2e8f0;">
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></div>
+                        </div>
+                        <img src="workflow/slide11_img1.png" alt="고객 발송용 메시지 작성 화면" style="width: 100%; height: calc(100% - 24px); object-fit: cover; object-position: left top; display: block;">
+                    </div>
+                    
+                    <!-- 2번 사진 (고객 확인용 모바일 폰 목업 - 전경 우측 하단) -->
+                    <div style="position: absolute; right: 0; bottom: 5%; width: 40%; height: 85%; z-index: 5; filter: drop-shadow(-10px 20px 40px rgba(0,0,0,0.3));">
+                        <!-- 스마트폰 프레임 -->
+                        <div style="position: absolute; inset: 0; background: #1e293b; border-radius: 32px; padding: 10px; box-shadow: inset 0 0 0 2px #334155;">
+                            <!-- 폰 화면 영역 -->
+                            <div style="position: relative; width: 100%; height: 100%; background: white; border-radius: 22px; overflow: hidden;">
+                                <!-- 노치(가짜) -->
+                                <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 35%; height: 16px; background: #1e293b; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; z-index: 10;"></div>
+                                
+                                <img src="workflow/slide11_img2.png" alt="고객 모바일 발주서 확인 화면" style="width: 100%; height: 100%; object-fit: contain; object-position: top; display: block; background: white;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 12: 프리미엄 기능 (전자계약) -->
+    <div class="slide">
+        <div class="page-number">12 / 15</div>
+        <div class="slide-header">
+            <div class="badge">강력한 부가기능 ④</div>
+            <h1>✍️ 번거로운 서류 작업 끝, 직원 전자계약</h1>
+        </div>
+        <div class="slide-body">
+            <div class="text-content">
+                <ul class="icon-list">
+                    <li><span class="icon">📱</span><strong>간편한 서명:</strong> 종이 없이 스마트폰 화면에서 바로 서명받는 모바일 전자계약 시스템입니다.</li>
+                    <li><span class="icon">🗂️</span><strong>안전한 보관:</strong> 분실 위험 없이 클라우드에 영구 보관되며 언제든 열람할 수 있습니다.</li>
+                    <li><span class="icon">🤝</span><strong>팀장/크루 관리:</strong> 복잡한 근로계약서, 도급계약서도 템플릿을 활용해 1분 만에 완성합니다.</li>
+                </ul>
+            </div>
+            <div class="image-content" style="background: none; border: none; overflow: visible;">
+                <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    
+                    <!-- 전자계약 화면 (PC 브라우저 목업) -->
+                    <div style="position: absolute; width: 95%; height: 85%; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.8); z-index: 1; transform: perspective(1000px) rotateY(-5deg); transform-style: preserve-3d;">
+                        <!-- 브라우저 상단바(가짜) -->
+                        <div style="height: 24px; background: #f1f5f9; display: flex; align-items: center; padding: 0 10px; gap: 6px; border-bottom: 1px solid #e2e8f0;">
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></div>
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></div>
+                        </div>
+                        <img src="workflow/slide12_img.png" alt="전자계약서 작성 화면" style="width: 100%; height: calc(100% - 24px); object-fit: cover; object-position: top; display: block;">
+                    </div>
+                    
+                    <!-- 강조 포인트 (서명 아이콘) -->
+                    <div style="position: absolute; bottom: 15%; right: -5%; background: white; padding: 16px; border-radius: 50%; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 10; animation: float 4s ease-in-out infinite;">
+                        <span style="font-size: 50px; display: block; line-height: 1;">✍️</span>
+                    </div>
+                    
+                    <!-- 강조 포인트 (보안/자물쇠 아이콘) -->
+                    <div style="position: absolute; top: 15%; left: -5%; background: white; padding: 16px; border-radius: 50%; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 10; animation: float 5s ease-in-out infinite reverse;">
+                        <span style="font-size: 50px; display: block; line-height: 1;">🔒</span>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 11: 향후 업데이트 (PG & 카카오톡) -->
+    <div class="slide">
+        <div class="page-number">13 / 15</div>
+        <div class="slide-header">
+            <div class="badge">Roadmap</div>
+            <h1>🚀 앞으로 더 강력해질 청소비서 (업데이트 예정)</h1>
+        </div>
+        <div class="slide-body" style="padding-top: 20px;">
+            <div class="roadmap-container">
+                <div class="roadmap-card">
+                    <div class="roadmap-icon">💳</div>
+                    <h3 class="roadmap-title">PG사 연동 (카드 결제)</h3>
+                    <p class="roadmap-desc">현장에서 무거운 단말기 없이,<br>고객 스마트폰으로 링크를 보내<br><strong>바로 카드 결제를 완료</strong>합니다.</p>
+                </div>
+                <div class="roadmap-card">
+                    <div class="roadmap-icon">💬</div>
+                    <h3 class="roadmap-title">카카오톡 알림톡 연동</h3>
+                    <p class="roadmap-desc">예약 완료 안내, 전/후 사진 전송,<br>결제 요청 알림을 문자가 아닌<br><strong>카카오톡으로 자동 발송</strong>합니다.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 12: 요금제 플랜 -->
+    <div class="slide">
+        <div class="page-number">14 / 15</div>
+        <div class="slide-header">
+            <div class="badge">Pricing</div>
+            <h1>🏢 우리 회사 규모에 딱 맞는 플랜을 선택하세요</h1>
+        </div>
+        <div class="slide-body" style="padding-top: 10px; padding-bottom: 30px;">
+            <div class="plan-container">
+                <!-- Starter -->
+                <div class="plan-card">
+                    <div class="plan-title">Starter</div>
+                    <div class="plan-desc">소형 본사 · 접수/배정 중심</div>
+                    <div class="plan-price">9만 원 <span>/ 월</span></div>
+                    <ul class="plan-features">
+                        <li>서비스접수 · 발주서</li>
+                        <li>스케줄 · 배정 · 메시지</li>
+                        <li>정보공유 (DB 마켓)</li>
+                    </ul>
+                </div>
+                <!-- Standard -->
+                <div class="plan-card recommended">
+                    <div class="plan-title">Standard</div>
+                    <div class="plan-desc">현장·마케팅 운영의 기본</div>
+                    <div class="plan-price">25만 원 <span>/ 월</span></div>
+                    <ul class="plan-features">
+                        <li><strong>Starter 전체 포함</strong></li>
+                        <li>C/S · 크루 · 팀장 통계</li>
+                        <li>타업체 · 외부정산</li>
+                        <li>광고비 관리</li>
+                    </ul>
+                </div>
+                <!-- Premium -->
+                <div class="plan-card">
+                    <div class="plan-title">Premium</div>
+                    <div class="plan-desc">정산·계약·전화영업·네트워크</div>
+                    <div class="plan-price">40만 원 <span>/ 월</span></div>
+                    <ul class="plan-features">
+                        <li><strong>Standard 전체 포함</strong></li>
+                        <li>급여 · 정산 · 전자계약</li>
+                        <li>텔레CRM (전화영업)</li>
+                        <li>파트너 접수 연계</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬라이드 13: 마무리 -->
+    <div class="slide cover-slide">
+        <div class="page-number">15 / 15</div>
+        <h1 style="text-shadow: 0 4px 20px rgba(0,0,0,0.6);">마케터는 '영업'에,<br>팀장은 '청소'에만 집중하세요.</h1>
+        <p style="margin-top: 40px; line-height: 1.6; text-shadow: 0 2px 10px rgba(0,0,0,0.6); color: #e2e8f0;">복잡한 일정 공유, 카톡 보고, 수동 정산은 이제 청소비서가 알아서 합니다.<br>아껴진 시간으로 더 많은 오더를 받고, 더 높은 퀄리티의 서비스를 만들어가세요!</p>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const slides = document.querySelectorAll('.slide');
+            let currentSlide = 0;
+
+            // Hide all slides except the first one initially
+            slides.forEach((slide, index) => {
+                if (index !== 0) {
+                    slide.style.display = 'none';
+                }
+            });
+
+            // Handle keyboard navigation
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+                    if (currentSlide < slides.length - 1) {
+                        slides[currentSlide].style.display = 'none';
+                        currentSlide++;
+                        slides[currentSlide].style.display = 'flex';
+                    }
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    if (currentSlide > 0) {
+                        slides[currentSlide].style.display = 'none';
+                        currentSlide--;
+                        slides[currentSlide].style.display = 'flex';
+                    }
+                }
+            });
+            
+            // Add click navigation
+            document.body.addEventListener('click', (e) => {
+                // Ignore clicks on links or buttons
+                if (e.target.tagName.toLowerCase() === 'a' || e.target.tagName.toLowerCase() === 'button') return;
+                
+                if (currentSlide < slides.length - 1) {
+                    slides[currentSlide].style.display = 'none';
+                    currentSlide++;
+                    slides[currentSlide].style.display = 'flex';
+                }
+            });
+            
+            // Add instructions overlay
+            const instructions = document.createElement('div');
+            instructions.innerHTML = '💡 <b>슬라이드쇼 모드:</b> 키보드 화살표(⬅️ ➡️)나 스페이스바, 또는 마우스 클릭으로 페이지를 넘길 수 있습니다. (F11을 누르면 전체화면이 됩니다)';
+            instructions.style.cssText = 'position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; z-index: 9999; opacity: 1; transition: opacity 1s; pointer-events: none;';
+            document.body.appendChild(instructions);
+            
+            // Fade out instructions after 5 seconds
+            setTimeout(() => {
+                instructions.style.opacity = '0';
+            }, 5000);
+        });
+    </script>
+</body>
+
+</html>
