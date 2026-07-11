@@ -22,7 +22,6 @@ import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 import { DarkHeaderNavScroll } from './DarkHeaderNavScroll';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
-import { isSkTenantSlug } from '@shared/skTenant';
 import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
 
 function teamAriaAssignNav(count: number): string {
@@ -322,7 +321,7 @@ export function TeamLayout() {
 
   useEffect(() => {
     const token = getTeamToken();
-    if (!token || userRole !== 'TEAM_LEADER' || !isSkTenantSlug(tenantSlug)) {
+    if (!token || userRole !== 'TEAM_LEADER') {
       setTeamTrainingAvailable(false);
       return;
     }

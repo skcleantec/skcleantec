@@ -27,17 +27,8 @@ router.use(authMiddleware, adminOnly);
 router.get('/', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
-  try {
-    const meta = await getTeamLeaderTrainingMeta(tenantId);
-    res.json(meta);
-  } catch (e) {
-    const err = e as { code?: string; message?: string };
-    if (err.code === 'forbidden') {
-      res.status(403).json({ error: err.message ?? 'SK클린텍 전용 기능입니다.' });
-      return;
-    }
-    throw e;
-  }
+  const meta = await getTeamLeaderTrainingMeta(tenantId);
+  res.json(meta);
 });
 
 /** POST /api/admin/team-leader-training — PDF 교체 업로드 */
@@ -58,10 +49,6 @@ router.post('/', pdfUpload.single('pdf'), async (req, res) => {
     res.json(meta);
   } catch (e) {
     const err = e as { code?: string; message?: string };
-    if (err.code === 'forbidden') {
-      res.status(403).json({ error: err.message ?? 'SK클린텍 전용 기능입니다.' });
-      return;
-    }
     if (err.code === 'cloudinary') {
       res.status(503).json({ error: err.message ?? '파일 저장소가 준비되지 않았습니다.' });
       return;

@@ -1,7 +1,7 @@
 import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { getTenantConfig, updateTenantConfig } from '../tenants/tenantConfig.service.js';
 import type { TenantTeamLeaderTrainingConfig } from '../tenants/tenantConfig.schema.js';
-import { assertSkTenantId, teamLeaderTrainingCloudinaryFolder } from './teamLeaderTraining.helpers.js';
+import { teamLeaderTrainingCloudinaryFolder } from './teamLeaderTraining.helpers.js';
 
 /** 표시·다운로드용 고정 파일명 — multipart 원본명(한글 깨짐) 저장하지 않음 */
 export const TEAM_LEADER_TRAINING_PDF_FILENAME = '현장팀장 교육자료.pdf';
@@ -52,7 +52,6 @@ export function teamLeaderTrainingMetaFromConfig(
 }
 
 export async function getTeamLeaderTrainingMeta(tenantId: string): Promise<TeamLeaderTrainingMeta> {
-  await assertSkTenantId(tenantId);
   const config = await getTenantConfig(tenantId);
   return teamLeaderTrainingMetaFromConfig(readTrainingConfig(config));
 }
@@ -72,7 +71,6 @@ export async function uploadTeamLeaderTrainingPdf(params: {
   buffer: Buffer;
   fileName: string;
 }): Promise<TeamLeaderTrainingMeta> {
-  await assertSkTenantId(params.tenantId);
   if (!isCloudinaryConfigured()) {
     throw Object.assign(new Error('파일 저장소가 준비되지 않았습니다.'), { code: 'cloudinary' });
   }
@@ -119,7 +117,6 @@ export async function uploadTeamLeaderTrainingPdf(params: {
 export async function fetchTeamLeaderTrainingPdf(params: {
   tenantId: string;
 }): Promise<{ buffer: Buffer; fileName: string; updatedAt: string | null }> {
-  await assertSkTenantId(params.tenantId);
   const config = await getTenantConfig(params.tenantId);
   const training = readTrainingConfig(config);
   const publicId = training?.pdfPublicId?.trim();

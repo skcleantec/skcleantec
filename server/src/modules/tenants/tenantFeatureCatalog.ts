@@ -14,7 +14,7 @@ export const TENANT_FEATURE_MODULES = {
   mod_e_contract: { label: '전자계약', tier: 'premium' as const, defaultOn: false },
   mod_external_co: { label: '타업체·외부정산', tier: 'standard' as const, defaultOn: true },
   mod_tenant_exchange: { label: '파트너 접수 연계', tier: 'premium' as const, defaultOn: false },
-  mod_db_marketplace: { label: '정보공유(DB 마켓)', tier: 'premium' as const, defaultOn: false },
+  mod_db_marketplace: { label: '정보공유(DB 마켓)', tier: 'standard' as const, defaultOn: false },
   mod_crew: { label: '크루(현장)', tier: 'standard' as const, defaultOn: true },
   mod_team_stats: { label: '팀장 통계', tier: 'standard' as const, defaultOn: true },
   mod_inspection: { label: '현장 검수', tier: 'standard' as const, defaultOn: true },
@@ -27,7 +27,7 @@ export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;
 export const TENANT_PLANS = {
   starter: {
     label: 'Starter',
-    modules: ['core_inquiries', 'core_schedule', 'core_assignments', 'core_messages'] as TenantFeatureModuleId[],
+    modules: ['core_inquiries', 'core_schedule', 'core_assignments', 'core_messages', 'mod_db_marketplace'] as TenantFeatureModuleId[],
   },
   standard: {
     label: 'Standard',
@@ -42,6 +42,7 @@ export const TENANT_PLANS = {
       'mod_team_stats',
       'mod_inspection',
       'mod_advertising',
+      'mod_db_marketplace',
     ] as TenantFeatureModuleId[],
   },
   premium: {

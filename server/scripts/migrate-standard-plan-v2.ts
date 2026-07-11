@@ -16,7 +16,6 @@ import { modulesForPlan } from '../src/modules/tenants/tenantFeatureCatalog.js';
 
 const PREMIUM_ONLY_MODULES = [
   'mod_tenant_exchange',
-  'mod_db_marketplace',
   'mod_telecrm',
   'mod_payroll',
   'mod_e_contract',
@@ -80,7 +79,6 @@ async function decideAction(tenant: TenantRow): Promise<{
 
   const usesPremiumData =
     signals.partnershipCount > 0 ||
-    signals.dbListingCount > 0 ||
     signals.telecrmSessionCount > 0 ||
     signals.telecrmQuoteCount > 0 ||
     signals.eContractCount > 0 ||
@@ -91,7 +89,6 @@ async function decideAction(tenant: TenantRow): Promise<{
   if (usesPremiumData || hasPremiumModuleEffective) {
     const parts: string[] = [];
     if (signals.partnershipCount > 0) parts.push(`파트너 ${signals.partnershipCount}건`);
-    if (signals.dbListingCount > 0) parts.push(`DB마켓 ${signals.dbListingCount}건`);
     if (signals.telecrmSessionCount > 0) parts.push(`텔레CRM 통화 ${signals.telecrmSessionCount}건`);
     if (signals.telecrmQuoteCount > 0) parts.push(`견적 ${signals.telecrmQuoteCount}건`);
     if (signals.eContractCount > 0) parts.push(`전자계약 ${signals.eContractCount}건`);
