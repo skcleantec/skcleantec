@@ -12,6 +12,7 @@ import {
   createInquiryExcelProfile,
   deleteInquiryExcelProfile,
   executeInquiryExcelImport,
+  executeInquiryExcelImportBatch,
   extractExcelHeaders,
   getInquiryExcelFieldCatalog,
   getInquiryExcelProfile,
@@ -206,6 +207,42 @@ router.post('/import/execute', upload.single('file'), async (req, res) => {
       profileId,
       buffer: file.buffer,
       fileName,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '일괄 등록 실패' });
+  }
+});
+
+router.post('/import/execute/batch', upload.single('file'), async (req, res) => {
+  const tenantId = tenantIdOr403(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const file = req.file;
+  const profileId = String(req.body.profileId ?? '').trim();
+  const runId = String(req.body.runId ?? '').trim() || undefined;
+  const startOffset = Number(req.body.startOffset ?? 0);
+  const batchSize = Number(req.body.batchSize ?? 0);
+  if (!profileId) {
+    res.status(400).json({ error: '매칭 서식을 선택해주세요.' });
+    return;
+  }
+  if (!file?.buffer?.length) {
+    res.status(400).json({ error: '엑셀 파일을 업로드해주세요.' });
+    return;
+  }
+  try {
+    const fileName = normalizeUploadedFilename(file.originalname) ?? undefined;
+    const result = await executeInquiryExcelImportBatch({
+      tenantId,
+      userId: user.userId,
+      userRole: user.role as UserRole,
+      profileId,
+      buffer: file.buffer,
+      fileName,
+      runId,
+      startOffset: Number.isFinite(startOffset) ? startOffset : 0,
+      batchSize: Number.isFinite(batchSize) && batchSize > 0 ? batchSize : undefined,
     });
     res.json(result);
   } catch (e) {
