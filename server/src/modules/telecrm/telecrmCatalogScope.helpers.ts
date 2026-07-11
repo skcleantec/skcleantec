@@ -47,12 +47,26 @@ export function telecrmSmsTemplateWhere(
   scope: TelecrmCatalogScope,
   tenantId: string,
   userId: string,
+  operatingCompanyId?: string | null,
 ): Prisma.TelecrmSmsTemplateWhereInput {
-  if (scope === 'shared') return { tenantId, ownerUserId: null };
+  const brandFilterForShared = (): Prisma.TelecrmSmsTemplateWhereInput => {
+    if (operatingCompanyId) return { operatingCompanyId };
+    return { operatingCompanyId: null };
+  };
+  const brandFilterForWork = (): Prisma.TelecrmSmsTemplateWhereInput => {
+    if (operatingCompanyId) {
+      return { OR: [{ operatingCompanyId: null }, { operatingCompanyId }] };
+    }
+    return { operatingCompanyId: null };
+  };
+
+  if (scope === 'shared') {
+    return { tenantId, ownerUserId: null, ...brandFilterForShared() };
+  }
   if (scope === 'personal') return { tenantId, ownerUserId: userId };
   return {
     tenantId,
-    OR: [{ ownerUserId: null }, { ownerUserId: userId }],
+    AND: [{ OR: [{ ownerUserId: null }, { ownerUserId: userId }] }, brandFilterForWork()],
   };
 }
 
@@ -76,9 +90,25 @@ export function sortTelecrmSoomgoMessagePresetsForWork<
 }
 
 export function sortTelecrmSmsTemplatesForWork<
-  T extends { ownerUserId: string | null; sortOrder: number; createdAt: Date },
->(rows: T[]): T[] {
-  return sortTelecrmCategoriesForWork(rows);
+  T extends {
+    ownerUserId: string | null;
+    operatingCompanyId?: string | null;
+    sortOrder: number;
+    createdAt: Date;
+  },
+>(rows: T[], operatingCompanyId?: string | null): T[] {
+  const tier = (row: T) => {
+    if (row.ownerUserId != null) return 0;
+    if (operatingCompanyId && row.operatingCompanyId === operatingCompanyId) return 1;
+    return 2;
+  };
+  return [...rows].sort((a, b) => {
+    const at = tier(a);
+    const bt = tier(b);
+    if (at !== bt) return at - bt;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.createdAt.getTime() - b.createdAt.getTime();
+  });
 }
 
 export function sortTelecrmCategoriesForWork<

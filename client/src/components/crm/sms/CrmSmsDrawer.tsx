@@ -36,6 +36,7 @@ export function CrmSmsDrawer({
   estimateWon,
   inquiryId,
   customerMatch = 'unknown',
+  operatingCompanyId = null,
   onDispatchNotice,
   refreshKey = 0,
   onOpenOrderIssue,
@@ -49,6 +50,7 @@ export function CrmSmsDrawer({
   estimateWon?: number | null;
   inquiryId?: string | null;
   customerMatch?: 'new' | 'existing' | 'pick' | 'unknown';
+  operatingCompanyId?: string | null;
   onDispatchNotice?: (message: string) => void;
   refreshKey?: number;
   onOpenOrderIssue?: () => void;
@@ -95,14 +97,18 @@ export function CrmSmsDrawer({
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetchTelecrmSmsTemplates(token, { scope: 'work', includeInactive: true });
+      const res = await fetchTelecrmSmsTemplates(token, {
+        scope: 'work',
+        includeInactive: true,
+        operatingCompanyId,
+      });
       setTemplates(res.templates.filter((t) => t.isActive));
     } catch {
       setTemplates([]);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, operatingCompanyId]);
 
   useEffect(() => {
     if (!open) return;

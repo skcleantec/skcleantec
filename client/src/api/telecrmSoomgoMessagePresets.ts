@@ -71,19 +71,47 @@ export async function deleteTelecrmSoomgoMessagePreset(token: string, id: string
   if (!res.ok) throw new Error(data.error ?? '프리셋 삭제 실패');
 }
 
-export async function fetchTelecrmSoomgoAutoMessages(token: string): Promise<{
+export async function fetchTelecrmSoomgoAutoMessages(
+  token: string,
+  operatingCompanyId?: string | null,
+): Promise<{
   items: SoomgoAutoMessagePresetDto[];
+  fallbackFromDefault?: boolean;
 }> {
-  const res = await fetch(`${API}/soomgo-message-presets/auto-messages`, { headers: authHeaders(token) });
-  const data = (await res.json()) as { error?: string; items?: SoomgoAutoMessagePresetDto[] };
+  const q = new URLSearchParams();
+  if (operatingCompanyId) q.set('operatingCompanyId', operatingCompanyId);
+  const res = await fetch(`${API}/soomgo-message-presets/auto-messages?${q}`, { headers: authHeaders(token) });
+  const data = (await res.json()) as {
+    error?: string;
+    items?: SoomgoAutoMessagePresetDto[];
+    fallbackFromDefault?: boolean;
+  };
   if (!res.ok) throw new Error(data.error ?? '자동 메시지 설정을 불러올 수 없습니다.');
-  return { items: data.items ?? [] };
+  return { items: data.items ?? [], fallbackFromDefault: data.fallbackFromDefault };
+}
+
+export async function resolveTelecrmSoomgoIntakeAutoMessageForSend(
+  token: string,
+  triggerKind: SoomgoIntakeAutoTriggerKind,
+  operatingCompanyId?: string | null,
+): Promise<{ item: SoomgoAutoMessagePresetDto | null }> {
+  const q = new URLSearchParams({ triggerKind });
+  if (operatingCompanyId) q.set('operatingCompanyId', operatingCompanyId);
+  const res = await fetch(`${API}/soomgo-message-presets/auto-messages/resolve?${q}`, {
+    headers: authHeaders(token),
+  });
+  const data = (await res.json()) as {
+    error?: string;
+    item?: SoomgoAutoMessagePresetDto | null;
+  };
+  if (!res.ok) throw new Error(data.error ?? '자동 메시지를 불러올 수 없습니다.');
+  return { item: data.item ?? null };
 }
 
 export async function updateTelecrmSoomgoAutoMessage(
   token: string,
   triggerKind: SoomgoIntakeAutoTriggerKind,
-  input: { steps: SoomgoMessageStep[]; isActive: boolean },
+  input: { steps: SoomgoMessageStep[]; isActive: boolean; operatingCompanyId?: string | null },
 ): Promise<SoomgoAutoMessagePresetDto> {
   const res = await fetch(`${API}/soomgo-message-presets/auto-messages/${encodeURIComponent(triggerKind)}`, {
     method: 'PUT',

@@ -20,6 +20,7 @@ export function CrmSmsPanel({
   estimateWon,
   inquiryId,
   customerMatch = 'unknown',
+  operatingCompanyId = null,
   onDispatchNotice,
   onOpenSettings,
   onOpenOrderIssue,
@@ -31,6 +32,7 @@ export function CrmSmsPanel({
   estimateWon?: number | null;
   inquiryId?: string | null;
   customerMatch?: 'new' | 'existing' | 'pick' | 'unknown';
+  operatingCompanyId?: string | null;
   onDispatchNotice?: (message: string) => void;
   onOpenSettings?: () => void;
   onOpenOrderIssue?: () => void;
@@ -68,14 +70,17 @@ export function CrmSmsPanel({
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetchTelecrmSmsTemplates(token, { scope: 'work' });
+      const res = await fetchTelecrmSmsTemplates(token, {
+        scope: 'work',
+        operatingCompanyId,
+      });
       setTemplates(res.templates);
     } catch {
       setTemplates([]);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, operatingCompanyId]);
 
   useEffect(() => {
     void loadTemplates();

@@ -13,6 +13,7 @@ export type TelecrmSmsTemplateDto = {
   isActive: boolean;
   ownerUserId?: string | null;
   ownerScope?: 'shared' | 'personal';
+  operatingCompanyId?: string | null;
 };
 
 export type TelecrmCallNoteDto = {
@@ -25,11 +26,16 @@ export type TelecrmCallNoteDto = {
 
 export async function fetchTelecrmSmsTemplates(
   token: string,
-  opts?: { scope?: 'work' | 'shared' | 'personal'; includeInactive?: boolean },
+  opts?: {
+    scope?: 'work' | 'shared' | 'personal';
+    includeInactive?: boolean;
+    operatingCompanyId?: string | null;
+  },
 ): Promise<{ templates: TelecrmSmsTemplateDto[] }> {
   const q = new URLSearchParams();
   if (opts?.scope) q.set('scope', opts.scope);
   if (opts?.includeInactive) q.set('includeInactive', '1');
+  if (opts?.operatingCompanyId) q.set('operatingCompanyId', opts.operatingCompanyId);
   const res = await fetch(`${API}/sms-templates?${q}`, { headers: authHeaders(token) });
   const data = (await res.json()) as { error?: string; templates?: TelecrmSmsTemplateDto[] };
   if (!res.ok) throw new Error(data.error ?? '문자 템플릿을 불러올 수 없습니다.');
@@ -38,7 +44,13 @@ export async function fetchTelecrmSmsTemplates(
 
 export async function createTelecrmSmsTemplate(
   token: string,
-  input: { label: string; body: string; imageUrl?: string | null; ownerScope?: 'shared' | 'personal' },
+  input: {
+    label: string;
+    body: string;
+    imageUrl?: string | null;
+    ownerScope?: 'shared' | 'personal';
+    operatingCompanyId?: string | null;
+  },
 ): Promise<TelecrmSmsTemplateDto> {
   const res = await fetch(`${API}/sms-templates`, {
     method: 'POST',

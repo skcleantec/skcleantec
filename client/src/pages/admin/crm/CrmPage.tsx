@@ -1070,6 +1070,7 @@ export function CrmPage() {
           estimateWon={scriptEstimateWon}
           inquiryId={crmContext.inquiryId}
           customerMatch={crmContext.customerMatch}
+          operatingCompanyId={activeOperatingCompanyId}
           onDispatchNotice={showDispatchNotice}
           refreshKey={catalogRefreshKey}
           onOpenOrderIssue={canOrderIssue ? () => openIssue(crmContext.inquiryId) : undefined}

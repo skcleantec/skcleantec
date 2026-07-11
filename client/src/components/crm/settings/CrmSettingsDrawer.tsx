@@ -80,7 +80,7 @@ export function CrmSettingsDrawer({
     tab === 'soomgo'
       ? '업체 공통 숨고 계정·PC 프로그램·브랜드별 계정을 설정합니다.'
       : tab === 'soomgo-presets'
-        ? '숨고 채팅 매크로·처리 구분별 자동 메시지(업체 공통)를 편집합니다.'
+        ? '숨고 채팅 매크로·처리 구분별 자동 메시지(브랜드별, 업체 기본 폴백)를 편집합니다.'
         : '개인 스크립트·가격 또는 업체 공통 설정을 편집합니다.';
 
   return (
@@ -117,7 +117,7 @@ export function CrmSettingsDrawer({
           <p className="mt-2 text-[11px] text-gray-500">
             {tab === 'soomgo-presets'
               ? catalogScope === 'personal'
-                ? '본인 숨고 메시지 매크로입니다. 자동 안내는 「자동메시지」 탭(업체 공통)에서 설정합니다.'
+                ? '본인 숨고 메시지 매크로입니다. 자동 안내는 「자동메시지」 탭(브랜드별)에서 설정합니다.'
                 : '업체 공유 숨고 매크로입니다.'
               : catalogScope === 'personal'
                 ? '본인만 보는 개인 카탈로그입니다. 작업 화면에서 내 항목이 먼저 표시됩니다.'
