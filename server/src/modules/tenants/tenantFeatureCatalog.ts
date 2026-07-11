@@ -107,7 +107,7 @@ export function usageLimitForPlan(plan: string, metric: TenantUsageMetricId): nu
 
 /** @see shared/tenantPlanCatalog.ts — 동기화 */
 export const TENANT_BILLING_NOTE =
-  '월 정액 플랜(Starter 9만·Standard 25만·Premium 40만 원, VAT 별도)에 포함된 업무 계정·접수·브랜드 한도를 기준으로 표시합니다. 포함량 초과분은 별도 과금(계정·접수·브랜드 단위)으로 추후 적용될 예정이며, 플랜 업그레이드는 플랫폼 담당자에게 문의해 주세요.';
+  '월 정액 플랜(Starter 10만·Standard 25만·Premium 40만 원, VAT 별도)에 포함된 업무 계정·접수·브랜드 한도를 기준으로 표시합니다. 포함량 초과분은 별도 과금(계정·접수·브랜드 단위)으로 추후 적용될 예정이며, 플랜 업그레이드는 플랫폼 담당자에게 문의해 주세요.';
 
 export function isKnownFeatureModuleId(id: string): id is TenantFeatureModuleId {
   return id in TENANT_FEATURE_MODULES;
