@@ -282,13 +282,14 @@ router.get('/', async (req, res) => {
   const items = await mergeRefreshedInquiryGeoFields(prisma, itemsRaw, touched);
 
   const itemsWithDistance = items.map((row) => attachDistanceFromJuanForInquiry(row));
+  /** lite여도 파트너 연계 배지·미배정 제외에 tenantShare 필요 */
+  const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
   if (useLite) {
     res.json({
-      items: mapInquiriesInternalToneForRole(itemsWithDistance, user.role),
+      items: mapInquiriesInternalToneForRole(itemsWithShare, user.role),
     });
     return;
   }
-  const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
   const itemsWithDbListing = await attachDbListingMetaToInquiries(tenantId, itemsWithShare);
   const itemsWithProfReview = await enrichInquiriesProfOptionsReviewStatus(prisma, itemsWithDbListing);
   res.json({

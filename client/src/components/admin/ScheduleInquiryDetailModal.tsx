@@ -111,7 +111,7 @@ import { createTenantInquiryShare, patchTenantInquiryShareTransferFee, revokeTen
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { TenantInquiryShareBadge } from './TenantInquiryShareBadge';
 import { PartnerReceivedBanner } from './PartnerReceivedBanner';
-import { formatPartnerAssignmentLabel } from '../../utils/tenantShareSettlement';
+import { formatPartnerAssignmentLabel, isActivePartnerShareSource } from '../../utils/tenantShareSettlement';
 import { InquiryDbMarketplaceBadge } from './InquiryDbMarketplaceBadge';
 import { InquiryDbMarketplaceSellPanel, type DbMarketplaceExchangePrefill } from './InquiryDbMarketplaceSellPanel';
 
@@ -1212,6 +1212,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     }
     return '';
   }, [editForm.teamLeaderIds, assignableTeamLeaders]);
+
+  const activePartnerShareSource = useMemo(
+    () => isActivePartnerShareSource(item?.tenantShare),
+    [item?.tenantShare],
+  );
 
   const externalPartnerOptions = useMemo(
     () =>
@@ -3221,7 +3226,18 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 엄격 배정: 이 접수 영업 브랜드에 소속된 팀장만 선택할 수 있습니다.
               </p>
             ) : null}
-            {resolvedExternalLeadId ? (
+            {activePartnerShareSource && item?.tenantShare ? (
+              <div
+                className="rounded-lg border border-indigo-200 bg-indigo-50/90 px-3 py-2.5 text-sm text-indigo-950"
+                role="status"
+              >
+                <span className="font-medium">파트너 · {item.tenantShare.partnerName} 연계됨</span>
+                <span className="mt-1 block text-xs text-indigo-900/95">
+                  자사 팀장 미배정 상태입니다. 현장 수행은 파트너 업체에서 진행합니다. 수수료·연계 취소는
+                  위 「정산 · 옵션」의 《파트너에 접수 연계》에서 관리하세요.
+                </span>
+              </div>
+            ) : resolvedExternalLeadId ? (
               <div
                 className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-sm text-amber-950"
                 role="status"
