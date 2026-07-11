@@ -16,6 +16,7 @@ import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFo
 import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../../components/orderform/OrderFormTemplateInfo';
 import { TeamQuotationInquiryLinkPanel } from '../../components/quotations/TeamQuotationInquiryLinkPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
+import { PartnerReceivedBanner } from '../../components/admin/PartnerReceivedBanner';
 import { TeamInlineNoticeModule } from '../../components/team/TeamInlineNoticeModule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
@@ -321,6 +322,8 @@ export interface InquiryItem {
   inspectionSummary?: InspectionListSummary | null;
   /** 접수 영업 브랜드 (Operating Company) */
   operatingCompany?: OperatingCompanyBadgeData | null;
+  /** 파트너 접수 연계 */
+  tenantShare?: import('../../api/tenantInquiryShare').TenantInquiryShareMeta | null;
 }
 
 export function formatScheduleLine(item: InquiryItem) {
@@ -1315,6 +1318,10 @@ export function TeamInquiryDetailModal({
               ) : null}
             </TeamModalSection>
 
+            {item.tenantShare?.role === 'TARGET' ? (
+              <PartnerReceivedBanner share={item.tenantShare} />
+            ) : null}
+
             {effectiveViewerId && mine ? (
               <TeamModalSection
                 title={<TeamBiLine id="team.modal.section.assignmentMine" koClassName="text-fluid-xs font-semibold text-gray-600" />}
@@ -1682,6 +1689,7 @@ export function TeamInquiryDetailModal({
               serviceBalanceAmount={item.serviceBalanceAmount}
               initialExtraCharges={item.extraCharges}
               initialAdditionalReceipts={item.additionalReceipts}
+              tenantShare={item.tenantShare ?? null}
             />
             {item.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER') && (
               <TeamModalSection

@@ -14,6 +14,8 @@ import {
 } from './tenantPartnership.service.js';
 import {
   createTenantInquiryShare,
+  patchTenantInquiryShareTransferFee,
+  revokeTenantInquiryShare,
   TenantInquiryShareError,
 } from './tenantInquiryShare.service.js';
 import {
@@ -105,6 +107,52 @@ router.post('/shares', async (req, res) => {
       fieldPreset: body.fieldPreset,
     });
     res.status(201).json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+/** 파트너 연계 수수료 수정 (송신 테넌트) */
+router.patch('/shares/:shareId', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const shareId = typeof req.params.shareId === 'string' ? req.params.shareId.trim() : '';
+  if (!shareId) {
+    res.status(400).json({ error: '연계 ID가 필요합니다.' });
+    return;
+  }
+  const body = req.body as { transferFee?: unknown };
+  try {
+    const share = await patchTenantInquiryShareTransferFee({
+      viewerTenantId: tenantId,
+      shareId,
+      transferFee: body.transferFee,
+    });
+    res.json({ share });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+/** 접수 연계 취소(회수) — 송신 테넌트, 마켓 확정 연계 포함 */
+router.post('/shares/:shareId/revoke', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const shareId = typeof req.params.shareId === 'string' ? req.params.shareId.trim() : '';
+  if (!shareId) {
+    res.status(400).json({ error: '연계 ID가 필요합니다.' });
+    return;
+  }
+  try {
+    const share = await revokeTenantInquiryShare({
+      viewerTenantId: tenantId,
+      viewerUserId: auth.userId,
+      shareId,
+    });
+    res.json({ share });
   } catch (e) {
     if (mapError(res, e)) return;
     throw e;

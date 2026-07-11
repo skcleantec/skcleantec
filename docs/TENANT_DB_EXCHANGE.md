@@ -82,6 +82,18 @@
 
 기준일: 타업체와 동일 **예약일 `preferredDate` KST**. 취소는 마이너스 반영.
 
+### 3.4 잔금·결제 금액 (파트너 연계)
+
+- **수신(TARGET) mirror 잔금**: `총액 − 예약금 − transferFee` (`serviceBalanceAmount`에 저장·동기화 시 재계산).
+- **송신(SOURCE) 팀장 화면**: 현장 수금 없음 → **잔금 0** + 안내 문구. 수수료 행은 숨김(파트너 정산 메뉴 참고).
+- **타업체 수수료**(`externalTransferFee`)와 **파트너 수수료**(`transferFee`)는 DB·UI 모두 분리.
+
+### 3.5 접수 연계 취소(회수)
+
+- 송신 테넌트 `POST /shares/:id/revoke` → `syncStatus = REVOKED`, 정산 fee 0.
+- 수신 mirror 접수는 **목록 유지** + 「연계 취소됨」 배지.
+- 정보공유(마켓) 확정 후 생성된 share도 동일 API로 회수.
+
 ---
 
 ## 4. 동기화
@@ -142,6 +154,8 @@
 | POST | `/:id/reject` | 거절 |
 | POST | `/:id/suspend` | 테넌트 측 중지 요청 |
 | POST | `/shares` | `{ inquiryId, partnershipId, transferFee, fieldPreset?, fieldMask? }` 접수 연계 |
+| PATCH | `/shares/:shareId` | `{ transferFee }` 송신 테넌트 — 파트너 수수료 수정 |
+| POST | `/shares/:shareId/revoke` | 접수 연계 취소(회수) — 마켓 확정 연계 포함 |
 | GET | `/settlement/export` | `role`, `partnerTenantId`, `from?`, `to?` — 정산 CSV |
 | GET | `/settlement/seller-summary` | 판매자 receivable |
 | GET | `/settlement/buyer-summary` | 구매자 payable |

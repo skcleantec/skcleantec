@@ -107,9 +107,11 @@ import {
   type InternalCustomerTone,
 } from '../../constants/internalCustomerTone';
 import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
-import { createTenantInquiryShare } from '../../api/tenantInquiryShare';
+import { createTenantInquiryShare, patchTenantInquiryShareTransferFee, revokeTenantInquiryShare } from '../../api/tenantInquiryShare';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { TenantInquiryShareBadge } from './TenantInquiryShareBadge';
+import { PartnerReceivedBanner } from './PartnerReceivedBanner';
+import { formatPartnerAssignmentLabel } from '../../utils/tenantShareSettlement';
 import { InquiryDbMarketplaceBadge } from './InquiryDbMarketplaceBadge';
 import { InquiryDbMarketplaceSellPanel, type DbMarketplaceExchangePrefill } from './InquiryDbMarketplaceSellPanel';
 
@@ -220,6 +222,8 @@ function partnerSwapStatusForRow(it: ScheduleItem): string {
 }
 
 function formatScheduleItemAssignmentLeaders(it: ScheduleItem): string {
+  const partnerLabel = formatPartnerAssignmentLabel(it.tenantShare);
+  if (partnerLabel) return partnerLabel;
   const rows = it.assignments ?? [];
   if (rows.length === 0) return '미배정';
   return rows
@@ -810,6 +814,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [tenantShareTransferFee, setTenantShareTransferFee] = useState('');
   const [tenantShareCustomerScheduleOnly, setTenantShareCustomerScheduleOnly] = useState(false);
   const [tenantShareBusy, setTenantShareBusy] = useState(false);
+  const [tenantShareFeeBusy, setTenantShareFeeBusy] = useState(false);
+  const [tenantShareRevokeBusy, setTenantShareRevokeBusy] = useState(false);
+  const [tenantShareEditFee, setTenantShareEditFee] = useState('');
   const marketplacePanelRef = useRef<HTMLDivElement>(null);
   const [marketplaceExchangePrefill, setMarketplaceExchangePrefill] =
     useState<DbMarketplaceExchangePrefill | null>(null);
@@ -896,6 +903,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       cancelled = true;
     };
   }, [isCreate, hasTenantExchange, token]);
+
+  useEffect(() => {
+    const fee = item?.tenantShare?.transferFee;
+    setTenantShareEditFee(fee != null ? String(fee) : '');
+  }, [item?.tenantShare?.id, item?.tenantShare?.transferFee]);
 
   useEffect(() => {
     if (!token || !item) {
@@ -1726,6 +1738,53 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     tenantShareTransferFee,
     token,
   ]);
+
+  const handleTenantShareFeeSave = useCallback(async () => {
+    if (!item?.tenantShare || item.tenantShare.role !== 'SOURCE' || item.tenantShare.syncStatus !== 'ACTIVE') {
+      return;
+    }
+    const feeRaw = tenantShareEditFee.replace(/,/g, '').trim();
+    let transferFee: number | null = null;
+    if (feeRaw !== '') {
+      const n = parseInt(feeRaw, 10);
+      if (Number.isNaN(n) || n < 0) {
+        alert('수수료는 0 이상 정수로 입력해 주세요.');
+        return;
+      }
+      transferFee = n;
+    }
+    setTenantShareFeeBusy(true);
+    try {
+      await patchTenantInquiryShareTransferFee(token, item.tenantShare.id, transferFee);
+      await onInquiryRefresh?.();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '파트너 수수료 저장에 실패했습니다.');
+    } finally {
+      setTenantShareFeeBusy(false);
+    }
+  }, [item?.tenantShare, onInquiryRefresh, tenantShareEditFee, token]);
+
+  const handleTenantShareRevoke = useCallback(async () => {
+    if (!item?.tenantShare || item.tenantShare.role !== 'SOURCE' || item.tenantShare.syncStatus !== 'ACTIVE') {
+      return;
+    }
+    if (
+      !window.confirm(
+        '접수 연계를 취소할까요?\n파트너 업체의 연계 접수는 목록에 남고 「연계 취소됨」으로 표시됩니다.',
+      )
+    ) {
+      return;
+    }
+    setTenantShareRevokeBusy(true);
+    try {
+      await revokeTenantInquiryShare(token, item.tenantShare.id);
+      await onInquiryRefresh?.();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '접수 연계 취소에 실패했습니다.');
+    } finally {
+      setTenantShareRevokeBusy(false);
+    }
+  }, [item?.tenantShare, onInquiryRefresh, token]);
 
   const handleRegisterViaMarketplace = useCallback(() => {
     const feeRaw = tenantShareTransferFee.replace(/,/g, '').trim();
@@ -2602,7 +2661,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </p>
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">수수료 (원)</label>
+            <label className="block text-gray-600 mb-1">타업체 수수료 (원)</label>
             <input
               value={editForm.externalTransferFee}
               onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
@@ -2610,7 +2669,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               inputMode="numeric"
               placeholder="비우면 미입력"
             />
-            <p className="text-[11px] text-gray-500 mt-1">타업체 담당으로 분배된 건에 대해 받는 수수료</p>
+            <p className="text-[11px] text-gray-500 mt-1">타업체 담당으로 분배된 건에 대해 받는 수수료 (파트너 연계와 별도)</p>
           </div>
           {!isCreate && hasTenantExchange && item ? (
             <div className="sm:col-span-2 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3 space-y-2">
@@ -2634,19 +2693,56 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 </div>
               ) : null}
               {item.tenantShare ? (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <TenantInquiryShareBadge share={item.tenantShare} />
+                  {item.tenantShare.role === 'TARGET' ? (
+                    <PartnerReceivedBanner share={item.tenantShare} />
+                  ) : null}
+                  {item.tenantShare.role === 'SOURCE' && item.tenantShare.syncStatus === 'ACTIVE' ? (
+                    <>
+                      <div>
+                        <label className="block text-gray-600 mb-1">파트너 수수료 (원)</label>
+                        <input
+                          value={tenantShareEditFee}
+                          onChange={(e) => setTenantShareEditFee(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded"
+                          inputMode="numeric"
+                          placeholder="비우면 미입력"
+                        />
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          파트너 정산·수신 업체 잔금에 반영됩니다. 타업체 수수료와 별도입니다.
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <button
+                          type="button"
+                          disabled={tenantShareFeeBusy}
+                          onClick={() => void handleTenantShareFeeSave()}
+                          className="flex-1 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-900 hover:bg-indigo-50 disabled:opacity-50"
+                        >
+                          {tenantShareFeeBusy ? '저장 중…' : '파트너 수수료 저장'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={tenantShareRevokeBusy}
+                          onClick={() => void handleTenantShareRevoke()}
+                          className="flex-1 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-900 hover:bg-rose-100 disabled:opacity-50"
+                        >
+                          {tenantShareRevokeBusy ? '취소 중…' : '접수연계 취소'}
+                        </button>
+                      </div>
+                    </>
+                  ) : item.tenantShare.role === 'SOURCE' && item.tenantShare.transferFee != null ? (
+                    <p className="text-[11px] text-gray-600 tabular-nums">
+                      파트너 수수료: {item.tenantShare.transferFee.toLocaleString()}원
+                    </p>
+                  ) : null}
                   {item.tenantShare.role === 'TARGET' && item.tenantShare.sourceInquiryNumberSnapshot ? (
                     <p className="text-[11px] text-gray-600">
                       원 송신 접수번호:{' '}
                       <span className="font-mono tabular-nums">
                         {item.tenantShare.sourceInquiryNumberSnapshot}
                       </span>
-                    </p>
-                  ) : null}
-                  {item.tenantShare.transferFee != null ? (
-                    <p className="text-[11px] text-gray-600 tabular-nums">
-                      파트너 수수료: {item.tenantShare.transferFee.toLocaleString()}원
                     </p>
                   ) : null}
                 </div>
@@ -2971,6 +3067,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               serviceBalanceAmount={item.serviceBalanceAmount ?? item.orderForm?.balanceAmount ?? null}
               initialExtraCharges={item.extraCharges}
               initialAdditionalReceipts={item.additionalReceipts}
+              tenantShare={item.tenantShare ?? null}
               onChanged={() => {
                 void onInquiryRefresh?.();
               }}

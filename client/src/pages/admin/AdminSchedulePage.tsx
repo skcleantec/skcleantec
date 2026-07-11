@@ -218,6 +218,27 @@ function inquiryHasExternalAssignment(item: ScheduleItem): boolean {
   return item.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
 }
 
+/** 송신 파트너 연계(활성) — 타업체와 같이 미배정이 아닌 별도 구역 */
+function inquiryHasActivePartnerShareSource(item: ScheduleItem): boolean {
+  return item.tenantShare?.role === 'SOURCE' && item.tenantShare?.syncStatus === 'ACTIVE';
+}
+
+function inquiryCountsAsUnassignedOwn(item: ScheduleItem): boolean {
+  return (
+    !inquiryHasExternalAssignment(item) &&
+    !inquiryHasTeamLeaderAssignment(item) &&
+    !inquiryHasActivePartnerShareSource(item)
+  );
+}
+
+function inquiryCountsAsOwnTeamAssignment(item: ScheduleItem): boolean {
+  return (
+    !inquiryHasExternalAssignment(item) &&
+    inquiryHasTeamLeaderAssignment(item) &&
+    !inquiryHasActivePartnerShareSource(item)
+  );
+}
+
 function inquiryHasTeamLeaderAssignment(item: ScheduleItem): boolean {
   return (item.assignments?.length ?? 0) > 0;
 }
@@ -1619,7 +1640,7 @@ export function AdminSchedulePage() {
                 const sideOrderCount = dayStats?.sideCleaningOrderCount ?? 0;
                 const sideUnconfirmed = dayStats?.sideCleaningUnconfirmedCount ?? 0;
                 const workingCount = dayStats?.workingCount ?? 0;
-                const unassignedCount = activeScheduleItems.filter((it) => !it.assignments?.[0]).length;
+                const unassignedCount = activeScheduleItems.filter(inquiryCountsAsUnassignedOwn).length;
                 const skOneRoomTaegeuk = shouldShowSkOneRoomTaegeuk(activeScheduleItems);
                 const isSelected = selectedDate === key;
                 const isSaturday = i % 7 === 6;
@@ -2210,19 +2231,11 @@ export function AdminSchedulePage() {
                 const afternoonList = dayList.filter((i) => getScheduleTimeBucket(i) === 'afternoon');
                 const otherList = dayList.filter((i) => getScheduleTimeBucket(i) === 'other');
 
-                const morningOwn = morningList.filter(
-                  (i) => !inquiryHasExternalAssignment(i) && inquiryHasTeamLeaderAssignment(i)
-                );
-                const afternoonOwn = afternoonList.filter(
-                  (i) => !inquiryHasExternalAssignment(i) && inquiryHasTeamLeaderAssignment(i)
-                );
-                const otherOwn = otherList.filter(
-                  (i) => !inquiryHasExternalAssignment(i) && inquiryHasTeamLeaderAssignment(i)
-                );
+                const morningOwn = morningList.filter(inquiryCountsAsOwnTeamAssignment);
+                const afternoonOwn = afternoonList.filter(inquiryCountsAsOwnTeamAssignment);
+                const otherOwn = otherList.filter(inquiryCountsAsOwnTeamAssignment);
 
-                const unassignedOwnAll = dayList.filter(
-                  (i) => !inquiryHasExternalAssignment(i) && !inquiryHasTeamLeaderAssignment(i)
-                );
+                const unassignedOwnAll = dayList.filter(inquiryCountsAsUnassignedOwn);
                 const unassignedOwnMorning = sortScheduleItemsByCustomer(
                   unassignedOwnAll.filter((i) => getScheduleTimeBucket(i) === 'morning')
                 );
@@ -2237,6 +2250,18 @@ export function AdminSchedulePage() {
                 const morningExt = morningList.filter(inquiryHasExternalAssignment);
                 const afternoonExt = afternoonList.filter(inquiryHasExternalAssignment);
                 const otherExt = otherList.filter(inquiryHasExternalAssignment);
+
+                const morningPartner = sortScheduleItemsByCustomer(
+                  morningList.filter(inquiryHasActivePartnerShareSource),
+                );
+                const afternoonPartner = sortScheduleItemsByCustomer(
+                  afternoonList.filter(inquiryHasActivePartnerShareSource),
+                );
+                const otherPartner = sortScheduleItemsByCustomer(
+                  otherList.filter(inquiryHasActivePartnerShareSource),
+                );
+                const partnerTotal =
+                  morningPartner.length + afternoonPartner.length + otherPartner.length;
 
                 const morningExtUnassigned = morningExt.filter((i) => !inquiryHasExternalCompanyLinked(i));
                 const afternoonExtUnassigned = afternoonExt.filter((i) => !inquiryHasExternalCompanyLinked(i));
@@ -2463,6 +2488,116 @@ export function AdminSchedulePage() {
                           ))}
                         </div>
                       </div>
+                    )}
+
+                    {partnerTotal > 0 && (
+                      <details
+                        key={`partner-${selectedDate ?? 'day'}`}
+                        className="group min-w-0 rounded-lg border-2 border-indigo-200/90 bg-indigo-50/40 shadow-sm [&_summary::-webkit-details-marker]:hidden"
+                      >
+                        <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-indigo-100/40 rounded-lg">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-fluid-sm font-bold text-indigo-950">파트너 일정</span>
+                            <span className="text-fluid-xs text-indigo-900/85 tabular-nums">{partnerTotal}건</span>
+                          </div>
+                          <ChevronDownIcon className="h-4 w-4 shrink-0 text-indigo-700 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="flex flex-col gap-3 px-3 pb-3 pt-1 border-t border-indigo-300/50">
+                          {morningPartner.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-amber-500/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-amber-950">오전</span>
+                                <span className="text-fluid-2xs text-amber-900/80 tabular-nums">
+                                  {morningPartner.length}건
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {morningPartner.map((item) => (
+                                  <ScheduleDayListItem
+                                    key={item.id}
+                                    oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {afternoonPartner.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-sky-600/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-sky-950">오후</span>
+                                <span className="text-fluid-2xs text-sky-900/80 tabular-nums">
+                                  {afternoonPartner.length}건
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {afternoonPartner.map((item) => (
+                                  <ScheduleDayListItem
+                                    key={item.id}
+                                    oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {otherPartner.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-violet-500/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-violet-950">사이 · 일정 미확정</span>
+                                <span className="text-fluid-2xs text-violet-900/80 tabular-nums">
+                                  {otherPartner.length}건
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {otherPartner.map((item) => (
+                                  <ScheduleDayListItem
+                                    key={item.id}
+                                    oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </details>
                     )}
 
                     {extTotal > 0 && (
