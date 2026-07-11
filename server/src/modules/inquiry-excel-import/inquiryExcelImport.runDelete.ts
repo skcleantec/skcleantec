@@ -1,7 +1,16 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { prisma } from '../../lib/prisma.js';
 import type { InquiryExcelRowExecuteResult } from '../../lib/inquiryExcelImportPolicy.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import { summarizeRowResults } from './inquiryExcelImport.runSummary.js';
+
+/** 일괄 등록 되돌리기 — 트랜잭션당 삭제 건수(Prisma 5s 기본 타임아웃 회피) */
+const UNDO_IMPORT_DELETE_BATCH_SIZE = 25;
+
+const UNDO_IMPORT_TX_OPTIONS = {
+  maxWait: 15_000,
+  timeout: 120_000,
+} as const;
 
 export function parseRowResults(raw: unknown): InquiryExcelRowExecuteResult[] {
   if (!Array.isArray(raw)) return [];
@@ -19,7 +28,7 @@ export function collectDeletableInquiryIds(rowResults: InquiryExcelRowExecuteRes
 }
 
 export async function resolveDeletableInquiryIds(
-  db: PrismaClient | Prisma.TransactionClient,
+  db: PrismaClient,
   tenantId: string,
   rowResults: InquiryExcelRowExecuteResult[],
 ): Promise<{
@@ -66,18 +75,6 @@ export function countDeletedFromRowResults(rowResults: InquiryExcelRowExecuteRes
   return rowResults.filter((r) => r.kind === 'DELETED').length;
 }
 
-export function markRowResultsDeleted(
-  rowResults: InquiryExcelRowExecuteResult[],
-  deletedInquiryIds: Set<string>,
-): InquiryExcelRowExecuteResult[] {
-  return rowResults.map((row) => {
-    if (row.kind === 'CREATED' && row.inquiryId && deletedInquiryIds.has(row.inquiryId)) {
-      return { ...row, kind: 'DELETED' as const };
-    }
-    return row;
-  });
-}
-
 /** inquiryId 또는 접수번호로 CREATED 행을 DELETED로 표시 */
 export function markRowResultsDeletedResolved(
   rowResults: InquiryExcelRowExecuteResult[],
@@ -96,8 +93,47 @@ export function markRowResultsDeletedResolved(
   });
 }
 
+async function deleteInquiryBatch(
+  tx: Prisma.TransactionClient,
+  params: {
+    tenantId: string;
+    actorId: string;
+    runLabel: string;
+    inquiries: Array<{ id: string; customerName: string; inquiryNumber: string | null }>;
+  },
+): Promise<void> {
+  for (const inquiry of params.inquiries) {
+    await tx.inquiryChangeLog.create({
+      data: {
+        inquiryId: inquiry.id,
+        customerName: inquiry.customerName,
+        actorId: params.actorId,
+        lines: [
+          `접수 삭제(일괄등록 실행 ${params.runLabel}): ${inquiry.customerName} (${inquiry.inquiryNumber ?? inquiry.id})`,
+        ],
+      },
+    });
+    await tx.inquiry.delete({ where: { id: inquiry.id } });
+  }
+}
+
+async function persistRunRowResultsAfterDelete(params: {
+  runId: string;
+  rowResults: InquiryExcelRowExecuteResult[];
+  totalRows: number;
+}): Promise<void> {
+  const summary = summarizeRowResults(params.rowResults, params.totalRows);
+  await prisma.inquiryExcelImportRun.update({
+    where: { id: params.runId },
+    data: {
+      rowResults: params.rowResults as unknown as Prisma.InputJsonValue,
+      skippedCount: summary.skippedCount,
+      errorCount: summary.errorCount,
+    },
+  });
+}
+
 export async function deleteInquiriesFromExcelImportRun(params: {
-  db: Prisma.TransactionClient;
   tenantId: string;
   runId: string;
   totalRows: number;
@@ -113,7 +149,7 @@ export async function deleteInquiriesFromExcelImportRun(params: {
   unresolvedRows: number;
 }> {
   const alreadyDeletedCount = params.rowResults.filter((r) => r.kind === 'DELETED').length;
-  const resolved = await resolveDeletableInquiryIds(params.db, params.tenantId, params.rowResults);
+  const resolved = await resolveDeletableInquiryIds(prisma, params.tenantId, params.rowResults);
 
   if (resolved.pendingCreatedRows === 0) {
     return {
@@ -137,7 +173,7 @@ export async function deleteInquiriesFromExcelImportRun(params: {
     };
   }
 
-  const inquiries = await params.db.inquiry.findMany({
+  const inquiries = await prisma.inquiry.findMany({
     where: { tenantId: params.tenantId, id: { in: resolved.ids } },
     select: { id: true, customerName: true, inquiryNumber: true },
   });
@@ -149,47 +185,64 @@ export async function deleteInquiriesFromExcelImportRun(params: {
       .map((i) => [i.inquiryNumber!.trim(), i.id] as const),
   );
 
-  for (const inquiry of inquiries) {
-    await params.db.inquiryChangeLog.create({
-      data: {
-        inquiryId: inquiry.id,
-        customerName: inquiry.customerName,
-        actorId: params.actorId,
-        lines: [
-          `접수 삭제(일괄등록 실행 ${params.runLabel}): ${inquiry.customerName} (${inquiry.inquiryNumber ?? inquiry.id})`,
-        ],
-      },
-    });
-    await params.db.inquiry.delete({ where: { id: inquiry.id } });
+  const deletedIds = new Set<string>();
+  let deletedCount = 0;
+
+  try {
+    for (let offset = 0; offset < inquiries.length; offset += UNDO_IMPORT_DELETE_BATCH_SIZE) {
+      const batch = inquiries.slice(offset, offset + UNDO_IMPORT_DELETE_BATCH_SIZE);
+      await prisma.$transaction(
+        (tx) =>
+          deleteInquiryBatch(tx, {
+            tenantId: params.tenantId,
+            actorId: params.actorId,
+            runLabel: params.runLabel,
+            inquiries: batch,
+          }),
+        UNDO_IMPORT_TX_OPTIONS,
+      );
+      for (const inquiry of batch) deletedIds.add(inquiry.id);
+      deletedCount += batch.length;
+    }
+  } catch (e) {
+    if (deletedCount > 0) {
+      const partialRowResults = markRowResultsDeletedResolved(
+        params.rowResults,
+        deletedIds,
+        inquiryNumberToId,
+      );
+      await persistRunRowResultsAfterDelete({
+        runId: params.runId,
+        rowResults: partialRowResults,
+        totalRows: params.totalRows,
+      });
+    }
+    const base = e instanceof Error ? e.message : '일괄 삭제 실패';
+    throw new Error(`${base} (${deletedCount}건 삭제 후 중단)`);
   }
 
-  const deletedIds = new Set(inquiries.map((i) => i.id));
   const nextRowResults = markRowResultsDeletedResolved(
     params.rowResults,
     deletedIds,
     inquiryNumberToId,
   );
-  const summary = summarizeRowResults(nextRowResults, params.totalRows);
-  await params.db.inquiryExcelImportRun.update({
-    where: { id: params.runId },
-    data: {
-      rowResults: nextRowResults as unknown as Prisma.InputJsonValue,
-      skippedCount: summary.skippedCount,
-      errorCount: summary.errorCount,
-    },
+  await persistRunRowResultsAfterDelete({
+    runId: params.runId,
+    rowResults: nextRowResults,
+    totalRows: params.totalRows,
   });
 
-  if (inquiries.length > 0) {
+  if (deletedCount > 0) {
     notifyChangeLogToStaff({
       tenantId: params.tenantId,
       customerName: `일괄등록 ${params.runLabel}`,
       inquiryId: null,
-      lines: [`일괄등록 실행으로 등록한 접수 ${inquiries.length}건 삭제`],
+      lines: [`일괄등록 실행으로 등록한 접수 ${deletedCount}건 삭제`],
     });
   }
 
   return {
-    deletedCount: inquiries.length,
+    deletedCount,
     notFoundCount,
     alreadyDeletedCount,
     attemptedCount: resolved.pendingCreatedRows,

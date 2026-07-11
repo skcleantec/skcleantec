@@ -389,17 +389,14 @@ export async function undoInquiryExcelImportRun(params: {
   }
 
   const label = run.fileName?.trim() || run.id.slice(0, 8);
-  const result = await prisma.$transaction((tx) =>
-    deleteInquiriesFromExcelImportRun({
-      db: tx,
-      tenantId: params.tenantId,
-      runId: run.id,
-      totalRows: run.totalRows,
-      actorId: params.actorId,
-      rowResults,
-      runLabel: label,
-    }),
-  );
+  const result = await deleteInquiriesFromExcelImportRun({
+    tenantId: params.tenantId,
+    runId: run.id,
+    totalRows: run.totalRows,
+    actorId: params.actorId,
+    rowResults,
+    runLabel: label,
+  });
 
   if (result.deletedCount === 0 && result.attemptedCount > 0) {
     const parts = [
