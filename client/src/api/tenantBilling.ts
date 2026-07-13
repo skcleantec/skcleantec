@@ -24,6 +24,11 @@ export type TenantBillingSummary = {
   };
   openInvoice: TenantBillingInvoice | null;
   overdueInvoice: TenantBillingInvoice | null;
+  operationalStatus: {
+    code: string;
+    label: string;
+    detail: string | null;
+  };
 };
 
 export type TenantBillingInvoice = {

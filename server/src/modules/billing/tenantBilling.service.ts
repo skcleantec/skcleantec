@@ -33,6 +33,10 @@ import {
   type BillingScheduleItem,
 } from './tenantBilling.schedule.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
+import {
+  resolveTenantBillingOperationalStatus,
+  type TenantBillingOperationalStatus,
+} from './tenantBilling.operationalStatus.js';
 
 export type BillingSettingsDto = {
   bankName: string | null;
@@ -83,6 +87,7 @@ export type TenantBillingSummaryDto = {
   };
   openInvoice: InvoiceDto | null;
   overdueInvoice: InvoiceDto | null;
+  operationalStatus: TenantBillingOperationalStatus;
 };
 
 function mapInvoice(row: {
@@ -286,7 +291,8 @@ export async function autoIssueInvoicesForTenant(
     where: { id: tenantId },
     select: { status: true, serviceStartedAt: true },
   });
-  if (!tenantRow?.serviceStartedAt || tenantRow.status !== 'ACTIVE') return 0;
+  if (tenantRow?.status !== 'ACTIVE') return 0;
+  if (!ctx.billingStart && !tenantRow.serviceStartedAt) return 0;
 
   let issued = 0;
   let guard = 0;
@@ -376,6 +382,7 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
       select: {
         id: true,
         plan: true,
+        status: true,
         trialEndsAt: true,
         prepaidConfirmedAt: true,
         serviceStartedAt: true,
@@ -400,6 +407,20 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
 
   const openInvoice = invoices.find((i) => i.status === 'ISSUED') ?? null;
   const overdueInvoice = invoices.find((i) => i.status === 'OVERDUE') ?? null;
+  const billingStartDisplay =
+    profile.billingStartDate ?? tenant.serviceStartedAt?.toISOString() ?? null;
+
+  const operationalStatus = resolveTenantBillingOperationalStatus({
+    status: tenant.status,
+    suspendReason: tenant.suspendReason,
+    trialEndsAt: tenant.trialEndsAt,
+    prepaidConfirmedAt: tenant.prepaidConfirmedAt,
+    serviceStartedAt: tenant.serviceStartedAt,
+    billingStartDate: billingStartDisplay,
+    billingAccessBlockedAt: tenant.billingAccessBlockedAt,
+    hasOpenInvoice: openInvoice != null,
+    hasOverdueInvoice: overdueInvoice != null,
+  });
 
   return {
     billingCycle: profile.billingCycle,
@@ -409,7 +430,7 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     trialEndsAt: tenant.trialEndsAt?.toISOString() ?? null,
     prepaidConfirmedAt: tenant.prepaidConfirmedAt?.toISOString() ?? null,
     serviceStartedAt: tenant.serviceStartedAt?.toISOString() ?? null,
-    billingStartDate: profile.billingStartDate,
+    billingStartDate: billingStartDisplay,
     billingDueDay: profile.billingDueDay,
     nextDueDate: nextDue?.dueDate ?? null,
     nextDueAmountKrw: nextDue?.amountKrw ?? null,
@@ -425,6 +446,7 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     },
     openInvoice: openInvoice ? mapInvoice(openInvoice) : null,
     overdueInvoice: overdueInvoice ? mapInvoice(overdueInvoice) : null,
+    operationalStatus,
   };
 }
 
@@ -446,6 +468,7 @@ export type PlatformTenantBillingRow = {
   billingAccessBlockedAt: string | null;
   openInvoiceStatus: TenantInvoiceStatus | null;
   openInvoiceDueDate: string | null;
+  operationalStatus: TenantBillingOperationalStatus;
 };
 
 export async function listTenantsBillingOverview(): Promise<PlatformTenantBillingRow[]> {
@@ -479,15 +502,27 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       : mapBillingProfile(await ensureTenantBillingProfile(t.id));
     const contractAmountKrw = resolvePeriodBaseAmountKrw(profile, t.plan, profile.billingCycle);
     let nextDueDate: string | null = null;
-    if (t.serviceStartedAt) {
-      try {
-        const ctx = await loadTenantBillingScheduleContext(t.id);
+    try {
+      const ctx = await loadTenantBillingScheduleContext(t.id);
+      if (ctx.billingStart) {
         const next = pickNextDueScheduleItem(ctx.schedule);
         nextDueDate = next?.dueDate ?? null;
-      } catch {
-        nextDueDate = null;
       }
+    } catch {
+      nextDueDate = null;
     }
+    const openInv = t.invoices[0];
+    const operationalStatus = resolveTenantBillingOperationalStatus({
+      status: t.status,
+      suspendReason: t.suspendReason,
+      trialEndsAt: t.trialEndsAt,
+      prepaidConfirmedAt: t.prepaidConfirmedAt,
+      serviceStartedAt: t.serviceStartedAt,
+      billingStartDate: profile.billingStartDate ?? t.serviceStartedAt,
+      billingAccessBlockedAt: t.billingAccessBlockedAt,
+      hasOpenInvoice: openInv?.status === 'ISSUED',
+      hasOverdueInvoice: openInv?.status === 'OVERDUE',
+    });
     rows.push({
       tenantId: t.id,
       slug: t.slug,
@@ -506,6 +541,7 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       billingAccessBlockedAt: t.billingAccessBlockedAt?.toISOString() ?? null,
       openInvoiceStatus: t.invoices[0]?.status ?? null,
       openInvoiceDueDate: t.invoices[0]?.dueDate.toISOString() ?? null,
+      operationalStatus,
     });
   }
   return rows;
@@ -606,7 +642,7 @@ export async function confirmPrepaidForTenant(tenantId: string) {
   return {
     prepaidConfirmedAt: updated.prepaidConfirmedAt!.toISOString(),
     serviceStartsAt: serviceStartsAt.toISOString(),
-    message: `사용료 수령 확인되었습니다. ${TENANT_PREPAID_SERVICE_DELAY_DAYS}일 후 서비스가 시작되고 첫 청구서가 발행됩니다.`,
+    message: `입금 확인되었습니다. ${TENANT_PREPAID_SERVICE_DELAY_DAYS}일 후 정식 이용·과금이 시작됩니다.`,
   };
 }
 
@@ -748,11 +784,13 @@ export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
       prepaidConfirmedAt: { not: null },
       serviceStartedAt: null,
     },
-    select: { id: true, prepaidConfirmedAt: true, plan: true },
+    select: { id: true, prepaidConfirmedAt: true, trialEndsAt: true, plan: true },
   });
   for (const t of prepaidReady) {
     if (!t.prepaidConfirmedAt) continue;
-    const serviceStart = addDaysUtc(t.prepaidConfirmedAt, TENANT_PREPAID_SERVICE_DELAY_DAYS);
+    const serviceStart = t.trialEndsAt
+      ? new Date(t.trialEndsAt)
+      : addDaysUtc(t.prepaidConfirmedAt, TENANT_PREPAID_SERVICE_DELAY_DAYS);
     if (serviceStart > new Date()) continue;
 
     result.serviceStarted += 1;
@@ -775,7 +813,10 @@ export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
   }
 
   const activeTenants = await prisma.tenant.findMany({
-    where: { status: 'ACTIVE', serviceStartedAt: { not: null } },
+    where: {
+      status: 'ACTIVE',
+      OR: [{ serviceStartedAt: { not: null } }, { billingProfile: { billingStartDate: { not: null } } }],
+    },
     select: { id: true },
   });
   for (const t of activeTenants) {

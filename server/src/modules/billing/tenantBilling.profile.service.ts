@@ -83,7 +83,7 @@ export async function updateTenantBillingProfileContract(
 ): Promise<BillingProfileDto> {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { id: true, serviceStartedAt: true },
+    select: { id: true, serviceStartedAt: true, status: true, suspendReason: true },
   });
   if (!tenant) throw new TenantNotFoundError();
 
@@ -146,6 +146,28 @@ export async function updateTenantBillingProfileContract(
       ...(input.contractMemo !== undefined ? { contractMemo: input.contractMemo?.trim() || null } : {}),
     },
   });
+
+  const effectiveBillingStart =
+    billingStartDate !== undefined
+      ? billingStartDate
+      : profile.billingStartDate;
+
+  if (effectiveBillingStart && !tenant.serviceStartedAt) {
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        serviceStartedAt: effectiveBillingStart,
+        ...(tenant.status === 'SUSPENDED' && tenant.suspendReason === 'TRIAL_EXPIRED'
+          ? {
+              status: 'ACTIVE',
+              suspendReason: null,
+              suspendedAt: null,
+              billingAccessBlockedAt: null,
+            }
+          : {}),
+      },
+    });
+  }
 
   return mapBillingProfile(profile);
 }

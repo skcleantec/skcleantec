@@ -3,8 +3,8 @@ import { fetchTenantSubscription, type TenantSubscriptionDto } from '../../api/t
 import { fetchTenantBillingInvoices, fetchTenantBillingSchedule, fetchTenantBillingSummary, type TenantBillingSummary } from '../../api/tenantBilling';
 import { getToken } from '../../stores/auth';
 import { usagePercent } from '@shared/tenantSubscriptionUsage';
-import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_SCHEDULE_STATUS_LABEL, TENANT_INVOICE_STATUS_LABEL } from '@shared/tenantBilling';
-import { PlanBadge, StatusBadge } from '../../utils/platformUi';
+import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_SCHEDULE_STATUS_LABEL, TENANT_INVOICE_STATUS_LABEL, formatNextDueDateLabel } from '@shared/tenantBilling';
+import { BillingOperationalBadge, PlanBadge, StatusBadge } from '../../utils/platformUi';
 
 const STATUS_HINT: Record<string, string> = {
   TRIAL: '체험 기간 중입니다. 운영 전환은 플랫폼 담당자에게 문의해 주세요.',
@@ -146,6 +146,13 @@ export function AdminTenantSubscriptionPage() {
           <h2 className="text-base font-semibold text-gray-900">{tenant.name}</h2>
           <PlanBadge plan={tenant.plan} />
           <StatusBadge status={tenant.status} />
+          {billing?.operationalStatus ? (
+            <BillingOperationalBadge
+              code={billing.operationalStatus.code}
+              label={billing.operationalStatus.label}
+              detail={billing.operationalStatus.detail}
+            />
+          ) : null}
         </div>
         <dl className="grid gap-3 sm:grid-cols-2 text-sm">
           <div>
@@ -172,7 +179,12 @@ export function AdminTenantSubscriptionPage() {
             <dd className="mt-0.5 text-gray-900">{formatKoDateTime(data.usageSnapshotAt)}</dd>
           </div>
         </dl>
-        {STATUS_HINT[tenant.status] ? (
+        {billing?.operationalStatus ? (
+          <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
+            {billing.operationalStatus.label}
+            {billing.operationalStatus.detail ? ` — ${billing.operationalStatus.detail}` : ''}
+          </p>
+        ) : STATUS_HINT[tenant.status] ? (
           <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">{STATUS_HINT[tenant.status]}</p>
         ) : null}
       </section>
@@ -256,7 +268,7 @@ export function AdminTenantSubscriptionPage() {
                 <div>
                   <dt className="text-gray-500">다음 납부일</dt>
                   <dd className="mt-0.5 text-gray-900 tabular-nums">
-                    {new Date(billing.nextDueDate).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
+                    {formatNextDueDateLabel(billing.billingCycle, billing.nextDueDate)}
                     {billing.nextDueAmountKrw != null
                       ? ` · ${billing.nextDueAmountKrw.toLocaleString('ko-KR')}원`
                       : ''}

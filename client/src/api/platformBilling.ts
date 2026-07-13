@@ -37,6 +37,11 @@ export type PlatformBillingTenantRow = {
   billingAccessBlockedAt: string | null;
   openInvoiceStatus: string | null;
   openInvoiceDueDate: string | null;
+  operationalStatus: {
+    code: string;
+    label: string;
+    detail: string | null;
+  };
 };
 
 export type TenantInvoiceRow = {
@@ -126,6 +131,11 @@ export type PlatformTenantBillingDetail = {
     };
     openInvoice: TenantInvoiceRow | null;
     overdueInvoice: TenantInvoiceRow | null;
+    operationalStatus: {
+      code: string;
+      label: string;
+      detail: string | null;
+    };
   };
   invoices: TenantInvoiceRow[];
   schedule: BillingScheduleRow[];
@@ -133,6 +143,7 @@ export type PlatformTenantBillingDetail = {
 };
 
 export type PatchBillingProfileBody = {
+  plan?: 'starter' | 'standard' | 'premium';
   billingCycle?: TenantBillingCycle;
   pricingMode?: TenantBillingPricingMode;
   customMonthlyAmountKrw?: number | null;

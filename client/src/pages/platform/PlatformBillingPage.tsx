@@ -12,11 +12,12 @@ import {
   BTN_PRIMARY,
   CARD_SECTION,
   INPUT_BASE,
+  BillingOperationalBadge,
   PlanBadge,
   PlatformAlert,
   StatusBadge,
 } from '../../utils/platformUi';
-import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_PRICING_MODE_LABEL } from '@shared/tenantBilling';
+import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_PRICING_MODE_LABEL, formatNextDueDateLabel } from '@shared/tenantBilling';
 
 export { PlatformTenantBillingPanel };
 
@@ -180,7 +181,7 @@ export function PlatformBillingPage() {
               <tr className="border-b border-gray-200 text-gray-500">
                 <th className="py-2 text-center">업체</th>
                 <th className="py-2 text-center">플랜</th>
-                <th className="py-2 text-center">상태</th>
+                <th className="py-2 text-center">운영 상태</th>
                 <th className="py-2 text-center">약정</th>
                 <th className="py-2 text-center">시작</th>
                 <th className="py-2 text-center">다음 납부</th>
@@ -199,7 +200,14 @@ export function PlatformBillingPage() {
                     <PlanBadge plan={row.plan} />
                   </td>
                   <td className="py-2 text-center">
-                    <StatusBadge status={row.status} />
+                    <div className="flex flex-col items-center gap-1">
+                      <BillingOperationalBadge
+                        code={row.operationalStatus.code}
+                        label={row.operationalStatus.label}
+                        detail={row.operationalStatus.detail}
+                      />
+                      <StatusBadge status={row.status} />
+                    </div>
                   </td>
                   <td className="py-2 text-center text-xs">
                     <div>{TENANT_BILLING_CYCLE_LABEL[row.billingCycle]}</div>
@@ -208,7 +216,9 @@ export function PlatformBillingPage() {
                   </td>
                   <td className="py-2 text-center text-xs">{formatKoDate(row.serviceStartedAt)}</td>
                   <td className="py-2 text-center text-xs">
-                    {row.nextDueDate ? formatYmd(row.nextDueDate) : '—'}
+                    {row.nextDueDate
+                      ? formatNextDueDateLabel(row.billingCycle, row.nextDueDate)
+                      : '—'}
                     <div className="text-gray-500">매월 {row.billingDueDay}일</div>
                   </td>
                   <td className="py-2 text-center text-xs">

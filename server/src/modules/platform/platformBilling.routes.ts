@@ -23,6 +23,7 @@ import {
   updateTenantBillingProfileContract,
   voidTenantBillingAdjustment,
 } from '../billing/tenantBilling.service.js';
+import { updateTenantBasics } from './tenantProvisioning.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 
 const router = Router();
@@ -86,6 +87,7 @@ router.get('/tenants/:tenantId/schedule', async (req, res) => {
 router.patch('/tenants/:tenantId/profile', platformSuperAdminOnly, async (req, res) => {
   try {
     const body = req.body as {
+      plan?: string;
       billingCycle?: TenantBillingCycle;
       pricingMode?: TenantBillingPricingMode;
       customMonthlyAmountKrw?: number | null;
@@ -95,6 +97,13 @@ router.patch('/tenants/:tenantId/profile', platformSuperAdminOnly, async (req, r
       autoIssueEnabled?: boolean;
       contractMemo?: string | null;
     };
+    if (body.plan !== undefined) {
+      if (!(body.plan in { starter: 1, standard: 1, premium: 1 })) {
+        res.status(400).json({ error: 'plan은 starter, standard, premium 중 하나여야 합니다.' });
+        return;
+      }
+      await updateTenantBasics(req.params.tenantId, { plan: body.plan });
+    }
     if (body.billingCycle && body.billingCycle !== 'MONTHLY' && body.billingCycle !== 'ANNUAL') {
       res.status(400).json({ error: 'billingCycle은 MONTHLY 또는 ANNUAL 이어야 합니다.' });
       return;

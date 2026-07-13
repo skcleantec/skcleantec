@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   calculateAnnualFromMonthlyKrw,
+  formatNextDueDateLabel,
+  needsLegacyPrepaidConfirm,
   TENANT_BILLING_ADJUSTMENT_TYPE_LABEL,
   TENANT_BILLING_CYCLE_LABEL,
   TENANT_BILLING_PRICING_MODE_LABEL,
@@ -12,6 +14,7 @@ import {
   type TenantBillingPricingMode,
 } from '@shared/tenantBilling';
 import type { TenantPlanId } from '@shared/tenantFeatureModules';
+import { TENANT_PLAN_PRESENTATIONS } from '@shared/tenantPlanCatalog';
 import {
   confirmPlatformInvoicePayment,
   confirmPlatformPrepaid,
@@ -28,6 +31,7 @@ import {
   BTN_SECONDARY,
   CARD_SECTION,
   INPUT_BASE,
+  BillingOperationalBadge,
   PlanBadge,
   PlatformAlert,
   StatusBadge,
@@ -52,7 +56,10 @@ type Props = {
   compact?: boolean;
 };
 
+const PLAN_OPTIONS: TenantPlanId[] = ['starter', 'standard', 'premium'];
+
 type ContractForm = {
+  plan: TenantPlanId;
   billingCycle: TenantBillingCycle;
   pricingMode: TenantBillingPricingMode;
   customMonthlyAmountKrw: string;
@@ -65,7 +72,11 @@ type ContractForm = {
 };
 
 function contractFormFromDetail(detail: PlatformTenantBillingDetail): ContractForm {
+  const plan = (detail.tenant.plan in TENANT_PLAN_PRESENTATIONS
+    ? detail.tenant.plan
+    : 'standard') as TenantPlanId;
   return {
+    plan,
     billingCycle: detail.profile.billingCycle,
     pricingMode: detail.profile.pricingMode,
     customMonthlyAmountKrw:
@@ -125,7 +136,7 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
     void load();
   }, [load]);
 
-  const planId = (detail?.tenant.plan ?? 'premium') as TenantPlanId;
+  const planId = (contractForm?.plan ?? detail?.tenant.plan ?? 'standard') as TenantPlanId;
 
   const autoAnnualPreview = useMemo(() => {
     if (!contractForm) return 0;
@@ -151,7 +162,7 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
         return;
       }
       customMonthly = Math.trunc(m);
-      if (contractForm.useCustomAnnual && contractForm.customAnnualAmountKrw.trim()) {
+      if (contractForm.billingCycle === 'ANNUAL' && contractForm.useCustomAnnual && contractForm.customAnnualAmountKrw.trim()) {
         const a = Number(contractForm.customAnnualAmountKrw.replace(/,/g, ''));
         if (!Number.isFinite(a) || a < 0) {
           setError('약정 연 금액을 확인해 주세요.');
@@ -165,11 +176,16 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
     setError('');
     try {
       await patchPlatformTenantBillingProfile(token, tenantId, {
+        plan: contractForm.plan,
         billingCycle: contractForm.billingCycle,
         pricingMode: contractForm.pricingMode,
         customMonthlyAmountKrw: contractForm.pricingMode === 'CUSTOM' ? customMonthly : null,
         customAnnualAmountKrw:
-          contractForm.pricingMode === 'CUSTOM' && contractForm.useCustomAnnual ? customAnnual : null,
+          contractForm.pricingMode === 'CUSTOM' &&
+          contractForm.billingCycle === 'ANNUAL' &&
+          contractForm.useCustomAnnual
+            ? customAnnual
+            : null,
         billingDueDay: dueDay,
         billingStartDate: contractForm.billingStartDate.trim() || null,
         autoIssueEnabled: contractForm.autoIssueEnabled,
@@ -292,6 +308,13 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
 
   const { tenant, profile, summary, invoices, schedule, adjustments } = detail;
 
+  const showLegacyPrepaid =
+    needsLegacyPrepaidConfirm({
+      prepaidConfirmedAt: tenant.prepaidConfirmedAt,
+      serviceStartedAt: tenant.serviceStartedAt,
+      createdAt: tenant.createdAt,
+    }) && (tenant.status === 'TRIAL' || tenant.status === 'SUSPENDED');
+
   return (
     <div className="space-y-4">
       {error ? <PlatformAlert variant="error" message={error} /> : null}
@@ -306,7 +329,18 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
             </>
           ) : null}
           <StatusBadge status={tenant.status} />
+          <BillingOperationalBadge
+            code={summary.operationalStatus.code}
+            label={summary.operationalStatus.label}
+            detail={summary.operationalStatus.detail}
+          />
         </div>
+        {tenant.status === 'TRIAL' && tenant.trialEndsAt ? (
+          <p className="mt-2 text-xs text-gray-500">
+            체험 종료: {formatKoDate(tenant.trialEndsAt)}
+            {tenant.prepaidConfirmedAt ? ' · 선입금 완료, 종료 후 정식 이용 시작' : ''}
+          </p>
+        ) : null}
         <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
           <div>
             <dt className="text-gray-500">서비스 시작</dt>
@@ -319,7 +353,9 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
           <div>
             <dt className="text-gray-500">다음 납부일</dt>
             <dd className="mt-0.5 font-medium text-gray-900">
-              {summary.nextDueDate ? formatYmd(summary.nextDueDate) : '—'}
+              {summary.nextDueDate
+                ? formatNextDueDateLabel(profile.billingCycle, summary.nextDueDate)
+                : '—'}
               {summary.nextDueAmountKrw != null ? (
                 <span className="ml-2 tabular-nums text-gray-700">
                   {summary.nextDueAmountKrw.toLocaleString('ko-KR')}원
@@ -345,6 +381,36 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
       <section className={CARD_SECTION}>
         <h3 className="text-sm font-semibold text-gray-900">계약 조건</h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <span className="text-xs text-gray-600">플랜</span>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {PLAN_OPTIONS.map((plan) => (
+                <button
+                  key={plan}
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setContractForm((f) => (f ? { ...f, plan } : f))}
+                  className={[
+                    'rounded-lg border px-3 py-1.5 text-sm',
+                    contractForm.plan === plan
+                      ? 'border-gray-900 bg-gray-900 text-white'
+                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
+                  ].join(' ')}
+                >
+                  {TENANT_PLAN_PRESENTATIONS[plan].label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              {billingCyclePriceHint(planId, contractForm.billingCycle, {
+                pricingMode: contractForm.pricingMode,
+                customMonthlyAmountKrw:
+                  contractForm.pricingMode === 'CUSTOM' && contractForm.customMonthlyAmountKrw
+                    ? Number(contractForm.customMonthlyAmountKrw.replace(/,/g, ''))
+                    : null,
+              })}
+            </p>
+          </div>
           <div>
             <span className="text-xs text-gray-600">납부 주기</span>
             <div className="mt-1 flex flex-wrap gap-2">
@@ -399,42 +465,40 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
                   }
                 />
               </label>
-              <label className="block text-sm">
-                <span className="text-gray-600">약정 연 금액 (원)</span>
-                <div className="mt-1 space-y-1">
-                  <label className="flex items-center gap-2 text-xs text-gray-500">
+              {contractForm.billingCycle === 'ANNUAL' ? (
+                <label className="block text-sm">
+                  <span className="text-gray-600">약정 연 금액 (원)</span>
+                  <div className="mt-1 space-y-1">
+                    <label className="flex items-center gap-2 text-xs text-gray-500">
+                      <input
+                        type="checkbox"
+                        checked={contractForm.useCustomAnnual}
+                        onChange={(e) =>
+                          setContractForm((f) =>
+                            f ? { ...f, useCustomAnnual: e.target.checked } : f,
+                          )
+                        }
+                      />
+                      직접 입력 (미체크 시 월×12×85% 자동)
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={contractForm.useCustomAnnual}
+                      className={INPUT_BASE}
+                      disabled={!contractForm.useCustomAnnual}
+                      placeholder={
+                        autoAnnualPreview > 0
+                          ? `자동: ${autoAnnualPreview.toLocaleString('ko-KR')}원`
+                          : undefined
+                      }
+                      value={contractForm.customAnnualAmountKrw}
                       onChange={(e) =>
-                        setContractForm((f) =>
-                          f ? { ...f, useCustomAnnual: e.target.checked } : f,
-                        )
+                        setContractForm((f) => (f ? { ...f, customAnnualAmountKrw: e.target.value } : f))
                       }
                     />
-                    직접 입력 (미체크 시 월×12×80% 자동)
-                  </label>
-                  <input
-                    className={INPUT_BASE}
-                    disabled={!contractForm.useCustomAnnual}
-                    placeholder={
-                      autoAnnualPreview > 0
-                        ? `자동: ${autoAnnualPreview.toLocaleString('ko-KR')}원`
-                        : undefined
-                    }
-                    value={contractForm.customAnnualAmountKrw}
-                    onChange={(e) =>
-                      setContractForm((f) => (f ? { ...f, customAnnualAmountKrw: e.target.value } : f))
-                    }
-                  />
-                </div>
-              </label>
+                  </div>
+                </label>
+              ) : null}
             </>
-          ) : (
-            <p className="sm:col-span-2 text-sm text-gray-600">
-              {billingCyclePriceHint(planId, contractForm.billingCycle)}
-            </p>
-          )}
+          ) : null}
           <label className="block text-sm">
             <span className="text-gray-600">납부 기준일 (매월)</span>
             <input
@@ -629,11 +693,11 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
       <section className={CARD_SECTION}>
         <h3 className="text-sm font-semibold text-gray-900">플랫폼 작업</h3>
         <div className="flex flex-wrap gap-2 mt-2">
-          {!tenant.prepaidConfirmedAt && (tenant.status === 'TRIAL' || tenant.status === 'SUSPENDED') ? (
+          {!showLegacyPrepaid ? null : (
             <button type="button" disabled={saving} onClick={() => void onPrepaidConfirm()} className={BTN_PRIMARY}>
-              사용료 수령 확인
+              사용료 수령 확인 (레거시)
             </button>
-          ) : null}
+          )}
           {tenant.serviceStartedAt ? (
             <button type="button" disabled={saving} onClick={() => void onIssueInvoice()} className={BTN_SECONDARY}>
               수동 청구서 발행
