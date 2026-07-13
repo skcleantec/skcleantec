@@ -10,6 +10,7 @@ import {
   addDaysUtc,
   billingPeriodForStart,
   dueDateForPeriodStart,
+  kstDayOfMonthFromDate,
   kstStartOfDayUtc,
   kstYmdFromDate,
 } from './tenantBilling.dates.js';
@@ -622,10 +623,13 @@ export async function confirmPrepaidForTenant(tenantId: string) {
   }
 
   const now = new Date();
+  const trialEndsAt = addDaysUtc(now, TENANT_TRIAL_DAYS);
   const updated = await prisma.tenant.update({
     where: { id: tenantId },
     data: {
       prepaidConfirmedAt: now,
+      trialEndsAt,
+      status: 'TRIAL',
       suspendReason: null,
       billingAccessBlockedAt: null,
       suspendedAt: null,
@@ -638,11 +642,11 @@ export async function confirmPrepaidForTenant(tenantId: string) {
     },
   });
 
-  const serviceStartsAt = addDaysUtc(now, TENANT_PREPAID_SERVICE_DELAY_DAYS);
+  const serviceStartsAt = trialEndsAt.toISOString();
   return {
     prepaidConfirmedAt: updated.prepaidConfirmedAt!.toISOString(),
-    serviceStartsAt: serviceStartsAt.toISOString(),
-    message: `입금 확인되었습니다. ${TENANT_PREPAID_SERVICE_DELAY_DAYS}일 후 정식 이용·과금이 시작됩니다.`,
+    serviceStartsAt,
+    message: `입금 확인되었습니다. ${TENANT_TRIAL_DAYS}일 체험 후 정식 이용·과금이 시작됩니다.`,
   };
 }
 
@@ -708,9 +712,15 @@ async function issueFirstInvoiceOnServiceStart(
   );
 
   if (!profileRow?.billingStartDate) {
+    const anchorDay = kstDayOfMonthFromDate(serviceStart);
     await tx.tenantBillingProfile.update({
       where: { tenantId },
-      data: { billingStartDate: serviceStart },
+      data: { billingStartDate: serviceStart, billingDueDay: anchorDay },
+    });
+  } else {
+    await tx.tenantBillingProfile.update({
+      where: { tenantId },
+      data: { billingDueDay: kstDayOfMonthFromDate(serviceStart) },
     });
   }
 
@@ -731,7 +741,7 @@ async function issueFirstInvoiceOnServiceStart(
       plan,
       amountKrw,
       catalogAmountKrw,
-      dueDate: dueDateForPeriodStart(periodStart, profile.billingDueDay),
+      dueDate: dueDateForPeriodStart(periodStart),
       status: 'ISSUED',
       source: 'AUTO',
     },

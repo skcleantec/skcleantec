@@ -17,7 +17,7 @@ import {
   PlatformAlert,
   StatusBadge,
 } from '../../utils/platformUi';
-import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_PRICING_MODE_LABEL, formatNextDueDateLabel } from '@shared/tenantBilling';
+import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_PRICING_MODE_LABEL, formatNextDueDateLabel, formatBillingAnchorDayLabel } from '@shared/tenantBilling';
 
 export { PlatformTenantBillingPanel };
 
@@ -219,7 +219,9 @@ export function PlatformBillingPage() {
                     {row.nextDueDate
                       ? formatNextDueDateLabel(row.billingCycle, row.nextDueDate)
                       : '—'}
-                    <div className="text-gray-500">매월 {row.billingDueDay}일</div>
+                    <div className="text-gray-500">
+                      {formatBillingAnchorDayLabel(row.serviceStartedAt) ?? '시작일 확정 후'}
+                    </div>
                   </td>
                   <td className="py-2 text-center text-xs">
                     {row.openInvoiceStatus ? (

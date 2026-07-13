@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   calculateAnnualFromMonthlyKrw,
   formatNextDueDateLabel,
-  needsLegacyPrepaidConfirm,
+  formatBillingAnchorDayLabel,
   TENANT_BILLING_ADJUSTMENT_TYPE_LABEL,
   TENANT_BILLING_CYCLE_LABEL,
   TENANT_BILLING_PRICING_MODE_LABEL,
@@ -65,7 +65,6 @@ type ContractForm = {
   customMonthlyAmountKrw: string;
   customAnnualAmountKrw: string;
   useCustomAnnual: boolean;
-  billingDueDay: string;
   billingStartDate: string;
   autoIssueEnabled: boolean;
   contractMemo: string;
@@ -88,7 +87,6 @@ function contractFormFromDetail(detail: PlatformTenantBillingDetail): ContractFo
         ? String(detail.profile.customAnnualAmountKrw)
         : '',
     useCustomAnnual: detail.profile.customAnnualAmountKrw != null,
-    billingDueDay: String(detail.profile.billingDueDay),
     billingStartDate: ymdFromIso(detail.profile.billingStartDate ?? detail.tenant.serviceStartedAt),
     autoIssueEnabled: detail.profile.autoIssueEnabled,
     contractMemo: detail.profile.contractMemo ?? '',
@@ -148,11 +146,6 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
   const onSaveContract = async () => {
     const token = getPlatformToken();
     if (!token || !contractForm) return;
-    const dueDay = Number.parseInt(contractForm.billingDueDay, 10);
-    if (!Number.isFinite(dueDay) || dueDay < 1 || dueDay > 28) {
-      setError('납부 기준일은 1~28 사이여야 합니다.');
-      return;
-    }
     let customMonthly: number | null = null;
     let customAnnual: number | null = null;
     if (contractForm.pricingMode === 'CUSTOM') {
@@ -186,7 +179,6 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
           contractForm.useCustomAnnual
             ? customAnnual
             : null,
-        billingDueDay: dueDay,
         billingStartDate: contractForm.billingStartDate.trim() || null,
         autoIssueEnabled: contractForm.autoIssueEnabled,
         contractMemo: contractForm.contractMemo.trim() || null,
@@ -201,7 +193,7 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
   };
 
   const onPrepaidConfirm = async () => {
-    if (!window.confirm('사용료 수령을 확인하시겠습니까? 7일 후 서비스가 시작됩니다.')) return;
+    if (!window.confirm('입금을 확인하시겠습니까? 확인 후 7일 체험이 시작되고, 체험 종료일부터 매월 같은 날이 결제일입니다.')) return;
     const token = getPlatformToken();
     if (!token) return;
     setSaving(true);
@@ -308,12 +300,13 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
 
   const { tenant, profile, summary, invoices, schedule, adjustments } = detail;
 
-  const showLegacyPrepaid =
-    needsLegacyPrepaidConfirm({
-      prepaidConfirmedAt: tenant.prepaidConfirmedAt,
-      serviceStartedAt: tenant.serviceStartedAt,
-      createdAt: tenant.createdAt,
-    }) && (tenant.status === 'TRIAL' || tenant.status === 'SUSPENDED');
+  const billingAnchorLabel =
+    formatBillingAnchorDayLabel(summary.billingStartDate ?? tenant.serviceStartedAt) ??
+    (tenant.trialEndsAt && tenant.prepaidConfirmedAt
+      ? formatBillingAnchorDayLabel(tenant.trialEndsAt)
+      : null);
+
+  const showPrepaidConfirm = !tenant.prepaidConfirmedAt && !tenant.serviceStartedAt;
 
   return (
     <div className="space-y-4">
@@ -364,8 +357,10 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
             </dd>
           </div>
           <div>
-            <dt className="text-gray-500">납부 기준일</dt>
-            <dd className="mt-0.5 text-gray-900">매월 {profile.billingDueDay}일</dd>
+            <dt className="text-gray-500">결제일</dt>
+            <dd className="mt-0.5 text-gray-900">
+              {billingAnchorLabel ?? '과금 시작일 확정 후 매월 같은 날'}
+            </dd>
           </div>
           <div>
             <dt className="text-gray-500">약정 금액</dt>
@@ -376,6 +371,38 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
             <dd className="mt-0.5 text-gray-900">{profile.autoIssueEnabled ? 'ON' : 'OFF'}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className={CARD_SECTION}>
+        <h3 className="text-sm font-semibold text-gray-900">입금 · 체험</h3>
+        <p className="text-xs text-gray-500">
+          이용료를 받은 뒤 「입금 확인」을 누르면 7일 체험이 시작됩니다. 체험 종료일이 과금 시작일이며, 이후
+          매월 그날이 결제일입니다.
+        </p>
+        <dl className="mt-2 grid gap-2 sm:grid-cols-2 text-sm">
+          <div>
+            <dt className="text-gray-500">입금 확인</dt>
+            <dd className="mt-0.5 text-gray-900">
+              {tenant.prepaidConfirmedAt ? formatKoDate(tenant.prepaidConfirmedAt) : '미확인'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">체험 종료</dt>
+            <dd className="mt-0.5 text-gray-900">
+              {tenant.trialEndsAt ? formatKoDate(tenant.trialEndsAt) : '입금 확인 후 7일'}
+            </dd>
+          </div>
+        </dl>
+        {showPrepaidConfirm ? (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void onPrepaidConfirm()}
+            className={`${BTN_PRIMARY} mt-3`}
+          >
+            입금 확인 (7일 체험 시작)
+          </button>
+        ) : null}
       </section>
 
       <section className={CARD_SECTION}>
@@ -499,20 +526,7 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
               ) : null}
             </>
           ) : null}
-          <label className="block text-sm">
-            <span className="text-gray-600">납부 기준일 (매월)</span>
-            <input
-              type="number"
-              min={1}
-              max={28}
-              className={`mt-1 ${INPUT_BASE}`}
-              value={contractForm.billingDueDay}
-              onChange={(e) =>
-                setContractForm((f) => (f ? { ...f, billingDueDay: e.target.value } : f))
-              }
-            />
-          </label>
-          <label className="block text-sm">
+          <label className="block text-sm sm:col-span-2">
             <span className="text-gray-600">과금 시작일</span>
             <input
               type="date"
@@ -522,6 +536,10 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
                 setContractForm((f) => (f ? { ...f, billingStartDate: e.target.value } : f))
               }
             />
+            <p className="mt-1 text-xs text-gray-500">
+              신규는 체험 종료일과 동일하게 자동 설정됩니다. 기존 업체만 수동 입력하세요. 시작일의
+              「일」이 매월 결제일입니다.
+            </p>
           </label>
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
             <input
@@ -693,11 +711,6 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
       <section className={CARD_SECTION}>
         <h3 className="text-sm font-semibold text-gray-900">플랫폼 작업</h3>
         <div className="flex flex-wrap gap-2 mt-2">
-          {!showLegacyPrepaid ? null : (
-            <button type="button" disabled={saving} onClick={() => void onPrepaidConfirm()} className={BTN_PRIMARY}>
-              사용료 수령 확인 (레거시)
-            </button>
-          )}
           {tenant.serviceStartedAt ? (
             <button type="button" disabled={saving} onClick={() => void onIssueInvoice()} className={BTN_SECONDARY}>
               수동 청구서 발행

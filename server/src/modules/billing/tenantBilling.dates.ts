@@ -51,22 +51,21 @@ export function billingPeriodForStart(
   return { periodStart, periodEnd };
 }
 
-export function dueDateFromPeriodStart(periodStart: Date, dueDay = 25): Date {
-  return dueDateForPeriodStart(periodStart, dueDay);
+/** KST 기준 해당 날짜의 일(1–31) */
+export function kstDayOfMonthFromDate(d: Date): number {
+  return Number(kstYmdFromDate(d).slice(8, 10));
 }
 
-/** 이용 기간 시작일 + 매월 납부 기준일 → 납부기한 (KST) */
-export function dueDateForPeriodStart(periodStart: Date, dueDay: number): Date {
-  const clamped = Math.min(28, Math.max(1, Math.floor(dueDay)));
-  const ymd = kstYmdFromDate(periodStart);
-  const startDay = Number(ymd.slice(8, 10));
-  let anchor = kstStartOfDayUtc(ymd);
-  if (startDay > clamped) {
-    anchor = addMonthsClamped(anchor, 1);
-  }
-  const ay = kstYmdFromDate(anchor);
-  const dueYmd = `${ay.slice(0, 7)}-${String(clamped).padStart(2, '0')}`;
-  return kstEndOfDayUtc(dueYmd);
+export function dueDateFromPeriodStart(periodStart: Date): Date {
+  return dueDateForPeriodStart(periodStart);
+}
+
+/**
+ * 납부기한 = 해당 이용 기간 시작일 (KST) — 과금 시작일과 같은 날, 매월 반복.
+ * 예: 7/13 시작 → 매월 13일이 결제일 (달력 월 기준, 30·31일 주기 아님).
+ */
+export function dueDateForPeriodStart(periodStart: Date, _dueDay?: number): Date {
+  return kstEndOfDayUtc(kstYmdFromDate(periodStart));
 }
 
 export function nextPeriodStartAfter(periodEnd: Date): Date {

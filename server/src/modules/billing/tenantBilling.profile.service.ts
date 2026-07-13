@@ -7,6 +7,7 @@ import { prisma } from '../../lib/prisma.js';
 import { TENANT_BILLING_DEFAULT_DUE_DAY } from './tenantBilling.constants.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { parseYmdToUtcDate } from '../users/userEmployment.js';
+import { kstDayOfMonthFromDate } from './tenantBilling.dates.js';
 
 export type BillingProfileDto = {
   billingCycle: TenantBillingCycle;
@@ -142,6 +143,9 @@ export async function updateTenantBillingProfileContract(
         : {}),
       ...(input.billingDueDay !== undefined ? { billingDueDay: Math.floor(input.billingDueDay) } : {}),
       ...(billingStartDate !== undefined ? { billingStartDate } : {}),
+      ...(billingStartDate != null && billingStartDate !== undefined
+        ? { billingDueDay: kstDayOfMonthFromDate(billingStartDate) }
+        : {}),
       ...(input.autoIssueEnabled !== undefined ? { autoIssueEnabled: input.autoIssueEnabled } : {}),
       ...(input.contractMemo !== undefined ? { contractMemo: input.contractMemo?.trim() || null } : {}),
     },
@@ -153,6 +157,11 @@ export async function updateTenantBillingProfileContract(
       : profile.billingStartDate;
 
   if (effectiveBillingStart && !tenant.serviceStartedAt) {
+    const anchorDay = kstDayOfMonthFromDate(effectiveBillingStart);
+    await prisma.tenantBillingProfile.update({
+      where: { tenantId },
+      data: { billingDueDay: anchorDay },
+    });
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {

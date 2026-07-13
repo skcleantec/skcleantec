@@ -69,12 +69,6 @@ export async function provisionTenant(input: ProvisionTenantInput) {
           name,
           plan,
           status,
-          ...(status === 'TRIAL'
-            ? {
-                trialEndsAt: trialEndsAtFromCreated(new Date()),
-                prepaidConfirmedAt: new Date(),
-              }
-            : {}),
         },
       });
 

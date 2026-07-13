@@ -3,7 +3,7 @@ import { fetchTenantSubscription, type TenantSubscriptionDto } from '../../api/t
 import { fetchTenantBillingInvoices, fetchTenantBillingSchedule, fetchTenantBillingSummary, type TenantBillingSummary } from '../../api/tenantBilling';
 import { getToken } from '../../stores/auth';
 import { usagePercent } from '@shared/tenantSubscriptionUsage';
-import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_SCHEDULE_STATUS_LABEL, TENANT_INVOICE_STATUS_LABEL, formatNextDueDateLabel } from '@shared/tenantBilling';
+import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_SCHEDULE_STATUS_LABEL, TENANT_INVOICE_STATUS_LABEL, formatNextDueDateLabel, formatBillingAnchorDayLabel } from '@shared/tenantBilling';
 import { BillingOperationalBadge, PlanBadge, StatusBadge } from '../../utils/platformUi';
 
 const STATUS_HINT: Record<string, string> = {
@@ -258,9 +258,16 @@ export function AdminTenantSubscriptionPage() {
                   <dd className="mt-0.5 text-gray-900">{formatKoDateTime(billing.billingStartDate)}</dd>
                 </div>
               ) : null}
-              {billing.billingDueDay ? (
+              {(billing.billingStartDate || billing.serviceStartedAt) ? (
                 <div>
-                  <dt className="text-gray-500">납부 기준일</dt>
+                  <dt className="text-gray-500">결제일</dt>
+                  <dd className="mt-0.5 text-gray-900">
+                    {formatBillingAnchorDayLabel(billing.billingStartDate ?? billing.serviceStartedAt)}
+                  </dd>
+                </div>
+              ) : billing.billingDueDay ? (
+                <div>
+                  <dt className="text-gray-500">결제일</dt>
                   <dd className="mt-0.5 text-gray-900">매월 {billing.billingDueDay}일</dd>
                 </div>
               ) : null}

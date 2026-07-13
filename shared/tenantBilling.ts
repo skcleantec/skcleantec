@@ -26,7 +26,7 @@ export type BillingScheduleItemStatus =
 export const TENANT_BILLING_DEFAULT_DUE_DAY = 25;
 
 export const TENANT_BILLING_PRICING_MODE_LABEL: Record<TenantBillingPricingMode, string> = {
-  CATALOG: '카탈로그',
+  CATALOG: '표준금액',
   CUSTOM: '약정 금액',
 };
 
@@ -89,6 +89,14 @@ export type TenantBillingOperationalStatus = {
   detail: string | null;
 };
 
+export function formatBillingAnchorDayLabel(billingStartIso: string | null): string | null {
+  if (!billingStartIso) return null;
+  const d = new Date(billingStartIso);
+  const day = Number(
+    d.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(8, 10),
+  );
+  return `매월 ${day}일 (과금 시작일 기준)`;
+}
 export function formatNextDueDateLabel(
   cycle: TenantBillingCycle,
   dueDateIso: string,
@@ -165,8 +173,12 @@ export function resolveTenantBillingOperationalStatus(input: {
     return { code: 'TRIAL_PAID', label: '체험 중', detail: '7일 환불 가능 기간' };
   }
 
+  if (!input.prepaidConfirmedAt && !input.serviceStartedAt) {
+    return { code: 'TRIAL_UNPAID', label: '입금 대기', detail: '입금 확인 후 7일 체험 시작' };
+  }
+
   if (!input.prepaidConfirmedAt && (input.status === 'TRIAL' || inTrial)) {
-    return { code: 'TRIAL_UNPAID', label: '체험·입금 미확인', detail: '입금 확인 필요' };
+    return { code: 'TRIAL_UNPAID', label: '입금 대기', detail: '입금 확인 필요' };
   }
 
   if (input.prepaidConfirmedAt && trialEndMs != null && trialEndMs <= now.getTime()) {
@@ -225,7 +237,7 @@ export function billingCyclePriceHint(
   });
   if (pricingMode === 'CUSTOM' && custom?.customMonthlyAmountKrw != null) {
     if (cycle === 'MONTHLY') {
-      return `월 ${amountKrw.toLocaleString('ko-KR')}원 (약정 · 카탈로그 ${catalogMonthlyKrw.toLocaleString('ko-KR')}원, VAT 별도)`;
+      return `월 ${amountKrw.toLocaleString('ko-KR')}원 (약정 · 표준 ${catalogMonthlyKrw.toLocaleString('ko-KR')}원, VAT 별도)`;
     }
     return `연 ${amountKrw.toLocaleString('ko-KR')}원 (약정 · VAT 별도)`;
   }

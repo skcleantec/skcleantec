@@ -58,12 +58,16 @@ export function resolveTenantBillingOperationalStatus(input: {
     return { code: 'ACTIVE_OK', label: '사용 중', detail: null };
   }
 
+  if (!input.prepaidConfirmedAt && !input.serviceStartedAt) {
+    return { code: 'TRIAL_UNPAID', label: '입금 대기', detail: '입금 확인 후 7일 체험 시작' };
+  }
+
   if (input.prepaidConfirmedAt && inTrial) {
     return { code: 'TRIAL_PAID', label: '체험 중', detail: '7일 환불 가능 기간' };
   }
 
   if (!input.prepaidConfirmedAt && (input.status === 'TRIAL' || inTrial)) {
-    return { code: 'TRIAL_UNPAID', label: '체험·입금 미확인', detail: '입금 확인 필요' };
+    return { code: 'TRIAL_UNPAID', label: '입금 대기', detail: '입금 확인 필요' };
   }
 
   if (input.prepaidConfirmedAt && trialEndMs != null && trialEndMs <= now.getTime()) {
