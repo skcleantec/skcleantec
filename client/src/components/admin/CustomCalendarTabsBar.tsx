@@ -10,6 +10,9 @@ export type CustomCalendarTabsBarProps = {
   showAddButton?: boolean;
   /** 전체 캘린더로 복귀하는 '전체' 칩을 함께 보여줄지 */
   showAllChip?: boolean;
+  /** 줄 구분 라벨 (지역 / 업체) */
+  rowLabel?: '지역' | '업체';
+  addButtonTitle?: string;
   className?: string;
 };
 
@@ -24,18 +27,26 @@ export function CustomCalendarTabsBar({
   onClickAdd,
   showAddButton = true,
   showAllChip = true,
+  rowLabel,
+  addButtonTitle,
   className = '',
 }: CustomCalendarTabsBarProps) {
   return (
     <div
-      className={`flex w-full min-w-0 max-w-full flex-wrap items-center gap-1 pr-1 sm:flex-nowrap sm:overflow-x-auto sm:overscroll-x-contain sm:whitespace-nowrap sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden ${className}`}
+      className={`flex w-full min-w-0 max-w-full items-center gap-1.5 pr-1 ${className}`}
     >
+      {rowLabel ? (
+        <span className="shrink-0 text-fluid-xs font-semibold text-slate-500 w-7 sm:w-8">
+          {rowLabel}
+        </span>
+      ) : null}
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 sm:flex-nowrap sm:overflow-x-auto sm:overscroll-x-contain sm:whitespace-nowrap sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden">
       {showAddButton ? (
       <button
         type="button"
         onClick={onClickAdd}
         className="shrink-0 inline-flex items-center justify-center rounded border border-gray-300 bg-white px-1 py-0 text-[9px] font-semibold leading-none text-gray-800 tabular-nums hover:bg-gray-50 min-[440px]:text-[10px] sm:px-1.5"
-        title="지역 필터 캘린더 추가"
+        title={addButtonTitle ?? (rowLabel === '업체' ? '업체 캘린더 추가' : '지역 캘린더 추가')}
       >
         +추가
       </button>
@@ -50,7 +61,7 @@ export function CustomCalendarTabsBar({
               ? 'bg-gray-900 text-white border-gray-900'
               : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
           }`}
-          title="전체 캘린더"
+          title={rowLabel === '업체' ? '업체 필터 해제' : rowLabel === '지역' ? '지역 필터 해제' : '전체 캘린더'}
         >
           전체
         </button>
@@ -76,6 +87,7 @@ export function CustomCalendarTabsBar({
           </button>
         );
       })}
+      </div>
     </div>
   );
 }
