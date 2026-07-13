@@ -259,6 +259,21 @@ export function flattenKoreanCities(): string[] {
   return Array.from(set);
 }
 
+/** 전국 시·도 전체 선택값 (시·도명 1개씩 — 캘린더·필터에서 「모든 지역」용) */
+export function allKoreanSidoRegionValues(): string[] {
+  return KOREAN_REGION_GROUPS.map((g) => g.sido);
+}
+
+/** 선택 목록이 전국 시·도를 모두 포함하는지 */
+export function isAllKoreanRegionsSelected(selected: readonly string[]): boolean {
+  return KOREAN_REGION_GROUPS.every((g) => isSidoFullySelected(g.sido, selected));
+}
+
+/** 전국 시·도 전체를 한 번에 선택 */
+export function selectAllKoreanRegions(): string[] {
+  return allKoreanSidoRegionValues();
+}
+
 /** 광역시·특별시 등 시·도 1개 = 단일 항목인 그룹 */
 export function isSingleSidoRegionGroup(g: KoreanRegionGroup): boolean {
   return g.cities.length === 1 && g.cities[0] === g.sido;

@@ -12,6 +12,8 @@ import {
   sidoTabLabel,
   toggleCityRegionSelection,
   toggleSidoRegionSelection,
+  isAllKoreanRegionsSelected,
+  selectAllKoreanRegions,
 } from '../../constants/koreanCities';
 
 type Props = {
@@ -42,6 +44,7 @@ export function KoreanRegionPickerModal({ open, onClose, value, onApply }: Props
     () => KOREAN_REGION_GROUPS.find((g) => g.sido === activeSido) ?? KOREAN_REGION_GROUPS[0],
     [activeSido],
   );
+  const allRegionsSelected = isAllKoreanRegionsSelected(draft);
 
   if (!open) return null;
   const root = typeof document !== 'undefined' ? document.body : null;
@@ -96,7 +99,24 @@ export function KoreanRegionPickerModal({ open, onClose, value, onApply }: Props
           <ModalCloseButton onClick={onClose} />
         </div>
 
-        <div className="shrink-0 border-b border-slate-100 bg-slate-50/80 px-2 py-2">
+        <div className="shrink-0 border-b border-slate-100 bg-slate-50/80 px-3 py-2 space-y-2">
+          <button
+            type="button"
+            aria-pressed={allRegionsSelected}
+            onClick={() => setDraft(allRegionsSelected ? [] : selectAllKoreanRegions())}
+            className={`w-full rounded-xl border-2 px-4 py-2.5 text-left transition touch-manipulation ${
+              allRegionsSelected
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-950'
+                : 'border-slate-200 bg-white text-slate-800 hover:border-emerald-300 hover:bg-emerald-50/60'
+            }`}
+          >
+            <span className="block text-sm font-bold">전국 모든 지역</span>
+            <span className="block text-xs text-slate-500 mt-0.5">
+              {allRegionsSelected
+                ? '전국 시·도가 모두 선택됐습니다. 다시 누르면 해제됩니다.'
+                : '시·도를 하나씩 고르지 않고 전국을 한 번에 선택합니다.'}
+            </span>
+          </button>
           <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
             {KOREAN_REGION_GROUPS.map((g) => {
               const active = activeSido === g.sido;
