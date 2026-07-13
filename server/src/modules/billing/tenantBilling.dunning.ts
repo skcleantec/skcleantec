@@ -32,6 +32,7 @@ function mapInvoiceRow(row: {
   amountKrw: number;
   dueDate: Date;
   status: InvoiceDto['status'];
+  source?: InvoiceDto['source'];
   paidAt: Date | null;
   confirmedAt: Date | null;
   memo: string | null;
@@ -46,6 +47,7 @@ function mapInvoiceRow(row: {
     amountKrw: row.amountKrw,
     dueDate: row.dueDate.toISOString(),
     status: row.status,
+    source: row.source ?? 'MANUAL',
     paidAt: row.paidAt?.toISOString() ?? null,
     confirmedAt: row.confirmedAt?.toISOString() ?? null,
     memo: row.memo,

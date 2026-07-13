@@ -45,6 +45,23 @@ enum TenantInvoiceStatus {
   VOID
 }
 
+enum TenantBillingPricingMode {
+  CATALOG
+  CUSTOM
+}
+
+enum TenantBillingAdjustmentType {
+  SKIP
+  CUSTOM_AMOUNT
+  DEFER_SHIFT
+  DEFER_MERGE
+}
+
+enum TenantInvoiceSource {
+  AUTO
+  MANUAL
+}
+
 /// 테넌트 간 DB 거래 파트너십 상태
 enum TenantPartnershipStatus {
   PENDING
@@ -202,6 +219,7 @@ model Tenant {
   landingContactInquiries   LandingContactInquiry[]
   billingProfile TenantBillingProfile?
   invoices       TenantInvoice[]
+  billingAdjustments TenantBillingAdjustment[]
 
   @@map("tenants")
 }
@@ -221,16 +239,44 @@ model PlatformBillingSettings {
 
 /// 테넌트별 과금 프로필
 model TenantBillingProfile {
-  id               String             @id @default(uuid())
-  tenantId         String             @unique @map("tenant_id")
-  billingCycle     TenantBillingCycle @default(MONTHLY) @map("billing_cycle")
-  billingAnchorDay Int?               @map("billing_anchor_day")
-  createdAt        DateTime           @default(now()) @map("created_at")
-  updatedAt        DateTime           @updatedAt @map("updated_at")
+  id                     String                   @id @default(uuid())
+  tenantId               String                   @unique @map("tenant_id")
+  billingCycle           TenantBillingCycle       @default(MONTHLY) @map("billing_cycle")
+  pricingMode            TenantBillingPricingMode @default(CATALOG) @map("pricing_mode")
+  customMonthlyAmountKrw Int?                     @map("custom_monthly_amount_krw")
+  customAnnualAmountKrw  Int?                     @map("custom_annual_amount_krw")
+  billingDueDay          Int                      @default(25) @map("billing_due_day")
+  billingStartDate       DateTime?                @map("billing_start_date") @db.Date
+  autoIssueEnabled       Boolean                  @default(true) @map("auto_issue_enabled")
+  contractMemo           String?                  @map("contract_memo") @db.Text
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("tenant_billing_profiles")
+}
+
+/// 테넌트 과금 예외 — 면제·이월·1회 금액 변경
+model TenantBillingAdjustment {
+  id                      String                      @id @default(uuid())
+  tenantId                String                      @map("tenant_id")
+  type                    TenantBillingAdjustmentType
+  targetPeriodStart       DateTime                    @map("target_period_start") @db.Date
+  customAmountKrw         Int?                        @map("custom_amount_krw")
+  reason                  String                      @db.Text
+  createdByPlatformUserId String?                     @map("created_by_platform_user_id")
+  voidedAt                DateTime?                   @map("voided_at")
+  createdAt               DateTime                    @default(now()) @map("created_at")
+  updatedAt               DateTime                    @updatedAt @map("updated_at")
+
+  tenant                  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByPlatformUser   PlatformUser?  @relation(fields: [createdByPlatformUserId], references: [id], onDelete: SetNull)
+  invoices                TenantInvoice[]
+
+  @@index([tenantId, targetPeriodStart])
+  @@index([tenantId, voidedAt])
+  @@map("tenant_billing_adjustments")
 }
 
 /// 테넌트 SaaS 이용료 청구서
@@ -244,6 +290,9 @@ model TenantInvoice {
   amountKrw                   Int                 @map("amount_krw")
   dueDate                     DateTime            @map("due_date")
   status                      TenantInvoiceStatus @default(DRAFT)
+  source                      TenantInvoiceSource @default(MANUAL) @map("source")
+  catalogAmountKrw            Int?                @map("catalog_amount_krw")
+  adjustmentId                String?             @map("adjustment_id")
   paidAt                      DateTime?           @map("paid_at")
   confirmedByPlatformUserId   String?             @map("confirmed_by_platform_user_id")
   confirmedAt                 DateTime?           @map("confirmed_at")
@@ -252,6 +301,7 @@ model TenantInvoice {
   updatedAt                   DateTime            @updatedAt @map("updated_at")
 
   tenant                    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  adjustment                TenantBillingAdjustment? @relation(fields: [adjustmentId], references: [id], onDelete: SetNull)
   confirmedByPlatformUser   PlatformUser? @relation(fields: [confirmedByPlatformUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, status])
@@ -460,6 +510,7 @@ model PlatformUser {
   createdAt    DateTime     @default(now()) @map("created_at")
 
   confirmedInvoices TenantInvoice[]
+  billingAdjustmentsCreated TenantBillingAdjustment[]
 
   @@map("platform_users")
 }

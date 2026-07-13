@@ -1,4 +1,4 @@
-import type { TenantBillingCycle, TenantInvoiceStatus, TenantSuspendReason } from '@prisma/client';
+import type { Prisma, TenantBillingCycle, TenantInvoiceSource, TenantInvoiceStatus, TenantSuspendReason } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
   calculateBillingAmountKrw,
@@ -9,10 +9,29 @@ import {
 import {
   addDaysUtc,
   billingPeriodForStart,
-  dueDateFromPeriodStart,
+  dueDateForPeriodStart,
   kstStartOfDayUtc,
   kstYmdFromDate,
 } from './tenantBilling.dates.js';
+import {
+  ensureTenantBillingProfile,
+  getTenantBillingCycle,
+  listTenantBillingAdjustments,
+  mapBillingProfile,
+  resolveBillingStartDate,
+  updateTenantBillingProfile,
+  updateTenantBillingProfileContract,
+  type BillingAdjustmentDto,
+  type BillingProfileDto,
+} from './tenantBilling.profile.service.js';
+import {
+  computeBillingSchedule,
+  findAutoIssueScheduleItems,
+  pickNextDueScheduleItem,
+  periodStartKey,
+  resolvePeriodBaseAmountKrw,
+  type BillingScheduleItem,
+} from './tenantBilling.schedule.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 
 export type BillingSettingsDto = {
@@ -33,6 +52,7 @@ export type InvoiceDto = {
   amountKrw: number;
   dueDate: string;
   status: TenantInvoiceStatus;
+  source: TenantInvoiceSource;
   paidAt: string | null;
   confirmedAt: string | null;
   memo: string | null;
@@ -41,9 +61,16 @@ export type InvoiceDto = {
 
 export type TenantBillingSummaryDto = {
   billingCycle: TenantBillingCycle;
+  pricingMode: BillingProfileDto['pricingMode'];
+  customMonthlyAmountKrw: number | null;
+  catalogMonthlyAmountKrw: number;
   trialEndsAt: string | null;
   prepaidConfirmedAt: string | null;
   serviceStartedAt: string | null;
+  billingStartDate: string | null;
+  billingDueDay: number;
+  nextDueDate: string | null;
+  nextDueAmountKrw: number | null;
   suspendReason: TenantSuspendReason | null;
   billingAccessBlockedAt: string | null;
   amountKrw: number;
@@ -67,6 +94,7 @@ function mapInvoice(row: {
   amountKrw: number;
   dueDate: Date;
   status: TenantInvoiceStatus;
+  source: TenantInvoiceSource;
   paidAt: Date | null;
   confirmedAt: Date | null;
   memo: string | null;
@@ -81,11 +109,205 @@ function mapInvoice(row: {
     amountKrw: row.amountKrw,
     dueDate: row.dueDate.toISOString(),
     status: row.status,
+    source: row.source,
     paidAt: row.paidAt?.toISOString() ?? null,
     confirmedAt: row.confirmedAt?.toISOString() ?? null,
     memo: row.memo,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+export {
+  ensureTenantBillingProfile,
+  getTenantBillingCycle,
+  updateTenantBillingProfile,
+  updateTenantBillingProfileContract,
+  listTenantBillingAdjustments,
+  createTenantBillingAdjustment,
+  voidTenantBillingAdjustment,
+  mapBillingProfile,
+  type BillingProfileDto,
+  type BillingAdjustmentDto,
+} from './tenantBilling.profile.service.js';
+
+export async function loadTenantBillingScheduleContext(tenantId: string) {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true, plan: true, serviceStartedAt: true },
+  });
+  if (!tenant) throw new TenantNotFoundError();
+
+  const [profileRow, invoices, adjustments] = await Promise.all([
+    ensureTenantBillingProfile(tenantId),
+    prisma.tenantInvoice.findMany({
+      where: { tenantId },
+      orderBy: { periodStart: 'asc' },
+    }),
+    prisma.tenantBillingAdjustment.findMany({
+      where: { tenantId, voidedAt: null },
+    }),
+  ]);
+
+  const profile = mapBillingProfile(profileRow);
+  const billingStart =
+    profile.billingStartDate != null
+      ? new Date(profile.billingStartDate)
+      : tenant.serviceStartedAt;
+
+  const schedule =
+    billingStart != null
+      ? computeBillingSchedule({
+          plan: tenant.plan,
+          profile,
+          billingStart,
+          invoices: invoices.map((i) => ({
+            id: i.id,
+            periodStart: i.periodStart,
+            periodEnd: i.periodEnd,
+            amountKrw: i.amountKrw,
+            dueDate: i.dueDate,
+            status: i.status,
+          })),
+          adjustments: adjustments.map((a) => ({
+            id: a.id,
+            type: a.type,
+            targetPeriodStart: a.targetPeriodStart,
+            customAmountKrw: a.customAmountKrw,
+            reason: a.reason,
+          })),
+        })
+      : [];
+
+  return { tenant, profile, billingStart, schedule, invoices, adjustments };
+}
+
+export async function getTenantBillingSchedule(tenantId: string): Promise<{
+  billingStartDate: string | null;
+  serviceStartedAt: string | null;
+  profile: BillingProfileDto;
+  items: BillingScheduleItem[];
+  adjustments: BillingAdjustmentDto[];
+}> {
+  const ctx = await loadTenantBillingScheduleContext(tenantId);
+  const adjustments = await listTenantBillingAdjustments(tenantId);
+  return {
+    billingStartDate: ctx.billingStart?.toISOString() ?? null,
+    serviceStartedAt: ctx.tenant.serviceStartedAt?.toISOString() ?? null,
+    profile: ctx.profile,
+    items: ctx.schedule,
+    adjustments,
+  };
+}
+
+async function createInvoiceFromScheduleItem(
+  tenantId: string,
+  plan: string,
+  profile: BillingProfileDto,
+  item: BillingScheduleItem,
+  source: TenantInvoiceSource,
+): Promise<InvoiceDto> {
+  const catalogAmountKrw = calculateBillingAmountKrw(plan, profile.billingCycle);
+  const row = await prisma.tenantInvoice.create({
+    data: {
+      tenantId,
+      periodStart: new Date(item.periodStart),
+      periodEnd: new Date(item.periodEnd),
+      billingCycle: profile.billingCycle,
+      plan,
+      amountKrw: item.amountKrw,
+      catalogAmountKrw,
+      dueDate: new Date(item.dueDate),
+      status: 'ISSUED',
+      source,
+      adjustmentId: item.adjustment?.id ?? null,
+    },
+  });
+  return mapInvoice(row);
+}
+
+export async function issueInvoiceForTenant(
+  tenantId: string,
+  asDraft = false,
+  source: TenantInvoiceSource = 'MANUAL',
+): Promise<InvoiceDto> {
+  const ctx = await loadTenantBillingScheduleContext(tenantId);
+  if (!ctx.billingStart) {
+    throw new Error('과금 시작일이 없어 청구서를 발행할 수 없습니다.');
+  }
+
+  const pending = findAutoIssueScheduleItems(ctx.schedule).filter((i) => !i.invoiceId);
+  const target = pending[0];
+  if (!target) {
+    throw new Error('발행할 청구 기간이 없습니다.');
+  }
+
+  const existing = await prisma.tenantInvoice.findFirst({
+    where: {
+      tenantId,
+      periodStart: new Date(target.periodStart),
+      status: { not: 'VOID' },
+    },
+  });
+  if (existing) {
+    throw new Error('해당 기간 청구서가 이미 있습니다.');
+  }
+
+  if (asDraft) {
+    const catalogAmountKrw = calculateBillingAmountKrw(ctx.tenant.plan, ctx.profile.billingCycle);
+    const row = await prisma.tenantInvoice.create({
+      data: {
+        tenantId,
+        periodStart: new Date(target.periodStart),
+        periodEnd: new Date(target.periodEnd),
+        billingCycle: ctx.profile.billingCycle,
+        plan: ctx.tenant.plan,
+        amountKrw: target.amountKrw,
+        catalogAmountKrw,
+        dueDate: new Date(target.dueDate),
+        status: 'DRAFT',
+        source,
+        adjustmentId: target.adjustment?.id ?? null,
+      },
+    });
+    return mapInvoice(row);
+  }
+
+  return createInvoiceFromScheduleItem(tenantId, ctx.tenant.plan, ctx.profile, target, source);
+}
+
+export async function autoIssueInvoicesForTenant(
+  tenantId: string,
+  dryRun: boolean,
+): Promise<number> {
+  const ctx = await loadTenantBillingScheduleContext(tenantId);
+  if (!ctx.billingStart || !ctx.profile.autoIssueEnabled) return 0;
+
+  const tenantRow = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { status: true, serviceStartedAt: true },
+  });
+  if (!tenantRow?.serviceStartedAt || tenantRow.status !== 'ACTIVE') return 0;
+
+  let issued = 0;
+  let guard = 0;
+  while (guard++ < 24) {
+    const fresh = await loadTenantBillingScheduleContext(tenantId);
+    const pending = findAutoIssueScheduleItems(fresh.schedule).filter((i) => !i.invoiceId);
+    const target = pending[0];
+    if (!target) break;
+
+    if (!dryRun) {
+      await createInvoiceFromScheduleItem(
+        tenantId,
+        fresh.tenant.plan,
+        fresh.profile,
+        target,
+        'AUTO',
+      );
+    }
+    issued += 1;
+  }
+  return issued;
 }
 
 export async function ensurePlatformBillingSettings() {
@@ -138,33 +360,6 @@ export async function updatePlatformBillingSettings(input: {
   };
 }
 
-export async function ensureTenantBillingProfile(tenantId: string, cycle: TenantBillingCycle = 'MONTHLY') {
-  return prisma.tenantBillingProfile.upsert({
-    where: { tenantId },
-    create: { tenantId, billingCycle: cycle },
-    update: {},
-  });
-}
-
-export async function getTenantBillingCycle(tenantId: string): Promise<TenantBillingCycle> {
-  const profile = await ensureTenantBillingProfile(tenantId);
-  return profile.billingCycle;
-}
-
-export async function updateTenantBillingProfile(
-  tenantId: string,
-  billingCycle: TenantBillingCycle,
-): Promise<{ billingCycle: TenantBillingCycle }> {
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true } });
-  if (!tenant) throw new TenantNotFoundError();
-  const profile = await prisma.tenantBillingProfile.upsert({
-    where: { tenantId },
-    create: { tenantId, billingCycle },
-    update: { billingCycle },
-  });
-  return { billingCycle: profile.billingCycle };
-}
-
 export async function listTenantInvoices(tenantId: string, limit = 50): Promise<InvoiceDto[]> {
   const rows = await prisma.tenantInvoice.findMany({
     where: { tenantId },
@@ -175,7 +370,7 @@ export async function listTenantInvoices(tenantId: string, limit = 50): Promise<
 }
 
 export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise<TenantBillingSummaryDto> {
-  const [tenant, settings, profile, invoices] = await Promise.all([
+  const [tenant, settings, profileRow, invoices, scheduleCtx] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
@@ -194,18 +389,30 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
       where: { tenantId, status: { in: ['ISSUED', 'OVERDUE'] } },
       orderBy: { dueDate: 'asc' },
     }),
+    loadTenantBillingScheduleContext(tenantId).catch(() => null),
   ]);
   if (!tenant) throw new TenantNotFoundError();
 
-  const amountKrw = calculateBillingAmountKrw(tenant.plan, profile.billingCycle);
+  const profile = mapBillingProfile(profileRow);
+  const amountKrw = resolvePeriodBaseAmountKrw(profile, tenant.plan, profile.billingCycle);
+  const catalogMonthlyAmountKrw = calculateBillingAmountKrw(tenant.plan, 'MONTHLY');
+  const nextDue = scheduleCtx ? pickNextDueScheduleItem(scheduleCtx.schedule) : null;
+
   const openInvoice = invoices.find((i) => i.status === 'ISSUED') ?? null;
   const overdueInvoice = invoices.find((i) => i.status === 'OVERDUE') ?? null;
 
   return {
     billingCycle: profile.billingCycle,
+    pricingMode: profile.pricingMode,
+    customMonthlyAmountKrw: profile.customMonthlyAmountKrw,
+    catalogMonthlyAmountKrw,
     trialEndsAt: tenant.trialEndsAt?.toISOString() ?? null,
     prepaidConfirmedAt: tenant.prepaidConfirmedAt?.toISOString() ?? null,
     serviceStartedAt: tenant.serviceStartedAt?.toISOString() ?? null,
+    billingStartDate: profile.billingStartDate,
+    billingDueDay: profile.billingDueDay,
+    nextDueDate: nextDue?.dueDate ?? null,
+    nextDueAmountKrw: nextDue?.amountKrw ?? null,
     suspendReason: tenant.suspendReason,
     billingAccessBlockedAt: tenant.billingAccessBlockedAt?.toISOString() ?? null,
     amountKrw,
@@ -228,9 +435,13 @@ export type PlatformTenantBillingRow = {
   plan: string;
   status: string;
   billingCycle: TenantBillingCycle;
+  pricingMode: BillingProfileDto['pricingMode'];
+  contractAmountKrw: number;
+  billingDueDay: number;
+  serviceStartedAt: string | null;
+  nextDueDate: string | null;
   trialEndsAt: string | null;
   prepaidConfirmedAt: string | null;
-  serviceStartedAt: string | null;
   suspendReason: TenantSuspendReason | null;
   billingAccessBlockedAt: string | null;
   openInvoiceStatus: TenantInvoiceStatus | null;
@@ -251,7 +462,7 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       serviceStartedAt: true,
       suspendReason: true,
       billingAccessBlockedAt: true,
-      billingProfile: { select: { billingCycle: true } },
+      billingProfile: true,
       invoices: {
         where: { status: { in: ['ISSUED', 'OVERDUE'] } },
         orderBy: { dueDate: 'asc' },
@@ -261,21 +472,43 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
     },
   });
 
-  return tenants.map((t) => ({
-    tenantId: t.id,
-    slug: t.slug,
-    name: t.name,
-    plan: t.plan,
-    status: t.status,
-    billingCycle: t.billingProfile?.billingCycle ?? 'MONTHLY',
-    trialEndsAt: t.trialEndsAt?.toISOString() ?? null,
-    prepaidConfirmedAt: t.prepaidConfirmedAt?.toISOString() ?? null,
-    serviceStartedAt: t.serviceStartedAt?.toISOString() ?? null,
-    suspendReason: t.suspendReason,
-    billingAccessBlockedAt: t.billingAccessBlockedAt?.toISOString() ?? null,
-    openInvoiceStatus: t.invoices[0]?.status ?? null,
-    openInvoiceDueDate: t.invoices[0]?.dueDate.toISOString() ?? null,
-  }));
+  const rows: PlatformTenantBillingRow[] = [];
+  for (const t of tenants) {
+    const profile = t.billingProfile
+      ? mapBillingProfile(t.billingProfile)
+      : mapBillingProfile(await ensureTenantBillingProfile(t.id));
+    const contractAmountKrw = resolvePeriodBaseAmountKrw(profile, t.plan, profile.billingCycle);
+    let nextDueDate: string | null = null;
+    if (t.serviceStartedAt) {
+      try {
+        const ctx = await loadTenantBillingScheduleContext(t.id);
+        const next = pickNextDueScheduleItem(ctx.schedule);
+        nextDueDate = next?.dueDate ?? null;
+      } catch {
+        nextDueDate = null;
+      }
+    }
+    rows.push({
+      tenantId: t.id,
+      slug: t.slug,
+      name: t.name,
+      plan: t.plan,
+      status: t.status,
+      billingCycle: profile.billingCycle,
+      pricingMode: profile.pricingMode,
+      contractAmountKrw,
+      billingDueDay: profile.billingDueDay,
+      serviceStartedAt: t.serviceStartedAt?.toISOString() ?? null,
+      nextDueDate,
+      trialEndsAt: t.trialEndsAt?.toISOString() ?? null,
+      prepaidConfirmedAt: t.prepaidConfirmedAt?.toISOString() ?? null,
+      suspendReason: t.suspendReason,
+      billingAccessBlockedAt: t.billingAccessBlockedAt?.toISOString() ?? null,
+      openInvoiceStatus: t.invoices[0]?.status ?? null,
+      openInvoiceDueDate: t.invoices[0]?.dueDate.toISOString() ?? null,
+    });
+  }
+  return rows;
 }
 
 export async function getTenantBillingDetailForPlatform(tenantId: string) {
@@ -297,10 +530,12 @@ export async function getTenantBillingDetailForPlatform(tenantId: string) {
   });
   if (!tenant) throw new TenantNotFoundError();
 
-  const [profile, invoices, summary] = await Promise.all([
-    ensureTenantBillingProfile(tenantId),
+  const [profile, invoices, summary, schedulePayload, adjustments] = await Promise.all([
+    ensureTenantBillingProfile(tenantId).then(mapBillingProfile),
     listTenantInvoices(tenantId),
     getTenantBillingSummaryForAdmin(tenantId),
+    getTenantBillingSchedule(tenantId),
+    listTenantBillingAdjustments(tenantId),
   ]);
 
   return {
@@ -312,74 +547,32 @@ export async function getTenantBillingDetailForPlatform(tenantId: string) {
       billingAccessBlockedAt: tenant.billingAccessBlockedAt?.toISOString() ?? null,
       createdAt: tenant.createdAt.toISOString(),
     },
-    profile: { billingCycle: profile.billingCycle },
+    profile,
     summary,
     invoices,
+    schedule: schedulePayload.items,
+    adjustments,
   };
 }
 
 export async function previewNextInvoice(tenantId: string) {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { id: true, plan: true, serviceStartedAt: true },
-  });
-  if (!tenant) throw new TenantNotFoundError();
-  const cycle = await getTenantBillingCycle(tenantId);
-
-  const lastInvoice = await prisma.tenantInvoice.findFirst({
-    where: { tenantId, status: { not: 'VOID' } },
-    orderBy: { periodEnd: 'desc' },
-  });
-
-  let periodStart: Date;
-  if (lastInvoice) {
-    periodStart = new Date(lastInvoice.periodEnd.getTime() + 1);
-  } else if (tenant.serviceStartedAt) {
-    periodStart = tenant.serviceStartedAt;
-  } else {
-    throw new Error('서비스 시작일이 없어 청구서를 미리볼 수 없습니다.');
+  const ctx = await loadTenantBillingScheduleContext(tenantId);
+  if (!ctx.billingStart) {
+    throw new Error('과금 시작일이 없어 청구서를 미리볼 수 없습니다.');
   }
-
-  const { periodStart: ps, periodEnd } = billingPeriodForStart(periodStart, cycle);
-  const amountKrw = calculateBillingAmountKrw(tenant.plan, cycle);
-  const dueDate = dueDateFromPeriodStart(ps);
-
+  const pending = findAutoIssueScheduleItems(ctx.schedule).filter((i) => !i.invoiceId);
+  const target = pending[0];
+  if (!target) {
+    throw new Error('다음 청구 기간이 없습니다.');
+  }
   return {
-    billingCycle: cycle,
-    plan: tenant.plan,
-    amountKrw,
-    periodStart: ps.toISOString(),
-    periodEnd: periodEnd.toISOString(),
-    dueDate: dueDate.toISOString(),
+    billingCycle: ctx.profile.billingCycle,
+    plan: ctx.tenant.plan,
+    amountKrw: target.amountKrw,
+    periodStart: target.periodStart,
+    periodEnd: target.periodEnd,
+    dueDate: target.dueDate,
   };
-}
-
-export async function issueInvoiceForTenant(tenantId: string, asDraft = false): Promise<InvoiceDto> {
-  const preview = await previewNextInvoice(tenantId);
-  const existing = await prisma.tenantInvoice.findFirst({
-    where: {
-      tenantId,
-      periodStart: new Date(preview.periodStart),
-      status: { not: 'VOID' },
-    },
-  });
-  if (existing) {
-    throw new Error('해당 기간 청구서가 이미 있습니다.');
-  }
-
-  const row = await prisma.tenantInvoice.create({
-    data: {
-      tenantId,
-      periodStart: new Date(preview.periodStart),
-      periodEnd: new Date(preview.periodEnd),
-      billingCycle: preview.billingCycle,
-      plan: preview.plan,
-      amountKrw: preview.amountKrw,
-      dueDate: new Date(preview.dueDate),
-      status: asDraft ? 'DRAFT' : 'ISSUED',
-    },
-  });
-  return mapInvoice(row);
 }
 
 export async function confirmPrepaidForTenant(tenantId: string) {
@@ -464,6 +657,52 @@ export function trialEndsAtFromCreated(createdAt: Date): Date {
   return addDaysUtc(createdAt, TENANT_TRIAL_DAYS);
 }
 
+async function issueFirstInvoiceOnServiceStart(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  plan: string,
+  serviceStart: Date,
+): Promise<boolean> {
+  const profileRow = await tx.tenantBillingProfile.findUnique({ where: { tenantId } });
+  const profile = mapBillingProfile(
+    profileRow ??
+      (await tx.tenantBillingProfile.create({
+        data: { tenantId, billingStartDate: serviceStart },
+      })),
+  );
+
+  if (!profileRow?.billingStartDate) {
+    await tx.tenantBillingProfile.update({
+      where: { tenantId },
+      data: { billingStartDate: serviceStart },
+    });
+  }
+
+  const existing = await tx.tenantInvoice.findFirst({
+    where: { tenantId, status: { not: 'VOID' } },
+  });
+  if (existing) return false;
+
+  const { periodStart, periodEnd } = billingPeriodForStart(serviceStart, profile.billingCycle);
+  const amountKrw = resolvePeriodBaseAmountKrw(profile, plan, profile.billingCycle);
+  const catalogAmountKrw = calculateBillingAmountKrw(plan, profile.billingCycle);
+  await tx.tenantInvoice.create({
+    data: {
+      tenantId,
+      periodStart,
+      periodEnd,
+      billingCycle: profile.billingCycle,
+      plan,
+      amountKrw,
+      catalogAmountKrw,
+      dueDate: dueDateForPeriodStart(periodStart, profile.billingDueDay),
+      status: 'ISSUED',
+      source: 'AUTO',
+    },
+  });
+  return true;
+}
+
 export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
   const dryRun = opts?.dryRun ?? false;
   const settings = await ensurePlatformBillingSettings();
@@ -476,11 +715,11 @@ export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
     trialExpired: 0,
     serviceStarted: 0,
     invoicesIssued: 0,
+    autoInvoicesIssued: 0,
     markedOverdue: 0,
     billingBlocked: 0,
   };
 
-  // 1) Trial expiry without prepaid
   const trialExpiredTenants = await prisma.tenant.findMany({
     where: {
       status: 'TRIAL',
@@ -504,7 +743,6 @@ export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
     }
   }
 
-  // 2) Prepaid + 7 days → ACTIVE + first invoice
   const prepaidReady = await prisma.tenant.findMany({
     where: {
       prepaidConfirmedAt: { not: null },
@@ -530,36 +768,21 @@ export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
             suspendedAt: null,
           },
         });
-
-        const cycle = (
-          await tx.tenantBillingProfile.findUnique({ where: { tenantId: t.id } })
-        )?.billingCycle ?? 'MONTHLY';
-
-        const existing = await tx.tenantInvoice.findFirst({
-          where: { tenantId: t.id, status: { not: 'VOID' } },
-        });
-        if (!existing) {
-          const { periodStart, periodEnd } = billingPeriodForStart(serviceStart, cycle);
-          const amountKrw = calculateBillingAmountKrw(t.plan, cycle);
-          await tx.tenantInvoice.create({
-            data: {
-              tenantId: t.id,
-              periodStart,
-              periodEnd,
-              billingCycle: cycle,
-              plan: t.plan,
-              amountKrw,
-              dueDate: dueDateFromPeriodStart(periodStart),
-              status: 'ISSUED',
-            },
-          });
-          result.invoicesIssued += 1;
-        }
+        const created = await issueFirstInvoiceOnServiceStart(tx, t.id, t.plan, serviceStart);
+        if (created) result.invoicesIssued += 1;
       });
     }
   }
 
-  // 3) ISSUED → OVERDUE
+  const activeTenants = await prisma.tenant.findMany({
+    where: { status: 'ACTIVE', serviceStartedAt: { not: null } },
+    select: { id: true },
+  });
+  for (const t of activeTenants) {
+    const n = await autoIssueInvoicesForTenant(t.id, dryRun);
+    result.autoInvoicesIssued += n;
+  }
+
   const overdueCandidates = await prisma.tenantInvoice.findMany({
     where: { status: 'ISSUED', dueDate: { lt: todayStart } },
     select: { id: true },
@@ -574,7 +797,6 @@ export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
     }
   }
 
-  // 4) OVERDUE + grace → billing block
   const blockThreshold = addDaysUtc(todayStart, -graceDays);
   const blockCandidates = await prisma.tenantInvoice.findMany({
     where: {
@@ -600,3 +822,5 @@ export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
 
   return result;
 }
+
+export { periodStartKey };

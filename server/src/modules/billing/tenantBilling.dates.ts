@@ -51,9 +51,26 @@ export function billingPeriodForStart(
   return { periodStart, periodEnd };
 }
 
-export function dueDateFromPeriodStart(periodStart: Date): Date {
+export function dueDateFromPeriodStart(periodStart: Date, dueDay = 25): Date {
+  return dueDateForPeriodStart(periodStart, dueDay);
+}
+
+/** 이용 기간 시작일 + 매월 납부 기준일 → 납부기한 (KST) */
+export function dueDateForPeriodStart(periodStart: Date, dueDay: number): Date {
+  const clamped = Math.min(28, Math.max(1, Math.floor(dueDay)));
   const ymd = kstYmdFromDate(periodStart);
-  return kstEndOfDayUtc(ymd);
+  const startDay = Number(ymd.slice(8, 10));
+  let anchor = kstStartOfDayUtc(ymd);
+  if (startDay > clamped) {
+    anchor = addMonthsClamped(anchor, 1);
+  }
+  const ay = kstYmdFromDate(anchor);
+  const dueYmd = `${ay.slice(0, 7)}-${String(clamped).padStart(2, '0')}`;
+  return kstEndOfDayUtc(dueYmd);
+}
+
+export function nextPeriodStartAfter(periodEnd: Date): Date {
+  return new Date(periodEnd.getTime() + 1);
 }
 
 /** 납부기한(KST) + 유예일 다음날 00:00 KST — 업무 차단 시작 시각 */

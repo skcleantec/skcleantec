@@ -2,9 +2,16 @@ import { API, apiErrorMessage } from './apiPrefix';
 
 export type TenantBillingSummary = {
   billingCycle: 'MONTHLY' | 'ANNUAL';
+  pricingMode?: 'CATALOG' | 'CUSTOM';
+  customMonthlyAmountKrw?: number | null;
+  catalogMonthlyAmountKrw?: number;
   trialEndsAt: string | null;
   prepaidConfirmedAt: string | null;
   serviceStartedAt: string | null;
+  billingStartDate?: string | null;
+  billingDueDay?: number;
+  nextDueDate?: string | null;
+  nextDueAmountKrw?: number | null;
   suspendReason: string | null;
   billingAccessBlockedAt: string | null;
   amountKrw: number;
@@ -69,4 +76,23 @@ export async function fetchTenantBillingInvoices(token: string) {
   if (!res.ok) throw new Error(await apiErrorMessage(res, '청구서 조회 실패'));
   const data = (await res.json()) as { items: TenantBillingInvoice[] };
   return data.items;
+}
+
+export type TenantBillingScheduleItem = {
+  periodStart: string;
+  periodEnd: string;
+  dueDate: string;
+  amountKrw: number;
+  status: string;
+};
+
+export async function fetchTenantBillingSchedule(token: string) {
+  const res = await fetch(`${API}/admin/tenant-billing/schedule`, { headers: authHeaders(token) });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '납부 일정 조회 실패'));
+  return res.json() as Promise<{
+    billingStartDate: string | null;
+    serviceStartedAt: string | null;
+    billingDueDay: number;
+    items: TenantBillingScheduleItem[];
+  }>;
 }

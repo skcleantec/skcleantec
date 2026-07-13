@@ -13,6 +13,7 @@ export const TENANT_TRIAL_DAYS = 7;
 export const TENANT_PREPAID_SERVICE_DELAY_DAYS = 7;
 export const TENANT_BILLING_ANNUAL_DISCOUNT_RATE = 0.2;
 export const TENANT_BILLING_DEFAULT_GRACE_DAYS = 3;
+export const TENANT_BILLING_DEFAULT_DUE_DAY = 25;
 
 export type TenantBillingCycle = 'MONTHLY' | 'ANNUAL';
 
@@ -20,5 +21,9 @@ export function calculateBillingAmountKrw(plan: string, cycle: TenantBillingCycl
   const monthly =
     plan in MONTHLY_PRICE_KRW ? MONTHLY_PRICE_KRW[plan as TenantPlanId] : MONTHLY_PRICE_KRW.starter;
   if (cycle === 'MONTHLY') return monthly;
-  return Math.round(monthly * 12 * (1 - TENANT_BILLING_ANNUAL_DISCOUNT_RATE));
+  return calculateAnnualFromMonthlyKrw(monthly);
+}
+
+export function calculateAnnualFromMonthlyKrw(monthlyKrw: number): number {
+  return Math.round(monthlyKrw * 12 * (1 - TENANT_BILLING_ANNUAL_DISCOUNT_RATE));
 }

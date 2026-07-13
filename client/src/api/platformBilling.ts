@@ -1,4 +1,10 @@
 import { API, apiErrorMessage } from './apiPrefix';
+import type {
+  BillingScheduleItemStatus,
+  TenantBillingAdjustmentType,
+  TenantBillingCycle,
+  TenantBillingPricingMode,
+} from '@shared/tenantBilling';
 
 function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -19,10 +25,14 @@ export type PlatformBillingTenantRow = {
   name: string;
   plan: string;
   status: string;
-  billingCycle: 'MONTHLY' | 'ANNUAL';
+  billingCycle: TenantBillingCycle;
+  pricingMode: TenantBillingPricingMode;
+  contractAmountKrw: number;
+  billingDueDay: number;
+  serviceStartedAt: string | null;
+  nextDueDate: string | null;
   trialEndsAt: string | null;
   prepaidConfirmedAt: string | null;
-  serviceStartedAt: string | null;
   suspendReason: string | null;
   billingAccessBlockedAt: string | null;
   openInvoiceStatus: string | null;
@@ -33,15 +43,53 @@ export type TenantInvoiceRow = {
   id: string;
   periodStart: string;
   periodEnd: string;
-  billingCycle: 'MONTHLY' | 'ANNUAL';
+  billingCycle: TenantBillingCycle;
   plan: string;
   amountKrw: number;
   dueDate: string;
   status: 'DRAFT' | 'ISSUED' | 'PAID' | 'OVERDUE' | 'VOID';
+  source: 'AUTO' | 'MANUAL';
   paidAt: string | null;
   confirmedAt: string | null;
   memo: string | null;
   createdAt: string;
+};
+
+export type BillingProfileRow = {
+  billingCycle: TenantBillingCycle;
+  pricingMode: TenantBillingPricingMode;
+  customMonthlyAmountKrw: number | null;
+  customAnnualAmountKrw: number | null;
+  billingDueDay: number;
+  billingStartDate: string | null;
+  autoIssueEnabled: boolean;
+  contractMemo: string | null;
+};
+
+export type BillingAdjustmentRow = {
+  id: string;
+  type: TenantBillingAdjustmentType;
+  targetPeriodStart: string;
+  customAmountKrw: number | null;
+  reason: string;
+  voidedAt: string | null;
+  createdAt: string;
+};
+
+export type BillingScheduleRow = {
+  periodStart: string;
+  periodEnd: string;
+  dueDate: string;
+  amountKrw: number;
+  catalogAmountKrw: number;
+  status: BillingScheduleItemStatus;
+  invoiceId: string | null;
+  adjustment: {
+    id: string;
+    type: TenantBillingAdjustmentType;
+    reason: string;
+    deferMode?: 'SHIFT' | 'MERGE';
+  } | null;
 };
 
 export type PlatformTenantBillingDetail = {
@@ -58,9 +106,16 @@ export type PlatformTenantBillingDetail = {
     billingAccessBlockedAt: string | null;
     createdAt: string;
   };
-  profile: { billingCycle: 'MONTHLY' | 'ANNUAL' };
+  profile: BillingProfileRow;
   summary: {
-    billingCycle: 'MONTHLY' | 'ANNUAL';
+    billingCycle: TenantBillingCycle;
+    pricingMode: TenantBillingPricingMode;
+    customMonthlyAmountKrw: number | null;
+    catalogMonthlyAmountKrw: number;
+    billingStartDate: string | null;
+    billingDueDay: number;
+    nextDueDate: string | null;
+    nextDueAmountKrw: number | null;
     amountKrw: number;
     amountLabel: string;
     bank: {
@@ -73,6 +128,19 @@ export type PlatformTenantBillingDetail = {
     overdueInvoice: TenantInvoiceRow | null;
   };
   invoices: TenantInvoiceRow[];
+  schedule: BillingScheduleRow[];
+  adjustments: BillingAdjustmentRow[];
+};
+
+export type PatchBillingProfileBody = {
+  billingCycle?: TenantBillingCycle;
+  pricingMode?: TenantBillingPricingMode;
+  customMonthlyAmountKrw?: number | null;
+  customAnnualAmountKrw?: number | null;
+  billingDueDay?: number;
+  billingStartDate?: string | null;
+  autoIssueEnabled?: boolean;
+  contractMemo?: string | null;
 };
 
 export async function getPlatformBillingSettings(token: string) {
@@ -110,15 +178,47 @@ export async function getPlatformTenantBilling(token: string, tenantId: string) 
 export async function patchPlatformTenantBillingProfile(
   token: string,
   tenantId: string,
-  billingCycle: 'MONTHLY' | 'ANNUAL',
+  body: PatchBillingProfileBody,
 ) {
   const res = await fetch(`${API}/platform/billing/tenants/${tenantId}/profile`, {
     method: 'PATCH',
     headers: authHeaders(token),
-    body: JSON.stringify({ billingCycle }),
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(await apiErrorMessage(res, '납부 주기 저장 실패'));
-  return res.json() as Promise<{ billingCycle: 'MONTHLY' | 'ANNUAL' }>;
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '계약 조건 저장 실패'));
+  return res.json() as Promise<BillingProfileRow>;
+}
+
+export async function createPlatformBillingAdjustment(
+  token: string,
+  tenantId: string,
+  body: {
+    type: TenantBillingAdjustmentType;
+    targetPeriodStart: string;
+    customAmountKrw?: number | null;
+    reason: string;
+  },
+) {
+  const res = await fetch(`${API}/platform/billing/tenants/${tenantId}/adjustments`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '예외 등록 실패'));
+  return res.json() as Promise<{ adjustment: BillingAdjustmentRow }>;
+}
+
+export async function voidPlatformBillingAdjustment(
+  token: string,
+  tenantId: string,
+  adjustmentId: string,
+) {
+  const res = await fetch(`${API}/platform/billing/tenants/${tenantId}/adjustments/${adjustmentId}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '예외 취소 실패'));
+  return res.json() as Promise<{ ok: boolean }>;
 }
 
 export async function confirmPlatformPrepaid(token: string, tenantId: string) {

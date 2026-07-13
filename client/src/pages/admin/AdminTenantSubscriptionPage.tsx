@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchTenantSubscription, type TenantSubscriptionDto } from '../../api/tenantSubscription';
-import { fetchTenantBillingInvoices, fetchTenantBillingSummary, type TenantBillingSummary } from '../../api/tenantBilling';
+import { fetchTenantBillingInvoices, fetchTenantBillingSchedule, fetchTenantBillingSummary, type TenantBillingSummary } from '../../api/tenantBilling';
 import { getToken } from '../../stores/auth';
 import { usagePercent } from '@shared/tenantSubscriptionUsage';
-import { TENANT_BILLING_CYCLE_LABEL, TENANT_INVOICE_STATUS_LABEL } from '@shared/tenantBilling';
+import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_SCHEDULE_STATUS_LABEL, TENANT_INVOICE_STATUS_LABEL } from '@shared/tenantBilling';
 import { PlanBadge, StatusBadge } from '../../utils/platformUi';
 
 const STATUS_HINT: Record<string, string> = {
@@ -84,20 +84,25 @@ export function AdminTenantSubscriptionPage() {
   const [data, setData] = useState<TenantSubscriptionDto | null>(null);
   const [billing, setBilling] = useState<TenantBillingSummary | null>(null);
   const [invoices, setInvoices] = useState<Awaited<ReturnType<typeof fetchTenantBillingInvoices>>>([]);
+  const [scheduleItems, setScheduleItems] = useState<
+    Awaited<ReturnType<typeof fetchTenantBillingSchedule>>['items']
+  >([]);
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setErr(null);
     try {
-      const [sub, billSummary, billInvoices] = await Promise.all([
+      const [sub, billSummary, billInvoices, schedule] = await Promise.all([
         fetchTenantSubscription(token),
         fetchTenantBillingSummary(token).catch(() => null),
         fetchTenantBillingInvoices(token).catch(() => []),
+        fetchTenantBillingSchedule(token).catch(() => null),
       ]);
       setData(sub);
       setBilling(billSummary);
       setInvoices(billInvoices);
+      setScheduleItems(schedule?.items ?? []);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '불러오기 실패');
     } finally {
@@ -235,6 +240,29 @@ export function AdminTenantSubscriptionPage() {
                   <dd className="mt-0.5 text-gray-900">{formatKoDateTime(billing.serviceStartedAt)}</dd>
                 </div>
               ) : null}
+              {billing.billingStartDate ? (
+                <div>
+                  <dt className="text-gray-500">과금 시작</dt>
+                  <dd className="mt-0.5 text-gray-900">{formatKoDateTime(billing.billingStartDate)}</dd>
+                </div>
+              ) : null}
+              {billing.billingDueDay ? (
+                <div>
+                  <dt className="text-gray-500">납부 기준일</dt>
+                  <dd className="mt-0.5 text-gray-900">매월 {billing.billingDueDay}일</dd>
+                </div>
+              ) : null}
+              {billing.nextDueDate ? (
+                <div>
+                  <dt className="text-gray-500">다음 납부일</dt>
+                  <dd className="mt-0.5 text-gray-900 tabular-nums">
+                    {new Date(billing.nextDueDate).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
+                    {billing.nextDueAmountKrw != null
+                      ? ` · ${billing.nextDueAmountKrw.toLocaleString('ko-KR')}원`
+                      : ''}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
             {(billing.bank.bankName || billing.bank.accountNumber) && (
               <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-800">
@@ -262,6 +290,39 @@ export function AdminTenantSubscriptionPage() {
                 </p>
               </div>
             )}
+            {scheduleItems.length > 0 ? (
+              <div>
+                <p className="text-sm font-medium text-gray-800 mb-2">납부 예정 일정</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[420px] text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-gray-500">
+                        <th className="py-2 text-center font-medium">납부일</th>
+                        <th className="py-2 text-center font-medium">금액</th>
+                        <th className="py-2 text-center font-medium">상태</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scheduleItems.map((row) => (
+                        <tr key={`${row.periodStart}-${row.dueDate}`} className="border-b border-gray-100">
+                          <td className="py-2 text-center text-xs">
+                            {new Date(row.dueDate).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
+                          </td>
+                          <td className="py-2 text-center tabular-nums">
+                            {row.amountKrw.toLocaleString('ko-KR')}원
+                          </td>
+                          <td className="py-2 text-center text-xs">
+                            {TENANT_BILLING_SCHEDULE_STATUS_LABEL[
+                              row.status as keyof typeof TENANT_BILLING_SCHEDULE_STATUS_LABEL
+                            ] ?? row.status}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
             {invoices.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[480px] text-sm">

@@ -1,5 +1,9 @@
 import { Router } from 'express';
-import type { TenantBillingCycle } from '@prisma/client';
+import type {
+  TenantBillingAdjustmentType,
+  TenantBillingCycle,
+  TenantBillingPricingMode,
+} from '@prisma/client';
 import {
   platformAuthMiddleware,
   platformSuperAdminOnly,
@@ -8,13 +12,16 @@ import {
 import {
   confirmInvoicePayment,
   confirmPrepaidForTenant,
+  createTenantBillingAdjustment,
   getPlatformBillingSettings,
   getTenantBillingDetailForPlatform,
+  getTenantBillingSchedule,
   issueInvoiceForTenant,
   listTenantsBillingOverview,
   previewNextInvoice,
   updatePlatformBillingSettings,
-  updateTenantBillingProfile,
+  updateTenantBillingProfileContract,
+  voidTenantBillingAdjustment,
 } from '../billing/tenantBilling.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 
@@ -62,14 +69,41 @@ router.get('/tenants/:tenantId', async (req, res) => {
   }
 });
 
+router.get('/tenants/:tenantId/schedule', async (req, res) => {
+  try {
+    const schedule = await getTenantBillingSchedule(req.params.tenantId);
+    res.json(schedule);
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    const msg = e instanceof Error ? e.message : '일정 조회에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
 router.patch('/tenants/:tenantId/profile', platformSuperAdminOnly, async (req, res) => {
   try {
-    const body = req.body as { billingCycle?: TenantBillingCycle };
-    if (body.billingCycle !== 'MONTHLY' && body.billingCycle !== 'ANNUAL') {
+    const body = req.body as {
+      billingCycle?: TenantBillingCycle;
+      pricingMode?: TenantBillingPricingMode;
+      customMonthlyAmountKrw?: number | null;
+      customAnnualAmountKrw?: number | null;
+      billingDueDay?: number;
+      billingStartDate?: string | null;
+      autoIssueEnabled?: boolean;
+      contractMemo?: string | null;
+    };
+    if (body.billingCycle && body.billingCycle !== 'MONTHLY' && body.billingCycle !== 'ANNUAL') {
       res.status(400).json({ error: 'billingCycle은 MONTHLY 또는 ANNUAL 이어야 합니다.' });
       return;
     }
-    const profile = await updateTenantBillingProfile(req.params.tenantId, body.billingCycle);
+    if (body.pricingMode && body.pricingMode !== 'CATALOG' && body.pricingMode !== 'CUSTOM') {
+      res.status(400).json({ error: 'pricingMode는 CATALOG 또는 CUSTOM 이어야 합니다.' });
+      return;
+    }
+    const profile = await updateTenantBillingProfileContract(req.params.tenantId, body);
     res.json(profile);
   } catch (e) {
     if (e instanceof TenantNotFoundError) {
@@ -77,6 +111,57 @@ router.patch('/tenants/:tenantId/profile', platformSuperAdminOnly, async (req, r
       return;
     }
     const msg = e instanceof Error ? e.message : '저장에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.post('/tenants/:tenantId/adjustments', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const platformUser = (req as PlatformScopedRequest).platformUser;
+    const body = req.body as {
+      type?: TenantBillingAdjustmentType;
+      targetPeriodStart?: string;
+      customAmountKrw?: number | null;
+      reason?: string;
+    };
+    if (
+      !body.type ||
+      !['SKIP', 'CUSTOM_AMOUNT', 'DEFER_SHIFT', 'DEFER_MERGE'].includes(body.type)
+    ) {
+      res.status(400).json({ error: 'type이 올바르지 않습니다.' });
+      return;
+    }
+    if (!body.targetPeriodStart || !body.reason) {
+      res.status(400).json({ error: 'targetPeriodStart와 reason이 필요합니다.' });
+      return;
+    }
+    const adjustment = await createTenantBillingAdjustment(
+      req.params.tenantId,
+      platformUser.platformUserId,
+      {
+        type: body.type,
+        targetPeriodStart: body.targetPeriodStart,
+        customAmountKrw: body.customAmountKrw,
+        reason: body.reason,
+      },
+    );
+    res.status(201).json({ adjustment });
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    const msg = e instanceof Error ? e.message : '예외 등록에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.delete('/tenants/:tenantId/adjustments/:adjustmentId', platformSuperAdminOnly, async (req, res) => {
+  try {
+    await voidTenantBillingAdjustment(req.params.tenantId, req.params.adjustmentId);
+    res.json({ ok: true });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '예외 취소에 실패했습니다.';
     res.status(400).json({ error: msg });
   }
 });
@@ -94,7 +179,7 @@ router.get('/tenants/:tenantId/invoice-preview', async (req, res) => {
 router.post('/tenants/:tenantId/invoices', platformSuperAdminOnly, async (req, res) => {
   try {
     const body = req.body as { asDraft?: boolean };
-    const invoice = await issueInvoiceForTenant(req.params.tenantId, body.asDraft === true);
+    const invoice = await issueInvoiceForTenant(req.params.tenantId, body.asDraft === true, 'MANUAL');
     res.status(201).json({ invoice });
   } catch (e) {
     const msg = e instanceof Error ? e.message : '청구서 발행에 실패했습니다.';

@@ -12,7 +12,7 @@ import {
   type PlatformTenantFeatureRow,
 } from '../../api/platformTenants';
 import { PlatformTenantAdminsSection } from './PlatformTenantAdminsSection';
-import { PlatformTenantBillingPanel } from './PlatformBillingPage';
+import { PlatformTenantBillingPanel } from './PlatformTenantBillingPanel';
 import { PlatformTenantFeatureCatalog } from '../../components/platform/PlatformTenantFeatureCatalog';
 import { getPlatformToken } from '../../stores/platformAuth';
 import {
