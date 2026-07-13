@@ -51,6 +51,10 @@ import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
 import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
 import { CustomCalendarTabsBar } from '../../components/admin/CustomCalendarTabsBar';
+import {
+  ScheduleCustomCalendarMobileMenuButton,
+  ScheduleCustomCalendarMobileSheet,
+} from '../../components/admin/ScheduleCustomCalendarMobileSheet';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
@@ -752,6 +756,7 @@ export function AdminSchedulePage() {
   const [customCalendarCreateFocus, setCustomCalendarCreateFocus] = useState<CustomCalendarCreateFocus>('region');
   const [customCalendarEditing, setCustomCalendarEditing] = useState<UserCustomCalendarItem | null>(null);
   const [customCalendarDeleting, setCustomCalendarDeleting] = useState<UserCustomCalendarItem | null>(null);
+  const [customCalendarMenuOpen, setCustomCalendarMenuOpen] = useState(false);
   const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
   const fetchGenRef = useRef(0);
   /** showLoading 요청이 silent 재조회에 밀려 loading=true 에 고착되는 것 방지 */
@@ -1439,6 +1444,12 @@ export function AdminSchedulePage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {(regionCalendars.length > 0 || companyCalendars.length > 0 || canManageCustomCalendar) ? (
+            <ScheduleCustomCalendarMobileMenuButton
+              onClick={() => setCustomCalendarMenuOpen(true)}
+              hasActiveFilter={hasActiveCustomCalendarFilter(activeRegionCalendar, activeCompanyCalendar)}
+            />
+          ) : null}
           <div className="inline-flex items-stretch rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
             <button
               type="button"
@@ -1528,7 +1539,7 @@ export function AdminSchedulePage() {
                 />
               </div>
             </div>
-            <div className="mt-2 min-w-0 border-t border-slate-200/80 pt-2 space-y-2">
+            <div className="mt-2 min-w-0 border-t border-slate-200/80 pt-2 space-y-2 hidden lg:block">
               <CustomCalendarTabsBar
                 rowLabel="지역"
                 className="w-full min-w-0"
@@ -3187,6 +3198,32 @@ export function AdminSchedulePage() {
           token={token}
         />
       )}
+
+      <ScheduleCustomCalendarMobileSheet
+        open={customCalendarMenuOpen}
+        onClose={() => setCustomCalendarMenuOpen(false)}
+        regionCalendars={regionCalendars}
+        companyCalendars={companyCalendars}
+        activeRegionCalendarId={activeRegionCalendarId}
+        activeCompanyCalendarId={activeCompanyCalendarId}
+        activeRegionCalendar={activeRegionCalendar}
+        activeCompanyCalendar={activeCompanyCalendar}
+        onSelectRegion={setActiveRegionCalendarId}
+        onSelectCompany={setActiveCompanyCalendarId}
+        onAddRegion={() => {
+          setCustomCalendarCreateFocus('region');
+          setCustomCalendarEditing(null);
+          setCustomCalendarModalOpen(true);
+        }}
+        onAddCompany={() => {
+          setCustomCalendarCreateFocus('company');
+          setCustomCalendarEditing(null);
+          setCustomCalendarModalOpen(true);
+        }}
+        onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
+        canManage={canManageCustomCalendar}
+        externalCompanyNames={externalCompanyNameById}
+      />
 
       <CustomCalendarCreateModal
         open={customCalendarModalOpen}
