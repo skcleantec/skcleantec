@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchTenantSubscription, type TenantSubscriptionDto } from '../../api/tenantSubscription';
+import { fetchTenantBillingInvoices, fetchTenantBillingSummary, type TenantBillingSummary } from '../../api/tenantBilling';
 import { getToken } from '../../stores/auth';
 import { usagePercent } from '@shared/tenantSubscriptionUsage';
+import { TENANT_BILLING_CYCLE_LABEL, TENANT_INVOICE_STATUS_LABEL } from '@shared/tenantBilling';
 import { PlanBadge, StatusBadge } from '../../utils/platformUi';
 
 const STATUS_HINT: Record<string, string> = {
@@ -80,13 +82,22 @@ export function AdminTenantSubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [data, setData] = useState<TenantSubscriptionDto | null>(null);
+  const [billing, setBilling] = useState<TenantBillingSummary | null>(null);
+  const [invoices, setInvoices] = useState<Awaited<ReturnType<typeof fetchTenantBillingInvoices>>>([]);
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setErr(null);
     try {
-      setData(await fetchTenantSubscription(token));
+      const [sub, billSummary, billInvoices] = await Promise.all([
+        fetchTenantSubscription(token),
+        fetchTenantBillingSummary(token).catch(() => null),
+        fetchTenantBillingInvoices(token).catch(() => []),
+      ]);
+      setData(sub);
+      setBilling(billSummary);
+      setInvoices(billInvoices);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '불러오기 실패');
     } finally {
@@ -199,8 +210,93 @@ export function AdminTenantSubscriptionPage() {
         </div>
       </section>
 
+      <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-3">
+        <h2 className="text-base font-semibold text-gray-900">이용료 · 납부</h2>
+        {billing ? (
+          <>
+            <dl className="grid gap-3 sm:grid-cols-2 text-sm">
+              <div>
+                <dt className="text-gray-500">납부 주기</dt>
+                <dd className="mt-0.5 text-gray-900">{TENANT_BILLING_CYCLE_LABEL[billing.billingCycle]}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">이용료</dt>
+                <dd className="mt-0.5 text-gray-900 tabular-nums">{billing.amountLabel}</dd>
+              </div>
+              {billing.trialEndsAt ? (
+                <div>
+                  <dt className="text-gray-500">체험 종료</dt>
+                  <dd className="mt-0.5 text-gray-900">{formatKoDateTime(billing.trialEndsAt)}</dd>
+                </div>
+              ) : null}
+              {billing.serviceStartedAt ? (
+                <div>
+                  <dt className="text-gray-500">서비스 시작</dt>
+                  <dd className="mt-0.5 text-gray-900">{formatKoDateTime(billing.serviceStartedAt)}</dd>
+                </div>
+              ) : null}
+            </dl>
+            {(billing.bank.bankName || billing.bank.accountNumber) && (
+              <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-800">
+                <p className="font-medium text-slate-900">입금 계좌</p>
+                <p className="mt-1">
+                  {[billing.bank.bankName, billing.bank.accountNumber, billing.bank.accountHolder]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+                {billing.bank.paymentGuideText ? (
+                  <p className="mt-1 text-xs text-slate-600 whitespace-pre-wrap">{billing.bank.paymentGuideText}</p>
+                ) : null}
+              </div>
+            )}
+            {(billing.overdueInvoice || billing.openInvoice) && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                <p className="font-medium">납부 안내</p>
+                <p className="mt-1">
+                  {(billing.overdueInvoice ?? billing.openInvoice)!.amountKrw.toLocaleString('ko-KR')}원 · 납부기한{' '}
+                  {new Date((billing.overdueInvoice ?? billing.openInvoice)!.dueDate).toLocaleDateString('ko-KR', {
+                    timeZone: 'Asia/Seoul',
+                  })}
+                  {' · '}
+                  {TENANT_INVOICE_STATUS_LABEL[(billing.overdueInvoice ?? billing.openInvoice)!.status as keyof typeof TENANT_INVOICE_STATUS_LABEL]}
+                </p>
+              </div>
+            )}
+            {invoices.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[480px] text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-gray-500">
+                      <th className="py-2 text-center font-medium">기간</th>
+                      <th className="py-2 text-center font-medium">금액</th>
+                      <th className="py-2 text-center font-medium">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.slice(0, 6).map((inv) => (
+                      <tr key={inv.id} className="border-b border-gray-100">
+                        <td className="py-2 text-center text-xs">
+                          {new Date(inv.periodStart).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })} ~{' '}
+                          {new Date(inv.periodEnd).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
+                        </td>
+                        <td className="py-2 text-center tabular-nums">{inv.amountKrw.toLocaleString('ko-KR')}원</td>
+                        <td className="py-2 text-center">
+                          {TENANT_INVOICE_STATUS_LABEL[inv.status as keyof typeof TENANT_INVOICE_STATUS_LABEL] ?? inv.status}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-sm text-gray-500">이용료 정보는 관리자 계정에서만 조회할 수 있습니다.</p>
+        )}
+      </section>
+
       <section className="rounded-lg border border-dashed border-indigo-200 bg-indigo-50/50 p-4 text-xs text-indigo-950 leading-relaxed">
-        <p className="font-medium text-indigo-900">과금 안내 (예정)</p>
+        <p className="font-medium text-indigo-900">과금 안내</p>
         <p className="mt-1">{data.billingNote}</p>
       </section>
 

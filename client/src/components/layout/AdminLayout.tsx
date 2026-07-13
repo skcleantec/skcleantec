@@ -28,7 +28,7 @@ import {
   type InquiryCelebratePayload,
   type LandingContactRtPayload,
 } from '../../hooks/useInboxRealtime';
-import { getMe, isAuthSessionExpiredError } from '../../api/auth';
+import { getMe, isAuthSessionExpiredError, isAuthBillingAccessBlockedError } from '../../api/auth';
 import {
   ADMIN_NAV_DEF,
   type AdminNavId,
@@ -42,6 +42,7 @@ import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarConfig';
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { AdminStagingDbImportModal } from '../admin/AdminStagingDbImportModal';
+import { BillingDunningModal } from '../admin/BillingDunningModal';
 import { ChangeLogBell } from '../admin/ChangeLogBell';
 import { getUnseenChangeCount, getChangeHistoryList, markChangeSeen } from '../../api/inquiryChangeLogs';
 import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
@@ -229,6 +230,8 @@ export function AdminLayout() {
   const [canCrmSettings, setCanCrmSettings] = useState(false);
   useDocumentTitle(tenantName);
   const [stagingDbImportModalOpen, setStagingDbImportModalOpen] = useState(false);
+  const [billingDunningOpen, setBillingDunningOpen] = useState(false);
+  const closeBillingDunning = useCallback(() => setBillingDunningOpen(false), []);
   const [fabDragging, setFabDragging] = useState(false);
   const fabPointerIdRef = useRef<number | null>(null);
   const fabHoldTimerRef = useRef<number | null>(null);
@@ -410,9 +413,27 @@ export function AdminLayout() {
         if (preview && !getTeamToken()) {
           setTeamToken(token);
         }
+        if (role === 'ADMIN' && tid) {
+          setBillingDunningOpen(true);
+        } else {
+          setBillingDunningOpen(false);
+        }
       })
       .catch((e) => {
         if (cancelled) return;
+        if (isAuthBillingAccessBlockedError(e)) {
+          setMeRole(null);
+          setEffectiveStaffAdmin(false);
+          setMeUserId(null);
+          setBillingDunningOpen(false);
+          clearToken();
+          clearTeamToken();
+          navigate('/login', {
+            replace: true,
+            state: { billingAccessBlocked: true, billingMessage: e.message },
+          });
+          return;
+        }
         if (isAuthSessionExpiredError(e)) {
           setMeRole(null);
           setEffectiveStaffAdmin(false);
@@ -1210,6 +1231,12 @@ export function AdminLayout() {
           clearTeamToken();
           navigate('/login', { replace: true, state: { sessionExpired: true } });
         }}
+      />
+      <BillingDunningModal
+        open={billingDunningOpen}
+        token={adminToken}
+        tenantId={meTenantId}
+        onClose={closeBillingDunning}
       />
       {adminToken && (
         <ChangeLogBell

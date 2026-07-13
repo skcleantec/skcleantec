@@ -99,6 +99,7 @@ import {
   PlatformTenantListPage,
   PlatformTenantCreatePage,
   PlatformTenantDetailPage,
+  PlatformBillingPage,
   PlatformSupportAccessPage,
   PlatformDbMarketplacePage,
   PlatformHelpInquirySettingsPage,
@@ -136,6 +137,7 @@ function App() {
           <Route path="tenants" element={<SuspensePage><PlatformTenantListPage /></SuspensePage>} />
           <Route path="tenants/new" element={<SuspensePage><PlatformTenantCreatePage /></SuspensePage>} />
           <Route path="tenants/:id" element={<SuspensePage><PlatformTenantDetailPage /></SuspensePage>} />
+          <Route path="billing" element={<SuspensePage><PlatformBillingPage /></SuspensePage>} />
           <Route path="support-access" element={<SuspensePage><PlatformSupportAccessPage /></SuspensePage>} />
           <Route path="db-marketplace" element={<SuspensePage><PlatformDbMarketplacePage /></SuspensePage>} />
           <Route path="help-inquiry" element={<SuspensePage><PlatformHelpInquirySettingsPage /></SuspensePage>} />

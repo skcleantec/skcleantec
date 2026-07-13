@@ -9,8 +9,20 @@ export class AuthSessionExpiredError extends Error {
   }
 }
 
+/** `/api/auth/me` 403 — 이용료 미납으로 업무 접속 제한 */
+export class AuthBillingAccessBlockedError extends Error {
+  constructor(message = '이용료 미납으로 업무 접속이 제한되었습니다.') {
+    super(message);
+    this.name = 'AuthBillingAccessBlockedError';
+  }
+}
+
 export function isAuthSessionExpiredError(e: unknown): e is AuthSessionExpiredError {
   return e instanceof AuthSessionExpiredError;
+}
+
+export function isAuthBillingAccessBlockedError(e: unknown): e is AuthBillingAccessBlockedError {
+  return e instanceof AuthBillingAccessBlockedError;
 }
 
 function apiUnreachableMessage(): Error {
@@ -58,6 +70,14 @@ export async function getMe(token: string) {
   }
   if (res.status === 401) {
     throw new AuthSessionExpiredError();
+  }
+  if (res.status === 403) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+    if (data.code === 'billing_access_blocked') {
+      throw new AuthBillingAccessBlockedError(
+        typeof data.error === 'string' ? data.error : undefined,
+      );
+    }
   }
   if (!res.ok) {
     if (res.status === 502 || res.status === 503) {

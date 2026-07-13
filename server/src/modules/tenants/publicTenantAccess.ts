@@ -1,10 +1,8 @@
-import type { TenantStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
-  assertTenantLoginAllowed,
+  isPlatformFullSuspend,
   resolveTenantBySlug,
   TenantNotFoundError,
-  TenantSuspendedError,
 } from './tenant.service.js';
 
 export class PublicTenantAccessError extends Error {
@@ -17,22 +15,17 @@ export class PublicTenantAccessError extends Error {
   }
 }
 
-/** 공개 링크(발주서·전자계약) — 테넌트 운영 중인지 확인 */
+/** 공개 링크(발주서·전자계약) — 플랫폼 전면 중지만 차단 */
 export async function assertTenantAllowsPublicService(tenantId: string): Promise<void> {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, suspendReason: true, billingAccessBlockedAt: true },
   });
   if (!tenant) {
     throw new PublicTenantAccessError('업체를 찾을 수 없습니다.', 'tenant_not_found');
   }
-  try {
-    await assertTenantLoginAllowed(tenant.status as TenantStatus);
-  } catch (e) {
-    if (e instanceof TenantSuspendedError) {
-      throw new PublicTenantAccessError(e.message, 'tenant_suspended');
-    }
-    throw e;
+  if (isPlatformFullSuspend(tenant)) {
+    throw new PublicTenantAccessError('서비스가 중지된 업체입니다.', 'tenant_suspended');
   }
 }
 

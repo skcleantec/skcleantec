@@ -9,12 +9,13 @@ import { isTeamPreviewAdminEmail } from './teamPreview.helpers.js';
 import { userMayUseStagingDbImport, userIsPlatformOperator } from '../admin/stagingDbImport.helpers.js';
 import { isUserEmployedOnYmd, kstTodayYmd } from '../users/userEmployment.js';
 import {
-  assertTenantLoginAllowed,
+  assertTenantStaffLoginAllowed,
   normalizeTenantSlugInput,
   resolveTenantBySlug,
   tenantSummary,
   TenantNotFoundError,
   TenantSuspendedError,
+  TenantBillingAccessBlockedError,
 } from '../tenants/tenant.service.js';
 import { DEFAULT_TENANT_SLUG } from '../tenants/tenant.constants.js';
 import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
@@ -112,14 +113,14 @@ async function loginWithPassword(req: Request, res: Response) {
   try {
     tenant = await resolveTenantBySlug(normalizeTenantSlugInput(tenantSlug));
     if (!isUniversalDeveloperLoginId(loginId)) {
-      await assertTenantLoginAllowed(tenant.status);
+      await assertTenantStaffLoginAllowed(tenant);
     }
   } catch (e) {
     if (e instanceof TenantNotFoundError) {
       res.status(404).json({ error: e.message });
       return;
     }
-    if (e instanceof TenantSuspendedError) {
+    if (e instanceof TenantSuspendedError || e instanceof TenantBillingAccessBlockedError) {
       res.status(403).json({ error: e.message });
       return;
     }
@@ -263,9 +264,33 @@ router.get('/me', authMiddleware, async (req, res) => {
   const tenant = tenantId
     ? await prisma.tenant.findUnique({
         where: { id: tenantId },
-        select: { id: true, slug: true, name: true, plan: true, status: true },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          plan: true,
+          status: true,
+          suspendReason: true,
+          billingAccessBlockedAt: true,
+        },
       })
     : null;
+
+  if (tenant && !user.platformSupportAccessId) {
+    try {
+      await assertTenantStaffLoginAllowed(tenant);
+    } catch (e) {
+      if (e instanceof TenantBillingAccessBlockedError) {
+        res.status(403).json({ error: e.message, code: 'billing_access_blocked' });
+        return;
+      }
+      if (e instanceof TenantSuspendedError) {
+        res.status(403).json({ error: e.message, code: 'tenant_suspended' });
+        return;
+      }
+      throw e;
+    }
+  }
   const features = tenantId ? await getEffectiveEnabledModules(tenantId) : [];
   const config = tenantId ? await getTenantConfig(tenantId) : {};
   const marketerAdminLevel = user.role === 'MARKETER' ? user.marketerAdminLevel : 'NONE';
@@ -463,13 +488,13 @@ router.post('/crew-login', async (req, res) => {
   let tenant;
   try {
     tenant = await resolveTenantBySlug(normalizeTenantSlugInput(tenantSlug));
-    await assertTenantLoginAllowed(tenant.status);
+    await assertTenantStaffLoginAllowed(tenant);
   } catch (e) {
     if (e instanceof TenantNotFoundError) {
       res.status(404).json({ error: e.message });
       return;
     }
-    if (e instanceof TenantSuspendedError) {
+    if (e instanceof TenantSuspendedError || e instanceof TenantBillingAccessBlockedError) {
       res.status(403).json({ error: e.message });
       return;
     }

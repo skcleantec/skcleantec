@@ -5,7 +5,8 @@ import { resolvePublicBrandingBySlug } from '../operating-companies/publicOperat
 import { requireTenantAuth, type TenantScopedRequest } from './tenant.middleware.js';
 import { getTenantCapabilities } from './tenantFeatures.service.js';
 import { readRequestHost, resolveTenantSlugFromHost } from './tenantHostResolve.js';
-import { resolveTenantBySlug, TenantNotFoundError, assertTenantLoginAllowed, TenantSuspendedError } from './tenant.service.js';
+import { resolveTenantBySlug, TenantNotFoundError } from './tenant.service.js';
+import { assertTenantAllowsPublicService, PublicTenantAccessError } from './publicTenantAccess.js';
 import { getTenantConfig } from './tenantConfig.service.js';
 
 const router = Router();
@@ -52,7 +53,7 @@ router.get('/public-info', async (req, res) => {
   const brandRaw = typeof req.query.brand === 'string' ? req.query.brand.trim() : '';
   try {
     const tenant = await resolveTenantBySlug(slugRaw);
-    await assertTenantLoginAllowed(tenant.status);
+    await assertTenantAllowsPublicService(tenant.id);
     const config = await getTenantConfig(tenant.id);
     let displayName = config.branding?.displayName?.trim() || tenant.name;
     let loginSubtitle = config.branding?.loginSubtitle?.trim() || null;
@@ -79,7 +80,7 @@ router.get('/public-info', async (req, res) => {
       res.status(404).json({ error: e.message });
       return;
     }
-    if (e instanceof TenantSuspendedError) {
+    if (e instanceof PublicTenantAccessError) {
       res.status(403).json({ error: e.message });
       return;
     }
