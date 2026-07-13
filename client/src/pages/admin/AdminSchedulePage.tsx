@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useInboxRealtime, useChangeLogRealtime } from '../../hooks/useInboxRealtime';
@@ -671,6 +671,92 @@ function ChevronDownIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/** 모바일 전용 — 기본 접힘 details 헤더 한 줄 */
+function MobileCollapsePanel({
+  title,
+  titleExtra,
+  children,
+  className = '',
+  bodyClassName = 'px-2.5 pb-2 pt-0',
+  compact = false,
+}: {
+  title: string;
+  titleExtra?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  /** 스택 카드 안 — 여백·테두리 최소 */
+  compact?: boolean;
+}) {
+  return (
+    <details className={`group lg:hidden [&_summary::-webkit-details-marker]:hidden ${className}`}>
+      <summary
+        className={`flex items-center justify-between gap-2 cursor-pointer list-none touch-manipulation select-none ${
+          compact ? 'px-2.5 py-1 min-h-[28px]' : 'px-2.5 py-1.5 min-h-[32px]'
+        }`}
+      >
+        <span className="text-[11px] font-semibold leading-tight text-slate-800">{title}</span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          {titleExtra}
+          <ChevronDownIcon className="h-3.5 w-3.5 text-slate-500 transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      <div className={bodyClassName}>{children}</div>
+    </details>
+  );
+}
+
+function ScheduleLegendItems({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className={`flex flex-wrap items-center text-slate-600 ${
+        compact ? 'gap-x-3 gap-y-1 text-[10px] leading-snug' : 'gap-x-5 gap-y-2 text-fluid-xs leading-relaxed'
+      }`}
+    >
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2.5 shrink-0 rounded-sm border-2 border-rose-400 bg-rose-50 ring-1 ring-rose-200" />
+        <span>
+          팀장 <span className="font-semibold text-rose-800">당일 1건</span>
+          {compact ? '' : ' (추가 배정 검토)'}
+        </span>
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 shrink-0 rounded-full border-2 border-rose-500 bg-white" />
+        <span>
+          {compact ? '미배정' : (
+            <>
+              빈 슬롯·<span className="font-bold text-red-600">미배정</span>
+            </>
+          )}
+        </span>
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-rose-100 ring-2 ring-rose-400" />
+        대기
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 shrink-0 rounded-md bg-slate-200" />
+        마감
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-slate-900" />
+        선택한 날
+      </span>
+      <span className="inline-flex items-center gap-1.5" title={SON_EOMNEUNG_NAL_HELP}>
+        <SonEomneungNalIcon />
+        손없는날
+      </span>
+      {!compact ? (
+        <div className="flex w-full min-w-0 justify-end min-[520px]:w-auto min-[520px]:flex-1 min-[520px]:basis-0">
+          <HelpTooltip className="shrink-0" text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)} />
+        </div>
+      ) : (
+        <HelpTooltip className="shrink-0" text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)} />
+      )}
+    </div>
   );
 }
 
@@ -1435,43 +1521,49 @@ export function AdminSchedulePage() {
   };
 
   return (
-    <div className="flex flex-col gap-5 min-w-0">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-        <div>
+    <div className="flex flex-col gap-3 lg:gap-5 min-w-0">
+      <div className="flex flex-col gap-1 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
+        <div className="hidden lg:block">
           <div className="flex items-center gap-1.5 flex-wrap">
             <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
             <HelpTooltip className="shrink-0" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1 lg:gap-2 min-w-0 w-full lg:w-auto lg:justify-end">
           {(regionCalendars.length > 0 || companyCalendars.length > 0 || canManageCustomCalendar) ? (
             <ScheduleCustomCalendarMobileMenuButton
               onClick={() => setCustomCalendarMenuOpen(true)}
               hasActiveFilter={hasActiveCustomCalendarFilter(activeRegionCalendar, activeCompanyCalendar)}
             />
           ) : null}
-          <div className="inline-flex items-stretch rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex lg:hidden items-center gap-1 min-w-0 shrink mr-0.5">
+            <h1 className="text-fluid-base font-semibold text-slate-900 tracking-tight leading-none truncate">
+              스케쥴
+            </h1>
+            <HelpTooltip className="shrink-0 scale-90 origin-left" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
+          </div>
+          <div className="inline-flex h-8 items-stretch rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden lg:h-auto lg:rounded-lg">
             <button
               type="button"
               onClick={goPrevMonth}
-              className="px-2.5 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-200"
+              className="px-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-200 lg:px-2.5 lg:py-2 touch-manipulation"
               aria-label="이전 달"
             >
-              <ChevronLeftIcon className="w-5 h-5" />
+              <ChevronLeftIcon className="w-4 h-4 lg:w-5 lg:h-5" />
             </button>
             <button
               type="button"
               onClick={goNextMonth}
-              className="px-2.5 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              className="px-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 lg:px-2.5 lg:py-2 touch-manipulation"
               aria-label="다음 달"
             >
-              <ChevronRightIcon className="w-5 h-5" />
+              <ChevronRightIcon className="w-4 h-4 lg:w-5 lg:h-5" />
             </button>
           </div>
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-fluid-sm bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80"
+            className="h-8 min-w-0 w-[4.5rem] shrink-0 px-1.5 py-0 border border-slate-200 rounded-md text-[11px] leading-none bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80 lg:h-auto lg:w-auto lg:px-3 lg:py-2 lg:rounded-lg lg:text-fluid-sm"
           >
             {yearOptions.map((y) => (
               <option key={y} value={y}>
@@ -1482,7 +1574,7 @@ export function AdminSchedulePage() {
           <select
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-fluid-sm bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80 min-w-[5.5rem]"
+            className="h-8 min-w-0 w-[3.25rem] shrink-0 px-1.5 py-0 border border-slate-200 rounded-md text-[11px] leading-none bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80 lg:h-auto lg:min-w-[5.5rem] lg:w-auto lg:px-3 lg:py-2 lg:rounded-lg lg:text-fluid-sm"
           >
             {monthOptions.map((m) => (
               <option key={m} value={m}>
@@ -1501,45 +1593,84 @@ export function AdminSchedulePage() {
           일정 통계·가용 슬롯 정보를 불러오는 중입니다…
         </div>
       )}
-      {/* 범례 */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-fluid-xs text-slate-600 leading-relaxed">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-3 shrink-0 rounded-sm border-2 border-rose-400 bg-rose-50 ring-1 ring-rose-200" />
-                <span>
-                  팀장 <span className="font-semibold text-rose-800">당일 1건</span> (추가 배정 검토)
+      {/* 범례·안내 — 모바일: 한 카드에 붙여 접기 / PC: 기존 레이아웃 */}
+      <div className="lg:contents">
+        <div className="lg:hidden rounded-lg border border-slate-200 bg-slate-50/80 overflow-hidden divide-y divide-slate-200/70 shadow-sm">
+          <MobileCollapsePanel title="범례 · 기호" compact className="border-0 bg-transparent shadow-none">
+            <ScheduleLegendItems compact />
+          </MobileCollapsePanel>
+          {leaderSlotDeficitKeysInMonth.length > 0 ? (
+            <MobileCollapsePanel
+              compact
+              title="팀장 슬롯 초과"
+              titleExtra={
+                <span className="rounded-full bg-rose-200 px-1.5 py-px text-[10px] font-bold tabular-nums text-rose-900">
+                  {leaderSlotDeficitKeysInMonth.length}일
                 </span>
+              }
+              className="border-0 bg-rose-50/90 text-rose-950 shadow-none"
+              bodyClassName="px-2.5 pb-2 pt-0 text-[10px] leading-snug"
+            >
+              오전·오후 잔여(TO)가 마이너스인 날입니다. 접수를 다른 날짜로 옮기거나 배정을 조정해 주세요.{' '}
+              <button
+                type="button"
+                className="font-medium text-rose-900 underline underline-offset-2 hover:text-rose-950"
+                onClick={() => {
+                  const first = leaderSlotDeficitKeysInMonth[0];
+                  if (first) setSelectedDate(first);
+                }}
+              >
+                첫 해당일로 선택
+              </button>
+            </MobileCollapsePanel>
+          ) : null}
+          <MobileCollapsePanel
+            compact
+            title="캘린더 셀 표시"
+            className="border-0 bg-white shadow-none text-[10px] leading-snug text-slate-600"
+            bodyClassName="px-2.5 pb-2 pt-0"
+          >
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              <span>
+                <span className="font-semibold text-amber-900">오전</span>·
+                <span className="font-semibold text-sky-900">오후</span> 숫자 = 잔여 슬롯
               </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full border-2 border-rose-500 bg-white shrink-0" />
-                <span>
-                  빈 슬롯·<span className="font-bold text-red-600">미배정</span>
+              <span>👥 팀원 가용</span>
+              {skOpsUi ? (
+                <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
+                  <img
+                    src="/assets/custom/skcleantec/taegeuk-unassigned.png"
+                    alt=""
+                    className="h-4 w-4 object-contain ring-1 ring-red-300/80 rounded-full"
+                    aria-hidden
+                  />
+                  {oneRoomLabel}
+                  <span className="font-normal text-slate-600">(미배정·타업체 이관 제외)</span>
                 </span>
+              ) : null}
+              <span className="font-semibold text-red-600">⚠️ 미배정</span>
+              <span className="text-violet-700">⚡ 사이(미배정)</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />
+                대기
               </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-rose-100 ring-2 ring-rose-400 shrink-0" />
-                대기 접수
+              <span className="inline-flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
+                보류
               </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-md bg-slate-200 shrink-0" />
-                마감
+              <span className="inline-flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" aria-hidden />
+                취소
               </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-slate-900 shrink-0" />
-                선택한 날
-              </span>
-              <span className="inline-flex items-center gap-2" title={SON_EOMNEUNG_NAL_HELP}>
-                <SonEomneungNalIcon />
-                손없는날
-              </span>
-              <div className="flex w-full min-w-0 justify-end min-[520px]:w-auto min-[520px]:flex-1 min-[520px]:basis-0">
-                <HelpTooltip
-                  className="shrink-0"
-                  text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)}
-                />
-              </div>
             </div>
-            <div className="mt-2 min-w-0 border-t border-slate-200/80 pt-2 space-y-2 hidden lg:block">
+          </MobileCollapsePanel>
+        </div>
+
+        <div className="hidden lg:block rounded-xl border border-slate-200 bg-slate-50/80 overflow-hidden">
+          <div className="px-3 py-2.5">
+            <ScheduleLegendItems />
+          </div>
+          <div className="min-w-0 border-t border-slate-200/80 pt-2 space-y-2 px-3 pb-2.5">
               <CustomCalendarTabsBar
                 rowLabel="지역"
                 className="w-full min-w-0"
@@ -1590,65 +1721,28 @@ export function AdminSchedulePage() {
             </div>
           </div>
 
-          {leaderSlotDeficitKeysInMonth.length > 0 ? (
-            <div
-              role="status"
-              className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs text-rose-950"
+        {leaderSlotDeficitKeysInMonth.length > 0 ? (
+          <div
+            role="status"
+            className="mb-2 hidden lg:block rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs text-rose-950"
+          >
+            <span className="font-semibold">팀장 슬롯 초과:</span>{' '}
+            이번 달{' '}
+            <strong className="tabular-nums">{leaderSlotDeficitKeysInMonth.length}</strong>개 날짜에서
+            오전·오후 잔여(TO)가 마이너스입니다. 일부 접수를 다른 날짜로 옮기거나 배정을 조정해 주세요.{' '}
+            <button
+              type="button"
+              className="ml-1 font-medium text-rose-900 underline underline-offset-2 hover:text-rose-950"
+              onClick={() => {
+                const first = leaderSlotDeficitKeysInMonth[0];
+                if (first) setSelectedDate(first);
+              }}
             >
-              <span className="font-semibold">팀장 슬롯 초과:</span>{' '}
-              이번 달{' '}
-              <strong className="tabular-nums">{leaderSlotDeficitKeysInMonth.length}</strong>개 날짜에서
-              오전·오후 잔여(TO)가 마이너스입니다. 일부 접수를 다른 날짜로 옮기거나 배정을 조정해 주세요.{' '}
-              <button
-                type="button"
-                className="ml-1 font-medium text-rose-900 underline underline-offset-2 hover:text-rose-950"
-                onClick={() => {
-                  const first = leaderSlotDeficitKeysInMonth[0];
-                  if (first) setSelectedDate(first);
-                }}
-              >
-                첫 해당일로 선택
-              </button>
-            </div>
-          ) : null}
-
-          {/* 모바일: 셀 안 아이콘·숫자 의미 (sm 미만에서 라벨이 숨겨짐) */}
-          <div className="lg:hidden rounded-lg border border-slate-200/80 bg-white px-2.5 py-2 text-[10px] leading-snug text-slate-600 shadow-sm shadow-slate-100/40">
-            <p className="mb-1 font-semibold text-slate-800">캘린더 셀 표시</p>
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              <span>
-                <span className="font-semibold text-amber-900">오전</span>·
-                <span className="font-semibold text-sky-900">오후</span> 숫자 = 잔여 슬롯
-              </span>
-              <span>👥 팀원 가용</span>
-              {skOpsUi ? (
-                <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
-                  <img
-                    src="/assets/custom/skcleantec/taegeuk-unassigned.png"
-                    alt=""
-                    className="h-4 w-4 object-contain ring-1 ring-red-300/80 rounded-full"
-                    aria-hidden
-                  />
-                  {oneRoomLabel}
-                  <span className="font-normal text-slate-600">(미배정·타업체 이관 제외)</span>
-                </span>
-              ) : null}
-              <span className="font-semibold text-red-600">⚠️ 미배정</span>
-              <span className="text-violet-700">⚡ 사이(미배정)</span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />
-                대기
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-                보류
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" aria-hidden />
-                취소
-              </span>
-            </div>
+              첫 해당일로 선택
+            </button>
           </div>
+        ) : null}
+      </div>
 
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
           <div className="relative">

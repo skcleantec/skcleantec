@@ -140,13 +140,13 @@ export function ScheduleCustomCalendarMobileMenuButton({
     <button
       type="button"
       onClick={onClick}
-      className={`relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900 touch-manipulation lg:hidden ${className}`}
+      className={`relative inline-flex h-8 w-8 min-h-[32px] min-w-[32px] items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900 touch-manipulation lg:hidden ${className}`}
       aria-label="맞춤 캘린더 메뉴"
     >
-      <BarsIcon className="h-5 w-5" />
+      <BarsIcon className="h-4 w-4" />
       {hasActiveFilter ? (
         <span
-          className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-sky-600 ring-2 ring-white"
+          className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-sky-600 ring-1 ring-white"
           aria-hidden
         />
       ) : null}
