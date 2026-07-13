@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { HelpTooltip } from '../ui/HelpTooltip';
 import { KoreanRegionPickerModal } from './KoreanRegionPickerModal';
-import { removeKoreanRegion } from '../../constants/koreanCities';
+import { removeKoreanRegion, isAllKoreanRegionsSelected, selectAllKoreanRegions } from '../../constants/koreanCities';
 
 export type KoreanRegionPickerProps = {
   value: readonly string[];
@@ -23,6 +23,7 @@ export function KoreanRegionPicker({
 }: KoreanRegionPickerProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const locked = disabled || readOnly;
+  const allRegionsSelected = isAllKoreanRegionsSelected(value);
 
   return (
     <div className="space-y-3">
@@ -32,19 +33,38 @@ export function KoreanRegionPicker({
           <HelpTooltip text={helpText} className="shrink-0" />
         </div>
         {!readOnly ? (
-          <button
-            type="button"
-            disabled={locked}
-            onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-900 hover:bg-violet-100 disabled:opacity-50 touch-manipulation"
-          >
-            지역 선택
-            {value.length > 0 ? (
-              <span className="rounded-full bg-violet-200 px-1.5 py-0.5 text-[11px] tabular-nums">
-                {value.length}
-              </span>
-            ) : null}
-          </button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => onChange(allRegionsSelected ? [] : selectAllKoreanRegions())}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold touch-manipulation disabled:opacity-50 ${
+                allRegionsSelected
+                  ? 'border-slate-400 bg-slate-100 text-slate-800 hover:bg-slate-200'
+                  : 'border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
+              }`}
+              title={
+                allRegionsSelected
+                  ? '전국 선택을 해제합니다'
+                  : '전국 시·도를 한 번에 선택합니다'
+              }
+            >
+              {allRegionsSelected ? '모든 지역 해제' : '모든 지역'}
+            </button>
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => setModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-900 hover:bg-violet-100 disabled:opacity-50 touch-manipulation"
+            >
+              지역 선택
+              {value.length > 0 ? (
+                <span className="rounded-full bg-violet-200 px-1.5 py-0.5 text-[11px] tabular-nums">
+                  {value.length}
+                </span>
+              ) : null}
+            </button>
+          </div>
         ) : null}
       </div>
 

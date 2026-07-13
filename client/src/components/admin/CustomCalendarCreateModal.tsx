@@ -23,10 +23,13 @@ export type CustomCalendarCreateValues = {
 };
 
 type Mode = 'create' | 'edit';
+export type CustomCalendarCreateFocus = 'region' | 'company';
 
 export type CustomCalendarCreateModalProps = {
   open: boolean;
   mode?: Mode;
+  /** 생성 시 강조할 섹션 (지역 줄 / 업체 줄 +추가) */
+  createFocus?: CustomCalendarCreateFocus;
   /** 편집 시 초기값 */
   initial?: Partial<CustomCalendarCreateValues> | null;
   /** 기존에 이미 사용된 색상(새 항목 자동 배정용) */
@@ -45,6 +48,7 @@ export type CustomCalendarCreateModalProps = {
 export function CustomCalendarCreateModal({
   open,
   mode = 'create',
+  createFocus,
   initial,
   usedColors = [],
   externalCompanies = [],
@@ -62,6 +66,10 @@ export function CustomCalendarCreateModal({
   const [serviceZoneId, setServiceZoneId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const regionSectionRef = useRef<HTMLDivElement>(null);
+  const companySectionRef = useRef<HTMLDivElement>(null);
+
+  const effectiveCreateFocus = mode === 'edit' ? undefined : createFocus;
 
   /**
    * 모달이 "닫힘 → 열림" 순간에만 initial 값을 입력 필드로 주입한다.
@@ -89,7 +97,16 @@ export function CustomCalendarCreateModal({
     setServiceZoneId(initial?.serviceZoneId ?? '');
     setSaving(false);
     setError(null);
-  }, [open, initial, usedColors]);
+    if (effectiveCreateFocus === 'company') {
+      requestAnimationFrame(() => {
+        companySectionRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    } else if (effectiveCreateFocus === 'region') {
+      requestAnimationFrame(() => {
+        regionSectionRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
+  }, [open, initial, usedColors, effectiveCreateFocus]);
 
   const addExternalCompany = (id: string) => {
     const v = id.trim();
@@ -122,25 +139,42 @@ export function CustomCalendarCreateModal({
     }
   };
 
+  const showRegionSections = effectiveCreateFocus !== 'company';
+  const showCompanySection = effectiveCreateFocus !== 'region';
+
   const canSubmit =
     !saving &&
     name.trim().length > 0 &&
-    (selectedRegions.length > 0 || selectedExternalCompanyIds.length > 0);
+    (effectiveCreateFocus === 'region'
+      ? selectedRegions.length > 0 || Boolean(serviceZoneId.trim())
+      : effectiveCreateFocus === 'company'
+        ? selectedExternalCompanyIds.length > 0
+        : selectedRegions.length > 0 ||
+          selectedExternalCompanyIds.length > 0 ||
+          Boolean(serviceZoneId.trim()));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
+    if (effectiveCreateFocus === 'region' && selectedRegions.length === 0 && !serviceZoneId.trim()) {
+      setError('지역을 선택하거나 서비스 권역을 연결해 주세요.');
+      return;
+    }
+    if (effectiveCreateFocus === 'company' && selectedExternalCompanyIds.length === 0) {
+      setError('타업체를 1개 이상 선택해 주세요.');
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
       await onSubmit({
         name: name.trim(),
-        regions: selectedRegions,
-        externalCompanyIds: selectedExternalCompanyIds,
+        regions: effectiveCreateFocus === 'company' ? [] : selectedRegions,
+        externalCompanyIds: effectiveCreateFocus === 'region' ? [] : selectedExternalCompanyIds,
         isolateFromGlobal,
-        hideAssignedInRegionBadge,
+        hideAssignedInRegionBadge: effectiveCreateFocus === 'company' ? false : hideAssignedInRegionBadge,
         colorKey,
-        serviceZoneId: serviceZoneId.trim() || null,
+        serviceZoneId: effectiveCreateFocus === 'company' ? null : serviceZoneId.trim() || null,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -172,10 +206,14 @@ export function CustomCalendarCreateModal({
         <ModalCloseButton onClick={onClose} />
         <div className="p-4 sm:p-5 pr-12 border-b border-gray-100">
           <h2 id="custom-cal-modal-title" className="text-base font-semibold text-gray-900">
-            {mode === 'edit' ? '캘린더 수정' : '캘린더 추가'}
+            {mode === 'edit' ? '캘린더 수정' : effectiveCreateFocus === 'company' ? '업체 캘린더 추가' : effectiveCreateFocus === 'region' ? '지역 캘린더 추가' : '캘린더 추가'}
           </h2>
           <p className="text-fluid-xs text-gray-500 mt-1">
-            지역/타업체 기준으로 커스텀 캘린더를 저장합니다.
+            {effectiveCreateFocus === 'company'
+              ? '타업체 기준으로 접수를 따로 모아 볼 캘린더를 만듭니다.'
+              : effectiveCreateFocus === 'region'
+                ? '지역·서비스 권역 기준으로 접수를 필터링할 캘린더를 만듭니다.'
+                : '지역/타업체 기준으로 커스텀 캘린더를 저장합니다.'}
           </p>
         </div>
 
@@ -195,8 +233,15 @@ export function CustomCalendarCreateModal({
             />
           </div>
 
-          {activeServiceZones.length > 0 ? (
-            <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-3 sm:p-4 space-y-2">
+          {showRegionSections && activeServiceZones.length > 0 ? (
+            <div
+              ref={regionSectionRef}
+              className={`rounded-lg border p-3 sm:p-4 space-y-2 ${
+                effectiveCreateFocus === 'region'
+                  ? 'border-violet-300 bg-violet-50/70 ring-1 ring-violet-200'
+                  : 'border-violet-200 bg-violet-50/40'
+              }`}
+            >
               <div className="flex items-center gap-1.5">
                 <label className="text-fluid-sm font-medium text-gray-800" htmlFor="custom-cal-zone">
                   서비스 권역 연결
@@ -227,7 +272,15 @@ export function CustomCalendarCreateModal({
             </div>
           ) : null}
 
-          <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4 space-y-2">
+          {showRegionSections ? (
+          <div
+            ref={activeServiceZones.length === 0 ? regionSectionRef : undefined}
+            className={`rounded-lg border bg-white p-3 sm:p-4 space-y-2 ${
+              effectiveCreateFocus === 'region' && activeServiceZones.length === 0
+                ? 'border-violet-300 ring-1 ring-violet-200'
+                : 'border-gray-200'
+            }`}
+          >
             <KoreanRegionPicker
               selectId="custom-cal-city"
               value={selectedRegions}
@@ -245,8 +298,17 @@ export function CustomCalendarCreateModal({
               배정된 건은 지역 배지(건수)에서 제외
             </label>
           </div>
+          ) : null}
 
-          <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4 space-y-2">
+          {showCompanySection ? (
+          <div
+            ref={companySectionRef}
+            className={`rounded-lg border bg-white p-3 sm:p-4 space-y-2 ${
+              effectiveCreateFocus === 'company'
+                ? 'border-blue-300 ring-1 ring-blue-200'
+                : 'border-gray-200'
+            }`}
+          >
             <div className="flex items-center gap-1.5">
               <label className="text-fluid-sm font-medium text-gray-800" htmlFor="custom-cal-external">
                 업체별 캘린더
@@ -321,6 +383,7 @@ export function CustomCalendarCreateModal({
               />
             </div>
           </div>
+          ) : null}
 
           <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
             <div className="flex items-center gap-1.5 mb-2">

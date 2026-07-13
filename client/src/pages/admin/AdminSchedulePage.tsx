@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useInboxRealtime, useChangeLogRealtime } from '../../hooks/useInboxRealtime';
@@ -18,9 +18,17 @@ import {
 } from '../../api/userCustomCalendars';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { matchesCustomCalendarFilter } from '../../utils/customCalendarMatch';
+import {
+  customCalendarTabRow,
+  filterItemsByCustomCalendars,
+  hasActiveCustomCalendarFilter,
+  isCompanyTabCalendar,
+  isPureRegionCalendar,
+  splitCustomCalendarsByTabRow,
+} from '../../utils/customCalendarClassification';
+import type { CustomCalendarCreateFocus } from '../../components/admin/CustomCalendarCreateModal';
 import { computeRegionalDaySlotStats } from '../../utils/regionalSlotStats';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
-import { EditAppIcon } from '../../components/icons/EditAppIcon';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { ScheduleDayStaffMemoPanel } from '../../components/admin/ScheduleDayStaffMemoPanel';
 import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe, hasStaffPermission } from '../../utils/staffAdminAccess';
@@ -43,6 +51,10 @@ import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
 import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
 import { CustomCalendarTabsBar } from '../../components/admin/CustomCalendarTabsBar';
+import {
+  ScheduleCustomCalendarMobileMenuButton,
+  ScheduleCustomCalendarMobileSheet,
+} from '../../components/admin/ScheduleCustomCalendarMobileSheet';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
@@ -662,6 +674,92 @@ function ChevronDownIcon({ className }: { className?: string }) {
   );
 }
 
+/** 모바일 전용 — 기본 접힘 details 헤더 한 줄 */
+function MobileCollapsePanel({
+  title,
+  titleExtra,
+  children,
+  className = '',
+  bodyClassName = 'px-2.5 pb-2 pt-0',
+  compact = false,
+}: {
+  title: string;
+  titleExtra?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  /** 스택 카드 안 — 여백·테두리 최소 */
+  compact?: boolean;
+}) {
+  return (
+    <details className={`group lg:hidden [&_summary::-webkit-details-marker]:hidden ${className}`}>
+      <summary
+        className={`flex items-center justify-between gap-2 cursor-pointer list-none touch-manipulation select-none ${
+          compact ? 'px-2.5 py-1 min-h-[28px]' : 'px-2.5 py-1.5 min-h-[32px]'
+        }`}
+      >
+        <span className="text-[11px] font-semibold leading-tight text-slate-800">{title}</span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          {titleExtra}
+          <ChevronDownIcon className="h-3.5 w-3.5 text-slate-500 transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      <div className={bodyClassName}>{children}</div>
+    </details>
+  );
+}
+
+function ScheduleLegendItems({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className={`flex flex-wrap items-center text-slate-600 ${
+        compact ? 'gap-x-3 gap-y-1 text-[10px] leading-snug' : 'gap-x-5 gap-y-2 text-fluid-xs leading-relaxed'
+      }`}
+    >
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2.5 shrink-0 rounded-sm border-2 border-rose-400 bg-rose-50 ring-1 ring-rose-200" />
+        <span>
+          팀장 <span className="font-semibold text-rose-800">당일 1건</span>
+          {compact ? '' : ' (추가 배정 검토)'}
+        </span>
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 shrink-0 rounded-full border-2 border-rose-500 bg-white" />
+        <span>
+          {compact ? '미배정' : (
+            <>
+              빈 슬롯·<span className="font-bold text-red-600">미배정</span>
+            </>
+          )}
+        </span>
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-rose-100 ring-2 ring-rose-400" />
+        대기
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 shrink-0 rounded-md bg-slate-200" />
+        마감
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-slate-900" />
+        선택한 날
+      </span>
+      <span className="inline-flex items-center gap-1.5" title={SON_EOMNEUNG_NAL_HELP}>
+        <SonEomneungNalIcon />
+        손없는날
+      </span>
+      {!compact ? (
+        <div className="flex w-full min-w-0 justify-end min-[520px]:w-auto min-[520px]:flex-1 min-[520px]:basis-0">
+          <HelpTooltip className="shrink-0" text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)} />
+        </div>
+      ) : (
+        <HelpTooltip className="shrink-0" text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)} />
+      )}
+    </div>
+  );
+}
+
 /** 브라우저 로컬 날짜 기준 오늘 여부 */
 function isTodayYmd(year: number, month: number, day: number): boolean {
   const t = new Date();
@@ -741,8 +839,10 @@ export function AdminSchedulePage() {
   /** 사용자 맞춤 지역 캘린더 */
   const [customCalendars, setCustomCalendars] = useState<UserCustomCalendarItem[]>([]);
   const [customCalendarModalOpen, setCustomCalendarModalOpen] = useState(false);
+  const [customCalendarCreateFocus, setCustomCalendarCreateFocus] = useState<CustomCalendarCreateFocus>('region');
   const [customCalendarEditing, setCustomCalendarEditing] = useState<UserCustomCalendarItem | null>(null);
   const [customCalendarDeleting, setCustomCalendarDeleting] = useState<UserCustomCalendarItem | null>(null);
+  const [customCalendarMenuOpen, setCustomCalendarMenuOpen] = useState(false);
   const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
   const fetchGenRef = useRef(0);
   /** showLoading 요청이 silent 재조회에 밀려 loading=true 에 고착되는 것 방지 */
@@ -1067,22 +1167,45 @@ export function AdminSchedulePage() {
   }, [token, effectiveStaffAdmin, operationalAdmin, fetchCustomCalendars]);
 
   /**
-   * 활성 지역 캘린더 id — URL 쿼리(`?customCalendarId=...`)에 동기화.
-   * 새로고침·재로그인 후에도 같은 캘린더를 유지한다 (routing-url-persistence 규칙).
+   * 활성 맞춤 캘린더 id — URL(`customCalendarRegionId` / `customCalendarCompanyId`) 동기화.
+   * 레거시 `customCalendarId`는 마이그레이션 effect에서 신규 param으로 이전한다.
    */
-  const activeCustomCalendarId = useMemo(() => {
+  const activeRegionCalendarId = useMemo(() => {
     const qs = new URLSearchParams(location.search);
-    const raw = qs.get('customCalendarId');
+    const raw = qs.get('customCalendarRegionId');
     if (!raw) return null;
-    return customCalendars.some((c) => c.id === raw) ? raw : null;
+    return customCalendars.some((c) => c.id === raw && isPureRegionCalendar(c)) ? raw : null;
   }, [location.search, customCalendars]);
 
-  const activeCustomCalendar = useMemo(
-    () => customCalendars.find((c) => c.id === activeCustomCalendarId) ?? null,
-    [customCalendars, activeCustomCalendarId]
+  const activeCompanyCalendarId = useMemo(() => {
+    const qs = new URLSearchParams(location.search);
+    const raw = qs.get('customCalendarCompanyId');
+    if (!raw) return null;
+    return customCalendars.some((c) => c.id === raw && isCompanyTabCalendar(c)) ? raw : null;
+  }, [location.search, customCalendars]);
+
+  const activeRegionCalendar = useMemo(
+    () => customCalendars.find((c) => c.id === activeRegionCalendarId) ?? null,
+    [customCalendars, activeRegionCalendarId],
   );
 
-  const activeServiceZoneId = activeCustomCalendar?.serviceZoneId ?? null;
+  const activeCompanyCalendar = useMemo(
+    () => customCalendars.find((c) => c.id === activeCompanyCalendarId) ?? null,
+    [customCalendars, activeCompanyCalendarId],
+  );
+
+  const { regionCalendars, companyCalendars } = useMemo(
+    () => splitCustomCalendarsByTabRow(customCalendars),
+    [customCalendars],
+  );
+
+  const externalCompanyNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of externalCompanies) map.set(c.id, c.name);
+    return map;
+  }, [externalCompanies]);
+
+  const activeServiceZoneId = activeRegionCalendar?.serviceZoneId ?? null;
 
   const activeServiceZoneName = useMemo(() => {
     if (!activeServiceZoneId) return null;
@@ -1098,60 +1221,89 @@ export function AdminSchedulePage() {
     );
   }, [teamLeadersWithZones, activeServiceZoneId]);
 
-  /** 없어진 id는 URL에서 자동 정리 (규칙: 원래 경로 유지하며 덮어쓰기) */
+  /** 레거시 customCalendarId → region/company param 이전 */
   useEffect(() => {
     const qs = new URLSearchParams(location.search);
-    const raw = qs.get('customCalendarId');
-    if (!raw) return;
-    if (customCalendars.length > 0 && !customCalendars.some((c) => c.id === raw)) {
-      qs.delete('customCalendarId');
-      const nextSearch = qs.toString();
-      navigate(
-        { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : '', hash: location.hash },
-        { replace: true }
-      );
+    const legacy = qs.get('customCalendarId');
+    if (!legacy) return;
+    if (customCalendars.length === 0) return;
+    const cal = customCalendars.find((c) => c.id === legacy);
+    qs.delete('customCalendarId');
+    if (cal) {
+      const row = customCalendarTabRow(cal);
+      if (row === 'company') qs.set('customCalendarCompanyId', legacy);
+      else if (row === 'region') qs.set('customCalendarRegionId', legacy);
     }
+    const nextSearch = qs.toString();
+    navigate(
+      { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : '', hash: location.hash },
+      { replace: true },
+    );
   }, [customCalendars, location.search, location.pathname, location.hash, navigate]);
 
-  const setActiveCustomCalendarId = useCallback(
-    (id: string | null) => {
+  /** 없어진·잘못된 id는 URL에서 자동 정리 */
+  useEffect(() => {
+    if (customCalendars.length === 0) return;
+    const qs = new URLSearchParams(location.search);
+    let changed = false;
+    const regionRaw = qs.get('customCalendarRegionId');
+    if (regionRaw && !customCalendars.some((c) => c.id === regionRaw && isPureRegionCalendar(c))) {
+      qs.delete('customCalendarRegionId');
+      changed = true;
+    }
+    const companyRaw = qs.get('customCalendarCompanyId');
+    if (companyRaw && !customCalendars.some((c) => c.id === companyRaw && isCompanyTabCalendar(c))) {
+      qs.delete('customCalendarCompanyId');
+      changed = true;
+    }
+    if (!changed) return;
+    const nextSearch = qs.toString();
+    navigate(
+      { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : '', hash: location.hash },
+      { replace: true },
+    );
+  }, [customCalendars, location.search, location.pathname, location.hash, navigate]);
+
+  const patchCustomCalendarSearch = useCallback(
+    (patch: { regionId?: string | null; companyId?: string | null }) => {
       const qs = new URLSearchParams(location.search);
-      if (id) qs.set('customCalendarId', id);
-      else qs.delete('customCalendarId');
+      if (patch.regionId !== undefined) {
+        if (patch.regionId) qs.set('customCalendarRegionId', patch.regionId);
+        else qs.delete('customCalendarRegionId');
+      }
+      if (patch.companyId !== undefined) {
+        if (patch.companyId) qs.set('customCalendarCompanyId', patch.companyId);
+        else qs.delete('customCalendarCompanyId');
+      }
       const nextSearch = qs.toString();
       navigate(
         { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : '', hash: location.hash },
-        { replace: true }
+        { replace: true },
       );
     },
-    [location.pathname, location.search, location.hash, navigate]
+    [location.pathname, location.search, location.hash, navigate],
   );
 
-  /**
-   * 활성 지역 필터에 따른 items.
-   * - 활성 캘린더가 없으면 전체.
-   * - 있으면 address 기준 단어 경계 매칭.
-   */
-  const filteredItems = useMemo(() => {
-    if (activeCustomCalendar) {
-      return items.filter((it) => matchesCustomCalendarFilter(it, activeCustomCalendar));
-    }
-    if (customCalendars.length === 0) return items;
-    const hiddenByIsolated = new Set<string>();
-    for (const cal of customCalendars) {
-      if (!cal.isolateFromGlobal) continue;
-      for (const it of items) {
-        if (matchesCustomCalendarFilter(it, cal)) hiddenByIsolated.add(it.id);
-      }
-    }
-    if (hiddenByIsolated.size === 0) return items;
-    return items.filter((it) => !hiddenByIsolated.has(it.id));
-  }, [items, activeCustomCalendar, customCalendars]);
+  const setActiveRegionCalendarId = useCallback(
+    (id: string | null) => patchCustomCalendarSearch({ regionId: id }),
+    [patchCustomCalendarSearch],
+  );
+
+  const setActiveCompanyCalendarId = useCallback(
+    (id: string | null) => patchCustomCalendarSearch({ companyId: id }),
+    [patchCustomCalendarSearch],
+  );
+
+  const filteredItems = useMemo(
+    () =>
+      filterItemsByCustomCalendars(items, activeRegionCalendar, activeCompanyCalendar, customCalendars),
+    [items, activeRegionCalendar, activeCompanyCalendar, customCalendars],
+  );
 
   const byDate = groupScheduleItemsByKstDate(filteredItems);
 
   const regionalSlotStatsByDate = useMemo(() => {
-    if (!activeServiceZoneId || !activeCustomCalendar || zoneLeaderIds.size === 0) return null;
+    if (!activeServiceZoneId || !activeRegionCalendar || zoneLeaderIds.size === 0) return null;
     const map = new Map<
       string,
       NonNullable<ReturnType<typeof computeRegionalDaySlotStats>>
@@ -1161,17 +1313,17 @@ export function AdminSchedulePage() {
         byDate[key] ?? [],
         stats[key],
         zoneLeaderIds,
-        activeCustomCalendar,
+        activeRegionCalendar,
       );
       if (rs) map.set(key, rs);
     }
     for (const key of Object.keys(stats)) {
       if (map.has(key)) continue;
-      const rs = computeRegionalDaySlotStats([], stats[key], zoneLeaderIds, activeCustomCalendar);
+      const rs = computeRegionalDaySlotStats([], stats[key], zoneLeaderIds, activeRegionCalendar);
       if (rs) map.set(key, rs);
     }
     return map;
-  }, [activeServiceZoneId, activeCustomCalendar, zoneLeaderIds, byDate, stats]);
+  }, [activeServiceZoneId, activeRegionCalendar, zoneLeaderIds, byDate, stats]);
 
   /** 이번 달 로드 전체 기준 — 팀장별 예약일당 배정 건수(배정 판단·UI용, DB 변경 없음) */
   const leaderDayAssignmentCountsByDate = useMemo(
@@ -1199,7 +1351,7 @@ export function AdminSchedulePage() {
       string,
       Array<{ id: string; name: string; colorKey: string; regions: string[]; count: number }>
     >();
-    if (activeCustomCalendar) return map;
+    if (hasActiveCustomCalendarFilter(activeRegionCalendar, activeCompanyCalendar)) return map;
     if (customCalendars.length === 0) return map;
 
     for (const it of filteredItems) {
@@ -1238,7 +1390,7 @@ export function AdminSchedulePage() {
       map.set(k, arr);
     }
     return map;
-  }, [filteredItems, customCalendars, activeCustomCalendar]);
+  }, [filteredItems, customCalendars, activeRegionCalendar, activeCompanyCalendar]);
 
   /** 이번 달에 팀장 슬롯(오전·오후)이 마이너스인 날짜 — 일정 초과 빠르게 파악용 */
   const leaderSlotDeficitKeysInMonth = useMemo(() => {
@@ -1261,6 +1413,12 @@ export function AdminSchedulePage() {
     [customCalendars]
   );
 
+  const openEditCustomCalendar = useCallback((cal: UserCustomCalendarItem) => {
+    setCustomCalendarCreateFocus(isCompanyTabCalendar(cal) ? 'company' : 'region');
+    setCustomCalendarEditing(cal);
+    setCustomCalendarModalOpen(true);
+  }, []);
+
   async function handleSubmitCustomCalendar(values: {
     name: string;
     regions: string[];
@@ -1277,7 +1435,9 @@ export function AdminSchedulePage() {
       const created = await createUserCustomCalendar(token, values);
       // 생성 직후 해당 캘린더로 이동 (URL 기반 — 규칙 준수)
       await fetchCustomCalendars();
-      setActiveCustomCalendarId(created.id);
+      const row = customCalendarTabRow(created);
+      if (row === 'company') setActiveCompanyCalendarId(created.id);
+      else if (row === 'region') setActiveRegionCalendarId(created.id);
       return;
     }
     await fetchCustomCalendars();
@@ -1287,8 +1447,11 @@ export function AdminSchedulePage() {
     if (!token || !customCalendarDeleting) return;
     await deleteUserCustomCalendar(token, customCalendarDeleting.id, password);
     // 삭제한 캘린더가 현재 활성이면 전체로 복귀
-    if (activeCustomCalendarId === customCalendarDeleting.id) {
-      setActiveCustomCalendarId(null);
+    if (activeRegionCalendarId === customCalendarDeleting.id) {
+      setActiveRegionCalendarId(null);
+    }
+    if (activeCompanyCalendarId === customCalendarDeleting.id) {
+      setActiveCompanyCalendarId(null);
     }
     setCustomCalendarDeleting(null);
     await fetchCustomCalendars();
@@ -1358,37 +1521,49 @@ export function AdminSchedulePage() {
   };
 
   return (
-    <div className="flex flex-col gap-5 min-w-0">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-        <div>
+    <div className="flex flex-col gap-3 lg:gap-5 min-w-0">
+      <div className="flex flex-col gap-1 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
+        <div className="hidden lg:block">
           <div className="flex items-center gap-1.5 flex-wrap">
             <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
             <HelpTooltip className="shrink-0" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-stretch rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex flex-wrap items-center gap-1 lg:gap-2 min-w-0 w-full lg:w-auto lg:justify-end">
+          {(regionCalendars.length > 0 || companyCalendars.length > 0 || canManageCustomCalendar) ? (
+            <ScheduleCustomCalendarMobileMenuButton
+              onClick={() => setCustomCalendarMenuOpen(true)}
+              hasActiveFilter={hasActiveCustomCalendarFilter(activeRegionCalendar, activeCompanyCalendar)}
+            />
+          ) : null}
+          <div className="flex lg:hidden items-center gap-1 min-w-0 shrink mr-0.5">
+            <h1 className="text-fluid-base font-semibold text-slate-900 tracking-tight leading-none truncate">
+              스케쥴
+            </h1>
+            <HelpTooltip className="shrink-0 scale-90 origin-left" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
+          </div>
+          <div className="inline-flex h-8 items-stretch rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden lg:h-auto lg:rounded-lg">
             <button
               type="button"
               onClick={goPrevMonth}
-              className="px-2.5 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-200"
+              className="px-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-200 lg:px-2.5 lg:py-2 touch-manipulation"
               aria-label="이전 달"
             >
-              <ChevronLeftIcon className="w-5 h-5" />
+              <ChevronLeftIcon className="w-4 h-4 lg:w-5 lg:h-5" />
             </button>
             <button
               type="button"
               onClick={goNextMonth}
-              className="px-2.5 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              className="px-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 lg:px-2.5 lg:py-2 touch-manipulation"
               aria-label="다음 달"
             >
-              <ChevronRightIcon className="w-5 h-5" />
+              <ChevronRightIcon className="w-4 h-4 lg:w-5 lg:h-5" />
             </button>
           </div>
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-fluid-sm bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80"
+            className="h-8 min-w-0 w-[4.5rem] shrink-0 px-1.5 py-0 border border-slate-200 rounded-md text-[11px] leading-none bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80 lg:h-auto lg:w-auto lg:px-3 lg:py-2 lg:rounded-lg lg:text-fluid-sm"
           >
             {yearOptions.map((y) => (
               <option key={y} value={y}>
@@ -1399,7 +1574,7 @@ export function AdminSchedulePage() {
           <select
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-fluid-sm bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80 min-w-[5.5rem]"
+            className="h-8 min-w-0 w-[3.25rem] shrink-0 px-1.5 py-0 border border-slate-200 rounded-md text-[11px] leading-none bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300/80 lg:h-auto lg:min-w-[5.5rem] lg:w-auto lg:px-3 lg:py-2 lg:rounded-lg lg:text-fluid-sm"
           >
             {monthOptions.map((m) => (
               <option key={m} value={m}>
@@ -1418,122 +1593,28 @@ export function AdminSchedulePage() {
           일정 통계·가용 슬롯 정보를 불러오는 중입니다…
         </div>
       )}
-      {/* 범례 */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-fluid-xs text-slate-600 leading-relaxed">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-3 shrink-0 rounded-sm border-2 border-rose-400 bg-rose-50 ring-1 ring-rose-200" />
-                <span>
-                  팀장 <span className="font-semibold text-rose-800">당일 1건</span> (추가 배정 검토)
-                </span>
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full border-2 border-rose-500 bg-white shrink-0" />
-                <span>
-                  빈 슬롯·<span className="font-bold text-red-600">미배정</span>
-                </span>
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-rose-100 ring-2 ring-rose-400 shrink-0" />
-                대기 접수
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-md bg-slate-200 shrink-0" />
-                마감
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-slate-900 shrink-0" />
-                선택한 날
-              </span>
-              <span className="inline-flex items-center gap-2" title={SON_EOMNEUNG_NAL_HELP}>
-                <SonEomneungNalIcon />
-                손없는날
-              </span>
-              <div className="flex w-full min-w-0 justify-end min-[520px]:w-auto min-[520px]:flex-1 min-[520px]:basis-0">
-                <HelpTooltip
-                  className="shrink-0"
-                  text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)}
-                />
-              </div>
-            </div>
-            <div className="mt-2 min-w-0 border-t border-slate-200/80 pt-2 flex flex-wrap items-center justify-between gap-2">
-              <CustomCalendarTabsBar
-                className="w-full min-w-0 min-[520px]:flex-1"
-                calendars={customCalendars}
-                activeId={activeCustomCalendarId}
-                onSelect={(id) => setActiveCustomCalendarId(id)}
-                onClickAdd={() => {
-                  setCustomCalendarEditing(null);
-                  setCustomCalendarModalOpen(true);
-                }}
-                showAddButton={canManageCustomCalendar}
-              />
-              <Link
-                to="/admin/service-zones"
-                className="shrink-0 text-fluid-xs font-medium text-slate-600 hover:text-slate-900 underline-offset-2 hover:underline"
-              >
-                서비스 권역 관리
-              </Link>
-            </div>
-            {activeCustomCalendar && (
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-fluid-xs font-semibold ${
-                      customCalendarColorTokens(activeCustomCalendar.colorKey).badge
-                    }`}
-                  >
-                    {activeCustomCalendar.name}
-                  </span>
-                  <span className="text-fluid-xs text-slate-600 truncate" title={activeCustomCalendar.regions.join(', ')}>
-                    {[
-                      ...activeCustomCalendar.regions,
-                      ...activeCustomCalendar.externalCompanyIds
-                        .map((id) => externalCompanies.find((c) => c.id === id)?.name || id)
-                        .map((name) => `[타업체] ${name}`),
-                    ].join(' · ') || '필터 없음'}
-                    {activeCustomCalendar.isolateFromGlobal ? ' · 전체숨김' : ''}
-                    {activeCustomCalendar.hideAssignedInRegionBadge ? ' · 배정건배지제외' : ''}
-                  </span>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomCalendarEditing(activeCustomCalendar);
-                      setCustomCalendarModalOpen(true);
-                    }}
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                    title="이 캘린더 이름·지역 수정 · 삭제"
-                    aria-label="이 캘린더 수정"
-                  >
-                    <EditAppIcon className="h-3.5 w-3.5" alt="" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveCustomCalendarId(null)}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-fluid-xs text-slate-700 hover:bg-slate-50"
-                    title="전체 캘린더로 돌아가기"
-                  >
-                    ← 전체 캘린더
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
+      {/* 범례·안내 — 모바일: 한 카드에 붙여 접기 / PC: 기존 레이아웃 */}
+      <div className="lg:contents">
+        <div className="lg:hidden rounded-lg border border-slate-200 bg-slate-50/80 overflow-hidden divide-y divide-slate-200/70 shadow-sm">
+          <MobileCollapsePanel title="범례 · 기호" compact className="border-0 bg-transparent shadow-none">
+            <ScheduleLegendItems compact />
+          </MobileCollapsePanel>
           {leaderSlotDeficitKeysInMonth.length > 0 ? (
-            <div
-              role="status"
-              className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs text-rose-950"
+            <MobileCollapsePanel
+              compact
+              title="팀장 슬롯 초과"
+              titleExtra={
+                <span className="rounded-full bg-rose-200 px-1.5 py-px text-[10px] font-bold tabular-nums text-rose-900">
+                  {leaderSlotDeficitKeysInMonth.length}일
+                </span>
+              }
+              className="border-0 bg-rose-50/90 text-rose-950 shadow-none"
+              bodyClassName="px-2.5 pb-2 pt-0 text-[10px] leading-snug"
             >
-              <span className="font-semibold">팀장 슬롯 초과:</span>{' '}
-              이번 달{' '}
-              <strong className="tabular-nums">{leaderSlotDeficitKeysInMonth.length}</strong>개 날짜에서
-              오전·오후 잔여(TO)가 마이너스입니다. 일부 접수를 다른 날짜로 옮기거나 배정을 조정해 주세요.{' '}
+              오전·오후 잔여(TO)가 마이너스인 날입니다. 접수를 다른 날짜로 옮기거나 배정을 조정해 주세요.{' '}
               <button
                 type="button"
-                className="ml-1 font-medium text-rose-900 underline underline-offset-2 hover:text-rose-950"
+                className="font-medium text-rose-900 underline underline-offset-2 hover:text-rose-950"
                 onClick={() => {
                   const first = leaderSlotDeficitKeysInMonth[0];
                   if (first) setSelectedDate(first);
@@ -1541,12 +1622,14 @@ export function AdminSchedulePage() {
               >
                 첫 해당일로 선택
               </button>
-            </div>
+            </MobileCollapsePanel>
           ) : null}
-
-          {/* 모바일: 셀 안 아이콘·숫자 의미 (sm 미만에서 라벨이 숨겨짐) */}
-          <div className="lg:hidden rounded-lg border border-slate-200/80 bg-white px-2.5 py-2 text-[10px] leading-snug text-slate-600 shadow-sm shadow-slate-100/40">
-            <p className="mb-1 font-semibold text-slate-800">캘린더 셀 표시</p>
+          <MobileCollapsePanel
+            compact
+            title="캘린더 셀 표시"
+            className="border-0 bg-white shadow-none text-[10px] leading-snug text-slate-600"
+            bodyClassName="px-2.5 pb-2 pt-0"
+          >
             <div className="flex flex-wrap gap-x-3 gap-y-1">
               <span>
                 <span className="font-semibold text-amber-900">오전</span>·
@@ -1580,7 +1663,86 @@ export function AdminSchedulePage() {
                 취소
               </span>
             </div>
+          </MobileCollapsePanel>
+        </div>
+
+        <div className="hidden lg:block rounded-xl border border-slate-200 bg-slate-50/80 overflow-hidden">
+          <div className="px-3 py-2.5">
+            <ScheduleLegendItems />
           </div>
+          <div className="min-w-0 border-t border-slate-200/80 pt-2 space-y-2 px-3 pb-2.5">
+              <CustomCalendarTabsBar
+                rowLabel="지역"
+                className="w-full min-w-0"
+                calendars={regionCalendars}
+                activeId={activeRegionCalendarId}
+                onSelect={(id) => setActiveRegionCalendarId(id)}
+                onClickAdd={() => {
+                  setCustomCalendarCreateFocus('region');
+                  setCustomCalendarEditing(null);
+                  setCustomCalendarModalOpen(true);
+                }}
+                showAddButton={canManageCustomCalendar}
+                addButtonTitle="지역 캘린더 추가"
+                onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CustomCalendarTabsBar
+                  rowLabel="업체"
+                  className="w-full min-w-0 min-[520px]:flex-1"
+                  calendars={companyCalendars}
+                  activeId={activeCompanyCalendarId}
+                  onSelect={(id) => setActiveCompanyCalendarId(id)}
+                  onClickAdd={() => {
+                    setCustomCalendarCreateFocus('company');
+                    setCustomCalendarEditing(null);
+                    setCustomCalendarModalOpen(true);
+                  }}
+                  showAddButton={canManageCustomCalendar}
+                  addButtonTitle="업체 캘린더 추가"
+                  onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
+                  externalCompanyNames={externalCompanyNameById}
+                />
+                <Link
+                  to="/admin/service-zones"
+                  className="shrink-0 text-fluid-xs font-medium text-slate-600 hover:text-slate-900 underline-offset-2 hover:underline"
+                >
+                  서비스 권역 관리
+                </Link>
+              </div>
+              {activeRegionCalendar && activeCompanyCalendar ? (
+                <p className="text-fluid-xs text-slate-600">
+                  필터:{' '}
+                  <span className="font-medium text-slate-800">
+                    {activeRegionCalendar.name} ∩ {activeCompanyCalendar.name}
+                  </span>
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+        {leaderSlotDeficitKeysInMonth.length > 0 ? (
+          <div
+            role="status"
+            className="mb-2 hidden lg:block rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs text-rose-950"
+          >
+            <span className="font-semibold">팀장 슬롯 초과:</span>{' '}
+            이번 달{' '}
+            <strong className="tabular-nums">{leaderSlotDeficitKeysInMonth.length}</strong>개 날짜에서
+            오전·오후 잔여(TO)가 마이너스입니다. 일부 접수를 다른 날짜로 옮기거나 배정을 조정해 주세요.{' '}
+            <button
+              type="button"
+              className="ml-1 font-medium text-rose-900 underline underline-offset-2 hover:text-rose-950"
+              onClick={() => {
+                const first = leaderSlotDeficitKeysInMonth[0];
+                if (first) setSelectedDate(first);
+              }}
+            >
+              첫 해당일로 선택
+            </button>
+          </div>
+        ) : null}
+      </div>
 
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
           <div className="relative">
@@ -1697,22 +1859,27 @@ export function AdminSchedulePage() {
                   </div>
                 );
                 const customCalChips = (() => {
-                  if (activeCustomCalendar) {
+                  const activeCals = [activeRegionCalendar, activeCompanyCalendar].filter(
+                    (cal): cal is UserCustomCalendarItem => cal != null,
+                  );
+                  if (activeCals.length > 0) {
                     const total = dayItems.length;
                     if (total <= 0) return null;
-                    const t = customCalendarColorTokens(activeCustomCalendar.colorKey);
-                    return (
-                      <span
-                        key="__active-custom-cal__"
-                        className={`inline-flex w-full max-sm:justify-center items-center gap-0.5 rounded px-1 py-px text-[9px] sm:text-[10px] font-semibold leading-none tabular-nums sm:w-auto sm:shrink-0 ${t.badge}`}
-                        title={`${activeCustomCalendar.name} — ${total}건`}
-                      >
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${t.dot}`} />
-                        <span className="sm:hidden max-w-[1.75rem] truncate">{activeCustomCalendar.name.slice(0, 2)}</span>
-                        <span className="hidden sm:inline max-w-[3.5rem] truncate">{activeCustomCalendar.name}</span>
-                        <span className="font-bold">{total}</span>
-                      </span>
-                    );
+                    return activeCals.map((cal) => {
+                      const t = customCalendarColorTokens(cal.colorKey);
+                      return (
+                        <span
+                          key={cal.id}
+                          className={`inline-flex w-full max-sm:justify-center items-center gap-0.5 rounded px-1 py-px text-[9px] sm:text-[10px] font-semibold leading-none tabular-nums sm:w-auto sm:shrink-0 ${t.badge}`}
+                          title={`${cal.name} — ${total}건`}
+                        >
+                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${t.dot}`} />
+                          <span className="sm:hidden max-w-[1.75rem] truncate">{cal.name.slice(0, 2)}</span>
+                          <span className="hidden sm:inline max-w-[3.5rem] truncate">{cal.name}</span>
+                          <span className="font-bold">{total}</span>
+                        </span>
+                      );
+                    });
                   }
                   const regionBadges = regionCountsByDate.get(key);
                   if (!regionBadges || regionBadges.length === 0) return null;
@@ -3126,9 +3293,36 @@ export function AdminSchedulePage() {
         />
       )}
 
+      <ScheduleCustomCalendarMobileSheet
+        open={customCalendarMenuOpen}
+        onClose={() => setCustomCalendarMenuOpen(false)}
+        regionCalendars={regionCalendars}
+        companyCalendars={companyCalendars}
+        activeRegionCalendarId={activeRegionCalendarId}
+        activeCompanyCalendarId={activeCompanyCalendarId}
+        activeRegionCalendar={activeRegionCalendar}
+        activeCompanyCalendar={activeCompanyCalendar}
+        onSelectRegion={setActiveRegionCalendarId}
+        onSelectCompany={setActiveCompanyCalendarId}
+        onAddRegion={() => {
+          setCustomCalendarCreateFocus('region');
+          setCustomCalendarEditing(null);
+          setCustomCalendarModalOpen(true);
+        }}
+        onAddCompany={() => {
+          setCustomCalendarCreateFocus('company');
+          setCustomCalendarEditing(null);
+          setCustomCalendarModalOpen(true);
+        }}
+        onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
+        canManage={canManageCustomCalendar}
+        externalCompanyNames={externalCompanyNameById}
+      />
+
       <CustomCalendarCreateModal
         open={customCalendarModalOpen}
         mode={customCalendarEditing ? 'edit' : 'create'}
+        createFocus={customCalendarEditing ? undefined : customCalendarCreateFocus}
         initial={
           customCalendarEditing
             ? {
