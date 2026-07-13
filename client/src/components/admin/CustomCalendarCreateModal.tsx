@@ -139,12 +139,19 @@ export function CustomCalendarCreateModal({
     }
   };
 
+  const showRegionSections = effectiveCreateFocus !== 'company';
+  const showCompanySection = effectiveCreateFocus !== 'region';
+
   const canSubmit =
     !saving &&
     name.trim().length > 0 &&
-    (selectedRegions.length > 0 ||
-      selectedExternalCompanyIds.length > 0 ||
-      Boolean(serviceZoneId.trim()));
+    (effectiveCreateFocus === 'region'
+      ? selectedRegions.length > 0 || Boolean(serviceZoneId.trim())
+      : effectiveCreateFocus === 'company'
+        ? selectedExternalCompanyIds.length > 0
+        : selectedRegions.length > 0 ||
+          selectedExternalCompanyIds.length > 0 ||
+          Boolean(serviceZoneId.trim()));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -162,12 +169,12 @@ export function CustomCalendarCreateModal({
     try {
       await onSubmit({
         name: name.trim(),
-        regions: selectedRegions,
-        externalCompanyIds: selectedExternalCompanyIds,
+        regions: effectiveCreateFocus === 'company' ? [] : selectedRegions,
+        externalCompanyIds: effectiveCreateFocus === 'region' ? [] : selectedExternalCompanyIds,
         isolateFromGlobal,
-        hideAssignedInRegionBadge,
+        hideAssignedInRegionBadge: effectiveCreateFocus === 'company' ? false : hideAssignedInRegionBadge,
         colorKey,
-        serviceZoneId: serviceZoneId.trim() || null,
+        serviceZoneId: effectiveCreateFocus === 'company' ? null : serviceZoneId.trim() || null,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -226,7 +233,7 @@ export function CustomCalendarCreateModal({
             />
           </div>
 
-          {activeServiceZones.length > 0 ? (
+          {showRegionSections && activeServiceZones.length > 0 ? (
             <div
               ref={regionSectionRef}
               className={`rounded-lg border p-3 sm:p-4 space-y-2 ${
@@ -265,6 +272,7 @@ export function CustomCalendarCreateModal({
             </div>
           ) : null}
 
+          {showRegionSections ? (
           <div
             ref={activeServiceZones.length === 0 ? regionSectionRef : undefined}
             className={`rounded-lg border bg-white p-3 sm:p-4 space-y-2 ${
@@ -290,7 +298,9 @@ export function CustomCalendarCreateModal({
               배정된 건은 지역 배지(건수)에서 제외
             </label>
           </div>
+          ) : null}
 
+          {showCompanySection ? (
           <div
             ref={companySectionRef}
             className={`rounded-lg border bg-white p-3 sm:p-4 space-y-2 ${
@@ -373,6 +383,7 @@ export function CustomCalendarCreateModal({
               />
             </div>
           </div>
+          ) : null}
 
           <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
             <div className="flex items-center gap-1.5 mb-2">

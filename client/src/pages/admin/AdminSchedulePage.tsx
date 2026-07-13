@@ -21,14 +21,14 @@ import { matchesCustomCalendarFilter } from '../../utils/customCalendarMatch';
 import {
   customCalendarTabRow,
   filterItemsByCustomCalendars,
-  formatCustomCalendarFilterSummary,
   hasActiveCustomCalendarFilter,
+  isCompanyTabCalendar,
+  isPureRegionCalendar,
   splitCustomCalendarsByTabRow,
 } from '../../utils/customCalendarClassification';
 import type { CustomCalendarCreateFocus } from '../../components/admin/CustomCalendarCreateModal';
 import { computeRegionalDaySlotStats } from '../../utils/regionalSlotStats';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
-import { EditAppIcon } from '../../components/icons/EditAppIcon';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { ScheduleDayStaffMemoPanel } from '../../components/admin/ScheduleDayStaffMemoPanel';
 import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe, hasStaffPermission } from '../../utils/staffAdminAccess';
@@ -1083,14 +1083,14 @@ export function AdminSchedulePage() {
     const qs = new URLSearchParams(location.search);
     const raw = qs.get('customCalendarRegionId');
     if (!raw) return null;
-    return customCalendars.some((c) => c.id === raw && customCalendarTabRow(c) === 'region') ? raw : null;
+    return customCalendars.some((c) => c.id === raw && isPureRegionCalendar(c)) ? raw : null;
   }, [location.search, customCalendars]);
 
   const activeCompanyCalendarId = useMemo(() => {
     const qs = new URLSearchParams(location.search);
     const raw = qs.get('customCalendarCompanyId');
     if (!raw) return null;
-    return customCalendars.some((c) => c.id === raw && customCalendarTabRow(c) === 'company') ? raw : null;
+    return customCalendars.some((c) => c.id === raw && isCompanyTabCalendar(c)) ? raw : null;
   }, [location.search, customCalendars]);
 
   const activeRegionCalendar = useMemo(
@@ -1141,7 +1141,7 @@ export function AdminSchedulePage() {
     if (cal) {
       const row = customCalendarTabRow(cal);
       if (row === 'company') qs.set('customCalendarCompanyId', legacy);
-      else qs.set('customCalendarRegionId', legacy);
+      else if (row === 'region') qs.set('customCalendarRegionId', legacy);
     }
     const nextSearch = qs.toString();
     navigate(
@@ -1156,12 +1156,12 @@ export function AdminSchedulePage() {
     const qs = new URLSearchParams(location.search);
     let changed = false;
     const regionRaw = qs.get('customCalendarRegionId');
-    if (regionRaw && !customCalendars.some((c) => c.id === regionRaw && customCalendarTabRow(c) === 'region')) {
+    if (regionRaw && !customCalendars.some((c) => c.id === regionRaw && isPureRegionCalendar(c))) {
       qs.delete('customCalendarRegionId');
       changed = true;
     }
     const companyRaw = qs.get('customCalendarCompanyId');
-    if (companyRaw && !customCalendars.some((c) => c.id === companyRaw && customCalendarTabRow(c) === 'company')) {
+    if (companyRaw && !customCalendars.some((c) => c.id === companyRaw && isCompanyTabCalendar(c))) {
       qs.delete('customCalendarCompanyId');
       changed = true;
     }
@@ -1322,6 +1322,12 @@ export function AdminSchedulePage() {
     [customCalendars]
   );
 
+  const openEditCustomCalendar = useCallback((cal: UserCustomCalendarItem) => {
+    setCustomCalendarCreateFocus(isCompanyTabCalendar(cal) ? 'company' : 'region');
+    setCustomCalendarEditing(cal);
+    setCustomCalendarModalOpen(true);
+  }, []);
+
   async function handleSubmitCustomCalendar(values: {
     name: string;
     regions: string[];
@@ -1340,7 +1346,7 @@ export function AdminSchedulePage() {
       await fetchCustomCalendars();
       const row = customCalendarTabRow(created);
       if (row === 'company') setActiveCompanyCalendarId(created.id);
-      else setActiveRegionCalendarId(created.id);
+      else if (row === 'region') setActiveRegionCalendarId(created.id);
       return;
     }
     await fetchCustomCalendars();
@@ -1536,6 +1542,7 @@ export function AdminSchedulePage() {
                 }}
                 showAddButton={canManageCustomCalendar}
                 addButtonTitle="지역 캘린더 추가"
+                onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CustomCalendarTabsBar
@@ -1551,6 +1558,8 @@ export function AdminSchedulePage() {
                   }}
                   showAddButton={canManageCustomCalendar}
                   addButtonTitle="업체 캘린더 추가"
+                  onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
+                  externalCompanyNames={externalCompanyNameById}
                 />
                 <Link
                   to="/admin/service-zones"
@@ -1559,108 +1568,15 @@ export function AdminSchedulePage() {
                   서비스 권역 관리
                 </Link>
               </div>
+              {activeRegionCalendar && activeCompanyCalendar ? (
+                <p className="text-fluid-xs text-slate-600">
+                  필터:{' '}
+                  <span className="font-medium text-slate-800">
+                    {activeRegionCalendar.name} ∩ {activeCompanyCalendar.name}
+                  </span>
+                </p>
+              ) : null}
             </div>
-            {activeRegionCalendar || activeCompanyCalendar ? (
-              <div className="mt-2 space-y-2">
-                {activeRegionCalendar && activeCompanyCalendar ? (
-                  <p className="text-fluid-xs font-medium text-slate-700">
-                    필터 교집합:{' '}
-                    <span className="text-slate-900">
-                      {activeRegionCalendar.name} ∩ {activeCompanyCalendar.name}
-                    </span>
-                  </p>
-                ) : null}
-                {activeRegionCalendar ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="shrink-0 text-fluid-xs font-semibold text-slate-500">지역</span>
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-fluid-xs font-semibold ${
-                          customCalendarColorTokens(activeRegionCalendar.colorKey).badge
-                        }`}
-                      >
-                        {activeRegionCalendar.name}
-                      </span>
-                      <span
-                        className="text-fluid-xs text-slate-600 truncate"
-                        title={formatCustomCalendarFilterSummary(activeRegionCalendar, externalCompanyNameById)}
-                      >
-                        {formatCustomCalendarFilterSummary(activeRegionCalendar, externalCompanyNameById)}
-                        {activeRegionCalendar.isolateFromGlobal ? ' · 전체숨김' : ''}
-                        {activeRegionCalendar.hideAssignedInRegionBadge ? ' · 배정건배지제외' : ''}
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCustomCalendarCreateFocus('region');
-                          setCustomCalendarEditing(activeRegionCalendar);
-                          setCustomCalendarModalOpen(true);
-                        }}
-                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                        title="지역 캘린더 수정 · 삭제"
-                        aria-label="지역 캘린더 수정"
-                      >
-                        <EditAppIcon className="h-3.5 w-3.5" alt="" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveRegionCalendarId(null)}
-                        className="shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-fluid-xs text-slate-700 hover:bg-slate-50"
-                        title="지역 필터 해제"
-                      >
-                        지역 해제
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-                {activeCompanyCalendar ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="shrink-0 text-fluid-xs font-semibold text-slate-500">업체</span>
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-fluid-xs font-semibold ${
-                          customCalendarColorTokens(activeCompanyCalendar.colorKey).badge
-                        }`}
-                      >
-                        {activeCompanyCalendar.name}
-                      </span>
-                      <span
-                        className="text-fluid-xs text-slate-600 truncate"
-                        title={formatCustomCalendarFilterSummary(activeCompanyCalendar, externalCompanyNameById)}
-                      >
-                        {formatCustomCalendarFilterSummary(activeCompanyCalendar, externalCompanyNameById)}
-                        {activeCompanyCalendar.isolateFromGlobal ? ' · 전체숨김' : ''}
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCustomCalendarCreateFocus('company');
-                          setCustomCalendarEditing(activeCompanyCalendar);
-                          setCustomCalendarModalOpen(true);
-                        }}
-                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                        title="업체 캘린더 수정 · 삭제"
-                        aria-label="업체 캘린더 수정"
-                      >
-                        <EditAppIcon className="h-3.5 w-3.5" alt="" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveCompanyCalendarId(null)}
-                        className="shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-fluid-xs text-slate-700 hover:bg-slate-50"
-                        title="업체 필터 해제"
-                      >
-                        업체 해제
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
           </div>
 
           {leaderSlotDeficitKeysInMonth.length > 0 ? (
