@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { fetchTenantBillingSummary, type TenantBillingSummary } from '../../api/tenantBilling';
 import { useTenantSubscriptionData } from '../../hooks/useTenantSubscriptionData';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { DashboardTenantSubscriptionView } from './DashboardTenantSubscriptionView';
 import { DashboardTopCard } from './dashboard/DashboardTopCard';
 
@@ -13,6 +16,24 @@ function CardShell({ children }: { children: ReactNode }) {
 
 export function DashboardTenantSubscriptionBlock() {
   const { token, loading, data, error } = useTenantSubscriptionData();
+  const { role } = useAdminStaffSession();
+  const [billing, setBilling] = useState<TenantBillingSummary | null>(null);
+
+  const loadBilling = useCallback(async () => {
+    if (!token || role !== 'ADMIN') {
+      setBilling(null);
+      return;
+    }
+    try {
+      setBilling(await fetchTenantBillingSummary(token));
+    } catch {
+      setBilling(null);
+    }
+  }, [token, role]);
+
+  useEffect(() => {
+    void loadBilling();
+  }, [loadBilling]);
 
   if (!token) return null;
 
@@ -37,5 +58,5 @@ export function DashboardTenantSubscriptionBlock() {
     );
   }
 
-  return <DashboardTenantSubscriptionView data={data} />;
+  return <DashboardTenantSubscriptionView data={data} billing={billing} token={token} />;
 }

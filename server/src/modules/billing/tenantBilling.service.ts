@@ -28,6 +28,7 @@ import {
 import {
   computeBillingSchedule,
   findAutoIssueScheduleItems,
+  pickCurrentServicePeriodItem,
   pickNextDueScheduleItem,
   periodStartKey,
   resolvePeriodBaseAmountKrw,
@@ -112,6 +113,8 @@ export type TenantBillingSummaryDto = {
   };
   openInvoice: InvoiceDto | null;
   overdueInvoice: InvoiceDto | null;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
   operationalStatus: TenantBillingOperationalStatus;
   paymentConfirmationEnabled: boolean;
 };
@@ -477,6 +480,7 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
   const amountKrw = resolvePeriodBaseAmountKrw(profile, tenant.plan, profile.billingCycle);
   const catalogMonthlyAmountKrw = calculateBillingAmountKrw(tenant.plan, 'MONTHLY');
   const nextDue = scheduleCtx ? pickNextDueScheduleItem(scheduleCtx.schedule) : null;
+  const currentPeriod = scheduleCtx ? pickCurrentServicePeriodItem(scheduleCtx.schedule) : null;
 
   const openInvoice = invoices.find((i) => i.status === 'ISSUED') ?? null;
   const overdueInvoice = invoices.find((i) => i.status === 'OVERDUE') ?? null;
@@ -523,6 +527,8 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     },
     openInvoice: openInvoice ? mapInvoice(openInvoice) : null,
     overdueInvoice: overdueInvoice ? mapInvoice(overdueInvoice) : null,
+    currentPeriodStart: currentPeriod?.periodStart ?? null,
+    currentPeriodEnd: currentPeriod?.periodEnd ?? null,
     operationalStatus,
     paymentConfirmationEnabled: isPaymentConfirmationRequestEnabled(settings.dunningPaymentNotifyEmail),
   };

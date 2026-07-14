@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { TenantSubscriptionDto } from '../../api/tenantSubscription';
+import type { TenantBillingSummary } from '../../api/tenantBilling';
 import { usagePercent } from '@shared/tenantSubscriptionUsage';
+import { TenantBillingDashboardStatusLine } from './TenantBillingDashboardStatusLine';
+import { TenantBillingPaymentGuideModal } from './TenantBillingPaymentGuideModal';
 
 type UsageRow = TenantSubscriptionDto['usage'][number];
 
@@ -127,8 +131,15 @@ function InquirySpeedometer({
   );
 }
 
-export function DashboardTenantSubscriptionView({ data }: { data: TenantSubscriptionDto }) {
+type Props = {
+  data: TenantSubscriptionDto;
+  billing?: TenantBillingSummary | null;
+  token?: string | null;
+};
+
+export function DashboardTenantSubscriptionView({ data, billing = null, token = null }: Props) {
   const { tenant, usage } = data;
+  const [paymentGuideOpen, setPaymentGuideOpen] = useState(false);
 
   const userUsage = pickUsage(usage, 'activeUsers', {
     id: 'activeUsers',
@@ -152,94 +163,74 @@ export function DashboardTenantSubscriptionView({ data }: { data: TenantSubscrip
     unit: '개',
   });
 
-  const userPct = usagePercent(userUsage.used, userUsage.limit);
-  const inquiriesPct = usagePercent(inquiriesUsage.used, inquiriesUsage.limit) ?? 0;
-  const isUserOver = userUsage.limit != null && userUsage.used > userUsage.limit;
-  const isInquiriesOver = inquiriesUsage.limit != null && inquiriesUsage.used > inquiriesUsage.limit;
-  const isOver = isUserOver || isInquiriesOver;
-  const isWarning =
-    (userPct != null && userPct >= 80) ||
-    (inquiriesUsage.limit != null && inquiriesPct >= 80);
-
-  let statusText = '정상';
-  let statusColorClass = 'text-emerald-500 bg-emerald-50 border-emerald-100';
-  let dotColorClass = 'bg-emerald-500';
-  let pulseColorClass = 'bg-emerald-400';
-
-  if (isOver) {
-    statusText = '초과';
-    statusColorClass = 'text-rose-600 bg-rose-50 border-rose-100';
-    dotColorClass = 'bg-rose-500';
-    pulseColorClass = 'bg-rose-400';
-  } else if (isWarning) {
-    statusText = '주의';
-    statusColorClass = 'text-amber-600 bg-amber-50 border-amber-100';
-    dotColorClass = 'bg-amber-500';
-    pulseColorClass = 'bg-amber-400';
-  }
-
   return (
-    <div className="flex h-full min-h-[200px] flex-col justify-between rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/40 p-6 shadow-sm shadow-indigo-100/50">
-      <div className="mb-4 flex min-w-0 items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="shrink-0 rounded-lg bg-indigo-100 p-1.5 text-indigo-600">
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-          </div>
-          <span className="min-w-0 whitespace-nowrap font-semibold text-slate-800 text-[clamp(0.6875rem,1.7vw,0.875rem)] leading-tight">
-            계정 및 서비스 이용 현황
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 capitalize ring-1 ring-inset ring-slate-700/10">
-            {tenant.planLabel}
-          </span>
-          <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-semibold ${statusColorClass}`}
-          >
-            <span className="relative flex h-1.5 w-1.5">
-              <span
-                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${pulseColorClass}`}
-              />
-              <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${dotColorClass}`} />
+    <>
+      <div className="flex h-full min-h-[200px] flex-col justify-between rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/40 p-6 shadow-sm shadow-indigo-100/50">
+        <div className="mb-4 flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div className="shrink-0 rounded-lg bg-indigo-100 p-1.5 text-indigo-600">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+            </div>
+            <span className="min-w-0 whitespace-nowrap font-semibold text-slate-800 text-[clamp(0.6875rem,1.7vw,0.875rem)] leading-tight">
+              계정 및 서비스 이용 현황
             </span>
-            {statusText}
-          </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 capitalize ring-1 ring-inset ring-slate-700/10">
+              {tenant.planLabel}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 flex-1">
+          <InquirySpeedometer used={inquiriesUsage.used} limit={inquiriesUsage.limit} />
+
+          <div className="w-full min-w-0 space-y-4 sm:flex-1">
+            <UsageBar
+              label="활성 업무 계정"
+              used={userUsage.used}
+              limit={userUsage.limit}
+              unit="명"
+            />
+            <UsageBar
+              label="활성 브랜드"
+              used={brandsUsage.used}
+              limit={brandsUsage.limit}
+              unit="개"
+            />
+          </div>
+        </div>
+
+        {billing ? (
+          <TenantBillingDashboardStatusLine
+            billing={billing}
+            className="mt-4 border-t border-indigo-100/80 pt-3"
+            onUnpaidClick={() => setPaymentGuideOpen(true)}
+          />
+        ) : null}
+
+        <div className={`${billing ? 'mt-2' : 'mt-4'} flex justify-end`}>
+          <Link
+            to="/admin/subscription"
+            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+          >
+            자세히 보기
+          </Link>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 flex-1">
-        <InquirySpeedometer used={inquiriesUsage.used} limit={inquiriesUsage.limit} />
-
-        <div className="w-full min-w-0 space-y-4 sm:flex-1">
-          <UsageBar
-            label="활성 업무 계정"
-            used={userUsage.used}
-            limit={userUsage.limit}
-            unit="명"
-          />
-          <UsageBar
-            label="활성 브랜드"
-            used={brandsUsage.used}
-            limit={brandsUsage.limit}
-            unit="개"
-          />
-        </div>
-      </div>
-
-      <div className="mt-4 flex justify-end">
-        <Link
-          to="/admin/subscription"
-          className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
-        >
-          자세히 보기
-        </Link>
-      </div>
-    </div>
+      <TenantBillingPaymentGuideModal
+        open={paymentGuideOpen}
+        onClose={() => setPaymentGuideOpen(false)}
+        token={token}
+        billing={billing}
+      />
+    </>
   );
 }
