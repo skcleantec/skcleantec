@@ -893,7 +893,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         const active = items.filter((p) => p.status === 'ACTIVE');
         setTenantSharePartnerships(active);
         setTenantSharePartnershipId((prev) =>
-          prev && active.some((p) => p.id === prev) ? prev : active[0]?.id ?? '',
+          prev && active.some((p) => p.id === prev) ? prev : '',
         );
       })
       .catch(() => {

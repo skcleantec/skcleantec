@@ -3,6 +3,7 @@ import { parseYmdToDate } from '../team-crew-groups/crewGroupDayRoster.service.j
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constants.js';
 import { kstYmdKeysInRange } from './inquiryListDateRange.js';
 import { dateToYmdKst, isUserEmployedOnYmd, parseYmdToUtcDate } from '../users/userEmployment.js';
+import { inquiryActiveOnlyWhere } from './inquiryTrash.helpers.js';
 
 export { DEFAULT_CREW_UNITS_PER_INQUIRY };
 
@@ -288,6 +289,7 @@ export async function sumCrewDemandForPreferredDate(
   const rows = await prisma.inquiry.findMany({
     where: {
       tenantId,
+      ...inquiryActiveOnlyWhere(),
       preferredDate: { gte, lte },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       ...(excludeInquiryId ? { id: { not: excludeInquiryId } } : {}),

@@ -18,6 +18,7 @@ import {
   assertInquiryTeamLeaderAssignmentZones,
   ServiceZoneAssignmentError,
 } from '../service-zones/serviceZoneAssignment.js';
+import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 
 const router = Router();
 
@@ -45,7 +46,7 @@ router.post('/', async (req, res) => {
 
   const [inquiry, teamLeader] = await Promise.all([
     prisma.inquiry.findFirst({
-      where: { id: inquiryId, tenantId },
+      where: { id: inquiryId, tenantId, ...inquiryActiveOnlyWhere() },
       include: { orderForm: { select: { createdById: true } } },
     }),
     prisma.user.findFirst({
