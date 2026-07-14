@@ -6,6 +6,9 @@ const GOOGLE_APP_PASSWORDS_URL = 'https://myaccount.google.com/apppasswords';
 type Props = {
   onClose: () => void;
   companyName?: string;
+  /** 플랫폼 SMTP 등 다른 화면에서 제목·소개만 바꿀 때 */
+  title?: string;
+  intro?: string;
 };
 
 const PROVIDER_PRESETS = [
@@ -34,10 +37,14 @@ const PROVIDER_PRESETS = [
 
 export { PROVIDER_PRESETS };
 
-export function TenantSmtpSetupGuideModal({ onClose, companyName }: Props) {
+export function TenantSmtpSetupGuideModal({ onClose, companyName, title, intro }: Props) {
   const fromExample = companyName?.trim()
     ? `"${companyName.trim()}" <your@gmail.com>`
     : '"회사명" <your@gmail.com>';
+  const dialogTitle = title ?? '고객 완료본 메일 — 발송 설정 안내';
+  const dialogIntro =
+    intro ??
+    '현장 검수 「청소완료」 후 고객에게 보내는 PDF·완료본 메일을, 업체 메일 계정으로 발송하기 위한 설정입니다.';
 
   return (
     <div
@@ -50,12 +57,9 @@ export function TenantSmtpSetupGuideModal({ onClose, companyName }: Props) {
         <div className="shrink-0 border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
           <ModalCloseButton onClick={onClose} />
           <h2 id="smtp-guide-title" className="text-lg font-semibold text-gray-900 pr-8">
-            고객 완료본 메일 — 발송 설정 안내
+            {dialogTitle}
           </h2>
-          <p className="mt-1 text-xs text-gray-500 leading-relaxed">
-            현장 검수 「청소완료」 후 고객에게 보내는 PDF·완료본 메일을, 업체 메일 계정으로 발송하기 위한
-            설정입니다.
-          </p>
+          <p className="mt-1 text-xs text-gray-500 leading-relaxed">{dialogIntro}</p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 space-y-5 text-sm text-gray-800">

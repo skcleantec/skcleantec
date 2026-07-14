@@ -46,7 +46,7 @@ import {
 import { isPaymentConfirmationRequestEnabled } from './tenantBilling.paymentRequest.service.js';
 import {
   buildPlatformSmtpPublic,
-  updatePlatformSmtpSettings,
+  buildPlatformSmtpUpdateDataFromRow,
   type PlatformSmtpSettingsPublic,
 } from '../../lib/platformSmtp.service.js';
 import type { SmtpConfigPatch } from '../../lib/smtpConfigStored.js';
@@ -402,31 +402,34 @@ export async function updatePlatformBillingSettings(input: {
   dunningPaymentNotifyEmail?: string | null;
   smtp?: SmtpConfigPatch;
 }): Promise<BillingSettingsDto> {
-  await ensurePlatformBillingSettings();
+  const row = await ensurePlatformBillingSettings();
   const trimOrNull = (v: string | null | undefined) =>
     v === undefined ? undefined : v?.trim() || null;
-  await prisma.platformBillingSettings.update({
-    where: { id: 'default' },
-    data: {
-      ...(input.bankName !== undefined ? { bankName: trimOrNull(input.bankName) ?? null } : {}),
-      ...(input.accountNumber !== undefined ? { accountNumber: trimOrNull(input.accountNumber) ?? null } : {}),
-      ...(input.accountHolder !== undefined ? { accountHolder: trimOrNull(input.accountHolder) ?? null } : {}),
-      ...(input.paymentGuideText !== undefined ? { paymentGuideText: trimOrNull(input.paymentGuideText) ?? null } : {}),
-      ...(input.overdueGraceDays !== undefined
-        ? { overdueGraceDays: Math.max(0, Math.min(30, Math.floor(input.overdueGraceDays))) }
-        : {}),
-      ...(input.dunningPopupTitle !== undefined ? { dunningPopupTitle: trimOrNull(input.dunningPopupTitle) ?? null } : {}),
-      ...(input.dunningPopupSubtitle !== undefined ? { dunningPopupSubtitle: trimOrNull(input.dunningPopupSubtitle) ?? null } : {}),
-      ...(input.dunningPopupBody !== undefined ? { dunningPopupBody: trimOrNull(input.dunningPopupBody) ?? null } : {}),
-      ...(input.dunningBlockSoonText !== undefined ? { dunningBlockSoonText: trimOrNull(input.dunningBlockSoonText) ?? null } : {}),
-      ...(input.dunningBlockTodayText !== undefined ? { dunningBlockTodayText: trimOrNull(input.dunningBlockTodayText) ?? null } : {}),
-      ...(input.dunningPaymentNotifyEmail !== undefined
-        ? { dunningPaymentNotifyEmail: trimOrNull(input.dunningPaymentNotifyEmail) ?? null }
-        : {}),
-    },
-  });
+  const data: Prisma.PlatformBillingSettingsUpdateInput = {
+    ...(input.bankName !== undefined ? { bankName: trimOrNull(input.bankName) ?? null } : {}),
+    ...(input.accountNumber !== undefined ? { accountNumber: trimOrNull(input.accountNumber) ?? null } : {}),
+    ...(input.accountHolder !== undefined ? { accountHolder: trimOrNull(input.accountHolder) ?? null } : {}),
+    ...(input.paymentGuideText !== undefined ? { paymentGuideText: trimOrNull(input.paymentGuideText) ?? null } : {}),
+    ...(input.overdueGraceDays !== undefined
+      ? { overdueGraceDays: Math.max(0, Math.min(30, Math.floor(input.overdueGraceDays))) }
+      : {}),
+    ...(input.dunningPopupTitle !== undefined ? { dunningPopupTitle: trimOrNull(input.dunningPopupTitle) ?? null } : {}),
+    ...(input.dunningPopupSubtitle !== undefined ? { dunningPopupSubtitle: trimOrNull(input.dunningPopupSubtitle) ?? null } : {}),
+    ...(input.dunningPopupBody !== undefined ? { dunningPopupBody: trimOrNull(input.dunningPopupBody) ?? null } : {}),
+    ...(input.dunningBlockSoonText !== undefined ? { dunningBlockSoonText: trimOrNull(input.dunningBlockSoonText) ?? null } : {}),
+    ...(input.dunningBlockTodayText !== undefined ? { dunningBlockTodayText: trimOrNull(input.dunningBlockTodayText) ?? null } : {}),
+    ...(input.dunningPaymentNotifyEmail !== undefined
+      ? { dunningPaymentNotifyEmail: trimOrNull(input.dunningPaymentNotifyEmail) ?? null }
+      : {}),
+  };
   if (input.smtp !== undefined) {
-    await updatePlatformSmtpSettings(input.smtp);
+    Object.assign(data, buildPlatformSmtpUpdateDataFromRow(row, input.smtp));
+  }
+  if (Object.keys(data).length > 0) {
+    await prisma.platformBillingSettings.update({
+      where: { id: 'default' },
+      data,
+    });
   }
   return getPlatformBillingSettings();
 }

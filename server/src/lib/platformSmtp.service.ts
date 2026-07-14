@@ -10,7 +10,6 @@ import {
 } from './tenantSmtp.service.js';
 import {
   mergeSmtpConfigStored,
-  smtpConfigStoredComplete,
   type SmtpConfigPatch,
 } from './smtpConfigStored.js';
 import { prisma } from './prisma.js';
@@ -47,42 +46,37 @@ function smtpStoredFromRow(row: PlatformBillingSettings): TenantSmtpConfigStored
   };
 }
 
-function rowDataFromStored(stored: TenantSmtpConfigStored | undefined): {
+type PlatformSmtpPrismaData = {
   smtpHost: string | null;
   smtpPort: number | null;
   smtpSecure: boolean | null;
   smtpUser: string | null;
   smtpFrom: string | null;
   smtpPassEnc: string | null;
-} {
-  if (!stored) {
-    return {
-      smtpHost: null,
-      smtpPort: null,
-      smtpSecure: null,
-      smtpUser: null,
-      smtpFrom: null,
-      smtpPassEnc: null,
-    };
-  }
-  if (!smtpConfigStoredComplete(stored)) {
-    return {
-      smtpHost: stored.host?.trim() || null,
-      smtpPort: stored.port ?? null,
-      smtpSecure: stored.secure === true ? true : stored.secure === false ? false : null,
-      smtpUser: stored.user?.trim() || null,
-      smtpFrom: stored.from?.trim() || null,
-      smtpPassEnc: stored.passEnc?.trim() || null,
-    };
-  }
+};
+
+function prismaDataFromStored(stored: TenantSmtpConfigStored): PlatformSmtpPrismaData {
+  const port = stored.port ?? 587;
   return {
-    smtpHost: stored.host!.trim(),
-    smtpPort: stored.port ?? 587,
-    smtpSecure: stored.secure === true || (stored.port ?? 587) === 465,
+    smtpHost: stored.host?.trim() || null,
+    smtpPort: port,
+    smtpSecure: stored.secure === true || port === 465,
     smtpUser: stored.user?.trim() || null,
-    smtpFrom: stored.from!.trim(),
-    smtpPassEnc: stored.passEnc!.trim(),
+    smtpFrom: stored.from?.trim() || null,
+    smtpPassEnc: stored.passEnc?.trim() || null,
   };
+}
+
+/** 기존 행 + patch → Prisma update 필드. merge 결과 없으면 빈 객체(기존 SMTP 유지). */
+export function buildPlatformSmtpUpdateDataFromRow(
+  row: PlatformBillingSettings,
+  patch: SmtpConfigPatch,
+): PlatformSmtpPrismaData | Record<string, never> {
+  const existing = smtpStoredFromRow(row);
+  validatePlatformSmtpPatch(patch, existing);
+  const merged = mergeSmtpConfigStored(existing, patch);
+  if (!merged) return {};
+  return prismaDataFromStored(merged);
 }
 
 export function buildPlatformSmtpPublic(row: PlatformBillingSettings): PlatformSmtpSettingsPublic {
@@ -100,14 +94,25 @@ function validatePlatformSmtpPatch(
   patch: SmtpConfigPatch,
   existingStored: TenantSmtpConfigStored | undefined,
 ): void {
-  const host = patch.host?.trim();
-  const from = patch.from?.trim();
+  const mergedPreview = mergeSmtpConfigStored(existingStored, patch);
+  const host = mergedPreview?.host?.trim() ?? '';
+  const from = mergedPreview?.from?.trim() ?? '';
   const password = patch.password;
   const willHavePass =
     (typeof password === 'string' && password.length > 0) ||
-    Boolean(existingStored?.passEnc?.trim());
+    Boolean(mergedPreview?.passEnc?.trim());
+  const touched =
+    [patch.host, patch.from, patch.user, patch.password].some(
+      (v) => typeof v === 'string' && v.trim().length > 0,
+    ) ||
+    patch.port !== undefined ||
+    patch.secure !== undefined;
+
   if (host && from && !willHavePass) {
     throw new Error('SMTP 비밀번호(앱 비밀번호)를 입력해 주세요.');
+  }
+  if (touched && (!host || !from)) {
+    throw new Error('SMTP 호스트·보내는 사람 표시를 입력해 주세요.');
   }
 }
 
@@ -119,10 +124,10 @@ export async function updatePlatformSmtpSettings(
     return buildPlatformSmtpPublic(row);
   }
   const row = await ensurePlatformBillingRow();
-  const existing = smtpStoredFromRow(row);
-  validatePlatformSmtpPatch(patch, existing);
-  const merged = mergeSmtpConfigStored(existing, patch);
-  const data = rowDataFromStored(merged);
+  const data = buildPlatformSmtpUpdateDataFromRow(row, patch);
+  if (Object.keys(data).length === 0) {
+    return buildPlatformSmtpPublic(row);
+  }
   const updated = await prisma.platformBillingSettings.update({
     where: { id: 'default' },
     data,
