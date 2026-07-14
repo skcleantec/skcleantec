@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PROVIDER_PRESETS } from '../admin/TenantSmtpSetupGuideModal';
+import { PROVIDER_PRESETS, TenantSmtpSetupGuideModal } from '../admin/TenantSmtpSetupGuideModal';
 import { TenantSmtpFieldLabel } from '../admin/TenantSmtpFieldLabel';
 import { BTN_SECONDARY, INPUT_BASE } from '../../utils/platformUi';
 import type { PlatformSmtpSettingsPublic } from '../../api/platformBilling';
@@ -14,15 +14,28 @@ export type PlatformSmtpFormState = {
   smtpPasswordConfigured: boolean;
 };
 
-export function smtpFormFromSettings(smtp: PlatformSmtpSettingsPublic): PlatformSmtpFormState {
+const EMPTY_SMTP_PUBLIC: PlatformSmtpSettingsPublic = {
+  host: '',
+  port: 587,
+  secure: false,
+  user: '',
+  from: '',
+  passwordConfigured: false,
+  configured: false,
+  envFallbackAvailable: false,
+  effectiveConfigured: false,
+};
+
+export function smtpFormFromSettings(smtp: PlatformSmtpSettingsPublic | null | undefined): PlatformSmtpFormState {
+  const s = smtp ?? EMPTY_SMTP_PUBLIC;
   return {
-    smtpHost: smtp.host,
-    smtpPort: String(smtp.port || 587),
-    smtpSecure: smtp.secure,
-    smtpUser: smtp.user,
-    smtpFrom: smtp.from,
+    smtpHost: s.host ?? '',
+    smtpPort: String(s.port || 587),
+    smtpSecure: s.secure,
+    smtpUser: s.user ?? '',
+    smtpFrom: s.from ?? '',
     smtpPassword: '',
-    smtpPasswordConfigured: smtp.passwordConfigured,
+    smtpPasswordConfigured: s.passwordConfigured,
   };
 }
 
@@ -55,25 +68,44 @@ export function PlatformSmtpSettingsSection({
   testing = false,
 }: Props) {
   const [testTo, setTestTo] = useState('');
+  const [guideOpen, setGuideOpen] = useState(false);
 
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-xs text-gray-500 leading-relaxed">
-          입금 확인 요청·도움말 문의 등 플랫폼 알림 메일 발송에 사용합니다. Gmail·네이버는 앱 비밀번호가
-          필요합니다.
-        </p>
-        {effectiveConfigured ? (
-          <p className="mt-2 text-xs font-medium text-emerald-700">발송 가능</p>
-        ) : (
-          <p className="mt-2 text-xs font-medium text-amber-700">미설정 — 알림 메일이 발송되지 않습니다</p>
-        )}
-        {envFallbackAvailable && !smtp.smtpPasswordConfigured && !smtp.smtpHost.trim() ? (
-          <p className="mt-1 text-xs text-sky-800">
-            서버 환경변수(SMTP_*)에 기본 설정이 있습니다. 아래를 저장하면 DB 설정이 우선합니다.
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-gray-500 leading-relaxed">
+            입금 확인 요청·도움말 문의 등 플랫폼 알림 메일 발송에 사용합니다. Gmail·네이버는 앱 비밀번호가
+            필요합니다.
           </p>
-        ) : null}
+          {effectiveConfigured ? (
+            <p className="mt-2 text-xs font-medium text-emerald-700">발송 가능</p>
+          ) : (
+            <p className="mt-2 text-xs font-medium text-amber-700">미설정 — 알림 메일이 발송되지 않습니다</p>
+          )}
+          {envFallbackAvailable && !smtp.smtpPasswordConfigured && !smtp.smtpHost.trim() ? (
+            <p className="mt-1 text-xs text-sky-800">
+              서버 환경변수(SMTP_*)에 기본 설정이 있습니다. 아래를 저장하면 DB 설정이 우선합니다.
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={() => setGuideOpen(true)}
+          className="shrink-0 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-900 hover:bg-indigo-100"
+        >
+          설정 방법 보기
+        </button>
       </div>
+
+      {guideOpen ? (
+        <TenantSmtpSetupGuideModal
+          onClose={() => setGuideOpen(false)}
+          companyName="청소비서"
+          title="플랫폼 알림 메일 — SMTP 설정 안내"
+          intro="입금 확인 요청·도움말 문의 등 플랫폼에서 업체·운영자에게 보내는 알림 메일 발송 설정입니다."
+        />
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         <span className="w-full text-[11px] font-medium text-gray-500">빠른 입력</span>

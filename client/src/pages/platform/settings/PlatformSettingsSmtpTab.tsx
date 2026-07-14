@@ -55,16 +55,24 @@ export function PlatformSettingsSmtpTab() {
   const save = async () => {
     const token = getPlatformToken();
     if (!token || !smtpForm) return;
+    const host = smtpForm.smtpHost.trim();
+    const from = smtpForm.smtpFrom.trim();
+    if (!host || !from) {
+      setError('SMTP 호스트·보내는 사람 표시를 입력해 주세요.');
+      return;
+    }
+    if (!smtpForm.smtpPassword.trim() && !smtpForm.smtpPasswordConfigured) {
+      setError('앱 비밀번호를 입력해 주세요.');
+      return;
+    }
     setSaving(true);
     setError('');
     setMessage('');
     try {
-      const updated = await patchPlatformBillingSettings(token, {
+      await patchPlatformBillingSettings(token, {
         smtp: smtpPatchFromForm(smtpForm),
       });
-      setSmtpForm(smtpFormFromSettings(updated.smtp));
-      setSmtpEffectiveConfigured(updated.smtp.effectiveConfigured);
-      setSmtpEnvFallback(updated.smtp.envFallbackAvailable);
+      await load();
       setMessage('SMTP 설정이 저장되었습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
@@ -102,10 +110,14 @@ export function PlatformSettingsSmtpTab() {
       {message ? <PlatformAlert variant="success" message={message} /> : null}
 
       <section className={CARD_SECTION}>
-        <h2 className="text-sm font-semibold text-gray-900">메일 발송 (SMTP)</h2>
-        <p className="mt-1 text-xs text-gray-500">
-          입금 확인 요청·도움말 문의 등 플랫폼에서 보내는 알림 메일에 사용합니다.
-        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">메일 발송 (SMTP)</h2>
+            <p className="mt-1 text-xs text-gray-500">
+              입금 확인 요청·도움말 문의 등 플랫폼에서 보내는 알림 메일에 사용합니다.
+            </p>
+          </div>
+        </div>
         <div className="mt-4">
           <PlatformSmtpSettingsSection
             smtp={smtpForm}
