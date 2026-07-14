@@ -81,6 +81,7 @@ import {
   serializeTeamInquiryOperatingCompanies,
   serializeTeamInquiryOperatingCompany,
 } from './teamInquiryResponse.helpers.js';
+import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 
 const router = Router();
 
@@ -687,6 +688,7 @@ router.get('/happy-call-stats', async (req, res) => {
   const dayOffExclude = await whereExcludeAdminSlotAdjustInquiries(prisma, userId);
   const rows = await prisma.inquiry.findMany({
     where: {
+      ...inquiryActiveOnlyWhere(),
       preferredDate: { not: null },
       happyCallCompletedAt: null,
       status: {
@@ -1265,7 +1267,12 @@ router.get('/inquiries/:id', async (req, res) => {
     return;
   }
   const row = await prisma.inquiry.findFirst({
-    where: { id, tenantId, assignments: { some: { teamLeaderId: userId } } },
+    where: {
+      id,
+      tenantId,
+      ...inquiryActiveOnlyWhere(),
+      assignments: { some: { teamLeaderId: userId } },
+    },
     include: teamInquiryInclude,
   });
   if (!row) {
@@ -1295,6 +1302,7 @@ router.get('/inquiries', async (req, res) => {
     const baseWhere = mergeInquiryWhere(
       {
         tenantId,
+        ...inquiryActiveOnlyWhere(),
         assignments: {
           some: { teamLeaderId: userId },
         },
@@ -1377,6 +1385,7 @@ router.get('/schedule', async (req, res) => {
   const baseWhere = mergeInquiryWhere(
     {
       tenantId,
+      ...inquiryActiveOnlyWhere(),
       preferredDate: { gte: startDate, lte: endDate },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       assignments: {

@@ -135,7 +135,9 @@ export async function listTeamAssignmentsPaginated(
   const q = rawQuery.q?.trim() || undefined;
 
   if (shouldPaginateViaAssignment(basis)) {
-    let assignmentWhere: Prisma.AssignmentWhereInput = assignmentDateWhere(userId, range);
+    let assignmentWhere: Prisma.AssignmentWhereInput = {
+      AND: [assignmentDateWhere(userId, range), { inquiry: inquiryActiveOnlyWhere() }],
+    };
     if (status && VALID_STATUS.has(status)) {
       assignmentWhere = {
         AND: [assignmentWhere, { inquiry: { status: status as InquiryStatus } }],

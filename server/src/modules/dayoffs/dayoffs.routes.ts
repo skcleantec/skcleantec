@@ -27,6 +27,7 @@ import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constan
 import { resolveLeaderMorningAfternoon } from '../schedule/scheduleDayAvailability.helpers.js';
 import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 
 const router = Router();
 
@@ -313,6 +314,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     prisma.inquiry.findMany({
       where: {
         tenantId,
+        ...inquiryActiveOnlyWhere(),
         preferredDate: { gte: startDate, lte: endDate },
         /** 취소·보류는 슬롯·팀원 수요 집계에서 제외(스케줄 목록에는 포함) */
         status: { notIn: ['CANCELLED', 'ON_HOLD'] },

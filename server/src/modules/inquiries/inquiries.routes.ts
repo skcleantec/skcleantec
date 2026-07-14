@@ -459,7 +459,10 @@ router.get('/', async (req, res) => {
   /** 마케터 집계 drill-down 제외 — 접수일·예약일·상태 등 어떤 필터여도 처리 전 4종은 목록 최상단 고정 */
   let pinPreReceiveWhere: Prisma.InquiryWhereInput | null = null;
   if (!useMarketerStatsDay) {
-    const pinClauses: Prisma.InquiryWhereInput[] = [{ tenantId }, whereInquiryListPinnedPreReceive()];
+    const pinClauses: Prisma.InquiryWhereInput[] = [
+      { tenantId, ...inquiryActiveOnlyWhere() },
+      whereInquiryListPinnedPreReceive(),
+    ];
     if (
       (user.role === 'ADMIN' || user.role === 'MARKETER') &&
       typeof createdById === 'string' &&
