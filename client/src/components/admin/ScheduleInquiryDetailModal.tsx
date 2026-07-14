@@ -3849,10 +3849,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 접수 삭제 확인
               </h3>
               <p className="text-sm text-gray-700">
-                <span className="font-medium">{item.customerName}</span> 접수를 영구 삭제합니다.
+                <span className="font-medium">{item.customerName}</span> 접수를 휴지통으로 이동합니다.
               </p>
               <p className="mt-1 text-xs text-gray-500">
-                삭제 후 복구할 수 없습니다. 계속하려면 비밀번호 확인 단계로 이동합니다.
+                30일 후 자동 영구 삭제됩니다. 관리자 전용 → 휴지통에서 복구할 수 있습니다.
               </p>
               <div className="mt-4 flex gap-2">
                 <button

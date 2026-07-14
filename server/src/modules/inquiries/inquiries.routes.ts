@@ -134,6 +134,10 @@ import {
   createInquiryFromBody,
   InquiryCreateError,
 } from './inquiryCreate.service.js';
+import inquiryTrashRoutes from './inquiryTrash.routes.js';
+import { requireStaffAdminAccess } from '../auth/staffAdmin.middleware.js';
+import { inquiryActiveOnlyWhere } from './inquiryTrash.helpers.js';
+import { softDeleteInquiry, softDeleteInquiriesByWhere } from './inquiryTrash.service.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
   if (raw == null) return [];
@@ -184,6 +188,7 @@ const router = Router();
 const marketerOverviewCache = new ShortTtlCache<Awaited<ReturnType<typeof buildMarketerOverview>>>(25_000);
 
 router.use(authMiddleware);
+router.use('/trash', inquiryTrashRoutes);
 router.use(requireStaffPermission('inquiry.view'));
 
 /** 마케터별 이번 달·오늘 예약완료(RECEIVED) — 서비스접수와 동일(접수일·접수자, KST) */
@@ -302,7 +307,7 @@ router.get('/', async (req, res) => {
   const statusEventFilter =
     typeof statusEvent === 'string' && statusEvent.trim() ? statusEvent.trim() : undefined;
 
-  const andClauses: Prisma.InquiryWhereInput[] = [{ tenantId }];
+  const andClauses: Prisma.InquiryWhereInput[] = [{ tenantId, ...inquiryActiveOnlyWhere() }];
   if (useMarketerStatsDay) {
     const statsWhere = whereMarketerStatsInquiriesOnDay(statsMarketerId, statsDayRaw);
     if (statsWhere) {
@@ -508,8 +513,8 @@ router.get('/', async (req, res) => {
   scheduleBackgroundGeoHydrate(prisma, itemsWithPaybackToken, { maxUniqueQueries: 18 });
 });
 
-/** 관리자만 — 접수일(createdAt) KST 하루 단위 영구 삭제 (배정·이력·현장사진 연쇄 삭제) */
-router.post('/admin/bulk-delete-by-day', requireStaffPermission('inquiry.bulkDelete'), async (req, res) => {
+/** 관리자 전용 — 접수일(createdAt) KST 하루 단위 휴지통 이동 */
+router.post('/admin/bulk-delete-by-day', requireStaffAdminAccess, async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(auth);
   if (!tenantId) {
@@ -524,14 +529,16 @@ router.post('/admin/bulk-delete-by-day', requireStaffPermission('inquiry.bulkDel
     return;
   }
   if (!(await verifyAdminPasswordForRequest(req, res, body.password))) return;
-  const del = await prisma.inquiry.deleteMany({
-    where: { tenantId, createdAt: { gte: range.gte, lte: range.lte } },
-  });
-  res.json({ deleted: del.count });
+  const deleted = await softDeleteInquiriesByWhere(
+    tenantId,
+    { createdAt: { gte: range.gte, lte: range.lte } },
+    auth.userId ?? null,
+  );
+  res.json({ deleted });
 });
 
-/** 관리자만 — 접수일(createdAt) KST 해당 월 영구 삭제 */
-router.post('/admin/bulk-delete-by-month', requireStaffPermission('inquiry.bulkDelete'), async (req, res) => {
+/** 관리자 전용 — 접수일(createdAt) KST 해당 월 휴지통 이동 */
+router.post('/admin/bulk-delete-by-month', requireStaffAdminAccess, async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(auth);
   if (!tenantId) {
@@ -546,10 +553,12 @@ router.post('/admin/bulk-delete-by-month', requireStaffPermission('inquiry.bulkD
     return;
   }
   if (!(await verifyAdminPasswordForRequest(req, res, body.password))) return;
-  const del = await prisma.inquiry.deleteMany({
-    where: { tenantId, createdAt: { gte: range.gte, lte: range.lte } },
-  });
-  res.json({ deleted: del.count });
+  const deleted = await softDeleteInquiriesByWhere(
+    tenantId,
+    { createdAt: { gte: range.gte, lte: range.lte } },
+    auth.userId ?? null,
+  );
+  res.json({ deleted });
 });
 
 /** 단일 접수 상세 (목록 항목과 동일 include — 딥링크·C/S 연결 등) */
@@ -562,7 +571,7 @@ router.get('/:id', async (req, res) => {
   }
   const { id } = req.params;
   const inquiry = await prisma.inquiry.findFirst({
-    where: { id, tenantId },
+    where: { id, tenantId, ...inquiryActiveOnlyWhere() },
     include: inquiryDetailInclude,
   });
   if (!inquiry) {
@@ -599,8 +608,8 @@ router.use('/:inquiryId/additional-receipts', inquiryAdditionalReceiptsAdminRout
 /** 같은 예약일 다른 접수와 팀원 투입(인원·이름) 맞바꿈 — 드롭다운으로는 가용 인원 부족할 때 사용 */
 router.post('/:id/swap-crew-with-partner', handlePostSwapCrewWithPartner);
 
-/** 관리자만 — 비밀번호 확인 후 접수 영구 삭제 */
-router.delete('/:id', requireStaffPermission('inquiry.delete'), async (req, res) => {
+/** 관리자 전용 — 비밀번호 확인 후 접수 휴지통 이동 */
+router.delete('/:id', requireStaffAdminAccess, async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(auth);
   if (!tenantId) {
@@ -611,31 +620,17 @@ router.delete('/:id', requireStaffPermission('inquiry.delete'), async (req, res)
   const body = req.body as { password?: string };
   if (!(await verifyAdminPasswordForRequest(req, res, body.password))) return;
 
-  const existing = await prisma.inquiry.findFirst({ where: { id, tenantId } });
-  if (!existing) {
-    res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
-    return;
+  try {
+    await softDeleteInquiry(tenantId, id, auth?.userId ?? null);
+    res.json({ ok: true });
+  } catch (e) {
+    if (e instanceof Error && e.message === 'NOT_FOUND') {
+      res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
+      return;
+    }
+    console.error('[inquiries DELETE soft]', e);
+    res.status(500).json({ error: '휴지통 이동에 실패했습니다.' });
   }
-
-  const actor = (req as unknown as { user: AuthPayload }).user;
-  await prisma.$transaction(async (tx) => {
-    await tx.inquiryChangeLog.create({
-      data: {
-        inquiryId: existing.id,
-        customerName: existing.customerName,
-        actorId: actor?.userId ?? null,
-        lines: [`접수 삭제: ${existing.customerName} (${existing.inquiryNumber ?? existing.id})`],
-      },
-    });
-    await tx.inquiry.delete({ where: { id } });
-  });
-  notifyChangeLogToStaff({
-    tenantId,
-    customerName: existing.customerName,
-    inquiryId: null,
-    lines: [`접수 삭제: ${existing.customerName} (${existing.inquiryNumber ?? existing.id})`],
-  });
-  res.json({ ok: true });
 });
 
 /** 관리자·마케터: 고객 선택 전문 시공 옵션 — 표준가·청구가 미리보기 */
@@ -725,7 +720,7 @@ router.patch('/:id', async (req, res) => {
     return;
   }
   const inquiry = await prisma.inquiry.findFirst({
-    where: { id, tenantId },
+    where: { id, tenantId, ...inquiryActiveOnlyWhere() },
     include: {
       orderForm: {
         select: { id: true, createdById: true, submittedAt: true, customerSpecialNotes: true },

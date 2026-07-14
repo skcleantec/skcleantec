@@ -35,7 +35,8 @@ export function requireTenantAuth(req: Request, res: Response, next: NextFunctio
 
 export async function findInquiryForTenant(inquiryId: string, tenantId: string) {
   const { prisma } = await import('../../lib/prisma.js');
+  const { inquiryActiveOnlyWhere } = await import('../inquiries/inquiryTrash.helpers.js');
   return prisma.inquiry.findFirst({
-    where: { id: inquiryId, tenantId },
+    where: { id: inquiryId, tenantId, ...inquiryActiveOnlyWhere() },
   });
 }

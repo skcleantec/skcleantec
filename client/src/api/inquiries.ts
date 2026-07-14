@@ -247,7 +247,7 @@ export async function swapInquiryCrewWithPartner(
   return res.json();
 }
 
-/** 관리자 전용 — 비밀번호 확인 후 접수 영구 삭제 */
+/** 관리자 전용 — 비밀번호 확인 후 접수 휴지통 이동 */
 export async function deleteInquiry(token: string, id: string, password: string): Promise<void> {
   const res = await fetch(`${API}/inquiries/${encodeURIComponent(id)}`, {
     method: 'DELETE',

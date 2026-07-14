@@ -825,7 +825,7 @@ export function AdminSchedulePage() {
     };
   }, [ready, userId, userName, meRole, userEmail]);
   const canEditMarketerField = hasStaffPermission(staffMe, 'inquiry.edit.marketer');
-  const canDeleteInquiry = hasStaffPermission(staffMe, 'inquiry.delete');
+  const canDeleteInquiry = resolveEffectiveStaffAdminFromMe(staffMe);
   const canManageClosures = hasStaffPermission(staffMe, 'schedule.closures');
   const canManageDayAvailability = hasStaffPermission(staffMe, 'schedule.dayAvailability');
   const canManageCustomCalendar = hasStaffPermission(staffMe, 'schedule.customCalendar');

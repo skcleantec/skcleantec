@@ -24,6 +24,7 @@ import {
   AdminServiceZonesPage,
   AdminTeamLeadersPage,
   AdminInquiryBulkDeletePage,
+  AdminInquiryTrashPage,
   AdminInquiryExcelMappingsPage,
   AdminInquiryExcelImportPage,
   AdminInquiryExcelHistoryPage,
@@ -223,6 +224,7 @@ function App() {
               path="team-leader-training"
               element={<SuspensePage><AdminTeamLeaderTrainingPage /></SuspensePage>}
             />
+            <Route path="inquiry-trash" element={<SuspensePage><AdminInquiryTrashPage /></SuspensePage>} />
             <Route path="inquiry-delete" element={<SuspensePage><AdminInquiryBulkDeletePage /></SuspensePage>} />
             <Route path="operating-companies" element={<SuspensePage><AdminOperatingCompaniesPage /></SuspensePage>} />
             <Route path="company-profile" element={<Navigate to="company-profile/subscription" replace />} />

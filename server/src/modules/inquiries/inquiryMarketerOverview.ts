@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from './inquiryListDateRange.js';
+import { inquiryActiveOnlyWhere } from './inquiryTrash.helpers.js';
 
 export type MarketerOverviewRow = {
   marketerId: string;
@@ -94,6 +95,7 @@ async function countReceivedInquiriesByMarketerMonthAndToday(
     where: {
       tenantId,
       createdAt: { gte: monthGte, lte: monthLte },
+      ...inquiryActiveOnlyWhere(),
       ...attr,
     },
     select: {
@@ -133,6 +135,7 @@ export function whereMarketerStatsInquiriesOnDay(
   if (!dayRange) return null;
   return {
     AND: [
+      inquiryActiveOnlyWhere(),
       { status: 'RECEIVED' },
       { createdAt: { gte: dayRange.gte, lte: dayRange.lte } },
       whereInquiryAttributedToMarketer(marketerId),
@@ -220,6 +223,7 @@ export async function buildMarketerDailyOverview(
       tenantId,
       status: 'RECEIVED',
       createdAt: { gte: monthRange.gte, lte: monthRange.lte },
+      ...inquiryActiveOnlyWhere(),
       ...whereInquiryAttributedToMarketer(marketerId),
     },
     select: { createdAt: true },

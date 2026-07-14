@@ -15,6 +15,7 @@ import { mapInquiriesInternalToneForRole } from '../inquiries/internalCustomerTo
 import { enrichInquiriesProfOptionsReviewStatus } from '../inquiries/inquiryProfOptionsAmount.service.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { attachTenantShareMetaToInquiries } from '../tenant-partners/tenantInquiryShareMeta.js';
 import { attachDbListingMetaToInquiries } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
@@ -232,6 +233,7 @@ router.get('/', async (req, res) => {
     where: {
       tenantId,
       preferredDate: { gte: startDate, lte: endDate },
+      ...inquiryActiveOnlyWhere(),
       /** 취소·보류·대기 포함 — 화면에서 배지로 구분(가용 집계는 schedule-stats에서 취소·보류 제외) */
     },
     orderBy: [{ preferredDate: 'asc' as const }, { preferredTime: 'asc' as const }],

@@ -624,8 +624,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             setProfSelections(parseProfessionalOptionSelections(profPrefillRaw, catalog));
           }
         };
-        const addrPrefillLocked = !isEditor && isMarketerLockedOrderFormAddress(pf);
-        setAddressConfirmedViaSearch(addrPrefillLocked);
+        setAddressConfirmedViaSearch(isMarketerLockedOrderFormAddress(pf));
         const fromForm = data.professionalOptions;
         if (fromForm && fromForm.length > 0) {
           setProfessionalOptions(fromForm);
@@ -876,13 +875,21 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   /** 현재 폼 값 → 선입력(잠금) payload. 빈 칸은 잠그지 않음(고객이 채움). */
   const buildPrefillPayload = (): OrderFormPrefillPayload => {
     const basisOk = form.areaBasis === '공급' || form.areaBasis === '전용';
+    const prefillAddress = (() => {
+      const addr = form.address.trim();
+      if (!isRealCustomerAddress(addr)) return undefined;
+      // CRM·접수에서 넘어온 자유 텍스트는 표시만 — 「주소 검색」으로 확정한 경우(또는 기존 잠금)만 prefill
+      const alreadyLocked = isMarketerLockedOrderFormAddress(order?.prefillAnswers);
+      if (addressConfirmedViaSearch || alreadyLocked) return addr;
+      return undefined;
+    })();
     return {
       customerName: form.customerName.trim() || undefined,
       customerPhone: form.customerPhone.trim() || undefined,
       customerEmail: form.customerEmail.trim().toLowerCase() || undefined,
       customerPhone2: form.customerPhoneSecondary.trim() || undefined,
-      address: isRealCustomerAddress(form.address.trim()) ? form.address.trim() : undefined,
-      addressDetail: form.addressDetail.trim() || undefined,
+      address: prefillAddress,
+      addressDetail: prefillAddress && form.addressDetail.trim() ? form.addressDetail.trim() : undefined,
       propertyType: form.propertyType || undefined,
       areaBasis: basisOk ? form.areaBasis : undefined,
       areaPyeong: basisOk && form.areaPyeong.trim() ? form.areaPyeong.trim() : undefined,
@@ -1094,6 +1101,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const lockedInputCls = 'bg-gray-100 text-gray-500 cursor-not-allowed';
   const clsWithLock = (key: string, base: string): string =>
     lockKey(key) ? `${base} ${lockedInputCls}` : base;
+  const addressFieldLocked = !isEditor && isMarketerLockedOrderFormAddress(prefillMap);
   const addressDetailFieldDisabled =
     lockKey('addressDetail') || (!isEditor && !addressConfirmedViaSearch);
   const profLocked = lockKey('professionalOptionIds');
@@ -1292,9 +1300,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               placeholder="주소 검색"
               className="mb-2"
               mobilePreferred
-              disabled={lockKey('address')}
+              disabled={addressFieldLocked}
             />
-            {!isEditor && !lockKey('address') && form.address.trim() && !addressConfirmedViaSearch ? (
+            {!isEditor && !addressFieldLocked && form.address.trim() && !addressConfirmedViaSearch ? (
               <p className="mb-2 text-xs text-amber-800">
                 주소가 입력되어 있어도 「주소 검색」 버튼으로 다시 선택해야 합니다.
               </p>
