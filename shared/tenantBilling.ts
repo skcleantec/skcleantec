@@ -176,11 +176,19 @@ export function resolveTenantBillingOperationalStatus(input: {
   billingAccessBlockedAt: string | null;
   hasOpenInvoice: boolean;
   hasOverdueInvoice: boolean;
+  billingFeeExempt?: boolean;
   now?: Date;
 }): TenantBillingOperationalStatus {
   const now = input.now ?? new Date();
   const trialEndMs = input.trialEndsAt ? new Date(input.trialEndsAt).getTime() : null;
   const inTrial = trialEndMs != null && trialEndMs > now.getTime();
+
+  if (input.billingFeeExempt) {
+    if (input.status === 'SUSPENDED' && (input.suspendReason === 'PLATFORM' || input.suspendReason == null)) {
+      return { code: 'SUSPENDED', label: '중지', detail: '플랫폼' };
+    }
+    return { code: 'ACTIVE_OK', label: '면제 이용', detail: '약정 0원 · 이용료 없음' };
+  }
 
   if (input.status === 'SUSPENDED') {
     if (input.suspendReason === 'TRIAL_EXPIRED') {
@@ -254,6 +262,17 @@ export function resolveContractAmountKrw(input: {
     catalogMonthlyKrw,
     catalogAnnualKrw,
   };
+}
+
+export function isTenantBillingFeeExempt(input: {
+  plan: TenantPlanId;
+  cycle: TenantBillingCycle;
+  pricingMode: TenantBillingPricingMode;
+  customMonthlyAmountKrw?: number | null;
+  customAnnualAmountKrw?: number | null;
+}): boolean {
+  if (input.pricingMode !== 'CUSTOM') return false;
+  return resolveContractAmountKrw(input).amountKrw <= 0;
 }
 
 export function formatBillingAmountKrw(amount: number): string {

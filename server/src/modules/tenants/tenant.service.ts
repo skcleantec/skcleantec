@@ -1,8 +1,10 @@
 import type { TenantStatus, TenantSuspendReason } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { DEFAULT_TENANT_SLUG, LEGACY_SK_TENANT_SLUG } from './tenant.constants.js';
+import { isTenantBillingFeeExemptByTenantId } from '../billing/tenantBilling.feeExempt.js';
 
 export type TenantStaffAccessFields = {
+  id?: string;
   status: TenantStatus;
   suspendReason: TenantSuspendReason | null;
   billingAccessBlockedAt: Date | null;
@@ -57,6 +59,9 @@ export async function assertTenantStaffLoginAllowed(t: TenantStaffAccessFields) 
     throw new TenantSuspendedError();
   }
   if (isStaffBillingBlocked(t)) {
+    if (t.id && (await isTenantBillingFeeExemptByTenantId(t.id))) {
+      return;
+    }
     throw new TenantBillingAccessBlockedError();
   }
 }

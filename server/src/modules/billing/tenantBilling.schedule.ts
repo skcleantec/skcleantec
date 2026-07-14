@@ -259,6 +259,7 @@ export function pickNextDueScheduleItem(
   const todayStart = kstStartOfDayUtc(kstYmdFromDate(now));
   const candidates = schedule.filter(
     (i) =>
+      i.amountKrw > 0 &&
       i.status !== 'SKIPPED' &&
       i.status !== 'DEFERRED' &&
       i.status !== 'PAID' &&
