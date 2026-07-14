@@ -31,8 +31,6 @@ export function TenantBillingPaymentGuideModal({ open, onClose, token, billing }
   const [dunning, setDunning] = useState<TenantBillingDunning | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const invoice = billing?.overdueInvoice ?? billing?.openInvoice ?? null;
-
   useEffect(() => {
     if (!open || !token || !billing) {
       setDunning(null);
@@ -68,11 +66,29 @@ export function TenantBillingPaymentGuideModal({ open, onClose, token, billing }
 
   if (!open || !billing) return null;
 
+  const invoice = billing.overdueInvoice ?? billing.openInvoice ?? null;
+  const scheduledPeriod =
+    !invoice &&
+    billing.currentPeriodStart &&
+    billing.currentPeriodEnd &&
+    billing.currentPeriodStatus &&
+    billing.currentPeriodStatus !== 'PAID'
+      ? {
+          periodStart: billing.currentPeriodStart,
+          periodEnd: billing.currentPeriodEnd,
+          dueDate: billing.currentPeriodDueDate,
+          amountKrw: billing.currentPeriodAmountKrw,
+          status: billing.currentPeriodStatus,
+        }
+      : null;
+
   const popup = dunning?.popup ?? {
     title: TENANT_BILLING_DUNNING_POPUP_DEFAULTS.title,
     subtitle: billing.overdueInvoice
       ? TENANT_BILLING_DUNNING_POPUP_DEFAULTS.subtitle
-      : '이용료 입금이 확인되지 않았습니다',
+      : scheduledPeriod?.status === 'SCHEDULED'
+        ? '이번 회차 이용료 입금이 확인되지 않았습니다'
+        : '이용료 입금이 확인되지 않았습니다',
     body: billing.bank.paymentGuideText?.trim()
       ? billing.bank.paymentGuideText
       : TENANT_BILLING_DUNNING_POPUP_DEFAULTS.body,
@@ -135,6 +151,34 @@ export function TenantBillingPaymentGuideModal({ open, onClose, token, billing }
                   {TENANT_INVOICE_STATUS_LABEL[invoice.status as keyof typeof TENANT_INVOICE_STATUS_LABEL] ??
                     invoice.status}
                 </span>
+              </div>
+            </div>
+          ) : scheduledPeriod ? (
+            <div className="rounded-lg border border-amber-100 bg-amber-50/80 px-3 py-2.5 text-sm space-y-1.5">
+              {scheduledPeriod.amountKrw != null ? (
+                <div className="flex flex-wrap justify-between gap-2">
+                  <span className="text-gray-600">이용료</span>
+                  <span className="font-semibold tabular-nums text-gray-900">
+                    {scheduledPeriod.amountKrw.toLocaleString('ko-KR')}원
+                    <span className="ml-1 text-xs font-normal text-gray-500">(VAT 별도)</span>
+                  </span>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap justify-between gap-2 text-xs">
+                <span className="text-gray-500">이용 기간</span>
+                <span className="text-gray-800">
+                  {formatKoDate(scheduledPeriod.periodStart)} ~ {formatKoDate(scheduledPeriod.periodEnd)}
+                </span>
+              </div>
+              {scheduledPeriod.dueDate ? (
+                <div className="flex flex-wrap justify-between gap-2 text-xs">
+                  <span className="text-gray-500">납부일</span>
+                  <span className="text-gray-800">{formatKoDate(scheduledPeriod.dueDate)}</span>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap justify-between gap-2 text-xs">
+                <span className="text-gray-500">상태</span>
+                <span className="font-medium text-amber-900">예정 · 입금 대기</span>
               </div>
             </div>
           ) : (

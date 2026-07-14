@@ -115,6 +115,9 @@ export type TenantBillingSummaryDto = {
   overdueInvoice: InvoiceDto | null;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
+  currentPeriodStatus: string | null;
+  currentPeriodAmountKrw: number | null;
+  currentPeriodDueDate: string | null;
   operationalStatus: TenantBillingOperationalStatus;
   paymentConfirmationEnabled: boolean;
 };
@@ -499,6 +502,8 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     hasOpenInvoice: openInvoice != null,
     hasOverdueInvoice: overdueInvoice != null,
     billingFeeExempt,
+    currentPeriodStatus: currentPeriod?.status ?? null,
+    currentPeriodAmountKrw: currentPeriod?.amountKrw ?? null,
   });
 
   return {
@@ -529,6 +534,9 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     overdueInvoice: overdueInvoice ? mapInvoice(overdueInvoice) : null,
     currentPeriodStart: currentPeriod?.periodStart ?? null,
     currentPeriodEnd: currentPeriod?.periodEnd ?? null,
+    currentPeriodStatus: currentPeriod?.status ?? null,
+    currentPeriodAmountKrw: currentPeriod?.amountKrw ?? null,
+    currentPeriodDueDate: currentPeriod?.dueDate ?? null,
     operationalStatus,
     paymentConfirmationEnabled: isPaymentConfirmationRequestEnabled(settings.dunningPaymentNotifyEmail),
   };
@@ -586,14 +594,17 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       : mapBillingProfile(await ensureTenantBillingProfile(t.id));
     const contractAmountKrw = resolvePeriodBaseAmountKrw(profile, t.plan, profile.billingCycle);
     let nextDueDate: string | null = null;
+    let currentPeriod: BillingScheduleItem | null = null;
     try {
       const ctx = await loadTenantBillingScheduleContext(t.id);
       if (ctx.billingStart) {
         const next = pickNextDueScheduleItem(ctx.schedule);
         nextDueDate = next?.dueDate ?? null;
+        currentPeriod = pickCurrentServicePeriodItem(ctx.schedule);
       }
     } catch {
       nextDueDate = null;
+      currentPeriod = null;
     }
     const openInv = t.invoices[0];
     const billingFeeExempt = isBillingProfileDtoFeeExempt(profile, t.plan);
@@ -608,6 +619,8 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       hasOpenInvoice: openInv?.status === 'ISSUED',
       hasOverdueInvoice: openInv?.status === 'OVERDUE',
       billingFeeExempt,
+      currentPeriodStatus: currentPeriod?.status ?? null,
+      currentPeriodAmountKrw: currentPeriod?.amountKrw ?? null,
     });
     rows.push({
       tenantId: t.id,
@@ -699,7 +712,7 @@ export async function confirmPrepaidForTenant(tenantId: string) {
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) throw new TenantNotFoundError();
   if (tenant.prepaidConfirmedAt) {
-    throw new Error('이미 사용료 수령이 확인되었습니다.');
+    throw new Error('이미 체험이 시작되었습니다.');
   }
   if (tenant.status !== 'TRIAL' && tenant.status !== 'SUSPENDED') {
     throw new Error('체험·중지 상태에서만 선납 확인이 가능합니다.');
@@ -729,7 +742,7 @@ export async function confirmPrepaidForTenant(tenantId: string) {
   return {
     prepaidConfirmedAt: updated.prepaidConfirmedAt!.toISOString(),
     serviceStartsAt,
-    message: `입금 확인되었습니다. ${TENANT_TRIAL_DAYS}일 체험 후 정식 이용·과금이 시작됩니다.`,
+    message: `체험이 시작되었습니다. ${TENANT_TRIAL_DAYS}일 후 정식 이용·과금이 시작됩니다.`,
   };
 }
 

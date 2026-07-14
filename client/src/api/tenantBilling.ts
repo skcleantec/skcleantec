@@ -26,6 +26,9 @@ export type TenantBillingSummary = {
   overdueInvoice: TenantBillingInvoice | null;
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
+  currentPeriodStatus?: string | null;
+  currentPeriodAmountKrw?: number | null;
+  currentPeriodDueDate?: string | null;
   operationalStatus: {
     code: string;
     label: string;

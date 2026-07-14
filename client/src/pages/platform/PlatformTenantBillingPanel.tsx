@@ -168,7 +168,7 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
   };
 
   const onPrepaidConfirm = async () => {
-    if (!window.confirm('입금을 확인하시겠습니까? 확인 후 7일 체험이 시작되고, 체험 종료일부터 매월 같은 날이 결제일입니다.')) return;
+    if (!window.confirm('7일 체험을 시작하시겠습니까? 체험 종료일부터 과금·결제일이 정해집니다.')) return;
     const token = getPlatformToken();
     if (!token) return;
     setSaving(true);
@@ -269,22 +269,22 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
       </section>
 
       <section className={CARD_SECTION}>
-        <h3 className="text-sm font-semibold text-gray-900">입금 · 체험</h3>
+        <h3 className="text-sm font-semibold text-gray-900">체험</h3>
         <p className="text-xs text-gray-500">
-          이용료를 받은 뒤 「입금 확인」을 누르면 7일 체험이 시작됩니다. 체험 종료일이 과금 시작일이며, 이후
-          매월 그날이 결제일입니다.
+          「체험 시작」을 누르면 7일 체험이 시작됩니다. 체험 종료일이 과금 시작일이며, 이후 매월 같은 날이
+          결제일입니다. 이용료 입금 확인은 아래 청구 일정의 「입금완료」로 처리합니다.
         </p>
         <dl className="mt-2 grid gap-2 sm:grid-cols-2 text-sm">
           <div>
-            <dt className="text-gray-500">입금 확인</dt>
+            <dt className="text-gray-500">체험 시작</dt>
             <dd className="mt-0.5 text-gray-900">
-              {tenant.prepaidConfirmedAt ? formatKoDate(tenant.prepaidConfirmedAt) : '미확인'}
+              {tenant.prepaidConfirmedAt ? formatKoDate(tenant.prepaidConfirmedAt) : '시작 전'}
             </dd>
           </div>
           <div>
             <dt className="text-gray-500">체험 종료</dt>
             <dd className="mt-0.5 text-gray-900">
-              {tenant.trialEndsAt ? formatKoDate(tenant.trialEndsAt) : '입금 확인 후 7일'}
+              {tenant.trialEndsAt ? formatKoDate(tenant.trialEndsAt) : '체험 시작 후 7일'}
             </dd>
           </div>
         </dl>
@@ -295,7 +295,7 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
             onClick={() => void onPrepaidConfirm()}
             className={`${BTN_PRIMARY} mt-3`}
           >
-            입금 확인 (7일 체험 시작)
+            체험 시작
           </button>
         ) : null}
       </section>
@@ -480,7 +480,6 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
         <PlatformTenantBillingScheduleSection
           tenantId={tenantId}
           onMutate={() => void load()}
-          showPrepaidConfirm={showPrepaidConfirm}
         />
       </section>
     </div>

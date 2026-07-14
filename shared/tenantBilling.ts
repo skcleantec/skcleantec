@@ -114,6 +114,7 @@ export type TenantBillingOperationalStatusCode =
   | 'TRIAL_UNPAID'
   | 'PENDING_START'
   | 'ACTIVE_OK'
+  | 'ACTIVE_UNPAID_SCHEDULED'
   | 'ACTIVE_BILLED'
   | 'ACTIVE_OVERDUE'
   | 'ACTIVE_BLOCKED'
@@ -177,6 +178,8 @@ export function resolveTenantBillingOperationalStatus(input: {
   hasOpenInvoice: boolean;
   hasOverdueInvoice: boolean;
   billingFeeExempt?: boolean;
+  currentPeriodStatus?: BillingScheduleItemStatus | null;
+  currentPeriodAmountKrw?: number | null;
   now?: Date;
 }): TenantBillingOperationalStatus {
   const now = input.now ?? new Date();
@@ -204,12 +207,31 @@ export function resolveTenantBillingOperationalStatus(input: {
     return { code: 'ACTIVE_BLOCKED', label: '미납 제한', detail: '업무 이용 제한 중' };
   }
 
+  const periodStatus = input.currentPeriodStatus ?? null;
+  const periodAmount = input.currentPeriodAmountKrw ?? 0;
+  const currentPeriodUnpaid =
+    periodStatus != null &&
+    periodAmount > 0 &&
+    periodStatus !== 'PAID' &&
+    periodStatus !== 'SKIPPED' &&
+    periodStatus !== 'DEFERRED' &&
+    periodStatus !== 'VOID';
+
   if (input.serviceStartedAt) {
     if (input.hasOverdueInvoice) {
       return { code: 'ACTIVE_OVERDUE', label: '연체', detail: '미납 청구 있음' };
     }
     if (input.hasOpenInvoice) {
       return { code: 'ACTIVE_BILLED', label: '청구·미납', detail: '납부 대기' };
+    }
+    if (currentPeriodUnpaid) {
+      if (periodStatus === 'OVERDUE') {
+        return { code: 'ACTIVE_OVERDUE', label: '연체', detail: '미납 청구 있음' };
+      }
+      if (periodStatus === 'ISSUED') {
+        return { code: 'ACTIVE_BILLED', label: '청구·미납', detail: '납부 대기' };
+      }
+      return { code: 'ACTIVE_UNPAID_SCHEDULED', label: '미입금(예정)', detail: '청구 일정 입금 대기' };
     }
     return { code: 'ACTIVE_OK', label: '사용 중', detail: null };
   }
@@ -219,11 +241,11 @@ export function resolveTenantBillingOperationalStatus(input: {
   }
 
   if (!input.prepaidConfirmedAt && !input.serviceStartedAt) {
-    return { code: 'TRIAL_UNPAID', label: '입금 대기', detail: '입금 확인 후 7일 체험 시작' };
+    return { code: 'TRIAL_UNPAID', label: '체험 전', detail: '체험 시작 후 7일 이용' };
   }
 
   if (!input.prepaidConfirmedAt && (input.status === 'TRIAL' || inTrial)) {
-    return { code: 'TRIAL_UNPAID', label: '입금 대기', detail: '입금 확인 필요' };
+    return { code: 'TRIAL_UNPAID', label: '체험 전', detail: '체험 시작 필요' };
   }
 
   if (input.prepaidConfirmedAt && trialEndMs != null && trialEndMs <= now.getTime()) {

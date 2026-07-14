@@ -5,7 +5,6 @@ import {
   type TenantBillingAdjustmentType,
 } from '@shared/tenantBilling';
 import {
-  confirmPlatformPrepaid,
   confirmPlatformSchedulePeriodPayment,
   createPlatformBillingAdjustment,
   getPlatformTenantBillingSchedule,
@@ -31,7 +30,6 @@ type DatePreset = 'today' | 'all' | 'month' | 'day';
 type Props = {
   tenantId: string;
   onMutate?: () => void;
-  showPrepaidConfirm?: boolean;
 };
 
 function parseDatePreset(raw: string | null): DatePreset {
@@ -42,7 +40,6 @@ function parseDatePreset(raw: string | null): DatePreset {
 export function PlatformTenantBillingScheduleSection({
   tenantId,
   onMutate,
-  showPrepaidConfirm,
 }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [schedule, setSchedule] = useState<BillingScheduleRow[]>([]);
@@ -143,22 +140,6 @@ export function PlatformTenantBillingScheduleSection({
     setError('');
     try {
       await confirmPlatformSchedulePeriodPayment(token, tenantId, periodStartYmd);
-      await afterMutate();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '확인 실패');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const onPrepaidConfirm = async () => {
-    if (!window.confirm('입금을 확인하시겠습니까? 확인 후 7일 체험이 시작됩니다.')) return;
-    const token = getPlatformToken();
-    if (!token) return;
-    setSaving(true);
-    setError('');
-    try {
-      await confirmPlatformPrepaid(token, tenantId);
       await afterMutate();
     } catch (e) {
       setError(e instanceof Error ? e.message : '확인 실패');
@@ -319,7 +300,7 @@ export function PlatformTenantBillingScheduleSection({
         </div>
         <p className="text-xs text-gray-500">
           과금 시작일부터 이용 기간이 순서대로 쌓입니다. 미래 회차는 다음 1회만 미리 표시됩니다.
-          입금완료는 청구서 발행 없이도 누를 수 있으며, 체험 중·예정 회차도 확인 가능합니다.
+          입금완료는 청구서 발행 없이도 누를 수 있으며, 이용료 입금 확인은 이 버튼으로만 처리합니다.
         </p>
       </div>
 
@@ -335,8 +316,6 @@ export function PlatformTenantBillingScheduleSection({
             onIssueInvoice={onIssueInvoiceForPeriod}
             onConfirmPayment={onConfirmPayment}
             onVoidInvoice={onVoidInvoice}
-            showPrepaidConfirm={showPrepaidConfirm}
-            onPrepaidConfirm={onPrepaidConfirm}
           />
           {total > 0 ? (
             <ListPaginationBar

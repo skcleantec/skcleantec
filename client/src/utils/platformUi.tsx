@@ -56,6 +56,7 @@ const OPERATIONAL_BADGE: Record<string, string> = {
   TRIAL_UNPAID: 'bg-amber-50 text-amber-800',
   PENDING_START: 'bg-violet-50 text-violet-800',
   ACTIVE_OK: 'bg-emerald-50 text-emerald-700',
+  ACTIVE_UNPAID_SCHEDULED: 'bg-amber-50 text-amber-800',
   ACTIVE_BILLED: 'bg-amber-50 text-amber-800',
   ACTIVE_OVERDUE: 'bg-rose-50 text-rose-700',
   ACTIVE_BLOCKED: 'bg-rose-100 text-rose-800',
