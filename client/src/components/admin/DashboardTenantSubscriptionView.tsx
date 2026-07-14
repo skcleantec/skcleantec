@@ -207,18 +207,20 @@ export function DashboardTenantSubscriptionView({ data, billing = null, token = 
           </div>
         </div>
 
-        {billing ? (
-          <TenantBillingDashboardStatusLine
-            billing={billing}
-            className="mt-4 border-t border-indigo-100/80 pt-3"
-            onUnpaidClick={() => setPaymentGuideOpen(true)}
-          />
-        ) : null}
-
-        <div className={`${billing ? 'mt-2' : 'mt-4'} flex justify-end`}>
+        <div className="mt-3 flex min-w-0 items-center gap-2 border-t border-indigo-100/80 pt-2">
+          {billing ? (
+            <TenantBillingDashboardStatusLine
+              billing={billing}
+              variant="inline"
+              className="min-w-0 flex-1"
+              onUnpaidClick={() => setPaymentGuideOpen(true)}
+            />
+          ) : (
+            <span className="min-w-0 flex-1" aria-hidden />
+          )}
           <Link
             to="/admin/subscription"
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+            className="shrink-0 whitespace-nowrap text-[clamp(0.5625rem,1.15vw,0.625rem)] font-medium leading-none text-indigo-600 hover:text-indigo-800 hover:underline"
           >
             자세히 보기
           </Link>

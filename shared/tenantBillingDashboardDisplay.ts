@@ -22,7 +22,7 @@ export function formatBillingPeriodRangeLabel(startIso: string, endIso: string):
   return `${formatBillingDashboardDate(startIso)} ~ ${formatBillingDashboardDate(endIso)}`;
 }
 
-const UNPAID_CODES: TenantBillingOperationalStatusCode[] = [
+const UNPAID_REQUEST_CODES: TenantBillingOperationalStatusCode[] = [
   'ACTIVE_BILLED',
   'ACTIVE_OVERDUE',
   'ACTIVE_BLOCKED',
@@ -42,7 +42,7 @@ export function resolveTenantBillingDashboardDisplay(input: {
   openInvoice: { periodStart: string; periodEnd: string } | null;
   overdueInvoice: { periodStart: string; periodEnd: string } | null;
 }): TenantBillingDashboardDisplay {
-  const { code, label } = input.operationalStatus;
+  const { code } = input.operationalStatus;
   const unpaidInvoice = input.overdueInvoice ?? input.openInvoice;
   const currentPeriod =
     input.currentPeriodStart && input.currentPeriodEnd
@@ -53,7 +53,16 @@ export function resolveTenantBillingDashboardDisplay(input: {
       ? formatBillingPeriodRangeLabel(input.prepaidConfirmedAt, input.trialEndsAt)
       : null;
 
-  if (UNPAID_CODES.includes(code) && unpaidInvoice) {
+  if (code === 'ACTIVE_UNPAID_SCHEDULED') {
+    return {
+      statusLabel: '미입금 상태(예정)',
+      periodLabel: currentPeriod ?? periodFromInvoice(unpaidInvoice),
+      tone: 'warn',
+      clickable: true,
+    };
+  }
+
+  if (UNPAID_REQUEST_CODES.includes(code) && unpaidInvoice) {
     return {
       statusLabel: '미입금 상태(입금요망)',
       periodLabel: periodFromInvoice(unpaidInvoice),
@@ -64,10 +73,10 @@ export function resolveTenantBillingDashboardDisplay(input: {
 
   if (code === 'TRIAL_UNPAID') {
     return {
-      statusLabel: '미입금 상태(입금요망)',
+      statusLabel: '체험 시작 전',
       periodLabel: null,
-      tone: 'warn',
-      clickable: true,
+      tone: 'muted',
+      clickable: false,
     };
   }
 
@@ -91,7 +100,7 @@ export function resolveTenantBillingDashboardDisplay(input: {
 
   if (code === 'PENDING_START') {
     return {
-      statusLabel: label,
+      statusLabel: input.operationalStatus.label,
       periodLabel: input.trialEndsAt ? formatBillingDashboardDate(input.trialEndsAt) : null,
       tone: 'muted',
       clickable: false,
@@ -100,7 +109,7 @@ export function resolveTenantBillingDashboardDisplay(input: {
 
   if (code === 'SUSPENDED') {
     return {
-      statusLabel: label,
+      statusLabel: input.operationalStatus.label,
       periodLabel: null,
       tone: 'danger',
       clickable: false,
@@ -108,7 +117,7 @@ export function resolveTenantBillingDashboardDisplay(input: {
   }
 
   return {
-    statusLabel: label,
+    statusLabel: input.operationalStatus.label,
     periodLabel: currentPeriod ?? trialPeriod,
     tone: 'muted',
     clickable: false,

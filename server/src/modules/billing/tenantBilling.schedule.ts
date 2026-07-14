@@ -45,17 +45,19 @@ export type BillingInvoiceInput = {
   status: TenantInvoiceStatus;
 };
 
+export type BillingScheduleItemStatus =
+  | TenantInvoiceStatus
+  | 'SCHEDULED'
+  | 'SKIPPED'
+  | 'DEFERRED';
+
 export type BillingScheduleItem = {
   periodStart: string;
   periodEnd: string;
   dueDate: string;
   amountKrw: number;
   catalogAmountKrw: number;
-  status:
-    | TenantInvoiceStatus
-    | 'SCHEDULED'
-    | 'SKIPPED'
-    | 'DEFERRED';
+  status: BillingScheduleItemStatus;
   invoiceId: string | null;
   adjustment: {
     id: string;
