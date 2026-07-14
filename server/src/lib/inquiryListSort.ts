@@ -23,6 +23,9 @@ export const DEFAULT_INQUIRY_LIST_SORT: InquiryListSortOptions = {
   dir: 'desc',
 };
 
+/** 0=미제출, 1=입금완료, 2=입금대기, 3=대기, 4=본문(필터 결과) */
+export type InquiryListPinTier = 0 | 1 | 2 | 3 | 4;
+
 /** 열별 첫 클릭 기본 방향 */
 export function defaultInquiryListSortDir(field: InquiryListSortField): InquiryListSortDir {
   if (field === 'createdAt') return 'desc';
@@ -63,10 +66,20 @@ export function isInquiryOrderFormPendingSubmit(row: InquiryListSortable): boole
   );
 }
 
-/** 0=미제출 최상단, 1=그 외 */
-export function inquiryListSortTier(row: InquiryListSortable): number {
+/**
+ * 목록 상단 pin tier — 미제출 우선, 그다음 입금완료·입금대기·대기, 그 외 본문.
+ */
+export function inquiryListSortTier(row: InquiryListSortable): InquiryListPinTier {
   if (isInquiryOrderFormPendingSubmit(row)) return 0;
-  return 1;
+  if (row.status === 'DEPOSIT_COMPLETED') return 1;
+  if (row.status === 'DEPOSIT_PENDING') return 2;
+  if (row.status === 'PENDING') return 3;
+  return 4;
+}
+
+/** 날짜·상태 필터와 무관하게 목록 최상단에 고정되는 처리 전 접수 */
+export function isInquiryListPinnedPreReceive(row: InquiryListSortable): boolean {
+  return inquiryListSortTier(row) < 4;
 }
 
 function toSortMs(d: string | Date | null | undefined): number | null {

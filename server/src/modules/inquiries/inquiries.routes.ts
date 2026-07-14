@@ -21,7 +21,7 @@ import {
 import { inquiryIdsMatchingStatusEventKstHour } from '../ops-analytics/kstHourFilterQueries.js';
 import {
   fetchInquiryListPageSorted,
-  whereInquiryOrderFormPendingSubmit,
+  whereInquiryListPinnedPreReceive,
 } from './inquiryListSort.helpers.js';
 import { parseInquiryListSortQuery } from '../../lib/inquiryListSort.js';
 import {
@@ -393,7 +393,7 @@ router.get('/', async (req, res) => {
     if (inspectionWhere) andClauses.push(inspectionWhere);
   }
 
-  /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선. 미제출은 pinPendingWhere 로 상단 고정. */
+  /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선. 처리 전 4종은 pinPreReceiveWhere 로 상단 고정. */
   if (
     !useMarketerStatsDay &&
     typeof scheduleDay === 'string' &&
@@ -451,10 +451,10 @@ router.get('/', async (req, res) => {
     : 200;
   const skip = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
 
-  /** 마케터 집계 drill-down 제외 — 접수일·예약일·상태 등 어떤 필터여도 미제출은 목록 최상단 고정 */
-  let pinPendingWhere: Prisma.InquiryWhereInput | null = null;
+  /** 마케터 집계 drill-down 제외 — 접수일·예약일·상태 등 어떤 필터여도 처리 전 4종은 목록 최상단 고정 */
+  let pinPreReceiveWhere: Prisma.InquiryWhereInput | null = null;
   if (!useMarketerStatsDay) {
-    const pinClauses: Prisma.InquiryWhereInput[] = [{ tenantId }, whereInquiryOrderFormPendingSubmit()];
+    const pinClauses: Prisma.InquiryWhereInput[] = [{ tenantId }, whereInquiryListPinnedPreReceive()];
     if (
       (user.role === 'ADMIN' || user.role === 'MARKETER') &&
       typeof createdById === 'string' &&
@@ -467,14 +467,14 @@ router.get('/', async (req, res) => {
         pinClauses.push(whereInquiryAttributedToMarketer(cid));
       }
     }
-    pinPendingWhere = { AND: pinClauses };
+    pinPreReceiveWhere = { AND: pinClauses };
   }
 
   const listSort = parseInquiryListSortQuery(sortBy, sortDir);
 
   const { items: itemsRaw, total } = await fetchInquiryListPageSorted(prisma, {
     where,
-    pinPendingWhere,
+    pinPreReceiveWhere,
     include: listInclude,
     take,
     skip,
