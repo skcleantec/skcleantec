@@ -279,7 +279,7 @@ export const HELP_UI_REGISTRY: Record<HelpUiTokenId, () => ReactNode> = {
   ),
   'inq-hint-pin-pending': () => (
     <HelpUiShell>
-      <InquiryListPinHint>미제출 · 목록 맨 위 고정</InquiryListPinHint>
+      <InquiryListPinHint>미제출 · 입금완료 · 입금대기 · 대기 — 목록 맨 위 고정</InquiryListPinHint>
     </HelpUiShell>
   ),
   'tl-tabs-user-register': () => (

@@ -1,36 +1,40 @@
 ---
-description: 서비스접수 목록 — 발주서 미제출 필터 무관 최상단 고정 (필수, 회귀 금지)
+description: 서비스접수 목록 — 처리 전 4종 필터 무관 최상단 고정 (필수, 회귀 금지)
 alwaysApply: true
 ---
 
-# 서비스접수 목록 — 미제출 최상단 고정 (필수 — 회귀 금지)
+# 서비스접수 목록 — 처리 전 상단 고정 (필수 — 회귀 금지)
 
 > **접수 목록 = `GET /inquiries` + `AdminInquiriesPage`**
 
 ## 핵심 규칙 (가장 중요)
 
-**발주서 미제출 건은 접수일·예약일·상태·당일/월별/특정날짜 등 어떤 목록 필터를 써도 항상 목록 최상단에 표시한다.**
+**미제출·입금완료·입금대기·대기 건은 접수일·예약일·상태·당일/월별/특정날짜 등 어떤 목록 필터를 써도 항상 목록 최상단에 tier 순으로 표시한다.**
 
-- 미제출은 **날짜 구간 밖**이어도 목록에 **반드시 포함**된다 (`pinPendingWhere`).
-- 그 아래에 **현재 필터에 맞는** 나머지 접수가 접수일(`createdAt`) **최신순**으로 이어진다.
+- 처리 전 4종은 **날짜 구간 밖**이어도 목록에 **반드시 포함**된다 (`pinPreReceiveWhere`).
+- 상단 pin 블록 내부 순서: **미제출 → 입금완료 → 입금대기 → 대기** (각 그룹 내 `sortBy`/`sortDir`, 기본 `createdAt desc`).
+- 그 아래에 **현재 필터에 맞는** 나머지 접수(tier 4 본문)가 이어진다.
 - **예외:** 마케터 집계 drill-down (`marketerStatsDay` + `createdById`) — 집계와 목록 일치를 위해 pin 미적용.
 
-### 미제출 판별
+### tier 분류 (우선순위)
 
-| 조건 |
-|------|
-| `status === 'ORDER_FORM_PENDING'` |
-| 레거시: 발주서 연결 + `submittedAt == null` + (`PENDING` 또는 `DEPOSIT_COMPLETED`) |
+| tier | 라벨 | 조건 |
+|------|------|------|
+| 0 | 미제출 | `isInquiryOrderFormPendingSubmit` — `ORDER_FORM_PENDING` 또는 레거시(PENDING/입금완료 + 발주서 `submittedAt` null) |
+| 1 | 입금완료 | `status === 'DEPOSIT_COMPLETED'` 이고 tier 0 아님 |
+| 2 | 입금대기 | `status === 'DEPOSIT_PENDING'` |
+| 3 | 대기 | `status === 'PENDING'` 이고 tier 0 아님 |
+| 4 | 본문 | 그 외 |
 
-### pin 범위 (미제출을 어디까지 고정할지)
+### pin 범위 (어디까지 고정할지)
 
 | 포함 | 제외 (필터는 아래 본문 목록에만 적용) |
 |------|--------------------------------------|
 | `tenantId` | 접수일·예약일 구간 |
-| 마케터 필터(`createdById`)가 있으면 동일 규속 | **상태** 필터 |
+| 마케터 필터(`createdById`)가 있으면 동일 귀속 | **상태** 필터 |
 | | 검색·팀장·운영사 등 그 외 필터 |
 
-## 본문 목록 (미제출 pin 블록 **아래**)
+## 본문 목록 (pin 블록 **아래**)
 
 pin·본문 각 tier 안에서 `sortBy`/`sortDir` 로 정렬한다. 기본은 `createdAt` **desc**. 허용 열: `createdAt`, `preferredDate`, `status` (`shared/inquiryListSort.ts`).
 
@@ -38,21 +42,22 @@ pin·본문 각 tier 안에서 `sortBy`/`sortDir` 로 정렬한다. 기본은 `c
 
 | 계층 | 파일 |
 |------|------|
-| 규칙·클라이언트 정렬 | `shared/inquiryListSort.ts` |
-| pin + 페이지네이션 | `server/src/modules/inquiries/inquiryListSort.helpers.ts` → `fetchInquiryListPageSorted`, `whereInquiryOrderFormPendingSubmit` (tier는 `server/src/lib/inquiryListSort.ts` ← `shared` sync) |
+| 규칙·tier·클라이언트 정렬 | `shared/inquiryListSort.ts` |
+| pin + 페이지네이션 | `server/src/modules/inquiries/inquiryListSort.helpers.ts` → `fetchInquiryListPageSorted`, `whereInquiryListPinnedPreReceive` (tier는 `server/src/lib/inquiryListSort.ts` ← `shared` sync) |
 | pin where 조립 | `server/src/modules/inquiries/inquiries.routes.ts` |
-| UI 이중 안전망 | `AdminInquiriesPage.tsx` → `sortInquiryListRows` |
+| UI tier 색·범례 | `client/src/utils/inquiryListPinTierStyle.ts`, `AdminInquiriesPage.tsx` |
 
 ## 금지
 
-- 접수일/예약일 필터에만 미제출을 끼워 넣고 **pin 없이** `createdAt desc` 정렬만 사용.
-- 날짜 밖 미제출을 목록에서 **숨기기**.
-- `pinPendingWhere` 없이 클라이언트 현재 페이지만 재정렬.
+- 접수일/예약일 필터에만 처리 전 건을 끼워 넣고 **pin 없이** `createdAt desc` 정렬만 사용.
+- 날짜 밖 처리 전 건을 목록에서 **숨기기**.
+- `pinPreReceiveWhere` 없이 클라이언트 현재 페이지만 재정렬.
 
 ## 변경 시 체크
 
-1. **당일** 필터 + 어제 발급 미제출 → **1페이지 최상단**에 보이는가?
+1. **당일** 필터 + 어제 `DEPOSIT_PENDING` → **1페이지 상단** tier 2에 보이는가?
 2. **특정 날짜·월별·예약일** 필터에서도 동일한가?
-3. **상태=예약완료** 필터여도 미제출이 **위에** 보이는가?
-4. 미제출 30건 초과 시 **2페이지 전까지** 다른 tier가 끼지 않는가?
-5. `marketerStatsDay` drill-down에서는 pin **꺼져** 집계 건수와 일치하는가?
+3. **상태=예약완료** 필터여도 tier 0~3이 **위에** 보이는가?
+4. pin 30건 초과 시 **2페이지 전까지** 본문 tier가 끼지 않는가?
+5. tier 순서: 미제출 → 입금완료 → 입금대기 → 대기 → 본문?
+6. `marketerStatsDay` drill-down에서는 pin **꺼져** 집계 건수와 일치하는가?

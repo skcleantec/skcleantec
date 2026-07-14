@@ -6,9 +6,15 @@ import {
   parseInquiryListSortQuery,
   defaultInquiryListSortDir,
   DEFAULT_INQUIRY_LIST_SORT,
+  inquiryListSortTier,
   type InquiryListSortField,
   type InquiryListSortOptions,
 } from '@shared/inquiryListSort';
+import {
+  inquiryListPinTierStyle,
+  inquiryListRowUsesHappyCallTone,
+  INQUIRY_LIST_PIN_TIER_LABELS,
+} from '../../utils/inquiryListPinTierStyle';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { createPortal, flushSync } from 'react-dom';
 import {
@@ -552,21 +558,6 @@ interface InquiryItem {
   inspectionSummary?: import('../../api/inquiryInspection').InspectionListSummary | null;
 }
 
-/** 대기·입금완료·미제출(발주서 고객 미제출) — 분배 불가·행 강조 등 */
-function isPreReceiveInquiryRow(item: InquiryItem): boolean {
-  return (
-    item.status === 'PENDING' ||
-    item.status === 'DEPOSIT_COMPLETED' ||
-    item.status === 'ORDER_FORM_PENDING' ||
-    /** 마이그레이션 전 데이터: DB상 입금완료/대기 + 발주서만 연결 */
-    Boolean(
-      item.orderForm?.id &&
-        !item.orderForm.submittedAt &&
-        (item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED')
-    )
-  );
-}
-
 /** 발주서 링크 발급됨·고객 미제출 — 툴팁·배정 안내 */
 function isInquiryLinkedOrderFormPendingSubmit(item: InquiryItem): boolean {
   if (item.status === 'ORDER_FORM_PENDING') return true;
@@ -587,29 +578,42 @@ function InquiryProfOptionsReviewListBadge({ item }: { item: InquiryItem }) {
   return null;
 }
 
-/** 모바일 카드 목록 — 표와 동일한 강조(대기·해피콜 톤) */
-function inquiryMobileCardShellClass(item: InquiryItem): string {
-  const isPreOrder = isPreReceiveInquiryRow(item);
+/** 모바일 카드 목록 — pin tier·해피콜 강조 */
+function inquiryMobileCardShellClass(item: InquiryItem, prevItem?: InquiryItem | null): string {
+  const pinStyle = inquiryListPinTierStyle(item);
   const isOnHold = item.status === 'ON_HOLD';
-  const isDepositPending = item.status === 'DEPOSIT_PENDING';
   const hasAssignment = item.assignments.length > 0;
-  const hcTone = isPreOrder || isOnHold || isDepositPending
-    ? ('none' as const)
-    : happyCallRowTone(
-        new Date(),
-        item.status,
-        item.preferredDate,
-        item.happyCallCompletedAt,
-        hasAssignment
-      );
+  const hcTone =
+    inquiryListRowUsesHappyCallTone(item) && !isOnHold
+      ? happyCallRowTone(
+          new Date(),
+          item.status,
+          item.preferredDate,
+          item.happyCallCompletedAt,
+          hasAssignment,
+        )
+      : ('none' as const);
   const base =
     'rounded-2xl border text-left outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-400 touch-manipulation shadow-md shadow-slate-100/40 hover:shadow-lg hover:scale-[1.01] overflow-hidden';
-  if (isPreOrder) return `${base} border-red-400 bg-red-50/50 ring-1 ring-red-200/30`;
+  const tierChanged =
+    prevItem != null && inquiryListSortTier(prevItem) !== pinStyle.tier && pinStyle.isPinned;
+  const groupGap = tierChanged ? pinStyle.groupTop : '';
+  if (pinStyle.isPinned) return `${base} ${pinStyle.mobileCard} ${groupGap}`;
   if (isOnHold) return `${base} border-amber-400 bg-amber-50/50 ring-1 ring-amber-200/30`;
-  if (isDepositPending) return `${base} border-sky-400 bg-sky-50/50 ring-1 ring-sky-200/30`;
   if (hcTone === 'overdue') return `${base} border-red-200 bg-red-50/60`;
   if (hcTone === 'pending') return `${base} border-amber-200 bg-amber-50/60`;
-  return `${base} border-slate-200/60 bg-white hover:border-slate-300`;
+  return `${base} ${pinStyle.mobileCard}`;
+}
+
+function inquiryListPinRowTitle(item: InquiryItem): string {
+  if (isInquiryLinkedOrderFormPendingSubmit(item)) {
+    return '발주서 링크 발급됨 · 고객 미제출(제출 시 접수) · 목록 상단 고정 · 행을 누르면 상세보기';
+  }
+  const tier = inquiryListSortTier(item);
+  if (tier === 1) return '입금완료 · 목록 상단 고정 · 행을 누르면 상세보기';
+  if (tier === 2) return '입금대기 · 목록 상단 고정 · 행을 누르면 상세보기';
+  if (tier === 3) return '대기 · 목록 상단 고정 · 행을 누르면 상세보기';
+  return '행을 누르면 상세보기';
 }
 
 /** PC·모바일 접수 목록 행 작업 버튼 */
@@ -2755,6 +2759,30 @@ export function AdminInquiriesPage() {
         </div>
       )}
 
+      {!marketerStatsDay ? (
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-fluid-2xs text-slate-600">
+        <span className="font-medium text-slate-700">목록 상단 고정</span>
+        <span className="text-slate-500">(날짜·상태 필터와 무관)</span>
+        {([0, 1, 2, 3] as const).map((tier) => (
+          <span key={tier} className="inline-flex items-center gap-1">
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-sm border ${
+                tier === 0
+                  ? 'border-red-400 bg-red-50'
+                  : tier === 1
+                    ? 'border-emerald-400 bg-emerald-50'
+                    : tier === 2
+                      ? 'border-sky-400 bg-sky-50'
+                      : 'border-amber-400 bg-amber-50'
+              }`}
+              aria-hidden
+            />
+            {INQUIRY_LIST_PIN_TIER_LABELS[tier]}
+          </span>
+        ))}
+      </div>
+      ) : null}
+
       <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm min-w-0 overflow-x-hidden">
         {shouldShowListBlockingLoading(loading, items.length) ? (
           <div className="p-8 text-center text-slate-500 text-fluid-sm">로딩 중...</div>
@@ -2770,12 +2798,13 @@ export function AdminInquiriesPage() {
               카드를 누르면 상세 수정 화면이 열립니다. 아래 한 줄에서 상태·빠른 배정을 바꾸고, 그 아래 작업 버튼을 쓸 수 있습니다.
             </p>
             <div className="flex flex-col gap-3 p-3">
-              {items.map((item) => {
+              {items.map((item, idx) => {
                 const addrFull = inquiryListAddressFull(item.address, item.addressDetail);
                 const addrShort = addressListShortSiGu(item.address);
                 const mobileSpecsTail = formatInquiryMobileSpecsTail(item, oneRoomLabel);
+                const prevItem = idx > 0 ? items[idx - 1]! : null;
                 return (
-                  <div key={item.id} className={inquiryMobileCardShellClass(item)}>
+                  <div key={item.id} className={inquiryMobileCardShellClass(item, prevItem)}>
                     <div
                       role="button"
                       tabIndex={0}
@@ -3197,56 +3226,58 @@ export function AdminInquiriesPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => {
-                  const isPreOrder = isPreReceiveInquiryRow(item);
-                  const pBorder = isPreOrder ? 'border-t-2 border-b-2 border-red-400' : 'border-b border-slate-100/80';
-                  const hcTone = isPreOrder
-                    ? ('none' as const)
-                    : happyCallRowTone(
-                        new Date(),
-                        item.status,
-                        item.preferredDate,
-                        item.happyCallCompletedAt,
-                        item.assignments.length > 0
-                      );
-                  const stickyBg = isPreOrder
-                    ? 'bg-red-50/50'
+                {items.map((item, idx) => {
+                  const pinStyle = inquiryListPinTierStyle(item);
+                  const prevItem = idx > 0 ? items[idx - 1]! : null;
+                  const tierGroupTop =
+                    pinStyle.isPinned &&
+                    prevItem != null &&
+                    inquiryListSortTier(prevItem) !== pinStyle.tier
+                      ? pinStyle.groupTop
+                      : '';
+                  const pBorder = pinStyle.pBorder;
+                  const hcTone =
+                    inquiryListRowUsesHappyCallTone(item)
+                      ? happyCallRowTone(
+                          new Date(),
+                          item.status,
+                          item.preferredDate,
+                          item.happyCallCompletedAt,
+                          item.assignments.length > 0,
+                        )
+                      : ('none' as const);
+                  const stickyBg = pinStyle.isPinned
+                    ? pinStyle.stickyBg
                     : hcTone === 'overdue'
                       ? 'bg-red-50/60'
                       : hcTone === 'pending'
                         ? 'bg-amber-50/50'
-                        : 'bg-white';
-                  const stickyHover = isPreOrder
-                    ? 'group-hover:bg-red-50/80'
+                        : pinStyle.stickyBg;
+                  const stickyHover = pinStyle.isPinned
+                    ? pinStyle.stickyHover
                     : hcTone === 'overdue'
                       ? 'group-hover:bg-red-100/40'
                       : hcTone === 'pending'
                         ? 'group-hover:bg-amber-100/45'
-                        : 'group-hover:bg-slate-50/80';
-                  const stickyR = isPreOrder ? 'border-r border-red-200' : 'border-r border-slate-100/80';
-                  const rowHover = isPreOrder
-                    ? 'hover:bg-red-50/70'
+                        : pinStyle.stickyHover;
+                  const stickyR = pinStyle.stickyR;
+                  const rowHover = pinStyle.isPinned
+                    ? pinStyle.rowHover
                     : hcTone === 'overdue'
                       ? 'hover:bg-red-100/50'
                       : hcTone === 'pending'
                         ? 'hover:bg-amber-100/40'
-                        : 'hover:bg-slate-50/80';
+                        : pinStyle.rowHover;
                   const phoneSplit = phoneListTwoLines(item.customerPhone);
                   return (
                   <tr
                     key={item.id}
-                    className={`cursor-pointer group active:bg-slate-100 ${rowHover}`}
+                    className={`cursor-pointer group active:bg-slate-100 ${rowHover} ${tierGroupTop}`}
                     onClick={() => openEdit(item)}
-                    title={
-                      isInquiryLinkedOrderFormPendingSubmit(item)
-                        ? '발주서 링크 발급됨 · 고객 미제출(제출 시 접수) · 행을 누르면 상세보기'
-                        : isPreOrder
-                          ? '대기·입금완료(발주서 미연결 또는 고객 미제출) · 행을 누르면 상세보기'
-                          : '행을 누르면 상세보기'
-                    }
+                    title={inquiryListPinRowTitle(item)}
                   >
                     <td
-                      className={`sticky left-0 z-10 min-w-0 align-middle px-1 py-0.5 text-slate-700 xl:px-1.5 ${stickyBg} ${stickyR} ${pBorder} ${isPreOrder ? 'border-l-2 border-l-red-500' : ''} ${stickyHover}`}
+                      className={`sticky left-0 z-10 min-w-0 align-middle px-1 py-0.5 text-slate-700 xl:px-1.5 ${stickyBg} ${stickyR} ${pBorder} ${pinStyle.stickyLeft} ${stickyHover}`}
                     >
                       <span className="block leading-tight tabular-nums text-fluid-2xs xl:text-fluid-xs">
                         {formatDateCompactWithWeekday(item.createdAt)}
@@ -3431,7 +3462,7 @@ export function AdminInquiriesPage() {
                       </select>
                     </td>
                     <td
-                      className={`min-w-0 align-middle px-1 py-0.5 xl:px-1.5 ${pBorder} ${isPreOrder ? 'border-r-2 border-r-red-500' : ''}`}
+                      className={`min-w-0 align-middle px-1 py-0.5 xl:px-1.5 ${pBorder} ${pinStyle.stickyRight}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex flex-wrap content-start items-center justify-start gap-1">

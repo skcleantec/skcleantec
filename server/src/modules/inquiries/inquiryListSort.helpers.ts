@@ -4,6 +4,7 @@
 import type { Prisma } from '@prisma/client';
 import type { prisma } from '../../lib/prisma.js';
 import {
+  isInquiryListPinnedPreReceive,
   isInquiryOrderFormPendingSubmit,
   sortInquiryListRows,
   type InquiryListSortOptions,
@@ -18,7 +19,7 @@ export type InquiryListSortable = {
   orderForm: { submittedAt: Date | null; createdAt: Date } | null;
 };
 
-export { isInquiryOrderFormPendingSubmit };
+export { isInquiryListPinnedPreReceive, isInquiryOrderFormPendingSubmit };
 
 function sortInquiryListSortables<T extends InquiryListSortable>(
   rows: T[],
@@ -27,7 +28,7 @@ function sortInquiryListSortables<T extends InquiryListSortable>(
   return sortInquiryListRows(rows, sort);
 }
 
-/** 발주서 미제출 — Prisma where (목록 상단 고정·필터 OR 용) */
+/** 발주서 미제출 — Prisma where (레거시 OR 포함) */
 export function whereInquiryOrderFormPendingSubmit(): Prisma.InquiryWhereInput {
   return {
     OR: [
@@ -37,6 +38,15 @@ export function whereInquiryOrderFormPendingSubmit(): Prisma.InquiryWhereInput {
         orderForm: { is: { submittedAt: null } },
       },
     ],
+  };
+}
+
+/** 처리 전 4종 — Prisma where (목록 상단 pin·필터 OR 용) */
+export function whereInquiryListPinnedPreReceive(): Prisma.InquiryWhereInput {
+  return {
+    status: {
+      in: ['ORDER_FORM_PENDING', 'PENDING', 'DEPOSIT_PENDING', 'DEPOSIT_COMPLETED'],
+    },
   };
 }
 
@@ -84,14 +94,16 @@ async function fetchFilteredInquiryPageIds(
 type PrismaClient = typeof prisma;
 
 /**
- * 필터 결과 + (선택) 날짜·상태와 무관한 미제출 고정 행을 합친 뒤 tier 정렬·페이지 slice.
- * `pinPendingWhere` 가 있으면 해당 미제출은 **항상 목록 최상단**에 두고, 이어서 `where` 필터 결과를 붙인다.
+ * 필터 결과 + (선택) 날짜·상태와 무관한 처리 전(pin) 행을 합친 뒤 tier 정렬·페이지 slice.
+ * `pinPreReceiveWhere` 가 있으면 tier 0~3을 **항상 목록 최상단**에 두고, 이어서 `where` 필터 결과를 붙인다.
  */
 export async function fetchInquiryListPageSorted<TInclude extends Prisma.InquiryInclude>(
   db: PrismaClient,
   args: {
     where: Prisma.InquiryWhereInput;
-    /** 설정 시 접수일·예약일·상태 등 `where` 와 무관하게 미제출을 목록에 포함·최상단 고정 */
+    /** 설정 시 접수일·예약일·상태 등 `where` 와 무관하게 처리 전 4종을 목록에 포함·최상단 고정 */
+    pinPreReceiveWhere?: Prisma.InquiryWhereInput | null;
+    /** @deprecated pinPreReceiveWhere 사용 */
     pinPendingWhere?: Prisma.InquiryWhereInput | null;
     include: TInclude;
     take: number;
@@ -100,15 +112,16 @@ export async function fetchInquiryListPageSorted<TInclude extends Prisma.Inquiry
   },
 ): Promise<{ items: Prisma.InquiryGetPayload<{ include: TInclude }>[]; total: number }> {
   const sort = args.sort ?? DEFAULT_INQUIRY_LIST_SORT;
+  const pinWhere = args.pinPreReceiveWhere ?? args.pinPendingWhere ?? null;
 
   let pendingSorted: SortRow[] = [];
-  if (args.pinPendingWhere) {
+  if (pinWhere) {
     const pendingSortRows = await db.inquiry.findMany({
-      where: args.pinPendingWhere,
+      where: pinWhere,
       select: inquiryListSortSelect,
     });
     pendingSorted = sortInquiryListSortables(
-      pendingSortRows.filter((r) => isInquiryOrderFormPendingSubmit(r)),
+      pendingSortRows.filter((r) => isInquiryListPinnedPreReceive(r)),
       sort,
     );
   }
