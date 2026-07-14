@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { ADMIN_INQUIRIES_NAV_ITEMS } from '../../constants/adminInquiriesNav';
 import { AdminCollapsibleSectionSideNav, type AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
-import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { getToken } from '../../stores/auth';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
@@ -13,6 +12,7 @@ import {
   firstAllowedAdminSideNavPath,
 } from '../../utils/filterAdminSideNavByPermissions';
 import { canAccessAdminPath } from '@shared/marketerPermissionNav';
+import { useInquiriesSubNavBadges } from '../../utils/adminInquiriesNavBadges';
 
 const ADMIN_INQUIRIES_SIDE_NAV_COLLAPSED_KEY = 'skcleanteck:admin-inquiries-side-nav-collapsed';
 const REVIEW_PAYBACK_PATH = '/admin/inquiries/review-payback';
@@ -74,48 +74,24 @@ export function AdminInquiriesLayout() {
   const location = useLocation();
   const { features } = useTenantCapabilities();
   const { ready, staffMe } = useAdminStaffSession();
-  const [reviewPaybackBadge, setReviewPaybackBadge] = useState(0);
-  const [csPendingBadge, setCsPendingBadge] = useState(0);
-  const [leadsPendingBadge, setLeadsPendingBadge] = useState(0);
-
-  const refreshBadges = useCallback(async () => {
-    if (!token) return;
-    try {
-      const r = await getAdminNavBadges(token);
-      setReviewPaybackBadge(r.reviewPaybackUnseenCount);
-      setCsPendingBadge(r.csPendingCount);
-      setLeadsPendingBadge(r.leadsPendingCount);
-    } catch {
-      /* ignore */
-    }
-  }, [token]);
-
-  /** GNB 배지 갱신(AdminLayout WS·디바운스)과 동기 — 별도 WS·마운트 fetch 없음 */
-  useEffect(() => {
-    (window as { __refreshInquiriesSubNavBadges?: () => void }).__refreshInquiriesSubNavBadges = () => {
-      void refreshBadges();
-    };
-    return () => {
-      delete (window as { __refreshInquiriesSubNavBadges?: () => void }).__refreshInquiriesSubNavBadges;
-    };
-  }, [refreshBadges]);
+  const { badges } = useInquiriesSubNavBadges(ready && Boolean(token));
 
   const navItems = useMemo(() => {
     const withBadge = ADMIN_INQUIRIES_NAV_ITEMS.map((item) => {
       if (item.type === 'link' && item.to === REVIEW_PAYBACK_PATH) {
-        return { ...item, badge: reviewPaybackBadge };
+        return { ...item, badge: badges.reviewPaybackUnseenCount };
       }
       if (item.type === 'link' && item.to === CS_PATH) {
-        return { ...item, badge: csPendingBadge };
+        return { ...item, badge: badges.csPendingCount };
       }
       if (item.type === 'link' && item.to === LEADS_PATH) {
-        return { ...item, badge: leadsPendingBadge };
+        return { ...item, badge: badges.leadsPendingCount };
       }
       return item;
     });
     const byFeature = filterAdminSideNavItems(withBadge, features);
     return filterAdminSideNavByPermissions(byFeature, staffMe);
-  }, [reviewPaybackBadge, csPendingBadge, leadsPendingBadge, features, staffMe]);
+  }, [badges, features, staffMe]);
 
   const pathAllowed = useMemo(
     () => canAccessAdminPath(staffMe?.role, staffMe?.marketerPermissions, location.pathname),

@@ -10,9 +10,10 @@ import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-do
 import { clearToken, getToken, subscribeAdminAuth } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, setTeamToken } from '../../stores/teamAuth';
 import { getAdminNavBadges } from '../../api/adminNavBadges';
+import { notifyInquiriesSubNavBadgesRefresh } from '../../utils/adminInquiriesNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { resolveEffectiveStaffAdminFromMe, hasStaffPermission, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
+import { resolveEffectiveStaffAdminFromMe, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
 import { useDebouncedCallback } from '../../utils/debounceCallback';
 import {
   adminNavPrefetchHandlers,
@@ -519,7 +520,7 @@ export function AdminLayout() {
         setCsPendingCount(r.csPendingCount);
         setReviewPaybackUnseenCount(r.reviewPaybackUnseenCount);
         setLeadsPendingCount(r.leadsPendingCount);
-        (window as { __refreshInquiriesSubNavBadges?: () => void }).__refreshInquiriesSubNavBadges?.();
+        notifyInquiriesSubNavBadgesRefresh();
       })
       .catch(() => {});
     if (tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace')) {
@@ -569,8 +570,7 @@ export function AdminLayout() {
     adminToken &&
       (meRole === 'ADMIN' || meRole === 'MARKETER') &&
       tenantFeatures &&
-      hasFeature(tenantFeatures, 'mod_landing_inquiry') &&
-      hasStaffPermission(staffMe, 'leads.view'),
+      hasFeature(tenantFeatures, 'mod_landing_inquiry'),
   );
 
   useLandingContactRealtime(

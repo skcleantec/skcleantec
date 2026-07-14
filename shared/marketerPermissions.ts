@@ -125,7 +125,7 @@ export const MARKETER_PERMISSION_GROUPS: MarketerPermissionGroup[] = [
       {
         id: 'leads.view',
         label: '문의내역 조회',
-        description: '랜딩·외부 페이지 문의 목록·상세',
+        description: '조회는 마케터·관리자 공통(별도 체크 불필요). 레거시 권한 ID',
         featureModuleId: 'mod_landing_inquiry',
       },
       {
