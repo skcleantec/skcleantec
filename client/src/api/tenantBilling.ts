@@ -29,6 +29,7 @@ export type TenantBillingSummary = {
     label: string;
     detail: string | null;
   };
+  paymentConfirmationEnabled: boolean;
 };
 
 export type TenantBillingInvoice = {
@@ -46,6 +47,10 @@ export type TenantBillingInvoice = {
   createdAt: string;
 };
 
+import type {
+  TenantBillingDunningPopupContent,
+} from '@shared/tenantBilling';
+
 export type TenantBillingDunning = {
   showDunning: boolean;
   overdueGraceDays: number;
@@ -58,6 +63,8 @@ export type TenantBillingDunning = {
     accountHolder: string | null;
     paymentGuideText: string | null;
   };
+  popup: TenantBillingDunningPopupContent;
+  paymentConfirmationEnabled: boolean;
 };
 
 function authHeaders(token: string) {
@@ -68,6 +75,16 @@ export async function fetchTenantBillingDunning(token: string) {
   const res = await fetch(`${API}/admin/tenant-billing/dunning`, { headers: authHeaders(token) });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '연체 안내 조회 실패'));
   return res.json() as Promise<TenantBillingDunning>;
+}
+
+export async function requestTenantPaymentConfirmation(token: string, invoiceId: string) {
+  const res = await fetch(`${API}/admin/tenant-billing/payment-confirmation-request`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invoiceId }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '입금 확인 요청 실패'));
+  return res.json() as Promise<{ ok: true; emailSent: boolean; message: string }>;
 }
 
 export async function fetchTenantBillingSummary(token: string) {

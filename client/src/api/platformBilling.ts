@@ -10,12 +10,31 @@ function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
+export type PlatformSmtpSettingsPublic = {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  from: string;
+  passwordConfigured: boolean;
+  configured: boolean;
+  envFallbackAvailable: boolean;
+  effectiveConfigured: boolean;
+};
+
 export type PlatformBillingSettings = {
   bankName: string | null;
   accountNumber: string | null;
   accountHolder: string | null;
   paymentGuideText: string | null;
   overdueGraceDays: number;
+  dunningPopupTitle: string | null;
+  dunningPopupSubtitle: string | null;
+  dunningPopupBody: string | null;
+  dunningBlockSoonText: string | null;
+  dunningBlockTodayText: string | null;
+  dunningPaymentNotifyEmail: string | null;
+  smtp: PlatformSmtpSettingsPublic;
   updatedAt: string;
 };
 
@@ -138,8 +157,26 @@ export type PlatformTenantBillingDetail = {
     };
   };
   invoices: TenantInvoiceRow[];
-  schedule: BillingScheduleRow[];
   adjustments: BillingAdjustmentRow[];
+};
+
+export type BillingScheduleListResponse = {
+  billingStartDate: string | null;
+  serviceStartedAt: string | null;
+  profile: BillingProfileRow;
+  items: BillingScheduleRow[];
+  total: number;
+  limit: number;
+  offset: number;
+  adjustments: BillingAdjustmentRow[];
+};
+
+export type BillingScheduleListQuery = {
+  datePreset?: 'today' | 'all' | 'month' | 'day';
+  month?: string;
+  day?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export type PatchBillingProfileBody = {
@@ -160,9 +197,28 @@ export async function getPlatformBillingSettings(token: string) {
   return res.json() as Promise<PlatformBillingSettings>;
 }
 
+export async function sendPlatformBillingSmtpTest(token: string, to: string) {
+  const res = await fetch(`${API}/platform/billing/smtp/test`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ to }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '테스트 발송 실패'));
+  return res.json() as Promise<{ ok: true; message: string }>;
+}
+
 export async function patchPlatformBillingSettings(
   token: string,
-  body: Partial<Omit<PlatformBillingSettings, 'updatedAt'>>,
+  body: Partial<Omit<PlatformBillingSettings, 'updatedAt' | 'smtp'>> & {
+    smtp?: {
+      host?: string;
+      port?: number | null;
+      secure?: boolean;
+      user?: string;
+      from?: string;
+      password?: string;
+    };
+  },
 ) {
   const res = await fetch(`${API}/platform/billing/settings`, {
     method: 'PATCH',
@@ -184,6 +240,26 @@ export async function getPlatformTenantBilling(token: string, tenantId: string) 
   const res = await fetch(`${API}/platform/billing/tenants/${tenantId}`, { headers: authHeaders(token) });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '결제 정보 조회 실패'));
   return res.json() as Promise<PlatformTenantBillingDetail>;
+}
+
+export async function getPlatformTenantBillingSchedule(
+  token: string,
+  tenantId: string,
+  query: BillingScheduleListQuery = {},
+) {
+  const params = new URLSearchParams();
+  if (query.datePreset) params.set('datePreset', query.datePreset);
+  if (query.month) params.set('month', query.month);
+  if (query.day) params.set('day', query.day);
+  if (query.page != null) params.set('page', String(query.page));
+  if (query.pageSize != null) params.set('pageSize', String(query.pageSize));
+  const qs = params.toString();
+  const res = await fetch(
+    `${API}/platform/billing/tenants/${tenantId}/schedule${qs ? `?${qs}` : ''}`,
+    { headers: authHeaders(token) },
+  );
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '청구 일정 조회 실패'));
+  return res.json() as Promise<BillingScheduleListResponse>;
 }
 
 export async function patchPlatformTenantBillingProfile(
@@ -241,13 +317,31 @@ export async function confirmPlatformPrepaid(token: string, tenantId: string) {
   return res.json() as Promise<{ prepaidConfirmedAt: string; serviceStartsAt: string; message: string }>;
 }
 
-export async function issuePlatformTenantInvoice(token: string, tenantId: string) {
+export async function issuePlatformTenantInvoice(
+  token: string,
+  tenantId: string,
+  opts?: { periodStart?: string },
+) {
   const res = await fetch(`${API}/platform/billing/tenants/${tenantId}/invoices`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ asDraft: false }),
+    body: JSON.stringify({ asDraft: false, periodStart: opts?.periodStart }),
   });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '청구서 발행 실패'));
+  return res.json() as Promise<{ invoice: TenantInvoiceRow }>;
+}
+
+export async function confirmPlatformSchedulePeriodPayment(
+  token: string,
+  tenantId: string,
+  periodStart: string,
+) {
+  const res = await fetch(`${API}/platform/billing/tenants/${tenantId}/schedule-periods/confirm-payment`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ periodStart }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '납부 확인 실패'));
   return res.json() as Promise<{ invoice: TenantInvoiceRow }>;
 }
 
@@ -257,5 +351,14 @@ export async function confirmPlatformInvoicePayment(token: string, invoiceId: st
     headers: authHeaders(token),
   });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '납부 확인 실패'));
+  return res.json() as Promise<{ invoice: TenantInvoiceRow }>;
+}
+
+export async function voidPlatformInvoice(token: string, invoiceId: string) {
+  const res = await fetch(`${API}/platform/billing/invoices/${invoiceId}/void`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '청구 취소 실패'));
   return res.json() as Promise<{ invoice: TenantInvoiceRow }>;
 }

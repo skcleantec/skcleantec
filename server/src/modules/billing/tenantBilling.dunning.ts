@@ -1,6 +1,10 @@
 import { prisma } from '../../lib/prisma.js';
 import { TENANT_BILLING_DEFAULT_GRACE_DAYS } from './tenantBilling.constants.js';
 import {
+  resolveTenantBillingDunningPopupContent,
+  type TenantBillingDunningPopupContent,
+} from './tenantBilling.dunningPopup.js';
+import {
   billingAccessBlockStartsAt,
   kstCalendarDaysUntil,
   kstStartOfDayUtc,
@@ -8,6 +12,7 @@ import {
 } from './tenantBilling.dates.js';
 import { ensurePlatformBillingSettings, type InvoiceDto } from './tenantBilling.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
+import { isPaymentConfirmationRequestEnabled } from './tenantBilling.paymentRequest.service.js';
 
 export type TenantBillingDunningDto = {
   showDunning: boolean;
@@ -21,6 +26,8 @@ export type TenantBillingDunningDto = {
     accountHolder: string | null;
     paymentGuideText: string | null;
   };
+  popup: TenantBillingDunningPopupContent;
+  paymentConfirmationEnabled: boolean;
 };
 
 function mapInvoiceRow(row: {
@@ -80,6 +87,8 @@ export async function getTenantBillingDunningForAdmin(tenantId: string): Promise
     accountHolder: settings.accountHolder,
     paymentGuideText: settings.paymentGuideText,
   };
+  const popup = resolveTenantBillingDunningPopupContent(settings);
+  const paymentConfirmationEnabled = isPaymentConfirmationRequestEnabled(settings.dunningPaymentNotifyEmail);
 
   if (tenant.billingAccessBlockedAt) {
     return {
@@ -89,6 +98,8 @@ export async function getTenantBillingDunningForAdmin(tenantId: string): Promise
       accessBlockAt: null,
       invoice: null,
       bank,
+      popup,
+      paymentConfirmationEnabled,
     };
   }
 
@@ -110,6 +121,8 @@ export async function getTenantBillingDunningForAdmin(tenantId: string): Promise
       accessBlockAt: null,
       invoice: null,
       bank,
+      popup,
+      paymentConfirmationEnabled,
     };
   }
 
@@ -123,5 +136,7 @@ export async function getTenantBillingDunningForAdmin(tenantId: string): Promise
     accessBlockAt: blockAt.toISOString(),
     invoice: mapInvoiceRow(invoiceRow),
     bank,
+    popup,
+    paymentConfirmationEnabled,
   };
 }

@@ -291,6 +291,16 @@ export const PlatformHelpInquirySettingsPage = lazyWithRetry(() =>
     default: m.PlatformHelpInquirySettingsPage,
   }))
 );
+export const PlatformUnpaidPopupSettingsPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformUnpaidPopupSettingsPage').then((m) => ({
+    default: m.PlatformUnpaidPopupSettingsPage,
+  }))
+);
+export const PlatformSettingsPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformSettingsPage').then((m) => ({
+    default: m.PlatformSettingsPage,
+  }))
+);
 export const HelpPage = lazyWithRetry(() =>
   import('../pages/HelpPage').then((m) => ({ default: m.HelpPage }))
 );

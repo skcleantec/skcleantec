@@ -10,6 +10,43 @@ export const TENANT_PREPAID_SERVICE_DELAY_DAYS = 7;
 export const TENANT_BILLING_ANNUAL_DISCOUNT_RATE = 0.15;
 export const TENANT_BILLING_DEFAULT_GRACE_DAYS = 3;
 
+/** ADMIN 미결재 독촉 팝업 — 플랫폼에서 편집 (null이면 아래 기본값) */
+export type TenantBillingDunningPopupContent = {
+  title: string;
+  subtitle: string;
+  body: string;
+  blockSoonText: string;
+  blockTodayText: string;
+};
+
+export const TENANT_BILLING_DUNNING_POPUP_DEFAULTS: TenantBillingDunningPopupContent = {
+  title: '이용료 납부 안내',
+  subtitle: '납부기한이 지난 청구가 있습니다',
+  body: '청소비서 이용료를 아직 확인하지 못했습니다. 입금 후에도 반영까지 시간이 걸릴 수 있습니다.',
+  blockSoonText: '{days}일 후 업무 접속이 제한됩니다',
+  blockTodayText: '오늘 중 업무 접속이 제한될 수 있습니다. 즉시 납부해 주세요.',
+};
+
+export function resolveTenantBillingDunningPopupContent(raw: {
+  dunningPopupTitle?: string | null;
+  dunningPopupSubtitle?: string | null;
+  dunningPopupBody?: string | null;
+  dunningBlockSoonText?: string | null;
+  dunningBlockTodayText?: string | null;
+}): TenantBillingDunningPopupContent {
+  return {
+    title: raw.dunningPopupTitle?.trim() || TENANT_BILLING_DUNNING_POPUP_DEFAULTS.title,
+    subtitle: raw.dunningPopupSubtitle?.trim() || TENANT_BILLING_DUNNING_POPUP_DEFAULTS.subtitle,
+    body: raw.dunningPopupBody?.trim() || TENANT_BILLING_DUNNING_POPUP_DEFAULTS.body,
+    blockSoonText: raw.dunningBlockSoonText?.trim() || TENANT_BILLING_DUNNING_POPUP_DEFAULTS.blockSoonText,
+    blockTodayText: raw.dunningBlockTodayText?.trim() || TENANT_BILLING_DUNNING_POPUP_DEFAULTS.blockTodayText,
+  };
+}
+
+export function formatDunningBlockSoonText(template: string, days: number): string {
+  return template.replace(/\{days\}/g, String(days));
+}
+
 export type TenantBillingCycle = 'MONTHLY' | 'ANNUAL';
 export type TenantSuspendReason = 'TRIAL_EXPIRED' | 'BILLING_OVERDUE' | 'PLATFORM';
 export type TenantInvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'OVERDUE' | 'VOID';

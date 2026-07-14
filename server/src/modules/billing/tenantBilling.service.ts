@@ -33,11 +33,23 @@ import {
   resolvePeriodBaseAmountKrw,
   type BillingScheduleItem,
 } from './tenantBilling.schedule.js';
+import {
+  filterBillingScheduleItems,
+  paginateBillingScheduleItems,
+  type BillingScheduleListQuery,
+} from './tenantBilling.scheduleList.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import {
   resolveTenantBillingOperationalStatus,
   type TenantBillingOperationalStatus,
 } from './tenantBilling.operationalStatus.js';
+import { isPaymentConfirmationRequestEnabled } from './tenantBilling.paymentRequest.service.js';
+import {
+  buildPlatformSmtpPublic,
+  updatePlatformSmtpSettings,
+  type PlatformSmtpSettingsPublic,
+} from '../../lib/platformSmtp.service.js';
+import type { SmtpConfigPatch } from '../../lib/smtpConfigStored.js';
 
 export type BillingSettingsDto = {
   bankName: string | null;
@@ -45,6 +57,13 @@ export type BillingSettingsDto = {
   accountHolder: string | null;
   paymentGuideText: string | null;
   overdueGraceDays: number;
+  dunningPopupTitle: string | null;
+  dunningPopupSubtitle: string | null;
+  dunningPopupBody: string | null;
+  dunningBlockSoonText: string | null;
+  dunningBlockTodayText: string | null;
+  dunningPaymentNotifyEmail: string | null;
+  smtp: PlatformSmtpSettingsPublic;
   updatedAt: string;
 };
 
@@ -89,6 +108,7 @@ export type TenantBillingSummaryDto = {
   openInvoice: InvoiceDto | null;
   overdueInvoice: InvoiceDto | null;
   operationalStatus: TenantBillingOperationalStatus;
+  paymentConfirmationEnabled: boolean;
 };
 
 function mapInvoice(row: {
@@ -181,26 +201,40 @@ export async function loadTenantBillingScheduleContext(tenantId: string) {
             customAmountKrw: a.customAmountKrw,
             reason: a.reason,
           })),
+          futureScheduledMin: 1,
         })
       : [];
 
   return { tenant, profile, billingStart, schedule, invoices, adjustments };
 }
 
-export async function getTenantBillingSchedule(tenantId: string): Promise<{
+export async function getTenantBillingSchedule(
+  tenantId: string,
+  listQuery?: BillingScheduleListQuery,
+): Promise<{
   billingStartDate: string | null;
   serviceStartedAt: string | null;
   profile: BillingProfileDto;
   items: BillingScheduleItem[];
+  total: number;
+  limit: number;
+  offset: number;
   adjustments: BillingAdjustmentDto[];
 }> {
   const ctx = await loadTenantBillingScheduleContext(tenantId);
   const adjustments = await listTenantBillingAdjustments(tenantId);
+  const filtered = filterBillingScheduleItems(ctx.schedule, listQuery ?? { datePreset: 'all' });
+  const limit = listQuery?.limit ?? 30;
+  const offset = listQuery?.offset ?? 0;
+  const page = paginateBillingScheduleItems(filtered, limit, offset);
   return {
     billingStartDate: ctx.billingStart?.toISOString() ?? null,
     serviceStartedAt: ctx.tenant.serviceStartedAt?.toISOString() ?? null,
     profile: ctx.profile,
-    items: ctx.schedule,
+    items: page.items,
+    total: page.total,
+    limit,
+    offset,
     adjustments,
   };
 }
@@ -233,18 +267,28 @@ async function createInvoiceFromScheduleItem(
 
 export async function issueInvoiceForTenant(
   tenantId: string,
-  asDraft = false,
-  source: TenantInvoiceSource = 'MANUAL',
+  opts?: { asDraft?: boolean; source?: TenantInvoiceSource; periodStart?: string },
 ): Promise<InvoiceDto> {
+  const asDraft = opts?.asDraft ?? false;
+  const source = opts?.source ?? 'MANUAL';
   const ctx = await loadTenantBillingScheduleContext(tenantId);
   if (!ctx.billingStart) {
     throw new Error('과금 시작일이 없어 청구서를 발행할 수 없습니다.');
   }
 
-  const pending = findAutoIssueScheduleItems(ctx.schedule).filter((i) => !i.invoiceId);
-  const target = pending[0];
-  if (!target) {
-    throw new Error('발행할 청구 기간이 없습니다.');
+  let target: BillingScheduleItem | undefined;
+  if (opts?.periodStart) {
+    const key = opts.periodStart.trim();
+    target = ctx.schedule.find((i) => periodStartKey(new Date(i.periodStart)) === key);
+    if (!target) throw new Error('해당 기간을 일정에서 찾을 수 없습니다.');
+    if (target.invoiceId) throw new Error('해당 기간 청구서가 이미 있습니다.');
+    if (target.status === 'SKIPPED' || target.status === 'DEFERRED') {
+      throw new Error('면제·이월된 기간은 청구서를 발행할 수 없습니다.');
+    }
+  } else {
+    const pending = findAutoIssueScheduleItems(ctx.schedule).filter((i) => !i.invoiceId);
+    target = pending[0];
+    if (!target) throw new Error('발행할 청구 기간이 없습니다.');
   }
 
   const existing = await prisma.tenantInvoice.findFirst({
@@ -333,6 +377,13 @@ export async function getPlatformBillingSettings(): Promise<BillingSettingsDto> 
     accountHolder: row.accountHolder,
     paymentGuideText: row.paymentGuideText,
     overdueGraceDays: row.overdueGraceDays,
+    dunningPopupTitle: row.dunningPopupTitle,
+    dunningPopupSubtitle: row.dunningPopupSubtitle,
+    dunningPopupBody: row.dunningPopupBody,
+    dunningBlockSoonText: row.dunningBlockSoonText,
+    dunningBlockTodayText: row.dunningBlockTodayText,
+    dunningPaymentNotifyEmail: row.dunningPaymentNotifyEmail,
+    smtp: buildPlatformSmtpPublic(row),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -343,28 +394,41 @@ export async function updatePlatformBillingSettings(input: {
   accountHolder?: string | null;
   paymentGuideText?: string | null;
   overdueGraceDays?: number;
+  dunningPopupTitle?: string | null;
+  dunningPopupSubtitle?: string | null;
+  dunningPopupBody?: string | null;
+  dunningBlockSoonText?: string | null;
+  dunningBlockTodayText?: string | null;
+  dunningPaymentNotifyEmail?: string | null;
+  smtp?: SmtpConfigPatch;
 }): Promise<BillingSettingsDto> {
   await ensurePlatformBillingSettings();
-  const row = await prisma.platformBillingSettings.update({
+  const trimOrNull = (v: string | null | undefined) =>
+    v === undefined ? undefined : v?.trim() || null;
+  await prisma.platformBillingSettings.update({
     where: { id: 'default' },
     data: {
-      ...(input.bankName !== undefined ? { bankName: input.bankName?.trim() || null } : {}),
-      ...(input.accountNumber !== undefined ? { accountNumber: input.accountNumber?.trim() || null } : {}),
-      ...(input.accountHolder !== undefined ? { accountHolder: input.accountHolder?.trim() || null } : {}),
-      ...(input.paymentGuideText !== undefined ? { paymentGuideText: input.paymentGuideText?.trim() || null } : {}),
+      ...(input.bankName !== undefined ? { bankName: trimOrNull(input.bankName) ?? null } : {}),
+      ...(input.accountNumber !== undefined ? { accountNumber: trimOrNull(input.accountNumber) ?? null } : {}),
+      ...(input.accountHolder !== undefined ? { accountHolder: trimOrNull(input.accountHolder) ?? null } : {}),
+      ...(input.paymentGuideText !== undefined ? { paymentGuideText: trimOrNull(input.paymentGuideText) ?? null } : {}),
       ...(input.overdueGraceDays !== undefined
         ? { overdueGraceDays: Math.max(0, Math.min(30, Math.floor(input.overdueGraceDays))) }
         : {}),
+      ...(input.dunningPopupTitle !== undefined ? { dunningPopupTitle: trimOrNull(input.dunningPopupTitle) ?? null } : {}),
+      ...(input.dunningPopupSubtitle !== undefined ? { dunningPopupSubtitle: trimOrNull(input.dunningPopupSubtitle) ?? null } : {}),
+      ...(input.dunningPopupBody !== undefined ? { dunningPopupBody: trimOrNull(input.dunningPopupBody) ?? null } : {}),
+      ...(input.dunningBlockSoonText !== undefined ? { dunningBlockSoonText: trimOrNull(input.dunningBlockSoonText) ?? null } : {}),
+      ...(input.dunningBlockTodayText !== undefined ? { dunningBlockTodayText: trimOrNull(input.dunningBlockTodayText) ?? null } : {}),
+      ...(input.dunningPaymentNotifyEmail !== undefined
+        ? { dunningPaymentNotifyEmail: trimOrNull(input.dunningPaymentNotifyEmail) ?? null }
+        : {}),
     },
   });
-  return {
-    bankName: row.bankName,
-    accountNumber: row.accountNumber,
-    accountHolder: row.accountHolder,
-    paymentGuideText: row.paymentGuideText,
-    overdueGraceDays: row.overdueGraceDays,
-    updatedAt: row.updatedAt.toISOString(),
-  };
+  if (input.smtp !== undefined) {
+    await updatePlatformSmtpSettings(input.smtp);
+  }
+  return getPlatformBillingSettings();
 }
 
 export async function listTenantInvoices(tenantId: string, limit = 50): Promise<InvoiceDto[]> {
@@ -448,6 +512,7 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     openInvoice: openInvoice ? mapInvoice(openInvoice) : null,
     overdueInvoice: overdueInvoice ? mapInvoice(overdueInvoice) : null,
     operationalStatus,
+    paymentConfirmationEnabled: isPaymentConfirmationRequestEnabled(settings.dunningPaymentNotifyEmail),
   };
 }
 
@@ -567,11 +632,10 @@ export async function getTenantBillingDetailForPlatform(tenantId: string) {
   });
   if (!tenant) throw new TenantNotFoundError();
 
-  const [profile, invoices, summary, schedulePayload, adjustments] = await Promise.all([
+  const [profile, invoices, summary, adjustments] = await Promise.all([
     ensureTenantBillingProfile(tenantId).then(mapBillingProfile),
     listTenantInvoices(tenantId),
     getTenantBillingSummaryForAdmin(tenantId),
-    getTenantBillingSchedule(tenantId),
     listTenantBillingAdjustments(tenantId),
   ]);
 
@@ -587,7 +651,6 @@ export async function getTenantBillingDetailForPlatform(tenantId: string) {
     profile,
     summary,
     invoices,
-    schedule: schedulePayload.items,
     adjustments,
   };
 }
@@ -690,6 +753,56 @@ export async function confirmInvoicePayment(
     return inv;
   });
 
+  return mapInvoice(updated);
+}
+
+export async function confirmPaymentForSchedulePeriod(
+  tenantId: string,
+  periodStartYmd: string,
+  platformUserId: string,
+): Promise<InvoiceDto> {
+  const ctx = await loadTenantBillingScheduleContext(tenantId);
+  if (!ctx.billingStart) {
+    throw new Error('과금 시작일이 없어 입금 확인할 수 없습니다.');
+  }
+
+  const key = periodStartYmd.trim();
+  const target = ctx.schedule.find((i) => periodStartKey(new Date(i.periodStart)) === key);
+  if (!target) throw new Error('해당 기간을 일정에서 찾을 수 없습니다.');
+  if (target.status === 'PAID') throw new Error('이미 납부 확인된 기간입니다.');
+  if (target.status === 'SKIPPED' || target.status === 'DEFERRED') {
+    throw new Error('면제·이월된 기간은 입금 확인할 수 없습니다.');
+  }
+  if (target.amountKrw <= 0) throw new Error('청구 금액이 없습니다.');
+
+  if (target.invoiceId) {
+    const existing = await prisma.tenantInvoice.findUnique({ where: { id: target.invoiceId } });
+    if (existing?.status === 'PAID') throw new Error('이미 납부 확인된 청구서입니다.');
+    if (existing && existing.status !== 'VOID') {
+      return confirmInvoicePayment(target.invoiceId, platformUserId);
+    }
+  }
+
+  const issued = await createInvoiceFromScheduleItem(
+    tenantId,
+    ctx.tenant.plan,
+    ctx.profile,
+    target,
+    'MANUAL',
+  );
+  return confirmInvoicePayment(issued.id, platformUserId);
+}
+
+export async function voidTenantInvoice(invoiceId: string): Promise<InvoiceDto> {
+  const invoice = await prisma.tenantInvoice.findUnique({ where: { id: invoiceId } });
+  if (!invoice) throw new Error('청구서를 찾을 수 없습니다.');
+  if (invoice.status === 'PAID') throw new Error('납부 완료된 청구서는 취소할 수 없습니다.');
+  if (invoice.status === 'VOID') throw new Error('이미 취소된 청구서입니다.');
+
+  const updated = await prisma.tenantInvoice.update({
+    where: { id: invoiceId },
+    data: { status: 'VOID' },
+  });
   return mapInvoice(updated);
 }
 

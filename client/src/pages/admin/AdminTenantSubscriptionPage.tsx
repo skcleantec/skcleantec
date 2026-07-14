@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { fetchTenantSubscription, type TenantSubscriptionDto } from '../../api/tenantSubscription';
 import { fetchTenantBillingInvoices, fetchTenantBillingSchedule, fetchTenantBillingSummary, type TenantBillingSummary } from '../../api/tenantBilling';
 import { getToken } from '../../stores/auth';
+import { BillingPaymentConfirmationRequestButton } from '../../components/admin/BillingPaymentConfirmationRequestButton';
 import { usagePercent } from '@shared/tenantSubscriptionUsage';
 import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_SCHEDULE_STATUS_LABEL, TENANT_INVOICE_STATUS_LABEL, formatNextDueDateLabel, formatBillingAnchorDayLabel } from '@shared/tenantBilling';
 import { BillingOperationalBadge, PlanBadge, StatusBadge } from '../../utils/platformUi';
@@ -297,9 +298,9 @@ export function AdminTenantSubscriptionPage() {
               </div>
             )}
             {(billing.overdueInvoice || billing.openInvoice) && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 space-y-2">
                 <p className="font-medium">납부 안내</p>
-                <p className="mt-1">
+                <p>
                   {(billing.overdueInvoice ?? billing.openInvoice)!.amountKrw.toLocaleString('ko-KR')}원 · 납부기한{' '}
                   {new Date((billing.overdueInvoice ?? billing.openInvoice)!.dueDate).toLocaleDateString('ko-KR', {
                     timeZone: 'Asia/Seoul',
@@ -307,6 +308,12 @@ export function AdminTenantSubscriptionPage() {
                   {' · '}
                   {TENANT_INVOICE_STATUS_LABEL[(billing.overdueInvoice ?? billing.openInvoice)!.status as keyof typeof TENANT_INVOICE_STATUS_LABEL]}
                 </p>
+                {token && billing.paymentConfirmationEnabled ? (
+                  <BillingPaymentConfirmationRequestButton
+                    token={token}
+                    invoiceId={(billing.overdueInvoice ?? billing.openInvoice)!.id}
+                  />
+                ) : null}
               </div>
             )}
             {scheduleItems.length > 0 ? (

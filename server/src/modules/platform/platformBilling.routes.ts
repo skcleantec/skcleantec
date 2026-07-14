@@ -11,6 +11,7 @@ import {
 } from './platformAuth.middleware.js';
 import {
   confirmInvoicePayment,
+  confirmPaymentForSchedulePeriod,
   confirmPrepaidForTenant,
   createTenantBillingAdjustment,
   getPlatformBillingSettings,
@@ -22,17 +23,24 @@ import {
   updatePlatformBillingSettings,
   updateTenantBillingProfileContract,
   voidTenantBillingAdjustment,
+  voidTenantInvoice,
 } from '../billing/tenantBilling.service.js';
 import { updateTenantBasics } from './tenantProvisioning.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
+import { parseBillingScheduleListQuery } from '../billing/tenantBilling.scheduleList.js';
 
 const router = Router();
 
 router.use(platformAuthMiddleware);
 
 router.get('/settings', async (_req, res) => {
-  const settings = await getPlatformBillingSettings();
-  res.json(settings);
+  try {
+    const settings = await getPlatformBillingSettings();
+    res.json(settings);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '설정 조회에 실패했습니다.';
+    res.status(500).json({ error: msg });
+  }
 });
 
 router.patch('/settings', platformSuperAdminOnly, async (req, res) => {
@@ -43,11 +51,38 @@ router.patch('/settings', platformSuperAdminOnly, async (req, res) => {
       accountHolder?: string | null;
       paymentGuideText?: string | null;
       overdueGraceDays?: number;
+      dunningPopupTitle?: string | null;
+      dunningPopupSubtitle?: string | null;
+      dunningPopupBody?: string | null;
+      dunningBlockSoonText?: string | null;
+      dunningBlockTodayText?: string | null;
+      dunningPaymentNotifyEmail?: string | null;
+      smtp?: {
+        host?: string;
+        port?: number | null;
+        secure?: boolean;
+        user?: string;
+        from?: string;
+        password?: string;
+      };
     };
     const settings = await updatePlatformBillingSettings(body);
     res.json(settings);
   } catch (e) {
     const msg = e instanceof Error ? e.message : '저장에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.post('/smtp/test', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const body = req.body as { to?: string };
+    const to = typeof body.to === 'string' ? body.to.trim() : '';
+    const { sendPlatformSmtpTestMail } = await import('../../lib/platformSmtp.service.js');
+    await sendPlatformSmtpTestMail(to);
+    res.json({ ok: true, message: '테스트 메일을 발송했습니다.' });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '테스트 발송에 실패했습니다.';
     res.status(400).json({ error: msg });
   }
 });
@@ -72,7 +107,8 @@ router.get('/tenants/:tenantId', async (req, res) => {
 
 router.get('/tenants/:tenantId/schedule', async (req, res) => {
   try {
-    const schedule = await getTenantBillingSchedule(req.params.tenantId);
+    const listQuery = parseBillingScheduleListQuery(req.query as Record<string, unknown>);
+    const schedule = await getTenantBillingSchedule(req.params.tenantId, listQuery);
     res.json(schedule);
   } catch (e) {
     if (e instanceof TenantNotFoundError) {
@@ -187,8 +223,12 @@ router.get('/tenants/:tenantId/invoice-preview', async (req, res) => {
 
 router.post('/tenants/:tenantId/invoices', platformSuperAdminOnly, async (req, res) => {
   try {
-    const body = req.body as { asDraft?: boolean };
-    const invoice = await issueInvoiceForTenant(req.params.tenantId, body.asDraft === true, 'MANUAL');
+    const body = req.body as { asDraft?: boolean; periodStart?: string };
+    const invoice = await issueInvoiceForTenant(req.params.tenantId, {
+      asDraft: body.asDraft === true,
+      source: 'MANUAL',
+      periodStart: body.periodStart,
+    });
     res.status(201).json({ invoice });
   } catch (e) {
     const msg = e instanceof Error ? e.message : '청구서 발행에 실패했습니다.';
@@ -210,6 +250,26 @@ router.post('/tenants/:tenantId/prepaid-confirm', platformSuperAdminOnly, async 
   }
 });
 
+router.post('/tenants/:tenantId/schedule-periods/confirm-payment', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const platformUser = (req as PlatformScopedRequest).platformUser;
+    const body = req.body as { periodStart?: string };
+    if (!body.periodStart?.trim()) {
+      res.status(400).json({ error: 'periodStart가 필요합니다.' });
+      return;
+    }
+    const invoice = await confirmPaymentForSchedulePeriod(
+      req.params.tenantId,
+      body.periodStart.trim(),
+      platformUser.platformUserId,
+    );
+    res.json({ invoice });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '납부 확인에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
 router.post('/invoices/:invoiceId/confirm-payment', platformSuperAdminOnly, async (req, res) => {
   try {
     const platformUser = (req as PlatformScopedRequest).platformUser;
@@ -217,6 +277,16 @@ router.post('/invoices/:invoiceId/confirm-payment', platformSuperAdminOnly, asyn
     res.json({ invoice });
   } catch (e) {
     const msg = e instanceof Error ? e.message : '납부 확인에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.post('/invoices/:invoiceId/void', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const invoice = await voidTenantInvoice(req.params.invoiceId);
+    res.json({ invoice });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '청구 취소에 실패했습니다.';
     res.status(400).json({ error: msg });
   }
 });

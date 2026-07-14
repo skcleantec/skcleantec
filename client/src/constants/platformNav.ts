@@ -2,11 +2,18 @@ export type PlatformNavItem = {
   label: string;
   to: string;
   icon: string;
+  children?: { label: string; to: string }[];
 };
 
 export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
   { label: '업체 관리', to: '/platform/tenants', icon: '🏢' },
   { label: '결제 관리', to: '/platform/billing', icon: '💳' },
+  {
+    label: '안내팝업',
+    to: '/platform/popups/unpaid',
+    icon: '🔔',
+    children: [{ label: '미결재 팝업', to: '/platform/popups/unpaid' }],
+  },
   { label: '정보공유', to: '/platform/db-marketplace', icon: '🛒' },
   { label: '도움말 문의', to: '/platform/help-inquiry', icon: '💬' },
   { label: '지원 접속', to: '/platform/support-access', icon: '🔑' },
@@ -20,6 +27,9 @@ export function isPlatformNavActive(pathname: string, to: string): boolean {
   }
   if (to === '/platform/billing') {
     return pathname === '/platform/billing' || pathname.startsWith('/platform/billing/');
+  }
+  if (to === '/platform/popups/unpaid') {
+    return pathname === '/platform/popups/unpaid' || pathname.startsWith('/platform/popups/');
   }
   if (to === '/platform/help-inquiry') {
     return pathname === '/platform/help-inquiry' || pathname.startsWith('/platform/help-inquiry/');
