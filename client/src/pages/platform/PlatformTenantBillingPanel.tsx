@@ -386,6 +386,11 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
                     setContractForm((f) => (f ? { ...f, customMonthlyAmountKrw: e.target.value } : f))
                   }
                 />
+                {Number(contractForm.customMonthlyAmountKrw.replace(/,/g, '')) === 0 ? (
+                  <p className="mt-1 text-xs text-emerald-700">
+                    0원 약정 — 이용료·청구·미납 제한 없이 계속 이용 가능한 면제 업체로 처리됩니다.
+                  </p>
+                ) : null}
               </label>
               {contractForm.billingCycle === 'ANNUAL' ? (
                 <label className="block text-sm">

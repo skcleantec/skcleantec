@@ -45,6 +45,11 @@ import {
 } from './tenantBilling.operationalStatus.js';
 import { isPaymentConfirmationRequestEnabled } from './tenantBilling.paymentRequest.service.js';
 import {
+  applyTenantBillingFeeExemptState,
+  isBillingProfileDtoFeeExempt,
+  isTenantBillingFeeExemptByTenantId,
+} from './tenantBilling.feeExempt.js';
+import {
   buildPlatformSmtpPublic,
   buildPlatformSmtpUpdateDataFromRow,
   type PlatformSmtpSettingsPublic,
@@ -477,6 +482,7 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
   const overdueInvoice = invoices.find((i) => i.status === 'OVERDUE') ?? null;
   const billingStartDisplay =
     profile.billingStartDate ?? tenant.serviceStartedAt?.toISOString() ?? null;
+  const billingFeeExempt = isBillingProfileDtoFeeExempt(profile, tenant.plan);
 
   const operationalStatus = resolveTenantBillingOperationalStatus({
     status: tenant.status,
@@ -488,6 +494,7 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     billingAccessBlockedAt: tenant.billingAccessBlockedAt,
     hasOpenInvoice: openInvoice != null,
     hasOverdueInvoice: overdueInvoice != null,
+    billingFeeExempt,
   });
 
   return {
@@ -505,7 +512,9 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     suspendReason: tenant.suspendReason,
     billingAccessBlockedAt: tenant.billingAccessBlockedAt?.toISOString() ?? null,
     amountKrw,
-    amountLabel: `${amountKrw.toLocaleString('ko-KR')}원 (VAT 별도)`,
+    amountLabel: billingFeeExempt
+      ? '이용료 면제 (약정 0원)'
+      : `${amountKrw.toLocaleString('ko-KR')}원 (VAT 별도)`,
     bank: {
       bankName: settings.bankName,
       accountNumber: settings.accountNumber,
@@ -581,6 +590,7 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       nextDueDate = null;
     }
     const openInv = t.invoices[0];
+    const billingFeeExempt = isBillingProfileDtoFeeExempt(profile, t.plan);
     const operationalStatus = resolveTenantBillingOperationalStatus({
       status: t.status,
       suspendReason: t.suspendReason,
@@ -591,6 +601,7 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       billingAccessBlockedAt: t.billingAccessBlockedAt,
       hasOpenInvoice: openInv?.status === 'ISSUED',
       hasOverdueInvoice: openInv?.status === 'OVERDUE',
+      billingFeeExempt,
     });
     rows.push({
       tenantId: t.id,
@@ -847,6 +858,7 @@ async function issueFirstInvoiceOnServiceStart(
 
   const { periodStart, periodEnd } = billingPeriodForStart(serviceStart, profile.billingCycle);
   const amountKrw = resolvePeriodBaseAmountKrw(profile, plan, profile.billingCycle);
+  if (amountKrw <= 0) return false;
   const catalogAmountKrw = calculateBillingAmountKrw(plan, profile.billingCycle);
   await tx.tenantInvoice.create({
     data: {
@@ -880,7 +892,22 @@ export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
     autoInvoicesIssued: 0,
     markedOverdue: 0,
     billingBlocked: 0,
+    feeExemptRepaired: 0,
   };
+
+  const feeExemptProfileRows = await prisma.tenantBillingProfile.findMany({
+    where: {
+      pricingMode: 'CUSTOM',
+      OR: [{ customMonthlyAmountKrw: 0 }, { customAnnualAmountKrw: 0 }],
+    },
+    select: { tenantId: true },
+  });
+  for (const row of feeExemptProfileRows) {
+    if (!dryRun) {
+      const repaired = await applyTenantBillingFeeExemptState(row.tenantId);
+      if (repaired) result.feeExemptRepaired += 1;
+    }
+  }
 
   const trialExpiredTenants = await prisma.tenant.findMany({
     where: {
@@ -891,6 +918,10 @@ export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
     select: { id: true },
   });
   for (const t of trialExpiredTenants) {
+    if (await isTenantBillingFeeExemptByTenantId(t.id)) {
+      if (!dryRun) await applyTenantBillingFeeExemptState(t.id);
+      continue;
+    }
     result.trialExpired += 1;
     if (!dryRun) {
       await prisma.tenant.update({
@@ -952,9 +983,10 @@ export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
 
   const overdueCandidates = await prisma.tenantInvoice.findMany({
     where: { status: 'ISSUED', dueDate: { lt: todayStart } },
-    select: { id: true },
+    select: { id: true, tenantId: true },
   });
   for (const inv of overdueCandidates) {
+    if (await isTenantBillingFeeExemptByTenantId(inv.tenantId)) continue;
     result.markedOverdue += 1;
     if (!dryRun) {
       await prisma.tenantInvoice.update({
@@ -975,6 +1007,7 @@ export async function runBillingDailyJob(opts?: { dryRun?: boolean }) {
     distinct: ['tenantId'],
   });
   for (const row of blockCandidates) {
+    if (await isTenantBillingFeeExemptByTenantId(row.tenantId)) continue;
     result.billingBlocked += 1;
     if (!dryRun) {
       await prisma.tenant.update({

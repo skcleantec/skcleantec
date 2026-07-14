@@ -8,6 +8,10 @@ import { TENANT_BILLING_DEFAULT_DUE_DAY } from './tenantBilling.constants.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { parseYmdToUtcDate } from '../users/userEmployment.js';
 import { kstDayOfMonthFromDate } from './tenantBilling.dates.js';
+import {
+  applyTenantBillingFeeExemptState,
+  isBillingProfileDtoFeeExempt,
+} from './tenantBilling.feeExempt.js';
 
 export type BillingProfileDto = {
   billingCycle: TenantBillingCycle;
@@ -178,7 +182,16 @@ export async function updateTenantBillingProfileContract(
     });
   }
 
-  return mapBillingProfile(profile);
+  const savedProfile = mapBillingProfile(profile);
+  const tenantAfter = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { plan: true },
+  });
+  if (tenantAfter && isBillingProfileDtoFeeExempt(savedProfile, tenantAfter.plan)) {
+    await applyTenantBillingFeeExemptState(tenantId);
+  }
+
+  return savedProfile;
 }
 
 /** @deprecated cycle only — use updateTenantBillingProfileContract */

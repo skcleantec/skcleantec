@@ -13,6 +13,7 @@ import {
 import { ensurePlatformBillingSettings, type InvoiceDto } from './tenantBilling.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { isPaymentConfirmationRequestEnabled } from './tenantBilling.paymentRequest.service.js';
+import { isTenantBillingFeeExemptByTenantId } from './tenantBilling.feeExempt.js';
 
 export type TenantBillingDunningDto = {
   showDunning: boolean;
@@ -79,6 +80,19 @@ export async function getTenantBillingDunningForAdmin(tenantId: string): Promise
     ensurePlatformBillingSettings(),
   ]);
   if (!tenant) throw new TenantNotFoundError();
+
+  if (await isTenantBillingFeeExemptByTenantId(tenantId)) {
+    return {
+      showDunning: false,
+      overdueGraceDays: settings.overdueGraceDays ?? TENANT_BILLING_DEFAULT_GRACE_DAYS,
+      daysUntilBlock: null,
+      accessBlockAt: null,
+      invoice: null,
+      bank: emptyBank,
+      popup: resolveTenantBillingDunningPopupContent(settings),
+      paymentConfirmationEnabled: isPaymentConfirmationRequestEnabled(settings.dunningPaymentNotifyEmail),
+    };
+  }
 
   const graceDays = settings.overdueGraceDays ?? TENANT_BILLING_DEFAULT_GRACE_DAYS;
   const bank = {
