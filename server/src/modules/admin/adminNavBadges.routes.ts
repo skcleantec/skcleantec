@@ -26,11 +26,10 @@ router.get('/nav-badges', authMiddleware, staffMarketerRoleOnly, async (req, res
     return;
   }
   try {
-    const [canMessages, canCs, canReviewPayback, canLeads] = await Promise.all([
+    const [canMessages, canCs, canReviewPayback] = await Promise.all([
       staffHasAnyPermission(user, ['messages.send']),
       staffHasAnyPermission(user, ['cs.view']),
       staffHasAnyPermission(user, ['inquiry.view']),
-      staffHasAnyPermission(user, ['leads.view']),
     ]);
     const [unreadCount, csPendingCount, reviewPaybackUnseenCount, leadsPendingCount] = await Promise.all([
       canMessages
@@ -42,7 +41,7 @@ router.get('/nav-badges', authMiddleware, staffMarketerRoleOnly, async (req, res
         ? prisma.csReport.count({ where: { tenantId, status: 'RECEIVED' } })
         : Promise.resolve(0),
       canReviewPayback ? countUnseenPending(tenantId) : Promise.resolve(0),
-      canLeads
+      user.role === 'ADMIN' || user.role === 'MARKETER'
         ? prisma.landingContactInquiry.count({ where: { tenantId, status: 'NEW' } })
         : Promise.resolve(0),
     ]);

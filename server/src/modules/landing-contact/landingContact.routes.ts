@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
-import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
+import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { landingContactCreatedAtRangeFromQuery } from './landingContactListDateRange.js';
@@ -27,7 +27,7 @@ import type { UserRole } from '@prisma/client';
 
 const router = Router();
 
-router.use(authMiddleware, requireFeature('mod_landing_inquiry'));
+router.use(authMiddleware, staffMarketerRoleOnly, requireFeature('mod_landing_inquiry'));
 
 const inquiryInclude = {
   operatingCompany: { select: { id: true, name: true, slug: true, isActive: true, config: true } },
@@ -37,7 +37,7 @@ const inquiryInclude = {
 } as const;
 
 /** 브랜드별 폼 설정 목록 + 링크용 slug */
-router.get('/form-configs', requireStaffPermission('leads.view'), async (req, res) => {
+router.get('/form-configs', requireStaffPermission('leads.edit'), async (req, res) => {
   const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
@@ -112,7 +112,7 @@ router.patch('/form-configs/:operatingCompanyId', requireStaffPermission('leads.
 });
 
 /** 문의 목록 */
-router.get('/', requireStaffPermission('leads.view'), async (req, res) => {
+router.get('/', async (req, res) => {
   const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
@@ -152,7 +152,7 @@ router.get('/', requireStaffPermission('leads.view'), async (req, res) => {
   res.json({ items: serializeLandingContactInquiries(items), total });
 });
 
-router.get('/pending-count', requireStaffPermission('leads.view'), async (req, res) => {
+router.get('/pending-count', async (req, res) => {
   const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
@@ -162,7 +162,7 @@ router.get('/pending-count', requireStaffPermission('leads.view'), async (req, r
   res.json({ count });
 });
 
-router.get('/:id', requireStaffPermission('leads.view'), async (req, res) => {
+router.get('/:id', async (req, res) => {
   const tenantId = getTenantIdFromAuth((req as unknown as { user: AuthPayload }).user);
   if (!tenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });

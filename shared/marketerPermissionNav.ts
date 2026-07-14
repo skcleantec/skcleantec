@@ -32,6 +32,8 @@ export type AdminPathPermissionRule = {
   permissions: readonly MarketerPermissionId[];
   /** true면 JWT role=ADMIN 만 (마케터 GNB·사이드 숨김) */
   adminRoleOnly?: boolean;
+  /** true면 마케터는 세부 권한 없이 접근 (관리자는 항상 허용) */
+  marketerOpen?: boolean;
 };
 
 /** `/admin/*` 하위 경로 — 긴 prefix 가 위에 오도록 정렬 유지 */
@@ -67,7 +69,7 @@ export const ADMIN_PATH_PERMISSION_RULES: AdminPathPermissionRule[] = [
   { prefix: '/admin/inquiries/review-payback', permissions: ['inquiry.view'] },
   { prefix: '/admin/inquiries/cs', permissions: ['cs.view'] },
   { prefix: '/admin/inquiries/leads/settings', permissions: ['leads.edit'] },
-  { prefix: '/admin/inquiries/leads', permissions: ['leads.view'] },
+  { prefix: '/admin/inquiries/leads', permissions: [], marketerOpen: true },
   { prefix: '/admin/inquiries', permissions: ['inquiry.view'] },
   { prefix: '/admin/crm/settings', permissions: ['crm.settings'] },
   { prefix: '/admin/crm', permissions: ['crm.view'] },
@@ -98,6 +100,7 @@ export function canAccessAdminPath(
   const rule = resolveAdminPathPermissionRule(pathname);
   if (!rule) return true;
   if (rule.adminRoleOnly) return false;
+  if (rule.marketerOpen) return true;
   if (!permissions) return false;
   if (rule.permissions.length === 0) return false;
   return rule.permissions.some((id) => hasMarketerPermission(role, permissions, id));
