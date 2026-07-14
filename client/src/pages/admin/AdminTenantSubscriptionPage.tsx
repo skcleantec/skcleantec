@@ -3,9 +3,11 @@ import { fetchTenantSubscription, type TenantSubscriptionDto } from '../../api/t
 import { fetchTenantBillingInvoices, fetchTenantBillingSchedule, fetchTenantBillingSummary, type TenantBillingSummary } from '../../api/tenantBilling';
 import { getToken } from '../../stores/auth';
 import { BillingPaymentConfirmationRequestButton } from '../../components/admin/BillingPaymentConfirmationRequestButton';
+import { TenantBillingDashboardStatusLine } from '../../components/admin/TenantBillingDashboardStatusLine';
+import { TenantBillingPaymentGuideModal } from '../../components/admin/TenantBillingPaymentGuideModal';
 import { usagePercent } from '@shared/tenantSubscriptionUsage';
 import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_SCHEDULE_STATUS_LABEL, TENANT_INVOICE_STATUS_LABEL, formatNextDueDateLabel, formatBillingAnchorDayLabel } from '@shared/tenantBilling';
-import { BillingOperationalBadge, PlanBadge, StatusBadge } from '../../utils/platformUi';
+import { PlanBadge, StatusBadge } from '../../utils/platformUi';
 
 const STATUS_HINT: Record<string, string> = {
   TRIAL: '체험 기간 중입니다. 운영 전환은 플랫폼 담당자에게 문의해 주세요.',
@@ -84,6 +86,7 @@ export function AdminTenantSubscriptionPage() {
   const [err, setErr] = useState<string | null>(null);
   const [data, setData] = useState<TenantSubscriptionDto | null>(null);
   const [billing, setBilling] = useState<TenantBillingSummary | null>(null);
+  const [paymentGuideOpen, setPaymentGuideOpen] = useState(false);
   const [invoices, setInvoices] = useState<Awaited<ReturnType<typeof fetchTenantBillingInvoices>>>([]);
   const [scheduleItems, setScheduleItems] = useState<
     Awaited<ReturnType<typeof fetchTenantBillingSchedule>>['items']
@@ -129,6 +132,12 @@ export function AdminTenantSubscriptionPage() {
 
   return (
     <div className="min-w-0 w-full max-w-3xl space-y-6 pb-8">
+      <TenantBillingPaymentGuideModal
+        open={paymentGuideOpen}
+        onClose={() => setPaymentGuideOpen(false)}
+        token={token}
+        billing={billing}
+      />
       <div>
         <h1 className="text-xl font-semibold text-gray-800">계정 및 서비스 이용 현황</h1>
         <p className="mt-1 text-sm text-gray-500">
@@ -147,14 +156,17 @@ export function AdminTenantSubscriptionPage() {
           <h2 className="text-base font-semibold text-gray-900">{tenant.name}</h2>
           <PlanBadge plan={tenant.plan} />
           <StatusBadge status={tenant.status} />
-          {billing?.operationalStatus ? (
-            <BillingOperationalBadge
-              code={billing.operationalStatus.code}
-              label={billing.operationalStatus.label}
-              detail={billing.operationalStatus.detail}
-            />
-          ) : null}
         </div>
+        {billing ? (
+          <TenantBillingDashboardStatusLine
+            billing={billing}
+            className="rounded-md bg-gray-50 px-3 py-2.5"
+            textClassName="text-sm"
+            onUnpaidClick={() => setPaymentGuideOpen(true)}
+          />
+        ) : STATUS_HINT[tenant.status] ? (
+          <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">{STATUS_HINT[tenant.status]}</p>
+        ) : null}
         <dl className="grid gap-3 sm:grid-cols-2 text-sm">
           <div>
             <dt className="text-gray-500">업체 코드</dt>
@@ -180,14 +192,6 @@ export function AdminTenantSubscriptionPage() {
             <dd className="mt-0.5 text-gray-900">{formatKoDateTime(data.usageSnapshotAt)}</dd>
           </div>
         </dl>
-        {billing?.operationalStatus ? (
-          <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
-            {billing.operationalStatus.label}
-            {billing.operationalStatus.detail ? ` — ${billing.operationalStatus.detail}` : ''}
-          </p>
-        ) : STATUS_HINT[tenant.status] ? (
-          <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">{STATUS_HINT[tenant.status]}</p>
-        ) : null}
       </section>
 
       <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-3">

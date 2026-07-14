@@ -252,6 +252,24 @@ export function findAutoIssueScheduleItems(
   });
 }
 
+/** 오늘(KST)이 포함된 이용·과금 회차 */
+export function pickCurrentServicePeriodItem(
+  schedule: BillingScheduleItem[],
+  now = new Date(),
+): BillingScheduleItem | null {
+  const todayStart = kstStartOfDayUtc(kstYmdFromDate(now));
+  const todayMs = todayStart.getTime();
+  const candidates = schedule.filter((item) => {
+    if (item.status === 'SKIPPED' || item.status === 'DEFERRED') return false;
+    const startMs = new Date(item.periodStart).getTime();
+    const endMs = new Date(item.periodEnd).getTime();
+    return startMs <= todayMs && endMs >= todayMs;
+  });
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime());
+  return candidates[candidates.length - 1] ?? null;
+}
+
 export function pickNextDueScheduleItem(
   schedule: BillingScheduleItem[],
   now = new Date(),
