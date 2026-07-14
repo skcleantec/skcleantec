@@ -89,7 +89,8 @@ export function BillingDunningModal({ open, token, tenantId, onClose }: Props) {
   };
 
   if (!open) return null;
-  if (!loading && !dunning && !error) return null;
+  /** 연체 여부 API 응답 전·미납 없음이면 오버레이를 띄우지 않음 (로그인·새로고침 깜빡임 방지) */
+  if (loading || (!dunning && !error)) return null;
 
   const inv = dunning?.invoice;
   const popup = dunning?.popup;
@@ -121,9 +122,7 @@ export function BillingDunningModal({ open, token, tenantId, onClose }: Props) {
         </div>
 
         <div className="p-4 space-y-3">
-          {loading ? (
-            <p className="text-sm text-gray-500 text-center py-4">확인 중…</p>
-          ) : error ? (
+          {error ? (
             <p className="text-sm text-rose-700">{error}</p>
           ) : dunning && inv ? (
             <>
