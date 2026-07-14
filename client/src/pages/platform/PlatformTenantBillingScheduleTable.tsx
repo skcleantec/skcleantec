@@ -37,8 +37,10 @@ type Props = {
   ) => Promise<void>;
   onVoidAdjustment: (adjustmentId: string) => Promise<void>;
   onIssueInvoice: (periodStartYmd: string) => Promise<void>;
-  onConfirmPayment: (invoiceId: string) => Promise<void>;
+  onConfirmPayment: (periodStartYmd: string) => Promise<void>;
   onVoidInvoice: (invoiceId: string) => Promise<void>;
+  showPrepaidConfirm?: boolean;
+  onPrepaidConfirm?: () => Promise<void>;
 };
 
 export function PlatformTenantBillingScheduleTable({
@@ -49,14 +51,47 @@ export function PlatformTenantBillingScheduleTable({
   onIssueInvoice,
   onConfirmPayment,
   onVoidInvoice,
+  showPrepaidConfirm,
+  onPrepaidConfirm,
 }: Props) {
   if (schedule.length === 0) {
-    return <p className="mt-2 text-sm text-gray-500">과금 시작일 설정 후 일정이 표시됩니다.</p>;
+    return (
+      <div className="space-y-2">
+        {showPrepaidConfirm && onPrepaidConfirm ? (
+          <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm">
+            <p className="text-gray-700">아직 과금 일정 전입니다. 이용료 입금 후 체험을 시작하세요.</p>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void onPrepaidConfirm()}
+              className={`${ACTION_BTN} mt-2 border-sky-300 bg-white px-3 py-1 text-emerald-800`}
+            >
+              입금완료 (7일 체험 시작)
+            </button>
+          </div>
+        ) : null}
+        <p className="text-sm text-gray-500">과금 시작일 설정 후 일정이 표시됩니다.</p>
+      </div>
+    );
   }
 
   return (
     <>
       <p className="text-xs text-gray-500 lg:hidden">표는 좌우로 스크롤할 수 있습니다.</p>
+      {showPrepaidConfirm && onPrepaidConfirm ? (
+        <div className="mb-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-gray-700">
+          첫 이용료 입금(체험 시작 전)은{' '}
+          <button
+            type="button"
+            disabled={saving}
+            className="font-medium text-emerald-800 underline hover:no-underline"
+            onClick={() => void onPrepaidConfirm()}
+          >
+            입금완료 (7일 체험 시작)
+          </button>
+          으로 처리합니다. 아래 회차는 이용료 납부 확인용입니다.
+        </div>
+      ) : null}
       <SyncHorizontalScroll className="-mx-4 px-4 sm:mx-0 sm:px-0">
         <table className="w-full min-w-[960px] text-sm border-collapse">
           <thead>
@@ -90,7 +125,11 @@ export function PlatformTenantBillingScheduleTable({
                 row.status !== 'DEFERRED' &&
                 row.amountKrw > 0;
               const canPay =
-                row.invoiceId != null && (row.status === 'ISSUED' || row.status === 'OVERDUE');
+                row.amountKrw > 0 &&
+                row.status !== 'PAID' &&
+                row.status !== 'SKIPPED' &&
+                row.status !== 'DEFERRED' &&
+                row.status !== 'VOID';
               const canVoidInvoice =
                 row.invoiceId != null &&
                 row.status !== 'PAID' &&
@@ -187,9 +226,9 @@ export function PlatformTenantBillingScheduleTable({
                         type="button"
                         disabled={saving}
                         className={`${ACTION_BTN} border-emerald-300 text-emerald-800`}
-                        onClick={() => void onConfirmPayment(row.invoiceId!)}
+                        onClick={() => void onConfirmPayment(periodYmd)}
                       >
-                        입금
+                        입금완료
                       </button>
                     ) : row.status === 'PAID' ? (
                       <span className="text-xs text-emerald-700">완료</span>

@@ -720,6 +720,43 @@ export async function confirmInvoicePayment(
   return mapInvoice(updated);
 }
 
+export async function confirmPaymentForSchedulePeriod(
+  tenantId: string,
+  periodStartYmd: string,
+  platformUserId: string,
+): Promise<InvoiceDto> {
+  const ctx = await loadTenantBillingScheduleContext(tenantId);
+  if (!ctx.billingStart) {
+    throw new Error('과금 시작일이 없어 입금 확인할 수 없습니다.');
+  }
+
+  const key = periodStartYmd.trim();
+  const target = ctx.schedule.find((i) => periodStartKey(new Date(i.periodStart)) === key);
+  if (!target) throw new Error('해당 기간을 일정에서 찾을 수 없습니다.');
+  if (target.status === 'PAID') throw new Error('이미 납부 확인된 기간입니다.');
+  if (target.status === 'SKIPPED' || target.status === 'DEFERRED') {
+    throw new Error('면제·이월된 기간은 입금 확인할 수 없습니다.');
+  }
+  if (target.amountKrw <= 0) throw new Error('청구 금액이 없습니다.');
+
+  if (target.invoiceId) {
+    const existing = await prisma.tenantInvoice.findUnique({ where: { id: target.invoiceId } });
+    if (existing?.status === 'PAID') throw new Error('이미 납부 확인된 청구서입니다.');
+    if (existing && existing.status !== 'VOID') {
+      return confirmInvoicePayment(target.invoiceId, platformUserId);
+    }
+  }
+
+  const issued = await createInvoiceFromScheduleItem(
+    tenantId,
+    ctx.tenant.plan,
+    ctx.profile,
+    target,
+    'MANUAL',
+  );
+  return confirmInvoicePayment(issued.id, platformUserId);
+}
+
 export async function voidTenantInvoice(invoiceId: string): Promise<InvoiceDto> {
   const invoice = await prisma.tenantInvoice.findUnique({ where: { id: invoiceId } });
   if (!invoice) throw new Error('청구서를 찾을 수 없습니다.');

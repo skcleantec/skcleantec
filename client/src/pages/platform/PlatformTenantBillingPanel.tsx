@@ -469,10 +469,14 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
         <div>
           <h3 className="text-sm font-semibold text-gray-900">청구 일정</h3>
           <p className="mt-0.5 text-xs text-gray-500">
-            면제·금액 변경·이월·청구 발행·입금 확인·취소를 각 행에서 처리합니다.
+            면제·금액 변경·이월·청구 발행·입금완료·취소를 각 행에서 처리합니다. 입금완료는 발행 전에도 가능합니다.
           </p>
         </div>
-        <PlatformTenantBillingScheduleSection tenantId={tenantId} onMutate={() => void load()} />
+        <PlatformTenantBillingScheduleSection
+          tenantId={tenantId}
+          onMutate={() => void load()}
+          showPrepaidConfirm={showPrepaidConfirm}
+        />
       </section>
     </div>
   );

@@ -293,6 +293,20 @@ export async function issuePlatformTenantInvoice(
   return res.json() as Promise<{ invoice: TenantInvoiceRow }>;
 }
 
+export async function confirmPlatformSchedulePeriodPayment(
+  token: string,
+  tenantId: string,
+  periodStart: string,
+) {
+  const res = await fetch(`${API}/platform/billing/tenants/${tenantId}/schedule-periods/confirm-payment`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ periodStart }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '납부 확인 실패'));
+  return res.json() as Promise<{ invoice: TenantInvoiceRow }>;
+}
+
 export async function confirmPlatformInvoicePayment(token: string, invoiceId: string) {
   const res = await fetch(`${API}/platform/billing/invoices/${invoiceId}/confirm-payment`, {
     method: 'POST',

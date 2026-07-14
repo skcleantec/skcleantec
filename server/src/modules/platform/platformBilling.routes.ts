@@ -11,6 +11,7 @@ import {
 } from './platformAuth.middleware.js';
 import {
   confirmInvoicePayment,
+  confirmPaymentForSchedulePeriod,
   confirmPrepaidForTenant,
   createTenantBillingAdjustment,
   getPlatformBillingSettings,
@@ -213,6 +214,26 @@ router.post('/tenants/:tenantId/prepaid-confirm', platformSuperAdminOnly, async 
       return;
     }
     const msg = e instanceof Error ? e.message : '선납 확인에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.post('/tenants/:tenantId/schedule-periods/confirm-payment', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const platformUser = (req as PlatformScopedRequest).platformUser;
+    const body = req.body as { periodStart?: string };
+    if (!body.periodStart?.trim()) {
+      res.status(400).json({ error: 'periodStart가 필요합니다.' });
+      return;
+    }
+    const invoice = await confirmPaymentForSchedulePeriod(
+      req.params.tenantId,
+      body.periodStart.trim(),
+      platformUser.platformUserId,
+    );
+    res.json({ invoice });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '납부 확인에 실패했습니다.';
     res.status(400).json({ error: msg });
   }
 });
