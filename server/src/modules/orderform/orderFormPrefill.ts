@@ -12,7 +12,7 @@ import {
   parseProfessionalOptionSelectionsRaw,
   serializeProfessionalOptionSelectionsJson,
 } from './specialtyOptions.js';
-import { isOrderFormPendingPlaceholderAddress } from '../../lib/orderFormPendingAddress.js';
+import { isRealCustomerAddress } from '../../lib/orderFormPendingAddress.js';
 import { parseIsOneRoomFlag } from './orderFormOneRoom.js';
 
 /** prefillAnswers 로 다루는 표준(시스템) 항목 키 — 제출 body 필드명과 동일하게 맞춘다 */
@@ -56,6 +56,22 @@ export function lockedKeysFromPrefill(prefill: unknown): Set<string> {
   const out = new Set<string>();
   if (!prefill || typeof prefill !== 'object') return out;
   for (const [k, v] of Object.entries(prefill as PrefillMap)) {
+    if (k === 'address') {
+      if (typeof v === 'string' && isRealCustomerAddress(v)) out.add(k);
+      continue;
+    }
+    if (k === 'addressDetail') {
+      const addr = (prefill as PrefillMap).address;
+      if (
+        typeof v === 'string' &&
+        v.trim().length > 0 &&
+        typeof addr === 'string' &&
+        isRealCustomerAddress(addr)
+      ) {
+        out.add(k);
+      }
+      continue;
+    }
     if (isNonEmptyValue(v)) out.add(k);
   }
   return out;
@@ -73,6 +89,7 @@ export function buildPrefillFromPayload(
   const out: PrefillMap = {};
 
   for (const key of PREFILL_STANDARD_KEYS) {
+    if (key === 'addressDetail') continue;
     const raw = body[key];
     if (key === 'moveInDateUndecided') {
       const truthy = raw === true || raw === 'true' || String(raw ?? '') === '1';
@@ -109,9 +126,18 @@ export function buildPrefillFromPayload(
     if (typeof raw === 'string') {
       const t = raw.trim();
       if (!t) continue;
-      if (key === 'address' && isOrderFormPendingPlaceholderAddress(t)) continue;
+      if (key === 'address') {
+        if (isRealCustomerAddress(t)) out[key] = t;
+        continue;
+      }
       out[key] = t;
     } else if (typeof raw === 'number') out[key] = raw;
+  }
+
+  const detailRaw = body.addressDetail;
+  if (typeof out.address === 'string' && typeof detailRaw === 'string') {
+    const detail = detailRaw.trim();
+    if (detail) out.addressDetail = detail;
   }
 
   // 커스텀 답변
@@ -226,7 +252,7 @@ export function inquiryUpdateDataFromPrefillMap(prefill: PrefillMap): Prisma.Inq
 
   if (typeof prefill.address === 'string') {
     const addr = prefill.address.trim();
-    if (addr && !isOrderFormPendingPlaceholderAddress(addr)) {
+    if (isRealCustomerAddress(addr)) {
       data.address = addr;
     }
   }

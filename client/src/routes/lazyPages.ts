@@ -18,6 +18,9 @@ export const AdminTeamLeadersPage = lazyWithRetry(() =>
 export const AdminInquiryBulkDeletePage = lazyWithRetry(() =>
   import('../pages/admin/AdminInquiryBulkDeletePage').then((m) => ({ default: m.AdminInquiryBulkDeletePage }))
 );
+export const AdminInquiryTrashPage = lazyWithRetry(() =>
+  import('../pages/admin/AdminInquiryTrashPage').then((m) => ({ default: m.AdminInquiryTrashPage }))
+);
 export const AdminInquiryExcelMappingsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminInquiryExcelMappingsPage').then((m) => ({ default: m.AdminInquiryExcelMappingsPage }))
 );

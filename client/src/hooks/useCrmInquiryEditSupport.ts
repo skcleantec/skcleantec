@@ -8,6 +8,7 @@ import { getUserCustomCalendars, type UserCustomCalendarItem } from '../api/user
 import type { UserItem } from '../api/users';
 import {
   hasStaffPermission,
+  resolveEffectiveStaffAdminFromMe,
   resolveMarketerOperationalAdminFromMe,
   type StaffAdminMeFields,
 } from '../utils/staffAdminAccess';
@@ -94,7 +95,7 @@ export function useCrmInquiryEditSupport(enabled: boolean) {
 
   const operationalAdmin = resolveMarketerOperationalAdminFromMe(staffMe);
   const canEditMarketerField = hasStaffPermission(staffMe, 'inquiry.edit.marketer');
-  const canDeleteInquiry = hasStaffPermission(staffMe, 'inquiry.delete');
+  const canDeleteInquiry = resolveEffectiveStaffAdminFromMe(staffMe);
 
   return {
     loading,

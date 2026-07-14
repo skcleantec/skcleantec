@@ -58,6 +58,7 @@ import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { tenantIdForUserId } from '../tenants/tenant.service.js';
 import { createdAtRangeFromQuery, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 import {
   createdAtRangeFromListQuery,
   parseKstHourQuery,
@@ -2150,6 +2151,16 @@ router.post('/submit/:token', async (req, res) => {
     throw e;
   }
   const submitTenantId = form.tenantId;
+  const trashedLinkedInquiry = await prisma.inquiry.findFirst({
+    where: { tenantId: submitTenantId, orderFormId: form.id, deletedAt: { not: null } },
+    select: { id: true },
+  });
+  if (trashedLinkedInquiry) {
+    res.status(409).json({
+      error: '연결된 접수가 삭제 처리되어 제출할 수 없습니다. 업체에 문의해 주세요.',
+    });
+    return;
+  }
   // 마케터가 선입력(잠금)한 값은 고객 제출 본문보다 우선 — 변조 방지
   overlayPrefillOntoSubmitBody(body as unknown as Record<string, unknown>, form.prefillAnswers);
   const prefillLockedKeys = lockedKeysFromPrefill(form.prefillAnswers);
@@ -2459,7 +2470,11 @@ router.post('/submit/:token', async (req, res) => {
   const brandSlug = typeof req.query.brand === 'string' ? req.query.brand : null;
 
   const existingPending = await prisma.inquiry.findFirst({
-    where: { orderFormId: form.id, status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] } },
+    where: {
+      orderFormId: form.id,
+      status: { in: ['PENDING', 'DEPOSIT_COMPLETED', 'ORDER_FORM_PENDING'] },
+      ...inquiryActiveOnlyWhere(),
+    },
     select: { id: true, inquiryNumber: true, operatingCompanyId: true, status: true },
   });
 

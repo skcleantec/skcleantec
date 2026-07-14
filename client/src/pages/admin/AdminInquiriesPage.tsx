@@ -71,7 +71,7 @@ import {
   getInquiryCreatorOptions,
   type UserItem,
 } from '../../api/users';
-import { resolveMarketerOperationalAdminFromMe, hasStaffPermission } from '../../utils/staffAdminAccess';
+import { resolveMarketerOperationalAdminFromMe, resolveEffectiveStaffAdminFromMe, hasStaffPermission } from '../../utils/staffAdminAccess';
 import { getToken } from '../../stores/auth';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { useDebouncedCallback } from '../../utils/debounceCallback';
@@ -908,7 +908,7 @@ export function AdminInquiriesPage() {
       marketerPermissions: staffMe?.marketerPermissions ?? null,
     };
   }, [ready, userId, role, userName, userPhone, userEmail, staffMe?.marketerPermissions]);
-  const canDeleteInquiry = hasStaffPermission(staffMe, 'inquiry.delete');
+  const canDeleteInquiry = resolveEffectiveStaffAdminFromMe(staffMe);
   const canEditMarketerField = hasStaffPermission(staffMe, 'inquiry.edit.marketer');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */
@@ -3723,7 +3723,7 @@ export function AdminInquiriesPage() {
           open={!!deleteTarget}
           title={
             deleteTarget
-              ? `「${deleteTarget.customerName}」 접수를 영구 삭제합니다. 복구할 수 없습니다.`
+              ? `「${deleteTarget.customerName}」 접수를 휴지통으로 이동합니다. 30일 후 자동 영구 삭제되며, 관리자 전용 → 휴지통에서 복구할 수 있습니다.`
               : ''
           }
           confirmLabel="삭제"

@@ -35,6 +35,7 @@ import dbMarketplaceRoutes from './modules/db-marketplace/dbMarketplace.routes.j
 import operatingCompaniesRoutes from './modules/operating-companies/operatingCompany.routes.js';
 import adminNavBadgesRoutes from './modules/admin/adminNavBadges.routes.js';
 import inspectionRetentionCronRoutes from './modules/admin/inspectionRetention.cron.routes.js';
+import inquiryTrashCronRoutes from './modules/admin/inquiryTrash.cron.routes.js';
 import billingCronRoutes from './modules/billing/billing.cron.routes.js';
 import stagingDbImportRoutes from './modules/admin/stagingDbImport.routes.js';
 import volumeDiagnosticsRoutes from './modules/admin/volumeDiagnostics.routes.js';
@@ -113,6 +114,7 @@ app.use('/api/landing-contact', landingContactRoutes);
 app.use('/api/public/landing-contact', landingContactPublicRoutes);
 app.use('/api/admin', adminNavBadgesRoutes);
 app.use('/api/admin/cron', inspectionRetentionCronRoutes);
+app.use('/api/admin/cron', inquiryTrashCronRoutes);
 app.use('/api/admin/cron', billingCronRoutes);
 app.use('/api/admin', stagingDbImportRoutes);
 app.use('/api/admin', volumeDiagnosticsRoutes);

@@ -128,6 +128,16 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         label: '팀장교육자료',
         title: '현장팀장 교육자료 PDF',
       },
+      {
+        to: '/admin/team-leaders/inquiry-trash',
+        label: '휴지통',
+        title: '삭제된 접수 보관·복구',
+      },
+      {
+        to: '/admin/team-leaders/inquiry-delete',
+        label: '접수 삭제',
+        title: '접수 일괄 휴지통 이동',
+      },
     ],
   },
 ];

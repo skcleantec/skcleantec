@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { InquiryStatus } from '@prisma/client';
 import { createdAtRangeFromQuery, type DatePreset } from '../inquiries/inquiryListDateRange.js';
+import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 
 export type TeamAssignmentDateBasis = 'assignedAt' | 'createdAt' | 'preferredDate';
 
@@ -80,6 +81,7 @@ function inquiryListWhere(
 ): Prisma.InquiryWhereInput {
   const parts: Prisma.InquiryWhereInput[] = [
     { assignments: { some: { teamLeaderId: userId } } },
+    inquiryActiveOnlyWhere(),
   ];
   if (extraInquiryWhere) parts.push(extraInquiryWhere);
   if (status && VALID_STATUS.has(status)) {

@@ -1,6 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { Navigate } from 'react-router-dom';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { getToken } from '../../stores/auth';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
+import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
 import {
   getInquiries,
   getInquiry,
@@ -39,6 +42,8 @@ function pickInquiryFromRow(row: Record<string, unknown>): InquiryPick | null {
 
 export function AdminInquiryBulkDeletePage() {
   const token = getToken();
+  const { ready, staffMe } = useAdminStaffSession();
+  const isStaffAdmin = useMemo(() => resolveEffectiveStaffAdminFromMe(staffMe), [staffMe]);
   const [mode, setMode] = useState<Mode>('day');
 
   const [dayKey, setDayKey] = useState(() => kstTodayYmd());
@@ -151,13 +156,22 @@ export function AdminInquiryBulkDeletePage() {
     </button>
   );
 
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+  if (ready && !isStaffAdmin) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
   return (
     <div className="min-w-0 w-full max-w-full space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">접수건 삭제</h1>
+        <h1 className="text-xl font-semibold text-gray-800">접수건 휴지통 이동</h1>
         <p className="mt-1 text-fluid-sm text-gray-600">
-          관리자만 사용할 수 있습니다. 기준은 <strong className="font-medium">접수 등록일(접수일)</strong>의 한국시간(KST)입니다.
-          삭제 시 배정·변경 이력·현장 사진 DB 기록이 함께 제거되며 복구할 수 없습니다. C/S 보고는 남고 접수 연결만 끊깁니다.
+          <strong className="font-medium">관리자 권한</strong>이 있는 계정만 사용할 수 있습니다. 기준은{' '}
+          <strong className="font-medium">접수 등록일(접수일)</strong>의 한국시간(KST)입니다.
+          선택한 접수는 휴지통으로 이동하며, <strong className="font-medium">30일 후 자동 영구 삭제</strong>됩니다.
+          복구는 관리자 전용 → <strong className="font-medium">휴지통</strong> 메뉴에서 할 수 있습니다.
         </p>
       </div>
 
@@ -304,22 +318,22 @@ export function AdminInquiryBulkDeletePage() {
         title={
           bulkPending
             ? bulkPending.kind === 'day'
-              ? `「${bulkPending.label}」(KST) 접수 ${bulkPending.count}건을 영구 삭제합니다. 복구할 수 없습니다.`
-              : `「${bulkPending.label}」월(KST) 접수 ${bulkPending.count}건을 영구 삭제합니다. 복구할 수 없습니다.`
+              ? `「${bulkPending.label}」(KST) 접수 ${bulkPending.count}건을 휴지통으로 이동합니다. 30일 후 자동 영구 삭제됩니다.`
+              : `「${bulkPending.label}」월(KST) 접수 ${bulkPending.count}건을 휴지통으로 이동합니다. 30일 후 자동 영구 삭제됩니다.`
             : ''
         }
-        confirmLabel="삭제 실행"
+        confirmLabel="휴지통 이동"
         onClose={() => setBulkPending(null)}
         onConfirm={async (password) => {
           if (!token || !bulkPending) return;
           if (bulkPending.kind === 'day') {
             const r = await bulkDeleteInquiriesByDay(token, bulkPending.label, password);
-            window.alert(`삭제 완료: ${r.deleted}건`);
+            window.alert(`휴지통 이동 완료: ${r.deleted}건`);
             await refreshDayCount();
             return;
           }
           const r = await bulkDeleteInquiriesByMonth(token, bulkPending.label, password);
-          window.alert(`삭제 완료: ${r.deleted}건`);
+          window.alert(`휴지통 이동 완료: ${r.deleted}건`);
           await refreshMonthCount();
         }}
       />
@@ -330,7 +344,7 @@ export function AdminInquiryBulkDeletePage() {
           onePick
             ? `「${onePick.customerName}」${
                 onePick.inquiryNumber ? ` (${onePick.inquiryNumber})` : ''
-              } 접수를 영구 삭제합니다.`
+              } 접수를 휴지통으로 이동합니다.`
             : ''
         }
         confirmLabel="삭제"
@@ -341,7 +355,7 @@ export function AdminInquiryBulkDeletePage() {
           setOneDeleteOpen(false);
           setOnePick(null);
           setOneQuery('');
-          window.alert('삭제되었습니다.');
+          window.alert('휴지통으로 이동했습니다.');
         }}
       />
     </div>
