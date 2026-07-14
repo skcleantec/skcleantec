@@ -1,4 +1,4 @@
-import { isSmtpConfigured, sendMail } from '../../lib/mailer.js';
+import { sendPlatformMail } from '../../lib/platformSmtp.service.js';
 import type { HelpInquiryPostDto } from './helpInquiry.types.js';
 
 function escapeHtml(s: string): string {
@@ -13,9 +13,6 @@ export async function notifyHelpInquiryPostByEmail(
   notifyEmail: string,
   post: HelpInquiryPostDto,
 ): Promise<{ sent: boolean; reason?: string }> {
-  if (!isSmtpConfigured()) {
-    return { sent: false, reason: 'SMTP_NOT_CONFIGURED' };
-  }
   const to = notifyEmail.trim();
   if (!to) return { sent: false, reason: 'NO_NOTIFY_EMAIL' };
 
@@ -54,11 +51,10 @@ export async function notifyHelpInquiryPostByEmail(
     .filter(Boolean)
     .join('\n');
 
-  await sendMail({
+  return sendPlatformMail({
     to,
     subject: `[청소비서 문의] ${post.title}`,
     html,
     text,
   });
-  return { sent: true };
 }

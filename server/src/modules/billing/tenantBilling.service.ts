@@ -43,6 +43,13 @@ import {
   resolveTenantBillingOperationalStatus,
   type TenantBillingOperationalStatus,
 } from './tenantBilling.operationalStatus.js';
+import { isPaymentConfirmationRequestEnabled } from './tenantBilling.paymentRequest.service.js';
+import {
+  buildPlatformSmtpPublic,
+  updatePlatformSmtpSettings,
+  type PlatformSmtpSettingsPublic,
+} from '../../lib/platformSmtp.service.js';
+import type { SmtpConfigPatch } from '../../lib/smtpConfigStored.js';
 
 export type BillingSettingsDto = {
   bankName: string | null;
@@ -50,6 +57,13 @@ export type BillingSettingsDto = {
   accountHolder: string | null;
   paymentGuideText: string | null;
   overdueGraceDays: number;
+  dunningPopupTitle: string | null;
+  dunningPopupSubtitle: string | null;
+  dunningPopupBody: string | null;
+  dunningBlockSoonText: string | null;
+  dunningBlockTodayText: string | null;
+  dunningPaymentNotifyEmail: string | null;
+  smtp: PlatformSmtpSettingsPublic;
   updatedAt: string;
 };
 
@@ -94,6 +108,7 @@ export type TenantBillingSummaryDto = {
   openInvoice: InvoiceDto | null;
   overdueInvoice: InvoiceDto | null;
   operationalStatus: TenantBillingOperationalStatus;
+  paymentConfirmationEnabled: boolean;
 };
 
 function mapInvoice(row: {
@@ -362,6 +377,13 @@ export async function getPlatformBillingSettings(): Promise<BillingSettingsDto> 
     accountHolder: row.accountHolder,
     paymentGuideText: row.paymentGuideText,
     overdueGraceDays: row.overdueGraceDays,
+    dunningPopupTitle: row.dunningPopupTitle,
+    dunningPopupSubtitle: row.dunningPopupSubtitle,
+    dunningPopupBody: row.dunningPopupBody,
+    dunningBlockSoonText: row.dunningBlockSoonText,
+    dunningBlockTodayText: row.dunningBlockTodayText,
+    dunningPaymentNotifyEmail: row.dunningPaymentNotifyEmail,
+    smtp: buildPlatformSmtpPublic(row),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -372,28 +394,41 @@ export async function updatePlatformBillingSettings(input: {
   accountHolder?: string | null;
   paymentGuideText?: string | null;
   overdueGraceDays?: number;
+  dunningPopupTitle?: string | null;
+  dunningPopupSubtitle?: string | null;
+  dunningPopupBody?: string | null;
+  dunningBlockSoonText?: string | null;
+  dunningBlockTodayText?: string | null;
+  dunningPaymentNotifyEmail?: string | null;
+  smtp?: SmtpConfigPatch;
 }): Promise<BillingSettingsDto> {
   await ensurePlatformBillingSettings();
-  const row = await prisma.platformBillingSettings.update({
+  const trimOrNull = (v: string | null | undefined) =>
+    v === undefined ? undefined : v?.trim() || null;
+  await prisma.platformBillingSettings.update({
     where: { id: 'default' },
     data: {
-      ...(input.bankName !== undefined ? { bankName: input.bankName?.trim() || null } : {}),
-      ...(input.accountNumber !== undefined ? { accountNumber: input.accountNumber?.trim() || null } : {}),
-      ...(input.accountHolder !== undefined ? { accountHolder: input.accountHolder?.trim() || null } : {}),
-      ...(input.paymentGuideText !== undefined ? { paymentGuideText: input.paymentGuideText?.trim() || null } : {}),
+      ...(input.bankName !== undefined ? { bankName: trimOrNull(input.bankName) ?? null } : {}),
+      ...(input.accountNumber !== undefined ? { accountNumber: trimOrNull(input.accountNumber) ?? null } : {}),
+      ...(input.accountHolder !== undefined ? { accountHolder: trimOrNull(input.accountHolder) ?? null } : {}),
+      ...(input.paymentGuideText !== undefined ? { paymentGuideText: trimOrNull(input.paymentGuideText) ?? null } : {}),
       ...(input.overdueGraceDays !== undefined
         ? { overdueGraceDays: Math.max(0, Math.min(30, Math.floor(input.overdueGraceDays))) }
         : {}),
+      ...(input.dunningPopupTitle !== undefined ? { dunningPopupTitle: trimOrNull(input.dunningPopupTitle) ?? null } : {}),
+      ...(input.dunningPopupSubtitle !== undefined ? { dunningPopupSubtitle: trimOrNull(input.dunningPopupSubtitle) ?? null } : {}),
+      ...(input.dunningPopupBody !== undefined ? { dunningPopupBody: trimOrNull(input.dunningPopupBody) ?? null } : {}),
+      ...(input.dunningBlockSoonText !== undefined ? { dunningBlockSoonText: trimOrNull(input.dunningBlockSoonText) ?? null } : {}),
+      ...(input.dunningBlockTodayText !== undefined ? { dunningBlockTodayText: trimOrNull(input.dunningBlockTodayText) ?? null } : {}),
+      ...(input.dunningPaymentNotifyEmail !== undefined
+        ? { dunningPaymentNotifyEmail: trimOrNull(input.dunningPaymentNotifyEmail) ?? null }
+        : {}),
     },
   });
-  return {
-    bankName: row.bankName,
-    accountNumber: row.accountNumber,
-    accountHolder: row.accountHolder,
-    paymentGuideText: row.paymentGuideText,
-    overdueGraceDays: row.overdueGraceDays,
-    updatedAt: row.updatedAt.toISOString(),
-  };
+  if (input.smtp !== undefined) {
+    await updatePlatformSmtpSettings(input.smtp);
+  }
+  return getPlatformBillingSettings();
 }
 
 export async function listTenantInvoices(tenantId: string, limit = 50): Promise<InvoiceDto[]> {
@@ -477,6 +512,7 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     openInvoice: openInvoice ? mapInvoice(openInvoice) : null,
     overdueInvoice: overdueInvoice ? mapInvoice(overdueInvoice) : null,
     operationalStatus,
+    paymentConfirmationEnabled: isPaymentConfirmationRequestEnabled(settings.dunningPaymentNotifyEmail),
   };
 }
 

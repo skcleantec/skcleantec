@@ -12,23 +12,13 @@ import { resolveInitialTenantSlug } from '../../utils/tenantHostResolve';
 import { resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useParams } from 'react-router-dom';
+import {
+  KOREAN_BANK_OPTIONS,
+  KOREAN_BANK_OTHER,
+  resolveBankNameFromSelect,
+} from '../../utils/koreanBankOptions';
 
 const DEFAULT_BRAND = '리뷰 페이백 신청';
-const BANK_OTHER = '기타';
-
-const BANK_OPTIONS = [
-  '국민은행',
-  '신한은행',
-  '우리은행',
-  '하나은행',
-  '농협',
-  '기업은행',
-  '카카오뱅크',
-  '토스뱅크',
-  '새마을금고',
-  '신협',
-  BANK_OTHER,
-] as const;
 
 const STEPS = [
   { title: '리뷰 캡처', desc: '작성한 리뷰 화면을 촬영·업로드' },
@@ -168,11 +158,10 @@ export function ReviewPaybackPage() {
 
   useDocumentTitle(brandName);
 
-  const resolvedBankName = useMemo(() => {
-    if (!bankSelect) return '';
-    if (bankSelect === BANK_OTHER) return bankOther.trim();
-    return bankSelect;
-  }, [bankSelect, bankOther]);
+  const resolvedBankName = useMemo(
+    () => resolveBankNameFromSelect(bankSelect, bankOther),
+    [bankSelect, bankOther],
+  );
 
   useEffect(() => {
     const slug = resolveInitialTenantSlug();
@@ -427,7 +416,7 @@ export function ReviewPaybackPage() {
                 className="w-full min-h-[44px] appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-fluid-sm text-slate-900 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/15"
               >
                 <option value="">은행을 선택해 주세요</option>
-                {BANK_OPTIONS.map((b) => (
+                {KOREAN_BANK_OPTIONS.map((b) => (
                   <option key={b} value={b}>
                     {b}
                   </option>
@@ -435,7 +424,7 @@ export function ReviewPaybackPage() {
               </select>
             </div>
 
-            {bankSelect === BANK_OTHER ? (
+            {bankSelect === KOREAN_BANK_OTHER ? (
               <div>
                 <label htmlFor="bank-other" className="block text-sm font-medium text-slate-700 mb-1.5">
                   은행명

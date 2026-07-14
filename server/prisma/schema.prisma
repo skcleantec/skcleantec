@@ -232,6 +232,18 @@ model PlatformBillingSettings {
   accountHolder    String?  @map("account_holder") @db.VarChar(64)
   paymentGuideText String?  @map("payment_guide_text") @db.Text
   overdueGraceDays Int      @default(3) @map("overdue_grace_days")
+  dunningPopupTitle    String? @map("dunning_popup_title") @db.VarChar(128)
+  dunningPopupSubtitle String? @map("dunning_popup_subtitle") @db.VarChar(256)
+  dunningPopupBody     String? @map("dunning_popup_body") @db.Text
+  dunningBlockSoonText String? @map("dunning_block_soon_text") @db.VarChar(256)
+  dunningBlockTodayText String? @map("dunning_block_today_text") @db.VarChar(256)
+  dunningPaymentNotifyEmail String? @map("dunning_payment_notify_email") @db.VarChar(256)
+  smtpHost             String?  @map("smtp_host") @db.VarChar(256)
+  smtpPort             Int?     @map("smtp_port")
+  smtpSecure           Boolean? @map("smtp_secure")
+  smtpUser             String?  @map("smtp_user") @db.VarChar(256)
+  smtpFrom             String?  @map("smtp_from") @db.VarChar(256)
+  smtpPassEnc          String?  @map("smtp_pass_enc") @db.Text
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("platform_billing_settings")
@@ -296,6 +308,7 @@ model TenantInvoice {
   paidAt                      DateTime?           @map("paid_at")
   confirmedByPlatformUserId   String?             @map("confirmed_by_platform_user_id")
   confirmedAt                 DateTime?           @map("confirmed_at")
+  paymentConfirmationRequestedAt DateTime?        @map("payment_confirmation_requested_at")
   memo                        String?             @db.Text
   createdAt                   DateTime            @default(now()) @map("created_at")
   updatedAt                   DateTime            @updatedAt @map("updated_at")

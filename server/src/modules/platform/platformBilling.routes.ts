@@ -34,8 +34,13 @@ const router = Router();
 router.use(platformAuthMiddleware);
 
 router.get('/settings', async (_req, res) => {
-  const settings = await getPlatformBillingSettings();
-  res.json(settings);
+  try {
+    const settings = await getPlatformBillingSettings();
+    res.json(settings);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '설정 조회에 실패했습니다.';
+    res.status(500).json({ error: msg });
+  }
 });
 
 router.patch('/settings', platformSuperAdminOnly, async (req, res) => {
@@ -46,11 +51,38 @@ router.patch('/settings', platformSuperAdminOnly, async (req, res) => {
       accountHolder?: string | null;
       paymentGuideText?: string | null;
       overdueGraceDays?: number;
+      dunningPopupTitle?: string | null;
+      dunningPopupSubtitle?: string | null;
+      dunningPopupBody?: string | null;
+      dunningBlockSoonText?: string | null;
+      dunningBlockTodayText?: string | null;
+      dunningPaymentNotifyEmail?: string | null;
+      smtp?: {
+        host?: string;
+        port?: number | null;
+        secure?: boolean;
+        user?: string;
+        from?: string;
+        password?: string;
+      };
     };
     const settings = await updatePlatformBillingSettings(body);
     res.json(settings);
   } catch (e) {
     const msg = e instanceof Error ? e.message : '저장에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.post('/smtp/test', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const body = req.body as { to?: string };
+    const to = typeof body.to === 'string' ? body.to.trim() : '';
+    const { sendPlatformSmtpTestMail } = await import('../../lib/platformSmtp.service.js');
+    await sendPlatformSmtpTestMail(to);
+    res.json({ ok: true, message: '테스트 메일을 발송했습니다.' });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '테스트 발송에 실패했습니다.';
     res.status(400).json({ error: msg });
   }
 });

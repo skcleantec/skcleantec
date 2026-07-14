@@ -17,6 +17,7 @@ import {
   PlatformAlert,
   StatusBadge,
 } from '../../utils/platformUi';
+import { KoreanBankNameField } from '../../components/ui/KoreanBankNameField';
 import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_PRICING_MODE_LABEL, formatNextDueDateLabel, formatBillingAnchorDayLabel } from '@shared/tenantBilling';
 
 export { PlatformTenantBillingPanel };
@@ -110,13 +111,16 @@ export function PlatformBillingPage() {
       <section className={CARD_SECTION}>
         <h2 className="text-base font-semibold text-gray-900">입금 안내 (전체 공통)</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block text-sm">
+          <label className="block text-sm sm:col-span-2">
             <span className="text-gray-600">은행</span>
-            <input
-              className={`mt-1 ${INPUT_BASE}`}
-              value={settings.bankName}
-              onChange={(e) => setSettings((s) => ({ ...s, bankName: e.target.value }))}
-            />
+            <div className="mt-1">
+              <KoreanBankNameField
+                value={settings.bankName}
+                onChange={(bankName) => setSettings((s) => ({ ...s, bankName }))}
+                selectClassName={INPUT_BASE}
+                inputClassName={INPUT_BASE}
+              />
+            </div>
           </label>
           <label className="block text-sm">
             <span className="text-gray-600">계좌번호</span>

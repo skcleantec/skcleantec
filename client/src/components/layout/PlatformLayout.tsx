@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PLATFORM_NAV_ITEMS, isPlatformNavActive } from '../../constants/platformNav';
 import { clearPlatformToken } from '../../stores/platformAuth';
@@ -8,24 +8,44 @@ function SidebarNav({ pathname, onNavigate }: { pathname: string; onNavigate?: (
     <nav className="flex flex-col gap-1 px-3 py-2">
       {PLATFORM_NAV_ITEMS.map((item) => {
         const active = isPlatformNavActive(pathname, item.to);
+        const childActive = item.children?.some((c) => isPlatformNavActive(pathname, c.to)) ?? false;
         return (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/platform/tenants'}
-            onClick={onNavigate}
-            className={[
-              'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors',
-              active
-                ? 'bg-white/10 font-medium text-white'
-                : 'text-gray-400 hover:bg-white/5 hover:text-white',
-            ].join(' ')}
-          >
-            <span className="text-base leading-none" aria-hidden>
-              {item.icon}
-            </span>
-            {item.label}
-          </NavLink>
+          <Fragment key={item.to}>
+            <NavLink
+              to={item.to}
+              end={item.to === '/platform/tenants'}
+              onClick={onNavigate}
+              className={[
+                'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors',
+                active || childActive
+                  ? 'bg-white/10 font-medium text-white'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-white',
+              ].join(' ')}
+            >
+              <span className="text-base leading-none" aria-hidden>
+                {item.icon}
+              </span>
+              {item.label}
+            </NavLink>
+            {item.children?.map((child) => {
+              const subActive = isPlatformNavActive(pathname, child.to);
+              return (
+                <NavLink
+                  key={child.to}
+                  to={child.to}
+                  onClick={onNavigate}
+                  className={[
+                    'ml-3 flex items-center rounded-lg py-2 pl-7 pr-3 text-sm transition-colors',
+                    subActive
+                      ? 'bg-white/10 font-medium text-white'
+                      : 'text-gray-500 hover:bg-white/5 hover:text-gray-200',
+                  ].join(' ')}
+                >
+                  {child.label}
+                </NavLink>
+              );
+            })}
+          </Fragment>
         );
       })}
     </nav>
@@ -54,7 +74,24 @@ export function PlatformLayout() {
         </Link>
       </div>
       <SidebarNav pathname={pathname} onNavigate={onNavigate} />
-      <div className="mt-auto border-t border-white/10 p-3">
+      <div className="mt-auto border-t border-white/10 p-3 space-y-1">
+        <NavLink
+          to="/platform/settings/smtp"
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            [
+              'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors',
+              isActive || pathname.startsWith('/platform/settings')
+                ? 'bg-white/10 font-medium text-white'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white',
+            ].join(' ')
+          }
+        >
+          <span className="text-base leading-none" aria-hidden>
+            ⚙️
+          </span>
+          설정
+        </NavLink>
         <button
           type="button"
           onClick={handleLogout}

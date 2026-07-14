@@ -10,12 +10,31 @@ function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
+export type PlatformSmtpSettingsPublic = {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  from: string;
+  passwordConfigured: boolean;
+  configured: boolean;
+  envFallbackAvailable: boolean;
+  effectiveConfigured: boolean;
+};
+
 export type PlatformBillingSettings = {
   bankName: string | null;
   accountNumber: string | null;
   accountHolder: string | null;
   paymentGuideText: string | null;
   overdueGraceDays: number;
+  dunningPopupTitle: string | null;
+  dunningPopupSubtitle: string | null;
+  dunningPopupBody: string | null;
+  dunningBlockSoonText: string | null;
+  dunningBlockTodayText: string | null;
+  dunningPaymentNotifyEmail: string | null;
+  smtp: PlatformSmtpSettingsPublic;
   updatedAt: string;
 };
 
@@ -178,9 +197,28 @@ export async function getPlatformBillingSettings(token: string) {
   return res.json() as Promise<PlatformBillingSettings>;
 }
 
+export async function sendPlatformBillingSmtpTest(token: string, to: string) {
+  const res = await fetch(`${API}/platform/billing/smtp/test`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ to }),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '테스트 발송 실패'));
+  return res.json() as Promise<{ ok: true; message: string }>;
+}
+
 export async function patchPlatformBillingSettings(
   token: string,
-  body: Partial<Omit<PlatformBillingSettings, 'updatedAt'>>,
+  body: Partial<Omit<PlatformBillingSettings, 'updatedAt' | 'smtp'>> & {
+    smtp?: {
+      host?: string;
+      port?: number | null;
+      secure?: boolean;
+      user?: string;
+      from?: string;
+      password?: string;
+    };
+  },
 ) {
   const res = await fetch(`${API}/platform/billing/settings`, {
     method: 'PATCH',
