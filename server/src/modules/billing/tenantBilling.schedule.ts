@@ -117,8 +117,8 @@ export function computeBillingSchedule(input: {
     invoices,
     adjustments,
     now = new Date(),
-    maxItems = 48,
-    futureScheduledMin = 12,
+    maxItems = 120,
+    futureScheduledMin = 1,
   } = input;
 
   const cycle = profile.billingCycle;

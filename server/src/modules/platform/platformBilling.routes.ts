@@ -22,9 +22,11 @@ import {
   updatePlatformBillingSettings,
   updateTenantBillingProfileContract,
   voidTenantBillingAdjustment,
+  voidTenantInvoice,
 } from '../billing/tenantBilling.service.js';
 import { updateTenantBasics } from './tenantProvisioning.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
+import { parseBillingScheduleListQuery } from '../billing/tenantBilling.scheduleList.js';
 
 const router = Router();
 
@@ -72,7 +74,8 @@ router.get('/tenants/:tenantId', async (req, res) => {
 
 router.get('/tenants/:tenantId/schedule', async (req, res) => {
   try {
-    const schedule = await getTenantBillingSchedule(req.params.tenantId);
+    const listQuery = parseBillingScheduleListQuery(req.query as Record<string, unknown>);
+    const schedule = await getTenantBillingSchedule(req.params.tenantId, listQuery);
     res.json(schedule);
   } catch (e) {
     if (e instanceof TenantNotFoundError) {
@@ -187,8 +190,12 @@ router.get('/tenants/:tenantId/invoice-preview', async (req, res) => {
 
 router.post('/tenants/:tenantId/invoices', platformSuperAdminOnly, async (req, res) => {
   try {
-    const body = req.body as { asDraft?: boolean };
-    const invoice = await issueInvoiceForTenant(req.params.tenantId, body.asDraft === true, 'MANUAL');
+    const body = req.body as { asDraft?: boolean; periodStart?: string };
+    const invoice = await issueInvoiceForTenant(req.params.tenantId, {
+      asDraft: body.asDraft === true,
+      source: 'MANUAL',
+      periodStart: body.periodStart,
+    });
     res.status(201).json({ invoice });
   } catch (e) {
     const msg = e instanceof Error ? e.message : '청구서 발행에 실패했습니다.';
@@ -217,6 +224,16 @@ router.post('/invoices/:invoiceId/confirm-payment', platformSuperAdminOnly, asyn
     res.json({ invoice });
   } catch (e) {
     const msg = e instanceof Error ? e.message : '납부 확인에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.post('/invoices/:invoiceId/void', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const invoice = await voidTenantInvoice(req.params.invoiceId);
+    res.json({ invoice });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '청구 취소에 실패했습니다.';
     res.status(400).json({ error: msg });
   }
 });

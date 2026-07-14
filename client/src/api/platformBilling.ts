@@ -138,8 +138,26 @@ export type PlatformTenantBillingDetail = {
     };
   };
   invoices: TenantInvoiceRow[];
-  schedule: BillingScheduleRow[];
   adjustments: BillingAdjustmentRow[];
+};
+
+export type BillingScheduleListResponse = {
+  billingStartDate: string | null;
+  serviceStartedAt: string | null;
+  profile: BillingProfileRow;
+  items: BillingScheduleRow[];
+  total: number;
+  limit: number;
+  offset: number;
+  adjustments: BillingAdjustmentRow[];
+};
+
+export type BillingScheduleListQuery = {
+  datePreset?: 'today' | 'all' | 'month' | 'day';
+  month?: string;
+  day?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export type PatchBillingProfileBody = {
@@ -184,6 +202,26 @@ export async function getPlatformTenantBilling(token: string, tenantId: string) 
   const res = await fetch(`${API}/platform/billing/tenants/${tenantId}`, { headers: authHeaders(token) });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '결제 정보 조회 실패'));
   return res.json() as Promise<PlatformTenantBillingDetail>;
+}
+
+export async function getPlatformTenantBillingSchedule(
+  token: string,
+  tenantId: string,
+  query: BillingScheduleListQuery = {},
+) {
+  const params = new URLSearchParams();
+  if (query.datePreset) params.set('datePreset', query.datePreset);
+  if (query.month) params.set('month', query.month);
+  if (query.day) params.set('day', query.day);
+  if (query.page != null) params.set('page', String(query.page));
+  if (query.pageSize != null) params.set('pageSize', String(query.pageSize));
+  const qs = params.toString();
+  const res = await fetch(
+    `${API}/platform/billing/tenants/${tenantId}/schedule${qs ? `?${qs}` : ''}`,
+    { headers: authHeaders(token) },
+  );
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '청구 일정 조회 실패'));
+  return res.json() as Promise<BillingScheduleListResponse>;
 }
 
 export async function patchPlatformTenantBillingProfile(
@@ -241,11 +279,15 @@ export async function confirmPlatformPrepaid(token: string, tenantId: string) {
   return res.json() as Promise<{ prepaidConfirmedAt: string; serviceStartsAt: string; message: string }>;
 }
 
-export async function issuePlatformTenantInvoice(token: string, tenantId: string) {
+export async function issuePlatformTenantInvoice(
+  token: string,
+  tenantId: string,
+  opts?: { periodStart?: string },
+) {
   const res = await fetch(`${API}/platform/billing/tenants/${tenantId}/invoices`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ asDraft: false }),
+    body: JSON.stringify({ asDraft: false, periodStart: opts?.periodStart }),
   });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '청구서 발행 실패'));
   return res.json() as Promise<{ invoice: TenantInvoiceRow }>;
@@ -257,5 +299,14 @@ export async function confirmPlatformInvoicePayment(token: string, invoiceId: st
     headers: authHeaders(token),
   });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '납부 확인 실패'));
+  return res.json() as Promise<{ invoice: TenantInvoiceRow }>;
+}
+
+export async function voidPlatformInvoice(token: string, invoiceId: string) {
+  const res = await fetch(`${API}/platform/billing/invoices/${invoiceId}/void`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '청구 취소 실패'));
   return res.json() as Promise<{ invoice: TenantInvoiceRow }>;
 }
