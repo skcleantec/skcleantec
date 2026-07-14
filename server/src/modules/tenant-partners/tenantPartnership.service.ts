@@ -6,7 +6,7 @@ import type {
 } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
-  assertTenantLoginAllowed,
+  assertTenantStaffLoginAllowed,
   resolveTenantBySlug,
   TenantNotFoundError,
   TenantSuspendedError,
@@ -113,11 +113,11 @@ async function assertPartnershipMember(
 async function assertPartnerTenantAvailable(tenantId: string) {
   const t = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, suspendReason: true, billingAccessBlockedAt: true },
   });
   if (!t) throw new TenantPartnershipError('상대 업체를 찾을 수 없습니다.', 404);
   try {
-    await assertTenantLoginAllowed(t.status);
+    await assertTenantStaffLoginAllowed(t);
   } catch (e) {
     if (e instanceof TenantSuspendedError) {
       throw new TenantPartnershipError('서비스가 중지된 업체와는 파트너십을 맺을 수 없습니다.', 400);

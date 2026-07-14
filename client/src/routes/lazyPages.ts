@@ -277,6 +277,9 @@ export const PlatformTenantCreatePage = lazyWithRetry(() =>
 export const PlatformTenantDetailPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformTenantDetailPage').then((m) => ({ default: m.PlatformTenantDetailPage }))
 );
+export const PlatformBillingPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformBillingPage').then((m) => ({ default: m.PlatformBillingPage }))
+);
 export const PlatformSupportAccessPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformSupportAccessPage').then((m) => ({ default: m.PlatformSupportAccessPage }))
 );

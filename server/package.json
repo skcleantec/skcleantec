@@ -54,7 +54,8 @@
     "db:backfill-inquiry-address-geo": "tsx scripts/backfill-inquiry-address-geo.ts",
     "db:migrate-cs-images": "tsx scripts/migrate-cs-images-to-cloudinary.ts",
     "db:purge:inquiries": "tsx scripts/purge-all-inquiries.ts",
-    "cron:inspection-retention": "tsx scripts/run-inspection-retention.ts"
+    "cron:inspection-retention": "tsx scripts/run-inspection-retention.ts",
+    "cron:billing-daily": "tsx scripts/run-billing-daily.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",

@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import type { Prisma, TenantStatus } from '@prisma/client';
+import type { Prisma, TenantStatus, TenantSuspendReason } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { seedTenantDefaults } from '../tenants/tenantConfigSeed.service.js';
 import {
@@ -17,6 +17,7 @@ import {
   adminLoginIdsSummaryForTenants,
   listTenantAdminsForPlatform,
 } from './tenantAdmins.service.js';
+import { trialEndsAtFromCreated } from '../billing/tenantBilling.service.js';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
@@ -69,6 +70,10 @@ export async function provisionTenant(input: ProvisionTenantInput) {
           plan,
           status,
         },
+      });
+
+      await tx.tenantBillingProfile.create({
+        data: { tenantId: tenant.id, billingCycle: 'MONTHLY' },
       });
 
       for (const moduleId of planModules) {
@@ -217,6 +222,9 @@ export async function updateTenantBasics(
     plan?: string;
     status?: TenantStatus;
     suspendedAt?: Date | null;
+    suspendReason?: TenantSuspendReason | null;
+    billingAccessBlockedAt?: Date | null;
+    trialEndsAt?: Date;
   } = {};
   if (data.slug !== undefined) {
     const slug = normalizeTenantSlug(data.slug);
@@ -242,7 +250,22 @@ export async function updateTenantBasics(
   }
   if (data.status !== undefined) {
     patch.status = data.status;
-    patch.suspendedAt = data.status === 'SUSPENDED' ? new Date() : null;
+    if (data.status === 'SUSPENDED') {
+      patch.suspendedAt = new Date();
+      patch.suspendReason = 'PLATFORM';
+      patch.billingAccessBlockedAt = new Date();
+    } else if (data.status === 'ACTIVE') {
+      patch.suspendedAt = null;
+      patch.suspendReason = null;
+      patch.billingAccessBlockedAt = null;
+    } else if (data.status === 'TRIAL') {
+      patch.suspendedAt = null;
+      patch.suspendReason = null;
+      patch.billingAccessBlockedAt = null;
+      if (!existing.trialEndsAt) {
+        patch.trialEndsAt = trialEndsAtFromCreated(existing.createdAt);
+      }
+    }
   }
 
   return prisma.tenant.update({

@@ -6,6 +6,7 @@ export type PlatformNavItem = {
 
 export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
   { label: '업체 관리', to: '/platform/tenants', icon: '🏢' },
+  { label: '결제 관리', to: '/platform/billing', icon: '💳' },
   { label: '정보공유', to: '/platform/db-marketplace', icon: '🛒' },
   { label: '도움말 문의', to: '/platform/help-inquiry', icon: '💬' },
   { label: '지원 접속', to: '/platform/support-access', icon: '🔑' },
@@ -16,6 +17,9 @@ export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
 export function isPlatformNavActive(pathname: string, to: string): boolean {
   if (to === '/platform/tenants') {
     return pathname === '/platform/tenants' || /^\/platform\/tenants\/[^/]+$/.test(pathname);
+  }
+  if (to === '/platform/billing') {
+    return pathname === '/platform/billing' || pathname.startsWith('/platform/billing/');
   }
   if (to === '/platform/help-inquiry') {
     return pathname === '/platform/help-inquiry' || pathname.startsWith('/platform/help-inquiry/');

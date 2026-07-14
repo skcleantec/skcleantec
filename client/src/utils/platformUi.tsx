@@ -51,6 +51,36 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const OPERATIONAL_BADGE: Record<string, string> = {
+  TRIAL_PAID: 'bg-sky-50 text-sky-800',
+  TRIAL_UNPAID: 'bg-amber-50 text-amber-800',
+  PENDING_START: 'bg-violet-50 text-violet-800',
+  ACTIVE_OK: 'bg-emerald-50 text-emerald-700',
+  ACTIVE_BILLED: 'bg-amber-50 text-amber-800',
+  ACTIVE_OVERDUE: 'bg-rose-50 text-rose-700',
+  ACTIVE_BLOCKED: 'bg-rose-100 text-rose-800',
+  SUSPENDED: 'bg-red-50 text-red-600',
+  SETUP_REQUIRED: 'bg-slate-100 text-slate-700',
+};
+
+export function BillingOperationalBadge({
+  label,
+  detail,
+  code,
+}: {
+  label: string;
+  detail?: string | null;
+  code?: string;
+}) {
+  const cls = (code && OPERATIONAL_BADGE[code]) || 'bg-slate-100 text-slate-700';
+  return (
+    <span className={`${BADGE_BASE} ${cls}`} title={detail ?? undefined}>
+      {label}
+      {detail ? <span className="font-normal opacity-80"> · {detail}</span> : null}
+    </span>
+  );
+}
+
 export function PlatformAlert({ message, variant }: { message: string; variant: 'success' | 'error' }) {
   if (variant === 'success') {
     return (

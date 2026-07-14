@@ -94,6 +94,12 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessionExpired = Boolean((location.state as { sessionExpired?: boolean } | null)?.sessionExpired);
+  const billingAccessBlocked = Boolean(
+    (location.state as { billingAccessBlocked?: boolean } | null)?.billingAccessBlocked,
+  );
+  const billingBlockedMessage =
+    (location.state as { billingMessage?: string } | null)?.billingMessage?.trim() ||
+    '이용료 미납으로 업무 접속이 제한되었습니다. 관리자에게 문의해 주세요.';
   /** 로그인 제출 시 증가 — 진행 중인 자동 `getMe`가 새 토큰·저장소를 덮어쓰지 않도록 */
   const sessionProbeGen = useRef(0);
   const devCrewInitRef = useRef(false);
@@ -410,6 +416,23 @@ export function LoginPage() {
                   </svg>
                 </span>
                 <p>로그인이 만료되었거나 저장된 토큰이 유효하지 않습니다. 다시 로그인해 주세요.</p>
+              </div>
+            )}
+            {billingAccessBlocked && (
+              <div
+                className="mb-6 flex gap-3 rounded-xl border border-rose-200/80 bg-rose-50/90 px-3.5 py-3 text-fluid-sm text-rose-950"
+                role="alert"
+              >
+                <span className="mt-0.5 shrink-0 text-rose-600" aria-hidden>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                </span>
+                <p>{billingBlockedMessage}</p>
               </div>
             )}
 
