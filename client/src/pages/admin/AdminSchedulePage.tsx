@@ -23,6 +23,7 @@ import {
   filterItemsByCustomCalendars,
   hasActiveCustomCalendarFilter,
   isCompanyTabCalendar,
+  isPartnerTabCalendar,
   isPureRegionCalendar,
   splitCustomCalendarsByTabRow,
 } from '../../utils/customCalendarClassification';
@@ -80,7 +81,9 @@ import {
   weekdayKoFromYmd,
 } from '../../utils/dateFormat';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
-import { formatPartnerAssignmentLabel } from '../../utils/tenantShareSettlement';
+import { formatScheduleLeaderSummary } from '../../utils/scheduleAssigneeDisplay';
+import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
+import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
@@ -406,19 +409,7 @@ function ScheduleDayListItem({
       : bucket === 'afternoon'
         ? '오후'
         : '기타';
-  const leaderNamesJoined =
-    formatPartnerAssignmentLabel(item.tenantShare) ??
-    (item.assignments.length > 0
-      ? item.assignments
-          .map((a) => {
-            const u = a.teamLeader;
-            if (u.role === 'EXTERNAL_PARTNER') {
-              return u.externalCompany?.name ? `[타업체] ${u.externalCompany.name}` : `[타업체] ${u.name}`;
-            }
-            return u.name;
-          })
-          .join('/')
-      : '');
+  const leaderNamesJoined = formatScheduleLeaderSummary(item);
   const crewN = item.crewMemberCount ?? 0;
   const crewNote = item.crewMemberNote?.trim() ?? '';
   const scheduleMemoLine = item.scheduleMemo?.trim() ?? '';
@@ -814,6 +805,8 @@ export function AdminSchedulePage() {
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [teamLeadersWithZones, setTeamLeadersWithZones] = useState<UserItem[]>([]);
   const [externalCompanies, setExternalCompanies] = useState<Array<{ id: string; name: string }>>([]);
+  const [partnerTenants, setPartnerTenants] = useState<Array<{ id: string; name: string }>>([]);
+  const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   const { ready, staffMe, role: meRole, userId, userName, userEmail } = useAdminStaffSession();
@@ -1133,6 +1126,7 @@ export function AdminSchedulePage() {
     if (!token) {
       setTeamLeadersWithZones([]);
       setExternalCompanies([]);
+      setPartnerTenants([]);
       setProfCatalog([]);
       setServiceZones([]);
       setMarketers([]);
@@ -1156,6 +1150,20 @@ export function AdminSchedulePage() {
         })
         .catch(() => setExternalCompanies([]));
 
+      if (hasTenantExchange) {
+        listTenantPartnerships(token)
+          .then(({ items }) => {
+            setPartnerTenants(
+              items
+                .filter((p: TenantPartnershipItem) => p.status === 'ACTIVE')
+                .map((p) => ({ id: p.partner.id, name: p.partner.name })),
+            );
+          })
+          .catch(() => setPartnerTenants([]));
+      } else {
+        setPartnerTenants([]);
+      }
+
       getAllProfessionalOptions(token)
         .then(setProfCatalog)
         .catch(() => setProfCatalog([]));
@@ -1174,7 +1182,7 @@ export function AdminSchedulePage() {
         setMarketers([]);
       }
     });
-  }, [token, effectiveStaffAdmin, operationalAdmin, fetchCustomCalendars]);
+  }, [token, effectiveStaffAdmin, operationalAdmin, fetchCustomCalendars, hasTenantExchange]);
 
   /**
    * 활성 맞춤 캘린더 id — URL(`customCalendarRegionId` / `customCalendarCompanyId`) 동기화.
@@ -1194,6 +1202,13 @@ export function AdminSchedulePage() {
     return customCalendars.some((c) => c.id === raw && isCompanyTabCalendar(c)) ? raw : null;
   }, [location.search, customCalendars]);
 
+  const activePartnerCalendarId = useMemo(() => {
+    const qs = new URLSearchParams(location.search);
+    const raw = qs.get('customCalendarPartnerId');
+    if (!raw) return null;
+    return customCalendars.some((c) => c.id === raw && isPartnerTabCalendar(c)) ? raw : null;
+  }, [location.search, customCalendars]);
+
   const activeRegionCalendar = useMemo(
     () => customCalendars.find((c) => c.id === activeRegionCalendarId) ?? null,
     [customCalendars, activeRegionCalendarId],
@@ -1204,7 +1219,12 @@ export function AdminSchedulePage() {
     [customCalendars, activeCompanyCalendarId],
   );
 
-  const { regionCalendars, companyCalendars } = useMemo(
+  const activePartnerCalendar = useMemo(
+    () => customCalendars.find((c) => c.id === activePartnerCalendarId) ?? null,
+    [customCalendars, activePartnerCalendarId],
+  );
+
+  const { regionCalendars, companyCalendars, partnerCalendars } = useMemo(
     () => splitCustomCalendarsByTabRow(customCalendars),
     [customCalendars],
   );
@@ -1214,6 +1234,12 @@ export function AdminSchedulePage() {
     for (const c of externalCompanies) map.set(c.id, c.name);
     return map;
   }, [externalCompanies]);
+
+  const partnerTenantNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of partnerTenants) map.set(p.id, p.name);
+    return map;
+  }, [partnerTenants]);
 
   const activeServiceZoneId = activeRegionCalendar?.serviceZoneId ?? null;
 
@@ -1242,6 +1268,7 @@ export function AdminSchedulePage() {
     if (cal) {
       const row = customCalendarTabRow(cal);
       if (row === 'company') qs.set('customCalendarCompanyId', legacy);
+      else if (row === 'partner') qs.set('customCalendarPartnerId', legacy);
       else if (row === 'region') qs.set('customCalendarRegionId', legacy);
     }
     const nextSearch = qs.toString();
@@ -1266,6 +1293,11 @@ export function AdminSchedulePage() {
       qs.delete('customCalendarCompanyId');
       changed = true;
     }
+    const partnerRaw = qs.get('customCalendarPartnerId');
+    if (partnerRaw && !customCalendars.some((c) => c.id === partnerRaw && isPartnerTabCalendar(c))) {
+      qs.delete('customCalendarPartnerId');
+      changed = true;
+    }
     if (!changed) return;
     const nextSearch = qs.toString();
     navigate(
@@ -1275,7 +1307,7 @@ export function AdminSchedulePage() {
   }, [customCalendars, location.search, location.pathname, location.hash, navigate]);
 
   const patchCustomCalendarSearch = useCallback(
-    (patch: { regionId?: string | null; companyId?: string | null }) => {
+    (patch: { regionId?: string | null; companyId?: string | null; partnerId?: string | null }) => {
       const qs = new URLSearchParams(location.search);
       if (patch.regionId !== undefined) {
         if (patch.regionId) qs.set('customCalendarRegionId', patch.regionId);
@@ -1284,6 +1316,10 @@ export function AdminSchedulePage() {
       if (patch.companyId !== undefined) {
         if (patch.companyId) qs.set('customCalendarCompanyId', patch.companyId);
         else qs.delete('customCalendarCompanyId');
+      }
+      if (patch.partnerId !== undefined) {
+        if (patch.partnerId) qs.set('customCalendarPartnerId', patch.partnerId);
+        else qs.delete('customCalendarPartnerId');
       }
       const nextSearch = qs.toString();
       navigate(
@@ -1304,10 +1340,21 @@ export function AdminSchedulePage() {
     [patchCustomCalendarSearch],
   );
 
+  const setActivePartnerCalendarId = useCallback(
+    (id: string | null) => patchCustomCalendarSearch({ partnerId: id }),
+    [patchCustomCalendarSearch],
+  );
+
   const filteredItems = useMemo(
     () =>
-      filterItemsByCustomCalendars(items, activeRegionCalendar, activeCompanyCalendar, customCalendars),
-    [items, activeRegionCalendar, activeCompanyCalendar, customCalendars],
+      filterItemsByCustomCalendars(
+        items,
+        activeRegionCalendar,
+        activeCompanyCalendar,
+        customCalendars,
+        activePartnerCalendar,
+      ),
+    [items, activeRegionCalendar, activeCompanyCalendar, activePartnerCalendar, customCalendars],
   );
 
   const byDate = groupScheduleItemsByKstDate(filteredItems);
@@ -1361,7 +1408,7 @@ export function AdminSchedulePage() {
       string,
       Array<{ id: string; name: string; colorKey: string; regions: string[]; count: number }>
     >();
-    if (hasActiveCustomCalendarFilter(activeRegionCalendar, activeCompanyCalendar)) return map;
+    if (hasActiveCustomCalendarFilter(activeRegionCalendar, activeCompanyCalendar, activePartnerCalendar)) return map;
     if (customCalendars.length === 0) return map;
 
     for (const it of filteredItems) {
@@ -1424,7 +1471,9 @@ export function AdminSchedulePage() {
   );
 
   const openEditCustomCalendar = useCallback((cal: UserCustomCalendarItem) => {
-    setCustomCalendarCreateFocus(isCompanyTabCalendar(cal) ? 'company' : 'region');
+    setCustomCalendarCreateFocus(
+      isPartnerTabCalendar(cal) ? 'partner' : isCompanyTabCalendar(cal) ? 'company' : 'region',
+    );
     setCustomCalendarEditing(cal);
     setCustomCalendarModalOpen(true);
   }, []);
@@ -1433,6 +1482,7 @@ export function AdminSchedulePage() {
     name: string;
     regions: string[];
     externalCompanyIds: string[];
+    partnerTenantIds: string[];
     isolateFromGlobal: boolean;
     hideAssignedInRegionBadge: boolean;
     colorKey: string;
@@ -1443,10 +1493,10 @@ export function AdminSchedulePage() {
       await updateUserCustomCalendar(token, customCalendarEditing.id, values);
     } else {
       const created = await createUserCustomCalendar(token, values);
-      // 생성 직후 해당 캘린더로 이동 (URL 기반 — 규칙 준수)
       await fetchCustomCalendars();
       const row = customCalendarTabRow(created);
       if (row === 'company') setActiveCompanyCalendarId(created.id);
+      else if (row === 'partner') setActivePartnerCalendarId(created.id);
       else if (row === 'region') setActiveRegionCalendarId(created.id);
       return;
     }
@@ -1462,6 +1512,9 @@ export function AdminSchedulePage() {
     }
     if (activeCompanyCalendarId === customCalendarDeleting.id) {
       setActiveCompanyCalendarId(null);
+    }
+    if (activePartnerCalendarId === customCalendarDeleting.id) {
+      setActivePartnerCalendarId(null);
     }
     setCustomCalendarDeleting(null);
     await fetchCustomCalendars();
@@ -1543,7 +1596,11 @@ export function AdminSchedulePage() {
           {(regionCalendars.length > 0 || companyCalendars.length > 0 || canManageCustomCalendar) ? (
             <ScheduleCustomCalendarMobileMenuButton
               onClick={() => setCustomCalendarMenuOpen(true)}
-              hasActiveFilter={hasActiveCustomCalendarFilter(activeRegionCalendar, activeCompanyCalendar)}
+              hasActiveFilter={hasActiveCustomCalendarFilter(
+                activeRegionCalendar,
+                activeCompanyCalendar,
+                activePartnerCalendar,
+              )}
             />
           ) : null}
           <div className="flex lg:hidden items-center gap-1 min-w-0 shrink mr-0.5">
@@ -1720,11 +1777,32 @@ export function AdminSchedulePage() {
                   서비스 권역 관리
                 </Link>
               </div>
-              {activeRegionCalendar && activeCompanyCalendar ? (
+              {hasTenantExchange ? (
+                <CustomCalendarTabsBar
+                  rowLabel="파트너"
+                  className="w-full min-w-0"
+                  calendars={partnerCalendars}
+                  activeId={activePartnerCalendarId}
+                  onSelect={(id) => setActivePartnerCalendarId(id)}
+                  onClickAdd={() => {
+                    setCustomCalendarCreateFocus('partner');
+                    setCustomCalendarEditing(null);
+                    setCustomCalendarModalOpen(true);
+                  }}
+                  showAddButton={canManageCustomCalendar}
+                  addButtonTitle="파트너 캘린더 추가"
+                  onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
+                  partnerTenantNames={partnerTenantNameById}
+                />
+              ) : null}
+              {[activeRegionCalendar, activeCompanyCalendar, activePartnerCalendar].filter(Boolean).length >= 2 ? (
                 <p className="text-fluid-xs text-slate-600">
                   필터:{' '}
                   <span className="font-medium text-slate-800">
-                    {activeRegionCalendar.name} ∩ {activeCompanyCalendar.name}
+                    {[activeRegionCalendar, activeCompanyCalendar, activePartnerCalendar]
+                      .filter(Boolean)
+                      .map((c) => c!.name)
+                      .join(' ∩ ')}
                   </span>
                 </p>
               ) : null}
@@ -3308,12 +3386,16 @@ export function AdminSchedulePage() {
         onClose={() => setCustomCalendarMenuOpen(false)}
         regionCalendars={regionCalendars}
         companyCalendars={companyCalendars}
+        partnerCalendars={partnerCalendars}
         activeRegionCalendarId={activeRegionCalendarId}
         activeCompanyCalendarId={activeCompanyCalendarId}
+        activePartnerCalendarId={activePartnerCalendarId}
         activeRegionCalendar={activeRegionCalendar}
         activeCompanyCalendar={activeCompanyCalendar}
+        activePartnerCalendar={activePartnerCalendar}
         onSelectRegion={setActiveRegionCalendarId}
         onSelectCompany={setActiveCompanyCalendarId}
+        onSelectPartner={setActivePartnerCalendarId}
         onAddRegion={() => {
           setCustomCalendarCreateFocus('region');
           setCustomCalendarEditing(null);
@@ -3324,9 +3406,16 @@ export function AdminSchedulePage() {
           setCustomCalendarEditing(null);
           setCustomCalendarModalOpen(true);
         }}
+        onAddPartner={() => {
+          setCustomCalendarCreateFocus('partner');
+          setCustomCalendarEditing(null);
+          setCustomCalendarModalOpen(true);
+        }}
         onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
         canManage={canManageCustomCalendar}
+        showPartnerRow={hasTenantExchange}
         externalCompanyNames={externalCompanyNameById}
+        partnerTenantNames={partnerTenantNameById}
       />
 
       <CustomCalendarCreateModal
@@ -3339,6 +3428,7 @@ export function AdminSchedulePage() {
                 name: customCalendarEditing.name,
                 regions: customCalendarEditing.regions,
                 externalCompanyIds: customCalendarEditing.externalCompanyIds,
+                partnerTenantIds: customCalendarEditing.partnerTenantIds,
                 isolateFromGlobal: customCalendarEditing.isolateFromGlobal,
                 hideAssignedInRegionBadge: customCalendarEditing.hideAssignedInRegionBadge,
                 colorKey: customCalendarEditing.colorKey as never,
@@ -3348,6 +3438,7 @@ export function AdminSchedulePage() {
         }
         usedColors={usedCustomCalendarColors}
         externalCompanies={externalCompanies}
+        partnerTenants={partnerTenants}
         serviceZones={serviceZones}
         onClose={() => {
           setCustomCalendarModalOpen(false);

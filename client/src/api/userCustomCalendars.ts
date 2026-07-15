@@ -10,6 +10,8 @@ export interface UserCustomCalendarItem {
   regions: string[];
   /** 타업체 캘린더용 대상 업체 id 배열 */
   externalCompanyIds: string[];
+  /** 파트너 캘린더용 연결 테넌트 id 배열 */
+  partnerTenantIds: string[];
   /** 체크 시 전체 캘린더에서 숨기고 이 캘린더에서만 표시 */
   isolateFromGlobal: boolean;
   /** 체크 시 지역 배지 집계에서 배정 완료 건 제외 */
@@ -23,17 +25,20 @@ export interface UserCustomCalendarItem {
 }
 
 const EXT_COMPANY_PREFIX = '@e:';
+const PARTNER_TENANT_PREFIX = '@p:';
 const ISOLATE_FLAG = '@x:1';
 const REGION_BADGE_UNASSIGNED_ONLY_FLAG = '@r:unassigned-only';
 
 function decodeCalendarRegions(rawRegions: string[]): {
   regions: string[];
   externalCompanyIds: string[];
+  partnerTenantIds: string[];
   isolateFromGlobal: boolean;
   hideAssignedInRegionBadge: boolean;
 } {
   const regions: string[] = [];
   const externalCompanyIds: string[] = [];
+  const partnerTenantIds: string[] = [];
   let isolateFromGlobal = false;
   let hideAssignedInRegionBadge = false;
   for (const raw of rawRegions) {
@@ -53,11 +58,17 @@ function decodeCalendarRegions(rawRegions: string[]): {
       if (id) externalCompanyIds.push(id);
       continue;
     }
+    if (v.startsWith(PARTNER_TENANT_PREFIX)) {
+      const id = v.slice(PARTNER_TENANT_PREFIX.length).trim();
+      if (id) partnerTenantIds.push(id);
+      continue;
+    }
     regions.push(v);
   }
   return {
     regions,
     externalCompanyIds: Array.from(new Set(externalCompanyIds)),
+    partnerTenantIds: Array.from(new Set(partnerTenantIds)),
     isolateFromGlobal,
     hideAssignedInRegionBadge,
   };
@@ -66,6 +77,7 @@ function decodeCalendarRegions(rawRegions: string[]): {
 function encodeCalendarRegions(input: {
   regions?: string[];
   externalCompanyIds?: string[];
+  partnerTenantIds?: string[];
   isolateFromGlobal?: boolean;
   hideAssignedInRegionBadge?: boolean;
 }): string[] {
@@ -79,6 +91,11 @@ function encodeCalendarRegions(input: {
     const v = String(id ?? '').trim();
     if (!v) continue;
     out.push(`${EXT_COMPANY_PREFIX}${v}`);
+  }
+  for (const id of input.partnerTenantIds ?? []) {
+    const v = String(id ?? '').trim();
+    if (!v) continue;
+    out.push(`${PARTNER_TENANT_PREFIX}${v}`);
   }
   if (input.isolateFromGlobal) out.push(ISOLATE_FLAG);
   if (input.hideAssignedInRegionBadge) out.push(REGION_BADGE_UNASSIGNED_ONLY_FLAG);
@@ -107,6 +124,7 @@ function normalize(raw: unknown): UserCustomCalendarItem {
     serviceZoneId: typeof r.serviceZoneId === 'string' && r.serviceZoneId.trim() ? r.serviceZoneId.trim() : null,
     regions: decoded.regions,
     externalCompanyIds: decoded.externalCompanyIds,
+    partnerTenantIds: decoded.partnerTenantIds,
     isolateFromGlobal: decoded.isolateFromGlobal,
     hideAssignedInRegionBadge: decoded.hideAssignedInRegionBadge,
     colorKey: String(r.colorKey ?? 'teal'),
@@ -144,6 +162,7 @@ export async function createUserCustomCalendar(
     name: string;
     regions: string[];
     externalCompanyIds?: string[];
+    partnerTenantIds?: string[];
     isolateFromGlobal?: boolean;
     hideAssignedInRegionBadge?: boolean;
     colorKey?: string;
@@ -172,6 +191,7 @@ export async function updateUserCustomCalendar(
     name: string;
     regions: string[];
     externalCompanyIds: string[];
+    partnerTenantIds: string[];
     isolateFromGlobal: boolean;
     hideAssignedInRegionBadge: boolean;
     colorKey: string;
@@ -187,12 +207,14 @@ export async function updateUserCustomCalendar(
   if (
     input.regions !== undefined ||
     input.externalCompanyIds !== undefined ||
+    input.partnerTenantIds !== undefined ||
     input.isolateFromGlobal !== undefined ||
     input.hideAssignedInRegionBadge !== undefined
   ) {
     payload.regions = encodeCalendarRegions({
       regions: input.regions ?? [],
       externalCompanyIds: input.externalCompanyIds ?? [],
+      partnerTenantIds: input.partnerTenantIds ?? [],
       isolateFromGlobal: input.isolateFromGlobal ?? false,
       hideAssignedInRegionBadge: input.hideAssignedInRegionBadge ?? false,
     });

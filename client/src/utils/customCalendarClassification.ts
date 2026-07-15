@@ -3,24 +3,33 @@ import type { ScheduleItem } from '../api/schedule';
 import { matchesCustomCalendarFilter } from './customCalendarMatch';
 import { allKoreanSidoRegionValues, isAllKoreanRegionsSelected } from '../constants/koreanCities';
 
-export type CustomCalendarTabRow = 'region' | 'company';
+export type CustomCalendarTabRow = 'region' | 'company' | 'partner';
 
-type CalendarShape = Pick<UserCustomCalendarItem, 'regions' | 'externalCompanyIds' | 'serviceZoneId'>;
+type CalendarShape = Pick<
+  UserCustomCalendarItem,
+  'regions' | 'externalCompanyIds' | 'partnerTenantIds' | 'serviceZoneId'
+>;
 
-/** 순수 지역(타업체 없음) — 지역 탭 줄 */
+/** 순수 지역(타업체·파트너 없음) — 지역 탭 줄 */
 export function isPureRegionCalendar(cal: CalendarShape): boolean {
   const hasRegion = cal.regions.length > 0 || Boolean(cal.serviceZoneId);
-  return hasRegion && cal.externalCompanyIds.length === 0;
+  return hasRegion && cal.externalCompanyIds.length === 0 && cal.partnerTenantIds.length === 0;
 }
 
-/** 타업체 포함(혼합 포함) — 업체 탭 줄 */
+/** 타업체 전용 — 업체 탭 줄 */
 export function isCompanyTabCalendar(cal: CalendarShape): boolean {
-  return cal.externalCompanyIds.length > 0;
+  return cal.externalCompanyIds.length > 0 && cal.partnerTenantIds.length === 0;
 }
 
-/** URL·레거시 마이그레이션용 — 업체 우선, 없으면 순수 지역 */
+/** 파트너 전용 — 파트너 탭 줄 */
+export function isPartnerTabCalendar(cal: CalendarShape): boolean {
+  return cal.partnerTenantIds.length > 0 && cal.externalCompanyIds.length === 0;
+}
+
+/** URL·레거시 마이그레이션용 — 업체 > 파트너 > 지역 우선 */
 export function customCalendarTabRow(cal: CalendarShape): CustomCalendarTabRow | null {
   if (isCompanyTabCalendar(cal)) return 'company';
+  if (isPartnerTabCalendar(cal)) return 'partner';
   if (isPureRegionCalendar(cal)) return 'region';
   return null;
 }
@@ -28,31 +37,36 @@ export function customCalendarTabRow(cal: CalendarShape): CustomCalendarTabRow |
 export function splitCustomCalendarsByTabRow(calendars: readonly UserCustomCalendarItem[]) {
   const regionCalendars: UserCustomCalendarItem[] = [];
   const companyCalendars: UserCustomCalendarItem[] = [];
+  const partnerCalendars: UserCustomCalendarItem[] = [];
   for (const cal of calendars) {
     if (isPureRegionCalendar(cal)) regionCalendars.push(cal);
     if (isCompanyTabCalendar(cal)) companyCalendars.push(cal);
+    if (isPartnerTabCalendar(cal)) partnerCalendars.push(cal);
   }
-  return { regionCalendars, companyCalendars };
+  return { regionCalendars, companyCalendars, partnerCalendars };
 }
 
 export function hasActiveCustomCalendarFilter(
   regionCal: UserCustomCalendarItem | null,
   companyCal: UserCustomCalendarItem | null,
+  partnerCal: UserCustomCalendarItem | null = null,
 ): boolean {
-  return Boolean(regionCal || companyCal);
+  return Boolean(regionCal || companyCal || partnerCal);
 }
 
-/** 지역·업체 캘린더 AND 필터; 둘 다 없으면 isolateFromGlobal 처리 */
+/** 지역·업체·파트너 캘린더 AND 필터; 모두 없으면 isolateFromGlobal 처리 */
 export function filterItemsByCustomCalendars(
   items: ScheduleItem[],
   regionCal: UserCustomCalendarItem | null,
   companyCal: UserCustomCalendarItem | null,
   allCalendars: readonly UserCustomCalendarItem[],
+  partnerCal: UserCustomCalendarItem | null = null,
 ): ScheduleItem[] {
-  if (regionCal || companyCal) {
+  if (regionCal || companyCal || partnerCal) {
     return items.filter((it) => {
       if (regionCal && !matchesCustomCalendarFilter(it, regionCal)) return false;
       if (companyCal && !matchesCustomCalendarFilter(it, companyCal)) return false;
+      if (partnerCal && !matchesCustomCalendarFilter(it, partnerCal)) return false;
       return true;
     });
   }
@@ -87,10 +101,22 @@ export function formatCompanyTabHint(
   return `${names[0]} 외 ${names.length - 1}곳`;
 }
 
+/** 탭 tooltip — 파트너 */
+export function formatPartnerTabHint(
+  partnerTenantIds: readonly string[],
+  partnerTenantNames: ReadonlyMap<string, string>,
+): string {
+  if (partnerTenantIds.length === 0) return '파트너 미설정';
+  const names = partnerTenantIds.map((id) => partnerTenantNames.get(id) ?? id);
+  if (names.length === 1) return names[0]!;
+  return `${names[0]} 외 ${names.length - 1}곳`;
+}
+
 /** 모달 등 상세 표시용 (스케줄 본문에는 쓰지 않음) */
 export function formatCustomCalendarFilterSummary(
   cal: UserCustomCalendarItem,
   externalCompanyNames: ReadonlyMap<string, string>,
+  partnerTenantNames: ReadonlyMap<string, string> = new Map(),
 ): string {
   const parts: string[] = [];
   if (cal.regions.length > 0) {
@@ -104,7 +130,14 @@ export function formatCustomCalendarFilterSummary(
     parts.push(
       ...cal.externalCompanyIds
         .map((id) => externalCompanyNames.get(id) ?? id)
-        .map((name) => `[타업체] ${name}`),
+        .map((name) => `타-${name}`),
+    );
+  }
+  if (cal.partnerTenantIds.length > 0) {
+    parts.push(
+      ...cal.partnerTenantIds
+        .map((id) => partnerTenantNames.get(id) ?? id)
+        .map((name) => `파·${name}`),
     );
   }
   return parts.join(' · ') || '필터 없음';

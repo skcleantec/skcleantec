@@ -16,8 +16,9 @@ import {
   consumesAfternoonSlot,
   consumesMorningSlot,
   countsForSideCleaningCalendarBadge,
-  inquiryUsesInternalTeamLeaderSlot,
+  inquiryCountsForInternalToSlot,
 } from '../schedule/scheduleSlot.helpers.js';
+import { loadShareMetaMapForInquiries } from '../tenant-partners/tenantInquiryShare.service.js';
 import {
   countAvailableFieldStaffByDateRange,
   crewUnitsForInquiry,
@@ -364,6 +365,16 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     }),
   ]);
 
+  const shareMetaByInquiryId = await loadShareMetaMapForInquiries(
+    tenantId,
+    inquiries.map((inv) => inv.id),
+  );
+  const inquiryCountsForTo = (inv: (typeof inquiries)[number]) =>
+    inquiryCountsForInternalToSlot({
+      assignments: inv.assignments,
+      tenantShare: shareMetaByInquiryId.get(inv.id) ?? null,
+    });
+
   const toDateKey = kstDateKey;
 
   const byDate: Record<
@@ -474,13 +485,13 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     let sideCleaningOrderCount = 0;
     let sideCleaningUnconfirmedCount = 0;
     for (const inv of dayInquiries) {
-      if (countsForSideCleaningCalendarBadge(inv)) {
+      if (countsForSideCleaningCalendarBadge(inv) && inquiryCountsForTo(inv)) {
         sideCleaningOrderCount += 1;
         if (inv.betweenScheduleSlot == null || inv.betweenScheduleSlot === '') {
           sideCleaningUnconfirmedCount += 1;
         }
       }
-      if (!inquiryUsesInternalTeamLeaderSlot(inv)) continue;
+      if (!inquiryCountsForTo(inv)) continue;
       const internalLeaderCount = inv.assignments.filter((a) => a.teamLeader.role === 'TEAM_LEADER').length;
       const slotWeight = internalLeaderCount > 0 ? internalLeaderCount : 1;
       if (consumesMorningSlot(inv)) morningOccupied += slotWeight;
@@ -490,7 +501,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     const morningAssignedIds = new Set<string>();
     for (const inv of dayInquiries) {
       if (!consumesMorningSlot(inv)) continue;
-      if (!inquiryUsesInternalTeamLeaderSlot(inv)) continue;
+      if (!inquiryCountsForTo(inv)) continue;
       for (const a of inv.assignments) {
         if (a.teamLeader.role !== 'TEAM_LEADER' && a.teamLeader.role !== 'ADMIN') continue;
         morningAssignedIds.add(a.teamLeaderId);
@@ -499,7 +510,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     const afternoonAssignedIds = new Set<string>();
     for (const inv of dayInquiries) {
       if (!consumesAfternoonSlot(inv)) continue;
-      if (!inquiryUsesInternalTeamLeaderSlot(inv)) continue;
+      if (!inquiryCountsForTo(inv)) continue;
       for (const a of inv.assignments) {
         if (a.teamLeader.role !== 'TEAM_LEADER' && a.teamLeader.role !== 'ADMIN') continue;
         afternoonAssignedIds.add(a.teamLeaderId);
@@ -528,7 +539,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
 
     const crewAvailable = crewAvailableByDate.get(key) ?? 0;
     const crewDemand = dayInquiries
-      .filter((inv) => inquiryUsesInternalTeamLeaderSlot(inv))
+      .filter((inv) => inquiryCountsForTo(inv))
       .reduce((sum, inv) => sum + crewUnitsForInquiry(inv.crewMemberCount), 0);
     const crewRemaining = Math.max(0, crewAvailable - crewDemand);
     const additionalStandardJobsByCrew = Math.floor(crewRemaining / DEFAULT_CREW_UNITS_PER_INQUIRY);

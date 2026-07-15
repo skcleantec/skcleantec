@@ -61,6 +61,25 @@ export function inquiryUsesInternalTeamLeaderSlot(inv: {
   return list.some((a) => a.teamLeader.role === 'TEAM_LEADER');
 }
 
+/** 송신 테넌트 — 파트너사로 넘긴(활성 연계) 접수 */
+export function inquiryHasActivePartnerShareSource(
+  share: { role: string; syncStatus: string } | null | undefined,
+): boolean {
+  return share?.role === 'SOURCE' && share?.syncStatus === 'ACTIVE';
+}
+
+/**
+ * 캘린더 TO·팀원 수요·슬롯 점유 집계에 포함할 접수.
+ * 타업체 전용 배정·파트너 연계(송신·ACTIVE)는 자사 용량과 무관하므로 제외.
+ */
+export function inquiryCountsForInternalToSlot(inv: {
+  assignments: ReadonlyArray<{ teamLeader: { role: string } }>;
+  tenantShare?: { role: string; syncStatus: string } | null;
+}): boolean {
+  if (inquiryHasActivePartnerShareSource(inv.tenantShare)) return false;
+  return inquiryUsesInternalTeamLeaderSlot(inv);
+}
+
 /** 사이청소 오전·오후 확정 여부 — 확정 시 해당 슬롯 1건 소모, ⚡ 배지는 표시하지 않음 */
 export function isSideCleaningScheduleSlotConfirmed(betweenScheduleSlot: string | null | undefined): boolean {
   const s = String(betweenScheduleSlot ?? '').trim();

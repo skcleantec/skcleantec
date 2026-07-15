@@ -31,10 +31,20 @@ export function consumesAfternoonSlot(item: Pick<ScheduleItem, 'preferredTime' |
   return !isPlainMorningSlot(item.preferredTime);
 }
 
+function inquiryHasActivePartnerShareSource(item: ScheduleItem): boolean {
+  return item.tenantShare?.role === 'SOURCE' && item.tenantShare?.syncStatus === 'ACTIVE';
+}
+
 function inquiryUsesInternalTeamLeaderSlot(item: ScheduleItem): boolean {
   const list = item.assignments ?? [];
   if (list.length === 0) return true;
   return list.some((a) => a.teamLeader.role === 'TEAM_LEADER' || a.teamLeader.role === 'ADMIN');
+}
+
+/** 캘린더 TO·슬롯 점유 — 파트너 연계(송신·ACTIVE)는 자사 용량에서 제외 */
+export function inquiryCountsForInternalToSlot(item: ScheduleItem): boolean {
+  if (inquiryHasActivePartnerShareSource(item)) return false;
+  return inquiryUsesInternalTeamLeaderSlot(item);
 }
 
 function internalLeaderIds(item: ScheduleItem): string[] {
@@ -53,7 +63,7 @@ export function buildSlotOccupiedLeaderIdsForDay(
   const afternoon = new Set<string>();
   for (const inv of items) {
     if (excludeInquiryId && inv.id === excludeInquiryId) continue;
-    if (!inquiryUsesInternalTeamLeaderSlot(inv)) continue;
+    if (!inquiryCountsForInternalToSlot(inv)) continue;
     const ids = internalLeaderIds(inv);
     if (ids.length === 0) continue;
     if (consumesMorningSlot(inv)) ids.forEach((id) => morning.add(id));

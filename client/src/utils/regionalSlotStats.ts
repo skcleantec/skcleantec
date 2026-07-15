@@ -2,7 +2,7 @@ import type { ScheduleStatsByDate } from '../api/dayoffs';
 import type { ScheduleItem } from '../api/schedule';
 import type { UserCustomCalendarItem } from '../api/userCustomCalendars';
 import { matchesCustomCalendarFilter } from './customCalendarMatch';
-import { consumesAfternoonSlot, consumesMorningSlot } from './scheduleSlotOccupancy';
+import { consumesAfternoonSlot, consumesMorningSlot, inquiryCountsForInternalToSlot } from './scheduleSlotOccupancy';
 
 export type RegionalDaySlotStats = {
   assignableMorning: number;
@@ -12,9 +12,7 @@ export type RegionalDaySlotStats = {
 };
 
 function inquiryUsesInternalTeamLeaderSlot(item: ScheduleItem): boolean {
-  const list = item.assignments ?? [];
-  if (list.length === 0) return true;
-  return list.some((a) => a.teamLeader.role === 'TEAM_LEADER' || a.teamLeader.role === 'ADMIN');
+  return inquiryCountsForInternalToSlot(item);
 }
 
 function internalLeaderCount(item: ScheduleItem): number {
@@ -55,7 +53,7 @@ function countRegionalWorkingLeaders(
 
 function sumRegionalOccupied(
   items: ScheduleItem[],
-  calendar: Pick<UserCustomCalendarItem, 'regions' | 'externalCompanyIds' | 'pinnedInquiryIds'>,
+  calendar: Pick<UserCustomCalendarItem, 'regions' | 'externalCompanyIds' | 'partnerTenantIds' | 'pinnedInquiryIds'>,
 ): { morning: number; afternoon: number } {
   let morning = 0;
   let afternoon = 0;
@@ -91,7 +89,7 @@ export function computeRegionalDaySlotStats(
   dayItems: ScheduleItem[],
   dayStats: ScheduleStatsByDate | undefined,
   zoneLeaderIds: Set<string>,
-  calendar: Pick<UserCustomCalendarItem, 'regions' | 'externalCompanyIds' | 'pinnedInquiryIds'>,
+  calendar: Pick<UserCustomCalendarItem, 'regions' | 'externalCompanyIds' | 'partnerTenantIds' | 'pinnedInquiryIds'>,
 ): RegionalDaySlotStats | null {
   if (zoneLeaderIds.size === 0) return null;
 

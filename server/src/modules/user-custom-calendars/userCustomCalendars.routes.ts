@@ -89,13 +89,63 @@ function sanitizeRegions(value: unknown): string[] | null {
     if (typeof v !== 'string') continue;
     const s = v.trim();
     if (!s) continue;
-    if (s.length > 40) continue;
+    if (s.length > 64) continue;
     if (seen.has(s)) continue;
     seen.add(s);
     cleaned.push(s);
     if (cleaned.length >= 200) break;
   }
   return cleaned;
+}
+
+const EXT_COMPANY_PREFIX = '@e:';
+const PARTNER_TENANT_PREFIX = '@p:';
+
+function extractPartnerTenantIdsFromRegions(regions: string[]): string[] {
+  const ids: string[] = [];
+  for (const r of regions) {
+    if (!r.startsWith(PARTNER_TENANT_PREFIX)) continue;
+    const id = r.slice(PARTNER_TENANT_PREFIX.length).trim();
+    if (id) ids.push(id);
+  }
+  return Array.from(new Set(ids));
+}
+
+function calendarHasFilterCriteria(regions: string[], serviceZoneId: string | null): boolean {
+  if (serviceZoneId) return true;
+  for (const r of regions) {
+    if (r.startsWith(EXT_COMPANY_PREFIX) || r.startsWith(PARTNER_TENANT_PREFIX)) return true;
+    if (!r.startsWith('@')) return true;
+  }
+  return false;
+}
+
+async function validatePartnerTenantIdsInRegions(
+  tenantId: string,
+  regions: string[],
+): Promise<string | null> {
+  const partnerIds = extractPartnerTenantIdsFromRegions(regions);
+  if (partnerIds.length === 0) return null;
+  const active = await prisma.tenantPartnership.findMany({
+    where: {
+      status: 'ACTIVE',
+      OR: [
+        { tenantLowId: tenantId, tenantHighId: { in: partnerIds } },
+        { tenantHighId: tenantId, tenantLowId: { in: partnerIds } },
+      ],
+    },
+    select: { tenantLowId: true, tenantHighId: true },
+  });
+  const allowed = new Set<string>();
+  for (const row of active) {
+    allowed.add(row.tenantLowId === tenantId ? row.tenantHighId : row.tenantLowId);
+  }
+  for (const id of partnerIds) {
+    if (!allowed.has(id)) {
+      return '연결되지 않았거나 중지된 파트너는 캘린더에 추가할 수 없습니다.';
+    }
+  }
+  return null;
 }
 
 async function resolveCalendarServiceZoneId(
@@ -151,7 +201,7 @@ router.post(
 
     const regions = sanitizeRegions(body.regions);
     if (!regions || regions.length === 0) {
-      res.status(400).json({ error: '필터 지역을 1개 이상 선택해주세요.' });
+      res.status(400).json({ error: '캘린더 필터 조건을 1개 이상 선택해주세요.' });
       return;
     }
 
@@ -160,6 +210,17 @@ router.post(
     const serviceZoneId = await resolveCalendarServiceZoneId(tenantId, body.serviceZoneId);
     if (serviceZoneId === 'invalid') {
       res.status(400).json({ error: '유효하지 않은 서비스 권역입니다.' });
+      return;
+    }
+
+    if (!calendarHasFilterCriteria(regions, serviceZoneId === 'invalid' ? null : serviceZoneId)) {
+      res.status(400).json({ error: '지역·타업체·파트너 중 하나 이상을 선택해주세요.' });
+      return;
+    }
+
+    const partnerErr = await validatePartnerTenantIdsInRegions(tenantId, regions);
+    if (partnerErr) {
+      res.status(400).json({ error: partnerErr });
       return;
     }
 
@@ -229,7 +290,24 @@ router.patch(
     if (body.regions !== undefined) {
       const regions = sanitizeRegions(body.regions);
       if (!regions || regions.length === 0) {
-        res.status(400).json({ error: '필터 지역을 1개 이상 선택해주세요.' });
+        res.status(400).json({ error: '캘린더 필터 조건을 1개 이상 선택해주세요.' });
+        return;
+      }
+      const nextServiceZoneId =
+        body.serviceZoneId !== undefined
+          ? await resolveCalendarServiceZoneId(tenantId, body.serviceZoneId)
+          : existing.serviceZoneId;
+      if (nextServiceZoneId === 'invalid') {
+        res.status(400).json({ error: '유효하지 않은 서비스 권역입니다.' });
+        return;
+      }
+      if (!calendarHasFilterCriteria(regions, nextServiceZoneId)) {
+        res.status(400).json({ error: '지역·타업체·파트너 중 하나 이상을 선택해주세요.' });
+        return;
+      }
+      const partnerErr = await validatePartnerTenantIdsInRegions(tenantId, regions);
+      if (partnerErr) {
+        res.status(400).json({ error: partnerErr });
         return;
       }
       data.regions = regions;
