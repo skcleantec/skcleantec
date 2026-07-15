@@ -135,7 +135,6 @@ import {
   InquiryCreateError,
 } from './inquiryCreate.service.js';
 import inquiryTrashRoutes from './inquiryTrash.routes.js';
-import { requireStaffAdminAccess } from '../auth/staffAdmin.middleware.js';
 import { inquiryActiveOnlyWhere } from './inquiryTrash.helpers.js';
 import { softDeleteInquiry, softDeleteInquiriesByWhere } from './inquiryTrash.service.js';
 
@@ -516,8 +515,8 @@ router.get('/', async (req, res) => {
   scheduleBackgroundGeoHydrate(prisma, itemsWithPaybackToken, { maxUniqueQueries: 18 });
 });
 
-/** 관리자 전용 — 접수일(createdAt) KST 하루 단위 휴지통 이동 */
-router.post('/admin/bulk-delete-by-day', requireStaffAdminAccess, async (req, res) => {
+/** 접수일(createdAt) KST 하루 단위 휴지통 이동 — inquiry.bulkDelete */
+router.post('/admin/bulk-delete-by-day', requireStaffPermission('inquiry.bulkDelete'), async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(auth);
   if (!tenantId) {
@@ -540,8 +539,8 @@ router.post('/admin/bulk-delete-by-day', requireStaffAdminAccess, async (req, re
   res.json({ deleted });
 });
 
-/** 관리자 전용 — 접수일(createdAt) KST 해당 월 휴지통 이동 */
-router.post('/admin/bulk-delete-by-month', requireStaffAdminAccess, async (req, res) => {
+/** 접수일(createdAt) KST 해당 월 휴지통 이동 — inquiry.bulkDelete */
+router.post('/admin/bulk-delete-by-month', requireStaffPermission('inquiry.bulkDelete'), async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(auth);
   if (!tenantId) {
@@ -611,8 +610,8 @@ router.use('/:inquiryId/additional-receipts', inquiryAdditionalReceiptsAdminRout
 /** 같은 예약일 다른 접수와 팀원 투입(인원·이름) 맞바꿈 — 드롭다운으로는 가용 인원 부족할 때 사용 */
 router.post('/:id/swap-crew-with-partner', handlePostSwapCrewWithPartner);
 
-/** 관리자 전용 — 비밀번호 확인 후 접수 휴지통 이동 */
-router.delete('/:id', requireStaffAdminAccess, async (req, res) => {
+/** 비밀번호 확인 후 접수 휴지통 이동 — inquiry.delete */
+router.delete('/:id', requireStaffPermission('inquiry.delete'), async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(auth);
   if (!tenantId) {
@@ -830,6 +829,27 @@ router.patch('/:id', async (req, res) => {
         res.status(400).json({ error: '담당 마케터는 활성 관리자/마케터만 선택할 수 있습니다.' });
         return;
       }
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'collaborationMarketerId')) {
+    const rawCm = body.collaborationMarketerId;
+    const nextCollaborationMarketerId =
+      rawCm == null || rawCm === '' ? null : String(rawCm);
+    const currentCollaborationMarketerId = inquiry.collaborationMarketerId ?? null;
+    if (nextCollaborationMarketerId !== currentCollaborationMarketerId) {
+      if (nextCollaborationMarketerId) {
+        const collab = await prisma.user.findFirst({
+          where: { id: nextCollaborationMarketerId, tenantId },
+          select: { id: true, role: true, isActive: true },
+        });
+        if (!collab || !collab.isActive || (collab.role !== 'ADMIN' && collab.role !== 'MARKETER')) {
+          res.status(400).json({ error: '추가 마케터는 활성 관리자/마케터만 선택할 수 있습니다.' });
+          return;
+        }
+      }
+    } else {
+      delete data.collaborationMarketer;
     }
   }
 
@@ -1282,6 +1302,31 @@ router.patch('/:id', async (req, res) => {
     const nextId = nextCreatedByIdForLog;
     const afterLabel = nextId == null ? '(없음)' : byId.get(nextId) ?? nextId;
     if (beforeLabel !== afterLabel) lines.push(`담당 마케터: ${beforeLabel} → ${afterLabel}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'collaborationMarketerId')) {
+    const rawCm = body.collaborationMarketerId;
+    const nextCollaborationMarketerIdForLog =
+      rawCm == null || rawCm === '' ? null : String(rawCm);
+    const ids = [inquiry.collaborationMarketerId, nextCollaborationMarketerIdForLog]
+      .map((x) => (x == null ? '' : String(x).trim()))
+      .filter(Boolean);
+    const byId = new Map<string, string>();
+    if (ids.length > 0) {
+      const users = await prisma.user.findMany({
+        where: { id: { in: ids }, tenantId },
+        select: { id: true, name: true, role: true },
+      });
+      for (const u of users) {
+        byId.set(u.id, u.role === 'ADMIN' ? `관리자(${u.name})` : u.name);
+      }
+    }
+    const beforeLabel =
+      inquiry.collaborationMarketerId == null
+        ? '(없음)'
+        : byId.get(inquiry.collaborationMarketerId) ?? inquiry.collaborationMarketerId;
+    const nextId = nextCollaborationMarketerIdForLog;
+    const afterLabel = nextId == null ? '(없음)' : byId.get(nextId) ?? nextId;
+    if (beforeLabel !== afterLabel) lines.push(`협업 마케터: ${beforeLabel} → ${afterLabel}`);
   }
   if (data.externalTransferFee !== undefined)
     pushIfChanged('타업체 수수료', inquiry.externalTransferFee, data.externalTransferFee, fmtNum);

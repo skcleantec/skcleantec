@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { getToken } from '../../stores/auth';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
-import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
+import { canBulkDeleteInquiriesFromMe } from '../../utils/staffAdminAccess';
 import {
   getInquiries,
   getInquiry,
@@ -43,7 +43,7 @@ function pickInquiryFromRow(row: Record<string, unknown>): InquiryPick | null {
 export function AdminInquiryBulkDeletePage() {
   const token = getToken();
   const { ready, staffMe } = useAdminStaffSession();
-  const isStaffAdmin = useMemo(() => resolveEffectiveStaffAdminFromMe(staffMe), [staffMe]);
+  const canBulkDelete = useMemo(() => canBulkDeleteInquiriesFromMe(staffMe), [staffMe]);
   const [mode, setMode] = useState<Mode>('day');
 
   const [dayKey, setDayKey] = useState(() => kstTodayYmd());
@@ -159,7 +159,7 @@ export function AdminInquiryBulkDeletePage() {
   if (!token) {
     return <Navigate to="/login" replace />;
   }
-  if (ready && !isStaffAdmin) {
+  if (ready && !canBulkDelete) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 

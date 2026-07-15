@@ -737,6 +737,7 @@ model User {
   dayOffs             UserDayOff[] @relation("UserDayOffs")
   orderFormsCreated   OrderForm[]  @relation("OrderFormCreatedBy")
   inquiriesCreated    Inquiry[]    @relation("InquiryCreatedBy")
+  inquiriesCollaborationMarketer Inquiry[] @relation("InquiryCollaborationMarketer")
   inquiriesSoftDeleted Inquiry[]   @relation("InquiryDeletedBy")
   adWorkSessions      AdWorkSession[]
   /// 팀장당 1팀 (비로그인 팀원·휴무)
@@ -1342,6 +1343,8 @@ model Inquiry {
   orderFormId  String?       @map("order_form_id")
   /// 접수 등록자(마케터 등). 발주서 제출 시 발주서 생성 마케터 기준.
   createdById  String?       @map("created_by_id")
+  /// 협업 마케터(기록용). 광고비·마케터 건수 집계와 무관.
+  collaborationMarketerId String? @map("collaboration_marketer_id")
   /// 내부 고객 등급(😊/😐/😠) — 마케터·관리자만 조회·수정
   internalCustomerTone InternalCustomerTone @default(NORMAL) @map("internal_customer_tone")
   /// 전문 시공 옵션 id 목록(JSON 배열 문자열)
@@ -1355,6 +1358,7 @@ model Inquiry {
 
   orderForm   OrderForm?          @relation(fields: [orderFormId], references: [id])
   createdBy   User?               @relation("InquiryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  collaborationMarketer User?     @relation("InquiryCollaborationMarketer", fields: [collaborationMarketerId], references: [id], onDelete: SetNull)
   changeLogs  InquiryChangeLog[]
   statusEvents InquiryStatusEvent[]
   cleaningPhotos InquiryCleaningPhoto[]
@@ -1378,6 +1382,7 @@ model Inquiry {
   @@index([preferredDate])
   @@index([status, createdAt])
   @@index([createdById])
+  @@index([tenantId, collaborationMarketerId])
   @@index([tenantId, createdAt])
   @@index([tenantId, preferredDate])
   @@index([tenantId, status, createdAt(sort: Desc)])

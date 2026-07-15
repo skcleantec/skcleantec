@@ -71,7 +71,7 @@ import {
   getInquiryCreatorOptions,
   type UserItem,
 } from '../../api/users';
-import { resolveMarketerOperationalAdminFromMe, resolveEffectiveStaffAdminFromMe, hasStaffPermission } from '../../utils/staffAdminAccess';
+import { resolveMarketerOperationalAdminFromMe, hasStaffPermission, canDeleteInquiryFromMe } from '../../utils/staffAdminAccess';
 import { getToken } from '../../stores/auth';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { useDebouncedCallback } from '../../utils/debounceCallback';
@@ -510,6 +510,8 @@ interface InquiryItem {
   dbListing?: import('../../api/dbMarketplace').InquiryDbListingMeta | null;
   /** 접수를 등록한 마케터(개별 접수·POST 시 설정) */
   createdBy?: { id: string; name: string; phone?: string | null } | null;
+  /** 협업 마케터(기록용) */
+  collaborationMarketer?: { id: string; name: string } | null;
   orderForm?: {
     id?: string;
     token?: string;
@@ -908,7 +910,7 @@ export function AdminInquiriesPage() {
       marketerPermissions: staffMe?.marketerPermissions ?? null,
     };
   }, [ready, userId, role, userName, userPhone, userEmail, staffMe?.marketerPermissions]);
-  const canDeleteInquiry = resolveEffectiveStaffAdminFromMe(staffMe);
+  const canDeleteInquiry = canDeleteInquiryFromMe(staffMe);
   const canEditMarketerField = hasStaffPermission(staffMe, 'inquiry.edit.marketer');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   /** 관리자만: 빈 값이면 전체 마케터 */

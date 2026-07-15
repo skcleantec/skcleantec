@@ -86,6 +86,8 @@ export interface ScheduleItem {
     badgeColorKey?: string | null;
   } | null;
   createdBy?: { id: string; name: string } | null;
+  /** 협업 마케터(기록용) — 집계·광고비와 무관 */
+  collaborationMarketer?: { id: string; name: string } | null;
   orderForm?: {
     id: string;
     totalAmount: number;

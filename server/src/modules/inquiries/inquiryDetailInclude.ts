@@ -20,6 +20,7 @@ export { operatingCompanySummarySelect };
 export const inquiryDetailInclude = {
   operatingCompany: { select: operatingCompanySummarySelect },
   createdBy: { select: { id: true, name: true } },
+  collaborationMarketer: { select: { id: true, name: true } },
   assignments: {
     orderBy: { sortOrder: 'asc' as const },
     include: { teamLeader: { select: assignmentTeamLeaderSelect } },

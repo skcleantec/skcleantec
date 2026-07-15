@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
-import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
+import { resolveEffectiveStaffAdminFromMe, canBulkDeleteInquiriesFromMe } from '../../utils/staffAdminAccess';
 import { ADMIN_TEAM_LEADERS_NAV_ITEMS } from '../../constants/adminTeamLeadersNav';
 import { AdminCollapsibleSectionSideNav, type AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
@@ -56,10 +56,10 @@ export function AdminTeamLeadersLayout() {
   const { features } = useTenantCapabilities();
   const { ready, staffMe } = useAdminStaffSession();
 
-  const hasTeamLeadersAccess = useMemo(
-    () => resolveEffectiveStaffAdminFromMe(staffMe),
-    [staffMe],
-  );
+  const hasTeamLeadersAccess = useMemo(() => {
+    if (resolveEffectiveStaffAdminFromMe(staffMe)) return true;
+    return canBulkDeleteInquiriesFromMe(staffMe);
+  }, [staffMe]);
 
   const navItems = useMemo(() => {
     const byFeature = filterAdminSideNavItems(ADMIN_TEAM_LEADERS_NAV_ITEMS, features);

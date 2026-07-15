@@ -293,6 +293,8 @@ type EditFormFields = {
   soloTeamLeaderIds: string[];
   status: string;
   createdById: string;
+  /** 협업 마케터(기록용). 빈 문자열 = 없음 */
+  collaborationMarketerId: string;
   operatingCompanyId: string;
   customerPhone2: string;
   propertyType: string;
@@ -381,6 +383,7 @@ function buildPatchFromEditForm(
     consultationMemo: editForm.consultationMemo.trim() || null,
     internalCustomerTone: editForm.internalCustomerTone,
     professionalOptionIds: editForm.professionalOptionIds,
+    collaborationMarketerId: editForm.collaborationMarketerId || null,
   };
   if (opts?.includeCreatedById === true) {
     patch.createdById = editForm.createdById || null;
@@ -829,9 +832,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const effectiveScheduleStatsByDate = scheduleStatsByDate ?? fetchedScheduleStatsByDate;
   const effectiveDayScheduleItems = dayScheduleItems ?? fetchedDayScheduleItems;
   const canDeleteInquiry =
-    !isCreate &&
-    (currentUserCanDeleteInquiry ??
-      (currentUserRole === 'ADMIN' || currentUserRole === 'MARKETER'));
+    !isCreate && (currentUserCanDeleteInquiry ?? currentUserRole === 'ADMIN');
   const isExistingExternalIntake = !isCreate && isManualIntakeInquiry(item?.source);
   const isExternalIntakeMode = isCreate ? externalIntake : isExistingExternalIntake;
   const detailHasAssignment = (item?.assignments?.length ?? 0) > 0;
@@ -965,6 +966,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         soloTeamLeaderIds: [],
         status: 'RECEIVED',
         createdById: '',
+        collaborationMarketerId: '',
         operatingCompanyId: '',
         customerPhone2: '',
         propertyType: '',
@@ -1010,6 +1012,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(it.assignments),
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
+      collaborationMarketerId: it.collaborationMarketer?.id ?? '',
       operatingCompanyId: it.operatingCompanyId ?? it.operatingCompany?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
@@ -1365,6 +1368,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(it.assignments),
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
+      collaborationMarketerId: it.collaborationMarketer?.id ?? '',
       operatingCompanyId: it.operatingCompanyId ?? it.operatingCompany?.id ?? '',
       customerPhone2: it.customerPhone2 || '',
       propertyType: it.propertyType || '',
@@ -2176,6 +2180,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 ) : null}
                 <span>
                   · 담당 마케터: {item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}
+                  {item.collaborationMarketer?.name?.trim()
+                    ? ` · 협업: ${item.collaborationMarketer.name.trim()}`
+                    : ''}
                 </span>
                 {item.operatingCompany ? (
                   <>
@@ -3137,6 +3144,29 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               </select>
             </div>
           )}
+          {!isCreate ? (
+            <div>
+              <label className="block text-gray-600 mb-1">추가 마케터</label>
+              <select
+                value={editForm.collaborationMarketerId}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, collaborationMarketerId: e.target.value }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                <option value="">없음</option>
+                {meUser ? <option value={meUser.id}>관리자 ({meUser.name})</option> : null}
+                {(marketerOptions ?? []).map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-fluid-xs text-slate-500">
+                협업 기록용입니다. 광고비·마케터 건수 집계에는 포함되지 않습니다.
+              </p>
+            </div>
+          ) : null}
           {operatingCompanyOptions.length > 0 ? (
             <div>
               <label className="block text-gray-600 mb-1">영업 브랜드</label>
