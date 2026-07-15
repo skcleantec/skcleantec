@@ -11,6 +11,10 @@ import {
 import { copyExistingConsultationPhotosToShareMirror } from './tenantInquiryPhotoSync.service.js';
 import { notifyTenantShareReceived, notifyTenantShareRevoked } from './tenantInquiryShareNotify.js';
 import {
+  assertNoExternalPartnerForPartnerShare,
+  MSG_EXTERNAL_BLOCKS_PARTNER_SHARE,
+} from '../inquiries/inquiryExternalPartnerShareMutex.js';
+import {
   computeSourceMirrorBalanceAmount,
   computeTargetMirrorBalanceAmount,
 } from './tenantInquiryShareBalance.helpers.js';
@@ -37,6 +41,8 @@ export type SerializedTenantInquiryShareMeta = {
   syncStatus: 'ACTIVE' | 'PAUSED' | 'REVOKED';
   /** 정보공유(마켓) 확정 후 생성된 share */
   viaMarketplace: boolean;
+  settlementMode: 'PARTNER_NATIVE' | 'EXTERNAL_LEGACY';
+  settlementExternalCompanyId: string | null;
 };
 
 type ShareRow = {
@@ -49,6 +55,8 @@ type ShareRow = {
   sourceInquiryNumberSnapshot: string | null;
   sharedAt: Date;
   syncStatus: 'ACTIVE' | 'PAUSED' | 'REVOKED';
+  settlementMode: 'PARTNER_NATIVE' | 'EXTERNAL_LEGACY';
+  settlementExternalCompanyId: string | null;
   partnership: {
     tenantLow: { id: string; slug: string; name: string };
     tenantHigh: { id: string; slug: string; name: string };
@@ -82,6 +90,8 @@ export function serializeShareMeta(
     sharedAt: row.sharedAt.toISOString(),
     syncStatus: row.syncStatus,
     viaMarketplace: opts?.viaMarketplace ?? false,
+    settlementMode: row.settlementMode,
+    settlementExternalCompanyId: row.settlementExternalCompanyId,
   };
 }
 
@@ -150,23 +160,35 @@ function resolveShareDirection(
   return senderTenantId === partnership.tenantLowId ? 'LOW_TO_HIGH' : 'HIGH_TO_LOW';
 }
 
-export async function createTenantInquiryShare(opts: {
-  viewerTenantId: string;
-  viewerUserId: string;
-  inquiryId: string;
-  partnershipId: string;
-  transferFee?: number | null;
-  fieldMask?: unknown;
-  fieldPreset?: unknown;
-}) {
+export async function createTenantInquiryShareInTransaction(
+  tx: Prisma.TransactionClient,
+  opts: {
+    viewerTenantId: string;
+    viewerUserId: string;
+    inquiryId: string;
+    partnershipId: string;
+    transferFee?: number | null;
+    fieldMask?: unknown;
+    fieldPreset?: unknown;
+    settlementMode?: 'PARTNER_NATIVE' | 'EXTERNAL_LEGACY';
+    settlementExternalCompanyId?: string | null;
+    migratedFromExternalAt?: Date | null;
+    migratedByUserId?: string | null;
+    skipExternalPartnerCheck?: boolean;
+  },
+) {
   const { viewerTenantId, viewerUserId, inquiryId, partnershipId } = opts;
+  const settlementMode = opts.settlementMode ?? 'PARTNER_NATIVE';
   const transferFee =
     opts.transferFee === undefined || opts.transferFee === null ? null : Math.trunc(opts.transferFee);
   if (transferFee != null && (transferFee < 0 || !Number.isFinite(transferFee))) {
     throw new TenantInquiryShareError('수수료는 0 이상 정수로 입력해 주세요.');
   }
+  if (settlementMode === 'EXTERNAL_LEGACY' && !opts.settlementExternalCompanyId?.trim()) {
+    throw new TenantInquiryShareError('타업체 정산 연계 ID가 필요합니다.');
+  }
 
-  const partnership = await prisma.tenantPartnership.findFirst({
+  const partnership = await tx.tenantPartnership.findFirst({
     where: {
       id: partnershipId,
       OR: [{ tenantLowId: viewerTenantId }, { tenantHighId: viewerTenantId }],
@@ -179,25 +201,33 @@ export async function createTenantInquiryShare(opts: {
     throw new TenantInquiryShareError('ACTIVE 상태의 파트너에게만 접수를 연계할 수 있습니다.');
   }
 
-  const source = await prisma.inquiry.findFirst({
+  const source = await tx.inquiry.findFirst({
     where: { id: inquiryId, tenantId: viewerTenantId },
   });
   if (!source) {
     throw new TenantInquiryShareError('접수를 찾을 수 없습니다.', 404);
   }
 
-  const existingAsSource = await prisma.tenantInquiryShare.findUnique({
+  const existingAsSource = await tx.tenantInquiryShare.findUnique({
     where: { sourceInquiryId: inquiryId },
   });
   if (existingAsSource) {
     throw new TenantInquiryShareError('이미 다른 파트너에게 연계된 접수입니다.');
   }
 
-  const existingAsTarget = await prisma.tenantInquiryShare.findUnique({
+  const existingAsTarget = await tx.tenantInquiryShare.findUnique({
     where: { targetInquiryId: inquiryId },
   });
   if (existingAsTarget) {
     throw new TenantInquiryShareError('연계받은 접수는 다시 연계할 수 없습니다.');
+  }
+
+  if (!opts.skipExternalPartnerCheck && settlementMode === 'PARTNER_NATIVE') {
+    await assertNoExternalPartnerForPartnerShare(tx, viewerTenantId, inquiryId).catch((e) => {
+      throw new TenantInquiryShareError(
+        e instanceof Error ? e.message : MSG_EXTERNAL_BLOCKS_PARTNER_SHARE,
+      );
+    });
   }
 
   const targetTenantId =
@@ -207,7 +237,60 @@ export async function createTenantInquiryShare(opts: {
   const syncFieldMask =
     normalizeShareFieldMask(opts.fieldMask) ?? shareMaskFromPreset(opts.fieldPreset);
 
-  const partnershipRow = await prisma.tenantPartnership.findUniqueOrThrow({
+  const targetOcId = await getDefaultOperatingCompanyId(tx, targetTenantId);
+  const targetInquiryNumber = await allocateNextInquiryNumber(tx, targetTenantId, targetOcId);
+
+  const mirrorData = applyFieldMaskToMirrorData(
+    buildMirrorInquiryUnchecked(source, targetTenantId, targetOcId, targetInquiryNumber),
+    syncFieldMask,
+  );
+
+  const mirror = await tx.inquiry.create({ data: mirrorData });
+
+  const adjustedBalance = computeTargetMirrorBalanceAmount({
+    serviceTotalAmount: source.serviceTotalAmount,
+    serviceDepositAmount: source.serviceDepositAmount,
+    serviceBalanceAmount: source.serviceBalanceAmount,
+    transferFee,
+  });
+  if (adjustedBalance != null) {
+    await tx.inquiry.update({
+      where: { id: mirror.id },
+      data: { serviceBalanceAmount: adjustedBalance },
+    });
+  }
+
+  const share = await tx.tenantInquiryShare.create({
+    data: {
+      partnershipId,
+      sourceTenantId: viewerTenantId,
+      sourceInquiryId: source.id,
+      targetTenantId,
+      targetInquiryId: mirror.id,
+      direction,
+      transferFee,
+      sourceInquiryNumberSnapshot: source.inquiryNumber,
+      sharedAt: now,
+      sharedByUserId: viewerUserId,
+      syncFieldMask: syncFieldMask ?? undefined,
+      settlementMode,
+      settlementExternalCompanyId:
+        settlementMode === 'EXTERNAL_LEGACY' ? opts.settlementExternalCompanyId!.trim() : null,
+      migratedFromExternalAt: opts.migratedFromExternalAt ?? null,
+      migratedByUserId: opts.migratedByUserId ?? null,
+    },
+    include: shareMetaInclude,
+  });
+
+  await copyExistingConsultationPhotosToShareMirror(
+    tx,
+    source.id,
+    mirror.id,
+    targetTenantId,
+    syncFieldMask,
+  );
+
+  const partnershipRow = await tx.tenantPartnership.findUniqueOrThrow({
     where: { id: partnershipId },
     include: {
       tenantLow: { select: { id: true, name: true } },
@@ -219,71 +302,54 @@ export async function createTenantInquiryShare(opts: {
       ? partnershipRow.tenantHigh.name
       : partnershipRow.tenantLow.name;
 
-  const result = await prisma.$transaction(async (tx) => {
-    const targetOcId = await getDefaultOperatingCompanyId(tx, targetTenantId);
-    const targetInquiryNumber = await allocateNextInquiryNumber(tx, targetTenantId, targetOcId);
+  return {
+    share: serializeShareMeta(share, viewerTenantId),
+    shareRow: share,
+    mirror,
+    targetInquiryId: mirror.id,
+    targetInquiryNumber: mirror.inquiryNumber,
+    source,
+    partnerName,
+    targetTenantId,
+  };
+}
 
-    const mirrorData = applyFieldMaskToMirrorData(
-      buildMirrorInquiryUnchecked(source, targetTenantId, targetOcId, targetInquiryNumber),
-      syncFieldMask,
-    );
-
-    const mirror = await tx.inquiry.create({ data: mirrorData });
-
-    const adjustedBalance = computeTargetMirrorBalanceAmount({
-      serviceTotalAmount: source.serviceTotalAmount,
-      serviceDepositAmount: source.serviceDepositAmount,
-      serviceBalanceAmount: source.serviceBalanceAmount,
-      transferFee,
-    });
-    if (adjustedBalance != null) {
-      await tx.inquiry.update({
-        where: { id: mirror.id },
-        data: { serviceBalanceAmount: adjustedBalance },
-      });
-    }
-
-    const share = await tx.tenantInquiryShare.create({
-      data: {
-        partnershipId,
-        sourceTenantId: viewerTenantId,
-        sourceInquiryId: source.id,
-        targetTenantId,
-        targetInquiryId: mirror.id,
-        direction,
-        transferFee,
-        sourceInquiryNumberSnapshot: source.inquiryNumber,
-        sharedAt: now,
-        sharedByUserId: viewerUserId,
-        syncFieldMask: syncFieldMask ?? undefined,
-      },
-      include: shareMetaInclude,
-    });
-
-    await copyExistingConsultationPhotosToShareMirror(
-      tx,
-      source.id,
-      mirror.id,
-      targetTenantId,
-      syncFieldMask,
-    );
-
-    return { share, mirror };
+export async function createTenantInquiryShare(opts: {
+  viewerTenantId: string;
+  viewerUserId: string;
+  inquiryId: string;
+  partnershipId: string;
+  transferFee?: number | null;
+  fieldMask?: unknown;
+  fieldPreset?: unknown;
+}) {
+  const source = await prisma.inquiry.findFirst({
+    where: { id: opts.inquiryId, tenantId: opts.viewerTenantId },
   });
+  if (!source) {
+    throw new TenantInquiryShareError('접수를 찾을 수 없습니다.', 404);
+  }
+
+  const result = await prisma.$transaction(async (tx) =>
+    createTenantInquiryShareInTransaction(tx, {
+      ...opts,
+      settlementMode: 'PARTNER_NATIVE',
+    }),
+  );
 
   await notifyTenantShareReceived({
-    targetTenantId,
+    targetTenantId: result.targetTenantId,
     targetInquiryId: result.mirror.id,
     customerName: source.customerName,
-    partnerName,
+    partnerName: result.partnerName,
     sourceInquiryNumberSnapshot: source.inquiryNumber,
     targetInquiryNumber: result.mirror.inquiryNumber,
   });
 
   return {
-    share: serializeShareMeta(result.share, viewerTenantId),
-    targetInquiryId: result.mirror.id,
-    targetInquiryNumber: result.mirror.inquiryNumber,
+    share: result.share,
+    targetInquiryId: result.targetInquiryId,
+    targetInquiryNumber: result.targetInquiryNumber,
   };
 }
 
@@ -367,6 +433,12 @@ export async function patchTenantInquiryShareTransferFee(opts: {
       where: { id: share.id },
       data: { transferFee },
     });
+    if (share.settlementMode === 'EXTERNAL_LEGACY') {
+      await tx.inquiry.update({
+        where: { id: share.sourceInquiryId },
+        data: { externalTransferFee: transferFee },
+      });
+    }
     await applyMirrorBalanceForShare(tx, { ...share, transferFee }, source);
     await tx.inquiryChangeLog.create({
       data: {

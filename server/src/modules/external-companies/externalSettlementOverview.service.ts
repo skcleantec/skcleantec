@@ -5,6 +5,7 @@ type SumRow = { external_company_id: string; sum_fee: bigint | number | null };
 /**
  * 타업체 정산 목록 — 업체별 payable(발생−취소) 합계.
  * fee 있는 inquiry만 CTE → assignment DISTINCT ON 범위 축소, active/cancel 1쿼리.
+ * EXTERNAL_LEGACY 파트너 연계(타업체 승격 이관) 건은 assignment 없이 share로 귀속.
  */
 export async function sumExternalSettlementSignedFeeByCompany(
   prisma: PrismaClient,
@@ -33,23 +34,41 @@ export async function sumExternalSettlementSignedFeeByCompany(
       WHERE a.tenant_id = $1
       ORDER BY a.inquiry_id, a.sort_order ASC
     ),
+    hybrid_ext AS (
+      SELECT
+        s.source_inquiry_id AS inquiry_id,
+        s.settlement_external_company_id AS external_company_id
+      FROM tenant_inquiry_shares s
+      INNER JOIN fee_inquiries fi ON fi.id = s.source_inquiry_id
+      WHERE s.source_tenant_id = $1
+        AND s.sync_status = 'ACTIVE'
+        AND s.settlement_mode = 'EXTERNAL_LEGACY'
+        AND s.settlement_external_company_id IS NOT NULL
+    ),
+    inquiry_company AS (
+      SELECT fe.inquiry_id, fe.external_company_id
+      FROM first_ext fe
+      WHERE NOT EXISTS (SELECT 1 FROM hybrid_ext h WHERE h.inquiry_id = fe.inquiry_id)
+      UNION ALL
+      SELECT inquiry_id, external_company_id FROM hybrid_ext
+    ),
     signed AS (
-      SELECT fe.external_company_id AS external_company_id,
+      SELECT ic.external_company_id AS external_company_id,
              SUM(fi.external_transfer_fee)::bigint AS sum_fee
       FROM fee_inquiries fi
-      INNER JOIN first_ext fe ON fe.inquiry_id = fi.id
+      INNER JOIN inquiry_company ic ON ic.inquiry_id = fi.id
       WHERE fi.status <> 'CANCELLED'
-      GROUP BY fe.external_company_id
+      GROUP BY ic.external_company_id
 
       UNION ALL
 
-      SELECT COALESCE(fi.cancel_fee_external_company_id, fe.external_company_id) AS external_company_id,
+      SELECT COALESCE(fi.cancel_fee_external_company_id, ic.external_company_id) AS external_company_id,
              SUM(-fi.external_transfer_fee)::bigint AS sum_fee
       FROM fee_inquiries fi
-      LEFT JOIN first_ext fe ON fe.inquiry_id = fi.id
+      LEFT JOIN inquiry_company ic ON ic.inquiry_id = fi.id
       WHERE fi.status = 'CANCELLED'
-        AND (fi.cancel_fee_external_company_id IS NOT NULL OR fe.external_company_id IS NOT NULL)
-      GROUP BY COALESCE(fi.cancel_fee_external_company_id, fe.external_company_id)
+        AND (fi.cancel_fee_external_company_id IS NOT NULL OR ic.external_company_id IS NOT NULL)
+      GROUP BY COALESCE(fi.cancel_fee_external_company_id, ic.external_company_id)
     )
     SELECT external_company_id, SUM(sum_fee)::bigint AS sum_fee
     FROM signed

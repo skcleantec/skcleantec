@@ -37,6 +37,20 @@ export function isActivePartnerShareSource(
   return isActiveTenantShare(share) && share.role === 'SOURCE';
 }
 
+export function isActiveNativePartnerShareSource(
+  share: TenantInquiryShareMeta | null | undefined,
+): boolean {
+  if (!share || share.syncStatus !== 'ACTIVE' || share.role !== 'SOURCE') return false;
+  return share.settlementMode == null || share.settlementMode === 'PARTNER_NATIVE';
+}
+
+export function isExternalLegacyShareSource(
+  share: TenantInquiryShareMeta | null | undefined,
+): boolean {
+  if (!share || share.syncStatus !== 'ACTIVE' || share.role !== 'SOURCE') return false;
+  return share.settlementMode === 'EXTERNAL_LEGACY';
+}
+
 /** 결제 금액 내역 — 파트너 연계 반영 잔금 */
 export function resolveTenantShareCollectibleBaseBalance(
   serviceTotalAmount: number | null | undefined,

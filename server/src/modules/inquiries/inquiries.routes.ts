@@ -136,6 +136,11 @@ import {
 } from './inquiryCreate.service.js';
 import inquiryTrashRoutes from './inquiryTrash.routes.js';
 import { inquiryActiveOnlyWhere } from './inquiryTrash.helpers.js';
+import {
+  assertNoActivePartnerShareForExternalAssign,
+  inquiryHasActiveNativePartnerShareSource,
+  MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
+} from './inquiryExternalPartnerShareMutex.js';
 import { softDeleteInquiry, softDeleteInquiriesByWhere } from './inquiryTrash.service.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
@@ -768,6 +773,14 @@ router.patch('/:id', async (req, res) => {
   }
 
   const data = buildInquiryPatchData(body);
+  if (
+    data.externalTransferFee !== undefined &&
+    data.externalTransferFee !== null &&
+    (await inquiryHasActiveNativePartnerShareSource(prisma, inquiry.id))
+  ) {
+    res.status(400).json({ error: MSG_PARTNER_SHARE_BLOCKS_EXTERNAL });
+    return;
+  }
   const tentativeMergedStatus: InquiryStatus =
     data.status !== undefined ? (data.status as InquiryStatus) : inquiry.status;
   const mergedAddress =
@@ -945,6 +958,17 @@ router.patch('/:id', async (req, res) => {
       for (const a of assignees) {
         if (a.role === 'EXTERNAL_PARTNER' && !a.externalCompanyId) {
           res.status(400).json({ error: '타업체 계정에 소속 업체가 없습니다. 관리자에게 문의하세요.' });
+          return;
+        }
+      }
+      const assigningExternal = assignees.some((a) => a.role === 'EXTERNAL_PARTNER');
+      if (assigningExternal) {
+        try {
+          await assertNoActivePartnerShareForExternalAssign(prisma, inquiry.id);
+        } catch (e) {
+          res.status(400).json({
+            error: e instanceof Error ? e.message : MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
+          });
           return;
         }
       }

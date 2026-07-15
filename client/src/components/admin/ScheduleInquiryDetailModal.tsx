@@ -111,7 +111,12 @@ import { createTenantInquiryShare, patchTenantInquiryShareTransferFee, revokeTen
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { TenantInquiryShareBadge } from './TenantInquiryShareBadge';
 import { PartnerReceivedBanner } from './PartnerReceivedBanner';
-import { formatPartnerAssignmentLabel, isActivePartnerShareSource } from '../../utils/tenantShareSettlement';
+import { formatPartnerAssignmentLabel, isActiveNativePartnerShareSource, isExternalLegacyShareSource } from '../../utils/tenantShareSettlement';
+import {
+  externalPartnerBlocksPartnerShare,
+  MSG_EXTERNAL_BLOCKS_PARTNER_SHARE,
+  MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
+} from '../../utils/inquiryExternalPartnerShareMutex';
 import { InquiryDbMarketplaceBadge } from './InquiryDbMarketplaceBadge';
 import { InquiryDbMarketplaceSellPanel, type DbMarketplaceExchangePrefill } from './InquiryDbMarketplaceSellPanel';
 
@@ -1216,9 +1221,23 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return '';
   }, [editForm.teamLeaderIds, assignableTeamLeaders]);
 
-  const activePartnerShareSource = useMemo(
-    () => isActivePartnerShareSource(item?.tenantShare),
+  const activeNativePartnerShareSource = useMemo(
+    () => isActiveNativePartnerShareSource(item?.tenantShare),
     [item?.tenantShare],
+  );
+
+  const externalLegacyShareSource = useMemo(
+    () => isExternalLegacyShareSource(item?.tenantShare),
+    [item?.tenantShare],
+  );
+
+  const externalPartnerBlocksShare = useMemo(
+    () =>
+      externalPartnerBlocksPartnerShare({
+        resolvedExternalLeadId,
+        assignments: item?.assignments,
+      }),
+    [item?.assignments, resolvedExternalLeadId],
   );
 
   const externalPartnerOptions = useMemo(
@@ -1715,6 +1734,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       alert('파트너 업체를 선택해 주세요.');
       return;
     }
+    if (externalPartnerBlocksShare) {
+      alert(MSG_EXTERNAL_BLOCKS_PARTNER_SHARE);
+      return;
+    }
     const feeRaw = tenantShareTransferFee.replace(/,/g, '').trim();
     let transferFee: number | null = null;
     if (feeRaw !== '') {
@@ -1746,6 +1769,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     tenantSharePartnershipId,
     tenantShareTransferFee,
     token,
+    externalPartnerBlocksShare,
   ]);
 
   const handleTenantShareFeeSave = useCallback(async () => {
@@ -1854,6 +1878,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         editForm.status === 'ON_HOLD')
     ) {
       alert('대기·입금대기·입금완료·미제출·보류 상태인 건에는 분배할 수 없습니다.');
+      return;
+    }
+    if (activeNativePartnerShareSource && resolvedExternalLeadId) {
+      alert(MSG_PARTNER_SHARE_BLOCKS_EXTERNAL);
+      return;
+    }
+    const externalFeeRaw = editForm.externalTransferFee.replace(/,/g, '').trim();
+    if (activeNativePartnerShareSource && externalFeeRaw !== '') {
+      alert(MSG_PARTNER_SHARE_BLOCKS_EXTERNAL);
       return;
     }
     setSaving(true);
@@ -2645,6 +2678,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             <label className="block text-gray-600 mb-1">타업체 담당</label>
             <select
               value={resolvedExternalLeadId}
+              disabled={activeNativePartnerShareSource}
               onChange={(e) => {
                 const v = e.target.value;
                 setEditForm((p) => {
@@ -2669,27 +2703,40 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               ))}
             </select>
             <p id="sched-settlement-external-hint" className="text-[11px] text-gray-500 mt-1">
-              타업체를 선택하면 자사 팀장과 동시 분배가 되지 않습니다. 수수료는 아래 입력란에만 해당합니다.
+              {activeNativePartnerShareSource
+                ? '파트너 연계 중에는 타업체 담당을 지정할 수 없습니다. 연계를 취소한 뒤 선택하세요.'
+                : externalLegacyShareSource
+                  ? '파트너 DB 이관(타업체 정산 유지) 건입니다. 수수료는 타업체 정산·파트너 수수료에 함께 반영됩니다.'
+                  : '타업체를 선택하면 자사 팀장·파트너 연계와 동시에 지정할 수 없습니다. 수수료는 아래 입력란에만 해당합니다.'}
             </p>
           </div>
           <div className="sm:col-span-2">
             <label className="block text-gray-600 mb-1">타업체 수수료 (원)</label>
             <input
               value={editForm.externalTransferFee}
+              disabled={activeNativePartnerShareSource}
               onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded"
               inputMode="numeric"
               placeholder="비우면 미입력"
             />
-            <p className="text-[11px] text-gray-500 mt-1">타업체 담당으로 분배된 건에 대해 받는 수수료 (파트너 연계와 별도)</p>
+            <p className="text-[11px] text-gray-500 mt-1">
+              {activeNativePartnerShareSource
+                ? '파트너 연계 중에는 타업체 수수료를 입력할 수 없습니다.'
+                : externalLegacyShareSource
+                  ? '타업체 정산 유지 이관 건 — 수수료 변경 시 파트너 수수료와 동기화됩니다.'
+                  : '타업체 담당으로 분배된 건에 대해 받는 수수료 (파트너 연계와 둘 중 하나만 선택)'}
+            </p>
           </div>
           {!isCreate && hasTenantExchange && item ? (
             <div className="sm:col-span-2 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3 space-y-2">
               <p className="text-xs font-semibold text-indigo-900">파트너에 접수 연계</p>
               <p className="text-[11px] text-gray-600 leading-relaxed">
-                연결된 파트너 업체 접수 목록에 같은 건을 복제합니다. 타업체 담당·수수료와 별도입니다.
+                {externalPartnerBlocksShare
+                  ? '타업체 담당이 지정된 접수는 파트너 연계할 수 없습니다. 타업체 담당을 해제한 뒤 이용하세요.'
+                  : '연결된 파트너 업체 접수 목록에 같은 건을 복제합니다. 타업체 담당과 둘 중 하나만 선택할 수 있습니다.'}
               </p>
-              {hasDbMarketplace && !item.tenantShare ? (
+              {hasDbMarketplace && !item.tenantShare && !externalPartnerBlocksShare ? (
                 <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-2.5 space-y-2">
                   <p className="text-[11px] text-violet-900 leading-relaxed">
                     특정 파트너 한 곳이 아니라 여러 업체에 공개하려면{' '}
@@ -2722,7 +2769,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                           placeholder="비우면 미입력"
                         />
                         <p className="text-[11px] text-gray-500 mt-1">
-                          파트너 정산·수신 업체 잔금에 반영됩니다. 타업체 수수료와 별도입니다.
+                          파트너 정산·수신 업체 잔금에 반영됩니다. 타업체 담당과 둘 중 하나만 선택할 수 있습니다.
                         </p>
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row">
@@ -2762,7 +2809,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 <p className="text-[11px] text-gray-500">
                   연결된 파트너가 없습니다. 관리 → 파트너 연결에서 초대해 주세요.
                 </p>
-              ) : (
+              ) : externalPartnerBlocksShare ? null : (
                 <>
                   <div>
                     <label className="block text-gray-600 mb-1">파트너 업체</label>
@@ -2821,7 +2868,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               <InquiryDbMarketplaceSellPanel
                 inquiryId={item.id}
                 serviceBalanceAmount={item.serviceBalanceAmount}
-                disabled={!!item.tenantShare}
+                disabled={!!item.tenantShare || externalPartnerBlocksShare}
                 exchangePrefill={marketplaceExchangePrefill}
               />
             </div>
@@ -3256,7 +3303,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 엄격 배정: 이 접수 영업 브랜드에 소속된 팀장만 선택할 수 있습니다.
               </p>
             ) : null}
-            {activePartnerShareSource && item?.tenantShare ? (
+            {activeNativePartnerShareSource && item?.tenantShare ? (
               <div
                 className="rounded-lg border border-indigo-200 bg-indigo-50/90 px-3 py-2.5 text-sm text-indigo-950"
                 role="status"

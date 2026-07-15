@@ -19,6 +19,10 @@ import {
   ServiceZoneAssignmentError,
 } from '../service-zones/serviceZoneAssignment.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
+import {
+  assertNoActivePartnerShareForExternalAssign,
+  MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
+} from '../inquiries/inquiryExternalPartnerShareMutex.js';
 
 const router = Router();
 
@@ -84,6 +88,16 @@ router.post('/', async (req, res) => {
   if (teamLeader.role === 'EXTERNAL_PARTNER' && !teamLeader.externalCompanyId) {
     res.status(400).json({ error: '타업체 계정에 소속 업체가 없습니다.' });
     return;
+  }
+  if (teamLeader.role === 'EXTERNAL_PARTNER') {
+    try {
+      await assertNoActivePartnerShareForExternalAssign(prisma, inquiryId);
+    } catch (e) {
+      res.status(400).json({
+        error: e instanceof Error ? e.message : MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
+      });
+      return;
+    }
   }
   const assignYmd = inquiry.preferredDate
     ? dateToYmdKst(new Date(inquiry.preferredDate))

@@ -1,12 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getToken } from '../../stores/auth';
 import {
   listExternalCompanies,
   createExternalCompany,
   updateExternalCompany,
   deactivateExternalCompany,
+  linkExternalCompanyPartnerTenant,
+  listExternalMigrationEligibleInquiries,
+  migrateExternalCompanyToPartner,
   type ExternalCompanyListItem,
+  type MigrationEligibleInquiry,
 } from '../../api/externalCompanies';
+import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 
 const emptyCreateForm = () => ({
@@ -53,6 +58,14 @@ export function AdminExternalCompaniesPage() {
     phone: '',
     memo: '',
   });
+
+  const [migrating, setMigrating] = useState<ExternalCompanyListItem | null>(null);
+  const [partnerships, setPartnerships] = useState<TenantPartnershipItem[]>([]);
+  const [linkPartnerTenantId, setLinkPartnerTenantId] = useState('');
+  const [eligibleItems, setEligibleItems] = useState<MigrationEligibleInquiry[]>([]);
+  const [migrationPreview, setMigrationPreview] = useState<{ count: number; feeTotal: number } | null>(null);
+  const [migrationBusy, setMigrationBusy] = useState(false);
+  const [migrationErr, setMigrationErr] = useState<string | null>(null);
 
   const load = () => {
     if (!token) return;
@@ -125,6 +138,123 @@ export function AdminExternalCompaniesPage() {
     }
   };
 
+  const openMigration = useCallback(
+    async (row: ExternalCompanyListItem) => {
+      if (!token) return;
+      setMigrating(row);
+      setMigrationErr(null);
+      setMigrationPreview(null);
+      setEligibleItems([]);
+      setLinkPartnerTenantId(row.linkedPartnerTenant?.id ?? '');
+      try {
+        const [pRes, eRes] = await Promise.all([
+          listTenantPartnerships(token),
+          row.linkedPartnerTenant
+            ? listExternalMigrationEligibleInquiries(token, row.id)
+            : Promise.resolve({ items: [] as MigrationEligibleInquiry[] }),
+        ]);
+        setPartnerships(pRes.items.filter((p) => p.status === 'ACTIVE'));
+        setEligibleItems(eRes.items);
+      } catch (e) {
+        setMigrationErr(e instanceof Error ? e.message : '불러오기 실패');
+      }
+    },
+    [token],
+  );
+
+  const closeMigration = () => {
+    setMigrating(null);
+    setMigrationErr(null);
+    setMigrationPreview(null);
+    setEligibleItems([]);
+    setLinkPartnerTenantId('');
+  };
+
+  const handleLinkPartner = async () => {
+    if (!token || !migrating || !linkPartnerTenantId.trim()) {
+      alert('연결할 파트너 업체를 선택해 주세요.');
+      return;
+    }
+    setMigrationBusy(true);
+    setMigrationErr(null);
+    try {
+      const linked = await linkExternalCompanyPartnerTenant(token, migrating.id, linkPartnerTenantId.trim());
+      load();
+      setMigrating((prev) =>
+        prev
+          ? {
+              ...prev,
+              linkedPartnerTenant: linked.linkedPartnerTenant,
+              promotedAt: linked.promotedAt,
+            }
+          : prev,
+      );
+      const eRes = await listExternalMigrationEligibleInquiries(token, migrating.id);
+      setEligibleItems(eRes.items);
+    } catch (e) {
+      setMigrationErr(e instanceof Error ? e.message : '파트너 연결 실패');
+    } finally {
+      setMigrationBusy(false);
+    }
+  };
+
+  const handleMigrationDryRun = async () => {
+    if (!token || !migrating) return;
+    setMigrationBusy(true);
+    setMigrationErr(null);
+    try {
+      const result = await migrateExternalCompanyToPartner(token, migrating.id, {
+        allEligible: true,
+        dryRun: true,
+      });
+      setMigrationPreview({ count: result.count, feeTotal: result.feeTotal });
+      setEligibleItems(result.items);
+    } catch (e) {
+      setMigrationErr(e instanceof Error ? e.message : '미리보기 실패');
+    } finally {
+      setMigrationBusy(false);
+    }
+  };
+
+  const handleMigrationExecute = async () => {
+    if (!token || !migrating) return;
+    if (eligibleItems.length === 0) {
+      alert('이관할 접수가 없습니다.');
+      return;
+    }
+    if (
+      !window.confirm(
+        `"${migrating.name}" 타업체 DB ${eligibleItems.length}건을 파트너 연계로 이관할까요?\n타업체 정산(수수료)은 그대로 유지됩니다.`,
+      )
+    ) {
+      return;
+    }
+    setMigrationBusy(true);
+    setMigrationErr(null);
+    try {
+      const result = await migrateExternalCompanyToPartner(token, migrating.id, {
+        allEligible: true,
+        dryRun: false,
+      });
+      if (result.errors.length > 0) {
+        alert(
+          `완료 ${result.migrated.length}건 · 실패 ${result.errors.length}건\n${result.errors
+            .slice(0, 3)
+            .map((e) => e.error)
+            .join('\n')}`,
+        );
+      } else {
+        alert(`${result.migrated.length}건을 파트너 DB로 이관했습니다.`);
+      }
+      closeMigration();
+      load();
+    } catch (e) {
+      setMigrationErr(e instanceof Error ? e.message : '이관 실패');
+    } finally {
+      setMigrationBusy(false);
+    }
+  };
+
   /** 업체·소속 로그인 계정 비활성 처리(목록에서 제거됨) */
   const handleDelete = async (row: ExternalCompanyListItem) => {
     if (!token) return;
@@ -186,7 +316,8 @@ export function AdminExternalCompaniesPage() {
                   <th className="px-4 py-2 font-medium">사업자번호</th>
                   <th className="px-4 py-2 font-medium">연락처</th>
                   <th className="px-4 py-2 font-medium">로그인 계정</th>
-                  <th className="px-4 py-2 font-medium w-44">작업</th>
+                  <th className="px-4 py-2 font-medium">파트너 연결</th>
+                  <th className="px-4 py-2 font-medium w-52">작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -208,7 +339,24 @@ export function AdminExternalCompaniesPage() {
                         </ul>
                       )}
                     </td>
+                    <td className="px-4 py-2 text-gray-600 text-xs">
+                      {row.linkedPartnerTenant ? (
+                        <span>
+                          {row.linkedPartnerTenant.name}
+                          <span className="block text-gray-400">({row.linkedPartnerTenant.slug})</span>
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td className="px-4 py-2">
+                      <button
+                        type="button"
+                        onClick={() => void openMigration(row)}
+                        className="text-indigo-700 hover:underline text-xs mr-2 font-medium"
+                      >
+                        DB 이관
+                      </button>
                       <button
                         type="button"
                         onClick={() => openEdit(row)}
@@ -425,6 +573,116 @@ export function AdminExternalCompaniesPage() {
           </div>
         </div>
       )}
+
+      {migrating ? (
+        <div
+          className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="external-migrate-title"
+        >
+          <div className="relative bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[min(90dvh,720px)] flex flex-col">
+            <ModalCloseButton onClick={() => !migrationBusy && closeMigration()} disabled={migrationBusy} />
+            <div className="px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
+              <h3 id="external-migrate-title" className="text-lg font-semibold text-gray-800 pr-10">
+                DB 파트너 이관 — {migrating.name}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                접수를 파트너 mirror로 옮깁니다. 타업체 정산·지급 이력은 그대로 유지됩니다.
+              </p>
+            </div>
+            <div className="px-5 py-4 overflow-y-auto space-y-4 text-sm flex-1 min-h-0">
+              {migrationErr ? (
+                <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded px-3 py-2">
+                  {migrationErr}
+                </div>
+              ) : null}
+
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3 space-y-2">
+                <p className="text-xs font-semibold text-indigo-900">1. 정식 파트너 업체 연결</p>
+                {migrating.linkedPartnerTenant ? (
+                  <p className="text-xs text-gray-700">
+                    연결됨: <strong>{migrating.linkedPartnerTenant.name}</strong> (
+                    {migrating.linkedPartnerTenant.slug})
+                  </p>
+                ) : (
+                  <>
+                    <select
+                      value={linkPartnerTenantId}
+                      onChange={(e) => setLinkPartnerTenantId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-sm"
+                    >
+                      <option value="">ACTIVE 파트너 선택</option>
+                      {partnerships.map((p) => (
+                        <option key={p.id} value={p.partner.id}>
+                          {p.partner.name} ({p.partner.slug})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={migrationBusy || !linkPartnerTenantId.trim()}
+                      onClick={() => void handleLinkPartner()}
+                      className="px-3 py-2 rounded bg-indigo-600 text-white text-xs font-medium disabled:opacity-50"
+                    >
+                      파트너 연결 저장
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {migrating.linkedPartnerTenant || linkPartnerTenantId ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-800">2. 이관 대상 ({eligibleItems.length}건)</p>
+                  {migrationPreview ? (
+                    <p className="text-xs text-gray-600 tabular-nums">
+                      미리보기: {migrationPreview.count}건 · 수수료 합{' '}
+                      {migrationPreview.feeTotal.toLocaleString('ko-KR')}원 (정산 변화 없음)
+                    </p>
+                  ) : null}
+                  {eligibleItems.length === 0 ? (
+                    <p className="text-xs text-gray-500">이관 가능한 접수가 없습니다.</p>
+                  ) : (
+                    <ul className="max-h-40 overflow-y-auto border border-gray-200 rounded divide-y text-xs">
+                      {eligibleItems.slice(0, 20).map((it) => (
+                        <li key={it.id} className="px-2 py-1.5 flex justify-between gap-2">
+                          <span className="truncate">
+                            {it.inquiryNumber ?? '—'} · {it.customerName}
+                          </span>
+                          <span className="shrink-0 tabular-nums text-gray-500">
+                            {(it.externalTransferFee ?? 0).toLocaleString('ko-KR')}원
+                          </span>
+                        </li>
+                      ))}
+                      {eligibleItems.length > 20 ? (
+                        <li className="px-2 py-1 text-gray-400">외 {eligibleItems.length - 20}건…</li>
+                      ) : null}
+                    </ul>
+                  )}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={migrationBusy || !migrating.linkedPartnerTenant}
+                      onClick={() => void handleMigrationDryRun()}
+                      className="px-3 py-2 rounded border border-gray-300 text-xs"
+                    >
+                      미리보기
+                    </button>
+                    <button
+                      type="button"
+                      disabled={migrationBusy || eligibleItems.length === 0 || !migrating.linkedPartnerTenant}
+                      onClick={() => void handleMigrationExecute()}
+                      className="px-3 py-2 rounded bg-slate-900 text-white text-xs font-medium disabled:opacity-50"
+                    >
+                      {migrationBusy ? '처리 중…' : '전량 이관 실행'}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

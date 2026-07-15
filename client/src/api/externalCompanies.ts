@@ -23,6 +23,8 @@ export type ExternalCompanyListItem = {
   memo: string | null;
   partnerUserCount: number;
   partnerUsers: Array<{ id: string; email: string; name: string; phone: string | null }>;
+  linkedPartnerTenant?: { id: string; name: string; slug: string } | null;
+  promotedAt?: string | null;
 };
 
 export async function listExternalCompanies(token: string): Promise<{ items: ExternalCompanyListItem[] }> {
@@ -81,6 +83,96 @@ export async function deactivateExternalCompany(token: string, id: string): Prom
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '비활성화에 실패했습니다.');
   }
+}
+
+export type MigrationEligibleInquiry = {
+  id: string;
+  inquiryNumber: string | null;
+  customerName: string;
+  preferredDate: string | null;
+  status: string;
+  externalTransferFee: number | null;
+  operatingCompanyId: string;
+};
+
+export async function linkExternalCompanyPartnerTenant(
+  token: string,
+  externalCompanyId: string,
+  partnerTenantId: string,
+): Promise<{
+  externalCompanyId: string;
+  linkedPartnerTenant: { id: string; name: string; slug: string } | null;
+  promotedAt: string | null;
+}> {
+  const res = await fetch(
+    `${API}/external-companies/${encodeURIComponent(externalCompanyId)}/link-partner-tenant`,
+    {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify({ partnerTenantId }),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '파트너 연결에 실패했습니다.');
+  }
+  return res.json();
+}
+
+export async function listExternalMigrationEligibleInquiries(
+  token: string,
+  externalCompanyId: string,
+  operatingCompanyId?: string,
+): Promise<{ items: MigrationEligibleInquiry[] }> {
+  const params = new URLSearchParams();
+  if (operatingCompanyId?.trim()) params.set('operatingCompanyId', operatingCompanyId.trim());
+  const qs = params.toString();
+  const res = await fetch(
+    `${API}/external-companies/${encodeURIComponent(externalCompanyId)}/migration-eligible-inquiries${qs ? `?${qs}` : ''}`,
+    { headers: headers(token), ...NO_STORE },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '이관 대상 목록을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function migrateExternalCompanyToPartner(
+  token: string,
+  externalCompanyId: string,
+  body: { inquiryIds?: string[]; allEligible?: boolean; dryRun?: boolean },
+): Promise<{
+  dryRun: boolean;
+  externalCompanyId: string;
+  externalCompanyName: string;
+  partnerTenant: { id: string; name: string; slug: string } | null;
+  count: number;
+  feeTotal: number;
+  items: MigrationEligibleInquiry[];
+  migrated: Array<{
+    inquiryId: string;
+    inquiryNumber: string | null;
+    shareId: string;
+    targetInquiryId: string;
+    targetInquiryNumber: string | null;
+    transferFee: number | null;
+  }>;
+  errors: Array<{ inquiryId: string; error: string }>;
+}> {
+  const res = await fetch(
+    `${API}/external-companies/${encodeURIComponent(externalCompanyId)}/migrate-to-partner`,
+    {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || 'DB 이관에 실패했습니다.');
+  }
+  return res.json();
 }
 
 export type ExternalSettlementSummary = {

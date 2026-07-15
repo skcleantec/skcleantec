@@ -173,6 +173,15 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
       teamLeader: { role: 'EXTERNAL_PARTNER' as const, externalCompanyId: opts.externalCompanyId },
     },
   };
+  const hybridShareFilter = {
+    syncStatus: 'ACTIVE' as const,
+    settlementMode: 'EXTERNAL_LEGACY' as const,
+    settlementExternalCompanyId: opts.externalCompanyId,
+  };
+  const attributedOr: Prisma.InquiryWhereInput[] = [
+    { assignments: assignmentSome },
+    { tenantShareAsSource: hybridShareFilter },
+  ];
   const rowSelect = opts.includeAssignmentLabels ? inquirySettlementAssignmentSelect : inquirySettlementSelect;
 
   const [activeRaw, cancelledRaw] = await Promise.all([
@@ -182,8 +191,8 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
         operatingCompanyId: opts.operatingCompanyId,
         externalTransferFee: { not: null },
         status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-        assignments: assignmentSome,
-        OR: periodOr,
+        OR: attributedOr,
+        AND: [{ OR: periodOr }],
       },
       orderBy: [{ preferredDate: 'desc' }, { createdAt: 'desc' }],
       select: rowSelect,
@@ -199,6 +208,7 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
             OR: [
               { cancelFeeExternalCompanyId: opts.externalCompanyId },
               { assignments: assignmentSome },
+              { tenantShareAsSource: hybridShareFilter },
             ],
           },
           { OR: periodOr },
@@ -259,6 +269,15 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
       teamLeader: { role: 'EXTERNAL_PARTNER' as const, externalCompanyId: opts.externalCompanyId },
     },
   };
+  const hybridShareFilter = {
+    syncStatus: 'ACTIVE' as const,
+    settlementMode: 'EXTERNAL_LEGACY' as const,
+    settlementExternalCompanyId: opts.externalCompanyId,
+  };
+  const attributedOr: Prisma.InquiryWhereInput[] = [
+    { assignments: assignmentSome },
+    { tenantShareAsSource: hybridShareFilter },
+  ];
 
   const [activeRows, cancelledRows] = await Promise.all([
     prisma.inquiry.findMany({
@@ -267,8 +286,8 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
         operatingCompanyId: opts.operatingCompanyId,
         externalTransferFee: { not: null },
         status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-        assignments: assignmentSome,
-        OR: candidateOr,
+        OR: attributedOr,
+        AND: [{ OR: candidateOr }],
       },
       select: { id: true, preferredDate: true, externalTransferFee: true },
     }),
@@ -283,6 +302,7 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
             OR: [
               { cancelFeeExternalCompanyId: opts.externalCompanyId },
               { assignments: assignmentSome },
+              { tenantShareAsSource: hybridShareFilter },
             ],
           },
           { OR: candidateOr },
