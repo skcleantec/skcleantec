@@ -19,6 +19,7 @@ import {
   clearHoldData,
   releaseExpiredDbListingHolds,
 } from './dbMarketplaceHold.service.js';
+import { assertExternalCompanySelectable } from '../external-companies/externalCompanyUsage.helpers.js';
 
 export type { DbMarketplaceBuyerContext } from './dbMarketplaceBuyerAccess.js';
 
@@ -105,6 +106,14 @@ async function assignExternalCompanyBuyer(opts: {
   listingFee: number;
   assignedByUserId: string;
 }) {
+  try {
+    await assertExternalCompanySelectable(prisma, opts.tenantId, opts.externalCompanyId);
+  } catch (e) {
+    throw new DbMarketplaceError(
+      e instanceof Error ? e.message : '사용 중지된 타업체입니다.',
+      400,
+    );
+  }
   const partnerUser = await prisma.user.findFirst({
     where: {
       tenantId: opts.tenantId,

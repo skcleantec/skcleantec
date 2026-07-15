@@ -149,8 +149,16 @@ async function assertPartnerInTenant(
 async function loadSharesForRole(viewerTenantId: string, role: TenantPartnerSettlementRole) {
   const where =
     role === 'SELLER'
-      ? { sourceTenantId: viewerTenantId, transferFee: { not: null } }
-      : { targetTenantId: viewerTenantId, transferFee: { not: null } };
+      ? {
+          sourceTenantId: viewerTenantId,
+          transferFee: { not: null },
+          settlementMode: 'PARTNER_NATIVE' as const,
+        }
+      : {
+          targetTenantId: viewerTenantId,
+          transferFee: { not: null },
+          settlementMode: 'PARTNER_NATIVE' as const,
+        };
   return prisma.tenantInquiryShare.findMany({
     where,
     select: shareAccrualSelect,

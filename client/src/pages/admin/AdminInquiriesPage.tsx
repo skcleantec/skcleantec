@@ -50,6 +50,11 @@ import {
 } from '../../constants/internalCustomerTone';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
+import { isActiveNativePartnerShareSource } from '../../utils/tenantShareSettlement';
+import {
+  MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
+  partnerShareBlocksExternal,
+} from '../../utils/inquiryExternalPartnerShareMutex';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
@@ -695,7 +700,7 @@ function InquiryListMarketerDisplay({ item }: { item: InquiryItem }) {
       <span className="max-w-full truncate" title={primary}>
         {primary}
       </span>
-      <span className="max-w-full truncate text-fluid-2xs text-slate-500" title={`협업 ${collab}`}>
+      <span className="max-w-full truncate text-[7px] leading-tight text-slate-400 xl:text-[8px]" title={`협업 ${collab}`}>
         협업 {collab}
       </span>
     </div>
@@ -1010,6 +1015,16 @@ export function AdminInquiriesPage() {
     }
     return '';
   }, [editForm.teamLeaderIds, teamLeaders]);
+
+  const activeNativePartnerShareSource = useMemo(
+    () => isActiveNativePartnerShareSource(editItem?.tenantShare),
+    [editItem?.tenantShare],
+  );
+
+  const externalBlockedByPartnerShare = useMemo(
+    () => partnerShareBlocksExternal(editItem?.tenantShare),
+    [editItem?.tenantShare],
+  );
 
   const hideCrewInputs = useMemo(
     () =>
@@ -2236,6 +2251,17 @@ export function AdminInquiriesPage() {
       const leaderIdsForSave = resolvedExternalLeadId
         ? [resolvedExternalLeadId]
         : editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
+      if (activeNativePartnerShareSource && resolvedExternalLeadId) {
+        alert(MSG_PARTNER_SHARE_BLOCKS_EXTERNAL);
+        setSaving(false);
+        return;
+      }
+      const externalFeeRaw = editForm.externalTransferFee.replace(/,/g, '').trim();
+      if (activeNativePartnerShareSource && externalFeeRaw !== '') {
+        alert(MSG_PARTNER_SHARE_BLOCKS_EXTERNAL);
+        setSaving(false);
+        return;
+      }
       if (
         leaderIdsForSave.length > 0 &&
         (editForm.status === 'PENDING' ||
@@ -2890,7 +2916,7 @@ export function AdminInquiriesPage() {
                             {collabMarketer ? (
                               <>
                                 <br />
-                                <span className="text-slate-500">협업 {collabMarketer}</span>
+                                <span className="text-fluid-2xs text-slate-400">협업 {collabMarketer}</span>
                               </>
                             ) : null}
                             <span className="text-slate-600"> · {mobileSpecsTail}</span>
@@ -4511,6 +4537,7 @@ export function AdminInquiriesPage() {
                     <select
                       value={resolvedExternalLeadId}
                       disabled={
+                        externalBlockedByPartnerShare ||
                         editForm.status === 'PENDING' ||
                         editForm.status === 'DEPOSIT_PENDING' ||
                         editForm.status === 'DEPOSIT_COMPLETED' ||
@@ -4541,20 +4568,25 @@ export function AdminInquiriesPage() {
                       ))}
                     </select>
                     <p id="inq-edit-settlement-external-hint" className="text-[11px] text-slate-500 mt-1">
-                      타업체를 선택하면 자사 팀장과 동시 분배가 되지 않습니다. 수수료는 아래 입력란에만 해당합니다.
+                      {externalBlockedByPartnerShare
+                        ? '파트너 연계 중에는 타업체 담당을 지정할 수 없습니다. 연계를 취소한 뒤 선택하세요.'
+                        : '타업체를 선택하면 자사 팀장·파트너 연계와 동시에 지정할 수 없습니다. 수수료는 아래 입력란에만 해당합니다.'}
                     </p>
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-fluid-sm text-slate-600 mb-1">수수료 (원)</label>
                     <input
                       value={editForm.externalTransferFee}
+                      disabled={externalBlockedByPartnerShare}
                       onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
                       className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                       placeholder="비우면 미입력"
                       inputMode="numeric"
                     />
                     <p className="text-fluid-xs text-slate-500 mt-1">
-                      타업체 담당으로 분배된 건에 대해 받는 수수료
+                      {externalBlockedByPartnerShare
+                        ? '파트너 연계 중에는 타업체 수수료를 입력할 수 없습니다.'
+                        : '타업체 담당으로 분배된 건에 대해 받는 수수료 (파트너 연계와 둘 중 하나만 선택)'}
                     </p>
                   </div>
                 </div>

@@ -11,16 +11,21 @@ export function TenantInquiryShareBadge({ share, className = '', compact = false
   const isSource = share.role === 'SOURCE';
   const revoked = share.syncStatus === 'REVOKED';
   const viaMarketplace = Boolean(share.viaMarketplace);
+  const externalLegacy = share.settlementMode === 'EXTERNAL_LEGACY';
   const label = revoked
     ? '연계 취소됨'
     : isSource
-      ? `🔗 ${share.partnerName}에 연계`
+      ? externalLegacy
+        ? `🔗 ${share.partnerName} (타업체정산 유지)`
+        : `🔗 ${share.partnerName}에 연계`
       : `📥 ${share.partnerName}에서 연계`;
   const sourceNo = share.sourceInquiryNumberSnapshot?.trim();
   const title = revoked
     ? '접수 연계가 취소되었습니다.'
     : isSource
-    ? viaMarketplace
+    ? externalLegacy
+      ? '타업체에서 정식 파트너로 이관된 접수입니다. DB는 파트너 mirror로 운영하고, 수수료 정산은 타업체 정산 메뉴를 그대로 사용합니다.'
+      : viaMarketplace
       ? '정보공유(마켓) 확정 후 연계된 접수입니다. 수정 시 파트너 업체에도 반영됩니다.'
       : '수정 시 파트너 업체에도 반영됩니다(고객·일정·금액 등). 완료·취소는 양쪽 자동 반영됩니다.'
     : viaMarketplace

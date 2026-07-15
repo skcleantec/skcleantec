@@ -20,6 +20,12 @@ import {
 import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlementOperatingCompanyScope.js';
 import { sumExternalSettlementSignedFeeByCompany, sumExternalSettlementPaidByCompany } from './externalSettlementOverview.service.js';
 import {
+  ExternalToPartnerMigrationError,
+  linkExternalCompanyToPartnerTenant,
+  listMigrationEligibleInquiries,
+  migrateExternalInquiriesToHybridPartner,
+} from './externalToPartnerMigration.service.js';
+import {
   getExternalSettlementPayableFeesCached,
   invalidateExternalSettlementOverviewPayableCache,
 } from './externalSettlementOverviewCache.js';
@@ -85,6 +91,7 @@ router.get('/', requireStaffPermission('admin.users'), async (req, res) => {
         where: { isActive: true },
         select: { id: true, email: true, name: true, phone: true },
       },
+      linkedPartnerTenant: { select: { id: true, name: true, slug: true } },
     },
   });
   res.json({
@@ -96,6 +103,54 @@ router.get('/', requireStaffPermission('admin.users'), async (req, res) => {
       memo: r.memo,
       partnerUserCount: r._count.partnerUsers,
       partnerUsers: r.partnerUsers,
+      linkedPartnerTenant: r.linkedPartnerTenant
+        ? {
+            id: r.linkedPartnerTenant.id,
+            name: r.linkedPartnerTenant.name,
+            slug: r.linkedPartnerTenant.slug,
+          }
+        : null,
+      promotedAt: r.promotedAt?.toISOString() ?? null,
+      usageDisabledAt: r.usageDisabledAt?.toISOString() ?? null,
+    })),
+  });
+});
+
+/** 신규 배정·캘린더 등 선택 가능한 타업체 목록 */
+router.get('/selectable', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
+  const rows = await prisma.externalCompany.findMany({
+    where: { tenantId, isActive: true, usageDisabledAt: null },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+  res.json({ items: rows });
+});
+
+/** 타업체 id → 이름 조회 (사용 중지 포함, isActive=true 만) — 스케줄·캘린더 라벨용 */
+router.get('/lookup', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
+  const idsRaw = typeof req.query.ids === 'string' ? req.query.ids : '';
+  const ids = [...new Set(idsRaw.split(',').map((s) => s.trim()).filter(Boolean))];
+  if (ids.length === 0) {
+    res.json({ items: [] });
+    return;
+  }
+
+  const rows = await prisma.externalCompany.findMany({
+    where: { tenantId, isActive: true, id: { in: ids } },
+    select: { id: true, name: true, usageDisabledAt: true },
+    orderBy: { name: 'asc' },
+  });
+  res.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      usageDisabledAt: r.usageDisabledAt?.toISOString() ?? null,
     })),
   });
 });
@@ -178,7 +233,8 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
 });
 
 router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => {
-  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, authUser);
   if (!tenantId) return;
 
   const { id } = req.params;
@@ -187,6 +243,7 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     bizNumber?: string | null;
     phone?: string | null;
     memo?: string | null;
+    usageDisabled?: boolean;
   };
   const existing = await requireActiveExternalCompanyInTenant(res, tenantId, id);
   if (!existing) return;
@@ -195,6 +252,8 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     bizNumber?: string | null;
     phone?: string | null;
     memo?: string | null;
+    usageDisabledAt?: Date | null;
+    usageDisabledByUserId?: string | null;
   } = {};
   if (body.name != null) {
     const n = String(body.name).trim();
@@ -213,6 +272,16 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
   if (body.memo !== undefined) {
     data.memo = body.memo == null || String(body.memo).trim() === '' ? null : String(body.memo).trim();
   }
+  if (body.usageDisabled !== undefined) {
+    const disable = Boolean(body.usageDisabled);
+    if (disable) {
+      data.usageDisabledAt = new Date();
+      data.usageDisabledByUserId = authUser.userId;
+    } else {
+      data.usageDisabledAt = null;
+      data.usageDisabledByUserId = null;
+    }
+  }
   if (Object.keys(data).length === 0) {
     res.json({
       id: existing.id,
@@ -220,6 +289,7 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
       bizNumber: existing.bizNumber,
       phone: existing.phone,
       memo: existing.memo,
+      usageDisabledAt: existing.usageDisabledAt?.toISOString() ?? null,
     });
     return;
   }
@@ -233,6 +303,7 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     bizNumber: updated.bizNumber,
     phone: updated.phone,
     memo: updated.memo,
+    usageDisabledAt: updated.usageDisabledAt?.toISOString() ?? null,
   });
 });
 
@@ -252,6 +323,93 @@ router.post('/:id/deactivate', requireStaffPermission('admin.users'), async (req
     });
   });
   res.json({ ok: true });
+});
+
+/** 타업체 ↔ 정식 파트너 테넌트 연결 (승격) */
+router.post('/:id/link-partner-tenant', requireStaffPermission('admin.users'), async (req, res) => {
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, authUser);
+  if (!tenantId) return;
+
+  const partnerTenantId =
+    typeof (req.body as { partnerTenantId?: unknown }).partnerTenantId === 'string'
+      ? String((req.body as { partnerTenantId: string }).partnerTenantId).trim()
+      : '';
+  if (!partnerTenantId) {
+    res.status(400).json({ error: 'partnerTenantId가 필요합니다.' });
+    return;
+  }
+
+  try {
+    const result = await linkExternalCompanyToPartnerTenant({
+      tenantId,
+      externalCompanyId: req.params.id,
+      partnerTenantId,
+    });
+    res.json(result);
+  } catch (e) {
+    if (e instanceof ExternalToPartnerMigrationError) {
+      res.status(e.status).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+});
+
+/** 타업체 → 파트너 DB 이관 대상 목록 */
+router.get('/:id/migration-eligible-inquiries', requireStaffPermission('admin.users'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
+  const operatingCompanyId =
+    typeof req.query.operatingCompanyId === 'string' ? req.query.operatingCompanyId.trim() : undefined;
+
+  try {
+    const items = await listMigrationEligibleInquiries({
+      tenantId,
+      externalCompanyId: req.params.id,
+      operatingCompanyId,
+    });
+    res.json({ items });
+  } catch (e) {
+    if (e instanceof ExternalToPartnerMigrationError) {
+      res.status(e.status).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+});
+
+/** 타업체 DB → 하이브리드 파트너 연계 일괄 이관 */
+router.post('/:id/migrate-to-partner', requireStaffPermission('admin.users'), async (req, res) => {
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, authUser);
+  if (!tenantId) return;
+
+  const body = req.body as {
+    inquiryIds?: string[];
+    allEligible?: boolean;
+    dryRun?: boolean;
+  };
+
+  try {
+    const result = await migrateExternalInquiriesToHybridPartner({
+      tenantId,
+      userId: authUser.userId,
+      externalCompanyId: req.params.id,
+      inquiryIds: body.inquiryIds,
+      allEligible: body.allEligible === true,
+      dryRun: body.dryRun === true,
+    });
+    invalidateExternalSettlementOverviewPayableCache(tenantId);
+    res.json(result);
+  } catch (e) {
+    if (e instanceof ExternalToPartnerMigrationError) {
+      res.status(e.status).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
 });
 
 /** 업체·지급 누적만 (payable 집계 제외 — 목록 1차 렌더용) */

@@ -11,6 +11,8 @@ export type TenantInquiryShareMeta = {
   sharedAt: string;
   syncStatus: 'ACTIVE' | 'PAUSED' | 'REVOKED';
   viaMarketplace?: boolean;
+  settlementMode?: 'PARTNER_NATIVE' | 'EXTERNAL_LEGACY';
+  settlementExternalCompanyId?: string | null;
 };
 
 function headers(token: string) {

@@ -20,6 +20,7 @@ import {
 } from './dbMarketplaceHold.service.js';
 import type { DbMarketplaceBuyerContext } from './dbMarketplaceBuyerAccess.js';
 import { computeMarketplaceExpiresAt } from '../../lib/dbMarketplacePolicy.js';
+import { selectableExternalCompanyWhere } from '../external-companies/externalCompanyUsage.helpers.js';
 import {
   buildMaskedListingDto,
   buildFullInquiryDto,
@@ -194,9 +195,14 @@ export async function updateDbListingAudience(
     for (const a of audiences) {
       if (a.audienceKind === 'EXTERNAL_COMPANY' && a.externalCompanyId) {
         const ext = await prisma.externalCompany.findFirst({
-          where: { id: a.externalCompanyId, tenantId, isActive: true },
+          where: { id: a.externalCompanyId, ...selectableExternalCompanyWhere(tenantId) },
         });
-        if (!ext) throw new DbMarketplaceError('타업체를 찾을 수 없습니다.', 400);
+        if (!ext) {
+          throw new DbMarketplaceError(
+            '타업체를 찾을 수 없거나 사용 중지된 업체입니다.',
+            400,
+          );
+        }
       }
       if (a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId) {
         if (a.partnerTenantId === tenantId) {
@@ -404,7 +410,7 @@ export async function viewerCanSeeListing(
       if (listing.buyerExternalCompanyId && listing.buyerExternalCompanyId !== opts.externalCompanyId) {
         if (listing.status === 'PENDING_SELLER' || listing.status === 'CONFIRMED') return false;
       }
-      if (!(await isActiveExternalCompanyOnTenant(tenantId, opts.externalCompanyId))) {
+      if (!(await isSelectableExternalCompanyOnTenant(tenantId, opts.externalCompanyId))) {
         return false;
       }
       if (listing.visibility === 'ALL') {
@@ -456,6 +462,17 @@ async function isActiveExternalCompanyOnTenant(
 ): Promise<boolean> {
   const row = await prisma.externalCompany.findFirst({
     where: { id: externalCompanyId, tenantId, isActive: true },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+async function isSelectableExternalCompanyOnTenant(
+  tenantId: string,
+  externalCompanyId: string,
+): Promise<boolean> {
+  const row = await prisma.externalCompany.findFirst({
+    where: { id: externalCompanyId, ...selectableExternalCompanyWhere(tenantId) },
     select: { id: true },
   });
   return Boolean(row);
@@ -518,7 +535,7 @@ export async function listDbMarketplaceAudienceOptions(tenantId: string) {
   }
 
   const externalCompanies = await prisma.externalCompany.findMany({
-    where: { tenantId, isActive: true },
+    where: selectableExternalCompanyWhere(tenantId),
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });

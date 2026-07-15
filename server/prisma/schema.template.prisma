@@ -88,6 +88,12 @@ enum TenantInquiryShareSyncStatus {
   REVOKED
 }
 
+/// 파트너 연계 정산 경로 — 타업체 승격 이관 시 EXTERNAL_LEGACY
+enum TenantInquiryShareSettlementMode {
+  PARTNER_NATIVE
+  EXTERNAL_LEGACY
+}
+
 enum TenantPartnerSettlementRole {
   SELLER
   BUYER
@@ -149,6 +155,7 @@ model Tenant {
   features  TenantFeature[]
   orderForms OrderForm[]
   externalCompanies ExternalCompany[]
+  externalCompaniesLinkedAsPartner ExternalCompany[] @relation("ExternalCompanyLinkedPartner")
   adChannels AdChannel[]
   teams Team[]
   orderFollowups OrderFollowup[]
@@ -366,14 +373,20 @@ model TenantInquiryShare {
   sharedByUserId              String?                      @map("shared_by_user_id")
   cancelFeeDirection          TenantInquiryShareDirection? @map("cancel_fee_direction")
   syncFieldMask               Json?                        @map("sync_field_mask")
+  settlementMode              TenantInquiryShareSettlementMode @default(PARTNER_NATIVE) @map("settlement_mode")
+  settlementExternalCompanyId String?                      @map("settlement_external_company_id")
+  migratedFromExternalAt      DateTime?                    @map("migrated_from_external_at")
+  migratedByUserId            String?                      @map("migrated_by_user_id")
 
   partnership   TenantPartnership @relation(fields: [partnershipId], references: [id], onDelete: Restrict)
   sourceInquiry Inquiry           @relation("ShareSourceInquiry", fields: [sourceInquiryId], references: [id], onDelete: Restrict)
   targetInquiry Inquiry           @relation("ShareTargetInquiry", fields: [targetInquiryId], references: [id], onDelete: Restrict)
+  settlementExternalCompany ExternalCompany? @relation("ShareExternalLegacySettlement", fields: [settlementExternalCompanyId], references: [id], onDelete: SetNull)
 
   @@index([partnershipId])
   @@index([sourceTenantId, sharedAt])
   @@index([targetTenantId, sharedAt])
+  @@index([settlementExternalCompanyId, syncStatus])
   @@map("tenant_inquiry_shares")
 }
 
@@ -634,9 +647,15 @@ model ExternalCompany {
   phone     String?  @db.VarChar(64)
   memo      String?  @db.Text
   isActive  Boolean  @default(true) @map("is_active")
+  /// 신규 배정·DB마켓 노출 등에서 제외(삭제·isActive=false 와 별도). 과거 배정·정산은 유지.
+  usageDisabledAt       DateTime? @map("usage_disabled_at")
+  usageDisabledByUserId String?   @map("usage_disabled_by_user_id")
+  linkedPartnerTenantId String?  @map("linked_partner_tenant_id")
+  promotedAt            DateTime? @map("promoted_at")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  linkedPartnerTenant Tenant? @relation("ExternalCompanyLinkedPartner", fields: [linkedPartnerTenantId], references: [id], onDelete: SetNull)
   partnerUsers User[]
   settlementResets ExternalCompanySettlementReset[]
   settlementPayments ExternalCompanySettlementPayment[]
@@ -645,8 +664,11 @@ model ExternalCompany {
   dbListingAudiences InquiryDbListingAudience[]
   dbListingsAsBuyer InquiryDbListing[]
   dbListingsHeldAsBuyer InquiryDbListing[] @relation("ListingHoldExternalCompany")
+  legacySettlementShares TenantInquiryShare[] @relation("ShareExternalLegacySettlement")
 
   @@index([tenantId, isActive])
+  @@index([tenantId, isActive, usageDisabledAt])
+  @@index([linkedPartnerTenantId])
   @@map("external_companies")
 }
 

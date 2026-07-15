@@ -36,6 +36,8 @@ export type CustomCalendarCreateModalProps = {
   /** 기존에 이미 사용된 색상(새 항목 자동 배정용) */
   usedColors?: readonly string[];
   externalCompanies?: ReadonlyArray<{ id: string; name: string }>;
+  /** 칩·라벨용 전체 이름(사용 중지 포함). 없으면 externalCompanies만 사용 */
+  externalCompanyNames?: ReadonlyMap<string, string>;
   /** ACTIVE 파트너십 목록 */
   partnerTenants?: ReadonlyArray<{ id: string; name: string }>;
   serviceZones?: ReadonlyArray<ServiceZoneItem>;
@@ -55,6 +57,7 @@ export function CustomCalendarCreateModal({
   initial,
   usedColors = [],
   externalCompanies = [],
+  externalCompanyNames,
   partnerTenants = [],
   serviceZones = [],
   onClose,
@@ -392,7 +395,10 @@ export function CustomCalendarCreateModal({
                 <span className="text-fluid-xs text-gray-400 italic py-1">선택된 타업체가 없습니다.</span>
               ) : (
                 selectedExternalCompanyIds.map((id) => {
-                  const name = externalCompanies.find((c) => c.id === id)?.name ?? id;
+                  const name =
+                    externalCompanyNames?.get(id) ??
+                    externalCompanies.find((c) => c.id === id)?.name ??
+                    id;
                   return (
                     <span
                       key={id}
