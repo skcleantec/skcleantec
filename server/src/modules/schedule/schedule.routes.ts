@@ -178,6 +178,7 @@ const scheduleListSelectLite = {
     },
   },
   createdBy: { select: { id: true, name: true } },
+  collaborationMarketer: { select: { id: true, name: true } },
   orderForm: {
     select: {
       id: true,
@@ -251,6 +252,7 @@ router.get('/', async (req, res) => {
             select: { id: true, name: true, slug: true, isActive: true, config: true },
           },
           createdBy: { select: { id: true, name: true } },
+          collaborationMarketer: { select: { id: true, name: true } },
           assignments: {
             orderBy: { sortOrder: 'asc' },
             include: { teamLeader: { select: assignmentTeamLeaderSelect } },

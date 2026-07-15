@@ -29,6 +29,16 @@ export function hasStaffPermission(
   return hasMarketerPermission(me.role, me.marketerPermissions, permissionId);
 }
 
+/** /auth/me — 접수 단건 삭제(inquiry.delete) */
+export function canDeleteInquiryFromMe(me: StaffAdminMeFields | null | undefined): boolean {
+  return hasStaffPermission(me, 'inquiry.delete');
+}
+
+/** /auth/me — 접수 일괄 삭제(inquiry.bulkDelete) */
+export function canBulkDeleteInquiriesFromMe(me: StaffAdminMeFields | null | undefined): boolean {
+  return hasStaffPermission(me, 'inquiry.bulkDelete');
+}
+
 /** /auth/me — GNB·관리자 전용 메뉴(FULL·ADMIN 또는 admin.* 권한) */
 export function resolveEffectiveStaffAdminFromMe(me: StaffAdminMeFields | null | undefined): boolean {
   if (!me) return false;

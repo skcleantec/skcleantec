@@ -31,7 +31,7 @@ import { computeRegionalDaySlotStats } from '../../utils/regionalSlotStats';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { ScheduleDayStaffMemoPanel } from '../../components/admin/ScheduleDayStaffMemoPanel';
-import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe, hasStaffPermission } from '../../utils/staffAdminAccess';
+import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe, hasStaffPermission, canDeleteInquiryFromMe } from '../../utils/staffAdminAccess';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { readScheduleMonthCache, writeScheduleMonthCache } from '../../utils/scheduleMonthCache';
@@ -338,6 +338,16 @@ function scheduleItemIntakeMarketerName(item: ScheduleItem): string | null {
   return null;
 }
 
+/** 담당 + 협업 마케터 표시(스케줄 일별 목록) */
+function scheduleItemIntakeMarketerDisplay(item: ScheduleItem): string | null {
+  const primary = scheduleItemIntakeMarketerName(item);
+  const collab = item.collaborationMarketer?.name?.trim();
+  if (!primary && !collab) return null;
+  if (!collab) return primary;
+  if (!primary) return `협업 ${collab}`;
+  return `${primary} · 협업 ${collab}`;
+}
+
 function ScheduleDayListItem({
   item,
   profCatalog,
@@ -414,7 +424,7 @@ function ScheduleDayListItem({
   const scheduleMemoLine = item.scheduleMemo?.trim() ?? '';
   const hasScheduleMemo = Boolean(scheduleMemoLine);
   const distanceLabel = scheduleItemDistanceKmLabel(item);
-  const intakeMarketerName = scheduleItemIntakeMarketerName(item);
+  const intakeMarketerName = scheduleItemIntakeMarketerDisplay(item);
   const primaryCustomerLabel = inquiryPrimaryCustomerLabel(item);
   const showScheduleMemoBadge =
     Boolean(scheduleMemoLine) && scheduleMemoLine !== primaryCustomerLabel;
@@ -825,7 +835,7 @@ export function AdminSchedulePage() {
     };
   }, [ready, userId, userName, meRole, userEmail]);
   const canEditMarketerField = hasStaffPermission(staffMe, 'inquiry.edit.marketer');
-  const canDeleteInquiry = resolveEffectiveStaffAdminFromMe(staffMe);
+  const canDeleteInquiry = canDeleteInquiryFromMe(staffMe);
   const canManageClosures = hasStaffPermission(staffMe, 'schedule.closures');
   const canManageDayAvailability = hasStaffPermission(staffMe, 'schedule.dayAvailability');
   const canManageCustomCalendar = hasStaffPermission(staffMe, 'schedule.customCalendar');
