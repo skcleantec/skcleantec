@@ -2,6 +2,7 @@ import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
 import {
   formatCompanyTabHint,
+  formatPartnerTabHint,
   formatRegionTabHint,
 } from '../../utils/customCalendarClassification';
 import { EditAppIcon } from '../icons/EditAppIcon';
@@ -15,12 +16,13 @@ export type CustomCalendarTabsBarProps = {
   showAddButton?: boolean;
   /** 전체 캘린더로 복귀하는 '전체' 칩을 함께 보여줄지 */
   showAllChip?: boolean;
-  /** 줄 구분 라벨 (지역 / 업체) */
-  rowLabel?: '지역' | '업체';
+  /** 줄 구분 라벨 (지역 / 업체 / 파트너) */
+  rowLabel?: '지역' | '업체' | '파트너';
   addButtonTitle?: string;
   /** 활성 탭 수정 — 권한 있을 때만 전달 */
   onEditCalendar?: (cal: UserCustomCalendarItem) => void;
   externalCompanyNames?: ReadonlyMap<string, string>;
+  partnerTenantNames?: ReadonlyMap<string, string>;
   className?: string;
 };
 
@@ -38,9 +40,11 @@ export function CustomCalendarTabsBar({
   addButtonTitle,
   onEditCalendar,
   externalCompanyNames,
+  partnerTenantNames,
   className = '',
 }: CustomCalendarTabsBarProps) {
   const isCompanyRow = rowLabel === '업체';
+  const isPartnerRow = rowLabel === '파트너';
 
   return (
     <div className={`flex w-full min-w-0 max-w-full items-center gap-1.5 pr-1 ${className}`}>
@@ -55,7 +59,7 @@ export function CustomCalendarTabsBar({
             type="button"
             onClick={onClickAdd}
             className="shrink-0 inline-flex items-center justify-center rounded border border-gray-300 bg-white px-1 py-0 text-[9px] font-semibold leading-none text-gray-800 tabular-nums hover:bg-gray-50 min-[440px]:text-[10px] sm:px-1.5"
-            title={addButtonTitle ?? (isCompanyRow ? '업체 캘린더 추가' : '지역 캘린더 추가')}
+            title={addButtonTitle ?? (isPartnerRow ? '파트너 캘린더 추가' : isCompanyRow ? '업체 캘린더 추가' : '지역 캘린더 추가')}
           >
             +추가
           </button>
@@ -71,7 +75,7 @@ export function CustomCalendarTabsBar({
                 : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
             }`}
             title={
-              isCompanyRow ? '업체 필터 해제' : rowLabel === '지역' ? '지역 필터 해제' : '전체 캘린더'
+              isPartnerRow ? '파트너 필터 해제' : isCompanyRow ? '업체 필터 해제' : rowLabel === '지역' ? '지역 필터 해제' : '전체 캘린더'
             }
           >
             전체
@@ -81,9 +85,11 @@ export function CustomCalendarTabsBar({
         {calendars.map((c) => {
           const t = customCalendarColorTokens(c.colorKey);
           const active = activeId === c.id;
-          const hint = isCompanyRow
-            ? formatCompanyTabHint(c.externalCompanyIds, externalCompanyNames ?? new Map())
-            : formatRegionTabHint(c.regions);
+          const hint = isPartnerRow
+            ? formatPartnerTabHint(c.partnerTenantIds, partnerTenantNames ?? new Map())
+            : isCompanyRow
+              ? formatCompanyTabHint(c.externalCompanyIds, externalCompanyNames ?? new Map())
+              : formatRegionTabHint(c.regions);
           return (
             <span key={c.id} className="inline-flex shrink-0 items-center gap-0.5">
               <button

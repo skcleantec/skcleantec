@@ -89,9 +89,4 @@ export function resolveTenantShareCollectibleBaseBalance(
   };
 }
 
-export function formatPartnerAssignmentLabel(
-  share: TenantInquiryShareMeta | null | undefined,
-): string | null {
-  if (!share || !isActivePartnerShareSource(share)) return null;
-  return `파트너 · ${share.partnerName}`;
-}
+export { formatPartnerAssignmentLabel } from './scheduleAssigneeDisplay';

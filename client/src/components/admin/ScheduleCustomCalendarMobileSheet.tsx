@@ -5,6 +5,7 @@ import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
 import {
   formatCompanyTabHint,
+  formatPartnerTabHint,
   formatRegionTabHint,
 } from '../../utils/customCalendarClassification';
 import { EditAppIcon } from '../icons/EditAppIcon';
@@ -29,8 +30,9 @@ type CalendarListSectionProps = {
   title: string;
   calendars: readonly UserCustomCalendarItem[];
   activeId: string | null;
-  isCompanyRow: boolean;
+  rowKind: 'region' | 'company' | 'partner';
   externalCompanyNames: ReadonlyMap<string, string>;
+  partnerTenantNames: ReadonlyMap<string, string>;
   onSelect: (id: string | null) => void;
   onEditCalendar?: (cal: UserCustomCalendarItem) => void;
 };
@@ -39,8 +41,9 @@ function CalendarListSection({
   title,
   calendars,
   activeId,
-  isCompanyRow,
+  rowKind,
   externalCompanyNames,
+  partnerTenantNames,
   onSelect,
   onEditCalendar,
 }: CalendarListSectionProps) {
@@ -67,9 +70,12 @@ function CalendarListSection({
         {calendars.map((cal) => {
           const t = customCalendarColorTokens(cal.colorKey);
           const active = activeId === cal.id;
-          const hint = isCompanyRow
-            ? formatCompanyTabHint(cal.externalCompanyIds, externalCompanyNames)
-            : formatRegionTabHint(cal.regions);
+          const hint =
+            rowKind === 'partner'
+              ? formatPartnerTabHint(cal.partnerTenantIds, partnerTenantNames)
+              : rowKind === 'company'
+                ? formatCompanyTabHint(cal.externalCompanyIds, externalCompanyNames)
+                : formatRegionTabHint(cal.regions);
           return (
             <li key={cal.id}>
               <div className={`flex items-stretch rounded overflow-hidden ${active ? 'bg-slate-100 ring-1 ring-slate-200/80' : ''}`}>
@@ -114,17 +120,24 @@ export type ScheduleCustomCalendarMobileSheetProps = {
   onClose: () => void;
   regionCalendars: readonly UserCustomCalendarItem[];
   companyCalendars: readonly UserCustomCalendarItem[];
+  partnerCalendars: readonly UserCustomCalendarItem[];
   activeRegionCalendarId: string | null;
   activeCompanyCalendarId: string | null;
+  activePartnerCalendarId: string | null;
   activeRegionCalendar: UserCustomCalendarItem | null;
   activeCompanyCalendar: UserCustomCalendarItem | null;
+  activePartnerCalendar: UserCustomCalendarItem | null;
   onSelectRegion: (id: string | null) => void;
   onSelectCompany: (id: string | null) => void;
+  onSelectPartner: (id: string | null) => void;
   onAddRegion: () => void;
   onAddCompany: () => void;
+  onAddPartner: () => void;
   onEditCalendar?: (cal: UserCustomCalendarItem) => void;
   canManage: boolean;
+  showPartnerRow?: boolean;
   externalCompanyNames: ReadonlyMap<string, string>;
+  partnerTenantNames: ReadonlyMap<string, string>;
 };
 
 export function ScheduleCustomCalendarMobileMenuButton({
@@ -159,17 +172,24 @@ export function ScheduleCustomCalendarMobileSheet({
   onClose,
   regionCalendars,
   companyCalendars,
+  partnerCalendars,
   activeRegionCalendarId,
   activeCompanyCalendarId,
+  activePartnerCalendarId,
   activeRegionCalendar,
   activeCompanyCalendar,
+  activePartnerCalendar,
   onSelectRegion,
   onSelectCompany,
+  onSelectPartner,
   onAddRegion,
   onAddCompany,
+  onAddPartner,
   onEditCalendar,
   canManage,
+  showPartnerRow = false,
   externalCompanyNames,
+  partnerTenantNames,
 }: ScheduleCustomCalendarMobileSheetProps) {
   const [slideIn, setSlideIn] = useState(false);
   const [addExpanded, setAddExpanded] = useState(false);
@@ -206,7 +226,11 @@ export function ScheduleCustomCalendarMobileSheet({
   const root = typeof document !== 'undefined' ? document.body : null;
   if (!root) return null;
 
-  const hasBothFilters = Boolean(activeRegionCalendar && activeCompanyCalendar);
+  const activeFilterLabels = [
+    activeRegionCalendar ? `지역 · ${activeRegionCalendar.name}` : null,
+    activeCompanyCalendar ? `업체 · ${activeCompanyCalendar.name}` : null,
+    activePartnerCalendar ? `파트너 · ${activePartnerCalendar.name}` : null,
+  ].filter(Boolean);
 
   const handleSelectRegion = (id: string | null) => {
     onSelectRegion(id);
@@ -215,6 +239,11 @@ export function ScheduleCustomCalendarMobileSheet({
 
   const handleSelectCompany = (id: string | null) => {
     onSelectCompany(id);
+    onClose();
+  };
+
+  const handleSelectPartner = (id: string | null) => {
+    onSelectPartner(id);
     onClose();
   };
 
@@ -228,6 +257,11 @@ export function ScheduleCustomCalendarMobileSheet({
     onClose();
   };
 
+  const handleAddPartner = () => {
+    onAddPartner();
+    onClose();
+  };
+
   const handleEdit = (cal: UserCustomCalendarItem) => {
     onEditCalendar?.(cal);
     onClose();
@@ -236,6 +270,7 @@ export function ScheduleCustomCalendarMobileSheet({
   const handleClearAll = () => {
     onSelectRegion(null);
     onSelectCompany(null);
+    onSelectPartner(null);
     onClose();
   };
 
@@ -264,14 +299,10 @@ export function ScheduleCustomCalendarMobileSheet({
             <h2 id="schedule-custom-cal-drawer-title" className="font-semibold text-slate-900 text-[12px] leading-tight">
               맞춤 캘린더
             </h2>
-            {hasBothFilters ? (
+            {activeFilterLabels.length > 0 ? (
               <p className="mt-0.5 truncate text-[10px] text-slate-500 leading-tight">
-                {activeRegionCalendar!.name} ∩ {activeCompanyCalendar!.name}
+                {activeFilterLabels.join(' ∩ ')}
               </p>
-            ) : activeRegionCalendar ? (
-              <p className="mt-0.5 truncate text-[10px] text-slate-500 leading-tight">지역 · {activeRegionCalendar.name}</p>
-            ) : activeCompanyCalendar ? (
-              <p className="mt-0.5 truncate text-[10px] text-slate-500 leading-tight">업체 · {activeCompanyCalendar.name}</p>
             ) : null}
           </div>
           <button
@@ -320,6 +351,18 @@ export function ScheduleCustomCalendarMobileSheet({
                       업체 캘린더
                     </button>
                   </li>
+                  {showPartnerRow ? (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={handleAddPartner}
+                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1.5 text-left text-[11px] text-slate-700 hover:bg-slate-100 min-h-[32px] touch-manipulation leading-tight"
+                      >
+                        <span className="w-2.5 text-center text-[10px] text-slate-400">—</span>
+                        파트너 캘린더
+                      </button>
+                    </li>
+                  ) : null}
                 </ul>
               ) : null}
             </section>
@@ -329,8 +372,9 @@ export function ScheduleCustomCalendarMobileSheet({
             title="지역별"
             calendars={regionCalendars}
             activeId={activeRegionCalendarId}
-            isCompanyRow={false}
+            rowKind="region"
             externalCompanyNames={externalCompanyNames}
+            partnerTenantNames={partnerTenantNames}
             onSelect={handleSelectRegion}
             onEditCalendar={onEditCalendar ? handleEdit : undefined}
           />
@@ -339,15 +383,29 @@ export function ScheduleCustomCalendarMobileSheet({
             title="업체별"
             calendars={companyCalendars}
             activeId={activeCompanyCalendarId}
-            isCompanyRow
+            rowKind="company"
             externalCompanyNames={externalCompanyNames}
+            partnerTenantNames={partnerTenantNames}
             onSelect={handleSelectCompany}
             onEditCalendar={onEditCalendar ? handleEdit : undefined}
           />
+
+          {showPartnerRow ? (
+            <CalendarListSection
+              title="파트너별"
+              calendars={partnerCalendars}
+              activeId={activePartnerCalendarId}
+              rowKind="partner"
+              externalCompanyNames={externalCompanyNames}
+              partnerTenantNames={partnerTenantNames}
+              onSelect={handleSelectPartner}
+              onEditCalendar={onEditCalendar ? handleEdit : undefined}
+            />
+          ) : null}
         </div>
 
         <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-2.5 py-2 space-y-1">
-          {(activeRegionCalendarId || activeCompanyCalendarId) && (
+          {(activeRegionCalendarId || activeCompanyCalendarId || activePartnerCalendarId) && (
             <button
               type="button"
               onClick={handleClearAll}

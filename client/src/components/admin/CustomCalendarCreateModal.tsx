@@ -16,6 +16,7 @@ export type CustomCalendarCreateValues = {
   name: string;
   regions: string[];
   externalCompanyIds: string[];
+  partnerTenantIds: string[];
   isolateFromGlobal: boolean;
   hideAssignedInRegionBadge: boolean;
   colorKey: CustomCalendarColorKey;
@@ -23,7 +24,7 @@ export type CustomCalendarCreateValues = {
 };
 
 type Mode = 'create' | 'edit';
-export type CustomCalendarCreateFocus = 'region' | 'company';
+export type CustomCalendarCreateFocus = 'region' | 'company' | 'partner';
 
 export type CustomCalendarCreateModalProps = {
   open: boolean;
@@ -35,6 +36,8 @@ export type CustomCalendarCreateModalProps = {
   /** 기존에 이미 사용된 색상(새 항목 자동 배정용) */
   usedColors?: readonly string[];
   externalCompanies?: ReadonlyArray<{ id: string; name: string }>;
+  /** ACTIVE 파트너십 목록 */
+  partnerTenants?: ReadonlyArray<{ id: string; name: string }>;
   serviceZones?: ReadonlyArray<ServiceZoneItem>;
   onClose: () => void;
   onSubmit: (values: CustomCalendarCreateValues) => Promise<void>;
@@ -52,6 +55,7 @@ export function CustomCalendarCreateModal({
   initial,
   usedColors = [],
   externalCompanies = [],
+  partnerTenants = [],
   serviceZones = [],
   onClose,
   onSubmit,
@@ -60,6 +64,7 @@ export function CustomCalendarCreateModal({
   const [name, setName] = useState('');
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [selectedExternalCompanyIds, setSelectedExternalCompanyIds] = useState<string[]>([]);
+  const [selectedPartnerTenantIds, setSelectedPartnerTenantIds] = useState<string[]>([]);
   const [isolateFromGlobal, setIsolateFromGlobal] = useState(false);
   const [hideAssignedInRegionBadge, setHideAssignedInRegionBadge] = useState(false);
   const [colorKey, setColorKey] = useState<CustomCalendarColorKey>('teal');
@@ -68,6 +73,7 @@ export function CustomCalendarCreateModal({
   const [error, setError] = useState<string | null>(null);
   const regionSectionRef = useRef<HTMLDivElement>(null);
   const companySectionRef = useRef<HTMLDivElement>(null);
+  const partnerSectionRef = useRef<HTMLDivElement>(null);
 
   const effectiveCreateFocus = mode === 'edit' ? undefined : createFocus;
 
@@ -89,6 +95,9 @@ export function CustomCalendarCreateModal({
     setSelectedExternalCompanyIds(
       initial?.externalCompanyIds ? Array.from(initial.externalCompanyIds) : []
     );
+    setSelectedPartnerTenantIds(
+      initial?.partnerTenantIds ? Array.from(initial.partnerTenantIds) : []
+    );
     setIsolateFromGlobal(Boolean(initial?.isolateFromGlobal));
     setHideAssignedInRegionBadge(Boolean(initial?.hideAssignedInRegionBadge));
     setColorKey(
@@ -100,6 +109,10 @@ export function CustomCalendarCreateModal({
     if (effectiveCreateFocus === 'company') {
       requestAnimationFrame(() => {
         companySectionRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    } else if (effectiveCreateFocus === 'partner') {
+      requestAnimationFrame(() => {
+        partnerSectionRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       });
     } else if (effectiveCreateFocus === 'region') {
       requestAnimationFrame(() => {
@@ -116,6 +129,16 @@ export function CustomCalendarCreateModal({
 
   const removeExternalCompany = (id: string) => {
     setSelectedExternalCompanyIds((prev) => prev.filter((x) => x !== id));
+  };
+
+  const removePartnerTenant = (id: string) => {
+    setSelectedPartnerTenantIds((prev) => prev.filter((x) => x !== id));
+  };
+
+  const addPartnerTenant = (id: string) => {
+    const v = id.trim();
+    if (!v) return;
+    setSelectedPartnerTenantIds((prev) => (prev.includes(v) ? prev : [...prev, v]));
   };
 
   const activeServiceZones = useMemo(
@@ -139,8 +162,12 @@ export function CustomCalendarCreateModal({
     }
   };
 
-  const showRegionSections = effectiveCreateFocus !== 'company';
-  const showCompanySection = effectiveCreateFocus !== 'region';
+  const showRegionSections = effectiveCreateFocus !== 'company' && effectiveCreateFocus !== 'partner';
+  const showCompanySection = effectiveCreateFocus !== 'region' && effectiveCreateFocus !== 'partner';
+  const showPartnerSection =
+    effectiveCreateFocus === 'partner' ||
+    (effectiveCreateFocus === undefined &&
+      (selectedPartnerTenantIds.length > 0 || partnerTenants.length > 0));
 
   const canSubmit =
     !saving &&
@@ -149,9 +176,12 @@ export function CustomCalendarCreateModal({
       ? selectedRegions.length > 0 || Boolean(serviceZoneId.trim())
       : effectiveCreateFocus === 'company'
         ? selectedExternalCompanyIds.length > 0
-        : selectedRegions.length > 0 ||
-          selectedExternalCompanyIds.length > 0 ||
-          Boolean(serviceZoneId.trim()));
+        : effectiveCreateFocus === 'partner'
+          ? selectedPartnerTenantIds.length > 0
+          : selectedRegions.length > 0 ||
+            selectedExternalCompanyIds.length > 0 ||
+            selectedPartnerTenantIds.length > 0 ||
+            Boolean(serviceZoneId.trim()));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -164,17 +194,31 @@ export function CustomCalendarCreateModal({
       setError('타업체를 1개 이상 선택해 주세요.');
       return;
     }
+    if (effectiveCreateFocus === 'partner' && selectedPartnerTenantIds.length === 0) {
+      setError('파트너를 1개 이상 선택해 주세요.');
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
       await onSubmit({
         name: name.trim(),
-        regions: effectiveCreateFocus === 'company' ? [] : selectedRegions,
-        externalCompanyIds: effectiveCreateFocus === 'region' ? [] : selectedExternalCompanyIds,
+        regions:
+          effectiveCreateFocus === 'company' || effectiveCreateFocus === 'partner'
+            ? []
+            : selectedRegions,
+        externalCompanyIds: effectiveCreateFocus === 'region' || effectiveCreateFocus === 'partner' ? [] : selectedExternalCompanyIds,
+        partnerTenantIds: effectiveCreateFocus === 'region' || effectiveCreateFocus === 'company' ? [] : selectedPartnerTenantIds,
         isolateFromGlobal,
-        hideAssignedInRegionBadge: effectiveCreateFocus === 'company' ? false : hideAssignedInRegionBadge,
+        hideAssignedInRegionBadge:
+          effectiveCreateFocus === 'company' || effectiveCreateFocus === 'partner'
+            ? false
+            : hideAssignedInRegionBadge,
         colorKey,
-        serviceZoneId: effectiveCreateFocus === 'company' ? null : serviceZoneId.trim() || null,
+        serviceZoneId:
+          effectiveCreateFocus === 'company' || effectiveCreateFocus === 'partner'
+            ? null
+            : serviceZoneId.trim() || null,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -206,14 +250,16 @@ export function CustomCalendarCreateModal({
         <ModalCloseButton onClick={onClose} />
         <div className="p-4 sm:p-5 pr-12 border-b border-gray-100">
           <h2 id="custom-cal-modal-title" className="text-base font-semibold text-gray-900">
-            {mode === 'edit' ? '캘린더 수정' : effectiveCreateFocus === 'company' ? '업체 캘린더 추가' : effectiveCreateFocus === 'region' ? '지역 캘린더 추가' : '캘린더 추가'}
+            {mode === 'edit' ? '캘린더 수정' : effectiveCreateFocus === 'company' ? '업체 캘린더 추가' : effectiveCreateFocus === 'partner' ? '파트너 캘린더 추가' : effectiveCreateFocus === 'region' ? '지역 캘린더 추가' : '캘린더 추가'}
           </h2>
           <p className="text-fluid-xs text-gray-500 mt-1">
             {effectiveCreateFocus === 'company'
               ? '타업체 기준으로 접수를 따로 모아 볼 캘린더를 만듭니다.'
-              : effectiveCreateFocus === 'region'
-                ? '지역·서비스 권역 기준으로 접수를 필터링할 캘린더를 만듭니다.'
-                : '지역/타업체 기준으로 커스텀 캘린더를 저장합니다.'}
+              : effectiveCreateFocus === 'partner'
+                ? '파트너 연계(SOURCE·TARGET) 접수를 파트너별로 모아 볼 캘린더를 만듭니다.'
+                : effectiveCreateFocus === 'region'
+                  ? '지역·서비스 권역 기준으로 접수를 필터링할 캘린더를 만듭니다.'
+                  : '지역/타업체/파트너 기준으로 커스텀 캘린더를 저장합니다.'}
           </p>
         </div>
 
@@ -352,7 +398,7 @@ export function CustomCalendarCreateModal({
                       key={id}
                       className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1 text-fluid-xs text-blue-900"
                     >
-                      <span>{name}</span>
+                      <span>타-{name}</span>
                       <button
                         type="button"
                         onClick={() => removeExternalCompany(id)}
@@ -379,6 +425,91 @@ export function CustomCalendarCreateModal({
               </label>
               <HelpTooltip
                 text="해당 지역·타업체 접수를 전체 캘린더에서 숨기고, 이 캘린더에서만 보이게 합니다."
+                className="shrink-0"
+              />
+            </div>
+          </div>
+          ) : null}
+
+          {showPartnerSection ? (
+          <div
+            ref={partnerSectionRef}
+            className={`rounded-lg border bg-white p-3 sm:p-4 space-y-2 ${
+              effectiveCreateFocus === 'partner'
+                ? 'border-indigo-300 ring-1 ring-indigo-200'
+                : 'border-gray-200'
+            }`}
+          >
+            <div className="flex items-center gap-1.5">
+              <label className="text-fluid-sm font-medium text-gray-800" htmlFor="custom-cal-partner">
+                파트너별 캘린더
+              </label>
+              <HelpTooltip
+                text="연결된 파트너 업체를 선택합니다. 넘긴(SOURCE)·받은(TARGET) 연계 접수가 해당 파트너 캘린더에 모입니다."
+                className="shrink-0"
+              />
+            </div>
+            <div className="flex gap-2">
+              <select
+                id="custom-cal-partner"
+                value=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v) addPartnerTenant(v);
+                }}
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-fluid-sm bg-white"
+              >
+                <option value="">파트너 선택</option>
+                {partnerTenants.map((p) => (
+                  <option
+                    key={p.id}
+                    value={p.id}
+                    disabled={selectedPartnerTenantIds.includes(p.id)}
+                  >
+                    {p.name}
+                    {selectedPartnerTenantIds.includes(p.id) ? ' (선택됨)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-1.5 min-h-[2.25rem]">
+              {selectedPartnerTenantIds.length === 0 ? (
+                <span className="text-fluid-xs text-gray-400 italic py-1">선택된 파트너가 없습니다.</span>
+              ) : (
+                selectedPartnerTenantIds.map((id) => {
+                  const label = partnerTenants.find((p) => p.id === id)?.name ?? id;
+                  return (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-1 text-fluid-xs text-indigo-900"
+                    >
+                      <span>파·{label}</span>
+                      <button
+                        type="button"
+                        onClick={() => removePartnerTenant(id)}
+                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-indigo-200 text-indigo-800 hover:bg-indigo-300"
+                        aria-label={`${label} 제거`}
+                        title={`${label} 제거`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })
+              )}
+            </div>
+            <div className="mt-1 flex items-start gap-1.5">
+              <label className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={isolateFromGlobal}
+                  onChange={(e) => setIsolateFromGlobal(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
+                />
+                전체 캘린더에서 숨기고 이 캘린더에서만 보기
+              </label>
+              <HelpTooltip
+                text="해당 파트너 연계 접수를 전체 캘린더에서 숨기고, 이 캘린더에서만 보이게 합니다."
                 className="shrink-0"
               />
             </div>
