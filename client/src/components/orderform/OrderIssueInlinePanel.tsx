@@ -11,6 +11,7 @@ import {
   type InternalCustomerTone,
 } from '../../constants/internalCustomerTone';
 import { OrderFormPage, type OrderFormEditorContext } from '../../pages/order/OrderFormPage';
+import { OrderFormIssueCompleteCard } from './OrderFormIssueCompleteCard';
 import {
   buildOrderFormCustomerMessage,
   getOrderFormPublicUrl,
@@ -302,44 +303,21 @@ export function OrderIssueInlinePanel({
       </div>
 
       {newOrder ? (
-        <div ref={completeRef} className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-3">
-          <p className="text-fluid-sm font-semibold text-gray-900">발급 완료</p>
-          <p className="text-fluid-sm text-gray-700 tabular-nums">
-            {newOrder.customerName} · {newOrder.totalAmount.toLocaleString('ko-KR')}원
-          </p>
-          <p className="break-all text-fluid-2xs text-gray-600">
-            {getOrderLink(newOrder.token, brandSlugForOrder(newOrder))}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void copyMessage()}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-fluid-xs text-white"
-            >
-              메시지 복사
-            </button>
-            <button
-              type="button"
-              onClick={() => void copyLink()}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs text-gray-800"
-            >
-              링크 복사
-            </button>
-            <button
-              type="button"
-              onClick={() => window.open(getOrderLink(newOrder.token, brandSlugForOrder(newOrder)), '_blank')}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs text-gray-800"
-            >
-              새 창
-            </button>
-            <button
-              type="button"
-              onClick={startNewIssue}
-              className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-fluid-xs font-medium text-sky-900"
-            >
-              새로 발급
-            </button>
-          </div>
+        <div ref={completeRef}>
+          <OrderFormIssueCompleteCard
+            compact
+            customerName={newOrder.customerName}
+            totalAmount={newOrder.totalAmount}
+            link={getOrderLink(newOrder.token, brandSlugForOrder(newOrder))}
+            message={getOrderMessage(newOrder)}
+            onCopyMessage={copyMessage}
+            onCopyLink={copyLink}
+            onOpenNewTab={() =>
+              window.open(getOrderLink(newOrder.token, brandSlugForOrder(newOrder)), '_blank')
+            }
+            onNewIssue={startNewIssue}
+            showPrefill={false}
+          />
         </div>
       ) : null}
     </div>
