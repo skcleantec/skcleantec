@@ -426,6 +426,7 @@ router.get('/', async (req, res) => {
   const listInclude = {
     operatingCompany: { select: operatingCompanySummarySelect },
     createdBy: { select: { id: true, name: true } },
+    collaborationMarketer: { select: { id: true, name: true } },
     assignments: {
       orderBy: { sortOrder: 'asc' as const },
       include: { teamLeader: { select: assignmentTeamLeaderSelect } },

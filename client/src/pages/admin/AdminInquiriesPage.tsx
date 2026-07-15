@@ -680,6 +680,28 @@ function inquiryMarketerLabel(item: InquiryItem): string {
   return item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-';
 }
 
+function inquiryCollaborationMarketerName(item: InquiryItem): string | null {
+  const name = item.collaborationMarketer?.name?.trim();
+  return name || null;
+}
+
+/** 서비스접수 목록 접수자 열 — 담당 마케터 + (있으면) 다음 줄에 협업 마케터 */
+function InquiryListMarketerDisplay({ item }: { item: InquiryItem }) {
+  const primary = inquiryMarketerLabel(item);
+  const collab = inquiryCollaborationMarketerName(item);
+  if (!collab) return <>{primary}</>;
+  return (
+    <div className="flex min-w-0 max-w-full flex-col items-center leading-tight">
+      <span className="max-w-full truncate" title={primary}>
+        {primary}
+      </span>
+      <span className="max-w-full truncate text-fluid-2xs text-slate-500" title={`협업 ${collab}`}>
+        협업 {collab}
+      </span>
+    </div>
+  );
+}
+
 const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
 const TEAM_LEADER_FILTER_UNASSIGNED = '__unassigned__';
 const INQUIRY_LIST_FILTER_LABEL_CLASS =
@@ -2804,6 +2826,7 @@ export function AdminInquiriesPage() {
                 const addrFull = inquiryListAddressFull(item.address, item.addressDetail);
                 const addrShort = addressListShortSiGu(item.address);
                 const mobileSpecsTail = formatInquiryMobileSpecsTail(item, oneRoomLabel);
+                const collabMarketer = inquiryCollaborationMarketerName(item);
                 const prevItem = idx > 0 ? items[idx - 1]! : null;
                 return (
                   <div key={item.id} className={inquiryMobileCardShellClass(item, prevItem)}>
@@ -2860,10 +2883,16 @@ export function AdminInquiriesPage() {
                             </p>
                           ) : null}
                           <p
-                            className="mt-1 line-clamp-2 text-fluid-xs text-slate-500 leading-snug"
-                            title={`접수 ${formatDateCompactWithWeekday(item.createdAt)} · ${inquiryMarketerLabel(item)} · ${mobileSpecsTail}`}
+                            className="mt-1 line-clamp-3 text-fluid-xs text-slate-500 leading-snug"
+                            title={`접수 ${formatDateCompactWithWeekday(item.createdAt)} · ${inquiryMarketerLabel(item)}${collabMarketer ? ` · 협업 ${collabMarketer}` : ''} · ${mobileSpecsTail}`}
                           >
                             접수 {formatDateCompactWithWeekday(item.createdAt)} · {inquiryMarketerLabel(item)}
+                            {collabMarketer ? (
+                              <>
+                                <br />
+                                <span className="text-slate-500">협업 {collabMarketer}</span>
+                              </>
+                            ) : null}
                             <span className="text-slate-600"> · {mobileSpecsTail}</span>
                           </p>
                           <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-slate-600" title={addrFull}>
@@ -3308,7 +3337,7 @@ export function AdminInquiriesPage() {
                     <td
                       className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[9px] leading-snug text-slate-600 break-keep whitespace-normal xl:text-[10px] ${pBorder}`}
                     >
-                      {inquiryMarketerLabel(item)}
+                      <InquiryListMarketerDisplay item={item} />
                     </td>
                     <td
                       className={`min-w-0 truncate px-1 py-0.5 align-middle text-center text-fluid-2xs font-medium text-slate-900 xl:px-1.5 xl:text-fluid-xs 2xl:text-fluid-xs ${pBorder}`}
