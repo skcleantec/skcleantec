@@ -111,6 +111,46 @@ router.get('/', requireStaffPermission('admin.users'), async (req, res) => {
           }
         : null,
       promotedAt: r.promotedAt?.toISOString() ?? null,
+      usageDisabledAt: r.usageDisabledAt?.toISOString() ?? null,
+    })),
+  });
+});
+
+/** 신규 배정·캘린더 등 선택 가능한 타업체 목록 */
+router.get('/selectable', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
+  const rows = await prisma.externalCompany.findMany({
+    where: { tenantId, isActive: true, usageDisabledAt: null },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+  res.json({ items: rows });
+});
+
+/** 타업체 id → 이름 조회 (사용 중지 포함, isActive=true 만) — 스케줄·캘린더 라벨용 */
+router.get('/lookup', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
+  const idsRaw = typeof req.query.ids === 'string' ? req.query.ids : '';
+  const ids = [...new Set(idsRaw.split(',').map((s) => s.trim()).filter(Boolean))];
+  if (ids.length === 0) {
+    res.json({ items: [] });
+    return;
+  }
+
+  const rows = await prisma.externalCompany.findMany({
+    where: { tenantId, isActive: true, id: { in: ids } },
+    select: { id: true, name: true, usageDisabledAt: true },
+    orderBy: { name: 'asc' },
+  });
+  res.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      usageDisabledAt: r.usageDisabledAt?.toISOString() ?? null,
     })),
   });
 });
@@ -193,7 +233,8 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
 });
 
 router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => {
-  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, authUser);
   if (!tenantId) return;
 
   const { id } = req.params;
@@ -202,6 +243,7 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     bizNumber?: string | null;
     phone?: string | null;
     memo?: string | null;
+    usageDisabled?: boolean;
   };
   const existing = await requireActiveExternalCompanyInTenant(res, tenantId, id);
   if (!existing) return;
@@ -210,6 +252,8 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     bizNumber?: string | null;
     phone?: string | null;
     memo?: string | null;
+    usageDisabledAt?: Date | null;
+    usageDisabledByUserId?: string | null;
   } = {};
   if (body.name != null) {
     const n = String(body.name).trim();
@@ -228,6 +272,16 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
   if (body.memo !== undefined) {
     data.memo = body.memo == null || String(body.memo).trim() === '' ? null : String(body.memo).trim();
   }
+  if (body.usageDisabled !== undefined) {
+    const disable = Boolean(body.usageDisabled);
+    if (disable) {
+      data.usageDisabledAt = new Date();
+      data.usageDisabledByUserId = authUser.userId;
+    } else {
+      data.usageDisabledAt = null;
+      data.usageDisabledByUserId = null;
+    }
+  }
   if (Object.keys(data).length === 0) {
     res.json({
       id: existing.id,
@@ -235,6 +289,7 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
       bizNumber: existing.bizNumber,
       phone: existing.phone,
       memo: existing.memo,
+      usageDisabledAt: existing.usageDisabledAt?.toISOString() ?? null,
     });
     return;
   }
@@ -248,6 +303,7 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     bizNumber: updated.bizNumber,
     phone: updated.phone,
     memo: updated.memo,
+    usageDisabledAt: updated.usageDisabledAt?.toISOString() ?? null,
   });
 });
 

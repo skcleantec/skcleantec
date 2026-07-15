@@ -26,6 +26,7 @@ import {
   serializeUserDates,
   type EmploymentStatusFilter,
 } from './userEmployment.js';
+import { selectableExternalCompanyWhere } from '../external-companies/externalCompanyUsage.helpers.js';
 import {
   filterTeamLeaderIdsInServiceZone,
   listServiceZonesByUserIds,
@@ -143,7 +144,7 @@ router.get('/assignable-schedule', requireStaffPermission('inquiry.edit.assignme
   const serviceZoneId =
     typeof req.query.serviceZoneId === 'string' ? req.query.serviceZoneId.trim() : '';
 
-  const [leaders, partners, policy] = await Promise.all([
+  const [leaders, partners, selectableCompanies, policy] = await Promise.all([
     prisma.user.findMany({
       where: { tenantId, role: 'TEAM_LEADER', isActive: true },
       select: assignableUserSelect,
@@ -153,6 +154,10 @@ router.get('/assignable-schedule', requireStaffPermission('inquiry.edit.assignme
       where: { tenantId, role: 'EXTERNAL_PARTNER', isActive: true },
       select: assignableUserSelect,
       orderBy: { name: 'asc' },
+    }),
+    prisma.externalCompany.findMany({
+      where: selectableExternalCompanyWhere(tenantId),
+      select: { id: true },
     }),
     getOperatingCompanyPolicyFromService(tenantId),
   ]);
@@ -191,8 +196,12 @@ router.get('/assignable-schedule', requireStaffPermission('inquiry.edit.assignme
     leaderOut = leaderOut.filter((u) => inZone.has(u.id));
   }
 
-  const partnerOut = partners.filter((u) =>
-    isUserEmployedOnYmd(u.hireDate, u.resignationDate, employedOn),
+  const selectableCompanyIds = new Set(selectableCompanies.map((c) => c.id));
+  let partnerOut = partners.filter(
+    (u) =>
+      isUserEmployedOnYmd(u.hireDate, u.resignationDate, employedOn) &&
+      u.externalCompany?.id != null &&
+      selectableCompanyIds.has(u.externalCompany.id),
   );
 
   const ocByUser = await listOperatingCompaniesByUserIds(prisma, tenantId, [

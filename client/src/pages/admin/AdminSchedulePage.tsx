@@ -48,6 +48,7 @@ import { formatInquiryListAreaLabel } from '../../utils/inquiryAreaDisplay';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getInquiry } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
+import { listSelectableExternalCompanies } from '../../api/externalCompanies';
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
 import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
@@ -805,6 +806,9 @@ export function AdminSchedulePage() {
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [teamLeadersWithZones, setTeamLeadersWithZones] = useState<UserItem[]>([]);
   const [externalCompanies, setExternalCompanies] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectableExternalCompanies, setSelectableExternalCompanies] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [partnerTenants, setPartnerTenants] = useState<Array<{ id: string; name: string }>>([]);
   const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
@@ -1126,6 +1130,7 @@ export function AdminSchedulePage() {
     if (!token) {
       setTeamLeadersWithZones([]);
       setExternalCompanies([]);
+      setSelectableExternalCompanies([]);
       setPartnerTenants([]);
       setProfCatalog([]);
       setServiceZones([]);
@@ -1149,6 +1154,10 @@ export function AdminSchedulePage() {
           setExternalCompanies(Array.from(map.entries()).map(([id, name]) => ({ id, name })));
         })
         .catch(() => setExternalCompanies([]));
+
+      listSelectableExternalCompanies(token)
+        .then((r) => setSelectableExternalCompanies(r.items))
+        .catch(() => setSelectableExternalCompanies([]));
 
       if (hasTenantExchange) {
         listTenantPartnerships(token)
@@ -3437,7 +3446,8 @@ export function AdminSchedulePage() {
             : null
         }
         usedColors={usedCustomCalendarColors}
-        externalCompanies={externalCompanies}
+        externalCompanies={selectableExternalCompanies}
+        externalCompanyNames={externalCompanyNameById}
         partnerTenants={partnerTenants}
         serviceZones={serviceZones}
         onClose={() => {

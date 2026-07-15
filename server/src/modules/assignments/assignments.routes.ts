@@ -23,6 +23,10 @@ import {
   assertNoActivePartnerShareForExternalAssign,
   MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
 } from '../inquiries/inquiryExternalPartnerShareMutex.js';
+import {
+  assertExternalCompanySelectable,
+  MSG_EXTERNAL_COMPANY_USAGE_DISABLED,
+} from '../external-companies/externalCompanyUsage.helpers.js';
 
 const router = Router();
 
@@ -97,6 +101,20 @@ router.post('/', async (req, res) => {
         error: e instanceof Error ? e.message : MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
       });
       return;
+    }
+    const alreadyAssigned = await prisma.assignment.findFirst({
+      where: { tenantId, inquiryId, teamLeaderId: teamLeader.id },
+      select: { id: true },
+    });
+    if (!alreadyAssigned) {
+      try {
+        await assertExternalCompanySelectable(prisma, tenantId, teamLeader.externalCompanyId);
+      } catch (e) {
+        res.status(400).json({
+          error: e instanceof Error ? e.message : MSG_EXTERNAL_COMPANY_USAGE_DISABLED,
+        });
+        return;
+      }
     }
   }
   const assignYmd = inquiry.preferredDate

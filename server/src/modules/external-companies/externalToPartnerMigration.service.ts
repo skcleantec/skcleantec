@@ -258,6 +258,11 @@ export async function migrateExternalInquiriesToHybridPartner(opts: {
   if (!company) {
     throw new ExternalToPartnerMigrationError('타업체를 찾을 수 없습니다.', 404);
   }
+  if (company.usageDisabledAt != null) {
+    throw new ExternalToPartnerMigrationError(
+      '사용 중지된 타업체는 DB 이관을 실행할 수 없습니다. 사용 중으로 전환한 뒤 진행하세요.',
+    );
+  }
   if (!company.linkedPartnerTenantId || !company.linkedPartnerTenant) {
     throw new ExternalToPartnerMigrationError(
       '파트너 테넌트 연결이 필요합니다. 먼저 「파트너 연결」을 설정해 주세요.',

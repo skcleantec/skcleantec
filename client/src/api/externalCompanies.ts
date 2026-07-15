@@ -25,6 +25,7 @@ export type ExternalCompanyListItem = {
   partnerUsers: Array<{ id: string; email: string; name: string; phone: string | null }>;
   linkedPartnerTenant?: { id: string; name: string; slug: string } | null;
   promotedAt?: string | null;
+  usageDisabledAt?: string | null;
 };
 
 export async function listExternalCompanies(token: string): Promise<{ items: ExternalCompanyListItem[] }> {
@@ -61,7 +62,13 @@ export async function createExternalCompany(
 export async function updateExternalCompany(
   token: string,
   id: string,
-  data: { name?: string; bizNumber?: string | null; phone?: string | null; memo?: string | null }
+  data: {
+    name?: string;
+    bizNumber?: string | null;
+    phone?: string | null;
+    memo?: string | null;
+    usageDisabled?: boolean;
+  }
 ): Promise<void> {
   const res = await fetch(`${API}/external-companies/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -72,6 +79,32 @@ export async function updateExternalCompany(
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || '수정에 실패했습니다.');
   }
+}
+
+export async function listSelectableExternalCompanies(
+  token: string,
+): Promise<{ items: Array<{ id: string; name: string }> }> {
+  const res = await fetch(`${API}/external-companies/selectable`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '타업체 목록을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function lookupExternalCompanies(
+  token: string,
+  ids: string[],
+): Promise<{ items: Array<{ id: string; name: string; usageDisabledAt: string | null }> }> {
+  const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  if (unique.length === 0) return { items: [] };
+  const qs = new URLSearchParams({ ids: unique.join(',') });
+  const res = await fetch(`${API}/external-companies/lookup?${qs}`, { headers: headers(token) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '타업체 이름을 불러올 수 없습니다.');
+  }
+  return res.json();
 }
 
 export async function deactivateExternalCompany(token: string, id: string): Promise<void> {

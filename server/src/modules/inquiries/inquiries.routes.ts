@@ -141,6 +141,10 @@ import {
   inquiryHasActiveNativePartnerShareSource,
   MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
 } from './inquiryExternalPartnerShareMutex.js';
+import {
+  assertNewExternalPartnerUsersSelectable,
+  MSG_EXTERNAL_COMPANY_USAGE_DISABLED,
+} from '../external-companies/externalCompanyUsage.helpers.js';
 import { softDeleteInquiry, softDeleteInquiriesByWhere } from './inquiryTrash.service.js';
 
 function normalizeTeamLeaderIds(raw: unknown): string[] {
@@ -971,6 +975,24 @@ router.patch('/:id', async (req, res) => {
           });
           return;
         }
+      }
+      const prevExternalUserIds = new Set(
+        inquiry.assignments
+          .filter((a) => a.teamLeader.role === 'EXTERNAL_PARTNER')
+          .map((a) => a.teamLeaderId),
+      );
+      try {
+        await assertNewExternalPartnerUsersSelectable(
+          prisma,
+          tenantId,
+          prevExternalUserIds,
+          assignees,
+        );
+      } catch (e) {
+        res.status(400).json({
+          error: e instanceof Error ? e.message : MSG_EXTERNAL_COMPANY_USAGE_DISABLED,
+        });
+        return;
       }
       const inquiryOcId =
         data.operatingCompany && 'connect' in data.operatingCompany

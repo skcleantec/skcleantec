@@ -13,6 +13,7 @@ import {
 } from '../../api/externalCompanies';
 import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { isExternalCompanyUsageDisabled } from '../../utils/externalCompanyUsage';
 
 const emptyCreateForm = () => ({
   name: '',
@@ -57,6 +58,7 @@ export function AdminExternalCompaniesPage() {
     bizNumber: '',
     phone: '',
     memo: '',
+    usageDisabled: false,
   });
 
   const [migrating, setMigrating] = useState<ExternalCompanyListItem | null>(null);
@@ -115,6 +117,7 @@ export function AdminExternalCompaniesPage() {
       bizNumber: row.bizNumber ?? '',
       phone: row.phone ?? '',
       memo: row.memo ?? '',
+      usageDisabled: isExternalCompanyUsageDisabled(row.usageDisabledAt),
     });
   };
 
@@ -128,6 +131,7 @@ export function AdminExternalCompaniesPage() {
         bizNumber: editFields.bizNumber.trim() || null,
         phone: editFields.phone.trim() || null,
         memo: editFields.memo.trim() || null,
+        usageDisabled: editFields.usageDisabled,
       });
       setEditing(null);
       load();
@@ -323,7 +327,14 @@ export function AdminExternalCompaniesPage() {
               <tbody>
                 {items.map((row) => (
                   <tr key={row.id} className="border-t border-gray-100">
-                    <td className="px-4 py-2 font-medium text-gray-900">{row.name}</td>
+                    <td className="px-4 py-2 font-medium text-gray-900">
+                      <span>{row.name}</span>
+                      {isExternalCompanyUsageDisabled(row.usageDisabledAt) ? (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+                          사용 안 함
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="px-4 py-2 text-gray-600">{row.bizNumber ?? '—'}</td>
                     <td className="px-4 py-2 text-gray-600">{row.phone ?? '—'}</td>
                     <td className="px-4 py-2 text-gray-600">
@@ -544,6 +555,33 @@ export function AdminExternalCompaniesPage() {
                   rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                 />
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+                <p className="text-sm font-medium text-gray-800">신규 사용</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  「사용 안 함」은 새 배정·DB마켓 노출·캘린더 추가에서만 제외합니다. 기존 배정·정산·로그인은
+                  유지됩니다. 완전 삭제는 아래 「삭제」를 사용하세요.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <label className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
+                    <input
+                      type="radio"
+                      name="external-usage"
+                      checked={!editFields.usageDisabled}
+                      onChange={() => setEditFields((p) => ({ ...p, usageDisabled: false }))}
+                    />
+                    사용 중
+                  </label>
+                  <label className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
+                    <input
+                      type="radio"
+                      name="external-usage"
+                      checked={editFields.usageDisabled}
+                      onChange={() => setEditFields((p) => ({ ...p, usageDisabled: true }))}
+                    />
+                    사용 안 함
+                  </label>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <button

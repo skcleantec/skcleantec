@@ -647,6 +647,9 @@ model ExternalCompany {
   phone     String?  @db.VarChar(64)
   memo      String?  @db.Text
   isActive  Boolean  @default(true) @map("is_active")
+  /// 신규 배정·DB마켓 노출 등에서 제외(삭제·isActive=false 와 별도). 과거 배정·정산은 유지.
+  usageDisabledAt       DateTime? @map("usage_disabled_at")
+  usageDisabledByUserId String?   @map("usage_disabled_by_user_id")
   linkedPartnerTenantId String?  @map("linked_partner_tenant_id")
   promotedAt            DateTime? @map("promoted_at")
   createdAt DateTime @default(now()) @map("created_at")
@@ -664,6 +667,7 @@ model ExternalCompany {
   legacySettlementShares TenantInquiryShare[] @relation("ShareExternalLegacySettlement")
 
   @@index([tenantId, isActive])
+  @@index([tenantId, isActive, usageDisabledAt])
   @@index([linkedPartnerTenantId])
   @@map("external_companies")
 }

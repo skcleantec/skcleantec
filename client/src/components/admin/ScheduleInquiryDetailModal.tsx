@@ -33,6 +33,7 @@ import {
   teamLeaderAssignmentBlocked,
   type TeamLeaderAssignmentSurface,
 } from '../../utils/inquiryServiceZoneAssignment';
+import { mergeExternalPartnersFromAssignments } from '../../utils/externalCompanyUsage';
 import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../orderform/OrderFormTemplateInfo';
 import { ProfOptionsAmountReviewApplyPanel } from '../inquiry/ProfOptionsAmountReviewNotice';
 import { AddressSearch } from '../forms/AddressSearch';
@@ -1277,7 +1278,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     })
       .then((r) => {
         if (cancelled) return;
-        setAssignableTeamLeaders(r.items);
+        setAssignableTeamLeaders(
+          mergeExternalPartnersFromAssignments(r.items, item?.assignments),
+        );
         setAssignmentPolicy(r.policy);
       })
       .catch(() => {
@@ -1295,6 +1298,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     manualAssignmentZoneId,
     item?.id,
     customCalendars,
+    item?.assignments,
   ]);
 
   const matchingServiceZones = useMemo(
