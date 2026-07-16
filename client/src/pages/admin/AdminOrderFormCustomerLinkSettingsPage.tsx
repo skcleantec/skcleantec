@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { getFormConfig, updateFormConfig } from '../../api/orderform';
+import { Link, useSearchParams } from 'react-router-dom';
+import { getBrandCustomerLinkConfig, updateBrandCustomerLinkConfig } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
 import {
   buildOrderFormCustomerMessage,
@@ -11,6 +11,8 @@ import {
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults';
 import { ORDER_FORM_CUSTOMER_LINK_COPY_DEFAULTS } from '@shared/orderFormCustomerLinkCopy';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
+import { useOperatingCompanies } from '../../hooks/useOperatingCompanies';
+import { invalidateOrderFormBrandCustomerLinkConfigCache } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 import { OrderFormLinkPlaceholderPicker } from '../../components/orderform/OrderFormLinkPlaceholderPicker';
 
@@ -31,6 +33,7 @@ const PREVIEW_SAMPLE_ORDER = {
 
 const HELP =
   '발주서 발급·목록에서 「메시지 복사」할 때 고객에게 보내는 안내 문구입니다.\n' +
+  '영업 브랜드마다 제목·문구를 다르게 저장할 수 있습니다.\n' +
   '금액·일정·URL은 발급 건마다 자동으로 채워집니다.\n' +
   '치환 명령어는 드롭다운에서 선택 후 복사해 문장에 붙여 넣으세요.';
 
@@ -172,9 +175,24 @@ function LinkFieldEditor({
   );
 }
 
+function pickDefaultBrandId(
+  brands: Array<{ id: string; isDefault?: boolean }>,
+  preferred?: string | null,
+): string {
+  if (preferred && brands.some((b) => b.id === preferred)) return preferred;
+  const def = brands.find((b) => b.isDefault);
+  return def?.id ?? brands[0]?.id ?? '';
+}
+
 export function AdminOrderFormCustomerLinkSettingsPage() {
   const token = getToken();
   const staffTenantSlug = useStaffTenantSlugForLinks(token);
+  const brands = useOperatingCompanies(token);
+  const activeBrands = useMemo(() => brands.filter((b) => b.isActive), [brands]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const brandFromUrl = searchParams.get('brand');
+
+  const [operatingCompanyId, setOperatingCompanyId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,27 +211,42 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
     }),
   );
 
-  const refresh = useCallback(() => {
-    if (!token) return;
-    getFormConfig(token)
-      .then((c) => {
-        setMsgConfig(normalizeMsgConfigForEditor(c));
-        setError(null);
-      })
-      .catch((e) => {
-        setError(e instanceof Error ? e.message : '설정을 불러올 수 없습니다.');
-      });
-  }, [token]);
+  const selectedBrand = useMemo(
+    () => activeBrands.find((b) => b.id === operatingCompanyId) ?? null,
+    [activeBrands, operatingCompanyId],
+  );
+
+  const setBrandId = useCallback(
+    (id: string) => {
+      setOperatingCompanyId(id);
+      setSearchParams(id ? { brand: id } : {}, { replace: true });
+    },
+    [setSearchParams],
+  );
 
   useEffect(() => {
-    if (!token) return;
+    if (activeBrands.length === 0) return;
+    const next = pickDefaultBrandId(activeBrands, brandFromUrl);
+    if (next && next !== operatingCompanyId) setOperatingCompanyId(next);
+  }, [activeBrands, brandFromUrl, operatingCompanyId]);
+
+  useEffect(() => {
+    if (!token || !operatingCompanyId) return;
     let cancelled = false;
     setLoading(true);
-    getFormConfig(token)
+    setError(null);
+    getBrandCustomerLinkConfig(token, operatingCompanyId)
       .then((c) => {
         if (cancelled) return;
-        setMsgConfig(normalizeMsgConfigForEditor(c));
-        setError(null);
+        setMsgConfig(
+          normalizeMsgConfigForEditor({
+            ...c,
+            infoContent: null,
+            infoLinkText: null,
+            submitSuccessTitle: null,
+            submitSuccessBody: null,
+          }),
+        );
       })
       .catch((e) => {
         if (!cancelled) {
@@ -226,24 +259,28 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, operatingCompanyId]);
 
   const previewMessage = useMemo(() => {
+    const brandSlug = selectedBrand?.slug ?? null;
+    const brandDisplayName = selectedBrand?.displayName ?? selectedBrand?.name ?? null;
     return buildOrderFormCustomerMessage(
       msgConfig,
       PREVIEW_SAMPLE_ORDER,
       typeof window !== 'undefined' ? window.location.origin : undefined,
       staffTenantSlug || null,
+      brandSlug,
+      brandDisplayName,
     );
-  }, [msgConfig, staffTenantSlug]);
+  }, [msgConfig, staffTenantSlug, selectedBrand]);
 
   const handleSave = async () => {
-    if (!token) return;
+    if (!token || !operatingCompanyId) return;
     setSaving(true);
     setError(null);
     setSavedAt(null);
     try {
-      await updateFormConfig(token, {
+      await updateBrandCustomerLinkConfig(token, operatingCompanyId, {
         formTitle: msgConfig.formTitle || undefined,
         priceLabel: msgConfig.priceLabel || undefined,
         reviewEventText: msgConfig.reviewEventText ?? '',
@@ -251,7 +288,7 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
         footerNotice2: msgConfig.footerNotice2 || undefined,
         ...customerLinkCopyPayloadFromEditor(msgConfig),
       });
-      refresh();
+      invalidateOrderFormBrandCustomerLinkConfigCache();
       setSavedAt(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
@@ -260,7 +297,15 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
     }
   };
 
-  if (loading) {
+  if (activeBrands.length === 0 && !loading) {
+    return (
+      <p className="p-6 text-center text-fluid-sm text-gray-500">
+        등록된 영업 브랜드가 없습니다. 관리자 전용에서 브랜드를 먼저 등록해 주세요.
+      </p>
+    );
+  }
+
+  if (loading && !operatingCompanyId) {
     return <p className="p-6 text-center text-fluid-sm text-gray-500">불러오는 중…</p>;
   }
 
@@ -285,12 +330,35 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
             <button
               type="button"
               onClick={() => void handleSave()}
-              disabled={saving}
+              disabled={saving || !operatingCompanyId}
               className="rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
             >
               {saving ? '저장 중…' : '저장'}
             </button>
           </div>
+        </div>
+
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <label className="text-fluid-xs font-medium text-gray-700" htmlFor="customer-link-brand">
+            영업 브랜드
+          </label>
+          <select
+            id="customer-link-brand"
+            value={operatingCompanyId}
+            onChange={(e) => setBrandId(e.target.value)}
+            className="min-w-[10rem] rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-fluid-xs text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          >
+            {activeBrands.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.displayName || b.name}
+              </option>
+            ))}
+          </select>
+          {selectedBrand ? (
+            <span className="text-fluid-2xs text-gray-500">
+              미리보기·발송 시 「{selectedBrand.displayName || selectedBrand.name}」 이름이 제목에 붙습니다.
+            </span>
+          ) : null}
         </div>
 
         {error ? (
@@ -312,44 +380,43 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
           <p className="text-fluid-2xs text-gray-500">
             샘플: {PREVIEW_SAMPLE_ORDER.customerName} · 금액·일정·페이백은 발급 건마다 달라집니다.
           </p>
-          <pre className="max-h-[min(50vh,420px)] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-gray-200 bg-white p-3 text-fluid-xs leading-relaxed text-gray-800">
-            {previewMessage}
-          </pre>
+          {loading ? (
+            <p className="text-fluid-xs text-gray-500">브랜드 설정 불러오는 중…</p>
+          ) : (
+            <pre className="max-h-[min(50vh,420px)] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-gray-200 bg-white p-3 text-fluid-xs leading-relaxed text-gray-800">
+              {previewMessage}
+            </pre>
+          )}
         </section>
 
         <div className="mt-4 space-y-2">
           {FIELD_GROUPS.map((group) => (
-              <details
-                key={group.id}
-                className="rounded-lg border border-gray-200 bg-white group"
-              >
-                <summary className="cursor-pointer list-none px-3 py-2.5 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 rounded-lg [&::-webkit-details-marker]:hidden">
-                  <span className="inline-flex items-center gap-2">
-                    <span className="text-gray-400 text-xs group-open:hidden">▶</span>
-                    <span className="text-gray-400 text-xs hidden group-open:inline">▼</span>
-                    {group.title}
-                    <span className="text-fluid-2xs font-normal text-gray-500">
-                      ({group.fields.length}개)
-                    </span>
-                  </span>
-                </summary>
-                <div className="space-y-3 border-t border-gray-100 px-3 py-3">
-                  {group.fields.map((field) => (
-                    <LinkFieldEditor
-                      key={field.key}
-                      field={field}
-                      value={msgConfig[field.key] ?? ''}
-                      onChange={(next) =>
-                        setMsgConfig((c) => ({
-                          ...c,
-                          [field.key]: next,
-                        }))
-                      }
-                    />
-                  ))}
-                </div>
-              </details>
-            ))}
+            <details key={group.id} className="rounded-lg border border-gray-200 bg-white group">
+              <summary className="cursor-pointer list-none px-3 py-2.5 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 rounded-lg [&::-webkit-details-marker]:hidden">
+                <span className="inline-flex items-center gap-2">
+                  <span className="text-gray-400 text-xs group-open:hidden">▶</span>
+                  <span className="text-gray-400 text-xs hidden group-open:inline">▼</span>
+                  {group.title}
+                  <span className="text-fluid-2xs font-normal text-gray-500">({group.fields.length}개)</span>
+                </span>
+              </summary>
+              <div className="space-y-3 border-t border-gray-100 px-3 py-3">
+                {group.fields.map((field) => (
+                  <LinkFieldEditor
+                    key={field.key}
+                    field={field}
+                    value={msgConfig[field.key] ?? ''}
+                    onChange={(next) =>
+                      setMsgConfig((c) => ({
+                        ...c,
+                        [field.key]: next,
+                      }))
+                    }
+                  />
+                ))}
+              </div>
+            </details>
+          ))}
         </div>
       </div>
     </div>

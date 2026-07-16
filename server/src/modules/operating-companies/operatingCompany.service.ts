@@ -11,6 +11,7 @@ import {
   extractOperatingCompanySoomgoPatch,
   mergeOperatingCompanySoomgoStored,
 } from '../../lib/operatingCompanySoomgoConfig.js';
+import { seedBrandCustomerLinkFromTenantDefault } from '../orderform/orderFormBrandCustomerLink.service.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -177,6 +178,7 @@ export async function createOperatingCompany(
       config: operatingCompanyConfigToJson(config) as Prisma.InputJsonValue,
     },
   });
+  await seedBrandCustomerLinkFromTenantDefault(db, tenantId, row.id);
   return operatingCompanySummary(row);
 }
 

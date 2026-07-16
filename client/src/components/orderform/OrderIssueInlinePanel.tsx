@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getToken } from '../../stores/auth';
 import { getInquiries } from '../../api/inquiries';
-import { getFormConfig, type OrderForm } from '../../api/orderform';
 import { listOrderFormTemplates, type OrderFormTemplate } from '../../api/orderFormTemplates';
+import type { OrderForm } from '../../api/orderform';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
+import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
 import { InternalCustomerToneRadio } from '../admin/InternalCustomerToneRadio';
 import {
   DEFAULT_INTERNAL_CUSTOMER_TONE,
@@ -14,10 +15,10 @@ import { OrderFormPage, type OrderFormEditorContext } from '../../pages/order/Or
 import { OrderFormIssueCompleteCard } from './OrderFormIssueCompleteCard';
 import {
   buildOrderFormCustomerMessage,
+  customerLinkMsgConfigForBrand,
   getOrderFormPublicUrl,
   normalizeMsgConfigForEditor,
   orderFormBrandFromOperatingCompany,
-  type FormMessagesState,
 } from '../../utils/orderFormCustomerCopy';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { scrollElementIntoNearestScrollContainer } from '../../utils/staffAppScrollRestore';
@@ -70,19 +71,8 @@ export function OrderIssueInlinePanel({
   const [issueTemplateId, setIssueTemplateId] = useState('');
   const [issueFormKey, setIssueFormKey] = useState(0);
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
-  const [msgConfig, setMsgConfig] = useState<FormMessagesState>(() =>
-    normalizeMsgConfigForEditor({
-      formTitle: '',
-      priceLabel: '',
-      reviewEventText: '',
-      footerNotice1: '',
-      footerNotice2: '',
-      infoContent: null,
-      infoLinkText: null,
-      submitSuccessTitle: '',
-      submitSuccessBody: '',
-    }),
-  );
+  const { map: brandMsgConfigMap, tenantFallback: brandMsgTenantFallback } =
+    useOrderFormBrandCustomerLinkConfigs(token);
   const completeRef = useRef<HTMLDivElement>(null);
   const pendingFromPropApplied = useRef<string | null>(null);
 
@@ -93,13 +83,6 @@ export function OrderIssueInlinePanel({
     pendingFromPropApplied.current = raw;
     setPendingLinkId(raw);
   }, [pendingInquiryIdProp]);
-
-  useEffect(() => {
-    if (!token) return;
-    getFormConfig(token)
-      .then((c) => setMsgConfig(normalizeMsgConfigForEditor(c)))
-      .catch(() => {});
-  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -163,6 +146,22 @@ export function OrderIssueInlinePanel({
   const getOrderMessage = useCallback(
     (order: OrderForm) => {
       const { brandSlug, brandDisplayName } = orderFormBrandFromOperatingCompany(order.operatingCompany);
+      const msgConfig = customerLinkMsgConfigForBrand(
+        brandMsgConfigMap,
+        order.operatingCompany?.id,
+        brandMsgTenantFallback ??
+          normalizeMsgConfigForEditor({
+            formTitle: '',
+            priceLabel: '',
+            reviewEventText: '',
+            footerNotice1: '',
+            footerNotice2: '',
+            infoContent: null,
+            infoLinkText: null,
+            submitSuccessTitle: '',
+            submitSuccessBody: '',
+          }),
+      );
       return buildOrderFormCustomerMessage(
         msgConfig,
         order,
@@ -172,7 +171,7 @@ export function OrderIssueInlinePanel({
         brandDisplayName,
       );
     },
-    [msgConfig, staffTenantSlug],
+    [brandMsgConfigMap, brandMsgTenantFallback, staffTenantSlug],
   );
 
   const handleOrderCreated = useCallback(

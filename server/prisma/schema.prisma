@@ -185,6 +185,7 @@ model Tenant {
   eContractDefinitions EContractDefinition[]
   teamMembers TeamMember[]
   orderFormConfigs OrderFormConfig[]
+  orderFormBrandCustomerLinkConfigs OrderFormBrandCustomerLinkConfig[]
   estimateConfigs EstimateConfig[]
   estimateOptions EstimateOption[]
   quotationServiceItems QuotationServiceItem[]
@@ -682,6 +683,7 @@ model OperatingCompany {
   telecrmConsultationQuotes  TelecrmConsultationQuote[]
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmSmsTemplates         TelecrmSmsTemplate[]
+  orderFormBrandCustomerLinkConfigs OrderFormBrandCustomerLinkConfig[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive, sortOrder])
@@ -2066,6 +2068,34 @@ model OrderFormConfig {
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("order_form_config")
+}
+
+/// 고객 발주서 링크 안내 메시지 — 영업 브랜드별 문구
+model OrderFormBrandCustomerLinkConfig {
+  id                         String           @id @default(uuid())
+  tenantId                   String           @map("tenant_id")
+  tenant                     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  operatingCompanyId         String           @map("operating_company_id")
+  operatingCompany           OperatingCompany @relation(fields: [operatingCompanyId], references: [id], onDelete: Cascade)
+  formTitle                  String           @default("입주청소 발주서") @map("form_title")
+  priceLabel                 String?          @default("(특가)") @map("price_label")
+  reviewEventText            String?          @map("review_event_text")
+  footerNotice1              String?          @map("footer_notice_1")
+  footerNotice2              String?          @map("footer_notice_2")
+  customerLinkTotalLine      String?          @map("customer_link_total_line") @db.Text
+  customerLinkBalanceLine    String?          @map("customer_link_balance_line") @db.Text
+  customerLinkScheduleLine   String?          @map("customer_link_schedule_line") @db.Text
+  customerLinkTimeDetailLine String?          @map("customer_link_time_detail_line") @db.Text
+  customerLinkOrderIntro     String?          @map("customer_link_order_intro") @db.Text
+  customerLinkCsNotice       String?          @map("customer_link_cs_notice") @db.Text
+  customerLinkCsUrlLabel     String?          @map("customer_link_cs_url_label") @db.Text
+  customerLinkPaybackBlock   String?          @map("customer_link_payback_block") @db.Text
+  createdAt                  DateTime         @default(now()) @map("created_at")
+  updatedAt                  DateTime         @updatedAt @map("updated_at")
+
+  @@unique([tenantId, operatingCompanyId])
+  @@index([tenantId])
+  @@map("order_form_brand_customer_link_configs")
 }
 
 /// 발주서 입력 필드 타입 (동적 발주서 빌더)

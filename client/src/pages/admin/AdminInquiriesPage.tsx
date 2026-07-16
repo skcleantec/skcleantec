@@ -30,7 +30,6 @@ import {
   forceMatchOrderFormToInquiry,
   getForceMatchOrderFormCandidates,
   getAllProfessionalOptions,
-  getFormConfig,
   type ForceMatchOrderFormCandidate,
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
@@ -81,6 +80,7 @@ import { getToken } from '../../stores/auth';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { useDebouncedCallback } from '../../utils/debounceCallback';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
+import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
 import {
   InquiryDatePresetBar,
   InquiryManualIntakeButton,
@@ -152,12 +152,12 @@ import {
 } from '../../utils/listPagination';
 import {
   buildOrderFormCustomerMessage,
+  customerLinkMsgConfigForBrand,
   getOrderFormPublicUrl,
   labelOrderFormIssuer,
   normalizeMsgConfigForEditor,
   orderFormBrandFromOperatingCompany,
 } from '../../utils/orderFormCustomerCopy';
-import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
 
 const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
 const AREA_BASIS_EDIT = ['공급', '전용'] as const;
@@ -769,6 +769,24 @@ export function AdminInquiriesPage() {
   const token = getToken();
   const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
   const staffTenantSlug = useStaffTenantSlugForLinks(token);
+  const { map: brandMsgConfigMap, tenantFallback: brandMsgTenantFallback, loading: brandMsgConfigLoading } =
+    useOrderFormBrandCustomerLinkConfigs(token);
+  const brandMsgTenantFallbackResolved = useMemo(
+    () =>
+      brandMsgTenantFallback ??
+      normalizeMsgConfigForEditor({
+        formTitle: '',
+        priceLabel: '',
+        reviewEventText: '',
+        footerNotice1: '',
+        footerNotice2: '',
+        infoContent: null,
+        infoLinkText: null,
+        submitSuccessTitle: null,
+        submitSuccessBody: null,
+      }),
+    [brandMsgTenantFallback],
+  );
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const isLgUp = useIsLgUp();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -979,11 +997,7 @@ export function AdminInquiriesPage() {
       createdBy?: { id: string; name: string; role: string } | null;
     };
   }>(null);
-  const [orderCustomerPreviewMsgConfig, setOrderCustomerPreviewMsgConfig] = useState<FormMessagesState | null>(
-    null
-  );
-  const [orderCustomerPreviewLoading, setOrderCustomerPreviewLoading] = useState(false);
-  const [orderCustomerPreviewError, setOrderCustomerPreviewError] = useState<string | null>(null);
+
   /** 편집 모달의 "투입 팀원 선택" 드롭다운에 쓰일 등록된 팀원 목록 */
   const [poolTeamMembers, setPoolTeamMembers] = useState<TeamMemberItem[]>([]);
   const [crewSpacingByMemberName, setCrewSpacingByMemberName] = useState<Record<string, number | null>>({});
@@ -1968,9 +1982,6 @@ export function AdminInquiriesPage() {
 
   const closeOrderCustomerPreviewModal = () => {
     setOrderCustomerPreview(null);
-    setOrderCustomerPreviewMsgConfig(null);
-    setOrderCustomerPreviewLoading(false);
-    setOrderCustomerPreviewError(null);
   };
 
   const openOrderCustomerPreviewModal = (item: InquiryItem, kind: 'message' | 'link') => {
@@ -1984,9 +1995,6 @@ export function AdminInquiriesPage() {
       alert('금액 정보가 없어 메시지를 만들 수 없습니다. 접수 상세에서 금액을 확인해 주세요.');
       return;
     }
-    setOrderCustomerPreviewError(null);
-    setOrderCustomerPreviewMsgConfig(null);
-    setOrderCustomerPreviewLoading(true);
     setOrderCustomerPreview({
       kind,
       inquiry: item,
@@ -2012,27 +2020,15 @@ export function AdminInquiriesPage() {
     });
   };
 
-  useEffect(() => {
-    if (!orderCustomerPreview || !token) return;
-    let cancelled = false;
-    (async () => {
-      setOrderCustomerPreviewLoading(true);
-      setOrderCustomerPreviewError(null);
-      try {
-        const cfg = normalizeMsgConfigForEditor(await getFormConfig(token));
-        if (cancelled) return;
-        setOrderCustomerPreviewMsgConfig(cfg);
-      } catch (e) {
-        if (cancelled) return;
-        setOrderCustomerPreviewError(e instanceof Error ? e.message : '폼 설정을 불러오지 못했습니다.');
-      } finally {
-        if (!cancelled) setOrderCustomerPreviewLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [orderCustomerPreview, token]);
+  const resolveOrderCustomerPreviewMsgConfig = useCallback(
+    (operatingCompanyId?: string | null) =>
+      customerLinkMsgConfigForBrand(
+        brandMsgConfigMap,
+        operatingCompanyId,
+        brandMsgTenantFallbackResolved,
+      ),
+    [brandMsgConfigMap, brandMsgTenantFallbackResolved],
+  );
 
   const openOrderFormNewTab = (item: InquiryItem) => {
     const tk = item.orderForm?.token?.trim();
@@ -2055,7 +2051,7 @@ export function AdminInquiriesPage() {
   const handleCopyOrderCustomerPreview = async () => {
     if (!orderCustomerPreview) return;
     if (orderCustomerPreview.kind === 'message') {
-      if (!orderCustomerPreviewMsgConfig) {
+      if (brandMsgConfigLoading) {
         alert('폼 설정을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
         return;
       }
@@ -2063,7 +2059,7 @@ export function AdminInquiriesPage() {
         orderCustomerPreview.inquiry.operatingCompany,
       );
       const text = buildOrderFormCustomerMessage(
-        orderCustomerPreviewMsgConfig,
+        resolveOrderCustomerPreviewMsgConfig(orderCustomerPreview.inquiry.operatingCompany?.id),
         orderCustomerPreview.order,
         undefined,
         staffTenantSlug || null,
@@ -3831,10 +3827,8 @@ export function AdminInquiriesPage() {
                 </p>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                {orderCustomerPreviewError ? (
-                  <p className="text-sm text-red-600">{orderCustomerPreviewError}</p>
-                ) : orderCustomerPreview.kind === 'message' ? (
-                  orderCustomerPreviewLoading || !orderCustomerPreviewMsgConfig ? (
+                {orderCustomerPreview.kind === 'message' ? (
+                  brandMsgConfigLoading ? (
                     <p className="text-sm text-slate-600">불러오는 중…</p>
                   ) : (
                     <pre className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-slate-50 p-3 font-sans text-sm text-slate-800">
@@ -3843,7 +3837,9 @@ export function AdminInquiriesPage() {
                           orderCustomerPreview.inquiry.operatingCompany,
                         );
                         return buildOrderFormCustomerMessage(
-                          orderCustomerPreviewMsgConfig,
+                          resolveOrderCustomerPreviewMsgConfig(
+                            orderCustomerPreview.inquiry.operatingCompany?.id,
+                          ),
                           orderCustomerPreview.order,
                           undefined,
                           staffTenantSlug || null,
@@ -3881,9 +3877,8 @@ export function AdminInquiriesPage() {
                   type="button"
                   onClick={() => void handleCopyOrderCustomerPreview()}
                   disabled={
-                    orderCustomerPreviewLoading ||
-                    Boolean(orderCustomerPreviewError) ||
-                    (orderCustomerPreview.kind === 'message' && !orderCustomerPreviewMsgConfig)
+                    brandMsgConfigLoading ||
+                    (orderCustomerPreview.kind === 'message' && brandMsgConfigLoading)
                   }
                   className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
                 >
