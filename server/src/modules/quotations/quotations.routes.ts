@@ -5,7 +5,7 @@ import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
-import { allocateNextQuotationNumber } from './quotationNumber.js';
+import { allocateNextDocumentNumber, ensureDocumentNumberForType } from './quotationNumber.js';
 import {
   buildQuotationEmailDefaultsForRow,
   executeQuotationEmailSend,
@@ -16,6 +16,7 @@ import {
 } from './quotationPdfBuild.service.js';
 import {
   getOrCreateQuotationConfig,
+  getOrCreateQuotationConfigSafe,
   kstYmdPlusDays,
   serializeQuotationConfig,
 } from './quotationConfig.service.js';
@@ -23,6 +24,7 @@ import {
   computeLineAmount,
   computeQuotationTotals,
   parseOptionalYmd,
+  parseQuotationDocumentType,
   parseQuotationLineInputs,
   quotationInclude,
   serializeQuotation,
@@ -93,6 +95,7 @@ router.put('/config', requireStaffPermission('quotation.config'), async (req, re
   if (!tenantId) return;
   const body = req.body as {
     footerNotice?: string | null;
+    receiptFooterNotice?: string | null;
     documentTitle?: string | null;
     defaultValidDays?: number | null;
     defaultEmailSubject?: string | null;
@@ -100,6 +103,12 @@ router.put('/config', requireStaffPermission('quotation.config'), async (req, re
   };
   const existing = await getOrCreateQuotationConfig(prisma, tenantId);
   const patch: import('@prisma/client').Prisma.QuotationConfigUpdateInput = {};
+  if (body.receiptFooterNotice !== undefined) {
+    patch.receiptFooterNotice =
+      typeof body.receiptFooterNotice === 'string' && body.receiptFooterNotice.trim()
+        ? body.receiptFooterNotice.trim()
+        : null;
+  }
   if (body.footerNotice !== undefined) {
     patch.footerNotice =
       typeof body.footerNotice === 'string' && body.footerNotice.trim()
@@ -152,7 +161,7 @@ router.get('/editor-defaults', async (req, res) => {
       where: { tenantId, isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
-    getOrCreateQuotationConfig(prisma, tenantId),
+    getOrCreateQuotationConfigSafe(prisma, tenantId),
     listQuotationEditorOperatingCompanies(
       prisma,
       tenantId,
@@ -380,6 +389,12 @@ router.post('/', async (req, res) => {
   if (!tenantId) return;
   const auth = (req as unknown as { user: AuthPayload }).user;
   const body = req.body as Record<string, unknown>;
+  const documentTypeParsed = parseQuotationDocumentType(body.documentType);
+  if (documentTypeParsed === 'INVALID') {
+    res.status(400).json({ error: '문서 유형이 올바르지 않습니다.' });
+    return;
+  }
+  const documentType = documentTypeParsed;
 
   const customerName = typeof body.customerName === 'string' ? body.customerName.trim() : '';
   if (!customerName) {
@@ -422,11 +437,12 @@ router.post('/', async (req, res) => {
   }
 
   const row = await prisma.$transaction(async (tx) => {
-    const quoteNumber = await allocateNextQuotationNumber(tx, tenantId);
+    const quoteNumber = await allocateNextDocumentNumber(tx, tenantId, documentType);
     return tx.quotation.create({
       data: {
         tenantId,
         quoteNumber,
+        documentType,
         status: 'DRAFT',
         customerName,
         customerPhone:
@@ -446,7 +462,7 @@ router.post('/', async (req, res) => {
         discountAmount,
         total,
         vatMode,
-        validUntil: validUntilParsed,
+        validUntil: documentType === 'RECEIPT' ? null : validUntilParsed,
         inquiryId: inquiryIdResolved,
         operatingCompanyId: operatingCompanyIdResolved,
         createdById: auth.userId,
@@ -487,6 +503,16 @@ router.patch('/:id', async (req, res) => {
     return;
   }
 
+  const documentTypeParsed =
+    body.documentType !== undefined
+      ? parseQuotationDocumentType(body.documentType)
+      : ((existing.documentType ?? 'QUOTATION') as import('./quotationDocument.js').QuotationDocumentType);
+  if (documentTypeParsed === 'INVALID') {
+    res.status(400).json({ error: '문서 유형이 올바르지 않습니다.' });
+    return;
+  }
+  const nextDocumentType = documentTypeParsed;
+
   let linesParsed: import('./quotations.service.js').QuotationLineInput[];
   if (body.lineItems !== undefined) {
     const parsed = parseQuotationLineInputs(body.lineItems);
@@ -510,7 +536,11 @@ router.patch('/:id', async (req, res) => {
   }
 
   const validUntilParsed =
-    body.validUntil !== undefined ? parseOptionalYmd(body.validUntil) : existing.validUntil;
+    nextDocumentType === 'RECEIPT'
+      ? null
+      : body.validUntil !== undefined
+        ? parseOptionalYmd(body.validUntil)
+        : existing.validUntil;
   if (validUntilParsed === 'INVALID') {
     res.status(400).json({ error: '유효기간 날짜 형식이 올바르지 않습니다.' });
     return;
@@ -555,6 +585,12 @@ router.patch('/:id', async (req, res) => {
       : existing.status;
 
   const row = await prisma.$transaction(async (tx) => {
+    const quoteNumber = await ensureDocumentNumberForType(
+      tx,
+      tenantId,
+      existing.quoteNumber,
+      nextDocumentType,
+    );
     if (body.lineItems !== undefined) {
       await tx.quotationLineItem.deleteMany({ where: { quotationId: id } });
       if (linesParsed.length > 0) {
@@ -576,6 +612,8 @@ router.patch('/:id', async (req, res) => {
     return tx.quotation.update({
       where: { id },
       data: {
+        quoteNumber,
+        documentType: nextDocumentType,
         customerName,
         customerPhone:
           body.customerPhone !== undefined

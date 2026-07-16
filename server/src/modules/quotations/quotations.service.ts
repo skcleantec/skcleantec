@@ -1,4 +1,5 @@
 import type { Prisma, Quotation, QuotationLineItem, QuotationServiceItem } from '@prisma/client';
+import { isQuotationDocumentType, type QuotationDocumentType } from './quotationDocument.js';
 import {
   computeQuotationVatAmounts,
   parseQuotationVatMode,
@@ -6,8 +7,14 @@ import {
 } from './quotationVat.js';
 import { serializeQuotationOperatingCompany } from './quotationDocumentTitle.service.js';
 
-export type { QuotationVatMode };
+export type { QuotationVatMode, QuotationDocumentType };
 export { computeQuotationVatAmounts, parseQuotationVatMode };
+
+export function parseQuotationDocumentType(raw: unknown): QuotationDocumentType | 'INVALID' {
+  if (raw === undefined || raw === null) return 'QUOTATION';
+  if (isQuotationDocumentType(raw)) return raw;
+  return 'INVALID';
+}
 
 export type QuotationLineInput = {
   catalogItemId?: string | null;
@@ -102,9 +109,11 @@ export type QuotationRow = Quotation & {
 export function serializeQuotation(row: QuotationRow) {
   const vatMode = row.vatMode as QuotationVatMode;
   const { vatAmount, grandTotal } = computeQuotationVatAmounts(row.total, vatMode);
+  const documentType = (row.documentType ?? 'QUOTATION') as QuotationDocumentType;
   return {
     id: row.id,
     quoteNumber: row.quoteNumber,
+    documentType,
     status: row.status,
     customerName: row.customerName,
     customerPhone: row.customerPhone,

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type {
   QuotationEditorOperatingCompanyDto,
@@ -6,7 +7,16 @@ import type {
 import type { TenantCompanyRegistration } from '../../api/tenantCompanyProfile';
 import type { QuotationVatMode } from '@shared/quotationVat';
 import { computeLineAmounts, vatModeLabel } from '@shared/quotationVat';
-import { formatQuotationDocumentTitle } from '@shared/quotationDocument';
+import type { QuotationDocumentType } from '@shared/quotationDocument';
+import {
+  getDocumentClosingPhrase,
+  QUOTATION_DOCUMENT_TYPE_OPTIONS,
+  shouldShowQuotationValidUntil,
+} from '@shared/quotationDocument';
+import {
+  resolveQuotationBrandTitle,
+  resolveQuotationSupplierRegistration,
+} from './quotationBrandResolve';
 import {
   catalogSelectValue,
   emptyQuotationLine,
@@ -18,10 +28,12 @@ import { qUi } from './quotationUi';
 type Props = {
   quoteNumber: string | null;
   createdAt: string | null;
-  company: TenantCompanyRegistration | null;
+  tenantCompanyRegistration: TenantCompanyRegistration;
   operatingCompanies: QuotationEditorOperatingCompanyDto[];
   operatingCompanyId: string;
   onOperatingCompanyChange: (id: string) => void;
+  documentType: QuotationDocumentType;
+  onDocumentTypeChange: (type: QuotationDocumentType) => void;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
@@ -58,11 +70,10 @@ function formatDocDate(iso: string | null | undefined): string {
 function resolveQuotationTitle(
   companies: QuotationEditorOperatingCompanyDto[],
   operatingCompanyId: string,
-  company: TenantCompanyRegistration | null,
+  tenantFallback: TenantCompanyRegistration,
+  documentType: QuotationDocumentType,
 ): string {
-  const brand = companies.find((c) => c.id === operatingCompanyId);
-  if (brand) return formatQuotationDocumentTitle(brand.displayName || brand.name);
-  return formatQuotationDocumentTitle(company?.companyName ?? '');
+  return resolveQuotationBrandTitle(companies, operatingCompanyId, tenantFallback, documentType);
 }
 
 function isCustomLineCell(
@@ -97,10 +108,12 @@ function SectionCard({
 export function QuotationMobileFormEditor({
   quoteNumber,
   createdAt,
-  company,
+  tenantCompanyRegistration,
   operatingCompanies,
   operatingCompanyId,
   onOperatingCompanyChange,
+  documentType,
+  onDocumentTypeChange,
   customerName,
   customerPhone,
   customerEmail,
@@ -127,8 +140,24 @@ export function QuotationMobileFormEditor({
   onMemoChange,
   footerNotice,
 }: Props) {
-  const documentTitle = resolveQuotationTitle(operatingCompanies, operatingCompanyId, company);
-  const showBrandSelector = operatingCompanies.length > 1;
+  const supplierRegistration = useMemo(
+    () =>
+      resolveQuotationSupplierRegistration(
+        operatingCompanies,
+        operatingCompanyId,
+        tenantCompanyRegistration,
+      ),
+    [operatingCompanies, operatingCompanyId, tenantCompanyRegistration],
+  );
+  const documentTitle = resolveQuotationTitle(
+    operatingCompanies,
+    operatingCompanyId,
+    tenantCompanyRegistration,
+    documentType,
+  );
+  const closingPhrase = getDocumentClosingPhrase(documentType);
+  const showValidUntil = shouldShowQuotationValidUntil(documentType);
+  const showBrandSelector = operatingCompanies.length > 0;
 
   function addRow() {
     onLinesChange([...lines, emptyQuotationLine()]);
@@ -182,6 +211,7 @@ export function QuotationMobileFormEditor({
               className={qUi.select}
               value={operatingCompanyId}
               onChange={(e) => onOperatingCompanyChange(e.target.value)}
+              disabled={operatingCompanies.length <= 1}
             >
               {operatingCompanies.map((oc) => (
                 <option key={oc.id} value={oc.id}>
@@ -191,14 +221,28 @@ export function QuotationMobileFormEditor({
             </select>
           </label>
         )}
-        {company?.companyName?.trim() ? (
+        <label className="block">
+          <span className={qUi.label}>문서 유형</span>
+          <select
+            className={qUi.select}
+            value={documentType}
+            onChange={(e) => onDocumentTypeChange(e.target.value as QuotationDocumentType)}
+          >
+            {QUOTATION_DOCUMENT_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {supplierRegistration?.companyName?.trim() ? (
           <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-fluid-xs text-slate-700 space-y-0.5">
             <p className="font-semibold text-slate-800">공급자</p>
-            <p>{company.companyName.trim()}</p>
-            {company.representativeName?.trim() ? (
-              <p>대표 {company.representativeName.trim()}</p>
+            <p>{supplierRegistration.companyName.trim()}</p>
+            {supplierRegistration.representativeName?.trim() ? (
+              <p>대표 {supplierRegistration.representativeName.trim()}</p>
             ) : null}
-            {company.phone?.trim() ? <p>Tel {company.phone.trim()}</p> : null}
+            {supplierRegistration.phone?.trim() ? <p>Tel {supplierRegistration.phone.trim()}</p> : null}
           </div>
         ) : null}
       </SectionCard>
@@ -247,15 +291,17 @@ export function QuotationMobileFormEditor({
             onChange={(e) => onCustomerAddressChange(e.target.value)}
           />
         </label>
-        <label className="block">
-          <span className={qUi.label}>유효기간</span>
-          <input
-            type="date"
-            className={qUi.input}
-            value={validUntil}
-            onChange={(e) => onValidUntilChange(e.target.value)}
-          />
-        </label>
+        {showValidUntil ? (
+          <label className="block">
+            <span className={qUi.label}>유효기간</span>
+            <input
+              type="date"
+              className={qUi.input}
+              value={validUntil}
+              onChange={(e) => onValidUntilChange(e.target.value)}
+            />
+          </label>
+        ) : null}
       </SectionCard>
 
       <SectionCard title="견적 품목" subtitle="품목을 추가하고 수량·단가를 입력하세요">
@@ -446,6 +492,7 @@ export function QuotationMobileFormEditor({
           </div>
         </div>
         <p className="text-fluid-2xs text-slate-500 text-center">({vatModeLabel(vatMode)})</p>
+        <p className="text-fluid-sm text-slate-800 font-medium text-center pt-2">{closingPhrase}</p>
         {footerNotice?.trim() ? (
           <p className="text-fluid-xs text-slate-500 whitespace-pre-wrap border-t border-slate-100 pt-3">
             {footerNotice.trim()}

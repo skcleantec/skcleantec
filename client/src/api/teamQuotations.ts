@@ -10,6 +10,7 @@ import type {
   QuotationStatus,
   QuotationVatMode,
 } from './quotations';
+import type { QuotationDocumentType } from '@shared/quotationDocument';
 
 export type {
   QuotationDto,
@@ -97,6 +98,7 @@ export async function createTeamQuotation(
     memo?: string | null;
     discountAmount?: number;
     validUntil?: string | null;
+    documentType?: QuotationDocumentType;
     operatingCompanyId?: string | null;
     vatMode?: QuotationVatMode;
     lineItems: QuotationLineItemDto[];
@@ -122,6 +124,7 @@ export async function updateTeamQuotation(
     memo: string | null;
     discountAmount: number;
     validUntil: string | null;
+    documentType?: QuotationDocumentType;
     status: QuotationStatus;
     vatMode?: QuotationVatMode;
     operatingCompanyId?: string | null;

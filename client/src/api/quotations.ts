@@ -23,12 +23,15 @@ async function readError(res: Response): Promise<string> {
   return res.statusText?.trim() ? `${res.status} ${res.statusText}` : '요청에 실패했습니다.';
 }
 
+import type { QuotationDocumentType } from '@shared/quotationDocument';
+
 export type QuotationStatus = 'DRAFT' | 'FINALIZED' | 'SENT';
 
 export type QuotationDatePreset = 'today' | 'all' | 'month' | 'day';
 
 export interface QuotationConfigDto {
   footerNotice: string | null;
+  receiptFooterNotice: string | null;
   documentTitle: string | null;
   defaultValidDays: number | null;
   defaultEmailSubject: string | null;
@@ -100,6 +103,7 @@ export interface QuotationEmailDefaultsDto {
 export interface QuotationDto {
   id: string;
   quoteNumber: string;
+  documentType: QuotationDocumentType;
   status: QuotationStatus;
   customerName: string;
   customerPhone: string | null;
@@ -208,6 +212,7 @@ export async function updateQuotationConfig(
   token: string,
   body: Partial<{
     footerNotice: string | null;
+    receiptFooterNotice: string | null;
     documentTitle: string | null;
     defaultValidDays: number | null;
     defaultEmailSubject: string | null;
@@ -279,6 +284,7 @@ export async function createQuotation(
     memo?: string | null;
     discountAmount?: number;
     validUntil?: string | null;
+    documentType?: QuotationDocumentType;
     inquiryId?: string | null;
     operatingCompanyId?: string | null;
     vatMode?: QuotationVatMode;
@@ -305,6 +311,7 @@ export async function updateQuotation(
     memo: string | null;
     discountAmount: number;
     validUntil: string | null;
+    documentType?: QuotationDocumentType;
     status: QuotationStatus;
     vatMode?: QuotationVatMode;
     inquiryId?: string | null;
