@@ -13,9 +13,26 @@ export const AIRCON_ORDER_FORM_TEMPLATE_TITLE = '에어컨 청소 발주서';
 export const AIRCON_ORDER_FORM_TEMPLATE_ICON = '❄️';
 
 export const AIRCON_ORDER_FORM_TEMPLATE_DESCRIPTION =
-  '에어컨 청소 전용 발주서입니다. 기종별 청소 대수를 입력받고, 브랜드·오염 상태 등은 상세란에 적어 주세요. (벽걸이·스탠드·천장형 1·2way·4way 등 업계 표준 분류)';
+  '에어컨 청소 전용 발주서입니다. 연락처·주소·희망 일정과 청소할 기종·대수만 입력하면 됩니다. 브랜드·오염 상태 등은 상세란에 적어 주세요.';
 
 export const AIRCON_ORDER_FORM_TEMPLATE_SORT_ORDER = 1;
+
+/** 에어컨 양식에서 제거·동기화 대상(레거시·입주청소 전용 항목) */
+export const AIRCON_ORDER_FORM_REMOVED_FIELD_KEYS = [
+  'propertyType',
+  'buildingType',
+  'areaPyeong',
+  'professionalOptions',
+  'photos',
+  'totalAmount',
+  'ac_wall_mount_count',
+  'ac_stand_count',
+  'ac_system_1way_2way_count',
+  'ac_system_4way_count',
+  'ac_2in1_count',
+  'ac_round_360_count',
+  'ac_outdoor_unit_count',
+] as const;
 
 export type AirconOrderFormTemplateFieldSeed = {
   fieldKey: string;
@@ -37,27 +54,7 @@ export const AIRCON_ORDER_FORM_TEMPLATE_FIELDS: AirconOrderFormTemplateFieldSeed
   { fieldKey: 'customerPhone', label: '전화번호', inputType: 'PHONE', systemField: 'customerPhone', required: true, sortOrder: 1 },
   { fieldKey: 'customerEmail', label: '이메일', inputType: 'TEXT', systemField: 'customerEmail', required: true, sortOrder: 2 },
   { fieldKey: 'address', label: '주소', inputType: 'ADDRESS', systemField: 'address', required: true, sortOrder: 3 },
-  {
-    fieldKey: 'propertyType',
-    label: '건물 유형',
-    inputType: 'SELECT',
-    systemField: 'propertyType',
-    options: ['아파트', '오피스텔', '빌라(연립)', '상가', '사무실', '기타'],
-    optionStyle: 'DROPDOWN',
-    required: true,
-    sortOrder: 4,
-  },
-  {
-    fieldKey: 'buildingType',
-    label: '신축/구축',
-    inputType: 'SELECT',
-    systemField: 'buildingType',
-    options: ['신축', '구축', '인테리어', '거주(짐이있는상태)'],
-    optionStyle: 'DROPDOWN',
-    required: true,
-    sortOrder: 5,
-  },
-  { fieldKey: 'preferredDate', label: '희망 작업일', inputType: 'DATE', systemField: 'preferredDate', required: true, sortOrder: 6 },
+  { fieldKey: 'preferredDate', label: '희망 작업일', inputType: 'DATE', systemField: 'preferredDate', required: true, sortOrder: 4 },
   {
     fieldKey: 'preferredTime',
     label: '희망 시간대',
@@ -66,85 +63,26 @@ export const AIRCON_ORDER_FORM_TEMPLATE_FIELDS: AirconOrderFormTemplateFieldSeed
     options: ['오전', '오후', '사이청소'],
     optionStyle: 'DROPDOWN',
     required: true,
-    sortOrder: 7,
+    sortOrder: 5,
   },
   {
-    fieldKey: 'areaPyeong',
-    label: '평수(참고)',
-    helpText: '현장·견적 참고용입니다. 모르시면 0을 입력해 주세요.',
-    inputType: 'NUMBER',
-    systemField: 'areaPyeong',
+    fieldKey: 'ac_units',
+    label: '청소할 에어컨',
+    helpText: '기종을 선택하고 대수를 입력한 뒤 「추가하기」를 눌러 주세요. 여러 기종이면 반복해서 추가합니다.',
+    inputType: 'SELECT',
+    options: [
+      '벽걸이',
+      '스탠드',
+      '천장형 1·2way',
+      '천장형 4way',
+      '2in1 세트',
+      '원형(360°) 천장형',
+      '실외기 추가',
+    ],
+    optionStyle: 'DROPDOWN',
     required: true,
-    sortOrder: 8,
-  },
-  {
-    fieldKey: 'totalAmount',
-    label: '청소 비용(총액)',
-    helpText: '발주서 발급 시 담당자가 입력합니다.',
-    inputType: 'MONEY',
-    systemField: 'totalAmount',
-    fillMode: 'ADMIN_PREFILL',
-    required: true,
-    sortOrder: 9,
-  },
-  {
-    fieldKey: 'ac_wall_mount_count',
-    label: '벽걸이 (대)',
-    helpText: '가정용 벽걸이형(기본·와이드형 포함). 없으면 0',
-    inputType: 'NUMBER',
-    required: false,
-    sortOrder: 10,
+    sortOrder: 6,
     showInInquiryList: true,
-  },
-  {
-    fieldKey: 'ac_stand_count',
-    label: '스탠드 (대)',
-    helpText: '스탠드형·무풍 스탠드 포함. 없으면 0',
-    inputType: 'NUMBER',
-    required: false,
-    sortOrder: 11,
-    showInInquiryList: true,
-  },
-  {
-    fieldKey: 'ac_system_1way_2way_count',
-    label: '천장형 1·2way (대)',
-    helpText: '바람 토출구 1~2개 천장형 시스템 에어컨',
-    inputType: 'NUMBER',
-    required: false,
-    sortOrder: 12,
-    showInInquiryList: true,
-  },
-  {
-    fieldKey: 'ac_system_4way_count',
-    label: '천장형 4way (대)',
-    helpText: '바람 토출구 4개 · 사무실·상가에서 흔함',
-    inputType: 'NUMBER',
-    required: false,
-    sortOrder: 13,
-  },
-  {
-    fieldKey: 'ac_2in1_count',
-    label: '2in1 세트 (대)',
-    helpText: '벽걸이+스탠드 한 세트(투인원)',
-    inputType: 'NUMBER',
-    required: false,
-    sortOrder: 14,
-  },
-  {
-    fieldKey: 'ac_round_360_count',
-    label: '원형(360°) 천장형 (대)',
-    helpText: '삼성 360 등 원형 천장형',
-    inputType: 'NUMBER',
-    required: false,
-    sortOrder: 15,
-  },
-  {
-    fieldKey: 'ac_outdoor_unit_count',
-    label: '실외기 추가 청소 (대)',
-    helpText: '실내기와 별도로 실외기 청소를 원할 때',
-    inputType: 'NUMBER',
-    required: false,
-    sortOrder: 16,
   },
   {
     fieldKey: 'ac_detail_notes',
@@ -152,7 +90,7 @@ export const AIRCON_ORDER_FORM_TEMPLATE_FIELDS: AirconOrderFormTemplateFieldSeed
     helpText: '브랜드·모델명(평형), 곰팡이·냄새, 층고·사다리 필요 여부, 완전분해 희망 등',
     inputType: 'TEXTAREA',
     required: false,
-    sortOrder: 17,
+    sortOrder: 7,
   },
   {
     fieldKey: 'specialNotes',
@@ -160,6 +98,6 @@ export const AIRCON_ORDER_FORM_TEMPLATE_FIELDS: AirconOrderFormTemplateFieldSeed
     inputType: 'TEXTAREA',
     systemField: 'specialNotes',
     required: false,
-    sortOrder: 18,
+    sortOrder: 8,
   },
 ];

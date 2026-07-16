@@ -1,5 +1,10 @@
 /** 접수 목록에 노출할 발주서 추가 항목 스냅샷 — Inquiry.orderFormListSnapshot */
 
+import {
+  formatAcUnitsSnapshotValue,
+  ORDER_FORM_AC_UNITS_FIELD_KEY,
+} from './orderFormAcUnits';
+
 export const ORDER_FORM_INQUIRY_LIST_PROMOTED_MAX = 3;
 
 export type OrderFormListSnapshotEntry = {
@@ -15,7 +20,10 @@ export type OrderFormPromotedListFieldDef = {
 };
 
 /** 목록·카드 표시용 값 정규화 */
-export function formatOrderFormListSnapshotValue(raw: unknown): string {
+export function formatOrderFormListSnapshotValue(raw: unknown, fieldKey?: string): string {
+  if (fieldKey === ORDER_FORM_AC_UNITS_FIELD_KEY) {
+    return formatAcUnitsSnapshotValue(raw);
+  }
   if (raw == null) return '';
   if (Array.isArray(raw)) return raw.map((x) => String(x)).filter(Boolean).join(', ');
   if (typeof raw === 'boolean') return raw ? '예' : '아니오';

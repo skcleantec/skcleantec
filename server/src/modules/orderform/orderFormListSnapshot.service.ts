@@ -31,7 +31,7 @@ export function buildOrderFormListSnapshot(
 ): OrderFormListSnapshot | null {
   const out: OrderFormListSnapshot = {};
   for (const f of promotedFields) {
-    const value = formatOrderFormListSnapshotValue(answers[f.fieldKey]);
+    const value = formatOrderFormListSnapshotValue(answers[f.fieldKey], f.fieldKey);
     if (value) out[f.fieldKey] = { label: f.label, value };
   }
   return Object.keys(out).length > 0 ? out : null;

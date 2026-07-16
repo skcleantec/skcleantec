@@ -999,7 +999,7 @@ export function AdminOrderFormTemplatesPage() {
                     )}
                   </div>
                 ) : (
-                  <OrderFormTemplatePreview meta={meta} fields={drafts} />
+                  <OrderFormTemplatePreview meta={meta} fields={drafts} authToken={token} />
                 )}
               </div>
             </div>

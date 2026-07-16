@@ -86,6 +86,7 @@ import {
   listOrderFormBrandCustomerLinkConfigs,
   upsertOrderFormBrandCustomerLinkConfig,
 } from './orderFormBrandCustomerLink.service.js';
+import { resolvePublicFormConfigForOrderForm } from './orderFormPublicFormConfig.js';
 import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
 import {
   ensureCrmQuoteBreakdownTemplateField,
@@ -94,6 +95,7 @@ import {
   listTemplateCustomFieldKeysForPrefill,
   resolveIssueTemplate,
   sanitizeCustomAnswers,
+  templateHasSystemField,
 } from '../orderform-templates/orderFormTemplate.service.js';
 import {
   buildPrefillFromPayload,
@@ -719,7 +721,11 @@ async function buildEditableOrderPayload(
       select: profOptionSelectPublic,
     }),
   ]);
-  const formConfig = await getOrCreateOrderFormConfig(prisma, form.tenantId);
+  const formConfig = await resolvePublicFormConfigForOrderForm(
+    prisma,
+    form.tenantId,
+    form.operatingCompanyId,
+  );
   const template = await getPublicTemplateForForm(prisma, form.tenantId, form.templateId);
   const publicBranding = await resolvePublicBrandingForCustomer({
     db: prisma,
@@ -751,7 +757,7 @@ async function buildEditableOrderPayload(
     areaBasis: form.areaBasis,
     options: options.map((o) => ({ name: o.name, extraAmount: o.extraAmount })),
     professionalOptions,
-    formConfig: resolvedPublicFormConfig(formConfig),
+    formConfig,
     template,
     customAnswers: (form.customerAnswers as Record<string, unknown> | null) ?? null,
     prefillAnswers: (form.prefillAnswers as Record<string, unknown> | null) ?? null,
@@ -1457,7 +1463,7 @@ router.get('/issue-form', authMiddleware, requireStaffPermission('orderform.issu
       console.error('issue-form ensure crmQuoteBreakdown field:', err);
     }
   }
-  const [professionalOptions, formConfig, template] = await Promise.all([
+  const [professionalOptions, template] = await Promise.all([
     prisma.professionalSpecialtyOption.findMany({
       where: {
         tenantId,
@@ -1467,11 +1473,11 @@ router.get('/issue-form', authMiddleware, requireStaffPermission('orderform.issu
       orderBy: profOptionOrderBy,
       select: profOptionSelectPublic,
     }),
-    getOrCreateOrderFormConfig(prisma, tenantId),
     getPublicTemplateForForm(prisma, tenantId, resolved ? resolved.id : null),
   ]);
 
   let pendingInquiry: ReturnType<typeof mapPendingInquiry> | null = null;
+  let pendingOperatingCompanyId: string | null = null;
   if (pendingInquiryId) {
     const row = await prisma.inquiry.findFirst({
       where: {
@@ -1480,13 +1486,22 @@ router.get('/issue-form', authMiddleware, requireStaffPermission('orderform.issu
         status: { in: ['PENDING', 'DEPOSIT_COMPLETED'] },
       },
     });
-    if (row) pendingInquiry = mapPendingInquiry(row);
+    if (row) {
+      pendingInquiry = mapPendingInquiry(row);
+      pendingOperatingCompanyId = row.operatingCompanyId;
+    }
   }
+
+  const formConfig = await resolvePublicFormConfigForOrderForm(
+    prisma,
+    tenantId,
+    pendingOperatingCompanyId,
+  );
 
   res.json({
     template,
     professionalOptions,
-    formConfig: resolvedPublicFormConfig(formConfig),
+    formConfig,
     pendingInquiry,
   });
 });
@@ -1945,46 +1960,6 @@ const DEFAULT_FORM_CONFIG = {
   updatedAt: new Date().toISOString(),
 };
 
-type FormConfigRow = {
-  formTitle: string;
-  priceLabel: string | null;
-  reviewEventText: string | null;
-  footerNotice1: string | null;
-  footerNotice2: string | null;
-  infoContent: string | null;
-  infoLinkText: string | null;
-  submitSuccessTitle: string | null;
-  submitSuccessBody: string | null;
-  timeSlotAckTitle?: string | null;
-  timeSlotAckBody?: string | null;
-  timeSlotAckConsentHint?: string | null;
-};
-
-/** 고객용: DB에 ""·null이 있어도 기본 문구로 내려줌 (클라이언트 ?? 만으로는 빈 문자열이 남음) */
-function resolvedPublicFormConfig(row: FormConfigRow) {
-  const d = DEFAULT_FORM_CONFIG;
-  const line = (v: string | null | undefined, def: string) => {
-    const t = v != null ? String(v).trim() : '';
-    return t || def;
-  };
-  const infoTrimmed = row.infoContent != null ? String(row.infoContent).trim() : '';
-  return {
-    formTitle: line(row.formTitle, d.formTitle),
-    priceLabel: line(row.priceLabel, d.priceLabel),
-    // 리뷰 문구: null(미설정)만 기본 문구, ''(명시적 비움)은 숨김으로 그대로 둠
-    reviewEventText: row.reviewEventText == null ? d.reviewEventText : String(row.reviewEventText).trim(),
-    footerNotice1: line(row.footerNotice1, d.footerNotice1),
-    footerNotice2: line(row.footerNotice2, d.footerNotice2),
-    infoContent: infoTrimmed || null,
-    infoLinkText: line(row.infoLinkText, d.infoLinkText),
-    submitSuccessTitle: line(row.submitSuccessTitle, d.submitSuccessTitle),
-    submitSuccessBody: line(row.submitSuccessBody, d.submitSuccessBody),
-    timeSlotAckTitle: line(row.timeSlotAckTitle, d.timeSlotAckTitle),
-    timeSlotAckBody: line(row.timeSlotAckBody, d.timeSlotAckBody),
-    timeSlotAckConsentHint: line(row.timeSlotAckConsentHint, d.timeSlotAckConsentHint),
-  };
-}
-
 /** 관리자/마케터: 폼 메시지 설정 조회 (by-token보다 먼저 선언) */
 router.get('/form-config', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {
   try {
@@ -2192,7 +2167,11 @@ router.get('/by-token/:token', async (req, res) => {
       where: { tenantId: form.tenantId, orderFormId: form.id },
       select: { status: true, toEmail: true, lastError: true, sentAt: true },
     });
-    const formConfig = await getOrCreateOrderFormConfig(prisma, form.tenantId);
+    const formConfig = await resolvePublicFormConfigForOrderForm(
+      prisma,
+      form.tenantId,
+      form.operatingCompanyId,
+    );
     const publicBranding = await resolvePublicBrandingForCustomer({
       db: prisma,
       tenantId: form.tenantId,
@@ -2212,7 +2191,7 @@ router.get('/by-token/:token', async (req, res) => {
       submittedAt: form.submittedAt.toISOString(),
       inquiryNumber: linkedInquiry?.inquiryNumber ?? null,
       customerSubmissionSnapshot: form.customerSubmissionSnapshot ?? null,
-      formConfig: resolvedPublicFormConfig(formConfig),
+      formConfig,
       publicBranding,
       publicCompanyTrust,
       submissionEmail: serializeSubmissionEmailLog(emailLog),
@@ -2325,75 +2304,89 @@ router.post('/submit/:token', async (req, res) => {
     return;
   }
 
-  if (!body.customerPhone2 || !String(body.customerPhone2).trim()) {
-    res.status(400).json({ error: '보조 전화번호를 입력해주세요.' });
-    return;
+  const submitTemplate = await getPublicTemplateForForm(prisma, submitTenantId, form.templateId);
+  const tplOn = (key: string) => templateHasSystemField(submitTemplate, key);
+
+  if (tplOn('customerPhone2')) {
+    if (!body.customerPhone2 || !String(body.customerPhone2).trim()) {
+      res.status(400).json({ error: '보조 전화번호를 입력해주세요.' });
+      return;
+    }
   }
 
-  let customerEmailNorm: string;
-  try {
-    customerEmailNorm = assertValidCustomerEmail(body.customerEmail);
-  } catch (e) {
-    res.status(400).json({ error: (e as Error).message || '이메일을 입력해 주세요.' });
-    return;
+  let customerEmailNorm: string | null = null;
+  if (tplOn('customerEmail')) {
+    try {
+      customerEmailNorm = assertValidCustomerEmail(body.customerEmail);
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message || '이메일을 입력해 주세요.' });
+      return;
+    }
   }
 
   const adminAreaLocked = isOrderFormAreaLocked(form);
-  let areaBasisNorm: string;
-  let areaPyeongOut: number | null;
+  let areaBasisNorm: string | null = null;
+  let areaPyeongOut: number | null = null;
   let exclusiveAreaSqm: number | null = null;
 
-  if (adminAreaLocked) {
-    areaBasisNorm = String(form.areaBasis).trim();
-    areaPyeongOut = form.areaPyeong!;
-  } else {
-    areaBasisNorm = String(body.areaBasis || '').trim();
-    if (areaBasisNorm !== '공급' && areaBasisNorm !== '전용') {
-      res.status(400).json({ error: '면적 기준으로 공급면적 또는 전용면적을 선택해주세요.' });
-      return;
-    }
-    if (areaBasisNorm === '공급') {
-      const rawPy = body.areaPyeong;
-      if (rawPy == null || (typeof rawPy === 'string' && rawPy.trim() === '')) {
-        res.status(400).json({ error: '공급면적(분양평수)을 평 단위로 입력해 주세요.' });
-        return;
-      }
-      const n =
-        typeof rawPy === 'number'
-          ? rawPy
-          : Number(String(rawPy).replace(/,/g, '').trim());
-      if (!Number.isFinite(n) || n <= 0 || n > 100_000) {
-        res.status(400).json({ error: '분양평수(평)는 양수 숫자로 입력해 주세요.' });
-        return;
-      }
-      areaPyeongOut = n;
+  if (tplOn('areaPyeong') || adminAreaLocked) {
+    if (adminAreaLocked) {
+      areaBasisNorm = String(form.areaBasis).trim();
+      areaPyeongOut = form.areaPyeong!;
     } else {
-      const rawPy = body.areaPyeong;
-      if (rawPy == null || (typeof rawPy === 'string' && rawPy.trim() === '')) {
-        res.status(400).json({ error: '전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.' });
+      areaBasisNorm = String(body.areaBasis || '').trim();
+      if (areaBasisNorm !== '공급' && areaBasisNorm !== '전용') {
+        res.status(400).json({ error: '면적 기준으로 공급면적 또는 전용면적을 선택해주세요.' });
         return;
       }
-      const n =
-        typeof rawPy === 'number'
-          ? rawPy
-          : Number(String(rawPy).replace(/,/g, '').trim());
-      if (!Number.isFinite(n) || n <= 0 || n > 100_000) {
-        res.status(400).json({ error: '전용면적(평)은 양수 숫자로 입력해 주세요.' });
-        return;
+      if (areaBasisNorm === '공급') {
+        const rawPy = body.areaPyeong;
+        if (rawPy == null || (typeof rawPy === 'string' && rawPy.trim() === '')) {
+          res.status(400).json({ error: '공급면적(분양평수)을 평 단위로 입력해 주세요.' });
+          return;
+        }
+        const n =
+          typeof rawPy === 'number'
+            ? rawPy
+            : Number(String(rawPy).replace(/,/g, '').trim());
+        if (!Number.isFinite(n) || n <= 0 || n > 100_000) {
+          res.status(400).json({ error: '분양평수(평)는 양수 숫자로 입력해 주세요.' });
+          return;
+        }
+        areaPyeongOut = n;
+      } else {
+        const rawPy = body.areaPyeong;
+        if (rawPy == null || (typeof rawPy === 'string' && rawPy.trim() === '')) {
+          res.status(400).json({ error: '전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.' });
+          return;
+        }
+        const n =
+          typeof rawPy === 'number'
+            ? rawPy
+            : Number(String(rawPy).replace(/,/g, '').trim());
+        if (!Number.isFinite(n) || n <= 0 || n > 100_000) {
+          res.status(400).json({ error: '전용면적(평)은 양수 숫자로 입력해 주세요.' });
+          return;
+        }
+        areaPyeongOut = n;
+        exclusiveAreaSqm = null;
       }
-      areaPyeongOut = n;
-      exclusiveAreaSqm = null;
     }
   }
 
-  const propertyTypeNorm = String(body.propertyType || '').trim();
-  if (!hasOrderFormBuildingTypeChoice(propertyTypeNorm, isOneRoom)) {
-    res.status(400).json({ error: '아파트·오피스텔 등 건축물 유형 또는 원/투룸을 선택해주세요.' });
-    return;
+  let propertyTypeNorm = '';
+  let propertyTypeStored: string | null = null;
+  let propertyTypeForDisplay = '';
+  if (tplOn('propertyType')) {
+    propertyTypeNorm = String(body.propertyType || '').trim();
+    if (!hasOrderFormBuildingTypeChoice(propertyTypeNorm, isOneRoom)) {
+      res.status(400).json({ error: '아파트·오피스텔 등 건축물 유형 또는 원/투룸을 선택해주세요.' });
+      return;
+    }
+    propertyTypeStored = propertyTypeNorm || null;
+    propertyTypeForDisplay =
+      orderFormPropertyTypeDisplay(propertyTypeNorm, isOneRoom, oneRoomLabelWhenSkOpsEnabled(skOpsUi)) ?? '';
   }
-  const propertyTypeStored = propertyTypeNorm || null;
-  const propertyTypeForDisplay =
-    orderFormPropertyTypeDisplay(propertyTypeNorm, isOneRoom, oneRoomLabelWhenSkOpsEnabled(skOpsUi)) ?? '';
 
   // 관리자가 발급 시 날짜를 넣었으면 그 날짜는 고객이 바꿀 수 없음(본문 무시). 미지정이면 고객 입력 사용.
   const adminDateLocked = Boolean(form.preferredDate && String(form.preferredDate).trim());
@@ -2413,10 +2406,12 @@ router.post('/submit/:token', async (req, res) => {
       '';
   }
   if (!useDateStr || !useTimeStr) {
-    res.status(400).json({ error: '청소 날짜와 시간을 입력해주세요.' });
-    return;
+    if (tplOn('preferredDate') || tplOn('preferredTime')) {
+      res.status(400).json({ error: '청소 날짜와 시간을 입력해주세요.' });
+      return;
+    }
   }
-  if (!VALID_ORDER_TIME_SLOTS.has(useTimeStr)) {
+  if (useTimeStr && !VALID_ORDER_TIME_SLOTS.has(useTimeStr)) {
     res.status(400).json({ error: '시간대를 선택해주세요.' });
     return;
   }
@@ -2441,12 +2436,17 @@ router.post('/submit/:token', async (req, res) => {
     return;
   }
 
-  if (!adminDetailLocked && useTimeStr === '사이청소' && !useDetailStr) {
+  if (
+    tplOn('preferredTimeDetail') &&
+    !adminDetailLocked &&
+    useTimeStr === '사이청소' &&
+    !useDetailStr
+  ) {
     res.status(400).json({ error: '사이청소 선택 시 구체적 시각을 선택해 주세요.' });
     return;
   }
 
-  const preferredDate = new Date(useDateStr + 'T12:00:00');
+  const preferredDate = useDateStr ? new Date(useDateStr + 'T12:00:00') : null;
 
   const RESIDING_BT = '거주(짐이있는상태)';
   const buildingTypeTrim =
@@ -2479,7 +2479,7 @@ router.post('/submit/:token', async (req, res) => {
     }
   }
 
-  if (buildingTypeTrim && buildingTypeTrim !== RESIDING_BT) {
+  if (tplOn('buildingType') && buildingTypeTrim && buildingTypeTrim !== RESIDING_BT) {
     if (!moveInUndecided && !moveInDateStr) {
       res.status(400).json({
         error: '신축·구축·인테리어 선택 시 이사 예정일을 입력하거나 「미정」을 선택해 주세요.',
@@ -2513,7 +2513,6 @@ router.post('/submit/:token', async (req, res) => {
       : professionalOptionLabels;
 
   // 동적 템플릿 추가 항목 — 답변 정규화 + 라벨 부여(스냅샷 보존, 템플릿 변경에 안전)
-  const submitTemplate = await getPublicTemplateForForm(prisma, submitTenantId, form.templateId);
   const staffOnlyFields = await listStaffOnlyCustomFieldsForSnapshot(
     prisma,
     submitTenantId,
@@ -2633,7 +2632,7 @@ router.post('/submit/:token', async (req, res) => {
           inquiryNumber,
           customerName: body.customerName || form.customerName,
           customerPhone: body.customerPhone,
-          customerPhone2: String(body.customerPhone2).trim(),
+          customerPhone2: tplOn('customerPhone2') ? String(body.customerPhone2).trim() : null,
           customerEmail: customerEmailNorm,
           address: body.address,
           addressDetail: body.addressDetail || null,
@@ -2715,7 +2714,7 @@ router.post('/submit/:token', async (req, res) => {
           createdById: form.createdById,
           customerName: body.customerName || form.customerName,
           customerPhone: body.customerPhone,
-          customerPhone2: String(body.customerPhone2).trim(),
+          customerPhone2: tplOn('customerPhone2') ? String(body.customerPhone2).trim() : null,
           customerEmail: customerEmailNorm,
           address: body.address,
           addressDetail: body.addressDetail || null,
@@ -2828,7 +2827,7 @@ router.post('/submit/:token', async (req, res) => {
     orderBy: { createdAt: 'desc' },
     select: { inquiryNumber: true },
   });
-  if (emailTarget) {
+  if (emailTarget && customerEmailNorm) {
     queueOrderFormSubmissionConfirmationEmail({
       tenantId: submitTenantId,
       orderFormId: emailTarget.id,
