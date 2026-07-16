@@ -1598,6 +1598,16 @@ export function AdminSchedulePage() {
 
   return (
     <div className="flex flex-col gap-3 lg:gap-5 min-w-0">
+      {(regionCalendars.length > 0 || companyCalendars.length > 0 || canManageCustomCalendar) ? (
+        <ScheduleCustomCalendarMobileMenuButton
+          onClick={() => setCustomCalendarMenuOpen(true)}
+          hasActiveFilter={hasActiveCustomCalendarFilter(
+            activeRegionCalendar,
+            activeCompanyCalendar,
+            activePartnerCalendar,
+          )}
+        />
+      ) : null}
       <div className="flex flex-col gap-1 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
         <div className="hidden lg:block">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1606,17 +1616,7 @@ export function AdminSchedulePage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1 lg:gap-2 min-w-0 w-full lg:w-auto lg:justify-end">
-          {(regionCalendars.length > 0 || companyCalendars.length > 0 || canManageCustomCalendar) ? (
-            <ScheduleCustomCalendarMobileMenuButton
-              onClick={() => setCustomCalendarMenuOpen(true)}
-              hasActiveFilter={hasActiveCustomCalendarFilter(
-                activeRegionCalendar,
-                activeCompanyCalendar,
-                activePartnerCalendar,
-              )}
-            />
-          ) : null}
-          <div className="flex lg:hidden items-center gap-1 min-w-0 shrink mr-0.5">
+          <div className="flex lg:hidden items-center gap-1 min-w-0 shrink mr-0.5 pl-12">
             <h1 className="text-fluid-base font-semibold text-slate-900 tracking-tight leading-none truncate">
               스케쥴
             </h1>

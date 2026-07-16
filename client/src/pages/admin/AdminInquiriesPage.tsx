@@ -37,7 +37,6 @@ import {
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import {
   AdminInquiriesMobileMenuButton,
-  useAdminInquiriesMobileMenu,
 } from '../../components/layout/AdminInquiriesMobileSubNav';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { getUserCustomCalendars, type UserCustomCalendarItem } from '../../api/userCustomCalendars';
@@ -777,11 +776,6 @@ export function AdminInquiriesPage() {
   const isLgUp = useIsLgUp();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { setHeaderEmbedded } = useAdminInquiriesMobileMenu();
-  useEffect(() => {
-    setHeaderEmbedded(true);
-    return () => setHeaderEmbedded(false);
-  }, [setHeaderEmbedded]);
   const opsDrillParams = useMemo(() => {
     const from = searchParams.get('fromYmd')?.trim();
     const to = searchParams.get('toYmd')?.trim();
@@ -2350,30 +2344,30 @@ export function AdminInquiriesPage() {
     <div className="min-w-0 space-y-6">
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex items-center gap-2">
-            <AdminInquiriesMobileMenuButton className="lg:hidden" />
+          <div className="min-w-0 flex items-center gap-2 pl-12 lg:pl-0">
+            <AdminInquiriesMobileMenuButton />
             <h1 className="text-xl font-semibold text-slate-900">서비스접수</h1>
           </div>
-          {token && (
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={openListIntakeModal}
-                className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-sky-600 bg-sky-50 px-3 py-2 text-fluid-sm font-medium text-sky-900 hover:bg-sky-100"
-                title="일반 워크플로우(부재/보류/입금)로 신규 등록"
-              >
-                일반 등록
-              </button>
-              <InquiryManualIntakeButton
-                onClick={() => setCreateInquiryModalDate(kstTodayYmd())}
-                title="수동접수 버튼 (스케줄 상세 폼)"
-                aria-label="수동접수 버튼"
-              >
-                <CirclePlusIcon className="h-4 w-4" />
-              </InquiryManualIntakeButton>
-            </div>
-          )}
-        </div>
+            {token && (
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={openListIntakeModal}
+                  className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-sky-600 bg-sky-50 px-3 py-2 text-fluid-sm font-medium text-sky-900 hover:bg-sky-100"
+                  title="일반 워크플로우(부재/보류/입금)로 신규 등록"
+                >
+                  일반 등록
+                </button>
+                <InquiryManualIntakeButton
+                  onClick={() => setCreateInquiryModalDate(kstTodayYmd())}
+                  title="수동접수 버튼 (스케줄 상세 폼)"
+                  aria-label="수동접수 버튼"
+                >
+                  <CirclePlusIcon className="h-4 w-4" />
+                </InquiryManualIntakeButton>
+              </div>
+            )}
+          </div>
         <div className="flex flex-col gap-3">
           <div className="flex w-full flex-wrap items-center gap-2">
             <span className="text-fluid-sm text-slate-600 shrink-0">날짜 기준</span>

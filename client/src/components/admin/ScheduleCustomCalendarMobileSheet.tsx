@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
+import { MobileFloatingMenuButton } from '../layout/MobileFloatingMenuButton';
 import { ScheduleCustomCalendarListSection } from './ScheduleCustomCalendarListSection';
 
 function BarsIcon({ className }: { className?: string }) {
@@ -55,20 +56,16 @@ export function ScheduleCustomCalendarMobileMenuButton({
   className?: string;
 }) {
   return (
-    <button
-      type="button"
+    <MobileFloatingMenuButton
       onClick={onClick}
-      className={`relative inline-flex h-8 w-8 min-h-[32px] min-w-[32px] items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900 touch-manipulation lg:hidden ${className}`}
       aria-label="맞춤 캘린더 메뉴"
+      title="맞춤 캘린더 메뉴"
+      showBadgeDot={hasActiveFilter}
+      badgeClassName="bg-sky-600"
+      className={className}
     >
-      <BarsIcon className="h-4 w-4" />
-      {hasActiveFilter ? (
-        <span
-          className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-sky-600 ring-1 ring-white"
-          aria-hidden
-        />
-      ) : null}
-    </button>
+      <BarsIcon className="h-5 w-5" />
+    </MobileFloatingMenuButton>
   );
 }
 

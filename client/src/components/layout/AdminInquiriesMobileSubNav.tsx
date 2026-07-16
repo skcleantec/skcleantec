@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import type { AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSideNavIcon, resolveAdminSideNavIcon } from './adminSideNavIcons';
+import { MobileFloatingMenuButton } from './MobileFloatingMenuButton';
 
 function BarsIcon({ className }: { className?: string }) {
   return (
@@ -42,8 +43,6 @@ function mobileNavLinkClass(isActive: boolean): string {
 type AdminInquiriesMobileMenuContextValue = {
   openMenu: () => void;
   showBadgeDot: boolean;
-  headerEmbedded: boolean;
-  setHeaderEmbedded: (embedded: boolean) => void;
 };
 
 const AdminInquiriesMobileMenuContext = createContext<AdminInquiriesMobileMenuContextValue | null>(null);
@@ -56,14 +55,14 @@ export function useAdminInquiriesMobileMenu(): AdminInquiriesMobileMenuContextVa
   return ctx;
 }
 
-/** 접수목록 등 페이지 제목 왼쪽에 붙이는 햄버거 버튼 */
+/** 접수목록 등 페이지 제목 왼쪽 인라인 버튼 — 레거시·PC 전용. 모바일은 Provider 플로팅 버튼 사용 */
 export function AdminInquiriesMobileMenuButton({ className = '' }: { className?: string }) {
   const { openMenu, showBadgeDot } = useAdminInquiriesMobileMenu();
   return (
     <button
       type="button"
       onClick={openMenu}
-      className={`relative inline-flex h-8 w-8 min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900 touch-manipulation ${className}`}
+      className={`relative hidden lg:inline-flex h-8 w-8 min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900 touch-manipulation ${className}`}
       aria-label="서비스접수 하위 메뉴"
     >
       <BarsIcon className="h-4 w-4" />
@@ -74,6 +73,20 @@ export function AdminInquiriesMobileMenuButton({ className = '' }: { className?:
         />
       ) : null}
     </button>
+  );
+}
+
+function AdminInquiriesMobileFloatingMenuButton() {
+  const { openMenu, showBadgeDot } = useAdminInquiriesMobileMenu();
+  return (
+    <MobileFloatingMenuButton
+      onClick={openMenu}
+      aria-label="서비스접수 하위 메뉴"
+      title="서비스접수 하위 메뉴"
+      showBadgeDot={showBadgeDot}
+    >
+      <BarsIcon className="h-5 w-5" />
+    </MobileFloatingMenuButton>
   );
 }
 
@@ -215,27 +228,10 @@ function AdminInquiriesMobileMenuSheet({
   );
 }
 
-/** 레이아웃 — 하위 페이지가 제목 옆 버튼을 쓰지 않을 때 상단 [☰] 서비스접수 */
+/** 레이아웃 — 접수목록 외 하위 페이지 모바일 제목(플로팅 햄버거는 Provider) */
 export function AdminInquiriesMobileSubNavBar() {
-  const { showBadgeDot, headerEmbedded, openMenu } = useAdminInquiriesMobileMenu();
-  if (headerEmbedded) return null;
-
   return (
-    <div className="mb-2 flex min-w-0 items-center gap-2 lg:hidden">
-      <button
-        type="button"
-        onClick={openMenu}
-        className="relative inline-flex h-8 w-8 min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900 touch-manipulation"
-        aria-label="서비스접수 하위 메뉴"
-      >
-        <BarsIcon className="h-4 w-4" />
-        {showBadgeDot ? (
-          <span
-            className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-red-600 ring-1 ring-white"
-            aria-hidden
-          />
-        ) : null}
-      </button>
+    <div className="mb-2 flex min-w-0 items-center gap-2 pl-12 lg:pl-0 lg:hidden">
       <span className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900">서비스접수</span>
     </div>
   );
@@ -249,24 +245,21 @@ export function AdminInquiriesMobileMenuProvider({
   children: ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [headerEmbedded, setHeaderEmbedded] = useState(false);
   const showBadgeDot = useMemo(() => hasInquiriesNavBadge(items), [items]);
   const openMenu = useCallback(() => setMenuOpen(true), []);
-  const setHeaderEmbeddedStable = useCallback((embedded: boolean) => setHeaderEmbedded(embedded), []);
 
   const value = useMemo(
     () => ({
       openMenu,
       showBadgeDot,
-      headerEmbedded,
-      setHeaderEmbedded: setHeaderEmbeddedStable,
     }),
-    [openMenu, showBadgeDot, headerEmbedded, setHeaderEmbeddedStable],
+    [openMenu, showBadgeDot],
   );
 
   return (
     <AdminInquiriesMobileMenuContext.Provider value={value}>
       {children}
+      <AdminInquiriesMobileFloatingMenuButton />
       <AdminInquiriesMobileMenuSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}

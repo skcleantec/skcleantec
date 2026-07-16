@@ -371,6 +371,19 @@ hover:bg-slate-50 hover:border-slate-300
 4. 첫 열 sticky: `sticky left-0 z-10` + `border-r`
 5. **`SyncHorizontalScroll`**: 하단 동기 스크롤 + ◀▶
 
+### 6.8 모바일 햄버거·플로팅 메뉴 (필수)
+
+- **모바일(`lg` 미만)** 햄버거 드로어 트리거는 **발주서·스케줄 FAB와 같이** `fixed` 플로팅 — 목록 스크롤해도 **항상 화면에 표시**.
+- 구현: **`MobileFloatingMenuButton`** (`createPortal` → `body`, `z-[118]`, 좌측·safe-area). PC는 `lg:hidden`.
+- 서비스접수: Provider에서 플로팅 1개. 제목 줄 `pl-12` 로 버튼·텍스트 겹침 방지.
+- 드로어: `fixed inset-0 z-[610]`.
+
+**참고**
+
+- `client/src/components/layout/MobileFloatingMenuButton.tsx`
+- 서비스접수: `AdminInquiriesMobileSubNav.tsx`
+- 스케줄 맞춤 캘린더: `ScheduleCustomCalendarMobileSheet.tsx`
+
 ---
 
 ## 7. DB 목록 — 필터·페이지네이션 UI
