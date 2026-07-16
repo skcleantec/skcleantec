@@ -1,5 +1,9 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import {
+  normalizeAcUnitsAnswer,
+  ORDER_FORM_AC_UNITS_FIELD_KEY,
+} from '../../lib/orderFormAcUnits.js';
+import {
   TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY,
   TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_META,
 } from '../../lib/telecrmConsultationQuote.js';
@@ -121,6 +125,16 @@ export async function getPublicTemplateForForm(
   };
 }
 
+/** TEMPLATE 모드 비기본 양식 — 해당 systemField가 템플릿에 있을 때만 true. 기본·레거시는 항상 true */
+export function templateHasSystemField(
+  template: PublicOrderTemplate | null | undefined,
+  key: string,
+): boolean {
+  if (!template || template.isDefault) return true;
+  if (template.renderMode !== 'TEMPLATE') return true;
+  return template.systemFields.some((f) => f.systemField === key);
+}
+
 /** 제출 답변 정규화 — customFields 키만 남기고 문자열/배열로 정리 */
 export function sanitizeCustomAnswers(
   raw: unknown,
@@ -133,6 +147,11 @@ export function sanitizeCustomAnswers(
   for (const [key, field] of allowed) {
     const v = src[key];
     if (v == null) continue;
+    if (key === ORDER_FORM_AC_UNITS_FIELD_KEY) {
+      const rows = normalizeAcUnitsAnswer(v);
+      if (rows.length > 0) out[key] = rows;
+      continue;
+    }
     if (Array.isArray(v)) {
       out[key] = v.map((x) => String(x)).slice(0, 50);
     } else if (typeof v === 'boolean') {

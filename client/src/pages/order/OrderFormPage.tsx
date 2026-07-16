@@ -85,6 +85,12 @@ import {
   isRealCustomerAddress,
 } from '@shared/orderFormPendingAddress';
 import { TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY } from '@shared/telecrmConsultationQuote';
+import {
+  isAcUnitsAnswerEmpty,
+  ORDER_FORM_AC_UNITS_FIELD_KEY,
+  ORDER_FORM_AC_LEGACY_COUNT_FIELD_KEYS,
+} from '@shared/orderFormAcUnits';
+import { OrderFormAcUnitsField } from '../../components/orderform/OrderFormAcUnitsField';
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -247,13 +253,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       publicBranding?.displayName?.trim() ||
       submittedReceipt?.publicBranding?.displayName?.trim() ||
       null;
-    if (brandName) {
-      return composeBrandedOrderFormTitle(brandName, formTitleLine);
+    const template = order?.template;
+    const composed = composeBrandedOrderFormTitle(brandName, formTitleLine, {
+      templateTitle: template?.title,
+      isDefaultTemplate: template?.isDefault ?? true,
+    });
+    if (!brandName && template?.title && !template.isDefault && template.icon) {
+      return `${template.icon} ${composed}`;
     }
-    if (order?.template?.title && !order.template.isDefault) {
-      return `${order.template.icon ? `${order.template.icon} ` : ''}${order.template.title}`;
-    }
-    return formTitleLine;
+    return composed;
   }, [
     publicBranding?.displayName,
     submittedReceipt?.publicBranding?.displayName,
@@ -266,8 +274,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   });
   const visibleOrderFormCustomFields = useMemo(() => {
     const fields = order?.template?.customFields ?? [];
-    if (isEditor || isCreate) return fields;
-    return fields.filter((cf) => cf.fieldKey !== TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY);
+    const legacy = new Set(ORDER_FORM_AC_LEGACY_COUNT_FIELD_KEYS);
+    const filtered = fields.filter(
+      (cf) => cf.fieldKey !== TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY && !legacy.has(cf.fieldKey),
+    );
+    if (isEditor || isCreate) return filtered;
+    return filtered;
   }, [order?.template?.customFields, isEditor, isCreate]);
   const agreeLinkLabel = orderFormConfigLine(
     order?.formConfig?.infoLinkText ?? submittedReceipt?.formConfig?.infoLinkText,
@@ -295,7 +307,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
   // 선택 표준 항목 표시/숨김 — 규칙은 하나:
   // - 기본 발주서 / 레거시(템플릿 없음): 표준 폼 전체 표시.
-  // - 내가 만든 발주서: 템플릿에 넣은 선택 항목만 표시(필수 코어 섹션은 항상 표시).
+  // - 내가 만든 발주서(TEMPLATE): 템플릿 systemFields에 넣은 항목만 표시.
   const stdFieldOn = useCallback(
     (key: string): boolean => {
       const tpl = order?.template;
@@ -306,6 +318,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     },
     [order],
   );
+  const showContactSection =
+    stdFieldOn('customerPhone') || stdFieldOn('customerEmail') || stdFieldOn('customerPhone2');
+  const showPropertyAreaSection = stdFieldOn('propertyType') || stdFieldOn('areaPyeong');
 
   // 시스템 필드의 빌더 편집 선택지(건축물유형·신축구축 옵션 추가 반영). 없으면 표준 기본값 사용.
   const sysOptions = useCallback(
@@ -336,6 +351,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     () => profSelections.map((s) => s.id),
     [profSelections],
   );
+
+  /** 상단 견적 카드 제목 — 비기본 양식은 양식명 기준 */
+  const orderEstimateCardTitle = useMemo(() => {
+    const tpl = order?.template;
+    if (!tpl || tpl.isDefault) return '기본 서비스 견적';
+    const base = tpl.title.replace(/\s*발주서\s*$/u, '').trim();
+    return base ? `${base} 견적` : '서비스 견적';
+  }, [order?.template]);
 
   useEffect(() => {
     setProfCatOpen((prev) => {
@@ -741,60 +764,75 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         return false;
       };
 
-      if (!form.customerName?.trim()) throw new Error('성함을 입력해주세요.');
-      if (!isRealCustomerAddress(form.address)) {
-        throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
+      if (stdFieldOn('customerName') && !form.customerName?.trim()) {
+        throw new Error('성함을 입력해주세요.');
       }
-      const addressLockedByPrefill =
-        isMarketerLockedOrderFormAddress(prefillMap) &&
-        isRealCustomerAddress(form.address);
-      const addressViaSearchOk = addressLockedByPrefill || addressConfirmedViaSearch;
-      if (!isEditor && !addressViaSearchOk) {
-        throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
+      let addressViaSearchOk = true;
+      if (stdFieldOn('address')) {
+        if (!isRealCustomerAddress(form.address)) {
+          throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
+        }
+        const addressLockedByPrefill =
+          isMarketerLockedOrderFormAddress(prefillMap) &&
+          isRealCustomerAddress(form.address);
+        addressViaSearchOk = addressLockedByPrefill || addressConfirmedViaSearch;
+        if (!isEditor && !addressViaSearchOk) {
+          throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
+        }
+        if (!prefillLocked('addressDetail') && !form.addressDetail.trim()) {
+          throw new Error('상세주소를 입력해 주세요.');
+        }
+        if (
+          !isEditor &&
+          !addressConfirmedViaSearch &&
+          !addressLockedByPrefill &&
+          form.addressDetail.trim()
+        ) {
+          throw new Error('「주소 검색」으로 주소를 먼저 선택한 뒤 상세주소를 입력해 주세요.');
+        }
       }
-      if (!prefillLocked('addressDetail') && !form.addressDetail.trim()) {
-        throw new Error('상세주소를 입력해 주세요.');
+      if (stdFieldOn('customerPhone') && !form.customerPhone?.trim()) {
+        throw new Error('대표 전화번호를 입력해주세요.');
       }
-      if (
-        !isEditor &&
-        !addressConfirmedViaSearch &&
-        !addressLockedByPrefill &&
-        form.addressDetail.trim()
-      ) {
-        throw new Error('「주소 검색」으로 주소를 먼저 선택한 뒤 상세주소를 입력해 주세요.');
+      if (stdFieldOn('customerPhone2') && !form.customerPhoneSecondary?.trim()) {
+        throw new Error('보조 전화번호를 입력해주세요.');
       }
-      if (!form.customerPhone?.trim()) throw new Error('대표 전화번호를 입력해주세요.');
-      if (!form.customerPhoneSecondary?.trim()) throw new Error('보조 전화번호를 입력해주세요.');
-      const emailTrim = form.customerEmail.trim().toLowerCase();
-      if (!emailTrim) throw new Error('이메일을 입력해 주세요.');
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
-        throw new Error('이메일 형식이 올바르지 않습니다.');
+      const emailTrim = stdFieldOn('customerEmail')
+        ? form.customerEmail.trim().toLowerCase()
+        : '';
+      if (stdFieldOn('customerEmail')) {
+        if (!emailTrim) throw new Error('이메일을 입력해 주세요.');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+          throw new Error('이메일 형식이 올바르지 않습니다.');
+        }
       }
-      if (!hasOrderFormBuildingTypeChoice(form.propertyType, form.isOneRoom)) {
+      if (stdFieldOn('propertyType') && !hasOrderFormBuildingTypeChoice(form.propertyType, form.isOneRoom)) {
         throw new Error(`건축물 유형 또는 ${oneRoomLabel}을 선택해주세요.`);
       }
       const areaLockedByAdmin = isOrderFormAreaLockedFromOrder(order);
       let submitAreaPyeong: number | null = null;
       let submitExclusiveSqm: number | null = null;
       let submitAreaBasis = form.areaBasis;
-      if (areaLockedByAdmin) {
-        submitAreaPyeong = order!.areaPyeong!;
-        submitAreaBasis = String(order!.areaBasis).trim();
-      } else if (!form.areaBasis || (form.areaBasis !== '공급' && form.areaBasis !== '전용')) {
-        throw new Error('면적 기준으로 공급면적 또는 전용면적을 선택해주세요.');
-      } else if (form.areaBasis === '공급') {
-        const area = parseFloat(form.areaPyeong.replace(/,/g, '').trim());
-        if (Number.isNaN(area) || area <= 0) {
-          throw new Error('공급면적(분양평수)을 평 단위로 입력해 주세요.');
+      if (stdFieldOn('areaPyeong') || areaLockedByAdmin) {
+        if (areaLockedByAdmin) {
+          submitAreaPyeong = order!.areaPyeong!;
+          submitAreaBasis = String(order!.areaBasis).trim();
+        } else if (!form.areaBasis || (form.areaBasis !== '공급' && form.areaBasis !== '전용')) {
+          throw new Error('면적 기준으로 공급면적 또는 전용면적을 선택해주세요.');
+        } else if (form.areaBasis === '공급') {
+          const area = parseFloat(form.areaPyeong.replace(/,/g, '').trim());
+          if (Number.isNaN(area) || area <= 0) {
+            throw new Error('공급면적(분양평수)을 평 단위로 입력해 주세요.');
+          }
+          submitAreaPyeong = area;
+        } else {
+          const area = parseFloat(form.areaPyeong.replace(/,/g, '').trim());
+          if (Number.isNaN(area) || area <= 0) {
+            throw new Error('전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.');
+          }
+          submitAreaPyeong = area;
+          submitExclusiveSqm = null;
         }
-        submitAreaPyeong = area;
-      } else {
-        const area = parseFloat(form.areaPyeong.replace(/,/g, '').trim());
-        if (Number.isNaN(area) || area <= 0) {
-          throw new Error('전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.');
-        }
-        submitAreaPyeong = area;
-        submitExclusiveSqm = null;
       }
       const scheduleLockedByAdmin = Boolean(order?.preferredDate?.trim());
       const detailLockedByAdmin = Boolean(order?.preferredTimeDetail?.trim());
@@ -805,14 +843,17 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         ? (order!.preferredTime?.trim() || form.preferredTime)
         : form.preferredTime.trim();
       const useTime = useTimeRaw.trim();
-      if (!useDate || !useTime) throw new Error('청소 날짜와 시간을 확인해주세요.');
-      if (!isValidOrderTimeSlot(useTime)) {
-        throw new Error('시간대를 선택해주세요.');
+      if (stdFieldOn('preferredDate') || stdFieldOn('preferredTime')) {
+        if (!useDate || !useTime) throw new Error('청소 날짜와 시간을 확인해주세요.');
+        if (!isValidOrderTimeSlot(useTime)) {
+          throw new Error('시간대를 선택해주세요.');
+        }
       }
       const useTimeDetail = detailLockedByAdmin
         ? order!.preferredTimeDetail!.trim()
         : form.preferredTimeDetail.trim() || undefined;
       if (
+        stdFieldOn('preferredTimeDetail') &&
         !detailLockedByAdmin &&
         isPreferredTimeDetailRequired(useTime) &&
         !useTimeDetail
@@ -820,6 +861,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         throw new Error('사이청소 선택 시 구체적 시각을 선택해 주세요.');
       }
       if (
+        stdFieldOn('preferredTimeDetail') &&
         !detailLockedByAdmin &&
         form.preferredTimeDetail.trim() &&
         isValidOrderTimeSlot(useTime) &&
@@ -827,14 +869,17 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       ) {
         throw new Error('구체적 시각을 해당 시간대 범위에서 선택해 주세요.');
       }
-      if (!form.buildingType) throw new Error('신축·구축·인테리어·거주(짐이있는상태) 중 하나를 선택해주세요.');
-      if (requiresMoveInDateOrUndecided(form.buildingType)) {
+      if (stdFieldOn('buildingType') && !form.buildingType) {
+        throw new Error('신축·구축·인테리어·거주(짐이있는상태) 중 하나를 선택해주세요.');
+      }
+      if (stdFieldOn('buildingType') && requiresMoveInDateOrUndecided(form.buildingType)) {
         if (!form.moveInDateUndecided && !form.moveInDate.trim()) {
           throw new Error('신축·구축·인테리어 선택 시 이사 예정일을 입력하거나 「미정」을 선택해 주세요.');
         }
       }
       const moveInMinYmd = kstTodayYmd();
       if (
+        stdFieldOn('moveInDate') &&
         !form.moveInDateUndecided &&
         form.moveInDate.trim() &&
         form.moveInDate.trim() < moveInMinYmd
@@ -847,6 +892,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       for (const cf of templateCustomFields) {
         if (!cf.required) continue;
         const v = customAnswers[cf.fieldKey];
+        if (cf.fieldKey === ORDER_FORM_AC_UNITS_FIELD_KEY) {
+          if (isAcUnitsAnswerEmpty(v)) throw new Error(`「${cf.label}」 항목을 입력해 주세요.`);
+          continue;
+        }
         const empty = v == null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && v.length === 0);
         if (empty) throw new Error(`「${cf.label}」 항목을 입력해 주세요.`);
       }
@@ -857,27 +906,29 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         addressDetail: form.addressDetail.trim() || undefined,
         addressSelectedViaSearch: !isEditor && addressViaSearchOk,
         customerPhone: form.customerPhone.trim(),
-        customerPhone2: form.customerPhoneSecondary.trim(),
-        customerEmail: emailTrim,
-        areaPyeong: submitAreaPyeong,
-        areaBasis: submitAreaBasis,
+        customerPhone2: stdFieldOn('customerPhone2') ? form.customerPhoneSecondary.trim() : undefined,
+        customerEmail: emailTrim || undefined,
+        areaPyeong: stdFieldOn('areaPyeong') || areaLockedByAdmin ? submitAreaPyeong : undefined,
+        areaBasis: stdFieldOn('areaPyeong') || areaLockedByAdmin ? submitAreaBasis : undefined,
         exclusiveAreaSqm: submitExclusiveSqm,
-        propertyType: form.propertyType.trim() || undefined,
-        preferredDate: useDate,
-        preferredTime: useTime,
-        preferredTimeDetail: useTimeDetail ?? null,
+        propertyType: stdFieldOn('propertyType') ? form.propertyType.trim() || undefined : undefined,
+        preferredDate: stdFieldOn('preferredDate') ? useDate : undefined,
+        preferredTime: stdFieldOn('preferredTime') ? useTime : undefined,
+        preferredTimeDetail: stdFieldOn('preferredTimeDetail') ? useTimeDetail ?? null : undefined,
         roomCount: form.roomCount ? parseInt(form.roomCount, 10) : undefined,
         balconyCount: form.balconyCount ? parseInt(form.balconyCount, 10) : undefined,
         bathroomCount: form.bathroomCount ? parseInt(form.bathroomCount, 10) : undefined,
         kitchenCount: form.kitchenCount ? parseInt(form.kitchenCount, 10) : undefined,
-        buildingType: form.buildingType,
-        moveInDate: form.moveInDateUndecided ? undefined : form.moveInDate || undefined,
-        moveInDateUndecided: form.moveInDateUndecided,
-        isOneRoom: form.isOneRoom || undefined,
-        specialNotes: form.specialNotes.trim() || undefined,
-        professionalOptionIds: profSelections.length
-          ? serializeProfessionalOptionSelections(profSelections)
-          : undefined,
+        buildingType: stdFieldOn('buildingType') ? form.buildingType : undefined,
+        moveInDate:
+          stdFieldOn('moveInDate') && !form.moveInDateUndecided ? form.moveInDate || undefined : undefined,
+        moveInDateUndecided: stdFieldOn('moveInDate') ? form.moveInDateUndecided : undefined,
+        isOneRoom: stdFieldOn('propertyType') && form.isOneRoom ? true : undefined,
+        specialNotes: stdFieldOn('specialNotes') ? form.specialNotes.trim() || undefined : undefined,
+        professionalOptionIds:
+          stdFieldOn('professionalOptions') && profSelections.length
+            ? serializeProfessionalOptionSelections(profSelections)
+            : undefined,
         answers: Object.keys(customAnswers).length ? customAnswers : undefined,
       });
       const receipt = await getOrderFormByToken(token);
@@ -965,21 +1016,26 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       return;
     }
     const basisOk = form.areaBasis === '공급' || form.areaBasis === '전용';
-    if (!basisOk) {
-      setSubmitErrorModal('면적 기준(공급/전용)을 선택하고 평수를 입력해 주세요.');
-      return;
+    if (stdFieldOn('areaPyeong')) {
+      if (!basisOk) {
+        setSubmitErrorModal('면적 기준(공급/전용)을 선택하고 평수를 입력해 주세요.');
+        return;
+      }
+      const py = parseFloat(form.areaPyeong.replace(/,/g, ''));
+      if (!form.areaPyeong.trim() || !Number.isFinite(py) || py <= 0) {
+        setSubmitErrorModal('평수를 양수 숫자로 입력해 주세요.');
+        return;
+      }
     }
-    const py = parseFloat(form.areaPyeong.replace(/,/g, ''));
-    if (!form.areaPyeong.trim() || !Number.isFinite(py) || py <= 0) {
-      setSubmitErrorModal('평수를 양수 숫자로 입력해 주세요.');
-      return;
-    }
-    const areaPyeongNum = py;
-    if (!noSpecialNotes && !form.specialNotes.trim()) {
+    const areaPyeongNum =
+      stdFieldOn('areaPyeong') && basisOk
+        ? parseFloat(form.areaPyeong.replace(/,/g, ''))
+        : null;
+    if (stdFieldOn('specialNotes') && !noSpecialNotes && !form.specialNotes.trim()) {
       setSubmitErrorModal('특이사항을 입력하거나 "특이사항 없음"을 체크해 주세요.');
       return;
     }
-    if (!dateByCustomer && !form.preferredDate.trim()) {
+    if (stdFieldOn('preferredDate') && !dateByCustomer && !form.preferredDate.trim()) {
       setSubmitErrorModal('청소 날짜를 선택하거나 "고객 작성"을 체크해 주세요.');
       return;
     }
@@ -1245,7 +1301,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         {order && !isCreate && (
           <div className="mb-6 p-4 bg-white border border-gray-200 rounded text-sm">
             <p className="font-medium text-gray-900">
-              기본 서비스 견적 {(order.totalAmount ?? 0).toLocaleString()}원{' '}
+              {orderEstimateCardTitle} {(order.totalAmount ?? 0).toLocaleString()}원{' '}
               <span className="whitespace-pre-line align-top">
                 {orderFormConfigLine(order.formConfig?.priceLabel, ORDER_FORM_CONFIG_DEFAULTS.priceLabel)}
               </span>
@@ -1295,6 +1351,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 pb-20">
+          {stdFieldOn('customerName') && (
           <div>
             <label className={reqLabelCls}>1. 성함 *</label>
             <input
@@ -1306,7 +1363,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               disabled={lockKey('customerName')}
             />
           </div>
+          )}
 
+          {stdFieldOn('address') && (
           <div>
             <label className={labelCls}>2. 주소(청소해야할 위치) *</label>
             {isCreate ? (
@@ -1357,12 +1416,16 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               <p className="mt-1 text-xs text-gray-500">주소 검색을 완료하면 상세주소를 입력할 수 있습니다.</p>
             ) : null}
           </div>
+          )}
 
+          {showContactSection && (
           <div>
             <label className={labelCls}>3. 전화번호 *</label>
             <p className="text-xs text-gray-600 mb-3 leading-relaxed">
               전일 연락 두절시 서비스가 취소되오니 반드시 정확하게 기재 부탁드립니다.
             </p>
+            {stdFieldOn('customerPhone') ? (
+            <>
             <label className="block text-xs text-gray-600 mb-1">대표 연락처 *</label>
             <input
               type="tel"
@@ -1372,6 +1435,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               placeholder="010-0000-0000"
               disabled={lockKey('customerPhone')}
             />
+            </>
+            ) : null}
+            {stdFieldOn('customerPhone2') ? (
+            <>
             <label className="block text-xs text-gray-600 mb-1">보조 연락처 (필수) *</label>
             <input
               type="tel"
@@ -1381,6 +1448,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               placeholder="예: 배우자, 가족 연락처"
               disabled={lockKey('customerPhone2')}
             />
+            </>
+            ) : null}
+            {stdFieldOn('customerEmail') ? (
+            <>
             <label className="block text-xs text-gray-600 mb-1 mt-3">이메일 (필수) *</label>
             <p className="text-xs text-gray-600 mb-2 leading-relaxed">
               접수 확인 메일을 보내드립니다. 정확한 주소를 입력해 주세요.
@@ -1394,9 +1465,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               autoComplete="email"
               disabled={lockKey('customerEmail')}
             />
+            </>
+            ) : null}
           </div>
+          )}
 
+          {showPropertyAreaSection && (
           <div>
+            {stdFieldOn('propertyType') ? (
+            <>
             <label className={labelCls}>4. 건축물 유형 및 면적 *</label>
             <p className="text-xs font-medium text-gray-700 mb-2">건축물 유형 (하나 선택) *</p>
             <div className={radioGroupCls} role="radiogroup" aria-label="건축물 유형">
@@ -1468,6 +1545,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 return nodes;
               })()}
             </div>
+            </>
+            ) : null}
+            {stdFieldOn('areaPyeong') ? (
+            <>
             <p className={`text-xs mt-4 mb-2 ${isCreate ? 'font-bold text-red-600' : 'font-medium text-gray-700'}`}>면적 기준 (하나 선택) *</p>
             {areaLockedByAdmin ? (
               <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-700">
@@ -1565,8 +1646,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               표기된 경우에는 평으로 환산한 뒤 입력해 주세요. 복층은 층별로 기재해 주세요.
             </p>
             ) : null}
+            </>
+            ) : null}
           </div>
+          )}
 
+          {stdFieldOn('preferredDate') && (
           <div>
             <label className={reqLabelCls}>5. 청소 날짜{isCreate ? ' *' : ''}</label>
             {isEditor && (
@@ -1602,7 +1687,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               />
             )}
           </div>
+          )}
 
+          {stdFieldOn('preferredTime') && (
           <div>
             <label className={reqLabelCls}>6. 시간대 선택{isCreate ? ' *' : ''}</label>
             {scheduleLockedByAdmin ? (
@@ -1640,6 +1727,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             )}
             <p className="text-xs text-gray-500 mt-1">* 청소 중 이사 들어오는 스케줄, 서비스 불가</p>
           </div>
+          )}
 
           {stdFieldOn('preferredTimeDetail') && (
           <div>
@@ -1751,6 +1839,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
+          {stdFieldOn('buildingType') && (
           <div>
             <label className={labelCls}>9. 신축/구축/인테리어/거주 선택 *</label>
             <select
@@ -1775,7 +1864,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             </select>
             <p className="text-xs text-gray-500 mt-1">* 5년 이하 신축 구분</p>
           </div>
+          )}
 
+          {stdFieldOn('moveInDate') && (
           <div>
             <label className={labelCls}>
               10. 이사 날짜
@@ -1825,6 +1916,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               있습니다.
             </p>
           </div>
+          )}
 
           {stdFieldOn('specialNotes') && (
           <div>
@@ -1871,7 +1963,16 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                       {cf.required ? <span className="text-red-500"> *</span> : null}
                     </label>
                     {cf.helpText ? <p className="text-xs text-gray-500 mb-1">{cf.helpText}</p> : null}
-                    {cf.inputType === 'TEXTAREA' ? (
+                    {cf.fieldKey === ORDER_FORM_AC_UNITS_FIELD_KEY ? (
+                      <OrderFormAcUnitsField
+                        value={value}
+                        onChange={(rows) => setVal(rows)}
+                        options={opts}
+                        disabled={cfLocked}
+                        inputCls={clsWithLock(cf.fieldKey, inputCls)}
+                        lockedInputCls={lockedInputCls}
+                      />
+                    ) : cf.inputType === 'TEXTAREA' ? (
                       <textarea
                         className={`${cfLocked ? `${inputCls} ${lockedInputCls}` : inputCls} min-h-[80px]`}
                         placeholder={cf.placeholder && cf.placeholder.trim() ? cf.placeholder : undefined}

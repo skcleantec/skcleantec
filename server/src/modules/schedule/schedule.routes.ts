@@ -20,6 +20,7 @@ import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { attachTenantShareMetaToInquiries } from '../tenant-partners/tenantInquiryShareMeta.js';
 import { attachDbListingMetaToInquiries } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
 import { notifyScheduleDayStaffMemoRefresh } from '../realtime/scheduleDayMemoNotify.js';
+import { orderFormTemplateListSelect } from '../inquiries/inquiryDetailInclude.js';
 
 const router = Router();
 
@@ -189,6 +190,7 @@ const scheduleListSelectLite = {
       customerSpecialNotes: true,
       prefillAnswers: true,
       createdBy: { select: { id: true, name: true } },
+      template: { select: orderFormTemplateListSelect },
     },
   },
   assignments: {
@@ -267,6 +269,7 @@ router.get('/', async (req, res) => {
               customerSpecialNotes: true,
               prefillAnswers: true,
               createdBy: { select: { id: true, name: true } },
+              template: { select: orderFormTemplateListSelect },
             },
           },
           extraCharges: {

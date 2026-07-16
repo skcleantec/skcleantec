@@ -44,7 +44,8 @@ import {
   type UserItem,
 } from '../../api/users';
 import { kstTodayYmd } from '../../utils/dateFormat';
-import { formatInquiryListAreaLabel } from '../../utils/inquiryAreaDisplay';
+import { formatInquiryListAreaOrServiceLabel } from '../../utils/inquiryAreaDisplay';
+import { isAirconOrderFormTemplate } from '@shared/orderFormServiceKind';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
 import { getInquiry } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
@@ -480,6 +481,11 @@ function ScheduleDayListItem({
                   emphasizeOneRoomInList={emphasizeOneRoomInList}
                   className="shrink-0"
                 />
+                {isAirconOrderFormTemplate(item.orderForm?.template) ? (
+                  <span className="inline-flex shrink-0 items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold text-sky-900 ring-1 ring-sky-200/80 sm:text-fluid-2xs">
+                    에어컨
+                  </span>
+                ) : null}
               </span>
               {phoneForExtra ? (
                 <span className="text-[10px] text-slate-500 tabular-nums truncate max-w-[min(100%,14rem)]">
@@ -602,12 +608,13 @@ function ScheduleDayListItem({
         >
           <span className="text-slate-800 font-semibold">{shortSiGuFromAddress(item.address)}</span>
           {(() => {
-            const areaStr = formatInquiryListAreaLabel(
+            const areaStr = formatInquiryListAreaOrServiceLabel(
               {
                 areaBasis: item.areaBasis,
                 areaPyeong: item.areaPyeong,
                 exclusiveAreaSqm: item.exclusiveAreaSqm,
                 isOneRoom: isOneRoomItem,
+                orderForm: item.orderForm,
               },
               { oneRoomLabel },
             );

@@ -1,5 +1,18 @@
 /** 관리·C/S 목록 등 한국어 고정 표기용 */
 
+import {
+  orderFormServiceKindAreaLabel,
+  type OrderFormTemplateKindInput,
+} from '@shared/orderFormServiceKind';
+
+export type InquiryAreaDisplayInput = {
+  areaBasis?: string | null;
+  areaPyeong?: number | null;
+  exclusiveAreaSqm?: number | null;
+  isOneRoom?: boolean | null;
+  orderForm?: { template?: OrderFormTemplateKindInput } | null;
+};
+
 /** 1평 ≈ 3.305785㎡ (레거시 ㎡만 있는 전용 접수 표시·폼 근사용) */
 export const SQM_PER_PYEONG = 3.305785;
 
@@ -78,6 +91,26 @@ export function formatInquiryListAreaLabel(
   if (!item.isOneRoom) return base;
   if (base === '—') return oneRoomLabel;
   return `${base}·${oneRoomLabel}`;
+}
+
+/** 에어컨 발주서는 평수 대신 「에어컨」 — 목록·스케줄·팀장 공통 */
+export function formatInquiryListAreaOrServiceLabel(
+  item: InquiryAreaDisplayInput,
+  opts?: { oneRoomLabel?: string },
+): string {
+  const svc = orderFormServiceKindAreaLabel(item.orderForm?.template);
+  if (svc) return svc;
+  return formatInquiryListAreaLabel(item, opts);
+}
+
+/** 배지용 compact — 에어컨 발주서는 「에어컨」 pill */
+export function formatInquiryAreaCompactOrService(
+  item: InquiryAreaDisplayInput,
+  opts?: { oneRoomLabel?: string },
+): string | null {
+  const svc = orderFormServiceKindAreaLabel(item.orderForm?.template);
+  if (svc) return svc;
+  return formatInquiryAreaCompactKo(item, opts);
 }
 
 /** 편집 폼 문자열 → `formatInquiryAreaKoShort` (복사 텍스트 등) */

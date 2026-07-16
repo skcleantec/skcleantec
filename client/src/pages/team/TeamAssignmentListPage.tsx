@@ -36,6 +36,7 @@ import {
   TeamInquirySpecialNotesListBadge,
   TeamInquiryAreaListBadge,
   TeamInquiryBrandListBadge,
+  TeamInquiryServiceKindListBadge,
   teamInquiryCollectibleAmount,
 } from './teamInquiryShared';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
@@ -520,6 +521,7 @@ export function TeamAssignmentListPage() {
                         <div className="flex flex-wrap items-center gap-1.5">
                           <TeamInquiryBrandListBadge item={item} />
                           <span className="truncate text-fluid-sm font-semibold text-gray-900">{primaryLabel}</span>
+                          <TeamInquiryServiceKindListBadge item={item} />
                           {item.claimMemo ? (
                             <span
                               className="shrink-0 text-orange-600"
@@ -737,6 +739,7 @@ export function TeamAssignmentListPage() {
                           <div className="flex min-w-0 flex-col items-center leading-tight">
                             <div className="flex min-w-0 max-w-full flex-wrap items-center justify-center gap-1">
                               <TeamInquiryBrandListBadge item={item} />
+                              <TeamInquiryServiceKindListBadge item={item} />
                               <span className="min-w-0 truncate">
                                 {primaryLabel}
                                 {item.claimMemo ? (

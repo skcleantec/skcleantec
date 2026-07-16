@@ -11,6 +11,7 @@ import {
   createOrderFormTemplate,
   deleteOrderFormTemplate,
   duplicateOrderFormTemplate,
+  getPromotedOrderFormListFields,
   getSystemFields,
   listOrderFormTemplates,
   publishOrderFormTemplate,
@@ -25,6 +26,7 @@ import {
   type OrderFormTemplateField,
   type OrderFormTemplateRenderMode,
 } from '../../api/orderFormTemplates';
+import { ORDER_FORM_INQUIRY_LIST_PROMOTED_MAX } from '@shared/orderFormListSnapshot';
 
 type DraftField = Omit<OrderFormTemplateField, 'id' | 'options' | 'placeholder' | 'optionStyle'> & {
   id?: string;
@@ -56,6 +58,11 @@ const FILL_MODE_OPTIONS: Array<{ value: OrderFormFieldFillMode; label: string; h
 ];
 
 const OPTION_INPUT_TYPES = new Set<OrderFormFieldInputType>(['SELECT', 'MULTISELECT', 'CHECKBOX']);
+const LIST_PROMOTABLE_INPUT_TYPES = new Set<OrderFormFieldInputType>(['TEXT', 'SELECT', 'NUMBER', 'MULTISELECT']);
+
+function canPromoteDraftField(d: DraftField): boolean {
+  return !d.systemField?.trim() && LIST_PROMOTABLE_INPUT_TYPES.has(d.inputType);
+}
 
 /** 발주서 아이콘 프리셋 (청소·서비스 관련) */
 const ICON_OPTIONS: Array<{ value: string; label: string }> = [
@@ -97,6 +104,7 @@ function fieldToDraft(f: OrderFormTemplateField): DraftField {
     sortOrder: f.sortOrder,
     systemField: f.systemField,
     fillMode: f.fillMode,
+    showInInquiryList: Boolean(f.showInInquiryList),
     options: opts,
     placeholder: f.placeholder ?? null,
     optionStyle: f.optionStyle ?? null,
@@ -123,6 +131,7 @@ function draftsToPayload(drafts: DraftField[]): Array<Omit<OrderFormTemplateFiel
     sortOrder: i,
     systemField: d.systemField && d.systemField.trim() ? d.systemField : null,
     fillMode: d.fillMode,
+    showInInquiryList: canPromoteDraftField(d) ? Boolean(d.showInInquiryList) : false,
   }));
 }
 
@@ -218,6 +227,7 @@ export function AdminOrderFormTemplatesPage() {
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [iconOpen, setIconOpen] = useState(false);
+  const [tenantPromotedKeys, setTenantPromotedKeys] = useState<Set<string>>(new Set());
 
   const selected = useMemo(() => templates.find((t) => t.id === selectedId) ?? null, [templates, selectedId]);
 
@@ -232,15 +242,38 @@ export function AdminOrderFormTemplatesPage() {
     () => requiredCoreFields.filter((f) => !mappedSystemKeys.has(f.key)),
     [requiredCoreFields, mappedSystemKeys],
   );
+  const draftPromotedKeys = useMemo(
+    () =>
+      new Set(
+        drafts
+          .filter((d) => canPromoteDraftField(d) && d.showInInquiryList)
+          .map((d) => d.fieldKey.trim())
+          .filter(Boolean),
+      ),
+    [drafts],
+  );
+  const otherTemplatePromotedCount = useMemo(() => {
+    let n = 0;
+    for (const k of tenantPromotedKeys) {
+      if (!draftPromotedKeys.has(k)) n += 1;
+    }
+    return n;
+  }, [tenantPromotedKeys, draftPromotedKeys]);
+  const promotedSlotsLeft = ORDER_FORM_INQUIRY_LIST_PROMOTED_MAX - otherTemplatePromotedCount - draftPromotedKeys.size;
 
   const loadTemplates = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      const [items, sys] = await Promise.all([listOrderFormTemplates(token), getSystemFields(token)]);
+      const [items, sys, promoted] = await Promise.all([
+        listOrderFormTemplates(token),
+        getSystemFields(token),
+        getPromotedOrderFormListFields(token),
+      ]);
       setTemplates(items);
       setSystemFields(sys);
+      setTenantPromotedKeys(new Set(promoted.map((p) => p.fieldKey)));
       setSelectedId((prev) => prev ?? (items[0]?.id ?? null));
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
@@ -401,6 +434,8 @@ export function AdminOrderFormTemplatesPage() {
       }
       const updated = await saveOrderFormTemplateFields(token, selected.id, draftsToPayload(drafts));
       setTemplates((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      const promoted = await getPromotedOrderFormListFields(token);
+      setTenantPromotedKeys(new Set(promoted.map((p) => p.fieldKey)));
       setDirty(false);
       flashNotice('저장했습니다.');
     } catch (e) {
@@ -756,7 +791,13 @@ export function AdminOrderFormTemplatesPage() {
                             <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">시스템 필드 연결</span>
                             <select
                               value={d.systemField ?? ''}
-                              onChange={(e) => updateDraft(idx, { systemField: e.target.value || null })}
+                              onChange={(e) => {
+                                const systemField = e.target.value || null;
+                                updateDraft(idx, {
+                                  systemField,
+                                  ...(systemField ? { showInInquiryList: false } : {}),
+                                });
+                              }}
                               className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
                             >
                               <option value="">연결 안 함 (추가 정보)</option>
@@ -783,6 +824,31 @@ export function AdminOrderFormTemplatesPage() {
                               ))}
                             </select>
                           </label>
+                          {canPromoteDraftField(d) ? (
+                            <label className="block sm:col-span-2">
+                              <span className="mb-1 flex items-center gap-1 text-fluid-2xs font-medium text-gray-500">
+                                접수 목록 표시
+                                <HelpTooltip
+                                  text={`서비스접수 목록에 이 추가 항목 답변을 열로 표시합니다. 업체 전체에서 동일 fieldKey 기준 최대 ${ORDER_FORM_INQUIRY_LIST_PROMOTED_MAX}개까지 선택할 수 있습니다.`}
+                                />
+                              </span>
+                              <label className="inline-flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(d.showInInquiryList)}
+                                  disabled={!d.showInInquiryList && promotedSlotsLeft <= 0}
+                                  onChange={(e) => updateDraft(idx, { showInInquiryList: e.target.checked })}
+                                  className="h-4 w-4 rounded border-gray-300"
+                                />
+                                <span className="text-fluid-xs text-gray-600">
+                                  목록에 노출
+                                  {!d.showInInquiryList && promotedSlotsLeft <= 0
+                                    ? ` (선택 한도 ${ORDER_FORM_INQUIRY_LIST_PROMOTED_MAX}개)`
+                                    : ''}
+                                </span>
+                              </label>
+                            </label>
+                          ) : null}
                           <label className="block sm:col-span-2">
                             <span className="mb-1 block text-fluid-2xs font-medium text-gray-500">도움말 (선택)</span>
                             <input value={d.helpText ?? ''} onChange={(e) => updateDraft(idx, { helpText: e.target.value || null })} className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-fluid-sm" />
@@ -933,7 +999,7 @@ export function AdminOrderFormTemplatesPage() {
                     )}
                   </div>
                 ) : (
-                  <OrderFormTemplatePreview meta={meta} fields={drafts} />
+                  <OrderFormTemplatePreview meta={meta} fields={drafts} authToken={token} />
                 )}
               </div>
             </div>

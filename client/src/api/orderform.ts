@@ -681,11 +681,11 @@ export async function submitOrderForm(
     /** 마케터 주소 잠금이 아닐 때 true — 「주소 검색」 경유 확인(서버 검증) */
     addressSelectedViaSearch?: boolean;
     customerPhone: string;
-    customerPhone2: string;
-    customerEmail: string;
+    customerPhone2?: string;
+    customerEmail?: string;
     /** 공급·전용 모두 평 단위. 전용일 때는 exclusiveAreaSqm 생략(null). */
     areaPyeong?: number | null;
-    areaBasis: string;
+    areaBasis?: string;
     propertyType?: string;
     preferredDate?: string;
     preferredTime?: string;
@@ -694,7 +694,7 @@ export async function submitOrderForm(
     balconyCount?: number;
     bathroomCount?: number;
     kitchenCount?: number;
-    buildingType: string;
+    buildingType?: string;
     moveInDate?: string;
     moveInDateUndecided?: boolean;
     isOneRoom?: boolean;

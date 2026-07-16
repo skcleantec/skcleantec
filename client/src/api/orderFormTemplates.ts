@@ -45,6 +45,8 @@ export interface OrderFormTemplateField {
   sortOrder: number;
   systemField: string | null;
   fillMode: OrderFormFieldFillMode;
+  /** 접수 목록 표 노출(추가 항목만, 테넌트당 최대 3 fieldKey) */
+  showInInquiryList?: boolean;
 }
 
 export interface OrderFormTemplate {
@@ -91,6 +93,15 @@ export async function listOrderFormTemplates(token: string): Promise<OrderFormTe
   const res = await fetch(`${BASE}`, { headers: headers(token) });
   if (!res.ok) await parseError(res, '발주서 템플릿을 불러올 수 없습니다.');
   const data = (await res.json()) as { items: OrderFormTemplate[] };
+  return data.items ?? [];
+}
+
+export async function getPromotedOrderFormListFields(
+  token: string,
+): Promise<Array<{ fieldKey: string; label: string }>> {
+  const res = await fetch(`${BASE}/promoted-list-fields`, { headers: headers(token) });
+  if (!res.ok) await parseError(res, '목록 노출 항목을 불러올 수 없습니다.');
+  const data = (await res.json()) as { items: Array<{ fieldKey: string; label: string }> };
   return data.items ?? [];
 }
 

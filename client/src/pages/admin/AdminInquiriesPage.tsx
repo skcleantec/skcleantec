@@ -55,6 +55,8 @@ import {
   partnerShareBlocksExternal,
 } from '../../utils/inquiryExternalPartnerShareMutex';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
+import { getPromotedOrderFormListFields } from '../../api/orderFormTemplates';
+import type { OrderFormListSnapshot } from '@shared/orderFormListSnapshot';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
 import {
@@ -132,9 +134,13 @@ import {
 import { isRealCustomerAddress } from '@shared/orderFormPendingAddress';
 import {
   formatInquiryAreaKoLine,
-  formatInquiryListAreaLabel,
+  formatInquiryListAreaOrServiceLabel,
   inquiryAreaEditFormStringsFromItem,
 } from '../../utils/inquiryAreaDisplay';
+import {
+  orderFormServiceKindListLabel,
+  resolveOrderFormServiceKind,
+} from '@shared/orderFormServiceKind';
 import { happyCallRowTone } from '../../utils/happyCall';
 import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import {
@@ -528,8 +534,16 @@ interface InquiryItem {
     submittedAt?: string | null;
     /** 발주서 「고객 특이사항」란(관리자·팀 공유 specialNotes와 별도) */
     customerSpecialNotes?: string | null;
+    template?: {
+      id: string;
+      title: string;
+      icon: string | null;
+      isDefault?: boolean;
+    } | null;
     createdBy: { id: string; name: string; phone?: string | null; role: string };
   } | null;
+  /** 발주서 추가 항목 중 목록 노출 대상 — 제출 시 스냅샷 */
+  orderFormListSnapshot?: OrderFormListSnapshot | null;
   serviceTotalAmount?: number | null;
   serviceDepositAmount?: number | null;
   serviceBalanceAmount?: number | null;
@@ -563,6 +577,10 @@ interface InquiryItem {
   distanceFromJuanKm?: number | null;
   /** 목록 API — 현장 검수 진행률 요약 */
   inspectionSummary?: import('../../api/inquiryInspection').InspectionListSummary | null;
+}
+
+function inquiryListPromotedCellValue(item: InquiryItem, fieldKey: string): string {
+  return item.orderFormListSnapshot?.[fieldKey]?.value?.trim() ?? '';
 }
 
 /** 발주서 링크 발급됨·고객 미제출 — 툴팁·배정 안내 */
@@ -669,10 +687,16 @@ function formatInquiryTeamSummary(item: InquiryItem): string {
   return parts.join('/');
 }
 
+function inquiryListServiceKindLabel(item: InquiryItem): string {
+  return orderFormServiceKindListLabel(
+    resolveOrderFormServiceKind(item.orderForm?.template ?? null),
+  );
+}
+
 /** 모바일 카드: 면적·방(값 있을 때만) + 팀 요약, `- · -` 방지 */
 function formatInquiryMobileSpecsTail(item: InquiryItem, oneRoomLabel = '원룸'): string {
   const segs: string[] = [];
-  const area = formatInquiryListAreaLabel(item, { oneRoomLabel });
+  const area = formatInquiryListAreaOrServiceLabel(item, { oneRoomLabel });
   if (area !== '—' && area !== '-') segs.push(area);
   const rooms = formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount);
   if (rooms !== '-') segs.push(rooms);
@@ -823,6 +847,8 @@ export function AdminInquiriesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
+  const [promotedListFields, setPromotedListFields] = useState<Array<{ fieldKey: string; label: string }>>([]);
+  const listTableWidthRem = (hasInspectionModule ? 72 : 66) + promotedListFields.length * 4;
   const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
   const [customCalendars, setCustomCalendars] = useState<UserCustomCalendarItem[]>([]);
   const [listQuickEdit, setListQuickEdit] = useState<{
@@ -1471,6 +1497,9 @@ export function AdminInquiriesPage() {
     void getUserCustomCalendars(token)
       .then(setCustomCalendars)
       .catch(() => setCustomCalendars([]));
+    void getPromotedOrderFormListFields(token)
+      .then(setPromotedListFields)
+      .catch(() => setPromotedListFields([]));
   }, [token]);
 
   const patchInquiryListSearchParams = useCallback(
@@ -2895,6 +2924,15 @@ export function AdminInquiriesPage() {
                               <InquiryDbMarketplaceBadge dbListing={item.dbListing} compact />
                             ) : null}
                             <InquiryProfOptionsReviewListBadge item={item} />
+                            <span
+                              className={`shrink-0 rounded-full px-1.5 py-0.5 text-fluid-2xs font-semibold ring-1 ${
+                                inquiryListServiceKindLabel(item) === '에어컨'
+                                  ? 'bg-sky-100 text-sky-900 ring-sky-200/80'
+                                  : 'bg-slate-100 text-slate-600 ring-slate-200'
+                              }`}
+                            >
+                              {inquiryListServiceKindLabel(item)}
+                            </span>
                           </div>
                           {item.scheduleMemo?.trim() ? (
                             <p
@@ -2953,6 +2991,23 @@ export function AdminInquiriesPage() {
                             </span>
                             <InquiryProfOptionsReviewListBadge item={item} />
                           </div>
+                      {promotedListFields.length > 0 ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5 text-fluid-2xs text-slate-600">
+                          {promotedListFields.map((f) => {
+                            const v = inquiryListPromotedCellValue(item, f.fieldKey);
+                            if (!v) return null;
+                            return (
+                              <span
+                                key={f.fieldKey}
+                                className="rounded-md bg-slate-100 px-2 py-0.5"
+                                title={`${f.label}: ${v}`}
+                              >
+                                {f.label}: {v}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : null}
                     </div>
                     <div
                       className="border-t border-slate-100 bg-slate-50/60 px-3 py-2"
@@ -3196,39 +3251,46 @@ export function AdminInquiriesPage() {
             <div className="min-w-0 overflow-x-hidden">
             <SyncHorizontalScroll className="min-w-0 w-full">
             <table
-              className={`table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm max-w-none ${
-                hasInspectionModule ? 'w-[68rem] min-w-[68rem]' : 'w-[62rem] min-w-[62rem]'
-              }`}
+              className="table-fixed border-collapse text-fluid-2xs xl:text-fluid-xs 2xl:text-fluid-sm max-w-none"
+              style={{ width: `${listTableWidthRem}rem`, minWidth: `${listTableWidthRem}rem` }}
             >
               <colgroup>
                 {hasInspectionModule ? (
                   <>
                     <col className="w-[8%]" />
                     <col className="w-[5%]" />
-                    <col className="w-[7%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
+                    <col className="w-[5%]" />
                     <col className="w-[7%]" />
-                    <col className="w-[9%]" />
                     <col className="w-[7%]" />
                     <col className="w-[8%]" />
-                    <col className="w-[25%]" />
+                    {promotedListFields.map((f) => (
+                      <col key={f.fieldKey} className="w-[6%]" />
+                    ))}
+                    <col className="w-[7%]" />
+                    <col className="w-[8%]" />
+                    <col style={{ width: `${Math.max(18, 25 - promotedListFields.length * 2)}%` }} />
                   </>
                 ) : (
                   <>
                     <col className="w-[9%]" />
                     <col className="w-[6%]" />
-                    <col className="w-[8%]" />
+                    <col className="w-[5%]" />
+                    <col className="w-[7%]" />
                     <col className="w-[6%]" />
                     <col className="w-[8%]" />
                     <col className="w-[6%]" />
                     <col className="w-[8%]" />
                     <col className="w-[8%]" />
-                    <col className="w-[10%]" />
                     <col className="w-[9%]" />
-                    <col className="w-[22%]" />
+                    {promotedListFields.map((f) => (
+                      <col key={f.fieldKey} className="w-[6%]" />
+                    ))}
+                    <col className="w-[9%]" />
+                    <col style={{ width: `${Math.max(16, 22 - promotedListFields.length * 2)}%` }} />
                   </>
                 )}
               </colgroup>
@@ -3243,6 +3305,7 @@ export function AdminInquiriesPage() {
                     className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
                   />
                   <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">접수자</th>
+                  <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">서비스</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">고객</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">연락처</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">주소</th>
@@ -3271,6 +3334,15 @@ export function AdminInquiriesPage() {
                     onSort={handleListSort}
                     className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
                   />
+                  {promotedListFields.map((f) => (
+                    <th
+                      key={f.fieldKey}
+                      className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs"
+                      title={f.label}
+                    >
+                      <span className="line-clamp-2 break-keep leading-tight">{f.label}</span>
+                    </th>
+                  ))}
                   {hasInspectionModule ? (
                     <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">현장검수</th>
                   ) : null}
@@ -3369,6 +3441,15 @@ export function AdminInquiriesPage() {
                       <InquiryListMarketerDisplay item={item} />
                     </td>
                     <td
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[10px] font-medium leading-tight xl:text-fluid-2xs ${pBorder} ${
+                        inquiryListServiceKindLabel(item) === '에어컨'
+                          ? 'text-sky-800'
+                          : 'text-slate-600'
+                      }`}
+                    >
+                      {inquiryListServiceKindLabel(item)}
+                    </td>
+                    <td
                       className={`min-w-0 truncate px-1 py-0.5 align-middle text-center text-fluid-2xs font-medium text-slate-900 xl:px-1.5 xl:text-fluid-xs 2xl:text-fluid-xs ${pBorder}`}
                       title={`${item.customerName}${item.claimMemo ? ' (클레임)' : ''}`}
                     >
@@ -3424,7 +3505,7 @@ export function AdminInquiriesPage() {
                         onClick={() => setListQuickEdit({ field: 'area', item })}
                       >
                         <span className="line-clamp-2 break-words" title={formatInquiryAreaKoLine(item)}>
-                          {formatInquiryListAreaLabel(item, { oneRoomLabel })}
+                          {formatInquiryListAreaOrServiceLabel(item, { oneRoomLabel })}
                         </span>
                       </InquiryListQuickEditTrigger>
                     </td>
@@ -3479,6 +3560,18 @@ export function AdminInquiriesPage() {
                         </div>
                       ) : null}
                     </td>
+                    {promotedListFields.map((f) => {
+                      const cell = inquiryListPromotedCellValue(item, f.fieldKey);
+                      return (
+                        <td
+                          key={f.fieldKey}
+                          className={`min-w-0 truncate px-1 py-0.5 align-middle text-center text-fluid-2xs text-slate-700 xl:px-1.5 xl:text-fluid-xs ${pBorder}`}
+                          title={cell || undefined}
+                        >
+                          {cell || '—'}
+                        </td>
+                      );
+                    })}
                     {hasInspectionModule ? (
                       <td className={`min-w-0 px-1 py-0.5 align-middle text-center xl:px-1.5 ${pBorder}`}>
                         <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />

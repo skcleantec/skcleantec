@@ -10,6 +10,12 @@ import {
   isKnownSystemField,
   missingRequiredCoreFields,
 } from './systemFields.js';
+import {
+  assertTenantPromotedFieldLimit,
+  canPromoteFieldToInquiryList,
+  listTenantPromotedListFields,
+  OrderFormPromotedFieldLimitError,
+} from '../orderform/orderFormListSnapshot.service.js';
 
 const router = Router();
 
@@ -48,6 +54,7 @@ type FieldInput = {
   sortOrder?: unknown;
   systemField?: unknown;
   fillMode?: unknown;
+  showInInquiryList?: unknown;
 };
 
 function serializeTemplate(
@@ -80,6 +87,7 @@ function serializeTemplate(
         sortOrder: f.sortOrder,
         systemField: f.systemField,
         fillMode: f.fillMode,
+        showInInquiryList: f.showInInquiryList,
       })),
   };
 }
@@ -99,6 +107,14 @@ router.get('/', async (req, res) => {
     include: { fields: true },
   });
   res.json({ items: rows.map(serializeTemplate) });
+});
+
+/** 테넌트 접수 목록 노출 대상 추가 항목(최대 3 fieldKey) */
+router.get('/promoted-list-fields', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, authUser(req));
+  if (!tenantId) return;
+  const items = await listTenantPromotedListFields(prisma, tenantId);
+  res.json({ items });
 });
 
 /** 단건(필드 포함) */
@@ -231,6 +247,7 @@ router.put('/:id/fields', async (req, res) => {
     sortOrder: number;
     systemField: string | null;
     fillMode: string;
+    showInInquiryList: boolean;
   }[] = [];
 
   for (let i = 0; i < rawFields.length; i++) {
@@ -275,6 +292,9 @@ router.put('/:id/fields', async (req, res) => {
         : null;
     const optionStyle =
       typeof f.optionStyle === 'string' && OPTION_STYLES.has(f.optionStyle) ? f.optionStyle : null;
+    const showInInquiryList =
+      f.showInInquiryList === true &&
+      canPromoteFieldToInquiryList({ systemField, inputType });
 
     prepared.push({
       fieldKey,
@@ -288,7 +308,18 @@ router.put('/:id/fields', async (req, res) => {
       sortOrder: i,
       systemField,
       fillMode,
+      showInInquiryList,
     });
+  }
+
+  try {
+    await assertTenantPromotedFieldLimit(prisma, tenantId, owned.id, prepared);
+  } catch (e) {
+    if (e instanceof OrderFormPromotedFieldLimitError) {
+      res.status(400).json({ error: e.message });
+      return;
+    }
+    throw e;
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -309,6 +340,7 @@ router.put('/:id/fields', async (req, res) => {
           sortOrder: p.sortOrder,
           systemField: p.systemField,
           fillMode: p.fillMode as Prisma.OrderFormTemplateFieldCreateInput['fillMode'],
+          showInInquiryList: p.showInInquiryList,
         },
       });
     }
@@ -422,6 +454,7 @@ router.post('/:id/duplicate', async (req, res) => {
           sortOrder: f.sortOrder,
           systemField: f.systemField,
           fillMode: f.fillMode,
+          showInInquiryList: f.showInInquiryList,
         },
       });
     }
