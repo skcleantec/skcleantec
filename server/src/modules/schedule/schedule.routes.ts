@@ -21,6 +21,10 @@ import { attachTenantShareMetaToInquiries } from '../tenant-partners/tenantInqui
 import { attachDbListingMetaToInquiries } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
 import { notifyScheduleDayStaffMemoRefresh } from '../realtime/scheduleDayMemoNotify.js';
 import { orderFormTemplateListSelect } from '../inquiries/inquiryDetailInclude.js';
+import {
+  clampScheduleSearchLimit,
+  searchScheduleInquiriesForTenant,
+} from './scheduleSearch.service.js';
 
 const router = Router();
 
@@ -220,6 +224,24 @@ function rangeFromQuery(start?: string, end?: string) {
     endDate: monthRange.lte,
   };
 }
+
+/** 스케줄 화면 — 고객명·전화·접수번호·주소 검색 (날짜 횡단) */
+router.get('/search', async (req, res) => {
+  const tenantId = await tenantFromReq(req, res);
+  if (!tenantId) return;
+  const { q, limit } = req.query as { q?: string; limit?: string };
+  const query = typeof q === 'string' ? q.trim() : '';
+  if (query.length < 2) {
+    res.json({ items: [] });
+    return;
+  }
+  const items = await searchScheduleInquiriesForTenant(
+    tenantId,
+    query,
+    clampScheduleSearchLimit(limit),
+  );
+  res.json({ items });
+});
 
 router.get('/', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
