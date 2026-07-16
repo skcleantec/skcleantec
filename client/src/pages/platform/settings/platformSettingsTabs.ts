@@ -23,7 +23,7 @@ export const PLATFORM_SETTINGS_TABS: PlatformSettingsTab[] = [
   {
     id: 'legal',
     label: '이용약관·계약',
-    description: '회원사 약관·고객 동의 문서 관리 및 링크 체결',
+    description: '회원사(청소업체) 이용약관 관리 및 링크 체결 — 고객용 약관은 발주서 안내사항에서 편집',
     ready: true,
   },
 ];

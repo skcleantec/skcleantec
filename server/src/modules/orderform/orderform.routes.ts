@@ -297,13 +297,13 @@ router.get('/public-guide', async (req, res) => {
     const cfg = await getOrCreateOrderFormConfig(prisma, tenantId);
     const sections = parseGuideSectionsFromDb(cfg.infoContent);
     const infoLinkText =
-      cfg.infoLinkText?.trim() || '고객 정보처리 동의 및 안내사항';
+      cfg.infoLinkText?.trim() || '[필수] 예약 안내 및 개인정보 제3자 제공 동의';
     res.json({ sections, infoLinkText });
   } catch (err) {
     console.error('public-guide error:', err);
     res.json({
       sections: DEFAULT_GUIDE_SECTIONS,
-      infoLinkText: '고객 정보처리 동의 및 안내사항',
+      infoLinkText: '[필수] 예약 안내 및 개인정보 제3자 제공 동의',
     });
   }
 });

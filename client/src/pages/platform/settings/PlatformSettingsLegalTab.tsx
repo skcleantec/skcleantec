@@ -185,9 +185,13 @@ export function PlatformSettingsLegalTab() {
       <section className={CARD_SECTION}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">이용약관·계약서</h2>
+            <h2 className="text-sm font-semibold text-gray-900">회원사 이용약관·계약</h2>
             <p className="mt-1 text-xs text-gray-500">
-              (주)서비스브릿지 · 청소비서 플랫폼 약관을 관리하고, 링크로 회원사 동의를 받습니다.
+              (주)서비스브릿지 · 청소비서 플랫폼 — 회원사(청소업체) 동의용 문서입니다.
+            </p>
+            <p className="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+              <strong>고객용 약관</strong>은 발주서 하단 동의 문구입니다. 관리자 앱 → 발주서 →{' '}
+              <strong>안내사항설정</strong>에서 편집하세요.
             </p>
           </div>
           <button type="button" className={BTN_PRIMARY} onClick={openCreate}>
@@ -196,7 +200,9 @@ export function PlatformSettingsLegalTab() {
         </div>
 
         <ul className="mt-4 space-y-3">
-          {documents.map((doc) => (
+          {documents
+            .filter((doc) => doc.documentType === 'MEMBER_TERMS')
+            .map((doc) => (
             <li
               key={doc.id}
               className="rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 flex flex-wrap items-center justify-between gap-3"
@@ -238,6 +244,11 @@ export function PlatformSettingsLegalTab() {
             </li>
           ))}
         </ul>
+        {documents.some((d) => d.documentType === 'CONSUMER_ORDER_CONSENT') ? (
+          <p className="mt-3 text-xs text-amber-800 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            이전에 생성된 고객용 문서가 있습니다. 고객 동의는 발주서 안내사항을 사용하세요.
+          </p>
+        ) : null}
 
         {inviteUrl ? (
           <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950 break-all">
@@ -262,27 +273,7 @@ export function PlatformSettingsLegalTab() {
               />
             </label>
             {editor.mode === 'create' ? (
-              <label className="block text-xs text-gray-600">
-                종류
-                <select
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  value={editor.documentType}
-                  onChange={(e) =>
-                    setEditor({
-                      ...editor,
-                      documentType: e.target.value as PlatformLegalDocumentType,
-                    })
-                  }
-                >
-                  {(Object.keys(LEGAL_DOCUMENT_TYPE_LABELS) as PlatformLegalDocumentType[]).map(
-                    (k) => (
-                      <option key={k} value={k}>
-                        {LEGAL_DOCUMENT_TYPE_LABELS[k]}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </label>
+              <input type="hidden" value="MEMBER_TERMS" />
             ) : null}
             <label className="flex items-center gap-2 text-xs text-gray-600 self-end pb-2">
               <input

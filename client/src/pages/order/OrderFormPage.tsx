@@ -256,6 +256,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     order?.template,
   ]);
   useDocumentTitle(orderFormHeadingTitle);
+  const agreeLinkLabel = orderFormConfigLine(
+    order?.formConfig?.infoLinkText ?? submittedReceipt?.formConfig?.infoLinkText,
+    ORDER_FORM_CONFIG_DEFAULTS.infoLinkText,
+  );
   const [submitErrorModal, setSubmitErrorModal] = useState<string | null>(null);
   /** 면적 기준 선택 전 안내·확인 */
   const [areaBasisAckModal, setAreaBasisAckModal] = useState<null | '공급' | '전용'>(null);
@@ -822,7 +826,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       ) {
         throw new Error('이사 예정일은 오늘(한국 기준) 이후 날짜만 선택할 수 있습니다.');
       }
-      if (!agreeToTerms) throw new Error('고객 정보처리 동의 및 안내사항에 동의해 주세요.');
+      if (!agreeToTerms) throw new Error('[필수] 예약 안내 및 개인정보 제3자 제공 동의가 필요합니다.');
 
       const templateCustomFields = order?.template?.customFields ?? [];
       for (const cf of templateCustomFields) {
@@ -2087,10 +2091,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                     onClick={() => setGuideAgreeModalOpen(true)}
                     className="w-full rounded-lg border border-gray-800 bg-white px-4 py-3 text-fluid-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50"
                   >
-                    안내사항 보기 및 동의하기
+                    {agreeLinkLabel} (자세히 보기)
                   </button>
                   <p id="agreeTerms-hint" className="text-fluid-xs text-gray-500">
-                    제출 전 안내사항 전체 확인 및 동의가 필요합니다.
+                    체크·동의 후 예약 확정이 가능합니다.
                   </p>
                 </div>
               )}
