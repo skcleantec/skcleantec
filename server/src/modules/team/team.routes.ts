@@ -252,6 +252,7 @@ const teamScheduleInquirySelect = {
     select: {
       id: true,
       submittedAt: true,
+      template: { select: orderFormTemplateSelect },
       createdBy: { select: { id: true, name: true, phone: true } },
     },
   },
