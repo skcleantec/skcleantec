@@ -35,6 +35,10 @@ import {
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import {
+  AdminInquiriesMobileMenuButton,
+  useAdminInquiriesMobileMenu,
+} from '../../components/layout/AdminInquiriesMobileSubNav';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { getUserCustomCalendars, type UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNameWithInternalTone';
@@ -773,6 +777,11 @@ export function AdminInquiriesPage() {
   const isLgUp = useIsLgUp();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { setHeaderEmbedded } = useAdminInquiriesMobileMenu();
+  useEffect(() => {
+    setHeaderEmbedded(true);
+    return () => setHeaderEmbedded(false);
+  }, [setHeaderEmbedded]);
   const opsDrillParams = useMemo(() => {
     const from = searchParams.get('fromYmd')?.trim();
     const to = searchParams.get('toYmd')?.trim();
@@ -2341,7 +2350,8 @@ export function AdminInquiriesPage() {
     <div className="min-w-0 space-y-6">
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex items-center gap-2">
+            <AdminInquiriesMobileMenuButton className="lg:hidden" />
             <h1 className="text-xl font-semibold text-slate-900">서비스접수</h1>
           </div>
           {token && (
