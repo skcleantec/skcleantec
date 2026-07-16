@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
 import {
@@ -6,6 +7,50 @@ import {
   formatRegionTabHint,
 } from '../../utils/customCalendarClassification';
 import { EditAppIcon } from '../icons/EditAppIcon';
+
+export type CustomCalendarRowLabel = '지역' | '업체' | '파트너';
+
+const ROW_KIND_META: Record<
+  CustomCalendarRowLabel,
+  { short: string; title: string; btn: string; btnActive: string; icon: ReactNode }
+> = {
+  지역: {
+    short: '지역',
+    title: '지역 필터 — 클릭 시 전체',
+    btn: 'border-emerald-300 bg-gradient-to-br from-emerald-400 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-700',
+    btnActive: 'ring-1 ring-white/90',
+    icon: (
+      <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+        <path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12" cy="10" r="2.5" />
+      </svg>
+    ),
+  },
+  업체: {
+    short: '업체',
+    title: '업체 필터 — 클릭 시 전체',
+    btn: 'border-amber-300 bg-gradient-to-br from-amber-400 to-orange-600 text-white hover:from-amber-500 hover:to-orange-700',
+    btnActive: 'ring-1 ring-white/90',
+    icon: (
+      <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+        <path d="M4 20V9l8-4 8 4v11" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M9 20v-6h6v6M9 12h6" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  파트너: {
+    short: '파트너',
+    title: '파트너 필터 — 클릭 시 전체',
+    btn: 'border-violet-300 bg-gradient-to-br from-violet-500 to-indigo-600 text-white hover:from-violet-600 hover:to-indigo-700',
+    btnActive: 'ring-1 ring-white/90',
+    icon: (
+      <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+        <path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3z" strokeLinecap="round" />
+        <path d="M2 20c0-2.8 2.7-5 6-5M22 20c0-2.8-2.7-5-6-5M12 20c0-2.2-1.8-4-4-4" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+};
 
 export type CustomCalendarTabsBarProps = {
   calendars: readonly UserCustomCalendarItem[];
@@ -17,13 +62,17 @@ export type CustomCalendarTabsBarProps = {
   /** 전체 캘린더로 복귀하는 '전체' 칩을 함께 보여줄지 */
   showAllChip?: boolean;
   /** 줄 구분 라벨 (지역 / 업체 / 파트너) */
-  rowLabel?: '지역' | '업체' | '파트너';
+  rowLabel?: CustomCalendarRowLabel;
   addButtonTitle?: string;
   /** 활성 탭 수정 — 권한 있을 때만 전달 */
   onEditCalendar?: (cal: UserCustomCalendarItem) => void;
   externalCompanyNames?: ReadonlyMap<string, string>;
   partnerTenantNames?: ReadonlyMap<string, string>;
   className?: string;
+  /** 스케줄 PC — 한 줄 가로 스크롤 (줄바꿈 없음) */
+  singleLine?: boolean;
+  /** 스케줄 PC 왼쪽 세로 박스 — 줄바꿈·세로 배치 */
+  sidebar?: boolean;
 };
 
 /**
@@ -42,18 +91,40 @@ export function CustomCalendarTabsBar({
   externalCompanyNames,
   partnerTenantNames,
   className = '',
+  singleLine = false,
+  sidebar = false,
 }: CustomCalendarTabsBarProps) {
   const isCompanyRow = rowLabel === '업체';
   const isPartnerRow = rowLabel === '파트너';
+  const rowMeta = rowLabel ? ROW_KIND_META[rowLabel] : null;
+  const chipsWrapClass = sidebar
+    ? 'flex min-w-0 w-full flex-wrap items-center gap-1'
+    : singleLine
+      ? 'flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+      : 'flex min-w-0 flex-1 flex-wrap items-center gap-1 sm:flex-nowrap sm:overflow-x-auto sm:overscroll-x-contain sm:whitespace-nowrap sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden';
 
   return (
-    <div className={`flex w-full min-w-0 max-w-full items-center gap-1.5 pr-1 ${className}`}>
-      {rowLabel ? (
-        <span className="shrink-0 text-fluid-xs font-semibold text-slate-500 w-7 sm:w-8">
-          {rowLabel}
-        </span>
+    <div
+      className={`min-w-0 max-w-full ${
+        sidebar
+          ? 'flex w-full flex-col items-stretch gap-1'
+          : `flex items-center gap-1.5 pr-1 ${singleLine ? 'shrink-0 flex-nowrap' : 'w-full'}`
+      } ${className}`}
+    >
+      {rowMeta ? (
+        <button
+          type="button"
+          onClick={() => onSelect(null)}
+          className={`inline-flex items-center justify-center gap-0.5 rounded border px-1 py-0 text-[9px] font-semibold leading-none tabular-nums touch-manipulation min-[440px]:text-[10px] sm:px-1.5 ${rowMeta.btn} ${
+            activeId != null ? rowMeta.btnActive : ''
+          } ${sidebar ? 'w-full min-h-[26px] py-1' : 'shrink-0'}`}
+          title={rowMeta.title}
+        >
+          {rowMeta.icon}
+          <span className="whitespace-nowrap">{rowMeta.short}</span>
+        </button>
       ) : null}
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 sm:flex-nowrap sm:overflow-x-auto sm:overscroll-x-contain sm:whitespace-nowrap sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden">
+      <div className={chipsWrapClass}>
         {showAddButton ? (
           <button
             type="button"

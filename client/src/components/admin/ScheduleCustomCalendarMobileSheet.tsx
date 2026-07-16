@@ -2,13 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
-import { customCalendarColorTokens } from '../../constants/customCalendarColors';
-import {
-  formatCompanyTabHint,
-  formatPartnerTabHint,
-  formatRegionTabHint,
-} from '../../utils/customCalendarClassification';
-import { EditAppIcon } from '../icons/EditAppIcon';
+import { ScheduleCustomCalendarListSection } from './ScheduleCustomCalendarListSection';
 
 function BarsIcon({ className }: { className?: string }) {
   return (
@@ -23,95 +17,6 @@ function CloseIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
     </svg>
-  );
-}
-
-type CalendarListSectionProps = {
-  title: string;
-  calendars: readonly UserCustomCalendarItem[];
-  activeId: string | null;
-  rowKind: 'region' | 'company' | 'partner';
-  externalCompanyNames: ReadonlyMap<string, string>;
-  partnerTenantNames: ReadonlyMap<string, string>;
-  onSelect: (id: string | null) => void;
-  onEditCalendar?: (cal: UserCustomCalendarItem) => void;
-};
-
-function CalendarListSection({
-  title,
-  calendars,
-  activeId,
-  rowKind,
-  externalCompanyNames,
-  partnerTenantNames,
-  onSelect,
-  onEditCalendar,
-}: CalendarListSectionProps) {
-  return (
-    <section className="space-y-0.5">
-      <h3 className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 px-0.5">{title}</h3>
-      <ul className="space-y-px" role="list">
-        <li>
-          <button
-            type="button"
-            onClick={() => onSelect(null)}
-            className={`flex w-full items-center gap-1.5 rounded pl-1.5 pr-1.5 py-1.5 text-left min-h-[34px] touch-manipulation ${
-              activeId == null
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-700 hover:bg-slate-100 active:bg-slate-200/70'
-            }`}
-          >
-            <span className={`shrink-0 w-2.5 text-center text-[10px] ${activeId == null ? 'text-white/70' : 'text-slate-400'}`}>
-              —
-            </span>
-            <span className="text-[11px] font-medium leading-tight">전체</span>
-          </button>
-        </li>
-        {calendars.map((cal) => {
-          const t = customCalendarColorTokens(cal.colorKey);
-          const active = activeId === cal.id;
-          const hint =
-            rowKind === 'partner'
-              ? formatPartnerTabHint(cal.partnerTenantIds, partnerTenantNames)
-              : rowKind === 'company'
-                ? formatCompanyTabHint(cal.externalCompanyIds, externalCompanyNames)
-                : formatRegionTabHint(cal.regions);
-          return (
-            <li key={cal.id}>
-              <div className={`flex items-stretch rounded overflow-hidden ${active ? 'bg-slate-100 ring-1 ring-slate-200/80' : ''}`}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(active ? null : cal.id)}
-                  className={`flex min-w-0 flex-1 items-center gap-1.5 pl-1.5 pr-0.5 py-1.5 text-left min-h-[34px] touch-manipulation ${
-                    active ? 'text-slate-900' : 'text-slate-700 hover:bg-slate-100 active:bg-slate-200/70'
-                  }`}
-                  title={hint}
-                >
-                  <span className="shrink-0 w-2.5 flex justify-center">
-                    <span className={`h-2 w-2 rounded-full border border-black/10 ${t.dot}`} />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-[11px] font-medium leading-tight">{cal.name}</span>
-                </button>
-                {active && onEditCalendar ? (
-                  <button
-                    type="button"
-                    onClick={() => onEditCalendar(cal)}
-                    className="flex shrink-0 items-center justify-center px-1.5 text-slate-600 hover:bg-slate-200/60 min-w-[30px] touch-manipulation"
-                    title="캘린더 설정"
-                    aria-label={`${cal.name} 설정`}
-                  >
-                    <EditAppIcon className="h-3 w-3" alt="" />
-                  </button>
-                ) : null}
-              </div>
-            </li>
-          );
-        })}
-        {calendars.length === 0 ? (
-          <li className="pl-4 py-1 text-[10px] text-slate-400 leading-tight">등록된 캘린더 없음</li>
-        ) : null}
-      </ul>
-    </section>
   );
 }
 
@@ -162,6 +67,51 @@ export function ScheduleCustomCalendarMobileMenuButton({
           className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-sky-600 ring-1 ring-white"
           aria-hidden
         />
+      ) : null}
+    </button>
+  );
+}
+
+export function ScheduleCustomCalendarDesktopMenuTrigger({
+  onClick,
+  hasActiveFilter,
+  activeRegionCalendar,
+  activeCompanyCalendar,
+  activePartnerCalendar,
+}: {
+  onClick: () => void;
+  hasActiveFilter: boolean;
+  activeRegionCalendar: UserCustomCalendarItem | null;
+  activeCompanyCalendar: UserCustomCalendarItem | null;
+  activePartnerCalendar: UserCustomCalendarItem | null;
+}) {
+  const activeLabels = [
+    activeRegionCalendar ? `지역 · ${activeRegionCalendar.name}` : null,
+    activeCompanyCalendar ? `업체 · ${activeCompanyCalendar.name}` : null,
+    activePartnerCalendar ? `파트너 · ${activePartnerCalendar.name}` : null,
+  ].filter(Boolean);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative flex w-full min-w-0 items-center gap-2.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-left shadow-md transition-colors hover:bg-slate-800 active:bg-slate-950 touch-manipulation"
+      aria-label="맞춤 캘린더 메뉴 열기"
+    >
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-600 bg-slate-800 text-white">
+        <BarsIcon className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-fluid-xs font-semibold text-white">맞춤 캘린더</span>
+        <span
+          className="mt-0.5 block truncate text-[10px] leading-snug text-slate-400"
+          title={activeLabels.length > 0 ? activeLabels.join(' · ') : undefined}
+        >
+          {activeLabels.length > 0 ? activeLabels.join(' · ') : '지역 · 업체 · 파트너 필터'}
+        </span>
+      </span>
+      {hasActiveFilter ? (
+        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-sky-400 ring-1 ring-slate-900" aria-hidden />
       ) : null}
     </button>
   );
@@ -368,7 +318,20 @@ export function ScheduleCustomCalendarMobileSheet({
             </section>
           ) : null}
 
-          <CalendarListSection
+          <button
+            type="button"
+            onClick={handleClearAll}
+            className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left min-h-[26px] touch-manipulation text-slate-700 hover:bg-slate-100 active:bg-slate-200/70 ${
+              !(activeRegionCalendarId || activeCompanyCalendarId || activePartnerCalendarId)
+                ? 'font-semibold text-slate-900'
+                : ''
+            }`}
+          >
+            <span className="shrink-0 w-2 text-center text-[10px] text-slate-400">—</span>
+            <span className="text-[11px] leading-tight">전체</span>
+          </button>
+
+          <ScheduleCustomCalendarListSection
             title="지역별"
             calendars={regionCalendars}
             activeId={activeRegionCalendarId}
@@ -379,7 +342,7 @@ export function ScheduleCustomCalendarMobileSheet({
             onEditCalendar={onEditCalendar ? handleEdit : undefined}
           />
 
-          <CalendarListSection
+          <ScheduleCustomCalendarListSection
             title="업체별"
             calendars={companyCalendars}
             activeId={activeCompanyCalendarId}
@@ -391,7 +354,7 @@ export function ScheduleCustomCalendarMobileSheet({
           />
 
           {showPartnerRow ? (
-            <CalendarListSection
+            <ScheduleCustomCalendarListSection
               title="파트너별"
               calendars={partnerCalendars}
               activeId={activePartnerCalendarId}
@@ -404,16 +367,7 @@ export function ScheduleCustomCalendarMobileSheet({
           ) : null}
         </div>
 
-        <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-2.5 py-2 space-y-1">
-          {(activeRegionCalendarId || activeCompanyCalendarId || activePartnerCalendarId) && (
-            <button
-              type="button"
-              onClick={handleClearAll}
-              className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:bg-slate-50 min-h-[32px] touch-manipulation leading-tight"
-            >
-              필터 모두 해제
-            </button>
-          )}
+        <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-2.5 py-2">
           <Link
             to="/admin/service-zones"
             onClick={onClose}
