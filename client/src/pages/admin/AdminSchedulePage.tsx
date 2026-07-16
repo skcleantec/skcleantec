@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useInboxRealtime, useChangeLogRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import {
@@ -52,7 +52,7 @@ import { listSelectableExternalCompanies } from '../../api/externalCompanies';
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal, SON_EOMNEUNG_NAL_HELP } from '../../utils/sonEomneungNal';
 import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
-import { CustomCalendarTabsBar } from '../../components/admin/CustomCalendarTabsBar';
+import { ScheduleCustomCalendarSidebar } from '../../components/admin/ScheduleCustomCalendarSidebar';
 import {
   ScheduleCustomCalendarMobileMenuButton,
   ScheduleCustomCalendarMobileSheet,
@@ -738,6 +738,10 @@ function ScheduleLegendItems({ compact = false }: { compact?: boolean }) {
       <span className="inline-flex items-center gap-1.5">
         <span className="h-2 w-2 shrink-0 rounded-full bg-rose-100 ring-2 ring-rose-400" />
         대기
+      </span>
+      <span className="inline-flex items-center gap-1.5" title="발주서 미제출·대기 접수가 있는 날">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
+        미제출
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span className="h-2 w-2 shrink-0 rounded-md bg-slate-200" />
@@ -1669,9 +1673,8 @@ export function AdminSchedulePage() {
           일정 통계·가용 슬롯 정보를 불러오는 중입니다…
         </div>
       )}
-      {/* 범례·안내 — 모바일: 한 카드에 붙여 접기 / PC: 기존 레이아웃 */}
-      <div className="lg:contents">
-        <div className="lg:hidden rounded-lg border border-slate-200 bg-slate-50/80 overflow-hidden divide-y divide-slate-200/70 shadow-sm">
+      {/* 범례·안내 — 모바일: 접기 카드 / PC: 캘린더 왼쪽 세로 박스 */}
+      <div className="lg:hidden rounded-lg border border-slate-200 bg-slate-50/80 overflow-hidden divide-y divide-slate-200/70 shadow-sm">
           <MobileCollapsePanel title="범례 · 기호" compact className="border-0 bg-transparent shadow-none">
             <ScheduleLegendItems compact />
           </MobileCollapsePanel>
@@ -1728,7 +1731,7 @@ export function AdminSchedulePage() {
               <span className="text-violet-700">⚡ 사이(미배정)</span>
               <span className="inline-flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />
-                대기
+                미제출
               </span>
               <span className="inline-flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
@@ -1742,104 +1745,81 @@ export function AdminSchedulePage() {
           </MobileCollapsePanel>
         </div>
 
-        <div className="hidden lg:block rounded-xl border border-slate-200 bg-slate-50/80 overflow-hidden">
-          <div className="px-3 py-2.5">
-            <ScheduleLegendItems />
+      <div className="lg:grid lg:grid-cols-[minmax(210px,260px)_minmax(0,1fr)] lg:gap-3 lg:items-start">
+        <aside className="hidden lg:flex lg:flex-col lg:gap-2 lg:min-w-0">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 shadow-sm">
+            <ScheduleLegendItems compact />
           </div>
-          <div className="min-w-0 border-t border-slate-200/80 pt-2 space-y-2 px-3 pb-2.5">
-              <CustomCalendarTabsBar
-                rowLabel="지역"
-                className="w-full min-w-0"
-                calendars={regionCalendars}
-                activeId={activeRegionCalendarId}
-                onSelect={(id) => setActiveRegionCalendarId(id)}
-                onClickAdd={() => {
-                  setCustomCalendarCreateFocus('region');
-                  setCustomCalendarEditing(null);
-                  setCustomCalendarModalOpen(true);
-                }}
-                showAddButton={canManageCustomCalendar}
-                addButtonTitle="지역 캘린더 추가"
-                onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
-              />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CustomCalendarTabsBar
-                  rowLabel="업체"
-                  className="w-full min-w-0 min-[520px]:flex-1"
-                  calendars={companyCalendars}
-                  activeId={activeCompanyCalendarId}
-                  onSelect={(id) => setActiveCompanyCalendarId(id)}
-                  onClickAdd={() => {
-                    setCustomCalendarCreateFocus('company');
-                    setCustomCalendarEditing(null);
-                    setCustomCalendarModalOpen(true);
-                  }}
-                  showAddButton={canManageCustomCalendar}
-                  addButtonTitle="업체 캘린더 추가"
-                  onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
-                  externalCompanyNames={externalCompanyNameById}
-                />
-                <Link
-                  to="/admin/service-zones"
-                  className="shrink-0 text-fluid-xs font-medium text-slate-600 hover:text-slate-900 underline-offset-2 hover:underline"
-                >
-                  서비스 권역 관리
-                </Link>
-              </div>
-              {hasTenantExchange ? (
-                <CustomCalendarTabsBar
-                  rowLabel="파트너"
-                  className="w-full min-w-0"
-                  calendars={partnerCalendars}
-                  activeId={activePartnerCalendarId}
-                  onSelect={(id) => setActivePartnerCalendarId(id)}
-                  onClickAdd={() => {
-                    setCustomCalendarCreateFocus('partner');
-                    setCustomCalendarEditing(null);
-                    setCustomCalendarModalOpen(true);
-                  }}
-                  showAddButton={canManageCustomCalendar}
-                  addButtonTitle="파트너 캘린더 추가"
-                  onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
-                  partnerTenantNames={partnerTenantNameById}
-                />
-              ) : null}
-              {[activeRegionCalendar, activeCompanyCalendar, activePartnerCalendar].filter(Boolean).length >= 2 ? (
-                <p className="text-fluid-xs text-slate-600">
-                  필터:{' '}
-                  <span className="font-medium text-slate-800">
-                    {[activeRegionCalendar, activeCompanyCalendar, activePartnerCalendar]
-                      .filter(Boolean)
-                      .map((c) => c!.name)
-                      .join(' ∩ ')}
-                  </span>
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-        {leaderSlotDeficitKeysInMonth.length > 0 ? (
-          <div
-            role="status"
-            className="mb-2 hidden lg:block rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs text-rose-950"
-          >
-            <span className="font-semibold">팀장 슬롯 초과:</span>{' '}
-            이번 달{' '}
-            <strong className="tabular-nums">{leaderSlotDeficitKeysInMonth.length}</strong>개 날짜에서
-            오전·오후 잔여(TO)가 마이너스입니다. 일부 접수를 다른 날짜로 옮기거나 배정을 조정해 주세요.{' '}
-            <button
-              type="button"
-              className="ml-1 font-medium text-rose-900 underline underline-offset-2 hover:text-rose-950"
-              onClick={() => {
-                const first = leaderSlotDeficitKeysInMonth[0];
-                if (first) setSelectedDate(first);
-              }}
+          {leaderSlotDeficitKeysInMonth.length > 0 ? (
+            <div
+              role="status"
+              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs leading-snug text-rose-950 shadow-sm"
             >
-              첫 해당일로 선택
-            </button>
-          </div>
-        ) : null}
-      </div>
+              <span className="font-semibold">팀장 슬롯 초과</span>
+              <p className="mt-1 whitespace-nowrap truncate text-[11px]">
+                이번 달{' '}
+                <strong className="tabular-nums">{leaderSlotDeficitKeysInMonth.length}</strong>일 · 오전·오후
+                잔여(TO) 마이너스
+              </p>
+              <p className="mt-1 text-[11px] font-medium tabular-nums text-rose-900">
+                {leaderSlotDeficitKeysInMonth.map((key, index) => {
+                  const day = Number(key.split('-')[2]);
+                  return (
+                    <span key={key}>
+                      {index > 0 ? <span className="text-rose-700/70">/</span> : null}
+                      <button
+                        type="button"
+                        className="underline underline-offset-2 hover:text-rose-950"
+                        onClick={() => setSelectedDate(key)}
+                        title={formatDateCompactWithWeekday(key)}
+                      >
+                        {day}일
+                      </button>
+                    </span>
+                  );
+                })}
+              </p>
+            </div>
+          ) : null}
+          {(regionCalendars.length > 0 || companyCalendars.length > 0 || canManageCustomCalendar) ? (
+            <ScheduleCustomCalendarSidebar
+              regionCalendars={regionCalendars}
+              companyCalendars={companyCalendars}
+              partnerCalendars={partnerCalendars}
+              activeRegionCalendarId={activeRegionCalendarId}
+              activeCompanyCalendarId={activeCompanyCalendarId}
+              activePartnerCalendarId={activePartnerCalendarId}
+              activeRegionCalendar={activeRegionCalendar}
+              activeCompanyCalendar={activeCompanyCalendar}
+              activePartnerCalendar={activePartnerCalendar}
+              onSelectRegion={setActiveRegionCalendarId}
+              onSelectCompany={setActiveCompanyCalendarId}
+              onSelectPartner={setActivePartnerCalendarId}
+              onAddRegion={() => {
+                setCustomCalendarCreateFocus('region');
+                setCustomCalendarEditing(null);
+                setCustomCalendarModalOpen(true);
+              }}
+              onAddCompany={() => {
+                setCustomCalendarCreateFocus('company');
+                setCustomCalendarEditing(null);
+                setCustomCalendarModalOpen(true);
+              }}
+              onAddPartner={() => {
+                setCustomCalendarCreateFocus('partner');
+                setCustomCalendarEditing(null);
+                setCustomCalendarModalOpen(true);
+              }}
+              onEditCalendar={canManageCustomCalendar ? openEditCustomCalendar : undefined}
+              canManage={canManageCustomCalendar}
+              showPartnerRow={hasTenantExchange}
+              externalCompanyNames={externalCompanyNameById}
+              partnerTenantNames={partnerTenantNameById}
+            />
+          ) : null}
+        </aside>
+
+        <div className="min-w-0 flex flex-col gap-3 lg:gap-5">
 
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
           <div className="relative">
@@ -3198,6 +3178,9 @@ export function AdminSchedulePage() {
               ) : null}
             </div>
           )}
+
+        </div>
+      </div>
 
       {detailItem && token && (
         <Suspense fallback={null}>
