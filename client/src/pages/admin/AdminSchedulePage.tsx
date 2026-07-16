@@ -1699,8 +1699,8 @@ export function AdminSchedulePage() {
           일정 통계·가용 슬롯 정보를 불러오는 중입니다…
         </div>
       )}
-      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(380px,440px)] xl:gap-4 xl:min-h-0 xl:items-start">
-        <div className="min-w-0 flex flex-col gap-3 lg:gap-5">
+      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(360px,520px)] xl:gap-4 xl:min-h-0 xl:items-start">
+        <div className="min-w-0 flex flex-col gap-3 lg:gap-5 xl:min-h-0">
       {/* 범례·안내 — 모바일: 한 카드에 붙여 접기 / PC: 기존 레이아웃 */}
       <div className="lg:contents">
         <div className="lg:hidden rounded-lg border border-slate-200 bg-slate-50/80 overflow-hidden divide-y divide-slate-200/70 shadow-sm">
@@ -2210,10 +2210,13 @@ export function AdminSchedulePage() {
           </div>
           </div>
 
-          {/* 선택한 날짜의 일정 목록 + 상세 보기 */}
-          {selectedDate && (
-            <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-sm">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3 mb-3">
+        </div>
+
+        <aside className="min-w-0 flex flex-col xl:sticky xl:top-4 xl:self-start xl:max-h-[calc(100dvh-9rem)]">
+          {/* 선택한 날짜 접수 목록 — PC(xl+)에서 캘린더 오른쪽 */}
+          {selectedDate ? (
+            <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-sm xl:flex xl:flex-col xl:min-h-0 xl:max-h-[calc(100dvh-9rem)] xl:overflow-hidden">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3 mb-3 xl:shrink-0 xl:order-1">
                 <h3 className="text-fluid-xs sm:text-fluid-sm font-medium text-slate-800 tabular-nums min-w-0">
                   {formatDateCompactWithWeekday(selectedDate)}{' '}
                   <span className="text-slate-600 font-normal">({(byDate[selectedDate]?.length ?? 0)}건)</span>
@@ -2314,6 +2317,7 @@ export function AdminSchedulePage() {
                 </div>
               </div>
 
+              <div className="xl:order-3 xl:shrink-0">
               {token && (meRole === 'ADMIN' || meRole === 'MARKETER') ? (
                 <ScheduleDayStaffMemoPanel token={token} date={selectedDate} />
               ) : null}
@@ -2526,6 +2530,7 @@ export function AdminSchedulePage() {
                   </div>
                 </details>
               )}
+              </div>
 
               {(() => {
                 const dayListAll = byDate[selectedDate] ?? [];
@@ -2591,7 +2596,7 @@ export function AdminSchedulePage() {
                 const extTotal = morningExt.length + afternoonExt.length + otherExt.length;
 
                 return (
-                  <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-4 xl:order-2 xl:flex-1 xl:min-h-0 xl:overflow-y-auto xl:overscroll-y-contain xl:pr-0.5">
                     {unassignedOwn.length > 0 && (
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-2.5 bg-rose-50 border border-rose-100 rounded-lg px-3 py-1.5 w-full">
@@ -3232,89 +3237,13 @@ export function AdminSchedulePage() {
                 </div>
               ) : null}
             </div>
-          )}
-
-        </div>
-
-        <aside className="hidden xl:flex xl:flex-col xl:min-h-0 xl:w-full xl:max-h-[calc(100dvh-9rem)] xl:sticky xl:top-0 xl:self-start">
-          {createInquiryModalDate && token ? (
-            <Suspense fallback={<div className="rounded-xl border border-slate-200 bg-white p-6 text-fluid-sm text-slate-500">불러오는 중…</div>}>
-              <ScheduleInquiryDetailModal
-                mode="create"
-                presentation="panel"
-                token={token}
-                initialPreferredDate={createInquiryModalDate}
-                teamLeaders={teamLeaders}
-                professionalCatalog={profCatalog}
-                scheduleStatsByDate={stats}
-                currentUserRole={meRole}
-                currentUserStaffAdmin={effectiveStaffAdmin}
-                currentUserOperationalAdmin={operationalAdmin}
-                currentUserCanEditMarketer={canEditMarketerField}
-                currentUserCanDeleteInquiry={canDeleteInquiry}
-                marketerOptions={marketers}
-                meUser={meUser}
-                onClose={() => {
-                  setCreateInquiryModalDate(null);
-                  syncOpenInquiryParam(null);
-                }}
-                onSaved={() => {
-                  setCreateInquiryModalDate(null);
-                  syncOpenInquiryParam(null);
-                  fetchMonthData(false);
-                }}
-              />
-            </Suspense>
-          ) : detailItem && token ? (
-            <Suspense fallback={<div className="rounded-xl border border-slate-200 bg-white p-6 text-fluid-sm text-slate-500">불러오는 중…</div>}>
-              <ScheduleInquiryDetailModal
-                presentation="panel"
-                token={token}
-                item={detailItem}
-                teamLeaders={teamLeaders}
-                professionalCatalog={profCatalog}
-                scheduleStatsByDate={stats}
-                currentUserRole={meRole}
-                currentUserStaffAdmin={effectiveStaffAdmin}
-                currentUserOperationalAdmin={operationalAdmin}
-                currentUserCanEditMarketer={canEditMarketerField}
-                currentUserCanDeleteInquiry={canDeleteInquiry}
-                marketerOptions={marketers}
-                meUser={meUser}
-                leaderAssignmentCountsByLeaderId={detailLeaderAssignmentCounts}
-                dayScheduleItems={
-                  detailItem.preferredDate
-                    ? byDate[formatPreferredDateInputYmd(detailItem.preferredDate) ?? ''] ?? []
-                    : []
-                }
-                customCalendars={customCalendars}
-                onCustomCalendarsChange={setCustomCalendars}
-                serviceZones={serviceZones}
-                teamLeaderAssignmentSurface={
-                  activeServiceZoneId ? 'regional-schedule' : 'global-schedule'
-                }
-                activeServiceZoneId={activeServiceZoneId}
-                onClose={closeScheduleDetail}
-                onSaved={() => fetchMonthData(false)}
-                onInquiryRefresh={async () => {
-                  if (!token || !detailItem) return;
-                  try {
-                    const raw = await getInquiry(token, detailItem.id);
-                    setDetailItem(raw as unknown as ScheduleItem);
-                    void fetchMonthData(false);
-                  } catch {
-                    void fetchMonthData(false);
-                  }
-                }}
-              />
-            </Suspense>
           ) : (
-            <div className="flex h-full min-h-[14rem] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/80 px-6 py-10 text-center">
-              <p className="text-fluid-sm font-medium text-slate-700">접수 상세</p>
+            <div className="hidden xl:flex min-h-[14rem] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/80 px-6 py-10 text-center">
+              <p className="text-fluid-sm font-medium text-slate-700">접수 목록</p>
               <p className="mt-2 text-fluid-xs text-slate-500 leading-relaxed">
-                왼쪽 캘린더·일정 목록에서 접수를 선택하면
+                왼쪽 캘린더에서 날짜를 선택하면
                 <br />
-                여기에서 바로 수정할 수 있습니다.
+                이곳에 해당 날짜 접수가 표시됩니다.
               </p>
             </div>
           )}
@@ -3322,7 +3251,6 @@ export function AdminSchedulePage() {
       </div>
 
       {detailItem && token && (
-        <div className="xl:hidden">
         <Suspense fallback={null}>
         <ScheduleInquiryDetailModal
           presentation="modal"
@@ -3361,7 +3289,6 @@ export function AdminSchedulePage() {
           }}
         />
         </Suspense>
-        </div>
       )}
 
       {memoModalItem && token && (
@@ -3376,7 +3303,6 @@ export function AdminSchedulePage() {
       )}
 
       {createInquiryModalDate && token && (
-        <div className="xl:hidden">
         <Suspense fallback={null}>
         <ScheduleInquiryDetailModal
           mode="create"
@@ -3404,7 +3330,6 @@ export function AdminSchedulePage() {
           }}
         />
         </Suspense>
-        </div>
       )}
 
       {closureModalOpen && selectedDate && token && (
