@@ -55,7 +55,6 @@ import {
   partnerShareBlocksExternal,
 } from '../../utils/inquiryExternalPartnerShareMutex';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
-import { OrderFormTemplateBadge } from '../../components/orderform/OrderFormTemplateInfo';
 import { getPromotedOrderFormListFields } from '../../api/orderFormTemplates';
 import type { OrderFormListSnapshot } from '@shared/orderFormListSnapshot';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
@@ -135,9 +134,13 @@ import {
 import { isRealCustomerAddress } from '@shared/orderFormPendingAddress';
 import {
   formatInquiryAreaKoLine,
-  formatInquiryListAreaLabel,
+  formatInquiryListAreaOrServiceLabel,
   inquiryAreaEditFormStringsFromItem,
 } from '../../utils/inquiryAreaDisplay';
+import {
+  orderFormServiceKindListLabel,
+  resolveOrderFormServiceKind,
+} from '@shared/orderFormServiceKind';
 import { happyCallRowTone } from '../../utils/happyCall';
 import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import {
@@ -684,10 +687,16 @@ function formatInquiryTeamSummary(item: InquiryItem): string {
   return parts.join('/');
 }
 
+function inquiryListServiceKindLabel(item: InquiryItem): string {
+  return orderFormServiceKindListLabel(
+    resolveOrderFormServiceKind(item.orderForm?.template ?? null),
+  );
+}
+
 /** 모바일 카드: 면적·방(값 있을 때만) + 팀 요약, `- · -` 방지 */
 function formatInquiryMobileSpecsTail(item: InquiryItem, oneRoomLabel = '원룸'): string {
   const segs: string[] = [];
-  const area = formatInquiryListAreaLabel(item, { oneRoomLabel });
+  const area = formatInquiryListAreaOrServiceLabel(item, { oneRoomLabel });
   if (area !== '—' && area !== '-') segs.push(area);
   const rooms = formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount, item.kitchenCount);
   if (rooms !== '-') segs.push(rooms);
@@ -839,7 +848,7 @@ export function AdminInquiriesPage() {
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [promotedListFields, setPromotedListFields] = useState<Array<{ fieldKey: string; label: string }>>([]);
-  const listTableWidthRem = (hasInspectionModule ? 68 : 62) + promotedListFields.length * 4;
+  const listTableWidthRem = (hasInspectionModule ? 72 : 66) + promotedListFields.length * 4;
   const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
   const [customCalendars, setCustomCalendars] = useState<UserCustomCalendarItem[]>([]);
   const [listQuickEdit, setListQuickEdit] = useState<{
@@ -2915,9 +2924,15 @@ export function AdminInquiriesPage() {
                               <InquiryDbMarketplaceBadge dbListing={item.dbListing} compact />
                             ) : null}
                             <InquiryProfOptionsReviewListBadge item={item} />
-                            {item.orderForm?.template ? (
-                              <OrderFormTemplateBadge template={item.orderForm.template} />
-                            ) : null}
+                            <span
+                              className={`shrink-0 rounded-full px-1.5 py-0.5 text-fluid-2xs font-semibold ring-1 ${
+                                inquiryListServiceKindLabel(item) === '에어컨'
+                                  ? 'bg-sky-100 text-sky-900 ring-sky-200/80'
+                                  : 'bg-slate-100 text-slate-600 ring-slate-200'
+                              }`}
+                            >
+                              {inquiryListServiceKindLabel(item)}
+                            </span>
                           </div>
                           {item.scheduleMemo?.trim() ? (
                             <p
@@ -3244,13 +3259,14 @@ export function AdminInquiriesPage() {
                   <>
                     <col className="w-[8%]" />
                     <col className="w-[5%]" />
-                    <col className="w-[7%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
+                    <col className="w-[5%]" />
                     <col className="w-[7%]" />
-                    <col className="w-[9%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[8%]" />
                     {promotedListFields.map((f) => (
                       <col key={f.fieldKey} className="w-[6%]" />
                     ))}
@@ -3262,13 +3278,14 @@ export function AdminInquiriesPage() {
                   <>
                     <col className="w-[9%]" />
                     <col className="w-[6%]" />
-                    <col className="w-[8%]" />
+                    <col className="w-[5%]" />
+                    <col className="w-[7%]" />
                     <col className="w-[6%]" />
                     <col className="w-[8%]" />
                     <col className="w-[6%]" />
                     <col className="w-[8%]" />
                     <col className="w-[8%]" />
-                    <col className="w-[10%]" />
+                    <col className="w-[9%]" />
                     {promotedListFields.map((f) => (
                       <col key={f.fieldKey} className="w-[6%]" />
                     ))}
@@ -3288,6 +3305,7 @@ export function AdminInquiriesPage() {
                     className="sticky left-0 z-10 border-r border-slate-200/60 bg-slate-50/90 px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
                   />
                   <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">접수자</th>
+                  <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">서비스</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">고객</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">연락처</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">주소</th>
@@ -3423,6 +3441,15 @@ export function AdminInquiriesPage() {
                       <InquiryListMarketerDisplay item={item} />
                     </td>
                     <td
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[10px] font-medium leading-tight xl:text-fluid-2xs ${pBorder} ${
+                        inquiryListServiceKindLabel(item) === '에어컨'
+                          ? 'text-sky-800'
+                          : 'text-slate-600'
+                      }`}
+                    >
+                      {inquiryListServiceKindLabel(item)}
+                    </td>
+                    <td
                       className={`min-w-0 truncate px-1 py-0.5 align-middle text-center text-fluid-2xs font-medium text-slate-900 xl:px-1.5 xl:text-fluid-xs 2xl:text-fluid-xs ${pBorder}`}
                       title={`${item.customerName}${item.claimMemo ? ' (클레임)' : ''}`}
                     >
@@ -3446,11 +3473,6 @@ export function AdminInquiriesPage() {
                             title={item.scheduleMemo}
                           >
                             {item.scheduleMemo}
-                          </div>
-                        ) : null}
-                        {item.orderForm?.template ? (
-                          <div className="mt-0.5 flex justify-center">
-                            <OrderFormTemplateBadge template={item.orderForm.template} />
                           </div>
                         ) : null}
                       </div>
@@ -3483,7 +3505,7 @@ export function AdminInquiriesPage() {
                         onClick={() => setListQuickEdit({ field: 'area', item })}
                       >
                         <span className="line-clamp-2 break-words" title={formatInquiryAreaKoLine(item)}>
-                          {formatInquiryListAreaLabel(item, { oneRoomLabel })}
+                          {formatInquiryListAreaOrServiceLabel(item, { oneRoomLabel })}
                         </span>
                       </InquiryListQuickEditTrigger>
                     </td>

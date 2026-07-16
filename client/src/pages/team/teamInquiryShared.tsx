@@ -38,7 +38,8 @@ import {
   type TeamViewerMe,
 } from '../../api/team';
 import { copyTextToClipboard } from '../../utils/clipboard';
-import { formatInquiryListAreaLabel, formatInquiryAreaCompactKo } from '../../utils/inquiryAreaDisplay';
+import { formatInquiryListAreaOrServiceLabel, formatInquiryAreaCompactOrService } from '../../utils/inquiryAreaDisplay';
+import { isAirconOrderFormTemplate } from '@shared/orderFormServiceKind';
 import { operatingCompanyShortLabel } from '../../utils/operatingCompanyShortLabel';
 import { operatingCompanyBadgeColorClasses } from '../../utils/operatingCompanyBadgeColors';
 import type { OperatingCompanyBadgeData } from '../../components/admin/OperatingCompanyBadge';
@@ -338,18 +339,39 @@ export function formatTeamInquiryAreaSummary(item: {
   areaPyeong?: number | null;
   exclusiveAreaSqm?: number | null;
   isOneRoom?: boolean | null;
+  orderForm?: InquiryItem['orderForm'];
 }): string {
-  const s = formatInquiryListAreaLabel(item);
+  const s = formatInquiryListAreaOrServiceLabel(item);
   return s === '—' ? teamT('team.common.emDash') : s;
 }
 
-/** 목록·배지용 — 「34평」 등 짧은 평수 (상세는 formatTeamInquiryAreaSummary) */
+/** 목록·배지용 — 「34평」 등 짧은 평수 (에어컨 발주서는 「에어컨」) */
 export function formatTeamInquiryAreaCompact(item: {
   areaPyeong?: number | null;
   exclusiveAreaSqm?: number | null;
   isOneRoom?: boolean | null;
+  orderForm?: InquiryItem['orderForm'];
 }): string | null {
-  return formatInquiryAreaCompactKo(item);
+  return formatInquiryAreaCompactOrService(item);
+}
+
+/** 배정·스케줄·대시보드 목록 — 에어컨 발주서 전용 pill */
+export function TeamInquiryServiceKindListBadge({
+  item,
+  className = '',
+}: {
+  item: Pick<InquiryItem, 'orderForm'>;
+  className?: string;
+}) {
+  if (!isAirconOrderFormTemplate(item.orderForm?.template)) return null;
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-fluid-2xs font-semibold text-sky-900 ring-1 ring-sky-200/80 ${className}`}
+      title="에어컨 청소 발주서"
+    >
+      에어컨
+    </span>
+  );
 }
 
 export function formatRoomInfo(r: number | null, b: number | null, v: number | null) {
@@ -450,12 +472,15 @@ export function TeamInquiryBrandListBadge({
   );
 }
 
-/** 배정·스케줄 목록 — 평수 pill (짧은 표기, 호버 시 공급/전용 상세) */
+/** 배정·스케줄 목록 — 평수 pill (에어컨 발주서는 「에어컨」) */
 export function TeamInquiryAreaListBadge({
   item,
   className = '',
 }: {
-  item: Pick<InquiryItem, 'areaBasis' | 'areaPyeong' | 'exclusiveAreaSqm' | 'isOneRoom'>;
+  item: Pick<
+    InquiryItem,
+    'areaBasis' | 'areaPyeong' | 'exclusiveAreaSqm' | 'isOneRoom' | 'orderForm'
+  >;
   className?: string;
 }) {
   const label = formatTeamInquiryAreaCompact(item);

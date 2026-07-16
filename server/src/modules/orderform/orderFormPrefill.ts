@@ -9,6 +9,10 @@
 
 import type { Prisma } from '@prisma/client';
 import {
+  normalizeAcUnitsAnswer,
+  ORDER_FORM_AC_UNITS_FIELD_KEY,
+} from '../../lib/orderFormAcUnits.js';
+import {
   parseProfessionalOptionSelectionsRaw,
   serializeProfessionalOptionSelectionsJson,
 } from './specialtyOptions.js';
@@ -146,6 +150,11 @@ export function buildPrefillFromPayload(
     const allowed = new Set(customFieldKeys);
     for (const [k, v] of Object.entries(answers as Record<string, unknown>)) {
       if (!allowed.has(k)) continue;
+      if (k === ORDER_FORM_AC_UNITS_FIELD_KEY) {
+        const rows = normalizeAcUnitsAnswer(v);
+        if (rows.length > 0) out[k] = rows;
+        continue;
+      }
       if (Array.isArray(v)) {
         const arr = v.map((x) => String(x)).filter(Boolean);
         if (arr.length > 0) out[k] = arr.slice(0, 50);

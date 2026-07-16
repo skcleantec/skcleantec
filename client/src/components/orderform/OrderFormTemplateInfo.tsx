@@ -1,5 +1,7 @@
 /** 접수 상세 — 발주서 양식(카테고리) 배지 + 동적 추가 항목 답변 표시 (관리/팀장/타업체 공통) */
 
+import { formatOrderFormListSnapshotValue } from '@shared/orderFormListSnapshot';
+
 export interface OrderFormTemplateLite {
   id: string;
   title: string;
@@ -8,11 +10,8 @@ export interface OrderFormTemplateLite {
   fields?: Array<{ fieldKey: string; label: string }>;
 }
 
-function renderAnswerValue(v: unknown): string {
-  if (v == null) return '';
-  if (Array.isArray(v)) return v.map((x) => String(x)).join(', ');
-  if (typeof v === 'boolean') return v ? '예' : '아니오';
-  return String(v);
+function renderAnswerValue(v: unknown, fieldKey?: string): string {
+  return formatOrderFormListSnapshotValue(v, fieldKey);
 }
 
 /** 어떤 발주서 양식으로 들어온 접수인지 알려주는 작은 배지 */
@@ -49,7 +48,11 @@ export function OrderFormCustomAnswers({
   const labelByKey = new Map((template?.fields ?? []).map((f) => [f.fieldKey, f.label]));
   const entries = Object.entries(answers)
     .filter(([, v]) => renderAnswerValue(v).trim() !== '')
-    .map(([k, v]) => ({ key: k, label: labelByKey.get(k) ?? k, value: renderAnswerValue(v) }));
+    .map(([k, v]) => ({
+      key: k,
+      label: labelByKey.get(k) ?? k,
+      value: renderAnswerValue(v, k),
+    }));
   if (entries.length === 0) return null;
   return (
     <div className={`rounded-lg border border-gray-200 bg-white ${className}`}>
