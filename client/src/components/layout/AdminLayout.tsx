@@ -767,7 +767,7 @@ export function AdminLayout() {
         {/* 우하단 블루-스카이 조명 */}
         <div className="hidden lg:block absolute -bottom-[20%] -right-[10%] w-[70%] h-[60%] rounded-full bg-gradient-to-br from-blue-500/16 to-sky-500/10 blur-[100px] opacity-80" />
         {/* 상단 중앙 소프트 스포트라이트 */}
-        <div className="hidden lg:block absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-[800px] h-[350px] rounded-full bg-indigo-500/8 blur-[120px] opacity-80" />
+        <div className="hidden lg:block absolute top-0 left-1/2 -translate-x-1/2 w-[90%] max-w-[1400px] h-[350px] rounded-full bg-indigo-500/8 blur-[120px] opacity-80" />
       </div>
       {reviewPaybackToast ? (
         <button
@@ -876,7 +876,7 @@ export function AdminLayout() {
         </div>
       ) : null}
       <header className="px-4 py-2.5 shadow-md theme-dark-header">
-        <div className="max-w-6xl mx-auto flex flex-col gap-2 min-w-0">
+        <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col gap-2 min-w-0">
           <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
             <button
               type="button"
@@ -1158,7 +1158,7 @@ export function AdminLayout() {
         </div>
       </header>
       </div>
-      <main className="staff-app-surface relative z-10 max-w-6xl mx-auto px-4 py-6 min-w-0 w-full flex-1 flex flex-col min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+      <main className="staff-app-surface relative z-10 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6 min-w-0 flex-1 flex flex-col min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
         {isPlatformSupportAccess ? (
           <div className="mb-4 rounded-lg border border-violet-300 bg-violet-50 px-4 py-2.5 text-sm text-violet-900">
             플랫폼 <strong className="font-semibold">지원 접속</strong> 모드입니다. 장애 확인·복구 목적으로만

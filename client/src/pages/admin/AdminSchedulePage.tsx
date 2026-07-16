@@ -784,7 +784,7 @@ export function AdminSchedulePage() {
   const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -864,10 +864,42 @@ export function AdminSchedulePage() {
     return () => setScheduleDetailInquiryIdForOrderFab(null);
   }, [detailItem?.id]);
 
-  /** `/admin/schedule?openInquiry=` — 정보공유·타 화면에서 스케줄 접수 상세 복원 */
+  /** `/admin/schedule?openInquiry=` — 정보공유·타 화면·새로고침 시 접수 상세 복원 */
   const openInquiryId = searchParams.get('openInquiry');
+
+  const syncOpenInquiryParam = useCallback(
+    (id: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (id) next.set('openInquiry', id);
+          else next.delete('openInquiry');
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const openScheduleDetail = useCallback(
+    (item: ScheduleItem) => {
+      setMemoModalItem(null);
+      setCreateInquiryModalDate(null);
+      setDetailItem(item);
+      syncOpenInquiryParam(item.id);
+    },
+    [syncOpenInquiryParam],
+  );
+
+  const closeScheduleDetail = useCallback(() => {
+    setDetailItem(null);
+    syncOpenInquiryParam(null);
+  }, [syncOpenInquiryParam]);
+
   useEffect(() => {
     if (!openInquiryId || !token) return;
+    if (detailItem?.id === openInquiryId) return;
     let cancelled = false;
     (async () => {
       try {
@@ -885,16 +917,14 @@ export function AdminSchedulePage() {
             setSelectedDate(preferred);
           }
         }
-        navigate('/admin/schedule', { replace: true });
       } catch {
-        if (!cancelled) navigate('/admin/schedule', { replace: true });
+        if (!cancelled) syncOpenInquiryParam(null);
       }
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- openInquiryId만 트리거
-  }, [openInquiryId, token]);
+  }, [openInquiryId, token, detailItem?.id, syncOpenInquiryParam]);
 
   const fetchMonthData = useCallback(
     async (showLoading: boolean) => {
@@ -1593,7 +1623,7 @@ export function AdminSchedulePage() {
   };
 
   return (
-    <div className="flex flex-col gap-3 lg:gap-5 min-w-0">
+    <div className="flex flex-col gap-3 lg:gap-5 min-w-0 xl:flex-1 xl:min-h-0">
       <div className="flex flex-col gap-1 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
         <div className="hidden lg:block">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1669,6 +1699,8 @@ export function AdminSchedulePage() {
           일정 통계·가용 슬롯 정보를 불러오는 중입니다…
         </div>
       )}
+      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(380px,440px)] xl:gap-4 xl:min-h-0 xl:items-start">
+        <div className="min-w-0 flex flex-col gap-3 lg:gap-5">
       {/* 범례·안내 — 모바일: 한 카드에 붙여 접기 / PC: 기존 레이아웃 */}
       <div className="lg:contents">
         <div className="lg:hidden rounded-lg border border-slate-200 bg-slate-50/80 overflow-hidden divide-y divide-slate-200/70 shadow-sm">
@@ -2269,7 +2301,10 @@ export function AdminSchedulePage() {
                   )}
                   <button
                     type="button"
-                    onClick={() => setCreateInquiryModalDate(selectedDate)}
+                    onClick={() => {
+                      closeScheduleDetail();
+                      setCreateInquiryModalDate(selectedDate);
+                    }}
                     className="inline-flex items-center justify-center shrink-0 size-[clamp(2rem,5.5vmin,2.5rem)] min-h-[32px] min-w-[32px] rounded-full border-[1.5px] border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-sm touch-manipulation sm:size-10 sm:border-2"
                     title="이 날짜로 신규 접수 (상세와 동일한 폼)"
                     aria-label="이 날짜로 신규 접수"
@@ -2586,10 +2621,10 @@ export function AdminSchedulePage() {
                                     leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                     onPick={() => {
                                       setMemoModalItem(null);
-                                      setDetailItem(item);
+                                      openScheduleDetail(item);
                                     }}
                                     onOpenMemo={() => {
-                                      setDetailItem(null);
+                                      closeScheduleDetail();
                                       setMemoModalItem(item);
                                     }}
                                   />
@@ -2617,10 +2652,10 @@ export function AdminSchedulePage() {
                                     leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                     onPick={() => {
                                       setMemoModalItem(null);
-                                      setDetailItem(item);
+                                      openScheduleDetail(item);
                                     }}
                                     onOpenMemo={() => {
-                                      setDetailItem(null);
+                                      closeScheduleDetail();
                                       setMemoModalItem(item);
                                     }}
                                   />
@@ -2651,10 +2686,10 @@ export function AdminSchedulePage() {
                                     leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                     onPick={() => {
                                       setMemoModalItem(null);
-                                      setDetailItem(item);
+                                      openScheduleDetail(item);
                                     }}
                                     onOpenMemo={() => {
-                                      setDetailItem(null);
+                                      closeScheduleDetail();
                                       setMemoModalItem(item);
                                     }}
                                   />
@@ -2684,10 +2719,10 @@ export function AdminSchedulePage() {
                               leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
-                                setDetailItem(item);
+                                openScheduleDetail(item);
                               }}
                               onOpenMemo={() => {
-                                setDetailItem(null);
+                                closeScheduleDetail();
                                 setMemoModalItem(item);
                               }}
                             />
@@ -2714,10 +2749,10 @@ export function AdminSchedulePage() {
                               leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
-                                setDetailItem(item);
+                                openScheduleDetail(item);
                               }}
                               onOpenMemo={() => {
-                                setDetailItem(null);
+                                closeScheduleDetail();
                                 setMemoModalItem(item);
                               }}
                             />
@@ -2747,10 +2782,10 @@ export function AdminSchedulePage() {
                               leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
-                                setDetailItem(item);
+                                openScheduleDetail(item);
                               }}
                               onOpenMemo={() => {
-                                setDetailItem(null);
+                                closeScheduleDetail();
                                 setMemoModalItem(item);
                               }}
                             />
@@ -2792,10 +2827,10 @@ export function AdminSchedulePage() {
                                     leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                     onPick={() => {
                                       setMemoModalItem(null);
-                                      setDetailItem(item);
+                                      openScheduleDetail(item);
                                     }}
                                     onOpenMemo={() => {
-                                      setDetailItem(null);
+                                      closeScheduleDetail();
                                       setMemoModalItem(item);
                                     }}
                                   />
@@ -2823,10 +2858,10 @@ export function AdminSchedulePage() {
                                     leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                     onPick={() => {
                                       setMemoModalItem(null);
-                                      setDetailItem(item);
+                                      openScheduleDetail(item);
                                     }}
                                     onOpenMemo={() => {
-                                      setDetailItem(null);
+                                      closeScheduleDetail();
                                       setMemoModalItem(item);
                                     }}
                                   />
@@ -2854,10 +2889,10 @@ export function AdminSchedulePage() {
                                     leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                     onPick={() => {
                                       setMemoModalItem(null);
-                                      setDetailItem(item);
+                                      openScheduleDetail(item);
                                     }}
                                     onOpenMemo={() => {
-                                      setDetailItem(null);
+                                      closeScheduleDetail();
                                       setMemoModalItem(item);
                                     }}
                                   />
@@ -2909,10 +2944,10 @@ export function AdminSchedulePage() {
                                           leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                           onPick={() => {
                                             setMemoModalItem(null);
-                                            setDetailItem(item);
+                                            openScheduleDetail(item);
                                           }}
                                           onOpenMemo={() => {
-                                            setDetailItem(null);
+                                            closeScheduleDetail();
                                             setMemoModalItem(item);
                                           }}
                                         />
@@ -2940,10 +2975,10 @@ export function AdminSchedulePage() {
                                           leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                           onPick={() => {
                                             setMemoModalItem(null);
-                                            setDetailItem(item);
+                                            openScheduleDetail(item);
                                           }}
                                           onOpenMemo={() => {
-                                            setDetailItem(null);
+                                            closeScheduleDetail();
                                             setMemoModalItem(item);
                                           }}
                                         />
@@ -2971,10 +3006,10 @@ export function AdminSchedulePage() {
                                           leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                           onPick={() => {
                                             setMemoModalItem(null);
-                                            setDetailItem(item);
+                                            openScheduleDetail(item);
                                           }}
                                           onOpenMemo={() => {
-                                            setDetailItem(null);
+                                            closeScheduleDetail();
                                             setMemoModalItem(item);
                                           }}
                                         />
@@ -3025,10 +3060,10 @@ export function AdminSchedulePage() {
                                             leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                             onPick={() => {
                                               setMemoModalItem(null);
-                                              setDetailItem(item);
+                                              openScheduleDetail(item);
                                             }}
                                             onOpenMemo={() => {
-                                              setDetailItem(null);
+                                              closeScheduleDetail();
                                               setMemoModalItem(item);
                                             }}
                                           />
@@ -3056,10 +3091,10 @@ export function AdminSchedulePage() {
                                             leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                             onPick={() => {
                                               setMemoModalItem(null);
-                                              setDetailItem(item);
+                                              openScheduleDetail(item);
                                             }}
                                             onOpenMemo={() => {
-                                              setDetailItem(null);
+                                              closeScheduleDetail();
                                               setMemoModalItem(item);
                                             }}
                                           />
@@ -3087,10 +3122,10 @@ export function AdminSchedulePage() {
                                             leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                                             onPick={() => {
                                               setMemoModalItem(null);
-                                              setDetailItem(item);
+                                              openScheduleDetail(item);
                                             }}
                                             onOpenMemo={() => {
-                                              setDetailItem(null);
+                                              closeScheduleDetail();
                                               setMemoModalItem(item);
                                             }}
                                           />
@@ -3126,10 +3161,10 @@ export function AdminSchedulePage() {
                               leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
                               onPick={() => {
                                 setMemoModalItem(null);
-                                setDetailItem(item);
+                                openScheduleDetail(item);
                               }}
                               onOpenMemo={() => {
-                                setDetailItem(null);
+                                closeScheduleDetail();
                                 setMemoModalItem(item);
                               }}
                             />
@@ -3163,7 +3198,7 @@ export function AdminSchedulePage() {
                             try {
                               const raw = await getInquiry(token, row.inquiryId);
                               setMemoModalItem(null);
-                              setDetailItem(raw as unknown as ScheduleItem);
+                              openScheduleDetail(raw as unknown as ScheduleItem);
                             } catch {
                               alert('접수를 불러올 수 없습니다.');
                             }
@@ -3199,9 +3234,98 @@ export function AdminSchedulePage() {
             </div>
           )}
 
+        </div>
+
+        <aside className="hidden xl:flex xl:flex-col xl:min-h-0 xl:w-full xl:max-h-[calc(100dvh-9rem)] xl:sticky xl:top-0 xl:self-start">
+          {createInquiryModalDate && token ? (
+            <Suspense fallback={<div className="rounded-xl border border-slate-200 bg-white p-6 text-fluid-sm text-slate-500">불러오는 중…</div>}>
+              <ScheduleInquiryDetailModal
+                mode="create"
+                presentation="panel"
+                token={token}
+                initialPreferredDate={createInquiryModalDate}
+                teamLeaders={teamLeaders}
+                professionalCatalog={profCatalog}
+                scheduleStatsByDate={stats}
+                currentUserRole={meRole}
+                currentUserStaffAdmin={effectiveStaffAdmin}
+                currentUserOperationalAdmin={operationalAdmin}
+                currentUserCanEditMarketer={canEditMarketerField}
+                currentUserCanDeleteInquiry={canDeleteInquiry}
+                marketerOptions={marketers}
+                meUser={meUser}
+                onClose={() => {
+                  setCreateInquiryModalDate(null);
+                  syncOpenInquiryParam(null);
+                }}
+                onSaved={() => {
+                  setCreateInquiryModalDate(null);
+                  syncOpenInquiryParam(null);
+                  fetchMonthData(false);
+                }}
+              />
+            </Suspense>
+          ) : detailItem && token ? (
+            <Suspense fallback={<div className="rounded-xl border border-slate-200 bg-white p-6 text-fluid-sm text-slate-500">불러오는 중…</div>}>
+              <ScheduleInquiryDetailModal
+                presentation="panel"
+                token={token}
+                item={detailItem}
+                teamLeaders={teamLeaders}
+                professionalCatalog={profCatalog}
+                scheduleStatsByDate={stats}
+                currentUserRole={meRole}
+                currentUserStaffAdmin={effectiveStaffAdmin}
+                currentUserOperationalAdmin={operationalAdmin}
+                currentUserCanEditMarketer={canEditMarketerField}
+                currentUserCanDeleteInquiry={canDeleteInquiry}
+                marketerOptions={marketers}
+                meUser={meUser}
+                leaderAssignmentCountsByLeaderId={detailLeaderAssignmentCounts}
+                dayScheduleItems={
+                  detailItem.preferredDate
+                    ? byDate[formatPreferredDateInputYmd(detailItem.preferredDate) ?? ''] ?? []
+                    : []
+                }
+                customCalendars={customCalendars}
+                onCustomCalendarsChange={setCustomCalendars}
+                serviceZones={serviceZones}
+                teamLeaderAssignmentSurface={
+                  activeServiceZoneId ? 'regional-schedule' : 'global-schedule'
+                }
+                activeServiceZoneId={activeServiceZoneId}
+                onClose={closeScheduleDetail}
+                onSaved={() => fetchMonthData(false)}
+                onInquiryRefresh={async () => {
+                  if (!token || !detailItem) return;
+                  try {
+                    const raw = await getInquiry(token, detailItem.id);
+                    setDetailItem(raw as unknown as ScheduleItem);
+                    void fetchMonthData(false);
+                  } catch {
+                    void fetchMonthData(false);
+                  }
+                }}
+              />
+            </Suspense>
+          ) : (
+            <div className="flex h-full min-h-[14rem] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/80 px-6 py-10 text-center">
+              <p className="text-fluid-sm font-medium text-slate-700">접수 상세</p>
+              <p className="mt-2 text-fluid-xs text-slate-500 leading-relaxed">
+                왼쪽 캘린더·일정 목록에서 접수를 선택하면
+                <br />
+                여기에서 바로 수정할 수 있습니다.
+              </p>
+            </div>
+          )}
+        </aside>
+      </div>
+
       {detailItem && token && (
+        <div className="xl:hidden">
         <Suspense fallback={null}>
         <ScheduleInquiryDetailModal
+          presentation="modal"
           token={token}
           item={detailItem}
           teamLeaders={teamLeaders}
@@ -3223,7 +3347,7 @@ export function AdminSchedulePage() {
             activeServiceZoneId ? 'regional-schedule' : 'global-schedule'
           }
           activeServiceZoneId={activeServiceZoneId}
-          onClose={() => setDetailItem(null)}
+          onClose={closeScheduleDetail}
           onSaved={() => fetchMonthData(false)}
           onInquiryRefresh={async () => {
             if (!token || !detailItem) return;
@@ -3237,6 +3361,7 @@ export function AdminSchedulePage() {
           }}
         />
         </Suspense>
+        </div>
       )}
 
       {memoModalItem && token && (
@@ -3251,9 +3376,11 @@ export function AdminSchedulePage() {
       )}
 
       {createInquiryModalDate && token && (
+        <div className="xl:hidden">
         <Suspense fallback={null}>
         <ScheduleInquiryDetailModal
           mode="create"
+          presentation="modal"
           token={token}
           initialPreferredDate={createInquiryModalDate}
           teamLeaders={teamLeaders}
@@ -3266,13 +3393,18 @@ export function AdminSchedulePage() {
           currentUserCanDeleteInquiry={canDeleteInquiry}
           marketerOptions={marketers}
           meUser={meUser}
-          onClose={() => setCreateInquiryModalDate(null)}
+          onClose={() => {
+            setCreateInquiryModalDate(null);
+            syncOpenInquiryParam(null);
+          }}
           onSaved={() => {
             setCreateInquiryModalDate(null);
+            syncOpenInquiryParam(null);
             fetchMonthData(false);
           }}
         />
         </Suspense>
+        </div>
       )}
 
       {closureModalOpen && selectedDate && token && (
