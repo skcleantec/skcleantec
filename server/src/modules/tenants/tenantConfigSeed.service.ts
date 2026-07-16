@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { DEFAULT_PROFESSIONAL_OPTIONS } from '../orderform/defaultProfessionalOptions.data.js';
 import { DEFAULT_ORDER_FORM_TEMPLATE_FIELDS } from '../orderform-templates/systemFields.js';
+import { ensureAirconOrderFormTemplate } from '../orderform-templates/ensureAirconOrderFormTemplate.js';
 import { DEFAULT_TENANT_ID } from './tenant.constants.js';
 import { createDefaultOperatingCompanyForTenant } from '../operating-companies/operatingCompany.service.js';
 import { parseTenantConfig } from './tenantConfig.schema.js';
@@ -146,6 +147,7 @@ export async function seedTenantDefaults(
   await getOrCreateEstimateConfig(tx, tenantId);
   await seedProfessionalDefaultsForTenant(tx, tenantId);
   await ensureDefaultOrderFormTemplate(tx, tenantId, `${tenantName} 입주청소 발주서`);
+  await ensureAirconOrderFormTemplate(tx, tenantId);
 }
 
 /** 서버 기동·레거시 SK 테넌트 — 기본 전문 시공 옵션만 보강 */

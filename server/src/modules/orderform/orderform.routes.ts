@@ -79,6 +79,7 @@ import {
   getOrCreateOrderFormConfig,
   profOptionKey,
 } from '../tenants/tenantConfigSeed.service.js';
+import { ensureAirconOrderFormTemplate } from '../orderform-templates/ensureAirconOrderFormTemplate.js';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
 import {
   getOrCreateOrderFormBrandCustomerLinkConfig,
@@ -801,6 +802,7 @@ async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: str
       tenantId,
       `${tenantRow.name} 입주청소 발주서`,
     );
+    await ensureAirconOrderFormTemplate(prisma, tenantId);
   }
   const resolvedTemplate = await resolveIssueTemplate(prisma, tenantId, null);
   const templatePatch =
@@ -1438,6 +1440,7 @@ router.get('/issue-form', authMiddleware, requireStaffPermission('orderform.issu
         tenantId,
         `${tenantRow.name} 입주청소 발주서`,
       );
+      await ensureAirconOrderFormTemplate(prisma, tenantId);
     }
   } catch (err) {
     console.error('issue-form ensure tenant defaults:', err);
