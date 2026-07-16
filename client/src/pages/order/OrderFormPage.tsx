@@ -1287,10 +1287,16 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
 
           <div>
-            <label className={reqLabelCls}>2. 주소(청소해야할 위치) *</label>
-            <p className="text-xs text-gray-600 mb-2 leading-relaxed">
-              「주소 검색」으로 도로명·지번을 선택한 뒤, 아래에 상세주소를 입력해 주세요.
-            </p>
+            <label className={labelCls}>2. 주소(청소해야할 위치) *</label>
+            {isCreate ? (
+              <p className="text-xs text-gray-500 mb-2 leading-relaxed">
+                발급 시 비워 두면 고객이 발주서에서 직접 입력합니다. 미리 넣으면 고객 화면에서 수정할 수 없습니다(잠금).
+              </p>
+            ) : (
+              <p className="text-xs text-gray-600 mb-2 leading-relaxed">
+                「주소 검색」으로 도로명·지번을 선택한 뒤, 아래에 상세주소를 입력해 주세요.
+              </p>
+            )}
             <AddressSearch
               value={form.address}
               onChange={(addr) => {
