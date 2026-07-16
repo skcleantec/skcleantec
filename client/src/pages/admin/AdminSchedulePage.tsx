@@ -58,6 +58,7 @@ import {
   ScheduleCustomCalendarMobileMenuButton,
   ScheduleCustomCalendarMobileSheet,
 } from '../../components/admin/ScheduleCustomCalendarMobileSheet';
+import { ScheduleInquirySearchPanel } from '../../components/admin/ScheduleInquirySearchPanel';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
@@ -876,14 +877,11 @@ export function AdminSchedulePage() {
   }, [detailItem?.id]);
 
   /** `/admin/schedule?openInquiry=` — 정보공유·타 화면에서 스케줄 접수 상세 복원 */
-  const openInquiryId = searchParams.get('openInquiry');
-  useEffect(() => {
-    if (!openInquiryId || !token) return;
-    let cancelled = false;
-    (async () => {
+  const openScheduleInquiryById = useCallback(
+    async (inquiryId: string) => {
+      if (!token) return;
       try {
-        const raw = await getInquiry(token, openInquiryId);
-        if (cancelled) return;
+        const raw = await getInquiry(token, inquiryId);
         setDetailItem(raw as unknown as ScheduleItem);
         const preferred = formatPreferredDateInputYmd(
           (raw as { preferredDate?: string | null }).preferredDate ?? null,
@@ -896,10 +894,20 @@ export function AdminSchedulePage() {
             setSelectedDate(preferred);
           }
         }
-        navigate('/admin/schedule', { replace: true });
       } catch {
-        if (!cancelled) navigate('/admin/schedule', { replace: true });
+        /* 상세 로드 실패 시 무시 */
       }
+    },
+    [token],
+  );
+
+  const openInquiryId = searchParams.get('openInquiry');
+  useEffect(() => {
+    if (!openInquiryId || !token) return;
+    let cancelled = false;
+    (async () => {
+      await openScheduleInquiryById(openInquiryId);
+      if (!cancelled) navigate('/admin/schedule', { replace: true });
     })();
     return () => {
       cancelled = true;
@@ -1605,8 +1613,7 @@ export function AdminSchedulePage() {
 
   return (
     <div className="flex flex-col gap-3 lg:gap-5 min-w-0">
-      {(regionCalendars.length > 0 || companyCalendars.length > 0 || canManageCustomCalendar) ? (
-        <ScheduleCustomCalendarMobileMenuButton
+      <ScheduleCustomCalendarMobileMenuButton
           onClick={() => setCustomCalendarMenuOpen(true)}
           hasActiveFilter={hasActiveCustomCalendarFilter(
             activeRegionCalendar,
@@ -1614,7 +1621,6 @@ export function AdminSchedulePage() {
             activePartnerCalendar,
           )}
         />
-      ) : null}
       <div className="flex flex-col gap-1 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
         <div className="hidden lg:block">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1787,6 +1793,12 @@ export function AdminSchedulePage() {
                 })}
               </p>
             </div>
+          ) : null}
+          {token ? (
+            <ScheduleInquirySearchPanel
+              token={token}
+              onPick={(item) => void openScheduleInquiryById(item.id)}
+            />
           ) : null}
           {(regionCalendars.length > 0 || companyCalendars.length > 0 || canManageCustomCalendar) ? (
             <ScheduleCustomCalendarSidebar
@@ -3383,6 +3395,15 @@ export function AdminSchedulePage() {
       <ScheduleCustomCalendarMobileSheet
         open={customCalendarMenuOpen}
         onClose={() => setCustomCalendarMenuOpen(false)}
+        scheduleSearchSlot={
+          token ? (
+            <ScheduleInquirySearchPanel
+              token={token}
+              onPick={(item) => void openScheduleInquiryById(item.id)}
+              onAfterPick={() => setCustomCalendarMenuOpen(false)}
+            />
+          ) : null
+        }
         regionCalendars={regionCalendars}
         companyCalendars={companyCalendars}
         partnerCalendars={partnerCalendars}

@@ -282,6 +282,38 @@ export type ScheduleDayStaffMemoDto = {
   updatedBy: { id: string; name: string } | null;
 };
 
+/** 스케줄 접수 검색 결과 (GET /schedule/search) */
+export type ScheduleSearchHit = {
+  id: string;
+  inquiryNumber?: string | null;
+  customerName: string;
+  nickname?: string | null;
+  customerPhone: string;
+  address: string;
+  addressDetail: string | null;
+  preferredDate: string | null;
+  preferredTime: string | null;
+  status: string;
+  scheduleMemo?: string | null;
+};
+
+export async function searchScheduleInquiries(
+  token: string,
+  q: string,
+  options?: { limit?: number },
+): Promise<{ items: ScheduleSearchHit[] }> {
+  const params = new URLSearchParams({ q: q.trim() });
+  if (options?.limit != null) params.set('limit', String(options.limit));
+  const res = await fetch(`${API}/schedule/search?${params.toString()}`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '접수 검색에 실패했습니다.');
+  }
+  return res.json();
+}
+
 export async function getScheduleDayStaffMemo(
   token: string,
   date: string,

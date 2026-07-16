@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
@@ -24,6 +24,8 @@ function CloseIcon({ className }: { className?: string }) {
 export type ScheduleCustomCalendarMobileSheetProps = {
   open: boolean;
   onClose: () => void;
+  /** 맞춤 캘린더 필터 위 — 스케줄 접수 검색 */
+  scheduleSearchSlot?: ReactNode;
   regionCalendars: readonly UserCustomCalendarItem[];
   companyCalendars: readonly UserCustomCalendarItem[];
   partnerCalendars: readonly UserCustomCalendarItem[];
@@ -117,6 +119,7 @@ export function ScheduleCustomCalendarDesktopMenuTrigger({
 export function ScheduleCustomCalendarMobileSheet({
   open,
   onClose,
+  scheduleSearchSlot,
   regionCalendars,
   companyCalendars,
   partnerCalendars,
@@ -263,6 +266,7 @@ export function ScheduleCustomCalendarMobileSheet({
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-2.5 py-2 space-y-3 [-webkit-overflow-scrolling:touch]">
+          {scheduleSearchSlot}
           {canManage ? (
             <section className="space-y-0.5">
               <button
