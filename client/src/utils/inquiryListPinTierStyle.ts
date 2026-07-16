@@ -15,16 +15,15 @@ export const INQUIRY_LIST_PIN_TIER_LABELS: Record<Exclude<InquiryListPinTier, 4>
 };
 
 type PinTierStyle = {
-  /** PC sticky 셀·행 배경 */
+  /** PC 행·sticky 셀 배경 */
+  rowBg: string;
   stickyBg: string;
   stickyHover: string;
   stickyR: string;
   rowHover: string;
-  /** 행 상·하 border */
+  /** 행 구분선 */
   pBorder: string;
-  /** sticky 좌측 강조 */
   stickyLeft: string;
-  /** 작업 열 우측 강조 */
   stickyRight: string;
   /** 모바일 카드 shell */
   mobileCard: string;
@@ -34,52 +33,57 @@ type PinTierStyle = {
 
 const PIN_TIER_STYLES: Record<Exclude<InquiryListPinTier, 4>, PinTierStyle> = {
   0: {
-    stickyBg: 'bg-red-50/50',
-    stickyHover: 'group-hover:bg-red-50/80',
-    stickyR: 'border-r border-red-200',
-    rowHover: 'hover:bg-red-50/70',
-    pBorder: 'border-t-2 border-b-2 border-red-400',
-    stickyLeft: 'border-l-2 border-l-red-500',
-    stickyRight: 'border-r-2 border-r-red-500',
-    mobileCard: 'border-red-400 bg-red-50/50 ring-1 ring-red-200/30',
-    groupTop: 'border-t-2 border-red-300',
+    rowBg: 'bg-rose-50/80',
+    stickyBg: 'bg-rose-50/80',
+    stickyHover: 'group-hover:bg-rose-100/60',
+    stickyR: 'border-r border-rose-100/70',
+    rowHover: 'hover:bg-rose-100/50',
+    pBorder: 'border-b border-rose-100/70',
+    stickyLeft: '',
+    stickyRight: '',
+    mobileCard: 'border-slate-200/60 bg-rose-50/90 shadow-sm shadow-rose-100/20',
+    groupTop: 'border-t border-slate-200/50',
   },
   1: {
-    stickyBg: 'bg-emerald-50/45',
-    stickyHover: 'group-hover:bg-emerald-50/75',
-    stickyR: 'border-r border-emerald-200',
-    rowHover: 'hover:bg-emerald-50/65',
-    pBorder: 'border-t-2 border-b-2 border-emerald-400',
-    stickyLeft: 'border-l-2 border-l-emerald-500',
-    stickyRight: 'border-r-2 border-r-emerald-500',
-    mobileCard: 'border-emerald-400 bg-emerald-50/45 ring-1 ring-emerald-200/30',
-    groupTop: 'border-t-2 border-emerald-300',
+    rowBg: 'bg-emerald-50/70',
+    stickyBg: 'bg-emerald-50/70',
+    stickyHover: 'group-hover:bg-emerald-100/55',
+    stickyR: 'border-r border-emerald-100/70',
+    rowHover: 'hover:bg-emerald-100/45',
+    pBorder: 'border-b border-emerald-100/70',
+    stickyLeft: '',
+    stickyRight: '',
+    mobileCard: 'border-slate-200/60 bg-emerald-50/85 shadow-sm shadow-emerald-100/20',
+    groupTop: 'border-t border-slate-200/50',
   },
   2: {
-    stickyBg: 'bg-sky-50/50',
-    stickyHover: 'group-hover:bg-sky-50/80',
-    stickyR: 'border-r border-sky-200',
-    rowHover: 'hover:bg-sky-50/70',
-    pBorder: 'border-t-2 border-b-2 border-sky-400',
-    stickyLeft: 'border-l-2 border-l-sky-500',
-    stickyRight: 'border-r-2 border-r-sky-500',
-    mobileCard: 'border-sky-400 bg-sky-50/50 ring-1 ring-sky-200/30',
-    groupTop: 'border-t-2 border-sky-300',
+    rowBg: 'bg-sky-50/75',
+    stickyBg: 'bg-sky-50/75',
+    stickyHover: 'group-hover:bg-sky-100/60',
+    stickyR: 'border-r border-sky-100/70',
+    rowHover: 'hover:bg-sky-100/50',
+    pBorder: 'border-b border-sky-100/70',
+    stickyLeft: '',
+    stickyRight: '',
+    mobileCard: 'border-slate-200/60 bg-sky-50/90 shadow-sm shadow-sky-100/20',
+    groupTop: 'border-t border-slate-200/50',
   },
   3: {
-    stickyBg: 'bg-amber-50/45',
-    stickyHover: 'group-hover:bg-amber-50/75',
-    stickyR: 'border-r border-amber-200',
-    rowHover: 'hover:bg-amber-50/65',
-    pBorder: 'border-t-2 border-b-2 border-amber-400',
-    stickyLeft: 'border-l-2 border-l-amber-500',
-    stickyRight: 'border-r-2 border-r-amber-500',
-    mobileCard: 'border-amber-400 bg-amber-50/45 ring-1 ring-amber-200/30',
-    groupTop: 'border-t-2 border-amber-300',
+    rowBg: 'bg-amber-50/70',
+    stickyBg: 'bg-amber-50/70',
+    stickyHover: 'group-hover:bg-amber-100/55',
+    stickyR: 'border-r border-amber-100/70',
+    rowHover: 'hover:bg-amber-100/45',
+    pBorder: 'border-b border-amber-100/70',
+    stickyLeft: '',
+    stickyRight: '',
+    mobileCard: 'border-slate-200/60 bg-amber-50/85 shadow-sm shadow-amber-100/20',
+    groupTop: 'border-t border-slate-200/50',
   },
 };
 
 const BODY_ROW_STYLE: PinTierStyle = {
+  rowBg: '',
   stickyBg: 'bg-white',
   stickyHover: 'group-hover:bg-slate-50/80',
   stickyR: 'border-r border-slate-100/80',

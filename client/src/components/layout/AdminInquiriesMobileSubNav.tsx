@@ -55,27 +55,7 @@ export function useAdminInquiriesMobileMenu(): AdminInquiriesMobileMenuContextVa
   return ctx;
 }
 
-/** 접수목록 등 페이지 제목 왼쪽 인라인 버튼 — 레거시·PC 전용. 모바일은 Provider 플로팅 버튼 사용 */
-export function AdminInquiriesMobileMenuButton({ className = '' }: { className?: string }) {
-  const { openMenu, showBadgeDot } = useAdminInquiriesMobileMenu();
-  return (
-    <button
-      type="button"
-      onClick={openMenu}
-      className={`relative hidden lg:inline-flex h-8 w-8 min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900 touch-manipulation ${className}`}
-      aria-label="서비스접수 하위 메뉴"
-    >
-      <BarsIcon className="h-4 w-4" />
-      {showBadgeDot ? (
-        <span
-          className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-red-600 ring-1 ring-white"
-          aria-hidden
-        />
-      ) : null}
-    </button>
-  );
-}
-
+/** 모바일 플로팅 햄버거는 Provider에서 렌더. PC는 사이드 메뉴 사용 */
 function AdminInquiriesMobileFloatingMenuButton() {
   const { openMenu, showBadgeDot } = useAdminInquiriesMobileMenu();
   return (

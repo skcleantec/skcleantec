@@ -35,9 +35,6 @@ import {
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
-import {
-  AdminInquiriesMobileMenuButton,
-} from '../../components/layout/AdminInquiriesMobileSubNav';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { getUserCustomCalendars, type UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNameWithInternalTone';
@@ -2345,7 +2342,6 @@ export function AdminInquiriesPage() {
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex items-center gap-2 pl-12 lg:pl-0">
-            <AdminInquiriesMobileMenuButton />
             <h1 className="text-xl font-semibold text-slate-900">서비스접수</h1>
           </div>
             {token && (
@@ -2820,14 +2816,14 @@ export function AdminInquiriesPage() {
         {([0, 1, 2, 3] as const).map((tier) => (
           <span key={tier} className="inline-flex items-center gap-1">
             <span
-              className={`inline-block h-2.5 w-2.5 rounded-sm border ${
+              className={`inline-block h-2.5 w-2.5 rounded-sm ${
                 tier === 0
-                  ? 'border-red-400 bg-red-50'
+                  ? 'bg-rose-100'
                   : tier === 1
-                    ? 'border-emerald-400 bg-emerald-50'
+                    ? 'bg-emerald-100'
                     : tier === 2
-                      ? 'border-sky-400 bg-sky-50'
-                      : 'border-amber-400 bg-amber-50'
+                      ? 'bg-sky-100'
+                      : 'bg-amber-100'
               }`}
               aria-hidden
             />
@@ -3307,6 +3303,13 @@ export function AdminInquiriesPage() {
                           item.assignments.length > 0,
                         )
                       : ('none' as const);
+                  const rowBg = pinStyle.isPinned
+                    ? pinStyle.rowBg
+                    : hcTone === 'overdue'
+                      ? 'bg-red-50/60'
+                      : hcTone === 'pending'
+                        ? 'bg-amber-50/50'
+                        : '';
                   const stickyBg = pinStyle.isPinned
                     ? pinStyle.stickyBg
                     : hcTone === 'overdue'
@@ -3333,7 +3336,7 @@ export function AdminInquiriesPage() {
                   return (
                   <tr
                     key={item.id}
-                    className={`cursor-pointer group active:bg-slate-100 ${rowHover} ${tierGroupTop}`}
+                    className={`cursor-pointer group active:bg-slate-100 ${rowBg} ${rowHover} ${tierGroupTop}`}
                     onClick={() => openEdit(item)}
                     title={inquiryListPinRowTitle(item)}
                   >
