@@ -4,6 +4,7 @@ import { getPublicOrderGuide } from '../../api/orderform';
 import { ORDER_GUIDE_DEFAULT_SECTIONS, type GuideSection } from '../../constants/orderInfoDefaultSections';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { OrderFormGuideSections } from './OrderFormGuideSections';
+import { OrderFormPartnerConsentBlock } from './OrderFormPartnerConsentBlock';
 
 export function OrderFormGuideAgreeModal(props: {
   open: boolean;
@@ -104,7 +105,10 @@ export function OrderFormGuideAgreeModal(props: {
             <p className="text-center text-fluid-sm text-gray-500">불러오는 중…</p>
           ) : (
             <>
-              <OrderFormGuideSections sections={sections} />
+              <OrderFormPartnerConsentBlock />
+              <div className="mt-8">
+                <OrderFormGuideSections sections={sections} />
+              </div>
               <div className="mt-8 rounded-lg border-2 border-amber-300 bg-amber-50 px-4 py-3.5 text-fluid-sm leading-relaxed shadow-sm">
                 <p className="font-bold text-amber-950">
                   <span className="text-red-700">전화번호·주소·청소날짜·시작시간</span>

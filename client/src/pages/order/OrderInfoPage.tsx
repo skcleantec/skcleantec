@@ -3,6 +3,7 @@ import { getPublicOrderGuide } from '../../api/orderform';
 import type { GuideSection } from '../../constants/orderInfoDefaultSections';
 import { ORDER_GUIDE_DEFAULT_SECTIONS } from '../../constants/orderInfoDefaultSections';
 import { postOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
+import { OrderFormPartnerConsentBlock } from '../../components/orderform/OrderFormPartnerConsentBlock';
 
 function CircleXIcon({ className }: { className?: string }) {
   return (
@@ -78,6 +79,7 @@ export function OrderInfoPage() {
           <div className="p-8 text-center text-gray-500 text-sm">불러오는 중…</div>
         ) : (
           <div className="p-6 space-y-8">
+            <OrderFormPartnerConsentBlock />
             {sections.map((section, i) => (
               <section key={i}>
                 <h2 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200 whitespace-pre-line">
