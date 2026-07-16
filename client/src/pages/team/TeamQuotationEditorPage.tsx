@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getTeamInquiry } from '../../api/team';
 import {
@@ -29,16 +29,21 @@ import {
   syncLinesWithCatalog,
   type EditableQuotationLine,
 } from '../../components/quotations/quotationLineUtils';
+import {
+  pickQuotationOperatingCompanyId,
+  resolveQuotationSupplierRegistration,
+} from '../../components/quotations/quotationBrandResolve';
 import { QuotationStatusBadge, qUi } from '../../components/quotations/quotationUi';
 import { computeQuotationVatAmounts } from '@shared/quotationVat';
+import type { QuotationDocumentType } from '@shared/quotationDocument';
+import { resolveDocumentFooterNotice } from '@shared/quotationDocument';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 
 function pickDefaultOperatingCompanyId(
   companies: QuotationEditorOperatingCompanyDto[],
   preferredId?: string | null,
 ): string {
-  if (preferredId && companies.some((c) => c.id === preferredId)) return preferredId;
-  return companies.find((c) => c.isDefault)?.id ?? companies[0]?.id ?? '';
+  return pickQuotationOperatingCompanyId(companies, preferredId);
 }
 
 function companyForOperatingCompany(
@@ -46,8 +51,7 @@ function companyForOperatingCompany(
   operatingCompanyId: string,
   tenantFallback: TenantCompanyRegistration,
 ): TenantCompanyRegistration {
-  const brand = companies.find((c) => c.id === operatingCompanyId);
-  return brand?.companyRegistration ?? tenantFallback;
+  return resolveQuotationSupplierRegistration(companies, operatingCompanyId, tenantFallback);
 }
 
 function computeSmtpReadyForBrand(
@@ -77,7 +81,8 @@ export function TeamQuotationEditorPage() {
   const [operatingCompanyId, setOperatingCompanyId] = useState('');
   const [seedOperatingCompanyId, setSeedOperatingCompanyId] = useState<string | null>(null);
   const [footerNotice, setFooterNotice] = useState<string | null>(null);
-  const [company, setCompany] = useState<TenantCompanyRegistration | null>(null);
+  const [receiptFooterNotice, setReceiptFooterNotice] = useState<string | null>(null);
+  const [documentType, setDocumentType] = useState<QuotationDocumentType>('QUOTATION');
   const [tenantCompanyRegistration, setTenantCompanyRegistration] =
     useState<TenantCompanyRegistration>({});
   const [quoteNumber, setQuoteNumber] = useState<string | null>(null);
@@ -111,6 +116,7 @@ export function TeamQuotationEditorPage() {
   });
   const [smtpReady, setSmtpReady] = useState(false);
   const [globalSmtpFallback, setGlobalSmtpFallback] = useState(false);
+  const defaultsRequestRef = useRef(0);
 
   const returnQs = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : '';
 
@@ -132,9 +138,9 @@ export function TeamQuotationEditorPage() {
         nextOperatingCompanyId,
         defaults.tenantCompanyRegistration,
       );
-      setCompany(resolvedCompany);
       setCompanyNameMissing(!resolvedCompany.companyName?.trim());
       setFooterNotice(defaults.config.footerNotice);
+      setReceiptFooterNotice(defaults.config.receiptFooterNotice ?? null);
       setTenantSmtp(defaults.smtp);
       setGlobalSmtpFallback(defaults.globalSmtpFallbackAvailable);
       setSmtpReady(
@@ -157,10 +163,13 @@ export function TeamQuotationEditorPage() {
 
   const loadNewDefaults = useCallback(async () => {
     if (!token || !isNew) return;
+    const requestId = ++defaultsRequestRef.current;
     try {
       const defaults = await fetchTeamQuotationEditorDefaults(token);
+      if (requestId !== defaultsRequestRef.current) return;
       applyEditorDefaults(defaults);
     } catch (e) {
+      if (requestId !== defaultsRequestRef.current) return;
       setError(e instanceof Error ? e.message : '견적 설정을 불러올 수 없습니다.');
     }
   }, [token, isNew, applyEditorDefaults]);
@@ -197,6 +206,7 @@ export function TeamQuotationEditorPage() {
       ]);
       applyEditorDefaults(defaults, row.operatingCompanyId);
       setQuoteNumber(row.quoteNumber);
+      setDocumentType(row.documentType ?? 'QUOTATION');
       setCreatedAt(row.createdAt);
       setStatus(row.status);
       setCustomerName(row.customerName);
@@ -253,6 +263,49 @@ export function TeamQuotationEditorPage() {
     }
   }, [isNew, seedInquiryId]);
 
+  useEffect(() => {
+    if (operatingCompanies.length === 0) return;
+
+    const currentValid =
+      operatingCompanyId && operatingCompanies.some((c) => c.id === operatingCompanyId)
+        ? operatingCompanyId
+        : null;
+    const preferred =
+      currentValid ??
+      (seedOperatingCompanyId &&
+      operatingCompanies.some((c) => c.id === seedOperatingCompanyId)
+        ? seedOperatingCompanyId
+        : pickQuotationOperatingCompanyId(operatingCompanies, seedOperatingCompanyId));
+
+    if (!preferred) return;
+
+    if (preferred !== operatingCompanyId) {
+      setOperatingCompanyId(preferred);
+    }
+
+    const resolved = resolveQuotationSupplierRegistration(
+      operatingCompanies,
+      preferred,
+      tenantCompanyRegistration,
+    );
+    setCompanyNameMissing(!resolved.companyName?.trim());
+    setSmtpReady(
+      computeSmtpReadyForBrand(
+        preferred,
+        operatingCompanies,
+        tenantSmtp,
+        globalSmtpFallback,
+      ),
+    );
+  }, [
+    operatingCompanies,
+    seedOperatingCompanyId,
+    tenantCompanyRegistration,
+    operatingCompanyId,
+    tenantSmtp,
+    globalSmtpFallback,
+  ]);
+
   const handleOperatingCompanyChange = useCallback(
     (nextId: string) => {
       setOperatingCompanyId(nextId);
@@ -261,7 +314,6 @@ export function TeamQuotationEditorPage() {
         nextId,
         tenantCompanyRegistration,
       );
-      setCompany(resolved);
       setCompanyNameMissing(!resolved.companyName?.trim());
       setSmtpReady(
         computeSmtpReadyForBrand(nextId, operatingCompanies, tenantSmtp, globalSmtpFallback),
@@ -269,6 +321,20 @@ export function TeamQuotationEditorPage() {
     },
     [operatingCompanies, tenantCompanyRegistration, tenantSmtp, globalSmtpFallback],
   );
+
+  const resolvedFooterNotice = useMemo(
+    () =>
+      resolveDocumentFooterNotice(documentType, {
+        footerNotice,
+        receiptFooterNotice,
+      }),
+    [documentType, footerNotice, receiptFooterNotice],
+  );
+
+  const handleDocumentTypeChange = useCallback((next: QuotationDocumentType) => {
+    setDocumentType(next);
+    if (next === 'RECEIPT') setValidUntil('');
+  }, []);
 
   const totals = useMemo(() => {
     let subtotal = 0;
@@ -332,7 +398,8 @@ export function TeamQuotationEditorPage() {
         customerAddress: customerAddress.trim() || null,
         memo: memo.trim() || null,
         discountAmount: disc,
-        validUntil: validUntil.trim() || null,
+        validUntil: documentType === 'RECEIPT' ? null : validUntil.trim() || null,
+        documentType,
         vatMode,
         operatingCompanyId: operatingCompanyId || null,
         lineItems,
@@ -409,10 +476,12 @@ export function TeamQuotationEditorPage() {
       <QuotationMobileFormEditor
         quoteNumber={quoteNumber}
         createdAt={createdAt}
-        company={company}
+        tenantCompanyRegistration={tenantCompanyRegistration}
         operatingCompanies={operatingCompanies}
         operatingCompanyId={operatingCompanyId}
         onOperatingCompanyChange={handleOperatingCompanyChange}
+        documentType={documentType}
+        onDocumentTypeChange={handleDocumentTypeChange}
         customerName={customerName}
         customerPhone={customerPhone}
         customerEmail={customerEmail}
@@ -437,17 +506,19 @@ export function TeamQuotationEditorPage() {
         grandTotal={totals.grandTotal}
         memo={memo}
         onMemoChange={setMemo}
-        footerNotice={footerNotice}
+        footerNotice={resolvedFooterNotice}
       />
 
       <div className="hidden lg:block">
         <QuotationDocumentEditor
           quoteNumber={quoteNumber}
           createdAt={createdAt}
-          company={company}
+          tenantCompanyRegistration={tenantCompanyRegistration}
           operatingCompanies={operatingCompanies}
           operatingCompanyId={operatingCompanyId}
           onOperatingCompanyChange={handleOperatingCompanyChange}
+          documentType={documentType}
+          onDocumentTypeChange={handleDocumentTypeChange}
           customerName={customerName}
           customerPhone={customerPhone}
           customerEmail={customerEmail}
@@ -472,7 +543,7 @@ export function TeamQuotationEditorPage() {
           grandTotal={totals.grandTotal}
           memo={memo}
           onMemoChange={setMemo}
-          footerNotice={footerNotice}
+          footerNotice={resolvedFooterNotice}
         />
       </div>
 

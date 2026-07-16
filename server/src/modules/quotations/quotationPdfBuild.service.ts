@@ -7,12 +7,20 @@ import { uploadQuotationPdfBuffer } from './quotation.pdfUpload.service.js';
 import { getOrCreateQuotationConfig } from './quotationConfig.service.js';
 import { quotationInclude, type QuotationRow } from './quotations.service.js';
 import { resolveQuotationDocumentTitle } from './quotationDocumentTitle.service.js';
+import {
+  getDocumentClosingPhrase,
+  resolveDocumentFooterNotice,
+  shouldShowQuotationValidUntil,
+  type QuotationDocumentType,
+} from './quotationDocument.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
 export type QuotationPdfBuildOptions = {
   documentTitle?: string | null;
   footerNotice?: string | null;
+  closingPhrase?: string | null;
+  showValidUntil?: boolean;
 };
 
 export async function loadQuotationPdfOptions(
@@ -25,12 +33,22 @@ export async function loadQuotationPdfOptions(
   const companyRegistration = row
     ? resolveOperatingCompanyRegistration(row.operatingCompany, profile.companyRegistration)
     : profile.companyRegistration;
+  const documentType = (row?.documentType ?? 'QUOTATION') as QuotationDocumentType;
   const documentTitle = row
-    ? resolveQuotationDocumentTitle(row.operatingCompany, companyRegistration.companyName)
+    ? resolveQuotationDocumentTitle(
+        row.operatingCompany,
+        companyRegistration.companyName,
+        documentType,
+      )
     : null;
   return {
     documentTitle,
-    footerNotice: config.footerNotice,
+    footerNotice: resolveDocumentFooterNotice(documentType, {
+      footerNotice: config.footerNotice,
+      receiptFooterNotice: config.receiptFooterNotice,
+    }),
+    closingPhrase: getDocumentClosingPhrase(documentType),
+    showValidUntil: shouldShowQuotationValidUntil(documentType),
   };
 }
 
@@ -45,12 +63,15 @@ export async function buildQuotationPdfForRow(
     profile.companyRegistration,
   );
   const opts = pdfOptions ?? (await loadQuotationPdfOptions(prisma, tenantId, row));
+  const documentType = (row.documentType ?? 'QUOTATION') as QuotationDocumentType;
   const documentTitle =
     opts.documentTitle?.trim() ||
-    resolveQuotationDocumentTitle(row.operatingCompany, companyRegistration.companyName);
+    resolveQuotationDocumentTitle(row.operatingCompany, companyRegistration.companyName, documentType);
   return buildQuotationPdfBuffer(row, companyRegistration, {
     documentTitle,
     footerNotice: opts.footerNotice,
+    closingPhrase: opts.closingPhrase ?? getDocumentClosingPhrase(documentType),
+    showValidUntil: opts.showValidUntil ?? shouldShowQuotationValidUntil(documentType),
   });
 }
 
@@ -84,12 +105,15 @@ export async function generateAndStoreQuotationPdf(
     row.operatingCompany,
     profile.companyRegistration,
   );
+  const documentType = (row.documentType ?? 'QUOTATION') as QuotationDocumentType;
   const documentTitle =
     pdfOptions.documentTitle?.trim() ||
-    resolveQuotationDocumentTitle(row.operatingCompany, companyRegistration.companyName);
+    resolveQuotationDocumentTitle(row.operatingCompany, companyRegistration.companyName, documentType);
   const buffer = await buildQuotationPdfBuffer(row, companyRegistration, {
     documentTitle,
     footerNotice: pdfOptions.footerNotice,
+    closingPhrase: pdfOptions.closingPhrase ?? getDocumentClosingPhrase(documentType),
+    showValidUntil: pdfOptions.showValidUntil ?? shouldShowQuotationValidUntil(documentType),
   });
 
   let publicId: string | null = null;

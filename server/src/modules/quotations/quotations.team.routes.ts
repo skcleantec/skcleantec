@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { createdAtRangeFromQuery } from '../inquiries/inquiryListDateRange.js';
-import { allocateNextQuotationNumber } from './quotationNumber.js';
+import { allocateNextDocumentNumber, ensureDocumentNumberForType } from './quotationNumber.js';
 import {
   buildQuotationEmailDefaultsForRow,
   executeQuotationEmailSend,
@@ -15,6 +15,7 @@ import {
 } from './quotationPdfBuild.service.js';
 import {
   getOrCreateQuotationConfig,
+  getOrCreateQuotationConfigSafe,
   kstYmdPlusDays,
   serializeQuotationConfig,
 } from './quotationConfig.service.js';
@@ -22,6 +23,7 @@ import {
   computeLineAmount,
   computeQuotationTotals,
   parseOptionalYmd,
+  parseQuotationDocumentType,
   parseQuotationLineInputs,
   quotationInclude,
   serializeQuotation,
@@ -102,7 +104,7 @@ router.get('/editor-defaults', async (req, res) => {
       where: { tenantId, isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
-    getOrCreateQuotationConfig(prisma, tenantId),
+    getOrCreateQuotationConfigSafe(prisma, tenantId),
     listQuotationEditorOperatingCompanies(
       prisma,
       tenantId,
@@ -203,6 +205,13 @@ router.post('/', async (req, res) => {
   if (!tenantId) return;
 
   const body = req.body as Record<string, unknown>;
+  const documentTypeParsed = parseQuotationDocumentType(body.documentType);
+  if (documentTypeParsed === 'INVALID') {
+    res.status(400).json({ error: '문서 유형이 올바르지 않습니다.' });
+    return;
+  }
+  const documentType = documentTypeParsed;
+
   const inquiryIdRaw = typeof body.inquiryId === 'string' ? body.inquiryId.trim() : '';
   if (!inquiryIdRaw) {
     res.status(400).json({ error: '연결할 접수가 필요합니다.' });
@@ -248,11 +257,12 @@ router.post('/', async (req, res) => {
   }
 
   const row = await prisma.$transaction(async (tx) => {
-    const quoteNumber = await allocateNextQuotationNumber(tx, tenantId);
+    const quoteNumber = await allocateNextDocumentNumber(tx, tenantId, documentType);
     return tx.quotation.create({
       data: {
         tenantId,
         quoteNumber,
+        documentType,
         status: 'DRAFT',
         customerName,
         customerPhone:
@@ -272,7 +282,7 @@ router.post('/', async (req, res) => {
         discountAmount,
         total,
         vatMode,
-        validUntil: validUntilParsed,
+        validUntil: documentType === 'RECEIPT' ? null : validUntilParsed,
         inquiryId: inquiryIdRaw,
         operatingCompanyId: operatingCompanyIdResolved,
         createdById: auth.userId,
@@ -330,6 +340,16 @@ router.patch('/:id', async (req, res) => {
     return;
   }
 
+  const documentTypeParsed =
+    body.documentType !== undefined
+      ? parseQuotationDocumentType(body.documentType)
+      : ((existing.documentType ?? 'QUOTATION') as import('./quotationDocument.js').QuotationDocumentType);
+  if (documentTypeParsed === 'INVALID') {
+    res.status(400).json({ error: '문서 유형이 올바르지 않습니다.' });
+    return;
+  }
+  const nextDocumentType = documentTypeParsed;
+
   let linesParsed: import('./quotations.service.js').QuotationLineInput[];
   if (body.lineItems !== undefined) {
     const parsed = parseQuotationLineInputs(body.lineItems);
@@ -353,7 +373,11 @@ router.patch('/:id', async (req, res) => {
   }
 
   const validUntilParsed =
-    body.validUntil !== undefined ? parseOptionalYmd(body.validUntil) : existing.validUntil;
+    nextDocumentType === 'RECEIPT'
+      ? null
+      : body.validUntil !== undefined
+        ? parseOptionalYmd(body.validUntil)
+        : existing.validUntil;
   if (validUntilParsed === 'INVALID') {
     res.status(400).json({ error: '유효기간 날짜 형식이 올바르지 않습니다.' });
     return;
@@ -389,6 +413,12 @@ router.patch('/:id', async (req, res) => {
       : existing.status;
 
   const row = await prisma.$transaction(async (tx) => {
+    const quoteNumber = await ensureDocumentNumberForType(
+      tx,
+      tenantId,
+      existing.quoteNumber,
+      nextDocumentType,
+    );
     if (body.lineItems !== undefined) {
       await tx.quotationLineItem.deleteMany({ where: { quotationId: id } });
       if (linesParsed.length > 0) {
@@ -410,6 +440,8 @@ router.patch('/:id', async (req, res) => {
     return tx.quotation.update({
       where: { id },
       data: {
+        quoteNumber,
+        documentType: nextDocumentType,
         customerName,
         customerPhone:
           body.customerPhone !== undefined

@@ -1,4 +1,4 @@
-/** 견적서 / 영수증 문서 유형 */
+/** @see shared/quotationDocument.ts — 클라이언트와 동기화 */
 export type QuotationDocumentType = 'QUOTATION' | 'RECEIPT';
 
 export const QUOTATION_DOCUMENT_TYPE_OPTIONS: ReadonlyArray<{
@@ -18,7 +18,6 @@ export function isQuotationDocumentType(raw: unknown): raw is QuotationDocumentT
   return raw === 'QUOTATION' || raw === 'RECEIPT';
 }
 
-/** 문서 제목 — `{브랜드명} 견적서` / `{브랜드명} 영수증` */
 export function formatDocumentTitle(
   brandOrCompanyName: string,
   documentType: QuotationDocumentType = 'QUOTATION',
@@ -29,17 +28,14 @@ export function formatDocumentTitle(
   return `${name} ${suffix}`;
 }
 
-/** @deprecated formatDocumentTitle 사용 */
 export function formatQuotationDocumentTitle(brandOrCompanyName: string): string {
   return formatDocumentTitle(brandOrCompanyName, 'QUOTATION');
 }
 
-/** 마무리 문구 (고정) */
 export function getDocumentClosingPhrase(documentType: QuotationDocumentType): string {
   return documentType === 'RECEIPT' ? '위 금액을 영수함.' : '위와 같이 견적합니다.';
 }
 
-/** 유효기간 표시 여부 */
 export function shouldShowQuotationValidUntil(documentType: QuotationDocumentType): boolean {
   return documentType === 'QUOTATION';
 }
@@ -49,7 +45,6 @@ export type QuotationFooterConfig = {
   receiptFooterNotice: string | null;
 };
 
-/** 유형별 하단 안내 (설정값) */
 export function resolveDocumentFooterNotice(
   documentType: QuotationDocumentType,
   config: QuotationFooterConfig,
@@ -62,7 +57,6 @@ export function resolveDocumentFooterNotice(
   return v || null;
 }
 
-/** 번호 접두어와 문서 유형 일치 여부 */
 export function quoteNumberMatchesDocumentType(
   quoteNumber: string,
   documentType: QuotationDocumentType,

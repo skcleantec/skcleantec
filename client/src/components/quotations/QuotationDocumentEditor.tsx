@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type {
   QuotationEditorOperatingCompanyDto,
   QuotationServiceItemDto,
@@ -6,7 +7,16 @@ import type { TenantCompanyRegistration } from '../../api/tenantCompanyProfile';
 import { resolveQuotationSealDisplayWidth } from '@shared/quotationSeal';
 import type { QuotationVatMode } from '@shared/quotationVat';
 import { computeLineAmounts, vatModeLabel } from '@shared/quotationVat';
-import { formatQuotationDocumentTitle } from '@shared/quotationDocument';
+import type { QuotationDocumentType } from '@shared/quotationDocument';
+import {
+  getDocumentClosingPhrase,
+  QUOTATION_DOCUMENT_TYPE_OPTIONS,
+  shouldShowQuotationValidUntil,
+} from '@shared/quotationDocument';
+import {
+  resolveQuotationBrandTitle,
+  resolveQuotationSupplierRegistration,
+} from './quotationBrandResolve';
 import {
   catalogSelectValue,
   emptyQuotationLine,
@@ -35,10 +45,12 @@ const gridHeadCell = 'border border-slate-500/60';
 type Props = {
   quoteNumber: string | null;
   createdAt: string | null;
-  company: TenantCompanyRegistration | null;
+  tenantCompanyRegistration: TenantCompanyRegistration;
   operatingCompanies: QuotationEditorOperatingCompanyDto[];
   operatingCompanyId: string;
   onOperatingCompanyChange: (id: string) => void;
+  documentType: QuotationDocumentType;
+  onDocumentTypeChange: (type: QuotationDocumentType) => void;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
@@ -125,23 +137,6 @@ function companyLines(c: TenantCompanyRegistration | null): string[] {
   ].filter(Boolean) as string[];
 }
 
-function resolveSelectedBrand(
-  companies: QuotationEditorOperatingCompanyDto[],
-  operatingCompanyId: string,
-): QuotationEditorOperatingCompanyDto | null {
-  return companies.find((c) => c.id === operatingCompanyId) ?? null;
-}
-
-function resolveQuotationTitle(
-  companies: QuotationEditorOperatingCompanyDto[],
-  operatingCompanyId: string,
-  company: TenantCompanyRegistration | null,
-): string {
-  const brand = resolveSelectedBrand(companies, operatingCompanyId);
-  if (brand) return formatQuotationDocumentTitle(brand.displayName || brand.name);
-  return formatQuotationDocumentTitle(company?.companyName ?? '');
-}
-
 function isCustomLineCell(
   li: EditableQuotationLine,
   catalog: QuotationServiceItemDto[],
@@ -156,10 +151,12 @@ const docCellSelect = `${docCellInput} bg-white cursor-pointer appearance-auto`;
 export function QuotationDocumentEditor({
   quoteNumber,
   createdAt,
-  company,
+  tenantCompanyRegistration,
   operatingCompanies,
   operatingCompanyId,
   onOperatingCompanyChange,
+  documentType,
+  onDocumentTypeChange,
   customerName,
   customerPhone,
   customerEmail,
@@ -265,12 +262,32 @@ export function QuotationDocumentEditor({
 
   const templateLines = linesForTemplateDisplay(lines);
 
-  const supplierLines = companyLines(company);
-  const sealWidth = resolveQuotationSealDisplayWidth(company?.sealDisplayWidthPx);
-  const sealUrl = company?.sealSecureUrl?.trim() || null;
-  const repName = company?.representativeName?.trim() || null;
-  const documentTitle = resolveQuotationTitle(operatingCompanies, operatingCompanyId, company);
-  const showBrandSelector = operatingCompanies.length > 1;
+  const supplierRegistration = useMemo(
+    () =>
+      resolveQuotationSupplierRegistration(
+        operatingCompanies,
+        operatingCompanyId,
+        tenantCompanyRegistration,
+      ),
+    [operatingCompanies, operatingCompanyId, tenantCompanyRegistration],
+  );
+  const supplierLines = companyLines(supplierRegistration);
+  const sealWidth = resolveQuotationSealDisplayWidth(supplierRegistration?.sealDisplayWidthPx);
+  const sealUrl = supplierRegistration?.sealSecureUrl?.trim() || null;
+  const repName = supplierRegistration?.representativeName?.trim() || null;
+  const documentTitle = useMemo(
+    () =>
+      resolveQuotationBrandTitle(
+        operatingCompanies,
+        operatingCompanyId,
+        tenantCompanyRegistration,
+        documentType,
+      ),
+    [operatingCompanies, operatingCompanyId, tenantCompanyRegistration, documentType],
+  );
+  const closingPhrase = getDocumentClosingPhrase(documentType);
+  const showValidUntil = shouldShowQuotationValidUntil(documentType);
+  const showBrandSelector = operatingCompanies.length > 0;
 
   return (
     <div className="min-w-0 space-y-3">
@@ -300,14 +317,15 @@ export function QuotationDocumentEditor({
         >
             {/* ── 상단(머리말) 고정 구역 ── */}
             <header className="shrink-0 text-center border-b border-slate-200 pb-5 mb-5">
-              {showBrandSelector && (
-                <div className="mb-3 flex justify-center">
+              <div className="mb-3 flex flex-wrap justify-center gap-2">
+                {showBrandSelector && (
                   <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-[11px] text-slate-600 shadow-sm">
                     <span className="font-medium whitespace-nowrap">영업 브랜드</span>
                     <select
-                      className="min-w-[140px] max-w-[220px] rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] text-slate-800 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200"
+                      className="min-w-[140px] max-w-[220px] rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] text-slate-800 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200 disabled:cursor-default disabled:bg-slate-50"
                       value={operatingCompanyId}
                       onChange={(e) => onOperatingCompanyChange(e.target.value)}
+                      disabled={operatingCompanies.length <= 1}
                     >
                       {operatingCompanies.map((oc) => (
                         <option key={oc.id} value={oc.id}>
@@ -316,8 +334,22 @@ export function QuotationDocumentEditor({
                       ))}
                     </select>
                   </label>
-                </div>
-              )}
+                )}
+                <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-[11px] text-slate-600 shadow-sm">
+                  <span className="font-medium whitespace-nowrap">문서 유형</span>
+                  <select
+                    className="min-w-[100px] rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] text-slate-800 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-200"
+                    value={documentType}
+                    onChange={(e) => onDocumentTypeChange(e.target.value as QuotationDocumentType)}
+                  >
+                    {QUOTATION_DOCUMENT_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
               <h2 className="text-[20px] font-bold tracking-wide text-slate-900">
                 {documentTitle}
               </h2>
@@ -405,18 +437,20 @@ export function QuotationDocumentEditor({
                   작성일:{' '}
                   <span className="text-slate-800 tabular-nums">{formatDocDate(createdAt)}</span>
                 </p>
-                <label className="inline-flex flex-wrap items-center gap-1.5">
-                  <span>유효기간:</span>
-                  <input
-                    type="date"
-                    className="rounded-sm border border-slate-200 bg-white px-1.5 py-0.5 text-[12px] text-slate-800 focus:border-slate-500 focus:outline-none"
-                    value={validUntil}
-                    onChange={(e) => onValidUntilChange(e.target.value)}
-                  />
-                  {validUntil.trim() && (
-                    <span className="text-slate-500">({formatValidUntil(validUntil)} 까지)</span>
-                  )}
-                </label>
+                {showValidUntil ? (
+                  <label className="inline-flex flex-wrap items-center gap-1.5">
+                    <span>유효기간:</span>
+                    <input
+                      type="date"
+                      className="rounded-sm border border-slate-200 bg-white px-1.5 py-0.5 text-[12px] text-slate-800 focus:border-slate-500 focus:outline-none"
+                      value={validUntil}
+                      onChange={(e) => onValidUntilChange(e.target.value)}
+                    />
+                    {validUntil.trim() && (
+                      <span className="text-slate-500">({formatValidUntil(validUntil)} 까지)</span>
+                    )}
+                  </label>
+                ) : null}
               </div>
 
               {/* 품목 표 — 고정 행 서식 */}
@@ -636,7 +670,7 @@ export function QuotationDocumentEditor({
                 <p className="text-right text-[10px] text-slate-500 mb-4">({vatModeLabel(vatMode)})</p>
 
                 <p className="text-center text-[13px] text-slate-800 font-medium tracking-wide">
-                  위와 같이 견적합니다.
+                  {closingPhrase}
                 </p>
                 {footerNotice?.trim() && (
                   <p className="mt-3 text-[11px] text-slate-500 leading-relaxed whitespace-pre-wrap text-center">

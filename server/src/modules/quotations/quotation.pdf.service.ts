@@ -156,27 +156,35 @@ function drawClosingBlock(
   ml: number,
   pageWidth: number,
   startY: number,
+  closingPhrase: string,
   footerNotice: string | null | undefined,
 ) {
   let y = startY;
-  doc.fontSize(9).fillColor('#111').text('위와 같이 견적합니다.', ml, y, {
+  doc.fontSize(9).fillColor('#111').text(closingPhrase, ml, y, {
     width: pageWidth,
     align: 'center',
   });
   y = doc.y + 8;
   const footer = footerNotice?.trim();
   if (footer) {
-    doc.fontSize(8).fillColor('#555').text(footer, ml, y, { width: pageWidth, lineGap: 2 });
+    doc.fontSize(8).fillColor('#555').text(footer, ml, y, { width: pageWidth, lineGap: 2, align: 'center' });
   }
 }
 
 export async function buildQuotationPdfBuffer(
   quotation: QuotationRow,
   company: TenantCompanyRegistrationConfig | undefined,
-  options?: { footerNotice?: string | null; documentTitle?: string | null },
+  options?: {
+    footerNotice?: string | null;
+    documentTitle?: string | null;
+    closingPhrase?: string | null;
+    showValidUntil?: boolean;
+  },
 ): Promise<Buffer> {
   const fontPath = resolvePdfKoreanFontPath();
   const title = options?.documentTitle?.trim() || '견적서';
+  const closingPhrase = options?.closingPhrase?.trim() || '위와 같이 견적합니다.';
+  const showValidUntil = options?.showValidUntil !== false;
   const companyName = company?.companyName?.trim() || '—';
   const vatMode = (quotation.vatMode ?? 'VAT_SEPARATE') as QuotationVatMode;
 
@@ -279,7 +287,7 @@ export async function buildQuotationPdfBuffer(
         doc.y = boxY + boxH + 14;
         doc.fontSize(9).fillColor('#333');
         doc.text(`작성일: ${formatDateKst(quotation.createdAt)}`, ml);
-        if (quotation.validUntil) {
+        if (showValidUntil && quotation.validUntil) {
           doc.text(`유효기간: ${formatDateKst(quotation.validUntil)} 까지`, ml);
         }
         doc.text(`과세: ${vatModeLabel(vatMode)}`, ml);
@@ -375,7 +383,7 @@ export async function buildQuotationPdfBuffer(
           doc.addPage();
         }
         drawAmountSummary(doc, ml, pageWidth, summaryBottomY, quotation, vatMode);
-        drawClosingBlock(doc, ml, pageWidth, summaryBottomY + 8, options?.footerNotice);
+        drawClosingBlock(doc, ml, pageWidth, summaryBottomY + 8, closingPhrase, options?.footerNotice);
 
         doc.end();
       } catch (e) {

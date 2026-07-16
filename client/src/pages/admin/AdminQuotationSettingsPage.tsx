@@ -45,6 +45,7 @@ export function AdminQuotationSettingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<QuotationServiceItemDto | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [footerNotice, setFooterNotice] = useState('');
+  const [receiptFooterNotice, setReceiptFooterNotice] = useState('');
   const [defaultEmailSubject, setDefaultEmailSubject] = useState('');
   const [defaultEmailBody, setDefaultEmailBody] = useState('');
   const [defaultValidDays, setDefaultValidDays] = useState('');
@@ -62,6 +63,7 @@ export function AdminQuotationSettingsPage() {
       ]);
       setItems(list);
       setFooterNotice(config.footerNotice ?? '');
+      setReceiptFooterNotice(config.receiptFooterNotice ?? '');
       setDefaultEmailSubject(config.defaultEmailSubject ?? '');
       setDefaultEmailBody(config.defaultEmailBody ?? '');
       setDefaultValidDays(
@@ -148,6 +150,7 @@ export function AdminQuotationSettingsPage() {
     try {
       await updateQuotationConfig(token, {
         footerNotice: footerNotice.trim() || null,
+        receiptFooterNotice: receiptFooterNotice.trim() || null,
         defaultEmailSubject: defaultEmailSubject.trim() || null,
         defaultEmailBody: defaultEmailBody.trim() || null,
         defaultValidDays: defaultValidDaysVal,
@@ -225,18 +228,29 @@ export function AdminQuotationSettingsPage() {
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-fluid-xs text-slate-600">
-          문서 제목은 선택한 <strong className="font-semibold text-slate-800">영업 브랜드명 + 견적서</strong>
+          문서 제목은 선택한 <strong className="font-semibold text-slate-800">영업 브랜드명 + 견적서/영수증</strong>
           로 자동 표시됩니다. (예: SK클린텍 견적서)
         </div>
 
         <label className="block">
-          <span className={qUi.label}>하단 고정 안내</span>
+          <span className={qUi.label}>견적서 하단 고정 안내</span>
           <textarea
             className={qUi.textarea}
             rows={3}
             placeholder="예: 본 견적은 발행일로부터 7일간 유효합니다."
             value={footerNotice}
             onChange={(e) => setFooterNotice(e.target.value)}
+          />
+        </label>
+
+        <label className="block">
+          <span className={qUi.label}>영수증 하단 고정 안내</span>
+          <textarea
+            className={qUi.textarea}
+            rows={3}
+            placeholder="예: 위 금액을 정히 영수함."
+            value={receiptFooterNotice}
+            onChange={(e) => setReceiptFooterNotice(e.target.value)}
           />
         </label>
 

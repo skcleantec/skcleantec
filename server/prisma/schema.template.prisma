@@ -190,6 +190,7 @@ model Tenant {
   quotationServiceItems QuotationServiceItem[]
   quotations Quotation[]
   quotationDailyCounters QuotationDailyCounter[]
+  quotationReceiptDailyCounters QuotationReceiptDailyCounter[]
   quotationConfigs QuotationConfig[]
   quotationEmailLogs QuotationEmailLog[]
   professionalSpecialtyOptions ProfessionalSpecialtyOption[]
@@ -1878,6 +1879,11 @@ model EstimateOption {
   @@map("estimate_options")
 }
 
+enum QuotationDocumentType {
+  QUOTATION
+  RECEIPT
+}
+
 enum QuotationStatus {
   DRAFT
   FINALIZED
@@ -1914,6 +1920,7 @@ model Quotation {
   tenantId        String          @map("tenant_id")
   tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   quoteNumber     String          @map("quote_number") @db.VarChar(32)
+  documentType    QuotationDocumentType @default(QUOTATION) @map("document_type")
   status          QuotationStatus @default(DRAFT)
   customerName    String          @map("customer_name") @db.VarChar(120)
   customerPhone   String?         @map("customer_phone") @db.VarChar(32)
@@ -1975,6 +1982,16 @@ model QuotationDailyCounter {
   @@map("quotation_daily_counters")
 }
 
+model QuotationReceiptDailyCounter {
+  tenantId String @map("tenant_id")
+  dateKey  String @map("date_key") @db.Char(8)
+  lastSeq  Int    @map("last_seq")
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, dateKey])
+  @@map("quotation_receipt_daily_counters")
+}
+
 /// 견적서 서식·기본값 (테넌트당 1건)
 model QuotationConfig {
   id               String   @id @default(uuid())
@@ -1982,6 +1999,8 @@ model QuotationConfig {
   tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   /// PDF 하단 고정 안내 (예: 견적 유효 7일)
   footerNotice     String?  @map("footer_notice") @db.Text
+  /// 영수증 PDF 하단 고정 안내
+  receiptFooterNotice String? @map("receipt_footer_notice") @db.Text
   /// PDF 상단 문서 제목 (기본: 견적서)
   documentTitle    String?  @map("document_title") @db.VarChar(40)
   /// 새 견적 작성 시 유효기간 기본 일수 (null이면 미적용)

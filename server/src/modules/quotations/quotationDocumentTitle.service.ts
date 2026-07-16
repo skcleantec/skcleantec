@@ -12,12 +12,13 @@ import {
 } from '../../lib/tenantSmtp.service.js';
 import { parseOperatingCompanyConfig } from '../operating-companies/operatingCompany.schema.js';
 
-/** @see shared/quotationDocument.ts */
-function formatQuotationDocumentTitle(brandOrCompanyName: string): string {
-  const name = brandOrCompanyName.trim();
-  if (!name) return '견적서';
-  return `${name} 견적서`;
-}
+import {
+  formatDocumentTitle,
+  getDocumentClosingPhrase,
+  resolveDocumentFooterNotice,
+  shouldShowQuotationValidUntil,
+  type QuotationDocumentType,
+} from './quotationDocument.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -80,9 +81,11 @@ export function resolveQuotationBrandDisplayName(
 export function resolveQuotationDocumentTitle(
   operatingCompany: { name: string; config: unknown } | null | undefined,
   fallbackCompanyName?: string | null,
+  documentType: QuotationDocumentType = 'QUOTATION',
 ): string {
-  return formatQuotationDocumentTitle(
+  return formatDocumentTitle(
     resolveQuotationBrandDisplayName(operatingCompany, fallbackCompanyName),
+    documentType,
   );
 }
 
