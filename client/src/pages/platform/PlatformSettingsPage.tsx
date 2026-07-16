@@ -6,6 +6,7 @@ import {
   type PlatformSettingsTabId,
 } from './settings/platformSettingsTabs';
 import { PlatformSettingsSmtpTab } from './settings/PlatformSettingsSmtpTab';
+import { PlatformSettingsLegalTab } from './settings/PlatformSettingsLegalTab';
 import { CARD_SECTION } from '../../utils/platformUi';
 
 function PlatformSettingsBusinessTab() {
@@ -22,6 +23,7 @@ function PlatformSettingsBusinessTab() {
 function TabPanel({ tab }: { tab: PlatformSettingsTabId }) {
   if (tab === 'smtp') return <PlatformSettingsSmtpTab />;
   if (tab === 'business') return <PlatformSettingsBusinessTab />;
+  if (tab === 'legal') return <PlatformSettingsLegalTab />;
   return null;
 }
 
@@ -34,7 +36,7 @@ export function PlatformSettingsPage() {
   }
 
   return (
-    <div className="space-y-6 pb-8 min-w-0 w-full max-w-3xl">
+    <div className="space-y-6 pb-8 min-w-0 w-full max-w-5xl">
       <div>
         <h1 className="text-xl font-semibold text-gray-900">설정</h1>
         <p className="mt-1 text-sm text-gray-500">플랫폼 운영·알림·사업 정보</p>

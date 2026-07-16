@@ -1,4 +1,4 @@
-export type PlatformSettingsTabId = 'smtp' | 'business';
+export type PlatformSettingsTabId = 'smtp' | 'business' | 'legal';
 
 export type PlatformSettingsTab = {
   id: PlatformSettingsTabId;
@@ -18,6 +18,12 @@ export const PLATFORM_SETTINGS_TABS: PlatformSettingsTab[] = [
     id: 'business',
     label: '사업자 정보',
     description: '사업자등록·회사 정보 (추후 입력)',
+    ready: true,
+  },
+  {
+    id: 'legal',
+    label: '이용약관·계약',
+    description: '회원사 약관·고객 동의 문서 관리 및 링크 체결',
     ready: true,
   },
 ];
