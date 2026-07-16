@@ -38,7 +38,7 @@ import {
   type TeamViewerMe,
 } from '../../api/team';
 import { copyTextToClipboard } from '../../utils/clipboard';
-import { formatInquiryListAreaOrServiceLabel, formatInquiryAreaCompactOrService } from '../../utils/inquiryAreaDisplay';
+import { formatInquiryListAreaOrServiceLabel, formatInquiryAreaCompactKo } from '../../utils/inquiryAreaDisplay';
 import { isAirconOrderFormTemplate } from '@shared/orderFormServiceKind';
 import { operatingCompanyShortLabel } from '../../utils/operatingCompanyShortLabel';
 import { operatingCompanyBadgeColorClasses } from '../../utils/operatingCompanyBadgeColors';
@@ -345,14 +345,15 @@ export function formatTeamInquiryAreaSummary(item: {
   return s === '—' ? teamT('team.common.emDash') : s;
 }
 
-/** 목록·배지용 — 「34평」 등 짧은 평수 (에어컨 발주서는 「에어컨」) */
+/** 목록·배지용 — 「34평」 등 짧은 평수 (에어컨은 이름 옆 서비스 배지만 사용) */
 export function formatTeamInquiryAreaCompact(item: {
   areaPyeong?: number | null;
   exclusiveAreaSqm?: number | null;
   isOneRoom?: boolean | null;
   orderForm?: InquiryItem['orderForm'];
 }): string | null {
-  return formatInquiryAreaCompactOrService(item);
+  if (isAirconOrderFormTemplate(item.orderForm?.template)) return null;
+  return formatInquiryAreaCompactKo(item);
 }
 
 /** 배정·스케줄·대시보드 목록 — 에어컨 발주서 전용 pill */
@@ -472,7 +473,7 @@ export function TeamInquiryBrandListBadge({
   );
 }
 
-/** 배정·스케줄 목록 — 평수 pill (에어컨 발주서는 「에어컨」) */
+/** 배정·스케줄 목록 — 평수 pill (에어컨 발주서는 표시 안 함 — 서비스 배지로만) */
 export function TeamInquiryAreaListBadge({
   item,
   className = '',
