@@ -11,7 +11,6 @@ import {
   DashboardAuxBlocksGrid,
   DashboardKpiGrid,
   DashboardSalesAnalyticsGrid,
-  DashboardTeamPanelsGrid,
 } from '../../components/admin/dashboard/DashboardPageSections';
 import type { DashboardDrillKind, DashboardDrillRequest } from '../../components/admin/dashboard/dashboardDrilldownTypes';
 import { kstMonthKeyNow } from '../../components/admin/dashboard/dashboardDrilldownTypes';
