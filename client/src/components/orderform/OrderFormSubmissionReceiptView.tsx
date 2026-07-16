@@ -8,6 +8,7 @@ import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
 } from '../../constants/orderFormConfigDefaults';
+import { resolveOrderFormFooterNotices } from '../../utils/orderFormCustomerCopy';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import type { PublicOrderFormCompanyTrust } from '../../api/orderform';
 import { OrderFormCompanyTrustFooter } from './OrderFormCompanyTrustFooter';
@@ -60,6 +61,7 @@ export function OrderFormSubmissionReceiptView(props: {
     formConfig?.submitSuccessBody,
     ORDER_FORM_CONFIG_DEFAULTS.submitSuccessBody
   );
+  const { line1: footerNotice1, line2: footerNotice2 } = resolveOrderFormFooterNotices(formConfig);
 
   const refreshPhotos = useCallback(async () => {
     try {
@@ -83,6 +85,16 @@ export function OrderFormSubmissionReceiptView(props: {
           <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">제출 확인서</p>
           <h1 className="mt-1 text-lg font-semibold text-gray-900 whitespace-pre-line">{successTitle}</h1>
           <p className="mt-2 text-sm text-gray-600 whitespace-pre-line">{successBody}</p>
+          {footerNotice1.trim() || footerNotice2.trim() ? (
+            <div className="mt-4 space-y-1 text-center text-fluid-xs text-gray-500">
+              {footerNotice1.trim() ? (
+                <p className="whitespace-pre-line">{footerNotice1}</p>
+              ) : null}
+              {footerNotice2.trim() ? (
+                <p className="whitespace-pre-line">{footerNotice2}</p>
+              ) : null}
+            </div>
+          ) : null}
           <p className="mt-3 text-fluid-xs text-gray-500">
             이 링크를 저장해 두시면 제출 내용을 다시 확인할 수 있습니다.
           </p>

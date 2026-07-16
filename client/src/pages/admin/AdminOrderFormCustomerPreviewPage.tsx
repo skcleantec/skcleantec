@@ -553,6 +553,9 @@ export function AdminOrderFormCustomerPreviewPage() {
 
             {activePanel === 'footer' && (
               <div className="space-y-3">
+                <p className="text-fluid-xs text-gray-600">
+                  제출 완료 후 확인 화면·고객 안내 문자 하단에 표시됩니다. 작성 중 발주서 본문에는 나오지 않습니다.
+                </p>
                 <div>
                   <label className="block text-fluid-xs text-gray-700">안내 문구 1</label>
                   <textarea

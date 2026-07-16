@@ -84,6 +84,8 @@ import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.j
 import {
   ensureCrmQuoteBreakdownTemplateField,
   getPublicTemplateForForm,
+  listStaffOnlyCustomFieldsForSnapshot,
+  listTemplateCustomFieldKeysForPrefill,
   resolveIssueTemplate,
   sanitizeCustomAnswers,
 } from '../orderform-templates/orderFormTemplate.service.js';
@@ -1563,8 +1565,7 @@ router.post('/:id/prefill', authMiddleware, requireStaffPermission('orderform.is
       ? body.customerName.trim()
       : form.customerName;
 
-  const template = await getPublicTemplateForForm(prisma, tenantId, form.templateId);
-  const customFieldKeys = template ? template.customFields.map((f) => f.fieldKey) : [];
+  const customFieldKeys = await listTemplateCustomFieldKeysForPrefill(prisma, tenantId, form.templateId);
   const prefill = buildPrefillFromPayload(body, customFieldKeys);
 
   try {
@@ -2411,22 +2412,36 @@ router.post('/submit/:token', async (req, res) => {
 
   // 동적 템플릿 추가 항목 — 답변 정규화 + 라벨 부여(스냅샷 보존, 템플릿 변경에 안전)
   const submitTemplate = await getPublicTemplateForForm(prisma, submitTenantId, form.templateId);
+  const staffOnlyFields = await listStaffOnlyCustomFieldsForSnapshot(
+    prisma,
+    submitTenantId,
+    form.templateId,
+  );
   const customAnswers = submitTemplate
-    ? sanitizeCustomAnswers(body.answers, submitTemplate.customFields)
-    : {};
+    ? {
+        ...sanitizeCustomAnswers(body.answers, submitTemplate.customFields),
+        ...sanitizeCustomAnswers(body.answers, staffOnlyFields),
+      }
+    : staffOnlyFields.length > 0
+      ? sanitizeCustomAnswers(body.answers, staffOnlyFields)
+      : {};
   const customAnswersData =
     Object.keys(customAnswers).length > 0
       ? { customerAnswers: customAnswers as Prisma.InputJsonValue }
       : {};
-  const templateAnswers: Prisma.InputJsonValue[] = submitTemplate
-    ? submitTemplate.customFields
-        .filter((cf) => customAnswers[cf.fieldKey] != null)
-        .map((cf) => ({
-          fieldKey: cf.fieldKey,
-          label: cf.label,
-          value: customAnswers[cf.fieldKey] as Prisma.InputJsonValue,
-        }))
-    : [];
+  const snapshotCustomFields = [
+    ...(submitTemplate?.customFields ?? []),
+    ...staffOnlyFields.filter(
+      (f) => !(submitTemplate?.customFields ?? []).some((p) => p.fieldKey === f.fieldKey),
+    ),
+  ];
+  const templateAnswers: Prisma.InputJsonValue[] = snapshotCustomFields
+    .filter((cf) => customAnswers[cf.fieldKey] != null)
+    .map((cf) => ({
+      fieldKey: cf.fieldKey,
+      label: cf.label,
+      value: customAnswers[cf.fieldKey] as Prisma.InputJsonValue,
+    }));
 
   const customerSubmissionSnapshot = {
     version: 1,

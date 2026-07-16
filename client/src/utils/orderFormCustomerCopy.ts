@@ -25,12 +25,22 @@ export function withDefaultText(raw: string | null | undefined, key: FormMsgDefa
 const LEGACY_FOOTER_NOTICE2 = '❌ 연락 없을 시, 본사 확인 요청 필';
 
 /** 하단 안내 2 — 기본값 오타(「필」) 저장 건도 「필수」로 보정 */
-function footerNotice2ForMessage(raw: string | null | undefined): string {
+export function footerNotice2ForMessage(raw: string | null | undefined): string {
   const t = raw != null ? String(raw).trim() : '';
   if (!t || t === LEGACY_FOOTER_NOTICE2) {
     return ORDER_FORM_CONFIG_DEFAULTS.footerNotice2;
   }
   return t;
+}
+
+/** 제출 완료 화면·고객 안내 문자 — 하단 안내 1·2 */
+export function resolveOrderFormFooterNotices(
+  formConfig?: Pick<OrderFormConfigPublic, 'footerNotice1' | 'footerNotice2'> | null,
+): { line1: string; line2: string } {
+  return {
+    line1: withDefaultText(formConfig?.footerNotice1, 'footerNotice1'),
+    line2: footerNotice2ForMessage(formConfig?.footerNotice2),
+  };
 }
 
 /** 폼 메시지 필드 — 편집 UI는 발주서 미리보기·설정 탭 연계 (고객 안내 본문은 안내사항설정에서 편집) */

@@ -264,6 +264,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   useDocumentTitle(orderFormHeadingTitle, {
     tabTitle: !isEditor && !isCreate ? CUSTOMER_ORDER_FORM_BROWSER_TAB_TITLE : undefined,
   });
+  const visibleOrderFormCustomFields = useMemo(() => {
+    const fields = order?.template?.customFields ?? [];
+    if (isEditor || isCreate) return fields;
+    return fields.filter((cf) => cf.fieldKey !== TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY);
+  }, [order?.template?.customFields, isEditor, isCreate]);
   const agreeLinkLabel = orderFormConfigLine(
     order?.formConfig?.infoLinkText ?? submittedReceipt?.formConfig?.infoLinkText,
     ORDER_FORM_CONFIG_DEFAULTS.infoLinkText,
@@ -838,7 +843,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       }
       if (!agreeToTerms) throw new Error('[필수] 예약 안내 및 개인정보 제3자 제공 동의가 필요합니다.');
 
-      const templateCustomFields = order?.template?.customFields ?? [];
+      const templateCustomFields = visibleOrderFormCustomFields;
       for (const cf of templateCustomFields) {
         if (!cf.required) continue;
         const v = customAnswers[cf.fieldKey];
@@ -1851,10 +1856,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {(order?.template?.customFields?.length ?? 0) > 0 ? (
+          {visibleOrderFormCustomFields.length > 0 ? (
             <div className="rounded border border-gray-200 bg-white p-3 space-y-3">
               <p className={labelCls}>추가 정보</p>
-              {order!.template!.customFields.map((cf) => {
+              {visibleOrderFormCustomFields.map((cf) => {
                 const opts = Array.isArray(cf.options) ? (cf.options as unknown[]).map((o) => String(o)) : [];
                 const value = customAnswers[cf.fieldKey];
                 const setVal = (v: unknown) => setCustomAnswers((prev) => ({ ...prev, [cf.fieldKey]: v }));
@@ -2459,6 +2464,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
         ) : null}
 
+        {!isEditor && !isCreate ? null : (
         <div className="text-xs text-gray-500 mt-8 text-center space-y-1">
           <p className="whitespace-pre-line">
             {orderFormConfigLine(
@@ -2473,6 +2479,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             )}
           </p>
         </div>
+        )}
         {!isEditor ? (
           <OrderFormCompanyTrustFooter
             trust={publicCompanyTrust}

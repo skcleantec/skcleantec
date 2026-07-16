@@ -1,4 +1,5 @@
 import type { OrderFormCustomerSubmissionSnapshotV1 } from '../../api/orderform';
+import { TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY } from '@shared/telecrmConsultationQuote';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import {
   ORDER_FORM_PROFESSIONAL_OPTIONS_MULTILINE_LABEL,
@@ -54,7 +55,10 @@ export function OrderFormSubmissionSnapshotContent(props: {
 
   const tpl = snapshot.template ?? null;
   const tplAnswers = (snapshot.templateAnswers ?? []).filter(
-    (a) => a && String(renderSnapshotAnswerValue(a.value)).trim() !== ''
+    (a) =>
+      a &&
+      a.fieldKey !== TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY &&
+      String(renderSnapshotAnswerValue(a.value)).trim() !== '',
   );
 
   return (

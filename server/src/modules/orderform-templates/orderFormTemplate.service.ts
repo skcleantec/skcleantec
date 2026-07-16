@@ -83,7 +83,12 @@ export async function getPublicTemplateForForm(
   });
   if (!t) return null;
   const customFields: PublicTemplateCustomField[] = t.fields
-    .filter((f) => !f.systemField && f.fillMode !== 'ADMIN_LOCKED')
+    .filter(
+      (f) =>
+        !f.systemField &&
+        f.fillMode !== 'ADMIN_LOCKED' &&
+        f.fieldKey !== TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY,
+    )
     .map((f) => ({
       fieldKey: f.fieldKey,
       label: f.label,
@@ -141,6 +146,53 @@ export function sanitizeCustomAnswers(
   return out;
 }
 
+/** 마케터 선입력 저장 — 커스텀 필드 키(관리자 전용 포함) */
+export async function listTemplateCustomFieldKeysForPrefill(
+  db: Db,
+  tenantId: string,
+  templateId: string | null | undefined,
+): Promise<string[]> {
+  if (!templateId) return [];
+  const rows = await db.orderFormTemplateField.findMany({
+    where: { tenantId, templateId, systemField: null },
+    select: { fieldKey: true },
+    orderBy: { sortOrder: 'asc' },
+  });
+  return rows.map((r) => r.fieldKey);
+}
+
+/** 제출 스냅샷·알림 — 고객 화면에 숨기는 관리자 전용 커스텀 필드 */
+export async function listStaffOnlyCustomFieldsForSnapshot(
+  db: Db,
+  tenantId: string,
+  templateId: string | null | undefined,
+): Promise<PublicTemplateCustomField[]> {
+  if (!templateId) return [];
+  const rows = await db.orderFormTemplateField.findMany({
+    where: {
+      tenantId,
+      templateId,
+      systemField: null,
+      OR: [
+        { fillMode: 'ADMIN_LOCKED' },
+        { fieldKey: TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY },
+      ],
+    },
+    orderBy: { sortOrder: 'asc' },
+  });
+  return rows.map((f) => ({
+    fieldKey: f.fieldKey,
+    label: f.label,
+    helpText: f.helpText,
+    inputType: f.inputType,
+    options: f.options,
+    placeholder: f.placeholder,
+    optionStyle: f.optionStyle,
+    required: f.required,
+    fillMode: f.fillMode,
+  }));
+}
+
 /** 텔레CRM 발주 연동 — 견적 내역 커스텀 필드가 없으면 템플릿 끝에 추가(idempotent). */
 export async function ensureCrmQuoteBreakdownTemplateField(
   db: Db,
@@ -153,9 +205,17 @@ export async function ensureCrmQuoteBreakdownTemplateField(
       templateId,
       fieldKey: TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY,
     },
-    select: { id: true },
+    select: { id: true, fillMode: true },
   });
-  if (existing) return false;
+  if (existing) {
+    if (existing.fillMode !== 'ADMIN_LOCKED') {
+      await db.orderFormTemplateField.update({
+        where: { id: existing.id },
+        data: { fillMode: 'ADMIN_LOCKED' },
+      });
+    }
+    return false;
+  }
 
   const maxSort = await db.orderFormTemplateField.aggregate({
     where: { tenantId, templateId },

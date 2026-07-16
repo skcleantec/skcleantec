@@ -33,7 +33,7 @@ export const TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_META = {
   inputType: 'TEXTAREA' as const,
   placeholder: null as string | null,
   required: false,
-  fillMode: 'CUSTOMER' as const,
+  fillMode: 'ADMIN_LOCKED' as const,
 };
 
 export function formatTelecrmQuoteWon(n: number): string {
