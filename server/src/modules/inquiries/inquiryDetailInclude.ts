@@ -14,6 +14,14 @@ export const orderFormTemplateSelect = {
   },
 } as const;
 
+/** 접수 목록 — 양식 배지용 경량 select */
+export const orderFormTemplateListSelect = {
+  id: true,
+  title: true,
+  icon: true,
+  isDefault: true,
+} as const;
+
 export { operatingCompanySummarySelect };
 
 /** 단일 접수 상세(GET /:id, PATCH 응답 등) 공통 include */

@@ -110,7 +110,7 @@ import {
 } from '../crew/crewFieldRealtime.js';
 import { notifyStaffInboxRefresh } from '../realtime/navBadgeNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
-import { inquiryDetailInclude, operatingCompanySummarySelect } from './inquiryDetailInclude.js';
+import { inquiryDetailInclude, operatingCompanySummarySelect, orderFormTemplateListSelect } from './inquiryDetailInclude.js';
 import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
 import {
   attachInspectionSummaries,
@@ -450,6 +450,7 @@ router.get('/', async (req, res) => {
         balanceAmount: true,
         submittedAt: true,
         customerSpecialNotes: true,
+        template: { select: orderFormTemplateListSelect },
         createdBy: { select: { id: true, name: true, role: true } },
       },
     },

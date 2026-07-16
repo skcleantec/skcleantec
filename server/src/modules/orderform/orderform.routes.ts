@@ -108,6 +108,10 @@ import {
   sendOrderFormSubmissionConfirmationEmail,
   serializeSubmissionEmailLog,
 } from './orderFormSubmissionEmail.service.js';
+import {
+  orderFormListSnapshotToPrisma,
+  resolveOrderFormListSnapshotForSubmit,
+} from './orderFormListSnapshot.service.js';
 
 const router = Router();
 
@@ -2594,6 +2598,16 @@ router.post('/submit/:token', async (req, res) => {
 
   const brandSlug = typeof req.query.brand === 'string' ? req.query.brand : null;
 
+  const orderFormListSnapshot = await resolveOrderFormListSnapshotForSubmit(
+    prisma,
+    submitTenantId,
+    form.templateId,
+    customAnswers,
+  );
+  const orderFormListSnapshotData = {
+    orderFormListSnapshot: orderFormListSnapshotToPrisma(orderFormListSnapshot),
+  };
+
   const existingPending = await prisma.inquiry.findFirst({
     where: {
       orderFormId: form.id,
@@ -2642,6 +2656,7 @@ router.post('/submit/:token', async (req, res) => {
           status: 'RECEIVED',
           professionalOptionIds: professionalOptionIdsJson,
           profOptionsAmountReviewPending: professionalSelections.length > 0,
+          ...orderFormListSnapshotData,
         },
       });
       if (existingPending.status !== 'RECEIVED') {
@@ -2724,6 +2739,7 @@ router.post('/submit/:token', async (req, res) => {
           orderFormId: form.id,
           professionalOptionIds: professionalOptionIdsJson,
           profOptionsAmountReviewPending: professionalSelections.length > 0,
+          ...orderFormListSnapshotData,
         },
         select: { id: true },
       });

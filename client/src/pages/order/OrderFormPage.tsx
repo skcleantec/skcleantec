@@ -247,13 +247,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       publicBranding?.displayName?.trim() ||
       submittedReceipt?.publicBranding?.displayName?.trim() ||
       null;
-    if (brandName) {
-      return composeBrandedOrderFormTitle(brandName, formTitleLine);
+    const template = order?.template;
+    const composed = composeBrandedOrderFormTitle(brandName, formTitleLine, {
+      templateTitle: template?.title,
+      isDefaultTemplate: template?.isDefault ?? true,
+    });
+    if (!brandName && template?.title && !template.isDefault && template.icon) {
+      return `${template.icon} ${composed}`;
     }
-    if (order?.template?.title && !order.template.isDefault) {
-      return `${order.template.icon ? `${order.template.icon} ` : ''}${order.template.title}`;
-    }
-    return formTitleLine;
+    return composed;
   }, [
     publicBranding?.displayName,
     submittedReceipt?.publicBranding?.displayName,

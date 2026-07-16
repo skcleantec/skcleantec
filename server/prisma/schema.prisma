@@ -1443,6 +1443,8 @@ model Inquiry {
   professionalOptionIds Json? @map("professional_option_ids")
   /// 고객이 발주서에서 추가 시공 옵션 선택 — 마케터 금액·추가결재 확정 전 true
   profOptionsAmountReviewPending Boolean @default(false) @map("prof_options_amount_review_pending")
+  /// 발주서 추가 항목 중 목록 노출 대상 — 제출 시 라벨·값 스냅샷
+  orderFormListSnapshot Json? @map("order_form_list_snapshot")
   /// 휴지통(soft delete) — null이면 활성 접수
   deletedAt   DateTime? @map("deleted_at")
   deletedById String?   @map("deleted_by_id")
@@ -2185,6 +2187,8 @@ model OrderFormTemplateField {
   /// 코어 매핑 키(없으면 자유 필드). 예: customerName, customerPhone, address, totalAmount, areaPyeong, preferredDate, preferredTime
   systemField String?                 @map("system_field") @db.VarChar(48)
   fillMode    OrderFormFieldFillMode  @default(CUSTOMER) @map("fill_mode")
+  /// 접수 목록 표에 노출할 추가 항목(테넌트당 최대 3개 fieldKey)
+  showInInquiryList Boolean             @default(false) @map("show_in_inquiry_list")
   createdAt   DateTime                @default(now()) @map("created_at")
   updatedAt   DateTime                @updatedAt @map("updated_at")
 
