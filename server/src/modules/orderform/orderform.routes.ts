@@ -42,6 +42,7 @@ import {
   toOperatingCompanyPublicSummary,
 } from '../operating-companies/operatingCompanyPublicSummary.js';
 import { resolvePublicBrandingForCustomer } from '../operating-companies/publicOperatingCompanyBranding.js';
+import { resolvePublicOrderFormCompanyTrust } from './publicOrderFormCompanyTrust.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import {
   ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS,
@@ -714,10 +715,17 @@ async function buildEditableOrderPayload(
     operatingCompanyId: form.operatingCompanyId,
     brandSlug,
   });
+  const publicCompanyTrust = await resolvePublicOrderFormCompanyTrust({
+    db: prisma,
+    tenantId: form.tenantId,
+    operatingCompanyId: form.operatingCompanyId,
+    displayNameFallback: publicBranding?.displayName ?? null,
+  });
   return {
     id: form.id,
     token: form.token,
     publicBranding,
+    publicCompanyTrust,
     customerName: form.customerName,
     customerPhone: form.customerPhone,
     totalAmount: form.totalAmount,
@@ -2088,6 +2096,12 @@ router.get('/by-token/:token', async (req, res) => {
       operatingCompanyId: form.operatingCompanyId,
       brandSlug,
     });
+    const publicCompanyTrust = await resolvePublicOrderFormCompanyTrust({
+      db: prisma,
+      tenantId: form.tenantId,
+      operatingCompanyId: form.operatingCompanyId,
+      displayNameFallback: publicBranding?.displayName ?? null,
+    });
     res.json({
       id: form.id,
       token: form.token,
@@ -2097,6 +2111,7 @@ router.get('/by-token/:token', async (req, res) => {
       customerSubmissionSnapshot: form.customerSubmissionSnapshot ?? null,
       formConfig: resolvedPublicFormConfig(formConfig),
       publicBranding,
+      publicCompanyTrust,
       submissionEmail: serializeSubmissionEmailLog(emailLog),
     });
     return;

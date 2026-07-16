@@ -60,6 +60,15 @@ export interface PublicOperatingCompanyBranding {
   publicSubtitle: string | null;
 }
 
+/** 고객 발주서 하단 — 사업자 정보(보이스피싱 안심) */
+export interface PublicOrderFormCompanyTrust {
+  companyName: string;
+  representativeName: string | null;
+  businessRegistrationNo: string | null;
+  addressLine: string | null;
+  phone: string | null;
+}
+
 /** 고객 제출 확정 시 서버가 저장하는 스냅샷(JSON). 버전 확장 시 필드 추가 */
 export interface OrderFormSnapshotTemplateAnswer {
   fieldKey: string;
@@ -271,6 +280,7 @@ export interface OrderFormPublicEditable {
   /** 발주서가 대기 접수에 연결된 경우 고객 입력 폼에 반영 */
   pendingInquiry?: PendingInquiryPrefill | null;
   publicBranding?: PublicOperatingCompanyBranding | null;
+  publicCompanyTrust?: PublicOrderFormCompanyTrust | null;
   submissionEmail?: OrderFormSubmissionEmailInfo | null;
   submittedAt?: null;
 }
@@ -285,6 +295,7 @@ export interface OrderFormPublicSubmitted {
   customerSubmissionSnapshot: unknown | null;
   formConfig?: OrderFormConfigPublic;
   publicBranding?: PublicOperatingCompanyBranding | null;
+  publicCompanyTrust?: PublicOrderFormCompanyTrust | null;
   submissionEmail?: OrderFormSubmissionEmailInfo | null;
 }
 

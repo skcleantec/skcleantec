@@ -4,14 +4,14 @@ import { ORDER_FORM_PARTNER_CONSENT_SECTION } from '@shared/orderFormPartnerCons
 export function OrderFormPartnerConsentBlock() {
   const { title, items } = ORDER_FORM_PARTNER_CONSENT_SECTION;
   return (
-    <section className="rounded-xl border-2 border-sky-200 bg-sky-50/90 px-4 py-4 shadow-sm">
-      <h2 className="mb-3 border-b border-sky-200 pb-2 text-sm font-bold text-sky-950 whitespace-pre-line">
+    <section className="rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-3">
+      <h2 className="mb-2 border-b border-gray-200 pb-1.5 text-fluid-2xs font-semibold text-gray-800 whitespace-pre-line">
         {title}
       </h2>
-      <ul className="space-y-3">
+      <ul className="space-y-2">
         {items.map((item, j) => (
-          <li key={j} className="flex gap-2.5 text-sm leading-relaxed text-sky-950">
-            <span className="shrink-0 font-semibold text-sky-600">•</span>
+          <li key={j} className="flex gap-2 text-fluid-2xs leading-relaxed text-gray-600">
+            <span className="shrink-0 text-gray-400">•</span>
             <span>{item}</span>
           </li>
         ))}

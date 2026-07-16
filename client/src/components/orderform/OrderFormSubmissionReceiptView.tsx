@@ -9,6 +9,8 @@ import {
   orderFormConfigLine,
 } from '../../constants/orderFormConfigDefaults';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import type { PublicOrderFormCompanyTrust } from '../../api/orderform';
+import { OrderFormCompanyTrustFooter } from './OrderFormCompanyTrustFooter';
 import { OrderFormGuideAgreeModal } from './OrderFormGuideAgreeModal';
 import { OrderFormSubmissionSnapshotContent } from './orderFormSubmissionSnapshot';
 
@@ -24,9 +26,22 @@ export function OrderFormSubmissionReceiptView(props: {
     toEmail: string;
     lastError?: string | null;
   } | null;
+  publicCompanyTrust?: PublicOrderFormCompanyTrust | null;
+  companyDisplayName?: string | null;
   headerRight?: React.ReactNode;
 }) {
-  const { token, customerName, submittedAt, inquiryNumber, snapshot, formConfig, submissionEmail, headerRight } = props;
+  const {
+    token,
+    customerName,
+    submittedAt,
+    inquiryNumber,
+    snapshot,
+    formConfig,
+    submissionEmail,
+    publicCompanyTrust,
+    companyDisplayName,
+    headerRight,
+  } = props;
   const [photos, setPhotos] = useState<OrderFormPhotoItem[]>([]);
   const [preview, setPreview] = useState<OrderFormPhotoItem | null>(null);
   const [guideModalOpen, setGuideModalOpen] = useState(false);
@@ -133,6 +148,11 @@ export function OrderFormSubmissionReceiptView(props: {
             </div>
           </section>
         ) : null}
+
+        <OrderFormCompanyTrustFooter
+          trust={publicCompanyTrust}
+          displayNameFallback={companyDisplayName}
+        />
       </div>
 
       {preview ? (

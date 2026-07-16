@@ -71,8 +71,9 @@ import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhotoSection';
 import { OrderFormSubmissionReceiptView } from '../../components/orderform/OrderFormSubmissionReceiptView';
 import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
+import { OrderFormCompanyTrustFooter } from '../../components/orderform/OrderFormCompanyTrustFooter';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import type { PublicOperatingCompanyBranding } from '../../api/orderform';
+import type { PublicOperatingCompanyBranding, PublicOrderFormCompanyTrust } from '../../api/orderform';
 import { composeBrandedOrderFormTitle } from '@shared/publicBrandTitles';
 import type { CrmOrderIssueSeed } from '../../components/orderform/OrderIssueInlinePanel';
 import {
@@ -226,6 +227,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     prefillAnswers?: Record<string, unknown> | null;
   } | null>(null);
   const [publicBranding, setPublicBranding] = useState<PublicOperatingCompanyBranding | null>(null);
+  const [publicCompanyTrust, setPublicCompanyTrust] = useState<PublicOrderFormCompanyTrust | null>(null);
   /** 동적 템플릿 추가 항목 답변 {fieldKey: value} */
   const [customAnswers, setCustomAnswers] = useState<Record<string, unknown>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -503,12 +505,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         if (isOrderFormPublicSubmitted(data)) {
           setSubmittedReceipt(data);
           setPublicBranding(data.publicBranding ?? null);
+          setPublicCompanyTrust(data.publicCompanyTrust ?? null);
           setOrder(null);
           setError(null);
           return;
         }
         setSubmittedReceipt(null);
         setPublicBranding(data.publicBranding ?? null);
+        setPublicCompanyTrust(data.publicCompanyTrust ?? null);
         const pf =
           data.prefillAnswers && typeof data.prefillAnswers === 'object'
             ? (data.prefillAnswers as Record<string, unknown>)
@@ -1056,6 +1060,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         snapshot={submittedReceipt.customerSubmissionSnapshot}
         formConfig={submittedReceipt.formConfig}
         submissionEmail={submittedReceipt.submissionEmail}
+        publicCompanyTrust={submittedReceipt.publicCompanyTrust}
+        companyDisplayName={submittedReceipt.publicBranding?.displayName}
         headerRight={<CloseButton />}
       />
     );
@@ -2453,6 +2459,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             )}
           </p>
         </div>
+        {!isEditor ? (
+          <OrderFormCompanyTrustFooter
+            trust={publicCompanyTrust}
+            displayNameFallback={publicBranding?.displayName}
+          />
+        ) : null}
       </div>
     </div>
   );
