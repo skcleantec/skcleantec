@@ -62,6 +62,8 @@ import helpRoutes from './modules/help/help.routes.js';
 import helpInquiryPublicRoutes from './modules/help-inquiry/helpInquiry.public.routes.js';
 import platformHelpInquiryRoutes from './modules/help-inquiry/platformHelpInquiry.routes.js';
 import platformBillingRoutes from './modules/platform/platformBilling.routes.js';
+import platformLegalRoutes from './modules/platform-legal/platformLegal.routes.js';
+import platformLegalPublicRoutes from './modules/platform-legal/platformLegal.public.routes.js';
 import { resolveHelpScreenshotFilePath } from './modules/help/helpScreenshotsPath.js';
 import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLeaderTraining.admin.routes.js';
 import marketerPermissionsRoutes from './modules/marketer-permissions/marketerPermissions.routes.js';
@@ -90,6 +92,7 @@ app.use('/api/platform/tenant-partnerships', platformTenantPartnershipsRoutes);
 app.use('/api/platform/db-marketplace', platformDbMarketplaceRoutes);
 app.use('/api/platform/help-inquiry', platformHelpInquiryRoutes);
 app.use('/api/platform/billing', platformBillingRoutes);
+app.use('/api/platform/legal', platformLegalRoutes);
 app.use('/api/tenant', tenantRoutes);
 app.use('/api/inquiries', inquiriesRoutes);
 app.use('/api/inquiry-excel-import', inquiryExcelImportRoutes);
@@ -146,6 +149,7 @@ app.get('/api/public/soomgo-bridge/manifest', (_req, res) => {
 });
 app.use('/api/help', helpRoutes);
 app.use('/api/help/inquiry', helpInquiryPublicRoutes);
+app.use('/api/public/legal', platformLegalPublicRoutes);
 mountCustomModuleRoutes(app);
 
 // C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙

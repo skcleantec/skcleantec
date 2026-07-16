@@ -42,6 +42,7 @@ import {
   toOperatingCompanyPublicSummary,
 } from '../operating-companies/operatingCompanyPublicSummary.js';
 import { resolvePublicBrandingForCustomer } from '../operating-companies/publicOperatingCompanyBranding.js';
+import { resolvePublicOrderFormCompanyTrust } from './publicOrderFormCompanyTrust.js';
 import { syncInquiryAddressGeo } from '../inquiries/inquiryAddressGeoSync.js';
 import {
   ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS,
@@ -83,6 +84,8 @@ import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.j
 import {
   ensureCrmQuoteBreakdownTemplateField,
   getPublicTemplateForForm,
+  listStaffOnlyCustomFieldsForSnapshot,
+  listTemplateCustomFieldKeysForPrefill,
   resolveIssueTemplate,
   sanitizeCustomAnswers,
 } from '../orderform-templates/orderFormTemplate.service.js';
@@ -297,13 +300,13 @@ router.get('/public-guide', async (req, res) => {
     const cfg = await getOrCreateOrderFormConfig(prisma, tenantId);
     const sections = parseGuideSectionsFromDb(cfg.infoContent);
     const infoLinkText =
-      cfg.infoLinkText?.trim() || '고객 정보처리 동의 및 안내사항';
+      cfg.infoLinkText?.trim() || '[필수] 예약 안내 및 개인정보 제3자 제공 동의';
     res.json({ sections, infoLinkText });
   } catch (err) {
     console.error('public-guide error:', err);
     res.json({
       sections: DEFAULT_GUIDE_SECTIONS,
-      infoLinkText: '고객 정보처리 동의 및 안내사항',
+      infoLinkText: '[필수] 예약 안내 및 개인정보 제3자 제공 동의',
     });
   }
 });
@@ -714,10 +717,17 @@ async function buildEditableOrderPayload(
     operatingCompanyId: form.operatingCompanyId,
     brandSlug,
   });
+  const publicCompanyTrust = await resolvePublicOrderFormCompanyTrust({
+    db: prisma,
+    tenantId: form.tenantId,
+    operatingCompanyId: form.operatingCompanyId,
+    displayNameFallback: publicBranding?.displayName ?? null,
+  });
   return {
     id: form.id,
     token: form.token,
     publicBranding,
+    publicCompanyTrust,
     customerName: form.customerName,
     customerPhone: form.customerPhone,
     totalAmount: form.totalAmount,
@@ -1555,8 +1565,7 @@ router.post('/:id/prefill', authMiddleware, requireStaffPermission('orderform.is
       ? body.customerName.trim()
       : form.customerName;
 
-  const template = await getPublicTemplateForForm(prisma, tenantId, form.templateId);
-  const customFieldKeys = template ? template.customFields.map((f) => f.fieldKey) : [];
+  const customFieldKeys = await listTemplateCustomFieldKeysForPrefill(prisma, tenantId, form.templateId);
   const prefill = buildPrefillFromPayload(body, customFieldKeys);
 
   try {
@@ -2088,6 +2097,12 @@ router.get('/by-token/:token', async (req, res) => {
       operatingCompanyId: form.operatingCompanyId,
       brandSlug,
     });
+    const publicCompanyTrust = await resolvePublicOrderFormCompanyTrust({
+      db: prisma,
+      tenantId: form.tenantId,
+      operatingCompanyId: form.operatingCompanyId,
+      displayNameFallback: publicBranding?.displayName ?? null,
+    });
     res.json({
       id: form.id,
       token: form.token,
@@ -2097,6 +2112,7 @@ router.get('/by-token/:token', async (req, res) => {
       customerSubmissionSnapshot: form.customerSubmissionSnapshot ?? null,
       formConfig: resolvedPublicFormConfig(formConfig),
       publicBranding,
+      publicCompanyTrust,
       submissionEmail: serializeSubmissionEmailLog(emailLog),
     });
     return;
@@ -2396,22 +2412,36 @@ router.post('/submit/:token', async (req, res) => {
 
   // 동적 템플릿 추가 항목 — 답변 정규화 + 라벨 부여(스냅샷 보존, 템플릿 변경에 안전)
   const submitTemplate = await getPublicTemplateForForm(prisma, submitTenantId, form.templateId);
+  const staffOnlyFields = await listStaffOnlyCustomFieldsForSnapshot(
+    prisma,
+    submitTenantId,
+    form.templateId,
+  );
   const customAnswers = submitTemplate
-    ? sanitizeCustomAnswers(body.answers, submitTemplate.customFields)
-    : {};
+    ? {
+        ...sanitizeCustomAnswers(body.answers, submitTemplate.customFields),
+        ...sanitizeCustomAnswers(body.answers, staffOnlyFields),
+      }
+    : staffOnlyFields.length > 0
+      ? sanitizeCustomAnswers(body.answers, staffOnlyFields)
+      : {};
   const customAnswersData =
     Object.keys(customAnswers).length > 0
       ? { customerAnswers: customAnswers as Prisma.InputJsonValue }
       : {};
-  const templateAnswers: Prisma.InputJsonValue[] = submitTemplate
-    ? submitTemplate.customFields
-        .filter((cf) => customAnswers[cf.fieldKey] != null)
-        .map((cf) => ({
-          fieldKey: cf.fieldKey,
-          label: cf.label,
-          value: customAnswers[cf.fieldKey] as Prisma.InputJsonValue,
-        }))
-    : [];
+  const snapshotCustomFields = [
+    ...(submitTemplate?.customFields ?? []),
+    ...staffOnlyFields.filter(
+      (f) => !(submitTemplate?.customFields ?? []).some((p) => p.fieldKey === f.fieldKey),
+    ),
+  ];
+  const templateAnswers: Prisma.InputJsonValue[] = snapshotCustomFields
+    .filter((cf) => customAnswers[cf.fieldKey] != null)
+    .map((cf) => ({
+      fieldKey: cf.fieldKey,
+      label: cf.label,
+      value: customAnswers[cf.fieldKey] as Prisma.InputJsonValue,
+    }));
 
   const customerSubmissionSnapshot = {
     version: 1,

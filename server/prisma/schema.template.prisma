@@ -553,6 +553,73 @@ model HelpInquirySettings {
   @@map("help_inquiry_settings")
 }
 
+/// 플랫폼 약관·계약서 종류
+enum PlatformLegalDocumentType {
+  MEMBER_TERMS
+  CONSUMER_ORDER_CONSENT
+}
+
+/// 플랫폼 약관·계약서 (청소비서 회원사·고객 동의 문서)
+model PlatformLegalDocument {
+  id           String                    @id @default(uuid())
+  slug         String                    @unique @db.VarChar(64)
+  title        String                    @db.VarChar(256)
+  documentType PlatformLegalDocumentType @map("document_type")
+  contentHtml  String                    @map("content_html") @db.Text
+  version      Int                       @default(1)
+  isPublished  Boolean                   @default(true) @map("is_published")
+  createdAt    DateTime                  @default(now()) @map("created_at")
+  updatedAt    DateTime                  @updatedAt @map("updated_at")
+
+  invites    PlatformLegalInvite[]
+  agreements PlatformLegalAgreement[]
+
+  @@index([documentType])
+  @@map("platform_legal_documents")
+}
+
+/// 약관 체결 초대 링크
+model PlatformLegalInvite {
+  id          String    @id @default(uuid())
+  token       String    @unique @db.VarChar(64)
+  documentId  String    @map("document_id")
+  memo        String?   @db.VarChar(256)
+  expiresAt   DateTime? @map("expires_at")
+  usedAt      DateTime? @map("used_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  createdById String?   @map("created_by_id")
+
+  document   PlatformLegalDocument    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  agreements PlatformLegalAgreement[]
+
+  @@index([documentId, createdAt(sort: Desc)])
+  @@map("platform_legal_invites")
+}
+
+/// 약관·계약 체결 기록
+model PlatformLegalAgreement {
+  id              String   @id @default(uuid())
+  documentId      String   @map("document_id")
+  documentVersion Int      @map("document_version")
+  contentSnapshot String   @map("content_snapshot") @db.Text
+  inviteId        String?  @map("invite_id")
+  companyName     String   @map("company_name") @db.VarChar(256)
+  signerName      String   @map("signer_name") @db.VarChar(128)
+  signerTitle     String   @map("signer_title") @db.VarChar(128)
+  signerEmail     String?  @map("signer_email") @db.VarChar(256)
+  signerPhone     String?  @map("signer_phone") @db.VarChar(64)
+  tenantSlug      String?  @map("tenant_slug") @db.VarChar(32)
+  agreedAt        DateTime @default(now()) @map("agreed_at")
+  signerIp        String?  @map("signer_ip") @db.VarChar(64)
+  signerUserAgent String?  @map("signer_user_agent") @db.Text
+
+  document PlatformLegalDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  invite   PlatformLegalInvite?  @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+
+  @@index([documentId, agreedAt(sort: Desc)])
+  @@map("platform_legal_agreements")
+}
+
 /// /help 고객문의 게시판 글 (공개 작성)
 model HelpInquiryPost {
   id           String   @id @default(uuid())

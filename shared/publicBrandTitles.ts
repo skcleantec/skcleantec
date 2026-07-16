@@ -3,6 +3,9 @@
 export const DEFAULT_PUBLIC_ORDER_FORM_TITLE = '입주청소 발주서';
 export const DEFAULT_PUBLIC_CS_TITLE = '고객만족센터';
 
+/** 고객 발주서(`/order/:token`) 브라우저 탭 제목 */
+export const CUSTOMER_ORDER_FORM_BROWSER_TAB_TITLE = '고객관리 플랫폼 - 청소비서';
+
 /** 공개 발주서 h1·고객 메시지 첫 줄 — `{brand} 발주서` */
 export function composeBrandedOrderFormTitle(
   brandDisplayName?: string | null,

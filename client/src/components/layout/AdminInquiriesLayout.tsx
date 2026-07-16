@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
-import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { ADMIN_INQUIRIES_NAV_ITEMS } from '../../constants/adminInquiriesNav';
-import { AdminCollapsibleSectionSideNav, type AdminSideNavItem } from './AdminSectionSideNav';
-import { AdminSubNavScroll, adminSubNavTabClassName } from './AdminSubNavScroll';
+import { AdminCollapsibleSectionSideNav } from './AdminSectionSideNav';
+import {
+  AdminInquiriesMobileMenuProvider,
+  AdminInquiriesMobileSubNavBar,
+} from './AdminInquiriesMobileSubNav';
 import { getToken } from '../../stores/auth';
 import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
@@ -19,56 +22,7 @@ const REVIEW_PAYBACK_PATH = '/admin/inquiries/review-payback';
 const CS_PATH = '/admin/inquiries/cs';
 const LEADS_PATH = '/admin/inquiries/leads';
 
-function MobileInquirySubNavTabs({ items }: { items: AdminSideNavItem[] }) {
-  return (
-    <>
-      {items.flatMap((item) => {
-        if (item.type === 'link') {
-          const badge = item.badge ?? 0;
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              title={item.title}
-              className={({ isActive }) => adminSubNavTabClassName(isActive)}
-            >
-              <span className="inline-flex items-center gap-1">
-                {item.label}
-                {badge > 0 ? (
-                  <span className="rounded-full bg-red-600 px-1 py-0.5 text-[9px] font-semibold text-white tabular-nums">
-                    {badge > 99 ? '99+' : badge}
-                  </span>
-                ) : null}
-              </span>
-            </NavLink>
-          );
-        }
-        return item.children.map((child) => (
-          <NavLink
-            key={child.to}
-            to={child.to}
-            end={child.end}
-            title={child.title}
-            className={({ isActive }) =>
-              adminSubNavTabClassName(
-                isActive,
-                child.to === '/admin/inquiries/order-customer-preview' ||
-                child.to === '/admin/inquiries/order-customer-link'
-                  ? 'shrink-0'
-                  : undefined,
-              )
-            }
-          >
-            {child.label}
-          </NavLink>
-        ));
-      })}
-    </>
-  );
-}
-
-/** 접수목록(/admin/inquiries/*) — PC: 왼쪽 계층 메뉴 / 모바일: 가로 하위 탭 */
+/** 접수목록(/admin/inquiries/*) — PC: 왼쪽 계층 메뉴 / 모바일: 햄버거 드로어 */
 export function AdminInquiriesLayout() {
   const token = getToken();
   const location = useLocation();
@@ -115,14 +69,13 @@ export function AdminInquiriesLayout() {
   }
 
   return (
+    <AdminInquiriesMobileMenuProvider items={navItems}>
     <div className="min-w-0 w-full max-w-full">
       <div className="lg:hidden">
         {ready ? (
-          <AdminSubNavScroll aria-label="서비스접수 하위 메뉴">
-            <MobileInquirySubNavTabs items={navItems} />
-          </AdminSubNavScroll>
+          <AdminInquiriesMobileSubNavBar />
         ) : (
-          <div className="h-9 rounded-lg bg-slate-100 animate-pulse" aria-hidden />
+          <div className="mb-2 h-8 rounded-lg bg-slate-100 animate-pulse" aria-hidden />
         )}
       </div>
 
@@ -151,5 +104,6 @@ export function AdminInquiriesLayout() {
         </div>
       </div>
     </div>
+    </AdminInquiriesMobileMenuProvider>
   );
 }

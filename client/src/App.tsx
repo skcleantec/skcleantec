@@ -89,6 +89,7 @@ import {
   AdminEContractIssuerProfilePage,
   AdminEContractTeamOverviewPage,
   EContractPublicSignPage,
+  LegalAgreePublicPage,
   CrewHomePage,
   CrewRosterCalendarPage,
   CrewRosterDayPage,
@@ -325,6 +326,7 @@ function App() {
           }
         />
         <Route path="/e-contract/sign/:token" element={<SuspensePage><EContractPublicSignPage /></SuspensePage>} />
+        <Route path="/legal/agree/:token" element={<SuspensePage><LegalAgreePublicPage /></SuspensePage>} />
         <Route
           path="/admin/order-prefill/:orderFormId"
           element={

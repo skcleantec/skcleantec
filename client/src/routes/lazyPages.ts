@@ -247,6 +247,9 @@ export const AdminEContractTeamOverviewPage = lazyWithRetry(() =>
 export const EContractPublicSignPage = lazyWithRetry(() =>
   import('../pages/public/EContractPublicSignPage').then((m) => ({ default: m.EContractPublicSignPage }))
 );
+export const LegalAgreePublicPage = lazyWithRetry(() =>
+  import('../pages/public/LegalAgreePublicPage').then((m) => ({ default: m.LegalAgreePublicPage }))
+);
 export const CrewHomePage = lazyWithRetry(() =>
   import('../pages/crew/CrewHomePage').then((m) => ({ default: m.CrewHomePage }))
 );

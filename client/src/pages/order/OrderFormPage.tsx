@@ -71,9 +71,14 @@ import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhotoSection';
 import { OrderFormSubmissionReceiptView } from '../../components/orderform/OrderFormSubmissionReceiptView';
 import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
+import { OrderFormCompanyTrustFooter } from '../../components/orderform/OrderFormCompanyTrustFooter';
+import { OrderFormPlatformFooter } from '../../components/orderform/OrderFormPlatformFooter';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import type { PublicOperatingCompanyBranding } from '../../api/orderform';
-import { composeBrandedOrderFormTitle } from '@shared/publicBrandTitles';
+import type { PublicOperatingCompanyBranding, PublicOrderFormCompanyTrust } from '../../api/orderform';
+import {
+  composeBrandedOrderFormTitle,
+  CUSTOMER_ORDER_FORM_BROWSER_TAB_TITLE,
+} from '@shared/publicBrandTitles';
 import type { CrmOrderIssueSeed } from '../../components/orderform/OrderIssueInlinePanel';
 import {
   isMarketerLockedOrderFormAddress,
@@ -226,6 +231,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     prefillAnswers?: Record<string, unknown> | null;
   } | null>(null);
   const [publicBranding, setPublicBranding] = useState<PublicOperatingCompanyBranding | null>(null);
+  const [publicCompanyTrust, setPublicCompanyTrust] = useState<PublicOrderFormCompanyTrust | null>(null);
   /** 동적 템플릿 추가 항목 답변 {fieldKey: value} */
   const [customAnswers, setCustomAnswers] = useState<Record<string, unknown>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -255,7 +261,18 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     order?.formConfig?.formTitle,
     order?.template,
   ]);
-  useDocumentTitle(orderFormHeadingTitle);
+  useDocumentTitle(orderFormHeadingTitle, {
+    tabTitle: !isEditor && !isCreate ? CUSTOMER_ORDER_FORM_BROWSER_TAB_TITLE : undefined,
+  });
+  const visibleOrderFormCustomFields = useMemo(() => {
+    const fields = order?.template?.customFields ?? [];
+    if (isEditor || isCreate) return fields;
+    return fields.filter((cf) => cf.fieldKey !== TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY);
+  }, [order?.template?.customFields, isEditor, isCreate]);
+  const agreeLinkLabel = orderFormConfigLine(
+    order?.formConfig?.infoLinkText ?? submittedReceipt?.formConfig?.infoLinkText,
+    ORDER_FORM_CONFIG_DEFAULTS.infoLinkText,
+  );
   const [submitErrorModal, setSubmitErrorModal] = useState<string | null>(null);
   /** 면적 기준 선택 전 안내·확인 */
   const [areaBasisAckModal, setAreaBasisAckModal] = useState<null | '공급' | '전용'>(null);
@@ -499,12 +516,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         if (isOrderFormPublicSubmitted(data)) {
           setSubmittedReceipt(data);
           setPublicBranding(data.publicBranding ?? null);
+          setPublicCompanyTrust(data.publicCompanyTrust ?? null);
           setOrder(null);
           setError(null);
           return;
         }
         setSubmittedReceipt(null);
         setPublicBranding(data.publicBranding ?? null);
+        setPublicCompanyTrust(data.publicCompanyTrust ?? null);
         const pf =
           data.prefillAnswers && typeof data.prefillAnswers === 'object'
             ? (data.prefillAnswers as Record<string, unknown>)
@@ -822,9 +841,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       ) {
         throw new Error('이사 예정일은 오늘(한국 기준) 이후 날짜만 선택할 수 있습니다.');
       }
-      if (!agreeToTerms) throw new Error('고객 정보처리 동의 및 안내사항에 동의해 주세요.');
+      if (!agreeToTerms) throw new Error('[필수] 예약 안내 및 개인정보 제3자 제공 동의가 필요합니다.');
 
-      const templateCustomFields = order?.template?.customFields ?? [];
+      const templateCustomFields = visibleOrderFormCustomFields;
       for (const cf of templateCustomFields) {
         if (!cf.required) continue;
         const v = customAnswers[cf.fieldKey];
@@ -1052,6 +1071,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         snapshot={submittedReceipt.customerSubmissionSnapshot}
         formConfig={submittedReceipt.formConfig}
         submissionEmail={submittedReceipt.submissionEmail}
+        publicCompanyTrust={submittedReceipt.publicCompanyTrust}
+        companyDisplayName={submittedReceipt.publicBranding?.displayName}
         headerRight={<CloseButton />}
       />
     );
@@ -1108,7 +1129,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const moveLocked = lockKey('moveInDate') || lockKey('moveInDateUndecided');
 
   return (
-    <div className={isInline ? '' : 'min-h-screen bg-gray-50 pb-20'}>
+    <div className={isInline ? '' : `min-h-screen bg-gray-50 ${!isEditor && !isCreate ? 'pb-44' : 'pb-20'}`}>
       <div className={isInline ? 'relative w-full' : 'max-w-lg mx-auto px-4 py-6 relative'}>
         {!isInline && (
           <div className="absolute top-4 right-4">
@@ -1835,10 +1856,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
           )}
 
-          {(order?.template?.customFields?.length ?? 0) > 0 ? (
+          {visibleOrderFormCustomFields.length > 0 ? (
             <div className="rounded border border-gray-200 bg-white p-3 space-y-3">
               <p className={labelCls}>추가 정보</p>
-              {order!.template!.customFields.map((cf) => {
+              {visibleOrderFormCustomFields.map((cf) => {
                 const opts = Array.isArray(cf.options) ? (cf.options as unknown[]).map((o) => String(o)) : [];
                 const value = customAnswers[cf.fieldKey];
                 const setVal = (v: unknown) => setCustomAnswers((prev) => ({ ...prev, [cf.fieldKey]: v }));
@@ -2087,10 +2108,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                     onClick={() => setGuideAgreeModalOpen(true)}
                     className="w-full rounded-lg border border-gray-800 bg-white px-4 py-3 text-fluid-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50"
                   >
-                    안내사항 보기 및 동의하기
+                    {agreeLinkLabel} (자세히 보기)
                   </button>
                   <p id="agreeTerms-hint" className="text-fluid-xs text-gray-500">
-                    제출 전 안내사항 전체 확인 및 동의가 필요합니다.
+                    체크·동의 후 예약 확정이 가능합니다.
                   </p>
                 </div>
               )}
@@ -2110,9 +2131,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             className={
               isInline
                 ? 'mt-4'
-                : 'fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200'
+                : 'fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white shadow-[0_-4px_16px_rgba(15,23,42,0.06)]'
             }
           >
+            <div className={isInline ? '' : 'mx-auto max-w-lg px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]'}>
             {isCreate ? (
               <button
                 type="button"
@@ -2140,6 +2162,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 {submitting ? '제출 중...' : '제출하기'}
               </button>
             )}
+            {!isInline && !isCreate && !isEditor ? (
+              <>
+                <div className="my-3 border-t border-gray-200" aria-hidden />
+                <OrderFormPlatformFooter />
+              </>
+            ) : null}
+            </div>
           </div>
         </form>
 
@@ -2435,6 +2464,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
         ) : null}
 
+        {!isEditor && !isCreate ? null : (
         <div className="text-xs text-gray-500 mt-8 text-center space-y-1">
           <p className="whitespace-pre-line">
             {orderFormConfigLine(
@@ -2449,6 +2479,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             )}
           </p>
         </div>
+        )}
+        {!isEditor ? (
+          <OrderFormCompanyTrustFooter
+            trust={publicCompanyTrust}
+            displayNameFallback={publicBranding?.displayName}
+          />
+        ) : null}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import type { AdminSideNavItem } from '../components/layout/AdminSectionSideNav';
 
-/** 서비스접수(/admin/inquiries/*) — PC 사이드·모바일 가로 탭 공통 정의 */
+/** 서비스접수(/admin/inquiries/*) — PC 사이드·모바일 햄버거 드로어 공통 정의 */
 export const ADMIN_INQUIRIES_NAV_ITEMS: AdminSideNavItem[] = [
   { type: 'link', to: '/admin/inquiries', end: true, label: '접수목록' },
   { type: 'link', to: '/admin/inquiries/followup', label: '부재·보류' },
