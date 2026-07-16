@@ -25,6 +25,7 @@ export function UserProfileMenu({
   token,
   me,
   loading,
+  tenantName,
   /** 팀장(/team) 영역: 역할 로드 전에도 차량번호 입력 표시·픽업 안내 */
   teamProfileVehicleField,
   /** 팀 화면 미리보기(개발자) — JWT 역할이 ADMIN이어도 차량번호 입력 표시 */
@@ -42,6 +43,8 @@ export function UserProfileMenu({
   token: string | null;
   me: MeUser | null;
   loading?: boolean;
+  /** 드롭다운 상단에 표시할 업체(테넌트)명 */
+  tenantName?: string | null;
   teamProfileVehicleField?: boolean;
   showVehicleForPreviewAdmin?: boolean;
   onSaved?: (next: {
@@ -155,6 +158,13 @@ export function UserProfileMenu({
             role="menu"
             className="absolute right-0 z-[140] mt-1 min-w-[11rem] w-max max-w-[min(100vw-2rem,16rem)] overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-xl shadow-slate-100/40"
           >
+            {tenantName ? (
+              <div className="border-b border-slate-100 bg-slate-50/60 px-3 py-2">
+                <p className="truncate text-fluid-2xs font-semibold text-slate-600" title={tenantName}>
+                  {tenantName}
+                </p>
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={openProfileModal}

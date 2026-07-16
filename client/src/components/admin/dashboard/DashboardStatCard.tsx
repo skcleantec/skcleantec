@@ -33,18 +33,18 @@ export function DashboardStatCard({
 
   const inner = (
     <div className="flex items-center justify-between w-full min-w-0">
-      <div className="min-w-0">
-        <p className="text-fluid-xs font-semibold text-slate-500 truncate">{label}</p>
+      <div className="min-w-0 flex-1 [container-type:inline-size]">
+        <p className="text-[clamp(0.625rem,1.2vw,0.75rem)] font-semibold text-slate-500 truncate">{label}</p>
         <p
-          className={`font-bold text-slate-950 tabular-nums tracking-tight ${
-            compact ? 'text-fluid-lg mt-1' : 'text-fluid-2xl mt-1.5'
+          className={`font-bold text-slate-950 tabular-nums tracking-tight truncate ${
+            compact ? 'text-[clamp(0.7rem,9cqw,1rem)] mt-1' : 'text-fluid-2xl mt-1.5'
           }`}
         >
           {value}
         </p>
       </div>
       {icon ? (
-        <div className={`rounded-xl shrink-0 ${compact ? 'p-2' : 'p-2.5'} ${iconClasses[theme]}`}>
+        <div className={`rounded-xl shrink-0 ml-2 ${compact ? 'p-1.5' : 'p-2.5'} ${iconClasses[theme]}`}>
           {icon}
         </div>
       ) : null}
@@ -52,7 +52,7 @@ export function DashboardStatCard({
   );
 
   const base = `rounded-2xl text-left w-full border shadow-sm transition-all duration-200 ${
-    compact ? 'p-4' : 'p-5'
+    compact ? 'p-3' : 'p-5'
   } ${themeClasses[theme]}`;
 
   if (onClick) {

@@ -552,6 +552,8 @@ export type ScheduleInquiryDetailModalProps =
       serviceZones?: ServiceZoneItem[];
       teamLeaderAssignmentSurface?: TeamLeaderAssignmentSurface;
       activeServiceZoneId?: string | null;
+      /** xl 스케줄 2단 우측 패널 — 기본 modal */
+      presentation?: 'modal' | 'panel';
     }
   | {
       mode: 'create';
@@ -574,6 +576,7 @@ export type ScheduleInquiryDetailModalProps =
       meUser?: { id: string; role: string; name: string; email?: string } | null;
       onClose: () => void;
       onSaved: () => void;
+      presentation?: 'modal' | 'panel';
     };
 
 function effectiveAmounts(item: ScheduleItem) {
@@ -774,6 +777,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     'inquiry-list';
   const activeServiceZoneId =
     (props as { activeServiceZoneId?: string | null }).activeServiceZoneId ?? null;
+  const presentation = (props as { presentation?: 'modal' | 'panel' }).presentation ?? 'modal';
+  const isPanel = presentation === 'panel';
   const canEditMarketer =
     currentUserCanEditMarketer ??
     (currentUserRole === 'ADMIN' || currentUserOperationalAdmin === true);
@@ -2037,18 +2042,16 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     });
   }, [isCreate, item, editForm.areaBasis, editForm.areaPyeong, editForm.exclusiveAreaSqm]);
 
-  return (
-    <>
-      {createPortal(
-    <div
-      className="modal-mobile-safe-overlay fixed inset-0 z-[500] flex flex-col justify-end bg-black/40 p-0 sm:flex-row sm:items-center sm:justify-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="schedule-detail-title"
-    >
+  const shellClassName = isPanel
+    ? 'relative flex h-full min-h-0 max-h-[calc(100dvh-9rem)] flex-col rounded-xl border border-slate-200 bg-white shadow-sm'
+    : 'modal-mobile-fullscreen-panel relative z-10 flex max-w-2xl w-full flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:flex-none sm:rounded-2xl';
+
+  const detailPanel = (
       <div
-        className="modal-mobile-fullscreen-panel relative z-10 flex max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:flex-none sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className={shellClassName}
+        onClick={isPanel ? undefined : (e) => e.stopPropagation()}
+        role={isPanel ? 'region' : undefined}
+        aria-label={isPanel ? (isCreate ? '신규 접수' : '접수 수정') : undefined}
       >
         <div className="relative shrink-0 border-b border-gray-100 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
           <ModalCloseButton onClick={onClose} />
@@ -3670,6 +3673,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           scrollContainerRef={inquiryEditScrollRef}
           boundsRef={inquiryEditNavBoundsRef}
         />
+        </div>
 
         <div className="relative z-20 flex shrink-0 gap-2 border-t border-gray-200 bg-white px-5 py-3 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {canDeleteInquiry && (
@@ -3710,9 +3714,27 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </button>
         </div>
         </div>
-      </div>
-    </div>,
-    document.body
+  );
+
+  return (
+    <>
+      {isPanel ? (
+        detailPanel
+      ) : (
+        createPortal(
+          <div
+            className="modal-mobile-safe-overlay fixed inset-0 z-[500] flex flex-col justify-end bg-black/40 p-0 sm:flex-row sm:items-center sm:justify-center sm:p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="schedule-detail-title"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) onClose();
+            }}
+          >
+            {detailPanel}
+          </div>,
+          document.body,
+        )
       )}
       <PreferredDateCalendarModal
         open={preferredDateCalOpen}

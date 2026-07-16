@@ -13,6 +13,7 @@ export function DashboardVerticalBarChart({
   barAreaClass = 'h-28',
   showValueLabels = false,
   labelEvery = 1,
+  dense = false,
   onBarClick,
   ariaLabel,
 }: {
@@ -23,6 +24,8 @@ export function DashboardVerticalBarChart({
   barAreaClass?: string;
   showValueLabels?: boolean;
   labelEvery?: number;
+  /** 좁은 영역용 — 막대·간격·라벨을 더 작게 */
+  dense?: boolean;
   onBarClick?: (item: DashboardChartItem) => void;
   ariaLabel: string;
 }) {
@@ -30,9 +33,14 @@ export function DashboardVerticalBarChart({
   const peak = items.reduce((best, cur) => (cur.value > best.value ? cur : best), items[0] ?? { key: '', label: '', value: 0 });
   const fmt = formatValue ?? ((n: number) => String(n));
 
+  const gapClass = dense ? 'gap-0.5' : 'gap-1 sm:gap-1.5';
+  const barWidthClass = dense ? 'w-full max-w-2.5 mx-auto' : 'w-full';
+  const labelClass = dense ? 'mt-0.5 text-[8px]' : 'mt-1 text-[9px]';
+  const labelSpacerClass = dense ? 'mt-0.5 h-[11px]' : 'mt-1 h-[13px]';
+
   return (
     <div className="w-full min-w-0" role="img" aria-label={ariaLabel}>
-      <div className={`relative flex w-full items-end gap-1 sm:gap-1.5 ${barAreaClass}`}>
+      <div className={`relative flex w-full items-end ${gapClass} ${barAreaClass}`}>
         {items.map((item, idx) => {
           const heightPct = item.value > 0 ? Math.max(12, Math.round((item.value / max) * 100)) : 8;
           const isPeak = item.value > 0 && item.key === peak.key;
@@ -57,7 +65,7 @@ export function DashboardVerticalBarChart({
                 disabled={!clickable}
                 onClick={() => onBarClick?.(item)}
                 title={item.subLabel ?? `${item.label} · ${fmt(item.value)}`}
-                className={`w-full rounded-t-md transition-all min-h-[4px] ${
+                className={`${barWidthClass} rounded-t-md transition-all min-h-[4px] ${
                   item.value > 0 ? `${accent} opacity-90 group-hover/bar:opacity-100 shadow-sm` : 'bg-slate-200/60'
                 } ${clickable && item.value > 0 ? 'cursor-pointer hover:ring-1 hover:ring-slate-400/50' : 'cursor-default'}`}
                 style={{ height: `${heightPct}%` }}
@@ -69,11 +77,11 @@ export function DashboardVerticalBarChart({
                 {item.subLabel ?? `${item.label} · ${fmt(item.value)}`}
               </div>
               {labelEvery > 0 && (idx % labelEvery === 0 || idx === items.length - 1) ? (
-                <span className="mt-1 text-[9px] font-medium text-slate-500 whitespace-nowrap tabular-nums">
+                <span className={`${labelClass} font-medium text-slate-500 whitespace-nowrap tabular-nums`}>
                   {item.label}
                 </span>
               ) : (
-                <span className="mt-1 h-[13px]" aria-hidden />
+                <span className={labelSpacerClass} aria-hidden />
               )}
             </div>
           );

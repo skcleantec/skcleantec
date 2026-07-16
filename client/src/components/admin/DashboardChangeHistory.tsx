@@ -22,9 +22,11 @@ function formatWhen(iso: string): string {
 
 type Props = {
   token: string;
+  variant?: 'default' | 'sidebar';
 };
 
-export function DashboardChangeHistory({ token }: Props) {
+export function DashboardChangeHistory({ token, variant = 'default' }: Props) {
+  const isSidebar = variant === 'sidebar';
   const { isTenantOwner, isSuperAdmin } = useAdminStaffSession();
   const isTenantOwnerOrSuper = isTenantOwner || isSuperAdmin;
   const [recent, setRecent] = useState<ChangeHistoryItem[]>([]);
@@ -96,7 +98,11 @@ export function DashboardChangeHistory({ token }: Props) {
   return (
     <>
       <div
-        className="bg-white border border-gray-200 rounded-2xl p-5 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all duration-200 shadow-sm shadow-gray-100/50"
+        className={`bg-white border border-gray-200 rounded-2xl cursor-pointer hover:shadow-md hover:border-gray-300 transition-all duration-200 shadow-sm shadow-gray-100/50 ${
+          isSidebar
+            ? 'p-4 flex flex-col min-h-0 max-h-[calc(100dvh-5.5rem)] lg:sticky lg:top-4 lg:w-[468px]'
+            : 'p-5'
+        }`}
         onClick={() => void openModal()}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -107,19 +113,20 @@ export function DashboardChangeHistory({ token }: Props) {
         role="button"
         tabIndex={0}
       >
-        <div className="flex items-center justify-between mb-5 border-b border-slate-50 pb-3">
-          <h2 className="text-fluid-base font-semibold text-gray-800 flex items-center gap-1.5">
-            <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <div className={`flex items-center justify-between border-b border-slate-50 pb-2.5 shrink-0 ${isSidebar ? 'mb-3' : 'mb-5 pb-3'}`}>
+          <h2 className={`font-semibold text-gray-800 flex items-center gap-1.5 ${isSidebar ? 'text-fluid-sm' : 'text-fluid-base'}`}>
+            <svg className={`text-indigo-500 shrink-0 ${isSidebar ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             접수 변경 이력
           </h2>
-          <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-medium text-slate-500 ring-1 ring-inset ring-slate-500/10">
-            클릭 시 전체 기록 조회
+          <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-inset ring-slate-500/10 shrink-0">
+            {isSidebar ? '전체 보기' : '클릭 시 전체 기록 조회'}
           </span>
         </div>
+        <div className={isSidebar ? 'min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]' : undefined}>
         {loading && (
-          <div className="py-8 flex justify-center items-center">
+          <div className={`flex justify-center items-center ${isSidebar ? 'py-6' : 'py-8'}`}>
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
             <span className="ml-2 text-fluid-xs text-gray-400">불러오는 중…</span>
           </div>
@@ -132,43 +139,74 @@ export function DashboardChangeHistory({ token }: Props) {
         )}
         
         {!loading && !err && recent.length > 0 && (
-          <div className="relative border-l border-slate-200 ml-3.5 pl-6 space-y-4 my-2">
+          <div className={`relative border-l border-slate-200 ml-3 pl-4 ${isSidebar ? 'space-y-3 my-1' : 'space-y-4 ml-3.5 pl-6 my-2'}`}>
             {recent.map((row) => (
               <div key={row.id} className="relative group/item">
-                {/* Timeline Dot Node */}
-                <span className="absolute -left-[30px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-white border-2 border-indigo-500 ring-4 ring-white" aria-hidden="true">
-                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                <span
+                  className={`absolute flex items-center justify-center rounded-full bg-white border-2 border-indigo-500 ring-4 ring-white ${
+                    isSidebar ? '-left-[22px] top-0.5 h-3 w-3' : '-left-[30px] top-1 h-4 w-4'
+                  }`}
+                  aria-hidden="true"
+                >
+                  <span className={`rounded-full bg-indigo-500 ${isSidebar ? 'h-1 w-1' : 'h-1.5 w-1.5'}`} />
                 </span>
                 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-fluid-sm">
-                  <div className="flex items-center flex-wrap gap-2">
-                    <span className="font-semibold text-slate-800">{row.actorName ?? '시스템'}</span>
-                    <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                {isSidebar ? (
+                  <div className="flex flex-col gap-0.5 text-[11px] leading-snug min-w-0">
+                    <div className="flex items-start justify-between gap-1">
+                      <span className="font-semibold text-slate-800 truncate">{row.actorName ?? '시스템'}</span>
+                      {isTenantOwnerOrSuper ? (
+                        <button
+                          type="button"
+                          className="shrink-0 text-[10px] text-red-600 hover:underline font-semibold"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(row);
+                            setPwdOpen(true);
+                          }}
+                        >
+                          삭제
+                        </button>
+                      ) : null}
+                    </div>
+                    <span className="inline-flex w-fit max-w-full items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600 truncate">
                       {row.customerName}
                     </span>
-                    <span className="text-slate-600 break-words font-medium">{row.summaryLine}</span>
+                    <span className="text-slate-600 font-medium line-clamp-2">{row.summaryLine}</span>
+                    <span className="text-[10px] text-gray-400 tabular-nums">{formatWhen(row.createdAt)}</span>
                   </div>
-                  <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
-                    <span className="text-[11px] text-gray-400 tabular-nums">{formatWhen(row.createdAt)}</span>
-                    {isTenantOwnerOrSuper && (
-                      <button
-                        type="button"
-                        className="text-[11px] text-red-600 hover:underline font-semibold"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget(row);
-                          setPwdOpen(true);
-                        }}
-                      >
-                        삭제
-                      </button>
-                    )}
+                ) : (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-fluid-sm">
+                    <div className="flex items-center flex-wrap gap-2">
+                      <span className="font-semibold text-slate-800">{row.actorName ?? '시스템'}</span>
+                      <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                        {row.customerName}
+                      </span>
+                      <span className="text-slate-600 break-words font-medium">{row.summaryLine}</span>
+                    </div>
+                    <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+                      <span className="text-[11px] text-gray-400 tabular-nums">{formatWhen(row.createdAt)}</span>
+                      {isTenantOwnerOrSuper && (
+                        <button
+                          type="button"
+                          className="text-[11px] text-red-600 hover:underline font-semibold"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(row);
+                            setPwdOpen(true);
+                          }}
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
         )}
+        </div>
       </div>
 
       {modalOpen && (
