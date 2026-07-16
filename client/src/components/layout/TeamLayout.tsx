@@ -507,6 +507,7 @@ export function TeamLayout() {
                   ) : null}
                   <UserProfileMenu
                     token={teamToken}
+                    tenantName={tenantName}
                     teamProfileVehicleField
                     showVehicleForPreviewAdmin={Boolean(
                       (userRole === 'ADMIN' || userRole === 'MARKETER') && previewTeamLeader

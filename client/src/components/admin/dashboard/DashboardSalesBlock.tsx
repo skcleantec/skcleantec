@@ -1,6 +1,7 @@
 import type { DashboardStats } from '../../../api/dashboard';
 import { DashboardStatCard } from './DashboardStatCard';
 import { DashboardVerticalBarChart } from './DashboardMiniBarChart';
+import { DashboardTeamPanelsGrid } from './DashboardPageSections';
 
 function formatCurrency(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
@@ -18,9 +19,9 @@ export function DashboardSalesBlock({
   const dailyChartItems =
     stats?.dailySales?.map((d) => ({
       key: d.date,
-      label: d.date.slice(5).replace('-', '/'),
+      label: d.date.slice(8),
       value: d.amount,
-      subLabel: formatCurrency(d.amount),
+      subLabel: `${d.date.slice(5).replace('-', '/')} · ${formatCurrency(d.amount)}`,
     })) ?? [];
 
   return (
@@ -56,55 +57,60 @@ export function DashboardSalesBlock({
         <p className="text-fluid-2xs text-gray-500 mt-1">접수일(KST) 기준 · 확정 접수만 · 클릭하면 기간별 상세</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-        <DashboardStatCard
-          compact
-          label="오늘 매출"
-          value={loading ? '-' : formatCurrency(stats?.todaySales ?? 0)}
-          theme="emerald"
-          icon={
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          }
-        />
-        <DashboardStatCard
-          compact
-          label="이번 달 매출"
-          value={loading ? '-' : formatCurrency(stats?.monthSales ?? 0)}
-          theme="indigo"
-          icon={
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          }
-        />
-      </div>
-
-      {!loading && dailyChartItems.length > 0 ? (
-        <div className="mb-5 rounded-xl border border-slate-100 bg-slate-50/40 p-4">
-          <h3 className="text-fluid-2xs font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
-            <span className="w-1.5 h-3 rounded-full bg-blue-500" />
-            최근 7일 매출
-          </h3>
-          <DashboardVerticalBarChart
-            items={dailyChartItems}
-            accentClass="bg-blue-500"
-            peakAccentClass="bg-indigo-600"
-            formatValue={(n) => formatCurrency(n)}
-            barAreaClass="h-24"
-            ariaLabel="최근 7일 일별 매출"
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(10.5rem,2fr)_minmax(0,3fr)] gap-3 mb-5">
+        <div className="flex min-w-0 flex-col gap-3">
+          <DashboardStatCard
+            compact
+            label="오늘 매출"
+            value={loading ? '-' : formatCurrency(stats?.todaySales ?? 0)}
+            theme="emerald"
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            }
+          />
+          <DashboardStatCard
+            compact
+            label="이번 달 매출"
+            value={loading ? '-' : formatCurrency(stats?.monthSales ?? 0)}
+            theme="indigo"
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            }
           />
         </div>
-      ) : null}
+
+        {!loading && dailyChartItems.length > 0 ? (
+          <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/40 p-3">
+            <h3 className="text-fluid-2xs font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+              <span className="w-1.5 h-3 rounded-full bg-blue-500" />
+              최근 7일 매출
+            </h3>
+            <DashboardVerticalBarChart
+              items={dailyChartItems}
+              accentClass="bg-blue-500"
+              peakAccentClass="bg-indigo-600"
+              formatValue={(n) => formatCurrency(n)}
+              barAreaClass="h-[4.5rem]"
+              dense
+              ariaLabel="최근 7일 일별 매출"
+            />
+          </div>
+        ) : (
+          <div />
+        )}
+      </div>
 
       {!loading && stats?.salesByTeamLeader && stats.salesByTeamLeader.some((s) => s.amount > 0) ? (
         <div>
@@ -143,6 +149,15 @@ export function DashboardSalesBlock({
           <span className="ml-2 text-fluid-2xs text-gray-400">불러오는 중…</span>
         </div>
       ) : null}
+
+      <div
+        className="mt-6 pt-5 border-t border-slate-100"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        role="presentation"
+      >
+        <DashboardTeamPanelsGrid stats={stats} loading={loading} compact />
+      </div>
     </section>
   );
 }
