@@ -18,7 +18,6 @@ import { OrderFormIssueCompleteCard } from '../../components/orderform/OrderForm
 import {
   getOrderForms,
   deleteOrderForm,
-  getFormConfig,
   getAdminOrderFormPhotos,
   resendOrderFormSubmissionEmail,
   type OrderForm,
@@ -30,18 +29,19 @@ import { getInquiries } from '../../api/inquiries';
 import { listOrderFormTemplates, type OrderFormTemplate } from '../../api/orderFormTemplates';
 import { getToken } from '../../stores/auth';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
+import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import {
   buildOrderFormCustomerMessage,
+  customerLinkMsgConfigForBrand,
   getOrderFormPublicUrl,
   labelOrderFormIssuer,
   normalizeMsgConfigForEditor,
   orderFormBrandFromOperatingCompany,
 } from '../../utils/orderFormCustomerCopy';
-import type { FormMessagesState } from '../../utils/orderFormCustomerCopy';
 import { InternalCustomerToneRadio } from '../../components/admin/InternalCustomerToneRadio';
 import {
   DEFAULT_INTERNAL_CUSTOMER_TONE,
@@ -311,20 +311,24 @@ export function AdminOrderFormPage() {
   const [scheduleFabUnlinkedHint, setScheduleFabUnlinkedHint] = useState(false);
   const pendingInquiryFromUrlConsumed = useRef<string | null>(null);
 
+  const { map: brandMsgConfigMap, tenantFallback: brandMsgTenantFallback } =
+    useOrderFormBrandCustomerLinkConfigs(token);
 
-  // 폼 메시지 설정 (빈 API와 동일하게 기본 문구로 채워 두어 첫 화면부터 실제 문구가 보임)
-  const [msgConfig, setMsgConfig] = useState<FormMessagesState>(() =>
-    normalizeMsgConfigForEditor({
-      formTitle: '',
-      priceLabel: '',
-      reviewEventText: '',
-      footerNotice1: '',
-      footerNotice2: '',
-      infoContent: null,
-      infoLinkText: null,
-      submitSuccessTitle: '',
-      submitSuccessBody: '',
-    })
+  const brandMsgTenantFallbackResolved = useMemo(
+    () =>
+      brandMsgTenantFallback ??
+      normalizeMsgConfigForEditor({
+        formTitle: '',
+        priceLabel: '',
+        reviewEventText: '',
+        footerNotice1: '',
+        footerNotice2: '',
+        infoContent: null,
+        infoLinkText: null,
+        submitSuccessTitle: '',
+        submitSuccessBody: '',
+      }),
+    [brandMsgTenantFallback],
   );
 
   const listQueryKey = useMemo(
@@ -370,34 +374,6 @@ export function AdminOrderFormPage() {
       setResendEmailBusyId(null);
     }
   };
-
-  const refreshMsgConfig = () => {
-    if (!token) return;
-    getFormConfig(token)
-      .then((c) => setMsgConfig(normalizeMsgConfigForEditor(c)))
-      .catch(() => {
-        setError('폼 메시지를 불러올 수 없습니다. 기본값으로 편집 가능합니다.');
-        setMsgConfig(
-          normalizeMsgConfigForEditor({
-            formTitle: '',
-            priceLabel: '',
-            reviewEventText: '',
-            footerNotice1: '',
-            footerNotice2: '',
-            infoContent: null,
-            infoLinkText: null,
-            submitSuccessTitle: '',
-            submitSuccessBody: '',
-          })
-        );
-      });
-  };
-
-
-  useEffect(() => {
-    if (!token) return;
-    refreshMsgConfig();
-  }, [token]);
 
   useEffect(() => {
     if (!token || tab !== 'list') return;
@@ -529,6 +505,11 @@ export function AdminOrderFormPage() {
 
   const getOrderMessage = (order: OrderForm) => {
     const { brandSlug, brandDisplayName } = orderFormBrandFromOperatingCompany(order.operatingCompany);
+    const msgConfig = customerLinkMsgConfigForBrand(
+      brandMsgConfigMap,
+      order.operatingCompany?.id,
+      brandMsgTenantFallbackResolved,
+    );
     return buildOrderFormCustomerMessage(
       msgConfig,
       order,

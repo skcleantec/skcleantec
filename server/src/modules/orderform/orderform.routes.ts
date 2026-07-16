@@ -80,6 +80,11 @@ import {
   profOptionKey,
 } from '../tenants/tenantConfigSeed.service.js';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
+import {
+  getOrCreateOrderFormBrandCustomerLinkConfig,
+  listOrderFormBrandCustomerLinkConfigs,
+  upsertOrderFormBrandCustomerLinkConfig,
+} from './orderFormBrandCustomerLink.service.js';
 import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
 import {
   ensureCrmQuoteBreakdownTemplateField,
@@ -2056,6 +2061,96 @@ router.put('/form-config', authMiddleware, requireStaffPermission('orderform.for
     });
   }
 });
+
+/** 관리자/마케터: 고객 링크 메시지 — 브랜드별 목록 */
+router.get(
+  '/customer-link-configs',
+  authMiddleware,
+  requireStaffPermission('orderform.formConfig'),
+  async (req, res) => {
+    try {
+      const user = (req as unknown as { user: AuthPayload }).user;
+      const tenantId = await requireTenantIdFromAuth(res, user);
+      if (!tenantId) return;
+      const items = await listOrderFormBrandCustomerLinkConfigs(prisma, tenantId);
+      res.json({ items });
+    } catch (err) {
+      console.error('customer-link-configs list error:', err);
+      res.status(500).json({ error: '고객 링크 설정 목록을 불러올 수 없습니다.' });
+    }
+  },
+);
+
+/** 관리자/마케터: 고객 링크 메시지 — 브랜드별 조회 */
+router.get(
+  '/customer-link-config',
+  authMiddleware,
+  requireStaffPermission('orderform.formConfig'),
+  async (req, res) => {
+    const operatingCompanyId =
+      typeof req.query.operatingCompanyId === 'string' ? req.query.operatingCompanyId.trim() : '';
+    if (!operatingCompanyId) {
+      res.status(400).json({ error: 'operatingCompanyId가 필요합니다.' });
+      return;
+    }
+    try {
+      const user = (req as unknown as { user: AuthPayload }).user;
+      const tenantId = await requireTenantIdFromAuth(res, user);
+      if (!tenantId) return;
+      const config = await getOrCreateOrderFormBrandCustomerLinkConfig(
+        prisma,
+        tenantId,
+        operatingCompanyId,
+      );
+      res.json(config);
+    } catch (err) {
+      if (err instanceof Error && err.message === 'INVALID_BRAND') {
+        res.status(404).json({ error: '영업 브랜드를 찾을 수 없습니다.' });
+        return;
+      }
+      console.error('customer-link-config get error:', err);
+      res.status(500).json({ error: '고객 링크 설정을 불러올 수 없습니다.' });
+    }
+  },
+);
+
+/** 관리자/마케터: 고객 링크 메시지 — 브랜드별 저장 */
+router.put(
+  '/customer-link-config',
+  authMiddleware,
+  requireStaffPermission('orderform.formConfig'),
+  async (req, res) => {
+    const body = req.body as Record<string, unknown>;
+    const operatingCompanyId =
+      typeof body.operatingCompanyId === 'string' ? body.operatingCompanyId.trim() : '';
+    if (!operatingCompanyId) {
+      res.status(400).json({ error: 'operatingCompanyId가 필요합니다.' });
+      return;
+    }
+    try {
+      const user = (req as unknown as { user: AuthPayload }).user;
+      const tenantId = await requireTenantIdFromAuth(res, user);
+      if (!tenantId) return;
+      const updated = await upsertOrderFormBrandCustomerLinkConfig(
+        prisma,
+        tenantId,
+        operatingCompanyId,
+        body,
+      );
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof Error && err.message === 'INVALID_BRAND') {
+        res.status(404).json({ error: '영업 브랜드를 찾을 수 없습니다.' });
+        return;
+      }
+      console.error('customer-link-config put error:', err);
+      res.status(500).json({
+        error: '고객 링크 설정 저장에 실패했습니다.',
+        details: err instanceof Error ? err.message : String(err),
+      });
+    }
+  },
+);
 
 /** 공개: 토큰으로 발주서 조회 (인증 불필요) */
 router.get('/by-token/:token', async (req, res) => {

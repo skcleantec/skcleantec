@@ -103,6 +103,53 @@ export function customerLinkCopyPayloadFromEditor(
   };
 }
 
+export type BrandCustomerLinkMsgConfigMap = Record<string, FormMessagesState>;
+
+/** 브랜드별 고객 링크 문구 맵에서 operatingCompanyId에 맞는 설정 반환 */
+export function customerLinkMsgConfigForBrand(
+  map: BrandCustomerLinkMsgConfigMap | null | undefined,
+  operatingCompanyId: string | null | undefined,
+  tenantFallback: FormMessagesState,
+): FormMessagesState {
+  const id = operatingCompanyId?.trim();
+  if (id && map?.[id]) return map[id];
+  return tenantFallback;
+}
+
+/** API 브랜드별 설정 배열 → 맵 */
+export function brandCustomerLinkConfigMapFromItems(
+  items: Array<
+    Pick<
+      OrderFormConfigPublic,
+      | 'formTitle'
+      | 'priceLabel'
+      | 'reviewEventText'
+      | 'footerNotice1'
+      | 'footerNotice2'
+      | 'customerLinkTotalLine'
+      | 'customerLinkBalanceLine'
+      | 'customerLinkScheduleLine'
+      | 'customerLinkTimeDetailLine'
+      | 'customerLinkOrderIntro'
+      | 'customerLinkCsNotice'
+      | 'customerLinkCsUrlLabel'
+      | 'customerLinkPaybackBlock'
+    > & { operatingCompanyId: string }
+  >,
+): BrandCustomerLinkMsgConfigMap {
+  const out: BrandCustomerLinkMsgConfigMap = {};
+  for (const item of items) {
+    out[item.operatingCompanyId] = normalizeMsgConfigForEditor({
+      ...item,
+      infoContent: null,
+      infoLinkText: null,
+      submitSuccessTitle: null,
+      submitSuccessBody: null,
+    });
+  }
+  return out;
+}
+
 /** 발주서 목록 — 발급자(마케터 이름 / 관리자는 문구만) */
 export function labelOrderFormIssuer(user: OrderFormCreatedBy | null | undefined): string {
   if (!user) return '—';

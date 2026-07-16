@@ -609,6 +609,68 @@ export async function updateFormConfig(
   }
 }
 
+/** 브랜드별 고객 링크 메시지 설정 */
+export type OrderFormBrandCustomerLinkConfigPublic = Pick<
+  OrderFormConfigPublic,
+  | 'formTitle'
+  | 'priceLabel'
+  | 'reviewEventText'
+  | 'footerNotice1'
+  | 'footerNotice2'
+  | 'customerLinkTotalLine'
+  | 'customerLinkBalanceLine'
+  | 'customerLinkScheduleLine'
+  | 'customerLinkTimeDetailLine'
+  | 'customerLinkOrderIntro'
+  | 'customerLinkCsNotice'
+  | 'customerLinkCsUrlLabel'
+  | 'customerLinkPaybackBlock'
+> & {
+  operatingCompanyId: string;
+  updatedAt?: string;
+};
+
+export async function listBrandCustomerLinkConfigs(
+  authToken: string,
+): Promise<{ items: OrderFormBrandCustomerLinkConfigPublic[] }> {
+  const res = await fetch(`${API}/orderforms/customer-link-configs`, { headers: headers(authToken) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '고객 링크 설정 목록을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function getBrandCustomerLinkConfig(
+  authToken: string,
+  operatingCompanyId: string,
+): Promise<OrderFormBrandCustomerLinkConfigPublic> {
+  const q = new URLSearchParams({ operatingCompanyId });
+  const res = await fetch(`${API}/orderforms/customer-link-config?${q}`, { headers: headers(authToken) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '고객 링크 설정을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function updateBrandCustomerLinkConfig(
+  authToken: string,
+  operatingCompanyId: string,
+  data: Partial<OrderFormBrandCustomerLinkConfigPublic>,
+): Promise<OrderFormBrandCustomerLinkConfigPublic> {
+  const res = await fetch(`${API}/orderforms/customer-link-config`, {
+    method: 'PUT',
+    headers: headers(authToken),
+    body: JSON.stringify({ ...data, operatingCompanyId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '저장에 실패했습니다.');
+  }
+  return res.json();
+}
+
 /** 공개: 발주서 제출 (인증 없음) - preferredDate/preferredTime은 관리자 설정 시 생략 가능 */
 export async function submitOrderForm(
   token: string,
