@@ -55,6 +55,13 @@ alwaysApply: true
 
 - 상단 GNB / 발주서 하위 탭: `flex-nowrap` + `overflow-x-auto` + 스크롤바 숨김 클래스, 좁은 화면에서 좌우 **쉐브론** 힌트(프로젝트 기존 패턴)를 재사용한다.
 
+## 모바일 햄버거·페이지 툴바 (필수)
+
+- **모바일(`lg` 미만)** 햄버거(드로어 열기)는 **발주서·스케줄 FAB처럼** `fixed` 플로팅으로 **스크롤해도 화면에 유지**한다. `sticky` 만으로는 `main`·조상 `overflow` 에서 동작이 깨질 수 있음.
+- 공통: **`MobileFloatingMenuButton`** (`client/src/components/layout/MobileFloatingMenuButton.tsx`) — `createPortal` → `document.body`, `z-[118]`, 좌측 상단·safe-area.
+- 서비스접수: **`AdminInquiriesMobileMenuProvider`** 가 플로팅 버튼 1개 렌더. 페이지 제목 줄은 `pl-12` 등으로 겹침 방지.
+- 드로어 오버레이: `fixed inset-0 z-[610]` 유지.
+
 ## 타이포
 
 - 뷰포트에 맞춘 글자 크기는 **`text-fluid-sm` / `text-fluid-xs`** 등 `client/tailwind.config.js` 의 `fluid-*` 를 우선한다.
@@ -65,3 +72,4 @@ alwaysApply: true
 - 발주서 목록 테이블: `client/src/pages/admin/AdminOrderFormPage.tsx` (`tab === 'list'`)
 - C/S 목록 테이블: `client/src/components/cs/CsWorkdesk.tsx`
 - 상단 네비: `client/src/components/layout/AdminLayout.tsx`
+- 모바일 플로팅 햄버거: `client/src/components/layout/MobileFloatingMenuButton.tsx`

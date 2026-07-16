@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { matchPath, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { ADMIN_INQUIRIES_NAV_ITEMS } from '../../constants/adminInquiriesNav';
 import { AdminCollapsibleSectionSideNav } from './AdminSectionSideNav';
 import {
@@ -68,16 +68,22 @@ export function AdminInquiriesLayout() {
     return <Navigate to={fallbackPath} replace />;
   }
 
+  const embedMobileMenuInPageHeader = Boolean(
+    matchPath({ path: '/admin/inquiries', end: true }, location.pathname),
+  );
+
   return (
     <AdminInquiriesMobileMenuProvider items={navItems}>
     <div className="min-w-0 w-full max-w-full">
-      <div className="lg:hidden">
-        {ready ? (
-          <AdminInquiriesMobileSubNavBar />
-        ) : (
-          <div className="mb-2 h-8 rounded-lg bg-slate-100 animate-pulse" aria-hidden />
-        )}
-      </div>
+      {!embedMobileMenuInPageHeader ? (
+        <div className="lg:hidden">
+          {ready ? (
+            <AdminInquiriesMobileSubNavBar />
+          ) : (
+            <div className="mb-2 h-8 rounded-lg bg-slate-100 animate-pulse" aria-hidden />
+          )}
+        </div>
+      ) : null}
 
       <div className="min-w-0 w-full max-w-full lg:flex lg:gap-2.5 xl:gap-3 2xl:gap-4">
         <div className="shrink-0 lg:self-stretch">
@@ -93,7 +99,7 @@ export function AdminInquiriesLayout() {
           )}
         </div>
 
-        <div className="min-w-0 flex-1 overflow-x-hidden">
+        <div className="min-w-0 flex-1 max-w-full lg:overflow-x-hidden">
           {ready && staffMe && !pathAllowed ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-900">
               이 화면에 대한 권한이 없습니다.
