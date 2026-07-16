@@ -1868,7 +1868,7 @@ export function AdminPayrollPage() {
   if (!token) return <Navigate to="/login" replace />;
 
   return (
-    <div className="flex flex-col gap-4 min-w-0 max-w-6xl mx-auto w-full px-1 sm:px-0">
+    <div className="flex flex-col gap-4 min-w-0 w-full px-1 sm:px-0">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between min-w-0">
         <div>
           <div className="flex flex-wrap items-center gap-2">

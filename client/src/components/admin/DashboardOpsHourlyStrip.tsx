@@ -73,7 +73,7 @@ function HourlyBarChart({
 
   return (
     <div className="w-full" role="img" aria-label="0~23시(KST) 시간대별 건수 막대">
-      <div className={`flex w-full items-end gap-px ${barAreaClass}`}>
+      <div className={`flex w-full items-end gap-px ${barAreaClass} ${tall ? 'max-w-[32rem] mx-auto' : ''}`}>
         {hourly.map((v, h) => {
           const heightPct = v > 0 ? Math.max(12, Math.round((v / max) * 100)) : 8;
           const isPeak = v > 0 && h === peakHour;
@@ -112,7 +112,7 @@ function HourlyBarChart({
           );
         })}
       </div>
-      <div className="mt-1 flex w-full gap-px">
+      <div className={`mt-1 flex w-full gap-px ${tall ? 'max-w-[32rem] mx-auto' : ''}`}>
         {hourly.map((_, h) => (
           <div
             key={h}
