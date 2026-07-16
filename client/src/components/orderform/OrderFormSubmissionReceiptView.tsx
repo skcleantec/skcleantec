@@ -11,6 +11,7 @@ import {
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import type { PublicOrderFormCompanyTrust } from '../../api/orderform';
 import { OrderFormCompanyTrustFooter } from './OrderFormCompanyTrustFooter';
+import { OrderFormPlatformFooter } from './OrderFormPlatformFooter';
 import { OrderFormGuideAgreeModal } from './OrderFormGuideAgreeModal';
 import { OrderFormSubmissionSnapshotContent } from './orderFormSubmissionSnapshot';
 
@@ -153,6 +154,10 @@ export function OrderFormSubmissionReceiptView(props: {
           trust={publicCompanyTrust}
           displayNameFallback={companyDisplayName}
         />
+
+        <div className="mt-6 border-t border-gray-200 pt-4">
+          <OrderFormPlatformFooter />
+        </div>
       </div>
 
       {preview ? (
