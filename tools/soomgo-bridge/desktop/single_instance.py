@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ctypes
 import sys
+import time
 from ctypes import wintypes
 
 from desktop.config import APP_DATA_DIR, ensure_app_data
@@ -60,6 +61,19 @@ def request_show_existing_window() -> None:
         _SHOW_WINDOW_FLAG.write_text('1', encoding='utf-8')
     except OSError:
         pass
+
+
+def wait_until_single_instance_free(*, timeout_sec: float = 120.0, poll_sec: float = 1.0) -> bool:
+    """다른 트레이 인스턴스가 뮤텍스를 놓을 때까지 대기."""
+    if sys.platform != 'win32':
+        return True
+    deadline = time.time() + max(0.0, timeout_sec)
+    while time.time() < deadline:
+        if try_acquire_single_instance():
+            release_single_instance()
+            return True
+        time.sleep(poll_sec)
+    return False
 
 
 def consume_show_window_request() -> bool:

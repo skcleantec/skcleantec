@@ -1,8 +1,8 @@
 ; 청소비서 숨고 연동 — Inno Setup (상담사 PC, Python 별도 설치 불필요)
-; 빌드: scripts\build-installer.ps1 -Version 2.2.4
+; 빌드: scripts\build-installer.ps1 -Version 2.2.5
 
 #ifndef MyAppVersion
-#define MyAppVersion "2.2.4"
+#define MyAppVersion "2.2.5"
 #endif
 
 #define MyAppName "청소비서 숨고 연동"
@@ -28,6 +28,8 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64
+CloseApplications=yes
+CloseApplicationsFilter=pythonw.exe;python.exe;wscript.exe;chrome.exe;chromedriver.exe
 UninstallDisplayIcon={sys}\wscript.exe
 
 [Tasks]

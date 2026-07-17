@@ -43,12 +43,10 @@ from desktop.status_window import StatusWindow
 from desktop.update_manager import (
     clear_stale_update_cache,
     download_update_artifact,
-    install_cached_artifact,
     is_bridge_idle_for_auto_install,
-    perform_update,
+    perform_tray_handoff_update,
     read_update_state,
     restart_self,
-    schedule_post_setup_restart,
 )
 from version_info import APP_DISPLAY_NAME, APP_VERSION, BRIDGE_API_VERSION
 
@@ -348,6 +346,7 @@ class TrayApp:
                 if mode == 'desktop':
                     self._log('데스크톱 앱 재시작…')
                     self._stop_bridge()
+                    release_single_instance()
                     restart_self()
                 else:
                     self._restart_bridge()
@@ -454,31 +453,49 @@ class TrayApp:
 
         self._window.run_on_ui(ui)
 
+    def _prepare_tray_shutdown_for_update(self) -> None:
+        """Setup 설치 전 HTTP 브릿지·포트·단일 인스턴스 뮤텍스를 해제."""
+        self._log('업데이트 전 숨고 브릿지·트레이 정리…')
+        self._stop.set()
+        self._stop_bridge()
+        self._kill_stale_bridge_listeners()
+        release_single_instance()
+        _append_launch_log('update handoff shutdown')
+
     def _run_update(self, manifest: dict[str, Any]) -> None:
         self._update_busy = True
         self._manifest = manifest
         clear_stale_update_cache(manifest)
-        ok, msg = perform_update(manifest)
+        ok, msg, action = perform_tray_handoff_update(
+            manifest,
+            on_before_install=self._prepare_tray_shutdown_for_update,
+        )
         self._update_busy = False
 
-        def done() -> None:
-            import tkinter.messagebox as mb
-
-            mb.showinfo('업데이트' if ok else '업데이트 실패', msg)
-
-        self._window.run_on_ui(done)
         if not ok:
+
+            def fail_ui() -> None:
+                import tkinter.messagebox as mb
+
+                mb.showinfo('업데이트 실패', msg)
+
+            self._window.run_on_ui(fail_ui)
             return
-        url_lower = str(manifest.get('downloadUrl', '')).lower()
-        if url_lower.endswith('.zip'):
-            self._stop_bridge()
-            restart_self()
-            return
-        if url_lower.endswith('.exe'):
-            self._log('설치 프로그램 실행 — 완료 후 자동 재시작 예약')
-            schedule_post_setup_restart()
-            self._stop_bridge()
+
+        if action == 'exit_tray':
+            self._log(msg)
+            _append_launch_log('exit tray for setup install')
             os._exit(0)
+
+        if action == 'restart_tray':
+
+            def ok_ui() -> None:
+                import tkinter.messagebox as mb
+
+                mb.showinfo('업데이트', msg)
+
+            self._window.run_on_ui(ok_ui)
+            restart_self()
 
     def _show_message(self, title: str, message: str) -> None:
         def ui() -> None:

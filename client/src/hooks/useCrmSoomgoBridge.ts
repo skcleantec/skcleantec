@@ -220,13 +220,8 @@ export function useCrmSoomgoBridge({
       !isSoomgoBridgeOutdated(s, bridgeManifest)
     ) {
       softUpdateNotifiedRef.current = true;
-      useBlockedRef.current = true;
-      watchBlockedRef.current = true;
       const softMsg = soomgoBridgeSoftUpdateMessage(s, bridgeManifest);
-      if (softMsg) {
-        setError(softMsg);
-        notify(softMsg);
-      }
+      if (softMsg) notify(softMsg);
       void triggerBridgeUpdate('background', s);
     }
     if (s.pendingCallPhone && s.pendingCallAt != null && !blocked) {

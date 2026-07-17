@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.4';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.5';
 
 /** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
@@ -80,14 +80,21 @@ export function isSoomgoBridgeCrmManifestPassthroughSupported(
   return compareSoomgoSemver(current, SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION) >= 0;
 }
 
-/** 숨고 Chrome·채팅 연동 차단 — API/앱 버전 업데이트 필요 */
+/** 설치 중 Chrome·브릿지 재시작 — 숨고 창 열기·감시 일시 중단 */
+export function isSoomgoBridgeUpdateInstalling(
+  status: SoomgoBridgeStatus | null | undefined,
+): boolean {
+  return status?.updatePhase === 'installing';
+}
+
+/** 숨고 Chrome·채팅 연동 차단 — API 호환 깨짐 또는 설치 진행 중 */
 export function isSoomgoBridgeUseBlocked(
   status: SoomgoBridgeStatus | null | undefined,
   manifest?: SoomgoBridgeManifest | null,
 ): boolean {
   if (!status?.bridgeRunning) return false;
   if (isSoomgoBridgeApiOutdated(status, manifest)) return true;
-  return isSoomgoAppUpdateAvailable(status, manifest);
+  return isSoomgoBridgeUpdateInstalling(status);
 }
 
 export type SoomgoBridgeManifest = {
