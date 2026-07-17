@@ -66,7 +66,7 @@ import { parseJwtPayload } from '../../../utils/jwtPayload';
 import {
   loadSoomgoChatInbox,
   pinnedSoomgoChatIds,
-  reconcileSoomgoInboxWithScan,
+  syncSoomgoInboxFromScan,
   removeSoomgoInboxByChatId,
   saveSoomgoChatInbox,
   soomgoInboxPendingCount,
@@ -427,8 +427,10 @@ export function CrmPage() {
     (rows: SoomgoChatListSnapshotRow[]) => {
       if (rows.length === 0) return;
       setSoomgoInboxItems((prev) => {
-        const next = reconcileSoomgoInboxWithScan(prev, rows);
-        if (next.length === prev.length) return prev;
+        const next = syncSoomgoInboxFromScan(prev, rows);
+        if (next.length === prev.length && next.every((row, i) => row.chatId === prev[i]?.chatId && row.previewText === prev[i]?.previewText)) {
+          return prev;
+        }
         if (authUserId) saveSoomgoChatInbox(authUserId, workBrandSlug, next);
         return next;
       });

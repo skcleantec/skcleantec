@@ -1,8 +1,8 @@
 ; 청소비서 숨고 연동 — Inno Setup (상담사 PC, Python 별도 설치 불필요)
-; 빌드: scripts\build-installer.ps1 -Version 2.2.7
+; 빌드: scripts\build-installer.ps1 -Version 2.2.8
 
 #ifndef MyAppVersion
-#define MyAppVersion "2.2.7"
+#define MyAppVersion "2.2.8"
 #endif
 
 #define MyAppName "청소비서 숨고 연동"
