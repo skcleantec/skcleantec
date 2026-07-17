@@ -66,7 +66,21 @@ if (!window.__soomgoBridgeChatListWatch) {
       }
       if (!row) row = a;
 
-      var rawBlock = (row.innerText || row.textContent || '');
+      var clone = row.cloneNode(true);
+      var badgeNodesPre = clone.querySelectorAll('span, div, p, strong');
+      for (var bp = 0; bp < badgeNodesPre.length; bp++) {
+        var bel = badgeNodesPre[bp];
+        var btxt = (bel.textContent || '').trim();
+        if (!/^\\d{1,2}$/.test(btxt)) continue;
+        var brect = bel.getBoundingClientRect ? bel.getBoundingClientRect() : null;
+        var rrect = row.getBoundingClientRect ? row.getBoundingClientRect() : null;
+        if (!brect || !rrect) continue;
+        if (brect.width < 14 || brect.width > 44 || brect.height < 14 || brect.height > 44) continue;
+        if (brect.left < rrect.left + rrect.width * 0.45) continue;
+        bel.remove();
+      }
+
+      var rawBlock = (clone.innerText || clone.textContent || row.innerText || row.textContent || '');
       var rawLines = rawBlock.split(/\\n+/).map(function(s) {
         return s.replace(/\\s+/g, ' ').trim();
       }).filter(Boolean);
@@ -91,6 +105,9 @@ if (!window.__soomgoBridgeChatListWatch) {
         }
       }
 
+      function isBadgeOnlyLine(line) {
+        return /^\\d{1,2}$/.test((line || '').trim());
+      }
       function isSmartQuoteLine(line) {
         return /스마트\\s*견적|총\\s*[\\d,]+\\s*원\\s*부터|부터\\s*•\\s*스마트/.test(line);
       }
@@ -108,6 +125,7 @@ if (!window.__soomgoBridgeChatListWatch) {
 
       for (var ri = 0; ri < rawLines.length; ri++) {
         var line = rawLines[ri];
+        if (isBadgeOnlyLine(line)) continue;
         if (isSmartQuoteLine(line)) continue;
         if (isServiceRegionLine(line)) {
           if (!serviceRegion) {
@@ -138,21 +156,23 @@ if (!window.__soomgoBridgeChatListWatch) {
         }
         var bodyStripped = stripTimeFromLine(body);
         if (bodyStripped.time && !listTimeLabel) listTimeLabel = bodyStripped.time;
-        if (bodyStripped.text && !isSmartQuoteLine(bodyStripped.text)) previewText = bodyStripped.text;
+        if (bodyStripped.text && !isSmartQuoteLine(bodyStripped.text) && !isBadgeOnlyLine(bodyStripped.text)) previewText = bodyStripped.text;
       }
+      if (!previewText || isBadgeOnlyLine(previewText)) previewText = '';
       if (!previewText) previewText = rawBlock.replace(/\\s+/g, ' ').trim().slice(0, 500);
+      if (isBadgeOnlyLine(previewText)) previewText = '(채팅 미리보기)';
 
       var unreadCount = 0;
       var badgeNodes = row.querySelectorAll('span, div, p, strong');
+      var rowRect = row.getBoundingClientRect ? row.getBoundingClientRect() : null;
       for (var b = 0; b < badgeNodes.length; b++) {
         var bt = (badgeNodes[b].textContent || '').trim();
-        if (/^\\d{1,2}$/.test(bt)) {
-          var br = badgeNodes[b].getBoundingClientRect ? badgeNodes[b].getBoundingClientRect() : null;
-          if (br && br.width >= 14 && br.width <= 44 && br.height >= 14 && br.height <= 44) {
-            var n = parseInt(bt, 10);
-            if (n > unreadCount) unreadCount = n;
-          }
-        }
+        if (!/^\\d{1,2}$/.test(bt)) continue;
+        var br = badgeNodes[b].getBoundingClientRect ? badgeNodes[b].getBoundingClientRect() : null;
+        if (!br || br.width < 14 || br.width > 44 || br.height < 14 || br.height > 44) continue;
+        if (rowRect && br.left < rowRect.left + rowRect.width * 0.45) continue;
+        var n = parseInt(bt, 10);
+        if (n > unreadCount) unreadCount = n;
       }
 
       var tm = rawBlock.match(/(오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금|\\d{1,2}:\\d{2}/);
@@ -184,7 +204,7 @@ if (!window.__soomgoBridgeChatListWatch) {
       var r = rows[i];
       if (!r || !r.chatId) continue;
       var watched = !!watchMap[String(r.chatId)];
-      if ((r.unreadCount || 0) < 1 && r.previewKind !== 'quote_read' && r.previewKind !== 'smart_quote' && !watched) continue;
+      if ((r.unreadCount || 0) < 1 && r.previewKind !== 'quote_read' && !watched) continue;
       if (r.previewKind === 'smart_quote' && !watched) continue;
       window.__soomgoBridgeChatListWatch.events.push(r);
       if (window.__soomgoBridgeChatListWatch.events.length > 80) {

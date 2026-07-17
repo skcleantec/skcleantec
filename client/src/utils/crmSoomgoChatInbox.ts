@@ -2,15 +2,36 @@ import type { SoomgoChatAlert, SoomgoChatListSnapshotRow } from '@shared/soomgoB
 
 const MAX_ITEMS = 200;
 const RETENTION_MS = 72 * 60 * 60 * 1000;
+const DISMISS_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type CrmSoomgoInboxItem = SoomgoChatAlert & {
   /** 카톡형 상단 고정 시각 (null = 미고정) */
   pinnedAt: number | null;
 };
 
+/** 사용자가 읽음·열기로 숨긴 알림 — 동일 알림이 스캔에 남아도 재표시하지 않음 */
+export type SoomgoInboxDismissSnapshot = {
+  unreadCount: number;
+  previewText: string;
+  previewKind: SoomgoChatAlert['previewKind'];
+  dismissedAt: number;
+};
+
 function storageKey(userId: string, brandSlug: string | null): string {
   const brand = brandSlug?.trim() || 'default';
   return `crmSoomgoInbox:${userId}:${brand}`;
+}
+
+function dismissStorageKey(userId: string, brandSlug: string | null): string {
+  const brand = brandSlug?.trim() || 'default';
+  return `crmSoomgoInboxDismiss:${userId}:${brand}`;
+}
+
+export function sanitizeSoomgoInboxPreviewText(text: string | null | undefined): string {
+  const trimmed = (text || '').replace(/\s+/g, ' ').trim();
+  if (!trimmed) return '(내용 없음)';
+  if (/^\d{1,2}$/.test(trimmed)) return '(채팅 미리보기)';
+  return trimmed;
 }
 
 function stableInboxId(chatId: string): string {
@@ -29,7 +50,7 @@ function normalizeItem(row: Partial<CrmSoomgoInboxItem> & { chatId: string }): C
     chatId: row.chatId,
     customerName: row.customerName ?? null,
     serviceRegion: row.serviceRegion ?? null,
-    previewText: row.previewText?.trim() || '(내용 없음)',
+    previewText: sanitizeSoomgoInboxPreviewText(row.previewText),
     previewKind: row.previewKind ?? 'unknown',
     unreadCount: row.unreadCount ?? 0,
     listTimeLabel: row.listTimeLabel ?? null,
@@ -56,12 +77,66 @@ export function sortSoomgoInboxItems(items: CrmSoomgoInboxItem[]): CrmSoomgoInbo
   });
 }
 
-/** 숨고 목록에서 현재 알림 대상인 행인지 */
+/** 숨고 목록에서 현재 알림 대상인 행인지 — 미읽음 배지 또는 견적 읽음만 */
 export function isSoomgoScanAlertActive(row: SoomgoChatListSnapshotRow): boolean {
   if (row.previewKind === 'smart_quote') return false;
   if ((row.unreadCount ?? 0) > 0) return true;
   if (row.previewKind === 'quote_read') return true;
   return false;
+}
+
+export function isSoomgoAlertChangedSinceDismiss(
+  row: Pick<SoomgoChatListSnapshotRow, 'unreadCount' | 'previewText' | 'previewKind'>,
+  dismiss: SoomgoInboxDismissSnapshot | undefined,
+): boolean {
+  if (!dismiss) return true;
+  if ((row.unreadCount ?? 0) > dismiss.unreadCount) return true;
+  if (row.previewKind === 'quote_read' && dismiss.previewKind !== 'quote_read') return true;
+  const preview = sanitizeSoomgoInboxPreviewText(row.previewText);
+  const dismissedPreview = sanitizeSoomgoInboxPreviewText(dismiss.previewText);
+  if (preview !== dismissedPreview && preview !== '(채팅 미리보기)') return true;
+  return false;
+}
+
+export function loadSoomgoInboxDismissals(
+  userId: string | null,
+  brandSlug: string | null,
+): Map<string, SoomgoInboxDismissSnapshot> {
+  if (!userId) return new Map();
+  try {
+    const raw = localStorage.getItem(dismissStorageKey(userId, brandSlug));
+    if (!raw) return new Map();
+    const parsed = JSON.parse(raw) as Record<string, SoomgoInboxDismissSnapshot>;
+    if (!parsed || typeof parsed !== 'object') return new Map();
+    const cutoff = Date.now() - DISMISS_RETENTION_MS;
+    const map = new Map<string, SoomgoInboxDismissSnapshot>();
+    for (const [chatId, snap] of Object.entries(parsed)) {
+      if (!chatId.trim() || !snap || typeof snap.dismissedAt !== 'number') continue;
+      if (snap.dismissedAt < cutoff) continue;
+      map.set(chatId, snap);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+export function saveSoomgoInboxDismissals(
+  userId: string | null,
+  brandSlug: string | null,
+  dismissals: Map<string, SoomgoInboxDismissSnapshot>,
+): void {
+  if (!userId) return;
+  try {
+    const cutoff = Date.now() - DISMISS_RETENTION_MS;
+    const obj: Record<string, SoomgoInboxDismissSnapshot> = {};
+    for (const [chatId, snap] of dismissals.entries()) {
+      if (snap.dismissedAt >= cutoff) obj[chatId] = snap;
+    }
+    localStorage.setItem(dismissStorageKey(userId, brandSlug), JSON.stringify(obj));
+  } catch {
+    /* ignore */
+  }
 }
 
 function pruneItems(items: CrmSoomgoInboxItem[]): CrmSoomgoInboxItem[] {
@@ -223,6 +298,29 @@ export function removeSoomgoInboxByChatId(
   return items.filter((row) => !chatSet.has(row.chatId));
 }
 
+/** 읽음·열기 — 고정 핀은 유지, 나머지는 제거 + 스캔 재동기화 시 같은 알림 숨김 */
+export function dismissSoomgoInboxItems(
+  items: CrmSoomgoInboxItem[],
+  chatIds: string[],
+  dismissals: Map<string, SoomgoInboxDismissSnapshot>,
+): { items: CrmSoomgoInboxItem[]; dismissals: Map<string, SoomgoInboxDismissSnapshot> } {
+  const chatSet = new Set(chatIds.map((c) => c.trim()).filter(Boolean));
+  const now = Date.now();
+  const nextDismissals = new Map(dismissals);
+  const nextItems = items.filter((row) => {
+    if (!chatSet.has(row.chatId)) return true;
+    if (isSoomgoInboxPinned(row)) return true;
+    nextDismissals.set(row.chatId, {
+      unreadCount: row.unreadCount ?? 0,
+      previewText: row.previewText,
+      previewKind: row.previewKind,
+      dismissedAt: now,
+    });
+    return false;
+  });
+  return { items: nextItems, dismissals: nextDismissals };
+}
+
 export function toggleSoomgoInboxPin(
   items: CrmSoomgoInboxItem[],
   chatId: string,
@@ -246,28 +344,44 @@ export function watchingSoomgoChatIds(items: CrmSoomgoInboxItem[]): string[] {
   return pinnedSoomgoChatIds(items);
 }
 
-/** 숨고 채팅 목록 live 스캔 — 알림 남은 건만으로 목록 전체 동기화 */
+/** 숨고 채팅 목록 live 스캔 — 미읽음·견적 읽음만, 고정·숨김 상태 반영 */
 export function syncSoomgoInboxFromScan(
   existing: CrmSoomgoInboxItem[],
   scanRows: SoomgoChatListSnapshotRow[],
+  dismissals?: Map<string, SoomgoInboxDismissSnapshot>,
 ): CrmSoomgoInboxItem[] {
   if (scanRows.length === 0) return existing;
 
-  const pinnedAtByChat = new Map(
-    existing.filter((row) => row.pinnedAt != null).map((row) => [row.chatId, row.pinnedAt!]),
-  );
+  const scanByChatId = new Map(scanRows.map((row) => [row.chatId, row]));
+  const resultByChat = new Map<string, CrmSoomgoInboxItem>();
 
-  const synced = scanRows
-    .filter(isSoomgoScanAlertActive)
-    .map((snap) =>
+  for (const row of existing) {
+    if (row.pinnedAt == null) continue;
+    const snap = scanByChatId.get(row.chatId);
+    resultByChat.set(
+      row.chatId,
+      snap
+        ? normalizeItem({ ...snap, id: row.id, pinnedAt: row.pinnedAt })
+        : row,
+    );
+  }
+
+  for (const snap of scanRows) {
+    if (!isSoomgoScanAlertActive(snap)) continue;
+    if (resultByChat.has(snap.chatId)) continue;
+    const dismiss = dismissals?.get(snap.chatId);
+    if (dismiss && !isSoomgoAlertChangedSinceDismiss(snap, dismiss)) continue;
+    resultByChat.set(
+      snap.chatId,
       normalizeItem({
         ...snap,
         id: stableInboxId(snap.chatId),
-        pinnedAt: pinnedAtByChat.get(snap.chatId) ?? null,
+        pinnedAt: null,
       }),
     );
+  }
 
-  return pruneItems(synced);
+  return pruneItems([...resultByChat.values()]);
 }
 
 /** @deprecated syncSoomgoInboxFromScan 사용 */

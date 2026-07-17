@@ -139,6 +139,8 @@ export function CrmSoomgoAlertDrawer({
   onDismiss,
   onTogglePin,
   onDismissAll,
+  onRefresh,
+  refreshing,
 }: {
   open: boolean;
   onClose: () => void;
@@ -150,12 +152,14 @@ export function CrmSoomgoAlertDrawer({
   onDismiss: (chatIds: string[]) => void;
   onTogglePin: (chatId: string) => void;
   onDismissAll: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }) {
   const bridgeHint = bridgeStatus?.bridgeRunning
     ? bridgeStatus.chatWatchActive
       ? bridgeStatus.watchedChatIds?.length
-        ? `고정 ${bridgeStatus.watchedChatIds.length}건 · 숨고 목록과 실시간 동기화`
-        : '숨고 채팅 목록과 동기화 · 미읽음·견적 읽음만 표시'
+        ? `고정 ${bridgeStatus.watchedChatIds.length}건 · 미읽음 배지·견적 읽음만 표시`
+        : '숨고 채팅 목록 · 미읽음 배지(오른쪽 숫자)·견적 읽음만 표시'
       : '숨고 채팅 목록을 연 상태에서 알림을 수집합니다.'
     : '숨고 연동 후 알림을 받을 수 있습니다.';
 
@@ -175,15 +179,27 @@ export function CrmSoomgoAlertDrawer({
               대기 <strong className="tabular-nums">{pendingCount}</strong>건
             </span>
           </div>
-          {pendingCount > 0 ? (
-            <button
-              type="button"
-              onClick={onDismissAll}
-              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[9px] font-medium text-slate-600 hover:bg-slate-50"
-            >
-              모두 읽음
-            </button>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-1">
+            {onRefresh ? (
+              <button
+                type="button"
+                disabled={refreshing || busy}
+                onClick={onRefresh}
+                className="rounded border border-sky-300 bg-white px-2 py-0.5 text-[9px] font-semibold text-sky-800 hover:bg-sky-50 disabled:opacity-40"
+              >
+                {refreshing ? '새로고침…' : '새로고침'}
+              </button>
+            ) : null}
+            {pendingCount > 0 ? (
+              <button
+                type="button"
+                onClick={onDismissAll}
+                className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[9px] font-medium text-slate-600 hover:bg-slate-50"
+              >
+                모두 읽음
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {items.length === 0 ? (
@@ -191,7 +207,8 @@ export function CrmSoomgoAlertDrawer({
             <CrmIconBell className="mb-2 h-8 w-8 text-slate-300" />
             <p className="text-[11px] font-medium text-slate-700">대기 중인 알림이 없습니다</p>
             <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-              숨고 채팅 목록의 미읽음·견적 읽음만 표시됩니다. 대응되면 목록에서 사라집니다.
+              숨고 채팅 목록에서 <strong>오른쪽 미읽음 배지</strong>가 있거나 견적 읽음인 건만 표시됩니다. 열기·읽음 시
+              사라지며, 📌 고정은 유지됩니다.
             </p>
           </div>
         ) : (
