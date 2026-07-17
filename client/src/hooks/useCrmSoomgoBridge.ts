@@ -87,7 +87,9 @@ export function useCrmSoomgoBridge({
   const [status, setStatus] = useState<SoomgoBridgeStatus | null>(null);
   const [preview, setPreview] = useState<SoomgoExtractedChat | null>(null);
   const [busyAction, setBusyAction] = useState<SoomgoBusyAction | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const updateInFlightRef = useRef(false);
   const previewRef = useRef(preview);
   previewRef.current = preview;
   const busyActionRef = useRef(busyAction);
@@ -448,62 +450,89 @@ export function useCrmSoomgoBridge({
 
   const requestBridgeUpdate = useCallback(
     async (mode: 'prompt' | 'background' | 'install' = 'install') => {
-      if (soomgoBarOpenRef.current) pendingSoomgoReconnectRef.current = true;
-      let manifest = bridgeManifest;
-      if (refreshManifest) {
-        manifest = (await refreshManifest()) ?? manifest;
+      if (updateInFlightRef.current) {
+        notify('업데이트 요청을 처리하는 중입니다…');
+        return;
       }
-      const current = await refreshStatus({ lite: true });
-      let via: 'browser' | 'bridge' | 'skipped';
+      updateInFlightRef.current = true;
+      setUpdateBusy(true);
+      if (soomgoBarOpenRef.current) pendingSoomgoReconnectRef.current = true;
+      notify('숨고 연동 업데이트를 요청하는 중입니다…');
+
       try {
-        via = await installSoomgoBridgeFromCrmManifest(mode, manifest, current, { force: true });
-      } catch (e) {
-        if (openSoomgoBridgeInstaller(manifest)) {
+        let manifest = bridgeManifest;
+        const hasManifestUrl =
+          Boolean(manifest?.latestVersion?.trim()) && Boolean(manifest?.downloadUrl?.trim());
+        if (refreshManifest) {
+          const refreshed = await refreshManifest();
+          if (refreshed) manifest = refreshed;
+          else if (!hasManifestUrl) {
+            throw new Error('설치 파일 URL을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+          }
+        }
+        const current = await fetchSoomgoBridgeStatus(manifest, { lite: true });
+        setStatus(current);
+
+        let via: 'browser' | 'bridge' | 'skipped';
+        try {
+          via = await installSoomgoBridgeFromCrmManifest(mode, manifest, current, { force: true });
+        } catch (e) {
+          if (openSoomgoBridgeInstaller(manifest)) {
+            const latest = manifest?.latestVersion?.trim();
+            notify(
+              latest
+                ? `브릿지에 연결하지 못해 v${latest} 설치 파일을 열었습니다. 설치 후 프로그램을 다시 실행해 주세요.`
+                : '설치 파일을 열었습니다. 설치 후 프로그램을 다시 실행해 주세요.',
+            );
+          } else {
+            const msg = e instanceof Error ? e.message : '업데이트 요청에 실패했습니다.';
+            notify(msg);
+            setError(msg);
+          }
+          return;
+        }
+        if (via === 'skipped') {
+          notify('이미 최신 버전입니다.');
+          return;
+        }
+        if (via === 'browser') {
           const latest = manifest?.latestVersion?.trim();
           notify(
             latest
-              ? `브릿지에 연결하지 못해 v${latest} 설치 파일을 열었습니다. 설치 후 프로그램을 다시 실행해 주세요.`
+              ? `v${latest} 설치 파일을 열었습니다. 다운로드·실행 후 「청소비서 숨고 연동」을 다시 켜 주세요.`
               : '설치 파일을 열었습니다. 설치 후 프로그램을 다시 실행해 주세요.',
           );
-        } else {
-          const msg = e instanceof Error ? e.message : '업데이트 요청에 실패했습니다.';
-          notify(msg);
-          setError(msg);
+          return;
         }
-        return;
-      }
-      if (via === 'skipped') {
-        notify('이미 최신 버전입니다.');
-        return;
-      }
-      if (via === 'browser') {
-        const latest = manifest?.latestVersion?.trim();
-        notify(
-          latest
-            ? `v${latest} 설치 파일을 열었습니다. 다운로드·실행 후 「청소비서 숨고 연동」을 다시 켜 주세요.`
-            : '설치 파일을 열었습니다. 설치 후 프로그램을 다시 실행해 주세요.',
-        );
-        return;
-      }
-      notify('업데이트를 시작했습니다. 트레이의 「청소비서 숨고 연동」에서 설치가 진행됩니다.');
-      for (let i = 0; i < 24; i += 1) {
-        await new Promise((r) => window.setTimeout(r, 2000));
-        const s = await refreshStatus({ lite: true });
-        if (s.updatePhase === 'downloading') {
-          notify('업데이트 파일을 다운로드하는 중입니다…');
-        } else if (s.updatePhase === 'installing') {
-          notify('업데이트를 설치하는 중입니다. 프로그램이 잠시 재시작됩니다.');
-          break;
-        } else if (s.updatePhase === 'ready') {
-          notify('업데이트 설치 준비가 완료되었습니다. 「지금 업데이트」를 다시 눌러 주세요.');
-          break;
-        } else if (
-          isSoomgoBridgeAppAtLatest(s, manifest) &&
-          !isSoomgoBridgeOutdated(s, manifest)
-        ) {
-          notify('숨고 연동 업데이트가 완료되었습니다.');
-          break;
+        notify('업데이트를 시작했습니다. 트레이의 「청소비서 숨고 연동」에서 설치가 진행됩니다.');
+        for (let i = 0; i < 24; i += 1) {
+          await new Promise((r) => window.setTimeout(r, 2000));
+          const s = await fetchSoomgoBridgeStatus(manifest, { lite: true });
+          setStatus(s);
+          if (s.updatePhase === 'downloading') {
+            notify('업데이트 파일을 다운로드하는 중입니다…');
+          } else if (s.updatePhase === 'installing') {
+            notify('업데이트를 설치하는 중입니다. 프로그램이 잠시 재시작됩니다.');
+            break;
+          } else if (s.updatePhase === 'ready') {
+            notify('업데이트 설치 준비가 완료되었습니다. 「지금 업데이트」를 다시 눌러 주세요.');
+            break;
+          } else if (
+            isSoomgoBridgeAppAtLatest(s, manifest) &&
+            !isSoomgoBridgeOutdated(s, manifest)
+          ) {
+            notify('숨고 연동 업데이트가 완료되었습니다.');
+            break;
+          }
         }
+        await refreshStatus({ lite: true });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '업데이트 요청에 실패했습니다.';
+        notify(msg);
+        setError(msg);
+      } finally {
+        updateInFlightRef.current = false;
+        setUpdateBusy(false);
       }
     },
     [bridgeManifest, notify, refreshManifest, refreshStatus],
@@ -663,6 +692,7 @@ export function useCrmSoomgoBridge({
     busy,
     busyAction,
     busyLabel,
+    updateBusy,
     error,
     bridgeUp,
     refreshStatus,

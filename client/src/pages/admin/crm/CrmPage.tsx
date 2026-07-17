@@ -588,6 +588,7 @@ export function CrmPage() {
     error: soomgoError,
     refreshStatus: refreshSoomgoStatus,
     requestBridgeUpdate,
+    updateBusy: soomgoUpdateBusy,
   } = soomgoBridge;
 
   const soomgoUpdateNoticeVisible = useMemo(
@@ -1010,6 +1011,7 @@ export function CrmPage() {
                   <CrmSoomgoUpdateStrip
                     status={soomgoStatus}
                     bridgeManifest={soomgoBridgeManifest}
+                    updateBusy={soomgoUpdateBusy}
                     onRequestUpdate={() => void requestBridgeUpdate('install')}
                     onRefresh={() => {
                       void refreshManifest();
@@ -1044,6 +1046,7 @@ export function CrmPage() {
                     : undefined
                 }
                 bridgeManifest={soomgoBridgeManifest}
+                updateBusy={soomgoUpdateBusy}
                 onRequestUpdate={() => void requestBridgeUpdate('install')}
                   />
                 ) : null}

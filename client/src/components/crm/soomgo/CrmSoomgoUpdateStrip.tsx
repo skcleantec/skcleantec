@@ -1,6 +1,5 @@
 import type { SoomgoBridgeManifest, SoomgoBridgeStatus } from '@shared/soomgoBridge';
 import {
-  isSoomgoAppUpdateAvailable,
   isSoomgoBridgeOutdated,
   isSoomgoBridgeUpdateNoticeVisible,
 } from '../../../api/soomgoBridge';
@@ -12,17 +11,18 @@ export function CrmSoomgoUpdateStrip({
   onRequestUpdate,
   onRefresh,
   onOpenSoomgoBar,
+  updateBusy = false,
 }: {
   status: SoomgoBridgeStatus | null;
   bridgeManifest: SoomgoBridgeManifest | null;
   onRequestUpdate: () => void;
   onRefresh: () => void;
   onOpenSoomgoBar?: () => void;
+  updateBusy?: boolean;
 }) {
   if (!isSoomgoBridgeUpdateNoticeVisible(status, bridgeManifest)) return null;
 
   const outdated = isSoomgoBridgeOutdated(status, bridgeManifest);
-  const softUpdate = !outdated && isSoomgoAppUpdateAvailable(status, bridgeManifest);
   const latestLabel = bridgeManifest?.latestVersion?.trim() || status?.latestVersion?.trim();
   const currentLabel = status?.appVersion?.trim();
   const updatePhase = status?.updatePhase;
@@ -88,8 +88,9 @@ export function CrmSoomgoUpdateStrip({
           {onOpenSoomgoBar ? (
             <button
               type="button"
+              disabled={updateBusy}
               onClick={onOpenSoomgoBar}
-              className={`rounded-lg border bg-white px-2.5 py-1 text-[11px] font-semibold ${
+              className={`rounded-lg border bg-white px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
                 tone === 'rose'
                   ? 'border-rose-300 text-rose-900 hover:bg-rose-50'
                   : 'border-amber-300 text-amber-900 hover:bg-amber-50'
@@ -100,14 +101,15 @@ export function CrmSoomgoUpdateStrip({
           ) : null}
           <button
             type="button"
+            disabled={updateBusy}
             onClick={onRequestUpdate}
-            className={`rounded-lg border bg-white px-2.5 py-1 text-[11px] font-semibold ${
+            className={`rounded-lg border bg-white px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
               tone === 'rose'
                 ? 'border-rose-300 text-rose-900 hover:bg-rose-50'
                 : 'border-amber-300 text-amber-900 hover:bg-amber-50'
             }`}
           >
-            {updateReady ? '지금 업데이트' : outdated || softUpdate ? '업데이트' : '업데이트'}
+            {updateBusy ? '요청 중…' : updateReady ? '지금 업데이트' : '업데이트'}
           </button>
           {downloadUrl ? (
             <a
@@ -115,6 +117,8 @@ export function CrmSoomgoUpdateStrip({
               target="_blank"
               rel="noopener noreferrer"
               className={`rounded-lg border bg-white px-2.5 py-1 text-[11px] font-semibold ${
+                updateBusy ? 'pointer-events-none opacity-50' : ''
+              } ${
                 tone === 'rose'
                   ? 'border-rose-300 text-rose-900 hover:bg-rose-50'
                   : 'border-amber-300 text-amber-900 hover:bg-amber-50'
@@ -125,8 +129,9 @@ export function CrmSoomgoUpdateStrip({
           ) : null}
           <button
             type="button"
+            disabled={updateBusy}
             onClick={onRefresh}
-            className={`rounded-lg border bg-white px-2.5 py-1 text-[11px] font-semibold ${
+            className={`rounded-lg border bg-white px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
               tone === 'rose'
                 ? 'border-rose-300 text-rose-900 hover:bg-rose-50'
                 : 'border-amber-300 text-amber-900 hover:bg-amber-50'
