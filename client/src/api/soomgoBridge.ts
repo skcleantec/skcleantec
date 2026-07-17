@@ -2,6 +2,7 @@ import type { SoomgoBridgeStatus, SoomgoExtractedChat, SoomgoBridgeManifest } fr
 import {
   SOOMGO_BRIDGE_BASE_URL,
   SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION,
+  SOOMGO_BRIDGE_CHAT_ALERTS_MIN_VERSION,
   compareSoomgoSemver,
   isSoomgoAppOutdated,
   isSoomgoAppUpdateAvailable,
@@ -208,6 +209,31 @@ export async function sendSoomgoBridgeSequence(
   await bridgeFetch<{ ok: boolean }>('/send-sequence', {
     method: 'POST',
     body: JSON.stringify({ steps }),
+  });
+}
+
+export function isSoomgoBridgeChatAlertsSupported(status: SoomgoBridgeStatus | null | undefined): boolean {
+  const current = status?.appVersion?.trim();
+  if (!current) return false;
+  return compareSoomgoSemver(current, SOOMGO_BRIDGE_CHAT_ALERTS_MIN_VERSION) >= 0;
+}
+
+export async function watchSoomgoChatList(): Promise<SoomgoBridgeStatus> {
+  return bridgeFetch<SoomgoBridgeStatus>('/watch-chat-list', { method: 'POST', body: '{}' });
+}
+
+export async function ackSoomgoChatAlerts(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await bridgeFetch<{ ok: boolean }>('/ack-chat-alerts', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export async function openSoomgoChatRoom(chatId: string): Promise<SoomgoBridgeStatus> {
+  return bridgeFetch<SoomgoBridgeStatus>('/open-chat-room', {
+    method: 'POST',
+    body: JSON.stringify({ chatId }),
   });
 }
 

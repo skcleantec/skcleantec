@@ -1,3 +1,5 @@
+import { clearCrmWorkBrandStoredSlug } from '../utils/crmWorkBrandQuery';
+
 const TOKEN_KEY = 'sk_admin_token';
 const AUTH_CHANGE_EVENT = 'sk_admin_auth';
 
@@ -64,5 +66,6 @@ export function clearToken() {
   } catch {
     /* ignore */
   }
+  clearCrmWorkBrandStoredSlug();
   notifyAuthChange();
 }

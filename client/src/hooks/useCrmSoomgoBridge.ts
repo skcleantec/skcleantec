@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SoomgoExtractedChat, SoomgoBridgeStatus, SoomgoBridgeManifest } from '@shared/soomgoBridge';
+import type { SoomgoExtractedChat, SoomgoBridgeStatus, SoomgoBridgeManifest, SoomgoChatAlert } from '@shared/soomgoBridge';
 import { getToken } from '../stores/auth';
 import { fetchTelecrmSoomgoCredentials } from '../api/telecrmSoomgo';
 import type { SoomgoBusyAction } from '../api/soomgoBridge';
 import {
   ackSoomgoPendingCall,
+  ackSoomgoChatAlerts,
   arrangeSoomgoBridgeLayout,
   extractSoomgoCallNumber,
   extractSoomgoCurrentChat,
   fetchSoomgoBridgeStatus,
+  isSoomgoBridgeChatAlertsSupported,
   isSoomgoBridgeOutdated,
   isSoomgoBridgeReachable,
   isSoomgoAppUpdateAvailable,
   loginSoomgoBridge,
   openSoomgoCallModal,
+  openSoomgoChatRoom,
   openSoomgoChats,
   requestSoomgoBridgeRestart,
   requestSoomgoBridgeUpdate,
@@ -24,6 +27,7 @@ import {
   soomgoBridgeSoftUpdateMessage,
   startSoomgoBridge,
   watchSoomgoCallButton,
+  watchSoomgoChatList,
 } from '../api/soomgoBridge';
 import {
   arrangeCrmPopupLeftHalf,
@@ -37,6 +41,7 @@ export function useCrmSoomgoBridge({
   onImportPhone,
   onDispatchNotice,
   onImportNotice,
+  onChatAlerts,
   pollEnabled = true,
   isPopup = false,
   bridgeManifest = null,
@@ -46,6 +51,7 @@ export function useCrmSoomgoBridge({
   onImportPhone?: (phone: string) => void;
   onDispatchNotice?: (message: string) => void;
   onImportNotice?: (data: SoomgoExtractedChat) => void;
+  onChatAlerts?: (alerts: SoomgoChatAlert[]) => void;
   pollEnabled?: boolean;
   isPopup?: boolean;
   bridgeManifest?: SoomgoBridgeManifest | null;
@@ -61,6 +67,7 @@ export function useCrmSoomgoBridge({
   busyActionRef.current = busyAction;
   const lastHandledCallAtRef = useRef<number | null>(null);
   const watchStartedRef = useRef(false);
+  const chatWatchStartedRef = useRef(false);
   const watchBlockedRef = useRef(false);
   const outdatedNotifiedRef = useRef(false);
   const softUpdateNotifiedRef = useRef(false);
@@ -72,6 +79,7 @@ export function useCrmSoomgoBridge({
     if (prevOperatingCompanyIdRef.current === operatingCompanyId) return;
     prevOperatingCompanyIdRef.current = operatingCompanyId;
     watchStartedRef.current = false;
+    chatWatchStartedRef.current = false;
     watchBlockedRef.current = false;
     setPreview(null);
     if (operatingCompanyId) {
@@ -128,6 +136,19 @@ export function useCrmSoomgoBridge({
     [applyCallPhone, notify],
   );
 
+  const handleChatAlerts = useCallback(
+    async (alerts: SoomgoChatAlert[]) => {
+      if (alerts.length === 0) return;
+      onChatAlerts?.(alerts);
+      try {
+        await ackSoomgoChatAlerts(alerts.map((a) => a.id));
+      } catch {
+        /* 브릿지 재시도 시 중복 merge는 inbox id로 방지 */
+      }
+    },
+    [onChatAlerts],
+  );
+
   const refreshStatus = useCallback(async (options?: { lite?: boolean }) => {
     const s = await fetchSoomgoBridgeStatus(bridgeManifest, { lite: options?.lite });
     setStatus(s);
@@ -159,8 +180,32 @@ export function useCrmSoomgoBridge({
     if (s.pendingCallPhone && s.pendingCallAt != null && !isSoomgoBridgeOutdated(s, bridgeManifest)) {
       void handlePendingCall(s);
     }
+    if (s.chatAlerts?.length && isSoomgoBridgeChatAlertsSupported(s)) {
+      void handleChatAlerts(s.chatAlerts);
+    }
     return s;
-  }, [bridgeManifest, handlePendingCall, notify]);
+  }, [bridgeManifest, handleChatAlerts, handlePendingCall, notify]);
+
+  const ensureChatWatch = useCallback(
+    async (s: SoomgoBridgeStatus) => {
+      if (
+        !s.loggedIn ||
+        chatWatchStartedRef.current ||
+        watchBlockedRef.current ||
+        isSoomgoBridgeOutdated(s, bridgeManifest) ||
+        !isSoomgoBridgeChatAlertsSupported(s)
+      ) {
+        return;
+      }
+      try {
+        await watchSoomgoChatList();
+        chatWatchStartedRef.current = true;
+      } catch {
+        chatWatchStartedRef.current = true;
+      }
+    },
+    [bridgeManifest],
+  );
 
   const ensureCallWatch = useCallback(
     async (s: SoomgoBridgeStatus) => {
@@ -202,6 +247,9 @@ export function useCrmSoomgoBridge({
       } else if (!s.inChatRoom) {
         watchStartedRef.current = false;
       }
+      if (s.loggedIn && s.bridgeRunning && !isSoomgoBridgeOutdated(s, bridgeManifest)) {
+        void ensureChatWatch(s);
+      }
       const interval = busy === 'open' ? 5000 : s.bridgeRunning ? 5000 : 12000;
       timer = window.setTimeout(poll, interval);
     };
@@ -239,6 +287,7 @@ export function useCrmSoomgoBridge({
       await openSoomgoChats(screen);
       await applySplitLayout();
       const finalStatus = await refreshStatus();
+      await ensureChatWatch(finalStatus);
       if (finalStatus.inChatRoom) {
         await ensureCallWatch(finalStatus);
         notify('숨고 채팅방이 연결되었습니다. 「정보 갖고오기」로 고객 정보·안심번호를 한 번에 가져올 수 있습니다.');
@@ -258,7 +307,29 @@ export function useCrmSoomgoBridge({
     } finally {
       setBusyAction(null);
     }
-  }, [applySplitLayout, bridgeManifest, ensureCallWatch, isPopup, notify, operatingCompanyId, refreshStatus]);
+  }, [applySplitLayout, bridgeManifest, ensureCallWatch, ensureChatWatch, isPopup, notify, operatingCompanyId, refreshStatus]);
+
+  const openChatRoom = useCallback(
+    async (chatId: string) => {
+      setBusyAction('open');
+      setError(null);
+      try {
+        notify('숨고 채팅방을 여는 중입니다…');
+        await openSoomgoChatRoom(chatId);
+        await refreshStatus();
+        notify('숨고 채팅방을 열었습니다.');
+        return true;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '채팅방을 열지 못했습니다.';
+        setError(msg);
+        notify(msg);
+        return false;
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [notify, refreshStatus],
+  );
 
   const extract = useCallback(async () => {
     setBusyAction('extract');
@@ -346,5 +417,7 @@ export function useCrmSoomgoBridge({
     extract,
     callFromChat,
     restartBridge,
+    openChatRoom,
+    chatAlertsSupported: isSoomgoBridgeChatAlertsSupported(status),
   };
 }

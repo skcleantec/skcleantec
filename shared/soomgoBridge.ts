@@ -5,7 +5,10 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.1.18';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.0';
+
+/** 채팅 목록 알림 watcher 최소 앱 버전 */
+export const SOOMGO_BRIDGE_CHAT_ALERTS_MIN_VERSION = '2.2.0';
 
 /** 순차 메시지 매크로(`/send-sequence`) 최소 앱 버전 */
 export const SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION = '2.1.0';
@@ -73,6 +76,19 @@ export type SoomgoBridgeManifest = {
   sha256?: string;
 };
 
+export type SoomgoChatAlertKind = 'message' | 'quote_read' | 'unknown';
+
+export type SoomgoChatAlert = {
+  id: string;
+  chatId: string;
+  customerName: string | null;
+  previewText: string;
+  previewKind: SoomgoChatAlertKind;
+  unreadCount: number;
+  listTimeLabel: string | null;
+  capturedAt: number;
+};
+
 export type SoomgoBridgeStatus = {
   ok: boolean;
   bridgeVersion?: number;
@@ -94,6 +110,13 @@ export type SoomgoBridgeStatus = {
   pendingCallAt?: number | null;
   callModalOpen?: boolean;
   callWatchActive?: boolean;
+  /** 채팅 목록 미읽음 감시 활성 */
+  chatWatchActive?: boolean;
+  /** CRM 미수신 알림 (브릿지 pending) */
+  chatAlerts?: SoomgoChatAlert[];
+  chatAlertCount?: number;
+  /** 세션 누적 알림함 (최근순) */
+  chatInbox?: SoomgoChatAlert[];
   lastError?: string | null;
   port?: number;
   /** 데스크톱 프로그램 semver */

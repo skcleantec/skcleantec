@@ -34,6 +34,7 @@ export type CrmToolNavItem = {
   active?: boolean;
   disabled?: boolean;
   loading?: boolean;
+  badgeCount?: number;
 };
 
 /** CRM 좌측 접이식 도구 메뉴 (관리자 솔루션 사이드와 유사) */
@@ -99,7 +100,14 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
                       aria-hidden
                     />
                   ) : null}
-                  <span className="shrink-0 [&>svg]:h-[18px] [&>svg]:w-[18px]">{item.icon}</span>
+                  <span className="shrink-0 [&>svg]:h-[18px] [&>svg]:w-[18px] relative">
+                    {item.icon}
+                    {(item.badgeCount ?? 0) > 0 ? (
+                      <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold text-white tabular-nums">
+                        {item.badgeCount! > 99 ? '99+' : item.badgeCount}
+                      </span>
+                    ) : null}
+                  </span>
                   {!collapsed ? (
                     <span className="min-w-0 truncate text-[11px] font-medium">
                       {item.loading ? '가져오는 중…' : item.label}
