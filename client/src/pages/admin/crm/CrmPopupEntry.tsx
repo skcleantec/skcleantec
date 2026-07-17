@@ -6,6 +6,7 @@ import {
 } from '../../../hooks/useTenantCapabilities';
 import { useStandaloneTenantCapabilities } from '../../../hooks/useStandaloneTenantCapabilities';
 import { arrangeCrmPopupLeftHalf, fitCrmPopupWindow } from '../../../utils/crmSoomgoSplitLayout';
+import { registerTelecrmPopupWindow } from '../../../utils/openTelecrmWindow';
 import { CrmPage } from './CrmPage';
 
 /**
@@ -16,6 +17,10 @@ export function CrmPopupEntry() {
   const location = useLocation();
   const token = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
   const tenantCapabilities = useStandaloneTenantCapabilities(token);
+
+  useEffect(() => {
+    registerTelecrmPopupWindow();
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.telecrmPopup =
