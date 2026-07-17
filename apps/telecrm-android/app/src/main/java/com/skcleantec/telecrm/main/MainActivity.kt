@@ -128,6 +128,14 @@ class MainActivity : AppCompatActivity() {
 
         binding.logoutButton.setOnClickListener { logout() }
 
+        binding.checkUpdateButton.setOnClickListener {
+            TelecrmUpdateCoordinator.checkManually(this, apiBaseUrl)
+        }
+        binding.appVersionText.setOnClickListener {
+            TelecrmUpdateCoordinator.checkManually(this, apiBaseUrl)
+        }
+        binding.appVersionText.contentDescription = getString(R.string.update_check_button)
+
         binding.viewPager.adapter = MainPagerAdapter(this)
         binding.viewPager.isUserInputEnabled = false
         binding.viewPager.offscreenPageLimit = 1

@@ -128,6 +128,11 @@
     <string name="update_manifest_failed">업데이트 정보를 불러오지 못했습니다.</string>
     <string name="update_already_latest">이미 최신 버전입니다.</string>
     <string name="update_tap_to_check">버전을 길게 눌러 업데이트 확인</string>
+    <string name="update_check_button">업데이트 확인</string>
+    <string name="open_install_page">설치 페이지 열기</string>
+    <string name="update_install_help">설치가 차단될 때</string>
+    <string name="update_install_blocked_title">악성 앱으로 차단될 때</string>
+    <string name="update_install_blocked_message">삼성·Play 프로tect가 사내 sideload APK를 차단할 수 있습니다.\n\n1. Play 스토어 → 프로필 → Play 프로tect → 톱니 → 「Play 프로tect로 앱 검사」 끄기\n2. 설정 → 보안 및 개인정보 → 자동 차단(Auto Blocker) → 앱 설치 검사 끄기\n3. 「설치 페이지 열기」로 브라우저에서 APK 받기 → 「내 파일」앱으로 APK 열기 → 설치\n\n회사 사무실폰만 위 설정을 잠시 끈 뒤 설치하세요.</string>
 
 </resources>
 

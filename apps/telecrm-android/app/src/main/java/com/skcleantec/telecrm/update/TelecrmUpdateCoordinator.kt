@@ -1,8 +1,9 @@
 package com.skcleantec.telecrm.update
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.view.LayoutInflater
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -19,6 +20,7 @@ import kotlinx.coroutines.withContext
  */
 object TelecrmUpdateCoordinator {
     private var pendingManifest: TelecrmAppManifest? = null
+    private var pendingApiBaseUrl: String? = null
     private var progressDialog: AlertDialog? = null
 
     suspend fun checkOnLogin(activity: AppCompatActivity, apiBaseUrl: String): Boolean {
@@ -26,11 +28,11 @@ object TelecrmUpdateCoordinator {
         TelecrmUpdatePrefs.markChecked(activity)
         val current = BuildConfig.VERSION_CODE
         if (manifest.isForceUpdate(current)) {
-            showUpdateDialog(activity, manifest, required = true)
+            showUpdateDialog(activity, manifest, apiBaseUrl, required = true)
             return true
         }
         if (manifest.isUpdateAvailable(current)) {
-            showUpdateDialog(activity, manifest, required = false)
+            showUpdateDialog(activity, manifest, apiBaseUrl, required = false)
         }
         return false
     }
@@ -42,9 +44,9 @@ object TelecrmUpdateCoordinator {
         val current = BuildConfig.VERSION_CODE
         when {
             manifest.isForceUpdate(current) ->
-                showUpdateDialog(activity, manifest, required = true)
+                showUpdateDialog(activity, manifest, apiBaseUrl, required = true)
             manifest.isUpdateAvailable(current) ->
-                showUpdateDialog(activity, manifest, required = false)
+                showUpdateDialog(activity, manifest, apiBaseUrl, required = false)
         }
     }
 
@@ -53,14 +55,19 @@ object TelecrmUpdateCoordinator {
             val manifest = withContext(Dispatchers.IO) {
                 TelecrmManifestClient.fetch(apiBaseUrl).getOrNull()
             } ?: run {
-                showError(activity, activity.getString(R.string.update_manifest_failed))
+                showError(activity, activity.getString(R.string.update_manifest_failed), apiBaseUrl)
                 return@launch
             }
             TelecrmUpdatePrefs.markChecked(activity)
             val current = BuildConfig.VERSION_CODE
             when {
                 manifest.isForceUpdate(current) || manifest.isUpdateAvailable(current) ->
-                    showUpdateDialog(activity, manifest, required = manifest.isForceUpdate(current))
+                    showUpdateDialog(
+                        activity,
+                        manifest,
+                        apiBaseUrl,
+                        required = manifest.isForceUpdate(current),
+                    )
                 else ->
                     showInfo(activity, activity.getString(R.string.update_already_latest))
             }
@@ -70,7 +77,7 @@ object TelecrmUpdateCoordinator {
     fun onInstallPermissionResult(activity: AppCompatActivity) {
         val manifest = pendingManifest ?: return
         if (TelecrmApkInstall.canInstallPackages(activity)) {
-            startDownloadAndInstall(activity, manifest)
+            startDownloadAndInstall(activity, manifest, pendingApiBaseUrl.orEmpty())
         }
     }
 
@@ -79,9 +86,32 @@ object TelecrmUpdateCoordinator {
             TelecrmManifestClient.fetch(apiBaseUrl).getOrNull()
         }
 
+    private fun installPageUrl(apiBaseUrl: String): String =
+        "${apiBaseUrl.trim().trimEnd('/')}/telecrm-app"
+
+    private fun openInstallPage(activity: Activity, apiBaseUrl: String) {
+        if (activity.isFinishing || activity.isDestroyed) return
+        activity.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(installPageUrl(apiBaseUrl))).apply {
+                if (activity !is AppCompatActivity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
+    }
+
+    fun showInstallBlockedHelp(activity: Activity, apiBaseUrl: String) {
+        if (activity.isFinishing || activity.isDestroyed) return
+        AlertDialog.Builder(activity)
+            .setTitle(R.string.update_install_blocked_title)
+            .setMessage(R.string.update_install_blocked_message)
+            .setPositiveButton(R.string.open_install_page) { _, _ -> openInstallPage(activity, apiBaseUrl) }
+            .setNegativeButton(android.R.string.ok, null)
+            .show()
+    }
+
     private fun showUpdateDialog(
         activity: AppCompatActivity,
         manifest: TelecrmAppManifest,
+        apiBaseUrl: String,
         required: Boolean,
     ) {
         if (activity.isFinishing || activity.isDestroyed) return
@@ -112,19 +142,31 @@ object TelecrmUpdateCoordinator {
             .setCancelable(!required)
             .setPositiveButton(R.string.update_download_install) { _, _ ->
                 pendingManifest = manifest
+                pendingApiBaseUrl = apiBaseUrl
                 if (!TelecrmApkInstall.canInstallPackages(activity)) {
                     TelecrmApkInstall.openInstallPermissionSettings(activity)
                 } else {
-                    startDownloadAndInstall(activity, manifest)
+                    startDownloadAndInstall(activity, manifest, apiBaseUrl)
                 }
             }
-        if (!required) {
+            .setNeutralButton(R.string.open_install_page) { _, _ ->
+                openInstallPage(activity, apiBaseUrl)
+            }
+        if (required) {
+            builder.setNegativeButton(R.string.update_install_help) { _, _ ->
+                showInstallBlockedHelp(activity, apiBaseUrl)
+            }
+        } else {
             builder.setNegativeButton(R.string.update_later, null)
         }
         builder.show()
     }
 
-    private fun startDownloadAndInstall(activity: AppCompatActivity, manifest: TelecrmAppManifest) {
+    private fun startDownloadAndInstall(
+        activity: AppCompatActivity,
+        manifest: TelecrmAppManifest,
+        apiBaseUrl: String,
+    ) {
         activity.lifecycleScope.launch {
             showProgress(activity, activity.getString(R.string.update_downloading))
             val result = withContext(Dispatchers.IO) {
@@ -133,11 +175,13 @@ object TelecrmUpdateCoordinator {
             dismissProgress()
             result.onSuccess { apk ->
                 pendingManifest = null
+                pendingApiBaseUrl = null
                 TelecrmApkInstall.installApk(activity, apk)
             }.onFailure { err ->
                 showError(
                     activity,
                     err.message ?: activity.getString(R.string.update_download_failed),
+                    apiBaseUrl,
                 )
             }
         }
@@ -159,12 +203,15 @@ object TelecrmUpdateCoordinator {
         progressDialog = null
     }
 
-    private fun showError(activity: Activity, message: String) {
+    private fun showError(activity: Activity, message: String, apiBaseUrl: String) {
         if (activity.isFinishing || activity.isDestroyed) return
         AlertDialog.Builder(activity)
             .setTitle(R.string.update_error_title)
             .setMessage(message)
             .setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton(R.string.update_install_help) { _, _ ->
+                showInstallBlockedHelp(activity, apiBaseUrl)
+            }
             .show()
     }
 

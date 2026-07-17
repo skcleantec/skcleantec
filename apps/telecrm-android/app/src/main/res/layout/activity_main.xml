@@ -76,6 +76,17 @@
             android:textSize="11sp" />
 
         <ImageButton
+            android:id="@+id/checkUpdateButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/update_check_button"
+            android:padding="8dp"
+            android:src="@drawable/ic_sync_update"
+            app:tint="@color/white" />
+
+        <ImageButton
             android:id="@+id/logoutButton"
             android:layout_width="40dp"
             android:layout_height="40dp"
