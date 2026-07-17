@@ -32,6 +32,7 @@ import {
   soomgoBridgeSoftUpdateMessage,
   startSoomgoBridge,
   watchSoomgoCallButton,
+  syncSoomgoWatchChatIds,
   watchSoomgoChatList,
 } from '../api/soomgoBridge';
 import {
@@ -53,6 +54,8 @@ export function useCrmSoomgoBridge({
   operatingCompanyId = null,
   refreshManifest,
   soomgoBarOpen = false,
+  soomgoAlertDrawerOpen = false,
+  inboxWatchChatIds = [],
 }: {
   onImport: (data: SoomgoExtractedChat) => void;
   onImportPhone?: (phone: string) => void;
@@ -66,6 +69,10 @@ export function useCrmSoomgoBridge({
   refreshManifest?: () => Promise<SoomgoBridgeManifest | null>;
   /** 업데이트 완료 후 숨고 바가 열려 있으면 자동 재연결 */
   soomgoBarOpen?: boolean;
+  /** 알림함 드로어 열림 — 폴링 가속 */
+  soomgoAlertDrawerOpen?: boolean;
+  /** 대기(집중 감시) chatId — 브릿지 동기화 */
+  inboxWatchChatIds?: string[];
 }) {
   const [status, setStatus] = useState<SoomgoBridgeStatus | null>(null);
   const [preview, setPreview] = useState<SoomgoExtractedChat | null>(null);
@@ -85,6 +92,11 @@ export function useCrmSoomgoBridge({
   const pendingSoomgoReconnectRef = useRef(false);
   const soomgoBarOpenRef = useRef(soomgoBarOpen);
   soomgoBarOpenRef.current = soomgoBarOpen;
+  const soomgoAlertDrawerOpenRef = useRef(soomgoAlertDrawerOpen);
+  soomgoAlertDrawerOpenRef.current = soomgoAlertDrawerOpen;
+  const inboxWatchChatIdsRef = useRef(inboxWatchChatIds);
+  inboxWatchChatIdsRef.current = inboxWatchChatIds;
+  const lastSyncedWatchKeyRef = useRef('');
   const openSoomgoRef = useRef<(() => Promise<boolean>) | null>(null);
 
   const notify = useCallback((msg: string) => onDispatchNotice?.(msg), [onDispatchNotice]);
@@ -241,8 +253,11 @@ export function useCrmSoomgoBridge({
     if (s.chatAlerts?.length && isSoomgoBridgeChatAlertsSupported(s) && !blocked) {
       void handleChatAlerts(s.chatAlerts);
     }
+    if (!options?.lite && s.chatInbox?.length && isSoomgoBridgeChatAlertsSupported(s) && !blocked) {
+      onChatAlerts?.(s.chatInbox);
+    }
     return s;
-  }, [bridgeManifest, handleChatAlerts, handlePendingCall, notify, triggerBridgeUpdate]);
+  }, [bridgeManifest, handleChatAlerts, handlePendingCall, notify, onChatAlerts, triggerBridgeUpdate]);
 
   const ensureChatWatch = useCallback(
     async (s: SoomgoBridgeStatus) => {
@@ -313,7 +328,11 @@ export function useCrmSoomgoBridge({
       if (s.loggedIn && s.bridgeRunning && !isSoomgoBridgeUseBlocked(s, bridgeManifest)) {
         void ensureChatWatch(s);
       }
-      const interval = busy === 'open' ? 5000 : s.bridgeRunning ? 5000 : 12000;
+      const fastPoll =
+        soomgoAlertDrawerOpenRef.current ||
+        inboxWatchChatIdsRef.current.length > 0 ||
+        busy === 'open';
+      const interval = fastPoll ? 2200 : busy === 'open' ? 5000 : s.bridgeRunning ? 5000 : 12000;
       timer = window.setTimeout(poll, interval);
     };
     void poll();
@@ -321,7 +340,18 @@ export function useCrmSoomgoBridge({
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [bridgeManifest, pollEnabled, refreshStatus, ensureCallWatch]);
+  }, [bridgeManifest, pollEnabled, refreshStatus, ensureCallWatch, ensureChatWatch]);
+
+  useEffect(() => {
+    if (!pollEnabled) return;
+    const ids = [...inboxWatchChatIds].sort().join(',');
+    if (ids === lastSyncedWatchKeyRef.current) return;
+    lastSyncedWatchKeyRef.current = ids;
+    if (!status?.bridgeRunning) return;
+    void syncSoomgoWatchChatIds(inboxWatchChatIds).catch(() => {
+      /* 브릿지 미실행·구버전 */
+    });
+  }, [inboxWatchChatIds, pollEnabled, status?.bridgeRunning]);
 
   const openSoomgo = useCallback(async () => {
     setBusyAction('open');

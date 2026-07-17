@@ -65,10 +65,12 @@ import { fitCrmPopupWindow, applyTelecrmSoomgoSplitLayout } from '../../../utils
 import { parseJwtPayload } from '../../../utils/jwtPayload';
 import {
   loadSoomgoChatInbox,
-  markSoomgoInboxRead,
-  mergeSoomgoChatAlerts,
+  markSoomgoInboxReadByChatId,
+  markSoomgoInboxWatching,
   saveSoomgoChatInbox,
   unreadSoomgoInboxCount,
+  upsertSoomgoChatAlerts,
+  watchingSoomgoChatIds,
   type CrmSoomgoInboxItem,
 } from '../../../utils/crmSoomgoChatInbox';
 import { arrangeSoomgoBridgeLayout } from '../../../api/soomgoBridge';
@@ -401,22 +403,28 @@ export function CrmPage() {
     (alerts: SoomgoChatAlert[]) => {
       if (alerts.length === 0) return;
       setSoomgoInboxItems((prev) => {
-        const { items, added } = mergeSoomgoChatAlerts(prev, alerts);
+        const { items, added, bumped } = upsertSoomgoChatAlerts(prev, alerts);
         if (authUserId) saveSoomgoChatInbox(authUserId, workBrandSlug, items);
-        if (added.length > 0) {
-          const head = added[0];
+        const notifyRows = [...added, ...bumped.filter((row) => row.readAt == null)];
+        if (notifyRows.length > 0) {
+          const head = notifyRows[0];
           const name = head.customerName ?? '고객';
           const preview = head.previewText.length > 36 ? `${head.previewText.slice(0, 36)}…` : head.previewText;
           showDispatchNotice(
-            added.length === 1
+            notifyRows.length === 1
               ? `숨고 알림 · ${name}: ${preview}`
-              : `숨고 알림 ${added.length}건 · ${name} 외`,
+              : `숨고 알림 ${notifyRows.length}건 · ${name} 외`,
           );
         }
         return items;
       });
     },
     [authUserId, showDispatchNotice, workBrandSlug],
+  );
+
+  const soomgoInboxWatchChatIds = useMemo(
+    () => watchingSoomgoChatIds(soomgoInboxItems),
+    [soomgoInboxItems],
   );
 
   const soomgoInboxUnreadCount = useMemo(
@@ -525,6 +533,8 @@ export function CrmPage() {
     operatingCompanyId: activeOperatingCompanyId,
     refreshManifest,
     soomgoBarOpen,
+    soomgoAlertDrawerOpen,
+    inboxWatchChatIds: soomgoInboxWatchChatIds,
   });
 
   const {
@@ -545,9 +555,20 @@ export function CrmPage() {
   } = soomgoBridge;
 
   const handleMarkSoomgoInboxRead = useCallback(
-    (ids: string[]) => {
+    (chatIds: string[]) => {
       setSoomgoInboxItems((prev) => {
-        const next = markSoomgoInboxRead(prev, ids);
+        const next = markSoomgoInboxReadByChatId(prev, chatIds);
+        if (authUserId) saveSoomgoChatInbox(authUserId, workBrandSlug, next);
+        return next;
+      });
+    },
+    [authUserId, workBrandSlug],
+  );
+
+  const handleMarkSoomgoInboxWatching = useCallback(
+    (chatIds: string[]) => {
+      setSoomgoInboxItems((prev) => {
+        const next = markSoomgoInboxWatching(prev, chatIds);
         if (authUserId) saveSoomgoChatInbox(authUserId, workBrandSlug, next);
         return next;
       });
@@ -557,9 +578,9 @@ export function CrmPage() {
 
   const handleMarkAllSoomgoInboxRead = useCallback(() => {
     setSoomgoInboxItems((prev) => {
-      const next = markSoomgoInboxRead(
+      const next = markSoomgoInboxReadByChatId(
         prev,
-        prev.filter((row) => row.readAt == null).map((row) => row.id),
+        prev.filter((row) => row.readAt == null).map((row) => row.chatId),
       );
       if (authUserId) saveSoomgoChatInbox(authUserId, workBrandSlug, next);
       return next;
@@ -568,9 +589,10 @@ export function CrmPage() {
 
   const handleOpenSoomgoChatFromInbox = useCallback(
     (chatId: string) => {
+      handleMarkSoomgoInboxRead([chatId]);
       void openChatRoom(chatId);
     },
-    [openChatRoom],
+    [handleMarkSoomgoInboxRead, openChatRoom],
   );
 
   const handleToggleSoomgoBar = useCallback(() => {
@@ -1257,6 +1279,7 @@ export function CrmPage() {
               bridgeStatus={soomgoStatus}
               onOpenSoomgoChat={handleOpenSoomgoChatFromInbox}
               onMarkRead={handleMarkSoomgoInboxRead}
+              onMarkWatching={handleMarkSoomgoInboxWatching}
               onMarkAllRead={handleMarkAllSoomgoInboxRead}
             />
             <CrmSoomgoDrawer

@@ -113,7 +113,7 @@ def _chat_watch_loop():
                 _chat_watcher.poll_events(driver)
         except Exception as e:
             logger.debug('chat watch: %s', e)
-        _chat_watch_stop.wait(12.0)
+        _chat_watch_stop.wait(_chat_watcher.poll_interval_sec())
 
 
 def _ensure_chat_watch():
@@ -324,6 +324,7 @@ def _status_payload(*, lite: bool = False) -> dict[str, Any]:
         'callModalOpen': call_modal_open,
         'callWatchActive': _call_watch_active,
         'chatWatchActive': _chat_watch_active,
+        'watchedChatIds': _chat_watcher.watch_chat_ids(),
         'chatAlerts': _chat_watcher.pending_alerts(),
         'chatAlertCount': len(_chat_watcher.pending_alerts()),
         'chatInbox': _chat_watcher.all_alerts() if not light else [],
@@ -524,6 +525,21 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 _chat_watcher.poll_events(driver)
                 _ensure_chat_watch()
                 _json_response(self, 200, _status_payload())
+                return
+
+            if path == '/watch-chat-ids':
+                if not _sync_logged_in_from_browser():
+                    _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
+                    return
+                raw_ids = body.get('chatIds')
+                ids: list[str] = []
+                if isinstance(raw_ids, list):
+                    ids = [str(i).strip() for i in raw_ids if str(i).strip().isdigit()]
+                _chat_watcher.ensure_installed(driver)
+                _chat_watcher.set_watch_chat_ids(driver, ids)
+                _chat_watcher.poll_events(driver)
+                _ensure_chat_watch()
+                _json_response(self, 200, {'ok': True, 'watchedChatIds': ids, **_status_payload(lite=True)})
                 return
 
             if path == '/ack-chat-alerts':
