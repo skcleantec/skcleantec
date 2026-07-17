@@ -633,7 +633,7 @@ export function CrmPage() {
   }, [refreshManifest, refreshSoomgoStatus]);
 
   const handleDismissSoomgoInbox = useCallback(
-    (chatIds: string[]) => {
+    (chatIds: string[], options?: { refresh?: boolean }) => {
       setSoomgoInboxItems((prev) => {
         const { items: next, dismissals: nextDismissals } = dismissSoomgoInboxItems(
           prev,
@@ -647,7 +647,9 @@ export function CrmPage() {
         }
         return next;
       });
-      void handleRefreshSoomgoInbox();
+      if (options?.refresh !== false) {
+        void handleRefreshSoomgoInbox();
+      }
     },
     [authUserId, handleRefreshSoomgoInbox, soomgoInboxDismissals, workBrandSlug],
   );
@@ -670,10 +672,13 @@ export function CrmPage() {
 
   const handleOpenSoomgoChatFromInbox = useCallback(
     (chatId: string) => {
-      handleDismissSoomgoInbox([chatId]);
+      handleDismissSoomgoInbox([chatId], { refresh: false });
       void (async () => {
-        await openChatRoomAndExtract(chatId);
-        await handleRefreshSoomgoInbox();
+        try {
+          await openChatRoomAndExtract(chatId);
+        } finally {
+          await handleRefreshSoomgoInbox();
+        }
       })();
     },
     [handleDismissSoomgoInbox, handleRefreshSoomgoInbox, openChatRoomAndExtract],

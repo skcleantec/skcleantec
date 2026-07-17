@@ -621,10 +621,22 @@ export function useCrmSoomgoBridge({
       setBusyAction('open');
       setError(null);
       try {
-        const current = await refreshStatus({ lite: true });
+        let current = await refreshStatus({ lite: true });
         if (isSoomgoBridgeUseBlocked(current, bridgeManifest)) {
           throw new Error(soomgoBridgeOutdatedMessage(current, bridgeManifest));
         }
+        if (!isSoomgoBridgeReachable(current)) {
+          throw new Error(SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE);
+        }
+        if (!current.loggedIn) {
+          setBusyAction(null);
+          const opened = await openSoomgo();
+          if (!opened) {
+            throw new Error('숨고 로그인 후 다시 시도해 주세요.');
+          }
+          current = (await refreshStatus({ lite: true })) ?? current;
+        }
+        setBusyAction('open');
         notify('숨고 채팅방을 여는 중입니다…');
         await openSoomgoChatRoom(chatId);
         let ready = false;
@@ -662,7 +674,7 @@ export function useCrmSoomgoBridge({
         setBusyAction(null);
       }
     },
-    [bridgeManifest, notify, onImport, onImportNotice, refreshStatus],
+    [bridgeManifest, notify, onImport, onImportNotice, openSoomgo, refreshStatus],
   );
 
   const restartBridge = useCallback(async () => {

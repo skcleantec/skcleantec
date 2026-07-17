@@ -1,5 +1,5 @@
 import type { SoomgoBridgeManifest, SoomgoBridgeStatus, SoomgoExtractedChat } from '@shared/soomgoBridge';
-import { isSoomgoBridgeOutdated, isSoomgoAppUpdateAvailable, SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE } from '../../../api/soomgoBridge';
+import { isSoomgoBridgeOutdated, isSoomgoAppUpdateAvailable, isSoomgoBridgeUseBlocked, SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE } from '../../../api/soomgoBridge';
 import { CrmIconSoomgo } from '../crmUi';
 
 export function CrmSoomgoTopBar({
@@ -53,6 +53,7 @@ export function CrmSoomgoTopBar({
           : null;
 
   const outdated = isSoomgoBridgeOutdated(status, bridgeManifest);
+  const useBlocked = isSoomgoBridgeUseBlocked(status, bridgeManifest);
   const softUpdate = !outdated && isSoomgoAppUpdateAvailable(status, bridgeManifest);
   const downloadUrl = bridgeManifest?.downloadUrl?.trim() || '';
   const latestLabel = bridgeManifest?.latestVersion?.trim() || status?.latestVersion?.trim();
@@ -239,7 +240,7 @@ export function CrmSoomgoTopBar({
           ) : null}
           <button
             type="button"
-            disabled={busy || !bridgeUp || outdated || softUpdate}
+            disabled={busy || !bridgeUp || outdated || useBlocked}
             onClick={() => void onOpenSoomgo()}
             className="rounded-lg bg-sky-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
           >
