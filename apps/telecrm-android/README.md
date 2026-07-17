@@ -103,15 +103,29 @@ Railway Variables (`scripts/set-railway-vars.ps1`):
 - 업데이트 다이얼로그 **「설치 페이지 열기」** · **「설치가 차단될 때」** (Play 프로tect·삼성 자동 차단 안내)
 - 다운로드 → SHA256 검증 → 시스템 설치 화면
 
-### 삼성·Play 프로tect 「악성 앱」 차단 시
+### 삼성·Play 프로tect 「악성 앱 · 제한 해제 불가능」
 
-사내 sideload APK는 스토어 미등록이라 **삼성 자동 차단·Play 프로tect**에 막힐 수 있습니다.
+Play Store 미등록 sideload APK는 **통화·SMS 권한** 때문에 피싱/악성 앱으로 **오탐**될 수 있습니다.
 
-1. Play 스토어 → 프로필 → **Play 프로tect** → 톱니 → **Play 프로tect로 앱 검사** 끄기 (설치 직후 다시 켜도 됨)
-2. **설정 → 보안 및 개인정보 → 자동 차단** → 앱 설치 검사 끄기
-3. 브라우저에서 `https://www.cbiseo.com/telecrm-app` → APK 다운로드 → **내 파일** 앱으로 APK 열기 → 설치
+| 화면 | 의미 | 대응 |
+|------|------|------|
+| 설정에서 검사 끄기 가능 | Play 프로tect / 자동 차단 | 검사 끄기 → **내 파일**로 APK 설치 |
+| **「제한 해제는 불가능합니다」** | 삼성 **강제 차단** — 휴대폰만으로는 설치 불가 | **PC + USB + adb install** (아래) |
 
-앱 내 업데이트가 막히면 위 **설치 페이지**로 수동 설치하세요.
+#### PC + USB 설치 (강제 차단 시)
+
+1. PC에서 `https://www.cbiseo.com/telecrm-app` → APK 다운로드
+2. 휴대폰 **개발자 옵션 → USB 디버깅** ON
+3. USB 연결 후 PC에서:
+
+```powershell
+cd apps\telecrm-android\scripts
+.\install-via-adb.ps1 -ApkPath "..\dist\telecrm-release-0.6.8-internal.apk"
+```
+
+(`adb` = Android SDK platform-tools)
+
+앱 내 업데이트·브라우저 설치가 막히면 이 방법을 사용하세요.
 
 ### 4) CI 릴리스 (선택)
 

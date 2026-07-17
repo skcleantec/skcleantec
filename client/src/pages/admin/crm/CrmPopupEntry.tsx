@@ -5,7 +5,11 @@ import {
   TenantCapabilitiesProvider,
 } from '../../../hooks/useTenantCapabilities';
 import { useStandaloneTenantCapabilities } from '../../../hooks/useStandaloneTenantCapabilities';
-import { fitCrmPopupWindow } from '../../../utils/crmSoomgoSplitLayout';
+import {
+  applyTelecrmSoomgoSplitLayout,
+  fitCrmPopupWindow,
+} from '../../../utils/crmSoomgoSplitLayout';
+import { arrangeSoomgoBridgeLayout } from '../../../api/soomgoBridge';
 import { CrmPage } from './CrmPage';
 
 /**
@@ -27,13 +31,21 @@ export function CrmPopupEntry() {
 
   useEffect(() => {
     if (new URLSearchParams(location.search).get('popup') !== '1') return;
-    if (new URLSearchParams(location.search).get('soomgoBar') === '1') return;
+    const soomgoBar = new URLSearchParams(location.search).get('soomgoBar') === '1';
     const run = () => {
-      fitCrmPopupWindow();
+      if (soomgoBar) {
+        void applyTelecrmSoomgoSplitLayout(arrangeSoomgoBridgeLayout);
+      } else {
+        fitCrmPopupWindow();
+      }
     };
     run();
-    const t = window.setTimeout(run, 120);
-    return () => window.clearTimeout(t);
+    const t = window.setTimeout(run, 150);
+    const t2 = window.setTimeout(run, 450);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(t2);
+    };
   }, [location.search]);
 
   if (!token) {

@@ -172,6 +172,7 @@ export function CrmPricingPanel({
   canSendSoomgoQuote = false,
   onSendSoomgoQuote,
   soomgoQuoteSending = false,
+  pricingResetKey = 0,
 }: {
   pyeong: string;
   onPyeongChange: (v: string) => void;
@@ -198,6 +199,7 @@ export function CrmPricingPanel({
   canSendSoomgoQuote?: boolean;
   onSendSoomgoQuote?: () => void;
   soomgoQuoteSending?: boolean;
+  pricingResetKey?: number;
 }) {
   const token = getToken();
   const [categories, setCategories] = useState<TelecrmPriceCategoryDto[]>([]);
@@ -209,6 +211,13 @@ export function CrmPricingPanel({
   const [copiedAll, setCopiedAll] = useState(false);
   const [expandedOrderGroups, setExpandedOrderGroups] = useState<Set<string>>(() => new Set());
   const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (pricingResetKey <= 0) return;
+    setAmountDrafts({});
+    setSearch('');
+    setExpandedOrderGroups(new Set());
+  }, [pricingResetKey]);
 
   const setQuoteLines = onQuoteLinesChange;
 
@@ -502,7 +511,7 @@ export function CrmPricingPanel({
       disableBodyScroll
       bodyClassName="p-0"
     >
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {pendingQuote && onLoadPendingQuote && onDismissPendingQuote && onStartFreshQuote ? (
           <CrmQuoteRestoreBanner
             quote={pendingQuote}
@@ -696,14 +705,14 @@ export function CrmPricingPanel({
             </div>
           )}
 
-          <div className="flex flex-col gap-1.5 px-2 py-1.5 sm:flex-row sm:items-center">
-            <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-col gap-1.5 px-2 py-1.5">
+            <div className="min-w-0">
               <p className="text-[9px] font-semibold text-amber-900/70">합계</p>
               <p className="text-sm font-bold tabular-nums text-amber-900">
                 {grandTotal != null ? formatWon(grandTotal) : '—'}
               </p>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-1">
               {canSendSoomgoQuote && onSendSoomgoQuote ? (
                 <button
                   type="button"

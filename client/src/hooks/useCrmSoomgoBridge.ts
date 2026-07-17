@@ -25,7 +25,11 @@ import {
   startSoomgoBridge,
   watchSoomgoCallButton,
 } from '../api/soomgoBridge';
-import { arrangeCrmPopupLeftHalf, readSoomgoSplitScreenBounds } from '../utils/crmSoomgoSplitLayout';
+import {
+  arrangeCrmPopupLeftHalf,
+  applyTelecrmSoomgoSplitLayout,
+  readSoomgoSplitBoundsAfterCrmResize,
+} from '../utils/crmSoomgoSplitLayout';
 import { telecrmDispatchNotice, telecrmPrefillPhone } from '../utils/telecrmNativeBridge';
 
 export function useCrmSoomgoBridge({
@@ -76,13 +80,7 @@ export function useCrmSoomgoBridge({
   }, [notify, operatingCompanyId]);
 
   const applySplitLayout = useCallback(async () => {
-    if (isPopup) arrangeCrmPopupLeftHalf();
-    const screen = readSoomgoSplitScreenBounds();
-    try {
-      await arrangeSoomgoBridgeLayout(screen);
-    } catch {
-      /* Chrome 미기동 시 무시 */
-    }
+    await applyTelecrmSoomgoSplitLayout(arrangeSoomgoBridgeLayout, { resizeCrm: isPopup });
   }, [isPopup]);
 
   const applyCallPhone = useCallback(
@@ -227,8 +225,9 @@ export function useCrmSoomgoBridge({
         void requestSoomgoBridgeUpdate('install');
         throw new Error(outdatedMsg);
       }
-      const screen = readSoomgoSplitScreenBounds();
       if (isPopup) arrangeCrmPopupLeftHalf();
+      await new Promise((resolve) => window.setTimeout(resolve, 80));
+      const screen = readSoomgoSplitBoundsAfterCrmResize();
       const token = getToken();
       if (!token) throw new Error('로그인이 필요합니다.');
       const [, creds] = await Promise.all([

@@ -23,6 +23,11 @@ const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
   { value: 'received', label: INQUIRY_STATUS_LABELS.RECEIVED, hint: '예약완료 접수' },
 ];
 
+export type CrmIntakeSavedMeta = {
+  /** true — 「저장」: 접수란·견적 초기화 (「저장 후 계속」은 false) */
+  freshStart?: boolean;
+};
+
 export function CrmIntakeForm({
   seed,
   initialFormDraft,
@@ -50,7 +55,7 @@ export function CrmIntakeForm({
   pyeong: string;
   onPyeongChange: (v: string) => void;
   onFormChange?: (snapshot: CrmIntakeFormSnapshot) => void;
-  onSaved: (result: CrmIntakeSubmitResult) => void;
+  onSaved: (result: CrmIntakeSubmitResult, meta?: CrmIntakeSavedMeta) => void;
   lastInquiryId: string | null;
   operatingCompanyId?: string | null;
   onOpenOrderIssue?: (inquiryId: string | null) => void;
@@ -198,12 +203,8 @@ export function CrmIntakeForm({
         pyeong,
         { operatingCompanyId, quotePayload },
       );
-      onSaved(result);
+      onSaved(result, { freshStart: !keepForm });
       setMsg('저장했습니다.');
-      if (!keepForm) {
-        setPreferredMoveInCleanYmd('');
-        if (kind === 'received') setAddress('');
-      }
       window.setTimeout(() => setMsg(null), 2500);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '저장 실패');
