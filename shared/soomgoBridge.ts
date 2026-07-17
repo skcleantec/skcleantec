@@ -50,16 +50,28 @@ export function isSoomgoAppOutdated(
   return compareSoomgoSemver(current, latest) < 0;
 }
 
-/** API 호환 깨짐 — 연동 차단(하드 업데이트) */
+/** API 호환 깨짐 — 연동 차단(하드 업데이트). bridgeVersion 미보고 시 차단하지 않음 */
 export function isSoomgoBridgeApiOutdated(
   status: SoomgoBridgeStatus | null | undefined,
   manifest?: SoomgoBridgeManifest | null,
 ): boolean {
   const v = status?.bridgeVersion;
-  if (v == null || v < SOOMGO_BRIDGE_MIN_VERSION) return true;
+  if (v == null || !Number.isFinite(v)) return false;
+  if (v < SOOMGO_BRIDGE_MIN_VERSION) return true;
   const required = manifest?.requiredVersion;
   if (required != null && Number.isFinite(required) && v < required) return true;
   return false;
+}
+
+/** 앱 semver가 manifest latest 이상 */
+export function isSoomgoBridgeAppAtLatest(
+  status: SoomgoBridgeStatus | null | undefined,
+  manifest?: SoomgoBridgeManifest | null,
+): boolean {
+  const current = status?.appVersion?.trim();
+  const latest = manifest?.latestVersion?.trim() || status?.latestVersion?.trim();
+  if (!current || !latest) return false;
+  return compareSoomgoSemver(current, latest) >= 0;
 }
 
 /** 앱 semver만 뒤처짐 — 연동 유지·안내(소프트 업데이트) */
@@ -80,21 +92,24 @@ export function isSoomgoBridgeCrmManifestPassthroughSupported(
   return compareSoomgoSemver(current, SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION) >= 0;
 }
 
-/** 설치 중 Chrome·브릿지 재시작 — 숨고 창 열기·감시 일시 중단 */
+/** 설치 중 Chrome·브릿지 재시작 — 숨고 창 열기·감시 일시 중단 (최신 버전이면 stale installing 무시) */
 export function isSoomgoBridgeUpdateInstalling(
   status: SoomgoBridgeStatus | null | undefined,
+  manifest?: SoomgoBridgeManifest | null,
 ): boolean {
-  return status?.updatePhase === 'installing';
+  if (status?.updatePhase !== 'installing') return false;
+  if (isSoomgoBridgeAppAtLatest(status, manifest)) return false;
+  return true;
 }
 
-/** 숨고 Chrome·채팅 연동 차단 — API 호환 깨짐 또는 설치 진행 중 */
+/** 숨고 Chrome·채팅 연동 차단 — API 호환 깨짐 또는 실제 설치 진행 중 */
 export function isSoomgoBridgeUseBlocked(
   status: SoomgoBridgeStatus | null | undefined,
   manifest?: SoomgoBridgeManifest | null,
 ): boolean {
   if (!status?.bridgeRunning) return false;
   if (isSoomgoBridgeApiOutdated(status, manifest)) return true;
-  return isSoomgoBridgeUpdateInstalling(status);
+  return isSoomgoBridgeUpdateInstalling(status, manifest);
 }
 
 export type SoomgoBridgeManifest = {

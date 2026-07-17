@@ -562,6 +562,10 @@ class TrayApp:
             self._log(f'브릿지 Python 확인: {detail}')
         self._start_bridge()
         self._manifest = fetch_manifest()
+        if self._manifest:
+            from desktop.update_manager import clear_stale_update_phase_if_current
+
+            clear_stale_update_phase_if_current(self._manifest)
         if self._manifest and is_update_required(self._manifest):
             threading.Thread(target=lambda: self._check_update_prompt(force=True), daemon=True).start()
         poll = threading.Thread(target=self._poll_loop, daemon=True)

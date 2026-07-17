@@ -97,6 +97,7 @@ def cached_artifact_is_valid(manifest: dict[str, Any], state: dict[str, Any] | N
 
 def clear_stale_update_cache(manifest: dict[str, Any]) -> None:
     """manifest와 다른 버전 캐시·상태를 비웁니다."""
+    clear_stale_update_phase_if_current(manifest)
     state = read_update_state()
     if cached_artifact_is_valid(manifest, state):
         return
@@ -107,6 +108,28 @@ def clear_stale_update_cache(manifest: dict[str, Any]) -> None:
         except OSError:
             pass
     write_update_state(phase='idle', message=None, latest_version=None, artifact=None)
+
+
+def clear_stale_update_phase_if_current(manifest: dict[str, Any] | None) -> None:
+    """업데이트 완료 후 남은 installing/ready/downloading 플래그 정리."""
+    if not manifest:
+        return
+    state = read_update_state()
+    phase = str(state.get('phase', 'idle')).strip()
+    if phase not in ('installing', 'ready', 'downloading'):
+        return
+    try:
+        from desktop.manifest_client import is_update_available, is_update_required, parse_version_tuple
+    except ImportError:
+        return
+    latest = str(manifest.get('latestVersion', '')).strip()
+    if not latest:
+        return
+    if parse_version_tuple(latest) > parse_version_tuple(APP_VERSION):
+        return
+    if is_update_available(manifest, APP_VERSION) or is_update_required(manifest):
+        return
+    write_update_state(phase='idle', message=None, latest_version=latest or None, artifact=None)
 
 
 def download_update_artifact(manifest: dict[str, Any], *, force: bool = False) -> tuple[bool, str]:
@@ -186,6 +209,12 @@ def perform_tray_handoff_update(
     ok, msg, dest = ensure_update_artifact_ready(manifest)
     if not ok or not dest:
         return False, msg, None
+
+    from desktop.manifest_client import is_update_available, is_update_required
+
+    if not is_update_available(manifest, APP_VERSION) and not is_update_required(manifest):
+        clear_stale_update_phase_if_current(manifest)
+        return False, '이미 최신 버전입니다.', None
 
     latest = str(manifest.get('latestVersion', '')).strip()
     lower = dest.name.lower()
