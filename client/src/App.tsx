@@ -108,6 +108,7 @@ import {
   PlatformUnpaidPopupSettingsPage,
   PlatformSettingsPage,
   HelpPage,
+  TelecrmAppInstallPage,
   CrmPopupEntry,
   CrmSoomgoCompanionEntry,
   TelecrmSettingsLayout,
@@ -340,6 +341,7 @@ function App() {
         <Route path="/order/:token" element={<SuspensePage><OrderFormPage /></SuspensePage>} />
         <Route path="/info" element={<SuspensePage><OrderInfoPage /></SuspensePage>} />
         <Route path="/help" element={<SuspensePage><HelpPage /></SuspensePage>} />
+        <Route path="/telecrm-app" element={<SuspensePage><TelecrmAppInstallPage /></SuspensePage>} />
         <Route path="/cs" element={<SuspensePage><CsReportPage /></SuspensePage>} />
         <Route path="/contact" element={<SuspensePage><ContactInquiryPage /></SuspensePage>} />
         <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />

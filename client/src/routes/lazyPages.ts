@@ -310,6 +310,9 @@ export const PlatformSettingsPage = lazyWithRetry(() =>
 export const HelpPage = lazyWithRetry(() =>
   import('../pages/HelpPage').then((m) => ({ default: m.HelpPage }))
 );
+export const TelecrmAppInstallPage = lazyWithRetry(() =>
+  import('../pages/public/TelecrmAppInstallPage').then((m) => ({ default: m.TelecrmAppInstallPage }))
+);
 export const CrmPage = lazyWithRetry(() =>
   import('../pages/admin/crm/CrmPage').then((m) => ({ default: m.CrmPage }))
 );

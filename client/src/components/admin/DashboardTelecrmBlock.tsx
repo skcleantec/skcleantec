@@ -3,6 +3,7 @@ import { getToken } from '../../stores/auth';
 import { openTelecrmWindow } from '../../utils/openTelecrmWindow';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { DashboardTopCard } from './dashboard/DashboardTopCard';
+import { TELECRM_APP_INSTALL_PATH } from '../../api/telecrmAppManifest';
 
 function TelecrmPhoneIcon({ className }: { className?: string }) {
   return (
@@ -49,6 +50,14 @@ export function DashboardTelecrmBlock() {
         >
           텔레CRM 열기
         </button>
+        <a
+          href={TELECRM_APP_INSTALL_PATH}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-xl border border-violet-300 bg-white/80 px-4 py-2 text-fluid-xs font-semibold text-violet-800 hover:bg-violet-50"
+        >
+          청소비서 전화 설치
+        </a>
         {canCrmSettings ? (
           <Link
             to="/admin/crm/settings"

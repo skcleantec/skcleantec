@@ -48,7 +48,28 @@ Android Studio → `apps/telecrm-android` → Run ▶
 
 ## Release APK · 자동 업데이트
 
-Play Store 없이 **GitHub Releases APK + Railway 매니페스트**로 배포합니다.
+Play Store 없이 **설치 페이지 + GitHub Releases APK + Railway 매니페스트**로 배포합니다.
+
+### 상담사 배포 (항상 이 방식)
+
+**고정 설치 페이지** — 주소는 바뀌지 않으며, 매니페스트가 가리키는 **최신 APK**만 갱신됩니다.
+
+| 환경 | 설치 페이지 |
+|------|-------------|
+| 운영 | `https://www.cbiseo.com/telecrm-app` |
+| 스테이징 | `https://clean-solution-staging.up.railway.app/telecrm-app` (또는 스테이징 호스트 + `/telecrm-app`) |
+
+- 상담사에게는 **위 URL만** 공유 (GitHub Releases 직링크 대신)
+- PC **관리 대시보드 → 텔레CRM** 카드에 **「청소비서 전화 설치」** 버튼 동일 링크
+- 페이지에서 **「청소비서 전화 설치」** 큰 버튼 1개 → APK 다운로드
+
+### 릴리스 절차 (개발자 — 매 버전 동일)
+
+1. `app/build.gradle.kts`에서 `versionCode` **+1**, `versionName` 갱신
+2. signed release APK 빌드 → GitHub Release (`telecrm-v{versionName}`) 업로드
+3. Railway Variables 갱신 (`scripts/set-railway-vars.ps1` — `DOWNLOAD_URL`, `SHA256` 등)
+4. **설치 페이지 URL은 수정하지 않음** — `/telecrm-app`이 매니페스트를 읽어 최신 APK로 연결
+5. 이미 v15+ 앱이 깔린 폰은 **앱 실행 시** 자동 업데이트 안내 (로그인·메인·버전 길게 누르기)
 
 ### 1) 로컬 release 빌드 (최초·수동 설치)
 
