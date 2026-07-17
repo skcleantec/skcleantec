@@ -99,7 +99,10 @@ export async function fetchTelecrmSoomgoCredentials(
 }
 
 export async function fetchTelecrmSoomgoBridgeManifest(token: string): Promise<SoomgoBridgeManifest> {
-  const res = await fetch(`${API}/bridge-manifest`, { headers: authHeaders(token) });
+  const res = await fetch(`${API}/bridge-manifest?_=${Date.now()}`, {
+    headers: authHeaders(token),
+    cache: 'no-store',
+  });
   const data = (await res.json()) as SoomgoBridgeManifest & { error?: string };
   if (!res.ok) throw new Error(data.error ?? '브릿지 배포 정보를 불러오지 못했습니다.');
   return data;

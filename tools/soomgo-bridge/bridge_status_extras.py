@@ -11,7 +11,13 @@ logger = logging.getLogger(__name__)
 
 _manifest_cache: dict[str, Any] | None = None
 _manifest_fetched_at = 0.0
-_MANIFEST_TTL_SEC = 300.0
+_MANIFEST_TTL_SEC = 60.0
+
+
+def invalidate_manifest_cache() -> None:
+    global _manifest_cache, _manifest_fetched_at
+    _manifest_cache = None
+    _manifest_fetched_at = 0.0
 
 
 def _app_version() -> str:

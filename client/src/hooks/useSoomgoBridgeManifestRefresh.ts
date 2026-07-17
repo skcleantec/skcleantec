@@ -4,13 +4,14 @@ import { fetchTelecrmSoomgoBridgeManifest } from '../api/telecrmSoomgo';
 import { getToken } from '../stores/auth';
 import { useVisibilityInterval } from './useVisibilityInterval';
 
-const MANIFEST_POLL_MS = 5 * 60 * 1000;
+/** 서버 manifest — 업데이트 직후에도 최신 URL을 받도록 짧은 주기 + 포커스 재조회 */
+const MANIFEST_POLL_MS = 60 * 1000;
 
 /** 텔레CRM — 서버 브릿지 manifest 주기·포커스 재조회 */
 export function useSoomgoBridgeManifestRefresh(
   enabled: boolean,
   onManifest: (manifest: SoomgoBridgeManifest) => void,
-) {
+): { refreshManifest: () => Promise<void> } {
   const refresh = useCallback(async () => {
     const token = getToken();
     if (!token) return;
@@ -28,4 +29,15 @@ export function useSoomgoBridgeManifestRefresh(
   }, [enabled, refresh]);
 
   useVisibilityInterval(refresh, enabled ? MANIFEST_POLL_MS : 0);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const onFocus = () => {
+      void refresh();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [enabled, refresh]);
+
+  return { refreshManifest: refresh };
 }

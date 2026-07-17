@@ -271,6 +271,15 @@ export async function requestSoomgoBridgeUpdate(mode: 'prompt' | 'background' | 
   }
 }
 
+/** 업데이트 클릭 직전 manifest 재조회 후 브릿지에 설치 요청 */
+export async function requestSoomgoBridgeUpdateFresh(
+  refreshManifest: () => Promise<void>,
+  mode: 'prompt' | 'background' | 'install' = 'install',
+): Promise<void> {
+  await refreshManifest();
+  await requestSoomgoBridgeUpdate(mode);
+}
+
 export async function requestSoomgoBridgeRestart(mode: 'bridge' | 'desktop' = 'bridge'): Promise<void> {
   await bridgeFetch<{ ok: boolean }>('/restart-bridge', {
     method: 'POST',

@@ -20,6 +20,7 @@ import {
   openSoomgoChats,
   requestSoomgoBridgeRestart,
   requestSoomgoBridgeUpdate,
+  requestSoomgoBridgeUpdateFresh,
   SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE,
   SOOMGO_BRIDGE_OUTDATED_MESSAGE,
   SOOMGO_BUSY_LABELS,
@@ -46,6 +47,7 @@ export function useCrmSoomgoBridge({
   isPopup = false,
   bridgeManifest = null,
   operatingCompanyId = null,
+  refreshManifest,
 }: {
   onImport: (data: SoomgoExtractedChat) => void;
   onImportPhone?: (phone: string) => void;
@@ -56,6 +58,7 @@ export function useCrmSoomgoBridge({
   isPopup?: boolean;
   bridgeManifest?: SoomgoBridgeManifest | null;
   operatingCompanyId?: string | null;
+  refreshManifest?: () => Promise<void>;
 }) {
   const [status, setStatus] = useState<SoomgoBridgeStatus | null>(null);
   const [preview, setPreview] = useState<SoomgoExtractedChat | null>(null);
@@ -149,6 +152,17 @@ export function useCrmSoomgoBridge({
     [onChatAlerts],
   );
 
+  const triggerBridgeUpdate = useCallback(
+    (mode: 'prompt' | 'background' | 'install') => {
+      if (refreshManifest) {
+        void requestSoomgoBridgeUpdateFresh(refreshManifest, mode);
+      } else {
+        void requestSoomgoBridgeUpdate(mode);
+      }
+    },
+    [refreshManifest],
+  );
+
   const refreshStatus = useCallback(async (options?: { lite?: boolean }) => {
     const s = await fetchSoomgoBridgeStatus(bridgeManifest, { lite: options?.lite });
     setStatus(s);
@@ -166,7 +180,7 @@ export function useCrmSoomgoBridge({
       watchBlockedRef.current = true;
       setError(outdatedMsg);
       notify(outdatedMsg);
-      void requestSoomgoBridgeUpdate('install');
+      void triggerBridgeUpdate('install');
     } else if (
       isSoomgoAppUpdateAvailable(s, bridgeManifest) &&
       !softUpdateNotifiedRef.current &&
@@ -175,7 +189,7 @@ export function useCrmSoomgoBridge({
       softUpdateNotifiedRef.current = true;
       const softMsg = soomgoBridgeSoftUpdateMessage(s, bridgeManifest);
       if (softMsg) notify(softMsg);
-      void requestSoomgoBridgeUpdate('background');
+      void triggerBridgeUpdate('background');
     }
     if (s.pendingCallPhone && s.pendingCallAt != null && !isSoomgoBridgeOutdated(s, bridgeManifest)) {
       void handlePendingCall(s);
@@ -184,7 +198,7 @@ export function useCrmSoomgoBridge({
       void handleChatAlerts(s.chatAlerts);
     }
     return s;
-  }, [bridgeManifest, handleChatAlerts, handlePendingCall, notify]);
+  }, [bridgeManifest, handleChatAlerts, handlePendingCall, notify, triggerBridgeUpdate]);
 
   const ensureChatWatch = useCallback(
     async (s: SoomgoBridgeStatus) => {
@@ -270,7 +284,7 @@ export function useCrmSoomgoBridge({
       }
       if (isSoomgoBridgeOutdated(current, bridgeManifest)) {
         const outdatedMsg = soomgoBridgeOutdatedMessage(current, bridgeManifest);
-        void requestSoomgoBridgeUpdate('install');
+        void triggerBridgeUpdate('install');
         throw new Error(outdatedMsg);
       }
       if (isPopup) arrangeCrmPopupLeftHalf();
@@ -307,7 +321,7 @@ export function useCrmSoomgoBridge({
     } finally {
       setBusyAction(null);
     }
-  }, [applySplitLayout, bridgeManifest, ensureCallWatch, ensureChatWatch, isPopup, notify, operatingCompanyId, refreshStatus]);
+  }, [applySplitLayout, bridgeManifest, ensureCallWatch, ensureChatWatch, isPopup, notify, operatingCompanyId, refreshStatus, triggerBridgeUpdate]);
 
   const openChatRoom = useCallback(
     async (chatId: string) => {

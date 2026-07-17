@@ -22,7 +22,7 @@ import { CrmIconPhone, CrmIconSoomgo } from '../../../components/crm/crmUi';
 import type { SoomgoExtractedChat, SoomgoBridgeManifest, SoomgoChatAlert } from '@shared/soomgoBridge';
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
 import { useSoomgoBridgeManifestRefresh } from '../../../hooks/useSoomgoBridgeManifestRefresh';
-import { requestSoomgoBridgeUpdate } from '../../../api/soomgoBridge';
+import { requestSoomgoBridgeUpdateFresh } from '../../../api/soomgoBridge';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
@@ -219,7 +219,7 @@ export function CrmPage() {
     document.title = '텔레CRM — SK클린텍';
   }, []);
 
-  useSoomgoBridgeManifestRefresh(Boolean(getToken()), setSoomgoBridgeManifest);
+  const { refreshManifest } = useSoomgoBridgeManifestRefresh(Boolean(getToken()), setSoomgoBridgeManifest);
 
   useEffect(() => {
     const draft = loadCrmIntakeDraft();
@@ -524,6 +524,7 @@ export function CrmPage() {
     pollEnabled: !isMobileApp,
     isPopup,
     operatingCompanyId: activeOperatingCompanyId,
+    refreshManifest,
   });
 
   const {
@@ -940,7 +941,10 @@ export function CrmPage() {
                 busyLabel={soomgoBusyLabel}
                 error={soomgoError}
                 onOpenSoomgo={() => void openSoomgo()}
-                onRefresh={() => void refreshSoomgoStatus()}
+                onRefresh={() => {
+                  void refreshManifest();
+                  void refreshSoomgoStatus();
+                }}
                 onRestartBridge={() => void restartBridge()}
                 onOpenSettings={
                   canOpenSettings
@@ -952,7 +956,7 @@ export function CrmPage() {
                     : undefined
                 }
                 bridgeManifest={soomgoBridgeManifest}
-                onRequestUpdate={() => void requestSoomgoBridgeUpdate('install')}
+                onRequestUpdate={() => void requestSoomgoBridgeUpdateFresh(refreshManifest, 'install')}
                   />
                 ) : null}
               </>

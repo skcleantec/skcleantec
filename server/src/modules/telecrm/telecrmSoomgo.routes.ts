@@ -16,6 +16,7 @@ const router = Router();
 
 /** 데스크톱 브릿지 설치·업데이트 매니페스트 */
 router.get('/bridge-manifest', requireStaffPermission('crm.view', 'crm.settings'), async (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   res.json(getSoomgoBridgeManifest());
 });
 

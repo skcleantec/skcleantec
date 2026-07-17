@@ -614,6 +614,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             if path == '/request-update':
                 try:
+                    from bridge_status_extras import invalidate_manifest_cache, get_manifest_cached
+
+                    invalidate_manifest_cache()
+                    get_manifest_cached(force=True)
                     mode = str(body.get('mode', 'prompt')).strip().lower()
                     if mode not in ('prompt', 'background', 'install'):
                         mode = 'prompt'

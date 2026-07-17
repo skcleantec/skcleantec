@@ -64,6 +64,49 @@ def _artifact_path(manifest: dict[str, Any]) -> Path | None:
     return UPDATE_CACHE_DIR / filename
 
 
+def _resolve_cached_dest(manifest: dict[str, Any], state: dict[str, Any]) -> Path | None:
+    artifact_raw = str(state.get('artifact', '')).strip()
+    if artifact_raw:
+        return Path(artifact_raw)
+    return _artifact_path(manifest)
+
+
+def cached_artifact_is_valid(manifest: dict[str, Any], state: dict[str, Any] | None = None) -> bool:
+    """다운로드 캐시가 현재 manifest 버전·sha256과 일치하는지."""
+    state = state if state is not None else read_update_state()
+    if state.get('phase') != 'ready':
+        return False
+    latest = str(manifest.get('latestVersion', '')).strip()
+    cached_ver = str(state.get('latestVersion', '')).strip()
+    if latest and cached_ver and cached_ver != latest:
+        return False
+    dest = _resolve_cached_dest(manifest, state)
+    if not dest or not dest.is_file():
+        return False
+    expected = str(manifest.get('sha256', '')).strip().lower()
+    if expected:
+        try:
+            if _sha256_file(dest).lower() != expected:
+                return False
+        except OSError:
+            return False
+    return True
+
+
+def clear_stale_update_cache(manifest: dict[str, Any]) -> None:
+    """manifest와 다른 버전 캐시·상태를 비웁니다."""
+    state = read_update_state()
+    if cached_artifact_is_valid(manifest, state):
+        return
+    dest = _resolve_cached_dest(manifest, state)
+    if dest and dest.is_file():
+        try:
+            dest.unlink(missing_ok=True)
+        except OSError:
+            pass
+    write_update_state(phase='idle', message=None, latest_version=None, artifact=None)
+
+
 def download_update_artifact(manifest: dict[str, Any], *, force: bool = False) -> tuple[bool, str]:
     """백그라운드 다운로드 — 성공 시 phase=ready."""
     url = str(manifest.get('downloadUrl', '')).strip()
@@ -76,12 +119,7 @@ def download_update_artifact(manifest: dict[str, Any], *, force: bool = False) -
 
     latest = str(manifest.get('latestVersion', '')).strip()
     state = read_update_state()
-    if (
-        not force
-        and state.get('phase') == 'ready'
-        and str(state.get('latestVersion', '')).strip() == latest
-        and dest.is_file()
-    ):
+    if not force and cached_artifact_is_valid(manifest, state):
         return True, '이미 다운로드되어 있습니다.'
 
     ensure_app_data()
@@ -116,8 +154,10 @@ def download_update_artifact(manifest: dict[str, Any], *, force: bool = False) -
 
 def install_cached_artifact(manifest: dict[str, Any]) -> tuple[bool, str]:
     state = read_update_state()
-    artifact_raw = str(state.get('artifact', '')).strip()
-    dest = Path(artifact_raw) if artifact_raw else _artifact_path(manifest)
+    if not cached_artifact_is_valid(manifest, state):
+        return perform_update(manifest)
+
+    dest = _resolve_cached_dest(manifest, state)
     if not dest or not dest.is_file():
         return perform_update(manifest)
 
@@ -215,8 +255,8 @@ def run_installer(exe_path: Path) -> bool:
 
 
 def perform_update(manifest: dict[str, Any]) -> tuple[bool, str]:
-    state = read_update_state()
-    if state.get('phase') == 'ready' and state.get('artifact'):
+    clear_stale_update_cache(manifest)
+    if cached_artifact_is_valid(manifest):
         return install_cached_artifact(manifest)
 
     ok, msg = download_update_artifact(manifest, force=True)
