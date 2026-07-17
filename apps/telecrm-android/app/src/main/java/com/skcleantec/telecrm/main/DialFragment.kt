@@ -36,6 +36,8 @@ import com.skcleantec.telecrm.ui.SmsTemplateHelper
 
 import kotlinx.coroutines.Dispatchers
 
+import kotlinx.coroutines.Job
+
 import kotlinx.coroutines.launch
 
 import kotlinx.coroutines.withContext
@@ -56,6 +58,7 @@ class DialFragment : Fragment() {
 
     private var smsTemplates = listOf<SmsTemplateDto>()
     private var pendingPrefill: AppEventBus.DialPrefill? = null
+    private var searchJob: Job? = null
 
     private val refreshListener = { loadSmsTemplates() }
 
@@ -64,19 +67,24 @@ class DialFragment : Fragment() {
     }
 
     fun applyPrefill(phone: String, inquiryId: String?, customerMatch: String?) {
+        searchJob?.cancel()
+        searchJob = null
         if (_binding == null) {
             pendingPrefill = AppEventBus.DialPrefill(phone, inquiryId, customerMatch)
             return
         }
         pendingPrefill = null
-        binding.candidatesContainer.removeAllViews()
-        binding.candidatesContainer.visibility = View.GONE
-        binding.inquiriesContainer.removeAllViews()
-        binding.inquiriesContainer.visibility = View.GONE
+        CustomerLookupUi.clear(
+            binding.candidatesContainer,
+            binding.inquiriesContainer,
+            binding.actionRow,
+            lookupState,
+        )
+        binding.searchError.visibility = View.GONE
         binding.inputPhone.setText(phone)
         lookupState.selectedPhone = phone
         lookupState.selectedInquiryId = inquiryId
-        customerMatch?.let { lookupState.match = it }
+        lookupState.match = customerMatch?.takeIf { it.isNotBlank() } ?: "unknown"
         updatePhoneClearUi()
         updateActionRowVisibility()
     }
@@ -386,7 +394,8 @@ class DialFragment : Fragment() {
 
         binding.searchButton.isEnabled = false
 
-        lifecycleScope.launch {
+        searchJob?.cancel()
+        searchJob = lifecycleScope.launch {
 
             val result = withContext(Dispatchers.IO) {
 
@@ -473,11 +482,8 @@ class DialFragment : Fragment() {
 
     private fun resolvedCallPhone(): String {
         val fieldDigits = binding.inputPhone.text?.toString()?.filter { it.isDigit() }.orEmpty()
-        val lookupDigits = lookupState.selectedPhone.filter { it.isDigit() }
-        if (!lookupState.selectedInquiryId.isNullOrBlank() && lookupDigits.length >= 8) {
-            return lookupDigits
-        }
         if (fieldDigits.length >= 4) return fieldDigits
+        val lookupDigits = lookupState.selectedPhone.filter { it.isDigit() }
         return lookupDigits
     }
 

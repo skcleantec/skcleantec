@@ -2,6 +2,8 @@ package com.skcleantec.telecrm.dispatch
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -21,6 +23,9 @@ class TelecrmDispatchExecutor(
     private val tokenStore: TokenStore,
     private val apiClient: ApiClient,
 ) {
+    private val callHandler = Handler(Looper.getMainLooper())
+    private var pendingAutoCall: Runnable? = null
+
     fun execute(payload: TelecrmDispatchPayload) {
         when (payload.action) {
             "sms" -> showSmsDialog(payload)
@@ -32,6 +37,7 @@ class TelecrmDispatchExecutor(
     private fun executeCall(payload: TelecrmDispatchPayload) {
         val digits = payload.phone.filter { it.isDigit() }
         if (digits.length < 4) return
+        cancelPendingAutoCall()
         binding.viewPager.currentItem = 0
         binding.bottomNav.selectedItemId = R.id.nav_dial
         binding.root.post {
@@ -39,16 +45,24 @@ class TelecrmDispatchExecutor(
             val label = if (payload.action == "call") "PC 통화 요청" else "PC 번호 전달"
             Snackbar.make(binding.root, "$label · $digits", Snackbar.LENGTH_SHORT).show()
             if (payload.action == "prefill") return@post
-            binding.root.postDelayed({
-                val token = tokenStore.getToken() ?: return@postDelayed
+            val runnable = Runnable {
+                pendingAutoCall = null
+                val token = tokenStore.getToken() ?: return@Runnable
                 val match = payload.customerMatch?.takeIf { it.isNotBlank() } ?: "unknown"
                 TelecrmCallHelper.placeCall(activity, digits, payload.inquiryId, match)
                 TelecrmCallHelper.logOutboundCall(
                     activity, apiClient, token, digits, payload.inquiryId,
                     payload.customerMatch?.takeIf { it.isNotBlank() } ?: "unknown",
                 )
-            }, 150)
+            }
+            pendingAutoCall = runnable
+            callHandler.post(runnable)
         }
+    }
+
+    private fun cancelPendingAutoCall() {
+        pendingAutoCall?.let { callHandler.removeCallbacks(it) }
+        pendingAutoCall = null
     }
 
     private fun applyPrefillToDial(phone: String, inquiryId: String?, customerMatch: String?) {

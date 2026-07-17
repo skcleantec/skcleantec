@@ -10,6 +10,10 @@ import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
 import { CrmIconIntake, CrmIconPhone, CrmIconReset, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldCompactClass } from '../crmUi';
 import { telecrmCall, isTelecrmNativeApp, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
+import {
+  findInquiryIdForDialPhone,
+  resolveTelecrmDispatchInquiryId,
+} from '../../../utils/telecrmDispatchInquiry';
 import { CrmIntakeForm } from './CrmIntakeForm';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
@@ -317,9 +321,17 @@ export function CrmIntakePanel({
 
   const handleCall = async () => {
     if (!canDial) return;
+    const matchedInquiry = data?.inquiries?.find((inq) => inq.id === activeInquiryId);
+    const dispatchInquiryId =
+      resolveTelecrmDispatchInquiryId(
+        dialPhone,
+        activeInquiryId,
+        matchedInquiry?.customerPhone,
+      ) ??
+      findInquiryIdForDialPhone(dialPhone, data?.inquiries);
     const result = await telecrmCall(dialPhone, {
       customerMatch: activeCustomerMatch,
-      inquiryId: activeInquiryId ?? undefined,
+      inquiryId: dispatchInquiryId,
     });
     const notice = telecrmDispatchNotice(result, 'call');
     if (notice) onDispatchNotice?.(notice);
