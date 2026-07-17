@@ -1,7 +1,5 @@
-import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import { openTelecrmWindow } from '../../utils/openTelecrmWindow';
-import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { DashboardTopCard } from './dashboard/DashboardTopCard';
 import { TELECRM_APP_INSTALL_PATH } from '../../api/telecrmAppManifest';
 
@@ -24,7 +22,6 @@ function TelecrmPhoneIcon({ className }: { className?: string }) {
 
 export function DashboardTelecrmBlock() {
   const token = getToken();
-  const { canCrmSettings } = useAdminStaffSession();
 
   if (!token) return null;
 
@@ -56,16 +53,8 @@ export function DashboardTelecrmBlock() {
           rel="noopener noreferrer"
           className="rounded-xl border border-violet-300 bg-white/80 px-4 py-2 text-fluid-xs font-semibold text-violet-800 hover:bg-violet-50"
         >
-          청소비서 전화 설치
+          App 설치
         </a>
-        {canCrmSettings ? (
-          <Link
-            to="/admin/crm/settings"
-            className="rounded-xl border border-violet-300 bg-white/80 px-4 py-2 text-fluid-xs font-semibold text-violet-800 hover:bg-violet-50"
-          >
-            CRM 설정
-          </Link>
-        ) : null}
       </div>
     </DashboardTopCard>
   );
