@@ -267,6 +267,13 @@ export async function watchSoomgoChatList(): Promise<SoomgoBridgeStatus> {
   return bridgeFetch<SoomgoBridgeStatus>('/watch-chat-list', { method: 'POST', body: '{}' });
 }
 
+export async function syncSoomgoWatchChatIds(chatIds: string[]): Promise<SoomgoBridgeStatus> {
+  return bridgeFetch<SoomgoBridgeStatus>('/watch-chat-ids', {
+    method: 'POST',
+    body: JSON.stringify({ chatIds }),
+  });
+}
+
 export async function ackSoomgoChatAlerts(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   await bridgeFetch<{ ok: boolean }>('/ack-chat-alerts', {

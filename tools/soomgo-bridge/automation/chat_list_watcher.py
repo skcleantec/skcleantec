@@ -9,8 +9,11 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 DEDUPE_TTL_MS = 60_000
+WATCH_DEDUPE_TTL_MS = 4_000
 MAX_STORE = 200
 MAX_PENDING = 50
+SCAN_INTERVAL_MS = 2000
+WATCH_SCAN_INTERVAL_MS = 1000
 
 _INSTALL_WATCHER_JS = """
 if (!window.__soomgoBridgeChatListWatch) {
@@ -19,6 +22,25 @@ if (!window.__soomgoBridgeChatListWatch) {
     events: [],
     lastScanAt: 0,
     scanTimer: null,
+    watchChatIds: {},
+    scanIntervalMs: __SCAN_MS__,
+  };
+
+  window.__soomgoBridgeSetWatchChatIds = function(ids) {
+    var map = {};
+    if (ids && ids.length) {
+      for (var i = 0; i < ids.length; i++) map[String(ids[i])] = true;
+    }
+    window.__soomgoBridgeChatListWatch.watchChatIds = map;
+    var ms = Object.keys(map).length ? __WATCH_SCAN_MS__ : __SCAN_MS__;
+    if (window.__soomgoBridgeChatListWatch.scanTimer) {
+      clearInterval(window.__soomgoBridgeChatListWatch.scanTimer);
+    }
+    window.__soomgoBridgeChatListWatch.scanIntervalMs = ms;
+    window.__soomgoBridgeChatListWatch.scanTimer = window.setInterval(function() {
+      window.__soomgoBridgeRunChatScan();
+    }, ms);
+    window.__soomgoBridgeRunChatScan();
   };
 
   window.__soomgoBridgeScanChatRows = function() {
@@ -35,11 +57,11 @@ if (!window.__soomgoBridgeChatListWatch) {
       seen[chatId] = true;
 
       var row = a;
-      for (var up = 0; up < 10 && row; up++) {
+      for (var up = 0; up < 12 && row; up++) {
         var tag = (row.tagName || '').toLowerCase();
         if (tag === 'li' || tag === 'article' || row.getAttribute('role') === 'listitem') break;
         var r = row.getBoundingClientRect ? row.getBoundingClientRect() : null;
-        if (r && r.height >= 52 && r.width >= 180) break;
+        if (r && r.height >= 48 && r.width >= 160) break;
         row = row.parentElement;
       }
       if (!row) row = a;
@@ -47,18 +69,41 @@ if (!window.__soomgoBridgeChatListWatch) {
       var raw = (row.innerText || row.textContent || '').replace(/\\s+/g, ' ').trim();
       if (!raw) continue;
 
-      var lines = raw.split(/ (?=\\d+분 전|\\d+시간 전|어제|방금|\\d+:\\d+)/).map(function(s) {
+      var lines = raw.split(/\\s*(?=\\d+분 전|\\d+시간 전|어제|방금|오전|오후|\\d{1,2}:\\d{2})\\s*/).map(function(s) {
         return s.trim();
       }).filter(Boolean);
 
-      var customerName = (a.textContent || '').replace(/\\s+/g, ' ').trim().split(' ')[0] || null;
-      if (!customerName || customerName.length > 40) {
-        customerName = lines[0] ? lines[0].slice(0, 40) : null;
+      if (!lines.length) lines = raw.split(/\\s{2,}/).map(function(s) { return s.trim(); }).filter(Boolean);
+
+      var customerName = null;
+      var nameNode = row.querySelector('strong, b, [class*="name" i], [class*="title" i]');
+      if (nameNode) {
+        customerName = (nameNode.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 40) || null;
+      }
+      if (!customerName && lines[0]) {
+        var first = lines[0].replace(/\\d+$/, '').trim();
+        if (first.length <= 24 && !/청소|이사|입주|스마트견적|원/.test(first)) {
+          customerName = first;
+        }
       }
 
       var previewText = raw;
-      if (lines.length >= 2) {
-        previewText = lines.slice(1).join(' ').replace(/\\b\\d+\\b$/, '').trim() || lines[1] || raw;
+      var skipPatterns = /이사\\/입주|청소업체|스마트견적|총\\s*[\\d,]+\\s*원|부터\\s*•/;
+      for (var li = 1; li < lines.length; li++) {
+        var line = lines[li];
+        if (!line || skipPatterns.test(line)) continue;
+        if (/^\\d+$/.test(line)) continue;
+        previewText = line;
+        break;
+      }
+      if (previewText === raw) {
+        for (var lj = lines.length - 1; lj >= 0; lj--) {
+          var cand = lines[lj];
+          if (cand && !skipPatterns.test(cand) && cand !== customerName) {
+            previewText = cand;
+            break;
+          }
+        }
       }
 
       var unreadCount = 0;
@@ -67,7 +112,7 @@ if (!window.__soomgoBridgeChatListWatch) {
         var bt = (badgeNodes[b].textContent || '').trim();
         if (/^\\d{1,2}$/.test(bt)) {
           var br = badgeNodes[b].getBoundingClientRect ? badgeNodes[b].getBoundingClientRect() : null;
-          if (br && br.width >= 14 && br.width <= 40 && br.height >= 14 && br.height <= 40) {
+          if (br && br.width >= 14 && br.width <= 44 && br.height >= 14 && br.height <= 44) {
             var n = parseInt(bt, 10);
             if (n > unreadCount) unreadCount = n;
           }
@@ -75,12 +120,12 @@ if (!window.__soomgoBridgeChatListWatch) {
       }
 
       var listTimeLabel = null;
-      var tm = raw.match(/(\\d+분 전|\\d+시간 전|어제|방금|\\d{1,2}:\\d{2})/);
-      if (tm) listTimeLabel = tm[1];
+      var tm = raw.match(/(오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금|\\d{1,2}:\\d{2}/);
+      if (tm) listTimeLabel = tm[0].replace(/\\s+/g, ' ').trim();
 
       var previewKind = 'unknown';
       if (/견적.*읽|읽었|확인/.test(previewText)) previewKind = 'quote_read';
-      else if (/안녕|고객님|문의|네|요|니다|\\.\\.\\./.test(previewText)) previewKind = 'message';
+      else if (unreadCount > 0 || /안녕|고객님|문의|네\\s|요|니다|\\.\\.\\./.test(previewText)) previewKind = 'message';
 
       out.push({
         chatId: chatId,
@@ -97,12 +142,14 @@ if (!window.__soomgoBridgeChatListWatch) {
 
   window.__soomgoBridgePushChatEvents = function(rows) {
     if (!rows || !rows.length) return;
+    var watchMap = window.__soomgoBridgeChatListWatch.watchChatIds || {};
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
       if (!r || !r.chatId) continue;
-      if ((r.unreadCount || 0) < 1 && r.previewKind !== 'quote_read') continue;
+      var watched = !!watchMap[String(r.chatId)];
+      if ((r.unreadCount || 0) < 1 && r.previewKind !== 'quote_read' && !watched) continue;
       window.__soomgoBridgeChatListWatch.events.push(r);
-      if (window.__soomgoBridgeChatListWatch.events.length > 50) {
+      if (window.__soomgoBridgeChatListWatch.events.length > 80) {
         window.__soomgoBridgeChatListWatch.events.shift();
       }
     }
@@ -132,9 +179,16 @@ if (!window.__soomgoBridgeChatListWatch) {
 
   window.__soomgoBridgeChatListWatch.scanTimer = window.setInterval(function() {
     window.__soomgoBridgeRunChatScan();
-  }, 4000);
+  }, __SCAN_MS__);
 
   window.__soomgoBridgeRunChatScan();
+}
+return true;
+""".replace('__SCAN_MS__', str(SCAN_INTERVAL_MS)).replace('__WATCH_SCAN_MS__', str(WATCH_SCAN_INTERVAL_MS))
+
+_SET_WATCH_JS = """
+if (window.__soomgoBridgeSetWatchChatIds) {
+  window.__soomgoBridgeSetWatchChatIds(arguments[0] || []);
 }
 return true;
 """
@@ -155,15 +209,35 @@ class ChatListWatcher:
         self._store: list[dict[str, Any]] = []
         self._pending: list[dict[str, Any]] = []
         self._dedupe: dict[str, int] = {}
+        self._watch_chat_ids: set[str] = set()
+        self._last_preview_by_chat: dict[str, str] = {}
 
     @property
     def watcher_installed(self) -> bool:
         return self._watcher_installed
 
+    def watch_chat_ids(self) -> list[str]:
+        return sorted(self._watch_chat_ids)
+
+    def poll_interval_sec(self) -> float:
+        return 1.0 if self._watch_chat_ids else 2.0
+
+    def set_watch_chat_ids(self, driver, ids: list[str]) -> None:
+        cleaned = {str(i).strip() for i in ids if str(i).strip().isdigit()}
+        self._watch_chat_ids = cleaned
+        if not self._watcher_installed:
+            return
+        try:
+            driver.execute_script(_SET_WATCH_JS, list(cleaned))
+        except Exception as e:
+            logger.debug('set watch chat ids: %s', e)
+
     def install(self, driver) -> bool:
         try:
             driver.execute_script(_INSTALL_WATCHER_JS)
             self._watcher_installed = True
+            if self._watch_chat_ids:
+                driver.execute_script(_SET_WATCH_JS, list(self._watch_chat_ids))
             return True
         except Exception as e:
             logger.debug('chat list watcher install: %s', e)
@@ -175,6 +249,8 @@ class ChatListWatcher:
             ok = driver.execute_script(_POLL_INSTALLED_JS)
             if ok:
                 self._watcher_installed = True
+                if self._watch_chat_ids:
+                    driver.execute_script(_SET_WATCH_JS, list(self._watch_chat_ids))
                 return True
         except Exception:
             pass
@@ -187,23 +263,49 @@ class ChatListWatcher:
         return f'{chat_id}|{preview}|{unread}'
 
     def _should_emit(self, row: dict[str, Any]) -> bool:
+        chat_id = str(row.get('chatId') or '')
+        preview = str(row.get('previewText') or '').strip()
         unread = int(row.get('unreadCount') or 0)
         kind = str(row.get('previewKind') or '')
-        if unread < 1 and kind != 'quote_read':
-            return False
-        key = self._dedupe_key(row)
+        watched = chat_id in self._watch_chat_ids
         now = int(row.get('capturedAt') or time.time() * 1000)
+
+        if watched:
+            prev_preview = self._last_preview_by_chat.get(chat_id)
+            if prev_preview != preview:
+                self._last_preview_by_chat[chat_id] = preview
+                ttl = WATCH_DEDUPE_TTL_MS
+                key = f'watch|{chat_id}|{preview}'
+                prev = self._dedupe.get(key)
+                if prev and now - prev < ttl:
+                    return False
+                self._dedupe[key] = now
+                return True
+            if unread >= 1:
+                pass
+            elif kind == 'quote_read':
+                pass
+            else:
+                return False
+        elif unread < 1 and kind != 'quote_read':
+            return False
+
+        key = self._dedupe_key(row)
+        ttl = WATCH_DEDUPE_TTL_MS if watched else DEDUPE_TTL_MS
         prev = self._dedupe.get(key)
-        if prev and now - prev < DEDUPE_TTL_MS:
+        if prev and now - prev < ttl:
             return False
         self._dedupe[key] = now
+        if preview:
+            self._last_preview_by_chat[chat_id] = preview
         return True
 
     def _normalize_row(self, row: dict[str, Any]) -> dict[str, Any]:
         captured = int(row.get('capturedAt') or time.time() * 1000)
+        chat_id = str(row.get('chatId') or '')
         return {
             'id': str(uuid.uuid4()),
-            'chatId': str(row.get('chatId') or ''),
+            'chatId': chat_id,
             'customerName': (row.get('customerName') or None),
             'previewText': str(row.get('previewText') or '').strip() or '(내용 없음)',
             'previewKind': row.get('previewKind') or 'unknown',

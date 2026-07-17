@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.5';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.6';
 
 /** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
@@ -156,6 +156,8 @@ export type SoomgoBridgeStatus = {
   callWatchActive?: boolean;
   /** 채팅 목록 미읽음 감시 활성 */
   chatWatchActive?: boolean;
+  /** CRM 대기(집중 감시) chatId 목록 */
+  watchedChatIds?: string[];
   /** CRM 미수신 알림 (브릿지 pending) */
   chatAlerts?: SoomgoChatAlert[];
   chatAlertCount?: number;
