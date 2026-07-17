@@ -50,7 +50,7 @@ object TelecrmDispatchRouter {
         when (item.action) {
             "call" -> TelecrmNotificationHelper.showCallDispatch(context, item)
             "sms" -> TelecrmNotificationHelper.showSmsDispatch(context, item)
-            "prefill" -> TelecrmNotificationHelper.showCallDispatch(context, item)
+            "prefill" -> TelecrmNotificationHelper.showPrefillDispatch(context, item)
             else -> TelecrmNotificationHelper.showCallDispatch(context, item)
         }
     }

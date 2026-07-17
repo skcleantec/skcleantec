@@ -70,6 +70,7 @@
     <string name="today_summary_title">오늘 통화</string>
 
     <string name="summary_stats_format">통화 %1$d건 · 총 %2$s</string>
+    <string name="summary_stats_connected_format">연결 %1$d · 미연결 %2$d · %3$s</string>
 
     <string name="work_nav_title">업무 현황</string>
 
@@ -102,6 +103,8 @@
     <string name="notification_call_body">%1$s 으로 전화를 겁니다</string>
     <string name="notification_sms_title">PC 문자 요청</string>
     <string name="notification_sms_body">%1$s · 문자 앱에서 확인</string>
+    <string name="notification_prefill_title">PC 번호 전달</string>
+    <string name="notification_prefill_body">%1$s · 통화 버튼을 눌러 전화하세요</string>
 
     <string name="call_dispatch_title">PC 통화 요청</string>
     <string name="call_dispatch_auto_hint">잠시 후 전화 앱으로 연결합니다.</string>
@@ -112,6 +115,19 @@
     <string name="galaxy_setup_message">잠금 화면·다른 앱 사용 중에도 PC 통화를 받으려면 아래 설정을 권장합니다.\n\n· 전체 화면 알림 허용\n· 배터리 사용량 「제한 없음」(설정 → 배터리 → 백그라운드 사용 제한)</string>
     <string name="galaxy_setup_fullscreen">전체 화면 알림</string>
     <string name="galaxy_setup_battery">배터리 설정</string>
+
+    <string name="update_required_title">필수 업데이트</string>
+    <string name="update_available_title">새 버전</string>
+    <string name="update_error_title">업데이트 오류</string>
+    <string name="update_prompt_message_required">새 버전 v%1$s (%2$d)이 있습니다.\n현재 v%3$s (%4$d)\n\n업데이트를 설치해야 계속 사용할 수 있습니다.</string>
+    <string name="update_prompt_message_optional">새 버전 v%1$s (%2$d)이 있습니다.\n현재 v%3$s (%4$d)</string>
+    <string name="update_download_install">다운로드 · 설치</string>
+    <string name="update_later">나중에</string>
+    <string name="update_downloading">APK 다운로드 중…</string>
+    <string name="update_download_failed">APK 다운로드에 실패했습니다.</string>
+    <string name="update_manifest_failed">업데이트 정보를 불러오지 못했습니다.</string>
+    <string name="update_already_latest">이미 최신 버전입니다.</string>
+    <string name="update_tap_to_check">버전을 길게 눌러 업데이트 확인</string>
 
 </resources>
 

@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import com.skcleantec.telecrm.api.ApiClient
 import com.skcleantec.telecrm.auth.TokenStore
 import com.skcleantec.telecrm.databinding.ActivityCallDispatchBinding
+import com.skcleantec.telecrm.dispatch.TelecrmDispatchPayload
 import com.skcleantec.telecrm.service.TelecrmNotificationHelper
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 
@@ -84,7 +85,20 @@ class CallDispatchActivity : AppCompatActivity() {
         callFlowStarted = true
         TelecrmNotificationHelper.cancelCallNotification(this, dispatchId)
         if (!autoCall) {
-            TelecrmCallHelper.dial(this, phone)
+            startActivity(
+                com.skcleantec.telecrm.main.MainActivity.prefillIntent(
+                    this,
+                    TelecrmDispatchPayload(
+                        id = dispatchId,
+                        action = "prefill",
+                        phone = phone,
+                        body = null,
+                        imageUrl = null,
+                        inquiryId = inquiryId,
+                        customerMatch = customerMatch,
+                    ),
+                ),
+            )
             finish()
             return
         }

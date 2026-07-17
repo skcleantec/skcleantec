@@ -412,8 +412,54 @@ export type TelecrmWorkdeskStatsDto = {
   day: string;
   callCount: number;
   totalDurationSec: number;
+  connectedCount: number;
+  noAnswerCount: number;
+  dialAttemptCount: number;
+  connectedDurationSec: number;
+  lastConnectedAt: string | null;
   receivedCount: number;
   absentHoldCount: number;
+};
+
+export type TelecrmCallSessionSummaryDto = {
+  day: string;
+  connectedMinSec: number;
+  connectedCount: number;
+  noAnswerCount: number;
+  dialAttemptCount: number;
+  callCount: number;
+  connectedDurationSec: number;
+  totalDurationSec: number;
+  byCustomerMatch: Record<string, number>;
+  lastConnectedAt: string | null;
+};
+
+export type TelecrmCallSessionTeamRowDto = {
+  userId: string;
+  userName: string | null;
+  loginId: string | null;
+  connectedCount: number;
+  noAnswerCount: number;
+  dialAttemptCount: number;
+  connectedDurationSec: number;
+  avgConnectedDurationSec: number;
+  lastConnectedAt: string | null;
+  avgGapMin: number | null;
+};
+
+export type TelecrmCallSessionListItemDto = {
+  id: string;
+  phone: string;
+  direction: string;
+  status: string;
+  durationSec: number | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  customerMatch: string | null;
+  inquiryId: string | null;
+  source: string | null;
+  createdAt: string;
+  user?: { id: string; name: string | null; email: string | null };
 };
 
 export async function fetchTelecrmWorkdeskStats(
@@ -422,5 +468,35 @@ export async function fetchTelecrmWorkdeskStats(
 ): Promise<TelecrmWorkdeskStatsDto> {
   const qs = day ? `?day=${encodeURIComponent(day)}` : '';
   const res = await fetch(`${API}/workdesk-stats${qs}`, { headers: authHeaders(token) });
+  return parseJson(res);
+}
+
+export async function fetchTelecrmCallSessionTeamSummary(
+  token: string,
+  from: string,
+  to: string,
+): Promise<{ from: string; to: string; connectedMinSec: number; items: TelecrmCallSessionTeamRowDto[] }> {
+  const qs = new URLSearchParams({ from, to });
+  const res = await fetch(`${API}/call-sessions/team-summary?${qs}`, { headers: authHeaders(token) });
+  return parseJson(res);
+}
+
+export async function fetchTelecrmCallSessions(
+  token: string,
+  params: {
+    from: string;
+    to: string;
+    userId?: string;
+    status?: 'CONNECTED' | 'NO_ANSWER' | 'DIAL_ATTEMPT';
+    limit?: number;
+    offset?: number;
+  },
+): Promise<{ items: TelecrmCallSessionListItemDto[]; total: number }> {
+  const qs = new URLSearchParams({ from: params.from, to: params.to });
+  if (params.userId) qs.set('userId', params.userId);
+  if (params.status) qs.set('status', params.status);
+  if (params.limit != null) qs.set('limit', String(params.limit));
+  if (params.offset != null) qs.set('offset', String(params.offset));
+  const res = await fetch(`${API}/call-sessions?${qs}`, { headers: authHeaders(token) });
   return parseJson(res);
 }

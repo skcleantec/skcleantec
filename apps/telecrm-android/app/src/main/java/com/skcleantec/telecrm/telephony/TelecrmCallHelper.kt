@@ -28,13 +28,19 @@ object TelecrmCallHelper {
     }
 
     /** 자동 발신(CALL_PHONE) 또는 다이얼 패드 + 통화 종료 후 앱 복귀 */
-    fun placeCall(activity: AppCompatActivity, phone: String) {
+    fun placeCall(
+        activity: AppCompatActivity,
+        phone: String,
+        inquiryId: String? = null,
+        customerMatch: String? = null,
+    ) {
         val digits = phone.filter { it.isDigit() }
         if (digits.length < 4) {
             Toast.makeText(activity, "전화번호(4자 이상)를 입력해 주세요.", Toast.LENGTH_SHORT).show()
             return
         }
         CallReturnMonitor.watch(activity)
+        CallLogSync.armOutbound(digits, inquiryId, customerMatch)
         val uri = Uri.parse("tel:$digits")
         if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CALL_PHONE) ==
             PackageManager.PERMISSION_GRANTED
@@ -57,6 +63,7 @@ object TelecrmCallHelper {
         val digits = pendingPhone?.filter { it.isDigit() }.orEmpty()
         if (digits.length < 4) return
         CallReturnMonitor.watch(activity)
+        CallLogSync.armOutbound(digits, null, null)
         activity.startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$digits")))
     }
 
@@ -111,14 +118,19 @@ object TelecrmCallHelper {
         inquiryId: String?,
         customerMatch: String?,
         durationSec: Int? = null,
+        status: String = if (durationSec != null && durationSec > 0) "NO_ANSWER" else "DIAL_ATTEMPT",
+        source: String = "APP_DIAL",
     ) {
         Thread {
             val payload = JSONObject()
                 .put("phone", phone.filter { it.isDigit() })
                 .put("direction", direction)
+                .put("status", status)
+                .put("source", source)
                 .put("customerMatch", customerMatch?.takeIf { it.isNotBlank() } ?: "unknown")
+                .put("connectedMinSec", CallLogSync.CONNECTED_MIN_SEC)
             if (!inquiryId.isNullOrBlank()) payload.put("inquiryId", inquiryId)
-            if (durationSec != null && durationSec > 0) payload.put("durationSec", durationSec)
+            if (durationSec != null && durationSec >= 0) payload.put("durationSec", durationSec)
             apiClient.postCallSession(token, payload).onFailure {
                 android.os.Handler(context.mainLooper).post {
                     Toast.makeText(context, "통화 기록 저장 실패", Toast.LENGTH_SHORT).show()

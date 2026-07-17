@@ -54,8 +54,9 @@ export function CrmHeaderStats({ refreshKey = 0 }: { refreshKey?: number }) {
   return (
     <div className="flex min-w-0 flex-1 items-center justify-center overflow-x-auto px-1">
       <div className="inline-flex shrink-0 items-center divide-x divide-white/15 rounded-xl border border-white/10 bg-white/5 px-0.5 py-1 sm:px-1 sm:py-1.5">
-        <StatChip label="통화" value={`${stats.callCount}건`} />
-        <StatChip label="통화시간" value={formatDuration(stats.totalDurationSec)} />
+        <StatChip label="연결" value={`${stats.connectedCount}건`} />
+        <StatChip label="미연결" value={`${stats.noAnswerCount}건`} />
+        <StatChip label="연결시간" value={formatDuration(stats.connectedDurationSec)} />
         <StatChip label="예약완료" value={`${stats.receivedCount}건`} />
         <StatChip label="부재·보류" value={`${stats.absentHoldCount}건`} />
       </div>

@@ -139,6 +139,34 @@ object TelecrmNotificationHelper {
         NotificationManagerCompat.from(context).notify(notificationId, builder.build())
     }
 
+    fun showPrefillDispatch(context: Context, payload: TelecrmDispatchPayload) {
+        ensureChannels(context)
+        val digits = payload.phone.filter { it.isDigit() }
+        if (digits.length < 4) return
+
+        val openApp = PendingIntent.getActivity(
+            context,
+            7300,
+            MainActivity.prefillIntent(context, payload),
+            pendingIntentFlags(),
+        )
+
+        context.startActivity(
+            MainActivity.prefillIntent(context, payload).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ONGOING)
+            .setSmallIcon(R.drawable.ic_notification_phone)
+            .setContentTitle(context.getString(R.string.notification_prefill_title))
+            .setContentText(context.getString(R.string.notification_prefill_body, formatPhone(digits)))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setAutoCancel(true)
+            .setContentIntent(openApp)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(7301, notification)
+    }
+
     fun showSmsDispatch(context: Context, payload: TelecrmDispatchPayload) {
         ensureChannels(context)
         val digits = payload.phone.filter { it.isDigit() }

@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { openTelecrmWindow } from '../../../../utils/openTelecrmWindow';
 import { TelecrmCatalogScopeSegment } from '../../../../components/crm/settings/telecrmSettingsUi';
 import { useMarketerPermissions } from '../../../../hooks/useMarketerPermissions';
+import { useAdminStaffSession } from '../../../../hooks/useAdminStaffSession';
+import { resolveEffectiveStaffAdminFromMe } from '../../../../utils/staffAdminAccess';
 
 const NAV = [
   { to: '/admin/crm/settings/scripts', label: '스크립트' },
@@ -10,12 +12,15 @@ const NAV = [
   { to: '/admin/crm/settings/general', label: '기본 단가' },
   { to: '/admin/crm/settings/soomgo', label: '숨고 연동' },
   { to: '/admin/crm/settings/soomgo-presets', label: '숨고 프리셋' },
+  { to: '/admin/crm/settings/call-activity', label: '통화 현황', adminOnly: true },
 ] as const;
 
 export function TelecrmSettingsLayout() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const permissions = useMarketerPermissions();
+  const { staffMe } = useAdminStaffSession();
+  const isAdmin = resolveEffectiveStaffAdminFromMe(staffMe);
   const canShared = permissions.has('crm.settings');
   const canPersonal = permissions.has('crm.view');
   const isCatalogRoute =
@@ -36,6 +41,7 @@ export function TelecrmSettingsLayout() {
   };
 
   const visibleNav = NAV.filter((item) => {
+    if ('adminOnly' in item && item.adminOnly && !isAdmin) return false;
     if (item.to === '/admin/crm/settings/general') return canShared;
     if (item.to === '/admin/crm/settings/soomgo') return canShared;
     if (item.to === '/admin/crm/settings/soomgo-presets') return canShared || canPersonal;

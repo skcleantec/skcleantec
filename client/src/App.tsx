@@ -108,6 +108,7 @@ import {
   PlatformUnpaidPopupSettingsPage,
   PlatformSettingsPage,
   HelpPage,
+  TelecrmAppInstallPage,
   CrmPopupEntry,
   CrmSoomgoCompanionEntry,
   TelecrmSettingsLayout,
@@ -116,6 +117,7 @@ import {
   TelecrmGeneralSettingsPage,
   TelecrmSoomgoSettingsPage,
   TelecrmSoomgoPresetsSettingsPage,
+  TelecrmCallActivityPage,
 } from './routes/lazyPages';
 
 function SuspensePage({ children }: { children: ReactNode }) {
@@ -306,6 +308,7 @@ function App() {
             <Route path="general" element={<SuspensePage><TelecrmGeneralSettingsPage /></SuspensePage>} />
             <Route path="soomgo" element={<SuspensePage><TelecrmSoomgoSettingsPage /></SuspensePage>} />
             <Route path="soomgo-presets" element={<SuspensePage><TelecrmSoomgoPresetsSettingsPage /></SuspensePage>} />
+            <Route path="call-activity" element={<SuspensePage><TelecrmCallActivityPage /></SuspensePage>} />
           </Route>
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
@@ -338,6 +341,7 @@ function App() {
         <Route path="/order/:token" element={<SuspensePage><OrderFormPage /></SuspensePage>} />
         <Route path="/info" element={<SuspensePage><OrderInfoPage /></SuspensePage>} />
         <Route path="/help" element={<SuspensePage><HelpPage /></SuspensePage>} />
+        <Route path="/telecrm-app" element={<SuspensePage><TelecrmAppInstallPage /></SuspensePage>} />
         <Route path="/cs" element={<SuspensePage><CsReportPage /></SuspensePage>} />
         <Route path="/contact" element={<SuspensePage><ContactInquiryPage /></SuspensePage>} />
         <Route path="/review-payback/:token" element={<SuspensePage><ReviewPaybackPage /></SuspensePage>} />

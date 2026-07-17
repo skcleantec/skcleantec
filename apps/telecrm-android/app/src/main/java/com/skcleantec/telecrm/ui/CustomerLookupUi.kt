@@ -68,6 +68,7 @@ object CustomerLookupUi {
         actionRow: View,
         state: CustomerLookupState,
         onPickSearch: (phone: String, name: String) -> Unit,
+        onInquirySelected: (() -> Unit)? = null,
     ) {
         state.match = json.optString("match", "unknown")
         val customer = json.optJSONObject("customer")
@@ -78,7 +79,7 @@ object CustomerLookupUi {
             "pick" -> renderCandidates(context, json.optJSONArray("candidates"), candidatesContainer, onPickSearch)
             else -> {
                 candidatesContainer.visibility = View.GONE
-                renderInquiries(context, json.optJSONArray("inquiries"), inquiriesContainer, state)
+                renderInquiries(context, json.optJSONArray("inquiries"), inquiriesContainer, state, onInquirySelected)
             }
         }
         if (state.selectedPhone.isNotBlank()) actionRow.visibility = View.VISIBLE
@@ -127,6 +128,7 @@ object CustomerLookupUi {
         inquiries: JSONArray?,
         container: LinearLayout,
         state: CustomerLookupState,
+        onInquirySelected: (() -> Unit)? = null,
     ) {
         container.removeAllViews()
         val label = when (state.match) {
@@ -149,7 +151,7 @@ object CustomerLookupUi {
         for (i in 0 until inquiries.length()) {
             val inq = inquiries.getJSONObject(i)
             if (i == 0) applyInquiryToState(state, inq)
-            container.addView(buildInquiryCard(context, inq, i == 0, state))
+            container.addView(buildInquiryCard(context, inq, i == 0, state, onInquirySelected))
         }
     }
 
@@ -158,6 +160,7 @@ object CustomerLookupUi {
         inq: JSONObject,
         selected: Boolean,
         state: CustomerLookupState,
+        onInquirySelected: (() -> Unit)? = null,
     ): MaterialCardView {
         return MaterialCardView(context).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -173,6 +176,7 @@ object CustomerLookupUi {
             setContentPadding(dp(context, 14), dp(context, 14), dp(context, 14), dp(context, 14))
             setOnClickListener {
                 applyInquiryToState(state, inq)
+                onInquirySelected?.invoke()
             }
             val col = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
             val name = inq.optString("customerName")

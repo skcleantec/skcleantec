@@ -27,7 +27,15 @@ object CallReturnMonitor {
                 when (state) {
                     TelephonyManager.CALL_STATE_OFFHOOK -> wasOffHook = true
                     TelephonyManager.CALL_STATE_IDLE -> {
-                        if (wasOffHook) bringMainToFront()
+                        if (wasOffHook) {
+                            val ctx = activityRef?.get()?.applicationContext
+                            if (ctx != null) {
+                                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                    CallLogSync.syncAfterCall(ctx)
+                                }, 800)
+                            }
+                            bringMainToFront()
+                        }
                         unwatch()
                     }
                 }

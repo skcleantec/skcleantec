@@ -18,6 +18,8 @@ import com.skcleantec.telecrm.api.ApiEnvironment
 import com.skcleantec.telecrm.databinding.ActivityLoginBinding
 import com.skcleantec.telecrm.main.MainActivity
 import com.skcleantec.telecrm.ui.AppVersion
+import com.skcleantec.telecrm.update.TelecrmApkInstall
+import com.skcleantec.telecrm.update.TelecrmUpdateCoordinator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,23 +35,15 @@ class LoginActivity : AppCompatActivity() {
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.appVersionText.text = AppVersion.displayLabel(this)
+        binding.appVersionText.contentDescription = getString(R.string.update_tap_to_check)
+        binding.appVersionText.setOnLongClickListener {
+            TelecrmUpdateCoordinator.checkManually(this, resolveApiBaseUrlForUpdate())
+            true
+        }
         applyLoginWindowInsets()
 
         tokenStore.getTenantSlug()?.let { binding.inputTenantSlug.setText(it) }
         tokenStore.getLoginId()?.let { binding.inputLoginId.setText(it) }
-
-        val savedLoginId = tokenStore.getLoginId()
-        val token = tokenStore.getToken()
-        if (!token.isNullOrBlank() && savedLoginId != null) {
-            val storedUrl = tokenStore.getApiBaseUrl()
-            if (!ApiEnvironment.canChooseServer(savedLoginId) && storedUrl != ApiEnvironment.PRODUCTION_URL) {
-                tokenStore.clearSession()
-            } else {
-                val apiBaseUrl = ApiEnvironment.resolveForUser(savedLoginId, storedUrl)
-                openCrm(token, apiBaseUrl)
-                return
-            }
-        }
 
         refreshServerPresetVisibility()
         binding.inputLoginId.addTextChangedListener(object : TextWatcher {
@@ -60,6 +54,43 @@ class LoginActivity : AppCompatActivity() {
             }
         })
         binding.loginButton.setOnClickListener { attemptLogin() }
+
+        lifecycleScope.launch {
+            val blocked = TelecrmUpdateCoordinator.checkOnLogin(
+                this@LoginActivity,
+                resolveApiBaseUrlForUpdate(),
+            )
+            if (!blocked) {
+                tryAutoLogin()
+            }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == TelecrmApkInstall.REQUEST_INSTALL_PERMISSION) {
+            TelecrmUpdateCoordinator.onInstallPermissionResult(this)
+        }
+    }
+
+    private fun resolveApiBaseUrlForUpdate(): String {
+        val loginId = binding.inputLoginId.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+            ?: tokenStore.getLoginId()
+        return ApiEnvironment.resolveForUser(loginId, tokenStore.getApiBaseUrl())
+    }
+
+    private fun tryAutoLogin() {
+        val savedLoginId = tokenStore.getLoginId()
+        val token = tokenStore.getToken()
+        if (!token.isNullOrBlank() && savedLoginId != null) {
+            val storedUrl = tokenStore.getApiBaseUrl()
+            if (!ApiEnvironment.canChooseServer(savedLoginId) && storedUrl != ApiEnvironment.PRODUCTION_URL) {
+                tokenStore.clearSession()
+            } else {
+                val apiBaseUrl = ApiEnvironment.resolveForUser(savedLoginId, storedUrl)
+                openCrm(token, apiBaseUrl)
+            }
+        }
     }
 
     private fun refreshServerPresetVisibility() {

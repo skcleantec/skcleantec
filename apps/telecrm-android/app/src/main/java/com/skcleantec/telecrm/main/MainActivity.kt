@@ -1,6 +1,7 @@
 package com.skcleantec.telecrm.main
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -26,16 +27,34 @@ import com.skcleantec.telecrm.realtime.AppEventBus
 import com.skcleantec.telecrm.service.TelecrmAppState
 import com.skcleantec.telecrm.service.TelecrmDeviceHints
 import com.skcleantec.telecrm.service.TelecrmRealtimeService
+import com.skcleantec.telecrm.telephony.CallLogSync
 import com.skcleantec.telecrm.telephony.CallReturnMonitor
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 import com.skcleantec.telecrm.ui.AppVersion
+import com.skcleantec.telecrm.update.TelecrmApkInstall
+import com.skcleantec.telecrm.update.TelecrmUpdateCoordinator
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_API_BASE_URL = "extra_api_base_url"
         const val EXTRA_JWT = "extra_jwt"
+        const val EXTRA_PREFILL_PHONE = "extra_prefill_phone"
+        const val EXTRA_PREFILL_INQUIRY_ID = "extra_prefill_inquiry_id"
+        const val EXTRA_PREFILL_CUSTOMER_MATCH = "extra_prefill_customer_match"
         private const val PREFS_SETUP = "telecrm_setup_hints"
         private const val KEY_HINT_SHOWN = "galaxy_hints_shown"
+
+        fun prefillIntent(context: Context, payload: TelecrmDispatchPayload): Intent {
+            val digits = payload.phone.filter { it.isDigit() }
+            return Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(EXTRA_PREFILL_PHONE, digits)
+                putExtra(EXTRA_PREFILL_INQUIRY_ID, payload.inquiryId)
+                putExtra(EXTRA_PREFILL_CUSTOMER_MATCH, payload.customerMatch)
+            }
+        }
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -130,11 +149,49 @@ class MainActivity : AppCompatActivity() {
         AppEventBus.addConnectionListener(connectionListener)
         AppEventBus.addToastListener(toastListener)
         AppEventBus.addDispatchListener(dispatchListener)
+        handlePrefillIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handlePrefillIntent(intent)
+    }
+
+    private fun handlePrefillIntent(intent: Intent?) {
+        val source = intent ?: return
+        val phone = source.getStringExtra(EXTRA_PREFILL_PHONE)?.filter { it.isDigit() }.orEmpty()
+        if (phone.length < 4 || !::dispatchExecutor.isInitialized) return
+        source.removeExtra(EXTRA_PREFILL_PHONE)
+        dispatchExecutor.execute(
+            TelecrmDispatchPayload(
+                id = null,
+                action = "prefill",
+                phone = phone,
+                body = null,
+                imageUrl = null,
+                inquiryId = source.getStringExtra(EXTRA_PREFILL_INQUIRY_ID),
+                customerMatch = source.getStringExtra(EXTRA_PREFILL_CUSTOMER_MATCH),
+            ),
+        )
     }
 
     override fun onResume() {
         super.onResume()
         TelecrmAppState.isMainInForeground = true
+        Thread { CallLogSync.syncRecent(applicationContext, 24) }.start()
+        if (::apiBaseUrl.isInitialized) {
+            lifecycleScope.launch {
+                TelecrmUpdateCoordinator.checkOnMain(this@MainActivity, apiBaseUrl)
+            }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == TelecrmApkInstall.REQUEST_INSTALL_PERMISSION) {
+            TelecrmUpdateCoordinator.onInstallPermissionResult(this)
+        }
     }
 
     override fun onPause() {

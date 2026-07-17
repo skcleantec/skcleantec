@@ -41,7 +41,8 @@ class TelecrmDispatchExecutor(
             if (payload.action == "prefill") return@post
             binding.root.postDelayed({
                 val token = tokenStore.getToken() ?: return@postDelayed
-                TelecrmCallHelper.placeCall(activity, digits)
+                val match = payload.customerMatch?.takeIf { it.isNotBlank() } ?: "unknown"
+                TelecrmCallHelper.placeCall(activity, digits, payload.inquiryId, match)
                 TelecrmCallHelper.logOutboundCall(
                     activity, apiClient, token, digits, payload.inquiryId,
                     payload.customerMatch?.takeIf { it.isNotBlank() } ?: "unknown",
