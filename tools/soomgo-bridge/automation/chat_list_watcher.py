@@ -47,6 +47,140 @@ if (!window.__soomgoBridgeChatListWatch) {
     window.__soomgoBridgeRunChatScan();
   };
 
+  window.__soomgoExtractChatRowFromDom = function(anchorEl) {
+    function norm(s) { return (s || '').replace(/\\s+/g, ' ').trim(); }
+    function stripDecor(s) {
+      return norm(s).replace(/[\\u{2600}-\\u{27BF}\\u{1F300}-\\u{1FAFF}\\u{FE00}-\\u{FE0F}\\u{200D}🤍❤️⭐]/gu, '').trim();
+    }
+    function isTimeText(t) {
+      var s = norm(t);
+      return /^(오전|오후)\\s*\\d{1,2}:\\d{2}$/.test(s) || /^\\d+분 전$/.test(s) || /^\\d+시간 전$/.test(s) || s === '어제' || s === '방금';
+    }
+    function isSmart(t) { return /스마트\\s*견적|총\\s*[\\d,]+\\s*원\\s*부터|총\\s*[\\d,]+\\s*원/.test(norm(t)); }
+    function isQuoteRead(t) { return /견적.*(읽|확인)|고객님이\\s*견적|견적서를\\s*확인|읽었습니다/.test(norm(t)); }
+    function isSystem(t) { return /🏆|숨고\\s*고용|숨고패스|자동\\s*응답|숨고\\s*알림/.test(norm(t)); }
+    function isRegionLine(t) {
+      var s = norm(t);
+      if (!s || isSmart(s)) return false;
+      if (/청소업체/.test(s) && (/[•·]/.test(s) || /[시군구읍면]/.test(s))) return true;
+      if (/^(이사\\/입주|입주\\/이사|입주\\s*청소|이사\\s*청소)/.test(s) && (/[•·]/.test(s) || /[시군구읍면]/.test(s))) return true;
+      return false;
+    }
+    function isNameText(t) {
+      var s = stripDecor(t);
+      if (!s || s.length > 16) return false;
+      if (isRegionLine(s) || isSmart(s)) return false;
+      if (/^[가-힣]{2,6}$/.test(s)) return true;
+      if (/^\\d{5,12}$/.test(s)) return true;
+      return false;
+    }
+    function readPreviewFromEl(el) {
+      if (!el) return { text: '', time: null };
+      var clone = el.cloneNode(true);
+      var spans = clone.querySelectorAll('span');
+      var time = null;
+      for (var si = 0; si < spans.length; si++) {
+        var st = norm(spans[si].textContent);
+        if (isTimeText(st)) {
+          if (!time) time = st;
+          spans[si].remove();
+        }
+      }
+      var p = clone.querySelector('p');
+      var text = norm((p || clone).textContent);
+      var tm = text.match(/\\s*((오전|오후)\\s*\\d{1,2}:\\d{2})\\s*$/);
+      if (tm && tm.index != null) {
+        if (!time) time = norm(tm[1]);
+        text = text.slice(0, tm.index).trim();
+      }
+      return { text: text, time: time };
+    }
+    function findThreeLineBlock(root) {
+      var best = null;
+      var divs = root.querySelectorAll('div');
+      for (var di = 0; di < divs.length; di++) {
+        var parent = divs[di];
+        var kids = parent.children;
+        if (!kids || kids.length < 3) continue;
+        var lineEls = [];
+        var lineTexts = [];
+        for (var k = 0; k < kids.length; k++) {
+          var tag = (kids[k].tagName || '').toLowerCase();
+          if (tag !== 'div') { lineEls = []; break; }
+          var t = norm(kids[k].textContent);
+          if (!t) continue;
+          lineEls.push(kids[k]);
+          lineTexts.push(t);
+        }
+        if (lineEls.length < 3) continue;
+        var regionIdx = -1;
+        for (var r = 0; r < lineTexts.length; r++) {
+          if (isRegionLine(lineTexts[r])) { regionIdx = r; break; }
+        }
+        if (regionIdx < 1) continue;
+        var score = 100;
+        if (regionIdx === 1) score += 40;
+        if (lineEls.length === 3) score += 20;
+        if (isNameText(lineTexts[0])) score += 30;
+        if (!best || score > best.score) {
+          best = { score: score, lineEls: lineEls, lineTexts: lineTexts, regionIdx: regionIdx };
+        }
+      }
+      return best;
+    }
+    function classifyKind(text) {
+      if (!text) return 'unknown';
+      if (isSmart(text)) return 'smart_quote';
+      if (isQuoteRead(text)) return 'quote_read';
+      if (isSystem(text)) return 'system';
+      return 'message';
+    }
+
+    if (!anchorEl) return null;
+    var block = findThreeLineBlock(anchorEl);
+    if (!block) return null;
+
+    var name = stripDecor(block.lineTexts[0]);
+    if (!isNameText(name)) {
+      var picked = stripDecor(block.lineTexts[0]);
+      if (!picked || isRegionLine(picked)) return null;
+      name = picked.length <= 16 ? picked : null;
+    }
+    if (!name) return null;
+
+    var messageEl = null;
+    var messageRaw = '';
+    for (var mi = block.regionIdx + 1; mi < block.lineEls.length; mi++) {
+      if (isSmart(block.lineTexts[mi])) continue;
+      if (isRegionLine(block.lineTexts[mi])) continue;
+      messageEl = block.lineEls[mi];
+      messageRaw = block.lineTexts[mi];
+      break;
+    }
+    if (!messageEl) return null;
+
+    var msgRead = readPreviewFromEl(messageEl);
+    var messagePreview = msgRead.text || norm(messageRaw);
+    if (messagePreview && isSmart(messagePreview)) messagePreview = '';
+    if (messagePreview && isRegionLine(messagePreview)) messagePreview = '';
+
+    var previewKind = classifyKind(messagePreview);
+    if (previewKind === 'smart_quote') messagePreview = '';
+
+    var rawLines = [name];
+    if (messagePreview) rawLines.push(messagePreview);
+
+    return {
+      customerName: name,
+      serviceRegion: null,
+      messagePreview: messagePreview || null,
+      parseQuality: 'dom',
+      previewKind: previewKind,
+      listTimeLabel: msgRead.time,
+      rawLines: rawLines
+    };
+  };
+
   window.__soomgoParseChatRow = function(rawLines, rawBlock, rowEl) {
     function norm(s) { return (s || '').replace(/\\s+/g, ' ').trim(); }
     function isSkip(line) {
@@ -293,7 +427,13 @@ if (!window.__soomgoBridgeChatListWatch) {
         }
       }
 
-      var parsed = window.__soomgoParseChatRow(rawLines, rawBlock, row);
+      var parsed = window.__soomgoExtractChatRowFromDom(a);
+      if (!parsed || (!parsed.customerName && !parsed.messagePreview)) {
+        parsed = window.__soomgoParseChatRow(rawLines, rawBlock, row);
+      }
+      if (parsed && parsed.parseQuality === 'dom' && parsed.rawLines && parsed.rawLines.length) {
+        rawLines = parsed.rawLines.slice();
+      }
 
       var unreadCount = 0;
       var badgeNodes = row.querySelectorAll('span, div, p, strong');

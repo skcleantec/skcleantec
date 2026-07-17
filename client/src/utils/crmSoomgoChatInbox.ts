@@ -52,6 +52,29 @@ type LegacyInboxRow = CrmSoomgoInboxItem & {
 function normalizeItem(
   row: Partial<CrmSoomgoInboxItem> & { chatId: string; rawLines?: string[] | null },
 ): CrmSoomgoInboxItem {
+  const base = {
+    id: row.id?.trim() || stableInboxId(row.chatId),
+    chatId: row.chatId,
+    serviceRegion: null as string | null,
+    unreadCount: row.unreadCount ?? 0,
+    listTimeLabel: row.listTimeLabel ?? null,
+    capturedAt: row.capturedAt ?? Date.now(),
+    pinnedAt: row.pinnedAt ?? null,
+  };
+
+  if (row.parseQuality === 'dom') {
+    const messagePreview = sanitizeSoomgoMessagePreview(row.messagePreview) || null;
+    const previewText = messagePreview || '(채팅 미리보기)';
+    return {
+      ...base,
+      customerName: row.customerName?.trim() || null,
+      previewText,
+      messagePreview,
+      parseQuality: 'dom',
+      previewKind: row.previewKind ?? (messagePreview ? 'message' : 'unknown'),
+    };
+  }
+
   const rawLines = row.rawLines?.length ? row.rawLines : undefined;
   const rawBlock =
     rawLines?.join('\n') ??
@@ -68,18 +91,12 @@ function normalizeItem(
   });
 
   return {
-    id: row.id?.trim() || stableInboxId(row.chatId),
-    chatId: row.chatId,
+    ...base,
     customerName: parsed.customerName,
-    serviceRegion: null,
     previewText: parsed.previewText,
     messagePreview: parsed.messagePreview,
     parseQuality: parsed.parseQuality,
     previewKind: parsed.previewKind,
-    unreadCount: row.unreadCount ?? 0,
-    listTimeLabel: row.listTimeLabel ?? null,
-    capturedAt: row.capturedAt ?? Date.now(),
-    pinnedAt: row.pinnedAt ?? null,
   };
 }
 

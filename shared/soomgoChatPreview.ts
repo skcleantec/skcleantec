@@ -1,6 +1,6 @@
 /** 숨고 채팅 목록 미리보기 — 알림 제외·강조 규칙 매칭용 */
 
-export type SoomgoChatParseQuality = 'full' | 'partial' | 'fallback';
+export type SoomgoChatParseQuality = 'dom' | 'full' | 'partial' | 'fallback';
 
 export type SoomgoInboxRuleAction = 'exclude' | 'highlight';
 
