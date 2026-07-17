@@ -32,6 +32,7 @@ object CallLogSync {
     }
 
     fun syncAfterCall(context: Context) {
+        if (!CallLogReader.hasCallLogPermission(context)) return
         val pending = pendingOutbound
         pendingOutbound = null
         val sinceMs = pending?.startedAtMs ?: (System.currentTimeMillis() - 15 * 60 * 1000)
@@ -40,6 +41,7 @@ object CallLogSync {
     }
 
     fun syncRecent(context: Context, hoursBack: Int = 12) {
+        if (!CallLogReader.hasCallLogPermission(context)) return
         val sinceMs = System.currentTimeMillis() - hoursBack * 60L * 60L * 1000
         val rows = CallLogReader.readRecent(context, 40)
             .filter { it.dateMs >= sinceMs }

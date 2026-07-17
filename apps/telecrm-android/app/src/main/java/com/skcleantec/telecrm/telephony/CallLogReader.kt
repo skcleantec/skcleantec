@@ -1,7 +1,10 @@
 package com.skcleantec.telecrm.telephony
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.provider.CallLog
+import androidx.core.content.ContextCompat
+import android.Manifest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -29,6 +32,10 @@ data class CallLogRow(
 }
 
 object CallLogReader {
+    fun hasCallLogPermission(context: Context): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) ==
+            PackageManager.PERMISSION_GRANTED
+
     private fun rowFromCursor(it: android.database.Cursor): CallLogRow? {
         val number = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
             ?.filter { ch -> ch.isDigit() || ch == '+' }
@@ -50,8 +57,10 @@ object CallLogReader {
     }
 
     fun readRecent(context: Context, limit: Int = 25): List<CallLogRow> {
+        if (!hasCallLogPermission(context)) return emptyList()
         val rows = mutableListOf<CallLogRow>()
-        val cursor = context.contentResolver.query(
+        return try {
+            val cursor = context.contentResolver.query(
             CallLog.Calls.CONTENT_URI,
             arrayOf(
                 CallLog.Calls._ID,
@@ -64,21 +73,26 @@ object CallLogReader {
             null,
             "${CallLog.Calls.DATE} DESC",
         ) ?: return emptyList()
-        cursor.use {
-            var count = 0
-            while (it.moveToNext() && count < limit) {
-                rowFromCursor(it)?.let { row ->
-                    rows.add(row)
-                    count++
+            cursor.use {
+                var count = 0
+                while (it.moveToNext() && count < limit) {
+                    rowFromCursor(it)?.let { row ->
+                        rows.add(row)
+                        count++
+                    }
                 }
             }
+            rows
+        } catch (_: SecurityException) {
+            emptyList()
         }
-        return rows
     }
 
     /** 통화 종료 직후 — sinceMs 이후 가장 최근 1건 */
     fun readLatestSince(context: Context, sinceMs: Long): CallLogRow? {
-        val cursor = context.contentResolver.query(
+        if (!hasCallLogPermission(context)) return null
+        return try {
+            val cursor = context.contentResolver.query(
             CallLog.Calls.CONTENT_URI,
             arrayOf(
                 CallLog.Calls._ID,
@@ -91,9 +105,12 @@ object CallLogReader {
             arrayOf(sinceMs.toString()),
             "${CallLog.Calls.DATE} DESC",
         ) ?: return null
-        cursor.use {
-            if (!it.moveToFirst()) return null
-            return rowFromCursor(it)
+            cursor.use {
+                if (!it.moveToFirst()) return null
+                return rowFromCursor(it)
+            }
+        } catch (_: SecurityException) {
+            null
         }
     }
 

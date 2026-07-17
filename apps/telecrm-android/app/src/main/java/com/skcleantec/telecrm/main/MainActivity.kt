@@ -27,6 +27,7 @@ import com.skcleantec.telecrm.realtime.AppEventBus
 import com.skcleantec.telecrm.service.TelecrmAppState
 import com.skcleantec.telecrm.service.TelecrmDeviceHints
 import com.skcleantec.telecrm.service.TelecrmRealtimeService
+import com.skcleantec.telecrm.telephony.CallLogReader
 import com.skcleantec.telecrm.telephony.CallLogSync
 import com.skcleantec.telecrm.telephony.CallReturnMonitor
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
@@ -179,7 +180,9 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         TelecrmAppState.isMainInForeground = true
-        Thread { CallLogSync.syncRecent(applicationContext, 24) }.start()
+        if (CallLogReader.hasCallLogPermission(this)) {
+            Thread { CallLogSync.syncRecent(applicationContext, 24) }.start()
+        }
         if (::apiBaseUrl.isInitialized) {
             lifecycleScope.launch {
                 TelecrmUpdateCoordinator.checkOnMain(this@MainActivity, apiBaseUrl)
@@ -259,6 +262,9 @@ class MainActivity : AppCompatActivity() {
         }
         if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
             needed.add(Manifest.permission.READ_PHONE_STATE)
+        }
+        if (checkSelfPermission(Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.READ_CALL_LOG)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
