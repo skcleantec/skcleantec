@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.7';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.8';
 
 /** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
@@ -126,6 +126,8 @@ export type SoomgoChatAlert = {
   id: string;
   chatId: string;
   customerName: string | null;
+  /** 채팅 목록 2번째 줄 — 종류·지역 (예: 이사/입주 청소업체 • 서울 …) */
+  serviceRegion?: string | null;
   previewText: string;
   previewKind: SoomgoChatAlertKind;
   unreadCount: number;
@@ -137,6 +139,7 @@ export type SoomgoChatAlert = {
 export type SoomgoChatListSnapshotRow = {
   chatId: string;
   customerName: string | null;
+  serviceRegion?: string | null;
   previewText: string;
   previewKind: SoomgoChatAlertKind;
   unreadCount: number;

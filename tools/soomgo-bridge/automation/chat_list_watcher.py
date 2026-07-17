@@ -66,58 +66,81 @@ if (!window.__soomgoBridgeChatListWatch) {
       }
       if (!row) row = a;
 
-      var raw = (row.innerText || row.textContent || '').replace(/\\s+/g, ' ').trim();
-      if (!raw) continue;
-
-      var lines = raw.split(/\\s*(?=\\d+분 전|\\d+시간 전|어제|방금|오전|오후|\\d{1,2}:\\d{2})\\s*/).map(function(s) {
-        return s.trim();
+      var rawBlock = (row.innerText || row.textContent || '');
+      var rawLines = rawBlock.split(/\\n+/).map(function(s) {
+        return s.replace(/\\s+/g, ' ').trim();
       }).filter(Boolean);
 
-      if (!lines.length) lines = raw.split(/\\s{2,}/).map(function(s) { return s.trim(); }).filter(Boolean);
+      if (rawLines.length <= 1 && rawBlock) {
+        var sqSplit = rawBlock.replace(/\\s+/g, ' ').trim().match(/^(.+?)\\s*(총\\s*[\\d,]+\\s*원\\s*부터\\s*•?\\s*스마트\\s*견적)\\s*$/i);
+        if (sqSplit) {
+          rawLines = [sqSplit[1].trim(), sqSplit[2].trim()];
+        }
+      }
 
       var customerName = null;
+      var serviceRegion = null;
       var nameNode = row.querySelector('strong, b, [class*="name" i], [class*="title" i]');
       if (nameNode) {
         customerName = (nameNode.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 40) || null;
       }
-      if (!customerName && lines[0]) {
-        var first = lines[0].replace(/\\d+$/, '').trim();
-        if (first.length <= 28 && !/청소|이사|입주|스마트\\s*견적|원/.test(first)) {
+      if (!customerName && rawLines[0]) {
+        var first = rawLines[0].replace(/\\d+$/, '').trim();
+        if (first.length <= 20 && !/청소업체|•|원|스마트\\s*견적/.test(first)) {
           customerName = first;
         }
       }
-      if (customerName) {
-        customerName = customerName.replace(/([가-힣a-zA-Z0-9])(이사\\/입주|입주\\/이사|이사|입주|청소)/gi, '$1 $2').replace(/\\s+/g, ' ').trim();
-      }
 
-      function isSkipPreviewLine(line) {
-        if (!line) return true;
-        if (customerName && line === customerName) return true;
-        if (/^\\d+$/.test(line)) return true;
-        if (/^(오전|오후)\\s*\\d|\\d+분 전|\\d+시간 전|^어제$|^방금$|^\\d{1,2}:\\d{2}$/.test(line)) return true;
-        if (/스마트\\s*견적|총\\s*[\\d,]+\\s*원|부터\\s*•|청소업체/.test(line)) return true;
-        if (/^이사\\/입주$|^입주\\/이사$|^이사$|^입주$/.test(line)) return true;
-        return false;
+      function isSmartQuoteLine(line) {
+        return /스마트\\s*견적|총\\s*[\\d,]+\\s*원\\s*부터|부터\\s*•\\s*스마트/.test(line);
+      }
+      function isServiceRegionLine(line) {
+        return /청소업체/.test(line) && (/•/.test(line) || /[구동시]/.test(line));
+      }
+      function stripTimeFromLine(line) {
+        var tm = line.match(/\\s*((오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금|\\d{1,2}:\\d{2})\\s*$/);
+        if (tm) return { text: line.slice(0, tm.index).trim(), time: tm[1].replace(/\\s+/g, ' ').trim() };
+        return { text: line, time: null };
       }
 
       var previewText = '';
-      for (var li = lines.length - 1; li >= 0; li--) {
-        var cand = lines[li];
-        if (isSkipPreviewLine(cand)) continue;
-        if (/스마트\\s*견적|총\\s*[\\d,]+\\s*원/.test(cand)) continue;
-        previewText = cand;
-        break;
-      }
-      if (!previewText) {
-        var previewNode = row.querySelector('[class*="preview" i], [class*="subtitle" i], [class*="message" i], [class*="desc" i]');
-        if (previewNode) {
-          var ptxt = (previewNode.textContent || '').replace(/\\s+/g, ' ').trim();
-          if (ptxt && !isSkipPreviewLine(ptxt) && !/스마트\\s*견적|총\\s*[\\d,]+\\s*원/.test(ptxt)) {
-            previewText = ptxt;
+      var listTimeLabel = null;
+
+      for (var ri = 0; ri < rawLines.length; ri++) {
+        var line = rawLines[ri];
+        if (isSmartQuoteLine(line)) continue;
+        if (isServiceRegionLine(line)) {
+          if (!serviceRegion) {
+            serviceRegion = line.replace(/([가-힣a-zA-Z0-9])(이사\\/입주|입주\\/이사)/gi, '$1 $2').replace(/\\s+/g, ' ').trim();
           }
+          continue;
         }
+        if (customerName && line === customerName) continue;
+        if (/^(오전|오후)\\s*\\d{1,2}:\\d{2}$/.test(line)) {
+          if (!listTimeLabel) listTimeLabel = line;
+          continue;
+        }
+        var stripped = stripTimeFromLine(line);
+        if (stripped.time && !listTimeLabel) listTimeLabel = stripped.time;
+        var msg = stripped.text;
+        if (!msg || isSmartQuoteLine(msg) || isServiceRegionLine(msg)) continue;
+        if (customerName && msg === customerName) continue;
+        previewText = msg;
       }
-      if (!previewText) previewText = raw;
+
+      if (!previewText) {
+        var body = rawBlock.replace(/\\s+/g, ' ').trim();
+        body = body.replace(/\\s*총\\s*[\\d,]+\\s*원\\s*부터\\s*•?\\s*스마트\\s*견적\\s*$/i, '').trim();
+        if (customerName && body.indexOf(customerName) === 0) body = body.slice(customerName.length).trim();
+        if (serviceRegion) {
+          var sr = serviceRegion.replace(/\\s+/g, ' ');
+          if (body.indexOf(sr) >= 0) body = body.replace(sr, '').trim();
+        }
+        var bodyStripped = stripTimeFromLine(body);
+        if (bodyStripped.time && !listTimeLabel) listTimeLabel = bodyStripped.time;
+        if (bodyStripped.text && !isSmartQuoteLine(bodyStripped.text)) previewText = bodyStripped.text;
+      }
+      if (!previewText) previewText = rawBlock.replace(/\\s+/g, ' ').trim().slice(0, 500);
 
       var unreadCount = 0;
       var badgeNodes = row.querySelectorAll('span, div, p, strong');
@@ -132,9 +155,8 @@ if (!window.__soomgoBridgeChatListWatch) {
         }
       }
 
-      var listTimeLabel = null;
-      var tm = raw.match(/(오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금|\\d{1,2}:\\d{2}/);
-      if (tm) listTimeLabel = tm[0].replace(/\\s+/g, ' ').trim();
+      var tm = rawBlock.match(/(오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금|\\d{1,2}:\\d{2}/);
+      if (!listTimeLabel && tm) listTimeLabel = tm[0].replace(/\\s+/g, ' ').trim();
 
       var previewKind = 'unknown';
       if (/스마트\\s*견적|총\\s*[\\d,]+\\s*원/.test(previewText)) previewKind = 'smart_quote';
@@ -144,6 +166,7 @@ if (!window.__soomgoBridgeChatListWatch) {
       out.push({
         chatId: chatId,
         customerName: customerName,
+        serviceRegion: serviceRegion,
         previewText: previewText.slice(0, 500),
         previewKind: previewKind,
         unreadCount: unreadCount,
@@ -332,6 +355,7 @@ class ChatListWatcher:
             'id': str(uuid.uuid4()),
             'chatId': chat_id,
             'customerName': (row.get('customerName') or None),
+            'serviceRegion': (row.get('serviceRegion') or None),
             'previewText': str(row.get('previewText') or '').strip() or '(내용 없음)',
             'previewKind': row.get('previewKind') or 'unknown',
             'unreadCount': int(row.get('unreadCount') or 0),
@@ -345,6 +369,7 @@ class ChatListWatcher:
         return {
             'chatId': chat_id,
             'customerName': (row.get('customerName') or None),
+            'serviceRegion': (row.get('serviceRegion') or None),
             'previewText': str(row.get('previewText') or '').strip() or '(내용 없음)',
             'previewKind': row.get('previewKind') or 'unknown',
             'unreadCount': int(row.get('unreadCount') or 0),

@@ -21,7 +21,7 @@ function CrmIconBell({ className }: { className?: string }) {
 
 function CrmIconPin({ className, filled }: { className?: string; filled?: boolean }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" aria-hidden>
+    <svg className={className} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" aria-hidden>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -45,17 +45,20 @@ function InboxOneLineRow({
   onTogglePin: () => void;
 }) {
   const pinned = isSoomgoInboxPinned(item);
-  const { displayName, serviceLabel } = formatSoomgoInboxCustomerName(item.customerName);
+  const { displayName } = formatSoomgoInboxCustomerName(item.customerName);
+  const region = item.serviceRegion?.trim() || null;
   const timeLabel = formatSoomgoInboxTime(item.capturedAt, item.listTimeLabel);
+  const needsAction = (item.unreadCount ?? 0) > 0 || item.previewKind === 'quote_read';
 
   return (
     <tr
       className={[
-        'group border-b border-slate-100 last:border-b-0',
-        pinned ? 'bg-amber-50/60' : 'hover:bg-slate-50/80',
+        'border-b border-slate-100 last:border-b-0',
+        pinned ? 'bg-amber-50' : needsAction ? 'bg-sky-50/40' : 'bg-white',
+        pinned ? '' : 'hover:bg-slate-50/80',
       ].join(' ')}
     >
-      <td className="w-8 shrink-0 px-1 py-1.5 text-center align-middle">
+      <td className="w-9 shrink-0 px-0.5 py-1 align-middle text-center">
         <button
           type="button"
           onClick={onTogglePin}
@@ -63,49 +66,59 @@ function InboxOneLineRow({
           aria-label={pinned ? '고정 해제' : '상단 고정'}
           title={pinned ? '고정 해제' : '상단 고정'}
           className={[
-            'inline-flex h-6 w-6 items-center justify-center rounded transition-colors',
+            'inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors',
             pinned
-              ? 'text-amber-600 hover:bg-amber-100'
-              : 'text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-slate-100 hover:text-slate-500',
+              ? 'border-amber-400 bg-amber-100 text-amber-700 shadow-sm'
+              : 'border-slate-300 bg-slate-100 text-slate-600 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700',
           ].join(' ')}
         >
           <CrmIconPin className="h-3.5 w-3.5" filled={pinned} />
         </button>
       </td>
-      <td className="min-w-0 px-1 py-1.5 align-middle">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" aria-hidden />
-          <span className="shrink-0 text-[11px] font-semibold text-slate-900">{displayName}</span>
-          {serviceLabel ? (
-            <span className="shrink-0 text-[10px] font-medium text-sky-700">{serviceLabel}</span>
-          ) : null}
-          <span className="min-w-0 truncate text-[10px] text-slate-500" title={item.previewText}>
-            {item.previewText}
+      <td className="w-[72px] shrink-0 px-1 py-1 align-middle">
+        <div className="flex min-w-0 items-center gap-1">
+          {needsAction ? (
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" aria-hidden />
+          ) : (
+            <span className="h-1.5 w-1.5 shrink-0" aria-hidden />
+          )}
+          <span className="truncate text-[11px] font-semibold text-slate-900" title={displayName}>
+            {displayName}
           </span>
         </div>
       </td>
-      <td className="w-[52px] shrink-0 px-1 py-1.5 text-center align-middle text-[9px] tabular-nums text-slate-400">
+      <td className="w-[148px] shrink-0 px-1 py-1 align-middle">
+        <span className="block truncate text-[10px] text-sky-800" title={region ?? undefined}>
+          {region ?? '—'}
+        </span>
+      </td>
+      <td className="min-w-0 px-1 py-1 align-middle">
+        <span className="block truncate text-[10px] text-slate-600" title={item.previewText}>
+          {item.previewText}
+        </span>
+      </td>
+      <td className="w-12 shrink-0 px-0.5 py-1 text-center align-middle text-[9px] tabular-nums text-slate-400">
         {timeLabel}
       </td>
-      <td className="w-[118px] shrink-0 px-1 py-1.5 text-center align-middle">
-        <div className="flex items-center justify-center gap-0.5">
+      <td className="w-[132px] shrink-0 px-0.5 py-1 align-middle">
+        <div className="flex flex-nowrap items-center justify-end gap-0.5 whitespace-nowrap">
           <button
             type="button"
             disabled={busy}
             onClick={onOpenSoomgo}
-            className="rounded border border-sky-300 bg-sky-600 px-1.5 py-0.5 text-[9px] font-semibold text-white hover:bg-sky-700 disabled:opacity-40"
+            className="shrink-0 rounded border border-sky-400 bg-sky-600 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white hover:bg-sky-700 disabled:opacity-40"
           >
             숨고에서 열기
           </button>
           <button
             type="button"
             onClick={onDismiss}
-            className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[9px] font-medium text-slate-600 hover:bg-slate-50"
+            className="shrink-0 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[9px] font-medium leading-none text-slate-700 hover:bg-slate-50"
           >
             읽음
           </button>
-          {item.unreadCount > 0 ? (
-            <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white tabular-nums">
+          {(item.unreadCount ?? 0) > 0 ? (
+            <span className="inline-flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold leading-none text-white tabular-nums">
               {item.unreadCount}
             </span>
           ) : null}
@@ -141,8 +154,8 @@ export function CrmSoomgoAlertDrawer({
   const bridgeHint = bridgeStatus?.bridgeRunning
     ? bridgeStatus.chatWatchActive
       ? bridgeStatus.watchedChatIds?.length
-        ? `고정 ${bridgeStatus.watchedChatIds.length}건 · 1~2초 간격 감시`
-        : '채팅 목록 감시 중 · 새 메시지·견적 읽음이 상단에 쌓입니다.'
+        ? `고정 ${bridgeStatus.watchedChatIds.length}건 · 숨고 목록과 실시간 동기화`
+        : '숨고 채팅 목록과 동기화 · 미읽음·견적 읽음만 표시'
       : '숨고 채팅 목록을 연 상태에서 알림을 수집합니다.'
     : '숨고 연동 후 알림을 받을 수 있습니다.';
 
@@ -152,7 +165,7 @@ export function CrmSoomgoAlertDrawer({
       onClose={onClose}
       title="숨고 알림함"
       subtitle={bridgeHint}
-      widthClass="w-[min(640px,96vw)]"
+      widthClass="w-[min(720px,98vw)]"
     >
       <div className="flex min-h-[min(72vh,640px)] flex-col gap-2">
         <div className="flex shrink-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
@@ -178,17 +191,19 @@ export function CrmSoomgoAlertDrawer({
             <CrmIconBell className="mb-2 h-8 w-8 text-slate-300" />
             <p className="text-[11px] font-medium text-slate-700">대기 중인 알림이 없습니다</p>
             <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-              숨고 채팅 목록의 미읽음·견적 읽음이 여기에 쌓입니다. 대응·읽음 후 사라집니다.
+              숨고 채팅 목록의 미읽음·견적 읽음만 표시됩니다. 대응되면 목록에서 사라집니다.
             </p>
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-slate-200">
-            <table className="w-full table-fixed border-collapse text-left">
+          <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-contain rounded-lg border border-slate-200">
+            <table className="w-full min-w-[680px] table-fixed border-collapse text-left">
               <colgroup>
-                <col className="w-8" />
+                <col className="w-9" />
+                <col className="w-[72px]" />
+                <col className="w-[148px]" />
                 <col />
-                <col className="w-[52px]" />
-                <col className="w-[118px]" />
+                <col className="w-12" />
+                <col className="w-[132px]" />
               </colgroup>
               <tbody>
                 {items.map((item) => (
