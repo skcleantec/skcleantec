@@ -217,69 +217,84 @@ export function useCrmSoomgoBridge({
     [bridgeManifest, refreshManifest],
   );
 
+  const refreshStatusInFlightRef = useRef<Promise<SoomgoBridgeStatus> | null>(null);
+
   const refreshStatus = useCallback(async (options?: { lite?: boolean }) => {
-    const s = await fetchSoomgoBridgeStatus(bridgeManifest, { lite: options?.lite });
-    setStatus(s);
-    const blocked = isSoomgoBridgeUseBlocked(s, bridgeManifest);
-    const outdatedMsg = soomgoBridgeOutdatedMessage(s, bridgeManifest);
-    if (!blocked) {
-      if (useBlockedRef.current) {
-        useBlockedRef.current = false;
-        outdatedNotifiedRef.current = false;
-        softUpdateNotifiedRef.current = false;
-        watchBlockedRef.current = false;
-        setError(null);
-        notify('숨고 연동 업데이트가 반영되었습니다.');
-        if (pendingSoomgoReconnectRef.current || soomgoBarOpenRef.current) {
-          pendingSoomgoReconnectRef.current = false;
-          window.setTimeout(() => {
-            void openSoomgoRef.current?.();
-          }, 800);
+    if (refreshStatusInFlightRef.current) {
+      return refreshStatusInFlightRef.current;
+    }
+    const run = (async () => {
+      const s = await fetchSoomgoBridgeStatus(bridgeManifest, { lite: options?.lite });
+      setStatus(s);
+      const blocked = isSoomgoBridgeUseBlocked(s, bridgeManifest);
+      const outdatedMsg = soomgoBridgeOutdatedMessage(s, bridgeManifest);
+      if (!blocked) {
+        if (useBlockedRef.current) {
+          useBlockedRef.current = false;
+          outdatedNotifiedRef.current = false;
+          softUpdateNotifiedRef.current = false;
+          watchBlockedRef.current = false;
+          setError(null);
+          notify('숨고 연동 업데이트가 반영되었습니다.');
+          if (pendingSoomgoReconnectRef.current || soomgoBarOpenRef.current) {
+            pendingSoomgoReconnectRef.current = false;
+            window.setTimeout(() => {
+              void openSoomgoRef.current?.();
+            }, 800);
+          }
+        } else {
+          watchBlockedRef.current = false;
+          outdatedNotifiedRef.current = false;
+          setError((prev) =>
+            prev && (prev.includes('API 업데이트') || prev === SOOMGO_BRIDGE_OUTDATED_MESSAGE || prev.includes('새 버전'))
+              ? null
+              : prev,
+          );
         }
-      } else {
-        watchBlockedRef.current = false;
-        outdatedNotifiedRef.current = false;
-        setError((prev) =>
-          prev && (prev.includes('API 업데이트') || prev === SOOMGO_BRIDGE_OUTDATED_MESSAGE || prev.includes('새 버전'))
-            ? null
-            : prev,
-        );
+      }
+      if (isSoomgoBridgeOutdated(s, bridgeManifest) && !outdatedNotifiedRef.current) {
+        const needsInstall = !isSoomgoBridgeAppAtLatest(s, bridgeManifest);
+        outdatedNotifiedRef.current = true;
+        softUpdateNotifiedRef.current = true;
+        if (needsInstall) {
+          useBlockedRef.current = true;
+          watchBlockedRef.current = true;
+          setError(outdatedMsg);
+          notify(outdatedMsg);
+          void triggerBridgeUpdate('install', s);
+        }
+      } else if (
+        isSoomgoAppUpdateAvailable(s, bridgeManifest) &&
+        !softUpdateNotifiedRef.current &&
+        !isSoomgoBridgeOutdated(s, bridgeManifest)
+      ) {
+        softUpdateNotifiedRef.current = true;
+        const softMsg = soomgoBridgeSoftUpdateMessage(s, bridgeManifest);
+        if (softMsg) notify(softMsg);
+        void triggerBridgeUpdate('background', s);
+      }
+      if (s.pendingCallPhone && s.pendingCallAt != null && !blocked) {
+        void handlePendingCall(s);
+      }
+      if (s.chatAlerts?.length && isSoomgoBridgeChatAlertsSupported(s) && !blocked) {
+        void handleChatAlerts(s.chatAlerts);
+      }
+      if (!options?.lite && s.chatInbox?.length && isSoomgoBridgeChatAlertsSupported(s) && !blocked) {
+        onChatAlerts?.(s.chatInbox);
+      }
+      if (!options?.lite && s.chatListSnapshot?.length && isSoomgoBridgeChatAlertsSupported(s) && !blocked) {
+        onChatListSnapshot?.(s.chatListSnapshot);
+      }
+      return s;
+    })();
+    refreshStatusInFlightRef.current = run;
+    try {
+      return await run;
+    } finally {
+      if (refreshStatusInFlightRef.current === run) {
+        refreshStatusInFlightRef.current = null;
       }
     }
-    if (isSoomgoBridgeOutdated(s, bridgeManifest) && !outdatedNotifiedRef.current) {
-      const needsInstall = !isSoomgoBridgeAppAtLatest(s, bridgeManifest);
-      outdatedNotifiedRef.current = true;
-      softUpdateNotifiedRef.current = true;
-      if (needsInstall) {
-        useBlockedRef.current = true;
-        watchBlockedRef.current = true;
-        setError(outdatedMsg);
-        notify(outdatedMsg);
-        void triggerBridgeUpdate('install', s);
-      }
-    } else if (
-      isSoomgoAppUpdateAvailable(s, bridgeManifest) &&
-      !softUpdateNotifiedRef.current &&
-      !isSoomgoBridgeOutdated(s, bridgeManifest)
-    ) {
-      softUpdateNotifiedRef.current = true;
-      const softMsg = soomgoBridgeSoftUpdateMessage(s, bridgeManifest);
-      if (softMsg) notify(softMsg);
-      void triggerBridgeUpdate('background', s);
-    }
-    if (s.pendingCallPhone && s.pendingCallAt != null && !blocked) {
-      void handlePendingCall(s);
-    }
-    if (s.chatAlerts?.length && isSoomgoBridgeChatAlertsSupported(s) && !blocked) {
-      void handleChatAlerts(s.chatAlerts);
-    }
-    if (!options?.lite && s.chatInbox?.length && isSoomgoBridgeChatAlertsSupported(s) && !blocked) {
-      onChatAlerts?.(s.chatInbox);
-    }
-    if (!options?.lite && s.chatListSnapshot?.length && isSoomgoBridgeChatAlertsSupported(s) && !blocked) {
-      onChatListSnapshot?.(s.chatListSnapshot);
-    }
-    return s;
   }, [bridgeManifest, handleChatAlerts, handlePendingCall, notify, onChatAlerts, onChatListSnapshot, triggerBridgeUpdate]);
 
   const ensureChatWatch = useCallback(
@@ -337,11 +352,11 @@ export function useCrmSoomgoBridge({
     const poll = async () => {
       if (cancelled) return;
       const busy = busyActionRef.current;
-      if (busy === 'extract' || busy === 'call') {
+      if (busy === 'extract' || busy === 'call' || busy === 'open') {
         timer = window.setTimeout(poll, 6000);
         return;
       }
-      const s = await refreshStatus({ lite: busy !== 'open' });
+      const s = await refreshStatus({ lite: true });
       if (cancelled) return;
       if (s.inChatRoom && s.bridgeRunning && !isSoomgoBridgeUseBlocked(s, bridgeManifest) && !watchBlockedRef.current) {
         void ensureCallWatch(s);
