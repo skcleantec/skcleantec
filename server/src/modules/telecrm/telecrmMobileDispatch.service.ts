@@ -109,6 +109,13 @@ export function parseTelecrmMobileDispatchBody(body: unknown):
   };
 }
 
+/** PC 통화는 최신 1건만 유효 — 이전 대기 call 제거 (폴링 FIFO 재발신 방지) */
+async function clearPendingCallDispatches(tenantId: string, userId: string): Promise<void> {
+  await prisma.telecrmMobileDispatchPending.deleteMany({
+    where: { ...pendingWhereForUser(tenantId, userId), action: 'call' },
+  });
+}
+
 /** DB에 항상 적재 후 WS 즉시 전달 시도 (멀티 인스턴스·브라우저 WS 분리 대응) */
 export async function enqueueTelecrmMobileDispatch(
   tenantId: string,
@@ -124,6 +131,11 @@ export async function enqueueTelecrmMobileDispatch(
 }> {
   /** ADMIN 포함 — PC에서 통화를 누른 본인 휴대폰 앱만 (업체 전체 브로드캐스트 없음) */
   const broadcastToTenant = false;
+
+  if (parsed.action === 'call') {
+    await clearPendingCallDispatches(tenantId, actorUserId);
+  }
+
   const item: TelecrmMobileDispatchItem = {
     ...parsed,
     id: crypto.randomUUID(),
@@ -151,9 +163,19 @@ export async function enqueueTelecrmMobileDispatch(
     dispatchWsPayload(item, actorUserId, broadcastToTenant),
     tenantId,
   );
+
+  /** WS 즉시 전달 성공 시 DB 대기열에서 제거 — 폴링이 옛 call을 재실행하지 않게 */
+  let queued = true;
+  if (wsDelivered) {
+    await prisma.telecrmMobileDispatchPending.deleteMany({
+      where: { tenantId, id: item.id },
+    });
+    queued = false;
+  }
+
   const telecrmAppsConnected = countTelecrmAppsInTenant(tenantId);
 
-  return { item, wsDelivered, queued: true, broadcastToTenant, telecrmAppsConnected };
+  return { item, wsDelivered, queued, broadcastToTenant, telecrmAppsConnected };
 }
 
 export async function countTelecrmMobileDispatchPending(
@@ -179,10 +201,24 @@ export async function drainTelecrmMobileDispatchQueue(
   });
   if (rows.length === 0) return [];
 
-  const ids = rows.map((row) => row.id);
+  /** call은 배치 중 최신 1건만 — 레거시 큐 잔존 시 옛 번호 재발신 방지 */
+  const callRows = rows.filter((row) => row.action === 'call');
+  const nonCallRows = rows.filter((row) => row.action !== 'call');
+  const latestCall = callRows.length > 0 ? callRows[callRows.length - 1]! : null;
+  const effectiveRows = latestCall ? [...nonCallRows, latestCall] : nonCallRows;
+  effectiveRows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+  const ids = effectiveRows.map((row) => row.id);
   await prisma.telecrmMobileDispatchPending.deleteMany({
     where: { tenantId, id: { in: ids } },
   });
+  /** drain 대상이 아닌 call(구버전)은 제거만 — 다음 폴링에 남지 않게 */
+  const skippedCallIds = callRows.filter((row) => row.id !== latestCall?.id).map((row) => row.id);
+  if (skippedCallIds.length > 0) {
+    await prisma.telecrmMobileDispatchPending.deleteMany({
+      where: { tenantId, id: { in: skippedCallIds } },
+    });
+  }
 
-  return rows.map(rowToItem);
+  return effectiveRows.map(rowToItem);
 }

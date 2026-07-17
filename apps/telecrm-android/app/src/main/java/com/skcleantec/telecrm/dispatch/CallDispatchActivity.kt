@@ -119,7 +119,7 @@ class CallDispatchActivity : AppCompatActivity() {
             return
         }
 
-        TelecrmCallHelper.placeCall(this, phone)
+        TelecrmCallHelper.placeCall(this, phone, inquiryId, customerMatch)
         val token = tokenStore.getToken()
         if (!token.isNullOrBlank()) {
             TelecrmCallHelper.logOutboundCall(

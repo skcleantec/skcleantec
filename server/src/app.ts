@@ -70,6 +70,7 @@ import marketerPermissionsRoutes from './modules/marketer-permissions/marketerPe
 import { telecrmRoutes } from './modules/telecrm/telecrm.routes.js';
 import { getSoomgoBridgeManifest } from './modules/telecrm/soomgoBridgeManifest.js';
 import { getTelecrmAppManifest } from './modules/telecrm/telecrmAppManifest.js';
+import { renderTelecrmAppInstallPageHtml } from './modules/telecrm/telecrmAppInstallPageHtml.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
 import { prisma } from './lib/prisma.js';
 import { isBenignClientAbortError } from './lib/httpClientAbort.js';
@@ -151,6 +152,18 @@ app.get('/api/public/soomgo-bridge/manifest', (_req, res) => {
 app.get('/api/public/telecrm-app/manifest', (_req, res) => {
   res.json(getTelecrmAppManifest());
 });
+
+/** 공개 설치 페이지 — 카카오톡 등 SPA 캐시·라우터 없이 HTML 직접 응답 */
+function sendTelecrmAppInstallPage(req: express.Request, res: express.Response) {
+  const host = req.get('host') ?? '';
+  const proto = req.get('x-forwarded-proto')?.split(',')[0]?.trim() || req.protocol;
+  const pageUrl = `${proto}://${host}/telecrm-app`;
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.type('html').send(renderTelecrmAppInstallPageHtml(getTelecrmAppManifest(), pageUrl));
+}
+app.get('/telecrm-app', sendTelecrmAppInstallPage);
+app.get('/telecrm-app/', sendTelecrmAppInstallPage);
+
 app.use('/api/help', helpRoutes);
 app.use('/api/help/inquiry', helpInquiryPublicRoutes);
 app.use('/api/public/legal', platformLegalPublicRoutes);

@@ -134,7 +134,10 @@ class TelecrmRealtimeService : Service() {
                 apiClient.fetchPendingMobileDispatches(token)
             }
             result.onSuccess { items ->
-                items.forEach { item ->
+                val nonCalls = items.filter { it.action != "call" }
+                val latestCall = items.lastOrNull { it.action == "call" }
+                val toProcess = nonCalls + listOfNotNull(latestCall)
+                toProcess.forEach { item ->
                     TelecrmDispatchRouter.route(
                         this@TelecrmRealtimeService,
                         AppEventBus.DispatchPayload(
