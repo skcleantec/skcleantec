@@ -24,7 +24,7 @@ export function CrmColumn({
   const tone = CRM_ACCENT[accent];
   return (
     <div
-      className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md shadow-slate-200/40 ${className}`}
+      className={`flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md shadow-slate-200/40 ${className}`}
     >
       <div
         className={`shrink-0 border-b border-slate-100/80 bg-gradient-to-r ${tone.header} px-3 py-2`}
@@ -57,6 +57,10 @@ export function CrmShell({
   center,
   right,
   mobile = false,
+  /** 숨고 2분할 — 창 폭에 맞춰 3열 축소 */
+  splitLayout = false,
+  /** 팝업·전체 창 — min-w-[1280px] 대신 w-full (가로 overflow 방지) */
+  fillViewport = false,
 }: {
   header: ReactNode;
   topBar?: ReactNode;
@@ -66,6 +70,8 @@ export function CrmShell({
   right: ReactNode;
   /** Android 앱 WebView — 1열 스택 */
   mobile?: boolean;
+  splitLayout?: boolean;
+  fillViewport?: boolean;
 }) {
   if (mobile) {
     return (
@@ -81,15 +87,19 @@ export function CrmShell({
     );
   }
   return (
-    <div className="flex h-screen min-w-[1280px] flex-col bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-100">
+    <div
+      className={`box-border flex h-full w-full flex-col bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-100 ${
+        splitLayout || fillViewport ? 'min-w-0 max-w-full' : 'min-w-[1280px]'
+      }`}
+    >
       {header}
       {topBar}
-      <div className="flex min-h-0 flex-1 gap-3 p-3">
+      <div className="box-border flex min-h-0 min-w-0 flex-1 gap-3 p-3">
         {toolNav}
-        <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[28%_40%_32%] gap-3">
-          {left}
-          {center}
-          {right}
+        <div className="grid h-full min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,28fr)_minmax(0,40fr)_minmax(0,32fr)] gap-3">
+          <div className="flex h-full min-h-0 min-w-0 flex-col">{left}</div>
+          <div className="flex h-full min-h-0 min-w-0 flex-col">{center}</div>
+          <div className="flex h-full min-h-0 min-w-0 flex-col">{right}</div>
         </div>
       </div>
     </div>

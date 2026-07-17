@@ -113,6 +113,16 @@ export function renderTelecrmAppInstallPageHtml(
       font-size: 0.75rem;
       color: #94a3b8;
     }
+    .block-warn {
+      margin: 1rem 0 0;
+      padding: 0.875rem 1rem;
+      border-radius: 0.75rem;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      font-size: 0.8125rem;
+    }
+    .block-warn strong { display: block; margin-bottom: 0.35rem; }
   </style>
 </head>
 <body>
@@ -131,10 +141,16 @@ export function renderTelecrmAppInstallPageHtml(
       ${installBlock}
       <ol>
         <li>위 버튼을 누르면 APK가 다운로드됩니다.</li>
-        <li>다운로드가 끝나면 파일을 열고 「설치」를 누르세요.</li>
+        <li>다운로드가 끝나면 <strong>「내 파일」</strong> 앱에서 APK를 열고 「설치」를 누르세요. (Chrome에서 바로 열면 차단될 수 있음)</li>
         <li>처음 한 번은 「출처를 알 수 없는 앱」설치를 허용해야 할 수 있습니다.</li>
         <li>이미 앱이 있으면 덮어씌워 설치됩니다. 이후 새 버전은 앱 실행 시 안내됩니다.</li>
       </ol>
+      <div class="block-warn">
+        <strong>삼성 「악성 앱으로 의심 · 제한 해제 불가능」이 뜨면</strong>
+        휴대폰 설정만으로는 풀리지 않는 <em>강제 차단</em>입니다. 사무실 PC + USB 케이블로 설치하세요.
+        PC에서 APK 받기 → 휴대폰 「개발자 옵션 → USB 디버깅」 켜기 → PC에서 <code>adb install -r telecrm-release.apk</code>
+        (상세: 저장소 <code>apps/telecrm-android/scripts/install-via-adb.ps1</code>)
+      </div>
     </div>
     <p class="foot">이 주소(${safePageUrl})는 바뀌지 않습니다. 새 버전이 나와도 같은 링크에서 최신 APK를 받을 수 있습니다.</p>
   </main>

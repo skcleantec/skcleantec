@@ -8,6 +8,7 @@ import { useCrmInquiryEdit } from '../../../hooks/useCrmInquiryEdit';
 import { fetchTelecrmPricingCatalog } from '../../../api/telecrm';
 import { CrmShell } from '../../../components/crm/layout/CrmShell';
 import { CrmIntakePanel, type CrmCustomerMode } from '../../../components/crm/intake/CrmIntakePanel';
+import type { CrmIntakeSavedMeta } from '../../../components/crm/intake/CrmIntakeForm';
 import { CrmScriptPanel } from '../../../components/crm/scripts/CrmScriptPanel';
 import { CrmPricingPanel } from '../../../components/crm/pricing/CrmPricingPanel';
 import { CrmSessionBar } from '../../../components/crm/session/CrmSessionBar';
@@ -59,7 +60,8 @@ import {
 } from '../../../utils/crmConsultationQuoteMap';
 import { linkTelecrmConsultationQuoteInquiry } from '../../../api/telecrmConsultationQuote';
 import type { OrderForm } from '../../../api/orderform';
-import { fitCrmPopupWindow } from '../../../utils/crmSoomgoSplitLayout';
+import { fitCrmPopupWindow, applyTelecrmSoomgoSplitLayout } from '../../../utils/crmSoomgoSplitLayout';
+import { arrangeSoomgoBridgeLayout } from '../../../api/soomgoBridge';
 import { useCrmWorkBrand } from '../../../hooks/useCrmWorkBrand';
 import { CrmWorkBrandBar } from '../../../components/crm/workBrand/CrmWorkBrandBar';
 import {
@@ -103,16 +105,6 @@ export function CrmPage() {
     showSwitcher: showWorkBrandSwitcher,
   } = useCrmWorkBrand();
 
-  const handleWorkBrandSwitch = useCallback(
-    (slug: string) => {
-      switchBrand(slug);
-      setLookupRefreshKey((k) => k + 1);
-      setQuoteLines([]);
-      setBaseEstimateOverrideWon(null);
-    },
-    [switchBrand],
-  );
-
   const [mode, setMode] = useState<CrmCustomerMode>('new');
   const [contactPhone, setContactPhone] = useState('');
   const [safePhone, setSafePhone] = useState('');
@@ -128,6 +120,7 @@ export function CrmPage() {
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
   const [minimumTotalAmount, setMinimumTotalAmount] = useState(0);
   const [baseEstimateOverrideWon, setBaseEstimateOverrideWon] = useState<number | null>(null);
+  const [pricingResetKey, setPricingResetKey] = useState(0);
   const [depositAmount, setDepositAmount] = useState(0);
   const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
   const [lookupRefreshKey, setLookupRefreshKey] = useState(0);
@@ -155,6 +148,36 @@ export function CrmPage() {
   const dispatchNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const draftReadyRef = useRef(false);
   const formSnapshotRef = useRef<CrmIntakeFormSnapshot | null>(null);
+
+  const resetQuotePricingState = useCallback(() => {
+    setQuoteLines([]);
+    setBaseEstimateOverrideWon(null);
+    setPricingResetKey((k) => k + 1);
+  }, []);
+
+  const handleWorkBrandSwitch = useCallback(
+    (slug: string) => {
+      switchBrand(slug);
+      setLookupRefreshKey((k) => k + 1);
+      resetQuotePricingState();
+    },
+    [switchBrand, resetQuotePricingState],
+  );
+
+  const pricingContextPhoneRef = useRef('');
+  useEffect(() => {
+    const digits = outboundPhone.replace(/\D/g, '');
+    if (digits.length >= 8) {
+      if (pricingContextPhoneRef.current && pricingContextPhoneRef.current !== digits) {
+        resetQuotePricingState();
+      }
+      pricingContextPhoneRef.current = digits;
+      return;
+    }
+    if (digits.length === 0) {
+      pricingContextPhoneRef.current = '';
+    }
+  }, [outboundPhone, resetQuotePricingState]);
 
   const {
     settingsTab,
@@ -318,23 +341,27 @@ export function CrmPage() {
     [customerName, intakeKind, persistDraft],
   );
 
-  const handleModeChange = useCallback((next: CrmCustomerMode) => {
-    if (next === 'new') {
-      setFormResetKey((k) => k + 1);
-      setCustomerName('');
-      setPyeong('');
-      setInitialFormDraft({
-        customerName: '',
-        nickname: '',
-        address: '',
-        preferredMoveInCleanYmd: '',
-        requestMemo: '',
-        kind: 'absent',
-        goldDb: false,
-      });
-    }
-    setMode(next);
-  }, []);
+  const handleModeChange = useCallback(
+    (next: CrmCustomerMode) => {
+      if (next === 'new') {
+        resetQuotePricingState();
+        setFormResetKey((k) => k + 1);
+        setCustomerName('');
+        setPyeong('');
+        setInitialFormDraft({
+          customerName: '',
+          nickname: '',
+          address: '',
+          preferredMoveInCleanYmd: '',
+          requestMemo: '',
+          kind: 'absent',
+          goldDb: false,
+        });
+      }
+      setMode(next);
+    },
+    [resetQuotePricingState],
+  );
 
   const showDispatchNotice = useCallback((message: string) => {
     setDispatchNotice(message);
@@ -342,71 +369,90 @@ export function CrmPage() {
     dispatchNoticeTimer.current = setTimeout(() => setDispatchNotice(null), 4000);
   }, []);
 
-  const handleIntakeReset = useCallback(() => {
-    setContactPhone('');
-    setSafePhone('');
-    setContactUnknown(false);
-    setCustomerName('');
-    setPyeong('');
-    setMode('new');
-    setIntakeKind('absent');
-    setFormResetKey((k) => k + 1);
-    setInitialFormDraft({
-      customerName: '',
-      nickname: '',
-      address: '',
-      preferredMoveInCleanYmd: '',
-      requestMemo: '',
-      roomCount: '',
-      bathroomCount: '',
-      balconyCount: '',
-      kind: 'absent',
-      goldDb: false,
-    });
-    setSoomgoImportBanner(null);
-    setSoomgoImportFlashKey(0);
-    clearCrmIntakeDraft();
-    setHasUnsavedDraft(false);
-    formSnapshotRef.current = null;
-    showDispatchNotice('접수란을 초기화했습니다.');
-  }, [showDispatchNotice]);
-
-  const handleSoomgoImport = useCallback((data: SoomgoExtractedChat) => {
-    const split = splitSoomgoPhones(data);
-    if (split.contactPhone) {
-      setContactPhone(split.contactPhone);
+  const resetIntakeFormState = useCallback(
+    (notice?: string | null) => {
+      resetQuotePricingState();
+      setContactPhone('');
+      setSafePhone('');
       setContactUnknown(false);
-    }
-    if (split.safePhone) setSafePhone(split.safePhone);
-    const name = (data.customerName || data.nickname)?.trim() || '';
-    if (name) setCustomerName(name);
-    if (data.pyeong) setPyeong(String(data.pyeong));
-    setMode('new');
-    const preferredYmd = normalizeSoomgoPreferredDate(data.preferredDate);
-    const requestMemo = (data.requestMemo || data.memo)?.trim() || '';
-    const summary = summarizeSoomgoImport(data);
-    setSoomgoImportBanner(summary.lines.join('\n'));
-    setSoomgoImportFlashKey((k) => k + 1);
-    setInitialFormDraft({
-      customerName: name,
-      nickname: name,
-      address: (data.region || data.address)?.trim() || '',
-      preferredMoveInCleanYmd: preferredYmd,
-      requestMemo,
-      roomCount: formatSoomgoCountForCrm(data.roomCount),
-      bathroomCount: formatSoomgoCountForCrm(data.bathroomCount),
-      balconyCount: formatSoomgoCountForCrm(data.balconyCount),
-      kind: 'absent',
-      goldDb: false,
-    });
-  }, []);
+      setCustomerName('');
+      setPyeong('');
+      setMode('new');
+      setIntakeKind('absent');
+      setFormResetKey((k) => k + 1);
+      setInitialFormDraft({
+        customerName: '',
+        nickname: '',
+        address: '',
+        preferredMoveInCleanYmd: '',
+        requestMemo: '',
+        roomCount: '',
+        bathroomCount: '',
+        balconyCount: '',
+        kind: 'absent',
+        goldDb: false,
+      });
+      setSoomgoImportBanner(null);
+      setSoomgoImportFlashKey(0);
+      clearCrmIntakeDraft();
+      setHasUnsavedDraft(false);
+      formSnapshotRef.current = null;
+      pricingContextPhoneRef.current = '';
+      if (notice) showDispatchNotice(notice);
+    },
+    [resetQuotePricingState, showDispatchNotice],
+  );
+
+  const handleIntakeReset = useCallback(() => {
+    resetIntakeFormState('접수란을 초기화했습니다.');
+  }, [resetIntakeFormState]);
+
+  const handleSoomgoImport = useCallback(
+    (data: SoomgoExtractedChat) => {
+      resetQuotePricingState();
+      const split = splitSoomgoPhones(data);
+      const name = (data.customerName || data.nickname)?.trim() || '';
+      const preferredYmd = normalizeSoomgoPreferredDate(data.preferredDate);
+      const requestMemo = (data.requestMemo || data.memo)?.trim() || '';
+      const summary = summarizeSoomgoImport(data);
+
+      setContactPhone(split.contactPhone ?? '');
+      setSafePhone(split.safePhone ?? '');
+      setContactUnknown(false);
+      setCustomerName(name);
+      setPyeong(data.pyeong ? String(data.pyeong) : '');
+      setMode('new');
+      setIntakeKind('absent');
+      setSoomgoImportBanner(summary.lines.join('\n'));
+      setSoomgoImportFlashKey((k) => k + 1);
+      setInitialFormDraft({
+        customerName: name,
+        nickname: name,
+        address: (data.region || data.address)?.trim() || '',
+        preferredMoveInCleanYmd: preferredYmd,
+        requestMemo,
+        roomCount: formatSoomgoCountForCrm(data.roomCount),
+        bathroomCount: formatSoomgoCountForCrm(data.bathroomCount),
+        balconyCount: formatSoomgoCountForCrm(data.balconyCount),
+        kind: 'absent',
+        goldDb: false,
+      });
+    },
+    [resetQuotePricingState],
+  );
 
   const soomgoBridge = useCrmSoomgoBridge({
     onImport: handleSoomgoImport,
     bridgeManifest: soomgoBridgeManifest,
     onImportPhone: (phoneValue) => {
-      if (isCrmSafePhone(phoneValue)) setSafePhone(phoneValue);
-      else setContactPhone(phoneValue);
+      if (isCrmSafePhone(phoneValue)) {
+        setSafePhone(phoneValue);
+        setContactPhone('');
+      } else {
+        setContactPhone(phoneValue);
+        setSafePhone('');
+      }
+      setContactUnknown(false);
     },
     onDispatchNotice: showDispatchNotice,
     onImportNotice: (data) =>
@@ -440,12 +486,20 @@ export function CrmPage() {
     else if (isPopup) fitCrmPopupWindow();
   }, [isPopup, soomgoBarOpen, setSoomgoBarOpen, openSoomgo]);
 
-  const handleIntakeSaved = useCallback(() => {
-    clearCrmIntakeDraft();
-    setHasUnsavedDraft(false);
-    setLookupRefreshKey((k) => k + 1);
-    setStatsRefreshKey((k) => k + 1);
-  }, []);
+  const handleIntakeSaved = useCallback(
+    (meta?: CrmIntakeSavedMeta) => {
+      clearCrmIntakeDraft();
+      setHasUnsavedDraft(false);
+      setLookupRefreshKey((k) => k + 1);
+      setStatsRefreshKey((k) => k + 1);
+      if (!meta?.freshStart) return;
+      resetIntakeFormState(null);
+      if (soomgoBarOpen) {
+        void applyTelecrmSoomgoSplitLayout(arrangeSoomgoBridgeLayout, { resizeCrm: isPopup });
+      }
+    },
+    [isPopup, resetIntakeFormState, soomgoBarOpen],
+  );
 
   const pyeongNum = parseFloat(pyeong.replace(/,/g, ''));
   const estimateWon = useMemo(() => {
@@ -507,10 +561,9 @@ export function CrmPage() {
   }, [pendingQuote, dismissPendingQuote, pricePerPyeong, minimumTotalAmount]);
 
   const handleStartFreshQuote = useCallback(async () => {
-    setQuoteLines([]);
-    setBaseEstimateOverrideWon(null);
+    resetQuotePricingState();
     await startFreshQuote();
-  }, [startFreshQuote]);
+  }, [resetQuotePricingState, startFreshQuote]);
 
   const canFinalizeQuoteHold =
     (permissions.me?.role === 'ADMIN' || permissions.has('followup.edit')) &&
@@ -585,6 +638,7 @@ export function CrmPage() {
 
   const applyFollowupToCrm = useCallback(
     (snapshot: CrmFollowupApplySnapshot, opts?: { closeDrawer?: boolean }) => {
+      resetQuotePricingState();
       setMode('existing');
       setContactPhone(snapshot.contactPhone);
       setSafePhone(snapshot.safePhone);
@@ -612,7 +666,7 @@ export function CrmPage() {
       showDispatchNotice('부재·보류 정보를 CRM 접수란으로 가져왔습니다.');
       if (opts?.closeDrawer !== false) closePanel();
     },
-    [followupImportKey, closePanel, showDispatchNotice],
+    [followupImportKey, closePanel, resetQuotePricingState, showDispatchNotice],
   );
 
   const handleApplyFollowupItem = useCallback(
@@ -761,9 +815,17 @@ export function CrmPage() {
         </div>
       }
     >
-      <div className={isMobileApp ? 'min-w-0 w-full' : 'min-w-[1280px]'}>
+      <div
+        className={
+          isMobileApp
+            ? 'box-border h-full min-w-0 w-full max-w-full'
+            : 'box-border h-screen min-w-0 w-full max-w-full overflow-hidden'
+        }
+      >
         <CrmShell
           mobile={isMobileApp}
+          fillViewport={!isMobileApp}
+          splitLayout={soomgoBarOpen && !isMobileApp}
           topBar={
             !isMobileApp || showWorkBrandSwitcher ? (
               <>
@@ -940,7 +1002,7 @@ export function CrmPage() {
             ) : undefined
           }
           left={
-            <div className="flex min-h-0 flex-col overflow-y-auto">
+            <div className="flex h-full min-h-0 flex-col overflow-y-auto">
               <CrmIntakePanel
                 mode={mode}
                 onModeChange={handleModeChange}
@@ -970,6 +1032,7 @@ export function CrmPage() {
                 soomgoImportBanner={soomgoImportBanner}
                 soomgoImportFlashKey={soomgoImportFlashKey}
                 onIntakeReset={handleIntakeReset}
+                onPricingReset={resetQuotePricingState}
                 followupImport={followupImport}
                 onSelectFollowup={canFollowupEdit ? handleSelectFollowupFromLookup : undefined}
               />
@@ -1019,6 +1082,7 @@ export function CrmPage() {
               canSendSoomgoQuote={Boolean(activeOperatingCompanyId)}
               onSendSoomgoQuote={() => void handleSendSoomgoQuote()}
               soomgoQuoteSending={soomgoQuoteSending}
+              pricingResetKey={pricingResetKey}
             />
           }
         />

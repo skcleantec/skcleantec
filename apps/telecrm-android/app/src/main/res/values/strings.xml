@@ -132,7 +132,7 @@
     <string name="open_install_page">설치 페이지 열기</string>
     <string name="update_install_help">설치가 차단될 때</string>
     <string name="update_install_blocked_title">악성 앱으로 차단될 때</string>
-    <string name="update_install_blocked_message">삼성·Play 프로tect가 사내 sideload APK를 차단할 수 있습니다.\n\n1. Play 스토어 → 프로필 → Play 프로tect → 톱니 → 「Play 프로tect로 앱 검사」 끄기\n2. 설정 → 보안 및 개인정보 → 자동 차단(Auto Blocker) → 앱 설치 검사 끄기\n3. 「설치 페이지 열기」로 브라우저에서 APK 받기 → 「내 파일」앱으로 APK 열기 → 설치\n\n회사 사무실폰만 위 설정을 잠시 끈 뒤 설치하세요.</string>
+    <string name="update_install_blocked_message">삼성에서 「악성 앱으로 의심 · 제한 해제 불가능」이 뜨면, 휴대폰 설정만으로는 설치할 수 없습니다.\n\n【PC + USB (권장)】\n1. PC에서 https://www.cbiseo.com/telecrm-app 으로 APK 다운로드\n2. 휴대폰: 설정 → 휴대전화 정보 → 소프트웨어 정보 → 빌드번호 7번 탭 → 개발자 옵션 → USB 디버깅 ON\n3. USB 연결 → PC에서 adb install -r 로 설치\n(사무실 PC 스크립트: apps/telecrm-android/scripts/install-via-adb.ps1)\n\n【설정으로 풀리는 경우만】\nPlay 프로tect 검사 끄기, 자동 차단 끄기 후 「내 파일」로 APK 설치</string>
 
 </resources>
 

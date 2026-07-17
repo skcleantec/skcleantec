@@ -14,7 +14,7 @@ import {
   findInquiryIdForDialPhone,
   resolveTelecrmDispatchInquiryId,
 } from '../../../utils/telecrmDispatchInquiry';
-import { CrmIntakeForm } from './CrmIntakeForm';
+import { CrmIntakeForm, type CrmIntakeSavedMeta } from './CrmIntakeForm';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
 import { CrmCallMemoSection } from '../memo/CrmCallMemoPanel';
@@ -141,6 +141,7 @@ export function CrmIntakePanel({
   operatingCompanyId = null,
   followupImport = null,
   onSelectFollowup,
+  onPricingReset,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
@@ -155,7 +156,7 @@ export function CrmIntakePanel({
   onPyeongChange: (v: string) => void;
   onOpenInquiryEdit: (inquiryId: string) => void;
   lookupRefreshKey: number;
-  onSaved: () => void;
+  onSaved: (meta?: CrmIntakeSavedMeta) => void;
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
   onFormChange?: (snapshot: CrmIntakeFormSnapshot) => void;
   skipAutoFillPhone?: string | null;
@@ -172,6 +173,7 @@ export function CrmIntakePanel({
   operatingCompanyId?: string | null;
   followupImport?: { key: number; snapshot: CrmFollowupApplySnapshot } | null;
   onSelectFollowup?: (row: TelecrmCustomerLookupDto['followups'][number]) => void;
+  onPricingReset?: () => void;
 }) {
   const outboundPhone = resolveCrmOutboundPhone(contactPhone, safePhone);
   const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
@@ -256,10 +258,17 @@ export function CrmIntakePanel({
     [formSeed, contactPhone, safePhone, pyeong],
   );
 
+  useEffect(() => {
+    if (soomgoImportFlashKey <= 0) return;
+    setFormSeed({ customerName: '', nickname: '', phone: '', memo: '', address: '' });
+    autoFilledKeyRef.current = null;
+  }, [soomgoImportFlashKey]);
+
   const applyCustomer = (
     customer: TelecrmCustomerLookupDto['customer'],
     latestInquiry?: TelecrmInquiryBriefDto,
   ) => {
+    onPricingReset?.();
     setFormSeed({
       customerName: customer.name ?? '',
       nickname: customer.nickname ?? '',
@@ -268,9 +277,9 @@ export function CrmIntakePanel({
       address: customer.lastAddress ?? latestInquiry?.address ?? '',
     });
     onContactPhoneChange(customer.phone);
+    onSafePhoneChange('');
     onCustomerNameChange(customer.name ?? '');
-    const nextPyeong = formatPyeongValue(latestInquiry?.areaPyeong);
-    if (nextPyeong) onPyeongChange(nextPyeong);
+    onPyeongChange(formatPyeongValue(latestInquiry?.areaPyeong));
   };
 
   useEffect(() => {
@@ -282,15 +291,23 @@ export function CrmIntakePanel({
   }, [mode, loading, data, searchMode]);
 
   const handleSelectCandidate = (row: TelecrmCustomerCandidateDto) => {
+    onPricingReset?.();
     autoFilledKeyRef.current = null;
     onContactPhoneChange(row.customerPhone);
+    onSafePhoneChange('');
     setSearchMode('phone');
     void resolveByPhone(row.customerPhone);
   };
 
-  const handleSaved = (result: CrmIntakeSubmitResult) => {
-    if (result.kind === 'inquiry') setLastInquiryId(result.inquiryId);
-    onSaved();
+  const handleSaved = (result: CrmIntakeSubmitResult, meta?: CrmIntakeSavedMeta) => {
+    if (meta?.freshStart) {
+      setLastInquiryId(null);
+      autoFilledKeyRef.current = null;
+      setFormSeed({ customerName: '', nickname: '', phone: '', memo: '', address: '' });
+    } else if (result.kind === 'inquiry') {
+      setLastInquiryId(result.inquiryId);
+    }
+    onSaved(meta);
     if (mode === 'existing') refresh();
     const token = getToken();
     if (!token) return;

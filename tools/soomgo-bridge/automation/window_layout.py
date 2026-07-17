@@ -36,9 +36,12 @@ def arrange_soomgo_right_half(driver, bounds: dict[str, Any] | None = None) -> b
             left, top, width, height = 0, 0, 1920, 1080
 
         crm_w, soomgo_w = _split_widths(bounds, width)
-        x = left + crm_w
+        if bounds and bounds.get('soomgoLeft') is not None:
+            x = int(bounds['soomgoLeft'])
+        else:
+            x = left + crm_w
         y = top
-        w = max(SOOMGO_SPLIT_MIN_WIDTH, soomgo_w)
+        w = max(SOOMGO_SPLIT_MIN_WIDTH, int(bounds.get('soomgoWidth', soomgo_w) if bounds else soomgo_w))
         h = max(480, height)
         driver.set_window_rect(x=x, y=y, width=w, height=h)
         return True
