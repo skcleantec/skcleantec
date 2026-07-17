@@ -32,6 +32,17 @@ function CrmIconPin({ className, filled }: { className?: string; filled?: boolea
   );
 }
 
+function SoomgoHiredMeBadge() {
+  return (
+    <span
+      title="고객이 나를 고용함 (숨고 「내 고용」)"
+      className="inline-flex shrink-0 items-center rounded border border-emerald-500/70 bg-emerald-50 px-0.5 py-px text-[8px] font-bold leading-none text-emerald-800"
+    >
+      고용
+    </span>
+  );
+}
+
 function InboxOneLineRow({
   item,
   busy,
@@ -47,7 +58,7 @@ function InboxOneLineRow({
 }) {
   const pinned = isSoomgoInboxPinned(item);
   const highlighted = !pinned && item.highlighted === true;
-  const { displayName } = formatSoomgoInboxCustomerName(item.customerName);
+  const { displayName, hiredMe } = formatSoomgoInboxCustomerName(item.customerName, item.hiredMe);
   const timeLabel = formatSoomgoInboxTime(item.capturedAt, item.listTimeLabel);
   const needsAction = (item.unreadCount ?? 0) > 0 || item.previewKind === 'quote_read';
   const chatPreview = item.messagePreview?.trim() || item.previewText;
@@ -85,12 +96,13 @@ function InboxOneLineRow({
         </button>
       </td>
       <td className="w-[88px] shrink-0 px-1 py-1 align-middle">
-        <div className="flex min-w-0 items-center gap-1">
+        <div className="flex min-w-0 items-center gap-0.5">
           {needsAction ? (
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" aria-hidden />
           ) : (
             <span className="h-1.5 w-1.5 shrink-0" aria-hidden />
           )}
+          {hiredMe ? <SoomgoHiredMeBadge /> : null}
           <span className="truncate text-[11px] font-semibold text-slate-900" title={displayName}>
             {displayName}
           </span>

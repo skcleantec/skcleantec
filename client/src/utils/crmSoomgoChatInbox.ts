@@ -5,7 +5,7 @@ import {
   sanitizeSoomgoMessagePreview,
   type SoomgoInboxMessageRule,
 } from '@shared/soomgoChatPreview';
-import { formatSoomgoInboxDisplayName, parseSoomgoChatRow } from '@shared/soomgoChatRowParse';
+import { formatSoomgoInboxDisplayName, parseSoomgoChatRow, splitSoomgoHiredMeName } from '@shared/soomgoChatRowParse';
 
 const MAX_ITEMS = 200;
 const RETENTION_MS = 72 * 60 * 60 * 1000;
@@ -95,9 +95,11 @@ function normalizeItem(
   if (row.parseQuality === 'dom') {
     const messagePreview = sanitizeSoomgoMessagePreview(row.messagePreview) || null;
     const previewText = messagePreview || '(채팅 미리보기)';
+    const hiredSplit = splitSoomgoHiredMeName(row.customerName);
     return {
       ...base,
-      customerName: row.customerName?.trim() || null,
+      customerName: hiredSplit.customerName,
+      hiredMe: row.hiredMe === true || hiredSplit.hiredMe || undefined,
       previewText,
       messagePreview,
       parseQuality: 'dom',
@@ -123,6 +125,7 @@ function normalizeItem(
   return {
     ...base,
     customerName: parsed.customerName,
+    hiredMe: row.hiredMe ?? parsed.hiredMe,
     previewText: parsed.previewText,
     messagePreview: parsed.messagePreview,
     parseQuality: parsed.parseQuality,
@@ -274,18 +277,32 @@ export function unreadSoomgoInboxCount(items: CrmSoomgoInboxItem[]): number {
   return soomgoInboxPendingCount(items);
 }
 
-/** 고객명 표시 — 1줄 이름만 */
-export function formatSoomgoInboxCustomerName(raw: string | null): {
+/** 고객명 표시 — 1줄 이름만, 「내 고용」 접두어 분리 */
+export function formatSoomgoInboxCustomerName(
+  raw: string | null,
+  hiredMeHint?: boolean,
+): {
   displayName: string;
   serviceLabel: string | null;
+  hiredMe: boolean;
 } {
+  const hiredSplit = splitSoomgoHiredMeName(raw);
   const parsed = parseSoomgoChatRow({ customerName: raw, rawBlock: raw });
-  if (parsed.customerName) {
-    return { displayName: parsed.customerName, serviceLabel: null };
+  const name = hiredSplit.customerName ?? parsed.customerName;
+  if (name) {
+    return {
+      displayName: name,
+      serviceLabel: null,
+      hiredMe: hiredMeHint === true || hiredSplit.hiredMe || parsed.hiredMe === true,
+    };
   }
   const text = (raw || '').replace(/\s+/g, ' ').trim();
-  if (!text) return { displayName: '(이름 미확인)', serviceLabel: null };
-  return { displayName: formatSoomgoInboxDisplayName({ customerName: pickNameFromMerged(text) }), serviceLabel: null };
+  if (!text) return { displayName: '(이름 미확인)', serviceLabel: null, hiredMe: false };
+  return {
+    displayName: formatSoomgoInboxDisplayName({ customerName: pickNameFromMerged(text) }),
+    serviceLabel: null,
+    hiredMe: hiredMeHint === true || hiredSplit.hiredMe,
+  };
 }
 
 function pickNameFromMerged(text: string): string | null {

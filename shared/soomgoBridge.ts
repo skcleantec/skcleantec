@@ -128,6 +128,8 @@ export type SoomgoChatAlert = {
   id: string;
   chatId: string;
   customerName: string | null;
+  /** 숨고 「내 고용」 — 고객이 프로를 고용한 상태 */
+  hiredMe?: boolean;
   /** 채팅 목록 2번째 줄 — 종류·지역 (예: 이사/입주 청소업체 • 서울 …) */
   serviceRegion?: string | null;
   /** 목록 UI·레거시 호환 표시 텍스트 */
@@ -147,6 +149,7 @@ export type SoomgoChatAlert = {
 export type SoomgoChatListSnapshotRow = {
   chatId: string;
   customerName: string | null;
+  hiredMe?: boolean;
   serviceRegion?: string | null;
   previewText: string;
   messagePreview?: string | null;

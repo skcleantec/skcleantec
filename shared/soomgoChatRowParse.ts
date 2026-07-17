@@ -23,6 +23,8 @@ export type SoomgoChatRowParseInput = {
 
 export type SoomgoChatRowParsed = {
   customerName: string | null;
+  /** 숨고 채팅 목록 「내 고용」 — 고객이 프로를 고용한 상태 */
+  hiredMe?: boolean;
   serviceRegion: string | null;
   messagePreview: string | null;
   previewText: string;
@@ -53,6 +55,8 @@ const ADDRESS_HINT =
   /(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|[시군구읍면])/;
 const ADMIN_UNIT_END = /(?:\d+동|[가-힣]{1,5}동|[가-힣]{1,5}읍|[가-힣]{1,5}면|[가-힣]{1,5}리|[가-힣]{1,5}가)$/;
 const INVALID_NAME = /^(고객|익명|상대방)$/;
+/** 숨고 목록 1줄 앞 — 「내 고용」 버튼 텍스트가 이름과 붙어 오는 경우 */
+const HIRED_ME_PREFIX = /^내\s*고용/;
 
 function norm(s: string): string {
   return s.replace(/\s+/g, ' ').trim();
@@ -171,6 +175,27 @@ function pickNameOnly(line: string): string | null {
   return null;
 }
 
+/** 「내 고용」 접두어 분리 — innerText에 버튼+이름이 붙은 경우 */
+export function splitSoomgoHiredMeName(raw: string | null | undefined): {
+  customerName: string | null;
+  hiredMe: boolean;
+} {
+  const t = stripDecor(raw ?? '');
+  if (!t) return { customerName: null, hiredMe: false };
+  if (!HIRED_ME_PREFIX.test(t)) {
+    return {
+      customerName: pickNameOnly(t) ?? (isNameOnly(t) ? t : null),
+      hiredMe: false,
+    };
+  }
+  const rest = stripDecor(t.replace(HIRED_ME_PREFIX, ''));
+  if (!rest) return { customerName: null, hiredMe: true };
+  const name =
+    pickNameOnly(rest) ??
+    (isNameOnly(rest) ? rest : /^[가-힣]{2,6}$/.test(rest) ? rest : null);
+  return { customerName: name, hiredMe: true };
+}
+
 /** rawLines·previewText·한 줄 block → 분해 */
 function resolveRawBlock(input: SoomgoChatRowParseInput): string | null {
   if (input.rawBlock?.trim()) return norm(input.rawBlock);
@@ -257,8 +282,12 @@ export function parseSoomgoChatRow(input: SoomgoChatRowParseInput): SoomgoChatRo
   const previewText = messagePreview || '(채팅 미리보기)';
   const previewKind = classifyPreviewKind(messagePreview || '');
 
+  const hiredSplit = splitSoomgoHiredMeName(customerName);
+  customerName = hiredSplit.customerName ?? customerName;
+
   return {
     customerName,
+    hiredMe: hiredSplit.hiredMe || undefined,
     serviceRegion: null,
     messagePreview,
     previewText,

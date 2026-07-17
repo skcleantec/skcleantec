@@ -74,6 +74,17 @@ if (!window.__soomgoBridgeChatListWatch) {
       if (/^\\d{5,12}$/.test(s)) return true;
       return false;
     }
+    function splitHiredMeName(raw) {
+      var t = stripDecor(raw);
+      if (!t) return { name: null, hiredMe: false };
+      if (!/^내\\s*고용/.test(t)) {
+        return { name: isNameText(t) ? t : (t.length <= 12 ? t : null), hiredMe: false };
+      }
+      var rest = stripDecor(t.replace(/^내\\s*고용/, ''));
+      if (!rest) return { name: null, hiredMe: true };
+      var nm = /^[가-힣]{2,6}$/.test(rest) ? rest : (rest.length <= 8 ? rest : null);
+      return { name: nm, hiredMe: true };
+    }
     function readPreviewFromEl(el) {
       if (!el) return { text: '', time: null };
       var clone = el.cloneNode(true);
@@ -140,13 +151,16 @@ if (!window.__soomgoBridgeChatListWatch) {
     var block = findThreeLineBlock(anchorEl);
     if (!block) return null;
 
-    var name = stripDecor(block.lineTexts[0]);
-    if (!isNameText(name)) {
+    var nameLine = stripDecor(block.lineTexts[0]);
+    var hiredSplit = splitHiredMeName(nameLine);
+    var name = hiredSplit.name;
+    if (!name && !isNameText(nameLine)) {
       var picked = stripDecor(block.lineTexts[0]);
       if (!picked || isRegionLine(picked)) return null;
       name = picked.length <= 16 ? picked : null;
     }
     if (!name) return null;
+    var hiredMe = hiredSplit.hiredMe;
 
     var messageEl = null;
     var messageRaw = '';
@@ -172,6 +186,7 @@ if (!window.__soomgoBridgeChatListWatch) {
 
     return {
       customerName: name,
+      hiredMe: hiredMe,
       serviceRegion: null,
       messagePreview: messagePreview || null,
       parseQuality: 'dom',
@@ -456,6 +471,7 @@ if (!window.__soomgoBridgeChatListWatch) {
       out.push({
         chatId: chatId,
         customerName: parsed.customerName,
+        hiredMe: parsed.hiredMe === true,
         serviceRegion: parsed.serviceRegion,
         previewText: previewText.slice(0, 500),
         messagePreview: messagePreview ? messagePreview.slice(0, 500) : null,
@@ -651,6 +667,7 @@ class ChatListWatcher:
             'id': str(uuid.uuid4()),
             'chatId': chat_id,
             'customerName': (row.get('customerName') or None),
+            'hiredMe': bool(row.get('hiredMe')),
             'serviceRegion': (row.get('serviceRegion') or None),
             'previewText': str(row.get('previewText') or '').strip() or '(내용 없음)',
             'messagePreview': (str(row.get('messagePreview') or '').strip() or None),
@@ -668,6 +685,7 @@ class ChatListWatcher:
         return {
             'chatId': chat_id,
             'customerName': (row.get('customerName') or None),
+            'hiredMe': bool(row.get('hiredMe')),
             'serviceRegion': (row.get('serviceRegion') or None),
             'previewText': str(row.get('previewText') or '').strip() or '(내용 없음)',
             'messagePreview': (str(row.get('messagePreview') or '').strip() or None),
