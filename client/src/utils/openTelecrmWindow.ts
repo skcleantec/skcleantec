@@ -1,7 +1,7 @@
 import { CRM_LAYOUT_MIN_WIDTH, readSoomgoSplitScreenBounds } from './crmSoomgoSplitLayout';
 
-/** 레거시 `sk-telecrm` 빈(data:,) 창 재사용 방지 — 2026-07 */
-const TELECRM_POPUP_NAME = 'cbiseo-telecrm';
+/** 레거시 named target — `window.open('', name)` 시 data:, 창이 생김. 이름 지정 오픈 금지 */
+const LEGACY_TELECRM_POPUP_NAME = 'sk-telecrm';
 
 let telecrmPopupRef: Window | null = null;
 let openingTelecrm = false;
@@ -31,6 +31,37 @@ function ensureTelecrmPopupUrl(win: Window, url: string): void {
   navigate();
   window.setTimeout(navigate, 50);
   window.setTimeout(navigate, 200);
+  window.setTimeout(navigate, 600);
+}
+
+function closePopupRef(ref: Window | null): void {
+  if (!ref || ref.closed) return;
+  try {
+    ref.close();
+  } catch {
+    /* ignore */
+  }
+}
+
+function openFreshTelecrmPopup(url: string, features: string): Window | null {
+  // named target 재사용(data:,·sk-telecrm) 방지 — 항상 _blank
+  const win = window.open(url, '_blank', features);
+  if (!win || win.closed) return null;
+
+  try {
+    if (isStalePopupUrl(win.location.href)) {
+      closePopupRef(win);
+      const retry = window.open(url, '_blank', features);
+      if (!retry || retry.closed) return null;
+      ensureTelecrmPopupUrl(retry, url);
+      return retry;
+    }
+  } catch {
+    /* cross-origin during load */
+  }
+
+  ensureTelecrmPopupUrl(win, url);
+  return win;
 }
 
 /** CRM 팝업(`/admin/crm?popup=1`) 마운트 시 호출 — 재오픈 시 기존 창 포커스용 */
@@ -39,11 +70,9 @@ export function registerTelecrmPopupWindow(): void {
   if (new URLSearchParams(window.location.search).get('popup') !== '1') return;
   telecrmPopupRef = window;
   try {
-    if (window.name !== TELECRM_POPUP_NAME) {
-      window.name = TELECRM_POPUP_NAME;
-    }
+    window.name = '';
   } catch {
-    /* name assignment blocked */
+    /* ignore */
   }
 }
 
@@ -67,23 +96,18 @@ export function openTelecrmWindow(): boolean {
           return true;
         }
       } catch {
-        /* cross-origin during load — fall through to reopen */
+        /* cross-origin during load */
       }
-      try {
-        telecrmPopupRef.close();
-      } catch {
-        /* ignore */
-      }
+      closePopupRef(telecrmPopupRef);
       telecrmPopupRef = null;
     }
 
-    const win = window.open(url, TELECRM_POPUP_NAME, features);
-    if (!win || win.closed) {
+    const win = openFreshTelecrmPopup(url, features);
+    if (!win) {
       return false;
     }
 
     telecrmPopupRef = win;
-    ensureTelecrmPopupUrl(win, url);
 
     try {
       win.focus();
@@ -97,3 +121,6 @@ export function openTelecrmWindow(): boolean {
     }, 400);
   }
 }
+
+/** 레거시 sk-telecrm data:, 창 — 사용자가 수동으로 닫을 때까지 남을 수 있음 */
+export const LEGACY_TELECRM_WINDOW_NAME = LEGACY_TELECRM_POPUP_NAME;

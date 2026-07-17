@@ -7,6 +7,7 @@ import {
   isSoomgoAppOutdated,
   isSoomgoAppUpdateAvailable,
   isSoomgoBridgeApiOutdated,
+  isSoomgoBridgeAppAtLatest,
   isSoomgoBridgeCrmManifestPassthroughSupported,
   isSoomgoBridgeUseBlocked,
 } from '@shared/soomgoBridge';
@@ -119,6 +120,7 @@ export function isSoomgoBridgeOutdated(
 export {
   isSoomgoAppUpdateAvailable,
   isSoomgoBridgeApiOutdated,
+  isSoomgoBridgeAppAtLatest,
   isSoomgoBridgeCrmManifestPassthroughSupported,
   isSoomgoBridgeUseBlocked,
 };
@@ -144,6 +146,12 @@ export async function installSoomgoBridgeFromCrmManifest(
   const latest = manifest?.latestVersion?.trim();
   if (!url || !latest) {
     throw new Error('설치 파일 URL을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  }
+  if (
+    isSoomgoBridgeAppAtLatest(status, manifest) &&
+    !isSoomgoBridgeApiOutdated(status, manifest)
+  ) {
+    return 'skipped';
   }
   if (!isSoomgoBridgeCrmManifestPassthroughSupported(status)) {
     openSoomgoBridgeInstaller(manifest);

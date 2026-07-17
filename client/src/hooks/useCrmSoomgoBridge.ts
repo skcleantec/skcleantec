@@ -14,6 +14,7 @@ import {
   isSoomgoBridgeOutdated,
   isSoomgoBridgeReachable,
   isSoomgoAppUpdateAvailable,
+  isSoomgoBridgeAppAtLatest,
   isSoomgoBridgeUseBlocked,
   isSoomgoBridgeCrmManifestPassthroughSupported,
   installSoomgoBridgeFromCrmManifest,
@@ -165,6 +166,13 @@ export function useCrmSoomgoBridge({
 
   const triggerBridgeUpdate = useCallback(
     (mode: 'prompt' | 'background' | 'install', statusForGate?: SoomgoBridgeStatus | null) => {
+      if (
+        statusForGate &&
+        isSoomgoBridgeAppAtLatest(statusForGate, bridgeManifest) &&
+        !isSoomgoBridgeOutdated(statusForGate, bridgeManifest)
+      ) {
+        return;
+      }
       if (statusForGate && !isSoomgoBridgeCrmManifestPassthroughSupported(statusForGate)) {
         return;
       }
@@ -207,13 +215,16 @@ export function useCrmSoomgoBridge({
       }
     }
     if (isSoomgoBridgeOutdated(s, bridgeManifest) && !outdatedNotifiedRef.current) {
+      const needsInstall = !isSoomgoBridgeAppAtLatest(s, bridgeManifest);
       outdatedNotifiedRef.current = true;
       softUpdateNotifiedRef.current = true;
-      useBlockedRef.current = true;
-      watchBlockedRef.current = true;
-      setError(outdatedMsg);
-      notify(outdatedMsg);
-      void triggerBridgeUpdate('install', s);
+      if (needsInstall) {
+        useBlockedRef.current = true;
+        watchBlockedRef.current = true;
+        setError(outdatedMsg);
+        notify(outdatedMsg);
+        void triggerBridgeUpdate('install', s);
+      }
     } else if (
       isSoomgoAppUpdateAvailable(s, bridgeManifest) &&
       !softUpdateNotifiedRef.current &&
@@ -321,6 +332,12 @@ export function useCrmSoomgoBridge({
         throw new Error(SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE);
       }
       if (isSoomgoBridgeUseBlocked(current, bridgeManifest)) {
+        if (
+          isSoomgoBridgeAppAtLatest(current, bridgeManifest) &&
+          !isSoomgoBridgeOutdated(current, bridgeManifest)
+        ) {
+          /* stale installing 등 — 숨고 연동 계속 */
+        } else {
         const outdatedMsg = soomgoBridgeOutdatedMessage(current, bridgeManifest);
         pendingSoomgoReconnectRef.current = true;
         let manifest = bridgeManifest;
@@ -337,6 +354,7 @@ export function useCrmSoomgoBridge({
           );
         }
         throw new Error(outdatedMsg);
+        }
       }
       pendingSoomgoReconnectRef.current = false;
       if (isPopup) arrangeCrmPopupLeftHalf();
@@ -386,6 +404,10 @@ export function useCrmSoomgoBridge({
       }
       const current = await refreshStatus({ lite: true });
       const via = await installSoomgoBridgeFromCrmManifest(mode, manifest, current);
+      if (via === 'skipped') {
+        notify('이미 최신 버전입니다.');
+        return;
+      }
       if (via === 'browser') {
         const latest = manifest?.latestVersion?.trim();
         notify(
