@@ -172,7 +172,9 @@ export async function fetchMyOperatingCompanies(
       name: row.name,
       slug: row.slug,
       displayName: row.displayName ?? row.name,
-      isPrimary: row.isPrimary ?? row.isDefault ?? false,
+      isPrimary: data.isAdmin
+        ? Boolean(row.isPrimary ?? row.isDefault)
+        : Boolean(row.isPrimary),
       isActive: row.isActive,
       isDefault: row.isDefault,
       config: row.config,

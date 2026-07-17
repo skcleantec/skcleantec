@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 
 from automation.browser import BrowserManager
 from automation.call_modal import CallModalManager
+from automation.chat_list_watcher import ChatListWatcher
 from automation.chat_room import ChatRoomManager
 from automation.login import goto_chat_list, is_logged_in, login_to_soomgo
 from automation.overlay_modals import dismiss_blocking_overlays
@@ -29,6 +30,7 @@ from automation.navigation import (
     is_in_chat_room_url,
     is_on_chat_list_url,
     is_on_non_chat_pro_page,
+    open_chat_room_by_id,
 )
 
 from version_info import APP_VERSION, BRIDGE_API_VERSION
@@ -66,6 +68,10 @@ _pending_call_at: int | None = None
 _call_watch_active = False
 _watch_stop = threading.Event()
 _watch_thread: threading.Thread | None = None
+_chat_watch_active = False
+_chat_watch_stop = threading.Event()
+_chat_watch_thread: threading.Thread | None = None
+_chat_watcher = ChatListWatcher()
 _extract_in_progress = False
 _status_nickname_cache: str | None = None
 
@@ -82,6 +88,48 @@ def _set_pending_call(phone: str, at_ms: int):
     global _pending_call_phone, _pending_call_at
     _pending_call_phone = phone
     _pending_call_at = at_ms
+
+
+def _chat_watch_loop():
+    while not _chat_watch_stop.is_set():
+        try:
+            with _lock:
+                if (
+                    not _chat_watch_active
+                    or not _browser.is_running()
+                    or not _browser.driver
+                    or _extract_in_progress
+                ):
+                    _chat_watch_stop.wait(2.0)
+                    continue
+                driver = _browser.driver
+                url = driver.current_url
+                on_list = is_on_chat_list_url(url)
+                in_room = is_in_chat_room_url(url)
+                if not on_list and not in_room:
+                    _chat_watch_stop.wait(12.0)
+                    continue
+                _chat_watcher.ensure_installed(driver)
+                _chat_watcher.poll_events(driver)
+        except Exception as e:
+            logger.debug('chat watch: %s', e)
+        _chat_watch_stop.wait(12.0)
+
+
+def _ensure_chat_watch():
+    global _chat_watch_active, _chat_watch_thread
+    if _chat_watch_active and _chat_watch_thread and _chat_watch_thread.is_alive():
+        return
+    _chat_watch_active = True
+    _chat_watch_stop.clear()
+    _chat_watch_thread = threading.Thread(target=_chat_watch_loop, name='soomgo-chat-watch', daemon=True)
+    _chat_watch_thread.start()
+
+
+def _stop_chat_watch():
+    global _chat_watch_active
+    _chat_watch_active = False
+    _chat_watch_stop.set()
 
 
 def _call_watch_loop():
@@ -275,6 +323,10 @@ def _status_payload(*, lite: bool = False) -> dict[str, Any]:
         'pendingCallAt': _pending_call_at,
         'callModalOpen': call_modal_open,
         'callWatchActive': _call_watch_active,
+        'chatWatchActive': _chat_watch_active,
+        'chatAlerts': _chat_watcher.pending_alerts(),
+        'chatAlertCount': len(_chat_watcher.pending_alerts()),
+        'chatInbox': _chat_watcher.all_alerts() if not light else [],
         'extractInProgress': _extract_in_progress,
         'lastError': _last_error,
         'port': PORT,
@@ -352,6 +404,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     goto_chat_list(driver)
                     _logged_in = True
                     _last_error = None
+                    _chat_watcher.ensure_installed(driver)
+                    _ensure_chat_watch()
                     _json_response(self, 200, {**_status_payload(), 'loginOk': True, 'reusedSession': True})
                     return
                 if not email or not password:
@@ -365,6 +419,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     ok = _wait_for_manual_login(driver)
                 _logged_in = ok
                 _last_error = None if ok else '숨고 로그인에 실패했습니다.'
+                if ok:
+                    _chat_watcher.ensure_installed(driver)
+                    _ensure_chat_watch()
                 status = 200 if ok else 401
                 _json_response(self, status, {**_status_payload(), 'loginOk': ok, 'error': _last_error})
                 return
@@ -375,6 +432,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     return
                 goto_chat_list(driver, force_list=False)
                 _arrange_soomgo_layout(body)
+                _chat_watcher.ensure_installed(driver)
+                _ensure_chat_watch()
                 _json_response(self, 200, _status_payload())
                 return
 
@@ -457,6 +516,46 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         shutil.rmtree(temp_dir, ignore_errors=True)
                 return
 
+            if path == '/watch-chat-list':
+                if not _sync_logged_in_from_browser():
+                    _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
+                    return
+                _chat_watcher.ensure_installed(driver)
+                _chat_watcher.poll_events(driver)
+                _ensure_chat_watch()
+                _json_response(self, 200, _status_payload())
+                return
+
+            if path == '/ack-chat-alerts':
+                ids = body.get('ids')
+                acked = 0
+                if isinstance(ids, list) and ids:
+                    acked = _chat_watcher.ack_ids([str(i) for i in ids])
+                else:
+                    before_ms = body.get('capturedAtBefore')
+                    if before_ms is not None:
+                        acked = _chat_watcher.ack_before(int(before_ms))
+                _json_response(self, 200, {'ok': True, 'acked': acked, **_status_payload(lite=True)})
+                return
+
+            if path == '/open-chat-room':
+                if not _sync_logged_in_from_browser():
+                    _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
+                    return
+                chat_id = str(body.get('chatId', '')).strip()
+                if not chat_id.isdigit():
+                    _json_response(self, 400, {'ok': False, 'error': 'chatId required'})
+                    return
+                ok = open_chat_room_by_id(driver, chat_id)
+                if not ok:
+                    _json_response(self, 400, {
+                        'ok': False,
+                        'error': '숨고 채팅방을 열지 못했습니다.',
+                    })
+                    return
+                _json_response(self, 200, _status_payload())
+                return
+
             if path == '/watch-call-button':
                 room = ChatRoomManager(driver)
                 if not room.is_in_chat_room():
@@ -515,6 +614,29 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             if path == '/request-update':
                 try:
+                    from bridge_status_extras import invalidate_manifest_cache, get_manifest_cached
+                    from desktop.config import clear_pending_update_manifest, write_pending_update_manifest
+
+                    invalidate_manifest_cache()
+                    raw_manifest = body.get('manifest')
+                    if isinstance(raw_manifest, dict):
+                        latest = str(raw_manifest.get('latestVersion', '')).strip()
+                        url = str(raw_manifest.get('downloadUrl', '')).strip()
+                        if latest and url:
+                            write_pending_update_manifest(
+                                {
+                                    'requiredVersion': raw_manifest.get('requiredVersion', 2),
+                                    'latestVersion': latest,
+                                    'downloadUrl': url,
+                                    'releaseNotes': raw_manifest.get('releaseNotes'),
+                                    'sha256': raw_manifest.get('sha256'),
+                                }
+                            )
+                            logger.info('CRM manifest queued for update: v%s', latest)
+                        else:
+                            clear_pending_update_manifest()
+                    else:
+                        clear_pending_update_manifest()
                     mode = str(body.get('mode', 'prompt')).strip().lower()
                     if mode not in ('prompt', 'background', 'install'):
                         mode = 'prompt'

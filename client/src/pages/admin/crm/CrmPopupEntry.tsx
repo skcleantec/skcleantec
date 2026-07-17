@@ -5,11 +5,8 @@ import {
   TenantCapabilitiesProvider,
 } from '../../../hooks/useTenantCapabilities';
 import { useStandaloneTenantCapabilities } from '../../../hooks/useStandaloneTenantCapabilities';
-import {
-  applyTelecrmSoomgoSplitLayout,
-  fitCrmPopupWindow,
-} from '../../../utils/crmSoomgoSplitLayout';
-import { arrangeSoomgoBridgeLayout } from '../../../api/soomgoBridge';
+import { arrangeCrmPopupLeftHalf, fitCrmPopupWindow } from '../../../utils/crmSoomgoSplitLayout';
+import { registerTelecrmPopupWindow } from '../../../utils/openTelecrmWindow';
 import { CrmPage } from './CrmPage';
 
 /**
@@ -20,6 +17,10 @@ export function CrmPopupEntry() {
   const location = useLocation();
   const token = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
   const tenantCapabilities = useStandaloneTenantCapabilities(token);
+
+  useEffect(() => {
+    registerTelecrmPopupWindow();
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.telecrmPopup =
@@ -34,7 +35,7 @@ export function CrmPopupEntry() {
     const soomgoBar = new URLSearchParams(location.search).get('soomgoBar') === '1';
     const run = () => {
       if (soomgoBar) {
-        void applyTelecrmSoomgoSplitLayout(arrangeSoomgoBridgeLayout);
+        arrangeCrmPopupLeftHalf();
       } else {
         fitCrmPopupWindow();
       }

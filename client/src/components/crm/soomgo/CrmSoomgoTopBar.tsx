@@ -235,7 +235,7 @@ export function CrmSoomgoTopBar({
           ) : null}
           <button
             type="button"
-            disabled={busy || !bridgeUp || outdated}
+            disabled={busy || !bridgeUp || outdated || softUpdate}
             onClick={() => void onOpenSoomgo()}
             className="rounded-lg bg-sky-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
           >

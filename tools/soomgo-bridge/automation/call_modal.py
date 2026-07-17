@@ -193,6 +193,93 @@ document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Esca
 return 'escape';
 """
 
+_IS_PHONE_CONSULT_MODAL_JS = """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 40 || r.height < 40) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
+}
+var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="sheet"], [class*="Sheet"], [class*="overlay"], [class*="Overlay"]');
+for (var i = 0; i < roots.length; i++) {
+  if (!visible(roots[i])) continue;
+  var t = (roots[i].innerText || roots[i].textContent || '');
+  if (t.indexOf('전화상담') >= 0 && (t.indexOf('요청') >= 0 || t.indexOf('승인') >= 0)) return true;
+}
+return false;
+"""
+
+_CLICK_PHONE_CONSULT_REQUEST_JS = """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 16 || r.height < 16) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
+}
+function findConsultModal() {
+  var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="sheet"], [class*="Sheet"], [class*="overlay"], [class*="Overlay"]');
+  for (var i = 0; i < roots.length; i++) {
+    if (!visible(roots[i])) continue;
+    var t = (roots[i].innerText || roots[i].textContent || '');
+    if (t.indexOf('전화상담') >= 0 && (t.indexOf('요청') >= 0 || t.indexOf('승인') >= 0)) return roots[i];
+  }
+  return null;
+}
+var modal = findConsultModal();
+if (!modal) return false;
+var nodes = modal.querySelectorAll('button, a, [role="button"]');
+for (var i = 0; i < nodes.length; i++) {
+  var el = nodes[i];
+  if (!visible(el)) continue;
+  var label = (el.textContent || '').replace(/\\s+/g, ' ').trim();
+  if (label.indexOf('전화상담 요청하기') >= 0) {
+    el.click();
+    return true;
+  }
+}
+return false;
+"""
+
+_CLOSE_PHONE_CONSULT_MODAL_JS = """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 8 || r.height < 8) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
+}
+function findConsultModal() {
+  var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="sheet"], [class*="Sheet"], [class*="overlay"], [class*="Overlay"]');
+  for (var i = 0; i < roots.length; i++) {
+    var t = (roots[i].innerText || roots[i].textContent || '');
+    if (t.indexOf('전화상담') >= 0 && (t.indexOf('요청') >= 0 || t.indexOf('승인') >= 0)) return roots[i];
+  }
+  return null;
+}
+function normLabel(el) {
+  return ((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '') + ' ' + (el.getAttribute('title') || '')).replace(/\\s+/g, ' ').trim();
+}
+var modal = findConsultModal();
+if (!modal) {
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+  return 'escape';
+}
+var nodes = modal.querySelectorAll('button, a, [role="button"], span, p');
+for (var i = 0; i < nodes.length; i++) {
+  var el = nodes[i];
+  if (!visible(el)) continue;
+  var label = normLabel(el);
+  if (/^취소$/i.test(label) || label.indexOf('닫기') >= 0) {
+    el.click();
+    return 'cancel';
+  }
+}
+document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+return 'escape';
+"""
+
 
 def format_safe_phone(raw: str) -> str:
     digits = re.sub(r'\D', '', raw)
@@ -333,6 +420,56 @@ class CallModalManager:
         except Exception as e:
             logger.debug('peek_safe_phone_without_modal: %s', e)
             return None
+
+    def is_phone_consult_modal_open(self) -> bool:
+        try:
+            return bool(self.driver.execute_script(_IS_PHONE_CONSULT_MODAL_JS))
+        except Exception:
+            return False
+
+    def close_phone_consult_modal(self) -> bool:
+        try:
+            if not self.is_phone_consult_modal_open():
+                return True
+            for _ in range(3):
+                self.driver.execute_script(_CLOSE_PHONE_CONSULT_MODAL_JS)
+                time.sleep(self.delay * 0.2)
+                if not self.is_phone_consult_modal_open():
+                    return True
+            return not self.is_phone_consult_modal_open()
+        except Exception as e:
+            logger.debug('close_phone_consult_modal: %s', e)
+            return False
+
+    def request_phone_consultation(self) -> str:
+        """전화 아이콘 → 전화상담 요청하기 → 닫기. requested | already_open | failed | skipped."""
+        try:
+            dismiss_blocking_overlays(self.driver, self.delay * 0.15, max_rounds=1)
+            if self.is_phone_consult_modal_open():
+                clicked = self.driver.execute_script(_CLICK_PHONE_CONSULT_REQUEST_JS)
+                time.sleep(self.delay * 0.35)
+                self.close_phone_consult_modal()
+                return 'requested' if clicked else 'failed'
+            if not self.open_call_modal():
+                return 'failed'
+            time.sleep(self.delay * 0.25)
+            if self.is_call_modal_open() and not self.is_phone_consult_modal_open():
+                self.close_call_modal()
+                return 'skipped'
+            if not self.is_phone_consult_modal_open():
+                return 'failed'
+            clicked = self.driver.execute_script(_CLICK_PHONE_CONSULT_REQUEST_JS)
+            time.sleep(self.delay * 0.35)
+            self.close_phone_consult_modal()
+            time.sleep(self.delay * 0.12)
+            if self.is_phone_consult_modal_open():
+                self.close_phone_consult_modal()
+            return 'requested' if clicked else 'failed'
+        except Exception as e:
+            logger.error('request_phone_consultation: %s', e)
+            self.close_phone_consult_modal()
+            self.close_call_modal()
+            return 'failed'
 
     def try_extract_safe_phone(self, known_phone: str | None = None) -> str | None:
         """전화 모달 열기 → 050 추출 → 취소로 채팅방 복귀."""

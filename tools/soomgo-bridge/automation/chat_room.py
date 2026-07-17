@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 _PHONE_RE = re.compile(r'01[016789][-\s]?\d{3,4}[-\s]?\d{4}')
 _PYEONG_RE = re.compile(r'(\d{1,4})\s*평')
 _ADDRESS_HINT = re.compile(r'[가-힣]{2,}(?:시|군|구|동|로|길|아파트|APT|apt|빌라|타운)')
+_DATE_ISO_RE = re.compile(r'(\d{4}-\d{2}-\d{2})')
+_PHONE_CONSULT_PENDING_RE = re.compile(r'승인\s*시\s*전화\s*상담|전화상담이\s*가능', re.I)
+_PHONE_CONSULT_DONE_RE = re.compile(r'전화상담을\s*요청했습니다|전화상담\s*요청\s*완료', re.I)
 
 _INPUT_JS = """
 const elem = arguments[0];
@@ -192,6 +195,29 @@ def parse_fields_from_texts(texts: list[str]) -> dict[str, Any]:
         'address': address,
         'memo': memo,
     }
+
+
+def parse_preferred_date_from_texts(texts: list[str]) -> str | None:
+    """채팅·모달 텍스트에서 YYYY-MM-DD 추출 (원하는 날짜가 있어요. : 2026-09-17 등)."""
+    for raw in texts:
+        if not raw:
+            continue
+        for line in str(raw).split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            if '날짜' in line or '희망' in line or _DATE_ISO_RE.search(line):
+                m = re.search(r'[:：]\s*(\d{4}-\d{2}-\d{2})', line) or _DATE_ISO_RE.search(line)
+                if m:
+                    return m.group(1) if m.lastindex else m.group(0)
+    return None
+
+
+def needs_phone_consult_request(texts: list[str]) -> bool:
+    joined = '\n'.join(t for t in texts if t)
+    if _PHONE_CONSULT_DONE_RE.search(joined):
+        return False
+    return bool(_PHONE_CONSULT_PENDING_RE.search(joined))
 
 
 class ChatRoomManager:
@@ -370,6 +396,12 @@ class ChatRoomManager:
         if request_data.get('requestMemo'):
             parsed['memo'] = str(request_data['requestMemo'])
 
+        consult_texts = list(customer_messages)
+        if request_data.get('requestMemo'):
+            consult_texts.append(str(request_data['requestMemo']))
+        phone_consult_pending = needs_phone_consult_request(consult_texts)
+        phone_consult_action: str = 'skipped'
+
         mobile_phone: str | None = None
         parsed_phone = parsed.get('phone')
         if parsed_phone and re.sub(r'\D', '', str(parsed_phone)).startswith('01'):
@@ -378,13 +410,33 @@ class ChatRoomManager:
         safe_phone: str | None = None
         safe_phone_skipped = False
         known = (known_safe_phone or '').strip() or None
-        if known and len(re.sub(r'\D', '', known)) >= 10:
+
+        if phone_consult_pending and not mobile_phone:
+            dismiss_blocking_overlays(self.driver, self.delay * 0.15, max_rounds=1)
+            call_mgr = CallModalManager(self.driver, self.delay)
+            phone_consult_action = call_mgr.request_phone_consultation()
+            time.sleep(self.delay * 0.12)
+            customer_messages = self.get_customer_messages()
+            safe_phone_skipped = True
+        elif known and len(re.sub(r'\D', '', known)) >= 10:
             safe_phone = known
             safe_phone_skipped = True
         else:
             dismiss_blocking_overlays(self.driver, self.delay * 0.15, max_rounds=1)
             call_mgr = CallModalManager(self.driver, self.delay)
             safe_phone = call_mgr.try_extract_safe_phone()
+
+        preferred_date = request_data.get('preferredDate')
+        if not preferred_date:
+            date_sources = list(customer_messages)
+            if request_data.get('requestMemo'):
+                date_sources.append(str(request_data['requestMemo']))
+            if request_data.get('requestPairs'):
+                for pair in request_data['requestPairs']:
+                    if isinstance(pair, dict):
+                        date_sources.append(str(pair.get('question', '')))
+                        date_sources.append(str(pair.get('answer', '')))
+            preferred_date = parse_preferred_date_from_texts(date_sources)
 
         phone = mobile_phone or safe_phone
         last_message = customer_messages[-1] if customer_messages else None
@@ -396,11 +448,13 @@ class ChatRoomManager:
             'phone': phone,
             'mobilePhone': mobile_phone,
             'safePhone': safe_phone,
-            'safePhoneSkipped': safe_phone is None and not safe_phone_skipped,
+            'safePhoneSkipped': safe_phone is None and (safe_phone_skipped or phone_consult_pending),
+            'phoneConsultPending': phone_consult_pending and not phone,
+            'phoneConsultAction': phone_consult_action,
             'address': parsed.get('address'),
             'pyeong': parsed.get('pyeong'),
             'memo': parsed.get('memo'),
-            'preferredDate': request_data.get('preferredDate'),
+            'preferredDate': preferred_date,
             'serviceType': request_data.get('serviceType'),
             'buildingType': request_data.get('buildingType'),
             'region': region or request_data.get('region'),

@@ -120,6 +120,20 @@ def remember_chat_room_url(driver) -> str | None:
         return None
 
 
+def open_chat_room_by_id(driver, chat_id: str, delay: float = 1.0) -> bool:
+    cid = str(chat_id or '').strip()
+    if not cid.isdigit():
+        return False
+    try:
+        target = URLS['CHAT_ROOM'].format(chat_id=cid)
+        driver.get(target)
+        time.sleep(delay * 1.5)
+        return is_in_chat_room_url(driver.current_url)
+    except Exception as e:
+        logger.error('open_chat_room_by_id: %s', e)
+        return False
+
+
 def restore_chat_room_if_lost(driver, room_url: str | None, delay: float = 1.0) -> bool:
     if not room_url:
         return False
@@ -130,10 +144,7 @@ def restore_chat_room_if_lost(driver, room_url: str | None, delay: float = 1.0) 
         if not m:
             return False
         chat_id = m.group(1)
-        target = URLS['CHAT_ROOM'].format(chat_id=chat_id)
-        driver.get(target)
-        time.sleep(delay * 1.5)
-        return is_in_chat_room_url(driver.current_url)
+        return open_chat_room_by_id(driver, chat_id, delay=delay)
     except Exception as e:
         logger.error('restore_chat_room: %s', e)
         return False

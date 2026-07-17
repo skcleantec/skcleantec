@@ -28,6 +28,7 @@ from desktop.config import (
 )
 from desktop.manifest_client import (
     fetch_manifest,
+    fetch_manifest_for_update,
     is_update_available,
     is_update_required,
     manifest_summary,
@@ -40,6 +41,7 @@ from desktop.single_instance import (
 )
 from desktop.status_window import StatusWindow
 from desktop.update_manager import (
+    clear_stale_update_cache,
     download_update_artifact,
     install_cached_artifact,
     is_bridge_idle_for_auto_install,
@@ -394,13 +396,14 @@ class TrayApp:
     def _run_background_download(self) -> None:
         if self._update_busy:
             return
-        manifest = self._manifest or fetch_manifest()
+        manifest = fetch_manifest_for_update()
         if not manifest or not is_update_available(manifest):
             return
         self._update_busy = True
+        self._manifest = manifest
+        clear_stale_update_cache(manifest)
         ok, msg = download_update_artifact(manifest)
         self._update_busy = False
-        self._manifest = manifest
         if ok:
             self._log(msg)
         else:
@@ -409,15 +412,16 @@ class TrayApp:
     def _run_install_ready(self) -> None:
         if self._update_busy:
             return
-        manifest = self._manifest or fetch_manifest()
+        manifest = fetch_manifest_for_update()
         if not manifest:
+            self._log('업데이트 manifest를 가져오지 못했습니다.', level='error')
             return
-        state = read_update_state()
-        if state.get('phase') != 'ready':
-            ok, msg = download_update_artifact(manifest, force=True)
-            if not ok:
-                self._log(msg, level='error')
-                return
+        self._manifest = manifest
+        clear_stale_update_cache(manifest)
+        ok, msg = download_update_artifact(manifest, force=True)
+        if not ok:
+            self._log(msg, level='error')
+            return
         threading.Thread(target=lambda: self._run_update(manifest), daemon=True).start()
 
     def _check_update_prompt(self, *, force: bool = False, auto_install: bool = False) -> None:
@@ -426,7 +430,7 @@ class TrayApp:
 
             if self._update_busy:
                 return
-            manifest = fetch_manifest()
+            manifest = fetch_manifest_for_update()
             self._manifest = manifest
             if not manifest:
                 if force:
@@ -452,11 +456,9 @@ class TrayApp:
 
     def _run_update(self, manifest: dict[str, Any]) -> None:
         self._update_busy = True
-        state = read_update_state()
-        if state.get('phase') == 'ready':
-            ok, msg = install_cached_artifact(manifest)
-        else:
-            ok, msg = perform_update(manifest)
+        self._manifest = manifest
+        clear_stale_update_cache(manifest)
+        ok, msg = perform_update(manifest)
         self._update_busy = False
 
         def done() -> None:

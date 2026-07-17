@@ -2,10 +2,13 @@ import type { SoomgoBridgeStatus, SoomgoExtractedChat, SoomgoBridgeManifest } fr
 import {
   SOOMGO_BRIDGE_BASE_URL,
   SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION,
+  SOOMGO_BRIDGE_CHAT_ALERTS_MIN_VERSION,
   compareSoomgoSemver,
   isSoomgoAppOutdated,
   isSoomgoAppUpdateAvailable,
   isSoomgoBridgeApiOutdated,
+  isSoomgoBridgeCrmManifestPassthroughSupported,
+  isSoomgoBridgeUseBlocked,
 } from '@shared/soomgoBridge';
 import type { SoomgoMessageStep } from '@shared/soomgoMessagePresets';
 import type { SoomgoSplitScreenBounds } from '../utils/crmSoomgoSplitLayout';
@@ -113,7 +116,42 @@ export function isSoomgoBridgeOutdated(
   return isSoomgoBridgeApiOutdated(status, manifest);
 }
 
-export { isSoomgoAppUpdateAvailable, isSoomgoBridgeApiOutdated };
+export {
+  isSoomgoAppUpdateAvailable,
+  isSoomgoBridgeApiOutdated,
+  isSoomgoBridgeCrmManifestPassthroughSupported,
+  isSoomgoBridgeUseBlocked,
+};
+
+/** CRM manifest의 Setup.exe를 브라우저에서 직접 연다 (구버전 브릿지 부트스트랩) */
+export function openSoomgoBridgeInstaller(manifest?: SoomgoBridgeManifest | null): boolean {
+  const url = manifest?.downloadUrl?.trim();
+  if (!url) return false;
+  window.open(url, '_blank', 'noopener,noreferrer');
+  return true;
+}
+
+/**
+ * CRM manifest 기준 설치·업데이트.
+ * 구버전 브릿지(< 2.2.3)는 cbiseo.com manifest만 쓰므로 브라우저 다운로드만 수행.
+ */
+export async function installSoomgoBridgeFromCrmManifest(
+  mode: 'prompt' | 'background' | 'install',
+  manifest: SoomgoBridgeManifest | null | undefined,
+  status: SoomgoBridgeStatus | null | undefined,
+): Promise<'browser' | 'bridge' | 'skipped'> {
+  const url = manifest?.downloadUrl?.trim();
+  const latest = manifest?.latestVersion?.trim();
+  if (!url || !latest) {
+    throw new Error('설치 파일 URL을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  }
+  if (!isSoomgoBridgeCrmManifestPassthroughSupported(status)) {
+    openSoomgoBridgeInstaller(manifest);
+    return 'browser';
+  }
+  await requestSoomgoBridgeUpdate(mode, manifest);
+  return 'bridge';
+}
 
 export async function fetchSoomgoBridgeStatus(
   manifest?: SoomgoBridgeManifest | null,
@@ -211,6 +249,31 @@ export async function sendSoomgoBridgeSequence(
   });
 }
 
+export function isSoomgoBridgeChatAlertsSupported(status: SoomgoBridgeStatus | null | undefined): boolean {
+  const current = status?.appVersion?.trim();
+  if (!current) return false;
+  return compareSoomgoSemver(current, SOOMGO_BRIDGE_CHAT_ALERTS_MIN_VERSION) >= 0;
+}
+
+export async function watchSoomgoChatList(): Promise<SoomgoBridgeStatus> {
+  return bridgeFetch<SoomgoBridgeStatus>('/watch-chat-list', { method: 'POST', body: '{}' });
+}
+
+export async function ackSoomgoChatAlerts(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await bridgeFetch<{ ok: boolean }>('/ack-chat-alerts', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export async function openSoomgoChatRoom(chatId: string): Promise<SoomgoBridgeStatus> {
+  return bridgeFetch<SoomgoBridgeStatus>('/open-chat-room', {
+    method: 'POST',
+    body: JSON.stringify({ chatId }),
+  });
+}
+
 export async function watchSoomgoCallButton(): Promise<SoomgoBridgeStatus> {
   return bridgeFetch<SoomgoBridgeStatus>('/watch-call-button', { method: 'POST', body: '{}' });
 }
@@ -234,15 +297,39 @@ export async function extractSoomgoCallNumber(): Promise<string> {
   return res.phone;
 }
 
-export async function requestSoomgoBridgeUpdate(mode: 'prompt' | 'background' | 'install' = 'prompt'): Promise<void> {
+export async function requestSoomgoBridgeUpdate(
+  mode: 'prompt' | 'background' | 'install' = 'prompt',
+  manifest?: SoomgoBridgeManifest | null,
+): Promise<void> {
   try {
     await bridgeFetch<{ ok: boolean }>('/request-update', {
       method: 'POST',
-      body: JSON.stringify({ mode }),
+      body: JSON.stringify({
+        mode,
+        manifest:
+          manifest?.latestVersion?.trim() && manifest.downloadUrl?.trim()
+            ? {
+                requiredVersion: manifest.requiredVersion,
+                latestVersion: manifest.latestVersion.trim(),
+                downloadUrl: manifest.downloadUrl.trim(),
+                releaseNotes: manifest.releaseNotes,
+                sha256: manifest.sha256,
+              }
+            : undefined,
+      }),
     });
   } catch {
     /* 트레이 미실행 시 무시 */
   }
+}
+
+/** 업데이트 클릭 직전 manifest 재조회 후 브릿지에 설치 요청 (CRM 서버 manifest 전달) */
+export async function requestSoomgoBridgeUpdateFresh(
+  refreshManifest: () => Promise<SoomgoBridgeManifest | null>,
+  mode: 'prompt' | 'background' | 'install' = 'install',
+): Promise<void> {
+  const manifest = await refreshManifest();
+  await requestSoomgoBridgeUpdate(mode, manifest);
 }
 
 export async function requestSoomgoBridgeRestart(mode: 'bridge' | 'desktop' = 'bridge'): Promise<void> {

@@ -5,7 +5,13 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.1.18';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.4';
+
+/** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
+export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
+
+/** 채팅 목록 알림 watcher 최소 앱 버전 */
+export const SOOMGO_BRIDGE_CHAT_ALERTS_MIN_VERSION = '2.2.0';
 
 /** 순차 메시지 매크로(`/send-sequence`) 최소 앱 버전 */
 export const SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION = '2.1.0';
@@ -65,12 +71,44 @@ export function isSoomgoAppUpdateAvailable(
   return isSoomgoAppOutdated(status.appVersion, manifest);
 }
 
+/** CRM이 넘긴 manifest로 업데이트·설치 가능 (구버전은 cbiseo.com manifest만 사용) */
+export function isSoomgoBridgeCrmManifestPassthroughSupported(
+  status: SoomgoBridgeStatus | null | undefined,
+): boolean {
+  const current = status?.appVersion?.trim();
+  if (!current) return false;
+  return compareSoomgoSemver(current, SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION) >= 0;
+}
+
+/** 숨고 Chrome·채팅 연동 차단 — API/앱 버전 업데이트 필요 */
+export function isSoomgoBridgeUseBlocked(
+  status: SoomgoBridgeStatus | null | undefined,
+  manifest?: SoomgoBridgeManifest | null,
+): boolean {
+  if (!status?.bridgeRunning) return false;
+  if (isSoomgoBridgeApiOutdated(status, manifest)) return true;
+  return isSoomgoAppUpdateAvailable(status, manifest);
+}
+
 export type SoomgoBridgeManifest = {
   requiredVersion: number;
   latestVersion: string;
   downloadUrl: string;
   releaseNotes?: string;
   sha256?: string;
+};
+
+export type SoomgoChatAlertKind = 'message' | 'quote_read' | 'unknown';
+
+export type SoomgoChatAlert = {
+  id: string;
+  chatId: string;
+  customerName: string | null;
+  previewText: string;
+  previewKind: SoomgoChatAlertKind;
+  unreadCount: number;
+  listTimeLabel: string | null;
+  capturedAt: number;
 };
 
 export type SoomgoBridgeStatus = {
@@ -94,6 +132,13 @@ export type SoomgoBridgeStatus = {
   pendingCallAt?: number | null;
   callModalOpen?: boolean;
   callWatchActive?: boolean;
+  /** 채팅 목록 미읽음 감시 활성 */
+  chatWatchActive?: boolean;
+  /** CRM 미수신 알림 (브릿지 pending) */
+  chatAlerts?: SoomgoChatAlert[];
+  chatAlertCount?: number;
+  /** 세션 누적 알림함 (최근순) */
+  chatInbox?: SoomgoChatAlert[];
   lastError?: string | null;
   port?: number;
   /** 데스크톱 프로그램 semver */
@@ -139,6 +184,10 @@ export type SoomgoExtractedChat = {
   mobilePhone?: string | null;
   /** 전화 모달에 안심번호 없음 — 채팅만 희망 등 */
   safePhoneSkipped?: boolean;
+  /** 승인 시 전화상담 대기 — 번호 없음 */
+  phoneConsultPending?: boolean;
+  /** extract 시 전화상담 요청 매크로 결과 */
+  phoneConsultAction?: 'requested' | 'skipped' | 'failed' | 'already_open' | null;
   /** 고객 요청 모달 — 방·화장실·베란다(발주서 balconyCount) */
   roomCount?: number | null;
   bathroomCount?: number | null;

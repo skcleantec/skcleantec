@@ -15,16 +15,27 @@ logger = logging.getLogger(__name__)
 def fetch_manifest() -> dict[str, Any] | None:
     for url in iter_manifest_urls():
         try:
-            res = requests.get(url, timeout=12)
+            res = requests.get(url, timeout=12, headers={'Cache-Control': 'no-cache'})
             res.raise_for_status()
             data = res.json()
             if isinstance(data, dict) and data.get('latestVersion'):
                 save_resolved_manifest_url(url)
-                logger.info('manifest ok: %s', url)
+                logger.info('manifest ok: %s (v%s)', url, data.get('latestVersion'))
                 return data
         except Exception as e:
             logger.warning('manifest fetch failed (%s): %s', url, e)
     return None
+
+
+def fetch_manifest_for_update() -> dict[str, Any] | None:
+    """CRM이 넘긴 manifest 우선(peek), 없으면 원격 조회."""
+    from desktop.config import peek_pending_update_manifest
+
+    pending = peek_pending_update_manifest()
+    if pending:
+        logger.info('using CRM pending manifest v%s', pending.get('latestVersion'))
+        return pending
+    return fetch_manifest()
 
 
 def parse_version_tuple(version: str) -> tuple[int, ...]:

@@ -317,8 +317,13 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
             pm = _PYEONG_ANSWER_RE.search(a)
             result['pyeong'] = pm.group(1) if pm else a.replace('평', '').strip()
         elif '희망일' in q or '날짜' in q or '원하는 날짜' in q:
-            dm = _DATE_RE.search(a)
-            result['preferredDate'] = dm.group(1) if dm else a
+            combined = f'{q} {a}'.strip()
+            dm = _DATE_RE.search(combined)
+            result['preferredDate'] = dm.group(1) if dm else (a or None)
+        elif ('날짜' in q or '희망' in q) and not result.get('preferredDate'):
+            dm = _DATE_RE.search(q)
+            if dm:
+                result['preferredDate'] = dm.group(1)
         elif '지역' in q or '주소' in q or '위치' in q or '어디' in q or '거주' in q:
             result['region'] = a
         elif '문의' in q:
