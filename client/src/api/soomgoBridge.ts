@@ -81,28 +81,42 @@ function bridgeOutdatedError(): Error {
   return new Error(SOOMGO_BRIDGE_OUTDATED_MESSAGE);
 }
 
+/** localhost 브릿지 — 동시 요청 시 WinError 10053 등 연결 중단 완화 */
+let bridgeFetchChain: Promise<unknown> = Promise.resolve();
+
+function withBridgeFetchQueue<T>(fn: () => Promise<T>): Promise<T> {
+  const run = bridgeFetchChain.then(fn, fn);
+  bridgeFetchChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 async function bridgeFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(`${SOOMGO_BRIDGE_BASE_URL}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(init?.headers ?? {}),
-      },
-    });
-  } catch (err) {
-    if (isBridgeConnectionError(err)) throw bridgeConnectionError();
-    throw err instanceof Error ? err : new Error('숨고 브릿지 통신에 실패했습니다.');
-  }
-  const data = (await res.json()) as T & { error?: string; ok?: boolean };
-  if (res.status === 404) {
-    throw bridgeOutdatedError();
-  }
-  if (!res.ok) {
-    throw new Error((data as { error?: string }).error ?? `브릿지 오류 (${res.status})`);
-  }
-  return data;
+  return withBridgeFetchQueue(async () => {
+    let res: Response;
+    try {
+      res = await fetch(`${SOOMGO_BRIDGE_BASE_URL}${path}`, {
+        ...init,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(init?.headers ?? {}),
+        },
+      });
+    } catch (err) {
+      if (isBridgeConnectionError(err)) throw bridgeConnectionError();
+      throw err instanceof Error ? err : new Error('숨고 브릿지 통신에 실패했습니다.');
+    }
+    const data = (await res.json()) as T & { error?: string; ok?: boolean };
+    if (res.status === 404) {
+      throw bridgeOutdatedError();
+    }
+    if (!res.ok) {
+      throw new Error((data as { error?: string }).error ?? `브릿지 오류 (${res.status})`);
+    }
+    return data;
+  });
 }
 
 export function isSoomgoBridgeReachable(status: SoomgoBridgeStatus | null | undefined): boolean {

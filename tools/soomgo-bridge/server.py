@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 import pathlib
 import shutil
 import signal
@@ -215,23 +216,42 @@ def _download_sequence_images(steps: list[dict[str, Any]]) -> tuple[dict[str, st
         return {}, f'이미지 다운로드 실패: {e}', None
 
 
+def _is_client_disconnect(exc: BaseException) -> bool:
+    if isinstance(exc, (ConnectionAbortedError, BrokenPipeError, ConnectionResetError)):
+        return True
+    if isinstance(exc, OSError) and getattr(exc, 'winerror', None) in (10053, 10054):
+        return True
+    return False
+
+
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]):
     body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
-    handler.send_response(status)
-    handler.send_header('Content-Type', 'application/json; charset=utf-8')
-    handler.send_header('Access-Control-Allow-Origin', '*')
-    handler.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    handler.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    handler.send_header('Content-Length', str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)
+    try:
+        handler.send_response(status)
+        handler.send_header('Content-Type', 'application/json; charset=utf-8')
+        handler.send_header('Access-Control-Allow-Origin', '*')
+        handler.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        handler.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        handler.send_header('Content-Length', str(len(body)))
+        handler.end_headers()
+        handler.wfile.write(body)
+    except Exception as e:
+        if _is_client_disconnect(e):
+            logger.debug('client disconnected before response completed')
+            return
+        raise
 
 
 def _read_json(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     length = int(handler.headers.get('Content-Length', 0))
     if length <= 0:
         return {}
-    raw = handler.rfile.read(length)
+    try:
+        raw = handler.rfile.read(length)
+    except Exception as e:
+        if _is_client_disconnect(e):
+            return {}
+        raise
     try:
         return json.loads(raw.decode('utf-8'))
     except json.JSONDecodeError:
@@ -352,6 +372,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args):  # noqa: A003
         logger.debug('%s - %s', self.address_string(), format % args)
 
+    def handle_error(self, request, client_address) -> None:  # noqa: ANN001
+        exc = sys.exc_info()[1]
+        if exc is not None and _is_client_disconnect(exc):
+            logger.debug('client disconnected: %s', exc)
+            return
+        super().handle_error(request, client_address)
+
     def do_OPTIONS(self):  # noqa: N802
         self.send_response(204)
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -364,7 +391,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
         query = urlparse(self.path).query
         if path == '/status':
             lite = 'lite=1' in query or 'lite=true' in query
-            _json_response(self, 200, _status_payload(lite=lite))
+            with _lock:
+                payload = _status_payload(lite=lite)
+            _json_response(self, 200, payload)
             return
         if path == '/health':
             _json_response(self, 200, {'ok': True, 'bridgeVersion': BRIDGE_VERSION})
