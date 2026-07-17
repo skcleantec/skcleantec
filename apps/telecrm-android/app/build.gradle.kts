@@ -10,6 +10,11 @@ val localFile = rootProject.file("local.properties")
 if (localFile.exists()) {
     localFile.inputStream().use { localProps.load(it) }
 }
+val keystoreProps = Properties()
+val keystoreFile = rootProject.file("keystore.properties")
+if (keystoreFile.exists()) {
+    keystoreFile.inputStream().use { keystoreProps.load(it) }
+}
 val apiBaseUrl =
     (localProps.getProperty("telecrm.apiBaseUrl") ?: "https://www.cbiseo.com")
         .trim()
@@ -23,10 +28,26 @@ android {
         applicationId = "com.skcleantec.telecrm.internal"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "0.6.4-internal"
+        versionCode = 15
+        versionName = "0.6.5-internal"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "ADMIN_TOKEN_KEY", "\"sk_admin_token\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
+        viewBinding = true
+    }
+
+    signingConfigs {
+        if (keystoreFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -36,6 +57,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (keystoreFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -49,11 +73,6 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-    }
-
-    buildFeatures {
-        buildConfig = true
-        viewBinding = true
     }
 }
 

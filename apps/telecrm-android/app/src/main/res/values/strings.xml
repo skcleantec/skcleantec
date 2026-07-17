@@ -116,5 +116,18 @@
     <string name="galaxy_setup_fullscreen">전체 화면 알림</string>
     <string name="galaxy_setup_battery">배터리 설정</string>
 
+    <string name="update_required_title">필수 업데이트</string>
+    <string name="update_available_title">새 버전</string>
+    <string name="update_error_title">업데이트 오류</string>
+    <string name="update_prompt_message_required">새 버전 v%1$s (%2$d)이 있습니다.\n현재 v%3$s (%4$d)\n\n업데이트를 설치해야 계속 사용할 수 있습니다.</string>
+    <string name="update_prompt_message_optional">새 버전 v%1$s (%2$d)이 있습니다.\n현재 v%3$s (%4$d)</string>
+    <string name="update_download_install">다운로드 · 설치</string>
+    <string name="update_later">나중에</string>
+    <string name="update_downloading">APK 다운로드 중…</string>
+    <string name="update_download_failed">APK 다운로드에 실패했습니다.</string>
+    <string name="update_manifest_failed">업데이트 정보를 불러오지 못했습니다.</string>
+    <string name="update_already_latest">이미 최신 버전입니다.</string>
+    <string name="update_tap_to_check">버전을 길게 눌러 업데이트 확인</string>
+
 </resources>
 

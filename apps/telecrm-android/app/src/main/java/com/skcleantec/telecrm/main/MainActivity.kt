@@ -31,6 +31,10 @@ import com.skcleantec.telecrm.telephony.CallLogSync
 import com.skcleantec.telecrm.telephony.CallReturnMonitor
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 import com.skcleantec.telecrm.ui.AppVersion
+import com.skcleantec.telecrm.update.TelecrmApkInstall
+import com.skcleantec.telecrm.update.TelecrmUpdateCoordinator
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -176,6 +180,18 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         TelecrmAppState.isMainInForeground = true
         Thread { CallLogSync.syncRecent(applicationContext, 24) }.start()
+        if (::apiBaseUrl.isInitialized) {
+            lifecycleScope.launch {
+                TelecrmUpdateCoordinator.checkOnMain(this@MainActivity, apiBaseUrl)
+            }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == TelecrmApkInstall.REQUEST_INSTALL_PERMISSION) {
+            TelecrmUpdateCoordinator.onInstallPermissionResult(this)
+        }
     }
 
     override fun onPause() {

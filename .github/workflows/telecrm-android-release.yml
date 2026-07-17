@@ -1,0 +1,122 @@
+# 텔레CRM Android — GitHub Releases (signed APK)
+# 트리거: 태그 telecrm-v* 푸시 또는 workflow_dispatch
+# Secrets: TELECRM_KEYSTORE_BASE64, TELECRM_KEYSTORE_PASSWORD, TELECRM_KEY_ALIAS, TELECRM_KEY_PASSWORD
+
+name: TeleCRM Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: 'versionName (예: 0.6.5-internal)'
+        required: true
+  push:
+    tags:
+      - 'telecrm-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/telecrm-android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve versionName
+        id: ver
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" =~ ^telecrm-v(.+)$ ]]; then
+            V="${BASH_REMATCH[1]}"
+          else
+            V="${{ inputs.versionName }}"
+          fi
+          if [[ -z "$V" ]]; then
+            echo "versionName required"
+            exit 1
+          fi
+          CODE=$(grep -E 'versionCode\s*=' app/build.gradle.kts | head -1 | sed -E 's/.*=\s*([0-9]+).*/\1/')
+          echo "versionName=$V" >> "$GITHUB_OUTPUT"
+          echo "versionCode=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Packaging v$V (code $CODE)"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Decode release keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.TELECRM_KEYSTORE_BASE64 }}
+        run: |
+          mkdir -p keystore
+          echo "$KEYSTORE_B64" | base64 -d > keystore/telecrm-release.jks
+          test -s keystore/telecrm-release.jks
+
+      - name: Write keystore.properties
+        env:
+          STORE_PASSWORD: ${{ secrets.TELECRM_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.TELECRM_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.TELECRM_KEY_PASSWORD }}
+        run: |
+          cat > keystore.properties <<EOF
+          storeFile=keystore/telecrm-release.jks
+          storePassword=${STORE_PASSWORD}
+          keyAlias=${KEY_ALIAS}
+          keyPassword=${KEY_PASSWORD}
+          EOF
+
+      - name: Build release APK
+        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+
+      - name: Rename APK and compute SHA256
+        id: apk
+        shell: bash
+        run: |
+          SRC="app/build/outputs/apk/release/app-release.apk"
+          OUT="dist/telecrm-release-${{ steps.ver.outputs.versionName }}.apk"
+          mkdir -p dist
+          cp "$SRC" "$OUT"
+          SHA=$(sha256sum "$OUT" | awk '{print $1}')
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "apkPath=$OUT" >> "$GITHUB_OUTPUT"
+          echo "SHA256: $SHA"
+
+      - name: Write Railway env hint
+        run: |
+          cat > "dist/railway-env-${{ steps.ver.outputs.versionName }}.txt" <<EOF
+          TELECRM_APP_LATEST_VERSION_CODE=${{ steps.ver.outputs.versionCode }}
+          TELECRM_APP_LATEST_VERSION_NAME=${{ steps.ver.outputs.versionName }}
+          TELECRM_APP_MIN_VERSION_CODE=${{ steps.ver.outputs.versionCode }}
+          TELECRM_APP_DOWNLOAD_URL=https://github.com/${{ github.repository }}/releases/download/telecrm-v${{ steps.ver.outputs.versionName }}/telecrm-release-${{ steps.ver.outputs.versionName }}.apk
+          TELECRM_APP_SHA256=${{ steps.apk.outputs.sha256 }}
+          TELECRM_APP_RELEASE_NOTES=청소비서 전화 v${{ steps.ver.outputs.versionName }}
+          EOF
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: telecrm-v${{ steps.ver.outputs.versionName }}
+          name: TeleCRM Android v${{ steps.ver.outputs.versionName }}
+          body: |
+            청소비서 전화(내부 sideload) v${{ steps.ver.outputs.versionName }} (versionCode ${{ steps.ver.outputs.versionCode }})
+
+            1. `telecrm-release-*.apk` 다운로드 후 설치 (또는 앱 내 자동 업데이트)
+            2. `railway-env-*.txt` → Railway Variables (`apps/telecrm-android/scripts/set-railway-vars.ps1`)
+            3. 매니페스트: `/api/public/telecrm-app/manifest`
+          files: |
+            apps/telecrm-android/dist/telecrm-release-${{ steps.ver.outputs.versionName }}.apk
+            apps/telecrm-android/dist/railway-env-${{ steps.ver.outputs.versionName }}.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

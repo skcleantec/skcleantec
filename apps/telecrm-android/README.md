@@ -46,6 +46,47 @@ telecrm.apiBaseUrl=https://clean-solution-staging.up.railway.app
 
 Android Studio → `apps/telecrm-android` → Run ▶
 
+## Release APK · 자동 업데이트
+
+Play Store 없이 **GitHub Releases APK + Railway 매니페스트**로 배포합니다.
+
+### 1) 로컬 release 빌드 (최초·수동 설치)
+
+1. `keystore.properties.example` → `keystore.properties` 복사 후 비밀번호 입력
+2. Android Studio **Build → Generate Signed Bundle / APK** → **release**
+3. 상담사 폰에 APK sideload (「출처를 알 수 없는 앱」허용)
+
+### 2) 매니페스트 (서버)
+
+공개 URL (인증 불필요):
+
+- 운영: `https://www.cbiseo.com/api/public/telecrm-app/manifest`
+- 스테이징: `https://clean-solution-staging.up.railway.app/api/public/telecrm-app/manifest`
+
+Railway Variables (`scripts/set-railway-vars.ps1`):
+
+| 변수 | 설명 |
+|------|------|
+| `TELECRM_APP_LATEST_VERSION_CODE` | 최신 `versionCode` (정수) |
+| `TELECRM_APP_LATEST_VERSION_NAME` | 표시 버전 (예 `0.6.5-internal`) |
+| `TELECRM_APP_MIN_VERSION_CODE` | 이 미만이면 **필수 업데이트** |
+| `TELECRM_APP_DOWNLOAD_URL` | GitHub Release APK URL |
+| `TELECRM_APP_SHA256` | APK SHA256 (소문자 hex) |
+| `TELECRM_APP_RELEASE_NOTES` | 업데이트 안내 (선택) |
+
+### 3) 앱 동작
+
+- **로그인 화면** 진입 시 매니페스트 확인 (필수·선택 업데이트)
+- **메인** 화면: 24시간에 한 번 확인
+- 로그인 화면 **버전 길게 누르기** → 수동 확인
+- 다운로드 → SHA256 검증 → 시스템 설치 화면
+
+### 4) CI 릴리스 (선택)
+
+GitHub Secrets: `TELECRM_KEYSTORE_BASE64`, `TELECRM_KEYSTORE_PASSWORD`, `TELECRM_KEY_ALIAS`, `TELECRM_KEY_PASSWORD`
+
+`app/build.gradle.kts`에서 `versionCode`/`versionName` 올린 뒤 태그 `telecrm-v{versionName}` 푸시 → `.github/workflows/telecrm-android-release.yml`
+
 ## Phase 2~ (예정)
 
 - CallLog 자동 연동·통화 시간

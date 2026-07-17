@@ -14,6 +14,7 @@ import {
   syncTelecrmCallSession,
 } from './telecrmCallSession.service.js';
 import { TELECRM_CONNECTED_MIN_SEC } from './telecrmCallSession.constants.js';
+import { getTelecrmAppManifest, getTelecrmAppMinVersionName } from './telecrmAppManifest.js';
 import {
   countTelecrmMobileDispatchPending,
   drainTelecrmMobileDispatchQueue,
@@ -38,8 +39,12 @@ router.get('/mobile-config', requireStaffPermission('crm.view', 'crm.settings'),
     railwayEnv === 'staging' || host.includes('staging') || host.includes('railway.app')
       ? 'staging'
       : 'production';
+  const appManifest = getTelecrmAppManifest();
   res.json({
-    minAppVersion: '0.1.0',
+    minAppVersion: getTelecrmAppMinVersionName(),
+    minVersionCode: appManifest.minVersionCode,
+    latestVersionCode: appManifest.latestVersionCode,
+    latestVersionName: appManifest.latestVersionName,
     distribution: 'internal',
     serverOrigin: origin,
     serverLabel,

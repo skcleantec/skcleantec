@@ -53,6 +53,10 @@ apps/telecrm-android/.idea/
 apps/telecrm-android/*.iml
 apps/telecrm-android/app/*.iml
 apps/telecrm-android/.kotlin/
+apps/telecrm-android/keystore.properties
+apps/telecrm-android/keystore/*.jks
+apps/telecrm-android/keystore/*.keystore
+apps/telecrm-android/app/release/
 
 # 로컬 에이전트 — product/help 빌더 소스만 저장소 포함
 /agent/*
