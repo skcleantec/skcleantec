@@ -52,14 +52,12 @@ type LegacyInboxRow = CrmSoomgoInboxItem & {
 function normalizeItem(
   row: Partial<CrmSoomgoInboxItem> & { chatId: string; rawLines?: string[] | null },
 ): CrmSoomgoInboxItem {
-  const rawLines =
-    row.rawLines ??
-    (row.serviceRegion && !row.customerName?.trim()
-      ? [row.serviceRegion, row.messagePreview ?? row.previewText].filter(Boolean)
-      : undefined);
+  const rawLines = row.rawLines?.length ? row.rawLines : undefined;
+  const rawBlock = rawLines?.join('\n');
 
   const parsed = parseSoomgoChatRow({
-    rawLines: rawLines as string[] | undefined,
+    rawLines,
+    rawBlock,
     customerName: row.customerName,
     serviceRegion: row.serviceRegion,
     messagePreview: row.messagePreview,

@@ -13,6 +13,7 @@ export type SoomgoInboxMessageRule = {
 };
 
 const BADGE_ONLY = /^\d{1,2}$/;
+const PLACEHOLDER_PREVIEW = /^\(채팅 미리보기\)$|^\(내용 없음\)$/;
 const SMART_QUOTE =
   /스마트\s*견적|총\s*[\d,]+\s*원\s*부터|부터\s*•\s*스마트|총\s*[\d,]+\s*원/;
 const QUOTE_READ = /견적.*(읽|확인)|고객님이\s*견적|견적서를\s*확인|읽었습니다/;
@@ -23,6 +24,7 @@ const SERVICE_REGION =
 export function sanitizeSoomgoMessagePreview(text: string | null | undefined): string {
   const trimmed = (text || '').replace(/\s+/g, ' ').trim();
   if (!trimmed) return '';
+  if (PLACEHOLDER_PREVIEW.test(trimmed)) return '';
   if (BADGE_ONLY.test(trimmed)) return '';
   if (SMART_QUOTE.test(trimmed)) return '';
   return trimmed;

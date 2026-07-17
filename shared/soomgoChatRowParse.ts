@@ -12,6 +12,8 @@ import {
 
 export type SoomgoChatRowParseInput = {
   rawLines?: string[] | null;
+  /** 한 줄 innerText 전체 — rawLines가 1줄일 때 분해 */
+  rawBlock?: string | null;
   /** 브릿지가 이미 넣은 값 — rawLines 없을 때 보조 */
   customerName?: string | null;
   serviceRegion?: string | null;
@@ -41,6 +43,7 @@ const MERGED_HEADER_TIGHT =
   /^([가-힣]{2,6})(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*•\s*(.+)$/;
 const SERVICE_ONLY = /^(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*•\s*(.+)$/;
 const REGION_TAIL = /청소업체|•|[시군구읍면]/;
+const INVALID_NAME = /^(고객|익명|상대방)$/;
 
 function norm(s: string): string {
   return s.replace(/\s+/g, ' ').trim();
@@ -60,18 +63,38 @@ function normalizeServiceRegion(service: string, region: string): string {
   return `${svc} • ${reg}`;
 }
 
-function splitMergedHeader(line: string): { name: string | null; serviceRegion: string } | null {
+function splitRegionFromMessage(regionPart: string): { region: string; message: string | null } {
+  const t = norm(regionPart);
+  const idx = t.search(/\s+(?:고객님이|고객님|안녕하세요|안녕하세|안녕|견적|문의|감사|반갑|확인|사진|주소|평수|네[,!]?)\s*/);
+  if (idx >= 4) {
+    return { region: t.slice(0, idx).trim(), message: t.slice(idx).trim() };
+  }
+  return { region: t, message: null };
+}
+
+function splitMergedHeader(line: string): {
+  name: string | null;
+  serviceRegion: string;
+  trailingMessage?: string | null;
+} | null {
   const t = norm(line);
   const m = t.match(MERGED_HEADER) ?? t.match(MERGED_HEADER_TIGHT);
   if (m) {
+    const peeled = splitRegionFromMessage(m[3]);
     return {
       name: m[1],
-      serviceRegion: normalizeServiceRegion(m[2], m[3]),
+      serviceRegion: normalizeServiceRegion(m[2], peeled.region),
+      trailingMessage: peeled.message,
     };
   }
   const svc = t.match(SERVICE_ONLY);
   if (svc) {
-    return { name: null, serviceRegion: normalizeServiceRegion(svc[1], svc[2]) };
+    const peeled = splitRegionFromMessage(svc[2]);
+    return {
+      name: null,
+      serviceRegion: normalizeServiceRegion(svc[1], peeled.region),
+      trailingMessage: peeled.message,
+    };
   }
   return null;
 }
@@ -102,7 +125,7 @@ function classifyPreviewKind(text: string): SoomgoChatAlertKind {
 }
 
 function pickDisplayName(name: string | null, serviceRegion: string | null, firstLine: string | null): string | null {
-  if (name?.trim()) return name.trim();
+  if (name?.trim() && !INVALID_NAME.test(name.trim())) return name.trim();
   const merged = firstLine ? splitMergedHeader(firstLine) : null;
   if (merged?.name) return merged.name;
   if (serviceRegion) {
@@ -118,17 +141,52 @@ function pickDisplayName(name: string | null, serviceRegion: string | null, firs
   return null;
 }
 
-/** rawLines 우선 — 알림 행 전체를 분해 */
-export function parseSoomgoChatRow(input: SoomgoChatRowParseInput): SoomgoChatRowParsed {
-  const lines: string[] = [];
-  if (input.rawLines?.length) {
-    for (const raw of input.rawLines) {
-      const t = norm(raw);
-      if (!isSkippableLine(t)) lines.push(t);
+/** innerText가 한 줄일 때 이름·지역·메시지 후보로 분해 */
+function expandLinesFromBlock(rawLines: string[], rawBlock: string | null | undefined): string[] {
+  const filtered: string[] = [];
+  for (const raw of rawLines) {
+    const t = norm(raw);
+    if (!isSkippableLine(t)) filtered.push(t);
+  }
+  if (filtered.length > 1) return filtered;
+
+  let one = norm(rawBlock || filtered[0] || '');
+  if (!one) return filtered;
+  one = one.replace(/\s*총\s*[\d,]+\s*원.*스마트\s*견적\s*$/i, '').trim();
+  const { text: rest, time: _time } = stripTimeFromLine(one);
+  void _time;
+
+  const merged = splitMergedHeader(rest);
+  if (merged) {
+    const out: string[] = [];
+    if (merged.name) out.push(merged.name);
+    out.push(merged.serviceRegion);
+    if (merged.trailingMessage) out.push(merged.trailingMessage);
+    const loose = rest.match(/(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*•\s*(.+)$/);
+    if (loose && !merged.trailingMessage) {
+      const idx = rest.indexOf(loose[0]);
+      if (idx >= 0) {
+        const msgPart = rest.slice(idx + loose[0].length).trim();
+        if (msgPart) out.push(msgPart);
+      }
     }
+    return out;
   }
 
-  let customerName = input.customerName?.trim() || null;
+  return rest ? [rest] : filtered;
+}
+
+/** rawLines 우선 — 알림 행 전체를 분해 */
+export function parseSoomgoChatRow(input: SoomgoChatRowParseInput): SoomgoChatRowParsed {
+  const lines: string[] = expandLinesFromBlock(
+    input.rawLines?.length ? input.rawLines.map(norm) : [],
+    input.rawBlock ?? input.rawLines?.join('\n') ?? null,
+  );
+
+  let customerName =
+    input.customerName?.trim() && !INVALID_NAME.test(input.customerName.trim())
+      ? input.customerName.trim()
+      : null;
   let serviceRegion = input.serviceRegion?.trim() || null;
   let messagePreview: string | null =
     sanitizeSoomgoMessagePreview(input.messagePreview ?? input.previewText) || null;
