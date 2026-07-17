@@ -3,6 +3,7 @@ import { CrmSlideDrawer } from '../layout/CrmSlideDrawer';
 import {
   formatSoomgoInboxCustomerName,
   formatSoomgoInboxTime,
+  formatSoomgoAlertKind,
   isSoomgoInboxPinned,
   type CrmSoomgoInboxItem,
 } from '../../../utils/crmSoomgoChatInbox';
@@ -49,6 +50,8 @@ function InboxOneLineRow({
   const region = item.serviceRegion?.trim() || null;
   const timeLabel = formatSoomgoInboxTime(item.capturedAt, item.listTimeLabel);
   const needsAction = (item.unreadCount ?? 0) > 0 || item.previewKind === 'quote_read';
+  const chatPreview = item.messagePreview?.trim() || item.previewText;
+  const kindLabel = formatSoomgoAlertKind(item.previewKind);
 
   return (
     <tr
@@ -93,8 +96,8 @@ function InboxOneLineRow({
         </span>
       </td>
       <td className="min-w-0 px-1 py-1 align-middle">
-        <span className="block truncate text-[10px] text-slate-600" title={item.previewText}>
-          {item.previewText}
+        <span className="block truncate text-[10px] text-slate-600" title={`[${kindLabel}] ${chatPreview}`}>
+          {chatPreview}
         </span>
       </td>
       <td className="w-12 shrink-0 px-0.5 py-1 text-center align-middle text-[9px] tabular-nums text-slate-400">

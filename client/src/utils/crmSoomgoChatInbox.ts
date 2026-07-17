@@ -1,4 +1,8 @@
 import type { SoomgoChatAlert, SoomgoChatListSnapshotRow } from '@shared/soomgoBridge';
+import {
+  resolveSoomgoInboxDisplayPreview,
+  sanitizeSoomgoMessagePreview,
+} from '@shared/soomgoChatPreview';
 
 const MAX_ITEMS = 200;
 const RETENTION_MS = 72 * 60 * 60 * 1000;
@@ -9,10 +13,17 @@ export type CrmSoomgoInboxItem = SoomgoChatAlert & {
   pinnedAt: number | null;
 };
 
+/** @deprecated sanitizeSoomgoMessagePreview 사용 */
+export function sanitizeSoomgoInboxPreviewText(text: string | null | undefined): string {
+  const cleaned = sanitizeSoomgoMessagePreview(text);
+  return cleaned || '(채팅 미리보기)';
+}
+
 /** 사용자가 읽음·열기로 숨긴 알림 — 동일 알림이 스캔에 남아도 재표시하지 않음 */
 export type SoomgoInboxDismissSnapshot = {
   unreadCount: number;
   previewText: string;
+  messagePreview?: string | null;
   previewKind: SoomgoChatAlert['previewKind'];
   dismissedAt: number;
 };
@@ -27,13 +38,6 @@ function dismissStorageKey(userId: string, brandSlug: string | null): string {
   return `crmSoomgoInboxDismiss:${userId}:${brand}`;
 }
 
-export function sanitizeSoomgoInboxPreviewText(text: string | null | undefined): string {
-  const trimmed = (text || '').replace(/\s+/g, ' ').trim();
-  if (!trimmed) return '(내용 없음)';
-  if (/^\d{1,2}$/.test(trimmed)) return '(채팅 미리보기)';
-  return trimmed;
-}
-
 function stableInboxId(chatId: string): string {
   return `sg-${chatId}`;
 }
@@ -45,12 +49,19 @@ type LegacyInboxRow = CrmSoomgoInboxItem & {
 };
 
 function normalizeItem(row: Partial<CrmSoomgoInboxItem> & { chatId: string }): CrmSoomgoInboxItem {
+  const messagePreview = sanitizeSoomgoMessagePreview(row.messagePreview ?? row.previewText) || null;
+  const previewText = resolveSoomgoInboxDisplayPreview({
+    messagePreview,
+    previewText: row.previewText,
+  });
   return {
     id: row.id?.trim() || stableInboxId(row.chatId),
     chatId: row.chatId,
     customerName: row.customerName ?? null,
     serviceRegion: row.serviceRegion ?? null,
-    previewText: sanitizeSoomgoInboxPreviewText(row.previewText),
+    previewText,
+    messagePreview,
+    parseQuality: row.parseQuality ?? 'fallback',
     previewKind: row.previewKind ?? 'unknown',
     unreadCount: row.unreadCount ?? 0,
     listTimeLabel: row.listTimeLabel ?? null,
@@ -86,15 +97,15 @@ export function isSoomgoScanAlertActive(row: SoomgoChatListSnapshotRow): boolean
 }
 
 export function isSoomgoAlertChangedSinceDismiss(
-  row: Pick<SoomgoChatListSnapshotRow, 'unreadCount' | 'previewText' | 'previewKind'>,
+  row: Pick<SoomgoChatListSnapshotRow, 'unreadCount' | 'previewText' | 'messagePreview' | 'previewKind'>,
   dismiss: SoomgoInboxDismissSnapshot | undefined,
 ): boolean {
   if (!dismiss) return true;
   if ((row.unreadCount ?? 0) > dismiss.unreadCount) return true;
   if (row.previewKind === 'quote_read' && dismiss.previewKind !== 'quote_read') return true;
-  const preview = sanitizeSoomgoInboxPreviewText(row.previewText);
-  const dismissedPreview = sanitizeSoomgoInboxPreviewText(dismiss.previewText);
-  if (preview !== dismissedPreview && preview !== '(채팅 미리보기)') return true;
+  const preview = sanitizeSoomgoMessagePreview(row.messagePreview ?? row.previewText);
+  const dismissedPreview = sanitizeSoomgoMessagePreview(dismiss.messagePreview ?? dismiss.previewText);
+  if (preview !== dismissedPreview && preview) return true;
   return false;
 }
 
@@ -254,7 +265,8 @@ export function upsertSoomgoChatAlerts(
     if (unread < 1 && previewKind !== 'quote_read') continue;
 
     const prev = byChatId.get(chatId);
-    const previewText = alert.previewText?.trim() || '(내용 없음)';
+    const previewText = resolveSoomgoInboxDisplayPreview(alert);
+    const messagePreview = sanitizeSoomgoMessagePreview(alert.messagePreview ?? alert.previewText) || null;
     const capturedAt = alert.capturedAt ?? Date.now();
 
     if (!prev) {
@@ -262,6 +274,7 @@ export function upsertSoomgoChatAlerts(
         ...alert,
         id: stableInboxId(chatId),
         previewText,
+        messagePreview,
         capturedAt,
         pinnedAt: null,
       });
@@ -270,7 +283,9 @@ export function upsertSoomgoChatAlerts(
       continue;
     }
 
-    const previewChanged = prev.previewText !== previewText;
+    const previewChanged =
+      prev.previewText !== previewText ||
+      (prev.messagePreview ?? '') !== (messagePreview ?? '');
     const unreadIncreased = unread > (prev.unreadCount ?? 0);
     const timeAdvanced = capturedAt > prev.capturedAt + 500;
     if (!previewChanged && !unreadIncreased && !timeAdvanced) continue;
@@ -280,6 +295,7 @@ export function upsertSoomgoChatAlerts(
       ...alert,
       id: prev.id,
       previewText,
+      messagePreview,
       capturedAt: Math.max(prev.capturedAt, capturedAt),
       pinnedAt: prev.pinnedAt,
     });
@@ -313,6 +329,7 @@ export function dismissSoomgoInboxItems(
     nextDismissals.set(row.chatId, {
       unreadCount: row.unreadCount ?? 0,
       previewText: row.previewText,
+      messagePreview: row.messagePreview ?? null,
       previewKind: row.previewKind,
       dismissedAt: now,
     });
@@ -395,6 +412,7 @@ export function reconcileSoomgoInboxWithScan(
 export function formatSoomgoAlertKind(kind: SoomgoChatAlert['previewKind']): string {
   if (kind === 'quote_read') return '견적 읽음';
   if (kind === 'message') return '메시지';
+  if (kind === 'system') return '시스템';
   if (kind === 'smart_quote') return '스마트견적';
   return '알림';
 }

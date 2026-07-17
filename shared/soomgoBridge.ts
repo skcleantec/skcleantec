@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.9';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.10';
 
 /** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
@@ -120,7 +120,9 @@ export type SoomgoBridgeManifest = {
   sha256?: string;
 };
 
-export type SoomgoChatAlertKind = 'message' | 'quote_read' | 'smart_quote' | 'unknown';
+export type SoomgoChatAlertKind = 'message' | 'quote_read' | 'smart_quote' | 'system' | 'unknown';
+
+export type SoomgoChatParseQuality = 'full' | 'partial' | 'fallback';
 
 export type SoomgoChatAlert = {
   id: string;
@@ -128,7 +130,11 @@ export type SoomgoChatAlert = {
   customerName: string | null;
   /** 채팅 목록 2번째 줄 — 종류·지역 (예: 이사/입주 청소업체 • 서울 …) */
   serviceRegion?: string | null;
+  /** 목록 UI·레거시 호환 표시 텍스트 */
   previewText: string;
+  /** 채팅 목록 3번째 줄 — 알림 제외·강조 규칙 매칭용 (브릿지 ≥2.2.10) */
+  messagePreview?: string | null;
+  parseQuality?: SoomgoChatParseQuality;
   previewKind: SoomgoChatAlertKind;
   unreadCount: number;
   listTimeLabel: string | null;
@@ -141,6 +147,8 @@ export type SoomgoChatListSnapshotRow = {
   customerName: string | null;
   serviceRegion?: string | null;
   previewText: string;
+  messagePreview?: string | null;
+  parseQuality?: SoomgoChatParseQuality;
   previewKind: SoomgoChatAlertKind;
   unreadCount: number;
   listTimeLabel: string | null;
