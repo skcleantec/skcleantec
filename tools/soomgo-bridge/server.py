@@ -637,7 +637,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
                             clear_pending_update_manifest()
                     else:
                         clear_pending_update_manifest()
-                    get_manifest_cached(force=True)
                     mode = str(body.get('mode', 'prompt')).strip().lower()
                     if mode not in ('prompt', 'background', 'install'):
                         mode = 'prompt'

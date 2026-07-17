@@ -15,6 +15,8 @@ import {
   isSoomgoBridgeReachable,
   isSoomgoAppUpdateAvailable,
   isSoomgoBridgeUseBlocked,
+  isSoomgoBridgeCrmManifestPassthroughSupported,
+  installSoomgoBridgeFromCrmManifest,
   loginSoomgoBridge,
   openSoomgoCallModal,
   openSoomgoChatRoom,
@@ -162,7 +164,10 @@ export function useCrmSoomgoBridge({
   );
 
   const triggerBridgeUpdate = useCallback(
-    (mode: 'prompt' | 'background' | 'install') => {
+    (mode: 'prompt' | 'background' | 'install', statusForGate?: SoomgoBridgeStatus | null) => {
+      if (statusForGate && !isSoomgoBridgeCrmManifestPassthroughSupported(statusForGate)) {
+        return;
+      }
       if (refreshManifest) {
         void requestSoomgoBridgeUpdateFresh(refreshManifest, mode);
       } else {
@@ -208,7 +213,7 @@ export function useCrmSoomgoBridge({
       watchBlockedRef.current = true;
       setError(outdatedMsg);
       notify(outdatedMsg);
-      void triggerBridgeUpdate('install');
+      void triggerBridgeUpdate('install', s);
     } else if (
       isSoomgoAppUpdateAvailable(s, bridgeManifest) &&
       !softUpdateNotifiedRef.current &&
@@ -222,7 +227,7 @@ export function useCrmSoomgoBridge({
         setError(softMsg);
         notify(softMsg);
       }
-      void triggerBridgeUpdate('background');
+      void triggerBridgeUpdate('background', s);
     }
     if (s.pendingCallPhone && s.pendingCallAt != null && !blocked) {
       void handlePendingCall(s);
@@ -323,7 +328,19 @@ export function useCrmSoomgoBridge({
       if (isSoomgoBridgeUseBlocked(current, bridgeManifest)) {
         const outdatedMsg = soomgoBridgeOutdatedMessage(current, bridgeManifest);
         pendingSoomgoReconnectRef.current = true;
-        void triggerBridgeUpdate('install');
+        let manifest = bridgeManifest;
+        if (refreshManifest) {
+          manifest = (await refreshManifest()) ?? manifest;
+        }
+        const via = await installSoomgoBridgeFromCrmManifest('install', manifest, current);
+        if (via === 'browser') {
+          const latest = manifest?.latestVersion?.trim();
+          notify(
+            latest
+              ? `v${latest} 설치 파일을 열었습니다. 설치 후 「청소비서 숨고 연동」을 다시 실행해 주세요.`
+              : '설치 파일을 열었습니다. 설치 후 프로그램을 다시 실행해 주세요.',
+          );
+        }
         throw new Error(outdatedMsg);
       }
       pendingSoomgoReconnectRef.current = false;
@@ -361,23 +378,32 @@ export function useCrmSoomgoBridge({
     } finally {
       setBusyAction(null);
     }
-  }, [applySplitLayout, bridgeManifest, ensureCallWatch, ensureChatWatch, isPopup, notify, operatingCompanyId, refreshStatus, triggerBridgeUpdate]);
+  }, [applySplitLayout, bridgeManifest, ensureCallWatch, ensureChatWatch, isPopup, notify, operatingCompanyId, refreshManifest, refreshStatus]);
 
   openSoomgoRef.current = openSoomgo;
 
   const requestBridgeUpdate = useCallback(
     async (mode: 'prompt' | 'background' | 'install' = 'install') => {
       if (soomgoBarOpenRef.current) pendingSoomgoReconnectRef.current = true;
+      let manifest = bridgeManifest;
       if (refreshManifest) {
-        await requestSoomgoBridgeUpdateFresh(refreshManifest, mode);
-      } else {
-        await requestSoomgoBridgeUpdate(mode, bridgeManifest);
+        manifest = (await refreshManifest()) ?? manifest;
+      }
+      const current = await refreshStatus({ lite: true });
+      const via = await installSoomgoBridgeFromCrmManifest(mode, manifest, current);
+      if (via === 'browser') {
+        const latest = manifest?.latestVersion?.trim();
+        notify(
+          latest
+            ? `v${latest} 설치 파일을 열었습니다. 다운로드·실행 후 「청소비서 숨고 연동」을 다시 켜 주세요.`
+            : '설치 파일을 열었습니다. 설치 후 프로그램을 다시 실행해 주세요.',
+        );
       }
       window.setTimeout(() => {
         void refreshStatus();
       }, 1500);
     },
-    [bridgeManifest, refreshManifest, refreshStatus],
+    [bridgeManifest, notify, refreshManifest, refreshStatus],
   );
 
   const openChatRoom = useCallback(

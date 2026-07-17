@@ -5,7 +5,10 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.3';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.4';
+
+/** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
+export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
 
 /** 채팅 목록 알림 watcher 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CHAT_ALERTS_MIN_VERSION = '2.2.0';
@@ -66,6 +69,15 @@ export function isSoomgoAppUpdateAvailable(
 ): boolean {
   if (!status?.bridgeRunning) return false;
   return isSoomgoAppOutdated(status.appVersion, manifest);
+}
+
+/** CRM이 넘긴 manifest로 업데이트·설치 가능 (구버전은 cbiseo.com manifest만 사용) */
+export function isSoomgoBridgeCrmManifestPassthroughSupported(
+  status: SoomgoBridgeStatus | null | undefined,
+): boolean {
+  const current = status?.appVersion?.trim();
+  if (!current) return false;
+  return compareSoomgoSemver(current, SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION) >= 0;
 }
 
 /** 숨고 Chrome·채팅 연동 차단 — API/앱 버전 업데이트 필요 */

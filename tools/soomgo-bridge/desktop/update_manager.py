@@ -167,6 +167,9 @@ def install_cached_artifact(manifest: dict[str, Any]) -> tuple[bool, str]:
     lower = dest.name.lower()
     if lower.endswith('.exe'):
         if run_installer(dest):
+            from desktop.config import clear_pending_update_manifest
+
+            clear_pending_update_manifest()
             return True, '업데이트 설치 중입니다. 잠시 후 프로그램이 자동으로 다시 시작됩니다.'
         write_update_state(phase='ready', message='설치 프로그램 실행 실패', latest_version=latest or None, artifact=str(dest))
         return False, '설치 프로그램 실행에 실패했습니다.'

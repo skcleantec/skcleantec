@@ -7,6 +7,7 @@ import {
   isSoomgoAppOutdated,
   isSoomgoAppUpdateAvailable,
   isSoomgoBridgeApiOutdated,
+  isSoomgoBridgeCrmManifestPassthroughSupported,
   isSoomgoBridgeUseBlocked,
 } from '@shared/soomgoBridge';
 import type { SoomgoMessageStep } from '@shared/soomgoMessagePresets';
@@ -118,8 +119,39 @@ export function isSoomgoBridgeOutdated(
 export {
   isSoomgoAppUpdateAvailable,
   isSoomgoBridgeApiOutdated,
+  isSoomgoBridgeCrmManifestPassthroughSupported,
   isSoomgoBridgeUseBlocked,
 };
+
+/** CRM manifest의 Setup.exe를 브라우저에서 직접 연다 (구버전 브릿지 부트스트랩) */
+export function openSoomgoBridgeInstaller(manifest?: SoomgoBridgeManifest | null): boolean {
+  const url = manifest?.downloadUrl?.trim();
+  if (!url) return false;
+  window.open(url, '_blank', 'noopener,noreferrer');
+  return true;
+}
+
+/**
+ * CRM manifest 기준 설치·업데이트.
+ * 구버전 브릿지(< 2.2.3)는 cbiseo.com manifest만 쓰므로 브라우저 다운로드만 수행.
+ */
+export async function installSoomgoBridgeFromCrmManifest(
+  mode: 'prompt' | 'background' | 'install',
+  manifest: SoomgoBridgeManifest | null | undefined,
+  status: SoomgoBridgeStatus | null | undefined,
+): Promise<'browser' | 'bridge' | 'skipped'> {
+  const url = manifest?.downloadUrl?.trim();
+  const latest = manifest?.latestVersion?.trim();
+  if (!url || !latest) {
+    throw new Error('설치 파일 URL을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  }
+  if (!isSoomgoBridgeCrmManifestPassthroughSupported(status)) {
+    openSoomgoBridgeInstaller(manifest);
+    return 'browser';
+  }
+  await requestSoomgoBridgeUpdate(mode, manifest);
+  return 'bridge';
+}
 
 export async function fetchSoomgoBridgeStatus(
   manifest?: SoomgoBridgeManifest | null,

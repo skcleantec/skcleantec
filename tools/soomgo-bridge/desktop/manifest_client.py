@@ -28,10 +28,10 @@ def fetch_manifest() -> dict[str, Any] | None:
 
 
 def fetch_manifest_for_update() -> dict[str, Any] | None:
-    """CRM이 넘긴 manifest 우선, 없으면 원격 조회."""
-    from desktop.config import take_pending_update_manifest
+    """CRM이 넘긴 manifest 우선(peek), 없으면 원격 조회."""
+    from desktop.config import peek_pending_update_manifest
 
-    pending = take_pending_update_manifest()
+    pending = peek_pending_update_manifest()
     if pending:
         logger.info('using CRM pending manifest v%s', pending.get('latestVersion'))
         return pending

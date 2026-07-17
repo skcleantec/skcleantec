@@ -86,6 +86,11 @@ def resolve_update_flag_path() -> pathlib.Path:
 def write_pending_update_manifest(data: dict) -> None:
     ensure_app_data()
     UPDATE_MANIFEST_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+    cfg = load_config()
+    cached = str(cfg.get('resolvedManifestUrl', '')).strip().lower()
+    if cached and ('cbiseo.com' in cached or 'www.cbiseo.com' in cached):
+        cfg.pop('resolvedManifestUrl', None)
+        save_config(cfg)
 
 
 def clear_pending_update_manifest() -> None:
