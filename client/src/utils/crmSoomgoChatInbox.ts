@@ -1,13 +1,11 @@
-import type { SoomgoChatAlert } from '@shared/soomgoBridge';
+import type { SoomgoChatAlert, SoomgoChatListSnapshotRow } from '@shared/soomgoBridge';
 
 const MAX_ITEMS = 200;
 const RETENTION_MS = 72 * 60 * 60 * 1000;
-/** 대기(집중 감시) 유지 시간 */
-export const SOOMGO_INBOX_WATCH_MS = 24 * 60 * 60 * 1000;
 
 export type CrmSoomgoInboxItem = SoomgoChatAlert & {
-  readAt: number | null;
-  watchUntil: number | null;
+  /** 카톡형 상단 고정 시각 (null = 미고정) */
+  pinnedAt: number | null;
 };
 
 function storageKey(userId: string, brandSlug: string | null): string {
@@ -19,6 +17,12 @@ function stableInboxId(chatId: string): string {
   return `sg-${chatId}`;
 }
 
+/** @deprecated localStorage 마이그레이션용 */
+type LegacyInboxRow = CrmSoomgoInboxItem & {
+  readAt?: number | null;
+  watchUntil?: number | null;
+};
+
 function normalizeItem(row: Partial<CrmSoomgoInboxItem> & { chatId: string }): CrmSoomgoInboxItem {
   return {
     id: row.id?.trim() || stableInboxId(row.chatId),
@@ -29,20 +33,23 @@ function normalizeItem(row: Partial<CrmSoomgoInboxItem> & { chatId: string }): C
     unreadCount: row.unreadCount ?? 0,
     listTimeLabel: row.listTimeLabel ?? null,
     capturedAt: row.capturedAt ?? Date.now(),
-    readAt: row.readAt ?? null,
-    watchUntil: row.watchUntil ?? null,
+    pinnedAt: row.pinnedAt ?? null,
   };
+}
+
+export function sortSoomgoInboxItems(items: CrmSoomgoInboxItem[]): CrmSoomgoInboxItem[] {
+  return [...items].sort((a, b) => {
+    const aPin = a.pinnedAt ?? 0;
+    const bPin = b.pinnedAt ?? 0;
+    if (aPin !== bPin) return bPin - aPin;
+    return b.capturedAt - a.capturedAt;
+  });
 }
 
 function pruneItems(items: CrmSoomgoInboxItem[]): CrmSoomgoInboxItem[] {
   const cutoff = Date.now() - RETENTION_MS;
-  const now = Date.now();
-  return items
+  return sortSoomgoInboxItems(items)
     .filter((row) => row.capturedAt >= cutoff)
-    .map((row) =>
-      row.watchUntil != null && row.watchUntil <= now ? { ...row, watchUntil: null } : row,
-    )
-    .sort((a, b) => b.capturedAt - a.capturedAt)
     .slice(0, MAX_ITEMS);
 }
 
@@ -51,15 +58,19 @@ export function loadSoomgoChatInbox(userId: string | null, brandSlug: string | n
   try {
     const raw = localStorage.getItem(storageKey(userId, brandSlug));
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as CrmSoomgoInboxItem[];
+    const parsed = JSON.parse(raw) as LegacyInboxRow[];
     if (!Array.isArray(parsed)) return [];
+    const now = Date.now();
     const migrated = parsed
       .filter((row) => row && typeof row.chatId === 'string' && row.chatId.trim())
+      .filter((row) => row.readAt == null)
       .map((row) =>
         normalizeItem({
           ...row,
           id: row.id?.startsWith('sg-') ? row.id : stableInboxId(row.chatId),
-          watchUntil: row.watchUntil ?? null,
+          pinnedAt:
+            row.pinnedAt ??
+            (row.watchUntil != null && row.watchUntil > now ? row.watchUntil : null),
         }),
       );
     return pruneItems(migrated);
@@ -81,15 +92,53 @@ export function saveSoomgoChatInbox(
   }
 }
 
-export function isSoomgoInboxWatching(item: CrmSoomgoInboxItem, now = Date.now()): boolean {
-  return item.watchUntil != null && item.watchUntil > now;
+export function isSoomgoInboxPinned(item: CrmSoomgoInboxItem): boolean {
+  return item.pinnedAt != null;
 }
 
-export function isSoomgoInboxUnread(item: CrmSoomgoInboxItem): boolean {
-  return item.readAt == null;
+/** 알림함 = 처리 대기 큐 — 모든 행이 미처리 */
+export function isSoomgoInboxUnread(_item: CrmSoomgoInboxItem): boolean {
+  return true;
 }
 
-/** chatId 기준 1고객 1행 — 미리보기 변경 시 상단 재정렬·미읽음 복귀 */
+export function soomgoInboxPendingCount(items: CrmSoomgoInboxItem[]): number {
+  return items.length;
+}
+
+/** @deprecated soomgoInboxPendingCount 사용 */
+export function unreadSoomgoInboxCount(items: CrmSoomgoInboxItem[]): number {
+  return soomgoInboxPendingCount(items);
+}
+
+/** 고객명 · 서비스 라벨 분리 (띄어쓰기) */
+export function formatSoomgoInboxCustomerName(raw: string | null): {
+  displayName: string;
+  serviceLabel: string | null;
+} {
+  const text = (raw || '').replace(/\s+/g, ' ').trim();
+  if (!text) return { displayName: '고객', serviceLabel: null };
+
+  const normalized = text.replace(
+    /([가-힣a-zA-Z0-9])(이사\/입주|입주\/이사|입주\s*\/\s*이사|이사|입주|청소|외벽)/gi,
+    '$1 $2',
+  );
+
+  const servicePatterns = [
+    /^(.+?)\s+(이사\/입주(?:\s*청소)?)$/i,
+    /^(.+?)\s+(입주\/이사(?:\s*청소)?)$/i,
+    /^(.+?)\s+(이사|입주|청소|외벽(?:\s*청소)?)$/i,
+  ];
+  for (const pattern of servicePatterns) {
+    const m = normalized.match(pattern);
+    if (m) {
+      return { displayName: m[1].trim(), serviceLabel: m[2].trim() };
+    }
+  }
+
+  return { displayName: normalized, serviceLabel: null };
+}
+
+/** chatId 기준 1고객 1행 — 미리보기·미읽음 변경 시 상단 재정렬 */
 export function upsertSoomgoChatAlerts(
   existing: CrmSoomgoInboxItem[],
   incoming: SoomgoChatAlert[],
@@ -106,6 +155,11 @@ export function upsertSoomgoChatAlerts(
     const chatId = alert?.chatId?.trim();
     if (!chatId) continue;
 
+    const previewKind = alert.previewKind ?? 'unknown';
+    const unread = alert.unreadCount ?? 0;
+    if (previewKind === 'smart_quote') continue;
+    if (unread < 1 && previewKind !== 'quote_read') continue;
+
     const prev = byChatId.get(chatId);
     const previewText = alert.previewText?.trim() || '(내용 없음)';
     const capturedAt = alert.capturedAt ?? Date.now();
@@ -116,8 +170,7 @@ export function upsertSoomgoChatAlerts(
         id: stableInboxId(chatId),
         previewText,
         capturedAt,
-        readAt: null,
-        watchUntil: null,
+        pinnedAt: null,
       });
       byChatId.set(chatId, row);
       added.push(row);
@@ -125,12 +178,9 @@ export function upsertSoomgoChatAlerts(
     }
 
     const previewChanged = prev.previewText !== previewText;
-    const unreadIncreased = (alert.unreadCount ?? 0) > (prev.unreadCount ?? 0);
+    const unreadIncreased = unread > (prev.unreadCount ?? 0);
     const timeAdvanced = capturedAt > prev.capturedAt + 500;
     if (!previewChanged && !unreadIncreased && !timeAdvanced) continue;
-
-    const becameUnread =
-      prev.readAt != null && (previewChanged || unreadIncreased || (alert.unreadCount ?? 0) > 0);
 
     const row = normalizeItem({
       ...prev,
@@ -138,8 +188,7 @@ export function upsertSoomgoChatAlerts(
       id: prev.id,
       previewText,
       capturedAt: Math.max(prev.capturedAt, capturedAt),
-      readAt: becameUnread ? null : prev.readAt,
-      watchUntil: prev.watchUntil,
+      pinnedAt: prev.pinnedAt,
     });
     byChatId.set(chatId, row);
     bumped.push(row);
@@ -148,60 +197,57 @@ export function upsertSoomgoChatAlerts(
   return { items: pruneItems([...byChatId.values()]), added, bumped };
 }
 
-/** @deprecated upsertSoomgoChatAlerts 사용 */
-export function mergeSoomgoChatAlerts(
-  existing: CrmSoomgoInboxItem[],
-  incoming: SoomgoChatAlert[],
-): { items: CrmSoomgoInboxItem[]; added: CrmSoomgoInboxItem[] } {
-  const { items, added } = upsertSoomgoChatAlerts(existing, incoming);
-  return { items, added };
-}
-
-export function markSoomgoInboxRead(items: CrmSoomgoInboxItem[], ids: string[]): CrmSoomgoInboxItem[] {
-  const idSet = new Set(ids);
-  const now = Date.now();
-  return items.map((row) =>
-    idSet.has(row.id) ? { ...row, readAt: row.readAt ?? now, watchUntil: null } : row,
-  );
-}
-
-export function markSoomgoInboxReadByChatId(
+export function removeSoomgoInboxByChatId(
   items: CrmSoomgoInboxItem[],
   chatIds: string[],
 ): CrmSoomgoInboxItem[] {
   const chatSet = new Set(chatIds.map((c) => c.trim()).filter(Boolean));
+  return items.filter((row) => !chatSet.has(row.chatId));
+}
+
+export function toggleSoomgoInboxPin(
+  items: CrmSoomgoInboxItem[],
+  chatId: string,
+): CrmSoomgoInboxItem[] {
+  const id = chatId.trim();
+  if (!id) return items;
   const now = Date.now();
-  return items.map((row) =>
-    chatSet.has(row.chatId) ? { ...row, readAt: row.readAt ?? now, watchUntil: null } : row,
+  return pruneItems(
+    items.map((row) =>
+      row.chatId === id ? { ...row, pinnedAt: row.pinnedAt != null ? null : now } : row,
+    ),
   );
 }
 
-export function markSoomgoInboxWatching(
+export function pinnedSoomgoChatIds(items: CrmSoomgoInboxItem[]): string[] {
+  return items.filter((row) => row.pinnedAt != null).map((row) => row.chatId);
+}
+
+/** @deprecated pinnedSoomgoChatIds 사용 */
+export function watchingSoomgoChatIds(items: CrmSoomgoInboxItem[]): string[] {
+  return pinnedSoomgoChatIds(items);
+}
+
+/** 숨고 목록 스캔 — 미읽음 해소·대응 완료 건 알림함에서 제거 */
+export function reconcileSoomgoInboxWithScan(
   items: CrmSoomgoInboxItem[],
-  chatIds: string[],
-  durationMs: number = SOOMGO_INBOX_WATCH_MS,
+  scanRows: SoomgoChatListSnapshotRow[],
 ): CrmSoomgoInboxItem[] {
-  const chatSet = new Set(chatIds.map((c) => c.trim()).filter(Boolean));
-  const until = Date.now() + durationMs;
-  return items.map((row) => (chatSet.has(row.chatId) ? { ...row, watchUntil: until } : row));
-}
-
-export function clearSoomgoInboxWatching(items: CrmSoomgoInboxItem[], chatIds: string[]): CrmSoomgoInboxItem[] {
-  const chatSet = new Set(chatIds.map((c) => c.trim()).filter(Boolean));
-  return items.map((row) => (chatSet.has(row.chatId) ? { ...row, watchUntil: null } : row));
-}
-
-export function watchingSoomgoChatIds(items: CrmSoomgoInboxItem[], now = Date.now()): string[] {
-  return items.filter((row) => row.watchUntil != null && row.watchUntil > now).map((row) => row.chatId);
-}
-
-export function unreadSoomgoInboxCount(items: CrmSoomgoInboxItem[]): number {
-  return items.filter((row) => row.readAt == null).length;
+  if (scanRows.length === 0) return items;
+  const byChatId = new Map(scanRows.map((row) => [row.chatId, row]));
+  return items.filter((item) => {
+    const snap = byChatId.get(item.chatId);
+    if (!snap) return true;
+    if ((snap.unreadCount ?? 0) > 0) return true;
+    if (snap.previewKind === 'quote_read') return true;
+    return false;
+  });
 }
 
 export function formatSoomgoAlertKind(kind: SoomgoChatAlert['previewKind']): string {
   if (kind === 'quote_read') return '견적 읽음';
   if (kind === 'message') return '메시지';
+  if (kind === 'smart_quote') return '스마트견적';
   return '알림';
 }
 

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SoomgoExtractedChat, SoomgoBridgeStatus, SoomgoBridgeManifest, SoomgoChatAlert } from '@shared/soomgoBridge';
+import type {
+  SoomgoExtractedChat,
+  SoomgoBridgeStatus,
+  SoomgoBridgeManifest,
+  SoomgoChatAlert,
+  SoomgoChatListSnapshotRow,
+} from '@shared/soomgoBridge';
 import { getToken } from '../stores/auth';
 import { fetchTelecrmSoomgoCredentials } from '../api/telecrmSoomgo';
 import type { SoomgoBusyAction } from '../api/soomgoBridge';
@@ -48,6 +54,7 @@ export function useCrmSoomgoBridge({
   onDispatchNotice,
   onImportNotice,
   onChatAlerts,
+  onChatListSnapshot,
   pollEnabled = true,
   isPopup = false,
   bridgeManifest = null,
@@ -62,6 +69,8 @@ export function useCrmSoomgoBridge({
   onDispatchNotice?: (message: string) => void;
   onImportNotice?: (data: SoomgoExtractedChat) => void;
   onChatAlerts?: (alerts: SoomgoChatAlert[]) => void;
+  /** 채팅 목록 live 스캔 — 미읽음 해소 reconcile */
+  onChatListSnapshot?: (rows: SoomgoChatListSnapshotRow[]) => void;
   pollEnabled?: boolean;
   isPopup?: boolean;
   bridgeManifest?: SoomgoBridgeManifest | null;
@@ -256,8 +265,11 @@ export function useCrmSoomgoBridge({
     if (!options?.lite && s.chatInbox?.length && isSoomgoBridgeChatAlertsSupported(s) && !blocked) {
       onChatAlerts?.(s.chatInbox);
     }
+    if (!options?.lite && s.chatListSnapshot?.length && isSoomgoBridgeChatAlertsSupported(s) && !blocked) {
+      onChatListSnapshot?.(s.chatListSnapshot);
+    }
     return s;
-  }, [bridgeManifest, handleChatAlerts, handlePendingCall, notify, onChatAlerts, triggerBridgeUpdate]);
+  }, [bridgeManifest, handleChatAlerts, handlePendingCall, notify, onChatAlerts, onChatListSnapshot, triggerBridgeUpdate]);
 
   const ensureChatWatch = useCallback(
     async (s: SoomgoBridgeStatus) => {
@@ -531,6 +543,55 @@ export function useCrmSoomgoBridge({
     }
   }, [applyCallPhone, notify]);
 
+  const openChatRoomAndExtract = useCallback(
+    async (chatId: string) => {
+      setBusyAction('open');
+      setError(null);
+      try {
+        const current = await refreshStatus({ lite: true });
+        if (isSoomgoBridgeUseBlocked(current, bridgeManifest)) {
+          throw new Error(soomgoBridgeOutdatedMessage(current, bridgeManifest));
+        }
+        notify('숨고 채팅방을 여는 중입니다…');
+        await openSoomgoChatRoom(chatId);
+        let ready = false;
+        for (let i = 0; i < 30; i += 1) {
+          await new Promise((r) => window.setTimeout(r, 500));
+          const s = await fetchSoomgoBridgeStatus(bridgeManifest, { lite: true });
+          if (s.inChatRoom && s.chatId === chatId) {
+            ready = true;
+            break;
+          }
+        }
+        if (!ready) {
+          throw new Error('채팅방이 열리지 않았습니다. 숨고 창을 확인해 주세요.');
+        }
+        setBusyAction('extract');
+        notify('숨고에서 고객 정보를 가져오는 중입니다. Chrome 창을 건드리지 마세요.');
+        const data = await extractSoomgoCurrentChat();
+        setPreview(data);
+        onImport(data);
+        if (data.phone?.trim()) {
+          const result = await telecrmPrefillPhone(data.phone.trim(), { customerMatch: 'new' });
+          const prefillNotice = telecrmDispatchNotice(result, 'prefill');
+          if (prefillNotice) notify(prefillNotice);
+        }
+        onImportNotice?.(data);
+        await refreshStatus();
+        notify('숨고 채팅을 열고 고객 정보를 가져왔습니다.');
+        return data;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '채팅 열기·정보 가져오기에 실패했습니다.';
+        setError(msg);
+        notify(msg);
+        return null;
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [bridgeManifest, notify, onImport, onImportNotice, refreshStatus],
+  );
+
   const restartBridge = useCallback(async () => {
     setBusyAction('open');
     setError(null);
@@ -566,6 +627,7 @@ export function useCrmSoomgoBridge({
     callFromChat,
     restartBridge,
     openChatRoom,
+    openChatRoomAndExtract,
     requestBridgeUpdate,
     chatAlertsSupported: isSoomgoBridgeChatAlertsSupported(status),
   };

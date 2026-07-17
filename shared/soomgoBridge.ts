@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.6';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.7';
 
 /** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
@@ -120,10 +120,21 @@ export type SoomgoBridgeManifest = {
   sha256?: string;
 };
 
-export type SoomgoChatAlertKind = 'message' | 'quote_read' | 'unknown';
+export type SoomgoChatAlertKind = 'message' | 'quote_read' | 'smart_quote' | 'unknown';
 
 export type SoomgoChatAlert = {
   id: string;
+  chatId: string;
+  customerName: string | null;
+  previewText: string;
+  previewKind: SoomgoChatAlertKind;
+  unreadCount: number;
+  listTimeLabel: string | null;
+  capturedAt: number;
+};
+
+/** 채팅 목록 전체 스캔 행 — 알림 해소(reconcile)용 */
+export type SoomgoChatListSnapshotRow = {
   chatId: string;
   customerName: string | null;
   previewText: string;
@@ -163,6 +174,8 @@ export type SoomgoBridgeStatus = {
   chatAlertCount?: number;
   /** 세션 누적 알림함 (최근순) */
   chatInbox?: SoomgoChatAlert[];
+  /** 채팅 목록 live 스캔 — 미읽음 해소 감지 */
+  chatListSnapshot?: SoomgoChatListSnapshotRow[];
   lastError?: string | null;
   port?: number;
   /** 데스크톱 프로그램 semver */
