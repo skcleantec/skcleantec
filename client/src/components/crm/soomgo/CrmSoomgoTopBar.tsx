@@ -17,6 +17,7 @@ export function CrmSoomgoTopBar({
   onOpenSettings,
   bridgeManifest,
   onRequestUpdate,
+  updateBusy = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -32,6 +33,7 @@ export function CrmSoomgoTopBar({
   onOpenSettings?: () => void;
   bridgeManifest?: SoomgoBridgeManifest | null;
   onRequestUpdate?: () => void;
+  updateBusy?: boolean;
 }) {
   if (!open) return null;
 
@@ -103,10 +105,11 @@ export function CrmSoomgoTopBar({
             {onRequestUpdate ? (
               <button
                 type="button"
+                disabled={updateBusy}
                 onClick={onRequestUpdate}
-                className="rounded-lg border border-rose-300 bg-white px-2.5 py-1 font-semibold hover:bg-rose-50"
+                className="rounded-lg border border-rose-300 bg-white px-2.5 py-1 font-semibold hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                업데이트
+                {updateBusy ? '요청 중…' : '업데이트'}
               </button>
             ) : null}
             {downloadUrl ? (
@@ -144,10 +147,11 @@ export function CrmSoomgoTopBar({
             {onRequestUpdate ? (
               <button
                 type="button"
+                disabled={updateBusy}
                 onClick={onRequestUpdate}
-                className="rounded-lg border border-amber-300 bg-white px-2.5 py-1 font-semibold hover:bg-amber-50"
+                className="rounded-lg border border-amber-300 bg-white px-2.5 py-1 font-semibold hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {updateReady ? '지금 업데이트' : '업데이트'}
+                {updateBusy ? '요청 중…' : updateReady ? '지금 업데이트' : '업데이트'}
               </button>
             ) : null}
             {downloadUrl ? (

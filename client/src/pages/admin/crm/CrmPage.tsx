@@ -18,10 +18,12 @@ import { CrmSmsDrawer } from '../../../components/crm/sms/CrmSmsDrawer';
 import { CrmSoomgoDrawer } from '../../../components/crm/soomgo/CrmSoomgoDrawer';
 import { CrmSoomgoAlertDrawer, CrmIconBell } from '../../../components/crm/soomgo/CrmSoomgoAlertDrawer';
 import { CrmSoomgoTopBar } from '../../../components/crm/soomgo/CrmSoomgoTopBar';
+import { CrmSoomgoUpdateStrip } from '../../../components/crm/soomgo/CrmSoomgoUpdateStrip';
 import { CrmIconPhone, CrmIconSoomgo } from '../../../components/crm/crmUi';
 import type { SoomgoExtractedChat, SoomgoBridgeManifest, SoomgoChatAlert, SoomgoChatListSnapshotRow } from '@shared/soomgoBridge';
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
 import { useSoomgoBridgeManifestRefresh } from '../../../hooks/useSoomgoBridgeManifestRefresh';
+import { isSoomgoBridgeUpdateNoticeVisible } from '../../../api/soomgoBridge';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
@@ -63,17 +65,26 @@ import { linkTelecrmConsultationQuoteInquiry } from '../../../api/telecrmConsult
 import type { OrderForm } from '../../../api/orderform';
 import { fitCrmPopupWindow, applyTelecrmSoomgoSplitLayout } from '../../../utils/crmSoomgoSplitLayout';
 import { parseJwtPayload } from '../../../utils/jwtPayload';
+import type { SoomgoInboxMessageRule } from '@shared/soomgoChatPreview';
 import {
+  dismissSoomgoInboxItems,
   loadSoomgoChatInbox,
+  loadSoomgoInboxDismissals,
   pinnedSoomgoChatIds,
-  syncSoomgoInboxFromScan,
-  removeSoomgoInboxByChatId,
+  reapplySoomgoInboxRules,
   saveSoomgoChatInbox,
+  saveSoomgoInboxDismissals,
+  syncSoomgoInboxFromScan,
   soomgoInboxPendingCount,
   toggleSoomgoInboxPin,
   upsertSoomgoChatAlerts,
   type CrmSoomgoInboxItem,
+  type SoomgoInboxDismissSnapshot,
 } from '../../../utils/crmSoomgoChatInbox';
+import {
+  loadSoomgoInboxRules,
+  subscribeSoomgoInboxRulesChanged,
+} from '../../../utils/crmSoomgoInboxRules';
 import { arrangeSoomgoBridgeLayout } from '../../../api/soomgoBridge';
 import { useCrmWorkBrand } from '../../../hooks/useCrmWorkBrand';
 import { CrmWorkBrandBar } from '../../../components/crm/workBrand/CrmWorkBrandBar';
@@ -153,6 +164,11 @@ export function CrmPage() {
   const [soomgoDrawerOpen, setSoomgoDrawerOpen] = useState(false);
   const [soomgoAlertDrawerOpen, setSoomgoAlertDrawerOpen] = useState(false);
   const [soomgoInboxItems, setSoomgoInboxItems] = useState<CrmSoomgoInboxItem[]>([]);
+  const [soomgoInboxRefreshing, setSoomgoInboxRefreshing] = useState(false);
+  const [soomgoInboxDismissals, setSoomgoInboxDismissals] = useState<
+    Map<string, SoomgoInboxDismissSnapshot>
+  >(new Map());
+  const [soomgoInboxRules, setSoomgoInboxRules] = useState<SoomgoInboxMessageRule[]>([]);
   const [soomgoQuoteSending, setSoomgoQuoteSending] = useState(false);
   const [soomgoBridgeManifest, setSoomgoBridgeManifest] = useState<SoomgoBridgeManifest | null>(null);
   const [followupImportKey, setFollowupImportKey] = useState(0);
@@ -395,16 +411,36 @@ export function CrmPage() {
   useEffect(() => {
     if (!authUserId) {
       setSoomgoInboxItems([]);
+      setSoomgoInboxDismissals(new Map());
+      setSoomgoInboxRules([]);
       return;
     }
-    setSoomgoInboxItems(loadSoomgoChatInbox(authUserId, workBrandSlug));
+    const rules = loadSoomgoInboxRules(authUserId, workBrandSlug);
+    setSoomgoInboxRules(rules);
+    setSoomgoInboxItems(reapplySoomgoInboxRules(loadSoomgoChatInbox(authUserId, workBrandSlug), rules));
+    setSoomgoInboxDismissals(loadSoomgoInboxDismissals(authUserId, workBrandSlug));
+  }, [authUserId, workBrandSlug]);
+
+  useEffect(() => {
+    if (!authUserId) return;
+    return subscribeSoomgoInboxRulesChanged(({ userId, brandSlug }) => {
+      if (userId !== authUserId) return;
+      if ((brandSlug ?? null) !== workBrandSlug) return;
+      const rules = loadSoomgoInboxRules(authUserId, workBrandSlug);
+      setSoomgoInboxRules(rules);
+      setSoomgoInboxItems((prev) => {
+        const next = reapplySoomgoInboxRules(prev, rules);
+        saveSoomgoChatInbox(authUserId, workBrandSlug, next);
+        return next;
+      });
+    });
   }, [authUserId, workBrandSlug]);
 
   const handleSoomgoChatAlerts = useCallback(
     (alerts: SoomgoChatAlert[]) => {
       if (alerts.length === 0) return;
       setSoomgoInboxItems((prev) => {
-        const { items, added, bumped } = upsertSoomgoChatAlerts(prev, alerts);
+        const { items, added, bumped } = upsertSoomgoChatAlerts(prev, alerts, soomgoInboxRules);
         if (authUserId) saveSoomgoChatInbox(authUserId, workBrandSlug, items);
         const notifyRows = [...added, ...bumped];
         if (notifyRows.length > 0) {
@@ -420,22 +456,31 @@ export function CrmPage() {
         return items;
       });
     },
-    [authUserId, showDispatchNotice, workBrandSlug],
+    [authUserId, showDispatchNotice, soomgoInboxRules, workBrandSlug],
   );
 
   const handleSoomgoChatListSnapshot = useCallback(
     (rows: SoomgoChatListSnapshotRow[]) => {
       if (rows.length === 0) return;
       setSoomgoInboxItems((prev) => {
-        const next = syncSoomgoInboxFromScan(prev, rows);
-        if (next.length === prev.length && next.every((row, i) => row.chatId === prev[i]?.chatId && row.previewText === prev[i]?.previewText)) {
+        const next = syncSoomgoInboxFromScan(prev, rows, soomgoInboxDismissals, soomgoInboxRules);
+        if (
+          next.length === prev.length &&
+          next.every(
+            (row, i) =>
+              row.chatId === prev[i]?.chatId &&
+              row.previewText === prev[i]?.previewText &&
+              row.unreadCount === prev[i]?.unreadCount &&
+              row.highlighted === prev[i]?.highlighted,
+          )
+        ) {
           return prev;
         }
         if (authUserId) saveSoomgoChatInbox(authUserId, workBrandSlug, next);
         return next;
       });
     },
-    [authUserId, workBrandSlug],
+    [authUserId, soomgoInboxDismissals, soomgoInboxRules, workBrandSlug],
   );
 
   const soomgoInboxPinnedChatIds = useMemo(
@@ -569,17 +614,42 @@ export function CrmPage() {
     error: soomgoError,
     refreshStatus: refreshSoomgoStatus,
     requestBridgeUpdate,
+    updateBusy: soomgoUpdateBusy,
   } = soomgoBridge;
+
+  const soomgoUpdateNoticeVisible = useMemo(
+    () => isSoomgoBridgeUpdateNoticeVisible(soomgoStatus, soomgoBridgeManifest),
+    [soomgoStatus, soomgoBridgeManifest],
+  );
+
+  const handleRefreshSoomgoInbox = useCallback(async () => {
+    setSoomgoInboxRefreshing(true);
+    try {
+      await refreshManifest();
+      await refreshSoomgoStatus();
+    } finally {
+      setSoomgoInboxRefreshing(false);
+    }
+  }, [refreshManifest, refreshSoomgoStatus]);
 
   const handleDismissSoomgoInbox = useCallback(
     (chatIds: string[]) => {
       setSoomgoInboxItems((prev) => {
-        const next = removeSoomgoInboxByChatId(prev, chatIds);
-        if (authUserId) saveSoomgoChatInbox(authUserId, workBrandSlug, next);
+        const { items: next, dismissals: nextDismissals } = dismissSoomgoInboxItems(
+          prev,
+          chatIds,
+          soomgoInboxDismissals,
+        );
+        setSoomgoInboxDismissals(nextDismissals);
+        if (authUserId) {
+          saveSoomgoChatInbox(authUserId, workBrandSlug, next);
+          saveSoomgoInboxDismissals(authUserId, workBrandSlug, nextDismissals);
+        }
         return next;
       });
+      void handleRefreshSoomgoInbox();
     },
-    [authUserId, workBrandSlug],
+    [authUserId, handleRefreshSoomgoInbox, soomgoInboxDismissals, workBrandSlug],
   );
 
   const handleToggleSoomgoInboxPin = useCallback(
@@ -594,18 +664,19 @@ export function CrmPage() {
   );
 
   const handleDismissAllSoomgoInbox = useCallback(() => {
-    setSoomgoInboxItems(() => {
-      if (authUserId) saveSoomgoChatInbox(authUserId, workBrandSlug, []);
-      return [];
-    });
-  }, [authUserId, workBrandSlug]);
+    const chatIds = soomgoInboxItems.map((row) => row.chatId);
+    handleDismissSoomgoInbox(chatIds);
+  }, [handleDismissSoomgoInbox, soomgoInboxItems]);
 
   const handleOpenSoomgoChatFromInbox = useCallback(
     (chatId: string) => {
       handleDismissSoomgoInbox([chatId]);
-      void openChatRoomAndExtract(chatId);
+      void (async () => {
+        await openChatRoomAndExtract(chatId);
+        await handleRefreshSoomgoInbox();
+      })();
     },
-    [handleDismissSoomgoInbox, openChatRoomAndExtract],
+    [handleDismissSoomgoInbox, handleRefreshSoomgoInbox, openChatRoomAndExtract],
   );
 
   const handleToggleSoomgoBar = useCallback(() => {
@@ -966,6 +1037,19 @@ export function CrmPage() {
                     switching={workBrandLoading}
                   />
                 ) : null}
+                {!isMobileApp && soomgoUpdateNoticeVisible ? (
+                  <CrmSoomgoUpdateStrip
+                    status={soomgoStatus}
+                    bridgeManifest={soomgoBridgeManifest}
+                    updateBusy={soomgoUpdateBusy}
+                    onRequestUpdate={() => void requestBridgeUpdate('install')}
+                    onRefresh={() => {
+                      void refreshManifest();
+                      void refreshSoomgoStatus();
+                    }}
+                    onOpenSoomgoBar={() => setSoomgoBarOpen(true)}
+                  />
+                ) : null}
                 {!isMobileApp ? (
                   <CrmSoomgoTopBar
                 open={soomgoBarOpen}
@@ -992,6 +1076,7 @@ export function CrmPage() {
                     : undefined
                 }
                 bridgeManifest={soomgoBridgeManifest}
+                updateBusy={soomgoUpdateBusy}
                 onRequestUpdate={() => void requestBridgeUpdate('install')}
                   />
                 ) : null}
@@ -1033,14 +1118,22 @@ export function CrmPage() {
                   <button
                     type="button"
                     onClick={handleToggleSoomgoBar}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap ${
+                    className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap ${
                       soomgoBarOpen
                         ? 'border-cyan-300/60 bg-cyan-400/25 text-white'
-                        : 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25'
+                        : soomgoUpdateNoticeVisible
+                          ? 'border-amber-300/70 bg-amber-500/25 text-amber-50 hover:bg-amber-500/35'
+                          : 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25'
                     }`}
                   >
                     <CrmIconSoomgo className="h-4 w-4" />
-                    숨고 연동
+                    {soomgoUpdateNoticeVisible ? '숨고 · 업데이트' : '숨고 연동'}
+                    {soomgoUpdateNoticeVisible ? (
+                      <span
+                        className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-400 ring-2 ring-slate-900"
+                        aria-hidden
+                      />
+                    ) : null}
                   </button>
                 ) : null}
                 {canFollowupEdit ? (
@@ -1294,6 +1387,8 @@ export function CrmPage() {
               onDismiss={handleDismissSoomgoInbox}
               onTogglePin={handleToggleSoomgoInboxPin}
               onDismissAll={handleDismissAllSoomgoInbox}
+              onRefresh={() => void handleRefreshSoomgoInbox()}
+              refreshing={soomgoInboxRefreshing}
             />
             <CrmSoomgoDrawer
               open={soomgoDrawerOpen}

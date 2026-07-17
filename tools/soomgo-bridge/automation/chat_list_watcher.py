@@ -1,4 +1,8 @@
-"""숨고 채팅 목록 — 미읽음·미리보기 메시지 감시 (in-page, 네트워크 추가 없음)"""
+"""숨고 채팅 목록 — 미읽음·미리보기 감시 (in-page, 읽기 전용)
+
+숨고 서버·AI 봇에 추가 요청·클릭·입력 없음. 이미 열린 채팅 목록 DOM의 innerText만 읽는다.
+매크로·봇 탐지 회피: 기존 2초 주기 유지, MutationObserver는 목록 영역 passive 관찰만.
+"""
 from __future__ import annotations
 
 import logging
@@ -43,6 +47,349 @@ if (!window.__soomgoBridgeChatListWatch) {
     window.__soomgoBridgeRunChatScan();
   };
 
+  window.__soomgoExtractChatRowFromDom = function(anchorEl) {
+    function norm(s) { return (s || '').replace(/\\s+/g, ' ').trim(); }
+    function stripDecor(s) {
+      return norm(s).replace(/[\\u{2600}-\\u{27BF}\\u{1F300}-\\u{1FAFF}\\u{FE00}-\\u{FE0F}\\u{200D}🤍❤️⭐]/gu, '').trim();
+    }
+    function isTimeText(t) {
+      var s = norm(t);
+      return /^(오전|오후)\\s*\\d{1,2}:\\d{2}$/.test(s) || /^\\d+분 전$/.test(s) || /^\\d+시간 전$/.test(s) || s === '어제' || s === '방금';
+    }
+    function isSmart(t) { return /스마트\\s*견적|총\\s*[\\d,]+\\s*원\\s*부터|총\\s*[\\d,]+\\s*원/.test(norm(t)); }
+    function isQuoteRead(t) { return /견적.*(읽|확인)|고객님이\\s*견적|견적서를\\s*확인|읽었습니다/.test(norm(t)); }
+    function isSystem(t) { return /🏆|숨고\\s*고용|숨고패스|자동\\s*응답|숨고\\s*알림/.test(norm(t)); }
+    function isRegionLine(t) {
+      var s = norm(t);
+      if (!s || isSmart(s)) return false;
+      if (/청소업체/.test(s) && (/[•·]/.test(s) || /[시군구읍면]/.test(s))) return true;
+      if (/^(이사\\/입주|입주\\/이사|입주\\s*청소|이사\\s*청소)/.test(s) && (/[•·]/.test(s) || /[시군구읍면]/.test(s))) return true;
+      return false;
+    }
+    function isNameText(t) {
+      var s = stripDecor(t);
+      if (!s || s.length > 16) return false;
+      if (isRegionLine(s) || isSmart(s)) return false;
+      if (/^[가-힣]{2,6}$/.test(s)) return true;
+      if (/^\\d{5,12}$/.test(s)) return true;
+      return false;
+    }
+    function splitHiredMeName(raw) {
+      var t = stripDecor(raw);
+      if (!t) return { name: null, hiredMe: false };
+      if (!/^내\\s*고용/.test(t)) {
+        return { name: isNameText(t) ? t : (t.length <= 12 ? t : null), hiredMe: false };
+      }
+      var rest = stripDecor(t.replace(/^내\\s*고용/, ''));
+      if (!rest) return { name: null, hiredMe: true };
+      var nm = /^[가-힣]{2,6}$/.test(rest) ? rest : (rest.length <= 8 ? rest : null);
+      return { name: nm, hiredMe: true };
+    }
+    function readPreviewFromEl(el) {
+      if (!el) return { text: '', time: null };
+      var clone = el.cloneNode(true);
+      var spans = clone.querySelectorAll('span');
+      var time = null;
+      for (var si = 0; si < spans.length; si++) {
+        var st = norm(spans[si].textContent);
+        if (isTimeText(st)) {
+          if (!time) time = st;
+          spans[si].remove();
+        }
+      }
+      var p = clone.querySelector('p');
+      var text = norm((p || clone).textContent);
+      var tm = text.match(/\\s*((오전|오후)\\s*\\d{1,2}:\\d{2})\\s*$/);
+      if (tm && tm.index != null) {
+        if (!time) time = norm(tm[1]);
+        text = text.slice(0, tm.index).trim();
+      }
+      return { text: text, time: time };
+    }
+    function findThreeLineBlock(root) {
+      var best = null;
+      var divs = root.querySelectorAll('div');
+      for (var di = 0; di < divs.length; di++) {
+        var parent = divs[di];
+        var kids = parent.children;
+        if (!kids || kids.length < 3) continue;
+        var lineEls = [];
+        var lineTexts = [];
+        for (var k = 0; k < kids.length; k++) {
+          var tag = (kids[k].tagName || '').toLowerCase();
+          if (tag !== 'div') { lineEls = []; break; }
+          var t = norm(kids[k].textContent);
+          if (!t) continue;
+          lineEls.push(kids[k]);
+          lineTexts.push(t);
+        }
+        if (lineEls.length < 3) continue;
+        var regionIdx = -1;
+        for (var r = 0; r < lineTexts.length; r++) {
+          if (isRegionLine(lineTexts[r])) { regionIdx = r; break; }
+        }
+        if (regionIdx < 1) continue;
+        var score = 100;
+        if (regionIdx === 1) score += 40;
+        if (lineEls.length === 3) score += 20;
+        if (isNameText(lineTexts[0])) score += 30;
+        if (!best || score > best.score) {
+          best = { score: score, lineEls: lineEls, lineTexts: lineTexts, regionIdx: regionIdx };
+        }
+      }
+      return best;
+    }
+    function classifyKind(text) {
+      if (!text) return 'unknown';
+      if (isSmart(text)) return 'smart_quote';
+      if (isQuoteRead(text)) return 'quote_read';
+      if (isSystem(text)) return 'system';
+      return 'message';
+    }
+
+    if (!anchorEl) return null;
+    var block = findThreeLineBlock(anchorEl);
+    if (!block) return null;
+
+    var nameLine = stripDecor(block.lineTexts[0]);
+    var hiredSplit = splitHiredMeName(nameLine);
+    var name = hiredSplit.name;
+    if (!name && !isNameText(nameLine)) {
+      var picked = stripDecor(block.lineTexts[0]);
+      if (!picked || isRegionLine(picked)) return null;
+      name = picked.length <= 16 ? picked : null;
+    }
+    if (!name) return null;
+    var hiredMe = hiredSplit.hiredMe;
+
+    var messageEl = null;
+    var messageRaw = '';
+    for (var mi = block.regionIdx + 1; mi < block.lineEls.length; mi++) {
+      if (isSmart(block.lineTexts[mi])) continue;
+      if (isRegionLine(block.lineTexts[mi])) continue;
+      messageEl = block.lineEls[mi];
+      messageRaw = block.lineTexts[mi];
+      break;
+    }
+    if (!messageEl) return null;
+
+    var msgRead = readPreviewFromEl(messageEl);
+    var messagePreview = msgRead.text || norm(messageRaw);
+    if (messagePreview && isSmart(messagePreview)) messagePreview = '';
+    if (messagePreview && isRegionLine(messagePreview)) messagePreview = '';
+
+    var previewKind = classifyKind(messagePreview);
+    if (previewKind === 'smart_quote') messagePreview = '';
+
+    var rawLines = [name];
+    if (messagePreview) rawLines.push(messagePreview);
+
+    return {
+      customerName: name,
+      hiredMe: hiredMe,
+      serviceRegion: null,
+      messagePreview: messagePreview || null,
+      parseQuality: 'dom',
+      previewKind: previewKind,
+      listTimeLabel: msgRead.time,
+      rawLines: rawLines
+    };
+  };
+
+  window.__soomgoParseChatRow = function(rawLines, rawBlock, rowEl) {
+    function norm(s) { return (s || '').replace(/\\s+/g, ' ').trim(); }
+    function isSkip(line) {
+      var t = norm(line);
+      return !t || /^\\d{1,2}$/.test(t) || /^(오전|오후)\\s*\\d{1,2}:\\d{2}$/.test(t) || /^\\d+분 전$/.test(t) || /^\\d+시간 전$/.test(t) || t === '어제' || t === '방금';
+    }
+    function isSmart(line) { return /스마트\\s*견적|총\\s*[\\d,]+\\s*원/.test(norm(line)); }
+    function isQuoteRead(line) { return /견적.*(읽|확인)|고객님이\\s*견적|견적서를\\s*확인|읽었습니다/.test(norm(line)); }
+    function isSystem(line) { return /🏆|숨고\\s*고용|숨고패스|자동\\s*응답|숨고\\s*알림/.test(norm(line)); }
+    function isRegionLine(line) {
+      var t = norm(line);
+      if (!t || isSmart(t)) return false;
+      if (/청소업체/.test(t) && (/[•·]/.test(t) || /[시군구읍면]/.test(t))) return true;
+      if (/^(이사\\/입주|입주\\/이사|입주\\s*청소|이사\\s*청소)/.test(t) && (/[•·]/.test(t) || /청소/.test(t))) return true;
+      if (/[•·]/.test(t) && /(청소|입주|이사|업체)/.test(t) && t.length <= 80) return true;
+      return false;
+    }
+    function fmtRegion(svc, reg) {
+      return norm(svc).replace(/([가-힣a-zA-Z0-9])(이사\\/입주|입주\\/이사)/gi, '$1 $2') + ' • ' + norm(reg);
+    }
+    function splitRegionMsg(tail) {
+      var t = norm(tail);
+      var idx = t.search(/\\s+(?:고객님이|고객님|안녕하세요|안녕하세|안녕|견적|문의|감사|반갑|확인|사진|주소|평수|네[,!]?)\\s*/);
+      if (idx >= 4) return { region: t.slice(0, idx).trim(), message: t.slice(idx).trim() };
+      var glued = t.match(/^(.+?(?:\\d+동|[가-힣]{1,5}동|[가-힣]{1,5}읍|[가-힣]{1,5}면|[가-힣]{1,5}리|[가-힣]{1,5}가))(.{4,})$/);
+      if (glued && glued[1] && glued[2] && /(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|[시군구읍면])/.test(glued[1]) && /(?:\\d+동|[가-힣]{1,5}동|[가-힣]{1,5}읍|[가-힣]{1,5}면|[가-힣]{1,5}리|[가-힣]{1,5}가)$/.test(glued[1])) {
+        return { region: glued[1].trim(), message: glued[2].trim() };
+      }
+      var spaced = t.match(/^(.+?(?:\\d+동|[가-힣]{1,5}동|[가-힣]{1,5}읍|[가-힣]{1,5}면))\\s+(.{4,})$/);
+      if (spaced && spaced[1] && spaced[2] && /(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|[시군구읍면])/.test(spaced[1])) {
+        return { region: spaced[1].trim(), message: spaced[2].trim() };
+      }
+      return { region: t, message: null };
+    }
+    function splitHeader(line) {
+      var t = stripDecor(line);
+      var m = t.match(/^([가-힣]{2,6})\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$/)
+        || t.match(/^([가-힣]{2,6})(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$/)
+        || t.match(/^([가-힣]{2,6})\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$/)
+        || t.match(/^([가-힣]{2,6})(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$/);
+      if (m) {
+        var peeled = splitRegionMsg(m[3]);
+        return { name: m[1], region: fmtRegion(m[2], peeled.region), trailingMessage: peeled.message };
+      }
+      var svc = t.match(/^(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$/)
+        || t.match(/^(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$/);
+      if (svc) {
+        var peeledSvc = splitRegionMsg(svc[2]);
+        return { name: null, region: fmtRegion(svc[1], peeledSvc.region), trailingMessage: peeledSvc.message };
+      }
+      return null;
+    }
+    function stripTime(line) {
+      var tm = line.match(/\\s*((오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금|\\d{1,2}:\\d{2})\\s*$/);
+      if (tm && tm.index != null) return { text: line.slice(0, tm.index).trim(), time: norm(tm[1]) };
+      return { text: line, time: null };
+    }
+    function stripDecor(s) {
+      return norm(s).replace(/[\\u{2600}-\\u{27BF}\\u{1F300}-\\u{1FAFF}\\u{FE00}-\\u{FE0F}\\u{200D}🤍❤️⭐]/gu, '').trim();
+    }
+    function isStatusLine(line) {
+      var t = stripDecor(line);
+      return /정상|누적\\s*시공|건\\s*이상|프로\\s*모드|상담\\s*(전|중|완료)|🟠|🟡|🔴/.test(t);
+    }
+    function isNameOnly(line) {
+      var t = stripDecor(line);
+      if (!t || t.length > 12) return false;
+      if (/^[가-힣]{2,6}$/.test(t)) return true;
+      if (/^\\d{5,12}$/.test(t)) return true;
+      return false;
+    }
+    function pickNameOnly(line) {
+      var t = stripDecor(line);
+      if (!t) return null;
+      var h = splitHeader(t);
+      if (h && h.name) return h.name;
+      if (isNameOnly(t) && !isRegionLine(t) && !isStatusLine(t)) return t;
+      return null;
+    }
+    function buildLines(linesIn, block) {
+      var out = [];
+      for (var i = 0; i < linesIn.length; i++) {
+        if (!isSkip(linesIn[i])) out.push(norm(linesIn[i]));
+      }
+      if (out.length > 1) return out;
+      var one = norm(block || out[0] || '');
+      if (!one) return out;
+      one = one.replace(/\\s*총\\s*[\\d,]+\\s*원.*스마트\\s*견적\\s*$/i, '').trim();
+      var st = stripTime(one);
+      var h = splitHeader(st.text);
+      if (h) {
+        out = [h.name];
+        if (h.trailingMessage) out.push(h.trailingMessage);
+        return out;
+      }
+      if (st.text) out = [st.text];
+      return out;
+    }
+
+    var customerName = null;
+    var messagePreview = '';
+    var listTimeLabel = null;
+    var parseQuality = 'fallback';
+    var previewKind = 'unknown';
+    var nameLineIdx = -1;
+
+    var lines = buildLines(rawLines || [], rawBlock);
+
+    for (var ni = 0; ni < Math.min(lines.length, 5); ni++) {
+      if (isStatusLine(lines[ni]) || isSmart(lines[ni])) continue;
+      var picked = pickNameOnly(lines[ni]);
+      if (picked) {
+        customerName = picked;
+        nameLineIdx = ni;
+        break;
+      }
+    }
+
+    if (!customerName && rowEl) {
+      var nameNodes = rowEl.querySelectorAll('strong, b, [class*="nickname" i], [class*="name" i], [class*="title" i]');
+      for (var dn = 0; dn < nameNodes.length; dn++) {
+        var pickedDom = pickNameOnly(nameNodes[dn].textContent || '');
+        if (pickedDom) { customerName = pickedDom; break; }
+      }
+    }
+
+    for (var j = 0; j < lines.length; j++) {
+      var line = norm(lines[j]);
+      if (!line || isSkip(line)) continue;
+      var stripped = stripTime(line);
+      if (stripped.time && !listTimeLabel) listTimeLabel = stripped.time;
+      if (j <= nameLineIdx) continue;
+      if (isRegionLine(line) || isSmart(line)) continue;
+      var msg = norm(stripped.text);
+      if (!msg || isSkip(msg) || isRegionLine(msg) || isSmart(msg)) continue;
+      if (customerName && msg === customerName) continue;
+      if (isQuoteRead(msg)) {
+        if (!messagePreview) {
+          messagePreview = msg;
+          previewKind = 'quote_read';
+          parseQuality = customerName ? 'full' : 'partial';
+        }
+        continue;
+      }
+      if (!messagePreview) {
+        messagePreview = msg;
+        previewKind = isSystem(msg) ? 'system' : 'message';
+        parseQuality = customerName ? 'full' : 'partial';
+      }
+    }
+
+    if (!messagePreview && rowEl) {
+      var domSelectors = [
+        '[class*="lastMessage" i]', '[class*="LastMessage" i]',
+        '[class*="messagePreview" i]', '[class*="previewMessage" i]',
+        '[class*="chatPreview" i]'
+      ];
+      for (var dsi = 0; dsi < domSelectors.length && !messagePreview; dsi++) {
+        var nodes = rowEl.querySelectorAll(domSelectors[dsi]);
+        for (var ni2 = 0; ni2 < nodes.length; ni2++) {
+          var dt = norm(nodes[ni2].textContent);
+          if (!dt || isRegionLine(dt) || isSmart(dt) || isSkip(dt) || isStatusLine(dt)) continue;
+          if (customerName && dt.indexOf(customerName) === 0 && dt.length <= customerName.length + 2) continue;
+          messagePreview = stripTime(dt).text;
+          if (messagePreview) {
+            parseQuality = customerName ? 'full' : 'partial';
+            previewKind = isQuoteRead(messagePreview) ? 'quote_read' : (isSystem(messagePreview) ? 'system' : 'message');
+            break;
+          }
+        }
+      }
+    }
+
+    if (!listTimeLabel && rawBlock) {
+      var tm2 = rawBlock.match(/(오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금/);
+      if (tm2) listTimeLabel = norm(tm2[0]);
+    }
+
+    if (messagePreview && isSmart(messagePreview)) {
+      messagePreview = '';
+      previewKind = 'unknown';
+    }
+
+    if (previewKind === 'unknown' && messagePreview) previewKind = 'message';
+    return {
+      customerName: customerName,
+      serviceRegion: null,
+      messagePreview: messagePreview || null,
+      parseQuality: parseQuality,
+      previewKind: previewKind,
+      listTimeLabel: listTimeLabel
+    };
+  };
+
   window.__soomgoBridgeScanChatRows = function() {
     var out = [];
     var seen = {};
@@ -57,16 +404,33 @@ if (!window.__soomgoBridgeChatListWatch) {
       seen[chatId] = true;
 
       var row = a;
-      for (var up = 0; up < 12 && row; up++) {
+      for (var up = 0; up < 15 && row; up++) {
         var tag = (row.tagName || '').toLowerCase();
-        if (tag === 'li' || tag === 'article' || row.getAttribute('role') === 'listitem') break;
+        var txt = (row.innerText || row.textContent || '').replace(/\\s+/g, ' ').trim();
+        if (tag === 'li' || tag === 'article' || row.getAttribute('role') === 'listitem') {
+          if (txt.length >= 8) break;
+        }
         var r = row.getBoundingClientRect ? row.getBoundingClientRect() : null;
-        if (r && r.height >= 48 && r.width >= 160) break;
+        if (r && r.height >= 48 && r.width >= 160 && txt.length >= 8) break;
         row = row.parentElement;
       }
       if (!row) row = a;
 
-      var rawBlock = (row.innerText || row.textContent || '');
+      var clone = row.cloneNode(true);
+      var badgeNodesPre = clone.querySelectorAll('span, div, p, strong');
+      for (var bp = 0; bp < badgeNodesPre.length; bp++) {
+        var bel = badgeNodesPre[bp];
+        var btxt = (bel.textContent || '').trim();
+        if (!/^\\d{1,2}$/.test(btxt)) continue;
+        var brect = bel.getBoundingClientRect ? bel.getBoundingClientRect() : null;
+        var rrect = row.getBoundingClientRect ? row.getBoundingClientRect() : null;
+        if (!brect || !rrect) continue;
+        if (brect.width < 14 || brect.width > 44 || brect.height < 14 || brect.height > 44) continue;
+        if (brect.left < rrect.left + rrect.width * 0.45) continue;
+        bel.remove();
+      }
+
+      var rawBlock = (clone.innerText || clone.textContent || row.innerText || row.textContent || '');
       var rawLines = rawBlock.split(/\\n+/).map(function(s) {
         return s.replace(/\\s+/g, ' ').trim();
       }).filter(Boolean);
@@ -78,99 +442,44 @@ if (!window.__soomgoBridgeChatListWatch) {
         }
       }
 
-      var customerName = null;
-      var serviceRegion = null;
-      var nameNode = row.querySelector('strong, b, [class*="name" i], [class*="title" i]');
-      if (nameNode) {
-        customerName = (nameNode.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 40) || null;
+      var parsed = window.__soomgoExtractChatRowFromDom(a);
+      if (!parsed || (!parsed.customerName && !parsed.messagePreview)) {
+        parsed = window.__soomgoParseChatRow(rawLines, rawBlock, row);
       }
-      if (!customerName && rawLines[0]) {
-        var first = rawLines[0].replace(/\\d+$/, '').trim();
-        if (first.length <= 20 && !/청소업체|•|원|스마트\\s*견적/.test(first)) {
-          customerName = first;
-        }
+      if (parsed && parsed.parseQuality === 'dom' && parsed.rawLines && parsed.rawLines.length) {
+        rawLines = parsed.rawLines.slice();
       }
-
-      function isSmartQuoteLine(line) {
-        return /스마트\\s*견적|총\\s*[\\d,]+\\s*원\\s*부터|부터\\s*•\\s*스마트/.test(line);
-      }
-      function isServiceRegionLine(line) {
-        return /청소업체/.test(line) && (/•/.test(line) || /[구동시]/.test(line));
-      }
-      function stripTimeFromLine(line) {
-        var tm = line.match(/\\s*((오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금|\\d{1,2}:\\d{2})\\s*$/);
-        if (tm) return { text: line.slice(0, tm.index).trim(), time: tm[1].replace(/\\s+/g, ' ').trim() };
-        return { text: line, time: null };
-      }
-
-      var previewText = '';
-      var listTimeLabel = null;
-
-      for (var ri = 0; ri < rawLines.length; ri++) {
-        var line = rawLines[ri];
-        if (isSmartQuoteLine(line)) continue;
-        if (isServiceRegionLine(line)) {
-          if (!serviceRegion) {
-            serviceRegion = line.replace(/([가-힣a-zA-Z0-9])(이사\\/입주|입주\\/이사)/gi, '$1 $2').replace(/\\s+/g, ' ').trim();
-          }
-          continue;
-        }
-        if (customerName && line === customerName) continue;
-        if (/^(오전|오후)\\s*\\d{1,2}:\\d{2}$/.test(line)) {
-          if (!listTimeLabel) listTimeLabel = line;
-          continue;
-        }
-        var stripped = stripTimeFromLine(line);
-        if (stripped.time && !listTimeLabel) listTimeLabel = stripped.time;
-        var msg = stripped.text;
-        if (!msg || isSmartQuoteLine(msg) || isServiceRegionLine(msg)) continue;
-        if (customerName && msg === customerName) continue;
-        previewText = msg;
-      }
-
-      if (!previewText) {
-        var body = rawBlock.replace(/\\s+/g, ' ').trim();
-        body = body.replace(/\\s*총\\s*[\\d,]+\\s*원\\s*부터\\s*•?\\s*스마트\\s*견적\\s*$/i, '').trim();
-        if (customerName && body.indexOf(customerName) === 0) body = body.slice(customerName.length).trim();
-        if (serviceRegion) {
-          var sr = serviceRegion.replace(/\\s+/g, ' ');
-          if (body.indexOf(sr) >= 0) body = body.replace(sr, '').trim();
-        }
-        var bodyStripped = stripTimeFromLine(body);
-        if (bodyStripped.time && !listTimeLabel) listTimeLabel = bodyStripped.time;
-        if (bodyStripped.text && !isSmartQuoteLine(bodyStripped.text)) previewText = bodyStripped.text;
-      }
-      if (!previewText) previewText = rawBlock.replace(/\\s+/g, ' ').trim().slice(0, 500);
 
       var unreadCount = 0;
       var badgeNodes = row.querySelectorAll('span, div, p, strong');
+      var rowRect = row.getBoundingClientRect ? row.getBoundingClientRect() : null;
       for (var b = 0; b < badgeNodes.length; b++) {
         var bt = (badgeNodes[b].textContent || '').trim();
-        if (/^\\d{1,2}$/.test(bt)) {
-          var br = badgeNodes[b].getBoundingClientRect ? badgeNodes[b].getBoundingClientRect() : null;
-          if (br && br.width >= 14 && br.width <= 44 && br.height >= 14 && br.height <= 44) {
-            var n = parseInt(bt, 10);
-            if (n > unreadCount) unreadCount = n;
-          }
-        }
+        if (!/^\\d{1,2}$/.test(bt)) continue;
+        var br = badgeNodes[b].getBoundingClientRect ? badgeNodes[b].getBoundingClientRect() : null;
+        if (!br || br.width < 14 || br.width > 44 || br.height < 14 || br.height > 44) continue;
+        if (rowRect && br.left < rowRect.left + rowRect.width * 0.45) continue;
+        var n = parseInt(bt, 10);
+        if (n > unreadCount) unreadCount = n;
       }
 
-      var tm = rawBlock.match(/(오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금|\\d{1,2}:\\d{2}/);
-      if (!listTimeLabel && tm) listTimeLabel = tm[0].replace(/\\s+/g, ' ').trim();
-
-      var previewKind = 'unknown';
-      if (/스마트\\s*견적|총\\s*[\\d,]+\\s*원/.test(previewText)) previewKind = 'smart_quote';
-      else if (/견적.*읽|읽었|확인/.test(previewText)) previewKind = 'quote_read';
-      else if (unreadCount > 0 || /안녕|고객님|문의|네\\s|요|니다|\\.\\.\\./.test(previewText)) previewKind = 'message';
+      var messagePreview = parsed.messagePreview || '';
+      var previewText = messagePreview || '(채팅 미리보기)';
+      var previewKind = parsed.previewKind || 'unknown';
+      if (previewKind === 'unknown' && /스마트\\s*견적|총\\s*[\\d,]+\\s*원/.test(previewText)) previewKind = 'smart_quote';
 
       out.push({
         chatId: chatId,
-        customerName: customerName,
-        serviceRegion: serviceRegion,
+        customerName: parsed.customerName,
+        hiredMe: parsed.hiredMe === true,
+        serviceRegion: parsed.serviceRegion,
         previewText: previewText.slice(0, 500),
+        messagePreview: messagePreview ? messagePreview.slice(0, 500) : null,
+        parseQuality: parsed.parseQuality || 'fallback',
         previewKind: previewKind,
         unreadCount: unreadCount,
-        listTimeLabel: listTimeLabel,
+        listTimeLabel: parsed.listTimeLabel,
+        rawLines: rawLines.slice(0, 12),
         capturedAt: Date.now(),
       });
     }
@@ -183,8 +492,9 @@ if (!window.__soomgoBridgeChatListWatch) {
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
       if (!r || !r.chatId) continue;
+      if (!r.customerName && !r.messagePreview) continue;
       var watched = !!watchMap[String(r.chatId)];
-      if ((r.unreadCount || 0) < 1 && r.previewKind !== 'quote_read' && r.previewKind !== 'smart_quote' && !watched) continue;
+      if ((r.unreadCount || 0) < 1 && r.previewKind !== 'quote_read' && !watched) continue;
       if (r.previewKind === 'smart_quote' && !watched) continue;
       window.__soomgoBridgeChatListWatch.events.push(r);
       if (window.__soomgoBridgeChatListWatch.events.length > 80) {
@@ -335,6 +645,8 @@ class ChatListWatcher:
                 return False
         elif unread < 1 and kind != 'quote_read':
             return False
+        if not str(row.get('customerName') or '').strip() and not str(row.get('messagePreview') or '').strip():
+            return False
         if kind == 'smart_quote' and not watched:
             return False
 
@@ -355,11 +667,15 @@ class ChatListWatcher:
             'id': str(uuid.uuid4()),
             'chatId': chat_id,
             'customerName': (row.get('customerName') or None),
+            'hiredMe': bool(row.get('hiredMe')),
             'serviceRegion': (row.get('serviceRegion') or None),
             'previewText': str(row.get('previewText') or '').strip() or '(내용 없음)',
+            'messagePreview': (str(row.get('messagePreview') or '').strip() or None),
+            'parseQuality': row.get('parseQuality') or 'fallback',
             'previewKind': row.get('previewKind') or 'unknown',
             'unreadCount': int(row.get('unreadCount') or 0),
             'listTimeLabel': row.get('listTimeLabel') or None,
+            'rawLines': row.get('rawLines') if isinstance(row.get('rawLines'), list) else None,
             'capturedAt': captured,
         }
 
@@ -369,11 +685,15 @@ class ChatListWatcher:
         return {
             'chatId': chat_id,
             'customerName': (row.get('customerName') or None),
+            'hiredMe': bool(row.get('hiredMe')),
             'serviceRegion': (row.get('serviceRegion') or None),
             'previewText': str(row.get('previewText') or '').strip() or '(내용 없음)',
+            'messagePreview': (str(row.get('messagePreview') or '').strip() or None),
+            'parseQuality': row.get('parseQuality') or 'fallback',
             'previewKind': row.get('previewKind') or 'unknown',
             'unreadCount': int(row.get('unreadCount') or 0),
             'listTimeLabel': row.get('listTimeLabel') or None,
+            'rawLines': row.get('rawLines') if isinstance(row.get('rawLines'), list) else None,
             'capturedAt': captured,
         }
 

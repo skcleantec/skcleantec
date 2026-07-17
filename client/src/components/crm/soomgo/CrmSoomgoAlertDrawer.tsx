@@ -3,6 +3,7 @@ import { CrmSlideDrawer } from '../layout/CrmSlideDrawer';
 import {
   formatSoomgoInboxCustomerName,
   formatSoomgoInboxTime,
+  formatSoomgoAlertKind,
   isSoomgoInboxPinned,
   type CrmSoomgoInboxItem,
 } from '../../../utils/crmSoomgoChatInbox';
@@ -31,6 +32,17 @@ function CrmIconPin({ className, filled }: { className?: string; filled?: boolea
   );
 }
 
+function SoomgoHiredMeBadge() {
+  return (
+    <span
+      title="고객이 나를 고용함 (숨고 「내 고용」)"
+      className="inline-flex shrink-0 items-center rounded border border-emerald-500/70 bg-emerald-50 px-0.5 py-px text-[8px] font-bold leading-none text-emerald-800"
+    >
+      고용
+    </span>
+  );
+}
+
 function InboxOneLineRow({
   item,
   busy,
@@ -45,17 +57,25 @@ function InboxOneLineRow({
   onTogglePin: () => void;
 }) {
   const pinned = isSoomgoInboxPinned(item);
-  const { displayName } = formatSoomgoInboxCustomerName(item.customerName);
-  const region = item.serviceRegion?.trim() || null;
+  const highlighted = !pinned && item.highlighted === true;
+  const { displayName, hiredMe } = formatSoomgoInboxCustomerName(item.customerName, item.hiredMe);
   const timeLabel = formatSoomgoInboxTime(item.capturedAt, item.listTimeLabel);
   const needsAction = (item.unreadCount ?? 0) > 0 || item.previewKind === 'quote_read';
+  const chatPreview = item.messagePreview?.trim() || item.previewText;
+  const kindLabel = formatSoomgoAlertKind(item.previewKind);
 
   return (
     <tr
       className={[
         'border-b border-slate-100 last:border-b-0',
-        pinned ? 'bg-amber-50' : needsAction ? 'bg-sky-50/40' : 'bg-white',
-        pinned ? '' : 'hover:bg-slate-50/80',
+        pinned
+          ? 'bg-amber-50'
+          : highlighted
+            ? 'bg-violet-50 ring-1 ring-inset ring-violet-300'
+            : needsAction
+              ? 'bg-sky-50/40'
+              : 'bg-white',
+        pinned || highlighted ? '' : 'hover:bg-slate-50/80',
       ].join(' ')}
     >
       <td className="w-9 shrink-0 px-0.5 py-1 align-middle text-center">
@@ -75,26 +95,22 @@ function InboxOneLineRow({
           <CrmIconPin className="h-3.5 w-3.5" filled={pinned} />
         </button>
       </td>
-      <td className="w-[72px] shrink-0 px-1 py-1 align-middle">
-        <div className="flex min-w-0 items-center gap-1">
+      <td className="w-[88px] shrink-0 px-1 py-1 align-middle">
+        <div className="flex min-w-0 items-center gap-0.5">
           {needsAction ? (
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" aria-hidden />
           ) : (
             <span className="h-1.5 w-1.5 shrink-0" aria-hidden />
           )}
+          {hiredMe ? <SoomgoHiredMeBadge /> : null}
           <span className="truncate text-[11px] font-semibold text-slate-900" title={displayName}>
             {displayName}
           </span>
         </div>
       </td>
-      <td className="w-[148px] shrink-0 px-1 py-1 align-middle">
-        <span className="block truncate text-[10px] text-sky-800" title={region ?? undefined}>
-          {region ?? '—'}
-        </span>
-      </td>
       <td className="min-w-0 px-1 py-1 align-middle">
-        <span className="block truncate text-[10px] text-slate-600" title={item.previewText}>
-          {item.previewText}
+        <span className="block truncate text-[10px] text-slate-600" title={`[${kindLabel}] ${chatPreview}`}>
+          {chatPreview}
         </span>
       </td>
       <td className="w-12 shrink-0 px-0.5 py-1 text-center align-middle text-[9px] tabular-nums text-slate-400">
@@ -139,6 +155,8 @@ export function CrmSoomgoAlertDrawer({
   onDismiss,
   onTogglePin,
   onDismissAll,
+  onRefresh,
+  refreshing,
 }: {
   open: boolean;
   onClose: () => void;
@@ -150,12 +168,14 @@ export function CrmSoomgoAlertDrawer({
   onDismiss: (chatIds: string[]) => void;
   onTogglePin: (chatId: string) => void;
   onDismissAll: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }) {
   const bridgeHint = bridgeStatus?.bridgeRunning
     ? bridgeStatus.chatWatchActive
       ? bridgeStatus.watchedChatIds?.length
-        ? `고정 ${bridgeStatus.watchedChatIds.length}건 · 숨고 목록과 실시간 동기화`
-        : '숨고 채팅 목록과 동기화 · 미읽음·견적 읽음만 표시'
+        ? `고정 ${bridgeStatus.watchedChatIds.length}건 · 미읽음 배지·견적 읽음만 표시`
+        : '숨고 채팅 목록 · 미읽음 배지(오른쪽 숫자)·견적 읽음만 표시'
       : '숨고 채팅 목록을 연 상태에서 알림을 수집합니다.'
     : '숨고 연동 후 알림을 받을 수 있습니다.';
 
@@ -175,15 +195,27 @@ export function CrmSoomgoAlertDrawer({
               대기 <strong className="tabular-nums">{pendingCount}</strong>건
             </span>
           </div>
-          {pendingCount > 0 ? (
-            <button
-              type="button"
-              onClick={onDismissAll}
-              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[9px] font-medium text-slate-600 hover:bg-slate-50"
-            >
-              모두 읽음
-            </button>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-1">
+            {onRefresh ? (
+              <button
+                type="button"
+                disabled={refreshing || busy}
+                onClick={onRefresh}
+                className="rounded border border-sky-300 bg-white px-2 py-0.5 text-[9px] font-semibold text-sky-800 hover:bg-sky-50 disabled:opacity-40"
+              >
+                {refreshing ? '새로고침…' : '새로고침'}
+              </button>
+            ) : null}
+            {pendingCount > 0 ? (
+              <button
+                type="button"
+                onClick={onDismissAll}
+                className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[9px] font-medium text-slate-600 hover:bg-slate-50"
+              >
+                모두 읽음
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {items.length === 0 ? (
@@ -191,16 +223,16 @@ export function CrmSoomgoAlertDrawer({
             <CrmIconBell className="mb-2 h-8 w-8 text-slate-300" />
             <p className="text-[11px] font-medium text-slate-700">대기 중인 알림이 없습니다</p>
             <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-              숨고 채팅 목록의 미읽음·견적 읽음만 표시됩니다. 대응되면 목록에서 사라집니다.
+              숨고 채팅 목록에서 <strong>오른쪽 미읽음 배지</strong>가 있거나 견적 읽음인 건만 표시됩니다. 열기·읽음 시
+              사라지며, 📌 고정은 유지됩니다.
             </p>
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-contain rounded-lg border border-slate-200">
-            <table className="w-full min-w-[680px] table-fixed border-collapse text-left">
+            <table className="w-full min-w-[560px] table-fixed border-collapse text-left">
               <colgroup>
                 <col className="w-9" />
-                <col className="w-[72px]" />
-                <col className="w-[148px]" />
+                <col className="w-[88px]" />
                 <col />
                 <col className="w-12" />
                 <col className="w-[132px]" />

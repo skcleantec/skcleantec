@@ -117,6 +117,16 @@ export function isSoomgoBridgeOutdated(
   return isSoomgoBridgeApiOutdated(status, manifest);
 }
 
+/** GNB·헤더에 항상 노출할 업데이트 안내 (숨고 연동 바를 열지 않아도 표시) */
+export function isSoomgoBridgeUpdateNoticeVisible(
+  status: SoomgoBridgeStatus | null | undefined,
+  manifest?: SoomgoBridgeManifest | null,
+): boolean {
+  if (!manifest?.latestVersion?.trim() || !manifest.downloadUrl?.trim()) return false;
+  if (!status?.bridgeRunning) return false;
+  return isSoomgoBridgeOutdated(status, manifest) || isSoomgoAppUpdateAvailable(status, manifest);
+}
+
 export {
   isSoomgoAppUpdateAvailable,
   isSoomgoBridgeApiOutdated,
@@ -141,6 +151,7 @@ export async function installSoomgoBridgeFromCrmManifest(
   mode: 'prompt' | 'background' | 'install',
   manifest: SoomgoBridgeManifest | null | undefined,
   status: SoomgoBridgeStatus | null | undefined,
+  options?: { force?: boolean },
 ): Promise<'browser' | 'bridge' | 'skipped'> {
   const url = manifest?.downloadUrl?.trim();
   const latest = manifest?.latestVersion?.trim();
@@ -148,6 +159,7 @@ export async function installSoomgoBridgeFromCrmManifest(
     throw new Error('설치 파일 URL을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
   }
   if (
+    !options?.force &&
     isSoomgoBridgeAppAtLatest(status, manifest) &&
     !isSoomgoBridgeApiOutdated(status, manifest)
   ) {
@@ -316,26 +328,22 @@ export async function requestSoomgoBridgeUpdate(
   mode: 'prompt' | 'background' | 'install' = 'prompt',
   manifest?: SoomgoBridgeManifest | null,
 ): Promise<void> {
-  try {
-    await bridgeFetch<{ ok: boolean }>('/request-update', {
-      method: 'POST',
-      body: JSON.stringify({
-        mode,
-        manifest:
-          manifest?.latestVersion?.trim() && manifest.downloadUrl?.trim()
-            ? {
-                requiredVersion: manifest.requiredVersion,
-                latestVersion: manifest.latestVersion.trim(),
-                downloadUrl: manifest.downloadUrl.trim(),
-                releaseNotes: manifest.releaseNotes,
-                sha256: manifest.sha256,
-              }
-            : undefined,
-      }),
-    });
-  } catch {
-    /* 트레이 미실행 시 무시 */
-  }
+  await bridgeFetch<{ ok: boolean }>('/request-update', {
+    method: 'POST',
+    body: JSON.stringify({
+      mode,
+      manifest:
+        manifest?.latestVersion?.trim() && manifest.downloadUrl?.trim()
+          ? {
+              requiredVersion: manifest.requiredVersion,
+              latestVersion: manifest.latestVersion.trim(),
+              downloadUrl: manifest.downloadUrl.trim(),
+              releaseNotes: manifest.releaseNotes,
+              sha256: manifest.sha256,
+            }
+          : undefined,
+    }),
+  });
 }
 
 /** 업데이트 클릭 직전 manifest 재조회 후 브릿지에 설치 요청 (CRM 서버 manifest 전달) */

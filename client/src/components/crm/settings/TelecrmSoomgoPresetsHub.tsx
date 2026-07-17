@@ -3,8 +3,9 @@ import { useState } from 'react';
 import type { TelecrmCatalogOwnerScope } from '../../../api/telecrm';
 import { TelecrmSoomgoMessagePresetsSection } from './TelecrmSoomgoMessagePresetsSection';
 import { TelecrmSoomgoAutoMessagesSection } from './TelecrmSoomgoAutoMessagesSection';
+import { TelecrmSoomgoInboxRulesSection } from './TelecrmSoomgoInboxRulesSection';
 
-export type SoomgoPresetsView = 'macro' | 'auto';
+export type SoomgoPresetsView = 'macro' | 'auto' | 'inbox';
 
 /** 숨고 프리셋 — 매크로 / 자동메시지 하위 탭 */
 export function TelecrmSoomgoPresetsHub({
@@ -20,7 +21,11 @@ export function TelecrmSoomgoPresetsHub({
   const [localView, setLocalView] = useState<SoomgoPresetsView>('macro');
   const showAutoTab = canEditAuto && catalogScope === 'shared';
   const urlView: SoomgoPresetsView =
-    searchParams.get('view') === 'auto' && showAutoTab ? 'auto' : 'macro';
+    searchParams.get('view') === 'inbox'
+      ? 'inbox'
+      : searchParams.get('view') === 'auto' && showAutoTab
+        ? 'auto'
+        : 'macro';
   const view = syncViewToUrl ? urlView : localView;
 
   const setView = (next: SoomgoPresetsView) => {
@@ -32,6 +37,7 @@ export function TelecrmSoomgoPresetsHub({
       (prev) => {
         const p = new URLSearchParams(prev);
         if (next === 'auto') p.set('view', 'auto');
+        else if (next === 'inbox') p.set('view', 'inbox');
         else p.delete('view');
         return p;
       },
@@ -62,9 +68,20 @@ export function TelecrmSoomgoPresetsHub({
             자동메시지
           </button>
         ) : null}
+        <button
+          type="button"
+          onClick={() => setView('inbox')}
+          className={`rounded-md px-4 py-1.5 text-fluid-sm font-medium ${
+            view === 'inbox' ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-white'
+          }`}
+        >
+          알림함
+        </button>
       </div>
 
-      {view === 'auto' ? (
+      {view === 'inbox' ? (
+        <TelecrmSoomgoInboxRulesSection />
+      ) : view === 'auto' ? (
         <TelecrmSoomgoAutoMessagesSection />
       ) : (
         <TelecrmSoomgoMessagePresetsSection catalogScope={catalogScope} />
