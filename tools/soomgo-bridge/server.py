@@ -615,8 +615,28 @@ class BridgeHandler(BaseHTTPRequestHandler):
             if path == '/request-update':
                 try:
                     from bridge_status_extras import invalidate_manifest_cache, get_manifest_cached
+                    from desktop.config import clear_pending_update_manifest, write_pending_update_manifest
 
                     invalidate_manifest_cache()
+                    raw_manifest = body.get('manifest')
+                    if isinstance(raw_manifest, dict):
+                        latest = str(raw_manifest.get('latestVersion', '')).strip()
+                        url = str(raw_manifest.get('downloadUrl', '')).strip()
+                        if latest and url:
+                            write_pending_update_manifest(
+                                {
+                                    'requiredVersion': raw_manifest.get('requiredVersion', 2),
+                                    'latestVersion': latest,
+                                    'downloadUrl': url,
+                                    'releaseNotes': raw_manifest.get('releaseNotes'),
+                                    'sha256': raw_manifest.get('sha256'),
+                                }
+                            )
+                            logger.info('CRM manifest queued for update: v%s', latest)
+                        else:
+                            clear_pending_update_manifest()
+                    else:
+                        clear_pending_update_manifest()
                     get_manifest_cached(force=True)
                     mode = str(body.get('mode', 'prompt')).strip().lower()
                     if mode not in ('prompt', 'background', 'install'):

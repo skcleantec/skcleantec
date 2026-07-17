@@ -58,7 +58,7 @@ export function useCrmSoomgoBridge({
   isPopup?: boolean;
   bridgeManifest?: SoomgoBridgeManifest | null;
   operatingCompanyId?: string | null;
-  refreshManifest?: () => Promise<void>;
+  refreshManifest?: () => Promise<SoomgoBridgeManifest | null>;
 }) {
   const [status, setStatus] = useState<SoomgoBridgeStatus | null>(null);
   const [preview, setPreview] = useState<SoomgoExtractedChat | null>(null);
@@ -157,10 +157,10 @@ export function useCrmSoomgoBridge({
       if (refreshManifest) {
         void requestSoomgoBridgeUpdateFresh(refreshManifest, mode);
       } else {
-        void requestSoomgoBridgeUpdate(mode);
+        void requestSoomgoBridgeUpdate(mode, bridgeManifest);
       }
     },
-    [refreshManifest],
+    [bridgeManifest, refreshManifest],
   );
 
   const refreshStatus = useCallback(async (options?: { lite?: boolean }) => {

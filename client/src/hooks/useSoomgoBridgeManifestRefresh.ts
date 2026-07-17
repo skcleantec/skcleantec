@@ -11,15 +11,16 @@ const MANIFEST_POLL_MS = 60 * 1000;
 export function useSoomgoBridgeManifestRefresh(
   enabled: boolean,
   onManifest: (manifest: SoomgoBridgeManifest) => void,
-): { refreshManifest: () => Promise<void> } {
-  const refresh = useCallback(async () => {
+): { refreshManifest: () => Promise<SoomgoBridgeManifest | null> } {
+  const refresh = useCallback(async (): Promise<SoomgoBridgeManifest | null> => {
     const token = getToken();
-    if (!token) return;
+    if (!token) return null;
     try {
       const manifest = await fetchTelecrmSoomgoBridgeManifest(token);
       onManifest(manifest);
+      return manifest;
     } catch {
-      /* 다운로드 URL 없을 때 무시 */
+      return null;
     }
   }, [onManifest]);
 

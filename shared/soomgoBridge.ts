@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.2';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.3';
 
 /** 채팅 목록 알림 watcher 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CHAT_ALERTS_MIN_VERSION = '2.2.0';

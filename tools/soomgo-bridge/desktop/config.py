@@ -24,6 +24,7 @@ APP_DATA_DIR = _local_appdata() / _APP_BRAND_DIR / _APP_MODULE_DIR
 LEGACY_APP_DATA_DIR = _local_appdata() / _LEGACY_BRAND_DIR / _APP_MODULE_DIR
 CONFIG_PATH = APP_DATA_DIR / 'config.json'
 UPDATE_FLAG_PATH = APP_DATA_DIR / 'update.request'
+UPDATE_MANIFEST_PATH = APP_DATA_DIR / 'update.manifest.json'
 RESTART_FLAG_PATH = APP_DATA_DIR / 'restart.request'
 UPDATE_STATE_PATH = APP_DATA_DIR / 'update.state.json'
 UPDATE_CACHE_DIR = APP_DATA_DIR / 'update-cache'
@@ -80,6 +81,42 @@ def resolve_update_flag_path() -> pathlib.Path:
     if legacy.is_file():
         return legacy
     return UPDATE_FLAG_PATH
+
+
+def write_pending_update_manifest(data: dict) -> None:
+    ensure_app_data()
+    UPDATE_MANIFEST_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def clear_pending_update_manifest() -> None:
+    ensure_app_data()
+    try:
+        UPDATE_MANIFEST_PATH.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def peek_pending_update_manifest() -> dict | None:
+    ensure_app_data()
+    if not UPDATE_MANIFEST_PATH.is_file():
+        return None
+    try:
+        raw = json.loads(UPDATE_MANIFEST_PATH.read_text(encoding='utf-8'))
+        if not isinstance(raw, dict):
+            return None
+        latest = str(raw.get('latestVersion', '')).strip()
+        url = str(raw.get('downloadUrl', '')).strip()
+        if latest and url:
+            return raw
+    except (OSError, json.JSONDecodeError):
+        pass
+    return None
+
+
+def take_pending_update_manifest() -> dict | None:
+    manifest = peek_pending_update_manifest()
+    clear_pending_update_manifest()
+    return manifest
 
 
 def load_config() -> dict:

@@ -28,6 +28,7 @@ from desktop.config import (
 )
 from desktop.manifest_client import (
     fetch_manifest,
+    fetch_manifest_for_update,
     is_update_available,
     is_update_required,
     manifest_summary,
@@ -395,7 +396,7 @@ class TrayApp:
     def _run_background_download(self) -> None:
         if self._update_busy:
             return
-        manifest = fetch_manifest()
+        manifest = fetch_manifest_for_update()
         if not manifest or not is_update_available(manifest):
             return
         self._update_busy = True
@@ -411,8 +412,9 @@ class TrayApp:
     def _run_install_ready(self) -> None:
         if self._update_busy:
             return
-        manifest = fetch_manifest()
+        manifest = fetch_manifest_for_update()
         if not manifest:
+            self._log('업데이트 manifest를 가져오지 못했습니다.', level='error')
             return
         self._manifest = manifest
         clear_stale_update_cache(manifest)
@@ -428,7 +430,7 @@ class TrayApp:
 
             if self._update_busy:
                 return
-            manifest = fetch_manifest()
+            manifest = fetch_manifest_for_update()
             self._manifest = manifest
             if not manifest:
                 if force:
@@ -454,10 +456,7 @@ class TrayApp:
 
     def _run_update(self, manifest: dict[str, Any]) -> None:
         self._update_busy = True
-        fresh = fetch_manifest()
-        if fresh:
-            manifest = fresh
-            self._manifest = fresh
+        self._manifest = manifest
         clear_stale_update_cache(manifest)
         ok, msg = perform_update(manifest)
         self._update_busy = False

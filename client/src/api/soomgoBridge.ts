@@ -260,24 +260,39 @@ export async function extractSoomgoCallNumber(): Promise<string> {
   return res.phone;
 }
 
-export async function requestSoomgoBridgeUpdate(mode: 'prompt' | 'background' | 'install' = 'prompt'): Promise<void> {
+export async function requestSoomgoBridgeUpdate(
+  mode: 'prompt' | 'background' | 'install' = 'prompt',
+  manifest?: SoomgoBridgeManifest | null,
+): Promise<void> {
   try {
     await bridgeFetch<{ ok: boolean }>('/request-update', {
       method: 'POST',
-      body: JSON.stringify({ mode }),
+      body: JSON.stringify({
+        mode,
+        manifest:
+          manifest?.latestVersion?.trim() && manifest.downloadUrl?.trim()
+            ? {
+                requiredVersion: manifest.requiredVersion,
+                latestVersion: manifest.latestVersion.trim(),
+                downloadUrl: manifest.downloadUrl.trim(),
+                releaseNotes: manifest.releaseNotes,
+                sha256: manifest.sha256,
+              }
+            : undefined,
+      }),
     });
   } catch {
     /* 트레이 미실행 시 무시 */
   }
 }
 
-/** 업데이트 클릭 직전 manifest 재조회 후 브릿지에 설치 요청 */
+/** 업데이트 클릭 직전 manifest 재조회 후 브릿지에 설치 요청 (CRM 서버 manifest 전달) */
 export async function requestSoomgoBridgeUpdateFresh(
-  refreshManifest: () => Promise<void>,
+  refreshManifest: () => Promise<SoomgoBridgeManifest | null>,
   mode: 'prompt' | 'background' | 'install' = 'install',
 ): Promise<void> {
-  await refreshManifest();
-  await requestSoomgoBridgeUpdate(mode);
+  const manifest = await refreshManifest();
+  await requestSoomgoBridgeUpdate(mode, manifest);
 }
 
 export async function requestSoomgoBridgeRestart(mode: 'bridge' | 'desktop' = 'bridge'): Promise<void> {
