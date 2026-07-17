@@ -11,7 +11,7 @@ import tempfile
 import time
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Literal
 
 import requests
 
@@ -19,6 +19,8 @@ from desktop.config import BRIDGE_DIR, UPDATE_CACHE_DIR, UPDATE_STATE_PATH, ensu
 from version_info import APP_VERSION
 
 logger = logging.getLogger(__name__)
+
+TrayHandoffAction = Literal['exit_tray', 'restart_tray']
 
 
 def write_update_state(
@@ -152,6 +154,96 @@ def download_update_artifact(manifest: dict[str, Any], *, force: bool = False) -
     return True, f'v{latest} 다운로드 완료'
 
 
+def ensure_update_artifact_ready(manifest: dict[str, Any]) -> tuple[bool, str, Path | None]:
+    """다운로드까지 완료된 캐시 경로를 반환."""
+    clear_stale_update_cache(manifest)
+    state = read_update_state()
+    if cached_artifact_is_valid(manifest, state):
+        dest = _resolve_cached_dest(manifest, state)
+        if dest and dest.is_file():
+            return True, '설치 파일 준비됨', dest
+
+    ok, msg = download_update_artifact(manifest, force=True)
+    if not ok:
+        return False, msg, None
+
+    state = read_update_state()
+    dest = _resolve_cached_dest(manifest, state)
+    if dest and dest.is_file():
+        return True, msg, dest
+    return False, '설치 파일 경로를 찾을 수 없습니다.', None
+
+
+def perform_tray_handoff_update(
+    manifest: dict[str, Any],
+    *,
+    on_before_install: Callable[[], None],
+) -> tuple[bool, str, TrayHandoffAction | None]:
+    """
+    트레이·브릿지를 먼저 내린 뒤 설치.
+    exe 성공 시 호출 측에서 os._exit(0), zip 성공 시 restart_self().
+    """
+    ok, msg, dest = ensure_update_artifact_ready(manifest)
+    if not ok or not dest:
+        return False, msg, None
+
+    latest = str(manifest.get('latestVersion', '')).strip()
+    lower = dest.name.lower()
+
+    if lower.endswith('.zip'):
+        write_update_state(
+            phase='installing',
+            message='ZIP 업데이트 적용 중…',
+            latest_version=latest or None,
+            artifact=str(dest),
+        )
+        on_before_install()
+        if apply_zip_update(dest):
+            from desktop.config import clear_pending_update_manifest
+
+            clear_pending_update_manifest()
+            write_update_state(phase='idle', message='ZIP 업데이트 적용 완료', latest_version=latest or None)
+            return True, f'ZIP 업데이트를 적용했습니다. (v{latest or APP_VERSION})', 'restart_tray'
+        write_update_state(
+            phase='ready',
+            message='ZIP 업데이트 적용 실패',
+            latest_version=latest or None,
+            artifact=str(dest),
+        )
+        return False, 'ZIP 업데이트 적용에 실패했습니다.', None
+
+    if lower.endswith('.exe'):
+        write_update_state(
+            phase='installing',
+            message='업데이트 설치 중…',
+            latest_version=latest or None,
+            artifact=str(dest),
+        )
+        on_before_install()
+        proc = run_installer_process(dest)
+        if not proc:
+            write_update_state(
+                phase='ready',
+                message='설치 프로그램 실행 실패',
+                latest_version=latest or None,
+                artifact=str(dest),
+            )
+            return False, '설치 프로그램 실행에 실패했습니다.', None
+
+        from desktop.config import clear_pending_update_manifest
+
+        clear_pending_update_manifest()
+        schedule_post_setup_restart(installer_pid=proc.pid)
+        return (
+            True,
+            '업데이트 설치 중입니다. 잠시 후 프로그램이 자동으로 다시 시작됩니다.',
+            'exit_tray',
+        )
+
+    write_update_state(phase='idle', message='지원하지 않는 배포 형식', latest_version=latest or None)
+    return False, '지원하지 않는 배포 형식입니다 (.exe 또는 .zip).', None
+
+
 def install_cached_artifact(manifest: dict[str, Any]) -> tuple[bool, str]:
     state = read_update_state()
     if not cached_artifact_is_valid(manifest, state):
@@ -166,7 +258,8 @@ def install_cached_artifact(manifest: dict[str, Any]) -> tuple[bool, str]:
 
     lower = dest.name.lower()
     if lower.endswith('.exe'):
-        if run_installer(dest):
+        proc = run_installer_process(dest)
+        if proc:
             from desktop.config import clear_pending_update_manifest
 
             clear_pending_update_manifest()
@@ -243,18 +336,30 @@ def apply_zip_update(zip_path: Path) -> bool:
         shutil.rmtree(extract_dir, ignore_errors=True)
 
 
-def run_installer(exe_path: Path) -> bool:
+def run_installer_process(exe_path: Path) -> subprocess.Popen[Any] | None:
+    """Inno Setup 무인 설치 — 재시작은 post_update_restart가 담당."""
     if not exe_path.exists():
-        return False
+        return None
+    flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
     try:
-        subprocess.Popen(
-            [str(exe_path), '/SILENT', '/CLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS'],
+        return subprocess.Popen(
+            [
+                str(exe_path),
+                '/VERYSILENT',
+                '/SUPPRESSMSGBOXES',
+                '/FORCECLOSEAPPLICATIONS',
+                '/NORESTART',
+            ],
             close_fds=True,
+            creationflags=flags,
         )
-        return True
     except OSError as e:
         logger.error('installer run failed: %s', e)
-        return False
+        return None
+
+
+def run_installer(exe_path: Path) -> bool:
+    return run_installer_process(exe_path) is not None
 
 
 def perform_update(manifest: dict[str, Any]) -> tuple[bool, str]:
@@ -268,15 +373,15 @@ def perform_update(manifest: dict[str, Any]) -> tuple[bool, str]:
     return install_cached_artifact(manifest)
 
 
-def schedule_post_setup_restart(wait_sec: float = 14.0) -> bool:
-    """Setup.exe 무인 설치 후 트레이 앱을 다시 띄웁니다."""
+def schedule_post_setup_restart(*, installer_pid: int = 0) -> bool:
+    """Setup.exe 완료·뮤텍스 해제 후 트레이 앱을 다시 띄웁니다."""
     helper = BRIDGE_DIR / 'desktop' / 'post_update_restart.py'
     if not helper.is_file():
         return False
     flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
     try:
         subprocess.Popen(
-            [sys.executable, str(helper)],
+            [sys.executable, str(helper), str(max(0, installer_pid))],
             cwd=str(BRIDGE_DIR),
             creationflags=flags,
             close_fds=True,
@@ -289,6 +394,9 @@ def schedule_post_setup_restart(wait_sec: float = 14.0) -> bool:
 
 def restart_self() -> None:
     """트레이 앱 재시작 (콘솔 없음)."""
+    from desktop.single_instance import release_single_instance
+
+    release_single_instance()
     flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
     vbs = BRIDGE_DIR / 'launch-desktop.vbs'
     if sys.platform == 'win32' and vbs.exists():
