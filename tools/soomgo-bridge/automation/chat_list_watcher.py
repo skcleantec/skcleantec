@@ -82,29 +82,42 @@ if (!window.__soomgoBridgeChatListWatch) {
       }
       if (!customerName && lines[0]) {
         var first = lines[0].replace(/\\d+$/, '').trim();
-        if (first.length <= 24 && !/청소|이사|입주|스마트견적|원/.test(first)) {
+        if (first.length <= 28 && !/청소|이사|입주|스마트\\s*견적|원/.test(first)) {
           customerName = first;
         }
       }
+      if (customerName) {
+        customerName = customerName.replace(/([가-힣a-zA-Z0-9])(이사\\/입주|입주\\/이사|이사|입주|청소)/gi, '$1 $2').replace(/\\s+/g, ' ').trim();
+      }
 
-      var previewText = raw;
-      var skipPatterns = /이사\\/입주|청소업체|스마트견적|총\\s*[\\d,]+\\s*원|부터\\s*•/;
-      for (var li = 1; li < lines.length; li++) {
-        var line = lines[li];
-        if (!line || skipPatterns.test(line)) continue;
-        if (/^\\d+$/.test(line)) continue;
-        previewText = line;
+      function isSkipPreviewLine(line) {
+        if (!line) return true;
+        if (customerName && line === customerName) return true;
+        if (/^\\d+$/.test(line)) return true;
+        if (/^(오전|오후)\\s*\\d|\\d+분 전|\\d+시간 전|^어제$|^방금$|^\\d{1,2}:\\d{2}$/.test(line)) return true;
+        if (/스마트\\s*견적|총\\s*[\\d,]+\\s*원|부터\\s*•|청소업체/.test(line)) return true;
+        if (/^이사\\/입주$|^입주\\/이사$|^이사$|^입주$/.test(line)) return true;
+        return false;
+      }
+
+      var previewText = '';
+      for (var li = lines.length - 1; li >= 0; li--) {
+        var cand = lines[li];
+        if (isSkipPreviewLine(cand)) continue;
+        if (/스마트\\s*견적|총\\s*[\\d,]+\\s*원/.test(cand)) continue;
+        previewText = cand;
         break;
       }
-      if (previewText === raw) {
-        for (var lj = lines.length - 1; lj >= 0; lj--) {
-          var cand = lines[lj];
-          if (cand && !skipPatterns.test(cand) && cand !== customerName) {
-            previewText = cand;
-            break;
+      if (!previewText) {
+        var previewNode = row.querySelector('[class*="preview" i], [class*="subtitle" i], [class*="message" i], [class*="desc" i]');
+        if (previewNode) {
+          var ptxt = (previewNode.textContent || '').replace(/\\s+/g, ' ').trim();
+          if (ptxt && !isSkipPreviewLine(ptxt) && !/스마트\\s*견적|총\\s*[\\d,]+\\s*원/.test(ptxt)) {
+            previewText = ptxt;
           }
         }
       }
+      if (!previewText) previewText = raw;
 
       var unreadCount = 0;
       var badgeNodes = row.querySelectorAll('span, div, p, strong');
@@ -124,7 +137,8 @@ if (!window.__soomgoBridgeChatListWatch) {
       if (tm) listTimeLabel = tm[0].replace(/\\s+/g, ' ').trim();
 
       var previewKind = 'unknown';
-      if (/견적.*읽|읽었|확인/.test(previewText)) previewKind = 'quote_read';
+      if (/스마트\\s*견적|총\\s*[\\d,]+\\s*원/.test(previewText)) previewKind = 'smart_quote';
+      else if (/견적.*읽|읽었|확인/.test(previewText)) previewKind = 'quote_read';
       else if (unreadCount > 0 || /안녕|고객님|문의|네\\s|요|니다|\\.\\.\\./.test(previewText)) previewKind = 'message';
 
       out.push({
@@ -147,7 +161,8 @@ if (!window.__soomgoBridgeChatListWatch) {
       var r = rows[i];
       if (!r || !r.chatId) continue;
       var watched = !!watchMap[String(r.chatId)];
-      if ((r.unreadCount || 0) < 1 && r.previewKind !== 'quote_read' && !watched) continue;
+      if ((r.unreadCount || 0) < 1 && r.previewKind !== 'quote_read' && r.previewKind !== 'smart_quote' && !watched) continue;
+      if (r.previewKind === 'smart_quote' && !watched) continue;
       window.__soomgoBridgeChatListWatch.events.push(r);
       if (window.__soomgoBridgeChatListWatch.events.length > 80) {
         window.__soomgoBridgeChatListWatch.events.shift();
@@ -202,6 +217,13 @@ if (!window.__soomgoBridgeDrainChatEvents) return [];
 return window.__soomgoBridgeDrainChatEvents();
 """
 
+_SNAPSHOT_JS = """
+if (window.__soomgoBridgeScanChatRows) {
+  return window.__soomgoBridgeScanChatRows();
+}
+return [];
+"""
+
 
 class ChatListWatcher:
     def __init__(self) -> None:
@@ -211,6 +233,7 @@ class ChatListWatcher:
         self._dedupe: dict[str, int] = {}
         self._watch_chat_ids: set[str] = set()
         self._last_preview_by_chat: dict[str, str] = {}
+        self._last_snapshot: list[dict[str, Any]] = []
 
     @property
     def watcher_installed(self) -> bool:
@@ -289,6 +312,8 @@ class ChatListWatcher:
                 return False
         elif unread < 1 and kind != 'quote_read':
             return False
+        if kind == 'smart_quote' and not watched:
+            return False
 
         key = self._dedupe_key(row)
         ttl = WATCH_DEDUPE_TTL_MS if watched else DEDUPE_TTL_MS
@@ -313,6 +338,37 @@ class ChatListWatcher:
             'listTimeLabel': row.get('listTimeLabel') or None,
             'capturedAt': captured,
         }
+
+    def _normalize_snapshot_row(self, row: dict[str, Any]) -> dict[str, Any]:
+        captured = int(row.get('capturedAt') or time.time() * 1000)
+        chat_id = str(row.get('chatId') or '')
+        return {
+            'chatId': chat_id,
+            'customerName': (row.get('customerName') or None),
+            'previewText': str(row.get('previewText') or '').strip() or '(내용 없음)',
+            'previewKind': row.get('previewKind') or 'unknown',
+            'unreadCount': int(row.get('unreadCount') or 0),
+            'listTimeLabel': row.get('listTimeLabel') or None,
+            'capturedAt': captured,
+        }
+
+    def list_snapshot(self, driver) -> list[dict[str, Any]]:
+        if not self._watcher_installed:
+            return list(self._last_snapshot)
+        try:
+            raw = driver.execute_script(_SNAPSHOT_JS)
+        except Exception as e:
+            logger.debug('chat list snapshot: %s', e)
+            return list(self._last_snapshot)
+        if not isinstance(raw, list):
+            return list(self._last_snapshot)
+        rows = [
+            self._normalize_snapshot_row(item)
+            for item in raw
+            if isinstance(item, dict) and str(item.get('chatId') or '').strip()
+        ]
+        self._last_snapshot = rows
+        return rows
 
     def poll_events(self, driver) -> list[dict[str, Any]]:
         if not self._watcher_installed:

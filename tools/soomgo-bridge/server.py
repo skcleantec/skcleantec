@@ -328,6 +328,11 @@ def _status_payload(*, lite: bool = False) -> dict[str, Any]:
         'chatAlerts': _chat_watcher.pending_alerts(),
         'chatAlertCount': len(_chat_watcher.pending_alerts()),
         'chatInbox': _chat_watcher.all_alerts() if not light else [],
+        'chatListSnapshot': (
+            _chat_watcher.list_snapshot(_browser.driver)
+            if (not light and running and _browser.driver)
+            else []
+        ),
         'extractInProgress': _extract_in_progress,
         'lastError': _last_error,
         'port': PORT,
