@@ -47,7 +47,6 @@ function InboxOneLineRow({
 }) {
   const pinned = isSoomgoInboxPinned(item);
   const { displayName } = formatSoomgoInboxCustomerName(item.customerName);
-  const region = item.serviceRegion?.trim() || null;
   const timeLabel = formatSoomgoInboxTime(item.capturedAt, item.listTimeLabel);
   const needsAction = (item.unreadCount ?? 0) > 0 || item.previewKind === 'quote_read';
   const chatPreview = item.messagePreview?.trim() || item.previewText;
@@ -78,7 +77,7 @@ function InboxOneLineRow({
           <CrmIconPin className="h-3.5 w-3.5" filled={pinned} />
         </button>
       </td>
-      <td className="w-[72px] shrink-0 px-1 py-1 align-middle">
+      <td className="w-[88px] shrink-0 px-1 py-1 align-middle">
         <div className="flex min-w-0 items-center gap-1">
           {needsAction ? (
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" aria-hidden />
@@ -89,11 +88,6 @@ function InboxOneLineRow({
             {displayName}
           </span>
         </div>
-      </td>
-      <td className="w-[148px] shrink-0 px-1 py-1 align-middle">
-        <span className="block truncate text-[10px] text-sky-800" title={region ?? undefined}>
-          {region ?? '—'}
-        </span>
       </td>
       <td className="min-w-0 px-1 py-1 align-middle">
         <span className="block truncate text-[10px] text-slate-600" title={`[${kindLabel}] ${chatPreview}`}>
@@ -216,11 +210,10 @@ export function CrmSoomgoAlertDrawer({
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-contain rounded-lg border border-slate-200">
-            <table className="w-full min-w-[680px] table-fixed border-collapse text-left">
+            <table className="w-full min-w-[560px] table-fixed border-collapse text-left">
               <colgroup>
                 <col className="w-9" />
-                <col className="w-[72px]" />
-                <col className="w-[148px]" />
+                <col className="w-[88px]" />
                 <col />
                 <col className="w-12" />
                 <col className="w-[132px]" />

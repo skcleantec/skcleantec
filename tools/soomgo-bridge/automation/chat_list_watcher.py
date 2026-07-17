@@ -59,9 +59,9 @@ if (!window.__soomgoBridgeChatListWatch) {
     function isRegionLine(line) {
       var t = norm(line);
       if (!t || isSmart(t)) return false;
-      if (/청소업체/.test(t) && (/•/.test(t) || /[시군구읍면]/.test(t))) return true;
-      if (/^(이사\\/입주|입주\\/이사|입주\\s*청소|이사\\s*청소)/.test(t) && (/•/.test(t) || /청소/.test(t))) return true;
-      if (/•/.test(t) && /(청소|입주|이사|업체)/.test(t) && t.length <= 80) return true;
+      if (/청소업체/.test(t) && (/[•·]/.test(t) || /[시군구읍면]/.test(t))) return true;
+      if (/^(이사\\/입주|입주\\/이사|입주\\s*청소|이사\\s*청소)/.test(t) && (/[•·]/.test(t) || /청소/.test(t))) return true;
+      if (/[•·]/.test(t) && /(청소|입주|이사|업체)/.test(t) && t.length <= 80) return true;
       return false;
     }
     function fmtRegion(svc, reg) {
@@ -75,8 +75,8 @@ if (!window.__soomgoBridgeChatListWatch) {
     }
     function splitHeader(line) {
       var t = norm(line);
-      var m = t.match(/^([가-힣]{2,6})\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*•\\s*(.+)$/)
-        || t.match(/^([가-힣]{2,6})(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*•\\s*(.+)$/);
+      var m = t.match(/^([가-힣]{2,6})\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$/)
+        || t.match(/^([가-힣]{2,6})(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$/);
       if (m) {
         var peeled = splitRegionMsg(m[3]);
         return { name: m[1], region: fmtRegion(m[2], peeled.region), trailingMessage: peeled.message };
@@ -88,10 +88,29 @@ if (!window.__soomgoBridgeChatListWatch) {
       if (tm && tm.index != null) return { text: line.slice(0, tm.index).trim(), time: norm(tm[1]) };
       return { text: line, time: null };
     }
-    function cleanNameLine(line) {
-      return norm(line).replace(/\\s*\\d{1,2}$/, '').replace(/\\s*(오전|오후)\\s*\\d{1,2}:\\d{2}\\s*$/, '').trim();
+    function stripDecor(s) {
+      return norm(s).replace(/[\\u{2600}-\\u{27BF}\\u{1F300}-\\u{1FAFF}\\u{FE00}-\\u{FE0F}\\u{200D}🤍❤️⭐]/gu, '').trim();
     }
-    function expandLines(linesIn, block, timeHolder) {
+    function isStatusLine(line) {
+      var t = stripDecor(line);
+      return /정상|누적\\s*시공|건\\s*이상|프로\\s*모드|상담\\s*(전|중|완료)|🟠|🟡|🔴/.test(t);
+    }
+    function isNameOnly(line) {
+      var t = stripDecor(line);
+      if (!t || t.length > 12) return false;
+      if (/^[가-힣]{2,6}$/.test(t)) return true;
+      if (/^\\d{5,12}$/.test(t)) return true;
+      return false;
+    }
+    function pickNameOnly(line) {
+      var t = stripDecor(line);
+      if (!t) return null;
+      var h = splitHeader(t);
+      if (h && h.name) return h.name;
+      if (isNameOnly(t) && !isRegionLine(t) && !isStatusLine(t)) return t;
+      return null;
+    }
+    function buildLines(linesIn, block) {
       var out = [];
       for (var i = 0; i < linesIn.length; i++) {
         if (!isSkip(linesIn[i])) out.push(norm(linesIn[i]));
@@ -101,124 +120,65 @@ if (!window.__soomgoBridgeChatListWatch) {
       if (!one) return out;
       one = one.replace(/\\s*총\\s*[\\d,]+\\s*원.*스마트\\s*견적\\s*$/i, '').trim();
       var st = stripTime(one);
-      if (st.time && !timeHolder.val) timeHolder.val = st.time;
-      var rest = st.text;
-      var h = splitHeader(rest);
+      var h = splitHeader(st.text);
       if (h) {
-        var loose = rest.match(/(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*•\\s*(.+)$/);
-        if (loose) {
-          var regFull = fmtRegion(loose[1], splitRegionMsg(loose[2]).region);
-          var idx = rest.indexOf(loose[0]);
-          if (idx >= 0) {
-            out.push(h.name);
-            out.push(regFull);
-            var peeled = splitRegionMsg(loose[2]);
-            if (peeled.message) out.push(peeled.message);
-            else {
-              var msgPart = rest.slice(idx + loose[0].length).trim();
-              if (msgPart) out.push(msgPart);
-            }
-            return out;
-          }
-        }
-        out.push(h.name);
-        out.push(h.region);
+        out = [h.name];
         if (h.trailingMessage) out.push(h.trailingMessage);
         return out;
       }
-      if (rest) out.push(rest);
+      if (st.text) out = [st.text];
       return out;
     }
 
     var customerName = null;
-    var serviceRegion = null;
     var messagePreview = '';
     var listTimeLabel = null;
     var parseQuality = 'fallback';
     var previewKind = 'unknown';
-    var timeHolder = { val: null };
+    var nameLineIdx = -1;
 
-    if (rowEl) {
-      var nameNode = rowEl.querySelector('strong, b, [class*="name" i], [class*="title" i], [class*="nickname" i]');
-      if (nameNode) customerName = norm(nameNode.textContent).slice(0, 40) || null;
-    }
+    var lines = buildLines(rawLines || [], rawBlock);
 
-    var lines = expandLines(rawLines || [], rawBlock, timeHolder);
-    if (timeHolder.val) listTimeLabel = timeHolder.val;
-
-    if (!customerName && lines[0]) {
-      var first = cleanNameLine(lines[0]);
-      var h0 = splitHeader(first);
-      if (h0) {
-        customerName = h0.name;
-        serviceRegion = serviceRegion || h0.region;
-      } else if (first.length <= 24 && !/청소업체|•|스마트\\s*견적|총\\s*[\\d,]+/.test(first)) {
-        customerName = first;
+    for (var ni = 0; ni < Math.min(lines.length, 5); ni++) {
+      if (isStatusLine(lines[ni]) || isSmart(lines[ni])) continue;
+      var picked = pickNameOnly(lines[ni]);
+      if (picked) {
+        customerName = picked;
+        nameLineIdx = ni;
+        break;
       }
     }
 
-    if (!serviceRegion && lines.length >= 2) {
-      var secondLine = norm(lines[1]);
-      if (isRegionLine(secondLine)) {
-        serviceRegion = secondLine.replace(/([가-힣a-zA-Z0-9])(이사\\/입주|입주\\/이사)/gi, '$1 $2');
+    if (!customerName && rowEl) {
+      var nameNodes = rowEl.querySelectorAll('strong, b, [class*="nickname" i], [class*="name" i], [class*="title" i]');
+      for (var dn = 0; dn < nameNodes.length; dn++) {
+        var pickedDom = pickNameOnly(nameNodes[dn].textContent || '');
+        if (pickedDom) { customerName = pickedDom; break; }
       }
     }
-
-    var nameSeen = !!customerName;
-    var serviceSeen = !!serviceRegion;
 
     for (var j = 0; j < lines.length; j++) {
       var line = norm(lines[j]);
       if (!line || isSkip(line)) continue;
-      if (/^(오전|오후)\\s*\\d{1,2}:\\d{2}$/.test(line) || /^\\d+분 전$/.test(line) || line === '어제' || line === '방금') {
-        if (!listTimeLabel) listTimeLabel = line;
-        continue;
-      }
-      if (customerName && (line === customerName || cleanNameLine(line) === customerName)) {
-        nameSeen = true;
-        continue;
-      }
-      if (!nameSeen) {
-        var hLine = splitHeader(line);
-        if (hLine) {
-          customerName = customerName || hLine.name;
-          serviceRegion = serviceRegion || hLine.region;
-          nameSeen = true;
-          serviceSeen = true;
-          continue;
-        }
-        if (!customerName && line.length <= 12 && !isRegionLine(line)) {
-          customerName = cleanNameLine(line);
-          nameSeen = true;
-          continue;
-        }
-      }
-      if (isRegionLine(line)) {
-        if (!serviceRegion) serviceRegion = line.replace(/([가-힣a-zA-Z0-9])(이사\\/입주|입주\\/이사)/gi, '$1 $2');
-        serviceSeen = true;
-        continue;
-      }
-      if (isSmart(line)) continue;
-
       var stripped = stripTime(line);
       if (stripped.time && !listTimeLabel) listTimeLabel = stripped.time;
+      if (j <= nameLineIdx) continue;
+      if (isRegionLine(line) || isSmart(line)) continue;
       var msg = norm(stripped.text);
-      if (!msg || isSkip(msg) || isSmart(msg) || isRegionLine(msg)) continue;
+      if (!msg || isSkip(msg) || isRegionLine(msg) || isSmart(msg)) continue;
       if (customerName && msg === customerName) continue;
-      if (serviceRegion && msg === serviceRegion) continue;
-
       if (isQuoteRead(msg)) {
         if (!messagePreview) {
           messagePreview = msg;
           previewKind = 'quote_read';
-          parseQuality = nameSeen || serviceSeen ? 'full' : 'partial';
+          parseQuality = customerName ? 'full' : 'partial';
         }
         continue;
       }
       if (!messagePreview) {
         messagePreview = msg;
         previewKind = isSystem(msg) ? 'system' : 'message';
-        parseQuality = (nameSeen || serviceSeen || j >= 2) ? 'full' : (j === 1 ? 'partial' : 'fallback');
+        parseQuality = customerName ? 'full' : 'partial';
       }
     }
 
@@ -226,37 +186,21 @@ if (!window.__soomgoBridgeChatListWatch) {
       var domSelectors = [
         '[class*="lastMessage" i]', '[class*="LastMessage" i]',
         '[class*="messagePreview" i]', '[class*="previewMessage" i]',
-        '[class*="chatPreview" i]', '[class*="desc" i]:not([class*="name" i])'
+        '[class*="chatPreview" i]'
       ];
       for (var dsi = 0; dsi < domSelectors.length && !messagePreview; dsi++) {
         var nodes = rowEl.querySelectorAll(domSelectors[dsi]);
-        for (var ni = 0; ni < nodes.length; ni++) {
-          var dt = norm(nodes[ni].textContent);
-          if (!dt || dt === customerName || isRegionLine(dt) || isSmart(dt) || isSkip(dt)) continue;
+        for (var ni2 = 0; ni2 < nodes.length; ni2++) {
+          var dt = norm(nodes[ni2].textContent);
+          if (!dt || isRegionLine(dt) || isSmart(dt) || isSkip(dt) || isStatusLine(dt)) continue;
+          if (customerName && dt.indexOf(customerName) === 0 && dt.length <= customerName.length + 2) continue;
           messagePreview = stripTime(dt).text;
           if (messagePreview) {
-            parseQuality = 'partial';
-            previewKind = isSystem(messagePreview) ? 'system' : (isQuoteRead(messagePreview) ? 'quote_read' : 'message');
+            parseQuality = customerName ? 'full' : 'partial';
+            previewKind = isQuoteRead(messagePreview) ? 'quote_read' : (isSystem(messagePreview) ? 'system' : 'message');
             break;
           }
         }
-      }
-    }
-
-    if (!messagePreview && rawBlock) {
-      var body = norm(rawBlock).replace(/\\s*총\\s*[\\d,]+\\s*원.*스마트\\s*견적\\s*$/i, '').trim();
-      if (customerName && body.indexOf(customerName) === 0) body = body.slice(customerName.length).trim();
-      if (serviceRegion) {
-        var sr = norm(serviceRegion);
-        if (body.indexOf(sr) >= 0) body = body.replace(sr, '').trim();
-      }
-      var bodyStripped = stripTime(body);
-      if (bodyStripped.time && !listTimeLabel) listTimeLabel = bodyStripped.time;
-      var bodyMsg = norm(bodyStripped.text);
-      if (bodyMsg && !isSmart(bodyMsg) && !isSkip(bodyMsg) && bodyMsg !== customerName && !isRegionLine(bodyMsg)) {
-        messagePreview = bodyMsg;
-        parseQuality = 'fallback';
-        previewKind = isQuoteRead(bodyMsg) ? 'quote_read' : (isSystem(bodyMsg) ? 'system' : 'message');
       }
     }
 
@@ -265,20 +209,15 @@ if (!window.__soomgoBridgeChatListWatch) {
       if (tm2) listTimeLabel = norm(tm2[0]);
     }
 
-    if (!customerName && serviceRegion) {
-      var hReg = splitHeader(serviceRegion);
-      if (hReg) customerName = hReg.name;
-    }
     if (messagePreview && isSmart(messagePreview)) {
       messagePreview = '';
       previewKind = 'unknown';
     }
-    if (messagePreview && serviceRegion && messagePreview === serviceRegion) messagePreview = '';
 
     if (previewKind === 'unknown' && messagePreview) previewKind = 'message';
     return {
       customerName: customerName,
-      serviceRegion: serviceRegion,
+      serviceRegion: null,
       messagePreview: messagePreview || null,
       parseQuality: parseQuality,
       previewKind: previewKind,
@@ -381,6 +320,7 @@ if (!window.__soomgoBridgeChatListWatch) {
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
       if (!r || !r.chatId) continue;
+      if (!r.customerName && !r.messagePreview) continue;
       var watched = !!watchMap[String(r.chatId)];
       if ((r.unreadCount || 0) < 1 && r.previewKind !== 'quote_read' && !watched) continue;
       if (r.previewKind === 'smart_quote' && !watched) continue;
@@ -532,6 +472,8 @@ class ChatListWatcher:
             else:
                 return False
         elif unread < 1 and kind != 'quote_read':
+            return False
+        if not str(row.get('customerName') or '').strip() and not str(row.get('messagePreview') or '').strip():
             return False
         if kind == 'smart_quote' and not watched:
             return False

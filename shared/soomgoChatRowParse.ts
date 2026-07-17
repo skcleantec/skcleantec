@@ -36,13 +36,13 @@ const TIME_ONLY =
   /^(오전|오후)\s*\d{1,2}:\d{2}$|^\d+분 전$|^\d+시간 전$|^어제$|^방금$|^\d{1,2}:\d{2}$/;
 const SMART_QUOTE = /스마트\s*견적|총\s*[\d,]+\s*원\s*부터|부터\s*•\s*스마트|총\s*[\d,]+\s*원/;
 const SYSTEM_LINE = /🏆|숨고\s*고용|숨고패스|자동\s*응답|숨고\s*알림/;
-/** 이름 + 서비스 + • + 지역 (공백 유무) */
+/** 이름 + 서비스 + •/· + 지역 (공백 유무) */
 const MERGED_HEADER =
-  /^([가-힣]{2,6})\s*(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*•\s*(.+)$/;
+  /^([가-힣]{2,6})\s*(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*[•·]\s*(.+)$/;
 const MERGED_HEADER_TIGHT =
-  /^([가-힣]{2,6})(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*•\s*(.+)$/;
-const SERVICE_ONLY = /^(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*•\s*(.+)$/;
-const REGION_TAIL = /청소업체|•|[시군구읍면]/;
+  /^([가-힣]{2,6})(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*[•·]\s*(.+)$/;
+const SERVICE_ONLY = /^(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*[•·]\s*(.+)$/;
+const REGION_TAIL = /청소업체|[•·]|[시군구읍면]/;
 const INVALID_NAME = /^(고객|익명|상대방)$/;
 
 function norm(s: string): string {
@@ -113,7 +113,7 @@ function isRegionLike(line: string): boolean {
   const t = norm(line);
   if (!t) return false;
   if (SMART_QUOTE.test(t)) return false;
-  return REGION_TAIL.test(t) && /•/.test(t);
+  return REGION_TAIL.test(t) && /[•·]/.test(t);
 }
 
 function classifyPreviewKind(text: string): SoomgoChatAlertKind {
@@ -124,24 +124,33 @@ function classifyPreviewKind(text: string): SoomgoChatAlertKind {
   return 'unknown';
 }
 
-function pickDisplayName(name: string | null, serviceRegion: string | null, firstLine: string | null): string | null {
-  if (name?.trim() && !INVALID_NAME.test(name.trim())) return name.trim();
-  const merged = firstLine ? splitMergedHeader(firstLine) : null;
+function stripDecor(s: string): string {
+  return norm(s).replace(/[\u{2600}-\u{27BF}\u{1F300}-\u{1FAFF}\u{FE00}-\u{FE0F}\u{200D}🤍❤️⭐]/gu, '').trim();
+}
+
+function isStatusLine(line: string): boolean {
+  const t = stripDecor(line);
+  return /정상|누적\s*시공|건\s*이상|프로\s*모드|상담\s*(전|중|완료)|🟠|🟡|🔴/.test(t);
+}
+
+function isNameOnly(line: string): boolean {
+  const t = stripDecor(line);
+  if (!t || t.length > 12) return false;
+  if (/^[가-힣]{2,6}$/.test(t)) return true;
+  if (/^\d{5,12}$/.test(t)) return true;
+  return false;
+}
+
+function pickNameOnly(line: string): string | null {
+  const t = stripDecor(line);
+  if (!t) return null;
+  const merged = splitMergedHeader(t);
   if (merged?.name) return merged.name;
-  if (serviceRegion) {
-    const fromRegion = splitMergedHeader(serviceRegion);
-    if (fromRegion?.name) return fromRegion.name;
-    const head = norm(serviceRegion).match(/^([가-힣]{2,6})\s/);
-    if (head) return head[1];
-  }
-  if (firstLine) {
-    const short = norm(firstLine);
-    if (short.length <= 8 && !REGION_TAIL.test(short)) return short;
-  }
+  if (isNameOnly(t) && !isRegionLike(t) && !isStatusLine(t)) return t;
   return null;
 }
 
-/** innerText가 한 줄일 때 이름·지역·메시지 후보로 분해 */
+/** innerText 줄 배열 — 2줄 이상이면 그대로 (숨고 1줄=이름, 2줄=지역 스킵) */
 function expandLinesFromBlock(rawLines: string[], rawBlock: string | null | undefined): string[] {
   const filtered: string[] = [];
   for (const raw of rawLines) {
@@ -153,116 +162,66 @@ function expandLinesFromBlock(rawLines: string[], rawBlock: string | null | unde
   let one = norm(rawBlock || filtered[0] || '');
   if (!one) return filtered;
   one = one.replace(/\s*총\s*[\d,]+\s*원.*스마트\s*견적\s*$/i, '').trim();
-  const { text: rest, time: _time } = stripTimeFromLine(one);
-  void _time;
-
+  const { text: rest } = stripTimeFromLine(one);
   const merged = splitMergedHeader(rest);
   if (merged) {
     const out: string[] = [];
     if (merged.name) out.push(merged.name);
-    out.push(merged.serviceRegion);
     if (merged.trailingMessage) out.push(merged.trailingMessage);
-    const loose = rest.match(/(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*•\s*(.+)$/);
-    if (loose && !merged.trailingMessage) {
-      const idx = rest.indexOf(loose[0]);
-      if (idx >= 0) {
-        const msgPart = rest.slice(idx + loose[0].length).trim();
-        if (msgPart) out.push(msgPart);
-      }
-    }
     return out;
   }
-
   return rest ? [rest] : filtered;
 }
 
-/** rawLines 우선 — 알림 행 전체를 분해 */
+/** rawLines — 1줄=이름, 2줄=서비스·지역(수집 안 함), 3줄=채팅 */
 export function parseSoomgoChatRow(input: SoomgoChatRowParseInput): SoomgoChatRowParsed {
-  const lines: string[] = expandLinesFromBlock(
+  const lines = expandLinesFromBlock(
     input.rawLines?.length ? input.rawLines.map(norm) : [],
     input.rawBlock ?? input.rawLines?.join('\n') ?? null,
   );
 
   let customerName =
     input.customerName?.trim() && !INVALID_NAME.test(input.customerName.trim())
-      ? input.customerName.trim()
+      ? stripDecor(input.customerName)
       : null;
-  let serviceRegion = input.serviceRegion?.trim() || null;
+  if (customerName && (isRegionLike(customerName) || isStatusLine(customerName))) {
+    const fromMerged = pickNameOnly(customerName);
+    customerName = fromMerged;
+  }
+
+  let nameLineIdx = -1;
+  for (let i = 0; i < Math.min(lines.length, 5); i++) {
+    if (isStatusLine(lines[i]) || SMART_QUOTE.test(lines[i])) continue;
+    const picked = pickNameOnly(lines[i]);
+    if (picked) {
+      customerName = customerName ?? picked;
+      nameLineIdx = i;
+      break;
+    }
+  }
+
   let messagePreview: string | null =
     sanitizeSoomgoMessagePreview(input.messagePreview ?? input.previewText) || null;
   let parseQuality: SoomgoChatParseQuality = 'fallback';
 
-  if (lines.length > 0) {
-    let headerDone = false;
-    const messageCandidates: string[] = [];
-
-    for (const line of lines) {
-      if (!headerDone) {
-        const merged = splitMergedHeader(line);
-        if (merged) {
-          if (merged.name) customerName = customerName ?? merged.name;
-          serviceRegion = serviceRegion ?? merged.serviceRegion;
-          headerDone = true;
-          continue;
-        }
-        if (!customerName && line.length <= 12 && !REGION_TAIL.test(line)) {
-          customerName = line;
-          headerDone = true;
-          continue;
-        }
-        if (isRegionLike(line)) {
-          serviceRegion = serviceRegion ?? line.replace(/([가-힣a-zA-Z0-9])(이사\/입주|입주\/이사)/gi, '$1 $2');
-          headerDone = true;
-          continue;
-        }
-      }
-
-      if (SMART_QUOTE.test(line)) continue;
-      if (isRegionLike(line) && !serviceRegion) {
-        serviceRegion = line;
-        continue;
-      }
-      if (customerName && line === customerName) continue;
-      if (serviceRegion && line === serviceRegion) continue;
-
-      const { text } = stripTimeFromLine(line);
-      const msg = sanitizeSoomgoMessagePreview(text);
-      if (msg) messageCandidates.push(msg);
+  for (let j = 0; j < lines.length; j++) {
+    if (j <= nameLineIdx) continue;
+    const line = lines[j];
+    if (isRegionLike(line) || SMART_QUOTE.test(line) || isSkippableLine(line)) {
+      continue;
     }
-
-    if (!customerName || !serviceRegion) {
-      const merged = splitMergedHeader(lines[0]);
-      if (merged) {
-        customerName = customerName ?? merged.name ?? null;
-        serviceRegion = serviceRegion ?? merged.serviceRegion;
-      }
+    const { text } = stripTimeFromLine(line);
+    const msg = sanitizeSoomgoMessagePreview(text);
+    if (!msg || msg === customerName) continue;
+    if (!messagePreview) {
+      messagePreview = msg;
+      parseQuality = customerName ? 'full' : 'partial';
+      break;
     }
-
-    if (!messagePreview && messageCandidates.length > 0) {
-      messagePreview = messageCandidates[0];
-      parseQuality = headerDone ? 'full' : 'partial';
-    } else if (messagePreview && headerDone) {
-      parseQuality = 'full';
-    } else if (messagePreview) {
-      parseQuality = 'partial';
-    }
-
-    customerName = pickDisplayName(customerName, serviceRegion, lines[0] ?? null);
-  }
-
-  if (!customerName && serviceRegion) {
-    const merged = splitMergedHeader(serviceRegion);
-    if (merged?.name) customerName = merged.name;
-    if (merged?.serviceRegion) serviceRegion = merged.serviceRegion;
   }
 
   if (!messagePreview) {
     messagePreview = sanitizeSoomgoMessagePreview(input.previewText) || null;
-  }
-
-  if (messagePreview && serviceRegion && messagePreview === sanitizeSoomgoMessagePreview(serviceRegion)) {
-    messagePreview = null;
-    parseQuality = 'partial';
   }
 
   const previewText = messagePreview || '(채팅 미리보기)';
@@ -270,7 +229,7 @@ export function parseSoomgoChatRow(input: SoomgoChatRowParseInput): SoomgoChatRo
 
   return {
     customerName,
-    serviceRegion,
+    serviceRegion: null,
     messagePreview,
     previewText,
     previewKind,

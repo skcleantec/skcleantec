@@ -68,7 +68,7 @@ function normalizeItem(
     id: row.id?.trim() || stableInboxId(row.chatId),
     chatId: row.chatId,
     customerName: parsed.customerName,
-    serviceRegion: parsed.serviceRegion,
+    serviceRegion: null,
     previewText: parsed.previewText,
     messagePreview: parsed.messagePreview,
     parseQuality: parsed.parseQuality,
@@ -224,21 +224,23 @@ export function unreadSoomgoInboxCount(items: CrmSoomgoInboxItem[]): number {
   return soomgoInboxPendingCount(items);
 }
 
-/** 고객명 표시 */
+/** 고객명 표시 — 1줄 이름만 */
 export function formatSoomgoInboxCustomerName(raw: string | null): {
   displayName: string;
   serviceLabel: string | null;
 } {
+  const parsed = parseSoomgoChatRow({ customerName: raw, rawBlock: raw });
+  if (parsed.customerName) {
+    return { displayName: parsed.customerName, serviceLabel: null };
+  }
   const text = (raw || '').replace(/\s+/g, ' ').trim();
   if (!text) return { displayName: '(이름 미확인)', serviceLabel: null };
-  if (text.length <= 10 && !/청소업체|•|이사\/입주|입주\/이사/.test(text)) {
-    return { displayName: text, serviceLabel: null };
-  }
-  const parsed = parseSoomgoChatRow({ serviceRegion: text });
-  if (parsed.customerName) {
-    return { displayName: parsed.customerName, serviceLabel: parsed.serviceRegion };
-  }
-  return { displayName: formatSoomgoInboxDisplayName({ customerName: text }), serviceLabel: null };
+  return { displayName: formatSoomgoInboxDisplayName({ customerName: pickNameFromMerged(text) }), serviceLabel: null };
+}
+
+function pickNameFromMerged(text: string): string | null {
+  const picked = parseSoomgoChatRow({ rawBlock: text });
+  return picked.customerName;
 }
 
 /** chatId 기준 1고객 1행 — 미리보기·미읽음 변경 시 상단 재정렬 */
@@ -277,6 +279,7 @@ export function upsertSoomgoChatAlerts(
         capturedAt,
         pinnedAt: null,
       });
+      if (!row.customerName && !row.messagePreview) continue;
       byChatId.set(chatId, row);
       added.push(row);
       continue;
@@ -298,6 +301,13 @@ export function upsertSoomgoChatAlerts(
       capturedAt: Math.max(prev.capturedAt, capturedAt),
       pinnedAt: prev.pinnedAt,
     });
+    if (!row.customerName && prev.customerName) {
+      row.customerName = prev.customerName;
+    }
+    if (!row.messagePreview && prev.messagePreview) {
+      row.messagePreview = prev.messagePreview;
+      row.previewText = prev.previewText;
+    }
     byChatId.set(chatId, row);
     bumped.push(row);
   }
