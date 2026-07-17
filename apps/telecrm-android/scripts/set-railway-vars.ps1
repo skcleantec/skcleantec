@@ -1,6 +1,10 @@
 # 청소비서 전화(텔레CRM) Android — Railway Variables 일괄 설정
 # 사전: npx @railway/cli login (또는 RAILWAY_TOKEN)
-# 사용: .\scripts\set-railway-vars.ps1 -Target staging -VersionCode 15 -VersionName "0.6.5-internal" -Sha256 "abc..."
+# 사용: .\scripts\set-railway-vars.ps1 -Target both -VersionCode 17 -VersionName "0.6.7-internal" -Sha256 "abc..."
+#
+# 변수 의미 (한 세트로 맞춤):
+#   LATEST_VERSION_CODE/NAME + DOWNLOAD_URL + SHA256 + RELEASE_NOTES → 최신 APK
+#   MIN_VERSION_CODE → 이 미만이면 필수 업데이트 (보통 LATEST와 동일 = 전원 강제)
 
 param(
     [ValidateSet('staging', 'production', 'both')]
@@ -12,13 +16,14 @@ param(
     [int]$MinVersionCode = 0,
     [string]$DownloadUrl = '',
     [string]$Sha256 = '',
-    [string]$ReleaseNotes = ''
+    [string]$ReleaseNotes = '',
+    [string]$ServiceId = '171eccc8-17fa-49d0-b81b-c42df7b2138a'
 )
 
 $ErrorActionPreference = 'Stop'
 
 if ($MinVersionCode -le 0) {
-    $MinVersionCode = [Math]::Max(1, $VersionCode - 1)
+    $MinVersionCode = $VersionCode
 }
 
 if (-not $DownloadUrl) {
@@ -59,7 +64,7 @@ function Set-RailwayEnvVars([string]$Environment) {
     foreach ($key in $Vars.Keys) {
         $val = $Vars[$key]
         Write-Host "  $key"
-        npx @railway/cli@latest variables --set "${key}=${val}" --environment $Environment
+        npx @railway/cli@latest variable set "${key}=${val}" --environment $Environment --service $ServiceId
         if ($LASTEXITCODE -ne 0) {
             throw "Failed to set $key on $Environment"
         }

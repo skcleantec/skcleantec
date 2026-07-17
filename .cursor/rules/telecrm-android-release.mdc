@@ -1,0 +1,65 @@
+---
+description: 청소비서 전화 Android sideload — 릴리스 시 Railway TELECRM_APP_* 환경변수 필수 갱신
+globs: apps/telecrm-android/**,server/src/modules/telecrm/telecrmAppManifest.ts,.github/workflows/telecrm-android-release.yml
+alwaysApply: false
+---
+
+# 청소비서 전화(텔레CRM) Android — 릴리스 · Railway Variables (필수)
+
+**Play Store 없이** GitHub Release APK + **Railway 매니페스트** + 고정 설치 페이지 `/telecrm-app` 로 배포한다.  
+APK·`versionCode`·GitHub Release만 올리고 **Railway Variables를 안 바꾸면** 앱 자동 업데이트·설치 페이지가 **옛 APK**를 가리킨다 — **우회 금지**.
+
+## 에이전트 의무 — 릴리스 완료 = Variables 갱신까지
+
+`apps/telecrm-android/**` 의 **versionCode/versionName bump**, APK 빌드·GitHub Release, 또는 매니페스트 관련 서버 변경을 **완료**할 때:
+
+1. 코드·태그·Release만 하고 **끝내지 않는다.**
+2. **staging + production** 양쪽에 `TELECRM_APP_*` **6개 전부**를 **한 세트**로 맞춘다 (`.cursor/rules/project-standards.mdc` — 사용자에게만 위임 금지).
+
+**예외:** 사용자가 **「Railway 건드리지 마」** 등으로 명시한 경우만 생략.
+
+## Railway Variables — 6개 한 세트 (버전 제각각 금지)
+
+| 변수 | 설명 |
+|------|------|
+| `TELECRM_APP_LATEST_VERSION_CODE` | `app/build.gradle.kts` `versionCode` 와 **동일** |
+| `TELECRM_APP_LATEST_VERSION_NAME` | `versionName` 과 **동일** (예 `0.6.7-internal`) |
+| `TELECRM_APP_MIN_VERSION_CODE` | **기본 = LATEST와 동일** (전원 필수 업데이트). 하위 호환 허용 시만 낮게 |
+| `TELECRM_APP_DOWNLOAD_URL` | `https://github.com/skcleantec/skcleantec/releases/download/telecrm-v{versionName}/telecrm-release-{versionName}.apk` |
+| `TELECRM_APP_SHA256` | Release APK **소문자 hex** (Release APK와 반드시 일치) |
+| `TELECRM_APP_RELEASE_NOTES` | 업데이트 안내 (한 줄) |
+
+**서비스 ID:** `171eccc8-17fa-49d0-b81b-c42df7b2138a` (`clean solution`)
+
+```powershell
+cd apps\telecrm-android
+.\scripts\set-railway-vars.ps1 -Target both -VersionCode {N} -VersionName "{name}" -Sha256 "{sha256}" -ReleaseNotes "{notes}"
+```
+
+`set-railway-vars.ps1` 는 `--service` 를 붙여 실행한다. `No service linked` 나오면 **ServiceId 파라미터** 또는 `railway service` 링크 후 재실행.
+
+## 릴리스 체크리스트 (순서)
+
+1. `app/build.gradle.kts` — `versionCode` +1, `versionName` 갱신
+2. `server/src/modules/telecrm/telecrmAppManifest.ts` — **fallback** `TELECRM_APP_FALLBACK_*` 동기화
+3. signed release APK 빌드 → GitHub Release (`telecrm-v{versionName}`) 업로드
+4. **Railway Variables — staging + production 6개 일괄 설정** (위 스크립트)
+5. **매니페스트 확인** (Variables와 **일치**해야 함):
+   - 운영: `https://www.cbiseo.com/api/public/telecrm-app/manifest`
+   - 스테이징: `https://clean-solution-staging.up.railway.app/api/public/telecrm-app/manifest`
+6. `staging` 커밋·푸시; **`main`은 사용자가 운영 반영 요청 시** (`.cursor/rules/git-staging-main-push.mdc`)
+7. 보고: semver·Release URL·**Railway 반영 환경**·manifest `latestVersionCode`/`minVersionCode` 확인 결과
+
+## 설치 페이지 (URL 고정)
+
+- 운영: `https://www.cbiseo.com/telecrm-app` — **URL은 바꾸지 않음**, 매니페스트만 갱신
+- 상세: `apps/telecrm-android/README.md` §Release APK
+
+## 참고
+
+| 항목 | 경로 |
+|------|------|
+| Variables 스크립트 | `apps/telecrm-android/scripts/set-railway-vars.ps1` |
+| 매니페스트 서버 | `server/src/modules/telecrm/telecrmAppManifest.ts` |
+| CI 릴리스 | `.github/workflows/telecrm-android-release.yml` |
+| CRM·앱 API 계약 | `.cursor/rules/telecrm-mobile-app.mdc` |

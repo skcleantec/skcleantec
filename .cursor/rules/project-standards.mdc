@@ -106,6 +106,7 @@ alwaysApply: true
 
 - **Android 동반 앱**(휴대폰 통화·SMS + CRM API)을 전제로, **`/api/crm/*` JSON 계약**과 고객 lookup·brief를 **모바일에서도 그대로 쓸 수 있게** 유지한다.
 - 텔레CRM·`telecrm` 모듈 수정 시: **`docs/TELECRM_ANDROID_APP.md`**, **`.cursor/rules/telecrm-mobile-app.mdc`**
+- **Android APK 릴리스·versionCode bump 시:** GitHub Release뿐 아니라 **Railway `TELECRM_APP_*` 6개 Variables를 staging·production에 반드시 갱신** — **`.cursor/rules/telecrm-android-release.mdc`** (에이전트가 스크립트 실행·매니페스트 확인까지 직접 수행, 사용자에게만 위임 금지)
 
 ## 8.2 숨고 연동(데스크톱) — 릴리스 (에이전트 필수)
 
