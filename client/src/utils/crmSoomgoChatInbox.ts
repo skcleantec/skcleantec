@@ -53,7 +53,10 @@ function normalizeItem(
   row: Partial<CrmSoomgoInboxItem> & { chatId: string; rawLines?: string[] | null },
 ): CrmSoomgoInboxItem {
   const rawLines = row.rawLines?.length ? row.rawLines : undefined;
-  const rawBlock = rawLines?.join('\n');
+  const rawBlock =
+    rawLines?.join('\n') ??
+    sanitizeSoomgoMessagePreview(row.messagePreview ?? row.previewText) ??
+    undefined;
 
   const parsed = parseSoomgoChatRow({
     rawLines,

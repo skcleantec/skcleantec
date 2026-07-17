@@ -41,8 +41,17 @@ const MERGED_HEADER =
   /^([가-힣]{2,6})\s*(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*[•·]\s*(.+)$/;
 const MERGED_HEADER_TIGHT =
   /^([가-힣]{2,6})(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*[•·]\s*(.+)$/;
+/** • 없이 한 줄로 붙은 경우 — 김현아 + 이사/입주 청소업체 + 인천 서구 당하동 + 메시지 */
+const MERGED_NO_BULLET =
+  /^([가-힣]{2,6})\s*(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)(.+)$/;
+const MERGED_NO_BULLET_TIGHT =
+  /^([가-힣]{2,6})(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)(.+)$/;
 const SERVICE_ONLY = /^(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*[•·]\s*(.+)$/;
+const SERVICE_ONLY_NO_BULLET = /^(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)(.+)$/;
 const REGION_TAIL = /청소업체|[•·]|[시군구읍면]/;
+const ADDRESS_HINT =
+  /(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|[시군구읍면])/;
+const ADMIN_UNIT_END = /(?:\d+동|[가-힣]{1,5}동|[가-힣]{1,5}읍|[가-힣]{1,5}면|[가-힣]{1,5}리|[가-힣]{1,5}가)$/;
 const INVALID_NAME = /^(고객|익명|상대방)$/;
 
 function norm(s: string): string {
@@ -69,6 +78,14 @@ function splitRegionFromMessage(regionPart: string): { region: string; message: 
   if (idx >= 4) {
     return { region: t.slice(0, idx).trim(), message: t.slice(idx).trim() };
   }
+  const glued = t.match(/^(.+?(?:\d+동|[가-힣]{1,5}동|[가-힣]{1,5}읍|[가-힣]{1,5}면|[가-힣]{1,5}리|[가-힣]{1,5}가))(.{4,})$/);
+  if (glued?.[1] && glued[2] && ADDRESS_HINT.test(glued[1]) && ADMIN_UNIT_END.test(glued[1])) {
+    return { region: glued[1].trim(), message: glued[2].trim() };
+  }
+  const spaced = t.match(/^(.+?(?:\d+동|[가-힣]{1,5}동|[가-힣]{1,5}읍|[가-힣]{1,5}면))\s+(.{4,})$/);
+  if (spaced?.[1] && spaced[2] && ADDRESS_HINT.test(spaced[1])) {
+    return { region: spaced[1].trim(), message: spaced[2].trim() };
+  }
   return { region: t, message: null };
 }
 
@@ -77,8 +94,12 @@ function splitMergedHeader(line: string): {
   serviceRegion: string;
   trailingMessage?: string | null;
 } | null {
-  const t = norm(line);
-  const m = t.match(MERGED_HEADER) ?? t.match(MERGED_HEADER_TIGHT);
+  const t = stripDecor(line);
+  const m =
+    t.match(MERGED_HEADER) ??
+    t.match(MERGED_HEADER_TIGHT) ??
+    t.match(MERGED_NO_BULLET) ??
+    t.match(MERGED_NO_BULLET_TIGHT);
   if (m) {
     const peeled = splitRegionFromMessage(m[3]);
     return {
@@ -87,7 +108,7 @@ function splitMergedHeader(line: string): {
       trailingMessage: peeled.message,
     };
   }
-  const svc = t.match(SERVICE_ONLY);
+  const svc = t.match(SERVICE_ONLY) ?? t.match(SERVICE_ONLY_NO_BULLET);
   if (svc) {
     const peeled = splitRegionFromMessage(svc[2]);
     return {
@@ -150,6 +171,17 @@ function pickNameOnly(line: string): string | null {
   return null;
 }
 
+/** rawLines·previewText·한 줄 block → 분해 */
+function resolveRawBlock(input: SoomgoChatRowParseInput): string | null {
+  if (input.rawBlock?.trim()) return norm(input.rawBlock);
+  if (input.rawLines?.length) return input.rawLines.map(norm).filter(Boolean).join('\n') || null;
+  const preview = norm(input.messagePreview ?? input.previewText ?? '');
+  if (!preview || preview === '(채팅 미리보기)' || preview === '(내용 없음)') return null;
+  if (splitMergedHeader(preview)) return preview;
+  if (/이사\/입주|입주\/이사/.test(preview) && preview.length > 18) return preview;
+  return null;
+}
+
 /** innerText 줄 배열 — 2줄 이상이면 그대로 (숨고 1줄=이름, 2줄=지역 스킵) */
 function expandLinesFromBlock(rawLines: string[], rawBlock: string | null | undefined): string[] {
   const filtered: string[] = [];
@@ -175,9 +207,10 @@ function expandLinesFromBlock(rawLines: string[], rawBlock: string | null | unde
 
 /** rawLines — 1줄=이름, 2줄=서비스·지역(수집 안 함), 3줄=채팅 */
 export function parseSoomgoChatRow(input: SoomgoChatRowParseInput): SoomgoChatRowParsed {
+  const block = resolveRawBlock(input);
   const lines = expandLinesFromBlock(
     input.rawLines?.length ? input.rawLines.map(norm) : [],
-    input.rawBlock ?? input.rawLines?.join('\n') ?? null,
+    block,
   );
 
   let customerName =
@@ -200,8 +233,7 @@ export function parseSoomgoChatRow(input: SoomgoChatRowParseInput): SoomgoChatRo
     }
   }
 
-  let messagePreview: string | null =
-    sanitizeSoomgoMessagePreview(input.messagePreview ?? input.previewText) || null;
+  let messagePreview: string | null = sanitizeSoomgoMessagePreview(input.messagePreview) || null;
   let parseQuality: SoomgoChatParseQuality = 'fallback';
 
   for (let j = 0; j < lines.length; j++) {
@@ -213,11 +245,9 @@ export function parseSoomgoChatRow(input: SoomgoChatRowParseInput): SoomgoChatRo
     const { text } = stripTimeFromLine(line);
     const msg = sanitizeSoomgoMessagePreview(text);
     if (!msg || msg === customerName) continue;
-    if (!messagePreview) {
-      messagePreview = msg;
-      parseQuality = customerName ? 'full' : 'partial';
-      break;
-    }
+    messagePreview = msg;
+    parseQuality = customerName ? 'full' : 'partial';
+    break;
   }
 
   if (!messagePreview) {

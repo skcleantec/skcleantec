@@ -71,15 +71,31 @@ if (!window.__soomgoBridgeChatListWatch) {
       var t = norm(tail);
       var idx = t.search(/\\s+(?:고객님이|고객님|안녕하세요|안녕하세|안녕|견적|문의|감사|반갑|확인|사진|주소|평수|네[,!]?)\\s*/);
       if (idx >= 4) return { region: t.slice(0, idx).trim(), message: t.slice(idx).trim() };
+      var glued = t.match(/^(.+?(?:\\d+동|[가-힣]{1,5}동|[가-힣]{1,5}읍|[가-힣]{1,5}면|[가-힣]{1,5}리|[가-힣]{1,5}가))(.{4,})$/);
+      if (glued && glued[1] && glued[2] && /(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|[시군구읍면])/.test(glued[1]) && /(?:\\d+동|[가-힣]{1,5}동|[가-힣]{1,5}읍|[가-힣]{1,5}면|[가-힣]{1,5}리|[가-힣]{1,5}가)$/.test(glued[1])) {
+        return { region: glued[1].trim(), message: glued[2].trim() };
+      }
+      var spaced = t.match(/^(.+?(?:\\d+동|[가-힣]{1,5}동|[가-힣]{1,5}읍|[가-힣]{1,5}면))\\s+(.{4,})$/);
+      if (spaced && spaced[1] && spaced[2] && /(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|[시군구읍면])/.test(spaced[1])) {
+        return { region: spaced[1].trim(), message: spaced[2].trim() };
+      }
       return { region: t, message: null };
     }
     function splitHeader(line) {
-      var t = norm(line);
+      var t = stripDecor(line);
       var m = t.match(/^([가-힣]{2,6})\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$/)
-        || t.match(/^([가-힣]{2,6})(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$/);
+        || t.match(/^([가-힣]{2,6})(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$/)
+        || t.match(/^([가-힣]{2,6})\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$/)
+        || t.match(/^([가-힣]{2,6})(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$/);
       if (m) {
         var peeled = splitRegionMsg(m[3]);
         return { name: m[1], region: fmtRegion(m[2], peeled.region), trailingMessage: peeled.message };
+      }
+      var svc = t.match(/^(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$/)
+        || t.match(/^(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$/);
+      if (svc) {
+        var peeledSvc = splitRegionMsg(svc[2]);
+        return { name: null, region: fmtRegion(svc[1], peeledSvc.region), trailingMessage: peeledSvc.message };
       }
       return null;
     }
