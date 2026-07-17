@@ -3,6 +3,7 @@ import {
   resolveSoomgoInboxDisplayPreview,
   sanitizeSoomgoMessagePreview,
 } from '@shared/soomgoChatPreview';
+import { formatSoomgoInboxDisplayName, parseSoomgoChatRow } from '@shared/soomgoChatRowParse';
 
 const MAX_ITEMS = 200;
 const RETENTION_MS = 72 * 60 * 60 * 1000;
@@ -48,21 +49,32 @@ type LegacyInboxRow = CrmSoomgoInboxItem & {
   watchUntil?: number | null;
 };
 
-function normalizeItem(row: Partial<CrmSoomgoInboxItem> & { chatId: string }): CrmSoomgoInboxItem {
-  const messagePreview = sanitizeSoomgoMessagePreview(row.messagePreview ?? row.previewText) || null;
-  const previewText = resolveSoomgoInboxDisplayPreview({
-    messagePreview,
+function normalizeItem(
+  row: Partial<CrmSoomgoInboxItem> & { chatId: string; rawLines?: string[] | null },
+): CrmSoomgoInboxItem {
+  const rawLines =
+    row.rawLines ??
+    (row.serviceRegion && !row.customerName?.trim()
+      ? [row.serviceRegion, row.messagePreview ?? row.previewText].filter(Boolean)
+      : undefined);
+
+  const parsed = parseSoomgoChatRow({
+    rawLines: rawLines as string[] | undefined,
+    customerName: row.customerName,
+    serviceRegion: row.serviceRegion,
+    messagePreview: row.messagePreview,
     previewText: row.previewText,
   });
+
   return {
     id: row.id?.trim() || stableInboxId(row.chatId),
     chatId: row.chatId,
-    customerName: row.customerName ?? null,
-    serviceRegion: row.serviceRegion ?? null,
-    previewText,
-    messagePreview,
-    parseQuality: row.parseQuality ?? 'fallback',
-    previewKind: row.previewKind ?? 'unknown',
+    customerName: parsed.customerName,
+    serviceRegion: parsed.serviceRegion,
+    previewText: parsed.previewText,
+    messagePreview: parsed.messagePreview,
+    parseQuality: parsed.parseQuality,
+    previewKind: parsed.previewKind,
     unreadCount: row.unreadCount ?? 0,
     listTimeLabel: row.listTimeLabel ?? null,
     capturedAt: row.capturedAt ?? Date.now(),
@@ -214,32 +226,21 @@ export function unreadSoomgoInboxCount(items: CrmSoomgoInboxItem[]): number {
   return soomgoInboxPendingCount(items);
 }
 
-/** 고객명 · 서비스 라벨 분리 (띄어쓰기) */
+/** 고객명 표시 */
 export function formatSoomgoInboxCustomerName(raw: string | null): {
   displayName: string;
   serviceLabel: string | null;
 } {
   const text = (raw || '').replace(/\s+/g, ' ').trim();
-  if (!text) return { displayName: '고객', serviceLabel: null };
-
-  const normalized = text.replace(
-    /([가-힣a-zA-Z0-9])(이사\/입주|입주\/이사|입주\s*\/\s*이사|이사|입주|청소|외벽)/gi,
-    '$1 $2',
-  );
-
-  const servicePatterns = [
-    /^(.+?)\s+(이사\/입주(?:\s*청소)?)$/i,
-    /^(.+?)\s+(입주\/이사(?:\s*청소)?)$/i,
-    /^(.+?)\s+(이사|입주|청소|외벽(?:\s*청소)?)$/i,
-  ];
-  for (const pattern of servicePatterns) {
-    const m = normalized.match(pattern);
-    if (m) {
-      return { displayName: m[1].trim(), serviceLabel: m[2].trim() };
-    }
+  if (!text) return { displayName: '(이름 미확인)', serviceLabel: null };
+  if (text.length <= 10 && !/청소업체|•|이사\/입주|입주\/이사/.test(text)) {
+    return { displayName: text, serviceLabel: null };
   }
-
-  return { displayName: normalized, serviceLabel: null };
+  const parsed = parseSoomgoChatRow({ serviceRegion: text });
+  if (parsed.customerName) {
+    return { displayName: parsed.customerName, serviceLabel: parsed.serviceRegion };
+  }
+  return { displayName: formatSoomgoInboxDisplayName({ customerName: text }), serviceLabel: null };
 }
 
 /** chatId 기준 1고객 1행 — 미리보기·미읽음 변경 시 상단 재정렬 */

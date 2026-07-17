@@ -1,4 +1,8 @@
-"""숨고 채팅 목록 — 미읽음·미리보기 메시지 감시 (in-page, 네트워크 추가 없음)"""
+"""숨고 채팅 목록 — 미읽음·미리보기 감시 (in-page, 읽기 전용)
+
+숨고 서버·AI 봇에 추가 요청·클릭·입력 없음. 이미 열린 채팅 목록 DOM의 innerText만 읽는다.
+매크로·봇 탐지 회피: 기존 2초 주기 유지, MutationObserver는 목록 영역 passive 관찰만.
+"""
 from __future__ import annotations
 
 import logging
@@ -41,6 +45,74 @@ if (!window.__soomgoBridgeChatListWatch) {
       window.__soomgoBridgeRunChatScan();
     }, ms);
     window.__soomgoBridgeRunChatScan();
+  };
+
+  window.__soomgoParseChatRow = function(rawLines, rawBlock) {
+    function norm(s) { return (s || '').replace(/\\s+/g, ' ').trim(); }
+    function isSkip(line) {
+      var t = norm(line);
+      return !t || /^\\d{1,2}$/.test(t) || /^(오전|오후)\\s*\\d{1,2}:\\d{2}$/.test(t) || /^\\d+분 전$/.test(t) || /^\\d+시간 전$/.test(t) || t === '어제' || t === '방금';
+    }
+    function isSmart(line) { return /스마트\\s*견적|총\\s*[\\d,]+\\s*원/.test(norm(line)); }
+    function isQuoteRead(line) { return /견적.*(읽|확인)|고객님이\\s*견적|견적서를\\s*확인/.test(norm(line)); }
+    function isSystem(line) { return /🏆|숨고\\s*고용|숨고패스/.test(norm(line)); }
+    function fmtRegion(svc, reg) {
+      return norm(svc).replace(/([가-힣a-zA-Z0-9])(이사\\/입주|입주\\/이사)/gi, '$1 $2') + ' • ' + norm(reg);
+    }
+    function splitHeader(line) {
+      var t = norm(line);
+      var m = t.match(/^([가-힣]{2,6})\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*•\\s*(.+)$/)
+        || t.match(/^([가-힣]{2,6})(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*•\\s*(.+)$/);
+      if (m) return { name: m[1], region: fmtRegion(m[2], m[3]) };
+      return null;
+    }
+    var lines = [];
+    for (var i = 0; i < rawLines.length; i++) {
+      if (!isSkip(rawLines[i])) lines.push(norm(rawLines[i]));
+    }
+    var name = null, region = null, msg = null, time = null, quality = 'fallback', kind = 'unknown';
+    var headerDone = false;
+    for (var j = 0; j < lines.length; j++) {
+      var line = lines[j];
+      if (!headerDone) {
+        var h = splitHeader(line);
+        if (h) { name = h.name; region = h.region; headerDone = true; continue; }
+      }
+      if (isSmart(line)) continue;
+      if (!headerDone && /청소업체|•|[시군구]/.test(line)) {
+        region = line.replace(/([가-힣a-zA-Z0-9])(이사\\/입주|입주\\/이사)/gi, '$1 $2');
+        headerDone = true;
+        continue;
+      }
+      if (name && line === name) continue;
+      if (region && line === region) continue;
+      var tm = line.match(/\\s*((오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금)\\s*$/);
+      var text = tm ? line.slice(0, tm.index).trim() : line;
+      if (tm && !time) time = norm(tm[1]);
+      if (!text || /^\\d{1,2}$/.test(text) || isSmart(text)) continue;
+      if (!msg) {
+        msg = text;
+        kind = isQuoteRead(text) ? 'quote_read' : (isSystem(text) ? 'system' : 'message');
+        quality = headerDone ? 'full' : 'partial';
+      }
+    }
+    if (!name && lines[0]) {
+      var h0 = splitHeader(lines[0]);
+      if (h0) { name = h0.name; region = region || h0.region; }
+    }
+    if (msg && region && msg === region) msg = null;
+    if (!msg && rawBlock) {
+      var body = norm(rawBlock).replace(/\\s*총\\s*[\\d,]+\\s*원.*스마트\\s*견적\\s*$/i, '');
+      if (name && body.indexOf(name) === 0) body = body.slice(name.length).trim();
+      if (region && body.indexOf(region) >= 0) body = body.replace(region, '').trim();
+      if (body && !isSmart(body)) { msg = body; quality = 'fallback'; kind = 'message'; }
+    }
+    if (!time && rawBlock) {
+      var tm2 = rawBlock.match(/(오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금/);
+      if (tm2) time = norm(tm2[0]);
+    }
+    if (kind === 'unknown' && msg) kind = 'message';
+    return { customerName: name, serviceRegion: region, messagePreview: msg, parseQuality: quality, previewKind: kind, listTimeLabel: time };
   };
 
   window.__soomgoBridgeScanChatRows = function() {
@@ -92,159 +164,7 @@ if (!window.__soomgoBridgeChatListWatch) {
         }
       }
 
-      var customerName = null;
-      var serviceRegion = null;
-      var nameNode = row.querySelector('strong, b, [class*="name" i], [class*="title" i], [class*="nickname" i]');
-      if (nameNode) {
-        customerName = (nameNode.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 40) || null;
-      }
-
-      function normSpaces(s) {
-        return (s || '').replace(/\\s+/g, ' ').trim();
-      }
-      function isBadgeOnlyLine(line) {
-        return /^\\d{1,2}$/.test(normSpaces(line));
-      }
-      function isTimeOnlyLine(line) {
-        var t = normSpaces(line);
-        return /^(오전|오후)\\s*\\d{1,2}:\\d{2}$/.test(t) || /^\\d+분 전$/.test(t) || /^\\d+시간 전$/.test(t) || t === '어제' || t === '방금';
-      }
-      function isSmartQuoteLine(line) {
-        return /스마트\\s*견적|총\\s*[\\d,]+\\s*원\\s*부터|부터\\s*•\\s*스마트|총\\s*[\\d,]+\\s*원/.test(normSpaces(line));
-      }
-      function isServiceRegionLine(line) {
-        var t = normSpaces(line);
-        if (!t) return false;
-        if (/청소업체/.test(t) && (/•/.test(t) || /[시군구읍면]/.test(t))) return true;
-        if (/^(이사\\/입주|입주\\/이사|입주\\s*청소|이사\\s*청소)/.test(t) && (/•/.test(t) || /청소/.test(t))) return true;
-        if (/•/.test(t) && /(청소|입주|이사|업체)/.test(t) && t.length <= 80) return true;
-        return false;
-      }
-      function isQuoteReadLine(line) {
-        return /견적.*(읽|확인)|고객님이\\s*견적|견적서를\\s*확인|읽었습니다/.test(normSpaces(line));
-      }
-      function isSystemLine(line) {
-        return /🏆|숨고\\s*고용|숨고패스|자동\\s*응답|시스템\\s*메시지|숨고\\s*알림/.test(normSpaces(line));
-      }
-      function stripTimeFromLine(line) {
-        var tm = line.match(/\\s*((오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금|\\d{1,2}:\\d{2})\\s*$/);
-        if (tm) return { text: line.slice(0, tm.index).trim(), time: tm[1].replace(/\\s+/g, ' ').trim() };
-        return { text: line, time: null };
-      }
-      function cleanNameLine(line) {
-        return normSpaces(line).replace(/\\s*\\d{1,2}$/, '').replace(/\\s*(오전|오후)\\s*\\d{1,2}:\\d{2}\\s*$/, '').trim();
-      }
-
-      if (!customerName && rawLines[0]) {
-        var first = cleanNameLine(rawLines[0]);
-        if (first.length <= 24 && !/청소업체|•|원|스마트\\s*견적|총\\s*[\\d,]+/.test(first)) {
-          customerName = first;
-        }
-      }
-
-      if (!serviceRegion && rawLines.length >= 2) {
-        var secondLine = normSpaces(rawLines[1]);
-        if (isServiceRegionLine(secondLine)) {
-          serviceRegion = secondLine.replace(/([가-힣a-zA-Z0-9])(이사\\/입주|입주\\/이사)/gi, '$1 $2');
-        }
-      }
-
-      var listTimeLabel = null;
-      var messagePreview = '';
-      var parseQuality = 'fallback';
-      var previewKind = 'unknown';
-      var nameSeen = false;
-      var serviceSeen = false;
-
-      for (var ri = 0; ri < rawLines.length; ri++) {
-        var line = normSpaces(rawLines[ri]);
-        if (!line || isBadgeOnlyLine(line)) continue;
-        if (isTimeOnlyLine(line)) {
-          if (!listTimeLabel) listTimeLabel = line;
-          continue;
-        }
-        if (customerName && line === customerName) {
-          nameSeen = true;
-          continue;
-        }
-        if (!nameSeen && cleanNameLine(line) === customerName) {
-          nameSeen = true;
-          continue;
-        }
-        if (isServiceRegionLine(line)) {
-          if (!serviceRegion) {
-            serviceRegion = line.replace(/([가-힣a-zA-Z0-9])(이사\\/입주|입주\\/이사)/gi, '$1 $2');
-          }
-          serviceSeen = true;
-          continue;
-        }
-        if (isSmartQuoteLine(line)) continue;
-
-        var stripped = stripTimeFromLine(line);
-        if (stripped.time && !listTimeLabel) listTimeLabel = stripped.time;
-        var msg = normSpaces(stripped.text);
-        if (!msg || isBadgeOnlyLine(msg) || isSmartQuoteLine(msg) || isServiceRegionLine(msg)) continue;
-        if (customerName && msg === customerName) continue;
-
-        if (isQuoteReadLine(msg)) {
-          if (!messagePreview) {
-            messagePreview = msg;
-            previewKind = 'quote_read';
-            parseQuality = nameSeen || serviceSeen ? 'full' : 'partial';
-          }
-          continue;
-        }
-
-        if (!messagePreview) {
-          messagePreview = msg;
-          previewKind = isSystemLine(msg) ? 'system' : 'message';
-          parseQuality = (nameSeen || serviceSeen || ri >= 2) ? 'full' : (ri === 1 ? 'partial' : 'fallback');
-        }
-      }
-
-      if (!messagePreview) {
-        var domSelectors = [
-          '[class*="lastMessage" i]', '[class*="LastMessage" i]',
-          '[class*="messagePreview" i]', '[class*="previewMessage" i]',
-          '[class*="chatPreview" i]', '[class*="desc" i]:not([class*="name" i])'
-        ];
-        for (var dsi = 0; dsi < domSelectors.length && !messagePreview; dsi++) {
-          var nodes = row.querySelectorAll(domSelectors[dsi]);
-          for (var ni = 0; ni < nodes.length; ni++) {
-            var dt = normSpaces(nodes[ni].textContent);
-            if (!dt || dt === customerName || isServiceRegionLine(dt) || isSmartQuoteLine(dt) || isBadgeOnlyLine(dt)) continue;
-            messagePreview = stripTimeFromLine(dt).text;
-            if (messagePreview) {
-              parseQuality = 'partial';
-              previewKind = isSystemLine(messagePreview) ? 'system' : (isQuoteReadLine(messagePreview) ? 'quote_read' : 'message');
-              break;
-            }
-          }
-        }
-      }
-
-      if (!messagePreview) {
-        var body = normSpaces(rawBlock);
-        body = body.replace(/\\s*총\\s*[\\d,]+\\s*원\\s*부터\\s*•?\\s*스마트\\s*견적\\s*$/i, '').trim();
-        if (customerName && body.indexOf(customerName) === 0) body = body.slice(customerName.length).trim();
-        if (serviceRegion) {
-          var sr = normSpaces(serviceRegion);
-          if (body.indexOf(sr) >= 0) body = body.replace(sr, '').trim();
-        }
-        var bodyStripped = stripTimeFromLine(body);
-        if (bodyStripped.time && !listTimeLabel) listTimeLabel = bodyStripped.time;
-        var bodyMsg = normSpaces(bodyStripped.text);
-        if (bodyMsg && !isSmartQuoteLine(bodyMsg) && !isBadgeOnlyLine(bodyMsg) && bodyMsg !== customerName) {
-          messagePreview = bodyMsg;
-          parseQuality = 'fallback';
-          previewKind = isQuoteReadLine(bodyMsg) ? 'quote_read' : (isSystemLine(bodyMsg) ? 'system' : 'message');
-        }
-      }
-
-      if (messagePreview && isSmartQuoteLine(messagePreview)) {
-        messagePreview = '';
-        previewKind = 'unknown';
-      }
+      var parsed = window.__soomgoParseChatRow(rawLines, rawBlock);
 
       var unreadCount = 0;
       var badgeNodes = row.querySelectorAll('span, div, p, strong');
@@ -259,27 +179,21 @@ if (!window.__soomgoBridgeChatListWatch) {
         if (n > unreadCount) unreadCount = n;
       }
 
+      var messagePreview = parsed.messagePreview || '';
       var previewText = messagePreview || '(채팅 미리보기)';
-      if (previewKind === 'unknown') {
-        if (isSmartQuoteLine(previewText)) previewKind = 'smart_quote';
-        else if (isQuoteReadLine(previewText)) previewKind = 'quote_read';
-        else if (isSystemLine(previewText)) previewKind = 'system';
-        else if (messagePreview || unreadCount > 0) previewKind = 'message';
-      }
-
-      var tm = rawBlock.match(/(오전|오후)\\s*\\d{1,2}:\\d{2}|\\d+분 전|\\d+시간 전|어제|방금|\\d{1,2}:\\d{2}/);
-      if (!listTimeLabel && tm) listTimeLabel = tm[0].replace(/\\s+/g, ' ').trim();
+      var previewKind = parsed.previewKind || 'unknown';
+      if (previewKind === 'unknown' && /스마트\\s*견적|총\\s*[\\d,]+\\s*원/.test(previewText)) previewKind = 'smart_quote';
 
       out.push({
         chatId: chatId,
-        customerName: customerName,
-        serviceRegion: serviceRegion,
+        customerName: parsed.customerName,
+        serviceRegion: parsed.serviceRegion,
         previewText: previewText.slice(0, 500),
         messagePreview: messagePreview ? messagePreview.slice(0, 500) : null,
-        parseQuality: parseQuality,
+        parseQuality: parsed.parseQuality || 'fallback',
         previewKind: previewKind,
         unreadCount: unreadCount,
-        listTimeLabel: listTimeLabel,
+        listTimeLabel: parsed.listTimeLabel,
         capturedAt: Date.now(),
       });
     }
