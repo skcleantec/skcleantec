@@ -46,6 +46,7 @@ function InboxOneLineRow({
   onTogglePin: () => void;
 }) {
   const pinned = isSoomgoInboxPinned(item);
+  const highlighted = !pinned && item.highlighted === true;
   const { displayName } = formatSoomgoInboxCustomerName(item.customerName);
   const timeLabel = formatSoomgoInboxTime(item.capturedAt, item.listTimeLabel);
   const needsAction = (item.unreadCount ?? 0) > 0 || item.previewKind === 'quote_read';
@@ -56,8 +57,14 @@ function InboxOneLineRow({
     <tr
       className={[
         'border-b border-slate-100 last:border-b-0',
-        pinned ? 'bg-amber-50' : needsAction ? 'bg-sky-50/40' : 'bg-white',
-        pinned ? '' : 'hover:bg-slate-50/80',
+        pinned
+          ? 'bg-amber-50'
+          : highlighted
+            ? 'bg-violet-50 ring-1 ring-inset ring-violet-300'
+            : needsAction
+              ? 'bg-sky-50/40'
+              : 'bg-white',
+        pinned || highlighted ? '' : 'hover:bg-slate-50/80',
       ].join(' ')}
     >
       <td className="w-9 shrink-0 px-0.5 py-1 align-middle text-center">

@@ -65,11 +65,13 @@ import { linkTelecrmConsultationQuoteInquiry } from '../../../api/telecrmConsult
 import type { OrderForm } from '../../../api/orderform';
 import { fitCrmPopupWindow, applyTelecrmSoomgoSplitLayout } from '../../../utils/crmSoomgoSplitLayout';
 import { parseJwtPayload } from '../../../utils/jwtPayload';
+import type { SoomgoInboxMessageRule } from '@shared/soomgoChatPreview';
 import {
   dismissSoomgoInboxItems,
   loadSoomgoChatInbox,
   loadSoomgoInboxDismissals,
   pinnedSoomgoChatIds,
+  reapplySoomgoInboxRules,
   saveSoomgoChatInbox,
   saveSoomgoInboxDismissals,
   syncSoomgoInboxFromScan,
@@ -79,6 +81,10 @@ import {
   type CrmSoomgoInboxItem,
   type SoomgoInboxDismissSnapshot,
 } from '../../../utils/crmSoomgoChatInbox';
+import {
+  loadSoomgoInboxRules,
+  subscribeSoomgoInboxRulesChanged,
+} from '../../../utils/crmSoomgoInboxRules';
 import { arrangeSoomgoBridgeLayout } from '../../../api/soomgoBridge';
 import { useCrmWorkBrand } from '../../../hooks/useCrmWorkBrand';
 import { CrmWorkBrandBar } from '../../../components/crm/workBrand/CrmWorkBrandBar';
@@ -162,6 +168,7 @@ export function CrmPage() {
   const [soomgoInboxDismissals, setSoomgoInboxDismissals] = useState<
     Map<string, SoomgoInboxDismissSnapshot>
   >(new Map());
+  const [soomgoInboxRules, setSoomgoInboxRules] = useState<SoomgoInboxMessageRule[]>([]);
   const [soomgoQuoteSending, setSoomgoQuoteSending] = useState(false);
   const [soomgoBridgeManifest, setSoomgoBridgeManifest] = useState<SoomgoBridgeManifest | null>(null);
   const [followupImportKey, setFollowupImportKey] = useState(0);
@@ -405,17 +412,35 @@ export function CrmPage() {
     if (!authUserId) {
       setSoomgoInboxItems([]);
       setSoomgoInboxDismissals(new Map());
+      setSoomgoInboxRules([]);
       return;
     }
-    setSoomgoInboxItems(loadSoomgoChatInbox(authUserId, workBrandSlug));
+    const rules = loadSoomgoInboxRules(authUserId, workBrandSlug);
+    setSoomgoInboxRules(rules);
+    setSoomgoInboxItems(reapplySoomgoInboxRules(loadSoomgoChatInbox(authUserId, workBrandSlug), rules));
     setSoomgoInboxDismissals(loadSoomgoInboxDismissals(authUserId, workBrandSlug));
+  }, [authUserId, workBrandSlug]);
+
+  useEffect(() => {
+    if (!authUserId) return;
+    return subscribeSoomgoInboxRulesChanged(({ userId, brandSlug }) => {
+      if (userId !== authUserId) return;
+      if ((brandSlug ?? null) !== workBrandSlug) return;
+      const rules = loadSoomgoInboxRules(authUserId, workBrandSlug);
+      setSoomgoInboxRules(rules);
+      setSoomgoInboxItems((prev) => {
+        const next = reapplySoomgoInboxRules(prev, rules);
+        saveSoomgoChatInbox(authUserId, workBrandSlug, next);
+        return next;
+      });
+    });
   }, [authUserId, workBrandSlug]);
 
   const handleSoomgoChatAlerts = useCallback(
     (alerts: SoomgoChatAlert[]) => {
       if (alerts.length === 0) return;
       setSoomgoInboxItems((prev) => {
-        const { items, added, bumped } = upsertSoomgoChatAlerts(prev, alerts);
+        const { items, added, bumped } = upsertSoomgoChatAlerts(prev, alerts, soomgoInboxRules);
         if (authUserId) saveSoomgoChatInbox(authUserId, workBrandSlug, items);
         const notifyRows = [...added, ...bumped];
         if (notifyRows.length > 0) {
@@ -431,21 +456,22 @@ export function CrmPage() {
         return items;
       });
     },
-    [authUserId, showDispatchNotice, workBrandSlug],
+    [authUserId, showDispatchNotice, soomgoInboxRules, workBrandSlug],
   );
 
   const handleSoomgoChatListSnapshot = useCallback(
     (rows: SoomgoChatListSnapshotRow[]) => {
       if (rows.length === 0) return;
       setSoomgoInboxItems((prev) => {
-        const next = syncSoomgoInboxFromScan(prev, rows, soomgoInboxDismissals);
+        const next = syncSoomgoInboxFromScan(prev, rows, soomgoInboxDismissals, soomgoInboxRules);
         if (
           next.length === prev.length &&
           next.every(
             (row, i) =>
               row.chatId === prev[i]?.chatId &&
               row.previewText === prev[i]?.previewText &&
-              row.unreadCount === prev[i]?.unreadCount,
+              row.unreadCount === prev[i]?.unreadCount &&
+              row.highlighted === prev[i]?.highlighted,
           )
         ) {
           return prev;
@@ -454,7 +480,7 @@ export function CrmPage() {
         return next;
       });
     },
-    [authUserId, soomgoInboxDismissals, workBrandSlug],
+    [authUserId, soomgoInboxDismissals, soomgoInboxRules, workBrandSlug],
   );
 
   const soomgoInboxPinnedChatIds = useMemo(
@@ -596,6 +622,16 @@ export function CrmPage() {
     [soomgoStatus, soomgoBridgeManifest],
   );
 
+  const handleRefreshSoomgoInbox = useCallback(async () => {
+    setSoomgoInboxRefreshing(true);
+    try {
+      await refreshManifest();
+      await refreshSoomgoStatus();
+    } finally {
+      setSoomgoInboxRefreshing(false);
+    }
+  }, [refreshManifest, refreshSoomgoStatus]);
+
   const handleDismissSoomgoInbox = useCallback(
     (chatIds: string[]) => {
       setSoomgoInboxItems((prev) => {
@@ -611,19 +647,10 @@ export function CrmPage() {
         }
         return next;
       });
+      void handleRefreshSoomgoInbox();
     },
-    [authUserId, soomgoInboxDismissals, workBrandSlug],
+    [authUserId, handleRefreshSoomgoInbox, soomgoInboxDismissals, workBrandSlug],
   );
-
-  const handleRefreshSoomgoInbox = useCallback(async () => {
-    setSoomgoInboxRefreshing(true);
-    try {
-      await refreshManifest();
-      await refreshSoomgoStatus();
-    } finally {
-      setSoomgoInboxRefreshing(false);
-    }
-  }, [refreshManifest, refreshSoomgoStatus]);
 
   const handleToggleSoomgoInboxPin = useCallback(
     (chatId: string) => {
@@ -644,9 +671,12 @@ export function CrmPage() {
   const handleOpenSoomgoChatFromInbox = useCallback(
     (chatId: string) => {
       handleDismissSoomgoInbox([chatId]);
-      void openChatRoomAndExtract(chatId);
+      void (async () => {
+        await openChatRoomAndExtract(chatId);
+        await handleRefreshSoomgoInbox();
+      })();
     },
-    [handleDismissSoomgoInbox, openChatRoomAndExtract],
+    [handleDismissSoomgoInbox, handleRefreshSoomgoInbox, openChatRoomAndExtract],
   );
 
   const handleToggleSoomgoBar = useCallback(() => {

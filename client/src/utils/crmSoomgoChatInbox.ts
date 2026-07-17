@@ -1,7 +1,9 @@
 import type { SoomgoChatAlert, SoomgoChatListSnapshotRow } from '@shared/soomgoBridge';
 import {
+  evaluateSoomgoInboxMessageRules,
   resolveSoomgoInboxDisplayPreview,
   sanitizeSoomgoMessagePreview,
+  type SoomgoInboxMessageRule,
 } from '@shared/soomgoChatPreview';
 import { formatSoomgoInboxDisplayName, parseSoomgoChatRow } from '@shared/soomgoChatRowParse';
 
@@ -12,7 +14,35 @@ const DISMISS_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 export type CrmSoomgoInboxItem = SoomgoChatAlert & {
   /** 카톡형 상단 고정 시각 (null = 미고정) */
   pinnedAt: number | null;
+  /** 강조 키워드 규칙 매칭 */
+  highlighted?: boolean;
 };
+
+function messageTextForRules(item: Pick<CrmSoomgoInboxItem, 'messagePreview' | 'previewText'>): string | null {
+  return item.messagePreview ?? item.previewText ?? null;
+}
+
+/** 규칙 적용 — exclude면 null(고정 핀은 유지), highlight 플래그 반영 */
+export function decorateSoomgoInboxItemWithRules(
+  item: CrmSoomgoInboxItem,
+  rules: SoomgoInboxMessageRule[],
+): CrmSoomgoInboxItem | null {
+  const { excluded, highlighted } = evaluateSoomgoInboxMessageRules(messageTextForRules(item), rules);
+  if (excluded && !isSoomgoInboxPinned(item)) return null;
+  return { ...item, highlighted };
+}
+
+export function reapplySoomgoInboxRules(
+  items: CrmSoomgoInboxItem[],
+  rules: SoomgoInboxMessageRule[],
+): CrmSoomgoInboxItem[] {
+  const next: CrmSoomgoInboxItem[] = [];
+  for (const item of items) {
+    const decorated = decorateSoomgoInboxItemWithRules(item, rules);
+    if (decorated) next.push(decorated);
+  }
+  return pruneItems(next);
+}
 
 /** @deprecated sanitizeSoomgoMessagePreview 사용 */
 export function sanitizeSoomgoInboxPreviewText(text: string | null | undefined): string {
@@ -267,6 +297,7 @@ function pickNameFromMerged(text: string): string | null {
 export function upsertSoomgoChatAlerts(
   existing: CrmSoomgoInboxItem[],
   incoming: SoomgoChatAlert[],
+  rules: SoomgoInboxMessageRule[] = [],
 ): { items: CrmSoomgoInboxItem[]; added: CrmSoomgoInboxItem[]; bumped: CrmSoomgoInboxItem[] } {
   const byChatId = new Map<string, CrmSoomgoInboxItem>();
   for (const row of existing) {
@@ -291,7 +322,7 @@ export function upsertSoomgoChatAlerts(
     const capturedAt = alert.capturedAt ?? Date.now();
 
     if (!prev) {
-      const row = normalizeItem({
+      const normalized = normalizeItem({
         ...alert,
         id: stableInboxId(chatId),
         previewText,
@@ -299,6 +330,8 @@ export function upsertSoomgoChatAlerts(
         capturedAt,
         pinnedAt: null,
       });
+      const row = decorateSoomgoInboxItemWithRules(normalized, rules);
+      if (!row) continue;
       if (!row.customerName && !row.messagePreview) continue;
       byChatId.set(chatId, row);
       added.push(row);
@@ -312,7 +345,7 @@ export function upsertSoomgoChatAlerts(
     const timeAdvanced = capturedAt > prev.capturedAt + 500;
     if (!previewChanged && !unreadIncreased && !timeAdvanced) continue;
 
-    const row = normalizeItem({
+    let row = normalizeItem({
       ...prev,
       ...alert,
       id: prev.id,
@@ -328,6 +361,12 @@ export function upsertSoomgoChatAlerts(
       row.messagePreview = prev.messagePreview;
       row.previewText = prev.previewText;
     }
+    const decorated = decorateSoomgoInboxItemWithRules(row, rules);
+    if (!decorated) {
+      byChatId.delete(chatId);
+      continue;
+    }
+    row = decorated;
     byChatId.set(chatId, row);
     bumped.push(row);
   }
@@ -395,6 +434,7 @@ export function syncSoomgoInboxFromScan(
   existing: CrmSoomgoInboxItem[],
   scanRows: SoomgoChatListSnapshotRow[],
   dismissals?: Map<string, SoomgoInboxDismissSnapshot>,
+  rules: SoomgoInboxMessageRule[] = [],
 ): CrmSoomgoInboxItem[] {
   if (scanRows.length === 0) return existing;
 
@@ -404,12 +444,11 @@ export function syncSoomgoInboxFromScan(
   for (const row of existing) {
     if (row.pinnedAt == null) continue;
     const snap = scanByChatId.get(row.chatId);
-    resultByChat.set(
-      row.chatId,
-      snap
-        ? normalizeItem({ ...snap, id: row.id, pinnedAt: row.pinnedAt })
-        : row,
-    );
+    const merged = snap
+      ? normalizeItem({ ...snap, id: row.id, pinnedAt: row.pinnedAt })
+      : row;
+    const decorated = decorateSoomgoInboxItemWithRules(merged, rules);
+    if (decorated) resultByChat.set(row.chatId, decorated);
   }
 
   for (const snap of scanRows) {
@@ -417,14 +456,13 @@ export function syncSoomgoInboxFromScan(
     if (resultByChat.has(snap.chatId)) continue;
     const dismiss = dismissals?.get(snap.chatId);
     if (dismiss && !isSoomgoAlertChangedSinceDismiss(snap, dismiss)) continue;
-    resultByChat.set(
-      snap.chatId,
-      normalizeItem({
-        ...snap,
-        id: stableInboxId(snap.chatId),
-        pinnedAt: null,
-      }),
-    );
+    const normalized = normalizeItem({
+      ...snap,
+      id: stableInboxId(snap.chatId),
+      pinnedAt: null,
+    });
+    const decorated = decorateSoomgoInboxItemWithRules(normalized, rules);
+    if (decorated) resultByChat.set(snap.chatId, decorated);
   }
 
   return pruneItems([...resultByChat.values()]);
