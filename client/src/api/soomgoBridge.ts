@@ -7,6 +7,7 @@ import {
   isSoomgoAppOutdated,
   isSoomgoAppUpdateAvailable,
   isSoomgoBridgeApiOutdated,
+  isSoomgoBridgeUseBlocked,
 } from '@shared/soomgoBridge';
 import type { SoomgoMessageStep } from '@shared/soomgoMessagePresets';
 import type { SoomgoSplitScreenBounds } from '../utils/crmSoomgoSplitLayout';
@@ -114,7 +115,11 @@ export function isSoomgoBridgeOutdated(
   return isSoomgoBridgeApiOutdated(status, manifest);
 }
 
-export { isSoomgoAppUpdateAvailable, isSoomgoBridgeApiOutdated };
+export {
+  isSoomgoAppUpdateAvailable,
+  isSoomgoBridgeApiOutdated,
+  isSoomgoBridgeUseBlocked,
+};
 
 export async function fetchSoomgoBridgeStatus(
   manifest?: SoomgoBridgeManifest | null,

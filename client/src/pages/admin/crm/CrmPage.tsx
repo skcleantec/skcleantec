@@ -22,7 +22,6 @@ import { CrmIconPhone, CrmIconSoomgo } from '../../../components/crm/crmUi';
 import type { SoomgoExtractedChat, SoomgoBridgeManifest, SoomgoChatAlert } from '@shared/soomgoBridge';
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
 import { useSoomgoBridgeManifestRefresh } from '../../../hooks/useSoomgoBridgeManifestRefresh';
-import { requestSoomgoBridgeUpdateFresh } from '../../../api/soomgoBridge';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
@@ -525,6 +524,7 @@ export function CrmPage() {
     isPopup,
     operatingCompanyId: activeOperatingCompanyId,
     refreshManifest,
+    soomgoBarOpen,
   });
 
   const {
@@ -541,6 +541,7 @@ export function CrmPage() {
     bridgeUp: soomgoBridgeUp,
     error: soomgoError,
     refreshStatus: refreshSoomgoStatus,
+    requestBridgeUpdate,
   } = soomgoBridge;
 
   const handleMarkSoomgoInboxRead = useCallback(
@@ -956,7 +957,7 @@ export function CrmPage() {
                     : undefined
                 }
                 bridgeManifest={soomgoBridgeManifest}
-                onRequestUpdate={() => void requestSoomgoBridgeUpdateFresh(refreshManifest, 'install')}
+                onRequestUpdate={() => void requestBridgeUpdate('install')}
                   />
                 ) : null}
               </>

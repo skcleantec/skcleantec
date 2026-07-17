@@ -5,11 +5,7 @@ import {
   TenantCapabilitiesProvider,
 } from '../../../hooks/useTenantCapabilities';
 import { useStandaloneTenantCapabilities } from '../../../hooks/useStandaloneTenantCapabilities';
-import {
-  applyTelecrmSoomgoSplitLayout,
-  fitCrmPopupWindow,
-} from '../../../utils/crmSoomgoSplitLayout';
-import { arrangeSoomgoBridgeLayout } from '../../../api/soomgoBridge';
+import { arrangeCrmPopupLeftHalf, fitCrmPopupWindow } from '../../../utils/crmSoomgoSplitLayout';
 import { CrmPage } from './CrmPage';
 
 /**
@@ -34,7 +30,7 @@ export function CrmPopupEntry() {
     const soomgoBar = new URLSearchParams(location.search).get('soomgoBar') === '1';
     const run = () => {
       if (soomgoBar) {
-        void applyTelecrmSoomgoSplitLayout(arrangeSoomgoBridgeLayout);
+        arrangeCrmPopupLeftHalf();
       } else {
         fitCrmPopupWindow();
       }

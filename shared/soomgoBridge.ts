@@ -68,6 +68,16 @@ export function isSoomgoAppUpdateAvailable(
   return isSoomgoAppOutdated(status.appVersion, manifest);
 }
 
+/** 숨고 Chrome·채팅 연동 차단 — API/앱 버전 업데이트 필요 */
+export function isSoomgoBridgeUseBlocked(
+  status: SoomgoBridgeStatus | null | undefined,
+  manifest?: SoomgoBridgeManifest | null,
+): boolean {
+  if (!status?.bridgeRunning) return false;
+  if (isSoomgoBridgeApiOutdated(status, manifest)) return true;
+  return isSoomgoAppUpdateAvailable(status, manifest);
+}
+
 export type SoomgoBridgeManifest = {
   requiredVersion: number;
   latestVersion: string;
