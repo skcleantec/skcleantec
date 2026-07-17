@@ -45,8 +45,9 @@ import {
 } from '../../../utils/crmIntakeDraft';
 import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 import {
+  deriveSoomgoIntakeDefaults,
   formatSoomgoCountForCrm,
-  normalizeSoomgoPreferredDate,
+  resolveSoomgoPreferredDate,
   soomgoImportNoticeText,
   summarizeSoomgoImport,
 } from '../../../utils/crmSoomgoImport';
@@ -466,18 +467,19 @@ export function CrmPage() {
     (data: SoomgoExtractedChat) => {
       resetQuotePricingState();
       const split = splitSoomgoPhones(data);
+      const intakeDefaults = deriveSoomgoIntakeDefaults(data);
       const name = (data.customerName || data.nickname)?.trim() || '';
-      const preferredYmd = normalizeSoomgoPreferredDate(data.preferredDate);
+      const preferredYmd = resolveSoomgoPreferredDate(data);
       const requestMemo = (data.requestMemo || data.memo)?.trim() || '';
       const summary = summarizeSoomgoImport(data);
 
       setContactPhone(split.contactPhone ?? '');
       setSafePhone(split.safePhone ?? '');
-      setContactUnknown(false);
+      setContactUnknown(intakeDefaults.contactUnknown);
       setCustomerName(name);
       setPyeong(data.pyeong ? String(data.pyeong) : '');
       setMode('new');
-      setIntakeKind('absent');
+      setIntakeKind(intakeDefaults.kind);
       setSoomgoImportBanner(summary.lines.join('\n'));
       setSoomgoImportFlashKey((k) => k + 1);
       setInitialFormDraft({
@@ -489,7 +491,7 @@ export function CrmPage() {
         roomCount: formatSoomgoCountForCrm(data.roomCount),
         bathroomCount: formatSoomgoCountForCrm(data.bathroomCount),
         balconyCount: formatSoomgoCountForCrm(data.balconyCount),
-        kind: 'absent',
+        kind: intakeDefaults.kind,
         goldDb: false,
       });
     },
@@ -512,7 +514,11 @@ export function CrmPage() {
     onDispatchNotice: showDispatchNotice,
     onImportNotice: (data) =>
       showDispatchNotice(
-        soomgoImportNoticeText(summarizeSoomgoImport(data), { safePhoneSkipped: data.safePhoneSkipped }),
+        soomgoImportNoticeText(summarizeSoomgoImport(data), {
+          safePhoneSkipped: data.safePhoneSkipped,
+          phoneConsultPending: data.phoneConsultPending,
+          phoneConsultAction: data.phoneConsultAction,
+        }),
       ),
     onChatAlerts: handleSoomgoChatAlerts,
     pollEnabled: !isMobileApp,

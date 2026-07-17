@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { getToken } from '../../stores/auth';
 import { openTelecrmWindow } from '../../utils/openTelecrmWindow';
 import { DashboardTopCard } from './dashboard/DashboardTopCard';
@@ -22,6 +23,15 @@ function TelecrmPhoneIcon({ className }: { className?: string }) {
 
 export function DashboardTelecrmBlock() {
   const token = getToken();
+  const [openError, setOpenError] = useState<string | null>(null);
+
+  const handleOpenTelecrm = useCallback(() => {
+    setOpenError(null);
+    const ok = openTelecrmWindow();
+    if (!ok) {
+      setOpenError('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도해 주세요.');
+    }
+  }, []);
 
   if (!token) return null;
 
@@ -42,11 +52,16 @@ export function DashboardTelecrmBlock() {
       <div className="mt-auto flex flex-wrap gap-2 pt-4">
         <button
           type="button"
-          onClick={() => openTelecrmWindow()}
+          onClick={handleOpenTelecrm}
           className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-fluid-xs font-semibold text-white shadow-sm shadow-violet-200/60 hover:from-violet-700 hover:to-indigo-700"
         >
           텔레CRM 열기
         </button>
+        {openError ? (
+          <p className="w-full text-fluid-xs text-rose-700" role="alert">
+            {openError}
+          </p>
+        ) : null}
         <a
           href={TELECRM_APP_INSTALL_PATH}
           target="_blank"

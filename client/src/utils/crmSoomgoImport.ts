@@ -1,5 +1,6 @@
 import type { SoomgoExtractedChat } from '@shared/soomgoBridge';
 import { splitSoomgoPhones } from './crmContactPhone';
+import type { CrmIntakeKind } from '../components/crm/intake/crmIntakeSubmit';
 
 export type SoomgoImportFieldKey =
   | 'customerName'
@@ -37,11 +38,36 @@ export type SoomgoImportSummary = {
 export function normalizeSoomgoPreferredDate(raw: string | null | undefined): string {
   const t = raw?.trim() ?? '';
   if (!t) return '';
+  const iso = t.match(/(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
   const m = t.match(/(\d{4})[.\-/년\s]*(\d{1,2})[.\-/월\s]*(\d{1,2})/);
   if (!m) return t.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : '';
   const mm = m[2].padStart(2, '0');
   const dd = m[3].padStart(2, '0');
   return `${m[1]}-${mm}-${dd}`;
+}
+
+/** 브릿지 preferredDate + 메모·채팅 fallback */
+export function resolveSoomgoPreferredDate(data: SoomgoExtractedChat): string {
+  const direct = normalizeSoomgoPreferredDate(data.preferredDate);
+  if (direct) return direct;
+  const memo = [data.requestMemo, data.memo, ...(data.customerMessages ?? [])].filter(Boolean).join('\n');
+  return normalizeSoomgoPreferredDate(memo);
+}
+
+export type SoomgoIntakeDefaults = {
+  kind: CrmIntakeKind;
+  contactUnknown: boolean;
+};
+
+/** 숨고 import 시 처리구분·전화번호 없음 기본값 */
+export function deriveSoomgoIntakeDefaults(data: SoomgoExtractedChat): SoomgoIntakeDefaults {
+  const { contactPhone, safePhone } = splitSoomgoPhones(data);
+  const noPhone = !contactPhone && !safePhone;
+  if (noPhone || data.phoneConsultPending) {
+    return { kind: 'requested', contactUnknown: true };
+  }
+  return { kind: 'absent', contactUnknown: false };
 }
 
 export function summarizeSoomgoImport(data: SoomgoExtractedChat): SoomgoImportSummary {
@@ -82,7 +108,7 @@ export function summarizeSoomgoImport(data: SoomgoExtractedChat): SoomgoImportSu
     empty.push('주소');
   }
 
-  const preferred = normalizeSoomgoPreferredDate(data.preferredDate);
+  const preferred = resolveSoomgoPreferredDate(data);
   if (preferred) {
     filled.push('preferredMoveInCleanYmd');
     lines.push(`희망일 → 추가 필드 (${preferred})`);
@@ -116,7 +142,7 @@ export function summarizeSoomgoImport(data: SoomgoExtractedChat): SoomgoImportSu
 
 export function soomgoImportNoticeText(
   summary: SoomgoImportSummary,
-  opts?: { safePhoneSkipped?: boolean },
+  opts?: { safePhoneSkipped?: boolean; phoneConsultPending?: boolean; phoneConsultAction?: string | null },
 ): string {
   if (summary.lines.length === 0) {
     return '숨고에서 가져올 정보가 없습니다. 채팅방에서 고객명·고객 요청 모달을 확인해 주세요.';
@@ -142,6 +168,14 @@ export function soomgoImportNoticeText(
     tail = ' 연락처·안심번호를 각각 넣었습니다.';
   } else if (hasSafe) {
     tail = ' 안심번호를 넣었습니다.';
+  }
+  if (opts?.phoneConsultAction === 'requested') {
+    tail += ' 전화상담 요청을 숨고에 보냈습니다.';
+  } else if (opts?.phoneConsultPending && opts?.phoneConsultAction === 'failed') {
+    tail += ' 전화상담 요청 자동 클릭에 실패했습니다. 숨고 채팅에서 직접 요청해 주세요.';
+  }
+  if (opts?.phoneConsultPending && !hasContact && !hasSafe) {
+    tail += ' 처리구분은 요청, 전화번호 없음으로 채웠습니다.';
   }
   return `숨고 정보를 접수란에 채웠습니다: ${summary.lines.join(' · ')}.${hint}${tail}`;
 }
