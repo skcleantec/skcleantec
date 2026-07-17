@@ -14,6 +14,8 @@ import com.skcleantec.telecrm.api.SmsTemplateDto
 import com.skcleantec.telecrm.auth.TokenStore
 import com.skcleantec.telecrm.databinding.FragmentIncomingBinding
 import com.skcleantec.telecrm.telephony.CallLogReader
+import com.skcleantec.telecrm.telephony.CallLogRow
+import com.skcleantec.telecrm.telephony.CallLogSync
 import com.skcleantec.telecrm.telephony.IncomingCallRow
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 import com.skcleantec.telecrm.ui.SimpleRow
@@ -168,9 +170,12 @@ class IncomingFragment : Fragment() {
                     inq?.optString("address")?.takeIf { it.isNotBlank() }?.let { append("\n$it") }
                     if (memo.isNotBlank()) append("\n$memo")
                 }
-                TelecrmCallHelper.logCall(
-                    requireContext(), apiClient, token, selectedPhone, "INBOUND",
-                    inq?.optString("id"), json.optString("match"), row.durationSec,
+                val logRow = CallLogRow(row.id, row.number, row.dateMs, row.durationSec, android.provider.CallLog.Calls.INCOMING_TYPE)
+                CallLogSync.syncKnownRow(
+                    requireContext(),
+                    logRow,
+                    inq?.optString("id"),
+                    json.optString("match"),
                 )
             }.onFailure {
                 binding.detailBody.text = it.message ?: "조회 실패"

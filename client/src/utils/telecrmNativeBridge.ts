@@ -6,6 +6,7 @@ declare global {
   interface Window {
     TelecrmApp?: {
       call: (phone: string, inquiryId?: string) => void;
+      prefillPhone?: (phone: string, inquiryId?: string) => void;
       sms: (phone: string, body: string) => void;
       isNativeApp?: () => boolean;
     };
@@ -47,8 +48,8 @@ export async function telecrmPrefillPhone(
   if (digits.length < 4) {
     return { mode: 'fallback', errorMessage: '전화번호(4자 이상)를 입력해 주세요.' };
   }
-  if (window.TelecrmApp?.call) {
-    window.TelecrmApp.call(digits, opts.inquiryId ?? '');
+  if (window.TelecrmApp?.prefillPhone) {
+    window.TelecrmApp.prefillPhone(digits, opts.inquiryId ?? '');
     return { mode: 'native' };
   }
   const token = getToken();

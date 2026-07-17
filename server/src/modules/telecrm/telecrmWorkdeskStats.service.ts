@@ -6,6 +6,11 @@ export type TelecrmWorkdeskStats = {
   day: string;
   callCount: number;
   totalDurationSec: number;
+  connectedCount: number;
+  noAnswerCount: number;
+  dialAttemptCount: number;
+  connectedDurationSec: number;
+  lastConnectedAt: string | null;
   receivedCount: number;
   absentHoldCount: number;
 };
@@ -21,8 +26,13 @@ export async function getTelecrmWorkdeskStats(
   if (!range) {
     return {
       day: dayYmd,
-      callCount: callSummary.callCount,
-      totalDurationSec: callSummary.totalDurationSec,
+      callCount: callSummary.connectedCount,
+      totalDurationSec: callSummary.connectedDurationSec,
+      connectedCount: callSummary.connectedCount,
+      noAnswerCount: callSummary.noAnswerCount,
+      dialAttemptCount: callSummary.dialAttemptCount,
+      connectedDurationSec: callSummary.connectedDurationSec,
+      lastConnectedAt: callSummary.lastConnectedAt,
       receivedCount: 0,
       absentHoldCount: 0,
     };
@@ -49,8 +59,13 @@ export async function getTelecrmWorkdeskStats(
 
   return {
     day: dayYmd,
-    callCount: callSummary.callCount,
-    totalDurationSec: callSummary.totalDurationSec,
+    callCount: callSummary.connectedCount,
+    totalDurationSec: callSummary.connectedDurationSec,
+    connectedCount: callSummary.connectedCount,
+    noAnswerCount: callSummary.noAnswerCount,
+    dialAttemptCount: callSummary.dialAttemptCount,
+    connectedDurationSec: callSummary.connectedDurationSec,
+    lastConnectedAt: callSummary.lastConnectedAt,
     receivedCount,
     absentHoldCount,
   };

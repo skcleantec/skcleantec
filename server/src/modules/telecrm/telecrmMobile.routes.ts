@@ -6,8 +6,14 @@ import { requireTelecrmTenant, requireTelecrmTenantAsync } from './telecrm.helpe
 import {
   createTelecrmCallSession,
   getTelecrmCallSessionSummary,
+  getTelecrmCallSessionTeamSummary,
+  listTelecrmCallSessions,
   parseCreateTelecrmCallSessionBody,
+  parseSyncTelecrmCallSessionBody,
+  serializeCallSessionRow,
+  syncTelecrmCallSession,
 } from './telecrmCallSession.service.js';
+import { TELECRM_CONNECTED_MIN_SEC } from './telecrmCallSession.constants.js';
 import {
   countTelecrmMobileDispatchPending,
   drainTelecrmMobileDispatchQueue,
@@ -17,6 +23,8 @@ import {
 import { countTelecrmAppsInTenant } from '../realtime/realtimeHub.js';
 import { resolveTelecrmOrderFormLink } from './telecrmOrderLink.service.js';
 import { getTelecrmWorkdeskStats } from './telecrmWorkdeskStats.service.js';
+import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
+import type { TelecrmCallSessionStatus } from './telecrmCallSession.constants.js';
 
 const router = Router();
 router.use(authMiddleware, staffMarketerRoleOnly);
@@ -40,6 +48,7 @@ router.get('/mobile-config', requireStaffPermission('crm.view', 'crm.settings'),
       smsDispatch: true,
       callRecording: false,
       pushNotifications: false,
+      connectedMinSec: TELECRM_CONNECTED_MIN_SEC,
     },
   });
 });
@@ -134,15 +143,7 @@ router.post('/call-sessions', requireStaffPermission('crm.view', 'crm.settings')
   }
   try {
     const row = await createTelecrmCallSession(tenantId, user.userId, parsed);
-    res.status(201).json({
-      id: row.id,
-      phone: row.phone,
-      direction: row.direction,
-      durationSec: row.durationSec,
-      customerMatch: row.customerMatch,
-      inquiryId: row.inquiryId,
-      createdAt: row.createdAt.toISOString(),
-    });
+    res.status(201).json(serializeCallSessionRow(row));
   } catch (e) {
     if (e instanceof Error && e.message === 'INQUIRY_NOT_FOUND') {
       res.status(404).json({ error: '접수를 찾을 수 없습니다.' });
@@ -150,6 +151,86 @@ router.post('/call-sessions', requireStaffPermission('crm.view', 'crm.settings')
     }
     throw e;
   }
+});
+
+router.post('/call-sessions/sync', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const parsed = parseSyncTelecrmCallSessionBody(req.body);
+  if ('error' in parsed) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  try {
+    const row = await syncTelecrmCallSession(tenantId, user.userId, parsed);
+    res.json(serializeCallSessionRow(row));
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INQUIRY_NOT_FOUND') {
+      res.status(404).json({ error: '접수를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+function parseYmdQuery(raw: unknown, fallback: string): string {
+  return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim()) ? raw.trim() : fallback;
+}
+
+function kstTodayYmd(): string {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+router.get('/call-sessions/team-summary', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  if (!(await userHasStaffAdminAccess(user))) {
+    res.status(403).json({ error: '관리자 권한이 필요합니다.' });
+    return;
+  }
+  const today = kstTodayYmd();
+  const from = parseYmdQuery(req.query.from, today);
+  const to = parseYmdQuery(req.query.to, from);
+  const summary = await getTelecrmCallSessionTeamSummary(tenantId, from, to);
+  res.json(summary);
+});
+
+router.get('/call-sessions', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const today = kstTodayYmd();
+  const from = parseYmdQuery(req.query.from, today);
+  const to = parseYmdQuery(req.query.to, from);
+  const limitRaw = typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : 30;
+  const offsetRaw = typeof req.query.offset === 'string' ? Number.parseInt(req.query.offset, 10) : 0;
+  const limit = Number.isFinite(limitRaw) ? Math.min(100, Math.max(1, limitRaw)) : 30;
+  const offset = Number.isFinite(offsetRaw) ? Math.max(0, offsetRaw) : 0;
+  const statusRaw = typeof req.query.status === 'string' ? req.query.status.trim().toUpperCase() : '';
+  const status =
+    statusRaw === 'CONNECTED' || statusRaw === 'NO_ANSWER' || statusRaw === 'DIAL_ATTEMPT'
+      ? (statusRaw as TelecrmCallSessionStatus)
+      : undefined;
+  const targetUserId =
+    typeof req.query.userId === 'string' && req.query.userId.trim() ? req.query.userId.trim() : user.userId;
+  if (targetUserId !== user.userId) {
+    if (!(await userHasStaffAdminAccess(user))) {
+      res.status(403).json({ error: '관리자 권한이 필요합니다.' });
+      return;
+    }
+  }
+  const result = await listTelecrmCallSessions(tenantId, {
+    userId: targetUserId,
+    fromYmd: from,
+    toYmd: to,
+    status,
+    limit,
+    offset,
+    includeUser: targetUserId !== user.userId,
+  });
+  res.json(result);
 });
 
 router.get('/workdesk-stats', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {

@@ -70,6 +70,7 @@
     <string name="today_summary_title">오늘 통화</string>
 
     <string name="summary_stats_format">통화 %1$d건 · 총 %2$s</string>
+    <string name="summary_stats_connected_format">연결 %1$d · 미연결 %2$d · %3$s</string>
 
     <string name="work_nav_title">업무 현황</string>
 
@@ -102,6 +103,8 @@
     <string name="notification_call_body">%1$s 으로 전화를 겁니다</string>
     <string name="notification_sms_title">PC 문자 요청</string>
     <string name="notification_sms_body">%1$s · 문자 앱에서 확인</string>
+    <string name="notification_prefill_title">PC 번호 전달</string>
+    <string name="notification_prefill_body">%1$s · 통화 버튼을 눌러 전화하세요</string>
 
     <string name="call_dispatch_title">PC 통화 요청</string>
     <string name="call_dispatch_auto_hint">잠시 후 전화 앱으로 연결합니다.</string>

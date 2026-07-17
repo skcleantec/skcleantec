@@ -69,12 +69,25 @@ class DialFragment : Fragment() {
             return
         }
         pendingPrefill = null
+        binding.candidatesContainer.removeAllViews()
+        binding.candidatesContainer.visibility = View.GONE
+        binding.inquiriesContainer.removeAllViews()
+        binding.inquiriesContainer.visibility = View.GONE
         binding.inputPhone.setText(phone)
         lookupState.selectedPhone = phone
         lookupState.selectedInquiryId = inquiryId
         customerMatch?.let { lookupState.match = it }
         updatePhoneClearUi()
         updateActionRowVisibility()
+    }
+
+    /** lookup·접수 선택 결과를 다이얼 입력란과 맞춤 */
+    private fun syncPhoneFieldFromLookup() {
+        val digits = lookupState.selectedPhone.filter { it.isDigit() }
+        if (digits.length < 8) return
+        binding.inputPhone.setText(digits)
+        binding.inputPhone.setSelection(digits.length)
+        updatePhoneClearUi()
     }
 
 
@@ -388,31 +401,31 @@ class DialFragment : Fragment() {
             result.onSuccess { json ->
 
                 CustomerLookupUi.render(
+                    requireContext(),
+                    json,
+                    phone,
+                    binding.candidatesContainer,
+                    binding.inquiriesContainer,
+                    binding.actionRow,
+                    lookupState,
+                    onPickSearch = { p, n ->
+                        binding.inputPhone.setText(p)
+                        binding.inputName.setText(n)
+                        searchCustomer()
+                    },
+                    onInquirySelected = {
+                        syncPhoneFieldFromLookup()
+                        updateActionRowVisibility()
+                    },
+                )
 
-                    requireContext(), json, phone, binding.candidatesContainer, binding.inquiriesContainer,
-
-                    binding.actionRow, lookupState,
-
-                ) { p, n ->
-
-                    binding.inputPhone.setText(p)
-
-                    binding.inputName.setText(n)
-
-                    searchCustomer()
-
-                }
+                syncPhoneFieldFromLookup()
 
                 if (!lookupState.selectedInquiryId.isNullOrBlank()) {
-
                     val link = withContext(Dispatchers.IO) {
-
                         apiClient.getOrderFormLink(token, lookupState.selectedInquiryId!!).getOrNull()
-
                     }
-
                     lookupState.orderLink = link
-
                 }
 
                 updateActionRowVisibility()
@@ -435,39 +448,40 @@ class DialFragment : Fragment() {
 
     private fun performCall() {
 
-        val phone = activePhone()
+        val phone = resolvedCallPhone()
 
         val activity = requireActivity()
 
+        val match =
+            if (lookupState.match in listOf("existing", "new", "pick")) lookupState.match else "unknown"
+
         if (activity is MainActivity) {
-
-            TelecrmCallHelper.placeCall(activity, phone)
-
+            TelecrmCallHelper.placeCall(activity, phone, lookupState.selectedInquiryId, match)
         } else {
-
             TelecrmCallHelper.dial(requireContext(), phone)
-
         }
 
         val token = tokenStore.getToken() ?: return
 
         TelecrmCallHelper.logOutboundCall(
-
-            requireContext(), apiClient, token, phone, lookupState.selectedInquiryId,
-
-            if (lookupState.match in listOf("existing", "new", "pick")) lookupState.match else "unknown",
-
+            requireContext(), apiClient, token, phone, lookupState.selectedInquiryId, match,
         )
 
     }
 
 
 
-    private fun activePhone(): String =
+    private fun resolvedCallPhone(): String {
+        val fieldDigits = binding.inputPhone.text?.toString()?.filter { it.isDigit() }.orEmpty()
+        val lookupDigits = lookupState.selectedPhone.filter { it.isDigit() }
+        if (!lookupState.selectedInquiryId.isNullOrBlank() && lookupDigits.length >= 8) {
+            return lookupDigits
+        }
+        if (fieldDigits.length >= 4) return fieldDigits
+        return lookupDigits
+    }
 
-        binding.inputPhone.text?.toString()?.filter { it.isDigit() }.orEmpty()
-
-            .ifBlank { lookupState.selectedPhone.filter { it.isDigit() } }
+    private fun activePhone(): String = resolvedCallPhone()
 
 
 

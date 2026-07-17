@@ -61,9 +61,15 @@ class WorkFragment : Fragment() {
             val badges = withContext(Dispatchers.IO) { apiClient.getAdminNavBadges(token) }
             binding.progress.visibility = View.GONE
             summary.onSuccess { json ->
-                val count = json.optInt("callCount", 0)
-                val totalSec = json.optInt("totalDurationSec", 0)
-                binding.summaryStats.text = getString(R.string.summary_stats_format, count, KstDates.formatDuration(totalSec))
+                val connected = json.optInt("connectedCount", json.optInt("callCount", 0))
+                val noAnswer = json.optInt("noAnswerCount", 0)
+                val totalSec = json.optInt("connectedDurationSec", json.optInt("totalDurationSec", 0))
+                binding.summaryStats.text = getString(
+                    R.string.summary_stats_connected_format,
+                    connected,
+                    noAnswer,
+                    KstDates.formatDuration(totalSec),
+                )
                 val byMatch = json.optJSONObject("byCustomerMatch")
                 if (byMatch != null && byMatch.length() > 0) {
                     val parts = mutableListOf<String>()

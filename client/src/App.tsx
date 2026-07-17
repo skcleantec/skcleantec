@@ -116,6 +116,7 @@ import {
   TelecrmGeneralSettingsPage,
   TelecrmSoomgoSettingsPage,
   TelecrmSoomgoPresetsSettingsPage,
+  TelecrmCallActivityPage,
 } from './routes/lazyPages';
 
 function SuspensePage({ children }: { children: ReactNode }) {
@@ -306,6 +307,7 @@ function App() {
             <Route path="general" element={<SuspensePage><TelecrmGeneralSettingsPage /></SuspensePage>} />
             <Route path="soomgo" element={<SuspensePage><TelecrmSoomgoSettingsPage /></SuspensePage>} />
             <Route path="soomgo-presets" element={<SuspensePage><TelecrmSoomgoPresetsSettingsPage /></SuspensePage>} />
+            <Route path="call-activity" element={<SuspensePage><TelecrmCallActivityPage /></SuspensePage>} />
           </Route>
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>

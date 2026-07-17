@@ -3090,6 +3090,12 @@ model TelecrmCallSession {
   inquiryId        String?   @map("inquiry_id")
   memo             String?   @db.Text
   androidCallLogId String?   @map("android_call_log_id") @db.VarChar(64)
+  /// DIAL_ATTEMPT | NO_ANSWER | CONNECTED
+  status           String    @default("DIAL_ATTEMPT") @db.VarChar(20)
+  connectedMinSec  Int       @default(90) @map("connected_min_sec")
+  verifiedAt       DateTime? @map("verified_at")
+  /// APP_DIAL | PC_DISPATCH | CALLLOG_SYNC
+  source           String?   @db.VarChar(20)
   createdAt        DateTime  @default(now()) @map("created_at")
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -3098,6 +3104,8 @@ model TelecrmCallSession {
 
   @@unique([tenantId, userId, androidCallLogId])
   @@index([tenantId, userId, createdAt(sort: Desc)])
+  @@index([tenantId, userId, startedAt(sort: Desc)])
+  @@index([tenantId, status, startedAt(sort: Desc)])
   @@map("telecrm_call_sessions")
 }
 

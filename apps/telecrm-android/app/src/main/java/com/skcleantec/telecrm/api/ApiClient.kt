@@ -176,6 +176,24 @@ class ApiClient(private val baseUrl: String) {
         }
     }
 
+    fun syncCallSession(token: String, payload: JSONObject): Result<Unit> {
+        return runCatching {
+            val body = payload.toString().toRequestBody(jsonMedia)
+            val request = Request.Builder()
+                .url("$baseUrl/api/crm/call-sessions/sync")
+                .addHeader("Authorization", "Bearer $token")
+                .post(body)
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    val raw = response.body?.string().orEmpty()
+                    val err = runCatching { JSONObject(raw).optString("error") }.getOrNull()
+                    throw IllegalStateException(err ?: "통화 동기화 실패")
+                }
+            }
+        }
+    }
+
     private fun authorizedGetArray(path: String, token: String): Result<JSONArray> {
         return authorizedGetRaw(path, token).map { raw ->
             JSONArray(raw)
