@@ -18,10 +18,12 @@ import { CrmSmsDrawer } from '../../../components/crm/sms/CrmSmsDrawer';
 import { CrmSoomgoDrawer } from '../../../components/crm/soomgo/CrmSoomgoDrawer';
 import { CrmSoomgoAlertDrawer, CrmIconBell } from '../../../components/crm/soomgo/CrmSoomgoAlertDrawer';
 import { CrmSoomgoTopBar } from '../../../components/crm/soomgo/CrmSoomgoTopBar';
+import { CrmSoomgoUpdateStrip } from '../../../components/crm/soomgo/CrmSoomgoUpdateStrip';
 import { CrmIconPhone, CrmIconSoomgo } from '../../../components/crm/crmUi';
 import type { SoomgoExtractedChat, SoomgoBridgeManifest, SoomgoChatAlert, SoomgoChatListSnapshotRow } from '@shared/soomgoBridge';
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
 import { useSoomgoBridgeManifestRefresh } from '../../../hooks/useSoomgoBridgeManifestRefresh';
+import { isSoomgoBridgeUpdateNoticeVisible } from '../../../api/soomgoBridge';
 import { FeatureGate } from '../../../components/auth/FeatureGate';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
@@ -571,6 +573,11 @@ export function CrmPage() {
     requestBridgeUpdate,
   } = soomgoBridge;
 
+  const soomgoUpdateNoticeVisible = useMemo(
+    () => isSoomgoBridgeUpdateNoticeVisible(soomgoStatus, soomgoBridgeManifest),
+    [soomgoStatus, soomgoBridgeManifest],
+  );
+
   const handleDismissSoomgoInbox = useCallback(
     (chatIds: string[]) => {
       setSoomgoInboxItems((prev) => {
@@ -966,6 +973,18 @@ export function CrmPage() {
                     switching={workBrandLoading}
                   />
                 ) : null}
+                {!isMobileApp && soomgoUpdateNoticeVisible ? (
+                  <CrmSoomgoUpdateStrip
+                    status={soomgoStatus}
+                    bridgeManifest={soomgoBridgeManifest}
+                    onRequestUpdate={() => void requestBridgeUpdate('install')}
+                    onRefresh={() => {
+                      void refreshManifest();
+                      void refreshSoomgoStatus();
+                    }}
+                    onOpenSoomgoBar={() => setSoomgoBarOpen(true)}
+                  />
+                ) : null}
                 {!isMobileApp ? (
                   <CrmSoomgoTopBar
                 open={soomgoBarOpen}
@@ -1033,14 +1052,22 @@ export function CrmPage() {
                   <button
                     type="button"
                     onClick={handleToggleSoomgoBar}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap ${
+                    className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap ${
                       soomgoBarOpen
                         ? 'border-cyan-300/60 bg-cyan-400/25 text-white'
-                        : 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25'
+                        : soomgoUpdateNoticeVisible
+                          ? 'border-amber-300/70 bg-amber-500/25 text-amber-50 hover:bg-amber-500/35'
+                          : 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25'
                     }`}
                   >
                     <CrmIconSoomgo className="h-4 w-4" />
-                    숨고 연동
+                    {soomgoUpdateNoticeVisible ? '숨고 · 업데이트' : '숨고 연동'}
+                    {soomgoUpdateNoticeVisible ? (
+                      <span
+                        className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-400 ring-2 ring-slate-900"
+                        aria-hidden
+                      />
+                    ) : null}
                   </button>
                 ) : null}
                 {canFollowupEdit ? (
