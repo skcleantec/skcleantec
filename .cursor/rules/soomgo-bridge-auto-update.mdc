@@ -24,12 +24,15 @@ alwaysApply: false
    - 태그 **`soomgo-bridge-v{semver}`** 생성·푸시 → Actions **Soomgo Bridge Release**
    - Setup.exe에는 **`build-python-runtime.ps1` 포함 Python·패키지가 자동 번들** (`build-installer.ps1` 경유) — 별도 수동 작업 없음
    - Actions 완료·Release 자산(Setup·`railway-env-*.txt`) 업로드 확인 (실패 시 로그 확인·재시도)
-4. **Railway Variables** — `dist/railway-env-{semver}.txt`의 URL·SHA256과 일치하게:
+4. **Railway Variables (필수 — 에이전트가 릴리스마다 직접 실행)**
+   - Release Actions 완료 후 **staging·production 둘 다**:
    ```powershell
    cd tools\soomgo-bridge\scripts
-   .\set-railway-vars.ps1 -Target staging -Version {semver} -Sha256 {sha256}
+   .\set-railway-vars.ps1 -Target both
    ```
-   - **운영(production)** 은 사용자가 **`main` 반영·운영 배포**를 요청했을 때만 `-Target production` 또는 `-Target both`
+   - 스크립트가 GitHub Release에서 Setup.exe **SHA256 자동 조회**, `version_info.py` 버전 사용
+   - 인증: `npx @railway/cli login` **또는** `server/.env`의 `RAILWAY_TOKEN=` (에이전트가 매 릴리스마다 실행)
+   - **운영(production)** 은 `main` 반영 시 `-Target both` 로 staging·production 동시 갱신 (사용자가 Railway 수동 갱신 요청하지 않아도 에이전트 의무)
 5. **매니페스트 확인** — 스테이징·(운영 반영 시) 운영 URL에서 `latestVersion`·`downloadUrl`·`sha256` 일치
 6. 작업 보고에 **릴리스 semver·Release URL·Railway 반영 환경(staging/production)** 를 한 줄로 남긴다
 
