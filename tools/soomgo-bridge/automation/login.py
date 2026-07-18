@@ -1,4 +1,4 @@
-"""숨고 로그인 — 이메일 자동 / 카카오(수동·QR) + 세션 재사용"""
+"""숨고 로그인 — 이메일 자동 / 카카오(수동·자동·세션 재사용)"""
 from __future__ import annotations
 
 import logging
@@ -32,22 +32,76 @@ def _find_first(driver, selectors_str: str, wait=None):
     return None
 
 
-def _click_element_containing_text(driver, tag_names: tuple[str, ...], needle: str) -> bool:
-    needle_l = needle.lower()
-    for tag in tag_names:
+def _current_url(driver) -> str:
+    try:
+        return (driver.current_url or '').lower()
+    except Exception:
+        return ''
+
+
+def _is_kakao_login_url(url: str) -> bool:
+    return 'kakao.com' in url or 'accounts.kakao' in url
+
+
+def _is_soomgo_login_url(url: str) -> bool:
+    return 'soomgo.com' in url and ('login' in url or '/sign' in url)
+
+
+def _scroll_and_click(driver, el) -> bool:
+    try:
+        driver.execute_script(
+            'arguments[0].scrollIntoView({block:"center", inline:"center"}); arguments[0].click();',
+            el,
+        )
+        return True
+    except Exception:
         try:
-            elems = driver.find_elements(By.CSS_SELECTOR, tag)
+            el.click()
+            return True
+        except Exception:
+            return False
+
+
+def _click_by_xpath_text(driver, *needles: str) -> bool:
+    for needle in needles:
+        xpath = (
+            f"//button[contains(normalize-space(.), '{needle}')] | "
+            f"//a[contains(normalize-space(.), '{needle}')] | "
+            f"//*[@role='button' and contains(normalize-space(.), '{needle}')]"
+        )
+        try:
+            elems = driver.find_elements(By.XPATH, xpath)
         except Exception:
             continue
         for el in elems:
             try:
-                text = (el.text or el.get_attribute('aria-label') or '').strip()
-                if needle_l in text.lower() and el.is_displayed() and el.is_enabled():
-                    el.click()
+                if el.is_displayed() and el.is_enabled() and _scroll_and_click(driver, el):
+                    logger.info('clicked xpath text=%s', needle)
                     return True
             except Exception:
                 continue
     return False
+
+
+def _click_kakao_start_via_js(driver) -> bool:
+    script = """
+    const needles = ['카카오로 시작하기', '카카오로 시작', '카카오'];
+    const nodes = Array.from(document.querySelectorAll('button, a, [role="button"]'));
+    for (const n of nodes) {
+      const text = (n.innerText || n.textContent || n.getAttribute('aria-label') || '').trim();
+      if (!text) continue;
+      if (needles.some((k) => text.includes(k))) {
+        n.scrollIntoView({ block: 'center', inline: 'center' });
+        n.click();
+        return true;
+      }
+    }
+    return false;
+    """
+    try:
+        return bool(driver.execute_script(script))
+    except Exception:
+        return False
 
 
 def _bring_window_forward(driver) -> None:
@@ -59,7 +113,7 @@ def _bring_window_forward(driver) -> None:
 
 
 def wait_for_manual_login(driver, *, timeout_sec: float = KAKAO_MANUAL_WAIT_SEC) -> bool:
-    """상담사 수동 카카오/QR 로그인·점검 모달 닫기 대기."""
+    """숨고·카카오 로그인 화면에서 상담사 수동 완료 대기."""
     deadline = time.time() + timeout_sec
     while time.time() < deadline:
         dismiss_blocking_overlays(driver, 0.35, max_rounds=3)
@@ -67,50 +121,113 @@ def wait_for_manual_login(driver, *, timeout_sec: float = KAKAO_MANUAL_WAIT_SEC)
             goto_chat_list(driver)
             return True
         time.sleep(1.0)
-    return is_logged_in(driver)
-
-
-def _try_open_kakao_qr(driver, delay: float) -> None:
-    """카카오 계정 화면이면 QR 로그인을 우선 연다."""
-    try:
-        url = (driver.current_url or '').lower()
-    except Exception:
-        url = ''
-    if 'kakao' not in url and 'accounts.kakao' not in url:
-        # 리다이렉트 대기
-        for _ in range(8):
-            time.sleep(0.4)
-            try:
-                url = (driver.current_url or '').lower()
-            except Exception:
-                url = ''
-            if 'kakao' in url:
-                break
-    if 'kakao' not in url:
-        return
-    time.sleep(delay * 0.4)
-    if _click_element_containing_text(driver, ('button', 'a', 'label', 'div[role="button"]'), LOGIN['KAKAO_QR_BUTTON_TEXT']):
-        logger.info('kakao QR login control clicked')
-        time.sleep(delay * 0.5)
-
-
-def _click_soomgo_kakao_button(driver, delay: float) -> bool:
-    btn = _find_first(driver, LOGIN['KAKAO_BUTTON'])
-    if btn:
-        try:
-            btn.click()
-            time.sleep(delay)
-            return True
-        except Exception as e:
-            logger.warning('kakao css button click failed: %s', e)
-    if _click_element_containing_text(driver, ('button', 'a'), LOGIN['KAKAO_BUTTON_TEXT']):
-        time.sleep(delay)
+    if is_logged_in(driver):
+        goto_chat_list(driver)
         return True
     return False
 
 
-def login_via_kakao(driver, delay: float = 1.0, wait_manual_sec: float = KAKAO_MANUAL_WAIT_SEC) -> bool:
-    """숨고 → 카카오 시작 → (가능 시) QR → 수동 완료 대기."""
+def _wait_for_kakao_redirect(driver, delay: float, timeout_sec: float = 12.0) -> bool:
+    deadline = time.time() + timeout_sec
+    while time.time() < deadline:
+        if _is_kakao_login_url(_current_url(driver)):
+            return True
+        time.sleep(delay * 0.35)
+    return _is_kakao_login_url(_current_url(driver))
+
+
+def _click_soomgo_kakao_button(driver, delay: float) -> bool:
+    dismiss_blocking_overlays(driver, delay * 0.4, max_rounds=3)
+
+    btn = _find_first(driver, LOGIN['KAKAO_BUTTON'])
+    if btn and _scroll_and_click(driver, btn):
+        logger.info('kakao start button clicked (css)')
+        time.sleep(delay * 0.8)
+        return True
+
+    if _click_by_xpath_text(driver, '카카오로 시작하기', '카카오로 시작', '카카오'):
+        time.sleep(delay * 0.8)
+        return True
+
+    if _click_kakao_start_via_js(driver):
+        logger.info('kakao start button clicked (js)')
+        time.sleep(delay * 0.8)
+        return True
+
+    return False
+
+
+def _try_kakao_account_login(driver, login_id: str, password: str, delay: float) -> bool:
+    """accounts.kakao.com — 저장된 카카오/숨고 계정으로 자동 로그인 시도."""
+    login_id = (login_id or '').strip()
+    password = (password or '').strip()
+    if not login_id or not password:
+        return False
+    if not _is_kakao_login_url(_current_url(driver)):
+        return False
+
+    dismiss_blocking_overlays(driver, delay * 0.3, max_rounds=2)
+    wait = WebDriverWait(driver, 10)
+    id_input = _find_first(driver, LOGIN['KAKAO_ID_INPUT'], wait)
+    if not id_input:
+        logger.warning('kakao loginId input not found')
+        return False
+
+    pw_input = _find_first(driver, LOGIN['KAKAO_PASSWORD_INPUT'])
+    if not pw_input:
+        logger.warning('kakao password input not found')
+        return False
+
+    try:
+        id_input.clear()
+        id_input.send_keys(login_id)
+        time.sleep(delay * 0.3)
+        pw_input.clear()
+        pw_input.send_keys(password)
+        time.sleep(delay * 0.3)
+    except Exception as e:
+        logger.warning('kakao credential fill failed: %s', e)
+        return False
+
+    submit = _find_first(driver, LOGIN['KAKAO_SUBMIT_BUTTON'])
+    if submit and _scroll_and_click(driver, submit):
+        logger.info('kakao submit clicked')
+        time.sleep(delay * 1.2)
+        return True
+
+    if _click_by_xpath_text(driver, '로그인'):
+        time.sleep(delay * 1.2)
+        return True
+
+    return False
+
+
+def open_soomgo_login_and_wait(
+    driver,
+    *,
+    delay: float = 1.0,
+    wait_manual_sec: float = KAKAO_MANUAL_WAIT_SEC,
+) -> bool:
+    """숨고 로그인 페이지만 열고 수동 완료까지 대기."""
+    if is_logged_in(driver):
+        goto_chat_list(driver)
+        return True
+    driver.get(URLS['LOGIN'])
+    time.sleep(delay)
+    dismiss_blocking_overlays(driver, delay * 0.6)
+    _bring_window_forward(driver)
+    return wait_for_manual_login(driver, timeout_sec=wait_manual_sec)
+
+
+def login_via_kakao(
+    driver,
+    delay: float = 1.0,
+    wait_manual_sec: float = KAKAO_MANUAL_WAIT_SEC,
+    *,
+    kakao_id: str = '',
+    kakao_password: str = '',
+) -> bool:
+    """숨고 → 카카오 시작 클릭 → (선택) 카카오 자동입력 → 수동 완료 대기."""
     try:
         if is_logged_in(driver):
             goto_chat_list(driver)
@@ -126,10 +243,21 @@ def login_via_kakao(driver, delay: float = 1.0, wait_manual_sec: float = KAKAO_M
             return True
 
         clicked = _click_soomgo_kakao_button(driver, delay)
-        if not clicked:
-            logger.warning('kakao start button not found — waiting for manual login on soomgo page')
+        if clicked:
+            _wait_for_kakao_redirect(driver, delay)
         else:
-            _try_open_kakao_qr(driver, delay)
+            logger.warning(
+                'kakao start button not found — 숨고 로그인 화면에서 수동으로 '
+                '「카카오로 시작하기」를 눌러 주세요.'
+            )
+
+        url = _current_url(driver)
+        if _is_kakao_login_url(url):
+            _try_kakao_account_login(driver, kakao_id, kakao_password, delay)
+        elif clicked:
+            # 리다이렉트 지연
+            if _wait_for_kakao_redirect(driver, delay):
+                _try_kakao_account_login(driver, kakao_id, kakao_password, delay)
 
         _bring_window_forward(driver)
         ok = wait_for_manual_login(driver, timeout_sec=wait_manual_sec)
@@ -139,7 +267,7 @@ def login_via_kakao(driver, delay: float = 1.0, wait_manual_sec: float = KAKAO_M
         return ok
     except Exception as e:
         logger.error('kakao login error: %s', e)
-        return is_pro_session_url(driver.current_url) if driver else False
+        return is_logged_in(driver)
 
 
 def login_to_soomgo(driver, email: str, password: str, delay: float = 1.0) -> bool:
