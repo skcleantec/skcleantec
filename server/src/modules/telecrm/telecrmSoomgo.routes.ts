@@ -51,6 +51,7 @@ router.put('/config', requireStaffPermission('crm.settings'), async (req, res) =
   const email = typeof body.email === 'string' ? body.email : '';
   const password = typeof body.password === 'string' ? body.password : undefined;
   const enabled = body.enabled !== false;
+  const loginMode = body.loginMode === 'kakao' ? 'kakao' : 'email';
   const actorPassword = body.actorPassword;
 
   if (password?.trim()) {
@@ -63,6 +64,7 @@ router.put('/config', requireStaffPermission('crm.settings'), async (req, res) =
       email,
       password,
       enabled,
+      loginMode,
     });
     res.json(config);
   } catch (e) {

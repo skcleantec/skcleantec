@@ -2,16 +2,24 @@ import { encryptTenantSecret } from './tenantSecretCrypto.js';
 
 const MAX_EMAIL = 255;
 
+export type SoomgoLoginMode = 'email' | 'kakao';
+
+export function normalizeSoomgoLoginMode(raw: unknown): SoomgoLoginMode {
+  return raw === 'kakao' ? 'kakao' : 'email';
+}
+
 export type OperatingCompanySoomgoStored = {
   email?: string;
   passwordEnc?: string;
   enabled?: boolean;
+  loginMode?: SoomgoLoginMode;
 };
 
 export type OperatingCompanySoomgoPatch = {
   email?: string;
   password?: string;
   enabled?: boolean;
+  loginMode?: SoomgoLoginMode;
 };
 
 function trimEmail(raw: unknown): string | undefined {
@@ -26,14 +34,16 @@ export function parseOperatingCompanySoomgoStored(raw: unknown): OperatingCompan
   const email = trimEmail(o.email);
   const passwordEnc = typeof o.passwordEnc === 'string' ? o.passwordEnc.trim().slice(0, 4096) : undefined;
   const enabled = o.enabled === false ? false : o.enabled === true ? true : undefined;
-  if (!email && !passwordEnc && enabled === undefined) return undefined;
-  return { email, passwordEnc, enabled };
+  const loginMode =
+    o.loginMode === 'kakao' || o.loginMode === 'email' ? (o.loginMode as SoomgoLoginMode) : undefined;
+  if (!email && !passwordEnc && enabled === undefined && loginMode === undefined) return undefined;
+  return { email, passwordEnc, enabled, loginMode };
 }
 
 export function extractOperatingCompanySoomgoPatch(rawConfig: unknown): OperatingCompanySoomgoPatch | undefined {
   if (!rawConfig || typeof rawConfig !== 'object' || Array.isArray(rawConfig)) return undefined;
   const sg = (rawConfig as Record<string, unknown>).soomgo;
-  if (sg === null) return { email: '', password: '', enabled: false };
+  if (sg === null) return { email: '', password: '', enabled: false, loginMode: 'email' };
   if (!sg || typeof sg !== 'object' || Array.isArray(sg)) return undefined;
   const o = sg as Record<string, unknown>;
   const patch: OperatingCompanySoomgoPatch = {};
@@ -41,10 +51,12 @@ export function extractOperatingCompanySoomgoPatch(rawConfig: unknown): Operatin
   if (typeof o.password === 'string') patch.password = o.password;
   if (o.enabled === false) patch.enabled = false;
   else if (o.enabled === true) patch.enabled = true;
+  if (o.loginMode === 'kakao' || o.loginMode === 'email') patch.loginMode = o.loginMode;
   if (
     patch.email === undefined &&
     patch.password === undefined &&
-    patch.enabled === undefined
+    patch.enabled === undefined &&
+    patch.loginMode === undefined
   ) {
     return undefined;
   }
@@ -56,7 +68,12 @@ export function mergeOperatingCompanySoomgoStored(
   patch: OperatingCompanySoomgoPatch | undefined,
 ): OperatingCompanySoomgoStored | undefined {
   if (!patch) return existing;
-  if (patch.email === '' && patch.password === '' && patch.enabled === false) {
+  if (
+    patch.email === '' &&
+    patch.password === '' &&
+    patch.enabled === false &&
+    (patch.loginMode === undefined || patch.loginMode === 'email')
+  ) {
     return undefined;
   }
 
@@ -70,11 +87,19 @@ export function mergeOperatingCompanySoomgoStored(
   if (patch.enabled !== undefined) {
     next.enabled = patch.enabled;
   }
+  if (patch.loginMode !== undefined) {
+    next.loginMode = patch.loginMode;
+  }
   if (typeof patch.password === 'string' && patch.password.trim()) {
     next.passwordEnc = encryptTenantSecret(patch.password.trim());
   }
 
-  const hasAny = Boolean(next.email?.trim() || next.passwordEnc?.trim() || next.enabled !== undefined);
+  const hasAny = Boolean(
+    next.email?.trim() ||
+      next.passwordEnc?.trim() ||
+      next.enabled !== undefined ||
+      next.loginMode,
+  );
   return hasAny ? next : undefined;
 }
 
@@ -83,14 +108,21 @@ export function soomgoPublicFromStored(stored: OperatingCompanySoomgoStored | un
   enabled: boolean;
   hasPassword: boolean;
   configured: boolean;
+  loginMode: SoomgoLoginMode;
 } {
   const email = stored?.email?.trim() ?? '';
   const hasPassword = Boolean(stored?.passwordEnc?.trim());
   const enabled = stored?.enabled !== false;
+  const loginMode = normalizeSoomgoLoginMode(stored?.loginMode);
+  const configured =
+    loginMode === 'kakao'
+      ? enabled && stored?.loginMode === 'kakao'
+      : Boolean(email && hasPassword && enabled);
   return {
     email,
     enabled,
     hasPassword,
-    configured: Boolean(email && hasPassword && enabled),
+    configured,
+    loginMode,
   };
 }

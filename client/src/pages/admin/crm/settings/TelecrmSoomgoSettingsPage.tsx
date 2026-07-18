@@ -5,6 +5,7 @@ import {
   fetchTelecrmSoomgoBridgeManifest,
   fetchTelecrmSoomgoConfig,
   updateTelecrmSoomgoConfig,
+  type SoomgoLoginMode,
 } from '../../../../api/telecrmSoomgo';
 import { DeletePasswordModal, SettingsCard } from '../../../../components/crm/settings/DeletePasswordModal';
 import { TelecrmBrandSoomgoSettingsSection } from '../../../../components/crm/settings/TelecrmBrandSoomgoSettingsSection';
@@ -20,6 +21,7 @@ export function TelecrmSoomgoSettingsPage({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [enabled, setEnabled] = useState(true);
+  const [loginMode, setLoginMode] = useState<SoomgoLoginMode>('email');
   const [hasPassword, setHasPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,6 +43,7 @@ export function TelecrmSoomgoSettingsPage({
       setEmail(cfg.email);
       setHasPassword(cfg.hasPassword);
       setEnabled(cfg.enabled);
+      setLoginMode(cfg.loginMode === 'kakao' ? 'kakao' : 'email');
       setBridgeManifest(manifest);
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
@@ -56,7 +59,7 @@ export function TelecrmSoomgoSettingsPage({
   const save = async (confirmedPassword?: string) => {
     if (!token) return;
     const soomgoPasswordToSend = password.trim() || undefined;
-    if (!hasPassword && !soomgoPasswordToSend) {
+    if (loginMode === 'email' && !hasPassword && !soomgoPasswordToSend) {
       setError('숨고 비밀번호를 입력해 주세요.');
       return;
     }
@@ -73,9 +76,11 @@ export function TelecrmSoomgoSettingsPage({
         email,
         password: soomgoPasswordToSend,
         enabled,
+        loginMode,
         actorPassword: confirmedPassword,
       });
       setHasPassword(cfg.hasPassword);
+      setLoginMode(cfg.loginMode);
       setPassword('');
       setMsg('숨고 연동 계정을 저장했습니다.');
       window.setTimeout(() => setMsg(null), 4000);
@@ -120,32 +125,63 @@ export function TelecrmSoomgoSettingsPage({
         ) : (
           <div className="space-y-4">
             <p className="text-fluid-sm text-gray-600">
-              「숨고 보조창」 열기 시 이 계정으로 자동 로그인됩니다. 아래에서 다른 계정이 필요한 브랜드만
+              「숨고 보조창」 열기 시 아래 방식으로 로그인합니다. 아래에서 다른 계정이 필요한 브랜드만
               따로 등록할 수 있습니다.
             </p>
-            <label className="block space-y-1">
-              <span className="text-fluid-sm font-medium text-gray-700">숨고 이메일</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
-                autoComplete="off"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-fluid-sm font-medium text-gray-700">
-                숨고 비밀번호 {hasPassword ? '(변경 시에만 입력)' : ''}
-              </span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={hasPassword ? '••••••••' : ''}
-                className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
-                autoComplete="new-password"
-              />
-            </label>
+            <fieldset className="space-y-1.5">
+              <legend className="text-fluid-sm font-medium text-gray-700">로그인 방식</legend>
+              <label className="flex items-center gap-2 text-fluid-sm text-gray-700">
+                <input
+                  type="radio"
+                  name="tenant-soomgo-login-mode"
+                  checked={loginMode === 'email'}
+                  onChange={() => setLoginMode('email')}
+                />
+                이메일 로그인 (자동 입력)
+              </label>
+              <label className="flex items-center gap-2 text-fluid-sm text-gray-700">
+                <input
+                  type="radio"
+                  name="tenant-soomgo-login-mode"
+                  checked={loginMode === 'kakao'}
+                  onChange={() => setLoginMode('kakao')}
+                />
+                카카오 로그인 (최초 1회 수동·QR → 이후 PC에 세션 유지)
+              </label>
+            </fieldset>
+            {loginMode === 'email' ? (
+              <>
+                <label className="block space-y-1">
+                  <span className="text-fluid-sm font-medium text-gray-700">숨고 이메일</span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                    autoComplete="off"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-fluid-sm font-medium text-gray-700">
+                    숨고 비밀번호 {hasPassword ? '(변경 시에만 입력)' : ''}
+                  </span>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={hasPassword ? '••••••••' : ''}
+                    className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
+                    autoComplete="new-password"
+                  />
+                </label>
+              </>
+            ) : (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-950 leading-relaxed">
+                카카오로 숨고에 가입한 계정용입니다. 「채팅 열기 / 로그인」 시 Chrome에서 카카오·QR로
+                한 번만 로그인하면, 같은 PC의 고정 프로필에 남아 다음부터는 아이디·비번을 다시 치지
+                않아도 됩니다. (숨고 연동 프로그램 v2.2.17 이상)
+              </p>
+            )}
             <label className="flex items-center gap-2 text-fluid-sm text-gray-700">
               <input
                 type="checkbox"

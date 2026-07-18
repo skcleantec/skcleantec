@@ -3178,6 +3178,8 @@ model TelecrmSoomgoConfig {
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   email       String   @db.VarChar(255)
   passwordEnc String   @map("password_enc") @db.Text
+  /// email | kakao — 카카오는 브릿지 Chrome에서 수동/QR, 프로필로 세션 유지
+  loginMode   String   @default("email") @map("login_mode") @db.VarChar(20)
   enabled     Boolean  @default(true) @map("enabled")
   followupAbsentAutoEnabled Boolean @default(false) @map("followup_absent_auto_enabled")
   followupAbsentMessage     String? @map("followup_absent_message") @db.Text

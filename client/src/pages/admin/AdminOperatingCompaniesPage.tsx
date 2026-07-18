@@ -62,10 +62,21 @@ function soomgoListLabel(config: OperatingCompanyConfig): { text: string; classN
 function buildSoomgoConfig(f: BrandForm): OperatingCompanyConfig['soomgo'] | undefined {
   const email = f.soomgo.email.trim();
   const password = f.soomgo.password.trim();
+  const loginMode = f.soomgo.loginMode === 'kakao' ? 'kakao' : 'email';
+  if (loginMode === 'kakao') {
+    if (!f.soomgo.enabled) return undefined;
+    return {
+      loginMode: 'kakao',
+      enabled: true,
+      email: email || undefined,
+      ...(password ? { password } : {}),
+    };
+  }
   if (!email && !password && !f.soomgo.hasPassword) {
     return undefined;
   }
   return {
+    loginMode: 'email',
     email: email || undefined,
     enabled: f.soomgo.enabled,
     ...(password ? { password } : {}),
@@ -141,6 +152,7 @@ export function AdminOperatingCompaniesPage() {
   };
 
   const validateSoomgoBeforeSave = (f: BrandForm, setErr: (msg: string) => void): boolean => {
+    if (f.soomgo.loginMode === 'kakao') return true;
     const email = f.soomgo.email.trim();
     const password = f.soomgo.password.trim();
     if (email && !f.soomgo.hasPassword && !password) {

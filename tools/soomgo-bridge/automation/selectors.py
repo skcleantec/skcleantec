@@ -21,6 +21,14 @@ LOGIN = {
     'EMAIL_INPUT': "input[type='email'], input[name='email'], input[placeholder*='이메일']",
     'PASSWORD_INPUT': "input[type='password'], input[name='password']",
     'LOGIN_BUTTON': "button[type='submit']",
+    # 숨고 소셜 로그인 — 「카카오로 시작하기」
+    'KAKAO_BUTTON': (
+        "button[class*='kakao'], a[href*='kakao'], "
+        "button[data-provider='kakao'], a[data-provider='kakao']"
+    ),
+    'KAKAO_BUTTON_TEXT': '카카오',
+    # accounts.kakao.com — QR 로그인
+    'KAKAO_QR_BUTTON_TEXT': 'QR',
 }
 
 CHAT_NAV = {

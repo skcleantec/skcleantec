@@ -7,10 +7,13 @@ function authHeaders(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
+export type SoomgoLoginMode = 'email' | 'kakao';
+
 export type TelecrmSoomgoConfigDto = {
   email: string;
   hasPassword: boolean;
   enabled: boolean;
+  loginMode: SoomgoLoginMode;
   updatedAt: string | null;
 };
 
@@ -26,6 +29,7 @@ export type TelecrmSoomgoBrandConfigDto = {
     enabled: boolean;
     hasPassword: boolean;
     configured: boolean;
+    loginMode: SoomgoLoginMode;
   };
 };
 
@@ -33,7 +37,10 @@ export async function fetchTelecrmSoomgoConfig(token: string): Promise<TelecrmSo
   const res = await fetch(`${API}/config`, { headers: authHeaders(token) });
   const data = (await res.json()) as TelecrmSoomgoConfigDto & { error?: string };
   if (!res.ok) throw new Error(data.error ?? '숨고 설정을 불러오지 못했습니다.');
-  return data;
+  return {
+    ...data,
+    loginMode: data.loginMode === 'kakao' ? 'kakao' : 'email',
+  };
 }
 
 export async function updateTelecrmSoomgoConfig(
@@ -42,6 +49,7 @@ export async function updateTelecrmSoomgoConfig(
     email: string;
     password?: string;
     enabled: boolean;
+    loginMode: SoomgoLoginMode;
     actorPassword?: string;
   },
 ): Promise<TelecrmSoomgoConfigDto> {
@@ -52,7 +60,10 @@ export async function updateTelecrmSoomgoConfig(
   });
   const data = (await res.json()) as TelecrmSoomgoConfigDto & { error?: string };
   if (!res.ok) throw new Error(data.error ?? '숨고 설정 저장에 실패했습니다.');
-  return data;
+  return {
+    ...data,
+    loginMode: data.loginMode === 'kakao' ? 'kakao' : 'email',
+  };
 }
 
 export async function fetchTelecrmSoomgoBrandConfigs(
@@ -61,7 +72,13 @@ export async function fetchTelecrmSoomgoBrandConfigs(
   const res = await fetch(`${API}/brand-configs`, { headers: authHeaders(token) });
   const data = (await res.json()) as { items?: TelecrmSoomgoBrandConfigDto[]; error?: string };
   if (!res.ok) throw new Error(data.error ?? '브랜드 숨고 설정을 불러오지 못했습니다.');
-  return data.items ?? [];
+  return (data.items ?? []).map((item) => ({
+    ...item,
+    soomgo: {
+      ...item.soomgo,
+      loginMode: item.soomgo?.loginMode === 'kakao' ? 'kakao' : 'email',
+    },
+  }));
 }
 
 export async function updateTelecrmSoomgoBrandConfig(
@@ -71,6 +88,7 @@ export async function updateTelecrmSoomgoBrandConfig(
     email: string;
     password?: string;
     enabled: boolean;
+    loginMode: SoomgoLoginMode;
     actorPassword?: string;
   },
 ): Promise<TelecrmSoomgoBrandConfigDto> {
@@ -81,21 +99,39 @@ export async function updateTelecrmSoomgoBrandConfig(
   });
   const data = (await res.json()) as TelecrmSoomgoBrandConfigDto & { error?: string };
   if (!res.ok) throw new Error(data.error ?? '브랜드 숨고 설정 저장에 실패했습니다.');
-  return data;
+  return {
+    ...data,
+    soomgo: {
+      ...data.soomgo,
+      loginMode: data.soomgo?.loginMode === 'kakao' ? 'kakao' : 'email',
+    },
+  };
 }
 
 export async function fetchTelecrmSoomgoCredentials(
   token: string,
   operatingCompanyId?: string | null,
-): Promise<{ email: string; password: string }> {
+): Promise<{ email: string; password: string; loginMode: SoomgoLoginMode }> {
   const qs = new URLSearchParams();
   appendCrmWorkBrandQuery(qs, operatingCompanyId);
   const q = qs.toString() ? `?${qs}` : '';
   const res = await fetch(`${API}/credentials${q}`, { headers: authHeaders(token) });
-  const data = (await res.json()) as { email?: string; password?: string; error?: string };
+  const data = (await res.json()) as {
+    email?: string;
+    password?: string;
+    loginMode?: string;
+    error?: string;
+  };
   if (!res.ok) throw new Error(data.error ?? '숨고 계정 정보를 불러오지 못했습니다.');
-  if (!data.email || !data.password) throw new Error('숨고 계정이 설정되지 않았습니다.');
-  return { email: data.email, password: data.password };
+  const loginMode: SoomgoLoginMode = data.loginMode === 'kakao' ? 'kakao' : 'email';
+  if (loginMode === 'email' && (!data.email || !data.password)) {
+    throw new Error('숨고 계정이 설정되지 않았습니다.');
+  }
+  return {
+    email: data.email ?? '',
+    password: data.password ?? '',
+    loginMode,
+  };
 }
 
 export async function fetchTelecrmSoomgoBridgeManifest(token: string): Promise<SoomgoBridgeManifest> {

@@ -24,6 +24,7 @@ function draftFromBrand(brand: TelecrmSoomgoBrandConfigDto): BrandDraft {
       email: brand.soomgo.email,
       enabled: brand.soomgo.enabled,
       hasPassword: brand.soomgo.hasPassword,
+      loginMode: brand.soomgo.loginMode,
     }),
   };
 }
@@ -85,7 +86,7 @@ export function TelecrmBrandSoomgoSettingsSection() {
     if (!draft) return;
     const { form } = draft;
     const passwordToSend = form.password.trim() || undefined;
-    if (!form.hasPassword && !passwordToSend) {
+    if (form.loginMode === 'email' && !form.hasPassword && !passwordToSend) {
       setError('숨고 비밀번호를 입력해 주세요.');
       return;
     }
@@ -102,6 +103,7 @@ export function TelecrmBrandSoomgoSettingsSection() {
         email: form.email,
         password: passwordToSend,
         enabled: form.enabled,
+        loginMode: form.loginMode,
         actorPassword: confirmedPassword,
       });
       setAllBrands((prev) => prev.map((b) => (b.id === brandId ? updated : b)));
@@ -128,6 +130,7 @@ export function TelecrmBrandSoomgoSettingsSection() {
         email: '',
         password: '',
         enabled: false,
+        loginMode: 'email',
       });
       setDrafts((prev) => prev.filter((d) => d.brand.id !== brandId));
       await load();
