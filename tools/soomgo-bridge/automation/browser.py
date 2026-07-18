@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import pathlib
 import threading
 from typing import Optional
 
@@ -12,6 +13,26 @@ from selenium.webdriver.support.ui import WebDriverWait
 logger = logging.getLogger(__name__)
 
 _CHROME_START_TIMEOUT = 90
+
+
+def _chrome_profile_dir() -> pathlib.Path:
+    try:
+        from desktop.config import CHROME_PROFILE_DIR, ensure_app_data
+
+        ensure_app_data()
+        CHROME_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+        return CHROME_PROFILE_DIR
+    except Exception:
+        import os
+
+        fallback = (
+            pathlib.Path(os.environ.get('LOCALAPPDATA', ''))
+            / 'Cbiseo'
+            / 'SoomgoBridge'
+            / 'chrome-profile'
+        )
+        fallback.mkdir(parents=True, exist_ok=True)
+        return fallback
 
 
 class BrowserManager:
@@ -25,6 +46,9 @@ class BrowserManager:
             options = Options()
             if self.headless:
                 options.add_argument('--headless=new')
+            profile_dir = _chrome_profile_dir()
+            options.add_argument(f'--user-data-dir={profile_dir}')
+            options.add_argument('--profile-directory=Default')
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-gpu')
@@ -34,6 +58,7 @@ class BrowserManager:
             options.add_experimental_option('useAutomationExtension', False)
             options.add_argument('--disable-notifications')
             options.add_argument('--lang=ko-KR')
+            logger.info('chrome profile: %s', profile_dir)
 
             holder: dict = {'driver': None, 'error': None}
 

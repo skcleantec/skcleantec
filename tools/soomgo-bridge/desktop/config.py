@@ -22,6 +22,8 @@ def _local_appdata() -> pathlib.Path:
 
 APP_DATA_DIR = _local_appdata() / _APP_BRAND_DIR / _APP_MODULE_DIR
 LEGACY_APP_DATA_DIR = _local_appdata() / _LEGACY_BRAND_DIR / _APP_MODULE_DIR
+# 숨고 Chrome 고정 프로필 — 카카오·숨고 세션 유지
+CHROME_PROFILE_DIR = APP_DATA_DIR / 'chrome-profile'
 CONFIG_PATH = APP_DATA_DIR / 'config.json'
 UPDATE_FLAG_PATH = APP_DATA_DIR / 'update.request'
 UPDATE_MANIFEST_PATH = APP_DATA_DIR / 'update.manifest.json'

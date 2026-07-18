@@ -24,6 +24,7 @@ export type OperatingCompanyConfig = {
     enabled?: boolean;
     hasPassword?: boolean;
     configured?: boolean;
+    loginMode?: 'email' | 'kakao';
     /** 저장 요청 시에만 — 서버에서 암호화 */
     password?: string;
   };

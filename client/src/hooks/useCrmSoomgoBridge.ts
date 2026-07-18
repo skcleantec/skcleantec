@@ -434,8 +434,16 @@ export function useCrmSoomgoBridge({
         startSoomgoBridge(screen),
         fetchTelecrmSoomgoCredentials(token, operatingCompanyId),
       ]);
-      const loginRes = await loginSoomgoBridge(creds.email, creds.password);
+      if (creds.loginMode === 'kakao') {
+        notify(
+          'Chrome에서 카카오 로그인(또는 QR)을 완료해 주세요. 최초 1회 후엔 같은 PC에서 자동으로 유지됩니다.',
+        );
+      }
+      const loginRes = await loginSoomgoBridge(creds.email, creds.password, creds.loginMode);
       if (!loginRes.loggedIn) throw new Error(loginRes.lastError ?? '숨고 로그인에 실패했습니다.');
+      if (loginRes.reusedSession) {
+        notify('저장된 숨고 세션으로 연결했습니다.');
+      }
       await openSoomgoChats(screen);
       await applySplitLayout();
       const finalStatus = await refreshStatus();

@@ -60,7 +60,8 @@ export type OperatingCompanySoomgoConfigPublic = {
   enabled?: boolean;
   hasPassword?: boolean;
   configured?: boolean;
-};
+  loginMode?: 'email' | 'kakao';
+}
 
 export type OperatingCompanyConfigPublic = Omit<OperatingCompanyConfig, 'soomgo' | 'smtp'> & {
   smtp?: TenantSmtpConfigStored;

@@ -232,10 +232,14 @@ export async function arrangeSoomgoBridgeLayout(screen: SoomgoSplitScreenBounds)
   });
 }
 
-export async function loginSoomgoBridge(email: string, password: string): Promise<SoomgoBridgeStatus> {
+export async function loginSoomgoBridge(
+  email: string,
+  password: string,
+  mode: 'email' | 'kakao' = 'email',
+): Promise<SoomgoBridgeStatus> {
   return bridgeFetch<SoomgoBridgeStatus>('/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, mode }),
   });
 }
 
