@@ -28,6 +28,7 @@ from automation.login import (
     is_logged_in,
     login_to_soomgo,
     login_via_kakao,
+    open_soomgo_login_and_wait,
     wait_for_manual_login,
 )
 from automation.overlay_modals import dismiss_blocking_overlays
@@ -452,7 +453,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
                 ok = False
                 if mode == 'kakao':
-                    ok = login_via_kakao(driver)
+                    ok = login_via_kakao(
+                        driver,
+                        kakao_id=email,
+                        kakao_password=password,
+                    )
+                    if not ok:
+                        # 카카오 버튼·자동입력 실패 시 숨고 로그인 화면에서 수동 완료까지 대기
+                        ok = open_soomgo_login_and_wait(driver)
                 else:
                     if not email or not password:
                         _json_response(
@@ -478,7 +486,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 elif mode == 'kakao':
                     _last_error = (
                         '카카오 로그인이 완료되지 않았습니다. '
-                        'Chrome 창에서 「카카오로 시작하기」·QR·로그인을 마쳐 주세요.'
+                        'Chrome 창에서 「카카오로 시작하기」→ 카카오 아이디·비밀번호 입력 후 '
+                        '로그인을 마쳐 주세요. (최대 3분 대기)'
                     )
                 else:
                     _last_error = '숨고 로그인에 실패했습니다.'
