@@ -404,7 +404,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             if path == '/start':
                 if not _browser.is_running():
                     if not _browser.start():
-                        _last_error = 'Chrome을 시작할 수 없습니다.'
+                        _last_error = _browser.last_start_error or 'Chrome을 시작할 수 없습니다.'
                         _json_response(self, 500, {'ok': False, 'error': _last_error})
                         return
                 _arrange_soomgo_layout(body)
@@ -412,14 +412,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 return
 
             if path == '/stop':
-                _browser.stop()
+                _browser.force_cleanup()
                 _logged_in = False
                 _json_response(self, 200, {'ok': True})
                 return
 
             if not _browser.is_running():
                 if not _browser.start():
-                    _last_error = 'Chrome을 시작할 수 없습니다.'
+                    _last_error = _browser.last_start_error or 'Chrome을 시작할 수 없습니다.'
                     _json_response(self, 500, {'ok': False, 'error': _last_error})
                     return
 

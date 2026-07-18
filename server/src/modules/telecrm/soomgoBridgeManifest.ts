@@ -1,7 +1,7 @@
 /** @see shared/soomgoBridge.ts — 클라이언트와 값 동기화 */
 
 const SOOMGO_BRIDGE_MIN_VERSION = 2;
-const SOOMGO_BRIDGE_APP_VERSION = '2.2.18';
+const SOOMGO_BRIDGE_APP_VERSION = '2.2.19';
 
 /** Release Setup.exe sha256 — Railway 변수 누락·구버전 URL일 때 폴백 */
 const SETUP_SHA256_BY_VERSION: Record<string, string> = {
