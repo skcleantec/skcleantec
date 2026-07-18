@@ -266,7 +266,8 @@ export function useCrmSoomgoBridge({
       } else if (
         isSoomgoAppUpdateAvailable(s, bridgeManifest) &&
         !softUpdateNotifiedRef.current &&
-        !isSoomgoBridgeOutdated(s, bridgeManifest)
+        !isSoomgoBridgeOutdated(s, bridgeManifest) &&
+        !s.browserRunning
       ) {
         softUpdateNotifiedRef.current = true;
         const softMsg = soomgoBridgeSoftUpdateMessage(s, bridgeManifest);

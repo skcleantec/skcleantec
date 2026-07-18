@@ -93,20 +93,31 @@ function withBridgeFetchQueue<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
-async function bridgeFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function bridgeFetch<T>(path: string, init?: RequestInit, timeoutMs?: number): Promise<T> {
   return withBridgeFetchQueue(async () => {
     let res: Response;
+    const controller = timeoutMs != null && timeoutMs > 0 ? new AbortController() : null;
+    const timer =
+      controller != null
+        ? window.setTimeout(() => controller.abort(), timeoutMs)
+        : null;
     try {
       res = await fetch(`${SOOMGO_BRIDGE_BASE_URL}${path}`, {
         ...init,
+        signal: controller?.signal,
         headers: {
           'Content-Type': 'application/json',
           ...(init?.headers ?? {}),
         },
       });
     } catch (err) {
+      if (controller?.signal.aborted) {
+        throw new Error('숨고 로그인 대기 시간이 초과되었습니다. Chrome 창에서 로그인을 완료한 뒤 다시 시도해 주세요.');
+      }
       if (isBridgeConnectionError(err)) throw bridgeConnectionError();
       throw err instanceof Error ? err : new Error('숨고 브릿지 통신에 실패했습니다.');
+    } finally {
+      if (timer != null) window.clearTimeout(timer);
     }
     const data = (await res.json()) as T & { error?: string; ok?: boolean };
     if (res.status === 404) {
@@ -240,7 +251,7 @@ export async function loginSoomgoBridge(
   return bridgeFetch<SoomgoBridgeStatus>('/login', {
     method: 'POST',
     body: JSON.stringify({ email, password, mode }),
-  });
+  }, mode === 'kakao' ? 200_000 : undefined);
 }
 
 export async function openSoomgoChats(screen?: SoomgoSplitScreenBounds): Promise<SoomgoBridgeStatus> {

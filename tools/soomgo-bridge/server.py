@@ -28,10 +28,10 @@ from automation.login import (
     is_logged_in,
     login_to_soomgo,
     login_via_kakao,
-    open_soomgo_login_and_wait,
     wait_for_manual_login,
 )
 from automation.overlay_modals import dismiss_blocking_overlays
+from automation.selectors import URLS
 from automation.sequence_sender import run_send_sequence
 from automation.http_download import download_bytes
 from automation.navigation import (
@@ -82,6 +82,60 @@ _chat_watch_thread: threading.Thread | None = None
 _chat_watcher = ChatListWatcher()
 _extract_in_progress = False
 _status_nickname_cache: str | None = None
+_login_in_progress = threading.Event()
+
+
+def _open_soomgo_login_if_needed(driver) -> None:
+    """Chrome만 켜진 상태(new-tab 등)면 숨고 로그인 페이지로 이동."""
+    try:
+        if is_logged_in(driver):
+            return
+        url = (driver.current_url or '').lower()
+        if 'soomgo.com' in url and ('login' in url or '/sign' in url):
+            return
+        driver.get(URLS['LOGIN'])
+        time.sleep(0.6)
+        dismiss_blocking_overlays(driver, 0.4, max_rounds=3)
+    except Exception as e:
+        logger.warning('open soomgo login page: %s', e)
+
+
+def _perform_soomgo_login(driver, email: str, password: str, mode: str) -> tuple[bool, str | None]:
+    """긴 대기 포함 — HTTP lock 밖에서 호출."""
+    dismiss_blocking_overlays(driver, 0.5, max_rounds=4)
+    if is_logged_in(driver):
+        goto_chat_list(driver)
+        return True, None
+
+    ok = False
+    if mode == 'kakao':
+        ok = login_via_kakao(
+            driver,
+            kakao_id=email,
+            kakao_password=password,
+        )
+    else:
+        if not email or not password:
+            return False, 'email/password required (또는 mode=kakao)'
+        ok = login_to_soomgo(driver, email, password)
+        if not ok and is_logged_in(driver):
+            goto_chat_list(driver)
+            ok = True
+        if not ok:
+            logger.info('email login failed — falling back to kakao flow')
+            ok = login_via_kakao(driver, kakao_id=email, kakao_password=password)
+        if not ok:
+            ok = wait_for_manual_login(driver, timeout_sec=60.0)
+
+    if ok:
+        return True, None
+    if mode == 'kakao':
+        return False, (
+            '카카오 로그인이 완료되지 않았습니다. '
+            'Chrome 창에서 「카카오로 시작하기」→ 카카오 아이디·비밀번호 입력 후 '
+            '로그인을 마쳐 주세요. (최대 3분 대기)'
+        )
+    return False, '숨고 로그인에 실패했습니다.'
 
 
 def _clear_pending_call_locked(modal: CallModalManager | None = None):
@@ -400,39 +454,52 @@ class BridgeHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         body = _read_json(self)
 
-        with _lock:
-            if path == '/start':
+        if path == '/start':
+            with _lock:
                 if not _browser.is_running():
                     if not _browser.start():
                         _last_error = _browser.last_start_error or 'Chrome을 시작할 수 없습니다.'
                         _json_response(self, 500, {'ok': False, 'error': _last_error})
                         return
+                driver = _browser.driver
+                if driver is not None:
+                    _open_soomgo_login_if_needed(driver)
                 _arrange_soomgo_layout(body)
+                _last_error = None
                 _json_response(self, 200, _status_payload())
-                return
+            return
 
-            if path == '/stop':
+        if path == '/stop':
+            with _lock:
                 _browser.force_cleanup()
                 _logged_in = False
                 _json_response(self, 200, {'ok': True})
+            return
+
+        if path == '/login':
+            if _login_in_progress.is_set():
+                _json_response(self, 409, {
+                    'ok': False,
+                    'error': '숨고 로그인이 진행 중입니다. Chrome 창에서 로그인을 완료해 주세요.',
+                })
                 return
 
-            if not _browser.is_running():
-                if not _browser.start():
-                    _last_error = _browser.last_start_error or 'Chrome을 시작할 수 없습니다.'
-                    _json_response(self, 500, {'ok': False, 'error': _last_error})
-                    return
-
-            driver = _browser.driver
-            assert driver is not None
-
-            if path == '/login':
+            with _lock:
+                if not _browser.is_running():
+                    if not _browser.start():
+                        _last_error = _browser.last_start_error or 'Chrome을 시작할 수 없습니다.'
+                        _json_response(self, 500, {'ok': False, 'error': _last_error})
+                        return
+                driver = _browser.driver
+                assert driver is not None
                 email = str(body.get('email', '')).strip()
                 password = str(body.get('password', '')).strip()
                 mode = str(body.get('mode', 'email') or 'email').strip().lower()
                 if mode not in ('email', 'kakao'):
                     mode = 'email'
-                dismiss_blocking_overlays(driver, 0.5, max_rounds=4)
+                _open_soomgo_login_if_needed(driver)
+                _arrange_soomgo_layout(body)
+
                 if is_logged_in(driver):
                     goto_chat_list(driver)
                     _logged_in = True
@@ -451,49 +518,37 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     )
                     return
 
-                ok = False
-                if mode == 'kakao':
-                    ok = login_via_kakao(
-                        driver,
-                        kakao_id=email,
-                        kakao_password=password,
+                if mode != 'kakao' and (not email or not password):
+                    _json_response(
+                        self,
+                        400,
+                        {'ok': False, 'error': 'email/password required (또는 mode=kakao)'},
                     )
-                    if not ok:
-                        # 카카오 버튼·자동입력 실패 시 숨고 로그인 화면에서 수동 완료까지 대기
-                        ok = open_soomgo_login_and_wait(driver)
-                else:
-                    if not email or not password:
-                        _json_response(
-                            self,
-                            400,
-                            {'ok': False, 'error': 'email/password required (또는 mode=kakao)'},
-                        )
-                        return
-                    ok = login_to_soomgo(driver, email, password)
-                    if not ok and is_logged_in(driver):
-                        goto_chat_list(driver)
-                        ok = True
-                    # 이메일 실패(카카오 전용 계정 등) → 카카오 플로우로 폴백
-                    if not ok:
-                        logger.info('email login failed — falling back to kakao flow')
-                        ok = login_via_kakao(driver)
-                    if not ok:
-                        ok = wait_for_manual_login(driver, timeout_sec=60.0)
+                    return
 
+            _login_in_progress.set()
+            try:
+                driver = _browser.driver
+                if driver is None or not _browser.is_running():
+                    with _lock:
+                        if not _browser.start():
+                            _last_error = _browser.last_start_error or 'Chrome을 시작할 수 없습니다.'
+                            _json_response(self, 500, {'ok': False, 'error': _last_error})
+                            return
+                        driver = _browser.driver
+                assert driver is not None
+                ok, login_err = _perform_soomgo_login(driver, email, password, mode)
+            finally:
+                _login_in_progress.clear()
+
+            with _lock:
                 _logged_in = ok
                 if ok:
                     _last_error = None
-                elif mode == 'kakao':
-                    _last_error = (
-                        '카카오 로그인이 완료되지 않았습니다. '
-                        'Chrome 창에서 「카카오로 시작하기」→ 카카오 아이디·비밀번호 입력 후 '
-                        '로그인을 마쳐 주세요. (최대 3분 대기)'
-                    )
-                else:
-                    _last_error = '숨고 로그인에 실패했습니다.'
-                if ok:
                     _chat_watcher.ensure_installed(driver)
                     _ensure_chat_watch()
+                else:
+                    _last_error = login_err
                 status = 200 if ok else 401
                 _json_response(
                     self,
@@ -505,7 +560,17 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         'loginMode': mode,
                     },
                 )
-                return
+            return
+
+        with _lock:
+            if not _browser.is_running():
+                if not _browser.start():
+                    _last_error = _browser.last_start_error or 'Chrome을 시작할 수 없습니다.'
+                    _json_response(self, 500, {'ok': False, 'error': _last_error})
+                    return
+
+            driver = _browser.driver
+            assert driver is not None
 
             if path == '/open-chats':
                 if not _sync_logged_in_from_browser():

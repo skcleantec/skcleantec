@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import pathlib
 import subprocess
 import sys
@@ -75,7 +76,7 @@ def _kill_stale_profile_processes(profile_dir: pathlib.Path) -> int:
         return 0
 
     profile_key = str(profile_dir.resolve())
-    profile_tail = f'{profile_dir.parent.name}{pathlib.Path.sep}{profile_dir.name}'
+    profile_tail = f'{profile_dir.parent.name}{os.sep}{profile_dir.name}'
     needles = [profile_key, profile_tail.replace('/', '\\'), profile_tail.replace('\\', '/')]
 
     ps = r"""
