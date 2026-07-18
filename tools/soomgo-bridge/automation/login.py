@@ -113,18 +113,43 @@ def _bring_window_forward(driver) -> None:
 
 
 def wait_for_manual_login(driver, *, timeout_sec: float = KAKAO_MANUAL_WAIT_SEC) -> bool:
-    """숨고·카카오 로그인 화면에서 상담사 수동 완료 대기."""
+    """숨고·카카오 로그인 화면에서 상담사 수동 완료 대기 (카카오 버튼·입력은 자동하지 않음)."""
     deadline = time.time() + timeout_sec
+    original_handle = None
+    try:
+        original_handle = driver.current_window_handle
+    except Exception:
+        pass
+
+    def _check_all_windows() -> bool:
+        handles = []
+        try:
+            handles = list(driver.window_handles)
+        except Exception:
+            handles = []
+        if not handles:
+            return is_logged_in(driver)
+        for handle in handles:
+            try:
+                driver.switch_to.window(handle)
+                dismiss_blocking_overlays(driver, 0.2, max_rounds=1)
+                if is_logged_in(driver):
+                    goto_chat_list(driver)
+                    return True
+            except Exception:
+                continue
+        if original_handle:
+            try:
+                driver.switch_to.window(original_handle)
+            except Exception:
+                pass
+        return False
+
     while time.time() < deadline:
-        dismiss_blocking_overlays(driver, 0.35, max_rounds=3)
-        if is_logged_in(driver):
-            goto_chat_list(driver)
+        if _check_all_windows():
             return True
         time.sleep(1.0)
-    if is_logged_in(driver):
-        goto_chat_list(driver)
-        return True
-    return False
+    return _check_all_windows()
 
 
 def _wait_for_kakao_redirect(driver, delay: float, timeout_sec: float = 12.0) -> bool:
@@ -227,39 +252,27 @@ def login_via_kakao(
     kakao_id: str = '',
     kakao_password: str = '',
 ) -> bool:
-    """숨고 → 카카오 시작 클릭 → (선택) 카카오 자동입력 → 수동 완료 대기."""
+    """숨고 로그인 화면만 열고 「카카오로 시작하기」·카카오 입력은 사용자가 직접 — 완료까지 대기."""
+    _ = kakao_id, kakao_password  # 카카오 모드는 수동 로그인만 (자동 클릭·입력 없음)
     try:
         if is_logged_in(driver):
             goto_chat_list(driver)
             return True
 
-        driver.get(URLS['LOGIN'])
-        time.sleep(delay)
-        dismiss_blocking_overlays(driver, delay * 0.6)
-        _bring_window_forward(driver)
-
-        if is_logged_in(driver):
-            goto_chat_list(driver)
-            return True
-
-        clicked = _click_soomgo_kakao_button(driver, delay)
-        if clicked:
-            _wait_for_kakao_redirect(driver, delay)
-        else:
-            logger.warning(
-                'kakao start button not found — 숨고 로그인 화면에서 수동으로 '
-                '「카카오로 시작하기」를 눌러 주세요.'
-            )
-
         url = _current_url(driver)
-        if _is_kakao_login_url(url):
-            _try_kakao_account_login(driver, kakao_id, kakao_password, delay)
-        elif clicked:
-            # 리다이렉트 지연
-            if _wait_for_kakao_redirect(driver, delay):
-                _try_kakao_account_login(driver, kakao_id, kakao_password, delay)
+        on_soomgo_login = _is_soomgo_login_url(url) or (
+            'soomgo.com' in url and ('login' in url or '/sign' in url)
+        )
+        if not on_soomgo_login:
+            driver.get(URLS['LOGIN'])
+            time.sleep(delay)
 
+        dismiss_blocking_overlays(driver, delay * 0.4, max_rounds=2)
         _bring_window_forward(driver)
+        logger.info(
+            'kakao login: 숨고 로그인 화면 대기 — 「카카오로 시작하기」는 사용자가 직접 눌러 주세요.'
+        )
+
         ok = wait_for_manual_login(driver, timeout_sec=wait_manual_sec)
         if ok:
             ensure_chat_workspace(driver, delay=delay)

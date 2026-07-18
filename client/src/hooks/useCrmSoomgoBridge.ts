@@ -437,7 +437,7 @@ export function useCrmSoomgoBridge({
       ]);
       if (creds.loginMode === 'kakao') {
         notify(
-          'Chrome에서 「카카오로 시작하기」→ 카카오 로그인을 완료해 주세요. 최대 3분 대기하며, 이후 같은 PC에서는 세션이 유지됩니다.',
+          'Chrome 숨고 로그인 화면에서 「카카오로 시작하기」를 직접 누르고 카카오 로그인을 완료해 주세요. 최대 3분 대기합니다.',
         );
       }
       const loginRes = await loginSoomgoBridge(creds.email, creds.password, creds.loginMode);

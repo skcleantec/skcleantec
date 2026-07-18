@@ -94,38 +94,10 @@ export function OperatingCompanySoomgoFields({
           </label>
         </>
       ) : (
-        <>
-          <p className="text-xs text-sky-900/80 leading-relaxed rounded-md border border-sky-200 bg-white/70 px-2.5 py-2">
-            「채팅 열기 / 로그인」 시 「카카오로 시작하기」→ 카카오 로그인까지 완료해 주세요.
-            아래를 입력하면 카카오 화면에 자동 입력을 시도합니다.
-          </p>
-          <label className="block text-sm" htmlFor={`${idPrefix}-soomgo-kakao-id`}>
-            <span className="font-medium text-gray-800">카카오 아이디 (선택)</span>
-            <input
-              id={`${idPrefix}-soomgo-kakao-id`}
-              type="text"
-              value={value.email}
-              onChange={(e) => onChange({ ...value, email: e.target.value })}
-              placeholder="카카오메일·이메일·전화번호"
-              className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              autoComplete="off"
-            />
-          </label>
-          <label className="block text-sm" htmlFor={`${idPrefix}-soomgo-kakao-password`}>
-            <span className="font-medium text-gray-800">
-              카카오 비밀번호 {value.hasPassword ? '(변경 시에만 입력)' : '(선택)'}
-            </span>
-            <input
-              id={`${idPrefix}-soomgo-kakao-password`}
-              type="password"
-              value={value.password}
-              onChange={(e) => onChange({ ...value, password: e.target.value })}
-              placeholder={value.hasPassword ? '••••••••' : '비우면 수동 입력'}
-              className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              autoComplete="new-password"
-            />
-          </label>
-        </>
+        <p className="text-xs text-sky-900/80 leading-relaxed rounded-md border border-sky-200 bg-white/70 px-2.5 py-2">
+          「채팅 열기 / 로그인」 시 숨고 로그인 화면만 열립니다. 「카카오로 시작하기」와 카카오 로그인은
+          상담사가 Chrome에서 직접 진행해 주세요.
+        </p>
       )}
       <label className="flex items-center gap-2 text-sm text-gray-700">
         <input

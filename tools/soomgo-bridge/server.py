@@ -132,8 +132,8 @@ def _perform_soomgo_login(driver, email: str, password: str, mode: str) -> tuple
     if mode == 'kakao':
         return False, (
             '카카오 로그인이 완료되지 않았습니다. '
-            'Chrome 창에서 「카카오로 시작하기」→ 카카오 아이디·비밀번호 입력 후 '
-            '로그인을 마쳐 주세요. (최대 3분 대기)'
+            'Chrome 숨고 로그인 화면에서 「카카오로 시작하기」를 직접 누른 뒤 '
+            '카카오 로그인을 마쳐 주세요. (최대 3분 대기)'
         )
     return False, '숨고 로그인에 실패했습니다.'
 

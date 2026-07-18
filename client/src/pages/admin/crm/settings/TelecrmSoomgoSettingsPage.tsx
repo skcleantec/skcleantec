@@ -176,39 +176,11 @@ export function TelecrmSoomgoSettingsPage({
                 </label>
               </>
             ) : (
-              <>
-                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-950 leading-relaxed">
-                  카카오로 숨고에 가입한 계정용입니다. 「채팅 열기 / 로그인」 시 Chrome에서
-                  「카카오로 시작하기」를 누르고, 카카오 로그인까지 완료해 주세요. 같은 PC에서는
-                  이후 세션이 유지됩니다. (숨고 연동 v2.2.18 이상)
-                </p>
-                <label className="block space-y-1">
-                  <span className="text-fluid-sm font-medium text-gray-700">
-                    카카오 아이디 (선택 · 자동 입력)
-                  </span>
-                  <input
-                    type="text"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="카카오메일·이메일·전화번호"
-                    className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
-                    autoComplete="off"
-                  />
-                </label>
-                <label className="block space-y-1">
-                  <span className="text-fluid-sm font-medium text-gray-700">
-                    카카오 비밀번호 {hasPassword ? '(변경 시에만 입력)' : '(선택 · 자동 입력)'}
-                  </span>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={hasPassword ? '••••••••' : '비우면 수동 입력'}
-                    className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
-                    autoComplete="new-password"
-                  />
-                </label>
-              </>
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-950 leading-relaxed">
+                카카오로 숨고에 가입한 계정용입니다. 「채팅 열기 / 로그인」 시 Chrome에 숨고 로그인 화면만
+                열리며, <strong>「카카오로 시작하기」는 직접 눌러</strong> 카카오 로그인을 완료해 주세요.
+                같은 PC에서는 이후 세션이 유지됩니다.
+              </p>
             )}
             <label className="flex items-center gap-2 text-fluid-sm text-gray-700">
               <input
