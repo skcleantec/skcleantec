@@ -29,6 +29,7 @@ interface Props {
    */
   crewSpacingDaysByMemberName?: Record<string, number | null>;
   placeholder?: string;
+  compact?: boolean;
 }
 
 /**
@@ -44,6 +45,7 @@ export function TeamMemberSearchSelect({
   disabledNames,
   crewSpacingDaysByMemberName,
   placeholder,
+  compact = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -105,14 +107,24 @@ export function TeamMemberSearchSelect({
           setOpen(true);
           setQuery(e.target.value);
         }}
-        placeholder={placeholder ?? '팀원 검색 (초성 가능)'}
-        className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+        placeholder={placeholder ?? (compact ? '팀원 검색' : '팀원 검색 (초성 가능)')}
+        className={
+          compact
+            ? 'w-full rounded border border-gray-300 px-2 py-1 text-fluid-2xs'
+            : 'w-full rounded border border-gray-300 px-3 py-2 text-sm'
+        }
       />
       {open && (
-        <div className="absolute z-30 mt-1 max-h-44 w-full overflow-y-auto rounded border border-gray-200 bg-white shadow-lg">
+        <div
+          className={`absolute z-[570] mt-0.5 w-full overflow-y-auto rounded border border-gray-200 bg-white shadow-lg ${
+            compact ? 'max-h-36' : 'max-h-44'
+          }`}
+        >
           <button
             type="button"
-            className="block w-full px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
+            className={`block w-full text-left text-gray-500 hover:bg-gray-50 ${
+              compact ? 'px-2 py-1 text-fluid-2xs' : 'px-3 py-2 text-sm'
+            }`}
             onClick={() => {
               onChange('');
               setQuery('');
@@ -137,7 +149,9 @@ export function TeamMemberSearchSelect({
                     ? `선택된 팀장과 마지막으로 같은 접수 예약일이 있었던 날 기준 간격입니다. 선택은 어떤 간격에서도 가능합니다.`
                     : undefined
                 }
-                className={`block w-full px-3 py-2 text-left text-sm ${
+                className={`block w-full text-left ${
+                  compact ? 'px-2 py-1 text-fluid-2xs' : 'px-3 py-2 text-sm'
+                } ${
                   isDisabled ? 'cursor-not-allowed opacity-45 bg-gray-50' : 'hover:bg-blue-50'
                 } ${selected?.id === m.id ? 'bg-blue-50 text-blue-700' : 'text-gray-800'}`}
                 onClick={() => {
@@ -154,7 +168,9 @@ export function TeamMemberSearchSelect({
             );
           })}
           {filtered.length === 0 && (
-            <p className="px-3 py-2 text-sm text-gray-500">일치하는 팀원이 없습니다.</p>
+            <p className={`text-gray-500 ${compact ? 'px-2 py-1 text-fluid-2xs' : 'px-3 py-2 text-sm'}`}>
+              일치하는 팀원이 없습니다.
+            </p>
           )}
         </div>
       )}

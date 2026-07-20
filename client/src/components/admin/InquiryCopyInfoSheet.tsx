@@ -1,7 +1,31 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { InquiryCopySection } from '../../utils/inquiryCopyInfo';
-import { ModalCloseButton } from './ModalCloseButton';
+
+function SheetCloseIconButton({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label="닫기"
+      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:opacity-40"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        className="h-3.5 w-3.5 pointer-events-none"
+        aria-hidden
+      >
+        <path d="M18 6L6 18M6 6l12 12" />
+      </svg>
+    </button>
+  );
+}
 
 export function InquiryCopyInfoSheet({
   open,
@@ -10,6 +34,10 @@ export function InquiryCopyInfoSheet({
   sections,
   copyText,
   onCopy,
+  assignment,
+  onSave,
+  saving = false,
+  saveLabel = '저장',
 }: {
   open: boolean;
   onClose: () => void;
@@ -18,6 +46,11 @@ export function InquiryCopyInfoSheet({
   /** 클립보드용 전체 텍스트 (헤더·푸터 포함) */
   copyText: string;
   onCopy?: (text: string) => void | Promise<void>;
+  /** 팀장·팀원 배정 UI (접수 수정 폼과 동기화) */
+  assignment?: ReactNode;
+  onSave?: () => void | Promise<void>;
+  saving?: boolean;
+  saveLabel?: string;
 }) {
   const [copyHint, setCopyHint] = useState<string | null>(null);
   const trimmedNumber = inquiryNumber?.trim() ?? '';
@@ -47,7 +80,7 @@ export function InquiryCopyInfoSheet({
     }
   }, [copyText, onCopy]);
 
-  const hasContent = useMemo(
+  const hasSectionContent = useMemo(
     () => sections.some((s) => s.rows.length > 0),
     [sections],
   );
@@ -65,62 +98,70 @@ export function InquiryCopyInfoSheet({
       }}
     >
       <div className="flex max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white shadow-xl sm:max-h-[85vh] sm:rounded-2xl">
-        <div className="shrink-0 border-b border-gray-200 px-4 py-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
+        <div className="shrink-0 border-b border-gray-200 px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0">
               <h2
                 id="inquiry-copy-info-title"
-                className="text-fluid-sm font-semibold text-gray-900"
+                className="shrink-0 text-fluid-xs font-semibold text-gray-900"
               >
                 접수 정보
               </h2>
               {trimmedNumber ? (
-                <p className="mt-0.5 truncate text-fluid-xs text-gray-500">
-                  접수번호 {trimmedNumber}
-                </p>
+                <span className="truncate text-fluid-2xs tabular-nums text-gray-500">
+                  {trimmedNumber}
+                </span>
+              ) : null}
+              {copyHint ? (
+                <span className="text-fluid-2xs font-medium text-emerald-700" aria-live="polite">
+                  {copyHint}
+                </span>
               ) : null}
             </div>
-            <ModalCloseButton onClick={onClose} />
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void copy()}
-              className="inline-flex items-center rounded-md bg-slate-900 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-slate-800 active:bg-slate-950"
-            >
-              정보 복사
-            </button>
-            {copyHint ? (
-              <span className="text-fluid-xs font-medium text-emerald-700" aria-live="polite">
-                {copyHint}
-              </span>
-            ) : null}
+            <div className="flex shrink-0 items-center gap-1">
+              {onSave ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void onSave()}
+                  className="inline-flex items-center rounded-md bg-blue-600 px-2 py-1 text-fluid-2xs font-medium text-white hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50"
+                >
+                  {saving ? '저장 중…' : saveLabel}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void copy()}
+                className="inline-flex items-center rounded-md bg-slate-900 px-2 py-1 text-fluid-2xs font-medium text-white hover:bg-slate-800 active:bg-slate-950 disabled:opacity-50"
+              >
+                정보 복사
+              </button>
+              <SheetCloseIconButton onClick={onClose} disabled={saving} />
+            </div>
           </div>
         </div>
 
         <div
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-3 [-webkit-overflow-scrolling:touch]"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-2 [-webkit-overflow-scrolling:touch]"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          {!hasContent ? (
-            <p className="py-8 text-center text-fluid-sm text-gray-500">
-              표시할 접수 정보가 없습니다.
-            </p>
+          {!hasSectionContent && !assignment ? (
+            <p className="py-4 text-center text-fluid-xs text-gray-500">표시할 접수 정보가 없습니다.</p>
           ) : (
-            <div className="space-y-3 pb-1">
+            <div className="divide-y divide-gray-100">
+              {assignment ? <div className="pb-2">{assignment}</div> : null}
               {sections.map((section) => (
-                <section
-                  key={section.title}
-                  className="rounded-xl border border-gray-200 bg-slate-50/80 px-3 py-2.5"
-                >
-                  <h3 className="mb-2 text-fluid-xs font-semibold uppercase tracking-wide text-slate-600">
-                    {section.title}
-                  </h3>
-                  <dl className="space-y-2">
+                <section key={section.title} className="py-1.5 first:pt-0 last:pb-0">
+                  <h3 className="mb-0.5 text-fluid-2xs font-semibold text-slate-500">{section.title}</h3>
+                  <dl className="space-y-0.5">
                     {section.rows.map((row) => (
-                      <div key={`${section.title}-${row.label}`} className="min-w-0">
-                        <dt className="text-fluid-2xs font-medium text-gray-500">{row.label}</dt>
-                        <dd className="mt-0.5 whitespace-pre-wrap break-words text-fluid-sm font-medium leading-relaxed text-gray-900 tabular-nums">
+                      <div
+                        key={`${section.title}-${row.label}`}
+                        className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0 leading-snug"
+                      >
+                        <dt className="shrink-0 text-fluid-2xs font-medium text-gray-500">{row.label}</dt>
+                        <dd className="min-w-0 flex-1 whitespace-pre-wrap break-words text-fluid-xs text-gray-900 tabular-nums">
                           {row.value}
                         </dd>
                       </div>
@@ -132,15 +173,18 @@ export function InquiryCopyInfoSheet({
           )}
         </div>
 
-        <div className="shrink-0 border-t border-gray-100 px-4 py-3 sm:hidden">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100"
-          >
-            닫기
-          </button>
-        </div>
+        {onSave ? (
+          <div className="shrink-0 border-t border-gray-100 px-3 py-2 sm:hidden">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void onSave()}
+              className="w-full rounded-lg bg-blue-600 py-2 text-fluid-xs font-medium text-white hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50"
+            >
+              {saving ? '저장 중…' : saveLabel}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>,
     document.body,
