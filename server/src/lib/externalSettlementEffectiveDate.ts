@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from './prisma.js';
+import { loadMarketplaceExternalInquiryIdsForCompany } from '../modules/db-marketplace/dbMarketplaceSettlementMeta.js';
 /** 타업체 정산 기준일 — 정보공유 인계 확정 건은 sellerConfirmedAt, 그 외는 예약일 */
 export function resolveExternalSettlementEffectiveDate(
   preferredDate: Date | null,
@@ -167,6 +168,10 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
     opts.from,
     opts.to,
   );
+  const marketplaceAttributedIds = await loadMarketplaceExternalInquiryIdsForCompany(
+    opts.tenantId,
+    opts.externalCompanyId,
+  );
   const periodOr = externalSettlementPeriodOrClause(opts.from, opts.to, marketplaceIds);
   const assignmentSome = {
     some: {
@@ -182,6 +187,9 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
     { assignments: assignmentSome },
     { tenantShareAsSource: hybridShareFilter },
   ];
+  if (marketplaceAttributedIds.length > 0) {
+    attributedOr.push({ id: { in: marketplaceAttributedIds } });
+  }
   const rowSelect = opts.includeAssignmentLabels ? inquirySettlementAssignmentSelect : inquirySettlementSelect;
 
   const [activeRaw, cancelledRaw] = await Promise.all([
@@ -209,6 +217,9 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
               { cancelFeeExternalCompanyId: opts.externalCompanyId },
               { assignments: assignmentSome },
               { tenantShareAsSource: hybridShareFilter },
+              ...(marketplaceAttributedIds.length > 0
+                ? [{ id: { in: marketplaceAttributedIds } }]
+                : []),
             ],
           },
           { OR: periodOr },
@@ -258,6 +269,10 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
     if (row.sellerConfirmedAt) confirmAtMap.set(row.inquiryId, row.sellerConfirmedAt);
   }
   const marketplaceInquiryIds = marketplaceRows.map((r) => r.inquiryId);
+  const marketplaceAttributedIds = await loadMarketplaceExternalInquiryIdsForCompany(
+    opts.tenantId,
+    opts.externalCompanyId,
+  );
 
   const candidateOr: Prisma.InquiryWhereInput[] = [{ preferredDate: { lt: opts.before } }];
   if (marketplaceInquiryIds.length > 0) {
@@ -278,6 +293,9 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
     { assignments: assignmentSome },
     { tenantShareAsSource: hybridShareFilter },
   ];
+  if (marketplaceAttributedIds.length > 0) {
+    attributedOr.push({ id: { in: marketplaceAttributedIds } });
+  }
 
   const [activeRows, cancelledRows] = await Promise.all([
     prisma.inquiry.findMany({
@@ -303,6 +321,9 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
               { cancelFeeExternalCompanyId: opts.externalCompanyId },
               { assignments: assignmentSome },
               { tenantShareAsSource: hybridShareFilter },
+              ...(marketplaceAttributedIds.length > 0
+                ? [{ id: { in: marketplaceAttributedIds } }]
+                : []),
             ],
           },
           { OR: candidateOr },

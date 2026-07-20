@@ -45,12 +45,28 @@ export async function sumExternalSettlementSignedFeeByCompany(
         AND s.settlement_mode = 'EXTERNAL_LEGACY'
         AND s.settlement_external_company_id IS NOT NULL
     ),
+    marketplace_ext AS (
+      SELECT DISTINCT
+        l.inquiry_id,
+        l.buyer_external_company_id AS external_company_id
+      FROM inquiry_db_listings l
+      INNER JOIN fee_inquiries fi ON fi.id = l.inquiry_id
+      WHERE l.tenant_id = $1
+        AND l.status = 'CONFIRMED'
+        AND l.buyer_kind = 'EXTERNAL_COMPANY'
+        AND l.buyer_external_company_id IS NOT NULL
+    ),
     inquiry_company AS (
+      SELECT me.inquiry_id, me.external_company_id
+      FROM marketplace_ext me
+      UNION ALL
       SELECT fe.inquiry_id, fe.external_company_id
       FROM first_ext fe
-      WHERE NOT EXISTS (SELECT 1 FROM hybrid_ext h WHERE h.inquiry_id = fe.inquiry_id)
+      WHERE NOT EXISTS (SELECT 1 FROM marketplace_ext me WHERE me.inquiry_id = fe.inquiry_id)
       UNION ALL
-      SELECT inquiry_id, external_company_id FROM hybrid_ext
+      SELECT h.inquiry_id, h.external_company_id
+      FROM hybrid_ext h
+      WHERE NOT EXISTS (SELECT 1 FROM marketplace_ext me WHERE me.inquiry_id = h.inquiry_id)
     ),
     signed AS (
       SELECT ic.external_company_id AS external_company_id,
