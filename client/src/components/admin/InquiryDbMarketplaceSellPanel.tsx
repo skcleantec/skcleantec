@@ -29,6 +29,8 @@ type Props = {
   disabled?: boolean;
   /** 파트너 직접 연계 폼 → 정보공유 등록 시 1회 적용 */
   exchangePrefill?: DbMarketplaceExchangePrefill | null;
+  /** 장바구니·게시·확정 등 listing 변경 후 스케줄 목록·상세 갱신 */
+  onListingChange?: () => void | Promise<void>;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -45,6 +47,7 @@ export function InquiryDbMarketplaceSellPanel({
   serviceBalanceAmount,
   disabled,
   exchangePrefill,
+  onListingChange,
 }: Props) {
   const token = getToken();
   const [listing, setListing] = useState<DbMarketplaceSellerListing | null>(null);
@@ -128,6 +131,14 @@ export function InquiryDbMarketplaceSellPanel({
   const { connected: wsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !wsConnected ? 20000 : 0);
 
+  const notifyListingChange = async () => {
+    try {
+      await onListingChange?.();
+    } catch {
+      /* 목록 갱신 실패는 패널 저장 성공과 분리 */
+    }
+  };
+
   const saveDraft = async () => {
     if (!token) return;
     const fee = parseListingFeeInput(listingFeeInput);
@@ -139,6 +150,7 @@ export function InquiryDbMarketplaceSellPanel({
     try {
       const row = await upsertDbMarketplaceDraft(token, inquiryId, fee);
       setListing(row);
+      await notifyListingChange();
       alert('판매 장바구니에 담았습니다.');
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장 실패');
@@ -187,6 +199,7 @@ export function InquiryDbMarketplaceSellPanel({
     try {
       const row = await publishDbMarketplaceListing(token, listing.id);
       setListing(row);
+      await notifyListingChange();
     } catch (e) {
       alert(e instanceof Error ? e.message : '게시 실패');
     } finally {
@@ -215,6 +228,7 @@ export function InquiryDbMarketplaceSellPanel({
     try {
       const result = await confirmDbMarketplaceSeller(token, listing.id);
       setListing(result.listing);
+      await notifyListingChange();
       alert('인계가 완료되었습니다.');
     } catch (e) {
       alert(e instanceof Error ? e.message : '인계 확정 실패');
@@ -245,7 +259,9 @@ export function InquiryDbMarketplaceSellPanel({
       <p className="text-xs font-semibold text-violet-900">정보공유(DB 마켓) 판매</p>
       <p className="text-[11px] text-gray-600 leading-relaxed">
         파트너·타업체가 선택해 가져갈 수 있도록 게시합니다. 구매자에게는 표시금액(잔금−수수료)만 보입니다.{' '}
-        <strong>파트너 직접 연계와 별도</strong>입니다.
+        <strong>파트너 직접 연계와 별도</strong>입니다. 수수료는{' '}
+        <strong>인계 확정(구매자·판매자 모두 확정)</strong> 시점에 DB가 넘어가며, 그때 파트너·타업체 정산에
+        반영됩니다.
       </p>
 
       {loading ? <p className="text-[11px] text-gray-500">불러오는 중…</p> : null}
