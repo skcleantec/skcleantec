@@ -199,6 +199,7 @@ export function AdminLayout() {
   const [reviewPaybackUnseenCount, setReviewPaybackUnseenCount] = useState(0);
   const [leadsPendingCount, setLeadsPendingCount] = useState(0);
   const [marketplaceDraftCount, setMarketplaceDraftCount] = useState(0);
+  const [marketplaceOpenCount, setMarketplaceOpenCount] = useState(0);
   const [marketplaceSellerPendingCount, setMarketplaceSellerPendingCount] = useState(0);
   const [marketplaceBuyerPendingCount, setMarketplaceBuyerPendingCount] = useState(0);
   const [reviewPaybackToast, setReviewPaybackToast] = useState<string | null>(null);
@@ -525,13 +526,15 @@ export function AdminLayout() {
       .catch(() => {});
     if (tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace')) {
       void getDbMarketplaceNavCounts(token)
-        .then(({ draftCount, sellerPendingCount, buyerPendingCount }) => {
+        .then(({ draftCount, openCount, sellerPendingCount, buyerPendingCount }) => {
           setMarketplaceDraftCount(draftCount);
+          setMarketplaceOpenCount(openCount);
           setMarketplaceSellerPendingCount(sellerPendingCount);
           setMarketplaceBuyerPendingCount(buyerPendingCount);
         })
         .catch(() => {
           setMarketplaceDraftCount(0);
+          setMarketplaceOpenCount(0);
           setMarketplaceSellerPendingCount(0);
           setMarketplaceBuyerPendingCount(0);
         });
@@ -1059,9 +1062,12 @@ export function AdminLayout() {
                             data-admin-gnb-item
                             aria-label={
                               marketplaceDraftCount > 0 ||
+                              marketplaceOpenCount > 0 ||
                               marketplaceSellerPendingCount > 0 ||
                               marketplaceBuyerPendingCount > 0
                                 ? `${def.label}, 장바구니 ${marketplaceDraftCount}건${
+                                    marketplaceOpenCount > 0 ? `, 게시 중 ${marketplaceOpenCount}건` : ''
+                                  }${
                                     marketplaceSellerPendingCount > 0
                                       ? `, 인계 대기 ${marketplaceSellerPendingCount}건`
                                       : ''
@@ -1095,12 +1101,22 @@ export function AdminLayout() {
                               {marketplaceBuyerPendingCount > 99 ? '99+' : marketplaceBuyerPendingCount}
                             </Link>
                           ) : null}
+                          {marketplaceOpenCount > 0 ? (
+                            <Link
+                              to="/admin/db-marketplace?tab=my_sales"
+                              className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sky-500 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-white tabular-nums sm:-ml-3 hover:bg-sky-400"
+                              aria-label={`게시 중 ${marketplaceOpenCount}건`}
+                              title="게시 중 — 내 판매 탭"
+                            >
+                              {marketplaceOpenCount > 99 ? '99+' : marketplaceOpenCount}
+                            </Link>
+                          ) : null}
                           {marketplaceDraftCount > 0 ? (
                             <Link
                               to="/admin/db-marketplace?tab=cart"
                               className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-violet-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums sm:-ml-3 hover:bg-violet-300"
                               aria-label={`장바구니 ${marketplaceDraftCount}건`}
-                              title="장바구니 — 내 판매 탭"
+                              title="장바구니 — 장바구니 탭"
                             >
                               {marketplaceDraftCount}
                             </Link>

@@ -18,6 +18,7 @@ import {
   countsForSideCleaningCalendarBadge,
   inquiryCountsForInternalToSlot,
 } from '../schedule/scheduleSlot.helpers.js';
+import { attachDbListingMetaToInquiries } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
 import { loadShareMetaMapForInquiries } from '../tenant-partners/tenantInquiryShare.service.js';
 import {
   countAvailableFieldStaffByDateRange,
@@ -369,10 +370,16 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     tenantId,
     inquiries.map((inv) => inv.id),
   );
+  const dbListingByInquiryId = new Map(
+    (await attachDbListingMetaToInquiries(tenantId, inquiries.map((inv) => ({ id: inv.id })))).map(
+      (row) => [row.id, row.dbListing] as const,
+    ),
+  );
   const inquiryCountsForTo = (inv: (typeof inquiries)[number]) =>
     inquiryCountsForInternalToSlot({
       assignments: inv.assignments,
       tenantShare: shareMetaByInquiryId.get(inv.id) ?? null,
+      dbListing: dbListingByInquiryId.get(inv.id) ?? null,
     });
 
   const toDateKey = kstDateKey;

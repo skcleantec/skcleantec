@@ -3,6 +3,8 @@
  * 오전·오후와 별도 용량이 아니라 확정 시(`betweenScheduleSlot`) 해당 슬롯을 1건 소모한다.
  */
 
+import { inquiryExcludedFromInternalToByDbListing } from '../../lib/dbMarketplaceSchedule.js';
+
 export function isSideCleaningPreferredTime(t: string | null | undefined): boolean {
   return (t || '').includes('사이청소');
 }
@@ -70,13 +72,15 @@ export function inquiryHasActivePartnerShareSource(
 
 /**
  * 캘린더 TO·팀원 수요·슬롯 점유 집계에 포함할 접수.
- * 타업체 전용 배정·파트너 연계(송신·ACTIVE)는 자사 용량과 무관하므로 제외.
+ * 타업체 전용 배정·파트너 연계(송신·ACTIVE)·정보공유(장바구니~확정)는 자사 용량과 무관하므로 제외.
  */
 export function inquiryCountsForInternalToSlot(inv: {
   assignments: ReadonlyArray<{ teamLeader: { role: string } }>;
   tenantShare?: { role: string; syncStatus: string } | null;
+  dbListing?: { status: string } | null;
 }): boolean {
   if (inquiryHasActivePartnerShareSource(inv.tenantShare)) return false;
+  if (inquiryExcludedFromInternalToByDbListing(inv.dbListing)) return false;
   return inquiryUsesInternalTeamLeaderSlot(inv);
 }
 

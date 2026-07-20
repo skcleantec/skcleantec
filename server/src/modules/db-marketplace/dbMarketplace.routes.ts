@@ -6,6 +6,7 @@ import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   countDbListingDrafts,
+  countDbListingOpen,
   countDbListingPendingSeller,
   countDbListingPendingBuyer,
   DbMarketplaceError,
@@ -73,12 +74,13 @@ router.get('/audience-options', async (req, res) => {
 router.get('/draft-count', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
-  const [count, sellerPendingCount, buyerPendingCount] = await Promise.all([
+  const [count, sellerPendingCount, buyerPendingCount, openCount] = await Promise.all([
     countDbListingDrafts(tenantId),
     countDbListingPendingSeller(tenantId),
     countDbListingPendingBuyer(tenantId),
+    countDbListingOpen(tenantId),
   ]);
-  res.json({ count, sellerPendingCount, buyerPendingCount });
+  res.json({ count, sellerPendingCount, buyerPendingCount, openCount });
 });
 
 router.get('/by-inquiry/:inquiryId', async (req, res) => {

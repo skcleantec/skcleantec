@@ -1,4 +1,5 @@
 import type { ScheduleItem } from '../api/schedule';
+import { inquiryExcludedFromInternalToByDbListing } from '@shared/dbMarketplaceSchedule';
 import { isSideCleaningTime } from './scheduleTimeBucket';
 
 /** server `scheduleSlot.helpers` 와 동일 — 슬롯 점유·팀장 드롭다운 필터 */
@@ -31,19 +32,15 @@ export function consumesAfternoonSlot(item: Pick<ScheduleItem, 'preferredTime' |
   return !isPlainMorningSlot(item.preferredTime);
 }
 
-function inquiryHasActivePartnerShareSource(item: ScheduleItem): boolean {
-  return item.tenantShare?.role === 'SOURCE' && item.tenantShare?.syncStatus === 'ACTIVE';
-}
-
-function inquiryUsesInternalTeamLeaderSlot(item: ScheduleItem): boolean {
-  const list = item.assignments ?? [];
+function inquiryUsesInternalTeamLeaderSlot(item: ScheduleItem): boolean {  const list = item.assignments ?? [];
   if (list.length === 0) return true;
   return list.some((a) => a.teamLeader.role === 'TEAM_LEADER' || a.teamLeader.role === 'ADMIN');
 }
 
-/** 캘린더 TO·슬롯 점유 — 파트너 연계(송신·ACTIVE)는 자사 용량에서 제외 */
+/** 캘린더 TO·슬롯 점유 — 파트너 연계(송신·ACTIVE)·정보공유(장바구니~확정)는 자사 용량에서 제외 */
 export function inquiryCountsForInternalToSlot(item: ScheduleItem): boolean {
-  if (inquiryHasActivePartnerShareSource(item)) return false;
+  if (item.tenantShare?.role === 'SOURCE' && item.tenantShare?.syncStatus === 'ACTIVE') return false;
+  if (inquiryExcludedFromInternalToByDbListing(item.dbListing)) return false;
   return inquiryUsesInternalTeamLeaderSlot(item);
 }
 

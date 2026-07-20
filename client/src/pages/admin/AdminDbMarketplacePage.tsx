@@ -501,11 +501,11 @@ export function AdminDbMarketplacePage() {
   const tabDescription = useMemo(() => {
     switch (tab) {
       case 'cart':
-        return '장바구니에 담은 DB를 선택해 노출 업체를 지정하고 한 번에 게시할 수 있습니다.';
+        return '장바구니(DRAFT)에 담은 DB를 선택해 노출 업체를 지정하고 한 번에 게시할 수 있습니다. 이미 게시한 건은 「내 판매」 탭에서 확인하세요.';
       case 'available':
         return '여러 건을 선택해 한 번에 갖고갈 수 있습니다. 구매 전에는 시·구 주소와 표시금액(잔금−수수료)만 노출됩니다.';
       case 'my_sales':
-        return '게시 중인 DB를 선택해 한 번에 게시 철회할 수 있습니다.';
+        return '게시 중·인계대기·확정 등 우리 업체가 올린 DB입니다. 관리자가 게시한 건도 모든 마케터가 여기서 볼 수 있습니다.';
       case 'pending':
         return '인계 대기(판매) 건을 선택해 일괄 인계 확정 또는 구매 신청 거절할 수 있습니다.';
       default:

@@ -242,8 +242,13 @@ function inquiryHasActivePartnerShareSource(item: ScheduleItem): boolean {
   return item.tenantShare?.role === 'SOURCE' && item.tenantShare?.syncStatus === 'ACTIVE';
 }
 
+function inquiryHasDbMarketplaceListing(item: ScheduleItem): boolean {
+  return item.dbListing != null;
+}
+
 function inquiryCountsAsUnassignedOwn(item: ScheduleItem): boolean {
   return (
+    !inquiryHasDbMarketplaceListing(item) &&
     !inquiryHasExternalAssignment(item) &&
     !inquiryHasTeamLeaderAssignment(item) &&
     !inquiryHasActivePartnerShareSource(item)
@@ -252,6 +257,7 @@ function inquiryCountsAsUnassignedOwn(item: ScheduleItem): boolean {
 
 function inquiryCountsAsOwnTeamAssignment(item: ScheduleItem): boolean {
   return (
+    !inquiryHasDbMarketplaceListing(item) &&
     !inquiryHasExternalAssignment(item) &&
     inquiryHasTeamLeaderAssignment(item) &&
     !inquiryHasActivePartnerShareSource(item)
