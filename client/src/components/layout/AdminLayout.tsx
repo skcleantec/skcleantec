@@ -44,6 +44,10 @@ import { formatCelebrateBannerFromConfig } from '../../utils/adminCelebrateBarCo
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import { AdminStagingDbImportModal } from '../admin/AdminStagingDbImportModal';
 import { BillingDunningModal } from '../admin/BillingDunningModal';
+import {
+  ProfileOnboardingModal,
+  type ProfileOnboardingInitial,
+} from '../common/ProfileOnboardingModal';
 import { ChangeLogBell } from '../admin/ChangeLogBell';
 import { getUnseenChangeCount, getChangeHistoryList, markChangeSeen } from '../../api/inquiryChangeLogs';
 import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
@@ -234,6 +238,10 @@ export function AdminLayout() {
   const [stagingDbImportModalOpen, setStagingDbImportModalOpen] = useState(false);
   const [billingDunningOpen, setBillingDunningOpen] = useState(false);
   const closeBillingDunning = useCallback(() => setBillingDunningOpen(false), []);
+  const [profileOnboardingRequired, setProfileOnboardingRequired] = useState(false);
+  const [profileOnboardingInitial, setProfileOnboardingInitial] = useState<ProfileOnboardingInitial>({
+    role: 'MARKETER',
+  });
   const [fabDragging, setFabDragging] = useState(false);
   const fabPointerIdRef = useRef<number | null>(null);
   const fabHoldTimerRef = useRef<number | null>(null);
@@ -343,6 +351,7 @@ export function AdminLayout() {
       setIsTenantOwner(false);
       setIsSuperAdmin(false);
       setCanCrmSettings(false);
+      setProfileOnboardingRequired(false);
       setMeProfileLoading(false);
       return;
     }
@@ -365,6 +374,8 @@ export function AdminLayout() {
         marketerAdminAccess?: boolean;
         marketerPermissions?: StaffAdminMeFields['marketerPermissions'];
         features?: string[];
+        profileOnboardingRequired?: boolean;
+        externalCompany?: ProfileOnboardingInitial['externalCompany'];
         tenant?: { id?: string; plan?: string; name?: string; displayName?: string; slug?: string } | null;
         tenantId?: string;
       }) => {
@@ -409,6 +420,15 @@ export function AdminLayout() {
         setIsTenantOwner(Boolean(u.isTenantOwner));
         setIsSuperAdmin(Boolean(u.isSuperAdmin));
         setCanCrmSettings(resolveCanCrmSettingsFromMe(u));
+        setProfileOnboardingRequired(
+          Boolean(u.profileOnboardingRequired) && role === 'MARKETER',
+        );
+        setProfileOnboardingInitial({
+          role: role ?? 'MARKETER',
+          name: typeof u.name === 'string' ? u.name : null,
+          phone: typeof u.phone === 'string' ? u.phone : null,
+          externalCompany: u.externalCompany ?? null,
+        });
         /** 팀·크루 미리보기: 업무 관리자(ADMIN) + 개발용 이메일 화이트리스트만. 일반 마케터는 제외 */
         const preview = role === 'ADMIN' || isTeamPreviewAdminEmail(email);
         setTeamPreviewLink(preview);
@@ -1258,6 +1278,32 @@ export function AdminLayout() {
         tenantId={meTenantId}
         onClose={closeBillingDunning}
       />
+      {adminToken && profileOnboardingRequired && meRole === 'MARKETER' ? (
+        <ProfileOnboardingModal
+          open
+          token={adminToken}
+          initial={profileOnboardingInitial}
+          onCompleted={() => {
+            setProfileOnboardingRequired(false);
+            getMe(adminToken)
+              .then((u: {
+                name?: string;
+                phone?: string | null;
+                profileOnboardingRequired?: boolean;
+              }) => {
+                setMeName(typeof u.name === 'string' && u.name.trim() ? u.name.trim() : null);
+                setMePhone(typeof u.phone === 'string' && u.phone.trim() ? u.phone.trim() : null);
+                setProfileOnboardingRequired(Boolean(u.profileOnboardingRequired));
+              })
+              .catch(() => {});
+          }}
+          onSessionExpired={() => {
+            clearToken();
+            clearTeamToken();
+            navigate('/login', { replace: true, state: { sessionExpired: true } });
+          }}
+        />
+      ) : null}
       {adminToken && (
         <ChangeLogBell
           token={adminToken}

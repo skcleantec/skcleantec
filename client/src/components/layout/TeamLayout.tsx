@@ -8,6 +8,10 @@ import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useInboxRealtime, useRosterAckRealtime, type RosterAckPayload } from '../../hooks/useInboxRealtime';
 import { UserProfileMenu } from '../common/UserProfileMenu';
+import {
+  ProfileOnboardingModal,
+  type ProfileOnboardingInitial,
+} from '../common/ProfileOnboardingModal';
 import { RosterAckBanner } from '../common/RosterAckBanner';
 import { ChangeLogBell } from '../admin/ChangeLogBell';
 import {
@@ -260,6 +264,41 @@ export function TeamLayout() {
   const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
   const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [teamTrainingAvailable, setTeamTrainingAvailable] = useState(false);
+  const [profileOnboardingRequired, setProfileOnboardingRequired] = useState(false);
+  const [profileOnboardingInitial, setProfileOnboardingInitial] = useState<ProfileOnboardingInitial>({
+    role: 'TEAM_LEADER',
+  });
+
+  const reloadTeamMe = useCallback(() => {
+    const token = getTeamToken();
+    if (!token) return;
+    getTeamMe(token)
+      .then((u: TeamViewerMe) => {
+        setUserName(u.name ?? null);
+        setUserRole(u.role ?? null);
+        setUserPhone(u.phone ?? null);
+        setUserVehicleNumber(u.vehicleNumber ?? null);
+        setUserNameEn(u.role === 'TEAM_LEADER' ? (u.nameEn ?? null) : null);
+        const needsOnboarding =
+          Boolean(u.profileOnboardingRequired) &&
+          (u.role === 'TEAM_LEADER' || u.role === 'EXTERNAL_PARTNER');
+        setProfileOnboardingRequired(needsOnboarding);
+        setProfileOnboardingInitial({
+          role: u.role,
+          name: u.name,
+          phone: u.phone,
+          vehicleNumber: u.vehicleNumber,
+          nameEn: u.nameEn,
+          externalCompany:
+            u.externalCompany && 'bizNumber' in u.externalCompany
+              ? u.externalCompany
+              : u.externalCompany
+                ? { ...u.externalCompany, bizNumber: null, phone: null, memo: null, businessRegistrationImageUrl: null }
+                : null,
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   useDocumentTitle(tenantName);
 
@@ -280,6 +319,7 @@ export function TeamLayout() {
       setTenantFeatures(null);
       setTenantSlug(null);
       setTeamTrainingAvailable(false);
+      setProfileOnboardingRequired(false);
       return;
     }
     const startedKey = capturePreviewKey();
@@ -297,6 +337,31 @@ export function TeamLayout() {
         setTenantName(u.tenant?.displayName?.trim() || u.tenant?.name?.trim() || null);
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
         setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : null);
+        const needsOnboarding =
+          Boolean(u.profileOnboardingRequired) &&
+          u.role !== 'ADMIN' &&
+          (u.role === 'TEAM_LEADER' || u.role === 'EXTERNAL_PARTNER');
+        setProfileOnboardingRequired(needsOnboarding);
+        setProfileOnboardingInitial({
+          role: u.role,
+          name: u.name,
+          phone: u.phone,
+          vehicleNumber: u.vehicleNumber,
+          nameEn: u.nameEn,
+          externalCompany:
+            u.externalCompany && 'bizNumber' in u.externalCompany
+              ? (u.externalCompany as ProfileOnboardingInitial['externalCompany'])
+              : u.externalCompany
+                ? {
+                    id: u.externalCompany.id,
+                    name: u.externalCompany.name,
+                    bizNumber: null,
+                    phone: null,
+                    memo: null,
+                    businessRegistrationImageUrl: null,
+                  }
+                : null,
+        });
       })
       .catch((e) => {
         if (isPreviewFetchStale(startedKey)) return;
@@ -579,6 +644,21 @@ export function TeamLayout() {
           }
         />
       )}
+      {teamToken && profileOnboardingRequired ? (
+        <ProfileOnboardingModal
+          open
+          token={teamToken}
+          initial={profileOnboardingInitial}
+          onCompleted={() => {
+            setProfileOnboardingRequired(false);
+            reloadTeamMe();
+          }}
+          onSessionExpired={() => {
+            clearTeamToken();
+            navigate('/login', { replace: true, state: { sessionExpired: true } });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

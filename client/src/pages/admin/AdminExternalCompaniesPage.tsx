@@ -13,6 +13,9 @@ import {
 } from '../../api/externalCompanies';
 import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { LoginCredentialsCopySheet } from '../../components/admin/LoginCredentialsCopySheet';
+import { getMe } from '../../api/auth';
+import type { LoginCredentialsCopyInput } from '../../utils/userLoginCopyText';
 import { isExternalCompanyUsageDisabled } from '../../utils/externalCompanyUsage';
 
 const emptyCreateForm = () => ({
@@ -68,6 +71,18 @@ export function AdminExternalCompaniesPage() {
   const [migrationPreview, setMigrationPreview] = useState<{ count: number; feeTotal: number } | null>(null);
   const [migrationBusy, setMigrationBusy] = useState(false);
   const [migrationErr, setMigrationErr] = useState<string | null>(null);
+  const [tenantSlug, setTenantSlug] = useState('');
+  const [loginCopyOpen, setLoginCopyOpen] = useState(false);
+  const [loginCopyCredentials, setLoginCopyCredentials] = useState<LoginCredentialsCopyInput | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    getMe(token)
+      .then((u: { tenant?: { slug?: string } | null }) => {
+        setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : '');
+      })
+      .catch(() => setTenantSlug(''));
+  }, [token]);
 
   const load = () => {
     if (!token) return;
@@ -89,20 +104,31 @@ export function AdminExternalCompaniesPage() {
     setSubmitting(true);
     setCreateErr(null);
     try {
+      const copyEmail = form.loginEmail.trim().toLowerCase();
+      const copyPassword = form.loginPassword;
       await createExternalCompany(token, {
         name: form.name.trim(),
         bizNumber: form.bizNumber.trim() || undefined,
         phone: form.phone.trim() || undefined,
         memo: form.memo.trim() || undefined,
         login: {
-          email: form.loginEmail.trim().toLowerCase(),
-          password: form.loginPassword,
+          email: copyEmail,
+          password: copyPassword,
           contactName: form.contactName.trim(),
           phone: form.contactPhone.trim() || undefined,
         },
       });
       closeCreateModal();
       load();
+      if (tenantSlug.trim()) {
+        setLoginCopyCredentials({
+          tenantSlug: tenantSlug.trim().toLowerCase(),
+          email: copyEmail,
+          password: copyPassword,
+          accountLabel: '타업체',
+        });
+        setLoginCopyOpen(true);
+      }
     } catch (e) {
       setCreateErr(e instanceof Error ? e.message : '등록 실패');
     } finally {
@@ -721,6 +747,11 @@ export function AdminExternalCompaniesPage() {
           </div>
         </div>
       ) : null}
+      <LoginCredentialsCopySheet
+        open={loginCopyOpen}
+        onClose={() => setLoginCopyOpen(false)}
+        credentials={loginCopyCredentials}
+      />
     </div>
   );
 }

@@ -17,6 +17,8 @@ import type { MarketerAdminLevel } from '@shared/marketerAdminLevel';
 import { MARKETER_ADMIN_LEVEL_LABEL } from '@shared/marketerAdminLevel';
 import { getToken } from '../../stores/auth';
 import { getMe } from '../../api/auth';
+import { LoginCredentialsCopySheet } from '../../components/admin/LoginCredentialsCopySheet';
+import type { LoginCredentialsCopyInput } from '../../utils/userLoginCopyText';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
@@ -248,6 +250,24 @@ export function AdminTeamLeadersPage() {
   const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
   const [szForm, setSzForm] = useState<UserServiceZoneFormValue>({ serviceZoneIds: [] });
   const [editSzForm, setEditSzForm] = useState<UserServiceZoneFormValue>({ serviceZoneIds: [] });
+  const [tenantSlug, setTenantSlug] = useState('');
+  const [loginCopyOpen, setLoginCopyOpen] = useState(false);
+  const [loginCopyCredentials, setLoginCopyCredentials] = useState<LoginCredentialsCopyInput | null>(null);
+
+  const openLoginCopySheet = useCallback(
+    (input: Omit<LoginCredentialsCopyInput, 'tenantSlug'> & { tenantSlug?: string }) => {
+      const slug = (input.tenantSlug ?? tenantSlug).trim().toLowerCase();
+      if (!slug) return;
+      setLoginCopyCredentials({
+        tenantSlug: slug,
+        email: input.email,
+        password: input.password,
+        accountLabel: input.accountLabel,
+      });
+      setLoginCopyOpen(true);
+    },
+    [tenantSlug],
+  );
 
   const refresh = (): Promise<void> => {
     if (!token) return Promise.resolve();
@@ -286,8 +306,9 @@ export function AdminTeamLeadersPage() {
   useEffect(() => {
     if (!token) return;
     getMe(token)
-      .then((u: { isTenantOwner?: boolean; isSuperAdmin?: boolean }) => {
+      .then((u: { isTenantOwner?: boolean; isSuperAdmin?: boolean; tenant?: { slug?: string } | null }) => {
         setIsTenantOwner(Boolean(u.isTenantOwner ?? u.isSuperAdmin));
+        setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : '');
       })
       .catch(() => {
         setIsTenantOwner(false);
@@ -425,6 +446,13 @@ export function AdminTeamLeadersPage() {
       }
 
       await createUser(token, payload);
+      if (role === 'TEAM_LEADER' || role === 'MARKETER') {
+        openLoginCopySheet({
+          email: payload.email,
+          password: payload.password,
+          accountLabel: role === 'TEAM_LEADER' ? '팀장' : '마케터',
+        });
+      }
       setForm(emptyRegisterForm());
       setOcForm(defaultUserOperatingCompanyForm(operatingCompanies));
       setSzForm({ serviceZoneIds: [] });
@@ -502,6 +530,7 @@ export function AdminTeamLeadersPage() {
       if (editForm.password.trim()) {
         payload.password = editForm.password.trim();
       }
+      const newPasswordForCopy = editForm.password.trim();
       if (isTenantOwner) {
         payload.hireDate = editForm.hireDate.trim() || null;
         payload.resignationDate = editForm.resignationDate.trim() || null;
@@ -596,6 +625,16 @@ export function AdminTeamLeadersPage() {
       }
 
       await updateUser(token, editingUser.id, payload);
+      if (
+        newPasswordForCopy &&
+        (editingUser.role === 'TEAM_LEADER' || editingUser.role === 'MARKETER')
+      ) {
+        openLoginCopySheet({
+          email: payload.email,
+          password: newPasswordForCopy,
+          accountLabel: editingUser.role === 'TEAM_LEADER' ? '팀장' : '마케터',
+        });
+      }
       setEditingUser(null);
       refresh();
     } catch (err) {
@@ -2078,6 +2117,11 @@ export function AdminTeamLeadersPage() {
           </div>,
           document.body
         )}
+      <LoginCredentialsCopySheet
+        open={loginCopyOpen}
+        onClose={() => setLoginCopyOpen(false)}
+        credentials={loginCopyCredentials}
+      />
     </div>
   );
 }

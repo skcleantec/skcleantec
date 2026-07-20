@@ -716,6 +716,9 @@ model ExternalCompany {
   bizNumber String?  @map("biz_number") @db.VarChar(64)
   phone     String?  @db.VarChar(64)
   memo      String?  @db.Text
+  /// 타업체 담당자가 최초 로그인 시 업로드 — 사업자등록증 이미지(Cloudinary). PDF 불가.
+  businessRegistrationImageUrl      String? @map("business_registration_image_url") @db.VarChar(2048)
+  businessRegistrationImagePublicId String? @map("business_registration_image_public_id") @db.VarChar(512)
   isActive  Boolean  @default(true) @map("is_active")
   /// 신규 배정·DB마켓 노출 등에서 제외(삭제·isActive=false 와 별도). 과거 배정·정산은 유지.
   usageDisabledAt       DateTime? @map("usage_disabled_at")
@@ -821,6 +824,8 @@ model User {
   marketerAdminLevel MarketerAdminLevel @default(NONE) @map("marketer_admin_level")
   /// 마케터 세부 권한 맵(JSON). null이면 marketerAdminLevel 프리셋만 적용
   marketerPermissions Json? @map("marketer_permissions")
+  /// 팀장·마케터·타업체 — 최초 로그인 본인 정보 입력 완료 시각. null이면 업무 화면 차단.
+  profileCompletedAt DateTime? @map("profile_completed_at")
 
   assignmentsAssigned Assignment[] @relation("TeamLeaderAssignments")
   assignmentsGiven     Assignment[] @relation("AdminAssignments")

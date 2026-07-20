@@ -556,6 +556,9 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
         ...(userRole === 'TEAM_LEADER' && teamLeaderAdditionalReceiptCompanyShareBps !== undefined
           ? { teamLeaderAdditionalReceiptCompanyShareBps }
           : {}),
+        ...(userRole === 'TEAM_LEADER' || userRole === 'MARKETER'
+          ? { profileCompletedAt: null }
+          : { profileCompletedAt: new Date() }),
       },
       select: {
         id: true,

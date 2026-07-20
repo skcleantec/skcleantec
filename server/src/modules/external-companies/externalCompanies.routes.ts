@@ -221,6 +221,7 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
         phone: login?.phone ? String(login.phone).trim() || null : null,
         role: 'EXTERNAL_PARTNER',
         externalCompanyId: company.id,
+        profileCompletedAt: null,
       },
       select: { id: true, email: true, name: true, phone: true },
     });

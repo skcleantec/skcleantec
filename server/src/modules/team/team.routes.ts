@@ -62,6 +62,7 @@ import { tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.hel
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
+import { buildProfileOnboardingMeFields } from '../onboarding/profileOnboarding.service.js';
 import { countPendingIssuancesForTeamLeader, listIssuancesByTeamLeader, parseEContractListQuery } from '../e-contract/eContract.service.js';
 import { countDbListingPendingForExternalBuyer } from '../db-marketplace/dbMarketplace.service.js';
 import {
@@ -125,7 +126,17 @@ router.get('/me', async (req, res) => {
       vehicleNumber: true,
       allowSelfDayOffEdit: true,
       externalCompanyId: true,
-      externalCompany: { select: { id: true, name: true } },
+      profileCompletedAt: true,
+      externalCompany: {
+        select: {
+          id: true,
+          name: true,
+          bizNumber: true,
+          phone: true,
+          memo: true,
+          businessRegistrationImageUrl: true,
+        },
+      },
       staffIdCardUrl: true,
       hireDate: true,
       tenantId: true,
@@ -154,7 +165,7 @@ router.get('/me', async (req, res) => {
       features = await getEffectiveEnabledModules(tenantId);
     }
   }
-  const { tenantId: _omitTenantId, ...meRest } = me;
+  const { tenantId: _omitTenantId, externalCompany, ...meRest } = me;
   res.json({
     ...meRest,
     viewerRole: viewer?.role ?? me.role,
@@ -162,6 +173,7 @@ router.get('/me', async (req, res) => {
     previewTeamLeader: Boolean(viewer?.previewTeamLeader),
     tenant,
     features,
+    ...buildProfileOnboardingMeFields(me, externalCompany ?? null),
   });
 });
 

@@ -125,3 +125,63 @@ export async function updateMyProfile(
   }
   return res.json();
 }
+
+export type ExternalCompanyOnboarding = {
+  id: string;
+  name: string;
+  bizNumber: string | null;
+  phone: string | null;
+  memo: string | null;
+  businessRegistrationImageUrl: string | null;
+};
+
+export type CompleteProfilePayload = {
+  name: string;
+  phone: string;
+  vehicleNumber?: string;
+  nameEn?: string;
+  companyName?: string;
+  companyPhone?: string;
+  bizNumber?: string;
+  memo?: string;
+  businessRegistrationImage?: File | null;
+};
+
+export async function completeMyProfile(token: string, body: CompleteProfilePayload) {
+  const fd = new FormData();
+  fd.append('name', body.name.trim());
+  fd.append('phone', body.phone.trim());
+  if (body.vehicleNumber !== undefined) fd.append('vehicleNumber', body.vehicleNumber.trim());
+  if (body.nameEn !== undefined) fd.append('nameEn', body.nameEn.trim());
+  if (body.companyName !== undefined) fd.append('companyName', body.companyName.trim());
+  if (body.companyPhone !== undefined) fd.append('companyPhone', body.companyPhone.trim());
+  if (body.bizNumber !== undefined) fd.append('bizNumber', body.bizNumber.trim());
+  if (body.memo !== undefined) fd.append('memo', body.memo.trim());
+  if (body.businessRegistrationImage) {
+    fd.append('businessRegistrationImage', body.businessRegistrationImage);
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API}/auth/me/complete-profile`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    });
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (!res.ok) {
+    if (res.status === 502 || res.status === 503) {
+      throw apiUnreachableMessage();
+    }
+    throw new Error(await apiErrorMessage(res, '프로필 저장에 실패했습니다.'));
+  }
+  return res.json();
+}

@@ -1,6 +1,6 @@
 import type { CsReport } from './cs';
 import { API } from './apiPrefix';
-import { AuthSessionExpiredError } from './auth';
+import { AuthSessionExpiredError, type ExternalCompanyOnboarding } from './auth';
 import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
 
 function headers(token: string) {
@@ -62,18 +62,16 @@ export interface TeamViewerMe {
   vehicleNumber?: string | null;
   allowSelfDayOffEdit?: boolean;
   externalCompanyId?: string | null;
-  externalCompany?: { id: string; name: string } | null;
+  externalCompany?: ExternalCompanyOnboarding | { id: string; name: string } | null;
   viewerRole?: string;
   previewExternal?: boolean;
   previewTeamLeader?: boolean;
-  /** 관리자 업로드 사원증(Cloudinary). 모바일에서 열람 */
   staffIdCardUrl?: string | null;
-  /** 입사일 — 사원증 하단 인증 문구용 */
   hireDate?: string | null;
-  /** 소속 업체(테넌트) 표시명 — 헤더·탭 제목용 */
   tenant?: { id: string; name: string; displayName: string; slug?: string } | null;
-  /** 테넌트 기능 모듈 (FeatureGate·메뉴 표시) */
   features?: string[];
+  profileCompletedAt?: string | null;
+  profileOnboardingRequired?: boolean;
 }
 
 export async function getTeamMe(token: string): Promise<TeamViewerMe> {
