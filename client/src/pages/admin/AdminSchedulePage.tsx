@@ -157,6 +157,9 @@ function scheduleLegendSlotHelpText(crewUnits: number): string {
 const SCHEDULE_UNASSIGNED_SECTION_HELP =
   '팀장이 아직 배정되지 않은 자사 접수입니다. 사이청소·일반 접수 모두 오전·오후 확정(또는 희망 시간대)에 따라 미배정 오전/오후/사이·미확정으로 나뉩니다. 팀장 배정 후에는 아래 오전·오후·사이 일정 구역으로 이동합니다.';
 
+const SCHEDULE_MARKETPLACE_SECTION_HELP =
+  '정보공유(장바구니·게시·인계)에 올린 자사 접수입니다. 팀장 미배정·자사 TO 집계에서는 제외되지만, 스케줄에서 확인·관리할 수 있습니다. 카드의 장바구니 아이콘에 마우스를 올리면 현재 단계가 표시됩니다.';
+
 function groupScheduleItemsByKstDate(items: ScheduleItem[]) {
   return items.reduce<Record<string, ScheduleItem[]>>((acc, item) => {
     const key = item.preferredDate
@@ -260,6 +263,15 @@ function inquiryCountsAsOwnTeamAssignment(item: ScheduleItem): boolean {
     !inquiryHasDbMarketplaceListing(item) &&
     !inquiryHasExternalAssignment(item) &&
     inquiryHasTeamLeaderAssignment(item) &&
+    !inquiryHasActivePartnerShareSource(item)
+  );
+}
+
+/** 정보공유(장바구니~확정) 자사 접수 — 타업체·파트너 구역과 겹치지 않는 건만 별도 표시 */
+function inquiryCountsAsDbMarketplaceOwnSchedule(item: ScheduleItem): boolean {
+  return (
+    inquiryHasDbMarketplaceListing(item) &&
+    !inquiryHasExternalAssignment(item) &&
     !inquiryHasActivePartnerShareSource(item)
   );
 }
@@ -2523,6 +2535,17 @@ export function AdminSchedulePage() {
                 );
                 const unassignedOwn = unassignedOwnAll;
 
+                const marketplaceOwnAll = dayList.filter(inquiryCountsAsDbMarketplaceOwnSchedule);
+                const marketplaceOwnMorning = sortScheduleItemsByCustomer(
+                  marketplaceOwnAll.filter((i) => getScheduleTimeBucket(i) === 'morning'),
+                );
+                const marketplaceOwnAfternoon = sortScheduleItemsByCustomer(
+                  marketplaceOwnAll.filter((i) => getScheduleTimeBucket(i) === 'afternoon'),
+                );
+                const marketplaceOwnOther = sortScheduleItemsByCustomer(
+                  marketplaceOwnAll.filter((i) => getScheduleTimeBucket(i) === 'other'),
+                );
+
                 const morningExt = morningList.filter(inquiryHasExternalAssignment);
                 const afternoonExt = afternoonList.filter(inquiryHasExternalAssignment);
                 const otherExt = otherList.filter(inquiryHasExternalAssignment);
@@ -2648,6 +2671,113 @@ export function AdminSchedulePage() {
                               </p>
                               <div className="flex flex-col gap-1.5">
                                 {unassignedOwnOther.map((item) => (
+                                  <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
+                                    key={item.id}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {marketplaceOwnAll.length > 0 && (
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-2.5 bg-violet-50 border border-violet-100 rounded-lg px-3 py-1.5 w-full">
+                          <span className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
+                          <span className="text-fluid-xs font-bold text-violet-950 flex-1">정보공유</span>
+                          <HelpTooltip className="shrink-0" text={SCHEDULE_MARKETPLACE_SECTION_HELP} />
+                          <span className="text-[10px] font-bold text-violet-700 bg-violet-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">
+                            {marketplaceOwnAll.length}건
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                          {marketplaceOwnMorning.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-amber-500/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-amber-950">정보공유 · 오전</span>
+                                <span className="text-fluid-2xs text-amber-900/80 tabular-nums">
+                                  {marketplaceOwnMorning.length}건
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {marketplaceOwnMorning.map((item) => (
+                                  <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
+                                    key={item.id}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {marketplaceOwnAfternoon.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-sky-600/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-sky-950">정보공유 · 오후</span>
+                                <span className="text-fluid-2xs text-sky-900/80 tabular-nums">
+                                  {marketplaceOwnAfternoon.length}건
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {marketplaceOwnAfternoon.map((item) => (
+                                  <ScheduleDayListItem
+                                    oneRoomLabel={oneRoomLabel}
+                                    skOneRoomHighlight={skOpsUi}
+                                    key={item.id}
+                                    item={item}
+                                    profCatalog={profCatalog}
+                                    viewerRole={meRole}
+                                    leaderAssignmentCountsForDay={leaderAssignmentCountsForSelectedDate}
+                                    onPick={() => {
+                                      setMemoModalItem(null);
+                                      setDetailItem(item);
+                                    }}
+                                    onOpenMemo={() => {
+                                      setDetailItem(null);
+                                      setMemoModalItem(item);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {marketplaceOwnOther.length > 0 && (
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-2 border-b border-violet-500/70 pb-1">
+                                <span className="text-fluid-xs font-bold text-violet-950">정보공유 · 사이 · 미확정</span>
+                                <span className="text-fluid-2xs text-violet-900/80 tabular-nums">
+                                  {marketplaceOwnOther.length}건
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {marketplaceOwnOther.map((item) => (
                                   <ScheduleDayListItem
                                     oneRoomLabel={oneRoomLabel}
                                     skOneRoomHighlight={skOpsUi}
