@@ -156,6 +156,34 @@ html, body {
   width: 100%;
 }
 
+/** 로그인·인증 — 모바일 키보드·safe area 대응 스크롤 루트 */
+.login-surface {
+  -webkit-overflow-scrolling: touch;
+}
+
+.login-surface .login-scroll-content {
+  padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px), var(--login-keyboard-inset, 0px));
+}
+
+.login-surface .login-field-input {
+  scroll-margin-top: 1rem;
+  scroll-margin-bottom: 7rem;
+}
+
+@media (max-height: 740px) {
+  .login-brand-block {
+    margin-bottom: 1rem !important;
+  }
+
+  .login-brand-block .login-brand-mist {
+    opacity: 0.35;
+  }
+
+  .login-brand-block h1 {
+    font-size: 1.5rem !important;
+  }
+}
+
 /* Header brand text & headings */
 .theme-dark-header h1,
 .theme-dark-header h1 span,
