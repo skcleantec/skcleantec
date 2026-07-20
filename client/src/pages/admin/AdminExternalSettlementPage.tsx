@@ -168,6 +168,15 @@ export function AdminExternalSettlementPage() {
       viaMarketplace?: boolean;
     }>
   >([]);
+  const [detailSummary, setDetailSummary] = useState<{
+    month: string;
+    carryOverAmount: number;
+    totalFee: number;
+    payableAmount: number;
+    periodPaidAmount: number;
+    remainingAmount: number;
+  } | null>(null);
+  const currentMonthKey = kstTodayYmd().slice(0, 7);
   const detailItems = useMemo(() => {
     const q = detailSearch.trim().toLowerCase();
     if (!q) return detailAllItems;
@@ -338,8 +347,10 @@ export function AdminExternalSettlementPage() {
   const openDetailModal = async (row: ExternalSettlementCompanyOverviewRow, targetMonth = detailMonth) => {
     if (!token || !resolvedOperatingCompanyId) return;
     setSelected(row);
+    setDetailMonth(targetMonth);
     setDetailModalOpen(true);
     setDetailSearch('');
+    setDetailSummary(null);
     setDetailLoading(true);
     try {
       const range = monthStartEnd(targetMonth);
@@ -348,6 +359,14 @@ export function AdminExternalSettlementPage() {
         from: range.from,
         to: range.to,
         operatingCompanyId: resolvedOperatingCompanyId,
+      });
+      setDetailSummary({
+        month: detail.month,
+        carryOverAmount: detail.carryOverAmount,
+        totalFee: detail.totalFee,
+        payableAmount: detail.payableAmount,
+        periodPaidAmount: detail.periodPaidAmount,
+        remainingAmount: detail.remainingAmount,
       });
       setDetailAllItems(
         detail.items.map((it) => ({
@@ -360,6 +379,7 @@ export function AdminExternalSettlementPage() {
       );
     } catch {
       setDetailAllItems([]);
+      setDetailSummary(null);
     } finally {
       setDetailLoading(false);
     }
@@ -983,13 +1003,46 @@ export function AdminExternalSettlementPage() {
                 </label>
               </div>
               <div className="mb-3 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs space-y-1">
-                <p className="flex items-center justify-between">
-                  <span className="text-gray-600">해당 월 합계 수수료</span>
-                  <strong className={`tabular-nums ${detailMonthTotalFee < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                    {detailMonthTotalFee < 0 ? '-' : '+'}
-                    {won(Math.abs(detailMonthTotalFee))}
-                  </strong>
-                </p>
+                {detailSummary ? (
+                  <>
+                    <p className="flex items-center justify-between">
+                      <span className="text-gray-600">이월 미수금</span>
+                      <strong className="tabular-nums text-gray-900">{won(detailSummary.carryOverAmount)}</strong>
+                    </p>
+                    <p className="flex items-center justify-between">
+                      <span className="text-gray-600">해당 월 발생 수수료</span>
+                      <strong
+                        className={`tabular-nums ${detailSummary.totalFee < 0 ? 'text-rose-700' : 'text-emerald-700'}`}
+                      >
+                        {detailSummary.totalFee < 0 ? '-' : '+'}
+                        {won(Math.abs(detailSummary.totalFee))}
+                      </strong>
+                    </p>
+                    <p className="flex items-center justify-between">
+                      <span className="text-gray-600">해당 월 정산완료</span>
+                      <strong className="tabular-nums text-emerald-700">{won(detailSummary.periodPaidAmount)}</strong>
+                    </p>
+                    <p className="flex items-center justify-between border-t border-gray-200 pt-1">
+                      <span className="font-medium text-gray-700">해당 월 기말 미수</span>
+                      <strong className="tabular-nums text-rose-700">{won(detailSummary.remainingAmount)}</strong>
+                    </p>
+                    {detailSummary.month === currentMonthKey ? (
+                      <p className="border-t border-gray-200 pt-1 text-[11px] leading-relaxed text-gray-500">
+                        목록의 누적 미수금({won(selected.remainingAmount)})은 한국 시간 기준 오늘까지 발생한
+                        수수료에서 전체 정산완료액을 뺀 금액입니다. 정산 기준일(예약일·정보공유 인계 확정일)이
+                        오늘 이후인 당월 건은 목록 미수에 아직 포함되지 않을 수 있습니다.
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="flex items-center justify-between">
+                    <span className="text-gray-600">해당 월 합계 수수료</span>
+                    <strong className={`tabular-nums ${detailMonthTotalFee < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                      {detailMonthTotalFee < 0 ? '-' : '+'}
+                      {won(Math.abs(detailMonthTotalFee))}
+                    </strong>
+                  </p>
+                )}
                 {detailSearch.trim() ? (
                   <p className="flex items-center justify-between">
                     <span className="text-gray-500">검색 결과 ({detailItems.length}건)</span>

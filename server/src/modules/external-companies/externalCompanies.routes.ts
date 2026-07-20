@@ -7,7 +7,10 @@ import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 import { loadMarketplaceConfirmedInquiryIdSet, loadMarketplaceExternalBuyerByInquiry } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
-import { resolveExternalSettlementCompanyAttribution } from '../../lib/externalSettlementAttribution.js';
+import {
+  hybridLegacySettlementFromShare,
+  resolveExternalSettlementCompanyAttribution,
+} from '../../lib/externalSettlementAttribution.js';
 import {
   computeSignedExternalFeeBeforeDate,
   fetchExternalSettlementInquiriesForCompanyPeriod,
@@ -562,6 +565,14 @@ router.get('/settlement/summary', requireStaffPermission('admin.externalSettleme
           },
         },
       },
+      tenantShareAsSource: {
+        select: {
+          syncStatus: true,
+          settlementMode: true,
+          settlementExternalCompanyId: true,
+          settlementExternalCompany: { select: { id: true, name: true } },
+        },
+      },
     },
   });
   const summaryConfirmAtMap = await loadMarketplaceExternalConfirmAtMap(tenantId, {
@@ -597,7 +608,13 @@ router.get('/settlement/summary', requireStaffPermission('admin.externalSettleme
     const fee = inq.externalTransferFee ?? 0;
     const isCancelled = inq.status === 'CANCELLED';
     const attributed = resolveExternalSettlementCompanyAttribution(
-      inq,
+      {
+        id: inq.id,
+        cancelFeeExternalCompanyId: inq.cancelFeeExternalCompanyId,
+        cancelFeeExternalCompany: inq.cancelFeeExternalCompany,
+        assignments: inq.assignments,
+        hybridLegacySettlement: hybridLegacySettlementFromShare(inq.tenantShareAsSource),
+      },
       isCancelled,
       marketplaceBuyerByInquiry.get(inq.id),
     );
@@ -709,6 +726,14 @@ router.get('/settlement/monthly-overview', requireStaffPermission('admin.externa
           },
         },
       },
+      tenantShareAsSource: {
+        select: {
+          syncStatus: true,
+          settlementMode: true,
+          settlementExternalCompanyId: true,
+          settlementExternalCompany: { select: { id: true, name: true } },
+        },
+      },
     },
   });
   const confirmAtMap = await loadMarketplaceExternalConfirmAtMap(tenantId, {
@@ -755,7 +780,13 @@ router.get('/settlement/monthly-overview', requireStaffPermission('admin.externa
     const fee = inq.externalTransferFee ?? 0;
     const isCancelled = inq.status === 'CANCELLED';
     const attributed = resolveExternalSettlementCompanyAttribution(
-      inq,
+      {
+        id: inq.id,
+        cancelFeeExternalCompanyId: inq.cancelFeeExternalCompanyId,
+        cancelFeeExternalCompany: inq.cancelFeeExternalCompany,
+        assignments: inq.assignments,
+        hybridLegacySettlement: hybridLegacySettlementFromShare(inq.tenantShareAsSource),
+      },
       isCancelled,
       marketplaceBuyerByInquiry.get(inq.id),
     );

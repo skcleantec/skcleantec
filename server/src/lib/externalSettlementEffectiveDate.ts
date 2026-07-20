@@ -1,6 +1,15 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from './prisma.js';
-import { loadMarketplaceExternalInquiryIdsForCompany } from '../modules/db-marketplace/dbMarketplaceSettlementMeta.js';
+import {
+  hybridLegacySettlementFromShare,
+  inquiryAttributedToExternalCompany,
+  type ExternalSettlementInquiryAttributionInput,
+  type TenantShareAsSourceRow,
+} from './externalSettlementAttribution.js';
+import {
+  loadMarketplaceExternalBuyerByInquiry,
+  loadMarketplaceExternalInquiryIdsForCompany,
+} from '../modules/db-marketplace/dbMarketplaceSettlementMeta.js';
 /** 타업체 정산 기준일 — 정보공유 인계 확정 건은 sellerConfirmedAt, 그 외는 예약일 */
 export function resolveExternalSettlementEffectiveDate(
   preferredDate: Date | null,
@@ -12,6 +21,12 @@ export function resolveExternalSettlementEffectiveDate(
 
 export function kstYmdFromDate(d: Date): string {
   return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+/** KST 오늘 23:59:59.999 — 누적 미수금 집계 상한 */
+export function endOfKstToday(): Date {
+  const ymd = kstYmdFromDate(new Date());
+  return new Date(`${ymd}T23:59:59.999+09:00`);
 }
 
 export function isInExternalSettlementPeriod(
@@ -126,7 +141,45 @@ const inquirySettlementAssignmentSelect = {
       },
     },
   },
+  tenantShareAsSource: {
+    select: {
+      syncStatus: true,
+      settlementMode: true,
+      settlementExternalCompanyId: true,
+      settlementExternalCompany: { select: { id: true, name: true } },
+    },
+  },
 } as const;
+
+function toExternalSettlementAttributionInput(row: {
+  id: string;
+  cancelFeeExternalCompanyId: string | null;
+  assignments: ExternalSettlementInquiryAttributionInput['assignments'];
+  tenantShareAsSource: TenantShareAsSourceRow | null;
+}): ExternalSettlementInquiryAttributionInput {
+  return {
+    id: row.id,
+    cancelFeeExternalCompanyId: row.cancelFeeExternalCompanyId,
+    assignments: row.assignments,
+    hybridLegacySettlement: hybridLegacySettlementFromShare(row.tenantShareAsSource),
+  };
+}
+
+function filterRowsByExternalSettlementAttribution(
+  rows: SettlementInquiryRowWithAssignments[],
+  isCancelled: boolean,
+  marketplaceBuyerByInquiry: Map<string, { companyId: string; companyName: string }>,
+  externalCompanyId: string,
+): SettlementInquiryRowWithAssignments[] {
+  return rows.filter((row) =>
+    inquiryAttributedToExternalCompany(
+      toExternalSettlementAttributionInput(row),
+      isCancelled,
+      marketplaceBuyerByInquiry.get(row.id),
+      externalCompanyId,
+    ),
+  );
+}
 
 type SettlementInquiryRow = Prisma.InquiryGetPayload<{ select: typeof inquirySettlementSelect }>;
 type SettlementInquiryRowWithAssignments = Prisma.InquiryGetPayload<{
@@ -190,8 +243,6 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
   if (marketplaceAttributedIds.length > 0) {
     attributedOr.push({ id: { in: marketplaceAttributedIds } });
   }
-  const rowSelect = opts.includeAssignmentLabels ? inquirySettlementAssignmentSelect : inquirySettlementSelect;
-
   const [activeRaw, cancelledRaw] = await Promise.all([
     prisma.inquiry.findMany({
       where: {
@@ -203,7 +254,7 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
         AND: [{ OR: periodOr }],
       },
       orderBy: [{ preferredDate: 'desc' }, { createdAt: 'desc' }],
-      select: rowSelect,
+      select: inquirySettlementAssignmentSelect,
     }),
     prisma.inquiry.findMany({
       where: {
@@ -226,7 +277,7 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
         ],
       },
       orderBy: [{ preferredDate: 'desc' }, { createdAt: 'desc' }],
-      select: rowSelect,
+      select: inquirySettlementAssignmentSelect,
     }),
   ]);
 
@@ -236,13 +287,36 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
     inquiryIds: allIds,
   });
 
+  const activeInPeriod = filterInquiriesByEffectiveSettlementDate(
+    activeRaw,
+    confirmAtMap,
+    opts.from,
+    opts.to,
+  );
+  const cancelledInPeriod = filterInquiriesByEffectiveSettlementDate(
+    cancelledRaw,
+    confirmAtMap,
+    opts.from,
+    opts.to,
+  );
+  const periodIds = [...activeInPeriod, ...cancelledInPeriod].map((r) => r.id);
+  const marketplaceBuyerByInquiry = await loadMarketplaceExternalBuyerByInquiry(
+    opts.tenantId,
+    periodIds,
+  );
+
   return {
-    activeRows: filterInquiriesByEffectiveSettlementDate(activeRaw, confirmAtMap, opts.from, opts.to),
-    cancelledRows: filterInquiriesByEffectiveSettlementDate(
-      cancelledRaw,
-      confirmAtMap,
-      opts.from,
-      opts.to,
+    activeRows: filterRowsByExternalSettlementAttribution(
+      activeInPeriod,
+      false,
+      marketplaceBuyerByInquiry,
+      opts.externalCompanyId,
+    ),
+    cancelledRows: filterRowsByExternalSettlementAttribution(
+      cancelledInPeriod,
+      true,
+      marketplaceBuyerByInquiry,
+      opts.externalCompanyId,
     ),
     confirmAtMap,
   };
@@ -307,7 +381,14 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
         OR: attributedOr,
         AND: [{ OR: candidateOr }],
       },
-      select: { id: true, preferredDate: true, externalTransferFee: true },
+      select: {
+        id: true,
+        preferredDate: true,
+        externalTransferFee: true,
+        cancelFeeExternalCompanyId: true,
+        assignments: inquirySettlementAssignmentSelect.assignments,
+        tenantShareAsSource: inquirySettlementAssignmentSelect.tenantShareAsSource,
+      },
     }),
     prisma.inquiry.findMany({
       where: {
@@ -329,7 +410,14 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
           { OR: candidateOr },
         ],
       },
-      select: { id: true, preferredDate: true, externalTransferFee: true },
+      select: {
+        id: true,
+        preferredDate: true,
+        externalTransferFee: true,
+        cancelFeeExternalCompanyId: true,
+        assignments: inquirySettlementAssignmentSelect.assignments,
+        tenantShareAsSource: inquirySettlementAssignmentSelect.tenantShareAsSource,
+      },
     }),
   ]);
 
@@ -344,12 +432,38 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
     for (const [id, at] of extraConfirm) confirmAtMap.set(id, at);
   }
 
+  const allCandidateIds = [...activeRows, ...cancelledRows].map((r) => r.id);
+  const marketplaceBuyerByInquiry = await loadMarketplaceExternalBuyerByInquiry(
+    opts.tenantId,
+    allCandidateIds,
+  );
+
   let signed = 0;
   for (const row of activeRows) {
+    if (
+      !inquiryAttributedToExternalCompany(
+        toExternalSettlementAttributionInput(row),
+        false,
+        marketplaceBuyerByInquiry.get(row.id),
+        opts.externalCompanyId,
+      )
+    ) {
+      continue;
+    }
     const effective = resolveExternalSettlementEffectiveDate(row.preferredDate, confirmAtMap.get(row.id));
     if (effective && effective < opts.before) signed += row.externalTransferFee ?? 0;
   }
   for (const row of cancelledRows) {
+    if (
+      !inquiryAttributedToExternalCompany(
+        toExternalSettlementAttributionInput(row),
+        true,
+        marketplaceBuyerByInquiry.get(row.id),
+        opts.externalCompanyId,
+      )
+    ) {
+      continue;
+    }
     const effective = resolveExternalSettlementEffectiveDate(row.preferredDate, confirmAtMap.get(row.id));
     if (effective && effective < opts.before) signed -= row.externalTransferFee ?? 0;
   }
