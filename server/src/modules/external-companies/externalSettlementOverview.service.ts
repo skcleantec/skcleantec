@@ -1,26 +1,47 @@
 import type { PrismaClient } from '@prisma/client';
+import { endOfKstToday } from '../../lib/externalSettlementEffectiveDate.js';
 
 type SumRow = { external_company_id: string; sum_fee: bigint | number | null };
 
 /**
  * 타업체 정산 목록 — 업체별 payable(발생−취소) 합계.
- * fee 있는 inquiry만 CTE → assignment DISTINCT ON 범위 축소, active/cancel 1쿼리.
- * EXTERNAL_LEGACY 파트너 연계(타업체 승격 이관) 건은 assignment 없이 share로 귀속.
+ * 정산 기준일: 정보공유 인계 확정일(seller_confirmed_at) · 그 외 예약일(preferred_date).
+ * throughEnd(기본 KST 오늘) 이전에 기준일이 있는 건만 합산 — 월별·상세와 동일.
  */
 export async function sumExternalSettlementSignedFeeByCompany(
   prisma: PrismaClient,
   tenantId: string,
   operatingCompanyId: string,
+  throughEnd: Date = endOfKstToday(),
 ): Promise<Map<string, number>> {
   const rows = await prisma.$queryRawUnsafe<SumRow[]>(
     `
     WITH fee_inquiries AS (
-      SELECT id, external_transfer_fee, status, cancel_fee_external_company_id
+      SELECT id, external_transfer_fee, status, cancel_fee_external_company_id, preferred_date
       FROM inquiries
       WHERE tenant_id = $1
         AND operating_company_id = $2
         AND external_transfer_fee IS NOT NULL
         AND status <> 'ON_HOLD'
+    ),
+    marketplace_confirm AS (
+      SELECT inquiry_id, MAX(seller_confirmed_at) AS seller_confirmed_at
+      FROM inquiry_db_listings
+      WHERE tenant_id = $1
+        AND status = 'CONFIRMED'
+        AND buyer_kind = 'EXTERNAL_COMPANY'
+        AND seller_confirmed_at IS NOT NULL
+      GROUP BY inquiry_id
+    ),
+    fee_effective AS (
+      SELECT
+        fi.id,
+        fi.external_transfer_fee,
+        fi.status,
+        fi.cancel_fee_external_company_id,
+        COALESCE(mc.seller_confirmed_at, fi.preferred_date) AS effective_at
+      FROM fee_inquiries fi
+      LEFT JOIN marketplace_confirm mc ON mc.inquiry_id = fi.id
     ),
     first_ext AS (
       SELECT DISTINCT ON (a.inquiry_id)
@@ -30,7 +51,7 @@ export async function sumExternalSettlementSignedFeeByCompany(
       INNER JOIN users u ON u.id = a.team_leader_id
         AND u.role = 'EXTERNAL_PARTNER'
         AND u.external_company_id IS NOT NULL
-      INNER JOIN fee_inquiries fi ON fi.id = a.inquiry_id
+      INNER JOIN fee_effective fi ON fi.id = a.inquiry_id
       WHERE a.tenant_id = $1
       ORDER BY a.inquiry_id, a.sort_order ASC
     ),
@@ -39,7 +60,7 @@ export async function sumExternalSettlementSignedFeeByCompany(
         s.source_inquiry_id AS inquiry_id,
         s.settlement_external_company_id AS external_company_id
       FROM tenant_inquiry_shares s
-      INNER JOIN fee_inquiries fi ON fi.id = s.source_inquiry_id
+      INNER JOIN fee_effective fi ON fi.id = s.source_inquiry_id
       WHERE s.source_tenant_id = $1
         AND s.sync_status = 'ACTIVE'
         AND s.settlement_mode = 'EXTERNAL_LEGACY'
@@ -50,7 +71,7 @@ export async function sumExternalSettlementSignedFeeByCompany(
         l.inquiry_id,
         l.buyer_external_company_id AS external_company_id
       FROM inquiry_db_listings l
-      INNER JOIN fee_inquiries fi ON fi.id = l.inquiry_id
+      INNER JOIN fee_effective fi ON fi.id = l.inquiry_id
       WHERE l.tenant_id = $1
         AND l.status = 'CONFIRMED'
         AND l.buyer_kind = 'EXTERNAL_COMPANY'
@@ -67,22 +88,27 @@ export async function sumExternalSettlementSignedFeeByCompany(
       SELECT h.inquiry_id, h.external_company_id
       FROM hybrid_ext h
       WHERE NOT EXISTS (SELECT 1 FROM marketplace_ext me WHERE me.inquiry_id = h.inquiry_id)
+        AND NOT EXISTS (SELECT 1 FROM first_ext fe WHERE fe.inquiry_id = h.inquiry_id)
     ),
     signed AS (
       SELECT ic.external_company_id AS external_company_id,
              SUM(fi.external_transfer_fee)::bigint AS sum_fee
-      FROM fee_inquiries fi
+      FROM fee_effective fi
       INNER JOIN inquiry_company ic ON ic.inquiry_id = fi.id
       WHERE fi.status <> 'CANCELLED'
+        AND fi.effective_at IS NOT NULL
+        AND fi.effective_at <= $3::timestamptz
       GROUP BY ic.external_company_id
 
       UNION ALL
 
       SELECT COALESCE(fi.cancel_fee_external_company_id, ic.external_company_id) AS external_company_id,
              SUM(-fi.external_transfer_fee)::bigint AS sum_fee
-      FROM fee_inquiries fi
+      FROM fee_effective fi
       LEFT JOIN inquiry_company ic ON ic.inquiry_id = fi.id
       WHERE fi.status = 'CANCELLED'
+        AND fi.effective_at IS NOT NULL
+        AND fi.effective_at <= $3::timestamptz
         AND (fi.cancel_fee_external_company_id IS NOT NULL OR ic.external_company_id IS NOT NULL)
       GROUP BY COALESCE(fi.cancel_fee_external_company_id, ic.external_company_id)
     )
@@ -93,6 +119,7 @@ export async function sumExternalSettlementSignedFeeByCompany(
     `,
     tenantId,
     operatingCompanyId,
+    throughEnd,
   );
 
   const signedByCompany = new Map<string, number>();

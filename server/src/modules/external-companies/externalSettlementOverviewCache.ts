@@ -11,7 +11,8 @@ type CacheEntry = {
 const payableCache = new Map<string, CacheEntry>();
 
 export function externalSettlementOverviewCacheKey(tenantId: string, operatingCompanyId: string): string {
-  return `${tenantId}:${operatingCompanyId}`;
+  const day = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+  return `${tenantId}:${operatingCompanyId}:${day}`;
 }
 
 export function invalidateExternalSettlementOverviewPayableCache(
