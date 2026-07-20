@@ -1,7 +1,11 @@
 import type { InquiryStatus, Prisma, TenantPartnerSettlementRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
-import { loadMarketplaceConfirmedShareIdSet } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
+import {
+  loadMarketplaceConfirmedShareIdSet,
+  loadMarketplaceShareConfirmAtMap,
+  resolvePartnerShareSettlementEffectiveDate,
+} from '../db-marketplace/dbMarketplaceSettlementMeta.js';
 
 export class TenantPartnerSettlementError extends Error {
   constructor(
@@ -250,39 +254,56 @@ export async function getSettlementPartnerDetail(opts: {
   const to = new Date(`${hiYmd}T23:59:59.999+09:00`);
 
   const shares = await loadSharesForRole(viewerTenantId, role);
-  const marketplaceShareIds = await loadMarketplaceConfirmedShareIdSet(shares.map((s) => s.id));
+  const shareIds = shares.map((s) => s.id);
+  const [marketplaceShareIds, marketplaceConfirmAtMap] = await Promise.all([
+    loadMarketplaceConfirmedShareIdSet(shareIds),
+    loadMarketplaceShareConfirmAtMap(shareIds),
+  ]);
+
+  const shareSettlementEffectiveDate = (s: ShareAccrualRow): Date | null =>
+    resolvePartnerShareSettlementEffectiveDate(
+      s.sourceInquiry.preferredDate,
+      marketplaceConfirmAtMap.get(s.id),
+    );
+
   const periodItems = shares
     .filter((s) => partnerIdForShare(s, role, viewerTenantId) === partnerTenantId)
     .filter((s) => {
-      const pd = s.sourceInquiry.preferredDate;
-      if (!pd) return false;
-      return pd >= from && pd <= to;
+      const effective = shareSettlementEffectiveDate(s);
+      if (!effective) return false;
+      return effective >= from && effective <= to;
     })
     .map((s) => {
       const signed = signedShareTransferFee(s);
+      const effective = shareSettlementEffectiveDate(s);
+      const viaMarketplace = marketplaceShareIds.has(s.id);
       return {
         shareId: s.id,
         inquiryId: s.sourceInquiry.id,
         inquiryNumber: s.sourceInquiry.inquiryNumber,
         customerName: s.sourceInquiry.customerName,
         preferredDate: s.sourceInquiry.preferredDate?.toISOString() ?? null,
+        settlementEffectiveDate: effective?.toISOString() ?? null,
         status: s.sourceInquiry.status,
         isCancelled: s.sourceInquiry.status === 'CANCELLED' || s.targetInquiry.status === 'CANCELLED',
         feeAmount: s.transferFee ?? 0,
         signedFeeAmount: signed,
-        viaMarketplace: marketplaceShareIds.has(s.id),
+        viaMarketplace,
       };
     })
-    .sort((a, b) => (b.preferredDate ?? '').localeCompare(a.preferredDate ?? ''));
+    .sort((a, b) =>
+      (b.settlementEffectiveDate ?? b.preferredDate ?? '').localeCompare(
+        a.settlementEffectiveDate ?? a.preferredDate ?? '',
+      ),
+    );
 
   const totalFee = periodItems.reduce((sum, it) => sum + it.signedFeeAmount, 0);
 
-  const carryShares = shares.filter(
-    (s) =>
-      partnerIdForShare(s, role, viewerTenantId) === partnerTenantId &&
-      s.sourceInquiry.preferredDate &&
-      s.sourceInquiry.preferredDate < from,
-  );
+  const carryShares = shares.filter((s) => {
+    if (partnerIdForShare(s, role, viewerTenantId) !== partnerTenantId) return false;
+    const effective = shareSettlementEffectiveDate(s);
+    return effective != null && effective < from;
+  });
   const carryOverAmount = carryShares.reduce((sum, s) => sum + signedShareTransferFee(s), 0);
 
   const paidBeforeAgg = await prisma.tenantPartnerSettlementPayment.aggregate({
@@ -416,6 +437,7 @@ export async function buildSettlementExportCsv(opts: {
     '접수번호',
     '고객명',
     '예약일',
+    '정산기준일',
     '상태',
     '수수료',
     '부호수수료',
@@ -431,6 +453,7 @@ export async function buildSettlementExportCsv(opts: {
       it.inquiryNumber ?? '',
       it.customerName,
       it.preferredDate ? formatKstYmd(new Date(it.preferredDate)) : '',
+      it.settlementEffectiveDate ? formatKstYmd(new Date(it.settlementEffectiveDate)) : '',
       it.status,
       it.feeAmount,
       it.signedFeeAmount,
@@ -451,6 +474,7 @@ export async function buildSettlementExportCsv(opts: {
     '',
     '',
     detail.totalFee,
+    '',
     '',
     '',
   ].join(',');

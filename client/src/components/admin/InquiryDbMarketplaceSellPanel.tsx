@@ -259,7 +259,9 @@ export function InquiryDbMarketplaceSellPanel({
       <p className="text-xs font-semibold text-violet-900">정보공유(DB 마켓) 판매</p>
       <p className="text-[11px] text-gray-600 leading-relaxed">
         파트너·타업체가 선택해 가져갈 수 있도록 게시합니다. 구매자에게는 표시금액(잔금−수수료)만 보입니다.{' '}
-        <strong>파트너 직접 연계와 별도</strong>입니다.
+        <strong>파트너 직접 연계와 별도</strong>입니다. 수수료는{' '}
+        <strong>인계 확정(구매자·판매자 모두 확정)</strong> 시점에 DB가 넘어가며, 그때 파트너·타업체 정산에
+        반영됩니다.
       </p>
 
       {loading ? <p className="text-[11px] text-gray-500">불러오는 중…</p> : null}

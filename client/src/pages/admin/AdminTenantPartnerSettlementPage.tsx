@@ -222,7 +222,8 @@ export function AdminTenantPartnerSettlementPage() {
       <div>
         <h1 className="text-xl font-semibold text-gray-800">파트너 정산</h1>
         <p className="mt-1 text-sm text-gray-500">
-          접수 연계 수수료(예약일 기준)로 파트너별 잔액을 확인하고 수금·지급을 기록합니다.
+          접수 연계 수수료로 파트너별 잔액을 확인하고 수금·지급을 기록합니다. 일반 연계는 예약일, 정보공유는
+          인계 확정일 기준입니다.
         </p>
       </div>
 
@@ -404,7 +405,9 @@ export function AdminTenantPartnerSettlementPage() {
               <h2 className="pr-10 text-lg font-semibold text-gray-900">
                 {selected.partnerName} — 이번 달 수수료
               </h2>
-              <p className="mt-1 text-xs text-gray-500">예약일 기준 · 정보공유 경유 건은 칩으로 표시됩니다.</p>
+              <p className="mt-1 text-xs text-gray-500">
+                정산 기준: 예약일(일반) · 인계 확정일(정보공유). 정보공유 건은 칩으로 표시됩니다.
+              </p>
             </div>
             <div className="flex-1 overflow-y-auto p-5">
               {feeItemsLoading ? (
