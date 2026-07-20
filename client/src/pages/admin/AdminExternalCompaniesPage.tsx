@@ -41,6 +41,33 @@ const emptyCreateForm = () => ({
   loginPassword: '',
 });
 
+function externalCompanyMobileLine(row: ExternalCompanyListItem): { line: string; title: string } {
+  const login =
+    row.partnerUsers.length === 0
+      ? '—'
+      : row.partnerUsers[0].email +
+        (!isPendingOnboardingContactName(row.partnerUsers[0].name)
+          ? ` (${onboardingContactNameForForm(row.partnerUsers[0].name)})`
+          : '');
+  const partner = row.linkedPartnerTenant
+    ? `${row.linkedPartnerTenant.name}(${row.linkedPartnerTenant.slug})`
+    : '—';
+  const segments = [
+    row.name,
+    row.bizNumber?.trim() || '—',
+    row.phone?.trim() || '—',
+    login,
+    partner,
+  ];
+  return {
+    line: segments.join(' · '),
+    title: segments.join(' · '),
+  };
+}
+
+const externalMobileActionBtn =
+  'shrink-0 rounded border px-2 py-1 text-[11px] font-medium leading-none touch-manipulation whitespace-nowrap';
+
 export function AdminExternalCompaniesPage() {
   const token = getToken();
   const [items, setItems] = useState<ExternalCompanyListItem[]>([]);
@@ -363,81 +390,65 @@ export function AdminExternalCompaniesPage() {
           <div className="p-8 text-center text-gray-500 text-sm">등록된 타업체가 없습니다.</div>
         ) : (
           <>
-            <div className="flex flex-col gap-3 p-3 lg:hidden">
-              {items.map((row) => (
-                <div key={row.id} className={externalMobileCardShell}>
-                  <div className="px-3 pt-3 pb-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-gray-900 text-fluid-sm">{row.name}</p>
-                      {isExternalCompanyUsageDisabled(row.usageDisabledAt) ? (
-                        <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-900">
-                          사용 안 함
+            <div className="flex flex-col gap-2 p-2 lg:hidden">
+              {items.map((row) => {
+                const { title } = externalCompanyMobileLine(row);
+                return (
+                  <div key={row.id} className={externalMobileCardShell}>
+                    <div className="px-2.5 py-2">
+                      <p
+                        className="min-w-0 truncate text-fluid-2xs text-gray-600 leading-snug"
+                        title={title}
+                      >
+                        <span className="font-semibold text-gray-900">{row.name}</span>
+                        {isExternalCompanyUsageDisabled(row.usageDisabledAt) ? (
+                          <span className="ml-1 inline-flex align-middle rounded bg-amber-50 border border-amber-200 px-1 py-px text-[10px] font-medium text-amber-900">
+                            사용안함
+                          </span>
+                        ) : null}
+                        <span className="text-gray-400"> · </span>
+                        <span className="tabular-nums">{row.bizNumber?.trim() || '—'}</span>
+                        <span className="text-gray-400"> · </span>
+                        <span className="tabular-nums">{row.phone?.trim() || '—'}</span>
+                        <span className="text-gray-400"> · </span>
+                        <span className="tabular-nums">
+                          {row.partnerUsers[0]?.email ?? '—'}
                         </span>
-                      ) : null}
-                    </div>
-                    <dl className="mt-2 space-y-1.5 text-fluid-xs text-gray-600">
-                      <div className="flex gap-2">
-                        <dt className="shrink-0 text-gray-500 w-20">사업자번호</dt>
-                        <dd className="min-w-0 truncate">{row.bizNumber ?? '—'}</dd>
-                      </div>
-                      <div className="flex gap-2">
-                        <dt className="shrink-0 text-gray-500 w-20">연락처</dt>
-                        <dd className="min-w-0 truncate">{row.phone ?? '—'}</dd>
-                      </div>
-                      <div className="flex gap-2">
-                        <dt className="shrink-0 text-gray-500 w-20">로그인</dt>
-                        <dd className="min-w-0">
-                          {row.partnerUsers.length === 0 ? (
-                            '—'
-                          ) : (
-                            <span className="tabular-nums break-all">
-                              {row.partnerUsers[0].email}
-                              {!isPendingOnboardingContactName(row.partnerUsers[0].name) ? (
-                                <span className="text-gray-400">
-                                  {' '}
-                                  ({onboardingContactNameForForm(row.partnerUsers[0].name)})
-                                </span>
-                              ) : null}
-                            </span>
-                          )}
-                        </dd>
-                      </div>
-                      <div className="flex gap-2">
-                        <dt className="shrink-0 text-gray-500 w-20">파트너</dt>
-                        <dd className="min-w-0 truncate">
+                        <span className="text-gray-400"> · </span>
+                        <span>
                           {row.linkedPartnerTenant
-                            ? `${row.linkedPartnerTenant.name} (${row.linkedPartnerTenant.slug})`
+                            ? row.linkedPartnerTenant.name
                             : '—'}
-                        </dd>
+                        </span>
+                      </p>
+                      <div className="mt-1.5 flex flex-nowrap items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        <button
+                          type="button"
+                          onClick={() => void openMigration(row)}
+                          className={`${externalMobileActionBtn} border-indigo-200 bg-indigo-50 text-indigo-800 hover:bg-indigo-100`}
+                        >
+                          DB이관
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEdit(row)}
+                          className={`${externalMobileActionBtn} border-gray-200 bg-white text-blue-700 hover:bg-gray-50`}
+                        >
+                          수정
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(row)}
+                          disabled={submitting}
+                          className={`${externalMobileActionBtn} border-red-200 bg-white text-red-600 hover:bg-red-50 disabled:opacity-50`}
+                        >
+                          삭제
+                        </button>
                       </div>
-                    </dl>
+                    </div>
                   </div>
-                  <div className="border-t border-gray-100 bg-gray-50/80 px-3 py-2.5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => void openMigration(row)}
-                      className="w-full sm:w-auto px-3 py-2 rounded-lg border border-indigo-200 bg-white text-indigo-800 text-fluid-xs font-medium hover:bg-indigo-50 touch-manipulation"
-                    >
-                      DB 이관
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openEdit(row)}
-                      className="w-full sm:w-auto px-3 py-2 rounded-lg border border-gray-200 bg-white text-blue-700 text-fluid-xs font-medium hover:bg-gray-50 touch-manipulation"
-                    >
-                      수정
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDelete(row)}
-                      disabled={submitting}
-                      className="w-full sm:w-auto px-3 py-2 rounded-lg border border-red-200 bg-white text-red-600 text-fluid-xs font-medium hover:bg-red-50 disabled:opacity-50 touch-manipulation"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div
