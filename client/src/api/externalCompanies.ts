@@ -21,6 +21,7 @@ export type ExternalCompanyListItem = {
   bizNumber: string | null;
   phone: string | null;
   memo: string | null;
+  businessRegistrationImageUrl: string | null;
   partnerUserCount: number;
   partnerUsers: Array<{ id: string; email: string; name: string; phone: string | null }>;
   linkedPartnerTenant?: { id: string; name: string; slug: string } | null;
@@ -44,7 +45,7 @@ export async function createExternalCompany(
     bizNumber?: string;
     phone?: string;
     memo?: string;
-    login: { email: string; password: string; contactName: string; phone?: string };
+    login: { email: string; password: string; contactName?: string; phone?: string };
   }
 ): Promise<{ company: ExternalCompanyListItem; user: { id: string; email: string; name: string } }> {
   const res = await fetch(`${API}/external-companies`, {

@@ -24,6 +24,8 @@ import {
   endOfKstToday,
 } from '../../lib/externalSettlementEffectiveDate.js';
 import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlementOperatingCompanyScope.js';
+import { EXTERNAL_PARTNER_PENDING_CONTACT_NAME } from '../onboarding/profileOnboarding.service.js';
+import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
 import { sumExternalSettlementSignedFeeByCompany, sumExternalSettlementPaidByCompany } from './externalSettlementOverview.service.js';
 import {
   ExternalToPartnerMigrationError,
@@ -107,6 +109,7 @@ router.get('/', requireStaffPermission('admin.users'), async (req, res) => {
       bizNumber: r.bizNumber,
       phone: r.phone,
       memo: r.memo,
+      businessRegistrationImageUrl: r.businessRegistrationImageUrl,
       partnerUserCount: r._count.partnerUsers,
       partnerUsers: r.partnerUsers,
       linkedPartnerTenant: r.linkedPartnerTenant
@@ -163,7 +166,8 @@ router.get('/lookup', async (req, res) => {
 
 /**
  * 타업체 등록 + 로그인 계정 1개(EXTERNAL_PARTNER)
- * body: { name, bizNumber?, phone?, memo?, login: { email, password, contactName, phone? } }
+ * body: { name, bizNumber?, phone?, memo?, login: { email, password, contactName?, phone? } }
+ * 관리자 필수: 업체명 + 로그인 아이디·비밀번호. 담당자·사업자 정보는 첫 로그인 온보딩.
  */
 router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
@@ -185,15 +189,20 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
     return;
   }
   const login = body.login;
-  const email = String(login?.email ?? '')
-    .trim()
-    .toLowerCase();
   const password = login?.password != null ? String(login.password) : '';
-  const contactName = String(login?.contactName ?? '').trim();
-  if (!email || !password || !contactName) {
-    res.status(400).json({ error: '로그인 아이디·비밀번호·담당자 이름을 입력해주세요.' });
+  if (!password) {
+    res.status(400).json({ error: '로그인 아이디·비밀번호를 입력해주세요.' });
     return;
   }
+  let email: string;
+  try {
+    email = assertValidTenantLoginId(String(login?.email ?? ''));
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '유효하지 않은 아이디입니다.' });
+    return;
+  }
+  const contactNameRaw = String(login?.contactName ?? '').trim();
+  const contactName = contactNameRaw || EXTERNAL_PARTNER_PENDING_CONTACT_NAME;
   const taken = await prisma.user.findUnique({
     where: { tenantId_email: { tenantId, email } },
   });
@@ -221,6 +230,7 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
         phone: login?.phone ? String(login.phone).trim() || null : null,
         role: 'EXTERNAL_PARTNER',
         externalCompanyId: company.id,
+        profileCompletedAt: null,
       },
       select: { id: true, email: true, name: true, phone: true },
     });

@@ -55,7 +55,7 @@ import {
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { buildSlotOccupiedLeaderIdsForDay } from '../../utils/scheduleSlotOccupancy';
-import { formatPreferredDateInputYmd, formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
+import { formatPreferredDateInputYmd, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquirySourceLabel, inquiryEditFormAddress, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
 import { isRealCustomerAddress, MANUAL_INTAKE_PLACEHOLDER_ADDRESS } from '@shared/orderFormPendingAddress';
 import {
@@ -96,7 +96,6 @@ import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
   effectiveAdminTeamSpecialNotes,
   effectiveCustomerOrderNotes,
-  effectiveTeamSharedAdminNotes,
 } from '../../utils/inquirySpecialNotesDisplay';
 import { getInquiryEditSectionNumber } from '../../constants/inquiryEditSectionOrder';
 import { CustomerNameWithInternalTone } from './CustomerNameWithInternalTone';
@@ -118,6 +117,8 @@ import {
   MSG_EXTERNAL_BLOCKS_PARTNER_SHARE,
   MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
 } from '../../utils/inquiryExternalPartnerShareMutex';
+import { buildInquiryCopySections, buildInquiryCopyText } from '../../utils/inquiryCopyInfo';
+import { InquiryCopyInfoSheet } from './InquiryCopyInfoSheet';
 import { InquiryDbMarketplaceBadge } from './InquiryDbMarketplaceBadge';
 import { InquiryDbMarketplaceSellPanel, type DbMarketplaceExchangePrefill } from './InquiryDbMarketplaceSellPanel';
 
@@ -595,139 +596,6 @@ function initialTeamLeaderIdsForEdit(assignments: ScheduleItem['assignments']): 
   return assignments.map((a) => a.teamLeader.id);
 }
 
-/**
- * 타업체 공유용 접수 정보 텍스트 생성.
- * 접수번호 + 고객·현장·일정·금액·메모를 포함한다.
- * 타업체 배정 건이면 수수료를 함께 포함한다.
- * 빈 값은 건너뛰며, 섹션 간 공백 줄로 구분해 카톡·문자·메일에서도 깔끔히 보이게 한다.
- */
-function buildInquiryCopyText(
-  item: ScheduleItem,
-  editForm: EditFormFields,
-  oneRoomLabel = '원룸',
-): string {
-  const sections: string[][] = [];
-  const currentSection = (): string[] => {
-    if (sections.length === 0) sections.push([]);
-    return sections[sections.length - 1];
-  };
-  const addRow = (label: string, value: string | null | undefined) => {
-    const v = typeof value === 'string' ? value.trim() : '';
-    if (!v) return;
-    currentSection().push(`· ${label}: ${v}`);
-  };
-  const parseWonText = (v: string): number | null => {
-    const stripped = v.replace(/,/g, '').trim();
-    if (!stripped) return null;
-    const n = Number.parseInt(stripped, 10);
-    return Number.isFinite(n) ? n : null;
-  };
-  const formatWonText = (n: number | null | undefined): string => {
-    if (n == null || !Number.isFinite(n)) return '';
-    return `${n.toLocaleString('ko-KR')}원`;
-  };
-  const endSection = () => {
-    if (currentSection().length > 0) sections.push([]);
-  };
-
-  // 고객
-  addRow('고객명', editForm.customerName);
-  addRow('닉네임', editForm.nickname);
-  addRow('연락처', editForm.customerPhone);
-  addRow('보조 연락처', editForm.customerPhone2);
-  endSection();
-
-  // 주소
-  addRow('주소', editForm.address);
-  addRow('상세주소', editForm.addressDetail);
-  endSection();
-
-  // 현장 정보
-  addRow('건축물', editForm.propertyType);
-  if (editForm.isOneRoom) addRow(oneRoomLabel, '예');
-  const areaCopy = formatInquiryAreaKoShortFromEditStrings({
-    areaBasis: editForm.areaBasis,
-    areaPyeong: editForm.areaPyeong,
-    exclusiveAreaSqm: editForm.exclusiveAreaSqm,
-  });
-  if (areaCopy !== '—') addRow('면적', areaCopy);
-  const structureParts: string[] = [];
-  if (editForm.roomCount.trim()) structureParts.push(`방 ${editForm.roomCount}`);
-  if (editForm.bathroomCount.trim()) structureParts.push(`화 ${editForm.bathroomCount}`);
-  if (editForm.balconyCount.trim()) structureParts.push(`베 ${editForm.balconyCount}`);
-  if (editForm.kitchenCount.trim()) structureParts.push(`주방 ${editForm.kitchenCount}`);
-  if (structureParts.length > 0) addRow('구조', structureParts.join(' · '));
-  addRow(
-    '입주 예정일',
-    editForm.moveInDateUndecided
-      ? '미정'
-      : editForm.moveInDate.trim()
-        ? formatDateCompactWithWeekday(editForm.moveInDate)
-        : '—'
-  );
-  endSection();
-
-  // 일정
-  if (editForm.preferredDate.trim()) {
-    addRow('예약일', formatDateCompactWithWeekday(editForm.preferredDate));
-  }
-  if (editForm.preferredTime.trim()) {
-    const slotSuffix = editForm.betweenScheduleSlot?.trim()
-      ? ` (${editForm.betweenScheduleSlot})`
-      : '';
-    addRow('희망 시간', `${editForm.preferredTime}${slotSuffix}`);
-  }
-  addRow('구체 시각', editForm.preferredTimeDetail);
-  endSection();
-
-  // 금액
-  const fallbackAmounts = effectiveAmounts(item);
-  const totalAmount = parseWonText(editForm.amountTotal) ?? fallbackAmounts.total;
-  const depositAmount = parseWonText(editForm.amountDeposit) ?? fallbackAmounts.deposit;
-  const balanceAmount = parseWonText(editForm.amountBalance) ?? fallbackAmounts.balance;
-  addRow('총액', formatWonText(totalAmount));
-  addRow('예약금', formatWonText(depositAmount));
-  addRow('잔금', formatWonText(balanceAmount));
-
-  const hasExternalAssignment = item.assignments.some((a) => !!a.teamLeader.externalCompany);
-  if (hasExternalAssignment) {
-    const externalFee = parseWonText(editForm.externalTransferFee) ?? item.externalTransferFee ?? null;
-    addRow('수수료', externalFee != null ? formatWonText(externalFee) : '미입력');
-  }
-  endSection();
-
-  // 비고
-  addRow(
-    '고객 발주서 특이사항',
-    effectiveCustomerOrderNotes({ specialNotes: item.specialNotes, orderForm: item.orderForm })
-  );
-  addRow(
-    '특이사항 (팀장·타업체 공유)',
-    effectiveTeamSharedAdminNotes({
-      memo: editForm.memo,
-      specialNotes: editForm.specialNotes,
-      orderForm: item.orderForm,
-    })
-  );
-  if (editForm.consultationMemo.trim()) {
-    addRow('상담·마케터 메모', editForm.consultationMemo.trim());
-  }
-
-  // 헤더와 합치기
-  const body = sections
-    .filter((s) => s.length > 0)
-    .map((s) => s.join('\n'))
-    .join('\n\n');
-
-  const headerLines: string[] = ['━━━━━ 접수 정보 ━━━━━'];
-  if (item.inquiryNumber && item.inquiryNumber.trim()) {
-    headerLines.push(`접수번호: ${item.inquiryNumber.trim()}`);
-  }
-  const header = headerLines.join('\n');
-  const footer = '━━━━━━━━━━━━━━━━━━━';
-  return body ? `${header}\n\n${body}\n${footer}` : `${header}\n${footer}`;
-}
-
 export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProps) {
   const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
   const isCreate = props.mode === 'create';
@@ -814,6 +682,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [marketerQuickOpen, setMarketerQuickOpen] = useState(false);
   const [marketerQuickValue, setMarketerQuickValue] = useState('');
   const [copyHint, setCopyHint] = useState<string | null>(null);
+  const [copyInfoViewOpen, setCopyInfoViewOpen] = useState(false);
   const [operatingCompanyOptions, setOperatingCompanyOptions] = useState<OperatingCompanyItem[]>([]);
   const [assignableTeamLeaders, setAssignableTeamLeaders] = useState<UserItem[]>(teamLeaders);
   const [manualAssignmentZoneId, setManualAssignmentZoneId] = useState('');
@@ -1999,11 +1868,17 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     onSaved();
   };
 
-  /** 타업체 공유용: 현재 폼(=사용자가 본 값)을 텍스트로 만들어 클립보드에 복사 */
-  const copyInquiryInfo = useCallback(async () => {
-    if (!item) return;
+  const inquiryCopySections = useMemo(
+    () => (item ? buildInquiryCopySections(item, editForm, oneRoomLabel) : []),
+    [item, editForm, oneRoomLabel],
+  );
+  const inquiryCopyText = useMemo(
+    () => (item ? buildInquiryCopyText(item, editForm, oneRoomLabel) : ''),
+    [item, editForm, oneRoomLabel],
+  );
+
+  const copyInquiryTextToClipboard = useCallback(async (text: string) => {
     setCopyHint(null);
-    const text = buildInquiryCopyText(item, editForm, oneRoomLabel);
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
@@ -2023,7 +1898,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       setCopyHint('복사 실패');
       window.setTimeout(() => setCopyHint(null), 1800);
     }
-  }, [item, editForm]);
+  }, []);
+
+  /** 타업체 공유용: 현재 폼(=사용자가 본 값)을 텍스트로 만들어 클립보드에 복사 */
+  const copyInquiryInfo = useCallback(async () => {
+    if (!item) return;
+    await copyInquiryTextToClipboard(inquiryCopyText);
+  }, [item, inquiryCopyText, copyInquiryTextToClipboard]);
 
   const detailLeaderAssignmentUnderfilled = useMemo(() => {
     if (!item || !effectiveLeaderAssignmentCountsByLeaderId?.size) return false;
@@ -2200,15 +2081,25 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   </span>
                 )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void copyInquiryInfo()}
-                  className="shrink-0 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100"
-                  title="접수번호와 고객·현장·일정 정보를 텍스트로 복사합니다. 타업체 공유에 사용하세요."
-                  aria-live="polite"
-                >
-                  {copyHint ?? '정보 복사'}
-                </button>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCopyInfoViewOpen(true)}
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-slate-50 px-2.5 py-1 text-fluid-xs font-medium text-slate-800 hover:bg-slate-100 active:bg-slate-200"
+                    title="고객·현장·일정·금액 요약을 한 화면에서 봅니다."
+                  >
+                    정보 보기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void copyInquiryInfo()}
+                    className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                    title="접수번호와 고객·현장·일정 정보를 텍스트로 복사합니다. 타업체 공유에 사용하세요."
+                    aria-live="polite"
+                  >
+                    {copyHint ?? '정보 복사'}
+                  </button>
+                </div>
               </div>
               <p className="text-xs text-gray-500 leading-relaxed flex flex-wrap items-center gap-x-1 gap-y-1">
                 {item.inquiryNumber ? <span>접수번호 {item.inquiryNumber}</span> : null}
@@ -3744,6 +3635,16 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         initialYmd={editForm.preferredDate}
         onSelect={(ymd) => setEditForm((p) => ({ ...p, preferredDate: ymd }))}
       />
+      {item ? (
+        <InquiryCopyInfoSheet
+          open={copyInfoViewOpen}
+          onClose={() => setCopyInfoViewOpen(false)}
+          inquiryNumber={item.inquiryNumber}
+          sections={inquiryCopySections}
+          copyText={inquiryCopyText}
+          onCopy={copyInquiryTextToClipboard}
+        />
+      ) : null}
       {crewSwapModalOpen &&
         item &&
         createPortal(

@@ -17,6 +17,9 @@ import type { MarketerAdminLevel } from '@shared/marketerAdminLevel';
 import { MARKETER_ADMIN_LEVEL_LABEL } from '@shared/marketerAdminLevel';
 import { getToken } from '../../stores/auth';
 import { getMe } from '../../api/auth';
+import { LoginCredentialsCopySheet } from '../../components/admin/LoginCredentialsCopySheet';
+import type { LoginCredentialsCopyInput } from '../../utils/userLoginCopyText';
+import { resolveLoginCopyPassword } from '../../utils/userLoginCopyText';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
@@ -248,6 +251,37 @@ export function AdminTeamLeadersPage() {
   const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
   const [szForm, setSzForm] = useState<UserServiceZoneFormValue>({ serviceZoneIds: [] });
   const [editSzForm, setEditSzForm] = useState<UserServiceZoneFormValue>({ serviceZoneIds: [] });
+  const [tenantSlug, setTenantSlug] = useState('');
+  const [loginCopyOpen, setLoginCopyOpen] = useState(false);
+  const [loginCopyCredentials, setLoginCopyCredentials] = useState<LoginCredentialsCopyInput | null>(null);
+
+  const openLoginCopySheet = useCallback(
+    (input: Omit<LoginCredentialsCopyInput, 'tenantSlug'> & { tenantSlug?: string }) => {
+      const slug = (input.tenantSlug ?? tenantSlug).trim().toLowerCase();
+      if (!slug) {
+        alert('업체 코드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+      setLoginCopyCredentials({
+        tenantSlug: slug,
+        email: input.email,
+        password: input.password,
+        accountLabel: input.accountLabel,
+      });
+      setLoginCopyOpen(true);
+    },
+    [tenantSlug],
+  );
+
+  const openEditLoginCopySheet = useCallback(() => {
+    if (!editingUser) return;
+    if (editingUser.role !== 'TEAM_LEADER' && editingUser.role !== 'MARKETER') return;
+    openLoginCopySheet({
+      email: editForm.email.trim().toLowerCase(),
+      password: resolveLoginCopyPassword(editForm.password),
+      accountLabel: editingUser.role === 'TEAM_LEADER' ? '팀장' : '마케터',
+    });
+  }, [editingUser, editForm.email, editForm.password, openLoginCopySheet]);
 
   const refresh = (): Promise<void> => {
     if (!token) return Promise.resolve();
@@ -286,8 +320,9 @@ export function AdminTeamLeadersPage() {
   useEffect(() => {
     if (!token) return;
     getMe(token)
-      .then((u: { isTenantOwner?: boolean; isSuperAdmin?: boolean }) => {
+      .then((u: { isTenantOwner?: boolean; isSuperAdmin?: boolean; tenant?: { slug?: string } | null }) => {
         setIsTenantOwner(Boolean(u.isTenantOwner ?? u.isSuperAdmin));
+        setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : '');
       })
       .catch(() => {
         setIsTenantOwner(false);
@@ -425,6 +460,13 @@ export function AdminTeamLeadersPage() {
       }
 
       await createUser(token, payload);
+      if (role === 'TEAM_LEADER' || role === 'MARKETER') {
+        openLoginCopySheet({
+          email: payload.email,
+          password: payload.password,
+          accountLabel: role === 'TEAM_LEADER' ? '팀장' : '마케터',
+        });
+      }
       setForm(emptyRegisterForm());
       setOcForm(defaultUserOperatingCompanyForm(operatingCompanies));
       setSzForm({ serviceZoneIds: [] });
@@ -502,6 +544,7 @@ export function AdminTeamLeadersPage() {
       if (editForm.password.trim()) {
         payload.password = editForm.password.trim();
       }
+      const newPasswordForCopy = editForm.password.trim();
       if (isTenantOwner) {
         payload.hireDate = editForm.hireDate.trim() || null;
         payload.resignationDate = editForm.resignationDate.trim() || null;
@@ -596,6 +639,16 @@ export function AdminTeamLeadersPage() {
       }
 
       await updateUser(token, editingUser.id, payload);
+      if (
+        newPasswordForCopy &&
+        (editingUser.role === 'TEAM_LEADER' || editingUser.role === 'MARKETER')
+      ) {
+        openLoginCopySheet({
+          email: payload.email,
+          password: newPasswordForCopy,
+          accountLabel: editingUser.role === 'TEAM_LEADER' ? '팀장' : '마케터',
+        });
+      }
       setEditingUser(null);
       refresh();
     } catch (err) {
@@ -1651,8 +1704,23 @@ export function AdminTeamLeadersPage() {
             aria-labelledby="user-edit-title"
           >
             <div className="relative mx-auto mt-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-              <ModalCloseButton onClick={() => setEditingUser(null)} />
-              <h2 id="user-edit-title" className="text-lg font-semibold text-gray-800 mb-1 pr-10">
+              <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+                {editingUser.role === 'TEAM_LEADER' || editingUser.role === 'MARKETER' ? (
+                  <button
+                    type="button"
+                    onClick={openEditLoginCopySheet}
+                    className="shrink-0 rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-100 active:bg-slate-200"
+                    title="업체 코드·아이디·비밀번호 로그인 안내 복사"
+                  >
+                    로그인 안내 복사
+                  </button>
+                ) : null}
+                <ModalCloseButton
+                  onClick={() => setEditingUser(null)}
+                  className="!static shrink-0 shadow-none"
+                />
+              </div>
+              <h2 id="user-edit-title" className="text-lg font-semibold text-gray-800 mb-1 pr-32">
                 사용자 수정
               </h2>
               <p className="text-xs text-gray-500 mb-4">
@@ -2078,6 +2146,11 @@ export function AdminTeamLeadersPage() {
           </div>,
           document.body
         )}
+      <LoginCredentialsCopySheet
+        open={loginCopyOpen}
+        onClose={() => setLoginCopyOpen(false)}
+        credentials={loginCopyCredentials}
+      />
     </div>
   );
 }

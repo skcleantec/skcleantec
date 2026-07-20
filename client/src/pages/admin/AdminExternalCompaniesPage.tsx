@@ -13,17 +13,20 @@ import {
 } from '../../api/externalCompanies';
 import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
+import { LoginCredentialsCopySheet } from '../../components/admin/LoginCredentialsCopySheet';
+import { getMe } from '../../api/auth';
+import type { LoginCredentialsCopyInput } from '../../utils/userLoginCopyText';
+import { resolveLoginCopyPassword } from '../../utils/userLoginCopyText';
 import { isExternalCompanyUsageDisabled } from '../../utils/externalCompanyUsage';
+import {
+  isPendingOnboardingContactName,
+  onboardingContactNameForForm,
+} from '@shared/profileOnboarding';
 
 const emptyCreateForm = () => ({
   name: '',
-  bizNumber: '',
-  phone: '',
-  memo: '',
   loginEmail: '',
   loginPassword: '',
-  contactName: '',
-  contactPhone: '',
 });
 
 export function AdminExternalCompaniesPage() {
@@ -37,13 +40,8 @@ export function AdminExternalCompaniesPage() {
 
   const [form, setForm] = useState({
     name: '',
-    bizNumber: '',
-    phone: '',
-    memo: '',
     loginEmail: '',
     loginPassword: '',
-    contactName: '',
-    contactPhone: '',
   });
 
   const closeCreateModal = () => {
@@ -60,6 +58,7 @@ export function AdminExternalCompaniesPage() {
     memo: '',
     usageDisabled: false,
   });
+  const [editPartnerPassword, setEditPartnerPassword] = useState('');
 
   const [migrating, setMigrating] = useState<ExternalCompanyListItem | null>(null);
   const [partnerships, setPartnerships] = useState<TenantPartnershipItem[]>([]);
@@ -68,6 +67,18 @@ export function AdminExternalCompaniesPage() {
   const [migrationPreview, setMigrationPreview] = useState<{ count: number; feeTotal: number } | null>(null);
   const [migrationBusy, setMigrationBusy] = useState(false);
   const [migrationErr, setMigrationErr] = useState<string | null>(null);
+  const [tenantSlug, setTenantSlug] = useState('');
+  const [loginCopyOpen, setLoginCopyOpen] = useState(false);
+  const [loginCopyCredentials, setLoginCopyCredentials] = useState<LoginCredentialsCopyInput | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    getMe(token)
+      .then((u: { tenant?: { slug?: string } | null }) => {
+        setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : '');
+      })
+      .catch(() => setTenantSlug(''));
+  }, [token]);
 
   const load = () => {
     if (!token) return;
@@ -89,20 +100,26 @@ export function AdminExternalCompaniesPage() {
     setSubmitting(true);
     setCreateErr(null);
     try {
+      const copyEmail = form.loginEmail.trim().toLowerCase();
+      const copyPassword = form.loginPassword;
       await createExternalCompany(token, {
         name: form.name.trim(),
-        bizNumber: form.bizNumber.trim() || undefined,
-        phone: form.phone.trim() || undefined,
-        memo: form.memo.trim() || undefined,
         login: {
-          email: form.loginEmail.trim().toLowerCase(),
-          password: form.loginPassword,
-          contactName: form.contactName.trim(),
-          phone: form.contactPhone.trim() || undefined,
+          email: copyEmail,
+          password: copyPassword,
         },
       });
       closeCreateModal();
       load();
+      if (tenantSlug.trim()) {
+        setLoginCopyCredentials({
+          tenantSlug: tenantSlug.trim().toLowerCase(),
+          email: copyEmail,
+          password: copyPassword,
+          accountLabel: '타업체',
+        });
+        setLoginCopyOpen(true);
+      }
     } catch (e) {
       setCreateErr(e instanceof Error ? e.message : '등록 실패');
     } finally {
@@ -112,6 +129,7 @@ export function AdminExternalCompaniesPage() {
 
   const openEdit = (row: ExternalCompanyListItem) => {
     setEditing(row);
+    setEditPartnerPassword('');
     setEditFields({
       name: row.name,
       bizNumber: row.bizNumber ?? '',
@@ -119,6 +137,26 @@ export function AdminExternalCompaniesPage() {
       memo: row.memo ?? '',
       usageDisabled: isExternalCompanyUsageDisabled(row.usageDisabledAt),
     });
+  };
+
+  const openEditLoginCopySheet = () => {
+    if (!editing) return;
+    const partner = editing.partnerUsers[0];
+    if (!partner?.email?.trim()) {
+      alert('로그인 계정이 없습니다.');
+      return;
+    }
+    if (!tenantSlug.trim()) {
+      alert('업체 코드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    setLoginCopyCredentials({
+      tenantSlug: tenantSlug.trim().toLowerCase(),
+      email: partner.email.trim().toLowerCase(),
+      password: resolveLoginCopyPassword(editPartnerPassword),
+      accountLabel: '타업체',
+    });
+    setLoginCopyOpen(true);
   };
 
   const handleEditSave = async (e: React.FormEvent) => {
@@ -405,7 +443,9 @@ export function AdminExternalCompaniesPage() {
               <h3 id="external-create-title" className="text-lg font-semibold text-gray-800 pr-10">
                 타업체 등록
               </h3>
-              <p className="text-xs text-gray-500 mt-1">업체 정보와 로그인 계정을 한 번에 만듭니다.</p>
+              <p className="text-xs text-gray-500 mt-1">
+                업체명·로그인 계정만 등록합니다. 사업자 정보·담당자 정보는 타업체가 첫 로그인 시 입력합니다.
+              </p>
             </div>
             <form
               onSubmit={handleCreate}
@@ -427,72 +467,25 @@ export function AdminExternalCompaniesPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-gray-600 mb-1">사업자등록번호</label>
+                  <label className="block text-gray-600 mb-1">아이디 *</label>
                   <input
-                    value={form.bizNumber}
-                    onChange={(e) => setForm((p) => ({ ...p, bizNumber: e.target.value }))}
+                    value={form.loginEmail}
+                    onChange={(e) => setForm((p) => ({ ...p, loginEmail: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded"
+                    required
+                    autoComplete="off"
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-600 mb-1">대표 연락처</label>
+                  <label className="block text-gray-600 mb-1">비밀번호 *</label>
                   <input
-                    value={form.phone}
-                    onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                    type="password"
+                    value={form.loginPassword}
+                    onChange={(e) => setForm((p) => ({ ...p, loginPassword: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded"
+                    required
+                    autoComplete="new-password"
                   />
-                </div>
-              </div>
-              <div>
-                <label className="block text-gray-600 mb-1">메모</label>
-                <textarea
-                  value={form.memo}
-                  onChange={(e) => setForm((p) => ({ ...p, memo: e.target.value }))}
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                />
-              </div>
-              <div className="border-t border-gray-100 pt-3 mt-1">
-                <p className="text-xs font-medium text-gray-700 mb-2">로그인 (팀장과 동일 화면)</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-gray-600 mb-1">아이디 *</label>
-                    <input
-                      value={form.loginEmail}
-                      onChange={(e) => setForm((p) => ({ ...p, loginEmail: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      required
-                      autoComplete="off"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-600 mb-1">비밀번호 *</label>
-                    <input
-                      type="password"
-                      value={form.loginPassword}
-                      onChange={(e) => setForm((p) => ({ ...p, loginPassword: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      required
-                      autoComplete="new-password"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-600 mb-1">담당자 이름 *</label>
-                    <input
-                      value={form.contactName}
-                      onChange={(e) => setForm((p) => ({ ...p, contactName: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-600 mb-1">담당자 연락처</label>
-                    <input
-                      value={form.contactPhone}
-                      onChange={(e) => setForm((p) => ({ ...p, contactPhone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                    />
-                  </div>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
@@ -518,10 +511,38 @@ export function AdminExternalCompaniesPage() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">타업체 정보 수정</h3>
-            <form onSubmit={handleEditSave} className="space-y-3">
+        <div
+          className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="external-edit-title"
+        >
+          <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-full max-h-[min(90dvh,720px)] flex flex-col">
+            <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+              {editing.partnerUsers[0] ? (
+                <button
+                  type="button"
+                  onClick={openEditLoginCopySheet}
+                  className="shrink-0 rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-100 active:bg-slate-200"
+                  title="업체 코드·아이디·비밀번호 로그인 안내 복사"
+                >
+                  로그인 안내 복사
+                </button>
+              ) : null}
+              <ModalCloseButton
+                onClick={() => setEditing(null)}
+                className="!static shrink-0 shadow-none"
+              />
+            </div>
+            <div className="px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
+              <h3 id="external-edit-title" className="text-lg font-semibold text-gray-800 pr-32">
+                타업체 정보 수정
+              </h3>
+            </div>
+            <form
+              onSubmit={handleEditSave}
+              className="px-5 py-4 overflow-y-auto space-y-3 text-sm flex-1 min-h-0 min-w-0"
+            >
               <div>
                 <label className="block text-sm text-gray-600 mb-1">업체명</label>
                 <input
@@ -540,12 +561,64 @@ export function AdminExternalCompaniesPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">연락처</label>
+                <label className="block text-sm text-gray-600 mb-1">대표 연락처</label>
                 <input
                   value={editFields.phone}
                   onChange={(e) => setEditFields((p) => ({ ...p, phone: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                 />
+              </div>
+              {editing.partnerUsers[0] ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+                  <p className="text-sm font-medium text-gray-800">담당자</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    타업체 로그인 계정(온보딩)에서 입력한 정보입니다. 수정은 타업체 본인만 가능합니다.
+                  </p>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">담당자 이름</label>
+                    <input
+                      value={
+                        isPendingOnboardingContactName(editing.partnerUsers[0].name)
+                          ? ''
+                          : onboardingContactNameForForm(editing.partnerUsers[0].name)
+                      }
+                      readOnly
+                      placeholder="미입력"
+                      className="w-full px-3 py-2 border border-gray-200 rounded text-sm bg-white text-gray-700 placeholder:text-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">담당자 연락처</label>
+                    <input
+                      value={editing.partnerUsers[0].phone?.trim() ?? ''}
+                      readOnly
+                      placeholder="미입력"
+                      className="w-full px-3 py-2 border border-gray-200 rounded text-sm bg-white text-gray-700 placeholder:text-gray-400"
+                    />
+                  </div>
+                </div>
+              ) : null}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">사업자등록증</label>
+                {editing.businessRegistrationImageUrl ? (
+                  <a
+                    href={editing.businessRegistrationImageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-lg border border-gray-200 bg-gray-50 p-2 hover:bg-gray-100/80"
+                  >
+                    <img
+                      src={editing.businessRegistrationImageUrl}
+                      alt="사업자등록증"
+                      className="mx-auto max-h-48 w-full object-contain rounded"
+                    />
+                    <p className="mt-2 text-center text-xs text-blue-600">새 창에서 크게 보기</p>
+                  </a>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-xs text-gray-500">
+                    등록된 사업자등록증 이미지 없음
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">메모</label>
@@ -556,6 +629,32 @@ export function AdminExternalCompaniesPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                 />
               </div>
+              {editing.partnerUsers[0] ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+                  <p className="text-sm font-medium text-gray-800">로그인 계정</p>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">아이디</label>
+                    <input
+                      value={editing.partnerUsers[0].email}
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-200 rounded text-sm bg-white text-gray-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      새 비밀번호 (선택 · 로그인 안내 복사용)
+                    </label>
+                    <input
+                      type="password"
+                      value={editPartnerPassword}
+                      onChange={(e) => setEditPartnerPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      placeholder="입력 시 복사 텍스트에 포함"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                </div>
+              ) : null}
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
                 <p className="text-sm font-medium text-gray-800">신규 사용</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
@@ -721,6 +820,11 @@ export function AdminExternalCompaniesPage() {
           </div>
         </div>
       ) : null}
+      <LoginCredentialsCopySheet
+        open={loginCopyOpen}
+        onClose={() => setLoginCopyOpen(false)}
+        credentials={loginCopyCredentials}
+      />
     </div>
   );
 }
