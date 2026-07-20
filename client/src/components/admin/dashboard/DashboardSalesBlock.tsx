@@ -1,7 +1,14 @@
+import { useState } from 'react';
 import type { DashboardStats } from '../../../api/dashboard';
 import { DashboardStatCard } from './DashboardStatCard';
 import { DashboardVerticalBarChart } from './DashboardMiniBarChart';
 import { DashboardTeamPanelsGrid } from './DashboardPageSections';
+import {
+  dashboardSectionHeader,
+  dashboardSectionShell,
+  dashboardSectionSubtitle,
+  dashboardSectionTitle,
+} from './dashboardMobileLayout';
 
 function formatCurrency(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
@@ -16,6 +23,7 @@ export function DashboardSalesBlock({
   loading: boolean;
   onOpenDrill?: () => void;
 }) {
+  const [teamPanelsOpen, setTeamPanelsOpen] = useState(false);
   const dailyChartItems =
     stats?.dailySales?.map((d) => ({
       key: d.date,
@@ -26,7 +34,7 @@ export function DashboardSalesBlock({
 
   return (
     <section
-      className={`min-w-0 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm shadow-slate-100/50 ${
+      className={`${dashboardSectionShell} ${
         onOpenDrill ? 'cursor-pointer hover:border-slate-300/80 transition-colors' : ''
       }`}
       role={onOpenDrill ? 'button' : undefined}
@@ -43,9 +51,9 @@ export function DashboardSalesBlock({
           : undefined
       }
     >
-      <div className="mb-4 border-b border-slate-100 pb-3">
-        <h2 className="text-fluid-sm font-semibold text-slate-900 flex items-center gap-1.5">
-          <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+      <div className={dashboardSectionHeader}>
+        <h2 className={`${dashboardSectionTitle} flex items-center gap-1.5`}>
+          <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -54,11 +62,11 @@ export function DashboardSalesBlock({
           </svg>
           매출 및 정산 현황
         </h2>
-        <p className="text-fluid-2xs text-gray-500 mt-1">접수일(KST) 기준 · 확정 접수만 · 클릭하면 기간별 상세</p>
+        <p className={`${dashboardSectionSubtitle} hidden sm:block`}>접수일(KST) 기준 · 확정 접수만 · 클릭하면 기간별 상세</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-[minmax(10.5rem,2fr)_minmax(0,3fr)] gap-3 mb-5">
-        <div className="flex min-w-0 flex-col gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-[minmax(10.5rem,2fr)_minmax(0,3fr)] gap-2 lg:gap-3 mb-3 lg:mb-5">
+        <div className="flex min-w-0 flex-col gap-2 lg:gap-3 col-span-2 sm:col-span-1">
           <DashboardStatCard
             compact
             label="오늘 매출"
@@ -92,8 +100,8 @@ export function DashboardSalesBlock({
         </div>
 
         {!loading && dailyChartItems.length > 0 ? (
-          <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/40 p-3">
-            <h3 className="text-fluid-2xs font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+          <div className="min-w-0 rounded-lg lg:rounded-xl border border-slate-100 bg-slate-50/40 p-2 lg:p-3 col-span-2 sm:col-span-1">
+            <h3 className="text-[11px] lg:text-fluid-2xs font-semibold text-gray-700 mb-1.5 lg:mb-2 flex items-center gap-1.5">
               <span className="w-1.5 h-3 rounded-full bg-blue-500" />
               최근 7일 매출
             </h3>
@@ -102,13 +110,13 @@ export function DashboardSalesBlock({
               accentClass="bg-blue-500"
               peakAccentClass="bg-indigo-600"
               formatValue={(n) => formatCurrency(n)}
-              barAreaClass="h-[4.5rem]"
+              barAreaClass="h-[3rem] lg:h-[4.5rem]"
               dense
               ariaLabel="최근 7일 일별 매출"
             />
           </div>
         ) : (
-          <div />
+          <div className="hidden sm:block" />
         )}
       </div>
 
@@ -118,7 +126,7 @@ export function DashboardSalesBlock({
             <span className="w-1.5 h-3 rounded-full bg-indigo-500" />
             팀장별 매출
           </h3>
-          <div className="max-h-44 overflow-y-auto overscroll-y-contain rounded-xl border border-slate-100 shadow-sm shadow-slate-100/30">
+          <div className="max-h-28 lg:max-h-44 overflow-y-auto overscroll-y-contain rounded-lg lg:rounded-xl border border-slate-100 shadow-sm shadow-slate-100/30">
             <table className="w-full text-fluid-2xs whitespace-nowrap">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-50/95 border-b border-slate-100 text-gray-500 font-medium">
@@ -151,12 +159,29 @@ export function DashboardSalesBlock({
       ) : null}
 
       <div
-        className="mt-6 pt-5 border-t border-slate-100"
+        className="mt-3 lg:mt-6 pt-3 lg:pt-5 border-t border-slate-100"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
         role="presentation"
       >
-        <DashboardTeamPanelsGrid stats={stats} loading={loading} compact />
+        <div className="lg:hidden">
+          <button
+            type="button"
+            onClick={() => setTeamPanelsOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-2 text-left text-[11px] font-medium text-slate-700 touch-manipulation"
+          >
+            <span>현장·운영 인원 현황</span>
+            <span className="shrink-0 text-slate-400">{teamPanelsOpen ? '접기' : '펼치기'}</span>
+          </button>
+          {teamPanelsOpen ? (
+            <div className="mt-2">
+              <DashboardTeamPanelsGrid stats={stats} loading={loading} compact />
+            </div>
+          ) : null}
+        </div>
+        <div className="hidden lg:block">
+          <DashboardTeamPanelsGrid stats={stats} loading={loading} compact />
+        </div>
       </div>
     </section>
   );

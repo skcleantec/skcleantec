@@ -22,6 +22,8 @@ import {
   buildSettlementExportCsv,
   getSettlementOverview,
   getSettlementPartnerDetail,
+  getPartnerSettlementPayments,
+  getPartnerSettlementMonthlyOverview,
   recordSettlementPayment,
   resetSettlementAccrual,
   TenantPartnerSettlementError,
@@ -214,7 +216,12 @@ router.get('/settlement/buyer-summary', async (req, res) => {
   if (!tenantId) return;
   try {
     const result = await getSettlementOverview(tenantId, 'BUYER');
-    res.json({ items: result.items });
+    res.json({
+      items: result.items.map((row) => ({
+        ...row,
+        payableAmount: row.accruedAmount,
+      })),
+    });
   } catch (e) {
     if (mapError(res, e)) return;
     throw e;
@@ -243,6 +250,67 @@ router.get('/settlement/partner-detail', async (req, res) => {
       to,
     });
     res.json(detail);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+/** 파트너 정산 지급·수금 이력만 */
+router.get('/settlement/partner-payments', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const role = parseSettlementRole(req.query.role);
+  const partnerTenantId =
+    typeof req.query.partnerTenantId === 'string' ? req.query.partnerTenantId.trim() : '';
+  if (!role || !partnerTenantId) {
+    res.status(400).json({ error: 'role(SELLER|BUYER)와 partnerTenantId가 필요합니다.' });
+    return;
+  }
+  const from = typeof req.query.from === 'string' ? req.query.from.trim() : undefined;
+  const to = typeof req.query.to === 'string' ? req.query.to.trim() : undefined;
+  const limitRaw = typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : 300;
+  const limit = Number.isFinite(limitRaw) ? limitRaw : 300;
+  try {
+    const result = await getPartnerSettlementPayments({
+      viewerTenantId: tenantId,
+      role,
+      partnerTenantId,
+      from,
+      to,
+      limit,
+    });
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+/** 파트너 월별 정산 요약 */
+router.get('/settlement/monthly-overview', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const role = parseSettlementRole(req.query.role);
+  const partnerTenantId =
+    typeof req.query.partnerTenantId === 'string' ? req.query.partnerTenantId.trim() : '';
+  const fromMonth = typeof req.query.fromMonth === 'string' ? req.query.fromMonth.trim() : '';
+  const toMonth = typeof req.query.toMonth === 'string' ? req.query.toMonth.trim() : '';
+  if (!role || !partnerTenantId || !fromMonth || !toMonth) {
+    res.status(400).json({
+      error: 'role(SELLER|BUYER), partnerTenantId, fromMonth, toMonth가 필요합니다.',
+    });
+    return;
+  }
+  try {
+    const result = await getPartnerSettlementMonthlyOverview({
+      viewerTenantId: tenantId,
+      role,
+      partnerTenantId,
+      fromMonth,
+      toMonth,
+    });
+    res.json(result);
   } catch (e) {
     if (mapError(res, e)) return;
     throw e;

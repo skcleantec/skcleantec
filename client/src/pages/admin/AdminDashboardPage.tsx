@@ -107,8 +107,8 @@ export function AdminDashboardPage() {
 
   return (
     <div className="min-w-0 w-full">
-      <div className="mb-6 lg:mb-8 flex items-center gap-3 min-w-0">
-        <h1 className="text-fluid-2xl font-extrabold tracking-tight text-slate-900 flex items-baseline gap-2 whitespace-nowrap min-w-0">
+      <div className="mb-6 lg:mb-8 flex flex-wrap items-center gap-2 lg:gap-3 min-w-0">
+        <h1 className="text-fluid-xl lg:text-fluid-2xl font-extrabold tracking-tight text-slate-900 flex items-baseline gap-2 whitespace-nowrap min-w-0">
           <span className="truncate">{tenantName ? tenantName : 'Dashboard'}</span>
           {tenantName ? <span className="text-fluid-lg font-medium text-slate-400 tracking-normal shrink-0">Dashboard</span> : null}
         </h1>
@@ -127,12 +127,12 @@ export function AdminDashboardPage() {
       ) : null}
 
       {/* 모바일 — 기존 세로 순서 유지 */}
-      <div className="lg:hidden space-y-6">
+      <div className="lg:hidden space-y-4">
         <DashboardAuxBlocksGrid showTelecrmDashboard={showTelecrmDashboard} />
         <DashboardOpsHourlyStrip onOpenDetail={(range) => openDrill('ops-hourly', undefined, range)} />
-        <DashboardKpiGrid stats={stats} loading={loading} navigate={navigate} />
+        <DashboardKpiGrid stats={stats} loading={loading} navigate={navigate} compact />
         {salesAnalytics}
-        {token ? <DashboardChangeHistory token={token} /> : null}
+        {token ? <DashboardChangeHistory token={token} compact /> : null}
       </div>
 
       {/* PC — 메인 + 우측 변경 이력 레일 */}

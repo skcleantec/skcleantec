@@ -3,6 +3,7 @@ import { getToken } from '../../stores/auth';
 import { openTelecrmWindow } from '../../utils/openTelecrmWindow';
 import { DashboardTopCard } from './dashboard/DashboardTopCard';
 import { TELECRM_APP_INSTALL_PATH } from '../../api/telecrmAppManifest';
+import type { DashboardAuxBlockVariant } from './dashboard/DashboardPageSections';
 
 function TelecrmPhoneIcon({ className }: { className?: string }) {
   return (
@@ -21,7 +22,7 @@ function TelecrmPhoneIcon({ className }: { className?: string }) {
   );
 }
 
-export function DashboardTelecrmBlock() {
+export function DashboardTelecrmBlock({ variant = 'card' }: { variant?: DashboardAuxBlockVariant }) {
   const token = getToken();
   const [openError, setOpenError] = useState<string | null>(null);
 
@@ -34,6 +35,44 @@ export function DashboardTelecrmBlock() {
   }, []);
 
   if (!token) return null;
+
+  const compactBtn =
+    'shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-semibold touch-manipulation whitespace-nowrap';
+
+  if (variant === 'row') {
+    return (
+      <div className="flex min-w-0 items-center gap-2.5 px-3 py-2.5">
+        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-sm">
+          <TelecrmPhoneIcon className="h-3.5 w-3.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-fluid-2xs font-semibold text-violet-950">텔레CRM</h2>
+          {openError ? (
+            <p className="truncate text-[11px] text-rose-700" role="alert">
+              {openError}
+            </p>
+          ) : (
+            <p className="truncate text-[11px] text-slate-500">전화 상담·접수·문자 발송</p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleOpenTelecrm}
+          className={`${compactBtn} bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700`}
+        >
+          열기
+        </button>
+        <a
+          href={TELECRM_APP_INSTALL_PATH}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${compactBtn} border border-violet-300 bg-white text-violet-800 hover:bg-violet-50`}
+        >
+          App
+        </a>
+      </div>
+    );
+  }
 
   return (
     <DashboardTopCard accent="violet">

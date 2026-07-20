@@ -9,6 +9,7 @@ import {
 import { getToken } from '../../stores/auth';
 import { runWhenIdle } from '../../utils/deferWhenIdle';
 import { HelpTooltip } from '../ui/HelpTooltip';
+import { dashboardSectionShell } from './dashboard/dashboardMobileLayout';
 
 const PERIOD_OPTIONS = [
   { days: 7 as const, label: '7일' },
@@ -273,7 +274,7 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
 
   return (
     <section
-      className={`rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm shadow-slate-100/50 ${
+      className={`${dashboardSectionShell} p-3 lg:p-4 ${
         onOpenDetail ? 'cursor-pointer hover:border-slate-300/80 transition-colors' : ''
       }`}
       role={onOpenDetail ? 'button' : undefined}
@@ -314,7 +315,7 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
       </div>
 
       {data && !loading ? (
-        <p className="mb-3 text-[10px] text-slate-500">
+        <p className="mb-2 lg:mb-3 text-[10px] text-slate-500 truncate">
           {data.periodStartYmd} ~ {data.periodEndYmd}
         </p>
       ) : null}
@@ -322,13 +323,64 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
       {error ? (
         <p className="rounded-lg border border-rose-100 bg-rose-50/50 px-3 py-2 text-[11px] text-rose-700">{error}</p>
       ) : loading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex gap-2 overflow-x-auto pb-0.5 lg:grid lg:grid-cols-2 lg:gap-3">
           {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="h-36 animate-pulse rounded-xl bg-slate-100" />
+            <div key={i} className="h-24 lg:h-36 min-w-[8rem] shrink-0 animate-pulse rounded-xl bg-slate-100 lg:min-w-0" />
           ))}
         </div>
       ) : data && issued && absent ? (
         <>
+          <div className="lg:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory">
+              {[issued, absent, ...secondaryMetrics].map((m) => (
+                <div key={m.id} className="snap-start shrink-0 w-[min(72vw,16rem)]">
+                  <OpsHourlyChip metric={m} />
+                </div>
+              ))}
+            </div>
+            {data.heatmap.total > 0 ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setHeatmapOpen((v) => !v);
+                }}
+                className="mt-2 flex w-full items-center justify-between gap-2 rounded-lg border border-indigo-100 bg-indigo-50/40 px-2.5 py-1.5 text-left text-[10px] font-medium text-indigo-800"
+              >
+                <span className="truncate">
+                  요일×시간 히트맵
+                  {data.heatmap.peak.count > 0 ? (
+                    <span className="ml-1 font-normal text-indigo-600">피크 {data.heatmap.peak.label}</span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 text-indigo-400">{heatmapOpen ? '접기' : '펼치기'}</span>
+              </button>
+            ) : null}
+            {heatmapOpen && data.heatmap.total > 0 ? (
+              <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50/80 p-2" onClick={(e) => e.stopPropagation()}>
+                <OpsHeatmapGrid heatmap={data.heatmap} />
+              </div>
+            ) : null}
+            {data.openBacklog.total > 0 || data.conversionByHour.peakRatePct > 0 ? (
+              <p className="mt-2 truncate text-[10px] text-slate-600">
+                {data.openBacklog.total > 0 ? (
+                  <span>
+                    미처리 <strong className="tabular-nums text-amber-800">{data.openBacklog.total}</strong>건
+                  </span>
+                ) : null}
+                {data.openBacklog.total > 0 && data.conversionByHour.peakRatePct > 0 ? (
+                  <span className="text-slate-400"> · </span>
+                ) : null}
+                {data.conversionByHour.peakRatePct > 0 ? (
+                  <span>
+                    전환 피크 <strong className="tabular-nums text-emerald-700">{data.conversionByHour.peakRatePct}%</strong>
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="hidden lg:block">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <OpsPrimaryBox
               metric={issued}
@@ -408,6 +460,7 @@ export function DashboardOpsHourlyStrip({ onOpenDetail }: { onOpenDetail?: (rang
               </div>
             </div>
           ) : null}
+          </div>
         </>
       ) : null}
     </section>

@@ -23,10 +23,12 @@ function formatWhen(iso: string): string {
 type Props = {
   token: string;
   variant?: 'default' | 'sidebar';
+  compact?: boolean;
 };
 
-export function DashboardChangeHistory({ token, variant = 'default' }: Props) {
+export function DashboardChangeHistory({ token, variant = 'default', compact = false }: Props) {
   const isSidebar = variant === 'sidebar';
+  const isCompact = compact || isSidebar;
   const { isTenantOwner, isSuperAdmin } = useAdminStaffSession();
   const isTenantOwnerOrSuper = isTenantOwner || isSuperAdmin;
   const [recent, setRecent] = useState<ChangeHistoryItem[]>([]);
@@ -98,10 +100,12 @@ export function DashboardChangeHistory({ token, variant = 'default' }: Props) {
   return (
     <>
       <div
-        className={`bg-white border border-gray-200 rounded-2xl cursor-pointer hover:shadow-md hover:border-gray-300 transition-all duration-200 shadow-sm shadow-gray-100/50 ${
+        className={`bg-white border border-gray-200 rounded-xl lg:rounded-2xl cursor-pointer hover:shadow-md hover:border-gray-300 transition-all duration-200 shadow-sm shadow-gray-100/50 ${
           isSidebar
             ? 'p-4 flex flex-col min-h-0 max-h-[calc(100dvh-5.5rem)] lg:sticky lg:top-4 lg:w-[468px]'
-            : 'p-5'
+            : isCompact
+              ? 'p-3'
+              : 'p-5'
         }`}
         onClick={() => void openModal()}
         onKeyDown={(e) => {
@@ -113,15 +117,15 @@ export function DashboardChangeHistory({ token, variant = 'default' }: Props) {
         role="button"
         tabIndex={0}
       >
-        <div className={`flex items-center justify-between border-b border-slate-50 pb-2.5 shrink-0 ${isSidebar ? 'mb-3' : 'mb-5 pb-3'}`}>
-          <h2 className={`font-semibold text-gray-800 flex items-center gap-1.5 ${isSidebar ? 'text-fluid-sm' : 'text-fluid-base'}`}>
-            <svg className={`text-indigo-500 shrink-0 ${isSidebar ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <div className={`flex items-center justify-between border-b border-slate-50 shrink-0 ${isCompact ? 'mb-2 pb-2' : 'mb-5 pb-3'}`}>
+          <h2 className={`font-semibold text-gray-800 flex items-center gap-1.5 ${isCompact ? 'text-fluid-xs' : 'text-fluid-base'}`}>
+            <svg className={`text-indigo-500 shrink-0 ${isCompact ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             접수 변경 이력
           </h2>
           <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-inset ring-slate-500/10 shrink-0">
-            {isSidebar ? '전체 보기' : '클릭 시 전체 기록 조회'}
+            {isSidebar ? '전체 보기' : isCompact ? '전체 보기' : '클릭 시 전체 기록 조회'}
           </span>
         </div>
         <div className={isSidebar ? 'min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]' : undefined}>
@@ -139,19 +143,19 @@ export function DashboardChangeHistory({ token, variant = 'default' }: Props) {
         )}
         
         {!loading && !err && recent.length > 0 && (
-          <div className={`relative border-l border-slate-200 ml-3 pl-4 ${isSidebar ? 'space-y-3 my-1' : 'space-y-4 ml-3.5 pl-6 my-2'}`}>
-            {recent.map((row) => (
+          <div className={`relative border-l border-slate-200 ml-3 pl-4 ${isCompact ? 'space-y-2 my-1' : 'space-y-4 ml-3.5 pl-6 my-2'}`}>
+            {recent.slice(0, isCompact ? 5 : 10).map((row) => (
               <div key={row.id} className="relative group/item">
                 <span
                   className={`absolute flex items-center justify-center rounded-full bg-white border-2 border-indigo-500 ring-4 ring-white ${
-                    isSidebar ? '-left-[22px] top-0.5 h-3 w-3' : '-left-[30px] top-1 h-4 w-4'
+                    isCompact ? '-left-[22px] top-0.5 h-3 w-3' : '-left-[30px] top-1 h-4 w-4'
                   }`}
                   aria-hidden="true"
                 >
-                  <span className={`rounded-full bg-indigo-500 ${isSidebar ? 'h-1 w-1' : 'h-1.5 w-1.5'}`} />
+                  <span className={`rounded-full bg-indigo-500 ${isCompact ? 'h-1 w-1' : 'h-1.5 w-1.5'}`} />
                 </span>
                 
-                {isSidebar ? (
+                {isCompact ? (
                   <div className="flex flex-col gap-0.5 text-[11px] leading-snug min-w-0">
                     <div className="flex items-start justify-between gap-1">
                       <span className="font-semibold text-slate-800 truncate">{row.actorName ?? '시스템'}</span>

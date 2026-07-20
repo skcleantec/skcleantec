@@ -15,6 +15,12 @@ import { DashboardSidoRegionModal } from './DashboardSidoRegionModal';
 import { DashboardRegionDateBasisToggle } from './DashboardRegionDateBasisToggle';
 import type { DashboardDrillKind } from './dashboardDrilldownTypes';
 import type { KoreaSidoKey } from '@shared/regionMatch';
+import {
+  dashboardSectionHeader,
+  dashboardSectionShell,
+  dashboardSectionSubtitle,
+  dashboardSectionTitle,
+} from './dashboardMobileLayout';
 
 function formatCurrency(n: number): string {
   return n.toLocaleString('ko-KR') + '원';
@@ -46,7 +52,7 @@ function ChartCard({
   const clickable = onOpenDrill != null;
   return (
     <div
-      className={`rounded-xl border border-slate-100 bg-slate-50/40 p-4 min-w-0 ${
+      className={`rounded-lg lg:rounded-xl border border-slate-100 bg-slate-50/40 p-2.5 lg:p-4 min-w-0 ${
         clickable ? 'cursor-pointer hover:bg-slate-50/80 transition-colors' : ''
       }`}
       role={clickable ? 'button' : undefined}
@@ -63,7 +69,7 @@ function ChartCard({
           : undefined
       }
     >
-      <div className="mb-3 flex items-start justify-between gap-2">
+      <div className="mb-2 lg:mb-3 flex items-start justify-between gap-2">
         <h3 className="text-fluid-2xs font-semibold text-gray-700 flex items-center gap-1.5 min-w-0">
           <span className={`w-1.5 h-3 rounded-full shrink-0 ${accentDotClass}`} />
           <span className="truncate">{title}</span>
@@ -102,8 +108,8 @@ export function DashboardInquiryAnalyticsPanel({
 
   if (loading) {
     return (
-      <section className="min-w-0 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm shadow-slate-100/50">
-        <div className="py-16 flex justify-center items-center">
+      <section className={`${dashboardSectionShell} py-8 lg:py-16`}>
+        <div className="flex justify-center items-center">
           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-violet-500" />
           <span className="ml-2 text-fluid-2xs text-gray-400">분석 불러오는 중…</span>
         </div>
@@ -113,8 +119,8 @@ export function DashboardInquiryAnalyticsPanel({
 
   if (error) {
     return (
-      <section className="min-w-0 rounded-2xl border border-red-200/60 bg-red-50/30 p-5 shadow-sm">
-        <p className="text-fluid-sm text-red-700">{error}</p>
+      <section className={`${dashboardSectionShell} border-red-200/60 bg-red-50/30`}>
+        <p className="text-fluid-xs lg:text-fluid-sm text-red-700">{error}</p>
       </section>
     );
   }
@@ -146,26 +152,26 @@ export function DashboardInquiryAnalyticsPanel({
     preferredItems.length > 20 ? 5 : preferredItems.length > 12 ? 3 : 2;
 
   return (
-    <section className="min-w-0 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm shadow-slate-100/50">
-      <div className="mb-4 border-b border-slate-100 pb-3 flex items-center justify-between gap-2">
+    <section className={dashboardSectionShell}>
+      <div className={`${dashboardSectionHeader} flex items-center justify-between gap-2`}>
         <div className="min-w-0">
-          <h2 className="text-fluid-sm font-semibold text-slate-900 flex items-center gap-1.5">
+          <h2 className={`${dashboardSectionTitle} flex items-center gap-1.5`}>
             <svg className="w-4 h-4 text-violet-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
             </svg>
             접수·예약 분석
           </h2>
-          <p className="text-fluid-2xs text-gray-500 mt-1 truncate">
+          <p className={`${dashboardSectionSubtitle} truncate`}>
             {monthTitleKo(breakdown.monthKey)} · KST
           </p>
         </div>
-        <span className="inline-flex shrink-0 items-center rounded-full bg-violet-50 px-2 py-1 text-[10px] font-medium text-violet-700 ring-1 ring-inset ring-violet-700/10">
+        <span className="inline-flex shrink-0 items-center rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-inset ring-violet-700/10">
           그래프
         </span>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3 lg:space-y-4">
         <ChartCard
           title="지역별 접수"
           accentDotClass="bg-red-500"
@@ -176,7 +182,7 @@ export function DashboardInquiryAnalyticsPanel({
             <DashboardRegionDateBasisToggle value={regionDateBasis} onChange={setRegionDateBasis} />
           </div>
           {regionAnalytics.bySidoMap.length > 0 ? (
-            <div className="rounded-lg border border-white/80 bg-white/70 p-3" onClick={(e) => e.stopPropagation()}>
+            <div className="rounded-lg border border-white/80 bg-white/70 p-2 lg:p-3" onClick={(e) => e.stopPropagation()}>
               <DashboardKoreaSidoMap
                 items={regionAnalytics.bySidoMap}
                 onSidoClick={(sidoKey) => setSidoDetailKey(sidoKey)}
@@ -249,7 +255,7 @@ export function DashboardInquiryAnalyticsPanel({
             peakAccentClass="bg-indigo-600"
             showValueLabels
             formatValue={(n) => `${n}건`}
-            barAreaClass="h-24"
+            barAreaClass="h-16 lg:h-24"
             onBarClick={(item) => onOpenDrill('monthly-inquiry', item.key)}
             ariaLabel="최근 6개월 월별 접수 건수"
           />
@@ -273,7 +279,7 @@ export function DashboardInquiryAnalyticsPanel({
               accentClass="bg-sky-400"
               peakAccentClass="bg-sky-600"
               formatValue={(n) => `${n}건`}
-              barAreaClass="h-20"
+              barAreaClass="h-14 lg:h-20"
               labelEvery={preferredLabelEvery}
               ariaLabel="이번 달 예약일별 작업 건수"
             />
