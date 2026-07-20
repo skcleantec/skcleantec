@@ -29,6 +29,8 @@ type Props = {
   disabled?: boolean;
   /** 파트너 직접 연계 폼 → 정보공유 등록 시 1회 적용 */
   exchangePrefill?: DbMarketplaceExchangePrefill | null;
+  /** 장바구니·게시·확정 등 listing 변경 후 스케줄 목록·상세 갱신 */
+  onListingChange?: () => void | Promise<void>;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -45,6 +47,7 @@ export function InquiryDbMarketplaceSellPanel({
   serviceBalanceAmount,
   disabled,
   exchangePrefill,
+  onListingChange,
 }: Props) {
   const token = getToken();
   const [listing, setListing] = useState<DbMarketplaceSellerListing | null>(null);
@@ -128,6 +131,14 @@ export function InquiryDbMarketplaceSellPanel({
   const { connected: wsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !wsConnected ? 20000 : 0);
 
+  const notifyListingChange = async () => {
+    try {
+      await onListingChange?.();
+    } catch {
+      /* 목록 갱신 실패는 패널 저장 성공과 분리 */
+    }
+  };
+
   const saveDraft = async () => {
     if (!token) return;
     const fee = parseListingFeeInput(listingFeeInput);
@@ -139,6 +150,7 @@ export function InquiryDbMarketplaceSellPanel({
     try {
       const row = await upsertDbMarketplaceDraft(token, inquiryId, fee);
       setListing(row);
+      await notifyListingChange();
       alert('판매 장바구니에 담았습니다.');
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장 실패');
@@ -187,6 +199,7 @@ export function InquiryDbMarketplaceSellPanel({
     try {
       const row = await publishDbMarketplaceListing(token, listing.id);
       setListing(row);
+      await notifyListingChange();
     } catch (e) {
       alert(e instanceof Error ? e.message : '게시 실패');
     } finally {
@@ -215,6 +228,7 @@ export function InquiryDbMarketplaceSellPanel({
     try {
       const result = await confirmDbMarketplaceSeller(token, listing.id);
       setListing(result.listing);
+      await notifyListingChange();
       alert('인계가 완료되었습니다.');
     } catch (e) {
       alert(e instanceof Error ? e.message : '인계 확정 실패');

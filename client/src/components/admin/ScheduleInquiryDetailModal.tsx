@@ -2877,6 +2877,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 serviceBalanceAmount={item.serviceBalanceAmount}
                 disabled={!!item.tenantShare || externalPartnerBlocksShare}
                 exchangePrefill={marketplaceExchangePrefill}
+                onListingChange={() => onInquiryRefresh?.()}
               />
             </div>
           ) : null}
