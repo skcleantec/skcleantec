@@ -270,7 +270,7 @@ export function AdminQuotationSettingsPage() {
             <h3 className="text-sm font-semibold text-slate-900">이메일 기본값</h3>
             <p className="text-fluid-2xs text-slate-500 mt-1">
               치환: {'{{customerName}}'}, {'{{quoteNumber}}'}, {'{{total}}'}, {'{{companyName}}'},{' '}
-              {'{{validUntil}}'}
+              {'{{validUntil}}'}, {'{{documentLabel}}'} (견적서·영수증)
             </p>
           </div>
 

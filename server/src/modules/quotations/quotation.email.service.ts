@@ -1,4 +1,5 @@
 import { formatSmtpSendError, sendMailForTenant } from '../../lib/tenantSmtp.service.js';
+import { QUOTATION_DOCUMENT_TYPE_LABELS, type QuotationDocumentType } from './quotationDocument.js';
 import type { QuotationRow } from './quotations.service.js';
 
 export async function sendQuotationEmail(params: {
@@ -11,6 +12,8 @@ export async function sendQuotationEmail(params: {
 }): Promise<boolean> {
   const { tenantId, quotation, to, subject, body, pdfBuffer } = params;
   const text = body;
+  const documentType = (quotation.documentType ?? 'QUOTATION') as QuotationDocumentType;
+  const documentLabel = QUOTATION_DOCUMENT_TYPE_LABELS[documentType];
 
   try {
     return await sendMailForTenant(
@@ -22,7 +25,7 @@ export async function sendQuotationEmail(params: {
         html: text.replace(/\n/g, '<br>'),
         attachments: [
           {
-            filename: `견적서_${quotation.quoteNumber}.pdf`,
+            filename: `${documentLabel}_${quotation.quoteNumber}.pdf`,
             content: pdfBuffer,
             contentType: 'application/pdf',
           },
