@@ -11,6 +11,7 @@ import {
   hybridLegacySettlementFromShare,
   resolveExternalSettlementCompanyAttribution,
 } from '../../lib/externalSettlementAttribution.js';
+import { signedExternalSettlementFee } from '../../lib/externalSettlementSignedFee.js';
 import {
   computeSignedExternalFeeBeforeDate,
   fetchExternalSettlementInquiriesForCompanyPeriod,
@@ -20,6 +21,7 @@ import {
   loadMarketplaceExternalConfirmAtMap,
   externalSettlementPeriodOrClause,
   resolveExternalSettlementEffectiveDate,
+  endOfKstToday,
 } from '../../lib/externalSettlementEffectiveDate.js';
 import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlementOperatingCompanyScope.js';
 import { sumExternalSettlementSignedFeeByCompany, sumExternalSettlementPaidByCompany } from './externalSettlementOverview.service.js';
@@ -594,9 +596,9 @@ router.get('/settlement/summary', requireStaffPermission('admin.externalSettleme
     companyName: string;
     /** 취소 제외 건수 */
     inquiryCount: number;
-    /** 기간 내 취소 건수(수수료 차감 대상) */
+    /** 기간 내 취소 건수(정산 미반영·표시용) */
     cancelledInquiryCount: number;
-    /** 활성(+), 취소(-) 합산 순액 */
+    /** 활성 건 수수료 합(취소는 미수 0) */
     feeSum: number;
   };
   const byCompany = new Map<string, Row>();
@@ -620,26 +622,30 @@ router.get('/settlement/summary', requireStaffPermission('admin.externalSettleme
     );
     const cid = attributed?.companyId ?? null;
     const cname = attributed?.companyName ?? null;
-    const sign = isCancelled ? -1 : 1;
+    const signed = signedExternalSettlementFee(fee, isCancelled);
     if (cid && cname) {
       const prev = byCompany.get(cid);
       if (prev) {
         if (isCancelled) prev.cancelledInquiryCount += 1;
         else prev.inquiryCount += 1;
-        prev.feeSum += sign * fee;
+        prev.feeSum += signed;
       } else {
         byCompany.set(cid, {
           externalCompanyId: cid,
           companyName: cname,
           inquiryCount: isCancelled ? 0 : 1,
           cancelledInquiryCount: isCancelled ? 1 : 0,
-          feeSum: sign * fee,
+          feeSum: signed,
         });
       }
-    } else {
-      unassignedFee += sign * fee;
+    } else if (signed !== 0) {
+      unassignedFee += signed;
       if (isCancelled) unassignedCancelled += 1;
       else unassignedActive += 1;
+    } else if (isCancelled) {
+      unassignedCancelled += 1;
+    } else {
+      unassignedActive += 1;
     }
   }
 
@@ -687,6 +693,7 @@ router.get('/settlement/monthly-overview', requireStaffPermission('admin.externa
   const startDate = new Date(`${loMonth}-01T00:00:00.000+09:00`);
   const [toY, toM] = hiMonth.split('-').map(Number);
   const endDate = new Date(new Date(toY, toM, 0).toISOString().slice(0, 10) + 'T23:59:59.999+09:00');
+  const throughEnd = endOfKstToday();
 
   const marketplaceIdsInRange = await prisma.inquiryDbListing.findMany({
     where: {
@@ -774,7 +781,7 @@ router.get('/settlement/monthly-overview', requireStaffPermission('admin.externa
       inq.preferredDate,
       confirmAtMap.get(inq.id),
     );
-    if (!effective) continue;
+    if (!effective || effective > throughEnd) continue;
     const monthKey = kstYmdFromDate(effective).slice(0, 7);
     monthSet.add(monthKey);
     const fee = inq.externalTransferFee ?? 0;
@@ -796,7 +803,7 @@ router.get('/settlement/monthly-overview', requireStaffPermission('admin.externa
     companyNameById.set(cid, cname);
     const key = `${monthKey}|${cid}`;
     const prev = payableByMonthCompany.get(key) ?? 0;
-    const signed = isCancelled ? -fee : fee;
+    const signed = signedExternalSettlementFee(fee, isCancelled);
     payableByMonthCompany.set(key, prev + signed);
   }
 
@@ -817,8 +824,29 @@ router.get('/settlement/monthly-overview', requireStaffPermission('admin.externa
     return an.localeCompare(bn, 'ko-KR');
   });
 
-  let cumulativeOverallRemaining = 0;
-  const cumulativeByCompany = new Map<string, number>();
+  const carryOverByCompany = new Map<string, number>();
+  await Promise.all(
+    companyIds.map(async (cid) => {
+      const [signedBefore, paidBeforeAgg] = await Promise.all([
+        computeSignedExternalFeeBeforeDate({
+          tenantId,
+          externalCompanyId: cid,
+          operatingCompanyId,
+          before: startDate,
+        }),
+        prisma.externalCompanySettlementPayment.aggregate({
+          where: { externalCompanyId: cid, operatingCompanyId, paidAt: { lt: startDate } },
+          _sum: { amount: true },
+        }),
+      ]);
+      carryOverByCompany.set(cid, signedBefore - (paidBeforeAgg._sum.amount ?? 0));
+    }),
+  );
+
+  let cumulativeOverallRemaining = carryOverByCompany.size
+    ? [...carryOverByCompany.values()].reduce((s, v) => s + v, 0)
+    : 0;
+  const cumulativeByCompany = new Map<string, number>(carryOverByCompany);
   const monthRows = months.map((month) => {
     const companies = companyIds
       .map((cid) => {
@@ -1020,7 +1048,7 @@ router.get('/settlement/company-detail', requireStaffPermission('admin.externalS
         status: r.status,
         isCancelled: true,
         feeAmount: r.externalTransferFee ?? 0,
-        signedFeeAmount: -(r.externalTransferFee ?? 0),
+        signedFeeAmount: signedExternalSettlementFee(r.externalTransferFee ?? 0, true),
         viaMarketplace: false as boolean,
       };
     }),
@@ -1169,33 +1197,13 @@ router.get('/settlement/accruals', requireStaffPermission('admin.externalSettlem
     select: accrualSelect,
   });
 
-  const cancelledInquiries = await prisma.inquiry.findMany({
-    where: {
-      tenantId,
-      operatingCompanyId,
-      status: 'CANCELLED',
-      externalTransferFee: { not: null },
-      OR: [
-        { cancelFeeExternalCompanyId: { not: null } },
-        {
-          assignments: {
-            some: {
-              teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: { not: null } },
-            },
-          },
-        },
-      ],
-    },
-    select: accrualSelect,
-  });
-
   const accrualConfirmAtMap = await loadMarketplaceExternalConfirmAtMap(tenantId, {
-    inquiryIds: [...activeInquiries, ...cancelledInquiries].map((inq) => inq.id),
+    inquiryIds: activeInquiries.map((inq) => inq.id),
   });
-  const marketplaceBuyerByInquiry = await loadMarketplaceExternalBuyerByInquiry(tenantId, [
-    ...activeInquiries,
-    ...cancelledInquiries,
-  ].map((inq) => inq.id));
+  const marketplaceBuyerByInquiry = await loadMarketplaceExternalBuyerByInquiry(
+    tenantId,
+    activeInquiries.map((inq) => inq.id),
+  );
 
   type Acc = { sinceReset: number; today: number; month: number; year: number };
   const accByCompany = new Map<string, Acc>();
@@ -1239,24 +1247,6 @@ router.get('/settlement/accruals', requireStaffPermission('admin.externalSettlem
     if (!activeSinceReset) continue;
 
     addSignedByEffective(cid, fee, 1, inq);
-  }
-
-  for (const inq of cancelledInquiries) {
-    const attributed = resolveExternalSettlementCompanyAttribution(
-      inq,
-      true,
-      marketplaceBuyerByInquiry.get(inq.id),
-    );
-    const cid = attributed?.companyId ?? null;
-    if (!cid || !accByCompany.has(cid)) continue;
-
-    const fee = inq.externalTransferFee ?? 0;
-    const lastReset = lastResetByCompany.get(cid) ?? new Date(0);
-    if (inq.updatedAt <= lastReset) continue;
-    const createdAfterReset = inq.createdAt > lastReset;
-    if (createdAfterReset && inq.updatedAt.getTime() - inq.createdAt.getTime() < 120_000) continue;
-
-    addSignedByEffective(cid, fee, -1, inq);
   }
 
   const items = companies.map((c) => ({

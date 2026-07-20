@@ -371,59 +371,26 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
     attributedOr.push({ id: { in: marketplaceAttributedIds } });
   }
 
-  const [activeRows, cancelledRows] = await Promise.all([
-    prisma.inquiry.findMany({
-      where: {
-        tenantId: opts.tenantId,
-        operatingCompanyId: opts.operatingCompanyId,
-        externalTransferFee: { not: null },
-        status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-        OR: attributedOr,
-        AND: [{ OR: candidateOr }],
-      },
-      select: {
-        id: true,
-        preferredDate: true,
-        externalTransferFee: true,
-        cancelFeeExternalCompanyId: true,
-        assignments: inquirySettlementAssignmentSelect.assignments,
-        tenantShareAsSource: inquirySettlementAssignmentSelect.tenantShareAsSource,
-      },
-    }),
-    prisma.inquiry.findMany({
-      where: {
-        tenantId: opts.tenantId,
-        operatingCompanyId: opts.operatingCompanyId,
-        status: 'CANCELLED',
-        externalTransferFee: { not: null },
-        AND: [
-          {
-            OR: [
-              { cancelFeeExternalCompanyId: opts.externalCompanyId },
-              { assignments: assignmentSome },
-              { tenantShareAsSource: hybridShareFilter },
-              ...(marketplaceAttributedIds.length > 0
-                ? [{ id: { in: marketplaceAttributedIds } }]
-                : []),
-            ],
-          },
-          { OR: candidateOr },
-        ],
-      },
-      select: {
-        id: true,
-        preferredDate: true,
-        externalTransferFee: true,
-        cancelFeeExternalCompanyId: true,
-        assignments: inquirySettlementAssignmentSelect.assignments,
-        tenantShareAsSource: inquirySettlementAssignmentSelect.tenantShareAsSource,
-      },
-    }),
-  ]);
+  const activeRows = await prisma.inquiry.findMany({
+    where: {
+      tenantId: opts.tenantId,
+      operatingCompanyId: opts.operatingCompanyId,
+      externalTransferFee: { not: null },
+      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+      OR: attributedOr,
+      AND: [{ OR: candidateOr }],
+    },
+    select: {
+      id: true,
+      preferredDate: true,
+      externalTransferFee: true,
+      cancelFeeExternalCompanyId: true,
+      assignments: inquirySettlementAssignmentSelect.assignments,
+      tenantShareAsSource: inquirySettlementAssignmentSelect.tenantShareAsSource,
+    },
+  });
 
-  const extraIds = [...activeRows, ...cancelledRows]
-    .map((r) => r.id)
-    .filter((id) => !confirmAtMap.has(id));
+  const extraIds = activeRows.map((r) => r.id).filter((id) => !confirmAtMap.has(id));
   if (extraIds.length > 0) {
     const extraConfirm = await loadMarketplaceExternalConfirmAtMap(opts.tenantId, {
       externalCompanyId: opts.externalCompanyId,
@@ -432,7 +399,7 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
     for (const [id, at] of extraConfirm) confirmAtMap.set(id, at);
   }
 
-  const allCandidateIds = [...activeRows, ...cancelledRows].map((r) => r.id);
+  const allCandidateIds = activeRows.map((r) => r.id);
   const marketplaceBuyerByInquiry = await loadMarketplaceExternalBuyerByInquiry(
     opts.tenantId,
     allCandidateIds,
@@ -452,20 +419,6 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
     }
     const effective = resolveExternalSettlementEffectiveDate(row.preferredDate, confirmAtMap.get(row.id));
     if (effective && effective < opts.before) signed += row.externalTransferFee ?? 0;
-  }
-  for (const row of cancelledRows) {
-    if (
-      !inquiryAttributedToExternalCompany(
-        toExternalSettlementAttributionInput(row),
-        true,
-        marketplaceBuyerByInquiry.get(row.id),
-        opts.externalCompanyId,
-      )
-    ) {
-      continue;
-    }
-    const effective = resolveExternalSettlementEffectiveDate(row.preferredDate, confirmAtMap.get(row.id));
-    if (effective && effective < opts.before) signed -= row.externalTransferFee ?? 0;
   }
   return signed;
 }

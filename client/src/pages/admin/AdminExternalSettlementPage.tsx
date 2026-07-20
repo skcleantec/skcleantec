@@ -86,6 +86,21 @@ function formatKstDateLabel(iso: string): string {
   return new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'medium' });
 }
 
+function settlementDetailFeeLabel(it: {
+  signedFeeAmount: number;
+  isCancelled?: boolean;
+  feeAmount?: number;
+}): { text: string; className: string } {
+  if (it.isCancelled) {
+    const base = it.feeAmount ? `취소 · 정산 0원 (${won(it.feeAmount)} 수수료)` : '취소 · 정산 0원';
+    return { text: base, className: 'text-gray-500 font-normal' };
+  }
+  return {
+    text: `+${won(it.signedFeeAmount)}`,
+    className: it.signedFeeAmount < 0 ? 'text-rose-700' : 'text-emerald-700',
+  };
+}
+
 function monthStartEnd(month: string): { from: string; to: string } {
   const [yy, mm] = month.split('-').map(Number);
   const last = new Date(yy, mm, 0).getDate();
@@ -154,7 +169,13 @@ export function AdminExternalSettlementPage() {
   const [periodLoading, setPeriodLoading] = useState(false);
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [periodRows, setPeriodRows] = useState<
-    Array<{ month: string; payableAmount: number; paidAmount: number; remainingAmount: number }>
+    Array<{
+      month: string;
+      payableAmount: number;
+      paidAmount: number;
+      remainingAmount: number;
+      cumulativeRemaining: number;
+    }>
   >([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailMonth, setDetailMonth] = useState(kstTodayYmd().slice(0, 7));
@@ -165,6 +186,8 @@ export function AdminExternalSettlementPage() {
       inquiryNumber: string | null;
       customerName: string;
       signedFeeAmount: number;
+      isCancelled?: boolean;
+      feeAmount?: number;
       viaMarketplace?: boolean;
     }>
   >([]);
@@ -329,14 +352,18 @@ export function AdminExternalSettlementPage() {
         toMonth: `${targetYear}-12`,
         operatingCompanyId: resolvedOperatingCompanyId,
       });
-      const items = summary.months.map((m) => {
+      const items = summary.months.flatMap((m) => {
         const c = m.companies.find((x) => x.externalCompanyId === row.externalCompanyId);
-        return {
-          month: m.month,
-          payableAmount: c?.payableAmount ?? 0,
-          paidAmount: c?.paidAmount ?? 0,
-          remainingAmount: c?.remainingAmount ?? 0,
-        };
+        if (!c) return [];
+        return [
+          {
+            month: m.month,
+            payableAmount: c.payableAmount,
+            paidAmount: c.paidAmount,
+            remainingAmount: c.remainingAmount,
+            cumulativeRemaining: c.cumulativeRemaining,
+          },
+        ];
       });
       setPeriodRows(items);
     } finally {
@@ -374,6 +401,8 @@ export function AdminExternalSettlementPage() {
           inquiryNumber: it.inquiryNumber,
           customerName: it.customerName,
           signedFeeAmount: it.signedFeeAmount,
+          isCancelled: it.isCancelled,
+          feeAmount: it.feeAmount,
           viaMarketplace: it.viaMarketplace,
         })),
       );
@@ -471,7 +500,9 @@ export function AdminExternalSettlementPage() {
       <div>
         <h1 className="text-xl font-semibold text-gray-800">타업체 정산</h1>
         <p className="mt-1 text-sm text-gray-500">
-          영업 브랜드별로 타업체 정산·지급 내역을 분리해 관리합니다.
+          영업 브랜드별로 타업체 정산·지급 내역을 분리해 관리합니다. 미수금은 월별 마감이 아니라{' '}
+          <span className="font-medium text-gray-700">전 기간 누적(진행·예약완료 수수료 − 전체 정산)</span>
+          입니다. <span className="font-medium text-gray-700">취소 건</span>은 미수에 반영하지 않습니다(순 0).
         </p>
       </div>
 
@@ -547,7 +578,7 @@ export function AdminExternalSettlementPage() {
                       <strong className="tabular-nums text-emerald-700">{won(r.paidAmount)}</strong>
                     </p>
                     <p className="flex items-center justify-between">
-                      <span className="text-gray-500">미수금액</span>
+                      <span className="text-gray-500">누적 미수금</span>
                       <strong className="tabular-nums text-rose-700">{won(r.remainingAmount)}</strong>
                     </p>
                   </div>
@@ -592,7 +623,7 @@ export function AdminExternalSettlementPage() {
                     <th className="px-3 py-2 text-center font-medium">업체명</th>
                     <th className="px-3 py-2 text-center font-medium">결재받을 누적금액</th>
                     <th className="px-3 py-2 text-center font-medium">결재받은금액</th>
-                    <th className="px-3 py-2 text-center font-medium">미수금액</th>
+                    <th className="px-3 py-2 text-center font-medium">누적 미수금</th>
                     <th className="px-3 py-2 text-center font-medium">작업</th>
                   </tr>
                 </thead>
@@ -916,21 +947,35 @@ export function AdminExternalSettlementPage() {
                 <div className="py-10 text-center text-sm text-gray-500">조회 중...</div>
               ) : (
                 <>
+                  <div className="mb-3 rounded border border-rose-100 bg-rose-50/60 px-3 py-2 text-xs">
+                    <p className="flex items-center justify-between">
+                      <span className="text-gray-700">목록 누적 미수 (현재)</span>
+                      <strong className="tabular-nums text-rose-700">{won(selected.remainingAmount)}</strong>
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                      아래 표는 월별 발생·정산 흐름입니다. 「당월 차액」은 그달 발생−그달 정산만 보여 주며,
+                      「기말 누적」은 조회 연도 시작 이전 이월을 포함한 누적 미수입니다.
+                    </p>
+                  </div>
                   <div className="lg:hidden space-y-2">
                     {periodRows.map((m) => (
                       <div key={m.month} className="rounded border border-gray-200 p-3 text-xs">
                         <p className="font-semibold text-gray-900">{m.month}</p>
                         <p className="mt-1 flex items-center justify-between">
-                          <span className="text-gray-500">결제대상</span>
+                          <span className="text-gray-500">당월 발생</span>
                           <span className="tabular-nums text-gray-900">{won(m.payableAmount)}</span>
                         </p>
                         <p className="mt-1 flex items-center justify-between">
-                          <span className="text-gray-500">정산완료</span>
+                          <span className="text-gray-500">당월 정산</span>
                           <span className="tabular-nums text-emerald-700">{won(m.paidAmount)}</span>
                         </p>
                         <p className="mt-1 flex items-center justify-between">
-                          <span className="text-gray-500">미수금</span>
-                          <span className="tabular-nums text-rose-700">{won(m.remainingAmount)}</span>
+                          <span className="text-gray-500">당월 차액</span>
+                          <span className="tabular-nums text-gray-700">{won(m.remainingAmount)}</span>
+                        </p>
+                        <p className="mt-1 flex items-center justify-between border-t border-gray-100 pt-1">
+                          <span className="font-medium text-gray-700">기말 누적</span>
+                          <span className="tabular-nums text-rose-700">{won(m.cumulativeRemaining)}</span>
                         </p>
                       </div>
                     ))}
@@ -940,9 +985,10 @@ export function AdminExternalSettlementPage() {
                       <thead>
                         <tr className="bg-gray-50 text-gray-600">
                           <th className="px-3 py-2 text-center">월</th>
-                          <th className="px-3 py-2 text-center">결제대상</th>
-                          <th className="px-3 py-2 text-center">정산완료</th>
-                          <th className="px-3 py-2 text-center">미수금</th>
+                          <th className="px-3 py-2 text-center">당월 발생</th>
+                          <th className="px-3 py-2 text-center">당월 정산</th>
+                          <th className="px-3 py-2 text-center">당월 차액</th>
+                          <th className="px-3 py-2 text-center">기말 누적</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -951,7 +997,8 @@ export function AdminExternalSettlementPage() {
                             <td className="px-3 py-2 text-center tabular-nums">{m.month}</td>
                             <td className="px-3 py-2 text-right tabular-nums">{won(m.payableAmount)}</td>
                             <td className="px-3 py-2 text-right tabular-nums text-emerald-700">{won(m.paidAmount)}</td>
-                            <td className="px-3 py-2 text-right tabular-nums text-rose-700">{won(m.remainingAmount)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-gray-700">{won(m.remainingAmount)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-rose-700">{won(m.cumulativeRemaining)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1028,9 +1075,8 @@ export function AdminExternalSettlementPage() {
                     </p>
                     {detailSummary.month === currentMonthKey ? (
                       <p className="border-t border-gray-200 pt-1 text-[11px] leading-relaxed text-gray-500">
-                        목록의 누적 미수금({won(selected.remainingAmount)})은 한국 시간 기준 오늘까지 발생한
-                        수수료에서 전체 정산완료액을 뺀 금액입니다. 정산 기준일(예약일·정보공유 인계 확정일)이
-                        오늘 이후인 당월 건은 목록 미수에 아직 포함되지 않을 수 있습니다.
+                        목록의 누적 미수금({won(selected.remainingAmount)})은 진행·예약완료 건의 수수료에서
+                        정산완료액을 뺀 금액입니다. 취소 건은 미수 합계에서 제외됩니다(정산 반영 0원).
                       </p>
                     ) : null}
                   </>
@@ -1076,9 +1122,8 @@ export function AdminExternalSettlementPage() {
                         <p className="mt-1 text-gray-600">접수번호: {it.inquiryNumber ?? '-'}</p>
                         <p className="mt-1 flex items-center justify-between">
                           <span className="text-gray-500">수수료</span>
-                          <strong className={`tabular-nums ${it.signedFeeAmount < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                            {it.signedFeeAmount < 0 ? '-' : '+'}
-                            {won(Math.abs(it.signedFeeAmount))}
+                          <strong className={`tabular-nums text-xs ${settlementDetailFeeLabel(it).className}`}>
+                            {settlementDetailFeeLabel(it).text}
                           </strong>
                         </p>
                       </div>
@@ -1107,9 +1152,8 @@ export function AdminExternalSettlementPage() {
                                 </span>
                               ) : null}
                             </td>
-                            <td className={`px-3 py-2 text-right tabular-nums font-semibold ${it.signedFeeAmount < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                              {it.signedFeeAmount < 0 ? '-' : '+'}
-                              {won(Math.abs(it.signedFeeAmount))}
+                            <td className={`px-3 py-2 text-right tabular-nums text-xs ${settlementDetailFeeLabel(it).className}`}>
+                              {settlementDetailFeeLabel(it).text}
                             </td>
                           </tr>
                         ))}

@@ -103,6 +103,7 @@ import { validateInquiryAddressForStatus } from '../../lib/orderFormPendingAddre
 import { scheduleBackgroundGeoHydrate } from './inquiryAddressGeoHydrate.js';
 import { attachDistanceFromJuanForInquiry } from './inquiryJuanDistance.js';
 import { notifyAfterInquiryPatch } from '../push/inquiryTeamWebPush.js';
+import { invalidateExternalSettlementOverviewPayableCache } from '../external-companies/externalSettlementOverviewCache.js';
 import {
   notifyAllActiveCrewGroupsRefresh,
   notifyAllActiveCrewRosterAck,
@@ -1645,6 +1646,16 @@ router.patch('/:id', async (req, res) => {
     );
     const rosterLeaderIds = updated.assignments.map((a) => a.teamLeaderId);
     notifyTeamLeaderUsersRosterAck(rosterLeaderIds, crewRosterAckMessages);
+  }
+
+  if (
+    updated.operatingCompanyId &&
+    (data.externalTransferFee !== undefined ||
+      wantsTeamSync ||
+      data.status !== undefined ||
+      data.preferredDate !== undefined)
+  ) {
+    invalidateExternalSettlementOverviewPayableCache(tenantId, updated.operatingCompanyId);
   }
 
   const patched = attachInternalCustomerToneForRole(
