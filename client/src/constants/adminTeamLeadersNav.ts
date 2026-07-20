@@ -1,6 +1,6 @@
 import type { AdminSideNavItem } from '../components/layout/AdminSectionSideNav';
 
-/** 관리자 전용(/admin/team-leaders/*) — PC 사이드·모바일 가로 탭 공통 정의 */
+/** 관리자 전용(/admin/team-leaders/*) — PC 사이드·모바일 햄버거 드로어 공통 정의 */
 export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
   {
     type: 'group',
