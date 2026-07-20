@@ -45,6 +45,7 @@ import {
   fetchExternalSettlementInquiriesForCompanyPeriod,
   filterExternalSettlementItemsBySearch,
 } from '../../lib/externalSettlementEffectiveDate.js';
+import { signedExternalSettlementFee } from '../../lib/externalSettlementSignedFee.js';
 import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlementOperatingCompanyScope.js';
 import { listOperatingCompanies } from '../operating-companies/operatingCompany.service.js';
 import {
@@ -1556,7 +1557,7 @@ router.get('/external-settlement', async (req, res) => {
 
   for (const row of cancelledRows) {
     const fee = row.externalTransferFee ?? 0;
-    const sign = -1;
+    const signed = signedExternalSettlementFee(fee, true);
     const ext = row.assignments.find(
       (a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId === companyId
     );
@@ -1570,12 +1571,11 @@ router.get('/external-settlement', async (req, res) => {
       status: row.status,
       isCancelled: true,
       feeAmount: fee,
-      signedFeeAmount: sign * fee,
+      signedFeeAmount: signed,
       assignedExternalLabel: ext?.teamLeader.externalCompany?.name ?? ext?.teamLeader.name ?? null,
     });
     cancelledInquiryCount += 1;
-    totalFee += sign * fee;
-    periodNegativeFee += fee;
+    totalFee += signed;
   }
 
   items.sort((a, b) => {
@@ -1636,9 +1636,7 @@ router.get('/external-settlement', async (req, res) => {
   };
   const [
     activeYearAgg,
-    cancelledYearAgg,
     activeBeforeYearAgg,
-    cancelledBeforeYearAgg,
     paidBeforeYearAgg,
     yearPaidInYearAgg,
     lastPaymentRow,
@@ -1654,50 +1652,10 @@ router.get('/external-settlement', async (req, res) => {
     }),
     prisma.inquiry.aggregate({
       where: {
-        tenantId: routeTenantId,
-        operatingCompanyId,
-        status: 'CANCELLED',
-        externalTransferFee: { not: null },
-        preferredDate: { gte: yearFromDt, lte: yearToDt },
-        OR: [
-          { cancelFeeExternalCompanyId: companyId },
-          {
-            assignments: {
-              some: {
-                teamLeader: { role: 'EXTERNAL_PARTNER' as const, externalCompanyId: companyId },
-              },
-            },
-          },
-        ],
-      },
-      _sum: { externalTransferFee: true },
-    }),
-    prisma.inquiry.aggregate({
-      where: {
         externalTransferFee: { not: null },
         preferredDate: { lt: yearFromDt },
         status: { notIn: ['CANCELLED', 'ON_HOLD'] },
         ...extSomeActive,
-      },
-      _sum: { externalTransferFee: true },
-    }),
-    prisma.inquiry.aggregate({
-      where: {
-        tenantId: routeTenantId,
-        operatingCompanyId,
-        status: 'CANCELLED',
-        externalTransferFee: { not: null },
-        preferredDate: { lt: yearFromDt },
-        OR: [
-          { cancelFeeExternalCompanyId: companyId },
-          {
-            assignments: {
-              some: {
-                teamLeader: { role: 'EXTERNAL_PARTNER' as const, externalCompanyId: companyId },
-              },
-            },
-          },
-        ],
       },
       _sum: { externalTransferFee: true },
     }),
@@ -1716,10 +1674,8 @@ router.get('/external-settlement', async (req, res) => {
     }),
   ]);
 
-  const yearTotalFee =
-    (activeYearAgg._sum.externalTransferFee ?? 0) - (cancelledYearAgg._sum.externalTransferFee ?? 0);
-  const signedBeforeYear =
-    (activeBeforeYearAgg._sum.externalTransferFee ?? 0) - (cancelledBeforeYearAgg._sum.externalTransferFee ?? 0);
+  const yearTotalFee = activeYearAgg._sum.externalTransferFee ?? 0;
+  const signedBeforeYear = activeBeforeYearAgg._sum.externalTransferFee ?? 0;
   const paidBeforeYear = paidBeforeYearAgg._sum.amount ?? 0;
   const yearCarryOverAmount = signedBeforeYear - paidBeforeYear;
   const yearPeriodPaidAmount = yearPaidInYearAgg._sum.amount ?? 0;
@@ -1730,7 +1686,7 @@ router.get('/external-settlement', async (req, res) => {
     : null;
 
   /** 정산완료내역 "처리 후" — 관리자 집계(첫 외부담당 귀속)와 동일한 누적 인정액을 기준으로, 전체 정산을 시점순 누적 */
-  const [activeRowsCumulative, cancelledRowsCumulative, allPaymentsChrono] = await Promise.all([
+  const [activeRowsCumulative, allPaymentsChrono] = await Promise.all([
     prisma.inquiry.findMany({
       where: {
         tenantId: routeTenantId,
@@ -1743,30 +1699,6 @@ router.get('/external-settlement', async (req, res) => {
       },
       select: {
         externalTransferFee: true,
-        assignments: {
-          orderBy: { sortOrder: 'asc' as const },
-          select: { teamLeader: { select: { role: true, externalCompanyId: true } } },
-        },
-      },
-    }),
-    prisma.inquiry.findMany({
-      where: {
-        tenantId: routeTenantId,
-        operatingCompanyId,
-        status: 'CANCELLED',
-        externalTransferFee: { not: null },
-        OR: [
-          { cancelFeeExternalCompanyId: { not: null } },
-          {
-            assignments: {
-              some: { teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: { not: null } } },
-            },
-          },
-        ],
-      },
-      select: {
-        externalTransferFee: true,
-        cancelFeeExternalCompanyId: true,
         assignments: {
           orderBy: { sortOrder: 'asc' as const },
           select: { teamLeader: { select: { role: true, externalCompanyId: true } } },
@@ -1787,13 +1719,6 @@ router.get('/external-settlement', async (req, res) => {
     );
     const cid = ext?.teamLeader.externalCompanyId ?? null;
     if (cid === companyId) cumulativeNetSigned += r.externalTransferFee ?? 0;
-  }
-  for (const r of cancelledRowsCumulative) {
-    const ext = r.assignments.find(
-      (a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId
-    );
-    const cid = r.cancelFeeExternalCompanyId ?? ext?.teamLeader.externalCompanyId ?? null;
-    if (cid === companyId) cumulativeNetSigned -= r.externalTransferFee ?? 0;
   }
 
   const outstandingAfterByPaymentId = new Map<string, number>();

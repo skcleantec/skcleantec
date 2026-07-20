@@ -1,18 +1,16 @@
 import type { PrismaClient } from '@prisma/client';
-import { endOfKstToday } from '../../lib/externalSettlementEffectiveDate.js';
 
 type SumRow = { external_company_id: string; sum_fee: bigint | number | null };
 
 /**
- * 타업체 정산 목록 — 업체별 payable(발생−취소) 합계.
- * 정산 기준일: 정보공유 인계 확정일(seller_confirmed_at) · 그 외 예약일(preferred_date).
- * throughEnd(기본 KST 오늘) 이전에 기준일이 있는 건만 합산 — 월별·상세와 동일.
+ * 타업체 정산 목록 — 업체별 payable(미수 발생) 합계.
+ * 정산 기준일: 정보공유 인계 확정일 · 그 외 예약일(표시·월별용).
+ * 비취소 건만 +수수료 합산(예약일 미래 포함). 취소 건은 미수 0 — {@link signedExternalSettlementFee}.
  */
 export async function sumExternalSettlementSignedFeeByCompany(
   prisma: PrismaClient,
   tenantId: string,
   operatingCompanyId: string,
-  throughEnd: Date = endOfKstToday(),
 ): Promise<Map<string, number>> {
   const rows = await prisma.$queryRawUnsafe<SumRow[]>(
     `
@@ -97,20 +95,7 @@ export async function sumExternalSettlementSignedFeeByCompany(
       INNER JOIN inquiry_company ic ON ic.inquiry_id = fi.id
       WHERE fi.status <> 'CANCELLED'
         AND fi.effective_at IS NOT NULL
-        AND fi.effective_at <= $3::timestamptz
       GROUP BY ic.external_company_id
-
-      UNION ALL
-
-      SELECT COALESCE(fi.cancel_fee_external_company_id, ic.external_company_id) AS external_company_id,
-             SUM(-fi.external_transfer_fee)::bigint AS sum_fee
-      FROM fee_effective fi
-      LEFT JOIN inquiry_company ic ON ic.inquiry_id = fi.id
-      WHERE fi.status = 'CANCELLED'
-        AND fi.effective_at IS NOT NULL
-        AND fi.effective_at <= $3::timestamptz
-        AND (fi.cancel_fee_external_company_id IS NOT NULL OR ic.external_company_id IS NOT NULL)
-      GROUP BY COALESCE(fi.cancel_fee_external_company_id, ic.external_company_id)
     )
     SELECT external_company_id, SUM(sum_fee)::bigint AS sum_fee
     FROM signed
@@ -119,7 +104,6 @@ export async function sumExternalSettlementSignedFeeByCompany(
     `,
     tenantId,
     operatingCompanyId,
-    throughEnd,
   );
 
   const signedByCompany = new Map<string, number>();

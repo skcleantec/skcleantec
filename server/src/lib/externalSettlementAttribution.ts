@@ -47,14 +47,19 @@ export function resolveExternalSettlementCompanyAttribution(
   const hybrid = inq.hybridLegacySettlement ?? null;
 
   if (isCancelled) {
-    const cid = inq.cancelFeeExternalCompanyId ?? extAssign?.teamLeader.externalCompanyId ?? null;
-    const cname =
-      inq.cancelFeeExternalCompany?.name ??
-      extAssign?.teamLeader.externalCompany?.name ??
-      extAssign?.teamLeader.name ??
-      null;
-    if (cid) return { companyId: cid, companyName: cname ?? cid };
+    if (inq.cancelFeeExternalCompanyId) {
+      const cname =
+        inq.cancelFeeExternalCompany?.name ??
+        extAssign?.teamLeader.externalCompany?.name ??
+        extAssign?.teamLeader.name ??
+        inq.cancelFeeExternalCompanyId;
+      return { companyId: inq.cancelFeeExternalCompanyId, companyName: cname };
+    }
     if (marketplaceBuyer) return marketplaceBuyer;
+    const assignCid = extAssign?.teamLeader.externalCompanyId ?? null;
+    const assignCname =
+      extAssign?.teamLeader.externalCompany?.name ?? extAssign?.teamLeader.name ?? null;
+    if (assignCid) return { companyId: assignCid, companyName: assignCname ?? assignCid };
     if (hybrid) return hybrid;
     return null;
   }

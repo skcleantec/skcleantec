@@ -6,6 +6,7 @@ import {
   loadMarketplaceShareConfirmAtMap,
   resolvePartnerShareSettlementEffectiveDate,
 } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
+import { signedExternalSettlementFee } from '../../lib/externalSettlementSignedFee.js';
 
 export class TenantPartnerSettlementError extends Error {
   constructor(
@@ -59,7 +60,7 @@ const shareAccrualSelect = {
   targetInquiry: { select: { status: true } },
 } as const;
 
-/** 예약일 기준 순수수료 부호 — 활성 +, 취소 −, 보류 0 */
+/** 예약일 기준 순수수료 — 활성 +, 취소·보류 0 (취소는 −수수료로 미수에 반영하지 않음) */
 export function signedShareTransferFee(share: ShareAccrualRow): number {
   const fee = share.transferFee ?? 0;
   if (fee === 0 || share.syncStatus === 'REVOKED') return 0;
@@ -67,7 +68,7 @@ export function signedShareTransferFee(share: ShareAccrualRow): number {
   const tgt = share.targetInquiry.status;
   if (src === 'ON_HOLD') return 0;
   const isCancelled = src === 'CANCELLED' || tgt === 'CANCELLED';
-  return isCancelled ? -fee : fee;
+  return signedExternalSettlementFee(fee, isCancelled);
 }
 
 export async function stampTenantShareCancelFeeDirection(

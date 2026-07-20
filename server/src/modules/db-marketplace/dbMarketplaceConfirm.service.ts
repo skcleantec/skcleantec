@@ -14,6 +14,7 @@ import {
   notifyDbMarketplaceSellerDeclined,
 } from './dbMarketplaceNotify.service.js';
 import { expireStaleOpenDbListings } from './dbMarketplaceExpire.service.js';
+import { invalidateExternalSettlementOverviewPayableCache } from '../external-companies/externalSettlementOverviewCache.js';
 import {
   assertBuyerCanProceedPastHold,
   clearHoldData,
@@ -245,6 +246,14 @@ export async function confirmDbListingSeller(
     buyerTenantId: listing.buyerTenantId,
     buyerExternalCompanyId: listing.buyerExternalCompanyId,
   });
+
+  const feeInquiry = await prisma.inquiry.findFirst({
+    where: { id: listing.inquiryId, tenantId: sellerTenantId },
+    select: { operatingCompanyId: true },
+  });
+  if (feeInquiry?.operatingCompanyId) {
+    invalidateExternalSettlementOverviewPayableCache(sellerTenantId, feeInquiry.operatingCompanyId);
+  }
 
   return { listing: confirmed, targetInquiryId };
 }
