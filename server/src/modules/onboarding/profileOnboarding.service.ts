@@ -1,5 +1,8 @@
 import type { ExternalCompany, User, UserRole } from '@prisma/client';
 
+/** 관리자가 담당자 이름 없이 타업체 계정만 만든 경우 User.name 플레이스홀더 — shared/profileOnboarding.ts 와 동기 */
+export const EXTERNAL_PARTNER_PENDING_CONTACT_NAME = '미입력';
+
 const ONBOARDING_ROLES = new Set<UserRole>(['TEAM_LEADER', 'MARKETER', 'EXTERNAL_PARTNER']);
 
 export function isProfileOnboardingRole(role: string): role is 'TEAM_LEADER' | 'MARKETER' | 'EXTERNAL_PARTNER' {
@@ -42,6 +45,7 @@ export function validateProfileOnboardingPayload(
   const name = input.name.trim();
   const phone = input.phone.trim();
   if (!name) return '이름을 입력해 주세요.';
+  if (name === EXTERNAL_PARTNER_PENDING_CONTACT_NAME) return '이름을 입력해 주세요.';
   if (!phone) return '연락처를 입력해 주세요.';
 
   if (user.role === 'TEAM_LEADER') {

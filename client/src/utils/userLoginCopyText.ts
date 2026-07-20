@@ -14,6 +14,15 @@ export type LoginCredentialsCopyInput = {
   accountLabel?: string;
 };
 
+/** 수정 화면 등 — 평문 비밀번호를 모를 때 복사 텍스트에 넣는 안내 */
+export const LOGIN_COPY_PASSWORD_PLACEHOLDER =
+  '(등록·재설정 직후에만 확인 가능 — 새 비밀번호 입력 후 복사하면 포함됩니다)';
+
+export function resolveLoginCopyPassword(password: string | undefined | null): string {
+  const trimmed = password?.trim() ?? '';
+  return trimmed || LOGIN_COPY_PASSWORD_PLACEHOLDER;
+}
+
 /** 관리자 → 카톡 전달용 로그인 안내 텍스트 */
 export function buildLoginCredentialsCopyText(input: LoginCredentialsCopyInput): string {
   const loginUrl = (input.loginUrl?.trim() || resolveLoginPageUrl()).replace(/\/+$/, '');

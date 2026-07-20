@@ -5,6 +5,7 @@ import {
   isAuthSessionExpiredError,
   type ExternalCompanyOnboarding,
 } from '../../api/auth';
+import { onboardingContactNameForForm } from '@shared/profileOnboarding';
 
 export type ProfileOnboardingInitial = {
   role: string;
@@ -48,7 +49,7 @@ export function ProfileOnboardingModal({
 
   useEffect(() => {
     if (!open) return;
-    setName((initial.name ?? '').trim());
+    setName(onboardingContactNameForForm(initial.name));
     setPhone((initial.phone ?? '').trim());
     setVehicleNumber((initial.vehicleNumber ?? '').trim());
     setNameEn((initial.nameEn ?? '').trim());

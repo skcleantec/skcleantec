@@ -44,7 +44,7 @@ export async function createExternalCompany(
     bizNumber?: string;
     phone?: string;
     memo?: string;
-    login: { email: string; password: string; contactName: string; phone?: string };
+    login: { email: string; password: string; contactName?: string; phone?: string };
   }
 ): Promise<{ company: ExternalCompanyListItem; user: { id: string; email: string; name: string } }> {
   const res = await fetch(`${API}/external-companies`, {
