@@ -461,11 +461,16 @@ function ScheduleDayListItem({
           : ''
       } ${isCancelled ? 'opacity-[0.88] saturate-[0.65]' : ''}`}
     >
-      <span
-        className={`shrink-0 self-center inline-flex items-center justify-center min-w-[2.25rem] px-1.5 py-0.5 text-fluid-2xs font-bold leading-none rounded-lg ${slotBadgeClass}`}
-      >
-        {slotLabelShort}
-      </span>
+      <div className="shrink-0 self-center flex flex-col items-center gap-0.5">
+        <span
+          className={`inline-flex items-center justify-center min-w-[2.25rem] px-1.5 py-0.5 text-fluid-2xs font-bold leading-none rounded-lg ${slotBadgeClass}`}
+        >
+          {slotLabelShort}
+        </span>
+        {item.dbListing ? (
+          <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly className="shrink-0" />
+        ) : null}
+      </div>
       <div className="min-w-0 flex-1 flex flex-col gap-1">
         <div className="flex items-center justify-between gap-2 min-w-0">
           <button
@@ -505,9 +510,6 @@ function ScheduleDayListItem({
             ) : null}
             {item.tenantShare ? (
               <TenantInquiryShareBadge share={item.tenantShare} compact className="shrink-0" />
-            ) : null}
-            {item.dbListing ? (
-              <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly className="shrink-0" />
             ) : null}
             {isExternalIntake && (
               <span className="inline-flex items-center rounded border border-fuchsia-300 bg-fuchsia-50 px-1 py-px text-[9px] font-semibold text-fuchsia-800">
