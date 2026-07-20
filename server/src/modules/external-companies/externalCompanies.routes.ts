@@ -109,6 +109,7 @@ router.get('/', requireStaffPermission('admin.users'), async (req, res) => {
       bizNumber: r.bizNumber,
       phone: r.phone,
       memo: r.memo,
+      businessRegistrationImageUrl: r.businessRegistrationImageUrl,
       partnerUserCount: r._count.partnerUsers,
       partnerUsers: r.partnerUsers,
       linkedPartnerTenant: r.linkedPartnerTenant

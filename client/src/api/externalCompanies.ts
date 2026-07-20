@@ -21,6 +21,7 @@ export type ExternalCompanyListItem = {
   bizNumber: string | null;
   phone: string | null;
   memo: string | null;
+  businessRegistrationImageUrl: string | null;
   partnerUserCount: number;
   partnerUsers: Array<{ id: string; email: string; name: string; phone: string | null }>;
   linkedPartnerTenant?: { id: string; name: string; slug: string } | null;

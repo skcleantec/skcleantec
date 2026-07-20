@@ -18,6 +18,10 @@ import { getMe } from '../../api/auth';
 import type { LoginCredentialsCopyInput } from '../../utils/userLoginCopyText';
 import { resolveLoginCopyPassword } from '../../utils/userLoginCopyText';
 import { isExternalCompanyUsageDisabled } from '../../utils/externalCompanyUsage';
+import {
+  isPendingOnboardingContactName,
+  onboardingContactNameForForm,
+} from '@shared/profileOnboarding';
 
 const emptyCreateForm = () => ({
   name: '',
@@ -507,8 +511,13 @@ export function AdminExternalCompaniesPage() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 p-4">
-          <div className="relative bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+        <div
+          className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="external-edit-title"
+        >
+          <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-full max-h-[min(90dvh,720px)] flex flex-col">
             <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
               {editing.partnerUsers[0] ? (
                 <button
@@ -525,8 +534,15 @@ export function AdminExternalCompaniesPage() {
                 className="!static shrink-0 shadow-none"
               />
             </div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 pr-32">타업체 정보 수정</h3>
-            <form onSubmit={handleEditSave} className="space-y-3">
+            <div className="px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
+              <h3 id="external-edit-title" className="text-lg font-semibold text-gray-800 pr-32">
+                타업체 정보 수정
+              </h3>
+            </div>
+            <form
+              onSubmit={handleEditSave}
+              className="px-5 py-4 overflow-y-auto space-y-3 text-sm flex-1 min-h-0 min-w-0"
+            >
               <div>
                 <label className="block text-sm text-gray-600 mb-1">업체명</label>
                 <input
@@ -545,12 +561,64 @@ export function AdminExternalCompaniesPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">연락처</label>
+                <label className="block text-sm text-gray-600 mb-1">대표 연락처</label>
                 <input
                   value={editFields.phone}
                   onChange={(e) => setEditFields((p) => ({ ...p, phone: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                 />
+              </div>
+              {editing.partnerUsers[0] ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+                  <p className="text-sm font-medium text-gray-800">담당자</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    타업체 로그인 계정(온보딩)에서 입력한 정보입니다. 수정은 타업체 본인만 가능합니다.
+                  </p>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">담당자 이름</label>
+                    <input
+                      value={
+                        isPendingOnboardingContactName(editing.partnerUsers[0].name)
+                          ? ''
+                          : onboardingContactNameForForm(editing.partnerUsers[0].name)
+                      }
+                      readOnly
+                      placeholder="미입력"
+                      className="w-full px-3 py-2 border border-gray-200 rounded text-sm bg-white text-gray-700 placeholder:text-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">담당자 연락처</label>
+                    <input
+                      value={editing.partnerUsers[0].phone?.trim() ?? ''}
+                      readOnly
+                      placeholder="미입력"
+                      className="w-full px-3 py-2 border border-gray-200 rounded text-sm bg-white text-gray-700 placeholder:text-gray-400"
+                    />
+                  </div>
+                </div>
+              ) : null}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">사업자등록증</label>
+                {editing.businessRegistrationImageUrl ? (
+                  <a
+                    href={editing.businessRegistrationImageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-lg border border-gray-200 bg-gray-50 p-2 hover:bg-gray-100/80"
+                  >
+                    <img
+                      src={editing.businessRegistrationImageUrl}
+                      alt="사업자등록증"
+                      className="mx-auto max-h-48 w-full object-contain rounded"
+                    />
+                    <p className="mt-2 text-center text-xs text-blue-600">새 창에서 크게 보기</p>
+                  </a>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-xs text-gray-500">
+                    등록된 사업자등록증 이미지 없음
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">메모</label>
