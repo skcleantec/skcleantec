@@ -23,6 +23,18 @@ import {
   onboardingContactNameForForm,
 } from '@shared/profileOnboarding';
 
+const externalMobileCardShell =
+  'rounded-xl border border-gray-200 bg-white text-left shadow-sm overflow-hidden touch-manipulation';
+
+const modalPrimaryBtn =
+  'w-full sm:w-auto px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 touch-manipulation';
+const modalSecondaryBtn =
+  'w-full sm:w-auto px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 touch-manipulation';
+const modalDangerBtn =
+  'w-full sm:w-auto px-4 py-2.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 touch-manipulation';
+const modalFooterClass =
+  'shrink-0 flex flex-col-reverse sm:flex-row sm:flex-wrap sm:items-center gap-2 border-t border-gray-100 bg-white px-5 py-3';
+
 const emptyCreateForm = () => ({
   name: '',
   loginEmail: '',
@@ -331,7 +343,7 @@ export function AdminExternalCompaniesPage() {
             setCreateErr(null);
             setShowCreateModal(true);
           }}
-          className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
+          className="w-full sm:w-auto shrink-0 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 touch-manipulation"
         >
           타업체 등록
         </button>
@@ -350,83 +362,167 @@ export function AdminExternalCompaniesPage() {
         ) : items.length === 0 ? (
           <div className="p-8 text-center text-gray-500 text-sm">등록된 타업체가 없습니다.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-left text-gray-600">
-                  <th className="px-4 py-2 font-medium">업체명</th>
-                  <th className="px-4 py-2 font-medium">사업자번호</th>
-                  <th className="px-4 py-2 font-medium">연락처</th>
-                  <th className="px-4 py-2 font-medium">로그인 계정</th>
-                  <th className="px-4 py-2 font-medium">파트너 연결</th>
-                  <th className="px-4 py-2 font-medium w-52">작업</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row) => (
-                  <tr key={row.id} className="border-t border-gray-100">
-                    <td className="px-4 py-2 font-medium text-gray-900">
-                      <span>{row.name}</span>
+          <>
+            <div className="flex flex-col gap-3 p-3 lg:hidden">
+              {items.map((row) => (
+                <div key={row.id} className={externalMobileCardShell}>
+                  <div className="px-3 pt-3 pb-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-gray-900 text-fluid-sm">{row.name}</p>
                       {isExternalCompanyUsageDisabled(row.usageDisabledAt) ? (
-                        <span className="ml-2 inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+                        <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-900">
                           사용 안 함
                         </span>
                       ) : null}
-                    </td>
-                    <td className="px-4 py-2 text-gray-600">{row.bizNumber ?? '—'}</td>
-                    <td className="px-4 py-2 text-gray-600">{row.phone ?? '—'}</td>
-                    <td className="px-4 py-2 text-gray-600">
-                      {row.partnerUsers.length === 0 ? (
-                        '—'
-                      ) : (
-                        <ul className="space-y-0.5">
-                          {row.partnerUsers.map((u) => (
-                            <li key={u.id} className="tabular-nums">
-                              {u.email} <span className="text-gray-400">({u.name})</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-gray-600 text-xs">
-                      {row.linkedPartnerTenant ? (
-                        <span>
-                          {row.linkedPartnerTenant.name}
-                          <span className="block text-gray-400">({row.linkedPartnerTenant.slug})</span>
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      <button
-                        type="button"
-                        onClick={() => void openMigration(row)}
-                        className="text-indigo-700 hover:underline text-xs mr-2 font-medium"
-                      >
-                        DB 이관
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openEdit(row)}
-                        className="text-blue-600 hover:underline text-xs mr-2"
-                      >
-                        수정
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDelete(row)}
-                        className="text-red-600 hover:underline text-xs font-medium"
-                        disabled={submitting}
-                      >
-                        삭제
-                      </button>
-                    </td>
+                    </div>
+                    <dl className="mt-2 space-y-1.5 text-fluid-xs text-gray-600">
+                      <div className="flex gap-2">
+                        <dt className="shrink-0 text-gray-500 w-20">사업자번호</dt>
+                        <dd className="min-w-0 truncate">{row.bizNumber ?? '—'}</dd>
+                      </div>
+                      <div className="flex gap-2">
+                        <dt className="shrink-0 text-gray-500 w-20">연락처</dt>
+                        <dd className="min-w-0 truncate">{row.phone ?? '—'}</dd>
+                      </div>
+                      <div className="flex gap-2">
+                        <dt className="shrink-0 text-gray-500 w-20">로그인</dt>
+                        <dd className="min-w-0">
+                          {row.partnerUsers.length === 0 ? (
+                            '—'
+                          ) : (
+                            <span className="tabular-nums break-all">
+                              {row.partnerUsers[0].email}
+                              {!isPendingOnboardingContactName(row.partnerUsers[0].name) ? (
+                                <span className="text-gray-400">
+                                  {' '}
+                                  ({onboardingContactNameForForm(row.partnerUsers[0].name)})
+                                </span>
+                              ) : null}
+                            </span>
+                          )}
+                        </dd>
+                      </div>
+                      <div className="flex gap-2">
+                        <dt className="shrink-0 text-gray-500 w-20">파트너</dt>
+                        <dd className="min-w-0 truncate">
+                          {row.linkedPartnerTenant
+                            ? `${row.linkedPartnerTenant.name} (${row.linkedPartnerTenant.slug})`
+                            : '—'}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div className="border-t border-gray-100 bg-gray-50/80 px-3 py-2.5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => void openMigration(row)}
+                      className="w-full sm:w-auto px-3 py-2 rounded-lg border border-indigo-200 bg-white text-indigo-800 text-fluid-xs font-medium hover:bg-indigo-50 touch-manipulation"
+                    >
+                      DB 이관
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openEdit(row)}
+                      className="w-full sm:w-auto px-3 py-2 rounded-lg border border-gray-200 bg-white text-blue-700 text-fluid-xs font-medium hover:bg-gray-50 touch-manipulation"
+                    >
+                      수정
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(row)}
+                      disabled={submitting}
+                      className="w-full sm:w-auto px-3 py-2 rounded-lg border border-red-200 bg-white text-red-600 text-fluid-xs font-medium hover:bg-red-50 disabled:opacity-50 touch-manipulation"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="hidden lg:block w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              <table className="min-w-full text-sm table-fixed w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 text-gray-600">
+                    <th className="px-4 py-2 font-medium text-center">업체명</th>
+                    <th className="px-4 py-2 font-medium text-center">사업자번호</th>
+                    <th className="px-4 py-2 font-medium text-center">연락처</th>
+                    <th className="px-4 py-2 font-medium text-center">로그인 계정</th>
+                    <th className="px-4 py-2 font-medium text-center">파트너 연결</th>
+                    <th className="px-4 py-2 font-medium text-center w-52">작업</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {items.map((row) => (
+                    <tr key={row.id} className="border-t border-gray-100">
+                      <td className="px-4 py-2 font-medium text-gray-900 text-center">
+                        <span className="truncate inline-block max-w-full" title={row.name}>
+                          {row.name}
+                        </span>
+                        {isExternalCompanyUsageDisabled(row.usageDisabledAt) ? (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+                            사용 안 함
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-2 text-gray-600 text-center">{row.bizNumber ?? '—'}</td>
+                      <td className="px-4 py-2 text-gray-600 text-center">{row.phone ?? '—'}</td>
+                      <td className="px-4 py-2 text-gray-600 text-center">
+                        {row.partnerUsers.length === 0 ? (
+                          '—'
+                        ) : (
+                          <ul className="space-y-0.5">
+                            {row.partnerUsers.map((u) => (
+                              <li key={u.id} className="tabular-nums truncate" title={`${u.email} (${u.name})`}>
+                                {u.email} <span className="text-gray-400">({u.name})</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-gray-600 text-xs text-center">
+                        {row.linkedPartnerTenant ? (
+                          <span>
+                            {row.linkedPartnerTenant.name}
+                            <span className="block text-gray-400">({row.linkedPartnerTenant.slug})</span>
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => void openMigration(row)}
+                          className="text-indigo-700 hover:underline text-xs mr-2 font-medium"
+                        >
+                          DB 이관
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEdit(row)}
+                          className="text-blue-600 hover:underline text-xs mr-2"
+                        >
+                          수정
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(row)}
+                          className="text-red-600 hover:underline text-xs font-medium"
+                          disabled={submitting}
+                        >
+                          삭제
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -437,7 +533,7 @@ export function AdminExternalCompaniesPage() {
           aria-modal="true"
           aria-labelledby="external-create-title"
         >
-          <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-full max-h-[min(90dvh,720px)] flex flex-col">
+          <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-full max-h-[min(90dvh,720px)] flex flex-col mx-auto sm:mx-0">
             <ModalCloseButton onClick={() => !submitting && closeCreateModal()} disabled={submitting} />
             <div className="px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
               <h3 id="external-create-title" className="text-lg font-semibold text-gray-800 pr-10">
@@ -447,60 +543,55 @@ export function AdminExternalCompaniesPage() {
                 업체명·로그인 계정만 등록합니다. 사업자 정보·담당자 정보는 타업체가 첫 로그인 시 입력합니다.
               </p>
             </div>
-            <form
-              onSubmit={handleCreate}
-              className="px-5 py-4 overflow-y-auto space-y-3 text-sm flex-1 min-h-0"
-            >
-              {createErr && (
-                <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded px-3 py-2">
-                  {createErr}
-                </div>
-              )}
-              <div>
-                <label className="block text-gray-600 mb-1">업체명 *</label>
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleCreate} className="flex flex-col flex-1 min-h-0 text-sm">
+              <div className="px-5 py-4 overflow-y-auto space-y-3 flex-1 min-h-0">
+                {createErr && (
+                  <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded px-3 py-2">
+                    {createErr}
+                  </div>
+                )}
                 <div>
-                  <label className="block text-gray-600 mb-1">아이디 *</label>
+                  <label className="block text-gray-600 mb-1">업체명 *</label>
                   <input
-                    value={form.loginEmail}
-                    onChange={(e) => setForm((p) => ({ ...p, loginEmail: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded"
+                    value={form.name}
+                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base sm:text-sm"
                     required
-                    autoComplete="off"
                   />
                 </div>
-                <div>
-                  <label className="block text-gray-600 mb-1">비밀번호 *</label>
-                  <input
-                    type="password"
-                    value={form.loginPassword}
-                    onChange={(e) => setForm((p) => ({ ...p, loginPassword: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded"
-                    required
-                    autoComplete="new-password"
-                  />
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="block text-gray-600 mb-1">아이디 *</label>
+                    <input
+                      value={form.loginEmail}
+                      onChange={(e) => setForm((p) => ({ ...p, loginEmail: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base sm:text-sm"
+                      required
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-600 mb-1">비밀번호 *</label>
+                    <input
+                      type="password"
+                      value={form.loginPassword}
+                      onChange={(e) => setForm((p) => ({ ...p, loginPassword: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base sm:text-sm"
+                      required
+                      autoComplete="new-password"
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                >
+              <div className={modalFooterClass}>
+                <button type="submit" disabled={submitting} className={modalPrimaryBtn}>
                   {submitting ? '등록 중…' : '등록'}
                 </button>
                 <button
                   type="button"
                   onClick={() => !submitting && closeCreateModal()}
                   disabled={submitting}
-                  className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50"
+                  className={modalSecondaryBtn}
                 >
                   취소
                 </button>
@@ -517,13 +608,13 @@ export function AdminExternalCompaniesPage() {
           aria-modal="true"
           aria-labelledby="external-edit-title"
         >
-          <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-full max-h-[min(90dvh,720px)] flex flex-col">
-            <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+          <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-full max-h-[min(90dvh,720px)] flex flex-col mx-auto sm:mx-0">
+            <div className="absolute right-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-col items-end gap-1.5 sm:flex-row sm:items-center">
               {editing.partnerUsers[0] ? (
                 <button
                   type="button"
                   onClick={openEditLoginCopySheet}
-                  className="shrink-0 rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-100 active:bg-slate-200"
+                  className="shrink-0 rounded-md border border-slate-300 bg-slate-50 px-2 py-1.5 text-fluid-2xs font-medium text-slate-800 hover:bg-slate-100 active:bg-slate-200 touch-manipulation"
                   title="업체 코드·아이디·비밀번호 로그인 안내 복사"
                 >
                   로그인 안내 복사
@@ -535,14 +626,12 @@ export function AdminExternalCompaniesPage() {
               />
             </div>
             <div className="px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
-              <h3 id="external-edit-title" className="text-lg font-semibold text-gray-800 pr-32">
+              <h3 id="external-edit-title" className="text-lg font-semibold text-gray-800 pr-4 sm:pr-32">
                 타업체 정보 수정
               </h3>
             </div>
-            <form
-              onSubmit={handleEditSave}
-              className="px-5 py-4 overflow-y-auto space-y-3 text-sm flex-1 min-h-0 min-w-0"
-            >
+            <form onSubmit={handleEditSave} className="flex flex-col flex-1 min-h-0 text-sm min-w-0">
+              <div className="px-5 py-4 overflow-y-auto space-y-3 flex-1 min-h-0 min-w-0">
               <div>
                 <label className="block text-sm text-gray-600 mb-1">업체명</label>
                 <input
@@ -661,8 +750,8 @@ export function AdminExternalCompaniesPage() {
                   「사용 안 함」은 새 배정·DB마켓 노출·캘린더 추가에서만 제외합니다. 기존 배정·정산·로그인은
                   유지됩니다. 완전 삭제는 아래 「삭제」를 사용하세요.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <label className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <label className="inline-flex flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm touch-manipulation">
                     <input
                       type="radio"
                       name="external-usage"
@@ -671,7 +760,7 @@ export function AdminExternalCompaniesPage() {
                     />
                     사용 중
                   </label>
-                  <label className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
+                  <label className="inline-flex flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm touch-manipulation">
                     <input
                       type="radio"
                       name="external-usage"
@@ -682,26 +771,19 @@ export function AdminExternalCompaniesPage() {
                   </label>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2 pt-2">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded text-sm"
-                >
+              </div>
+              <div className={modalFooterClass}>
+                <button type="submit" disabled={submitting} className={modalPrimaryBtn}>
                   저장
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setEditing(null)}
-                  className="px-4 py-2 border border-gray-300 rounded text-sm"
-                >
+                <button type="button" onClick={() => setEditing(null)} className={modalSecondaryBtn}>
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={() => editing && void handleDelete(editing)}
                   disabled={submitting}
-                  className="ml-auto px-4 py-2 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50"
+                  className={`${modalDangerBtn} sm:ml-auto`}
                 >
                   삭제
                 </button>
@@ -760,7 +842,7 @@ export function AdminExternalCompaniesPage() {
                       type="button"
                       disabled={migrationBusy || !linkPartnerTenantId.trim()}
                       onClick={() => void handleLinkPartner()}
-                      className="px-3 py-2 rounded bg-indigo-600 text-white text-xs font-medium disabled:opacity-50"
+                      className="w-full sm:w-auto px-3 py-2.5 rounded-lg bg-indigo-600 text-white text-xs font-medium disabled:opacity-50 touch-manipulation"
                     >
                       파트너 연결 저장
                     </button>
@@ -796,12 +878,12 @@ export function AdminExternalCompaniesPage() {
                       ) : null}
                     </ul>
                   )}
-                  <div className="flex flex-wrap gap-2 pt-1">
+                  <div className="flex flex-col-reverse sm:flex-row sm:flex-wrap gap-2 pt-1">
                     <button
                       type="button"
                       disabled={migrationBusy || !migrating.linkedPartnerTenant}
                       onClick={() => void handleMigrationDryRun()}
-                      className="px-3 py-2 rounded border border-gray-300 text-xs"
+                      className="w-full sm:w-auto px-3 py-2.5 rounded-lg border border-gray-300 text-xs touch-manipulation"
                     >
                       미리보기
                     </button>
@@ -809,7 +891,7 @@ export function AdminExternalCompaniesPage() {
                       type="button"
                       disabled={migrationBusy || eligibleItems.length === 0 || !migrating.linkedPartnerTenant}
                       onClick={() => void handleMigrationExecute()}
-                      className="px-3 py-2 rounded bg-slate-900 text-white text-xs font-medium disabled:opacity-50"
+                      className="w-full sm:w-auto px-3 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-medium disabled:opacity-50 touch-manipulation"
                     >
                       {migrationBusy ? '처리 중…' : '전량 이관 실행'}
                     </button>
