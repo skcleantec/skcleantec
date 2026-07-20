@@ -11,7 +11,7 @@ import {
   kstTodayYmd,
   kstYmdKeysInRange,
 } from '../inquiries/inquiryListDateRange.js';
-import { dateToYmdKst } from '../users/userEmployment.js';
+import { dateToYmdKst, employmentOverlapsMonthKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
 import {
   consumesAfternoonSlot,
   consumesMorningSlot,
@@ -27,7 +27,6 @@ import {
 } from '../inquiries/crewMemberCapacity.helpers.js';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../schedule/crewCapacity.constants.js';
 import { resolveLeaderMorningAfternoon } from '../schedule/scheduleDayAvailability.helpers.js';
-import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 
@@ -181,7 +180,7 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
       select: {
         date: true,
         createdAt: true,
-        teamLeader: { select: { id: true, name: true } },
+        teamLeader: { select: { id: true, name: true, hireDate: true, resignationDate: true } },
       },
     }),
     prisma.teamMemberDayOff.findMany({
@@ -191,12 +190,12 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
       },
       select: {
         date: true,
-        teamMember: { select: { id: true, name: true } },
+        teamMember: { select: { id: true, name: true, hireDate: true, resignationDate: true } },
       },
     }),
     prisma.user.findMany({
       where: { tenantId, isActive: true, role: 'TEAM_LEADER' },
-      select: { id: true, name: true },
+      select: { id: true, name: true, hireDate: true, resignationDate: true },
       orderBy: { name: 'asc' },
     }),
   ]);
@@ -214,6 +213,11 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
   for (const row of userDayOffRows) {
     const key = kstDateKey(row.date);
     if (!byDate[key]) continue;
+    if (
+      !isUserEmployedOnYmd(row.teamLeader.hireDate, row.teamLeader.resignationDate, key)
+    ) {
+      continue;
+    }
     if (!leaderByDay.has(key)) leaderByDay.set(key, new Map());
     leaderByDay.get(key)!.set(row.teamLeader.id, {
       id: row.teamLeader.id,
@@ -229,6 +233,11 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
   for (const row of memberDayOffRows) {
     const key = kstDateKey(row.date);
     if (!byDate[key]) continue;
+    if (
+      !isUserEmployedOnYmd(row.teamMember.hireDate, row.teamMember.resignationDate, key)
+    ) {
+      continue;
+    }
     if (!memberByDay.has(key)) memberByDay.set(key, new Map());
     memberByDay.get(key)!.set(row.teamMember.id, {
       id: row.teamMember.id,
@@ -245,12 +254,18 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
     { id: string; name: string; entries: Array<{ date: string; registeredAt: string }> }
   >();
   for (const row of userDayOffRows) {
+    const entryDate = kstDateKey(row.date);
+    if (
+      !isUserEmployedOnYmd(row.teamLeader.hireDate, row.teamLeader.resignationDate, entryDate)
+    ) {
+      continue;
+    }
     const id = row.teamLeader.id;
     if (!leaderMonthMap.has(id)) {
       leaderMonthMap.set(id, { id, name: row.teamLeader.name, entries: [] });
     }
     leaderMonthMap.get(id)!.entries.push({
-      date: kstDateKey(row.date),
+      date: entryDate,
       registeredAt: row.createdAt.toISOString(),
     });
   }
@@ -266,7 +281,12 @@ router.get('/team-calendar', authMiddleware, adminOnly, async (req, res) => {
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   const withOffIds = new Set(withOffs.map((x) => x.id));
-  const noOffThisMonth = activeTeamLeaders.filter((l) => !withOffIds.has(l.id));
+  const noOffThisMonth = activeTeamLeaders
+    .filter((l) =>
+      employmentOverlapsMonthKst(l.hireDate, l.resignationDate, startYmd, endYmd)
+    )
+    .filter((l) => !withOffIds.has(l.id))
+    .map((l) => ({ id: l.id, name: l.name }));
 
   res.json({
     byDate,
@@ -295,7 +315,7 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     teamLeaders,
     dayOffs,
     inquiries,
-    activeMembersTotal,
+    activeTeamMembers,
     leaderSlots,
     crewAvailableByDate,
     closureRows,
@@ -335,7 +355,10 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
         },
       },
     }),
-    prisma.teamMember.count({ where: tenantActiveTeamMemberWhere(tenantId) }),
+    prisma.teamMember.findMany({
+      where: tenantActiveTeamMemberWhere(tenantId),
+      select: { id: true, hireDate: true, resignationDate: true },
+    }),
     prisma.scheduleDayLeaderSlot.findMany({
       where: { tenantId, date: { gte: startDate, lte: endDate } },
     }),
@@ -452,7 +475,10 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     const dayLeaders = teamLeaders.filter((t) =>
       isUserEmployedOnYmd(t.hireDate, t.resignationDate, key)
     );
-    const dayOffList = dayOffs.filter((o) => toDateKey(o.date) === key);
+    const dayLeaderIds = new Set(dayLeaders.map((t) => t.id));
+    const dayOffList = dayOffs.filter(
+      (o) => toDateKey(o.date) === key && dayLeaderIds.has(o.teamLeaderId)
+    );
     const offNames = dayOffList.map((o) => o.teamLeader.name);
     const offIds = new Set(dayOffList.map((o) => o.teamLeaderId));
 
@@ -550,7 +576,10 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
       .reduce((sum, inv) => sum + crewUnitsForInquiry(inv.crewMemberCount), 0);
     const crewRemaining = Math.max(0, crewAvailable - crewDemand);
     const additionalStandardJobsByCrew = Math.floor(crewRemaining / DEFAULT_CREW_UNITS_PER_INQUIRY);
-    const crewDayOffCount = Math.max(0, activeMembersTotal - crewAvailable);
+    const employedMembersTotal = activeTeamMembers.filter((m) =>
+      isUserEmployedOnYmd(m.hireDate, m.resignationDate, key)
+    ).length;
+    const crewDayOffCount = Math.max(0, employedMembersTotal - crewAvailable);
 
     byDate[key] = {
       offCount: offNames.length,
