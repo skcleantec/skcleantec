@@ -5,6 +5,19 @@ import { useTenantSubscriptionData } from '../../hooks/useTenantSubscriptionData
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { DashboardTenantSubscriptionView } from './DashboardTenantSubscriptionView';
 import { DashboardTopCard } from './dashboard/DashboardTopCard';
+import type { DashboardAuxBlockVariant } from './dashboard/DashboardPageSections';
+
+function AuxRowSkeleton() {
+  return (
+    <div className="flex items-center gap-2.5 px-3 py-2.5">
+      <div className="h-7 w-7 shrink-0 rounded-lg bg-slate-100 animate-pulse" aria-hidden />
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="h-3 w-24 rounded bg-slate-100 animate-pulse" />
+        <div className="h-2.5 w-full max-w-[220px] rounded bg-slate-50 animate-pulse" />
+      </div>
+    </div>
+  );
+}
 
 function CardShell({ children }: { children: ReactNode }) {
   return (
@@ -14,7 +27,7 @@ function CardShell({ children }: { children: ReactNode }) {
   );
 }
 
-export function DashboardTenantSubscriptionBlock() {
+export function DashboardTenantSubscriptionBlock({ variant = 'card' }: { variant?: DashboardAuxBlockVariant }) {
   const { token, loading, data, error } = useTenantSubscriptionData();
   const { role } = useAdminStaffSession();
   const [billing, setBilling] = useState<TenantBillingSummary | null>(null);
@@ -38,6 +51,7 @@ export function DashboardTenantSubscriptionBlock() {
   if (!token) return null;
 
   if (loading) {
+    if (variant === 'row') return <AuxRowSkeleton />;
     return (
       <CardShell>
         <div className="flex flex-col items-center gap-2">
@@ -49,6 +63,13 @@ export function DashboardTenantSubscriptionBlock() {
   }
 
   if (error || !data) {
+    if (variant === 'row') {
+      return (
+        <div className="px-3 py-2.5 text-[11px] text-rose-600">
+          {error ?? '가입 정보를 불러오지 못했습니다.'}
+        </div>
+      );
+    }
     return (
       <CardShell>
         <span className="text-xs text-rose-500 font-medium text-center px-2">
@@ -58,5 +79,5 @@ export function DashboardTenantSubscriptionBlock() {
     );
   }
 
-  return <DashboardTenantSubscriptionView data={data} billing={billing} token={token} />;
+  return <DashboardTenantSubscriptionView data={data} billing={billing} token={token} variant={variant} />;
 }

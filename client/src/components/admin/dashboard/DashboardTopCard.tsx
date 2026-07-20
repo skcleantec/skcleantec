@@ -19,7 +19,7 @@ export function DashboardTopCard({
 }) {
   return (
     <div
-      className={`flex h-full min-h-[200px] flex-col rounded-2xl border p-6 shadow-sm ${accentShell[accent]}`}
+      className={`flex h-full min-h-0 lg:min-h-[200px] flex-col rounded-xl lg:rounded-2xl border p-3 lg:p-6 shadow-sm ${accentShell[accent]}`}
     >
       {children}
     </div>

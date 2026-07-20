@@ -9,6 +9,8 @@ import { DashboardStatCard } from './DashboardStatCard';
 import type { DashboardDrillKind } from './dashboardDrilldownTypes';
 import { kstMonthKeyNow } from './dashboardDrilldownTypes';
 
+export type DashboardAuxBlockVariant = 'card' | 'row';
+
 function kstMonthTitleKo(): string {
   const k = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
   const [y, m] = k.split('-');
@@ -17,11 +19,18 @@ function kstMonthTitleKo(): string {
 
 export function DashboardAuxBlocksGrid({ showTelecrmDashboard }: { showTelecrmDashboard: boolean }) {
   return (
-    <div className="flex flex-col gap-5">
-      <DashboardTenantSubscriptionBlock />
-      <TelemarketingSessionBlock />
-      {showTelecrmDashboard ? <DashboardTelecrmBlock /> : null}
-    </div>
+    <>
+      <div className="lg:hidden overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm divide-y divide-slate-100">
+        <DashboardTenantSubscriptionBlock variant="row" />
+        <TelemarketingSessionBlock variant="row" />
+        {showTelecrmDashboard ? <DashboardTelecrmBlock variant="row" /> : null}
+      </div>
+      <div className="hidden lg:flex lg:flex-col lg:gap-5">
+        <DashboardTenantSubscriptionBlock variant="card" />
+        <TelemarketingSessionBlock variant="card" />
+        {showTelecrmDashboard ? <DashboardTelecrmBlock variant="card" /> : null}
+      </div>
+    </>
   );
 }
 
@@ -37,7 +46,7 @@ export function DashboardKpiGrid({
   compact?: boolean;
 }) {
   return (
-    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 ${compact ? 'gap-3' : 'gap-5'}`}>
+    <div className={`grid grid-cols-2 lg:grid-cols-4 ${compact ? 'gap-2 lg:gap-3' : 'gap-3 lg:gap-5'}`}>
       <DashboardStatCard
         compact={compact}
         label="오늘 접수"
@@ -291,7 +300,7 @@ export function DashboardSalesAnalyticsGrid({
   onOpenDrill: (kind: DashboardDrillKind, initialMonth?: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-4 min-w-0 w-full max-w-full [&>section]:min-h-[320px]">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 min-w-0 w-full max-w-full [&>section]:min-h-0 lg:[&>section]:min-h-[320px]">
       <DashboardSalesBlock stats={stats} loading={loading} onOpenDrill={() => onOpenDrill('sales', kstMonthKeyNow())} />
       <DashboardInquiryAnalyticsPanel
         breakdown={breakdown}

@@ -51,8 +51,8 @@ export function DashboardStatCard({
     </div>
   );
 
-  const base = `rounded-2xl text-left w-full border shadow-sm transition-all duration-200 ${
-    compact ? 'p-3' : 'p-5'
+  const base = `rounded-xl lg:rounded-2xl text-left w-full border shadow-sm transition-all duration-200 ${
+    compact ? 'p-2.5 lg:p-3' : 'p-3 lg:p-5'
   } ${themeClasses[theme]}`;
 
   if (onClick) {

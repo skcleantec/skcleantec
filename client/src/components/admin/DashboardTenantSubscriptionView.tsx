@@ -5,6 +5,7 @@ import type { TenantBillingSummary } from '../../api/tenantBilling';
 import { usagePercent } from '@shared/tenantSubscriptionUsage';
 import { TenantBillingDashboardStatusLine } from './TenantBillingDashboardStatusLine';
 import { TenantBillingPaymentGuideModal } from './TenantBillingPaymentGuideModal';
+import type { DashboardAuxBlockVariant } from './dashboard/DashboardPageSections';
 
 type UsageRow = TenantSubscriptionDto['usage'][number];
 
@@ -135,9 +136,15 @@ type Props = {
   data: TenantSubscriptionDto;
   billing?: TenantBillingSummary | null;
   token?: string | null;
+  variant?: DashboardAuxBlockVariant;
 };
 
-export function DashboardTenantSubscriptionView({ data, billing = null, token = null }: Props) {
+export function DashboardTenantSubscriptionView({
+  data,
+  billing = null,
+  token = null,
+  variant = 'card',
+}: Props) {
   const { tenant, usage } = data;
   const [paymentGuideOpen, setPaymentGuideOpen] = useState(false);
 
@@ -163,10 +170,65 @@ export function DashboardTenantSubscriptionView({ data, billing = null, token = 
     unit: '개',
   });
 
+  const inquirySummary =
+    inquiriesUsage.limit != null
+      ? `${inquiriesUsage.used.toLocaleString()}/${inquiriesUsage.limit.toLocaleString()}건`
+      : `${inquiriesUsage.used.toLocaleString()}건(무제한)`;
+  const usageSummary = `접수 ${inquirySummary} · 계정 ${userUsage.used.toLocaleString()}명 · 브랜드 ${brandsUsage.used.toLocaleString()}개`;
+
+  if (variant === 'row') {
+    return (
+      <>
+        <div className="flex min-w-0 items-center gap-2.5 px-3 py-2.5">
+          <div className="shrink-0 rounded-lg bg-indigo-100 p-1.5 text-indigo-600">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-fluid-2xs font-semibold text-slate-800">계정·서비스</span>
+              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-px text-[10px] font-semibold capitalize text-slate-600 ring-1 ring-inset ring-slate-600/10">
+                {tenant.planLabel}
+              </span>
+            </div>
+            <p className="mt-0.5 truncate text-[11px] leading-snug text-slate-500 tabular-nums" title={usageSummary}>
+              {usageSummary}
+            </p>
+            {billing ? (
+              <TenantBillingDashboardStatusLine
+                billing={billing}
+                variant="inline"
+                className="mt-0.5 min-w-0 truncate text-[10px]"
+                onUnpaidClick={() => setPaymentGuideOpen(true)}
+              />
+            ) : null}
+          </div>
+          <Link
+            to="/admin/subscription"
+            className="shrink-0 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 touch-manipulation"
+          >
+            자세히
+          </Link>
+        </div>
+        <TenantBillingPaymentGuideModal
+          open={paymentGuideOpen}
+          onClose={() => setPaymentGuideOpen(false)}
+          token={token}
+          billing={billing}
+        />
+      </>
+    );
+  }
+
   return (
     <>
-      <div className="flex h-full min-h-[200px] flex-col justify-between rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/40 p-6 shadow-sm shadow-indigo-100/50">
-        <div className="mb-4 flex min-w-0 items-center justify-between gap-2">
+      <div className="flex h-full min-h-0 lg:min-h-[200px] flex-col justify-between rounded-xl lg:rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/40 p-3 lg:p-6 shadow-sm shadow-indigo-100/50">
+        <div className="mb-3 lg:mb-4 flex min-w-0 items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <div className="shrink-0 rounded-lg bg-indigo-100 p-1.5 text-indigo-600">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -188,10 +250,10 @@ export function DashboardTenantSubscriptionView({ data, billing = null, token = 
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 flex-1">
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8 flex-1">
           <InquirySpeedometer used={inquiriesUsage.used} limit={inquiriesUsage.limit} />
 
-          <div className="w-full min-w-0 space-y-4 sm:flex-1">
+          <div className="w-full min-w-0 space-y-3 sm:space-y-4 sm:flex-1">
             <UsageBar
               label="활성 업무 계정"
               used={userUsage.used}

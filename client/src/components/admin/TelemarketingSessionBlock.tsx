@@ -10,6 +10,7 @@ import { getToken } from '../../stores/auth';
 import { DashboardAdSettleButton } from '../dashboard/dashboardUiParts';
 import { AdWorkSessionEndModal } from '../advertising/AdWorkSessionEndModal';
 import { DashboardTopCard } from './dashboard/DashboardTopCard';
+import type { DashboardAuxBlockVariant } from './dashboard/DashboardPageSections';
 
 function TelemarketingIcon({ className }: { className?: string }) {
   return (
@@ -31,7 +32,7 @@ function TelemarketingIcon({ className }: { className?: string }) {
   );
 }
 
-export function TelemarketingSessionBlock() {
+export function TelemarketingSessionBlock({ variant = 'card' }: { variant?: DashboardAuxBlockVariant }) {
   const token = getToken();
   const [session, setSession] = useState<ActiveSession | null>(null);
   const [channels, setChannels] = useState<AdChannel[]>([]);
@@ -87,6 +88,55 @@ export function TelemarketingSessionBlock() {
   }, [token, loading, session, channels.length, refresh]);
 
   if (!token) return null;
+
+  const settleButtonClass =
+    variant === 'row'
+      ? 'rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation whitespace-nowrap'
+      : undefined;
+
+  if (variant === 'row') {
+    return (
+      <>
+        <div className="flex min-w-0 items-center gap-2.5 px-3 py-2.5">
+          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm">
+            <TelemarketingIcon className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-fluid-2xs font-semibold text-amber-950">텔레마케팅 · 광고비</h2>
+            <p className="truncate text-[11px] text-slate-500">
+              {error
+                ? error
+                : loading
+                  ? '불러오는 중…'
+                  : session
+                    ? '업무 종료 시 채널별 당일 광고비 저장'
+                    : '세션 준비 중…'}
+            </p>
+          </div>
+          {session && !loading ? (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              disabled={channels.length === 0}
+              className={settleButtonClass}
+            >
+              정산
+            </button>
+          ) : null}
+        </div>
+        <AdWorkSessionEndModal
+          open={modalOpen}
+          token={token}
+          channels={channels}
+          onClose={() => setModalOpen(false)}
+          onEnded={() => {
+            setModalOpen(false);
+            void refresh();
+          }}
+        />
+      </>
+    );
+  }
 
   return (
     <DashboardTopCard accent="amber">
