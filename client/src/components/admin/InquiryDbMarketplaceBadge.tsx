@@ -2,11 +2,13 @@ import type { InquiryDbListingMeta } from '../../api/dbMarketplace';
 
 export type { InquiryDbListingMeta };
 
+const DB_MARKETPLACE_CART_ICON = '/icons/db-marketplace-cart.png';
+
 type Props = {
   dbListing: InquiryDbListingMeta;
   className?: string;
   compact?: boolean;
-  /** 스케줄 등 — 장바구니 아이콘만, 툴팁에 상태 */
+  /** 스케줄 등 — 장바구니(DRAFT)는 아이콘만, 그 외는 compact 뱃지 */
   iconOnly?: boolean;
 };
 
@@ -18,19 +20,22 @@ const STATUS_LABEL: Record<InquiryDbListingMeta['status'], string> = {
   EXPIRED: '정보공유 만료',
 };
 
+export function isDbMarketplaceCartDraft(
+  dbListing: InquiryDbListingMeta | null | undefined,
+): dbListing is InquiryDbListingMeta {
+  return dbListing?.status === 'DRAFT';
+}
 
-function ShoppingCartIcon({ className = '' }: { className?: string }) {
+function DbMarketplaceCartIcon({ className = '' }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden
-      width={14}
-      height={14}
-    >
-      <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a1 1 0 00.98.804H13a1 1 0 00.98-.804L14.78 3H17a1 1 0 100-2H3zm1.22 5l-.512 2.048A2 2 0 004.8 10h8.4a2 2 0 001.992-1.952L14.68 6H4.22zM6 14a2 2 0 104 0 2 2 0 00-4 0zm6 0a2 2 0 104 0 2 2 0 00-4 0z" />
-    </svg>
+    <img
+      src={DB_MARKETPLACE_CART_ICON}
+      alt=""
+      width={16}
+      height={16}
+      className={`h-4 w-4 shrink-0 object-contain ${className}`}
+      draggable={false}
+    />
   );
 }
 
@@ -42,14 +47,26 @@ export function InquiryDbMarketplaceBadge({
 }: Props) {
   const label = STATUS_LABEL[dbListing.status];
 
-  if (iconOnly) {
+  if (dbListing.status === 'DRAFT') {
     return (
       <span
-        className={`inline-flex shrink-0 items-center justify-center rounded border border-orange-400 bg-orange-100 p-0.5 text-orange-700 shadow-sm ${className}`}
+        className={`inline-flex shrink-0 items-center justify-center ${className}`}
         title={label}
         aria-label={label}
       >
-        <ShoppingCartIcon />
+        <DbMarketplaceCartIcon />
+      </span>
+    );
+  }
+
+  if (iconOnly) {
+    return (
+      <span
+        className={`inline-flex max-w-full shrink-0 items-center rounded border border-violet-200 bg-violet-50 px-1 py-px text-[9px] font-medium leading-tight text-violet-900 sm:text-fluid-2xs ${className}`}
+        title={label}
+        aria-label={label}
+      >
+        <span className="truncate">{label.replace('정보공유 ', '')}</span>
       </span>
     );
   }
