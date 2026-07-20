@@ -19,6 +19,46 @@ export class TenantPartnerSettlementError extends Error {
 }
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
+const YM = /^\d{4}-\d{2}$/;
+
+function kstYmd(d: Date): string {
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
+}
+
+function monthEndYmd(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return `${month}-${String(last).padStart(2, '0')}`;
+}
+
+function enumerateMonths(fromMonth: string, toMonth: string): string[] {
+  const [fy, fm] = fromMonth.split('-').map(Number);
+  const [ty, tm] = toMonth.split('-').map(Number);
+  const out: string[] = [];
+  let y = fy;
+  let m = fm;
+  while (y < ty || (y === ty && m <= tm)) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
+
+async function loadShareSettlementEffectiveDate(
+  shares: ShareAccrualRow[],
+): Promise<(s: ShareAccrualRow) => Date | null> {
+  const shareIds = shares.map((s) => s.id);
+  const marketplaceConfirmAtMap = await loadMarketplaceShareConfirmAtMap(shareIds);
+  return (s) =>
+    resolvePartnerShareSettlementEffectiveDate(
+      s.sourceInquiry.preferredDate,
+      marketplaceConfirmAtMap.get(s.id),
+    );
+}
 
 type ShareAccrualRow = {
   id: string;
@@ -190,10 +230,13 @@ export async function getSettlementOverview(
 ): Promise<{ items: SettlementOverviewRow[] }> {
   const partnerMeta = await loadPartnerMeta(viewerTenantId);
   const shares = await loadSharesForRole(viewerTenantId, role);
+  const shareSettlementEffectiveDate = await loadShareSettlementEffectiveDate(shares);
   const accruedByPartner = new Map<string, number>();
   for (const pid of partnerMeta.keys()) accruedByPartner.set(pid, 0);
 
   for (const share of shares) {
+    const effective = shareSettlementEffectiveDate(share);
+    if (!effective) continue;
     const pid = partnerIdForShare(share, role, viewerTenantId);
     if (!partnerMeta.has(pid)) continue;
     const signed = signedShareTransferFee(share);
@@ -256,16 +299,10 @@ export async function getSettlementPartnerDetail(opts: {
 
   const shares = await loadSharesForRole(viewerTenantId, role);
   const shareIds = shares.map((s) => s.id);
-  const [marketplaceShareIds, marketplaceConfirmAtMap] = await Promise.all([
+  const [marketplaceShareIds, shareSettlementEffectiveDate] = await Promise.all([
     loadMarketplaceConfirmedShareIdSet(shareIds),
-    loadMarketplaceShareConfirmAtMap(shareIds),
+    loadShareSettlementEffectiveDate(shares),
   ]);
-
-  const shareSettlementEffectiveDate = (s: ShareAccrualRow): Date | null =>
-    resolvePartnerShareSettlementEffectiveDate(
-      s.sourceInquiry.preferredDate,
-      marketplaceConfirmAtMap.get(s.id),
-    );
 
   const periodItems = shares
     .filter((s) => partnerIdForShare(s, role, viewerTenantId) === partnerTenantId)
@@ -340,6 +377,7 @@ export async function getSettlementPartnerDetail(opts: {
 
   return {
     role,
+    month: hiYmd.slice(0, 7),
     from: loYmd,
     to: hiYmd,
     partnerTenantId,
@@ -364,6 +402,162 @@ export async function getSettlementPartnerDetail(opts: {
       actorRole: r.actor?.role ?? null,
     })),
     items: periodItems,
+  };
+}
+
+/** 파트너 정산 지급·수금 이력만 (접수 스캔 없음) */
+export async function getPartnerSettlementPayments(opts: {
+  viewerTenantId: string;
+  role: TenantPartnerSettlementRole;
+  partnerTenantId: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}) {
+  const partner = await assertPartnerInTenant(opts.viewerTenantId, opts.partnerTenantId);
+  const limit = Number.isFinite(opts.limit)
+    ? Math.min(500, Math.max(1, Math.trunc(opts.limit!)))
+    : 300;
+
+  const paidAtWhere: { gte?: Date; lte?: Date } = {};
+  if (opts.from && YMD.test(opts.from)) {
+    paidAtWhere.gte = new Date(`${opts.from}T00:00:00+09:00`);
+  }
+  if (opts.to && YMD.test(opts.to)) {
+    paidAtWhere.lte = new Date(`${opts.to}T23:59:59.999+09:00`);
+  }
+
+  const paymentRows = await prisma.tenantPartnerSettlementPayment.findMany({
+    where: {
+      tenantId: opts.viewerTenantId,
+      partnerTenantId: opts.partnerTenantId,
+      role: opts.role,
+      ...(Object.keys(paidAtWhere).length > 0 ? { paidAt: paidAtWhere } : {}),
+    },
+    orderBy: [{ paidAt: 'desc' }],
+    take: limit,
+    select: {
+      id: true,
+      amount: true,
+      paidAt: true,
+      memo: true,
+      actor: { select: { name: true, role: true } },
+    },
+  });
+
+  return {
+    role: opts.role,
+    partnerTenantId: opts.partnerTenantId,
+    partnerName: partner.partnerName,
+    partnerSlug: partner.partnerSlug,
+    from: opts.from && YMD.test(opts.from) ? opts.from : null,
+    to: opts.to && YMD.test(opts.to) ? opts.to : null,
+    payments: paymentRows.map((r) => ({
+      id: r.id,
+      amount: r.amount,
+      paidAt: r.paidAt.toISOString(),
+      memo: r.memo ?? null,
+      actorName: r.actor?.name ?? null,
+      actorRole: r.actor?.role ?? null,
+    })),
+  };
+}
+
+/** 파트너 월별 정산 요약 (기간별정산 모달용) */
+export async function getPartnerSettlementMonthlyOverview(opts: {
+  viewerTenantId: string;
+  role: TenantPartnerSettlementRole;
+  partnerTenantId: string;
+  fromMonth: string;
+  toMonth: string;
+}) {
+  const partner = await assertPartnerInTenant(opts.viewerTenantId, opts.partnerTenantId);
+  const loMonth = opts.fromMonth <= opts.toMonth ? opts.fromMonth : opts.toMonth;
+  const hiMonth = opts.fromMonth <= opts.toMonth ? opts.toMonth : opts.fromMonth;
+  if (!YM.test(loMonth) || !YM.test(hiMonth)) {
+    throw new TenantPartnerSettlementError('fromMonth·toMonth는 YYYY-MM 형식이어야 합니다.');
+  }
+
+  const startDate = new Date(`${loMonth}-01T00:00:00+09:00`);
+  const endDate = new Date(`${monthEndYmd(hiMonth)}T23:59:59.999+09:00`);
+
+  const shares = await loadSharesForRole(opts.viewerTenantId, opts.role);
+  const shareSettlementEffectiveDate = await loadShareSettlementEffectiveDate(shares);
+  const partnerShares = shares.filter(
+    (s) => partnerIdForShare(s, opts.role, opts.viewerTenantId) === opts.partnerTenantId,
+  );
+
+  const payableByMonth = new Map<string, number>();
+  for (const share of partnerShares) {
+    const effective = shareSettlementEffectiveDate(share);
+    if (!effective || effective < startDate || effective > endDate) continue;
+    const monthKey = kstYmd(effective).slice(0, 7);
+    const signed = signedShareTransferFee(share);
+    payableByMonth.set(monthKey, (payableByMonth.get(monthKey) ?? 0) + signed);
+  }
+
+  const paymentRows = await prisma.tenantPartnerSettlementPayment.findMany({
+    where: {
+      tenantId: opts.viewerTenantId,
+      partnerTenantId: opts.partnerTenantId,
+      role: opts.role,
+      paidAt: { gte: startDate, lte: endDate },
+    },
+    select: { amount: true, paidAt: true },
+  });
+  const paidByMonth = new Map<string, number>();
+  for (const p of paymentRows) {
+    const monthKey = kstYmd(p.paidAt).slice(0, 7);
+    paidByMonth.set(monthKey, (paidByMonth.get(monthKey) ?? 0) + p.amount);
+  }
+
+  const carryFeeBefore = partnerShares.reduce((sum, s) => {
+    const effective = shareSettlementEffectiveDate(s);
+    if (!effective || effective >= startDate) return sum;
+    return sum + signedShareTransferFee(s);
+  }, 0);
+  const paidBeforeAgg = await prisma.tenantPartnerSettlementPayment.aggregate({
+    where: {
+      tenantId: opts.viewerTenantId,
+      partnerTenantId: opts.partnerTenantId,
+      role: opts.role,
+      paidAt: { lt: startDate },
+    },
+    _sum: { amount: true },
+  });
+  let cumulativeRemaining = carryFeeBefore - (paidBeforeAgg._sum.amount ?? 0);
+
+  const monthKeys = enumerateMonths(loMonth, hiMonth);
+  const months = monthKeys.map((month) => {
+    const payableAmount = payableByMonth.get(month) ?? 0;
+    const paidAmount = paidByMonth.get(month) ?? 0;
+    const remainingAmount = payableAmount - paidAmount;
+    cumulativeRemaining += remainingAmount;
+    return {
+      month,
+      payableAmount,
+      paidAmount,
+      remainingAmount,
+      cumulativeRemaining,
+    };
+  });
+
+  const overallPayable = months.reduce((s, r) => s + r.payableAmount, 0);
+  const overallPaid = months.reduce((s, r) => s + r.paidAmount, 0);
+
+  return {
+    role: opts.role,
+    partnerTenantId: opts.partnerTenantId,
+    partnerName: partner.partnerName,
+    partnerSlug: partner.partnerSlug,
+    fromMonth: loMonth,
+    toMonth: hiMonth,
+    months,
+    overall: {
+      payableAmount: overallPayable,
+      paidAmount: overallPaid,
+      remainingAmount: overallPayable - overallPaid,
+    },
   };
 }
 
