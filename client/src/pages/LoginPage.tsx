@@ -17,6 +17,7 @@ import {
   readResumeLocation as readStoredResumeLocation,
   clearResumeLocation,
 } from '../api/sessionGate';
+import { useLoginScrollSurface } from '../hooks/useMobileInputVisibility';
 
 /** ProtectedRoute / TeamProtectedRoute / CrmPopupEntry 가 넘긴 `state.from` 만 안전하게 읽기 */
 function readResumeLocationFromState(state: unknown): RouterLocation | undefined {
@@ -113,6 +114,7 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [tenantBrand, setTenantBrand] = useState<{ displayName: string; loginSubtitle: string | null } | null>(null);
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface();
 
   /** 업체 코드가 채워지면 해당 업체 표시명·로그인 부제를 공개 정보에서 조회 */
   useEffect(() => {
@@ -342,10 +344,13 @@ export function LoginPage() {
   };
 
   const inputClass =
-    'w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-3.5 py-2.5 text-fluid-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-sky-500/80 focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-500/10';
+    'login-field-input w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-3.5 py-2.5 text-fluid-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-sky-500/80 focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-500/10';
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f4f6f8]">
+    <div
+      ref={scrollRef}
+      className="login-surface relative min-h-dvh min-h-screen overflow-y-auto overscroll-y-contain bg-[#f4f6f8]"
+    >
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-15%,rgba(14,165,233,0.14),transparent_55%),radial-gradient(ellipse_70%_50%_at_100%_0%,rgba(148,163,184,0.12),transparent_50%),radial-gradient(ellipse_60%_40%_at_0%_100%,rgba(45,212,191,0.08),transparent_45%)]"
         aria-hidden
@@ -354,11 +359,11 @@ export function LoginPage() {
         className="pointer-events-none absolute inset-0 opacity-[0.35] [background-image:linear-gradient(to_right,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.08)_1px,transparent_1px)] [background-size:28px_28px]"
         aria-hidden
       />
-      <div className="relative flex min-h-screen items-center justify-center px-4 py-10 sm:py-14">
-        <div className="w-full max-w-[420px]">
-          <div className="relative mb-7 text-center sm:mb-8">
+      <div className="relative flex min-h-dvh min-h-screen flex-col items-stretch justify-start px-4 pt-[max(1.25rem,env(safe-area-inset-top))] sm:items-center sm:justify-center sm:py-14">
+        <div className="login-scroll-content mx-auto w-full max-w-[420px] pb-4 sm:pb-0">
+          <div className="login-brand-block relative mb-5 text-center sm:mb-8">
             <div
-              className="pointer-events-none absolute inset-x-[-10%] -top-4 bottom-[-0.5rem] overflow-visible sm:inset-x-[-14%]"
+              className="login-brand-mist pointer-events-none absolute inset-x-[-10%] -top-4 bottom-[-0.5rem] overflow-visible sm:inset-x-[-14%]"
               aria-hidden
             >
               <div className="absolute left-1/2 top-1/2 h-44 w-[120%] max-w-none -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-[radial-gradient(ellipse_80%_60%_at_50%_45%,rgba(203,213,225,0.35),rgba(241,245,249,0.12)_42%,transparent_70%)] blur-3xl motion-safe:animate-login-mist-drift motion-reduce:opacity-45" />
@@ -389,7 +394,7 @@ export function LoginPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.28)] ring-1 ring-slate-900/[0.04] backdrop-blur-md sm:p-8">
+          <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-5 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.28)] ring-1 ring-slate-900/[0.04] backdrop-blur-md sm:p-8">
             <div className="mb-6 border-b border-slate-100 pb-5 text-center">
               {tenantBrand ? (
                 <p className="mb-1.5 inline-flex max-w-full items-center justify-center truncate rounded-full bg-slate-100 px-3 py-1 text-fluid-2xs font-semibold text-slate-700">
@@ -436,7 +441,7 @@ export function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
               <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/90 bg-slate-50/50 px-4 py-3.5">
                 <div className="min-w-0 flex-1">
                   <p className="text-fluid-sm font-medium text-slate-800">크루 계정 로그인</p>
@@ -467,9 +472,11 @@ export function LoginPage() {
                   type="text"
                   value={tenantSlug}
                   onChange={(e) => setTenantSlug(e.target.value.toLowerCase())}
+                  onFocus={onFieldFocus}
                   className={inputClass}
                   placeholder="업체코드를 넣어주세요"
                   autoComplete="organization"
+                  enterKeyHint="next"
                   required
                 />
               </div>
@@ -483,9 +490,11 @@ export function LoginPage() {
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onFocus={onFieldFocus}
                   className={inputClass}
                   placeholder={crewLoginMode ? '그룹 로그인 ID' : '아이디를 적어주세요'}
                   autoComplete="username"
+                  enterKeyHint="next"
                   required
                 />
               </div>
@@ -499,8 +508,10 @@ export function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={onFieldFocus}
                   className={inputClass}
                   autoComplete="current-password"
+                  enterKeyHint="done"
                   required
                 />
               </div>
