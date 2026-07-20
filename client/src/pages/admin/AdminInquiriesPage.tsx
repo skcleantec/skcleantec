@@ -2918,11 +2918,8 @@ export function AdminInquiriesPage() {
                         <TenantInquiryShareBadge share={item.tenantShare} compact />
                       ) : null}
                       {item.dbListing ? (
-                        <InquiryDbMarketplaceBadge dbListing={item.dbListing} compact />
+                        <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly />
                       ) : null}
-                            {item.dbListing ? (
-                              <InquiryDbMarketplaceBadge dbListing={item.dbListing} compact />
-                            ) : null}
                             <InquiryProfOptionsReviewListBadge item={item} />
                             <span
                               className={`shrink-0 rounded-full px-1.5 py-0.5 text-fluid-2xs font-semibold ring-1 ${
@@ -3431,7 +3428,7 @@ export function AdminInquiriesPage() {
                       ) : null}
                       {item.dbListing ? (
                         <span className="mt-0.5 block">
-                          <InquiryDbMarketplaceBadge dbListing={item.dbListing} compact />
+                          <InquiryDbMarketplaceBadge dbListing={item.dbListing} iconOnly />
                         </span>
                       ) : null}
                     </td>
