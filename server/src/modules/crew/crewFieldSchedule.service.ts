@@ -2,7 +2,7 @@ import { prisma } from '../../lib/prisma.js';
 import { isCrewGroupRosterMode } from '../../lib/crewGroupSettings.js';
 import { preferredDateYmdKst } from '../inquiries/crewMemberCapacity.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
-import { dateToYmdKst } from '../users/userEmployment.js';
+import { dateToYmdKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { getDayRosterInRange } from '../team-crew-groups/crewGroupDayRoster.service.js';
 import { effectiveCrewMeetingTimeForDisplay } from '../inquiries/crewMeetingTime.helpers.js';
 import { resolveMemberMeetingTimeRaw } from '../inquiries/inquiryCrewMemberMeetingTime.service.js';
@@ -77,7 +77,16 @@ export async function buildCrewFieldSchedule(
       availabilityMode: true,
       members: {
         include: {
-          teamMember: { select: { id: true, name: true, nameTh: true, isActive: true } },
+          teamMember: {
+            select: {
+              id: true,
+              name: true,
+              nameTh: true,
+              isActive: true,
+              hireDate: true,
+              resignationDate: true,
+            },
+          },
         },
         orderBy: { createdAt: 'asc' },
       },
@@ -201,7 +210,12 @@ export async function buildCrewFieldSchedule(
     } else {
       const offSet = dayOffByYmd.get(ymd) ?? new Set<string>();
       for (const gm of group.members) {
-        if (gm.teamMember.isActive && !offSet.has(gm.teamMemberId)) {
+        const tm = gm.teamMember;
+        if (
+          tm.isActive &&
+          isUserEmployedOnYmd(tm.hireDate, tm.resignationDate, ymd) &&
+          !offSet.has(gm.teamMemberId)
+        ) {
           memberIdsForDay.add(gm.teamMemberId);
         }
       }

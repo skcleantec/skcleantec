@@ -756,6 +756,10 @@ router.post('/members/:memberId/day-offs', async (req, res) => {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
     return;
   }
+  if (!isUserEmployedOnYmd(member.hireDate, member.resignationDate, date)) {
+    res.status(400).json({ error: '해당 날짜에 근무 중인 팀원만 휴무일을 등록할 수 있습니다.' });
+    return;
+  }
   const d = new Date(`${date}T12:00:00`);
   await prisma.teamMemberDayOff.upsert({
     where: {
@@ -1021,6 +1025,10 @@ router.post('/:teamId/members/:memberId/day-offs', async (req, res) => {
   const member = await findTeamMemberInTenantTeam(tenantId, teamId, memberId);
   if (!member) {
     res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
+    return;
+  }
+  if (!isUserEmployedOnYmd(member.hireDate, member.resignationDate, date)) {
+    res.status(400).json({ error: '해당 날짜에 근무 중인 팀원만 휴무일을 등록할 수 있습니다.' });
     return;
   }
   const d = new Date(`${date}T12:00:00`);

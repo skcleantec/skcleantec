@@ -21,6 +21,7 @@ import { crewSettlementPayrollSheetAccess } from './crewSettlement.middleware.js
 import { buildPoolMemberPayrollSheetRows } from '../admin-payroll/payrollSheetPoolShared.js';
 import { computePoolMemberPayrollDetail } from '../admin-payroll/poolMemberPayrollCompute.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
+import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
@@ -427,6 +428,14 @@ router.post('/day-offs', async (req, res) => {
   }
   if (!(await assertGroupMember(gid, teamMemberId))) {
     res.status(400).json({ error: '이 그룹 소속 팀원만 휴무일을 등록할 수 있습니다.' });
+    return;
+  }
+  const member = await prisma.teamMember.findUnique({
+    where: { id: teamMemberId },
+    select: { hireDate: true, resignationDate: true },
+  });
+  if (!member || !isUserEmployedOnYmd(member.hireDate, member.resignationDate, date)) {
+    res.status(400).json({ error: '해당 날짜에 근무 중인 팀원만 휴무일을 등록할 수 있습니다.' });
     return;
   }
   const dateOnly = new Date(`${date}T12:00:00+09:00`);

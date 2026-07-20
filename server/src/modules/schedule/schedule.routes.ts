@@ -372,6 +372,7 @@ router.get('/day-availability', async (req, res) => {
     return;
   }
   const d = new Date(`${date}T12:00:00+09:00`);
+  const ymdForDay = date;
 
   const [teamLeadersRaw, members, leaderDayOffs, leaderSlots, memberSlots, closure] = await Promise.all([
     prisma.user.findMany({
@@ -380,7 +381,7 @@ router.get('/day-availability', async (req, res) => {
       orderBy: { name: 'asc' },
     }),
     prisma.teamMember.findMany({
-      where: tenantActiveTeamMemberWhere(tenantId),
+      where: tenantActiveTeamMemberWhere(tenantId, ymdForDay),
       select: { id: true, name: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     }),
@@ -396,12 +397,15 @@ router.get('/day-availability', async (req, res) => {
     }),
   ]);
 
-  const ymdForDay = dateToYmdKst(d);
+  const ymdForDayResolved = dateToYmdKst(d);
   const teamLeaders = teamLeadersRaw.filter((u) =>
-    isUserEmployedOnYmd(u.hireDate, u.resignationDate, ymdForDay)
+    isUserEmployedOnYmd(u.hireDate, u.resignationDate, ymdForDayResolved)
   );
 
-  const offLeaderIds = new Set(leaderDayOffs.map((x) => x.teamLeaderId));
+  const employedLeaderIds = new Set(teamLeaders.map((u) => u.id));
+  const offLeaderIds = new Set(
+    leaderDayOffs.filter((x) => employedLeaderIds.has(x.teamLeaderId)).map((x) => x.teamLeaderId)
+  );
   const leaderSlotMap = new Map(leaderSlots.map((r) => [r.teamLeaderId, r]));
   const memberSlotMap = new Map(memberSlots.map((r) => [r.teamMemberId, r]));
 
