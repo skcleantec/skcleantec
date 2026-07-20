@@ -364,6 +364,13 @@ export async function countDbListingPendingSeller(tenantId: string): Promise<num
   });
 }
 
+/** 판매자 — 게시 중(OPEN) — 내 판매 탭 */
+export async function countDbListingOpen(tenantId: string): Promise<number> {
+  return prisma.inquiryDbListing.count({
+    where: { tenantId, status: 'OPEN' },
+  });
+}
+
 /** 파트너 구매자 — 판매자 인계 대기(타 업체 listing 구매 신청 후) */
 export async function countDbListingPendingBuyer(tenantId: string): Promise<number> {
   return prisma.inquiryDbListing.count({

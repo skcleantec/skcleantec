@@ -84,7 +84,10 @@ export function applyDbMarketplaceListFilters(
       day: filters.handoverDay,
     });
     if (handoverRange) {
-      parts.push({ sellerConfirmedAt: handoverRange });
+      /** 인계일 미정(게시·인계대기)은 필터와 무관하게 목록에 유지 */
+      parts.push({
+        OR: [{ status: { in: ['OPEN', 'PENDING_SELLER'] } }, { sellerConfirmedAt: handoverRange }],
+      });
     }
   }
 
