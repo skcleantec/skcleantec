@@ -48,6 +48,58 @@ export async function loadMarketplaceConfirmedShareIdSet(shareIds: string[]): Pr
   return set;
 }
 
+/** 정보공유 인계 확정 — 타업체 구매자 귀속 접수 id (배정과 무관하게 listing 기준) */
+export async function loadMarketplaceExternalInquiryIdsForCompany(
+  tenantId: string,
+  externalCompanyId: string,
+): Promise<string[]> {
+  const rows = await prisma.inquiryDbListing.findMany({
+    where: {
+      tenantId,
+      status: 'CONFIRMED',
+      buyerKind: 'EXTERNAL_COMPANY',
+      buyerExternalCompanyId: externalCompanyId,
+    },
+    select: { inquiryId: true },
+  });
+  return rows.map((r) => r.inquiryId);
+}
+
+export type MarketplaceExternalBuyerMeta = {
+  companyId: string;
+  companyName: string;
+};
+
+/** CONFIRMED 타업체 구매 listing → 접수별 구매 타업체 (정산 귀속 fallback) */
+export async function loadMarketplaceExternalBuyerByInquiry(
+  tenantId: string,
+  inquiryIds?: string[],
+): Promise<Map<string, MarketplaceExternalBuyerMeta>> {
+  const rows = await prisma.inquiryDbListing.findMany({
+    where: {
+      tenantId,
+      status: 'CONFIRMED',
+      buyerKind: 'EXTERNAL_COMPANY',
+      buyerExternalCompanyId: { not: null },
+      ...(inquiryIds?.length ? { inquiryId: { in: inquiryIds } } : {}),
+    },
+    select: {
+      inquiryId: true,
+      buyerExternalCompanyId: true,
+      buyerExternalCompany: { select: { id: true, name: true } },
+    },
+  });
+  const map = new Map<string, MarketplaceExternalBuyerMeta>();
+  for (const row of rows) {
+    if (!row.buyerExternalCompanyId) continue;
+    map.set(row.inquiryId, {
+      companyId: row.buyerExternalCompanyId,
+      companyName: row.buyerExternalCompany?.name ?? row.buyerExternalCompanyId,
+    });
+  }
+  return map;
+}
+
 /** CONFIRMED listing의 판매 접수(inquiryId) 집합 — 타업체 정산 등 */
 export async function loadMarketplaceConfirmedInquiryIdSet(inquiryIds: string[]): Promise<Set<string>> {
   const ids = [...new Set(inquiryIds.filter(Boolean))];

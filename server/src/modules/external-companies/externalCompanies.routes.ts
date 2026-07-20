@@ -6,7 +6,8 @@ import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerP
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
-import { loadMarketplaceConfirmedInquiryIdSet } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
+import { loadMarketplaceConfirmedInquiryIdSet, loadMarketplaceExternalBuyerByInquiry } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
+import { resolveExternalSettlementCompanyAttribution } from '../../lib/externalSettlementAttribution.js';
 import {
   computeSignedExternalFeeBeforeDate,
   fetchExternalSettlementInquiriesForCompanyPeriod,
@@ -572,6 +573,10 @@ router.get('/settlement/summary', requireStaffPermission('admin.externalSettleme
     startDate,
     endDate,
   );
+  const marketplaceBuyerByInquiry = await loadMarketplaceExternalBuyerByInquiry(
+    tenantId,
+    inquiries.map((r) => r.id),
+  );
 
   type Row = {
     externalCompanyId: string;
@@ -590,13 +595,14 @@ router.get('/settlement/summary', requireStaffPermission('admin.externalSettleme
 
   for (const inq of inquiries) {
     const fee = inq.externalTransferFee ?? 0;
-    const extAssign = inq.assignments.find((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
     const isCancelled = inq.status === 'CANCELLED';
-    const cid = isCancelled
-      ? (inq.cancelFeeExternalCompanyId ?? extAssign?.teamLeader.externalCompanyId ?? null)
-      : (extAssign?.teamLeader.externalCompanyId ?? null);
-    const cname =
-      inq.cancelFeeExternalCompany?.name ?? extAssign?.teamLeader.externalCompany?.name ?? null;
+    const attributed = resolveExternalSettlementCompanyAttribution(
+      inq,
+      isCancelled,
+      marketplaceBuyerByInquiry.get(inq.id),
+    );
+    const cid = attributed?.companyId ?? null;
+    const cname = attributed?.companyName ?? null;
     const sign = isCancelled ? -1 : 1;
     if (cid && cname) {
       const prev = byCompany.get(cid);
@@ -714,6 +720,10 @@ router.get('/settlement/monthly-overview', requireStaffPermission('admin.externa
     startDate,
     endDate,
   );
+  const marketplaceBuyerByInquiry = await loadMarketplaceExternalBuyerByInquiry(
+    tenantId,
+    inquiries.map((r) => r.id),
+  );
 
   const payments = await prisma.externalCompanySettlementPayment.findMany({
     where: {
@@ -743,12 +753,14 @@ router.get('/settlement/monthly-overview', requireStaffPermission('admin.externa
     const monthKey = kstYmdFromDate(effective).slice(0, 7);
     monthSet.add(monthKey);
     const fee = inq.externalTransferFee ?? 0;
-    const extAssign = inq.assignments.find((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
     const isCancelled = inq.status === 'CANCELLED';
-    const cid = isCancelled
-      ? (inq.cancelFeeExternalCompanyId ?? extAssign?.teamLeader.externalCompanyId ?? null)
-      : (extAssign?.teamLeader.externalCompanyId ?? null);
-    const cname = inq.cancelFeeExternalCompany?.name ?? extAssign?.teamLeader.externalCompany?.name ?? null;
+    const attributed = resolveExternalSettlementCompanyAttribution(
+      inq,
+      isCancelled,
+      marketplaceBuyerByInquiry.get(inq.id),
+    );
+    const cid = attributed?.companyId ?? null;
+    const cname = attributed?.companyName ?? null;
     if (!cid || !cname) continue;
     companyNameById.set(cid, cname);
     const key = `${monthKey}|${cid}`;
@@ -933,7 +945,7 @@ router.get('/settlement/company-detail', requireStaffPermission('admin.externalS
   const to = new Date(`${hiYmd}T23:59:59.999+09:00`);
   const searchRaw = typeof req.query.search === 'string' ? req.query.search.trim() : '';
 
-  const { activeRows, cancelledRows } = await fetchExternalSettlementInquiriesForCompanyPeriod({
+  const { activeRows, cancelledRows, confirmAtMap } = await fetchExternalSettlementInquiriesForCompanyPeriod({
     tenantId,
     externalCompanyId,
     operatingCompanyId,
@@ -941,33 +953,51 @@ router.get('/settlement/company-detail', requireStaffPermission('admin.externalS
     to,
   });
   let allItems = [
-    ...activeRows.map((r) => ({
-      inquiryId: r.id,
-      inquiryNumber: r.inquiryNumber ?? null,
-      customerName: r.customerName,
-      address: r.address,
-      addressDetail: r.addressDetail ?? null,
-      preferredDate: r.preferredDate ? r.preferredDate.toISOString() : null,
-      status: r.status,
-      isCancelled: false,
-      feeAmount: r.externalTransferFee ?? 0,
-      signedFeeAmount: r.externalTransferFee ?? 0,
-      viaMarketplace: false as boolean,
-    })),
-    ...cancelledRows.map((r) => ({
-      inquiryId: r.id,
-      inquiryNumber: r.inquiryNumber ?? null,
-      customerName: r.customerName,
-      address: r.address,
-      addressDetail: r.addressDetail ?? null,
-      preferredDate: r.preferredDate ? r.preferredDate.toISOString() : null,
-      status: r.status,
-      isCancelled: true,
-      feeAmount: r.externalTransferFee ?? 0,
-      signedFeeAmount: -(r.externalTransferFee ?? 0),
-      viaMarketplace: false as boolean,
-    })),
-  ].sort((a, b) => (b.preferredDate ?? '').localeCompare(a.preferredDate ?? ''));
+    ...activeRows.map((r) => {
+      const effectiveAt = resolveExternalSettlementEffectiveDate(
+        r.preferredDate,
+        confirmAtMap.get(r.id),
+      );
+      return {
+        inquiryId: r.id,
+        inquiryNumber: r.inquiryNumber ?? null,
+        customerName: r.customerName,
+        address: r.address,
+        addressDetail: r.addressDetail ?? null,
+        preferredDate: r.preferredDate ? r.preferredDate.toISOString() : null,
+        settlementEffectiveDate: effectiveAt?.toISOString() ?? null,
+        status: r.status,
+        isCancelled: false,
+        feeAmount: r.externalTransferFee ?? 0,
+        signedFeeAmount: r.externalTransferFee ?? 0,
+        viaMarketplace: false as boolean,
+      };
+    }),
+    ...cancelledRows.map((r) => {
+      const effectiveAt = resolveExternalSettlementEffectiveDate(
+        r.preferredDate,
+        confirmAtMap.get(r.id),
+      );
+      return {
+        inquiryId: r.id,
+        inquiryNumber: r.inquiryNumber ?? null,
+        customerName: r.customerName,
+        address: r.address,
+        addressDetail: r.addressDetail ?? null,
+        preferredDate: r.preferredDate ? r.preferredDate.toISOString() : null,
+        settlementEffectiveDate: effectiveAt?.toISOString() ?? null,
+        status: r.status,
+        isCancelled: true,
+        feeAmount: r.externalTransferFee ?? 0,
+        signedFeeAmount: -(r.externalTransferFee ?? 0),
+        viaMarketplace: false as boolean,
+      };
+    }),
+  ].sort((a, b) =>
+    (b.settlementEffectiveDate ?? b.preferredDate ?? '').localeCompare(
+      a.settlementEffectiveDate ?? a.preferredDate ?? '',
+    ),
+  );
   const marketplaceInquiryIds = await loadMarketplaceConfirmedInquiryIdSet(
     allItems.map((it) => it.inquiryId),
   );
@@ -1131,6 +1161,10 @@ router.get('/settlement/accruals', requireStaffPermission('admin.externalSettlem
   const accrualConfirmAtMap = await loadMarketplaceExternalConfirmAtMap(tenantId, {
     inquiryIds: [...activeInquiries, ...cancelledInquiries].map((inq) => inq.id),
   });
+  const marketplaceBuyerByInquiry = await loadMarketplaceExternalBuyerByInquiry(tenantId, [
+    ...activeInquiries,
+    ...cancelledInquiries,
+  ].map((inq) => inq.id));
 
   type Acc = { sinceReset: number; today: number; month: number; year: number };
   const accByCompany = new Map<string, Acc>();
@@ -1160,10 +1194,12 @@ router.get('/settlement/accruals', requireStaffPermission('admin.externalSettlem
   };
 
   for (const inq of activeInquiries) {
-    const ext = inq.assignments.find(
-      (a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId
+    const attributed = resolveExternalSettlementCompanyAttribution(
+      inq,
+      false,
+      marketplaceBuyerByInquiry.get(inq.id),
     );
-    const cid = ext?.teamLeader.externalCompanyId;
+    const cid = attributed?.companyId ?? null;
     if (!cid || !accByCompany.has(cid)) continue;
 
     const fee = inq.externalTransferFee ?? 0;
@@ -1175,11 +1211,12 @@ router.get('/settlement/accruals', requireStaffPermission('admin.externalSettlem
   }
 
   for (const inq of cancelledInquiries) {
-    const ext = inq.assignments.find(
-      (a) => a.teamLeader.role === 'EXTERNAL_PARTNER' && a.teamLeader.externalCompanyId
+    const attributed = resolveExternalSettlementCompanyAttribution(
+      inq,
+      true,
+      marketplaceBuyerByInquiry.get(inq.id),
     );
-    const cid =
-      inq.cancelFeeExternalCompanyId ?? ext?.teamLeader.externalCompanyId ?? null;
+    const cid = attributed?.companyId ?? null;
     if (!cid || !accByCompany.has(cid)) continue;
 
     const fee = inq.externalTransferFee ?? 0;
