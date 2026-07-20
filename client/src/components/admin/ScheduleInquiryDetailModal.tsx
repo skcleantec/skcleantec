@@ -119,6 +119,7 @@ import {
 } from '../../utils/inquiryExternalPartnerShareMutex';
 import { buildInquiryCopySections, buildInquiryCopyText } from '../../utils/inquiryCopyInfo';
 import { InquiryCopyInfoSheet } from './InquiryCopyInfoSheet';
+import { InquiryCopyAssignmentPanel } from './InquiryCopyAssignmentPanel';
 import { InquiryDbMarketplaceBadge } from './InquiryDbMarketplaceBadge';
 import { InquiryDbMarketplaceSellPanel, type DbMarketplaceExchangePrefill } from './InquiryDbMarketplaceSellPanel';
 
@@ -1714,7 +1715,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     });
   }, [tenantSharePartnershipId, tenantSharePartnerships, tenantShareTransferFee]);
 
-  const handleSave = async () => {
+  const handleSave = async (opts?: { closeParent?: boolean }) => {
     if (!token) {
       alert('로그인이 필요합니다.');
       return;
@@ -1851,7 +1852,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         await updateInquiry(token, item!.id, patch);
       }
       setSaving(false);
-      onClose();
+      if (opts?.closeParent === false) {
+        setCopyInfoViewOpen(false);
+      } else {
+        onClose();
+      }
       onSaved();
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장에 실패했습니다.');
@@ -3643,6 +3648,69 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           sections={inquiryCopySections}
           copyText={inquiryCopyText}
           onCopy={copyInquiryTextToClipboard}
+          saving={saving}
+          onSave={() => void handleSave({ closeParent: false })}
+          assignment={
+            <InquiryCopyAssignmentPanel
+              teamLeaderIds={editForm.teamLeaderIds}
+              soloTeamLeaderIds={editForm.soloTeamLeaderIds}
+              leaderOptionsForRow={leaderOptionsForRow}
+              teamLeaderBlocked={teamLeaderZoneBlock.blocked}
+              teamLeaderBlockedMessage={teamLeaderZoneBlock.message}
+              resolvedExternalLeadId={resolvedExternalLeadId}
+              externalLeadUser={
+                resolvedExternalLeadId
+                  ? assignableTeamLeaders.find((t) => t.id === resolvedExternalLeadId) ?? null
+                  : null
+              }
+              activeNativePartnerShare={Boolean(activeNativePartnerShareSource)}
+              partnerShareName={item.tenantShare?.partnerName}
+              onTeamLeaderChange={(idx, v) =>
+                setEditForm((p) => {
+                  const prevId = p.teamLeaderIds[idx]?.trim() ?? '';
+                  const next = [...p.teamLeaderIds];
+                  next[idx] = v;
+                  let solo = p.soloTeamLeaderIds;
+                  if (prevId && prevId !== v.trim()) {
+                    solo = solo.filter((id) => id !== prevId);
+                  }
+                  return { ...p, teamLeaderIds: next, soloTeamLeaderIds: solo };
+                })
+              }
+              onAddTeamLeader={() =>
+                setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
+              }
+              onRemoveTeamLeader={(idx) =>
+                setEditForm((p) => ({
+                  ...p,
+                  teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
+                  soloTeamLeaderIds: p.soloTeamLeaderIds.filter(
+                    (id) => id !== (p.teamLeaderIds[idx]?.trim() ?? ''),
+                  ),
+                }))
+              }
+              onSoloTeamLeaderIdsChange={(ids) =>
+                setEditForm((p) => ({ ...p, soloTeamLeaderIds: ids }))
+              }
+              hideCrewInputs={hideCrewInputs}
+              crewMemberCount={editForm.crewMemberCount}
+              onCrewMemberCountChange={(count) =>
+                setEditForm((p) => ({ ...p, crewMemberCount: count }))
+              }
+              crewMemberNames={editForm.crewMemberNames}
+              onCrewMemberNameChange={(idx, name) =>
+                setEditForm((p) => {
+                  const next = [...p.crewMemberNames];
+                  next[idx] = name;
+                  return { ...p, crewMemberNames: next };
+                })
+              }
+              crewPickOptions={crewPickOptions}
+              occupiedCrewNamesByDate={occupiedCrewNamesByDate}
+              crewSpacingByMemberName={crewSpacingByMemberName}
+              effectiveCrewSlots={effectiveCrewSlots}
+            />
+          }
         />
       ) : null}
       {crewSwapModalOpen &&
