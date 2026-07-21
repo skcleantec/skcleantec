@@ -172,6 +172,8 @@ router.get('/me', async (req, res) => {
     }
   }
   const { tenantId: _omitTenantId, externalCompany, ...meRest } = me;
+  const onboardingFields = buildProfileOnboardingMeFields(me, externalCompany ?? null);
+  const staffPreview = Boolean(viewer?.previewExternal || viewer?.previewTeamLeader);
   res.json({
     ...meRest,
     viewerRole: viewer?.role ?? me.role,
@@ -179,7 +181,8 @@ router.get('/me', async (req, res) => {
     previewTeamLeader: Boolean(viewer?.previewTeamLeader),
     tenant,
     features,
-    ...buildProfileOnboardingMeFields(me, externalCompany ?? null),
+    ...onboardingFields,
+    ...(staffPreview ? { profileOnboardingRequired: false } : {}),
   });
 });
 

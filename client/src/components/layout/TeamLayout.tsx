@@ -19,7 +19,7 @@ import {
   markTeamChangeSeen,
   getTeamChangeHistoryList,
 } from '../../api/inquiryChangeLogs';
-import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
+import { teamPreviewDepsKey, teamProfileOnboardingRequired, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { TeamBiInline, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
@@ -434,10 +434,7 @@ export function TeamLayout() {
         setUserPhone(u.phone ?? null);
         setUserVehicleNumber(u.vehicleNumber ?? null);
         setUserNameEn(u.role === 'TEAM_LEADER' ? (u.nameEn ?? null) : null);
-        const needsOnboarding =
-          !u.profileCompletedAt &&
-          Boolean(u.profileOnboardingRequired) &&
-          (u.role === 'TEAM_LEADER' || u.role === 'EXTERNAL_PARTNER');
+        const needsOnboarding = teamProfileOnboardingRequired(u);
         setProfileOnboardingRequired(needsOnboarding);
         setProfileOnboardingInitial({
           role: u.role,
@@ -493,11 +490,7 @@ export function TeamLayout() {
         setTenantName(u.tenant?.displayName?.trim() || u.tenant?.name?.trim() || null);
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
         setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : null);
-        const needsOnboarding =
-          !u.profileCompletedAt &&
-          Boolean(u.profileOnboardingRequired) &&
-          u.role !== 'ADMIN' &&
-          (u.role === 'TEAM_LEADER' || u.role === 'EXTERNAL_PARTNER');
+        const needsOnboarding = teamProfileOnboardingRequired(u, location.search);
         setProfileOnboardingRequired(needsOnboarding);
         setProfileOnboardingInitial({
           role: u.role,
