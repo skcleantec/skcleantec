@@ -1,34 +1,45 @@
 import type { ScheduleItem } from '../api/schedule';
 import { formatPreferredDateInputYmd } from './dateFormat';
-import { consumesAfternoonSlot, consumesMorningSlot } from './scheduleSlotOccupancy';
 import { getScheduleTimeBucket } from './scheduleTimeBucket';
 
 function isInternalScheduleLeader(role: string | null | undefined): boolean {
   return role === 'TEAM_LEADER' || role === 'ADMIN';
 }
 
+function isActiveScheduleListItem(item: ScheduleItem): boolean {
+  return item.status !== 'CANCELLED' && item.status !== 'ON_HOLD';
+}
+
+function incrementLeaderCountsForItem(
+  counts: Map<string, number>,
+  item: ScheduleItem,
+): void {
+  const asg = item.assignments;
+  if (!asg?.length) return;
+  for (const a of asg) {
+    if (!isInternalScheduleLeader(a.teamLeader?.role)) continue;
+    const id = a.teamLeader?.id?.trim();
+    if (!id) continue;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+}
+
 function addAssignmentCountsForItems(
   items: ScheduleItem[],
-  shouldCountItem: (item: ScheduleItem) => boolean,
+  bucketFilter: 'morning' | 'afternoon',
 ): Map<string, Map<string, number>> {
   const byDate = new Map<string, Map<string, number>>();
   for (const item of items) {
-    if (!shouldCountItem(item)) continue;
+    if (!isActiveScheduleListItem(item)) continue;
+    if (getScheduleTimeBucket(item) !== bucketFilter) continue;
     const ymd = item.preferredDate ? formatPreferredDateInputYmd(item.preferredDate) : '';
     if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) continue;
-    const asg = item.assignments;
-    if (!asg?.length) continue;
     let m = byDate.get(ymd);
     if (!m) {
       m = new Map();
       byDate.set(ymd, m);
     }
-    for (const a of asg) {
-      if (!isInternalScheduleLeader(a.teamLeader?.role)) continue;
-      const id = a.teamLeader?.id?.trim();
-      if (!id) continue;
-      m.set(id, (m.get(id) ?? 0) + 1);
-    }
+    incrementLeaderCountsForItem(m, item);
   }
   return byDate;
 }
@@ -40,21 +51,48 @@ function addAssignmentCountsForItems(
 export function buildLeaderDayAssignmentCounts(
   items: ScheduleItem[],
 ): Map<string, Map<string, number>> {
-  return addAssignmentCountsForItems(items, () => true);
+  const byDate = new Map<string, Map<string, number>>();
+  for (const item of items) {
+    if (!isActiveScheduleListItem(item)) continue;
+    const ymd = item.preferredDate ? formatPreferredDateInputYmd(item.preferredDate) : '';
+    if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) continue;
+    let m = byDate.get(ymd);
+    if (!m) {
+      m = new Map();
+      byDate.set(ymd, m);
+    }
+    incrementLeaderCountsForItem(m, item);
+  }
+  return byDate;
 }
 
-/** 오전 슬롯(일반 오전 + 사이→오전 확정) 접수만 — 팀장별 당일 오전 배정 건수 */
+/** 오전 슬롯(목록과 동일 bucket) — 팀장별 예약일당 오전 배정 건수 */
 export function buildLeaderMorningAssignmentCounts(
   items: ScheduleItem[],
 ): Map<string, Map<string, number>> {
-  return addAssignmentCountsForItems(items, (item) => consumesMorningSlot(item));
+  return addAssignmentCountsForItems(items, 'morning');
 }
 
-/** 오후 슬롯(일반 오후 + 사이→오후 확정) 접수만 — 팀장별 당일 오후 배정 건수 */
+/** 오후 슬롯(목록과 동일 bucket) — 팀장별 예약일당 오후 배정 건수 */
 export function buildLeaderAfternoonAssignmentCounts(
   items: ScheduleItem[],
 ): Map<string, Map<string, number>> {
-  return addAssignmentCountsForItems(items, (item) => consumesAfternoonSlot(item));
+  return addAssignmentCountsForItems(items, 'afternoon');
+}
+
+/** 같은 날짜 접수 목록만으로 슬롯별 팀장 배정 건수(일별 리스트·상세 모달용) */
+export function buildLeaderSlotAssignmentCountMapsForDayItems(
+  dayItems: readonly ScheduleItem[],
+): { morning: Map<string, number>; afternoon: Map<string, number> } {
+  const morning = new Map<string, number>();
+  const afternoon = new Map<string, number>();
+  for (const item of dayItems) {
+    if (!isActiveScheduleListItem(item)) continue;
+    const bucket = getScheduleTimeBucket(item);
+    if (bucket === 'morning') incrementLeaderCountsForItem(morning, item);
+    else if (bucket === 'afternoon') incrementLeaderCountsForItem(afternoon, item);
+  }
+  return { morning, afternoon };
 }
 
 /**

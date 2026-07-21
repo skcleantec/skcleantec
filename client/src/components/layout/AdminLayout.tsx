@@ -21,6 +21,7 @@ import {
   prefetchTeamLeadersSettlementPages,
 } from '../../utils/prefetchAdminPages';
 import { runWhenIdle } from '../../utils/deferWhenIdle';
+import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import {
   useInboxRealtime,
   useInquiryCelebrateRealtime,
@@ -197,6 +198,13 @@ export function AdminLayout() {
   useEffect(() => {
     navigateRef.current = navigate;
   });
+  const goAdminHomeWithRefresh = useCallback(() => {
+    if (isStandalonePwa()) {
+      assignStaffHomePath('/admin/dashboard');
+      return;
+    }
+    navigate('/admin/dashboard');
+  }, [navigate]);
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
@@ -903,7 +911,7 @@ export function AdminLayout() {
           <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
             <button
               type="button"
-              onClick={() => navigate('/admin/dashboard')}
+              onClick={goAdminHomeWithRefresh}
               className="min-w-0 shrink-0 text-left hover:opacity-90 transition-opacity"
               aria-label="청소비서 — 대시보드로 이동"
               title="대시보드로 이동"
@@ -943,7 +951,7 @@ export function AdminLayout() {
             >
               <button
                 type="button"
-                onClick={() => navigate('/admin/dashboard')}
+                onClick={goAdminHomeWithRefresh}
                 className="hidden md:block shrink-0 hover:opacity-90 transition-opacity"
                 aria-label="청소비서 — 대시보드로 이동"
                 title="대시보드로 이동"
