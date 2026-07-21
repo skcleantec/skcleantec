@@ -2,6 +2,7 @@ import { API } from './apiPrefix';
 import { getToken } from '../stores/auth';
 import { getTeamToken } from '../stores/teamAuth';
 import { getPlatformToken } from '../stores/platformAuth';
+import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
 
 export type PlatformPromoActiveItem = {
   id: string;
@@ -155,10 +156,11 @@ export async function fetchAdminActivePlatformPromos(): Promise<PlatformPromoAct
   return data.items ?? [];
 }
 
-export async function fetchTeamActivePlatformPromos(): Promise<PlatformPromoActiveItem[]> {
+export async function fetchTeamActivePlatformPromos(search?: string): Promise<PlatformPromoActiveItem[]> {
   const token = getTeamToken();
   if (!token) return [];
-  const res = await fetch(`${API}/team/platform-promos/active`, {
+  const url = withTeamPreviewQuery(`${API}/team/platform-promos/active`, search);
+  const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) return [];

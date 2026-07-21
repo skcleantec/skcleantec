@@ -626,7 +626,7 @@ export function TeamLayout() {
       (previewExternal || previewTeamLeader),
   );
   const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
-  const { items: teamPromoItems } = usePlatformPromos('team');
+  const { items: teamPromoItems } = usePlatformPromos('team', location.search);
   const teamPromoForPage = useMemo(
     () => filterPromosForTeamPath(teamPromoItems, location.pathname),
     [teamPromoItems, location.pathname],
@@ -828,17 +828,17 @@ export function TeamLayout() {
         </>
       ) : null}
       </div>
-      {isExternalPartner && teamMobilePromos.length > 0 ? (
-        <div className="relative z-10 mx-auto w-full max-w-6xl shrink-0 px-4 pt-2 lg:hidden">
-          <PlatformPromoCarousel items={teamMobilePromos} />
-        </div>
-      ) : null}
-      {isExternalPartner && teamDesktopPromos.length > 0 ? (
-        <div className="relative z-10 mx-auto hidden w-full max-w-6xl shrink-0 px-4 pt-2 lg:block">
-          <PlatformPromoDashboardCard items={teamDesktopPromos} layout="banner" />
-        </div>
-      ) : null}
       <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
+        {isExternalPartner && teamMobilePromos.length > 0 ? (
+          <div className="mb-3 w-full min-w-0 shrink-0 lg:hidden">
+            <PlatformPromoCarousel items={teamMobilePromos} />
+          </div>
+        ) : null}
+        {isExternalPartner && teamDesktopPromos.length > 0 ? (
+          <div className="mb-4 hidden w-full min-w-0 shrink-0 lg:block">
+            <PlatformPromoDashboardCard items={teamDesktopPromos} layout="banner" />
+          </div>
+        ) : null}
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null, tenantSlug }}>
           <Outlet />
         </TenantCapabilitiesProvider>

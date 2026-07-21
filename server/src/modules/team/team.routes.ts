@@ -85,12 +85,12 @@ import {
   serializeTeamInquiryOperatingCompany,
 } from './teamInquiryResponse.helpers.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
-import { whereExcludeHandedOffSourceInquiries } from '../inquiries/inquiryHandedOffFromInternal.js';
+import { whereExcludeHandedOffSourceInquiriesForTeamViewer } from '../inquiries/inquiryHandedOffFromInternal.js';
 
 const router = Router();
 
 /** 팀장/타업체 C/S 목록: 배정 접수 연결 건 또는 관리자 전달(forwarded) 건 */
-function teamCsAccessWhere(userId: string) {
+function teamCsAccessWhere(userId: string, viewerRole?: string) {
   return {
     OR: [
       {
@@ -98,7 +98,7 @@ function teamCsAccessWhere(userId: string) {
         inquiry: {
           AND: [
             { assignments: { some: { teamLeaderId: userId } } },
-            whereExcludeHandedOffSourceInquiries(),
+            whereExcludeHandedOffSourceInquiriesForTeamViewer(viewerRole),
           ],
         },
       },
@@ -540,7 +540,7 @@ router.get('/nav-badges', async (req, res) => {
     prisma.csReport.count({
       where: {
         status: 'RECEIVED',
-        ...teamCsAccessWhere(userId),
+        ...teamCsAccessWhere(userId, role),
       },
     }),
     prisma.assignment.count({
@@ -609,11 +609,12 @@ router.post('/inquiries/:id/detail-viewed', async (req, res) => {
 
 /** 담당 미처리(접수) C/S 건수 — 상단 메뉴 배지용 */
 router.get('/cs/pending-count', async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { userId, role } = user;
   const count = await prisma.csReport.count({
     where: {
       status: 'RECEIVED',
-      ...teamCsAccessWhere(userId),
+      ...teamCsAccessWhere(userId, role),
     },
   });
   res.json({ count });
@@ -621,9 +622,10 @@ router.get('/cs/pending-count', async (req, res) => {
 
 /** 담당 접수와 연결된 C/S만 (배정 팀장 본인) */
 router.get('/cs', async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { userId, role } = user;
   const items = await prisma.csReport.findMany({
-    where: teamCsAccessWhere(userId),
+    where: teamCsAccessWhere(userId, role),
     orderBy: { createdAt: 'desc' },
     include: csReportFullInclude,
   });
@@ -632,10 +634,11 @@ router.get('/cs', async (req, res) => {
 
 /** 팀장/타업체: C/S 상세 열람 — 접수(RECEIVED)면 처리중(PROCESSING)으로 자동 전환(미확인 배지 해제) */
 router.post('/cs/:id/acknowledge', async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { userId, role } = user;
   const { id } = req.params;
   const report = await prisma.csReport.findFirst({
-    where: { id, ...teamCsAccessWhere(userId) },
+    where: { id, ...teamCsAccessWhere(userId, role) },
     include: csReportFullInclude,
   });
   if (!report) {
@@ -670,7 +673,7 @@ router.patch('/cs/:id', async (req, res) => {
   const report = await prisma.csReport.findFirst({
     where: {
       id,
-      ...teamCsAccessWhere(userId),
+      ...teamCsAccessWhere(userId, user.role),
     },
   });
   if (!report) {
@@ -707,12 +710,13 @@ router.patch('/cs/:id', async (req, res) => {
 
 /** 팀장: 해피콜 미완 건수 — 팀장조정(관리 슬롯 제외)일 예약 접수 제외 */
 router.get('/happy-call-stats', async (req, res) => {
-  const { userId } = (req as unknown as { user: AuthPayload }).user;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { userId, role } = user;
   const dayOffExclude = await whereExcludeAdminSlotAdjustInquiries(prisma, userId);
   const rows = await prisma.inquiry.findMany({
     where: {
       ...inquiryActiveOnlyWhere(),
-      ...whereExcludeHandedOffSourceInquiries(),
+      ...whereExcludeHandedOffSourceInquiriesForTeamViewer(role),
       preferredDate: { not: null },
       happyCallCompletedAt: null,
       status: {
@@ -1327,7 +1331,7 @@ router.get('/inquiries', async (req, res) => {
       {
         tenantId,
         ...inquiryActiveOnlyWhere(),
-        ...whereExcludeHandedOffSourceInquiries(),
+        ...whereExcludeHandedOffSourceInquiriesForTeamViewer(user.role),
         assignments: {
           some: { teamLeaderId: userId },
         },
@@ -1366,6 +1370,7 @@ router.get('/inquiries', async (req, res) => {
           attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId),
       },
       extraInquiryWhere,
+      user.role,
     );
     res.json({
       items: serializeTeamInquiryOperatingCompanies(
@@ -1411,7 +1416,7 @@ router.get('/schedule', async (req, res) => {
     {
       tenantId,
       ...inquiryActiveOnlyWhere(),
-      ...whereExcludeHandedOffSourceInquiries(),
+      ...whereExcludeHandedOffSourceInquiriesForTeamViewer(user.role),
       preferredDate: { gte: startDate, lte: endDate },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       assignments: {

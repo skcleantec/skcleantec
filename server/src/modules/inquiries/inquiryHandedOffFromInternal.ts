@@ -45,6 +45,20 @@ export function whereExcludeHandedOffSourceInquiries(): Prisma.InquiryWhereInput
   };
 }
 
+/**
+ * 팀 API — 조회 주체가 타업체(EXTERNAL_PARTNER)일 때.
+ * 정보공유(EXTERNAL_COMPANY) 인계 확정 후 본인에게 배정된 접수는 스케줄·배정목록에 포함해야 한다.
+ * (송신측 자사 팀장용 dbListing·파트너 송신 제외는 타업체 화면에 적용하지 않는다.)
+ */
+export function whereExcludeHandedOffSourceInquiriesForTeamViewer(
+  viewerRole: string | undefined,
+): Prisma.InquiryWhereInput {
+  if (viewerRole === 'EXTERNAL_PARTNER') {
+    return {};
+  }
+  return whereExcludeHandedOffSourceInquiries();
+}
+
 /** 자사 팀장·관리자(미리보기) 배정 시 — 넘긴 접수면 거부 */
 export async function assertInternalTeamAssignAllowed(
   db: Db,

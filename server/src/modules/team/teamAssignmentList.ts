@@ -2,7 +2,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import { InquiryStatus } from '@prisma/client';
 import { createdAtRangeFromQuery, type DatePreset } from '../inquiries/inquiryListDateRange.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
-import { whereExcludeHandedOffSourceInquiries } from '../inquiries/inquiryHandedOffFromInternal.js';
+import { whereExcludeHandedOffSourceInquiriesForTeamViewer } from '../inquiries/inquiryHandedOffFromInternal.js';
 
 export type TeamAssignmentDateBasis = 'assignedAt' | 'createdAt' | 'preferredDate';
 
@@ -79,11 +79,12 @@ function inquiryListWhere(
   status?: string,
   q?: string,
   extraInquiryWhere?: Prisma.InquiryWhereInput | null,
+  viewerRole?: string,
 ): Prisma.InquiryWhereInput {
   const parts: Prisma.InquiryWhereInput[] = [
     { assignments: { some: { teamLeaderId: userId } } },
     inquiryActiveOnlyWhere(),
-    whereExcludeHandedOffSourceInquiries(),
+    whereExcludeHandedOffSourceInquiriesForTeamViewer(viewerRole),
   ];
   if (extraInquiryWhere) parts.push(extraInquiryWhere);
   if (status && VALID_STATUS.has(status)) {
@@ -120,6 +121,7 @@ export async function listTeamAssignmentsPaginated(
   rawQuery: TeamAssignmentListQuery,
   deps: TeamAssignmentListDeps,
   extraInquiryWhere?: Prisma.InquiryWhereInput | null,
+  viewerRole?: string,
 ): Promise<{ items: Awaited<ReturnType<PrismaClient['inquiry']['findMany']>>; total: number }> {
   const basis = parseTeamAssignmentDateBasis(rawQuery.dateBasis);
   const preset = parseDatePreset(rawQuery.datePreset);
@@ -141,7 +143,7 @@ export async function listTeamAssignmentsPaginated(
       AND: [
         assignmentDateWhere(userId, range),
         { inquiry: inquiryActiveOnlyWhere() },
-        { inquiry: whereExcludeHandedOffSourceInquiries() },
+        { inquiry: whereExcludeHandedOffSourceInquiriesForTeamViewer(viewerRole) },
       ],
     };
     if (status && VALID_STATUS.has(status)) {
@@ -186,7 +188,7 @@ export async function listTeamAssignmentsPaginated(
     return { items, total };
   }
 
-  const where = inquiryListWhere(userId, basis, range, status, q, extraInquiryWhere);
+  const where = inquiryListWhere(userId, basis, range, status, q, extraInquiryWhere, viewerRole);
   const orderBy: Prisma.InquiryOrderByWithRelationInput[] =
     basis === 'preferredDate'
       ? [{ preferredDate: 'asc' }, { preferredTime: 'asc' }, { id: 'asc' }]
