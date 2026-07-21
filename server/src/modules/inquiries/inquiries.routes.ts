@@ -977,6 +977,15 @@ router.patch('/:id', async (req, res) => {
       }
       const assigningExternal = assignees.some((a) => a.role === 'EXTERNAL_PARTNER');
       if (assigningExternal) {
+        const hasInternalAssignee = assignees.some(
+          (a) => a.role === 'TEAM_LEADER' || a.role === 'ADMIN',
+        );
+        if (hasInternalAssignee) {
+          res.status(400).json({
+            error: '타업체 배정과 자사 팀장 배정은 동시에 지정할 수 없습니다.',
+          });
+          return;
+        }
         try {
           await assertNoActivePartnerShareForExternalAssign(prisma, inquiry.id);
         } catch (e) {

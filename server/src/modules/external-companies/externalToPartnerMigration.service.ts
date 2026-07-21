@@ -5,6 +5,7 @@ import {
   createTenantInquiryShareInTransaction,
   TenantInquiryShareError,
 } from '../tenant-partners/tenantInquiryShare.service.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyTenantShareReceived } from '../tenant-partners/tenantInquiryShareNotify.js';
 import { noActiveSourceShareWhere } from '../tenant-partners/tenantInquirySharePick.helpers.js';
 
@@ -231,6 +232,7 @@ async function migrateOneInquiryInTransaction(
     targetInquiryId: result.targetInquiryId,
     targetInquiryNumber: result.targetInquiryNumber,
     transferFee: source.externalTransferFee,
+    removedInternalLeaderIds: result.removedInternalLeaderIds,
     notify: {
       targetTenantId: opts.partnerTenantId,
       targetInquiryId: result.targetInquiryId,
@@ -346,6 +348,9 @@ export async function migrateExternalInquiriesToHybridPartner(opts: {
       );
       if (row.notify) {
         await notifyTenantShareReceived(row.notify);
+      }
+      if (row.removedInternalLeaderIds.length > 0) {
+        void notifyInboxRefresh(row.removedInternalLeaderIds);
       }
       migrated.push({
         inquiryId: row.inquiryId,

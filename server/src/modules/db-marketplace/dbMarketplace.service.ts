@@ -21,6 +21,8 @@ import {
 import type { DbMarketplaceBuyerContext } from './dbMarketplaceBuyerAccess.js';
 import { computeMarketplaceExpiresAt } from '../../lib/dbMarketplacePolicy.js';
 import { selectableExternalCompanyWhere } from '../external-companies/externalCompanyUsage.helpers.js';
+import { clearInternalInquiryAssignments } from '../assignments/clearInternalInquiryAssignments.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import {
   buildMaskedListingDto,
   buildFullInquiryDto,
@@ -269,7 +271,7 @@ export async function publishDbListing(tenantId: string, listingId: string) {
   }
 
   const now = new Date();
-  return prisma.inquiryDbListing.update({
+  const published = await prisma.inquiryDbListing.update({
     where: { id: listingId, tenantId },
     data: {
       status: 'OPEN',
@@ -287,6 +289,17 @@ export async function publishDbListing(tenantId: string, listingId: string) {
     },
     include: LISTING_INCLUDE,
   });
+
+  const removedLeaderIds = await clearInternalInquiryAssignments(
+    prisma,
+    tenantId,
+    published.inquiryId,
+  );
+  if (removedLeaderIds.length > 0) {
+    void notifyInboxRefresh(removedLeaderIds);
+  }
+
+  return published;
 }
 
 export async function withdrawDbListing(tenantId: string, listingId: string) {
