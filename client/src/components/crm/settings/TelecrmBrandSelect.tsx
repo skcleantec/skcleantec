@@ -7,11 +7,13 @@ export function TelecrmBrandSelect({
   value,
   onChange,
   className = 'min-w-[8rem] rounded border border-gray-300 bg-white px-2 py-1 text-[11px]',
+  defaultOptionLabel = '업체 기본',
 }: {
   token: string | null;
   value: string;
   onChange: (brandId: string) => void;
   className?: string;
+  defaultOptionLabel?: string;
 }) {
   const brands = useOperatingCompanies(token);
 
@@ -19,7 +21,7 @@ export function TelecrmBrandSelect({
     <label className="flex flex-wrap items-center gap-2 text-[11px] text-gray-700">
       <span className="font-medium">브랜드</span>
       <select value={value} onChange={(e) => onChange(e.target.value)} className={className}>
-        <option value="default">업체 기본</option>
+        <option value="default">{defaultOptionLabel}</option>
         {brands.map((b: OperatingCompanyItem) => (
           <option key={b.id} value={b.id}>
             {b.displayName}

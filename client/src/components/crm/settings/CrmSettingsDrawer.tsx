@@ -117,7 +117,7 @@ export function CrmSettingsDrawer({
           <p className="mt-2 text-[11px] text-gray-500">
             {tab === 'soomgo-presets'
               ? catalogScope === 'personal'
-                ? '본인 숨고 메시지 매크로입니다. 자동 안내는 「자동메시지」 탭(브랜드별)에서 설정합니다.'
+                ? '본인 숨고 메시지 매크로입니다. 「통화」 탭에서 통화 시 숨고 자동 안내(브랜드별)를 설정합니다.'
                 : '업체 공유 숨고 매크로입니다.'
               : catalogScope === 'personal'
                 ? '본인만 보는 개인 카탈로그입니다. 작업 화면에서 내 항목이 먼저 표시됩니다.'

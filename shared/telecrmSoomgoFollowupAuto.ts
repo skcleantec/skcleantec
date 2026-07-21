@@ -38,17 +38,21 @@ import type { SoomgoMessageStep } from './soomgoMessagePresets';
 
 export function applyTelecrmSoomgoFollowupPlaceholders(
   template: string,
-  ctx: { customerName?: string; nickname?: string },
+  ctx: { customerName?: string; nickname?: string; marketerName?: string },
 ): string {
   const nickname = ctx.nickname?.trim() || '';
   const customerName = ctx.customerName?.trim() || nickname || '고객';
   const nickLabel = nickname || customerName;
-  return template.replace(/\{고객명\}/g, customerName).replace(/\{닉네임\}/g, nickLabel);
+  const marketerName = ctx.marketerName?.trim() || '상담사';
+  return template
+    .replace(/\{고객명\}/g, customerName)
+    .replace(/\{닉네임\}/g, nickLabel)
+    .replace(/\{마케터명\}/g, marketerName);
 }
 
 export function applyPlaceholdersToSoomgoSteps(
   steps: SoomgoMessageStep[],
-  ctx: { customerName?: string; nickname?: string },
+  ctx: { customerName?: string; nickname?: string; marketerName?: string },
 ): SoomgoMessageStep[] {
   return steps.map((step) => {
     if (step.type === 'text') {

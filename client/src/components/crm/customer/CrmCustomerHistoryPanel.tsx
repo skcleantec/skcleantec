@@ -41,6 +41,7 @@ export function CrmCustomerHistoryPanel({
   data,
   loading,
   error,
+  operatingCompanyId = null,
   onSelectCandidate,
   onSelectInquiry,
   onNewForCustomer,
@@ -50,6 +51,7 @@ export function CrmCustomerHistoryPanel({
   data: TelecrmCustomerLookupDto | null;
   loading: boolean;
   error: string | null;
+  operatingCompanyId?: string | null;
   onSelectCandidate: (row: TelecrmCustomerCandidateDto) => void;
   onSelectInquiry: (row: TelecrmInquiryBriefDto) => void;
   onNewForCustomer: () => void;
@@ -197,6 +199,7 @@ export function CrmCustomerHistoryPanel({
       {selectedInquiry ? (
         <CrmInquiryBriefPanel
           inquiry={selectedInquiry}
+          operatingCompanyId={operatingCompanyId}
           onOpenDetail={() => onSelectInquiry(selectedInquiry)}
           onDispatchNotice={onDispatchNotice}
         />

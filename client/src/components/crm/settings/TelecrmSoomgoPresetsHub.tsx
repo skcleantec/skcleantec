@@ -3,9 +3,10 @@ import { useState } from 'react';
 import type { TelecrmCatalogOwnerScope } from '../../../api/telecrm';
 import { TelecrmSoomgoMessagePresetsSection } from './TelecrmSoomgoMessagePresetsSection';
 import { TelecrmSoomgoAutoMessagesSection } from './TelecrmSoomgoAutoMessagesSection';
+import { TelecrmSoomgoCallAutoMessageSection } from './TelecrmSoomgoCallAutoMessageSection';
 import { TelecrmSoomgoInboxRulesSection } from './TelecrmSoomgoInboxRulesSection';
 
-export type SoomgoPresetsView = 'macro' | 'auto' | 'inbox';
+export type SoomgoPresetsView = 'macro' | 'auto' | 'call' | 'inbox';
 
 /** 숨고 프리셋 — 매크로 / 자동메시지 하위 탭 */
 export function TelecrmSoomgoPresetsHub({
@@ -20,12 +21,15 @@ export function TelecrmSoomgoPresetsHub({
   const [searchParams, setSearchParams] = useSearchParams();
   const [localView, setLocalView] = useState<SoomgoPresetsView>('macro');
   const showAutoTab = canEditAuto && catalogScope === 'shared';
+  const showCallTab = catalogScope === 'personal';
   const urlView: SoomgoPresetsView =
     searchParams.get('view') === 'inbox'
       ? 'inbox'
-      : searchParams.get('view') === 'auto' && showAutoTab
-        ? 'auto'
-        : 'macro';
+      : searchParams.get('view') === 'call' && showCallTab
+        ? 'call'
+        : searchParams.get('view') === 'auto' && showAutoTab
+          ? 'auto'
+          : 'macro';
   const view = syncViewToUrl ? urlView : localView;
 
   const setView = (next: SoomgoPresetsView) => {
@@ -37,6 +41,7 @@ export function TelecrmSoomgoPresetsHub({
       (prev) => {
         const p = new URLSearchParams(prev);
         if (next === 'auto') p.set('view', 'auto');
+        else if (next === 'call') p.set('view', 'call');
         else if (next === 'inbox') p.set('view', 'inbox');
         else p.delete('view');
         return p;
@@ -68,6 +73,17 @@ export function TelecrmSoomgoPresetsHub({
             자동메시지
           </button>
         ) : null}
+        {showCallTab ? (
+          <button
+            type="button"
+            onClick={() => setView('call')}
+            className={`rounded-md px-4 py-1.5 text-fluid-sm font-medium ${
+              view === 'call' ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-white'
+            }`}
+          >
+            통화
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => setView('inbox')}
@@ -83,6 +99,8 @@ export function TelecrmSoomgoPresetsHub({
         <TelecrmSoomgoInboxRulesSection />
       ) : view === 'auto' ? (
         <TelecrmSoomgoAutoMessagesSection />
+      ) : view === 'call' ? (
+        <TelecrmSoomgoCallAutoMessageSection />
       ) : (
         <TelecrmSoomgoMessagePresetsSection catalogScope={catalogScope} />
       )}
