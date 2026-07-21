@@ -1,6 +1,5 @@
 import bcrypt from 'bcryptjs';
 import type { Prisma } from '@prisma/client';
-import { computeMarketplaceDisplayAmount } from '../../lib/dbMarketplaceAmount.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   computeSourceMirrorBalanceAmount,
@@ -19,7 +18,8 @@ const REFUND_MEMO_PREFIX = '정보공유 완전 회수 환불';
 
 export type DbMarketplaceCompleteRecallResult = {
   inquiryId: string;
-  refundDisplayAmount: number;
+  /** 정산에 환불 반영된 정보공유 수수료(listingFee) */
+  refundListingFee: number;
   listingFee: number;
   buyerLabel: string | null;
 };
@@ -73,7 +73,7 @@ async function recordPartnerRecallRefundInTx(
     sellerTenantId: string;
     buyerTenantId: string;
     partnershipId: string;
-    displayAmount: number;
+    refundListingFee: number;
     customerName: string;
     actorUserId: string;
     paidAt: Date;
@@ -86,7 +86,7 @@ async function recordPartnerRecallRefundInTx(
       partnerTenantId: opts.sellerTenantId,
       partnershipId: opts.partnershipId,
       role: 'BUYER',
-      amount: opts.displayAmount,
+      amount: opts.refundListingFee,
       memo,
       actorId: opts.actorUserId,
       paidAt: opts.paidAt,
@@ -98,7 +98,7 @@ async function recordPartnerRecallRefundInTx(
       partnerTenantId: opts.buyerTenantId,
       partnershipId: opts.partnershipId,
       role: 'SELLER',
-      amount: opts.displayAmount,
+      amount: opts.refundListingFee,
       memo,
       actorId: opts.actorUserId,
       paidAt: opts.paidAt,
@@ -111,7 +111,7 @@ async function recordExternalRecallRefundInTx(
   opts: {
     externalCompanyId: string;
     operatingCompanyId: string;
-    displayAmount: number;
+    refundListingFee: number;
     customerName: string;
     actorUserId: string;
     paidAt: Date;
@@ -121,7 +121,7 @@ async function recordExternalRecallRefundInTx(
     data: {
       externalCompanyId: opts.externalCompanyId,
       operatingCompanyId: opts.operatingCompanyId,
-      amount: opts.displayAmount,
+      amount: opts.refundListingFee,
       memo: `${REFUND_MEMO_PREFIX} (${opts.customerName})`,
       actorId: opts.actorUserId,
       paidAt: opts.paidAt,
@@ -171,11 +171,9 @@ export async function completeRecallDbListing(opts: {
     throw new DbMarketplaceError('완료된 접수는 회수할 수 없습니다.', 400);
   }
 
-  const refundDisplayAmount =
-    listing.displayAmount ??
-    computeMarketplaceDisplayAmount(listing.inquiry.serviceBalanceAmount, listing.listingFee);
-  if (refundDisplayAmount == null || refundDisplayAmount <= 0) {
-    throw new DbMarketplaceError('환불 금액을 계산할 수 없습니다.', 400);
+  const refundListingFee = listing.listingFee;
+  if (!Number.isFinite(refundListingFee) || refundListingFee <= 0) {
+    throw new DbMarketplaceError('환불할 정보공유 수수료가 없습니다.', 400);
   }
 
   const buyerLabel =
@@ -266,7 +264,7 @@ export async function completeRecallDbListing(opts: {
         sellerTenantId: opts.sellerTenantId,
         buyerTenantId: share.targetTenantId,
         partnershipId: share.partnershipId,
-        displayAmount: refundDisplayAmount,
+        refundListingFee,
         customerName,
         actorUserId: opts.sellerUserId,
         paidAt: now,
@@ -278,7 +276,7 @@ export async function completeRecallDbListing(opts: {
           customerName: source.customerName,
           actorId: opts.sellerUserId,
           lines: [
-            `[정보공유] ${partnerName}에 인계한 DB를 완전 회수했습니다. (환불 ${refundDisplayAmount.toLocaleString('ko-KR')}원)`,
+            `[정보공유] ${partnerName}에 인계한 DB를 완전 회수했습니다. (수수료 환불 ${refundListingFee.toLocaleString('ko-KR')}원)`,
           ],
         },
       });
@@ -313,7 +311,7 @@ export async function completeRecallDbListing(opts: {
       await recordExternalRecallRefundInTx(tx, {
         externalCompanyId: listing.buyerExternalCompanyId,
         operatingCompanyId,
-        displayAmount: refundDisplayAmount,
+        refundListingFee,
         customerName,
         actorUserId: opts.sellerUserId,
         paidAt: now,
@@ -325,7 +323,7 @@ export async function completeRecallDbListing(opts: {
           customerName,
           actorId: opts.sellerUserId,
           lines: [
-            `[정보공유] ${companyName}에 인계한 DB를 완전 회수했습니다. (환불 ${refundDisplayAmount.toLocaleString('ko-KR')}원)`,
+            `[정보공유] ${companyName}에 인계한 DB를 완전 회수했습니다. (수수료 환불 ${refundListingFee.toLocaleString('ko-KR')}원)`,
           ],
         },
       });
@@ -351,7 +349,7 @@ export async function completeRecallDbListing(opts: {
 
   return {
     inquiryId: listing.inquiryId,
-    refundDisplayAmount,
+    refundListingFee,
     listingFee: listing.listingFee,
     buyerLabel,
   };

@@ -392,7 +392,7 @@ export async function completeRecallDbMarketplaceListing(
   password: string,
 ): Promise<{
   inquiryId: string;
-  refundDisplayAmount: number;
+  refundListingFee: number;
   listingFee: number;
   buyerLabel: string | null;
 }> {
