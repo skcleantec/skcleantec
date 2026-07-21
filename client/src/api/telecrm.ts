@@ -500,3 +500,40 @@ export async function fetchTelecrmCallSessions(
   const res = await fetch(`${API}/call-sessions?${qs}`, { headers: authHeaders(token) });
   return parseJson(res);
 }
+
+export type TelecrmContactTimelineItemDto = {
+  id: string;
+  kind: string;
+  at: string;
+  actorName: string | null;
+  actorId: string | null;
+  title: string;
+  detail: string | null;
+  active: boolean;
+};
+
+export async function fetchTelecrmContactTimeline(
+  token: string,
+  opts: {
+    customerName?: string;
+    nickname?: string;
+    region?: string;
+    address?: string;
+    phone?: string;
+    phone2?: string | null;
+    operatingCompanyId?: string | null;
+    limit?: number;
+  },
+): Promise<{ items: TelecrmContactTimelineItemDto[] }> {
+  const qs = new URLSearchParams();
+  if (opts.customerName?.trim()) qs.set('customerName', opts.customerName.trim());
+  if (opts.nickname?.trim()) qs.set('nickname', opts.nickname.trim());
+  if (opts.region?.trim()) qs.set('region', opts.region.trim());
+  if (opts.address?.trim()) qs.set('address', opts.address.trim());
+  if (opts.phone?.replace(/\D/g, '').length) qs.set('phone', opts.phone.replace(/\D/g, ''));
+  if (opts.phone2?.replace(/\D/g, '').length) qs.set('phone2', opts.phone2.replace(/\D/g, ''));
+  if (opts.operatingCompanyId) qs.set('operatingCompanyId', opts.operatingCompanyId);
+  if (opts.limit != null) qs.set('limit', String(opts.limit));
+  const res = await fetch(`${API}/contact-timeline?${qs}`, { headers: authHeaders(token) });
+  return parseJson(res);
+}

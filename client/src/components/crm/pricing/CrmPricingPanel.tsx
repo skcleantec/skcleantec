@@ -173,6 +173,7 @@ export function CrmPricingPanel({
   onSendSoomgoQuote,
   soomgoQuoteSending = false,
   pricingResetKey = 0,
+  compact = false,
 }: {
   pyeong: string;
   onPyeongChange: (v: string) => void;
@@ -200,6 +201,7 @@ export function CrmPricingPanel({
   onSendSoomgoQuote?: () => void;
   soomgoQuoteSending?: boolean;
   pricingResetKey?: number;
+  compact?: boolean;
 }) {
   const token = getToken();
   const [categories, setCategories] = useState<TelecrmPriceCategoryDto[]>([]);
@@ -507,9 +509,10 @@ export function CrmPricingPanel({
     <CrmColumn
       accent="pricing"
       title="가격 안내"
-      subtitle="항목 클릭 → 안내 목록에 추가 · 하단 합계"
+      subtitle={compact ? '항목 클릭 → 안내 목록' : '항목 클릭 → 안내 목록에 추가 · 하단 합계'}
       disableBodyScroll
       bodyClassName="p-0"
+      className={compact ? 'min-h-0' : undefined}
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {pendingQuote && onLoadPendingQuote && onDismissPendingQuote && onStartFreshQuote ? (
@@ -646,7 +649,7 @@ export function CrmPricingPanel({
           className={`shrink-0 border-t border-amber-200/80 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.04)] ${CRM_ACCENT.pricing.panel}`}
         >
           {(estimatedBase != null || quoteLines.length > 0) && (
-            <div className="max-h-36 overflow-y-auto border-b border-amber-100/60 px-2 py-1">
+            <div className={`${compact ? 'max-h-28' : 'max-h-36'} overflow-y-auto border-b border-amber-100/60 px-2 py-1`}>
               <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800/70">
                 안내 목록 · 금액 입력/↺ 재설정
               </p>
