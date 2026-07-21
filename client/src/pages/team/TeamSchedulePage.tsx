@@ -286,41 +286,38 @@ export function TeamSchedulePage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 min-w-0 pb-4">
-      <h1 className="text-xl font-semibold text-gray-800">
-        <TeamBiLine id="team.schedule.title" koClassName="text-xl font-semibold text-gray-800" />
-      </h1>
+    <div className="flex flex-col gap-2 min-w-0 pb-4 sm:gap-4">
       {(happyStats.overdueCount > 0 || happyStats.pendingBeforeDeadlineCount > 0) && (
         <div
-          className={`rounded-xl border px-4 py-3 text-fluid-sm space-y-2 ${
+          className={`rounded-lg border px-2.5 py-1.5 text-fluid-2xs sm:rounded-xl sm:px-4 sm:py-3 sm:text-fluid-sm ${
             happyStats.overdueCount > 0
               ? 'border-red-200 bg-red-50 text-red-900'
               : 'border-amber-200 bg-amber-50 text-amber-900'
           }`}
         >
-          <TeamBiLine id="team.schedule.happyIncomplete" koClassName="text-fluid-sm font-medium" />
-          <div className="flex flex-wrap gap-x-3 gap-y-1 items-center">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <TeamBiLine id="team.schedule.happyIncomplete" koClassName="shrink-0 font-medium text-fluid-2xs sm:text-fluid-sm" />
             {happyStats.overdueCount > 0 ? (
               <TeamBiLine
                 id="team.assign.happyOverdueCases"
                 vars={{ count: String(happyStats.overdueCount) }}
-                koClassName="text-fluid-sm tabular-nums"
+                koClassName="tabular-nums text-fluid-2xs sm:text-fluid-sm"
               />
             ) : null}
             {happyStats.pendingBeforeDeadlineCount > 0 ? (
               <TeamBiLine
                 id="team.assign.happyPendingCases"
                 vars={{ count: String(happyStats.pendingBeforeDeadlineCount) }}
-                koClassName="text-fluid-sm tabular-nums"
+                koClassName="tabular-nums text-fluid-2xs sm:text-fluid-sm"
               />
             ) : null}
           </div>
         </div>
       )}
       <section>
-        <h2 className="text-base font-semibold text-gray-800 mb-3 px-1 flex items-center gap-2 flex-wrap">
+        <h2 className="mb-2 flex flex-wrap items-center gap-2 px-1 text-fluid-sm font-semibold text-gray-800 sm:mb-3 sm:text-base">
           <span className="w-1 h-4 bg-gray-400 rounded shrink-0" />
-          <TeamBiLine id="team.schedule.sectionCalendar" koClassName="text-base font-semibold text-gray-800" />
+          <TeamBiLine id="team.schedule.sectionCalendar" koClassName="text-fluid-sm font-semibold text-gray-800 sm:text-base" />
           <span
             className="inline-flex items-center gap-1 text-fluid-2xs font-normal text-gray-500 ml-auto sm:ml-1 max-w-[min(100%,14rem)] text-right"
             title={teamBiPlain('team.schedule.legendTealTooltip')}
@@ -330,11 +327,11 @@ export function TeamSchedulePage() {
           </span>
         </h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="flex gap-2 p-3 border-b border-gray-100">
+          <div className="flex gap-2 border-b border-gray-100 p-2 sm:p-3">
             <select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg text-fluid-sm"
+              className="flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-fluid-2xs sm:px-3 sm:py-2.5 sm:text-fluid-sm"
             >
               {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
                 <option key={y} value={y}>
@@ -345,7 +342,7 @@ export function TeamSchedulePage() {
             <select
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
-              className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg text-fluid-sm"
+              className="flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-fluid-2xs sm:px-3 sm:py-2.5 sm:text-fluid-sm"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                 <option key={m} value={m}>

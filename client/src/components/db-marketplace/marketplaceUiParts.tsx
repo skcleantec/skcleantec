@@ -20,10 +20,18 @@ export const MARKETPLACE_STATUS_CLASS: Record<string, string> = {
   EXPIRED: 'bg-gray-100 text-gray-700',
 };
 
-export function DbMarketplaceStatusBadge({ status }: { status: keyof typeof MARKETPLACE_STATUS_LABEL | string }) {
+export function DbMarketplaceStatusBadge({
+  status,
+  compact = false,
+}: {
+  status: keyof typeof MARKETPLACE_STATUS_LABEL | string;
+  compact?: boolean;
+}) {
   return (
     <span
-      className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${MARKETPLACE_STATUS_CLASS[status] ?? 'bg-slate-100 text-slate-700'}`}
+      className={`inline-block shrink-0 rounded-full font-medium ${
+        compact ? 'px-1.5 py-0 text-fluid-2xs' : 'px-2 py-0.5 text-[11px]'
+      } ${MARKETPLACE_STATUS_CLASS[status] ?? 'bg-slate-100 text-slate-700'}`}
     >
       {MARKETPLACE_STATUS_LABEL[status] ?? status}
     </span>

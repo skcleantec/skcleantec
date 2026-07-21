@@ -77,16 +77,16 @@ export function DbMarketplaceMobilePageSelectBar({
       : '현재 페이지 전체 선택';
 
   return (
-    <div className="mt-3 border-b border-gray-100 pb-3 lg:hidden">
-      <label className="flex min-h-11 cursor-pointer touch-manipulation select-none items-center gap-3">
+    <div className="mt-2 border-b border-gray-100 pb-2 lg:hidden sm:mt-3 sm:pb-3">
+      <label className="flex min-h-9 cursor-pointer touch-manipulation select-none items-center gap-2 sm:min-h-11 sm:gap-3">
         <MarketplaceBulkSelectCheckbox
           checked={allPageSelected}
           indeterminate={partialPageSelected}
           onChange={onToggleAllPage}
           aria-label={label}
-          className="size-5 shrink-0 accent-slate-900"
+          className="size-4 shrink-0 accent-slate-900 sm:size-5"
         />
-        <span className="text-fluid-xs font-medium text-slate-800">{label}</span>
+        <span className="text-fluid-2xs font-medium text-slate-800 sm:text-fluid-xs">{label}</span>
         {partialPageSelected ? (
           <span className="text-fluid-2xs text-gray-500">탭하여 전체 선택·해제</span>
         ) : null}
@@ -130,7 +130,7 @@ export function DbMarketplaceTabBar<T extends string>({
   return (
     <div className="w-full min-w-0 -mx-4 px-4 sm:mx-0 sm:px-0">
       <div
-        className="flex max-w-full flex-nowrap gap-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white p-1 [scrollbar-width:thin]"
+        className="flex max-w-full flex-nowrap gap-0.5 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white p-0.5 [scrollbar-width:thin] sm:gap-1 sm:p-1"
         role="tablist"
         aria-label="정보공유 탭"
       >
@@ -141,7 +141,7 @@ export function DbMarketplaceTabBar<T extends string>({
             role="tab"
             aria-selected={active === opt.id}
             onClick={() => onChange(opt.id)}
-            className={`shrink-0 rounded-md px-3 py-2 text-fluid-xs font-medium transition-colors whitespace-nowrap ${
+            className={`shrink-0 rounded-md px-2 py-1 text-fluid-2xs font-medium transition-colors whitespace-nowrap sm:px-3 sm:py-2 sm:text-fluid-xs ${
               active === opt.id ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
@@ -208,16 +208,16 @@ export function DbMarketplaceRowCard({
   const cleaningSummary = formatMarketplaceCleaningSummary(row);
 
   return (
-    <div className="flex gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex gap-1.5 rounded-lg border border-gray-200 bg-white p-2 shadow-sm">
       {selectable ? (
         <label
           className={`relative z-[1] flex shrink-0 items-start justify-center touch-manipulation select-none ${
             canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
           }`}
           style={{
-            width: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
-            minWidth: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
-            minHeight: MARKETPLACE_MOBILE_CHECKBOX_TOUCH_PX,
+            width: 36,
+            minWidth: 36,
+            minHeight: 36,
           }}
           title={disabledReason ?? undefined}
           onClick={(e) => e.stopPropagation()}
@@ -225,7 +225,7 @@ export function DbMarketplaceRowCard({
         >
           <input
             type="checkbox"
-            className="mt-2.5 size-5 shrink-0 accent-slate-900 touch-manipulation disabled:opacity-100"
+            className="mt-1 size-4 shrink-0 accent-slate-900 touch-manipulation disabled:opacity-100"
             checked={selected}
             disabled={!canSelect}
             onChange={(e) => {
@@ -237,40 +237,35 @@ export function DbMarketplaceRowCard({
         </label>
       ) : null}
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left hover:opacity-90 touch-manipulation">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <p className="text-fluid-sm font-semibold text-slate-900 break-words">{row.customerNameMasked}</p>
-            <p className="mt-0.5 text-fluid-xs text-gray-500">{row.addressRegion}</p>
-            <p className="mt-1 text-fluid-xs text-gray-600 break-words">{cleaningSummary}</p>
-            <p className="mt-1 text-fluid-xs text-gray-500">{formatMarketplaceSchedule(row)}</p>
-            {row.listingFee != null ? (
-              <p className="mt-1 text-fluid-xs text-gray-500 tabular-nums">
-                수수료 {row.listingFee.toLocaleString('ko-KR')}원
-              </p>
-            ) : null}
-            {showSeller ? (
-              <p className="mt-1 text-[11px] text-gray-500 break-words sm:hidden">{row.sellerTenantName}</p>
-            ) : null}
-            {showMySalesMeta ? (
-              <div className="mt-2 space-y-0.5 text-[11px] text-gray-600">
-                <p>판매 {formatMarketplaceListDate(row.publishedAt)}</p>
-                <p>인계 {formatMarketplaceListDate(row.sellerConfirmedAt)}</p>
-                <p className="break-words">업체 {row.buyerName ?? '-'}</p>
-              </div>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 flex-row items-center justify-between gap-3 sm:flex-col sm:items-end sm:justify-start">
-            <DbMarketplaceStatusBadge status={row.status} />
-            <p className="text-fluid-sm font-semibold tabular-nums text-slate-900">
-              {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
-            </p>
-            {showSeller ? (
-              <p className="hidden max-w-[8rem] truncate text-[11px] text-gray-500 sm:block" title={row.sellerTenantName}>
-                {row.sellerTenantName}
-              </p>
-            ) : null}
-          </div>
+        <div className="flex items-start justify-between gap-1.5">
+          <p className="min-w-0 truncate text-fluid-xs font-semibold text-slate-900">{row.customerNameMasked}</p>
+          <DbMarketplaceStatusBadge status={row.status} compact />
         </div>
+        <p className="mt-0.5 truncate text-fluid-2xs text-gray-600" title={`${row.addressRegion} · ${cleaningSummary}`}>
+          {row.addressRegion} · {cleaningSummary}
+        </p>
+        <div className="mt-0.5 flex items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-fluid-2xs text-gray-500">{formatMarketplaceSchedule(row)}</p>
+          <p className="shrink-0 text-fluid-xs font-semibold tabular-nums text-slate-900">
+            {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
+          </p>
+        </div>
+        {row.listingFee != null ? (
+          <p className="mt-0.5 text-fluid-2xs text-gray-500 tabular-nums">
+            수수료 {row.listingFee.toLocaleString('ko-KR')}원
+          </p>
+        ) : null}
+        {showSeller ? (
+          <p className="mt-0.5 truncate text-fluid-2xs text-gray-500">{row.sellerTenantName}</p>
+        ) : null}
+        {showMySalesMeta ? (
+          <div className="mt-1 space-y-0 text-fluid-2xs text-gray-600">
+            <p className="truncate">
+              판매 {formatMarketplaceListDate(row.publishedAt)} · 인계 {formatMarketplaceListDate(row.sellerConfirmedAt)}
+            </p>
+            <p className="truncate">업체 {row.buyerName ?? '-'}</p>
+          </div>
+        ) : null}
       </button>
     </div>
   );

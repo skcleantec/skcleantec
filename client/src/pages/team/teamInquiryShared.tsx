@@ -889,12 +889,83 @@ export function TeamNoCrewMembersListBadge({
 export function TeamAssignedLeadersBlock({
   item,
   viewerId,
+  compact = false,
 }: {
   item: InquiryItem;
   viewerId: string | null | undefined;
+  compact?: boolean;
 }) {
   if (!item.assignments.length) return null;
   const sorted = [...item.assignments].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const rows = sorted.map((a, idx) => {
+    const isSelf = viewerId === a.teamLeader.id;
+    const phone = a.teamLeader.phone?.trim();
+    return (
+      <div
+        key={a.teamLeader.id}
+        className={
+          compact
+            ? 'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0 leading-snug'
+            : 'flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-gray-100 px-3 py-2.5 last:border-b-0 sm:px-4'
+        }
+      >
+        <span
+          className={
+            compact
+              ? 'shrink-0 text-fluid-2xs font-medium text-gray-500'
+              : 'w-9 shrink-0 text-fluid-xs font-medium text-gray-500'
+          }
+        >
+          {idx === 0 ? teamBiPlain('team.modal.leaderMain') : teamBiPlain('team.modal.leaderSub')}
+        </span>
+        <span
+          className={
+            compact
+              ? 'min-w-0 flex-1 text-fluid-xs font-medium text-gray-900'
+              : 'min-w-0 flex-1 text-fluid-sm font-medium text-gray-900'
+          }
+        >
+          {leaderLabelForAssignment(a.teamLeader)}
+          {isSelf ? (
+            <span className="ml-1 text-fluid-2xs font-normal text-gray-500">
+              ({teamBiPlain('team.modal.leaderSelf')})
+            </span>
+          ) : null}
+        </span>
+        {a.noCrewMembers ? (
+          <span className="inline-flex shrink-0 items-center rounded border border-amber-300 bg-amber-50 px-1.5 py-px text-fluid-2xs font-semibold text-amber-950">
+            {teamBiPlain('team.assign.soloLeaderBadge')}
+          </span>
+        ) : null}
+        {phone ? (
+          <a
+            href={`tel:${phone}`}
+            className={
+              compact
+                ? 'inline-flex shrink-0 items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-px text-fluid-2xs font-medium text-blue-700'
+                : 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-blue-700 hover:bg-blue-50'
+            }
+            aria-label={`${a.teamLeader.name} 전화`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {compact ? <TeamBiInline id="team.common.phoneCall" /> : <PhoneMiniIcon className="h-4 w-4" />}
+          </a>
+        ) : null}
+      </div>
+    );
+  });
+
+  if (compact) {
+    return (
+      <section className="min-w-0 border-b border-gray-100 py-1">
+        <h3 className="mb-px text-[11px] font-semibold text-gray-500">
+          <TeamBiLine id="team.modal.section.assignedLeaders" koClassName="text-[11px] font-semibold text-gray-500" />
+        </h3>
+        <div className="space-y-px">{rows}</div>
+      </section>
+    );
+  }
+
   return (
     <TeamModalSection
       title={
@@ -904,48 +975,36 @@ export function TeamAssignedLeadersBlock({
         />
       }
     >
-      {sorted.map((a, idx) => {
-        const isSelf = viewerId === a.teamLeader.id;
-        const phone = a.teamLeader.phone?.trim();
-        return (
-          <div
-            key={a.teamLeader.id}
-            className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-gray-100 px-3 py-2.5 last:border-b-0 sm:px-4"
-          >
-            <span className="w-9 shrink-0 text-fluid-xs font-medium text-gray-500">
-              {idx === 0 ? teamBiPlain('team.modal.leaderMain') : teamBiPlain('team.modal.leaderSub')}
-            </span>
-            <span className="min-w-0 flex-1 text-fluid-sm font-medium text-gray-900">
-              {leaderLabelForAssignment(a.teamLeader)}
-              {isSelf ? (
-                <span className="ml-1 text-fluid-xs font-normal text-gray-500">
-                  ({teamBiPlain('team.modal.leaderSelf')})
-                </span>
-              ) : null}
-            </span>
-            {a.noCrewMembers ? (
-              <span className="inline-flex shrink-0 items-center rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-fluid-2xs font-semibold text-amber-950">
-                {teamBiPlain('team.assign.soloLeaderBadge')}
-              </span>
-            ) : null}
-            {phone ? (
-              <a
-                href={`tel:${phone}`}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-blue-700 hover:bg-blue-50"
-                aria-label={`${a.teamLeader.name} 전화`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <PhoneMiniIcon className="h-4 w-4" />
-              </a>
-            ) : null}
-          </div>
-        );
-      })}
+      {rows}
     </TeamModalSection>
   );
 }
 
-function TeamModalSection({ title, children }: { title: ReactNode; children: ReactNode }) {
+/** 타업체 접수상세 — 하위 접기·본문 공통 (색 박스 최소) */
+const EXTERNAL_DETAILS =
+  'group min-w-0 overflow-hidden rounded border border-gray-200 [&_summary::-webkit-details-marker]:hidden';
+const EXTERNAL_SUMMARY =
+  'flex cursor-pointer list-none items-center justify-between gap-1 px-2 py-1 text-fluid-2xs font-medium text-gray-600 hover:bg-gray-50 touch-manipulation select-none';
+const EXTERNAL_DETAILS_BODY = 'border-t border-gray-100 px-2 pb-1.5 pt-1';
+const EXTERNAL_PLAIN_TEXT = 'whitespace-pre-wrap break-words text-fluid-2xs leading-snug text-gray-800';
+
+function TeamModalSection({
+  title,
+  children,
+  compact = false,
+}: {
+  title: ReactNode;
+  children: ReactNode;
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <section className="min-w-0 border-b border-gray-100 py-1 last:border-b-0">
+        <h3 className="mb-px text-[11px] font-semibold text-gray-500">{title}</h3>
+        <div className="space-y-px">{children}</div>
+      </section>
+    );
+  }
   return (
     <section className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <h3 className="border-b border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs font-semibold text-gray-600 sm:px-4">
@@ -956,7 +1015,34 @@ function TeamModalSection({ title, children }: { title: ReactNode; children: Rea
   );
 }
 
-function TeamModalRow({ label, children }: { label: ReactNode; children: ReactNode }) {
+function TeamModalRow({
+  label,
+  children,
+  compact = false,
+  compactStacked = false,
+}: {
+  label: ReactNode;
+  children: ReactNode;
+  compact?: boolean;
+  /** compact일 때 라벨 아래 본문 (긴 메모 등) */
+  compactStacked?: boolean;
+}) {
+  if (compact) {
+    if (compactStacked) {
+      return (
+        <div className="min-w-0 leading-tight">
+          <div className="text-[11px] font-medium text-gray-500">{label}</div>
+          <div className="mt-px min-w-0 break-words text-fluid-2xs text-gray-900">{children}</div>
+        </div>
+      );
+    }
+    return (
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-0 leading-tight">
+        <div className="shrink-0 text-[11px] font-medium text-gray-500">{label}</div>
+        <div className="min-w-0 flex-1 break-words text-fluid-2xs text-gray-900">{children}</div>
+      </div>
+    );
+  }
   return (
     <div className="min-w-0 px-3 py-2.5 sm:grid sm:grid-cols-[7.5rem_1fr] sm:items-start sm:gap-3 sm:px-4 sm:py-3">
       <div className="mb-0.5 text-fluid-xs font-medium text-gray-500 sm:mb-0 sm:pt-0.5">{label}</div>
@@ -1216,6 +1302,8 @@ export function TeamInquiryDetailModal({
     Boolean(teamToken) &&
     (viewerMe?.role === 'EXTERNAL_PARTNER' || Boolean(viewerMe?.previewExternal));
 
+  const isExternalCompact = showExternalShareCopy;
+
   const showCardPayment =
     Boolean(teamToken) &&
     viewerMe?.role !== 'EXTERNAL_PARTNER' &&
@@ -1239,6 +1327,10 @@ export function TeamInquiryDetailModal({
   const scheduleMemoTrim = item.scheduleMemo?.trim() ?? '';
   const showScheduleMemoRow =
     scheduleMemoTrim.length > 0 && scheduleMemoTrim !== primaryCustomerTitle;
+  const customerOrderNotesTrim = effectiveCustomerOrderNotes({
+    specialNotes: item.specialNotes,
+    orderForm: item.orderForm,
+  }).trim();
 
   const modal = (
     <div
@@ -1253,16 +1345,74 @@ export function TeamInquiryDetailModal({
         aria-modal="true"
         aria-labelledby="team-inquiry-detail-title"
       >
-        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 bg-white px-4 pb-3 pt-4 sm:rounded-t-2xl">
+        <header
+          className={`shrink-0 border-b border-gray-200 bg-white sm:rounded-t-2xl ${
+            isExternalCompact ? 'flex flex-col gap-1 px-3 pb-2 pt-3' : 'flex items-start justify-between gap-3 px-4 pb-3 pt-4'
+          }`}
+        >
+          {isExternalCompact ? (
+            <>
+              <div className="flex min-w-0 items-center gap-2">
+                <h2
+                  id="team-inquiry-detail-title"
+                  className="min-w-0 flex-1 truncate text-base font-semibold text-gray-900"
+                >
+                  {primaryCustomerTitle}
+                </h2>
+                <div className="flex shrink-0 items-center gap-1">
+                  {showExternalShareCopy ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleShareCopy()}
+                      className="shrink-0 rounded-lg border border-gray-300 bg-white px-2 py-1 text-fluid-2xs font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
+                      title={teamBiPlain('team.modal.copyShareOrderTitle')}
+                      aria-live="polite"
+                    >
+                      {shareCopyHint ?? teamBiPlain('team.modal.copyShareOrder')}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-800 touch-manipulation"
+                    aria-label={teamBiPlain('team.common.close')}
+                  >
+                    <CloseMiniIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {item.inquiryNumber ? (
+                  <span className="rounded-md bg-gray-900 px-2 py-0.5 font-mono text-fluid-2xs font-medium tabular-nums text-white">
+                    {item.inquiryNumber}
+                  </span>
+                ) : null}
+                <TeamInquiryStatusBi code={item.status} />
+                {enableHappyCall ? <TeamHappyCallBadge item={item} /> : null}
+                {hasInspectionModule && enableHappyCall ? (
+                  <TeamInspectionStatusBadge item={item} />
+                ) : hasInspectionModule ? (
+                  <InspectionProgressBadge summary={item.inspectionSummary} />
+                ) : null}
+                {item.orderForm?.template && !item.orderForm.template.isDefault ? (
+                  <OrderFormTemplateBadge template={item.orderForm.template} />
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
           <div className="min-w-0 flex-1">
             <p className="text-fluid-xs text-gray-500">
               <TeamBiLine id="team.modal.detailTitle" koClassName="text-fluid-xs text-gray-500" />
             </p>
-            <div className="mt-0.5 flex items-center gap-2">
-              <h2 id="team-inquiry-detail-title" className="min-w-0 flex-1 truncate text-lg font-semibold text-gray-900">
+            <div className="mt-0.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+              <h2
+                id="team-inquiry-detail-title"
+                className="min-w-0 truncate text-lg font-semibold text-gray-900 sm:flex-1"
+              >
                 {primaryCustomerTitle}
               </h2>
-              <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+              <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0 sm:whitespace-nowrap">
                 {item.inquiryNumber ? (
                   <span className="rounded-md bg-gray-900 px-2 py-0.5 font-mono text-fluid-2xs font-medium tabular-nums text-white">
                     {item.inquiryNumber}
@@ -1302,11 +1452,181 @@ export function TeamInquiryDetailModal({
               <CloseMiniIcon className="h-5 w-5" />
             </button>
           </div>
+            </>
+          )}
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
-          <div className="flex flex-col gap-4">
-            <TeamAssignedLeadersBlock item={item} viewerId={effectiveViewerId} />
+        <div
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain ${
+            isExternalCompact ? 'px-2.5 py-1.5' : 'px-4 py-4'
+          }`}
+        >
+          <div className={`flex flex-col ${isExternalCompact ? 'gap-1' : 'gap-4'}`}>
+            <TeamAssignedLeadersBlock item={item} viewerId={effectiveViewerId} compact={isExternalCompact} />
+            {isExternalCompact ? (
+              <>
+                {item.tenantShare?.role === 'TARGET' ? (
+                  <PartnerReceivedBanner share={item.tenantShare} compact />
+                ) : null}
+                <TeamModalSection
+                  compact
+                  title={
+                    <TeamBiLine
+                      id="team.modal.section.customerSite"
+                      koClassName="text-fluid-2xs font-semibold text-slate-500"
+                    />
+                  }
+                >
+                  <TeamModalRow
+                    compact
+                    label={<TeamBiLine id="team.modal.row.createdAt" koClassName="text-fluid-2xs font-medium text-gray-500" />}
+                  >
+                    <span className="tabular-nums text-gray-800">{formatDateCompactWithWeekday(item.createdAt)}</span>
+                  </TeamModalRow>
+                  <TeamModalRow
+                    compact
+                    label={<TeamBiLine id="team.modal.row.marketer" koClassName="text-fluid-2xs font-medium text-gray-500" />}
+                  >
+                    {(() => {
+                      const m = marketerInfo(item);
+                      return (
+                        <span className="inline-flex flex-wrap items-center gap-1.5">
+                          <span className="text-gray-900">{m.name}</span>
+                          {m.phone ? (
+                            <a
+                              href={`tel:${m.phone}`}
+                              className="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-px text-fluid-2xs font-medium text-blue-700"
+                            >
+                              <TeamBiInline id="team.common.phoneCall" />
+                            </a>
+                          ) : null}
+                        </span>
+                      );
+                    })()}
+                  </TeamModalRow>
+                  {showScheduleMemoRow ? (
+                    <TeamModalRow
+                      compact
+                      label={
+                        <TeamBiLine id="team.modal.row.scheduleTitle" koClassName="text-fluid-2xs font-medium text-gray-500" />
+                      }
+                    >
+                      <span className="text-gray-900">{scheduleMemoTrim}</span>
+                    </TeamModalRow>
+                  ) : null}
+                  <TeamModalRow
+                    compact
+                    label={<TeamBiLine id="team.modal.row.phone" koClassName="text-fluid-2xs font-medium text-gray-500" />}
+                  >
+                    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0">
+                      <a href={`tel:${item.customerPhone}`} className="font-medium text-blue-700 underline underline-offset-2">
+                        {item.customerPhone}
+                      </a>
+                      {item.customerPhone2?.trim() ? (
+                        <a href={`tel:${item.customerPhone2}`} className="text-blue-700 underline underline-offset-2">
+                          {item.customerPhone2}
+                        </a>
+                      ) : null}
+                    </span>
+                  </TeamModalRow>
+                  <TeamModalRow
+                    compact
+                    label={<TeamBiLine id="team.modal.row.address" koClassName="text-fluid-2xs font-medium text-gray-500" />}
+                  >
+                    <span className="text-gray-800">
+                      {item.address}
+                      {item.addressDetail ? <span className="text-gray-600"> {item.addressDetail}</span> : null}
+                    </span>
+                  </TeamModalRow>
+                  <TeamModalRow
+                    compact
+                    label={<TeamBiLine id="team.modal.row.area" koClassName="text-fluid-2xs font-medium text-gray-500" />}
+                  >
+                    <span className="text-gray-800">
+                      {formatTeamInquiryAreaSummary(item)}
+                      {' · '}
+                      {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
+                      {item.propertyType ? ` · ${item.propertyType}` : ''}
+                    </span>
+                  </TeamModalRow>
+                  {item.professionalOptions && item.professionalOptions.length > 0 ? (
+                    <TeamModalRow
+                      compact
+                      label={
+                        <TeamBiLine id="team.modal.row.professional" koClassName="text-fluid-2xs font-medium text-gray-500" />
+                      }
+                    >
+                      <span className="inline-flex flex-wrap items-center gap-1">
+                        {item.professionalOptions.map((opt) => (
+                          <span
+                            key={opt.id}
+                            className="inline-flex items-center gap-0.5 rounded border border-gray-200 bg-gray-50 px-1.5 py-px text-fluid-2xs text-gray-800"
+                          >
+                            {opt.emoji ? `${opt.emoji} ` : ''}
+                            {opt.label}
+                          </span>
+                        ))}
+                      </span>
+                    </TeamModalRow>
+                  ) : null}
+                  <TeamModalRow
+                    compact
+                    label={<TeamBiLine id="team.modal.row.crew" koClassName="text-fluid-2xs font-medium text-gray-500" />}
+                  >
+                    {(() => {
+                      const count = item.crewMemberCount ?? 0;
+                      const list = resolveInquiryCrewMemberContacts(item);
+                      if (list.length === 0) {
+                        return (
+                          <TeamBiLine
+                            id="team.modal.crewCount"
+                            vars={{ count: String(count) }}
+                            koClassName="text-fluid-xs text-gray-800"
+                          />
+                        );
+                      }
+                      return (
+                        <span className="inline-flex flex-wrap items-center gap-1.5">
+                          <TeamBiLine id="team.modal.crewCount" vars={{ count: String(count) }} />
+                          <TeamCrewMemberContactChips item={item} />
+                        </span>
+                      );
+                    })()}
+                  </TeamModalRow>
+                  <TeamModalRow
+                    compact
+                    label={
+                      <TeamBiLine id="team.modal.row.preferredDate" koClassName="text-fluid-2xs font-medium text-gray-500" />
+                    }
+                  >
+                    <span className="tabular-nums text-gray-800">
+                      {item.preferredDate
+                        ? formatDateCompactWithWeekday(item.preferredDate)
+                        : teamBiPlain('team.common.emDash')}
+                      {' · '}
+                      {formatScheduleLine(item)}
+                    </span>
+                  </TeamModalRow>
+                  {customerOrderNotesTrim ? (
+                    <TeamModalRow
+                      compact
+                      compactStacked
+                      label={
+                        <TeamBiLine
+                          id="team.modal.section.orderNotes"
+                          koClassName="text-[11px] font-medium text-gray-500"
+                        />
+                      }
+                    >
+                      <span className="whitespace-pre-wrap break-words leading-snug text-gray-800">
+                        {customerOrderNotesTrim}
+                      </span>
+                    </TeamModalRow>
+                  ) : null}
+                </TeamModalSection>
+              </>
+            ) : (
+              <>
             <TeamModalSection
               title={<TeamBiLine id="team.modal.section.inquiry" koClassName="text-fluid-xs font-semibold text-gray-600" />}
             >
@@ -1612,11 +1932,26 @@ export function TeamInquiryDetailModal({
               </TeamModalRow>
             </TeamModalSection>
 
-            <details className="overflow-hidden rounded-lg border border-gray-200">
-              <summary className="cursor-pointer select-none bg-gray-50 px-3 py-2.5 text-fluid-sm text-gray-700 hover:bg-gray-100">
-                <TeamBiLine id="team.modal.historySummary" koClassName="text-fluid-sm text-gray-700" />
+              </>
+            )}
+
+            <details className={`overflow-hidden ${isExternalCompact ? EXTERNAL_DETAILS : 'rounded-lg border border-gray-200'}`}>
+              <summary
+                className={
+                  isExternalCompact
+                    ? EXTERNAL_SUMMARY
+                    : 'cursor-pointer select-none bg-gray-50 px-3 py-2.5 text-fluid-sm text-gray-700 hover:bg-gray-100'
+                }
+              >
+                <TeamBiLine
+                  id="team.modal.historySummary"
+                  koClassName={isExternalCompact ? 'text-fluid-2xs text-gray-600' : 'text-fluid-sm text-gray-700'}
+                />
+                {isExternalCompact ? (
+                  <ChevronDownMini className="h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
+                ) : null}
               </summary>
-              <div className="border-t border-gray-100 bg-white p-3">
+              <div className={`border-t border-gray-100 bg-white ${isExternalCompact ? 'p-1.5' : 'p-3'}`}>
                 <InquiryChangeHistoryBlock
                   logs={item.changeLogs}
                   hideMarketerOnlyLines
@@ -1629,46 +1964,84 @@ export function TeamInquiryDetailModal({
             </details>
 
             {onPreferredDateChange ? (
-              <div className="rounded-xl border border-blue-200 bg-blue-50/90 p-4 shadow-sm">
-                <TeamBiLine id="team.modal.prefDateTitle" koClassName="text-fluid-xs font-semibold text-blue-950" />
-                <div className="mt-1">
-                  <TeamBiLine id="team.modal.prefDateHint" koClassName="text-fluid-2xs text-blue-900/80" />
+              <div
+                className={`border border-blue-200/80 bg-blue-50/60 ${
+                  isExternalCompact ? 'rounded p-2' : 'rounded-xl p-3 shadow-sm sm:p-3.5'
+                }`}
+              >
+                <TeamBiLine
+                  id="team.modal.prefDateTitle"
+                  koClassName={
+                    isExternalCompact
+                      ? 'text-fluid-2xs font-semibold text-blue-950'
+                      : 'text-fluid-xs font-semibold text-blue-950'
+                  }
+                />
+                <div className={isExternalCompact ? 'mt-0.5' : 'mt-1'}>
+                  <TeamBiLine
+                    id="team.modal.prefDateHint"
+                    koClassName={
+                      isExternalCompact
+                        ? 'text-[11px] leading-snug text-blue-900/75'
+                        : 'text-fluid-2xs text-blue-900/80'
+                    }
+                  />
                 </div>
-                <div className="mt-3 flex flex-wrap items-stretch gap-2">
+                <div
+                  className={`flex flex-wrap items-center gap-1.5 ${
+                    isExternalCompact ? 'mt-1.5' : 'mt-2'
+                  }`}
+                >
                   <input
                     type="date"
                     value={preferredDateInput}
                     onChange={(e) => setPreferredDateInput(e.target.value)}
-                    className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-blue-300 bg-white px-3 py-2 text-fluid-sm"
+                    className={`min-w-0 flex-1 rounded-md border border-blue-300 bg-white tabular-nums [color-scheme:light] ${
+                      isExternalCompact
+                        ? 'h-8 min-h-8 px-2 py-1 text-fluid-2xs'
+                        : 'min-h-10 px-2.5 py-1.5 text-fluid-sm'
+                    }`}
                   />
                   <button
                     type="button"
                     disabled={preferredDateSaving}
                     onClick={() => void handlePreferredDateSave()}
-                    className="min-h-[44px] rounded-lg bg-blue-600 px-4 text-fluid-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    className={`shrink-0 rounded-md bg-blue-600 font-medium text-white hover:bg-blue-700 disabled:opacity-50 ${
+                      isExternalCompact
+                        ? 'h-8 min-h-8 px-2.5 text-fluid-2xs'
+                        : 'min-h-10 px-3.5 text-fluid-sm'
+                    }`}
                   >
                     {preferredDateSaving ? (
-                      <TeamBiLine id="team.common.saving" koClassName="text-fluid-sm font-medium text-white" />
+                      <TeamBiLine
+                        id="team.common.saving"
+                        koClassName={
+                          isExternalCompact
+                            ? 'text-fluid-2xs font-medium text-white'
+                            : 'text-fluid-sm font-medium text-white'
+                        }
+                      />
                     ) : (
-                      <TeamBiLine id="team.modal.prefDateSave" koClassName="text-fluid-sm font-medium text-white" />
+                      <TeamBiLine
+                        id="team.modal.prefDateSave"
+                        koClassName={
+                          isExternalCompact
+                            ? 'text-fluid-2xs font-medium text-white'
+                            : 'text-fluid-sm font-medium text-white'
+                        }
+                      />
                     )}
                   </button>
                 </div>
               </div>
             ) : null}
 
-            {effectiveCustomerOrderNotes({
-              specialNotes: item.specialNotes,
-              orderForm: item.orderForm,
-            }).trim() ? (
+            {customerOrderNotesTrim && !isExternalCompact ? (
               <TeamModalSection
                 title={<TeamBiLine id="team.modal.section.orderNotes" koClassName="text-fluid-xs font-semibold text-gray-600" />}
               >
                 <div className="border-l-4 border-emerald-400 bg-emerald-50/70 px-3 py-3 text-fluid-sm leading-relaxed text-emerald-950 sm:px-4 whitespace-pre-wrap break-words">
-                  {effectiveCustomerOrderNotes({
-                    specialNotes: item.specialNotes,
-                    orderForm: item.orderForm,
-                  })}
+                  {customerOrderNotesTrim}
                 </div>
               </TeamModalSection>
             ) : null}
@@ -1679,9 +2052,16 @@ export function TeamInquiryDetailModal({
               orderForm: item.orderForm,
             }).trim() ? (
               <TeamModalSection
+                compact={isExternalCompact}
                 title={<TeamBiLine id="team.modal.section.sharedNotes" koClassName="text-fluid-xs font-semibold text-gray-600" />}
               >
-                <div className="border-l-4 border-violet-400 bg-violet-50/75 px-3 py-3 text-fluid-sm leading-relaxed text-violet-950 sm:px-4 whitespace-pre-wrap break-words">
+                <div
+                  className={
+                    isExternalCompact
+                      ? EXTERNAL_PLAIN_TEXT
+                      : 'border-l-4 border-violet-400 bg-violet-50/75 px-3 py-3 text-fluid-sm leading-relaxed text-violet-950 sm:px-4 whitespace-pre-wrap break-words'
+                  }
+                >
                   {effectiveTeamSharedAdminNotes({
                     memo: item.memo,
                     specialNotes: item.specialNotes,
@@ -1716,12 +2096,15 @@ export function TeamInquiryDetailModal({
               initialExtraCharges={item.extraCharges}
               initialAdditionalReceipts={item.additionalReceipts}
               tenantShare={item.tenantShare ?? null}
+              compact={isExternalCompact}
             />
             {item.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER') && (
               <TeamModalSection
+                compact={isExternalCompact}
                 title={<TeamBiLine id="team.modal.section.externalFee" koClassName="text-fluid-xs font-semibold text-gray-600" />}
               >
                 <TeamModalRow
+                  compact={isExternalCompact}
                   label={<TeamBiLine id="team.modal.row.feeClaim" koClassName="text-fluid-xs font-medium text-gray-500" />}
                 >
                   <span className="tabular-nums text-gray-900">
@@ -1735,9 +2118,16 @@ export function TeamInquiryDetailModal({
 
             {item.claimMemo?.trim() ? (
               <TeamModalSection
+                compact={isExternalCompact}
                 title={<TeamBiLine id="team.modal.section.csDisplay" koClassName="text-fluid-xs font-semibold text-gray-600" />}
               >
-                <div className="border-l-4 border-amber-400 bg-amber-50/80 px-3 py-3 text-fluid-sm leading-relaxed text-amber-950 sm:px-4 whitespace-pre-wrap break-words">
+                <div
+                  className={
+                    isExternalCompact
+                      ? EXTERNAL_PLAIN_TEXT
+                      : 'border-l-4 border-amber-400 bg-amber-50/80 px-3 py-3 text-fluid-sm leading-relaxed text-amber-950 sm:px-4 whitespace-pre-wrap break-words'
+                  }
+                >
                   {item.claimMemo.trim()}
                 </div>
               </TeamModalSection>
@@ -1773,66 +2163,146 @@ export function TeamInquiryDetailModal({
             ) : null}
 
             {item.orderForm?.customerAnswers ? (
-              <OrderFormCustomAnswers template={item.orderForm.template} answers={item.orderForm.customerAnswers} />
+              <OrderFormCustomAnswers
+                template={item.orderForm.template}
+                answers={item.orderForm.customerAnswers}
+                compact={isExternalCompact}
+              />
             ) : null}
 
             {item.orderForm?.id ? (
-              <section className="min-w-0 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/80">
-                <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-emerald-950">
-                  <TeamBiLine id="team.modal.orderPhotosTitle" koClassName="text-fluid-sm font-medium text-emerald-950" />
-                </header>
-                <div className="border-t border-emerald-200/80 px-4 pb-4 pt-1">
-                  <div className="mb-3 text-fluid-xs text-emerald-900/85">
-                    <TeamBiLine id="team.modal.orderPhotosHint" koClassName="text-fluid-xs text-emerald-900/85" />
+              isExternalCompact ? (
+                <details className={EXTERNAL_DETAILS}>
+                  <summary className={EXTERNAL_SUMMARY}>
+                    <TeamBiLine id="team.modal.orderPhotosTitle" koClassName="text-fluid-2xs font-medium text-gray-600" />
+                    <ChevronDownMini className="h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className={EXTERNAL_DETAILS_BODY}>
+                    {teamToken ? (
+                      <AdminOrderFormPhotosPanel orderFormId={item.orderForm.id} token={teamToken} />
+                    ) : (
+                      <p className="text-fluid-2xs text-amber-800">
+                        <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-2xs text-amber-800" />
+                      </p>
+                    )}
                   </div>
-                  {teamToken ? (
-                    <AdminOrderFormPhotosPanel orderFormId={item.orderForm.id} token={teamToken} />
-                  ) : (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
-                      <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+                </details>
+              ) : (
+                <section className="min-w-0 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/80">
+                  <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-emerald-950">
+                    <TeamBiLine id="team.modal.orderPhotosTitle" koClassName="text-fluid-sm font-medium text-emerald-950" />
+                  </header>
+                  <div className="border-t border-emerald-200/80 px-4 pb-4 pt-1">
+                    <div className="mb-3 text-fluid-xs text-emerald-900/85">
+                      <TeamBiLine id="team.modal.orderPhotosHint" koClassName="text-fluid-xs text-emerald-900/85" />
                     </div>
-                  )}
-                </div>
-              </section>
+                    {teamToken ? (
+                      <AdminOrderFormPhotosPanel orderFormId={item.orderForm.id} token={teamToken} />
+                    ) : (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                        <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )
             ) : null}
 
-            <section className="min-w-0 overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/75">
-              <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-indigo-950">
-                <TeamBiLine id="team.modal.consultationSectionTitle" koClassName="text-fluid-sm font-medium text-indigo-950" />
-              </header>
-              <div className="border-t border-indigo-200/80 px-4 pb-4 pt-3 space-y-4">
-                <div>
-                  <p className="text-fluid-xs font-medium text-indigo-950 mb-1.5">
-                    <TeamBiLine id="team.modal.consultationMemoLabel" koClassName="text-fluid-xs font-medium text-indigo-950" />
-                  </p>
-                  <div className="rounded-lg border border-indigo-200/80 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 whitespace-pre-wrap break-words min-h-[2.5rem]">
-                    {item.consultationMemo?.trim() ? item.consultationMemo.trim() : '—'}
+            {isExternalCompact ? (
+              <details className={EXTERNAL_DETAILS}>
+                <summary className={EXTERNAL_SUMMARY}>
+                  <TeamBiLine
+                    id="team.modal.consultationSectionTitle"
+                    koClassName="text-fluid-2xs font-medium text-gray-600"
+                  />
+                  <ChevronDownMini className="h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className={`${EXTERNAL_DETAILS_BODY} space-y-1.5`}>
+                  <div>
+                    <p className="mb-px text-[11px] font-medium text-gray-500">
+                      <TeamBiLine id="team.modal.consultationMemoLabel" koClassName="text-[11px] font-medium text-gray-500" />
+                    </p>
+                    <div className={EXTERNAL_PLAIN_TEXT}>
+                      {item.consultationMemo?.trim() ? item.consultationMemo.trim() : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-px text-[11px] font-medium text-gray-500">
+                      <TeamBiLine id="team.modal.consultationThumbsLabel" koClassName="text-[11px] font-medium text-gray-500" />
+                    </p>
+                    {teamToken ? (
+                      <InquiryConsultationPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded hideThumbLabel />
+                    ) : (
+                      <p className="text-fluid-2xs text-amber-800">
+                        <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-2xs text-amber-800" />
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div>
-                  <p className="text-fluid-xs font-medium text-indigo-950 mb-1.5">
-                    <TeamBiLine id="team.modal.consultationThumbsLabel" koClassName="text-fluid-xs font-medium text-indigo-950" />
-                  </p>
-                  {teamToken ? (
-                    <InquiryConsultationPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded hideThumbLabel />
-                  ) : (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
-                      <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+              </details>
+            ) : (
+              <section className="min-w-0 overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/75">
+                <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-indigo-950">
+                  <TeamBiLine
+                    id="team.modal.consultationSectionTitle"
+                    koClassName="text-fluid-sm font-medium text-indigo-950"
+                  />
+                </header>
+                <div className="space-y-4 border-t border-indigo-200/80 px-4 pb-4 pt-3">
+                  <div>
+                    <p className="mb-1.5 text-fluid-xs font-medium text-indigo-950">
+                      <TeamBiLine
+                        id="team.modal.consultationMemoLabel"
+                        koClassName="text-fluid-xs font-medium text-indigo-950"
+                      />
+                    </p>
+                    <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded-lg border border-indigo-200/80 bg-white px-3 py-2.5 text-fluid-sm text-gray-900">
+                      {item.consultationMemo?.trim() ? item.consultationMemo.trim() : '—'}
                     </div>
-                  )}
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-fluid-xs font-medium text-indigo-950">
+                      <TeamBiLine
+                        id="team.modal.consultationThumbsLabel"
+                        koClassName="text-fluid-xs font-medium text-indigo-950"
+                      />
+                    </p>
+                    {teamToken ? (
+                      <InquiryConsultationPhotosPanel inquiryId={item.id} variant="team" token={teamToken} embedded hideThumbLabel />
+                    ) : (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                        <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            )}
 
-            <details className="group min-w-0 overflow-hidden rounded-xl border border-blue-200 bg-blue-50/80 [&_summary::-webkit-details-marker]:hidden">
-              <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-fluid-sm font-medium text-blue-950 hover:bg-blue-100/60 touch-manipulation select-none">
-                <TeamBiLine id="team.modal.cleaningPhotosSummary" koClassName="text-fluid-sm font-medium text-blue-950" />
-                <ChevronDownMini className="h-5 w-5 shrink-0 text-blue-800 transition-transform group-open:rotate-180" />
+            <details className={isExternalCompact ? EXTERNAL_DETAILS : 'group min-w-0 overflow-hidden rounded-xl border border-blue-200 bg-blue-50/80 [&_summary::-webkit-details-marker]:hidden'}>
+              <summary
+                className={
+                  isExternalCompact
+                    ? EXTERNAL_SUMMARY
+                    : 'flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-fluid-sm font-medium text-blue-950 hover:bg-blue-100/60 touch-manipulation select-none'
+                }
+              >
+                <TeamBiLine
+                  id="team.modal.cleaningPhotosSummary"
+                  koClassName={isExternalCompact ? 'text-fluid-2xs font-medium text-gray-600' : 'text-fluid-sm font-medium text-blue-950'}
+                />
+                <ChevronDownMini
+                  className={`shrink-0 transition-transform group-open:rotate-180 ${
+                    isExternalCompact ? 'h-3.5 w-3.5 text-gray-400' : 'h-5 w-5 text-blue-800'
+                  }`}
+                />
               </summary>
-              <div className="border-t border-blue-200/80 px-4 pb-4 pt-1">
-                <div className="mb-3 text-fluid-xs text-blue-900/85">
-                  <TeamBiLine id="team.modal.cleaningPhotosHint" koClassName="text-fluid-xs text-blue-900/85" />
-                </div>
+              <div className={isExternalCompact ? EXTERNAL_DETAILS_BODY : 'border-t border-blue-200/80 px-4 pb-4 pt-1'}>
+                {!isExternalCompact ? (
+                  <div className="mb-3 text-fluid-xs text-blue-900/85">
+                    <TeamBiLine id="team.modal.cleaningPhotosHint" koClassName="text-fluid-xs text-blue-900/85" />
+                  </div>
+                ) : null}
                 {teamToken ? (
                   <InquiryCleaningPhotosPanel
                     inquiryId={item.id}
@@ -1842,37 +2312,65 @@ export function TeamInquiryDetailModal({
                     phasesToShow={['BEFORE', 'AFTER']}
                   />
                 ) : (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
-                    <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
-                  </div>
+                  <p className={isExternalCompact ? 'text-fluid-2xs text-amber-800' : 'rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900'}>
+                    <TeamBiLine
+                      id="team.modal.loginMissing"
+                      koClassName={isExternalCompact ? 'text-fluid-2xs text-amber-800' : 'text-fluid-sm text-amber-900'}
+                    />
+                  </p>
                 )}
               </div>
             </details>
 
-            <section className="min-w-0 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/70">
-              <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-amber-950">
-                <TeamBiLine id="team.modal.claimPhotosTitle" koClassName="text-fluid-sm font-medium text-amber-950" />
-              </header>
-              <div className="border-t border-amber-200/80 px-4 pb-4 pt-1">
-                <div className="mb-3 text-fluid-xs text-amber-900/85">
-                  <TeamBiLine id="team.modal.claimPhotosHint" koClassName="text-fluid-xs text-amber-900/85" />
+            {isExternalCompact ? (
+              <details className={EXTERNAL_DETAILS}>
+                <summary className={EXTERNAL_SUMMARY}>
+                  <TeamBiLine id="team.modal.claimPhotosTitle" koClassName="text-fluid-2xs font-medium text-gray-600" />
+                  <ChevronDownMini className="h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className={EXTERNAL_DETAILS_BODY}>
+                  {teamToken ? (
+                    <InquiryCleaningPhotosPanel
+                      key={`claim-${item.id}`}
+                      inquiryId={item.id}
+                      variant="team"
+                      token={teamToken}
+                      embedded
+                      phasesToShow={['CLAIM']}
+                    />
+                  ) : (
+                    <p className="text-fluid-2xs text-amber-800">
+                      <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-2xs text-amber-800" />
+                    </p>
+                  )}
                 </div>
-                {teamToken ? (
-                  <InquiryCleaningPhotosPanel
-                    key={`claim-${item.id}`}
-                    inquiryId={item.id}
-                    variant="team"
-                    token={teamToken}
-                    embedded
-                    phasesToShow={['CLAIM']}
-                  />
-                ) : (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
-                    <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+              </details>
+            ) : (
+              <section className="min-w-0 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/70">
+                <header className="flex min-h-[48px] items-center gap-2 px-4 py-3 text-fluid-sm font-medium text-amber-950">
+                  <TeamBiLine id="team.modal.claimPhotosTitle" koClassName="text-fluid-sm font-medium text-amber-950" />
+                </header>
+                <div className="border-t border-amber-200/80 px-4 pb-4 pt-1">
+                  <div className="mb-3 text-fluid-xs text-amber-900/85">
+                    <TeamBiLine id="team.modal.claimPhotosHint" koClassName="text-fluid-xs text-amber-900/85" />
                   </div>
-                )}
-              </div>
-            </section>
+                  {teamToken ? (
+                    <InquiryCleaningPhotosPanel
+                      key={`claim-${item.id}`}
+                      inquiryId={item.id}
+                      variant="team"
+                      token={teamToken}
+                      embedded
+                      phasesToShow={['CLAIM']}
+                    />
+                  ) : (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-sm text-amber-900">
+                      <TeamBiLine id="team.modal.loginMissing" koClassName="text-fluid-sm text-amber-900" />
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
           </div>
         </div>
 

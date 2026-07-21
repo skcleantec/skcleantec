@@ -231,19 +231,10 @@ export function TeamDbMarketplacePage() {
   };
 
   return (
-    <div className={`min-w-0 w-full max-w-full space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
-      <div>
-        <h1 className="text-fluid-lg font-semibold text-slate-900">정보공유</h1>
-        <p className="mt-1 text-fluid-xs text-gray-600">
-          {tab === 'available'
-            ? '여러 건을 선택해 한 번에 갖고갈 수 있습니다. 구매 전에는 시·구 주소와 표시금액만 확인됩니다.'
-            : '발주 업체 인계 확정 후 전체 DB가 공개됩니다.'}
-        </p>
-      </div>
-
+    <div className={`min-w-0 w-full max-w-full space-y-2 sm:space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
       <DbMarketplaceTabBar options={TAB_OPTIONS} active={tab} onChange={setTab} />
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm sm:rounded-2xl sm:p-4">
         <ListPaginationBar
           mode="summary"
           page={page}
@@ -253,19 +244,19 @@ export function TeamDbMarketplacePage() {
           onPageSizeChange={onPageSizeChange}
         />
 
-        {error ? <p className="mt-4 text-fluid-sm text-red-600">{error}</p> : null}
+        {error ? <p className="mt-2 text-fluid-2xs text-red-600 sm:mt-4 sm:text-fluid-sm">{error}</p> : null}
 
         {loading && items.length === 0 ? (
-          <p className="mt-6 p-8 text-center text-fluid-sm text-gray-500">불러오는 중…</p>
+          <p className="mt-4 p-6 text-center text-fluid-2xs text-gray-500 sm:mt-6 sm:p-8 sm:text-fluid-sm">불러오는 중…</p>
         ) : null}
 
         {!loading && items.length === 0 ? (
-          <p className="mt-6 p-8 text-center text-fluid-sm text-gray-500">
+          <p className="mt-4 p-6 text-center text-fluid-2xs text-gray-500 sm:mt-6 sm:p-8 sm:text-fluid-sm">
             {tabLabel} 항목이 없습니다.
           </p>
         ) : null}
 
-        <div className="mt-4 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="mt-2 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mt-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
           <table className="w-full table-fixed border-collapse text-fluid-xs min-w-[640px]">
             <colgroup>
               {selectable ? <MarketplaceTableCheckboxCol /> : null}
@@ -349,7 +340,7 @@ export function TeamDbMarketplacePage() {
           onToggleAllPage={toggleAllPage}
         />
 
-        <div className="mt-4 space-y-3 lg:hidden">
+        <div className="mt-2 space-y-1.5 lg:hidden sm:mt-4 sm:space-y-3">
           {items.map((row) => (
             <DbMarketplaceRowCard
               key={row.id}

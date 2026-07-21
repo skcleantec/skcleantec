@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useLocation, useSearchParams } from 'react-router-dom';
@@ -596,6 +597,47 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
 
   const showAdminDeleteCol = mode === 'admin' && adminViewer;
 
+  const teamDetailMobile = isTeam;
+  const detailOverlayClass = teamDetailMobile
+    ? 'fixed inset-0 z-[80] flex flex-col bg-black/50 lg:items-center lg:justify-center lg:p-4'
+    : 'fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4';
+  const detailPanelClass = teamDetailMobile
+    ? 'relative flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col overflow-hidden bg-white shadow-xl lg:h-auto lg:max-h-[90vh] lg:max-w-lg lg:rounded-2xl lg:border lg:border-slate-200/60 lg:shadow-slate-100/40'
+    : 'relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200/60 bg-white shadow-xl shadow-slate-100/40';
+  const detailHeaderClass = teamDetailMobile
+    ? 'shrink-0 border-b border-slate-100 p-3 pr-12 lg:p-5'
+    : 'border-b border-slate-100 p-4 pr-12 sm:p-5';
+  const detailBodyClass = teamDetailMobile
+    ? 'min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:space-y-3 lg:p-5 lg:pb-5'
+    : 'space-y-3 p-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] sm:p-5 md:pb-5';
+  const detailTitleClass = teamDetailMobile
+    ? 'text-fluid-sm font-semibold text-slate-900 lg:text-lg'
+    : 'text-lg font-semibold text-slate-900';
+  const detailCompleteBtnClass = teamDetailMobile
+    ? 'shrink-0 min-h-9 touch-manipulation rounded-lg border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-fluid-2xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-[44px] lg:rounded-xl lg:px-4 lg:py-2 lg:text-fluid-sm'
+    : 'min-h-[44px] touch-manipulation rounded-xl border border-emerald-700 bg-emerald-600 px-4 py-2 text-fluid-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50';
+  const detailInputClass = teamDetailMobile
+    ? 'w-full min-h-9 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-fluid-xs focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10 lg:min-h-[44px] lg:rounded-xl lg:px-3 lg:py-2 lg:text-fluid-sm'
+    : 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-fluid-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10';
+  const detailTextareaClass = teamDetailMobile
+    ? 'w-full resize-none rounded-lg border border-slate-200 px-2.5 py-1.5 text-fluid-xs focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10 lg:rounded-xl lg:px-3 lg:py-2 lg:text-fluid-sm'
+    : 'w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-fluid-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10';
+  const detailActionBtnClass = teamDetailMobile
+    ? 'min-h-10 w-full touch-manipulation rounded-lg py-2 text-fluid-xs font-semibold lg:min-h-[44px] lg:rounded-xl lg:py-2.5 lg:text-fluid-sm'
+    : 'min-h-[44px] w-full touch-manipulation rounded-xl py-2.5 text-fluid-sm font-semibold';
+  const inquiryOverlayClass = teamDetailMobile
+    ? 'fixed inset-0 z-[90] flex flex-col bg-black/50 lg:items-center lg:justify-center lg:p-4'
+    : 'fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4';
+  const inquiryPanelClass = teamDetailMobile
+    ? 'relative flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col overflow-hidden bg-white shadow-xl lg:h-auto lg:max-h-[92vh] lg:max-w-3xl lg:rounded-2xl lg:border lg:border-slate-200/60 lg:shadow-slate-100/40'
+    : 'relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200/60 bg-white shadow-xl shadow-slate-100/40';
+  const inquiryBodyClass = teamDetailMobile
+    ? 'min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain p-3 text-fluid-xs lg:space-y-4 lg:p-5 lg:text-fluid-sm'
+    : 'space-y-4 p-4 text-fluid-sm sm:p-5';
+  const inquiryFieldLabelClass = teamDetailMobile
+    ? 'mb-0.5 block text-fluid-2xs font-medium text-slate-500 lg:text-fluid-xs'
+    : 'mb-0.5 block text-fluid-xs font-medium text-slate-500';
+
   return (
     <div className="min-w-0 w-full max-w-full space-y-4">
       <div
@@ -989,60 +1031,87 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
         )}
       </div>
 
-      {selected && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeDetail}>
-          <div
-            className="relative bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-100/40 max-w-lg w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+      {selected
+        ? createPortal(
+        <div className={detailOverlayClass} onClick={closeDetail}>
+          <div className={detailPanelClass} onClick={(e) => e.stopPropagation()}>
             <ModalCloseButton onClick={closeDetail} />
-            <div className="p-4 sm:p-5 border-b border-slate-100 pr-12">
-              <h2 className="text-lg font-semibold text-slate-900">C/S 상세</h2>
-              {mode === 'team' ? (
-                <p className="text-fluid-xs text-slate-600 mt-1">
-                  아래에 <strong className="font-medium text-slate-800">처리 방법</strong>을 적은 뒤 「처리완료」를 누르세요.
-                </p>
-              ) : null}
+            <div className={detailHeaderClass}>
+              <div className={`flex gap-2 ${teamDetailMobile ? 'items-start justify-between' : 'flex-col'}`}>
+                <div className="min-w-0 flex-1">
+                  <h2 className={detailTitleClass}>C/S 상세</h2>
+                  {mode === 'team' ? (
+                    <p className="mt-0.5 text-fluid-2xs leading-snug text-slate-600 lg:mt-1 lg:text-fluid-xs">
+                      <strong className="font-medium text-slate-800">처리 방법</strong> 입력 후 「처리완료」
+                    </p>
+                  ) : null}
+                </div>
+                {teamDetailMobile ? (
+                  <button
+                    type="button"
+                    onClick={handleComplete}
+                    disabled={saving || selected.status === 'DONE'}
+                    className={detailCompleteBtnClass}
+                  >
+                    {selected.status === 'DONE' ? '완료됨' : '처리완료'}
+                  </button>
+                ) : null}
+              </div>
             </div>
-            <div className="p-4 sm:p-5 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-5 space-y-3">
-              <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-                <div>
-                  <span className="text-fluid-xs font-medium text-slate-500">처리 상태</span>
-                  <p className="font-semibold text-slate-900">
+            <div className={detailBodyClass}>
+              <div
+                className={`flex gap-2 ${teamDetailMobile ? 'items-center justify-between rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-2 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0' : 'flex-col sm:flex-row sm:items-center sm:justify-between'}`}
+              >
+                <div className="min-w-0">
+                  <span className={`font-medium text-slate-500 ${teamDetailMobile ? 'text-fluid-2xs' : 'text-fluid-xs'}`}>
+                    처리 상태
+                  </span>
+                  <p className={`font-semibold text-slate-900 ${teamDetailMobile ? 'text-fluid-xs lg:text-base' : ''}`}>
                     {STATUS_OPTIONS.find((s) => s.value === selected.status)?.label ?? selected.status}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleComplete}
-                  disabled={saving || selected.status === 'DONE'}
-                  className="min-h-[44px] px-4 py-2 rounded-xl text-fluid-sm font-semibold text-white bg-emerald-600 border border-emerald-700 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation shadow-sm transition-colors"
-                >
-                  {selected.status === 'DONE' ? '처리 완료됨' : '처리완료'}
-                </button>
+                {!teamDetailMobile ? (
+                  <button
+                    type="button"
+                    onClick={handleComplete}
+                    disabled={saving || selected.status === 'DONE'}
+                    className={detailCompleteBtnClass}
+                  >
+                    {selected.status === 'DONE' ? '처리 완료됨' : '처리완료'}
+                  </button>
+                ) : null}
               </div>
 
               {selected.status !== 'DONE' ? (
                 <div
-                  className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-3 sm:p-4"
+                  className={`rounded-lg border border-amber-200/80 bg-amber-50/60 p-2 lg:rounded-xl lg:p-4 ${teamDetailMobile ? '' : 'sm:p-4'}`}
                   id="cs-completion-method-input"
                 >
-                  <label className="block text-fluid-sm font-medium text-slate-900 mb-1">
+                  <label
+                    className={`mb-1 block font-medium text-slate-900 ${teamDetailMobile ? 'text-fluid-xs lg:text-fluid-sm' : 'text-fluid-sm'}`}
+                  >
                     C/S 처리 방법 <span className="text-red-600">*</span>
-                    <span className="font-normal text-slate-600 text-fluid-xs"> (처리완료 버튼 전에 입력)</span>
+                    <span
+                      className={`font-normal text-slate-600 ${teamDetailMobile ? 'text-fluid-2xs lg:text-fluid-xs' : 'text-fluid-xs'}`}
+                    >
+                      {' '}
+                      (처리완료 전 입력)
+                    </span>
                   </label>
                   <textarea
                     value={completionMethodInput}
                     onChange={(e) => setCompletionMethodInput(e.target.value)}
-                    rows={4}
-                    className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-fluid-sm resize-none focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
-                    placeholder="예: 고객에게 전화로 사과 및 재방문 일정 조율, 현장 확인 후 추가 청소 진행 등"
+                    rows={teamDetailMobile ? 3 : 4}
+                    className={`${detailTextareaClass} border-amber-200 bg-white focus:border-slate-300`}
+                    placeholder="예: 고객 전화 사과·재방문 일정, 현장 확인 후 추가 청소 등"
                   />
                 </div>
               ) : null}
 
               {selected.completedAt && selected.completedBy ? (
-                <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3 text-fluid-sm space-y-1">
+                <div
+                  className={`space-y-1 rounded-lg border border-emerald-200/80 bg-emerald-50/60 p-2 text-fluid-xs lg:rounded-xl lg:p-3 lg:text-fluid-sm`}
+                >
                   <div className="font-semibold text-emerald-900">처리 완료 기록</div>
                   <p>
                     <span className="text-slate-600">처리일시</span>{' '}
@@ -1054,44 +1123,86 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   </p>
                   <div>
                     <span className="text-slate-600">처리 방법</span>
-                    <p className="whitespace-pre-wrap text-slate-900 mt-0.5">{selected.completionMethod ?? '—'}</p>
+                    <p className="mt-0.5 whitespace-pre-wrap text-slate-900">{selected.completionMethod ?? '—'}</p>
                   </div>
                 </div>
               ) : selected.status === 'DONE' ? (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-fluid-sm text-slate-600">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-fluid-xs text-slate-600 lg:rounded-xl lg:p-3 lg:text-fluid-sm">
                   처리 완료 상태입니다. (처리 기록이 없는 경우 관리자에게 문의하세요.)
                 </div>
               ) : null}
 
-              <div>
-                <span className="text-fluid-xs font-medium text-slate-500">성함</span>
-                <p className="font-medium text-slate-900">{selected.customerName}</p>
-              </div>
-              <div>
-                <span className="text-fluid-xs font-medium text-slate-500">연락처</span>
-                <p className="font-medium text-slate-900 tabular-nums">{selected.customerPhone}</p>
-              </div>
-              <div>
-                <span className="text-fluid-xs font-medium text-slate-500">서비스 품질 (고객 별점)</span>
-                {selected.serviceRating != null &&
-                selected.serviceRating >= 1 &&
-                selected.serviceRating <= 5 ? (
-                  <p className="mt-0.5 flex flex-wrap items-center gap-2">
-                    <span className="text-lg leading-none">
-                      <ServiceRatingStars value={selected.serviceRating} />
-                    </span>
-                    <span className="text-fluid-sm text-slate-600 tabular-nums">{selected.serviceRating}점</span>
-                  </p>
-                ) : (
-                  <p className="text-fluid-sm text-slate-500 mt-0.5">기록 없음 (이전 접수 건)</p>
-                )}
+              <div
+                className={
+                  teamDetailMobile
+                    ? 'space-y-1 rounded-lg border border-slate-200/60 bg-slate-50/80 p-2 lg:space-y-0 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0'
+                    : 'hidden'
+                }
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="text-fluid-2xs font-medium text-slate-500 lg:text-fluid-xs">성함</span>
+                    <p className="text-fluid-xs font-semibold text-slate-900 lg:text-base lg:font-medium">
+                      {selected.customerName}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="text-fluid-2xs font-medium text-slate-500 lg:text-fluid-xs">연락처</span>
+                    <p className="text-fluid-xs font-medium tabular-nums text-slate-900">{selected.customerPhone}</p>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-fluid-2xs font-medium text-slate-500 lg:text-fluid-xs">서비스 품질</span>
+                  {selected.serviceRating != null &&
+                  selected.serviceRating >= 1 &&
+                  selected.serviceRating <= 5 ? (
+                    <p className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                      <span className={`leading-none ${teamDetailMobile ? 'text-fluid-sm' : 'text-lg'}`}>
+                        <ServiceRatingStars value={selected.serviceRating} />
+                      </span>
+                      <span className="text-fluid-2xs tabular-nums text-slate-600 lg:text-fluid-sm">
+                        {selected.serviceRating}점
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-fluid-2xs text-slate-500 lg:text-fluid-sm">기록 없음</p>
+                  )}
+                </div>
               </div>
 
+              {!teamDetailMobile ? (
+                <>
+                  <div>
+                    <span className="text-fluid-xs font-medium text-slate-500">성함</span>
+                    <p className="font-medium text-slate-900">{selected.customerName}</p>
+                  </div>
+                  <div>
+                    <span className="text-fluid-xs font-medium text-slate-500">연락처</span>
+                    <p className="font-medium tabular-nums text-slate-900">{selected.customerPhone}</p>
+                  </div>
+                  <div>
+                    <span className="text-fluid-xs font-medium text-slate-500">서비스 품질 (고객 별점)</span>
+                    {selected.serviceRating != null &&
+                    selected.serviceRating >= 1 &&
+                    selected.serviceRating <= 5 ? (
+                      <p className="mt-0.5 flex flex-wrap items-center gap-2">
+                        <span className="text-lg leading-none">
+                          <ServiceRatingStars value={selected.serviceRating} />
+                        </span>
+                        <span className="text-fluid-sm tabular-nums text-slate-600">{selected.serviceRating}점</span>
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 text-fluid-sm text-slate-500">기록 없음 (이전 접수 건)</p>
+                    )}
+                  </div>
+                </>
+              ) : null}
+
               {selected.status !== 'DONE' ? (
-                <div className="rounded-xl border border-rose-200/80 bg-rose-50/60 p-3 space-y-1.5 text-rose-950">
-                  <div className="flex items-start gap-2">
+                <div className="space-y-1 rounded-lg border border-rose-200/80 bg-rose-50/60 p-2 text-rose-950 lg:space-y-1.5 lg:rounded-xl lg:p-3">
+                  <div className="flex items-start gap-1.5">
                     <label
-                      className="flex-1 min-w-0 text-fluid-sm font-medium text-slate-900 pt-0.5"
+                      className={`min-w-0 flex-1 pt-0.5 font-medium text-slate-900 ${teamDetailMobile ? 'text-fluid-xs lg:text-fluid-sm' : 'text-fluid-sm'}`}
                       htmlFor="cs-as-service-date"
                     >
                       A/S 예정일 <span className="font-normal text-slate-600">(재방문·처리일)</span>
@@ -1104,11 +1215,11 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                     min={kstTodayYmd()}
                     value={editAsServiceDate}
                     onChange={(e) => setEditAsServiceDate(e.target.value)}
-                    className="w-full min-h-[44px] rounded-xl border border-rose-200 bg-white px-3 py-2 text-fluid-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
+                    className={`${detailInputClass} border-rose-200 text-slate-900 focus:border-slate-300`}
                   />
                 </div>
               ) : selected.asServiceDate ? (
-                <div className="text-fluid-sm text-slate-700">
+                <div className="text-fluid-xs text-slate-700 lg:text-fluid-sm">
                   <span className="text-slate-500">A/S 예정일</span>{' '}
                   <span className="font-medium tabular-nums">
                     {formatDateCompactWithWeekday(selected.asServiceDate)}
@@ -1117,30 +1228,33 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               ) : null}
 
               {selected.inquiry ? (
-                <div className="rounded-xl border border-slate-200/60 bg-slate-50/80 p-3 space-y-2">
-                  <div>
-                    <span className="text-fluid-xs font-medium text-slate-500">담당 팀장</span>
-                    <p className="font-medium text-slate-900">{formatTeamLeaderLabel(selected.inquiry)}</p>
+                <div className="space-y-1.5 rounded-lg border border-slate-200/60 bg-slate-50/80 p-2 lg:space-y-2 lg:rounded-xl lg:p-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                    <div className="min-w-0">
+                      <span className="text-fluid-2xs font-medium text-slate-500 lg:text-fluid-xs">담당</span>
+                      <p className="truncate text-fluid-xs font-medium text-slate-900 lg:text-base">
+                        {formatTeamLeaderLabel(selected.inquiry)}
+                      </p>
+                    </div>
+                    {selected.inquiry.inquiryNumber ? (
+                      <p className="shrink-0 text-fluid-2xs tabular-nums text-slate-600 lg:text-fluid-sm">
+                        #{selected.inquiry.inquiryNumber}
+                      </p>
+                    ) : null}
                   </div>
-                  {selected.inquiry.inquiryNumber ? (
-                    <p className="text-fluid-sm text-slate-700">
-                      접수번호{' '}
-                      <span className="font-mono tabular-nums">{selected.inquiry.inquiryNumber}</span>
-                    </p>
-                  ) : null}
                   {hasInspectionModule ? (
                     <InspectionCsSummaryBadge summary={csInspectionBadgeProps(selected.inquiry)} />
                   ) : null}
                   <button
                     type="button"
                     onClick={() => setConnectedInquiryModal(selected.inquiry!)}
-                    className="w-full min-h-[44px] px-3 py-2 text-fluid-sm font-semibold text-indigo-700 bg-white border border-indigo-200 rounded-xl hover:bg-indigo-50 touch-manipulation shadow-sm transition-colors"
+                    className={`w-full touch-manipulation border border-indigo-200 bg-white font-semibold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-50 ${teamDetailMobile ? 'min-h-9 rounded-lg px-2.5 py-1.5 text-fluid-2xs lg:min-h-[44px] lg:rounded-xl lg:px-3 lg:py-2 lg:text-fluid-sm' : 'min-h-[44px] rounded-xl px-3 py-2 text-fluid-sm'}`}
                   >
                     연결 접수 상세 보기
                   </button>
                 </div>
               ) : mode === 'admin' ? (
-                <p className="text-fluid-sm text-amber-950 bg-amber-50/60 border border-amber-200/80 rounded-xl px-3 py-2">
+                <p className="rounded-xl border border-amber-200/80 bg-amber-50/60 px-3 py-2 text-fluid-sm text-amber-950">
                   접수 목록과 자동 연결된 건이 없습니다. (성함·연락처가 접수 DB와 일치할 때 연결됩니다.) 아래에서 팀장·타업체에
                   전달하면 해당 계정 C/S 메뉴에 표시됩니다.
                 </p>
@@ -1189,14 +1303,24 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </div>
               ) : null}
 
-              <div>
-                <span className="text-fluid-xs font-medium text-slate-500">내용</span>
-                <p className="whitespace-pre-wrap text-fluid-sm text-slate-800">{selected.content}</p>
+              <div className={teamDetailMobile ? 'rounded-lg border border-slate-200/60 bg-white p-2 lg:rounded-xl lg:p-3' : ''}>
+                <span className={`font-medium text-slate-500 ${teamDetailMobile ? 'text-fluid-2xs lg:text-fluid-xs' : 'text-fluid-xs'}`}>
+                  내용
+                </span>
+                <p
+                  className={`whitespace-pre-wrap text-slate-800 ${teamDetailMobile ? 'mt-0.5 text-fluid-xs leading-snug lg:text-fluid-sm' : 'text-fluid-sm'}`}
+                >
+                  {selected.content}
+                </p>
               </div>
               {selected.imageUrls?.length ? (
                 <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-2">첨부 사진</span>
-                  <div className="flex flex-wrap gap-2">
+                  <span
+                    className={`mb-1.5 block font-medium text-slate-500 ${teamDetailMobile ? 'text-fluid-2xs lg:mb-2 lg:text-fluid-xs' : 'mb-2 text-fluid-xs'}`}
+                  >
+                    첨부 사진
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 lg:gap-2">
                     {selected.imageUrls.map((url, i) => {
                       const slides = selected.imageUrls.map((u, j) => ({
                         src: u,
@@ -1207,8 +1331,8 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                           key={i}
                           src={url}
                           alt={`첨부 ${i + 1}`}
-                          thumbClassName="w-6 h-6 object-cover rounded border border-slate-200"
-                          buttonClassName="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 touch-manipulation"
+                          thumbClassName="h-6 w-6 rounded border border-slate-200 object-cover"
+                          buttonClassName={`flex shrink-0 items-center justify-center overflow-hidden border border-slate-200 bg-slate-50 p-0 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${teamDetailMobile ? 'h-9 w-9 rounded-lg lg:h-11 lg:w-11 lg:rounded-xl' : 'h-11 w-11 rounded-xl'}`}
                           gallerySlides={selected.imageUrls.length > 1 ? slides : undefined}
                           galleryIndex={i}
                         />
@@ -1218,11 +1342,15 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </div>
               ) : null}
               <div>
-                <label className="block text-fluid-sm font-medium text-slate-700 mb-1">상태 (수동 변경)</label>
+                <label
+                  className={`mb-1 block font-medium text-slate-700 ${teamDetailMobile ? 'text-fluid-xs lg:text-fluid-sm' : 'text-fluid-sm'}`}
+                >
+                  상태 (수동 변경)
+                </label>
                 <select
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-fluid-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
+                  className={detailInputClass}
                 >
                   {statusSelectOptions.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -1231,16 +1359,22 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   ))}
                 </select>
                 {mode === 'team' && selected.status === 'RECEIVED' && (
-                  <p className="text-fluid-xs text-slate-500 mt-1">현재 접수 상태입니다. 처리중 또는 완료로만 변경할 수 있습니다.</p>
+                  <p className={`mt-1 text-slate-500 ${teamDetailMobile ? 'text-fluid-2xs lg:text-fluid-xs' : 'text-fluid-xs'}`}>
+                    현재 접수 상태입니다. 처리중 또는 완료로만 변경할 수 있습니다.
+                  </p>
                 )}
               </div>
               <div>
-                <label className="block text-fluid-sm font-medium text-slate-700 mb-1">메모</label>
+                <label
+                  className={`mb-1 block font-medium text-slate-700 ${teamDetailMobile ? 'text-fluid-xs lg:text-fluid-sm' : 'text-fluid-sm'}`}
+                >
+                  메모
+                </label>
                 <textarea
                   value={editMemo}
                   onChange={(e) => setEditMemo(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-fluid-sm resize-none focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
+                  rows={teamDetailMobile ? 2 : 3}
+                  className={detailTextareaClass}
                   placeholder="내부 메모"
                 />
               </div>
@@ -1248,7 +1382,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-fluid-sm font-semibold hover:bg-slate-800 disabled:opacity-50 min-h-[44px] touch-manipulation shadow-sm transition-colors"
+                className={`${detailActionBtnClass} bg-slate-900 text-white shadow-sm transition-colors hover:bg-slate-800 disabled:opacity-50`}
               >
                 {saving ? '저장 중…' : '저장'}
               </button>
@@ -1256,7 +1390,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 <button
                   type="button"
                   onClick={() => setCsDeleteTarget(selected)}
-                  className="w-full py-2.5 rounded-xl border border-red-200 text-red-700 text-fluid-sm font-semibold hover:bg-red-50 min-h-[44px] touch-manipulation transition-colors"
+                  className={`${detailActionBtnClass} border border-red-200 text-red-700 transition-colors hover:bg-red-50`}
                 >
                   C/S 영구 삭제…
                 </button>
@@ -1264,14 +1398,16 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
               <button
                 type="button"
                 onClick={closeDetail}
-                className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-800 text-fluid-sm font-semibold bg-white hover:bg-slate-50 min-h-[44px] touch-manipulation transition-colors"
+                className={`${detailActionBtnClass} border border-slate-200 bg-white text-slate-800 transition-colors hover:bg-slate-50`}
               >
                 닫기
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body,
+      )
+        : null}
 
       <ConfirmPasswordModal
         open={!!csDeleteTarget}
@@ -1292,26 +1428,23 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
         }}
       />
 
-      {connectedInquiryModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
-          onClick={() => setConnectedInquiryModal(null)}
-        >
-          <div
-            className="relative bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-100/40 max-w-3xl w-full max-h-[92vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+      {connectedInquiryModal
+        ? createPortal(
+        <div className={inquiryOverlayClass} onClick={() => setConnectedInquiryModal(null)}>
+          <div className={inquiryPanelClass} onClick={(e) => e.stopPropagation()}>
             <ModalCloseButton onClick={() => setConnectedInquiryModal(null)} />
-            <div className="p-4 sm:p-5 border-b border-slate-100 pr-12">
-              <h2 className="font-semibold text-lg text-slate-900">연결된 접수 상세</h2>
+            <div className={`shrink-0 border-b border-slate-100 pr-12 ${teamDetailMobile ? 'p-3 lg:p-5' : 'p-4 sm:p-5'}`}>
+              <h2 className={`font-semibold text-slate-900 ${teamDetailMobile ? 'text-fluid-sm lg:text-lg' : 'text-lg'}`}>
+                연결된 접수 상세
+              </h2>
               {connectedInquiryModal.inquiryNumber ? (
-                <p className="text-fluid-sm text-slate-600 mt-1">
+                <p className={`mt-0.5 text-slate-600 ${teamDetailMobile ? 'text-fluid-2xs lg:mt-1 lg:text-fluid-sm' : 'mt-1 text-fluid-sm'}`}>
                   접수번호{' '}
                   <span className="font-mono tabular-nums">{connectedInquiryModal.inquiryNumber}</span>
                 </p>
               ) : null}
               {hasInspectionModule ? (
-                <div className="mt-2">
+                <div className="mt-1.5 lg:mt-2">
                   <InspectionCsSummaryBadge
                     summary={
                       connectedInquiryModal ? csInspectionBadgeProps(connectedInquiryModal) : null
@@ -1320,10 +1453,10 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </div>
               ) : null}
             </div>
-            <div className="p-4 sm:p-5 space-y-4 text-fluid-sm">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className={inquiryBodyClass}>
+              <div className={`grid grid-cols-2 gap-2 ${teamDetailMobile ? 'lg:grid-cols-2 lg:gap-3' : 'md:grid-cols-2 gap-3'}`}>
                 <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">접수일</span>
+                  <span className={inquiryFieldLabelClass}>접수일</span>
                   <p className="text-slate-800">
                     {connectedInquiryModal.createdAt
                       ? formatDateTimeCompactWithWeekday(connectedInquiryModal.createdAt)
@@ -1332,81 +1465,83 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 </div>
                 {!isInquirySourceHiddenFromUi(connectedInquiryModal.source) ? (
                   <div>
-                    <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">출처</span>
-                    <p className="text-slate-800">{formatInquirySourceLabel(connectedInquiryModal.source)}</p>
+                    <span className={inquiryFieldLabelClass}>출처</span>
+                    <p className="truncate text-slate-800" title={formatInquirySourceLabel(connectedInquiryModal.source)}>
+                      {formatInquirySourceLabel(connectedInquiryModal.source)}
+                    </p>
                   </div>
                 ) : null}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">담당 팀장</span>
-                <p className="font-medium text-slate-900">{formatTeamLeaderLabel(connectedInquiryModal)}</p>
+              <div className={`grid grid-cols-2 gap-2 ${teamDetailMobile ? 'lg:gap-3' : 'md:grid-cols-2 gap-3'}`}>
+                <div className="min-w-0">
+                  <span className={inquiryFieldLabelClass}>담당</span>
+                  <p className="truncate font-medium text-slate-900" title={formatTeamLeaderLabel(connectedInquiryModal)}>
+                    {formatTeamLeaderLabel(connectedInquiryModal)}
+                  </p>
                 </div>
                 <div>
-                <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">접수 상태</span>
-                <p className="text-slate-800">{INQUIRY_STATUS_LABELS[connectedInquiryModal.status] ?? connectedInquiryModal.status}</p>
+                  <span className={inquiryFieldLabelClass}>접수 상태</span>
+                  <p className="text-slate-800">
+                    {INQUIRY_STATUS_LABELS[connectedInquiryModal.status] ?? connectedInquiryModal.status}
+                  </p>
                 </div>
               </div>
-              <div>
-                <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">고객</span>
+              <div className="rounded-lg border border-slate-200/60 bg-slate-50/80 p-2 lg:rounded-xl lg:p-3">
+                <span className={inquiryFieldLabelClass}>고객</span>
                 <p className="text-slate-800">
-                  {connectedInquiryModal.customerName} / {connectedInquiryModal.customerPhone}
-                  {connectedInquiryModal.customerPhone2 ? ` / ${connectedInquiryModal.customerPhone2}` : ''}
+                  {connectedInquiryModal.customerName} · {connectedInquiryModal.customerPhone}
+                  {connectedInquiryModal.customerPhone2 ? ` · ${connectedInquiryModal.customerPhone2}` : ''}
                 </p>
-              </div>
-              <div>
-                <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">주소</span>
+                <span className={`${inquiryFieldLabelClass} mt-1.5`}>주소</span>
                 <p className="whitespace-pre-wrap text-slate-800">
                   {connectedInquiryModal.address}
                   {connectedInquiryModal.addressDetail ? ` ${connectedInquiryModal.addressDetail}` : ''}
                 </p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className={`grid grid-cols-2 gap-2 ${teamDetailMobile ? 'lg:grid-cols-3 lg:gap-3' : 'md:grid-cols-3 gap-3'}`}>
                 <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">건축물 유형</span>
-                  <p className="text-slate-800">{connectedInquiryModal.propertyType || '-'}</p>
+                  <span className={inquiryFieldLabelClass}>건축물</span>
+                  <p className="truncate text-slate-800">{connectedInquiryModal.propertyType || '-'}</p>
                 </div>
                 <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">평수</span>
+                  <span className={inquiryFieldLabelClass}>평수</span>
                   <p className="text-slate-800">{formatAreaLine(connectedInquiryModal)}</p>
                 </div>
-                <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">방/화/베/주</span>
+                <div className="col-span-2 lg:col-span-1">
+                  <span className={inquiryFieldLabelClass}>방/화/베/주</span>
                   <p className="text-slate-800">
                     {connectedInquiryModal.roomCount ?? '-'} / {connectedInquiryModal.bathroomCount ?? '-'} /{' '}
                     {connectedInquiryModal.balconyCount ?? '-'} / {connectedInquiryModal.kitchenCount ?? '-'}
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className={`grid grid-cols-1 gap-2 ${teamDetailMobile ? 'sm:grid-cols-2 lg:gap-3' : 'md:grid-cols-2 gap-3'}`}>
                 <div>
-                <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">희망일·시간</span>
-                <p className="text-slate-800">
-                  {connectedInquiryModal.preferredDate
-                    ? formatDateCompactWithWeekday(connectedInquiryModal.preferredDate)
-                    : '-'}
-                  {connectedInquiryModal.preferredTime
-                    ? ` · ${connectedInquiryModal.preferredTime}`
-                    : ''}
-                  {connectedInquiryModal.preferredTimeDetail
-                    ? ` (${connectedInquiryModal.preferredTimeDetail})`
-                    : ''}
-                </p>
+                  <span className={inquiryFieldLabelClass}>희망일·시간</span>
+                  <p className="text-slate-800">
+                    {connectedInquiryModal.preferredDate
+                      ? formatDateCompactWithWeekday(connectedInquiryModal.preferredDate)
+                      : '-'}
+                    {connectedInquiryModal.preferredTime ? ` · ${connectedInquiryModal.preferredTime}` : ''}
+                    {connectedInquiryModal.preferredTimeDetail
+                      ? ` (${connectedInquiryModal.preferredTimeDetail})`
+                      : ''}
+                  </p>
                 </div>
                 <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">신축/구축/인테리어/거주</span>
-                  <p className="text-slate-800">{connectedInquiryModal.buildingType || '-'}</p>
+                  <span className={inquiryFieldLabelClass}>신축/구축 등</span>
+                  <p className="truncate text-slate-800">{connectedInquiryModal.buildingType || '-'}</p>
                 </div>
               </div>
               {connectedInquiryModal.moveInDate ? (
                 <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">이사 날짜</span>
+                  <span className={inquiryFieldLabelClass}>이사 날짜</span>
                   <p className="text-slate-800">{formatDateCompactWithWeekday(connectedInquiryModal.moveInDate)}</p>
                 </div>
               ) : null}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className={`grid grid-cols-1 gap-2 ${teamDetailMobile ? 'sm:grid-cols-2 lg:gap-3' : 'md:grid-cols-2 gap-3'}`}>
                 <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">팀원 투입</span>
+                  <span className={inquiryFieldLabelClass}>팀원 투입</span>
                   <p className="text-slate-800">
                     {connectedInquiryModal.crewMemberCount ?? '-'}명
                     {connectedInquiryModal.crewMemberNote?.trim()
@@ -1414,41 +1549,43 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                       : ''}
                   </p>
                 </div>
-                <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">일정 메모</span>
-                  <p className="whitespace-pre-wrap text-slate-800">
+                <div className="min-w-0">
+                  <span className={inquiryFieldLabelClass}>일정 메모</span>
+                  <p className="truncate text-slate-800" title={connectedInquiryModal.scheduleMemo?.trim() || '-'}>
                     {connectedInquiryModal.scheduleMemo?.trim() || '-'}
                   </p>
                 </div>
               </div>
               {connectedInquiryModal.memo?.trim() ? (
                 <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">접수 메모</span>
+                  <span className={inquiryFieldLabelClass}>접수 메모</span>
                   <p className="whitespace-pre-wrap text-slate-800">{connectedInquiryModal.memo}</p>
                 </div>
               ) : null}
               {connectedInquiryModal.claimMemo?.trim() ? (
                 <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">클레임 메모</span>
+                  <span className={inquiryFieldLabelClass}>클레임 메모</span>
                   <p className="whitespace-pre-wrap text-slate-800">{connectedInquiryModal.claimMemo}</p>
                 </div>
               ) : null}
               {connectedInquiryModal.specialNotes?.trim() ? (
                 <div>
-                  <span className="text-fluid-xs font-medium text-slate-500 block mb-0.5">특이사항 (고객 작성)</span>
+                  <span className={inquiryFieldLabelClass}>특이사항 (고객 작성)</span>
                   <p className="whitespace-pre-wrap text-slate-800">{connectedInquiryModal.specialNotes}</p>
                 </div>
               ) : null}
               {mode === 'admin' && token && hasInspectionModule ? (
-                <div className="border-t border-slate-200 pt-4">
-                  <h3 className="text-fluid-sm font-semibold text-slate-900 mb-3">현장 검수 체크리스트</h3>
+                <div className="border-t border-slate-200 pt-3 lg:pt-4">
+                  <h3 className="mb-2 text-fluid-xs font-semibold text-slate-900 lg:mb-3 lg:text-fluid-sm">현장 검수 체크리스트</h3>
                   <AdminInspectionPanel inquiryId={connectedInquiryModal.id} token={token} />
                 </div>
               ) : null}
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body,
+      )
+        : null}
     </div>
   );
 }

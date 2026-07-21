@@ -56,6 +56,8 @@ interface Props {
   onChanged?: () => void;
   /** 파트너 접수 연계 — 잔금·수수료 표시 규칙 */
   tenantShare?: TenantInquiryShareMeta | null;
+  /** 타업체 상세 등 좁은 레이아웃 */
+  compact?: boolean;
 }
 
 function formatWon(n: number): string {
@@ -376,6 +378,7 @@ export function InquirySettlementPanel({
   readOnly = false,
   onChanged,
   tenantShare = null,
+  compact = false,
 }: Props) {
   const extraListApi =
     mode === 'admin' ? listAdminInquiryExtraCharges : listTeamInquiryExtraCharges;
@@ -646,19 +649,22 @@ export function InquirySettlementPanel({
     }
   }
 
+  const rowPad = compact ? 'px-0 py-0.5' : 'px-3 py-2 sm:px-4';
+  const rowLabelSize = compact ? 'text-[11px]' : 'text-fluid-xs';
+  const rowValueSize = compact ? 'text-fluid-2xs' : '';
   const row = (label: string, value: string, tone?: 'muted' | 'accent' | 'plus' | 'minus') => (
-    <div className="flex items-center justify-between px-3 py-2 sm:px-4">
+    <div className={`flex min-w-0 items-baseline justify-between gap-2 ${rowPad}`}>
       <span
-        className={
+        className={`min-w-0 shrink ${rowLabelSize} ${
           tone === 'accent'
-            ? 'text-fluid-xs font-semibold text-gray-700'
-            : 'text-fluid-xs font-medium text-gray-500'
-        }
+            ? 'font-semibold text-gray-700'
+            : 'font-medium text-gray-500'
+        }`}
       >
         {label}
       </span>
       <span
-        className={`tabular-nums ${
+        className={`shrink-0 tabular-nums ${rowValueSize} ${
           tone === 'plus'
             ? 'font-semibold text-emerald-700'
             : tone === 'minus'
@@ -681,15 +687,27 @@ export function InquirySettlementPanel({
 
   return (
     <>
-      <section className="min-w-0 overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
-      <header className="flex items-center justify-between border-b border-blue-200 bg-blue-50 px-3 py-2 sm:px-4">
+      <section
+        className={`min-w-0 overflow-hidden bg-white ${
+          compact
+            ? 'border-b border-gray-100 py-1 last:border-b-0'
+            : 'rounded-xl border border-blue-200 shadow-sm'
+        }`}
+      >
+      {compact ? (
+        <h3 className="mb-px text-[11px] font-semibold text-gray-500">결제 금액 내역</h3>
+      ) : (
+      <header
+        className="flex items-center justify-between border-b border-blue-200 bg-blue-50 px-3 py-2 sm:px-4"
+      >
         <h3 className="text-fluid-xs font-semibold text-blue-900">결제 금액 내역</h3>
         <span className="max-w-[58%] text-right text-fluid-2xs leading-snug text-blue-800">
           총액·예약금은 서비스 계약 기준. 잔금은 회사입금 추가결재만 포함(현장결재 제외)
         </span>
       </header>
+      )}
 
-      <div className="divide-y divide-gray-100 bg-white">
+      <div className={compact ? 'space-y-px' : 'divide-y divide-gray-100 bg-white'}>
         {row('총 결제금액 (서비스)', totalDisplay)}
         {row('예약금(선결제)', depositDisplay, 'minus')}
         {tenantShareBalance.showPartnerFeeRow && tenantShareBalance.partnerFee > 0
@@ -702,26 +720,30 @@ export function InquirySettlementPanel({
         {arcItems.map((it) => (
           <div
             key={it.id}
-            className="flex items-center justify-between gap-2 px-3 py-2 sm:px-4"
+            className={`flex min-w-0 items-baseline justify-between gap-2 ${rowPad}`}
           >
             <span
-              className="min-w-0 flex-1 truncate text-fluid-xs text-gray-700"
+              className={`min-w-0 flex-1 truncate ${compact ? 'text-fluid-2xs' : 'text-fluid-xs'} text-gray-700`}
               title={`추가결재 · ${it.description}`}
             >
               <span className="font-medium text-gray-800">추가결재</span>
               <span className="text-gray-500"> · </span>
               <span>{it.description}</span>
-              <span className="ml-1.5 shrink-0 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 tabular-nums sm:text-fluid-2xs">
+              <span
+                className={`ml-1 shrink-0 rounded border border-gray-200 bg-gray-50 px-1 py-px font-medium text-gray-600 tabular-nums ${
+                  compact ? 'text-[10px]' : 'text-[10px] sm:text-fluid-2xs'
+                }`}
+              >
                 {it.settlementChannel === 'FIELD_RECEIVED' ? '현장' : '회사입금'}
               </span>
             </span>
-            <span className="shrink-0 tabular-nums text-fluid-xs font-semibold text-emerald-700">
+            <span className={`shrink-0 tabular-nums font-semibold text-emerald-700 ${compact ? 'text-fluid-2xs' : 'text-fluid-xs'}`}>
               {formatWon(it.amount)}
             </span>
           </div>
         ))}
-        {arcItems.length > 0 ? (
-          <div className="bg-slate-50/90 px-3 py-2 sm:px-4">
+        {arcItems.length > 0 && !compact ? (
+          <div className={`bg-slate-50/90 ${rowPad}`}>
             <p className="text-fluid-2xs leading-snug text-gray-600">
               <strong className="font-medium text-gray-800">총 결제금액(서비스)</strong> 숫자는 계약·발주 원금 그대로
               두고, 아래 <strong className="font-medium text-gray-800">잔금</strong>에는{' '}
@@ -732,7 +754,7 @@ export function InquirySettlementPanel({
           </div>
         ) : null}
         {arcFieldReceivedSum !== 0 ? (
-          <div className="flex items-center justify-between gap-2 bg-gray-50 px-3 py-2 sm:px-4">
+          <div className={`flex items-center justify-between gap-2 bg-gray-50 ${rowPad}`}>
             <span className="min-w-0 flex-1 text-fluid-2xs leading-snug text-gray-600">
               현장결재 추가합계 (참고 · 회사 미수 아님)
             </span>
@@ -741,16 +763,21 @@ export function InquirySettlementPanel({
             </span>
           </div>
         ) : null}
-        {row('잔금 (회사 수금·회사입금 추가 포함)', balanceDisplay, 'accent')}
-        {tenantShareBalance.sourceLinkedHint ? (
-          <div className="bg-slate-50/90 px-3 py-2 sm:px-4">
+        {row(
+          compact ? '잔금' : '잔금 (회사 수금·회사입금 추가 포함)',
+          balanceDisplay,
+          'accent',
+        )}
+        {tenantShareBalance.sourceLinkedHint && !compact ? (
+          <div className={`bg-slate-50/90 ${rowPad}`}>
             <p className="text-fluid-2xs leading-snug text-slate-600">{tenantShareBalance.sourceLinkedHint}</p>
           </div>
         ) : null}
       </div>
 
       {items.length > 0 ? (
-        <div className="border-t-2 border-amber-200 bg-amber-50/30">
+        <div className={compact ? 'mt-1 space-y-px border-t border-gray-100 pt-1' : 'border-t-2 border-amber-200 bg-amber-50/30'}>
+          {!compact ? (
           <div className="border-b border-amber-100 px-3 py-2.5 sm:px-4">
             <p className="text-fluid-2xs font-medium text-amber-950">예전 방식으로 저장된 현장 추가 금액</p>
             <p className="mt-0.5 text-fluid-2xs leading-snug text-amber-900/85">
@@ -758,31 +785,34 @@ export function InquirySettlementPanel({
               전용입니다.
             </p>
           </div>
-          <ul className="divide-y divide-amber-100/80 bg-white">
+          ) : (
+            <p className="text-[11px] font-medium text-gray-500">레거시 추가 금액</p>
+          )}
+          <ul className={compact ? 'space-y-px' : 'divide-y divide-amber-100/80 bg-white'}>
             {items.map((it) => (
-              <li key={it.id} className="px-3 py-2 sm:px-4">
-                <div className="flex items-center gap-2">
+              <li key={it.id} className={compact ? '' : 'px-3 py-2 sm:px-4'}>
+                <div className={`flex items-baseline justify-between gap-2 ${compact ? rowPad : ''}`}>
                   <span
-                    className="min-w-0 flex-1 truncate text-fluid-sm text-gray-900"
+                    className={`min-w-0 flex-1 truncate ${compact ? 'text-fluid-2xs' : 'text-fluid-sm'} text-gray-900`}
                     title={it.description}
                   >
                     {it.description}
                   </span>
                   <span
-                    className={`shrink-0 tabular-nums text-fluid-sm font-semibold ${
-                      it.amount >= 0 ? 'text-emerald-700' : 'text-rose-700'
-                    }`}
+                    className={`shrink-0 tabular-nums font-semibold ${
+                      compact ? 'text-fluid-2xs' : 'text-fluid-sm'
+                    } ${it.amount >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}
                   >
                     {formatWonSigned(it.amount)}
                   </span>
                 </div>
-                {it.createdBy?.name ? (
+                {!compact && it.createdBy?.name ? (
                   <div className="mt-0.5 text-fluid-2xs text-gray-400">{it.createdBy.name}</div>
                 ) : null}
               </li>
             ))}
           </ul>
-          <div className="divide-y divide-amber-100 border-t-2 border-amber-200 bg-amber-50/50">
+          <div className={compact ? 'space-y-px' : 'divide-y divide-amber-100 border-t-2 border-amber-200 bg-amber-50/50'}>
             {row(
               '추가 금액 합계 (레거시)',
               legacyExtraTotals.legacySum === 0
@@ -801,27 +831,41 @@ export function InquirySettlementPanel({
         </div>
       ) : null}
 
-      <details className="group border-t-2 border-blue-200 bg-white open:bg-white">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 border-b border-blue-100 bg-gray-50/90 px-3 py-2.5 text-left hover:bg-gray-100 sm:px-4 sm:py-3 [&::-webkit-details-marker]:hidden">
-          <span className="min-w-0 text-fluid-2xs font-medium text-gray-800 sm:text-fluid-xs">
-            추가결재 (별도 정산)
+      <details className={`group bg-white open:bg-white ${compact ? 'mt-1 border-t border-gray-100 pt-1' : 'border-t-2 border-blue-200'}`}>
+        <summary
+          className={`flex cursor-pointer list-none items-center justify-between gap-2 text-left hover:bg-gray-50 [&::-webkit-details-marker]:hidden ${
+            compact
+              ? 'py-0.5 text-fluid-2xs font-medium text-gray-600'
+              : 'border-b border-blue-100 bg-gray-50/90 px-3 py-2.5 sm:px-4 sm:py-3'
+          }`}
+        >
+          <span className={`min-w-0 ${compact ? 'text-fluid-2xs' : 'text-fluid-2xs sm:text-fluid-xs'} font-medium text-gray-800`}>
+            추가결재
             {arcItems.length > 0 ? (
-              <span className="ml-1.5 tabular-nums text-gray-600">({arcItems.length}건)</span>
+              <span className="ml-1 tabular-nums text-gray-500">({arcItems.length})</span>
             ) : null}
+            {!compact ? (
             <span className="ml-1.5 block text-fluid-2xs font-normal text-gray-500 sm:inline">
               · 서비스 잔금과 분리 · 회사/현장 수금 방식에 따라 일당 정산
             </span>
+            ) : null}
           </span>
+          {!compact ? (
           <span className="shrink-0 rounded border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium tabular-nums text-gray-600 sm:text-fluid-2xs">
             <span className="group-open:hidden">펼치기</span>
             <span className="hidden group-open:inline">접기</span>
           </span>
+          ) : (
+            <svg className="h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.94a.75.75 0 111.08 1.04l-4.24 4.5a.75.75 0 01-1.08 0l-4.24-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          )}
         </summary>
 
-        <div className="border-b border-gray-200 bg-white">
-          <ul className="divide-y divide-gray-100">
+        <div className={compact ? 'pt-1' : 'border-b border-gray-200 bg-white'}>
+          <ul className={compact ? 'space-y-px' : 'divide-y divide-gray-100'}>
             {arcItems.length === 0 ? (
-              <li className="px-3 py-3 text-fluid-xs text-gray-400 sm:px-4">
+              <li className={compact ? 'py-0.5 text-fluid-2xs text-gray-400' : 'px-3 py-3 text-fluid-xs text-gray-400 sm:px-4'}>
                 추가결재 항목이 없습니다.
               </li>
             ) : (
@@ -838,8 +882,8 @@ export function InquirySettlementPanel({
           </ul>
 
           {!readOnly ? (
-            <div className="border-t border-gray-100 bg-blue-50/40 px-3 py-3 sm:px-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
+            <div className={compact ? 'border-t border-gray-100 pt-1' : 'border-t border-gray-100 bg-blue-50/40 px-3 py-3 sm:px-4'}>
+              <div className={`flex flex-col sm:flex-row sm:flex-wrap sm:items-stretch ${compact ? 'gap-1' : 'gap-2'}`}>
                 <input
                   type="text"
                   value={arcDraftDesc}
@@ -847,7 +891,9 @@ export function InquirySettlementPanel({
                   placeholder="추가결재 항목명"
                   maxLength={120}
                   disabled={arcBusy}
-                  className="min-w-0 rounded-md border border-gray-300 px-2.5 py-2 text-fluid-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:min-w-[120px] sm:flex-1"
+                  className={`min-w-0 rounded-md border border-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:min-w-[120px] sm:flex-1 ${
+                    compact ? 'px-2 py-1 text-fluid-2xs' : 'px-2.5 py-2 text-fluid-sm'
+                  }`}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -862,7 +908,9 @@ export function InquirySettlementPanel({
                   onChange={(e) => setArcDraftAmt(formatAmountInputDisplay(e.target.value))}
                   placeholder="금액 (1원 이상)"
                   disabled={arcBusy}
-                  className="min-w-0 rounded-md border border-gray-300 px-2.5 py-2 text-right text-fluid-sm tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:w-40"
+                  className={`min-w-0 rounded-md border border-gray-300 text-right tabular-nums focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:w-40 ${
+                    compact ? 'px-2 py-1 text-fluid-2xs' : 'px-2.5 py-2 text-fluid-sm'
+                  }`}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -874,11 +922,42 @@ export function InquirySettlementPanel({
                   type="button"
                   onClick={() => void handleArcAdd()}
                   disabled={arcBusy}
-                  className="inline-flex min-h-[40px] w-full shrink-0 items-center justify-center rounded-md bg-blue-600 px-4 text-fluid-xs font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 sm:mt-0 sm:w-auto sm:px-3.5"
+                  className={`inline-flex w-full shrink-0 items-center justify-center rounded-md bg-blue-600 font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 sm:mt-0 sm:w-auto ${
+                    compact
+                      ? 'min-h-7 px-2.5 text-fluid-2xs sm:px-2'
+                      : 'min-h-[40px] px-4 text-fluid-xs sm:px-3.5'
+                  }`}
                 >
                   저장
                 </button>
               </div>
+              {compact ? (
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                  <label className="flex cursor-pointer items-center gap-1 text-fluid-2xs text-gray-700">
+                    <input
+                      type="radio"
+                      name="arc-draft-settlement"
+                      checked={arcSettlementChannel === 'FIELD_RECEIVED'}
+                      onChange={() => setArcSettlementChannel('FIELD_RECEIVED')}
+                      disabled={arcBusy}
+                      className="text-blue-600"
+                    />
+                    현장
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-1 text-fluid-2xs text-gray-700">
+                    <input
+                      type="radio"
+                      name="arc-draft-settlement"
+                      checked={arcSettlementChannel === 'COMPANY_DEPOSIT'}
+                      onChange={() => setArcSettlementChannel('COMPANY_DEPOSIT')}
+                      disabled={arcBusy}
+                      className="text-blue-600"
+                    />
+                    회사입금
+                  </label>
+                </div>
+              ) : (
+                <>
               <div className="rounded-md border border-gray-200 bg-white px-3 py-2.5">
                 <p className="mb-2 text-fluid-2xs font-medium text-gray-800 sm:text-fluid-xs">
                   추가결재 수금 방식{' '}
@@ -926,12 +1005,15 @@ export function InquirySettlementPanel({
                   </span>
                 </p>
               ) : null}
+                </>
+              )}
               {arcError ? (
-                <p className="mt-1.5 text-fluid-2xs text-rose-700">{arcError}</p>
+                <p className={`text-fluid-2xs text-rose-700 ${compact ? 'mt-0.5' : 'mt-1.5'}`}>{arcError}</p>
               ) : null}
             </div>
           ) : null}
 
+          {!compact ? (
           <div className="divide-y divide-gray-100 border-t-2 border-blue-200 bg-blue-50/60">
             {row(
               '추가결재 합계 (급여 정산 대상)',
@@ -945,6 +1027,9 @@ export function InquirySettlementPanel({
               </div>
             ) : null}
           </div>
+          ) : arcSumTotal !== 0 ? (
+            row('추가결재 합계', arcSumTotal === 0 ? '0원' : formatWon(arcSumTotal), arcSumTotal > 0 ? 'plus' : undefined)
+          ) : null}
         </div>
       </details>
     </section>
