@@ -65,9 +65,15 @@ export type SoomgoIntakeAutoTriggerKind =
 
 export type SoomgoQuoteAutoTriggerKind = 'auto_quote';
 
-export type SoomgoAutoTriggerKind = SoomgoIntakeAutoTriggerKind | SoomgoQuoteAutoTriggerKind;
+export type SoomgoCallAutoTriggerKind = 'auto_call';
+
+export type SoomgoAutoTriggerKind =
+  | SoomgoIntakeAutoTriggerKind
+  | SoomgoQuoteAutoTriggerKind
+  | SoomgoCallAutoTriggerKind;
 
 export const SOOMGO_QUOTE_AUTO_TRIGGER_KIND: SoomgoQuoteAutoTriggerKind = 'auto_quote';
+export const SOOMGO_CALL_AUTO_TRIGGER_KIND: SoomgoCallAutoTriggerKind = 'auto_call';
 
 export const SOOMGO_INTAKE_AUTO_TRIGGER_KINDS: SoomgoIntakeAutoTriggerKind[] = [
   'auto_requested',
@@ -83,6 +89,7 @@ export const SOOMGO_AUTO_TRIGGER_KINDS = SOOMGO_INTAKE_AUTO_TRIGGER_KINDS;
 export const SOOMGO_ALL_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = [
   ...SOOMGO_INTAKE_AUTO_TRIGGER_KINDS,
   SOOMGO_QUOTE_AUTO_TRIGGER_KIND,
+  SOOMGO_CALL_AUTO_TRIGGER_KIND,
 ];
 
 export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoIntakeAutoTriggerKind, string> = {
@@ -99,8 +106,14 @@ export const SOOMGO_INTAKE_AUTO_TRIGGER_LABELS = SOOMGO_AUTO_TRIGGER_LABELS;
 export function isSoomgoAutoTriggerKind(value: unknown): value is SoomgoAutoTriggerKind {
   return (
     typeof value === 'string' &&
-    ((SOOMGO_INTAKE_AUTO_TRIGGER_KINDS as string[]).includes(value) || value === SOOMGO_QUOTE_AUTO_TRIGGER_KIND)
+    ((SOOMGO_INTAKE_AUTO_TRIGGER_KINDS as string[]).includes(value) ||
+      value === SOOMGO_QUOTE_AUTO_TRIGGER_KIND ||
+      value === SOOMGO_CALL_AUTO_TRIGGER_KIND)
   );
+}
+
+export function isSoomgoCallAutoTriggerKind(value: unknown): value is SoomgoCallAutoTriggerKind {
+  return value === SOOMGO_CALL_AUTO_TRIGGER_KIND;
 }
 
 export function isSoomgoIntakeAutoTriggerKind(value: unknown): value is SoomgoIntakeAutoTriggerKind {

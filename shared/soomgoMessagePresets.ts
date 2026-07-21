@@ -32,9 +32,16 @@ export type SoomgoIntakeAutoTriggerKind =
 /** CRM 견적보내기 — 브랜드별 서식 (업체 공통 자동메시지 탭) */
 export type SoomgoQuoteAutoTriggerKind = 'auto_quote';
 
-export type SoomgoAutoTriggerKind = SoomgoIntakeAutoTriggerKind | SoomgoQuoteAutoTriggerKind;
+/** CRM 통화 버튼 — 마케터 개인·브랜드별 숨고 채팅 자동 안내 */
+export type SoomgoCallAutoTriggerKind = 'auto_call';
+
+export type SoomgoAutoTriggerKind =
+  | SoomgoIntakeAutoTriggerKind
+  | SoomgoQuoteAutoTriggerKind
+  | SoomgoCallAutoTriggerKind;
 
 export const SOOMGO_QUOTE_AUTO_TRIGGER_KIND: SoomgoQuoteAutoTriggerKind = 'auto_quote';
+export const SOOMGO_CALL_AUTO_TRIGGER_KIND: SoomgoCallAutoTriggerKind = 'auto_call';
 
 export const SOOMGO_INTAKE_AUTO_TRIGGER_KINDS: SoomgoIntakeAutoTriggerKind[] = [
   'auto_requested',
@@ -51,6 +58,7 @@ export const SOOMGO_AUTO_TRIGGER_KINDS = SOOMGO_INTAKE_AUTO_TRIGGER_KINDS;
 export const SOOMGO_ALL_AUTO_TRIGGER_KINDS: SoomgoAutoTriggerKind[] = [
   ...SOOMGO_INTAKE_AUTO_TRIGGER_KINDS,
   SOOMGO_QUOTE_AUTO_TRIGGER_KIND,
+  SOOMGO_CALL_AUTO_TRIGGER_KIND,
 ];
 
 export const SOOMGO_INTAKE_AUTO_TRIGGER_LABELS: Record<SoomgoIntakeAutoTriggerKind, string> = {
@@ -66,6 +74,7 @@ export const SOOMGO_AUTO_TRIGGER_LABELS: Record<SoomgoIntakeAutoTriggerKind, str
   SOOMGO_INTAKE_AUTO_TRIGGER_LABELS;
 
 export const SOOMGO_QUOTE_AUTO_TRIGGER_LABEL = '견적보내기';
+export const SOOMGO_CALL_AUTO_TRIGGER_LABEL = '통화 시';
 
 /** CRM 처리 구분 → 자동 트리거 (1:1) */
 export const SOOMGO_AUTO_TRIGGER_BY_INTAKE: Record<string, SoomgoAutoTriggerKind> = {
@@ -84,8 +93,14 @@ export function soomgoAutoTriggerForIntakeKind(kind: string): SoomgoAutoTriggerK
 export function isSoomgoAutoTriggerKind(value: unknown): value is SoomgoAutoTriggerKind {
   return (
     typeof value === 'string' &&
-    ((SOOMGO_INTAKE_AUTO_TRIGGER_KINDS as string[]).includes(value) || value === SOOMGO_QUOTE_AUTO_TRIGGER_KIND)
+    ((SOOMGO_INTAKE_AUTO_TRIGGER_KINDS as string[]).includes(value) ||
+      value === SOOMGO_QUOTE_AUTO_TRIGGER_KIND ||
+      value === SOOMGO_CALL_AUTO_TRIGGER_KIND)
   );
+}
+
+export function isSoomgoCallAutoTriggerKind(value: unknown): value is SoomgoCallAutoTriggerKind {
+  return value === SOOMGO_CALL_AUTO_TRIGGER_KIND;
 }
 
 export function isSoomgoIntakeAutoTriggerKind(value: unknown): value is SoomgoIntakeAutoTriggerKind {
@@ -111,6 +126,18 @@ export type SoomgoQuoteAutoMessagePresetDto = {
   isActive: boolean;
   paybackWon: number | null;
   operatingCompanyId: string | null;
+};
+
+export type SoomgoCallAutoMessagePresetDto = {
+  triggerKind: SoomgoCallAutoTriggerKind;
+  id: string | null;
+  label: string;
+  steps: SoomgoMessageStep[];
+  isActive: boolean;
+  operatingCompanyId: string | null;
+  ownerUserId: string;
+  /** 브랜드별 미저장 시 개인 기본 문구 미리보기 */
+  fallbackFromDefault?: boolean;
 };
 
 /** 사용자(또는 공유 카탈로그)당 프리셋 상한 */

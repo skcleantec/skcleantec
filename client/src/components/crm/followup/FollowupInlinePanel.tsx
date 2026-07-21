@@ -22,7 +22,8 @@ import { ListPaginationBar } from '../../ui/ListPaginationBar';
 import { getToken } from '../../../stores/auth';
 import { useCrmFollowupListFilters } from '../../../hooks/useCrmFollowupListFilters';
 import { crmFollowupApplyFromItem } from '../../../utils/crmFollowupApply';
-import { telecrmCall, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
+import { runTelecrmCallWithSoomgoAuto } from '../../../utils/soomgoCallAutoSend';
+import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
 import { resolveCrmOutboundPhone } from '../../../utils/crmContactPhone';
 import { shouldShowListBlockingLoading } from '../../../utils/listRefreshDisplay';
 
@@ -68,6 +69,7 @@ export function FollowupInlinePanel({
   onSaved?: () => void;
 }) {
   const token = getToken();
+  const { userName } = useAdminStaffSession();
   const {
     filters,
     patchFilters,
@@ -223,17 +225,27 @@ export function FollowupInlinePanel({
   };
 
   const handleCall = async () => {
-    if (!draft) return;
+    if (!draft || !token) return;
     const dial = resolveCrmOutboundPhone(draft.contactPhone, draft.safePhone);
     if (dial.replace(/\D/g, '').length < 8) {
       setError('통화할 연락처가 없습니다.');
       return;
     }
-    const result = await telecrmCall(dial, {
-      customerMatch: 'existing',
-      inquiryId: selected?.inquiryId ?? undefined,
+    const { autoNotice, callNotice } = await runTelecrmCallWithSoomgoAuto({
+      token,
+      dialPhone: dial,
+      telecrmCallOpts: {
+        customerMatch: 'existing',
+        inquiryId: selected?.inquiryId ?? undefined,
+      },
+      soomgoCtx: {
+        operatingCompanyId,
+        customerName: draft.customerName,
+        nickname: draft.nickname,
+        marketerName: userName ?? undefined,
+      },
     });
-    const notice = telecrmDispatchNotice(result, 'call');
+    const notice = autoNotice ?? callNotice;
     if (notice) setMsg(notice);
   };
 

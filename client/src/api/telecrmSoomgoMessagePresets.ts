@@ -3,6 +3,7 @@ import type {
   SoomgoMessageStep,
   SoomgoAutoMessagePresetDto,
   SoomgoQuoteAutoMessagePresetDto,
+  SoomgoCallAutoMessagePresetDto,
 } from '@shared/soomgoMessagePresets';
 import type { SoomgoIntakeAutoTriggerKind } from '@shared/soomgoMessagePresets';
 
@@ -184,6 +185,69 @@ export async function updateTelecrmSoomgoQuoteAutoMessage(
   });
   const data = (await res.json()) as SoomgoQuoteAutoMessagePresetDto & { error?: string };
   if (!res.ok) throw new Error(data.error ?? '견적보내기 설정 저장 실패');
+  return data;
+}
+
+export async function fetchTelecrmSoomgoCallAutoMessage(
+  token: string,
+  operatingCompanyId?: string | null,
+): Promise<{
+  item: SoomgoCallAutoMessagePresetDto;
+  fallbackFromDefault?: boolean;
+  defaultItem?: SoomgoCallAutoMessagePresetDto;
+}> {
+  const q = new URLSearchParams();
+  if (operatingCompanyId) q.set('operatingCompanyId', operatingCompanyId);
+  const res = await fetch(`${API}/soomgo-message-presets/auto-messages/call?${q}`, {
+    headers: authHeaders(token),
+  });
+  const data = (await res.json()) as {
+    error?: string;
+    item?: SoomgoCallAutoMessagePresetDto;
+    fallbackFromDefault?: boolean;
+    defaultItem?: SoomgoCallAutoMessagePresetDto;
+  };
+  if (!res.ok) throw new Error(data.error ?? '통화 자동 안내 설정을 불러올 수 없습니다.');
+  if (!data.item) throw new Error('통화 자동 안내 설정을 불러올 수 없습니다.');
+  return {
+    item: data.item,
+    fallbackFromDefault: data.fallbackFromDefault,
+    defaultItem: data.defaultItem,
+  };
+}
+
+export async function resolveTelecrmSoomgoCallAutoMessageForSend(
+  token: string,
+  operatingCompanyId?: string | null,
+): Promise<{ item: SoomgoCallAutoMessagePresetDto | null }> {
+  const q = new URLSearchParams();
+  if (operatingCompanyId) q.set('operatingCompanyId', operatingCompanyId);
+  const res = await fetch(`${API}/soomgo-message-presets/auto-messages/call/resolve?${q}`, {
+    headers: authHeaders(token),
+  });
+  const data = (await res.json()) as {
+    error?: string;
+    item?: SoomgoCallAutoMessagePresetDto | null;
+  };
+  if (!res.ok) throw new Error(data.error ?? '통화 자동 안내를 불러올 수 없습니다.');
+  return { item: data.item ?? null };
+}
+
+export async function updateTelecrmSoomgoCallAutoMessage(
+  token: string,
+  input: {
+    steps: SoomgoMessageStep[];
+    isActive: boolean;
+    operatingCompanyId?: string | null;
+  },
+): Promise<SoomgoCallAutoMessagePresetDto> {
+  const res = await fetch(`${API}/soomgo-message-presets/auto-messages/call`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+  const data = (await res.json()) as SoomgoCallAutoMessagePresetDto & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '통화 자동 안내 저장 실패');
   return data;
 }
 

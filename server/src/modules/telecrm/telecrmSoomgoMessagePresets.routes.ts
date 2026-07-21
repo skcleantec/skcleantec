@@ -18,6 +18,11 @@ import {
   upsertTelecrmSoomgoQuoteAutoMessage,
 } from './telecrmSoomgoQuoteAutoMessage.service.js';
 import {
+  getTelecrmSoomgoCallAutoMessage,
+  resolveTelecrmSoomgoCallAutoMessageForSend,
+  upsertTelecrmSoomgoCallAutoMessage,
+} from './telecrmSoomgoCallAutoMessage.service.js';
+import {
   parseSortOrder,
   requireTelecrmActorPassword,
   requireTelecrmTenant,
@@ -130,6 +135,73 @@ router.get('/auto-messages/auto_quote/resolve', requireStaffPermission('crm.view
     const item = await resolveTelecrmSoomgoQuoteAutoMessageForSend(tenantId, operatingCompanyId);
     res.json({ item });
   } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.get('/auto-messages/call/resolve', requireStaffPermission('crm.view'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  try {
+    const operatingCompanyId =
+      req.query.operatingCompanyId == null || req.query.operatingCompanyId === ''
+        ? null
+        : String(req.query.operatingCompanyId);
+    const item = await resolveTelecrmSoomgoCallAutoMessageForSend(
+      tenantId,
+      user.userId,
+      operatingCompanyId,
+    );
+    res.json({ item });
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.get('/auto-messages/call', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  try {
+    res.json(await getTelecrmSoomgoCallAutoMessage(tenantId, user.userId, req.query.operatingCompanyId));
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INVALID_BRAND') {
+      res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.put('/auto-messages/call', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { steps, isActive, operatingCompanyId } = req.body as {
+    steps?: unknown;
+    isActive?: boolean;
+    operatingCompanyId?: string | null;
+  };
+  try {
+    const item = await upsertTelecrmSoomgoCallAutoMessage(tenantId, user.userId, operatingCompanyId ?? null, {
+      steps,
+      isActive: isActive === true,
+    });
+    res.json(item);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'STEPS_REQUIRED') {
+      res.status(400).json({ error: '자동 전송을 켜려면 스텝을 1개 이상 추가해 주세요.' });
+      return;
+    }
     if (e instanceof Error && e.message === 'INVALID_BRAND') {
       res.status(400).json({ error: '브랜드를 찾을 수 없습니다.' });
       return;

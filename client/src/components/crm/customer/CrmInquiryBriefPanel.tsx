@@ -9,7 +9,10 @@ import {
   effectiveCustomerOrderNotes,
 } from '../../../utils/inquirySpecialNotesDisplay';
 import { CrmActionButton } from '../crmUi';
-import { telecrmCall, isTelecrmNativeApp, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
+import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
+import { runTelecrmCallWithSoomgoAuto } from '../../../utils/soomgoCallAutoSend';
+import { getToken } from '../../../stores/auth';
+import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
 import { formatWon } from '../settings/telecrmSettingsUi';
 
 function fmtDate(iso: string | null): string {
@@ -52,13 +55,17 @@ function NoteBlock({ title, body, tint = 'emerald' }: { title: string; body: str
 
 export function CrmInquiryBriefPanel({
   inquiry,
+  operatingCompanyId = null,
   onOpenDetail,
   onDispatchNotice,
 }: {
   inquiry: TelecrmInquiryBriefDto;
+  operatingCompanyId?: string | null;
   onOpenDetail?: () => void;
   onDispatchNotice?: (message: string) => void;
 }) {
+  const token = getToken();
+  const { userName } = useAdminStaffSession();
   const of = inquiry.orderForm;
   const customerNotes = effectiveCustomerOrderNotes({
     specialNotes: inquiry.specialNotes,
@@ -114,11 +121,22 @@ export function CrmInquiryBriefPanel({
               accent="intake"
               variant="solid"
               onClick={async () => {
-                const result = await telecrmCall(inquiry.customerPhone, {
-                  inquiryId: inquiry.id,
-                  customerMatch: 'existing',
+                if (!token) return;
+                const { autoNotice, callNotice } = await runTelecrmCallWithSoomgoAuto({
+                  token,
+                  dialPhone: inquiry.customerPhone,
+                  telecrmCallOpts: {
+                    inquiryId: inquiry.id,
+                    customerMatch: 'existing',
+                  },
+                  soomgoCtx: {
+                    operatingCompanyId,
+                    customerName: inquiry.customerName,
+                    nickname: inquiry.nickname ?? undefined,
+                    marketerName: userName ?? undefined,
+                  },
                 });
-                const notice = telecrmDispatchNotice(result, 'call');
+                const notice = autoNotice ?? callNotice;
                 if (notice) onDispatchNotice?.(notice);
               }}
             >

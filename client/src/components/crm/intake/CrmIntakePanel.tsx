@@ -9,11 +9,13 @@ import type { TelecrmConsultationQuotePayload } from '@shared/telecrmConsultatio
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
 import { CrmIconIntake, CrmIconPhone, CrmIconReset, CrmIconSearch, CrmSegment, CrmSegmentItem, crmFieldCompactClass } from '../crmUi';
-import { telecrmCall, isTelecrmNativeApp, telecrmDispatchNotice } from '../../../utils/telecrmNativeBridge';
+import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 import {
   findInquiryIdForDialPhone,
   resolveTelecrmDispatchInquiryId,
 } from '../../../utils/telecrmDispatchInquiry';
+import { runTelecrmCallWithSoomgoAuto } from '../../../utils/soomgoCallAutoSend';
+import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
 import { CrmIntakeForm, type CrmIntakeSavedMeta } from './CrmIntakeForm';
 import type { CrmIntakeKind } from './crmIntakeSubmit';
 import { CrmCustomerHistoryPanel } from '../customer/CrmCustomerHistoryPanel';
@@ -176,6 +178,8 @@ export function CrmIntakePanel({
   onPricingReset?: () => void;
 }) {
   const outboundPhone = resolveCrmOutboundPhone(contactPhone, safePhone);
+  const token = getToken();
+  const { userName } = useAdminStaffSession();
   const [searchMode, setSearchMode] = useState<CrmCustomerSearchMode>('phone');
   const [nameSearch, setNameSearch] = useState('');
   const searchText = searchMode === 'phone' ? outboundPhone : nameSearch;
@@ -337,7 +341,7 @@ export function CrmIntakePanel({
   const canDial = dialPhone.replace(/\D/g, '').length >= 8;
 
   const handleCall = async () => {
-    if (!canDial) return;
+    if (!canDial || !token) return;
     const matchedInquiry = data?.inquiries?.find((inq) => inq.id === activeInquiryId);
     const dispatchInquiryId =
       resolveTelecrmDispatchInquiryId(
@@ -346,11 +350,21 @@ export function CrmIntakePanel({
         matchedInquiry?.customerPhone,
       ) ??
       findInquiryIdForDialPhone(dialPhone, data?.inquiries);
-    const result = await telecrmCall(dialPhone, {
-      customerMatch: activeCustomerMatch,
-      inquiryId: dispatchInquiryId,
+    const { autoNotice, callNotice } = await runTelecrmCallWithSoomgoAuto({
+      token,
+      dialPhone,
+      telecrmCallOpts: {
+        customerMatch: activeCustomerMatch,
+        inquiryId: dispatchInquiryId,
+      },
+      soomgoCtx: {
+        operatingCompanyId,
+        customerName: formSeed.customerName,
+        nickname: formSeed.nickname,
+        marketerName: userName ?? undefined,
+      },
     });
-    const notice = telecrmDispatchNotice(result, 'call');
+    const notice = autoNotice ?? callNotice;
     if (notice) onDispatchNotice?.(notice);
   };
 
@@ -459,6 +473,7 @@ export function CrmIntakePanel({
               data={lookupEnabled ? data : null}
               loading={lookupEnabled && loading}
               error={error}
+              operatingCompanyId={operatingCompanyId}
               onSelectCandidate={handleSelectCandidate}
               onSelectInquiry={(row) => onOpenInquiryEdit(row.id)}
               onNewForCustomer={() => {
