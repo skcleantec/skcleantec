@@ -115,14 +115,26 @@ export async function stampTenantShareCancelFeeDirection(
   tx: Prisma.TransactionClient,
   inquiryId: string,
 ): Promise<void> {
-  const asSource = await tx.tenantInquiryShare.findUnique({
-    where: { sourceInquiryId: inquiryId },
+  const asSource = await tx.tenantInquiryShare.findFirst({
+    where: { sourceInquiryId: inquiryId, syncStatus: 'ACTIVE' },
     select: { id: true, direction: true, cancelFeeDirection: true },
   });
   if (asSource && !asSource.cancelFeeDirection) {
     await tx.tenantInquiryShare.update({
       where: { id: asSource.id },
       data: { cancelFeeDirection: asSource.direction },
+    });
+    return;
+  }
+  const asSourceRevoked = await tx.tenantInquiryShare.findFirst({
+    where: { sourceInquiryId: inquiryId, syncStatus: { not: 'ACTIVE' } },
+    orderBy: { sharedAt: 'desc' },
+    select: { id: true, direction: true, cancelFeeDirection: true },
+  });
+  if (asSourceRevoked && !asSourceRevoked.cancelFeeDirection) {
+    await tx.tenantInquiryShare.update({
+      where: { id: asSourceRevoked.id },
+      data: { cancelFeeDirection: asSourceRevoked.direction },
     });
     return;
   }

@@ -385,6 +385,19 @@ export async function revertDbMarketplaceToCart(
   return data.listing;
 }
 
+/** 확정 + 연계 취소 후 — 장바구니 초기 DRAFT (재판매 준비) */
+export async function resetDbMarketplaceToDraftAfterRevoke(
+  token: string,
+  listingId: string,
+): Promise<DbMarketplaceSellerListing> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/reset-to-draft`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
+  return data.listing;
+}
+
 export async function removeDbMarketplaceFromCart(
   token: string,
   listingId: string,

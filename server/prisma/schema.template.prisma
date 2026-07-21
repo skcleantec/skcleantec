@@ -364,7 +364,7 @@ model TenantInquiryShare {
   id                          String                       @id @default(uuid())
   partnershipId               String                       @map("partnership_id")
   sourceTenantId              String                       @map("source_tenant_id")
-  sourceInquiryId               String                       @unique @map("source_inquiry_id")
+  sourceInquiryId               String                       @map("source_inquiry_id")
   targetTenantId              String                       @map("target_tenant_id")
   targetInquiryId               String                       @unique @map("target_inquiry_id")
   direction                   TenantInquiryShareDirection
@@ -389,6 +389,7 @@ model TenantInquiryShare {
   @@index([sourceTenantId, sharedAt])
   @@index([targetTenantId, sharedAt])
   @@index([settlementExternalCompanyId, syncStatus])
+  @@index([sourceInquiryId, syncStatus])
   @@map("tenant_inquiry_shares")
 }
 
@@ -1467,7 +1468,7 @@ model Inquiry {
   orderFollowups OrderFollowup[]
   quotations Quotation[]
   reviewPaybackRequests ReviewPaybackRequest[]
-  tenantShareAsSource TenantInquiryShare? @relation("ShareSourceInquiry")
+  tenantSharesAsSource TenantInquiryShare[] @relation("ShareSourceInquiry")
   tenantShareAsTarget TenantInquiryShare? @relation("ShareTargetInquiry")
   dbListing           InquiryDbListing?
   crewMemberMeetingTimes InquiryCrewMemberMeetingTime[]

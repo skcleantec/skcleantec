@@ -117,8 +117,9 @@ type ShareSyncRow = {
 };
 
 async function loadShareForInquiry(inquiryId: string): Promise<ShareSyncRow | null> {
-  const asSource = await prisma.tenantInquiryShare.findUnique({
+  const asSource = await prisma.tenantInquiryShare.findFirst({
     where: { sourceInquiryId: inquiryId },
+    orderBy: [{ syncStatus: 'asc' }, { sharedAt: 'desc' }],
     select: {
       id: true,
       sourceTenantId: true,

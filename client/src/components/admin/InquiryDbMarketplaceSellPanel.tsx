@@ -6,12 +6,14 @@ import {
   declineDbMarketplaceSeller,
   getDbListingByInquiry,
   publishDbMarketplaceListing,
+  resetDbMarketplaceToDraftAfterRevoke,
   updateDbMarketplaceAudience,
   upsertDbMarketplaceDraft,
   withdrawDbMarketplaceListing,
   type DbMarketplaceAudienceInput,
   type DbMarketplaceSellerListing,
 } from '../../api/dbMarketplace';
+import type { TenantInquiryShareMeta } from '../../api/tenantInquiryShare';
 import { DbMarketplaceCartAddButton } from '../db-marketplace/marketplaceUiParts';
 import { computeMarketplaceDisplayAmount, parseListingFeeInput } from '@shared/dbMarketplaceAmount';
 import { DbMarketplaceAudiencePickerModal } from './DbMarketplaceAudiencePickerModal';
@@ -27,6 +29,8 @@ type Props = {
   inquiryId: string;
   serviceBalanceAmount: number | null | undefined;
   disabled?: boolean;
+  /** 연계 취소(REVOKED) 배지 — CONFIRMED listing 초기화 버튼 표시용 */
+  tenantShare?: TenantInquiryShareMeta | null;
   /** 파트너 직접 연계 폼 → 정보공유 등록 시 1회 적용 */
   exchangePrefill?: DbMarketplaceExchangePrefill | null;
   /** 장바구니·게시·확정 등 listing 변경 후 스케줄 목록·상세 갱신 */
@@ -46,6 +50,7 @@ export function InquiryDbMarketplaceSellPanel({
   inquiryId,
   serviceBalanceAmount,
   disabled,
+  tenantShare,
   exchangePrefill,
   onListingChange,
 }: Props) {
@@ -79,7 +84,9 @@ export function InquiryDbMarketplaceSellPanel({
         const listingRow = await getDbListingByInquiry(token, inquiryId);
         setListing(listingRow);
         if (listingRow) {
-          setListingFeeInput(listingRow.listingFee.toLocaleString('ko-KR'));
+          setListingFeeInput(
+            listingRow.listingFee > 0 ? listingRow.listingFee.toLocaleString('ko-KR') : '',
+          );
           setVisibility(listingRow.visibility);
           setSelectedPartnerIds(
             listingRow.audiences
@@ -252,6 +259,37 @@ export function InquiryDbMarketplaceSellPanel({
     }
   };
 
+  const resetToDraftAfterRevoke = async () => {
+    if (!token || !listing) return;
+    const ok = window.confirm(
+      '이 접수는 파트너 업체와의 연계가 이미 끊긴 상태입니다.\n\n' +
+        '장바구니를 처음 상태로 되돌리면, 수수료와 노출 업체를 다시 정한 뒤 정보공유에 올릴 수 있습니다.\n\n' +
+        '이미 넘겨 받았던 파트너 업체 쪽 접수는 그대로 남습니다. (삭제되지 않습니다.)\n\n' +
+        '장바구니를 초기 상태로 되돌릴까요?',
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const row = await resetDbMarketplaceToDraftAfterRevoke(token, listing.id);
+      setListing(row);
+      setListingFeeInput('');
+      setVisibility('ALL');
+      setSelectedPartnerIds([]);
+      setSelectedExternalIds([]);
+      await notifyListingChange();
+      alert('장바구니를 처음 상태로 되돌렸습니다. 수수료와 노출 업체를 다시 설정한 뒤 게시해 주세요.');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '되돌리기 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const canResetAfterRevoke =
+    listing?.status === 'CONFIRMED' &&
+    tenantShare?.role === 'SOURCE' &&
+    tenantShare.syncStatus === 'REVOKED';
+
   const canEdit = !disabled && listing?.status !== 'CONFIRMED' && listing?.status !== 'PENDING_SELLER';
 
   return (
@@ -333,6 +371,23 @@ export function InquiryDbMarketplaceSellPanel({
             className="flex-1 min-w-[8rem] rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50"
           >
             구매 신청 거절
+          </button>
+        </div>
+      ) : null}
+
+      {canResetAfterRevoke ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-2.5 space-y-2">
+          <p className="text-[11px] text-amber-950 leading-relaxed">
+            파트너 연계가 취소된 확정 건입니다. 장바구니를 처음 상태로 되돌리면 수수료·노출 업체를 다시
+            설정한 뒤 정보공유에 재등록할 수 있습니다.
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void resetToDraftAfterRevoke()}
+            className="w-full rounded-lg border border-amber-400 bg-white px-3 py-2 text-[11px] font-medium text-amber-950 hover:bg-amber-50 disabled:opacity-50"
+          >
+            장바구니 처음 상태로 되돌리기
           </button>
         </div>
       ) : null}

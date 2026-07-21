@@ -6,6 +6,7 @@ import {
   type ExternalSettlementInquiryAttributionInput,
   type TenantShareAsSourceRow,
 } from './externalSettlementAttribution.js';
+import { pickPrimaryShareAsSource } from '../modules/tenant-partners/tenantInquirySharePick.helpers.js';
 import {
   loadMarketplaceExternalBuyerByInquiry,
   loadMarketplaceExternalInquiryIdsForCompany,
@@ -141,7 +142,7 @@ const inquirySettlementAssignmentSelect = {
       },
     },
   },
-  tenantShareAsSource: {
+  tenantSharesAsSource: {
     select: {
       syncStatus: true,
       settlementMode: true,
@@ -155,13 +156,14 @@ function toExternalSettlementAttributionInput(row: {
   id: string;
   cancelFeeExternalCompanyId: string | null;
   assignments: ExternalSettlementInquiryAttributionInput['assignments'];
-  tenantShareAsSource: TenantShareAsSourceRow | null;
+  tenantSharesAsSource: Array<NonNullable<TenantShareAsSourceRow>>;
 }): ExternalSettlementInquiryAttributionInput {
+  const primaryShare = pickPrimaryShareAsSource(row.tenantSharesAsSource);
   return {
     id: row.id,
     cancelFeeExternalCompanyId: row.cancelFeeExternalCompanyId,
     assignments: row.assignments,
-    hybridLegacySettlement: hybridLegacySettlementFromShare(row.tenantShareAsSource),
+    hybridLegacySettlement: hybridLegacySettlementFromShare(primaryShare),
   };
 }
 
@@ -238,7 +240,7 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
   };
   const attributedOr: Prisma.InquiryWhereInput[] = [
     { assignments: assignmentSome },
-    { tenantShareAsSource: hybridShareFilter },
+    { tenantSharesAsSource: { some: hybridShareFilter } },
   ];
   if (marketplaceAttributedIds.length > 0) {
     attributedOr.push({ id: { in: marketplaceAttributedIds } });
@@ -267,7 +269,7 @@ export async function fetchExternalSettlementInquiriesForCompanyPeriod(
             OR: [
               { cancelFeeExternalCompanyId: opts.externalCompanyId },
               { assignments: assignmentSome },
-              { tenantShareAsSource: hybridShareFilter },
+              { tenantSharesAsSource: { some: hybridShareFilter } },
               ...(marketplaceAttributedIds.length > 0
                 ? [{ id: { in: marketplaceAttributedIds } }]
                 : []),
@@ -365,7 +367,7 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
   };
   const attributedOr: Prisma.InquiryWhereInput[] = [
     { assignments: assignmentSome },
-    { tenantShareAsSource: hybridShareFilter },
+    { tenantSharesAsSource: { some: hybridShareFilter } },
   ];
   if (marketplaceAttributedIds.length > 0) {
     attributedOr.push({ id: { in: marketplaceAttributedIds } });
@@ -386,7 +388,7 @@ export async function computeSignedExternalFeeBeforeDate(opts: {
       externalTransferFee: true,
       cancelFeeExternalCompanyId: true,
       assignments: inquirySettlementAssignmentSelect.assignments,
-      tenantShareAsSource: inquirySettlementAssignmentSelect.tenantShareAsSource,
+      tenantSharesAsSource: inquirySettlementAssignmentSelect.tenantSharesAsSource,
     },
   });
 
