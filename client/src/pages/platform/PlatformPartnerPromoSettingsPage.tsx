@@ -27,6 +27,7 @@ type FormState = {
   linkTarget: '_blank' | '_self';
   startsAt: string;
   endsAt: string;
+  noPeriodLimit: boolean;
   isActive: boolean;
   showOnMobile: boolean;
   showOnDesktop: boolean;
@@ -44,6 +45,7 @@ const emptyForm = (): FormState => ({
   linkTarget: '_blank',
   startsAt: '',
   endsAt: '',
+  noPeriodLimit: true,
   isActive: true,
   showOnMobile: true,
   showOnDesktop: true,
@@ -70,6 +72,7 @@ function formFromItem(item: PlatformPromoAdminItem): FormState {
     linkTarget: item.linkTarget === '_self' ? '_self' : '_blank',
     startsAt: toLocalInput(item.startsAt),
     endsAt: toLocalInput(item.endsAt),
+    noPeriodLimit: !item.endsAt,
     isActive: item.isActive,
     showOnMobile: item.showOnMobile,
     showOnDesktop: item.showOnDesktop,
@@ -99,7 +102,7 @@ function formToBody(form: FormState): PlatformPromoUpsertBody {
     linkUrl: form.linkUrl.trim() || null,
     linkTarget: form.linkTarget,
     startsAt: toIsoOrNull(form.startsAt),
-    endsAt: toIsoOrNull(form.endsAt),
+    endsAt: form.noPeriodLimit ? null : toIsoOrNull(form.endsAt),
     isActive: form.isActive,
     showOnMobile: form.showOnMobile,
     showOnDesktop: form.showOnDesktop,
@@ -388,24 +391,48 @@ export function PlatformPartnerPromoSettingsPage() {
                   placeholder="https://www.cbiseo.com/…"
                 />
               </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block space-y-1">
-                  <span className="text-fluid-xs font-semibold text-slate-700">게시 시작</span>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block space-y-1">
+                    <span className="text-fluid-xs font-semibold text-slate-700">게시 시작</span>
+                    <input
+                      type="datetime-local"
+                      className={INPUT_BASE}
+                      value={form.startsAt}
+                      onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
+                    />
+                    <span className="text-[11px] text-slate-500">비우면 즉시 게시</span>
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-fluid-xs font-semibold text-slate-700">게시 종료</span>
+                    <input
+                      type="datetime-local"
+                      className={INPUT_BASE}
+                      value={form.endsAt}
+                      disabled={form.noPeriodLimit}
+                      onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <label className="flex items-start gap-2 text-fluid-xs">
                   <input
-                    type="datetime-local"
-                    className={INPUT_BASE}
-                    value={form.startsAt}
-                    onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={form.noPeriodLimit}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        noPeriodLimit: e.target.checked,
+                        endsAt: e.target.checked ? '' : f.endsAt,
+                      }))
+                    }
                   />
-                </label>
-                <label className="block space-y-1">
-                  <span className="text-fluid-xs font-semibold text-slate-700">게시 종료</span>
-                  <input
-                    type="datetime-local"
-                    className={INPUT_BASE}
-                    value={form.endsAt}
-                    onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))}
-                  />
+                  <span>
+                    <span className="font-medium text-slate-800">게시 기간 제한 없음</span>
+                    <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">
+                      종료일 없이 게시합니다. 「게시 활성」을 끄거나 배너를 삭제할 때까지 계속 노출됩니다.
+                    </span>
+                  </span>
                 </label>
               </div>
               <fieldset className="space-y-2">
