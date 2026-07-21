@@ -61,7 +61,7 @@ import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import {
   buildLeaderMorningAssignmentCounts,
   buildLeaderAfternoonAssignmentCounts,
-  scheduleItemHasLeaderWithSingleMorningAssignmentOnDay,
+  scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
@@ -1972,9 +1972,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     await copyInquiryTextToClipboard(inquiryCopyText);
   }, [item, inquiryCopyText, copyInquiryTextToClipboard]);
 
-  const detailLeaderMorningSingleAssignment = useMemo(() => {
-    if (!item || !effectiveLeaderMorningAssignmentCountsByLeaderId?.size) return false;
-    return scheduleItemHasLeaderWithSingleMorningAssignmentOnDay(
+  const detailLeaderSingleSlotAssignment = useMemo(() => {
+    if (!item) return false;
+    return scheduleItemHasLeaderWithSingleSlotAssignmentOnDay(
       item,
       effectiveLeaderMorningAssignmentCountsByLeaderId,
       effectiveLeaderAfternoonAssignmentCountsByLeaderId,
@@ -2135,7 +2135,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           {!isCreate && item ? (
             <div
               className={
-                detailLeaderMorningSingleAssignment
+                detailLeaderSingleSlotAssignment
                   ? 'mt-1.5 space-y-1 rounded-lg border border-slate-300 bg-slate-100/95 px-2.5 py-2 ring-1 ring-slate-200/80 sm:mt-2 sm:space-y-1.5 sm:px-3 sm:py-2.5'
                   : 'mt-1.5 space-y-1 sm:mt-2 sm:space-y-1.5'
               }
@@ -2256,7 +2256,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 {item.callAttempt != null ? <span>· 통화 시도: {item.callAttempt}</span> : null}
                 {item.claimMemo?.trim() ? <span>· 클레임 등록됨</span> : null}
               </p>
-              {detailLeaderMorningSingleAssignment ? (
+              {detailLeaderSingleSlotAssignment ? (
                 <p className="text-[11px] font-semibold text-slate-700 leading-snug">
                   오전 배정된 팀장 중 이날 오전 1건만 있는 사람이 있습니다. 추가 오전·오후·사이 배정 여부를
                   검토하세요.

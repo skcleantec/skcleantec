@@ -96,7 +96,7 @@ import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNam
 import {
   buildLeaderMorningAssignmentCounts,
   buildLeaderAfternoonAssignmentCounts,
-  scheduleItemHasLeaderWithSingleMorningAssignmentOnDay,
+  scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
 
 const ScheduleInquiryDetailModal = lazy(() =>
@@ -458,7 +458,7 @@ function ScheduleDayListItem({
     item.happyCallCompletedAt,
     hasAssignment
   );
-  const leaderMorningSingleAssignment = scheduleItemHasLeaderWithSingleMorningAssignmentOnDay(
+  const leaderSingleSlotAssignment = scheduleItemHasLeaderWithSingleSlotAssignmentOnDay(
     item,
     leaderMorningAssignmentCountsForDay,
     leaderAfternoonAssignmentCountsForDay,
@@ -467,13 +467,13 @@ function ScheduleDayListItem({
   return (
     <div
       className={`text-left w-full py-2 pl-3 pr-2 rounded-xl flex gap-2 border shadow-sm text-fluid-sm transition-all duration-200 hover:shadow-md hover:translate-y-[-0.5px] ${slotLeftBorder} ${
-        emphasizeOneRoomInList && !leaderMorningSingleAssignment
+        emphasizeOneRoomInList && !leaderSingleSlotAssignment
           ? 'border-red-300/90 ring-1 ring-red-200/80'
-          : leaderMorningSingleAssignment
+          : leaderSingleSlotAssignment
             ? 'border-slate-300/90'
             : 'border-slate-200/90'
       } ${
-        leaderMorningSingleAssignment
+        leaderSingleSlotAssignment
           ? 'bg-slate-100/95'
           : emphasizeOneRoomInList
             ? 'bg-red-50/30'
@@ -482,7 +482,7 @@ function ScheduleDayListItem({
         isPreOrder ? 'ring-1 ring-red-500' : ''
       } ${
         isOnHold
-          ? `ring-1 ring-amber-500${!leaderMorningSingleAssignment ? ' bg-amber-50/40' : ''}`
+          ? `ring-1 ring-amber-500${!leaderSingleSlotAssignment ? ' bg-amber-50/40' : ''}`
           : ''
       } ${isCancelled ? 'opacity-[0.88] saturate-[0.65]' : ''}`}
     >
@@ -762,7 +762,7 @@ function ScheduleLegendItems({ compact = false }: { compact?: boolean }) {
       <span className="inline-flex items-center gap-1.5">
         <span className="h-2 w-2.5 shrink-0 rounded-sm border-2 border-slate-400 bg-slate-100 ring-1 ring-slate-200" />
         <span>
-          팀장 <span className="font-semibold text-slate-800">오전 1건</span>
+          팀장 <span className="font-semibold text-slate-800">오전·오후 1건</span>
           {compact ? '' : ' (추가 배정 검토)'}
         </span>
       </span>
@@ -1443,14 +1443,14 @@ export function AdminSchedulePage() {
     return map;
   }, [activeServiceZoneId, activeRegionCalendar, zoneLeaderIds, byDate, stats]);
 
-  /** 이번 달 로드 전체 기준 — 팀장별 예약일당 오전 배정 건수(배정 판단·UI용) */
+  /** 화면에 보이는 목록 기준 — 팀장별 예약일당 슬롯별 배정 건수(회색 강조 UI) */
   const leaderMorningAssignmentCountsByDate = useMemo(
-    () => buildLeaderMorningAssignmentCounts(items),
-    [items],
+    () => buildLeaderMorningAssignmentCounts(filteredItems),
+    [filteredItems],
   );
   const leaderAfternoonAssignmentCountsByDate = useMemo(
-    () => buildLeaderAfternoonAssignmentCounts(items),
-    [items],
+    () => buildLeaderAfternoonAssignmentCounts(filteredItems),
+    [filteredItems],
   );
   const leaderMorningAssignmentCountsForSelectedDate = useMemo(() => {
     if (!selectedDate) return undefined;

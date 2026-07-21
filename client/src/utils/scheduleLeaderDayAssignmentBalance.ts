@@ -3,6 +3,10 @@ import { formatPreferredDateInputYmd } from './dateFormat';
 import { consumesAfternoonSlot, consumesMorningSlot } from './scheduleSlotOccupancy';
 import { getScheduleTimeBucket } from './scheduleTimeBucket';
 
+function isInternalScheduleLeader(role: string | null | undefined): boolean {
+  return role === 'TEAM_LEADER' || role === 'ADMIN';
+}
+
 function addAssignmentCountsForItems(
   items: ScheduleItem[],
   shouldCountItem: (item: ScheduleItem) => boolean,
@@ -20,6 +24,7 @@ function addAssignmentCountsForItems(
       byDate.set(ymd, m);
     }
     for (const a of asg) {
+      if (!isInternalScheduleLeader(a.teamLeader?.role)) continue;
       const id = a.teamLeader?.id?.trim();
       if (!id) continue;
       m.set(id, (m.get(id) ?? 0) + 1);
@@ -53,24 +58,40 @@ export function buildLeaderAfternoonAssignmentCounts(
 }
 
 /**
- * 오전 일정 행 — 배정된 팀장 중 그날 **오전만** 1건(오후 배정 없음)인 사람이 있으면 true.
- * 오전·오후 모두 받은 팀장은 슬롯별 기본 색(amber/sky) 유지.
+ * 해당 슬롯(오전/오후) 일정 — 배정된 자사 팀장 중 그날 **이 슬롯만** 1건·반대 슬롯 0건이면 true.
+ * 오전·오후 모두 1건인 팀장은 슬롯별 기본 색(amber/sky) 유지.
  */
+export function scheduleItemHasLeaderWithSingleSlotAssignmentOnDay(
+  item: ScheduleItem,
+  morningCountsForDate: Map<string, number> | undefined,
+  afternoonCountsForDate?: Map<string, number> | undefined,
+): boolean {
+  if (!item.assignments?.length) return false;
+  const bucket = getScheduleTimeBucket(item);
+  if (bucket !== 'morning' && bucket !== 'afternoon') return false;
+  for (const a of item.assignments) {
+    if (!isInternalScheduleLeader(a.teamLeader?.role)) continue;
+    const id = a.teamLeader?.id?.trim();
+    if (!id) continue;
+    const morningN = morningCountsForDate?.get(id) ?? 0;
+    const afternoonN = afternoonCountsForDate?.get(id) ?? 0;
+    if (bucket === 'morning' && morningN === 1 && afternoonN === 0) return true;
+    if (bucket === 'afternoon' && afternoonN === 1 && morningN === 0) return true;
+  }
+  return false;
+}
+
+/** @deprecated `scheduleItemHasLeaderWithSingleSlotAssignmentOnDay` 사용 */
 export function scheduleItemHasLeaderWithSingleMorningAssignmentOnDay(
   item: ScheduleItem,
   morningCountsForDate: Map<string, number> | undefined,
   afternoonCountsForDate?: Map<string, number> | undefined,
 ): boolean {
-  if (!morningCountsForDate || !item.assignments?.length) return false;
-  if (getScheduleTimeBucket(item) !== 'morning') return false;
-  for (const a of item.assignments) {
-    const id = a.teamLeader?.id?.trim();
-    if (!id) continue;
-    if (morningCountsForDate.get(id) !== 1) continue;
-    const afternoonN = afternoonCountsForDate?.get(id) ?? 0;
-    if (afternoonN === 0) return true;
-  }
-  return false;
+  return scheduleItemHasLeaderWithSingleSlotAssignmentOnDay(
+    item,
+    morningCountsForDate,
+    afternoonCountsForDate,
+  );
 }
 
 /** @deprecated 오전 1건 기준으로 `scheduleItemHasLeaderWithSingleMorningAssignmentOnDay` 사용 */
