@@ -1,6 +1,6 @@
 import type { ScheduleItem } from '../api/schedule';
 import { formatPreferredDateInputYmd } from './dateFormat';
-import { consumesMorningSlot } from './scheduleSlotOccupancy';
+import { consumesAfternoonSlot, consumesMorningSlot } from './scheduleSlotOccupancy';
 import { getScheduleTimeBucket } from './scheduleTimeBucket';
 
 function addAssignmentCountsForItems(
@@ -45,20 +45,30 @@ export function buildLeaderMorningAssignmentCounts(
   return addAssignmentCountsForItems(items, (item) => consumesMorningSlot(item));
 }
 
+/** 오후 슬롯(일반 오후 + 사이→오후 확정) 접수만 — 팀장별 당일 오후 배정 건수 */
+export function buildLeaderAfternoonAssignmentCounts(
+  items: ScheduleItem[],
+): Map<string, Map<string, number>> {
+  return addAssignmentCountsForItems(items, (item) => consumesAfternoonSlot(item));
+}
+
 /**
- * 오전 일정 행 — 배정된 팀장 중 그날 **오전** 배정이 1건인 사람이 있으면 true.
- * (원/투룸은 별도 아이콘·테두리로 표시, 배경은 회색만)
+ * 오전 일정 행 — 배정된 팀장 중 그날 **오전만** 1건(오후 배정 없음)인 사람이 있으면 true.
+ * 오전·오후 모두 받은 팀장은 슬롯별 기본 색(amber/sky) 유지.
  */
 export function scheduleItemHasLeaderWithSingleMorningAssignmentOnDay(
   item: ScheduleItem,
   morningCountsForDate: Map<string, number> | undefined,
+  afternoonCountsForDate?: Map<string, number> | undefined,
 ): boolean {
   if (!morningCountsForDate || !item.assignments?.length) return false;
   if (getScheduleTimeBucket(item) !== 'morning') return false;
   for (const a of item.assignments) {
     const id = a.teamLeader?.id?.trim();
     if (!id) continue;
-    if (morningCountsForDate.get(id) === 1) return true;
+    if (morningCountsForDate.get(id) !== 1) continue;
+    const afternoonN = afternoonCountsForDate?.get(id) ?? 0;
+    if (afternoonN === 0) return true;
   }
   return false;
 }

@@ -60,6 +60,7 @@ import {
 import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import {
   buildLeaderMorningAssignmentCounts,
+  buildLeaderAfternoonAssignmentCounts,
   scheduleItemHasLeaderWithSingleMorningAssignmentOnDay,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
@@ -416,8 +417,10 @@ export type ScheduleInquiryDetailModalProps =
       onProfOptionsApplied?: (
         result: import('../../api/inquiries').ApplyProfOptionAmountsResult,
       ) => void | Promise<void>;
-      /** 스케줄 월 뷰에서만 전달. 해당 예약일·팀장별 당일 배정 건수(표시만, DB 없음) */
+      /** 스케줄 월 뷰에서만 전달. 해당 예약일·팀장별 당일 오전 배정 건수(표시만, DB 없음) */
       leaderMorningAssignmentCountsByLeaderId?: Map<string, number>;
+      /** 같은 예약일 오후 배정 건수 — 오전·오후 겸임 팀장은 회색 강조 제외 */
+      leaderAfternoonAssignmentCountsByLeaderId?: Map<string, number>;
       /** 스케줄 월 뷰 — 같은 예약일 접수 목록(슬롯별 이미 배정된 팀장 제외용) */
       dayScheduleItems?: ScheduleItem[];
       /** 스케줄 — 내 추가 캘린더 수동 포함 */
@@ -503,6 +506,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const leaderMorningAssignmentCountsByLeaderId = !isCreate
     ? (props as { leaderMorningAssignmentCountsByLeaderId?: Map<string, number> })
         .leaderMorningAssignmentCountsByLeaderId
+    : undefined;
+  const leaderAfternoonAssignmentCountsByLeaderId = !isCreate
+    ? (props as { leaderAfternoonAssignmentCountsByLeaderId?: Map<string, number> })
+        .leaderAfternoonAssignmentCountsByLeaderId
     : undefined;
   const dayScheduleItems = !isCreate
     ? (props as { dayScheduleItems?: ScheduleItem[] }).dayScheduleItems
@@ -905,6 +912,16 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return buildLeaderMorningAssignmentCounts(effectiveDayScheduleItems).get(dateKeyForStats);
   }, [
     leaderMorningAssignmentCountsByLeaderId,
+    effectiveDayScheduleItems,
+    dateKeyForStats,
+  ]);
+
+  const effectiveLeaderAfternoonAssignmentCountsByLeaderId = useMemo(() => {
+    if (leaderAfternoonAssignmentCountsByLeaderId?.size) return leaderAfternoonAssignmentCountsByLeaderId;
+    if (!effectiveDayScheduleItems.length || !dateKeyForStats) return undefined;
+    return buildLeaderAfternoonAssignmentCounts(effectiveDayScheduleItems).get(dateKeyForStats);
+  }, [
+    leaderAfternoonAssignmentCountsByLeaderId,
     effectiveDayScheduleItems,
     dateKeyForStats,
   ]);
@@ -1960,8 +1977,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return scheduleItemHasLeaderWithSingleMorningAssignmentOnDay(
       item,
       effectiveLeaderMorningAssignmentCountsByLeaderId,
+      effectiveLeaderAfternoonAssignmentCountsByLeaderId,
     );
-  }, [item, effectiveLeaderMorningAssignmentCountsByLeaderId]);
+  }, [
+    item,
+    effectiveLeaderMorningAssignmentCountsByLeaderId,
+    effectiveLeaderAfternoonAssignmentCountsByLeaderId,
+  ]);
 
   const detailHeaderAreaShort = useMemo(() => {
     if (isCreate || !item) return '—';
