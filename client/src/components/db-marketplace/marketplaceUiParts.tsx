@@ -62,7 +62,7 @@ export const marketplaceDeclineBulkButtonClass =
   'min-h-[2.75rem] flex-1 rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:min-h-0 sm:flex-none';
 
 export const marketplaceCartAddButtonClass =
-  'rounded-lg bg-violet-700 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-violet-800 disabled:opacity-50';
+  'rounded-md bg-violet-700 px-2 py-1 text-[10px] font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-[11px]';
 
 export const marketplaceRevertToCartButtonClass =
   'min-h-[2.75rem] flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50 sm:min-h-0 sm:flex-none';
@@ -111,7 +111,8 @@ export function DbMarketplaceDeclineBulkButton(props: BtnProps) {
 export function DbMarketplaceCartAddButton(props: BtnProps) {
   return (
     <MarketplaceActionButton className={marketplaceCartAddButtonClass} {...props}>
-      장바구니 담기
+      <span className="sm:hidden">담기</span>
+      <span className="hidden sm:inline">장바구니 담기</span>
     </MarketplaceActionButton>
   );
 }
