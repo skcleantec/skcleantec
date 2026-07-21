@@ -18,7 +18,7 @@ alwaysApply: false
 1. **구매 전 금액**: `displayAmount = 잔금(serviceBalanceAmount) − listingFee` **만** 노출. 총액·예약금·수수료 **비노출**.
 2. **구매 전 PII**: 이름 마스킹, 주소 **시·구(군)**, 전화·이메일 **비노출**. 청소·일정 필드는 **전부 노출**.
 3. **양쪽 확정** 후에만 mirror/타업체 배정·정산·전체 DB 공개.
-4. **CONFIRMED 후** 판매자·구매자 임의 취소·환불 **없음** (고객 접수 취소는 기존 sync 규칙).
+4. **CONFIRMED 후** 판매자 **완전 회수**만 (`seller-complete-recall`) — 환불·구매자 mirror/배정 종료·listing 삭제. 구매자 취소 불가.
 5. **직접 연계**(`mod_tenant_exchange`)와 **마켓**(`mod_db_marketplace`) **병행·분리**.
 
 ---
@@ -43,6 +43,6 @@ alwaysApply: false
 ## 금지
 
 - 마켓 목록·상세에 총액·수수료 노출
-- `CONFIRMED` 역분개·환불 API (고객 취소 외)
+- `CONFIRMED` 후 구매자 임의 취소 API
 - 직접 연계 UI를 마켓 블록과 합치기
 - id-only listing mutate (tenantId 스코프 필수)

@@ -7,7 +7,7 @@ export type DbMarketplaceAudienceRef = {
   externalCompanyId: string | null;
 };
 
-async function activeStaffAdminMarketerUserIds(tenantId: string): Promise<string[]> {
+export async function activeStaffAdminMarketerUserIds(tenantId: string): Promise<string[]> {
   const rows = await prisma.user.findMany({
     where: { tenantId, role: { in: ['ADMIN', 'MARKETER'] }, isActive: true },
     select: { id: true },
@@ -15,7 +15,10 @@ async function activeStaffAdminMarketerUserIds(tenantId: string): Promise<string
   return rows.map((r) => r.id);
 }
 
-async function externalPartnerUserIds(tenantId: string, externalCompanyId: string): Promise<string[]> {
+export async function externalPartnerUserIds(
+  tenantId: string,
+  externalCompanyId: string,
+): Promise<string[]> {
   const rows = await prisma.user.findMany({
     where: {
       tenantId,

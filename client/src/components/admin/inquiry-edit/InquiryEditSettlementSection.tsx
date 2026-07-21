@@ -226,7 +226,9 @@ export function InquiryEditSettlementSection({
                   {item.tenantShare.role === 'TARGET' ? (
                     <PartnerReceivedBanner share={item.tenantShare} />
                   ) : null}
-                  {item.tenantShare.role === 'SOURCE' && item.tenantShare.syncStatus === 'ACTIVE' ? (
+                  {item.tenantShare.role === 'SOURCE' &&
+                  item.tenantShare.syncStatus === 'ACTIVE' &&
+                  !item.tenantShare.viaMarketplace ? (
                     <>
                       <div>
                         <label className={`${inqEditLabel} inline-flex items-center gap-1`}>
@@ -260,6 +262,18 @@ export function InquiryEditSettlementSection({
                         </button>
                       </div>
                     </>
+                  ) : item.tenantShare.role === 'SOURCE' &&
+                    item.tenantShare.syncStatus === 'ACTIVE' &&
+                    item.tenantShare.viaMarketplace ? (
+                    <p className="text-fluid-2xs text-violet-800">
+                      정보공유 인계 건입니다. 회수·환불은 아래 「완전 회수」를 사용해 주세요.
+                      {item.tenantShare.transferFee != null ? (
+                        <>
+                          {' '}
+                          (수수료 {item.tenantShare.transferFee.toLocaleString()}원)
+                        </>
+                      ) : null}
+                    </p>
                   ) : item.tenantShare.role === 'SOURCE' && item.tenantShare.transferFee != null ? (
                     <p className="text-fluid-2xs tabular-nums text-gray-600">
                       파트너 수수료: {item.tenantShare.transferFee.toLocaleString()}원
@@ -338,7 +352,6 @@ export function InquiryEditSettlementSection({
               inquiryId={item.id}
               serviceBalanceAmount={item.serviceBalanceAmount}
               disabled={isActivePartnerShareSource(item.tenantShare) || externalPartnerBlocksShare}
-              tenantShare={item.tenantShare ?? null}
               exchangePrefill={marketplaceExchangePrefill}
               onListingChange={() => onInquiryRefresh?.()}
             />

@@ -385,17 +385,26 @@ export async function revertDbMarketplaceToCart(
   return data.listing;
 }
 
-/** 확정 + 연계 취소 후 — 장바구니 초기 DRAFT (재판매 준비) */
-export async function resetDbMarketplaceToDraftAfterRevoke(
+/** 확정 + 연계 취소 후 — 장바구니 초기 DRAFT (deprecated — seller-complete-recall 사용) */
+export async function completeRecallDbMarketplaceListing(
   token: string,
   listingId: string,
-): Promise<DbMarketplaceSellerListing> {
-  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/reset-to-draft`, {
-    method: 'POST',
-    headers: headers(token),
-  });
-  const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
-  return data.listing;
+  password: string,
+): Promise<{
+  inquiryId: string;
+  refundDisplayAmount: number;
+  listingFee: number;
+  buyerLabel: string | null;
+}> {
+  const res = await fetch(
+    `${API}/db-marketplace/${encodeURIComponent(listingId)}/seller-complete-recall`,
+    {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify({ password }),
+    },
+  );
+  return parseJson(res);
 }
 
 export async function removeDbMarketplaceFromCart(

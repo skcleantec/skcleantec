@@ -476,6 +476,21 @@ export async function revokeTenantInquiryShare(opts: {
     throw new TenantInquiryShareError('이미 취소되었거나 중지된 연계입니다.');
   }
 
+  const marketplaceConfirmedListing = await prisma.inquiryDbListing.findFirst({
+    where: {
+      tenantInquiryShareId: share.id,
+      status: 'CONFIRMED',
+      tenantId: opts.viewerTenantId,
+    },
+    select: { id: true },
+  });
+  if (marketplaceConfirmedListing) {
+    throw new TenantInquiryShareError(
+      '정보공유로 인계한 건은 「접수연계 취소」 대신 접수 상세의 「완전 회수」를 사용해 주세요.',
+      400,
+    );
+  }
+
   const source = await prisma.inquiry.findFirst({
     where: { id: share.sourceInquiryId, tenantId: opts.viewerTenantId },
     select: {
