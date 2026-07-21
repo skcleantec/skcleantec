@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -16,6 +17,7 @@ import {
 import { DbMarketplaceCartAddButton } from '../db-marketplace/marketplaceUiParts';
 import { computeMarketplaceDisplayAmount, parseListingFeeInput } from '@shared/dbMarketplaceAmount';
 import { DbMarketplaceAudiencePickerModal } from './DbMarketplaceAudiencePickerModal';
+import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { HelpTooltip } from '../ui/HelpTooltip';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
@@ -62,7 +64,6 @@ export function InquiryDbMarketplaceSellPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recallModalOpen, setRecallModalOpen] = useState(false);
-  const [recallPassword, setRecallPassword] = useState('');
 
   const parsedListingFee = parseListingFeeInput(listingFeeInput);
   const listingFeeValid = parsedListingFee != null;
@@ -258,27 +259,15 @@ export function InquiryDbMarketplaceSellPanel({
     }
   };
 
-  const completeRecall = async () => {
+  const completeRecall = async (password: string) => {
     if (!token || !listing) return;
-    if (!recallPassword.trim()) {
-      alert('비밀번호를 입력해 주세요.');
-      return;
-    }
-    setBusy(true);
-    try {
-      const result = await completeRecallDbMarketplaceListing(token, listing.id, recallPassword);
-      setListing(null);
-      setRecallModalOpen(false);
-      setRecallPassword('');
-      await notifyListingChange();
-      alert(
-        `완전 회수했습니다.\n환불 ${result.refundDisplayAmount.toLocaleString('ko-KR')}원이 정산 미수에 반영됩니다.\n다시 판매하려면 장바구니에 담아 주세요.`,
-      );
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '완전 회수 실패');
-    } finally {
-      setBusy(false);
-    }
+    const result = await completeRecallDbMarketplaceListing(token, listing.id, password);
+    setListing(null);
+    setRecallModalOpen(false);
+    await notifyListingChange();
+    alert(
+      `완전 회수했습니다.\n정보공유 수수료 ${result.refundListingFee.toLocaleString('ko-KR')}원이 정산 미수에 환불 반영됩니다.\n다시 판매하려면 장바구니에 담아 주세요.`,
+    );
   };
 
   const canEdit = !disabled && listing?.status !== 'CONFIRMED' && listing?.status !== 'PENDING_SELLER';
@@ -397,19 +386,17 @@ export function InquiryDbMarketplaceSellPanel({
       {listing?.status === 'CONFIRMED' ? (
         <div className="rounded-md border border-rose-200 bg-rose-50/80 p-2 space-y-1.5 sm:rounded-lg sm:p-2.5 sm:space-y-2">
           <p className={`${panelMetaText} text-rose-950`}>
-            인계가 완료된 DB입니다. 완전 회수 시 구매자 DB가 종료되고 환불이 정산에 반영되며, 이 접수는
-            다시 자사 스케줄·TO에 포함됩니다.
+            인계가 완료된 DB입니다. 완전 회수 시 구매자 DB가 종료되고, 정보공유{' '}
+            <strong>수수료만</strong> 정산 미수에 환불 반영됩니다. 이 접수는 다시 자사 스케줄·TO에
+            포함됩니다.
           </p>
           <button
             type="button"
             disabled={busy}
-            onClick={() => {
-              setRecallPassword('');
-              setRecallModalOpen(true);
-            }}
+            onClick={() => setRecallModalOpen(true)}
             className={`${panelBtn} w-full border-rose-400 bg-white text-rose-950 hover:bg-rose-50`}
           >
-            완전 회수 (환불)
+            완전 회수 (수수료 환불)
           </button>
         </div>
       ) : null}
@@ -507,61 +494,33 @@ export function InquiryDbMarketplaceSellPanel({
         />
       ) : null}
 
-      {recallModalOpen ? (
-        <div
-          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/40 p-4 sm:items-center"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="db-marketplace-recall-title"
-        >
-          <div className="w-full max-w-md rounded-t-2xl bg-white p-4 shadow-xl sm:rounded-2xl sm:p-5 space-y-3">
-            <h3 id="db-marketplace-recall-title" className="text-sm font-semibold text-gray-900">
-              완전 회수 확인
-            </h3>
-            <p className="text-fluid-xs text-gray-600 leading-relaxed">
-              구매자 DB가 종료되고 환불({listing?.displayAmount?.toLocaleString('ko-KR') ?? '?'}원)이
-              정산 미수에 반영됩니다. 되돌릴 수 없습니다.
-              {listing?.buyerName ? (
+      {recallModalOpen
+        ? createPortal(
+            <ConfirmPasswordModal
+              open={recallModalOpen}
+              title="완전 회수 확인"
+              zIndexClassName="z-[560]"
+              confirmLabel="완전 회수"
+              description={
                 <>
-                  <br />
-                  구매: {listing.buyerName}
+                  구매자 DB가 종료되고, 정보공유{' '}
+                  <strong>수수료 {listing?.listingFee?.toLocaleString('ko-KR') ?? '?'}원</strong>만
+                  정산 미수에 환불 반영됩니다. 잔금(표시금액) 전체가 회수되는 것은 아닙니다. 되돌릴
+                  수 없습니다.
+                  {listing?.buyerName ? (
+                    <>
+                      <br />
+                      구매: {listing.buyerName}
+                    </>
+                  ) : null}
                 </>
-              ) : null}
-            </p>
-            <label className="block text-fluid-xs text-gray-700">
-              본인 비밀번호
-              <input
-                type="password"
-                value={recallPassword}
-                onChange={(e) => setRecallPassword(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm"
-                autoComplete="current-password"
-              />
-            </label>
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  setRecallModalOpen(false);
-                  setRecallPassword('');
-                }}
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-fluid-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void completeRecall()}
-                className="flex-1 rounded-lg bg-rose-600 px-3 py-2 text-fluid-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
-              >
-                {busy ? '처리 중…' : '완전 회수'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+              }
+              onClose={() => setRecallModalOpen(false)}
+              onConfirm={completeRecall}
+            />,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
