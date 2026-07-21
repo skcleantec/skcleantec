@@ -142,16 +142,14 @@ export function AdminDashboardPage() {
       {/* PC — 메인 + 우측 변경 이력 레일 */}
       <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_468px] lg:gap-5 lg:items-start">
         <div className="min-w-0 space-y-5">
-          {promoItems.length > 0 ? (
-            <div className="hidden lg:block">
-              <PlatformPromoDashboardCard items={promoItems} />
-            </div>
-          ) : null}
           <DashboardKpiGrid stats={stats} loading={loading} navigate={navigate} compact />
           <DashboardOpsHourlyStrip onOpenDetail={(range) => openDrill('ops-hourly', undefined, range)} />
           {salesAnalytics}
         </div>
         <aside className="min-w-0 self-start space-y-5">
+          {promoItems.length > 0 ? (
+            <PlatformPromoDashboardCard items={promoItems} layout="sidebar" />
+          ) : null}
           <DashboardAuxBlocksGrid showTelecrmDashboard={showTelecrmDashboard} />
           {token ? <DashboardChangeHistory token={token} variant="sidebar" /> : null}
         </aside>

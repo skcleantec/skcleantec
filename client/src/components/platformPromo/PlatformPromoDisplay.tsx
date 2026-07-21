@@ -89,8 +89,14 @@ export function PlatformPromoCarousel({ items }: { items: PlatformPromoActiveIte
   );
 }
 
-/** PC 대시보드 정사각 프로모 박스 */
-export function PlatformPromoDashboardCard({ items }: { items: PlatformPromoActiveItem[] }) {
+/** PC 대시보드 프로모 — square: 타업체 KPI 옆, sidebar: 관리 대시보드 우측 레일(구독 카드와 동일 폭) */
+export function PlatformPromoDashboardCard({
+  items,
+  layout = 'square',
+}: {
+  items: PlatformPromoActiveItem[];
+  layout?: 'square' | 'sidebar';
+}) {
   const slides = useMemo(
     () => items.filter((item) => item.showOnDesktop && item.desktopImageUrl.trim()),
     [items],
@@ -118,9 +124,14 @@ export function PlatformPromoDashboardCard({ items }: { items: PlatformPromoActi
 
   const current = slides[index]!;
 
+  const frameClass =
+    layout === 'sidebar'
+      ? 'relative aspect-[5/2] w-full overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/80'
+      : 'relative aspect-square w-full max-w-[220px] overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/80';
+
   return (
     <div className="w-full min-w-0" role="region" aria-label="청소비서 안내">
-      <div className="relative aspect-square w-full max-w-[220px] overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/80">
+      <div className={frameClass}>
         <PromoSlide item={current} imageUrl={current.desktopImageUrl} className="object-cover" />
         {slides.length > 1 ? (
           <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
