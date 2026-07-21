@@ -18,6 +18,8 @@ import {
   computeSourceMirrorBalanceAmount,
   computeTargetMirrorBalanceAmount,
 } from './tenantInquiryShareBalance.helpers.js';
+import { clearInternalInquiryAssignments } from '../assignments/clearInternalInquiryAssignments.js';
+import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 
 export class TenantInquiryShareError extends Error {
   constructor(
@@ -230,6 +232,12 @@ export async function createTenantInquiryShareInTransaction(
     });
   }
 
+  const removedInternalLeaderIds = await clearInternalInquiryAssignments(
+    tx,
+    viewerTenantId,
+    inquiryId,
+  );
+
   const targetTenantId =
     viewerTenantId === partnership.tenantLowId ? partnership.tenantHighId : partnership.tenantLowId;
   const direction = resolveShareDirection(partnership, viewerTenantId);
@@ -311,6 +319,7 @@ export async function createTenantInquiryShareInTransaction(
     source,
     partnerName,
     targetTenantId,
+    removedInternalLeaderIds,
   };
 }
 
@@ -345,6 +354,10 @@ export async function createTenantInquiryShare(opts: {
     sourceInquiryNumberSnapshot: source.inquiryNumber,
     targetInquiryNumber: result.mirror.inquiryNumber,
   });
+
+  if (result.removedInternalLeaderIds.length > 0) {
+    void notifyInboxRefresh(result.removedInternalLeaderIds);
+  }
 
   return {
     share: result.share,
