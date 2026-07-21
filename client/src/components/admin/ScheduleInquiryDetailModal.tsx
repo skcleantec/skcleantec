@@ -111,7 +111,7 @@ import { createTenantInquiryShare, patchTenantInquiryShareTransferFee, revokeTen
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { TenantInquiryShareBadge } from './TenantInquiryShareBadge';
 import { PartnerReceivedBanner } from './PartnerReceivedBanner';
-import { formatPartnerAssignmentLabel, isActiveNativePartnerShareSource, isExternalLegacyShareSource } from '../../utils/tenantShareSettlement';
+import { formatPartnerAssignmentLabel, isActiveNativePartnerShareSource, isActivePartnerShareSource, isExternalLegacyShareSource } from '../../utils/tenantShareSettlement';
 import {
   externalPartnerBlocksPartnerShare,
   MSG_EXTERNAL_BLOCKS_PARTNER_SHARE,
@@ -2639,7 +2639,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   ? '타업체 담당이 지정된 접수는 파트너 연계할 수 없습니다. 타업체 담당을 해제한 뒤 이용하세요.'
                   : '연결된 파트너 업체 접수 목록에 같은 건을 복제합니다. 타업체 담당과 둘 중 하나만 선택할 수 있습니다.'}
               </p>
-              {hasDbMarketplace && !item.tenantShare && !externalPartnerBlocksShare ? (
+              {hasDbMarketplace && !isActivePartnerShareSource(item.tenantShare) && !externalPartnerBlocksShare ? (
                 <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-2.5 space-y-2">
                   <p className="text-[11px] text-violet-900 leading-relaxed">
                     특정 파트너 한 곳이 아니라 여러 업체에 공개하려면{' '}
@@ -2771,7 +2771,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               <InquiryDbMarketplaceSellPanel
                 inquiryId={item.id}
                 serviceBalanceAmount={item.serviceBalanceAmount}
-                disabled={!!item.tenantShare || externalPartnerBlocksShare}
+                disabled={isActivePartnerShareSource(item.tenantShare) || externalPartnerBlocksShare}
+                tenantShare={item.tenantShare ?? null}
                 exchangePrefill={marketplaceExchangePrefill}
                 onListingChange={() => onInquiryRefresh?.()}
               />

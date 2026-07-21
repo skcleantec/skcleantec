@@ -19,6 +19,7 @@ import {
   updateDbListingAudience,
   removeDbListingFromCart,
   revertDbListingToCart,
+  resetDbListingToDraftAfterRevoke,
   upsertDbListingDraft,
   withdrawDbListing,
 } from './dbMarketplace.service.js';
@@ -292,6 +293,20 @@ router.post('/:id/revert-to-cart', async (req, res) => {
       visibility: row.visibility,
       audiences: row.audiences,
     });
+    await notifyDbMarketplaceSellerAdmins(tenantId);
+    res.json({ listing: serializeSellerListing(row) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/reset-to-draft', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const row = await resetDbListingToDraftAfterRevoke(tenantId, listingId);
     await notifyDbMarketplaceSellerAdmins(tenantId);
     res.json({ listing: serializeSellerListing(row) });
   } catch (e) {

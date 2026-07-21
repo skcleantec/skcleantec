@@ -23,6 +23,7 @@ import {
   resolveExternalSettlementEffectiveDate,
   endOfKstToday,
 } from '../../lib/externalSettlementEffectiveDate.js';
+import { pickPrimaryShareAsSource } from '../tenant-partners/tenantInquirySharePick.helpers.js';
 import { resolveSettlementOperatingCompanyId } from '../../lib/externalSettlementOperatingCompanyScope.js';
 import { EXTERNAL_PARTNER_PENDING_CONTACT_NAME } from '../onboarding/profileOnboarding.service.js';
 import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
@@ -577,7 +578,7 @@ router.get('/settlement/summary', requireStaffPermission('admin.externalSettleme
           },
         },
       },
-      tenantShareAsSource: {
+      tenantSharesAsSource: {
         select: {
           syncStatus: true,
           settlementMode: true,
@@ -625,7 +626,9 @@ router.get('/settlement/summary', requireStaffPermission('admin.externalSettleme
         cancelFeeExternalCompanyId: inq.cancelFeeExternalCompanyId,
         cancelFeeExternalCompany: inq.cancelFeeExternalCompany,
         assignments: inq.assignments,
-        hybridLegacySettlement: hybridLegacySettlementFromShare(inq.tenantShareAsSource),
+        hybridLegacySettlement: hybridLegacySettlementFromShare(
+          pickPrimaryShareAsSource(inq.tenantSharesAsSource),
+        ),
       },
       isCancelled,
       marketplaceBuyerByInquiry.get(inq.id),
@@ -743,7 +746,7 @@ router.get('/settlement/monthly-overview', requireStaffPermission('admin.externa
           },
         },
       },
-      tenantShareAsSource: {
+      tenantSharesAsSource: {
         select: {
           syncStatus: true,
           settlementMode: true,
@@ -802,7 +805,9 @@ router.get('/settlement/monthly-overview', requireStaffPermission('admin.externa
         cancelFeeExternalCompanyId: inq.cancelFeeExternalCompanyId,
         cancelFeeExternalCompany: inq.cancelFeeExternalCompany,
         assignments: inq.assignments,
-        hybridLegacySettlement: hybridLegacySettlementFromShare(inq.tenantShareAsSource),
+        hybridLegacySettlement: hybridLegacySettlementFromShare(
+          pickPrimaryShareAsSource(inq.tenantSharesAsSource),
+        ),
       },
       isCancelled,
       marketplaceBuyerByInquiry.get(inq.id),

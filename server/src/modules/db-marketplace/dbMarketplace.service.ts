@@ -67,12 +67,16 @@ async function findInquiryForSeller(tenantId: string, inquiryId: string) {
       tenantId: true,
       serviceBalanceAmount: true,
       status: true,
-      tenantShareAsSource: { select: { id: true } },
+      tenantSharesAsSource: {
+        where: { syncStatus: 'ACTIVE' },
+        take: 1,
+        select: { id: true },
+      },
       dbListing: { select: { id: true, status: true } },
     },
   });
   if (!inquiry) throw new DbMarketplaceError('접수를 찾을 수 없습니다.', 404);
-  if (inquiry.tenantShareAsSource) {
+  if (inquiry.tenantSharesAsSource.length > 0) {
     throw new DbMarketplaceError('이미 파트너에 직접 연계된 접수는 마켓에 올릴 수 없습니다.', 400);
   }
   return inquiry;
@@ -349,6 +353,87 @@ export async function revertDbListingToCart(tenantId: string, listingId: string)
       heldUntil: null,
     },
     include: LISTING_INCLUDE,
+  });
+}
+
+/**
+ * 확정(CONFIRMED) + 연계 취소(REVOKED) 후 — 장바구니 초기 DRAFT로 되돌려 재판매 준비.
+ * share·mirror row는 삭제하지 않는다.
+ */
+export async function resetDbListingToDraftAfterRevoke(tenantId: string, listingId: string) {
+  const listing = await prisma.inquiryDbListing.findFirst({
+    where: { id: listingId, tenantId },
+    include: {
+      inquiry: { select: { id: true, status: true } },
+    },
+  });
+  if (!listing) throw new DbMarketplaceError('판매 항목을 찾을 수 없습니다.', 404);
+  if (listing.status !== 'CONFIRMED') {
+    throw new DbMarketplaceError('확정된 건만 장바구니 초기 상태로 되돌릴 수 있습니다.', 400);
+  }
+
+  const inquiryStatus = listing.inquiry.status;
+  if (inquiryStatus === 'CANCELLED') {
+    throw new DbMarketplaceError('취소된 접수는 되돌릴 수 없습니다.', 400);
+  }
+  if (inquiryStatus === 'COMPLETED') {
+    throw new DbMarketplaceError('완료된 접수는 되돌릴 수 없습니다.', 400);
+  }
+
+  const activeShare = await prisma.tenantInquiryShare.findFirst({
+    where: { sourceInquiryId: listing.inquiryId, syncStatus: 'ACTIVE' },
+    select: { id: true },
+  });
+  if (activeShare) {
+    throw new DbMarketplaceError(
+      '아직 연계가 활성 상태입니다. 먼저 「접수연계 취소」를 실행해 주세요.',
+      400,
+    );
+  }
+
+  const revokedShare = await prisma.tenantInquiryShare.findFirst({
+    where: {
+      sourceInquiryId: listing.inquiryId,
+      sourceTenantId: tenantId,
+      syncStatus: 'REVOKED',
+    },
+    select: { id: true },
+  });
+  if (!revokedShare) {
+    throw new DbMarketplaceError('접수 연계 취소 후에만 장바구니를 초기 상태로 되돌릴 수 있습니다.', 400);
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.inquiryDbListingAudience.deleteMany({ where: { listingId } });
+    return tx.inquiryDbListing.update({
+      where: { id: listingId, tenantId },
+      data: {
+        status: 'DRAFT',
+        listingFee: 0,
+        displayAmount: null,
+        visibility: 'ALL',
+        publishedAt: null,
+        withdrawnAt: null,
+        expiresAt: null,
+        expiredAt: null,
+        platformSuspendedAt: null,
+        confirmedAt: null,
+        buyerKind: null,
+        buyerTenantId: null,
+        buyerExternalCompanyId: null,
+        buyerConfirmedAt: null,
+        sellerConfirmedAt: null,
+        buyerConfirmedByUserId: null,
+        sellerConfirmedByUserId: null,
+        holdBuyerKind: null,
+        holdBuyerTenantId: null,
+        holdBuyerExternalCompanyId: null,
+        holdByUserId: null,
+        heldUntil: null,
+        tenantInquiryShareId: null,
+      },
+      include: LISTING_INCLUDE,
+    });
   });
 }
 

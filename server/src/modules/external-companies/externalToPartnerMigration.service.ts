@@ -6,6 +6,7 @@ import {
   TenantInquiryShareError,
 } from '../tenant-partners/tenantInquiryShare.service.js';
 import { notifyTenantShareReceived } from '../tenant-partners/tenantInquiryShareNotify.js';
+import { noActiveSourceShareWhere } from '../tenant-partners/tenantInquirySharePick.helpers.js';
 
 export class ExternalToPartnerMigrationError extends Error {
   constructor(
@@ -114,7 +115,7 @@ export async function listMigrationEligibleInquiries(opts: {
       ...inquiryActiveOnlyWhere(),
       externalTransferFee: { not: null },
       ...(ocId ? { operatingCompanyId: ocId } : {}),
-      tenantShareAsSource: null,
+      ...noActiveSourceShareWhere,
       OR: [
         {
           assignments: {
@@ -181,8 +182,8 @@ async function migrateOneInquiryInTransaction(
     throw new ExternalToPartnerMigrationError('타업체 수수료가 없는 접수는 이관할 수 없습니다.');
   }
 
-  const existingShare = await tx.tenantInquiryShare.findUnique({
-    where: { sourceInquiryId: source.id },
+  const existingShare = await tx.tenantInquiryShare.findFirst({
+    where: { sourceInquiryId: source.id, syncStatus: 'ACTIVE' },
   });
   if (existingShare) {
     throw new ExternalToPartnerMigrationError('이미 파트너 연계된 접수입니다.');

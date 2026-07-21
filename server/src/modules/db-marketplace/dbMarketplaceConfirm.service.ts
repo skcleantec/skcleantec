@@ -163,7 +163,16 @@ export async function confirmDbListingSeller(
   const listing = await prisma.inquiryDbListing.findFirst({
     where: { id: listingId, tenantId: sellerTenantId },
     include: {
-      inquiry: { select: { id: true, tenantShareAsSource: { select: { id: true } } } },
+      inquiry: {
+        select: {
+          id: true,
+          tenantSharesAsSource: {
+            where: { syncStatus: 'ACTIVE' },
+            take: 1,
+            select: { id: true },
+          },
+        },
+      },
     },
   });
   if (!listing) throw new DbMarketplaceError('판매 항목을 찾을 수 없습니다.', 404);
@@ -173,7 +182,7 @@ export async function confirmDbListingSeller(
   if (!listing.buyerConfirmedAt || !listing.buyerKind) {
     throw new DbMarketplaceError('구매자 확정이 필요합니다.', 400);
   }
-  if (listing.inquiry.tenantShareAsSource) {
+  if (listing.inquiry.tenantSharesAsSource.length > 0) {
     throw new DbMarketplaceError('이미 파트너에 직접 연계된 접수입니다.', 400);
   }
 

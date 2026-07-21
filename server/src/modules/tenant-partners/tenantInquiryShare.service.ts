@@ -208,8 +208,8 @@ export async function createTenantInquiryShareInTransaction(
     throw new TenantInquiryShareError('접수를 찾을 수 없습니다.', 404);
   }
 
-  const existingAsSource = await tx.tenantInquiryShare.findUnique({
-    where: { sourceInquiryId: inquiryId },
+  const existingAsSource = await tx.tenantInquiryShare.findFirst({
+    where: { sourceInquiryId: inquiryId, syncStatus: 'ACTIVE' },
   });
   if (existingAsSource) {
     throw new TenantInquiryShareError('이미 다른 파트너에게 연계된 접수입니다.');
@@ -569,15 +569,40 @@ export async function loadShareMetaMapForInquiries(
   const marketplaceShareIds = await loadMarketplaceConfirmedShareIdSet(shareIds);
 
   const map = new Map<string, SerializedTenantInquiryShareMeta>();
+  const rowByInquiryId = new Map<string, ShareRow>();
+
+  function sharePriority(status: ShareRow['syncStatus']): number {
+    if (status === 'ACTIVE') return 3;
+    if (status === 'PAUSED') return 2;
+    return 1;
+  }
+
+  function consider(inquiryId: string, row: ShareRow, meta: SerializedTenantInquiryShareMeta) {
+    const prevRow = rowByInquiryId.get(inquiryId);
+    if (!prevRow) {
+      rowByInquiryId.set(inquiryId, row);
+      map.set(inquiryId, meta);
+      return;
+    }
+    const better =
+      sharePriority(row.syncStatus) > sharePriority(prevRow.syncStatus) ||
+      (sharePriority(row.syncStatus) === sharePriority(prevRow.syncStatus) &&
+        row.sharedAt > prevRow.sharedAt);
+    if (better) {
+      rowByInquiryId.set(inquiryId, row);
+      map.set(inquiryId, meta);
+    }
+  }
+
   for (const row of rows) {
     const meta = serializeShareMeta(row, viewerTenantId, {
       viaMarketplace: marketplaceShareIds.has(row.id),
     });
     if (row.sourceInquiryId && ids.includes(row.sourceInquiryId)) {
-      map.set(row.sourceInquiryId, meta);
+      consider(row.sourceInquiryId, row, meta);
     }
     if (row.targetInquiryId && ids.includes(row.targetInquiryId)) {
-      map.set(row.targetInquiryId, meta);
+      consider(row.targetInquiryId, row, meta);
     }
   }
   return map;

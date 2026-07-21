@@ -26,11 +26,11 @@ export async function loadActiveShareSourceMeta(
   db: Db,
   inquiryId: string,
 ): Promise<{ syncStatus: string; settlementMode: string } | null> {
-  const row = await db.tenantInquiryShare.findUnique({
-    where: { sourceInquiryId: inquiryId },
+  const row = await db.tenantInquiryShare.findFirst({
+    where: { sourceInquiryId: inquiryId, syncStatus: 'ACTIVE' },
     select: { syncStatus: true, settlementMode: true },
   });
-  if (!row || row.syncStatus !== 'ACTIVE') return null;
+  if (!row) return null;
   return row;
 }
 

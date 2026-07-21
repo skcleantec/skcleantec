@@ -56,8 +56,8 @@ async function copyConsultationPhotoToMirror(
 }
 
 async function loadActiveShareAsSource(sourceInquiryId: string): Promise<ActiveShareRow | null> {
-  const share = await prisma.tenantInquiryShare.findUnique({
-    where: { sourceInquiryId },
+  const share = await prisma.tenantInquiryShare.findFirst({
+    where: { sourceInquiryId, syncStatus: 'ACTIVE' },
     select: {
       targetInquiryId: true,
       targetTenantId: true,
