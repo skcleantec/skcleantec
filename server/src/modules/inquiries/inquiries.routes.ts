@@ -120,6 +120,7 @@ import {
 import { notifyInspectionChecklistRefresh } from '../inquiry-inspection/inquiryInspectionNotify.js';
 import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { handlePostSwapCrewWithPartner } from './inquiryCrewPartnerSwap.handler.js';
+import { handlePostSwapLeaderWithPartner } from './inquiryLeaderPartnerSwap.handler.js';
 import {
   attachTenantShareMetaToInquiries,
   attachTenantShareMetaToInquiry,
@@ -619,8 +620,15 @@ router.use('/:inquiryId/consultation-photos', inquiryConsultationPhotosAdminRout
 router.use('/:inquiryId/extra-charges', inquiryExtraChargesAdminRoutes);
 router.use('/:inquiryId/additional-receipts', inquiryAdditionalReceiptsAdminRoutes);
 
-/** 같은 예약일 다른 접수와 팀원 투입(인원·이름) 맞바꿈 — 드롭다운으로는 가용 인원 부족할 때 사용 */
+/** 같은 예약일 다른 접수와 팀원 투입(인원·이름) 맞바꿈 */
 router.post('/:id/swap-crew-with-partner', handlePostSwapCrewWithPartner);
+
+/** 같은 예약일 다른 접수와 자사 팀장 1쌍 맞바꿈 */
+router.post(
+  '/:id/swap-leader-with-partner',
+  requireStaffPermission('inquiry.edit.assignment'),
+  handlePostSwapLeaderWithPartner,
+);
 
 /** 비밀번호 확인 후 접수 휴지통 이동 — inquiry.delete */
 router.delete('/:id', requireStaffPermission('inquiry.delete'), async (req, res) => {

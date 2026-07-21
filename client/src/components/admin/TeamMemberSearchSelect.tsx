@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TeamMemberItem } from '../../api/teams';
+import { ChevronDownIcon } from '../ui/SelectWithChevron';
 
 function getHangulInitial(ch: string): string {
   const code = ch.charCodeAt(0);
@@ -74,6 +75,12 @@ export function TeamMemberSearchSelect({
       : '';
   const closedDisplay = `${selectedName}${selectedGapSuffix}`;
 
+  const openList = (showAll: boolean) => {
+    setOpen(true);
+    setQuery(showAll ? '' : selectedName);
+    inputRef.current?.focus();
+  };
+
   useEffect(() => {
     if (!open) return;
     const onDown = (evt: MouseEvent | TouchEvent) => {
@@ -94,29 +101,45 @@ export function TeamMemberSearchSelect({
     };
   }, [open]);
 
+  const inputClass = compact
+    ? 'min-w-0 flex-1 rounded-l border border-gray-300 border-r-0 px-2 py-1 text-fluid-2xs'
+    : 'min-w-0 flex-1 rounded-l border border-gray-300 border-r-0 px-3 py-2 text-sm';
+
+  const toggleClass = compact
+    ? 'flex shrink-0 items-center justify-center rounded-r border border-gray-300 bg-gray-50 px-1.5 py-1 text-gray-600 hover:bg-gray-100'
+    : 'flex shrink-0 items-center justify-center rounded-r border border-gray-300 bg-gray-50 px-2 py-2 text-gray-600 hover:bg-gray-100';
+
   return (
-    <div ref={boxRef} className="relative">
+    <div ref={boxRef} className="relative flex min-w-0">
       <input
         ref={inputRef}
         value={open ? query : closedDisplay}
-        onFocus={() => {
-          setOpen(true);
-          setQuery(selectedName);
-        }}
+        onFocus={() => openList(false)}
         onChange={(e) => {
           setOpen(true);
           setQuery(e.target.value);
         }}
         placeholder={placeholder ?? (compact ? '팀원 검색' : '팀원 검색 (초성 가능)')}
-        className={
-          compact
-            ? 'w-full rounded border border-gray-300 px-2 py-1 text-fluid-2xs'
-            : 'w-full rounded border border-gray-300 px-3 py-2 text-sm'
-        }
+        className={inputClass}
       />
+      <button
+        type="button"
+        aria-label="팀원 목록 열기"
+        className={toggleClass}
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+            inputRef.current?.blur();
+          } else {
+            openList(true);
+          }
+        }}
+      >
+        <ChevronDownIcon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+      </button>
       {open && (
         <div
-          className={`absolute z-[570] mt-0.5 w-full overflow-y-auto rounded border border-gray-200 bg-white shadow-lg ${
+          className={`absolute left-0 right-0 top-full z-[570] mt-0.5 overflow-y-auto rounded border border-gray-200 bg-white shadow-lg ${
             compact ? 'max-h-36' : 'max-h-44'
           }`}
         >

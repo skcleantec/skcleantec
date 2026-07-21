@@ -2,6 +2,8 @@ import { formatAssignableUserLabel, type UserItem } from '../../api/users';
 import type { TeamMemberItem } from '../../api/teams';
 import { SOLO_LEADER_CREW_LABEL, toggleSoloTeamLeaderId } from '../../utils/inquiryNoCrewMembers';
 import { TeamMemberSearchSelect } from './TeamMemberSearchSelect';
+import { SelectWithChevron } from '../ui/SelectWithChevron';
+import { InquiryCrossSwapActionButtons } from './InquiryCrossSwapActionButtons';
 
 const compactSelectClass =
   'w-full min-w-0 rounded border border-gray-300 bg-white px-2 py-1 text-fluid-2xs text-gray-900';
@@ -29,6 +31,10 @@ export function InquiryCopyAssignmentPanel({
   occupiedCrewNamesByDate,
   crewSpacingByMemberName,
   effectiveCrewSlots,
+  showLeaderSwap,
+  showCrewSwap,
+  onLeaderSwap,
+  onCrewSwap,
 }: {
   teamLeaderIds: string[];
   soloTeamLeaderIds: string[];
@@ -52,6 +58,10 @@ export function InquiryCopyAssignmentPanel({
   occupiedCrewNamesByDate: Set<string>;
   crewSpacingByMemberName: Record<string, number | null>;
   effectiveCrewSlots: number;
+  showLeaderSwap: boolean;
+  showCrewSwap: boolean;
+  onLeaderSwap: () => void;
+  onCrewSwap: () => void;
 }) {
   return (
     <section className="border-b border-gray-100 pb-2 mb-2">
@@ -94,11 +104,12 @@ export function InquiryCopyAssignmentPanel({
           {teamLeaderIds.map((lid, idx) => (
             <div key={`copy-assign-leader-${idx}`} className="flex min-w-0 items-center gap-1">
               <span className="w-7 shrink-0 text-fluid-2xs text-gray-500">팀장</span>
-              <select
+              <SelectWithChevron
                 value={lid}
                 disabled={teamLeaderBlocked}
                 onChange={(e) => onTeamLeaderChange(idx, e.target.value)}
                 className={`${compactSelectClass} min-w-0 flex-1`}
+                wrapperClassName="min-w-0 flex-1"
               >
                 <option value="">선택</option>
                 {leaderOptionsForRow(idx).map((tl) => (
@@ -106,7 +117,7 @@ export function InquiryCopyAssignmentPanel({
                     {formatAssignableUserLabel(tl)}
                   </option>
                 ))}
-              </select>
+              </SelectWithChevron>
               {lid.trim() ? (
                 <label
                   className="inline-flex shrink-0 items-center gap-0.5 text-fluid-2xs text-gray-600"
@@ -147,6 +158,13 @@ export function InquiryCopyAssignmentPanel({
               + 팀장
             </button>
           ) : null}
+          <InquiryCrossSwapActionButtons
+            compact
+            showLeaderSwap={showLeaderSwap}
+            showCrewSwap={false}
+            onLeaderSwap={onLeaderSwap}
+            onCrewSwap={onCrewSwap}
+          />
         </div>
       )}
 
@@ -154,20 +172,21 @@ export function InquiryCopyAssignmentPanel({
         <div className="mt-1.5 space-y-1">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="w-7 shrink-0 text-fluid-2xs text-gray-500">팀원</span>
-            <select
+            <SelectWithChevron
               value={String(crewMemberCount)}
               onChange={(e) => {
                 const v = Number(e.target.value);
                 onCrewMemberCountChange(Number.isFinite(v) ? v : 0);
               }}
               className={`${compactSelectClass} w-16 shrink-0`}
+              wrapperClassName="w-16 shrink-0"
             >
               {Array.from({ length: 21 }, (_, i) => (
                 <option key={i} value={String(i)}>
                   {i}명
                 </option>
               ))}
-            </select>
+            </SelectWithChevron>
           </div>
           {effectiveCrewSlots > 0 ? (
             <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
@@ -191,6 +210,13 @@ export function InquiryCopyAssignmentPanel({
               })}
             </div>
           ) : null}
+          <InquiryCrossSwapActionButtons
+            compact
+            showLeaderSwap={false}
+            showCrewSwap={showCrewSwap}
+            onLeaderSwap={onLeaderSwap}
+            onCrewSwap={onCrewSwap}
+          />
         </div>
       ) : null}
     </section>
