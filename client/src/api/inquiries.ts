@@ -222,6 +222,31 @@ export async function applyInquiryProfOptionAmounts(
   return res.json();
 }
 
+/** 같은 예약일(KST) 접수 간 자사 팀장 1쌍 교환 — 상세 form과 동일 응답 */
+export async function swapInquiryLeaderWithPartner(
+  token: string,
+  inquiryId: string,
+  params: {
+    partnerInquiryId: string;
+    myLeaderId?: string;
+    partnerLeaderId?: string;
+  }
+): Promise<Record<string, unknown>> {
+  const res = await fetch(
+    `${API}/inquiries/${encodeURIComponent(inquiryId)}/swap-leader-with-partner`,
+    {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify(params),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '팀장 맞바꿈에 실패했습니다.');
+  }
+  return res.json();
+}
+
 /** 같은 예약일(KST) 접수 간 팀원 이름 교환 — 상세 form과 동일 응답 */
 export async function swapInquiryCrewWithPartner(
   token: string,
