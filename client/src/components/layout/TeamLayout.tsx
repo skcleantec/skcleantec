@@ -435,6 +435,7 @@ export function TeamLayout() {
         setUserVehicleNumber(u.vehicleNumber ?? null);
         setUserNameEn(u.role === 'TEAM_LEADER' ? (u.nameEn ?? null) : null);
         const needsOnboarding =
+          !u.profileCompletedAt &&
           Boolean(u.profileOnboardingRequired) &&
           (u.role === 'TEAM_LEADER' || u.role === 'EXTERNAL_PARTNER');
         setProfileOnboardingRequired(needsOnboarding);
@@ -493,6 +494,7 @@ export function TeamLayout() {
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
         setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : null);
         const needsOnboarding =
+          !u.profileCompletedAt &&
           Boolean(u.profileOnboardingRequired) &&
           u.role !== 'ADMIN' &&
           (u.role === 'TEAM_LEADER' || u.role === 'EXTERNAL_PARTNER');

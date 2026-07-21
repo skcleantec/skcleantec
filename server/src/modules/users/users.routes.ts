@@ -27,6 +27,7 @@ import {
   type EmploymentStatusFilter,
 } from './userEmployment.js';
 import { selectableExternalCompanyWhere } from '../external-companies/externalCompanyUsage.helpers.js';
+import { isProfileOnboardingRole } from '../onboarding/profileOnboarding.service.js';
 import {
   filterTeamLeaderIdsInServiceZone,
   listServiceZonesByUserIds,
@@ -556,7 +557,7 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
         ...(userRole === 'TEAM_LEADER' && teamLeaderAdditionalReceiptCompanyShareBps !== undefined
           ? { teamLeaderAdditionalReceiptCompanyShareBps }
           : {}),
-        ...(userRole === 'TEAM_LEADER' || userRole === 'MARKETER'
+        ...(isProfileOnboardingRole(userRole)
           ? { profileCompletedAt: null }
           : { profileCompletedAt: new Date() }),
       },

@@ -540,7 +540,17 @@ router.post(
       return;
     }
     if (!isProfileOnboardingRequired(existing.role, existing.profileCompletedAt)) {
-      res.status(400).json({ error: '이미 프로필 입력이 완료되었습니다.' });
+      res.json({
+        id: existing.id,
+        role: existing.role,
+        name: existing.name,
+        phone: existing.phone,
+        vehicleNumber: existing.vehicleNumber,
+        nameEn: existing.nameEn,
+        profileCompletedAt: existing.profileCompletedAt?.toISOString() ?? null,
+        profileOnboardingRequired: false,
+        externalCompany: existing.externalCompany,
+      });
       return;
     }
 
