@@ -10,7 +10,7 @@ import {
   type PlatformPromoTeamMenu,
 } from '@shared/platformPromoTeamSurfaces';
 
-export function usePlatformPromos(surface: 'admin' | 'team') {
+export function usePlatformPromos(surface: 'admin' | 'team', teamPreviewSearch = '') {
   const [items, setItems] = useState<PlatformPromoActiveItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,14 +18,16 @@ export function usePlatformPromos(surface: 'admin' | 'team') {
     setLoading(true);
     try {
       const rows =
-        surface === 'admin' ? await fetchAdminActivePlatformPromos() : await fetchTeamActivePlatformPromos();
+        surface === 'admin'
+          ? await fetchAdminActivePlatformPromos()
+          : await fetchTeamActivePlatformPromos(teamPreviewSearch);
       setItems(rows);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [surface]);
+  }, [surface, teamPreviewSearch]);
 
   useEffect(() => {
     void refresh();
