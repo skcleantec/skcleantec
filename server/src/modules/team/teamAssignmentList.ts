@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import { InquiryStatus } from '@prisma/client';
 import { createdAtRangeFromQuery, type DatePreset } from '../inquiries/inquiryListDateRange.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
+import { whereExcludeHandedOffSourceInquiries } from '../inquiries/inquiryHandedOffFromInternal.js';
 
 export type TeamAssignmentDateBasis = 'assignedAt' | 'createdAt' | 'preferredDate';
 
@@ -82,6 +83,7 @@ function inquiryListWhere(
   const parts: Prisma.InquiryWhereInput[] = [
     { assignments: { some: { teamLeaderId: userId } } },
     inquiryActiveOnlyWhere(),
+    whereExcludeHandedOffSourceInquiries(),
   ];
   if (extraInquiryWhere) parts.push(extraInquiryWhere);
   if (status && VALID_STATUS.has(status)) {
@@ -136,7 +138,11 @@ export async function listTeamAssignmentsPaginated(
 
   if (shouldPaginateViaAssignment(basis)) {
     let assignmentWhere: Prisma.AssignmentWhereInput = {
-      AND: [assignmentDateWhere(userId, range), { inquiry: inquiryActiveOnlyWhere() }],
+      AND: [
+        assignmentDateWhere(userId, range),
+        { inquiry: inquiryActiveOnlyWhere() },
+        { inquiry: whereExcludeHandedOffSourceInquiries() },
+      ],
     };
     if (status && VALID_STATUS.has(status)) {
       assignmentWhere = {
