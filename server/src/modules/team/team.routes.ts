@@ -11,6 +11,7 @@ import inquiryExtraChargesTeamRoutes from '../inquiry-extra-charges/inquiryExtra
 import inquiryAdditionalReceiptsTeamRoutes from '../inquiry-additional-receipts/inquiryAdditionalReceipts.team.routes.js';
 import inquiryInspectionTeamRoutes from '../inquiry-inspection/inquiryInspection.team.routes.js';
 import dbMarketplaceTeamRoutes from '../db-marketplace/dbMarketplace.team.routes.js';
+import teamPlatformPromoRoutes from '../platform-partner-promo/teamPlatformPromo.routes.js';
 import quotationsTeamRoutes from '../quotations/quotations.team.routes.js';
 import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
 import {
@@ -110,6 +111,7 @@ function teamCsAccessWhere(userId: string) {
 const SCHEDULE_QUERY_YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 router.use(teamAuthMiddleware);
+router.use(teamPlatformPromoRoutes);
 
 /** 팀 화면 기준 현재 사용자(프리뷰 매핑 반영) */
 router.get('/me', async (req, res) => {

@@ -33,6 +33,8 @@ import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
+import { usePlatformPromos } from '../../hooks/usePlatformPromos';
+import { PlatformPromoDashboardCard } from '../../components/platformPromo/PlatformPromoDisplay';
 
 /** 대시보드 상단 — 모바일 4열×2행 고정 요약 */
 const DASHBOARD_SUMMARY_KEYS = [
@@ -82,7 +84,11 @@ export function TeamDashboardPage() {
   const [detailItem, setDetailItem] = useState<InquiryItem | null>(null);
   const [happyStats, setHappyStats] = useState({ overdueCount: 0, pendingBeforeDeadlineCount: 0 });
   const [myId, setMyId] = useState<string | null>(null);
+  const [viewerRole, setViewerRole] = useState<string | null>(null);
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
+  const previewExternal = new URLSearchParams(location.search).get('previewRole') === 'external';
+  const isExternalPartner = viewerRole === 'EXTERNAL_PARTNER' || previewExternal;
+  const { items: promoItems } = usePlatformPromos('team');
 
   useTeamOpenInquiryDeepLink(token, setDetailItem);
 
@@ -95,12 +101,13 @@ export function TeamDashboardPage() {
         const [inv, hc, me] = await Promise.all([
           getTeamInquiries(token) as Promise<{ items: InquiryItem[] }>,
           getTeamHappyCallStats(token).catch(() => ({ overdueCount: 0, pendingBeforeDeadlineCount: 0 })),
-          getTeamMe(token).catch(() => null) as Promise<{ id: string } | null>,
+          getTeamMe(token).catch(() => null) as Promise<{ id: string; role?: string; viewerRole?: string } | null>,
         ]);
         if (isPreviewFetchStale(startedKey)) return;
         setItems(inv.items);
         setHappyStats(hc);
         setMyId(me?.id ?? null);
+        setViewerRole(me?.viewerRole ?? me?.role ?? null);
       } catch {
         if (isPreviewFetchStale(startedKey)) return;
         setItems([]);
@@ -200,7 +207,19 @@ export function TeamDashboardPage() {
           </div>
         </div>
       )}
-      <section className="grid grid-cols-4 gap-1.5 sm:gap-2">
+      <section
+        className={
+          isExternalPartner && promoItems.length > 0
+            ? 'lg:grid lg:grid-cols-[minmax(180px,220px)_1fr] lg:items-start lg:gap-4'
+            : undefined
+        }
+      >
+        {isExternalPartner && promoItems.length > 0 ? (
+          <div className="mb-3 hidden min-w-0 lg:mb-0 lg:block">
+            <PlatformPromoDashboardCard items={promoItems} />
+          </div>
+        ) : null}
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 min-w-0">
         {summaryTiles.map(({ key, count }) => {
           if (key === 'total') {
             return (
@@ -234,6 +253,7 @@ export function TeamDashboardPage() {
             />
           );
         })}
+        </div>
       </section>
 
       <section>

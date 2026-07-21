@@ -27,6 +27,8 @@ import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
+import { usePlatformPromos } from '../../hooks/usePlatformPromos';
+import { PlatformPromoCarousel } from '../platformPromo/PlatformPromoDisplay';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -629,6 +631,7 @@ export function TeamLayout() {
       (previewExternal || previewTeamLeader),
   );
   const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
+  const { items: teamPromoItems } = usePlatformPromos('team');
   const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER' && !previewExternal;
   const showDbMarketplace =
     isExternalPartner && Boolean(tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace'));
@@ -824,6 +827,11 @@ export function TeamLayout() {
         </>
       ) : null}
       </div>
+      {isExternalPartner && teamPromoItems.length > 0 ? (
+        <div className="relative z-10 mx-auto w-full max-w-6xl shrink-0 px-4 pt-2 lg:hidden">
+          <PlatformPromoCarousel items={teamPromoItems} />
+        </div>
+      ) : null}
       <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null, tenantSlug }}>
           <Outlet />

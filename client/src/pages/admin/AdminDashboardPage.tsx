@@ -15,12 +15,15 @@ import {
 import type { DashboardDrillKind, DashboardDrillRequest } from '../../components/admin/dashboard/dashboardDrilldownTypes';
 import { kstMonthKeyNow } from '../../components/admin/dashboard/dashboardDrilldownTypes';
 import { useTelecrmDashboardVisible } from '../../hooks/useTelecrmDashboardVisible';
+import { usePlatformPromos } from '../../hooks/usePlatformPromos';
+import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../../components/platformPromo/PlatformPromoDisplay';
 
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const token = getToken();
   const { tenantName } = useAdminStaffSession();
   const showTelecrmDashboard = useTelecrmDashboardVisible();
+  const { items: promoItems } = usePlatformPromos('admin');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [breakdown, setBreakdown] = useState<DashboardInquiryBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
@@ -128,6 +131,7 @@ export function AdminDashboardPage() {
 
       {/* 모바일 — 기존 세로 순서 유지 */}
       <div className="lg:hidden space-y-4">
+        {promoItems.length > 0 ? <PlatformPromoCarousel items={promoItems} /> : null}
         <DashboardAuxBlocksGrid showTelecrmDashboard={showTelecrmDashboard} />
         <DashboardOpsHourlyStrip onOpenDetail={(range) => openDrill('ops-hourly', undefined, range)} />
         <DashboardKpiGrid stats={stats} loading={loading} navigate={navigate} compact />
@@ -138,6 +142,11 @@ export function AdminDashboardPage() {
       {/* PC — 메인 + 우측 변경 이력 레일 */}
       <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_468px] lg:gap-5 lg:items-start">
         <div className="min-w-0 space-y-5">
+          {promoItems.length > 0 ? (
+            <div className="hidden lg:block">
+              <PlatformPromoDashboardCard items={promoItems} />
+            </div>
+          ) : null}
           <DashboardKpiGrid stats={stats} loading={loading} navigate={navigate} compact />
           <DashboardOpsHourlyStrip onOpenDetail={(range) => openDrill('ops-hourly', undefined, range)} />
           {salesAnalytics}

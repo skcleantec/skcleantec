@@ -302,6 +302,11 @@ export const PlatformUnpaidPopupSettingsPage = lazyWithRetry(() =>
     default: m.PlatformUnpaidPopupSettingsPage,
   }))
 );
+export const PlatformPartnerPromoSettingsPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformPartnerPromoSettingsPage').then((m) => ({
+    default: m.PlatformPartnerPromoSettingsPage,
+  }))
+);
 export const PlatformSettingsPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformSettingsPage').then((m) => ({
     default: m.PlatformSettingsPage,

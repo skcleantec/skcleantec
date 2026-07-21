@@ -106,6 +106,7 @@ import {
   PlatformDbMarketplacePage,
   PlatformHelpInquirySettingsPage,
   PlatformUnpaidPopupSettingsPage,
+  PlatformPartnerPromoSettingsPage,
   PlatformSettingsPage,
   HelpPage,
   TelecrmAppInstallPage,
@@ -148,6 +149,7 @@ function App() {
           <Route path="db-marketplace" element={<SuspensePage><PlatformDbMarketplacePage /></SuspensePage>} />
           <Route path="help-inquiry" element={<SuspensePage><PlatformHelpInquirySettingsPage /></SuspensePage>} />
           <Route path="popups/unpaid" element={<SuspensePage><PlatformUnpaidPopupSettingsPage /></SuspensePage>} />
+          <Route path="popups/partner-promo" element={<SuspensePage><PlatformPartnerPromoSettingsPage /></SuspensePage>} />
           <Route path="popups" element={<Navigate to="unpaid" replace />} />
           <Route path="settings" element={<Navigate to="smtp" replace />} />
           <Route path="settings/:tab" element={<SuspensePage><PlatformSettingsPage /></SuspensePage>} />
