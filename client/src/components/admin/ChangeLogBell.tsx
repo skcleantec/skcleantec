@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   type ChangeHistoryItem,
   type ChangeLogCategory,
@@ -14,6 +15,14 @@ import {
 
 const PAGE_SIZE = 50;
 const BELL_POS_STORAGE_KEY = 'changeLogBellTopPx';
+
+/** lg 미만 — AdminLayout 모바일 FAB 스택 안에 embed */
+export type ChangeLogBellMobileStackProps = {
+  onPointerDown: (evt: React.PointerEvent<HTMLButtonElement>) => void;
+  dragging?: boolean;
+  /** FAB 스택 flex 내부 마운트 지점 (데스크톱 fixed와 분리) */
+  mountNode?: HTMLDivElement | null;
+};
 
 type CategoryMeta = { label: string; chip: string; dot: string };
 
@@ -70,6 +79,10 @@ type Props = {
   onOpenInquiry: (inquiryId: string) => void;
   /** 팀장·타업체 — 마케터 전용(내부 표시) 이력·토스트 숨김 */
   hideMarketerOnlyLines?: boolean;
+  /** 모바일 FAB 스택에 포함 — 독립 fixed·드래그 비활성 */
+  mobileStack?: ChangeLogBellMobileStackProps;
+  /** desktop 전용 fixed (기본). mobileStack 있으면 lg 이상에서만 fixed */
+  desktopFixed?: boolean;
 };
 
 /**
@@ -77,7 +90,16 @@ type Props = {
  * 클릭 시 모달로 변경 내역(유형 칩·필터·과거 이력 스크롤)을 보여주고,
  * 항목을 누르면 해당 접수 상세로 이동한다.
  */
-export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenInquiry, hideMarketerOnlyLines = false }: Props) {
+export function ChangeLogBell({
+  token,
+  fetchUnseen,
+  fetchList,
+  markSeen,
+  onOpenInquiry,
+  hideMarketerOnlyLines = false,
+  mobileStack,
+  desktopFixed = true,
+}: Props) {
   const [unseen, setUnseen] = useState(0);
   const [blink, setBlink] = useState(false);
   const [toast, setToast] = useState<ChangeLogRtPayload | null>(null);
@@ -115,6 +137,10 @@ export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenI
   };
 
   const onBellPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (mobileStack) {
+      mobileStack.onPointerDown(e);
+      return;
+    }
     longPressRef.current = false;
     startYRef.current = e.clientY;
     try {
@@ -135,6 +161,7 @@ export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenI
   };
 
   const onBellPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (mobileStack) return;
     if (!longPressRef.current) {
       // 롱프레스 전 큰 움직임이면 우발 방지로 취소
       if (Math.abs(e.clientY - startYRef.current) > 12 && pressTimer.current) {
@@ -149,6 +176,7 @@ export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenI
   };
 
   const onBellPointerEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (mobileStack) return;
     if (pressTimer.current) clearTimeout(pressTimer.current);
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -271,73 +299,101 @@ export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenI
 
   const hasMore = items.length < total;
 
+  const bellDragging = mobileStack?.dragging ?? dragging;
+
+  const bellButton = (
+    <button
+      type="button"
+      onClick={(e) => {
+        if (suppressClickRef.current || bellDragging) {
+          e.preventDefault();
+          return;
+        }
+        void openModal();
+      }}
+      onPointerDown={onBellPointerDown}
+      onPointerMove={onBellPointerMove}
+      onPointerUp={onBellPointerEnd}
+      onPointerCancel={onBellPointerEnd}
+      title={mobileStack ? '접수 변경 이력 (길게 눌러 세로 위치만 이동)' : '길게 눌러 위아래로 이동'}
+      aria-label={`접수 변경 이력${unseen > 0 ? ` (미확인 ${unseen}건)` : ''}${
+        mobileStack ? ' · 길게 눌러 세로 위치만 이동' : ' · 길게 눌러 위아래로 이동'
+      }`}
+      className={`relative flex h-10 w-10 shrink-0 touch-none items-center justify-center rounded-full border shadow-md transition-[transform,box-shadow,colors] active:scale-[0.94] ${
+        unseen > 0
+          ? 'border-emerald-600/80 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white shadow-[0_4px_14px_rgba(5,150,105,0.32),0_1px_4px_rgba(15,23,42,0.1)] ring-1 ring-inset ring-white/20 hover:from-emerald-400 hover:to-emerald-600'
+          : 'border-gray-300 bg-white text-emerald-700 hover:bg-emerald-50/80'
+      } ${bellDragging ? 'scale-110 cursor-grabbing ring-2 ring-emerald-400' : 'cursor-pointer'} ${
+        blink && unseen > 0 && !bellDragging ? 'animate-pulse' : ''
+      }`}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-5 w-5"
+      >
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </svg>
+      {unseen > 0 && (
+        <span className="absolute -right-1 -top-1 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+          {unseen > 99 ? '99+' : unseen}
+        </span>
+      )}
+    </button>
+  );
+
+  const toastBubble =
+    toast != null ? (
+      <button
+        type="button"
+        onClick={() => void openModal()}
+        className="absolute right-12 top-1/2 z-10 w-60 -translate-y-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg"
+      >
+        <p className="text-fluid-xs font-semibold text-gray-900 truncate">
+          {toast.customerName || '접수'} 변경
+        </p>
+        <p className="mt-0.5 text-fluid-xs text-gray-600 line-clamp-2">{toast.summary}</p>
+        <span className="mt-1 inline-block">
+          <CategoryChips categories={toast.categories} />
+        </span>
+      </button>
+    ) : null;
+
+  const showDesktopFixed = desktopFixed;
+
+  const mobileBellLayer =
+    mobileStack != null ? (
+      <div className="relative">
+        {toastBubble}
+        {bellButton}
+      </div>
+    ) : null;
+
   return (
     <>
-      {/* 우측 고정 종 아이콘 — 길게 눌러 위아래로 위치 조정 */}
-      <div
-        className={`fixed right-2 z-[100] -translate-y-1/2 ${posTop == null ? 'top-1/2' : ''}`}
-        style={posTop == null ? undefined : { top: `${posTop}px` }}
-      >
-        {toast && (
-          <button
-            type="button"
-            onClick={() => void openModal()}
-            className="absolute right-12 top-1/2 w-60 -translate-y-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg"
-          >
-            <p className="text-fluid-xs font-semibold text-gray-900 truncate">
-              {toast.customerName || '접수'} 변경
-            </p>
-            <p className="mt-0.5 text-fluid-xs text-gray-600 line-clamp-2">{toast.summary}</p>
-            <span className="mt-1 inline-block">
-              <CategoryChips categories={toast.categories} />
-            </span>
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={(e) => {
-            if (suppressClickRef.current || dragging) {
-              e.preventDefault();
-              return;
-            }
-            void openModal();
-          }}
-          onPointerDown={onBellPointerDown}
-          onPointerMove={onBellPointerMove}
-          onPointerUp={onBellPointerEnd}
-          onPointerCancel={onBellPointerEnd}
-          title="길게 눌러 위아래로 이동"
-          aria-label={`접수 변경 이력${unseen > 0 ? ` (미확인 ${unseen}건)` : ''} · 길게 눌러 위아래로 이동`}
-          className={`relative flex h-11 w-11 touch-none items-center justify-center rounded-full border shadow-md transition-colors ${
-            unseen > 0
-              ? 'border-amber-500 bg-amber-400 text-amber-950 hover:bg-amber-300'
-              : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
-          } ${dragging ? 'scale-110 cursor-grabbing ring-2 ring-blue-400' : ''} ${
-            blink && unseen > 0 && !dragging ? 'animate-pulse' : ''
-          }`}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-5 w-5"
-          >
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-          {unseen > 0 && (
-            <span className="absolute -right-1 -top-1 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
-              {unseen > 99 ? '99+' : unseen}
-            </span>
-          )}
-        </button>
-      </div>
+      {mobileStack?.mountNode && mobileBellLayer
+        ? createPortal(mobileBellLayer, mobileStack.mountNode)
+        : mobileStack && !mobileStack.mountNode
+          ? mobileBellLayer
+          : null}
 
-      {open && (
+      {showDesktopFixed ? (
+        <div
+          className={`fixed right-2 z-[100] -translate-y-1/2 ${mobileStack ? 'hidden lg:block' : ''} ${posTop == null ? 'top-1/2' : ''}`}
+          style={posTop == null ? undefined : { top: `${posTop}px` }}
+        >
+          {toastBubble}
+          {bellButton}
+        </div>
+      ) : null}
+
+      {open ? (
         <div
           className="fixed inset-0 z-[130] flex items-center justify-center bg-black/40 p-4"
           onClick={() => setOpen(false)}
@@ -437,7 +493,7 @@ export function ChangeLogBell({ token, fetchUnseen, fetchList, markSeen, onOpenI
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </>
   );
 }
