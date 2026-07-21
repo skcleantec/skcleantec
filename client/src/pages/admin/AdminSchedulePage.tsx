@@ -1476,7 +1476,7 @@ export function AdminSchedulePage() {
   }, [detailItem?.preferredDate, leaderAfternoonAssignmentCountsByDate]);
 
   /**
-   * 전체 보기일 때, 각 날짜 칸 하단에 보여줄 "내가 만든 지역 캘린더별 건수" 집계.
+   * 전체 보기일 때, 각 날짜 칸 하단에 보여줄 사용자 정의 캘린더(지역·업체·파트너)별 건수.
    * - 활성 필터가 걸려 있으면 이미 필터링된 상태이므로 표시하지 않는다.
    * - 키: YMD(preferredDate 기준) → [{ calendarId, count, colorKey, name }]
    */
@@ -1488,14 +1488,18 @@ export function AdminSchedulePage() {
     if (hasActiveCustomCalendarFilter(activeRegionCalendar, activeCompanyCalendar, activePartnerCalendar)) return map;
     if (customCalendars.length === 0) return map;
 
-    for (const it of filteredItems) {
+    for (const it of items) {
       if (!it.preferredDate) continue;
       const key = formatPreferredDateInputYmd(it.preferredDate);
       if (!key) continue;
       for (const cal of customCalendars) {
         if (cal.isolateFromGlobal) continue;
         if (!matchesCustomCalendarFilter(it, cal)) continue;
-        if (cal.hideAssignedInRegionBadge && inquiryHasTeamLeaderAssignment(it)) {
+        if (
+          cal.hideAssignedInRegionBadge &&
+          isPureRegionCalendar(cal) &&
+          inquiryHasTeamLeaderAssignment(it)
+        ) {
           continue;
         }
         const arr = map.get(key) ?? [];
@@ -1524,7 +1528,15 @@ export function AdminSchedulePage() {
       map.set(k, arr);
     }
     return map;
-  }, [filteredItems, customCalendars, activeRegionCalendar, activeCompanyCalendar]);
+  }, [items, customCalendars, activeRegionCalendar, activeCompanyCalendar, activePartnerCalendar]);
+
+  const activeCustomCalendars = useMemo(
+    () =>
+      [activeRegionCalendar, activeCompanyCalendar, activePartnerCalendar].filter(
+        (cal): cal is UserCustomCalendarItem => cal != null,
+      ),
+    [activeRegionCalendar, activeCompanyCalendar, activePartnerCalendar],
+  );
 
   /** 이번 달에 팀장 슬롯(오전·오후)이 마이너스인 날짜 — 일정 초과 빠르게 파악용 */
   const leaderSlotDeficitKeysInMonth = useMemo(() => {
@@ -2004,13 +2016,10 @@ export function AdminSchedulePage() {
                   </div>
                 );
                 const customCalChips = (() => {
-                  const activeCals = [activeRegionCalendar, activeCompanyCalendar].filter(
-                    (cal): cal is UserCustomCalendarItem => cal != null,
-                  );
-                  if (activeCals.length > 0) {
+                  if (activeCustomCalendars.length > 0) {
                     const total = dayItems.length;
                     if (total <= 0) return null;
-                    return activeCals.map((cal) => {
+                    return activeCustomCalendars.map((cal) => {
                       const t = customCalendarColorTokens(cal.colorKey);
                       return (
                         <span
