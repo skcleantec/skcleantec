@@ -144,6 +144,10 @@ import {
   MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
 } from './inquiryExternalPartnerShareMutex.js';
 import {
+  assertInternalTeamAssignAllowed,
+  MSG_HANDED_OFF_BLOCKS_INTERNAL_ASSIGN,
+} from './inquiryHandedOffFromInternal.js';
+import {
   assertNewExternalPartnerUsersSelectable,
   MSG_EXTERNAL_COMPANY_USAGE_DISABLED,
 } from '../external-companies/externalCompanyUsage.helpers.js';
@@ -974,6 +978,14 @@ router.patch('/:id', async (req, res) => {
           res.status(400).json({ error: '타업체 계정에 소속 업체가 없습니다. 관리자에게 문의하세요.' });
           return;
         }
+      }
+      try {
+        await assertInternalTeamAssignAllowed(prisma, tenantId, inquiry.id, teamLeaderIds);
+      } catch (e) {
+        res.status(400).json({
+          error: e instanceof Error ? e.message : MSG_HANDED_OFF_BLOCKS_INTERNAL_ASSIGN,
+        });
+        return;
       }
       const assigningExternal = assignees.some((a) => a.role === 'EXTERNAL_PARTNER');
       if (assigningExternal) {

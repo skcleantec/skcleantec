@@ -84,6 +84,7 @@ import {
   serializeTeamInquiryOperatingCompany,
 } from './teamInquiryResponse.helpers.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
+import { whereExcludeHandedOffSourceInquiries } from '../inquiries/inquiryHandedOffFromInternal.js';
 
 const router = Router();
 
@@ -94,7 +95,10 @@ function teamCsAccessWhere(userId: string) {
       {
         inquiryId: { not: null },
         inquiry: {
-          assignments: { some: { teamLeaderId: userId } },
+          AND: [
+            { assignments: { some: { teamLeaderId: userId } } },
+            whereExcludeHandedOffSourceInquiries(),
+          ],
         },
       },
       { forwardedToUserId: userId },
@@ -703,6 +707,7 @@ router.get('/happy-call-stats', async (req, res) => {
   const rows = await prisma.inquiry.findMany({
     where: {
       ...inquiryActiveOnlyWhere(),
+      ...whereExcludeHandedOffSourceInquiries(),
       preferredDate: { not: null },
       happyCallCompletedAt: null,
       status: {
@@ -1317,6 +1322,7 @@ router.get('/inquiries', async (req, res) => {
       {
         tenantId,
         ...inquiryActiveOnlyWhere(),
+        ...whereExcludeHandedOffSourceInquiries(),
         assignments: {
           some: { teamLeaderId: userId },
         },
@@ -1400,6 +1406,7 @@ router.get('/schedule', async (req, res) => {
     {
       tenantId,
       ...inquiryActiveOnlyWhere(),
+      ...whereExcludeHandedOffSourceInquiries(),
       preferredDate: { gte: startDate, lte: endDate },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
       assignments: {

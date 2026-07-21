@@ -3,13 +3,23 @@
  *
  * 실행: cd server && npx tsx scripts/backfill-clear-stale-internal-assignments.ts
  * dry-run: ... --dry-run
+ *
+ * 운영 DB: server/.env 의 SKCT_TARGET_DATABASE_URL 우선, 없으면 DATABASE_URL
  */
 import 'dotenv/config';
-import { prisma } from '../src/lib/prisma.js';
+import { PrismaClient } from '@prisma/client';
 import { clearInternalInquiryAssignments } from '../src/modules/assignments/clearInternalInquiryAssignments.js';
 import { notifyInboxRefresh } from '../src/modules/realtime/inboxNotify.js';
 
 const MARKETPLACE_ACTIVE_STATUSES = ['OPEN', 'PENDING_SELLER', 'CONFIRMED'] as const;
+
+const dbUrl = process.env.SKCT_TARGET_DATABASE_URL?.trim() || process.env.DATABASE_URL;
+if (!dbUrl) {
+  console.error('DATABASE_URL 또는 SKCT_TARGET_DATABASE_URL 이 필요합니다.');
+  process.exit(1);
+}
+
+const prisma = new PrismaClient({ datasources: { db: { url: dbUrl } } });
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run');

@@ -24,6 +24,10 @@ import {
   MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
 } from '../inquiries/inquiryExternalPartnerShareMutex.js';
 import {
+  assertInternalTeamAssignAllowed,
+  MSG_HANDED_OFF_BLOCKS_INTERNAL_ASSIGN,
+} from '../inquiries/inquiryHandedOffFromInternal.js';
+import {
   assertExternalCompanySelectable,
   MSG_EXTERNAL_COMPANY_USAGE_DISABLED,
 } from '../external-companies/externalCompanyUsage.helpers.js';
@@ -115,6 +119,15 @@ router.post('/', async (req, res) => {
         });
         return;
       }
+    }
+  } else {
+    try {
+      await assertInternalTeamAssignAllowed(prisma, tenantId, inquiryId, [teamLeaderId]);
+    } catch (e) {
+      res.status(400).json({
+        error: e instanceof Error ? e.message : MSG_HANDED_OFF_BLOCKS_INTERNAL_ASSIGN,
+      });
+      return;
     }
   }
   const assignYmd = inquiry.preferredDate
