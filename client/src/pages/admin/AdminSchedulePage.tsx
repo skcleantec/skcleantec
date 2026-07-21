@@ -96,6 +96,7 @@ import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNam
 import {
   buildLeaderMorningAssignmentCounts,
   buildLeaderAfternoonAssignmentCounts,
+  buildLeaderSlotAssignmentCountMapsForDayItems,
   scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
 
@@ -1418,6 +1419,8 @@ export function AdminSchedulePage() {
     [items, activeRegionCalendar, activeCompanyCalendar, activePartnerCalendar, customCalendars],
   );
 
+  const itemsByDate = useMemo(() => groupScheduleItemsByKstDate(items), [items]);
+
   const byDate = groupScheduleItemsByKstDate(filteredItems);
 
   const regionalSlotStatsByDate = useMemo(() => {
@@ -1443,23 +1446,22 @@ export function AdminSchedulePage() {
     return map;
   }, [activeServiceZoneId, activeRegionCalendar, zoneLeaderIds, byDate, stats]);
 
-  /** 화면에 보이는 목록 기준 — 팀장별 예약일당 슬롯별 배정 건수(회색 강조 UI) */
+  /** 이번 달 전체(캘린더 필터 무관) — 팀장별 예약일당 슬롯별 배정 건수(회색 강조 UI) */
   const leaderMorningAssignmentCountsByDate = useMemo(
-    () => buildLeaderMorningAssignmentCounts(filteredItems),
-    [filteredItems],
+    () => buildLeaderMorningAssignmentCounts(items),
+    [items],
   );
   const leaderAfternoonAssignmentCountsByDate = useMemo(
-    () => buildLeaderAfternoonAssignmentCounts(filteredItems),
-    [filteredItems],
+    () => buildLeaderAfternoonAssignmentCounts(items),
+    [items],
   );
-  const leaderMorningAssignmentCountsForSelectedDate = useMemo(() => {
-    if (!selectedDate) return undefined;
-    return leaderMorningAssignmentCountsByDate.get(selectedDate);
-  }, [selectedDate, leaderMorningAssignmentCountsByDate]);
-  const leaderAfternoonAssignmentCountsForSelectedDate = useMemo(() => {
-    if (!selectedDate) return undefined;
-    return leaderAfternoonAssignmentCountsByDate.get(selectedDate);
-  }, [selectedDate, leaderAfternoonAssignmentCountsByDate]);
+  const selectedDaySlotLeaderCounts = useMemo(() => {
+    if (!selectedDate) return null;
+    const dayItems = itemsByDate[selectedDate] ?? [];
+    return buildLeaderSlotAssignmentCountMapsForDayItems(dayItems);
+  }, [itemsByDate, selectedDate]);
+  const leaderMorningAssignmentCountsForSelectedDate = selectedDaySlotLeaderCounts?.morning;
+  const leaderAfternoonAssignmentCountsForSelectedDate = selectedDaySlotLeaderCounts?.afternoon;
   const detailLeaderMorningAssignmentCounts = useMemo(() => {
     if (!detailItem?.preferredDate) return undefined;
     const ymd = formatPreferredDateInputYmd(detailItem.preferredDate);
@@ -3402,7 +3404,7 @@ export function AdminSchedulePage() {
           meUser={meUser}
           leaderMorningAssignmentCountsByLeaderId={detailLeaderMorningAssignmentCounts}
           leaderAfternoonAssignmentCountsByLeaderId={detailLeaderAfternoonAssignmentCounts}
-          dayScheduleItems={detailItem.preferredDate ? byDate[formatPreferredDateInputYmd(detailItem.preferredDate) ?? ''] ?? [] : []}
+          dayScheduleItems={detailItem.preferredDate ? itemsByDate[formatPreferredDateInputYmd(detailItem.preferredDate) ?? ''] ?? [] : []}
           customCalendars={customCalendars}
           onCustomCalendarsChange={setCustomCalendars}
           serviceZones={serviceZones}

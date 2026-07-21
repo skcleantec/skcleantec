@@ -26,6 +26,7 @@ import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
+import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -704,6 +705,11 @@ export function TeamLayout() {
               className="min-w-0 shrink-0 hover:opacity-90 transition-opacity"
               aria-label="청소비서 — 대시보드로 이동"
               title="대시보드로 이동"
+              onClick={(e) => {
+                if (!isStandalonePwa()) return;
+                e.preventDefault();
+                assignStaffHomePath('/team/dashboard');
+              }}
             >
               <TenantBrandLogo height={32} />
             </NavLink>

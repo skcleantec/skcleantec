@@ -59,8 +59,7 @@ import {
 } from '../../utils/inquiryAreaDisplay';
 import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import {
-  buildLeaderMorningAssignmentCounts,
-  buildLeaderAfternoonAssignmentCounts,
+  buildLeaderSlotAssignmentCountMapsForDayItems,
   scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
@@ -75,6 +74,7 @@ import { AdminOrderFormPhotosPanel } from '../inquiry/AdminOrderFormPhotosPanel'
 import { InquirySettlementPanel } from '../inquiry/InquirySettlementPanel';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
 import { resolveTeamLeaderIdForCrewSpacing } from '../../utils/crewLeaderSpacing';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
@@ -529,6 +529,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     (props as { activeServiceZoneId?: string | null }).activeServiceZoneId ?? null;
   const presentation = (props as { presentation?: 'modal' | 'panel' }).presentation ?? 'modal';
   const isPanel = presentation === 'panel';
+  useBodyScrollLock(!isPanel);
   const canEditMarketer =
     currentUserCanEditMarketer ??
     (currentUserRole === 'ADMIN' || currentUserOperationalAdmin === true);
@@ -908,22 +909,20 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
   const effectiveLeaderMorningAssignmentCountsByLeaderId = useMemo(() => {
     if (leaderMorningAssignmentCountsByLeaderId?.size) return leaderMorningAssignmentCountsByLeaderId;
-    if (!effectiveDayScheduleItems.length || !dateKeyForStats) return undefined;
-    return buildLeaderMorningAssignmentCounts(effectiveDayScheduleItems).get(dateKeyForStats);
+    if (!effectiveDayScheduleItems.length) return undefined;
+    return buildLeaderSlotAssignmentCountMapsForDayItems(effectiveDayScheduleItems).morning;
   }, [
     leaderMorningAssignmentCountsByLeaderId,
     effectiveDayScheduleItems,
-    dateKeyForStats,
   ]);
 
   const effectiveLeaderAfternoonAssignmentCountsByLeaderId = useMemo(() => {
     if (leaderAfternoonAssignmentCountsByLeaderId?.size) return leaderAfternoonAssignmentCountsByLeaderId;
-    if (!effectiveDayScheduleItems.length || !dateKeyForStats) return undefined;
-    return buildLeaderAfternoonAssignmentCounts(effectiveDayScheduleItems).get(dateKeyForStats);
+    if (!effectiveDayScheduleItems.length) return undefined;
+    return buildLeaderSlotAssignmentCountMapsForDayItems(effectiveDayScheduleItems).afternoon;
   }, [
     leaderAfternoonAssignmentCountsByLeaderId,
     effectiveDayScheduleItems,
-    dateKeyForStats,
   ]);
 
   const leaderOptionsForRow = useMemo(() => {
@@ -2258,8 +2257,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               </p>
               {detailLeaderSingleSlotAssignment ? (
                 <p className="text-[11px] font-semibold text-slate-700 leading-snug">
-                  오전 배정된 팀장 중 이날 오전 1건만 있는 사람이 있습니다. 추가 오전·오후·사이 배정 여부를
-                  검토하세요.
+                  배정된 팀장 중 이날 오전 또는 오후 한 슬롯에만 1건 있는 사람이 있습니다. 반대 슬롯·사이 추가
+                  배정 여부를 검토하세요.
                 </p>
               ) : null}
             </div>
@@ -2270,7 +2269,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         <div ref={inquiryEditNavBoundsRef} className="relative isolate flex min-h-0 flex-1 flex-col">
         <div
           ref={inquiryEditScrollRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6 [scrollbar-gutter:stable]"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
         >
         <div className="space-y-4">
         {item?.orderForm?.customerAnswers ? (
