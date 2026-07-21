@@ -114,7 +114,7 @@ function PlatformPromoSlider({
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIsPaused(false);
       }}
     >
-      <div className={`group/slider ${frameClass}`}>
+      <div className={frameClass}>
         <div
           className="flex h-full w-full will-change-transform"
           style={{
@@ -138,24 +138,24 @@ function PlatformPromoSlider({
             <button
               type="button"
               aria-label="이전 배너"
-              className="absolute left-2 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-slate-900/35 text-white shadow-lg backdrop-blur-sm transition duration-200 hover:scale-105 hover:bg-slate-900/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:h-9 sm:w-9 opacity-90 group-hover/slider:opacity-100"
+              className="absolute left-1 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-white/45 text-slate-700/85 opacity-75 transition duration-200 hover:bg-white/70 hover:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/70 sm:left-1.5 sm:h-6 sm:w-6"
               onClick={(e) => {
                 e.preventDefault();
                 goPrev();
               }}
             >
-              <ChevronLeftIcon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+              <ChevronLeftIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             </button>
             <button
               type="button"
               aria-label="다음 배너"
-              className="absolute right-2 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-slate-900/35 text-white shadow-lg backdrop-blur-sm transition duration-200 hover:scale-105 hover:bg-slate-900/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:h-9 sm:w-9 opacity-90 group-hover/slider:opacity-100"
+              className="absolute right-1 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-white/45 text-slate-700/85 opacity-75 transition duration-200 hover:bg-white/70 hover:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/70 sm:right-1.5 sm:h-6 sm:w-6"
               onClick={(e) => {
                 e.preventDefault();
                 goNext();
               }}
             >
-              <ChevronRightIcon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+              <ChevronRightIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             </button>
             <div className="absolute bottom-2 left-0 right-0 z-10 flex justify-center gap-1.5">
               {slides.map((s, i) => (
