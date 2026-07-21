@@ -1,0 +1,83 @@
+---
+description: 팀·타업체(/team) 및 좁은 화면 — 컴팩트 UI 필수 (제목·배너·카드·모달)
+alwaysApply: true
+---
+
+# 모바일·팀 화면 컴팩트 UI (필수)
+
+> **공통 반응형·표 서식:** `.cursor/rules/responsive-ui.mdc`, `docs/UI_DESIGN_GUIDE.md` §6  
+> **본 룰:** 좁은 화면(특히 **`/team/*` 타업체·팀장**)에서 **한 화면에 목록·액션을 최대한** 보이게 하는 **밀도·여백·모달** 규칙.
+
+## 적용 범위
+
+- **`TeamLayout`** 하위 **`/team/*`** 페이지·모달·목록 카드 — **기본 전제가 모바일 컴팩트**.
+- 관리자·마케터 화면도 **`lg` 미만**(모바일·좁은 태블릿)에서는 동일 **밀도 원칙**을 따른다. PC(`lg` 이상)는 기존 여백·글자 크기 유지(`sm:` / `lg:` 로 복원).
+
+## 1) 페이지 상단 — GNB와 중복 제거
+
+- **`TeamLayout` GNB**에 메뉴명이 있으면 본문 **`h1` 페이지 제목을 두지 않는다** (정산·스케줄·정보공유·C/S 등).
+- 안내 문구(취소 정책·인계 안내 등)는 **긴 `subtitle` 블록 금지**. 필요 시 **한 줄 배너**만:
+  - `rounded-lg border px-2.5 py-1.5 text-fluid-2xs leading-snug`
+  - 배경 `bg-slate-50` / `border-slate-200` 또는 상태색(해피콜·경고)
+- 페이지 루트 간격: **`gap-2`** (PC **`sm:gap-4`**).
+
+## 2) 배너·요약·탭
+
+- 해피콜·정책·집계 배너: **1줄** `flex flex-wrap items-center gap-x-2`, 모바일 **`text-fluid-2xs`**, `px-2.5 py-1.5`.
+- 탭·세그먼트: 모바일 **`px-2 py-1 text-fluid-2xs`**, 래퍼 **`p-0.5 gap-0.5`**.
+- 목록 카드 래퍼: 모바일 **`p-2 rounded-xl`**, PC **`sm:p-4 sm:rounded-2xl`**.
+
+## 3) 모바일 목록 카드 (표 대신 `lg:hidden`)
+
+- 카드 **`p-2`**, **`rounded-lg`**, 카드 간 **`space-y-1.5~2`**.
+- **3줄 이내** 계층 권장:
+  1. **식별 + 상태 배지** (한 줄, `truncate`)
+  2. **메타 요약** (지역·일정·유형 등, `text-fluid-2xs`, 말줄임)
+  3. **금액·날짜·핵심 액션** (좌우 정렬)
+- 불필요 **`border-t`·과한 `shadow`** 지양. 폰트: 본문 **`text-fluid-xs`**, 보조 **`text-fluid-2xs`**.
+
+## 4) 상세·모달 (팀 / 모바일)
+
+- **`main`(z-10) 안에 `fixed` 모달만 두지 않는다** — GNB(`sticky z-40`)에 가려진다.  
+  **`createPortal(..., document.body)`** + **`z-[80]`** 이상 (중첩 모달 **`z-[90]`**).
+- 팀·모바일 상세: **`100dvh` 풀스크린** + **헤더 고정 + 본문 스크롤** (`flex flex-col`, `min-h-0 flex-1 overflow-y-auto`). PC는 **`lg:max-w-lg lg:rounded-2xl lg:max-h-[90vh]`** 로 복원.
+- 헤더: **`text-fluid-sm`**, 핵심 CTA(처리완료 등)는 **헤더 우측**에 두어 세로 공간 절약.
+- 섹션: **`p-2 space-y-2`**, 입력 **`min-h-9`**, **`text-fluid-xs`**, 버튼 **`min-h-10 rounded-lg text-fluid-xs`** (PC **`lg:min-h-[44px] lg:text-fluid-sm`**).
+- 관련 필드(성함·연락처·별점 등)는 **한 카드에 묶어** 줄 수를 줄인다.
+
+## 5) 타업체 접수 상세 (`teamInquiryShared`)
+
+- **`isExternalCompact`** / **`compact`** prop 패턴 유지: 섹션 **`p-2`**, 긴 메모는 **`compactStacked`**, 하위 **`details`** 접기.
+- 모바일 헤더: **이름·복사·닫기 1줄**, 배지 **2줄**.
+
+## 6) Tailwind 패턴 (복사 기준)
+
+| 요소 | 모바일 (기본) | PC 복원 |
+|------|----------------|---------|
+| 페이지 gap | `gap-2` | `sm:gap-4` |
+| 카드 padding | `p-2` | `sm:p-3` / `lg:p-4` |
+| 라벨 | `text-fluid-2xs` | `sm:text-fluid-xs` |
+| 값·본문 | `text-fluid-xs` | `sm:text-fluid-sm` |
+| 배지 | `px-1.5 py-0 text-fluid-2xs` | `sm:px-2 sm:py-0.5` |
+
+- **`text-[10px]` 등 임의 px 금지** — **`text-fluid-2xs` / `text-fluid-xs`** 사용.
+
+## 7) 새 `/team` 기능 체크리스트
+
+1. 모바일에서 **페이지 `h1` 중복** 없는가?
+2. 목록 카드·배너가 **2~3줄·작은 padding** 인가?
+3. 모달이 **`createPortal` + z-index ≥ 80** 인가?
+4. `lg` 이상에서 **읽기 쉬운 크기**로 복원되는가?
+5. 터치 타깃 **최소 ~36px** 유지(과도한 축소 금지).
+
+## 참고 구현
+
+| 화면 | 파일 |
+|------|------|
+| 팀 GNB·드로어 | `client/src/components/layout/TeamLayout.tsx` |
+| 배정·해피콜 배너 | `client/src/pages/team/TeamAssignmentListPage.tsx` |
+| 스케줄 | `client/src/pages/team/TeamSchedulePage.tsx` |
+| 정산 | `client/src/pages/team/TeamExternalSettlementPage.tsx` |
+| 정보공유 카드 | `client/src/components/db-marketplace/DbMarketplaceListUi.tsx` |
+| C/S 상세 | `client/src/components/cs/CsWorkdesk.tsx` |
+| 타업체 접수 상세 | `client/src/pages/team/teamInquiryShared.tsx` |

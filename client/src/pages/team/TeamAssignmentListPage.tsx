@@ -298,7 +298,7 @@ export function TeamAssignmentListPage() {
   }
 
   return (
-    <div className="flex min-w-0 w-full max-w-full flex-col gap-4 pb-4">
+    <div className="flex min-w-0 w-full max-w-full flex-col gap-2 pb-4 sm:gap-4">
       <div>
         <h1 className="text-xl font-semibold text-gray-800">
           <TeamBiLine id="team.assign.title" koClassName="text-xl font-semibold text-gray-800" />
@@ -307,26 +307,26 @@ export function TeamAssignmentListPage() {
 
       {(happyStats.overdueCount > 0 || happyStats.pendingBeforeDeadlineCount > 0) && (
         <div
-          className={`rounded-xl border px-4 py-3 text-fluid-sm space-y-2 ${
+          className={`rounded-lg border px-2.5 py-1.5 text-fluid-2xs sm:rounded-xl sm:px-4 sm:py-3 sm:text-fluid-sm ${
             happyStats.overdueCount > 0
               ? 'border-red-200 bg-red-50 text-red-900'
               : 'border-amber-200 bg-amber-50 text-amber-900'
           }`}
         >
-          <TeamBiLine id="team.assign.happyIncompleteLead" koClassName="text-fluid-sm font-medium" />
-          <div className="flex flex-wrap gap-x-3 gap-y-1 items-center">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <TeamBiLine id="team.assign.happyIncompleteLead" koClassName="shrink-0 font-medium text-fluid-2xs sm:text-fluid-sm" />
             {happyStats.overdueCount > 0 ? (
               <TeamBiLine
                 id="team.assign.happyOverdueCases"
                 vars={{ count: String(happyStats.overdueCount) }}
-                koClassName="text-fluid-sm tabular-nums"
+                koClassName="tabular-nums text-fluid-2xs sm:text-fluid-sm"
               />
             ) : null}
             {happyStats.pendingBeforeDeadlineCount > 0 ? (
               <TeamBiLine
                 id="team.assign.happyPendingCases"
                 vars={{ count: String(happyStats.pendingBeforeDeadlineCount) }}
-                koClassName="text-fluid-sm tabular-nums"
+                koClassName="tabular-nums text-fluid-2xs sm:text-fluid-sm"
               />
             ) : null}
           </div>
@@ -492,7 +492,7 @@ export function TeamAssignmentListPage() {
             ) : null}
 
             {!isLgUp ? (
-            <div className="flex flex-col gap-3 p-3">
+            <div className="flex flex-col gap-1.5 p-2 sm:gap-3 sm:p-3">
               {paginatedRows.map((item) => {
                 const mine = myAssignment(item, myId!);
                 const addrFull = `${item.address}${item.addressDetail ? ` ${item.addressDetail}` : ''}`.trim();
@@ -501,6 +501,23 @@ export function TeamAssignmentListPage() {
                 const primaryLabel = inquiryPrimaryCustomerLabel(item);
                 const memoTrim = item.scheduleMemo?.trim() ?? '';
                 const memoSubtitle = memoTrim && memoTrim !== primaryLabel;
+                const assignedShort = mine?.assignedAt
+                  ? formatDateCompactWithWeekday(mine.assignedAt.slice(0, 10))
+                  : teamBiPlain('team.common.emDash');
+                const bookingShort = item.preferredDate
+                  ? formatDateCompactWithWeekday(item.preferredDate)
+                  : teamBiPlain('team.common.emDash');
+                const timeLabel = item.preferredTime
+                  ? shortTimeSlotLabel(item.preferredTime)
+                  : teamBiPlain('team.inquiry.timeUndecided');
+                const metaLine = [
+                  `${teamBiPlain('team.assign.bookingPrefix')} ${bookingShort}`,
+                  timeLabel,
+                  STATUS_LABELS[item.status] ?? item.status,
+                  addr,
+                  `${teamBiPlain('team.assign.marketerPrefix')} ${mk.name}`,
+                  `${teamBiPlain('team.assign.assignedPrefix')} ${assignedShort}`,
+                ].join(' · ');
                 return (
                   <div
                     key={item.id}
@@ -514,13 +531,15 @@ export function TeamAssignmentListPage() {
                         setDetailItem(item);
                       }
                     }}
-                    className="cursor-pointer rounded-xl border border-gray-200 bg-white p-3 shadow-sm outline-none ring-gray-300 transition hover:border-gray-300 hover:shadow active:bg-gray-50 focus-visible:ring-2 touch-manipulation"
+                    className="cursor-pointer rounded-lg border border-gray-200 bg-white p-2 shadow-sm outline-none ring-gray-300 transition hover:border-gray-300 active:bg-gray-50 focus-visible:ring-2 touch-manipulation sm:rounded-xl sm:p-3"
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-1.5">
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1 leading-tight">
                           <TeamInquiryBrandListBadge item={item} />
-                          <span className="truncate text-fluid-sm font-semibold text-gray-900">{primaryLabel}</span>
+                          <span className="truncate text-fluid-2xs font-semibold text-gray-900 sm:text-fluid-sm">
+                            {primaryLabel}
+                          </span>
                           <TeamInquiryServiceKindListBadge item={item} />
                           {item.claimMemo ? (
                             <span
@@ -535,75 +554,60 @@ export function TeamAssignmentListPage() {
                           <TeamInquiryCollectibleListBadge item={item} />
                           <TeamInquiryAreaListBadge item={item} />
                           {item.inquiryNumber ? (
-                            <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 font-mono text-fluid-2xs tabular-nums text-gray-700">
+                            <span className="shrink-0 rounded bg-gray-100 px-1 py-px font-mono text-[10px] tabular-nums text-gray-700 sm:text-fluid-2xs">
                               {item.inquiryNumber}
                             </span>
                           ) : null}
                         </div>
                         {memoSubtitle ? (
-                          <p className="mt-1 line-clamp-1 text-fluid-xs text-gray-700" title={memoTrim}>
+                          <p className="mt-px line-clamp-1 text-[10px] text-gray-700 sm:text-fluid-xs" title={memoTrim}>
                             {memoTrim}
                           </p>
                         ) : null}
                         {item.memo?.trim() ? (
                           <p
-                            className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-indigo-900/90"
+                            className="mt-px line-clamp-1 text-[10px] leading-snug text-indigo-900/90 sm:text-fluid-2xs"
                             title={`${teamBiPlain('team.common.adminMemoPrefix')} ${item.memo.trim()}`}
                           >
                             {teamBiPlain('team.common.adminMemoPrefix')} {item.memo.trim()}
                           </p>
                         ) : null}
-                        <p className="mt-1 text-fluid-xs tabular-nums text-gray-500">
-                          {teamBiPlain('team.assign.assignedPrefix')} {formatAssignedAt(mine?.assignedAt)}
+                        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-gray-600 sm:text-fluid-xs" title={addrFull}>
+                          {metaLine}
                         </p>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-fluid-xs text-gray-600">
-                          <span>
-                            {teamBiPlain('team.assign.marketerPrefix')} {mk.name}
-                          </span>
-                          {mk.phone ? (
-                            <a
-                              href={`tel:${mk.phone}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-fluid-2xs font-medium text-blue-700"
-                            >
-                              <TeamBiInline id="team.assign.marketerPhone" />
-                            </a>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                          <TeamHappyCallBadge item={item} variant="list" />
+                          <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
+                          {hasInspectionModule ? (
+                            <TeamInspectionStatusBadge item={item} variant="list" />
                           ) : null}
+                          <TeamCoLeadersListHint
+                            item={item}
+                            viewerId={myId}
+                            className="text-[10px] text-gray-600 sm:text-fluid-2xs"
+                          />
                         </div>
-                        <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-gray-600" title={addrFull}>
-                          {addr}
-                        </p>
                       </div>
-                      <a
-                        href={`tel:${item.customerPhone}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="shrink-0 self-start rounded-lg bg-blue-600 px-3 py-2 text-center text-fluid-xs font-medium text-white hover:bg-blue-700"
-                      >
-                        <TeamBiInline id="team.common.phone" />
-                      </a>
+                      <div className="flex shrink-0 flex-col items-stretch gap-1 self-start">
+                        <a
+                          href={`tel:${item.customerPhone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded-md bg-blue-600 px-2 py-1 text-center text-[11px] font-medium text-white hover:bg-blue-700 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-fluid-xs"
+                        >
+                          <TeamBiInline id="team.common.phone" />
+                        </a>
+                        {mk.phone ? (
+                          <a
+                            href={`tel:${mk.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-center text-[10px] font-medium text-blue-700 sm:text-fluid-2xs"
+                            title={teamBiPlain('team.assign.marketerPhone')}
+                          >
+                            <TeamBiInline id="team.assign.marketerPhone" />
+                          </a>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 text-fluid-xs text-gray-700">
-                      <span className="tabular-nums">
-                        {teamBiPlain('team.assign.bookingPrefix')}{' '}
-                        {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : teamBiPlain('team.common.emDash')}
-                      </span>
-                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
-                        {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : teamBiPlain('team.inquiry.timeUndecided')}
-                      </span>
-                      <span className="inline-flex rounded-md bg-gray-200 px-2 py-0.5 text-fluid-2xs font-medium text-gray-800">
-                        {STATUS_LABELS[item.status] ?? item.status}
-                      </span>
-                      <TeamInquiryAreaListBadge item={item} />
-                      <TeamHappyCallBadge item={item} variant="list" />
-                      <TeamNoCrewMembersListBadge item={item} viewerId={myId} />
-                      {hasInspectionModule ? (
-                        <TeamInspectionStatusBadge item={item} variant="list" />
-                      ) : null}
-                    </div>
-                    <p className="mt-1.5 line-clamp-2 text-fluid-2xs text-gray-600" title={formatCrewInfo(item)}>
-                      {formatCrewInfo(item)}
-                    </p>
-                    <TeamCoLeadersListHint item={item} viewerId={myId} />
                   </div>
                 );
               })}

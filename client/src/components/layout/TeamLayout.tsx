@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { useState, useEffect, useCallback, useSyncExternalStore, type ReactNode } from 'react';
 import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
@@ -23,7 +23,6 @@ import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPr
 import { TeamBiInline, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
-import { DarkHeaderNavScroll } from './DarkHeaderNavScroll';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
@@ -46,6 +45,25 @@ function teamAriaMessages(count: number): string {
 const navBadgeClass =
   '-ml-3 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none';
 
+const drawerNavBadgeClass =
+  'inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-slate-950 tabular-nums';
+
+function TeamHamburgerIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TeamCloseIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function TeamNavLinks({
   teamTo,
   navClass,
@@ -57,6 +75,8 @@ function TeamNavLinks({
   unreadCount,
   marketplacePendingCount,
   compact,
+  drawer,
+  onNavigate,
 }: {
   teamTo: (path: string) => string;
   navClass: ({ isActive }: { isActive: boolean }) => string;
@@ -68,7 +88,138 @@ function TeamNavLinks({
   unreadCount: number;
   marketplacePendingCount: number;
   compact?: boolean;
+  drawer?: boolean;
+  onNavigate?: () => void;
 }) {
+  const wrap = (node: ReactNode, badge?: ReactNode) =>
+    drawer ? (
+      <div className="flex w-full min-w-0 items-center gap-2">
+        {node}
+        {badge ? <span className="ml-auto shrink-0">{badge}</span> : null}
+      </div>
+    ) : (
+      <>
+        {node}
+        {badge}
+      </>
+    );
+
+  const linkProps = onNavigate ? { onClick: onNavigate } : {};
+
+  const assignBadge =
+    newAssignmentCount > 0 ? (
+      <span className={drawer ? drawerNavBadgeClass : navBadgeClass} aria-hidden>
+        {newAssignmentCount > 99 ? '99+' : newAssignmentCount}
+      </span>
+    ) : null;
+
+  const marketplaceBadge =
+    marketplacePendingCount > 0 ? (
+      <Link
+        to={teamTo('/team/db-marketplace?tab=pending')}
+        className={drawer ? drawerNavBadgeClass : navBadgeClass}
+        aria-label={`인계 대기 ${marketplacePendingCount}건`}
+        title="인계 대기 — 진행 중 탭"
+        onClick={onNavigate}
+      >
+        {marketplacePendingCount > 99 ? '99+' : marketplacePendingCount}
+      </Link>
+    ) : null;
+
+  const csBadge =
+    csPendingCount > 0 ? (
+      <span className={drawer ? drawerNavBadgeClass : navBadgeClass} aria-hidden>
+        {csPendingCount}
+      </span>
+    ) : null;
+
+  const messagesBadge =
+    unreadCount > 0 ? (
+      <span className={drawer ? drawerNavBadgeClass : navBadgeClass} aria-hidden>
+        {unreadCount}
+      </span>
+    ) : null;
+
+  if (drawer) {
+    return (
+      <div className="flex flex-col gap-1">
+        {wrap(
+          <NavLink to={teamTo('/team/dashboard')} className={navClass} {...linkProps}>
+            <TeamNavIcon type="dashboard" className="mr-3 h-5 w-5 shrink-0" />
+            <TeamBiInline id="team.layout.nav.dashboard" />
+          </NavLink>,
+        )}
+        {wrap(
+          <NavLink
+            to={teamTo('/team/assignments')}
+            className={navClass}
+            aria-label={teamAriaAssignNav(newAssignmentCount)}
+            {...linkProps}
+          >
+            <TeamNavIcon type="assignments" className="mr-3 h-5 w-5 shrink-0" />
+            <TeamBiInline id="team.layout.nav.assignments" />
+          </NavLink>,
+          assignBadge,
+        )}
+        {wrap(
+          <NavLink to={teamTo('/team/schedule')} className={navClass} {...linkProps}>
+            <TeamNavIcon type="schedule" className="mr-3 h-5 w-5 shrink-0" />
+            <TeamBiInline id="team.layout.nav.schedule" />
+          </NavLink>,
+        )}
+        {isExternalPartner
+          ? wrap(
+              <NavLink to={teamTo('/team/settlement')} className={navClass} {...linkProps}>
+                <TeamNavIcon type="settlement" className="mr-3 h-5 w-5 shrink-0" />
+                <TeamBiInline id="team.layout.nav.settlement" />
+              </NavLink>,
+            )
+          : null}
+        {showDbMarketplace
+          ? wrap(
+              <NavLink to={teamTo('/team/db-marketplace')} className={navClass} {...linkProps}>
+                <TeamNavIcon type="marketplace" className="mr-3 h-5 w-5 shrink-0" />
+                <TeamBiInline id="team.layout.nav.marketplace" />
+              </NavLink>,
+              marketplaceBadge,
+            )
+          : null}
+        {!hideTeamDayoffs
+          ? wrap(
+              <NavLink to={teamTo('/team/dayoffs')} className={navClass} {...linkProps}>
+                <TeamNavIcon type="dayoffs" className="mr-3 h-5 w-5 shrink-0" />
+                <TeamBiInline id="team.layout.nav.dayoffs" />
+              </NavLink>,
+            )
+          : null}
+        {wrap(
+          <NavLink
+            to={teamTo('/team/cs')}
+            className={navClass}
+            aria-label={teamAriaCs(csPendingCount)}
+            {...linkProps}
+          >
+            <TeamNavIcon type="cs" className="mr-3 h-5 w-5 shrink-0" />
+            <TeamBiInline id="team.layout.nav.cs" />
+          </NavLink>,
+          csBadge,
+        )}
+        {wrap(
+          <NavLink
+            to={teamTo('/team/messages')}
+            className={navClass}
+            aria-label={teamAriaMessages(unreadCount)}
+            {...linkProps}
+          >
+            <TeamNavIcon type="messages" className="mr-3 h-5 w-5 shrink-0" />
+            <TeamBiInline id="team.layout.nav.messages" />
+          </NavLink>,
+          messagesBadge,
+        )}
+      </div>
+    );
+  }
+
   return (
     <>
       <NavLink to={teamTo('/team/dashboard')} className={navClass}>
@@ -268,6 +419,7 @@ export function TeamLayout() {
   const [profileOnboardingInitial, setProfileOnboardingInitial] = useState<ProfileOnboardingInitial>({
     role: 'TEAM_LEADER',
   });
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const reloadTeamMe = useCallback(() => {
     const token = getTeamToken();
@@ -505,7 +657,16 @@ export function TeamLayout() {
     marketplacePendingCount,
   };
 
-  const mobileNavHintKey = `${location.pathname}|${isExternalPartner}|${hideTeamDayoffs}|${showDbMarketplace}|${newAssignmentCount}|${csPendingCount}|${unreadCount}|${marketplacePendingCount}`;
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname, location.search]);
+
+  const drawerNavClass = ({ isActive }: { isActive: boolean }) =>
+    `flex min-w-0 flex-1 items-center rounded-xl px-3 py-2.5 text-fluid-sm font-semibold touch-manipulation ${
+      isActive
+        ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/20'
+        : 'text-slate-200 hover:bg-white/10 hover:text-white'
+    }`;
 
   const showStaffIdCardDrawer =
     Boolean(staffIdCardUrl) && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER');
@@ -527,22 +688,30 @@ export function TeamLayout() {
         />
       ) : null}
       <header className="shadow-md theme-dark-header">
-        <div className="max-w-6xl mx-auto px-4 py-2.5 flex flex-col gap-2 min-w-0">
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-              <NavLink
-                to={teamTo('/team/dashboard')}
-                className="shrink-0 hover:opacity-90 transition-opacity"
-                aria-label="청소비서 — 대시보드로 이동"
-                title="대시보드로 이동"
-              >
-                <TenantBrandLogo height={32} />
-              </NavLink>
-              <nav className="hidden sm:flex flex-wrap items-center gap-1" aria-label="팀장 메뉴">
-                <TeamNavLinks navClass={navClass} teamTo={teamTo} {...navShared} />
-              </nav>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+        <div className="mx-auto flex min-w-0 max-w-6xl items-center justify-between gap-2 px-4 py-2.5">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
+            <button
+              type="button"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-200 hover:bg-white/10 hover:text-white active:bg-white/15 touch-manipulation sm:hidden"
+              aria-label={teamT('team.layout.nav.menuOpen')}
+              aria-expanded={mobileNavOpen}
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <TeamHamburgerIcon className="h-5 w-5" />
+            </button>
+            <NavLink
+              to={teamTo('/team/dashboard')}
+              className="min-w-0 shrink-0 hover:opacity-90 transition-opacity"
+              aria-label="청소비서 — 대시보드로 이동"
+              title="대시보드로 이동"
+            >
+              <TenantBrandLogo height={32} />
+            </NavLink>
+            <nav className="hidden sm:flex flex-wrap items-center gap-1" aria-label="팀장 메뉴">
+              <TeamNavLinks navClass={navClass} teamTo={teamTo} {...navShared} />
+            </nav>
+          </div>
+          <div className="flex shrink-0 min-w-0 items-center gap-2 sm:gap-3">
               {showAdminScreenLink ? (
                 <NavLink
                   to="/admin/dashboard"
@@ -609,16 +778,45 @@ export function TeamLayout() {
                 </>
               )}
             </div>
-          </div>
-          <DarkHeaderNavScroll
-            className="sm:hidden -mx-4 px-4"
-            aria-label="팀장 메뉴"
-            hintKey={mobileNavHintKey}
-          >
-            <TeamNavLinks navClass={navClass} teamTo={teamTo} compact {...navShared} />
-          </DarkHeaderNavScroll>
         </div>
       </header>
+      {mobileNavOpen ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[45] bg-black/50 sm:hidden"
+            aria-label={teamT('team.layout.nav.menuClose')}
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <aside
+            className="theme-dark-header fixed inset-y-0 left-0 z-[46] flex w-[min(18rem,88vw)] flex-col border-r border-white/10 bg-slate-900 shadow-2xl sm:hidden"
+            aria-label="팀장 메뉴"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <span className="text-fluid-sm font-semibold text-white">
+                <TeamBiInline id="team.layout.nav.menuTitle" />
+              </span>
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white touch-manipulation"
+                aria-label={teamT('team.layout.nav.menuClose')}
+                onClick={() => setMobileNavOpen(false)}
+              >
+                <TeamCloseIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3">
+              <TeamNavLinks
+                navClass={drawerNavClass}
+                teamTo={teamTo}
+                drawer
+                onNavigate={() => setMobileNavOpen(false)}
+                {...navShared}
+              />
+            </nav>
+          </aside>
+        </>
+      ) : null}
       </div>
       <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null, tenantSlug }}>

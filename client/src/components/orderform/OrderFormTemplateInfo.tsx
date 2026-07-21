@@ -39,10 +39,12 @@ export function OrderFormCustomAnswers({
   template,
   answers,
   className = '',
+  compact = false,
 }: {
   template: OrderFormTemplateLite | null | undefined;
   answers: Record<string, unknown> | null | undefined;
   className?: string;
+  compact?: boolean;
 }) {
   if (!answers || typeof answers !== 'object') return null;
   const labelByKey = new Map((template?.fields ?? []).map((f) => [f.fieldKey, f.label]));
@@ -54,6 +56,21 @@ export function OrderFormCustomAnswers({
       value: renderAnswerValue(v, k),
     }));
   if (entries.length === 0) return null;
+  if (compact) {
+    return (
+      <section className={`min-w-0 border-b border-gray-100 py-1 ${className}`}>
+        <h3 className="mb-px text-[11px] font-semibold text-gray-500">발주서 추가 정보</h3>
+        <dl className="space-y-px">
+          {entries.map((e) => (
+            <div key={e.key} className="flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-0 leading-tight">
+              <dt className="shrink-0 text-[11px] font-medium text-gray-500">{e.label}</dt>
+              <dd className="min-w-0 flex-1 whitespace-pre-wrap break-words text-fluid-2xs text-gray-900">{e.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+    );
+  }
   return (
     <div className={`rounded-lg border border-gray-200 bg-white ${className}`}>
       <div className="border-b border-gray-100 px-3 py-2 text-fluid-xs font-medium text-gray-600">

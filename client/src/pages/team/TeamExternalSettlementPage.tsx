@@ -302,18 +302,16 @@ export function TeamExternalSettlementPage() {
   }
 
   return (
-    <div className="flex min-w-0 w-full max-w-full flex-col gap-4 pb-4">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-800">
-          <TeamBiLine id="team.layout.nav.settlement" koClassName="text-xl font-semibold text-gray-800" />
-        </h1>
-        <div className="mt-1">
-          <TeamBiLine id="team.settlement.adminCancelNote" koClassName="text-fluid-xs text-gray-500" />
-        </div>
+    <div className="flex min-w-0 w-full max-w-full flex-col gap-2 pb-4 sm:gap-4">
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 sm:px-3 sm:py-2">
+        <TeamBiLine
+          id="team.settlement.adminCancelNote"
+          koClassName="text-fluid-2xs leading-snug text-gray-600 sm:text-fluid-xs"
+        />
       </div>
 
       {activeOperatingCompanies.length > 1 ? (
-        <div className="inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-white p-1">
+        <div className="inline-flex flex-wrap gap-0.5 rounded-lg border border-gray-200 bg-white p-0.5 sm:gap-1 sm:p-1">
           {activeOperatingCompanies.map((oc) => {
             const active = oc.id === resolvedOperatingCompanyId;
             return (
@@ -321,7 +319,7 @@ export function TeamExternalSettlementPage() {
                 key={oc.id}
                 type="button"
                 onClick={() => setOperatingCompanyBrand(oc.id)}
-                className={`rounded-md px-3 py-1.5 text-fluid-xs font-medium transition-colors ${
+                className={`rounded-md px-2 py-1 text-fluid-2xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-fluid-xs ${
                   active ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
@@ -331,7 +329,7 @@ export function TeamExternalSettlementPage() {
           })}
         </div>
       ) : activeOperatingCompanies.length === 1 ? (
-        <p className="text-fluid-xs text-gray-500">
+        <p className="text-fluid-2xs text-gray-500 sm:text-fluid-xs">
           브랜드:{' '}
           <span className="font-medium text-gray-700">
             {activeOperatingCompanies[0].displayName || activeOperatingCompanies[0].name}
@@ -339,7 +337,7 @@ export function TeamExternalSettlementPage() {
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-2 sm:p-3 min-w-0">
+      <div className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-gray-200 bg-white p-1.5 sm:gap-2 sm:p-3">
         <div className="flex w-full flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
           <span className="text-fluid-2xs text-gray-600 shrink-0">
             <TeamBiInline id="team.settlement.dateBasisPreferred" />
@@ -410,127 +408,129 @@ export function TeamExternalSettlementPage() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-900">{error}</div>
+        <div className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-fluid-2xs text-red-900 sm:px-3 sm:py-2 sm:text-fluid-sm">
+          {error}
+        </div>
       ) : null}
 
       {data ? (
         <>
-          <h2 className="text-fluid-sm font-medium text-gray-800">
-            <TeamBiLine id="team.settlement.sectionPeriodBasis" koClassName="text-fluid-sm font-medium text-gray-800" />
+          <h2 className="px-0.5 text-fluid-2xs font-medium text-gray-800 sm:text-fluid-sm">
+            <TeamBiLine id="team.settlement.sectionPeriodBasis" koClassName="text-fluid-2xs font-medium text-gray-800 sm:text-fluid-sm" />
           </h2>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <div className="text-fluid-2xs text-gray-500">
-                <TeamBiLine id="team.settlement.cardCompany" koClassName="text-fluid-2xs text-gray-500" />
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 sm:gap-2">
+            <div className="rounded-lg border border-gray-200 bg-white p-2 sm:p-3">
+              <div className="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs">
+                <TeamBiLine id="team.settlement.cardCompany" koClassName="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs" />
               </div>
-              <p className="mt-1 truncate text-fluid-sm font-semibold text-gray-900" title={data.externalCompanyName ?? '-'}>
+              <p className="mt-0.5 truncate text-fluid-xs font-semibold text-gray-900 sm:mt-1 sm:text-fluid-sm" title={data.externalCompanyName ?? '-'}>
                 {data.externalCompanyName ?? '-'}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <div className="text-fluid-2xs text-gray-500">
-                <TeamBiLine id="team.settlement.cardPeriodTotalFee" koClassName="text-fluid-2xs text-gray-500" />
+            <div className="rounded-lg border border-gray-200 bg-white p-2 sm:p-3">
+              <div className="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs">
+                <TeamBiLine id="team.settlement.cardPeriodTotalFee" koClassName="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs" />
               </div>
-              <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">{won(data.totalFee)}</p>
+              <p className="mt-0.5 text-fluid-xs font-semibold tabular-nums text-gray-900 sm:mt-1 sm:text-fluid-sm">{won(data.totalFee)}</p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <div className="text-fluid-2xs text-gray-500">
-                <TeamBiLine id="team.settlement.cardNormalCancelledCounts" koClassName="text-fluid-2xs text-gray-500" />
+            <div className="rounded-lg border border-gray-200 bg-white p-2 sm:p-3">
+              <div className="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs">
+                <TeamBiLine id="team.settlement.cardNormalCancelledCounts" koClassName="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs" />
               </div>
-              <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">
+              <p className="mt-0.5 text-fluid-xs font-semibold tabular-nums text-gray-900 sm:mt-1 sm:text-fluid-sm">
                 {data.inquiryCount} / {data.cancelledInquiryCount}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <div className="text-fluid-2xs text-gray-500">
-                <TeamBiLine id="team.settlement.cardTotalCount" koClassName="text-fluid-2xs text-gray-500" />
+            <div className="rounded-lg border border-gray-200 bg-white p-2 sm:p-3">
+              <div className="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs">
+                <TeamBiLine id="team.settlement.cardTotalCount" koClassName="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs" />
               </div>
-              <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">{data.totalCount}</p>
+              <p className="mt-0.5 text-fluid-xs font-semibold tabular-nums text-gray-900 sm:mt-1 sm:text-fluid-sm">{data.totalCount}</p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <div className="text-fluid-2xs text-gray-500">
-                <TeamBiLine id="team.settlement.cardCarryOver" koClassName="text-fluid-2xs text-gray-500" />
+            <div className="rounded-lg border border-gray-200 bg-white p-2 sm:p-3">
+              <div className="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs">
+                <TeamBiLine id="team.settlement.cardCarryOver" koClassName="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs" />
               </div>
-              <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">
+              <p className="mt-0.5 text-fluid-xs font-semibold tabular-nums text-gray-900 sm:mt-1 sm:text-fluid-sm">
                 {won(data.carryOverAmount)}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <div className="text-fluid-2xs text-gray-500">
-                <TeamBiLine id="team.settlement.cardPayable" koClassName="text-fluid-2xs text-gray-500" />
+            <div className="rounded-lg border border-gray-200 bg-white p-2 sm:p-3">
+              <div className="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs">
+                <TeamBiLine id="team.settlement.cardPayable" koClassName="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs" />
               </div>
-              <p className="mt-1 text-fluid-sm font-semibold text-gray-900 tabular-nums">
+              <p className="mt-0.5 text-fluid-xs font-semibold tabular-nums text-gray-900 sm:mt-1 sm:text-fluid-sm">
                 {won(data.payableAmount)}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <div className="text-fluid-2xs text-gray-500">
-                <TeamBiLine id="team.settlement.cardPeriodPaid" koClassName="text-fluid-2xs text-gray-500" />
+            <div className="rounded-lg border border-gray-200 bg-white p-2 sm:p-3">
+              <div className="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs">
+                <TeamBiLine id="team.settlement.cardPeriodPaid" koClassName="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs" />
               </div>
-              <p className="mt-1 text-fluid-sm font-semibold text-emerald-700 tabular-nums">
+              <p className="mt-0.5 text-fluid-xs font-semibold tabular-nums text-emerald-700 sm:mt-1 sm:text-fluid-sm">
                 {won(data.periodPaidAmount)}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <div className="text-fluid-2xs text-gray-500">
-                <TeamBiLine id="team.settlement.cardRemainingPay" koClassName="text-fluid-2xs text-gray-500" />
+            <div className="rounded-lg border border-gray-200 bg-white p-2 sm:p-3">
+              <div className="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs">
+                <TeamBiLine id="team.settlement.cardRemainingPay" koClassName="text-fluid-2xs leading-tight text-gray-500 sm:text-fluid-2xs" />
               </div>
-              <p className={`mt-1 text-fluid-sm font-semibold tabular-nums ${remainingAmount > 0 ? 'text-rose-700' : 'text-gray-900'}`}>
+              <p className={`mt-0.5 text-fluid-xs font-semibold tabular-nums sm:mt-1 sm:text-fluid-sm ${remainingAmount > 0 ? 'text-rose-700' : 'text-gray-900'}`}>
                 {won(remainingAmount > 0 ? remainingAmount : 0)}
               </p>
             </div>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-1 sm:mt-4">
             <TeamBiLine
               id="team.settlement.yearHeading"
               vars={{ year: String(data.summaryYear) }}
-              koClassName="text-fluid-sm font-medium text-gray-800"
+              koClassName="text-fluid-2xs font-medium text-gray-800 sm:text-fluid-sm"
             />
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border-2 border-rose-200 bg-rose-50/60 p-4 shadow-sm">
-              <div className="text-fluid-2xs font-medium uppercase tracking-wide text-rose-900/80">
-                <TeamBiLine id="team.settlement.remainingReceivableTitle" koClassName="text-fluid-2xs font-medium uppercase tracking-wide text-rose-900/80" />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+            <div className="rounded-lg border border-rose-200 bg-rose-50/60 p-2.5 shadow-sm sm:rounded-xl sm:border-2 sm:p-4">
+              <div className="text-fluid-2xs font-medium uppercase tracking-wide text-rose-900/80 sm:text-fluid-2xs">
+                <TeamBiLine id="team.settlement.remainingReceivableTitle" koClassName="text-fluid-2xs font-medium uppercase tracking-wide text-rose-900/80 sm:text-fluid-2xs" />
               </div>
               <p
-                className={`mt-2 text-2xl font-bold tabular-nums sm:text-3xl ${
+                className={`mt-1 text-xl font-bold tabular-nums sm:mt-2 sm:text-2xl lg:text-3xl ${
                   (data.yearRemainingAmount ?? 0) > 0 ? 'text-rose-800' : 'text-gray-800'
                 }`}
               >
                 {won((data.yearRemainingAmount ?? 0) > 0 ? data.yearRemainingAmount ?? 0 : 0)}
               </p>
-              <div className="mt-2 space-y-1">
-                <TeamBiLine id="team.settlement.yearTotalFeeByBooking" koClassName="text-fluid-xs text-gray-600" />
-                <p className="font-semibold tabular-nums text-gray-900">{won(data.yearTotalFee ?? 0)}</p>
+              <div className="mt-1 space-y-0.5 sm:mt-2 sm:space-y-1">
+                <TeamBiLine id="team.settlement.yearTotalFeeByBooking" koClassName="text-fluid-2xs text-gray-600 sm:text-fluid-xs" />
+                <p className="text-fluid-xs font-semibold tabular-nums text-gray-900 sm:text-fluid-sm">{won(data.yearTotalFee ?? 0)}</p>
               </div>
             </div>
-            <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/60 p-4 shadow-sm">
-              <div className="text-fluid-2xs font-medium uppercase tracking-wide text-emerald-900/80">
-                <TeamBiLine id="team.settlement.recentPaidTitle" koClassName="text-fluid-2xs font-medium uppercase tracking-wide text-emerald-900/80" />
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 shadow-sm sm:rounded-xl sm:border-2 sm:p-4">
+              <div className="text-fluid-2xs font-medium uppercase tracking-wide text-emerald-900/80 sm:text-fluid-2xs">
+                <TeamBiLine id="team.settlement.recentPaidTitle" koClassName="text-fluid-2xs font-medium uppercase tracking-wide text-emerald-900/80 sm:text-fluid-2xs" />
               </div>
               {data.lastSettlementPayment ? (
                 <>
-                  <p className="mt-2 text-2xl font-bold text-emerald-800 tabular-nums sm:text-3xl">
+                  <p className="mt-1 text-xl font-bold tabular-nums text-emerald-800 sm:mt-2 sm:text-2xl lg:text-3xl">
                     {won(data.lastSettlementPayment.amount)}
                   </p>
-                  <p className="mt-1 text-fluid-xs text-gray-600">
+                  <p className="mt-0.5 text-fluid-2xs text-gray-600 sm:mt-1 sm:text-fluid-xs">
                     {formatDateCompactWithWeekday(data.lastSettlementPayment.paidAt)}
                   </p>
                 </>
               ) : (
-                <div className="mt-3">
-                  <TeamBiLine id="team.settlement.noPaidHistoryYet" koClassName="text-fluid-sm text-gray-500" />
+                <div className="mt-1.5 sm:mt-3">
+                  <TeamBiLine id="team.settlement.noPaidHistoryYet" koClassName="text-fluid-2xs text-gray-500 sm:text-fluid-sm" />
                 </div>
               )}
-              <div className="mt-2 text-fluid-xs text-gray-600 flex flex-wrap items-baseline gap-x-1 gap-y-1">
-                <TeamBiLine id="team.settlement.yearPaidAccum" koClassName="text-fluid-xs text-gray-600" />
+              <div className="mt-1 flex flex-wrap items-baseline gap-x-1 gap-y-0.5 text-fluid-2xs text-gray-600 sm:mt-2 sm:gap-y-1 sm:text-fluid-xs">
+                <TeamBiLine id="team.settlement.yearPaidAccum" koClassName="text-fluid-2xs text-gray-600 sm:text-fluid-xs" />
                 <span className="font-semibold tabular-nums text-emerald-900">{won(data.yearPeriodPaidAmount ?? 0)}</span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-3 text-fluid-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-3 items-start">
+          <div className="flex flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-white p-2 text-fluid-2xs text-gray-600 sm:gap-x-4 sm:gap-y-3 sm:p-3 sm:text-fluid-xs">
             <span className="inline-flex flex-col gap-1">
               <TeamBiInline id="team.settlement.sumPositiveFees" />
               <strong className="text-emerald-700 tabular-nums">{won(data.periodPositiveFee ?? 0)}</strong>
@@ -543,12 +543,12 @@ export function TeamExternalSettlementPage() {
           </div>
 
           <div className="rounded-lg border border-gray-200 bg-white">
-            <div className="border-b border-gray-100 px-3 py-2.5">
-              <div className="flex items-center gap-2">
+            <div className="border-b border-gray-100 px-2 py-1.5 sm:px-3 sm:py-2.5">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveTab('summary')}
-                  className={`rounded px-2.5 py-1 text-fluid-xs font-medium border ${
+                  className={`rounded px-2 py-0.5 text-fluid-2xs font-medium border sm:px-2.5 sm:py-1 sm:text-fluid-xs ${
                     activeTab === 'summary'
                       ? 'bg-gray-800 text-white border-gray-800'
                       : 'bg-white text-gray-700 border-gray-300'
@@ -559,7 +559,7 @@ export function TeamExternalSettlementPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('history')}
-                  className={`rounded px-2.5 py-1 text-fluid-xs font-medium border ${
+                  className={`rounded px-2 py-0.5 text-fluid-2xs font-medium border sm:px-2.5 sm:py-1 sm:text-fluid-xs ${
                     activeTab === 'history'
                       ? 'bg-gray-800 text-white border-gray-800'
                       : 'bg-white text-gray-700 border-gray-300'
@@ -571,9 +571,9 @@ export function TeamExternalSettlementPage() {
             </div>
 
             {activeTab === 'history' ? (
-              <div className="p-3">
+              <div className="p-2 sm:p-3">
                 <div className="rounded border border-gray-200 bg-white">
-                  <div className="border-b border-gray-100 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-600">
+                  <div className="border-b border-gray-100 bg-gray-50 px-2 py-1.5 text-fluid-2xs text-gray-600 sm:px-3 sm:py-2 sm:text-fluid-xs">
                     <div className="text-fluid-xs">
                       <TeamBiLine
                         id="team.settlement.historyBanner"
@@ -586,13 +586,13 @@ export function TeamExternalSettlementPage() {
                         koClassName="text-fluid-xs text-gray-600"
                       />
                     </div>
-                    <div className="mt-1.5 text-fluid-2xs text-gray-500">
+                    <div className="mt-1 text-fluid-2xs text-gray-500 sm:mt-1.5">
                       <TeamBiLine id="team.settlement.historyNote" koClassName="text-fluid-2xs text-gray-500" />
                     </div>
                   </div>
                   {paymentRows.length === 0 ? (
-                    <div className="px-3 py-8 text-center">
-                      <TeamBiLine id="team.settlement.emptyPaidPeriod" koClassName="text-fluid-sm text-gray-500" />
+                    <div className="px-2 py-6 text-center sm:px-3 sm:py-8">
+                      <TeamBiLine id="team.settlement.emptyPaidPeriod" koClassName="text-fluid-2xs text-gray-500 sm:text-fluid-sm" />
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
@@ -657,9 +657,9 @@ export function TeamExternalSettlementPage() {
 
           {activeTab === 'summary' ? (
             <>
-            <div className="px-3 pt-3">
-              <label className="block text-fluid-xs text-gray-600">
-                <TeamBiLine id="team.settlement.searchCustomerInquiry" koClassName="text-fluid-xs text-gray-600" />
+            <div className="px-2 pt-2 sm:px-3 sm:pt-3">
+              <label className="block text-fluid-2xs text-gray-600 sm:text-fluid-xs">
+                <TeamBiLine id="team.settlement.searchCustomerInquiry" koClassName="text-fluid-2xs text-gray-600 sm:text-fluid-xs" />
                 <input
                   type="search"
                   value={itemSearch}
@@ -672,46 +672,46 @@ export function TeamExternalSettlementPage() {
                     });
                   }}
                   placeholder="고객명 또는 접수번호"
-                  className="mt-1 block w-full max-w-md rounded border border-gray-300 px-2.5 py-1.5 text-fluid-sm"
+                  className="mt-0.5 block w-full max-w-md rounded border border-gray-300 px-2 py-1 text-fluid-xs sm:mt-1 sm:px-2.5 sm:py-1.5 sm:text-fluid-sm"
                 />
               </label>
             </div>
-            <div className="space-y-3 lg:hidden px-3">
+            <div className="space-y-2 px-2 lg:hidden sm:px-3">
             {lineItems.length === 0 ? (
-              <div className="rounded-lg border border-gray-200 bg-white px-3 py-10 text-center">
-                <TeamBiLine id="team.settlement.emptyLinesPeriod" koClassName="text-gray-500 text-fluid-sm" />
+              <div className="rounded-lg border border-gray-200 bg-white px-2 py-8 text-center sm:px-3 sm:py-10">
+                <TeamBiLine id="team.settlement.emptyLinesPeriod" koClassName="text-fluid-2xs text-gray-500 sm:text-fluid-sm" />
               </div>
             ) : (
               lineItems.map((it) => (
                 <article
                   key={`${it.inquiryId}-${it.isCancelled ? 'C' : 'N'}`}
-                  className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+                  className="rounded-lg border border-gray-200 bg-white p-2 shadow-sm sm:rounded-xl sm:p-3"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-1.5">
                     <div className="min-w-0">
-                      <p className="text-fluid-sm font-semibold text-gray-900">{it.customerName}</p>
-                      <p className="mt-0.5 text-fluid-2xs text-gray-500 tabular-nums">{it.inquiryNumber ?? '-'}</p>
+                      <p className="text-fluid-xs font-semibold text-gray-900 sm:text-fluid-sm">{it.customerName}</p>
+                      <p className="mt-0.5 text-fluid-2xs tabular-nums text-gray-500 sm:text-fluid-2xs">{it.inquiryNumber ?? '-'}</p>
                     </div>
                     <span
-                      className={`inline-flex shrink-0 rounded px-2 py-0.5 text-fluid-2xs font-medium ${
+                      className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-fluid-2xs font-medium sm:px-2 ${
                         it.isCancelled ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-700'
                       }`}
                     >
                       <SettlementRowStatus code={it.status} cancelled={it.isCancelled} />
                     </span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-2 text-fluid-xs text-gray-600">
+                  <div className="mt-1 flex items-center justify-between gap-2 text-fluid-2xs text-gray-600 sm:mt-2 sm:text-fluid-xs">
                     <span className="min-w-0 text-left tabular-nums">
                       <TeamBiLine
                         id="team.settlement.prefDateLine"
                         vars={{
                           date: it.preferredDate ? formatDateCompactWithWeekday(it.preferredDate) : '-',
                         }}
-                        koClassName="text-fluid-xs text-gray-600"
+                        koClassName="text-fluid-2xs text-gray-600 sm:text-fluid-xs"
                       />
                     </span>
                     <span
-                      className={`tabular-nums font-semibold ${
+                      className={`shrink-0 tabular-nums text-fluid-xs font-semibold sm:text-fluid-sm ${
                         it.signedFeeAmount < 0 ? 'text-rose-700' : 'text-emerald-700'
                       }`}
                     >

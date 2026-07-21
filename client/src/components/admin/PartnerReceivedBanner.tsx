@@ -3,10 +3,12 @@ import type { TenantInquiryShareMeta } from '../../api/tenantInquiryShare';
 type Props = {
   share: TenantInquiryShareMeta;
   className?: string;
+  /** 타업체 접수상세 — 한 줄 안내 */
+  compact?: boolean;
 };
 
 /** 수신 파트너 접수 상세 — 연계받음 안내 */
-export function PartnerReceivedBanner({ share, className = '' }: Props) {
+export function PartnerReceivedBanner({ share, className = '', compact = false }: Props) {
   if (share.role !== 'TARGET') return null;
   const revoked = share.syncStatus === 'REVOKED';
   const sourceNo = share.sourceInquiryNumberSnapshot?.trim();
@@ -15,6 +17,27 @@ export function PartnerReceivedBanner({ share, className = '' }: Props) {
     : sourceNo
       ? `원 접수번호: ${sourceNo}`
       : `${share.partnerName}에서 연계받은 접수입니다.`;
+
+  if (compact) {
+    return (
+      <p
+        className={`border-b border-gray-100 py-1 text-fluid-2xs leading-snug ${
+          revoked ? 'text-gray-600' : 'text-gray-700'
+        } ${className}`}
+        title={title}
+      >
+        {revoked ? (
+          <>연계 취소됨 · {share.partnerName}</>
+        ) : (
+          <>
+            <span className="font-medium text-gray-800">{share.partnerName} 연계</span>
+            {sourceNo ? <span className="ml-1 tabular-nums text-gray-500">({sourceNo})</span> : null}
+            {share.viaMarketplace ? <span className="ml-1 text-gray-500">· 정보공유</span> : null}
+          </>
+        )}
+      </p>
+    );
+  }
 
   return (
     <div
