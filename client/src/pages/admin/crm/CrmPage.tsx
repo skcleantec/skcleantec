@@ -7,6 +7,12 @@ import { useMarketerPermissions } from '../../../hooks/useMarketerPermissions';
 import { useCrmInquiryEdit } from '../../../hooks/useCrmInquiryEdit';
 import { fetchTelecrmPricingCatalog } from '../../../api/telecrm';
 import { CrmShell } from '../../../components/crm/layout/CrmShell';
+import { CrmContactHistoryDrawer, CrmContactHistoryReopenChip } from '../../../components/crm/contact/CrmContactHistoryDrawer';
+import { useCrmContactTimeline } from '../../../hooks/useCrmContactTimeline';
+import {
+  crmContactIdentityKey,
+  type CrmContactIdentity,
+} from '@shared/crmContactIdentity';
 import { CrmIntakePanel, type CrmCustomerMode } from '../../../components/crm/intake/CrmIntakePanel';
 import type { CrmIntakeSavedMeta } from '../../../components/crm/intake/CrmIntakeForm';
 import { CrmScriptPanel } from '../../../components/crm/scripts/CrmScriptPanel';
@@ -148,6 +154,41 @@ export function CrmPage() {
   const [depositAmount, setDepositAmount] = useState(0);
   const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
   const [lookupRefreshKey, setLookupRefreshKey] = useState(0);
+  const [intakeIdentity, setIntakeIdentity] = useState<CrmContactIdentity>({
+    customerName: '',
+    nickname: '',
+    address: '',
+  });
+  const [contactHistoryOpen, setContactHistoryOpen] = useState(false);
+  const contactHistoryDismissedKeyRef = useRef<string | null>(null);
+  const {
+    items: contactTimelineItems,
+    loading: contactTimelineLoading,
+    error: contactTimelineError,
+    canSearch: contactTimelineCanSearch,
+  } = useCrmContactTimeline(intakeIdentity, {
+    phone: outboundPhone,
+    phone2: safePhone,
+    operatingCompanyId: activeOperatingCompanyId,
+    enabled: Boolean(activeOperatingCompanyId),
+    refreshKey: lookupRefreshKey,
+  });
+  const contactIdentityKey = crmContactIdentityKey(intakeIdentity);
+  const contactTimelineActiveCount = contactTimelineItems.filter((it) => it.active).length;
+
+  useEffect(() => {
+    contactHistoryDismissedKeyRef.current = null;
+  }, [contactIdentityKey]);
+
+  useEffect(() => {
+    if (!contactTimelineCanSearch || contactTimelineItems.length === 0) {
+      setContactHistoryOpen(false);
+      return;
+    }
+    if (contactHistoryDismissedKeyRef.current === contactIdentityKey) return;
+    setContactHistoryOpen(true);
+  }, [contactTimelineCanSearch, contactTimelineItems.length, contactIdentityKey]);
+
   const [initialFormDraft, setInitialFormDraft] = useState<Partial<CrmIntakeFormSnapshot> | null>(null);
   const [draftRestoredPhone, setDraftRestoredPhone] = useState<string | null>(null);
   const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
@@ -365,6 +406,11 @@ export function CrmPage() {
   const handleFormChange = useCallback(
     (snapshot: CrmIntakeFormSnapshot) => {
       formSnapshotRef.current = snapshot;
+      setIntakeIdentity({
+        customerName: snapshot.customerName,
+        nickname: snapshot.nickname,
+        address: snapshot.address,
+      });
       if (snapshot.customerName !== customerName) setCustomerName(snapshot.customerName);
       if (snapshot.kind !== intakeKind) setIntakeKind(snapshot.kind);
       persistDraft(snapshot);
@@ -561,6 +607,11 @@ export function CrmPage() {
         balconyCount: formatSoomgoCountForCrm(data.balconyCount),
         kind: intakeDefaults.kind,
         goldDb: false,
+      });
+      setIntakeIdentity({
+        customerName: name,
+        nickname: name,
+        address: (data.region || data.address)?.trim() || '',
       });
     },
     [resetQuotePricingState],
@@ -1411,6 +1462,29 @@ export function CrmPage() {
               }
             />
           </>
+        ) : null}
+        <CrmContactHistoryDrawer
+          open={contactHistoryOpen}
+          onClose={() => {
+            contactHistoryDismissedKeyRef.current = contactIdentityKey;
+            setContactHistoryOpen(false);
+          }}
+          customerName={intakeIdentity.customerName}
+          nickname={intakeIdentity.nickname}
+          address={intakeIdentity.address}
+          items={contactTimelineItems}
+          loading={contactTimelineLoading}
+          error={contactTimelineError}
+        />
+        {!contactHistoryOpen && contactTimelineItems.length > 0 ? (
+          <CrmContactHistoryReopenChip
+            count={contactTimelineItems.length}
+            activeCount={contactTimelineActiveCount}
+            onOpen={() => {
+              contactHistoryDismissedKeyRef.current = null;
+              setContactHistoryOpen(true);
+            }}
+          />
         ) : null}
       </div>
     </FeatureGate>

@@ -28,12 +28,15 @@ export function CrmScriptPanel({
   estimateWon,
   refreshKey = 0,
   onOpenSettings,
+  compact = false,
 }: {
   customerName?: string;
   pyeong?: string;
   estimateWon?: number | null;
   refreshKey?: number;
   onOpenSettings?: () => void;
+  /** 접촉 이력 열과 함께 쓸 때 본문·글자 축소 */
+  compact?: boolean;
 }) {
   const token = getToken();
   const [categories, setCategories] = useState<TelecrmScriptCategoryDto[]>([]);
@@ -41,7 +44,7 @@ export function CrmScriptPanel({
   const [error, setError] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [tabId, setTabId] = useState<string | null>(null);
-  const [fontScale, setFontScale] = useState(0.875);
+  const [fontScale, setFontScale] = useState(compact ? 0.8 : 0.875);
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
@@ -169,9 +172,10 @@ export function CrmScriptPanel({
     <CrmColumn
       accent="script"
       title="상담 스크립트"
-      subtitle="Ctrl+1~5 · Shift+←→ · 복사"
+      subtitle={compact ? 'Ctrl+1~5 · 복사' : 'Ctrl+1~5 · Shift+←→ · 복사'}
       disableBodyScroll
       bodyClassName="p-0"
+      className={compact ? 'min-h-0' : undefined}
     >
       {loading ? (
         <p className="px-2 py-1.5 text-[11px] text-gray-500">불러오는 중…</p>

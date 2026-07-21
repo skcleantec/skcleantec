@@ -24,6 +24,7 @@ import {
 import { countTelecrmAppsInTenant } from '../realtime/realtimeHub.js';
 import { resolveTelecrmOrderFormLink } from './telecrmOrderLink.service.js';
 import { getTelecrmWorkdeskStats } from './telecrmWorkdeskStats.service.js';
+import { listTelecrmContactTimeline } from './telecrmContactTimeline.service.js';
 import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 import type { TelecrmCallSessionStatus } from './telecrmCallSession.constants.js';
 
@@ -260,6 +261,30 @@ router.get('/call-sessions/summary', requireStaffPermission('crm.view', 'crm.set
       : new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const summary = await getTelecrmCallSessionSummary(tenantId, user.userId, day);
   res.json(summary);
+});
+
+/** 연락처 기준 상담사 접촉 이력(테넌트 전체 · 닉네임·호칭·지역) */
+router.get('/contact-timeline', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const customerName = typeof req.query.customerName === 'string' ? req.query.customerName : '';
+  const nickname = typeof req.query.nickname === 'string' ? req.query.nickname : '';
+  const region = typeof req.query.region === 'string' ? req.query.region : '';
+  const address = typeof req.query.address === 'string' ? req.query.address : '';
+  const phone = typeof req.query.phone === 'string' ? req.query.phone : '';
+  const phone2 = typeof req.query.phone2 === 'string' ? req.query.phone2 : '';
+  const operatingCompanyId =
+    typeof req.query.operatingCompanyId === 'string' && req.query.operatingCompanyId.trim()
+      ? req.query.operatingCompanyId.trim()
+      : null;
+  const limitRaw = typeof req.query.limit === 'string' ? Number(req.query.limit) : 50;
+  const limit = Number.isFinite(limitRaw) ? Math.min(80, Math.max(1, Math.floor(limitRaw))) : 50;
+  const result = await listTelecrmContactTimeline(
+    tenantId,
+    { customerName, nickname, region, address, phone, phone2, operatingCompanyId },
+    limit,
+  );
+  res.json(result);
 });
 
 export const telecrmMobileRouter = router;
