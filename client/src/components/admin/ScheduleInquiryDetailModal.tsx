@@ -2006,7 +2006,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       >
         <div className="relative shrink-0 border-b border-gray-100 px-4 pt-3 pb-2 sm:px-6 sm:pt-5 sm:pb-3">
           <ModalCloseButton onClick={onClose} />
-          <div className="mb-0 flex items-center gap-x-2 pr-10 sm:mb-1 sm:pr-12">
+          <div className="min-w-0 pr-12 sm:pr-12">
+          <div className="mb-0 flex items-center gap-x-2 sm:mb-1">
             <h2
               id="schedule-detail-title"
               className="inline-flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0 text-fluid-sm font-semibold leading-tight text-gray-800 sm:gap-x-2 sm:text-fluid-base sm:leading-normal lg:text-lg"
@@ -2239,6 +2240,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               ) : null}
             </div>
           ) : null}
+          </div>
         </div>
 
         <div ref={inquiryEditNavBoundsRef} className="relative isolate flex min-h-0 flex-1 flex-col">
