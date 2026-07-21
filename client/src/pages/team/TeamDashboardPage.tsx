@@ -207,18 +207,12 @@ export function TeamDashboardPage() {
           </div>
         </div>
       )}
-      <section
-        className={
-          isExternalPartner && promoItems.length > 0
-            ? 'lg:grid lg:grid-cols-[minmax(180px,220px)_1fr] lg:items-start lg:gap-4'
-            : undefined
-        }
-      >
-        {isExternalPartner && promoItems.length > 0 ? (
-          <div className="mb-3 hidden min-w-0 lg:mb-0 lg:block">
-            <PlatformPromoDashboardCard items={promoItems} />
-          </div>
-        ) : null}
+      {isExternalPartner && promoItems.length > 0 ? (
+        <div className="mb-4 hidden min-w-0 lg:block">
+          <PlatformPromoDashboardCard items={promoItems} layout="banner" />
+        </div>
+      ) : null}
+      <section>
         <div className="grid grid-cols-4 gap-1.5 sm:gap-2 min-w-0">
         {summaryTiles.map(({ key, count }) => {
           if (key === 'total') {

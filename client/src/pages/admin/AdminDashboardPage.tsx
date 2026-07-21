@@ -148,7 +148,7 @@ export function AdminDashboardPage() {
         </div>
         <aside className="min-w-0 self-start space-y-5">
           {promoItems.length > 0 ? (
-            <PlatformPromoDashboardCard items={promoItems} layout="sidebar" />
+            <PlatformPromoDashboardCard items={promoItems} layout="banner" />
           ) : null}
           <DashboardAuxBlocksGrid showTelecrmDashboard={showTelecrmDashboard} />
           {token ? <DashboardChangeHistory token={token} variant="sidebar" /> : null}

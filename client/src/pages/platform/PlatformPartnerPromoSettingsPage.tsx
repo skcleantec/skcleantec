@@ -10,6 +10,11 @@ import {
   type PlatformPromoUpsertBody,
 } from '../../api/platformPartnerPromo';
 import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
+import {
+  PLATFORM_PROMO_DESKTOP_SPEC,
+  PLATFORM_PROMO_MOBILE_SPEC,
+  platformPromoImageHint,
+} from '@shared/platformPromoImageSpec';
 
 type FormState = {
   title: string;
@@ -97,12 +102,14 @@ function ImageUploadField({
   url,
   uploading,
   onUpload,
+  previewAspect = 'auto',
 }: {
   label: string;
   hint: string;
   url: string;
   uploading: boolean;
   onUpload: (file: File) => Promise<void>;
+  previewAspect?: 'auto' | '5/2';
 }) {
   const onChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -112,9 +119,17 @@ function ImageUploadField({
   return (
     <div className="space-y-1.5">
       <span className="text-fluid-xs font-semibold text-slate-700">{label}</span>
-      <p className="text-[11px] text-slate-500">{hint}</p>
+      <p className="text-[11px] leading-relaxed text-slate-500">{hint}</p>
       {url ? (
-        <img src={url} alt="" className="max-h-32 rounded-lg border border-slate-200 object-contain bg-slate-50" />
+        <img
+          src={url}
+          alt=""
+          className={
+            previewAspect === '5/2'
+              ? 'aspect-[5/2] w-full max-w-md rounded-lg border border-slate-200 object-cover bg-slate-50'
+              : 'max-h-32 rounded-lg border border-slate-200 object-contain bg-slate-50'
+          }
+        />
       ) : null}
       <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-fluid-xs font-medium text-slate-700 hover:bg-slate-50">
         <input type="file" accept="image/*" className="sr-only" onChange={onChange} disabled={uploading} />
@@ -247,7 +262,8 @@ export function PlatformPartnerPromoSettingsPage() {
         <div>
           <h1 className="text-fluid-lg font-bold text-slate-900">타업체·테넌트 홍보 배너</h1>
           <p className="mt-1 text-fluid-xs text-slate-600">
-            타업체 팀 화면(모바일 상단 롤링·PC 대시보드)과 테넌트 관리 대시보드에 청소비서 안내 배너를 게시합니다.
+            타업체·테넌트 대시보드에 청소비서 안내 배너를 게시합니다. 모바일·PC 모두 가로형(5:2) 비율로
+            업로드해 주세요.
           </p>
         </div>
         <button type="button" className={BTN_PRIMARY} onClick={openCreate}>
@@ -312,8 +328,8 @@ export function PlatformPartnerPromoSettingsPage() {
                     </td>
                     <td className="px-2 py-2 text-center">
                       <div className="inline-flex gap-2">
-                        <img src={item.mobileImageUrl} alt="" className="h-10 w-16 rounded object-cover ring-1 ring-slate-200" />
-                        <img src={item.desktopImageUrl} alt="" className="h-10 w-10 rounded object-cover ring-1 ring-slate-200" />
+                        <img src={item.mobileImageUrl} alt="" className="h-10 w-20 rounded object-cover ring-1 ring-slate-200" />
+                        <img src={item.desktopImageUrl} alt="" className="h-10 w-20 rounded object-cover ring-1 ring-slate-200" />
                       </div>
                     </td>
                     <td className="px-2 py-2 text-center">
@@ -350,17 +366,19 @@ export function PlatformPartnerPromoSettingsPage() {
               </label>
               <ImageUploadField
                 label="모바일 이미지"
-                hint="권장 가로형 (약 750×300). 타업체 상단 롤링·테넌트 대시보드 모바일."
+                hint={`${platformPromoImageHint(PLATFORM_PROMO_MOBILE_SPEC)} 타업체 상단 롤링·테넌트 모바일.`}
                 url={form.mobileImageUrl}
                 uploading={uploadingMobile}
                 onUpload={uploadMobile}
+                previewAspect="5/2"
               />
               <ImageUploadField
                 label="PC 이미지"
-                hint="권장 정사각 (약 400×400). 대시보드 좌측 박스."
+                hint={`${platformPromoImageHint(PLATFORM_PROMO_DESKTOP_SPEC)} 테넌트 대시보드 우측·타업체 PC.`}
                 url={form.desktopImageUrl}
                 uploading={uploadingDesktop}
                 onUpload={uploadDesktop}
+                previewAspect="5/2"
               />
               <label className="block space-y-1">
                 <span className="text-fluid-xs font-semibold text-slate-700">링크 (https)</span>
@@ -426,7 +444,7 @@ export function PlatformPartnerPromoSettingsPage() {
                     checked={form.showOnDesktop}
                     onChange={(e) => setForm((f) => ({ ...f, showOnDesktop: e.target.checked }))}
                   />
-                  PC (대시보드 정사각)
+                  PC (대시보드 가로형 5:2)
                 </label>
                 <label className="flex items-center gap-2 text-fluid-xs">
                   <input

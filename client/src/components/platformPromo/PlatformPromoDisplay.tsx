@@ -89,13 +89,13 @@ export function PlatformPromoCarousel({ items }: { items: PlatformPromoActiveIte
   );
 }
 
-/** PC 대시보드 프로모 — square: 타업체 KPI 옆, sidebar: 관리 대시보드 우측 레일(구독 카드와 동일 폭) */
+/** PC 대시보드 프로모 — square: 레거시, banner: 5:2 가로형(테넌트 사이드·타업체 PC 공통) */
 export function PlatformPromoDashboardCard({
   items,
-  layout = 'square',
+  layout = 'banner',
 }: {
   items: PlatformPromoActiveItem[];
-  layout?: 'square' | 'sidebar';
+  layout?: 'square' | 'banner';
 }) {
   const slides = useMemo(
     () => items.filter((item) => item.showOnDesktop && item.desktopImageUrl.trim()),
@@ -125,7 +125,7 @@ export function PlatformPromoDashboardCard({
   const current = slides[index]!;
 
   const frameClass =
-    layout === 'sidebar'
+    layout === 'banner'
       ? 'relative aspect-[5/2] w-full overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/80'
       : 'relative aspect-square w-full max-w-[220px] overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/80';
 
