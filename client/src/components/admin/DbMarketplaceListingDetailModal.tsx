@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -64,6 +64,41 @@ function DbMarketplacePublishAudienceBlock({
         <p className="text-[11px] text-gray-500">지정된 업체가 없습니다.</p>
       )}
     </div>
+  );
+}
+
+type DbMarketplaceDetailNavTone = 'sky' | 'indigo' | 'violet';
+
+function dbMarketplaceDetailNavToneClass(tone: DbMarketplaceDetailNavTone): string {
+  switch (tone) {
+    case 'indigo':
+      return 'border-indigo-200 bg-indigo-50/70 text-indigo-950 hover:bg-indigo-100/90 active:bg-indigo-100';
+    case 'violet':
+      return 'border-violet-200 bg-violet-50/70 text-violet-950 hover:bg-violet-100/90 active:bg-violet-100';
+    default:
+      return 'border-sky-200 bg-sky-50/70 text-sky-950 hover:bg-sky-100/90 active:bg-sky-100';
+  }
+}
+
+function DbMarketplaceDetailNavButton({
+  to,
+  onClick,
+  tone = 'sky',
+  children,
+}: {
+  to: string;
+  onClick?: () => void;
+  tone?: DbMarketplaceDetailNavTone;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className={`inline-flex min-h-[2.125rem] items-center justify-center rounded-lg border px-3 py-1.5 text-[11px] font-semibold leading-snug shadow-sm transition-colors touch-manipulation ${dbMarketplaceDetailNavToneClass(tone)}`}
+    >
+      {children}
+    </Link>
   );
 }
 
@@ -382,59 +417,55 @@ export function DbMarketplaceListingDetailModal({
                   잔금 {d.inquiryFull.serviceBalanceAmount.toLocaleString('ko-KR')}원
                 </p>
               ) : null}
-              {d.targetInquiryId ? (
-                linkedInquiryPath ? (
-                  <Link
-                    to={linkedInquiryPath}
-                    className="inline-block text-[11px] font-medium text-sky-700 hover:text-sky-900 underline"
-                    onClick={onClose}
-                  >
-                    연결 접수 보기
-                    {d.role === 'SELLER' ? ' (판매 접수)' : ''}
-                    {d.inquiryFull?.inquiryNumber ? ` (${d.inquiryFull.inquiryNumber})` : ''}
-                  </Link>
-                ) : (
-                  <p className="text-[11px] text-gray-600">연결 접수 ID: {d.targetInquiryId}</p>
-                )
-              ) : linkedInquiryPath ? (
-                <Link
-                  to={linkedInquiryPath}
-                  className="inline-block text-[11px] font-medium text-sky-700 hover:text-sky-900 underline"
-                  onClick={onClose}
-                >
-                  판매 접수 보기
-                  {d.inquiryFull?.inquiryNumber ? ` (${d.inquiryFull.inquiryNumber})` : ''}
-                </Link>
-              ) : null}
-              {sellerSchedulePath ? (
-                <Link
-                  to={sellerSchedulePath}
-                  className="ml-2 inline-block text-[11px] font-medium text-sky-700 hover:text-sky-900 underline"
-                  onClick={onClose}
-                >
-                  스케줄에서 보기
-                </Link>
-              ) : null}
-              {settlementPath ? (
-                <Link
-                  to={settlementPath}
-                  className="mt-1 inline-block text-[11px] font-medium text-indigo-700 hover:text-indigo-900 underline"
-                  onClick={onClose}
-                >
-                  {d.buyerKind === 'PARTNER_TENANT' ? '파트너 정산 보기' : '타업체 정산 보기'}
-                </Link>
-              ) : null}
-              <Link
-                to={
-                  apiMode === 'team'
-                    ? `/team/db-marketplace?openListing=${encodeURIComponent(d.id)}`
-                    : `/admin/db-marketplace?openListing=${encodeURIComponent(d.id)}`
-                }
-                className="mt-1 inline-block text-[11px] font-medium text-violet-700 hover:text-violet-900 underline"
-                onClick={onClose}
-              >
-                정보공유 목록에서 보기
-              </Link>
+              {(() => {
+                const linkedLabel = d.targetInquiryId
+                  ? linkedInquiryPath
+                    ? `연결 접수 보기${d.role === 'SELLER' ? ' (판매 접수)' : ''}${
+                        d.inquiryFull?.inquiryNumber ? ` (${d.inquiryFull.inquiryNumber})` : ''
+                      }`
+                    : null
+                  : linkedInquiryPath
+                    ? `판매 접수 보기${
+                        d.inquiryFull?.inquiryNumber ? ` (${d.inquiryFull.inquiryNumber})` : ''
+                      }`
+                    : null;
+                return (
+                  <div className="flex flex-wrap gap-2 pt-1.5">
+                    {linkedLabel && linkedInquiryPath ? (
+                      <DbMarketplaceDetailNavButton to={linkedInquiryPath} onClick={onClose}>
+                        {linkedLabel}
+                      </DbMarketplaceDetailNavButton>
+                    ) : d.targetInquiryId && !linkedInquiryPath ? (
+                      <p className="w-full text-[11px] text-gray-600">연결 접수 ID: {d.targetInquiryId}</p>
+                    ) : null}
+                    {sellerSchedulePath ? (
+                      <DbMarketplaceDetailNavButton to={sellerSchedulePath} onClick={onClose}>
+                        스케줄에서 보기
+                      </DbMarketplaceDetailNavButton>
+                    ) : null}
+                    {settlementPath ? (
+                      <DbMarketplaceDetailNavButton
+                        to={settlementPath}
+                        onClick={onClose}
+                        tone="indigo"
+                      >
+                        {d.buyerKind === 'PARTNER_TENANT' ? '파트너 정산 보기' : '타업체 정산 보기'}
+                      </DbMarketplaceDetailNavButton>
+                    ) : null}
+                    <DbMarketplaceDetailNavButton
+                      to={
+                        apiMode === 'team'
+                          ? `/team/db-marketplace?openListing=${encodeURIComponent(d.id)}`
+                          : `/admin/db-marketplace?openListing=${encodeURIComponent(d.id)}`
+                      }
+                      onClick={onClose}
+                      tone="violet"
+                    >
+                      정보공유 목록에서 보기
+                    </DbMarketplaceDetailNavButton>
+                  </div>
+                );
+              })()}
               <p className="text-[10px] text-emerald-800/80">
                 수수료(listingFee)는 기존 파트너·타업체 정산 집계에 반영됩니다.
               </p>
