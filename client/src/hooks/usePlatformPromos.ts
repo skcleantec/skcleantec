@@ -4,6 +4,11 @@ import {
   fetchTeamActivePlatformPromos,
   type PlatformPromoActiveItem,
 } from '../api/platformPartnerPromo';
+import {
+  platformPromoTeamMenuFromPath,
+  promoVisibleOnTeamMenu,
+  type PlatformPromoTeamMenu,
+} from '@shared/platformPromoTeamSurfaces';
 
 export function usePlatformPromos(surface: 'admin' | 'team') {
   const [items, setItems] = useState<PlatformPromoActiveItem[]>([]);
@@ -35,4 +40,17 @@ export function filterPromosForMobile(items: PlatformPromoActiveItem[]): Platfor
 
 export function filterPromosForDesktop(items: PlatformPromoActiveItem[]): PlatformPromoActiveItem[] {
   return items.filter((item) => item.showOnDesktop && item.desktopImageUrl.trim());
+}
+
+export function filterPromosForTeamMenu(
+  items: PlatformPromoActiveItem[],
+  menu: PlatformPromoTeamMenu,
+): PlatformPromoActiveItem[] {
+  return items.filter((item) => promoVisibleOnTeamMenu(item, menu));
+}
+
+export function filterPromosForTeamPath(items: PlatformPromoActiveItem[], pathname: string): PlatformPromoActiveItem[] {
+  const menu = platformPromoTeamMenuFromPath(pathname);
+  if (!menu) return [];
+  return filterPromosForTeamMenu(items, menu);
 }

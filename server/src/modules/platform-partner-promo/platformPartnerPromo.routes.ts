@@ -115,6 +115,9 @@ router.post('/', async (req, res) => {
         showOnDesktop: parseBool(req.body?.showOnDesktop, true),
         showToExternalPartner: parseBool(req.body?.showToExternalPartner, true),
         showToTenantStaff: parseBool(req.body?.showToTenantStaff, false),
+        showOnTeamDashboard: parseBool(req.body?.showOnTeamDashboard, true),
+        showOnTeamAssignments: parseBool(req.body?.showOnTeamAssignments, true),
+        showOnTeamSchedule: parseBool(req.body?.showOnTeamSchedule, true),
         sortOrder: (maxSort._max.sortOrder ?? -1) + 1,
         createdByPlatformUserId: user.platformUserId,
       },
@@ -158,6 +161,15 @@ router.patch('/:id', async (req, res) => {
     }
     if (req.body?.showToTenantStaff !== undefined) {
       data.showToTenantStaff = parseBool(req.body.showToTenantStaff, existing.showToTenantStaff);
+    }
+    if (req.body?.showOnTeamDashboard !== undefined) {
+      data.showOnTeamDashboard = parseBool(req.body.showOnTeamDashboard, existing.showOnTeamDashboard);
+    }
+    if (req.body?.showOnTeamAssignments !== undefined) {
+      data.showOnTeamAssignments = parseBool(req.body.showOnTeamAssignments, existing.showOnTeamAssignments);
+    }
+    if (req.body?.showOnTeamSchedule !== undefined) {
+      data.showOnTeamSchedule = parseBool(req.body.showOnTeamSchedule, existing.showOnTeamSchedule);
     }
     const startsAt = (data.startsAt as Date | null | undefined) ?? existing.startsAt;
     const endsAt = (data.endsAt as Date | null | undefined) ?? existing.endsAt;

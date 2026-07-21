@@ -12,6 +12,9 @@ export type PlatformPromoActiveItem = {
   sortOrder: number;
   showOnMobile: boolean;
   showOnDesktop: boolean;
+  showOnTeamDashboard?: boolean;
+  showOnTeamAssignments?: boolean;
+  showOnTeamSchedule?: boolean;
 };
 
 export type PlatformPromoAdminItem = PlatformPromoActiveItem & {
@@ -21,6 +24,9 @@ export type PlatformPromoAdminItem = PlatformPromoActiveItem & {
   isActive: boolean;
   showToExternalPartner: boolean;
   showToTenantStaff: boolean;
+  showOnTeamDashboard?: boolean;
+  showOnTeamAssignments?: boolean;
+  showOnTeamSchedule?: boolean;
   createdAt: string;
   updatedAt: string;
   scheduleStatus?: string;
@@ -39,6 +45,9 @@ export type PlatformPromoUpsertBody = {
   showOnDesktop?: boolean;
   showToExternalPartner?: boolean;
   showToTenantStaff?: boolean;
+  showOnTeamDashboard?: boolean;
+  showOnTeamAssignments?: boolean;
+  showOnTeamSchedule?: boolean;
 };
 
 function platformHeaders() {

@@ -11,6 +11,9 @@ export type PlatformPromoActiveDto = {
   sortOrder: number;
   showOnMobile: boolean;
   showOnDesktop: boolean;
+  showOnTeamDashboard: boolean;
+  showOnTeamAssignments: boolean;
+  showOnTeamSchedule: boolean;
 };
 
 export type PlatformPromoAdminDto = PlatformPromoActiveDto & {
@@ -22,6 +25,9 @@ export type PlatformPromoAdminDto = PlatformPromoActiveDto & {
   showOnDesktop: boolean;
   showToExternalPartner: boolean;
   showToTenantStaff: boolean;
+  showOnTeamDashboard: boolean;
+  showOnTeamAssignments: boolean;
+  showOnTeamSchedule: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -71,6 +77,9 @@ export function serializeActivePromo(row: PlatformPartnerPromo): PlatformPromoAc
     sortOrder: row.sortOrder,
     showOnMobile: row.showOnMobile,
     showOnDesktop: row.showOnDesktop,
+    showOnTeamDashboard: row.showOnTeamDashboard,
+    showOnTeamAssignments: row.showOnTeamAssignments,
+    showOnTeamSchedule: row.showOnTeamSchedule,
   };
 }
 
@@ -85,6 +94,9 @@ export function serializeAdminPromo(row: PlatformPartnerPromo): PlatformPromoAdm
     showOnDesktop: row.showOnDesktop,
     showToExternalPartner: row.showToExternalPartner,
     showToTenantStaff: row.showToTenantStaff,
+    showOnTeamDashboard: row.showOnTeamDashboard,
+    showOnTeamAssignments: row.showOnTeamAssignments,
+    showOnTeamSchedule: row.showOnTeamSchedule,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

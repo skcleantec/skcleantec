@@ -15,6 +15,10 @@ import {
   PLATFORM_PROMO_MOBILE_SPEC,
   platformPromoImageHint,
 } from '@shared/platformPromoImageSpec';
+import {
+  formatPlatformPromoTeamMenus,
+  PLATFORM_PROMO_TEAM_MENUS,
+} from '@shared/platformPromoTeamSurfaces';
 
 type FormState = {
   title: string;
@@ -29,6 +33,9 @@ type FormState = {
   showOnDesktop: boolean;
   showToExternalPartner: boolean;
   showToTenantStaff: boolean;
+  showOnTeamDashboard: boolean;
+  showOnTeamAssignments: boolean;
+  showOnTeamSchedule: boolean;
 };
 
 const emptyForm = (): FormState => ({
@@ -44,6 +51,9 @@ const emptyForm = (): FormState => ({
   showOnDesktop: true,
   showToExternalPartner: true,
   showToTenantStaff: true,
+  showOnTeamDashboard: true,
+  showOnTeamAssignments: true,
+  showOnTeamSchedule: true,
 });
 
 function toLocalInput(iso: string | null): string {
@@ -68,6 +78,9 @@ function formFromItem(item: PlatformPromoAdminItem): FormState {
     showOnDesktop: item.showOnDesktop,
     showToExternalPartner: item.showToExternalPartner,
     showToTenantStaff: item.showToTenantStaff,
+    showOnTeamDashboard: item.showOnTeamDashboard !== false,
+    showOnTeamAssignments: item.showOnTeamAssignments !== false,
+    showOnTeamSchedule: item.showOnTeamSchedule !== false,
   };
 }
 
@@ -93,6 +106,9 @@ function formToBody(form: FormState): PlatformPromoUpsertBody {
     showOnDesktop: form.showOnDesktop,
     showToExternalPartner: form.showToExternalPartner,
     showToTenantStaff: form.showToTenantStaff,
+    showOnTeamDashboard: form.showOnTeamDashboard,
+    showOnTeamAssignments: form.showOnTeamAssignments,
+    showOnTeamSchedule: form.showOnTeamSchedule,
   };
 }
 
@@ -262,8 +278,8 @@ export function PlatformPartnerPromoSettingsPage() {
         <div>
           <h1 className="text-fluid-lg font-bold text-slate-900">타업체·테넌트 홍보 배너</h1>
           <p className="mt-1 text-fluid-xs text-slate-600">
-            타업체·테넌트 대시보드에 청소비서 안내 배너를 게시합니다. 모바일·PC 모두 가로형(5:2) 비율로
-            업로드해 주세요.
+            타업체 팀 화면(대시보드·접수목록·스케줄)과 테넌트 관리 대시보드에 청소비서 안내 배너를 게시합니다.
+            모바일·PC 모두 가로형(5:2) 비율로 업로드해 주세요.
           </p>
         </div>
         <button type="button" className={BTN_PRIMARY} onClick={openCreate}>
@@ -318,9 +334,10 @@ export function PlatformPartnerPromoSettingsPage() {
                     </td>
                     <td className="px-2 py-2 text-center">{item.scheduleStatus ?? '—'}</td>
                     <td className="px-2 py-2 text-center text-[11px]">
-                      {item.showToExternalPartner ? '타업체' : ''}
-                      {item.showToExternalPartner && item.showToTenantStaff ? ' · ' : ''}
-                      {item.showToTenantStaff ? '테넌트' : ''}
+                      {item.showToExternalPartner ? formatPlatformPromoTeamMenus(item) : ''}
+                      {item.showToExternalPartner && item.showToTenantStaff ? ' / ' : ''}
+                      {item.showToTenantStaff ? '테넌트 대시보드' : ''}
+                      {!item.showToExternalPartner && !item.showToTenantStaff ? '—' : ''}
                     </td>
                     <td className="px-2 py-2 text-center text-[11px] tabular-nums">
                       {item.startsAt ? new Date(item.startsAt).toLocaleString('ko-KR') : '즉시'}
@@ -419,6 +436,29 @@ export function PlatformPartnerPromoSettingsPage() {
                   />
                   타업체 (/team)
                 </label>
+                {form.showToExternalPartner ? (
+                  <div className="ml-5 space-y-1.5 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
+                    <p className="text-[11px] font-medium text-slate-600">타업체 노출 메뉴</p>
+                    {PLATFORM_PROMO_TEAM_MENUS.map((menu) => {
+                      const key =
+                        menu.id === 'dashboard'
+                          ? 'showOnTeamDashboard'
+                          : menu.id === 'assignments'
+                            ? 'showOnTeamAssignments'
+                            : 'showOnTeamSchedule';
+                      return (
+                        <label key={menu.id} className="flex items-center gap-2 text-fluid-xs">
+                          <input
+                            type="checkbox"
+                            checked={form[key]}
+                            onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.checked }))}
+                          />
+                          {menu.label} ({menu.path})
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : null}
                 <label className="flex items-center gap-2 text-fluid-xs">
                   <input
                     type="checkbox"
@@ -444,7 +484,7 @@ export function PlatformPartnerPromoSettingsPage() {
                     checked={form.showOnDesktop}
                     onChange={(e) => setForm((f) => ({ ...f, showOnDesktop: e.target.checked }))}
                   />
-                  PC (대시보드 가로형 5:2)
+                  PC (가로형 5:2 — 타업체·테넌트 대시보드)
                 </label>
                 <label className="flex items-center gap-2 text-fluid-xs">
                   <input

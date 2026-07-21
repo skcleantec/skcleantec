@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useSyncExternalStore, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
@@ -27,8 +27,8 @@ import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
-import { usePlatformPromos } from '../../hooks/usePlatformPromos';
-import { PlatformPromoCarousel } from '../platformPromo/PlatformPromoDisplay';
+import { usePlatformPromos, filterPromosForDesktop, filterPromosForMobile, filterPromosForTeamPath } from '../../hooks/usePlatformPromos';
+import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../platformPromo/PlatformPromoDisplay';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -627,6 +627,12 @@ export function TeamLayout() {
   );
   const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
   const { items: teamPromoItems } = usePlatformPromos('team');
+  const teamPromoForPage = useMemo(
+    () => filterPromosForTeamPath(teamPromoItems, location.pathname),
+    [teamPromoItems, location.pathname],
+  );
+  const teamMobilePromos = useMemo(() => filterPromosForMobile(teamPromoForPage), [teamPromoForPage]);
+  const teamDesktopPromos = useMemo(() => filterPromosForDesktop(teamPromoForPage), [teamPromoForPage]);
   const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER' && !previewExternal;
   const showDbMarketplace =
     isExternalPartner && Boolean(tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace'));
@@ -822,9 +828,14 @@ export function TeamLayout() {
         </>
       ) : null}
       </div>
-      {isExternalPartner && teamPromoItems.length > 0 ? (
+      {isExternalPartner && teamMobilePromos.length > 0 ? (
         <div className="relative z-10 mx-auto w-full max-w-6xl shrink-0 px-4 pt-2 lg:hidden">
-          <PlatformPromoCarousel items={teamPromoItems} />
+          <PlatformPromoCarousel items={teamMobilePromos} />
+        </div>
+      ) : null}
+      {isExternalPartner && teamDesktopPromos.length > 0 ? (
+        <div className="relative z-10 mx-auto hidden w-full max-w-6xl shrink-0 px-4 pt-2 lg:block">
+          <PlatformPromoDashboardCard items={teamDesktopPromos} layout="banner" />
         </div>
       ) : null}
       <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
