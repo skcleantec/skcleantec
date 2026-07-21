@@ -34,6 +34,8 @@ export type PlatformPromoAdminItem = PlatformPromoActiveItem & {
 
 export type PlatformPromoUpsertBody = {
   title: string;
+  /** 단일 업로드 — 서버에서 mobile/desktop 동일 URL로 저장 */
+  imageUrl?: string;
   mobileImageUrl: string;
   desktopImageUrl: string;
   linkUrl?: string | null;

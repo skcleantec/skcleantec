@@ -85,13 +85,27 @@ router.post('/upload-sign', async (_req, res) => {
   }
 });
 
+function parsePromoImageUrls(body: {
+  imageUrl?: unknown;
+  mobileImageUrl?: unknown;
+  desktopImageUrl?: unknown;
+}): { mobileImageUrl: string; desktopImageUrl: string } {
+  if (body.imageUrl !== undefined && body.imageUrl !== null && body.imageUrl !== '') {
+    const u = parseImageUrl(body.imageUrl, '배너');
+    return { mobileImageUrl: u, desktopImageUrl: u };
+  }
+  return {
+    mobileImageUrl: parseImageUrl(body.mobileImageUrl, '배너'),
+    desktopImageUrl: parseImageUrl(body.desktopImageUrl, '배너'),
+  };
+}
+
 /** POST /api/platform/partner-promos */
 router.post('/', async (req, res) => {
   const user = (req as PlatformScopedRequest).platformUser;
   try {
     const title = parseTitle(req.body?.title);
-    const mobileImageUrl = parseImageUrl(req.body?.mobileImageUrl, '모바일');
-    const desktopImageUrl = parseImageUrl(req.body?.desktopImageUrl, 'PC');
+    const { mobileImageUrl, desktopImageUrl } = parsePromoImageUrls(req.body ?? {});
     const linkUrl = parsePromoLinkUrl(req.body?.linkUrl);
     const linkTarget = parsePromoLinkTarget(req.body?.linkTarget);
     const startsAt = parseOptionalDate(req.body?.startsAt);
@@ -139,11 +153,18 @@ router.patch('/:id', async (req, res) => {
   try {
     const data: Record<string, unknown> = {};
     if (req.body?.title !== undefined) data.title = parseTitle(req.body.title);
-    if (req.body?.mobileImageUrl !== undefined) {
-      data.mobileImageUrl = parseImageUrl(req.body.mobileImageUrl, '모바일');
-    }
-    if (req.body?.desktopImageUrl !== undefined) {
-      data.desktopImageUrl = parseImageUrl(req.body.desktopImageUrl, 'PC');
+    if (
+      req.body?.imageUrl !== undefined ||
+      req.body?.mobileImageUrl !== undefined ||
+      req.body?.desktopImageUrl !== undefined
+    ) {
+      const urls = parsePromoImageUrls({
+        imageUrl: req.body?.imageUrl,
+        mobileImageUrl: req.body?.mobileImageUrl ?? existing.mobileImageUrl,
+        desktopImageUrl: req.body?.desktopImageUrl ?? existing.desktopImageUrl,
+      });
+      data.mobileImageUrl = urls.mobileImageUrl;
+      data.desktopImageUrl = urls.desktopImageUrl;
     }
     if (req.body?.linkUrl !== undefined) data.linkUrl = parsePromoLinkUrl(req.body.linkUrl);
     if (req.body?.linkTarget !== undefined) data.linkTarget = parsePromoLinkTarget(req.body.linkTarget);

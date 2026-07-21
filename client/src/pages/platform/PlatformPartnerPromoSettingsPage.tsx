@@ -11,8 +11,8 @@ import {
 } from '../../api/platformPartnerPromo';
 import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
 import {
-  PLATFORM_PROMO_DESKTOP_SPEC,
-  PLATFORM_PROMO_MOBILE_SPEC,
+  PLATFORM_PROMO_BANNER_SPEC,
+  platformPromoBannerImageUrl,
   platformPromoImageHint,
 } from '@shared/platformPromoImageSpec';
 import {
@@ -22,8 +22,7 @@ import {
 
 type FormState = {
   title: string;
-  mobileImageUrl: string;
-  desktopImageUrl: string;
+  imageUrl: string;
   linkUrl: string;
   linkTarget: '_blank' | '_self';
   startsAt: string;
@@ -40,8 +39,7 @@ type FormState = {
 
 const emptyForm = (): FormState => ({
   title: '',
-  mobileImageUrl: '',
-  desktopImageUrl: '',
+  imageUrl: '',
   linkUrl: '',
   linkTarget: '_blank',
   startsAt: '',
@@ -67,8 +65,7 @@ function toLocalInput(iso: string | null): string {
 function formFromItem(item: PlatformPromoAdminItem): FormState {
   return {
     title: item.title,
-    mobileImageUrl: item.mobileImageUrl,
-    desktopImageUrl: item.desktopImageUrl,
+    imageUrl: platformPromoBannerImageUrl(item),
     linkUrl: item.linkUrl ?? '',
     linkTarget: item.linkTarget === '_self' ? '_self' : '_blank',
     startsAt: toLocalInput(item.startsAt),
@@ -93,10 +90,12 @@ function toIsoOrNull(local: string): string | null {
 }
 
 function formToBody(form: FormState): PlatformPromoUpsertBody {
+  const imageUrl = form.imageUrl.trim();
   return {
     title: form.title.trim(),
-    mobileImageUrl: form.mobileImageUrl.trim(),
-    desktopImageUrl: form.desktopImageUrl.trim(),
+    imageUrl,
+    mobileImageUrl: imageUrl,
+    desktopImageUrl: imageUrl,
     linkUrl: form.linkUrl.trim() || null,
     linkTarget: form.linkTarget,
     startsAt: toIsoOrNull(form.startsAt),
@@ -164,8 +163,7 @@ export function PlatformPartnerPromoSettingsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
-  const [uploadingMobile, setUploadingMobile] = useState(false);
-  const [uploadingDesktop, setUploadingDesktop] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -201,6 +199,9 @@ export function PlatformPartnerPromoSettingsPage() {
     setMessage('');
     try {
       const body = formToBody(form);
+      if (!body.mobileImageUrl?.trim()) {
+        throw new Error('배너 이미지를 업로드해 주세요.');
+      }
       if (!body.showToExternalPartner && !body.showToTenantStaff) {
         throw new Error('노출 대상을 하나 이상 선택해 주세요.');
       }
@@ -248,27 +249,15 @@ export function PlatformPartnerPromoSettingsPage() {
     }
   };
 
-  const uploadMobile = async (file: File) => {
-    setUploadingMobile(true);
+  const uploadImage = async (file: File) => {
+    setUploadingImage(true);
     try {
       const url = await uploadPlatformPartnerPromoImage(file);
-      setForm((f) => ({ ...f, mobileImageUrl: url }));
+      setForm((f) => ({ ...f, imageUrl: url }));
     } catch (e) {
       setError(e instanceof Error ? e.message : '업로드 실패');
     } finally {
-      setUploadingMobile(false);
-    }
-  };
-
-  const uploadDesktop = async (file: File) => {
-    setUploadingDesktop(true);
-    try {
-      const url = await uploadPlatformPartnerPromoImage(file);
-      setForm((f) => ({ ...f, desktopImageUrl: url }));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '업로드 실패');
-    } finally {
-      setUploadingDesktop(false);
+      setUploadingImage(false);
     }
   };
 
@@ -279,7 +268,7 @@ export function PlatformPartnerPromoSettingsPage() {
           <h1 className="text-fluid-lg font-bold text-slate-900">타업체·테넌트 홍보 배너</h1>
           <p className="mt-1 text-fluid-xs text-slate-600">
             타업체 팀 화면(대시보드·접수목록·스케줄)과 테넌트 관리 대시보드에 청소비서 안내 배너를 게시합니다.
-            모바일·PC 모두 가로형(5:2) 비율로 업로드해 주세요.
+            이미지는 <strong>한 장</strong>만 올리면 모바일·PC에 동일하게 표시됩니다 (5:2 가로형).
           </p>
         </div>
         <button type="button" className={BTN_PRIMARY} onClick={openCreate}>
@@ -344,10 +333,11 @@ export function PlatformPartnerPromoSettingsPage() {
                       <br />~ {item.endsAt ? new Date(item.endsAt).toLocaleString('ko-KR') : '무기한'}
                     </td>
                     <td className="px-2 py-2 text-center">
-                      <div className="inline-flex gap-2">
-                        <img src={item.mobileImageUrl} alt="" className="h-10 w-20 rounded object-cover ring-1 ring-slate-200" />
-                        <img src={item.desktopImageUrl} alt="" className="h-10 w-20 rounded object-cover ring-1 ring-slate-200" />
-                      </div>
+                      <img
+                        src={platformPromoBannerImageUrl(item)}
+                        alt=""
+                        className="mx-auto h-10 w-20 rounded object-cover ring-1 ring-slate-200"
+                      />
                     </td>
                     <td className="px-2 py-2 text-center">
                       <div className="inline-flex flex-wrap justify-center gap-1">
@@ -382,19 +372,11 @@ export function PlatformPartnerPromoSettingsPage() {
                 />
               </label>
               <ImageUploadField
-                label="모바일 이미지"
-                hint={`${platformPromoImageHint(PLATFORM_PROMO_MOBILE_SPEC)} 타업체 상단 롤링·테넌트 모바일.`}
-                url={form.mobileImageUrl}
-                uploading={uploadingMobile}
-                onUpload={uploadMobile}
-                previewAspect="5/2"
-              />
-              <ImageUploadField
-                label="PC 이미지"
-                hint={`${platformPromoImageHint(PLATFORM_PROMO_DESKTOP_SPEC)} 테넌트 대시보드 우측·타업체 PC.`}
-                url={form.desktopImageUrl}
-                uploading={uploadingDesktop}
-                onUpload={uploadDesktop}
+                label="배너 이미지 (모바일·PC 공통)"
+                hint={platformPromoImageHint(PLATFORM_PROMO_BANNER_SPEC)}
+                url={form.imageUrl}
+                uploading={uploadingImage}
+                onUpload={uploadImage}
                 previewAspect="5/2"
               />
               <label className="block space-y-1">

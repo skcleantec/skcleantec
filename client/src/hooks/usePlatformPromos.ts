@@ -34,12 +34,16 @@ export function usePlatformPromos(surface: 'admin' | 'team') {
   return { items, loading, refresh };
 }
 
+import {
+  platformPromoHasBannerImage,
+} from '@shared/platformPromoImageSpec';
+
 export function filterPromosForMobile(items: PlatformPromoActiveItem[]): PlatformPromoActiveItem[] {
-  return items.filter((item) => item.showOnMobile && item.mobileImageUrl.trim());
+  return items.filter((item) => item.showOnMobile && platformPromoHasBannerImage(item));
 }
 
 export function filterPromosForDesktop(items: PlatformPromoActiveItem[]): PlatformPromoActiveItem[] {
-  return items.filter((item) => item.showOnDesktop && item.desktopImageUrl.trim());
+  return items.filter((item) => item.showOnDesktop && platformPromoHasBannerImage(item));
 }
 
 export function filterPromosForTeamMenu(

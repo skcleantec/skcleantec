@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { PlatformPromoActiveItem } from '../../api/platformPartnerPromo';
+import { platformPromoBannerImageUrl, platformPromoHasBannerImage } from '@shared/platformPromoImageSpec';
 
 const ROTATE_MS = 4500;
 
@@ -39,7 +40,7 @@ function PromoSlide({
 /** 모바일 상단 롤링 배너 (약 2.5:1) */
 export function PlatformPromoCarousel({ items }: { items: PlatformPromoActiveItem[] }) {
   const slides = useMemo(
-    () => items.filter((item) => item.showOnMobile && item.mobileImageUrl.trim()),
+    () => items.filter((item) => item.showOnMobile && platformPromoHasBannerImage(item)),
     [items],
   );
   const [index, setIndex] = useState(0);
@@ -68,7 +69,7 @@ export function PlatformPromoCarousel({ items }: { items: PlatformPromoActiveIte
   return (
     <div className="w-full min-w-0" role="region" aria-label="청소비서 안내">
       <div className="relative aspect-[5/2] w-full min-w-0 overflow-hidden rounded-xl bg-slate-100">
-        <PromoSlide item={current} imageUrl={current.mobileImageUrl} />
+        <PromoSlide item={current} imageUrl={platformPromoBannerImageUrl(current)} />
         {slides.length > 1 ? (
           <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
             {slides.map((s, i) => (
@@ -98,7 +99,7 @@ export function PlatformPromoDashboardCard({
   layout?: 'square' | 'banner';
 }) {
   const slides = useMemo(
-    () => items.filter((item) => item.showOnDesktop && item.desktopImageUrl.trim()),
+    () => items.filter((item) => item.showOnDesktop && platformPromoHasBannerImage(item)),
     [items],
   );
   const [index, setIndex] = useState(0);
@@ -132,7 +133,7 @@ export function PlatformPromoDashboardCard({
   return (
     <div className="w-full min-w-0" role="region" aria-label="청소비서 안내">
       <div className={frameClass}>
-        <PromoSlide item={current} imageUrl={current.desktopImageUrl} className="object-cover" />
+        <PromoSlide item={current} imageUrl={platformPromoBannerImageUrl(current)} className="object-cover" />
         {slides.length > 1 ? (
           <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
             {slides.map((s, i) => (
