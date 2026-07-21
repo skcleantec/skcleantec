@@ -59,8 +59,8 @@ import {
 } from '../../utils/inquiryAreaDisplay';
 import { detectOneRoomFromNotes } from '../../utils/orderFormOneRoom';
 import {
-  buildLeaderDayAssignmentCounts,
-  scheduleItemHasLeaderWithSingleAssignmentOnDay,
+  buildLeaderMorningAssignmentCounts,
+  scheduleItemHasLeaderWithSingleMorningAssignmentOnDay,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
@@ -417,7 +417,7 @@ export type ScheduleInquiryDetailModalProps =
         result: import('../../api/inquiries').ApplyProfOptionAmountsResult,
       ) => void | Promise<void>;
       /** 스케줄 월 뷰에서만 전달. 해당 예약일·팀장별 당일 배정 건수(표시만, DB 없음) */
-      leaderAssignmentCountsByLeaderId?: Map<string, number>;
+      leaderMorningAssignmentCountsByLeaderId?: Map<string, number>;
       /** 스케줄 월 뷰 — 같은 예약일 접수 목록(슬롯별 이미 배정된 팀장 제외용) */
       dayScheduleItems?: ScheduleItem[];
       /** 스케줄 — 내 추가 캘린더 수동 포함 */
@@ -500,8 +500,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           result: import('../../api/inquiries').ApplyProfOptionAmountsResult,
         ) => void | Promise<void>;
       }).onProfOptionsApplied;
-  const leaderAssignmentCountsByLeaderId = !isCreate
-    ? (props as { leaderAssignmentCountsByLeaderId?: Map<string, number> }).leaderAssignmentCountsByLeaderId
+  const leaderMorningAssignmentCountsByLeaderId = !isCreate
+    ? (props as { leaderMorningAssignmentCountsByLeaderId?: Map<string, number> })
+        .leaderMorningAssignmentCountsByLeaderId
     : undefined;
   const dayScheduleItems = !isCreate
     ? (props as { dayScheduleItems?: ScheduleItem[] }).dayScheduleItems
@@ -898,12 +899,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return buildSlotOccupiedLeaderIdsForDay(effectiveDayScheduleItems, item?.id);
   }, [effectiveDayScheduleItems, item?.id]);
 
-  const effectiveLeaderAssignmentCountsByLeaderId = useMemo(() => {
-    if (leaderAssignmentCountsByLeaderId?.size) return leaderAssignmentCountsByLeaderId;
+  const effectiveLeaderMorningAssignmentCountsByLeaderId = useMemo(() => {
+    if (leaderMorningAssignmentCountsByLeaderId?.size) return leaderMorningAssignmentCountsByLeaderId;
     if (!effectiveDayScheduleItems.length || !dateKeyForStats) return undefined;
-    return buildLeaderDayAssignmentCounts(effectiveDayScheduleItems).get(dateKeyForStats);
+    return buildLeaderMorningAssignmentCounts(effectiveDayScheduleItems).get(dateKeyForStats);
   }, [
-    leaderAssignmentCountsByLeaderId,
+    leaderMorningAssignmentCountsByLeaderId,
     effectiveDayScheduleItems,
     dateKeyForStats,
   ]);
@@ -1954,13 +1955,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     await copyInquiryTextToClipboard(inquiryCopyText);
   }, [item, inquiryCopyText, copyInquiryTextToClipboard]);
 
-  const detailLeaderAssignmentUnderfilled = useMemo(() => {
-    if (!item || !effectiveLeaderAssignmentCountsByLeaderId?.size) return false;
-    return scheduleItemHasLeaderWithSingleAssignmentOnDay(
+  const detailLeaderMorningSingleAssignment = useMemo(() => {
+    if (!item || !effectiveLeaderMorningAssignmentCountsByLeaderId?.size) return false;
+    return scheduleItemHasLeaderWithSingleMorningAssignmentOnDay(
       item,
-      effectiveLeaderAssignmentCountsByLeaderId
+      effectiveLeaderMorningAssignmentCountsByLeaderId,
     );
-  }, [item, effectiveLeaderAssignmentCountsByLeaderId]);
+  }, [item, effectiveLeaderMorningAssignmentCountsByLeaderId]);
 
   const detailHeaderAreaShort = useMemo(() => {
     if (isCreate || !item) return '—';
@@ -2112,8 +2113,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           {!isCreate && item ? (
             <div
               className={
-                detailLeaderAssignmentUnderfilled
-                  ? 'mt-1.5 space-y-1 rounded-lg border border-rose-300 bg-rose-50/95 px-2.5 py-2 ring-1 ring-rose-200/80 sm:mt-2 sm:space-y-1.5 sm:px-3 sm:py-2.5'
+                detailLeaderMorningSingleAssignment
+                  ? 'mt-1.5 space-y-1 rounded-lg border border-slate-300 bg-slate-100/95 px-2.5 py-2 ring-1 ring-slate-200/80 sm:mt-2 sm:space-y-1.5 sm:px-3 sm:py-2.5'
                   : 'mt-1.5 space-y-1 sm:mt-2 sm:space-y-1.5'
               }
             >
@@ -2233,9 +2234,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 {item.callAttempt != null ? <span>· 통화 시도: {item.callAttempt}</span> : null}
                 {item.claimMemo?.trim() ? <span>· 클레임 등록됨</span> : null}
               </p>
-              {detailLeaderAssignmentUnderfilled ? (
-                <p className="text-[11px] font-semibold text-rose-900 leading-snug">
-                  당일 배정된 팀장 중 이날 1건만 있는 사람이 있습니다. 추가 오전·오후·사이 배정 여부를 검토하세요.
+              {detailLeaderMorningSingleAssignment ? (
+                <p className="text-[11px] font-semibold text-slate-700 leading-snug">
+                  오전 배정된 팀장 중 이날 오전 1건만 있는 사람이 있습니다. 추가 오전·오후·사이 배정 여부를
+                  검토하세요.
                 </p>
               ) : null}
             </div>
