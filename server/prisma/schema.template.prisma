@@ -556,6 +556,33 @@ model HelpInquirySettings {
   @@map("help_inquiry_settings")
 }
 
+/// 플랫폼 — 타업체·테넌트 대시보드 홍보 배너
+model PlatformPartnerPromo {
+  id                    String    @id @default(uuid())
+  title                 String    @db.VarChar(128)
+  sortOrder             Int       @default(0) @map("sort_order")
+  mobileImageUrl        String    @map("mobile_image_url") @db.VarChar(512)
+  desktopImageUrl       String    @map("desktop_image_url") @db.VarChar(512)
+  linkUrl               String?   @map("link_url") @db.VarChar(512)
+  linkTarget            String    @default("_blank") @map("link_target") @db.VarChar(16)
+  startsAt              DateTime? @map("starts_at")
+  endsAt                DateTime? @map("ends_at")
+  isActive              Boolean   @default(true) @map("is_active")
+  showOnMobile          Boolean   @default(true) @map("show_on_mobile")
+  showOnDesktop         Boolean   @default(true) @map("show_on_desktop")
+  showToExternalPartner Boolean   @default(true) @map("show_to_external_partner")
+  showToTenantStaff     Boolean   @default(false) @map("show_to_tenant_staff")
+  showOnTeamDashboard   Boolean   @default(true) @map("show_on_team_dashboard")
+  showOnTeamAssignments Boolean @default(true) @map("show_on_team_assignments")
+  showOnTeamSchedule    Boolean   @default(true) @map("show_on_team_schedule")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  createdByPlatformUserId String? @map("created_by_platform_user_id") @db.VarChar(64)
+
+  @@index([isActive, sortOrder])
+  @@map("platform_partner_promos")
+}
+
 /// 플랫폼 약관·계약서 종류
 enum PlatformLegalDocumentType {
   MEMBER_TERMS

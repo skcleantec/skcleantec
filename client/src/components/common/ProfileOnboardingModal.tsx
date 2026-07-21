@@ -129,7 +129,12 @@ export function ProfileOnboardingModal({
         onSessionExpired?.();
         return;
       }
-      setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
+      const message = e instanceof Error ? e.message : '저장에 실패했습니다.';
+      if (message.includes('이미 프로필 입력이 완료되었습니다')) {
+        onCompleted();
+        return;
+      }
+      setError(message);
     } finally {
       setSaving(false);
     }

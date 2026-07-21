@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type {
   TelecrmCustomerCandidateDto,
   TelecrmCustomerLookupDto,
@@ -144,6 +144,7 @@ export function CrmIntakePanel({
   followupImport = null,
   onSelectFollowup,
   onPricingReset,
+  workBrandBar = null,
 }: {
   mode: CrmCustomerMode;
   onModeChange: (m: CrmCustomerMode) => void;
@@ -176,6 +177,8 @@ export function CrmIntakePanel({
   followupImport?: { key: number; snapshot: CrmFollowupApplySnapshot } | null;
   onSelectFollowup?: (row: TelecrmCustomerLookupDto['followups'][number]) => void;
   onPricingReset?: () => void;
+  /** 멀티 브랜드 — 패널 헤더 하단 */
+  workBrandBar?: ReactNode;
 }) {
   const outboundPhone = resolveCrmOutboundPhone(contactPhone, safePhone);
   const token = getToken();
@@ -384,6 +387,7 @@ export function CrmIntakePanel({
       accent="intake"
       title="접수 · 고객"
       subtitle="연락처 · 처리 구분"
+      headerBelow={workBrandBar ?? undefined}
       headerAction={
         onIntakeReset ? (
           <button

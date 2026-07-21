@@ -15,12 +15,15 @@ import {
 import type { DashboardDrillKind, DashboardDrillRequest } from '../../components/admin/dashboard/dashboardDrilldownTypes';
 import { kstMonthKeyNow } from '../../components/admin/dashboard/dashboardDrilldownTypes';
 import { useTelecrmDashboardVisible } from '../../hooks/useTelecrmDashboardVisible';
+import { usePlatformPromos } from '../../hooks/usePlatformPromos';
+import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../../components/platformPromo/PlatformPromoDisplay';
 
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const token = getToken();
   const { tenantName } = useAdminStaffSession();
   const showTelecrmDashboard = useTelecrmDashboardVisible();
+  const { items: promoItems } = usePlatformPromos('admin');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [breakdown, setBreakdown] = useState<DashboardInquiryBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
@@ -128,6 +131,7 @@ export function AdminDashboardPage() {
 
       {/* 모바일 — 기존 세로 순서 유지 */}
       <div className="lg:hidden space-y-4">
+        {promoItems.length > 0 ? <PlatformPromoCarousel items={promoItems} /> : null}
         <DashboardAuxBlocksGrid showTelecrmDashboard={showTelecrmDashboard} />
         <DashboardOpsHourlyStrip onOpenDetail={(range) => openDrill('ops-hourly', undefined, range)} />
         <DashboardKpiGrid stats={stats} loading={loading} navigate={navigate} compact />
@@ -143,6 +147,9 @@ export function AdminDashboardPage() {
           {salesAnalytics}
         </div>
         <aside className="min-w-0 self-start space-y-5">
+          {promoItems.length > 0 ? (
+            <PlatformPromoDashboardCard items={promoItems} layout="banner" />
+          ) : null}
           <DashboardAuxBlocksGrid showTelecrmDashboard={showTelecrmDashboard} />
           {token ? <DashboardChangeHistory token={token} variant="sidebar" /> : null}
         </aside>

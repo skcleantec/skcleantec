@@ -10,6 +10,7 @@ export function CrmColumn({
   bodyClassName = '',
   disableBodyScroll = false,
   headerAction,
+  headerBelow,
 }: {
   title: string;
   subtitle?: string;
@@ -20,6 +21,8 @@ export function CrmColumn({
   /** 본문 내부에서 스크롤·푸터 분리 (가격 안내 등) */
   disableBodyScroll?: boolean;
   headerAction?: ReactNode;
+  /** 헤더 제목 아래 보조 줄 (작업 브랜드 등) */
+  headerBelow?: ReactNode;
 }) {
   const tone = CRM_ACCENT[accent];
   return (
@@ -37,6 +40,7 @@ export function CrmColumn({
           </div>
           {headerAction ? <div className="ml-auto shrink-0">{headerAction}</div> : null}
         </div>
+        {headerBelow ? <div className="mt-1.5">{headerBelow}</div> : null}
       </div>
       <div
         className={`min-h-0 flex-1 bg-gradient-to-b from-white to-slate-50/40 p-2.5 ${

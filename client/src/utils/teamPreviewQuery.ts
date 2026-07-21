@@ -1,5 +1,28 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+export function isTeamStaffPreviewSearch(search: string): boolean {
+  const role = new URLSearchParams(search).get('previewRole');
+  return role === 'external' || role === 'team_leader';
+}
+
+/** 팀 레이아웃 — 최초 프로필 입력 모달 표시 여부 (관리자·마케터 프리뷰 제외) */
+export function teamProfileOnboardingRequired(
+  u: {
+    profileCompletedAt?: string | null;
+    profileOnboardingRequired?: boolean;
+    role?: string | null;
+    previewExternal?: boolean;
+    previewTeamLeader?: boolean;
+  },
+  search = typeof window !== 'undefined' ? window.location.search : '',
+): boolean {
+  if (u.previewExternal || u.previewTeamLeader || isTeamStaffPreviewSearch(search)) return false;
+  if (u.profileCompletedAt) return false;
+  if (!u.profileOnboardingRequired) return false;
+  if (u.role === 'ADMIN') return false;
+  return u.role === 'TEAM_LEADER' || u.role === 'EXTERNAL_PARTNER';
+}
+
 /**
  * 관리자·마케터가 동일 팀 JWT로 미리보기할 때 `previewTeamLeaderId`·타업체 쿼리만 바뀌고
  * `getTeamToken()`은 그대로라 `useCallback([token])`만으로는 재조회가 안 되는 문제 방지용 deps 키.

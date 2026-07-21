@@ -63,6 +63,8 @@ import helpInquiryPublicRoutes from './modules/help-inquiry/helpInquiry.public.r
 import platformHelpInquiryRoutes from './modules/help-inquiry/platformHelpInquiry.routes.js';
 import platformBillingRoutes from './modules/platform/platformBilling.routes.js';
 import platformLegalRoutes from './modules/platform-legal/platformLegal.routes.js';
+import platformPartnerPromoRoutes from './modules/platform-partner-promo/platformPartnerPromo.routes.js';
+import adminPlatformPromoRoutes from './modules/platform-partner-promo/adminPlatformPromo.routes.js';
 import platformLegalPublicRoutes from './modules/platform-legal/platformLegal.public.routes.js';
 import { resolveHelpScreenshotFilePath } from './modules/help/helpScreenshotsPath.js';
 import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLeaderTraining.admin.routes.js';
@@ -95,6 +97,8 @@ app.use('/api/platform/db-marketplace', platformDbMarketplaceRoutes);
 app.use('/api/platform/help-inquiry', platformHelpInquiryRoutes);
 app.use('/api/platform/billing', platformBillingRoutes);
 app.use('/api/platform/legal', platformLegalRoutes);
+app.use('/api/platform/partner-promos', platformPartnerPromoRoutes);
+app.use('/api/admin/platform-promos', adminPlatformPromoRoutes);
 app.use('/api/tenant', tenantRoutes);
 app.use('/api/inquiries', inquiriesRoutes);
 app.use('/api/inquiry-excel-import', inquiryExcelImportRoutes);

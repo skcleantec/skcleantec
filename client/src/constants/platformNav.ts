@@ -12,7 +12,7 @@ export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
     label: '안내팝업',
     to: '/platform/popups/unpaid',
     icon: '🔔',
-    children: [{ label: '미결재 팝업', to: '/platform/popups/unpaid' }],
+    children: [{ label: '미결재 팝업', to: '/platform/popups/unpaid' }, { label: '타업체·테넌트 홍보', to: '/platform/popups/partner-promo' }],
   },
   { label: '정보공유', to: '/platform/db-marketplace', icon: '🛒' },
   { label: '도움말 문의', to: '/platform/help-inquiry', icon: '💬' },
@@ -29,7 +29,7 @@ export function isPlatformNavActive(pathname: string, to: string): boolean {
     return pathname === '/platform/billing' || pathname.startsWith('/platform/billing/');
   }
   if (to === '/platform/popups/unpaid') {
-    return pathname === '/platform/popups/unpaid' || pathname.startsWith('/platform/popups/');
+    return pathname === '/platform/popups/unpaid' || pathname.startsWith('/platform/popups/partner-promo');
   }
   if (to === '/platform/help-inquiry') {
     return pathname === '/platform/help-inquiry' || pathname.startsWith('/platform/help-inquiry/');

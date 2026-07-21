@@ -200,7 +200,8 @@ export function TeamDashboardPage() {
           </div>
         </div>
       )}
-      <section className="grid grid-cols-4 gap-1.5 sm:gap-2">
+      <section>
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 min-w-0">
         {summaryTiles.map(({ key, count }) => {
           if (key === 'total') {
             return (
@@ -234,6 +235,7 @@ export function TeamDashboardPage() {
             />
           );
         })}
+        </div>
       </section>
 
       <section>

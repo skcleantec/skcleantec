@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useSyncExternalStore, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
@@ -19,7 +19,7 @@ import {
   markTeamChangeSeen,
   getTeamChangeHistoryList,
 } from '../../api/inquiryChangeLogs';
-import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
+import { teamPreviewDepsKey, teamProfileOnboardingRequired, useTeamPreviewStaleGuard } from '../../utils/teamPreviewQuery';
 import { TeamBiInline, teamT } from '../../i18n/team/teamI18n';
 import { TeamMobileStaffIdCardDrawer } from '../team/TeamMobileStaffIdCardDrawer';
 import { TenantBrandLogo } from '../brand/TenantBrandLogo';
@@ -27,6 +27,8 @@ import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
+import { usePlatformPromos, filterPromosForDesktop, filterPromosForMobile, filterPromosForTeamPath } from '../../hooks/usePlatformPromos';
+import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../platformPromo/PlatformPromoDisplay';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -432,9 +434,7 @@ export function TeamLayout() {
         setUserPhone(u.phone ?? null);
         setUserVehicleNumber(u.vehicleNumber ?? null);
         setUserNameEn(u.role === 'TEAM_LEADER' ? (u.nameEn ?? null) : null);
-        const needsOnboarding =
-          Boolean(u.profileOnboardingRequired) &&
-          (u.role === 'TEAM_LEADER' || u.role === 'EXTERNAL_PARTNER');
+        const needsOnboarding = teamProfileOnboardingRequired(u);
         setProfileOnboardingRequired(needsOnboarding);
         setProfileOnboardingInitial({
           role: u.role,
@@ -490,10 +490,7 @@ export function TeamLayout() {
         setTenantName(u.tenant?.displayName?.trim() || u.tenant?.name?.trim() || null);
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
         setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : null);
-        const needsOnboarding =
-          Boolean(u.profileOnboardingRequired) &&
-          u.role !== 'ADMIN' &&
-          (u.role === 'TEAM_LEADER' || u.role === 'EXTERNAL_PARTNER');
+        const needsOnboarding = teamProfileOnboardingRequired(u, location.search);
         setProfileOnboardingRequired(needsOnboarding);
         setProfileOnboardingInitial({
           role: u.role,
@@ -629,6 +626,13 @@ export function TeamLayout() {
       (previewExternal || previewTeamLeader),
   );
   const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
+  const { items: teamPromoItems } = usePlatformPromos('team');
+  const teamPromoForPage = useMemo(
+    () => filterPromosForTeamPath(teamPromoItems, location.pathname),
+    [teamPromoItems, location.pathname],
+  );
+  const teamMobilePromos = useMemo(() => filterPromosForMobile(teamPromoForPage), [teamPromoForPage]);
+  const teamDesktopPromos = useMemo(() => filterPromosForDesktop(teamPromoForPage), [teamPromoForPage]);
   const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER' && !previewExternal;
   const showDbMarketplace =
     isExternalPartner && Boolean(tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace'));
@@ -824,6 +828,16 @@ export function TeamLayout() {
         </>
       ) : null}
       </div>
+      {isExternalPartner && teamMobilePromos.length > 0 ? (
+        <div className="relative z-10 mx-auto w-full max-w-6xl shrink-0 px-4 pt-2 lg:hidden">
+          <PlatformPromoCarousel items={teamMobilePromos} />
+        </div>
+      ) : null}
+      {isExternalPartner && teamDesktopPromos.length > 0 ? (
+        <div className="relative z-10 mx-auto hidden w-full max-w-6xl shrink-0 px-4 pt-2 lg:block">
+          <PlatformPromoDashboardCard items={teamDesktopPromos} layout="banner" />
+        </div>
+      ) : null}
       <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null, tenantSlug }}>
           <Outlet />

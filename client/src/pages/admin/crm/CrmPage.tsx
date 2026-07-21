@@ -1083,16 +1083,8 @@ export function CrmPage() {
           fillViewport={!isMobileApp}
           splitLayout={soomgoBarOpen && !isMobileApp}
           topBar={
-            !isMobileApp || showWorkBrandSwitcher ? (
+            !isMobileApp ? (
               <>
-                {showWorkBrandSwitcher ? (
-                  <CrmWorkBrandBar
-                    items={workBrandItems}
-                    activeSlug={workBrandActive?.slug ?? null}
-                    onSwitch={handleWorkBrandSwitch}
-                    switching={workBrandLoading}
-                  />
-                ) : null}
                 {!isMobileApp && soomgoUpdateNoticeVisible ? (
                   <CrmSoomgoUpdateStrip
                     status={soomgoStatus}
@@ -1325,6 +1317,17 @@ export function CrmPage() {
                 onPricingReset={resetQuotePricingState}
                 followupImport={followupImport}
                 onSelectFollowup={canFollowupEdit ? handleSelectFollowupFromLookup : undefined}
+                workBrandBar={
+                  showWorkBrandSwitcher ? (
+                    <CrmWorkBrandBar
+                      variant="inline"
+                      items={workBrandItems}
+                      activeSlug={workBrandActive?.slug ?? null}
+                      onSwitch={handleWorkBrandSwitch}
+                      switching={workBrandLoading}
+                    />
+                  ) : null
+                }
               />
             </div>
           }
