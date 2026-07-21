@@ -1,5 +1,6 @@
 import type { ScheduleItem } from '../api/schedule';
 import { formatPreferredDateInputYmd } from './dateFormat';
+import { inquiryCountsForInternalToSlot } from './scheduleSlotOccupancy';
 import { getScheduleTimeBucket } from './scheduleTimeBucket';
 
 function isInternalScheduleLeader(role: string | null | undefined): boolean {
@@ -24,13 +25,20 @@ function incrementLeaderCountsForItem(
   }
 }
 
+function shouldCountItemForLeaderSlotBalance(item: ScheduleItem): boolean {
+  if (!isActiveScheduleListItem(item)) return false;
+  /** 파트너 연계(송신·ACTIVE)·정보공유 장바구니 등 — 자사 TO와 동일하게 슬롯 집계 제외 */
+  if (!inquiryCountsForInternalToSlot(item)) return false;
+  return true;
+}
+
 function addAssignmentCountsForItems(
   items: ScheduleItem[],
   bucketFilter: 'morning' | 'afternoon',
 ): Map<string, Map<string, number>> {
   const byDate = new Map<string, Map<string, number>>();
   for (const item of items) {
-    if (!isActiveScheduleListItem(item)) continue;
+    if (!shouldCountItemForLeaderSlotBalance(item)) continue;
     if (getScheduleTimeBucket(item) !== bucketFilter) continue;
     const ymd = item.preferredDate ? formatPreferredDateInputYmd(item.preferredDate) : '';
     if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) continue;
@@ -53,7 +61,7 @@ export function buildLeaderDayAssignmentCounts(
 ): Map<string, Map<string, number>> {
   const byDate = new Map<string, Map<string, number>>();
   for (const item of items) {
-    if (!isActiveScheduleListItem(item)) continue;
+    if (!shouldCountItemForLeaderSlotBalance(item)) continue;
     const ymd = item.preferredDate ? formatPreferredDateInputYmd(item.preferredDate) : '';
     if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) continue;
     let m = byDate.get(ymd);
@@ -87,7 +95,7 @@ export function buildLeaderSlotAssignmentCountMapsForDayItems(
   const morning = new Map<string, number>();
   const afternoon = new Map<string, number>();
   for (const item of dayItems) {
-    if (!isActiveScheduleListItem(item)) continue;
+    if (!shouldCountItemForLeaderSlotBalance(item)) continue;
     const bucket = getScheduleTimeBucket(item);
     if (bucket === 'morning') incrementLeaderCountsForItem(morning, item);
     else if (bucket === 'afternoon') incrementLeaderCountsForItem(afternoon, item);
@@ -104,6 +112,7 @@ export function scheduleItemHasLeaderWithSingleSlotAssignmentOnDay(
   morningCountsForDate: Map<string, number> | undefined,
   afternoonCountsForDate?: Map<string, number> | undefined,
 ): boolean {
+  if (!inquiryCountsForInternalToSlot(item)) return false;
   if (!item.assignments?.length) return false;
   const bucket = getScheduleTimeBucket(item);
   if (bucket !== 'morning' && bucket !== 'afternoon') return false;
