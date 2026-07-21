@@ -17,7 +17,7 @@
 | 구매 전 PII | 이름 마스킹, 주소 시·구, 전화·이메일 비노출, **청소·일정 필드 전부 노출** (건축물·면적·구조·예약·특이사항·메모 등) |
 | 노출·조회 | **파트너**: 판매자와 `TenantPartnership` **ACTIVE** 인 업체만 목록·상세 조회·구매 가능. **타업체**: 판매자 테넌트에 **등록·활성**(`isActive`) 타업체만. `visibility=ALL`은 “전체 공개”가 아니라 **연결된 파트너 전체** 또는 **등록 타업체 전체**를 뜻함. `SELECTED`는 위 자격을 만족한 대상 중 audience에 지정된 업체만 |
 | 확정 | **구매자 확정 + 판매자 인계 확정** 후 이동 |
-| CONFIRMED 후 | 취소·환불 없음 (고객 접수 취소만 기존 sync) |
+| CONFIRMED 후 | 판매자 **완전 회수** (환불·구매자 DB 종료·listing 삭제 → 자사 TO 복귀). 구매자는 불가 |
 | 파트너 | mirror + `TenantInquiryShare` (Phase 2) |
 | 타업체 | 기존 external 배정 + `externalTransferFee` (Phase 2) |
 
@@ -59,6 +59,7 @@ DRAFT → OPEN → PENDING_SELLER → CONFIRMED
 | POST | `/:id/withdraw` | 1 |
 | GET | `/`, `/:id`, `/by-inquiry/:inquiryId`, `/draft-count` | 1 |
 | POST | `/:id/buyer-confirm`, `/:id/seller-confirm`, `/:id/seller-decline` | 2–4 |
+| POST | `/:id/seller-complete-recall` | 12 — 판매자 완전 회수(비밀번호) |
 | GET | `/draft-count` (장바구니 + 인계 대기 + 구매 대기 건수) | 1, 4, 6 |
 | GET/POST | `/:id/messages` | 10 |
 | POST/DELETE | `/:id/hold` | 11 |

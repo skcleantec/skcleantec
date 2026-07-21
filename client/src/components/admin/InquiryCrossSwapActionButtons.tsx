@@ -15,8 +15,8 @@ export function InquiryCrossSwapActionButtons({
   if (!showLeaderSwap && !showCrewSwap) return null;
 
   const btnClass = compact
-    ? 'min-h-[36px] touch-manipulation rounded border border-gray-300 bg-white px-3 py-1.5 text-fluid-2xs font-medium text-gray-800 hover:bg-gray-50'
-    : 'min-h-[40px] touch-manipulation rounded border border-gray-300 bg-white px-4 py-2 text-fluid-sm font-medium text-gray-800 hover:bg-gray-50';
+    ? 'min-h-[32px] touch-manipulation rounded border border-gray-300 bg-white px-2.5 py-1 text-fluid-2xs font-medium text-gray-800 hover:bg-gray-50'
+    : 'min-h-[34px] touch-manipulation rounded border border-gray-300 bg-white px-3 py-1.5 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50';
 
   return (
     <div className={`flex flex-wrap gap-2 ${compact ? 'mt-1' : 'mt-2'}`}>

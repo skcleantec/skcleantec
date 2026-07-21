@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   createInquiry,
@@ -10,7 +10,6 @@ import {
 } from '../../api/inquiries';
 import { createOrderFollowup } from '../../api/orderFollowups';
 import {
-  formatAssignableUserLabel,
   getAssignableScheduleUsers,
   type AssignableScheduleUsersResponse,
   type UserItem,
@@ -45,11 +44,6 @@ import {
   requiresMoveInDateOrUndecided,
 } from '../../constants/orderFormBuilding';
 import {
-  formatProfOptionPriceDisplay,
-  isSelectableProfOption,
-  listProfChildren,
-  listProfRootNodes,
-  collectSubtreeOptionIds,
   normalizeProfessionalOptionIds,
   type ProfessionalSpecialtyOption,
 } from '../../constants/professionalSpecialtyOptions';
@@ -68,7 +62,6 @@ import {
   buildLeaderDayAssignmentCounts,
   scheduleItemHasLeaderWithSingleAssignmentOnDay,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
-import { InquiryOrderForceMatchPanel } from './InquiryOrderForceMatchPanel';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
@@ -89,30 +82,24 @@ import {
   applyCrewFieldsToInquiryPatch,
   adminCrewPreviewLabel,
   initSoloTeamLeaderIdsFromAssignments,
-  SOLO_LEADER_CREW_LABEL,
-  toggleSoloTeamLeaderId,
 } from '../../utils/inquiryNoCrewMembers';
-import { TeamMemberSearchSelect } from './TeamMemberSearchSelect';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
   effectiveAdminTeamSpecialNotes,
   effectiveCustomerOrderNotes,
 } from '../../utils/inquirySpecialNotesDisplay';
-import { getInquiryEditSectionNumber } from '../../constants/inquiryEditSectionOrder';
 import { CustomerNameWithInternalTone } from './CustomerNameWithInternalTone';
 import { InternalCustomerToneRadio } from './InternalCustomerToneRadio';
 import {
   canShowInternalCustomerTone,
   DEFAULT_INTERNAL_CUSTOMER_TONE,
   normalizeInternalCustomerTone,
-  type InternalCustomerTone,
 } from '../../constants/internalCustomerTone';
 import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
 import { createTenantInquiryShare, patchTenantInquiryShareTransferFee, revokeTenantInquiryShare } from '../../api/tenantInquiryShare';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { TenantInquiryShareBadge } from './TenantInquiryShareBadge';
-import { PartnerReceivedBanner } from './PartnerReceivedBanner';
-import { formatPartnerAssignmentLabel, isActiveNativePartnerShareSource, isActivePartnerShareSource, isExternalLegacyShareSource } from '../../utils/tenantShareSettlement';
+import { formatPartnerAssignmentLabel, isActiveNativePartnerShareSource, isExternalLegacyShareSource } from '../../utils/tenantShareSettlement';
 import {
   externalPartnerBlocksPartnerShare,
   MSG_EXTERNAL_BLOCKS_PARTNER_SHARE,
@@ -121,91 +108,28 @@ import {
 import { buildInquiryCopySections, buildInquiryCopyText } from '../../utils/inquiryCopyInfo';
 import { InquiryCopyInfoSheet } from './InquiryCopyInfoSheet';
 import { InquiryCopyAssignmentPanel } from './InquiryCopyAssignmentPanel';
-import { InquiryCrossSwapActionButtons } from './InquiryCrossSwapActionButtons';
-import { SelectWithChevron } from '../ui/SelectWithChevron';
 import { InquiryDbMarketplaceBadge } from './InquiryDbMarketplaceBadge';
-import { InquiryDbMarketplaceSellPanel, type DbMarketplaceExchangePrefill } from './InquiryDbMarketplaceSellPanel';
-
-function AdminScheduleDetailSection({
-  title,
-  children,
-  sectionAnchor,
-  collapsible = false,
-  defaultOpen = true,
-}: {
-  title: string;
-  children: ReactNode;
-  /** 스크롤 점프용 앵커 — `data-inq-edit-section` + id 부여 */
-  sectionAnchor?: string;
-  /** true면 summary로 접기·펼치기 (기본 defaultOpen) */
-  collapsible?: boolean;
-  defaultOpen?: boolean;
-}) {
-  const sectionNo = getInquiryEditSectionNumber(sectionAnchor);
-  const displayTitle = sectionNo != null ? `${sectionNo}. ${title}` : title;
-  const [open, setOpen] = useState(defaultOpen);
-
-  const shellClass =
-    'min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm';
-  const headerClass =
-    'border-b border-gray-200 bg-gray-50 px-4 py-2 text-fluid-xs font-semibold text-gray-600';
-  const bodyClass = 'p-4 sm:p-5';
-
-  if (!collapsible) {
-    return (
-      <section
-        className={shellClass}
-        id={sectionAnchor ? `inq-edit-sec-${sectionAnchor}` : undefined}
-        data-inq-edit-section={sectionAnchor ? '' : undefined}
-      >
-        <h3 className={headerClass}>{displayTitle}</h3>
-        <div className={bodyClass}>{children}</div>
-      </section>
-    );
-  }
-
-  return (
-    <section
-      className={shellClass}
-      id={sectionAnchor ? `inq-edit-sec-${sectionAnchor}` : undefined}
-      data-inq-edit-section={sectionAnchor ? '' : undefined}
-    >
-      <details
-        open={open}
-        onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
-        className="group [&_summary::-webkit-details-marker]:hidden"
-      >
-        <summary className={`cursor-pointer list-none touch-manipulation ${headerClass}`}>
-          <span className="flex items-center justify-between gap-2">
-            <span>{displayTitle}</span>
-            <span className="shrink-0 text-[10px] font-normal text-gray-400" aria-hidden>
-              {open ? '접기 ▲' : '펼치기 ▼'}
-            </span>
-          </span>
-        </summary>
-        <div className={bodyClass}>{children}</div>
-      </details>
-    </section>
-  );
-}
-
-const PROPERTY_TYPE_EDIT = ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'] as const;
-const AREA_BASIS_EDIT = ['공급', '전용'] as const;
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: '대기',
-  RECEIVED: '접수',
-  DEPOSIT_PENDING: '입금대기',
-  DEPOSIT_COMPLETED: '입금완료',
-  ORDER_FORM_PENDING: '미제출',
-  ASSIGNED: '분배완료',
-  IN_PROGRESS: '진행중',
-  COMPLETED: '완료',
-  ON_HOLD: '보류',
-  CANCELLED: '취소',
-  CANCEL_CONFIRMED: '취소확인',
-  CS_PROCESSING: 'C/S 처리중',
-};
+import type { DbMarketplaceExchangePrefill } from './InquiryDbMarketplaceSellPanel';
+import { AdminScheduleDetailSection } from './inquiry-edit/AdminScheduleDetailSection';
+import { InquiryEditPropertySection } from './inquiry-edit/InquiryEditPropertySection';
+import { InquiryEditSettlementSection } from './inquiry-edit/InquiryEditSettlementSection';
+import { InquiryEditStatusSection } from './inquiry-edit/InquiryEditStatusSection';
+import { buildInquiryEditAssignmentHints } from './inquiry-edit/InquiryEditStatusAssignmentHints';
+import type { InquiryEditFormFields } from './inquiry-edit/inquiryEditTypes';
+import {
+  inqEditFormGrid,
+  inqEditInput,
+  inqEditLabel,
+} from './inquiry-edit/inquiryEditFormClasses';
+import {
+  InquiryPartnerSwapModalShell,
+  SwapModalFooterButton,
+  swapModalChipBtn,
+  swapModalChipBtnOff,
+  swapModalChipBtnOn,
+  swapModalChipBtnPartnerOn,
+  swapModalSelectBtn,
+} from './inquiry-edit/InquiryPartnerSwapModalShell';
 
 function isCancelConfirmedStatus(it: { status: string; happyCallCompletedAt?: string | null }): boolean {
   return it.status === 'CANCELLED' && Boolean(it.happyCallCompletedAt);
@@ -277,67 +201,7 @@ function monthRangeFromYmd(ymd: string): { start: string; end: string } {
   };
 }
 
-function isInquiryLinkedOrderFormPendingSubmit(item: ScheduleItem): boolean {
-  if (item.status === 'ORDER_FORM_PENDING') return true;
-  return Boolean(
-    item.orderForm?.id &&
-      !item.orderForm.submittedAt &&
-      (item.status === 'PENDING' || item.status === 'DEPOSIT_COMPLETED')
-  );
-}
-
-type EditFormFields = {
-  customerName: string;
-  nickname: string;
-  customerPhone: string;
-  address: string;
-  addressDetail: string;
-  roomCount: string;
-  bathroomCount: string;
-  balconyCount: string;
-  preferredDate: string;
-  preferredTime: string;
-  betweenScheduleSlot: string;
-  preferredTimeDetail: string;
-  memo: string;
-  /** 배정 팀장(순서 유지). 빈 문자열은 미선택 슬롯 */
-  teamLeaderIds: string[];
-  /** 투입 팀원 인원 (0~100). 드롭다운에서 명시적으로 선택 */
-  crewMemberCount: number;
-  /** 팀원 선택 목록(인원수만큼 슬롯) */
-  crewMemberNames: string[];
-  /** 팀장 단독(크루 없음) — teamLeaderId 목록 */
-  soloTeamLeaderIds: string[];
-  status: string;
-  createdById: string;
-  /** 협업 마케터(기록용). 빈 문자열 = 없음 */
-  collaborationMarketerId: string;
-  operatingCompanyId: string;
-  customerPhone2: string;
-  propertyType: string;
-  isOneRoom: boolean;
-  areaBasis: string;
-  areaPyeong: string;
-  /** 면적 기준 미선택·레거시 시 참고 ㎡ (공급·전용은 `areaPyeong` 평만 사용) */
-  exclusiveAreaSqm: string;
-  buildingType: string;
-  moveInDate: string;
-  moveInDateUndecided: boolean;
-  kitchenCount: string;
-  amountTotal: string;
-  amountDeposit: string;
-  amountBalance: string;
-  /** 타업체 수수료(원), 빈 문자열 = 미입력 */
-  externalTransferFee: string;
-  /** 수기(간편) 등록 제목(접수 리스트 노출) */
-  scheduleMemo: string;
-  /** 관리자·팀장 공유 특이사항 (접수 specialNotes) */
-  specialNotes: string;
-  /** 상담·참고 — 마케터 메모 (팀장·타업체와 공유, 접수 저장 시 반영) */
-  consultationMemo: string;
-  internalCustomerTone: InternalCustomerTone;
-  professionalOptionIds: string[];
-};
+type EditFormFields = InquiryEditFormFields;
 
 const MANUAL_INTAKE_DEFAULT_NAME = '수기 접수';
 const MANUAL_INTAKE_DEFAULT_PHONE = '-';
@@ -664,10 +528,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [saving, setSaving] = useState(false);
   const [externalIntake, setExternalIntake] = useState(false);
   const [createIntakeLane, setCreateIntakeLane] = useState<CreateIntakeLane>('normal');
-  const [assigneeHelpOpen, setAssigneeHelpOpen] = useState(false);
-  const assigneeHelpRef = useRef<HTMLDivElement | null>(null);
-  const [crewHelpOpen, setCrewHelpOpen] = useState(false);
-  const crewHelpRef = useRef<HTMLDivElement | null>(null);
   const inquiryEditScrollRef = useRef<HTMLDivElement | null>(null);
   const inquiryEditNavBoundsRef = useRef<HTMLDivElement | null>(null);
   const [poolTeamMembers, setPoolTeamMembers] = useState<TeamMemberItem[]>([]);
@@ -1242,6 +1102,34 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return serviceZones.find((z) => z.id === pinnedServiceZoneId)?.name ?? null;
   }, [pinnedServiceZoneId, serviceZones]);
 
+  const statusAssignmentHints = useMemo(
+    () =>
+      buildInquiryEditAssignmentHints({
+        teamLeaderBlocked: teamLeaderZoneBlock.blocked,
+        teamLeaderBlockedMessage: teamLeaderZoneBlock.message,
+        pinnedServiceZoneId,
+        pinnedServiceZoneName,
+        nearbyAssignmentViaPin,
+        activeServiceZoneId,
+        activeServiceZoneName: activeServiceZoneId
+          ? serviceZones.find((z) => z.id === activeServiceZoneId)?.name ?? null
+          : null,
+        strictAssignment:
+          assignmentPolicy.assignmentMode === 'strict' && !!inquiryOperatingCompanyIdForAssign,
+      }),
+    [
+      teamLeaderZoneBlock.blocked,
+      teamLeaderZoneBlock.message,
+      pinnedServiceZoneId,
+      pinnedServiceZoneName,
+      nearbyAssignmentViaPin,
+      activeServiceZoneId,
+      serviceZones,
+      assignmentPolicy.assignmentMode,
+      inquiryOperatingCompanyIdForAssign,
+    ],
+  );
+
   useEffect(() => {
     if (teamLeaderAssignmentSurface !== 'inquiry-list') return;
     if (pinnedServiceZoneId) return;
@@ -1624,31 +1512,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       return { ...prev, crewMemberNames: next };
     });
   }, [effectiveCrewSlots]);
-
-  useEffect(() => {
-    if (!assigneeHelpOpen) return;
-    const onDown = (evt: MouseEvent | TouchEvent) => {
-      const target = evt.target as Node | null;
-      if (!target) return;
-      if (assigneeHelpRef.current?.contains(target) || crewHelpRef.current?.contains(target)) return;
-      setAssigneeHelpOpen(false);
-      setCrewHelpOpen(false);
-    };
-    const onEsc = (evt: KeyboardEvent) => {
-      if (evt.key === 'Escape') {
-        setAssigneeHelpOpen(false);
-        setCrewHelpOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('touchstart', onDown, { passive: true });
-    document.addEventListener('keydown', onEsc);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('touchstart', onDown);
-      document.removeEventListener('keydown', onEsc);
-    };
-  }, [assigneeHelpOpen, crewHelpOpen]);
 
   const handleCrewPartnerSwapConfirm = useCallback(async () => {
     if (!token || !item || !crewSwapPartnerId.trim()) return;
@@ -2108,6 +1971,28 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     });
   }, [isCreate, item, editForm.areaBasis, editForm.areaPyeong, editForm.exclusiveAreaSqm]);
 
+  /** 모바일 헤더 — 접수번호·거리 등 라벨 없이 한 줄 요약 */
+  const detailHeaderMetaCompact = useMemo(() => {
+    if (isCreate || !item) return '';
+    const parts: string[] = [];
+    if (item.inquiryNumber) parts.push(item.inquiryNumber);
+    if (distanceJuanLabel) parts.push(distanceJuanLabel);
+    if (detailHeaderAreaShort !== '—') parts.push(detailHeaderAreaShort);
+    if (isManualIntakeInquiry(item.source)) parts.push('수기');
+    if (!isInquirySourceHiddenFromUi(item.source)) {
+      parts.push(formatInquirySourceLabel(item.source));
+    }
+    const marketer = item.createdBy?.name ?? item.orderForm?.createdBy?.name;
+    if (marketer) parts.push(marketer);
+    if (item.collaborationMarketer?.name?.trim()) {
+      parts.push(`협업 ${item.collaborationMarketer.name.trim()}`);
+    }
+    if (item.operatingCompany?.name?.trim()) parts.push(item.operatingCompany.name.trim());
+    if (item.callAttempt != null) parts.push(`통화 ${item.callAttempt}`);
+    if (item.claimMemo?.trim()) parts.push('클레임');
+    return parts.join(' · ');
+  }, [isCreate, item, distanceJuanLabel, detailHeaderAreaShort]);
+
   const shellClassName = isPanel
     ? 'relative flex h-full min-h-0 max-h-[calc(100dvh-9rem)] flex-col rounded-xl border border-slate-200 bg-white shadow-sm'
     : 'modal-mobile-fullscreen-panel relative z-10 flex max-w-2xl w-full flex-col rounded-t-2xl bg-white shadow-xl sm:h-auto sm:max-h-[min(92dvh,880px)] sm:flex-none sm:rounded-2xl';
@@ -2119,27 +2004,31 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         role={isPanel ? 'region' : undefined}
         aria-label={isPanel ? (isCreate ? '신규 접수' : '접수 수정') : undefined}
       >
-        <div className="relative shrink-0 border-b border-gray-100 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
+        <div className="relative shrink-0 border-b border-gray-100 px-4 pt-3 pb-2 sm:px-6 sm:pt-5 sm:pb-3">
           <ModalCloseButton onClick={onClose} />
-          <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 pr-10 sm:pr-12">
-            <h2 id="schedule-detail-title" className="text-lg font-semibold text-gray-800">
+          <div className="min-w-0 pr-12 sm:pr-12">
+          <div className="mb-0 flex items-center gap-x-2 sm:mb-1">
+            <h2
+              id="schedule-detail-title"
+              className="inline-flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0 text-fluid-sm font-semibold leading-tight text-gray-800 sm:gap-x-2 sm:text-fluid-base sm:leading-normal lg:text-lg"
+            >
               {isCreate ? (
                 '신규 접수'
               ) : (
                 <>
                   접수 수정
                   {item?.tenantShare ? (
-                    <span className="ml-2">
+                    <span>
                       <TenantInquiryShareBadge share={item.tenantShare} />
                     </span>
                   ) : null}
                   {item?.dbListing ? (
-                    <span className="ml-2">
+                    <span>
                       <InquiryDbMarketplaceBadge dbListing={item.dbListing} />
                     </span>
                   ) : null}
                   {item?.inquiryNumber ? (
-                    <span className="ml-2 text-base font-normal text-gray-500 tabular-nums">
+                    <span className="hidden sm:inline text-fluid-xs font-normal text-gray-500 tabular-nums lg:text-base">
                       · {item.inquiryNumber}
                       {distanceJuanLabel ? (
                         <span className="text-gray-500" title="인천 주안 기준 직선거리">
@@ -2150,7 +2039,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     </span>
                   ) : distanceJuanLabel ? (
                     <span
-                      className="ml-2 text-base font-normal text-gray-500 tabular-nums"
+                      className="hidden sm:inline text-fluid-xs font-normal text-gray-500 tabular-nums lg:text-base"
                       title="인천 주안 기준 직선거리"
                     >
                       · {distanceJuanLabel}
@@ -2177,7 +2066,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               <input
                 value={editForm.scheduleMemo}
                 onChange={(e) => setEditForm((p) => ({ ...p, scheduleMemo: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                className={inqEditInput}
                 placeholder="예: 4/25 송도 34평 오전, 엘베 O"
               />
             </div>
@@ -2224,69 +2113,104 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             <div
               className={
                 detailLeaderAssignmentUnderfilled
-                  ? 'mt-2 space-y-1.5 rounded-lg border border-rose-300 bg-rose-50/95 px-3 py-2.5 ring-1 ring-rose-200/80'
-                  : 'mt-2 space-y-1.5'
+                  ? 'mt-1.5 space-y-1 rounded-lg border border-rose-300 bg-rose-50/95 px-2.5 py-2 ring-1 ring-rose-200/80 sm:mt-2 sm:space-y-1.5 sm:px-3 sm:py-2.5'
+                  : 'mt-1.5 space-y-1 sm:mt-2 sm:space-y-1.5'
               }
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 flex items-center gap-2">
-                <CustomerNameWithInternalTone
-                  name={item.customerName}
-                  tone={editForm.internalCustomerTone}
-                  viewerRole={meUser?.role}
-                  nameClassName="min-w-0 truncate text-base font-semibold text-gray-900"
-                />
-                <PropertyTypeSticker
-                  propertyType={editForm.propertyType?.trim() || item.propertyType}
-                  isOneRoom={editForm.isOneRoom}
-                  oneRoomTitle={oneRoomLabel}
-                  className="shrink-0"
-                />
-                {item.orderForm?.template && !item.orderForm.template.isDefault ? (
-                  <OrderFormTemplateBadge template={item.orderForm.template} className="shrink-0" />
-                ) : null}
-                <span className="shrink-0 text-fluid-2xs font-medium text-gray-500">해피콜</span>
-                {item.happyCallCompletedAt ? (
-                  <span className="shrink-0 inline-flex items-center rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-fluid-2xs font-semibold text-green-800">
-                    완료
-                  </span>
-                ) : detailHappyCallEligible ? (
-                  <span
-                    className={`shrink-0 inline-flex items-center rounded-md border px-2 py-0.5 text-fluid-2xs font-semibold ${
-                      detailHappyTone === 'overdue'
-                        ? 'border-red-300 bg-red-50 text-red-700'
-                        : 'border-amber-200 bg-amber-50 text-amber-900'
-                    }`}
-                  >
-                    {detailHappyTone === 'overdue' ? '미완(마감초과)' : '미완'}
-                  </span>
-                ) : (
-                  <span className="shrink-0 inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-fluid-2xs font-medium text-gray-500">
-                    대상 아님
-                  </span>
-                )}
+              <div className="flex items-center gap-1 min-w-0 sm:flex-col sm:items-stretch sm:gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden sm:flex-wrap sm:gap-x-1.5 sm:gap-y-1 sm:overflow-visible">
+                  <CustomerNameWithInternalTone
+                    name={item.customerName}
+                    tone={editForm.internalCustomerTone}
+                    viewerRole={meUser?.role}
+                    nameClassName="min-w-0 truncate text-fluid-sm font-semibold text-gray-900 sm:text-fluid-base lg:text-base"
+                  />
+                  <PropertyTypeSticker
+                    propertyType={editForm.propertyType?.trim() || item.propertyType}
+                    isOneRoom={editForm.isOneRoom}
+                    oneRoomTitle={oneRoomLabel}
+                    className="shrink-0"
+                  />
+                  {item.orderForm?.template && !item.orderForm.template.isDefault ? (
+                    <OrderFormTemplateBadge template={item.orderForm.template} className="shrink-0" />
+                  ) : null}
+                  <div className="flex shrink-0 items-center sm:hidden">
+                    {item.happyCallCompletedAt ? (
+                      <span className="inline-flex items-center rounded border border-green-200 bg-green-50 px-1 py-px text-[10px] font-semibold leading-tight text-green-800">
+                        HC완료
+                      </span>
+                    ) : detailHappyCallEligible ? (
+                      <span
+                        className={`inline-flex items-center rounded border px-1 py-px text-[10px] font-semibold leading-tight ${
+                          detailHappyTone === 'overdue'
+                            ? 'border-red-300 bg-red-50 text-red-700'
+                            : 'border-amber-200 bg-amber-50 text-amber-900'
+                        }`}
+                      >
+                        {detailHappyTone === 'overdue' ? 'HC초과' : 'HC미완'}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded border border-gray-200 bg-gray-50 px-1 py-px text-[10px] font-medium leading-tight text-gray-500">
+                        HC—
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1.5">
+                <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
                   <button
                     type="button"
                     onClick={() => setCopyInfoViewOpen(true)}
-                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-slate-50 px-2.5 py-1 text-fluid-xs font-medium text-slate-800 hover:bg-slate-100 active:bg-slate-200"
+                    className="inline-flex items-center rounded-md border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-slate-800 hover:bg-slate-100 active:bg-slate-200 sm:gap-1 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                     title="고객·현장·일정·금액 요약을 한 화면에서 봅니다."
                   >
-                    정보 보기
+                    <span className="sm:hidden">보기</span>
+                    <span className="hidden sm:inline">정보 보기</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => void copyInquiryInfo()}
-                    className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium leading-tight text-gray-700 hover:bg-gray-50 active:bg-gray-100 sm:gap-1 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                     title="접수번호와 고객·현장·일정 정보를 텍스트로 복사합니다. 타업체 공유에 사용하세요."
                     aria-live="polite"
                   >
-                    {copyHint ?? '정보 복사'}
+                    <span className="sm:hidden">{copyHint ?? '복사'}</span>
+                    <span className="hidden sm:inline">{copyHint ?? '정보 복사'}</span>
                   </button>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 leading-relaxed flex flex-wrap items-center gap-x-1 gap-y-1">
+              <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+                  <span className="shrink-0 text-fluid-2xs font-medium text-gray-500">해피콜</span>
+                  {item.happyCallCompletedAt ? (
+                    <span className="shrink-0 inline-flex items-center rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-fluid-2xs font-semibold text-green-800">
+                      완료
+                    </span>
+                  ) : detailHappyCallEligible ? (
+                    <span
+                      className={`shrink-0 inline-flex items-center rounded-md border px-2 py-0.5 text-fluid-2xs font-semibold ${
+                        detailHappyTone === 'overdue'
+                          ? 'border-red-300 bg-red-50 text-red-700'
+                          : 'border-amber-200 bg-amber-50 text-amber-900'
+                      }`}
+                    >
+                      {detailHappyTone === 'overdue' ? '미완(마감초과)' : '미완'}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-fluid-2xs font-medium text-gray-500">
+                      대상 아님
+                    </span>
+                  )}
+                </div>
+              </div>
+              {detailHeaderMetaCompact ? (
+                <p
+                  className="truncate text-[10px] leading-tight text-gray-500 sm:hidden"
+                  title={detailHeaderMetaCompact}
+                >
+                  {detailHeaderMetaCompact}
+                </p>
+              ) : null}
+              <p className="hidden text-fluid-2xs text-gray-500 leading-relaxed sm:flex sm:flex-wrap sm:items-center sm:gap-x-1 sm:gap-y-1 sm:text-xs">
                 {item.inquiryNumber ? <span>접수번호 {item.inquiryNumber}</span> : null}
                 {distanceJuanLabel ? <span>· 주안 기준 {distanceJuanLabel}</span> : null}
                 {detailHeaderAreaShort !== '—' ? <span>· {detailHeaderAreaShort}</span> : null}
@@ -2316,6 +2240,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               ) : null}
             </div>
           ) : null}
+          </div>
         </div>
 
         <div ref={inquiryEditNavBoundsRef} className="relative isolate flex min-h-0 flex-1 flex-col">
@@ -2338,21 +2263,21 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           />
         ) : null}
         <AdminScheduleDetailSection title="고객 · 주소" sectionAnchor="customer">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <div className={inqEditFormGrid}>
           <div>
-            <label className="block text-gray-600 mb-1">성함</label>
+            <label className={inqEditLabel}>성함</label>
             <input
               value={editForm.customerName}
               onChange={(e) => setEditForm((p) => ({ ...p, customerName: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
+              className={inqEditInput}
             />
           </div>
           <div>
-            <label className="block text-gray-600 mb-1">닉네임 (선택)</label>
+            <label className={inqEditLabel}>닉네임 (선택)</label>
             <input
               value={editForm.nickname}
               onChange={(e) => setEditForm((p) => ({ ...p, nickname: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
+              className={inqEditInput}
               placeholder="숨고 아이디, 닉네임"
             />
           </div>
@@ -2366,16 +2291,25 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           ) : null}
           <div>
-            <label className="block text-gray-600 mb-1">연락처</label>
+            <label className={inqEditLabel}>연락처</label>
             <input
               value={editForm.customerPhone}
               onChange={(e) => setEditForm((p) => ({ ...p, customerPhone: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
+              className={inqEditInput}
+              inputMode="tel"
+            />
+          </div>
+          <div>
+            <label className={inqEditLabel}>보조 연락처</label>
+            <input
+              value={editForm.customerPhone2}
+              onChange={(e) => setEditForm((p) => ({ ...p, customerPhone2: e.target.value }))}
+              className={inqEditInput}
               inputMode="tel"
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">주소</label>
+            <label className={inqEditLabel}>주소</label>
             <AddressSearch
               value={editForm.address}
               onChange={(addr) => setEditForm((p) => ({ ...p, address: addr }))}
@@ -2383,161 +2317,26 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">상세주소</label>
+            <label className={inqEditLabel}>상세주소</label>
             <input
               value={editForm.addressDetail}
               onChange={(e) => setEditForm((p) => ({ ...p, addressDetail: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
+              className={inqEditInput}
               placeholder="동·호수"
             />
           </div>
         </div>
         </AdminScheduleDetailSection>
 
-        <AdminScheduleDetailSection title="유형 · 면적 · 방·주방" sectionAnchor="property">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <div>
-            <label className="block text-gray-600 mb-1">보조 연락처</label>
-            <input
-              value={editForm.customerPhone2}
-              onChange={(e) => setEditForm((p) => ({ ...p, customerPhone2: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-            />
-          </div>
-          <div>
-            <label className="block text-gray-600 mb-1">건축물 유형</label>
-            <select
-              value={editForm.propertyType}
-              onChange={(e) => setEditForm((p) => ({ ...p, propertyType: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-            >
-              <option value="">선택</option>
-              {PROPERTY_TYPE_EDIT.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="sm:col-span-2">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
-              <input
-                type="checkbox"
-                className="rounded border-gray-300"
-                checked={editForm.isOneRoom}
-                onChange={(e) => setEditForm((p) => ({ ...p, isOneRoom: e.target.checked }))}
-              />
-              {skOpsUi
-                ? oneRoomLabel
-                : '원룸 (체크 시 고객 발주서 특이사항에 「에어컨,냉장고,세탁기 포함」 반영)'}
-            </label>
-          </div>
-          <div>
-            <label className="block text-gray-600 mb-1">면적 기준</label>
-            <select
-              value={editForm.areaBasis}
-              onChange={(e) => {
-                const v = e.target.value;
-                setEditForm((p) => ({
-                  ...p,
-                  areaBasis: v,
-                  exclusiveAreaSqm: v === '공급' || v === '전용' ? '' : p.exclusiveAreaSqm,
-                  areaPyeong:
-                    v === '공급' || v === '전용' ? (v === p.areaBasis ? p.areaPyeong : '') : p.areaPyeong,
-                }));
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-            >
-              <option value="">선택</option>
-              {AREA_BASIS_EDIT.map((v) => (
-                <option key={v} value={v}>
-                  {v === '공급' ? '공급면적 (분양평수)' : '전용면적 (실제 내 집 공간)'}
-                </option>
-              ))}
-            </select>
-          </div>
-          {editForm.areaBasis === '공급' ? (
-            <div>
-              <label className="block text-gray-600 mb-1">분양평수 (평)</label>
-              <input
-                value={editForm.areaPyeong}
-                onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-                placeholder="예: 32"
-                inputMode="decimal"
-              />
-            </div>
-          ) : null}
-          {editForm.areaBasis === '전용' ? (
-            <div>
-              <label className="block text-gray-600 mb-1">전용면적 (평)</label>
-              <input
-                value={editForm.areaPyeong}
-                onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-                placeholder="예: 25.5"
-                inputMode="decimal"
-              />
-            </div>
-          ) : null}
-          {editForm.areaBasis !== '공급' && editForm.areaBasis !== '전용' ? (
-            <div>
-              <label className="block text-gray-600 mb-1">평수 (숫자·레거시)</label>
-              <input
-                value={editForm.areaPyeong}
-                onChange={(e) => setEditForm((p) => ({ ...p, areaPyeong: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-              />
-            </div>
-          ) : null}
-          <div className="sm:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-gray-600 mb-1 text-xs">방</label>
-              <input
-                type="number"
-                min={0}
-                value={editForm.roomCount}
-                onChange={(e) => setEditForm((p) => ({ ...p, roomCount: e.target.value }))}
-                className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-center"
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 mb-1 text-xs">화</label>
-              <input
-                type="number"
-                min={0}
-                value={editForm.bathroomCount}
-                onChange={(e) => setEditForm((p) => ({ ...p, bathroomCount: e.target.value }))}
-                className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-center"
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 mb-1 text-xs">베</label>
-              <input
-                type="number"
-                min={0}
-                value={editForm.balconyCount}
-                onChange={(e) => setEditForm((p) => ({ ...p, balconyCount: e.target.value }))}
-                className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-center"
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 mb-1 text-xs">주방</label>
-              <input
-                type="number"
-                min={0}
-                value={editForm.kitchenCount}
-                onChange={(e) => setEditForm((p) => ({ ...p, kitchenCount: e.target.value }))}
-                className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-center"
-                placeholder="비움"
-              />
-            </div>
-          </div>
-        </div>
-        </AdminScheduleDetailSection>
+        <InquiryEditPropertySection
+          editForm={editForm}
+          setEditForm={setEditForm}
+          skOpsUi={skOpsUi}
+          oneRoomLabel={oneRoomLabel}
+        />
 
         <AdminScheduleDetailSection title="일정" sectionAnchor="schedule">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <div className={inqEditFormGrid}>
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
               <label className="block text-gray-600">예약일 (청소 희망일)</label>
@@ -2577,7 +2376,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           </div>
           <div>
-            <label className="block text-gray-600 mb-1">희망 시간대</label>
+            <label className={inqEditLabel}>희망 시간대</label>
             <select
               value={editForm.preferredTime}
               onChange={(e) => {
@@ -2588,7 +2387,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   betweenScheduleSlot: (v || '').includes('사이청소') ? p.betweenScheduleSlot : '',
                 }));
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
+              className={inqEditInput}
             >
               <option value="">선택 안 함</option>
               {ORDER_TIME_SLOT_OPTIONS.map((o) => (
@@ -2600,13 +2399,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </div>
           {isSideCleaningTime(editForm.preferredTime) && (
             <div>
-              <label className="block text-gray-600 mb-1">사이청소 일정 확정</label>
+              <label className={inqEditLabel}>사이청소 일정 확정</label>
               <select
                 value={editForm.betweenScheduleSlot}
                 onChange={(e) =>
                   setEditForm((p) => ({ ...p, betweenScheduleSlot: e.target.value }))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded"
+                className={inqEditInput}
               >
                 <option value="">미확정 (오전/오후 중 미정)</option>
                 <option value="오전">오전에 청소</option>
@@ -2618,15 +2417,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </div>
           )}
           <div>
-            <label className="block text-gray-600 mb-1">구체적 시각</label>
+            <label className={inqEditLabel}>구체적 시각</label>
             <input
               value={editForm.preferredTimeDetail}
               onChange={(e) => setEditForm((p) => ({ ...p, preferredTimeDetail: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
+              className={inqEditInput}
             />
           </div>
           <div>
-            <label className="block text-gray-600 mb-1">신축/구축/인테리어/거주</label>
+            <label className={inqEditLabel}>신축/구축/인테리어/거주</label>
             <select
               value={editForm.buildingType}
               onChange={(e) => {
@@ -2637,7 +2436,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   ...(v === ORDER_BUILDING_TYPE_RESIDING ? { moveInDateUndecided: false } : {}),
                 }));
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
+              className={inqEditInput}
             >
               <option value="">선택 안 함</option>
               {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
@@ -2648,7 +2447,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             </select>
           </div>
           <div>
-            <label className="block text-gray-600 mb-1">
+            <label className={inqEditLabel}>
               이사 날짜
               {requiresMoveInDateOrUndecided(editForm.buildingType) ? (
                 <span className="text-red-600"> *</span>
@@ -2697,8 +2496,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             orderForm: item.orderForm,
           }).trim() !== '' ? (
             <div className="sm:col-span-2 space-y-1">
-              <label className="block text-gray-600 mb-1">고객 발주서 특이사항 (읽기 전용)</label>
-              <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
+              <label className={inqEditLabel}>고객 발주서 특이사항 (읽기 전용)</label>
+              <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-800 sm:text-fluid-sm">
                 {effectiveCustomerOrderNotes({
                   specialNotes: item.specialNotes,
                   orderForm: item.orderForm,
@@ -2725,480 +2524,49 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </AdminScheduleDetailSection>
         ) : null}
 
-        <AdminScheduleDetailSection title="정산 · 옵션" sectionAnchor="settlement">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">총액 (원)</label>
-            <input
-              value={editForm.amountTotal}
-              onChange={(e) => setEditForm((p) => ({ ...p, amountTotal: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              inputMode="numeric"
-              placeholder="0"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:col-span-2 sm:gap-x-4">
-            <div className="min-w-0">
-              <label className="block text-gray-600 mb-1">예약금 (원)</label>
-              <input
-                value={editForm.amountDeposit}
-                onChange={(e) => setEditForm((p) => ({ ...p, amountDeposit: e.target.value }))}
-                className="w-full min-w-0 px-2 py-2 sm:px-3 border border-gray-300 rounded tabular-nums"
-                inputMode="numeric"
-              />
-            </div>
-            <div className="min-w-0">
-              <label className="block text-gray-600 mb-1">잔금 (원)</label>
-              <input
-                value={editForm.amountBalance}
-                onChange={(e) => setEditForm((p) => ({ ...p, amountBalance: e.target.value }))}
-                className="w-full min-w-0 px-2 py-2 sm:px-3 border border-gray-300 rounded tabular-nums"
-                inputMode="numeric"
-              />
-            </div>
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">타업체 담당</label>
-            <select
-              value={resolvedExternalLeadId}
-              disabled={activeNativePartnerShareSource}
-              onChange={(e) => {
-                const v = e.target.value;
-                setEditForm((p) => {
-                  if (v === '') {
-                    const keep = p.teamLeaderIds.filter((id) => {
-                      const u = assignableTeamLeaders.find((x) => x.id === id);
-                      return id.trim() !== '' && u?.role !== 'EXTERNAL_PARTNER';
-                    });
-                    return { ...p, teamLeaderIds: keep.length > 0 ? keep : [''] };
-                  }
-                  return { ...p, teamLeaderIds: [v] };
-                });
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-sm"
-              aria-describedby="sched-settlement-external-hint"
-            >
-              <option value="">선택 안 함 (자사 팀장만)</option>
-              {externalPartnerOptions.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {formatAssignableUserLabel(u)}
-                </option>
-              ))}
-            </select>
-            <p id="sched-settlement-external-hint" className="text-[11px] text-gray-500 mt-1">
-              {activeNativePartnerShareSource
-                ? '파트너 연계 중에는 타업체 담당을 지정할 수 없습니다. 연계를 취소한 뒤 선택하세요.'
-                : externalLegacyShareSource
-                  ? '파트너 DB 이관(타업체 정산 유지) 건입니다. 수수료는 타업체 정산·파트너 수수료에 함께 반영됩니다.'
-                  : '타업체를 선택하면 자사 팀장·파트너 연계와 동시에 지정할 수 없습니다. 수수료는 아래 입력란에만 해당합니다.'}
-            </p>
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">타업체 수수료 (원)</label>
-            <input
-              value={editForm.externalTransferFee}
-              disabled={activeNativePartnerShareSource}
-              onChange={(e) => setEditForm((p) => ({ ...p, externalTransferFee: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              inputMode="numeric"
-              placeholder="비우면 미입력"
-            />
-            <p className="text-[11px] text-gray-500 mt-1">
-              {activeNativePartnerShareSource
-                ? '파트너 연계 중에는 타업체 수수료를 입력할 수 없습니다.'
-                : externalLegacyShareSource
-                  ? '타업체 정산 유지 이관 건 — 수수료 변경 시 파트너 수수료와 동기화됩니다.'
-                  : '타업체 담당으로 분배된 건에 대해 받는 수수료 (파트너 연계와 둘 중 하나만 선택)'}
-            </p>
-          </div>
-          {!isCreate && hasTenantExchange && item ? (
-            <div className="sm:col-span-2 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3 space-y-2">
-              <p className="text-xs font-semibold text-indigo-900">파트너에 접수 연계</p>
-              <p className="text-[11px] text-gray-600 leading-relaxed">
-                {externalPartnerBlocksShare
-                  ? '타업체 담당이 지정된 접수는 파트너 연계할 수 없습니다. 타업체 담당을 해제한 뒤 이용하세요.'
-                  : '연결된 파트너 업체 접수 목록에 같은 건을 복제합니다. 타업체 담당과 둘 중 하나만 선택할 수 있습니다.'}
-              </p>
-              {hasDbMarketplace && !isActivePartnerShareSource(item.tenantShare) && !externalPartnerBlocksShare ? (
-                <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-2.5 space-y-2">
-                  <p className="text-[11px] text-violet-900 leading-relaxed">
-                    특정 파트너 한 곳이 아니라 여러 업체에 공개하려면{' '}
-                    <strong>정보공유(마켓)</strong>를 이용하세요. 구매자가 선택한 뒤 양쪽 확정됩니다.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleRegisterViaMarketplace}
-                    className="w-full rounded-lg border border-violet-300 bg-white px-3 py-2 text-[11px] font-medium text-violet-900 hover:bg-violet-50"
-                  >
-                    정보공유로 등록하기
-                  </button>
-                </div>
-              ) : null}
-              {item.tenantShare ? (
-                <div className="space-y-2">
-                  <TenantInquiryShareBadge share={item.tenantShare} />
-                  {item.tenantShare.role === 'TARGET' ? (
-                    <PartnerReceivedBanner share={item.tenantShare} />
-                  ) : null}
-                  {item.tenantShare.role === 'SOURCE' && item.tenantShare.syncStatus === 'ACTIVE' ? (
-                    <>
-                      <div>
-                        <label className="block text-gray-600 mb-1">파트너 수수료 (원)</label>
-                        <input
-                          value={tenantShareEditFee}
-                          onChange={(e) => setTenantShareEditFee(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded"
-                          inputMode="numeric"
-                          placeholder="비우면 미입력"
-                        />
-                        <p className="text-[11px] text-gray-500 mt-1">
-                          파트너 정산·수신 업체 잔금에 반영됩니다. 타업체 담당과 둘 중 하나만 선택할 수 있습니다.
-                        </p>
-                      </div>
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <button
-                          type="button"
-                          disabled={tenantShareFeeBusy}
-                          onClick={() => void handleTenantShareFeeSave()}
-                          className="flex-1 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-900 hover:bg-indigo-50 disabled:opacity-50"
-                        >
-                          {tenantShareFeeBusy ? '저장 중…' : '파트너 수수료 저장'}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={tenantShareRevokeBusy}
-                          onClick={() => void handleTenantShareRevoke()}
-                          className="flex-1 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-900 hover:bg-rose-100 disabled:opacity-50"
-                        >
-                          {tenantShareRevokeBusy ? '취소 중…' : '접수연계 취소'}
-                        </button>
-                      </div>
-                    </>
-                  ) : item.tenantShare.role === 'SOURCE' && item.tenantShare.transferFee != null ? (
-                    <p className="text-[11px] text-gray-600 tabular-nums">
-                      파트너 수수료: {item.tenantShare.transferFee.toLocaleString()}원
-                    </p>
-                  ) : null}
-                  {item.tenantShare.role === 'TARGET' && item.tenantShare.sourceInquiryNumberSnapshot ? (
-                    <p className="text-[11px] text-gray-600">
-                      원 송신 접수번호:{' '}
-                      <span className="font-mono tabular-nums">
-                        {item.tenantShare.sourceInquiryNumberSnapshot}
-                      </span>
-                    </p>
-                  ) : null}
-                </div>
-              ) : tenantSharePartnerships.length === 0 ? (
-                <p className="text-[11px] text-gray-500">
-                  연결된 파트너가 없습니다. 관리 → 파트너 연결에서 초대해 주세요.
-                </p>
-              ) : externalPartnerBlocksShare ? null : (
-                <>
-                  <div>
-                    <label className="block text-gray-600 mb-1">파트너 업체</label>
-                    <select
-                      value={tenantSharePartnershipId}
-                      onChange={(e) => setTenantSharePartnershipId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded bg-white text-sm"
-                    >
-                      <option value="">선택</option>
-                      {tenantSharePartnerships.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.partner.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-gray-600 mb-1">파트너 수수료 (원)</label>
-                    <input
-                      value={tenantShareTransferFee}
-                      onChange={(e) => setTenantShareTransferFee(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      inputMode="numeric"
-                      placeholder="비우면 미입력"
-                    />
-                  </div>
-                  <label className="flex items-start gap-2 text-xs text-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={tenantShareCustomerScheduleOnly}
-                      onChange={(e) => setTenantShareCustomerScheduleOnly(e.target.checked)}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      고객·일정만 연계 (금액·메모·상담사진 제외)
-                      <span className="block text-[11px] text-gray-500 mt-0.5">
-                        체크 시 파트너 접수에 고객정보·일정만 복제되며 이후 동기화도 동일 범위입니다. 상담사진은 전체
-                        연계 시에만 공유됩니다.
-                      </span>
-                    </span>
-                  </label>
-                  <button
-                    type="button"
-                    disabled={tenantShareBusy || !tenantSharePartnershipId.trim()}
-                    onClick={() => void handleTenantShare()}
-                    className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {tenantShareBusy ? '연계 중…' : '접수 연계'}
-                  </button>
-                </>
-              )}
-            </div>
-          ) : null}
-          {!isCreate && hasDbMarketplace && item ? (
-            <div ref={marketplacePanelRef} className="sm:col-span-2">
-              <InquiryDbMarketplaceSellPanel
-                inquiryId={item.id}
-                serviceBalanceAmount={item.serviceBalanceAmount}
-                disabled={isActivePartnerShareSource(item.tenantShare) || externalPartnerBlocksShare}
-                tenantShare={item.tenantShare ?? null}
-                exchangePrefill={marketplaceExchangePrefill}
-                onListingChange={() => onInquiryRefresh?.()}
-              />
-            </div>
-          ) : null}
-          <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">전문 시공 옵션</label>
-            <div className="space-y-1.5 max-h-44 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
-              {listProfRootNodes(professionalCatalog).map((root) => {
-                const kids = listProfChildren(professionalCatalog, root.id).filter((c) => c.isActive);
-                const showAsSection = root.isGroup || kids.length > 0;
-                if (showAsSection) {
-                  if (kids.length === 0) return null;
-                  const subtree = collectSubtreeOptionIds(professionalCatalog, root.id);
-                  const catOpen = profCatOpen[root.id] ?? false;
-                  return (
-                    <div key={root.id} className="space-y-1">
-                      <label className="flex items-start gap-2 text-xs text-gray-800 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="mt-0.5 shrink-0"
-                          checked={catOpen}
-                          onChange={(e) => {
-                            const on = e.target.checked;
-                            setProfCatOpen((p) => ({ ...p, [root.id]: on }));
-                            if (!on) {
-                              setEditForm((p) => ({
-                                ...p,
-                                professionalOptionIds: p.professionalOptionIds.filter(
-                                  (id) => !subtree.includes(id)
-                                ),
-                              }));
-                            }
-                          }}
-                          aria-expanded={catOpen}
-                          aria-controls={`sched-prof-sub-${root.id}`}
-                        />
-                        <span className="min-w-0">
-                          <span className="font-medium text-gray-600">
-                            {root.emoji ? `${root.emoji} ` : null}
-                            {root.label}
-                          </span>
-                          <span className="block text-[10px] text-gray-500 mt-0.5">
-                            선택 시 세부 항목이 표시됩니다.
-                          </span>
-                        </span>
-                      </label>
-                      {catOpen ? (
-                        <div
-                          id={`sched-prof-sub-${root.id}`}
-                          className="pl-1 space-y-1 border-l border-gray-200 ml-1"
-                          role="group"
-                        >
-                          {kids.map((o) => {
-                            const gkids = listProfChildren(professionalCatalog, o.id).filter(
-                              (c) => c.isActive
-                            );
-                            if (gkids.length > 0) {
-                              const midOpen = profCatOpen[o.id] ?? false;
-                              const subTree = collectSubtreeOptionIds(professionalCatalog, o.id);
-                              return (
-                                <div key={o.id} className="space-y-1 pl-0.5">
-                                  <label className="flex items-start gap-2 text-xs text-gray-800 cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      className="mt-0.5 shrink-0"
-                                      checked={midOpen}
-                                      onChange={(e) => {
-                                        const on = e.target.checked;
-                                        setProfCatOpen((p) => ({ ...p, [o.id]: on }));
-                                        if (!on) {
-                                          setEditForm((p) => ({
-                                            ...p,
-                                            professionalOptionIds: p.professionalOptionIds.filter(
-                                              (id) => !subTree.includes(id)
-                                            ),
-                                          }));
-                                        }
-                                      }}
-                                      aria-expanded={midOpen}
-                                      aria-controls={`sched-prof-sub-${o.id}`}
-                                    />
-                                    <span className="min-w-0">
-                                      {o.emoji ? <span className="mr-0.5">{o.emoji}</span> : null}
-                                      <span className="font-medium text-gray-700">{o.label}</span>
-                                      <span className="block text-[10px] text-gray-500 mt-0.5">
-                                        선택 시 세부 금액 항목
-                                      </span>
-                                    </span>
-                                  </label>
-                                  {midOpen ? (
-                                    <div
-                                      id={`sched-prof-sub-${o.id}`}
-                                      className="pl-2 space-y-1 border-l border-gray-100 ml-1"
-                                      role="group"
-                                    >
-                                      {gkids.map((g) => {
-                                        const gPrice = formatProfOptionPriceDisplay(g);
-                                        return (
-                                          <label
-                                            key={g.id}
-                                            className="flex items-start gap-2 text-xs text-gray-800 cursor-pointer pl-0.5"
-                                          >
-                                            <input
-                                              type="checkbox"
-                                              className="mt-0.5 shrink-0"
-                                              checked={editForm.professionalOptionIds.includes(g.id)}
-                                              onChange={() =>
-                                                setEditForm((p) => ({
-                                                  ...p,
-                                                  professionalOptionIds: p.professionalOptionIds.includes(g.id)
-                                                    ? p.professionalOptionIds.filter((x) => x !== g.id)
-                                                    : [...p.professionalOptionIds, g.id],
-                                                }))
-                                              }
-                                            />
-                                            <span
-                                              className="inline-block w-2 h-2 rounded-full shrink-0 mt-0.5 border border-gray-300"
-                                              style={{ backgroundColor: g.color }}
-                                              aria-hidden
-                                            />
-                                            <span>
-                                              {g.emoji ? <span className="mr-0.5">{g.emoji}</span> : null}
-                                              {g.label}
-                                              {gPrice ? <span className="text-gray-500"> {gPrice}</span> : null}
-                                            </span>
-                                          </label>
-                                        );
-                                      })}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              );
-                            }
-                            if (!isSelectableProfOption(professionalCatalog, o)) return null;
-                            const price = formatProfOptionPriceDisplay(o);
-                            return (
-                              <label key={o.id} className="flex items-start gap-2 text-xs text-gray-800 cursor-pointer pl-1">
-                                <input
-                                  type="checkbox"
-                                  className="mt-0.5 shrink-0"
-                                  checked={editForm.professionalOptionIds.includes(o.id)}
-                                  onChange={() =>
-                                    setEditForm((p) => ({
-                                      ...p,
-                                      professionalOptionIds: p.professionalOptionIds.includes(o.id)
-                                        ? p.professionalOptionIds.filter((x) => x !== o.id)
-                                        : [...p.professionalOptionIds, o.id],
-                                    }))
-                                  }
-                                />
-                                <span
-                                  className="inline-block w-2 h-2 rounded-full shrink-0 mt-0.5 border border-gray-300"
-                                  style={{ backgroundColor: o.color }}
-                                  aria-hidden
-                                />
-                                <span>
-                                  {o.emoji ? <span className="mr-0.5">{o.emoji}</span> : null}
-                                  {o.label}
-                                  {price ? <span className="text-gray-500"> {price}</span> : null}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                }
-                if (!root.isActive || !isSelectableProfOption(professionalCatalog, root)) {
-                  return null;
-                }
-                const price = formatProfOptionPriceDisplay(root);
-                return (
-                  <label key={root.id} className="flex items-start gap-2 text-xs text-gray-800 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 shrink-0"
-                      checked={editForm.professionalOptionIds.includes(root.id)}
-                      onChange={() =>
-                        setEditForm((p) => ({
-                          ...p,
-                          professionalOptionIds: p.professionalOptionIds.includes(root.id)
-                            ? p.professionalOptionIds.filter((x) => x !== root.id)
-                            : [...p.professionalOptionIds, root.id],
-                        }))
-                      }
-                    />
-                    <span
-                      className="inline-block w-2 h-2 rounded-full shrink-0 mt-0.5 border border-gray-300"
-                      style={{ backgroundColor: root.color }}
-                      aria-hidden
-                    />
-                    <span>
-                      {root.emoji ? <span className="mr-0.5">{root.emoji}</span> : null}
-                      {root.label}
-                      {price ? <span className="text-gray-500"> {price}</span> : null}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-            {editForm.professionalOptionIds.some((id) => {
-              const o = professionalCatalog.find((c) => c.id === id);
-              return Boolean(o && !o.isActive);
-            }) && (
-              <div className="mt-2 text-xs text-gray-600 border border-dashed border-gray-200 rounded p-2">
-                <p className="font-medium text-gray-700 mb-1">비활성 처리된 항목 (유지됨)</p>
-                <ul className="space-y-1">
-                  {editForm.professionalOptionIds.map((id) => {
-                    const o = professionalCatalog.find((c) => c.id === id);
-                    if (!o || o.isActive) return null;
-                    const price = formatProfOptionPriceDisplay(o);
-                    return (
-                      <li key={id} className="flex items-center justify-between gap-2">
-                        <span>
-                          {o.emoji ? `${o.emoji} ` : ''}
-                          {o.label}
-                          {price ? ` ${price}` : ''}
-                        </span>
-                        <button
-                          type="button"
-                          className="text-red-600 shrink-0"
-                          onClick={() =>
-                            setEditForm((p) => ({
-                              ...p,
-                              professionalOptionIds: p.professionalOptionIds.filter((x) => x !== id),
-                            }))
-                          }
-                        >
-                          제거
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-          </div>
-        </div>
-        </AdminScheduleDetailSection>
+        <InquiryEditSettlementSection
+          isCreate={isCreate}
+          item={item}
+          editForm={editForm}
+          setEditForm={setEditForm}
+          resolvedExternalLeadId={resolvedExternalLeadId}
+          activeNativePartnerShareSource={activeNativePartnerShareSource}
+          externalLegacyShareSource={externalLegacyShareSource}
+          externalPartnerBlocksShare={externalPartnerBlocksShare}
+          assignableTeamLeaders={assignableTeamLeaders}
+          externalPartnerOptions={externalPartnerOptions}
+          hasTenantExchange={hasTenantExchange}
+          hasDbMarketplace={hasDbMarketplace}
+          handleRegisterViaMarketplace={handleRegisterViaMarketplace}
+          tenantShareEditFee={tenantShareEditFee}
+          setTenantShareEditFee={setTenantShareEditFee}
+          tenantShareFeeBusy={tenantShareFeeBusy}
+          handleTenantShareFeeSave={handleTenantShareFeeSave}
+          tenantShareRevokeBusy={tenantShareRevokeBusy}
+          handleTenantShareRevoke={handleTenantShareRevoke}
+          tenantSharePartnerships={tenantSharePartnerships}
+          tenantSharePartnershipId={tenantSharePartnershipId}
+          setTenantSharePartnershipId={setTenantSharePartnershipId}
+          tenantShareTransferFee={tenantShareTransferFee}
+          setTenantShareTransferFee={setTenantShareTransferFee}
+          tenantShareCustomerScheduleOnly={tenantShareCustomerScheduleOnly}
+          setTenantShareCustomerScheduleOnly={setTenantShareCustomerScheduleOnly}
+          tenantShareBusy={tenantShareBusy}
+          handleTenantShare={handleTenantShare}
+          marketplacePanelRef={marketplacePanelRef}
+          marketplaceExchangePrefill={marketplaceExchangePrefill}
+          onInquiryRefresh={onInquiryRefresh}
+          professionalCatalog={professionalCatalog}
+          profCatOpen={profCatOpen}
+          setProfCatOpen={setProfCatOpen}
+        />
 
         {!isCreate && item ? (
           <AdminScheduleDetailSection
             title="결제 금액 내역 (팀장·관리자 추가 항목)"
             sectionAnchor="extra-charges"
+            collapsible
+            defaultOpen={false}
           >
             <InquirySettlementPanel
               key={`settlement-${item.id}-${item.additionalReceipts?.length ?? 0}-${item.additionalReceipts?.map((r) => r.id).join(',') ?? ''}-${item.extraCharges?.length ?? 0}`}
@@ -3219,456 +2587,49 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           </AdminScheduleDetailSection>
         ) : null}
 
-        <AdminScheduleDetailSection title="상태 · 배정 · 팀원 · 메모" sectionAnchor="status">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <div className={isCreate ? 'sm:col-span-2' : ''}>
-            <label className="block text-gray-600 mb-1">상태</label>
-            {isCreate ? (
-              <p className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-gray-800">
-                {STATUS_LABELS[editForm.status] ?? editForm.status}
-              </p>
-            ) : (
-              <select
-                value={editForm.status}
-                onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-              >
-                {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            )}
-            {!isCreate && item && isInquiryLinkedOrderFormPendingSubmit(item) ? (
-              <p className="mt-1.5 text-fluid-xs text-slate-500">
-                발주서 <span className="font-medium text-slate-600">미제출</span>
-                {' — '}
-                고객이 제출하면 접수 상태로 바뀝니다.
-              </p>
-            ) : null}
-          </div>
-          {!isCreate && item ? (
-            <InquiryOrderForceMatchPanel
-              token={token}
-              inquiryId={item.id}
-              customerName={item.customerName}
-              customerPhone={item.customerPhone}
-              disabled={saving}
-              onMatched={() => onInquiryRefresh?.()}
-            />
-          ) : null}
-          {canEditMarketer && (
-            <div>
-              <label className="block text-gray-600 mb-1">담당 마케터</label>
-              <select
-                value={editForm.createdById}
-                onChange={(e) => setEditForm((p) => ({ ...p, createdById: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-              >
-                <option value="">미지정</option>
-                {meUser ? <option value={meUser.id}>관리자 ({meUser.name})</option> : null}
-                {(marketerOptions ?? []).map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          {!isCreate ? (
-            <div>
-              <label className="block text-gray-600 mb-1">추가 마케터</label>
-              <select
-                value={editForm.collaborationMarketerId}
-                onChange={(e) =>
-                  setEditForm((p) => ({ ...p, collaborationMarketerId: e.target.value }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-              >
-                <option value="">없음</option>
-                {meUser ? <option value={meUser.id}>관리자 ({meUser.name})</option> : null}
-                {(marketerOptions ?? []).map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-fluid-xs text-slate-500">
-                협업 기록용입니다. 광고비·마케터 건수 집계에는 포함되지 않습니다.
-              </p>
-            </div>
-          ) : null}
-          {operatingCompanyOptions.length > 0 ? (
-            <div>
-              <label className="block text-gray-600 mb-1">영업 브랜드</label>
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={editForm.operatingCompanyId}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, operatingCompanyId: e.target.value }))
-                  }
-                  className="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded"
-                >
-                  {isCreate ? <option value="">(자동 귀속)</option> : null}
-                  {operatingCompanyOptions.map((oc) => (
-                    <option key={oc.id} value={oc.id}>
-                      {oc.name}
-                      {oc.isDefault ? ' · 기본' : ''}
-                    </option>
-                  ))}
-                </select>
-                {item?.operatingCompany ? (
-                  <OperatingCompanyBadge company={item.operatingCompany} />
-                ) : null}
-              </div>
-            </div>
-          ) : item?.operatingCompany ? (
-            <div>
-              <label className="block text-gray-600 mb-1">영업 브랜드</label>
-              <OperatingCompanyBadge company={item.operatingCompany} />
-            </div>
-          ) : null}
-          <div className="sm:col-span-2 space-y-2">
-            <label className="block text-gray-600 mb-1">담당 팀장 (여러 명 가능)</label>
-            {teamLeaderAssignmentSurface === 'inquiry-list' &&
-            serviceZones.length > 0 &&
-            !pinnedServiceZoneId &&
-            matchingServiceZones.length > 0 ? (
-              <div>
-                <label className="block text-fluid-xs text-gray-600 mb-1">배정 권역</label>
-                <select
-                  value={manualAssignmentZoneId}
-                  onChange={(e) => setManualAssignmentZoneId(e.target.value)}
-                  className="w-full max-w-md px-3 py-2 border border-gray-300 rounded text-sm mb-2"
-                >
-                  <option value="">권역 선택…</option>
-                  {matchingServiceZones.map((z) => (
-                    <option key={z.id} value={z.id}>
-                      {z.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-            {teamLeaderZoneBlock.blocked && teamLeaderZoneBlock.message ? (
-              <p className="text-fluid-xs text-amber-950 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug">
-                {teamLeaderZoneBlock.message}
-              </p>
-            ) : null}
-            {pinnedServiceZoneId && !activeServiceZoneId && !teamLeaderZoneBlock.blocked ? (
-              <p className="text-fluid-xs text-violet-950 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 leading-snug">
-                {nearbyAssignmentViaPin ? (
-                  <>
-                    <span className="font-semibold">근접·수동 배정:</span> 주소 권역과 달리{' '}
-                    <span className="font-medium">
-                      「{pinnedServiceZoneName ?? '지정 권역'}」
-                    </span>{' '}
-                    캘린더로 지정되어 해당 권역 팀장만 선택할 수 있습니다.
-                  </>
-                ) : (
-                  <>
-                    <span className="font-semibold">캘린더 지정:</span>{' '}
-                    <span className="font-medium">
-                      「{pinnedServiceZoneName ?? '지정 권역'}」
-                    </span>{' '}
-                    권역 팀장만 배정할 수 있습니다.
-                  </>
-                )}
-              </p>
-            ) : null}
-            {activeServiceZoneId && serviceZones.length > 0 ? (
-              <p className="text-fluid-xs text-teal-950 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 leading-snug">
-                {serviceZones.find((z) => z.id === activeServiceZoneId)?.name ?? '이 권역'} 캘린더 —
-                이 권역 담당 팀장만 배정할 수 있습니다.
-              </p>
-            ) : null}
-            {assignmentPolicy.assignmentMode === 'strict' && inquiryOperatingCompanyIdForAssign ? (
-              <p className="text-fluid-xs text-indigo-900 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 leading-snug">
-                엄격 배정: 이 접수 영업 브랜드에 소속된 팀장만 선택할 수 있습니다.
-              </p>
-            ) : null}
-            {activeNativePartnerShareSource && item?.tenantShare ? (
-              <div
-                className="rounded-lg border border-indigo-200 bg-indigo-50/90 px-3 py-2.5 text-sm text-indigo-950"
-                role="status"
-              >
-                <span className="font-medium">파트너 · {item.tenantShare.partnerName} 연계됨</span>
-                <span className="mt-1 block text-xs text-indigo-900/95">
-                  자사 팀장 미배정 상태입니다. 현장 수행은 파트너 업체에서 진행합니다. 수수료·연계 취소는
-                  위 「정산 · 옵션」의 《파트너에 접수 연계》에서 관리하세요.
-                </span>
-              </div>
-            ) : resolvedExternalLeadId ? (
-              <div
-                className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-sm text-amber-950"
-                role="status"
-              >
-                <span className="font-medium">타업체 담당 지정됨</span> — 자사 팀장은 함께 지정할 수
-                없습니다. 담당 변경은 위 「정산 · 옵션」의 《타업체 담당》에서 하세요.
-                {(() => {
-                  const u = assignableTeamLeaders.find((t) => t.id === resolvedExternalLeadId);
-                  return u ? (
-                    <>
-                      <span className="mt-1 block text-xs text-amber-900/95">
-                        선택: {formatAssignableUserLabel(u)}
-                      </span>
-                      <label className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber-950">
-                        <input
-                          type="checkbox"
-                          className="h-3.5 w-3.5 rounded border-amber-300"
-                          checked={editForm.soloTeamLeaderIds.includes(resolvedExternalLeadId)}
-                          onChange={(e) =>
-                            setEditForm((p) => ({
-                              ...p,
-                              soloTeamLeaderIds: toggleSoloTeamLeaderId(
-                                p.soloTeamLeaderIds,
-                                resolvedExternalLeadId,
-                                e.target.checked,
-                              ),
-                            }))
-                          }
-                        />
-                        {SOLO_LEADER_CREW_LABEL}
-                      </label>
-                    </>
-                  ) : null;
-                })()}
-              </div>
-            ) : (
-              <>
-                {editForm.teamLeaderIds.map((lid, idx) => (
-                  <div key={idx} className="flex flex-wrap gap-2 items-center">
-                    <SelectWithChevron
-                      value={lid}
-                      disabled={teamLeaderZoneBlock.blocked}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setEditForm((p) => {
-                          const prevId = p.teamLeaderIds[idx]?.trim() ?? '';
-                          const next = [...p.teamLeaderIds];
-                          next[idx] = v;
-                          let solo = p.soloTeamLeaderIds;
-                          if (prevId && prevId !== v.trim()) {
-                            solo = solo.filter((id) => id !== prevId);
-                          }
-                          return { ...p, teamLeaderIds: next, soloTeamLeaderIds: solo };
-                        });
-                      }}
-                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-sm"
-                      wrapperClassName="flex-1 min-w-0"
-                    >
-                      <option value="">선택 안 함</option>
-                      {leaderOptionsForRow(idx).map((tl) => (
-                        <option key={tl.id} value={tl.id}>
-                          {formatAssignableUserLabel(tl)}
-                        </option>
-                      ))}
-                    </SelectWithChevron>
-                    {lid.trim() ? (
-                      <label className="inline-flex shrink-0 items-center gap-1.5 text-xs text-gray-700">
-                        <input
-                          type="checkbox"
-                          className="h-3.5 w-3.5 rounded border-gray-300"
-                          checked={editForm.soloTeamLeaderIds.includes(lid.trim())}
-                          onChange={(e) =>
-                            setEditForm((p) => ({
-                              ...p,
-                              soloTeamLeaderIds: toggleSoloTeamLeaderId(
-                                p.soloTeamLeaderIds,
-                                lid.trim(),
-                                e.target.checked,
-                              ),
-                            }))
-                          }
-                        />
-                        {SOLO_LEADER_CREW_LABEL}
-                      </label>
-                    ) : null}
-                    {editForm.teamLeaderIds.length > 1 && (
-                      <button
-                        type="button"
-                        className="shrink-0 px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
-                        onClick={() =>
-                          setEditForm((p) => ({
-                            ...p,
-                            teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
-                            soloTeamLeaderIds: p.soloTeamLeaderIds.filter(
-                              (id) => id !== (p.teamLeaderIds[idx]?.trim() ?? ''),
-                            ),
-                          }))
-                        }
-                      >
-                        제거
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    className="text-sm text-blue-600 hover:underline disabled:opacity-40 disabled:no-underline"
-                    disabled={teamLeaderZoneBlock.blocked}
-                    onClick={() =>
-                      setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
-                    }
-                  >
-                    + 팀장 추가
-                  </button>
-                  {assignableLeaderIdsForSlot != null && (
-                    <div ref={assigneeHelpRef} className="relative group">
-                      <button
-                        type="button"
-                        aria-label="담당 배정 규칙 안내"
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 bg-white text-[11px] font-semibold text-gray-600 hover:bg-gray-50"
-                        onClick={() => setAssigneeHelpOpen((prev) => !prev)}
-                      >
-                        ?
-                      </button>
-                      <div
-                        className={`absolute z-20 left-0 top-7 w-72 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs leading-5 text-gray-600 shadow-lg ${
-                          assigneeHelpOpen ? 'block' : 'hidden group-hover:block'
-                        }`}
-                      >
-                        예약일·희망 시간대 기준으로 그날 해당 슬롯에 배정 가능한 팀장을 우선 표시합니다.
-                        타업체 분배는 「정산 · 옵션」의 《타업체 담당》에서 선택합니다. 현재 선택된 팀장은
-                        목록에 남습니다. 서버에서 허용된 개발용(team-preview) 관리자만 목록에 본인 ADMIN이 포함되며, 그 경우
-                        슬롯 필터와 관계없이 본인을 선택할 수 있습니다.
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <InquiryCrossSwapActionButtons
-                  showLeaderSwap={showLeaderPartnerSwapEntry}
-                  showCrewSwap={false}
-                  onLeaderSwap={() => setLeaderSwapModalOpen(true)}
-                  onCrewSwap={() => setCrewSwapModalOpen(true)}
-                />
-              </>
-            )}
-          </div>
-          {!hideCrewInputs ? (
-          <>
-          <div className="sm:col-span-2">
-            <div className="mb-2 flex items-center gap-2">
-              <label className="block text-gray-600">팀원 투입</label>
-              <div ref={crewHelpRef} className="relative group">
-                <button
-                  type="button"
-                  aria-label="팀원 투입 안내"
-                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 bg-white text-[11px] font-semibold text-gray-600 hover:bg-gray-50"
-                  onClick={() => setCrewHelpOpen((prev) => !prev)}
-                >
-                  ?
-                </button>
-                <div
-                  className={`absolute z-20 left-0 top-7 w-80 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs leading-5 text-gray-600 shadow-lg ${
-                    crewHelpOpen ? 'block' : 'hidden group-hover:block'
-                  }`}
-                >
-                  팀원 인원 수에 맞게 아래 드롭다운 선택칸이 늘어납니다. 검색창에 이름 일부나 초성(예:
-                  ㄱㅁ)을 입력하면 빠르게 필터링됩니다. 선택된 첫 번째 자사 담당 팀장 기준 이름 옆{' '}
-                  <span className="tabular-nums">+N일</span>은 그 팀장과 같은 예약일에 마지막으로 함께 들어간 뒤 현재 편집 예약일까지의
-                  순수 일수 차이(참고만, 선택 제한 없음)입니다.
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <SelectWithChevron
-                value={String(editForm.crewMemberCount)}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setEditForm((prev) => ({
-                    ...prev,
-                    crewMemberCount: Number.isFinite(v) ? v : 0,
-                  }));
-                }}
-                className="px-3 py-2 border border-gray-300 rounded text-sm min-w-[8rem]"
-                wrapperClassName="min-w-[8rem]"
-              >
-                {Array.from({ length: 21 }, (_, i) => (
-                  <option key={i} value={String(i)}>
-                    {i}명
-                  </option>
-                ))}
-              </SelectWithChevron>
-            </div>
-          </div>
-          {effectiveCrewSlots > 0 && (
-            <div className="sm:col-span-2">
-              <label className="block text-gray-600 mb-1">투입 팀원 선택</label>
-              <div className="flex flex-wrap gap-2">
-                {editForm.crewMemberNames.map((name, idx) => (
-                  <div key={`crew-pick-${idx}`} className="min-w-[11rem] flex-1">
-                    {(() => {
-                      const duplicateSet = new Set(
-                        editForm.crewMemberNames
-                          .map((x, i) => (i === idx ? '' : x.trim()))
-                          .filter(Boolean)
-                      );
-                      const disabled = new Set<string>([...occupiedCrewNamesByDate, ...duplicateSet]);
-                      return (
-                    <TeamMemberSearchSelect
-                      options={crewPickOptions}
-                      value={name}
-                      disabledNames={disabled}
-                      crewSpacingDaysByMemberName={crewSpacingByMemberName}
-                      onChange={(v) =>
-                        setEditForm((p) => {
-                          const next = [...p.crewMemberNames];
-                          next[idx] = v;
-                          return { ...p, crewMemberNames: next };
-                        })
-                      }
-                      placeholder={`${idx + 1}번 팀원 검색`}
-                    />
-                      );
-                    })()}
-                  </div>
-                ))}
-              </div>
-              <p className="mt-1 text-xs text-gray-500">
-                크루 그룹에서 「집계·일자 명단」모드를 쓰는 경우, 해당 예약일에 가용한 팀원만 목록에 나옵니다. 같은 창에서 이미
-                선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다. 첫 번째 자사 담당
-                팀장 기준 <span className="tabular-nums">+N일</span> 표시도 위와 동일합니다.
-              </p>
-              {showCrewPartnerSwapEntry ? (
-                <InquiryCrossSwapActionButtons
-                  showLeaderSwap={false}
-                  showCrewSwap
-                  onLeaderSwap={() => setLeaderSwapModalOpen(true)}
-                  onCrewSwap={() => setCrewSwapModalOpen(true)}
-                />
-              ) : null}
-            </div>
-          )}
-          </>
-          ) : null}
-          <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">특이사항 (관리자·팀장 공유)</label>
-            <textarea
-              value={editForm.specialNotes}
-              onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              placeholder="현장·일정 전달, 내부 공유 메모 등 (팀장 화면에도 표시)"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-gray-600 mb-1">메모 (발주서 요약·관리자 메모)</label>
-            <textarea
-              value={editForm.memo}
-              onChange={(e) => setEditForm((p) => ({ ...p, memo: e.target.value }))}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              placeholder="접수 메모"
-            />
-          </div>
-        </div>
-        </AdminScheduleDetailSection>
+        <InquiryEditStatusSection
+          isCreate={isCreate}
+          item={item}
+          token={token}
+          saving={saving}
+          editForm={editForm}
+          setEditForm={setEditForm}
+          canEditMarketer={canEditMarketer}
+          meUser={meUser}
+          marketerOptions={marketerOptions}
+          operatingCompanyOptions={operatingCompanyOptions}
+          statusAssignmentHints={statusAssignmentHints}
+          teamLeaderAssignmentSurface={teamLeaderAssignmentSurface}
+          serviceZones={serviceZones}
+          pinnedServiceZoneId={pinnedServiceZoneId}
+          matchingServiceZones={matchingServiceZones}
+          manualAssignmentZoneId={manualAssignmentZoneId}
+          setManualAssignmentZoneId={setManualAssignmentZoneId}
+          teamLeaderZoneBlock={teamLeaderZoneBlock}
+          activeNativePartnerShareSource={activeNativePartnerShareSource}
+          resolvedExternalLeadId={resolvedExternalLeadId}
+          assignableTeamLeaders={assignableTeamLeaders}
+          assignableLeaderIdsForSlot={assignableLeaderIdsForSlot}
+          showLeaderPartnerSwapEntry={showLeaderPartnerSwapEntry}
+          showCrewPartnerSwapEntry={showCrewPartnerSwapEntry}
+          onLeaderSwap={() => setLeaderSwapModalOpen(true)}
+          onCrewSwap={() => setCrewSwapModalOpen(true)}
+          leaderOptionsForRow={leaderOptionsForRow}
+          hideCrewInputs={hideCrewInputs}
+          effectiveCrewSlots={effectiveCrewSlots}
+          crewPickOptions={crewPickOptions}
+          occupiedCrewNamesByDate={occupiedCrewNamesByDate}
+          crewSpacingByMemberName={crewSpacingByMemberName}
+          onInquiryRefresh={onInquiryRefresh}
+        />
 
         {!isCreate && item && (
-          <AdminScheduleDetailSection title="상담·참고" sectionAnchor="consultation-photos">
+          <AdminScheduleDetailSection
+            title="상담·참고"
+            sectionAnchor="consultation-photos"
+            collapsible
+            defaultOpen={false}
+          >
             <div className="min-w-0 space-y-4">
               <div>
                 <p className="text-fluid-xs font-medium text-gray-700 mb-2">사진 업로드</p>
@@ -3692,7 +2653,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         )}
 
         {!isCreate && item?.claimMemo?.trim() && (
-          <AdminScheduleDetailSection title="클레임 (참고)" sectionAnchor="claim">
+          <AdminScheduleDetailSection
+            title="클레임 (참고)"
+            sectionAnchor="claim"
+            collapsible
+            defaultOpen={false}
+          >
             <p className="text-xs font-medium text-orange-800 mb-2">등록된 클레임 내용</p>
             <p className="whitespace-pre-wrap rounded-lg border border-orange-100 bg-orange-50/80 p-3 text-sm text-gray-900">
               {item.claimMemo}
@@ -3701,13 +2667,23 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         )}
 
         {!isCreate && orderFormPhotoId && (
-          <AdminScheduleDetailSection title="발주서 첨부 사진 (고객 업로드)" sectionAnchor="order-photos">
+          <AdminScheduleDetailSection
+            title="발주서 첨부 사진 (고객 업로드)"
+            sectionAnchor="order-photos"
+            collapsible
+            defaultOpen={false}
+          >
             <AdminOrderFormPhotosPanel orderFormId={orderFormPhotoId} token={token} />
           </AdminScheduleDetailSection>
         )}
 
         {!isCreate && item && (
-          <AdminScheduleDetailSection title="견적서" sectionAnchor="quotations">
+          <AdminScheduleDetailSection
+            title="견적서"
+            sectionAnchor="quotations"
+            collapsible
+            defaultOpen={false}
+          >
             <QuotationInquiryLinkPanel
               token={token}
               inquiryId={item.id}
@@ -3718,13 +2694,23 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         )}
 
         {!isCreate && item && hasInspectionModule && (
-          <AdminScheduleDetailSection title="현장 검수·완료" sectionAnchor="inspection">
+          <AdminScheduleDetailSection
+            title="현장 검수·완료"
+            sectionAnchor="inspection"
+            collapsible
+            defaultOpen={false}
+          >
             <AdminInspectionPanel inquiryId={item.id} token={token} />
           </AdminScheduleDetailSection>
         )}
 
         {!isCreate && item && (
-          <AdminScheduleDetailSection title="현장 사진 (청소 전·후)" sectionAnchor="site-photos">
+          <AdminScheduleDetailSection
+            title="현장 사진 (청소 전·후)"
+            sectionAnchor="site-photos"
+            collapsible
+            defaultOpen={false}
+          >
             <div className="min-w-0">
               <InquiryCleaningPhotosPanel inquiryId={item.id} variant="admin" token={token} />
             </div>
@@ -3732,7 +2718,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         )}
 
         {!isCreate && item && (
-          <AdminScheduleDetailSection title="날짜·금액 변경 이력" sectionAnchor="history">
+          <AdminScheduleDetailSection
+            title="날짜·금액 변경 이력"
+            sectionAnchor="history"
+            collapsible
+            defaultOpen={false}
+          >
             <details className="overflow-hidden rounded-lg border border-gray-200">
               <summary className="cursor-pointer select-none bg-gray-50 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-100">
                 이력 펼치기 / 접기
@@ -3908,370 +2899,328 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       {crewSwapModalOpen &&
         item &&
         createPortal(
-          <div
-            className="fixed inset-0 z-[570] flex items-center justify-center bg-black/40 p-4 sm:p-6"
-            role="dialog"
-            aria-modal
-            aria-labelledby="crew-partner-swap-title"
-          >
-            <button
-              type="button"
-              className="absolute inset-0 cursor-default"
-              aria-label="닫기"
-              onClick={() => !crewSwapSubmitting && setCrewSwapModalOpen(false)}
-            />
-            <div
-              className="relative flex max-h-[min(90vh,40rem)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 sm:px-5">
-                <h3 id="crew-partner-swap-title" className="text-base font-semibold text-gray-900">
-                  팀원 변경
-                </h3>
-                <p className="mt-1 text-fluid-xs text-gray-600">
-                  같은 예약일의 상대 접수를 고른 뒤, 교환할 팀원 이름을 지정하세요. 투입 인원 수는 그대로입니다.
-                </p>
-              </div>
-              <div className="max-h-[min(65vh,28rem)] min-h-[12rem] flex-1 overflow-y-auto px-4 py-3 sm:px-5">
-                {crewSwapListLoading ? (
-                  <p className="py-8 text-center text-fluid-sm text-gray-500">목록을 불러오는 중…</p>
-                ) : crewSwapCandidates.length === 0 ? (
-                  <p className="py-8 text-center text-fluid-sm text-gray-600">
-                    선택할 수 있는 상대 접수가 없습니다. 같은 예약일에 담당 팀장이 배정된 접수만 표시합니다.
-                  </p>
-                ) : (
-                  <>
-                    {crewSwapMyNameOptions.length > 1 ? (
-                      <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                        <p className="mb-2 text-fluid-xs font-medium text-gray-800">① 이 접수에서 맞바꿀 팀원</p>
-                        <div className="flex flex-wrap gap-2">
-                          {crewSwapMyNameOptions.map((n, mi) => {
-                            const on = crewSwapPickMyName === n;
-                            return (
-                              <button
-                                key={`my-${mi}-${n}`}
-                                type="button"
-                                disabled={crewSwapSubmitting}
-                                onClick={() => setCrewSwapPickMyName(n)}
-                                className={`min-h-[44px] touch-manipulation rounded-lg border px-3 py-2 text-fluid-sm font-medium transition-colors ${
-                                  on
-                                    ? 'border-indigo-600 bg-indigo-50 text-indigo-900 shadow-sm'
-                                    : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-100'
-                                }`}
-                              >
-                                {n}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <p className="mb-2 text-fluid-xs font-medium text-gray-800">
-                      {crewSwapMyNameOptions.length > 1 ? '② 상대 접수 선택' : '상대 접수 선택'}
-                    </p>
-                    <ul className="space-y-3">
-                      {crewSwapCandidates.map((it) => {
-                        const partnerNames = parseCrewMemberNoteToNames(it.crewMemberNote);
-                        const inquirySelected = crewSwapPartnerId === it.id;
-                        const hasNames = partnerNames.length > 0;
-                        const multiPartner = partnerNames.length > 1;
-
-                        return (
-                          <li
-                            key={it.id}
-                            className={`rounded-lg border p-3 shadow-sm transition-colors ${
-                              inquirySelected
-                                ? 'border-indigo-500 bg-indigo-50/50'
-                                : 'border-gray-200 bg-white hover:border-gray-300'
-                            }`}
-                          >
-                            <div className="min-w-0">
-                              <span className="inline-flex min-w-0 max-w-full items-center gap-1">
-                                <CustomerNameWithInternalTone
-                                  name={it.customerName.trim()}
-                                  tone={it.internalCustomerTone}
-                                  viewerRole={meUser?.role}
-                                  nameClassName="block truncate font-medium text-gray-900"
-                                />
-                                {it.inquiryNumber ? (
-                                  <span className="ml-1 text-fluid-xs font-normal text-gray-600">
-                                    (#{it.inquiryNumber})
-                                  </span>
-                                ) : null}
-                              </span>
-                              <span className="mt-0.5 block text-fluid-xs text-gray-600">
-                                팀장 {formatScheduleItemAssignmentLeaders(it)}
-                              </span>
-                              <span className="mt-0.5 block text-fluid-xs text-gray-500">{crewPreviewLabel(it)}</span>
-                            </div>
-
-                            {!hasNames ? (
-                              <p className="mt-2 text-fluid-2xs text-amber-800">팀원 이름이 비어 있어 교환할 수 없습니다.</p>
-                            ) : multiPartner ? (
-                              <div className="mt-3 border-t border-gray-200 pt-3">
-                                <p className="mb-2 text-fluid-2xs font-medium text-gray-700">
-                                  맞바꿀 상대 팀원 (이름 선택)
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {partnerNames.map((n, pi) => {
-                                    const chipOn =
-                                      inquirySelected && crewSwapPickPartnerName === n;
-                                    return (
-                                      <button
-                                        key={`${it.id}-p-${pi}-${n}`}
-                                        type="button"
-                                        disabled={crewSwapSubmitting}
-                                        onClick={() => {
-                                          setCrewSwapPartnerId(it.id);
-                                          setCrewSwapPickPartnerName(n);
-                                        }}
-                                        className={`min-h-[44px] touch-manipulation rounded-lg border px-3 py-2 text-fluid-sm font-medium transition-colors ${
-                                          chipOn
-                                            ? 'border-indigo-600 bg-white text-indigo-900 shadow-sm ring-1 ring-indigo-300'
-                                            : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-100'
-                                        } ${crewSwapSubmitting ? 'opacity-60' : ''}`}
-                                      >
-                                        {n}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="mt-3">
-                                <button
-                                  type="button"
-                                  disabled={crewSwapSubmitting}
-                                  onClick={() => {
-                                    setCrewSwapPartnerId(it.id);
-                                    setCrewSwapPickPartnerName(partnerNames[0]!);
-                                  }}
-                                  className={`min-h-[44px] w-full touch-manipulation rounded-lg border px-3 py-2 text-fluid-sm font-medium transition-colors sm:w-auto sm:min-w-[8rem] ${
-                                    inquirySelected && crewSwapPickPartnerName === partnerNames[0]
-                                      ? 'border-indigo-600 bg-indigo-100 text-indigo-900'
-                                      : 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                                  }`}
-                                >
-                                  선택: {partnerNames[0]}
-                                </button>
-                              </div>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </>
-                )}
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 px-4 py-3 sm:justify-end sm:px-5">
-                <button
-                  type="button"
+          <InquiryPartnerSwapModalShell
+            titleId="crew-partner-swap-title"
+            title="팀원 변경"
+            description="같은 예약일의 상대 접수를 고른 뒤, 교환할 팀원 이름을 지정하세요. 투입 인원 수는 그대로입니다."
+            descriptionMobile="같은 예약일 접수에서 팀원 이름을 맞바꿉니다."
+            onBackdropClose={() => setCrewSwapModalOpen(false)}
+            backdropCloseDisabled={crewSwapSubmitting}
+            footer={
+              <>
+                <SwapModalFooterButton
+                  variant="secondary"
                   disabled={crewSwapSubmitting}
-                  className="min-h-[44px] touch-manipulation rounded-lg border border-gray-300 px-4 py-2 text-fluid-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   onClick={() => setCrewSwapModalOpen(false)}
                 >
                   닫기
-                </button>
-                <button
-                  type="button"
+                </SwapModalFooterButton>
+                <SwapModalFooterButton
+                  variant="primary"
                   disabled={
                     crewSwapSubmitting ||
                     crewSwapListLoading ||
                     !crewSwapReadyToRun ||
                     crewSwapCandidates.length === 0
                   }
-                  className="min-h-[44px] touch-manipulation rounded-lg bg-indigo-600 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
                   onClick={() => void handleCrewPartnerSwapConfirm()}
                 >
                   {crewSwapSubmitting ? '처리 중…' : '교환'}
-                </button>
-              </div>
-            </div>
-          </div>,
+                </SwapModalFooterButton>
+              </>
+            }
+          >
+            {crewSwapListLoading ? (
+              <p className="py-6 text-center text-fluid-xs text-gray-500 sm:py-8 sm:text-fluid-sm">목록을 불러오는 중…</p>
+            ) : crewSwapCandidates.length === 0 ? (
+              <p className="py-6 text-center text-fluid-xs leading-snug text-gray-600 sm:py-8 sm:text-fluid-sm">
+                선택할 수 있는 상대 접수가 없습니다. 같은 예약일에 담당 팀장이 배정된 접수만 표시합니다.
+              </p>
+            ) : (
+              <>
+                {crewSwapMyNameOptions.length > 1 ? (
+                  <div className="mb-2 rounded-md border border-gray-200 bg-gray-50 p-2 sm:mb-4 sm:rounded-lg sm:p-3">
+                    <p className="mb-1.5 text-[10px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
+                      ① 이 접수에서 맞바꿀 팀원
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                      {crewSwapMyNameOptions.map((n, mi) => {
+                        const on = crewSwapPickMyName === n;
+                        return (
+                          <button
+                            key={`my-${mi}-${n}`}
+                            type="button"
+                            disabled={crewSwapSubmitting}
+                            onClick={() => setCrewSwapPickMyName(n)}
+                            className={`${swapModalChipBtn} ${on ? swapModalChipBtnOn : swapModalChipBtnOff}`}
+                          >
+                            {n}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
+                <p className="mb-1.5 text-[10px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
+                  {crewSwapMyNameOptions.length > 1 ? '② 상대 접수 선택' : '상대 접수 선택'}
+                </p>
+                <ul className="space-y-2 sm:space-y-3">
+                  {crewSwapCandidates.map((it) => {
+                    const partnerNames = parseCrewMemberNoteToNames(it.crewMemberNote);
+                    const inquirySelected = crewSwapPartnerId === it.id;
+                    const hasNames = partnerNames.length > 0;
+                    const multiPartner = partnerNames.length > 1;
+
+                    return (
+                      <li
+                        key={it.id}
+                        className={`rounded-md border p-2 shadow-sm transition-colors sm:rounded-lg sm:p-3 ${
+                          inquirySelected
+                            ? 'border-indigo-500 bg-indigo-50/50'
+                            : 'border-gray-200 bg-white hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                            <CustomerNameWithInternalTone
+                              name={it.customerName.trim()}
+                              tone={it.internalCustomerTone}
+                              viewerRole={meUser?.role}
+                              nameClassName="block truncate text-fluid-xs font-medium text-gray-900 sm:text-fluid-sm"
+                            />
+                            {it.inquiryNumber ? (
+                              <span className="ml-0.5 text-[10px] font-normal text-gray-600 tabular-nums sm:ml-1 sm:text-fluid-xs">
+                                (#{it.inquiryNumber})
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="mt-0.5 block text-[10px] text-gray-600 sm:text-fluid-xs">
+                            팀장 {formatScheduleItemAssignmentLeaders(it)}
+                          </span>
+                          <span className="mt-0.5 block text-[10px] text-gray-500 sm:text-fluid-xs">
+                            {crewPreviewLabel(it)}
+                          </span>
+                        </div>
+
+                        {!hasNames ? (
+                          <p className="mt-1.5 text-[10px] text-amber-800 sm:mt-2 sm:text-fluid-2xs">
+                            팀원 이름이 비어 있어 교환할 수 없습니다.
+                          </p>
+                        ) : multiPartner ? (
+                          <div className="mt-2 border-t border-gray-200 pt-2 sm:mt-3 sm:pt-3">
+                            <p className="mb-1.5 text-[10px] font-medium text-gray-700 sm:mb-2 sm:text-fluid-2xs">
+                              맞바꿀 상대 팀원
+                            </p>
+                            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                              {partnerNames.map((n, pi) => {
+                                const chipOn = inquirySelected && crewSwapPickPartnerName === n;
+                                return (
+                                  <button
+                                    key={`${it.id}-p-${pi}-${n}`}
+                                    type="button"
+                                    disabled={crewSwapSubmitting}
+                                    onClick={() => {
+                                      setCrewSwapPartnerId(it.id);
+                                      setCrewSwapPickPartnerName(n);
+                                    }}
+                                    className={`${swapModalChipBtn} ${
+                                      chipOn ? swapModalChipBtnPartnerOn : swapModalChipBtnOff
+                                    } ${crewSwapSubmitting ? 'opacity-60' : ''}`}
+                                  >
+                                    {n}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-2 sm:mt-3">
+                            <button
+                              type="button"
+                              disabled={crewSwapSubmitting}
+                              onClick={() => {
+                                setCrewSwapPartnerId(it.id);
+                                setCrewSwapPickPartnerName(partnerNames[0]!);
+                              }}
+                              className={`${swapModalSelectBtn} ${
+                                inquirySelected && crewSwapPickPartnerName === partnerNames[0]
+                                  ? 'border-indigo-600 bg-indigo-100 text-indigo-900'
+                                  : 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                              }`}
+                            >
+                              선택: {partnerNames[0]}
+                            </button>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </InquiryPartnerSwapModalShell>,
           document.body
         )}
       {leaderSwapModalOpen &&
         item &&
         createPortal(
-          <div
-            className="fixed inset-0 z-[570] flex items-center justify-center bg-black/40 p-4 sm:p-6"
-            role="dialog"
-            aria-modal
-            aria-labelledby="leader-partner-swap-title"
-          >
-            <button
-              type="button"
-              className="absolute inset-0 cursor-default"
-              aria-label="닫기"
-              onClick={() => !leaderSwapSubmitting && setLeaderSwapModalOpen(false)}
-            />
-            <div
-              className="relative flex max-h-[min(90vh,40rem)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 sm:px-5">
-                <h3 id="leader-partner-swap-title" className="text-base font-semibold text-gray-900">
-                  팀장 변경
-                </h3>
-                <p className="mt-1 text-fluid-xs text-gray-600">
-                  같은 예약일의 상대 접수를 고른 뒤, 교환할 자사 팀장을 지정하세요.
-                </p>
-              </div>
-              <div className="max-h-[min(65vh,28rem)] min-h-[12rem] flex-1 overflow-y-auto px-4 py-3 sm:px-5">
-                {leaderSwapListLoading ? (
-                  <p className="py-8 text-center text-fluid-sm text-gray-500">목록을 불러오는 중…</p>
-                ) : leaderSwapCandidates.length === 0 ? (
-                  <p className="py-8 text-center text-fluid-sm text-gray-600">
-                    선택할 수 있는 상대 접수가 없습니다. 같은 예약일에 자사 팀장이 배정된 접수만 표시합니다.
-                  </p>
-                ) : (
-                  <>
-                    {leaderSwapMyOptions.length > 1 ? (
-                      <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                        <p className="mb-2 text-fluid-xs font-medium text-gray-800">① 이 접수에서 맞바꿀 팀장</p>
-                        <div className="flex flex-wrap gap-2">
-                          {leaderSwapMyOptions.map((l) => {
-                            const on = leaderSwapPickMyId === l.id;
-                            return (
-                              <button
-                                key={`my-leader-${l.id}`}
-                                type="button"
-                                disabled={leaderSwapSubmitting}
-                                onClick={() => setLeaderSwapPickMyId(l.id)}
-                                className={`min-h-[44px] touch-manipulation rounded-lg border px-3 py-2 text-fluid-sm font-medium transition-colors ${
-                                  on
-                                    ? 'border-indigo-600 bg-indigo-50 text-indigo-900 shadow-sm'
-                                    : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-100'
-                                }`}
-                              >
-                                {l.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <p className="mb-2 text-fluid-xs font-medium text-gray-800">
-                      {leaderSwapMyOptions.length > 1 ? '② 상대 접수 선택' : '상대 접수 선택'}
-                    </p>
-                    <ul className="space-y-3">
-                      {leaderSwapCandidates.map((it) => {
-                        const partnerLeaders = nativeScheduleItemLeaders(it);
-                        const inquirySelected = leaderSwapPartnerId === it.id;
-                        const multiPartner = partnerLeaders.length > 1;
-
-                        return (
-                          <li
-                            key={it.id}
-                            className={`rounded-lg border p-3 shadow-sm transition-colors ${
-                              inquirySelected
-                                ? 'border-indigo-500 bg-indigo-50/50'
-                                : 'border-gray-200 bg-white hover:border-gray-300'
-                            }`}
-                          >
-                            <div className="min-w-0">
-                              <span className="inline-flex min-w-0 max-w-full items-center gap-1">
-                                <CustomerNameWithInternalTone
-                                  name={it.customerName.trim()}
-                                  tone={it.internalCustomerTone}
-                                  viewerRole={meUser?.role}
-                                  nameClassName="block truncate font-medium text-gray-900"
-                                />
-                                {it.inquiryNumber ? (
-                                  <span className="ml-1 text-fluid-xs font-normal text-gray-600">
-                                    (#{it.inquiryNumber})
-                                  </span>
-                                ) : null}
-                              </span>
-                              <span className="mt-0.5 block text-fluid-xs text-gray-600">
-                                팀장 {formatScheduleItemAssignmentLeaders(it)}
-                              </span>
-                              <span className="mt-0.5 block text-fluid-xs text-gray-500">{crewPreviewLabel(it)}</span>
-                            </div>
-
-                            {multiPartner ? (
-                              <div className="mt-3 border-t border-gray-200 pt-3">
-                                <p className="mb-2 text-fluid-2xs font-medium text-gray-700">
-                                  맞바꿀 상대 팀장 (선택)
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {partnerLeaders.map((l) => {
-                                    const chipOn =
-                                      inquirySelected && leaderSwapPickPartnerId === l.id;
-                                    return (
-                                      <button
-                                        key={`${it.id}-leader-${l.id}`}
-                                        type="button"
-                                        disabled={leaderSwapSubmitting}
-                                        onClick={() => {
-                                          setLeaderSwapPartnerId(it.id);
-                                          setLeaderSwapPickPartnerId(l.id);
-                                        }}
-                                        className={`min-h-[44px] touch-manipulation rounded-lg border px-3 py-2 text-fluid-sm font-medium transition-colors ${
-                                          chipOn
-                                            ? 'border-indigo-600 bg-white text-indigo-900 shadow-sm ring-1 ring-indigo-300'
-                                            : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-100'
-                                        } ${leaderSwapSubmitting ? 'opacity-60' : ''}`}
-                                      >
-                                        {l.name}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="mt-3">
-                                <button
-                                  type="button"
-                                  disabled={leaderSwapSubmitting}
-                                  onClick={() => {
-                                    setLeaderSwapPartnerId(it.id);
-                                    setLeaderSwapPickPartnerId(partnerLeaders[0]!.id);
-                                  }}
-                                  className={`min-h-[44px] w-full touch-manipulation rounded-lg border px-3 py-2 text-fluid-sm font-medium transition-colors sm:w-auto sm:min-w-[8rem] ${
-                                    inquirySelected
-                                      ? 'border-indigo-600 bg-indigo-100 text-indigo-900'
-                                      : 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                                  }`}
-                                >
-                                  선택: {partnerLeaders[0]?.name ?? '—'}
-                                </button>
-                              </div>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </>
-                )}
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 px-4 py-3 sm:justify-end sm:px-5">
-                <button
-                  type="button"
+          <InquiryPartnerSwapModalShell
+            titleId="leader-partner-swap-title"
+            title="팀장 변경"
+            description="같은 예약일의 상대 접수를 고른 뒤, 교환할 자사 팀장을 지정하세요."
+            descriptionMobile="같은 예약일 접수에서 자사 팀장을 맞바꿉니다."
+            onBackdropClose={() => setLeaderSwapModalOpen(false)}
+            backdropCloseDisabled={leaderSwapSubmitting}
+            footer={
+              <>
+                <SwapModalFooterButton
+                  variant="secondary"
                   disabled={leaderSwapSubmitting}
-                  className="min-h-[44px] touch-manipulation rounded-lg border border-gray-300 px-4 py-2 text-fluid-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   onClick={() => setLeaderSwapModalOpen(false)}
                 >
                   닫기
-                </button>
-                <button
-                  type="button"
+                </SwapModalFooterButton>
+                <SwapModalFooterButton
+                  variant="primary"
                   disabled={
                     leaderSwapSubmitting ||
                     leaderSwapListLoading ||
                     !leaderSwapReadyToRun ||
                     leaderSwapCandidates.length === 0
                   }
-                  className="min-h-[44px] touch-manipulation rounded-lg bg-indigo-600 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
                   onClick={() => void handleLeaderPartnerSwapConfirm()}
                 >
                   {leaderSwapSubmitting ? '처리 중…' : '교환'}
-                </button>
-              </div>
-            </div>
-          </div>,
+                </SwapModalFooterButton>
+              </>
+            }
+          >
+            {leaderSwapListLoading ? (
+              <p className="py-6 text-center text-fluid-xs text-gray-500 sm:py-8 sm:text-fluid-sm">목록을 불러오는 중…</p>
+            ) : leaderSwapCandidates.length === 0 ? (
+              <p className="py-6 text-center text-fluid-xs leading-snug text-gray-600 sm:py-8 sm:text-fluid-sm">
+                선택할 수 있는 상대 접수가 없습니다. 같은 예약일에 자사 팀장이 배정된 접수만 표시합니다.
+              </p>
+            ) : (
+              <>
+                {leaderSwapMyOptions.length > 1 ? (
+                  <div className="mb-2 rounded-md border border-gray-200 bg-gray-50 p-2 sm:mb-4 sm:rounded-lg sm:p-3">
+                    <p className="mb-1.5 text-[10px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
+                      ① 이 접수에서 맞바꿀 팀장
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                      {leaderSwapMyOptions.map((l) => {
+                        const on = leaderSwapPickMyId === l.id;
+                        return (
+                          <button
+                            key={`my-leader-${l.id}`}
+                            type="button"
+                            disabled={leaderSwapSubmitting}
+                            onClick={() => setLeaderSwapPickMyId(l.id)}
+                            className={`${swapModalChipBtn} ${on ? swapModalChipBtnOn : swapModalChipBtnOff}`}
+                          >
+                            {l.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
+                <p className="mb-1.5 text-[10px] font-medium text-gray-800 sm:mb-2 sm:text-fluid-xs">
+                  {leaderSwapMyOptions.length > 1 ? '② 상대 접수 선택' : '상대 접수 선택'}
+                </p>
+                <ul className="space-y-2 sm:space-y-3">
+                  {leaderSwapCandidates.map((it) => {
+                    const partnerLeaders = nativeScheduleItemLeaders(it);
+                    const inquirySelected = leaderSwapPartnerId === it.id;
+                    const multiPartner = partnerLeaders.length > 1;
+
+                    return (
+                      <li
+                        key={it.id}
+                        className={`rounded-md border p-2 shadow-sm transition-colors sm:rounded-lg sm:p-3 ${
+                          inquirySelected
+                            ? 'border-indigo-500 bg-indigo-50/50'
+                            : 'border-gray-200 bg-white hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                            <CustomerNameWithInternalTone
+                              name={it.customerName.trim()}
+                              tone={it.internalCustomerTone}
+                              viewerRole={meUser?.role}
+                              nameClassName="block truncate text-fluid-xs font-medium text-gray-900 sm:text-fluid-sm"
+                            />
+                            {it.inquiryNumber ? (
+                              <span className="ml-0.5 text-[10px] font-normal text-gray-600 tabular-nums sm:ml-1 sm:text-fluid-xs">
+                                (#{it.inquiryNumber})
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="mt-0.5 block text-[10px] text-gray-600 sm:text-fluid-xs">
+                            팀장 {formatScheduleItemAssignmentLeaders(it)}
+                          </span>
+                          <span className="mt-0.5 block text-[10px] text-gray-500 sm:text-fluid-xs">
+                            {crewPreviewLabel(it)}
+                          </span>
+                        </div>
+
+                        {multiPartner ? (
+                          <div className="mt-2 border-t border-gray-200 pt-2 sm:mt-3 sm:pt-3">
+                            <p className="mb-1.5 text-[10px] font-medium text-gray-700 sm:mb-2 sm:text-fluid-2xs">
+                              맞바꿀 상대 팀장
+                            </p>
+                            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                              {partnerLeaders.map((l) => {
+                                const chipOn = inquirySelected && leaderSwapPickPartnerId === l.id;
+                                return (
+                                  <button
+                                    key={`${it.id}-leader-${l.id}`}
+                                    type="button"
+                                    disabled={leaderSwapSubmitting}
+                                    onClick={() => {
+                                      setLeaderSwapPartnerId(it.id);
+                                      setLeaderSwapPickPartnerId(l.id);
+                                    }}
+                                    className={`${swapModalChipBtn} ${
+                                      chipOn ? swapModalChipBtnPartnerOn : swapModalChipBtnOff
+                                    } ${leaderSwapSubmitting ? 'opacity-60' : ''}`}
+                                  >
+                                    {l.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-2 sm:mt-3">
+                            <button
+                              type="button"
+                              disabled={leaderSwapSubmitting}
+                              onClick={() => {
+                                setLeaderSwapPartnerId(it.id);
+                                setLeaderSwapPickPartnerId(partnerLeaders[0]!.id);
+                              }}
+                              className={`${swapModalSelectBtn} ${
+                                inquirySelected
+                                  ? 'border-indigo-600 bg-indigo-100 text-indigo-900'
+                                  : 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                              }`}
+                            >
+                              선택: {partnerLeaders[0]?.name ?? '—'}
+                            </button>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </InquiryPartnerSwapModalShell>,
           document.body
         )}
       {deleteConfirmOpen &&

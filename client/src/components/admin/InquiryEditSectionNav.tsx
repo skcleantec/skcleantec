@@ -74,6 +74,12 @@ function scrollToCanonicalSection(sc: HTMLElement, oneBased: number) {
 
 const SECTION_JUMP_COUNT = INQUIRY_EDIT_SECTION_ANCHOR_ORDER.length;
 
+/** 우측 FAB — 본문을 덜 가리도록 낮은 불투명도 */
+const navPanelShell =
+  'rounded-l-xl border border-gray-200/35 bg-white/15 backdrop-blur-[2px] shadow-none';
+const navBtnIdle = 'text-gray-600 hover:bg-white/25 active:bg-white/35';
+const navBtnDivider = 'border-b border-gray-200/30';
+
 export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) {
   const [topPx, setTopPx] = useState(80);
   const [dragging, setDragging] = useState(false);
@@ -301,11 +307,11 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
           right: 0,
         }}
       >
-        <div className="flex flex-col overflow-hidden rounded-l-xl border border-gray-200/80 bg-white/50 backdrop-blur-sm">
+        <div className={`flex flex-col overflow-hidden ${navPanelShell}`}>
           <button
             type="button"
             onClick={() => onSectionNav('up')}
-            className="flex h-10 w-full min-h-[40px] items-center justify-center border-b border-gray-100 text-gray-700 hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
+            className={`flex h-10 w-full min-h-[40px] items-center justify-center ${navBtnDivider} ${navBtnIdle} touch-manipulation`}
             aria-label="이전 섹션으로"
             title="이전 섹션"
           >
@@ -315,8 +321,8 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
           </button>
           <div
             onPointerDown={onHandlePointerDown}
-            className={`flex min-h-[16px] flex-1 cursor-grab select-none items-center justify-center border-b border-gray-100 py-0.5 text-gray-400 active:cursor-grabbing ${
-              dragging ? 'cursor-grabbing bg-gray-100' : 'hover:bg-gray-50/80'
+            className={`flex min-h-[16px] flex-1 cursor-grab select-none items-center justify-center ${navBtnDivider} py-0.5 text-gray-400 active:cursor-grabbing ${
+              dragging ? 'cursor-grabbing bg-white/30' : 'hover:bg-white/20'
             }`}
             style={{ touchAction: 'none' }}
             title="길게 눌러 세로 위치만 이동"
@@ -332,7 +338,7 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
           <button
             type="button"
             onClick={() => onSectionNav('down')}
-            className="flex h-10 w-full min-h-[40px] items-center justify-center text-gray-700 hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
+            className={`flex h-10 w-full min-h-[40px] items-center justify-center ${navBtnIdle} touch-manipulation`}
             aria-label="다음 섹션으로"
             title="다음 섹션"
           >
@@ -343,7 +349,7 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
         </div>
 
         <div
-          className="flex flex-col gap-0.5 rounded-l-xl border border-gray-200/80 bg-white/50 py-1 pl-0.5 backdrop-blur-sm"
+          className={`flex flex-col gap-0.5 py-1 pl-0.5 ${navPanelShell}`}
           role="group"
           aria-label="섹션 고정 번호로 이동 (1~9번, 7~9는 발주서·현장·이력)"
         >
@@ -354,7 +360,7 @@ export function InquiryEditSectionNav({ scrollContainerRef, boundsRef }: Props) 
                 key={num}
                 type="button"
                 onClick={() => onJumpTo(num)}
-                className="flex h-7 w-full min-h-0 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums text-gray-800 hover:bg-blue-50 active:bg-blue-100 sm:h-8 sm:text-fluid-2xs touch-manipulation"
+                className="flex h-7 w-full min-h-0 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums text-gray-700 hover:bg-white/25 active:bg-white/35 sm:h-8 sm:text-fluid-2xs touch-manipulation"
                 title={hint ? `${num}. ${hint}` : `${num}번 섹션`}
                 aria-label={hint ? `${num}번, ${hint}` : `${num}번 섹션으로 이동`}
               >

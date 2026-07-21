@@ -19,7 +19,6 @@ import {
   updateDbListingAudience,
   removeDbListingFromCart,
   revertDbListingToCart,
-  resetDbListingToDraftAfterRevoke,
   upsertDbListingDraft,
   withdrawDbListing,
 } from './dbMarketplace.service.js';
@@ -51,6 +50,7 @@ import {
   bulkRevertDbListingsToCart,
   bulkWithdrawDbListings,
 } from './dbMarketplaceBulk.service.js';
+import { completeRecallDbListing } from './dbMarketplaceCompleteRecall.service.js';
 
 const router = Router();
 
@@ -301,14 +301,26 @@ router.post('/:id/revert-to-cart', async (req, res) => {
   }
 });
 
-router.post('/:id/reset-to-draft', async (req, res) => {
-  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+router.post('/:id/seller-complete-recall', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
   if (!tenantId) return;
   const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  const body = req.body as { password?: unknown };
+  const password = typeof body.password === 'string' ? body.password : '';
+  if (!password.trim()) {
+    res.status(400).json({ error: '비밀번호를 입력해 주세요.' });
+    return;
+  }
   try {
-    const row = await resetDbListingToDraftAfterRevoke(tenantId, listingId);
+    const result = await completeRecallDbListing({
+      sellerTenantId: tenantId,
+      sellerUserId: auth.userId,
+      listingId,
+      password,
+    });
     await notifyDbMarketplaceSellerAdmins(tenantId);
-    res.json({ listing: serializeSellerListing(row) });
+    res.json(result);
   } catch (e) {
     if (mapError(res, e)) return;
     throw e;
