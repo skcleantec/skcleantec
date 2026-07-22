@@ -95,11 +95,18 @@ export async function copyCoreInquiries(ctx: CloneContext): Promise<CloneStats> 
           tenantId: ctx.targetTenantId,
           operatingCompanyId: ofOc,
           token: anonymizer.newToken('cbof', of.id),
+          reviewPaybackToken: of.reviewPaybackToken
+            ? anonymizer.newToken('cbrp', of.id)
+            : null,
+          templateId: await mapTemplateId(ctx, of.templateId),
           customerName: anonymizer.demoCustomerName(of.id),
           customerPhone: anonymizer.demoPhone(of.id),
           customerEmail: anonymizer.demoEmail(of.id),
           customerSpecialNotes: anonymizer.scrubText(of.customerSpecialNotes),
           optionNote: anonymizer.scrubText(of.optionNote),
+          customerSubmissionSnapshot: scrubJsonValue(of.customerSubmissionSnapshot, anonymizer),
+          prefillAnswers: scrubJsonValue(of.prefillAnswers, anonymizer),
+          customerAnswers: scrubJsonValue(of.customerAnswers, anonymizer),
           createdById: users.map(of.createdById, 'MARKETER'),
         },
       });
@@ -408,15 +415,39 @@ export async function copyCoreInquiries(ctx: CloneContext): Promise<CloneStats> 
 function scrubJsonLines(lines: unknown, anonymizer: import('./anonymize.js').Anonymizer): unknown {
   if (Array.isArray(lines)) {
     return lines.map((line) =>
-      typeof line === 'string' ? anonymizer.scrubText(line) ?? line : line,
+      typeof line === 'string' ? anonymizer.scrubText(line) ?? line : scrubJsonValue(line, anonymizer),
     );
   }
-  if (lines && typeof lines === 'object') {
+  return scrubJsonValue(lines, anonymizer);
+}
+
+function scrubJsonValue(value: unknown, anonymizer: import('./anonymize.js').Anonymizer): unknown {
+  if (typeof value === 'string') return anonymizer.scrubText(value) ?? value;
+  if (Array.isArray(value)) return value.map((v) => scrubJsonValue(v, anonymizer));
+  if (value && typeof value === 'object') {
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(lines as Record<string, unknown>)) {
-      out[k] = typeof v === 'string' ? anonymizer.scrubText(v) ?? v : v;
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = scrubJsonValue(v, anonymizer);
     }
     return out;
   }
-  return lines;
+  return value;
+}
+
+async function mapTemplateId(ctx: CloneContext, sourceTemplateId: string | null): Promise<string | null> {
+  if (!sourceTemplateId) return null;
+  const src = await ctx.prisma.orderFormTemplate.findFirst({
+    where: { id: sourceTemplateId, tenantId: ctx.sourceTenantId },
+    select: { title: true, isDefault: true },
+  });
+  if (!src) return null;
+  const tgt = await ctx.prisma.orderFormTemplate.findFirst({
+    where: {
+      tenantId: ctx.targetTenantId,
+      OR: [{ isDefault: true }, { title: src.title }],
+    },
+    orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }],
+    select: { id: true },
+  });
+  return tgt?.id ?? null;
 }

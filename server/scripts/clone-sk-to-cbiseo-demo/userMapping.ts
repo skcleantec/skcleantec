@@ -3,7 +3,7 @@ import type { PrismaClient, UserRole } from '@prisma/client';
 import { PRESERVE_TARGET_USER_EMAILS } from './constants.js';
 
 export class UserMapper {
-  private readonly map = new Map<string, string>();
+  private readonly userIdMap = new Map<string, string>();
   private byRole = new Map<UserRole, string[]>();
   private readonly rrIndex = new Map<UserRole, number>();
   private fallbackAdminId: string;
@@ -43,7 +43,7 @@ export class UserMapper {
 
   async reload(prisma: PrismaClient): Promise<void> {
     const fresh = await UserMapper.load(prisma, this.targetTenantId);
-    this.map.clear();
+    this.userIdMap.clear();
     this.rrIndex.clear();
     this.byRole = fresh.byRole;
     this.fallbackAdminId = fresh.fallbackAdminId;
@@ -91,7 +91,7 @@ export class UserMapper {
   }
 
   map(sourceUserId: string, sourceRole: UserRole): string {
-    const cached = this.map.get(sourceUserId);
+    const cached = this.userIdMap.get(sourceUserId);
     if (cached) return cached;
     const targetRole =
       sourceRole === 'EXTERNAL_PARTNER'
@@ -102,7 +102,7 @@ export class UserMapper {
             ? 'TEAM_LEADER'
             : 'ADMIN';
     const id = this.pickRole(targetRole);
-    this.map.set(sourceUserId, id);
+    this.userIdMap.set(sourceUserId, id);
     return id;
   }
 
