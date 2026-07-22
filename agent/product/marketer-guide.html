@@ -54,7 +54,7 @@
   .pc-url{flex:1;background:#4b5563;border-radius:3px;height:14px;margin-left:5px;display:flex;align-items:center;padding:0 6px;}
   .pc-url span{font-size:6.5px;color:#9ca3af;overflow:hidden;white-space:nowrap;}
   .pc-gnb{background:var(--navy);padding:5px 8px;display:flex;align-items:center;gap:2px;overflow:hidden;}
-  .pc-gnb-logo{color:#4ade80;font-weight:700;font-size:9px;margin-right:5px;white-space:nowrap;flex-shrink:0;}
+  .pc-gnb-logo{height:12px;width:auto;max-width:72px;object-fit:contain;margin-right:5px;flex-shrink:0;display:block;mix-blend-mode:lighten;}
   .pc-gnb-item{padding:3px 7px;border-radius:5px;font-size:7.5px;color:#cbd5e1;white-space:nowrap;flex-shrink:0;}
   .pc-gnb-item.active{background:rgba(255,255,255,.18);color:white;font-weight:600;}
   .pc-body{padding:10px;background:#f8fafc;}
@@ -2037,7 +2037,7 @@
           <div class="pc-url"><span>/admin/crm?popup=1 — 텔레CRM (PC 전용 새 창)</span></div>
         </div>
         <div class="pc-gnb">
-          <span class="pc-gnb-logo">청소비서</span>
+          <img class="pc-gnb-logo" src="/brand/clean-secretary-logo.png" alt="청소비서" />
           <span class="pc-gnb-item active">텔레CRM</span>
           <span class="pc-gnb-item" style="opacity:.5;">설정</span>
           <span style="margin-left:auto;font-size:7px;color:#86efac;">● 광고 세션</span>
