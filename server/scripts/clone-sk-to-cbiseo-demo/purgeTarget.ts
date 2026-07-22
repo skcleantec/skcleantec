@@ -45,7 +45,7 @@ export async function purgeTargetTenantBusinessData(
     await prisma.quotationLineItem.deleteMany({ where: { quotation: { inquiryId: { in: inquiryIds } } } });
     await prisma.quotation.deleteMany({ where: { inquiryId: { in: inquiryIds } } });
     await prisma.inquiryInspectionAreaPhoto.deleteMany({
-      where: { area: { checklist: { inquiryId: { in: inquiryIds } } } },
+      where: { item: { area: { checklist: { inquiryId: { in: inquiryIds } } } } },
     });
     await prisma.inquiryInspectionItem.deleteMany({
       where: { area: { checklist: { inquiryId: { in: inquiryIds } } } },
@@ -149,11 +149,12 @@ export async function purgeTargetTenantBusinessData(
   });
   for (const g of crewGroups) {
     await prisma.teamCrewGroupExpenseAttachment.deleteMany({
-      where: { expense: { groupId: g.id } },
+      where: { expense: { crewGroupId: g.id } },
     });
-    await prisma.teamCrewGroupExpense.deleteMany({ where: { groupId: g.id } });
+    await prisma.teamCrewGroupExpense.deleteMany({ where: { crewGroupId: g.id } });
     await prisma.teamCrewGroupDayRoster.deleteMany({ where: { groupId: g.id } });
     await prisma.teamCrewGroupMember.deleteMany({ where: { groupId: g.id } });
+    await prisma.crewStaffNotice.deleteMany({ where: { crewGroupId: g.id } });
   }
   stats.crewGroups = (await prisma.teamCrewGroup.deleteMany({ where: { tenantId: targetTenantId } })).count;
 

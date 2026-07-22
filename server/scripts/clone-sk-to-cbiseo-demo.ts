@@ -8,6 +8,7 @@
  *
  * 환경:
  *   DATABASE_URL — 대상 DB (스테이징 리허설 후 운영 cbiseo)
+ *   GUIDE_DEMO_TARGET_DB=production — server/.env.staging 덮어쓰기 후 SKCT_TARGET_DATABASE_URL 사용
  *   CLONE_CONFIRM=1 — 실제 쓰기 시 권장
  */
 import 'dotenv/config';

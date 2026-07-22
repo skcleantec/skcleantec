@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { allocateNextInquiryNumber } from '../../src/modules/inquiries/inquiryNumber.js';
 import type { CloneContext, CloneStats } from './types.js';
 import { mapExternalCompanyId, mapTeamMemberId, targetOcId } from './copyMaster.js';
 
@@ -147,6 +148,10 @@ export async function copyCoreInquiries(ctx: CloneContext): Promise<CloneStats> 
       }
     }
 
+    const inquiryNumber = await prisma.$transaction((tx) =>
+      allocateNextInquiryNumber(tx, ctx.targetTenantId, ocId),
+    );
+
     await prisma.inquiry.create({
       data: {
         ...strip(inq as unknown as Record<string, unknown>, [
@@ -170,7 +175,7 @@ export async function copyCoreInquiries(ctx: CloneContext): Promise<CloneStats> 
         id: newInqId,
         tenantId: ctx.targetTenantId,
         operatingCompanyId: ocId,
-        inquiryNumber: anonymizer.remapInquiryNumber(inq.inquiryNumber, newInqId),
+        inquiryNumber,
         customerName: anonymizer.demoCustomerName(inq.id),
         nickname: inq.nickname ? anonymizer.demoCustomerName(`${inq.id}:nick`) : null,
         customerPhone: anonymizer.demoPhone(inq.id),
