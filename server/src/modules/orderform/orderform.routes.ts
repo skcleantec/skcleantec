@@ -74,6 +74,10 @@ import {
 } from '../tenants/publicTenantAccess.js';
 import { resolvePublicTenantIdFromRequest } from '../tenants/publicRequestTenant.js';
 import {
+  parseOrderFormSpaceCount,
+  validateOrderFormSpaceCounts,
+} from '../../lib/orderFormSpaceCounts.js';
+import {
   ensureDefaultOrderFormTemplate,
   getOrCreateEstimateConfig,
   getOrCreateOrderFormConfig,
@@ -2488,6 +2492,22 @@ router.post('/submit/:token', async (req, res) => {
     }
   }
 
+  let roomCountOut: number | null = null;
+  let balconyCountOut: number | null = null;
+  let bathroomCountOut: number | null = null;
+  let kitchenCountOut: number | null = null;
+  if (tplOn('roomCount')) {
+    const spaceErr = validateOrderFormSpaceCounts(body as unknown as Record<string, unknown>);
+    if (spaceErr) {
+      res.status(400).json({ error: spaceErr });
+      return;
+    }
+    roomCountOut = parseOrderFormSpaceCount(body.roomCount);
+    balconyCountOut = parseOrderFormSpaceCount(body.balconyCount);
+    bathroomCountOut = parseOrderFormSpaceCount(body.bathroomCount);
+    kitchenCountOut = parseOrderFormSpaceCount(body.kitchenCount);
+  }
+
   const moveInDate = moveInDateStr ? new Date(moveInDateStr + 'T12:00:00') : null;
 
   const profLabelRows =
@@ -2573,10 +2593,10 @@ router.post('/submit/:token', async (req, res) => {
       preferredDate: useDateStr,
       preferredTime: useTimeStr,
       preferredTimeDetail: useDetailStr,
-      roomCount: body.roomCount ?? null,
-      bathroomCount: body.bathroomCount ?? null,
-      balconyCount: body.balconyCount ?? null,
-      kitchenCount: body.kitchenCount ?? null,
+      roomCount: roomCountOut,
+      bathroomCount: bathroomCountOut,
+      balconyCount: balconyCountOut,
+      kitchenCount: kitchenCountOut,
       buildingType:
         body.buildingType != null && String(body.buildingType).trim()
           ? String(body.buildingType).trim()
@@ -2641,10 +2661,10 @@ router.post('/submit/:token', async (req, res) => {
           exclusiveAreaSqm,
           propertyType: propertyTypeStored,
           isOneRoom,
-          roomCount: body.roomCount ?? null,
-          bathroomCount: body.bathroomCount ?? null,
-          balconyCount: body.balconyCount ?? null,
-          kitchenCount: body.kitchenCount ?? null,
+          roomCount: roomCountOut,
+          bathroomCount: bathroomCountOut,
+          balconyCount: balconyCountOut,
+          kitchenCount: kitchenCountOut,
           preferredDate,
           preferredTime: useTimeStr,
           preferredTimeDetail: useDetailStr,
@@ -2723,10 +2743,10 @@ router.post('/submit/:token', async (req, res) => {
           exclusiveAreaSqm,
           propertyType: propertyTypeStored,
           isOneRoom,
-          roomCount: body.roomCount ?? null,
-          bathroomCount: body.bathroomCount ?? null,
-          balconyCount: body.balconyCount ?? null,
-          kitchenCount: body.kitchenCount ?? null,
+          roomCount: roomCountOut,
+          bathroomCount: bathroomCountOut,
+          balconyCount: balconyCountOut,
+          kitchenCount: kitchenCountOut,
           preferredDate,
           preferredTime: useTimeStr,
           preferredTimeDetail: useDetailStr,

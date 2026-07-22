@@ -50,6 +50,11 @@ import {
   sanitizeIssueTotalWonInput,
   validateIssueAmountWon,
 } from '../../utils/orderFormIssueAmountInput';
+import {
+  ORDER_FORM_SPACE_COUNT_HINT,
+  parseOrderFormSpaceCount,
+  validateOrderFormSpaceCounts,
+} from '@shared/orderFormSpaceCounts';
 
 const ORDER_TIME_SLOT_VALUE_SET = new Set<string>(ORDER_TIME_SLOT_OPTIONS.map((o) => o.value));
 
@@ -886,6 +891,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       ) {
         throw new Error('이사 예정일은 오늘(한국 기준) 이후 날짜만 선택할 수 있습니다.');
       }
+      if (stdFieldOn('roomCount')) {
+        const spaceErr = validateOrderFormSpaceCounts({
+          roomCount: form.roomCount,
+          balconyCount: form.balconyCount,
+          bathroomCount: form.bathroomCount,
+          kitchenCount: form.kitchenCount,
+        });
+        if (spaceErr) throw new Error(spaceErr);
+      }
       if (!agreeToTerms) throw new Error('[필수] 예약 안내 및 개인정보 제3자 제공 동의가 필요합니다.');
 
       const templateCustomFields = visibleOrderFormCustomFields;
@@ -915,10 +929,18 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         preferredDate: stdFieldOn('preferredDate') ? useDate : undefined,
         preferredTime: stdFieldOn('preferredTime') ? useTime : undefined,
         preferredTimeDetail: stdFieldOn('preferredTimeDetail') ? useTimeDetail ?? null : undefined,
-        roomCount: form.roomCount ? parseInt(form.roomCount, 10) : undefined,
-        balconyCount: form.balconyCount ? parseInt(form.balconyCount, 10) : undefined,
-        bathroomCount: form.bathroomCount ? parseInt(form.bathroomCount, 10) : undefined,
-        kitchenCount: form.kitchenCount ? parseInt(form.kitchenCount, 10) : undefined,
+        roomCount: stdFieldOn('roomCount')
+          ? parseOrderFormSpaceCount(form.roomCount) ?? undefined
+          : undefined,
+        balconyCount: stdFieldOn('roomCount')
+          ? parseOrderFormSpaceCount(form.balconyCount) ?? undefined
+          : undefined,
+        bathroomCount: stdFieldOn('roomCount')
+          ? parseOrderFormSpaceCount(form.bathroomCount) ?? undefined
+          : undefined,
+        kitchenCount: stdFieldOn('roomCount')
+          ? parseOrderFormSpaceCount(form.kitchenCount) ?? undefined
+          : undefined,
         buildingType: stdFieldOn('buildingType') ? form.buildingType : undefined,
         moveInDate:
           stdFieldOn('moveInDate') && !form.moveInDateUndecided ? form.moveInDate || undefined : undefined,
@@ -1782,13 +1804,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('roomCount') && (
           <div>
-            <p className={`${labelCls} mb-2`}>8. 방·베란다·화장실·주방</p>
+            <p className={`${labelCls} mb-2`}>8. 방·베란다·화장실·주방 *</p>
+            <p className="text-xs text-gray-500 mb-2 leading-relaxed">{ORDER_FORM_SPACE_COUNT_HINT}</p>
             <div className="grid grid-cols-4 gap-2">
             <div>
-              <label className={labelCls}>방</label>
+              <label className={labelCls}>방 *</label>
               <input
                 type="number"
                 min={0}
+                required
                 className={clsWithLock('roomCount', inputCls)}
                 value={form.roomCount}
                 onChange={(e) => setForm((f) => ({ ...f, roomCount: e.target.value }))}
@@ -1797,10 +1821,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               />
             </div>
             <div>
-              <label className={labelCls}>베란다</label>
+              <label className={labelCls}>베란다 *</label>
               <input
                 type="number"
                 min={0}
+                required
                 className={clsWithLock('balconyCount', inputCls)}
                 value={form.balconyCount}
                 onChange={(e) => setForm((f) => ({ ...f, balconyCount: e.target.value }))}
@@ -1809,10 +1834,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               />
             </div>
             <div>
-              <label className={labelCls}>화장실</label>
+              <label className={labelCls}>화장실 *</label>
               <input
                 type="number"
                 min={0}
+                required
                 className={clsWithLock('bathroomCount', inputCls)}
                 value={form.bathroomCount}
                 onChange={(e) => setForm((f) => ({ ...f, bathroomCount: e.target.value }))}
@@ -1821,10 +1847,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               />
             </div>
             <div>
-              <label className={labelCls}>주방</label>
+              <label className={labelCls}>주방 *</label>
               <input
                 type="number"
                 min={0}
+                required
                 className={clsWithLock('kitchenCount', inputCls)}
                 value={form.kitchenCount}
                 onChange={(e) => setForm((f) => ({ ...f, kitchenCount: e.target.value }))}
