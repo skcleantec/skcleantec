@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PLATFORM_NAV_ITEMS, isPlatformNavActive } from '../../constants/platformNav';
 import { clearPlatformToken } from '../../stores/platformAuth';
+import { TenantBrandLogo } from '../brand/TenantBrandLogo';
 
 function SidebarNav({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
   return (
@@ -66,11 +67,9 @@ export function PlatformLayout() {
   const sidebar = (onNavigate?: () => void) => (
     <>
       <div className="px-4 py-5 border-b border-white/10">
-        <Link to="/platform/tenants" onClick={onNavigate} className="block">
-          <span className="text-lg font-bold tracking-tight text-white">
-            청소<span className="text-blue-400">비서</span>
-          </span>
-          <span className="ml-2 text-xs font-normal text-gray-500">Platform</span>
+        <Link to="/platform/tenants" onClick={onNavigate} className="block space-y-1">
+          <TenantBrandLogo height={28} />
+          <span className="text-xs font-normal text-gray-500">Platform</span>
         </Link>
       </div>
       <SidebarNav pathname={pathname} onNavigate={onNavigate} />

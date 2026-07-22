@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PLATFORM_NAME, PLATFORM_TAGLINE } from '@shared/platformBrand';
+import { TenantBrandLogo } from '../../components/brand/TenantBrandLogo';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { platformLogin } from '../../api/platformTenants';
 import { setPlatformToken } from '../../stores/platformAuth';
@@ -41,7 +42,10 @@ export function PlatformLoginPage() {
     >
       <div className="login-scroll-content mx-auto w-full max-w-sm py-6 sm:py-10">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h1 className="text-fluid-lg font-semibold text-slate-900 text-center mb-1">{PLATFORM_NAME}</h1>
+          <div className="mb-2 flex justify-center">
+            <h1 className="sr-only">{PLATFORM_NAME}</h1>
+            <TenantBrandLogo height={32} surface="on-light" />
+          </div>
           <p className="text-fluid-xs text-slate-500 text-center mb-6">{PLATFORM_TAGLINE}</p>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

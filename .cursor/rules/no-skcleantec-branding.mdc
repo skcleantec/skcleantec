@@ -18,6 +18,7 @@ alwaysApply: true
 | Windows 설치 폴더 | `{autopf}\Cbiseo\SoomgoBridge` |
 | 설정·업데이트 플래그 | `%LOCALAPPDATA%\Cbiseo\SoomgoBridge` |
 | 운영 URL·매니페스트 | `https://www.cbiseo.com/...` |
+| **공식 로고** | **`/brand/clean-secretary-logo.png`** — **`TenantBrandLogo`** · **`.cursor/rules/clean-secretary-logo.mdc`** |
 
 ## 금지 (신규·수정 시)
 
