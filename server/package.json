@@ -19,6 +19,7 @@
     "db:seed:team-helpdesk-cbiseo": "tsx scripts/seed-team-helpdesk-cbiseo.ts",
     "db:seed:guide-demo-cbiseo": "tsx scripts/seed-guide-demo-cbiseo.ts",
     "db:clone:sk-to-cbiseo": "tsx scripts/clone-sk-to-cbiseo-demo.ts",
+    "db:ensure:cbiseo-econtracts": "tsx scripts/ensure-cbiseo-demo-econtracts.ts",
     "db:seed:orderforms": "tsx prisma/seed-orderform-samples.ts",
     "db:seed:schedule": "tsx prisma/seed-schedule-random.ts",
     "db:seed:schedule:test-m3-m5": "tsx prisma/seed-schedule-mar-may-test.ts",
