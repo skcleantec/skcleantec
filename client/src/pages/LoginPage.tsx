@@ -5,8 +5,7 @@ import { loginCrew, getCrewMe } from '../api/crew';
 import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { getCrewToken, setCrewToken, clearCrewToken } from '../stores/crewAuth';
-import { PLATFORM_NAME } from '@shared/platformBrand';
-import { TenantBrandLogo } from '../components/brand/TenantBrandLogo';
+import { PLATFORM_NAME, PLATFORM_NAME_EN } from '@shared/platformBrand';
 import { resolveTenantSlugForLoginForm, sanitizeLoginTenantSlug } from '../utils/loginTenantSlug';
 import { saveTenantSlug } from '../utils/tenantSlug';
 import {
@@ -371,13 +370,21 @@ export function LoginPage() {
               <div className="absolute left-1/2 top-[44%] h-28 w-full max-w-none -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-[radial-gradient(ellipse_70%_55%_at_42%_48%,rgba(255,255,255,0.6),rgba(226,232,240,0.18)_48%,transparent_68%)] blur-2xl motion-safe:animate-login-mist-drift motion-reduce:opacity-40 [animation-delay:-7s]" />
             </div>
             <div className="relative space-y-3 py-1">
-              <h1 className="sr-only">{PLATFORM_NAME}</h1>
-              <div className="relative inline-flex justify-center px-1">
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.34em] text-slate-400 motion-safe:animate-login-subline-shine motion-reduce:animate-none motion-reduce:opacity-90">
+                {PLATFORM_NAME_EN}
+              </p>
+              <div className="relative inline-block px-1">
                 <span
                   className="pointer-events-none absolute inset-x-[-14%] -inset-y-4 -z-10 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.55),rgba(203,213,225,0.2)_42%,transparent_72%)] blur-2xl motion-safe:animate-login-silver-sparkle motion-reduce:opacity-40"
                   aria-hidden
                 />
-                <TenantBrandLogo height={40} surface="on-light" className="max-w-[min(240px,78vw)]" />
+                <h1 className="text-[1.75rem] font-bold sm:text-[2rem]">
+                  <span
+                    className="inline-block tracking-[0.2em] sm:tracking-[0.24em] bg-[linear-gradient(105deg,#475569_0%,#94a3b8_24%,#f8fafc_48%,#cbd5e1_52%,#64748b_76%,#334155_100%)] bg-[length:280%_100%] bg-clip-text text-transparent motion-safe:animate-login-title-sheen motion-reduce:animate-none motion-reduce:bg-none motion-reduce:text-slate-800"
+                  >
+                    {PLATFORM_NAME}
+                  </span>
+                </h1>
               </div>
               <div className="flex items-center justify-center gap-3 pt-0.5" aria-hidden>
                 <span className="h-px w-9 origin-center bg-gradient-to-r from-transparent via-slate-300/80 to-slate-400/50 motion-safe:animate-login-line-grow motion-reduce:scale-x-100 motion-reduce:opacity-70" />
