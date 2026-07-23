@@ -66,6 +66,18 @@ import { hasFeature } from '@shared/tenantFeatureModules';
 import { getDbMarketplaceNavCounts } from '../../api/dbMarketplace';
 import { AdminStaffPathGate } from './AdminStaffPathGate';
 import { DarkHeaderNavScroll } from './DarkHeaderNavScroll';
+import { NavFavoritesProvider } from '../../hooks/useNavFavorites';
+import { AdminMobileNavFavoritesAccess } from './AdminMobileNavFavoritesAccess';
+import { AdminDesktopNavFavoritesAccess } from './AdminDesktopNavFavoritesAccess';
+import {
+  MOBILE_GNB_ITEM_BASE,
+  MOBILE_GNB_ICON_CLASS,
+  MOBILE_STAFF_DOCK_BTN_CLASS,
+  MOBILE_STAFF_DOCK_BTN_PX,
+  MOBILE_STAFF_DOCK_GAP_PX,
+  MOBILE_STAFF_DOCK_ICON_CLASS,
+} from './mobileStaffDockStyles';
+import type { StaffDesktopDockDragHandlers } from './staffRightRailStyles';
 
 function CalendarCuteIcon({ className }: { className?: string }) {
   return (
@@ -83,8 +95,8 @@ function CalendarCuteIcon({ className }: { className?: string }) {
 }
 
 /** 모바일 관리자 FAB — 발주서(위) bottom ↔ 스케줄(아래) top 사이 = GAP 만큼 */
-const ADMIN_MOBILE_FAB_PX = 40;
-const ADMIN_MOBILE_FAB_GAP = 2;
+const ADMIN_MOBILE_FAB_PX = MOBILE_STAFF_DOCK_BTN_PX;
+const ADMIN_MOBILE_FAB_GAP = MOBILE_STAFF_DOCK_GAP_PX;
 /** 스케줄 버튼 top − 이 값 = 발주서 버튼 top (한 줄로 붙음) */
 const ADMIN_MOBILE_FAB_ISSUE_TOP_OFFSET = ADMIN_MOBILE_FAB_PX + ADMIN_MOBILE_FAB_GAP;
 
@@ -172,9 +184,8 @@ function AdminNavIcon({ id, className }: { id: string; className?: string }) {
   return null;
 }
 
-/** GNB 메뉴 — 아이콘·제목 가로 한 줄 (좁은 화면은 가로 스크롤) */
-const ADMIN_GNB_ITEM_BASE =
-  'inline-flex flex-row flex-nowrap items-center gap-1 px-2 py-1 text-fluid-xs font-semibold rounded-xl whitespace-nowrap shrink-0 touch-manipulation transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] sm:gap-1.5 sm:px-3 sm:py-1.5';
+/** GNB 메뉴 — 아이콘·제목 가로 한 줄 (모바일 컴팩트 · lg+ 기존 크기) */
+const ADMIN_GNB_ITEM_BASE = MOBILE_GNB_ITEM_BASE;
 
 function adminGnbItemClass(isActive: boolean): string {
   return `${ADMIN_GNB_ITEM_BASE} ${
@@ -187,7 +198,7 @@ function adminGnbItemClass(isActive: boolean): string {
 function AdminGnbItemContent({ id, label }: { id: string; label: string }) {
   return (
     <>
-      <AdminNavIcon id={id} className="h-4 w-4 shrink-0" />
+      <AdminNavIcon id={id} className={MOBILE_GNB_ICON_CLASS} />
       <span className="whitespace-nowrap leading-none">{label}</span>
     </>
   );
@@ -232,6 +243,8 @@ export function AdminLayout() {
   const [draggingNavId, setDraggingNavId] = useState<AdminNavId | null>(null);
   const [fabTop, setFabTop] = useState<number | null>(null);
   const fabTopRef = useRef<number | null>(null);
+  const [changelogRailMount, setChangelogRailMount] = useState<HTMLDivElement | null>(null);
+  const [desktopDockDrag, setDesktopDockDrag] = useState<StaffDesktopDockDragHandlers | null>(null);
   const [showStagingDbImportMenu, setShowStagingDbImportMenu] = useState(false);
   const [showVolumeStatsMenu, setShowVolumeStatsMenu] = useState(false);
   const [isPlatformSupportAccess, setIsPlatformSupportAccess] = useState(false);
@@ -258,8 +271,9 @@ export function AdminLayout() {
   const fabHoldTimerRef = useRef<number | null>(null);
   const fabDragOffsetRef = useRef({ y: 0 });
   const fabPressMovedRef = useRef(false);
-  /** 길게 눌러 이동을 시작한 버튼 — 탭 시 이동 경로 */
-  const fabPointerAnchorRef = useRef<'schedule' | 'issue' | 'bell' | null>(null);
+  /** 길게 눌러 이동을 시작한 버튼 — 탭 시 이동·열기 경로 */
+  const fabPointerAnchorRef = useRef<'schedule' | 'issue' | 'bell' | 'favorites' | null>(null);
+  const openMobileFavoritesRef = useRef<(() => void) | null>(null);
   const fabStackRef = useRef<HTMLDivElement | null>(null);
   const [fabBellMount, setFabBellMount] = useState<HTMLDivElement | null>(null);
   const fabStackCountRef = useRef(1);
@@ -658,7 +672,7 @@ export function AdminLayout() {
 
   useEffect(() => {
     fabStackCountRef.current =
-      (showOrderIssueFab ? 1 : 0) + (showScheduleFab ? 1 : 0) + 1;
+      1 + (showOrderIssueFab ? 1 : 0) + (showScheduleFab ? 1 : 0) + 1;
   }, [showOrderIssueFab, showScheduleFab]);
 
   /** FAB 스택 top — 저장·드래그는 컨테이너 세로 위치만 사용 */
@@ -718,7 +732,7 @@ export function AdminLayout() {
   }, [clampFabTop]);
 
   const beginFabPointer = useCallback(
-    (anchor: 'schedule' | 'issue' | 'bell', evt: ReactPointerEvent<HTMLButtonElement>) => {
+    (anchor: 'schedule' | 'issue' | 'bell' | 'favorites', evt: ReactPointerEvent<HTMLButtonElement>) => {
       fabPointerAnchorRef.current = anchor;
       fabPressMovedRef.current = false;
       fabPointerIdRef.current = evt.pointerId;
@@ -781,6 +795,8 @@ export function AdminLayout() {
           }
         } else if (tapAnchor === 'schedule') {
           navigate('/admin/schedule');
+        } else if (tapAnchor === 'favorites') {
+          openMobileFavoritesRef.current?.();
         }
       }
     };
@@ -795,6 +811,7 @@ export function AdminLayout() {
   }, [clampFabTop, fabDragging, navigate, location.pathname]);
 
   return (
+    <NavFavoritesProvider app="admin" tenantSlug={tenantSlug} userId={meUserId}>
     <div className="relative min-h-0 h-dvh max-h-dvh bg-[#edf0f5] flex flex-col overflow-hidden font-sans antialiased">
       {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 max-lg:bg-[#edf0f5]" aria-hidden="true">
@@ -1209,7 +1226,7 @@ export function AdminLayout() {
         </div>
       </header>
       </div>
-      <main className="staff-app-surface relative z-10 w-full px-3 sm:px-4 lg:px-5 py-3 lg:py-4 min-w-0 flex-1 flex flex-col min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+      <main className="staff-app-surface relative z-10 w-full px-3 sm:px-4 lg:px-5 lg:pr-12 py-3 lg:py-4 min-w-0 flex-1 flex flex-col min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
         {isPlatformSupportAccess ? (
           <div className="mb-4 rounded-lg border border-violet-300 bg-violet-50 px-4 py-2.5 text-sm text-violet-900">
             플랫폼 <strong className="font-semibold">지원 접속</strong> 모드입니다. 장애 확인·복구 목적으로만
@@ -1240,7 +1257,7 @@ export function AdminLayout() {
           </AdminStaffSessionProvider>
         </TenantCapabilitiesProvider>
       </main>
-      {showMobileFabStack && (
+          {showMobileFabStack && (
         <div
           ref={fabStackRef}
           className={`fixed z-[120] lg:hidden flex flex-col items-end gap-0.5 ${
@@ -1251,17 +1268,26 @@ export function AdminLayout() {
             right: fabSafeRight,
           }}
         >
+          <AdminMobileNavFavoritesAccess
+            navCtx={navCtx}
+            role={meRole}
+            marketerPermissions={staffMe?.marketerPermissions ?? null}
+            registerOpen={(fn) => {
+              openMobileFavoritesRef.current = fn;
+            }}
+            fabStack={{ onPointerDown: (evt) => beginFabPointer('favorites', evt) }}
+          />
           {showOrderIssueFab && (
             <button
               type="button"
               aria-label="발주서 발급으로 이동"
               title={fabDragging ? '세로 위치 이동 중' : '발주서 발급 (길게 눌러 세로 위치만 이동)'}
               onPointerDown={(evt) => beginFabPointer('issue', evt)}
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-600/70 bg-amber-400 text-amber-950 shadow-[0_4px_14px_rgba(180,83,9,0.28),0_1px_4px_rgba(15,23,42,0.1)] ring-1 ring-inset ring-white/30 transition-[transform,box-shadow] active:scale-[0.94] active:shadow-sm ${
+              className={`${MOBILE_STAFF_DOCK_BTN_CLASS} border border-amber-600/70 bg-amber-400 text-amber-950 shadow-[0_2px_8px_rgba(180,83,9,0.28),0_1px_2px_rgba(15,23,42,0.1)] ring-1 ring-inset ring-white/30 active:shadow-sm ${
                 fabDragging ? 'cursor-grabbing' : 'cursor-pointer'
               }`}
             >
-              <OrderIssueFabIcon className="h-5 w-5" />
+              <OrderIssueFabIcon className={MOBILE_STAFF_DOCK_ICON_CLASS} />
             </button>
           )}
           {showScheduleFab && (
@@ -1270,11 +1296,11 @@ export function AdminLayout() {
               aria-label="스케줄 바로가기"
               title={fabDragging ? '세로 위치 이동 중' : '스케줄 바로가기 (길게 눌러 세로 위치만 이동)'}
               onPointerDown={(evt) => beginFabPointer('schedule', evt)}
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-[0_6px_18px_rgba(29,78,216,0.32),0_2px_8px_rgba(15,23,42,0.14)] ring-1 ring-inset ring-white/15 transition-[transform,box-shadow] active:scale-[0.94] active:shadow-[0_4px_14px_rgba(29,78,216,0.26),0_1px_4px_rgba(15,23,42,0.12)] ${
+              className={`${MOBILE_STAFF_DOCK_BTN_CLASS} bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-[0_3px_10px_rgba(29,78,216,0.32),0_1px_3px_rgba(15,23,42,0.14)] ring-1 ring-inset ring-white/15 active:shadow-[0_2px_8px_rgba(29,78,216,0.26),0_1px_2px_rgba(15,23,42,0.12)] ${
                 fabDragging ? 'cursor-grabbing' : 'cursor-pointer'
               }`}
             >
-              <CalendarCuteIcon className="h-5 w-5 drop-shadow-sm" />
+              <CalendarCuteIcon className={`${MOBILE_STAFF_DOCK_ICON_CLASS} drop-shadow-sm`} />
             </button>
           )}
           <div ref={setFabBellMount} className="contents" aria-hidden={!adminToken} />
@@ -1341,8 +1367,21 @@ export function AdminLayout() {
                 }
               : undefined
           }
+          desktopDock={
+            changelogRailMount && desktopDockDrag
+              ? { mountNode: changelogRailMount, ...desktopDockDrag }
+              : null
+          }
         />
       )}
+      <AdminDesktopNavFavoritesAccess
+        navCtx={navCtx}
+        role={meRole}
+        marketerPermissions={staffMe?.marketerPermissions ?? null}
+        onChangelogMount={setChangelogRailMount}
+        onDockDragChange={setDesktopDockDrag}
+      />
     </div>
+    </NavFavoritesProvider>
   );
 }

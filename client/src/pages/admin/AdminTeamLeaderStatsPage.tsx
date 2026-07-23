@@ -4,6 +4,7 @@ import { getToken } from '../../stores/auth';
 import { getTeamLeaderMonthlyStats, type TeamLeaderMonthlyStatRow } from '../../api/teams';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YearMonthSelect } from '../../components/ui/DateQuerySelects';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 
 function kstMonthYm(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
@@ -54,6 +55,9 @@ export function AdminTeamLeaderStatsPage() {
 
   return (
     <div className="min-w-0 w-full max-w-full space-y-4">
+      <PageTitleWithFavorite label="팀장" path="/admin/team-leaders/leader-stats">
+        <h1 className="text-xl font-semibold text-gray-800">팀장</h1>
+      </PageTitleWithFavorite>
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <span className="block text-fluid-xs text-gray-600 mb-1">조회 월 (KST)</span>

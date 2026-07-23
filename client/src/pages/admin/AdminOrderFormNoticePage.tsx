@@ -6,6 +6,7 @@ import type { GuideSection } from '../../constants/orderInfoDefaultSections';
 import { ORDER_GUIDE_DEFAULT_SECTIONS } from '../../constants/orderInfoDefaultSections';
 import { parseGuideFromStoredContent } from '../../utils/orderGuideParse';
 import { ORDER_FORM_CONFIG_DEFAULTS, orderFormConfigLine } from '../../constants/orderFormConfigDefaults';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 
 function cloneSections(s: GuideSection[]): GuideSection[] {
   return s.map((sec) => ({ title: sec.title, items: [...sec.items] }));
@@ -112,7 +113,9 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
           {embedded ? (
             <h2 className={titleCls}>안내사항설정</h2>
           ) : (
-            <h1 className={titleCls}>고객 안내사항</h1>
+            <PageTitleWithFavorite label="고객 안내사항">
+              <h1 className={titleCls}>고객 안내사항</h1>
+            </PageTitleWithFavorite>
           )}
           <p className="text-sm text-gray-500 mt-1">
             발주서 동의란 링크 문구와, 고객이{' '}

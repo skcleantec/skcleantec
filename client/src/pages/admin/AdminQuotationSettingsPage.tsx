@@ -13,6 +13,7 @@ import {
 } from '../../api/quotations';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { qUi } from '../../components/quotations/quotationUi';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
 
 const HELP =
@@ -207,7 +208,9 @@ export function AdminQuotationSettingsPage() {
             설정
           </p>
           <div className="flex items-center gap-2">
-            <h1 className={qUi.pageTitle}>견적 설정</h1>
+            <PageTitleWithFavorite label="견적 설정">
+              <h1 className={qUi.pageTitle}>견적 설정</h1>
+            </PageTitleWithFavorite>
             <HelpTooltip text={HELP} />
           </div>
           <p className={qUi.pageDesc}>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AdminEContractSubmissionDetailModal } from '../../components/e-contract/AdminEContractSubmissionDetailModal';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { EContractRichEditor } from '../../components/e-contract/EContractRichEditor';
 import { EContractDraftPreviewModal } from '../../components/e-contract/EContractDraftPreviewModal';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
@@ -393,7 +394,9 @@ export function AdminEContractDefinitionPage() {
 
       <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-fluid-xl font-semibold text-gray-900">{def.title}</h1>
+          <PageTitleWithFavorite label={def.title}>
+            <h1 className="text-fluid-xl font-semibold text-gray-900">{def.title}</h1>
+          </PageTitleWithFavorite>
           <p className="mt-1 text-fluid-xs text-gray-600">
             수신 대상:{' '}
             <span className="font-medium text-gray-800">{eContractAudienceLabel(def.audience ?? 'TEAM_LEADER')}</span>

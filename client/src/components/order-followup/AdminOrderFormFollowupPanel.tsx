@@ -20,6 +20,7 @@ import { AdminListIntakeModal } from '../admin/AdminListIntakeModal';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { HelpTooltip } from '../ui/HelpTooltip';
+import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
 import { ListPaginationBar } from '../ui/ListPaginationBar';
 import { usePaginatedListQuery } from '../../hooks/usePaginatedListQuery';
 import {
@@ -798,6 +799,10 @@ export function AdminOrderFormFollowupPanel({
 
   return (
     <div className="min-w-0 space-y-5">
+      <PageTitleWithFavorite label="부재·보류">
+        <h1 className="text-xl font-semibold text-slate-900">부재·보류</h1>
+      </PageTitleWithFavorite>
+
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-700">{error}</div>
       )}

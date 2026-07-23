@@ -28,6 +28,7 @@ import { CrmSoomgoUpdateStrip } from '../../../components/crm/soomgo/CrmSoomgoUp
 import { CrmMisoTopBar } from '../../../components/crm/miso/CrmMisoTopBar';
 import { CrmMisoDrawer } from '../../../components/crm/miso/CrmMisoDrawer';
 import { CrmIconPhone, CrmIconMiso, CrmIconSoomgo } from '../../../components/crm/crmUi';
+import { PageTitleWithFavorite } from '../../../components/layout/NavFavoritePageTitle';
 import type { SoomgoExtractedChat, SoomgoBridgeManifest, SoomgoChatAlert, SoomgoChatListSnapshotRow } from '@shared/soomgoBridge';
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
 import { useCrmMisoBridge } from '../../../hooks/useCrmMisoBridge';
@@ -1276,7 +1277,9 @@ export function CrmPage() {
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 shadow-md shadow-indigo-900/40">
                   <CrmIconPhone className="h-5 w-5" />
                 </span>
-                <h1 className="shrink-0 text-fluid-sm font-bold tracking-tight whitespace-nowrap">텔레CRM</h1>
+                <PageTitleWithFavorite label="텔레CRM" onDark compact className="flex shrink-0 min-w-0 items-center gap-1">
+                  <h1 className="shrink-0 text-fluid-sm font-bold tracking-tight whitespace-nowrap">텔레CRM</h1>
+                </PageTitleWithFavorite>
               </div>
               {canAdsSession ? (
                 <div className="order-3 w-full min-w-0 sm:order-none sm:w-auto">

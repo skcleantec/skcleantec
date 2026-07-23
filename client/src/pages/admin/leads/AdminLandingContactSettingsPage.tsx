@@ -10,6 +10,7 @@ import { useStaffTenantSlugForLinks } from '../../../hooks/useStaffTenantSlugFor
 import { getContactPublicUrl } from '../../../utils/landingContactPublicUrl';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { OperatingCompanyBadge } from '../../../components/admin/OperatingCompanyBadge';
+import { PageTitleWithFavorite } from '../../../components/layout/NavFavoritePageTitle';
 
 const FIELD_TYPES: LandingContactCustomFieldDef['type'][] = [
   'text',
@@ -128,6 +129,9 @@ export function AdminLandingContactSettingsPage() {
 
   return (
     <div className="min-w-0 w-full max-w-full space-y-4">
+      <PageTitleWithFavorite label="문의 폼·링크" path="/admin/inquiries/leads/settings">
+        <h1 className="text-xl font-semibold text-slate-900">문의 폼·링크</h1>
+      </PageTitleWithFavorite>
       <div className="mb-4">
         <p className="text-fluid-sm text-gray-600">
           브랜드마다 문의 링크가 생성됩니다. 랜딩 페이지 「문의하기」 버튼에 아래 URL을 연결하세요.

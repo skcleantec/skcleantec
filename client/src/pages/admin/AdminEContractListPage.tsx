@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -62,7 +63,9 @@ export function AdminEContractListPage() {
     <div className="min-w-0 w-full max-w-full px-4 sm:px-0">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
+          <PageTitleWithFavorite label="전자계약">
           <h1 className="text-fluid-xl font-semibold text-gray-900">전자계약</h1>
+        </PageTitleWithFavorite>
         </div>
       </div>
 

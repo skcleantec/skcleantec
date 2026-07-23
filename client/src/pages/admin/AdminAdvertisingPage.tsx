@@ -21,6 +21,7 @@ import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { AdvertisingDailySettlementModal } from '../../components/admin/AdvertisingDailySettlementModal';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import {
   AD_SESSION_HISTORY_DEFAULT_PAGE_SIZE,
   AD_SESSION_HISTORY_PAGE_SIZE_OPTIONS,
@@ -274,7 +275,9 @@ export function AdminAdvertisingPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-fluid-xl font-semibold text-slate-900">광고비</h1>
+      <PageTitleWithFavorite label="광고비">
+        <h1 className="text-fluid-xl font-semibold text-slate-900">광고비</h1>
+      </PageTitleWithFavorite>
 
       {err && (
         <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-fluid-sm">{err}</div>

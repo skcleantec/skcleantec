@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getBrandCustomerLinkConfig, updateBrandCustomerLinkConfig } from '../../api/orderform';
 import { getToken } from '../../stores/auth';
@@ -314,7 +315,9 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
       <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-fluid-base font-semibold text-gray-900">고객링크설정</h1>
+            <PageTitleWithFavorite label="고객링크설정">
+              <h1 className="text-fluid-base font-semibold text-gray-900">고객링크설정</h1>
+            </PageTitleWithFavorite>
             <p className="mt-1 text-fluid-xs leading-relaxed text-gray-600">
               고객 발송 메시지를 미리보기 중심으로 편집합니다. URL은 발급 시 자동 삽입됩니다.
               <HelpTooltip text={HELP} className="ml-1 align-middle" />

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { getToken } from '../../stores/auth';
 import {
   fetchAdminTeamLeaderTrainingMeta,
@@ -81,7 +82,9 @@ export function AdminTeamLeaderTrainingPage() {
   return (
     <div className="min-w-0 w-full max-w-3xl space-y-6 pb-8">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">현장팀장 교육자료</h1>
+        <PageTitleWithFavorite label="현장팀장 교육자료">
+          <h1 className="text-xl font-semibold text-gray-800">현장팀장 교육자료</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
           업체별로 PDF를 등록·교체합니다. 팀장 GNB 이름 메뉴에 「현장팀장 교육자료」로 노출되며, 교체 시 팀장 화면에
           즉시 반영됩니다.

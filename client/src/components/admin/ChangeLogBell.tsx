@@ -12,6 +12,12 @@ import {
   filterMarketerOnlyChangeLogLines,
   isMarketerOnlyChangeLogLine,
 } from '../../constants/internalCustomerTone';
+import { staffDesktopDockButtonClass } from '../layout/staffRightRailStyles';
+import {
+  MOBILE_STAFF_DOCK_BTN_CLASS,
+  MOBILE_STAFF_DOCK_ICON_CLASS,
+} from '../layout/mobileStaffDockStyles';
+import type { StaffDesktopDockDragHandlers } from '../layout/staffRightRailStyles';
 
 const PAGE_SIZE = 50;
 const BELL_POS_STORAGE_KEY = 'changeLogBellTopPx';
@@ -81,7 +87,9 @@ type Props = {
   hideMarketerOnlyLines?: boolean;
   /** 모바일 FAB 스택에 포함 — 독립 fixed·드래그 비활성 */
   mobileStack?: ChangeLogBellMobileStackProps;
-  /** desktop 전용 fixed (기본). mobileStack 있으면 lg 이상에서만 fixed */
+  /** PC 우측 독(★와 세로 붙음) — 공통 드래그 */
+  desktopDock?: (StaffDesktopDockDragHandlers & { mountNode: HTMLElement | null }) | null;
+  /** desktop 전용 fixed (기본). mobileStack·desktopDock(lg) 있으면 fixed 비활성 */
   desktopFixed?: boolean;
 };
 
@@ -98,6 +106,7 @@ export function ChangeLogBell({
   onOpenInquiry,
   hideMarketerOnlyLines = false,
   mobileStack,
+  desktopDock = null,
   desktopFixed = true,
 }: Props) {
   const [unseen, setUnseen] = useState(0);
@@ -124,11 +133,16 @@ export function ChangeLogBell({
     }
   });
   const [dragging, setDragging] = useState(false);
+  const [isLgViewport, setIsLgViewport] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)').matches : false,
+  );
+  const onDockDesktop = Boolean(desktopDock?.mountNode) && isLgViewport;
   const pressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const longPressRef = useRef(false);
   const suppressClickRef = useRef(false);
   const startYRef = useRef(0);
   const latestTopRef = useRef<number | null>(posTop);
+  const prevDockDraggingRef = useRef(false);
 
   const clampTop = (y: number) => {
     const margin = 56;
@@ -139,6 +153,10 @@ export function ChangeLogBell({
   const onBellPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (mobileStack) {
       mobileStack.onPointerDown(e);
+      return;
+    }
+    if (onDockDesktop && desktopDock) {
+      desktopDock.onPointerDown(e);
       return;
     }
     longPressRef.current = false;
@@ -161,7 +179,7 @@ export function ChangeLogBell({
   };
 
   const onBellPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (mobileStack) return;
+    if (mobileStack || onDockDesktop) return;
     if (!longPressRef.current) {
       // 롱프레스 전 큰 움직임이면 우발 방지로 취소
       if (Math.abs(e.clientY - startYRef.current) > 12 && pressTimer.current) {
@@ -176,7 +194,7 @@ export function ChangeLogBell({
   };
 
   const onBellPointerEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (mobileStack) return;
+    if (mobileStack || onDockDesktop) return;
     if (pressTimer.current) clearTimeout(pressTimer.current);
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -226,6 +244,29 @@ export function ChangeLogBell({
     }, [hideMarketerOnlyLines]),
     Boolean(token),
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const sync = () => setIsLgViewport(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  useEffect(() => {
+    if (!onDockDesktop || !desktopDock) {
+      prevDockDraggingRef.current = false;
+      return;
+    }
+    if (prevDockDraggingRef.current && !desktopDock.dragging) {
+      suppressClickRef.current = true;
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+    }
+    prevDockDraggingRef.current = desktopDock.dragging;
+  }, [onDockDesktop, desktopDock?.dragging, desktopDock]);
 
   useEffect(() => {
     return () => {
@@ -299,7 +340,8 @@ export function ChangeLogBell({
 
   const hasMore = items.length < total;
 
-  const bellDragging = mobileStack?.dragging ?? dragging;
+  const bellDragging =
+    mobileStack?.dragging ?? (onDockDesktop && desktopDock ? desktopDock.dragging : dragging);
 
   const bellButton = (
     <button
@@ -315,17 +357,44 @@ export function ChangeLogBell({
       onPointerMove={onBellPointerMove}
       onPointerUp={onBellPointerEnd}
       onPointerCancel={onBellPointerEnd}
-      title={mobileStack ? '접수 변경 이력 (길게 눌러 세로 위치만 이동)' : '길게 눌러 위아래로 이동'}
+      title={
+        onDockDesktop
+          ? desktopDock?.dragging
+            ? '세로 위치 이동 중'
+            : '접수 변경 이력 (길게 눌러 세로 이동)'
+          : mobileStack
+            ? '접수 변경 이력 (길게 눌러 세로 위치만 이동)'
+            : '길게 눌러 위아래로 이동'
+      }
       aria-label={`접수 변경 이력${unseen > 0 ? ` (미확인 ${unseen}건)` : ''}${
-        mobileStack ? ' · 길게 눌러 세로 위치만 이동' : ' · 길게 눌러 위아래로 이동'
+        onDockDesktop
+          ? ' · 길게 눌러 세로 이동'
+          : mobileStack
+            ? ' · 길게 눌러 세로 위치만 이동'
+            : ' · 길게 눌러 위아래로 이동'
       }`}
-      className={`relative flex h-10 w-10 shrink-0 touch-none items-center justify-center rounded-full border shadow-md transition-[transform,box-shadow,colors] active:scale-[0.94] ${
-        unseen > 0
-          ? 'border-emerald-600/80 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white shadow-[0_4px_14px_rgba(5,150,105,0.32),0_1px_4px_rgba(15,23,42,0.1)] ring-1 ring-inset ring-white/20 hover:from-emerald-400 hover:to-emerald-600'
-          : 'border-gray-300 bg-white text-emerald-700 hover:bg-emerald-50/80'
-      } ${bellDragging ? 'scale-110 cursor-grabbing ring-2 ring-emerald-400' : 'cursor-pointer'} ${
-        blink && unseen > 0 && !bellDragging ? 'animate-pulse' : ''
-      }`}
+      className={
+        onDockDesktop
+          ? staffDesktopDockButtonClass(unseen > 0, {
+              pulse: blink && unseen > 0 && !bellDragging,
+              dragging: bellDragging,
+            })
+          : mobileStack
+            ? `${MOBILE_STAFF_DOCK_BTN_CLASS} border shadow-md ${
+                unseen > 0
+                  ? 'border-emerald-600/80 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white shadow-[0_2px_8px_rgba(5,150,105,0.32),0_1px_2px_rgba(15,23,42,0.1)] ring-1 ring-inset ring-white/20 hover:from-emerald-400 hover:to-emerald-600'
+                  : 'border-gray-300 bg-white text-emerald-700 hover:bg-emerald-50/80'
+              } ${bellDragging ? 'scale-110 cursor-grabbing ring-2 ring-emerald-400' : 'cursor-pointer'} ${
+                blink && unseen > 0 && !bellDragging ? 'animate-pulse' : ''
+              }`
+            : `relative flex h-10 w-10 shrink-0 touch-none items-center justify-center rounded-full border shadow-md transition-[transform,box-shadow,colors] active:scale-[0.94] ${
+              unseen > 0
+                ? 'border-emerald-600/80 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white shadow-[0_4px_14px_rgba(5,150,105,0.32),0_1px_4px_rgba(15,23,42,0.1)] ring-1 ring-inset ring-white/20 hover:from-emerald-400 hover:to-emerald-600'
+                : 'border-gray-300 bg-white text-emerald-700 hover:bg-emerald-50/80'
+            } ${bellDragging ? 'scale-110 cursor-grabbing ring-2 ring-emerald-400' : 'cursor-pointer'} ${
+              blink && unseen > 0 && !bellDragging ? 'animate-pulse' : ''
+            }`
+      }
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -335,13 +404,17 @@ export function ChangeLogBell({
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-5 w-5"
+        className={mobileStack ? MOBILE_STAFF_DOCK_ICON_CLASS : 'h-5 w-5'}
       >
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
         <path d="M13.73 21a2 2 0 0 1-3.46 0" />
       </svg>
       {unseen > 0 && (
-        <span className="absolute -right-1 -top-1 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+        <span className={`absolute -right-1 -top-1 flex items-center justify-center rounded-full bg-red-600 font-bold text-white ring-2 ring-white ${
+          mobileStack
+            ? 'min-h-[14px] min-w-[14px] px-0.5 text-[9px] leading-none'
+            : 'min-h-[18px] min-w-[18px] px-1 text-[10px]'
+        }`}>
           {unseen > 99 ? '99+' : unseen}
         </span>
       )}
@@ -353,7 +426,9 @@ export function ChangeLogBell({
       <button
         type="button"
         onClick={() => void openModal()}
-        className="absolute right-12 top-1/2 z-10 w-60 -translate-y-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg"
+        className={`absolute top-1/2 z-10 w-60 -translate-y-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg ${
+          onDockDesktop ? 'right-full mr-2' : 'right-12'
+        }`}
       >
         <p className="text-fluid-xs font-semibold text-gray-900 truncate">
           {toast.customerName || '접수'} 변경
@@ -365,7 +440,7 @@ export function ChangeLogBell({
       </button>
     ) : null;
 
-  const showDesktopFixed = desktopFixed;
+  const showDesktopFixed = desktopFixed && !onDockDesktop;
 
   const mobileBellLayer =
     mobileStack != null ? (
@@ -375,6 +450,13 @@ export function ChangeLogBell({
       </div>
     ) : null;
 
+  const dockBellLayer = (
+    <div className="relative flex items-center justify-center">
+      {toastBubble}
+      {bellButton}
+    </div>
+  );
+
   return (
     <>
       {mobileStack?.mountNode && mobileBellLayer
@@ -382,6 +464,10 @@ export function ChangeLogBell({
         : mobileStack && !mobileStack.mountNode
           ? mobileBellLayer
           : null}
+
+      {onDockDesktop && desktopDock?.mountNode
+        ? createPortal(dockBellLayer, desktopDock.mountNode)
+        : null}
 
       {showDesktopFixed ? (
         <div

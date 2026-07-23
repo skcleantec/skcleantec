@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import {
   createEContractFieldDefinition,
   deleteEContractFieldDefinition,
@@ -106,7 +107,9 @@ export function AdminEContractFieldSettingsPage() {
 
   return (
     <div className="min-w-0 w-full max-w-full">
-      <h1 className="text-fluid-lg font-semibold text-gray-900">체결·매핑 필드 설정</h1>
+      <PageTitleWithFavorite label="체결·매핑 필드 설정">
+          <h1 className="text-fluid-lg font-semibold text-gray-900">체결·매핑 필드 설정</h1>
+        </PageTitleWithFavorite>
       <p className="mt-2 text-fluid-sm text-gray-600">
         팀장·마케터·팀원 계약서 본문에 넣을 치환 코드를 관리합니다. 초안 편집기 드롭다운과 체결·발급 입력란에 반영됩니다.
       </p>

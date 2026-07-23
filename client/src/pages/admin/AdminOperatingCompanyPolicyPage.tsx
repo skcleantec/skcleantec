@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { getToken } from '../../stores/auth';
 import {
   getOperatingCompanyPolicy,
@@ -51,7 +52,9 @@ export function AdminOperatingCompanyPolicyPage() {
   return (
     <div className="min-w-0 w-full max-w-3xl space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">영업 브랜드 운영 정책</h1>
+        <PageTitleWithFavorite label="영업 브랜드 운영 정책">
+          <h1 className="text-xl font-semibold text-gray-800">영업 브랜드 운영 정책</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
           테넌트 전체에 적용되는 규칙입니다. 관리자(ADMIN)는 정책과 무관하게 전체 접근이 가능합니다.
         </p>

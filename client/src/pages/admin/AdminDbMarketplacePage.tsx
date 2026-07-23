@@ -16,6 +16,7 @@ import {
   type DbMarketplaceMaskedItem,
 } from '../../api/dbMarketplace';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { DbMarketplaceListingDetailModal } from '../../components/admin/DbMarketplaceListingDetailModal';
 import { DbMarketplaceAudiencePickerModal } from '../../components/admin/DbMarketplaceAudiencePickerModal';
 import { DbMarketplaceBulkResultModal } from '../../components/admin/DbMarketplaceBulkResultModal';
@@ -516,7 +517,9 @@ export function AdminDbMarketplacePage() {
   return (
     <div className={`min-w-0 w-full max-w-full space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
       <div>
-        <h1 className="text-fluid-lg font-semibold text-slate-900">정보공유</h1>
+        <PageTitleWithFavorite label="정보공유">
+          <h1 className="text-fluid-lg font-semibold text-slate-900">정보공유</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-fluid-xs text-gray-600">{tabDescription}</p>
       </div>
 

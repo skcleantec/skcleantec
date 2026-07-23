@@ -31,6 +31,7 @@ import {
 } from './teamInquiryShared';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 
@@ -167,9 +168,11 @@ export function TeamDashboardPage() {
 
   return (
     <div className="flex flex-col gap-5 min-w-0 pb-4">
-      <h1 className="text-xl font-semibold text-gray-800">
-        <TeamBiLine id="team.dashboard.title" koClassName="text-xl font-semibold text-gray-800" />
-      </h1>
+      <PageTitleWithFavorite label="대시보드">
+        <h1 className="text-xl font-semibold text-gray-800">
+          <TeamBiLine id="team.dashboard.title" koClassName="text-xl font-semibold text-gray-800" />
+        </h1>
+      </PageTitleWithFavorite>
       {(happyStats.overdueCount > 0 || happyStats.pendingBeforeDeadlineCount > 0) && (
         <div
           className={`rounded-xl border px-4 py-3 text-fluid-sm space-y-2 ${

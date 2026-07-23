@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { createPortal } from 'react-dom';
 import { Navigate, Link, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
@@ -1872,7 +1873,9 @@ export function AdminPayrollPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between min-w-0">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold text-gray-900">월정산표</h1>
+            <PageTitleWithFavorite label="월정산표">
+          <h1 className="text-xl font-semibold text-gray-900">월정산표</h1>
+        </PageTitleWithFavorite>
             <HelpTooltip text={PAYROLL_HELP} />
           </div>
         </div>

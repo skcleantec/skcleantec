@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useSearchParams } from 'react-router-dom';
@@ -209,7 +210,9 @@ export function AdminEContractTeamOverviewPage() {
 
   return (
     <div className="min-w-0 w-full max-w-full px-4 sm:px-0">
-      <h1 className="text-fluid-xl font-semibold text-gray-900">체결 기록</h1>
+      <PageTitleWithFavorite label="체결 기록">
+          <h1 className="text-fluid-xl font-semibold text-gray-900">체결 기록</h1>
+        </PageTitleWithFavorite>
       <p className="mt-1 text-fluid-sm text-gray-600">체결일 기준으로 조회합니다.</p>
 
       <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">

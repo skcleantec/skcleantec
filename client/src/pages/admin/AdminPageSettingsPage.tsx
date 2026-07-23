@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { dispatchCelebrateBarTest } from '../../utils/adminCelebrateBarTest';
 import {
   CELEBRATE_BAR_PLACEHOLDER_HELP,
@@ -42,7 +43,9 @@ export function AdminPageSettingsPage() {
   return (
     <div className="min-w-0 w-full max-w-3xl space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">페이지 설정</h1>
+        <PageTitleWithFavorite label="페이지 설정">
+          <h1 className="text-xl font-semibold text-gray-800">페이지 설정</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
           이 브라우저에만 저장됩니다. 다른 PC·시크릿 창에서는 따로 설정해야 합니다.
         </p>

@@ -34,6 +34,7 @@ import { SyncHorizontalScroll } from '../ui/SyncHorizontalScroll';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
+import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
 
 const DATE_PRESETS: { id: LandingContactListDatePreset; label: string }[] = [
   { id: 'last3months', label: '3개월' },
@@ -196,6 +197,9 @@ export function LandingContactWorkdesk() {
 
   return (
     <div className="min-w-0 w-full max-w-full space-y-4">
+      <PageTitleWithFavorite label="문의내역" path="/admin/inquiries/leads">
+        <h1 className="text-xl font-semibold text-slate-900">문의내역</h1>
+      </PageTitleWithFavorite>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-fluid-sm text-gray-600">랜딩·외부 페이지에서 접수된 문의입니다.</p>
       </div>

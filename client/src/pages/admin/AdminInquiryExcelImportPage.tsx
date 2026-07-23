@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import { INQUIRY_EXCEL_IMPORT_MAX_FILE_BYTES, INQUIRY_EXCEL_IMPORT_MAX_ROWS } from '@shared/inquiryExcelImportPolicy';
@@ -107,7 +108,9 @@ export function AdminInquiryExcelImportPage() {
   return (
     <div className="min-w-0 w-full max-w-full space-y-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
-        <h1 className="text-fluid-lg font-semibold text-slate-900">일괄 등록</h1>
+        <PageTitleWithFavorite label="일괄 등록">
+          <h1 className="text-fluid-lg font-semibold text-slate-900">일괄 등록</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-fluid-sm text-slate-600">
           저장된 매칭 서식으로 엑셀을 업로드해 접수를 등록합니다. (
           {INQUIRY_EXCEL_IMPORT_MAX_ROWS > 0

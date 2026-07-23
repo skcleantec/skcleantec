@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { Navigate } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -152,7 +153,9 @@ export function AdminTeamHolidayCalendarPage() {
   return (
     <div className="flex flex-col gap-6 min-w-0 max-w-4xl">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">휴일 캘린더</h1>
+        <PageTitleWithFavorite label="휴일 캘린더">
+          <h1 className="text-xl font-semibold text-gray-800">휴일 캘린더</h1>
+        </PageTitleWithFavorite>
         <p className="text-sm text-gray-600 mt-1">
           팀장 휴무(로그인 계정)와 현장 팀원 휴무를 월 단위로 한눈에 봅니다. 공휴일(고정)은 참고용으로 표시합니다.
           휴무 등록·변경은 각각{' '}

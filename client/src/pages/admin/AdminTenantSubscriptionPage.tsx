@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { fetchTenantSubscription, type TenantSubscriptionDto } from '../../api/tenantSubscription';
 import { fetchTenantBillingInvoices, fetchTenantBillingSchedule, fetchTenantBillingSummary, type TenantBillingSummary } from '../../api/tenantBilling';
 import { getToken } from '../../stores/auth';
@@ -139,7 +140,9 @@ export function AdminTenantSubscriptionPage() {
         billing={billing}
       />
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">계정 및 서비스 이용 현황</h1>
+        <PageTitleWithFavorite label="계정 및 서비스 이용 현황">
+          <h1 className="text-xl font-semibold text-gray-800">계정 및 서비스 이용 현황</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
           청소비서 이용 플랜·활성 서비스·현재 사용량을 확인합니다.
         </p>

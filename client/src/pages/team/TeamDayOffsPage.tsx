@@ -10,6 +10,7 @@ import {
   TeamBiLine,
   teamT,
 } from '../../i18n/team/teamI18n';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -159,9 +160,11 @@ export function TeamDayOffsPage() {
 
   return (
     <div className="flex flex-col gap-4 min-w-0">
-      <h1 className="text-xl font-semibold text-gray-800">
-        <TeamBiLine id="team.dayoffs.pageTitle" koClassName="text-xl font-semibold text-gray-800" />
-      </h1>
+      <PageTitleWithFavorite label="휴무">
+        <h1 className="text-xl font-semibold text-gray-800">
+          <TeamBiLine id="team.dayoffs.pageTitle" koClassName="text-xl font-semibold text-gray-800" />
+        </h1>
+      </PageTitleWithFavorite>
       <div className="text-sm text-gray-600">
         <TeamBiLine id="team.dayoffs.intro" koClassName="text-sm text-gray-600" />
       </div>

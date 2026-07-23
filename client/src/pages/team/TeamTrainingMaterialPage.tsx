@@ -6,6 +6,7 @@ import {
   type TeamLeaderTrainingMeta,
 } from '../../api/teamLeaderTraining';
 import { isAuthSessionExpiredError } from '../../api/auth';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { clearTeamToken, getTeamToken } from '../../stores/teamAuth';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
@@ -169,7 +170,9 @@ export function TeamTrainingMaterialPage() {
   return (
     <div className="min-w-0 w-full max-w-full flex flex-col gap-3 sm:gap-4 pb-6 lg:pb-8">
       <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-5 shadow-sm">
-        <h1 className="text-base sm:text-lg font-semibold text-gray-900">현장팀장 교육자료</h1>
+        <PageTitleWithFavorite label="현장팀장 교육자료">
+          <h1 className="text-base sm:text-lg font-semibold text-gray-900">현장팀장 교육자료</h1>
+        </PageTitleWithFavorite>
         {updatedLabel ? (
           <p className="mt-1.5 sm:mt-2 text-fluid-sm text-gray-500">최종 업데이트: {updatedLabel}</p>
         ) : null}

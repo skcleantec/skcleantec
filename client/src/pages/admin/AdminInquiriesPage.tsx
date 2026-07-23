@@ -34,6 +34,7 @@ import {
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { getUserCustomCalendars, type UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNameWithInternalTone';
@@ -2404,7 +2405,9 @@ export function AdminInquiriesPage() {
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex items-center gap-2 pl-12 lg:pl-0">
-            <h1 className="text-xl font-semibold text-slate-900">서비스접수</h1>
+            <PageTitleWithFavorite label="서비스접수">
+              <h1 className="text-xl font-semibold text-slate-900">서비스접수</h1>
+            </PageTitleWithFavorite>
           </div>
             {token && (
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">

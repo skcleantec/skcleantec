@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { getToken } from '../../stores/auth';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import {
@@ -113,7 +114,9 @@ export function AdminTenantPartnersPage() {
     <div className="min-w-0 w-full max-w-full space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
+          <PageTitleWithFavorite label="파트너 연결">
           <h1 className="text-xl font-semibold text-gray-800">파트너 연결</h1>
+        </PageTitleWithFavorite>
           <p className="mt-1 text-sm text-gray-500">
             같은 시스템을 쓰는 다른 청소업체와 파트너로 연결합니다. 양쪽 관리자가 승인하면 접수를 서로
             연계할 수 있습니다.

@@ -28,6 +28,7 @@ import {
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../admin/ConfirmPasswordModal';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
+import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
 import { HelpTooltip } from '../ui/HelpTooltip';
 import { InspectionCsSummaryBadge } from '../inquiry-inspection/InspectionCsSummaryBadge';
 import { AdminInspectionPanel } from '../inquiry-inspection/AdminInspectionPanel';
@@ -646,13 +647,18 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
           isTeam ? 'sm:mb-0' : ''
         }`}
       >
-        <h1
-          className={`shrink-0 font-semibold tracking-tight text-slate-900 ${
-            isTeam ? 'text-fluid-base sm:text-xl' : 'text-xl sm:text-2xl'
-          }`}
+        <PageTitleWithFavorite
+          label={pageTitle}
+          path={mode === 'admin' ? '/admin/inquiries/cs' : '/team/cs'}
         >
-          {pageTitle}
-        </h1>
+          <h1
+            className={`shrink-0 font-semibold tracking-tight text-slate-900 ${
+              isTeam ? 'text-fluid-base sm:text-xl' : 'text-xl sm:text-2xl'
+            }`}
+          >
+            {pageTitle}
+          </h1>
+        </PageTitleWithFavorite>
         {mode === 'admin' ? (
           <div className="flex w-full min-w-0 flex-col gap-2 sm:ml-4 sm:max-w-2xl sm:flex-1 sm:items-stretch">
             <div className="flex min-w-0 items-center gap-2 overflow-hidden text-fluid-sm">

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { Navigate } from 'react-router-dom';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
@@ -134,7 +135,9 @@ export function AdminInquiryTrashPage() {
   return (
     <div className="min-w-0 w-full max-w-full space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">접수 휴지통</h1>
+        <PageTitleWithFavorite label="접수 휴지통">
+          <h1 className="text-xl font-semibold text-gray-900">접수 휴지통</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-fluid-sm text-gray-600 leading-relaxed">
           삭제된 접수는 <strong className="font-medium">{retentionDays}일</strong> 동안 보관됩니다. 기간이 지나면
           배정·사진·변경 이력과 함께 <strong className="font-medium">자동으로 영구 삭제</strong>됩니다. 복구하면

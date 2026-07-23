@@ -142,7 +142,7 @@ function HierarchicalNavList({
                     <>
                       {isActive ? <ActiveBar /> : null}
                       <AdminSideNavIcon id={icon} className="h-4 w-4 shrink-0 opacity-90" />
-                      <span className="min-w-0 truncate">{item.label}</span>
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
                       <NavBadge count={item.badge ?? 0} collapsed={false} />
                     </>
                   )}
@@ -183,7 +183,7 @@ function HierarchicalNavList({
                                 isActive ? 'text-blue-300 opacity-100' : 'text-slate-500 opacity-80',
                               ].join(' ')}
                             />
-                            <span className="min-w-0 truncate">{child.label}</span>
+                            <span className="min-w-0 flex-1 truncate">{child.label}</span>
                           </>
                         )}
                       </NavLink>

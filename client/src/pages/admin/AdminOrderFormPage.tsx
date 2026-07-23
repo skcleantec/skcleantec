@@ -12,6 +12,7 @@ import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { usePaginatedListQuery } from '../../hooks/usePaginatedListQuery';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { AdminOrderFormFollowupPanel } from '../../components/order-followup/AdminOrderFormFollowupPanel';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { CustomerOrderSubmissionSnapshotModal } from '../../components/orderform/CustomerOrderSubmissionSnapshotModal';
 import { OrderFormListActionsModal } from '../../components/orderform/OrderFormListActionsModal';
 import { OrderFormIssueCompleteCard } from '../../components/orderform/OrderFormIssueCompleteCard';
@@ -612,13 +613,15 @@ export function AdminOrderFormPage() {
       {tab === 'issue' && (
         <div className="min-w-0 w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-100 bg-gray-50 px-4 py-4 sm:px-6 sm:py-5">
-            <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold text-gray-900 sm:text-xl">
-              <span>발주서 발급</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <PageTitleWithFavorite label="발주서 발급">
+                <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">발주서 발급</h2>
+              </PageTitleWithFavorite>
               <HelpTooltip
                 className="shrink-0"
                 text="「대기 접수 연결」에서 개별 접수로 등록한 대기 건을 선택하면, 같은 건에 링크가 붙고 고객이 제출 시 접수로 전환됩니다."
               />
-            </h2>
+            </div>
           </div>
           <div className="p-4 sm:p-6 lg:p-8">
             {scheduleFabUnlinkedHint ? (

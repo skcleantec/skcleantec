@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { Link } from 'react-router-dom';
 import {
   getEContractIssuerProfile,
@@ -259,7 +260,9 @@ export function AdminEContractIssuerProfilePage() {
     <div className="min-w-0 w-full max-w-full pb-12">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
+          <PageTitleWithFavorite label="전자계약 — 발행측(갑) 정보">
           <h1 className="text-fluid-lg font-semibold text-gray-900">전자계약 — 발행측(갑) 정보</h1>
+        </PageTitleWithFavorite>
         </div>
         <Link
           to="/admin/team-leaders/e-contracts"

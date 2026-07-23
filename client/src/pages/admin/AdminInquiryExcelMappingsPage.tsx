@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -321,7 +322,9 @@ export function AdminInquiryExcelMappingsPage() {
   return (
     <div className="min-w-0 w-full max-w-full space-y-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
-        <h1 className="text-fluid-lg font-semibold text-slate-900">매칭 서식 관리</h1>
+        <PageTitleWithFavorite label="매칭 서식 관리">
+          <h1 className="text-fluid-lg font-semibold text-slate-900">매칭 서식 관리</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-fluid-sm text-slate-600">
           엑셀 헤더 ↔ 청소비서 필드 매핑과 상태·운영사 등 값 변환 규칙을 저장합니다.
         </p>

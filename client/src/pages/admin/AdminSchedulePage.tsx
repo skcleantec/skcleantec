@@ -89,6 +89,7 @@ import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/te
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import { isManualIntakeInquiry } from '../../utils/manualIntakeInquiry';
 import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
@@ -1685,15 +1686,19 @@ export function AdminSchedulePage() {
       <div className="flex flex-col gap-1 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
         <div className="hidden lg:block">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
+            <PageTitleWithFavorite label="스케쥴">
+              <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
+            </PageTitleWithFavorite>
             <HelpTooltip className="shrink-0" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1 lg:gap-2 min-w-0 w-full lg:w-auto lg:justify-end">
           <div className="flex lg:hidden items-center gap-1 min-w-0 shrink mr-0.5 pl-12">
-            <h1 className="text-fluid-base font-semibold text-slate-900 tracking-tight leading-none truncate">
-              스케쥴
-            </h1>
+            <PageTitleWithFavorite label="스케쥴" compact>
+              <h1 className="text-fluid-base font-semibold text-slate-900 tracking-tight leading-none truncate">
+                스케쥴
+              </h1>
+            </PageTitleWithFavorite>
             <HelpTooltip className="shrink-0 scale-90 origin-left" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
           </div>
           <div className="inline-flex h-8 items-stretch rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden lg:h-auto lg:rounded-lg">

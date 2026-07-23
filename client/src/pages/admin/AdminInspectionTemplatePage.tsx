@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { getToken } from '../../stores/auth';
 import {
   fetchInspectionTemplate,
@@ -113,7 +114,9 @@ export function AdminInspectionTemplatePage() {
   return (
     <div className="min-w-0 w-full max-w-4xl space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">현장 검수 체크리스트 템플릿</h1>
+        <PageTitleWithFavorite label="현장 검수 체크리스트 템플릿">
+          <h1 className="text-xl font-semibold text-gray-800">현장 검수 체크리스트 템플릿</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
           구역별 세부 항목(사진 단위)을 업체마다 다르게 설정할 수 있습니다. 이미 진행 중인 검수에는 기존 항목이
           유지되며, 새로 열리는 체크리스트·누락 항목 보강 시 반영됩니다.

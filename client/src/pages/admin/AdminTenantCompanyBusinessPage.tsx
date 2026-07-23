@@ -1,3 +1,4 @@
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import {
   QUOTATION_SEAL_DISPLAY_WIDTH_DEFAULT,
   QUOTATION_SEAL_DISPLAY_WIDTH_MAX,
@@ -17,7 +18,9 @@ export function AdminTenantCompanyBusinessPage() {
   return (
     <div className="min-w-0 w-full max-w-3xl space-y-6 pb-8">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">사업자 정보</h1>
+        <PageTitleWithFavorite label="사업자 정보">
+          <h1 className="text-xl font-semibold text-gray-800">사업자 정보</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
           업체 기본 사업자 정보와 견적서 직인을 설정합니다. 영업 브랜드별 사업자 정보는「영업브랜드」에서
           관리합니다.

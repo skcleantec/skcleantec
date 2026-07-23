@@ -15,6 +15,7 @@ import {
   type AdChannelSettlementMode,
 } from '../../api/advertising';
 import { getToken } from '../../stores/auth';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 
 function won(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`;
@@ -263,7 +264,9 @@ export function AdminAdvertisingSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-fluid-xl font-semibold text-gray-800">광고비 정산 설정</h1>
+        <PageTitleWithFavorite label="광고비 정산 설정">
+          <h1 className="text-fluid-xl font-semibold text-gray-800">광고비 정산 설정</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-fluid-sm text-gray-600">
           아래에서 <strong className="font-medium text-gray-800">채널을 새로 추가할지</strong> 정하고, 채널마다{' '}
           <strong className="font-medium text-gray-800">사용함·사용 안 함</strong>·표시 순서·정산 방식을 설정합니다. 사용

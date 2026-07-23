@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { TenantSmtpFieldLabel } from '../../components/admin/TenantSmtpFieldLabel';
 import {
   PROVIDER_PRESETS,
@@ -20,7 +21,9 @@ export function AdminTenantCompanyOutboundEmailPage() {
   return (
     <div className="min-w-0 w-full max-w-3xl space-y-6 pb-8">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">발송 이메일 설정</h1>
+        <PageTitleWithFavorite label="발송 이메일 설정">
+          <h1 className="text-xl font-semibold text-gray-800">발송 이메일 설정</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
           현장 검수 완료본·견적서 등 고객 발송 메일을 업체 메일 계정(SMTP)으로 보냅니다.
         </p>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { getToken } from '../../stores/auth';
 import {
   createOperatingCompany,
@@ -294,7 +295,9 @@ export function AdminOperatingCompaniesPage() {
     <div className="space-y-6 min-w-0 w-full max-w-full">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
+          <PageTitleWithFavorite label="영업 브랜드">
           <h1 className="text-xl font-semibold text-gray-800">영업 브랜드</h1>
+        </PageTitleWithFavorite>
           <p className="mt-1 text-sm text-gray-500">
             SK클린텍·타나클린 등 내부 영업 단위입니다. 타업체(협력사)와 별개입니다.
           </p>

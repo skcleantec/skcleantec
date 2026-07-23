@@ -4,6 +4,7 @@ import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/lis
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { EContractPagedPreviewModal } from '../../components/e-contract/EContractPagedPreviewModal';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import { fetchEContractPublicSession, type PublicSignSessionDto } from '../../api/eContractPublic';
 import { listTeamEContractIssuances, type TeamLeaderEContractIssuanceItem } from '../../api/team';
@@ -309,7 +310,9 @@ export function TeamEContractListPage() {
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-4 pb-4">
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold text-gray-800">전자 계약</h1>
+        <PageTitleWithFavorite label="전자 계약">
+          <h1 className="text-xl font-semibold text-gray-800">전자 계약</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-fluid-sm text-gray-600">
           관리자가 발급한 계약서를 확인하고 같은 화면 흐름으로 서명할 수 있습니다. 체결은 보안 확인을 위해
           안내 페이지로 이동합니다.

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -137,7 +138,9 @@ export function AdminQuotationsListPage() {
             {' · '}
             견적서
           </p>
-          <h1 className={qUi.pageTitle}>견적 목록</h1>
+          <PageTitleWithFavorite label="견적 목록">
+            <h1 className={qUi.pageTitle}>견적 목록</h1>
+          </PageTitleWithFavorite>
           <p className={qUi.pageDesc}>
             작성한 견적서를 조회·수정하고 PDF 발송 이력을 확인합니다.
           </p>
