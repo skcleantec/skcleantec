@@ -851,14 +851,14 @@ export function TeamLayout() {
         </>
       ) : null}
       </div>
-      <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 lg:pr-12 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
+      <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-3 sm:px-4 lg:px-5 lg:pr-12 py-2 sm:py-3 lg:py-4 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
         {isExternalPartner && teamMobilePromos.length > 0 ? (
-          <div className="mb-3 w-full min-w-0 shrink-0 lg:hidden">
+          <div className="mb-2 w-full min-w-0 shrink-0 sm:mb-3 lg:hidden">
             <PlatformPromoCarousel items={teamMobilePromos} />
           </div>
         ) : null}
         {isExternalPartner && teamDesktopPromos.length > 0 ? (
-          <div className="mb-4 hidden w-full min-w-0 shrink-0 lg:block">
+          <div className="mb-3 hidden w-full min-w-0 shrink-0 sm:mb-4 lg:block">
             <PlatformPromoDashboardCard items={teamDesktopPromos} layout="banner" />
           </div>
         ) : null}

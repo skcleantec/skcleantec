@@ -641,9 +641,9 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
     : 'mb-0.5 block text-fluid-xs font-medium text-slate-500';
 
   return (
-    <div className="min-w-0 w-full max-w-full space-y-4">
+    <div className={`min-w-0 w-full max-w-full ${isTeam ? 'space-y-2 sm:space-y-4' : 'space-y-4'}`}>
       <div
-        className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between min-w-0 ${
+        className={`flex flex-col min-w-0 ${isTeam ? 'gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3' : 'gap-3 sm:flex-row sm:items-start sm:justify-between'} ${
           isTeam ? 'sm:mb-0' : ''
         }`}
       >
@@ -651,11 +651,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
           label={pageTitle}
           path={mode === 'admin' ? '/admin/inquiries/cs' : '/team/cs'}
         >
-          <h1
-            className={`shrink-0 font-semibold tracking-tight text-slate-900 ${
-              isTeam ? 'text-fluid-base sm:text-xl' : 'text-xl sm:text-2xl'
-            }`}
-          >
+          <h1 className={isTeam ? undefined : 'text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl'}>
             {pageTitle}
           </h1>
         </PageTitleWithFavorite>
@@ -789,7 +785,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
         ) : (
           <>
             {isTeam && (
-              <div className="px-3 py-2 border-b border-slate-100/80 bg-slate-50/90 flex flex-wrap items-center gap-x-4 gap-y-1 text-fluid-2xs sm:text-fluid-xs text-slate-700">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-slate-100/80 bg-slate-50/90 px-2 py-1.5 text-fluid-2xs text-slate-700 sm:gap-x-4 sm:px-3 sm:py-2 sm:text-fluid-xs">
                 <span className="tabular-nums">
                   <span className="text-slate-500">미완료</span>{' '}
                   <strong className="text-amber-800">{teamIncompleteCount}</strong>건
@@ -805,10 +801,10 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
             )}
             {!isLgUp ? (
               <>
-                <p className="border-b border-slate-100/80 px-4 py-2.5 text-fluid-xs text-slate-500 font-medium">
+                <p className={`border-b border-slate-100/80 font-medium text-slate-500 ${isTeam ? 'px-2 py-1.5 text-fluid-2xs sm:px-4 sm:py-2.5 sm:text-fluid-xs' : 'px-4 py-2.5 text-fluid-xs'}`}>
                   카드를 누르면 C/S 상세 화면이 열립니다.
                 </p>
-                <div className="flex flex-col gap-3 p-3">
+                <div className={`flex flex-col ${isTeam ? 'gap-1.5 p-2 sm:gap-3 sm:p-3' : 'gap-3 p-3'}`}>
                   {displayItems.map((item) => {
                     const assignee = assigneeListLabel(item);
                     const statusLabel =
@@ -828,7 +824,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                         }}
                         className={csMobileCardShellClass(item.status)}
                       >
-                        <div className="px-3 pt-3 pb-2">
+                        <div className={isTeam ? 'px-2 pt-2 pb-1.5 sm:px-3 sm:pt-3 sm:pb-2' : 'px-3 pt-3 pb-2'}>
                           <div className="flex items-start justify-between gap-2 min-w-0">
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">

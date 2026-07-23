@@ -159,19 +159,16 @@ export function TeamDayOffsPage() {
   const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
 
   return (
-    <div className="flex flex-col gap-4 min-w-0">
+    <div className="flex flex-col gap-2 min-w-0 sm:gap-4">
       <PageTitleWithFavorite label="휴무">
-        <h1 className="text-xl font-semibold text-gray-800">
-          <TeamBiLine id="team.dayoffs.pageTitle" koClassName="text-xl font-semibold text-gray-800" />
+        <h1>
+          <TeamBiLine id="team.dayoffs.pageTitle" />
         </h1>
       </PageTitleWithFavorite>
-      <div className="text-sm text-gray-600">
-        <TeamBiLine id="team.dayoffs.intro" koClassName="text-sm text-gray-600" />
-      </div>
 
       {profileReady && !selfEditAllowed && (
         <div
-          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-fluid-sm text-amber-950"
+          className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs text-amber-950 sm:px-4 sm:py-3 sm:text-fluid-sm"
           role="status"
         >
           <TeamBiLine id="team.dayoffs.selfEditDeniedLong" koClassName="text-fluid-sm text-amber-950" />

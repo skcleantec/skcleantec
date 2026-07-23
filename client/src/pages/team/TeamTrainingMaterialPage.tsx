@@ -168,10 +168,10 @@ export function TeamTrainingMaterialPage() {
   const showDesktopViewer = isLgUp && Boolean(pdfUrl) && !pdfLoading;
 
   return (
-    <div className="min-w-0 w-full max-w-full flex flex-col gap-3 sm:gap-4 pb-6 lg:pb-8">
-      <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-5 shadow-sm">
+    <div className="min-w-0 w-full max-w-full flex flex-col gap-2 pb-4 sm:gap-4 lg:pb-8">
+      <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm sm:rounded-2xl sm:p-5">
         <PageTitleWithFavorite label="현장팀장 교육자료">
-          <h1 className="text-base sm:text-lg font-semibold text-gray-900">현장팀장 교육자료</h1>
+          <h1>현장팀장 교육자료</h1>
         </PageTitleWithFavorite>
         {updatedLabel ? (
           <p className="mt-1.5 sm:mt-2 text-fluid-sm text-gray-500">최종 업데이트: {updatedLabel}</p>
@@ -191,8 +191,8 @@ export function TeamTrainingMaterialPage() {
       ) : null}
 
       {!loading && meta?.available && !isLgUp ? (
-        <div className="flex flex-col gap-3">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+        <div className="flex flex-col gap-2 sm:gap-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-5">
             <div className="flex items-start gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
                 <PdfOpenIcon className="h-6 w-6" />
