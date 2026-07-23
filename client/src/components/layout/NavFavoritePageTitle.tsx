@@ -1,7 +1,62 @@
-import { useMemo, type ReactNode } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  useMemo,
+  type CSSProperties,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { useLocation } from 'react-router-dom';
 import { resolvePageNavFavoriteFromPath } from '../../utils/resolveNavFavoriteEntry';
 import { NavFavoriteStar } from './NavFavoriteStar';
+
+/** staff/admin/team 페이지 h1 — viewport fluid + 한 줄 말줄임 */
+export const STAFF_PAGE_TITLE_CLASS =
+  'min-w-0 max-w-full truncate whitespace-nowrap text-fluid-lg font-semibold leading-tight lg:text-fluid-xl';
+
+const FIXED_TITLE_SIZE_CLASS =
+  /\b(?:sm:|md:|lg:|xl:|2xl:)?text-(?:xs|sm|base|lg|xl|2xl|3xl|\[[^\]]+\])\b/g;
+
+const BLOCK_TRUNCATE_CLASS = /\b(?:shrink-0|whitespace-pre-line|whitespace-normal|break-words)\b/g;
+
+export function mergeStaffPageTitleClass(existing?: string): string {
+  const cleaned = (existing ?? '')
+    .replace(FIXED_TITLE_SIZE_CLASS, '')
+    .replace(BLOCK_TRUNCATE_CLASS, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned ? `${STAFF_PAGE_TITLE_CLASS} ${cleaned}` : STAFF_PAGE_TITLE_CLASS;
+}
+
+function enhancePageTitleChild(child: ReactNode): ReactNode {
+  if (!isValidElement(child) || child.type !== 'h1') return child;
+  const el = child as ReactElement<{ className?: string; style?: CSSProperties; children?: ReactNode }>;
+  const mergedClass = mergeStaffPageTitleClass(el.props.className);
+  const nextStyle = el.props.style ? { ...el.props.style } : undefined;
+  if (nextStyle?.fontSize != null) {
+    delete nextStyle.fontSize;
+  }
+  const style = nextStyle && Object.keys(nextStyle).length > 0 ? nextStyle : undefined;
+  const textLabel = typeof el.props.children === 'string' ? el.props.children : undefined;
+  return cloneElement(el, {
+    className: mergedClass,
+    style,
+    ...(textLabel ? { title: textLabel } : {}),
+  } as Partial<typeof el.props>);
+}
+
+export function StaffPageTitle({ className, children, ...props }: ComponentProps<'h1'>) {
+  return (
+    <h1
+      className={mergeStaffPageTitleClass(className)}
+      title={typeof children === 'string' ? children : undefined}
+      {...props}
+    >
+      {children}
+    </h1>
+  );
+}
 
 export type PageTitleWithFavoriteProps = {
   children: ReactNode;
@@ -22,7 +77,7 @@ export function PageTitleWithFavorite({
   navKey,
   label,
   path,
-  className = 'flex min-w-0 items-center gap-1',
+  className = 'flex min-w-0 flex-1 items-center gap-1',
   onDark = false,
   compact = false,
 }: PageTitleWithFavoriteProps) {
@@ -39,7 +94,7 @@ export function PageTitleWithFavorite({
 
   return (
     <div className={className}>
-      {children}
+      {enhancePageTitleChild(children)}
       {favorite ? (
         <NavFavoriteStar
           navKey={favorite.navKey}
