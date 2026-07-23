@@ -162,7 +162,9 @@ export function ListPaginationBar<TPageSize extends number = number>({
   if (mode === 'nav') {
     return (
       <div
-        className={`flex flex-col gap-3 border-t border-gray-200 bg-gray-50/80 px-3 py-3 sm:flex-row sm:items-center sm:justify-center ${className}`}
+        className={`flex flex-col border-t border-gray-200 bg-gray-50/80 sm:flex-row sm:items-center sm:justify-center ${
+          compact ? 'gap-1.5 px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-3' : 'gap-3 px-3 py-3'
+        } ${className}`}
       >
         <ListPaginationNav safePage={safePage} tp={tp} tokens={tokens} onPageChange={onPageChange} />
       </div>

@@ -29,6 +29,15 @@ import { fetchTeamLeaderTrainingMeta } from '../../api/teamLeaderTraining';
 import { assignStaffHomePath, isStandalonePwa } from '../../utils/pwaStandalone';
 import { usePlatformPromos, filterPromosForDesktop, filterPromosForMobile, filterPromosForTeamPath } from '../../hooks/usePlatformPromos';
 import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../platformPromo/PlatformPromoDisplay';
+import { NavFavoritesProvider } from '../../hooks/useNavFavorites';
+import {
+  TeamNavFavoriteDrawerStrip,
+  type TeamNavVisibility,
+} from './TeamNavFavoriteGnbLinks';
+import { TeamMobileNavFavoritesAccess } from './TeamMobileNavFavoritesAccess';
+import { TeamDesktopNavFavoritesAccess } from './TeamDesktopNavFavoritesAccess';
+import { MOBILE_GNB_ITEM_BASE } from './mobileStaffDockStyles';
+import type { StaffDesktopDockDragHandlers } from './staffRightRailStyles';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -423,6 +432,8 @@ export function TeamLayout() {
     role: 'TEAM_LEADER',
   });
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [changelogRailMount, setChangelogRailMount] = useState<HTMLDivElement | null>(null);
+  const [desktopDockDrag, setDesktopDockDrag] = useState<StaffDesktopDockDragHandlers | null>(null);
 
   const reloadTeamMe = useCallback(() => {
     const token = getTeamToken();
@@ -607,7 +618,7 @@ export function TeamLayout() {
   };
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex items-center shrink-0 whitespace-nowrap px-3 py-1.5 text-fluid-xs font-semibold rounded-xl transition-all duration-200 hover:scale-[1.015] active:scale-[0.98] touch-manipulation ${
+    `${MOBILE_GNB_ITEM_BASE} ${
       isActive
         ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/20'
         : 'text-slate-300 hover:text-white hover:bg-white/10'
@@ -676,7 +687,14 @@ export function TeamLayout() {
   const showStaffIdCardDrawer =
     Boolean(staffIdCardUrl) && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER');
 
+  const teamNavFavoriteVisibility: TeamNavVisibility = {
+    isExternalPartner,
+    hideTeamDayoffs,
+    showDbMarketplace,
+  };
+
   return (
+    <NavFavoritesProvider app="team" tenantSlug={tenantSlug} userId={viewerUserId}>
     <div className="relative min-h-0 h-dvh max-h-dvh bg-[#edf0f5] flex flex-col overflow-hidden font-sans antialiased">
       {/* 배경 그라데이션 오브 (요즘 트렌드 데코) */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 max-lg:bg-[#edf0f5]" aria-hidden="true">
@@ -816,6 +834,11 @@ export function TeamLayout() {
               </button>
             </div>
             <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3">
+              <TeamNavFavoriteDrawerStrip
+                teamTo={teamTo}
+                visibility={teamNavFavoriteVisibility}
+                onNavigate={() => setMobileNavOpen(false)}
+              />
               <TeamNavLinks
                 navClass={drawerNavClass}
                 teamTo={teamTo}
@@ -828,7 +851,7 @@ export function TeamLayout() {
         </>
       ) : null}
       </div>
-      <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
+      <main className="staff-app-surface relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 lg:pr-12 py-4 sm:py-6 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] flex flex-col min-h-0">
         {isExternalPartner && teamMobilePromos.length > 0 ? (
           <div className="mb-3 w-full min-w-0 shrink-0 lg:hidden">
             <PlatformPromoCarousel items={teamMobilePromos} />
@@ -860,6 +883,11 @@ export function TeamLayout() {
           onOpenInquiry={(inquiryId) =>
             navigate(`/team/assignments?openInquiry=${encodeURIComponent(inquiryId)}`)
           }
+          desktopDock={
+            changelogRailMount && desktopDockDrag
+              ? { mountNode: changelogRailMount, ...desktopDockDrag }
+              : null
+          }
         />
       )}
       {teamToken && profileOnboardingRequired ? (
@@ -877,6 +905,14 @@ export function TeamLayout() {
           }}
         />
       ) : null}
+      <TeamMobileNavFavoritesAccess teamTo={teamTo} visibility={teamNavFavoriteVisibility} />
+      <TeamDesktopNavFavoritesAccess
+        teamTo={teamTo}
+        visibility={teamNavFavoriteVisibility}
+        onChangelogMount={setChangelogRailMount}
+        onDockDragChange={setDesktopDockDrag}
+      />
     </div>
+    </NavFavoritesProvider>
   );
 }

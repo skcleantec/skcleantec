@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -142,7 +143,9 @@ export function AdminServiceZonesPage() {
             {' · '}
             서비스 권역
           </p>
+          <PageTitleWithFavorite label="서비스 권역">
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">서비스 권역</h1>
+        </PageTitleWithFavorite>
           <p className="text-fluid-sm text-slate-600 mt-1 max-w-2xl">
             팀장 담당 지역·지역 캘린더·배정 규칙의 공통 기준입니다. 권역을 만든 뒤{' '}
             <Link to="/admin/team-leaders" className="font-medium text-violet-800 underline underline-offset-2">

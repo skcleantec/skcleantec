@@ -34,6 +34,7 @@ import {
   resolveQuotationSupplierRegistration,
 } from '../../components/quotations/quotationBrandResolve';
 import { QuotationStatusBadge, qUi } from '../../components/quotations/quotationUi';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { computeQuotationVatAmounts } from '@shared/quotationVat';
 import type { QuotationDocumentType } from '@shared/quotationDocument';
 import { resolveDocumentFooterNotice } from '@shared/quotationDocument';
@@ -444,7 +445,12 @@ export function TeamQuotationEditorPage() {
           {isNew ? '새 견적서' : '편집'}
         </p>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className={qUi.pageTitle}>{isNew ? '새 견적서' : (quoteNumber ?? '견적서')}</h1>
+          <PageTitleWithFavorite
+            label={isNew ? '새 견적서' : (quoteNumber ?? '견적서')}
+            path="/team/quotations/new"
+          >
+            <h1 className={qUi.pageTitle}>{isNew ? '새 견적서' : (quoteNumber ?? '견적서')}</h1>
+          </PageTitleWithFavorite>
           {!isNew && (status === 'SENT' || status === 'FINALIZED') && (
             <QuotationStatusBadge status={status} />
           )}

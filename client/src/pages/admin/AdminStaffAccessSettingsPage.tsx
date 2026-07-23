@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { MarketerAdminLevel } from '@shared/marketerAdminLevel';
 import {
@@ -198,7 +199,9 @@ export function AdminStaffAccessSettingsPage() {
   return (
     <div className="min-w-0 w-full max-w-4xl space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">직원 권한 설정</h1>
+        <PageTitleWithFavorite label="직원 권한 설정">
+          <h1 className="text-xl font-semibold text-gray-800">직원 권한 설정</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
           마케터별로 기본 단계(없음·일부·전체)를 고른 뒤, 필요한 권한만 추가·제거할 수 있습니다.
         </p>

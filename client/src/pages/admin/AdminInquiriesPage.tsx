@@ -34,6 +34,7 @@ import {
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { getUserCustomCalendars, type UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNameWithInternalTone';
@@ -623,7 +624,7 @@ function inquiryMobileCardShellClass(item: InquiryItem, prevItem?: InquiryItem |
         )
       : ('none' as const);
   const base =
-    'rounded-2xl border text-left outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-400 touch-manipulation shadow-md shadow-slate-100/40 hover:shadow-lg hover:scale-[1.01] overflow-hidden';
+    'rounded-lg lg:rounded-2xl border text-left outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-400 touch-manipulation shadow-sm lg:shadow-md lg:shadow-slate-100/40 lg:hover:scale-[1.01] lg:hover:shadow-lg overflow-hidden';
   const tierChanged =
     prevItem != null && inquiryListSortTier(prevItem) !== pinStyle.tier && pinStyle.isPinned;
   const groupGap = tierChanged ? pinStyle.groupTop : '';
@@ -738,9 +739,24 @@ function InquiryListMarketerDisplay({ item }: { item: InquiryItem }) {
 const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
 const TEAM_LEADER_FILTER_UNASSIGNED = '__unassigned__';
 const INQUIRY_LIST_FILTER_LABEL_CLASS =
-  'text-[11px] leading-tight text-slate-600 whitespace-nowrap shrink-0';
+  'text-[10px] leading-tight text-slate-600 whitespace-nowrap shrink-0 sm:text-fluid-2xs';
 const INQUIRY_LIST_FILTER_SELECT_CLASS =
-  'min-w-[5.25rem] max-w-[7.5rem] rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] leading-tight text-slate-900 sm:min-w-[5.75rem] sm:max-w-[8.5rem]';
+  'min-w-[4.75rem] max-w-[7rem] rounded border border-slate-300 bg-white px-1 py-0.5 text-[10px] leading-tight text-slate-900 sm:min-w-[5.25rem] sm:max-w-[7.5rem] sm:text-fluid-2xs';
+const INQUIRY_LIST_DATE_LABEL_CLASS =
+  'shrink-0 text-[10px] leading-tight text-slate-600 sm:text-fluid-2xs';
+const INQUIRY_LIST_DATE_SELECT_CLASS =
+  'rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] leading-tight text-slate-900 sm:text-fluid-2xs';
+const INQUIRY_LIST_SEARCH_ROW_CLASS = 'flex min-w-0 flex-row items-stretch gap-1 sm:gap-1.5';
+const INQUIRY_LIST_SEARCH_INPUT_CLASS =
+  'min-h-8 min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-fluid-2xs text-slate-900 placeholder:text-slate-400';
+const INQUIRY_LIST_STATUS_FILTER_BTN_CLASS =
+  'flex min-h-8 w-[6.75rem] shrink-0 items-center justify-between gap-0.5 rounded border border-slate-300 bg-white px-1.5 py-1 text-fluid-2xs text-slate-900 sm:min-w-[7.25rem] sm:px-2';
+const INQUIRY_LIST_SEARCH_SUBMIT_CLASS =
+  'min-h-8 shrink-0 rounded-lg bg-slate-900 px-2.5 py-1 text-fluid-2xs font-medium text-white hover:bg-slate-800';
+const INQUIRY_MOBILE_CARD_LIST_CLASS = 'flex flex-col gap-1.5 p-1.5 sm:gap-2 sm:p-2 lg:gap-3 lg:p-3';
+const INQUIRY_MOBILE_CARD_BODY_CLASS = 'cursor-pointer px-2 pt-2 pb-1.5 sm:px-3 sm:pt-3 sm:pb-2';
+const INQUIRY_MOBILE_CARD_FOOTER_CLASS =
+  'border-t border-slate-100 bg-slate-50/60 px-2 py-1.5 sm:px-3 sm:py-2';
 
 function labelForMarketerFilter(
   filterId: string,
@@ -2400,18 +2416,20 @@ export function AdminInquiriesPage() {
   };
 
   return (
-    <div className="min-w-0 space-y-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex items-center gap-2 pl-12 lg:pl-0">
-            <h1 className="text-xl font-semibold text-slate-900">서비스접수</h1>
+    <div className="min-w-0 space-y-2 lg:space-y-6">
+      <div className="flex flex-col gap-1.5 lg:gap-2">
+        <div className="flex items-center justify-between gap-3 min-w-0">
+          <div className="flex min-w-0 flex-1 items-center gap-2 pl-12 lg:pl-0">
+            <PageTitleWithFavorite label="서비스접수">
+              <h1 className="text-slate-900">서비스접수</h1>
+            </PageTitleWithFavorite>
           </div>
             {token && (
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={openListIntakeModal}
-                  className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-sky-600 bg-sky-50 px-3 py-2 text-fluid-sm font-medium text-sky-900 hover:bg-sky-100"
+                  className="inline-flex min-h-8 items-center justify-center rounded-lg border border-sky-600 bg-sky-50 px-2 py-1 text-fluid-2xs font-medium text-sky-900 hover:bg-sky-100"
                   title="일반 워크플로우(부재/보류/입금)로 신규 등록"
                 >
                   일반 등록
@@ -2426,9 +2444,10 @@ export function AdminInquiriesPage() {
               </div>
             )}
           </div>
-        <div className="flex flex-col gap-3">
-          <div className="flex w-full flex-wrap items-center gap-2">
-            <span className="text-fluid-sm text-slate-600 shrink-0">날짜 기준</span>
+        <div className="overflow-hidden rounded-md border border-slate-200/80 bg-white">
+          <div className="flex flex-col gap-1 p-1.5 sm:p-2">
+          <div className="flex w-full flex-wrap items-center gap-1">
+            <span className={INQUIRY_LIST_DATE_LABEL_CLASS}>날짜 기준</span>
             <select
               value={dateBasis}
               onChange={(e) => {
@@ -2436,7 +2455,7 @@ export function AdminInquiriesPage() {
                 setDateBasis(e.target.value as 'createdAt' | 'preferredDate');
                 patchInquiryListSearchParams((next) => next.delete('marketerStatsDay'));
               }}
-              className="px-3 py-1.5 border border-slate-200 rounded-lg text-fluid-sm bg-white"
+              className={INQUIRY_LIST_DATE_SELECT_CLASS}
             >
               <option value="createdAt">접수일</option>
               <option value="preferredDate">예약일</option>
@@ -2457,7 +2476,7 @@ export function AdminInquiriesPage() {
                   });
                 }}
                 idPrefix="inq-created-month"
-                className="px-2 py-1.5 border border-slate-300 rounded bg-white"
+                compact
               />
             )}
             {datePreset === 'day' && (
@@ -2474,7 +2493,7 @@ export function AdminInquiriesPage() {
                   });
                 }}
                 idPrefix="inq-created-day"
-                className="px-2 py-1.5 border border-slate-300 rounded bg-white"
+                compact
               />
             )}
             <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end">
@@ -2485,11 +2504,12 @@ export function AdminInquiriesPage() {
                 total={total}
                 onPageChange={handleListPageChange}
                 onPageSizeChange={handleListPageSizeChange}
+                compact
               />
             </div>
           </div>
-          <details className="rounded-lg border border-slate-200 bg-slate-50 overflow-hidden [&_summary::-webkit-details-marker]:hidden">
-            <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-fluid-xs hover:bg-slate-100/80">
+          <details className="overflow-hidden rounded-md border border-slate-200 bg-slate-50 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer select-none items-center gap-1 px-2 py-1 text-fluid-2xs hover:bg-slate-100/80">
               <span className="font-medium text-slate-800">마케터별 확정 예약</span>
               {marketerOverview && (
                 <span className="min-w-0 truncate text-slate-500">
@@ -2504,29 +2524,29 @@ export function AdminInquiriesPage() {
                 ▾
               </span>
             </summary>
-            <div className="border-t border-slate-200 px-3 py-2.5">
+            <div className="border-t border-slate-200 px-2 py-1.5">
             {marketerOverviewLoading ? (
-              <p className="text-fluid-sm text-slate-500">집계를 불러오는 중...</p>
+              <p className="text-fluid-2xs text-slate-500">집계를 불러오는 중...</p>
             ) : marketerOverviewError ? (
-              <div className="text-fluid-sm">
+              <div className="text-fluid-2xs">
                 <p className="text-red-600">{marketerOverviewError}</p>
                 <button
                   type="button"
                   onClick={() => void loadMarketerOverview()}
-                  className="mt-2 text-fluid-sm text-slate-700 underline hover:text-slate-900"
+                  className="mt-1 text-fluid-2xs text-slate-700 underline hover:text-slate-900"
                 >
                   다시 시도
                 </button>
               </div>
             ) : marketerOverview ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-fluid-sm border-collapse min-w-[320px]">
+                <table className="w-full min-w-[320px] border-collapse text-fluid-2xs">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-600">
-                      <th className="text-center py-1.5 pr-3 font-medium">이름</th>
-                      <th className="text-center py-1.5 px-2 font-medium whitespace-nowrap">이번 달</th>
-                      <th className="text-center py-1.5 px-2 font-medium whitespace-nowrap">오늘</th>
-                      <th className="text-center py-1.5 pl-2 font-medium whitespace-nowrap w-16">일별</th>
+                      <th className="py-1 pr-2 text-center font-medium">이름</th>
+                      <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">이번 달</th>
+                      <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">오늘</th>
+                      <th className="w-14 whitespace-nowrap py-1 pl-1.5 text-center font-medium">일별</th>
                     </tr>
                   </thead>
                   <tbody className="text-slate-800">
@@ -2564,10 +2584,10 @@ export function AdminInquiriesPage() {
                             : undefined
                         }
                       >
-                        <td className="py-1.5 pr-3">{m.name}</td>
-                        <td className="py-1.5 px-2 text-right tabular-nums">{m.monthCount}건</td>
-                        <td className="py-1.5 px-2 text-right tabular-nums">{m.todayCount}건</td>
-                        <td className="py-1.5 pl-2 text-center">
+                        <td className="py-1 pr-2">{m.name}</td>
+                        <td className="px-1.5 py-1 text-right tabular-nums">{m.monthCount}건</td>
+                        <td className="px-1.5 py-1 text-right tabular-nums">{m.todayCount}건</td>
+                        <td className="py-1 pl-1.5 text-center">
                           <InquiryMarketerDailyButton
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2585,13 +2605,13 @@ export function AdminInquiriesPage() {
                 </table>
               </div>
             ) : (
-              <p className="text-fluid-sm text-slate-500">집계 데이터가 없습니다.</p>
+              <p className="text-fluid-2xs text-slate-500">집계 데이터가 없습니다.</p>
             )}
             </div>
           </details>
-          <div className="flex flex-col gap-2 min-w-0">
+          <div className="flex min-w-0 flex-col gap-1">
             <div
-              className="flex min-w-0 max-w-full flex-nowrap items-center gap-x-1.5 gap-y-1 overflow-x-auto overscroll-x-contain pb-0.5"
+              className="flex min-w-0 max-w-full flex-nowrap items-center gap-x-1 gap-y-0.5 overflow-x-auto overscroll-x-contain pb-0.5"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && (
@@ -2793,7 +2813,7 @@ export function AdminInquiriesPage() {
                 ) : null}
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className={INQUIRY_LIST_SEARCH_ROW_CLASS}>
               <input
                 type="text"
                 value={searchInput}
@@ -2805,22 +2825,27 @@ export function AdminInquiriesPage() {
                   }
                 }}
                 placeholder="고객명·연락처·접수번호 검색"
-                className="px-3 py-2 border border-slate-300 rounded text-fluid-sm flex-1 min-w-0"
+                className={INQUIRY_LIST_SEARCH_INPUT_CLASS}
               />
               <div className="relative shrink-0" ref={statusFilterPanelRef}>
                 <button
                   type="button"
                   onClick={() => setStatusFilterOpen((prev) => !prev)}
-                  className="flex min-w-[8.75rem] items-center justify-between gap-2 rounded border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
+                  className={INQUIRY_LIST_STATUS_FILTER_BTN_CLASS}
                   aria-haspopup="dialog"
                   aria-expanded={statusFilterOpen}
                   aria-label="상태 필터 선택"
+                  title={statusFilter ? STATUS_LABELS[statusFilter] ?? statusFilter : '전체 상태'}
                 >
-                  <span className="flex items-center gap-1.5">
-                    <span aria-hidden>{statusFilter ? STATUS_ICON_MAP[statusFilter] ?? '📋' : '📋'}</span>
-                    <span>{statusFilter ? STATUS_LABELS[statusFilter] ?? statusFilter : '전체 상태'}</span>
+                  <span className="flex min-w-0 flex-1 items-center gap-0.5 truncate sm:gap-1.5">
+                    <span aria-hidden className="shrink-0">
+                      {statusFilter ? STATUS_ICON_MAP[statusFilter] ?? '📋' : '📋'}
+                    </span>
+                    <span className="truncate">
+                      {statusFilter ? STATUS_LABELS[statusFilter] ?? statusFilter : '전체 상태'}
+                    </span>
                   </span>
-                  <span aria-hidden className="text-slate-500">
+                  <span aria-hidden className="shrink-0 text-slate-500">
                     ▾
                   </span>
                 </button>
@@ -2877,17 +2902,41 @@ export function AdminInquiriesPage() {
               <button
                 type="button"
                 onClick={() => applySearchQuery(searchInput)}
-                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-fluid-sm font-medium hover:bg-slate-800 shrink-0"
+                className={INQUIRY_LIST_SEARCH_SUBMIT_CLASS}
               >
                 조회
               </button>
             </div>
           </div>
+          {!marketerStatsDay ? (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-slate-200/80 bg-slate-50/80 px-2 py-1 text-[10px] text-slate-600 sm:text-fluid-2xs">
+              <span className="font-medium text-slate-700">목록 상단 고정</span>
+              <span className="hidden text-slate-500 md:inline">(날짜·상태 필터와 무관)</span>
+              {([0, 1, 2, 3] as const).map((tier) => (
+                <span key={tier} className="inline-flex items-center gap-1">
+                  <span
+                    className={`inline-block h-2 w-2 rounded-sm sm:h-2.5 sm:w-2.5 ${
+                      tier === 0
+                        ? 'bg-rose-100'
+                        : tier === 1
+                          ? 'bg-emerald-100'
+                          : tier === 2
+                            ? 'bg-sky-100'
+                            : 'bg-amber-100'
+                    }`}
+                    aria-hidden
+                  />
+                  {INQUIRY_LIST_PIN_TIER_LABELS[tier]}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
         </div>
       </div>
 
       {opsDrillParams ? (
-        <p className="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-fluid-xs text-indigo-900">
+        <p className="mb-1.5 rounded-lg border border-indigo-100 bg-indigo-50/70 px-2 py-1 text-fluid-2xs text-indigo-900 lg:mb-3 lg:px-3 lg:py-2 lg:text-fluid-xs">
           대시보드 시간대 필터:{' '}
           {opsDrillBannerLabel({
             fromYmd: opsDrillParams.fromYmd,
@@ -2904,31 +2953,7 @@ export function AdminInquiriesPage() {
         </div>
       )}
 
-      {!marketerStatsDay ? (
-      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-fluid-2xs text-slate-600">
-        <span className="font-medium text-slate-700">목록 상단 고정</span>
-        <span className="text-slate-500">(날짜·상태 필터와 무관)</span>
-        {([0, 1, 2, 3] as const).map((tier) => (
-          <span key={tier} className="inline-flex items-center gap-1">
-            <span
-              className={`inline-block h-2.5 w-2.5 rounded-sm ${
-                tier === 0
-                  ? 'bg-rose-100'
-                  : tier === 1
-                    ? 'bg-emerald-100'
-                    : tier === 2
-                      ? 'bg-sky-100'
-                      : 'bg-amber-100'
-              }`}
-              aria-hidden
-            />
-            {INQUIRY_LIST_PIN_TIER_LABELS[tier]}
-          </span>
-        ))}
-      </div>
-      ) : null}
-
-      <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm min-w-0 overflow-x-hidden">
+      <div className="min-w-0 overflow-x-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm lg:rounded-2xl">
         {shouldShowListBlockingLoading(loading, items.length) ? (
           <div className="p-8 text-center text-slate-500 text-fluid-sm">로딩 중...</div>
         ) : items.length === 0 ? (
@@ -2939,10 +2964,7 @@ export function AdminInquiriesPage() {
           <>
             {!isLgUp ? (
             <>
-            <p className="border-b border-slate-100/80 px-4 py-2.5 text-fluid-xs text-slate-500 font-medium">
-              카드를 누르면 상세 수정 화면이 열립니다. 아래 한 줄에서 상태·빠른 배정을 바꾸고, 그 아래 작업 버튼을 쓸 수 있습니다.
-            </p>
-            <div className="flex flex-col gap-3 p-3">
+            <div className={INQUIRY_MOBILE_CARD_LIST_CLASS}>
               {items.map((item, idx) => {
                 const addrFull = inquiryListAddressFull(item.address, item.addressDetail);
                 const addrShort = addressListShortSiGu(item.address);
@@ -2962,16 +2984,16 @@ export function AdminInquiriesPage() {
                           openEdit(item);
                         }
                       }}
-                      className="cursor-pointer px-3 pt-3 pb-2"
+                      className={INQUIRY_MOBILE_CARD_BODY_CLASS}
                     >
-                      <div className="flex items-start gap-2">
+                      <div className="flex items-start gap-1.5 sm:gap-2">
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                             <CustomerNameWithInternalTone
                               name={item.customerName}
                               tone={item.internalCustomerTone}
                               viewerRole={me?.role}
-                              nameClassName="truncate text-fluid-sm font-semibold text-slate-900"
+                              nameClassName="truncate text-fluid-xs font-semibold text-slate-900 sm:text-fluid-sm"
                             />
                             {item.claimMemo ? (
                               <span className="shrink-0 text-orange-600" title={item.claimMemo} aria-label="클레임">
@@ -3009,38 +3031,35 @@ export function AdminInquiriesPage() {
                           </div>
                           {item.scheduleMemo?.trim() ? (
                             <p
-                              className="mt-1 line-clamp-1 text-fluid-xs text-slate-700"
+                              className="mt-0.5 line-clamp-1 text-fluid-2xs text-slate-700 sm:mt-1 sm:text-fluid-xs"
                               title={item.scheduleMemo}
                             >
                               {item.scheduleMemo}
                             </p>
                           ) : null}
                           <p
-                            className="mt-1 line-clamp-3 text-fluid-xs text-slate-500 leading-snug"
+                            className="mt-0.5 line-clamp-2 text-fluid-2xs leading-snug text-slate-500 sm:mt-1 sm:text-fluid-xs"
                             title={`접수 ${formatDateCompactWithWeekday(item.createdAt)} · ${inquiryMarketerLabel(item)}${collabMarketer ? ` · 협업 ${collabMarketer}` : ''} · ${mobileSpecsTail}`}
                           >
                             접수 {formatDateCompactWithWeekday(item.createdAt)} · {inquiryMarketerLabel(item)}
                             {collabMarketer ? (
-                              <>
-                                <br />
-                                <span className="text-fluid-2xs text-slate-400">협업 {collabMarketer}</span>
-                              </>
+                              <span className="text-slate-400"> · 협업 {collabMarketer}</span>
                             ) : null}
                             <span className="text-slate-600"> · {mobileSpecsTail}</span>
                           </p>
-                          <p className="mt-1.5 line-clamp-2 text-fluid-xs leading-snug text-slate-600" title={addrFull}>
+                          <p className="mt-0.5 line-clamp-1 text-fluid-2xs leading-snug text-slate-600 sm:mt-1 sm:line-clamp-2 sm:text-fluid-xs" title={addrFull}>
                             {addrShort}
                           </p>
                         </div>
                         <a
                           href={`tel:${item.customerPhone}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="shrink-0 self-start rounded-xl bg-indigo-600 px-3.5 py-2 text-center text-fluid-xs font-semibold text-white shadow-sm shadow-indigo-600/10 hover:bg-indigo-700 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
+                          className="shrink-0 self-start rounded-lg bg-indigo-600 px-2 py-1 text-center text-fluid-2xs font-semibold text-white shadow-sm shadow-indigo-600/10 hover:bg-indigo-700 active:scale-[0.97] sm:rounded-xl sm:px-3.5 sm:py-2 sm:text-fluid-xs lg:hover:scale-[1.03] transition-all duration-200"
                         >
                           전화
                         </a>
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-fluid-xs text-slate-700">
+                      <div className="mt-1 flex flex-wrap items-center gap-1 text-fluid-2xs text-slate-700 sm:mt-2 sm:gap-2 sm:text-fluid-xs">
                         <span className="tabular-nums text-slate-800">
                           예약 {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
                         </span>
@@ -3062,10 +3081,9 @@ export function AdminInquiriesPage() {
                         >
                             {inquiryListStatusBadgeText(item)}
                             </span>
-                            <InquiryProfOptionsReviewListBadge item={item} />
                           </div>
                       {promotedListFields.length > 0 ? (
-                        <div className="mt-1.5 flex flex-wrap gap-1.5 text-fluid-2xs text-slate-600">
+                        <div className="mt-1 flex flex-wrap gap-1 text-fluid-2xs text-slate-600 sm:mt-1.5 sm:gap-1.5">
                           {promotedListFields.map((f) => {
                             const v = inquiryListPromotedCellValue(item, f.fieldKey);
                             if (!v) return null;
@@ -3083,12 +3101,12 @@ export function AdminInquiriesPage() {
                       ) : null}
                     </div>
                     <div
-                      className="border-t border-slate-100 bg-slate-50/60 px-3 py-2"
+                      className={INQUIRY_MOBILE_CARD_FOOTER_CLASS}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="grid w-full min-w-0 grid-cols-2 gap-3">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="w-8 shrink-0 text-left text-fluid-2xs font-semibold leading-tight text-slate-500">
+                      <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:gap-3">
+                        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+                          <span className="w-7 shrink-0 text-left text-[10px] font-semibold leading-tight text-slate-500 sm:w-8 sm:text-fluid-2xs">
                             상태
                           </span>
                           <StatusQuickPicker
@@ -3098,8 +3116,8 @@ export function AdminInquiriesPage() {
                             compact
                           />
                         </div>
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="w-8 shrink-0 text-left text-fluid-2xs font-semibold leading-tight text-slate-500">
+                        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+                          <span className="w-7 shrink-0 text-left text-[10px] font-semibold leading-tight text-slate-500 sm:w-8 sm:text-fluid-2xs">
                             배정
                           </span>
                           <select
@@ -3127,7 +3145,7 @@ export function AdminInquiriesPage() {
                                       ? '보류 건에는 분배할 수 없습니다.'
                                       : undefined
                             }
-                            className="min-h-[34px] min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-fluid-2xs sm:text-fluid-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300"
+                            className="min-h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-700 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10 sm:min-h-[34px] sm:px-2 sm:py-1 sm:text-fluid-2xs md:text-fluid-xs"
                           >
                             <option value="">미배정</option>
                             {teamLeaders.map((tl) => (
@@ -3138,7 +3156,7 @@ export function AdminInquiriesPage() {
                           </select>
                         </div>
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2">
+                      <div className="mt-1 flex flex-wrap items-center gap-1 border-t border-slate-100 pt-1 sm:mt-2 sm:gap-1.5 sm:pt-2">
                         {item.status === 'DEPOSIT_PENDING' ? (
                           <>
                             <button
@@ -3882,7 +3900,7 @@ export function AdminInquiriesPage() {
         )}
         {!shouldShowListBlockingLoading(loading, items.length) ? (
           <>
-            <div className="border-t border-slate-100 px-4 py-2 text-fluid-xs text-slate-600">
+            <div className="border-t border-slate-100 px-2 py-1.5 text-fluid-2xs text-slate-600 sm:px-4 sm:py-2 sm:text-fluid-xs">
               {marketerStatsDay ? (
                 <>
                   예약완료 · 집계 기준 {marketerStatsDay}
@@ -3940,7 +3958,6 @@ export function AdminInquiriesPage() {
                 {' '}
                 · 행을 누르면 상세 · 표는 고정 비율 · 좁을 때 하단 가로 스크롤
               </span>
-              <span className="lg:hidden"> · 카드 탭 시 상세</span>
             </div>
             <ListPaginationBar
               mode="nav"
@@ -3949,6 +3966,7 @@ export function AdminInquiriesPage() {
               total={total}
               onPageChange={handleListPageChange}
               onPageSizeChange={handleListPageSizeChange}
+              compact
             />
           </>
         ) : null}

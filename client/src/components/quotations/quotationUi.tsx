@@ -1,4 +1,5 @@
 import type { QuotationStatus } from '../../api/quotations';
+import { STAFF_PAGE_TITLE_CLASS } from '../layout/NavFavoritePageTitle';
 
 export const QUOTATION_STATUS_LABEL: Record<QuotationStatus, string> = {
   DRAFT: '작성 중',
@@ -27,7 +28,7 @@ export const qUi = {
   pageRootNarrow: 'min-w-0 max-w-4xl mx-auto px-4 py-6 space-y-6',
   breadcrumb: 'text-fluid-xs text-slate-500',
   breadcrumbLink: 'hover:text-slate-800 underline-offset-2 hover:underline',
-  pageTitle: 'text-xl sm:text-2xl font-semibold tracking-tight text-slate-900',
+  pageTitle: `${STAFF_PAGE_TITLE_CLASS} tracking-tight`,
   pageDesc: 'text-fluid-sm text-slate-600 mt-1 max-w-2xl',
   card: 'rounded-2xl border border-slate-200/60 bg-white shadow-sm shadow-slate-100/50 min-w-0 overflow-hidden',
   cardBody: 'rounded-2xl border border-slate-200/60 bg-white shadow-sm shadow-slate-100/50 p-4 sm:p-5',

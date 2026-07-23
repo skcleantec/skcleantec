@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   getFormConfig,
@@ -309,7 +310,9 @@ export function AdminOrderFormCustomerPreviewPage() {
   return (
     <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-3">
       <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 sm:px-4">
-        <h2 className="text-fluid-base font-semibold text-gray-900">고객 발주서 편집</h2>
+        <PageTitleWithFavorite label="고객 발주서 편집">
+          <h2 className="text-fluid-base font-semibold text-gray-900">고객 발주서 편집</h2>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-fluid-xs text-gray-400">
           여기서는 <b>모든 발주서에 공통으로 쓰는 메시지·옵션</b>(가격 라벨·하단 안내·제출완료 문구·시간대 안내·견적/전문시공 옵션)을 설정합니다. 발주서별 <b>제목·아이콘·추가 항목</b>은{' '}
           <Link to="/admin/inquiries/order-templates" className="text-blue-700 underline hover:text-blue-800">

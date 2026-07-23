@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { getToken } from '../../stores/auth';
@@ -461,7 +462,9 @@ export function AdminTenantPartnerSettlementPage() {
   return (
     <div className="space-y-4 min-w-0 w-full max-w-full">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">파트너 정산</h1>
+        <PageTitleWithFavorite label="파트너 정산">
+          <h1 className="text-xl font-semibold text-gray-800">파트너 정산</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
           접수 연계 수수료로 파트너별 잔액을 확인하고 정산합니다. 미수금은 월별 마감이 아니라{' '}
           <span className="font-medium text-gray-700">전 기간 누적(정산 기준 수수료 − 전체 정산)</span>

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { Navigate } from 'react-router-dom';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { getToken } from '../../stores/auth';
@@ -166,7 +167,9 @@ export function AdminInquiryBulkDeletePage() {
   return (
     <div className="min-w-0 w-full max-w-full space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">접수건 휴지통 이동</h1>
+        <PageTitleWithFavorite label="접수건 휴지통 이동">
+          <h1 className="text-xl font-semibold text-gray-800">접수건 휴지통 이동</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-fluid-sm text-gray-600">
           <strong className="font-medium">관리자 권한</strong>이 있는 계정만 사용할 수 있습니다. 기준은{' '}
           <strong className="font-medium">접수 등록일(접수일)</strong>의 한국시간(KST)입니다.

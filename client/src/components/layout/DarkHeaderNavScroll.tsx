@@ -1,4 +1,8 @@
 import type { ReactNode } from 'react';
+import {
+  MOBILE_GNB_SCROLL_BTN_CLASS,
+  MOBILE_GNB_SCROLL_ICON_CLASS,
+} from './mobileStaffDockStyles';
 import { useHorizontalNavScroll } from './useHorizontalNavScroll';
 
 function ChevronLeftIcon({ className }: { className?: string }) {
@@ -79,10 +83,10 @@ export function DarkHeaderNavScroll({
             type="button"
             data-admin-nav-scroll-btn
             onClick={scrollPrev}
-            className="pointer-events-auto relative ml-0.5 flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full border border-white/30 bg-slate-700/95 text-white shadow-md shadow-black/25 transition-all hover:bg-slate-600 hover:border-white/40 active:scale-95"
+            className={`pointer-events-auto relative ml-0.5 ${MOBILE_GNB_SCROLL_BTN_CLASS}`}
             aria-label="메뉴가 왼쪽으로 더 있습니다. 탭하면 스크롤됩니다."
           >
-            <ChevronLeftIcon className="h-4 w-4" />
+            <ChevronLeftIcon className={MOBILE_GNB_SCROLL_ICON_CLASS} />
           </button>
         </div>
       ) : null}
@@ -96,10 +100,10 @@ export function DarkHeaderNavScroll({
             type="button"
             data-admin-nav-scroll-btn
             onClick={scrollNext}
-            className="pointer-events-auto relative mr-0.5 flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full border border-white/30 bg-slate-700/95 text-white shadow-md shadow-black/25 transition-all hover:bg-slate-600 hover:border-white/40 active:scale-95"
+            className={`pointer-events-auto relative mr-0.5 ${MOBILE_GNB_SCROLL_BTN_CLASS}`}
             aria-label="메뉴가 오른쪽으로 더 있습니다. 탭하면 스크롤됩니다."
           >
-            <ChevronRightIcon className="h-4 w-4" />
+            <ChevronRightIcon className={MOBILE_GNB_SCROLL_ICON_CLASS} />
           </button>
         </div>
       ) : null}

@@ -15,16 +15,18 @@ export function InquiryDatePresetBar({
 }: {
   active?: InquiryDatePresetId;
   onSelect?: (id: InquiryDatePresetId) => void;
+  /** @deprecated 항상 컴팩트 스타일 */
+  compact?: boolean;
 }) {
   return (
-    <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-fluid-sm">
+    <div className="inline-flex overflow-hidden rounded-md border border-slate-200 text-fluid-2xs">
       {INQUIRY_DATE_PRESETS.map((opt, idx) => (
         <button
           key={opt.id}
           type="button"
           disabled={!onSelect}
           onClick={() => onSelect?.(opt.id)}
-          className={`px-3 py-1.5 font-medium ${idx > 0 ? 'border-l border-slate-200' : ''} ${
+          className={`px-2 py-0.5 font-medium ${idx > 0 ? 'border-l border-slate-200' : ''} ${
             active === opt.id ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
           }`}
         >
@@ -36,7 +38,7 @@ export function InquiryDatePresetBar({
 }
 
 export const inquiryManualIntakeButtonClass =
-  'inline-flex min-h-[40px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-fluid-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-sm';
+  'inline-flex min-h-8 items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-fluid-2xs font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50';
 
 export function InquiryManualIntakeButton({
   children,

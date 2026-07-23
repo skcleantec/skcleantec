@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useSearchParams } from 'react-router-dom';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { useOperatingCompanies } from '../../hooks/useOperatingCompanies';
@@ -498,7 +499,9 @@ export function AdminExternalSettlementPage() {
   return (
     <div className="space-y-4 min-w-0 w-full max-w-full">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">타업체 정산</h1>
+        <PageTitleWithFavorite label="타업체 정산">
+          <h1 className="text-xl font-semibold text-gray-800">타업체 정산</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
           영업 브랜드별로 타업체 정산·지급 내역을 분리해 관리합니다. 미수금은 월별 마감이 아니라{' '}
           <span className="font-medium text-gray-700">전 기간 누적(진행·예약완료 수수료 − 전체 정산)</span>

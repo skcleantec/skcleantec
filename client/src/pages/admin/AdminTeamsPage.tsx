@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { createPortal } from 'react-dom';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
@@ -668,7 +669,9 @@ export function AdminTeamsPage() {
   return (
     <div className="flex flex-col gap-6 min-w-0 max-w-4xl">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">팀원 관리</h1>
+        <PageTitleWithFavorite label="팀원 관리">
+          <h1 className="text-xl font-semibold text-gray-800">팀원 관리</h1>
+        </PageTitleWithFavorite>
         <p className="text-sm text-gray-600 mt-1">
           현장 투입 인원을 등록합니다. 예약일마다 접수 가능한 투입 수는{' '}
           <span className="text-gray-800">활성 팀원 수 − 그날 휴무</span>로 맞춥니다. 목록에서 휴무일·이름·연락처·사용

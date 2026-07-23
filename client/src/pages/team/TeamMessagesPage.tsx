@@ -8,6 +8,7 @@ import { formatDateTimeCompactWithWeekday } from '../../utils/dateFormat';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 
 interface Message {
   id: string;
@@ -121,9 +122,11 @@ export function TeamMessagesPage() {
 
   return (
     <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0 h-full overflow-hidden">
-      <h1 className="text-xl font-semibold text-gray-800 shrink-0">
-        <TeamBiLine id="team.messages.title" koClassName="text-xl font-semibold text-gray-800" />
-      </h1>
+      <PageTitleWithFavorite label="메시지">
+        <h1 className="text-xl font-semibold text-gray-800 shrink-0">
+          <TeamBiLine id="team.messages.title" koClassName="text-xl font-semibold text-gray-800" />
+        </h1>
+      </PageTitleWithFavorite>
 
       {loadError && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded px-3 py-2 shrink-0">{loadError}</p>

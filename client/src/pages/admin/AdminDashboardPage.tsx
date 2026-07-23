@@ -17,6 +17,7 @@ import { kstMonthKeyNow } from '../../components/admin/dashboard/dashboardDrilld
 import { useTelecrmDashboardVisible } from '../../hooks/useTelecrmDashboardVisible';
 import { usePlatformPromos } from '../../hooks/usePlatformPromos';
 import { PlatformPromoCarousel, PlatformPromoDashboardCard } from '../../components/platformPromo/PlatformPromoDisplay';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 
 export function AdminDashboardPage() {
   const navigate = useNavigate();
@@ -111,10 +112,12 @@ export function AdminDashboardPage() {
   return (
     <div className="min-w-0 w-full">
       <div className="mb-6 lg:mb-8 flex flex-wrap items-center gap-2 lg:gap-3 min-w-0">
-        <h1 className="text-fluid-xl lg:text-fluid-2xl font-extrabold tracking-tight text-slate-900 flex items-baseline gap-2 whitespace-nowrap min-w-0">
-          <span className="truncate">{tenantName ? tenantName : 'Dashboard'}</span>
-          {tenantName ? <span className="text-fluid-lg font-medium text-slate-400 tracking-normal shrink-0">Dashboard</span> : null}
-        </h1>
+        <PageTitleWithFavorite label="대시보드">
+          <h1 className="text-fluid-xl lg:text-fluid-2xl font-extrabold tracking-tight text-slate-900 flex items-baseline gap-2 whitespace-nowrap min-w-0">
+            <span className="truncate">{tenantName ? tenantName : 'Dashboard'}</span>
+            {tenantName ? <span className="text-fluid-lg font-medium text-slate-400 tracking-normal shrink-0">Dashboard</span> : null}
+          </h1>
+        </PageTitleWithFavorite>
         <span className="shrink-0 inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[10px] font-bold text-indigo-600 tracking-widest uppercase ring-1 ring-inset ring-indigo-500/10">
           Workspace
         </span>

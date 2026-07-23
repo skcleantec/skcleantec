@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
@@ -706,7 +707,9 @@ export function AdminTeamLeadersPage() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 min-w-0 text-center">
       <div className="w-full text-left pl-12 lg:pl-0">
-        <h1 className="text-xl font-semibold text-gray-800">사용자 등록</h1>
+        <PageTitleWithFavorite label="사용자 등록">
+          <h1 className="text-xl font-semibold text-gray-800">사용자 등록</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-sm text-gray-500">
           탭으로 팀장·마케터·사무직을 구분해 등록·수정합니다. 「상세·수정」에서 사원증 사진을 넣을 수 있습니다. 사무직은
           정산·월급 관리용이며 업무 로그인은 하지 않습니다. 현장 팀원은{' '}

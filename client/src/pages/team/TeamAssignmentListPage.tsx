@@ -50,6 +50,7 @@ import {
   type InquiryListPageSize,
 } from '../../utils/listPagination';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
 
 function kstMonthKeyNow(): string {
@@ -300,9 +301,11 @@ export function TeamAssignmentListPage() {
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-2 pb-4 sm:gap-4">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">
-          <TeamBiLine id="team.assign.title" koClassName="text-xl font-semibold text-gray-800" />
-        </h1>
+        <PageTitleWithFavorite label="배정목록">
+          <h1 className="text-xl font-semibold text-gray-800">
+            <TeamBiLine id="team.assign.title" koClassName="text-xl font-semibold text-gray-800" />
+          </h1>
+        </PageTitleWithFavorite>
       </div>
 
       {(happyStats.overdueCount > 0 || happyStats.pendingBeforeDeadlineCount > 0) && (

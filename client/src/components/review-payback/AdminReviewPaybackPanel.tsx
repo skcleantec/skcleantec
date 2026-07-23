@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
 import { beginListRefresh } from '../../utils/listRefreshDisplay';
 import { Link } from 'react-router-dom';
+import { PageTitleWithFavorite } from '../layout/NavFavoritePageTitle';
 import {
   deleteReviewPayback,
   getReviewPayback,
@@ -262,7 +263,9 @@ export function AdminReviewPaybackPanel({ token }: Props) {
   return (
     <div className="min-w-0 space-y-4">
       <div>
-        <h1 className="text-fluid-lg font-semibold text-slate-900">페이백/리뷰</h1>
+        <PageTitleWithFavorite label="페이백/리뷰">
+          <h1 className="text-fluid-lg font-semibold text-slate-900">페이백/리뷰</h1>
+        </PageTitleWithFavorite>
         <p className="mt-1 text-fluid-xs text-slate-500">
           고객이 페이백 링크로 제출한 리뷰 캡처·계좌 신청 목록입니다. 입금 금액은 시스템에서 관리하지 않습니다.
         </p>

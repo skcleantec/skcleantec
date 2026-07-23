@@ -4,6 +4,7 @@ import { getToken } from '../../stores/auth';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { OrderFormTemplatePreview } from '../../components/admin/OrderFormTemplatePreview';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { getDesignerPreviewOrderToken } from '../../api/orderform';
 import { appendPublicQuery } from '../../utils/publicTenantQuery';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
@@ -497,10 +498,12 @@ export function AdminOrderFormTemplatesPage() {
     <div className="min-w-0 w-full max-w-full">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-900 sm:text-xl">
-            발주서 양식 관리
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <PageTitleWithFavorite label="발주서 양식 관리">
+              <h1 className="text-lg font-semibold text-gray-900 sm:text-xl">발주서 양식 관리</h1>
+            </PageTitleWithFavorite>
             <HelpTooltip text="고객에게 보낼 발주서를 직접 만들 수 있습니다. 항목을 자유롭게 추가하되, 발행하려면 필수 항목(고객명·전화·주소·금액·평수·희망일·시간대)을 시스템 필드로 연결해야 합니다." />
-          </h1>
+          </div>
           <p className="mt-1 text-fluid-xs text-gray-500">구글폼처럼 항목을 구성하고, 시스템 필드로 연결하면 접수·스케줄에 자동 반영됩니다.</p>
           <p className="mt-1 text-fluid-xs text-gray-400">
             여기서는 <b>발주서별 제목·아이콘·항목 구성</b>을 만듭니다. 가격 라벨·하단 안내·제출완료 문구·시간대 안내 등 <b>모든 발주서에 공통으로 쓰는 메시지·옵션</b>은{' '}
