@@ -3,9 +3,12 @@ import {
   createPlatformPartnerPromo,
   deletePlatformPartnerPromo,
   fetchPlatformPartnerPromos,
+  fetchPlatformPartnerPromoSettings,
   reorderPlatformPartnerPromos,
   updatePlatformPartnerPromo,
+  updatePlatformPartnerPromoSettings,
   uploadPlatformPartnerPromoImage,
+  type PlatformPartnerPromoSettings,
   type PlatformPromoAdminItem,
   type PlatformPromoUpsertBody,
 } from '../../api/platformPartnerPromo';
@@ -19,6 +22,14 @@ import {
   formatPlatformPromoTeamMenus,
   PLATFORM_PROMO_TEAM_MENUS,
 } from '@shared/platformPromoTeamSurfaces';
+import {
+  PLATFORM_PROMO_ORDER_MODE_LABELS,
+  PLATFORM_PROMO_ORDER_MODE_OVERRIDE_LABELS,
+  PLATFORM_PROMO_ORDER_MODES,
+  PLATFORM_PROMO_ORDER_MODE_OVERRIDES,
+  type PlatformPromoOrderMode,
+  type PlatformPromoOrderModeOverride,
+} from '@shared/platformPromoOrderMode';
 
 type FormState = {
   title: string;
@@ -36,6 +47,7 @@ type FormState = {
   showOnTeamDashboard: boolean;
   showOnTeamAssignments: boolean;
   showOnTeamSchedule: boolean;
+  orderModeOverride: PlatformPromoOrderModeOverride;
 };
 
 const emptyForm = (): FormState => ({
@@ -54,6 +66,7 @@ const emptyForm = (): FormState => ({
   showOnTeamDashboard: true,
   showOnTeamAssignments: true,
   showOnTeamSchedule: true,
+  orderModeOverride: 'INHERIT',
 });
 
 function toLocalInput(iso: string | null): string {
@@ -81,6 +94,7 @@ function formFromItem(item: PlatformPromoAdminItem): FormState {
     showOnTeamDashboard: item.showOnTeamDashboard !== false,
     showOnTeamAssignments: item.showOnTeamAssignments !== false,
     showOnTeamSchedule: item.showOnTeamSchedule !== false,
+    orderModeOverride: item.orderModeOverride ?? 'INHERIT',
   };
 }
 
@@ -111,6 +125,7 @@ function formToBody(form: FormState): PlatformPromoUpsertBody {
     showOnTeamDashboard: form.showOnTeamDashboard,
     showOnTeamAssignments: form.showOnTeamAssignments,
     showOnTeamSchedule: form.showOnTeamSchedule,
+    orderModeOverride: form.orderModeOverride,
   };
 }
 
@@ -159,6 +174,8 @@ function ImageUploadField({
 
 export function PlatformPartnerPromoSettingsPage() {
   const [items, setItems] = useState<PlatformPromoAdminItem[]>([]);
+  const [orderSettings, setOrderSettings] = useState<PlatformPartnerPromoSettings | null>(null);
+  const [savingOrderSettings, setSavingOrderSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -172,7 +189,12 @@ export function PlatformPartnerPromoSettingsPage() {
     setLoading(true);
     setError('');
     try {
-      setItems(await fetchPlatformPartnerPromos());
+      const [list, settings] = await Promise.all([
+        fetchPlatformPartnerPromos(),
+        fetchPlatformPartnerPromoSettings(),
+      ]);
+      setItems(list);
+      setOrderSettings(settings);
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
     } finally {
@@ -264,6 +286,47 @@ export function PlatformPartnerPromoSettingsPage() {
     }
   };
 
+  const saveOrderSettings = async (
+    patch: Partial<Pick<PlatformPartnerPromoSettings, 'externalPartnerOrderMode' | 'tenantStaffOrderMode'>>,
+  ) => {
+    if (!orderSettings) return;
+    setSavingOrderSettings(true);
+    setError('');
+    setMessage('');
+    try {
+      const next = await updatePlatformPartnerPromoSettings(patch);
+      setOrderSettings(next);
+      setMessage('표시 순서 설정을 저장했습니다.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '설정 저장 실패');
+    } finally {
+      setSavingOrderSettings(false);
+    }
+  };
+
+  const orderModeSelect = (
+    id: string,
+    label: string,
+    value: PlatformPromoOrderMode,
+    onChange: (mode: PlatformPromoOrderMode) => void,
+  ) => (
+    <label key={id} className="block space-y-1">
+      <span className="text-fluid-xs font-semibold text-slate-700">{label}</span>
+      <select
+        className={INPUT_BASE}
+        value={value}
+        disabled={savingOrderSettings || loading}
+        onChange={(e) => onChange(e.target.value as PlatformPromoOrderMode)}
+      >
+        {PLATFORM_PROMO_ORDER_MODES.map((mode) => (
+          <option key={mode} value={mode}>
+            {PLATFORM_PROMO_ORDER_MODE_LABELS[mode]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
   return (
     <div className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -284,6 +347,34 @@ export function PlatformPartnerPromoSettingsPage() {
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-fluid-xs text-emerald-800">{message}</div>
       ) : null}
 
+      <div className={`${CARD_SECTION} space-y-3`}>
+        <div>
+          <h2 className="text-fluid-sm font-bold text-slate-900">표시 순서 기본값</h2>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+            노출 대상별 기본 순서입니다. 「고정순서」는 아래 목록 순서(↑↓)대로, 「랜덤」은 조회마다 무작위로 섞입니다.
+            배너별로 개별 지정하면 해당 배너만 고정·랜덤을 덮어씁니다.
+          </p>
+        </div>
+        {orderSettings ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {orderModeSelect(
+              'external-partner-order',
+              '타업체 (/team)',
+              orderSettings.externalPartnerOrderMode,
+              (externalPartnerOrderMode) => void saveOrderSettings({ externalPartnerOrderMode }),
+            )}
+            {orderModeSelect(
+              'tenant-staff-order',
+              '테넌트 대시보드 (/admin/dashboard)',
+              orderSettings.tenantStaffOrderMode,
+              (tenantStaffOrderMode) => void saveOrderSettings({ tenantStaffOrderMode }),
+            )}
+          </div>
+        ) : loading ? (
+          <p className="text-fluid-xs text-slate-500">설정 불러오는 중…</p>
+        ) : null}
+      </div>
+
       <div className={CARD_SECTION}>
         {loading ? (
           <p className="text-fluid-sm text-slate-500">불러오는 중…</p>
@@ -295,6 +386,7 @@ export function PlatformPartnerPromoSettingsPage() {
               <thead>
                 <tr className="border-b border-slate-200 text-center text-slate-600">
                   <th className="px-2 py-2">순서</th>
+                  <th className="px-2 py-2">표시</th>
                   <th className="px-2 py-2">제목</th>
                   <th className="px-2 py-2">상태</th>
                   <th className="px-2 py-2">노출</th>
@@ -320,6 +412,9 @@ export function PlatformPartnerPromoSettingsPage() {
                           ↓
                         </button>
                       </div>
+                    </td>
+                    <td className="px-2 py-2 text-center text-[11px]">
+                      {PLATFORM_PROMO_ORDER_MODE_OVERRIDE_LABELS[item.orderModeOverride ?? 'INHERIT']}
                     </td>
                     <td className="max-w-[10rem] truncate px-2 py-2 text-center" title={item.title}>
                       {item.title}
@@ -476,6 +571,29 @@ export function PlatformPartnerPromoSettingsPage() {
                   />
                   테넌트 대시보드 (/admin/dashboard)
                 </label>
+              </fieldset>
+              <fieldset className="space-y-2">
+                <legend className="text-fluid-xs font-semibold text-slate-700">표시 순서 (이 배너)</legend>
+                <select
+                  className={INPUT_BASE}
+                  value={form.orderModeOverride}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      orderModeOverride: e.target.value as PlatformPromoOrderModeOverride,
+                    }))
+                  }
+                >
+                  {PLATFORM_PROMO_ORDER_MODE_OVERRIDES.map((mode) => (
+                    <option key={mode} value={mode}>
+                      {PLATFORM_PROMO_ORDER_MODE_OVERRIDE_LABELS[mode]}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  「기본 따름」은 위 플랫폼 설정(타업체·테넌트)을 사용합니다. 고정순서는 목록 ↑↓ 순서를 유지하고, 랜덤은
+                  무작위 풀에 포함됩니다.
+                </p>
               </fieldset>
               <fieldset className="space-y-2">
                 <legend className="text-fluid-xs font-semibold text-slate-700">노출 기기</legend>

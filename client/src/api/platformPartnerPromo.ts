@@ -3,6 +3,10 @@ import { getToken } from '../stores/auth';
 import { getTeamToken } from '../stores/teamAuth';
 import { getPlatformToken } from '../stores/platformAuth';
 import { withTeamPreviewQuery } from '../utils/teamPreviewQuery';
+import type {
+  PlatformPromoOrderMode,
+  PlatformPromoOrderModeOverride,
+} from '@shared/platformPromoOrderMode';
 
 export type PlatformPromoActiveItem = {
   id: string;
@@ -11,6 +15,7 @@ export type PlatformPromoActiveItem = {
   linkUrl: string | null;
   linkTarget: string;
   sortOrder: number;
+  orderModeOverride: PlatformPromoOrderModeOverride;
   showOnMobile: boolean;
   showOnDesktop: boolean;
   showOnTeamDashboard?: boolean;
@@ -51,6 +56,13 @@ export type PlatformPromoUpsertBody = {
   showOnTeamDashboard?: boolean;
   showOnTeamAssignments?: boolean;
   showOnTeamSchedule?: boolean;
+  orderModeOverride?: PlatformPromoOrderModeOverride;
+};
+
+export type PlatformPartnerPromoSettings = {
+  externalPartnerOrderMode: PlatformPromoOrderMode;
+  tenantStaffOrderMode: PlatformPromoOrderMode;
+  updatedAt: string;
 };
 
 function platformHeaders() {
@@ -66,6 +78,26 @@ export async function fetchPlatformPartnerPromos(): Promise<PlatformPromoAdminIt
   const data = (await res.json()) as { items?: PlatformPromoAdminItem[]; error?: string };
   if (!res.ok) throw new Error(data.error ?? '목록을 불러올 수 없습니다.');
   return data.items ?? [];
+}
+
+export async function fetchPlatformPartnerPromoSettings(): Promise<PlatformPartnerPromoSettings> {
+  const res = await fetch(`${API}/platform/partner-promos/settings`, { headers: platformHeaders() });
+  const data = (await res.json()) as PlatformPartnerPromoSettings & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '설정을 불러올 수 없습니다.');
+  return data;
+}
+
+export async function updatePlatformPartnerPromoSettings(
+  body: Partial<Pick<PlatformPartnerPromoSettings, 'externalPartnerOrderMode' | 'tenantStaffOrderMode'>>,
+): Promise<PlatformPartnerPromoSettings> {
+  const res = await fetch(`${API}/platform/partner-promos/settings`, {
+    method: 'PATCH',
+    headers: platformHeaders(),
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json()) as PlatformPartnerPromoSettings & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '설정 저장에 실패했습니다.');
+  return data;
 }
 
 export async function createPlatformPartnerPromo(body: PlatformPromoUpsertBody): Promise<PlatformPromoAdminItem> {
