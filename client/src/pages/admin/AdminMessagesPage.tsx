@@ -3,7 +3,7 @@ import { broadcastToField, getConversations, getMessages, sendMessage } from '..
 import { getToken } from '../../stores/auth';
 import { useMessageThreadPoll } from '../../hooks/useMessageThreadPoll';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
-import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { PageTitleWithFavorite, StaffPageTitle } from '../../components/layout/NavFavoritePageTitle';
 
 interface Conversation {
   id: string;
@@ -339,18 +339,11 @@ export function AdminMessagesPage() {
     >
       {/* 페이지 제목 - 모바일에서 채팅중일 때 숨김 */}
       <PageTitleWithFavorite label="메시지">
-        <h1
-          style={{
-            fontSize: 20,
-            fontWeight: 700,
-            color: '#0f172a',
-            letterSpacing: '-0.01em',
-            flexShrink: 0,
-          }}
-          className={mobileChatActive ? 'max-md:hidden' : undefined}
+        <StaffPageTitle
+          className={`text-slate-900 tracking-tight${mobileChatActive ? ' max-md:hidden' : ''}`}
         >
           메시지
-        </h1>
+        </StaffPageTitle>
       </PageTitleWithFavorite>
 
       {/* 일괄 공지 패널 - 모바일에서 채팅중일 때 숨김 */}
