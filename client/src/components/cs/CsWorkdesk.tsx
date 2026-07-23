@@ -44,7 +44,8 @@ import {
   parseListPage,
   type InquiryListPageSize,
 } from '../../utils/listPagination';
-import { formatInquirySourceLabel, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
+import { isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
+import { InquiryIntakeMetaLabels } from '../inquiry/InquiryIntakeMetaLabels';
 import { getAssignableScheduleUsers, formatAssignableUserLabel, type UserItem } from '../../api/users';
 import { getCsPublicUrl } from '../../utils/orderFormCustomerCopy';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
@@ -1464,10 +1465,13 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   </p>
                 </div>
                 {!isInquirySourceHiddenFromUi(connectedInquiryModal.source) ? (
-                  <div>
-                    <span className={inquiryFieldLabelClass}>출처</span>
-                    <p className="truncate text-slate-800" title={formatInquirySourceLabel(connectedInquiryModal.source)}>
-                      {formatInquirySourceLabel(connectedInquiryModal.source)}
+                  <div className="sm:col-span-2">
+                    <span className={inquiryFieldLabelClass}>유입 · 접수 경로</span>
+                    <p className="text-slate-800">
+                      <InquiryIntakeMetaLabels
+                        source={connectedInquiryModal.source}
+                        intakeChannel={connectedInquiryModal.intakeChannel}
+                      />
                     </p>
                   </div>
                 ) : null}

@@ -1,4 +1,7 @@
-import { isManualIntakeInquiry } from './manualIntakeInquiry';
+import {
+  formatInquiryLeadPlatformLabel,
+  formatInquiryIntakeChannelLabel,
+} from '@shared/inquiryIntakeChannel';
 import {
   isOrderFormPendingPlaceholderAddress,
   customerFormAddressFromInquiry,
@@ -9,13 +12,12 @@ export function isInquirySourceHiddenFromUi(source: string | null | undefined): 
   return (source ?? '').trim() === '시드';
 }
 
-/** 접수 출처 표시 — 빈 값은 대시, 수기(간편) 등록은 통일 문구 */
+/** @deprecated 목록·상세는 formatInquiryLeadPlatformLabel / InquiryIntakeMetaLabels 사용 */
 export function formatInquirySourceLabel(source: string | null | undefined): string {
-  const s = (source ?? '').trim();
-  if (!s) return '-';
-  if (isManualIntakeInquiry(source)) return '수기등록';
-  return s;
+  return formatInquiryLeadPlatformLabel(source);
 }
+
+export { formatInquiryLeadPlatformLabel, formatInquiryIntakeChannelLabel };
 
 /** 목록용: 시·구(또는 도·시·구)까지만 — 열 폭 절약, 전체는 title로 */
 export function addressListShortSiGu(address: string): string {
@@ -50,6 +52,16 @@ export function phoneListTwoLines(phone: string): { head: string; tail: string }
   const d = phone.replace(/\D/g, '');
   if (d.length !== 11) return null;
   return { head: d.slice(0, 3), tail: `${d.slice(3, 7)}-${d.slice(7, 11)}` };
+}
+
+/** 목록 한 줄 — 010-1234-5678 */
+export function phoneListOneLine(phone: string | null | undefined): string {
+  const raw = (phone ?? '').trim();
+  if (!raw) return '—';
+  const d = raw.replace(/\D/g, '');
+  if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return raw;
 }
 
 /**

@@ -165,6 +165,10 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   if (body.crewMemberNote !== undefined) {
     data.crewMemberNote = body.crewMemberNote ? String(body.crewMemberNote) : null;
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'source')) {
+    const v = body.source;
+    data.source = v == null || v === '' ? null : String(v);
+  }
   if (Object.prototype.hasOwnProperty.call(body, 'createdById')) {
     const v = body.createdById;
     if (v == null || v === '') {

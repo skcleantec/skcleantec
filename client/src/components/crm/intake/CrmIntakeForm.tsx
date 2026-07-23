@@ -13,6 +13,7 @@ import {
 import { crmIntakePermissionLabel } from './crmIntakeValidation';
 import { crmFieldCompactClass } from '../crmUi';
 import { CrmRequestMemoField } from './CrmRequestMemoField';
+import { InquiryLeadSourceSelect } from '../../inquiry/InquiryLeadSourceSelect';
 
 const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
   { value: 'absent', label: ORDER_FOLLOWUP_STATUS_LABEL.ABSENT, hint: '부재현황' },
@@ -75,6 +76,8 @@ export function CrmIntakeForm({
   const [balconyCount, setBalconyCount] = useState('');
   const [kind, setKind] = useState<CrmIntakeKind>('absent');
   const [goldDb, setGoldDb] = useState(false);
+  const [leadSource, setLeadSource] = useState('');
+  const [extractPlatform, setExtractPlatform] = useState<'miso' | 'soomgo' | undefined>(undefined);
   const [showMore, setShowMore] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -104,6 +107,8 @@ export function CrmIntakeForm({
     if (initialFormDraft.balconyCount != null) setBalconyCount(initialFormDraft.balconyCount);
     if (initialFormDraft.kind != null) setKind(initialFormDraft.kind);
     if (initialFormDraft.goldDb != null) setGoldDb(initialFormDraft.goldDb);
+    if (initialFormDraft.leadSource != null) setLeadSource(initialFormDraft.leadSource);
+    if (initialFormDraft.extractPlatform != null) setExtractPlatform(initialFormDraft.extractPlatform);
     if (
       initialFormDraft.address ||
       initialFormDraft.preferredMoveInCleanYmd ||
@@ -133,6 +138,8 @@ export function CrmIntakeForm({
     setBalconyCount('');
     setKind('absent');
     setGoldDb(false);
+    setLeadSource('');
+    setExtractPlatform(undefined);
     setShowMore(false);
     appliedDraftRef.current = 0;
   }, [formResetKey]);
@@ -151,6 +158,8 @@ export function CrmIntakeForm({
         balconyCount,
         kind,
         goldDb,
+        leadSource,
+        extractPlatform,
       });
     }, 400);
     return () => window.clearTimeout(t);
@@ -165,6 +174,8 @@ export function CrmIntakeForm({
     balconyCount,
     kind,
     goldDb,
+    leadSource,
+    extractPlatform,
     onFormChange,
   ]);
 
@@ -199,6 +210,8 @@ export function CrmIntakeForm({
           balconyCount,
           kind,
           goldDb,
+          leadSource,
+          extractPlatform,
         },
         pyeong,
         { operatingCompanyId, quotePayload },
@@ -269,6 +282,17 @@ export function CrmIntakeForm({
           ))}
         </div>
       </fieldset>
+
+      <label className="block space-y-0.5">
+        <span className="text-[11px] font-medium text-slate-600">유입 경로 *</span>
+        <InquiryLeadSourceSelect
+          value={leadSource}
+          onChange={setLeadSource}
+          required
+          disabled={saving}
+          className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 && leadSource.trim() ? flashRing : ''}`}
+        />
+      </label>
 
       {kind === 'received' ? (
         <label className="block space-y-0.5">

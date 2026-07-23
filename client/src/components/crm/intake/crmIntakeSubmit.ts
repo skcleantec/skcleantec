@@ -35,6 +35,10 @@ export type CrmIntakeFormValues = {
   balconyCount: string;
   kind: CrmIntakeKind;
   goldDb: boolean;
+  /** 유입 플랫폼 — 카탈로그 label, 저장 전 필수(브릿지 extract 시 자동) */
+  leadSource: string;
+  /** 텔레CRM 정보 갖고오기 출처(변경 이력용) */
+  extractPlatform?: 'miso' | 'soomgo';
 };
 
 export type CrmIntakeSubmitResult = {
@@ -96,6 +100,15 @@ export async function submitCrmIntake(
   const stored = resolveCrmStoredPhones(values.contactPhone, values.safePhone);
   const outbound = resolveCrmOutboundPhone(values.contactPhone, values.safePhone);
   const followupMemo = values.requestMemo.trim() || null;
+  const intakeMeta = {
+    channel: 'telecrm' as const,
+    ...(values.extractPlatform ? { extractPlatform: values.extractPlatform } : {}),
+  };
+  const inquiryCreateBody = {
+    strictLeadSource: true,
+    intakeMeta,
+    source: values.leadSource.trim(),
+  };
 
   if (values.kind === 'requested' || values.kind === 'absent' || values.kind === 'hold') {
     const status: OrderFollowupStatus =
@@ -119,6 +132,8 @@ export async function submitCrmIntake(
           ...(pmd ? { preferredMoveInCleaningDate: pmd } : {}),
           followupStatus: status as 'ABSENT' | 'ON_HOLD',
           extraMemo: followupMemo,
+          leadSource: values.leadSource.trim(),
+          strictLeadSource: true,
         },
         operatingCompanyId,
       );
@@ -132,6 +147,8 @@ export async function submitCrmIntake(
       status,
       memo: followupMemo,
       goldDb: values.goldDb,
+      leadSource: values.leadSource.trim(),
+      strictLeadSource: true,
       ...pmdBody,
       ...brandBody,
     });
@@ -147,8 +164,8 @@ export async function submitCrmIntake(
       address: values.address.trim(),
       addressDetail: null,
       memo: followupMemo,
-      source: '전화',
       status: 'RECEIVED',
+      ...inquiryCreateBody,
       ...extras,
       ...brandBody,
     })) as { id: string };
@@ -164,8 +181,8 @@ export async function submitCrmIntake(
     address: values.address.trim() || '',
     addressDetail: null,
     memo: followupMemo,
-    source: '전화',
     status: inqSt,
+    ...inquiryCreateBody,
     ...extras,
     ...brandBody,
   })) as { id: string };
@@ -179,6 +196,8 @@ export async function submitCrmIntake(
     memo: followupMemo,
     goldDb: values.goldDb,
     inquiryId: created.id,
+    leadSource: values.leadSource.trim(),
+    strictLeadSource: true,
     ...pmdBody,
     ...brandBody,
   });

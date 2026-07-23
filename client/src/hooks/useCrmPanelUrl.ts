@@ -124,12 +124,23 @@ export function useCrmPanelUrl() {
   );
 
   const soomgoBarOpen = searchParams.get('soomgoBar') === '1';
+  const misoBarOpen = searchParams.get('misoBar') === '1';
 
   const setSoomgoBarOpen = useCallback(
     (open: boolean) => {
       patchParams((next) => {
         if (open) next.set('soomgoBar', '1');
         else next.delete('soomgoBar');
+      });
+    },
+    [patchParams],
+  );
+
+  const setMisoBarOpen = useCallback(
+    (open: boolean) => {
+      patchParams((next) => {
+        if (open) next.set('misoBar', '1');
+        else next.delete('misoBar');
       });
     },
     [patchParams],
@@ -153,5 +164,7 @@ export function useCrmPanelUrl() {
     setCatalogScope,
     soomgoBarOpen,
     setSoomgoBarOpen,
+    misoBarOpen,
+    setMisoBarOpen,
   };
 }

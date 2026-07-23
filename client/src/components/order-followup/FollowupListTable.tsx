@@ -4,6 +4,7 @@ import {
   FollowupMemoCell,
   FollowupStatusBadgeWithMemo,
   followupRowGoldClass,
+  followupLeadSourceLabel,
   formatDateCompactWithWeekday,
 } from './followupListDisplay';
 
@@ -21,21 +22,23 @@ export function FollowupListTable({
 }) {
   return (
     <div className="overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-      <table className="w-full min-w-[720px] border-collapse text-center text-[11px] table-fixed">
+      <table className="w-full min-w-[780px] border-collapse text-center text-[11px] table-fixed">
         <colgroup>
-          <col style={{ width: '13%' }} />
-          <col style={{ width: '11%' }} />
-          <col style={{ width: '9%' }} />
-          <col style={{ width: '6%' }} />
-          <col style={{ width: '9%' }} />
+          <col style={{ width: '12%' }} />
           <col style={{ width: '10%' }} />
-          <col style={{ width: '10%' }} />
-          <col style={{ width: '32%' }} />
+          <col style={{ width: '8%' }} />
+          <col style={{ width: '8%' }} />
+          <col style={{ width: '7%' }} />
+          <col style={{ width: '8%' }} />
+          <col style={{ width: '9%' }} />
+          <col style={{ width: '9%' }} />
+          <col style={{ width: '29%' }} />
         </colgroup>
         <thead>
           <tr className="border-b border-slate-200/60 bg-slate-50/80">
             <th className="py-2 px-1.5 font-semibold text-slate-500">고객</th>
             <th className="py-2 px-1.5 font-semibold text-slate-500">연락처</th>
+            <th className="py-2 px-1.5 font-semibold text-slate-500">유입</th>
             <th className="py-2 px-1.5 font-semibold text-slate-500">상태</th>
             <th className="py-2 px-1.5 font-semibold text-slate-500">부재</th>
             <th className="py-2 px-1.5 font-semibold text-slate-500">담당</th>
@@ -71,6 +74,9 @@ export function FollowupListTable({
                 </td>
                 <td className="py-2 px-1.5 tabular-nums text-slate-800 font-medium">
                   {displayFollowupPhone(row.customerPhone)}
+                </td>
+                <td className="py-2 px-1.5 text-slate-700 truncate" title={followupLeadSourceLabel(row)}>
+                  {followupLeadSourceLabel(row)}
                 </td>
                 <td className="py-2 px-1.5">
                   <FollowupStatusBadgeWithMemo row={row} onOpenMemo={onOpenMemo} />

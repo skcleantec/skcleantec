@@ -86,6 +86,11 @@ import {
 import { ensureAirconOrderFormTemplate } from '../orderform-templates/ensureAirconOrderFormTemplate.js';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
 import {
+  assertActiveLeadSourceLabel,
+  buildIntakeCreateChangeLogLines,
+  mapLeadSourceValidationError,
+} from '../inquiry-lead-sources/inquiryLeadSource.service.js';
+import {
   getOrCreateOrderFormBrandCustomerLinkConfig,
   listOrderFormBrandCustomerLinkConfigs,
   upsertOrderFormBrandCustomerLinkConfig,
@@ -1212,6 +1217,23 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
   }
   const token = randomBytes(12).toString('hex');
 
+  let leadSourceLabel: string;
+  try {
+    leadSourceLabel = await assertActiveLeadSourceLabel(
+      prisma,
+      authTenantId,
+      (req.body as { leadSource?: unknown }).leadSource,
+    );
+  } catch (e) {
+    const mapped = mapLeadSourceValidationError(e);
+    if (mapped) {
+      res.status(mapped.status).json({ error: mapped.message });
+      return;
+    }
+    throw e;
+  }
+  const issueLogLines = buildIntakeCreateChangeLogLines(leadSourceLabel, { channel: 'order_issue' });
+
   const resolvedTemplate = await resolveIssueTemplate(prisma, authTenantId, templateIdRaw);
   if (resolvedTemplate === 'invalid') {
     res.status(400).json({ error: '선택한 발주서 양식을 찾을 수 없거나 발행되지 않았습니다.' });
@@ -1232,6 +1254,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           orderFormId: true,
           createdById: true,
           operatingCompanyId: true,
+          customerName: true,
         },
       });
       if (!pending) {
@@ -1302,7 +1325,8 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           data: {
             orderFormId: created.id,
             status: 'ORDER_FORM_PENDING',
-            source: '발주서',
+            source: leadSourceLabel,
+            intakeChannel: 'order_issue',
             operatingCompanyId: formOperatingCompanyId,
             internalCustomerTone: linkedTone,
             ...(issueAreaPyeong != null && issueAreaBasis
@@ -1310,6 +1334,16 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
               : {}),
           },
         });
+        if (issueLogLines.length > 0) {
+          await tx.inquiryChangeLog.create({
+            data: {
+              inquiryId: pid,
+              customerName: pending.customerName,
+              actorId: userId,
+              lines: issueLogLines,
+            },
+          });
+        }
         return mapOrderFormOperatingCompany(
           await tx.orderForm.findUniqueOrThrow({
             where: { id: created.id },
@@ -1383,7 +1417,8 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           preferredTimeDetail: preferredTimeDetail?.trim() || null,
           memo: inquiryMemo,
           status: 'ORDER_FORM_PENDING',
-          source: '발주서',
+          source: leadSourceLabel,
+          intakeChannel: 'order_issue',
           orderFormId: created.id,
           createdById: userId,
           internalCustomerTone: standaloneTone,
@@ -1394,6 +1429,20 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           areaBasis: issueAreaBasis,
         },
       });
+      const linkedInquiry = await tx.inquiry.findFirst({
+        where: { orderFormId: created.id, tenantId: authTenantId },
+        select: { id: true, customerName: true },
+      });
+      if (linkedInquiry && issueLogLines.length > 0) {
+        await tx.inquiryChangeLog.create({
+          data: {
+            inquiryId: linkedInquiry.id,
+            customerName: linkedInquiry.customerName,
+            actorId: userId,
+            lines: issueLogLines,
+          },
+        });
+      }
       return mapOrderFormOperatingCompany(
         await tx.orderForm.findUniqueOrThrow({
           where: { id: created.id },
@@ -2674,7 +2723,7 @@ router.post('/submit/:token', async (req, res) => {
           serviceTotalAmount: form.totalAmount,
           serviceDepositAmount: form.depositAmount,
           serviceBalanceAmount: form.balanceAmount,
-          source: '발주서',
+          intakeChannel: 'order_form_submit',
           status: 'RECEIVED',
           professionalOptionIds: professionalOptionIdsJson,
           profOptionsAmountReviewPending: professionalSelections.length > 0,
@@ -2757,6 +2806,7 @@ router.post('/submit/:token', async (req, res) => {
           serviceDepositAmount: form.depositAmount,
           serviceBalanceAmount: form.balanceAmount,
           source: '발주서',
+          intakeChannel: 'order_form_submit',
           status: 'RECEIVED',
           orderFormId: form.id,
           professionalOptionIds: professionalOptionIdsJson,

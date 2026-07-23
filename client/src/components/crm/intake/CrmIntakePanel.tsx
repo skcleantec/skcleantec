@@ -523,7 +523,7 @@ export function CrmIntakePanel({
         <div className="border-t border-emerald-100/80 pt-2">
           {soomgoImportBanner ? (
             <div className="mb-2 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-2 text-[11px] leading-snug text-sky-950">
-              <p className="font-semibold text-sky-900">숨고에서 가져온 정보</p>
+              <p className="font-semibold text-sky-900">가져온 정보</p>
               <p className="mt-0.5 whitespace-pre-wrap">{soomgoImportBanner}</p>
             </div>
           ) : null}

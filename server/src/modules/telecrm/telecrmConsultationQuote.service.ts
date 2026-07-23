@@ -10,6 +10,10 @@ import {
   buildTelecrmQuoteFollowupMemo,
   telecrmQuotePayloadHasContent,
 } from '../../lib/telecrmConsultationQuote.js';
+import {
+  assertActiveLeadSourceLabel,
+  mapLeadSourceValidationError,
+} from '../inquiry-lead-sources/inquiryLeadSource.service.js';
 import { appendFollowupLog, findOpenFollowupForPhones } from '../order-followups/orderFollowups.service.js';
 
 export type TelecrmConsultationQuoteDto = {
@@ -269,6 +273,8 @@ export type FinalizeTelecrmConsultationQuoteInput = {
   followupStatus: 'ABSENT' | 'ON_HOLD';
   extraMemo?: string | null;
   actorName?: string | null;
+  leadSource?: string | null;
+  strictLeadSource?: boolean;
 };
 
 export type FinalizeTelecrmConsultationQuoteResult = {
@@ -303,6 +309,19 @@ export async function finalizeTelecrmConsultationQuote(
       : input.preferredMoveInCleaningDate;
 
   const extraMemo = typeof input.extraMemo === 'string' ? input.extraMemo.trim() : '';
+  const strictLeadSource = input.strictLeadSource === true;
+  let resolvedLeadSource: string | null = null;
+  if (strictLeadSource || (typeof input.leadSource === 'string' && input.leadSource.trim())) {
+    try {
+      resolvedLeadSource = await assertActiveLeadSourceLabel(prisma, tenantId, input.leadSource);
+    } catch (e) {
+      const mapped = mapLeadSourceValidationError(e);
+      if (mapped) throw new Error(mapped.message);
+      throw e;
+    }
+  } else if (strictLeadSource) {
+    throw new Error('유입 경로를 선택해 주세요.');
+  }
   const jsonPayload = input.payload as unknown as Prisma.InputJsonValue;
 
   const actorRow = await prisma.user.findFirst({
@@ -336,6 +355,7 @@ export async function finalizeTelecrmConsultationQuote(
           goldDb,
           memo: followupMemo,
           handledById: userId,
+          ...(resolvedLeadSource != null ? { leadSource: resolvedLeadSource } : {}),
           ...(preferredMoveInCleaningDate !== undefined
             ? { preferredMoveInCleaningDate }
             : {}),
@@ -361,6 +381,7 @@ export async function finalizeTelecrmConsultationQuote(
           memo: followupMemo,
           createdById: userId,
           handledById: userId,
+          ...(resolvedLeadSource != null ? { leadSource: resolvedLeadSource } : {}),
           ...(preferredMoveInCleaningDate !== undefined
             ? { preferredMoveInCleaningDate }
             : {}),
@@ -377,6 +398,7 @@ export async function finalizeTelecrmConsultationQuote(
           customerName,
           customerPhone: phone,
           source: 'telecrm_quote_finalize',
+          ...(resolvedLeadSource ? { leadSource: resolvedLeadSource } : {}),
         }),
       });
     }

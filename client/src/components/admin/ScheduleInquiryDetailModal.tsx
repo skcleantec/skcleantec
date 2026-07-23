@@ -51,7 +51,9 @@ import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { buildSlotOccupiedLeaderIdsForDay } from '../../utils/scheduleSlotOccupancy';
 import { formatPreferredDateInputYmd, kstTodayYmd } from '../../utils/dateFormat';
-import { formatInquirySourceLabel, inquiryEditFormAddress, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
+import { formatInquiryLeadPlatformLabel, inquiryEditFormAddress, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
+import { InquiryIntakeMetaLabels } from '../inquiry/InquiryIntakeMetaLabels';
+import { shouldShowInquiryLeadPlatform } from '@shared/inquiryIntakeChannel';
 import { isRealCustomerAddress, MANUAL_INTAKE_PLACEHOLDER_ADDRESS } from '@shared/orderFormPendingAddress';
 import {
   formatInquiryAreaKoShortFromEditStrings,
@@ -117,6 +119,7 @@ import { InquiryEditSettlementSection } from './inquiry-edit/InquiryEditSettleme
 import { InquiryEditStatusSection } from './inquiry-edit/InquiryEditStatusSection';
 import { buildInquiryEditAssignmentHints } from './inquiry-edit/InquiryEditStatusAssignmentHints';
 import type { InquiryEditFormFields } from './inquiry-edit/inquiryEditTypes';
+import { InquiryLeadSourceSelect } from '../inquiry/InquiryLeadSourceSelect';
 import {
   inqEditFormGrid,
   inqEditInput,
@@ -219,6 +222,11 @@ function applyManualIntakeFieldDefaults(
   if (!isRealCustomerAddress(address)) patch.address = MANUAL_INTAKE_PLACEHOLDER_ADDRESS;
 }
 
+function inquiryEditLeadSourceFromItem(source: string | null | undefined): string {
+  if (isManualIntakeInquiry(source) || isInquirySourceHiddenFromUi(source)) return '';
+  return (source ?? '').trim();
+}
+
 function buildPatchFromEditForm(
   editForm: EditFormFields,
   opts?: {
@@ -267,6 +275,9 @@ function buildPatchFromEditForm(
     professionalOptionIds: editForm.professionalOptionIds,
     collaborationMarketerId: editForm.collaborationMarketerId || null,
   };
+  if (editForm.leadSource.trim()) {
+    patch.source = editForm.leadSource.trim();
+  }
   if (opts?.includeCreatedById === true) {
     patch.createdById = editForm.createdById || null;
   }
@@ -366,7 +377,9 @@ function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> 
     preferredTimeDetail: p.preferredTimeDetail ? String(p.preferredTimeDetail) : null,
     callAttempt: null,
     memo: p.memo,
-    source: '전화',
+    source: editForm.leadSource.trim(),
+    strictLeadSource: true,
+    intakeMeta: { channel: 'schedule' },
     status: p.status ?? 'RECEIVED',
     soloTeamLeaderIds: p.soloTeamLeaderIds,
     crewMemberCount: p.crewMemberCount,
@@ -387,6 +400,7 @@ function buildCreatePostBodyForMode(
   return {
     ...body,
     source: MANUAL_INTAKE_SOURCE_VALUE,
+    intakeMeta: { channel: 'manual' },
   };
 }
 
@@ -753,6 +767,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         consultationMemo: '',
         internalCustomerTone: DEFAULT_INTERNAL_CUSTOMER_TONE,
         professionalOptionIds: normalizeProfessionalOptionIds([], professionalCatalog),
+        leadSource: '',
       };
     }
     const it = props.item;
@@ -803,6 +818,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       consultationMemo: it.consultationMemo ?? '',
       internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
+      leadSource: inquiryEditLeadSourceFromItem(it.source),
     };
   });
 
@@ -1212,6 +1228,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       consultationMemo: it.consultationMemo ?? '',
       internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
       professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
+      leadSource: inquiryEditLeadSourceFromItem(it.source),
     });
     setMarketerQuickValue(it.createdBy?.id ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 저장 후 재조회 시 동일 id여도 필드 동기화
@@ -1780,6 +1797,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       alert('로그인이 필요합니다.');
       return;
     }
+    if (!isExternalIntakeMode && !editForm.leadSource.trim()) {
+      alert('유입 경로를 선택해 주세요.');
+      return;
+    }
     if (!isExternalIntakeMode && !editForm.customerName.trim()) {
       alert('성함을 입력해주세요.');
       return;
@@ -1892,6 +1913,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               customerPhone: phoneForFollowup,
               status: 'ABSENT',
               inquiryId: created.id,
+              leadSource: editForm.leadSource.trim(),
+              strictLeadSource: true,
             });
           } else if (createIntakeLane === 'hold') {
             await createOrderFollowup(token, {
@@ -1899,6 +1922,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               customerPhone: phoneForFollowup,
               status: 'ON_HOLD',
               inquiryId: created.id,
+              leadSource: editForm.leadSource.trim(),
+              strictLeadSource: true,
             });
           }
         } catch (fe) {
@@ -2001,8 +2026,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     if (distanceJuanLabel) parts.push(distanceJuanLabel);
     if (detailHeaderAreaShort !== '—') parts.push(detailHeaderAreaShort);
     if (isManualIntakeInquiry(item.source)) parts.push('수기');
-    if (!isInquirySourceHiddenFromUi(item.source)) {
-      parts.push(formatInquirySourceLabel(item.source));
+    if (shouldShowInquiryLeadPlatform(item.source)) {
+      parts.push(formatInquiryLeadPlatformLabel(item.source));
     }
     const marketer = item.createdBy?.name ?? item.orderForm?.createdBy?.name;
     if (marketer) parts.push(marketer);
@@ -2237,9 +2262,23 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 {distanceJuanLabel ? <span>· 주안 기준 {distanceJuanLabel}</span> : null}
                 {detailHeaderAreaShort !== '—' ? <span>· {detailHeaderAreaShort}</span> : null}
                 {isManualIntakeInquiry(item.source) ? <span>· 수기</span> : null}
-                {!isInquirySourceHiddenFromUi(item.source) ? (
-                  <span>· 출처: {formatInquirySourceLabel(item.source)}</span>
-                ) : null}
+                <span className="hidden sm:inline">
+                  ·{' '}
+                  <InquiryIntakeMetaLabels
+                    source={item.source}
+                    intakeChannel={item.intakeChannel}
+                    orderFormSubmitted={Boolean(item.orderForm?.submittedAt)}
+                  />
+                </span>
+                <span className="sm:hidden">
+                  ·{' '}
+                  <InquiryIntakeMetaLabels
+                    source={item.source}
+                    intakeChannel={item.intakeChannel}
+                    orderFormSubmitted={Boolean(item.orderForm?.submittedAt)}
+                    className="inline-block max-w-full truncate"
+                  />
+                </span>
                 <span>
                   · 담당 마케터: {item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}
                   {item.collaborationMarketer?.name?.trim()
@@ -2302,6 +2341,19 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               onChange={(e) => setEditForm((p) => ({ ...p, nickname: e.target.value }))}
               className={inqEditInput}
               placeholder="숨고 아이디, 닉네임"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={inqEditLabel}>
+              유입 경로{isExternalIntakeMode ? '' : ' *'}
+            </label>
+            <InquiryLeadSourceSelect
+              value={editForm.leadSource}
+              onChange={(v) => setEditForm((p) => ({ ...p, leadSource: v }))}
+              required={!isExternalIntakeMode}
+              disabled={isExternalIntakeMode}
+              className={inqEditInput}
+              placeholder={isExternalIntakeMode ? '수기 등록' : '유입 경로 선택'}
             />
           </div>
           {canShowInternalCustomerTone(meUser?.role) ? (

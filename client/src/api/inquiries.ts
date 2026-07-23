@@ -79,6 +79,8 @@ export async function getInquiries(
     teamLeaderId?: string;
     /** 영업 브랜드(Operating Company) UUID */
     operatingCompanyId?: string;
+    /** 유입 플랫폼(Inquiry.source) — 카탈로그 label과 exact match */
+    source?: string;
     /** 예약일(희망일) 월 단위 YYYY-MM, KST */
     scheduleMonth?: string;
     /** 예약일(희망일) 하루 YYYY-MM-DD, KST (scheduleMonth보다 우선) */
@@ -115,6 +117,7 @@ export async function getInquiries(
   if (params?.marketerStatsDay) q.set('marketerStatsDay', params.marketerStatsDay);
   if (params?.teamLeaderId) q.set('teamLeaderId', params.teamLeaderId);
   if (params?.operatingCompanyId) q.set('operatingCompanyId', params.operatingCompanyId);
+  if (params?.source?.trim()) q.set('source', params.source.trim());
   if (params?.scheduleMonth) q.set('scheduleMonth', params.scheduleMonth);
   if (params?.scheduleDay) q.set('scheduleDay', params.scheduleDay);
   if (params?.inspectionStatus) q.set('inspectionStatus', params.inspectionStatus);

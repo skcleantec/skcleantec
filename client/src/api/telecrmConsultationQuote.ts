@@ -96,6 +96,8 @@ export type FinalizeTelecrmConsultationQuoteBody = {
   followupStatus: 'ABSENT' | 'ON_HOLD';
   extraMemo?: string | null;
   actorName?: string | null;
+  leadSource?: string | null;
+  strictLeadSource?: boolean;
 };
 
 export type FinalizeTelecrmConsultationQuoteResult = {

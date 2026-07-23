@@ -6,6 +6,7 @@ import type { OrderForm } from '../../api/orderform';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
 import { InternalCustomerToneRadio } from '../admin/InternalCustomerToneRadio';
+import { InquiryLeadSourceSelect } from '../inquiry/InquiryLeadSourceSelect';
 import {
   DEFAULT_INTERNAL_CUSTOMER_TONE,
   normalizeInternalCustomerTone,
@@ -69,6 +70,7 @@ export function OrderIssueInlinePanel({
     useState<InternalCustomerTone>(DEFAULT_INTERNAL_CUSTOMER_TONE);
   const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
   const [issueTemplateId, setIssueTemplateId] = useState('');
+  const [issueLeadSource, setIssueLeadSource] = useState('');
   const [issueFormKey, setIssueFormKey] = useState(0);
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
   const { map: brandMsgConfigMap, tenantFallback: brandMsgTenantFallback } =
@@ -217,6 +219,7 @@ export function OrderIssueInlinePanel({
     templateId: issueTemplateId || undefined,
     pendingInquiryId: pendingLinkId || undefined,
     internalCustomerTone: issueInternalCustomerTone,
+    leadSource: issueLeadSource,
     onCreated: handleOrderCreated,
     crmSeed,
   };
@@ -274,6 +277,16 @@ export function OrderIssueInlinePanel({
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-fluid-xs font-medium text-gray-700">유입 경로 *</span>
+          <InquiryLeadSourceSelect
+            value={issueLeadSource}
+            onChange={setIssueLeadSource}
+            required
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-sm"
+          />
         </label>
 
         <InternalCustomerToneRadio

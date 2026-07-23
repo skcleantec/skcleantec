@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "source": "miso",
+  "extractedAt": "2026-07-23T14:00:00+09:00",
+  "chatId": "REPLACE_AFTER_POC",
+  "customerName": "이*화",
+  "phone": null,
+  "phoneAvailable": false,
+  "requestSummary": "이사청소 / 24 (전용) / 거실 + 방 2개",
+  "statusLabel": "기한 만료",
+  "statusCode": "EXPIRED",
+  "quoteAmount": "상담 후 결정",
+  "scheduledAt": "6월 30일(화)",
+  "rawStatusText": "기한 만료",
+  "messagesPreview": "안녕하세요 어재 에어콘 청소 후 소리가 난다고 하는데",
+  "orderDetail": {
+    "screenTitle": "이사청소/입주청소",
+    "serviceDate": "6월 30일(화)",
+    "quoteAmount": "상담 후 결정",
+    "quoteSubmittedAt": "6월 22일(월) 오후 4시 35분",
+    "quoteSubmittedAuto": true,
+    "areaPyung": "24 (전용)",
+    "serviceTypeDetail": "이사청소",
+    "roomLayout": "거실 + 방 2개",
+    "residenceType": null
+  }
+}

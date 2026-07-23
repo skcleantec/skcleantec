@@ -8,6 +8,7 @@ import { ensurePlatformBootstrapUsers } from './lib/ensurePlatformBootstrap.js';
 import { ensureInquiryStatusEnumForDeploy } from './lib/ensureInquiryStatusEnumForDeploy.js';
 import { ensureReviewPaybackDeploySchema } from './lib/ensureReviewPaybackDeploySchema.js';
 import { ensureMissingProfessionalDefaults } from './modules/orderform/defaultProfessionalOptions.js';
+import { ensureMissingInquiryLeadSourceDefaults } from './modules/inquiry-lead-sources/defaultInquiryLeadSources.js';
 import { attachInboxWebSocket } from './modules/realtime/index.js';
 import {
   parseInspectionRetentionOptionsFromEnv,
@@ -55,6 +56,9 @@ async function bootstrap() {
     console.log(`Server running on http://${listenHost}:${config.port}`);
     void ensureMissingProfessionalDefaults(prisma).catch((e) =>
       console.error('[startup] 전문 시공 기본 옵션 확인 실패:', e)
+    );
+    void ensureMissingInquiryLeadSourceDefaults(prisma).catch((e) =>
+      console.error('[startup] 유입경로 기본 옵션 확인 실패:', e)
     );
   });
   server.on('error', (err: NodeJS.ErrnoException) => {

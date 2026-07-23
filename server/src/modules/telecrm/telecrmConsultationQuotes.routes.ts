@@ -11,6 +11,7 @@ import {
   supersedeTelecrmConsultationQuotesForPhone,
   upsertTelecrmConsultationQuoteDraft,
 } from './telecrmConsultationQuote.service.js';
+import { mapLeadSourceValidationError } from '../inquiry-lead-sources/inquiryLeadSource.service.js';
 
 const router = Router();
 router.use(authMiddleware, staffMarketerRoleOnly);
@@ -119,6 +120,8 @@ router.post('/finalize', requireStaffPermission('followup.edit', 'crm.view', 'cr
     }
   }
   try {
+    const strictLeadSource =
+      body.strictLeadSource === true || body.strictLeadSource === 'true';
     const result = await finalizeTelecrmConsultationQuote(tenantId, operatingCompanyId, user.userId, {
       phone,
       payload: parsed,
@@ -129,9 +132,16 @@ router.post('/finalize', requireStaffPermission('followup.edit', 'crm.view', 'cr
       followupStatus: statusRaw,
       extraMemo: typeof body.extraMemo === 'string' ? body.extraMemo : null,
       actorName: typeof body.actorName === 'string' ? body.actorName : null,
+      leadSource: typeof body.leadSource === 'string' ? body.leadSource : null,
+      strictLeadSource,
     });
     res.status(result.followupCreated ? 201 : 200).json(result);
   } catch (e) {
+    const mapped = mapLeadSourceValidationError(e);
+    if (mapped) {
+      res.status(mapped.status).json({ error: mapped.message });
+      return;
+    }
     res.status(400).json({ error: e instanceof Error ? e.message : '견적 확정 실패' });
   }
 });

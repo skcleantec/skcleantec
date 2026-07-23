@@ -33,6 +33,7 @@ export interface OrderFollowupInquiryBrief {
   id: string;
   inquiryNumber: string | null;
   customerName: string;
+  source?: string | null;
 }
 
 export interface OrderFollowupItem {
@@ -55,6 +56,7 @@ export interface OrderFollowupItem {
   updatedAt: string;
   createdBy: OrderFollowupUserBrief;
   handledBy: OrderFollowupUserBrief | null;
+  leadSource?: string | null;
 }
 
 export interface OrderFollowupLogItem {
@@ -164,6 +166,8 @@ export async function createOrderFollowup(
     goldDb?: boolean;
     inquiryId?: string;
     operatingCompanyId?: string;
+    leadSource?: string;
+    strictLeadSource?: boolean;
   }
 ): Promise<{ item: OrderFollowupItem }> {
   const res = await fetch(`${API}/order-followups`, {

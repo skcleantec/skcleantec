@@ -130,6 +130,8 @@ export interface OrderFormEditorContext {
     templateId?: string;
     pendingInquiryId?: string;
     internalCustomerTone?: InternalCustomerTone;
+    /** 발주서 발급 시 유입 플랫폼(필수) */
+    leadSource?: string;
     onCreated: (order: OrderForm) => void;
     /** 텔레CRM — 발급 폼 초기값 */
     crmSeed?: CrmOrderIssueSeed;
@@ -1084,6 +1086,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
     setPrefillSaving(true);
     try {
+      const leadSource = editor.create.leadSource?.trim();
+      if (!leadSource) {
+        setSubmitErrorModal('유입 경로를 선택해 주세요.');
+        setPrefillSaving(false);
+        return;
+      }
       const hasDate = Boolean(form.preferredDate.trim());
       const order = await createOrderForm(editor.authToken, {
         customerName: name,
@@ -1099,6 +1107,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         pendingInquiryId: editor.create.pendingInquiryId || undefined,
         internalCustomerTone: internalCustomerToneForApi(editor.create.internalCustomerTone),
         templateId: editor.create.templateId || undefined,
+        leadSource,
       });
       await saveOrderFormPrefill(editor.authToken, order.id, buildPrefillPayload());
       editor.create.onCreated(order);
