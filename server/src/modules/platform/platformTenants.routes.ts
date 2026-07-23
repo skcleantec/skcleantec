@@ -15,6 +15,11 @@ import {
   updateTenantBasics,
   updateTenantConfigForPlatform,
 } from './tenantProvisioning.service.js';
+import {
+  getTelecrmPolicyForPlatform,
+  listCrmEligibleUsersForTenant,
+  saveTelecrmPolicyForPlatform,
+} from '../telecrm/telecrmTenantPolicy.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 
 const router = Router();
@@ -236,6 +241,63 @@ router.patch('/:id/config', platformSuperAdminOnly, async (req, res) => {
       return;
     }
     const msg = e instanceof Error ? e.message : '설정 저장에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.get('/:id/crm-eligible-users', async (req, res) => {
+  try {
+    const items = await listCrmEligibleUsersForTenant(req.params.id);
+    res.json({ items });
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.get('/:id/telecrm-policy', async (req, res) => {
+  try {
+    const policy = await getTelecrmPolicyForPlatform(req.params.id);
+    res.json(policy);
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.patch('/:id/telecrm-policy', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const body = req.body as {
+      licensed?: boolean;
+      includedSeats?: number;
+      additionalSeats?: number;
+      allowedUserIds?: string[];
+      platforms?: ('soomgo' | 'miso')[];
+    };
+    if (typeof body.licensed !== 'boolean') {
+      res.status(400).json({ error: 'licensed(boolean)가 필요합니다.' });
+      return;
+    }
+    const policy = await saveTelecrmPolicyForPlatform(req.params.id, {
+      licensed: body.licensed,
+      includedSeats: body.includedSeats,
+      additionalSeats: body.additionalSeats,
+      allowedUserIds: body.allowedUserIds,
+      platforms: body.platforms,
+    });
+    res.json(policy);
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    const msg = e instanceof Error ? e.message : 'CRM 정책 저장에 실패했습니다.';
     res.status(400).json({ error: msg });
   }
 });

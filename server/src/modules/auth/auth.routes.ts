@@ -20,6 +20,7 @@ import {
 } from '../tenants/tenant.service.js';
 import { DEFAULT_TENANT_SLUG } from '../tenants/tenant.constants.js';
 import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
+import { resolveTelecrmAccessForUser } from '../telecrm/telecrmTenantPolicy.service.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 import {
   findActiveTenantSupportAccess,
@@ -317,6 +318,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
   }
   const features = tenantId ? await getEffectiveEnabledModules(tenantId) : [];
+  const telecrm = tenantId ? await resolveTelecrmAccessForUser(tenantId, userId) : null;
   const config = tenantId ? await getTenantConfig(tenantId) : {};
   const marketerAdminLevel = user.role === 'MARKETER' ? user.marketerAdminLevel : 'NONE';
   const marketerPermissionsRaw = user.role === 'MARKETER' ? user.marketerPermissions : null;
@@ -377,6 +379,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     effectiveStaffAdminAccess,
     tenant: tenant ? tenantSummary(tenant, (config as { branding?: { displayName?: string } }).branding?.displayName) : null,
     features,
+    telecrm,
     config,
     operatingCompanies: operatingCompaniesResolved,
     ...buildProfileOnboardingMeFields(user, user.externalCompany ?? null),

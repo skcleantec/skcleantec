@@ -88,9 +88,9 @@ export const TENANT_PLAN_PRESENTATIONS: Record<TenantPlanId, TenantPlanPresentat
     features: [
       'Standard 전체 포함',
       '급여·정산 · 전자계약',
-      '텔레CRM',
       '파트너 접수 연계',
       '랜딩 문의내역',
+      '텔레CRM(별도 옵션·추가 사용료)',
     ],
   },
 };

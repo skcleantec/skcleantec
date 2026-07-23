@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { requireFeature } from '../tenants/requireTenantFeature.js';
+import { requireTelecrmPlatform, requireTelecrmUserAccess } from './requireTelecrmAccess.js';
 import {
   telecrmScriptCategoriesRouter,
   telecrmScriptTabsRouter,
@@ -20,7 +21,7 @@ import { telecrmSoomgoRouter } from './telecrmSoomgo.routes.js';
 import { telecrmSoomgoMessagePresetsRouter } from './telecrmSoomgoMessagePresets.routes.js';
 
 const router = Router();
-router.use(authMiddleware, requireFeature('mod_telecrm'));
+router.use(authMiddleware, requireFeature('mod_telecrm'), requireTelecrmUserAccess);
 
 router.use('/script-categories', telecrmScriptCategoriesRouter);
 router.use('/script-tabs', telecrmScriptTabsRouter);
@@ -32,7 +33,7 @@ router.use('/order-options', telecrmOrderOptionsRouter);
 router.use('/sms-templates', telecrmSmsTemplatesRouter);
 router.use('/call-notes', telecrmCallNotesRouter);
 router.use('/consultation-quotes', telecrmConsultationQuotesRouter);
-router.use('/soomgo', telecrmSoomgoRouter);
+router.use('/soomgo', requireTelecrmPlatform('soomgo'), telecrmSoomgoRouter);
 router.use('/soomgo-message-presets', telecrmSoomgoMessagePresetsRouter);
 router.use('/', telecrmMobileRouter);
 

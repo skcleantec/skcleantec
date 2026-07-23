@@ -8,7 +8,10 @@ import {
   TENANT_FEATURE_MODULES,
   type TenantFeatureModuleId,
 } from '../tenants/tenantFeatureCatalog.js';
-import { TenantNotFoundError } from '../tenants/tenant.service.js';
+import {
+  readTelecrmMetaForPreserve,
+  restoreTelecrmMetaIfMissing,
+} from '../telecrm/telecrmTenantPolicy.service.js';
 import { ensureDefaultAdChannelsForTenant } from '../advertising/defaultAdChannels.js';
 import { customModulesForTenantSlug, isCustomModuleId, isRegisteredCustomModuleId } from '../custom/customModuleCatalog.js';
 import { getTenantConfig, updateTenantConfig } from '../tenants/tenantConfig.service.js';
@@ -18,6 +21,7 @@ import {
   listTenantAdminsForPlatform,
 } from './tenantAdmins.service.js';
 import { trialEndsAtFromCreated } from '../billing/tenantBilling.service.js';
+import { TenantNotFoundError } from '../tenants/tenant.service.js';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
@@ -282,6 +286,8 @@ export async function replaceTenantFeatureOverrides(
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) throw new TenantNotFoundError();
 
+  const preservedTelecrmMeta = await readTelecrmMetaForPreserve(tenantId);
+
   await prisma.$transaction(async (tx) => {
     await tx.tenantFeature.deleteMany({ where: { tenantId } });
     const planModules = new Set(modulesForPlan(tenant.plan));
@@ -313,11 +319,15 @@ export async function replaceTenantFeatureOverrides(
       }
     }
   });
+
+  await restoreTelecrmMetaIfMissing(tenantId, preservedTelecrmMeta);
 }
 
 export async function resetTenantFeaturesFromPlan(tenantId: string) {
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) throw new TenantNotFoundError();
+
+  const preservedTelecrmMeta = await readTelecrmMetaForPreserve(tenantId);
 
   const planModules = modulesForPlan(tenant.plan);
   await prisma.$transaction([
@@ -327,6 +337,8 @@ export async function resetTenantFeaturesFromPlan(tenantId: string) {
       skipDuplicates: true,
     }),
   ]);
+
+  await restoreTelecrmMetaIfMissing(tenantId, preservedTelecrmMeta);
 }
 
 export async function updateTenantConfigForPlatform(tenantId: string, body: unknown) {

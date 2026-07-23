@@ -56,6 +56,8 @@ import { AdminVolumeStatsButton } from '../admin/AdminVolumeStatsButton';
 import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
 import { getScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
+import type { TelecrmUserCapabilities } from '@shared/telecrmTenantPolicy';
+import { parseTelecrmCapabilitiesFromMe } from '../../utils/telecrmCapabilities';
 import {
   AdminStaffSessionProvider,
   resolveCanCrmSettingsFromMe,
@@ -235,6 +237,7 @@ export function AdminLayout() {
   const [isPlatformSupportAccess, setIsPlatformSupportAccess] = useState(false);
   const [suppressCelebrateBar, setSuppressCelebrateBar] = useState(false);
   const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
+  const [tenantTelecrm, setTenantTelecrm] = useState<TelecrmUserCapabilities | null>(null);
   const [tenantPlan, setTenantPlan] = useState<string | null>(null);
   const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
@@ -353,6 +356,7 @@ export function AdminLayout() {
       setIsPlatformSupportAccess(false);
       setSuppressCelebrateBar(false);
       setTenantFeatures(null);
+      setTenantTelecrm(null);
       setTenantPlan(null);
       setTenantSlug(null);
       setTenantName(null);
@@ -414,6 +418,7 @@ export function AdminLayout() {
           Boolean(u.isPlatformSupportAccess) || isTeamPreviewAdminEmail(email),
         );
         setTenantFeatures(Array.isArray(u.features) ? u.features : []);
+        setTenantTelecrm(parseTelecrmCapabilitiesFromMe((u as { telecrm?: unknown }).telecrm));
         const tid =
           (typeof u.tenantId === 'string' && u.tenantId.trim()) ||
           (typeof u.tenant?.id === 'string' && u.tenant.id.trim()) ||
@@ -479,6 +484,7 @@ export function AdminLayout() {
           setIsPlatformSupportAccess(false);
           setSuppressCelebrateBar(false);
           setTenantFeatures(null);
+      setTenantTelecrm(null);
           setTenantPlan(null);
           setTenantName(null);
           setMeTenantId(null);
@@ -1210,7 +1216,7 @@ export function AdminLayout() {
             사용하고, 작업 후 로그아웃해 주세요.
           </div>
         ) : null}
-        <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan, tenantSlug }}>
+        <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan, tenantSlug, telecrm: tenantTelecrm }}>
           <AdminStaffSessionProvider
             value={{
               ready: !meProfileLoading && Boolean(meRole),

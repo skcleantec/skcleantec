@@ -13,6 +13,7 @@ import {
 } from '../../api/platformTenants';
 import { PlatformTenantAdminsSection } from './PlatformTenantAdminsSection';
 import { PlatformTenantBillingPanel } from './PlatformTenantBillingPanel';
+import { PlatformTenantTelecrmPanel } from './PlatformTenantTelecrmPanel';
 import { PlatformTenantFeatureCatalog } from '../../components/platform/PlatformTenantFeatureCatalog';
 import { getPlatformToken } from '../../stores/platformAuth';
 import {
@@ -103,6 +104,7 @@ export function PlatformTenantDetailPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [planSubTab, setPlanSubTab] = useState<'modules' | 'crm'>('modules');
   const [configForm, setConfigForm] = useState<TenantConfigFormFields>(EMPTY_TENANT_CONFIG_FORM);
   const [configJson, setConfigJson] = useState('{}');
   const [configErr, setConfigErr] = useState('');
@@ -439,6 +441,39 @@ export function PlatformTenantDetailPage() {
 
       {activeTab === 'plan' ? (
         <div className="space-y-5">
+          <div className="flex gap-0 overflow-x-auto border-b border-gray-200">
+            {(
+              [
+                { id: 'modules' as const, label: '플랜 · 기능 모듈' },
+                { id: 'crm' as const, label: 'CRM · 연동' },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setPlanSubTab(tab.id)}
+                className={[
+                  '-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors',
+                  planSubTab === tab.id
+                    ? 'border-gray-900 text-gray-900'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700',
+                ].join(' ')}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {planSubTab === 'crm' && id ? (
+            <PlatformTenantTelecrmPanel
+              tenantId={id}
+              disabled={saving}
+              onSaved={() => void load()}
+            />
+          ) : null}
+
+          {planSubTab === 'modules' ? (
+            <>
           <section className={CARD_SECTION}>
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-semibold text-gray-900">플랜 선택</h2>
@@ -551,6 +586,8 @@ export function PlatformTenantDetailPage() {
               </button>
             </div>
           </section>
+            </>
+          ) : null}
         </div>
       ) : null}
 

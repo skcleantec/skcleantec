@@ -62,7 +62,6 @@ export const TENANT_PLANS = {
       'mod_advertising',
       'mod_payroll',
       'mod_e_contract',
-      'mod_telecrm',
       'mod_landing_inquiry',
     ] as TenantFeatureModuleId[],
   },

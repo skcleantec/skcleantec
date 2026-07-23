@@ -246,3 +246,61 @@ export async function patchPlatformTenantConfig(token: string, id: string, confi
   }
   return res.json() as Promise<{ config: Record<string, unknown> }>;
 }
+
+export type PlatformCrmEligibleUser = {
+  id: string;
+  name: string;
+  loginId: string;
+  role: string;
+  isActive: boolean;
+};
+
+export type PlatformTelecrmPolicyResponse = {
+  licensed: boolean;
+  meta: {
+    includedSeats: number;
+    additionalSeats: number;
+    allowedUserIds: string[];
+    platforms: ('soomgo' | 'miso')[];
+  };
+};
+
+export async function getPlatformTenantCrmEligibleUsers(token: string, tenantId: string) {
+  const res = await fetch(`${API}/platform/tenants/${tenantId}/crm-eligible-users`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, 'CRM 허용 계정 조회 실패'));
+  const data = (await res.json()) as { items: PlatformCrmEligibleUser[] };
+  return data.items;
+}
+
+export async function getPlatformTenantTelecrmPolicy(token: string, tenantId: string) {
+  const res = await fetch(`${API}/platform/tenants/${tenantId}/telecrm-policy`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, 'CRM 정책 조회 실패'));
+  return res.json() as Promise<PlatformTelecrmPolicyResponse>;
+}
+
+export async function patchPlatformTenantTelecrmPolicy(
+  token: string,
+  tenantId: string,
+  body: {
+    licensed: boolean;
+    includedSeats?: number;
+    additionalSeats?: number;
+    allowedUserIds?: string[];
+    platforms?: ('soomgo' | 'miso')[];
+  },
+) {
+  const res = await fetch(`${API}/platform/tenants/${tenantId}/telecrm-policy`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? 'CRM 정책 저장 실패');
+  }
+  return res.json() as Promise<PlatformTelecrmPolicyResponse>;
+}
