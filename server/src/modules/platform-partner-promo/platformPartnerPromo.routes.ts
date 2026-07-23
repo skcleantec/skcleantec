@@ -13,6 +13,11 @@ import {
   promoScheduleStatus,
   serializeAdminPromo,
 } from './platformPartnerPromo.helpers.js';
+import {
+  getPlatformPartnerPromoSettings,
+  updatePlatformPartnerPromoSettings,
+} from './platformPartnerPromoSettings.service.js';
+import type { PlatformPromoOrderModeOverride } from '@prisma/client';
 
 const router = Router();
 
@@ -31,6 +36,11 @@ function parseBool(raw: unknown, fallback: boolean): boolean {
   return fallback;
 }
 
+function parseOrderModeOverride(raw: unknown): PlatformPromoOrderModeOverride | null {
+  if (raw === 'INHERIT' || raw === 'FIXED' || raw === 'RANDOM') return raw;
+  return null;
+}
+
 function parseTitle(raw: unknown): string {
   if (typeof raw !== 'string') throw new Error('제목을 입력해 주세요.');
   const t = raw.trim();
@@ -45,6 +55,25 @@ function parseImageUrl(raw: unknown, label: string): string {
   if (!u.startsWith('https://')) throw new Error(`${label} 이미지 URL이 올바르지 않습니다.`);
   return u;
 }
+
+/** GET /api/platform/partner-promos/settings */
+router.get('/settings', async (_req, res) => {
+  const settings = await getPlatformPartnerPromoSettings(prisma);
+  res.json(settings);
+});
+
+/** PATCH /api/platform/partner-promos/settings */
+router.patch('/settings', async (req, res) => {
+  try {
+    const settings = await updatePlatformPartnerPromoSettings(prisma, {
+      externalPartnerOrderMode: req.body?.externalPartnerOrderMode,
+      tenantStaffOrderMode: req.body?.tenantStaffOrderMode,
+    });
+    res.json(settings);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '저장에 실패했습니다.' });
+  }
+});
 
 /** GET /api/platform/partner-promos */
 router.get('/', async (_req, res) => {
@@ -132,6 +161,7 @@ router.post('/', async (req, res) => {
         showOnTeamDashboard: parseBool(req.body?.showOnTeamDashboard, true),
         showOnTeamAssignments: parseBool(req.body?.showOnTeamAssignments, true),
         showOnTeamSchedule: parseBool(req.body?.showOnTeamSchedule, true),
+        orderModeOverride: parseOrderModeOverride(req.body?.orderModeOverride) ?? 'INHERIT',
         sortOrder: (maxSort._max.sortOrder ?? -1) + 1,
         createdByPlatformUserId: user.platformUserId,
       },
@@ -191,6 +221,14 @@ router.patch('/:id', async (req, res) => {
     }
     if (req.body?.showOnTeamSchedule !== undefined) {
       data.showOnTeamSchedule = parseBool(req.body.showOnTeamSchedule, existing.showOnTeamSchedule);
+    }
+    if (req.body?.orderModeOverride !== undefined) {
+      const parsed = parseOrderModeOverride(req.body.orderModeOverride);
+      if (!parsed) {
+        res.status(400).json({ error: '표시 순서 값이 올바르지 않습니다.' });
+        return;
+      }
+      data.orderModeOverride = parsed;
     }
     const startsAt = (data.startsAt as Date | null | undefined) ?? existing.startsAt;
     const endsAt = (data.endsAt as Date | null | undefined) ?? existing.endsAt;

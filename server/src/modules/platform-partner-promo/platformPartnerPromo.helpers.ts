@@ -1,4 +1,4 @@
-import type { Prisma, PlatformPartnerPromo } from '@prisma/client';
+import type { Prisma, PlatformPartnerPromo, PlatformPromoOrderModeOverride } from '@prisma/client';
 
 export type PlatformPromoAudience = 'external_partner' | 'tenant_staff';
 
@@ -9,6 +9,7 @@ export type PlatformPromoActiveDto = {
   linkUrl: string | null;
   linkTarget: string;
   sortOrder: number;
+  orderModeOverride: PlatformPromoOrderModeOverride;
   showOnMobile: boolean;
   showOnDesktop: boolean;
   showOnTeamDashboard: boolean;
@@ -75,6 +76,7 @@ export function serializeActivePromo(row: PlatformPartnerPromo): PlatformPromoAc
     linkUrl: row.linkUrl,
     linkTarget: row.linkTarget,
     sortOrder: row.sortOrder,
+    orderModeOverride: row.orderModeOverride,
     showOnMobile: row.showOnMobile,
     showOnDesktop: row.showOnDesktop,
     showOnTeamDashboard: row.showOnTeamDashboard,
