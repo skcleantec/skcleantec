@@ -22,6 +22,18 @@ html, body {
   flex-direction: column;
 }
 
+/**
+ * iOS Safari·PWA: input font-size < 16px 포커스 시 페이지 자동 확대.
+ * blur 후에는 배율이 자동 복원되지 않아 pinch-out 필요 → 터치 기기 입력은 16px 고정으로 예방.
+ */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
