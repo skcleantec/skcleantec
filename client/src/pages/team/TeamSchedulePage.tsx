@@ -183,7 +183,7 @@ export function TeamSchedulePage() {
     return (
       <div
         key={item.id}
-        className="bg-white border border-gray-200 rounded-lg p-4"
+        className="bg-white border border-gray-200 rounded-lg p-2 sm:p-4"
         onClick={() => setDetailItem(item)}
       >
         <div className="flex items-start justify-between gap-2">
@@ -424,8 +424,8 @@ export function TeamSchedulePage() {
             const dayListActive = dayListAll.filter((i) => !isTeamScheduleInactiveStatus(i.status));
             const dayListInactive = dayListAll.filter((i) => isTeamScheduleInactiveStatus(i.status));
             return (
-            <div className="border-t border-gray-200 p-4 bg-gray-50">
-              <h3 className="text-fluid-xs font-semibold text-gray-700 mb-3 tabular-nums leading-snug flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <div className="border-t border-gray-200 bg-gray-50 p-2 sm:p-4">
+              <h3 className="mb-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-fluid-2xs font-semibold leading-snug text-gray-700 tabular-nums sm:mb-3 sm:text-fluid-xs">
                 <span>{formatDateCompactWithWeekday(selectedDate)}</span>
                 <TeamBiInline id="team.schedule.dayDetailSuffix" />
               </h3>

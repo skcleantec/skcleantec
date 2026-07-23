@@ -308,21 +308,21 @@ export function TeamEContractListPage() {
   }
 
   return (
-    <div className="flex min-w-0 w-full max-w-full flex-col gap-4 pb-4">
+    <div className="flex min-w-0 w-full max-w-full flex-col gap-2 pb-2 sm:gap-4 sm:pb-4">
       <div className="min-w-0">
         <PageTitleWithFavorite label="전자 계약">
-          <h1 className="text-xl font-semibold text-gray-800">전자 계약</h1>
+          <h1>전자 계약</h1>
         </PageTitleWithFavorite>
-        <p className="mt-1 text-fluid-sm text-gray-600">
+        <p className="mt-0.5 text-fluid-2xs text-gray-600 sm:mt-1 sm:text-fluid-sm">
           관리자가 발급한 계약서를 확인하고 같은 화면 흐름으로 서명할 수 있습니다. 체결은 보안 확인을 위해
           안내 페이지로 이동합니다.
         </p>
-        <p className="mt-2 text-fluid-2xs text-gray-500">
+        <p className="mt-1 text-fluid-2xs text-gray-500 sm:mt-2">
           목록에서 「미리보기」「PDF로 저장」으로 A4 분할 문서를 확인·파일로 받을 수 있습니다. 서명 화면에서도 동일합니다.
         </p>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-lg border border-gray-200 bg-white p-2 shadow-sm sm:p-4">
         <span className="text-fluid-xs font-medium text-gray-700">발급일</span>
         <div className="mt-2 inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 p-1">
           {(
@@ -396,12 +396,12 @@ export function TeamEContractListPage() {
 
       {items.length > 0 ? (
         <>
-          <div className="lg:hidden space-y-3">
+          <div className="lg:hidden space-y-1.5 sm:space-y-3">
             {items.map((row) => {
               const signOk = canProceedToSign(row);
               const expired = issuanceExpired(row);
               return (
-                <div key={row.id} className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm min-w-0">
+                <div key={row.id} className="rounded-lg border border-gray-200 bg-white p-2 shadow-sm min-w-0 sm:p-3">
                   <div className="font-semibold text-gray-900 text-fluid-sm truncate" title={row.definitionTitle}>
                     {row.definitionTitle || '계약서'}
                   </div>

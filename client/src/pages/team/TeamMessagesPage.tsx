@@ -121,10 +121,10 @@ export function TeamMessagesPage() {
   };
 
   return (
-    <div className="flex flex-col min-w-0 gap-3 flex-1 min-h-0 h-full overflow-hidden">
+    <div className="flex flex-col min-w-0 gap-2 flex-1 min-h-0 h-full overflow-hidden sm:gap-3">
       <PageTitleWithFavorite label="메시지">
-        <h1 className="text-xl font-semibold text-gray-800 shrink-0">
-          <TeamBiLine id="team.messages.title" koClassName="text-xl font-semibold text-gray-800" />
+        <h1>
+          <TeamBiLine id="team.messages.title" />
         </h1>
       </PageTitleWithFavorite>
 
@@ -133,14 +133,14 @@ export function TeamMessagesPage() {
       )}
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col flex-1 min-h-0 min-w-0">
-        <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 shrink-0">
+        <div className="border-b border-gray-200 bg-gray-50 p-2 shrink-0 sm:p-4">
           <h2 className="font-medium text-gray-900">
             <TeamBiLine id="team.messages.opsTeam" koClassName="font-medium text-gray-900" />
           </h2>
         </div>
         <div
           ref={chatScrollRef}
-          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 space-y-3"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-2 space-y-2 sm:p-4 sm:space-y-3"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {loading && messages.length === 0 ? (

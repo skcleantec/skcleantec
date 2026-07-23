@@ -167,15 +167,15 @@ export function TeamDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 min-w-0 pb-4">
+    <div className="flex flex-col gap-2 min-w-0 pb-2 sm:gap-4 sm:pb-4">
       <PageTitleWithFavorite label="대시보드">
-        <h1 className="text-xl font-semibold text-gray-800">
-          <TeamBiLine id="team.dashboard.title" koClassName="text-xl font-semibold text-gray-800" />
+        <h1>
+          <TeamBiLine id="team.dashboard.title" />
         </h1>
       </PageTitleWithFavorite>
       {(happyStats.overdueCount > 0 || happyStats.pendingBeforeDeadlineCount > 0) && (
         <div
-          className={`rounded-xl border px-4 py-3 text-fluid-sm space-y-2 ${
+          className={`rounded-lg border px-2.5 py-1.5 text-fluid-2xs space-y-1 sm:rounded-xl sm:px-4 sm:py-3 sm:text-fluid-sm sm:space-y-2 ${
             happyStats.overdueCount > 0
               ? 'border-red-200 bg-red-50 text-red-900'
               : 'border-amber-200 bg-amber-50 text-amber-900'
@@ -242,7 +242,7 @@ export function TeamDashboardPage() {
       </section>
 
       <section>
-        <h2 className="text-base font-semibold text-blue-800 mb-3 px-1 flex flex-wrap items-center gap-2">
+        <h2 className="mb-1.5 flex flex-wrap items-center gap-2 px-1 text-fluid-sm font-semibold text-blue-800 sm:mb-3 sm:text-base">
           <span className="w-1 h-4 bg-blue-600 rounded shrink-0" />
           <TeamBiLine id="team.dashboard.sectionToday" koClassName="text-base font-semibold text-blue-800" />
           {todayItems.length > 0 ? (
@@ -256,8 +256,8 @@ export function TeamDashboardPage() {
           ) : null}
         </h2>
         {todayItems.length === 0 ? (
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center text-gray-500 text-fluid-sm">
-            <TeamBiLine id="team.dashboard.noToday" koClassName="text-fluid-sm text-gray-500" />
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-fluid-2xs text-gray-500 sm:rounded-xl sm:p-6 sm:text-fluid-sm">
+            <TeamBiLine id="team.dashboard.noToday" koClassName="text-fluid-2xs text-gray-500 sm:text-fluid-sm" />
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -326,16 +326,16 @@ export function TeamDashboardPage() {
       </section>
 
       <section>
-        <h2 className="text-base font-semibold text-gray-800 mb-3 px-1 flex items-center gap-2">
+        <h2 className="mb-1.5 flex items-center gap-2 px-1 text-fluid-sm font-semibold text-gray-800 sm:mb-3 sm:text-base">
           <span className="w-1 h-4 bg-gray-400 rounded" />
           <TeamBiLine id="team.dashboard.sectionUpcoming" koClassName="text-base font-semibold text-gray-800" />
         </h2>
         {upcomingDates.length === 0 ? (
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center text-gray-500 text-fluid-sm">
-            <TeamBiLine id="team.dashboard.noUpcoming" koClassName="text-fluid-sm text-gray-500" />
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-fluid-2xs text-gray-500 sm:rounded-xl sm:p-6 sm:text-fluid-sm">
+            <TeamBiLine id="team.dashboard.noUpcoming" koClassName="text-fluid-2xs text-gray-500 sm:text-fluid-sm" />
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5 sm:gap-3">
             {upcomingDates.map((dateKey) => {
               const dayItems = byDate[dateKey] || [];
               return (

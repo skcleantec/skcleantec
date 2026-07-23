@@ -11,28 +11,42 @@ import { useLocation } from 'react-router-dom';
 import { resolvePageNavFavoriteFromPath } from '../../utils/resolveNavFavoriteEntry';
 import { NavFavoriteStar } from './NavFavoriteStar';
 
-/** staff/admin/team 페이지 h1 — viewport fluid + 한 줄 말줄임 */
+/** staff/admin 페이지 h1 — viewport fluid + 한 줄 말줄임 */
 export const STAFF_PAGE_TITLE_CLASS =
   'min-w-0 max-w-full truncate whitespace-nowrap text-fluid-lg font-semibold leading-tight lg:text-fluid-xl';
+
+/** 팀장(/team) 페이지 h1 — 모바일 컴팩트 fluid */
+export const TEAM_PAGE_TITLE_CLASS =
+  'min-w-0 max-w-full truncate whitespace-nowrap text-fluid-base font-semibold leading-tight text-gray-800 sm:text-fluid-lg lg:text-fluid-xl';
 
 const FIXED_TITLE_SIZE_CLASS =
   /\b(?:sm:|md:|lg:|xl:|2xl:)?text-(?:xs|sm|base|lg|xl|2xl|3xl|\[[^\]]+\])\b/g;
 
 const BLOCK_TRUNCATE_CLASS = /\b(?:shrink-0|whitespace-pre-line|whitespace-normal|break-words)\b/g;
 
-export function mergeStaffPageTitleClass(existing?: string): string {
+function mergePageTitleClass(base: string, existing?: string): string {
   const cleaned = (existing ?? '')
     .replace(FIXED_TITLE_SIZE_CLASS, '')
     .replace(BLOCK_TRUNCATE_CLASS, '')
     .replace(/\s+/g, ' ')
     .trim();
-  return cleaned ? `${STAFF_PAGE_TITLE_CLASS} ${cleaned}` : STAFF_PAGE_TITLE_CLASS;
+  return cleaned ? `${base} ${cleaned}` : base;
 }
 
-function enhancePageTitleChild(child: ReactNode): ReactNode {
+export function mergeStaffPageTitleClass(existing?: string): string {
+  return mergePageTitleClass(STAFF_PAGE_TITLE_CLASS, existing);
+}
+
+export function mergeTeamPageTitleClass(existing?: string): string {
+  return mergePageTitleClass(TEAM_PAGE_TITLE_CLASS, existing);
+}
+
+function enhancePageTitleChild(child: ReactNode, teamLayout = false): ReactNode {
   if (!isValidElement(child) || child.type !== 'h1') return child;
   const el = child as ReactElement<{ className?: string; style?: CSSProperties; children?: ReactNode }>;
-  const mergedClass = mergeStaffPageTitleClass(el.props.className);
+  const mergedClass = teamLayout
+    ? mergeTeamPageTitleClass(el.props.className)
+    : mergeStaffPageTitleClass(el.props.className);
   const nextStyle = el.props.style ? { ...el.props.style } : undefined;
   if (nextStyle?.fontSize != null) {
     delete nextStyle.fontSize;
@@ -44,6 +58,18 @@ function enhancePageTitleChild(child: ReactNode): ReactNode {
     style,
     ...(textLabel ? { title: textLabel } : {}),
   } as Partial<typeof el.props>);
+}
+
+export function TeamPageTitle({ className, children, ...props }: ComponentProps<'h1'>) {
+  return (
+    <h1
+      className={mergeTeamPageTitleClass(className)}
+      title={typeof children === 'string' ? children : undefined}
+      {...props}
+    >
+      {children}
+    </h1>
+  );
 }
 
 export function StaffPageTitle({ className, children, ...props }: ComponentProps<'h1'>) {
@@ -82,6 +108,7 @@ export function PageTitleWithFavorite({
   compact = false,
 }: PageTitleWithFavoriteProps) {
   const location = useLocation();
+  const isTeamRoute = location.pathname.startsWith('/team');
   const favorite = useMemo(() => {
     if (navKey && label) return { navKey, label };
     const pathname = path ?? location.pathname;
@@ -94,7 +121,7 @@ export function PageTitleWithFavorite({
 
   return (
     <div className={className}>
-      {enhancePageTitleChild(children)}
+      {enhancePageTitleChild(children, isTeamRoute)}
       {favorite ? (
         <NavFavoriteStar
           navKey={favorite.navKey}

@@ -299,11 +299,11 @@ export function TeamAssignmentListPage() {
   }
 
   return (
-    <div className="flex min-w-0 w-full max-w-full flex-col gap-2 pb-4 sm:gap-4">
+    <div className="flex min-w-0 w-full max-w-full flex-col gap-2 pb-2 sm:gap-4 sm:pb-4">
       <div>
         <PageTitleWithFavorite label="배정목록">
-          <h1 className="text-xl font-semibold text-gray-800">
-            <TeamBiLine id="team.assign.title" koClassName="text-xl font-semibold text-gray-800" />
+          <h1>
+            <TeamBiLine id="team.assign.title" />
           </h1>
         </PageTitleWithFavorite>
       </div>
