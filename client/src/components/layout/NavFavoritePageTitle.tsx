@@ -77,7 +77,7 @@ export function PageTitleWithFavorite({
   navKey,
   label,
   path,
-  className = 'flex min-w-0 flex-1 items-center gap-1',
+  className = 'flex min-w-0 shrink-0 items-center gap-1',
   onDark = false,
   compact = false,
 }: PageTitleWithFavoriteProps) {
