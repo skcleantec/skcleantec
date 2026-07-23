@@ -42,4 +42,6 @@ export type InquiryEditFormFields = {
   consultationMemo: string;
   internalCustomerTone: InternalCustomerTone;
   professionalOptionIds: string[];
+  /** 유입 플랫폼 — Inquiry.source (카탈로그 label) */
+  leadSource: string;
 };

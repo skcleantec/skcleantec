@@ -22,6 +22,10 @@ import {
   serializeFollowup,
   serializeLog,
 } from './orderFollowups.service.js';
+import {
+  assertActiveLeadSourceLabel,
+  mapLeadSourceValidationError,
+} from '../inquiry-lead-sources/inquiryLeadSource.service.js';
 import { canAdminOrMarketerViewInquiry } from '../inquiry-cleaning-photos/inquiryCleaningPhotos.access.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
@@ -436,6 +440,24 @@ router.post('/', async (req, res) => {
   const memo = typeof body.memo === 'string' ? body.memo.trim() || null : null;
   const nextContactAt = parseNextContact(body.nextContactAt);
   const goldDb = typeof body.goldDb === 'boolean' ? body.goldDb : false;
+  let resolvedLeadSource: string | null = null;
+  const strictLeadSource =
+    body.strictLeadSource === true || body.strictLeadSource === 'true';
+  if (strictLeadSource || (typeof body.leadSource === 'string' && body.leadSource.trim())) {
+    try {
+      resolvedLeadSource = await assertActiveLeadSourceLabel(prisma, tenantId, body.leadSource);
+    } catch (e) {
+      const mapped = mapLeadSourceValidationError(e);
+      if (mapped) {
+        res.status(mapped.status).json({ error: mapped.message });
+        return;
+      }
+      throw e;
+    }
+  } else if (strictLeadSource) {
+    res.status(400).json({ error: '유입 경로를 선택해 주세요.' });
+    return;
+  }
   let preferredMoveInCleaningDate: string | null | undefined = undefined;
   if (Object.prototype.hasOwnProperty.call(body, 'preferredMoveInCleaningDate')) {
     const parsed = parsePreferredMoveInCleaningDate(body.preferredMoveInCleaningDate);
@@ -510,6 +532,7 @@ router.post('/', async (req, res) => {
         memo,
         nextContactAt: nextContactAt === undefined ? undefined : nextContactAt,
         handledBy: { connect: { id: user.userId } },
+        ...(resolvedLeadSource != null ? { leadSource: resolvedLeadSource } : {}),
         ...(preferredMoveInCleaningDate !== undefined ? { preferredMoveInCleaningDate } : {}),
         ...(connectInquiryId && !existing.inquiryId ? { inquiry: { connect: { id: connectInquiryId } } } : {}),
       };
@@ -586,6 +609,7 @@ router.post('/', async (req, res) => {
       createdById: user.userId,
       handledById: user.userId,
       depositReceivedAt: status === 'RESERVED' ? new Date() : null,
+      ...(resolvedLeadSource != null ? { leadSource: resolvedLeadSource } : {}),
       ...(preferredMoveInCleaningDate !== undefined
         ? { preferredMoveInCleaningDate }
         : {}),
@@ -602,6 +626,7 @@ router.post('/', async (req, res) => {
       customerName,
       nickname,
       customerPhone,
+      ...(resolvedLeadSource ? { leadSource: resolvedLeadSource } : {}),
       ...(connectInquiryId ? { inquiryId: connectInquiryId } : {}),
       ...(preferredMoveInCleaningDate !== undefined
         ? { preferredMoveInCleaningDate: preferredMoveInCleaningDate ?? null }

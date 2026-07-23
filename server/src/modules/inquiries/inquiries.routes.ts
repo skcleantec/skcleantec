@@ -295,6 +295,7 @@ router.get('/', async (req, res) => {
     statusEvent,
     sortBy,
     sortDir,
+    source: sourceQuery,
   } = req.query;
   const CREATED_BY_FILTER_UNASSIGNED = '__unassigned__';
   const statsDayRaw =
@@ -400,6 +401,10 @@ router.get('/', async (req, res) => {
 
   if (typeof operatingCompanyId === 'string' && operatingCompanyId.trim()) {
     andClauses.push({ operatingCompanyId: operatingCompanyId.trim() });
+  }
+
+  if (typeof sourceQuery === 'string' && sourceQuery.trim()) {
+    andClauses.push({ source: sourceQuery.trim() });
   }
 
   if (
@@ -1319,6 +1324,9 @@ router.patch('/:id', async (req, res) => {
     );
   }
   if (data.claimMemo !== undefined) pushIfChanged('클레임 메모', inquiry.claimMemo, data.claimMemo);
+  if (Object.prototype.hasOwnProperty.call(body, 'source')) {
+    pushIfChanged('유입경로', inquiry.source, mergedSource);
+  }
   if (data.status !== undefined) pushIfChanged('상태', inquiry.status, data.status, fmtStatus);
   /**
    * 취소확인(가상 상태) 처리 로그:

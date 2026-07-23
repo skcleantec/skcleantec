@@ -21,6 +21,7 @@ import { appendPublicQuery } from '../../utils/publicTenantQuery';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
+import { AdminOrderFormLeadSourceSettingsPage } from './AdminOrderFormLeadSourceSettingsPage';
 
 /** 서버 미리보기 발주서와 동일 기준 (표시 안내용) */
 const DEMO_PYEONG = 32;
@@ -38,6 +39,7 @@ type DesignerPanel =
   | 'timeAck'
   | 'guide'
   | 'specialty'
+  | 'leadSource'
   | 'fields';
 
 const PANEL_TAB_ORDER: DesignerPanel[] = [
@@ -49,6 +51,7 @@ const PANEL_TAB_ORDER: DesignerPanel[] = [
   'timeAck',
   'guide',
   'specialty',
+  'leadSource',
   'fields',
 ];
 
@@ -61,6 +64,7 @@ const PANEL_TAB_LABEL: Record<DesignerPanel, string> = {
   timeAck: '시간대확인',
   guide: '안내·동의',
   specialty: '전문시공',
+  leadSource: '유입경로',
   fields: '입력안내',
 };
 
@@ -298,6 +302,7 @@ export function AdminOrderFormCustomerPreviewPage() {
     timeAck: '시간대 확인 모달',
     guide: '안내사항·동의 링크',
     specialty: '전문 시공 옵션',
+    leadSource: '유입경로(플랫폼)',
     fields: '입력 필드',
   };
 
@@ -675,6 +680,12 @@ export function AdminOrderFormCustomerPreviewPage() {
             {activePanel === 'specialty' && (
               <div>
                 <AdminOrderFormSpecialtySettingsPage onCatalogChanged={bumpIframe} />
+              </div>
+            )}
+
+            {activePanel === 'leadSource' && (
+              <div>
+                <AdminOrderFormLeadSourceSettingsPage />
               </div>
             )}
 

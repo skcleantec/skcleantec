@@ -449,6 +449,8 @@ export async function createOrderForm(
     internalCustomerTone?: string;
     /** 사용할 발주서 양식(템플릿) id — 미지정 시 테넌트 기본 양식 */
     templateId?: string;
+    /** 유입 플랫폼(카탈로그 label) — 발급 전 필수 */
+    leadSource?: string;
   }
 ): Promise<OrderForm> {
   const res = await fetch(`${API}/orderforms`, {

@@ -14,6 +14,8 @@ export type CrmIntakeFormSnapshot = {
   balconyCount: string;
   kind: CrmIntakeKind;
   goldDb: boolean;
+  leadSource: string;
+  extractPlatform?: 'miso' | 'soomgo';
 };
 
 export type CrmIntakeDraft = CrmIntakeFormSnapshot & {
@@ -78,6 +80,7 @@ export function crmIntakeDraftHasContent(draft: Partial<CrmIntakeDraft>): boolea
       draft.pyeong?.trim() ||
       draft.preferredMoveInCleanYmd?.trim() ||
       draft.requestMemo?.trim() ||
+      draft.leadSource?.trim() ||
       draft.roomCount?.trim() ||
       draft.bathroomCount?.trim() ||
       draft.balconyCount?.trim(),

@@ -47,6 +47,9 @@ export function validateCrmIntakeForm(
   if (values.kind === 'received' && !values.address.trim()) {
     return '예약완료는 주소가 필요합니다.';
   }
+  if (!values.leadSource.trim()) {
+    return '유입 경로를 선택해 주세요.';
+  }
   const parsed = parseCrmIntakePyeong(pyeong);
   if (pyeong.trim() && parsed == null) return '평수 형식을 확인해 주세요.';
   return null;

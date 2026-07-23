@@ -21,6 +21,13 @@ import {
   parseSoloTeamLeaderIds,
 } from './inquiryNoCrewMembers.helpers.js';
 import { normalizeInquiryServiceAmounts } from './inquiryServiceAmounts.js';
+import {
+  buildIntakeCreateChangeLogLines,
+  LeadSourceValidationError,
+  parseIntakeMeta,
+  resolveInquirySourceForCreate,
+  resolveInquiryIntakeChannelForCreate,
+} from '../inquiry-lead-sources/inquiryLeadSource.service.js';
 
 export const CREATE_INQUIRY_STATUSES: InquiryStatus[] = [
   'PENDING',
@@ -156,6 +163,18 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
     throw new InquiryCreateError(amountError);
   }
 
+  let resolvedSource: string;
+  try {
+    resolvedSource = await resolveInquirySourceForCreate(db, tenantId, body);
+  } catch (e) {
+    if (e instanceof LeadSourceValidationError) {
+      throw new InquiryCreateError(e.message, e.status);
+    }
+    throw e;
+  }
+  const intakeMeta = parseIntakeMeta(body.intakeMeta);
+  const intakeChannel = resolveInquiryIntakeChannelForCreate(body);
+
   const inquiry = await db.$transaction(async (tx) => {
     let inquiryNumber: string | null = null;
     if (overrideNum) {
@@ -209,7 +228,8 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
           body.serviceDepositAmount != null ? Number(body.serviceDepositAmount) : null,
         serviceBalanceAmount:
           body.serviceBalanceAmount != null ? Number(body.serviceBalanceAmount) : null,
-        source: body.source ? String(body.source) : '전화',
+        source: resolvedSource,
+        ...(intakeChannel ? { intakeChannel } : {}),
         status,
         crewMemberCount,
         crewMemberNote: createAllSolo
@@ -237,6 +257,18 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
     source: inquiry.source,
   });
   await syncInquiryAddressGeo(db, inquiry.id);
+
+  const createLogLines = buildIntakeCreateChangeLogLines(inquiry.source, intakeMeta);
+  if (createLogLines.length > 0) {
+    await db.inquiryChangeLog.create({
+      data: {
+        inquiryId: inquiry.id,
+        customerName: inquiry.customerName,
+        actorId: userId ?? null,
+        lines: createLogLines,
+      },
+    });
+  }
 
   const createdOut = await db.inquiry.findUnique({
     where: { id: inquiry.id },

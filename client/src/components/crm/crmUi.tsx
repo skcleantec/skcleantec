@@ -93,6 +93,15 @@ export function CrmIconSoomgo({ className }: { className?: string }) {
   );
 }
 
+export function CrmIconMiso({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <rect x="7" y="3" width="10" height="18" rx="2" />
+      <path strokeLinecap="round" d="M10 7h4M10 17h4" />
+    </svg>
+  );
+}
+
 export function CrmIconPhone({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>

@@ -839,7 +839,7 @@ export function TeamLayout() {
             <PlatformPromoDashboardCard items={teamDesktopPromos} layout="banner" />
           </div>
         ) : null}
-        <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null, tenantSlug }}>
+        <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null, tenantSlug, telecrm: null }}>
           <Outlet />
         </TenantCapabilitiesProvider>
       </main>

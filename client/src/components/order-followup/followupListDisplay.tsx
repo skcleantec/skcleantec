@@ -11,6 +11,13 @@ export function displayFollowupPhone(phone: string | null | undefined): string {
   return t ? t : '—';
 }
 
+export function followupLeadSourceLabel(row: OrderFollowupItem): string {
+  const fromInquiry = row.inquiry?.source?.trim();
+  if (fromInquiry) return fromInquiry;
+  const direct = row.leadSource?.trim();
+  return direct || '—';
+}
+
 function statusToneClass(status: OrderFollowupStatus): string {
   return status === 'FULFILLED'
     ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'

@@ -59,6 +59,7 @@ export interface CsReport {
     crewMemberCount?: number | null;
     crewMemberNote?: string | null;
     source?: string | null;
+    intakeChannel?: string | null;
     createdAt?: string;
     assignments: Array<{ teamLeader: { id: string; name: string } }>;
     inspectionSummary?: import('./inquiryInspection').InspectionListSummary | null;

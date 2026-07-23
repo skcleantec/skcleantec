@@ -31,7 +31,7 @@ export function CrmRequestMemoField({
     <>
       <label className="block space-y-0.5">
         <span className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-medium text-slate-600">숨고 요청 메모</span>
+          <span className="text-[11px] font-medium text-slate-600">요청 메모</span>
           {hasContent ? (
             <button
               type="button"
@@ -68,7 +68,7 @@ export function CrmRequestMemoField({
                     id="crm-request-memo-preview-title"
                     className="text-fluid-base font-semibold text-gray-900"
                   >
-                    숨고 요청 메모
+                    요청 메모
                   </h2>
                   <p className="mt-0.5 text-[11px] text-gray-500">고객 요청 모달에서 가져온 전체 내용</p>
                 </div>

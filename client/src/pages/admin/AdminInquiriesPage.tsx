@@ -58,6 +58,7 @@ import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarke
 import { getPromotedOrderFormListFields } from '../../api/orderFormTemplates';
 import type { OrderFormListSnapshot } from '@shared/orderFormListSnapshot';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
+import { listInquiryLeadSources } from '../../api/inquiryLeadSources';
 import { PreferredDateCalendarModal } from '../../components/admin/PreferredDateCalendarModal';
 import {
   InquiryListFieldQuickEditModal,
@@ -125,12 +126,14 @@ import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 import {
   addressListShortSiGu,
-  formatInquirySourceLabel,
+  formatInquiryLeadPlatformLabel,
   inquiryEditFormAddress,
   inquiryListAddressFull,
   isInquirySourceHiddenFromUi,
-  phoneListTwoLines,
+  phoneListOneLine,
 } from '../../utils/inquiryListDisplay';
+import { shouldShowInquiryLeadPlatform } from '@shared/inquiryIntakeChannel';
+import { InquiryIntakeMetaLabels } from '../../components/inquiry/InquiryIntakeMetaLabels';
 import { isRealCustomerAddress } from '@shared/orderFormPendingAddress';
 import {
   formatInquiryAreaKoLine,
@@ -414,7 +417,7 @@ function StatusQuickPicker({
                     onChange(nextValue);
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-fluid-xs transition-colors ${
+                  className={`flex w-full items-center gap-1 rounded-lg px-1.5 py-1 text-left text-fluid-2xs transition-colors ${
                     value === nextValue ? 'bg-slate-900 text-white font-medium' : 'text-slate-700 hover:bg-slate-50'
                   }`}
                   title={STATUS_LABELS[nextValue] ?? nextValue}
@@ -483,6 +486,7 @@ interface InquiryItem {
   preferredTimeDetail?: string | null;
   status: string;
   source: string | null;
+  intakeChannel?: string | null;
   memo: string | null;
   /** 수기(간편) 등록 제목(리스트용) */
   scheduleMemo?: string | null;
@@ -848,7 +852,7 @@ export function AdminInquiriesPage() {
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [promotedListFields, setPromotedListFields] = useState<Array<{ fieldKey: string; label: string }>>([]);
-  const listTableWidthRem = (hasInspectionModule ? 72 : 66) + promotedListFields.length * 4;
+  const listTableWidthRem = (hasInspectionModule ? 90 : 84) + promotedListFields.length * 4;
   const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
   const [customCalendars, setCustomCalendars] = useState<UserCustomCalendarItem[]>([]);
   const [listQuickEdit, setListQuickEdit] = useState<{
@@ -1003,6 +1007,10 @@ export function AdminInquiriesPage() {
   const [operatingCompanyFilterId, setOperatingCompanyFilterId] = useState(
     () => searchParams.get('operatingCompanyId') ?? ''
   );
+  const [sourceFilterId, setSourceFilterId] = useState(() => searchParams.get('source') ?? '');
+  const [leadSourceFilterOptions, setLeadSourceFilterOptions] = useState<
+    Array<{ id: string; label: string }>
+  >([]);
   const [operatingCompanies, setOperatingCompanies] = useState<OperatingCompanyItem[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<InquiryItem | null>(null);
   /** 미제출 행 — 고객 메시지·링크 미리보기(접수 목록에 모달, 발주서 목록으로 이동하지 않음) */
@@ -1296,6 +1304,16 @@ export function AdminInquiriesPage() {
   }, [token]);
 
   useEffect(() => {
+    if (!token) {
+      setLeadSourceFilterOptions([]);
+      return;
+    }
+    listInquiryLeadSources(token)
+      .then((res) => setLeadSourceFilterOptions(res.items.map((o) => ({ id: o.id, label: o.label }))))
+      .catch(() => setLeadSourceFilterOptions([]));
+  }, [token]);
+
+  useEffect(() => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -1307,6 +1325,19 @@ export function AdminInquiriesPage() {
       { replace: true }
     );
   }, [operatingCompanyFilterId, setSearchParams]);
+
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const v = sourceFilterId.trim();
+        if (v) next.set('source', v);
+        else next.delete('source');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [sourceFilterId, setSearchParams]);
   const loadMarketerOverview = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = opts?.silent === true;
@@ -1367,6 +1398,7 @@ export function AdminInquiriesPage() {
       marketerStatsDay?: string;
       teamLeaderId?: string;
       operatingCompanyId?: string;
+      source?: string;
       scheduleMonth?: string;
       scheduleDay?: string;
       inspectionStatus?: string;
@@ -1401,6 +1433,9 @@ export function AdminInquiriesPage() {
     }
     if (operatingCompanyFilterId.trim()) {
       params.operatingCompanyId = operatingCompanyFilterId.trim();
+    }
+    if (sourceFilterId.trim()) {
+      params.source = sourceFilterId.trim();
     }
     if (me?.role === 'ADMIN' && hasInspectionModule && inspectionStatusFilter.trim()) {
       params.inspectionStatus = inspectionStatusFilter.trim();
@@ -1666,6 +1701,7 @@ export function AdminInquiriesPage() {
         marketerStatsDay,
         teamLeaderFilterId,
         operatingCompanyFilterId,
+        sourceFilterId,
         inspectionStatusFilter,
         inquiryListBump,
         listSort.field,
@@ -1682,6 +1718,7 @@ export function AdminInquiriesPage() {
       marketerStatsDay,
       teamLeaderFilterId,
       operatingCompanyFilterId,
+      sourceFilterId,
       inspectionStatusFilter,
       inquiryListBump,
       listSort.field,
@@ -2722,6 +2759,39 @@ export function AdminInquiriesPage() {
                   ) : null}
                 </div>
               ) : null}
+              <div className="flex shrink-0 items-center gap-1">
+                <label htmlFor="inquiry-source-filter" className={INQUIRY_LIST_FILTER_LABEL_CLASS}>
+                  유입
+                </label>
+                <select
+                  id="inquiry-source-filter"
+                  value={sourceFilterId}
+                  onChange={(e) => setSourceFilterId(e.target.value)}
+                  className={INQUIRY_LIST_FILTER_SELECT_CLASS}
+                >
+                  <option value="">전체</option>
+                  {sourceFilterId &&
+                  !leadSourceFilterOptions.some((o) => o.label === sourceFilterId) ? (
+                    <option value={sourceFilterId}>
+                      {formatInquiryLeadPlatformLabel(sourceFilterId)} (기존)
+                    </option>
+                  ) : null}
+                  {leadSourceFilterOptions.map((o) => (
+                    <option key={o.id} value={o.label}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                {sourceFilterId ? (
+                  <button
+                    type="button"
+                    onClick={() => setSourceFilterId('')}
+                    className="shrink-0 whitespace-nowrap text-[11px] text-slate-600 underline hover:text-slate-900 sm:text-fluid-xs"
+                  >
+                    유입 필터 해제
+                  </button>
+                ) : null}
+              </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
@@ -2769,7 +2839,7 @@ export function AdminInquiriesPage() {
                             next.delete('marketerStatsDay');
                           });
                         }}
-                        className={`flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-fluid-xs transition ${
+                        className={`flex items-center gap-1 rounded px-1.5 py-1 text-left text-fluid-2xs transition ${
                           statusFilter === '' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
                         }`}
                       >
@@ -2789,7 +2859,7 @@ export function AdminInquiriesPage() {
                               next.delete('marketerStatsDay');
                             });
                           }}
-                          className={`flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-fluid-xs transition ${
+                          className={`flex items-center gap-1 rounded px-1.5 py-1 text-left text-fluid-2xs transition ${
                             statusFilter === value
                               ? 'bg-slate-900 text-white'
                               : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
@@ -2930,6 +3000,12 @@ export function AdminInquiriesPage() {
                             >
                               {inquiryListServiceKindLabel(item)}
                             </span>
+                            {!isInquirySourceHiddenFromUi(item.source) &&
+                            shouldShowInquiryLeadPlatform(item.source) ? (
+                              <span className="shrink-0 rounded-full bg-violet-50 px-1.5 py-0.5 text-fluid-2xs font-medium text-violet-800 ring-1 ring-violet-200/80">
+                                {formatInquiryLeadPlatformLabel(item.source)}
+                              </span>
+                            ) : null}
                           </div>
                           {item.scheduleMemo?.trim() ? (
                             <p
@@ -3254,40 +3330,42 @@ export function AdminInquiriesPage() {
               <colgroup>
                 {hasInspectionModule ? (
                   <>
+                    <col className="w-[7%]" />
+                    <col className="w-[4%]" />
+                    <col className="w-[4%]" />
+                    <col className="w-[4%]" />
+                    <col className="w-[11%]" />
                     <col className="w-[8%]" />
-                    <col className="w-[5%]" />
-                    <col className="w-[5%]" />
-                    <col className="w-[7%]" />
-                    <col className="w-[5%]" />
-                    <col className="w-[7%]" />
-                    <col className="w-[5%]" />
-                    <col className="w-[7%]" />
-                    <col className="w-[7%]" />
-                    <col className="w-[8%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[4%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[6%]" />
                     {promotedListFields.map((f) => (
-                      <col key={f.fieldKey} className="w-[6%]" />
+                      <col key={f.fieldKey} className="w-[5%]" />
                     ))}
+                    <col className="w-[5%]" />
                     <col className="w-[7%]" />
-                    <col className="w-[8%]" />
-                    <col style={{ width: `${Math.max(18, 25 - promotedListFields.length * 2)}%` }} />
+                    <col style={{ width: `${Math.max(14, 20 - promotedListFields.length * 2)}%` }} />
                   </>
                 ) : (
                   <>
-                    <col className="w-[9%]" />
-                    <col className="w-[6%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[4%]" />
+                    <col className="w-[4%]" />
+                    <col className="w-[4%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[12%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
                     <col className="w-[6%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[6%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[9%]" />
+                    <col className="w-[7%]" />
                     {promotedListFields.map((f) => (
-                      <col key={f.fieldKey} className="w-[6%]" />
+                      <col key={f.fieldKey} className="w-[5%]" />
                     ))}
-                    <col className="w-[9%]" />
-                    <col style={{ width: `${Math.max(16, 22 - promotedListFields.length * 2)}%` }} />
+                    <col className="w-[8%]" />
+                    <col style={{ width: `${Math.max(12, 18 - promotedListFields.length * 2)}%` }} />
                   </>
                 )}
               </colgroup>
@@ -3303,6 +3381,7 @@ export function AdminInquiriesPage() {
                   />
                   <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">접수자</th>
                   <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">서비스</th>
+                  <th className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs">유입</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">고객</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">연락처</th>
                   <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">주소</th>
@@ -3397,7 +3476,7 @@ export function AdminInquiriesPage() {
                       : hcTone === 'pending'
                         ? 'hover:bg-amber-100/40'
                         : pinStyle.rowHover;
-                  const phoneSplit = phoneListTwoLines(item.customerPhone);
+                  const phoneLine = phoneListOneLine(item.customerPhone);
                   return (
                   <tr
                     key={item.id}
@@ -3447,26 +3526,34 @@ export function AdminInquiriesPage() {
                       {inquiryListServiceKindLabel(item)}
                     </td>
                     <td
-                      className={`min-w-0 truncate px-1 py-0.5 align-middle text-center text-fluid-2xs font-medium text-slate-900 xl:px-1.5 xl:text-fluid-xs 2xl:text-fluid-xs ${pBorder}`}
+                      className={`min-w-0 truncate px-0.5 py-0.5 align-middle text-center text-[10px] leading-tight text-slate-600 xl:px-1 xl:text-fluid-2xs ${pBorder}`}
+                      title={formatInquiryLeadPlatformLabel(item.source)}
+                    >
+                      {!isInquirySourceHiddenFromUi(item.source)
+                        ? formatInquiryLeadPlatformLabel(item.source)
+                        : '—'}
+                    </td>
+                    <td
+                      className={`min-w-0 px-1 py-0.5 align-middle text-center text-fluid-2xs xl:px-1.5 xl:text-fluid-xs ${pBorder}`}
                       title={`${item.customerName}${item.claimMemo ? ' (클레임)' : ''}`}
                     >
-                      <div className="flex min-w-0 flex-col items-center leading-tight">
-                        <div className="min-w-0 max-w-full truncate inline-flex items-center justify-center gap-0.5">
+                      <div className="mx-auto flex min-w-0 max-w-full flex-col items-center leading-snug">
+                        <div className="inline-flex min-w-0 max-w-full flex-wrap items-center justify-center gap-x-0.5 gap-y-0">
                           <CustomerNameWithInternalTone
                             name={item.customerName}
                             tone={item.internalCustomerTone}
                             viewerRole={me?.role}
-                            nameClassName="truncate"
+                            nameClassName="break-keep font-medium text-slate-900"
                           />
-                          {item.claimMemo && (
-                            <span className="ml-0.5 text-orange-600" title={item.claimMemo}>
+                          {item.claimMemo ? (
+                            <span className="shrink-0 text-orange-600" title={item.claimMemo}>
                               ●
                             </span>
-                          )}
+                          ) : null}
                         </div>
                         {item.scheduleMemo?.trim() ? (
                           <div
-                            className="mt-0.5 max-w-full truncate text-fluid-2xs font-normal text-slate-600"
+                            className="mt-0.5 max-w-full break-keep text-fluid-2xs font-normal leading-snug text-slate-500"
                             title={item.scheduleMemo}
                           >
                             {item.scheduleMemo}
@@ -3475,23 +3562,16 @@ export function AdminInquiriesPage() {
                       </div>
                     </td>
                     <td
-                      className={`min-w-0 px-1 py-0.5 align-middle text-center text-fluid-2xs text-slate-600 xl:px-1.5 xl:text-fluid-xs ${pBorder}`}
+                      className={`min-w-0 whitespace-nowrap px-1 py-0.5 align-middle text-center text-fluid-2xs tabular-nums text-slate-700 xl:px-1.5 xl:text-fluid-xs ${pBorder}`}
                       title={item.customerPhone}
                     >
-                      {phoneSplit ? (
-                        <div className="inline-flex flex-col items-center justify-center gap-0.5 leading-tight">
-                          <span className="font-medium tabular-nums text-slate-900">{phoneSplit.head}</span>
-                          <span className="tabular-nums text-slate-600">{phoneSplit.tail}</span>
-                        </div>
-                      ) : (
-                        <span className="break-all">{item.customerPhone}</span>
-                      )}
+                      {phoneLine}
                     </td>
                     <td
-                      className={`min-w-0 px-1 py-0.5 align-middle text-center text-[10px] leading-tight text-slate-600 xl:px-1.5 xl:text-[11px] ${pBorder}`}
+                      className={`min-w-0 px-1 py-0.5 align-middle text-center text-fluid-2xs leading-snug text-slate-600 xl:px-1.5 xl:text-fluid-xs ${pBorder}`}
                       title={inquiryListAddressFull(item.address, item.addressDetail)}
                     >
-                      <span className="block truncate">{addressListShortSiGu(item.address)}</span>
+                      <span className="block break-keep">{addressListShortSiGu(item.address)}</span>
                     </td>
                     <td
                       className={`min-w-0 px-0.5 py-0.5 align-middle text-center text-[10px] leading-tight tabular-nums text-slate-600 xl:px-1 xl:py-0.5 2xl:text-[11px] ${pBorder}`}
@@ -3850,6 +3930,12 @@ export function AdminInquiriesPage() {
                   })()}
                 </>
               ) : null}
+              {sourceFilterId ? (
+                <>
+                  {' · '}
+                  유입: {formatInquiryLeadPlatformLabel(sourceFilterId)}
+                </>
+              ) : null}
               <span className="hidden lg:inline">
                 {' '}
                 · 행을 누르면 상세 · 표는 고정 비율 · 좁을 때 하단 가로 스크롤
@@ -4118,7 +4204,11 @@ export function AdminInquiriesPage() {
                 <span className="font-medium text-slate-700 tabular-nums">접수번호 {editItem.inquiryNumber}</span>
               ) : null}
               {!isInquirySourceHiddenFromUi(editItem.source) ? (
-                <span>출처: {formatInquirySourceLabel(editItem.source)}</span>
+                <InquiryIntakeMetaLabels
+                  source={editItem.source}
+                  intakeChannel={editItem.intakeChannel}
+                  orderFormSubmitted={Boolean(editItem.orderForm?.submittedAt)}
+                />
               ) : null}
               {(editItem.createdBy?.name || editItem.orderForm?.createdBy?.name || canEditMarketerField) && (
                 canEditMarketerField ? (

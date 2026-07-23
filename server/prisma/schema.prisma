@@ -188,6 +188,7 @@ model Tenant {
   orderFormBrandCustomerLinkConfigs OrderFormBrandCustomerLinkConfig[]
   estimateConfigs EstimateConfig[]
   estimateOptions EstimateOption[]
+  inquiryLeadSourceOptions InquiryLeadSourceOption[]
   quotationServiceItems QuotationServiceItem[]
   quotations Quotation[]
   quotationDailyCounters QuotationDailyCounter[]
@@ -1452,6 +1453,8 @@ model Inquiry {
   claimMemo       String?       @map("claim_memo")
   status          InquiryStatus @default(RECEIVED)
   source          String?      @default("전화")
+  /// 접수 업무 경로 — telecrm, order_issue, order_form_submit, schedule, phone, manual
+  intakeChannel   String?      @map("intake_channel") @db.VarChar(32)
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at")
   /// 팀장이 지정한 크루 현장 미팅 시각(KST, "HH:mm"). 오전 희망 접수에만 노출 등에 사용
@@ -1938,6 +1941,21 @@ model EstimateOption {
 
   @@index([tenantId, isActive])
   @@map("estimate_options")
+}
+
+/// 마케터·텔레CRM·발주서 발급 시 선택하는 유입 플랫폼(테넌트별 카탈로그)
+model InquiryLeadSourceOption {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  label     String   @db.VarChar(64)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, label])
+  @@index([tenantId, isActive, sortOrder])
+  @@map("inquiry_lead_source_options")
 }
 
 enum QuotationDocumentType {
@@ -2579,6 +2597,8 @@ model OrderFollowup {
   goldDb             Boolean              @default(false) @map("gold_db")
   /// 입주청소 희망일(선택) — YYYY-MM-DD 문자열
   preferredMoveInCleaningDate String?     @map("preferred_move_in_cleaning_date") @db.VarChar(10)
+  /// 유입 플랫폼(접수 전 부재·보류) — Inquiry.source 와 동일 라벨 체계
+  leadSource         String?              @map("lead_source") @db.VarChar(64)
   memo               String?              @map("memo") @db.Text
   nextContactAt      DateTime?            @map("next_contact_at")
   depositReceivedAt  DateTime?            @map("deposit_received_at")

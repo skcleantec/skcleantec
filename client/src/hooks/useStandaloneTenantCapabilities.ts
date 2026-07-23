@@ -2,12 +2,18 @@ import { useEffect, useState } from 'react';
 import { getMe, isAuthSessionExpiredError } from '../api/auth';
 import { clearToken } from '../stores/auth';
 import type { TenantCapabilitiesState } from './useTenantCapabilities';
+import { parseTelecrmCapabilitiesFromMe } from '../utils/telecrmCapabilities';
 
 const loadingCapabilities: TenantCapabilitiesState = {
   features: null,
   plan: null,
   tenantSlug: null,
+  telecrm: null,
 };
+
+function parseTelecrmFromMe(raw: unknown) {
+  return parseTelecrmCapabilitiesFromMe(raw);
+}
 
 /**
  * AdminLayout 밖(텔레CRM 팝업 등)에서 FeatureGate가 동작하도록 /auth/me features를 조회한다.
@@ -22,12 +28,13 @@ export function useStandaloneTenantCapabilities(token: string | null): TenantCap
     }
     let cancelled = false;
     void getMe(token)
-      .then((u: { features?: string[]; tenant?: { plan?: string; slug?: string } | null }) => {
+      .then((u: { features?: string[]; tenant?: { plan?: string; slug?: string } | null; telecrm?: unknown }) => {
         if (cancelled) return;
         setState({
           features: Array.isArray(u.features) ? u.features : [],
           plan: typeof u.tenant?.plan === 'string' ? u.tenant.plan : null,
           tenantSlug: typeof u.tenant?.slug === 'string' ? u.tenant.slug : null,
+          telecrm: parseTelecrmFromMe(u.telecrm),
         });
       })
       .catch((e) => {
@@ -37,7 +44,7 @@ export function useStandaloneTenantCapabilities(token: string | null): TenantCap
           setState(loadingCapabilities);
           return;
         }
-        setState({ features: [], plan: null, tenantSlug: null });
+        setState({ features: [], plan: null, tenantSlug: null, telecrm: null });
       });
     return () => {
       cancelled = true;

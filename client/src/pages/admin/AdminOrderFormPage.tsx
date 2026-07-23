@@ -43,6 +43,7 @@ import {
   orderFormBrandFromOperatingCompany,
 } from '../../utils/orderFormCustomerCopy';
 import { InternalCustomerToneRadio } from '../../components/admin/InternalCustomerToneRadio';
+import { InquiryLeadSourceSelect } from '../../components/inquiry/InquiryLeadSourceSelect';
 import {
   DEFAULT_INTERNAL_CUSTOMER_TONE,
   normalizeInternalCustomerTone,
@@ -308,6 +309,7 @@ export function AdminOrderFormPage() {
     useState<InternalCustomerTone>(DEFAULT_INTERNAL_CUSTOMER_TONE);
   const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
   const [issueTemplateId, setIssueTemplateId] = useState('');
+  const [issueLeadSource, setIssueLeadSource] = useState('');
   const [scheduleFabUnlinkedHint, setScheduleFabUnlinkedHint] = useState(false);
   const pendingInquiryFromUrlConsumed = useRef<string | null>(null);
 
@@ -687,6 +689,17 @@ export function AdminOrderFormPage() {
                   </select>
                 </div>
                 <div className="md:col-span-2 lg:col-span-12">
+                  <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
+                    유입 경로 *
+                  </label>
+                  <InquiryLeadSourceSelect
+                    value={issueLeadSource}
+                    onChange={setIssueLeadSource}
+                    required
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                  />
+                </div>
+                <div className="md:col-span-2 lg:col-span-12">
                   <InternalCustomerToneRadio
                     value={issueInternalCustomerTone}
                     onChange={setIssueInternalCustomerTone}
@@ -711,6 +724,7 @@ export function AdminOrderFormPage() {
                           templateId: issueTemplateId || undefined,
                           pendingInquiryId: pendingLinkId || undefined,
                           internalCustomerTone: issueInternalCustomerTone,
+                          leadSource: issueLeadSource,
                           onCreated: handleOrderCreated,
                         },
                       }}

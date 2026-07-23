@@ -48,6 +48,7 @@ export interface ScheduleItem {
   preferredTimeDetail?: string | null;
   status: string;
   source?: string | null;
+  intakeChannel?: string | null;
   memo?: string | null;
   /** 스케줄 목록 전용 짧은 메모(특이사항·발주서 메모와 별개) */
   scheduleMemo?: string | null;

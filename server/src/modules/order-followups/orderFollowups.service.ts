@@ -4,7 +4,12 @@ import { normalizeKrPhoneDigits } from '../cs/matchInquiryForCs.js';
 
 const USER_SELECT = { id: true, name: true, email: true, role: true } as const;
 
-const INQUIRY_BRIEF_SELECT = { id: true, inquiryNumber: true, customerName: true } as const;
+const INQUIRY_BRIEF_SELECT = {
+  id: true,
+  inquiryNumber: true,
+  customerName: true,
+  source: true,
+} as const;
 
 export const FOLLOWUP_INCLUDE = {
   createdBy: { select: USER_SELECT },
@@ -40,8 +45,10 @@ export function serializeFollowup(row: FollowupWithRelations) {
           id: inq.id,
           inquiryNumber: inq.inquiryNumber,
           customerName: inq.customerName,
+          source: inq.source ?? null,
         }
       : null,
+    leadSource: row.leadSource ?? null,
     customerName: row.customerName,
     nickname: row.nickname,
     customerPhone: row.customerPhone,

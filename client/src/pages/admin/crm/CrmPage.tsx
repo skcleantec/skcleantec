@@ -25,12 +25,17 @@ import { CrmSoomgoDrawer } from '../../../components/crm/soomgo/CrmSoomgoDrawer'
 import { CrmSoomgoAlertDrawer, CrmIconBell } from '../../../components/crm/soomgo/CrmSoomgoAlertDrawer';
 import { CrmSoomgoTopBar } from '../../../components/crm/soomgo/CrmSoomgoTopBar';
 import { CrmSoomgoUpdateStrip } from '../../../components/crm/soomgo/CrmSoomgoUpdateStrip';
-import { CrmIconPhone, CrmIconSoomgo } from '../../../components/crm/crmUi';
+import { CrmMisoTopBar } from '../../../components/crm/miso/CrmMisoTopBar';
+import { CrmMisoDrawer } from '../../../components/crm/miso/CrmMisoDrawer';
+import { CrmIconPhone, CrmIconMiso, CrmIconSoomgo } from '../../../components/crm/crmUi';
 import type { SoomgoExtractedChat, SoomgoBridgeManifest, SoomgoChatAlert, SoomgoChatListSnapshotRow } from '@shared/soomgoBridge';
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
+import { useCrmMisoBridge } from '../../../hooks/useCrmMisoBridge';
 import { useSoomgoBridgeManifestRefresh } from '../../../hooks/useSoomgoBridgeManifestRefresh';
 import { isSoomgoBridgeUpdateNoticeVisible } from '../../../api/soomgoBridge';
-import { FeatureGate } from '../../../components/auth/FeatureGate';
+import { useTenantCapabilities } from '../../../hooks/useTenantCapabilities';
+import { canAccessTelecrm, telecrmHasPlatform } from '../../../utils/telecrmDashboardAccess';
+import { TelecrmAccessModal } from '../../../components/admin/TelecrmAccessModal';
 import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsDrawer';
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
 import { CrmFollowupDrawer } from '../../../components/crm/followup/CrmFollowupDrawer';
@@ -58,6 +63,17 @@ import {
   soomgoImportNoticeText,
   summarizeSoomgoImport,
 } from '../../../utils/crmSoomgoImport';
+import {
+  buildMisoRequestMemo,
+  deriveMisoIntakeDefaults,
+  misoImportNoticeText,
+  parseMisoPyeong,
+  resolveMisoPreferredDate,
+  resolveMisoAddress,
+  summarizeMisoImport,
+} from '../../../utils/crmMisoImport';
+import type { MisoExtractPayload } from '@shared/misoBridge';
+import { BRIDGE_INQUIRY_LEAD_SOURCE_LABEL } from '@shared/inquiryLeadSourceDefaults';
 import { useCrmConsultationQuote } from '../../../hooks/useCrmConsultationQuote';
 import { telecrmQuotePayloadHasContent } from '@shared/telecrmConsultationQuote';
 import {
@@ -125,6 +141,10 @@ export function CrmPage() {
   const canView =
     permissions.me?.role === 'ADMIN' ||
     canAccessAdminPath(permissions.me?.role, permissions.permissions, '/admin/crm');
+
+  const { telecrm, features } = useTenantCapabilities();
+  const soomgoPlatformEnabled = telecrmHasPlatform(telecrm, 'soomgo');
+  const misoPlatformEnabled = telecrmHasPlatform(telecrm, 'miso');
 
   const {
     loading: workBrandLoading,
@@ -203,6 +223,7 @@ export function CrmPage() {
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [smsDrawerOpen, setSmsDrawerOpen] = useState(false);
   const [soomgoDrawerOpen, setSoomgoDrawerOpen] = useState(false);
+  const [misoDrawerOpen, setMisoDrawerOpen] = useState(false);
   const [soomgoAlertDrawerOpen, setSoomgoAlertDrawerOpen] = useState(false);
   const [soomgoInboxItems, setSoomgoInboxItems] = useState<CrmSoomgoInboxItem[]>([]);
   const [soomgoInboxRefreshing, setSoomgoInboxRefreshing] = useState(false);
@@ -268,6 +289,8 @@ export function CrmPage() {
     setCatalogScope,
     soomgoBarOpen,
     setSoomgoBarOpen,
+    misoBarOpen,
+    setMisoBarOpen,
   } = useCrmPanelUrl();
 
   const { openInquiryEdit, layer: inquiryEditLayer } = useCrmInquiryEdit(canView, () => {
@@ -300,6 +323,8 @@ export function CrmPage() {
         balconyCount: draft.balconyCount ?? '',
         kind: draft.kind,
         goldDb: draft.goldDb,
+        leadSource: draft.leadSource ?? '',
+        extractPlatform: draft.extractPlatform,
       });
       const restored = (draft.contactPhone ?? draft.phone ?? '').trim();
       if (restored) setDraftRestoredPhone(restored);
@@ -394,6 +419,7 @@ export function CrmPage() {
           balconyCount: '',
           kind: 'absent',
           goldDb: false,
+          leadSource: '',
           savedAt: Date.now(),
         });
         setHasUnsavedDraft(true);
@@ -433,6 +459,7 @@ export function CrmPage() {
           requestMemo: '',
           kind: 'absent',
           goldDb: false,
+          leadSource: '',
         });
       }
       setMode(next);
@@ -561,6 +588,7 @@ export function CrmPage() {
         balconyCount: '',
         kind: 'absent',
         goldDb: false,
+        leadSource: '',
       });
       setSoomgoImportBanner(null);
       setSoomgoImportFlashKey(0);
@@ -607,6 +635,8 @@ export function CrmPage() {
         balconyCount: formatSoomgoCountForCrm(data.balconyCount),
         kind: intakeDefaults.kind,
         goldDb: false,
+        leadSource: BRIDGE_INQUIRY_LEAD_SOURCE_LABEL.soomgo,
+        extractPlatform: 'soomgo',
       });
       setIntakeIdentity({
         customerName: name,
@@ -615,6 +645,49 @@ export function CrmPage() {
       });
     },
     [resetQuotePricingState],
+  );
+
+  const handleMisoImport = useCallback(
+    (data: MisoExtractPayload) => {
+      resetQuotePricingState();
+      const intakeDefaults = deriveMisoIntakeDefaults(data);
+      const name = data.customerName?.trim() || '';
+      const preferredYmd = resolveMisoPreferredDate(data);
+      const address = resolveMisoAddress(data);
+      const requestMemo = buildMisoRequestMemo(data);
+      const summary = summarizeMisoImport(data);
+
+      setContactPhone(data.phone?.trim() ?? '');
+      setSafePhone('');
+      setContactUnknown(intakeDefaults.contactUnknown);
+      setCustomerName(name);
+      setPyeong(parseMisoPyeong(data.orderDetail?.areaPyung));
+      setMode('new');
+      setIntakeKind(intakeDefaults.kind);
+      setSoomgoImportBanner(`미소\n${summary.lines.join('\n')}`);
+      setSoomgoImportFlashKey((k) => k + 1);
+      setInitialFormDraft({
+        customerName: name,
+        nickname: name,
+        address,
+        preferredMoveInCleanYmd: preferredYmd,
+        requestMemo,
+        roomCount: '',
+        bathroomCount: '',
+        balconyCount: '',
+        kind: intakeDefaults.kind,
+        goldDb: false,
+        leadSource: BRIDGE_INQUIRY_LEAD_SOURCE_LABEL.miso,
+        extractPlatform: 'miso',
+      });
+      setIntakeIdentity({
+        customerName: name,
+        nickname: name,
+        address,
+      });
+      showDispatchNotice(misoImportNoticeText(summary));
+    },
+    [resetQuotePricingState, showDispatchNotice],
   );
 
   const soomgoBridge = useCrmSoomgoBridge({
@@ -667,6 +740,59 @@ export function CrmPage() {
     requestBridgeUpdate,
     updateBusy: soomgoUpdateBusy,
   } = soomgoBridge;
+
+  const misoBridge = useCrmMisoBridge({
+    misoBarOpen,
+    pollEnabled: !isMobileApp,
+    onDispatchNotice: showDispatchNotice,
+    onImport: handleMisoImport,
+  });
+
+  const {
+    openMiso,
+    extract: extractMiso,
+    sendMessage: sendMisoMessage,
+    busy: misoBusy,
+    busyAction: misoBusyAction,
+    busyLabel: misoBusyLabel,
+    status: misoStatus,
+    bridgeUp: misoBridgeUp,
+    chatItems: misoChatItems,
+    error: misoError,
+    refreshStatus: refreshMisoStatus,
+    startEmulator: startMisoEmulator,
+  } = misoBridge;
+
+  const extractFromBridge = useCallback(async () => {
+    if (misoBarOpen && misoBridgeUp) {
+      await extractMiso();
+      return;
+    }
+    if (soomgoBarOpen && soomgoBridgeUp) {
+      await extract();
+      return;
+    }
+    if (misoBarOpen) {
+      showDispatchNotice('미소 연동 프로그램이 실행 중이 아닙니다. run-bridge.bat을 실행해 주세요.');
+      return;
+    }
+    if (soomgoBarOpen) {
+      showDispatchNotice('숨고 연동 프로그램이 실행 중이 아닙니다.');
+      return;
+    }
+    showDispatchNotice('GNB에서 「미소 연동」 또는 「숨고 연동」을 켠 뒤 정보 갖고오기를 눌러 주세요.');
+  }, [
+    extract,
+    extractMiso,
+    misoBarOpen,
+    misoBridgeUp,
+    showDispatchNotice,
+    soomgoBarOpen,
+    soomgoBridgeUp,
+  ]);
+
+  const bridgeExtractBusy =
+    misoBusyAction === 'extract' || soomgoBusyAction === 'extract';
 
   const soomgoUpdateNoticeVisible = useMemo(
     () => isSoomgoBridgeUpdateNoticeVisible(soomgoStatus, soomgoBridgeManifest),
@@ -741,6 +867,12 @@ export function CrmPage() {
     if (next) void openSoomgo();
     else if (isPopup) fitCrmPopupWindow();
   }, [isPopup, soomgoBarOpen, setSoomgoBarOpen, openSoomgo]);
+
+  const handleToggleMisoBar = useCallback(() => {
+    const next = !misoBarOpen;
+    setMisoBarOpen(next);
+    if (next) void refreshMisoStatus();
+  }, [misoBarOpen, setMisoBarOpen, refreshMisoStatus]);
 
   const handleIntakeSaved = useCallback(
     (meta?: CrmIntakeSavedMeta) => {
@@ -1031,7 +1163,7 @@ export function CrmPage() {
     );
   }
 
-  if (permissions.loading) {
+  if (permissions.loading || features === null || telecrm === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 p-8 text-center">
         <p className="text-fluid-sm text-gray-500">권한 확인 중…</p>
@@ -1047,30 +1179,20 @@ export function CrmPage() {
     );
   }
 
+  if (!canAccessTelecrm(telecrm)) {
+    const denyReason = telecrm.denyReason ?? 'not_licensed';
+    const handleCloseAccess = () => {
+      if (isPopup) window.close();
+      else window.location.href = '/admin/dashboard';
+    };
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-8">
+        <TelecrmAccessModal open reason={denyReason} onClose={handleCloseAccess} />
+      </div>
+    );
+  }
+
   return (
-    <FeatureGate
-      module="mod_telecrm"
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-slate-100 p-8 text-center">
-          <div className="max-w-md space-y-3">
-            <p className="text-fluid-sm text-amber-900">이 업체에는 텔레CRM 기능(mod_telecrm)이 꺼져 있습니다.</p>
-            {isPopup ? (
-              <button
-                type="button"
-                onClick={() => window.close()}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm text-white"
-              >
-                창 닫기
-              </button>
-            ) : (
-              <Link to="/admin/dashboard" className="text-fluid-sm text-sky-700 hover:underline">
-                대시보드로
-              </Link>
-            )}
-          </div>
-        </div>
-      }
-    >
       <div
         className={
           isMobileApp
@@ -1081,11 +1203,11 @@ export function CrmPage() {
         <CrmShell
           mobile={isMobileApp}
           fillViewport={!isMobileApp}
-          splitLayout={soomgoBarOpen && !isMobileApp}
+          splitLayout={soomgoPlatformEnabled && soomgoBarOpen && !isMobileApp}
           topBar={
             !isMobileApp ? (
               <>
-                {!isMobileApp && soomgoUpdateNoticeVisible ? (
+                {!isMobileApp && soomgoPlatformEnabled && soomgoUpdateNoticeVisible ? (
                   <CrmSoomgoUpdateStrip
                     status={soomgoStatus}
                     bridgeManifest={soomgoBridgeManifest}
@@ -1098,7 +1220,7 @@ export function CrmPage() {
                     onOpenSoomgoBar={() => setSoomgoBarOpen(true)}
                   />
                 ) : null}
-                {!isMobileApp ? (
+                {!isMobileApp && soomgoPlatformEnabled ? (
                   <CrmSoomgoTopBar
                 open={soomgoBarOpen}
                 onClose={() => setSoomgoBarOpen(false)}
@@ -1126,6 +1248,23 @@ export function CrmPage() {
                 bridgeManifest={soomgoBridgeManifest}
                 updateBusy={soomgoUpdateBusy}
                 onRequestUpdate={() => void requestBridgeUpdate('install')}
+                  />
+                ) : null}
+                {!isMobileApp && misoPlatformEnabled ? (
+                  <CrmMisoTopBar
+                    open={misoBarOpen}
+                    onClose={() => setMisoBarOpen(false)}
+                    status={misoStatus}
+                    bridgeUp={misoBridgeUp}
+                    busy={misoBusy}
+                    busyLabel={misoBusyLabel}
+                    error={misoError}
+                    onOpenMiso={() => void openMiso()}
+                    onRefresh={() => void refreshMisoStatus()}
+                    onStartEmulator={() => void startMisoEmulator()}
+                    chatItems={misoChatItems}
+                    onExtractChat={(chatId) => void extractMiso(chatId)}
+                    extractBusy={misoBusyAction === 'extract'}
                   />
                 ) : null}
               </>
@@ -1162,7 +1301,7 @@ export function CrmPage() {
                     문자
                   </button>
                 ) : null}
-                {!isMobileApp ? (
+                {!isMobileApp && soomgoPlatformEnabled ? (
                   <button
                     type="button"
                     onClick={handleToggleSoomgoBar}
@@ -1182,6 +1321,20 @@ export function CrmPage() {
                         aria-hidden
                       />
                     ) : null}
+                  </button>
+                ) : null}
+                {!isMobileApp && misoPlatformEnabled ? (
+                  <button
+                    type="button"
+                    onClick={handleToggleMisoBar}
+                    className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-fluid-xs font-semibold whitespace-nowrap ${
+                      misoBarOpen
+                        ? 'border-violet-300/60 bg-violet-400/25 text-white'
+                        : 'border-violet-400/40 bg-violet-500/15 text-violet-100 hover:bg-violet-500/25'
+                    }`}
+                  >
+                    <CrmIconMiso className="h-4 w-4" />
+                    미소 연동
                   </button>
                 ) : null}
                 {canFollowupEdit ? (
@@ -1244,41 +1397,62 @@ export function CrmPage() {
                     disabled: soomgoBusy,
                     onClick: () => setSmsDrawerOpen(true),
                   },
-                  {
-                    id: 'soomgo-extract',
-                    label: '정보 갖고오기',
-                    icon: <CrmIconSoomgo />,
-                    active: false,
-                    loading: soomgoBusyAction === 'extract',
-                    disabled: soomgoBusy && soomgoBusyAction !== 'extract',
-                    onClick: () => void extract(),
-                  },
-                  {
-                    id: 'soomgo-call',
-                    label: '숨고 안심번호',
-                    icon: <CrmIconPhone />,
-                    active: false,
-                    loading: soomgoBusyAction === 'call',
-                    disabled: soomgoBusy && soomgoBusyAction !== 'call',
-                    onClick: () => void callFromChat(),
-                  },
-                  {
-                    id: 'soomgo-alerts',
-                    label: '숨고 알림함',
-                    icon: <CrmIconBell className="h-[18px] w-[18px]" />,
-                    active: soomgoAlertDrawerOpen,
-                    badgeCount: soomgoInboxPendingCountValue,
-                    disabled: soomgoBusy,
-                    onClick: () => setSoomgoAlertDrawerOpen(true),
-                  },
-                  {
-                    id: 'soomgo-message',
-                    label: '숨고 메시지',
-                    icon: <CrmIconMessage />,
-                    active: soomgoDrawerOpen,
-                    disabled: soomgoBusy,
-                    onClick: () => setSoomgoDrawerOpen(true),
-                  },
+                  ...(misoPlatformEnabled && misoBarOpen
+                    ? [
+                        {
+                          id: 'miso-message',
+                          label: '미소 메시지',
+                          icon: <CrmIconMiso />,
+                          active: misoDrawerOpen,
+                          loading: misoBusyAction === 'send',
+                          disabled: misoBusy && misoBusyAction !== 'send',
+                          onClick: () => setMisoDrawerOpen(true),
+                        },
+                      ]
+                    : []),
+                  ...((soomgoPlatformEnabled || misoPlatformEnabled)
+                    ? [
+                        {
+                          id: 'bridge-extract',
+                          label: '정보 갖고오기',
+                          icon: misoBarOpen && !soomgoBarOpen ? <CrmIconMiso /> : <CrmIconSoomgo />,
+                          active: false,
+                          loading: bridgeExtractBusy,
+                          disabled: (misoBusy || soomgoBusy) && !bridgeExtractBusy,
+                          onClick: () => void extractFromBridge(),
+                        },
+                      ]
+                    : []),
+                  ...(soomgoPlatformEnabled
+                    ? [
+                        {
+                          id: 'soomgo-call',
+                          label: '숨고 안심번호',
+                          icon: <CrmIconPhone />,
+                          active: false,
+                          loading: soomgoBusyAction === 'call',
+                          disabled: soomgoBusy && soomgoBusyAction !== 'call',
+                          onClick: () => void callFromChat(),
+                        },
+                        {
+                          id: 'soomgo-alerts',
+                          label: '숨고 알림함',
+                          icon: <CrmIconBell className="h-[18px] w-[18px]" />,
+                          active: soomgoAlertDrawerOpen,
+                          badgeCount: soomgoInboxPendingCountValue,
+                          disabled: soomgoBusy,
+                          onClick: () => setSoomgoAlertDrawerOpen(true),
+                        },
+                        {
+                          id: 'soomgo-message',
+                          label: '숨고 메시지',
+                          icon: <CrmIconMessage />,
+                          active: soomgoDrawerOpen,
+                          disabled: soomgoBusy,
+                          onClick: () => setSoomgoDrawerOpen(true),
+                        },
+                      ]
+                    : []),
                 ]}
               />
             ) : undefined
@@ -1435,35 +1609,48 @@ export function CrmPage() {
         />
         {!isMobileApp ? (
           <>
-            <CrmSoomgoAlertDrawer
-              open={soomgoAlertDrawerOpen}
-              onClose={() => setSoomgoAlertDrawerOpen(false)}
-              items={soomgoInboxItems}
-              pendingCount={soomgoInboxPendingCountValue}
-              busy={soomgoBusy}
-              bridgeStatus={soomgoStatus}
-              onOpenSoomgoChat={handleOpenSoomgoChatFromInbox}
-              onDismiss={handleDismissSoomgoInbox}
-              onTogglePin={handleToggleSoomgoInboxPin}
-              onDismissAll={handleDismissAllSoomgoInbox}
-              onRefresh={() => void handleRefreshSoomgoInbox()}
-              refreshing={soomgoInboxRefreshing}
-            />
-            <CrmSoomgoDrawer
-              open={soomgoDrawerOpen}
-              onClose={() => setSoomgoDrawerOpen(false)}
-              busy={soomgoBusy}
-              bridgeStatus={soomgoStatus}
-              onDispatchNotice={showDispatchNotice}
-              onOpenPresetSettings={
-                canOpenSettings
-                  ? () => {
-                      setSoomgoDrawerOpen(false);
-                      openSettings('soomgo-presets', 'personal');
-                    }
-                  : undefined
-              }
-            />
+            {soomgoPlatformEnabled ? (
+              <>
+                <CrmSoomgoAlertDrawer
+                  open={soomgoAlertDrawerOpen}
+                  onClose={() => setSoomgoAlertDrawerOpen(false)}
+                  items={soomgoInboxItems}
+                  pendingCount={soomgoInboxPendingCountValue}
+                  busy={soomgoBusy}
+                  bridgeStatus={soomgoStatus}
+                  onOpenSoomgoChat={handleOpenSoomgoChatFromInbox}
+                  onDismiss={handleDismissSoomgoInbox}
+                  onTogglePin={handleToggleSoomgoInboxPin}
+                  onDismissAll={handleDismissAllSoomgoInbox}
+                  onRefresh={() => void handleRefreshSoomgoInbox()}
+                  refreshing={soomgoInboxRefreshing}
+                />
+                <CrmSoomgoDrawer
+                  open={soomgoDrawerOpen}
+                  onClose={() => setSoomgoDrawerOpen(false)}
+                  busy={soomgoBusy}
+                  bridgeStatus={soomgoStatus}
+                  onDispatchNotice={showDispatchNotice}
+                  onOpenPresetSettings={
+                    canOpenSettings
+                      ? () => {
+                          setSoomgoDrawerOpen(false);
+                          openSettings('soomgo-presets', 'personal');
+                        }
+                      : undefined
+                  }
+                />
+              </>
+            ) : null}
+            {misoPlatformEnabled ? (
+              <CrmMisoDrawer
+                open={misoDrawerOpen}
+                onClose={() => setMisoDrawerOpen(false)}
+                busy={misoBusy}
+                bridgeStatus={misoStatus}
+                onSend={sendMisoMessage}
+              />
+            ) : null}
           </>
         ) : null}
         <CrmContactHistoryDrawer
@@ -1490,6 +1677,5 @@ export function CrmPage() {
           />
         ) : null}
       </div>
-    </FeatureGate>
   );
 }
