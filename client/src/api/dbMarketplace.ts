@@ -144,12 +144,12 @@ export type DbMarketplaceMaskedItem = {
   moveInDate: string | null;
   moveInDateUndecided: boolean;
   role: 'SELLER' | 'BUYER' | 'VIEWER';
+  /** my_sales · confirmed — 인계 확정일 */
+  sellerConfirmedAt?: string | null;
+  /** my_sales · confirmed — 구매(인계) 업체명 */
+  buyerName?: string | null;
   /** 판매자 목록(cart·my_sales) 전용 */
   inquiryId?: string;
-  /** my_sales — 인계 확정일 */
-  sellerConfirmedAt?: string | null;
-  /** my_sales — 구매(인계) 업체명 */
-  buyerName?: string | null;
 };
 
 export type DbMarketplaceAudienceInput = {

@@ -52,6 +52,11 @@ import {
   formatMarketplaceListDate,
 } from '../../utils/dbMarketplaceDisplay';
 import {
+  formatWon,
+  resolveMarketplaceBuyerTotalFee,
+  resolveMarketplaceCustomerBalance,
+} from '../../components/db-marketplace/DbMarketplaceAmountSummary';
+import {
   canBulkSelectMarketplaceItem,
   groupMySalesByCompany,
   type DbMarketplaceBulkMode,
@@ -143,6 +148,7 @@ export function AdminDbMarketplacePage() {
   const selectable = bulkMode != null;
   const showSellerColumn = tab === 'available';
   const showMySalesMeta = tab === 'my_sales';
+  const showConfirmedMeta = tab === 'confirmed';
   const showListFilters = tabUsesListFilters(tab);
   const mySalesFilters = useMemo(
     () => parseMySalesFiltersFromSearchParams(searchParams),
@@ -161,10 +167,11 @@ export function AdminDbMarketplacePage() {
     if (selectable) n += 1;
     if (tab === 'cart') n += 1;
     if (showMySalesMeta) n += 3;
+    if (showConfirmedMeta) n += 3;
     if (showSellerColumn) n += 1;
     n += 1;
     return n;
-  }, [selectable, tab, showMySalesMeta, showSellerColumn]);
+  }, [selectable, tab, showMySalesMeta, showConfirmedMeta, showSellerColumn]);
 
   const [audiencePartners, setAudiencePartners] = useState<
     Awaited<ReturnType<typeof listDbMarketplaceAudienceOptions>>['partners']
@@ -558,7 +565,7 @@ export function AdminDbMarketplacePage() {
         ) : null}
 
         <div className="mt-4 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <table className={`w-full table-fixed border-collapse text-fluid-xs ${showMySalesMeta ? 'min-w-[960px]' : 'min-w-[720px]'}`}>
+          <table className={`w-full table-fixed border-collapse text-fluid-xs ${showMySalesMeta || showConfirmedMeta ? 'min-w-[960px]' : 'min-w-[720px]'}`}>
             <colgroup>
               {selectable ? <MarketplaceTableCheckboxCol /> : null}
               <col className="w-[10%]" />
@@ -572,6 +579,13 @@ export function AdminDbMarketplacePage() {
                   <col className="w-[9%]" />
                   <col className="w-[9%]" />
                   <col className="w-[10%]" />
+                </>
+              ) : null}
+              {showConfirmedMeta ? (
+                <>
+                  <col className="w-[10%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[9%]" />
                 </>
               ) : null}
               {showSellerColumn ? <col className="w-[10%]" /> : null}
@@ -595,12 +609,19 @@ export function AdminDbMarketplacePage() {
                 <th className="px-2 py-2 text-center">청소 요약</th>
                 <th className="px-2 py-2 text-center">일정</th>
                 {tab === 'cart' ? <th className="px-2 py-2 text-center">수수료</th> : null}
-                <th className="px-2 py-2 text-center">표시금액</th>
+                <th className="px-2 py-2 text-center">고객 잔금</th>
                 {showMySalesMeta ? (
                   <>
                     <th className="px-2 py-2 text-center">판매날짜</th>
                     <th className="px-2 py-2 text-center">인계날짜</th>
                     <th className="px-2 py-2 text-center">인계업체</th>
+                  </>
+                ) : null}
+                {showConfirmedMeta ? (
+                  <>
+                    <th className="px-2 py-2 text-center">상대 업체</th>
+                    <th className="px-2 py-2 text-center">수수료</th>
+                    <th className="px-2 py-2 text-center">인계일</th>
                   </>
                 ) : null}
                 {showSellerColumn ? <th className="px-2 py-2 text-center">판매 업체</th> : null}
@@ -658,7 +679,7 @@ export function AdminDbMarketplacePage() {
                           </td>
                         ) : null}
                         <td className="px-2 py-2 text-right tabular-nums">
-                          {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
+                          {formatWon(resolveMarketplaceCustomerBalance(row))}
                         </td>
                         {showMySalesMeta ? (
                           <>
@@ -670,6 +691,26 @@ export function AdminDbMarketplacePage() {
                             </td>
                             <td className="px-2 py-2 text-center truncate" title={row.buyerName ?? undefined}>
                               {row.buyerName ?? '-'}
+                            </td>
+                          </>
+                        ) : null}
+                        {showConfirmedMeta ? (
+                          <>
+                            <td
+                              className="px-2 py-2 text-center truncate"
+                              title={
+                                row.role === 'SELLER'
+                                  ? row.buyerName ?? undefined
+                                  : row.sellerTenantName
+                              }
+                            >
+                              {row.role === 'SELLER' ? (row.buyerName ?? '-') : row.sellerTenantName}
+                            </td>
+                            <td className="px-2 py-2 text-right tabular-nums text-violet-900">
+                              {formatWon(resolveMarketplaceBuyerTotalFee(row))}
+                            </td>
+                            <td className="px-2 py-2 text-center tabular-nums">
+                              {formatMarketplaceListDate(row.sellerConfirmedAt)}
                             </td>
                           </>
                         ) : null}
@@ -722,6 +763,7 @@ export function AdminDbMarketplacePage() {
                   bulkMode={bulkMode}
                   showSeller={showSellerColumn}
                   showMySalesMeta={showMySalesMeta}
+                  showConfirmedMeta={showConfirmedMeta}
                 />
               ))}
             </Fragment>

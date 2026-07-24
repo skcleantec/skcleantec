@@ -197,6 +197,7 @@ export function DbMarketplaceRowCard({
   bulkMode,
   showSeller,
   showMySalesMeta = false,
+  showConfirmedMeta = false,
 }: {
   row: DbMarketplaceMaskedItem;
   onOpen: () => void;
@@ -206,6 +207,7 @@ export function DbMarketplaceRowCard({
   bulkMode: DbMarketplaceBulkMode | null;
   showSeller: boolean;
   showMySalesMeta?: boolean;
+  showConfirmedMeta?: boolean;
 }) {
   const disabledReason =
     bulkMode && selectable ? marketplaceBulkSelectDisabledReason(row, bulkMode) : null;
@@ -274,6 +276,20 @@ export function DbMarketplaceRowCard({
               판매 {formatMarketplaceListDate(row.publishedAt)} · 인계 {formatMarketplaceListDate(row.sellerConfirmedAt)}
             </p>
             <p className="truncate">업체 {row.buyerName ?? '-'}</p>
+          </div>
+        ) : null}
+        {showConfirmedMeta ? (
+          <div className="mt-1 space-y-0 text-fluid-2xs text-gray-600">
+            <p className="truncate">
+              {row.role === 'SELLER' ? '인계' : '구매'} · {formatMarketplaceListDate(row.sellerConfirmedAt)}
+            </p>
+            <p className="truncate">
+              {row.role === 'SELLER' ? '인계 업체' : '판매 업체'}{' '}
+              {row.role === 'SELLER' ? (row.buyerName ?? '-') : row.sellerTenantName}
+            </p>
+            <p className="tabular-nums text-violet-900">
+              수수료 {formatWon(resolveMarketplaceBuyerTotalFee(row))}
+            </p>
           </div>
         ) : null}
       </button>

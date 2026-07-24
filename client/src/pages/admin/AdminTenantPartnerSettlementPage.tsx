@@ -469,7 +469,9 @@ export function AdminTenantPartnerSettlementPage() {
           접수 연계 수수료로 파트너별 잔액을 확인하고 정산합니다. 미수금은 월별 마감이 아니라{' '}
           <span className="font-medium text-gray-700">전 기간 누적(정산 기준 수수료 − 전체 정산)</span>
           입니다. 일반 연계는 예약일, 정보공유는 인계 확정일 기준이며{' '}
-          <span className="font-medium text-gray-700">취소 건</span>은 미수에 반영하지 않습니다(순 0).
+          <span className="font-medium text-gray-700">취소·회수 건</span>은 미수에 반영하지 않습니다(순 0).
+          판매 탭에서 미수가 <span className="font-medium text-gray-700">마이너스(−)</span>이면 이미 받은
+          수수료를 상대 업체에 돌려줘야 한다는 뜻입니다.
         </p>
       </div>
 
@@ -667,8 +669,9 @@ export function AdminTenantPartnerSettlementPage() {
                 <strong className="text-rose-700 tabular-nums">{won(selected.remainingAmount)}</strong>
                 {selected.remainingAmount < 0 ? (
                   <span className="block mt-0.5 text-[11px] text-gray-500">
-                    음수는 과납 등으로 잔액이 마이너스인 상태입니다. 0으로 맞출 때 동일 금액을 앞에{' '}
-                    <span className="font-medium text-gray-700">-</span> 를 붙여 입력하세요.
+                    {tab === 'SELLER'
+                      ? '마이너스는 이미 받은 금액이 미수보다 많다는 뜻입니다(정보공유 회수 후 흔함). 상대 업체에 돌려준 뒤 같은 금액을 − 로 결재 입력해 0에 맞추세요.'
+                      : '음수는 과납 등으로 잔액이 마이너스인 상태입니다. 0으로 맞출 때 동일 금액을 앞에 − 를 붙여 입력하세요.'}
                   </span>
                 ) : null}
               </p>

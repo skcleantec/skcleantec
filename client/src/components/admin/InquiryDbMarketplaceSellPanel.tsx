@@ -299,7 +299,10 @@ export function InquiryDbMarketplaceSellPanel({
     setRecallModalOpen(false);
     await notifyListingChange();
     alert(
-      `완전 회수했습니다.\n정보공유 수수료 ${result.refundListingFee.toLocaleString('ko-KR')}원이 정산 미수에 환불 반영됩니다.\n일반 접수로 복귀했습니다.`,
+      `완전 회수했습니다.\n` +
+        `정보공유 수수료 ${result.refundListingFee.toLocaleString('ko-KR')}원은 더 이상 받을 금액(미수)에 잡히지 않습니다.\n` +
+        `이미 파트너 정산에서 「결재받은금액」을 입력했다면, 누적 미수는 −${result.refundListingFee.toLocaleString('ko-KR')}원(상대 업체에 돌려줄 금액)으로 보이는 것이 맞습니다.\n` +
+        `실제로 돈을 돌려준 뒤에는 같은 금액을 마이너스(−) 결재로 입력해 0에 맞추세요.\n일반 접수로 복귀했습니다.`,
     );
   };
 
@@ -593,10 +596,17 @@ export function InquiryDbMarketplaceSellPanel({
               confirmLabel="완전 회수"
               description={
                 <>
-                  구매자 DB가 종료되고, 정보공유{' '}
-                  <strong>수수료 {listing?.listingFee?.toLocaleString('ko-KR') ?? '?'}원</strong>만
-                  정산 미수에 환불 반영됩니다. 잔금(표시금액) 전체가 회수되는 것은 아닙니다. 되돌릴
-                  수 없습니다.
+                  구매자 DB가 종료되고 일반 접수로 돌아갑니다. 되돌릴 수 없습니다.
+                  <br />
+                  정보공유 수수료{' '}
+                  <strong>
+                    {(listing?.buyerTotalFee ?? listing?.listingFee)?.toLocaleString('ko-KR') ?? '?'}원
+                  </strong>
+                  은 더 이상 받을 미수에 포함되지 않습니다.
+                  <br />
+                  이미 「결재받은금액」을 입력했다면, 회수 후 누적 미수{' '}
+                  <strong>−{(listing?.buyerTotalFee ?? listing?.listingFee)?.toLocaleString('ko-KR') ?? '?'}원</strong>
+                  (상대 업체에 돌려줄 금액)이 정상입니다.
                   {listing?.buyerName ? (
                     <>
                       <br />

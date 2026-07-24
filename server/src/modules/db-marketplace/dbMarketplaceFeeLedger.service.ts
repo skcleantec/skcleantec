@@ -2,91 +2,6 @@ import type { InquiryDbListing, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
 
-const FEE_REFUND_MEMO_PREFIX = '정보공유 회수 수수료 환불';
-
-async function recordPartnerFeePaymentsInTx(
-  tx: Prisma.TransactionClient,
-  opts: {
-    sellerTenantId: string;
-    buyerTenantId: string;
-    partnershipId: string;
-    feeAmount: number;
-    customerName: string;
-    actorUserId: string;
-    paidAt: Date;
-    memoPrefix: string;
-  },
-) {
-  const memo = `${opts.memoPrefix} (${opts.customerName})`;
-  await tx.tenantPartnerSettlementPayment.create({
-    data: {
-      tenantId: opts.buyerTenantId,
-      partnerTenantId: opts.sellerTenantId,
-      partnershipId: opts.partnershipId,
-      role: 'BUYER',
-      amount: opts.feeAmount,
-      memo,
-      actorId: opts.actorUserId,
-      paidAt: opts.paidAt,
-    },
-  });
-  await tx.tenantPartnerSettlementPayment.create({
-    data: {
-      tenantId: opts.sellerTenantId,
-      partnerTenantId: opts.buyerTenantId,
-      partnershipId: opts.partnershipId,
-      role: 'SELLER',
-      amount: opts.feeAmount,
-      memo,
-      actorId: opts.actorUserId,
-      paidAt: opts.paidAt,
-    },
-  });
-}
-
-async function recordExternalFeePaymentInTx(
-  tx: Prisma.TransactionClient,
-  opts: {
-    externalCompanyId: string;
-    operatingCompanyId: string;
-    feeAmount: number;
-    customerName: string;
-    actorUserId: string;
-    paidAt: Date;
-    memoPrefix: string;
-  },
-) {
-  await tx.externalCompanySettlementPayment.create({
-    data: {
-      externalCompanyId: opts.externalCompanyId,
-      operatingCompanyId: opts.operatingCompanyId,
-      amount: opts.feeAmount,
-      memo: `${opts.memoPrefix} (${opts.customerName})`,
-      actorId: opts.actorUserId,
-      paidAt: opts.paidAt,
-    },
-  });
-}
-
-async function resolvePartnershipId(
-  tx: Prisma.TransactionClient,
-  sellerTenantId: string,
-  buyerTenantId: string,
-): Promise<string> {
-  const partnership = await tx.tenantPartnership.findFirst({
-    where: {
-      status: 'ACTIVE',
-      OR: [
-        { tenantLowId: sellerTenantId, tenantHighId: buyerTenantId },
-        { tenantHighId: sellerTenantId, tenantLowId: buyerTenantId },
-      ],
-    },
-    select: { id: true },
-  });
-  if (!partnership) throw new Error('파트너 연결을 찾을 수 없습니다.');
-  return partnership.id;
-}
-
 export async function accrueDbMarketplaceFeeLedgerInTx(
   tx: Prisma.TransactionClient,
   opts: {
@@ -156,34 +71,6 @@ export async function reverseDbMarketplaceFeeLedgerInTx(
         reversedByUserId: opts.actorUserId,
       },
     });
-
-    if (ledger.buyerTenantId) {
-      const partnershipId = await resolvePartnershipId(
-        tx,
-        ledger.sellerTenantId,
-        ledger.buyerTenantId,
-      );
-      await recordPartnerFeePaymentsInTx(tx, {
-        sellerTenantId: ledger.sellerTenantId,
-        buyerTenantId: ledger.buyerTenantId,
-        partnershipId,
-        feeAmount: ledger.feeAmount,
-        customerName: opts.customerName,
-        actorUserId: opts.actorUserId,
-        paidAt: opts.reversedAt,
-        memoPrefix: FEE_REFUND_MEMO_PREFIX,
-      });
-    } else if (ledger.buyerExternalCompanyId && opts.operatingCompanyId) {
-      await recordExternalFeePaymentInTx(tx, {
-        externalCompanyId: ledger.buyerExternalCompanyId,
-        operatingCompanyId: opts.operatingCompanyId,
-        feeAmount: ledger.feeAmount,
-        customerName: opts.customerName,
-        actorUserId: opts.actorUserId,
-        paidAt: opts.reversedAt,
-        memoPrefix: FEE_REFUND_MEMO_PREFIX,
-      });
-    }
   }
   return totalReversed;
 }

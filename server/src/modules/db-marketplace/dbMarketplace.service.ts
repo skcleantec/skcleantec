@@ -918,15 +918,25 @@ export async function listDbMarketplaceListings(
         rootTenantName: row.rootTenant?.name ?? null,
         dealBalanceAmount: row.dealBalanceAmount,
       });
+      const buyerName = row.buyerTenant?.name ?? row.buyerExternalCompany?.name ?? null;
+      const sellerConfirmedAt = row.sellerConfirmedAt?.toISOString() ?? null;
       if (role === 'SELLER') {
         return {
           ...masked,
           listingFee: row.listingFee,
           inquiryId: row.inquiryId,
-          sellerConfirmedAt: row.sellerConfirmedAt?.toISOString() ?? null,
-          buyerName: row.buyerTenant?.name ?? row.buyerExternalCompany?.name ?? null,
+          sellerConfirmedAt,
+          buyerName,
+          buyerTotalFee: row.buyerTotalFee,
           offerMode: row.offerMode ?? null,
           currentPriorityRank: row.currentPriorityRank ?? null,
+        };
+      }
+      if (row.status === 'CONFIRMED') {
+        return {
+          ...masked,
+          sellerConfirmedAt,
+          buyerName,
         };
       }
       return masked;
