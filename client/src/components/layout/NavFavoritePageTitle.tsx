@@ -11,13 +11,13 @@ import { useLocation } from 'react-router-dom';
 import { resolvePageNavFavoriteFromPath } from '../../utils/resolveNavFavoriteEntry';
 import { NavFavoriteStar } from './NavFavoriteStar';
 
-/** staff/admin 페이지 h1 — viewport fluid + 한 줄 말줄임 */
+/** staff/admin 페이지 h1 — 모바일 컴팩트 fluid + 한 줄 말줄임 */
 export const STAFF_PAGE_TITLE_CLASS =
-  'min-w-0 max-w-full truncate whitespace-nowrap text-fluid-lg font-semibold leading-tight lg:text-fluid-xl';
+  'min-w-0 max-w-full truncate whitespace-nowrap text-fluid-base font-semibold leading-tight sm:text-fluid-lg lg:text-fluid-xl';
 
-/** 팀장(/team) 페이지 h1 — 모바일 컴팩트 fluid */
+/** 팀장(/team) 페이지 h1 — 모바일 더 컴팩트 fluid */
 export const TEAM_PAGE_TITLE_CLASS =
-  'min-w-0 max-w-full truncate whitespace-nowrap text-fluid-base font-semibold leading-tight text-gray-800 sm:text-fluid-lg lg:text-fluid-xl';
+  'min-w-0 max-w-full truncate whitespace-nowrap text-fluid-sm font-semibold leading-tight text-gray-800 sm:text-fluid-base lg:text-fluid-lg';
 
 const FIXED_TITLE_SIZE_CLASS =
   /\b(?:sm:|md:|lg:|xl:|2xl:)?text-(?:xs|sm|base|lg|xl|2xl|3xl|\[[^\]]+\])\b/g;

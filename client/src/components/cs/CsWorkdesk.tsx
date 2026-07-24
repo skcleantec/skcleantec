@@ -690,7 +690,7 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       ) : null}
 
       {isAdmin ? (
-        <div className="rounded-2xl border border-slate-200/60 bg-white px-3 py-3 sm:px-4 shadow-sm shadow-slate-100/50">
+        <div className="rounded-2xl border border-slate-200/60 bg-white px-3 py-3 sm:px-4 shadow-sm shadow-slate-100/50" data-staff-list-filter>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between min-w-0">
             <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:flex-wrap sm:items-center">
               <span className="text-fluid-2xs font-semibold text-slate-600 shrink-0">접수일</span>

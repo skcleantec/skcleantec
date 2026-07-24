@@ -175,7 +175,7 @@ export function TeamDayOffsPage() {
         </div>
       )}
 
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-2 items-center" data-staff-list-filter>
         <select
           value={year}
           onChange={(e) => setYear(Number(e.target.value))}
