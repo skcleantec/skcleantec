@@ -11,6 +11,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   computeMarketplaceDisplayAmount,
   computeMarketplaceFeeAmounts,
+  computeMarketplaceServiceBalanceAmount,
   parseListingFeeInput,
   resolvePriorFeesTotalFromParent,
 } from '../../lib/dbMarketplaceAmount.js';
@@ -87,6 +88,8 @@ async function findInquiryForSeller(tenantId: string, inquiryId: string) {
     select: {
       id: true,
       tenantId: true,
+      serviceTotalAmount: true,
+      serviceDepositAmount: true,
       serviceBalanceAmount: true,
       status: true,
       tenantSharesAsSource: {
@@ -166,7 +169,12 @@ export async function upsertDbListingDraft(
 
   const { inquiry, parentListing } = await findInquiryForSeller(tenantId, inquiryId);
   const dealBalanceSnapshot =
-    parentListing?.dealBalanceAmount ?? inquiry.serviceBalanceAmount;
+    parentListing?.dealBalanceAmount ??
+    computeMarketplaceServiceBalanceAmount({
+      serviceTotalAmount: inquiry.serviceTotalAmount,
+      serviceDepositAmount: inquiry.serviceDepositAmount,
+      serviceBalanceAmount: inquiry.serviceBalanceAmount,
+    });
   const priorFeesTotal = resolvePriorFeesTotalFromParent(parentListing);
   const feeAmounts = computeMarketplaceFeeAmounts({
     listingFee,

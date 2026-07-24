@@ -42,6 +42,31 @@ export function resolvePriorFeesTotalFromParent(
   return Math.max(0, Math.round(parent.listingFee));
 }
 
+/**
+ * 정보공유·인계 mirror — 서비스 잔금 = 총액 − 예약금.
+ * serviceBalanceAmount(dealBalance 스냅)는 레거시·수수료 차감 등으로 어긋날 수 있어 총액·예약금을 우선한다.
+ */
+export function computeMarketplaceServiceBalanceAmount(opts: {
+  serviceTotalAmount: number | null | undefined;
+  serviceDepositAmount: number | null | undefined;
+  serviceBalanceAmount?: number | null | undefined;
+}): number | null {
+  const total = opts.serviceTotalAmount;
+  if (total != null && Number.isFinite(Number(total))) {
+    const deposit =
+      opts.serviceDepositAmount != null && Number.isFinite(Number(opts.serviceDepositAmount))
+        ? Math.max(0, Math.round(Number(opts.serviceDepositAmount)))
+        : 0;
+    return Math.max(0, Math.round(Number(total)) - deposit);
+  }
+  const balance = opts.serviceBalanceAmount;
+  if (balance != null && Number.isFinite(Number(balance))) {
+    const n = Math.round(Number(balance));
+    return n > 0 ? n : null;
+  }
+  return null;
+}
+
 export function computeMarketplaceFeeAmounts(opts: {
   listingFee: number;
   priorFeesTotal?: number;

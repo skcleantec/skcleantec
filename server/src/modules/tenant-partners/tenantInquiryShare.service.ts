@@ -18,6 +18,7 @@ import {
   computeSourceMirrorBalanceAmount,
   computeTargetMirrorBalanceAmount,
 } from './tenantInquiryShareBalance.helpers.js';
+import { computeMarketplaceServiceBalanceAmount } from '../../lib/dbMarketplaceAmount.js';
 import { clearInternalInquiryAssignments } from '../assignments/clearInternalInquiryAssignments.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 
@@ -260,7 +261,7 @@ export async function createTenantInquiryShareInTransaction(
   const mirror = await tx.inquiry.create({ data: mirrorData });
 
   const adjustedBalance = opts.preserveCustomerBalanceForMarketplace
-    ? computeSourceMirrorBalanceAmount({
+    ? computeMarketplaceServiceBalanceAmount({
         serviceTotalAmount: source.serviceTotalAmount,
         serviceDepositAmount: source.serviceDepositAmount,
         serviceBalanceAmount: source.serviceBalanceAmount,

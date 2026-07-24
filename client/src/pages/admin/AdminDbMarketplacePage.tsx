@@ -405,7 +405,7 @@ export function AdminDbMarketplacePage() {
     }
     if (
       !window.confirm(
-        `선택 ${listingIds.length}건을 거절합니다. 다음 순위 업체에게 넘어갑니다. 계속할까요?`,
+        `선택 ${listingIds.length}건을 거절할까요?`,
       )
     ) {
       return;

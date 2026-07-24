@@ -712,7 +712,7 @@ export function InquirySettlementPanel({
         {row('예약금(선결제)', depositDisplay, 'minus')}
         {tenantShareBalance.showPartnerFeeRow && tenantShareBalance.partnerFee > 0
           ? row(
-              '파트너 수수료',
+              tenantShareBalance.partnerFeeLabel,
               `-${tenantShareBalance.partnerFee.toLocaleString('ko-KR')}원`,
               'minus',
             )

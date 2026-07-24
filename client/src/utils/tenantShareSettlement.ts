@@ -1,4 +1,5 @@
 import type { TenantInquiryShareMeta } from '../api/tenantInquiryShare';
+import { computeMarketplaceServiceBalanceAmount } from '@shared/dbMarketplaceAmount';
 import { resolveCollectibleBaseBalance } from './inquiryCollectibleAmount';
 
 function truncWon(v: number | null | undefined): number {
@@ -62,6 +63,7 @@ export function resolveTenantShareCollectibleBaseBalance(
   baseBalance: number | null;
   showPartnerFeeRow: boolean;
   partnerFee: number;
+  partnerFeeLabel: string;
   sourceLinkedHint: string | null;
 } {
   const plain = resolveCollectibleBaseBalance(
@@ -71,7 +73,13 @@ export function resolveTenantShareCollectibleBaseBalance(
   );
 
   if (!isActiveTenantShare(tenantShare)) {
-    return { baseBalance: plain, showPartnerFeeRow: false, partnerFee: 0, sourceLinkedHint: null };
+    return {
+      baseBalance: plain,
+      showPartnerFeeRow: false,
+      partnerFee: 0,
+      partnerFeeLabel: '파트너 수수료',
+      sourceLinkedHint: null,
+    };
   }
 
   if (tenantShare.role === 'SOURCE') {
@@ -79,6 +87,7 @@ export function resolveTenantShareCollectibleBaseBalance(
       baseBalance: 0,
       showPartnerFeeRow: false,
       partnerFee: truncWon(tenantShare.transferFee),
+      partnerFeeLabel: tenantShare.viaMarketplace ? '정보공유 수수료' : '파트너 수수료',
       sourceLinkedHint:
         mode === 'team'
           ? '파트너 연계 — 현장 수금 없음'
@@ -87,18 +96,25 @@ export function resolveTenantShareCollectibleBaseBalance(
   }
 
   const fee = truncWon(tenantShare.transferFee);
-  const adjusted =
-    computeTargetMirrorBalanceAmount({
-      serviceTotalAmount,
-      serviceDepositAmount,
-      serviceBalanceAmount,
-      transferFee: fee,
-    }) ?? plain;
+  const viaMarketplace = Boolean(tenantShare.viaMarketplace);
+  const adjusted = viaMarketplace
+    ? computeMarketplaceServiceBalanceAmount({
+        serviceTotalAmount,
+        serviceDepositAmount,
+        serviceBalanceAmount,
+      }) ?? plain
+    : computeTargetMirrorBalanceAmount({
+        serviceTotalAmount,
+        serviceDepositAmount,
+        serviceBalanceAmount,
+        transferFee: fee,
+      }) ?? plain;
 
   return {
     baseBalance: adjusted,
-    showPartnerFeeRow: mode === 'admin' && fee > 0,
+    showPartnerFeeRow: fee > 0 && (mode === 'admin' || viaMarketplace),
     partnerFee: fee,
+    partnerFeeLabel: viaMarketplace ? '정보공유 수수료' : '파트너 수수료',
     sourceLinkedHint: null,
   };
 }

@@ -226,7 +226,9 @@ export function DbMarketplaceListingDetailModal({
     if (
       !token ||
       !window.confirm(
-        `이 DB를 거절할까요?${rank != null ? ` 다음 순위(${rank + 1}순위) 업체` : ' 다음 순위 업체'}에게 넘어갑니다.${rank === 3 ? ' 3순위까지 거절되면 판매자 장바구니로 돌아갑니다.' : ''}`,
+        rank === 3
+          ? '이 DB를 거절할까요? 3순위까지 거절되면 판매자 장바구니로 돌아갑니다.'
+          : '이 DB를 거절할까요?',
       )
     ) {
       return;
@@ -380,8 +382,8 @@ export function DbMarketplaceListingDetailModal({
 
           {canShowBuyerPriorityDecline(d) ? (
             <p className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-900">
-              순위 노출 — 현재 {d.currentPriorityRank}순위 구매 후보입니다. 구매하지 않으면 「거절하기」로
-              다음 순위에 넘길 수 있습니다.
+              순위 노출 — 현재 {d.currentPriorityRank}순위 구매 후보입니다. 구매하지 않으면 「거절하기」를
+              이용하세요.
             </p>
           ) : null}
 
