@@ -333,14 +333,27 @@ export function AdminLayout() {
     tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace') && marketplaceSellerPendingCount > 0,
   );
   const [marketplaceHandoffStripOpen, setMarketplaceHandoffStripOpen] = useState(false);
+  const [marketplaceHandoffStripDismissedCount, setMarketplaceHandoffStripDismissedCount] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
-    if (showMarketplaceHandoffStrip) {
-      setMarketplaceHandoffStripOpen(true);
-    } else {
+    if (!showMarketplaceHandoffStrip) {
       setMarketplaceHandoffStripOpen(false);
+      setMarketplaceHandoffStripDismissedCount(null);
+      return;
     }
-  }, [showMarketplaceHandoffStrip]);
+    if (marketplaceHandoffStripDismissedCount === marketplaceSellerPendingCount) {
+      setMarketplaceHandoffStripOpen(false);
+      return;
+    }
+    setMarketplaceHandoffStripOpen(true);
+  }, [showMarketplaceHandoffStrip, marketplaceSellerPendingCount, marketplaceHandoffStripDismissedCount]);
+
+  const closeMarketplaceHandoffStrip = useCallback(() => {
+    setMarketplaceHandoffStripOpen(false);
+    setMarketplaceHandoffStripDismissedCount(marketplaceSellerPendingCount);
+  }, [marketplaceSellerPendingCount]);
 
   const openMarketplaceHandoffPending = useCallback(() => {
     navigate('/admin/db-marketplace?tab=pending');
@@ -921,20 +934,20 @@ export function AdminLayout() {
                   aria-live="polite"
                   aria-label="접수 상세 열기"
                   onClick={() => openCelebrateInquiry(celebration.inquiryId!)}
-                  className="flex w-full flex-col items-center justify-center px-8 py-2 sm:px-10 sm:py-2 hover:from-amber-600 hover:to-amber-700 bg-gradient-to-r from-amber-500 to-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80"
+                  className="flex w-full items-center justify-center px-10 py-1.5 sm:px-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80"
                 >
-                  <p className="text-center text-xs sm:text-sm font-medium leading-snug max-w-4xl [text-wrap:pretty]">
+                  <p className="text-center text-[11px] sm:text-xs font-medium leading-tight max-w-4xl [text-wrap:pretty]">
                     {formatCelebrateBannerFromConfig(celebration)}
+                    <span className="font-normal text-amber-100/90"> · 탭하여 접수 상세</span>
                   </p>
-                  <span className="mt-0.5 text-[10px] text-amber-100/90">탭하여 접수 상세 열기</span>
                 </button>
               ) : (
                 <div
                   role="status"
                   aria-live="polite"
-                  className="flex items-center justify-center px-8 py-2 sm:px-10 sm:py-2"
+                  className="flex items-center justify-center px-10 py-1.5 sm:px-12"
                 >
-                  <p className="text-center text-xs sm:text-sm font-medium leading-snug max-w-4xl [text-wrap:pretty]">
+                  <p className="text-center text-[11px] sm:text-xs font-medium leading-tight max-w-4xl [text-wrap:pretty]">
                     {formatCelebrateBannerFromConfig(celebration)}
                   </p>
                 </div>
@@ -943,9 +956,9 @@ export function AdminLayout() {
                 type="button"
                 aria-label="닫기"
                 onClick={closeCelebrateStrip}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                className="absolute right-0.5 top-1/2 -translate-y-1/2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
                   <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
                 </svg>
               </button>
@@ -967,9 +980,9 @@ export function AdminLayout() {
                 aria-live="polite"
                 aria-label="문의내역 열기"
                 onClick={openLandingContactLeads}
-                className="flex w-full flex-col items-center justify-center bg-gradient-to-r from-red-600 to-red-700 px-8 py-2 hover:from-red-700 hover:to-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-10 sm:py-2"
+                className="flex w-full items-center justify-center bg-gradient-to-r from-red-600 to-red-700 px-10 py-1.5 hover:from-red-700 hover:to-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-12"
               >
-                <p className="max-w-4xl text-center text-xs font-semibold leading-snug [text-wrap:pretty] sm:text-sm">
+                <p className="max-w-4xl text-center text-[11px] font-semibold leading-tight [text-wrap:pretty] sm:text-xs">
                   {landingContactAlert.customerName ? (
                     <>
                       <span className="font-bold">{landingContactAlert.customerName}</span>님 랜딩 문의가
@@ -981,16 +994,16 @@ export function AdminLayout() {
                   {landingContactAlert.brandName ? (
                     <span className="font-normal text-red-100"> · {landingContactAlert.brandName}</span>
                   ) : null}
+                  <span className="font-normal text-red-100/90"> · 탭하여 문의내역</span>
                 </p>
-                <span className="mt-0.5 text-[10px] text-red-100/90">탭하여 문의내역 열기</span>
               </button>
               <button
                 type="button"
                 aria-label="닫기"
                 onClick={closeLandingContactStrip}
-                className="absolute right-1.5 top-1/2 flex h-8 w-8 shrink-0 -translate-y-1/2 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                className="absolute right-0.5 top-1/2 flex h-7 w-7 shrink-0 -translate-y-1/2 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
                   <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
                 </svg>
               </button>
@@ -998,7 +1011,8 @@ export function AdminLayout() {
           </div>
         </div>
       ) : null}
-      {showMarketplaceHandoffStrip ? (
+      {showMarketplaceHandoffStrip &&
+      marketplaceHandoffStripDismissedCount !== marketplaceSellerPendingCount ? (
         <div
           className="grid shrink-0 transition-[grid-template-rows] duration-300 ease-out"
           style={{ gridTemplateRows: marketplaceHandoffStripOpen ? '1fr' : '0fr' }}
@@ -1012,15 +1026,25 @@ export function AdminLayout() {
                 aria-live="polite"
                 aria-label="정보공유 진행 중 탭 열기"
                 onClick={openMarketplaceHandoffPending}
-                className="flex w-full flex-col items-center justify-center bg-gradient-to-r from-orange-500 to-amber-500 px-8 py-2 hover:from-orange-600 hover:to-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-10 sm:py-2.5"
+                className="flex w-full items-center justify-center bg-gradient-to-r from-orange-500 to-amber-500 px-10 py-1.5 hover:from-orange-600 hover:to-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-12"
               >
-                <p className="max-w-4xl text-center text-xs font-semibold leading-snug [text-wrap:pretty] sm:text-sm">
+                <p className="max-w-4xl text-center text-[11px] font-semibold leading-tight [text-wrap:pretty] sm:text-xs">
                   거래처가 정보를 인계 요청합니다
                   {marketplaceSellerPendingCount > 1
                     ? ` · ${marketplaceSellerPendingCount}건`
                     : ''}
+                  <span className="font-normal text-orange-50/95"> · 탭하여 진행 중</span>
                 </p>
-                <span className="mt-0.5 text-[10px] text-orange-50/95">탭하여 진행 중 목록 열기</span>
+              </button>
+              <button
+                type="button"
+                aria-label="닫기"
+                onClick={closeMarketplaceHandoffStrip}
+                className="absolute right-0.5 top-1/2 flex h-7 w-7 shrink-0 -translate-y-1/2 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                  <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                </svg>
               </button>
             </div>
           </div>
@@ -1040,9 +1064,9 @@ export function AdminLayout() {
                 aria-live="polite"
                 aria-label="구매 접수 열기"
                 onClick={openMarketplaceHandoffConfirmedInquiry}
-                className="flex w-full flex-col items-center justify-center bg-gradient-to-r from-emerald-600 to-green-600 px-8 py-2 hover:from-emerald-700 hover:to-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-10 sm:py-2.5"
+                className="flex w-full items-center justify-center bg-gradient-to-r from-emerald-600 to-green-600 px-10 py-1.5 hover:from-emerald-700 hover:to-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-12"
               >
-                <p className="max-w-4xl text-center text-xs font-semibold leading-snug [text-wrap:pretty] sm:text-sm">
+                <p className="max-w-4xl text-center text-[11px] font-semibold leading-tight [text-wrap:pretty] sm:text-xs">
                   구매한 접수건이 인계가 완료되었습니다
                   {marketplaceHandoffConfirmedAlert.customerName ? (
                     <span className="font-normal text-emerald-50">
@@ -1056,16 +1080,16 @@ export function AdminLayout() {
                       · {marketplaceHandoffConfirmedAlert.sellerTenantName}
                     </span>
                   ) : null}
+                  <span className="font-normal text-emerald-50/95"> · 탭하여 접수</span>
                 </p>
-                <span className="mt-0.5 text-[10px] text-emerald-50/95">탭하여 접수 열기</span>
               </button>
               <button
                 type="button"
                 aria-label="닫기"
                 onClick={closeMarketplaceHandoffConfirmedStrip}
-                className="absolute right-1.5 top-1/2 flex h-8 w-8 shrink-0 -translate-y-1/2 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                className="absolute right-0.5 top-1/2 flex h-7 w-7 shrink-0 -translate-y-1/2 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
                   <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
                 </svg>
               </button>
