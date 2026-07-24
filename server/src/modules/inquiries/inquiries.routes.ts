@@ -129,6 +129,10 @@ import {
   attachDbListingMetaToInquiries,
   attachDbListingMetaToInquiry,
 } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
+import {
+  attachMarketplaceHandoffBuyerMetaToInquiries,
+  attachMarketplaceHandoffBuyerMetaToInquiry,
+} from '../db-marketplace/dbMarketplaceHandoffBuyerMeta.js';
 import { stampTenantShareCancelFeeDirection } from '../tenant-partners/tenantPartnerSettlement.service.js';
 import { syncTenantShareAfterInquiryPatch } from '../tenant-partners/tenantInquirySync.service.js';
 import {
@@ -524,7 +528,8 @@ router.get('/', async (req, res) => {
   // DB에 저장 → 다음 로드부터 저장된 좌표가 즉시 표시된다.
   const itemsWithDistance = itemsWithPaybackToken.map((row) => attachDistanceFromJuanForInquiry(row));
   const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
-  const itemsWithDbListing = await attachDbListingMetaToInquiries(tenantId, itemsWithShare);
+  const itemsWithHandoff = await attachMarketplaceHandoffBuyerMetaToInquiries(tenantId, itemsWithShare);
+  const itemsWithDbListing = await attachDbListingMetaToInquiries(tenantId, itemsWithHandoff);
   const itemsWithInspection = attachInspectionSummaries(itemsWithDbListing);
   const itemsWithProfReview = await enrichInquiriesProfOptionsReviewStatus(
     prisma,
@@ -618,7 +623,13 @@ router.get('/:id', async (req, res) => {
     ),
   );
   res.json(
-    await attachDbListingMetaToInquiry(tenantId, await attachTenantShareMetaToInquiry(tenantId, detail)),
+    await attachDbListingMetaToInquiry(
+      tenantId,
+      await attachMarketplaceHandoffBuyerMetaToInquiry(
+        tenantId,
+        await attachTenantShareMetaToInquiry(tenantId, detail),
+      ),
+    ),
   );
 });
 
@@ -1700,7 +1711,13 @@ router.patch('/:id', async (req, res) => {
     user.role,
   );
   res.json(
-    await attachDbListingMetaToInquiry(tenantId, await attachTenantShareMetaToInquiry(tenantId, patched)),
+    await attachDbListingMetaToInquiry(
+      tenantId,
+      await attachMarketplaceHandoffBuyerMetaToInquiry(
+        tenantId,
+        await attachTenantShareMetaToInquiry(tenantId, patched),
+      ),
+    ),
   );
 });
 

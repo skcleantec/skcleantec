@@ -18,6 +18,9 @@ import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from '../inquiries/inqui
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { attachTenantShareMetaToInquiries } from '../tenant-partners/tenantInquiryShareMeta.js';
+import {
+  attachMarketplaceHandoffBuyerMetaToInquiries,
+} from '../db-marketplace/dbMarketplaceHandoffBuyerMeta.js';
 import { attachDbListingMetaToInquiries } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
 import { notifyScheduleDayStaffMemoRefresh } from '../realtime/scheduleDayMemoNotify.js';
 import { orderFormTemplateListSelect } from '../inquiries/inquiryDetailInclude.js';
@@ -313,7 +316,8 @@ router.get('/', async (req, res) => {
   const itemsWithDistance = items.map((row) => attachDistanceFromJuanForInquiry(row));
   /** lite여도 파트너 연계·정보공유 장바구니 배지에 tenantShare·dbListing 필요 */
   const itemsWithShare = await attachTenantShareMetaToInquiries(tenantId, itemsWithDistance);
-  const itemsWithDbListing = await attachDbListingMetaToInquiries(tenantId, itemsWithShare);
+  const itemsWithHandoff = await attachMarketplaceHandoffBuyerMetaToInquiries(tenantId, itemsWithShare);
+  const itemsWithDbListing = await attachDbListingMetaToInquiries(tenantId, itemsWithHandoff);
   if (useLite) {
     res.json({
       items: mapInquiriesInternalToneForRole(itemsWithDbListing, user.role),

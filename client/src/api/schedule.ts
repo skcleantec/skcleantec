@@ -130,6 +130,11 @@ export interface ScheduleItem {
   tenantShare?: TenantInquiryShareMeta | null;
   /** 정보공유(DB 마켓) 판매 상태 */
   dbListing?: import('./dbMarketplace').InquiryDbListingMeta | null;
+  /** 정보공유 구매(인계) — 구매 업체 접수 수정 안내 */
+  marketplaceHandoffAsBuyer?: {
+    sellerTenantName: string;
+    buyerTotalFee: number;
+  } | null;
   /** 과거 현장 추가 금액(InquiryExtraCharge). 신규 추가결재는 additionalReceipts */
   extraCharges?: Array<{
     id: string;

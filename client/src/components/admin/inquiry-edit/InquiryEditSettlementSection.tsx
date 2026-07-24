@@ -6,6 +6,7 @@ import { isActivePartnerShareSource } from '../../../utils/tenantShareSettlement
 import type { DbMarketplaceExchangePrefill } from '../InquiryDbMarketplaceSellPanel';
 import { InquiryDbMarketplaceSellPanel } from '../InquiryDbMarketplaceSellPanel';
 import { PartnerReceivedBanner } from '../PartnerReceivedBanner';
+import { MarketplaceHandoffBuyerBanner } from '../MarketplaceHandoffBuyerBanner';
 import { TenantInquiryShareBadge } from '../TenantInquiryShareBadge';
 import type { ProfessionalSpecialtyOption } from '../../../constants/professionalSpecialtyOptions';
 import { AdminScheduleDetailSection } from './AdminScheduleDetailSection';
@@ -99,6 +100,11 @@ export function InquiryEditSettlementSection({
   return (
     <AdminScheduleDetailSection title="정산 · 옵션" sectionAnchor="settlement">
       <div className="space-y-2">
+        {item?.tenantShare?.role === 'TARGET' && item.tenantShare.viaMarketplace ? (
+          <PartnerReceivedBanner share={item.tenantShare} />
+        ) : item?.marketplaceHandoffAsBuyer ? (
+          <MarketplaceHandoffBuyerBanner meta={item.marketplaceHandoffAsBuyer} />
+        ) : null}
         <div className={inqEditAmountRow}>
           <div>
             <label className={inqEditLabel}>총액 (원)</label>
@@ -223,7 +229,7 @@ export function InquiryEditSettlementSection({
               {item.tenantShare ? (
                 <div className="space-y-2">
                   <TenantInquiryShareBadge share={item.tenantShare} />
-                  {item.tenantShare.role === 'TARGET' ? (
+                  {item.tenantShare.role === 'TARGET' && !item.tenantShare.viaMarketplace ? (
                     <PartnerReceivedBanner share={item.tenantShare} />
                   ) : null}
                   {item.tenantShare.role === 'SOURCE' &&

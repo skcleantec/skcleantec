@@ -29,6 +29,10 @@ import {
   attachTenantShareMetaToInquiries,
   attachTenantShareMetaToInquiry,
 } from '../tenant-partners/tenantInquiryShare.service.js';
+import {
+  attachMarketplaceHandoffBuyerMetaToInquiries,
+  attachMarketplaceHandoffBuyerMetaToInquiry,
+} from '../db-marketplace/dbMarketplaceHandoffBuyerMeta.js';
 import { toChangeHistoryItemDto } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import {
   filterMarketerOnlyChangeLogLines,
@@ -109,6 +113,15 @@ function teamCsAccessWhere(userId: string, viewerRole?: string) {
 
 /** 팀 스케줄 범위 — 관리자 스케줄 API와 동일하게 KST 하루 경계 */
 const SCHEDULE_QUERY_YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+async function marketplaceHandoffViewerOptions(user: AuthPayload) {
+  if (user.role !== 'EXTERNAL_PARTNER') return {};
+  const me = await prisma.user.findUnique({
+    where: { id: user.userId },
+    select: { externalCompanyId: true },
+  });
+  return { viewerExternalCompanyId: me?.externalCompanyId ?? null };
+}
 
 router.use(teamAuthMiddleware);
 router.use(teamPlatformPromoRoutes);
@@ -1312,8 +1325,10 @@ router.get('/inquiries/:id', async (req, res) => {
     return;
   }
   const [item] = await attachProfessionalOptions(await attachCrewMembers([row], tenantId), tenantId);
+  const handoffOpts = await marketplaceHandoffViewerOptions(user);
   const withShare = await attachTenantShareMetaToInquiry(tenantId, item);
-  res.json(serializeTeamInquiryOperatingCompany(attachInspectionSummaryToInquiry(withShare)));
+  const withHandoff = await attachMarketplaceHandoffBuyerMetaToInquiry(tenantId, withShare, handoffOpts);
+  res.json(serializeTeamInquiryOperatingCompany(attachInspectionSummaryToInquiry(withHandoff)));
 });
 
 router.get('/inquiries', async (req, res) => {
@@ -1345,11 +1360,13 @@ router.get('/inquiries', async (req, res) => {
       include: teamInquiryInclude,
     });
     const items = await attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId);
+    const handoffOpts = await marketplaceHandoffViewerOptions(user);
     const withShare = await attachTenantShareMetaToInquiries(tenantId, items);
+    const withHandoff = await attachMarketplaceHandoffBuyerMetaToInquiries(tenantId, withShare, handoffOpts);
     res.json({
       items: serializeTeamInquiryOperatingCompanies(
         attachInspectionSummaries(
-          withShare as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
+          withHandoff as Array<Parameters<typeof attachInspectionSummaries>[0][number]>,
         ),
       ),
     });

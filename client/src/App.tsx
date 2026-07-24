@@ -33,6 +33,7 @@ import {
   AdminOrderFormCustomerPreviewPage,
   AdminOrderFormCustomerLinkSettingsPage,
   AdminOrderFormTemplatesPage,
+  AdminOrderFormLeadSourceSettingsPage,
   AdminQuotationsListPage,
   AdminQuotationEditorPage,
   AdminQuotationSettingsPage,
@@ -308,6 +309,14 @@ function App() {
             <Route path="scripts" element={<SuspensePage><TelecrmScriptSettingsPage /></SuspensePage>} />
             <Route path="pricing" element={<SuspensePage><TelecrmPricingSettingsPage /></SuspensePage>} />
             <Route path="general" element={<SuspensePage><TelecrmGeneralSettingsPage /></SuspensePage>} />
+            <Route
+              path="lead-sources"
+              element={
+                <SuspensePage>
+                  <AdminOrderFormLeadSourceSettingsPage />
+                </SuspensePage>
+              }
+            />
             <Route path="soomgo" element={<SuspensePage><TelecrmSoomgoSettingsPage /></SuspensePage>} />
             <Route path="soomgo-presets" element={<SuspensePage><TelecrmSoomgoPresetsSettingsPage /></SuspensePage>} />
             <Route path="call-activity" element={<SuspensePage><TelecrmCallActivityPage /></SuspensePage>} />

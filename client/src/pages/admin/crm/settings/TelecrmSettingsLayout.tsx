@@ -11,6 +11,11 @@ const NAV = [
   { to: '/admin/crm/settings/scripts', label: '스크립트' },
   { to: '/admin/crm/settings/pricing', label: '가격' },
   { to: '/admin/crm/settings/general', label: '기본 단가' },
+  {
+    to: '/admin/crm/settings/lead-sources',
+    label: '유입경로',
+    formConfigOnly: true,
+  },
   { to: '/admin/crm/settings/soomgo', label: '숨고 연동' },
   { to: '/admin/crm/settings/soomgo-presets', label: '숨고 프리셋' },
   { to: '/admin/crm/settings/call-activity', label: '통화 현황', adminOnly: true },
@@ -24,6 +29,7 @@ export function TelecrmSettingsLayout() {
   const isAdmin = resolveEffectiveStaffAdminFromMe(staffMe);
   const canShared = permissions.has('crm.settings');
   const canPersonal = permissions.has('crm.view');
+  const canEditLeadSources = permissions.has('orderform.formConfig');
   const isCatalogRoute =
     location.pathname.endsWith('/scripts') ||
     location.pathname.endsWith('/pricing') ||
@@ -43,6 +49,7 @@ export function TelecrmSettingsLayout() {
 
   const visibleNav = NAV.filter((item) => {
     if ('adminOnly' in item && item.adminOnly && !isAdmin) return false;
+    if ('formConfigOnly' in item && item.formConfigOnly && !canEditLeadSources) return false;
     if (item.to === '/admin/crm/settings/general') return canShared;
     if (item.to === '/admin/crm/settings/soomgo') return canShared;
     if (item.to === '/admin/crm/settings/soomgo-presets') return canShared || canPersonal;

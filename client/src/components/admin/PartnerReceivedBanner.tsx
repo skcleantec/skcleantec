@@ -1,4 +1,8 @@
 import type { TenantInquiryShareMeta } from '../../api/tenantInquiryShare';
+import {
+  MarketplaceHandoffBuyerBanner,
+  marketplaceHandoffFromShare,
+} from './MarketplaceHandoffBuyerBanner';
 
 type Props = {
   share: TenantInquiryShareMeta;
@@ -10,6 +14,14 @@ type Props = {
 /** 수신 파트너 접수 상세 — 연계받음 안내 */
 export function PartnerReceivedBanner({ share, className = '', compact = false }: Props) {
   if (share.role !== 'TARGET') return null;
+
+  const marketplaceMeta = marketplaceHandoffFromShare(share);
+  if (marketplaceMeta) {
+    return (
+      <MarketplaceHandoffBuyerBanner meta={marketplaceMeta} className={className} compact={compact} />
+    );
+  }
+
   const revoked = share.syncStatus === 'REVOKED';
   const sourceNo = share.sourceInquiryNumberSnapshot?.trim();
   const title = revoked
@@ -32,7 +44,6 @@ export function PartnerReceivedBanner({ share, className = '', compact = false }
           <>
             <span className="font-medium text-gray-800">{share.partnerName} 연계</span>
             {sourceNo ? <span className="ml-1 tabular-nums text-gray-500">({sourceNo})</span> : null}
-            {share.viaMarketplace ? <span className="ml-1 text-gray-500">· 정보공유</span> : null}
           </>
         )}
       </p>
@@ -42,9 +53,7 @@ export function PartnerReceivedBanner({ share, className = '', compact = false }
   return (
     <div
       className={`rounded-xl border px-4 py-3 ${
-        revoked
-          ? 'border-gray-200 bg-gray-50'
-          : 'border-sky-200 bg-sky-50/80'
+        revoked ? 'border-gray-200 bg-gray-50' : 'border-sky-200 bg-sky-50/80'
       } ${className}`}
       title={title}
     >
@@ -59,14 +68,7 @@ export function PartnerReceivedBanner({ share, className = '', compact = false }
           {revoked ? '연계 취소됨' : `📥 ${share.partnerName}에서 연계받음`}
         </span>
         {!revoked && sourceNo ? (
-          <span className="text-fluid-2xs text-sky-900/80 tabular-nums">
-            원번호 {sourceNo}
-          </span>
-        ) : null}
-        {share.viaMarketplace ? (
-          <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-800">
-            정보공유
-          </span>
+          <span className="text-fluid-2xs tabular-nums text-sky-900/80">원번호 {sourceNo}</span>
         ) : null}
       </div>
       {!revoked ? (

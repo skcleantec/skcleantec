@@ -17,6 +17,7 @@ import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../../components
 import { TeamQuotationInquiryLinkPanel } from '../../components/quotations/TeamQuotationInquiryLinkPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
 import { PartnerReceivedBanner } from '../../components/admin/PartnerReceivedBanner';
+import { MarketplaceHandoffBuyerBanner } from '../../components/admin/MarketplaceHandoffBuyerBanner';
 import { TeamInlineNoticeModule } from '../../components/team/TeamInlineNoticeModule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
@@ -325,6 +326,11 @@ export interface InquiryItem {
   operatingCompany?: OperatingCompanyBadgeData | null;
   /** 파트너 접수 연계 */
   tenantShare?: import('../../api/tenantInquiryShare').TenantInquiryShareMeta | null;
+  /** 정보공유 구매(인계) — 구매 업체 접수 수정 안내 */
+  marketplaceHandoffAsBuyer?: {
+    sellerTenantName: string;
+    buyerTotalFee: number;
+  } | null;
 }
 
 export function formatScheduleLine(item: InquiryItem) {
@@ -1467,6 +1473,8 @@ export function TeamInquiryDetailModal({
               <>
                 {item.tenantShare?.role === 'TARGET' ? (
                   <PartnerReceivedBanner share={item.tenantShare} compact />
+                ) : item.marketplaceHandoffAsBuyer ? (
+                  <MarketplaceHandoffBuyerBanner meta={item.marketplaceHandoffAsBuyer} compact />
                 ) : null}
                 <TeamModalSection
                   compact
@@ -1666,6 +1674,8 @@ export function TeamInquiryDetailModal({
 
             {item.tenantShare?.role === 'TARGET' ? (
               <PartnerReceivedBanner share={item.tenantShare} />
+            ) : item.marketplaceHandoffAsBuyer ? (
+              <MarketplaceHandoffBuyerBanner meta={item.marketplaceHandoffAsBuyer} />
             ) : null}
 
             {effectiveViewerId && mine ? (

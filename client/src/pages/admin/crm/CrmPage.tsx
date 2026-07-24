@@ -133,7 +133,8 @@ export function CrmPage() {
   const permissions = useMarketerPermissions();
   const canSharedSettings = permissions.has('crm.settings');
   const canPersonalCatalog = permissions.has('crm.view');
-  const canOpenSettings = canSharedSettings || canPersonalCatalog;
+  const canEditLeadSources = permissions.has('orderform.formConfig');
+  const canOpenSettings = canSharedSettings || canPersonalCatalog || canEditLeadSources;
   const canOrderIssue =
     permissions.me?.role === 'ADMIN' || permissions.has('orderform.issue');
   const canFollowupEdit =
@@ -1564,6 +1565,7 @@ export function CrmPage() {
             catalogScope={catalogScope}
             canEditShared={canSharedSettings}
             canEditPersonal={canPersonalCatalog}
+            canEditLeadSources={canEditLeadSources}
             onTabChange={setSettingsTab}
             onCatalogScopeChange={setCatalogScope}
             onClose={handleCloseSettings}
