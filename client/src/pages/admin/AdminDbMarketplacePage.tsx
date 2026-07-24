@@ -12,6 +12,7 @@ import {
   getDbMarketplaceListing,
   listDbMarketplaceAudienceOptions,
   type DbMarketplaceAudienceInput,
+  type DbMarketplaceOfferMode,
   type DbMarketplaceListTab,
   type DbMarketplaceMaskedItem,
 } from '../../api/dbMarketplace';
@@ -316,6 +317,7 @@ export function AdminDbMarketplacePage() {
 
   const runBulkPublish = async (value: {
     visibility: 'ALL' | 'SELECTED';
+    offerMode?: DbMarketplaceOfferMode | null;
     audiences: DbMarketplaceAudienceInput[];
   }) => {
     if (!token || selectedCount === 0) return;
@@ -328,6 +330,7 @@ export function AdminDbMarketplacePage() {
       const result = await bulkPublishDbMarketplace(token, {
         listingIds: [...selectedIds],
         visibility: value.visibility,
+        offerMode: value.offerMode,
         audiences: value.audiences,
       });
       setAudienceModalOpen(false);

@@ -22,6 +22,7 @@ import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { ModalCloseButton } from './ModalCloseButton';
 import { DbMarketplaceCleaningDetailCard } from './DbMarketplaceCleaningDetailCard';
+import { DbMarketplaceAmountSummaryBlock } from '../db-marketplace/DbMarketplaceAmountSummary';
 import type { DbMarketplaceAudienceItem } from '../../api/dbMarketplace';
 
 function DbMarketplacePublishAudienceBlock({
@@ -345,10 +346,15 @@ export function DbMarketplaceListingDetailModal({
             <p>
               <span className="text-gray-500">판매 업체</span> {d.sellerTenantName}
             </p>
-            <p>
-              <span className="text-gray-500">표시금액</span>{' '}
-              {d.displayAmount != null ? `${d.displayAmount.toLocaleString('ko-KR')}원` : '-'}
-            </p>
+            <DbMarketplaceAmountSummaryBlock
+              row={{
+                customerBalanceAmount: d.customerBalanceAmount,
+                displayAmount: d.displayAmount,
+                listingFee: d.listingFee,
+                priorFeesTotal: d.priorFeesTotal,
+                buyerTotalFee: d.buyerTotalFee,
+              }}
+            />
             <p>
               <span className="text-gray-500">고객</span> {d.customerNameMasked} · {d.addressRegion}
             </p>
@@ -430,7 +436,7 @@ export function DbMarketplaceListingDetailModal({
                 );
               })()}
               <p className="text-[10px] text-emerald-800/80">
-                수수료(listingFee)는 기존 파트너·타업체 정산 집계에 반영됩니다.
+                정보공유 수수료는 인계 확정 시 파트너·타업체 정산에 반영됩니다. 재판매 건은 앞선 판매 수수료가 합산됩니다.
               </p>
             </div>
           ) : (

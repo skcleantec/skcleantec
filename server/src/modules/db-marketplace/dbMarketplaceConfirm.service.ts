@@ -12,6 +12,8 @@ import {
   notifyDbMarketplaceBuyerRequested,
   notifyDbMarketplaceConfirmed,
   notifyDbMarketplaceSellerDeclined,
+  activeStaffAdminMarketerUserIds,
+  externalPartnerUserIds,
 } from './dbMarketplaceNotify.service.js';
 import { expireStaleOpenDbListings } from './dbMarketplaceExpire.service.js';
 import { invalidateExternalSettlementOverviewPayableCache } from '../external-companies/externalSettlementOverviewCache.js';
@@ -19,6 +21,12 @@ import { clearHoldData } from './dbMarketplaceHold.service.js';
 import { assertExternalCompanySelectable } from '../external-companies/externalCompanyUsage.helpers.js';
 import { accrueDbMarketplaceFeeLedgerInTx } from './dbMarketplaceFeeLedger.service.js';
 import { appendDbMarketplaceEvent } from './dbMarketplaceHistory.service.js';
+import {
+  isPriorityOfferMode,
+  notifyDbMarketplacePriorityExhausted,
+  notifyDbMarketplacePriorityRank,
+} from './dbMarketplacePriorityNotify.service.js';
+import { resolveBuyerPriorityRank } from './dbMarketplacePriority.helpers.js';
 
 export type { DbMarketplaceBuyerContext } from './dbMarketplaceBuyerAccess.js';
 
@@ -100,7 +108,7 @@ async function assignExternalCompanyBuyer(opts: {
   tenantId: string;
   inquiryId: string;
   externalCompanyId: string;
-  listingFee: number;
+  transferFee: number;
   assignedByUserId: string;
 }) {
   try {
@@ -144,7 +152,7 @@ async function assignExternalCompanyBuyer(opts: {
     });
     await tx.inquiry.update({
       where: { id: opts.inquiryId, tenantId: opts.tenantId },
-      data: { externalTransferFee: opts.listingFee },
+      data: { externalTransferFee: opts.transferFee },
     });
   });
 
@@ -184,6 +192,9 @@ export async function confirmDbListingSeller(
     throw new DbMarketplaceError('이미 파트너에 직접 연계된 접수입니다.', 400);
   }
 
+  const buyerTotalFee =
+    listing.buyerTotalFee > 0 ? listing.buyerTotalFee : listing.listingFee;
+
   const now = new Date();
   let tenantInquiryShareId: string | null = null;
   let targetInquiryId: string | null = null;
@@ -201,8 +212,9 @@ export async function confirmDbListingSeller(
         viewerUserId: sellerUserId,
         inquiryId: listing.inquiryId,
         partnershipId,
-        transferFee: listing.listingFee,
+        transferFee: buyerTotalFee,
         allowResaleFromReceivedShare: listing.hopIndex > 0,
+        preserveCustomerBalanceForMarketplace: true,
       });
       tenantInquiryShareId = shareResult.share.id;
       targetInquiryId = shareResult.targetInquiryId;
@@ -220,7 +232,7 @@ export async function confirmDbListingSeller(
       tenantId: sellerTenantId,
       inquiryId: listing.inquiryId,
       externalCompanyId: listing.buyerExternalCompanyId,
-      listingFee: listing.listingFee,
+      transferFee: buyerTotalFee,
       assignedByUserId: sellerUserId,
     });
   }
@@ -245,7 +257,7 @@ export async function confirmDbListingSeller(
         id: listingId,
         tenantId: sellerTenantId,
         hopIndex: listing.hopIndex,
-        listingFee: listing.listingFee,
+        listingFee: buyerTotalFee,
         buyerKind: listing.buyerKind,
         buyerTenantId: listing.buyerTenantId,
         buyerExternalCompanyId: listing.buyerExternalCompanyId,
@@ -266,6 +278,7 @@ export async function confirmDbListingSeller(
         buyerTenantId: listing.buyerTenantId,
         buyerExternalCompanyId: listing.buyerExternalCompanyId,
         listingFee: listing.listingFee,
+        buyerTotalFee,
       },
     });
   });
@@ -299,7 +312,7 @@ export async function confirmDbListingSeller(
 
 export async function declineDbListingSeller(
   sellerTenantId: string,
-  _sellerUserId: string,
+  sellerUserId: string,
   listingId: string,
 ) {
   const listing = await prisma.inquiryDbListing.findFirst({
@@ -316,39 +329,143 @@ export async function declineDbListingSeller(
 
   const buyerTenantId = listing.buyerTenantId;
   const buyerExternalCompanyId = listing.buyerExternalCompanyId;
+  const declinedRank =
+    resolveBuyerPriorityRank(listing) ?? listing.currentPriorityRank ?? null;
+  const priorityMode = isPriorityOfferMode(listing.offerMode);
 
-  const updatedCount = await prisma.inquiryDbListing.updateMany({
-    where: { id: listingId, tenantId: sellerTenantId, status: 'PENDING_SELLER' },
-    data: {
-      status: 'OPEN',
-      buyerKind: null,
-      buyerTenantId: null,
-      buyerExternalCompanyId: null,
-      buyerConfirmedAt: null,
-      buyerConfirmedByUserId: null,
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    if (priorityMode && declinedRank != null) {
+      if (declinedRank < 3) {
+        const nextRank = declinedRank + 1;
+        const result = await tx.inquiryDbListing.updateMany({
+          where: { id: listingId, tenantId: sellerTenantId, status: 'PENDING_SELLER' },
+          data: {
+            status: 'OPEN',
+            currentPriorityRank: nextRank,
+            buyerKind: null,
+            buyerTenantId: null,
+            buyerExternalCompanyId: null,
+            buyerConfirmedAt: null,
+            buyerConfirmedByUserId: null,
+            ...clearHoldData(),
+          },
+        });
+        if (result.count !== 1) {
+          throw new DbMarketplaceError('거절 처리에 실패했습니다. 상태를 확인해 주세요.', 409);
+        }
+        await appendDbMarketplaceEvent(tx, {
+          tenantId: sellerTenantId,
+          listingId,
+          eventType: 'PRIORITY_DECLINED',
+          hopIndex: listing.hopIndex,
+          actorUserId: sellerUserId,
+          payload: { rank: declinedRank, nextRank },
+        });
+        await appendDbMarketplaceEvent(tx, {
+          tenantId: sellerTenantId,
+          listingId,
+          eventType: 'PRIORITY_ACTIVATED',
+          hopIndex: listing.hopIndex,
+          payload: { rank: nextRank },
+        });
+      } else {
+        const result = await tx.inquiryDbListing.updateMany({
+          where: { id: listingId, tenantId: sellerTenantId, status: 'PENDING_SELLER' },
+          data: {
+            status: 'DRAFT',
+            currentPriorityRank: null,
+            publishedAt: null,
+            expiresAt: null,
+            expiredAt: null,
+            withdrawnAt: null,
+            buyerKind: null,
+            buyerTenantId: null,
+            buyerExternalCompanyId: null,
+            buyerConfirmedAt: null,
+            buyerConfirmedByUserId: null,
+            ...clearHoldData(),
+          },
+        });
+        if (result.count !== 1) {
+          throw new DbMarketplaceError('거절 처리에 실패했습니다. 상태를 확인해 주세요.', 409);
+        }
+        await appendDbMarketplaceEvent(tx, {
+          tenantId: sellerTenantId,
+          listingId,
+          eventType: 'PRIORITY_DECLINED',
+          hopIndex: listing.hopIndex,
+          actorUserId: sellerUserId,
+          payload: { rank: declinedRank },
+        });
+        await appendDbMarketplaceEvent(tx, {
+          tenantId: sellerTenantId,
+          listingId,
+          eventType: 'PRIORITY_EXHAUSTED',
+          hopIndex: listing.hopIndex,
+          actorUserId: sellerUserId,
+          payload: { returnedToDraft: true },
+        });
+      }
+    } else {
+      const result = await tx.inquiryDbListing.updateMany({
+        where: { id: listingId, tenantId: sellerTenantId, status: 'PENDING_SELLER' },
+        data: {
+          status: 'OPEN',
+          buyerKind: null,
+          buyerTenantId: null,
+          buyerExternalCompanyId: null,
+          buyerConfirmedAt: null,
+          buyerConfirmedByUserId: null,
+          ...clearHoldData(),
+        },
+      });
+      if (result.count !== 1) {
+        throw new DbMarketplaceError('거절 처리에 실패했습니다. 상태를 확인해 주세요.', 409);
+      }
+    }
+
+    return tx.inquiryDbListing.findUniqueOrThrow({
+      where: { id: listingId },
+      include: {
+        audiences: true,
+        tenant: { select: { id: true, name: true } },
+        buyerTenant: { select: { id: true, name: true } },
+        buyerExternalCompany: { select: { id: true, name: true } },
+      },
+    });
   });
-  if (updatedCount.count !== 1) {
-    throw new DbMarketplaceError('거절 처리에 실패했습니다. 상태를 확인해 주세요.', 409);
+
+  if (priorityMode && declinedRank != null) {
+    if (declinedRank < 3) {
+      await notifyDbMarketplacePriorityRank({
+        sellerTenantId,
+        audiences: updated.audiences,
+        rank: declinedRank + 1,
+      });
+    } else {
+      await notifyDbMarketplacePriorityExhausted(sellerTenantId);
+    }
+    const declinedUserIds = new Set<string>();
+    if (buyerTenantId) {
+      for (const id of await activeStaffAdminMarketerUserIds(buyerTenantId)) declinedUserIds.add(id);
+    }
+    if (buyerExternalCompanyId) {
+      for (const id of await externalPartnerUserIds(sellerTenantId, buyerExternalCompanyId)) {
+        declinedUserIds.add(id);
+      }
+    }
+    if (declinedUserIds.size > 0) {
+      await notifyInboxRefresh([...declinedUserIds]);
+    }
+  } else {
+    await notifyDbMarketplaceSellerDeclined({
+      sellerTenantId,
+      visibility: listing.visibility,
+      audiences: listing.audiences,
+      buyerTenantId,
+      buyerExternalCompanyId,
+    });
   }
-
-  const updated = await prisma.inquiryDbListing.findUniqueOrThrow({
-    where: { id: listingId },
-    include: {
-      audiences: true,
-      tenant: { select: { id: true, name: true } },
-      buyerTenant: { select: { id: true, name: true } },
-      buyerExternalCompany: { select: { id: true, name: true } },
-    },
-  });
-
-  await notifyDbMarketplaceSellerDeclined({
-    sellerTenantId,
-    visibility: listing.visibility,
-    audiences: listing.audiences,
-    buyerTenantId,
-    buyerExternalCompanyId,
-  });
 
   return updated;
 }

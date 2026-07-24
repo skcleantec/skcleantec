@@ -36,6 +36,7 @@ import {
   notifyDbMarketplaceBroadcast,
   notifyDbMarketplaceSellerAdmins,
 } from './dbMarketplaceNotify.service.js';
+import { notifyDbMarketplacePriorityRank } from './dbMarketplacePriorityNotify.service.js';
 import {
   bulkConfirmDbListingBuyer,
   bulkConfirmDbListingSeller,
@@ -115,6 +116,7 @@ router.post('/bulk/publish', async (req, res) => {
     listingIds?: unknown;
     visibility?: unknown;
     audiences?: unknown;
+    offerMode?: unknown;
   };
   try {
     const result = await bulkPublishDbListings(
@@ -122,6 +124,7 @@ router.post('/bulk/publish', async (req, res) => {
       body.listingIds,
       body.visibility,
       body.audiences,
+      body.offerMode,
     );
     res.json(result);
   } catch (e) {
@@ -219,20 +222,29 @@ router.patch('/:id/audience', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
   const listingId = typeof req.params.id === 'string' ? req.params.id : '';
-  const body = req.body as { visibility?: unknown; audiences?: unknown };
+  const body = req.body as { visibility?: unknown; audiences?: unknown; offerMode?: unknown };
   try {
     const row = await updateDbListingAudience(
       tenantId,
       listingId,
       body.visibility,
       body.audiences,
+      body.offerMode,
     );
     if (row.status === 'OPEN') {
-      await notifyDbMarketplaceBroadcast({
-        sellerTenantId: tenantId,
-        visibility: row.visibility,
-        audiences: row.audiences,
-      });
+      if (row.offerMode === 'PRIORITY' && row.currentPriorityRank) {
+        await notifyDbMarketplacePriorityRank({
+          sellerTenantId: tenantId,
+          audiences: row.audiences,
+          rank: row.currentPriorityRank,
+        });
+      } else {
+        await notifyDbMarketplaceBroadcast({
+          sellerTenantId: tenantId,
+          visibility: row.visibility,
+          audiences: row.audiences,
+        });
+      }
     } else {
       await notifyDbMarketplaceSellerAdmins(tenantId);
     }
@@ -249,11 +261,13 @@ router.post('/:id/publish', async (req, res) => {
   const listingId = typeof req.params.id === 'string' ? req.params.id : '';
   try {
     const row = await publishDbListing(tenantId, listingId);
-    await notifyDbMarketplaceBroadcast({
-      sellerTenantId: tenantId,
-      visibility: row.visibility,
-      audiences: row.audiences,
-    });
+    if (row.offerMode !== 'PRIORITY') {
+      await notifyDbMarketplaceBroadcast({
+        sellerTenantId: tenantId,
+        visibility: row.visibility,
+        audiences: row.audiences,
+      });
+    }
     res.json({ listing: serializeSellerListing(row) });
   } catch (e) {
     if (mapError(res, e)) return;

@@ -36,6 +36,7 @@ export async function findParentListingForResale(
   rootTenantId: string | null;
   dealBalanceAmount: number | null;
   listingFee: number;
+  buyerTotalFee: number;
 } | null> {
   const share = await prisma.tenantInquiryShare.findUnique({
     where: { targetInquiryId },
@@ -62,6 +63,7 @@ export async function findParentListingForResale(
       rootTenantId: true,
       dealBalanceAmount: true,
       listingFee: true,
+      buyerTotalFee: true,
     },
   });
 }

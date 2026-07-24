@@ -13,10 +13,12 @@ import {
   upsertDbMarketplaceDraft,
   withdrawDbMarketplaceListing,
   type DbMarketplaceAudienceInput,
+  type DbMarketplaceOfferMode,
   type DbMarketplaceSellerListing,
 } from '../../api/dbMarketplace';
 import { DbMarketplaceCartAddButton } from '../db-marketplace/marketplaceUiParts';
-import { computeMarketplaceDisplayAmount, parseListingFeeInput } from '@shared/dbMarketplaceAmount';
+import { computeMarketplaceFeeAmounts, parseListingFeeInput } from '@shared/dbMarketplaceAmount';
+import { DbMarketplaceAmountSummaryBlock } from '../db-marketplace/DbMarketplaceAmountSummary';
 import { DbMarketplaceAudiencePickerModal } from './DbMarketplaceAudiencePickerModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { HelpTooltip } from '../ui/HelpTooltip';
@@ -47,6 +49,22 @@ const STATUS_LABEL: Record<string, string> = {
   EXPIRED: '만료',
 };
 
+function priorityKeysFromAudiences(
+  audiences: DbMarketplaceSellerListing['audiences'],
+): Partial<Record<1 | 2 | 3, string>> {
+  const out: Partial<Record<1 | 2 | 3, string>> = {};
+  for (const a of audiences) {
+    const rank = a.priorityRank;
+    if (rank !== 1 && rank !== 2 && rank !== 3) continue;
+    if (a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId) {
+      out[rank] = `P:${a.partnerTenantId}`;
+    } else if (a.audienceKind === 'EXTERNAL_COMPANY' && a.externalCompanyId) {
+      out[rank] = `E:${a.externalCompanyId}`;
+    }
+  }
+  return out;
+}
+
 export function InquiryDbMarketplaceSellPanel({
   inquiryId,
   serviceBalanceAmount,
@@ -58,8 +76,10 @@ export function InquiryDbMarketplaceSellPanel({
   const [listing, setListing] = useState<DbMarketplaceSellerListing | null>(null);
   const [listingFeeInput, setListingFeeInput] = useState('');
   const [visibility, setVisibility] = useState<'ALL' | 'SELECTED'>('ALL');
+  const [offerMode, setOfferMode] = useState<DbMarketplaceOfferMode>('SIMULTANEOUS');
   const [selectedPartnerIds, setSelectedPartnerIds] = useState<string[]>([]);
   const [selectedExternalIds, setSelectedExternalIds] = useState<string[]>([]);
+  const [priorityKeys, setPriorityKeys] = useState<Partial<Record<1 | 2 | 3, string>>>({});
   const [showAudienceModal, setShowAudienceModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -70,10 +90,15 @@ export function InquiryDbMarketplaceSellPanel({
   const parsedListingFee = parseListingFeeInput(listingFeeInput);
   const listingFeeValid = parsedListingFee != null;
 
-  const previewAmount = computeMarketplaceDisplayAmount(
-    serviceBalanceAmount,
-    parsedListingFee ?? 0,
-  );
+  const feePreview = computeMarketplaceFeeAmounts({
+    listingFee: parsedListingFee ?? 0,
+    priorFeesTotal: listing?.priorFeesTotal ?? 0,
+    customerBalanceAmount:
+      listing?.customerBalanceAmount ??
+      listing?.dealBalanceAmount ??
+      serviceBalanceAmount,
+  });
+  const isResale = (listing?.resaleStep ?? listing?.hopIndex ?? 0) > 0;
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -90,6 +115,8 @@ export function InquiryDbMarketplaceSellPanel({
             listingRow.listingFee > 0 ? listingRow.listingFee.toLocaleString('ko-KR') : '',
           );
           setVisibility(listingRow.visibility);
+          setOfferMode(listingRow.offerMode === 'PRIORITY' ? 'PRIORITY' : 'SIMULTANEOUS');
+          setPriorityKeys(priorityKeysFromAudiences(listingRow.audiences));
           setSelectedPartnerIds(
             listingRow.audiences
               .filter((a) => a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId)
@@ -170,6 +197,7 @@ export function InquiryDbMarketplaceSellPanel({
 
   const saveAudience = async (value: {
     visibility: 'ALL' | 'SELECTED';
+    offerMode?: DbMarketplaceOfferMode | null;
     audiences: DbMarketplaceAudienceInput[];
   }) => {
     if (!token || !listing) return;
@@ -180,9 +208,12 @@ export function InquiryDbMarketplaceSellPanel({
         listing.id,
         value.visibility,
         value.audiences,
+        value.offerMode,
       );
       setListing(row);
       setVisibility(value.visibility);
+      setOfferMode(row.offerMode === 'PRIORITY' ? 'PRIORITY' : 'SIMULTANEOUS');
+      setPriorityKeys(priorityKeysFromAudiences(row.audiences));
       setSelectedPartnerIds(
         value.audiences
           .filter((a) => a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId)
@@ -297,8 +328,9 @@ export function InquiryDbMarketplaceSellPanel({
         </p>
         <HelpTooltip
           text={
-            '파트너·타업체가 선택해 가져갈 수 있도록 게시합니다. 구매자에게는 표시금액(잔금−수수료)만 보입니다.\n' +
-            '파트너 직접 연계와 별도입니다. 수수료는 인계 확정(구매자·판매자 모두 확정) 시점에 DB가 넘어가며, 그때 파트너·타업체 정산에 반영됩니다.'
+            '파트너·타업체가 선택해 가져갈 수 있도록 게시합니다. 구매자에게는 고객 현장 수금(잔금)과 정보공유 수수료가 따로 표시됩니다.\n' +
+            '재판매 시 앞선 판매 수수료는 자동 합산됩니다. 「이번 판매 수수료」에는 본인이 추가로 받을 금액만 입력하세요.\n' +
+            '파트너 직접 연계와 별도입니다. 인계 확정 시 정산에 반영됩니다.'
           }
         />
       </div>
@@ -307,20 +339,21 @@ export function InquiryDbMarketplaceSellPanel({
       {error ? <p className={`${panelMetaText} text-red-600`}>{error}</p> : null}
 
       {listing ? (
-        <p className={`${panelMetaText} font-medium text-violet-800`}>
-          <span className="sm:hidden">
-            {STATUS_LABEL[listing.status] ?? listing.status}
-            {listing.displayAmount != null
-              ? ` · ${listing.displayAmount.toLocaleString('ko-KR')}원`
-              : ''}
-          </span>
-          <span className="hidden sm:inline">
+        <div className={`${panelMetaText} space-y-1 font-medium text-violet-800`}>
+          <p>
             상태: {STATUS_LABEL[listing.status] ?? listing.status}
-            {listing.displayAmount != null
-              ? ` · 표시금액 ${listing.displayAmount.toLocaleString('ko-KR')}원`
-              : ''}
-          </span>
-        </p>
+          </p>
+          <DbMarketplaceAmountSummaryBlock
+            row={{
+              customerBalanceAmount: listing.customerBalanceAmount ?? listing.dealBalanceAmount,
+              displayAmount: listing.displayAmount,
+              listingFee: listing.listingFee,
+              priorFeesTotal: listing.priorFeesTotal,
+              buyerTotalFee: listing.buyerTotalFee,
+            }}
+            compact
+          />
+        </div>
       ) : null}
 
       {listing?.platformSuspendedAt ? (
@@ -395,9 +428,22 @@ export function InquiryDbMarketplaceSellPanel({
         </div>
       ) : null}
 
-      {listing?.rootTenantName && listing.hopIndex && listing.hopIndex > 0 ? (
+      {listing?.rootTenantName && (listing.resaleStep ?? listing.hopIndex ?? 0) > 0 ? (
         <p className={`${panelMetaText} text-violet-900`}>
-          최초 업체: {listing.rootTenantName} · 재판매 hop {listing.hopIndex}
+          최초 업체: {listing.rootTenantName} · {listing.resaleStep ?? listing.hopIndex}번째 재판매
+        </p>
+      ) : null}
+
+      {listing?.offerMode === 'PRIORITY' && listing.status === 'OPEN' && listing.currentPriorityRank ? (
+        <p className={`${panelMetaText} text-violet-900`}>
+          순위 노출 · 현재 {listing.currentPriorityRank}순위 업체에만 표시 중
+        </p>
+      ) : null}
+
+      {listing?.offerMode === 'PRIORITY' && listing.status === 'DRAFT' ? (
+        <p className={`${panelMetaText} text-amber-900`}>
+          순위 노출 설정됨 — 게시 시 1순위부터 표시됩니다. 3순위까지 거절되면 장바구니로
+          돌아옵니다.
         </p>
       ) : null}
 
@@ -433,8 +479,10 @@ export function InquiryDbMarketplaceSellPanel({
         <>
           <div className="flex items-end gap-2 sm:block">
             <label className="mb-0 shrink-0 text-[10px] text-gray-600 sm:mb-1 sm:block sm:text-[11px]">
-              <span className="sm:hidden">수수료</span>
-              <span className="hidden sm:inline">수수료 (원)</span>{' '}
+              <span className="sm:hidden">{isResale ? '이번 수수료' : '수수료'}</span>
+              <span className="hidden sm:inline">
+                {isResale ? '이번 판매 수수료 (원)' : '수수료 (원)'}
+              </span>{' '}
               <span className="text-red-600">*</span>
             </label>
             <input
@@ -454,11 +502,23 @@ export function InquiryDbMarketplaceSellPanel({
           {!listingFeeValid && listingFeeInput.trim() ? (
             <p className={`${panelMetaText} text-red-600`}>올바른 수수료 금액을 입력해 주세요.</p>
           ) : null}
-          <p className={`${panelMetaText} text-gray-500`}>
-            <span className="sm:hidden">표시 </span>
-            <span className="hidden sm:inline">구매자 표시금액(잔금−수수료): </span>
-            {previewAmount != null ? `${previewAmount.toLocaleString('ko-KR')}원` : '잔금 확인 필요'}
-          </p>
+          {isResale && !listing?.priorFeesTotal ? (
+            <p className={`${panelMetaText} text-amber-800`}>
+              재판매 건입니다. 장바구니 저장 후 앞선 판매 수수료가 자동 반영됩니다.
+            </p>
+          ) : null}
+          <div className={`rounded-md border border-violet-100 bg-white/80 p-2 ${panelMetaText}`}>
+            <p className="mb-1 font-medium text-violet-900">구매자에게 보이는 금액</p>
+            <DbMarketplaceAmountSummaryBlock
+              row={{
+                customerBalanceAmount: feePreview.customerBalanceAmount,
+                listingFee: feePreview.listingFee,
+                priorFeesTotal: feePreview.priorFeesTotal,
+                buyerTotalFee: feePreview.buyerTotalFee,
+              }}
+              showSellerFee
+            />
+          </div>
 
           <div className="flex flex-wrap gap-1 sm:gap-2">
             <DbMarketplaceCartAddButton
@@ -516,8 +576,10 @@ export function InquiryDbMarketplaceSellPanel({
           busy={busy}
           confirmLabel="저장"
           initialVisibility={visibility}
+          initialOfferMode={offerMode}
           initialPartnerIds={selectedPartnerIds}
           initialExternalIds={selectedExternalIds}
+          initialPriorityKeys={priorityKeys}
           onConfirm={saveAudience}
         />
       ) : null}

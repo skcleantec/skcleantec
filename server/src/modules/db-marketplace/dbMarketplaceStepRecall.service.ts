@@ -383,7 +383,7 @@ export async function stepRecallDbListing(opts: {
     inquiryId: listing.inquiryId,
     mode: opts.mode,
     hopIndex: listing.hopIndex,
-    listingFee: listing.listingFee,
+    listingFee: listing.buyerTotalFee > 0 ? listing.buyerTotalFee : listing.listingFee,
     buyerLabel,
   };
 }

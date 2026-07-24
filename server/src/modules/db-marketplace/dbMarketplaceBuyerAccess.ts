@@ -1,5 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
+import type { InquiryDbListingOfferMode } from '@prisma/client';
 import { DbMarketplaceError } from './dbMarketplace.service.js';
+import { viewerMatchesActivePriorityRank } from './dbMarketplacePriority.helpers.js';
 
 export type DbMarketplaceBuyerContext =
   | { kind: 'PARTNER_TENANT'; tenantId: string; userId: string }
@@ -35,11 +37,14 @@ export async function assertBuyerCanViewListing(
     tenantId: string;
     status: string;
     visibility: string;
+    offerMode?: InquiryDbListingOfferMode | null;
+    currentPriorityRank?: number | null;
     platformSuspendedAt?: Date | null;
     audiences: Array<{
       audienceKind: string;
       partnerTenantId: string | null;
       externalCompanyId: string | null;
+      priorityRank?: number | null;
     }>;
   },
   buyer: DbMarketplaceBuyerContext,
@@ -59,6 +64,14 @@ export async function assertBuyerCanViewListing(
       throw new DbMarketplaceError('연결된 파트너만 구매할 수 있습니다.', 400);
     }
     if (listing.visibility === 'ALL') return;
+    if (listing.offerMode === 'PRIORITY') {
+      const ok = viewerMatchesActivePriorityRank(listing, {
+        kind: 'PARTNER_TENANT',
+        tenantId: buyer.tenantId,
+      });
+      if (!ok) throw new DbMarketplaceError('현재 순위 구매 후보가 아닙니다.', 403);
+      return;
+    }
     const allowed = listing.audiences.some(
       (a) => a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId === buyer.tenantId,
     );
@@ -73,6 +86,14 @@ export async function assertBuyerCanViewListing(
     throw new DbMarketplaceError('등록된 타업체만 구매할 수 있습니다.', 403);
   }
   if (listing.visibility === 'ALL') return;
+  if (listing.offerMode === 'PRIORITY') {
+    const ok = viewerMatchesActivePriorityRank(listing, {
+      kind: 'EXTERNAL_COMPANY',
+      externalCompanyId: buyer.externalCompanyId,
+    });
+    if (!ok) throw new DbMarketplaceError('현재 순위 구매 후보가 아닙니다.', 403);
+    return;
+  }
   const allowed = listing.audiences.some(
     (a) => a.audienceKind === 'EXTERNAL_COMPANY' && a.externalCompanyId === buyer.externalCompanyId,
   );

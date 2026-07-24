@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   InquiryDbListingAudienceKind,
   InquiryDbListingBuyerKind,
+  InquiryDbListingOfferMode,
   InquiryDbListingStatus,
   InquiryDbListingVisibility,
   Prisma,
@@ -9,7 +10,9 @@ import type {
 import { prisma } from '../../lib/prisma.js';
 import {
   computeMarketplaceDisplayAmount,
+  computeMarketplaceFeeAmounts,
   parseListingFeeInput,
+  resolvePriorFeesTotalFromParent,
 } from '../../lib/dbMarketplaceAmount.js';
 import {
   expireStaleOpenDbListings,
@@ -41,6 +44,16 @@ import {
   resolveRootTenantId,
 } from './dbMarketplaceChain.helpers.js';
 import { appendDbMarketplaceEvent } from './dbMarketplaceHistory.service.js';
+import {
+  parseOfferMode,
+  validatePriorityAudiences,
+  viewerMatchesActivePriorityRank,
+  type PriorityAudienceInput,
+} from './dbMarketplacePriority.helpers.js';
+import {
+  isPriorityOfferMode,
+  notifyDbMarketplacePriorityRank,
+} from './dbMarketplacePriorityNotify.service.js';
 
 export class DbMarketplaceError extends Error {
   constructor(
@@ -96,20 +109,21 @@ async function findInquiryForSeller(tenantId: string, inquiryId: string) {
 }
 
 function assertPublishableBalance(
-  balanceAmount: number | null,
+  customerBalanceAmount: number | null,
   listingFee: number,
 ) {
-  const display = computeMarketplaceDisplayAmount(balanceAmount, listingFee);
-  if (display == null) {
-    throw new DbMarketplaceError('잔금을 확인한 뒤 수수료를 입력해 주세요.', 400);
+  if (customerBalanceAmount == null || !Number.isFinite(customerBalanceAmount)) {
+    throw new DbMarketplaceError('고객 잔금을 확인한 뒤 수수료를 입력해 주세요.', 400);
+  }
+  if (Math.round(customerBalanceAmount) <= 0) {
+    throw new DbMarketplaceError('고객 잔금을 확인한 뒤 수수료를 입력해 주세요.', 400);
+  }
+  if (!Number.isFinite(listingFee) || Math.round(listingFee) < 0) {
+    throw new DbMarketplaceError('수수료를 입력해 주세요.', 400);
   }
 }
 
-type AudienceInput = {
-  audienceKind: InquiryDbListingAudienceKind;
-  partnerTenantId?: string | null;
-  externalCompanyId?: string | null;
-};
+type AudienceInput = PriorityAudienceInput;
 
 function normalizeAudiences(raw: unknown): AudienceInput[] {
   if (!Array.isArray(raw)) return [];
@@ -126,10 +140,17 @@ function normalizeAudiences(raw: unknown): AudienceInput[] {
       typeof (row as { externalCompanyId?: unknown }).externalCompanyId === 'string'
         ? (row as { externalCompanyId: string }).externalCompanyId.trim()
         : null;
+    const priorityRankRaw = (row as { priorityRank?: unknown }).priorityRank;
+    const priorityRank =
+      typeof priorityRankRaw === 'number' && Number.isInteger(priorityRankRaw)
+        ? priorityRankRaw
+        : typeof priorityRankRaw === 'string' && /^[123]$/.test(priorityRankRaw.trim())
+          ? Number(priorityRankRaw.trim())
+          : null;
     if (kind === 'PARTNER_TENANT' && partnerTenantId) {
-      out.push({ audienceKind: kind, partnerTenantId, externalCompanyId: null });
+      out.push({ audienceKind: kind, partnerTenantId, externalCompanyId: null, priorityRank });
     } else if (kind === 'EXTERNAL_COMPANY' && externalCompanyId) {
-      out.push({ audienceKind: kind, partnerTenantId: null, externalCompanyId });
+      out.push({ audienceKind: kind, partnerTenantId: null, externalCompanyId, priorityRank });
     }
   }
   return out;
@@ -146,7 +167,13 @@ export async function upsertDbListingDraft(
   const { inquiry, parentListing } = await findInquiryForSeller(tenantId, inquiryId);
   const dealBalanceSnapshot =
     parentListing?.dealBalanceAmount ?? inquiry.serviceBalanceAmount;
-  assertPublishableBalance(inquiry.serviceBalanceAmount, listingFee);
+  const priorFeesTotal = resolvePriorFeesTotalFromParent(parentListing);
+  const feeAmounts = computeMarketplaceFeeAmounts({
+    listingFee,
+    priorFeesTotal,
+    customerBalanceAmount: dealBalanceSnapshot,
+  });
+  assertPublishableBalance(feeAmounts.customerBalanceAmount, listingFee);
 
   const existing = inquiry.dbListing;
   if (
@@ -158,23 +185,27 @@ export async function upsertDbListingDraft(
     throw new DbMarketplaceError('이미 게시 중이거나 확정된 건은 장바구니를 수정할 수 없습니다.', 400);
   }
 
-  const displayAmount = computeMarketplaceDisplayAmount(inquiry.serviceBalanceAmount, listingFee);
   const hopIndex = parentListing ? parentListing.hopIndex + 1 : 0;
   const rootTenantId = resolveRootTenantId(parentListing, tenantId);
   const parentListingId = parentListing?.id ?? null;
+  const listingData = {
+    listingFee: feeAmounts.listingFee,
+    priorFeesTotal: feeAmounts.priorFeesTotal,
+    buyerTotalFee: feeAmounts.buyerTotalFee,
+    displayAmount: feeAmounts.displayAmount,
+    status: 'DRAFT' as const,
+    withdrawnAt: null,
+    hopIndex,
+    rootTenantId,
+    parentListingId,
+    dealBalanceAmount: dealBalanceSnapshot,
+  };
 
   if (existing) {
     return prisma.inquiryDbListing.update({
       where: { id: existing.id, tenantId },
       data: {
-        listingFee,
-        displayAmount,
-        status: 'DRAFT',
-        withdrawnAt: null,
-        hopIndex,
-        rootTenantId,
-        parentListingId,
-        dealBalanceAmount: dealBalanceSnapshot,
+        ...listingData,
         rootListingId: resolveRootListingId(parentListing, existing.id),
       },
       include: LISTING_INCLUDE,
@@ -187,13 +218,7 @@ export async function upsertDbListingDraft(
       id,
       tenantId,
       inquiryId,
-      listingFee,
-      displayAmount,
-      status: 'DRAFT',
-      hopIndex,
-      rootTenantId,
-      parentListingId,
-      dealBalanceAmount: dealBalanceSnapshot,
+      ...listingData,
       rootListingId: resolveRootListingId(parentListing, id),
     },
     include: LISTING_INCLUDE,
@@ -229,6 +254,7 @@ export async function updateDbListingAudience(
   listingId: string,
   visibilityRaw: unknown,
   audiencesRaw: unknown,
+  offerModeRaw?: unknown,
 ) {
   const listing = await prisma.inquiryDbListing.findFirst({
     where: { id: listingId, tenantId },
@@ -246,9 +272,20 @@ export async function updateDbListingAudience(
   const visibility: InquiryDbListingVisibility =
     visibilityRaw === 'SELECTED' ? 'SELECTED' : 'ALL';
   const audiences = normalizeAudiences(audiencesRaw);
+  const offerMode = parseOfferMode(visibility, offerModeRaw);
 
   if (visibility === 'SELECTED' && audiences.length === 0) {
     throw new DbMarketplaceError('노출할 업체를 1곳 이상 선택해 주세요.', 400);
+  }
+
+  if (offerMode === 'PRIORITY') {
+    validatePriorityAudiences(audiences);
+  } else if (visibility === 'SELECTED') {
+    for (const a of audiences) {
+      if (a.priorityRank != null) {
+        throw new DbMarketplaceError('동시 노출 모드에서는 순위를 지정할 수 없습니다.', 400);
+      }
+    }
   }
 
   if (visibility === 'SELECTED') {
@@ -292,12 +329,23 @@ export async function updateDbListingAudience(
           audienceKind: a.audienceKind,
           partnerTenantId: a.partnerTenantId ?? null,
           externalCompanyId: a.externalCompanyId ?? null,
+          priorityRank: offerMode === 'PRIORITY' ? a.priorityRank ?? null : null,
         })),
       });
     }
+    const currentPriorityRank: number | null =
+      visibility === 'ALL' || offerMode !== 'PRIORITY'
+        ? null
+        : listing.status === 'OPEN'
+          ? 1
+          : null;
     return tx.inquiryDbListing.update({
       where: { id: listingId, tenantId },
-      data: { visibility },
+      data: {
+        visibility,
+        offerMode,
+        currentPriorityRank,
+      },
       include: LISTING_INCLUDE,
     });
   });
@@ -317,34 +365,57 @@ export async function publishDbListing(tenantId: string, listingId: string) {
     listing.dealBalanceAmount ?? listing.inquiry.serviceBalanceAmount,
     listing.listingFee,
   );
-  const displayAmount = computeMarketplaceDisplayAmount(
-    listing.inquiry.serviceBalanceAmount,
-    listing.listingFee,
-  );
+  const displayAmount =
+    listing.displayAmount ??
+    computeMarketplaceDisplayAmount(
+      listing.dealBalanceAmount ?? listing.inquiry.serviceBalanceAmount,
+      listing.listingFee,
+    );
 
   if (listing.visibility === 'SELECTED') {
     const count = await prisma.inquiryDbListingAudience.count({ where: { listingId } });
     if (count === 0) throw new DbMarketplaceError('노출 대상을 선택해 주세요.', 400);
+    if (listing.offerMode === 'PRIORITY') {
+      const ranked = await prisma.inquiryDbListingAudience.count({
+        where: { listingId, priorityRank: 1 },
+      });
+      if (ranked === 0) throw new DbMarketplaceError('1순위 구매 후보를 선택해 주세요.', 400);
+    }
   }
 
   const now = new Date();
-  const published = await prisma.inquiryDbListing.update({
-    where: { id: listingId, tenantId },
-    data: {
-      status: 'OPEN',
-      displayAmount,
-      publishedAt: now,
-      withdrawnAt: null,
-      expiredAt: null,
-      expiresAt: computeMarketplaceExpiresAt(now),
-      platformSuspendedAt: null,
-      holdBuyerKind: null,
-      holdBuyerTenantId: null,
-      holdBuyerExternalCompanyId: null,
-      holdByUserId: null,
-      heldUntil: null,
-    },
-    include: LISTING_INCLUDE,
+  const published = await prisma.$transaction(async (tx) => {
+    const row = await tx.inquiryDbListing.update({
+      where: { id: listingId, tenantId },
+      data: {
+        status: 'OPEN',
+        displayAmount,
+        publishedAt: now,
+        withdrawnAt: null,
+        expiredAt: null,
+        expiresAt: computeMarketplaceExpiresAt(now),
+        platformSuspendedAt: null,
+        holdBuyerKind: null,
+        holdBuyerTenantId: null,
+        holdBuyerExternalCompanyId: null,
+        holdByUserId: null,
+        heldUntil: null,
+        currentPriorityRank: isPriorityOfferMode(listing.offerMode) ? 1 : null,
+      },
+      include: LISTING_INCLUDE,
+    });
+
+    if (isPriorityOfferMode(listing.offerMode)) {
+      await appendDbMarketplaceEvent(tx, {
+        tenantId,
+        listingId,
+        eventType: 'PRIORITY_ACTIVATED',
+        hopIndex: row.hopIndex,
+        payload: { rank: 1 },
+      });
+    }
+
+    return row;
   });
 
   const removedLeaderIds = await clearInternalInquiryAssignments(
@@ -354,6 +425,14 @@ export async function publishDbListing(tenantId: string, listingId: string) {
   );
   if (removedLeaderIds.length > 0) {
     void notifyInboxRefresh(removedLeaderIds);
+  }
+
+  if (isPriorityOfferMode(published.offerMode)) {
+    void notifyDbMarketplacePriorityRank({
+      sellerTenantId: tenantId,
+      audiences: published.audiences,
+      rank: 1,
+    });
   }
 
   return published;
@@ -472,6 +551,8 @@ export async function viewerCanSeeListing(
     tenantId: string;
     status: InquiryDbListingStatus;
     visibility: InquiryDbListingVisibility;
+    offerMode?: InquiryDbListingOfferMode | null;
+    currentPriorityRank?: number | null;
     platformSuspendedAt?: Date | null;
     buyerTenantId?: string | null;
     buyerExternalCompanyId?: string | null;
@@ -479,6 +560,7 @@ export async function viewerCanSeeListing(
       audienceKind: InquiryDbListingAudienceKind;
       partnerTenantId: string | null;
       externalCompanyId: string | null;
+      priorityRank?: number | null;
     }>;
   },
   opts?: { externalCompanyId?: string | null },
@@ -497,6 +579,16 @@ export async function viewerCanSeeListing(
       if (listing.visibility === 'ALL') {
         if (listing.status === 'OPEN' && listing.platformSuspendedAt) return false;
         return listing.status === 'OPEN' || listing.status === 'PENDING_SELLER' || listing.status === 'CONFIRMED';
+      }
+      if (listing.offerMode === 'PRIORITY') {
+        if (listing.status === 'PENDING_SELLER' || listing.status === 'CONFIRMED') {
+          return listing.buyerExternalCompanyId === opts.externalCompanyId;
+        }
+        if (listing.status !== 'OPEN' || listing.platformSuspendedAt) return false;
+        return viewerMatchesActivePriorityRank(listing, {
+          kind: 'EXTERNAL_COMPANY',
+          externalCompanyId: opts.externalCompanyId,
+        });
       }
       return listing.audiences.some(
         (a) => a.audienceKind === 'EXTERNAL_COMPANY' && a.externalCompanyId === opts.externalCompanyId,
@@ -518,6 +610,13 @@ export async function viewerCanSeeListing(
     return false;
   }
   if (listing.visibility === 'ALL') return true;
+  if (listing.offerMode === 'PRIORITY') {
+    if (listing.status === 'PENDING_SELLER') {
+      return listing.buyerTenantId === tenantId;
+    }
+    if (listing.status !== 'OPEN') return false;
+    return viewerMatchesActivePriorityRank(listing, { kind: 'PARTNER_TENANT', tenantId });
+  }
   return listing.audiences.some(
     (a) => a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId === tenantId,
   );
@@ -806,12 +905,18 @@ export async function listDbMarketplaceListings(
         visibility: row.visibility,
         listingFee: row.listingFee,
         displayAmount: row.displayAmount,
+        priorFeesTotal: row.priorFeesTotal,
+        buyerTotalFee: row.buyerTotalFee,
         publishedAt: row.publishedAt,
         expiresAt: row.expiresAt,
         platformSuspendedAt: row.platformSuspendedAt,
         inquiry: row.inquiry,
         role,
         hold,
+        hopIndex: row.hopIndex,
+        rootTenantId: row.rootTenantId,
+        rootTenantName: row.rootTenant?.name ?? null,
+        dealBalanceAmount: row.dealBalanceAmount,
       });
       if (role === 'SELLER') {
         return {
@@ -820,6 +925,8 @@ export async function listDbMarketplaceListings(
           inquiryId: row.inquiryId,
           sellerConfirmedAt: row.sellerConfirmedAt?.toISOString() ?? null,
           buyerName: row.buyerTenant?.name ?? row.buyerExternalCompany?.name ?? null,
+          offerMode: row.offerMode ?? null,
+          currentPriorityRank: row.currentPriorityRank ?? null,
         };
       }
       return masked;
@@ -918,6 +1025,8 @@ export async function getDbMarketplaceListingById(
     visibility: row.visibility,
     listingFee: row.listingFee,
     displayAmount: row.displayAmount,
+    priorFeesTotal: row.priorFeesTotal,
+    buyerTotalFee: row.buyerTotalFee,
     publishedAt: row.publishedAt,
     expiresAt: row.expiresAt,
     platformSuspendedAt: row.platformSuspendedAt,
@@ -990,9 +1099,14 @@ export function serializeSellerListing(row: {
   id: string;
   inquiryId: string;
   listingFee: number;
+  priorFeesTotal?: number;
+  buyerTotalFee?: number;
   displayAmount: number | null;
+  dealBalanceAmount?: number | null;
   status: string;
   visibility: string;
+  offerMode?: string | null;
+  currentPriorityRank?: number | null;
   publishedAt: Date | null;
   expiresAt?: Date | null;
   platformSuspendedAt?: Date | null;
@@ -1004,7 +1118,6 @@ export function serializeSellerListing(row: {
   hopIndex?: number;
   rootTenantId?: string | null;
   rootTenant?: { name: string } | null;
-  dealBalanceAmount?: number | null;
   buyerTenant?: { name: string } | null;
   buyerExternalCompany?: { name: string } | null;
   audiences?: Array<{
@@ -1012,6 +1125,7 @@ export function serializeSellerListing(row: {
     audienceKind: string;
     partnerTenantId: string | null;
     externalCompanyId: string | null;
+    priorityRank?: number | null;
     partnerTenant?: { name: string } | null;
     externalCompany?: { name: string } | null;
   }>;
@@ -1020,9 +1134,14 @@ export function serializeSellerListing(row: {
     id: row.id,
     inquiryId: row.inquiryId,
     listingFee: row.listingFee,
-    displayAmount: row.displayAmount,
+    priorFeesTotal: row.priorFeesTotal ?? 0,
+    buyerTotalFee: row.buyerTotalFee ?? row.listingFee,
+    customerBalanceAmount: row.dealBalanceAmount ?? row.displayAmount,
+    displayAmount: row.dealBalanceAmount ?? row.displayAmount,
     status: row.status,
     visibility: row.visibility,
+    offerMode: row.offerMode ?? null,
+    currentPriorityRank: row.currentPriorityRank ?? null,
     publishedAt: row.publishedAt?.toISOString() ?? null,
     expiresAt: row.expiresAt?.toISOString() ?? null,
     platformSuspendedAt: row.platformSuspendedAt?.toISOString() ?? null,
@@ -1032,6 +1151,7 @@ export function serializeSellerListing(row: {
     buyerName: row.buyerTenant?.name ?? row.buyerExternalCompany?.name ?? null,
     buyerConfirmedAt: row.buyerConfirmedAt?.toISOString() ?? null,
     sellerConfirmedAt: row.sellerConfirmedAt?.toISOString() ?? null,
+    resaleStep: row.hopIndex ?? 0,
     hopIndex: row.hopIndex ?? 0,
     rootTenantId: row.rootTenantId ?? null,
     rootTenantName: row.rootTenant?.name ?? null,
@@ -1043,6 +1163,7 @@ export function serializeSellerListing(row: {
       partnerTenantName: a.partnerTenant?.name ?? null,
       externalCompanyId: a.externalCompanyId,
       externalCompanyName: a.externalCompany?.name ?? null,
+      priorityRank: a.priorityRank ?? null,
     })),
   };
 }

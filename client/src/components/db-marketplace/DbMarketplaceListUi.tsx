@@ -10,6 +10,11 @@ import {
   type DbMarketplaceBulkMode,
 } from '../../utils/dbMarketplaceBulk';
 import { DbMarketplaceStatusBadge } from './marketplaceUiParts';
+import {
+  formatWon,
+  resolveMarketplaceBuyerTotalFee,
+  resolveMarketplaceCustomerBalance,
+} from './DbMarketplaceAmountSummary';
 
 /** PC 표 — 선택 열 px (데스크톱) */
 export const MARKETPLACE_TABLE_CHECKBOX_COL_PX = 36;
@@ -246,13 +251,18 @@ export function DbMarketplaceRowCard({
         </p>
         <div className="mt-0.5 flex items-center justify-between gap-2">
           <p className="min-w-0 truncate text-fluid-2xs text-gray-500">{formatMarketplaceSchedule(row)}</p>
-          <p className="shrink-0 text-fluid-xs font-semibold tabular-nums text-slate-900">
-            {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
-          </p>
+          <div className="shrink-0 text-right">
+            <p className="text-fluid-xs font-semibold tabular-nums text-slate-900">
+              {formatWon(resolveMarketplaceCustomerBalance(row))}
+            </p>
+            <p className="text-fluid-2xs text-violet-800 tabular-nums">
+              수수료 {formatWon(resolveMarketplaceBuyerTotalFee(row))}
+            </p>
+          </div>
         </div>
-        {row.listingFee != null ? (
+        {row.priorFeesTotal != null && row.priorFeesTotal > 0 ? (
           <p className="mt-0.5 text-fluid-2xs text-gray-500 tabular-nums">
-            수수료 {row.listingFee.toLocaleString('ko-KR')}원
+            앞선 판매 {row.priorFeesTotal.toLocaleString('ko-KR')}원 포함
           </p>
         ) : null}
         {showSeller ? (

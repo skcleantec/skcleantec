@@ -80,6 +80,7 @@ export async function bulkPublishDbListings(
   listingIdsRaw: unknown,
   visibilityRaw: unknown,
   audiencesRaw: unknown,
+  offerModeRaw?: unknown,
 ): Promise<DbMarketplaceBulkPublishResult> {
   const listingIds = parseListingIds(listingIdsRaw);
   const published: DbMarketplaceBulkItemResult[] = [];
@@ -87,13 +88,21 @@ export async function bulkPublishDbListings(
 
   for (const id of listingIds) {
     try {
-      const audienceRow = await updateDbListingAudience(tenantId, id, visibilityRaw, audiencesRaw);
+      const audienceRow = await updateDbListingAudience(
+        tenantId,
+        id,
+        visibilityRaw,
+        audiencesRaw,
+        offerModeRaw,
+      );
       const row = await publishDbListing(tenantId, id);
-      await notifyDbMarketplaceBroadcast({
-        sellerTenantId: tenantId,
-        visibility: row.visibility,
-        audiences: row.audiences.length > 0 ? row.audiences : audienceRow.audiences,
-      });
+      if (row.offerMode !== 'PRIORITY') {
+        await notifyDbMarketplaceBroadcast({
+          sellerTenantId: tenantId,
+          visibility: row.visibility,
+          audiences: row.audiences.length > 0 ? row.audiences : audienceRow.audiences,
+        });
+      }
       published.push({
         id: row.id,
         inquiryId: row.inquiryId,

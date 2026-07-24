@@ -37,15 +37,23 @@ export type DbMarketplaceAudienceItem = {
   partnerTenantName: string | null;
   externalCompanyId: string | null;
   externalCompanyName: string | null;
+  priorityRank?: number | null;
 };
+
+export type DbMarketplaceOfferMode = 'SIMULTANEOUS' | 'PRIORITY';
 
 export type DbMarketplaceSellerListing = {
   id: string;
   inquiryId: string;
   listingFee: number;
+  priorFeesTotal?: number;
+  buyerTotalFee?: number;
+  customerBalanceAmount?: number | null;
   displayAmount: number | null;
   status: DbMarketplaceListingStatus;
   visibility: 'ALL' | 'SELECTED';
+  offerMode?: DbMarketplaceOfferMode | null;
+  currentPriorityRank?: number | null;
   publishedAt: string | null;
   buyerKind?: 'PARTNER_TENANT' | 'EXTERNAL_COMPANY' | null;
   expiresAt?: string | null;
@@ -55,6 +63,7 @@ export type DbMarketplaceSellerListing = {
   buyerName?: string | null;
   buyerConfirmedAt?: string | null;
   sellerConfirmedAt?: string | null;
+  resaleStep?: number;
   hopIndex?: number;
   rootTenantId?: string | null;
   rootTenantName?: string | null;
@@ -101,6 +110,10 @@ export type DbMarketplaceMaskedItem = {
   status: DbMarketplaceListingStatus;
   visibility: 'ALL' | 'SELECTED';
   displayAmount: number | null;
+  customerBalanceAmount?: number | null;
+  listingFee?: number;
+  priorFeesTotal?: number;
+  buyerTotalFee?: number;
   publishedAt: string | null;
   expiresAt: string | null;
   platformSuspended: boolean;
@@ -132,7 +145,6 @@ export type DbMarketplaceMaskedItem = {
   moveInDateUndecided: boolean;
   role: 'SELLER' | 'BUYER' | 'VIEWER';
   /** 판매자 목록(cart·my_sales) 전용 */
-  listingFee?: number;
   inquiryId?: string;
   /** my_sales — 인계 확정일 */
   sellerConfirmedAt?: string | null;
@@ -144,6 +156,7 @@ export type DbMarketplaceAudienceInput = {
   audienceKind: 'PARTNER_TENANT' | 'EXTERNAL_COMPANY';
   partnerTenantId?: string;
   externalCompanyId?: string;
+  priorityRank?: number;
 };
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -206,11 +219,12 @@ export async function updateDbMarketplaceAudience(
   listingId: string,
   visibility: 'ALL' | 'SELECTED',
   audiences: DbMarketplaceAudienceInput[],
+  offerMode?: DbMarketplaceOfferMode | null,
 ): Promise<DbMarketplaceSellerListing> {
   const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/audience`, {
     method: 'PATCH',
     headers: headers(token),
-    body: JSON.stringify({ visibility, audiences }),
+    body: JSON.stringify({ visibility, audiences, offerMode: offerMode ?? undefined }),
   });
   const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
   return data.listing;
@@ -258,6 +272,7 @@ export async function bulkPublishDbMarketplace(
   body: {
     listingIds: string[];
     visibility: 'ALL' | 'SELECTED';
+    offerMode?: DbMarketplaceOfferMode | null;
     audiences: DbMarketplaceAudienceInput[];
   },
 ): Promise<DbMarketplaceBulkPublishResult> {
