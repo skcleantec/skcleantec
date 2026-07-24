@@ -1,6 +1,10 @@
-/** 정보공유 금액 요약 — UI 공통 (쉬운 말만 사용) */
+/** 정보공유 금액 — 총액 · 수수료 · 잔금 (항상 동일 라벨) */
+
+import { computeMarketplaceServiceBalanceAmount } from '@shared/dbMarketplaceAmount';
 
 export type MarketplaceAmountRow = {
+  serviceTotalAmount?: number | null;
+  serviceDepositAmount?: number | null;
   customerBalanceAmount?: number | null;
   displayAmount?: number | null;
   listingFee?: number;
@@ -31,6 +35,32 @@ export function resolveMarketplacePriorFees(row: MarketplaceAmountRow): number {
   return Math.max(0, total - hop);
 }
 
+/** 서비스 총액 — inquiry 총액 우선, 없으면 잔금+예약금 */
+export function resolveMarketplaceServiceTotal(row: MarketplaceAmountRow): number | null {
+  const total = row.serviceTotalAmount;
+  if (total != null && Number.isFinite(total)) {
+    return Math.max(0, Math.round(total));
+  }
+  const balance = resolveMarketplaceServiceBalance(row);
+  const deposit =
+    row.serviceDepositAmount != null && Number.isFinite(row.serviceDepositAmount)
+      ? Math.max(0, Math.round(row.serviceDepositAmount))
+      : 0;
+  if (balance != null) return balance + deposit;
+  return null;
+}
+
+/** 서비스 잔금 — 총액−예약금 우선 (정보공유 정책) */
+export function resolveMarketplaceServiceBalance(row: MarketplaceAmountRow): number | null {
+  return (
+    computeMarketplaceServiceBalanceAmount({
+      serviceTotalAmount: row.serviceTotalAmount,
+      serviceDepositAmount: row.serviceDepositAmount,
+      serviceBalanceAmount: row.customerBalanceAmount ?? row.displayAmount,
+    }) ?? resolveMarketplaceCustomerBalance(row)
+  );
+}
+
 export function formatWon(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return '-';
   return `${Math.round(n).toLocaleString('ko-KR')}원`;
@@ -39,46 +69,72 @@ export function formatWon(n: number | null | undefined): string {
 export function DbMarketplaceAmountSummaryBlock({
   row,
   compact = false,
-  showSellerFee = false,
 }: {
   row: MarketplaceAmountRow;
   compact?: boolean;
-  /** 판매 패널 — 이번 판매 수수료 라벨 표시 */
+  /** @deprecated 더 이상 사용하지 않음 */
   showSellerFee?: boolean;
 }) {
-  const customerBalance = resolveMarketplaceCustomerBalance(row);
-  const buyerTotalFee = resolveMarketplaceBuyerTotalFee(row);
+  const total = resolveMarketplaceServiceTotal(row);
+  const fee = resolveMarketplaceBuyerTotalFee(row);
+  const balance = resolveMarketplaceServiceBalance(row);
   const priorFees = resolveMarketplacePriorFees(row);
-  const sellerFee = Math.max(0, Math.round(row.listingFee ?? 0));
   const text = compact ? 'text-fluid-2xs' : 'text-[10px] sm:text-[11px]';
 
   return (
     <div className={`space-y-0.5 tabular-nums text-gray-700 ${text}`}>
       <p>
-        <span className="text-gray-500">고객 현장 수금 </span>
-        <span className="font-semibold text-slate-900">{formatWon(customerBalance)}</span>
+        <span className="text-gray-500">총액 </span>
+        <span className="font-semibold text-slate-900">{formatWon(total)}</span>
       </p>
-      {showSellerFee ? (
-        <p>
-          <span className="text-gray-500">이번 판매 수수료 </span>
-          {formatWon(sellerFee)}
-        </p>
-      ) : null}
-      {priorFees > 0 ? (
-        <p>
-          <span className="text-gray-500">앞선 판매 수수료 </span>
-          {formatWon(priorFees)}
-        </p>
-      ) : null}
       <p>
-        <span className="text-gray-500">구매자 부담 수수료 </span>
-        <span className="font-semibold text-violet-900">{formatWon(buyerTotalFee)}</span>
+        <span className="text-gray-500">수수료 </span>
+        <span className="font-semibold text-violet-900">{formatWon(fee)}</span>
         {priorFees > 0 ? (
-          <span className="text-gray-500">
-            {' '}
-            (앞선 {formatWon(priorFees)} + 이번 {formatWon(sellerFee)})
-          </span>
+          <span className="text-gray-500"> (앞선 판매 {formatWon(priorFees)} 포함)</span>
         ) : null}
+      </p>
+      <p>
+        <span className="text-gray-500">잔금 </span>
+        <span className="font-semibold text-slate-900">{formatWon(balance)}</span>
+      </p>
+    </div>
+  );
+}
+
+/** 재판매 — 판매자(접수 수정)용 수수료 3줄 */
+export function DbMarketplaceResaleFeeBreakdown({
+  priorFeesTotal,
+  listingFee,
+  buyerTotalFee,
+  compact = false,
+  title = '수수료 청구 내역',
+}: {
+  priorFeesTotal: number;
+  listingFee: number;
+  buyerTotalFee: number;
+  compact?: boolean;
+  title?: string;
+}) {
+  const prior = Math.max(0, Math.round(priorFeesTotal));
+  const hop = Math.max(0, Math.round(listingFee));
+  const total = Math.max(0, Math.round(buyerTotalFee));
+  const text = compact ? 'text-fluid-2xs' : 'text-[10px] sm:text-[11px]';
+
+  return (
+    <div className={`rounded-md border border-violet-200 bg-violet-50/60 p-2 space-y-0.5 tabular-nums ${text}`}>
+      <p className="mb-1 font-semibold text-violet-950">{title}</p>
+      <p>
+        <span className="text-gray-600">본인이 사온 수수료 </span>
+        <span className="font-semibold text-slate-900">{formatWon(prior)}</span>
+      </p>
+      <p>
+        <span className="text-gray-600">본인이 추가할 수수료 </span>
+        <span className="font-semibold text-violet-900">{formatWon(hop)}</span>
+      </p>
+      <p className="border-t border-violet-200/80 pt-0.5">
+        <span className="text-gray-600">총 청구 수수료 </span>
+        <span className="font-semibold text-violet-950">{formatWon(total)}</span>
       </p>
     </div>
   );

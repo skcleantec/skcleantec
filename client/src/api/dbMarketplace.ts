@@ -110,6 +110,8 @@ export type DbMarketplaceMaskedItem = {
   status: DbMarketplaceListingStatus;
   visibility: 'ALL' | 'SELECTED';
   displayAmount: number | null;
+  serviceTotalAmount?: number | null;
+  serviceDepositAmount?: number | null;
   customerBalanceAmount?: number | null;
   listingFee?: number;
   priorFeesTotal?: number;

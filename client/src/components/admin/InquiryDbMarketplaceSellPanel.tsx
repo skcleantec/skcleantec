@@ -18,7 +18,7 @@ import {
 } from '../../api/dbMarketplace';
 import { DbMarketplaceCartAddButton } from '../db-marketplace/marketplaceUiParts';
 import { computeMarketplaceFeeAmounts, parseListingFeeInput } from '@shared/dbMarketplaceAmount';
-import { DbMarketplaceAmountSummaryBlock } from '../db-marketplace/DbMarketplaceAmountSummary';
+import { DbMarketplaceAmountSummaryBlock, DbMarketplaceResaleFeeBreakdown } from '../db-marketplace/DbMarketplaceAmountSummary';
 import { DbMarketplaceAudiencePickerModal } from './DbMarketplaceAudiencePickerModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { HelpTooltip } from '../ui/HelpTooltip';
@@ -32,6 +32,8 @@ export type DbMarketplaceExchangePrefill = {
 
 type Props = {
   inquiryId: string;
+  serviceTotalAmount?: number | null;
+  serviceDepositAmount?: number | null;
   serviceBalanceAmount: number | null | undefined;
   disabled?: boolean;
   /** 파트너 직접 연계 폼 → 정보공유 등록 시 1회 적용 */
@@ -67,6 +69,8 @@ function priorityKeysFromAudiences(
 
 export function InquiryDbMarketplaceSellPanel({
   inquiryId,
+  serviceTotalAmount,
+  serviceDepositAmount,
   serviceBalanceAmount,
   disabled,
   exchangePrefill,
@@ -318,6 +322,20 @@ export function InquiryDbMarketplaceSellPanel({
 
   const canEdit = !disabled && listing?.status !== 'CONFIRMED' && listing?.status !== 'PENDING_SELLER';
 
+  const resaleFeeBreakdown = isResale
+    ? canEdit || !listing
+      ? {
+          priorFeesTotal: feePreview.priorFeesTotal,
+          listingFee: feePreview.listingFee,
+          buyerTotalFee: feePreview.buyerTotalFee,
+        }
+      : {
+          priorFeesTotal: listing?.priorFeesTotal ?? 0,
+          listingFee: listing?.listingFee ?? 0,
+          buyerTotalFee: listing?.buyerTotalFee ?? feePreview.buyerTotalFee,
+        }
+    : null;
+
   const panelMetaText = 'text-[10px] leading-snug text-gray-600 sm:text-[11px]';
   const panelBtn =
     'rounded-md border px-2 py-1 text-[10px] font-medium disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-[11px]';
@@ -331,7 +349,7 @@ export function InquiryDbMarketplaceSellPanel({
         </p>
         <HelpTooltip
           text={
-            '파트너·타업체가 선택해 가져갈 수 있도록 게시합니다. 구매자에게는 고객 현장 수금(잔금)과 정보공유 수수료가 따로 표시됩니다.\n' +
+            '파트너·타업체가 선택해 가져갈 수 있도록 게시합니다. 구매자에게는 총액·수수료·잔금이 각각 표시됩니다.\n' +
             '재판매 시 앞선 판매 수수료는 자동 합산됩니다. 「이번 판매 수수료」에는 본인이 추가로 받을 금액만 입력하세요.\n' +
             '파트너 직접 연계와 별도입니다. 인계 확정 시 정산에 반영됩니다.'
           }
@@ -348,6 +366,8 @@ export function InquiryDbMarketplaceSellPanel({
           </p>
           <DbMarketplaceAmountSummaryBlock
             row={{
+              serviceTotalAmount,
+              serviceDepositAmount,
               customerBalanceAmount: listing.customerBalanceAmount ?? listing.dealBalanceAmount,
               displayAmount: listing.displayAmount,
               listingFee: listing.listingFee,
@@ -356,6 +376,12 @@ export function InquiryDbMarketplaceSellPanel({
             }}
             compact
           />
+          {resaleFeeBreakdown && !canEdit ? (
+            <DbMarketplaceResaleFeeBreakdown
+              {...resaleFeeBreakdown}
+              compact
+            />
+          ) : null}
         </div>
       ) : null}
 
@@ -510,16 +536,20 @@ export function InquiryDbMarketplaceSellPanel({
               재판매 건입니다. 장바구니 저장 후 앞선 판매 수수료가 자동 반영됩니다.
             </p>
           ) : null}
+          {resaleFeeBreakdown ? (
+            <DbMarketplaceResaleFeeBreakdown {...resaleFeeBreakdown} compact />
+          ) : null}
           <div className={`rounded-md border border-violet-100 bg-white/80 p-2 ${panelMetaText}`}>
             <p className="mb-1 font-medium text-violet-900">구매자에게 보이는 금액</p>
             <DbMarketplaceAmountSummaryBlock
               row={{
+                serviceTotalAmount,
+                serviceDepositAmount,
                 customerBalanceAmount: feePreview.customerBalanceAmount,
                 listingFee: feePreview.listingFee,
                 priorFeesTotal: feePreview.priorFeesTotal,
                 buyerTotalFee: feePreview.buyerTotalFee,
               }}
-              showSellerFee
             />
           </div>
 

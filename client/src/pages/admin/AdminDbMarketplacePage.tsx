@@ -11,6 +11,7 @@ import {
   bulkRevertToCartDbMarketplace,
   listDbMarketplace,
   getDbMarketplaceListing,
+  getDbMarketplaceNavCounts,
   listDbMarketplaceAudienceOptions,
   type DbMarketplaceAudienceInput,
   type DbMarketplaceOfferMode,
@@ -56,7 +57,8 @@ import {
 import {
   formatWon,
   resolveMarketplaceBuyerTotalFee,
-  resolveMarketplaceCustomerBalance,
+  resolveMarketplaceServiceBalance,
+  resolveMarketplaceServiceTotal,
 } from '../../components/db-marketplace/DbMarketplaceAmountSummary';
 import {
   canBulkSelectMarketplaceItem,
@@ -127,6 +129,7 @@ export function AdminDbMarketplacePage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sellerPendingCount, setSellerPendingCount] = useState(0);
   const [selectedRow, setSelectedRow] = useState<DbMarketplaceMaskedItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -152,6 +155,7 @@ export function AdminDbMarketplacePage() {
   const showSellerColumn = tab === 'available';
   const showMySalesMeta = tab === 'my_sales';
   const showConfirmedMeta = tab === 'confirmed';
+  const showPendingMeta = tab === 'pending';
   const showListFilters = tabUsesListFilters(tab);
   const mySalesFilters = useMemo(
     () => parseMySalesFiltersFromSearchParams(searchParams),
@@ -166,15 +170,16 @@ export function AdminDbMarketplacePage() {
   }, [items, showListFilters, mySalesFilters.groupByCompany, tab]);
 
   const tableColSpan = useMemo(() => {
-    let n = 5;
+    let n = 4;
     if (selectable) n += 1;
-    if (tab === 'cart') n += 1;
+    n += 3;
     if (showMySalesMeta) n += 3;
-    if (showConfirmedMeta) n += 3;
+    if (showConfirmedMeta) n += 2;
+    if (showPendingMeta) n += 1;
     if (showSellerColumn) n += 1;
     n += 1;
     return n;
-  }, [selectable, tab, showMySalesMeta, showConfirmedMeta, showSellerColumn]);
+  }, [selectable, showMySalesMeta, showConfirmedMeta, showPendingMeta, showSellerColumn]);
 
   const [audiencePartners, setAudiencePartners] = useState<
     Awaited<ReturnType<typeof listDbMarketplaceAudienceOptions>>['partners']
@@ -194,6 +199,13 @@ export function AdminDbMarketplacePage() {
   }, [token, showListFilters]);
 
   const offset = (page - 1) * pageSize;
+
+  const loadNavCounts = useCallback(() => {
+    if (!token) return;
+    void getDbMarketplaceNavCounts(token)
+      .then(({ sellerPendingCount: count }) => setSellerPendingCount(count))
+      .catch(() => {});
+  }, [token]);
 
   const load = useCallback(
     (opts?: { silent?: boolean }) => {
@@ -223,6 +235,10 @@ export function AdminDbMarketplacePage() {
   }, [load]);
 
   useEffect(() => {
+    loadNavCounts();
+  }, [loadNavCounts]);
+
+  useEffect(() => {
     setSelectedIds(new Set());
   }, [tab, page, pageSize]);
 
@@ -248,7 +264,8 @@ export function AdminDbMarketplacePage() {
     if (now - lastSilentRefreshRef.current < 4000) return;
     lastSilentRefreshRef.current = now;
     load({ silent: true });
-  }, [load]);
+    loadNavCounts();
+  }, [load, loadNavCounts]);
 
   const { connected: wsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !wsConnected ? 20000 : 0);
@@ -280,6 +297,21 @@ export function AdminDbMarketplacePage() {
   };
 
   const tabLabel = useMemo(() => TAB_OPTIONS.find((t) => t.id === tab)?.label ?? '', [tab]);
+
+  const tabOptionsWithBadges = useMemo(
+    () =>
+      TAB_OPTIONS.map((opt) =>
+        opt.id === 'pending' && sellerPendingCount > 0
+          ? { ...opt, badge: sellerPendingCount }
+          : opt,
+      ),
+    [sellerPendingCount],
+  );
+
+  const refreshAfterChange = useCallback(() => {
+    load({ silent: true });
+    loadNavCounts();
+  }, [load, loadNavCounts]);
 
   const canSelectRow = useCallback(
     (row: DbMarketplaceMaskedItem) => {
@@ -351,7 +383,7 @@ export function AdminDbMarketplacePage() {
         successCount: result.published.length,
         failed: result.failed,
       });
-      load({ silent: true });
+      refreshAfterChange();
     } catch (e) {
       alert(e instanceof Error ? e.message : '일괄 게시 실패');
     } finally {
@@ -382,7 +414,7 @@ export function AdminDbMarketplacePage() {
         successCount: result.requested.length,
         failed: result.failed,
       });
-      load({ silent: true });
+      refreshAfterChange();
     } catch (e) {
       alert(e instanceof Error ? e.message : '일괄 갖고가기 실패');
     } finally {
@@ -420,7 +452,7 @@ export function AdminDbMarketplacePage() {
         successCount: result.declined.length,
         failed: result.failed,
       });
-      load({ silent: true });
+      refreshAfterChange();
     } catch (e) {
       alert(e instanceof Error ? e.message : '일괄 거절 실패');
     } finally {
@@ -451,7 +483,7 @@ export function AdminDbMarketplacePage() {
         successCount: result.removed.length,
         failed: result.failed,
       });
-      load({ silent: true });
+      refreshAfterChange();
     } catch (e) {
       alert(e instanceof Error ? e.message : '일괄 원상복귀 실패');
     } finally {
@@ -482,7 +514,7 @@ export function AdminDbMarketplacePage() {
         successCount: result.reverted.length,
         failed: result.failed,
       });
-      load({ silent: true });
+      refreshAfterChange();
     } catch (e) {
       alert(e instanceof Error ? e.message : '일괄 장바구니 되돌리기 실패');
     } finally {
@@ -513,7 +545,7 @@ export function AdminDbMarketplacePage() {
         successCount: result.confirmed.length,
         failed: result.failed,
       });
-      load({ silent: true });
+      refreshAfterChange();
     } catch (e) {
       alert(e instanceof Error ? e.message : '일괄 인계 확정 실패');
     } finally {
@@ -542,7 +574,7 @@ export function AdminDbMarketplacePage() {
         successCount: result.declined.length,
         failed: result.failed,
       });
-      load({ silent: true });
+      refreshAfterChange();
     } catch (e) {
       alert(e instanceof Error ? e.message : '일괄 거절 실패');
     } finally {
@@ -574,7 +606,38 @@ export function AdminDbMarketplacePage() {
         <p className="mt-1 text-fluid-xs text-gray-600">{tabDescription}</p>
       </div>
 
-      <DbMarketplaceTabBar options={TAB_OPTIONS} active={tab} onChange={setTab} />
+      {sellerPendingCount > 0 ? (
+        <div
+          className={`rounded-lg border px-3 py-2.5 text-fluid-2xs leading-snug sm:text-fluid-xs ${
+            tab === 'pending'
+              ? 'border-amber-200 bg-amber-50 text-amber-950'
+              : 'border-amber-300 bg-amber-50/90 text-amber-950'
+          }`}
+          role="status"
+        >
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-semibold">
+              거래처가 정보를 인계 요청합니다
+              {sellerPendingCount > 1 ? ` (${sellerPendingCount}건)` : ''}
+            </span>
+            {tab === 'pending' ? (
+              <span className="text-amber-900/90">
+                아래 목록에서 인계 확정 또는 구매 신청 거절을 선택하세요.
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setTab('pending')}
+                className="rounded-md border border-amber-400 bg-white px-2 py-0.5 text-fluid-2xs font-semibold text-amber-900 hover:bg-amber-100 sm:text-fluid-xs"
+              >
+                진행 중 탭 열기
+              </button>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      <DbMarketplaceTabBar options={tabOptionsWithBadges} active={tab} onChange={setTab} />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         {showListFilters ? (
@@ -606,15 +669,16 @@ export function AdminDbMarketplacePage() {
         ) : null}
 
         <div className="mt-4 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <table className={`w-full table-fixed border-collapse text-fluid-xs ${showMySalesMeta || showConfirmedMeta ? 'min-w-[960px]' : 'min-w-[720px]'}`}>
+          <table className={`w-full table-fixed border-collapse text-fluid-xs ${showMySalesMeta || showConfirmedMeta ? 'min-w-[960px]' : 'min-w-[800px]'}`}>
             <colgroup>
               {selectable ? <MarketplaceTableCheckboxCol /> : null}
+              <col className="w-[9%]" />
               <col className="w-[10%]" />
-              <col className="w-[11%]" />
-              <col className="w-[30%]" />
-              <col className="w-[11%]" />
-              {tab === 'cart' ? <col className="w-[8%]" /> : null}
-              <col className="w-[8%]" />
+              <col className="w-[24%]" />
+              <col className="w-[10%]" />
+              <col className="w-[7%]" />
+              <col className="w-[7%]" />
+              <col className="w-[7%]" />
               {showMySalesMeta ? (
                 <>
                   <col className="w-[9%]" />
@@ -625,10 +689,10 @@ export function AdminDbMarketplacePage() {
               {showConfirmedMeta ? (
                 <>
                   <col className="w-[10%]" />
-                  <col className="w-[8%]" />
                   <col className="w-[9%]" />
                 </>
               ) : null}
+              {showPendingMeta ? <col className="w-[10%]" /> : null}
               {showSellerColumn ? <col className="w-[10%]" /> : null}
               <col className="w-[8%]" />
             </colgroup>
@@ -649,8 +713,9 @@ export function AdminDbMarketplacePage() {
                 <th className="px-2 py-2 text-center">지역</th>
                 <th className="px-2 py-2 text-center">청소 요약</th>
                 <th className="px-2 py-2 text-center">일정</th>
-                {tab === 'cart' ? <th className="px-2 py-2 text-center">수수료</th> : null}
-                <th className="px-2 py-2 text-center">고객 잔금</th>
+                <th className="px-2 py-2 text-center">총액</th>
+                <th className="px-2 py-2 text-center">수수료</th>
+                <th className="px-2 py-2 text-center">잔금</th>
                 {showMySalesMeta ? (
                   <>
                     <th className="px-2 py-2 text-center">판매날짜</th>
@@ -661,10 +726,10 @@ export function AdminDbMarketplacePage() {
                 {showConfirmedMeta ? (
                   <>
                     <th className="px-2 py-2 text-center">상대 업체</th>
-                    <th className="px-2 py-2 text-center">수수료</th>
                     <th className="px-2 py-2 text-center">인계일</th>
                   </>
                 ) : null}
+                {showPendingMeta ? <th className="px-2 py-2 text-center">인계 요청 업체</th> : null}
                 {showSellerColumn ? <th className="px-2 py-2 text-center">판매 업체</th> : null}
                 <th className="px-2 py-2 text-center">상태</th>
               </tr>
@@ -714,13 +779,14 @@ export function AdminDbMarketplacePage() {
                           {cleaningSummary(row)}
                         </td>
                         <td className="px-2 py-2 text-center">{formatMarketplaceSchedule(row)}</td>
-                        {tab === 'cart' ? (
-                          <td className="px-2 py-2 text-right tabular-nums">
-                            {row.listingFee != null ? `${row.listingFee.toLocaleString('ko-KR')}원` : '-'}
-                          </td>
-                        ) : null}
                         <td className="px-2 py-2 text-right tabular-nums">
-                          {formatWon(resolveMarketplaceCustomerBalance(row))}
+                          {formatWon(resolveMarketplaceServiceTotal(row))}
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums text-violet-900">
+                          {formatWon(resolveMarketplaceBuyerTotalFee(row))}
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums">
+                          {formatWon(resolveMarketplaceServiceBalance(row))}
                         </td>
                         {showMySalesMeta ? (
                           <>
@@ -747,13 +813,22 @@ export function AdminDbMarketplacePage() {
                             >
                               {row.role === 'SELLER' ? (row.buyerName ?? '-') : row.sellerTenantName}
                             </td>
-                            <td className="px-2 py-2 text-right tabular-nums text-violet-900">
-                              {formatWon(resolveMarketplaceBuyerTotalFee(row))}
-                            </td>
                             <td className="px-2 py-2 text-center tabular-nums">
                               {formatMarketplaceListDate(row.sellerConfirmedAt)}
                             </td>
                           </>
+                        ) : null}
+                        {showPendingMeta ? (
+                          <td
+                            className="px-2 py-2 text-center truncate font-medium text-amber-900"
+                            title={
+                              row.role === 'SELLER'
+                                ? row.buyerName ?? undefined
+                                : row.sellerTenantName
+                            }
+                          >
+                            {row.role === 'SELLER' ? (row.buyerName ?? '-') : row.sellerTenantName}
+                          </td>
                         ) : null}
                         {showSellerColumn ? (
                           <td className="px-2 py-2 text-center truncate" title={row.sellerTenantName}>
@@ -805,6 +880,7 @@ export function AdminDbMarketplacePage() {
                   showSeller={showSellerColumn}
                   showMySalesMeta={showMySalesMeta}
                   showConfirmedMeta={showConfirmedMeta}
+                  showPendingMeta={showPendingMeta}
                 />
               ))}
             </Fragment>
@@ -875,7 +951,7 @@ export function AdminDbMarketplacePage() {
             setSelectedRow(null);
             clearOpenListingParam();
           }}
-          onChanged={() => load({ silent: true })}
+          onChanged={refreshAfterChange}
         />
       ) : null}
     </div>

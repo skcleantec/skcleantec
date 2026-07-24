@@ -350,6 +350,8 @@ export function InquiryEditSettlementSection({
           <div ref={marketplacePanelRef}>
             <InquiryDbMarketplaceSellPanel
               inquiryId={item.id}
+              serviceTotalAmount={item.serviceTotalAmount}
+              serviceDepositAmount={item.serviceDepositAmount}
               serviceBalanceAmount={item.serviceBalanceAmount}
               disabled={isActivePartnerShareSource(item.tenantShare) || externalPartnerBlocksShare}
               exchangePrefill={marketplaceExchangePrefill}

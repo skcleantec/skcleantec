@@ -556,6 +556,11 @@ export function InquirySettlementPanel({
 
   const resolvedBaseBalance = tenantShareBalance.baseBalance;
 
+  const isMarketplaceTargetShare =
+    tenantShare?.syncStatus === 'ACTIVE' &&
+    tenantShare.role === 'TARGET' &&
+    Boolean(tenantShare.viaMarketplace);
+
   /** DB 서비스 잔금 + 회사입금 추가결재 + 레거시 현장 추가 */
   const collectibleBalanceAmount =
     (resolvedBaseBalance ?? 0) + arcCompanyDepositSum + legacyExtraTotals.legacySum;
@@ -702,21 +707,25 @@ export function InquirySettlementPanel({
       >
         <h3 className="text-fluid-xs font-semibold text-blue-900">결제 금액 내역</h3>
         <span className="max-w-[58%] text-right text-fluid-2xs leading-snug text-blue-800">
-          총액·예약금은 서비스 계약 기준. 잔금은 회사입금 추가결재만 포함(현장결재 제외)
+          {isMarketplaceTargetShare
+            ? '정보공유 — 총액·수수료·잔금은 각각 별도입니다.'
+            : '총액·예약금은 서비스 계약 기준. 잔금은 회사입금 추가결재만 포함(현장결재 제외)'}
         </span>
       </header>
       )}
 
       <div className={compact ? 'space-y-px' : 'divide-y divide-gray-100 bg-white'}>
-        {row('총 결제금액 (서비스)', totalDisplay)}
-        {row('예약금(선결제)', depositDisplay, 'minus')}
-        {tenantShareBalance.showPartnerFeeRow && tenantShareBalance.partnerFee > 0
-          ? row(
-              tenantShareBalance.partnerFeeLabel,
-              `-${tenantShareBalance.partnerFee.toLocaleString('ko-KR')}원`,
-              'minus',
-            )
-          : null}
+        {row(isMarketplaceTargetShare ? '총액' : '총 결제금액 (서비스)', totalDisplay)}
+        {!isMarketplaceTargetShare ? row('예약금(선결제)', depositDisplay, 'minus') : null}
+        {isMarketplaceTargetShare
+          ? row('수수료', formatWon(tenantShareBalance.partnerFee))
+          : tenantShareBalance.showPartnerFeeRow && tenantShareBalance.partnerFee > 0
+            ? row(
+                tenantShareBalance.partnerFeeLabel,
+                `-${tenantShareBalance.partnerFee.toLocaleString('ko-KR')}원`,
+                'minus',
+              )
+            : null}
         {arcItems.map((it) => (
           <div
             key={it.id}
@@ -764,7 +773,7 @@ export function InquirySettlementPanel({
           </div>
         ) : null}
         {row(
-          compact ? '잔금' : '잔금 (회사 수금·회사입금 추가 포함)',
+          isMarketplaceTargetShare ? '잔금' : compact ? '잔금' : '잔금 (회사 수금·회사입금 추가 포함)',
           balanceDisplay,
           'accent',
         )}

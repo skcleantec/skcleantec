@@ -15,6 +15,10 @@ export type MarketplaceListingMaskedDto = {
   status: string;
   visibility: string;
   displayAmount: number | null;
+  /** 서비스 총액 (마스킹 목록·금액 표시용) */
+  serviceTotalAmount: number | null;
+  /** 서비스 예약금 */
+  serviceDepositAmount: number | null;
   /** 고객 현장 수금 (잔금) */
   customerBalanceAmount: number | null;
   /** 이번 판매자 수수료 */
@@ -85,6 +89,8 @@ const INQUIRY_MASK_SELECT = {
   moveInDate: true,
   moveInDateUndecided: true,
   serviceBalanceAmount: true,
+  serviceTotalAmount: true,
+  serviceDepositAmount: true,
 } as const;
 
 export { INQUIRY_MASK_SELECT };
@@ -134,6 +140,8 @@ export function buildMaskedListingDto(input: {
     status: input.status,
     visibility: input.visibility,
     displayAmount,
+    serviceTotalAmount: input.inquiry.serviceTotalAmount,
+    serviceDepositAmount: input.inquiry.serviceDepositAmount,
     customerBalanceAmount,
     listingFee: input.listingFee,
     priorFeesTotal,

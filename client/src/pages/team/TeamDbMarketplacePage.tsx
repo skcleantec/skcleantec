@@ -31,6 +31,12 @@ import {
   formatMarketplaceSchedule,
 } from '../../utils/dbMarketplaceDisplay';
 import {
+  formatWon,
+  resolveMarketplaceBuyerTotalFee,
+  resolveMarketplaceServiceBalance,
+  resolveMarketplaceServiceTotal,
+} from '../../components/db-marketplace/DbMarketplaceAmountSummary';
+import {
   canBulkBuyMarketplaceItem,
   canBuyerDeclinePriorityMarketplaceItem,
 } from '../../utils/dbMarketplaceBulk';
@@ -301,15 +307,17 @@ export function TeamDbMarketplacePage() {
         ) : null}
 
         <div className="mt-2 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mt-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <table className="w-full table-fixed border-collapse text-fluid-xs min-w-[640px]">
+          <table className="w-full table-fixed border-collapse text-fluid-xs min-w-[760px]">
             <colgroup>
               {selectable ? <MarketplaceTableCheckboxCol /> : null}
-              <col className="w-[15%]" />
-              <col className="w-[16%]" />
-              <col className="w-[34%]" />
-              <col className="w-[15%]" />
               <col className="w-[13%]" />
+              <col className="w-[14%]" />
+              <col className="w-[28%]" />
+              <col className="w-[12%]" />
               <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[7%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
@@ -328,7 +336,9 @@ export function TeamDbMarketplacePage() {
                 <th className="px-2 py-2 text-center">지역</th>
                 <th className="px-2 py-2 text-center">청소 요약</th>
                 <th className="px-2 py-2 text-center">일정</th>
-                <th className="px-2 py-2 text-center">표시금액</th>
+                <th className="px-2 py-2 text-center">총액</th>
+                <th className="px-2 py-2 text-center">수수료</th>
+                <th className="px-2 py-2 text-center">잔금</th>
                 <th className="px-2 py-2 text-center">상태</th>
               </tr>
             </thead>
@@ -362,7 +372,13 @@ export function TeamDbMarketplacePage() {
                   </td>
                   <td className="px-2 py-2 text-center">{formatMarketplaceSchedule(row)}</td>
                   <td className="px-2 py-2 text-right tabular-nums">
-                    {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
+                    {formatWon(resolveMarketplaceServiceTotal(row))}
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums text-violet-900">
+                    {formatWon(resolveMarketplaceBuyerTotalFee(row))}
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums">
+                    {formatWon(resolveMarketplaceServiceBalance(row))}
                   </td>
                   <td className="px-2 py-2 text-center">
                     <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${STATUS_CLASS[row.status] ?? ''}`}>

@@ -25,6 +25,7 @@ import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { ModalCloseButton } from './ModalCloseButton';
 import { DbMarketplaceCleaningDetailCard } from './DbMarketplaceCleaningDetailCard';
 import { DbMarketplaceAmountSummaryBlock } from '../db-marketplace/DbMarketplaceAmountSummary';
+import { canBuyerDeclinePriorityMarketplaceItem } from '../../utils/dbMarketplaceBulk';
 import type { DbMarketplaceAudienceItem } from '../../api/dbMarketplace';
 
 function DbMarketplacePublishAudienceBlock({
@@ -107,16 +108,6 @@ type Props = {
   apiMode?: 'admin' | 'team';
   token?: string | null;
 };
-
-function canShowBuyerPriorityDecline(row: DbMarketplaceMaskedItem): boolean {
-  return (
-    row.status === 'OPEN' &&
-    row.role === 'VIEWER' &&
-    !row.platformSuspended &&
-    row.offerMode === 'PRIORITY' &&
-    row.currentPriorityRank != null
-  );
-}
 
 export function DbMarketplaceListingDetailModal({
   row,
@@ -335,6 +326,7 @@ export function DbMarketplaceListingDetailModal({
   };
 
   const d = detail ?? (row as DbMarketplaceListingDetail);
+  const canBuyerDecline = canBuyerDeclinePriorityMarketplaceItem(d);
 
   const linkedInquiryPath = (() => {
     if (d.status !== 'CONFIRMED') return null;
@@ -380,7 +372,7 @@ export function DbMarketplaceListingDetailModal({
             </p>
           ) : null}
 
-          {canShowBuyerPriorityDecline(d) ? (
+          {canBuyerDecline ? (
             <p className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-900">
               순위 노출 — 현재 {d.currentPriorityRank}순위 구매 후보입니다. 구매하지 않으면 「거절하기」를
               이용하세요.
@@ -393,6 +385,8 @@ export function DbMarketplaceListingDetailModal({
             </p>
             <DbMarketplaceAmountSummaryBlock
               row={{
+                serviceTotalAmount: d.serviceTotalAmount ?? d.inquiryFull?.serviceTotalAmount,
+                serviceDepositAmount: d.serviceDepositAmount ?? d.inquiryFull?.serviceDepositAmount,
                 customerBalanceAmount: d.customerBalanceAmount,
                 displayAmount: d.displayAmount,
                 listingFee: d.listingFee,
@@ -426,11 +420,6 @@ export function DbMarketplaceListingDetailModal({
                 {d.inquiryFull.address}
                 {d.inquiryFull.addressDetail ? ` ${d.inquiryFull.addressDetail}` : ''}
               </p>
-              {d.inquiryFull.serviceBalanceAmount != null ? (
-                <p className="tabular-nums">
-                  잔금 {d.inquiryFull.serviceBalanceAmount.toLocaleString('ko-KR')}원
-                </p>
-              ) : null}
               {(() => {
                 const linkedLabel = d.targetInquiryId
                   ? linkedInquiryPath
@@ -551,7 +540,7 @@ export function DbMarketplaceListingDetailModal({
                 >
                   구매신청
                 </button>
-                {canShowBuyerPriorityDecline(d) ? (
+                {canBuyerDecline ? (
                   <button
                     type="button"
                     disabled={busy}
