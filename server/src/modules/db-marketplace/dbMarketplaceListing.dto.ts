@@ -45,6 +45,10 @@ export type MarketplaceListingMaskedDto = {
   moveInDate: string | null;
   moveInDateUndecided: boolean;
   role: 'SELLER' | 'BUYER' | 'VIEWER';
+  hopIndex: number;
+  rootTenantId: string | null;
+  rootTenantName: string | null;
+  dealBalanceAmount: number | null;
 };
 
 const INQUIRY_MASK_SELECT = {
@@ -96,6 +100,10 @@ export function buildMaskedListingDto(input: {
     heldUntil: string | null;
     holdBuyerName: string | null;
   };
+  hopIndex?: number;
+  rootTenantId?: string | null;
+  rootTenantName?: string | null;
+  dealBalanceAmount?: number | null;
 }): MarketplaceListingMaskedDto {
   const displayAmount =
     input.displayAmount ??
@@ -138,6 +146,10 @@ export function buildMaskedListingDto(input: {
     moveInDate: input.inquiry.moveInDate?.toISOString() ?? null,
     moveInDateUndecided: input.inquiry.moveInDateUndecided,
     role: input.role,
+    hopIndex: input.hopIndex ?? 0,
+    rootTenantId: input.rootTenantId ?? null,
+    rootTenantName: input.rootTenantName ?? null,
+    dealBalanceAmount: input.dealBalanceAmount ?? null,
   };
 }
 

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   completeRecallDbMarketplaceListing,
+  cartRecallDbMarketplaceListing,
   confirmDbMarketplaceSeller,
   declineDbMarketplaceSeller,
   getDbListingByInquiry,
@@ -64,6 +65,7 @@ export function InquiryDbMarketplaceSellPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recallModalOpen, setRecallModalOpen] = useState(false);
+  const [cartRecallModalOpen, setCartRecallModalOpen] = useState(false);
 
   const parsedListingFee = parseListingFeeInput(listingFeeInput);
   const listingFeeValid = parsedListingFee != null;
@@ -266,8 +268,18 @@ export function InquiryDbMarketplaceSellPanel({
     setRecallModalOpen(false);
     await notifyListingChange();
     alert(
-      `완전 회수했습니다.\n정보공유 수수료 ${result.refundListingFee.toLocaleString('ko-KR')}원이 정산 미수에 환불 반영됩니다.\n다시 판매하려면 장바구니에 담아 주세요.`,
+      `완전 회수했습니다.\n정보공유 수수료 ${result.refundListingFee.toLocaleString('ko-KR')}원이 정산 미수에 환불 반영됩니다.\n일반 접수로 복귀했습니다.`,
     );
+  };
+
+  const cartRecall = async (password: string) => {
+    if (!token || !listing) return;
+    await cartRecallDbMarketplaceListing(token, listing.id, password);
+    const refreshed = await getDbListingByInquiry(token, inquiryId);
+    setListing(refreshed);
+    setCartRecallModalOpen(false);
+    await notifyListingChange();
+    alert('장바구니 회수했습니다. 다시 게시할 수 있습니다.');
   };
 
   const canEdit = !disabled && listing?.status !== 'CONFIRMED' && listing?.status !== 'PENDING_SELLER';
@@ -383,21 +395,37 @@ export function InquiryDbMarketplaceSellPanel({
         </div>
       ) : null}
 
+      {listing?.rootTenantName && listing.hopIndex && listing.hopIndex > 0 ? (
+        <p className={`${panelMetaText} text-violet-900`}>
+          최초 업체: {listing.rootTenantName} · 재판매 hop {listing.hopIndex}
+        </p>
+      ) : null}
+
       {listing?.status === 'CONFIRMED' ? (
         <div className="rounded-md border border-rose-200 bg-rose-50/80 p-2 space-y-1.5 sm:rounded-lg sm:p-2.5 sm:space-y-2">
           <p className={`${panelMetaText} text-rose-950`}>
-            인계가 완료된 DB입니다. 완전 회수 시 구매자 DB가 종료되고, 정보공유{' '}
-            <strong>수수료만</strong> 정산 미수에 환불 반영됩니다. 이 접수는 다시 자사 스케줄·TO에
-            포함됩니다.
+            인계가 완료된 DB입니다. <strong>완전 회수</strong>는 일반 접수(TO 포함)로,
+            <strong> 장바구니 회수</strong>는 정보공유 장바구니로 돌아갑니다(TO 제외). 하위 재판매가
+            있으면 함께 되돌립니다.
           </p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setRecallModalOpen(true)}
-            className={`${panelBtn} w-full border-rose-400 bg-white text-rose-950 hover:bg-rose-50`}
-          >
-            완전 회수 (수수료 환불)
-          </button>
+          <div className="flex flex-col gap-1.5 sm:flex-row">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setRecallModalOpen(true)}
+              className={`${panelBtn} w-full border-rose-400 bg-white text-rose-950 hover:bg-rose-50`}
+            >
+              완전 회수
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setCartRecallModalOpen(true)}
+              className={`${panelBtn} w-full border-violet-400 bg-white text-violet-950 hover:bg-violet-50`}
+            >
+              장바구니 회수
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -517,6 +545,26 @@ export function InquiryDbMarketplaceSellPanel({
               }
               onClose={() => setRecallModalOpen(false)}
               onConfirm={completeRecall}
+            />,
+            document.body,
+          )
+        : null}
+
+      {cartRecallModalOpen
+        ? createPortal(
+            <ConfirmPasswordModal
+              open={cartRecallModalOpen}
+              title="장바구니 회수 확인"
+              zIndexClassName="z-[560]"
+              confirmLabel="장바구니 회수"
+              description={
+                <>
+                  구매자 연계를 해제하고 이 DB를 정보공유 <strong>장바구니</strong>로 되돌립니다. TO는
+                  소모하지 않습니다. 하위 재판매가 있으면 함께 되돌립니다.
+                </>
+              }
+              onClose={() => setCartRecallModalOpen(false)}
+              onConfirm={cartRecall}
             />,
             document.body,
           )

@@ -246,14 +246,11 @@ export async function releaseDbListingHold(listingId: string, buyer: DbMarketpla
 }
 
 export function assertBuyerCanProceedPastHold(
-  listing: DbListingHoldFields,
-  buyer: DbMarketplaceBuyerContext,
-  now: Date = new Date(),
+  _listing: DbListingHoldFields,
+  _buyer: DbMarketplaceBuyerContext,
+  _now: Date = new Date(),
 ): void {
-  if (!isListingActivelyHeld(listing, now)) return;
-  if (!holdMatchesBuyer(listing, buyer, now)) {
-    throw new DbMarketplaceError('다른 업체가 검토 예약 중입니다.', 409);
-  }
+  // hold(30분 검토 예약) 제거 — 구매신청 선착순만 사용
 }
 
 export type MarketplaceHoldView = {

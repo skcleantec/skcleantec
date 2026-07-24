@@ -129,6 +129,23 @@ enum InquiryDbListingMessageAuthorRole {
   BUYER
 }
 
+/// DB 마켓 hop 수수료 원장 상태
+enum InquiryDbListingFeeLedgerStatus {
+  ACTIVE
+  REVERSED
+}
+
+/// DB 마켓 체인 이벤트 유형
+enum InquiryDbListingEventType {
+  HANDOVER_CONFIRMED
+  COMPLETE_RECALL
+  CART_RECALL
+  STEP_COMPLETE_RECALL
+  STEP_CART_RECALL
+  DOWNSTREAM_REVERSED
+  RESALE_DRAFT_CREATED
+}
+
 enum PlatformRole {
   SUPER_ADMIN
   SUPPORT
@@ -212,6 +229,10 @@ model Tenant {
   inquiryDbListingsAsBuyer InquiryDbListing[] @relation("ListingBuyerTenant")
   inquiryDbListingsHeldAsBuyer InquiryDbListing[] @relation("ListingHoldBuyerTenant")
   inquiryDbListingMessages InquiryDbListingMessage[]
+  inquiryDbListingsAsRootTenant InquiryDbListing[] @relation("ListingRootTenant")
+  inquiryDbListingFeeLedgers InquiryDbListingFeeLedger[]
+  inquiryDbListingFeeLedgersAsBuyer InquiryDbListingFeeLedger[] @relation("FeeLedgerBuyerTenant")
+  inquiryDbListingEvents InquiryDbListingEvent[]
   inquiryExcelImportProfiles InquiryExcelImportProfile[]
   inquiryExcelImportRuns InquiryExcelImportRun[]
   telecrmScriptCategories TelecrmScriptCategory[]
@@ -460,6 +481,12 @@ model InquiryDbListing {
   holdByUserId              String?                    @map("hold_by_user_id")
   heldUntil                 DateTime?                  @map("held_until")
   tenantInquiryShareId      String?                    @map("tenant_inquiry_share_id")
+  parentListingId           String?                    @map("parent_listing_id")
+  rootListingId             String?                    @map("root_listing_id")
+  hopIndex                  Int                        @default(0) @map("hop_index")
+  rootTenantId              String?                    @map("root_tenant_id")
+  dealBalanceAmount         Int?                       @map("deal_balance_amount")
+  supersededAt              DateTime?                  @map("superseded_at")
   createdAt                 DateTime                   @default(now()) @map("created_at")
   updatedAt                 DateTime                   @updatedAt @map("updated_at")
 
@@ -470,14 +497,72 @@ model InquiryDbListing {
   holdBuyerTenant      Tenant?                   @relation("ListingHoldBuyerTenant", fields: [holdBuyerTenantId], references: [id], onDelete: SetNull)
   holdBuyerExternalCompany ExternalCompany?      @relation("ListingHoldExternalCompany", fields: [holdBuyerExternalCompanyId], references: [id], onDelete: SetNull)
   holdByUser           User?                     @relation("DbListingHoldByUser", fields: [holdByUserId], references: [id], onDelete: SetNull)
+  rootTenant           Tenant?                   @relation("ListingRootTenant", fields: [rootTenantId], references: [id], onDelete: SetNull)
+  parentListing        InquiryDbListing?           @relation("ListingChainParent", fields: [parentListingId], references: [id], onDelete: SetNull)
+  childListings        InquiryDbListing[]          @relation("ListingChainParent")
+  rootListing          InquiryDbListing?           @relation("ListingChainRoot", fields: [rootListingId], references: [id], onDelete: SetNull)
+  chainListings        InquiryDbListing[]          @relation("ListingChainRoot")
   audiences            InquiryDbListingAudience[]
   messages             InquiryDbListingMessage[]
+  feeLedgers           InquiryDbListingFeeLedger[]
+  events               InquiryDbListingEvent[]
 
   @@index([tenantId, status, publishedAt])
   @@index([status, publishedAt])
   @@index([status, heldUntil])
   @@index([buyerTenantId, status])
+  @@index([parentListingId])
+  @@index([rootListingId])
+  @@index([rootTenantId])
   @@map("inquiry_db_listings")
+}
+
+/// DB 마켓 hop별 수수료 원장 — 인계 확정 시 ACTIVE, 회수·역순 시 REVERSED
+model InquiryDbListingFeeLedger {
+  id                     String                           @id @default(uuid())
+  tenantId               String                           @map("tenant_id")
+  listingId              String                           @map("listing_id")
+  hopIndex               Int                              @map("hop_index")
+  sellerTenantId         String                           @map("seller_tenant_id")
+  buyerTenantId          String?                          @map("buyer_tenant_id")
+  buyerExternalCompanyId String?                          @map("buyer_external_company_id")
+  feeAmount              Int                              @map("fee_amount")
+  status                 InquiryDbListingFeeLedgerStatus  @default(ACTIVE)
+  confirmedAt            DateTime                         @map("confirmed_at")
+  reversedAt             DateTime?                        @map("reversed_at")
+  reversedByUserId       String?                          @map("reversed_by_user_id")
+  createdAt              DateTime                         @default(now()) @map("created_at")
+
+  tenant               Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  listing              InquiryDbListing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerTenant          Tenant?           @relation("FeeLedgerBuyerTenant", fields: [buyerTenantId], references: [id], onDelete: SetNull)
+  buyerExternalCompany ExternalCompany?  @relation(fields: [buyerExternalCompanyId], references: [id], onDelete: SetNull)
+  reversedByUser       User?             @relation("DbListingFeeLedgerReversedBy", fields: [reversedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, listingId])
+  @@index([listingId, status])
+  @@index([sellerTenantId, buyerTenantId])
+  @@map("inquiry_db_listing_fee_ledgers")
+}
+
+/// DB 마켓 체인·회수 히스토리
+model InquiryDbListingEvent {
+  id           String                    @id @default(uuid())
+  tenantId     String                    @map("tenant_id")
+  listingId    String                    @map("listing_id")
+  eventType    InquiryDbListingEventType @map("event_type")
+  hopIndex     Int                       @default(0) @map("hop_index")
+  actorUserId  String?                   @map("actor_user_id")
+  payload      Json                      @default("{}")
+  createdAt    DateTime                  @default(now()) @map("created_at")
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  listing InquiryDbListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  actor   User?            @relation("DbListingEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([listingId, createdAt])
+  @@index([tenantId, listingId])
+  @@map("inquiry_db_listing_events")
 }
 
 /// DB 마켓 노출 대상 (visibility=SELECTED)
@@ -790,6 +875,7 @@ model ExternalCompany {
   dbListingAudiences InquiryDbListingAudience[]
   dbListingsAsBuyer InquiryDbListing[]
   dbListingsHeldAsBuyer InquiryDbListing[] @relation("ListingHoldExternalCompany")
+  dbListingFeeLedgers InquiryDbListingFeeLedger[]
   legacySettlementShares TenantInquiryShare[] @relation("ShareExternalLegacySettlement")
 
   @@index([tenantId, isActive])
@@ -920,6 +1006,8 @@ model User {
   tenantPartnerSettlementResetsAsActor TenantPartnerSettlementReset[] @relation("TenantPartnerSettlementResetActor")
   dbListingMessagesAuthored            InquiryDbListingMessage[]      @relation("DbListingMessageAuthor")
   dbListingHoldsCreated                InquiryDbListing[]             @relation("DbListingHoldByUser")
+  dbListingFeeLedgersReversed          InquiryDbListingFeeLedger[]    @relation("DbListingFeeLedgerReversedBy")
+  dbListingEventsAuthored              InquiryDbListingEvent[]        @relation("DbListingEventActor")
   operatingCompanyMemberships UserOperatingCompany[]
   customCalendars               UserCustomCalendar[]   @relation("UserCustomCalendars")
   customCalendarInquiryPins     UserCustomCalendarInquiryPin[]

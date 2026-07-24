@@ -19,12 +19,7 @@ export function canBulkRemoveFromCartItem(row: DbMarketplaceMaskedItem): boolean
 
 /** 구매 가능 — 일괄 갖고가기 선택 가능 */
 export function canBulkBuyMarketplaceItem(row: DbMarketplaceMaskedItem): boolean {
-  return (
-    row.status === 'OPEN' &&
-    row.role === 'VIEWER' &&
-    !row.platformSuspended &&
-    (!row.holdActive || row.holdIsMine)
-  );
+  return row.status === 'OPEN' && row.role === 'VIEWER' && !row.platformSuspended;
 }
 
 /** 내 판매 — 게시 중 건 장바구니로 되돌리기 */
@@ -73,9 +68,8 @@ export function marketplaceBulkSelectDisabledReason(
   }
   if (mode === 'buy') {
     if (row.platformSuspended) return '플랫폼 중지된 건입니다.';
-    if (row.status !== 'OPEN') return '게시 중인 건만 갖고갈 수 있습니다.';
+    if (row.status !== 'OPEN') return '게시 중인 건만 구매신청할 수 있습니다.';
     if (row.role !== 'VIEWER') return '구매 가능한 건만 선택할 수 있습니다.';
-    if (row.holdActive && !row.holdIsMine) return '다른 업체가 검토 예약 중입니다.';
     return null;
   }
   if (mode === 'revert_cart') {

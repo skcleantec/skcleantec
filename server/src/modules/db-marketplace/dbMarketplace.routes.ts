@@ -33,11 +33,6 @@ import {
   postDbListingMessage,
 } from './dbMarketplaceMessages.service.js';
 import {
-  buildMarketplaceHoldView,
-  createDbListingHold,
-  releaseDbListingHold,
-} from './dbMarketplaceHold.service.js';
-import {
   notifyDbMarketplaceBroadcast,
   notifyDbMarketplaceSellerAdmins,
 } from './dbMarketplaceNotify.service.js';
@@ -51,6 +46,8 @@ import {
   bulkWithdrawDbListings,
 } from './dbMarketplaceBulk.service.js';
 import { completeRecallDbListing } from './dbMarketplaceCompleteRecall.service.js';
+import { stepRecallDbListing } from './dbMarketplaceStepRecall.service.js';
+import { listDbMarketplaceEvents } from './dbMarketplaceHistory.service.js';
 
 const router = Router();
 
@@ -327,6 +324,58 @@ router.post('/:id/seller-complete-recall', async (req, res) => {
   }
 });
 
+router.post('/:id/seller-cart-recall', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  const body = req.body as { password?: unknown };
+  const password = typeof body.password === 'string' ? body.password : '';
+  if (!password.trim()) {
+    res.status(400).json({ error: '비밀번호를 입력해 주세요.' });
+    return;
+  }
+  try {
+    const result = await stepRecallDbListing({
+      sellerTenantId: tenantId,
+      sellerUserId: auth.userId,
+      listingId,
+      password,
+      mode: 'cart',
+    });
+    await notifyDbMarketplaceSellerAdmins(tenantId);
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.get('/:id/history', async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  const listing = await prisma.inquiryDbListing.findFirst({
+    where: { id: listingId, tenantId },
+    select: { id: true },
+  });
+  if (!listing) {
+    res.status(404).json({ error: '판매 항목을 찾을 수 없습니다.' });
+    return;
+  }
+  const events = await listDbMarketplaceEvents(listingId);
+  res.json({
+    events: events.map((e) => ({
+      id: e.id,
+      eventType: e.eventType,
+      hopIndex: e.hopIndex,
+      createdAt: e.createdAt.toISOString(),
+      actorName: e.actor?.name ?? e.actor?.email ?? null,
+      payload: e.payload,
+    })),
+  });
+});
+
 router.post('/:id/remove-from-cart', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
@@ -398,53 +447,12 @@ router.post('/:id/seller-confirm', async (req, res) => {
   }
 });
 
-router.post('/:id/hold', async (req, res) => {
-  const auth = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = await requireTenantIdFromAuth(res, auth);
-  if (!tenantId) return;
-  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
-  try {
-    const peek = await prisma.inquiryDbListing.findFirst({
-      where: { id: listingId },
-      select: { tenantId: true },
-    });
-    if (peek?.tenantId === tenantId) {
-      res.status(400).json({ error: '자사 DB는 검토 예약할 수 없습니다.' });
-      return;
-    }
-    const row = await createDbListingHold(listingId, {
-      kind: 'PARTNER_TENANT',
-      tenantId,
-      userId: auth.userId,
-    });
-    const hold = buildMarketplaceHoldView({
-      listing: row,
-      viewerRole: 'VIEWER',
-      buyer: { kind: 'PARTNER_TENANT', tenantId, userId: auth.userId },
-    });
-    res.json({ hold });
-  } catch (e) {
-    if (mapError(res, e)) return;
-    throw e;
-  }
+router.post('/:id/hold', (_req, res) => {
+  res.status(410).json({ error: '검토 예약(hold) 기능은 종료되었습니다. 구매신청으로 진행해 주세요.' });
 });
 
-router.delete('/:id/hold', async (req, res) => {
-  const auth = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = await requireTenantIdFromAuth(res, auth);
-  if (!tenantId) return;
-  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
-  try {
-    await releaseDbListingHold(listingId, {
-      kind: 'PARTNER_TENANT',
-      tenantId,
-      userId: auth.userId,
-    });
-    res.json({ ok: true });
-  } catch (e) {
-    if (mapError(res, e)) return;
-    throw e;
-  }
+router.delete('/:id/hold', (_req, res) => {
+  res.status(410).json({ error: '검토 예약(hold) 기능은 종료되었습니다.' });
 });
 
 router.get('/', async (req, res) => {

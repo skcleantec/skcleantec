@@ -6,11 +6,11 @@
 /** 게시 후 자동 만료까지 일수 (OPEN 상태) */
 export const DB_MARKETPLACE_LISTING_TTL_DAYS = 30;
 
-/** OPEN listing 구매 전 검토 예약(hold) 유지 시간(분) */
+/** @deprecated hold 제거 — 레거시 상수 */
 export const DB_MARKETPLACE_HOLD_MINUTES = 30;
 
-/** 일괄 게시·일괄 갖고가기 1회 최대 건수 */
-export const DB_MARKETPLACE_BULK_MAX = 50;
+/** 일괄 처리 — 건수 제한 없음 (레거시 상수, 검사 미사용) */
+export const DB_MARKETPLACE_BULK_MAX = Number.MAX_SAFE_INTEGER;
 
 export function computeMarketplaceExpiresAt(from: Date = new Date()): Date {
   const d = new Date(from);

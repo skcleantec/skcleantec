@@ -1,4 +1,3 @@
-import { DB_MARKETPLACE_BULK_MAX } from '../../lib/dbMarketplacePolicy.js';
 import {
   notifyDbMarketplaceBroadcast,
   notifyDbMarketplaceSellerAdmins,
@@ -72,9 +71,6 @@ function parseListingIds(raw: unknown): string[] {
   const ids = [...new Set(raw.filter((id): id is string => typeof id === 'string' && id.trim().length > 0).map((id) => id.trim()))];
   if (ids.length === 0) {
     throw new DbMarketplaceError('게시할 항목을 1건 이상 선택해 주세요.', 400);
-  }
-  if (ids.length > DB_MARKETPLACE_BULK_MAX) {
-    throw new DbMarketplaceError(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 처리할 수 있습니다.`, 400);
   }
   return ids;
 }

@@ -15,18 +15,15 @@ import {
 } from './dbMarketplaceNotify.service.js';
 import { expireStaleOpenDbListings } from './dbMarketplaceExpire.service.js';
 import { invalidateExternalSettlementOverviewPayableCache } from '../external-companies/externalSettlementOverviewCache.js';
-import {
-  assertBuyerCanProceedPastHold,
-  clearHoldData,
-  releaseExpiredDbListingHolds,
-} from './dbMarketplaceHold.service.js';
+import { clearHoldData } from './dbMarketplaceHold.service.js';
 import { assertExternalCompanySelectable } from '../external-companies/externalCompanyUsage.helpers.js';
+import { accrueDbMarketplaceFeeLedgerInTx } from './dbMarketplaceFeeLedger.service.js';
+import { appendDbMarketplaceEvent } from './dbMarketplaceHistory.service.js';
 
 export type { DbMarketplaceBuyerContext } from './dbMarketplaceBuyerAccess.js';
 
 export async function confirmDbListingBuyer(listingId: string, buyer: DbMarketplaceBuyerContext) {
   await expireStaleOpenDbListings();
-  await releaseExpiredDbListingHolds();
   const now = new Date();
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -40,7 +37,6 @@ export async function confirmDbListingBuyer(listingId: string, buyer: DbMarketpl
     }
 
     await assertBuyerCanViewListing(listing, buyer);
-    assertBuyerCanProceedPastHold(listing, buyer, now);
 
     const buyerKind: InquiryDbListingBuyerKind =
       buyer.kind === 'PARTNER_TENANT' ? 'PARTNER_TENANT' : 'EXTERNAL_COMPANY';
@@ -166,6 +162,8 @@ export async function confirmDbListingSeller(
       inquiry: {
         select: {
           id: true,
+          customerName: true,
+          operatingCompanyId: true,
           tenantSharesAsSource: {
             where: { syncStatus: 'ACTIVE' },
             take: 1,
@@ -182,7 +180,7 @@ export async function confirmDbListingSeller(
   if (!listing.buyerConfirmedAt || !listing.buyerKind) {
     throw new DbMarketplaceError('구매자 확정이 필요합니다.', 400);
   }
-  if (listing.inquiry.tenantSharesAsSource.length > 0) {
+  if (listing.hopIndex === 0 && listing.inquiry.tenantSharesAsSource.length > 0) {
     throw new DbMarketplaceError('이미 파트너에 직접 연계된 접수입니다.', 400);
   }
 
@@ -204,6 +202,7 @@ export async function confirmDbListingSeller(
         inquiryId: listing.inquiryId,
         partnershipId,
         transferFee: listing.listingFee,
+        allowResaleFromReceivedShare: listing.hopIndex > 0,
       });
       tenantInquiryShareId = shareResult.share.id;
       targetInquiryId = shareResult.targetInquiryId;
@@ -239,6 +238,37 @@ export async function confirmDbListingSeller(
   if (finalCount.count !== 1) {
     throw new DbMarketplaceError('인계 확정에 실패했습니다. 상태를 확인해 주세요.', 409);
   }
+
+  await prisma.$transaction(async (tx) => {
+    await accrueDbMarketplaceFeeLedgerInTx(tx, {
+      listing: {
+        id: listingId,
+        tenantId: sellerTenantId,
+        hopIndex: listing.hopIndex,
+        listingFee: listing.listingFee,
+        buyerKind: listing.buyerKind,
+        buyerTenantId: listing.buyerTenantId,
+        buyerExternalCompanyId: listing.buyerExternalCompanyId,
+      },
+      customerName: listing.inquiry.customerName,
+      actorUserId: sellerUserId,
+      operatingCompanyId: listing.inquiry.operatingCompanyId,
+      confirmedAt: now,
+    });
+    await appendDbMarketplaceEvent(tx, {
+      tenantId: sellerTenantId,
+      listingId,
+      eventType: 'HANDOVER_CONFIRMED',
+      hopIndex: listing.hopIndex,
+      actorUserId: sellerUserId,
+      payload: {
+        buyerKind: listing.buyerKind,
+        buyerTenantId: listing.buyerTenantId,
+        buyerExternalCompanyId: listing.buyerExternalCompanyId,
+        listingFee: listing.listingFee,
+      },
+    });
+  });
 
   const confirmed = await prisma.inquiryDbListing.findUniqueOrThrow({
     where: { id: listingId },

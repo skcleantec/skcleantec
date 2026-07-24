@@ -177,6 +177,8 @@ export async function createTenantInquiryShareInTransaction(
     migratedFromExternalAt?: Date | null;
     migratedByUserId?: string | null;
     skipExternalPartnerCheck?: boolean;
+    /** 정보공유 재판매 — mirror(연계 수신) 접수에서 하위 hop 인계 */
+    allowResaleFromReceivedShare?: boolean;
   },
 ) {
   const { viewerTenantId, viewerUserId, inquiryId, partnershipId } = opts;
@@ -220,7 +222,7 @@ export async function createTenantInquiryShareInTransaction(
   const existingAsTarget = await tx.tenantInquiryShare.findUnique({
     where: { targetInquiryId: inquiryId },
   });
-  if (existingAsTarget) {
+  if (existingAsTarget && !opts.allowResaleFromReceivedShare) {
     throw new TenantInquiryShareError('연계받은 접수는 다시 연계할 수 없습니다.');
   }
 
@@ -331,6 +333,7 @@ export async function createTenantInquiryShare(opts: {
   transferFee?: number | null;
   fieldMask?: unknown;
   fieldPreset?: unknown;
+  allowResaleFromReceivedShare?: boolean;
 }) {
   const source = await prisma.inquiry.findFirst({
     where: { id: opts.inquiryId, tenantId: opts.viewerTenantId },

@@ -55,6 +55,10 @@ export type DbMarketplaceSellerListing = {
   buyerName?: string | null;
   buyerConfirmedAt?: string | null;
   sellerConfirmedAt?: string | null;
+  hopIndex?: number;
+  rootTenantId?: string | null;
+  rootTenantName?: string | null;
+  dealBalanceAmount?: number | null;
   audiences: DbMarketplaceAudienceItem[];
 };
 
@@ -398,6 +402,28 @@ export async function completeRecallDbMarketplaceListing(
 }> {
   const res = await fetch(
     `${API}/db-marketplace/${encodeURIComponent(listingId)}/seller-complete-recall`,
+    {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify({ password }),
+    },
+  );
+  return parseJson(res);
+}
+
+export async function cartRecallDbMarketplaceListing(
+  token: string,
+  listingId: string,
+  password: string,
+): Promise<{
+  inquiryId: string;
+  mode: 'cart';
+  hopIndex: number;
+  listingFee: number;
+  buyerLabel: string | null;
+}> {
+  const res = await fetch(
+    `${API}/db-marketplace/${encodeURIComponent(listingId)}/seller-cart-recall`,
     {
       method: 'POST',
       headers: headers(token),

@@ -35,6 +35,12 @@ import {
   applyDbMarketplaceListFilters,
   type DbMarketplaceListFilters,
 } from './dbMarketplaceListFilters.js';
+import {
+  findParentListingForResale,
+  resolveRootListingId,
+  resolveRootTenantId,
+} from './dbMarketplaceChain.helpers.js';
+import { appendDbMarketplaceEvent } from './dbMarketplaceHistory.service.js';
 
 export class DbMarketplaceError extends Error {
   constructor(
@@ -49,6 +55,7 @@ export class DbMarketplaceError extends Error {
 const LISTING_INCLUDE = {
   inquiry: { select: INQUIRY_MASK_SELECT },
   tenant: { select: { id: true, name: true } },
+  rootTenant: { select: { id: true, name: true } },
   audiences: true,
   buyerTenant: { select: { id: true, name: true } },
   buyerExternalCompany: { select: { id: true, name: true } },
@@ -78,14 +85,21 @@ async function findInquiryForSeller(tenantId: string, inquiryId: string) {
     },
   });
   if (!inquiry) throw new DbMarketplaceError('접수를 찾을 수 없습니다.', 404);
-  if (inquiry.tenantSharesAsSource.length > 0) {
+
+  const parentListing = await findParentListingForResale(tenantId, inquiryId);
+
+  if (!parentListing && inquiry.tenantSharesAsSource.length > 0) {
     throw new DbMarketplaceError('이미 파트너에 직접 연계된 접수는 마켓에 올릴 수 없습니다.', 400);
   }
-  return inquiry;
+
+  return { inquiry, parentListing };
 }
 
-function assertPublishableBalance(inquiry: { serviceBalanceAmount: number | null }, listingFee: number) {
-  const display = computeMarketplaceDisplayAmount(inquiry.serviceBalanceAmount, listingFee);
+function assertPublishableBalance(
+  balanceAmount: number | null,
+  listingFee: number,
+) {
+  const display = computeMarketplaceDisplayAmount(balanceAmount, listingFee);
   if (display == null) {
     throw new DbMarketplaceError('잔금을 확인한 뒤 수수료를 입력해 주세요.', 400);
   }
@@ -129,8 +143,10 @@ export async function upsertDbListingDraft(
   const listingFee = parseListingFeeInput(listingFeeRaw);
   if (listingFee == null) throw new DbMarketplaceError('수수료를 입력해 주세요.', 400);
 
-  const inquiry = await findInquiryForSeller(tenantId, inquiryId);
-  assertPublishableBalance(inquiry, listingFee);
+  const { inquiry, parentListing } = await findInquiryForSeller(tenantId, inquiryId);
+  const dealBalanceSnapshot =
+    parentListing?.dealBalanceAmount ?? inquiry.serviceBalanceAmount;
+  assertPublishableBalance(inquiry.serviceBalanceAmount, listingFee);
 
   const existing = inquiry.dbListing;
   if (
@@ -143,6 +159,9 @@ export async function upsertDbListingDraft(
   }
 
   const displayAmount = computeMarketplaceDisplayAmount(inquiry.serviceBalanceAmount, listingFee);
+  const hopIndex = parentListing ? parentListing.hopIndex + 1 : 0;
+  const rootTenantId = resolveRootTenantId(parentListing, tenantId);
+  const parentListingId = parentListing?.id ?? null;
 
   if (existing) {
     return prisma.inquiryDbListing.update({
@@ -152,20 +171,55 @@ export async function upsertDbListingDraft(
         displayAmount,
         status: 'DRAFT',
         withdrawnAt: null,
+        hopIndex,
+        rootTenantId,
+        parentListingId,
+        dealBalanceAmount: dealBalanceSnapshot,
+        rootListingId: resolveRootListingId(parentListing, existing.id),
       },
       include: LISTING_INCLUDE,
     });
   }
 
-  return prisma.inquiryDbListing.create({
+  const id = randomUUID();
+  const created = await prisma.inquiryDbListing.create({
     data: {
-      id: randomUUID(),
+      id,
       tenantId,
       inquiryId,
       listingFee,
       displayAmount,
       status: 'DRAFT',
+      hopIndex,
+      rootTenantId,
+      parentListingId,
+      dealBalanceAmount: dealBalanceSnapshot,
+      rootListingId: resolveRootListingId(parentListing, id),
     },
+    include: LISTING_INCLUDE,
+  });
+
+  if (!parentListing) {
+    await prisma.inquiryDbListing.update({
+      where: { id: created.id },
+      data: { rootListingId: created.id },
+    });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (parentListing) {
+      await appendDbMarketplaceEvent(tx, {
+        tenantId,
+        listingId: created.id,
+        eventType: 'RESALE_DRAFT_CREATED',
+        hopIndex,
+        payload: { parentListingId: parentListing.id },
+      });
+    }
+  });
+
+  return prisma.inquiryDbListing.findUniqueOrThrow({
+    where: { id: created.id },
     include: LISTING_INCLUDE,
   });
 }
@@ -259,7 +313,10 @@ export async function publishDbListing(tenantId: string, listingId: string) {
     throw new DbMarketplaceError('게시할 수 없는 상태입니다.', 400);
   }
 
-  assertPublishableBalance(listing.inquiry, listing.listingFee);
+  assertPublishableBalance(
+    listing.dealBalanceAmount ?? listing.inquiry.serviceBalanceAmount,
+    listing.listingFee,
+  );
   const displayAmount = computeMarketplaceDisplayAmount(
     listing.inquiry.serviceBalanceAmount,
     listing.listingFee,
@@ -802,6 +859,7 @@ export async function getDbMarketplaceListingById(
     include: {
       inquiry: { select: INQUIRY_FULL_SELECT },
       tenant: { select: { id: true, name: true } },
+      rootTenant: { select: { id: true, name: true } },
       buyerTenant: { select: { id: true, name: true } },
       buyerExternalCompany: { select: { id: true, name: true } },
       holdBuyerTenant: { select: { id: true, name: true } },
@@ -866,6 +924,10 @@ export async function getDbMarketplaceListingById(
     inquiry: row.inquiry,
     role,
     hold,
+    hopIndex: row.hopIndex,
+    rootTenantId: row.rootTenantId,
+    rootTenantName: row.rootTenant?.name ?? null,
+    dealBalanceAmount: row.dealBalanceAmount,
   });
 
   const showFull = row.status === 'CONFIRMED' && (isActualSeller || isBuyer || isExternalBuyer);
@@ -939,6 +1001,10 @@ export function serializeSellerListing(row: {
   buyerExternalCompanyId?: string | null;
   buyerConfirmedAt?: Date | null;
   sellerConfirmedAt?: Date | null;
+  hopIndex?: number;
+  rootTenantId?: string | null;
+  rootTenant?: { name: string } | null;
+  dealBalanceAmount?: number | null;
   buyerTenant?: { name: string } | null;
   buyerExternalCompany?: { name: string } | null;
   audiences?: Array<{
@@ -966,6 +1032,10 @@ export function serializeSellerListing(row: {
     buyerName: row.buyerTenant?.name ?? row.buyerExternalCompany?.name ?? null,
     buyerConfirmedAt: row.buyerConfirmedAt?.toISOString() ?? null,
     sellerConfirmedAt: row.sellerConfirmedAt?.toISOString() ?? null,
+    hopIndex: row.hopIndex ?? 0,
+    rootTenantId: row.rootTenantId ?? null,
+    rootTenantName: row.rootTenant?.name ?? null,
+    dealBalanceAmount: row.dealBalanceAmount ?? null,
     audiences: (row.audiences ?? []).map((a) => ({
       id: a.id,
       audienceKind: a.audienceKind,
