@@ -369,6 +369,8 @@ export type ExternalSettlementCompanyDetail = {
     feeAmount: number;
     signedFeeAmount: number;
     viaMarketplace?: boolean;
+    marketplaceRevenueAmount?: number | null;
+    marketplaceRevenueLabel?: string | null;
   }>;
 };
 

@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { sendJsonToUser } from '../realtime/realtimeHub.js';
 
 export type DbMarketplaceAudienceRef = {
   audienceKind: string;
@@ -141,20 +142,46 @@ export async function notifyDbMarketplaceConfirmed(opts: {
   buyerKind: 'PARTNER_TENANT' | 'EXTERNAL_COMPANY';
   buyerTenantId: string | null;
   buyerExternalCompanyId: string | null;
+  handoff?: {
+    listingId: string;
+    targetInquiryId: string | null;
+    customerName: string;
+    sellerTenantName: string;
+    buyerKind: 'PARTNER_TENANT' | 'EXTERNAL_COMPANY';
+  };
 }): Promise<void> {
   const userIds = new Set<string>();
   for (const id of await activeStaffAdminMarketerUserIds(opts.sellerTenantId)) userIds.add(id);
 
+  const buyerUserIds: string[] = [];
   if (opts.buyerKind === 'PARTNER_TENANT' && opts.buyerTenantId) {
-    for (const id of await activeStaffAdminMarketerUserIds(opts.buyerTenantId)) userIds.add(id);
+    for (const id of await activeStaffAdminMarketerUserIds(opts.buyerTenantId)) {
+      userIds.add(id);
+      buyerUserIds.push(id);
+    }
   }
   if (opts.buyerKind === 'EXTERNAL_COMPANY' && opts.buyerExternalCompanyId) {
     for (const id of await externalPartnerUserIds(opts.sellerTenantId, opts.buyerExternalCompanyId)) {
       userIds.add(id);
+      buyerUserIds.push(id);
     }
   }
 
   if (userIds.size > 0) await notifyInboxRefresh([...userIds]);
+
+  if (opts.handoff && buyerUserIds.length > 0) {
+    const payload = {
+      type: 'db-marketplace:handoff-confirmed' as const,
+      listingId: opts.handoff.listingId,
+      targetInquiryId: opts.handoff.targetInquiryId,
+      customerName: opts.handoff.customerName,
+      sellerTenantName: opts.handoff.sellerTenantName,
+      buyerKind: opts.handoff.buyerKind,
+    };
+    for (const id of buyerUserIds) {
+      sendJsonToUser(id, payload);
+    }
+  }
 }
 
 /** 판매자 구매 신청 거절 — OPEN 복귀, 판매자·구매자·시청자 갱신 */

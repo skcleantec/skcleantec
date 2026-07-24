@@ -66,6 +66,20 @@ export function formatWon(n: number | null | undefined): string {
   return `${Math.round(n).toLocaleString('ko-KR')}원`;
 }
 
+/** 서비스 예약금 */
+export function resolveMarketplaceServiceDeposit(row: MarketplaceAmountRow): number | null {
+  const deposit = row.serviceDepositAmount;
+  if (deposit != null && Number.isFinite(deposit)) {
+    return Math.max(0, Math.round(deposit));
+  }
+  const total = resolveMarketplaceServiceTotal(row);
+  const balance = resolveMarketplaceServiceBalance(row);
+  if (total != null && balance != null && total >= balance) {
+    return Math.max(0, total - balance);
+  }
+  return null;
+}
+
 export function DbMarketplaceAmountSummaryBlock({
   row,
   compact = false,
@@ -76,6 +90,7 @@ export function DbMarketplaceAmountSummaryBlock({
   showSellerFee?: boolean;
 }) {
   const total = resolveMarketplaceServiceTotal(row);
+  const deposit = resolveMarketplaceServiceDeposit(row);
   const fee = resolveMarketplaceBuyerTotalFee(row);
   const balance = resolveMarketplaceServiceBalance(row);
   const priorFees = resolveMarketplacePriorFees(row);
@@ -86,6 +101,10 @@ export function DbMarketplaceAmountSummaryBlock({
       <p>
         <span className="text-gray-500">총액 </span>
         <span className="font-semibold text-slate-900">{formatWon(total)}</span>
+      </p>
+      <p>
+        <span className="text-gray-500">예약금 </span>
+        <span className="font-semibold text-slate-800">{formatWon(deposit)}</span>
       </p>
       <p>
         <span className="text-gray-500">수수료 </span>

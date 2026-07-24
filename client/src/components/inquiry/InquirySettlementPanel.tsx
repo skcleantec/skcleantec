@@ -708,7 +708,7 @@ export function InquirySettlementPanel({
         <h3 className="text-fluid-xs font-semibold text-blue-900">결제 금액 내역</h3>
         <span className="max-w-[58%] text-right text-fluid-2xs leading-snug text-blue-800">
           {isMarketplaceTargetShare
-            ? '정보공유 — 총액·수수료·잔금은 각각 별도입니다.'
+            ? '정보공유 — 총액·예약금·수수료·잔금은 각각 별도입니다.'
             : '총액·예약금은 서비스 계약 기준. 잔금은 회사입금 추가결재만 포함(현장결재 제외)'}
         </span>
       </header>
@@ -716,7 +716,7 @@ export function InquirySettlementPanel({
 
       <div className={compact ? 'space-y-px' : 'divide-y divide-gray-100 bg-white'}>
         {row(isMarketplaceTargetShare ? '총액' : '총 결제금액 (서비스)', totalDisplay)}
-        {!isMarketplaceTargetShare ? row('예약금(선결제)', depositDisplay, 'minus') : null}
+        {row('예약금(선결제)', depositDisplay, 'minus')}
         {isMarketplaceTargetShare
           ? row('수수료', formatWon(tenantShareBalance.partnerFee))
           : tenantShareBalance.showPartnerFeeRow && tenantShareBalance.partnerFee > 0
@@ -726,6 +726,13 @@ export function InquirySettlementPanel({
                 'minus',
               )
             : null}
+        {tenantShareBalance.marketplaceCompanyRevenue != null &&
+        tenantShareBalance.marketplaceCompanyRevenueLabel ? (
+          row(
+            tenantShareBalance.marketplaceCompanyRevenueLabel,
+            formatWon(tenantShareBalance.marketplaceCompanyRevenue),
+          )
+        ) : null}
         {arcItems.map((it) => (
           <div
             key={it.id}

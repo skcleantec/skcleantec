@@ -183,6 +183,8 @@ export function AdminTenantPartnerSettlementPage() {
       isCancelled?: boolean;
       feeAmount?: number;
       viaMarketplace?: boolean;
+      marketplaceRevenueAmount?: number | null;
+      marketplaceRevenueLabel?: string | null;
     }>
   >([]);
   const [detailSummary, setDetailSummary] = useState<{
@@ -367,6 +369,8 @@ export function AdminTenantPartnerSettlementPage() {
           isCancelled: it.isCancelled,
           feeAmount: it.feeAmount,
           viaMarketplace: it.viaMarketplace,
+          marketplaceRevenueAmount: it.marketplaceRevenueAmount,
+          marketplaceRevenueLabel: it.marketplaceRevenueLabel,
         })),
       );
     } catch {
@@ -1078,6 +1082,14 @@ export function AdminTenantPartnerSettlementPage() {
                             {settlementDetailFeeLabel(it).text}
                           </strong>
                         </p>
+                        {it.marketplaceRevenueAmount != null && it.marketplaceRevenueLabel ? (
+                          <p className="mt-1 flex items-center justify-between">
+                            <span className="text-gray-500">{it.marketplaceRevenueLabel}</span>
+                            <strong className="tabular-nums text-xs font-semibold text-slate-800">
+                              {won(it.marketplaceRevenueAmount)}
+                            </strong>
+                          </p>
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -1089,6 +1101,7 @@ export function AdminTenantPartnerSettlementPage() {
                           <th className="px-3 py-2 text-center">접수번호</th>
                           <th className="px-3 py-2 text-center">이름</th>
                           <th className="px-3 py-2 text-center">수수료</th>
+                          <th className="px-3 py-2 text-center">매출</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1106,6 +1119,13 @@ export function AdminTenantPartnerSettlementPage() {
                             </td>
                             <td className={`px-3 py-2 text-right tabular-nums text-xs ${settlementDetailFeeLabel(it).className}`}>
                               {settlementDetailFeeLabel(it).text}
+                            </td>
+                            <td className="px-3 py-2 text-center text-xs text-slate-700">
+                              {it.marketplaceRevenueAmount != null && it.marketplaceRevenueLabel ? (
+                                <span title={it.marketplaceRevenueLabel}>{won(it.marketplaceRevenueAmount)}</span>
+                              ) : (
+                                '—'
+                              )}
                             </td>
                           </tr>
                         ))}

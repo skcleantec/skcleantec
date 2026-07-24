@@ -106,3 +106,61 @@ export function assertPublishableMarketplaceAmounts(
     throw new Error('수수료를 입력해 주세요.');
   }
 }
+
+export const MARKETPLACE_REVENUE_LABEL_SELLER_INITIAL = '정보공유 예약금+수수료';
+
+export const MARKETPLACE_REVENUE_LABEL_SELLER_RESALE = '정보공유 수수료';
+
+export const MARKETPLACE_REVENUE_LABEL_BUYER = '정보공유 잔금−수수료';
+
+export type MarketplaceSellerRevenue = {
+  amount: number;
+  label: string;
+  depositPart: number;
+  feePart: number;
+};
+
+export function computeMarketplaceSellerRevenue(opts: {
+  hopIndex: number;
+  serviceDepositAmount: number | null | undefined;
+  listingFee: number;
+}): MarketplaceSellerRevenue {
+  const feePart = Math.max(0, Math.round(opts.listingFee));
+  const depositPart =
+    opts.hopIndex <= 0
+      ? Math.max(
+          0,
+          opts.serviceDepositAmount != null && Number.isFinite(Number(opts.serviceDepositAmount))
+            ? Math.round(Number(opts.serviceDepositAmount))
+            : 0,
+        )
+      : 0;
+  const label =
+    opts.hopIndex <= 0 ? MARKETPLACE_REVENUE_LABEL_SELLER_INITIAL : MARKETPLACE_REVENUE_LABEL_SELLER_RESALE;
+  return {
+    amount: depositPart + feePart,
+    label,
+    depositPart,
+    feePart,
+  };
+}
+
+export function computeMarketplaceBuyerCompanyRevenue(opts: {
+  serviceTotalAmount: number | null | undefined;
+  serviceDepositAmount: number | null | undefined;
+  serviceBalanceAmount?: number | null | undefined;
+  buyerTotalFee: number;
+}): number {
+  const balance =
+    computeMarketplaceServiceBalanceAmount({
+      serviceTotalAmount: opts.serviceTotalAmount,
+      serviceDepositAmount: opts.serviceDepositAmount,
+      serviceBalanceAmount: opts.serviceBalanceAmount,
+    }) ?? 0;
+  const fee = Math.max(0, Math.round(opts.buyerTotalFee));
+  return Math.max(0, balance - fee);
+}
+
+export function marketplaceSellerRevenueLabel(hopIndex: number): string {
+  return hopIndex <= 0 ? MARKETPLACE_REVENUE_LABEL_SELLER_INITIAL : MARKETPLACE_REVENUE_LABEL_SELLER_RESALE;
+}

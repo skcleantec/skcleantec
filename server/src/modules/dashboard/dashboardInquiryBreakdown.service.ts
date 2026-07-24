@@ -11,8 +11,10 @@ import {
   getInquiryAmount,
   kstRecentMonthKeys,
   preferredDateYmd,
+  resolveInquiryCompanyRevenueAmount,
   SALES_AMOUNT_STATUSES,
 } from './dashboardSales.helpers.js';
+import { loadMarketplaceInquiryRevenueOverrideMap } from '../db-marketplace/dbMarketplaceRevenue.helpers.js';
 
 export type DashboardRegionDateBasis = 'createdAt' | 'preferredDate';
 
@@ -60,6 +62,7 @@ export type DashboardInquiryBreakdown = {
 };
 
 type InquirySalesRow = {
+  id: string;
   createdAt: Date;
   address: string;
   areaPyeong: number | null;
@@ -267,6 +270,7 @@ export async function buildDashboardInquiryBreakdown(
         ],
       },
       select: {
+        id: true,
         createdAt: true,
         address: true,
         areaPyeong: true,
@@ -289,6 +293,11 @@ export async function buildDashboardInquiryBreakdown(
 
   const pricePerPyeong = estimateConfig;
 
+  const revenueOverrideMap = await loadMarketplaceInquiryRevenueOverrideMap(
+    tenantId,
+    inquiries.map((inq) => inq.id),
+  );
+
   const regionCreatedAt = createRegionAggState();
   const regionPreferred = createRegionAggState();
 
@@ -300,7 +309,11 @@ export async function buildDashboardInquiryBreakdown(
   for (const inq of inquiries as InquirySalesRow[]) {
     const createdYmd = effectiveSalesDateYmd(inq);
     const createdMk = createdYmd.slice(0, 7);
-    const amt = getInquiryAmount(inq, pricePerPyeong);
+    const amt = resolveInquiryCompanyRevenueAmount(
+      inq,
+      pricePerPyeong,
+      revenueOverrideMap.get(inq.id)?.amount,
+    );
 
     if (isSalesStatus(inq.status) && monthAgg.has(createdMk)) {
       const cur = monthAgg.get(createdMk)!;

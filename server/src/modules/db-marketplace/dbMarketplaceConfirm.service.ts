@@ -297,6 +297,14 @@ export async function confirmDbListingSeller(
     buyerKind: listing.buyerKind,
     buyerTenantId: listing.buyerTenantId,
     buyerExternalCompanyId: listing.buyerExternalCompanyId,
+    handoff: {
+      listingId,
+      targetInquiryId:
+        listing.buyerKind === 'PARTNER_TENANT' ? targetInquiryId : listing.inquiryId,
+      customerName: listing.inquiry.customerName,
+      sellerTenantName: confirmed.tenant.name,
+      buyerKind: listing.buyerKind,
+    },
   });
 
   const feeInquiry = await prisma.inquiry.findFirst({

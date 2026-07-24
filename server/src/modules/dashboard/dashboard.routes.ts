@@ -13,8 +13,10 @@ import {
   effectiveSalesDateYmd,
   getInquiryAmount,
   kstYmdAddDays,
+  resolveInquiryCompanyRevenueAmount,
   SALES_AMOUNT_STATUSES,
 } from './dashboardSales.helpers.js';
+import { loadMarketplaceInquiryRevenueOverrideMap } from '../db-marketplace/dbMarketplaceRevenue.helpers.js';
 import { buildDashboardInquiryBreakdown } from './dashboardInquiryBreakdown.service.js';
 import { buildDashboardSalesBreakdown } from './dashboardSalesBreakdown.service.js';
 import { buildDashboardSettlementSummary } from './dashboardSettlementSummary.service.js';
@@ -97,6 +99,7 @@ router.get('/stats', async (req, res) => {
         createdAt: { gte: salesWindowGte },
       },
       select: {
+        id: true,
         createdAt: true,
         areaPyeong: true,
         serviceTotalAmount: true,
@@ -176,6 +179,13 @@ router.get('/stats', async (req, res) => {
 
   const pricePerPyeong = estimateConfig;
 
+  const revenueOverrideMap = await loadMarketplaceInquiryRevenueOverrideMap(
+    tenantId,
+    inquiriesForSales.map((i) => i.id),
+  );
+  const companyRevenueForInquiry = (inq: (typeof inquiriesForSales)[number]) =>
+    resolveInquiryCompanyRevenueAmount(inq, pricePerPyeong, revenueOverrideMap.get(inq.id)?.amount);
+
   const teamLeaders = teamLeadersRaw.filter((tl) =>
     isUserEmployedOnYmd(tl.hireDate, tl.resignationDate, todayYmd)
   );
@@ -235,12 +245,12 @@ router.get('/stats', async (req, res) => {
   /** 오늘 매출: 접수일(KST)이 오늘인 건 */
   const todaySales = inquiriesForSales
     .filter((i) => effectiveSalesDateYmd(i) === todayYmd)
-    .reduce((sum, i) => sum + getInquiryAmount(i, pricePerPyeong), 0);
+    .reduce((sum, i) => sum + companyRevenueForInquiry(i), 0);
 
   /** 이번 달 매출: 접수일(KST)이 이번 달인 건 */
   const monthSales = inquiriesForSales
     .filter((i) => effectiveSalesDateYmd(i).startsWith(kstMonthKey))
-    .reduce((sum, i) => sum + getInquiryAmount(i, pricePerPyeong), 0);
+    .reduce((sum, i) => sum + companyRevenueForInquiry(i), 0);
 
   /** 팀장별 매출: 접수일(KST)이 이번 달인 건만 — 1차 배정 팀장에 합산 */
   const salesByTeamLeaderMap = new Map<string, { teamLeaderId: string; name: string; amount: number }>(
@@ -248,7 +258,7 @@ router.get('/stats', async (req, res) => {
   );
   for (const inq of inquiriesForSales) {
     if (!effectiveSalesDateYmd(inq).startsWith(kstMonthKey)) continue;
-    const amt = getInquiryAmount(inq, pricePerPyeong);
+    const amt = companyRevenueForInquiry(inq);
     if (amt <= 0) continue;
     const assigned = (inq as { assignments?: { teamLeader: { id: string; name: string } }[] }).assignments?.[0]?.teamLeader;
     if (!assigned) continue;
@@ -263,7 +273,7 @@ router.get('/stats', async (req, res) => {
   for (const inq of inquiriesForSales) {
     const ymd = effectiveSalesDateYmd(inq);
     if (!dailyAmountByYmd.has(ymd)) continue;
-    dailyAmountByYmd.set(ymd, (dailyAmountByYmd.get(ymd) ?? 0) + getInquiryAmount(inq, pricePerPyeong));
+    dailyAmountByYmd.set(ymd, (dailyAmountByYmd.get(ymd) ?? 0) + companyRevenueForInquiry(inq));
   }
   const dailySales: { date: string; amount: number }[] = [...dailyAmountByYmd.entries()]
     .map(([date, amount]) => ({ date, amount }))

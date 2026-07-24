@@ -3,8 +3,10 @@ import { kstMonthRangeYm, kstTodayYmd, kstYmdKeysInRange } from '../inquiries/in
 import {
   effectiveSalesDateYmd,
   getInquiryAmount,
+  resolveInquiryCompanyRevenueAmount,
   SALES_AMOUNT_STATUSES,
 } from './dashboardSales.helpers.js';
+import { loadMarketplaceInquiryRevenueOverrideMap } from '../db-marketplace/dbMarketplaceRevenue.helpers.js';
 
 export type DashboardSalesBreakdown = {
   monthKey: string;
@@ -46,6 +48,7 @@ export async function buildDashboardSalesBreakdown(
         createdAt: { gte: range.gte, lte: range.lte },
       },
       select: {
+        id: true,
         createdAt: true,
         areaPyeong: true,
         serviceTotalAmount: true,
@@ -59,6 +62,11 @@ export async function buildDashboardSalesBreakdown(
       },
     }),
   ]);
+
+  const revenueOverrideMap = await loadMarketplaceInquiryRevenueOverrideMap(
+    tenantId,
+    inquiries.map((inq) => inq.id),
+  );
 
   const pricePerPyeong = estimateConfig;
   const dailyMap = new Map<string, { amount: number; inquiryCount: number }>();
@@ -76,7 +84,11 @@ export async function buildDashboardSalesBreakdown(
   for (const inq of inquiries) {
     const ymd = effectiveSalesDateYmd(inq);
     if (!ymd.startsWith(monthKey)) continue;
-    const amt = getInquiryAmount(inq, pricePerPyeong);
+    const amt = resolveInquiryCompanyRevenueAmount(
+      inq,
+      pricePerPyeong,
+      revenueOverrideMap.get(inq.id)?.amount,
+    );
     inquiryCount += 1;
     totalSales += amt;
 

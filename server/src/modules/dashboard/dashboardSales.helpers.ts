@@ -32,6 +32,18 @@ export function getInquiryAmount(
   return base + extra;
 }
 
+/** 정보공유 매출 override — 없으면 일반 getInquiryAmount */
+export function resolveInquiryCompanyRevenueAmount(
+  inq: Parameters<typeof getInquiryAmount>[0],
+  pricePerPyeong: number,
+  marketplaceRevenueOverride: number | null | undefined,
+): number {
+  if (marketplaceRevenueOverride != null && Number.isFinite(marketplaceRevenueOverride)) {
+    return Math.max(0, Math.round(marketplaceRevenueOverride));
+  }
+  return getInquiryAmount(inq, pricePerPyeong);
+}
+
 /** 매출·접수 집계 기준일(KST): 접수일(createdAt) */
 export function effectiveSalesDateYmd(inquiry: { createdAt: Date }): string {
   return inquiry.createdAt.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);

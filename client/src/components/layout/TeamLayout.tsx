@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { Outlet, useNavigate, NavLink, Link, useLocation } from 'react-router-dom';
 import { getToken, clearToken } from '../../stores/auth';
 import { clearTeamToken, getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
@@ -6,7 +6,7 @@ import { getTeamMe, getTeamNavBadges, type TeamViewerMe } from '../../api/team';
 import { isAuthSessionExpiredError } from '../../api/auth';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { useInboxRealtime, useRosterAckRealtime, type RosterAckPayload } from '../../hooks/useInboxRealtime';
+import { useInboxRealtime, useRosterAckRealtime, useDbMarketplaceHandoffConfirmedRealtime, type RosterAckPayload, type DbMarketplaceHandoffConfirmedRtPayload } from '../../hooks/useInboxRealtime';
 import { UserProfileMenu } from '../common/UserProfileMenu';
 import {
   ProfileOnboardingModal,
@@ -468,6 +468,40 @@ export function TeamLayout() {
 
   const dismissRosterAckBanner = useCallback(() => setRosterAckBanner(null), []);
 
+  const [marketplaceHandoffConfirmedAlert, setMarketplaceHandoffConfirmedAlert] =
+    useState<DbMarketplaceHandoffConfirmedRtPayload | null>(null);
+  const [marketplaceHandoffConfirmedAlertOpen, setMarketplaceHandoffConfirmedAlertOpen] = useState(false);
+  const marketplaceHandoffConfirmedAnimRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const closeMarketplaceHandoffConfirmedStrip = useCallback(() => {
+    setMarketplaceHandoffConfirmedAlertOpen(false);
+    if (marketplaceHandoffConfirmedAnimRef.current) clearTimeout(marketplaceHandoffConfirmedAnimRef.current);
+    marketplaceHandoffConfirmedAnimRef.current = setTimeout(
+      () => setMarketplaceHandoffConfirmedAlert(null),
+      360,
+    );
+  }, []);
+
+  const openMarketplaceHandoffConfirmedStrip = useCallback(
+    (p: DbMarketplaceHandoffConfirmedRtPayload) => {
+      setMarketplaceHandoffConfirmedAlert(p);
+      setMarketplaceHandoffConfirmedAlertOpen(true);
+      if (marketplaceHandoffConfirmedAnimRef.current) clearTimeout(marketplaceHandoffConfirmedAnimRef.current);
+      marketplaceHandoffConfirmedAnimRef.current = null;
+    },
+    [],
+  );
+
+  const openMarketplaceHandoffConfirmedInquiry = useCallback(() => {
+    const inquiryId = marketplaceHandoffConfirmedAlert?.targetInquiryId;
+    closeMarketplaceHandoffConfirmedStrip();
+    if (inquiryId) {
+      navigate(`/team/assignments?openInquiry=${encodeURIComponent(inquiryId)}`);
+      return;
+    }
+    navigate('/team/db-marketplace?tab=pending');
+  }, [closeMarketplaceHandoffConfirmedStrip, marketplaceHandoffConfirmedAlert, navigate]);
+
   useEffect(() => {
     const token = getTeamToken();
     if (!token) {
@@ -647,6 +681,17 @@ export function TeamLayout() {
   const hideTeamDayoffs = userRole === 'EXTERNAL_PARTNER' && !previewExternal;
   const showDbMarketplace =
     isExternalPartner && Boolean(tenantFeatures && hasFeature(tenantFeatures, 'mod_db_marketplace'));
+
+  useDbMarketplaceHandoffConfirmedRealtime(
+    teamToken,
+    (p) => {
+      if (p.buyerKind !== 'EXTERNAL_COMPANY') return;
+      openMarketplaceHandoffConfirmedStrip(p);
+      fetchTeamBadges();
+    },
+    Boolean(teamToken && showDbMarketplace),
+  );
+
   let previewQuery = '';
   if (previewExternal) {
     const q = new URLSearchParams({
@@ -709,6 +754,53 @@ export function TeamLayout() {
           onDismiss={dismissRosterAckBanner}
           showThai={!isExternalPartner}
         />
+      ) : null}
+      {marketplaceHandoffConfirmedAlert != null ? (
+        <div
+          className="grid shrink-0 transition-[grid-template-rows] duration-300 ease-out"
+          style={{ gridTemplateRows: marketplaceHandoffConfirmedAlertOpen ? '1fr' : '0fr' }}
+          aria-hidden={!marketplaceHandoffConfirmedAlertOpen}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="relative border-b border-emerald-800/30 bg-gradient-to-r from-emerald-600 to-green-600 text-white">
+              <button
+                type="button"
+                role="status"
+                aria-live="polite"
+                aria-label="구매 접수 열기"
+                onClick={openMarketplaceHandoffConfirmedInquiry}
+                className="flex w-full flex-col items-center justify-center bg-gradient-to-r from-emerald-600 to-green-600 px-8 py-2 hover:from-emerald-700 hover:to-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:px-10 sm:py-2.5"
+              >
+                <p className="max-w-4xl text-center text-xs font-semibold leading-snug [text-wrap:pretty] sm:text-sm">
+                  구매한 접수건이 인계가 완료되었습니다
+                  {marketplaceHandoffConfirmedAlert.customerName ? (
+                    <span className="font-normal text-emerald-50">
+                      {' '}
+                      · {marketplaceHandoffConfirmedAlert.customerName}
+                    </span>
+                  ) : null}
+                  {marketplaceHandoffConfirmedAlert.sellerTenantName ? (
+                    <span className="font-normal text-emerald-50/95">
+                      {' '}
+                      · {marketplaceHandoffConfirmedAlert.sellerTenantName}
+                    </span>
+                  ) : null}
+                </p>
+                <span className="mt-0.5 text-[10px] text-emerald-50/95">탭하여 배정 목록 열기</span>
+              </button>
+              <button
+                type="button"
+                aria-label="닫기"
+                onClick={closeMarketplaceHandoffConfirmedStrip}
+                className="absolute right-1.5 top-1/2 flex h-8 w-8 shrink-0 -translate-y-1/2 items-center justify-center rounded-md text-white hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                  <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
       <header className="shadow-md theme-dark-header">
         <div className="mx-auto flex min-w-0 max-w-6xl items-center justify-between gap-2 px-4 py-2.5">

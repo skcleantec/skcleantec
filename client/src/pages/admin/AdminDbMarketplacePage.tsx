@@ -606,37 +606,6 @@ export function AdminDbMarketplacePage() {
         <p className="mt-1 text-fluid-xs text-gray-600">{tabDescription}</p>
       </div>
 
-      {sellerPendingCount > 0 ? (
-        <div
-          className={`rounded-lg border px-3 py-2.5 text-fluid-2xs leading-snug sm:text-fluid-xs ${
-            tab === 'pending'
-              ? 'border-amber-200 bg-amber-50 text-amber-950'
-              : 'border-amber-300 bg-amber-50/90 text-amber-950'
-          }`}
-          role="status"
-        >
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="font-semibold">
-              거래처가 정보를 인계 요청합니다
-              {sellerPendingCount > 1 ? ` (${sellerPendingCount}건)` : ''}
-            </span>
-            {tab === 'pending' ? (
-              <span className="text-amber-900/90">
-                아래 목록에서 인계 확정 또는 구매 신청 거절을 선택하세요.
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setTab('pending')}
-                className="rounded-md border border-amber-400 bg-white px-2 py-0.5 text-fluid-2xs font-semibold text-amber-900 hover:bg-amber-100 sm:text-fluid-xs"
-              >
-                진행 중 탭 열기
-              </button>
-            )}
-          </div>
-        </div>
-      ) : null}
-
       <DbMarketplaceTabBar options={tabOptionsWithBadges} active={tab} onChange={setTab} />
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">

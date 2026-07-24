@@ -189,6 +189,8 @@ export async function getTenantPartnerSettlementDetail(
     viaMarketplace?: boolean;
     settlementEffectiveDate?: string | null;
     feeAmount?: number;
+    marketplaceRevenueAmount?: number | null;
+    marketplaceRevenueLabel?: string | null;
   }>;
 }> {
   const q = new URLSearchParams({
