@@ -100,11 +100,6 @@ export function InquiryEditSettlementSection({
   return (
     <AdminScheduleDetailSection title="정산 · 옵션" sectionAnchor="settlement">
       <div className="space-y-2">
-        {item?.tenantShare?.role === 'TARGET' && item.tenantShare.viaMarketplace ? (
-          <PartnerReceivedBanner share={item.tenantShare} />
-        ) : item?.marketplaceHandoffAsBuyer ? (
-          <MarketplaceHandoffBuyerBanner meta={item.marketplaceHandoffAsBuyer} />
-        ) : null}
         <div className={inqEditAmountRow}>
           <div>
             <label className={inqEditLabel}>총액 (원)</label>
@@ -351,6 +346,13 @@ export function InquiryEditSettlementSection({
               )}
             </div>
           </details>
+        ) : null}
+        {!isCreate && item ? (
+          item.tenantShare?.role === 'TARGET' && item.tenantShare.viaMarketplace ? (
+            <PartnerReceivedBanner share={item.tenantShare} />
+          ) : item.marketplaceHandoffAsBuyer ? (
+            <MarketplaceHandoffBuyerBanner meta={item.marketplaceHandoffAsBuyer} />
+          ) : null
         ) : null}
         {!isCreate && hasDbMarketplace && item ? (
           <div ref={marketplacePanelRef}>
