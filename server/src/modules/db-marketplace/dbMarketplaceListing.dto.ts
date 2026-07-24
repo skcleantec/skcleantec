@@ -302,6 +302,8 @@ export function buildFullInquiryDto(
 }
 
 export type MarketplaceListingDetailDto = MarketplaceListingMaskedDto & {
+  offerMode?: 'SIMULTANEOUS' | 'PRIORITY' | null;
+  currentPriorityRank?: number | null;
   inquiryId: string;
   buyerKind: string | null;
   buyerName: string | null;

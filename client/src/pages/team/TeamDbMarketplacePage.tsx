@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import {
   bulkTeamBuyerConfirmDbMarketplace,
+  bulkTeamBuyerDeclineDbMarketplace,
   listTeamDbMarketplace,
   getTeamDbMarketplaceListing,
   type DbMarketplaceMaskedItem,
@@ -22,11 +23,16 @@ import {
   marketplaceTableCheckboxCellProps,
 } from '../../components/db-marketplace/DbMarketplaceListUi';
 import {
+  DbMarketplaceBuyBulkButton,
+  DbMarketplaceBuyerDeclineBulkButton,
+} from '../../components/db-marketplace/marketplaceUiParts';
+import {
   formatMarketplaceCleaningSummary,
   formatMarketplaceSchedule,
 } from '../../utils/dbMarketplaceDisplay';
 import {
   canBulkBuyMarketplaceItem,
+  canBuyerDeclinePriorityMarketplaceItem,
 } from '../../utils/dbMarketplaceBulk';
 import { DB_MARKETPLACE_BULK_MAX } from '@shared/dbMarketplacePolicy';
 import {
@@ -230,6 +236,44 @@ export function TeamDbMarketplacePage() {
     }
   };
 
+  const runBulkBuyerDecline = async () => {
+    if (!teamToken || selectedCount === 0) return;
+    const listingIds = items
+      .filter((r) => selectedIds.has(r.id) && canBuyerDeclinePriorityMarketplaceItem(r))
+      .map((r) => r.id);
+    if (listingIds.length === 0) {
+      alert('순위 노출 DB만 거절할 수 있습니다.');
+      return;
+    }
+    if (listingIds.length > DB_MARKETPLACE_BULK_MAX) {
+      alert(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 처리할 수 있습니다.`);
+      return;
+    }
+    if (
+      !window.confirm(
+        `선택 ${listingIds.length}건을 거절합니다. 다음 순위 업체에게 넘어갑니다. 계속할까요?`,
+      )
+    ) {
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const result = await bulkTeamBuyerDeclineDbMarketplace(teamToken, listingIds);
+      setSelectedIds(new Set());
+      setBulkResult({
+        title: '일괄 거절 결과',
+        successLabel: '거절 완료',
+        successCount: result.declined.length,
+        failed: result.failed,
+      });
+      load({ silent: true });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '일괄 거절 실패');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   return (
     <div className={`min-w-0 w-full max-w-full space-y-2 sm:space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
       <DbMarketplaceTabBar options={TAB_OPTIONS} active={tab} onChange={setTab} />
@@ -369,14 +413,11 @@ export function TeamDbMarketplacePage() {
 
       {selectable ? (
         <DbMarketplaceBulkActionBar selectedCount={selectedCount} onClear={() => setSelectedIds(new Set())}>
-          <button
-            type="button"
+          <DbMarketplaceBuyBulkButton disabled={bulkBusy} onClick={() => void runBulkBuy()} />
+          <DbMarketplaceBuyerDeclineBulkButton
             disabled={bulkBusy}
-            className="min-h-[2.75rem] flex-1 rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:min-h-0 sm:flex-none"
-            onClick={() => void runBulkBuy()}
-          >
-            갖고가기
-          </button>
+            onClick={() => void runBulkBuyerDecline()}
+          />
         </DbMarketplaceBulkActionBar>
       ) : null}
 

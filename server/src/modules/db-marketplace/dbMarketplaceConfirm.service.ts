@@ -310,6 +310,124 @@ export async function confirmDbListingSeller(
   return { listing: confirmed, targetInquiryId };
 }
 
+/** 순위 노출 — 현재 순위 구매 후보가 OPEN 상태에서 거절(다음 순위 또는 장바구니) */
+export async function declineDbListingBuyer(listingId: string, buyer: DbMarketplaceBuyerContext) {
+  await expireStaleOpenDbListings();
+
+  const listing = await prisma.inquiryDbListing.findFirst({
+    where: { id: listingId },
+    include: { audiences: true },
+  });
+  if (!listing) throw new DbMarketplaceError('항목을 찾을 수 없습니다.', 404);
+  if (listing.status !== 'OPEN') {
+    throw new DbMarketplaceError('거절할 수 없는 상태입니다.', 400);
+  }
+  if (!isPriorityOfferMode(listing.offerMode)) {
+    throw new DbMarketplaceError('순위 노출 DB만 거절할 수 있습니다.', 400);
+  }
+
+  await assertBuyerCanViewListing(listing, buyer);
+
+  const declinedRank = listing.currentPriorityRank;
+  if (declinedRank == null) {
+    throw new DbMarketplaceError('현재 순위 정보가 없습니다.', 400);
+  }
+
+  const sellerTenantId = listing.tenantId;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (declinedRank < 3) {
+      const nextRank = declinedRank + 1;
+      const result = await tx.inquiryDbListing.updateMany({
+        where: { id: listingId, tenantId: sellerTenantId, status: 'OPEN' },
+        data: { currentPriorityRank: nextRank },
+      });
+      if (result.count !== 1) {
+        throw new DbMarketplaceError('거절 처리에 실패했습니다. 상태를 확인해 주세요.', 409);
+      }
+      await appendDbMarketplaceEvent(tx, {
+        tenantId: sellerTenantId,
+        listingId,
+        eventType: 'PRIORITY_DECLINED',
+        hopIndex: listing.hopIndex,
+        actorUserId: buyer.userId,
+        payload: { rank: declinedRank, nextRank, declinedBy: 'BUYER' },
+      });
+      await appendDbMarketplaceEvent(tx, {
+        tenantId: sellerTenantId,
+        listingId,
+        eventType: 'PRIORITY_ACTIVATED',
+        hopIndex: listing.hopIndex,
+        payload: { rank: nextRank },
+      });
+    } else {
+      const result = await tx.inquiryDbListing.updateMany({
+        where: { id: listingId, tenantId: sellerTenantId, status: 'OPEN' },
+        data: {
+          status: 'DRAFT',
+          currentPriorityRank: null,
+          publishedAt: null,
+          expiresAt: null,
+          expiredAt: null,
+          withdrawnAt: null,
+          ...clearHoldData(),
+        },
+      });
+      if (result.count !== 1) {
+        throw new DbMarketplaceError('거절 처리에 실패했습니다. 상태를 확인해 주세요.', 409);
+      }
+      await appendDbMarketplaceEvent(tx, {
+        tenantId: sellerTenantId,
+        listingId,
+        eventType: 'PRIORITY_DECLINED',
+        hopIndex: listing.hopIndex,
+        actorUserId: buyer.userId,
+        payload: { rank: declinedRank, declinedBy: 'BUYER' },
+      });
+      await appendDbMarketplaceEvent(tx, {
+        tenantId: sellerTenantId,
+        listingId,
+        eventType: 'PRIORITY_EXHAUSTED',
+        hopIndex: listing.hopIndex,
+        actorUserId: buyer.userId,
+        payload: { returnedToDraft: true },
+      });
+    }
+
+    return tx.inquiryDbListing.findUniqueOrThrow({
+      where: { id: listingId },
+      include: {
+        audiences: true,
+        tenant: { select: { id: true, name: true } },
+        buyerTenant: { select: { id: true, name: true } },
+        buyerExternalCompany: { select: { id: true, name: true } },
+      },
+    });
+  });
+
+  if (declinedRank < 3) {
+    await notifyDbMarketplacePriorityRank({
+      sellerTenantId,
+      audiences: updated.audiences,
+      rank: declinedRank + 1,
+    });
+  } else {
+    await notifyDbMarketplacePriorityExhausted(sellerTenantId);
+  }
+
+  const refreshUserIds = new Set<string>();
+  if (buyer.kind === 'PARTNER_TENANT') {
+    for (const id of await activeStaffAdminMarketerUserIds(buyer.tenantId)) refreshUserIds.add(id);
+  } else {
+    for (const id of await externalPartnerUserIds(sellerTenantId, buyer.externalCompanyId)) {
+      refreshUserIds.add(id);
+    }
+  }
+  if (refreshUserIds.size > 0) await notifyInboxRefresh([...refreshUserIds]);
+
+  return updated;
+}
+
 export async function declineDbListingSeller(
   sellerTenantId: string,
   sellerUserId: string,

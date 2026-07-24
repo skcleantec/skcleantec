@@ -939,6 +939,13 @@ export async function listDbMarketplaceListings(
           buyerName,
         };
       }
+      if (role === 'VIEWER' && row.status === 'OPEN') {
+        return {
+          ...masked,
+          offerMode: row.offerMode ?? null,
+          currentPriorityRank: row.currentPriorityRank ?? null,
+        };
+      }
       return masked;
     })
     .sort((a, b) => {
@@ -1065,6 +1072,8 @@ export async function getDbMarketplaceListingById(
 
   const detail: MarketplaceListingDetailDto = {
     ...masked,
+    offerMode: row.offerMode ?? null,
+    currentPriorityRank: row.currentPriorityRank ?? null,
     inquiryId: row.inquiryId,
     buyerKind: row.buyerKind,
     buyerName: row.buyerTenant?.name ?? row.buyerExternalCompany?.name ?? null,

@@ -26,6 +26,7 @@ import { parseDbMarketplaceListFilters } from './dbMarketplaceListFilters.js';
 import {
   confirmDbListingBuyer,
   confirmDbListingSeller,
+  declineDbListingBuyer,
   declineDbListingSeller,
 } from './dbMarketplaceConfirm.service.js';
 import {
@@ -40,6 +41,7 @@ import { notifyDbMarketplacePriorityRank } from './dbMarketplacePriorityNotify.s
 import {
   bulkConfirmDbListingBuyer,
   bulkConfirmDbListingSeller,
+  bulkDeclineDbListingBuyer,
   bulkDeclineDbListingSeller,
   bulkPublishDbListings,
   bulkRemoveDbListingsFromCart,
@@ -140,6 +142,24 @@ router.post('/bulk/buyer-confirm', async (req, res) => {
   const body = req.body as { listingIds?: unknown };
   try {
     const result = await bulkConfirmDbListingBuyer(body.listingIds, {
+      kind: 'PARTNER_TENANT',
+      tenantId,
+      userId: auth.userId,
+    });
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/bulk/buyer-decline', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const body = req.body as { listingIds?: unknown };
+  try {
+    const result = await bulkDeclineDbListingBuyer(body.listingIds, {
       kind: 'PARTNER_TENANT',
       tenantId,
       userId: auth.userId,
@@ -419,6 +439,32 @@ router.post('/:id/buyer-confirm', async (req, res) => {
       return;
     }
     const listing = await confirmDbListingBuyer(listingId, {
+      kind: 'PARTNER_TENANT',
+      tenantId,
+      userId: auth.userId,
+    });
+    res.json({ listing: serializeSellerListing(listing) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/buyer-decline', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const peek = await prisma.inquiryDbListing.findFirst({
+      where: { id: listingId },
+      select: { tenantId: true },
+    });
+    if (peek?.tenantId === tenantId) {
+      res.status(400).json({ error: '자사 DB는 이 경로로 거절할 수 없습니다.' });
+      return;
+    }
+    const listing = await declineDbListingBuyer(listingId, {
       kind: 'PARTNER_TENANT',
       tenantId,
       userId: auth.userId,

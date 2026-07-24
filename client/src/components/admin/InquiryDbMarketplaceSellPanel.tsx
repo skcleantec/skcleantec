@@ -445,7 +445,7 @@ export function InquiryDbMarketplaceSellPanel({
 
       {listing?.offerMode === 'PRIORITY' && listing.status === 'DRAFT' ? (
         <p className={`${panelMetaText} text-amber-900`}>
-          순위 노출 설정됨 — 게시 시 1순위부터 표시됩니다. 3순위까지 거절되면 장바구니로
+          순위 노출 설정됨 — 게시 시 1순위부터 표시됩니다. 현재 순위 업체가 거절하면 다음 순위로 넘어가며, 3순위까지 거절되면 장바구니로
           돌아옵니다.
         </p>
       ) : null}

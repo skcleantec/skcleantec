@@ -4,11 +4,13 @@ import { getToken } from '../../stores/auth';
 import {
   confirmDbMarketplaceBuyer,
   confirmDbMarketplaceSeller,
+  declineDbMarketplaceBuyer,
   declineDbMarketplaceSeller,
   getDbMarketplaceListing,
   removeDbMarketplaceFromCart,
   revertDbMarketplaceToCart,
   confirmTeamDbMarketplaceBuyer,
+  declineTeamDbMarketplaceBuyer,
   getTeamDbMarketplaceListing,
   listDbMarketplaceMessages,
   postDbMarketplaceMessage,
@@ -105,6 +107,16 @@ type Props = {
   apiMode?: 'admin' | 'team';
   token?: string | null;
 };
+
+function canShowBuyerPriorityDecline(row: DbMarketplaceMaskedItem): boolean {
+  return (
+    row.status === 'OPEN' &&
+    row.role === 'VIEWER' &&
+    !row.platformSuspended &&
+    row.offerMode === 'PRIORITY' &&
+    row.currentPriorityRank != null
+  );
+}
 
 export function DbMarketplaceListingDetailModal({
   row,
@@ -204,6 +216,30 @@ export function DbMarketplaceListingDetailModal({
       onClose();
     } catch (e) {
       alert(e instanceof Error ? e.message : '구매 신청 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runBuyerPriorityDecline = async () => {
+    const rank = (detail ?? row).currentPriorityRank;
+    if (
+      !token ||
+      !window.confirm(
+        `이 DB를 거절할까요?${rank != null ? ` 다음 순위(${rank + 1}순위) 업체` : ' 다음 순위 업체'}에게 넘어갑니다.${rank === 3 ? ' 3순위까지 거절되면 판매자 장바구니로 돌아갑니다.' : ''}`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await (apiMode === 'team'
+        ? declineTeamDbMarketplaceBuyer(token, row.id)
+        : declineDbMarketplaceBuyer(token, row.id));
+      onChanged();
+      onClose();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '거절 실패');
     } finally {
       setBusy(false);
     }
@@ -339,6 +375,13 @@ export function DbMarketplaceListingDetailModal({
           {d.platformSuspended ? (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800">
               플랫폼에 의해 일시 중지된 건입니다. 구매 신청할 수 없습니다.
+            </p>
+          ) : null}
+
+          {canShowBuyerPriorityDecline(d) ? (
+            <p className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-900">
+              순위 노출 — 현재 {d.currentPriorityRank}순위 구매 후보입니다. 구매하지 않으면 「거절하기」로
+              다음 순위에 넘길 수 있습니다.
             </p>
           ) : null}
 
@@ -497,14 +540,26 @@ export function DbMarketplaceListingDetailModal({
           <div className="sticky bottom-0 -mx-4 border-t border-gray-100 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {d.status === 'OPEN' && d.role === 'VIEWER' && !d.platformSuspended ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void runBuyerConfirm()}
-                className="min-h-[2.75rem] w-full rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:w-auto sm:min-h-0"
-              >
-                구매신청
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void runBuyerConfirm()}
+                  className="min-h-[2.75rem] w-full rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:w-auto sm:min-h-0"
+                >
+                  구매신청
+                </button>
+                {canShowBuyerPriorityDecline(d) ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void runBuyerPriorityDecline()}
+                    className="min-h-[2.75rem] w-full rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
+                  >
+                    거절하기
+                  </button>
+                ) : null}
+              </>
             ) : null}
             {d.status === 'PENDING_SELLER' && d.role === 'SELLER' && apiMode === 'admin' ? (
               <>

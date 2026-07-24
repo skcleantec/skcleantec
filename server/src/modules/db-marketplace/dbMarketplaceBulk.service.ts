@@ -5,6 +5,7 @@ import {
 import {
   confirmDbListingBuyer,
   confirmDbListingSeller,
+  declineDbListingBuyer,
   declineDbListingSeller,
 } from './dbMarketplaceConfirm.service.js';
 import {
@@ -36,6 +37,11 @@ export type DbMarketplaceBulkPublishResult = {
 
 export type DbMarketplaceBulkBuyerConfirmResult = {
   requested: DbMarketplaceBulkItemResult[];
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export type DbMarketplaceBulkBuyerDeclineResult = {
+  declined: DbMarketplaceBulkItemResult[];
   failed: DbMarketplaceBulkFailed[];
 };
 
@@ -149,6 +155,34 @@ export async function bulkConfirmDbListingBuyer(
   }
 
   return { requested, failed };
+}
+
+export async function bulkDeclineDbListingBuyer(
+  listingIdsRaw: unknown,
+  buyer: DbMarketplaceBuyerContext,
+): Promise<DbMarketplaceBulkBuyerDeclineResult> {
+  const listingIds = parseListingIds(listingIdsRaw);
+  const declined: DbMarketplaceBulkItemResult[] = [];
+  const failed: DbMarketplaceBulkFailed[] = [];
+
+  for (const id of listingIds) {
+    try {
+      const row = await declineDbListingBuyer(id, buyer);
+      declined.push({
+        id: row.id,
+        inquiryId: row.inquiryId,
+        sellerTenantName: row.tenant.name,
+        displayAmount: row.displayAmount,
+      });
+    } catch (e) {
+      failed.push({
+        id,
+        error: e instanceof DbMarketplaceError ? e.message : '거절 실패',
+      });
+    }
+  }
+
+  return { declined, failed };
 }
 
 export async function bulkWithdrawDbListings(

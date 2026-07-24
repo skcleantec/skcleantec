@@ -22,6 +22,15 @@ export function canBulkBuyMarketplaceItem(row: DbMarketplaceMaskedItem): boolean
   return row.status === 'OPEN' && row.role === 'VIEWER' && !row.platformSuspended;
 }
 
+/** 순위 노출 — 현재 순위 구매 후보만 거절 가능 */
+export function canBuyerDeclinePriorityMarketplaceItem(row: DbMarketplaceMaskedItem): boolean {
+  return (
+    canBulkBuyMarketplaceItem(row) &&
+    row.offerMode === 'PRIORITY' &&
+    row.currentPriorityRank != null
+  );
+}
+
 /** 내 판매 — 게시 중 건 장바구니로 되돌리기 */
 export function canBulkRevertToCartItem(row: DbMarketplaceMaskedItem): boolean {
   return row.status === 'OPEN' && row.role === 'SELLER';

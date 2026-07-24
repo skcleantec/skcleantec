@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   bulkBuyerConfirmDbMarketplace,
+  bulkBuyerDeclineDbMarketplace,
   bulkPublishDbMarketplace,
   bulkSellerConfirmDbMarketplace,
   bulkSellerDeclineDbMarketplace,
@@ -33,6 +34,7 @@ import {
 } from '../../components/db-marketplace/DbMarketplaceListUi';
 import {
   DbMarketplaceBuyBulkButton,
+  DbMarketplaceBuyerDeclineBulkButton,
   DbMarketplaceConfirmBulkButton,
   DbMarketplaceDeclineBulkButton,
   DbMarketplacePublishBulkButton,
@@ -58,6 +60,7 @@ import {
 } from '../../components/db-marketplace/DbMarketplaceAmountSummary';
 import {
   canBulkSelectMarketplaceItem,
+  canBuyerDeclinePriorityMarketplaceItem,
   groupMySalesByCompany,
   type DbMarketplaceBulkMode,
 } from '../../utils/dbMarketplaceBulk';
@@ -382,6 +385,44 @@ export function AdminDbMarketplacePage() {
       load({ silent: true });
     } catch (e) {
       alert(e instanceof Error ? e.message : '일괄 갖고가기 실패');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkBuyerDecline = async () => {
+    if (!token || selectedCount === 0) return;
+    const listingIds = items
+      .filter((r) => selectedIds.has(r.id) && canBuyerDeclinePriorityMarketplaceItem(r))
+      .map((r) => r.id);
+    if (listingIds.length === 0) {
+      alert('순위 노출 DB만 거절할 수 있습니다.');
+      return;
+    }
+    if (listingIds.length > DB_MARKETPLACE_BULK_MAX) {
+      alert(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 처리할 수 있습니다.`);
+      return;
+    }
+    if (
+      !window.confirm(
+        `선택 ${listingIds.length}건을 거절합니다. 다음 순위 업체에게 넘어갑니다. 계속할까요?`,
+      )
+    ) {
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const result = await bulkBuyerDeclineDbMarketplace(token, listingIds);
+      setSelectedIds(new Set());
+      setBulkResult({
+        title: '일괄 거절 결과',
+        successLabel: '거절 완료',
+        successCount: result.declined.length,
+        failed: result.failed,
+      });
+      load({ silent: true });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '일괄 거절 실패');
     } finally {
       setBulkBusy(false);
     }
@@ -790,7 +831,13 @@ export function AdminDbMarketplacePage() {
             <DbMarketplaceRevertBulkButton disabled={bulkBusy} onClick={() => void runBulkRemoveFromCart()} />
           </>
         ) : bulkMode === 'buy' ? (
-          <DbMarketplaceBuyBulkButton disabled={bulkBusy} onClick={() => void runBulkBuy()} />
+          <>
+            <DbMarketplaceBuyBulkButton disabled={bulkBusy} onClick={() => void runBulkBuy()} />
+            <DbMarketplaceBuyerDeclineBulkButton
+              disabled={bulkBusy}
+              onClick={() => void runBulkBuyerDecline()}
+            />
+          </>
         ) : bulkMode === 'revert_cart' ? (
           <DbMarketplaceRevertToCartButton disabled={bulkBusy} onClick={() => void runBulkRevertToCart()} />
         ) : (

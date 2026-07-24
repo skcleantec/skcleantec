@@ -144,6 +144,8 @@ export type DbMarketplaceMaskedItem = {
   moveInDate: string | null;
   moveInDateUndecided: boolean;
   role: 'SELLER' | 'BUYER' | 'VIEWER';
+  offerMode?: DbMarketplaceOfferMode | null;
+  currentPriorityRank?: number | null;
   /** my_sales · confirmed — 인계 확정일 */
   sellerConfirmedAt?: string | null;
   /** my_sales · confirmed — 구매(인계) 업체명 */
@@ -262,6 +264,11 @@ export type DbMarketplaceBulkSellerConfirmResult = {
   failed: DbMarketplaceBulkFailed[];
 };
 
+export type DbMarketplaceBulkBuyerDeclineResult = {
+  declined: Array<{ id: string; inquiryId?: string; displayAmount?: number | null }>;
+  failed: DbMarketplaceBulkFailed[];
+};
+
 export type DbMarketplaceBulkSellerDeclineResult = {
   declined: Array<{ id: string; inquiryId?: string; displayAmount?: number | null }>;
   failed: DbMarketplaceBulkFailed[];
@@ -289,6 +296,18 @@ export async function bulkBuyerConfirmDbMarketplace(
   listingIds: string[],
 ): Promise<DbMarketplaceBulkBuyerConfirmResult> {
   const res = await fetch(`${API}/db-marketplace/bulk/buyer-confirm`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ listingIds }),
+  });
+  return parseJson(res);
+}
+
+export async function bulkBuyerDeclineDbMarketplace(
+  token: string,
+  listingIds: string[],
+): Promise<DbMarketplaceBulkBuyerDeclineResult> {
+  const res = await fetch(`${API}/db-marketplace/bulk/buyer-decline`, {
     method: 'POST',
     headers: headers(token),
     body: JSON.stringify({ listingIds }),
@@ -361,6 +380,18 @@ export async function bulkTeamBuyerConfirmDbMarketplace(
   listingIds: string[],
 ): Promise<DbMarketplaceBulkBuyerConfirmResult> {
   const res = await fetch(withTeamPreviewQuery(`${API}/team/db-marketplace/bulk/buyer-confirm`), {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ listingIds }),
+  });
+  return parseJson(res);
+}
+
+export async function bulkTeamBuyerDeclineDbMarketplace(
+  token: string,
+  listingIds: string[],
+): Promise<DbMarketplaceBulkBuyerDeclineResult> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/db-marketplace/bulk/buyer-decline`), {
     method: 'POST',
     headers: headers(token),
     body: JSON.stringify({ listingIds }),
@@ -516,6 +547,18 @@ export async function confirmDbMarketplaceBuyer(
   return data.listing;
 }
 
+export async function declineDbMarketplaceBuyer(
+  token: string,
+  listingId: string,
+): Promise<DbMarketplaceSellerListing> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/buyer-decline`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
+  return data.listing;
+}
+
 export async function confirmDbMarketplaceSeller(
   token: string,
   listingId: string,
@@ -571,6 +614,18 @@ export async function confirmTeamDbMarketplaceBuyer(
 ): Promise<DbMarketplaceSellerListing> {
   const res = await fetch(
     withTeamPreviewQuery(`${API}/team/db-marketplace/${encodeURIComponent(listingId)}/buyer-confirm`),
+    { method: 'POST', headers: headers(token) },
+  );
+  const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
+  return data.listing;
+}
+
+export async function declineTeamDbMarketplaceBuyer(
+  token: string,
+  listingId: string,
+): Promise<DbMarketplaceSellerListing> {
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/db-marketplace/${encodeURIComponent(listingId)}/buyer-decline`),
     { method: 'POST', headers: headers(token) },
   );
   const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);

@@ -308,7 +308,7 @@ export function DbMarketplaceAudiencePickerModal({
               ) : (
                 <div className="space-y-2 text-[11px]">
                   <p className="text-gray-500 leading-relaxed">
-                    1순위 업체만 먼저 「구매 가능」에 표시됩니다. 판매자가 구매 신청을 거절하면 2·3순위로
+                    1순위 업체만 먼저 「구매 가능」에 표시됩니다. 현재 순위 업체가 거절하면 2·3순위로
                     넘어갑니다. 3순위까지 거절되면 장바구니로 돌아갑니다.
                   </p>
                   {renderPrioritySelect(1, true)}
