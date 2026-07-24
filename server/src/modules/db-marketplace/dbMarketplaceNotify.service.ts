@@ -178,8 +178,13 @@ export async function notifyDbMarketplaceConfirmed(opts: {
       sellerTenantName: opts.handoff.sellerTenantName,
       buyerKind: opts.handoff.buyerKind,
     };
+    const buyerRows = await prisma.user.findMany({
+      where: { id: { in: buyerUserIds } },
+      select: { id: true, tenantId: true },
+    });
+    const tenantByBuyerUser = new Map(buyerRows.map((r) => [r.id, r.tenantId]));
     for (const id of buyerUserIds) {
-      sendJsonToUser(id, payload);
+      sendJsonToUser(id, payload, tenantByBuyerUser.get(id));
     }
   }
 }
