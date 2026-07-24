@@ -327,7 +327,7 @@ export function TeamSchedulePage() {
           </span>
         </h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="flex gap-2 border-b border-gray-100 p-2 sm:p-3">
+          <div className="flex gap-2 border-b border-gray-100 p-2 sm:p-3" data-staff-list-filter>
             <select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}

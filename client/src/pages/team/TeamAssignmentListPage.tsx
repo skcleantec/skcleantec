@@ -336,7 +336,7 @@ export function TeamAssignmentListPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-2 sm:p-3 min-w-0">
+      <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-2 sm:p-3 min-w-0" data-staff-list-filter>
         <div className="flex w-full flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
           <select
             value={dateBasis}

@@ -9,10 +9,19 @@ html, body {
   height: 100%;
   overflow-x: hidden;
   font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 17px;
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+/** PWA(standalone) — iOS가 본문 글자를 키우는 것 방지 + rem 기준 소폭 축소 */
+@media (display-mode: standalone) {
+  html {
+    font-size: 15px;
+  }
 }
 
 #root {
@@ -31,6 +40,13 @@ html, body {
   select,
   textarea {
     font-size: 16px !important;
+  }
+}
+
+/** PWA 목록 필터 select — 전역 16px 강제보다 컴팩트(줌 위험은 text-size-adjust 100%로 완화) */
+@media (display-mode: standalone) and (hover: none) and (pointer: coarse) {
+  .staff-app-surface [data-staff-list-filter] select {
+    font-size: 14px !important;
   }
 }
 

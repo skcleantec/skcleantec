@@ -2444,7 +2444,7 @@ export function AdminInquiriesPage() {
               </div>
             )}
           </div>
-        <div className="overflow-hidden rounded-md border border-slate-200/80 bg-white">
+        <div className="overflow-hidden rounded-md border border-slate-200/80 bg-white" data-staff-list-filter>
           <div className="flex flex-col gap-1 p-1.5 sm:p-2">
           <div className="flex w-full flex-wrap items-center gap-1">
             <span className={INQUIRY_LIST_DATE_LABEL_CLASS}>날짜 기준</span>
