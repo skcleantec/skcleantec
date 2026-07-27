@@ -124,7 +124,9 @@ router.get('/members', requireStaffPermission('inquiry.edit.assignment'), async 
 
     const members = await findPoolMembersForAdminList(prisma, tenantId);
     const todayYmd = kstTodayYmd();
-    const filteredMembers = filterByEmploymentStatus(members, employmentStatus, todayYmd);
+    /** 예약일 배정 풀 — 재직·가용 모두 동일 YMD 기준(getAvailableFieldStaffMemberIdsOnDate와 맞춤) */
+    const employmentOnYmd = preferredDate ?? todayYmd;
+    const filteredMembers = filterByEmploymentStatus(members, employmentStatus, employmentOnYmd);
 
     type CycleCache = { startYmd: string; endYmd: string; inquiries: { crewMemberNote: string | null }[] };
     const inquiriesByPayDay = new Map<number, CycleCache>();
