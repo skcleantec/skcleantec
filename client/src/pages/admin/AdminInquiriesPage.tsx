@@ -1252,8 +1252,14 @@ export function AdminInquiriesPage() {
 
   // 편집 중인 예약일 기준으로, 다른 접수에 이미 배정된 팀원 이름을 모아 음영 처리에 쓴다.
   useEffect(() => {
-    const ymd = editForm.preferredDate?.trim().slice(0, 10);
-    if (!editItem || !token || !ymd) {
+    if (!editItem || !token) {
+      setOccupiedCrewNamesByDate(new Set());
+      return;
+    }
+    const fromForm = editForm.preferredDate?.trim().slice(0, 10) ?? '';
+    const fromItem = formatPreferredDateInputYmd(editItem.preferredDate);
+    const ymd = /^\d{4}-\d{2}-\d{2}$/.test(fromForm) ? fromForm : fromItem;
+    if (!ymd) {
       setOccupiedCrewNamesByDate(new Set());
       return;
     }
@@ -1276,7 +1282,7 @@ export function AdminInquiriesPage() {
     return () => {
       cancelled = true;
     };
-  }, [editItem, token, editForm.preferredDate]);
+  }, [editItem, token, editForm.preferredDate, editItem?.preferredDate]);
 
   // 슬롯(crewMemberCount)에 맞게 crewMemberNames 배열 길이를 동기화한다.
   useEffect(() => {
