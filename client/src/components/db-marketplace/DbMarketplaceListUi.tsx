@@ -10,6 +10,12 @@ import {
   type DbMarketplaceBulkMode,
 } from '../../utils/dbMarketplaceBulk';
 import { DbMarketplaceStatusBadge } from './marketplaceUiParts';
+import {
+  formatWon,
+  resolveMarketplaceBuyerTotalFee,
+  resolveMarketplaceServiceBalance,
+  resolveMarketplaceServiceTotal,
+} from './DbMarketplaceAmountSummary';
 
 /** PC 표 — 선택 열 px (데스크톱) */
 export const MARKETPLACE_TABLE_CHECKBOX_COL_PX = 36;
@@ -123,7 +129,7 @@ export function DbMarketplaceTabBar<T extends string>({
   active,
   onChange,
 }: {
-  options: { id: T; label: string }[];
+  options: { id: T; label: string; badge?: number }[];
   active: T;
   onChange: (id: T) => void;
 }) {
@@ -141,11 +147,23 @@ export function DbMarketplaceTabBar<T extends string>({
             role="tab"
             aria-selected={active === opt.id}
             onClick={() => onChange(opt.id)}
-            className={`shrink-0 rounded-md px-2 py-1 text-fluid-2xs font-medium transition-colors whitespace-nowrap sm:px-3 sm:py-2 sm:text-fluid-xs ${
+            className={`relative shrink-0 rounded-md px-2 py-1 text-fluid-2xs font-medium transition-colors whitespace-nowrap sm:px-3 sm:py-2 sm:text-fluid-xs ${
               active === opt.id ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
-            {opt.label}
+            <span className="inline-flex items-center gap-1">
+              {opt.label}
+              {opt.badge != null && opt.badge > 0 ? (
+                <span
+                  className={`inline-flex min-w-[1.125rem] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums leading-none ${
+                    active === opt.id ? 'bg-amber-400 text-amber-950' : 'bg-amber-100 text-amber-900'
+                  }`}
+                  aria-label={`${opt.badge}건`}
+                >
+                  {opt.badge > 99 ? '99+' : opt.badge}
+                </span>
+              ) : null}
+            </span>
           </button>
         ))}
       </div>
@@ -192,6 +210,8 @@ export function DbMarketplaceRowCard({
   bulkMode,
   showSeller,
   showMySalesMeta = false,
+  showConfirmedMeta = false,
+  showPendingMeta = false,
 }: {
   row: DbMarketplaceMaskedItem;
   onOpen: () => void;
@@ -201,6 +221,8 @@ export function DbMarketplaceRowCard({
   bulkMode: DbMarketplaceBulkMode | null;
   showSeller: boolean;
   showMySalesMeta?: boolean;
+  showConfirmedMeta?: boolean;
+  showPendingMeta?: boolean;
 }) {
   const disabledReason =
     bulkMode && selectable ? marketplaceBulkSelectDisabledReason(row, bulkMode) : null;
@@ -246,13 +268,28 @@ export function DbMarketplaceRowCard({
         </p>
         <div className="mt-0.5 flex items-center justify-between gap-2">
           <p className="min-w-0 truncate text-fluid-2xs text-gray-500">{formatMarketplaceSchedule(row)}</p>
-          <p className="shrink-0 text-fluid-xs font-semibold tabular-nums text-slate-900">
-            {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
-          </p>
+          <div className="shrink-0 text-right space-y-0">
+            <p className="text-fluid-2xs tabular-nums text-gray-600">
+              총액{' '}
+              <span className="font-semibold text-slate-900">
+                {formatWon(resolveMarketplaceServiceTotal(row))}
+              </span>
+            </p>
+            <p className="text-fluid-2xs tabular-nums text-violet-800">
+              수수료{' '}
+              <span className="font-semibold">{formatWon(resolveMarketplaceBuyerTotalFee(row))}</span>
+            </p>
+            <p className="text-fluid-2xs tabular-nums text-gray-600">
+              잔금{' '}
+              <span className="font-semibold text-slate-900">
+                {formatWon(resolveMarketplaceServiceBalance(row))}
+              </span>
+            </p>
+          </div>
         </div>
-        {row.listingFee != null ? (
+        {row.priorFeesTotal != null && row.priorFeesTotal > 0 ? (
           <p className="mt-0.5 text-fluid-2xs text-gray-500 tabular-nums">
-            수수료 {row.listingFee.toLocaleString('ko-KR')}원
+            앞선 판매 {row.priorFeesTotal.toLocaleString('ko-KR')}원 포함
           </p>
         ) : null}
         {showSeller ? (
@@ -265,6 +302,22 @@ export function DbMarketplaceRowCard({
             </p>
             <p className="truncate">업체 {row.buyerName ?? '-'}</p>
           </div>
+        ) : null}
+        {showConfirmedMeta ? (
+          <div className="mt-1 space-y-0 text-fluid-2xs text-gray-600">
+            <p className="truncate">
+              {row.role === 'SELLER' ? '인계' : '구매'} · {formatMarketplaceListDate(row.sellerConfirmedAt)}
+            </p>
+            <p className="truncate">
+              {row.role === 'SELLER' ? '인계 업체' : '판매 업체'}{' '}
+              {row.role === 'SELLER' ? (row.buyerName ?? '-') : row.sellerTenantName}
+            </p>
+          </div>
+        ) : null}
+        {showPendingMeta && row.role === 'SELLER' ? (
+          <p className="mt-1 truncate text-fluid-2xs font-medium text-amber-900">
+            인계 요청 · {row.buyerName ?? '업체 미확인'}
+          </p>
         ) : null}
       </button>
     </div>

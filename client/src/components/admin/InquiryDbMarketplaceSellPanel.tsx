@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
   completeRecallDbMarketplaceListing,
+  cartRecallDbMarketplaceListing,
   confirmDbMarketplaceSeller,
   declineDbMarketplaceSeller,
   getDbListingByInquiry,
@@ -12,10 +13,12 @@ import {
   upsertDbMarketplaceDraft,
   withdrawDbMarketplaceListing,
   type DbMarketplaceAudienceInput,
+  type DbMarketplaceOfferMode,
   type DbMarketplaceSellerListing,
 } from '../../api/dbMarketplace';
 import { DbMarketplaceCartAddButton } from '../db-marketplace/marketplaceUiParts';
-import { computeMarketplaceDisplayAmount, parseListingFeeInput } from '@shared/dbMarketplaceAmount';
+import { computeMarketplaceFeeAmounts, parseListingFeeInput } from '@shared/dbMarketplaceAmount';
+import { DbMarketplaceAmountSummaryBlock, DbMarketplaceResaleFeeBreakdown } from '../db-marketplace/DbMarketplaceAmountSummary';
 import { DbMarketplaceAudiencePickerModal } from './DbMarketplaceAudiencePickerModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { HelpTooltip } from '../ui/HelpTooltip';
@@ -29,6 +32,8 @@ export type DbMarketplaceExchangePrefill = {
 
 type Props = {
   inquiryId: string;
+  serviceTotalAmount?: number | null;
+  serviceDepositAmount?: number | null;
   serviceBalanceAmount: number | null | undefined;
   disabled?: boolean;
   /** 파트너 직접 연계 폼 → 정보공유 등록 시 1회 적용 */
@@ -46,8 +51,26 @@ const STATUS_LABEL: Record<string, string> = {
   EXPIRED: '만료',
 };
 
+function priorityKeysFromAudiences(
+  audiences: DbMarketplaceSellerListing['audiences'],
+): Partial<Record<1 | 2 | 3, string>> {
+  const out: Partial<Record<1 | 2 | 3, string>> = {};
+  for (const a of audiences) {
+    const rank = a.priorityRank;
+    if (rank !== 1 && rank !== 2 && rank !== 3) continue;
+    if (a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId) {
+      out[rank] = `P:${a.partnerTenantId}`;
+    } else if (a.audienceKind === 'EXTERNAL_COMPANY' && a.externalCompanyId) {
+      out[rank] = `E:${a.externalCompanyId}`;
+    }
+  }
+  return out;
+}
+
 export function InquiryDbMarketplaceSellPanel({
   inquiryId,
+  serviceTotalAmount,
+  serviceDepositAmount,
   serviceBalanceAmount,
   disabled,
   exchangePrefill,
@@ -57,21 +80,29 @@ export function InquiryDbMarketplaceSellPanel({
   const [listing, setListing] = useState<DbMarketplaceSellerListing | null>(null);
   const [listingFeeInput, setListingFeeInput] = useState('');
   const [visibility, setVisibility] = useState<'ALL' | 'SELECTED'>('ALL');
+  const [offerMode, setOfferMode] = useState<DbMarketplaceOfferMode>('SIMULTANEOUS');
   const [selectedPartnerIds, setSelectedPartnerIds] = useState<string[]>([]);
   const [selectedExternalIds, setSelectedExternalIds] = useState<string[]>([]);
+  const [priorityKeys, setPriorityKeys] = useState<Partial<Record<1 | 2 | 3, string>>>({});
   const [showAudienceModal, setShowAudienceModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recallModalOpen, setRecallModalOpen] = useState(false);
+  const [cartRecallModalOpen, setCartRecallModalOpen] = useState(false);
 
   const parsedListingFee = parseListingFeeInput(listingFeeInput);
   const listingFeeValid = parsedListingFee != null;
 
-  const previewAmount = computeMarketplaceDisplayAmount(
-    serviceBalanceAmount,
-    parsedListingFee ?? 0,
-  );
+  const feePreview = computeMarketplaceFeeAmounts({
+    listingFee: parsedListingFee ?? 0,
+    priorFeesTotal: listing?.priorFeesTotal ?? 0,
+    customerBalanceAmount:
+      listing?.customerBalanceAmount ??
+      listing?.dealBalanceAmount ??
+      serviceBalanceAmount,
+  });
+  const isResale = (listing?.resaleStep ?? listing?.hopIndex ?? 0) > 0;
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -88,6 +119,8 @@ export function InquiryDbMarketplaceSellPanel({
             listingRow.listingFee > 0 ? listingRow.listingFee.toLocaleString('ko-KR') : '',
           );
           setVisibility(listingRow.visibility);
+          setOfferMode(listingRow.offerMode === 'PRIORITY' ? 'PRIORITY' : 'SIMULTANEOUS');
+          setPriorityKeys(priorityKeysFromAudiences(listingRow.audiences));
           setSelectedPartnerIds(
             listingRow.audiences
               .filter((a) => a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId)
@@ -168,6 +201,7 @@ export function InquiryDbMarketplaceSellPanel({
 
   const saveAudience = async (value: {
     visibility: 'ALL' | 'SELECTED';
+    offerMode?: DbMarketplaceOfferMode | null;
     audiences: DbMarketplaceAudienceInput[];
   }) => {
     if (!token || !listing) return;
@@ -178,9 +212,12 @@ export function InquiryDbMarketplaceSellPanel({
         listing.id,
         value.visibility,
         value.audiences,
+        value.offerMode,
       );
       setListing(row);
       setVisibility(value.visibility);
+      setOfferMode(row.offerMode === 'PRIORITY' ? 'PRIORITY' : 'SIMULTANEOUS');
+      setPriorityKeys(priorityKeysFromAudiences(row.audiences));
       setSelectedPartnerIds(
         value.audiences
           .filter((a) => a.audienceKind === 'PARTNER_TENANT' && a.partnerTenantId)
@@ -266,11 +303,38 @@ export function InquiryDbMarketplaceSellPanel({
     setRecallModalOpen(false);
     await notifyListingChange();
     alert(
-      `완전 회수했습니다.\n정보공유 수수료 ${result.refundListingFee.toLocaleString('ko-KR')}원이 정산 미수에 환불 반영됩니다.\n다시 판매하려면 장바구니에 담아 주세요.`,
+      `완전 회수했습니다.\n` +
+        `정보공유 수수료 ${result.refundListingFee.toLocaleString('ko-KR')}원은 더 이상 받을 금액(미수)에 잡히지 않습니다.\n` +
+        `이미 파트너 정산에서 「결재받은금액」을 입력했다면, 누적 미수는 −${result.refundListingFee.toLocaleString('ko-KR')}원(상대 업체에 돌려줄 금액)으로 보이는 것이 맞습니다.\n` +
+        `실제로 돈을 돌려준 뒤에는 같은 금액을 마이너스(−) 결재로 입력해 0에 맞추세요.\n일반 접수로 복귀했습니다.`,
     );
   };
 
+  const cartRecall = async (password: string) => {
+    if (!token || !listing) return;
+    await cartRecallDbMarketplaceListing(token, listing.id, password);
+    const refreshed = await getDbListingByInquiry(token, inquiryId);
+    setListing(refreshed);
+    setCartRecallModalOpen(false);
+    await notifyListingChange();
+    alert('장바구니 회수했습니다. 다시 게시할 수 있습니다.');
+  };
+
   const canEdit = !disabled && listing?.status !== 'CONFIRMED' && listing?.status !== 'PENDING_SELLER';
+
+  const resaleFeeBreakdown = isResale
+    ? canEdit || !listing
+      ? {
+          priorFeesTotal: feePreview.priorFeesTotal,
+          listingFee: feePreview.listingFee,
+          buyerTotalFee: feePreview.buyerTotalFee,
+        }
+      : {
+          priorFeesTotal: listing?.priorFeesTotal ?? 0,
+          listingFee: listing?.listingFee ?? 0,
+          buyerTotalFee: listing?.buyerTotalFee ?? feePreview.buyerTotalFee,
+        }
+    : null;
 
   const panelMetaText = 'text-[10px] leading-snug text-gray-600 sm:text-[11px]';
   const panelBtn =
@@ -285,8 +349,9 @@ export function InquiryDbMarketplaceSellPanel({
         </p>
         <HelpTooltip
           text={
-            '파트너·타업체가 선택해 가져갈 수 있도록 게시합니다. 구매자에게는 표시금액(잔금−수수료)만 보입니다.\n' +
-            '파트너 직접 연계와 별도입니다. 수수료는 인계 확정(구매자·판매자 모두 확정) 시점에 DB가 넘어가며, 그때 파트너·타업체 정산에 반영됩니다.'
+            '파트너·타업체가 선택해 가져갈 수 있도록 게시합니다. 구매자에게는 총액·예약금·수수료·잔금이 각각 표시됩니다.\n' +
+            '재판매 시 앞선 판매 수수료는 자동 합산됩니다. 「이번 판매 수수료」에는 본인이 추가로 받을 금액만 입력하세요.\n' +
+            '파트너 직접 연계와 별도입니다. 인계 확정 시 정산에 반영됩니다.'
           }
         />
       </div>
@@ -295,20 +360,29 @@ export function InquiryDbMarketplaceSellPanel({
       {error ? <p className={`${panelMetaText} text-red-600`}>{error}</p> : null}
 
       {listing ? (
-        <p className={`${panelMetaText} font-medium text-violet-800`}>
-          <span className="sm:hidden">
-            {STATUS_LABEL[listing.status] ?? listing.status}
-            {listing.displayAmount != null
-              ? ` · ${listing.displayAmount.toLocaleString('ko-KR')}원`
-              : ''}
-          </span>
-          <span className="hidden sm:inline">
+        <div className={`${panelMetaText} space-y-1 font-medium text-violet-800`}>
+          <p>
             상태: {STATUS_LABEL[listing.status] ?? listing.status}
-            {listing.displayAmount != null
-              ? ` · 표시금액 ${listing.displayAmount.toLocaleString('ko-KR')}원`
-              : ''}
-          </span>
-        </p>
+          </p>
+          <DbMarketplaceAmountSummaryBlock
+            row={{
+              serviceTotalAmount,
+              serviceDepositAmount,
+              customerBalanceAmount: listing.customerBalanceAmount ?? listing.dealBalanceAmount,
+              displayAmount: listing.displayAmount,
+              listingFee: listing.listingFee,
+              priorFeesTotal: listing.priorFeesTotal,
+              buyerTotalFee: listing.buyerTotalFee,
+            }}
+            compact
+          />
+          {resaleFeeBreakdown && !canEdit ? (
+            <DbMarketplaceResaleFeeBreakdown
+              {...resaleFeeBreakdown}
+              compact
+            />
+          ) : null}
+        </div>
       ) : null}
 
       {listing?.platformSuspendedAt ? (
@@ -383,21 +457,50 @@ export function InquiryDbMarketplaceSellPanel({
         </div>
       ) : null}
 
+      {listing?.rootTenantName && (listing.resaleStep ?? listing.hopIndex ?? 0) > 0 ? (
+        <p className={`${panelMetaText} text-violet-900`}>
+          최초 업체: {listing.rootTenantName} · {listing.resaleStep ?? listing.hopIndex}번째 재판매
+        </p>
+      ) : null}
+
+      {listing?.offerMode === 'PRIORITY' && listing.status === 'OPEN' && listing.currentPriorityRank ? (
+        <p className={`${panelMetaText} text-violet-900`}>
+          순위 노출 · 현재 {listing.currentPriorityRank}순위 업체에만 표시 중
+        </p>
+      ) : null}
+
+      {listing?.offerMode === 'PRIORITY' && listing.status === 'DRAFT' ? (
+        <p className={`${panelMetaText} text-amber-900`}>
+          순위 노출 설정됨 — 게시 시 1순위부터 표시됩니다. 현재 순위 업체가 거절하면 다음 순위로 넘어가며, 3순위까지 거절되면 장바구니로
+          돌아옵니다.
+        </p>
+      ) : null}
+
       {listing?.status === 'CONFIRMED' ? (
         <div className="rounded-md border border-rose-200 bg-rose-50/80 p-2 space-y-1.5 sm:rounded-lg sm:p-2.5 sm:space-y-2">
           <p className={`${panelMetaText} text-rose-950`}>
-            인계가 완료된 DB입니다. 완전 회수 시 구매자 DB가 종료되고, 정보공유{' '}
-            <strong>수수료만</strong> 정산 미수에 환불 반영됩니다. 이 접수는 다시 자사 스케줄·TO에
-            포함됩니다.
+            인계가 완료된 DB입니다. <strong>완전 회수</strong>는 일반 접수(TO 포함)로,
+            <strong> 장바구니 회수</strong>는 정보공유 장바구니로 돌아갑니다(TO 제외). 하위 재판매가
+            있으면 함께 되돌립니다.
           </p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setRecallModalOpen(true)}
-            className={`${panelBtn} w-full border-rose-400 bg-white text-rose-950 hover:bg-rose-50`}
-          >
-            완전 회수 (수수료 환불)
-          </button>
+          <div className="flex flex-col gap-1.5 sm:flex-row">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setRecallModalOpen(true)}
+              className={`${panelBtn} w-full border-rose-400 bg-white text-rose-950 hover:bg-rose-50`}
+            >
+              완전 회수
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setCartRecallModalOpen(true)}
+              className={`${panelBtn} w-full border-violet-400 bg-white text-violet-950 hover:bg-violet-50`}
+            >
+              장바구니 회수
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -405,8 +508,10 @@ export function InquiryDbMarketplaceSellPanel({
         <>
           <div className="flex items-end gap-2 sm:block">
             <label className="mb-0 shrink-0 text-[10px] text-gray-600 sm:mb-1 sm:block sm:text-[11px]">
-              <span className="sm:hidden">수수료</span>
-              <span className="hidden sm:inline">수수료 (원)</span>{' '}
+              <span className="sm:hidden">{isResale ? '이번 수수료' : '수수료'}</span>
+              <span className="hidden sm:inline">
+                {isResale ? '이번 판매 수수료 (원)' : '수수료 (원)'}
+              </span>{' '}
               <span className="text-red-600">*</span>
             </label>
             <input
@@ -426,11 +531,27 @@ export function InquiryDbMarketplaceSellPanel({
           {!listingFeeValid && listingFeeInput.trim() ? (
             <p className={`${panelMetaText} text-red-600`}>올바른 수수료 금액을 입력해 주세요.</p>
           ) : null}
-          <p className={`${panelMetaText} text-gray-500`}>
-            <span className="sm:hidden">표시 </span>
-            <span className="hidden sm:inline">구매자 표시금액(잔금−수수료): </span>
-            {previewAmount != null ? `${previewAmount.toLocaleString('ko-KR')}원` : '잔금 확인 필요'}
-          </p>
+          {isResale && !listing?.priorFeesTotal ? (
+            <p className={`${panelMetaText} text-amber-800`}>
+              재판매 건입니다. 장바구니 저장 후 앞선 판매 수수료가 자동 반영됩니다.
+            </p>
+          ) : null}
+          {resaleFeeBreakdown ? (
+            <DbMarketplaceResaleFeeBreakdown {...resaleFeeBreakdown} compact />
+          ) : null}
+          <div className={`rounded-md border border-violet-100 bg-white/80 p-2 ${panelMetaText}`}>
+            <p className="mb-1 font-medium text-violet-900">구매자에게 보이는 금액</p>
+            <DbMarketplaceAmountSummaryBlock
+              row={{
+                serviceTotalAmount,
+                serviceDepositAmount,
+                customerBalanceAmount: feePreview.customerBalanceAmount,
+                listingFee: feePreview.listingFee,
+                priorFeesTotal: feePreview.priorFeesTotal,
+                buyerTotalFee: feePreview.buyerTotalFee,
+              }}
+            />
+          </div>
 
           <div className="flex flex-wrap gap-1 sm:gap-2">
             <DbMarketplaceCartAddButton
@@ -488,8 +609,10 @@ export function InquiryDbMarketplaceSellPanel({
           busy={busy}
           confirmLabel="저장"
           initialVisibility={visibility}
+          initialOfferMode={offerMode}
           initialPartnerIds={selectedPartnerIds}
           initialExternalIds={selectedExternalIds}
+          initialPriorityKeys={priorityKeys}
           onConfirm={saveAudience}
         />
       ) : null}
@@ -503,10 +626,17 @@ export function InquiryDbMarketplaceSellPanel({
               confirmLabel="완전 회수"
               description={
                 <>
-                  구매자 DB가 종료되고, 정보공유{' '}
-                  <strong>수수료 {listing?.listingFee?.toLocaleString('ko-KR') ?? '?'}원</strong>만
-                  정산 미수에 환불 반영됩니다. 잔금(표시금액) 전체가 회수되는 것은 아닙니다. 되돌릴
-                  수 없습니다.
+                  구매자 DB가 종료되고 일반 접수로 돌아갑니다. 되돌릴 수 없습니다.
+                  <br />
+                  정보공유 수수료{' '}
+                  <strong>
+                    {(listing?.buyerTotalFee ?? listing?.listingFee)?.toLocaleString('ko-KR') ?? '?'}원
+                  </strong>
+                  은 더 이상 받을 미수에 포함되지 않습니다.
+                  <br />
+                  이미 「결재받은금액」을 입력했다면, 회수 후 누적 미수{' '}
+                  <strong>−{(listing?.buyerTotalFee ?? listing?.listingFee)?.toLocaleString('ko-KR') ?? '?'}원</strong>
+                  (상대 업체에 돌려줄 금액)이 정상입니다.
                   {listing?.buyerName ? (
                     <>
                       <br />
@@ -517,6 +647,26 @@ export function InquiryDbMarketplaceSellPanel({
               }
               onClose={() => setRecallModalOpen(false)}
               onConfirm={completeRecall}
+            />,
+            document.body,
+          )
+        : null}
+
+      {cartRecallModalOpen
+        ? createPortal(
+            <ConfirmPasswordModal
+              open={cartRecallModalOpen}
+              title="장바구니 회수 확인"
+              zIndexClassName="z-[560]"
+              confirmLabel="장바구니 회수"
+              description={
+                <>
+                  구매자 연계를 해제하고 이 DB를 정보공유 <strong>장바구니</strong>로 되돌립니다. TO는
+                  소모하지 않습니다. 하위 재판매가 있으면 함께 되돌립니다.
+                </>
+              }
+              onClose={() => setCartRecallModalOpen(false)}
+              onConfirm={cartRecall}
             />,
             document.body,
           )

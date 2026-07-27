@@ -18,6 +18,7 @@ import {
   computeSourceMirrorBalanceAmount,
   computeTargetMirrorBalanceAmount,
 } from './tenantInquiryShareBalance.helpers.js';
+import { computeMarketplaceServiceBalanceAmount } from '../../lib/dbMarketplaceAmount.js';
 import { clearInternalInquiryAssignments } from '../assignments/clearInternalInquiryAssignments.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 
@@ -177,6 +178,10 @@ export async function createTenantInquiryShareInTransaction(
     migratedFromExternalAt?: Date | null;
     migratedByUserId?: string | null;
     skipExternalPartnerCheck?: boolean;
+    /** 정보공유 재판매 — mirror(연계 수신) 접수에서 하위 hop 인계 */
+    allowResaleFromReceivedShare?: boolean;
+    /** 정보공유 인계 — mirror 잔금을 고객 현장 수금액으로 유지(수수료 차감 안 함) */
+    preserveCustomerBalanceForMarketplace?: boolean;
   },
 ) {
   const { viewerTenantId, viewerUserId, inquiryId, partnershipId } = opts;
@@ -220,7 +225,7 @@ export async function createTenantInquiryShareInTransaction(
   const existingAsTarget = await tx.tenantInquiryShare.findUnique({
     where: { targetInquiryId: inquiryId },
   });
-  if (existingAsTarget) {
+  if (existingAsTarget && !opts.allowResaleFromReceivedShare) {
     throw new TenantInquiryShareError('연계받은 접수는 다시 연계할 수 없습니다.');
   }
 
@@ -255,12 +260,18 @@ export async function createTenantInquiryShareInTransaction(
 
   const mirror = await tx.inquiry.create({ data: mirrorData });
 
-  const adjustedBalance = computeTargetMirrorBalanceAmount({
-    serviceTotalAmount: source.serviceTotalAmount,
-    serviceDepositAmount: source.serviceDepositAmount,
-    serviceBalanceAmount: source.serviceBalanceAmount,
-    transferFee,
-  });
+  const adjustedBalance = opts.preserveCustomerBalanceForMarketplace
+    ? computeMarketplaceServiceBalanceAmount({
+        serviceTotalAmount: source.serviceTotalAmount,
+        serviceDepositAmount: source.serviceDepositAmount,
+        serviceBalanceAmount: source.serviceBalanceAmount,
+      })
+    : computeTargetMirrorBalanceAmount({
+        serviceTotalAmount: source.serviceTotalAmount,
+        serviceDepositAmount: source.serviceDepositAmount,
+        serviceBalanceAmount: source.serviceBalanceAmount,
+        transferFee,
+      });
   if (adjustedBalance != null) {
     await tx.inquiry.update({
       where: { id: mirror.id },
@@ -331,6 +342,8 @@ export async function createTenantInquiryShare(opts: {
   transferFee?: number | null;
   fieldMask?: unknown;
   fieldPreset?: unknown;
+  allowResaleFromReceivedShare?: boolean;
+  preserveCustomerBalanceForMarketplace?: boolean;
 }) {
   const source = await prisma.inquiry.findFirst({
     where: { id: opts.inquiryId, tenantId: opts.viewerTenantId },

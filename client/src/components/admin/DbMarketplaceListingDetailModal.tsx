@@ -4,20 +4,18 @@ import { getToken } from '../../stores/auth';
 import {
   confirmDbMarketplaceBuyer,
   confirmDbMarketplaceSeller,
+  declineDbMarketplaceBuyer,
   declineDbMarketplaceSeller,
   getDbMarketplaceListing,
   removeDbMarketplaceFromCart,
   revertDbMarketplaceToCart,
   confirmTeamDbMarketplaceBuyer,
+  declineTeamDbMarketplaceBuyer,
   getTeamDbMarketplaceListing,
   listDbMarketplaceMessages,
   postDbMarketplaceMessage,
   listTeamDbMarketplaceMessages,
   postTeamDbMarketplaceMessage,
-  holdDbMarketplaceListing,
-  releaseDbMarketplaceHold,
-  holdTeamDbMarketplaceListing,
-  releaseTeamDbMarketplaceHold,
   type DbMarketplaceListingDetail,
   type DbMarketplaceListingMessage,
   type DbMarketplaceMaskedItem,
@@ -26,7 +24,8 @@ import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { ModalCloseButton } from './ModalCloseButton';
 import { DbMarketplaceCleaningDetailCard } from './DbMarketplaceCleaningDetailCard';
-import { DB_MARKETPLACE_HOLD_MINUTES } from '@shared/dbMarketplacePolicy';
+import { DbMarketplaceAmountSummaryBlock } from '../db-marketplace/DbMarketplaceAmountSummary';
+import { canBuyerDeclinePriorityMarketplaceItem } from '../../utils/dbMarketplaceBulk';
 import type { DbMarketplaceAudienceItem } from '../../api/dbMarketplace';
 
 function DbMarketplacePublishAudienceBlock({
@@ -197,40 +196,8 @@ export function DbMarketplaceListingDetailModal({
   const { connected: wsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !wsConnected ? 20000 : 0);
 
-  const runReleaseHold = async () => {
-    if (!token) return;
-    setBusy(true);
-    try {
-      await (apiMode === 'team'
-        ? releaseTeamDbMarketplaceHold(token, row.id)
-        : releaseDbMarketplaceHold(token, row.id));
-      loadDetail({ silent: true });
-      onChanged();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '예약 해제 실패');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const runHold = async () => {
-    if (!token) return;
-    setBusy(true);
-    try {
-      await (apiMode === 'team'
-        ? holdTeamDbMarketplaceListing(token, row.id)
-        : holdDbMarketplaceListing(token, row.id));
-      loadDetail({ silent: true });
-      onChanged();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '검토 예약 실패');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const runBuyerConfirm = async () => {
-    if (!token || !window.confirm('이 DB를 갖고가겠습니까? 판매자 인계 확정 후 전체 정보가 공개됩니다.')) return;
+    if (!token || !window.confirm('구매신청하시겠습니까? 먼저 신청한 업체가 구매됩니다. 판매자 인계 확정 후 전체 정보가 공개됩니다.')) return;
     setBusy(true);
     try {
       await (apiMode === 'team'
@@ -240,6 +207,32 @@ export function DbMarketplaceListingDetailModal({
       onClose();
     } catch (e) {
       alert(e instanceof Error ? e.message : '구매 신청 실패');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runBuyerPriorityDecline = async () => {
+    const rank = (detail ?? row).currentPriorityRank;
+    if (
+      !token ||
+      !window.confirm(
+        rank === 3
+          ? '이 DB를 거절할까요? 3순위까지 거절되면 판매자 장바구니로 돌아갑니다.'
+          : '이 DB를 거절할까요?',
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await (apiMode === 'team'
+        ? declineTeamDbMarketplaceBuyer(token, row.id)
+        : declineDbMarketplaceBuyer(token, row.id));
+      onChanged();
+      onClose();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '거절 실패');
     } finally {
       setBusy(false);
     }
@@ -333,6 +326,7 @@ export function DbMarketplaceListingDetailModal({
   };
 
   const d = detail ?? (row as DbMarketplaceListingDetail);
+  const canBuyerDecline = canBuyerDeclinePriorityMarketplaceItem(d);
 
   const linkedInquiryPath = (() => {
     if (d.status !== 'CONFIRMED') return null;
@@ -378,14 +372,28 @@ export function DbMarketplaceListingDetailModal({
             </p>
           ) : null}
 
+          {canBuyerDecline ? (
+            <p className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-900">
+              순위 노출 — 현재 {d.currentPriorityRank}순위 구매 후보입니다. 구매하지 않으면 「거절하기」를
+              이용하세요.
+            </p>
+          ) : null}
+
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-1.5 break-words">
             <p>
               <span className="text-gray-500">판매 업체</span> {d.sellerTenantName}
             </p>
-            <p>
-              <span className="text-gray-500">표시금액</span>{' '}
-              {d.displayAmount != null ? `${d.displayAmount.toLocaleString('ko-KR')}원` : '-'}
-            </p>
+            <DbMarketplaceAmountSummaryBlock
+              row={{
+                serviceTotalAmount: d.serviceTotalAmount ?? d.inquiryFull?.serviceTotalAmount,
+                serviceDepositAmount: d.serviceDepositAmount ?? d.inquiryFull?.serviceDepositAmount,
+                customerBalanceAmount: d.customerBalanceAmount,
+                displayAmount: d.displayAmount,
+                listingFee: d.listingFee,
+                priorFeesTotal: d.priorFeesTotal,
+                buyerTotalFee: d.buyerTotalFee,
+              }}
+            />
             <p>
               <span className="text-gray-500">고객</span> {d.customerNameMasked} · {d.addressRegion}
             </p>
@@ -412,11 +420,6 @@ export function DbMarketplaceListingDetailModal({
                 {d.inquiryFull.address}
                 {d.inquiryFull.addressDetail ? ` ${d.inquiryFull.addressDetail}` : ''}
               </p>
-              {d.inquiryFull.serviceBalanceAmount != null ? (
-                <p className="tabular-nums">
-                  잔금 {d.inquiryFull.serviceBalanceAmount.toLocaleString('ko-KR')}원
-                </p>
-              ) : null}
               {(() => {
                 const linkedLabel = d.targetInquiryId
                   ? linkedInquiryPath
@@ -467,7 +470,7 @@ export function DbMarketplaceListingDetailModal({
                 );
               })()}
               <p className="text-[10px] text-emerald-800/80">
-                수수료(listingFee)는 기존 파트너·타업체 정산 집계에 반영됩니다.
+                정보공유 수수료는 인계 확정 시 파트너·타업체 정산에 반영됩니다. 재판매 건은 앞선 판매 수수료가 합산됩니다.
               </p>
             </div>
           ) : (
@@ -525,57 +528,28 @@ export function DbMarketplaceListingDetailModal({
             </div>
           ) : null}
 
-          {d.status === 'OPEN' && d.role === 'SELLER' && d.holdActive ? (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
-              {d.holdBuyerName ?? '다른 업체'}가 검토 예약 중입니다.
-              {d.heldUntil
-                ? ` (~${new Date(d.heldUntil).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}까지)`
-                : null}
-            </p>
-          ) : null}
-
           <div className="sticky bottom-0 -mx-4 border-t border-gray-100 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {d.status === 'OPEN' && d.role === 'VIEWER' && !d.platformSuspended ? (
               <>
-                {d.holdActive && !d.holdIsMine ? (
-                  <p className="w-full text-[11px] text-amber-800">
-                    다른 업체가 검토 예약 중입니다.
-                    {d.heldUntil
-                      ? ` (${new Date(d.heldUntil).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}까지)`
-                      : null}
-                  </p>
-                ) : null}
-                {!d.holdActive ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void runBuyerConfirm()}
+                  className="min-h-[2.75rem] w-full rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:w-auto sm:min-h-0"
+                >
+                  구매신청
+                </button>
+                {canBuyerDecline ? (
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => void runHold()}
-                    className="min-h-[2.75rem] w-full rounded-lg border border-violet-300 px-4 py-2 text-fluid-xs font-medium text-violet-900 hover:bg-violet-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
+                    onClick={() => void runBuyerPriorityDecline()}
+                    className="min-h-[2.75rem] w-full rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
                   >
-                    {DB_MARKETPLACE_HOLD_MINUTES}분 검토 예약
+                    거절하기
                   </button>
                 ) : null}
-                {d.holdIsMine ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void runReleaseHold()}
-                    className="min-h-[2.75rem] w-full rounded-lg border border-gray-300 px-4 py-2 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
-                  >
-                    검토 예약 해제
-                  </button>
-                ) : null}
-                {(!d.holdActive || d.holdIsMine) && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void runBuyerConfirm()}
-                    className="min-h-[2.75rem] w-full rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:w-auto sm:min-h-0"
-                  >
-                    갖고가기
-                  </button>
-                )}
               </>
             ) : null}
             {d.status === 'PENDING_SELLER' && d.role === 'SELLER' && apiMode === 'admin' ? (

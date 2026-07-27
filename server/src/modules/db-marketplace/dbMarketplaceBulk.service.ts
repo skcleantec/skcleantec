@@ -1,4 +1,3 @@
-import { DB_MARKETPLACE_BULK_MAX } from '../../lib/dbMarketplacePolicy.js';
 import {
   notifyDbMarketplaceBroadcast,
   notifyDbMarketplaceSellerAdmins,
@@ -6,6 +5,7 @@ import {
 import {
   confirmDbListingBuyer,
   confirmDbListingSeller,
+  declineDbListingBuyer,
   declineDbListingSeller,
 } from './dbMarketplaceConfirm.service.js';
 import {
@@ -37,6 +37,11 @@ export type DbMarketplaceBulkPublishResult = {
 
 export type DbMarketplaceBulkBuyerConfirmResult = {
   requested: DbMarketplaceBulkItemResult[];
+  failed: DbMarketplaceBulkFailed[];
+};
+
+export type DbMarketplaceBulkBuyerDeclineResult = {
+  declined: DbMarketplaceBulkItemResult[];
   failed: DbMarketplaceBulkFailed[];
 };
 
@@ -73,9 +78,6 @@ function parseListingIds(raw: unknown): string[] {
   if (ids.length === 0) {
     throw new DbMarketplaceError('게시할 항목을 1건 이상 선택해 주세요.', 400);
   }
-  if (ids.length > DB_MARKETPLACE_BULK_MAX) {
-    throw new DbMarketplaceError(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 처리할 수 있습니다.`, 400);
-  }
   return ids;
 }
 
@@ -84,6 +86,7 @@ export async function bulkPublishDbListings(
   listingIdsRaw: unknown,
   visibilityRaw: unknown,
   audiencesRaw: unknown,
+  offerModeRaw?: unknown,
 ): Promise<DbMarketplaceBulkPublishResult> {
   const listingIds = parseListingIds(listingIdsRaw);
   const published: DbMarketplaceBulkItemResult[] = [];
@@ -91,13 +94,21 @@ export async function bulkPublishDbListings(
 
   for (const id of listingIds) {
     try {
-      const audienceRow = await updateDbListingAudience(tenantId, id, visibilityRaw, audiencesRaw);
+      const audienceRow = await updateDbListingAudience(
+        tenantId,
+        id,
+        visibilityRaw,
+        audiencesRaw,
+        offerModeRaw,
+      );
       const row = await publishDbListing(tenantId, id);
-      await notifyDbMarketplaceBroadcast({
-        sellerTenantId: tenantId,
-        visibility: row.visibility,
-        audiences: row.audiences.length > 0 ? row.audiences : audienceRow.audiences,
-      });
+      if (row.offerMode !== 'PRIORITY') {
+        await notifyDbMarketplaceBroadcast({
+          sellerTenantId: tenantId,
+          visibility: row.visibility,
+          audiences: row.audiences.length > 0 ? row.audiences : audienceRow.audiences,
+        });
+      }
       published.push({
         id: row.id,
         inquiryId: row.inquiryId,
@@ -144,6 +155,34 @@ export async function bulkConfirmDbListingBuyer(
   }
 
   return { requested, failed };
+}
+
+export async function bulkDeclineDbListingBuyer(
+  listingIdsRaw: unknown,
+  buyer: DbMarketplaceBuyerContext,
+): Promise<DbMarketplaceBulkBuyerDeclineResult> {
+  const listingIds = parseListingIds(listingIdsRaw);
+  const declined: DbMarketplaceBulkItemResult[] = [];
+  const failed: DbMarketplaceBulkFailed[] = [];
+
+  for (const id of listingIds) {
+    try {
+      const row = await declineDbListingBuyer(id, buyer);
+      declined.push({
+        id: row.id,
+        inquiryId: row.inquiryId,
+        sellerTenantName: row.tenant.name,
+        displayAmount: row.displayAmount,
+      });
+    } catch (e) {
+      failed.push({
+        id,
+        error: e instanceof DbMarketplaceError ? e.message : '거절 실패',
+      });
+    }
+  }
+
+  return { declined, failed };
 }
 
 export async function bulkWithdrawDbListings(

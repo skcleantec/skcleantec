@@ -1,4 +1,10 @@
 import type { TenantInquiryShareMeta } from '../api/tenantInquiryShare';
+import {
+  computeMarketplaceBuyerCompanyRevenue,
+  computeMarketplaceSellerRevenue,
+  computeMarketplaceServiceBalanceAmount,
+  MARKETPLACE_REVENUE_LABEL_BUYER,
+} from '@shared/dbMarketplaceAmount';
 import { resolveCollectibleBaseBalance } from './inquiryCollectibleAmount';
 
 function truncWon(v: number | null | undefined): number {
@@ -62,7 +68,10 @@ export function resolveTenantShareCollectibleBaseBalance(
   baseBalance: number | null;
   showPartnerFeeRow: boolean;
   partnerFee: number;
+  partnerFeeLabel: string;
   sourceLinkedHint: string | null;
+  marketplaceCompanyRevenue?: number | null;
+  marketplaceCompanyRevenueLabel?: string | null;
 } {
   const plain = resolveCollectibleBaseBalance(
     serviceTotalAmount,
@@ -71,34 +80,70 @@ export function resolveTenantShareCollectibleBaseBalance(
   );
 
   if (!isActiveTenantShare(tenantShare)) {
-    return { baseBalance: plain, showPartnerFeeRow: false, partnerFee: 0, sourceLinkedHint: null };
+    return {
+      baseBalance: plain,
+      showPartnerFeeRow: false,
+      partnerFee: 0,
+      partnerFeeLabel: '파트너 수수료',
+      sourceLinkedHint: null,
+    };
   }
 
   if (tenantShare.role === 'SOURCE') {
+    const fee = truncWon(tenantShare.transferFee);
+    const sellerRevenue =
+      tenantShare.viaMarketplace
+        ? computeMarketplaceSellerRevenue({
+            hopIndex: 0,
+            serviceDepositAmount,
+            listingFee: fee,
+          })
+        : null;
     return {
       baseBalance: 0,
       showPartnerFeeRow: false,
-      partnerFee: truncWon(tenantShare.transferFee),
+      partnerFee: fee,
+      partnerFeeLabel: tenantShare.viaMarketplace ? '정보공유 수수료' : '파트너 수수료',
+      marketplaceCompanyRevenue: sellerRevenue?.amount ?? null,
+      marketplaceCompanyRevenueLabel: sellerRevenue?.label ?? null,
       sourceLinkedHint:
         mode === 'team'
           ? '파트너 연계 — 현장 수금 없음'
-          : '파트너 연계 — 현장 수금 없음 (수수료는 파트너 정산 메뉴)',
+          : tenantShare.viaMarketplace
+            ? '정보공유 — 회사 매출은 예약금+수수료(정산 메뉴)'
+            : '파트너 연계 — 현장 수금 없음 (수수료는 파트너 정산 메뉴)',
     };
   }
 
   const fee = truncWon(tenantShare.transferFee);
-  const adjusted =
-    computeTargetMirrorBalanceAmount({
-      serviceTotalAmount,
-      serviceDepositAmount,
-      serviceBalanceAmount,
-      transferFee: fee,
-    }) ?? plain;
+  const viaMarketplace = Boolean(tenantShare.viaMarketplace);
+  const adjusted = viaMarketplace
+    ? computeMarketplaceServiceBalanceAmount({
+        serviceTotalAmount,
+        serviceDepositAmount,
+        serviceBalanceAmount,
+      }) ?? plain
+    : computeTargetMirrorBalanceAmount({
+        serviceTotalAmount,
+        serviceDepositAmount,
+        serviceBalanceAmount,
+        transferFee: fee,
+      }) ?? plain;
 
   return {
     baseBalance: adjusted,
-    showPartnerFeeRow: mode === 'admin' && fee > 0,
+    showPartnerFeeRow: fee > 0 && (mode === 'admin' || viaMarketplace),
     partnerFee: fee,
+    partnerFeeLabel: viaMarketplace ? '정보공유 수수료' : '파트너 수수료',
+    marketplaceCompanyRevenue: viaMarketplace
+      ? computeMarketplaceBuyerCompanyRevenue({
+          serviceTotalAmount,
+          serviceDepositAmount,
+          serviceBalanceAmount,
+          buyerTotalFee: fee,
+        })
+      : null,
+    marketplaceCompanyRevenueLabel: viaMarketplace ? MARKETPLACE_REVENUE_LABEL_BUYER : null,
     sourceLinkedHint: null,
   };
 }

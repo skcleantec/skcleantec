@@ -139,6 +139,33 @@ function parseLandingContactPayload(d: unknown): LandingContactRtPayload | null 
   };
 }
 
+export type DbMarketplaceHandoffConfirmedRtPayload = {
+  type: 'db-marketplace:handoff-confirmed';
+  listingId: string;
+  targetInquiryId: string | null;
+  customerName: string;
+  sellerTenantName: string;
+  buyerKind: 'PARTNER_TENANT' | 'EXTERNAL_COMPANY';
+};
+
+function parseDbMarketplaceHandoffConfirmedPayload(
+  d: unknown,
+): DbMarketplaceHandoffConfirmedRtPayload | null {
+  if (!d || typeof d !== 'object') return null;
+  const o = d as Record<string, unknown>;
+  if (o.type !== 'db-marketplace:handoff-confirmed') return null;
+  const buyerKind = o.buyerKind;
+  if (buyerKind !== 'PARTNER_TENANT' && buyerKind !== 'EXTERNAL_COMPANY') return null;
+  return {
+    type: 'db-marketplace:handoff-confirmed',
+    listingId: typeof o.listingId === 'string' ? o.listingId : '',
+    targetInquiryId: typeof o.targetInquiryId === 'string' ? o.targetInquiryId : null,
+    customerName: typeof o.customerName === 'string' ? o.customerName : '',
+    sellerTenantName: typeof o.sellerTenantName === 'string' ? o.sellerTenantName : '',
+    buyerKind,
+  };
+}
+
 export type ScheduleDayMemoRtPayload = {
   type: 'schedule-day-memo:refresh';
   date: string;
@@ -165,6 +192,7 @@ type Bucket = {
   reviewPaybackListeners: Set<(p: ReviewPaybackRtPayload) => void>;
   landingContactListeners: Set<(p: LandingContactRtPayload) => void>;
   scheduleDayMemoListeners: Set<(p: ScheduleDayMemoRtPayload) => void>;
+  marketplaceHandoffConfirmedListeners: Set<(p: DbMarketplaceHandoffConfirmedRtPayload) => void>;
 };
 
 const buckets = new Map<string, Bucket>();
@@ -177,7 +205,8 @@ function bucketHasSubscribers(bucket: Bucket): boolean {
     bucket.changeLogListeners.size > 0 ||
     bucket.reviewPaybackListeners.size > 0 ||
     bucket.landingContactListeners.size > 0 ||
-    bucket.scheduleDayMemoListeners.size > 0
+    bucket.scheduleDayMemoListeners.size > 0 ||
+    bucket.marketplaceHandoffConfirmedListeners.size > 0
   );
 }
 
@@ -269,6 +298,16 @@ function connectBucket(bucket: Bucket) {
           }
         }
       }
+      const handoffConfirmed = parseDbMarketplaceHandoffConfirmedPayload(data);
+      if (handoffConfirmed) {
+        for (const fn of bucket.marketplaceHandoffConfirmedListeners) {
+          try {
+            fn(handoffConfirmed);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
       const scheduleDayMemo = parseScheduleDayMemoPayload(data);
       if (scheduleDayMemo) {
         for (const fn of bucket.scheduleDayMemoListeners) {
@@ -329,7 +368,8 @@ function destroyBucketIfIdle(token: string) {
     bucket.changeLogListeners.size > 0 ||
     bucket.reviewPaybackListeners.size > 0 ||
     bucket.landingContactListeners.size > 0 ||
-    bucket.scheduleDayMemoListeners.size > 0
+    bucket.scheduleDayMemoListeners.size > 0 ||
+    bucket.marketplaceHandoffConfirmedListeners.size > 0
   )
     return;
   bucket.tearDown = true;
@@ -381,6 +421,7 @@ export function useInboxRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -484,6 +525,7 @@ export function useInquiryCelebrateRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -563,6 +605,7 @@ export function useRosterAckRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -621,6 +664,7 @@ export function useChangeLogRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -673,6 +717,7 @@ export function useReviewPaybackRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -725,6 +770,7 @@ export function useLandingContactRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -741,6 +787,59 @@ export function useLandingContactRealtime(
       const bucket = buckets.get(token);
       if (bucket) {
         bucket.landingContactListeners.delete(listener);
+        bucket.connectionListeners.delete(noopConn);
+      }
+      destroyBucketIfIdle(token);
+    };
+  }, [token, enabled]);
+}
+
+/** 정보공유: 판매자 인계 확정 — 구매 업체 상단 배너 */
+export function useDbMarketplaceHandoffConfirmedRealtime(
+  token: string | null,
+  onHandoffConfirmed: (p: DbMarketplaceHandoffConfirmedRtPayload) => void,
+  enabled: boolean,
+): void {
+  const onRef = useRef(onHandoffConfirmed);
+  useEffect(() => {
+    onRef.current = onHandoffConfirmed;
+  });
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+
+    let b = buckets.get(token);
+    if (!b) {
+      b = {
+        token,
+        ws: null,
+        reconnectTimer: undefined,
+        tearDown: false,
+        refreshListeners: new Set(),
+        connectionListeners: new Set(),
+        celebrationListeners: new Set(),
+        rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
+        reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
+      };
+      buckets.set(token, b);
+    } else {
+      b.tearDown = false;
+    }
+
+    const listener = (p: DbMarketplaceHandoffConfirmedRtPayload) => onRef.current(p);
+    b.marketplaceHandoffConfirmedListeners.add(listener);
+    const noopConn = () => {};
+    b.connectionListeners.add(noopConn);
+    connectBucket(b);
+
+    return () => {
+      const bucket = buckets.get(token);
+      if (bucket) {
+        bucket.marketplaceHandoffConfirmedListeners.delete(listener);
         bucket.connectionListeners.delete(noopConn);
       }
       destroyBucketIfIdle(token);
@@ -777,6 +876,7 @@ export function useScheduleDayStaffMemoRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
       };
       buckets.set(token, b);
     } else {

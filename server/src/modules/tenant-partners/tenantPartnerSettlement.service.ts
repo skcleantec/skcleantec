@@ -6,6 +6,10 @@ import {
   loadMarketplaceShareConfirmAtMap,
   resolvePartnerShareSettlementEffectiveDate,
 } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
+import {
+  computeMarketplaceShareRevenueForRole,
+  loadMarketplaceShareRevenueMetaMap,
+} from '../db-marketplace/dbMarketplaceRevenue.helpers.js';
 import { signedExternalSettlementFee } from '../../lib/externalSettlementSignedFee.js';
 
 export class TenantPartnerSettlementError extends Error {
@@ -311,9 +315,10 @@ export async function getSettlementPartnerDetail(opts: {
 
   const shares = await loadSharesForRole(viewerTenantId, role);
   const shareIds = shares.map((s) => s.id);
-  const [marketplaceShareIds, shareSettlementEffectiveDate] = await Promise.all([
+  const [marketplaceShareIds, shareSettlementEffectiveDate, marketplaceRevenueMeta] = await Promise.all([
     loadMarketplaceConfirmedShareIdSet(shareIds),
     loadShareSettlementEffectiveDate(shares),
+    loadMarketplaceShareRevenueMetaMap(shareIds),
   ]);
 
   const periodItems = shares
@@ -327,6 +332,10 @@ export async function getSettlementPartnerDetail(opts: {
       const signed = signedShareTransferFee(s);
       const effective = shareSettlementEffectiveDate(s);
       const viaMarketplace = marketplaceShareIds.has(s.id);
+      const revenueMeta = viaMarketplace ? marketplaceRevenueMeta.get(s.id) : undefined;
+      const marketplaceRevenue = revenueMeta
+        ? computeMarketplaceShareRevenueForRole(role, revenueMeta)
+        : null;
       return {
         shareId: s.id,
         inquiryId: s.sourceInquiry.id,
@@ -339,6 +348,8 @@ export async function getSettlementPartnerDetail(opts: {
         feeAmount: s.transferFee ?? 0,
         signedFeeAmount: signed,
         viaMarketplace,
+        marketplaceRevenueAmount: marketplaceRevenue?.amount ?? null,
+        marketplaceRevenueLabel: marketplaceRevenue?.label ?? null,
       };
     })
     .sort((a, b) =>
@@ -650,6 +661,8 @@ export async function buildSettlementExportCsv(opts: {
     '부호수수료',
     '취소여부',
     '정보공유',
+    '매출금액',
+    '매출구분',
   ];
   const rows = detail.items.map((it) =>
     [
@@ -666,6 +679,8 @@ export async function buildSettlementExportCsv(opts: {
       it.signedFeeAmount,
       it.isCancelled ? 'Y' : 'N',
       it.viaMarketplace ? 'Y' : 'N',
+      it.marketplaceRevenueAmount ?? '',
+      it.marketplaceRevenueLabel ?? '',
     ]
       .map(csvEscapeCell)
       .join(','),

@@ -2,6 +2,10 @@ import type { PrismaClient } from '@prisma/client';
 import type { TeamLeaderGeneralSettlementMode } from '@prisma/client';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { compareMonthKey, nextMonthKey } from './marketerPayrollLedger.js';
+import {
+  loadMarketplaceBuyerRevenueMetaByInquiryId,
+  resolvePayrollGeneralServiceAmount,
+} from '../db-marketplace/dbMarketplaceRevenue.helpers.js';
 
 /** 추가결재 회사 몫 미설정 시 정산 화면 기본(만분율 5000 = 50%) */
 const DEFAULT_ADDITIONAL_COMPANY_SHARE_BPS = 5000;
@@ -121,6 +125,7 @@ function computeSettlementDueForLeader(
  */
 export async function computeTeamLeaderPayrollMonthAccrualMap(
   prisma: PrismaClient,
+  tenantId: string,
   monthKey: string,
   leaders: LeaderProfile[],
 ): Promise<Map<string, TeamLeaderPayrollMonthAccrualCore>> {
@@ -177,12 +182,20 @@ export async function computeTeamLeaderPayrollMonthAccrualMap(
     });
     if (batch.length === 0) break;
 
+    const buyerMetaMap = await loadMarketplaceBuyerRevenueMetaByInquiryId(
+      tenantId,
+      batch.map((row) => row.inquiryId),
+    );
+
     for (const row of batch) {
       const bucket = inquiriesByLeader.get(row.teamLeaderId);
       if (!bucket) continue;
 
       const inq = row.inquiry;
-      const svc = Math.max(0, inq.serviceTotalAmount ?? 0);
+      const svc = resolvePayrollGeneralServiceAmount(
+        inq.serviceTotalAmount,
+        buyerMetaMap.get(inq.id),
+      );
       const { addCompanyDepositSum, addFieldReceivedSum } = splitAdditionalReceiptsForSettlement(
         inq.additionalReceipts,
       );
@@ -239,6 +252,7 @@ export function attachPaidAndUnsettled(
  */
 export async function computeLeaderCumulativeUnsettledThroughMonth(
   prisma: PrismaClient,
+  tenantId: string,
   endMonthKey: string,
   leaders: LeaderProfileWithHire[],
 ): Promise<Map<string, number>> {
@@ -303,6 +317,11 @@ export async function computeLeaderCumulativeUnsettledThroughMonth(
     });
     if (batch.length === 0) break;
 
+    const buyerMetaMap = await loadMarketplaceBuyerRevenueMetaByInquiryId(
+      tenantId,
+      batch.map((row) => row.inquiryId),
+    );
+
     for (const row of batch) {
       const pref = row.inquiry.preferredDate;
       if (!pref) continue;
@@ -318,7 +337,10 @@ export async function computeLeaderCumulativeUnsettledThroughMonth(
       }
 
       const inq = row.inquiry;
-      const svc = Math.max(0, inq.serviceTotalAmount ?? 0);
+      const svc = resolvePayrollGeneralServiceAmount(
+        inq.serviceTotalAmount,
+        buyerMetaMap.get(inq.id),
+      );
       const { addCompanyDepositSum, addFieldReceivedSum } = splitAdditionalReceiptsForSettlement(
         inq.additionalReceipts,
       );

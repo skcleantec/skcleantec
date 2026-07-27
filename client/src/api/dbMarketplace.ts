@@ -37,15 +37,23 @@ export type DbMarketplaceAudienceItem = {
   partnerTenantName: string | null;
   externalCompanyId: string | null;
   externalCompanyName: string | null;
+  priorityRank?: number | null;
 };
+
+export type DbMarketplaceOfferMode = 'SIMULTANEOUS' | 'PRIORITY';
 
 export type DbMarketplaceSellerListing = {
   id: string;
   inquiryId: string;
   listingFee: number;
+  priorFeesTotal?: number;
+  buyerTotalFee?: number;
+  customerBalanceAmount?: number | null;
   displayAmount: number | null;
   status: DbMarketplaceListingStatus;
   visibility: 'ALL' | 'SELECTED';
+  offerMode?: DbMarketplaceOfferMode | null;
+  currentPriorityRank?: number | null;
   publishedAt: string | null;
   buyerKind?: 'PARTNER_TENANT' | 'EXTERNAL_COMPANY' | null;
   expiresAt?: string | null;
@@ -55,6 +63,11 @@ export type DbMarketplaceSellerListing = {
   buyerName?: string | null;
   buyerConfirmedAt?: string | null;
   sellerConfirmedAt?: string | null;
+  resaleStep?: number;
+  hopIndex?: number;
+  rootTenantId?: string | null;
+  rootTenantName?: string | null;
+  dealBalanceAmount?: number | null;
   audiences: DbMarketplaceAudienceItem[];
 };
 
@@ -97,6 +110,12 @@ export type DbMarketplaceMaskedItem = {
   status: DbMarketplaceListingStatus;
   visibility: 'ALL' | 'SELECTED';
   displayAmount: number | null;
+  serviceTotalAmount?: number | null;
+  serviceDepositAmount?: number | null;
+  customerBalanceAmount?: number | null;
+  listingFee?: number;
+  priorFeesTotal?: number;
+  buyerTotalFee?: number;
   publishedAt: string | null;
   expiresAt: string | null;
   platformSuspended: boolean;
@@ -127,19 +146,21 @@ export type DbMarketplaceMaskedItem = {
   moveInDate: string | null;
   moveInDateUndecided: boolean;
   role: 'SELLER' | 'BUYER' | 'VIEWER';
-  /** 판매자 목록(cart·my_sales) 전용 */
-  listingFee?: number;
-  inquiryId?: string;
-  /** my_sales — 인계 확정일 */
+  offerMode?: DbMarketplaceOfferMode | null;
+  currentPriorityRank?: number | null;
+  /** my_sales · confirmed — 인계 확정일 */
   sellerConfirmedAt?: string | null;
-  /** my_sales — 구매(인계) 업체명 */
+  /** my_sales · confirmed — 구매(인계) 업체명 */
   buyerName?: string | null;
+  /** 판매자 목록(cart·my_sales) 전용 */
+  inquiryId?: string;
 };
 
 export type DbMarketplaceAudienceInput = {
   audienceKind: 'PARTNER_TENANT' | 'EXTERNAL_COMPANY';
   partnerTenantId?: string;
   externalCompanyId?: string;
+  priorityRank?: number;
 };
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -202,11 +223,12 @@ export async function updateDbMarketplaceAudience(
   listingId: string,
   visibility: 'ALL' | 'SELECTED',
   audiences: DbMarketplaceAudienceInput[],
+  offerMode?: DbMarketplaceOfferMode | null,
 ): Promise<DbMarketplaceSellerListing> {
   const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/audience`, {
     method: 'PATCH',
     headers: headers(token),
-    body: JSON.stringify({ visibility, audiences }),
+    body: JSON.stringify({ visibility, audiences, offerMode: offerMode ?? undefined }),
   });
   const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
   return data.listing;
@@ -244,6 +266,11 @@ export type DbMarketplaceBulkSellerConfirmResult = {
   failed: DbMarketplaceBulkFailed[];
 };
 
+export type DbMarketplaceBulkBuyerDeclineResult = {
+  declined: Array<{ id: string; inquiryId?: string; displayAmount?: number | null }>;
+  failed: DbMarketplaceBulkFailed[];
+};
+
 export type DbMarketplaceBulkSellerDeclineResult = {
   declined: Array<{ id: string; inquiryId?: string; displayAmount?: number | null }>;
   failed: DbMarketplaceBulkFailed[];
@@ -254,6 +281,7 @@ export async function bulkPublishDbMarketplace(
   body: {
     listingIds: string[];
     visibility: 'ALL' | 'SELECTED';
+    offerMode?: DbMarketplaceOfferMode | null;
     audiences: DbMarketplaceAudienceInput[];
   },
 ): Promise<DbMarketplaceBulkPublishResult> {
@@ -270,6 +298,18 @@ export async function bulkBuyerConfirmDbMarketplace(
   listingIds: string[],
 ): Promise<DbMarketplaceBulkBuyerConfirmResult> {
   const res = await fetch(`${API}/db-marketplace/bulk/buyer-confirm`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ listingIds }),
+  });
+  return parseJson(res);
+}
+
+export async function bulkBuyerDeclineDbMarketplace(
+  token: string,
+  listingIds: string[],
+): Promise<DbMarketplaceBulkBuyerDeclineResult> {
+  const res = await fetch(`${API}/db-marketplace/bulk/buyer-decline`, {
     method: 'POST',
     headers: headers(token),
     body: JSON.stringify({ listingIds }),
@@ -349,6 +389,18 @@ export async function bulkTeamBuyerConfirmDbMarketplace(
   return parseJson(res);
 }
 
+export async function bulkTeamBuyerDeclineDbMarketplace(
+  token: string,
+  listingIds: string[],
+): Promise<DbMarketplaceBulkBuyerDeclineResult> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/db-marketplace/bulk/buyer-decline`), {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ listingIds }),
+  });
+  return parseJson(res);
+}
+
 export async function publishDbMarketplaceListing(
   token: string,
   listingId: string,
@@ -398,6 +450,28 @@ export async function completeRecallDbMarketplaceListing(
 }> {
   const res = await fetch(
     `${API}/db-marketplace/${encodeURIComponent(listingId)}/seller-complete-recall`,
+    {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify({ password }),
+    },
+  );
+  return parseJson(res);
+}
+
+export async function cartRecallDbMarketplaceListing(
+  token: string,
+  listingId: string,
+  password: string,
+): Promise<{
+  inquiryId: string;
+  mode: 'cart';
+  hopIndex: number;
+  listingFee: number;
+  buyerLabel: string | null;
+}> {
+  const res = await fetch(
+    `${API}/db-marketplace/${encodeURIComponent(listingId)}/seller-cart-recall`,
     {
       method: 'POST',
       headers: headers(token),
@@ -475,6 +549,18 @@ export async function confirmDbMarketplaceBuyer(
   return data.listing;
 }
 
+export async function declineDbMarketplaceBuyer(
+  token: string,
+  listingId: string,
+): Promise<DbMarketplaceSellerListing> {
+  const res = await fetch(`${API}/db-marketplace/${encodeURIComponent(listingId)}/buyer-decline`, {
+    method: 'POST',
+    headers: headers(token),
+  });
+  const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
+  return data.listing;
+}
+
 export async function confirmDbMarketplaceSeller(
   token: string,
   listingId: string,
@@ -530,6 +616,18 @@ export async function confirmTeamDbMarketplaceBuyer(
 ): Promise<DbMarketplaceSellerListing> {
   const res = await fetch(
     withTeamPreviewQuery(`${API}/team/db-marketplace/${encodeURIComponent(listingId)}/buyer-confirm`),
+    { method: 'POST', headers: headers(token) },
+  );
+  const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);
+  return data.listing;
+}
+
+export async function declineTeamDbMarketplaceBuyer(
+  token: string,
+  listingId: string,
+): Promise<DbMarketplaceSellerListing> {
+  const res = await fetch(
+    withTeamPreviewQuery(`${API}/team/db-marketplace/${encodeURIComponent(listingId)}/buyer-decline`),
     { method: 'POST', headers: headers(token) },
   );
   const data = await parseJson<{ listing: DbMarketplaceSellerListing }>(res);

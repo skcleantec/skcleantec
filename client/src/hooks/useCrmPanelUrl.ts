@@ -2,10 +2,25 @@ import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 export type CrmPanel = 'settings' | 'issue' | 'followup';
-export type CrmSettingsTab = 'scripts' | 'pricing' | 'general' | 'sms' | 'soomgo' | 'soomgo-presets';
+export type CrmSettingsTab =
+  | 'scripts'
+  | 'pricing'
+  | 'general'
+  | 'leadSource'
+  | 'sms'
+  | 'soomgo'
+  | 'soomgo-presets';
 export type CrmCatalogScope = 'shared' | 'personal';
 
-const SETTINGS_TABS: CrmSettingsTab[] = ['scripts', 'pricing', 'general', 'sms', 'soomgo', 'soomgo-presets'];
+const SETTINGS_TABS: CrmSettingsTab[] = [
+  'scripts',
+  'pricing',
+  'general',
+  'leadSource',
+  'sms',
+  'soomgo',
+  'soomgo-presets',
+];
 
 function parseSettingsTab(raw: string | null): CrmSettingsTab {
   if (raw && SETTINGS_TABS.includes(raw as CrmSettingsTab)) return raw as CrmSettingsTab;
@@ -46,7 +61,10 @@ export function useCrmPanelUrl() {
       patchParams((next) => {
         next.set('panel', 'settings');
         next.set('tab', tab);
-        next.set('catalog', tab === 'soomgo' || tab === 'general' ? 'shared' : catalog);
+        next.set(
+          'catalog',
+          tab === 'soomgo' || tab === 'general' || tab === 'leadSource' ? 'shared' : catalog,
+        );
         next.delete('pendingInquiryId');
         next.delete('followupId');
       });
@@ -105,7 +123,7 @@ export function useCrmPanelUrl() {
       patchParams((next) => {
         next.set('panel', 'settings');
         next.set('tab', tab);
-        if (tab === 'soomgo' || tab === 'general') {
+        if (tab === 'soomgo' || tab === 'general' || tab === 'leadSource') {
           next.set('catalog', 'shared');
         }
       });

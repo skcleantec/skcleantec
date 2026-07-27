@@ -12,10 +12,6 @@ import { NavLink } from 'react-router-dom';
 import type { AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSideNavIcon, resolveAdminSideNavIcon } from './adminSideNavIcons';
 import { MobileFloatingMenuButton } from './MobileFloatingMenuButton';
-import { NavFavoriteDrawerStrip } from './NavFavoriteDrawerStrip';
-import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
-import { useTenantCapabilities } from '../../hooks/useTenantCapabilities';
-import { resolveEffectiveStaffAdminFromMe } from '../../utils/staffAdminAccess';
 
 function BarsIcon({ className }: { className?: string }) {
   return (
@@ -84,17 +80,6 @@ function AdminInquiriesMobileMenuSheet({
   items: AdminSideNavItem[];
 }) {
   const [slideIn, setSlideIn] = useState(false);
-  const { features } = useTenantCapabilities();
-  const { staffMe } = useAdminStaffSession();
-  const navCtx = useMemo(
-    () => ({
-      isAdmin: staffMe ? resolveEffectiveStaffAdminFromMe(staffMe) : false,
-      role: staffMe?.role ?? null,
-      marketerPermissions: staffMe?.marketerPermissions ?? null,
-      enabledModules: features,
-    }),
-    [staffMe, features],
-  );
 
   useEffect(() => {
     if (!open) {
@@ -162,14 +147,6 @@ function AdminInquiriesMobileMenuSheet({
         </div>
 
         <nav aria-label="서비스접수 하위 메뉴" className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-2">
-          <div className="px-2">
-            <NavFavoriteDrawerStrip
-              navCtx={navCtx}
-              role={staffMe?.role ?? null}
-              marketerPermissions={staffMe?.marketerPermissions ?? null}
-              onNavigate={onClose}
-            />
-          </div>
           <ul className="space-y-1 px-2">
             {items.map((item) => {
               if (item.type === 'link') {

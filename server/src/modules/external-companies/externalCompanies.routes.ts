@@ -8,6 +8,10 @@ import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 import { loadMarketplaceConfirmedInquiryIdSet, loadMarketplaceExternalBuyerByInquiry } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
 import {
+  computeMarketplaceSourceInquiryRevenue,
+  loadMarketplaceSourceListingRevenueMetaMap,
+} from '../db-marketplace/dbMarketplaceRevenue.helpers.js';
+import {
   hybridLegacySettlementFromShare,
   resolveExternalSettlementCompanyAttribution,
 } from '../../lib/externalSettlementAttribution.js';
@@ -1077,6 +1081,19 @@ router.get('/settlement/company-detail', requireStaffPermission('admin.externalS
   );
   for (const it of allItems) {
     if (marketplaceInquiryIds.has(it.inquiryId)) it.viaMarketplace = true;
+  }
+  const marketplaceSellerRevenueMeta = await loadMarketplaceSourceListingRevenueMetaMap(
+    allItems.filter((it) => it.viaMarketplace).map((it) => it.inquiryId),
+  );
+  for (const it of allItems) {
+    if (!it.viaMarketplace) continue;
+    const meta = marketplaceSellerRevenueMeta.get(it.inquiryId);
+    if (!meta) continue;
+    const revenue = computeMarketplaceSourceInquiryRevenue(meta);
+    (it as { marketplaceRevenueAmount?: number; marketplaceRevenueLabel?: string }).marketplaceRevenueAmount =
+      revenue.amount;
+    (it as { marketplaceRevenueAmount?: number; marketplaceRevenueLabel?: string }).marketplaceRevenueLabel =
+      revenue.label;
   }
   const items = filterExternalSettlementItemsBySearch(allItems, searchRaw);
   const inquiryCount = allItems.filter((it) => !it.isCancelled).length;

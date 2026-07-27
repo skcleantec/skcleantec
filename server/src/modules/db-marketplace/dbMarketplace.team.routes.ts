@@ -10,17 +10,12 @@ import {
   listDbMarketplaceListings,
   serializeSellerListing,
 } from './dbMarketplace.service.js';
-import { confirmDbListingBuyer } from './dbMarketplaceConfirm.service.js';
-import { bulkConfirmDbListingBuyer } from './dbMarketplaceBulk.service.js';
+import { confirmDbListingBuyer, declineDbListingBuyer } from './dbMarketplaceConfirm.service.js';
+import { bulkConfirmDbListingBuyer, bulkDeclineDbListingBuyer } from './dbMarketplaceBulk.service.js';
 import {
   listDbListingMessages,
   postDbListingMessage,
 } from './dbMarketplaceMessages.service.js';
-import {
-  buildMarketplaceHoldView,
-  createDbListingHold,
-  releaseDbListingHold,
-} from './dbMarketplaceHold.service.js';
 
 const router = Router();
 
@@ -90,6 +85,32 @@ router.post('/bulk/buyer-confirm', async (req, res) => {
   const body = req.body as { listingIds?: unknown };
   try {
     const result = await bulkConfirmDbListingBuyer(body.listingIds, {
+      kind: 'EXTERNAL_COMPANY',
+      tenantId,
+      userId: auth.userId,
+      externalCompanyId: ext.me!.externalCompanyId!,
+    });
+    res.json(result);
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/bulk/buyer-decline', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+
+  const ext = await requireExternalPartner(auth, tenantId);
+  if (ext.error) {
+    res.status(ext.status).json({ error: ext.error });
+    return;
+  }
+
+  const body = req.body as { listingIds?: unknown };
+  try {
+    const result = await bulkDeclineDbListingBuyer(body.listingIds, {
       kind: 'EXTERNAL_COMPANY',
       tenantId,
       userId: auth.userId,
@@ -185,62 +206,12 @@ router.post('/:id/messages', async (req, res) => {
   }
 });
 
-router.post('/:id/hold', async (req, res) => {
-  const auth = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = await requireTenantIdFromAuth(res, auth);
-  if (!tenantId) return;
-
-  const ext = await requireExternalPartner(auth, tenantId);
-  if (ext.error) {
-    res.status(ext.status).json({ error: ext.error });
-    return;
-  }
-
-  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
-  const buyer = {
-    kind: 'EXTERNAL_COMPANY' as const,
-    tenantId,
-    userId: auth.userId,
-    externalCompanyId: ext.me!.externalCompanyId!,
-  };
-  try {
-    const row = await createDbListingHold(listingId, buyer);
-    const hold = buildMarketplaceHoldView({
-      listing: row,
-      viewerRole: 'VIEWER',
-      buyer,
-    });
-    res.json({ hold });
-  } catch (e) {
-    if (mapError(res, e)) return;
-    throw e;
-  }
+router.post('/:id/hold', (_req, res) => {
+  res.status(410).json({ error: '검토 예약(hold) 기능은 종료되었습니다. 구매신청으로 진행해 주세요.' });
 });
 
-router.delete('/:id/hold', async (req, res) => {
-  const auth = (req as unknown as { user: AuthPayload }).user;
-  const tenantId = await requireTenantIdFromAuth(res, auth);
-  if (!tenantId) return;
-
-  const ext = await requireExternalPartner(auth, tenantId);
-  if (ext.error) {
-    res.status(ext.status).json({ error: ext.error });
-    return;
-  }
-
-  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
-  try {
-    await releaseDbListingHold(listingId, {
-      kind: 'EXTERNAL_COMPANY',
-      tenantId,
-      userId: auth.userId,
-      externalCompanyId: ext.me!.externalCompanyId!,
-    });
-    res.json({ ok: true });
-  } catch (e) {
-    if (mapError(res, e)) return;
-    throw e;
-  }
+router.delete('/:id/hold', (_req, res) => {
+  res.status(410).json({ error: '검토 예약(hold) 기능은 종료되었습니다.' });
 });
 
 router.post('/:id/buyer-confirm', async (req, res) => {
@@ -257,6 +228,32 @@ router.post('/:id/buyer-confirm', async (req, res) => {
   const listingId = typeof req.params.id === 'string' ? req.params.id : '';
   try {
     const listing = await confirmDbListingBuyer(listingId, {
+      kind: 'EXTERNAL_COMPANY',
+      tenantId,
+      userId: auth.userId,
+      externalCompanyId: ext.me!.externalCompanyId!,
+    });
+    res.json({ listing: serializeSellerListing(listing) });
+  } catch (e) {
+    if (mapError(res, e)) return;
+    throw e;
+  }
+});
+
+router.post('/:id/buyer-decline', async (req, res) => {
+  const auth = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, auth);
+  if (!tenantId) return;
+
+  const ext = await requireExternalPartner(auth, tenantId);
+  if (ext.error) {
+    res.status(ext.status).json({ error: ext.error });
+    return;
+  }
+
+  const listingId = typeof req.params.id === 'string' ? req.params.id : '';
+  try {
+    const listing = await declineDbListingBuyer(listingId, {
       kind: 'EXTERNAL_COMPANY',
       tenantId,
       userId: auth.userId,

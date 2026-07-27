@@ -91,7 +91,7 @@ export async function buildDashboardSettlementSummary(
   const accrualMap =
     profiles.length === 0
       ? new Map()
-      : await computeTeamLeaderPayrollMonthAccrualMap(prisma, monthKey, profiles);
+      : await computeTeamLeaderPayrollMonthAccrualMap(prisma, tenantId, monthKey, profiles);
 
   const rows: DashboardSettlementSummaryRow[] = [];
   let dueSum = 0;

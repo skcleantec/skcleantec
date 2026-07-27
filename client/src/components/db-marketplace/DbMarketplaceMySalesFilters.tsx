@@ -122,9 +122,9 @@ function CompactDatePreset({
   onDayChange: (next: string) => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-1.5">
+    <div className="flex shrink-0 flex-row flex-nowrap items-center gap-1 sm:gap-1.5">
       <span className="shrink-0 text-fluid-2xs font-medium text-gray-600 whitespace-nowrap">{label}</span>
-      <div className="inline-flex max-w-full flex-nowrap gap-0.5 overflow-x-auto rounded-md border border-gray-200 bg-white p-0.5 [scrollbar-width:thin]">
+      <div className="inline-flex shrink-0 flex-nowrap gap-0.5 rounded-md border border-gray-200 bg-white p-0.5">
         {DATE_PRESET_OPTIONS.map((opt) => (
           <button
             key={opt.id}
@@ -139,10 +139,10 @@ function CompactDatePreset({
         ))}
       </div>
       {preset === 'month' ? (
-        <YearMonthSelect value={month} onChange={onMonthChange} className="min-w-0 shrink" />
+        <YearMonthSelect value={month} onChange={onMonthChange} className="min-w-0 shrink-0" compact />
       ) : null}
       {preset === 'day' ? (
-        <YmdSelect value={day} onChange={onDayChange} className="min-w-0 shrink" />
+        <YmdSelect value={day} onChange={onDayChange} className="min-w-0 shrink-0" compact />
       ) : null}
     </div>
   );
@@ -223,7 +223,7 @@ export function DbMarketplaceMySalesFilters({
 
         <div className="hidden h-6 w-px shrink-0 bg-gray-300 xl:block" aria-hidden />
 
-        <div className="min-w-0 flex-1 xl:min-w-[14rem]">
+        <div className="flex min-w-0 flex-row flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain xl:min-w-0 xl:flex-1 xl:gap-4 [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]">
           <CompactDatePreset
             label="판매"
             preset={filters.soldDatePreset}
@@ -233,9 +233,7 @@ export function DbMarketplaceMySalesFilters({
             onMonthChange={(soldMonth) => onChange({ ...filters, soldMonth })}
             onDayChange={(soldDay) => onChange({ ...filters, soldDay })}
           />
-        </div>
-
-        <div className="min-w-0 flex-1 xl:min-w-[14rem]">
+          <span className="hidden shrink-0 self-stretch w-px bg-gray-200 sm:block" aria-hidden />
           <CompactDatePreset
             label="인계"
             preset={filters.handoverDatePreset}

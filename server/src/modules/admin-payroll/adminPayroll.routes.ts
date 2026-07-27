@@ -797,13 +797,14 @@ router.get('/sheet', async (req, res) => {
   const leaderMonthAccrualById =
     !includeStaff || leaderProfilesForAccrual.length === 0
       ? new Map()
-      : await computeTeamLeaderPayrollMonthAccrualMap(prisma, monthKey, leaderProfilesForAccrual);
+      : await computeTeamLeaderPayrollMonthAccrualMap(prisma, tenantId, monthKey, leaderProfilesForAccrual);
 
   const leaderCumulativeUnsettledById =
     !includeStaff || !includeLeaderCumulative || leaderStaffForAccrualMonth.length === 0
       ? new Map<string, number>()
       : await computeLeaderCumulativeUnsettledThroughMonth(
           prisma,
+          tenantId,
           monthKey,
           leaderStaffForAccrualMonth.map((u) => ({
             id: u.id,
@@ -1288,7 +1289,7 @@ router.get('/team-leader/:userId/payments', async (req, res) => {
     .filter((r) => r.settlementBucket === 'ADDITIONAL_RECEIPT_SETTLEMENT')
     .reduce((s, r) => s + r.amount, 0);
 
-  const accrualMap = await computeTeamLeaderPayrollMonthAccrualMap(prisma, monthKey, [
+  const accrualMap = await computeTeamLeaderPayrollMonthAccrualMap(prisma, tenantId, monthKey, [
     {
       id: subject.id,
       teamLeaderGeneralSettlementMode: subject.teamLeaderGeneralSettlementMode,

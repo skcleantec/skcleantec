@@ -15,6 +15,18 @@ export type MarketplaceListingMaskedDto = {
   status: string;
   visibility: string;
   displayAmount: number | null;
+  /** 서비스 총액 (마스킹 목록·금액 표시용) */
+  serviceTotalAmount: number | null;
+  /** 서비스 예약금 */
+  serviceDepositAmount: number | null;
+  /** 고객 현장 수금 (잔금) */
+  customerBalanceAmount: number | null;
+  /** 이번 판매자 수수료 */
+  listingFee: number;
+  /** 앞선 판매 수수료 합 (재판매) */
+  priorFeesTotal: number;
+  /** 구매자 부담 정보공유 수수료 총액 */
+  buyerTotalFee: number;
   publishedAt: string | null;
   expiresAt: string | null;
   platformSuspended: boolean;
@@ -45,6 +57,12 @@ export type MarketplaceListingMaskedDto = {
   moveInDate: string | null;
   moveInDateUndecided: boolean;
   role: 'SELLER' | 'BUYER' | 'VIEWER';
+  /** 재판매 깊이 — 0=최초 판매, 1+=재판매 */
+  resaleStep: number;
+  hopIndex: number;
+  rootTenantId: string | null;
+  rootTenantName: string | null;
+  dealBalanceAmount: number | null;
 };
 
 const INQUIRY_MASK_SELECT = {
@@ -71,6 +89,8 @@ const INQUIRY_MASK_SELECT = {
   moveInDate: true,
   moveInDateUndecided: true,
   serviceBalanceAmount: true,
+  serviceTotalAmount: true,
+  serviceDepositAmount: true,
 } as const;
 
 export { INQUIRY_MASK_SELECT };
@@ -85,6 +105,8 @@ export function buildMaskedListingDto(input: {
   visibility: string;
   listingFee: number;
   displayAmount: number | null;
+  priorFeesTotal?: number;
+  buyerTotalFee?: number;
   publishedAt: Date | null;
   expiresAt?: Date | null;
   platformSuspendedAt?: Date | null;
@@ -96,10 +118,20 @@ export function buildMaskedListingDto(input: {
     heldUntil: string | null;
     holdBuyerName: string | null;
   };
+  hopIndex?: number;
+  rootTenantId?: string | null;
+  rootTenantName?: string | null;
+  dealBalanceAmount?: number | null;
 }): MarketplaceListingMaskedDto {
-  const displayAmount =
+  const customerBalanceAmount =
+    input.dealBalanceAmount ??
     input.displayAmount ??
     computeMarketplaceDisplayAmount(input.inquiry.serviceBalanceAmount, input.listingFee);
+  const priorFeesTotal = input.priorFeesTotal ?? 0;
+  const buyerTotalFee =
+    input.buyerTotalFee ?? priorFeesTotal + Math.max(0, Math.round(input.listingFee));
+  const displayAmount = customerBalanceAmount;
+  const resaleStep = input.hopIndex ?? 0;
 
   return {
     id: input.id,
@@ -108,6 +140,12 @@ export function buildMaskedListingDto(input: {
     status: input.status,
     visibility: input.visibility,
     displayAmount,
+    serviceTotalAmount: input.inquiry.serviceTotalAmount,
+    serviceDepositAmount: input.inquiry.serviceDepositAmount,
+    customerBalanceAmount,
+    listingFee: input.listingFee,
+    priorFeesTotal,
+    buyerTotalFee,
     publishedAt: input.publishedAt?.toISOString() ?? null,
     expiresAt: input.expiresAt?.toISOString() ?? null,
     platformSuspended: input.platformSuspendedAt != null,
@@ -138,6 +176,11 @@ export function buildMaskedListingDto(input: {
     moveInDate: input.inquiry.moveInDate?.toISOString() ?? null,
     moveInDateUndecided: input.inquiry.moveInDateUndecided,
     role: input.role,
+    resaleStep,
+    hopIndex: resaleStep,
+    rootTenantId: input.rootTenantId ?? null,
+    rootTenantName: input.rootTenantName ?? null,
+    dealBalanceAmount: input.dealBalanceAmount ?? null,
   };
 }
 
@@ -267,6 +310,8 @@ export function buildFullInquiryDto(
 }
 
 export type MarketplaceListingDetailDto = MarketplaceListingMaskedDto & {
+  offerMode?: 'SIMULTANEOUS' | 'PRIORITY' | null;
+  currentPriorityRank?: number | null;
   inquiryId: string;
   buyerKind: string | null;
   buyerName: string | null;

@@ -26,18 +26,56 @@ export function formatMarketplaceArea(row: Pick<DbMarketplaceMaskedItem, 'areaPy
   return basisLabel ? `${basisLabel} ${pyeong}${sqm}` : `${pyeong}${sqm}`;
 }
 
-/** 방·욕실·베란다·주방 */
+function formatMarketplaceCount(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '-';
+  return String(value);
+}
+
+/** 방·거실·화장실·베란다 — DB에 거실 필드 없음, 다세대는 거실 1 가정 */
+export function marketplaceStructureCountParts(
+  row: Pick<
+    DbMarketplaceMaskedItem,
+    'isOneRoom' | 'roomCount' | 'bathroomCount' | 'balconyCount'
+  >,
+): { room: string; living: string; bathroom: string; balcony: string } {
+  if (row.isOneRoom) {
+    return {
+      room: '1',
+      living: '-',
+      bathroom: formatMarketplaceCount(row.bathroomCount),
+      balcony: formatMarketplaceCount(row.balconyCount),
+    };
+  }
+  const hasStructure =
+    row.roomCount != null || row.bathroomCount != null || row.balconyCount != null;
+  return {
+    room: formatMarketplaceCount(row.roomCount),
+    living: hasStructure ? '1' : '-',
+    bathroom: formatMarketplaceCount(row.bathroomCount),
+    balcony: formatMarketplaceCount(row.balconyCount),
+  };
+}
+
+/** 목록 한 줄 — 방·거실·화장실·베란다 */
 export function formatMarketplaceStructure(
   row: Pick<
     DbMarketplaceMaskedItem,
     'isOneRoom' | 'roomCount' | 'bathroomCount' | 'balconyCount' | 'kitchenCount'
   >,
 ): string {
-  if (row.isOneRoom) return '원룸';
+  if (row.isOneRoom) {
+    const { bathroom, balcony } = marketplaceStructureCountParts(row);
+    const parts = ['원룸'];
+    if (bathroom !== '-') parts.push(`화장실 ${bathroom}`);
+    if (balcony !== '-') parts.push(`베란다 ${balcony}`);
+    return parts.join(' · ');
+  }
+  const { room, living, bathroom, balcony } = marketplaceStructureCountParts(row);
   const parts: string[] = [];
-  if (row.roomCount != null) parts.push(`방 ${row.roomCount}`);
-  if (row.bathroomCount != null) parts.push(`화 ${row.bathroomCount}`);
-  if (row.balconyCount != null) parts.push(`베란다 ${row.balconyCount}`);
+  if (room !== '-') parts.push(`방 ${room}`);
+  if (living !== '-') parts.push(`거실 ${living}`);
+  if (bathroom !== '-') parts.push(`화장실 ${bathroom}`);
+  if (balcony !== '-') parts.push(`베란다 ${balcony}`);
   if (row.kitchenCount != null) parts.push(`주방 ${row.kitchenCount}`);
   return parts.join(' · ');
 }
@@ -84,7 +122,11 @@ export function marketplaceCleaningDetailRows(
   push('건축물', row.propertyType);
   push('신축/구축', row.buildingType);
   push('면적', formatMarketplaceArea(row) || null);
-  push('구조', formatMarketplaceStructure(row));
+  const structure = marketplaceStructureCountParts(row);
+  rows.push({ label: '방', value: structure.room });
+  rows.push({ label: '거실', value: structure.living });
+  rows.push({ label: '화장실', value: structure.bathroom });
+  rows.push({ label: '베란다', value: structure.balcony });
   push('일정', formatMarketplaceSchedule(row));
   if (row.moveInDateUndecided) {
     rows.push({ label: '이사일', value: '미정' });

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { getTeamToken, subscribeTeamAuth } from '../../stores/teamAuth';
 import {
   bulkTeamBuyerConfirmDbMarketplace,
+  bulkTeamBuyerDeclineDbMarketplace,
   listTeamDbMarketplace,
   getTeamDbMarketplaceListing,
   type DbMarketplaceMaskedItem,
@@ -22,11 +23,22 @@ import {
   marketplaceTableCheckboxCellProps,
 } from '../../components/db-marketplace/DbMarketplaceListUi';
 import {
+  DbMarketplaceBuyBulkButton,
+  DbMarketplaceBuyerDeclineBulkButton,
+} from '../../components/db-marketplace/marketplaceUiParts';
+import {
   formatMarketplaceCleaningSummary,
   formatMarketplaceSchedule,
 } from '../../utils/dbMarketplaceDisplay';
 import {
+  formatWon,
+  resolveMarketplaceBuyerTotalFee,
+  resolveMarketplaceServiceBalance,
+  resolveMarketplaceServiceTotal,
+} from '../../components/db-marketplace/DbMarketplaceAmountSummary';
+import {
   canBulkBuyMarketplaceItem,
+  canBuyerDeclinePriorityMarketplaceItem,
 } from '../../utils/dbMarketplaceBulk';
 import { DB_MARKETPLACE_BULK_MAX } from '@shared/dbMarketplacePolicy';
 import {
@@ -230,6 +242,44 @@ export function TeamDbMarketplacePage() {
     }
   };
 
+  const runBulkBuyerDecline = async () => {
+    if (!teamToken || selectedCount === 0) return;
+    const listingIds = items
+      .filter((r) => selectedIds.has(r.id) && canBuyerDeclinePriorityMarketplaceItem(r))
+      .map((r) => r.id);
+    if (listingIds.length === 0) {
+      alert('순위 노출 DB만 거절할 수 있습니다.');
+      return;
+    }
+    if (listingIds.length > DB_MARKETPLACE_BULK_MAX) {
+      alert(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 처리할 수 있습니다.`);
+      return;
+    }
+    if (
+      !window.confirm(
+        `선택 ${listingIds.length}건을 거절할까요?`,
+      )
+    ) {
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const result = await bulkTeamBuyerDeclineDbMarketplace(teamToken, listingIds);
+      setSelectedIds(new Set());
+      setBulkResult({
+        title: '일괄 거절 결과',
+        successLabel: '거절 완료',
+        successCount: result.declined.length,
+        failed: result.failed,
+      });
+      load({ silent: true });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '일괄 거절 실패');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   return (
     <div className={`min-w-0 w-full max-w-full space-y-2 sm:space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
       <DbMarketplaceTabBar options={TAB_OPTIONS} active={tab} onChange={setTab} />
@@ -257,15 +307,17 @@ export function TeamDbMarketplacePage() {
         ) : null}
 
         <div className="mt-2 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mt-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <table className="w-full table-fixed border-collapse text-fluid-xs min-w-[640px]">
+          <table className="w-full table-fixed border-collapse text-fluid-xs min-w-[760px]">
             <colgroup>
               {selectable ? <MarketplaceTableCheckboxCol /> : null}
-              <col className="w-[15%]" />
-              <col className="w-[16%]" />
-              <col className="w-[34%]" />
-              <col className="w-[15%]" />
               <col className="w-[13%]" />
+              <col className="w-[14%]" />
+              <col className="w-[28%]" />
+              <col className="w-[12%]" />
               <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[7%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
@@ -284,7 +336,9 @@ export function TeamDbMarketplacePage() {
                 <th className="px-2 py-2 text-center">지역</th>
                 <th className="px-2 py-2 text-center">청소 요약</th>
                 <th className="px-2 py-2 text-center">일정</th>
-                <th className="px-2 py-2 text-center">표시금액</th>
+                <th className="px-2 py-2 text-center">총액</th>
+                <th className="px-2 py-2 text-center">수수료</th>
+                <th className="px-2 py-2 text-center">잔금</th>
                 <th className="px-2 py-2 text-center">상태</th>
               </tr>
             </thead>
@@ -318,7 +372,13 @@ export function TeamDbMarketplacePage() {
                   </td>
                   <td className="px-2 py-2 text-center">{formatMarketplaceSchedule(row)}</td>
                   <td className="px-2 py-2 text-right tabular-nums">
-                    {row.displayAmount != null ? `${row.displayAmount.toLocaleString('ko-KR')}원` : '-'}
+                    {formatWon(resolveMarketplaceServiceTotal(row))}
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums text-violet-900">
+                    {formatWon(resolveMarketplaceBuyerTotalFee(row))}
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums">
+                    {formatWon(resolveMarketplaceServiceBalance(row))}
                   </td>
                   <td className="px-2 py-2 text-center">
                     <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${STATUS_CLASS[row.status] ?? ''}`}>
@@ -369,14 +429,11 @@ export function TeamDbMarketplacePage() {
 
       {selectable ? (
         <DbMarketplaceBulkActionBar selectedCount={selectedCount} onClear={() => setSelectedIds(new Set())}>
-          <button
-            type="button"
+          <DbMarketplaceBuyBulkButton disabled={bulkBusy} onClick={() => void runBulkBuy()} />
+          <DbMarketplaceBuyerDeclineBulkButton
             disabled={bulkBusy}
-            className="min-h-[2.75rem] flex-1 rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:min-h-0 sm:flex-none"
-            onClick={() => void runBulkBuy()}
-          >
-            갖고가기
-          </button>
+            onClick={() => void runBulkBuyerDecline()}
+          />
         </DbMarketplaceBulkActionBar>
       ) : null}
 

@@ -33,6 +33,11 @@ const TelecrmSoomgoPresetsHub = lazy(() =>
     default: m.TelecrmSoomgoPresetsHub,
   })),
 );
+const AdminOrderFormLeadSourceSettingsPage = lazy(() =>
+  import('../../../pages/admin/AdminOrderFormLeadSourceSettingsPage').then((m) => ({
+    default: m.AdminOrderFormLeadSourceSettingsPage,
+  })),
+);
 
 const TABS: { id: CrmSettingsTab; label: string }[] = [
   { id: 'scripts', label: '스크립트' },
@@ -40,6 +45,7 @@ const TABS: { id: CrmSettingsTab; label: string }[] = [
   { id: 'soomgo-presets', label: '숨고 프리셋' },
   { id: 'pricing', label: '가격' },
   { id: 'general', label: '기본 단가' },
+  { id: 'leadSource', label: '유입경로' },
   { id: 'soomgo', label: '숨고 연동' },
 ];
 
@@ -49,6 +55,7 @@ export function CrmSettingsDrawer({
   catalogScope,
   canEditShared,
   canEditPersonal,
+  canEditLeadSources,
   onTabChange,
   onCatalogScopeChange,
   onClose,
@@ -58,12 +65,14 @@ export function CrmSettingsDrawer({
   catalogScope: CrmCatalogScope;
   canEditShared: boolean;
   canEditPersonal: boolean;
+  canEditLeadSources: boolean;
   onTabChange: (tab: CrmSettingsTab) => void;
   onCatalogScopeChange: (scope: CrmCatalogScope) => void;
   onClose: () => void;
 }) {
   const visibleTabs = TABS.filter((item) => {
     if (item.id === 'general') return canEditShared;
+    if (item.id === 'leadSource') return canEditLeadSources;
     if (item.id === 'soomgo') return canEditShared;
     if (item.id === 'soomgo-presets') return canEditShared || canEditPersonal;
     return true;
@@ -71,6 +80,7 @@ export function CrmSettingsDrawer({
   const presetCatalogScope = canEditShared ? catalogScope : 'personal';
   const showCatalogSegment =
     tab !== 'general' &&
+    tab !== 'leadSource' &&
     tab !== 'soomgo' &&
     (canEditShared || canEditPersonal) &&
     (tab === 'soomgo-presets' ? canEditShared && canEditPersonal : true);
@@ -79,7 +89,9 @@ export function CrmSettingsDrawer({
   const drawerSubtitle =
     tab === 'soomgo'
       ? '업체 공통 숨고 계정·PC 프로그램·브랜드별 계정을 설정합니다.'
-      : tab === 'soomgo-presets'
+      : tab === 'leadSource'
+        ? '발주서 발급·텔레CRM·접수 저장 시 선택하는 유입 플랫폼 목록입니다.'
+        : tab === 'soomgo-presets'
         ? '숨고 채팅 매크로·처리 구분별 자동 메시지·알림함 키워드(브랜드별, 업체 기본 폴백)를 편집합니다.'
         : '개인 스크립트·가격 또는 업체 공통 설정을 편집합니다.';
 
@@ -132,6 +144,7 @@ export function CrmSettingsDrawer({
           {tab === 'sms' ? <TelecrmSmsTemplateSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'pricing' ? <TelecrmPricingSettingsPage catalogScope={catalogScope} /> : null}
           {tab === 'general' && canEditShared ? <TelecrmGeneralSettingsPage /> : null}
+          {tab === 'leadSource' && canEditLeadSources ? <AdminOrderFormLeadSourceSettingsPage /> : null}
           {tab === 'soomgo-presets' && (canEditPersonal || canEditShared) ? (
             <TelecrmSoomgoPresetsHub
               catalogScope={presetCatalogScope}

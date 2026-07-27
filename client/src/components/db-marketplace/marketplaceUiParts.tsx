@@ -92,6 +92,14 @@ export function DbMarketplaceBuyBulkButton(props: BtnProps) {
   );
 }
 
+export function DbMarketplaceBuyerDeclineBulkButton(props: BtnProps) {
+  return (
+    <MarketplaceActionButton className={marketplaceDeclineBulkButtonClass} {...props}>
+      거절하기
+    </MarketplaceActionButton>
+  );
+}
+
 export function DbMarketplaceConfirmBulkButton(props: BtnProps) {
   return (
     <MarketplaceActionButton className={marketplaceConfirmBulkButtonClass} {...props}>

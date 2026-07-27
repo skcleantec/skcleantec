@@ -6,6 +6,7 @@ import { isActivePartnerShareSource } from '../../../utils/tenantShareSettlement
 import type { DbMarketplaceExchangePrefill } from '../InquiryDbMarketplaceSellPanel';
 import { InquiryDbMarketplaceSellPanel } from '../InquiryDbMarketplaceSellPanel';
 import { PartnerReceivedBanner } from '../PartnerReceivedBanner';
+import { MarketplaceHandoffBuyerBanner } from '../MarketplaceHandoffBuyerBanner';
 import { TenantInquiryShareBadge } from '../TenantInquiryShareBadge';
 import type { ProfessionalSpecialtyOption } from '../../../constants/professionalSpecialtyOptions';
 import { AdminScheduleDetailSection } from './AdminScheduleDetailSection';
@@ -223,7 +224,7 @@ export function InquiryEditSettlementSection({
               {item.tenantShare ? (
                 <div className="space-y-2">
                   <TenantInquiryShareBadge share={item.tenantShare} />
-                  {item.tenantShare.role === 'TARGET' ? (
+                  {item.tenantShare.role === 'TARGET' && !item.tenantShare.viaMarketplace ? (
                     <PartnerReceivedBanner share={item.tenantShare} />
                   ) : null}
                   {item.tenantShare.role === 'SOURCE' &&
@@ -346,10 +347,19 @@ export function InquiryEditSettlementSection({
             </div>
           </details>
         ) : null}
+        {!isCreate && item ? (
+          item.tenantShare?.role === 'TARGET' && item.tenantShare.viaMarketplace ? (
+            <PartnerReceivedBanner share={item.tenantShare} />
+          ) : item.marketplaceHandoffAsBuyer ? (
+            <MarketplaceHandoffBuyerBanner meta={item.marketplaceHandoffAsBuyer} />
+          ) : null
+        ) : null}
         {!isCreate && hasDbMarketplace && item ? (
           <div ref={marketplacePanelRef}>
             <InquiryDbMarketplaceSellPanel
               inquiryId={item.id}
+              serviceTotalAmount={item.serviceTotalAmount}
+              serviceDepositAmount={item.serviceDepositAmount}
               serviceBalanceAmount={item.serviceBalanceAmount}
               disabled={isActivePartnerShareSource(item.tenantShare) || externalPartnerBlocksShare}
               exchangePrefill={marketplaceExchangePrefill}

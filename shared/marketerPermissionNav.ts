@@ -73,6 +73,7 @@ export const ADMIN_PATH_PERMISSION_RULES: AdminPathPermissionRule[] = [
   { prefix: '/admin/inquiries/leads/settings', permissions: ['leads.edit'] },
   { prefix: '/admin/inquiries/leads', permissions: [], marketerOpen: true },
   { prefix: '/admin/inquiries', permissions: ['inquiry.view'] },
+  { prefix: '/admin/crm/settings/lead-sources', permissions: ['orderform.formConfig'] },
   { prefix: '/admin/crm/settings', permissions: ['crm.settings'] },
   { prefix: '/admin/crm', permissions: ['crm.view'] },
   { prefix: '/admin/advertising/settings', permissions: ['ads.settings'] },
