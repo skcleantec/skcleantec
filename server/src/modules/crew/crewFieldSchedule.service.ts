@@ -6,6 +6,7 @@ import { dateToYmdKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { getDayRosterInRange } from '../team-crew-groups/crewGroupDayRoster.service.js';
 import { effectiveCrewMeetingTimeForDisplay } from '../inquiries/crewMeetingTime.helpers.js';
 import { resolveMemberMeetingTimeRaw } from '../inquiries/inquiryCrewMemberMeetingTime.service.js';
+import { payrollAccrualPeriodForPaymentDate, currentCyclePayYmdKst } from '../teams/teamMemberPayrollCycle.js';
 
 const NOTE_SPLIT = /[,·/|]/g;
 
@@ -351,4 +352,114 @@ export async function getCrewMonthlyInquiryStats(
   }));
 
   return { month: monthKey, useDailyRosterOnly: built.useDailyRosterOnly, items };
+}
+
+/** 홈 급여 주기별 접수 건수 — 월급일~다음 월급일 전날, 해당 월급일 그룹 멤버만 */
+export async function getCrewPayrollCycleInquiryStats(
+  groupId: string,
+  opts?: { monthlyPayDay?: number; payYmd?: string },
+): Promise<{
+  monthlyPayDay: number | null;
+  payYmd: string | null;
+  startYmd: string | null;
+  endYmd: string | null;
+  payDayGroups: number[];
+  useDailyRosterOnly: boolean;
+  items: Array<{
+    teamMemberId: string;
+    name: string;
+    nameTh: string | null;
+    isActive: boolean;
+    monthlyPayDay: number | null;
+    inquiryCount: number;
+  }>;
+} | null> {
+  const group = await prisma.teamCrewGroup.findUnique({
+    where: { id: groupId },
+    select: {
+      members: {
+        include: {
+          teamMember: {
+            select: { id: true, name: true, nameTh: true, isActive: true, monthlyPayDay: true },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  });
+  if (!group) return null;
+
+  const payDayGroups = [
+    ...new Set(
+      group.members
+        .map((gm) => gm.teamMember.monthlyPayDay)
+        .filter((d): d is number => d != null && d >= 1 && d <= 31),
+    ),
+  ].sort((a, b) => a - b);
+
+  if (payDayGroups.length === 0) {
+    return {
+      monthlyPayDay: null,
+      payYmd: null,
+      startYmd: null,
+      endYmd: null,
+      payDayGroups: [],
+      useDailyRosterOnly: false,
+      items: [],
+    };
+  }
+
+  const monthlyPayDay =
+    opts?.monthlyPayDay != null && payDayGroups.includes(opts.monthlyPayDay)
+      ? opts.monthlyPayDay
+      : payDayGroups[0]!;
+
+  let payYmd =
+    opts?.payYmd && /^\d{4}-\d{2}-\d{2}$/.test(opts.payYmd)
+      ? opts.payYmd
+      : currentCyclePayYmdKst(monthlyPayDay);
+  if (!payrollAccrualPeriodForPaymentDate(payYmd, monthlyPayDay)) {
+    payYmd = currentCyclePayYmdKst(monthlyPayDay);
+  }
+
+  const period = payrollAccrualPeriodForPaymentDate(payYmd, monthlyPayDay);
+  if (!period) return null;
+
+  let built: { useDailyRosterOnly: boolean; days: CrewFieldDayOut[] };
+  try {
+    built = await buildCrewFieldSchedule(groupId, period.startYmd, period.endYmd);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'CREW_GROUP_NOT_FOUND') return null;
+    throw e;
+  }
+
+  const counts = new Map<string, number>();
+  for (const day of built.days) {
+    for (const m of day.members) {
+      const n = m.inquiries.length;
+      if (n > 0) counts.set(m.teamMemberId, (counts.get(m.teamMemberId) ?? 0) + n);
+    }
+  }
+
+  const items = group.members
+    .filter((gm) => gm.teamMember.monthlyPayDay === monthlyPayDay)
+    .map((gm) => ({
+      teamMemberId: gm.teamMemberId,
+      name: gm.teamMember.name,
+      nameTh: gm.teamMember.nameTh,
+      isActive: gm.teamMember.isActive,
+      monthlyPayDay: gm.teamMember.monthlyPayDay,
+      inquiryCount: counts.get(gm.teamMemberId) ?? 0,
+    }));
+
+  return {
+    monthlyPayDay,
+    payYmd,
+    startYmd: period.startYmd,
+    endYmd: period.endYmd,
+    payDayGroups,
+    useDailyRosterOnly: built.useDailyRosterOnly,
+    items,
+  };
 }

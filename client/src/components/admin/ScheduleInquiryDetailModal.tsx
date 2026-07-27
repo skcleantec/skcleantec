@@ -1239,12 +1239,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       setPoolTeamMembers([]);
       return;
     }
-    const ymd = editForm.preferredDate?.trim().slice(0, 10) ?? '';
-    const q = /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : undefined;
-    getPoolTeamMembers(token, q)
+    const fromForm = editForm.preferredDate?.trim().slice(0, 10) ?? '';
+    const fromItem = formatPreferredDateInputYmd(item?.preferredDate);
+    const ymd = /^\d{4}-\d{2}-\d{2}$/.test(fromForm) ? fromForm : fromItem || undefined;
+    getPoolTeamMembers(token, ymd)
       .then((r) => setPoolTeamMembers((r.items ?? []).filter((m) => m.isActive)))
       .catch(() => setPoolTeamMembers([]));
-  }, [token, editForm.preferredDate]);
+  }, [token, editForm.preferredDate, item?.preferredDate]);
 
   useEffect(() => {
     const ymd = editForm.preferredDate?.trim().slice(0, 10) ?? '';

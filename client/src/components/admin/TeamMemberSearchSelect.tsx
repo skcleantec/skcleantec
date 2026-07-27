@@ -62,6 +62,8 @@ export function TeamMemberSearchSelect({
     if (!qNorm) return true;
     const nameNorm = normalizeForSearch(o.name);
     if (nameNorm.includes(qNorm)) return true;
+    const thNorm = normalizeForSearch(o.nameTh ?? '');
+    if (thNorm.includes(qNorm)) return true;
     const initialNorm = normalizeForSearch(toInitials(o.name));
     return initialNorm.includes(normalizeForSearch(qInitial));
   });
@@ -186,6 +188,9 @@ export function TeamMemberSearchSelect({
                 }}
               >
                 {m.name}
+                {m.nameTh?.trim() ? (
+                  <span className="text-gray-500"> · {m.nameTh.trim()}</span>
+                ) : null}
                 {gapSuffix ? <span className="tabular-nums text-gray-600">{gapSuffix}</span> : null}
               </button>
             );
