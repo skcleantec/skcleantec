@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { TeamMemberItem } from '../../api/teams';
+import { crewMemberNamesEquivalent } from '../../utils/crewPickPool';
 import { ChevronDownIcon } from '../ui/SelectWithChevron';
 
 function getHangulInitial(ch: string): string {
@@ -16,6 +18,19 @@ function normalizeForSearch(v: string): string {
 
 function toInitials(v: string): string {
   return Array.from(v).map(getHangulInitial).join('');
+}
+
+function isDisabledName(
+  memberName: string,
+  selectedName: string,
+  disabledNames?: Set<string>,
+): boolean {
+  if (!disabledNames?.size) return false;
+  if (crewMemberNamesEquivalent(memberName, selectedName)) return false;
+  for (const d of disabledNames) {
+    if (crewMemberNamesEquivalent(d, memberName)) return true;
+  }
+  return false;
 }
 
 interface Props {
@@ -35,9 +50,8 @@ interface Props {
 
 /**
  * 등록된 팀원 목록에서 이름 일부/초성으로 검색해 선택하는 드롭다운.
+ * - 목록은 body 포털 + fixed — 6번 섹션 `overflow-hidden` 에 잘리지 않음.
  * - `disabledNames`: 해당 이름은 회색 음영 + 클릭 불가(현재 선택값은 예외로 유지).
- * - `crewSpacingDaysByMemberName`(선택): 부모가 조회해 넘김 · 이름 옆 `+N일` 안내 (선택 제한 없음).
- * - 현재 선택된 이름은 비활성 목록 규칙에서 예외로 유지된다.
  */
 export function TeamMemberSearchSelect({
   options,
@@ -50,11 +64,19 @@ export function TeamMemberSearchSelect({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedName = value.trim();
-  const selected = options.find((o) => o.name === selectedName) ?? null;
+  const selected =
+    options.find((o) => crewMemberNamesEquivalent(o.name, selectedName)) ??
+    options.find((o) => {
+      const th = (o.nameTh ?? '').trim();
+      return th.length > 0 && crewMemberNamesEquivalent(th, selectedName);
+    }) ??
+    null;
   const effectiveQuery = query.trim();
   const qNorm = normalizeForSearch(effectiveQuery);
   const qInitial = toInitials(effectiveQuery);
@@ -68,7 +90,8 @@ export function TeamMemberSearchSelect({
     return initialNorm.includes(normalizeForSearch(qInitial));
   });
 
-  const selectedGapRaw = crewSpacingDaysByMemberName?.[selectedName];
+  const spacingKey = selected?.name ?? selectedName;
+  const selectedGapRaw = crewSpacingDaysByMemberName?.[spacingKey];
   const selectedGapSuffix =
     selectedName !== '' &&
     typeof selectedGapRaw === 'number' &&
@@ -83,12 +106,42 @@ export function TeamMemberSearchSelect({
     inputRef.current?.focus();
   };
 
+  const updateMenuPos = () => {
+    const el = boxRef.current;
+    if (!el) {
+      setMenuPos(null);
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    setMenuPos({
+      top: r.bottom + 2,
+      left: r.left,
+      width: r.width,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuPos(null);
+      return;
+    }
+    updateMenuPos();
+    window.addEventListener('scroll', updateMenuPos, true);
+    window.addEventListener('resize', updateMenuPos);
+    return () => {
+      window.removeEventListener('scroll', updateMenuPos, true);
+      window.removeEventListener('resize', updateMenuPos);
+    };
+  }, [open, compact]);
+
   useEffect(() => {
     if (!open) return;
     const onDown = (evt: MouseEvent | TouchEvent) => {
       const t = evt.target as Node | null;
       if (!t) return;
-      if (!boxRef.current?.contains(t)) setOpen(false);
+      if (boxRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onEsc = (evt: KeyboardEvent) => {
       if (evt.key === 'Escape') setOpen(false);
@@ -110,6 +163,80 @@ export function TeamMemberSearchSelect({
   const toggleClass = compact
     ? 'flex shrink-0 items-center justify-center rounded-r border border-gray-300 bg-gray-50 px-1.5 py-1 text-gray-600 hover:bg-gray-100'
     : 'flex shrink-0 items-center justify-center rounded-r border border-gray-300 bg-gray-50 px-2 py-2 text-gray-600 hover:bg-gray-100';
+
+  const menu =
+    open && menuPos
+      ? createPortal(
+          <div
+            ref={menuRef}
+            className={`fixed z-[580] overflow-y-auto rounded border border-gray-200 bg-white shadow-lg ${
+              compact ? 'max-h-36' : 'max-h-44'
+            }`}
+            style={{
+              top: menuPos.top,
+              left: menuPos.left,
+              width: menuPos.width,
+            }}
+          >
+            <button
+              type="button"
+              className={`block w-full text-left text-gray-500 hover:bg-gray-50 ${
+                compact ? 'px-2 py-1 text-fluid-2xs' : 'px-3 py-2 text-sm'
+              }`}
+              onClick={() => {
+                onChange('');
+                setQuery('');
+                setOpen(false);
+                inputRef.current?.blur();
+              }}
+            >
+              미선택
+            </button>
+            {filtered.map((m) => {
+              const isDisabled = isDisabledName(m.name, selectedName, disabledNames);
+              const gap = crewSpacingDaysByMemberName?.[m.name];
+              const gapSuffix =
+                typeof gap === 'number' && Number.isFinite(gap) ? ` +${gap}일` : '';
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  disabled={isDisabled}
+                  title={
+                    gapSuffix
+                      ? `선택된 팀장과 마지막으로 같은 접수 예약일이 있었던 날 기준 간격입니다. 선택은 어떤 간격에서도 가능합니다.`
+                      : undefined
+                  }
+                  className={`block w-full text-left ${
+                    compact ? 'px-2 py-1 text-fluid-2xs' : 'px-3 py-2 text-sm'
+                  } ${
+                    isDisabled ? 'cursor-not-allowed opacity-45 bg-gray-50' : 'hover:bg-blue-50'
+                  } ${selected?.id === m.id ? 'bg-blue-50 text-blue-700' : 'text-gray-800'}`}
+                  onClick={() => {
+                    if (isDisabled) return;
+                    onChange(m.name);
+                    setQuery(m.name);
+                    setOpen(false);
+                    inputRef.current?.blur();
+                  }}
+                >
+                  {m.name}
+                  {m.nameTh?.trim() ? (
+                    <span className="text-gray-500"> · {m.nameTh.trim()}</span>
+                  ) : null}
+                  {gapSuffix ? <span className="tabular-nums text-gray-600">{gapSuffix}</span> : null}
+                </button>
+              );
+            })}
+            {filtered.length === 0 ? (
+              <p className={`text-gray-500 ${compact ? 'px-2 py-1 text-fluid-2xs' : 'px-3 py-2 text-sm'}`}>
+                일치하는 팀원이 없습니다.
+              </p>
+            ) : null}
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <div ref={boxRef} className="relative flex min-w-0">
@@ -139,69 +266,7 @@ export function TeamMemberSearchSelect({
       >
         <ChevronDownIcon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
       </button>
-      {open && (
-        <div
-          className={`absolute left-0 right-0 top-full z-[570] mt-0.5 overflow-y-auto rounded border border-gray-200 bg-white shadow-lg ${
-            compact ? 'max-h-36' : 'max-h-44'
-          }`}
-        >
-          <button
-            type="button"
-            className={`block w-full text-left text-gray-500 hover:bg-gray-50 ${
-              compact ? 'px-2 py-1 text-fluid-2xs' : 'px-3 py-2 text-sm'
-            }`}
-            onClick={() => {
-              onChange('');
-              setQuery('');
-              setOpen(false);
-              inputRef.current?.blur();
-            }}
-          >
-            미선택
-          </button>
-          {filtered.map((m) => {
-            const isDisabled = Boolean(disabledNames?.has(m.name) && m.name !== selectedName);
-            const gap = crewSpacingDaysByMemberName?.[m.name];
-            const gapSuffix =
-              typeof gap === 'number' && Number.isFinite(gap) ? ` +${gap}일` : '';
-            return (
-              <button
-                key={m.id}
-                type="button"
-                disabled={isDisabled}
-                title={
-                  gapSuffix
-                    ? `선택된 팀장과 마지막으로 같은 접수 예약일이 있었던 날 기준 간격입니다. 선택은 어떤 간격에서도 가능합니다.`
-                    : undefined
-                }
-                className={`block w-full text-left ${
-                  compact ? 'px-2 py-1 text-fluid-2xs' : 'px-3 py-2 text-sm'
-                } ${
-                  isDisabled ? 'cursor-not-allowed opacity-45 bg-gray-50' : 'hover:bg-blue-50'
-                } ${selected?.id === m.id ? 'bg-blue-50 text-blue-700' : 'text-gray-800'}`}
-                onClick={() => {
-                  if (isDisabled) return;
-                  onChange(m.name);
-                  setQuery(m.name);
-                  setOpen(false);
-                  inputRef.current?.blur();
-                }}
-              >
-                {m.name}
-                {m.nameTh?.trim() ? (
-                  <span className="text-gray-500"> · {m.nameTh.trim()}</span>
-                ) : null}
-                {gapSuffix ? <span className="tabular-nums text-gray-600">{gapSuffix}</span> : null}
-              </button>
-            );
-          })}
-          {filtered.length === 0 && (
-            <p className={`text-gray-500 ${compact ? 'px-2 py-1 text-fluid-2xs' : 'px-3 py-2 text-sm'}`}>
-              일치하는 팀원이 없습니다.
-            </p>
-          )}
-        </div>
-      )}
+      {menu}
     </div>
   );
 }

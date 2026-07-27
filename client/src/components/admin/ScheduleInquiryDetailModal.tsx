@@ -1274,7 +1274,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   );
 
   useEffect(() => {
-    const ymd = editForm.preferredDate?.trim().slice(0, 10);
+    const fromForm = editForm.preferredDate?.trim().slice(0, 10) ?? '';
+    const fromItem = formatPreferredDateInputYmd(item?.preferredDate);
+    const ymd = /^\d{4}-\d{2}-\d{2}$/.test(fromForm) ? fromForm : fromItem;
     if (!token || !ymd) {
       setOccupiedCrewNamesByDate(new Set());
       return;
@@ -1298,7 +1300,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     return () => {
       cancelled = true;
     };
-  }, [token, editForm.preferredDate, isCreate, item?.id]);
+  }, [token, editForm.preferredDate, item?.preferredDate, isCreate, item?.id]);
 
   const hideCrewInputs = allTeamLeadersSolo(
     editForm.teamLeaderIds,
