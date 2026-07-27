@@ -3,7 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { resolveLeaderMorningAfternoon, resolveMemberAvailable } from './scheduleDayAvailability.helpers.js';
-import { countAvailableFieldStaffOnDate, tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.helpers.js';
+import { countAvailableFieldStaffOnDate, getAvailableFieldStaffMemberIdsOnDate, tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.helpers.js';
 import { dateToYmdKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { assignmentTeamLeaderSelect } from '../inquiries/assignmentTeamLeaderSelect.js';
 import {
@@ -423,6 +423,16 @@ router.get('/day-availability', async (req, res) => {
       : [];
   const memberOffSet = new Set(memberDayOffRows.map((x) => x.teamMemberId));
 
+  const hasDailyRosterAgg =
+    (await prisma.teamCrewGroupMember.count({
+      where: { group: { tenantId, isActive: true, availabilityMode: 'ROSTER' } },
+    })) > 0;
+  const pickableMemberIds = hasDailyRosterAgg
+    ? await getAvailableFieldStaffMemberIdsOnDate(prisma, ymdForDay, tenantId)
+    : null;
+  const membersForUi =
+    pickableMemberIds != null ? members.filter((m) => pickableMemberIds.has(m.id)) : members;
+
   const teamLeadersOut = teamLeaders.map((u) => {
     const o = leaderSlotMap.get(u.id);
     const hasOff = offLeaderIds.has(u.id);
@@ -441,7 +451,7 @@ router.get('/day-availability', async (req, res) => {
     };
   });
 
-  const membersOut = members.map((m) => {
+  const membersOut = membersForUi.map((m) => {
     const o = memberSlotMap.get(m.id);
     const hasOff = memberOffSet.has(m.id);
     const avail = resolveMemberAvailable(hasOff, o != null ? o.available : null);

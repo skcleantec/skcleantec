@@ -10,7 +10,7 @@ import {
 } from '../auth/auth.middleware.js';
 import { crewGroupLeaderFromDb } from './crewGroupLeader.middleware.js';
 import { ROSTER_YMD, getDayRosterInRange, putDayRosterEntries, type DayRosterEntryIn } from '../team-crew-groups/crewGroupDayRoster.service.js';
-import { buildCrewFieldSchedule, getCrewMonthlyInquiryStats } from './crewFieldSchedule.service.js';
+import { buildCrewFieldSchedule, getCrewPayrollCycleInquiryStats } from './crewFieldSchedule.service.js';
 import { notifyCrewGroupsInboxRefresh } from './crewFieldRealtime.js';
 import {
   createCrewGroupExpense,
@@ -58,18 +58,18 @@ router.get('/day-roster', async (req, res) => {
   res.json({ crewGroupId: gid, start, end, items });
 });
 
-/** 이번 달(KST) 멤버별 접수 건수(취소·보류 제외) — 현장 메모(인원) 이름 일치 기준 */
+/** 급여 주기(KST) 멤버별 접수 건수 — 월급일~다음 월급일 전날, 현장 메모 이름 일치 기준 */
 router.get('/monthly-job-stats', async (req, res) => {
   const gid = crewGroupId(req as unknown as { user: AuthPayload });
-  const monthRaw = typeof req.query.month === 'string' ? req.query.month.trim() : '';
-  const monthKey =
-    monthRaw || new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 7);
-  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
-    res.status(400).json({ error: 'month는 YYYY-MM 형식이어야 합니다.' });
-    return;
-  }
+  const payDayRaw = typeof req.query.monthlyPayDay === 'string' ? req.query.monthlyPayDay.trim() : '';
+  const payYmdRaw = typeof req.query.payYmd === 'string' ? req.query.payYmd.trim() : '';
+  const payDayParsed = payDayRaw ? parseInt(payDayRaw, 10) : NaN;
+  const monthlyPayDay =
+    Number.isFinite(payDayParsed) && payDayParsed >= 1 && payDayParsed <= 31 ? payDayParsed : undefined;
+  const payYmd = ROSTER_YMD.test(payYmdRaw) ? payYmdRaw : undefined;
+
   try {
-    const data = await getCrewMonthlyInquiryStats(gid, monthKey);
+    const data = await getCrewPayrollCycleInquiryStats(gid, { monthlyPayDay, payYmd });
     if (!data) {
       res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
       return;

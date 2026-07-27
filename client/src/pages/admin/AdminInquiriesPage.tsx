@@ -123,7 +123,7 @@ import {
   SOLO_LEADER_CREW_LABEL,
   toggleSoloTeamLeaderId,
 } from '../../utils/inquiryNoCrewMembers';
-import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { formatDateCompactWithWeekday, formatPreferredDateInputYmd } from '../../utils/dateFormat';
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 import {
   addressListShortSiGu,
@@ -1221,12 +1221,13 @@ export function AdminInquiriesPage() {
     if (!editItem || !token) {
       return;
     }
-    const ymd = editForm.preferredDate?.trim().slice(0, 10) ?? '';
-    const q = /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : undefined;
-    getPoolTeamMembers(token, q)
+    const fromForm = editForm.preferredDate?.trim().slice(0, 10) ?? '';
+    const fromItem = formatPreferredDateInputYmd(editItem.preferredDate);
+    const ymd = /^\d{4}-\d{2}-\d{2}$/.test(fromForm) ? fromForm : fromItem || undefined;
+    getPoolTeamMembers(token, ymd)
       .then((r) => setPoolTeamMembers((r.items ?? []).filter((m) => m.isActive)))
       .catch(() => setPoolTeamMembers([]));
-  }, [editItem, token, editForm.preferredDate]);
+  }, [editItem, token, editForm.preferredDate, editItem?.preferredDate]);
 
   useEffect(() => {
     const ymd = editForm.preferredDate?.trim().slice(0, 10) ?? '';

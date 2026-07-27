@@ -52,6 +52,36 @@ export function payrollCycleBoundsKst(monthlyPayDay: number): { startYmd: string
   return { startYmd, endYmd };
 }
 
+/** 현재(KST) 급여 주기의 지급일 ymd — `payrollAccrualPeriodForPaymentDate` 키 */
+export function currentCyclePayYmdKst(monthlyPayDay: number): string {
+  const { endYmd } = payrollCycleBoundsKst(monthlyPayDay);
+  const endNoon = new Date(`${endYmd}T12:00:00+09:00`);
+  return dateToYmdKst(new Date(endNoon.getTime() + 86400000));
+}
+
+/** 지급일 ymd 기준 이전/다음 급여 주기 지급일 (deltaMonths: -1 이전, +1 다음) */
+export function shiftPayrollCyclePayYmd(
+  payYmd: string,
+  monthlyPayDay: number,
+  deltaMonths: number,
+): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(payYmd)) return null;
+  const y = parseInt(payYmd.slice(0, 4), 10);
+  const m = parseInt(payYmd.slice(5, 7), 10);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return null;
+  let monthIndex = m - 1 + deltaMonths;
+  let year = y;
+  while (monthIndex > 11) {
+    monthIndex -= 12;
+    year += 1;
+  }
+  while (monthIndex < 0) {
+    monthIndex += 12;
+    year -= 1;
+  }
+  return payYmdInMonth(year, monthIndex, monthlyPayDay);
+}
+
 export function payrollCyclePreferredDateWhere(startYmd: string, endYmd: string): { gte: Date; lte: Date } {
   return {
     gte: new Date(`${startYmd}T00:00:00.000+09:00`),

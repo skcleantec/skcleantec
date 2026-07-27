@@ -356,11 +356,30 @@ export interface CrewMonthlyJobStatItem {
   nameTh: string | null;
   isActive: boolean;
   inquiryCount: number;
+  monthlyPayDay?: number | null;
 }
 
-export async function getCrewMonthlyJobStats(token: string, month?: string) {
+export type CrewPayCycleJobStatsResponse = {
+  monthlyPayDay: number | null;
+  payYmd: string | null;
+  startYmd: string | null;
+  endYmd: string | null;
+  payDayGroups: number[];
+  useDailyRosterOnly: boolean;
+  items: CrewMonthlyJobStatItem[];
+};
+
+export async function getCrewMonthlyJobStats(
+  token: string,
+  opts?: { monthlyPayDay?: number; payYmd?: string },
+) {
   const q = new URLSearchParams();
-  if (month && /^\d{4}-\d{2}$/.test(month)) q.set('month', month);
+  if (opts?.monthlyPayDay != null && opts.monthlyPayDay >= 1 && opts.monthlyPayDay <= 31) {
+    q.set('monthlyPayDay', String(opts.monthlyPayDay));
+  }
+  if (opts?.payYmd && /^\d{4}-\d{2}-\d{2}$/.test(opts.payYmd)) {
+    q.set('payYmd', opts.payYmd);
+  }
   const res = await fetch(`${API}/crew/monthly-job-stats?${q}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -368,13 +387,9 @@ export async function getCrewMonthlyJobStats(token: string, month?: string) {
     throw new AuthSessionExpiredError();
   }
   if (!res.ok) {
-    throw new Error(await apiErrorMessage(res, '월별 실적을 불러올 수 없습니다.'));
+    throw new Error(await apiErrorMessage(res, '급여 주기 실적을 불러올 수 없습니다.'));
   }
-  return res.json() as Promise<{
-    month: string;
-    useDailyRosterOnly: boolean;
-    items: CrewMonthlyJobStatItem[];
-  }>;
+  return res.json() as Promise<CrewPayCycleJobStatsResponse>;
 }
 
 export async function getCrewFieldSchedule(token: string, start: string, end: string) {
