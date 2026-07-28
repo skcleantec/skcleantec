@@ -13,12 +13,12 @@ type Props = {
 export function TenantUsageGauge({ used, limit, unit, label = '이용 코인', unlimited }: Props) {
   const isUnlimited = unlimited ?? limit == null;
   const fillPercent = isUnlimited ? null : gaugeFillPercent(used, limit);
-  const displayPct = fillPercent ?? 0;
+  const displayPct = isUnlimited ? 100 : (fillPercent ?? 0);
   const level = usageWarnLevel(used, isUnlimited ? null : limit);
 
   let gaugeColor = '#6366f1';
-  if (level === 'over') gaugeColor = '#f43f5e';
-  else if (level === 'warn') gaugeColor = '#f59e0b';
+  if (!isUnlimited && level === 'over') gaugeColor = '#f43f5e';
+  else if (!isUnlimited && level === 'warn') gaugeColor = '#f59e0b';
 
   const needleRotate = gaugeNeedleRotateDeg(displayPct);
   const arcOffset = ARC_LENGTH - (displayPct / 100) * ARC_LENGTH;
@@ -34,29 +34,16 @@ export function TenantUsageGauge({ used, limit, unit, label = '이용 코인', u
             strokeWidth="8"
             strokeLinecap="round"
           />
-          {!isUnlimited ? (
-            <path
-              d="M 10 50 A 40 40 0 0 1 90 50"
-              fill="none"
-              stroke={gaugeColor}
-              strokeWidth="8"
-              strokeLinecap="round"
-              strokeDasharray={ARC_LENGTH}
-              strokeDashoffset={arcOffset}
-              style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
-            />
-          ) : (
-            <path
-              d="M 10 50 A 40 40 0 0 1 90 50"
-              fill="none"
-              stroke="#6366f1"
-              strokeWidth="8"
-              strokeLinecap="round"
-              strokeDasharray={ARC_LENGTH}
-              strokeDashoffset={0}
-              opacity={0.35}
-            />
-          )}
+          <path
+            d="M 10 50 A 40 40 0 0 1 90 50"
+            fill="none"
+            stroke={gaugeColor}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={ARC_LENGTH}
+            strokeDashoffset={arcOffset}
+            style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
+          />
           {[0, 25, 50, 75, 100].map((p) => (
             <line
               key={p}
@@ -69,15 +56,13 @@ export function TenantUsageGauge({ used, limit, unit, label = '이용 코인', u
               transform={`rotate(${gaugeNeedleRotateDeg(p)}, 50, 50)`}
             />
           ))}
-          {!isUnlimited ? (
-            <g
-              transform={`rotate(${needleRotate}, 50, 50)`}
-              style={{ transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
-            >
-              <path d="M 48.5 50 L 50 11 L 51.5 50 Z" fill="#f43f5e" />
-              <circle cx="50" cy="50" r="4" fill="#f43f5e" />
-            </g>
-          ) : null}
+          <g
+            transform={`rotate(${needleRotate}, 50, 50)`}
+            style={{ transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
+          >
+            <path d="M 48.5 50 L 50 11 L 51.5 50 Z" fill="#f43f5e" />
+            <circle cx="50" cy="50" r="4" fill="#f43f5e" />
+          </g>
           <circle cx="50" cy="50" r="2.5" fill="#1e293b" />
           <circle cx="50" cy="50" r="1" fill="#94a3b8" />
         </svg>
@@ -97,6 +82,8 @@ export function TenantUsageGauge({ used, limit, unit, label = '이용 코인', u
           <span className="mt-0.5 block text-[10px] tabular-nums text-slate-500">
             {level === 'over' ? '포함량 초과' : `${fillPercent}% 사용`}
           </span>
+        ) : isUnlimited ? (
+          <span className="mt-0.5 block text-[10px] text-indigo-600">포함량 무제한</span>
         ) : null}
       </div>
     </div>
