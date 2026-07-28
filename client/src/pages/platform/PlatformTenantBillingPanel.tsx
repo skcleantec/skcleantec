@@ -11,6 +11,7 @@ import {
 } from '@shared/tenantBilling';
 import type { TenantPlanId } from '@shared/tenantFeatureModules';
 import { TENANT_PLAN_PRESENTATIONS } from '@shared/tenantPlanCatalog';
+import { normalizePlanId } from '@shared/tenantPlanNormalize';
 import {
   confirmPlatformPrepaid,
   getPlatformTenantBilling,
@@ -44,7 +45,7 @@ type Props = {
   compact?: boolean;
 };
 
-const PLAN_OPTIONS: TenantPlanId[] = ['starter', 'standard', 'premium'];
+const PLAN_OPTIONS: TenantPlanId[] = ['free', 'standard', 'standard_plus', 'premium'];
 
 type ContractForm = {
   plan: TenantPlanId;
@@ -59,9 +60,7 @@ type ContractForm = {
 };
 
 function contractFormFromDetail(detail: PlatformTenantBillingDetail): ContractForm {
-  const plan = (detail.tenant.plan in TENANT_PLAN_PRESENTATIONS
-    ? detail.tenant.plan
-    : 'standard') as TenantPlanId;
+  const plan = normalizePlanId(detail.tenant.plan);
   return {
     plan,
     billingCycle: detail.profile.billingCycle,

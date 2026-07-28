@@ -180,7 +180,7 @@ export type BillingScheduleListQuery = {
 };
 
 export type PatchBillingProfileBody = {
-  plan?: 'starter' | 'standard' | 'premium';
+  plan?: 'free' | 'standard' | 'standard_plus' | 'premium' | 'starter';
   billingCycle?: TenantBillingCycle;
   pricingMode?: TenantBillingPricingMode;
   customMonthlyAmountKrw?: number | null;

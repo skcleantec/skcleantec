@@ -5,10 +5,11 @@ import {
   TENANT_USAGE_METRIC_LABELS,
   usageLimitForPlan,
   TENANT_BILLING_NOTE,
+  normalizePlanId,
   type TenantPlanId,
   type TenantUsageMetricId,
 } from './tenantFeatureCatalog.js';
-import { kstMonthRangeYm, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
+import { getTenantCoinSnapshot } from './tenantCoin.service.js';
 import { PLATFORM_SUPPORT_USER_WHERE } from '../platform/tenantSupportAccess.constants.js';
 import { getEffectiveEnabledModules } from './tenantFeatures.service.js';
 
@@ -45,13 +46,18 @@ export type TenantSubscriptionDto = {
   enabledServices: TenantSubscriptionServiceRow[];
   usage: TenantSubscriptionUsageRow[];
   billingNote: string;
+  coins?: {
+    periodYm: string;
+    allowance: number | null;
+    spent: number;
+    remaining: number | null;
+    unlimited: boolean;
+  };
 };
 
 function resolvePlanLabel(plan: string): string {
-  if (plan in TENANT_PLANS) {
-    return TENANT_PLANS[plan as TenantPlanId].label;
-  }
-  return plan;
+  const normalized = normalizePlanId(plan);
+  return TENANT_PLANS[normalized].label;
 }
 
 function readServiceUpdatedAt(config: unknown, createdAt: Date): string {
@@ -81,26 +87,21 @@ export async function getTenantSubscriptionForAdmin(tenantId: string): Promise<T
   });
   if (!tenant) throw new Error('업체를 찾을 수 없습니다.');
 
-  const monthKey = kstTodayYmd().slice(0, 7);
-  const monthRange = kstMonthRangeYm(monthKey);
-
-  const [enabledModuleIds, activeUsers, inquiriesThisMonth, operatingBrands] = await Promise.all([
-    getEffectiveEnabledModules(tenantId),
-    prisma.user.count({
-      where: {
-        tenantId,
-        isActive: true,
-        role: { in: ['ADMIN', 'MARKETER', 'TEAM_LEADER'] },
-        ...PLATFORM_SUPPORT_USER_WHERE,
-      },
-    }),
-    monthRange
-      ? prisma.inquiry.count({
-          where: { tenantId, createdAt: { gte: monthRange.gte, lte: monthRange.lte } },
-        })
-      : Promise.resolve(0),
-    prisma.operatingCompany.count({ where: { tenantId, isActive: true } }),
-  ]);
+  const [enabledModuleIds, teamLeaders, customCalendars, operatingBrands, coinSnapshot] =
+    await Promise.all([
+      getEffectiveEnabledModules(tenantId),
+      prisma.user.count({
+        where: {
+          tenantId,
+          isActive: true,
+          role: 'TEAM_LEADER',
+          ...PLATFORM_SUPPORT_USER_WHERE,
+        },
+      }),
+      prisma.userCustomCalendar.count({ where: { tenantId } }),
+      prisma.operatingCompany.count({ where: { tenantId, isActive: true } }),
+      getTenantCoinSnapshot(prisma, tenantId, tenant.plan),
+    ]);
 
   const enabledServices: TenantSubscriptionServiceRow[] = enabledModuleIds
     .map((moduleId) => {
@@ -113,8 +114,9 @@ export async function getTenantSubscriptionForAdmin(tenantId: string): Promise<T
     .sort((a, b) => a.label.localeCompare(b.label, 'ko'));
 
   const usageCounts: Record<TenantUsageMetricId, number> = {
-    activeUsers,
-    inquiriesThisMonth,
+    monthlyCoins: coinSnapshot.spent,
+    teamLeaders,
+    customCalendars,
     operatingBrands,
   };
 
@@ -125,7 +127,14 @@ export async function getTenantSubscriptionForAdmin(tenantId: string): Promise<T
     label: TENANT_USAGE_METRIC_LABELS[id],
     used: usageCounts[id],
     limit: usageLimitForPlan(tenant.plan, id),
-    unit: id === 'inquiriesThisMonth' ? '건' : id === 'activeUsers' ? '명' : '개',
+    unit:
+      id === 'monthlyCoins'
+        ? '코인'
+        : id === 'teamLeaders'
+          ? '명'
+          : id === 'customCalendars'
+            ? '개'
+            : '개',
   }));
 
   const now = new Date();
@@ -147,5 +156,6 @@ export async function getTenantSubscriptionForAdmin(tenantId: string): Promise<T
     enabledServices,
     usage,
     billingNote: TENANT_BILLING_NOTE,
+    coins: coinSnapshot,
   };
 }

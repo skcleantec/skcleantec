@@ -20,6 +20,10 @@ import {
 } from '../tenants/tenant.service.js';
 import { DEFAULT_TENANT_SLUG } from '../tenants/tenant.constants.js';
 import { getEffectiveEnabledModules } from '../tenants/tenantFeatures.service.js';
+import {
+  assertTeamLeaderLoginAllowed,
+  mapTenantPlanLimitError,
+} from '../tenants/tenantPlanLimits.service.js';
 import { resolveTelecrmAccessForUser } from '../telecrm/telecrmTenantPolicy.service.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 import {
@@ -207,6 +211,18 @@ async function loginWithPassword(req: Request, res: Response) {
   if (!valid) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;
+  }
+  if (user.role === 'TEAM_LEADER') {
+    try {
+      await assertTeamLeaderLoginAllowed(tenant.plan);
+    } catch (e) {
+      const mapped = mapTenantPlanLimitError(e);
+      if (mapped) {
+        res.status(mapped.status).json({ error: mapped.message });
+        return;
+      }
+      throw e;
+    }
   }
   const payload: AuthPayload = {
     userId: user.id,

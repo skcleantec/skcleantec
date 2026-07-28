@@ -12,6 +12,8 @@ import {
   mergeOperatingCompanySoomgoStored,
 } from '../../lib/operatingCompanySoomgoConfig.js';
 import { seedBrandCustomerLinkFromTenantDefault } from '../orderform/orderFormBrandCustomerLink.service.js';
+import { assertCanCreateOperatingCompany } from '../tenants/tenantPlanLimits.service.js';
+import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -158,6 +160,9 @@ export async function createOperatingCompany(
   const slug = normalizeOperatingCompanySlug(body.slug ?? name);
   const dup = await db.operatingCompany.findFirst({ where: { tenantId, slug } });
   if (dup) throw new OperatingCompanyValidationError('이미 사용 중인 slug입니다.');
+
+  const tenantPlan = await getTenantPlan(tenantId);
+  await assertCanCreateOperatingCompany(db, tenantId, tenantPlan);
 
   let config: OperatingCompanyConfig = {};
   if (body.config !== undefined) {

@@ -10,7 +10,7 @@ export function PlatformTenantCreatePage() {
   const navigate = useNavigate();
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
-  const [plan, setPlan] = useState<string>('starter');
+  const [plan, setPlan] = useState<string>('free');
   const [adminLoginId, setAdminLoginId] = useState('admin');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminName, setAdminName] = useState('관리자');

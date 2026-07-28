@@ -7,6 +7,7 @@ import {
   modulesForPlan,
   TENANT_FEATURE_MODULES,
   type TenantFeatureModuleId,
+  TENANT_PLAN_ID_SET,
 } from '../tenants/tenantFeatureCatalog.js';
 import {
   readTelecrmMetaForPreserve,
@@ -50,7 +51,7 @@ export async function provisionTenant(input: ProvisionTenantInput) {
   const name = input.name.trim();
   const adminLoginId = assertValidTenantLoginId(input.adminLoginId);
   const adminName = (input.adminName?.trim() || '관리자').slice(0, 64);
-  const plan = input.plan in { starter: 1, standard: 1, premium: 1 } ? input.plan : 'starter';
+  const plan = input.plan in TENANT_PLAN_ID_SET ? input.plan : 'free';
   const status = input.status ?? 'TRIAL';
 
   assertValidTenantSlug(slug);
@@ -247,7 +248,7 @@ export async function updateTenantBasics(
     patch.name = name;
   }
   if (data.plan !== undefined) {
-    if (!(data.plan in { starter: 1, standard: 1, premium: 1 })) {
+    if (!(data.plan in TENANT_PLAN_ID_SET)) {
       throw new Error('유효하지 않은 플랜입니다.');
     }
     patch.plan = data.plan;

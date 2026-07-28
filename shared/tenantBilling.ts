@@ -2,7 +2,8 @@
  * 테넌트 SaaS 과금 — 클라이언트·서버 공통 상수 (server는 tenantBilling.constants.ts 동기화)
  */
 import type { TenantPlanId } from './tenantFeatureModules.js';
-import { TENANT_PLAN_MONTHLY_PRICE_KRW } from './tenantPlanCatalog.js';
+import { TENANT_PLAN_MONTHLY_PRICE_KRW, premiumMonthlyPriceKrw } from './tenantPlanCatalog.js';
+import { normalizePlanId } from './tenantPlanNormalize.js';
 
 export const TENANT_TRIAL_DAYS = 7;
 export const TENANT_PREPAID_SERVICE_DELAY_DAYS = 7;
@@ -98,8 +99,14 @@ export const TENANT_INVOICE_STATUS_LABEL: Record<TenantInvoiceStatus, string> = 
   VOID: '무효',
 };
 
-export function calculateBillingAmountKrw(plan: TenantPlanId, cycle: TenantBillingCycle): number {
-  const monthly = TENANT_PLAN_MONTHLY_PRICE_KRW[plan];
+export function calculateBillingAmountKrw(
+  plan: TenantPlanId | string,
+  cycle: TenantBillingCycle,
+  activeBrandCount = 1,
+): number {
+  const p = normalizePlanId(String(plan));
+  const monthly =
+    p === 'premium' ? premiumMonthlyPriceKrw(activeBrandCount) : TENANT_PLAN_MONTHLY_PRICE_KRW[p];
   if (cycle === 'MONTHLY') return monthly;
   return calculateAnnualFromMonthlyKrw(monthly);
 }

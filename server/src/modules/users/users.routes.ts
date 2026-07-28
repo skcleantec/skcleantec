@@ -8,6 +8,11 @@ import { authMiddleware } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffHasAnyPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
+import {
+  assertCanAddTeamLeader,
+  mapTenantPlanLimitError,
+} from '../tenants/tenantPlanLimits.service.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { isTenantOwnerAdmin } from '../auth/tenantOwner.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
@@ -425,6 +430,20 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
   if (existing) {
     res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
     return;
+  }
+
+  if (userRole === 'TEAM_LEADER') {
+    try {
+      const tenantPlan = await getTenantPlan(tenantId);
+      await assertCanAddTeamLeader(prisma, tenantId, tenantPlan);
+    } catch (e) {
+      const mapped = mapTenantPlanLimitError(e);
+      if (mapped) {
+        res.status(mapped.status).json({ error: mapped.message });
+        return;
+      }
+      throw e;
+    }
   }
 
   let payrollMonthlySalary: number | null | undefined;

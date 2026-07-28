@@ -6,6 +6,11 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth, type TenantScopedRequest } from '../tenants/tenant.middleware.js';
 import { sanitizeCustomCalendarColorKey } from '../../constants/customCalendarColorKeys.js';
+import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
+import {
+  assertCanCreateCustomCalendar,
+  mapTenantPlanLimitError,
+} from '../tenants/tenantPlanLimits.service.js';
 
 const calendarListInclude = {
   inquiryPins: { select: { inquiryId: true } },
@@ -222,6 +227,18 @@ router.post(
     if (partnerErr) {
       res.status(400).json({ error: partnerErr });
       return;
+    }
+
+    try {
+      const tenantPlan = await getTenantPlan(tenantId);
+      await assertCanCreateCustomCalendar(prisma, tenantId, tenantPlan);
+    } catch (e) {
+      const mapped = mapTenantPlanLimitError(e);
+      if (mapped) {
+        res.status(mapped.status).json({ error: mapped.message });
+        return;
+      }
+      throw e;
     }
 
     const last = await prisma.userCustomCalendar.findFirst({

@@ -2,6 +2,7 @@
  * 테넌트 기능 모듈 카탈로그 — 플랜·on/off·GNB/API 가드 공통 ID.
  * @see docs/MULTI_TENANT_PLATFORM.md
  */
+import { normalizePlanId } from './tenantPlanNormalize.js';
 
 export const TENANT_FEATURE_MODULES = {
   core_inquiries: { label: '서비스접수·발주서', tier: 'core' as const, defaultOn: true },
@@ -25,12 +26,28 @@ export const TENANT_FEATURE_MODULES = {
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;
 
 export const TENANT_PLANS = {
-  starter: {
-    label: 'Starter',
-    modules: ['core_inquiries', 'core_schedule', 'core_assignments', 'core_messages', 'mod_db_marketplace'] as TenantFeatureModuleId[],
+  free: {
+    label: 'Free',
+    modules: ['core_inquiries', 'core_schedule', 'mod_db_marketplace'] as TenantFeatureModuleId[],
   },
   standard: {
     label: 'Standard',
+    modules: [
+      'core_inquiries',
+      'core_schedule',
+      'core_assignments',
+      'core_messages',
+      'mod_cs',
+      'mod_external_co',
+      'mod_crew',
+      'mod_team_stats',
+      'mod_inspection',
+      'mod_advertising',
+      'mod_db_marketplace',
+    ] as TenantFeatureModuleId[],
+  },
+  standard_plus: {
+    label: 'Standard+',
     modules: [
       'core_inquiries',
       'core_schedule',
@@ -73,8 +90,8 @@ export type TenantPlanId = keyof typeof TENANT_PLANS;
 export const DEFAULT_TENANT_SLUG = 'skcleanteck';
 
 export function modulesForPlan(plan: string): TenantFeatureModuleId[] {
-  const p = plan in TENANT_PLANS ? TENANT_PLANS[plan as TenantPlanId] : TENANT_PLANS.standard;
-  return [...p.modules];
+  const p = normalizePlanId(plan);
+  return [...TENANT_PLANS[p].modules];
 }
 
 export function hasFeature(enabled: readonly string[], moduleId: TenantFeatureModuleId): boolean {

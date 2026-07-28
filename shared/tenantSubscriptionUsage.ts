@@ -1,44 +1,69 @@
 /**
  * 테넌트 가입·과금용 사용량 기준 (플랜별 포함량)
- * 초과 과금은 추후 billing 연동 시 동일 키 사용.
+ * 코인은 매월 1일 KST 리셋·이월 없음.
  */
-
 import type { TenantPlanId } from './tenantFeatureModules.js';
+import { normalizePlanId } from './tenantPlanNormalize.js';
 
-export type TenantUsageMetricId = 'activeUsers' | 'inquiriesThisMonth' | 'operatingBrands';
+export type TenantUsageMetricId =
+  | 'monthlyCoins'
+  | 'teamLeaders'
+  | 'customCalendars'
+  | 'operatingBrands';
 
 export type TenantUsageLimit = number | null;
 
 export const TENANT_USAGE_METRIC_LABELS: Record<TenantUsageMetricId, string> = {
-  activeUsers: '활성 업무 계정',
-  inquiriesThisMonth: '이번 달 접수',
+  monthlyCoins: '이용 코인',
+  teamLeaders: '팀장 계정',
+  customCalendars: '맞춤 캘린더',
   operatingBrands: '영업 브랜드',
 };
+
+/** Premium — 브랜드 1개 초과분 월 추가 (원, VAT 별도) */
+export const TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW = 200_000;
 
 export const TENANT_PLAN_USAGE_LIMITS: Record<
   TenantPlanId,
   Record<TenantUsageMetricId, TenantUsageLimit>
 > = {
-  starter: {
-    activeUsers: 8,
-    inquiriesThisMonth: 400,
-    operatingBrands: 1,
+  free: {
+    monthlyCoins: 70,
+    teamLeaders: 0,
+    customCalendars: 0,
+    operatingBrands: 0,
   },
   standard: {
-    activeUsers: 25,
-    inquiriesThisMonth: 1_500,
-    operatingBrands: 3,
+    monthlyCoins: 300,
+    teamLeaders: 5,
+    customCalendars: 2,
+    operatingBrands: 0,
+  },
+  standard_plus: {
+    monthlyCoins: 700,
+    teamLeaders: 10,
+    customCalendars: 5,
+    operatingBrands: 0,
   },
   premium: {
-    activeUsers: null,
-    inquiriesThisMonth: null,
-    operatingBrands: null,
+    monthlyCoins: null,
+    teamLeaders: null,
+    customCalendars: null,
+    operatingBrands: 1,
   },
 };
 
 export function usageLimitForPlan(plan: string, metric: TenantUsageMetricId): TenantUsageLimit {
-  const p = plan in TENANT_PLAN_USAGE_LIMITS ? (plan as TenantPlanId) : 'standard';
+  const p = normalizePlanId(plan);
   return TENANT_PLAN_USAGE_LIMITS[p][metric];
+}
+
+/** operatingBrands 한도 0 = 기본 1개(시드)만 허용 */
+export function maxOperatingCompaniesForPlan(plan: string): number | null {
+  const limit = usageLimitForPlan(plan, 'operatingBrands');
+  if (limit == null) return null;
+  if (limit === 0) return 1;
+  return limit;
 }
 
 export function usagePercent(used: number, limit: TenantUsageLimit): number | null {
@@ -49,4 +74,12 @@ export function usagePercent(used: number, limit: TenantUsageLimit): number | nu
 export function isUsageOverLimit(used: number, limit: TenantUsageLimit): boolean {
   if (limit == null) return false;
   return used > limit;
+}
+
+export function planHasUnlimitedCoins(plan: string): boolean {
+  return usageLimitForPlan(plan, 'monthlyCoins') == null;
+}
+
+export function monthlyCoinAllowance(plan: string): number | null {
+  return usageLimitForPlan(plan, 'monthlyCoins');
 }

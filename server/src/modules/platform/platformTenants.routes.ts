@@ -52,7 +52,7 @@ router.post('/', platformSuperAdminOnly, async (req, res) => {
     const result = await provisionTenant({
       slug: String(body.slug ?? ''),
       name: String(body.name ?? ''),
-      plan: String(body.plan ?? 'starter'),
+      plan: String(body.plan ?? 'free'),
       adminLoginId: String(body.adminLoginId ?? body.adminEmail ?? ''),
       adminPassword: String(body.adminPassword ?? ''),
       adminName: body.adminName,

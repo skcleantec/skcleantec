@@ -153,6 +153,16 @@ export function AdminTenantSubscriptionPage() {
   const accountRows = [
     { label: '업체 코드', value: tenant.slug },
     { label: '이용 플랜', value: `${tenant.planLabel} (${tenant.plan})` },
+    ...(data.coins
+      ? [
+          {
+            label: '이용 코인 (이번 달)',
+            value: data.coins.unlimited
+              ? '무제한'
+              : `${data.coins.spent.toLocaleString()} / ${data.coins.allowance?.toLocaleString() ?? '0'}코인 · 잔여 ${data.coins.remaining?.toLocaleString() ?? '0'} (매월 1일 리셋)`,
+          },
+        ]
+      : []),
     { label: '가입일', value: formatKoDateTime(tenant.createdAt) },
     { label: '서비스 구성 갱신일', value: formatKoDateTime(data.serviceUpdatedAt) },
     { label: '이용 현황 기준', value: formatKoDateTime(data.usageSnapshotAt) },

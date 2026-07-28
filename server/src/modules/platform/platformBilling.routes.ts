@@ -27,6 +27,7 @@ import {
 } from '../billing/tenantBilling.service.js';
 import { updateTenantBasics } from './tenantProvisioning.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
+import { TENANT_PLAN_ID_SET } from '../tenants/tenantFeatureCatalog.js';
 import { parseBillingScheduleListQuery } from '../billing/tenantBilling.scheduleList.js';
 
 const router = Router();
@@ -134,8 +135,10 @@ router.patch('/tenants/:tenantId/profile', platformSuperAdminOnly, async (req, r
       contractMemo?: string | null;
     };
     if (body.plan !== undefined) {
-      if (!(body.plan in { starter: 1, standard: 1, premium: 1 })) {
-        res.status(400).json({ error: 'plan은 starter, standard, premium 중 하나여야 합니다.' });
+      if (!(body.plan in TENANT_PLAN_ID_SET)) {
+        res.status(400).json({
+          error: 'plan은 free, standard, standard_plus, premium(또는 레거시 starter) 중 하나여야 합니다.',
+        });
         return;
       }
       await updateTenantBasics(req.params.tenantId, { plan: body.plan });
