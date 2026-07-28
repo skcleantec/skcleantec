@@ -53,6 +53,7 @@ import {
   type InternalCustomerTone,
 } from '../../constants/internalCustomerTone';
 import { OrderFormPage } from '../order/OrderFormPage';
+import { TenantCoinUsageBannerSection } from '../../components/tenant/TenantCoinUsageBannerSection';
 
 type Tab = 'issue' | 'followup' | 'list';
 
@@ -627,6 +628,9 @@ export function AdminOrderFormPage() {
                 text="「대기 접수 연결」에서 개별 접수로 등록한 대기 건을 선택하면, 같은 건에 링크가 붙고 고객이 제출 시 접수로 전환됩니다."
               />
             </div>
+          </div>
+          <div className="border-b border-gray-100 px-4 py-3 sm:px-6">
+            <TenantCoinUsageBannerSection />
           </div>
           <div className="p-4 sm:p-6 lg:p-8">
             {scheduleFabUnlinkedHint ? (

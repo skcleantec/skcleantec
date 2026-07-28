@@ -2,135 +2,19 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { TenantSubscriptionDto } from '../../api/tenantSubscription';
 import type { TenantBillingSummary } from '../../api/tenantBilling';
-import { usagePercent } from '@shared/tenantSubscriptionUsage';
+import { canAccessAdminPath } from '@shared/marketerPermissionNav';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
+import {
+  buildDashboardUsageSummary,
+  pickTenantUsage,
+  resolveCoinUsage,
+  TENANT_SUBSCRIPTION_ADMIN_PATH,
+} from '../../utils/tenantUsageDisplay';
+import { TenantUsageBar } from '../../components/tenant/TenantUsageBar';
+import { TenantUsageGauge } from '../../components/tenant/TenantUsageGauge';
 import { TenantBillingDashboardStatusLine } from './TenantBillingDashboardStatusLine';
 import { TenantBillingPaymentGuideModal } from './TenantBillingPaymentGuideModal';
 import type { DashboardAuxBlockVariant } from './dashboard/DashboardPageSections';
-
-type UsageRow = TenantSubscriptionDto['usage'][number];
-
-function pickUsage(usage: UsageRow[] | undefined, id: UsageRow['id'], fallback: UsageRow): UsageRow {
-  return usage?.find((u) => u.id === id) ?? fallback;
-}
-
-function UsageBar({
-  label,
-  used,
-  limit,
-  unit,
-}: {
-  label: string;
-  used: number;
-  limit: number | null;
-  unit: string;
-}) {
-  const pct = limit != null ? Math.min(100, Math.round((used / limit) * 100)) : 100;
-  const over = limit != null && used > limit;
-  const warn = limit != null && !over && pct >= 80;
-
-  return (
-    <div className="min-w-0 space-y-1.5">
-      <div className="flex min-w-0 items-center justify-between gap-2 text-[clamp(0.625rem,1.45vw,0.75rem)] leading-none">
-        <span className="shrink-0 whitespace-nowrap font-semibold text-slate-500">{label}</span>
-        <span className="shrink-0 whitespace-nowrap text-right font-bold tabular-nums text-slate-800">
-          {used.toLocaleString()}
-          {unit}
-          {limit != null ? ` / ${limit.toLocaleString()}${unit}` : ' (무제한)'}
-        </span>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${
-            over ? 'bg-rose-500' : warn ? 'bg-amber-500' : 'bg-indigo-600'
-          }`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      {limit != null ? (
-        <p className="whitespace-nowrap text-[clamp(0.5625rem,1.2vw,0.625rem)] leading-none text-slate-400">
-          {over ? `${label} 한도를 초과했습니다.` : `한도 대비 ${pct}% 사용 중`}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function InquirySpeedometer({
-  used,
-  limit,
-}: {
-  used: number;
-  limit: number | null;
-}) {
-  const pct = usagePercent(used, limit);
-  const isOver = limit != null && used > limit;
-  const visualLimit =
-    limit !== null ? limit : used > 0 ? Math.ceil((used * 1.5) / 10) * 10 : 100;
-  const displayPct =
-    visualLimit > 0 ? Math.min(100, Math.round((used / visualLimit) * 100)) : 0;
-
-  let gaugeColor = '#6366f1';
-  if (isOver) gaugeColor = '#f43f5e';
-  else if (limit != null && (pct ?? 0) >= 80) gaugeColor = '#f59e0b';
-
-  const arcLength = 125.66;
-  const needleAngle = -180 + displayPct * 1.8;
-
-  return (
-    <div className="flex flex-col items-center shrink-0">
-      <div className="relative flex items-center justify-center">
-        <svg viewBox="0 0 100 60" className="w-32 h-20 overflow-visible" aria-hidden>
-          <path
-            d="M 10 50 A 40 40 0 0 1 90 50"
-            fill="none"
-            stroke="#f1f5f9"
-            strokeWidth="8"
-            strokeLinecap="round"
-          />
-          <path
-            d="M 10 50 A 40 40 0 0 1 90 50"
-            fill="none"
-            stroke={gaugeColor}
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeDasharray={arcLength}
-            strokeDashoffset={arcLength - (displayPct / 100) * arcLength}
-            style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
-          />
-          {[0, 25, 50, 75, 100].map((p) => (
-            <line
-              key={p}
-              x1="50"
-              y1="10"
-              x2="50"
-              y2="14"
-              stroke="#cbd5e1"
-              strokeWidth="1.5"
-              transform={`rotate(${-180 + p * 1.8}, 50, 50)`}
-            />
-          ))}
-          <g
-            transform={`rotate(${needleAngle}, 50, 50)`}
-            style={{ transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
-          >
-            <path d="M 48.5 50 L 50 11 L 51.5 50 Z" fill="#f43f5e" />
-            <circle cx="50" cy="50" r="4" fill="#f43f5e" />
-          </g>
-          <circle cx="50" cy="50" r="2.5" fill="#1e293b" />
-          <circle cx="50" cy="50" r="1" fill="#94a3b8" />
-        </svg>
-      </div>
-      <div className="text-center -mt-2">
-        <span className="text-sm font-extrabold text-slate-800 block leading-none tabular-nums">
-          {used.toLocaleString()}건
-        </span>
-        <span className="text-[10px] text-slate-400 font-medium mt-1 block">
-          {limit !== null ? `한도 ${limit.toLocaleString()}건` : '무제한'}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 type Props = {
   data: TenantSubscriptionDto;
@@ -146,23 +30,18 @@ export function DashboardTenantSubscriptionView({
   variant = 'card',
 }: Props) {
   const { tenant, usage } = data;
+  const { staffMe } = useAdminStaffSession();
   const [paymentGuideOpen, setPaymentGuideOpen] = useState(false);
 
-  const userUsage = pickUsage(usage, 'activeUsers', {
-    id: 'activeUsers',
-    label: '활성 업무 계정',
+  const coin = resolveCoinUsage(data);
+  const teamUsage = pickTenantUsage(usage, 'teamLeaders', {
+    id: 'teamLeaders',
+    label: '팀장 계정',
     used: 0,
     limit: null,
     unit: '명',
   });
-  const inquiriesUsage = pickUsage(usage, 'inquiriesThisMonth', {
-    id: 'inquiriesThisMonth',
-    label: '이번 달 접수',
-    used: 0,
-    limit: null,
-    unit: '건',
-  });
-  const brandsUsage = pickUsage(usage, 'operatingBrands', {
+  const brandsUsage = pickTenantUsage(usage, 'operatingBrands', {
     id: 'operatingBrands',
     label: '영업 브랜드',
     used: 0,
@@ -170,11 +49,30 @@ export function DashboardTenantSubscriptionView({
     unit: '개',
   });
 
-  const inquirySummary =
-    inquiriesUsage.limit != null
-      ? `${inquiriesUsage.used.toLocaleString()}/${inquiriesUsage.limit.toLocaleString()}건`
-      : `${inquiriesUsage.used.toLocaleString()}건(무제한)`;
-  const usageSummary = `접수 ${inquirySummary} · 계정 ${userUsage.used.toLocaleString()}명 · 브랜드 ${brandsUsage.used.toLocaleString()}개`;
+  const usageSummary = buildDashboardUsageSummary(data);
+  const canOpenSubscription = canAccessAdminPath(
+    staffMe?.role,
+    staffMe?.marketerPermissions,
+    TENANT_SUBSCRIPTION_ADMIN_PATH,
+  );
+
+  const detailLink = canOpenSubscription ? (
+    <Link
+      to={TENANT_SUBSCRIPTION_ADMIN_PATH}
+      className="shrink-0 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 touch-manipulation"
+    >
+      자세히
+    </Link>
+  ) : null;
+
+  const detailLinkText = canOpenSubscription ? (
+    <Link
+      to={TENANT_SUBSCRIPTION_ADMIN_PATH}
+      className="shrink-0 whitespace-nowrap text-[clamp(0.5625rem,1.15vw,0.625rem)] font-medium leading-none text-indigo-600 hover:text-indigo-800 hover:underline"
+    >
+      자세히 보기
+    </Link>
+  ) : null;
 
   if (variant === 'row') {
     return (
@@ -208,12 +106,7 @@ export function DashboardTenantSubscriptionView({
               />
             ) : null}
           </div>
-          <Link
-            to="/admin/subscription"
-            className="shrink-0 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 touch-manipulation"
-          >
-            자세히
-          </Link>
+          {detailLink}
         </div>
         <TenantBillingPaymentGuideModal
           open={paymentGuideOpen}
@@ -227,8 +120,8 @@ export function DashboardTenantSubscriptionView({
 
   return (
     <>
-      <div className="flex h-full min-h-0 lg:min-h-[200px] flex-col justify-between rounded-xl lg:rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/40 p-3 lg:p-6 shadow-sm shadow-indigo-100/50">
-        <div className="mb-3 lg:mb-4 flex min-w-0 items-center justify-between gap-2">
+      <div className="flex h-full min-h-0 flex-col justify-between rounded-xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/40 p-3 shadow-sm shadow-indigo-100/50 lg:min-h-[200px] lg:rounded-2xl lg:p-6">
+        <div className="mb-3 flex min-w-0 items-center justify-between gap-2 lg:mb-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <div className="shrink-0 rounded-lg bg-indigo-100 p-1.5 text-indigo-600">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -239,32 +132,36 @@ export function DashboardTenantSubscriptionView({
                 />
               </svg>
             </div>
-            <span className="min-w-0 whitespace-nowrap font-semibold text-slate-800 text-[clamp(0.6875rem,1.7vw,0.875rem)] leading-tight">
+            <span className="min-w-0 whitespace-nowrap text-[clamp(0.6875rem,1.7vw,0.875rem)] font-semibold leading-tight text-slate-800">
               계정 및 서비스 이용 현황
             </span>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 capitalize ring-1 ring-inset ring-slate-700/10">
-              {tenant.planLabel}
-            </span>
-          </div>
+          <span className="inline-flex shrink-0 items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-slate-700 ring-1 ring-inset ring-slate-700/10">
+            {tenant.planLabel}
+          </span>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8 flex-1">
-          <InquirySpeedometer used={inquiriesUsage.used} limit={inquiriesUsage.limit} />
+        <div className="flex flex-1 flex-col items-center gap-4 sm:flex-row sm:gap-8">
+          <TenantUsageGauge
+            used={coin.used}
+            limit={coin.limit}
+            unit={coin.unit}
+            label={coin.label}
+            unlimited={coin.unlimited}
+          />
 
-          <div className="w-full min-w-0 space-y-3 sm:space-y-4 sm:flex-1">
-            <UsageBar
-              label="활성 업무 계정"
-              used={userUsage.used}
-              limit={userUsage.limit}
-              unit="명"
+          <div className="w-full min-w-0 space-y-3 sm:flex-1 sm:space-y-4">
+            <TenantUsageBar
+              label={teamUsage.label}
+              used={teamUsage.used}
+              limit={teamUsage.limit}
+              unit={teamUsage.unit}
             />
-            <UsageBar
-              label="활성 브랜드"
+            <TenantUsageBar
+              label={brandsUsage.label}
               used={brandsUsage.used}
               limit={brandsUsage.limit}
-              unit="개"
+              unit={brandsUsage.unit}
             />
           </div>
         </div>
@@ -280,12 +177,7 @@ export function DashboardTenantSubscriptionView({
           ) : (
             <span className="min-w-0 flex-1" aria-hidden />
           )}
-          <Link
-            to="/admin/subscription"
-            className="shrink-0 whitespace-nowrap text-[clamp(0.5625rem,1.15vw,0.625rem)] font-medium leading-none text-indigo-600 hover:text-indigo-800 hover:underline"
-          >
-            자세히 보기
-          </Link>
+          {detailLinkText}
         </div>
       </div>
 

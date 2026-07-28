@@ -19,6 +19,11 @@ import {
 } from '../../components/ui/DetailKeyValueTable';
 import { usagePercent } from '@shared/tenantSubscriptionUsage';
 import {
+  formatUsageRatio,
+  resolveCoinUsage,
+  usageWarnLevel,
+} from '../../utils/tenantUsageDisplay';
+import {
   TENANT_BILLING_CYCLE_LABEL,
   TENANT_BILLING_SCHEDULE_STATUS_LABEL,
   TENANT_INVOICE_STATUS_LABEL,
@@ -263,6 +268,49 @@ export function AdminTenantSubscriptionPage() {
         <DetailKeyValueTable rows={accountRows} tone="indigo" />
       </section>
 
+      <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-3">
+        <h2 className="text-base font-semibold text-gray-900">이번 달 사용량 요약</h2>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          {(() => {
+            const coin = resolveCoinUsage(data);
+            const chips = [
+              {
+                key: 'coins',
+                label: coin.label,
+                value: coin.unlimited
+                  ? '무제한'
+                  : formatUsageRatio(coin.used, coin.limit, coin.unit),
+                level: usageWarnLevel(coin.used, coin.unlimited ? null : coin.limit),
+              },
+              ...data.usage
+                .filter((row) => row.id !== 'monthlyCoins')
+                .map((row) => ({
+                  key: row.id,
+                  label: row.label,
+                  value: formatUsageRatio(row.used, row.limit, row.unit),
+                  level: usageWarnLevel(row.used, row.limit),
+                })),
+            ];
+            return chips.map((chip) => (
+              <div
+                key={chip.key}
+                className={[
+                  'rounded-lg border px-3 py-2.5',
+                  chip.level === 'over'
+                    ? 'border-rose-200 bg-rose-50'
+                    : chip.level === 'warn'
+                      ? 'border-amber-200 bg-amber-50'
+                      : 'border-slate-200 bg-slate-50',
+                ].join(' ')}
+              >
+                <p className="text-[11px] font-medium text-slate-600">{chip.label}</p>
+                <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">{chip.value}</p>
+              </div>
+            ));
+          })()}
+        </div>
+      </section>
+
       <details className="group overflow-hidden rounded-lg border border-gray-200 bg-white [&_summary::-webkit-details-marker]:hidden">
         <summary className="flex cursor-pointer select-none items-start gap-2 px-4 py-3 sm:px-5 sm:py-4 hover:bg-gray-50/80">
           <div className="min-w-0 flex-1">
@@ -312,7 +360,8 @@ export function AdminTenantSubscriptionPage() {
       <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-3">
         <h2 className="text-base font-semibold text-gray-900">현재 사용량</h2>
         <p className="text-xs text-gray-500">
-          {tenant.planLabel} 플랜 포함량 대비 사용 현황입니다. (이번 달 접수는 한국 시간 기준)
+          {tenant.planLabel} 플랜 포함량 대비 사용 현황입니다. 코인은 입금대기 전환·정보공유 구매 시 차감되며
+          매월 1일(KST) 리셋됩니다.
         </p>
         <AdminDataTableShell tone="indigo">
           <colgroup>
