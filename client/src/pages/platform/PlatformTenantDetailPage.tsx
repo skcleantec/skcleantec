@@ -14,6 +14,7 @@ import {
 import { PlatformTenantAdminsSection } from './PlatformTenantAdminsSection';
 import { PlatformTenantBillingPanel } from './PlatformTenantBillingPanel';
 import { PlatformTenantTelecrmPanel } from './PlatformTenantTelecrmPanel';
+import { PlatformTenantUsagePanel } from '../../components/platform/PlatformTenantUsagePanel';
 import { PlatformTenantFeatureCatalog } from '../../components/platform/PlatformTenantFeatureCatalog';
 import { getPlatformToken } from '../../stores/platformAuth';
 import {
@@ -76,6 +77,7 @@ const SETTINGS_FIELDS: {
 const TABS = [
   { id: 'overview', label: '개요' },
   { id: 'plan', label: '플랜 · 기능' },
+  { id: 'usage', label: '이용량' },
   { id: 'billing', label: '결제' },
   { id: 'settings', label: '설정' },
   { id: 'admins', label: '관리자 계정' },
@@ -592,6 +594,8 @@ export function PlatformTenantDetailPage() {
           ) : null}
         </div>
       ) : null}
+
+      {activeTab === 'usage' && id ? <PlatformTenantUsagePanel tenantId={id} /> : null}
 
       {activeTab === 'billing' && id ? (
         <PlatformTenantBillingPanel tenantId={id} compact />

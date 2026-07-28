@@ -21,6 +21,7 @@ import {
   saveTelecrmPolicyForPlatform,
 } from '../telecrm/telecrmTenantPolicy.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
+import { getTenantSubscriptionForAdmin } from '../tenants/tenantSubscription.service.js';
 
 const router = Router();
 
@@ -81,6 +82,20 @@ router.post('/', platformSuperAdminOnly, async (req, res) => {
       return;
     }
     const msg = e instanceof Error ? e.message : '업체 생성에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.get('/:id/subscription', async (req, res) => {
+  try {
+    const data = await getTenantSubscriptionForAdmin(req.params.id);
+    res.json(data);
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) {
+      res.status(404).json({ error: e.message });
+      return;
+    }
+    const msg = e instanceof Error ? e.message : '이용 현황 조회에 실패했습니다.';
     res.status(400).json({ error: msg });
   }
 });
