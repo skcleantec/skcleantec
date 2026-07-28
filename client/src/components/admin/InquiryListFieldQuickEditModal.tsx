@@ -4,7 +4,7 @@ import { updateInquiry } from '../../api/inquiries';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ModalCloseButton } from './ModalCloseButton';
 import { YmdSelect } from '../ui/DateQuerySelects';
-import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
+import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import { inquiryAreaEditFormStringsFromItem } from '../../utils/inquiryAreaDisplay';
 import { kstTodayYmd } from '../../utils/dateFormat';
 
@@ -42,6 +42,7 @@ const FIELD_TITLE: Record<InquiryListQuickEditField, string> = {
 };
 
 export function InquiryListFieldQuickEditModal({ open, field, item, token, onClose, onSaved }: Props) {
+  const { options: timeSlotOptions } = useOrderFormTimeSlotLabels();
   const [saving, setSaving] = useState(false);
   const [preferredDate, setPreferredDate] = useState('');
   const [preferredTime, setPreferredTime] = useState('');
@@ -204,7 +205,7 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-sm"
                   >
                     <option value="">선택 안 함</option>
-                    {ORDER_TIME_SLOT_OPTIONS.map((o) => (
+                    {timeSlotOptions.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
                       </option>

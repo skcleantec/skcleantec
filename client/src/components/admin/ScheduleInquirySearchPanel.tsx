@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { searchScheduleInquiries, type ScheduleSearchHit } from '../../api/schedule';
 import { addressListShortSiGu, inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
-import { shortTimeSlotLabel } from '../../constants/orderFormSchedule';
+import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 
 export type ScheduleInquirySearchPanelProps = {
   token: string;
@@ -18,6 +18,7 @@ export function ScheduleInquirySearchPanel({
   onAfterPick,
   className = '',
 }: ScheduleInquirySearchPanelProps) {
+  const { shortLabelFor: shortTimeSlotLabelForTenant } = useOrderFormTimeSlotLabels();
   const [input, setInput] = useState('');
   const [items, setItems] = useState<ScheduleSearchHit[]>([]);
   const [loading, setLoading] = useState(false);
@@ -114,7 +115,7 @@ export function ScheduleInquirySearchPanel({
                       ? formatDateCompactWithWeekday(item.preferredDate.slice(0, 10))
                       : '예약일 없음';
                     const timeLabel = item.preferredTime
-                      ? shortTimeSlotLabel(item.preferredTime)
+                      ? shortTimeSlotLabelForTenant(item.preferredTime)
                       : null;
                     return (
                       <li key={item.id}>

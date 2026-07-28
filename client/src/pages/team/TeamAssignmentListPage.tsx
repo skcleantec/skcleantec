@@ -15,7 +15,7 @@ import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
-import { shortTimeSlotLabel } from '../../constants/orderFormSchedule';
+import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { YearMonthSelect, YmdSelect } from '../../components/ui/DateQuerySelects';
 import {
@@ -84,6 +84,7 @@ function formatAssignedAt(iso?: string | null): string {
 }
 
 export function TeamAssignmentListPage() {
+  const { shortLabelFor: shortTimeSlotLabelForTenant } = useOrderFormTimeSlotLabels();
   const isLgUp = useIsLgUp();
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const token = getTeamToken();
@@ -511,7 +512,7 @@ export function TeamAssignmentListPage() {
                   ? formatDateCompactWithWeekday(item.preferredDate)
                   : teamBiPlain('team.common.emDash');
                 const timeLabel = item.preferredTime
-                  ? shortTimeSlotLabel(item.preferredTime)
+                  ? shortTimeSlotLabelForTenant(item.preferredTime)
                   : teamBiPlain('team.inquiry.timeUndecided');
                 const metaLine = [
                   `${teamBiPlain('team.assign.bookingPrefix')} ${bookingShort}`,
@@ -804,7 +805,7 @@ export function TeamAssignmentListPage() {
                           </span>
                         </td>
                         <td className={`align-middle py-2 px-2 text-gray-600 text-center whitespace-nowrap ${pBorder}`}>
-                          {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : teamBiPlain('team.inquiry.timeUndecided')}
+                          {item.preferredTime ? shortTimeSlotLabelForTenant(item.preferredTime) : teamBiPlain('team.inquiry.timeUndecided')}
                         </td>
                         <td className={`align-middle py-2 px-2 text-center whitespace-nowrap ${pBorder}`}>
                           <span className="inline-block rounded bg-gray-200 px-2 py-0.5 text-fluid-2xs text-gray-800">

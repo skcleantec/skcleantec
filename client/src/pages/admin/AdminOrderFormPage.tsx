@@ -33,7 +33,9 @@ import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLin
 import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
-import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
+import { labelForTimeSlot } from '../../constants/orderFormSchedule';
+import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
+import type { OrderTimeSlotLabels } from '@shared/orderFormTimeSlotLabels';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import {
   buildOrderFormCustomerMessage,
@@ -85,7 +87,10 @@ function parseTabParam(raw: string | null): Tab {
 }
 
 /** 발주서 목록 「예약일」열·모바일 카드: 날짜(요일) + 시간대·상세 */
-function formatOrderFormReservationCell(order: OrderForm): {
+function formatOrderFormReservationCell(
+  order: OrderForm,
+  timeSlotLabels: OrderTimeSlotLabels,
+): {
   dateText: string;
   detailText: string | null;
   title: string;
@@ -96,8 +101,7 @@ function formatOrderFormReservationCell(order: OrderForm): {
   }
   const dateText = formatDateCompactWithWeekday(raw);
   const slot =
-    order.preferredTime &&
-    (ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === order.preferredTime)?.label ?? order.preferredTime);
+    order.preferredTime && labelForTimeSlot(order.preferredTime, timeSlotLabels);
   const detail = order.preferredTimeDetail?.trim();
   const parts: string[] = [];
   if (slot) parts.push(slot);
@@ -109,6 +113,7 @@ function formatOrderFormReservationCell(order: OrderForm): {
 
 export function AdminOrderFormPage() {
   const token = getToken();
+  const { labels: timeSlotLabels } = useOrderFormTimeSlotLabels();
   const staffTenantSlug = useStaffTenantSlugForLinks(token);
   const location = useLocation();
   const navigate = useNavigate();
@@ -932,7 +937,7 @@ export function AdminOrderFormPage() {
                 </p>
                 <div className="flex flex-col gap-3 p-3 lg:hidden">
                   {orderForms.map((o) => {
-                    const resv = formatOrderFormReservationCell(o);
+                    const resv = formatOrderFormReservationCell(o, timeSlotLabels);
                     const issuer = labelOrderFormIssuer(o.createdBy ?? undefined);
                     return (
                       <div
@@ -1052,7 +1057,7 @@ export function AdminOrderFormPage() {
                       <tbody>
                         {orderForms.map((o) => {
                           const issuer = labelOrderFormIssuer(o.createdBy ?? undefined);
-                          const resv = formatOrderFormReservationCell(o);
+                          const resv = formatOrderFormReservationCell(o, timeSlotLabels);
                           return (
                             <tr key={o.id} className="group hover:bg-slate-50/80 transition-colors">
                               <td

@@ -16,6 +16,11 @@ import {
   summarizeRowResults,
 } from './inquiryExcelImport.runSummary.js';
 import { parseMappingSpec } from './inquiryExcelImport.spec.js';
+import { getOrCreateOrderFormConfig } from '../tenants/tenantConfigSeed.service.js';
+import {
+  parseOrderTimeSlotLabelsJson,
+  type OrderTimeSlotLabelsJson,
+} from '../../lib/orderFormTimeSlotLabels.js';
 
 async function processOneExecuteRow(params: {
   tenantId: string;
@@ -24,12 +29,14 @@ async function processOneExecuteRow(params: {
   rowIndex: number;
   userId: string;
   userRole: UserRole;
+  timeSlotLabelsJson?: OrderTimeSlotLabelsJson | null;
 }): Promise<InquiryExcelRowExecuteResult> {
   const mapped = await mapExcelRowToInquiryBody({
     db: prisma,
     tenantId: params.tenantId,
     spec: params.spec,
     excelRow: params.excelRow,
+    timeSlotLabelsJson: params.timeSlotLabelsJson,
   });
 
   if (mapped.error) {
@@ -154,6 +161,9 @@ export async function executeInquiryExcelImportBatch(params: {
   const batchResults: InquiryExcelRowExecuteResult[] = [];
   const end = Math.min(startOffset + batchSize, sheet.rows.length);
 
+  const formCfg = await getOrCreateOrderFormConfig(prisma, params.tenantId);
+  const timeSlotLabelsJson = parseOrderTimeSlotLabelsJson(formCfg.timeSlotLabelsJson);
+
   try {
     for (let i = startOffset; i < end; i++) {
       const rowIndex = i + 2;
@@ -169,6 +179,7 @@ export async function executeInquiryExcelImportBatch(params: {
         rowIndex,
         userId: params.userId,
         userRole: params.userRole,
+        timeSlotLabelsJson,
       });
       resultByIndex.set(rowIndex, rowResult);
       batchResults.push(rowResult);

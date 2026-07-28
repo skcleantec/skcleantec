@@ -138,8 +138,9 @@ export async function mapExcelRowToInquiryBody(params: {
   tenantId: string;
   spec: InquiryExcelMappingSpec;
   excelRow: Record<string, string>;
+  timeSlotLabelsJson?: import('../../lib/orderFormTimeSlotLabels.js').OrderTimeSlotLabelsJson | null;
 }): Promise<MappedInquiryRow> {
-  const { db, tenantId, spec, excelRow } = params;
+  const { db, tenantId, spec, excelRow, timeSlotLabelsJson } = params;
   const body: Record<string, unknown> = {};
   const memoHeaders = memoLineHeaderSet(spec);
   const headerToField = new Map<string, string>();
@@ -187,7 +188,7 @@ export async function mapExcelRowToInquiryBody(params: {
         continue;
       }
       if (fieldKey === 'preferredTime') {
-        const auto = resolvePreferredTimeFromExcel(trimmed);
+        const auto = resolvePreferredTimeFromExcel(trimmed, timeSlotLabelsJson);
         if (auto) {
           body.preferredTime = auto;
           continue;

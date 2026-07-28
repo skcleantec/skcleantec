@@ -1,5 +1,10 @@
 import type { PrismaClient } from '@prisma/client';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
+import {
+  parseOrderTimeSlotLabelsJson,
+  resolveOrderTimeSlotLabels,
+  type OrderTimeSlotLabels,
+} from '../../lib/orderFormTimeSlotLabels.js';
 import { getOrCreateOrderFormConfig } from '../tenants/tenantConfigSeed.service.js';
 import { getOrCreateOrderFormBrandCustomerLinkConfig } from './orderFormBrandCustomerLink.service.js';
 
@@ -18,6 +23,8 @@ export type PublicFormConfig = {
   timeSlotAckTitle: string;
   timeSlotAckBody: string;
   timeSlotAckConsentHint: string;
+  /** 고객 발주서 시간대 선택지 표시 라벨(저장값 3개 고정) */
+  timeSlotLabels: OrderTimeSlotLabels;
 };
 
 type FormConfigRow = {
@@ -33,6 +40,7 @@ type FormConfigRow = {
   timeSlotAckTitle?: string | null;
   timeSlotAckBody?: string | null;
   timeSlotAckConsentHint?: string | null;
+  timeSlotLabelsJson?: unknown;
 };
 
 const DEFAULT_FORM_CONFIG = {
@@ -62,6 +70,7 @@ export function resolvedPublicFormConfig(row: FormConfigRow): PublicFormConfig {
     timeSlotAckTitle: line(row.timeSlotAckTitle, d.timeSlotAckTitle),
     timeSlotAckBody: line(row.timeSlotAckBody, d.timeSlotAckBody),
     timeSlotAckConsentHint: line(row.timeSlotAckConsentHint, d.timeSlotAckConsentHint),
+    timeSlotLabels: resolveOrderTimeSlotLabels(parseOrderTimeSlotLabelsJson(row.timeSlotLabelsJson)),
   };
 }
 
@@ -90,6 +99,7 @@ function brandOverlayOnTenantFormConfig(
     timeSlotAckTitle: tenantCfg.timeSlotAckTitle,
     timeSlotAckBody: tenantCfg.timeSlotAckBody,
     timeSlotAckConsentHint: tenantCfg.timeSlotAckConsentHint,
+    timeSlotLabelsJson: tenantCfg.timeSlotLabelsJson,
   };
 }
 

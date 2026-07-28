@@ -18,6 +18,12 @@ import {
 import { getToken } from '../../stores/auth';
 import { normalizeMsgConfigForEditor, type FormMessagesState } from '../../utils/orderFormCustomerCopy';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults';
+import {
+  DEFAULT_ORDER_TIME_SLOT_LABELS,
+  ORDER_TIME_SLOT_VALUES,
+  resolveOrderTimeSlotLabels,
+  type OrderTimeSlotLabels,
+} from '@shared/orderFormTimeSlotLabels';
 import { appendPublicQuery } from '../../utils/publicTenantQuery';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
@@ -116,6 +122,9 @@ export function AdminOrderFormCustomerPreviewPage() {
     })
   );
   const [msgSaving, setMsgSaving] = useState(false);
+  const [timeSlotLabels, setTimeSlotLabels] = useState<OrderTimeSlotLabels>(() => ({
+    ...DEFAULT_ORDER_TIME_SLOT_LABELS,
+  }));
 
   const refreshEstimate = useCallback(() => {
     if (!token) return;
@@ -140,6 +149,7 @@ export function AdminOrderFormCustomerPreviewPage() {
     getFormConfig(token)
       .then((c) => {
         setMsgConfig(normalizeMsgConfigForEditor(c));
+        setTimeSlotLabels(resolveOrderTimeSlotLabels(c.timeSlotLabelsJson ?? null));
       })
       .catch(() => {});
   }, [token]);
@@ -169,6 +179,7 @@ export function AdminOrderFormCustomerPreviewPage() {
         if (cancelled) return;
         setPreviewToken(pv.token);
         setMsgConfig(normalizeMsgConfigForEditor(fc));
+        setTimeSlotLabels(resolveOrderTimeSlotLabels(fc.timeSlotLabelsJson ?? null));
         setConfigForm({
           pricePerPyeong: String(ec.pricePerPyeong),
           minimumTotalAmount: String(ec.minimumTotalAmount ?? 0),
@@ -219,6 +230,11 @@ export function AdminOrderFormCustomerPreviewPage() {
         timeSlotAckTitle: msgConfig.timeSlotAckTitle || undefined,
         timeSlotAckBody: msgConfig.timeSlotAckBody || undefined,
         timeSlotAckConsentHint: msgConfig.timeSlotAckConsentHint || undefined,
+        timeSlotLabelsJson: {
+          오전: timeSlotLabels.오전,
+          오후: timeSlotLabels.오후,
+          사이청소: timeSlotLabels.사이청소,
+        },
       });
       refreshMsg();
       await bumpIframe();
@@ -630,8 +646,43 @@ export function AdminOrderFormCustomerPreviewPage() {
             {activePanel === 'timeAck' && (
               <div className="space-y-3">
                 <p className="text-fluid-xs text-gray-600">
-                  고객이 시간대(오전·오후·사이청소)를 바꿀 때 뜨는 확인 모달 문구입니다. 저장 후 미리보기에서 드롭다운으로
-                  확인하세요.
+                  고객 발주서·접수 화면에 보이는 시간대 문구입니다. 저장값(오전·오후·사이청소)은 고정이며 표시
+                  라벨만 바꿀 수 있습니다.
+                </p>
+                <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-fluid-xs font-medium text-slate-800">시간대 표시 문구</span>
+                    <button
+                      type="button"
+                      className="text-fluid-2xs text-slate-600 underline hover:text-slate-900"
+                      onClick={() => setTimeSlotLabels({ ...DEFAULT_ORDER_TIME_SLOT_LABELS })}
+                    >
+                      기본값으로 되돌리기
+                    </button>
+                  </div>
+                  {ORDER_TIME_SLOT_VALUES.map((value) => (
+                    <div key={value}>
+                      <label className="flex flex-wrap items-center gap-2 text-fluid-xs font-medium text-gray-700">
+                        <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-fluid-2xs text-slate-700">
+                          {value}
+                        </span>
+                        <span className="text-gray-500">표시 문구</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="mt-1 w-full rounded border border-gray-300 px-2 py-2 text-fluid-sm"
+                        value={timeSlotLabels[value]}
+                        onChange={(e) =>
+                          setTimeSlotLabels((prev) => ({ ...prev, [value]: e.target.value }))
+                        }
+                        placeholder={DEFAULT_ORDER_TIME_SLOT_LABELS[value]}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-fluid-xs text-gray-600">
+                  고객이 시간대(오전·오후·사이청소)를 바꿀 때 뜨는 확인 모달 문구입니다. 저장 후 미리보기에서
+                  드롭다운으로 확인하세요.
                 </p>
                 <div>
                   <label className="block text-fluid-xs font-medium text-gray-700">모달 제목</label>

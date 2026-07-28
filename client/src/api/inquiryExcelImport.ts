@@ -22,6 +22,7 @@ export type InquiryExcelFieldCatalog = {
   fields: Array<{ key: string; label: string; kind: string; required?: boolean; valueMapping?: boolean; hint?: string }>;
   statusLabels: Record<string, string>;
   valueMappingFieldKeys: readonly string[];
+  timeSlotOptions?: Array<{ value: string; label: string }>;
   operatingCompanies: Array<{
     id: string;
     name: string;

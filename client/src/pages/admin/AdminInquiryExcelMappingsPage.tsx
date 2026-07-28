@@ -298,11 +298,13 @@ export function AdminInquiryExcelMappingsPage() {
       }));
     }
     if (fieldKey === 'preferredTime') {
-      return [
-        { value: '오전', label: '오전 (8시~9시 시작)' },
-        { value: '오후', label: '오후 (12시~14시 시작)' },
-        { value: '사이청소', label: '사이청소' },
-      ];
+      return (
+        catalog?.timeSlotOptions ?? [
+          { value: '오전', label: '오전 (8시~9시 시작)' },
+          { value: '오후', label: '오후 (12시~14시 시작)' },
+          { value: '사이청소', label: '사이청소' },
+        ]
+      );
     }
     if (fieldKey === 'buildingType') {
       return [

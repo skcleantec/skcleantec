@@ -1,5 +1,5 @@
 import type { OrderFormConfigPublic, OrderFormCreatedBy } from '../api/orderform';
-import { ORDER_TIME_SLOT_OPTIONS } from '../constants/orderFormSchedule';
+import { labelForTimeSlot } from '../constants/orderFormSchedule';
 import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
@@ -56,6 +56,7 @@ export type FormMessagesState = Pick<
   | 'timeSlotAckTitle'
   | 'timeSlotAckBody'
   | 'timeSlotAckConsentHint'
+  | 'timeSlotLabelsJson'
   | 'customerLinkTotalLine'
   | 'customerLinkBalanceLine'
   | 'customerLinkScheduleLine'
@@ -247,8 +248,10 @@ export function buildOrderFormCustomerMessage(
   const nameVars = customerLinkNameVars(order.customerName);
   const slotLabel =
     order.preferredDate && order.preferredTime
-      ? (ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === order.preferredTime)?.label ??
-        order.preferredTime)
+      ? labelForTimeSlot(
+          order.preferredTime,
+          msgConfig.timeSlotLabelsJson ?? undefined,
+        )
       : '';
   const baseVars: Record<string, string> = {
     ...nameVars,

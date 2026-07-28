@@ -4,10 +4,11 @@ import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import {
   ORDER_FORM_PROFESSIONAL_OPTIONS_MULTILINE_LABEL,
 } from '../../constants/orderFormProfessionalOptions';
-import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
+import { labelForTimeSlot } from '../../constants/orderFormSchedule';
+import type { OrderTimeSlotLabels } from '@shared/orderFormTimeSlotLabels';
 
-export function slotLabelForOrderForm(v: string): string {
-  return ORDER_TIME_SLOT_OPTIONS.find((o) => o.value === v)?.label ?? v;
+export function slotLabelForOrderForm(v: string, labels?: OrderTimeSlotLabels | null): string {
+  return labelForTimeSlot(v, labels);
 }
 
 function renderSnapshotAnswerValue(v: unknown): string {
