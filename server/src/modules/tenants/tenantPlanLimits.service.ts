@@ -71,8 +71,8 @@ export async function assertCanCreateOperatingCompany(
     if (p === 'premium') return;
     throw new TenantPlanLimitError(
       p === 'free' || usageLimitForPlan(plan, 'operatingBrands') === 0
-        ? '현재 플랜에서는 기본 브랜드 1개만 사용할 수 있습니다. 추가 브랜드는 Premium 플랜에서 이용해 주세요.'
-        : `영업 브랜드는 플랜 포함 ${max}개까지입니다.`,
+        ? '현재 플랜에서는 기본 브랜드 1개만 사용할 수 있습니다. Premium에서는 기본+추가 총 2개까지 이용할 수 있습니다.'
+        : `영업 브랜드는 플랜 포함 ${max}개까지입니다. Premium에서 3번째부터는 추가 요금이 적용됩니다.`,
     );
   }
 }

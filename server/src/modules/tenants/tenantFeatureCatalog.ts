@@ -140,11 +140,14 @@ export function usageLimitForPlan(plan: string, metric: TenantUsageMetricId): nu
   return TENANT_PLAN_USAGE_LIMITS[p][metric];
 }
 
+export function totalOperatingBrandSlotsIncludedInPlan(plan: string): number {
+  const additional = usageLimitForPlan(plan, 'operatingBrands');
+  if (additional == null) return 1;
+  return 1 + additional;
+}
+
 export function maxOperatingCompaniesForPlan(plan: string): number | null {
-  const limit = usageLimitForPlan(plan, 'operatingBrands');
-  if (limit == null) return null;
-  if (limit === 0) return 1;
-  return limit;
+  return totalOperatingBrandSlotsIncludedInPlan(plan);
 }
 
 export function planHasUnlimitedCoins(plan: string): boolean {
@@ -157,7 +160,7 @@ export function monthlyCoinAllowance(plan: string): number | null {
 
 /** @see shared/tenantPlanCatalog.ts — 동기화 */
 export const TENANT_BILLING_NOTE =
-  '월 정액 플랜(Free·Standard 10만·Standard+ 20만·Premium 30만 원+, VAT 별도)과 이용 코인(매월 1일 KST 리셋·이월 없음)을 기준으로 표시합니다. Premium은 브랜드 1개 포함, 추가 브랜드는 월 20만 원(VAT 별도)입니다. 플랜 변경은 플랫폼 담당자에게 문의해 주세요.';
+  '월 정액 플랜(Free·Standard 10만·Standard+ 20만·Premium 30만 원+, VAT 별도)과 이용 코인(매월 1일 KST 리셋·이월 없음)을 기준으로 표시합니다. Premium은 영업 브랜드 기본 1개+추가 1개(총 2개)가 포함되며, 3번째 브랜드부터 월 20만 원(VAT 별도)입니다. 플랜 변경은 플랫폼 담당자에게 문의해 주세요.';
 
 export function isKnownFeatureModuleId(id: string): id is TenantFeatureModuleId {
   return id in TENANT_FEATURE_MODULES;

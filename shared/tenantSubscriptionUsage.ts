@@ -20,8 +20,11 @@ export const TENANT_USAGE_METRIC_LABELS: Record<TenantUsageMetricId, string> = {
   operatingBrands: '영업 브랜드',
 };
 
-/** Premium — 브랜드 1개 초과분 월 추가 (원, VAT 별도) */
+/** Premium — 3번째 브랜드부터 월 추가 (원, VAT 별도). 1~2번째는 기본+플랜 포함 */
 export const TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW = 200_000;
+
+/** 모든 테넌트 공통 시드 기본 영업 브랜드 1개 */
+export const TENANT_BASE_OPERATING_BRAND_SLOTS = 1;
 
 export const TENANT_PLAN_USAGE_LIMITS: Record<
   TenantPlanId,
@@ -49,6 +52,7 @@ export const TENANT_PLAN_USAGE_LIMITS: Record<
     monthlyCoins: null,
     teamLeaders: null,
     customCalendars: null,
+    /** 기본 1개 제외 추가 1개 포함 → 활성 상한 총 2개 */
     operatingBrands: 1,
   },
 };
@@ -58,12 +62,16 @@ export function usageLimitForPlan(plan: string, metric: TenantUsageMetricId): Te
   return TENANT_PLAN_USAGE_LIMITS[p][metric];
 }
 
-/** operatingBrands 한도 0 = 기본 1개(시드)만 허용 */
+/** operatingBrands 값 = 기본 브랜드(1) 제외 플랜 추가 포함분. 0 = 기본만 */
+export function totalOperatingBrandSlotsIncludedInPlan(plan: string): number {
+  const additional = usageLimitForPlan(plan, 'operatingBrands');
+  if (additional == null) return TENANT_BASE_OPERATING_BRAND_SLOTS;
+  return TENANT_BASE_OPERATING_BRAND_SLOTS + additional;
+}
+
+/** 활성 영업 브랜드 상한 (플랜 포함 총 개수) */
 export function maxOperatingCompaniesForPlan(plan: string): number | null {
-  const limit = usageLimitForPlan(plan, 'operatingBrands');
-  if (limit == null) return null;
-  if (limit === 0) return 1;
-  return limit;
+  return totalOperatingBrandSlotsIncludedInPlan(plan);
 }
 
 export function usagePercent(used: number, limit: TenantUsageLimit): number | null {

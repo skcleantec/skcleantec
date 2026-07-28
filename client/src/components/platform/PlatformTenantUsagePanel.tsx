@@ -152,8 +152,7 @@ export function PlatformTenantUsagePanel({ tenantId, compact }: Props) {
       <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5 space-y-3">
         <h3 className="text-sm font-semibold text-gray-900">플랜 포함량 vs 사용</h3>
         <p className="text-xs text-gray-500">
-          코인·팀장·맞춤 캘린더·브랜드는 현재 플랜 기준입니다. 숫자 한도 변경은 플랜 변경 또는 추후
-          업체별 예외 설정으로 조정합니다.
+          코인·팀장·맞춤 캘린더·브랜드는 현재 플랜 기준입니다. Premium 브랜드는 기본 1+추가 1(총 2개) 포함입니다.
         </p>
         <AdminDataTableShell tone="indigo">
           <colgroup>

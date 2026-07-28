@@ -5,11 +5,12 @@ import type { TenantPlanId } from './tenantFeatureModules.js';
 import {
   TENANT_PLAN_USAGE_LIMITS,
   TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW,
+  TENANT_BASE_OPERATING_BRAND_SLOTS,
   TENANT_USAGE_METRIC_LABELS,
 } from './tenantSubscriptionUsage.js';
 import { normalizePlanId } from './tenantPlanNormalize.js';
 
-/** 월 정액 (원, VAT 별도) — 2026-07 확정. Premium은 브랜드 1개 포함 기준 */
+/** 월 정액 (원, VAT 별도) — 2026-07 확정. Premium은 기본+추가 브랜드 총 2개 포함 기준 */
 export const TENANT_PLAN_MONTHLY_PRICE_KRW: Record<TenantPlanId, number> = {
   free: 0,
   standard: 100_000,
@@ -17,10 +18,15 @@ export const TENANT_PLAN_MONTHLY_PRICE_KRW: Record<TenantPlanId, number> = {
   premium: 300_000,
 };
 
-/** Premium 월 요금 — 활성 브랜드 수 반영 (1개 포함, 초과 +20만/브랜드) */
+/** Premium 월 요금 — 활성 브랜드 수 반영 (기본+추가 총 2개 포함, 3번째부터 +20만/브랜드) */
+export const TENANT_PREMIUM_INCLUDED_BRAND_SLOTS =
+  TENANT_BASE_OPERATING_BRAND_SLOTS + (TENANT_PLAN_USAGE_LIMITS.premium.operatingBrands ?? 0);
+
 export function premiumMonthlyPriceKrw(activeBrandCount: number): number {
   const base = TENANT_PLAN_MONTHLY_PRICE_KRW.premium;
-  const extra = Math.max(0, activeBrandCount - 1) * TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW;
+  const extra =
+    Math.max(0, activeBrandCount - TENANT_PREMIUM_INCLUDED_BRAND_SLOTS) *
+    TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW;
   return base + extra;
 }
 
@@ -68,7 +74,7 @@ function limitsSummaryForPlan(plan: TenantPlanId): string[] {
   const limits = TENANT_PLAN_USAGE_LIMITS[plan];
   const brandLine =
     plan === 'premium'
-      ? `${TENANT_USAGE_METRIC_LABELS.operatingBrands} 1개 포함 (추가 브랜드 +${formatPlanPriceKrw(TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW)}/월)`
+      ? `${TENANT_USAGE_METRIC_LABELS.operatingBrands} 기본 1개 + 추가 1개 (총 2개, 3번째부터 +${formatPlanPriceKrw(TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW)}/월)`
       : plan === 'free' || limits.operatingBrands === 0
         ? `${TENANT_USAGE_METRIC_LABELS.operatingBrands} 기본 1개만 (추가 불가)`
         : `${TENANT_USAGE_METRIC_LABELS.operatingBrands} ${formatLimit(limits.operatingBrands, '개')}`;
@@ -126,11 +132,11 @@ export const TENANT_PLAN_PRESENTATIONS: Record<TenantPlanId, TenantPlanPresentat
     id: 'premium',
     label: 'Premium',
     tagline: '정산·계약·멀티브랜드',
-    monthlyPriceHint: `${monthlyPriceLabel('premium')} (브랜드 1개 포함)`,
+    monthlyPriceHint: `${monthlyPriceLabel('premium')} (브랜드 기본+추가 총 2개 포함)`,
     annualPriceHint: annualPriceLabel('premium'),
     features: [
       '코인·팀장·캘린더 무제한',
-      '브랜드 1개 포함 · 추가 +20만/월',
+      '브랜드 기본 1 + 추가 1 (총 2개) · 3번째부터 +20만/월',
       '급여·정산 · 전자계약 · 파트너 연계',
       '텔레CRM(별도 옵션)',
     ],
@@ -142,4 +148,4 @@ export function planLimitsSummary(plan: string): string[] {
 }
 
 export const TENANT_BILLING_NOTE =
-  '월 정액 플랜(Free·Standard 10만·Standard+ 20만·Premium 30만 원+, VAT 별도)과 이용 코인(매월 1일 KST 리셋·이월 없음)을 기준으로 표시합니다. Premium은 브랜드 1개 포함, 추가 브랜드는 월 20만 원(VAT 별도)입니다. 플랜 변경은 플랫폼 담당자에게 문의해 주세요.';
+  '월 정액 플랜(Free·Standard 10만·Standard+ 20만·Premium 30만 원+, VAT 별도)과 이용 코인(매월 1일 KST 리셋·이월 없음)을 기준으로 표시합니다. Premium은 영업 브랜드 기본 1개+추가 1개(총 2개)가 포함되며, 3번째 브랜드부터 월 20만 원(VAT 별도)입니다. 플랜 변경은 플랫폼 담당자에게 문의해 주세요.';

@@ -3,6 +3,7 @@ import {
   TENANT_FEATURE_MODULES,
   TENANT_PLANS,
   TENANT_USAGE_METRIC_LABELS,
+  totalOperatingBrandSlotsIncludedInPlan,
   usageLimitForPlan,
   TENANT_BILLING_NOTE,
   normalizePlanId,
@@ -126,7 +127,10 @@ export async function getTenantSubscriptionForAdmin(tenantId: string): Promise<T
     id,
     label: TENANT_USAGE_METRIC_LABELS[id],
     used: usageCounts[id],
-    limit: usageLimitForPlan(tenant.plan, id),
+    limit:
+      id === 'operatingBrands'
+        ? totalOperatingBrandSlotsIncludedInPlan(tenant.plan)
+        : usageLimitForPlan(tenant.plan, id),
     unit:
       id === 'monthlyCoins'
         ? '코인'

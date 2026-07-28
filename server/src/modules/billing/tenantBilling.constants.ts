@@ -21,9 +21,13 @@ export const TENANT_BILLING_DEFAULT_DUE_DAY = 25;
 
 export type TenantBillingCycle = 'MONTHLY' | 'ANNUAL';
 
+export const TENANT_PREMIUM_INCLUDED_BRAND_SLOTS = 2;
+
 export function premiumMonthlyPriceKrw(activeBrandCount: number): number {
   const base = MONTHLY_PRICE_KRW.premium;
-  const extra = Math.max(0, activeBrandCount - 1) * TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW;
+  const extra =
+    Math.max(0, activeBrandCount - TENANT_PREMIUM_INCLUDED_BRAND_SLOTS) *
+    TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW;
   return base + extra;
 }
 
