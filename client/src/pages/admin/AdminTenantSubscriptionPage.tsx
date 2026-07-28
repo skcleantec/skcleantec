@@ -17,7 +17,7 @@ import {
   tableCellClass,
   tableHeadClass,
 } from '../../components/ui/DetailKeyValueTable';
-import { usagePercent } from '@shared/tenantSubscriptionUsage';
+import { usagePercent, TENANT_COIN_CHARGE_RULES_SUMMARY } from '@shared/tenantSubscriptionUsage';
 import {
   formatUsageRatio,
   resolveCoinUsage,
@@ -360,8 +360,8 @@ export function AdminTenantSubscriptionPage() {
       <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-3">
         <h2 className="text-base font-semibold text-gray-900">현재 사용량</h2>
         <p className="text-xs text-gray-500">
-          {tenant.planLabel} 플랜 포함량 대비 사용 현황입니다. 코인은 입금대기 전환·정보공유 구매 시 차감되며
-          매월 1일(KST) 리셋됩니다.
+          {tenant.planLabel} 플랜 포함량 대비 사용 현황입니다. 코인은 {TENANT_COIN_CHARGE_RULES_SUMMARY} 시
+          차감되며 매월 1일(KST) 리셋됩니다.
         </p>
         <AdminDataTableShell tone="indigo">
           <colgroup>

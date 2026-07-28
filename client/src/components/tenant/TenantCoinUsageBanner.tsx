@@ -6,6 +6,7 @@ import {
   TENANT_SUBSCRIPTION_ADMIN_PATH,
   usageWarnLevel,
 } from '../../utils/tenantUsageDisplay';
+import { TENANT_COIN_CHARGE_RULES_SUMMARY } from '@shared/tenantSubscriptionUsage';
 import { TenantUsageGauge } from './TenantUsageGauge';
 
 type Props = {
@@ -69,7 +70,7 @@ export function TenantCoinUsageBanner({
               </>
             )}
             <p className="text-[11px] opacity-80">
-              입금대기 전환·정보공유 구매 시 1코인 차감 · 매월 1일(KST) 리셋
+              {TENANT_COIN_CHARGE_RULES_SUMMARY} · 매월 1일(KST) 리셋
             </p>
             {showDetailLink ? (
               <Link
@@ -106,8 +107,8 @@ export function TenantCoinUsageBanner({
             )}
           </p>
           <p className="mt-0.5 hidden text-[11px] leading-snug opacity-80 sm:block">
-            입금대기 전환 시 1코인 · 매월 1일 리셋
-            {level === 'over' ? ' · 코인 부족 시 입금대기 전환 불가' : null}
+            {TENANT_COIN_CHARGE_RULES_SUMMARY} · 매월 1일 리셋
+            {level === 'over' ? ' · 코인 부족 시 발주·상태 전환 불가' : null}
           </p>
         </div>
         {showDetailLink ? (

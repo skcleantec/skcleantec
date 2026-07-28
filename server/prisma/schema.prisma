@@ -365,6 +365,8 @@ model TenantInvoice {
 
 enum TenantCoinLedgerSourceType {
   INQUIRY_DEPOSIT_PENDING
+  ORDER_FORM_ISSUE
+  INQUIRY_STATUS
   DB_MARKETPLACE_PURCHASE
 }
 

@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { InquiryStatus, Prisma, TenantCoinLedgerSourceType } from '@prisma/client';
 import { kstYmdFromDate } from '../billing/tenantBilling.dates.js';
 import {
   monthlyCoinAllowance,
@@ -14,7 +14,19 @@ export class TenantCoinInsufficientError extends Error {
   }
 }
 
-export type TenantCoinSourceType = 'INQUIRY_DEPOSIT_PENDING' | 'DB_MARKETPLACE_PURCHASE';
+/** 예약금 대기(DEPOSIT_PENDING) 이후 업무 상태 — 진입 시마다 1코인 (상태·발급별 1회) */
+export const COIN_CHARGE_INQUIRY_STATUSES: ReadonlySet<InquiryStatus> = new Set([
+  'DEPOSIT_PENDING',
+  'RECEIVED',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CS_PROCESSING',
+]);
+
+export function isCoinChargeInquiryStatus(status: InquiryStatus): boolean {
+  return COIN_CHARGE_INQUIRY_STATUSES.has(status);
+}
 
 export function kstPeriodYmFromDate(d = new Date()): string {
   return kstYmdFromDate(d).slice(0, 7);
@@ -52,7 +64,7 @@ export async function trySpendTenantCoinInTx(
   opts: {
     tenantId: string;
     plan: string;
-    sourceType: TenantCoinSourceType;
+    sourceType: TenantCoinLedgerSourceType;
     sourceId: string;
     amount?: number;
     periodYm?: string;
@@ -98,21 +110,42 @@ export async function trySpendTenantCoinInTx(
   return { charged: true, alreadyRecorded: false };
 }
 
+/** @deprecated 레거시 원장(INQUIRY_DEPOSIT_PENDING) 호환 — 신규는 chargeInquiryStatusCoinInTx 사용 */
 export async function chargeInquiryDepositPendingCoinInTx(
   tx: Prisma.TransactionClient,
   opts: { tenantId: string; plan: string; inquiryId: string },
 ): Promise<void> {
-  const followupLinked = await tx.orderFollowup.findFirst({
-    where: { tenantId: opts.tenantId, inquiryId: opts.inquiryId },
-    select: { id: true },
+  await chargeInquiryStatusCoinInTx(tx, {
+    tenantId: opts.tenantId,
+    plan: opts.plan,
+    inquiryId: opts.inquiryId,
+    status: 'DEPOSIT_PENDING',
   });
-  if (followupLinked) return;
+}
+
+export async function chargeInquiryStatusCoinInTx(
+  tx: Prisma.TransactionClient,
+  opts: { tenantId: string; plan: string; inquiryId: string; status: InquiryStatus },
+): Promise<void> {
+  if (!isCoinChargeInquiryStatus(opts.status)) return;
 
   await trySpendTenantCoinInTx(tx, {
     tenantId: opts.tenantId,
     plan: opts.plan,
-    sourceType: 'INQUIRY_DEPOSIT_PENDING',
-    sourceId: opts.inquiryId,
+    sourceType: 'INQUIRY_STATUS',
+    sourceId: `${opts.inquiryId}:${opts.status}`,
+  });
+}
+
+export async function chargeOrderFormIssueCoinInTx(
+  tx: Prisma.TransactionClient,
+  opts: { tenantId: string; plan: string; orderFormId: string },
+): Promise<void> {
+  await trySpendTenantCoinInTx(tx, {
+    tenantId: opts.tenantId,
+    plan: opts.plan,
+    sourceType: 'ORDER_FORM_ISSUE',
+    sourceId: opts.orderFormId,
   });
 }
 

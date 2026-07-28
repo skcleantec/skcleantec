@@ -16,7 +16,8 @@ import {
 import { recordInquiryStatusEvent, recordInquiryStatusTransition } from './inquiryStatusEvent.js';
 import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
 import {
-  chargeInquiryDepositPendingCoinInTx,
+  chargeInquiryStatusCoinInTx,
+  isCoinChargeInquiryStatus,
   mapTenantCoinError,
 } from '../tenants/tenantCoin.service.js';
 import {
@@ -1535,22 +1536,23 @@ router.patch('/:id', async (req, res) => {
       if (crewRosterChanged) {
         await clearInquiryCrewMemberMeetingTimes(tx, id);
       }
-      if (mergedStatus !== inquiry.status) {
-        await recordInquiryStatusTransition(tx, {
-          tenantId,
-          inquiryId: id,
-          previousStatus: inquiry.status,
-          nextStatus: mergedStatus,
-          actorId: user?.userId ?? null,
-        });
-        if (mergedStatus === 'DEPOSIT_PENDING' && inquiry.status !== 'DEPOSIT_PENDING') {
-          await chargeInquiryDepositPendingCoinInTx(tx, {
+        if (mergedStatus !== inquiry.status) {
+          await recordInquiryStatusTransition(tx, {
             tenantId,
-            plan: tenantPlan,
             inquiryId: id,
+            previousStatus: inquiry.status,
+            nextStatus: mergedStatus,
+            actorId: user?.userId ?? null,
           });
+          if (isCoinChargeInquiryStatus(mergedStatus)) {
+            await chargeInquiryStatusCoinInTx(tx, {
+              tenantId,
+              plan: tenantPlan,
+              inquiryId: id,
+              status: mergedStatus,
+            });
+          }
         }
-      }
       if (wantsTeamSync) {
         await tx.assignment.deleteMany({ where: { inquiryId: id } });
         if (teamLeaderIds.length > 0) {
@@ -1758,6 +1760,11 @@ router.post('/', requireStaffPermission('inquiry.create'), async (req, res) => {
     });
     res.status(201).json(created);
   } catch (e) {
+    const coinErr = mapTenantCoinError(e);
+    if (coinErr) {
+      res.status(coinErr.status).json({ error: coinErr.message });
+      return;
+    }
     if (e instanceof InquiryCreateError) {
       res.status(e.statusCode).json({ error: e.message });
       return;

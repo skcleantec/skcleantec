@@ -58,6 +58,12 @@ import {
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { tenantIdForUserId } from '../tenants/tenant.service.js';
+import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
+import {
+  chargeInquiryStatusCoinInTx,
+  chargeOrderFormIssueCoinInTx,
+  mapTenantCoinError,
+} from '../tenants/tenantCoin.service.js';
 import { createdAtRangeFromQuery, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
 import { inquiryActiveOnlyWhere } from '../inquiries/inquiryTrash.helpers.js';
 import {
@@ -1245,6 +1251,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     : {};
 
   const pid = typeof pendingInquiryId === 'string' ? pendingInquiryId.trim() : '';
+  const tenantPlan = await getTenantPlan(authTenantId);
   try {
     if (pid) {
       const pending = await prisma.inquiry.findFirst({
@@ -1319,6 +1326,11 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
             ...templateData,
             ...reviewPaybackTokenCreateField(),
           },
+        });
+        await chargeOrderFormIssueCoinInTx(tx, {
+          tenantId: authTenantId,
+          plan: tenantPlan,
+          orderFormId: created.id,
         });
         const linkedTone = parseInternalCustomerToneInput(internalCustomerToneRaw) ?? 'NORMAL';
         await tx.inquiry.update({
@@ -1406,6 +1418,11 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           ...reviewPaybackTokenCreateField(),
         },
       });
+      await chargeOrderFormIssueCoinInTx(tx, {
+        tenantId: authTenantId,
+        plan: tenantPlan,
+        orderFormId: created.id,
+      });
       await tx.inquiry.create({
         data: {
           tenantId: authTenantId,
@@ -1457,6 +1474,11 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     });
     res.json(orderForm);
   } catch (e) {
+    const coinErr = mapTenantCoinError(e);
+    if (coinErr) {
+      res.status(coinErr.status).json({ error: coinErr.message });
+      return;
+    }
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2022') {
       res.status(503).json({
         error:
@@ -1810,6 +1832,8 @@ router.post('/:id/force-match-inquiry', authMiddleware, requireStaffPermission('
   });
 
   const source = sourceInquiry as ForceMatchInquirySnapshot | null;
+  const tenantPlan = await getTenantPlan(tenantId);
+  try {
   const targetPatched = await prisma.$transaction(async (tx) => {
     const data: Prisma.InquiryUpdateInput = {
       orderForm: { connect: { id: form.id } },
@@ -1863,6 +1887,12 @@ router.post('/:id/force-match-inquiry', authMiddleware, requireStaffPermission('
         nextStatus: 'RECEIVED',
         actorId: userId,
       });
+      await chargeInquiryStatusCoinInTx(tx, {
+        tenantId,
+        plan: tenantPlan,
+        inquiryId,
+        status: 'RECEIVED',
+      });
     }
     return updated;
   });
@@ -1878,6 +1908,14 @@ router.post('/:id/force-match-inquiry', authMiddleware, requireStaffPermission('
     sourceInquiryId: sourceInquiry?.id ?? null,
     sourceInquiryStatus: sourceInquiry?.status ?? null,
   });
+  } catch (e) {
+    const coinErr = mapTenantCoinError(e);
+    if (coinErr) {
+      res.status(coinErr.status).json({ error: coinErr.message });
+      return;
+    }
+    throw e;
+  }
 });
 
 /**
@@ -2712,6 +2750,8 @@ router.post('/submit/:token', async (req, res) => {
   });
 
   let changedInquiryId: string | null = null;
+  const submitTenantPlan = await getTenantPlan(submitTenantId);
+  try {
   if (existingPending) {
     const submittedAt = new Date();
     await prisma.$transaction(async (tx) => {
@@ -2761,6 +2801,12 @@ router.post('/submit/:token', async (req, res) => {
           nextStatus: 'RECEIVED',
           actorId: form.createdById,
           occurredAt: submittedAt,
+        });
+        await chargeInquiryStatusCoinInTx(tx, {
+          tenantId: submitTenantId,
+          plan: submitTenantPlan,
+          inquiryId: existingPending.id,
+          status: 'RECEIVED',
         });
       }
       await tx.orderForm.update({
@@ -2845,6 +2891,12 @@ router.post('/submit/:token', async (req, res) => {
         actorId: form.createdById,
         occurredAt: submittedAt,
       });
+      await chargeInquiryStatusCoinInTx(tx, {
+        tenantId: submitTenantId,
+        plan: submitTenantPlan,
+        inquiryId: createdInquiry.id,
+        status: 'RECEIVED',
+      });
       await tx.orderForm.update({
         where: { id: form.id },
         data: {
@@ -2861,6 +2913,14 @@ router.post('/submit/:token', async (req, res) => {
       });
       changedInquiryId = createdInquiry.id;
     });
+  }
+  } catch (e) {
+    const coinErr = mapTenantCoinError(e);
+    if (coinErr) {
+      res.status(coinErr.status).json({ error: coinErr.message });
+      return;
+    }
+    throw e;
   }
 
   const geoTarget = await prisma.inquiry.findFirst({
