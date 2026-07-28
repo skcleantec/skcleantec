@@ -22,7 +22,7 @@ export const TENANT_USAGE_METRIC_LABELS: Record<TenantUsageMetricId, string> = {
 
 /** UI·가입정보 — 코인 차감 규칙 요약 */
 export const TENANT_COIN_CHARGE_RULES_SUMMARY =
-  '발주서 발급 1코인 · 예약금 대기 이후 상태 전환마다 1코인 · 정보공유 구매 1코인';
+  '접수 1건당 1코인(발주·예약금 대기 등, 취소 시 환불 없음) · 정보공유 구매 1코인';
 
 /** Premium — 3번째 브랜드부터 월 추가 (원, VAT 별도). 1~2번째는 기본+플랜 포함 */
 export const TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW = 200_000;

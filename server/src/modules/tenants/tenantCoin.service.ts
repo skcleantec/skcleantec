@@ -1,4 +1,4 @@
-import type { InquiryStatus, Prisma, TenantCoinLedgerSourceType } from '@prisma/client';
+import type { InquiryStatus, Prisma } from '@prisma/client';
 import { kstYmdFromDate } from '../billing/tenantBilling.dates.js';
 import {
   monthlyCoinAllowance,
@@ -14,7 +14,7 @@ export class TenantCoinInsufficientError extends Error {
   }
 }
 
-/** 예약금 대기(DEPOSIT_PENDING) 이후 업무 상태 — 진입 시마다 1코인 (상태·발급별 1회) */
+/** 발주·예약금 대기 등 과금 대상 상태 — 진입 시 chargeInquiryCoinInTx 시도(접수당 1회만 실제 차감) */
 export const COIN_CHARGE_INQUIRY_STATUSES: ReadonlySet<InquiryStatus> = new Set([
   'DEPOSIT_PENDING',
   'RECEIVED',
@@ -64,7 +64,7 @@ export async function trySpendTenantCoinInTx(
   opts: {
     tenantId: string;
     plan: string;
-    sourceType: TenantCoinLedgerSourceType;
+    sourceType: import('@prisma/client').TenantCoinLedgerSourceType;
     sourceId: string;
     amount?: number;
     periodYm?: string;
@@ -110,42 +110,120 @@ export async function trySpendTenantCoinInTx(
   return { charged: true, alreadyRecorded: false };
 }
 
-/** @deprecated 레거시 원장(INQUIRY_DEPOSIT_PENDING) 호환 — 신규는 chargeInquiryStatusCoinInTx 사용 */
+/** 이전 원장(발급·상태별·입금대기)까지 포함해 접수당 1회만 차감됐는지 */
+async function inquiryCoinAlreadyRecordedInTx(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  inquiryId: string,
+): Promise<boolean> {
+  const inquiryEntry = await tx.tenantCoinLedgerEntry.findUnique({
+    where: {
+      tenantId_sourceType_sourceId: {
+        tenantId,
+        sourceType: 'INQUIRY',
+        sourceId: inquiryId,
+      },
+    },
+    select: { id: true },
+  });
+  if (inquiryEntry) return true;
+
+  const legacyDeposit = await tx.tenantCoinLedgerEntry.findUnique({
+    where: {
+      tenantId_sourceType_sourceId: {
+        tenantId,
+        sourceType: 'INQUIRY_DEPOSIT_PENDING',
+        sourceId: inquiryId,
+      },
+    },
+    select: { id: true },
+  });
+  if (legacyDeposit) return true;
+
+  const legacyStatus = await tx.tenantCoinLedgerEntry.findFirst({
+    where: {
+      tenantId,
+      sourceType: 'INQUIRY_STATUS',
+      sourceId: { startsWith: `${inquiryId}:` },
+    },
+    select: { id: true },
+  });
+  if (legacyStatus) return true;
+
+  const inquiry = await tx.inquiry.findFirst({
+    where: { id: inquiryId, tenantId },
+    select: { orderFormId: true },
+  });
+  if (inquiry?.orderFormId) {
+    const legacyIssue = await tx.tenantCoinLedgerEntry.findUnique({
+      where: {
+        tenantId_sourceType_sourceId: {
+          tenantId,
+          sourceType: 'ORDER_FORM_ISSUE',
+          sourceId: inquiry.orderFormId,
+        },
+      },
+      select: { id: true },
+    });
+    if (legacyIssue) return true;
+  }
+
+  return false;
+}
+
+/** 접수 1건당 코인 1회(발주 발급·예약금 대기·이후 상태 공통). 취소 시 환불 없음. */
+export async function chargeInquiryCoinInTx(
+  tx: Prisma.TransactionClient,
+  opts: { tenantId: string; plan: string; inquiryId: string },
+): Promise<void> {
+  if (await inquiryCoinAlreadyRecordedInTx(tx, opts.tenantId, opts.inquiryId)) {
+    return;
+  }
+
+  await trySpendTenantCoinInTx(tx, {
+    tenantId: opts.tenantId,
+    plan: opts.plan,
+    sourceType: 'INQUIRY',
+    sourceId: opts.inquiryId,
+  });
+}
+
+/** @deprecated chargeInquiryCoinInTx 사용 */
 export async function chargeInquiryDepositPendingCoinInTx(
   tx: Prisma.TransactionClient,
   opts: { tenantId: string; plan: string; inquiryId: string },
 ): Promise<void> {
-  await chargeInquiryStatusCoinInTx(tx, {
-    tenantId: opts.tenantId,
-    plan: opts.plan,
-    inquiryId: opts.inquiryId,
-    status: 'DEPOSIT_PENDING',
-  });
+  await chargeInquiryCoinInTx(tx, opts);
 }
 
+/** 과금 대상 상태 진입 시 접수 코인 차감 시도(이미 차감됐으면 스킵) */
 export async function chargeInquiryStatusCoinInTx(
   tx: Prisma.TransactionClient,
   opts: { tenantId: string; plan: string; inquiryId: string; status: InquiryStatus },
 ): Promise<void> {
   if (!isCoinChargeInquiryStatus(opts.status)) return;
-
-  await trySpendTenantCoinInTx(tx, {
+  await chargeInquiryCoinInTx(tx, {
     tenantId: opts.tenantId,
     plan: opts.plan,
-    sourceType: 'INQUIRY_STATUS',
-    sourceId: `${opts.inquiryId}:${opts.status}`,
+    inquiryId: opts.inquiryId,
   });
 }
 
+/** @deprecated chargeInquiryCoinInTx(inquiryId) 사용 */
 export async function chargeOrderFormIssueCoinInTx(
   tx: Prisma.TransactionClient,
   opts: { tenantId: string; plan: string; orderFormId: string },
 ): Promise<void> {
-  await trySpendTenantCoinInTx(tx, {
+  const inquiry = await tx.inquiry.findFirst({
+    where: { tenantId: opts.tenantId, orderFormId: opts.orderFormId },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (!inquiry) return;
+  await chargeInquiryCoinInTx(tx, {
     tenantId: opts.tenantId,
     plan: opts.plan,
-    sourceType: 'ORDER_FORM_ISSUE',
-    sourceId: opts.orderFormId,
+    inquiryId: inquiry.id,
   });
 }
 

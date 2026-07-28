@@ -60,8 +60,8 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { tenantIdForUserId } from '../tenants/tenant.service.js';
 import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
 import {
+  chargeInquiryCoinInTx,
   chargeInquiryStatusCoinInTx,
-  chargeOrderFormIssueCoinInTx,
   mapTenantCoinError,
 } from '../tenants/tenantCoin.service.js';
 import { createdAtRangeFromQuery, kstTodayYmd } from '../inquiries/inquiryListDateRange.js';
@@ -1327,10 +1327,10 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
             ...reviewPaybackTokenCreateField(),
           },
         });
-        await chargeOrderFormIssueCoinInTx(tx, {
+        await chargeInquiryCoinInTx(tx, {
           tenantId: authTenantId,
           plan: tenantPlan,
-          orderFormId: created.id,
+          inquiryId: pid,
         });
         const linkedTone = parseInternalCustomerToneInput(internalCustomerToneRaw) ?? 'NORMAL';
         await tx.inquiry.update({
@@ -1418,12 +1418,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           ...reviewPaybackTokenCreateField(),
         },
       });
-      await chargeOrderFormIssueCoinInTx(tx, {
-        tenantId: authTenantId,
-        plan: tenantPlan,
-        orderFormId: created.id,
-      });
-      await tx.inquiry.create({
+      const linkedInquiry = await tx.inquiry.create({
         data: {
           tenantId: authTenantId,
           operatingCompanyId,
@@ -1446,10 +1441,12 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           areaPyeong: issueAreaPyeong,
           areaBasis: issueAreaBasis,
         },
-      });
-      const linkedInquiry = await tx.inquiry.findFirst({
-        where: { orderFormId: created.id, tenantId: authTenantId },
         select: { id: true, customerName: true },
+      });
+      await chargeInquiryCoinInTx(tx, {
+        tenantId: authTenantId,
+        plan: tenantPlan,
+        inquiryId: linkedInquiry.id,
       });
       if (linkedInquiry && issueLogLines.length > 0) {
         await tx.inquiryChangeLog.create({
