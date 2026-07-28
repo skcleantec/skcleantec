@@ -14,6 +14,7 @@ import {
 import { PlatformTenantAdminsSection } from './PlatformTenantAdminsSection';
 import { PlatformTenantBillingPanel } from './PlatformTenantBillingPanel';
 import { PlatformTenantTelecrmPanel } from './PlatformTenantTelecrmPanel';
+import { PlatformTenantUsagePanel } from '../../components/platform/PlatformTenantUsagePanel';
 import { PlatformTenantFeatureCatalog } from '../../components/platform/PlatformTenantFeatureCatalog';
 import { getPlatformToken } from '../../stores/platformAuth';
 import {
@@ -38,6 +39,8 @@ import {
   planLimitsSummary,
   type TenantPlanPresentation,
 } from '@shared/tenantPlanCatalog';
+import { TENANT_PLAN_IDS, normalizePlanId } from '@shared/tenantPlanNormalize';
+import type { TenantPlanId } from '@shared/tenantFeatureModules';
 
 const SETTINGS_FIELDS: {
   key: keyof TenantConfigFormFields;
@@ -74,6 +77,7 @@ const SETTINGS_FIELDS: {
 const TABS = [
   { id: 'overview', label: '개요' },
   { id: 'plan', label: '플랜 · 기능' },
+  { id: 'usage', label: '이용량' },
   { id: 'billing', label: '결제' },
   { id: 'settings', label: '설정' },
   { id: 'admins', label: '관리자 계정' },
@@ -97,7 +101,7 @@ export function PlatformTenantDetailPage() {
   const [features, setFeatures] = useState<PlatformTenantFeatureRow[]>([]);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [plan, setPlan] = useState('starter');
+  const [plan, setPlan] = useState<TenantPlanId>('free');
   const [admins, setAdmins] = useState<PlatformTenantAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -120,7 +124,7 @@ export function PlatformTenantDetailPage() {
       setFeatures(data.features.map((f) => ({ ...f })));
       setName(data.tenant.name);
       setSlug(data.tenant.slug);
-      setPlan(data.tenant.plan);
+      setPlan(normalizePlanId(data.tenant.plan));
       setAdmins(normalizePlatformTenantAdmins(data));
       setConfigForm(formFieldsFromTenantConfig(data.config));
       setConfigJson(JSON.stringify(data.config ?? {}, null, 2));
@@ -152,7 +156,7 @@ export function PlatformTenantDetailPage() {
       await patchPlatformTenant(token, id, payload);
       setSlug(payload.slug);
       setName(payload.name);
-      setPlan(payload.plan);
+      setPlan(normalizePlanId(payload.plan));
       setMessage('저장했습니다.');
       await load();
     } catch (e) {
@@ -162,7 +166,7 @@ export function PlatformTenantDetailPage() {
     }
   };
 
-  const handlePlanSelect = async (pid: 'starter' | 'standard' | 'premium') => {
+  const handlePlanSelect = async (pid: TenantPlanId) => {
     const token = getPlatformToken();
     if (!token || !id || saving) return;
     setPlan(pid);
@@ -176,11 +180,11 @@ export function PlatformTenantDetailPage() {
       setDetail(data);
       setAdmins(normalizePlatformTenantAdmins(data));
       setFeatures(data.features.map((f) => ({ ...f })));
-      setPlan(data.tenant.plan);
+      setPlan(normalizePlanId(data.tenant.plan));
       setMessage('플랜을 변경하고 기능 모듈을 재설정했습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '플랜 변경 실패');
-      if (detail) setPlan(detail.tenant.plan);
+      if (detail) setPlan(normalizePlanId(detail.tenant.plan));
     } finally {
       setSaving(false);
     }
@@ -479,9 +483,9 @@ export function PlatformTenantDetailPage() {
               <h2 className="text-base font-semibold text-gray-900">플랜 선택</h2>
               <p className="text-xs text-gray-400">변경 시 기능 모듈이 자동 재설정됩니다</p>
             </div>
-            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {(['starter', 'standard', 'premium'] as const).map((pid) => {
-                const isSelected = plan === pid;
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {TENANT_PLAN_IDS.map((pid) => {
+                const isSelected = normalizePlanId(plan) === pid;
                 const desc: TenantPlanPresentation = TENANT_PLAN_PRESENTATIONS[pid];
                 const limits = planLimitsSummary(pid);
                 return (
@@ -590,6 +594,8 @@ export function PlatformTenantDetailPage() {
           ) : null}
         </div>
       ) : null}
+
+      {activeTab === 'usage' && id ? <PlatformTenantUsagePanel tenantId={id} /> : null}
 
       {activeTab === 'billing' && id ? (
         <PlatformTenantBillingPanel tenantId={id} compact />

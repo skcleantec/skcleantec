@@ -13,6 +13,11 @@ import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { attachInternalCustomerToneForRole } from './internalCustomerTone.js';
 import { attachDistanceFromJuanForInquiry } from './inquiryJuanDistance.js';
 import { inquiryDetailInclude } from './inquiryDetailInclude.js';
+import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
+import {
+  chargeInquiryStatusCoinInTx,
+  isCoinChargeInquiryStatus,
+} from '../tenants/tenantCoin.service.js';
 import {
   allTeamLeadersSolo,
   hasNoCrewMembersField,
@@ -174,6 +179,7 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
   }
   const intakeMeta = parseIntakeMeta(body.intakeMeta);
   const intakeChannel = resolveInquiryIntakeChannelForCreate(body);
+  const tenantPlan = await getTenantPlan(tenantId);
 
   const inquiry = await db.$transaction(async (tx) => {
     let inquiryNumber: string | null = null;
@@ -190,7 +196,7 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
       inquiryNumber = await allocateNextInquiryNumber(tx, tenantId, operatingCompanyId);
     }
 
-    return tx.inquiry.create({
+    const created = await tx.inquiry.create({
       data: {
         tenantId,
         operatingCompanyId,
@@ -239,6 +245,15 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
             : null,
       },
     });
+    if (isCoinChargeInquiryStatus(status)) {
+      await chargeInquiryStatusCoinInTx(tx, {
+        tenantId,
+        plan: tenantPlan,
+        inquiryId: created.id,
+        status,
+      });
+    }
+    return created;
   });
 
   await recordInquiryStatusEvent(db, {

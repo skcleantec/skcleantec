@@ -6,11 +6,13 @@ import {
   TENANT_BILLING_CYCLE_LABEL,
   TENANT_BILLING_PRICING_MODE_LABEL,
   billingCyclePriceHint,
+  TENANT_INVOICE_STATUS_LABEL,
   type TenantBillingCycle,
   type TenantBillingPricingMode,
 } from '@shared/tenantBilling';
 import type { TenantPlanId } from '@shared/tenantFeatureModules';
 import { TENANT_PLAN_PRESENTATIONS } from '@shared/tenantPlanCatalog';
+import { normalizePlanId } from '@shared/tenantPlanNormalize';
 import {
   confirmPlatformPrepaid,
   getPlatformTenantBilling,
@@ -18,6 +20,7 @@ import {
   type PlatformTenantBillingDetail,
 } from '../../api/platformBilling';
 import { PlatformTenantBillingScheduleSection } from './PlatformTenantBillingScheduleSection';
+import { PlatformTenantUsagePanel } from '../../components/platform/PlatformTenantUsagePanel';
 import { getPlatformToken } from '../../stores/platformAuth';
 import {
   BTN_PRIMARY,
@@ -44,7 +47,7 @@ type Props = {
   compact?: boolean;
 };
 
-const PLAN_OPTIONS: TenantPlanId[] = ['starter', 'standard', 'premium'];
+const PLAN_OPTIONS: TenantPlanId[] = ['free', 'standard', 'standard_plus', 'premium'];
 
 type ContractForm = {
   plan: TenantPlanId;
@@ -54,14 +57,13 @@ type ContractForm = {
   customAnnualAmountKrw: string;
   useCustomAnnual: boolean;
   billingStartDate: string;
+  billingDueDay: string;
   autoIssueEnabled: boolean;
   contractMemo: string;
 };
 
 function contractFormFromDetail(detail: PlatformTenantBillingDetail): ContractForm {
-  const plan = (detail.tenant.plan in TENANT_PLAN_PRESENTATIONS
-    ? detail.tenant.plan
-    : 'standard') as TenantPlanId;
+  const plan = normalizePlanId(detail.tenant.plan);
   return {
     plan,
     billingCycle: detail.profile.billingCycle,
@@ -76,6 +78,7 @@ function contractFormFromDetail(detail: PlatformTenantBillingDetail): ContractFo
         : '',
     useCustomAnnual: detail.profile.customAnnualAmountKrw != null,
     billingStartDate: ymdFromIso(detail.profile.billingStartDate ?? detail.tenant.serviceStartedAt),
+    billingDueDay: String(detail.profile.billingDueDay ?? 25),
     autoIssueEnabled: detail.profile.autoIssueEnabled,
     contractMemo: detail.profile.contractMemo ?? '',
   };
@@ -142,6 +145,12 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
     setSaving(true);
     setMessage('');
     setError('');
+    const dueDay = Number(contractForm.billingDueDay);
+    if (!Number.isFinite(dueDay) || dueDay < 1 || dueDay > 28) {
+      setError('결제일(매월)은 1~28 사이로 입력해 주세요.');
+      setSaving(false);
+      return;
+    }
     try {
       await patchPlatformTenantBillingProfile(token, tenantId, {
         plan: contractForm.plan,
@@ -154,6 +163,7 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
           contractForm.useCustomAnnual
             ? customAnnual
             : null,
+        billingDueDay: Math.trunc(dueDay),
         billingStartDate: contractForm.billingStartDate.trim() || null,
         autoIssueEnabled: contractForm.autoIssueEnabled,
         contractMemo: contractForm.contractMemo.trim() || null,
@@ -208,6 +218,8 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
       {error ? <PlatformAlert variant="error" message={error} /> : null}
       {message ? <PlatformAlert variant="success" message={message} /> : null}
 
+      <PlatformTenantUsagePanel tenantId={tenantId} compact />
+
       <section className={CARD_SECTION}>
         <div className="flex flex-wrap items-center gap-2">
           {!compact ? (
@@ -254,7 +266,7 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
           <div>
             <dt className="text-gray-500">결제일</dt>
             <dd className="mt-0.5 text-gray-900">
-              {billingAnchorLabel ?? '과금 시작일 확정 후 매월 같은 날'}
+              {billingAnchorLabel ?? `매월 ${profile.billingDueDay}일 (또는 과금 시작일 확정 후)`}
             </dd>
           </div>
           <div>
@@ -426,7 +438,7 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
               ) : null}
             </>
           ) : null}
-          <label className="block text-sm sm:col-span-2">
+          <label className="block text-sm">
             <span className="text-gray-600">과금 시작일</span>
             <input
               type="date"
@@ -437,9 +449,22 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
               }
             />
             <p className="mt-1 text-xs text-gray-500">
-              신규는 체험 종료일과 동일하게 자동 설정됩니다. 기존 업체만 수동 입력하세요. 시작일의
-              「일」이 매월 결제일입니다.
+              신규는 체험 종료일과 동일하게 자동 설정됩니다. 기존 업체만 수동 입력하세요.
             </p>
+          </label>
+          <label className="block text-sm">
+            <span className="text-gray-600">결제일 (매월)</span>
+            <input
+              type="number"
+              min={1}
+              max={28}
+              className={`mt-1 ${INPUT_BASE}`}
+              value={contractForm.billingDueDay}
+              onChange={(e) =>
+                setContractForm((f) => (f ? { ...f, billingDueDay: e.target.value } : f))
+              }
+            />
+            <p className="mt-1 text-xs text-gray-500">1~28일. 청구서 납부기한 계산에 사용됩니다.</p>
           </label>
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
             <input
@@ -469,6 +494,46 @@ export function PlatformTenantBillingPanel({ tenantId, compact }: Props) {
           </button>
         </div>
       </section>
+
+      {detail.invoices.length > 0 ? (
+        <section className={CARD_SECTION}>
+          <h3 className="text-sm font-semibold text-gray-900">발행된 청구서</h3>
+          <p className="mt-0.5 text-xs text-gray-500">최근 발행 순 · 상세 조작은 아래 청구 일정에서 처리합니다.</p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[520px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50 text-xs text-gray-600">
+                  <th className="px-2 py-2 text-center font-medium">기간</th>
+                  <th className="px-2 py-2 text-center font-medium">금액</th>
+                  <th className="px-2 py-2 text-center font-medium">납부기한</th>
+                  <th className="px-2 py-2 text-center font-medium">상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.invoices.slice(0, 12).map((inv) => (
+                  <tr key={inv.id} className="border-b border-gray-100">
+                    <td className="px-2 py-2 text-center text-gray-800">
+                      {new Date(inv.periodStart).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
+                      {' ~ '}
+                      {new Date(inv.periodEnd).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
+                    </td>
+                    <td className="px-2 py-2 text-center tabular-nums text-gray-900">
+                      {inv.amountKrw.toLocaleString('ko-KR')}원
+                    </td>
+                    <td className="px-2 py-2 text-center text-gray-700">
+                      {new Date(inv.dueDate).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
+                    </td>
+                    <td className="px-2 py-2 text-center text-gray-700">
+                      {TENANT_INVOICE_STATUS_LABEL[inv.status as keyof typeof TENANT_INVOICE_STATUS_LABEL] ??
+                        inv.status}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       <section className={CARD_SECTION}>
         <div>

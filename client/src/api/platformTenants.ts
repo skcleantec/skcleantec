@@ -1,4 +1,5 @@
 import { API, apiErrorMessage } from './apiPrefix';
+import type { TenantSubscriptionDto } from './tenantSubscription';
 
 export async function platformLogin(email: string, password: string) {
   const res = await fetch(`${API}/platform/auth/login`, {
@@ -303,4 +304,19 @@ export async function patchPlatformTenantTelecrmPolicy(
     throw new Error(data.error ?? 'CRM 정책 저장 실패');
   }
   return res.json() as Promise<PlatformTelecrmPolicyResponse>;
+}
+
+export async function getPlatformTenantSubscription(
+  token: string,
+  tenantId: string,
+): Promise<TenantSubscriptionDto> {
+  const res = await fetch(`${API}/platform/tenants/${tenantId}/subscription`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '이용 현황 조회 실패'));
+  const data = (await res.json()) as TenantSubscriptionDto & { error?: string };
+  if (!data?.tenant || !Array.isArray(data.usage)) {
+    throw new Error('이용 현황 응답 형식이 올바르지 않습니다.');
+  }
+  return data;
 }

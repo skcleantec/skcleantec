@@ -79,8 +79,9 @@ export function resolvePeriodBaseAmountKrw(
   profile: BillingProfileInput,
   plan: string,
   cycle: TenantBillingCycle,
+  activeBrandCount = 1,
 ): number {
-  const catalogMonthly = catalogMonthlyKrw(plan);
+  const catalogMonthly = calculateBillingAmountKrw(plan, 'MONTHLY', activeBrandCount);
   if (profile.pricingMode === 'CUSTOM') {
     const monthly = profile.customMonthlyAmountKrw ?? catalogMonthly;
     if (cycle === 'ANNUAL') {
@@ -88,7 +89,7 @@ export function resolvePeriodBaseAmountKrw(
     }
     return monthly;
   }
-  return calculateBillingAmountKrw(plan, cycle);
+  return calculateBillingAmountKrw(plan, cycle, activeBrandCount);
 }
 
 function advanceCursorAfterShift(

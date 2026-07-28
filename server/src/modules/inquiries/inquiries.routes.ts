@@ -14,6 +14,12 @@ import {
   kstMonthRangeYm,
 } from './inquiryListDateRange.js';
 import { recordInquiryStatusEvent, recordInquiryStatusTransition } from './inquiryStatusEvent.js';
+import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
+import {
+  chargeInquiryStatusCoinInTx,
+  isCoinChargeInquiryStatus,
+  mapTenantCoinError,
+} from '../tenants/tenantCoin.service.js';
 import {
   createdAtRangeFromListQuery,
   parseKstHourQuery,
@@ -777,6 +783,7 @@ router.patch('/:id', async (req, res) => {
     res.status(404).json({ error: '문의를 찾을 수 없습니다.' });
     return;
   }
+  const tenantPlan = await getTenantPlan(tenantId);
 
   /** 클라이언트가 teamLeaderIds를 보낸 경우에만 분배(Assignment) 동기화 — 배열이 아닌 형태도 normalize에서 처리 */
   let wantsTeamSync = Object.prototype.hasOwnProperty.call(body, 'teamLeaderIds');
@@ -1529,15 +1536,23 @@ router.patch('/:id', async (req, res) => {
       if (crewRosterChanged) {
         await clearInquiryCrewMemberMeetingTimes(tx, id);
       }
-      if (mergedStatus !== inquiry.status) {
-        await recordInquiryStatusTransition(tx, {
-          tenantId,
-          inquiryId: id,
-          previousStatus: inquiry.status,
-          nextStatus: mergedStatus,
-          actorId: user?.userId ?? null,
-        });
-      }
+        if (mergedStatus !== inquiry.status) {
+          await recordInquiryStatusTransition(tx, {
+            tenantId,
+            inquiryId: id,
+            previousStatus: inquiry.status,
+            nextStatus: mergedStatus,
+            actorId: user?.userId ?? null,
+          });
+          if (isCoinChargeInquiryStatus(mergedStatus)) {
+            await chargeInquiryStatusCoinInTx(tx, {
+              tenantId,
+              plan: tenantPlan,
+              inquiryId: id,
+              status: mergedStatus,
+            });
+          }
+        }
       if (wantsTeamSync) {
         await tx.assignment.deleteMany({ where: { inquiryId: id } });
         if (teamLeaderIds.length > 0) {
@@ -1618,6 +1633,11 @@ router.patch('/:id', async (req, res) => {
       notifyChangeLogToStaff({ tenantId, customerName: inquiry.customerName, inquiryId: id, lines });
     }
   } catch (e) {
+    const coinErr = mapTenantCoinError(e);
+    if (coinErr) {
+      res.status(coinErr.status).json({ error: coinErr.message });
+      return;
+    }
     console.error('PATCH inquiry transaction:', e);
     res.status(500).json({ error: '저장 중 오류가 발생했습니다.' });
     return;
@@ -1740,6 +1760,11 @@ router.post('/', requireStaffPermission('inquiry.create'), async (req, res) => {
     });
     res.status(201).json(created);
   } catch (e) {
+    const coinErr = mapTenantCoinError(e);
+    if (coinErr) {
+      res.status(coinErr.status).json({ error: coinErr.message });
+      return;
+    }
     if (e instanceof InquiryCreateError) {
       res.status(e.statusCode).json({ error: e.message });
       return;

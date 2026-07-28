@@ -25,12 +25,28 @@ export const TENANT_FEATURE_MODULES = {
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;
 
 export const TENANT_PLANS = {
-  starter: {
-    label: 'Starter',
-    modules: ['core_inquiries', 'core_schedule', 'core_assignments', 'core_messages', 'mod_db_marketplace'] as TenantFeatureModuleId[],
+  free: {
+    label: 'Free',
+    modules: ['core_inquiries', 'core_schedule', 'mod_db_marketplace'] as TenantFeatureModuleId[],
   },
   standard: {
     label: 'Standard',
+    modules: [
+      'core_inquiries',
+      'core_schedule',
+      'core_assignments',
+      'core_messages',
+      'mod_cs',
+      'mod_external_co',
+      'mod_crew',
+      'mod_team_stats',
+      'mod_inspection',
+      'mod_advertising',
+      'mod_db_marketplace',
+    ] as TenantFeatureModuleId[],
+  },
+  standard_plus: {
+    label: 'Standard+',
     modules: [
       'core_inquiries',
       'core_schedule',
@@ -69,44 +85,82 @@ export const TENANT_PLANS = {
 
 export type TenantPlanId = keyof typeof TENANT_PLANS;
 
-/** 코어 모듈은 오버라이드로 끌 수 없음 */
+const KNOWN_PLANS = new Set<string>(['free', 'standard', 'standard_plus', 'premium']);
+
+export function normalizePlanId(plan: string | null | undefined): TenantPlanId {
+  const raw = String(plan ?? '').trim().toLowerCase();
+  if (raw === 'starter') return 'standard';
+  if (KNOWN_PLANS.has(raw)) return raw as TenantPlanId;
+  return 'standard';
+}
+
+export const TENANT_PLAN_ID_SET: Record<string, 1> = {
+  free: 1,
+  standard: 1,
+  standard_plus: 1,
+  premium: 1,
+  starter: 1,
+};
+
+/** 코어 모듈은 오버라이드로 끌 수 없음 (free는 core_assignments 미포함) */
 export const CORE_FEATURE_MODULE_IDS = new Set<TenantFeatureModuleId>([
   'core_inquiries',
   'core_schedule',
-  'core_assignments',
 ]);
 
 export function modulesForPlan(plan: string): TenantFeatureModuleId[] {
-  const p = plan in TENANT_PLANS ? TENANT_PLANS[plan as TenantPlanId] : TENANT_PLANS.standard;
-  return [...p.modules];
+  const p = normalizePlanId(plan);
+  return [...TENANT_PLANS[p].modules];
 }
 
 /** @see shared/tenantSubscriptionUsage.ts — 동기화 */
-export type TenantUsageMetricId = 'activeUsers' | 'inquiriesThisMonth' | 'operatingBrands';
+export type TenantUsageMetricId = 'monthlyCoins' | 'teamLeaders' | 'customCalendars' | 'operatingBrands';
 
 export const TENANT_USAGE_METRIC_LABELS: Record<TenantUsageMetricId, string> = {
-  activeUsers: '활성 업무 계정',
-  inquiriesThisMonth: '이번 달 접수',
+  monthlyCoins: '이용 코인',
+  teamLeaders: '팀장 계정',
+  customCalendars: '맞춤 캘린더',
   operatingBrands: '영업 브랜드',
 };
+
+export const TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW = 200_000;
 
 export const TENANT_PLAN_USAGE_LIMITS: Record<
   TenantPlanId,
   Record<TenantUsageMetricId, number | null>
 > = {
-  starter: { activeUsers: 8, inquiriesThisMonth: 400, operatingBrands: 1 },
-  standard: { activeUsers: 25, inquiriesThisMonth: 1_500, operatingBrands: 3 },
-  premium: { activeUsers: null, inquiriesThisMonth: null, operatingBrands: null },
+  free: { monthlyCoins: 70, teamLeaders: 0, customCalendars: 0, operatingBrands: 0 },
+  standard: { monthlyCoins: 300, teamLeaders: 5, customCalendars: 2, operatingBrands: 0 },
+  standard_plus: { monthlyCoins: 700, teamLeaders: 10, customCalendars: 5, operatingBrands: 0 },
+  premium: { monthlyCoins: null, teamLeaders: null, customCalendars: null, operatingBrands: 1 },
 };
 
 export function usageLimitForPlan(plan: string, metric: TenantUsageMetricId): number | null {
-  const p = plan in TENANT_PLAN_USAGE_LIMITS ? (plan as TenantPlanId) : 'standard';
+  const p = normalizePlanId(plan);
   return TENANT_PLAN_USAGE_LIMITS[p][metric];
+}
+
+export function totalOperatingBrandSlotsIncludedInPlan(plan: string): number {
+  const additional = usageLimitForPlan(plan, 'operatingBrands');
+  if (additional == null) return 1;
+  return 1 + additional;
+}
+
+export function maxOperatingCompaniesForPlan(plan: string): number | null {
+  return totalOperatingBrandSlotsIncludedInPlan(plan);
+}
+
+export function planHasUnlimitedCoins(plan: string): boolean {
+  return usageLimitForPlan(plan, 'monthlyCoins') == null;
+}
+
+export function monthlyCoinAllowance(plan: string): number | null {
+  return usageLimitForPlan(plan, 'monthlyCoins');
 }
 
 /** @see shared/tenantPlanCatalog.ts — 동기화 */
 export const TENANT_BILLING_NOTE =
-  '월 정액 플랜(Starter 10만·Standard 25만·Premium 40만 원, VAT 별도)에 포함된 업무 계정·접수·브랜드 한도를 기준으로 표시합니다. 포함량 초과분은 별도 과금(계정·접수·브랜드 단위)으로 추후 적용될 예정이며, 플랜 업그레이드는 플랫폼 담당자에게 문의해 주세요.';
+  '월 정액 플랜(Free·Standard 10만·Standard+ 20만·Premium 30만 원+, VAT 별도)과 이용 코인(매월 1일 KST 리셋·이월 없음)을 기준으로 표시합니다. Premium은 영업 브랜드 기본 1개+추가 1개(총 2개)가 포함되며, 3번째 브랜드부터 월 20만 원(VAT 별도)입니다. 플랜 변경은 플랫폼 담당자에게 문의해 주세요.';
 
 export function isKnownFeatureModuleId(id: string): id is TenantFeatureModuleId {
   return id in TENANT_FEATURE_MODULES;

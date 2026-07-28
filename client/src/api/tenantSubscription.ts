@@ -31,6 +31,13 @@ export type TenantSubscriptionDto = {
   enabledServices: TenantSubscriptionServiceRow[];
   usage: TenantSubscriptionUsageRow[];
   billingNote: string;
+  coins?: {
+    periodYm: string;
+    allowance: number | null;
+    spent: number;
+    remaining: number | null;
+    unlimited: boolean;
+  };
 };
 
 export async function fetchTenantSubscription(token: string): Promise<TenantSubscriptionDto> {

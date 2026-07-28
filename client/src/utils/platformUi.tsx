@@ -23,8 +23,18 @@ const DOT_BASE = 'w-1.5 h-1.5 rounded-full shrink-0';
 export function getPlanBadgeClass(plan: string): string {
   const p = plan.toLowerCase();
   if (p === 'premium') return 'bg-purple-50 text-purple-700 ring-1 ring-purple-200';
-  if (p === 'standard') return 'bg-blue-50 text-blue-700 ring-1 ring-blue-200';
+  if (p === 'standard_plus') return 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200';
+  if (p === 'standard' || p === 'starter') return 'bg-blue-50 text-blue-700 ring-1 ring-blue-200';
+  if (p === 'free') return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200';
   return 'bg-gray-100 text-gray-600 ring-1 ring-gray-200';
+}
+
+function formatPlanBadgeLabel(plan: string): string {
+  const p = plan.toLowerCase();
+  if (p === 'standard_plus') return 'Standard+';
+  if (p === 'starter') return 'Standard (legacy)';
+  if (p === 'free') return 'Free';
+  return plan;
 }
 
 export function getStatusBadgeClass(status: string): { badge: string; dot: string } {
@@ -36,7 +46,7 @@ export function getStatusBadgeClass(status: string): { badge: string; dot: strin
 export function PlanBadge({ plan }: { plan: string }) {
   return (
     <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold capitalize ${getPlanBadgeClass(plan)}`}>
-      {plan}
+      {formatPlanBadgeLabel(plan)}
     </span>
   );
 }

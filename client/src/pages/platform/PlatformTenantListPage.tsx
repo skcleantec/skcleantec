@@ -105,9 +105,11 @@ export function PlatformTenantListPage() {
           className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700"
         >
           <option value="">전체 플랜</option>
-          <option value="starter">Starter</option>
+          <option value="free">Free</option>
           <option value="standard">Standard</option>
+          <option value="standard_plus">Standard+</option>
           <option value="premium">Premium</option>
+          <option value="starter">Starter (legacy)</option>
         </select>
         <select
           value={filterStatus}

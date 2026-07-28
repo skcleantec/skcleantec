@@ -1,6 +1,10 @@
 import type { InquiryDbListingBuyerKind } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
+import { isFeatureEnabled, getTenantPlan } from '../tenants/tenantFeatures.service.js';
+import {
+  chargeDbMarketplacePurchaseCoinInTx,
+  mapTenantCoinError,
+} from '../tenants/tenantCoin.service.js';
 import { createTenantInquiryShare, TenantInquiryShareError } from '../tenant-partners/tenantInquiryShare.service.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { DbMarketplaceError } from './dbMarketplace.service.js';
@@ -33,60 +37,75 @@ export type { DbMarketplaceBuyerContext } from './dbMarketplaceBuyerAccess.js';
 export async function confirmDbListingBuyer(listingId: string, buyer: DbMarketplaceBuyerContext) {
   await expireStaleOpenDbListings();
   const now = new Date();
+  const buyerPlan = await getTenantPlan(buyer.tenantId);
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const listing = await tx.inquiryDbListing.findFirst({
-      where: { id: listingId },
-      include: { audiences: true },
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const listing = await tx.inquiryDbListing.findFirst({
+        where: { id: listingId },
+        include: { audiences: true },
+      });
+      if (!listing) throw new DbMarketplaceError('항목을 찾을 수 없습니다.', 404);
+      if (listing.status !== 'OPEN') {
+        throw new DbMarketplaceError('이미 다른 업체가 신청했거나 마감된 건입니다.', 409);
+      }
+
+      await assertBuyerCanViewListing(listing, buyer);
+
+      const buyerKind: InquiryDbListingBuyerKind =
+        buyer.kind === 'PARTNER_TENANT' ? 'PARTNER_TENANT' : 'EXTERNAL_COMPANY';
+
+      const result = await tx.inquiryDbListing.updateMany({
+        where: { id: listingId, status: 'OPEN' },
+        data: {
+          status: 'PENDING_SELLER',
+          buyerKind,
+          buyerTenantId: buyer.kind === 'PARTNER_TENANT' ? buyer.tenantId : null,
+          buyerExternalCompanyId: buyer.kind === 'EXTERNAL_COMPANY' ? buyer.externalCompanyId : null,
+          buyerConfirmedAt: now,
+          buyerConfirmedByUserId: buyer.userId,
+          sellerConfirmedAt: null,
+          sellerConfirmedByUserId: null,
+          ...clearHoldData(),
+        },
+      });
+      if (result.count !== 1) {
+        throw new DbMarketplaceError('이미 다른 업체가 신청했습니다. 다시 확인해 주세요.', 409);
+      }
+
+      await chargeDbMarketplacePurchaseCoinInTx(tx, {
+        tenantId: buyer.tenantId,
+        plan: buyerPlan,
+        listingId,
+      });
+
+      return tx.inquiryDbListing.findUniqueOrThrow({
+        where: { id: listingId },
+        include: {
+          audiences: true,
+          tenant: { select: { id: true, name: true } },
+          buyerTenant: { select: { id: true, name: true } },
+          buyerExternalCompany: { select: { id: true, name: true } },
+        },
+      });
     });
-    if (!listing) throw new DbMarketplaceError('항목을 찾을 수 없습니다.', 404);
-    if (listing.status !== 'OPEN') {
-      throw new DbMarketplaceError('이미 다른 업체가 신청했거나 마감된 건입니다.', 409);
+
+    await notifyDbMarketplaceBuyerRequested({
+      sellerTenantId: updated.tenantId,
+      visibility: updated.visibility,
+      audiences: updated.audiences,
+      buyerTenantId: updated.buyerTenantId,
+      buyerExternalCompanyId: updated.buyerExternalCompanyId,
+    });
+
+    return updated;
+  } catch (e) {
+    const coinErr = mapTenantCoinError(e);
+    if (coinErr) {
+      throw new DbMarketplaceError(coinErr.message, coinErr.status);
     }
-
-    await assertBuyerCanViewListing(listing, buyer);
-
-    const buyerKind: InquiryDbListingBuyerKind =
-      buyer.kind === 'PARTNER_TENANT' ? 'PARTNER_TENANT' : 'EXTERNAL_COMPANY';
-
-    const result = await tx.inquiryDbListing.updateMany({
-      where: { id: listingId, status: 'OPEN' },
-      data: {
-        status: 'PENDING_SELLER',
-        buyerKind,
-        buyerTenantId: buyer.kind === 'PARTNER_TENANT' ? buyer.tenantId : null,
-        buyerExternalCompanyId: buyer.kind === 'EXTERNAL_COMPANY' ? buyer.externalCompanyId : null,
-        buyerConfirmedAt: now,
-        buyerConfirmedByUserId: buyer.userId,
-        sellerConfirmedAt: null,
-        sellerConfirmedByUserId: null,
-        ...clearHoldData(),
-      },
-    });
-    if (result.count !== 1) {
-      throw new DbMarketplaceError('이미 다른 업체가 신청했습니다. 다시 확인해 주세요.', 409);
-    }
-
-    return tx.inquiryDbListing.findUniqueOrThrow({
-      where: { id: listingId },
-      include: {
-        audiences: true,
-        tenant: { select: { id: true, name: true } },
-        buyerTenant: { select: { id: true, name: true } },
-        buyerExternalCompany: { select: { id: true, name: true } },
-      },
-    });
-  });
-
-  await notifyDbMarketplaceBuyerRequested({
-    sellerTenantId: updated.tenantId,
-    visibility: updated.visibility,
-    audiences: updated.audiences,
-    buyerTenantId: updated.buyerTenantId,
-    buyerExternalCompanyId: updated.buyerExternalCompanyId,
-  });
-
-  return updated;
+    throw e;
+  }
 }
 
 async function resolvePartnershipId(sellerTenantId: string, buyerTenantId: string): Promise<string> {

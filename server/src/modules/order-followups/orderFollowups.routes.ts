@@ -30,6 +30,11 @@ import { canAdminOrMarketerViewInquiry } from '../inquiry-cleaning-photos/inquir
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { tenantIdForUserId } from '../tenants/tenant.service.js';
+import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
+import {
+  chargeInquiryStatusCoinInTx,
+  mapTenantCoinError,
+} from '../tenants/tenantCoin.service.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import {
   resolveInquiryOperatingCompanyId,
@@ -59,12 +64,14 @@ async function syncInquiryWhenFollowupDepositComplete(inquiryId: string, tenantI
 
 /** 부재현황이 예약금 대기(DEPOSIT_PENDING)일 때, 연결 접수를 접수 목록 입금대기로 맞춤(접수번호 없으면 발급) */
 async function syncInquiryWhenFollowupDepositPending(inquiryId: string, tenantId: string): Promise<void> {
+  const tenantPlan = await getTenantPlan(tenantId);
   await prisma.$transaction(async (tx) => {
     const inv = await tx.inquiry.findFirst({
       where: { id: inquiryId, tenantId },
       select: { status: true, inquiryNumber: true, tenantId: true, operatingCompanyId: true },
     });
     if (!inv || inv.status === 'CANCELLED') return;
+    if (inv.status === 'DEPOSIT_PENDING') return;
     if (
       inv.status === 'DEPOSIT_COMPLETED' ||
       inv.status === 'ORDER_FORM_PENDING' ||
@@ -82,6 +89,12 @@ async function syncInquiryWhenFollowupDepositPending(inquiryId: string, tenantId
       data.inquiryNumber = await allocateNextInquiryNumber(tx, inv.tenantId, inv.operatingCompanyId);
     }
     await tx.inquiry.update({ where: { id: inquiryId }, data });
+    await chargeInquiryStatusCoinInTx(tx, {
+      tenantId,
+      plan: tenantPlan,
+      inquiryId,
+      status: 'DEPOSIT_PENDING',
+    });
   });
 }
 router.use(authMiddleware);
@@ -124,6 +137,7 @@ async function createInquiryForDepositFlow(params: {
   if (!tenantId) {
     throw new Error('접수 생성에 필요한 업체 정보를 찾을 수 없습니다.');
   }
+  const tenantPlan = await getTenantPlan(tenantId);
   return prisma.$transaction(async (tx) => {
     const actor = await tx.user.findFirst({
       where: { id: params.actorId, tenantId },
@@ -162,6 +176,14 @@ async function createInquiryForDepositFlow(params: {
       },
       select: { id: true },
     });
+    if (inquiryStatus === 'DEPOSIT_PENDING') {
+      await chargeInquiryStatusCoinInTx(tx, {
+        tenantId,
+        plan: tenantPlan,
+        inquiryId: created.id,
+        status: 'DEPOSIT_PENDING',
+      });
+    }
     return created.id;
   });
 }
@@ -482,6 +504,7 @@ router.post('/', async (req, res) => {
     }
     connectInquiryId = iid;
   }
+  try {
   if (!connectInquiryId && (status === 'DEPOSIT_PENDING' || status === 'RESERVED')) {
     connectInquiryId = await createInquiryForDepositFlow({
       actorId: user.userId,
@@ -645,6 +668,14 @@ router.post('/', async (req, res) => {
     }
   }
   res.status(201).json({ item: serializeFollowup(full) });
+  } catch (e) {
+    const coinErr = mapTenantCoinError(e);
+    if (coinErr) {
+      res.status(coinErr.status).json({ error: coinErr.message });
+      return;
+    }
+    throw e;
+  }
 });
 
 router.patch('/:id', async (req, res) => {
@@ -661,6 +692,8 @@ router.patch('/:id', async (req, res) => {
     res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     return;
   }
+
+  try {
 
   const data: import('@prisma/client').Prisma.OrderFollowupUpdateInput = {
     handledBy: { connect: { id: user.userId } },
@@ -891,6 +924,14 @@ router.patch('/:id', async (req, res) => {
     }
   }
   res.json({ item: serializeFollowup(full) });
+  } catch (e) {
+    const coinErr = mapTenantCoinError(e);
+    if (coinErr) {
+      res.status(coinErr.status).json({ error: coinErr.message });
+      return;
+    }
+    throw e;
+  }
 });
 
 /** 재연락 후에도 부재·보류 유지 시 보류 횟수 +1 */
