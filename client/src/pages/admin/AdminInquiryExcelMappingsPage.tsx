@@ -337,29 +337,33 @@ export function AdminInquiryExcelMappingsPage() {
 
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <label className="block text-fluid-sm font-medium text-slate-700">서식 이름</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
-              placeholder="예: ○○업체 일일 접수"
-            />
-            <div className="mt-3">
-              <label className="block text-fluid-sm font-medium text-slate-700">샘플 엑셀</label>
-              <p className="mt-0.5 text-fluid-2xs text-slate-500">헤더와 예시 값만 불러옵니다. 자동 연결하지 않습니다.</p>
-              <input
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                className="mt-1 block w-full text-fluid-xs"
-                onChange={(e) => void handleSampleUpload(e.target.files?.[0] ?? null)}
-              />
-              {sampleFile ? (
-                <p className="mt-1 text-fluid-2xs text-slate-500">파일: {sampleFile.name}</p>
-              ) : editId && excelHeaders.length > 0 ? (
-                <p className="mt-1 text-fluid-2xs text-slate-500">
-                  저장된 열 {excelHeaders.length}개 · 예시 갱신·미리보기는 샘플을 다시 선택하세요.
-                </p>
-              ) : null}
+            <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+              <label className="block text-fluid-sm font-medium text-slate-700">
+                서식 이름
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-fluid-sm"
+                  placeholder="예: ○○업체 일일 접수"
+                />
+              </label>
+              <div>
+                <label className="block text-fluid-sm font-medium text-slate-700">샘플 엑셀</label>
+                <p className="mt-0.5 text-fluid-2xs text-slate-500">헤더와 예시 값만 불러옵니다. 자동 연결하지 않습니다.</p>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="mt-1 block w-full text-fluid-xs"
+                  onChange={(e) => void handleSampleUpload(e.target.files?.[0] ?? null)}
+                />
+                {sampleFile ? (
+                  <p className="mt-1 text-fluid-2xs text-slate-500">파일: {sampleFile.name}</p>
+                ) : editId && excelHeaders.length > 0 ? (
+                  <p className="mt-1 text-fluid-2xs text-slate-500">
+                    저장된 열 {excelHeaders.length}개 · 예시 갱신·미리보기는 샘플을 다시 선택하세요.
+                  </p>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -381,24 +385,26 @@ export function AdminInquiryExcelMappingsPage() {
             />
           </div>
 
-          <InquiryExcelMappingAdvancedSection
-            spec={spec}
-            excelHeaders={excelHeaders}
-            catalog={catalog}
-            fieldOptions={fieldOptions}
-            onSpecChange={(next) => {
-              setSpec(next);
-              setPreview(null);
-            }}
-          />
+          <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+            <InquiryExcelMappingAdvancedSection
+              spec={spec}
+              excelHeaders={excelHeaders}
+              catalog={catalog}
+              fieldOptions={fieldOptions}
+              onSpecChange={(next) => {
+                setSpec(next);
+                setPreview(null);
+              }}
+            />
 
-          <InquiryExcelMappingPreviewPanel
-            preview={preview}
-            loading={previewLoading}
-            canPreview={Boolean(editId && sampleFile)}
-            onPreview={() => void handlePreview()}
-            onScrollToColumnSection={() => columnSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-          />
+            <InquiryExcelMappingPreviewPanel
+              preview={preview}
+              loading={previewLoading}
+              canPreview={Boolean(editId && sampleFile)}
+              onPreview={() => void handlePreview()}
+              onScrollToColumnSection={() => columnSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            />
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <button

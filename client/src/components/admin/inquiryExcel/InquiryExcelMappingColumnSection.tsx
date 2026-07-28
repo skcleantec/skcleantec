@@ -49,16 +49,16 @@ export function InquiryExcelMappingColumnSection({
   onHeaderSearchChange,
   scrollToHeaderRef,
 }: Props) {
-  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const rowRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
     if (!scrollToHeaderRef) return;
     scrollToHeaderRef.current = (header: string) => {
-      const el = cardRefs.current[header];
+      const el = rowRefs.current[header];
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('ring-2', 'ring-sky-400');
-        window.setTimeout(() => el.classList.remove('ring-2', 'ring-sky-400'), 2000);
+        el.classList.add('ring-2', 'ring-inset', 'ring-sky-400');
+        window.setTimeout(() => el.classList.remove('ring-2', 'ring-inset', 'ring-sky-400'), 2000);
       }
     };
   }, [scrollToHeaderRef]);
@@ -108,36 +108,53 @@ export function InquiryExcelMappingColumnSection({
         </p>
       </div>
 
-      <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 space-y-2">
-        <p className="text-fluid-2xs font-medium text-amber-900">필수 3항목</p>
-        {INQUIRY_EXCEL_REQUIRED_FIELD_KEYS.map((fieldKey) => {
-          const selectedHeader = getHeaderForFieldKey(spec, fieldKey);
-          const label =
-            fieldKey === 'customerName' ? '성함' : fieldKey === 'customerPhone' ? '연락처' : '주소';
-          return (
-            <label key={fieldKey} className="block text-fluid-xs text-slate-700">
-              <span className="font-medium">
-                {label}
-                <span className="text-red-500"> *</span>
-              </span>
-              <select
-                value={selectedHeader}
-                onChange={(e) => setRequiredField(fieldKey, e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-fluid-xs"
+      <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3">
+        <p className="mb-2 text-fluid-2xs font-medium text-amber-900">필수 3항목</p>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          {INQUIRY_EXCEL_REQUIRED_FIELD_KEYS.map((fieldKey) => {
+            const selectedHeader = getHeaderForFieldKey(spec, fieldKey);
+            const label =
+              fieldKey === 'customerName' ? '성함' : fieldKey === 'customerPhone' ? '연락처' : '주소';
+            const done = Boolean(selectedHeader);
+            return (
+              <label
+                key={fieldKey}
+                className={`rounded-lg border bg-white p-2.5 text-fluid-xs text-slate-700 ${
+                  done ? 'border-emerald-200' : 'border-amber-300'
+                }`}
               >
-                <option value="">— 엑셀 열 선택 —</option>
-                {headerOptions(selectedHeader)
-                  .filter((h) => !memoSet.has(h) || h === selectedHeader)
-                  .map((h) => (
-                    <option key={h} value={h}>
-                      {h}
-                    </option>
-                  ))}
-              </select>
-              <InquiryExcelFieldHint fieldKey={fieldKey} />
-            </label>
-          );
-        })}
+                <span className="flex items-center justify-between gap-2 font-medium">
+                  <span>
+                    {label}
+                    <span className="text-red-500"> *</span>
+                  </span>
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-fluid-2xs ${
+                      done ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
+                    }`}
+                  >
+                    {done ? '연결됨' : '미연결'}
+                  </span>
+                </span>
+                <select
+                  value={selectedHeader}
+                  onChange={(e) => setRequiredField(fieldKey, e.target.value)}
+                  className="mt-1.5 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-fluid-xs"
+                >
+                  <option value="">— 엑셀 열 선택 —</option>
+                  {headerOptions(selectedHeader)
+                    .filter((h) => !memoSet.has(h) || h === selectedHeader)
+                    .map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                </select>
+                <InquiryExcelFieldHint fieldKey={fieldKey} />
+              </label>
+            );
+          })}
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -173,42 +190,113 @@ export function InquiryExcelMappingColumnSection({
       {filteredHeaders.length === 0 ? (
         <p className="py-4 text-center text-fluid-xs text-slate-500">표시할 열이 없습니다. 필터를 바꿔 보세요.</p>
       ) : (
-        <div className="space-y-2">
-          {filteredHeaders.map((header) => {
-            const fieldKey = getFieldKeyForHeader(spec, header);
-            const samples = headerSamples[header] ?? spec.headerSamples?.[header];
-            const disabledFieldKeys = new Set(mappedFieldKeys);
-            if (fieldKey) disabledFieldKeys.delete(fieldKey);
-            return (
-              <div
-                key={header}
-                ref={(el) => {
-                  cardRefs.current[header] = el;
-                }}
-                className="rounded-xl border border-slate-200 p-3 transition-shadow"
-              >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-fluid-xs text-slate-900" title={header}>
-                      {header}
-                    </p>
-                    <p className="mt-0.5 text-fluid-2xs text-slate-500" title={samples?.join(' / ')}>
-                      예: {formatSamples(samples)}
-                    </p>
-                  </div>
-                  <div className="w-full sm:max-w-xs shrink-0">
+        <>
+          {/* 모바일·좁은 화면 — 카드 */}
+          <div className="space-y-2 lg:hidden">
+            {filteredHeaders.map((header) => {
+              const fieldKey = getFieldKeyForHeader(spec, header);
+              const samples = headerSamples[header] ?? spec.headerSamples?.[header];
+              const disabledFieldKeys = new Set(mappedFieldKeys);
+              if (fieldKey) disabledFieldKeys.delete(fieldKey);
+              return (
+                <div
+                  key={header}
+                  ref={(el) => {
+                    rowRefs.current[header] = el;
+                  }}
+                  className="rounded-xl border border-slate-200 p-3 transition-shadow"
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-fluid-xs text-slate-900" title={header}>
+                        {header}
+                      </p>
+                      <p className="mt-0.5 text-fluid-2xs text-slate-500" title={samples?.join(' / ')}>
+                        예: {formatSamples(samples)}
+                      </p>
+                    </div>
                     <InquiryExcelFieldSelect
                       value={fieldKey}
                       onChange={(next) => setHeaderField(header, next)}
                       disabledFieldKeys={disabledFieldKeys}
                     />
-                    {fieldKey ? <InquiryExcelFieldHint fieldKey={fieldKey} /> : null}
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+
+          {/* PC — 표 (한눈에 스캔) */}
+          <div className="hidden lg:block -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="max-h-[min(58vh,560px)] overflow-y-auto rounded-lg border border-slate-200">
+              <table className="w-full table-fixed border-collapse text-fluid-xs">
+                <colgroup>
+                  <col className="w-[22%]" />
+                  <col className="w-[30%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[38%]" />
+                </colgroup>
+                <thead className="sticky top-0 z-10 bg-slate-100 shadow-[0_1px_0_0_rgb(226,232,240)]">
+                  <tr>
+                    <th className="border border-slate-200 px-2 py-2 text-center">엑셀 열</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center">예시</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center">상태</th>
+                    <th className="border border-slate-200 px-2 py-2 text-center">청소비서 필드</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHeaders.map((header) => {
+                    const fieldKey = getFieldKeyForHeader(spec, header);
+                    const samples = headerSamples[header] ?? spec.headerSamples?.[header];
+                    const disabledFieldKeys = new Set(mappedFieldKeys);
+                    if (fieldKey) disabledFieldKeys.delete(fieldKey);
+                    const mapped = Boolean(fieldKey);
+                    return (
+                      <tr
+                        key={header}
+                        ref={(el) => {
+                          rowRefs.current[header] = el;
+                        }}
+                        className={`transition-colors ${mapped ? 'hover:bg-slate-50' : 'bg-amber-50/40 hover:bg-amber-50/70'}`}
+                      >
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">
+                          <span className="block truncate font-medium text-slate-900" title={header}>
+                            {header}
+                          </span>
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">
+                          <span className="block truncate text-slate-500" title={samples?.join(' / ')}>
+                            {formatSamples(samples)}
+                          </span>
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">
+                          <span
+                            className={`inline-block rounded px-1.5 py-0.5 text-fluid-2xs ${
+                              mapped ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
+                            }`}
+                          >
+                            {mapped ? '연결' : '미연결'}
+                          </span>
+                        </td>
+                        <td className="border border-slate-200 px-2 py-1.5 text-center">
+                          <InquiryExcelFieldSelect
+                            value={fieldKey}
+                            onChange={(next) => setHeaderField(header, next)}
+                            disabledFieldKeys={disabledFieldKeys}
+                            className="w-full rounded border border-slate-300 px-2 py-1 text-fluid-xs"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-1.5 text-fluid-2xs text-slate-400">
+              {filteredHeaders.length}개 열 · 미연결 행은 연한 노란 배경
+            </p>
+          </div>
+        </>
       )}
     </div>
   );
