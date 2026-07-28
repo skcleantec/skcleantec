@@ -18,10 +18,11 @@ import {
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import { dateToYmdKst, employmentOverlapsMonthKst, filterByEmploymentStatus, isUserEmployedOnYmd, kstTodayYmd, parseYmdToUtcDate, serializeUserDates, type EmploymentStatusFilter } from '../users/userEmployment.js';
 import {
-  crewMemberNoteIncludesTeamMember,
+  countMatchedWorkUnits,
   payrollCycleBoundsKst,
   payrollCyclePreferredDateWhere,
 } from './teamMemberPayrollCycle.js';
+import { loadWorkCountModeByMemberId } from './crewWorkCount.helpers.js';
 import { computeCrewSpacingByPoolMemberName } from './crewLeaderMemberSpacing.js';
 import { findPoolMembersForAdminList } from './poolTeamMembers.service.js';
 import {
@@ -31,6 +32,7 @@ import {
 import { resolveTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import { isTenantOwnerAdmin } from '../auth/tenantOwner.js';
+import type { CrewWorkCountMode } from '../../lib/crewGroupSettings.js';
 
 const router = Router();
 
@@ -128,7 +130,11 @@ router.get('/members', requireStaffPermission('inquiry.edit.assignment'), async 
     const employmentOnYmd = preferredDate ?? todayYmd;
     const filteredMembers = filterByEmploymentStatus(members, employmentStatus, employmentOnYmd);
 
-    type CycleCache = { startYmd: string; endYmd: string; inquiries: { crewMemberNote: string | null }[] };
+    type CycleCache = {
+      startYmd: string;
+      endYmd: string;
+      inquiries: { crewMemberNote: string | null; preferredDate: Date | null }[];
+    };
     const inquiriesByPayDay = new Map<number, CycleCache>();
 
     if (!lite) {
@@ -150,25 +156,37 @@ router.get('/members', requireStaffPermission('inquiry.edit.assignment'), async 
               preferredDate: { gte: bounds.gte, lte: bounds.lte },
               status: { notIn: ['CANCELLED', 'ON_HOLD'] },
             },
-            select: { crewMemberNote: true },
+            select: { crewMemberNote: true, preferredDate: true },
           });
           inquiriesByPayDay.set(payDay, { startYmd, endYmd, inquiries });
         }),
       );
     }
 
+    const workCountModeByMemberId = lite
+      ? new Map<string, CrewWorkCountMode>()
+      : await loadWorkCountModeByMemberId(
+          prisma,
+          tenantId,
+          filteredMembers.map((m) => m.id),
+        );
+
     let items = filteredMembers.map((m) => {
       let payCycleJobCount: number | null = null;
       let payCycleStartYmd: string | null = null;
       let payCycleEndYmd: string | null = null;
+      let payCycleWorkCountMode: CrewWorkCountMode | null = null;
       if (!lite && m.monthlyPayDay != null) {
         const cached = inquiriesByPayDay.get(m.monthlyPayDay);
         if (cached) {
           payCycleStartYmd = cached.startYmd;
           payCycleEndYmd = cached.endYmd;
-          payCycleJobCount = cached.inquiries.filter((inq) =>
-            crewMemberNoteIncludesTeamMember(inq.crewMemberNote, m),
-          ).length;
+          payCycleWorkCountMode = workCountModeByMemberId.get(m.id) ?? null;
+          payCycleJobCount = countMatchedWorkUnits(
+            cached.inquiries,
+            m,
+            workCountModeByMemberId.get(m.id),
+          );
         }
       }
       return {
@@ -188,6 +206,7 @@ router.get('/members', requireStaffPermission('inquiry.edit.assignment'), async 
         payCycleJobCount,
         payCycleStartYmd,
         payCycleEndYmd,
+        payCycleWorkCountMode,
       };
     });
 

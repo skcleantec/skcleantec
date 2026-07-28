@@ -4,6 +4,7 @@ import {
   payrollCyclePreferredDateWhere,
   crewMemberNoteIncludesTeamMember,
 } from '../teams/teamMemberPayrollCycle.js';
+import { loadWorkCountModeByMemberId } from '../teams/crewWorkCount.helpers.js';
 import { dateToYmdKst, employmentOverlapsMonthKst } from '../users/userEmployment.js';
 import { sumCrewExpensesByMemberIdsForMonth } from '../crew/crewGroupExpense.service.js';
 import { sumLedgerManualPoolMemberDeductionsByMonth } from './payrollLedgerManualPayrollDeductions.js';
@@ -175,9 +176,15 @@ export async function computePayrollExpenseForward(
     partialEndYmd: string;
     payMonthKey: string;
     payrollDaysByMemberId: Map<string, Set<string>>;
+    inquiryCountByMemberId: Map<string, number>;
   };
 
   const poolCtxByPayDay = new Map<number, PayDayPoolCtx>();
+  const workCountModeByMemberId = await loadWorkCountModeByMemberId(
+    prismaClient,
+    tenantId,
+    poolMembers.map((m) => m.id),
+  );
 
   for (const payDay of [...byPayDay.keys()].sort((a, b) => a - b)) {
     const members = byPayDay.get(payDay)!;
@@ -185,8 +192,10 @@ export async function computePayrollExpenseForward(
     const partialEndYmd = bounds.endYmd < todayYmd ? bounds.endYmd : todayYmd;
     const payMonthKey = payMonthKeyAfterAccrualEnd(bounds.endYmd);
     const payrollDaysByMemberId = new Map<string, Set<string>>();
+    const inquiryCountByMemberId = new Map<string, number>();
     for (const m of members) {
       payrollDaysByMemberId.set(m.id, new Set());
+      inquiryCountByMemberId.set(m.id, 0);
     }
     poolCtxByPayDay.set(payDay, {
       payDay,
@@ -195,6 +204,7 @@ export async function computePayrollExpenseForward(
       partialEndYmd,
       payMonthKey,
       payrollDaysByMemberId,
+      inquiryCountByMemberId,
     });
   }
 
@@ -232,7 +242,15 @@ export async function computePayrollExpenseForward(
           if (ymd < ctx.bounds.startYmd || ymd > ctx.partialEndYmd) continue;
           for (const mem of ctx.members) {
             if (!crewMemberNoteIncludesTeamMember(inq.crewMemberNote, mem)) continue;
-            ctx.payrollDaysByMemberId.get(mem.id)?.add(ymd);
+            const mode = workCountModeByMemberId.get(mem.id);
+            if (mode === 'PER_INQUIRY') {
+              ctx.inquiryCountByMemberId.set(
+                mem.id,
+                (ctx.inquiryCountByMemberId.get(mem.id) ?? 0) + 1,
+              );
+            } else {
+              ctx.payrollDaysByMemberId.get(mem.id)?.add(ymd);
+            }
           }
         }
       }
@@ -242,7 +260,7 @@ export async function computePayrollExpenseForward(
 
   for (const payDay of [...poolCtxByPayDay.keys()].sort((a, b) => a - b)) {
     const ctx = poolCtxByPayDay.get(payDay)!;
-    const { members, bounds, partialEndYmd, payMonthKey, payrollDaysByMemberId } = ctx;
+    const { members, bounds, partialEndYmd, payMonthKey, payrollDaysByMemberId, inquiryCountByMemberId } = ctx;
 
     if (partialEndYmd < bounds.startYmd) {
       for (const m of members) {
@@ -293,7 +311,11 @@ export async function computePayrollExpenseForward(
 
     for (const m of members) {
       const notes: string[] = [];
-      const auto = payrollDaysByMemberId.get(m.id)?.size ?? 0;
+      const mode = workCountModeByMemberId.get(m.id);
+      const auto =
+        mode === 'PER_INQUIRY'
+          ? (inquiryCountByMemberId.get(m.id) ?? 0)
+          : (payrollDaysByMemberId.get(m.id)?.size ?? 0);
       const manualRaw = extraById.get(m.id) ?? 0;
       const manualExtra =
         typeof manualRaw === 'number' && Number.isFinite(manualRaw) && manualRaw > 0
@@ -307,6 +329,9 @@ export async function computePayrollExpenseForward(
       jobCount = auto + manualExtra;
       if (manualExtra > 0) {
         notes.push(`수기 추가 ${manualExtra}일 반영`);
+      }
+      if (mode === 'PER_INQUIRY') {
+        notes.push('접수 건 기준 집계(크루 그룹 설정)');
       }
       let partialGross: number | null = null;
       if (jobCount != null && unitAmount != null) {

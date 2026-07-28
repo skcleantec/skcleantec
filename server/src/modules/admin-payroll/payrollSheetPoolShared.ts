@@ -1,11 +1,14 @@
 import type { PrismaClient } from '@prisma/client';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
+  countMatchedWorkUnits,
   crewMemberNoteIncludesTeamMember,
   payYmdInMonth,
   payrollAccrualPeriodForPaymentDate,
   payrollCyclePreferredDateWhere,
 } from '../teams/teamMemberPayrollCycle.js';
+import { loadWorkCountModeByMemberId } from '../teams/crewWorkCount.helpers.js';
+import type { CrewWorkCountMode } from '../../lib/crewGroupSettings.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 import { sumCrewExpensesByMemberIdsForMonth } from '../crew/crewGroupExpense.service.js';
 import { sumLedgerManualPoolMemberDeductionsByMonth } from './payrollLedgerManualPayrollDeductions.js';
@@ -27,6 +30,8 @@ export type PoolPayrollSheetRowOut = {
   poolSystemDays?: number | null;
   poolManualExtraDays?: number | null;
   poolSettlementComplete?: boolean;
+  /** 크루 그룹 집계 방식 — UI 단위(일/건) 표시용 */
+  poolWorkCountMode?: CrewWorkCountMode | null;
   /** 귀속 월 정산 완료 시 확정 지급액(실지급 기준 스냅샷). 미정산이면 null */
   poolSettledAmount?: number | null;
   crewExpenseTotal?: number;
@@ -69,9 +74,17 @@ export async function buildPoolMemberPayrollSheetRows(
   }
 
   const payrollDaysByMemberId = new Map<string, Set<string>>();
+  const inquiryCountByMemberId = new Map<string, number>();
   for (const pm of poolMembers) {
     payrollDaysByMemberId.set(pm.id, new Set());
+    inquiryCountByMemberId.set(pm.id, 0);
   }
+
+  const workCountModeByMemberId = await loadWorkCountModeByMemberId(
+    prismaClient,
+    tenantId,
+    poolMembers.map((m) => m.id),
+  );
 
   const periodByPayDay = new Map<number, { startYmd: string; endYmd: string }>();
   let envelopeMin: string | null = null;
@@ -112,7 +125,12 @@ export async function buildPoolMemberPayrollSheetRows(
           if (!members?.length) continue;
           for (const mem of members) {
             if (!crewMemberNoteIncludesTeamMember(inq.crewMemberNote, mem)) continue;
-            payrollDaysByMemberId.get(mem.id)?.add(ymd);
+            const mode = workCountModeByMemberId.get(mem.id);
+            if (mode === 'PER_INQUIRY') {
+              inquiryCountByMemberId.set(mem.id, (inquiryCountByMemberId.get(mem.id) ?? 0) + 1);
+            } else {
+              payrollDaysByMemberId.get(mem.id)?.add(ymd);
+            }
           }
         }
       }
@@ -172,7 +190,11 @@ export async function buildPoolMemberPayrollSheetRows(
         accrualStartYmd = period.startYmd;
         accrualEndYmd = period.endYmd;
         if (periodByPayDay.has(m.monthlyPayDay)) {
-          autoDays = payrollDaysByMemberId.get(m.id)?.size ?? 0;
+          const mode = workCountModeByMemberId.get(m.id);
+          autoDays =
+            mode === 'PER_INQUIRY'
+              ? (inquiryCountByMemberId.get(m.id) ?? 0)
+              : (payrollDaysByMemberId.get(m.id)?.size ?? 0);
         }
       }
     } else {
@@ -193,6 +215,10 @@ export async function buildPoolMemberPayrollSheetRows(
     }
     if (manualExtra > 0) {
       notes.push(`수기 추가 근무 ${manualExtra}일`);
+    }
+    const poolWorkCountMode = workCountModeByMemberId.get(m.id) ?? null;
+    if (poolWorkCountMode === 'PER_INQUIRY' && autoDays !== null) {
+      notes.push('접수 건 기준 집계(크루 그룹 설정)');
     }
 
     if (jobCount != null && unitAmount != null) {
@@ -233,6 +259,7 @@ export async function buildPoolMemberPayrollSheetRows(
       notes,
       poolSystemDays: autoDays,
       poolManualExtraDays: manualExtra,
+      poolWorkCountMode,
       poolSettlementComplete: settledAmountByMemberId.has(m.id),
       poolSettledAmount: settledAmountByMemberId.get(m.id) ?? null,
       crewExpenseTotal,

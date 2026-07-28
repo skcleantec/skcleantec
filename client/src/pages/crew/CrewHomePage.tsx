@@ -27,6 +27,7 @@ export function CrewHomePage() {
   const [payDayGroups, setPayDayGroups] = useState<number[]>([]);
   const [cycleStartYmd, setCycleStartYmd] = useState<string | null>(null);
   const [cycleEndYmd, setCycleEndYmd] = useState<string | null>(null);
+  const [workCountMode, setWorkCountMode] = useState<'DISTINCT_DAY' | 'PER_INQUIRY'>('DISTINCT_DAY');
   const [stats, setStats] = useState<CrewMonthlyJobStatItem[] | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState(false);
@@ -74,6 +75,7 @@ export function CrewHomePage() {
         if (data.monthlyPayDay != null) setSelectedPayDay(data.monthlyPayDay);
         setCycleStartYmd(data.startYmd);
         setCycleEndYmd(data.endYmd);
+        setWorkCountMode(data.workCountMode ?? 'DISTINCT_DAY');
         if (payYmd != null) {
           setQueryPayYmd(data.payYmd);
           setResolvedPayYmd(data.payYmd);
@@ -127,6 +129,9 @@ export function CrewHomePage() {
       end: formatYmdDot(cycleEndYmd),
     });
   }, [cycleStartYmd, cycleEndYmd, t]);
+
+  const statsUnit =
+    workCountMode === 'PER_INQUIRY' ? t('crew.home.statsUnitInquiry') : t('crew.home.statsUnitDay');
 
   const canShiftCycle =
     selectedPayDay != null &&
@@ -299,7 +304,7 @@ export function CrewHomePage() {
                       >
                         {row.inquiryCount}
                         <span className="text-[0.58rem] font-normal text-slate-500 ml-0.5">
-                          {t('crew.home.statsUnit')}
+                          {statsUnit}
                         </span>
                       </span>
                     </div>
