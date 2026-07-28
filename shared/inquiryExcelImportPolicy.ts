@@ -51,6 +51,10 @@ export type InquiryExcelMappingSpec = {
   defaultAreaBasis?: '공급' | '전용';
   /** 특이사항1·2 등 — 순서대로 줄바꿈 결합 */
   memoLineMappings?: InquiryExcelMemoLineMapping[];
+  /** UI 복원용 — 마지막 샘플 헤더(자동 매핑 아님) */
+  knownHeaders?: string[];
+  /** 헤더별 예시 1~2칸 — 열 확인용 */
+  headerSamples?: Record<string, string[]>;
 };
 
 export type InquiryExcelRowPreviewResult = {

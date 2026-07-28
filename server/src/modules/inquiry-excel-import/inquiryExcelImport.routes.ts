@@ -14,6 +14,7 @@ import {
   executeInquiryExcelImport,
   executeInquiryExcelImportBatch,
   extractExcelHeaders,
+  extractExcelSampleInsights,
   getInquiryExcelFieldCatalog,
   getInquiryExcelProfile,
   getInquiryExcelRun,
@@ -150,8 +151,8 @@ router.post('/profiles/analyze-sample', upload.single('file'), async (req, res) 
     return;
   }
   try {
-    const headers = extractExcelHeaders(file.buffer);
-    res.json({ headers, fileName: normalizeUploadedFilename(file.originalname) });
+    const { headers, headerSamples } = extractExcelSampleInsights(file.buffer);
+    res.json({ headers, headerSamples, fileName: normalizeUploadedFilename(file.originalname) });
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : '파일 분석 실패' });
   }
@@ -172,11 +173,22 @@ router.post('/import/preview', upload.single('file'), async (req, res) => {
   }
   try {
     const fileName = normalizeUploadedFilename(file.originalname) ?? undefined;
+    let mappingSpecOverride: unknown;
+    const rawOverride = req.body.mappingSpec;
+    if (typeof rawOverride === 'string' && rawOverride.trim()) {
+      try {
+        mappingSpecOverride = JSON.parse(rawOverride) as unknown;
+      } catch {
+        res.status(400).json({ error: '매칭 규칙 형식이 올바르지 않습니다.' });
+        return;
+      }
+    }
     const result = await previewInquiryExcelImport({
       tenantId,
       profileId,
       buffer: file.buffer,
       fileName,
+      mappingSpecOverride,
     });
     res.json(result);
   } catch (e) {

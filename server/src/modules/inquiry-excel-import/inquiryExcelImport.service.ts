@@ -21,7 +21,7 @@ import { deleteInquiriesFromExcelImportRun, parseRowResults } from './inquiryExc
 import { summarizeRowResults } from './inquiryExcelImport.runSummary.js';
 import { findDuplicateInquiry } from './inquiryExcelImport.duplicate.js';
 import { mapExcelRowToInquiryBody } from './inquiryExcelImport.map.js';
-import { extractExcelHeaders, parseExcelBuffer, type ParsedExcelSheet } from './inquiryExcelImport.parse.js';
+import { extractExcelHeaders, extractExcelSampleInsights, parseExcelBuffer, type ParsedExcelSheet } from './inquiryExcelImport.parse.js';
 import { parseMappingSpec } from './inquiryExcelImport.spec.js';
 
 export async function getInquiryExcelFieldCatalog(tenantId: string) {
@@ -268,10 +268,13 @@ export async function previewInquiryExcelImport(params: {
   profileId: string;
   buffer: Buffer;
   fileName?: string;
+  mappingSpecOverride?: unknown;
 }) {
   const profile = await getInquiryExcelProfile(params.tenantId, params.profileId);
   if (!profile) throw new Error('매칭 서식을 찾을 수 없습니다.');
-  const spec = parseMappingSpec(profile.mappingSpec);
+  const spec = parseMappingSpec(
+    params.mappingSpecOverride !== undefined ? params.mappingSpecOverride : profile.mappingSpec,
+  );
   const sheet = parseExcelBuffer(params.buffer, params.fileName);
   const result = await processRows({
     tenantId: params.tenantId,
@@ -426,5 +429,5 @@ export async function undoInquiryExcelImportRun(params: {
   return result;
 }
 
-export { extractExcelHeaders, parseMappingSpec };
+export { extractExcelHeaders, extractExcelSampleInsights, parseMappingSpec };
 export { executeInquiryExcelImportBatch } from './inquiryExcelImport.batchExecute.js';

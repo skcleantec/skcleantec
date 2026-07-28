@@ -96,7 +96,7 @@ export async function deleteInquiryExcelProfile(token: string, id: string): Prom
 export async function analyzeInquiryExcelSample(
   token: string,
   file: File,
-): Promise<{ headers: string[]; fileName: string }> {
+): Promise<{ headers: string[]; headerSamples: Record<string, string[]>; fileName: string }> {
   const fd = new FormData();
   fd.append('file', file);
   const res = await fetch(`${API}/inquiry-excel-import/profiles/analyze-sample`, {
@@ -105,7 +105,7 @@ export async function analyzeInquiryExcelSample(
     body: fd,
   });
   if (!res.ok) await parseError(res, '엑셀 헤더 분석에 실패했습니다.');
-  return res.json() as Promise<{ headers: string[]; fileName: string }>;
+  return res.json() as Promise<{ headers: string[]; headerSamples: Record<string, string[]>; fileName: string }>;
 }
 
 export type InquiryExcelPreviewResponse = {
@@ -127,10 +127,14 @@ export async function previewInquiryExcelImport(
   token: string,
   profileId: string,
   file: File,
+  mappingSpecOverride?: InquiryExcelMappingSpec,
 ): Promise<InquiryExcelPreviewResponse> {
   const fd = new FormData();
   fd.append('file', file);
   fd.append('profileId', profileId);
+  if (mappingSpecOverride) {
+    fd.append('mappingSpec', JSON.stringify(mappingSpecOverride));
+  }
   const res = await fetch(`${API}/inquiry-excel-import/import/preview`, {
     method: 'POST',
     headers: authHeaders(token),

@@ -49,6 +49,10 @@ export type InquiryExcelMappingSpec = {
   defaultStatus?: string;
   defaultAreaBasis?: '공급' | '전용';
   memoLineMappings?: InquiryExcelMemoLineMapping[];
+  /** UI 복원용 — 마지막 샘플 헤더(자동 매핑 아님) */
+  knownHeaders?: string[];
+  /** 헤더별 예시 1~2칸 — 열 확인용 */
+  headerSamples?: Record<string, string[]>;
 };
 
 export type InquiryExcelRowPreviewResult = {

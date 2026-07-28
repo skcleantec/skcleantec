@@ -72,3 +72,24 @@ export function parseExcelBuffer(buffer: Buffer, fileName?: string): ParsedExcel
 export function extractExcelHeaders(buffer: Buffer): string[] {
   return parseExcelBuffer(buffer).headers;
 }
+
+/** 샘플 업로드 — 헤더 + 열별 예시 값(최대 2개, 자동 매핑 없음) */
+export function extractExcelSampleInsights(
+  buffer: Buffer,
+  maxSamplesPerHeader = 2,
+): { headers: string[]; headerSamples: Record<string, string[]> } {
+  const sheet = parseExcelBuffer(buffer);
+  const headerSamples: Record<string, string[]> = {};
+  for (const header of sheet.headers) {
+    const samples: string[] = [];
+    for (const row of sheet.rows) {
+      const value = (row[header] ?? '').trim();
+      if (!value) continue;
+      if (samples.includes(value)) continue;
+      samples.push(value);
+      if (samples.length >= maxSamplesPerHeader) break;
+    }
+    headerSamples[header] = samples;
+  }
+  return { headers: sheet.headers, headerSamples };
+}
