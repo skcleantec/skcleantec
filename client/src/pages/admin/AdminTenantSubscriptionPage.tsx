@@ -1,13 +1,30 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { fetchTenantSubscription, type TenantSubscriptionDto } from '../../api/tenantSubscription';
-import { fetchTenantBillingInvoices, fetchTenantBillingSchedule, fetchTenantBillingSummary, type TenantBillingSummary } from '../../api/tenantBilling';
+import {
+  fetchTenantBillingInvoices,
+  fetchTenantBillingSchedule,
+  fetchTenantBillingSummary,
+  type TenantBillingSummary,
+} from '../../api/tenantBilling';
 import { getToken } from '../../stores/auth';
 import { BillingPaymentConfirmationRequestButton } from '../../components/admin/BillingPaymentConfirmationRequestButton';
 import { TenantBillingDashboardStatusLine } from '../../components/admin/TenantBillingDashboardStatusLine';
 import { TenantBillingPaymentGuideModal } from '../../components/admin/TenantBillingPaymentGuideModal';
+import {
+  AdminDataTableShell,
+  DetailKeyValueTable,
+  tableCellClass,
+  tableHeadClass,
+} from '../../components/ui/DetailKeyValueTable';
 import { usagePercent } from '@shared/tenantSubscriptionUsage';
-import { TENANT_BILLING_CYCLE_LABEL, TENANT_BILLING_SCHEDULE_STATUS_LABEL, TENANT_INVOICE_STATUS_LABEL, formatNextDueDateLabel, formatBillingAnchorDayLabel } from '@shared/tenantBilling';
+import {
+  TENANT_BILLING_CYCLE_LABEL,
+  TENANT_BILLING_SCHEDULE_STATUS_LABEL,
+  TENANT_INVOICE_STATUS_LABEL,
+  formatNextDueDateLabel,
+  formatBillingAnchorDayLabel,
+} from '@shared/tenantBilling';
 import { PlanBadge, StatusBadge } from '../../utils/platformUi';
 
 const STATUS_HINT: Record<string, string> = {
@@ -27,7 +44,7 @@ function formatKoDateTime(iso: string) {
   return new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
 }
 
-function UsageMeter({
+function UsageTableRow({
   label,
   used,
   limit,
@@ -42,42 +59,44 @@ function UsageMeter({
   const over = limit != null && used > limit;
 
   return (
-    <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-sm font-medium text-gray-800">{label}</span>
-        <span className="text-sm tabular-nums text-gray-900">
-          {used.toLocaleString()}
-          {unit}
-          {limit != null ? (
-            <span className="text-gray-500"> / {limit.toLocaleString()}{unit}</span>
-          ) : (
-            <span className="ml-1 text-xs text-gray-500">(포함량 무제한)</span>
-          )}
-        </span>
-      </div>
-      {limit != null ? (
-        <>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
-            <div
-              className={[
-                'h-full rounded-full transition-all',
-                over ? 'bg-rose-500' : pct != null && pct >= 85 ? 'bg-amber-500' : 'bg-emerald-500',
-              ].join(' ')}
-              style={{ width: `${Math.min(100, pct ?? 0)}%` }}
-            />
+    <tr>
+      <th scope="row" className={`${tableCellClass} font-medium text-slate-600`}>
+        {label}
+      </th>
+      <td className={`${tableCellClass} tabular-nums text-slate-900`}>
+        {used.toLocaleString()}
+        {unit}
+      </td>
+      <td className={`${tableCellClass} tabular-nums text-slate-700`}>
+        {limit != null ? `${limit.toLocaleString()}${unit}` : '무제한'}
+      </td>
+      <td className={`${tableCellClass} text-left`}>
+        {limit != null ? (
+          <div className="min-w-[120px] space-y-1">
+            <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
+              <div
+                className={[
+                  'h-full rounded-full transition-all',
+                  over ? 'bg-rose-500' : pct != null && pct >= 85 ? 'bg-amber-500' : 'bg-emerald-500',
+                ].join(' ')}
+                style={{ width: `${Math.min(100, pct ?? 0)}%` }}
+              />
+            </div>
+            <p className="text-[10px] leading-snug text-gray-500">
+              {over ? (
+                <span className="font-medium text-rose-700">포함량 초과</span>
+              ) : pct != null && pct >= 85 ? (
+                <span className="text-amber-800">{pct}% 사용</span>
+              ) : (
+                <span>플랜 포함 기준</span>
+              )}
+            </p>
           </div>
-          <p className="mt-1.5 text-[11px] text-gray-500">
-            {over ? (
-              <span className="font-medium text-rose-700">포함량을 초과했습니다. 추후 초과분 과금이 적용될 수 있습니다.</span>
-            ) : pct != null && pct >= 85 ? (
-              <span className="text-amber-800">포함량의 {pct}% 사용 중</span>
-            ) : (
-              <span>플랜 포함 사용량 기준</span>
-            )}
-          </p>
-        </>
-      ) : null}
-    </div>
+        ) : (
+          <span className="text-[10px] text-gray-500">포함량 무제한</span>
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -131,6 +150,67 @@ export function AdminTenantSubscriptionPage() {
 
   const { tenant } = data;
 
+  const accountRows = [
+    { label: '업체 코드', value: tenant.slug },
+    { label: '이용 플랜', value: `${tenant.planLabel} (${tenant.plan})` },
+    { label: '가입일', value: formatKoDateTime(tenant.createdAt) },
+    { label: '서비스 구성 갱신일', value: formatKoDateTime(data.serviceUpdatedAt) },
+    { label: '이용 현황 기준', value: formatKoDateTime(data.usageSnapshotAt) },
+  ];
+
+  const billingRows: Array<{ label: string; value: string; valueClassName?: string }> = [];
+  if (billing) {
+    billingRows.push({
+      label: '납부 주기',
+      value: TENANT_BILLING_CYCLE_LABEL[billing.billingCycle],
+    });
+    billingRows.push({ label: '이용료', value: billing.amountLabel });
+    if (billing.trialEndsAt) {
+      billingRows.push({ label: '체험 종료', value: formatKoDateTime(billing.trialEndsAt) });
+    }
+    if (billing.serviceStartedAt) {
+      billingRows.push({ label: '서비스 시작', value: formatKoDateTime(billing.serviceStartedAt) });
+    }
+    if (billing.billingStartDate) {
+      billingRows.push({ label: '과금 시작', value: formatKoDateTime(billing.billingStartDate) });
+    }
+    if (billing.billingStartDate || billing.serviceStartedAt) {
+      const anchor = formatBillingAnchorDayLabel(billing.billingStartDate ?? billing.serviceStartedAt);
+      if (anchor) billingRows.push({ label: '결제일', value: anchor });
+    } else if (billing.billingDueDay) {
+      billingRows.push({ label: '결제일', value: `매월 ${billing.billingDueDay}일` });
+    }
+    if (billing.nextDueDate) {
+      const amount =
+        billing.nextDueAmountKrw != null
+          ? ` · ${billing.nextDueAmountKrw.toLocaleString('ko-KR')}원`
+          : '';
+      billingRows.push({
+        label: '다음 납부일',
+        value: `${formatNextDueDateLabel(billing.billingCycle, billing.nextDueDate)}${amount}`,
+      });
+    }
+    if (billing.bank.bankName || billing.bank.accountNumber) {
+      billingRows.push({
+        label: '입금 계좌',
+        value: [billing.bank.bankName, billing.bank.accountNumber, billing.bank.accountHolder]
+          .filter(Boolean)
+          .join(' · '),
+      });
+      if (billing.bank.paymentGuideText) {
+        billingRows.push({ label: '입금 안내', value: billing.bank.paymentGuideText });
+      }
+    }
+    const openInv = billing.overdueInvoice ?? billing.openInvoice;
+    if (openInv) {
+      billingRows.push({
+        label: '납부 안내',
+        value: `${openInv.amountKrw.toLocaleString('ko-KR')}원 · 납부기한 ${new Date(openInv.dueDate).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })} · ${TENANT_INVOICE_STATUS_LABEL[openInv.status as keyof typeof TENANT_INVOICE_STATUS_LABEL]}`,
+        valueClassName: 'font-medium text-amber-900',
+      });
+    }
+  }
+
   return (
     <div className="min-w-0 w-full max-w-3xl space-y-6 pb-8">
       <TenantBillingPaymentGuideModal
@@ -170,217 +250,172 @@ export function AdminTenantSubscriptionPage() {
         ) : STATUS_HINT[tenant.status] ? (
           <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">{STATUS_HINT[tenant.status]}</p>
         ) : null}
-        <dl className="grid gap-3 sm:grid-cols-2 text-sm">
-          <div>
-            <dt className="text-gray-500">업체 코드</dt>
-            <dd className="mt-0.5 font-mono text-gray-900">{tenant.slug}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">이용 플랜</dt>
-            <dd className="mt-0.5 text-gray-900">
-              {tenant.planLabel}{' '}
-              <span className="text-xs text-gray-400">({tenant.plan})</span>
-            </dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">가입일</dt>
-            <dd className="mt-0.5 text-gray-900">{formatKoDateTime(tenant.createdAt)}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">서비스 구성 갱신일</dt>
-            <dd className="mt-0.5 text-gray-900">{formatKoDateTime(data.serviceUpdatedAt)}</dd>
-          </div>
-          <div className="sm:col-span-2">
-            <dt className="text-gray-500">이용 현황 기준</dt>
-            <dd className="mt-0.5 text-gray-900">{formatKoDateTime(data.usageSnapshotAt)}</dd>
-          </div>
-        </dl>
+        <DetailKeyValueTable rows={accountRows} tone="indigo" />
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-3">
-        <h2 className="text-base font-semibold text-gray-900">사용 중인 서비스</h2>
-        <p className="text-xs text-gray-500">
-          현재 이 업체에 켜져 있는 기능 모듈입니다. 변경은 플랫폼 운영팀에서 설정합니다.
-        </p>
-        <ul className="flex flex-wrap gap-2">
-          {data.enabledServices.map((svc) => (
-            <li
-              key={svc.moduleId}
-              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-800"
-            >
-              <span>{svc.label}</span>
-              <span className="rounded bg-white px-1.5 py-0.5 text-[10px] text-gray-500">
-                {TIER_LABEL[svc.tier] ?? svc.tier}
+      <details className="group overflow-hidden rounded-lg border border-gray-200 bg-white [&_summary::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer select-none items-start gap-2 px-4 py-3 sm:px-5 sm:py-4 hover:bg-gray-50/80">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <h2 className="text-base font-semibold text-gray-900">사용 중인 서비스</h2>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-700">
+                {data.enabledServices.length}개
               </span>
-            </li>
-          ))}
-        </ul>
-      </section>
+            </div>
+            <p className="mt-1 text-xs text-gray-500 leading-relaxed">
+              현재 켜져 있는 기능 모듈 · 변경은 플랫폼 운영팀에서 설정합니다.
+            </p>
+          </div>
+          <span
+            className="mt-0.5 shrink-0 text-sm text-gray-400 transition-transform group-open:rotate-180"
+            aria-hidden
+          >
+            ▾
+          </span>
+        </summary>
+        <div className="space-y-3 border-t border-gray-100 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+          <AdminDataTableShell>
+            <colgroup>
+              <col className="w-[55%]" />
+              <col className="w-[45%]" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className={tableHeadClass}>서비스</th>
+                <th className={tableHeadClass}>등급</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.enabledServices.map((svc) => (
+                <tr key={svc.moduleId}>
+                  <td className={`${tableCellClass} text-left text-slate-800`}>{svc.label}</td>
+                  <td className={`${tableCellClass} text-slate-700`}>
+                    {TIER_LABEL[svc.tier] ?? svc.tier}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </AdminDataTableShell>
+        </div>
+      </details>
 
       <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-3">
         <h2 className="text-base font-semibold text-gray-900">현재 사용량</h2>
         <p className="text-xs text-gray-500">
           {tenant.planLabel} 플랜 포함량 대비 사용 현황입니다. (이번 달 접수는 한국 시간 기준)
         </p>
-        <div className="space-y-3">
-          {data.usage.map((row) => (
-            <UsageMeter
-              key={row.id}
-              label={row.label}
-              used={row.used}
-              limit={row.limit}
-              unit={row.unit}
-            />
-          ))}
-        </div>
+        <AdminDataTableShell tone="indigo">
+          <colgroup>
+            <col className="w-[28%]" />
+            <col className="w-[18%]" />
+            <col className="w-[18%]" />
+            <col className="w-[36%]" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th className={tableHeadClass}>항목</th>
+              <th className={tableHeadClass}>사용</th>
+              <th className={tableHeadClass}>한도</th>
+              <th className={tableHeadClass}>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.usage.map((row) => (
+              <UsageTableRow
+                key={row.id}
+                label={row.label}
+                used={row.used}
+                limit={row.limit}
+                unit={row.unit}
+              />
+            ))}
+          </tbody>
+        </AdminDataTableShell>
       </section>
 
       <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-3">
         <h2 className="text-base font-semibold text-gray-900">이용료 · 납부</h2>
         {billing ? (
           <>
-            <dl className="grid gap-3 sm:grid-cols-2 text-sm">
-              <div>
-                <dt className="text-gray-500">납부 주기</dt>
-                <dd className="mt-0.5 text-gray-900">{TENANT_BILLING_CYCLE_LABEL[billing.billingCycle]}</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">이용료</dt>
-                <dd className="mt-0.5 text-gray-900 tabular-nums">{billing.amountLabel}</dd>
-              </div>
-              {billing.trialEndsAt ? (
-                <div>
-                  <dt className="text-gray-500">체험 종료</dt>
-                  <dd className="mt-0.5 text-gray-900">{formatKoDateTime(billing.trialEndsAt)}</dd>
-                </div>
-              ) : null}
-              {billing.serviceStartedAt ? (
-                <div>
-                  <dt className="text-gray-500">서비스 시작</dt>
-                  <dd className="mt-0.5 text-gray-900">{formatKoDateTime(billing.serviceStartedAt)}</dd>
-                </div>
-              ) : null}
-              {billing.billingStartDate ? (
-                <div>
-                  <dt className="text-gray-500">과금 시작</dt>
-                  <dd className="mt-0.5 text-gray-900">{formatKoDateTime(billing.billingStartDate)}</dd>
-                </div>
-              ) : null}
-              {(billing.billingStartDate || billing.serviceStartedAt) ? (
-                <div>
-                  <dt className="text-gray-500">결제일</dt>
-                  <dd className="mt-0.5 text-gray-900">
-                    {formatBillingAnchorDayLabel(billing.billingStartDate ?? billing.serviceStartedAt)}
-                  </dd>
-                </div>
-              ) : billing.billingDueDay ? (
-                <div>
-                  <dt className="text-gray-500">결제일</dt>
-                  <dd className="mt-0.5 text-gray-900">매월 {billing.billingDueDay}일</dd>
-                </div>
-              ) : null}
-              {billing.nextDueDate ? (
-                <div>
-                  <dt className="text-gray-500">다음 납부일</dt>
-                  <dd className="mt-0.5 text-gray-900 tabular-nums">
-                    {formatNextDueDateLabel(billing.billingCycle, billing.nextDueDate)}
-                    {billing.nextDueAmountKrw != null
-                      ? ` · ${billing.nextDueAmountKrw.toLocaleString('ko-KR')}원`
-                      : ''}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-            {(billing.bank.bankName || billing.bank.accountNumber) && (
-              <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-800">
-                <p className="font-medium text-slate-900">입금 계좌</p>
-                <p className="mt-1">
-                  {[billing.bank.bankName, billing.bank.accountNumber, billing.bank.accountHolder]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
-                {billing.bank.paymentGuideText ? (
-                  <p className="mt-1 text-xs text-slate-600 whitespace-pre-wrap">{billing.bank.paymentGuideText}</p>
-                ) : null}
-              </div>
-            )}
-            {(billing.overdueInvoice || billing.openInvoice) && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 space-y-2">
-                <p className="font-medium">납부 안내</p>
-                <p>
-                  {(billing.overdueInvoice ?? billing.openInvoice)!.amountKrw.toLocaleString('ko-KR')}원 · 납부기한{' '}
-                  {new Date((billing.overdueInvoice ?? billing.openInvoice)!.dueDate).toLocaleDateString('ko-KR', {
-                    timeZone: 'Asia/Seoul',
-                  })}
-                  {' · '}
-                  {TENANT_INVOICE_STATUS_LABEL[(billing.overdueInvoice ?? billing.openInvoice)!.status as keyof typeof TENANT_INVOICE_STATUS_LABEL]}
-                </p>
-                {token && billing.paymentConfirmationEnabled ? (
-                  <BillingPaymentConfirmationRequestButton
-                    token={token}
-                    invoiceId={(billing.overdueInvoice ?? billing.openInvoice)!.id}
-                  />
-                ) : null}
-              </div>
-            )}
-            {scheduleItems.length > 0 ? (
-              <div>
-                <p className="text-sm font-medium text-gray-800 mb-2">납부 예정 일정</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[420px] text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200 text-gray-500">
-                        <th className="py-2 text-center font-medium">납부일</th>
-                        <th className="py-2 text-center font-medium">금액</th>
-                        <th className="py-2 text-center font-medium">상태</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {scheduleItems.map((row) => (
-                        <tr key={`${row.periodStart}-${row.dueDate}`} className="border-b border-gray-100">
-                          <td className="py-2 text-center text-xs">
-                            {new Date(row.dueDate).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
-                          </td>
-                          <td className="py-2 text-center tabular-nums">
-                            {row.amountKrw.toLocaleString('ko-KR')}원
-                          </td>
-                          <td className="py-2 text-center text-xs">
-                            {TENANT_BILLING_SCHEDULE_STATUS_LABEL[
-                              row.status as keyof typeof TENANT_BILLING_SCHEDULE_STATUS_LABEL
-                            ] ?? row.status}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+            <DetailKeyValueTable rows={billingRows} />
+            {(billing.overdueInvoice ?? billing.openInvoice) && token && billing.paymentConfirmationEnabled ? (
+              <div className="flex flex-wrap gap-2">
+                <BillingPaymentConfirmationRequestButton
+                  token={token}
+                  invoiceId={(billing.overdueInvoice ?? billing.openInvoice)!.id}
+                />
               </div>
             ) : null}
-            {invoices.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[480px] text-sm">
+            {scheduleItems.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-800">납부 예정 일정</p>
+                <AdminDataTableShell>
+                  <colgroup>
+                    <col className="w-[34%]" />
+                    <col className="w-[33%]" />
+                    <col className="w-[33%]" />
+                  </colgroup>
                   <thead>
-                    <tr className="border-b border-gray-200 text-gray-500">
-                      <th className="py-2 text-center font-medium">기간</th>
-                      <th className="py-2 text-center font-medium">금액</th>
-                      <th className="py-2 text-center font-medium">상태</th>
+                    <tr>
+                      <th className={tableHeadClass}>납부일</th>
+                      <th className={tableHeadClass}>금액</th>
+                      <th className={tableHeadClass}>상태</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {invoices.slice(0, 6).map((inv) => (
-                      <tr key={inv.id} className="border-b border-gray-100">
-                        <td className="py-2 text-center text-xs">
-                          {new Date(inv.periodStart).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })} ~{' '}
-                          {new Date(inv.periodEnd).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
+                    {scheduleItems.map((row) => (
+                      <tr key={`${row.periodStart}-${row.dueDate}`}>
+                        <td className={`${tableCellClass} text-xs`}>
+                          {new Date(row.dueDate).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
                         </td>
-                        <td className="py-2 text-center tabular-nums">{inv.amountKrw.toLocaleString('ko-KR')}원</td>
-                        <td className="py-2 text-center">
-                          {TENANT_INVOICE_STATUS_LABEL[inv.status as keyof typeof TENANT_INVOICE_STATUS_LABEL] ?? inv.status}
+                        <td className={`${tableCellClass} tabular-nums`}>
+                          {row.amountKrw.toLocaleString('ko-KR')}원
+                        </td>
+                        <td className={`${tableCellClass} text-xs`}>
+                          {TENANT_BILLING_SCHEDULE_STATUS_LABEL[
+                            row.status as keyof typeof TENANT_BILLING_SCHEDULE_STATUS_LABEL
+                          ] ?? row.status}
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </AdminDataTableShell>
+              </div>
+            ) : null}
+            {invoices.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-800">청구 내역</p>
+                <AdminDataTableShell>
+                  <colgroup>
+                    <col className="w-[46%]" />
+                    <col className="w-[27%]" />
+                    <col className="w-[27%]" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className={tableHeadClass}>기간</th>
+                      <th className={tableHeadClass}>금액</th>
+                      <th className={tableHeadClass}>상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.slice(0, 6).map((inv) => (
+                      <tr key={inv.id}>
+                        <td className={`${tableCellClass} text-xs`}>
+                          {new Date(inv.periodStart).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })} ~{' '}
+                          {new Date(inv.periodEnd).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
+                        </td>
+                        <td className={`${tableCellClass} tabular-nums`}>
+                          {inv.amountKrw.toLocaleString('ko-KR')}원
+                        </td>
+                        <td className={tableCellClass}>
+                          {TENANT_INVOICE_STATUS_LABEL[inv.status as keyof typeof TENANT_INVOICE_STATUS_LABEL] ??
+                            inv.status}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </AdminDataTableShell>
               </div>
             ) : null}
           </>

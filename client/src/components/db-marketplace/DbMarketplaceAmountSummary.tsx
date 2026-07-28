@@ -80,6 +80,27 @@ export function resolveMarketplaceServiceDeposit(row: MarketplaceAmountRow): num
   return null;
 }
 
+export function marketplaceAmountSummaryRows(row: MarketplaceAmountRow): Array<{
+  label: string;
+  value: string;
+  valueClassName?: string;
+}> {
+  const total = resolveMarketplaceServiceTotal(row);
+  const deposit = resolveMarketplaceServiceDeposit(row);
+  const fee = resolveMarketplaceBuyerTotalFee(row);
+  const balance = resolveMarketplaceServiceBalance(row);
+  const priorFees = resolveMarketplacePriorFees(row);
+  const feeValue =
+    priorFees > 0 ? `${formatWon(fee)} (앞선 판매 ${formatWon(priorFees)} 포함)` : formatWon(fee);
+
+  return [
+    { label: '총액', value: formatWon(total), valueClassName: 'font-semibold text-slate-900' },
+    { label: '예약금', value: formatWon(deposit), valueClassName: 'font-semibold text-slate-800' },
+    { label: '수수료', value: feeValue, valueClassName: 'font-semibold text-violet-900' },
+    { label: '잔금', value: formatWon(balance), valueClassName: 'font-semibold text-slate-900' },
+  ];
+}
+
 export function DbMarketplaceAmountSummaryBlock({
   row,
   compact = false,
@@ -89,34 +110,17 @@ export function DbMarketplaceAmountSummaryBlock({
   /** @deprecated 더 이상 사용하지 않음 */
   showSellerFee?: boolean;
 }) {
-  const total = resolveMarketplaceServiceTotal(row);
-  const deposit = resolveMarketplaceServiceDeposit(row);
-  const fee = resolveMarketplaceBuyerTotalFee(row);
-  const balance = resolveMarketplaceServiceBalance(row);
-  const priorFees = resolveMarketplacePriorFees(row);
+  const rows = marketplaceAmountSummaryRows(row);
   const text = compact ? 'text-fluid-2xs' : 'text-[10px] sm:text-[11px]';
 
   return (
     <div className={`space-y-0.5 tabular-nums text-gray-700 ${text}`}>
-      <p>
-        <span className="text-gray-500">총액 </span>
-        <span className="font-semibold text-slate-900">{formatWon(total)}</span>
-      </p>
-      <p>
-        <span className="text-gray-500">예약금 </span>
-        <span className="font-semibold text-slate-800">{formatWon(deposit)}</span>
-      </p>
-      <p>
-        <span className="text-gray-500">수수료 </span>
-        <span className="font-semibold text-violet-900">{formatWon(fee)}</span>
-        {priorFees > 0 ? (
-          <span className="text-gray-500"> (앞선 판매 {formatWon(priorFees)} 포함)</span>
-        ) : null}
-      </p>
-      <p>
-        <span className="text-gray-500">잔금 </span>
-        <span className="font-semibold text-slate-900">{formatWon(balance)}</span>
-      </p>
+      {rows.map(({ label, value, valueClassName }) => (
+        <p key={label}>
+          <span className="text-gray-500">{label} </span>
+          <span className={valueClassName ?? 'font-semibold text-slate-900'}>{value}</span>
+        </p>
+      ))}
     </div>
   );
 }

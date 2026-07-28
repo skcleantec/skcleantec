@@ -14,6 +14,7 @@ import {
   PlatformSmtpSettingsSection,
   smtpFormFromSettings,
   smtpPatchFromForm,
+  validatePlatformSmtpForm,
   type PlatformSmtpFormState,
 } from '../../../components/platform/PlatformSmtpSettingsSection';
 
@@ -55,14 +56,9 @@ export function PlatformSettingsSmtpTab() {
   const save = async () => {
     const token = getPlatformToken();
     if (!token || !smtpForm) return;
-    const host = smtpForm.smtpHost.trim();
-    const from = smtpForm.smtpFrom.trim();
-    if (!host || !from) {
-      setError('SMTP 호스트·보내는 사람 표시를 입력해 주세요.');
-      return;
-    }
-    if (!smtpForm.smtpPassword.trim() && !smtpForm.smtpPasswordConfigured) {
-      setError('앱 비밀번호를 입력해 주세요.');
+    const validationError = validatePlatformSmtpForm(smtpForm);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setSaving(true);
@@ -73,7 +69,7 @@ export function PlatformSettingsSmtpTab() {
         smtp: smtpPatchFromForm(smtpForm),
       });
       await load();
-      setMessage('SMTP 설정이 저장되었습니다.');
+      setMessage('메일 연결 설정이 저장되었습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
     } finally {
@@ -112,7 +108,7 @@ export function PlatformSettingsSmtpTab() {
       <section className={CARD_SECTION}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">메일 발송 (SMTP)</h2>
+            <h2 className="text-sm font-semibold text-gray-900">알림 메일 보내기</h2>
             <p className="mt-1 text-xs text-gray-500">
               입금 확인 요청·도움말 문의 등 플랫폼에서 보내는 알림 메일에 사용합니다.
             </p>
@@ -128,7 +124,7 @@ export function PlatformSettingsSmtpTab() {
             testing={smtpTesting}
           />
         </div>
-        <p className="mt-3 text-xs text-gray-500">변경 후 「저장」한 뒤 테스트 발송해 주세요.</p>
+        <p className="mt-3 text-xs text-gray-500">변경 후 「저장」한 뒤 연습 메일을 보내 확인해 주세요.</p>
         <div className="mt-4 flex justify-end">
           <button type="button" disabled={saving} onClick={() => void save()} className={BTN_PRIMARY}>
             {saving ? '저장 중…' : '저장'}

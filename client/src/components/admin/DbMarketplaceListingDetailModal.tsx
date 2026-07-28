@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
@@ -24,7 +25,7 @@ import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { ModalCloseButton } from './ModalCloseButton';
 import { DbMarketplaceCleaningDetailCard } from './DbMarketplaceCleaningDetailCard';
-import { DbMarketplaceAmountSummaryBlock } from '../db-marketplace/DbMarketplaceAmountSummary';
+import { DbMarketplaceListingSummaryCard } from './DbMarketplaceListingSummaryCard';
 import { canBuyerDeclinePriorityMarketplaceItem } from '../../utils/dbMarketplaceBulk';
 import type { DbMarketplaceAudienceItem } from '../../api/dbMarketplace';
 
@@ -355,11 +356,18 @@ export function DbMarketplaceListingDetailModal({
           : null
       : null;
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
-      <div className="flex w-full max-w-lg max-h-[min(90vh,100dvh)] flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-xl">
-        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
-          <h2 className="text-fluid-sm font-semibold text-slate-900">정보공유 상세</h2>
+  return createPortal(
+    <div
+      className="modal-mobile-safe-overlay fixed inset-0 z-[500] flex flex-col justify-end bg-black/40 p-0 sm:flex-row sm:items-start sm:justify-center sm:overflow-y-auto sm:p-4 sm:pt-24"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="db-marketplace-listing-detail-title"
+    >
+      <div className="flex w-full max-w-lg max-h-[min(90vh,100dvh)] flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-xl sm:my-auto">
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 py-3 rounded-t-2xl sm:rounded-t-2xl">
+          <h2 id="db-marketplace-listing-detail-title" className="text-fluid-sm font-semibold text-slate-900">
+            정보공유 상세
+          </h2>
           <ModalCloseButton onClick={onClose} />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4 space-y-3 text-fluid-xs" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -379,30 +387,7 @@ export function DbMarketplaceListingDetailModal({
             </p>
           ) : null}
 
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-1.5 break-words">
-            <p>
-              <span className="text-gray-500">판매 업체</span> {d.sellerTenantName}
-            </p>
-            <DbMarketplaceAmountSummaryBlock
-              row={{
-                serviceTotalAmount: d.serviceTotalAmount ?? d.inquiryFull?.serviceTotalAmount,
-                serviceDepositAmount: d.serviceDepositAmount ?? d.inquiryFull?.serviceDepositAmount,
-                customerBalanceAmount: d.customerBalanceAmount,
-                displayAmount: d.displayAmount,
-                listingFee: d.listingFee,
-                priorFeesTotal: d.priorFeesTotal,
-                buyerTotalFee: d.buyerTotalFee,
-              }}
-            />
-            <p>
-              <span className="text-gray-500">고객</span> {d.customerNameMasked} · {d.addressRegion}
-            </p>
-            {d.buyerName ? (
-              <p>
-                <span className="text-gray-500">구매 신청</span> {d.buyerName}
-              </p>
-            ) : null}
-          </div>
+          <DbMarketplaceListingSummaryCard row={d} />
 
           {d.role === 'SELLER' && apiMode === 'admin' ? (
             <DbMarketplacePublishAudienceBlock visibility={d.visibility} audiences={d.audiences} />
@@ -603,6 +588,7 @@ export function DbMarketplaceListingDetailModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
