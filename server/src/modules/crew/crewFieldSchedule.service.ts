@@ -6,7 +6,8 @@ import { dateToYmdKst, isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { getDayRosterInRange } from '../team-crew-groups/crewGroupDayRoster.service.js';
 import { effectiveCrewMeetingTimeForDisplay } from '../inquiries/crewMeetingTime.helpers.js';
 import { resolveMemberMeetingTimeRaw } from '../inquiries/inquiryCrewMemberMeetingTime.service.js';
-import { payrollAccrualPeriodForPaymentDate, currentCyclePayYmdKst } from '../teams/teamMemberPayrollCycle.js';
+import { payrollAccrualPeriodForPaymentDate, currentCyclePayYmdKst, payrollCyclePreferredDateWhere, countMatchedWorkUnits } from '../teams/teamMemberPayrollCycle.js';
+import type { CrewWorkCountMode } from '../../lib/crewGroupSettings.js';
 
 const NOTE_SPLIT = /[,·/|]/g;
 
@@ -292,13 +293,14 @@ export async function buildCrewFieldSchedule(
   return { useDailyRosterOnly: rosterMode, availabilityMode: group.availabilityMode, days };
 }
 
-/** 홈 월별 막대그래프 — 현장 일정과 동일: 취소·보류 제외 접수 + `crewMemberNote` 이름 매칭 건만 집계 */
+/** 홈 월별 막대그래프 — 취소·보류 제외 + 현장 메모 이름 매칭, 그룹 집계 방식 적용 */
 export async function getCrewMonthlyInquiryStats(
   groupId: string,
   monthKey: string
 ): Promise<{
   month: string;
   useDailyRosterOnly: boolean;
+  workCountMode: CrewWorkCountMode;
   items: Array<{
     teamMemberId: string;
     name: string;
@@ -313,18 +315,12 @@ export async function getCrewMonthlyInquiryStats(
   const startYmd = dateToYmdKst(range.gte);
   const endYmd = dateToYmdKst(range.lte);
 
-  let built: { useDailyRosterOnly: boolean; days: CrewFieldDayOut[] };
-  try {
-    built = await buildCrewFieldSchedule(groupId, startYmd, endYmd);
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg === 'CREW_GROUP_NOT_FOUND') return null;
-    throw e;
-  }
-
   const group = await prisma.teamCrewGroup.findUnique({
     where: { id: groupId },
     select: {
+      tenantId: true,
+      availabilityMode: true,
+      workCountMode: true,
       members: {
         include: {
           teamMember: { select: { id: true, name: true, nameTh: true, isActive: true } },
@@ -335,26 +331,37 @@ export async function getCrewMonthlyInquiryStats(
   });
   if (!group) return null;
 
-  const counts = new Map<string, number>();
-  for (const day of built.days) {
-    for (const m of day.members) {
-      const n = m.inquiries.length;
-      if (n > 0) counts.set(m.teamMemberId, (counts.get(m.teamMemberId) ?? 0) + n);
-    }
-  }
+  const bounds = payrollCyclePreferredDateWhere(startYmd, endYmd);
+  const inquiries = await prisma.inquiry.findMany({
+    where: {
+      tenantId: group.tenantId,
+      preferredDate: { gte: bounds.gte, lte: bounds.lte },
+      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+    },
+    select: { crewMemberNote: true, preferredDate: true },
+  });
 
   const items = group.members.map((gm) => ({
     teamMemberId: gm.teamMemberId,
     name: gm.teamMember.name,
     nameTh: gm.teamMember.nameTh,
     isActive: gm.teamMember.isActive,
-    inquiryCount: counts.get(gm.teamMemberId) ?? 0,
+    inquiryCount: countMatchedWorkUnits(
+      inquiries,
+      gm.teamMember,
+      group.workCountMode,
+    ),
   }));
 
-  return { month: monthKey, useDailyRosterOnly: built.useDailyRosterOnly, items };
+  return {
+    month: monthKey,
+    useDailyRosterOnly: isCrewGroupRosterMode(group.availabilityMode),
+    workCountMode: group.workCountMode,
+    items,
+  };
 }
 
-/** 홈 급여 주기별 접수 건수 — 월급일~다음 월급일 전날, 해당 월급일 그룹 멤버만 */
+/** 홈 급여 주기별 실적 — 월급일~다음 월급일 전날, 해당 월급일 그룹 멤버만 */
 export async function getCrewPayrollCycleInquiryStats(
   groupId: string,
   opts?: { monthlyPayDay?: number; payYmd?: string },
@@ -365,6 +372,7 @@ export async function getCrewPayrollCycleInquiryStats(
   endYmd: string | null;
   payDayGroups: number[];
   useDailyRosterOnly: boolean;
+  workCountMode: CrewWorkCountMode;
   items: Array<{
     teamMemberId: string;
     name: string;
@@ -377,6 +385,9 @@ export async function getCrewPayrollCycleInquiryStats(
   const group = await prisma.teamCrewGroup.findUnique({
     where: { id: groupId },
     select: {
+      tenantId: true,
+      availabilityMode: true,
+      workCountMode: true,
       members: {
         include: {
           teamMember: {
@@ -404,7 +415,8 @@ export async function getCrewPayrollCycleInquiryStats(
       startYmd: null,
       endYmd: null,
       payDayGroups: [],
-      useDailyRosterOnly: false,
+      useDailyRosterOnly: isCrewGroupRosterMode(group.availabilityMode),
+      workCountMode: group.workCountMode,
       items: [],
     };
   }
@@ -425,22 +437,15 @@ export async function getCrewPayrollCycleInquiryStats(
   const period = payrollAccrualPeriodForPaymentDate(payYmd, monthlyPayDay);
   if (!period) return null;
 
-  let built: { useDailyRosterOnly: boolean; days: CrewFieldDayOut[] };
-  try {
-    built = await buildCrewFieldSchedule(groupId, period.startYmd, period.endYmd);
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg === 'CREW_GROUP_NOT_FOUND') return null;
-    throw e;
-  }
-
-  const counts = new Map<string, number>();
-  for (const day of built.days) {
-    for (const m of day.members) {
-      const n = m.inquiries.length;
-      if (n > 0) counts.set(m.teamMemberId, (counts.get(m.teamMemberId) ?? 0) + n);
-    }
-  }
+  const bounds = payrollCyclePreferredDateWhere(period.startYmd, period.endYmd);
+  const inquiries = await prisma.inquiry.findMany({
+    where: {
+      tenantId: group.tenantId,
+      preferredDate: { gte: bounds.gte, lte: bounds.lte },
+      status: { notIn: ['CANCELLED', 'ON_HOLD'] },
+    },
+    select: { crewMemberNote: true, preferredDate: true },
+  });
 
   const items = group.members
     .filter((gm) => gm.teamMember.monthlyPayDay === monthlyPayDay)
@@ -450,7 +455,7 @@ export async function getCrewPayrollCycleInquiryStats(
       nameTh: gm.teamMember.nameTh,
       isActive: gm.teamMember.isActive,
       monthlyPayDay: gm.teamMember.monthlyPayDay,
-      inquiryCount: counts.get(gm.teamMemberId) ?? 0,
+      inquiryCount: countMatchedWorkUnits(inquiries, gm.teamMember, group.workCountMode),
     }));
 
   return {
@@ -459,7 +464,8 @@ export async function getCrewPayrollCycleInquiryStats(
     startYmd: period.startYmd,
     endYmd: period.endYmd,
     payDayGroups,
-    useDailyRosterOnly: built.useDailyRosterOnly,
+    useDailyRosterOnly: isCrewGroupRosterMode(group.availabilityMode),
+    workCountMode: group.workCountMode,
     items,
   };
 }

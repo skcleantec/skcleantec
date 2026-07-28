@@ -11,6 +11,7 @@ import {
   mapCrewGroupPublicFields,
   resolveAvailabilityModeFromBody,
   resolveCrewUiLanguageFromBody,
+  resolveWorkCountModeFromBody,
 } from './crewGroupSettings.helpers.js';
 
 const router = Router();
@@ -98,6 +99,7 @@ router.post('/', async (req, res) => {
     availabilityMode?: string;
     crewUiLanguage?: string;
     allowCrewDayOffEdit?: boolean;
+    workCountMode?: string;
     settingsPassword?: string | null;
     adminPassword?: string;
   };
@@ -138,6 +140,7 @@ router.post('/', async (req, res) => {
   const crewUiLanguage = resolveCrewUiLanguageFromBody(body);
   const allowCrewDayOffEdit =
     availabilityMode === 'DAY_OFF' ? Boolean(body.allowCrewDayOffEdit) : false;
+  const workCountMode = resolveWorkCountModeFromBody(body);
 
   let settingsPasswordHash: string | null = null;
   const sp = body.settingsPassword != null ? String(body.settingsPassword) : '';
@@ -160,6 +163,7 @@ router.post('/', async (req, res) => {
         availabilityMode,
         crewUiLanguage,
         allowCrewDayOffEdit,
+        workCountMode,
         settingsPasswordHash,
       },
     });
@@ -266,6 +270,7 @@ router.patch('/:groupId', async (req, res) => {
     availabilityMode?: string;
     crewUiLanguage?: string;
     allowCrewDayOffEdit?: boolean;
+    workCountMode?: string;
     isActive?: boolean;
     password?: string | null;
     settingsPassword?: string | null;
@@ -297,6 +302,7 @@ router.patch('/:groupId', async (req, res) => {
     availabilityMode?: 'ROSTER' | 'DAY_OFF';
     crewUiLanguage?: 'KO' | 'TH' | 'MN';
     allowCrewDayOffEdit?: boolean;
+    workCountMode?: 'DISTINCT_DAY' | 'PER_INQUIRY';
     isActive?: boolean;
     passwordHash?: string;
     settingsPasswordHash?: string | null;
@@ -326,6 +332,9 @@ router.patch('/:groupId', async (req, res) => {
   if (body.allowCrewDayOffEdit !== undefined) {
     const mode = data.availabilityMode ?? group.availabilityMode;
     data.allowCrewDayOffEdit = mode === 'DAY_OFF' ? Boolean(body.allowCrewDayOffEdit) : false;
+  }
+  if (body.workCountMode !== undefined) {
+    data.workCountMode = resolveWorkCountModeFromBody(body);
   }
   if (body.isActive !== undefined) {
     data.isActive = Boolean(body.isActive);

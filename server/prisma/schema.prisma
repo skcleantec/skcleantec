@@ -1231,6 +1231,12 @@ enum CrewUiLanguage {
   MN
 }
 
+/// 크루 그룹 급여·실적 집계 단위
+enum CrewWorkCountMode {
+  DISTINCT_DAY
+  PER_INQUIRY
+}
+
 /// 태국인 팀원 등 공유 로그인으로 같은 화면을 보는 크루 그룹(팀원 관리에서 생성·설정)
 model TeamCrewGroup {
   id     String @id @default(uuid())
@@ -1247,6 +1253,8 @@ model TeamCrewGroup {
   crewUiLanguage CrewUiLanguage @default(KO) @map("crew_ui_language")
   /// DAY_OFF 그룹 — 크루 앱에서 휴무일 등록 허용(관리자 ON/OFF)
   allowCrewDayOffEdit Boolean @default(false) @map("allow_crew_day_off_edit")
+  /// DISTINCT_DAY: KST 예약일 기준 1일 1회. PER_INQUIRY: 현장 메모 매칭 접수 건수
+  workCountMode CrewWorkCountMode @default(DISTINCT_DAY) @map("work_count_mode")
   /// 민감 설정 시 별도 확인용 비밀번호(공유 로그인 비번과 별개). null이면 미설정
   settingsPasswordHash String? @map("settings_password_hash")
   isActive Boolean @default(true) @map("is_active")

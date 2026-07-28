@@ -366,6 +366,7 @@ export type CrewPayCycleJobStatsResponse = {
   endYmd: string | null;
   payDayGroups: number[];
   useDailyRosterOnly: boolean;
+  workCountMode: 'DISTINCT_DAY' | 'PER_INQUIRY';
   items: CrewMonthlyJobStatItem[];
 };
 

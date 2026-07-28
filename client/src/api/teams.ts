@@ -32,8 +32,10 @@ export interface TeamMemberItem {
   monthlyPayDay?: number | null;
   /** 1일 급여·일당(원). 미설정 시 null — 월 급여표에서 근무일 수×일당 계산 */
   payAmountPerJob?: number | null;
-  /** 설정된 급여 주기(월급일~다음 월급 전일) 안 접수 예약일 기준·메모 이름 매칭 청소 건수 */
+  /** 설정된 급여 주기 안 집계 수(그룹 설정: 근무일 또는 건) */
   payCycleJobCount?: number | null;
+  /** payCycleJobCount 단위 — 소속 크루 그룹 workCountMode */
+  payCycleWorkCountMode?: 'DISTINCT_DAY' | 'PER_INQUIRY' | null;
   payCycleStartYmd?: string | null;
   payCycleEndYmd?: string | null;
   createdAt: string;

@@ -4,6 +4,8 @@
 /** 크루 그룹 가용·UI 설정 — 클라이언트·서버 공통 */
 export type CrewGroupAvailabilityMode = 'ROSTER' | 'DAY_OFF';
 export type CrewUiLanguage = 'KO' | 'TH' | 'MN';
+/** 급여·집계 — 같은 KST 예약일 여러 건을 1로 볼지, 접수 건마다 셀지 */
+export type CrewWorkCountMode = 'DISTINCT_DAY' | 'PER_INQUIRY';
 
 export const CREW_AVAILABILITY_MODES: CrewGroupAvailabilityMode[] = ['ROSTER', 'DAY_OFF'];
 
@@ -19,6 +21,24 @@ export const CREW_UI_LANGUAGE_LABELS: Record<CrewUiLanguage, string> = {
   TH: '태국어',
   MN: '몽골어',
 };
+
+export const CREW_WORK_COUNT_MODES: CrewWorkCountMode[] = ['DISTINCT_DAY', 'PER_INQUIRY'];
+
+export const CREW_WORK_COUNT_MODE_LABELS: Record<CrewWorkCountMode, string> = {
+  DISTINCT_DAY: '근무일 (하루 여러 건 → 1)',
+  PER_INQUIRY: '접수 건 (건당)',
+};
+
+export const DEFAULT_CREW_WORK_COUNT_MODE: CrewWorkCountMode = 'DISTINCT_DAY';
+
+export function parseCrewWorkCountMode(raw: unknown): CrewWorkCountMode | null {
+  if (raw === 'DISTINCT_DAY' || raw === 'PER_INQUIRY') return raw;
+  return null;
+}
+
+export function crewWorkCountUnitLabel(mode: CrewWorkCountMode): '일' | '건' {
+  return mode === 'PER_INQUIRY' ? '건' : '일';
+}
 
 export function isCrewGroupRosterMode(mode: CrewGroupAvailabilityMode): boolean {
   return mode === 'ROSTER';

@@ -35,6 +35,8 @@ import {
 } from '../../components/admin/TeamMemberNationalityFields';
 import {
   crewUiLanguageShowsAltMemberName,
+  crewWorkCountUnitLabel,
+  DEFAULT_CREW_WORK_COUNT_MODE,
   type CrewGroupAvailabilityMode,
   type CrewUiLanguage,
 } from '@shared/crewGroupSettings';
@@ -173,6 +175,7 @@ export function AdminTeamsPage() {
     availabilityMode: 'DAY_OFF' as CrewGroupAvailabilityMode,
     crewUiLanguage: 'KO' as CrewUiLanguage,
     allowCrewDayOffEdit: false,
+    workCountMode: DEFAULT_CREW_WORK_COUNT_MODE,
     settingsPassword: '',
     adminPassword: '',
   });
@@ -185,6 +188,7 @@ export function AdminTeamsPage() {
     availabilityMode: 'DAY_OFF' as CrewGroupAvailabilityMode,
     crewUiLanguage: 'KO' as CrewUiLanguage,
     allowCrewDayOffEdit: false,
+    workCountMode: DEFAULT_CREW_WORK_COUNT_MODE,
     isActive: true,
     newPassword: '',
     newSettingsPassword: '',
@@ -423,6 +427,7 @@ export function AdminTeamsPage() {
       availabilityMode: g.availabilityMode ?? (g.useDailyRosterOnly ? 'ROSTER' : 'DAY_OFF'),
       crewUiLanguage: g.crewUiLanguage ?? 'KO',
       allowCrewDayOffEdit: g.allowCrewDayOffEdit ?? false,
+      workCountMode: g.workCountMode ?? DEFAULT_CREW_WORK_COUNT_MODE,
       isActive: g.isActive,
       newPassword: '',
       newSettingsPassword: '',
@@ -467,6 +472,7 @@ export function AdminTeamsPage() {
         availabilityMode: crewCreateForm.availabilityMode,
         crewUiLanguage: crewCreateForm.crewUiLanguage,
         allowCrewDayOffEdit: crewCreateForm.allowCrewDayOffEdit,
+        workCountMode: crewCreateForm.workCountMode,
         settingsPassword: settingsPassword || null,
         adminPassword,
       });
@@ -479,6 +485,7 @@ export function AdminTeamsPage() {
         availabilityMode: 'DAY_OFF',
         crewUiLanguage: 'KO',
         allowCrewDayOffEdit: false,
+        workCountMode: DEFAULT_CREW_WORK_COUNT_MODE,
         settingsPassword: '',
         adminPassword: '',
       });
@@ -544,6 +551,9 @@ export function AdminTeamsPage() {
     if (crewEditForm.allowCrewDayOffEdit !== orig.allowCrewDayOffEdit) {
       body.allowCrewDayOffEdit = crewEditForm.allowCrewDayOffEdit;
     }
+    if (crewEditForm.workCountMode !== (orig.workCountMode ?? DEFAULT_CREW_WORK_COUNT_MODE)) {
+      body.workCountMode = crewEditForm.workCountMode;
+    }
     if (crewEditForm.isActive !== orig.isActive) body.isActive = crewEditForm.isActive;
 
     if (body.loginId !== undefined && !CREW_LOGIN_ID_RE.test(String(body.loginId).trim())) {
@@ -592,6 +602,7 @@ export function AdminTeamsPage() {
         availabilityMode: updated.availabilityMode ?? (updated.useDailyRosterOnly ? 'ROSTER' : 'DAY_OFF'),
         crewUiLanguage: updated.crewUiLanguage ?? 'KO',
         allowCrewDayOffEdit: updated.allowCrewDayOffEdit ?? false,
+        workCountMode: updated.workCountMode ?? DEFAULT_CREW_WORK_COUNT_MODE,
         isActive: updated.isActive,
         newPassword: '',
         newSettingsPassword: '',
@@ -893,9 +904,11 @@ export function AdminTeamsPage() {
                           m.payCycleEndYmd ? (
                             <span
                               className="text-xs text-blue-800 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded tabular-nums shrink-0"
-                              title={`급여 주기(KST): ${m.payCycleStartYmd} ~ ${m.payCycleEndYmd}. 접수 예약일 기준·현장 투입 메모(이름) 일치 건만 집계합니다.`}
+                              title={`급여 주기(KST): ${m.payCycleStartYmd} ~ ${m.payCycleEndYmd}. 소속 크루 그룹 집계 방식·현장 투입 메모(이름) 일치분만 반영합니다.`}
                             >
-                              급여주기 {m.payCycleJobCount}건 ({formatPayCycleRangeShort(m.payCycleStartYmd, m.payCycleEndYmd)})
+                              급여주기 {m.payCycleJobCount}
+                              {crewWorkCountUnitLabel(m.payCycleWorkCountMode ?? 'DISTINCT_DAY')} (
+                              {formatPayCycleRangeShort(m.payCycleStartYmd, m.payCycleEndYmd)})
                             </span>
                           ) : null}
                           {(m.nameTh ?? '').trim() ? (
@@ -1509,6 +1522,7 @@ export function AdminTeamsPage() {
                     availabilityMode: crewCreateForm.availabilityMode,
                     crewUiLanguage: crewCreateForm.crewUiLanguage,
                     allowCrewDayOffEdit: crewCreateForm.allowCrewDayOffEdit,
+                    workCountMode: crewCreateForm.workCountMode,
                   }}
                   onChange={(next) =>
                     setCrewCreateForm((p) => ({
@@ -1516,6 +1530,7 @@ export function AdminTeamsPage() {
                       availabilityMode: next.availabilityMode,
                       crewUiLanguage: next.crewUiLanguage,
                       allowCrewDayOffEdit: next.allowCrewDayOffEdit,
+                      workCountMode: next.workCountMode,
                     }))
                   }
                 />
@@ -1622,6 +1637,7 @@ export function AdminTeamsPage() {
                     availabilityMode: crewEditForm.availabilityMode,
                     crewUiLanguage: crewEditForm.crewUiLanguage,
                     allowCrewDayOffEdit: crewEditForm.allowCrewDayOffEdit,
+                    workCountMode: crewEditForm.workCountMode,
                   }}
                   onChange={(next) =>
                     setCrewEditForm((p) => ({
@@ -1629,6 +1645,7 @@ export function AdminTeamsPage() {
                       availabilityMode: next.availabilityMode,
                       crewUiLanguage: next.crewUiLanguage,
                       allowCrewDayOffEdit: next.allowCrewDayOffEdit,
+                      workCountMode: next.workCountMode,
                     }))
                   }
                 />

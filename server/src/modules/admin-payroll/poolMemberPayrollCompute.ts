@@ -1,12 +1,14 @@
 import type { PrismaClient } from '@prisma/client';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 import {
+  countMatchedWorkUnits,
   crewMemberNoteIncludesTeamMember,
-  distinctPayrollDaysForPoolMember,
   payYmdInMonth,
   payrollAccrualPeriodForPaymentDate,
   payrollCyclePreferredDateWhere,
 } from '../teams/teamMemberPayrollCycle.js';
+import { loadWorkCountModeByMemberId } from '../teams/crewWorkCount.helpers.js';
+import type { CrewWorkCountMode } from '../../lib/crewGroupSettings.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 import { sumLedgerManualPoolMemberDeductionsByMonth } from './payrollLedgerManualPayrollDeductions.js';
 
@@ -38,6 +40,8 @@ export type PoolMemberPayrollComputation = {
   unitAmount: number | null;
   poolSystemDays: number | null;
   poolManualExtraDays: number;
+  /** 소속 크루 그룹 집계 방식 */
+  workCountMode: CrewWorkCountMode | null;
   jobCount: number | null;
   /** 근무일×일당 예상 급여(차감 전) */
   amount: number | null;
@@ -126,6 +130,8 @@ export async function computePoolMemberPayrollDetail(
   let lines: PayrollDetailLineOut[] = [];
   let poolSystemDays: number | null = null;
   let autoDays: number | null = null;
+  const workCountMode =
+    (await loadWorkCountModeByMemberId(prisma, tenantId, [teamMemberId])).get(teamMemberId) ?? null;
 
   if (payDateYmd && accrualStartYmd && accrualEndYmd) {
     const bounds = payrollCyclePreferredDateWhere(accrualStartYmd, accrualEndYmd);
@@ -146,12 +152,13 @@ export async function computePoolMemberPayrollDetail(
       orderBy: [{ preferredDate: 'asc' }],
     });
 
-    autoDays = distinctPayrollDaysForPoolMember(
+    autoDays = countMatchedWorkUnits(
       inquiries.map((i) => ({
         crewMemberNote: i.crewMemberNote,
         preferredDate: i.preferredDate,
       })),
       m,
+      workCountMode ?? undefined,
     );
     poolSystemDays = autoDays;
 
@@ -176,6 +183,9 @@ export async function computePoolMemberPayrollDetail(
   }
   if (manualExtra > 0) {
     notes.push(`수기 추가 근무 ${manualExtra}일`);
+  }
+  if (workCountMode === 'PER_INQUIRY' && autoDays !== null) {
+    notes.push('접수 건 기준 집계(크루 그룹 설정)');
   }
 
   const amount = unitAmount != null && jobCount !== null ? jobCount * unitAmount : null;
@@ -230,6 +240,7 @@ export async function computePoolMemberPayrollDetail(
     unitAmount,
     poolSystemDays,
     poolManualExtraDays: manualExtra,
+    workCountMode,
     jobCount,
     amount,
     crewExpenseTotal,

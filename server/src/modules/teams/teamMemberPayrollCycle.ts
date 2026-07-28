@@ -1,5 +1,7 @@
 import { parseCrewMemberNoteToNames } from '../inquiries/crewMemberNoteCompare.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
+import type { CrewWorkCountMode } from '../../lib/crewGroupSettings.js';
+import { DEFAULT_CREW_WORK_COUNT_MODE } from '../../lib/crewGroupSettings.js';
 
 /** 그레고리력 월 길이 (서버 TZ와 무관). monthIndex 0-based */
 function daysInGregorianMonth(year: number, monthIndex0: number): number {
@@ -146,4 +148,23 @@ export function distinctPayrollDaysForPoolMember(
     days.add(dateToYmdKst(inq.preferredDate));
   }
   return days.size;
+}
+
+export type PayrollCycleInquiryRow = {
+  crewMemberNote: string | null;
+  preferredDate: Date | null;
+};
+
+export type PayrollCycleMemberRef = { name: string; nameTh: string | null };
+
+/** 크루 그룹 `workCountMode`에 따라 매칭 접수를 근무일 또는 건수로 집계 */
+export function countMatchedWorkUnits(
+  inquiries: PayrollCycleInquiryRow[],
+  member: PayrollCycleMemberRef,
+  mode: CrewWorkCountMode = DEFAULT_CREW_WORK_COUNT_MODE,
+): number {
+  if (mode === 'PER_INQUIRY') {
+    return inquiries.filter((inq) => crewMemberNoteIncludesTeamMember(inq.crewMemberNote, member)).length;
+  }
+  return distinctPayrollDaysForPoolMember(inquiries, member);
 }
