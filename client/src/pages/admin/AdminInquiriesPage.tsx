@@ -91,7 +91,7 @@ import {
   InquiryMarketerDailyButton,
 } from '../../components/inquiries/inquiriesUiParts';
 import { AddressSearch } from '../../components/forms/AddressSearch';
-import { ORDER_TIME_SLOT_OPTIONS, shortTimeSlotLabel } from '../../constants/orderFormSchedule';
+import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import {
   ORDER_BUILDING_TYPE_OPTIONS,
   ORDER_BUILDING_TYPE_RESIDING,
@@ -811,6 +811,7 @@ function patchInquiryProfReviewInList(
 
 export function AdminInquiriesPage() {
   const token = getToken();
+  const { options: timeSlotOptions, shortLabelFor: shortTimeSlotLabelForTenant } = useOrderFormTimeSlotLabels();
   const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
   const staffTenantSlug = useStaffTenantSlugForLinks(token);
   const { map: brandMsgConfigMap, tenantFallback: brandMsgTenantFallback, loading: brandMsgConfigLoading } =
@@ -3071,7 +3072,7 @@ export function AdminInquiriesPage() {
                           예약 {item.preferredDate ? formatDateCompactWithWeekday(item.preferredDate) : '—'}
                         </span>
                         <span className="rounded-md bg-slate-100 px-2 py-0.5 text-fluid-2xs font-medium text-slate-800">
-                          {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '시간 미정'} · 주안{' '}
+                          {item.preferredTime ? shortTimeSlotLabelForTenant(item.preferredTime) : '시간 미정'} · 주안{' '}
                           {formatDistanceFromJuan(item)}
                         </span>
                         <span
@@ -3634,7 +3635,7 @@ export function AdminInquiriesPage() {
                         className="block"
                       >
                         <span className="block leading-tight text-fluid-2xs xl:text-fluid-xs">
-                          {item.preferredTime ? shortTimeSlotLabel(item.preferredTime) : '-'}
+                          {item.preferredTime ? shortTimeSlotLabelForTenant(item.preferredTime) : '-'}
                         </span>
                         <span className="mt-0.5 block truncate text-fluid-2xs tabular-nums text-slate-500 pointer-events-none">
                           {formatDistanceFromJuan(item)}
@@ -4571,7 +4572,7 @@ export function AdminInquiriesPage() {
                   className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
                 >
                   <option value="">선택 안 함</option>
-                  {ORDER_TIME_SLOT_OPTIONS.map((o) => (
+                  {timeSlotOptions.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>

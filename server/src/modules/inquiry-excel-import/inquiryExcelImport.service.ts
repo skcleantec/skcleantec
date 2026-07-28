@@ -11,6 +11,11 @@ import type {
   InquiryExcelRowPreviewResult,
 } from '../../lib/inquiryExcelImportPolicy.js';
 import { createInquiryFromBody, InquiryCreateError } from '../inquiries/inquiryCreate.service.js';
+import { getOrCreateOrderFormConfig } from '../tenants/tenantConfigSeed.service.js';
+import {
+  buildOrderTimeSlotOptions,
+  parseOrderTimeSlotLabelsJson,
+} from '../../lib/orderFormTimeSlotLabels.js';
 import { normalizeUploadedFilename } from '../../lib/uploadFilename.js';
 import { deleteInquiriesFromExcelImportRun, parseRowResults } from './inquiryExcelImport.runDelete.js';
 import { summarizeRowResults } from './inquiryExcelImport.runSummary.js';
@@ -25,10 +30,14 @@ export async function getInquiryExcelFieldCatalog(tenantId: string) {
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     select: { id: true, name: true, slug: true, config: true },
   });
+  const formCfg = await getOrCreateOrderFormConfig(prisma, tenantId);
+  const timeSlotLabelsJson = parseOrderTimeSlotLabelsJson(formCfg.timeSlotLabelsJson);
+  const timeSlotOptions = buildOrderTimeSlotOptions(timeSlotLabelsJson);
   return {
     fields: INQUIRY_EXCEL_FIELD_CATALOG,
     statusLabels: INQUIRY_EXCEL_STATUS_LABELS,
     valueMappingFieldKeys: INQUIRY_EXCEL_VALUE_MAPPING_FIELD_KEYS,
+    timeSlotOptions,
     operatingCompanies: operatingCompanies.map((oc) => {
       const cfg = oc.config as Record<string, unknown> | null;
       return {
@@ -136,6 +145,9 @@ async function processRows(params: {
   let skippedCount = 0;
   let errorCount = 0;
 
+  const formCfg = await getOrCreateOrderFormConfig(prisma, params.tenantId);
+  const timeSlotLabelsJson = parseOrderTimeSlotLabelsJson(formCfg.timeSlotLabelsJson);
+
   for (let i = 0; i < params.sheet.rows.length; i++) {
     const rowIndex = i + 2;
     const excelRow = params.sheet.rows[i]!;
@@ -144,6 +156,7 @@ async function processRows(params: {
       tenantId: params.tenantId,
       spec: params.spec,
       excelRow,
+      timeSlotLabelsJson,
     });
 
     if (mapped.error) {

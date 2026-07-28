@@ -12,6 +12,7 @@ import { teamPreviewDepsKey, useTeamPreviewStaleGuard } from '../../utils/teamPr
 import { shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
+import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import { isPublicHoliday } from '../../utils/holidays';
 import { isSonEomneungNal } from '../../utils/sonEomneungNal';
 import { SonEomneungNalIcon } from '../../components/schedule/SonEomneungNalIcon';
@@ -91,6 +92,7 @@ function TeamScheduleChevron({ className }: { className?: string }) {
 }
 
 export function TeamSchedulePage() {
+  const { labels: timeSlotLabels } = useOrderFormTimeSlotLabels();
   const token = getTeamToken();
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
@@ -227,7 +229,7 @@ export function TeamSchedulePage() {
               {item.addressDetail ? ` ${item.addressDetail}` : ''}
             </div>
             <div className="text-fluid-xs text-gray-500 mt-0.5">
-              {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
+              {formatScheduleLine(item, timeSlotLabels)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
             </div>
             <div className="text-fluid-xs text-gray-500 mt-0.5" title={formatCrewInfo(item)}>
               {formatCrewInfo(item)}

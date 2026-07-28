@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
+import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
+import type { OrderTimeSlotLabels } from '@shared/orderFormTimeSlotLabels';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
@@ -333,8 +335,10 @@ export interface InquiryItem {
   } | null;
 }
 
-export function formatScheduleLine(item: InquiryItem) {
-  const slot = item.preferredTime ? labelForTimeSlot(item.preferredTime) : teamBiPlain('team.inquiry.timeUndecided');
+export function formatScheduleLine(item: InquiryItem, timeSlotLabels?: OrderTimeSlotLabels | null) {
+  const slot = item.preferredTime
+    ? labelForTimeSlot(item.preferredTime, timeSlotLabels)
+    : teamBiPlain('team.inquiry.timeUndecided');
   const d = item.preferredTimeDetail?.trim();
   return d ? `${slot} (${d})` : slot;
 }
@@ -568,7 +572,10 @@ export function TeamInquiryListAmountNotesBadges({
 }
 
 /** 타업체가 협력 팀장에게 붙여넣기할 접수·발주 요약 텍스트 (관리자 「정보 복사」와 동일 계열) */
-export function buildTeamInquiryShareClipText(item: InquiryItem): string {
+export function buildTeamInquiryShareClipText(
+  item: InquiryItem,
+  timeSlotLabels?: OrderTimeSlotLabels | null,
+): string {
   const sections: string[][] = [];
   const currentSection = (): string[] => {
     if (sections.length === 0) sections.push([]);
@@ -670,7 +677,7 @@ export function buildTeamInquiryShareClipText(item: InquiryItem): string {
       addRow('예약일', item.preferredDate.trim());
     }
   }
-  let hopeTime = formatScheduleLine(item);
+  let hopeTime = formatScheduleLine(item, timeSlotLabels);
   const slot = item.betweenScheduleSlot?.trim();
   if (item.preferredTime && slot) hopeTime = `${hopeTime} (${slot})`;
   addRow('희망 시간', hopeTime);
@@ -1077,6 +1084,7 @@ export function TeamInquiryDetailModal({
   /** 설정 시 본인 배정일·배정자·공동 배정 행 표시 (배정목록 등) */
   viewerTeamLeaderId?: string | null;
 }) {
+  const { labels: timeSlotLabels } = useOrderFormTimeSlotLabels();
   const [item, setItem] = useState(initialItem);
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
@@ -1321,7 +1329,7 @@ export function TeamInquiryDetailModal({
 
   const handleShareCopy = useCallback(async () => {
     setShareCopyHint(null);
-    const ok = await copyTextToClipboard(buildTeamInquiryShareClipText(item));
+    const ok = await copyTextToClipboard(buildTeamInquiryShareClipText(item, timeSlotLabels));
     setShareCopyHint(ok ? teamBiPlain('team.modal.copyShareDone') : teamBiPlain('team.modal.copyShareFail'));
     window.setTimeout(() => setShareCopyHint(null), 1800);
   }, [item]);
@@ -1612,7 +1620,7 @@ export function TeamInquiryDetailModal({
                         ? formatDateCompactWithWeekday(item.preferredDate)
                         : teamBiPlain('team.common.emDash')}
                       {' · '}
-                      {formatScheduleLine(item)}
+                      {formatScheduleLine(item, timeSlotLabels)}
                     </span>
                   </TeamModalRow>
                   {customerOrderNotesTrim ? (
@@ -1938,7 +1946,7 @@ export function TeamInquiryDetailModal({
               <TeamModalRow
                 label={<TeamBiLine id="team.modal.row.preferredTime" koClassName="text-fluid-xs font-medium text-gray-500" />}
               >
-                <span className="text-gray-800">{formatScheduleLine(item)}</span>
+                <span className="text-gray-800">{formatScheduleLine(item, timeSlotLabels)}</span>
               </TeamModalRow>
             </TeamModalSection>
 

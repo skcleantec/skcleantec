@@ -19,7 +19,8 @@ import {
 } from '../../api/orderform';
 import { internalCustomerToneForApi, type InternalCustomerTone } from '../../constants/internalCustomerTone';
 import { AddressSearch } from '../../components/forms/AddressSearch';
-import { ORDER_TIME_SLOT_OPTIONS, isPreferredTimeDetailRequired, labelForTimeSlot, type OrderTimeSlot } from '../../constants/orderFormSchedule';
+import { buildOrderTimeSlotOptions, isPreferredTimeDetailRequired, labelForTimeSlot, type OrderTimeSlot } from '../../constants/orderFormSchedule';
+import { isOrderTimeSlotValue } from '@shared/orderFormTimeSlotLabels';
 import {
   ORDER_FORM_CONFIG_DEFAULTS,
   orderFormConfigLine,
@@ -56,10 +57,8 @@ import {
   validateOrderFormSpaceCounts,
 } from '@shared/orderFormSpaceCounts';
 
-const ORDER_TIME_SLOT_VALUE_SET = new Set<string>(ORDER_TIME_SLOT_OPTIONS.map((o) => o.value));
-
 function isValidOrderTimeSlot(v: string): v is OrderTimeSlot {
-  return ORDER_TIME_SLOT_VALUE_SET.has(v);
+  return isOrderTimeSlotValue(v);
 }
 import {
   ORDER_BUILDING_TYPE_OPTIONS,
@@ -238,6 +237,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       timeSlotAckTitle?: string | null;
       timeSlotAckBody?: string | null;
       timeSlotAckConsentHint?: string | null;
+      timeSlotLabels?: Record<'오전' | '오후' | '사이청소', string>;
+      timeSlotLabelsJson?: Record<string, string> | null;
     };
     template?: OrderFormPublicTemplate | null;
     /** 마케터 선입력 값 {key: value} — 있는 키는 고객 화면에서 읽기전용(잠금) */
@@ -347,6 +348,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     const custom = sysOptions('buildingType');
     return custom.length ? custom.map((v) => ({ value: v, label: v })) : ORDER_BUILDING_TYPE_OPTIONS;
   }, [sysOptions]);
+  const timeSlotLabels = order?.formConfig?.timeSlotLabels ?? null;
+  const timeSlotOptions = useMemo(
+    () => buildOrderTimeSlotOptions(timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson),
+    [timeSlotLabels, order?.formConfig?.timeSlotLabelsJson],
+  );
 
   /** 상단 금액 카드 — 선택한 전문 시공 리프만 요약 */
   const profSelectionSummary = useMemo(
@@ -1725,7 +1731,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <label className={reqLabelCls}>6. 시간대 선택{isCreate ? ' *' : ''}</label>
             {scheduleLockedByAdmin ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
-                {labelForTimeSlot(order!.preferredTime)}{' '}
+                {labelForTimeSlot(order!.preferredTime, timeSlotLabels)}{' '}
                 <span className="text-gray-500">(관리자 지정·수정 불가)</span>
               </div>
             ) : isEditor && dateByCustomer ? (
@@ -1749,7 +1755,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 }}
               >
                 <option value="">선택하기</option>
-                {ORDER_TIME_SLOT_OPTIONS.map((o) => (
+                {timeSlotOptions.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
@@ -2559,7 +2565,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                       <p className="mt-1 text-fluid-xs text-gray-500">
                         선택 예정:{' '}
                         <span className="font-medium text-gray-800">
-                          {labelForTimeSlot(pendingTimeSlot)}
+                          {labelForTimeSlot(pendingTimeSlot, timeSlotLabels)}
                         </span>
                       </p>
                     </div>

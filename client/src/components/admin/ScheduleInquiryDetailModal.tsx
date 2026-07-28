@@ -37,7 +37,7 @@ import { mergeExternalPartnersFromAssignments } from '../../utils/externalCompan
 import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../orderform/OrderFormTemplateInfo';
 import { ProfOptionsAmountReviewApplyPanel } from '../inquiry/ProfOptionsAmountReviewNotice';
 import { AddressSearch } from '../forms/AddressSearch';
-import { ORDER_TIME_SLOT_OPTIONS } from '../../constants/orderFormSchedule';
+import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import {
   ORDER_BUILDING_TYPE_OPTIONS,
   ORDER_BUILDING_TYPE_RESIDING,
@@ -489,6 +489,7 @@ function initialTeamLeaderIdsForEdit(assignments: ScheduleItem['assignments']): 
 
 export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProps) {
   const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
+  const { options: timeSlotOptions } = useOrderFormTimeSlotLabels();
   const isCreate = props.mode === 'create';
   const item = !isCreate ? props.item : null;
   const distanceJuanLabel = item ? distanceFromJuanLabel(item) : null;
@@ -2468,7 +2469,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               className={inqEditInput}
             >
               <option value="">선택 안 함</option>
-              {ORDER_TIME_SLOT_OPTIONS.map((o) => (
+              {timeSlotOptions.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>

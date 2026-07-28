@@ -1,4 +1,8 @@
 import type * as XLSX from 'xlsx';
+import {
+  resolvePreferredTimeFromExcelWithLabels,
+  type OrderTimeSlotLabelsJson,
+} from '../../lib/orderFormTimeSlotLabels.js';
 
 /** BOM·앞뒤 공백·연속 공백 정리 — 헤더·매핑 키 일치용 */
 export function normalizeExcelHeader(header: string): string {
@@ -90,16 +94,9 @@ export function phoneColumnMappingHint(
 }
 
 /** SK preferredTime 저장값: '오전' | '오후' | '사이청소' (UI 라벨의 괄호 설명과 무관) */
-export function resolvePreferredTimeFromExcel(raw: string): string | null {
-  const s = raw.trim();
-  if (!s) return null;
-
-  if (s === '오전' || s === '오후' || s === '사이청소') return s;
-
-  const lower = s.toLowerCase();
-  if (s.includes('사이') || lower === 'between') return '사이청소';
-  if (s.includes('오전') || lower === 'am' || s.includes('上午')) return '오전';
-  if (s.includes('오후') || lower === 'pm' || s.includes('下午')) return '오후';
-
-  return null;
+export function resolvePreferredTimeFromExcel(
+  raw: string,
+  labels?: OrderTimeSlotLabelsJson | null,
+): string | null {
+  return resolvePreferredTimeFromExcelWithLabels(raw, labels);
 }

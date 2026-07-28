@@ -85,6 +85,7 @@ import {
 } from '../tenants/tenantConfigSeed.service.js';
 import { ensureAirconOrderFormTemplate } from '../orderform-templates/ensureAirconOrderFormTemplate.js';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
+import { sanitizeOrderTimeSlotLabelsJsonForSave, resolveOrderTimeSlotLabels, parseOrderTimeSlotLabelsJson } from '../../lib/orderFormTimeSlotLabels.js';
 import {
   assertActiveLeadSourceLabel,
   buildIntakeCreateChangeLogLines,
@@ -2013,6 +2014,22 @@ const DEFAULT_FORM_CONFIG = {
   updatedAt: new Date().toISOString(),
 };
 
+/** 테넌트 로그인(관리·팀·마케터) — 시간대 표시 라벨 조회 */
+router.get('/time-slot-labels', authMiddleware, async (req, res) => {
+  try {
+    const user = (req as unknown as { user: AuthPayload }).user;
+    const tenantId = await requireTenantIdFromAuth(res, user);
+    if (!tenantId) return;
+    const cfg = await getOrCreateOrderFormConfig(prisma, tenantId);
+    res.json({
+      labels: resolveOrderTimeSlotLabels(parseOrderTimeSlotLabelsJson(cfg.timeSlotLabelsJson)),
+    });
+  } catch (err) {
+    console.error('time-slot-labels get error:', err);
+    res.status(500).json({ error: '시간대 표시 문구를 불러올 수 없습니다.' });
+  }
+});
+
 /** 관리자/마케터: 폼 메시지 설정 조회 (by-token보다 먼저 선언) */
 router.get('/form-config', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {
   try {
@@ -2059,6 +2076,10 @@ router.put('/form-config', authMiddleware, requireStaffPermission('orderform.for
         ...(body.timeSlotAckConsentHint != null && {
           timeSlotAckConsentHint: body.timeSlotAckConsentHint ? String(body.timeSlotAckConsentHint) : null,
         }),
+        ...(body.timeSlotLabelsJson !== undefined && {
+          timeSlotLabelsJson:
+            sanitizeOrderTimeSlotLabelsJsonForSave(body.timeSlotLabelsJson) ?? Prisma.DbNull,
+        }),
         ...(body.customerLinkTotalLine != null && {
           customerLinkTotalLine: body.customerLinkTotalLine ? String(body.customerLinkTotalLine) : null,
         }),
@@ -2090,9 +2111,11 @@ router.put('/form-config', authMiddleware, requireStaffPermission('orderform.for
     res.json(updated);
   } catch (err) {
     console.error('form-config put error:', err);
-    res.status(500).json({
-      error: '폼 메시지 저장에 실패했습니다.',
-      details: err instanceof Error ? err.message : String(err),
+    const message = err instanceof Error ? err.message : String(err);
+    const isValidation = message.includes('시간대');
+    res.status(isValidation ? 400 : 500).json({
+      error: isValidation ? message : '폼 메시지 저장에 실패했습니다.',
+      details: message,
     });
   }
 });

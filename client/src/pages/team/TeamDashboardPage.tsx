@@ -33,6 +33,7 @@ import { inquiryPrimaryCustomerLabel } from '../../utils/inquiryListDisplay';
 import { TeamBiLine, TeamBiInline, teamBiPlain } from '../../i18n/team/teamI18n';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useTeamOpenInquiryDeepLink } from '../../hooks/useTeamOpenInquiryDeepLink';
+import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 
 /** 대시보드 상단 — 모바일 4열×2행 고정 요약 */
@@ -74,6 +75,7 @@ function TeamDashboardSummaryTile({
 }
 
 export function TeamDashboardPage() {
+  const { labels: timeSlotLabels } = useOrderFormTimeSlotLabels();
   const token = getTeamToken();
   const location = useLocation();
   const previewKey = teamPreviewDepsKey(location.search);
@@ -294,7 +296,7 @@ export function TeamDashboardPage() {
                         </p>
                       ) : null}
                       <div className="mt-px text-[11px] leading-snug text-gray-700 sm:mt-0.5 sm:text-fluid-sm">
-                        {formatScheduleLine(item)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
+                        {formatScheduleLine(item, timeSlotLabels)} · {formatRoomInfo(item.roomCount, item.bathroomCount, item.balconyCount)}
                       </div>
                       <div className="mt-0.5 truncate text-[10px] text-gray-600 sm:mt-1 sm:text-fluid-xs">
                         {item.address}
@@ -392,7 +394,7 @@ export function TeamDashboardPage() {
                               </div>
                             ) : null}
                             <div className="mt-px truncate text-[11px] leading-snug text-gray-500 sm:text-fluid-xs">
-                              {formatScheduleLine(item)} · {item.address}
+                              {formatScheduleLine(item, timeSlotLabels)} · {item.address}
                               {item.addressDetail ? ` ${item.addressDetail}` : ''}
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-1 sm:mt-1.5 sm:gap-2">
