@@ -1,13 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getToken } from '../../stores/auth';
 import {
-  INQUIRY_EXCEL_FIELD_CATALOG,
-  INQUIRY_EXCEL_AREA_BASIS_VALUES,
   INQUIRY_EXCEL_DEFAULT_AREA_BASIS,
-  INQUIRY_EXCEL_STATUS_LABELS,
-  INQUIRY_EXCEL_VALUE_MAPPING_FIELD_KEYS,
+  INQUIRY_EXCEL_FIELD_CATALOG,
 } from '@shared/inquiryExcelImportFields';
 import type { InquiryExcelMappingSpec } from '@shared/inquiryExcelImportPolicy';
 import {
@@ -17,10 +14,21 @@ import {
   getInquiryExcelFieldCatalog,
   getInquiryExcelProfile,
   listInquiryExcelProfiles,
+  previewInquiryExcelImport,
   updateInquiryExcelProfile,
   type InquiryExcelFieldCatalog,
+  type InquiryExcelPreviewResponse,
   type InquiryExcelProfile,
 } from '../../api/inquiryExcelImport';
+import { InquiryExcelMappingAdvancedSection } from '../../components/admin/inquiryExcel/InquiryExcelMappingAdvancedSection';
+import { InquiryExcelMappingColumnSection } from '../../components/admin/inquiryExcel/InquiryExcelMappingColumnSection';
+import { InquiryExcelMappingPreviewPanel } from '../../components/admin/inquiryExcel/InquiryExcelMappingPreviewPanel';
+import {
+  collectExcelHeadersFromSpec,
+  computeMappingProgress,
+  mergeExcelHeaderLists,
+  type ExcelColumnFilter,
+} from '../../utils/inquiryExcelMappingUi';
 
 const EMPTY_SPEC: InquiryExcelMappingSpec = {
   columnMappings: [],
@@ -45,36 +53,17 @@ function specFromProfile(p: InquiryExcelProfile | null): InquiryExcelMappingSpec
       p.mappingSpec.memoLineMappings?.length
         ? p.mappingSpec.memoLineMappings
         : [{ targetFieldKey: 'specialNotes', excelHeaders: [] }],
+    knownHeaders: p.mappingSpec.knownHeaders,
+    headerSamples: p.mappingSpec.headerSamples,
   };
 }
 
-/** 저장된 mappingSpec에 들어 있는 엑셀 헤더 — 재배포 후 샘플 미업로드 시 드롭다운 복원용 */
-function collectExcelHeadersFromSpec(spec: InquiryExcelMappingSpec): string[] {
-  const set = new Set<string>();
-  for (const m of spec.columnMappings) {
-    if (m.excelHeader) set.add(m.excelHeader);
-  }
-  for (const g of spec.memoLineMappings ?? []) {
-    for (const h of g.excelHeaders ?? []) {
-      if (h) set.add(h);
-    }
-  }
-  return [...set];
-}
-
-function mergeExcelHeaderLists(...lists: string[][]): string[] {
-  const set = new Set<string>();
-  for (const list of lists) {
-    for (const h of list) {
-      if (h) set.add(h);
-    }
-  }
-  return [...set];
-}
-
-function headerSelectOptions(excelHeaders: string[], selected: string): string[] {
-  if (selected && !excelHeaders.includes(selected)) return [selected, ...excelHeaders];
-  return excelHeaders;
+function specForSave(spec: InquiryExcelMappingSpec, excelHeaders: string[], headerSamples: Record<string, string[]>) {
+  return {
+    ...spec,
+    knownHeaders: excelHeaders.length ? excelHeaders : spec.knownHeaders,
+    headerSamples: Object.keys(headerSamples).length ? headerSamples : spec.headerSamples,
+  };
 }
 
 export function AdminInquiryExcelMappingsPage() {
@@ -88,12 +77,30 @@ export function AdminInquiryExcelMappingsPage() {
   const [name, setName] = useState('');
   const [spec, setSpec] = useState<InquiryExcelMappingSpec>(EMPTY_SPEC);
   const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [headerSamples, setHeaderSamples] = useState<Record<string, string[]>>({});
+  const [sampleFile, setSampleFile] = useState<File | null>(null);
+  const [columnFilter, setColumnFilter] = useState<ExcelColumnFilter>('unmapped');
+  const [headerSearch, setHeaderSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [preview, setPreview] = useState<InquiryExcelPreviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const columnSectionRef = useRef<HTMLDivElement | null>(null);
+  const scrollToHeaderRef = useRef<(header: string) => void>(() => {});
+
   const fieldOptions = useMemo(() => INQUIRY_EXCEL_FIELD_CATALOG, []);
+  const memoLineHeaders = spec.memoLineMappings?.[0]?.excelHeaders ?? [];
+
+  const progress = useMemo(
+    () =>
+      computeMappingProgress(spec, excelHeaders, memoLineHeaders, (key) =>
+        fieldOptions.find((f) => f.key === key),
+      ),
+    [spec, excelHeaders, memoLineHeaders, fieldOptions],
+  );
 
   const loadProfiles = useCallback(async () => {
     if (!token) return;
@@ -111,6 +118,9 @@ export function AdminInquiryExcelMappingsPage() {
       setName('');
       setSpec({ ...EMPTY_SPEC, columnMappings: [], valueMappings: [] });
       setExcelHeaders([]);
+      setHeaderSamples({});
+      setSampleFile(null);
+      setPreview(null);
       return;
     }
     const p = await getInquiryExcelProfile(token, editId);
@@ -118,6 +128,8 @@ export function AdminInquiryExcelMappingsPage() {
     setName(p.name);
     setSpec(loadedSpec);
     setExcelHeaders((prev) => mergeExcelHeaderLists(prev, collectExcelHeadersFromSpec(loadedSpec)));
+    setHeaderSamples(loadedSpec.headerSamples ?? {});
+    setPreview(null);
   }, [token, editId]);
 
   useEffect(() => {
@@ -129,114 +141,22 @@ export function AdminInquiryExcelMappingsPage() {
       .finally(() => setLoading(false));
   }, [token, loadProfiles, loadCatalog, loadEdit]);
 
-  const setColumnHeader = (fieldKey: string, excelHeader: string) => {
-    setSpec((prev) => {
-      const rest = prev.columnMappings.filter((m) => m.fieldKey !== fieldKey);
-      if (!excelHeader) return { ...prev, columnMappings: rest };
-      return { ...prev, columnMappings: [...rest, { fieldKey, excelHeader }] };
-    });
-  };
-
-  const getColumnHeader = (fieldKey: string) =>
-    spec.columnMappings.find((m) => m.fieldKey === fieldKey)?.excelHeader ?? '';
-
-  const addValueEntry = (fieldKey: string) => {
-    setSpec((prev) => {
-      const vm = prev.valueMappings.find((v) => v.fieldKey === fieldKey);
-      if (vm) {
-        return {
-          ...prev,
-          valueMappings: prev.valueMappings.map((v) =>
-            v.fieldKey === fieldKey ? { ...v, entries: [...v.entries, { excelValue: '', skValue: '' }] } : v,
-          ),
-        };
-      }
-      return {
-        ...prev,
-        valueMappings: [...prev.valueMappings, { fieldKey, entries: [{ excelValue: '', skValue: '' }] }],
-      };
-    });
-  };
-
-  const updateValueEntry = (
-    fieldKey: string,
-    index: number,
-    patch: Partial<{ excelValue: string; skValue: string }>,
-  ) => {
-    setSpec((prev) => ({
-      ...prev,
-      valueMappings: prev.valueMappings.map((v) =>
-        v.fieldKey === fieldKey
-          ? {
-              ...v,
-              entries: v.entries.map((e, i) => (i === index ? { ...e, ...patch } : e)),
-            }
-          : v,
-      ),
-    }));
-  };
-
-  const removeValueEntry = (fieldKey: string, index: number) => {
-    setSpec((prev) => ({
-      ...prev,
-      valueMappings: prev.valueMappings
-        .map((v) =>
-          v.fieldKey === fieldKey ? { ...v, entries: v.entries.filter((_, i) => i !== index) } : v,
-        )
-        .filter((v) => v.entries.length > 0),
-    }));
-  };
-
-  const memoLineGroup = spec.memoLineMappings?.[0] ?? { targetFieldKey: 'specialNotes' as const, excelHeaders: [] };
-  const memoLineHeaders = memoLineGroup.excelHeaders ?? [];
-
-  const patchMemoLineGroup = (patch: Partial<{ targetFieldKey: 'specialNotes' | 'memo'; excelHeaders: string[] }>) => {
-    setSpec((prev) => {
-      const cur = prev.memoLineMappings?.[0] ?? { targetFieldKey: 'specialNotes' as const, excelHeaders: [] };
-      return {
-        ...prev,
-        memoLineMappings: [{ ...cur, ...patch }],
-      };
-    });
-  };
-
-  const addMemoLineHeader = () => {
-    patchMemoLineGroup({ excelHeaders: [...memoLineHeaders, ''] });
-  };
-
-  const updateMemoLineHeader = (index: number, header: string) => {
-    const next = [...memoLineHeaders];
-    next[index] = header;
-    patchMemoLineGroup({ excelHeaders: next });
-  };
-
-  const removeMemoLineHeader = (index: number) => {
-    patchMemoLineGroup({ excelHeaders: memoLineHeaders.filter((_, i) => i !== index) });
-  };
-
-  const moveMemoLineHeader = (index: number, delta: -1 | 1) => {
-    const next = [...memoLineHeaders];
-    const j = index + delta;
-    if (j < 0 || j >= next.length) return;
-    [next[index], next[j]] = [next[j]!, next[index]!];
-    patchMemoLineGroup({ excelHeaders: next });
-  };
-
-  const headersUsedInMemoLines = useMemo(() => new Set(memoLineHeaders.filter(Boolean)), [memoLineHeaders]);
-
-  const savedMappingSummary = useMemo(() => {
-    const mapped = spec.columnMappings.filter((m) => m.excelHeader);
-    const memoLines = memoLineHeaders.filter(Boolean).length;
-    return { columnCount: mapped.length, memoLines, valueGroups: spec.valueMappings.length };
-  }, [spec.columnMappings, spec.valueMappings.length, memoLineHeaders]);
-
   const handleSampleUpload = async (file: File | null) => {
     if (!token || !file) return;
     setError(null);
+    setPreview(null);
     try {
-      const { headers } = await analyzeInquiryExcelSample(token, file);
+      const { headers, headerSamples: samples } = await analyzeInquiryExcelSample(token, file);
+      setSampleFile(file);
       setExcelHeaders((prev) => mergeExcelHeaderLists(prev, headers));
-      setMessage(`샘플 헤더 ${headers.length}개를 불러왔습니다.`);
+      setHeaderSamples((prev) => ({ ...prev, ...samples }));
+      setSpec((prev) => ({
+        ...prev,
+        knownHeaders: mergeExcelHeaderLists(prev.knownHeaders ?? [], headers),
+        headerSamples: { ...prev.headerSamples, ...samples },
+      }));
+      setColumnFilter('unmapped');
+      setMessage(`샘플 ${headers.length}개 열을 불러왔습니다. 아래에서 연결해 주세요.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : '샘플 분석 실패');
     }
@@ -244,6 +164,10 @@ export function AdminInquiryExcelMappingsPage() {
 
   const handleSave = async () => {
     if (!token) return;
+    if (progress.requiredMapped < progress.requiredTotal) {
+      setError(`필수 항목(${progress.missingRequiredLabels.join(', ')})의 엑셀 열을 연결해 주세요.`);
+      return;
+    }
     if (editId && spec.columnMappings.length === 0) {
       const ok = window.confirm(
         '열 매핑이 하나도 없습니다. 저장하면 이 서식의 기존 열 매핑이 모두 지워집니다. 계속할까요?',
@@ -253,12 +177,14 @@ export function AdminInquiryExcelMappingsPage() {
     setSaving(true);
     setError(null);
     setMessage(null);
+    const payloadSpec = specForSave(spec, excelHeaders, headerSamples);
     try {
       if (editId) {
-        await updateInquiryExcelProfile(token, editId, { name, mappingSpec: spec });
+        await updateInquiryExcelProfile(token, editId, { name, mappingSpec: payloadSpec });
+        setSpec(payloadSpec);
         setMessage('저장했습니다.');
       } else {
-        const created = await createInquiryExcelProfile(token, { name, mappingSpec: spec });
+        const created = await createInquiryExcelProfile(token, { name, mappingSpec: payloadSpec });
         setSearchParams({ profileId: created.id });
         setMessage('새 서식을 저장했습니다.');
       }
@@ -268,6 +194,18 @@ export function AdminInquiryExcelMappingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDuplicate = (p: InquiryExcelProfile) => {
+    const loadedSpec = specFromProfile(p);
+    setSearchParams({});
+    setName(`${p.name} (복사)`);
+    setSpec(loadedSpec);
+    setExcelHeaders(collectExcelHeadersFromSpec(loadedSpec));
+    setHeaderSamples(loadedSpec.headerSamples ?? {});
+    setSampleFile(null);
+    setPreview(null);
+    setMessage('서식을 복사했습니다. 이름 확인 후 저장하세요.');
   };
 
   const handleDelete = async () => {
@@ -287,34 +225,23 @@ export function AdminInquiryExcelMappingsPage() {
     }
   };
 
-  const skOptionsForField = (fieldKey: string): { value: string; label: string }[] => {
-    if (fieldKey === 'status') {
-      return Object.entries(INQUIRY_EXCEL_STATUS_LABELS).map(([value, label]) => ({ value, label }));
+  const handlePreview = async () => {
+    if (!token || !editId || !sampleFile) {
+      setError('미리보기는 저장된 서식과 샘플 엑셀 파일이 필요합니다.');
+      return;
     }
-    if (fieldKey === 'operatingCompanyId') {
-      return (catalog?.operatingCompanies ?? []).map((oc) => ({
-        value: oc.id,
-        label: oc.displayName ? `${oc.name} (${oc.displayName})` : oc.name,
-      }));
+    setPreviewLoading(true);
+    setError(null);
+    try {
+      const payloadSpec = specForSave(spec, excelHeaders, headerSamples);
+      const data = await previewInquiryExcelImport(token, editId, sampleFile, payloadSpec);
+      setPreview(data);
+      setMessage(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '미리보기 실패');
+    } finally {
+      setPreviewLoading(false);
     }
-    if (fieldKey === 'preferredTime') {
-      return (
-        catalog?.timeSlotOptions ?? [
-          { value: '오전', label: '오전 (8시~9시 시작)' },
-          { value: '오후', label: '오후 (12시~14시 시작)' },
-          { value: '사이청소', label: '사이청소' },
-        ]
-      );
-    }
-    if (fieldKey === 'buildingType') {
-      return [
-        { value: '신축', label: '신축' },
-        { value: '구축', label: '구축' },
-        { value: '인테리어', label: '인테리어' },
-        { value: '거주(짐이있는상태)', label: '거주(짐이있는상태)' },
-      ];
-    }
-    return [];
   };
 
   if (loading) {
@@ -328,8 +255,27 @@ export function AdminInquiryExcelMappingsPage() {
           <h1 className="text-fluid-lg font-semibold text-slate-900">매칭 서식 관리</h1>
         </PageTitleWithFavorite>
         <p className="mt-1 text-fluid-sm text-slate-600">
-          엑셀 헤더 ↔ 청소비서 필드 매핑과 상태·운영사 등 값 변환 규칙을 저장합니다.
+          ① 샘플 업로드 → ② 열 연결 → ③ (필요 시) 고급 설정 → ④ 미리보기 후 저장
         </p>
+        {excelHeaders.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs text-slate-700">
+            <span>
+              필수{' '}
+              <strong className="tabular-nums">
+                {progress.requiredMapped}/{progress.requiredTotal}
+              </strong>
+            </span>
+            <span>
+              연결된 열 <strong className="tabular-nums">{progress.mappedColumnCount}</strong>
+            </span>
+            <span>
+              미연결 열 <strong className="tabular-nums text-amber-800">{progress.unmappedHeaderCount}</strong>
+            </span>
+            <span>
+              전체 열 <strong className="tabular-nums">{progress.totalHeaderCount}</strong>
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {error ? (
@@ -347,7 +293,15 @@ export function AdminInquiryExcelMappingsPage() {
             <h2 className="text-fluid-sm font-semibold text-slate-800">저장된 서식</h2>
             <button
               type="button"
-              onClick={() => setSearchParams({})}
+              onClick={() => {
+                setSearchParams({});
+                setName('');
+                setSpec({ ...EMPTY_SPEC, columnMappings: [], valueMappings: [] });
+                setExcelHeaders([]);
+                setHeaderSamples({});
+                setSampleFile(null);
+                setPreview(null);
+              }}
               className="rounded-lg border border-slate-300 px-2 py-1 text-fluid-2xs hover:bg-slate-50"
             >
               새로
@@ -355,15 +309,23 @@ export function AdminInquiryExcelMappingsPage() {
           </div>
           <ul className="space-y-1">
             {profiles.map((p) => (
-              <li key={p.id}>
+              <li key={p.id} className="group flex gap-1">
                 <button
                   type="button"
                   onClick={() => setSearchParams({ profileId: p.id })}
-                  className={`w-full rounded-lg px-2 py-2 text-left text-fluid-xs ${
+                  className={`min-w-0 flex-1 rounded-lg px-2 py-2 text-left text-fluid-xs ${
                     editId === p.id ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  {p.name}
+                  <span className="block truncate">{p.name}</span>
+                </button>
+                <button
+                  type="button"
+                  title="복제"
+                  onClick={() => handleDuplicate(p)}
+                  className="shrink-0 rounded-lg border border-slate-200 px-1.5 py-1 text-fluid-2xs text-slate-500 opacity-70 hover:bg-slate-50 group-hover:opacity-100"
+                >
+                  복제
                 </button>
               </li>
             ))}
@@ -383,301 +345,60 @@ export function AdminInquiryExcelMappingsPage() {
               placeholder="예: ○○업체 일일 접수"
             />
             <div className="mt-3">
-              <label className="block text-fluid-sm font-medium text-slate-700">샘플 엑셀 (헤더 분석)</label>
+              <label className="block text-fluid-sm font-medium text-slate-700">샘플 엑셀</label>
+              <p className="mt-0.5 text-fluid-2xs text-slate-500">헤더와 예시 값만 불러옵니다. 자동 연결하지 않습니다.</p>
               <input
                 type="file"
                 accept=".xlsx,.xls,.csv"
                 className="mt-1 block w-full text-fluid-xs"
                 onChange={(e) => void handleSampleUpload(e.target.files?.[0] ?? null)}
               />
-              {excelHeaders.length > 0 ? (
-                <p className="mt-1 text-fluid-2xs text-slate-500">헤더: {excelHeaders.join(', ')}</p>
-              ) : editId ? (
-                <p className="mt-1 text-fluid-2xs text-amber-800">
-                  저장된 열 매핑은 DB에 있지만, 드롭다운 목록을 채우려면 같은 형식의 샘플 엑셀을 한 번 올려 주세요.
+              {sampleFile ? (
+                <p className="mt-1 text-fluid-2xs text-slate-500">파일: {sampleFile.name}</p>
+              ) : editId && excelHeaders.length > 0 ? (
+                <p className="mt-1 text-fluid-2xs text-slate-500">
+                  저장된 열 {excelHeaders.length}개 · 예시 갱신·미리보기는 샘플을 다시 선택하세요.
                 </p>
               ) : null}
             </div>
-            {editId && savedMappingSummary.columnCount > 0 ? (
-              <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-2xs text-slate-700">
-                저장됨 — 열 {savedMappingSummary.columnCount}개
-                {savedMappingSummary.memoLines > 0 ? ` · 줄 합치기 ${savedMappingSummary.memoLines}줄` : ''}
-                {savedMappingSummary.valueGroups > 0 ? ` · 값 매핑 ${savedMappingSummary.valueGroups}그룹` : ''}
-                . 총액 등만 추가할 때는 아래에서 해당 필드만 고른 뒤 저장하세요.
-              </p>
-            ) : null}
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm overflow-hidden">
-            <h2 className="mb-3 text-fluid-sm font-semibold text-slate-800">열 매핑</h2>
-            <div className="lg:hidden space-y-3">
-              {fieldOptions.map((f) => (
-                <div key={f.key} className="rounded-lg border border-slate-100 p-3">
-                  <p className="text-fluid-xs font-medium text-slate-800">
-                    {f.label}
-                    {f.required ? <span className="text-red-500"> *</span> : null}
-                  </p>
-                  <select
-                    value={getColumnHeader(f.key)}
-                    onChange={(e) => setColumnHeader(f.key, e.target.value)}
-                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-fluid-xs"
-                  >
-                    <option value="">— 매핑 안 함 —</option>
-                    {headerSelectOptions(excelHeaders, getColumnHeader(f.key)).map((h) => (
-                      <option key={h} value={h} disabled={headersUsedInMemoLines.has(h)}>
-                        {h}
-                        {headersUsedInMemoLines.has(h) ? ' (줄 합치기)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-            <div className="hidden lg:block w-full min-w-0 overflow-x-auto">
-              <table className="w-full table-fixed border-collapse text-fluid-xs">
-                <thead>
-                  <tr className="bg-slate-100">
-                    <th className="border border-slate-200 px-2 py-2 text-center">청소비서 필드</th>
-                    <th className="border border-slate-200 px-2 py-2 text-center">엑셀 헤더</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fieldOptions.map((f) => (
-                    <tr key={f.key} className="hover:bg-slate-50">
-                      <td className="border border-slate-200 px-2 py-2 text-center">
-                        {f.label}
-                        {f.required ? <span className="text-red-500"> *</span> : null}
-                      </td>
-                      <td className="border border-slate-200 px-2 py-2 text-center">
-                        <select
-                          value={getColumnHeader(f.key)}
-                          onChange={(e) => setColumnHeader(f.key, e.target.value)}
-                          className="w-full max-w-xs rounded border border-slate-300 px-2 py-1"
-                        >
-                          <option value="">—</option>
-                          {headerSelectOptions(excelHeaders, getColumnHeader(f.key)).map((h) => (
-                            <option key={h} value={h} disabled={headersUsedInMemoLines.has(h)}>
-                              {h}
-                              {headersUsedInMemoLines.has(h) ? ' (줄 합치기)' : ''}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div ref={columnSectionRef}>
+            <InquiryExcelMappingColumnSection
+              spec={spec}
+              excelHeaders={excelHeaders}
+              headerSamples={headerSamples}
+              memoLineHeaders={memoLineHeaders}
+              columnFilter={columnFilter}
+              headerSearch={headerSearch}
+              onSpecChange={(next) => {
+                setSpec(next);
+                setPreview(null);
+              }}
+              onColumnFilterChange={setColumnFilter}
+              onHeaderSearchChange={setHeaderSearch}
+              scrollToHeaderRef={scrollToHeaderRef}
+            />
           </div>
 
-          {INQUIRY_EXCEL_VALUE_MAPPING_FIELD_KEYS.map((fieldKey) => {
-            const fieldDef = fieldOptions.find((f) => f.key === fieldKey);
-            const vm = spec.valueMappings.find((v) => v.fieldKey === fieldKey);
-            const entries = vm?.entries ?? [];
-            const skOpts = skOptionsForField(fieldKey);
-            if (skOpts.length === 0 && fieldKey !== 'source' && fieldKey !== 'propertyType') return null;
-            return (
-              <div key={fieldKey} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-fluid-sm font-semibold text-slate-800">
-                    값 매핑 — {fieldDef?.label ?? fieldKey}
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={() => addValueEntry(fieldKey)}
-                    className="rounded-lg border border-slate-300 px-2 py-1 text-fluid-2xs hover:bg-slate-50"
-                  >
-                    + 행 추가
-                  </button>
-                </div>
-                {entries.length === 0 ? (
-                  <p className="text-fluid-xs text-slate-500">엑셀 값 → 청소비서 값 변환 규칙을 추가하세요.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {entries.map((entry, idx) => (
-                      <div key={idx} className="flex flex-wrap items-center gap-2">
-                        <input
-                          value={entry.excelValue}
-                          onChange={(e) => updateValueEntry(fieldKey, idx, { excelValue: e.target.value })}
-                          placeholder="엑셀 값"
-                          className="min-w-[8rem] flex-1 rounded border border-slate-300 px-2 py-1.5 text-fluid-xs"
-                        />
-                        <span className="text-slate-400">→</span>
-                        {skOpts.length > 0 ? (
-                          <select
-                            value={entry.skValue}
-                            onChange={(e) => updateValueEntry(fieldKey, idx, { skValue: e.target.value })}
-                            className="min-w-[8rem] flex-1 rounded border border-slate-300 px-2 py-1.5 text-fluid-xs"
-                          >
-                            <option value="">청소비서 값</option>
-                            {skOpts.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            value={entry.skValue}
-                            onChange={(e) => updateValueEntry(fieldKey, idx, { skValue: e.target.value })}
-                            placeholder="청소비서 값"
-                            className="min-w-[8rem] flex-1 rounded border border-slate-300 px-2 py-1.5 text-fluid-xs"
-                          />
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removeValueEntry(fieldKey, idx)}
-                          className="rounded border border-red-200 px-2 py-1 text-fluid-2xs text-red-700"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          <InquiryExcelMappingAdvancedSection
+            spec={spec}
+            excelHeaders={excelHeaders}
+            catalog={catalog}
+            fieldOptions={fieldOptions}
+            onSpecChange={(next) => {
+              setSpec(next);
+              setPreview(null);
+            }}
+          />
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="text-fluid-sm font-semibold text-slate-800">특이사항 줄 합치기</h2>
-                <p className="mt-1 text-fluid-2xs text-slate-500">
-                  「특이사항1」「특이사항2」처럼 청소비서에 1:1 필드가 없는 열은 순서대로 줄바꿈해 한 칸에 넣습니다.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={addMemoLineHeader}
-                className="rounded-lg border border-slate-300 px-2 py-1 text-fluid-2xs hover:bg-slate-50"
-              >
-                + 줄 추가
-              </button>
-            </div>
-            <label className="mb-3 block text-fluid-xs text-slate-600">
-              합칠 청소비서 필드
-              <select
-                value={memoLineGroup.targetFieldKey ?? 'specialNotes'}
-                onChange={(e) =>
-                  patchMemoLineGroup({
-                    targetFieldKey: e.target.value === 'memo' ? 'memo' : 'specialNotes',
-                  })
-                }
-                className="mt-1 w-full max-w-xs rounded border border-slate-300 px-2 py-1.5"
-              >
-                <option value="specialNotes">특이사항 (관리자·팀장 공유)</option>
-                <option value="memo">메모</option>
-              </select>
-            </label>
-            {memoLineHeaders.length === 0 ? (
-              <p className="text-fluid-xs text-slate-500">샘플 엑셀 업로드 후 「+ 줄 추가」로 열을 지정하세요.</p>
-            ) : (
-              <div className="space-y-2">
-                {memoLineHeaders.map((header, idx) => (
-                  <div key={idx} className="flex flex-wrap items-center gap-2">
-                    <span className="w-8 shrink-0 text-center text-fluid-2xs tabular-nums text-slate-500">
-                      {idx + 1}줄
-                    </span>
-                    <select
-                      value={header}
-                      onChange={(e) => updateMemoLineHeader(idx, e.target.value)}
-                      className="min-w-[10rem] flex-1 rounded border border-slate-300 px-2 py-1.5 text-fluid-xs"
-                    >
-                      <option value="">— 엑셀 헤더 —</option>
-                      {headerSelectOptions(excelHeaders, header).map((h) => (
-                        <option key={h} value={h}>
-                          {h}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={idx === 0}
-                      onClick={() => moveMemoLineHeader(idx, -1)}
-                      className="rounded border border-slate-200 px-2 py-1 text-fluid-2xs disabled:opacity-40"
-                      title="위로"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      disabled={idx === memoLineHeaders.length - 1}
-                      onClick={() => moveMemoLineHeader(idx, 1)}
-                      className="rounded border border-slate-200 px-2 py-1 text-fluid-2xs disabled:opacity-40"
-                      title="아래로"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeMemoLineHeader(idx)}
-                      className="rounded border border-red-200 px-2 py-1 text-fluid-2xs text-red-700"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-fluid-sm font-semibold text-slate-800">미매핑·기본값</h2>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              <label className="text-fluid-xs text-slate-600">
-                상태 미매핑 시 기본값
-                <select
-                  value={spec.defaultStatus ?? 'RECEIVED'}
-                  onChange={(e) => setSpec((p) => ({ ...p, defaultStatus: e.target.value }))}
-                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5"
-                >
-                  {Object.entries(INQUIRY_EXCEL_STATUS_LABELS).map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-fluid-xs text-slate-600">
-                상태 미매핑 정책
-                <select
-                  value={spec.unmappedPolicies?.status ?? 'ERROR'}
-                  onChange={(e) =>
-                    setSpec((p) => ({
-                      ...p,
-                      unmappedPolicies: { ...p.unmappedPolicies, status: e.target.value as 'ERROR' | 'USE_DEFAULT' | 'SKIP_ROW' },
-                    }))
-                  }
-                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5"
-                >
-                  <option value="ERROR">오류</option>
-                  <option value="USE_DEFAULT">기본값 사용</option>
-                  <option value="SKIP_ROW">행 건너뛰기</option>
-                </select>
-              </label>
-              <label className="text-fluid-xs text-slate-600 sm:col-span-2">
-                평수 기준 기본값
-                <span className="ml-1 font-normal text-slate-500">(평수 열은 있는데 평수 기준 열이 없을 때)</span>
-                <select
-                  value={spec.defaultAreaBasis ?? INQUIRY_EXCEL_DEFAULT_AREA_BASIS}
-                  onChange={(e) =>
-                    setSpec((p) => ({
-                      ...p,
-                      defaultAreaBasis: e.target.value === '전용' ? '전용' : '공급',
-                    }))
-                  }
-                  className="mt-1 w-full max-w-xs rounded border border-slate-300 px-2 py-1.5"
-                >
-                  {INQUIRY_EXCEL_AREA_BASIS_VALUES.map((v) => (
-                    <option key={v} value={v}>
-                      {v === '공급' ? '공급면적 (분양평수)' : '전용면적 (실제 내 집 공간)'}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </div>
+          <InquiryExcelMappingPreviewPanel
+            preview={preview}
+            loading={previewLoading}
+            canPreview={Boolean(editId && sampleFile)}
+            onPreview={() => void handlePreview()}
+            onScrollToColumnSection={() => columnSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          />
 
           <div className="flex flex-wrap gap-2">
             <button

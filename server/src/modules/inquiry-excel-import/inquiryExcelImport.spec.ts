@@ -77,6 +77,22 @@ export function parseMappingSpec(raw: unknown): InquiryExcelMappingSpec {
         })
         .filter((x) => x.excelHeaders.length > 0)
     : undefined;
+  const knownHeaders = Array.isArray(o.knownHeaders)
+    ? o.knownHeaders.map((h) => String(h ?? '').trim()).filter(Boolean)
+    : undefined;
+  let headerSamples: Record<string, string[]> | undefined;
+  if (o.headerSamples && typeof o.headerSamples === 'object' && !Array.isArray(o.headerSamples)) {
+    headerSamples = {};
+    for (const [key, val] of Object.entries(o.headerSamples as Record<string, unknown>)) {
+      const header = String(key ?? '').trim();
+      if (!header) continue;
+      const samples = Array.isArray(val)
+        ? val.map((v) => String(v ?? '').trim()).filter(Boolean).slice(0, 3)
+        : [];
+      if (samples.length) headerSamples[header] = samples;
+    }
+    if (Object.keys(headerSamples).length === 0) headerSamples = undefined;
+  }
   return {
     columnMappings,
     valueMappings,
@@ -85,5 +101,7 @@ export function parseMappingSpec(raw: unknown): InquiryExcelMappingSpec {
     defaultStatus,
     defaultAreaBasis,
     memoLineMappings,
+    knownHeaders: knownHeaders?.length ? knownHeaders : undefined,
+    headerSamples,
   };
 }
