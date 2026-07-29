@@ -321,11 +321,10 @@ export function TeamHouseholdLedgerPage() {
                 className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0"
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
-                <table className="w-full min-w-[540px] table-fixed border-collapse text-fluid-2xs sm:text-fluid-xs">
+                <table className="w-full min-w-[360px] table-fixed border-collapse text-fluid-2xs sm:text-fluid-xs">
                   <colgroup>
                     <col className="w-[72px] sm:w-[88px]" />
                     <col className="w-[44px] sm:w-[56px]" />
-                    <col className="w-[72px] sm:w-[100px]" />
                     <col />
                     <col className="w-[84px] sm:w-[110px]" />
                     <col className="w-[88px] sm:w-[120px]" />
@@ -335,7 +334,6 @@ export function TeamHouseholdLedgerPage() {
                       <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">날짜</th>
                       <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">구분</th>
                       <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">카테고리</th>
-                      <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">메모·접수</th>
                       <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">금액</th>
                       <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">관리</th>
                     </tr>
@@ -358,11 +356,6 @@ export function TeamHouseholdLedgerPage() {
                         </td>
                         <td className="truncate px-1 py-1.5 text-center sm:px-2 sm:py-2" title={row.category}>
                           {row.category}
-                        </td>
-                        <td className="truncate px-1 py-1.5 text-center text-slate-600 sm:px-2 sm:py-2" title={row.memo?.trim() || [row.inquiryNumber, row.customerName].filter(Boolean).join(' · ') || undefined}>
-                          {row.memo?.trim() ||
-                            [row.inquiryNumber, row.customerName].filter(Boolean).join(' · ') ||
-                            '—'}
                         </td>
                         <td
                           className={`px-1 py-1.5 text-right tabular-nums font-semibold sm:px-2 sm:py-2 ${

@@ -119,21 +119,28 @@ export function TeamHouseholdLedgerEntryModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4">
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="닫기"
+        onClick={onClose}
+      />
       <div
-        className="flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl bg-white shadow-xl sm:max-h-[90vh] sm:rounded-2xl"
+        className="relative flex max-h-[min(92dvh,40rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:max-h-[min(90vh,40rem)] sm:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="household-ledger-modal-title"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
+        <div className="relative shrink-0 border-b border-slate-200 px-4 py-3 pr-12">
           <h2 id="household-ledger-modal-title" className="text-fluid-sm font-semibold text-slate-900">
             {editing ? '가계부 수정' : '가계부 추가'}
           </h2>
           <ModalCloseButton onClick={onClose} />
         </div>
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain p-4">
             {inquiryHint ? (
               <p className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-fluid-2xs text-sky-900">
                 접수 연결 · {inquiryHint}
@@ -208,7 +215,7 @@ export function TeamHouseholdLedgerEntryModal({
             </label>
             {error ? <p className="text-fluid-2xs text-red-600">{error}</p> : null}
           </div>
-          <div className="flex shrink-0 gap-2 border-t border-slate-200 p-4">
+          <div className="flex shrink-0 gap-2 border-t border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <button
               type="button"
               onClick={onClose}
