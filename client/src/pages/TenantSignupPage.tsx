@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PLATFORM_NAME, PLATFORM_NAME_EN } from '@shared/platformBrand';
-import { TENANT_PLAN_PRESENTATIONS } from '@shared/tenantPlanCatalog';
 import { tenantLoginIdErrorMessage } from '@shared/tenantLoginId';
 import { TenantBrandLogo } from '../components/brand/TenantBrandLogo';
 import {
@@ -24,7 +23,7 @@ export function TenantSignupPage() {
   const [name, setName] = useState('');
   const [adminLoginId, setAdminLoginId] = useState('admin');
   const [adminPassword, setAdminPassword] = useState('');
-  const [adminName, setAdminName] = useState('관리자');
+  const [adminName, setAdminName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [memberTermsAgreed, setMemberTermsAgreed] = useState(false);
@@ -37,8 +36,6 @@ export function TenantSignupPage() {
   const [sendingCode, setSendingCode] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
-
-  const freePlanHint = useMemo(() => TENANT_PLAN_PRESENTATIONS.free.tagline, []);
 
   useEffect(() => {
     const s = slug.trim().toLowerCase();
@@ -128,11 +125,10 @@ export function TenantSignupPage() {
             <div className="mt-3 flex justify-center">
               <TenantBrandLogo surface="on-light" className="h-10" />
             </div>
-            <h1 className="mt-4 text-fluid-lg font-semibold text-slate-900">업체 개설 (무료 플랜)</h1>
+            <h1 className="mt-4 text-fluid-lg font-semibold text-slate-900">청소비서 가입하기(Free플랜)</h1>
             <p className="mt-2 text-fluid-2xs leading-relaxed text-slate-500">
               담당자 이메일 인증 후 Free 플랜으로 시작합니다. 가입 이메일은 비밀번호 찾기에 사용됩니다.
             </p>
-            <p className="mt-1 text-fluid-2xs text-slate-600">{freePlanHint}</p>
           </div>
 
           <form
@@ -146,7 +142,7 @@ export function TenantSignupPage() {
                   value={slug}
                   onChange={(e) => setSlug(e.target.value.toLowerCase())}
                   className={`${inputClass} font-mono`}
-                  placeholder="예: acme-clean"
+                    placeholder="예: cbiseo"
                   required
                 />
                 {slugHint ? (
@@ -168,7 +164,13 @@ export function TenantSignupPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-fluid-xs font-medium text-slate-600">관리자 이름</span>
-                <input value={adminName} onChange={(e) => setAdminName(e.target.value)} className={inputClass} required />
+                <input
+                  value={adminName}
+                  onChange={(e) => setAdminName(e.target.value)}
+                  className={inputClass}
+                  placeholder="홍길동"
+                  required
+                />
               </label>
               <label className="block">
                 <span className="mb-1 block text-fluid-xs font-medium text-slate-600">관리자 아이디</span>
@@ -218,32 +220,29 @@ export function TenantSignupPage() {
               </label>
             </div>
 
-            <div className="rounded-xl border border-sky-100 bg-sky-50/80 p-3 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-fluid-xs font-medium text-slate-700">이메일 인증</span>
+            <label className="block">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-fluid-xs font-medium text-slate-600">이메일 인증번호 (6자리)</span>
                 <button
                   type="button"
                   disabled={sendingCode || loading}
                   onClick={() => void handleSendCode()}
-                  className="rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-fluid-2xs font-semibold text-sky-900 disabled:opacity-60"
+                  className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-fluid-2xs font-semibold text-slate-700 disabled:opacity-60"
                 >
-                  {sendingCode ? '발송 중…' : codeSent ? '인증번호 재발송' : '이메일 인증번호 받기'}
+                  {sendingCode ? '발송 중…' : codeSent ? '재발송' : '인증번호 받기'}
                 </button>
               </div>
-              {info ? <p className="text-fluid-2xs text-sky-900">{info}</p> : null}
-              <label className="block">
-                <span className="mb-1 block text-fluid-xs font-medium text-slate-600">이메일 인증번호 (6자리)</span>
-                <input
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className={`${inputClass} text-center font-mono tracking-[0.3em]`}
-                  placeholder="000000"
-                  required
-                />
-              </label>
-            </div>
+              <input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className={`${inputClass} text-center font-mono tracking-[0.3em]`}
+                placeholder="000000"
+                required
+              />
+              {info ? <p className="mt-1 text-fluid-2xs text-sky-800">{info}</p> : null}
+            </label>
 
             <label className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5">
               <input

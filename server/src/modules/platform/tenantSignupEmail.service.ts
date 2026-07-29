@@ -12,7 +12,14 @@ import {
   TenantSignupError,
   type SelfServeTenantSignupInput,
 } from './tenantSignup.service.js';
-import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
+import {
+  assertValidTenantLoginId,
+} from '../auth/tenantLoginId.js';
+import {
+  buildPlatformVerificationEmailHtml,
+  buildPlatformVerificationEmailSubject,
+  buildPlatformVerificationEmailText,
+} from '../../lib/platformTransactionalEmail.js';
 
 export type TenantSignupFormPayload = {
   slug: string;
@@ -74,10 +81,21 @@ export async function sendTenantSignupVerificationCode(
       memberTermsAgreedAt: new Date().toISOString(),
       signupIp: requestIp?.trim() || null,
     },
-    mailSubject: '[청소비서] 업체 개설 이메일 인증번호',
+    mailSubject: buildPlatformVerificationEmailSubject('TENANT_SIGNUP'),
     mailHtml: (code) =>
-      `<p>청소비서 업체 개설을 위한 인증번호입니다.</p><p style="font-size:24px;font-weight:bold;letter-spacing:4px">${code}</p><p>10분 이내에 가입 화면에 입력해 주세요.</p>`,
-    mailText: (code) => `청소비서 업체 개설 인증번호: ${code} (10분 유효)`,
+      buildPlatformVerificationEmailHtml({
+        kind: 'TENANT_SIGNUP',
+        code,
+        companyName: parsed.name.trim(),
+        tenantSlug: slugCheck.slug,
+      }),
+    mailText: (code) =>
+      buildPlatformVerificationEmailText({
+        kind: 'TENANT_SIGNUP',
+        code,
+        companyName: parsed.name.trim(),
+        tenantSlug: slugCheck.slug,
+      }),
   });
 }
 

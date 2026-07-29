@@ -2,6 +2,11 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { normalizeTenantSlugInput } from '../tenants/tenant.service.js';
 import {
+  buildPlatformVerificationEmailHtml,
+  buildPlatformVerificationEmailSubject,
+  buildPlatformVerificationEmailText,
+} from '../../lib/platformTransactionalEmail.js';
+import {
   consumeEmailVerificationChallenge,
   EmailVerificationError,
   normalizeVerificationEmail,
@@ -64,11 +69,19 @@ export async function sendTenantPasswordResetCode(input: {
       userId: user.id,
       loginId: user.email,
     },
-    mailSubject: '[청소비서] 비밀번호 재설정 인증번호',
+    mailSubject: buildPlatformVerificationEmailSubject('PASSWORD_RESET'),
     mailHtml: (code) =>
-      `<p>청소비서 비밀번호 재설정 인증번호입니다.</p><p>업체 코드: <strong>${tenant.slug}</strong></p><p style="font-size:24px;font-weight:bold;letter-spacing:4px">${code}</p><p>10분 이내에 입력해 주세요. 본인이 요청하지 않았다면 무시하세요.</p>`,
+      buildPlatformVerificationEmailHtml({
+        kind: 'PASSWORD_RESET',
+        code,
+        tenantSlug: tenant.slug,
+      }),
     mailText: (code) =>
-      `청소비서 비밀번호 재설정 (${tenant.slug}) 인증번호: ${code} (10분 유효)`,
+      buildPlatformVerificationEmailText({
+        kind: 'PASSWORD_RESET',
+        code,
+        tenantSlug: tenant.slug,
+      }),
   });
 }
 

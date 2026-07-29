@@ -463,22 +463,23 @@ export function LoginPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/90 bg-slate-50/50 px-4 py-3.5">
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-slate-50/50 px-3 py-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-fluid-sm font-medium text-slate-800">크루 계정 로그인</p>
+                  <p className="text-fluid-xs font-medium text-slate-800">팀원계정로그인</p>
                 </div>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={crewLoginMode}
+                  aria-label="팀원계정로그인"
                   onClick={toggleCrewLoginMode}
-                  className={`relative h-7 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+                  className={`relative h-6 w-10 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
                     crewLoginMode ? 'bg-blue-600' : 'bg-slate-300'
                   }`}
                 >
                   <span
-                    className={`absolute top-1/2 left-0.5 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow-md transition-transform duration-200 ease-out ${
-                      crewLoginMode ? 'translate-x-5' : 'translate-x-0'
+                    className={`absolute top-1/2 left-0.5 h-4 w-4 -translate-y-1/2 rounded-full bg-white shadow transition-transform duration-200 ease-out ${
+                      crewLoginMode ? 'translate-x-4' : 'translate-x-0'
                     }`}
                   />
                 </button>
@@ -605,7 +606,7 @@ export function LoginPage() {
           <p className="mt-6 text-center text-fluid-2xs text-slate-500">
             청소 업체가 처음이신가요?{' '}
             <Link to="/signup" className="font-medium text-slate-800 underline-offset-2 hover:underline">
-              업체 개설 (무료)
+              회원가입(무료)
             </Link>
             {' · '}
             <Link to="/platform/login" className="hover:text-slate-700 underline-offset-2 hover:underline">
