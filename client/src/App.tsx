@@ -8,6 +8,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { TeamProtectedRoute } from './components/auth/TeamProtectedRoute';
 import { CrewProtectedRoute } from './components/auth/CrewProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
+import { TenantSignupPage } from './pages/TenantSignupPage';
 import { AdminInquiriesLayout } from './components/layout/AdminInquiriesLayout';
 import { AdminTeamLeadersLayout } from './components/layout/AdminTeamLeadersLayout';
 import { AdminAdvertisingLayout } from './components/layout/AdminAdvertisingLayout';
@@ -104,6 +105,7 @@ import {
   PlatformTenantListPage,
   PlatformTenantCreatePage,
   PlatformTenantDetailPage,
+  PlatformPlanUpgradeRequestsPage,
   PlatformBillingPage,
   PlatformSupportAccessPage,
   PlatformDbMarketplacePage,
@@ -135,6 +137,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<TenantSignupPage />} />
         <Route path="/platform/login" element={<PlatformLoginPage />} />
         <Route
           path="/platform"
@@ -147,6 +150,7 @@ function App() {
           <Route path="tenants" element={<SuspensePage><PlatformTenantListPage /></SuspensePage>} />
           <Route path="tenants/new" element={<SuspensePage><PlatformTenantCreatePage /></SuspensePage>} />
           <Route path="tenants/:id" element={<SuspensePage><PlatformTenantDetailPage /></SuspensePage>} />
+          <Route path="plan-upgrade-requests" element={<SuspensePage><PlatformPlanUpgradeRequestsPage /></SuspensePage>} />
           <Route path="billing" element={<SuspensePage><PlatformBillingPage /></SuspensePage>} />
           <Route path="support-access" element={<SuspensePage><PlatformSupportAccessPage /></SuspensePage>} />
           <Route path="db-marketplace" element={<SuspensePage><PlatformDbMarketplacePage /></SuspensePage>} />

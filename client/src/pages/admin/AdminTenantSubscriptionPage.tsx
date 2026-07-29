@@ -31,6 +31,7 @@ import {
   formatBillingAnchorDayLabel,
 } from '@shared/tenantBilling';
 import { PlanBadge, StatusBadge } from '../../utils/platformUi';
+import { TenantPlanUpgradeRequestPanel } from '../../components/admin/TenantPlanUpgradeRequestPanel';
 
 const STATUS_HINT: Record<string, string> = {
   TRIAL: '체험 기간 중입니다. 운영 전환은 플랫폼 담당자에게 문의해 주세요.',
@@ -248,6 +249,8 @@ export function AdminTenantSubscriptionPage() {
           {err}
         </p>
       ) : null}
+
+      <TenantPlanUpgradeRequestPanel currentPlan={tenant.plan} onChanged={() => void load()} />
 
       <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 space-y-4">
         <div className="flex flex-wrap items-center gap-2">

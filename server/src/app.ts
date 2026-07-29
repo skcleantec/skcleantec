@@ -68,6 +68,9 @@ import platformLegalRoutes from './modules/platform-legal/platformLegal.routes.j
 import platformPartnerPromoRoutes from './modules/platform-partner-promo/platformPartnerPromo.routes.js';
 import adminPlatformPromoRoutes from './modules/platform-partner-promo/adminPlatformPromo.routes.js';
 import platformLegalPublicRoutes from './modules/platform-legal/platformLegal.public.routes.js';
+import tenantSignupPublicRoutes from './modules/platform/tenantSignup.public.routes.js';
+import platformPlanUpgradeRoutes from './modules/platform/platformPlanUpgrade.routes.js';
+import tenantPlanUpgradeRoutes from './modules/tenants/tenantPlanUpgrade.routes.js';
 import { resolveHelpScreenshotFilePath } from './modules/help/helpScreenshotsPath.js';
 import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLeaderTraining.admin.routes.js';
 import marketerPermissionsRoutes from './modules/marketer-permissions/marketerPermissions.routes.js';
@@ -98,6 +101,7 @@ app.use('/api/platform/tenant-partnerships', platformTenantPartnershipsRoutes);
 app.use('/api/platform/db-marketplace', platformDbMarketplaceRoutes);
 app.use('/api/platform/help-inquiry', platformHelpInquiryRoutes);
 app.use('/api/platform/billing', platformBillingRoutes);
+app.use('/api/platform/plan-upgrade-requests', platformPlanUpgradeRoutes);
 app.use('/api/platform/legal', platformLegalRoutes);
 app.use('/api/platform/partner-promos', platformPartnerPromoRoutes);
 app.use('/api/admin/platform-promos', adminPlatformPromoRoutes);
@@ -150,6 +154,7 @@ app.use('/api/admin/tenant-staff-access', tenantStaffAccessRoutes);
 app.use('/api/admin/marketer-permissions', marketerPermissionsRoutes);
 app.use('/api/admin/tenant-subscription', tenantSubscriptionRoutes);
 app.use('/api/admin/tenant-billing', tenantBillingRoutes);
+app.use('/api/admin/tenant-plan-upgrade', tenantPlanUpgradeRoutes);
 app.use('/api/admin/e-contracts', eContractAdminRoutes);
 app.use('/api/admin/team-leader-training', teamLeaderTrainingAdminRoutes);
 app.use('/api/e-contract', eContractPublicRoutes);
@@ -175,6 +180,7 @@ app.get('/telecrm-app/', sendTelecrmAppInstallPage);
 app.use('/api/help', helpRoutes);
 app.use('/api/help/inquiry', helpInquiryPublicRoutes);
 app.use('/api/public/legal', platformLegalPublicRoutes);
+app.use('/api/public/tenant-signup', tenantSignupPublicRoutes);
 mountCustomModuleRoutes(app);
 
 // C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙
