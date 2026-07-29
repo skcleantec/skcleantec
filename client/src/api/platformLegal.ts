@@ -150,6 +150,20 @@ export async function listPlatformLegalAgreements(
   return (await res.json()) as { items: PlatformLegalAgreement[]; total: number };
 }
 
+export type PublicLegalDocument = {
+  slug: string;
+  title: string;
+  contentHtml: string;
+  version: number;
+  updatedAt: string;
+};
+
+export async function fetchPublicLegalDocument(slug: string) {
+  const res = await fetch(`${API}/public/legal/documents/${encodeURIComponent(slug)}`);
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '문서를 불러오지 못했습니다.'));
+  return (await res.json()) as { document: PublicLegalDocument };
+};
+
 export type PublicLegalSession =
   | {
       token: string;
