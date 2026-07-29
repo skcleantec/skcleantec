@@ -90,4 +90,13 @@ export function serializeAdditionalReceipt(row: {
 /** 담당 팀장 실시간 갱신 — 기존 extra-charges와 동일 신호 */
 export async function notifyAdditionalReceiptChanged(inquiryId: string): Promise<void> {
   await notifyExtraChargeChanged(inquiryId);
+  const inquiry = await prisma.inquiry.findFirst({
+    where: { id: inquiryId },
+    select: { tenantId: true },
+  });
+  if (!inquiry?.tenantId) return;
+  const { queueHouseholdLedgerInquirySync } = await import(
+    '../team-leader-household-ledger/teamLeaderHouseholdLedgerAutoSync.service.js'
+  );
+  queueHouseholdLedgerInquirySync(prisma, { tenantId: inquiry.tenantId, inquiryId });
 }

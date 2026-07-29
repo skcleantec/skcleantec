@@ -989,6 +989,8 @@ model User {
   teamLeaderGeneralSettlementValue Int? @map("team_leader_general_settlement_value")
   /// 팀장만 사용 — 추가결재 정산 시 회사 몫 만분율(0~10000). null이면 UI에서 기본 50% 적용
   teamLeaderAdditionalReceiptCompanyShareBps Int? @map("team_leader_additional_receipt_company_share_bps")
+  /// 팀장 가계부 — true면 예약금을 팀장 수입(가계부)에 포함. false(기본)면 회사 수입으로 제외
+  teamLeaderHouseholdDepositAsTeamIncome Boolean @default(false) @map("team_leader_household_deposit_as_team_income")
   createdAt    DateTime @default(now()) @map("created_at")
   /// 팀장 본인 휴무일 등록·삭제 허용(관리자 사용자 목록에서 제어). 기본 true.
   allowSelfDayOffEdit Boolean @default(true) @map("allow_self_day_off_edit")

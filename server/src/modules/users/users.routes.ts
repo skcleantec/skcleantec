@@ -388,6 +388,44 @@ router.post('/team-leaders/day-off-self-edit', requireStaffPermission('admin.use
   res.json({ ok: true, updated: r.count });
 });
 
+/** 활성 팀장 가계부 — 예약금을 팀장 수입으로 포함할지(현재 값은 첫 팀장 기준) */
+router.get('/team-leaders/household-deposit-policy', requireStaffPermission('admin.users'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+  const row = await prisma.user.findFirst({
+    where: { tenantId, role: 'TEAM_LEADER', isActive: true },
+    select: { teamLeaderHouseholdDepositAsTeamIncome: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  res.json({ asTeamIncome: row?.teamLeaderHouseholdDepositAsTeamIncome === true });
+});
+
+/** 활성 팀장 전원 가계부 예약금 정책 일괄 변경 + 기존 배정 접수 재반영 */
+router.post('/team-leaders/household-deposit-policy', requireStaffPermission('admin.users'), async (req, res) => {
+  const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+  if (!tenantId) return;
+
+  const body = req.body as { asTeamIncome?: unknown };
+  if (typeof body.asTeamIncome !== 'boolean') {
+    res.status(400).json({ error: 'asTeamIncome(boolean)가 필요합니다.' });
+    return;
+  }
+
+  await prisma.user.updateMany({
+    where: { tenantId, role: 'TEAM_LEADER', isActive: true },
+    data: { teamLeaderHouseholdDepositAsTeamIncome: body.asTeamIncome },
+  });
+
+  const { resyncHouseholdLedgerForAllTeamLeaders } = await import(
+    '../team-leader-household-ledger/teamLeaderHouseholdLedgerAutoSync.service.js'
+  );
+  void resyncHouseholdLedgerForAllTeamLeaders(prisma, tenantId).catch((e) =>
+    console.error('[users] household deposit policy resync failed', e),
+  );
+
+  res.json({ ok: true, asTeamIncome: body.asTeamIncome });
+});
+
 router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(authUser);

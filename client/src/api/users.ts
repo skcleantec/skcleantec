@@ -222,6 +222,35 @@ export async function bulkSetTeamLeaderAllowSelfDayOffEdit(
   return res.json();
 }
 
+export async function getTeamLeaderHouseholdDepositPolicy(
+  token: string,
+): Promise<{ asTeamIncome: boolean }> {
+  const res = await fetch(`${API}/users/team-leaders/household-deposit-policy`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '설정을 불러올 수 없습니다.');
+  }
+  return res.json() as Promise<{ asTeamIncome: boolean }>;
+}
+
+export async function setTeamLeaderHouseholdDepositPolicy(
+  token: string,
+  asTeamIncome: boolean,
+): Promise<{ ok: boolean; asTeamIncome: boolean }> {
+  const res = await fetch(`${API}/users/team-leaders/household-deposit-policy`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ asTeamIncome }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '저장에 실패했습니다.');
+  }
+  return res.json() as Promise<{ ok: boolean; asTeamIncome: boolean }>;
+}
+
 export async function deleteUser(token: string, id: string): Promise<void> {
   const res = await fetch(`${API}/users/${encodeURIComponent(id)}`, {
     method: 'DELETE',

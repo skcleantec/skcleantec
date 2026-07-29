@@ -117,6 +117,7 @@ import {
 } from '../crew/crewFieldRealtime.js';
 import { notifyStaffInboxRefresh } from '../realtime/navBadgeNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
+import { queueHouseholdLedgerInquirySync } from '../team-leader-household-ledger/teamLeaderHouseholdLedgerAutoSync.service.js';
 import { inquiryDetailInclude, operatingCompanySummarySelect, orderFormTemplateListSelect } from './inquiryDetailInclude.js';
 import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
 import {
@@ -1632,6 +1633,7 @@ router.patch('/:id', async (req, res) => {
     if (lines.length > 0) {
       notifyChangeLogToStaff({ tenantId, customerName: inquiry.customerName, inquiryId: id, lines });
     }
+    queueHouseholdLedgerInquirySync(prisma, { tenantId, inquiryId: id });
   } catch (e) {
     const coinErr = mapTenantCoinError(e);
     if (coinErr) {
