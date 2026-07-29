@@ -101,6 +101,7 @@ export function LoginPage() {
   const billingBlockedMessage =
     (location.state as { billingMessage?: string } | null)?.billingMessage?.trim() ||
     '이용료 미납으로 업무 접속이 제한되었습니다. 관리자에게 문의해 주세요.';
+  const signupComplete = new URLSearchParams(location.search).get('signup') === '1';
   /** 로그인 제출 시 증가 — 진행 중인 자동 `getMe`가 새 토큰·저장소를 덮어쓰지 않도록 */
   const sessionProbeGen = useRef(0);
   const devCrewInitRef = useRef(false);
@@ -406,6 +407,17 @@ export function LoginPage() {
                 {tenantBrand?.loginSubtitle?.trim() || '업무 계정으로 안전하게 접속하세요.'}
               </p>
             </div>
+            {signupComplete ? (
+              <div
+                className="mb-6 flex gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3.5 py-3 text-fluid-sm text-emerald-950"
+                role="status"
+              >
+                <p>
+                  업체 개설이 완료되었습니다. 아래에서 로그인해 주세요. (무료 Free 플랜 · 유료는 관리자 메뉴에서
+                  신청·승인)
+                </p>
+              </div>
+            ) : null}
             {sessionExpired && (
               <div
                 className="mb-6 flex gap-3 rounded-xl border border-amber-200/80 bg-amber-50/90 px-3.5 py-3 text-fluid-sm text-amber-950"
@@ -572,6 +584,11 @@ export function LoginPage() {
           </div>
 
           <p className="mt-6 text-center text-fluid-2xs text-slate-500">
+            청소 업체가 처음이신가요?{' '}
+            <Link to="/signup" className="font-medium text-slate-800 underline-offset-2 hover:underline">
+              업체 개설 (무료)
+            </Link>
+            {' · '}
             <Link to="/platform/login" className="hover:text-slate-700 underline-offset-2 hover:underline">
               {PLATFORM_NAME} 운영 콘솔
             </Link>

@@ -32,6 +32,14 @@ enum TenantSuspendReason {
   PLATFORM
 }
 
+/// 테넌트 유료 플랜 전환 신청 — 셀프 가입(Free) 후 플랫폼 승인
+enum TenantPlanUpgradeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum TenantBillingCycle {
   MONTHLY
   ANNUAL
@@ -262,8 +270,32 @@ model Tenant {
   invoices       TenantInvoice[]
   billingAdjustments TenantBillingAdjustment[]
   coinLedgerEntries TenantCoinLedgerEntry[]
+  planUpgradeRequests TenantPlanUpgradeRequest[]
 
   @@map("tenants")
+}
+
+/// Free 셀프 가입 업체 → 유료 플랜 전환 신청
+model TenantPlanUpgradeRequest {
+  id                       String                         @id @default(uuid())
+  tenantId                 String                         @map("tenant_id")
+  requestedPlan            String                         @map("requested_plan") @db.VarChar(32)
+  status                   TenantPlanUpgradeRequestStatus @default(PENDING)
+  message                  String?                        @db.VarChar(2000)
+  adminNote                String?                        @map("admin_note") @db.VarChar(2000)
+  requesterUserId          String?                        @map("requester_user_id")
+  reviewedByPlatformUserId String?                        @map("reviewed_by_platform_user_id")
+  reviewedAt               DateTime?                      @map("reviewed_at")
+  createdAt                DateTime                       @default(now()) @map("created_at")
+  updatedAt                DateTime                       @updatedAt @map("updated_at")
+
+  tenant                 Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requesterUser          User?         @relation("TenantPlanUpgradeRequestRequester", fields: [requesterUserId], references: [id], onDelete: SetNull)
+  reviewedByPlatformUser PlatformUser? @relation(fields: [reviewedByPlatformUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("tenant_plan_upgrade_requests")
 }
 
 /// 플랫폼 SaaS 과금 — 전역 입금 안내 (싱글톤)
@@ -667,6 +699,7 @@ model PlatformUser {
 
   confirmedInvoices TenantInvoice[]
   billingAdjustmentsCreated TenantBillingAdjustment[]
+  reviewedPlanUpgradeRequests TenantPlanUpgradeRequest[]
 
   @@map("platform_users")
 }
@@ -1088,6 +1121,7 @@ model User {
   telecrmConsultationQuotesCreated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteCreatedBy")
   telecrmConsultationQuotesUpdated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteUpdatedBy")
   telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
+  planUpgradeRequestsRequested TenantPlanUpgradeRequest[] @relation("TenantPlanUpgradeRequestRequester")
 
   @@unique([tenantId, email])
   @@unique([tenantId, platformSupportAccessId])
