@@ -22,6 +22,7 @@ import {
 } from '../../utils/listPagination';
 import { kstTodayYmd } from '../../utils/dateFormat';
 import { TeamHouseholdLedgerEntryModal } from '../../components/team/TeamHouseholdLedgerEntryModal';
+import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { TeamBiInline } from '../../i18n/team/teamI18n';
 
 type DatePreset = 'today' | 'all' | 'month' | 'day';
@@ -161,7 +162,7 @@ export function TeamHouseholdLedgerPage() {
       });
       setData(res);
       alert(
-        `불러오기 완료\n· 배정 접수 ${result.inquiryCount}건\n· 새로 추가 ${result.created}건\n· 이미 있음 ${result.skippedExisting}건`,
+        `불러오기 완료\n· 배정 접수 ${result.inquiryCount}건\n· 새로 추가 ${result.created}건\n· 갱신 ${result.updated}건\n· 제거 ${result.removed}건`,
       );
     } catch (e) {
       alert(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
@@ -314,32 +315,39 @@ export function TeamHouseholdLedgerPage() {
 
         {items.length > 0 ? (
           <>
-            <div className="hidden lg:block">
-              <div className="w-full min-w-0 overflow-x-auto">
-                <table className="w-full table-fixed border-collapse text-fluid-xs">
+            <p className="mb-2 text-fluid-2xs text-slate-500 lg:hidden">표는 좌우로 스크롤할 수 있습니다.</p>
+            <SyncHorizontalScroll>
+              <div
+                className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                <table className="w-full min-w-[540px] table-fixed border-collapse text-fluid-2xs sm:text-fluid-xs">
                   <colgroup>
-                    <col className="w-[88px]" />
-                    <col className="w-[56px]" />
-                    <col className="w-[100px]" />
+                    <col className="w-[72px] sm:w-[88px]" />
+                    <col className="w-[44px] sm:w-[56px]" />
+                    <col className="w-[72px] sm:w-[100px]" />
                     <col />
-                    <col className="w-[110px]" />
-                    <col className="w-[120px]" />
+                    <col className="w-[84px] sm:w-[110px]" />
+                    <col className="w-[88px] sm:w-[120px]" />
                   </colgroup>
                   <thead>
-                    <tr className="bg-gray-100 text-fluid-2xs text-gray-700">
-                      <th className="px-2 py-2 text-center">날짜</th>
-                      <th className="px-2 py-2 text-center">구분</th>
-                      <th className="px-2 py-2 text-center">카테고리</th>
-                      <th className="px-2 py-2 text-center">메모·접수</th>
-                      <th className="px-2 py-2 text-center">금액</th>
-                      <th className="px-2 py-2 text-center">관리</th>
+                    <tr className="bg-gray-100 text-gray-700">
+                      <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">날짜</th>
+                      <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">구분</th>
+                      <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">카테고리</th>
+                      <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">메모·접수</th>
+                      <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">금액</th>
+                      <th className="px-1 py-1.5 text-center sm:px-2 sm:py-2">관리</th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.map((row) => (
                       <tr key={row.id} className="border-t border-gray-100 hover:bg-gray-50">
-                        <td className="px-2 py-2 text-center tabular-nums">{row.occurredOn}</td>
-                        <td className="px-2 py-2 text-center">
+                        <td className="px-1 py-1.5 text-center tabular-nums sm:px-2 sm:py-2" title={row.occurredOn}>
+                          <span className="sm:hidden">{row.occurredOn.slice(5)}</span>
+                          <span className="hidden sm:inline">{row.occurredOn}</span>
+                        </td>
+                        <td className="px-1 py-1.5 text-center sm:px-2 sm:py-2">
                           <span
                             className={
                               row.direction === 'INCOME' ? 'text-emerald-700' : 'text-rose-700'
@@ -348,27 +356,27 @@ export function TeamHouseholdLedgerPage() {
                             {directionLabel(row.direction)}
                           </span>
                         </td>
-                        <td className="truncate px-2 py-2 text-center" title={row.category}>
+                        <td className="truncate px-1 py-1.5 text-center sm:px-2 sm:py-2" title={row.category}>
                           {row.category}
                         </td>
-                        <td className="truncate px-2 py-2 text-center text-fluid-2xs text-slate-600">
+                        <td className="truncate px-1 py-1.5 text-center text-slate-600 sm:px-2 sm:py-2" title={row.memo?.trim() || [row.inquiryNumber, row.customerName].filter(Boolean).join(' · ') || undefined}>
                           {row.memo?.trim() ||
                             [row.inquiryNumber, row.customerName].filter(Boolean).join(' · ') ||
                             '—'}
                         </td>
                         <td
-                          className={`px-2 py-2 text-right tabular-nums font-semibold ${
+                          className={`px-1 py-1.5 text-right tabular-nums font-semibold sm:px-2 sm:py-2 ${
                             row.direction === 'INCOME' ? 'text-emerald-800' : 'text-rose-800'
                           }`}
                         >
                           {row.direction === 'EXPENSE' ? '-' : ''}
                           {won(row.amount)}
                         </td>
-                        <td className="px-2 py-2 text-center">
-                          <div className="flex items-center justify-center gap-1">
+                        <td className="px-1 py-1.5 text-center sm:px-2 sm:py-2">
+                          <div className="flex items-center justify-center gap-0.5 sm:gap-1">
                             <button
                               type="button"
-                              className="rounded border border-slate-200 px-2 py-0.5 text-fluid-2xs"
+                              className="rounded border border-slate-200 px-1.5 py-0.5 text-fluid-2xs sm:px-2"
                               onClick={() => {
                                 setEditing(row);
                                 setModalOpen(true);
@@ -378,7 +386,7 @@ export function TeamHouseholdLedgerPage() {
                             </button>
                             <button
                               type="button"
-                              className="rounded border border-rose-200 px-2 py-0.5 text-fluid-2xs text-rose-700"
+                              className="rounded border border-rose-200 px-1.5 py-0.5 text-fluid-2xs text-rose-700 sm:px-2"
                               onClick={() => void handleDelete(row)}
                             >
                               삭제
@@ -390,58 +398,7 @@ export function TeamHouseholdLedgerPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
-
-            <div className="space-y-1.5 lg:hidden">
-              {items.map((row) => (
-                <div key={row.id} className="rounded-lg border border-slate-200 p-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-fluid-xs font-semibold text-slate-900">
-                        <span className={row.direction === 'INCOME' ? 'text-emerald-700' : 'text-rose-700'}>
-                          {directionLabel(row.direction)}
-                        </span>
-                        <span className="mx-1 text-slate-300">·</span>
-                        {row.category}
-                      </p>
-                      <p className="text-fluid-2xs text-slate-500">{row.occurredOn}</p>
-                    </div>
-                    <p
-                      className={`shrink-0 text-fluid-xs font-bold tabular-nums ${
-                        row.direction === 'INCOME' ? 'text-emerald-800' : 'text-rose-800'
-                      }`}
-                    >
-                      {row.direction === 'EXPENSE' ? '-' : ''}
-                      {won(row.amount)}
-                    </p>
-                  </div>
-                  {(row.memo || row.customerName) && (
-                    <p className="mt-1 truncate text-fluid-2xs text-slate-600">
-                      {row.memo?.trim() || [row.inquiryNumber, row.customerName].filter(Boolean).join(' · ')}
-                    </p>
-                  )}
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      className="min-h-8 flex-1 rounded-lg border border-slate-200 text-fluid-2xs font-semibold"
-                      onClick={() => {
-                        setEditing(row);
-                        setModalOpen(true);
-                      }}
-                    >
-                      수정
-                    </button>
-                    <button
-                      type="button"
-                      className="min-h-8 flex-1 rounded-lg border border-rose-200 text-fluid-2xs font-semibold text-rose-700"
-                      onClick={() => void handleDelete(row)}
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            </SyncHorizontalScroll>
 
             {!loading ? (
               <ListPaginationBar
@@ -463,10 +420,10 @@ export function TeamHouseholdLedgerPage() {
       </div>
 
       <p className="text-fluid-2xs text-slate-500">
-        회사 월정산표와 별개로, 팀장 개인 수입·지출을 기록하는 메뉴입니다.{' '}
-        <strong className="font-semibold text-slate-700">배정 접수 불러오기</strong>로 과거 건을 한 번에
-        가져오거나, 접수 상세에서 항목별로 추가할 수 있습니다. 기본 조회는 월별이므로 과거 건은{' '}
-        <strong className="font-semibold text-slate-700">전체</strong> 기간을 선택해 보세요.
+        배정·접수 금액 변경 시 가계부에 자동 반영됩니다. 예약금 포함 여부는 관리자 「사용자 등록 → 가계부
+        예약금」에서 정합니다.{' '}
+        <strong className="font-semibold text-slate-700">배정 접수 불러오기</strong>는 과거 건을 한 번에
+        맞출 때 사용하세요.
       </p>
 
       <TeamHouseholdLedgerEntryModal

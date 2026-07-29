@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
+import { queueHouseholdLedgerInquirySync } from '../team-leader-household-ledger/teamLeaderHouseholdLedgerAutoSync.service.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
@@ -236,6 +237,9 @@ router.post('/', async (req, res) => {
   void notifyNewAssignmentForInquiry(tenantId, inquiryId, [teamLeaderId], [...prevLeaderSet]).catch((e) =>
     console.error('[assignment-notify] notifyNewAssignmentForInquiry', e),
   );
+  if (teamLeader.role === 'TEAM_LEADER') {
+    queueHouseholdLedgerInquirySync(prisma, { tenantId, inquiryId });
+  }
   void notifyAllActiveCrewGroupsRefresh(tenantId).catch((e) =>
     console.error('[assignment-notify] notifyAllActiveCrewGroupsRefresh', e)
   );

@@ -59,8 +59,8 @@ export type HouseholdLedgerPrefillResponse = {
 export type HouseholdLedgerSyncResult = {
   inquiryCount: number;
   created: number;
-  skippedExisting: number;
-  skippedEmpty: number;
+  updated: number;
+  removed: number;
 };
 
 export type HouseholdLedgerListParams = {

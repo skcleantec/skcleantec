@@ -37,6 +37,7 @@ import {
   type UserServiceZoneFormValue,
 } from '../../components/admin/UserServiceZoneFields';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
+import { TeamLeaderHouseholdDepositPolicyModal } from '../../components/admin/TeamLeaderHouseholdDepositPolicyModal';
 
 type UserRole = 'TEAM_LEADER' | 'MARKETER' | 'OFFICE_STAFF';
 
@@ -239,6 +240,7 @@ export function AdminTeamLeadersPage() {
   const staffIdCardInputRef = useRef<HTMLInputElement>(null);
   const [dayOffSwitchId, setDayOffSwitchId] = useState<string | null>(null);
   const [bulkDayOffLoading, setBulkDayOffLoading] = useState(false);
+  const [depositPolicyOpen, setDepositPolicyOpen] = useState(false);
   const [form, setForm] = useState<RegisterFormState>(() => emptyRegisterForm());
   const [operatingCompanies, setOperatingCompanies] = useState<OperatingCompanyItem[]>([]);
   const [ocForm, setOcForm] = useState<UserOperatingCompanyFormValue>({
@@ -784,6 +786,13 @@ export function AdminTeamLeadersPage() {
                     className="px-3 py-1.5 text-fluid-xs font-medium rounded border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
                   >
                     일괄 금지
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDepositPolicyOpen(true)}
+                    className="px-3 py-1.5 text-fluid-xs font-medium rounded border border-sky-200 text-sky-800 bg-sky-50 hover:bg-sky-100"
+                  >
+                    가계부 예약금
                   </button>
                 </div>
               )}
@@ -2153,6 +2162,14 @@ export function AdminTeamLeadersPage() {
         open={loginCopyOpen}
         onClose={() => setLoginCopyOpen(false)}
         credentials={loginCopyCredentials}
+      />
+      <TeamLeaderHouseholdDepositPolicyModal
+        open={depositPolicyOpen}
+        token={token}
+        onClose={() => setDepositPolicyOpen(false)}
+        onSaved={() => {
+          alert('가계부 예약금 정책을 저장했습니다. 배정된 접수 가계부를 다시 계산합니다.');
+        }}
       />
     </div>
   );
