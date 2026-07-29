@@ -6,6 +6,7 @@ import {
   deleteTeamHouseholdLedgerEntry,
   getTeamHouseholdLedgerCategories,
   getTeamHouseholdLedgerEntries,
+  syncTeamHouseholdLedgerFromAssignments,
   updateTeamHouseholdLedgerEntry,
   type HouseholdLedgerEntry,
   type HouseholdLedgerListResponse,
@@ -31,7 +32,7 @@ function kstMonthKeyNow(): string {
 
 function parseDatePreset(raw: string | null): DatePreset {
   if (raw === 'today' || raw === 'all' || raw === 'month' || raw === 'day') return raw;
-  return 'month';
+  return 'all';
 }
 
 function won(n: number): string {
@@ -70,6 +71,7 @@ export function TeamHouseholdLedgerPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<HouseholdLedgerEntry | null>(null);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const patchParams = useCallback(
     (patch: (next: URLSearchParams) => void) => {
@@ -136,6 +138,38 @@ export function TeamHouseholdLedgerPage() {
     }
   };
 
+  const handleSyncAssignments = async () => {
+    if (!token) return;
+    if (
+      !window.confirm(
+        '본인에게 배정된 접수의 예약금·잔금·추가결재·DB 구입비를 가계부에 불러옵니다.\n이미 추가된 항목은 건너뜁니다. 진행할까요?',
+      )
+    ) {
+      return;
+    }
+    setSyncing(true);
+    try {
+      const result = await syncTeamHouseholdLedgerFromAssignments(token);
+      patchParams((n) => {
+        n.set('datePreset', 'all');
+        n.set('page', '1');
+      });
+      const res = await getTeamHouseholdLedgerEntries(token, {
+        datePreset: 'all',
+        limit: pageSize,
+        offset: 0,
+      });
+      setData(res);
+      alert(
+        `불러오기 완료\n· 배정 접수 ${result.inquiryCount}건\n· 새로 추가 ${result.created}건\n· 이미 있음 ${result.skippedExisting}건`,
+      );
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '불러오기에 실패했습니다.');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleSave = async (payload: Parameters<typeof createTeamHouseholdLedgerEntry>[1]) => {
     if (!token) return;
     setSaving(true);
@@ -178,16 +212,26 @@ export function TeamHouseholdLedgerPage() {
         <h1 className="text-fluid-base font-bold text-slate-900 sm:text-lg">
           <TeamBiInline id="team.layout.nav.householdLedger" />
         </h1>
-        <button
-          type="button"
-          onClick={() => {
-            setEditing(null);
-            setModalOpen(true);
-          }}
-          className="min-h-9 rounded-lg bg-slate-900 px-3 text-fluid-2xs font-semibold text-white sm:min-h-10 sm:px-4 sm:text-fluid-xs"
-        >
-          직접 추가
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={syncing}
+            onClick={() => void handleSyncAssignments()}
+            className="min-h-9 rounded-lg border border-slate-300 bg-white px-3 text-fluid-2xs font-semibold text-slate-800 disabled:opacity-60 sm:min-h-10 sm:px-4 sm:text-fluid-xs"
+          >
+            {syncing ? '불러오는 중…' : '배정 접수 불러오기'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setModalOpen(true);
+            }}
+            className="min-h-9 rounded-lg bg-slate-900 px-3 text-fluid-2xs font-semibold text-white sm:min-h-10 sm:px-4 sm:text-fluid-xs"
+          >
+            직접 추가
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-2 sm:rounded-2xl sm:p-4">
@@ -419,8 +463,10 @@ export function TeamHouseholdLedgerPage() {
       </div>
 
       <p className="text-fluid-2xs text-slate-500">
-        회사 월정산표와 별개로, 팀장 개인 수입·지출을 기록하는 메뉴입니다. 접수 상세에서 금액을 불러와 추가할 수
-        있습니다.
+        회사 월정산표와 별개로, 팀장 개인 수입·지출을 기록하는 메뉴입니다.{' '}
+        <strong className="font-semibold text-slate-700">배정 접수 불러오기</strong>로 과거 건을 한 번에
+        가져오거나, 접수 상세에서 항목별로 추가할 수 있습니다. 기본 조회는 월별이므로 과거 건은{' '}
+        <strong className="font-semibold text-slate-700">전체</strong> 기간을 선택해 보세요.
       </p>
 
       <TeamHouseholdLedgerEntryModal

@@ -37,6 +37,7 @@ export function TeamHouseholdLedgerInquiryAddPanel({
   const [modalInitial, setModalInitial] = useState<HouseholdLedgerModalInitial | null>(null);
   const [saving, setSaving] = useState(false);
   const [addingKind, setAddingKind] = useState<string | null>(null);
+  const [suggestedOccurredOn, setSuggestedOccurredOn] = useState<string | undefined>(undefined);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,6 +48,7 @@ export function TeamHouseholdLedgerInquiryAddPanel({
         getTeamHouseholdLedgerCategories(token),
       ]);
       setItems(prefill.items);
+      setSuggestedOccurredOn(prefill.suggestedOccurredOn);
       setCategories(cats);
     } catch (e) {
       setError(e instanceof Error ? e.message : '금액 정보를 불러올 수 없습니다.');
@@ -84,6 +86,7 @@ export function TeamHouseholdLedgerInquiryAddPanel({
         memo: opt.memoHint,
         inquiryId,
         prefillKind: opt.kind,
+        occurredOn: suggestedOccurredOn,
       });
       await load();
     } catch (e) {

@@ -52,7 +52,15 @@ export type HouseholdLedgerPrefillResponse = {
   inquiryId: string;
   inquiryNumber: string | null;
   customerName: string;
+  suggestedOccurredOn?: string;
   items: HouseholdLedgerPrefillOption[];
+};
+
+export type HouseholdLedgerSyncResult = {
+  inquiryCount: number;
+  created: number;
+  skippedExisting: number;
+  skippedEmpty: number;
 };
 
 export type HouseholdLedgerListParams = {
@@ -162,4 +170,15 @@ export async function deleteTeamHouseholdLedgerEntry(token: string, entryId: str
     },
   );
   if (!res.ok) return parseJsonError(res, '삭제에 실패했습니다.');
+}
+
+export async function syncTeamHouseholdLedgerFromAssignments(
+  token: string,
+): Promise<HouseholdLedgerSyncResult> {
+  const res = await fetch(withTeamPreviewQuery(`${API}/team/household-ledger/sync-assignments`), {
+    method: 'POST',
+    headers: headers(token),
+  });
+  if (!res.ok) return parseJsonError(res, '배정 접수 불러오기에 실패했습니다.');
+  return res.json() as Promise<HouseholdLedgerSyncResult>;
 }
