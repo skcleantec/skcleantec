@@ -1,5 +1,9 @@
 import { Router, type Request } from 'express';
-import { getPublicLegalSession, submitPublicLegalAgreement } from './platformLegal.service.js';
+import {
+  getPublicLegalSession,
+  getPublishedLegalDocumentBySlug,
+  submitPublicLegalAgreement,
+} from './platformLegal.service.js';
 
 const router = Router();
 
@@ -9,6 +13,21 @@ function clientIp(req: Request): string | undefined {
   const raw = xf || req.socket?.remoteAddress || '';
   return raw || undefined;
 }
+
+/** GET /api/public/legal/documents/:slug — 게시된 약관·개인정보 처리방침 */
+router.get('/documents/:slug', async (req, res) => {
+  try {
+    const doc = await getPublishedLegalDocumentBySlug(req.params.slug);
+    if (!doc) {
+      res.status(404).json({ error: '문서를 찾을 수 없습니다.' });
+      return;
+    }
+    res.json({ document: doc });
+  } catch (e) {
+    console.error('[platform legal public] GET document', e);
+    res.status(500).json({ error: '불러오지 못했습니다.' });
+  }
+});
 
 router.get('/agree/:token', async (req, res) => {
   try {

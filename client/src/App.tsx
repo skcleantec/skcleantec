@@ -10,6 +10,7 @@ import { CrewProtectedRoute } from './components/auth/CrewProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { TenantSignupPage } from './pages/TenantSignupPage';
 import { TenantForgotPasswordPage } from './pages/TenantForgotPasswordPage';
+import { LegalDocumentViewPage } from './pages/public/LegalDocumentViewPage';
 import { AdminInquiriesLayout } from './components/layout/AdminInquiriesLayout';
 import { AdminTeamLeadersLayout } from './components/layout/AdminTeamLeadersLayout';
 import { AdminAdvertisingLayout } from './components/layout/AdminAdvertisingLayout';
@@ -140,6 +141,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<TenantSignupPage />} />
         <Route path="/forgot-password" element={<TenantForgotPasswordPage />} />
+        <Route path="/legal/:slug" element={<LegalDocumentViewPage />} />
         <Route path="/platform/login" element={<PlatformLoginPage />} />
         <Route
           path="/platform"

@@ -125,6 +125,34 @@ export async function getPlatformLegalDocument(id: string): Promise<LegalDocumen
   return row ? toDocumentDto(row) : null;
 }
 
+/** 공개 조회 — 게시된 약관·개인정보 처리방침 (회원가입 등) */
+export async function getPublishedLegalDocumentBySlug(slugRaw: string) {
+  await ensureDefaultPlatformLegalDocuments();
+  const slug = slugRaw.trim().toLowerCase();
+  if (!slug || !/^[a-z0-9-]{1,64}$/.test(slug)) {
+    return null;
+  }
+  const row = await prisma.platformLegalDocument.findUnique({
+    where: { slug },
+    select: {
+      slug: true,
+      title: true,
+      contentHtml: true,
+      version: true,
+      isPublished: true,
+      updatedAt: true,
+    },
+  });
+  if (!row || !row.isPublished) return null;
+  return {
+    slug: row.slug,
+    title: row.title,
+    contentHtml: row.contentHtml,
+    version: row.version,
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export async function createPlatformLegalDocument(input: {
   title: string;
   documentType: PlatformLegalDocumentType;
