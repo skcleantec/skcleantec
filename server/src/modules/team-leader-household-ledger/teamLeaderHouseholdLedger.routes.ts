@@ -14,6 +14,7 @@ import {
   listHouseholdLedgerEntries,
   updateHouseholdLedgerEntry,
 } from './teamLeaderHouseholdLedger.service.js';
+import { syncHouseholdLedgerFromAssignments } from './teamLeaderHouseholdLedgerSync.service.js';
 
 const router = Router();
 
@@ -67,7 +68,10 @@ router.get('/prefill/:inquiryId', async (req, res) => {
       teamLeaderId: user.userId,
       inquiryId: req.params.inquiryId,
     });
-    res.json(data);
+    res.json({
+      ...data,
+      suggestedOccurredOn: data.suggestedOccurredOn.toISOString().slice(0, 10),
+    });
   } catch (e) {
     if (e instanceof HouseholdLedgerAccessError) {
       res.status(e.status).json({ error: e.message });
@@ -75,6 +79,26 @@ router.get('/prefill/:inquiryId', async (req, res) => {
     }
     console.error('[household-ledger GET /prefill]', e);
     res.status(500).json({ error: '접수 정보를 불러오지 못했습니다.' });
+  }
+});
+
+router.post('/sync-assignments', async (req, res) => {
+  const user = requireTeamLeader(req, res);
+  if (!user) return;
+  const tenantId = getTenantIdFromAuth(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  try {
+    const result = await syncHouseholdLedgerFromAssignments(prisma, {
+      tenantId,
+      teamLeaderId: user.userId,
+    });
+    res.json(result);
+  } catch (e) {
+    console.error('[household-ledger POST /sync-assignments]', e);
+    res.status(500).json({ error: '배정 접수 불러오기에 실패했습니다.' });
   }
 });
 

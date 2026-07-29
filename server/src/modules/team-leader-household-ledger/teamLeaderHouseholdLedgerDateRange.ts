@@ -12,7 +12,7 @@ export function householdLedgerRangeFromQuery(query: {
   month?: string;
   day?: string;
 }): { loYmd: string; hiYmd: string; gte: Date; lte: Date } {
-  const preset = (typeof query.datePreset === 'string' ? query.datePreset : 'month') as DatePreset;
+  const preset = (typeof query.datePreset === 'string' ? query.datePreset : 'all') as DatePreset;
   if (preset === 'all') {
     const loYmd = ALL_FROM_YMD;
     const hiYmd = kstTodayYmd();
