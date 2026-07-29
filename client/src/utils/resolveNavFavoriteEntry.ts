@@ -34,6 +34,7 @@ export type ResolvedTeamGnbFavorite = {
     | 'assignments'
     | 'schedule'
     | 'settlement'
+    | 'household-ledger'
     | 'marketplace'
     | 'dayoffs'
     | 'cs'
@@ -53,6 +54,7 @@ const TEAM_PATH_META: Record<
   '/team/assignments': { label: '배정목록', teamIcon: 'assignments' },
   '/team/schedule': { label: '스케줄', teamIcon: 'schedule' },
   '/team/settlement': { label: '정산', teamIcon: 'settlement' },
+  '/team/household-ledger': { label: '가계부', teamIcon: 'household-ledger' },
   '/team/db-marketplace': { label: '정보공유', teamIcon: 'marketplace' },
   '/team/dayoffs': { label: '휴무', teamIcon: 'dayoffs' },
   '/team/cs': { label: 'C/S', teamIcon: 'cs' },

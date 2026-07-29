@@ -80,6 +80,7 @@ function TeamNavLinks({
   teamTo,
   navClass,
   isExternalPartner,
+  showHouseholdLedger,
   hideTeamDayoffs,
   showDbMarketplace,
   newAssignmentCount,
@@ -93,6 +94,7 @@ function TeamNavLinks({
   teamTo: (path: string) => string;
   navClass: ({ isActive }: { isActive: boolean }) => string;
   isExternalPartner: boolean;
+  showHouseholdLedger: boolean;
   hideTeamDayoffs: boolean;
   showDbMarketplace: boolean;
   newAssignmentCount: number;
@@ -187,6 +189,14 @@ function TeamNavLinks({
               </NavLink>,
             )
           : null}
+        {showHouseholdLedger
+          ? wrap(
+              <NavLink to={teamTo('/team/household-ledger')} className={navClass} {...linkProps}>
+                <TeamNavIcon type="household-ledger" className="mr-3 h-5 w-5 shrink-0" />
+                <TeamBiInline id="team.layout.nav.householdLedger" />
+              </NavLink>,
+            )
+          : null}
         {showDbMarketplace
           ? wrap(
               <NavLink to={teamTo('/team/db-marketplace')} className={navClass} {...linkProps}>
@@ -263,6 +273,12 @@ function TeamNavLinks({
           <TeamBiInline id="team.layout.nav.settlement" />
         </NavLink>
       ) : null}
+      {showHouseholdLedger ? (
+        <NavLink to={teamTo('/team/household-ledger')} className={navClass}>
+          <TeamNavIcon type="household-ledger" className="w-4 h-4 mr-1.5 shrink-0" />
+          <TeamBiInline id="team.layout.nav.householdLedger" />
+        </NavLink>
+      ) : null}
       {showDbMarketplace ? (
         <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
           <NavLink to={teamTo('/team/db-marketplace')} className={navClass}>
@@ -321,7 +337,7 @@ function TeamNavLinks({
   );
 }
 
-function TeamNavIcon({ type, className }: { type: 'dashboard' | 'assignments' | 'schedule' | 'settlement' | 'marketplace' | 'dayoffs' | 'cs' | 'messages' | 'e-contracts'; className?: string }) {
+function TeamNavIcon({ type, className }: { type: 'dashboard' | 'assignments' | 'schedule' | 'settlement' | 'household-ledger' | 'marketplace' | 'dayoffs' | 'cs' | 'messages' | 'e-contracts'; className?: string }) {
   if (type === 'dashboard') {
     return (
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -356,6 +372,16 @@ function TeamNavIcon({ type, className }: { type: 'dashboard' | 'assignments' | 
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
         <line x1="1" y1="10" x2="23" y2="10" />
+      </svg>
+    );
+  }
+  if (type === 'household-ledger') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        <line x1="8" y1="7" x2="16" y2="7" />
+        <line x1="8" y1="11" x2="14" y2="11" />
       </svg>
     );
   }
@@ -671,6 +697,8 @@ export function TeamLayout() {
       (previewExternal || previewTeamLeader),
   );
   const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
+  const showHouseholdLedger =
+    !isExternalPartner && (userRole === 'TEAM_LEADER' || previewTeamLeader);
   const { items: teamPromoItems } = usePlatformPromos('team', location.search);
   const teamPromoForPage = useMemo(
     () => filterPromosForTeamPath(teamPromoItems, location.pathname),
@@ -710,6 +738,7 @@ export function TeamLayout() {
 
   const navShared = {
     isExternalPartner,
+    showHouseholdLedger,
     hideTeamDayoffs,
     showDbMarketplace,
     newAssignmentCount,
@@ -734,6 +763,7 @@ export function TeamLayout() {
 
   const teamNavFavoriteVisibility: TeamNavVisibility = {
     isExternalPartner,
+    showHouseholdLedger,
     hideTeamDayoffs,
     showDbMarketplace,
   };

@@ -47,6 +47,7 @@ import {
   TeamPreCleanPhotoPage,
   TeamPostCleanPhotoPage,
   TeamExternalSettlementPage,
+  TeamHouseholdLedgerPage,
   TeamDbMarketplacePage,
   TeamEContractListPage,
   TeamTrainingMaterialPage,
@@ -84,6 +85,7 @@ import {
   AdminTeamLeaderTrainingPage,
   AdminInspectionTemplatePage,
   AdminPayrollPage,
+  AdminHouseholdLedgerPage,
   AdminEContractListPage,
   AdminEContractDefinitionPage,
   AdminEContractFieldSettingsPage,
@@ -275,6 +277,7 @@ function App() {
             />
             <Route path="external-settlement" element={<SuspensePage><AdminExternalSettlementPage /></SuspensePage>} />
             <Route path="payroll" element={<FeatureGate module="mod_payroll"><SuspensePage><AdminPayrollPage /></SuspensePage></FeatureGate>} />
+            <Route path="household-ledger" element={<SuspensePage><AdminHouseholdLedgerPage /></SuspensePage>} />
             <Route path="e-contracts" element={<FeatureGate module="mod_e_contract"><AdminEContractLayout /></FeatureGate>}>
               <Route index element={<SuspensePage><AdminEContractListPage /></SuspensePage>} />
               <Route path="field-settings" element={<SuspensePage><AdminEContractFieldSettingsPage /></SuspensePage>} />
@@ -403,6 +406,7 @@ function App() {
           <Route path="schedule" element={<SuspensePage><TeamSchedulePage /></SuspensePage>} />
           <Route path="dayoffs" element={<SuspensePage><TeamDayOffsPage /></SuspensePage>} />
           <Route path="settlement" element={<SuspensePage><TeamExternalSettlementPage /></SuspensePage>} />
+          <Route path="household-ledger" element={<SuspensePage><TeamHouseholdLedgerPage /></SuspensePage>} />
           <Route
             path="db-marketplace"
             element={
