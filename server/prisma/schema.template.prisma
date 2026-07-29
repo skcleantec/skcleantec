@@ -40,6 +40,11 @@ enum TenantPlanUpgradeRequestStatus {
   CANCELLED
 }
 
+enum EmailVerificationPurpose {
+  TENANT_SIGNUP
+  PASSWORD_RESET
+}
+
 enum TenantBillingCycle {
   MONTHLY
   ANNUAL
@@ -296,6 +301,24 @@ model TenantPlanUpgradeRequest {
   @@index([tenantId, status, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
   @@map("tenant_plan_upgrade_requests")
+}
+
+/// 공개 이메일 인증 — 셀프 가입·비밀번호 찾기
+model EmailVerificationChallenge {
+  id         String                   @id @default(uuid())
+  purpose    EmailVerificationPurpose
+  email      String                   @db.VarChar(256)
+  codeHash   String                   @map("code_hash") @db.VarChar(128)
+  payload    Json
+  attempts   Int                      @default(0)
+  expiresAt  DateTime                 @map("expires_at")
+  consumedAt DateTime?                @map("consumed_at")
+  requestIp  String?                  @map("request_ip") @db.VarChar(64)
+  createdAt  DateTime                 @default(now()) @map("created_at")
+
+  @@index([email, purpose, createdAt(sort: Desc)])
+  @@index([purpose, expiresAt])
+  @@map("email_verification_challenges")
 }
 
 /// 플랫폼 SaaS 과금 — 전역 입금 안내 (싱글톤)
@@ -1003,6 +1026,8 @@ model User {
   nameEn       String?  @map("name_en") @db.VarChar(128)
   role         UserRole @default(TEAM_LEADER)
   phone        String?
+  /// 비밀번호 찾기용 인증 이메일 (셀프 가입 시 등록)
+  recoveryEmail String? @map("recovery_email") @db.VarChar(256)
   vehicleNumber String? @map("vehicle_number") @db.VarChar(64)
   isActive     Boolean  @default(true) @map("is_active")
   /// 테넌트 내 최고 관리자 (플랫폼 SUPER_ADMIN 과 별개)

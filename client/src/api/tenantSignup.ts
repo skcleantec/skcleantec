@@ -13,8 +13,14 @@ export type TenantSignupPayload = {
   adminPassword: string;
   adminName?: string;
   contactEmail: string;
-  contactPhone?: string;
+  contactPhone: string;
   memberTermsAgreed: boolean;
+};
+
+export type TenantSignupVerificationSent = {
+  challengeId: string;
+  expiresAt: string;
+  message: string;
 };
 
 export type TenantSignupResult = {
@@ -31,11 +37,28 @@ export async function checkTenantSignupSlug(slug: string): Promise<TenantSlugAva
   return data;
 }
 
-export async function submitTenantSignup(payload: TenantSignupPayload): Promise<TenantSignupResult> {
-  const res = await fetch(API, {
+export async function sendTenantSignupVerificationCode(
+  payload: TenantSignupPayload,
+): Promise<TenantSignupVerificationSent> {
+  const res = await fetch(`${API}/send-verification-code`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+  });
+  const data = (await res.json()) as TenantSignupVerificationSent & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '인증번호 발송에 실패했습니다.');
+  return data;
+}
+
+export async function completeTenantSignup(input: {
+  challengeId: string;
+  contactEmail: string;
+  verificationCode: string;
+}): Promise<TenantSignupResult> {
+  const res = await fetch(`${API}/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
   });
   const data = (await res.json()) as TenantSignupResult & { error?: string };
   if (!res.ok) throw new Error(data.error ?? '가입에 실패했습니다.');

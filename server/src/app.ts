@@ -69,6 +69,7 @@ import platformPartnerPromoRoutes from './modules/platform-partner-promo/platfor
 import adminPlatformPromoRoutes from './modules/platform-partner-promo/adminPlatformPromo.routes.js';
 import platformLegalPublicRoutes from './modules/platform-legal/platformLegal.public.routes.js';
 import tenantSignupPublicRoutes from './modules/platform/tenantSignup.public.routes.js';
+import tenantPasswordResetPublicRoutes from './modules/auth/tenantPasswordReset.public.routes.js';
 import platformPlanUpgradeRoutes from './modules/platform/platformPlanUpgrade.routes.js';
 import tenantPlanUpgradeRoutes from './modules/tenants/tenantPlanUpgrade.routes.js';
 import { resolveHelpScreenshotFilePath } from './modules/help/helpScreenshotsPath.js';
@@ -181,6 +182,7 @@ app.use('/api/help', helpRoutes);
 app.use('/api/help/inquiry', helpInquiryPublicRoutes);
 app.use('/api/public/legal', platformLegalPublicRoutes);
 app.use('/api/public/tenant-signup', tenantSignupPublicRoutes);
+app.use('/api/public/password-reset', tenantPasswordResetPublicRoutes);
 mountCustomModuleRoutes(app);
 
 // C/S 이미지: Railway Volume 또는 로컬 uploads 폴더 서빙

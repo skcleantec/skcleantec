@@ -102,6 +102,7 @@ export function LoginPage() {
     (location.state as { billingMessage?: string } | null)?.billingMessage?.trim() ||
     '이용료 미납으로 업무 접속이 제한되었습니다. 관리자에게 문의해 주세요.';
   const signupComplete = new URLSearchParams(location.search).get('signup') === '1';
+  const passwordResetComplete = new URLSearchParams(location.search).get('passwordReset') === '1';
   /** 로그인 제출 시 증가 — 진행 중인 자동 `getMe`가 새 토큰·저장소를 덮어쓰지 않도록 */
   const sessionProbeGen = useRef(0);
   const devCrewInitRef = useRef(false);
@@ -407,14 +408,22 @@ export function LoginPage() {
                 {tenantBrand?.loginSubtitle?.trim() || '업무 계정으로 안전하게 접속하세요.'}
               </p>
             </div>
+            {passwordResetComplete ? (
+              <div
+                className="mb-6 flex gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3.5 py-3 text-fluid-sm text-emerald-950"
+                role="status"
+              >
+                <p>비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요.</p>
+              </div>
+            ) : null}
             {signupComplete ? (
               <div
                 className="mb-6 flex gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3.5 py-3 text-fluid-sm text-emerald-950"
                 role="status"
               >
                 <p>
-                  업체 개설이 완료되었습니다. 아래에서 로그인해 주세요. (무료 Free 플랜 · 유료는 관리자 메뉴에서
-                  신청·승인)
+                  업체 개설이 완료되었습니다. 인증한 이메일은 비밀번호 찾기에 사용됩니다. 아래에서 로그인해 주세요.
+                  (무료 Free 플랜 · 유료는 관리자 메뉴에서 신청·승인)
                 </p>
               </div>
             ) : null}
@@ -512,9 +521,19 @@ export function LoginPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="login-password" className="block text-fluid-xs font-medium text-slate-600">
-                  비밀번호
-                </label>
+                <div className="flex items-center justify-between gap-2">
+                  <label htmlFor="login-password" className="block text-fluid-xs font-medium text-slate-600">
+                    비밀번호
+                  </label>
+                  {!crewLoginMode ? (
+                    <Link
+                      to="/forgot-password"
+                      className="text-fluid-2xs font-medium text-sky-700 underline-offset-2 hover:underline"
+                    >
+                      비밀번호 찾기
+                    </Link>
+                  ) : null}
+                </div>
                 <input
                   id="login-password"
                   type="password"
