@@ -202,6 +202,7 @@ model Tenant {
   payrollAdminSharedExpenses PayrollAdminSharedExpense[]
   payrollIncomeDeposits PayrollIncomeDeposit[]
   payrollAccountLedgerManualEntries PayrollAccountLedgerManualEntry[]
+  teamLeaderHouseholdLedgerEntries TeamLeaderHouseholdLedgerEntry[]
   userCustomCalendars UserCustomCalendar[]
   userCustomCalendarInquiryPins UserCustomCalendarInquiryPin[]
   serviceZones ServiceZone[]
@@ -1063,6 +1064,7 @@ model User {
   payrollIncomeDepositsCreated PayrollIncomeDeposit[] @relation("PayrollIncomeDepositCreator")
   payrollAccountLedgerManualEntriesCreated PayrollAccountLedgerManualEntry[] @relation("PayrollAccountLedgerManualEntryCreator")
   payrollLedgerManualEntriesLinked PayrollAccountLedgerManualEntry[] @relation("PayrollLedgerManualLinkedUser")
+  teamLeaderHouseholdLedgerEntries TeamLeaderHouseholdLedgerEntry[] @relation("TeamLeaderHouseholdLedgerOwner")
   csReportsForwardedTo          CsReport[] @relation("CsReportForwardedTo")
   /// 관리자가 생성한 전자계약(팀장) 정의 — `modules/e-contract`
   eContractDefinitionsCreated  EContractDefinition[] @relation("EContractDefinitionCreator")
@@ -1482,6 +1484,35 @@ model PayrollAccountLedgerManualEntry {
   @@map("payroll_account_ledger_manual_entries")
 }
 
+enum TeamLeaderHouseholdLedgerDirection {
+  INCOME
+  EXPENSE
+}
+
+/// 팀장 개인 가계부 — 회사 정산과 별도, 본인 수입·지출 기록
+model TeamLeaderHouseholdLedgerEntry {
+  id           String                           @id @default(uuid())
+  tenantId     String                           @map("tenant_id")
+  teamLeaderId String                           @map("team_leader_id")
+  direction    TeamLeaderHouseholdLedgerDirection
+  occurredOn   DateTime                         @map("occurred_on") @db.Date
+  category     String                           @db.VarChar(64)
+  amount       Int
+  memo         String?                          @db.Text
+  inquiryId    String?                          @map("inquiry_id")
+  prefillKind  String?                          @map("prefill_kind") @db.VarChar(32)
+  createdAt    DateTime                         @default(now()) @map("created_at")
+  updatedAt    DateTime                         @updatedAt @map("updated_at")
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teamLeader User     @relation("TeamLeaderHouseholdLedgerOwner", fields: [teamLeaderId], references: [id], onDelete: Cascade)
+  inquiry    Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, teamLeaderId, occurredOn(sort: Desc)], map: "tl_household_ledger_tenant_leader_occurred_idx")
+  @@index([tenantId, teamLeaderId, inquiryId], map: "tl_household_ledger_tenant_leader_inquiry_idx")
+  @@map("team_leader_household_ledger_entries")
+}
+
 model TeamMemberDayOff {
   id           String   @id @default(uuid())
   teamMemberId String   @map("team_member_id")
@@ -1667,6 +1698,7 @@ model Inquiry {
   telecrmCallNotes          TelecrmCallNote[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
   landingContactInquiries   LandingContactInquiry[]
+  householdLedgerEntries    TeamLeaderHouseholdLedgerEntry[]
 
   @@index([createdAt])
   @@index([preferredDate])

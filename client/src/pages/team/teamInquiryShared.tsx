@@ -18,6 +18,7 @@ import { AdminOrderFormPhotosPanel } from '../../components/inquiry/AdminOrderFo
 import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../../components/orderform/OrderFormTemplateInfo';
 import { TeamQuotationInquiryLinkPanel } from '../../components/quotations/TeamQuotationInquiryLinkPanel';
 import { InquirySettlementPanel } from '../../components/inquiry/InquirySettlementPanel';
+import { TeamHouseholdLedgerInquiryAddPanel } from '../../components/team/TeamHouseholdLedgerInquiryAddPanel';
 import { PartnerReceivedBanner } from '../../components/admin/PartnerReceivedBanner';
 import { MarketplaceHandoffBuyerBanner } from '../../components/admin/MarketplaceHandoffBuyerBanner';
 import { TeamInlineNoticeModule } from '../../components/team/TeamInlineNoticeModule';
@@ -2116,6 +2117,21 @@ export function TeamInquiryDetailModal({
               tenantShare={item.tenantShare ?? null}
               compact={isExternalCompact}
             />
+            {teamToken && viewerMe?.role === 'TEAM_LEADER' ? (
+              <TeamModalSection
+                compact={isExternalCompact}
+                title={<span className="text-fluid-xs font-semibold text-gray-600">가계부</span>}
+              >
+                <TeamHouseholdLedgerInquiryAddPanel
+                  token={teamToken}
+                  inquiryId={item.id}
+                  inquiryNumber={item.inquiryNumber}
+                  customerName={item.customerName}
+                  compact={isExternalCompact}
+                  hideHeader
+                />
+              </TeamModalSection>
+            ) : null}
             {item.assignments.some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER') && (
               <TeamModalSection
                 compact={isExternalCompact}

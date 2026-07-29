@@ -56,6 +56,7 @@ function TeamNavIcon({
 
 type TeamNavVisibility = {
   isExternalPartner: boolean;
+  showHouseholdLedger: boolean;
   hideTeamDayoffs: boolean;
   showDbMarketplace: boolean;
 };
@@ -63,6 +64,7 @@ type TeamNavVisibility = {
 function filterTeamFavorites(entries: ResolvedTeamGnbFavorite[], vis: TeamNavVisibility) {
   return entries.filter((e) => {
     if (e.to === '/team/settlement' && !vis.isExternalPartner) return false;
+    if (e.to === '/team/household-ledger' && !vis.showHouseholdLedger) return false;
     if (e.to === '/team/db-marketplace' && !vis.showDbMarketplace) return false;
     if (e.to === '/team/dayoffs' && vis.hideTeamDayoffs) return false;
     return true;

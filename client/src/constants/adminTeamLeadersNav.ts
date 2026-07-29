@@ -76,6 +76,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         to: '/admin/team-leaders/payroll',
         label: '월정산표',
       },
+      {
+        to: '/admin/team-leaders/household-ledger',
+        label: '팀장 가계부',
+        title: '팀장 개인 가계부 열람',
+      },
     ],
   },
   {

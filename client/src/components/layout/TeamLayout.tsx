@@ -38,6 +38,9 @@ import { TeamMobileNavFavoritesAccess } from './TeamMobileNavFavoritesAccess';
 import { TeamDesktopNavFavoritesAccess } from './TeamDesktopNavFavoritesAccess';
 import { MOBILE_GNB_ITEM_BASE } from './mobileStaffDockStyles';
 import type { StaffDesktopDockDragHandlers } from './staffRightRailStyles';
+import { useStaffMobileFabStack } from '../../hooks/useStaffMobileFabStack';
+
+const TEAM_MOBILE_FAB_STORAGE_KEY = 'team_mobile_fab_pos_v1';
 
 function teamAriaAssignNav(count: number): string {
   if (count <= 0) return teamT('team.layout.aria.assignList');
@@ -80,6 +83,7 @@ function TeamNavLinks({
   teamTo,
   navClass,
   isExternalPartner,
+  showHouseholdLedger,
   hideTeamDayoffs,
   showDbMarketplace,
   newAssignmentCount,
@@ -93,6 +97,7 @@ function TeamNavLinks({
   teamTo: (path: string) => string;
   navClass: ({ isActive }: { isActive: boolean }) => string;
   isExternalPartner: boolean;
+  showHouseholdLedger: boolean;
   hideTeamDayoffs: boolean;
   showDbMarketplace: boolean;
   newAssignmentCount: number;
@@ -187,6 +192,14 @@ function TeamNavLinks({
               </NavLink>,
             )
           : null}
+        {showHouseholdLedger
+          ? wrap(
+              <NavLink to={teamTo('/team/household-ledger')} className={navClass} {...linkProps}>
+                <TeamNavIcon type="household-ledger" className="mr-3 h-5 w-5 shrink-0" />
+                <TeamBiInline id="team.layout.nav.householdLedger" />
+              </NavLink>,
+            )
+          : null}
         {showDbMarketplace
           ? wrap(
               <NavLink to={teamTo('/team/db-marketplace')} className={navClass} {...linkProps}>
@@ -263,6 +276,12 @@ function TeamNavLinks({
           <TeamBiInline id="team.layout.nav.settlement" />
         </NavLink>
       ) : null}
+      {showHouseholdLedger ? (
+        <NavLink to={teamTo('/team/household-ledger')} className={navClass}>
+          <TeamNavIcon type="household-ledger" className="w-4 h-4 mr-1.5 shrink-0" />
+          <TeamBiInline id="team.layout.nav.householdLedger" />
+        </NavLink>
+      ) : null}
       {showDbMarketplace ? (
         <div className="inline-flex shrink-0 flex-nowrap items-center gap-0">
           <NavLink to={teamTo('/team/db-marketplace')} className={navClass}>
@@ -321,7 +340,7 @@ function TeamNavLinks({
   );
 }
 
-function TeamNavIcon({ type, className }: { type: 'dashboard' | 'assignments' | 'schedule' | 'settlement' | 'marketplace' | 'dayoffs' | 'cs' | 'messages' | 'e-contracts'; className?: string }) {
+function TeamNavIcon({ type, className }: { type: 'dashboard' | 'assignments' | 'schedule' | 'settlement' | 'household-ledger' | 'marketplace' | 'dayoffs' | 'cs' | 'messages' | 'e-contracts'; className?: string }) {
   if (type === 'dashboard') {
     return (
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -356,6 +375,16 @@ function TeamNavIcon({ type, className }: { type: 'dashboard' | 'assignments' | 
       <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
         <line x1="1" y1="10" x2="23" y2="10" />
+      </svg>
+    );
+  }
+  if (type === 'household-ledger') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        <line x1="8" y1="7" x2="16" y2="7" />
+        <line x1="8" y1="11" x2="14" y2="11" />
       </svg>
     );
   }
@@ -434,6 +463,24 @@ export function TeamLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [changelogRailMount, setChangelogRailMount] = useState<HTMLDivElement | null>(null);
   const [desktopDockDrag, setDesktopDockDrag] = useState<StaffDesktopDockDragHandlers | null>(null);
+  const openMobileFavoritesRef = useRef<(() => void) | null>(null);
+  const showTeamMobileFabStackBase =
+    Boolean(teamToken) && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER');
+  const {
+    fabTop,
+    fabDragging,
+    fabStackRef,
+    fabBellMount,
+    setFabBellMount,
+    fabSafeRight,
+    showMobileFabStack,
+    beginFabPointer,
+  } = useStaffMobileFabStack({
+    storageKey: TEAM_MOBILE_FAB_STORAGE_KEY,
+    stackCount: 2,
+    onFavoritesTap: () => openMobileFavoritesRef.current?.(),
+  });
+  const showTeamMobileFabStack = showTeamMobileFabStackBase && showMobileFabStack;
 
   const reloadTeamMe = useCallback(() => {
     const token = getTeamToken();
@@ -671,6 +718,8 @@ export function TeamLayout() {
       (previewExternal || previewTeamLeader),
   );
   const isExternalPartner = userRole === 'EXTERNAL_PARTNER' || previewExternal;
+  const showHouseholdLedger =
+    !isExternalPartner && (userRole === 'TEAM_LEADER' || previewTeamLeader);
   const { items: teamPromoItems } = usePlatformPromos('team', location.search);
   const teamPromoForPage = useMemo(
     () => filterPromosForTeamPath(teamPromoItems, location.pathname),
@@ -710,6 +759,7 @@ export function TeamLayout() {
 
   const navShared = {
     isExternalPartner,
+    showHouseholdLedger,
     hideTeamDayoffs,
     showDbMarketplace,
     newAssignmentCount,
@@ -734,6 +784,7 @@ export function TeamLayout() {
 
   const teamNavFavoriteVisibility: TeamNavVisibility = {
     isExternalPartner,
+    showHouseholdLedger,
     hideTeamDayoffs,
     showDbMarketplace,
   };
@@ -965,23 +1016,56 @@ export function TeamLayout() {
         viewerName={userName}
         show={showStaffIdCardDrawer}
       />
-      {teamToken && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER') && (
-        <ChangeLogBell
-          token={teamToken}
-          hideMarketerOnlyLines
-          fetchUnseen={getTeamUnseenChangeCount}
-          fetchList={(t, opts) => getTeamChangeHistoryList(t, opts)}
-          markSeen={markTeamChangeSeen}
-          onOpenInquiry={(inquiryId) =>
-            navigate(`/team/assignments?openInquiry=${encodeURIComponent(inquiryId)}`)
-          }
-          desktopDock={
-            changelogRailMount && desktopDockDrag
-              ? { mountNode: changelogRailMount, ...desktopDockDrag }
-              : null
-          }
-        />
-      )}
+      {teamToken && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER') ? (
+        <>
+          {showTeamMobileFabStack ? (
+            <div
+              ref={fabStackRef}
+              className={`fixed z-[120] lg:hidden flex flex-col items-end gap-0.5 ${
+                fabDragging ? 'touch-none' : ''
+              }`}
+              style={{
+                top: fabTop ?? undefined,
+                right: fabSafeRight,
+              }}
+            >
+              <TeamMobileNavFavoritesAccess
+                teamTo={teamTo}
+                visibility={teamNavFavoriteVisibility}
+                registerOpen={(fn) => {
+                  openMobileFavoritesRef.current = fn;
+                }}
+                fabStack={{ onPointerDown: (evt) => beginFabPointer('favorites', evt) }}
+              />
+              <div ref={setFabBellMount} className="contents" aria-hidden={!teamToken} />
+            </div>
+          ) : null}
+          <ChangeLogBell
+            token={teamToken}
+            hideMarketerOnlyLines
+            fetchUnseen={getTeamUnseenChangeCount}
+            fetchList={(t, opts) => getTeamChangeHistoryList(t, opts)}
+            markSeen={markTeamChangeSeen}
+            onOpenInquiry={(inquiryId) =>
+              navigate(`/team/assignments?openInquiry=${encodeURIComponent(inquiryId)}`)
+            }
+            mobileStack={
+              showTeamMobileFabStack
+                ? {
+                    onPointerDown: (evt) => beginFabPointer('bell', evt),
+                    dragging: fabDragging,
+                    mountNode: fabBellMount,
+                  }
+                : undefined
+            }
+            desktopDock={
+              changelogRailMount && desktopDockDrag
+                ? { mountNode: changelogRailMount, ...desktopDockDrag }
+                : null
+            }
+          />
+        </>
+      ) : null}
       {teamToken && profileOnboardingRequired ? (
         <ProfileOnboardingModal
           open
@@ -997,7 +1081,6 @@ export function TeamLayout() {
           }}
         />
       ) : null}
-      <TeamMobileNavFavoritesAccess teamTo={teamTo} visibility={teamNavFavoriteVisibility} />
       <TeamDesktopNavFavoritesAccess
         teamTo={teamTo}
         visibility={teamNavFavoriteVisibility}

@@ -84,6 +84,7 @@ import {
   whereExcludeAdminSlotAdjustInquiries,
 } from './teamLeaderDayOffInquiryVisibility.js';
 import teamLeaderTrainingTeamRoutes from '../team-leader-training/teamLeaderTraining.team.routes.js';
+import teamLeaderHouseholdLedgerRoutes from '../team-leader-household-ledger/teamLeaderHouseholdLedger.routes.js';
 import {
   serializeTeamInquiryOperatingCompanies,
   serializeTeamInquiryOperatingCompany,
@@ -600,6 +601,7 @@ router.use('/inquiries/:inquiryId/additional-receipts', inquiryAdditionalReceipt
 router.use('/quotations', quotationsTeamRoutes);
 router.use('/db-marketplace', dbMarketplaceTeamRoutes);
 router.use('/training-material', teamLeaderTrainingTeamRoutes);
+router.use('/household-ledger', teamLeaderHouseholdLedgerRoutes);
 
 /** 팀장: 접수 상세를 열어 확인한 것으로 표시 — 메뉴 미확인 배정 수 감소 */
 router.post('/inquiries/:id/detail-viewed', async (req, res) => {
