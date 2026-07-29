@@ -9,6 +9,7 @@ import { TeamProtectedRoute } from './components/auth/TeamProtectedRoute';
 import { CrewProtectedRoute } from './components/auth/CrewProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { TenantSignupPage } from './pages/TenantSignupPage';
+import { TenantForgotPasswordPage } from './pages/TenantForgotPasswordPage';
 import { AdminInquiriesLayout } from './components/layout/AdminInquiriesLayout';
 import { AdminTeamLeadersLayout } from './components/layout/AdminTeamLeadersLayout';
 import { AdminAdvertisingLayout } from './components/layout/AdminAdvertisingLayout';
@@ -138,6 +139,7 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<TenantSignupPage />} />
+        <Route path="/forgot-password" element={<TenantForgotPasswordPage />} />
         <Route path="/platform/login" element={<PlatformLoginPage />} />
         <Route
           path="/platform"

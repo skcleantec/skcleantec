@@ -1,4 +1,3 @@
-import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { seedTenantDefaults } from '../tenants/tenantConfigSeed.service.js';
 import { modulesForPlan } from '../tenants/tenantFeatureCatalog.js';
@@ -9,6 +8,11 @@ import {
   normalizeTenantSlug,
 } from './tenantProvisioning.service.js';
 import { isTenantSignupReservedSlug } from './tenantSignup.constants.js';
+import {
+  EmailVerificationError,
+  normalizeSignupPhone,
+  normalizeVerificationEmail,
+} from './emailVerification.service.js';
 
 export class TenantSignupError extends Error {
   constructor(
@@ -27,9 +31,12 @@ export type SelfServeTenantSignupInput = {
   adminPassword: string;
   adminName?: string;
   contactEmail: string;
-  contactPhone?: string | null;
+  contactPhone: string;
   memberTermsAgreed: boolean;
   signupIp?: string | null;
+  /** 이메일 인증 완료 후 bcrypt 해시 직접 전달 */
+  passwordHash?: string;
+  emailVerifiedAt?: string;
 };
 
 export async function isTenantSlugAvailableForSignup(slugRaw: string): Promise<{
@@ -53,21 +60,21 @@ export async function isTenantSlugAvailableForSignup(slugRaw: string): Promise<{
   return { available: true, slug };
 }
 
-function assertSignupContact(email: string, phone?: string | null) {
-  const e = email.trim();
-  if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+function assertSignupContact(email: string, phone: string) {
+  const e = normalizeVerificationEmail(email);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
     throw new TenantSignupError('담당자 이메일을 확인해 주세요.');
   }
-  const p = phone?.trim() ?? '';
-  if (p && !/^[\d+\-() ]{8,20}$/.test(p)) {
-    throw new TenantSignupError('담당자 연락처 형식을 확인해 주세요.');
-  }
+  normalizeSignupPhone(phone);
 }
 
-/** 셀프 가입 — Free 플랜·ACTIVE 만 허용 */
+/** 셀프 가입 — Free 플랜·ACTIVE · 이메일 인증 완료 후만 */
 export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput) {
   if (!input.memberTermsAgreed) {
     throw new TenantSignupError('회원사 이용약관에 동의해 주세요.');
+  }
+  if (!input.emailVerifiedAt || !input.passwordHash) {
+    throw new TenantSignupError('이메일 인증을 완료한 뒤 가입해 주세요.');
   }
 
   const slugCheck = await isTenantSlugAvailableForSignup(input.slug);
@@ -83,12 +90,10 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
   const adminName = (input.adminName?.trim() || '관리자').slice(0, 64);
   assertSignupContact(input.contactEmail, input.contactPhone);
 
-  const password = input.adminPassword.trim();
-  if (password.length < 4) {
-    throw new TenantSignupError('비밀번호는 4자 이상 입력해 주세요.');
-  }
+  const contactEmail = normalizeVerificationEmail(input.contactEmail);
+  const contactPhone = normalizeSignupPhone(input.contactPhone);
+  const passwordHash = input.passwordHash;
 
-  const contactEmail = input.contactEmail.trim().toLowerCase();
   const recentSameEmail = await prisma.tenant.count({
     where: {
       createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
@@ -99,9 +104,8 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
     throw new TenantSignupError('같은 이메일로 너무 많은 가입 시도가 있었습니다. 잠시 후 다시 시도해 주세요.', 429);
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
   const planModules = modulesForPlan('free');
-  const agreedAt = new Date().toISOString();
+  const agreedAt = input.emailVerifiedAt;
 
   const result = await prisma.$transaction(
     async (tx) => {
@@ -115,7 +119,8 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
             signup: {
               source: 'self_serve',
               contactEmail,
-              contactPhone: input.contactPhone?.trim() || null,
+              contactPhone,
+              emailVerifiedAt: agreedAt,
               memberTermsAgreedAt: agreedAt,
               memberTermsAgreedIp: input.signupIp?.trim() || null,
             },
@@ -144,7 +149,8 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
           name: adminName,
           role: 'ADMIN',
           isTenantOwner: true,
-          phone: input.contactPhone?.trim() || null,
+          phone: contactPhone,
+          recoveryEmail: contactEmail,
         },
         select: { id: true, email: true, name: true },
       });
