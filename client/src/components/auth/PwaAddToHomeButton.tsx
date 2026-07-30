@@ -13,7 +13,7 @@ function isIosDevice(): boolean {
   return /iPad|iPhone|iPod/.test(ua) && !(window as Window & { MSStream?: unknown }).MSStream;
 }
 
-export function PwaAddToHomeButton() {
+export function PwaAddToHomeButton({ compact = false }: { compact?: boolean }) {
   const [standalone, setStandalone] = useState(() => isStandalonePwa());
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [hintOpen, setHintOpen] = useState(false);
@@ -55,16 +55,28 @@ export function PwaAddToHomeButton() {
       <button
         type="button"
         onClick={() => void handleClick()}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 text-fluid-xs font-semibold text-slate-700 transition hover:border-sky-300 hover:bg-sky-50/80 hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+        className={
+          compact
+            ? 'inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/90 px-2 py-1.5 text-[10px] font-semibold leading-none text-slate-600 transition hover:border-sky-300 hover:bg-sky-50/80 hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 min-h-8'
+            : 'flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 text-fluid-xs font-semibold text-slate-700 transition hover:border-sky-300 hover:bg-sky-50/80 hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2'
+        }
+        title="홈 화면에 추가"
       >
-        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+        <svg
+          className={compact ? 'h-3 w-3 shrink-0' : 'h-4 w-4 shrink-0'}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+          aria-hidden
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
             d="M12 4.5v15m7.5-7.5h-15M4.5 19.5h15a1.5 1.5 0 001.5-1.5v-11a1.5 1.5 0 00-1.5-1.5h-15A1.5 1.5 0 003 7v11a1.5 1.5 0 001.5 1.5z"
           />
         </svg>
-        홈 화면에 추가
+        {compact ? '홈 추가' : '홈 화면에 추가'}
       </button>
 
       {hintOpen

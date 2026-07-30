@@ -75,7 +75,7 @@ export function PlatformLayout() {
       <SidebarNav pathname={pathname} onNavigate={onNavigate} />
       <div className="mt-auto border-t border-white/10 p-3 space-y-1">
         <NavLink
-          to="/platform/settings/smtp"
+          to="/platform/settings/legal"
           onClick={onNavigate}
           className={({ isActive }) =>
             [

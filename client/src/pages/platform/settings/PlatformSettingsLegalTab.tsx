@@ -185,9 +185,10 @@ export function PlatformSettingsLegalTab() {
       <section className={CARD_SECTION}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">회원사 이용약관·계약</h2>
+            <h2 className="text-sm font-semibold text-gray-900">회원가입 이용약관</h2>
             <p className="mt-1 text-xs text-gray-500">
-              (주)서비스브릿지 · 청소비서 플랫폼 — 회원사(청소업체) 동의용 문서입니다.
+              (주)서비스브릿지 · 청소비서 — <strong>/signup</strong> 가입 화면에 표시되는 문서입니다. 수정 후 저장하면
+              가입 화면에 즉시 반영됩니다.
             </p>
             <p className="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
               <strong>고객용 약관</strong>은 발주서 하단 동의 문구입니다. 관리자 앱 → 발주서 →{' '}
@@ -217,6 +218,14 @@ export function PlatformSettingsLegalTab() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 shrink-0">
+                <a
+                  href={`/legal/${doc.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
+                >
+                  가입 화면 미리보기
+                </a>
                 <button
                   type="button"
                   className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"

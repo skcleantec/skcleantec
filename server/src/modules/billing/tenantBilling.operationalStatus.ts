@@ -1,5 +1,40 @@
 import type { TenantSuspendReason } from '@prisma/client';
+import { TENANT_TRIAL_DAYS } from './tenantBilling.constants.js';
 import type { BillingScheduleItemStatus } from './tenantBilling.schedule.js';
+
+function computeTrialDurationDays(
+  prepaidConfirmedAt: Date | string,
+  trialEndsAt: Date | string,
+): number {
+  const startMs = new Date(prepaidConfirmedAt).getTime();
+  const endMs = new Date(trialEndsAt).getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+    return TENANT_TRIAL_DAYS;
+  }
+  return Math.max(1, Math.round((endMs - startMs) / (24 * 60 * 60 * 1000)));
+}
+
+/** @see shared/tenantBilling.ts formatTrialPaidOperationalDetail */
+function formatTrialPaidOperationalDetail(input: {
+  prepaidConfirmedAt: Date | string;
+  trialEndsAt: Date | string;
+}): string {
+  const days = computeTrialDurationDays(input.prepaidConfirmedAt, input.trialEndsAt);
+  if (days <= TENANT_TRIAL_DAYS) {
+    return `${days}일 환불 가능 기간`;
+  }
+  const endLabel = new Date(input.trialEndsAt).toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  return `무료 체험 · ${endLabel}까지 (${days}일)`;
+}
+
+function formatTrialUnpaidOperationalDetail(): string {
+  return `체험 시작 후 ${TENANT_TRIAL_DAYS}일 이용`;
+}
 
 export type TenantBillingOperationalStatusCode =
   | 'TRIAL_PAID'
@@ -89,12 +124,23 @@ export function resolveTenantBillingOperationalStatus(input: {
     return { code: 'ACTIVE_OK', label: '사용 중', detail: null };
   }
 
-  if (input.prepaidConfirmedAt && inTrial) {
-    return { code: 'TRIAL_PAID', label: '체험 중', detail: '7일 환불 가능 기간' };
+  if (input.prepaidConfirmedAt && inTrial && input.trialEndsAt) {
+    return {
+      code: 'TRIAL_PAID',
+      label: '체험 중',
+      detail: formatTrialPaidOperationalDetail({
+        prepaidConfirmedAt: input.prepaidConfirmedAt,
+        trialEndsAt: input.trialEndsAt,
+      }),
+    };
   }
 
   if (!input.prepaidConfirmedAt && !input.serviceStartedAt) {
-    return { code: 'TRIAL_UNPAID', label: '체험 전', detail: '체험 시작 후 7일 이용' };
+    return {
+      code: 'TRIAL_UNPAID',
+      label: '체험 전',
+      detail: formatTrialUnpaidOperationalDetail(),
+    };
   }
 
   if (!input.prepaidConfirmedAt && (input.status === 'TRIAL' || inTrial)) {

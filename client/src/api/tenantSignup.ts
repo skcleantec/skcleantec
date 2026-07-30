@@ -15,6 +15,7 @@ export type TenantSignupPayload = {
   contactEmail: string;
   contactPhone: string;
   memberTermsAgreed: boolean;
+  selectedPlan: string;
 };
 
 export type TenantSignupVerificationSent = {

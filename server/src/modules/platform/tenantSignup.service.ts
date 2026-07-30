@@ -1,13 +1,14 @@
 import { prisma } from '../../lib/prisma.js';
 import { seedTenantDefaults } from '../tenants/tenantConfigSeed.service.js';
-import { modulesForPlan } from '../tenants/tenantFeatureCatalog.js';
+import { modulesForPlan, type TenantPlanId } from '../tenants/tenantFeatureCatalog.js';
 import { ensureDefaultAdChannelsForTenant } from '../advertising/defaultAdChannels.js';
 import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
+import { addDaysUtc } from '../billing/tenantBilling.dates.js';
 import {
   assertValidTenantSlug,
   normalizeTenantSlug,
 } from './tenantProvisioning.service.js';
-import { isTenantSignupReservedSlug } from './tenantSignup.constants.js';
+import { isTenantSignupReservedSlug, normalizeSignupPlanId, TENANT_SIGNUP_PAID_TRIAL_DAYS } from './tenantSignup.constants.js';
 import {
   EmailVerificationError,
   normalizeSignupPhone,
@@ -33,6 +34,7 @@ export type SelfServeTenantSignupInput = {
   contactEmail: string;
   contactPhone: string;
   memberTermsAgreed: boolean;
+  selectedPlan?: string;
   signupIp?: string | null;
   /** 이메일 인증 완료 후 bcrypt 해시 직접 전달 */
   passwordHash?: string;
@@ -68,7 +70,7 @@ function assertSignupContact(email: string, phone: string) {
   normalizeSignupPhone(phone);
 }
 
-/** 셀프 가입 — Free 플랜·ACTIVE · 이메일 인증 완료 후만 */
+/** 셀프 가입 — 선택 플랜 · Free=ACTIVE / 유료=2개월 TRIAL */
 export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput) {
   if (!input.memberTermsAgreed) {
     throw new TenantSignupError('회원사 이용약관에 동의해 주세요.');
@@ -76,6 +78,14 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
   if (!input.emailVerifiedAt || !input.passwordHash) {
     throw new TenantSignupError('이메일 인증을 완료한 뒤 가입해 주세요.');
   }
+
+  let selectedPlan: TenantPlanId;
+  try {
+    selectedPlan = normalizeSignupPlanId(input.selectedPlan);
+  } catch {
+    throw new TenantSignupError('올바른 이용 플랜을 선택해 주세요.');
+  }
+  const isPaidSignup = selectedPlan !== 'free';
 
   const slugCheck = await isTenantSlugAvailableForSignup(input.slug);
   if (!slugCheck.available) {
@@ -104,8 +114,12 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
     throw new TenantSignupError('같은 이메일로 너무 많은 가입 시도가 있었습니다. 잠시 후 다시 시도해 주세요.', 429);
   }
 
-  const planModules = modulesForPlan('free');
+  const planModules = modulesForPlan(selectedPlan);
   const agreedAt = input.emailVerifiedAt;
+  const signupStartedAt = new Date();
+  const trialEndsAt = isPaidSignup
+    ? addDaysUtc(signupStartedAt, TENANT_SIGNUP_PAID_TRIAL_DAYS)
+    : null;
 
   const result = await prisma.$transaction(
     async (tx) => {
@@ -113,16 +127,20 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
         data: {
           slug,
           name,
-          plan: 'free',
-          status: 'ACTIVE',
+          plan: selectedPlan,
+          status: isPaidSignup ? 'TRIAL' : 'ACTIVE',
+          trialEndsAt,
+          prepaidConfirmedAt: isPaidSignup ? signupStartedAt : null,
           config: {
             signup: {
               source: 'self_serve',
+              selectedPlan,
               contactEmail,
               contactPhone,
               emailVerifiedAt: agreedAt,
               memberTermsAgreedAt: agreedAt,
               memberTermsAgreedIp: input.signupIp?.trim() || null,
+              paidTrialDays: isPaidSignup ? TENANT_SIGNUP_PAID_TRIAL_DAYS : null,
             },
             subscription: {
               planUpdatedAt: agreedAt,

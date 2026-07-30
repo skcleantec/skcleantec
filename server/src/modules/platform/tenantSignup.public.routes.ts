@@ -8,7 +8,8 @@ import {
   sendTenantSignupVerificationCode,
   type TenantSignupFormPayload,
 } from '../platform/tenantSignupEmail.service.js';
-import { EmailVerificationError } from '../platform/emailVerification.service.js';
+import { TENANT_SELF_SIGNUP_PLAN_IDS } from './tenantSignup.constants.js';
+import { EmailVerificationError } from './emailVerification.service.js';
 
 const router = Router();
 
@@ -29,6 +30,7 @@ function readSignupBody(body: Record<string, unknown>): TenantSignupFormPayload 
     contactEmail: String(body.contactEmail ?? ''),
     contactPhone: String(body.contactPhone ?? ''),
     memberTermsAgreed: Boolean(body.memberTermsAgreed),
+    selectedPlan: String(body.selectedPlan ?? 'free'),
   };
 }
 
@@ -51,7 +53,15 @@ router.get('/slug-available', async (req, res) => {
 /** POST /api/public/tenant-signup/send-verification-code */
 router.post('/send-verification-code', async (req, res) => {
   try {
-    const result = await sendTenantSignupVerificationCode(readSignupBody(req.body ?? {}), clientIp(req));
+    const body = readSignupBody(req.body ?? {});
+    if (
+      body.selectedPlan.trim() &&
+      !(TENANT_SELF_SIGNUP_PLAN_IDS as readonly string[]).includes(body.selectedPlan.trim().toLowerCase())
+    ) {
+      res.status(400).json({ error: '올바른 이용 플랜을 선택해 주세요.' });
+      return;
+    }
+    const result = await sendTenantSignupVerificationCode(body, clientIp(req));
     res.json(result);
   } catch (e) {
     handleSignupError(e, res);

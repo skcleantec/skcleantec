@@ -12,9 +12,9 @@ import {
   TenantSignupError,
   type SelfServeTenantSignupInput,
 } from './tenantSignup.service.js';
-import {
-  assertValidTenantLoginId,
-} from '../auth/tenantLoginId.js';
+import { normalizeSignupPlanId } from './tenantSignup.constants.js';
+import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
+import type { TenantPlanId } from '../tenants/tenantFeatureCatalog.js';
 import {
   buildPlatformVerificationEmailHtml,
   buildPlatformVerificationEmailSubject,
@@ -30,7 +30,16 @@ export type TenantSignupFormPayload = {
   contactEmail: string;
   contactPhone: string;
   memberTermsAgreed: boolean;
+  selectedPlan: string;
 };
+
+function parseSignupPlan(body: TenantSignupFormPayload): TenantPlanId {
+  try {
+    return normalizeSignupPlanId(body.selectedPlan);
+  } catch {
+    throw new EmailVerificationError('올바른 이용 플랜을 선택해 주세요.');
+  }
+}
 
 function parseSignupForm(body: TenantSignupFormPayload): SelfServeTenantSignupInput {
   if (!body.memberTermsAgreed) {
@@ -43,6 +52,7 @@ function parseSignupForm(body: TenantSignupFormPayload): SelfServeTenantSignupIn
   if (password.length < 4) {
     throw new EmailVerificationError('비밀번호는 4자 이상 입력해 주세요.');
   }
+  const selectedPlan = parseSignupPlan(body);
   return {
     slug: body.slug,
     name: body.name,
@@ -52,6 +62,7 @@ function parseSignupForm(body: TenantSignupFormPayload): SelfServeTenantSignupIn
     contactEmail,
     contactPhone,
     memberTermsAgreed: true,
+    selectedPlan,
   };
 }
 
@@ -79,6 +90,7 @@ export async function sendTenantSignupVerificationCode(
       contactPhone: parsed.contactPhone,
       passwordHash,
       memberTermsAgreedAt: new Date().toISOString(),
+      selectedPlan: parsed.selectedPlan,
       signupIp: requestIp?.trim() || null,
     },
     mailSubject: buildPlatformVerificationEmailSubject('TENANT_SIGNUP'),
@@ -108,6 +120,7 @@ type StoredSignupPayload = {
   contactPhone: string;
   passwordHash: string;
   memberTermsAgreedAt: string;
+  selectedPlan: string;
   signupIp: string | null;
 };
 
@@ -129,6 +142,12 @@ export async function completeTenantSignupWithVerification(input: {
 
 /** 인증 완료 payload — passwordHash 는 이미 bcrypt */
 export async function provisionTenantSelfServeFromVerifiedPayload(payload: StoredSignupPayload) {
+  let selectedPlan: TenantPlanId;
+  try {
+    selectedPlan = normalizeSignupPlanId(payload.selectedPlan);
+  } catch {
+    throw new TenantSignupError('올바른 이용 플랜을 선택해 주세요.');
+  }
   return provisionTenantSelfServe({
     slug: payload.slug,
     name: payload.name,
@@ -141,5 +160,6 @@ export async function provisionTenantSelfServeFromVerifiedPayload(payload: Store
     signupIp: payload.signupIp,
     passwordHash: payload.passwordHash,
     emailVerifiedAt: payload.memberTermsAgreedAt,
+    selectedPlan,
   });
 }

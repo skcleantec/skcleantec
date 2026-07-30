@@ -7,6 +7,41 @@ import { normalizePlanId } from './tenantPlanNormalize.js';
 
 export const TENANT_TRIAL_DAYS = 7;
 export const TENANT_PREPAID_SERVICE_DELAY_DAYS = 7;
+
+/** prepaidConfirmedAt ~ trialEndsAt 구간 일수 (과금 UI·상태 문구) */
+export function computeTrialDurationDays(
+  prepaidConfirmedAt: string | Date,
+  trialEndsAt: string | Date,
+): number {
+  const startMs = new Date(prepaidConfirmedAt).getTime();
+  const endMs = new Date(trialEndsAt).getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+    return TENANT_TRIAL_DAYS;
+  }
+  return Math.max(1, Math.round((endMs - startMs) / (24 * 60 * 60 * 1000)));
+}
+
+/** 유료 전환·플랫폼 승인 체험(≤7일) vs 셀프 가입 장기 체험 문구 분기 */
+export function formatTrialPaidOperationalDetail(input: {
+  prepaidConfirmedAt: string | Date;
+  trialEndsAt: string | Date;
+}): string {
+  const days = computeTrialDurationDays(input.prepaidConfirmedAt, input.trialEndsAt);
+  if (days <= TENANT_TRIAL_DAYS) {
+    return `${days}일 환불 가능 기간`;
+  }
+  const endLabel = new Date(input.trialEndsAt).toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  return `무료 체험 · ${endLabel}까지 (${days}일)`;
+}
+
+export function formatTrialUnpaidOperationalDetail(): string {
+  return `체험 시작 후 ${TENANT_TRIAL_DAYS}일 이용`;
+}
 /** 연간 선납 할인율 (플랜 카탈로그·과금 공통 15%) */
 export const TENANT_BILLING_ANNUAL_DISCOUNT_RATE = 0.15;
 export const TENANT_BILLING_DEFAULT_GRACE_DAYS = 3;
@@ -243,12 +278,23 @@ export function resolveTenantBillingOperationalStatus(input: {
     return { code: 'ACTIVE_OK', label: '사용 중', detail: null };
   }
 
-  if (input.prepaidConfirmedAt && inTrial) {
-    return { code: 'TRIAL_PAID', label: '체험 중', detail: '7일 환불 가능 기간' };
+  if (input.prepaidConfirmedAt && inTrial && input.trialEndsAt) {
+    return {
+      code: 'TRIAL_PAID',
+      label: '체험 중',
+      detail: formatTrialPaidOperationalDetail({
+        prepaidConfirmedAt: input.prepaidConfirmedAt,
+        trialEndsAt: input.trialEndsAt,
+      }),
+    };
   }
 
   if (!input.prepaidConfirmedAt && !input.serviceStartedAt) {
-    return { code: 'TRIAL_UNPAID', label: '체험 전', detail: '체험 시작 후 7일 이용' };
+    return {
+      code: 'TRIAL_UNPAID',
+      label: '체험 전',
+      detail: formatTrialUnpaidOperationalDetail(),
+    };
   }
 
   if (!input.prepaidConfirmedAt && (input.status === 'TRIAL' || inTrial)) {

@@ -55,7 +55,7 @@ import { ChangeLogBell } from '../admin/ChangeLogBell';
 import { getUnseenChangeCount, getChangeHistoryList, markChangeSeen } from '../../api/inquiryChangeLogs';
 import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
 import { AdminVolumeStatsButton } from '../admin/AdminVolumeStatsButton';
-import { isTeamPreviewAdminEmail } from '../../utils/teamPreview';
+import { isTeamPreviewAdminEmail, shouldShowAdminDevPreviewLinks } from '../../utils/teamPreview';
 import { getScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import type { TelecrmUserCapabilities } from '@shared/telecrmTenantPolicy';
@@ -523,8 +523,14 @@ export function AdminLayout() {
           phone: typeof u.phone === 'string' ? u.phone : null,
           externalCompany: u.externalCompany ?? null,
         });
-        /** 팀·크루 미리보기: 업무 관리자(ADMIN) + 개발용 이메일 화이트리스트만. 일반 마케터는 제외 */
-        const preview = role === 'ADMIN' || isTeamPreviewAdminEmail(email);
+        /** 팀·크루 미리보기: 개발용 이메일 + SK 테넌트 ADMIN만. 그 외 업체 일반 관리자는 제외 */
+        const tenantSlugForPreview =
+          (typeof u.tenant?.slug === 'string' && u.tenant.slug.trim()) || null;
+        const preview = shouldShowAdminDevPreviewLinks({
+          email,
+          role,
+          tenantSlug: tenantSlugForPreview,
+        });
         setTeamPreviewLink(preview);
         if (preview && !getTeamToken()) {
           setTeamToken(token);
@@ -1110,7 +1116,9 @@ export function AdminLayout() {
               <TenantBrandLogo height={28} />
             </button>
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0">
-              {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
+              {teamPreviewLink ? (
+                <AdminDevPreviewLinks adminToken={adminToken} compact />
+              ) : null}
               {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
               <UserProfileMenu
                 token={adminToken}
@@ -1369,7 +1377,6 @@ export function AdminLayout() {
             </DarkHeaderNavScroll>
           </div>
           <div className="hidden md:flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
-            {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
             {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
             <UserProfileMenu
               token={adminToken}
