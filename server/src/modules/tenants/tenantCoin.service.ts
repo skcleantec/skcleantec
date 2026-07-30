@@ -1,10 +1,12 @@
 import type { InquiryStatus, Prisma } from '@prisma/client';
 import { kstYmdFromDate } from '../billing/tenantBilling.dates.js';
+import { prisma } from '../../lib/prisma.js';
 import {
   monthlyCoinAllowance,
   planHasUnlimitedCoins,
   normalizePlanId,
 } from './tenantFeatureCatalog.js';
+import { isSignupCoinGraceActive, readSignupCoinGraceEndsAt } from './tenantSignupGrace.js';
 
 export class TenantCoinInsufficientError extends Error {
   readonly status = 402;
@@ -34,6 +36,15 @@ export function kstPeriodYmFromDate(d = new Date()): string {
 
 type Db = Prisma.TransactionClient | typeof import('../../lib/prisma.js').prisma;
 
+async function tenantCoinUnlimited(db: Db, tenantId: string, plan: string): Promise<boolean> {
+  if (planHasUnlimitedCoins(plan)) return true;
+  const tenant = await db.tenant.findUnique({
+    where: { id: tenantId },
+    select: { config: true, trialEndsAt: true, status: true },
+  });
+  return isSignupCoinGraceActive(tenant ?? {});
+}
+
 export async function countCoinsSpentInPeriod(
   db: Db,
   tenantId: string,
@@ -51,12 +62,28 @@ export async function getTenantCoinSnapshot(
   tenantId: string,
   plan: string,
   periodYm = kstPeriodYmFromDate(),
-): Promise<{ periodYm: string; allowance: number | null; spent: number; remaining: number | null; unlimited: boolean }> {
-  const unlimited = planHasUnlimitedCoins(plan);
+): Promise<{
+  periodYm: string;
+  allowance: number | null;
+  spent: number;
+  remaining: number | null;
+  unlimited: boolean;
+  graceActive: boolean;
+  graceEndsAt: string | null;
+}> {
+  const tenant = await db.tenant.findUnique({
+    where: { id: tenantId },
+    select: { config: true, trialEndsAt: true, status: true },
+  });
+  const graceActive = isSignupCoinGraceActive(tenant ?? {});
+  const graceEndsAt =
+    readSignupCoinGraceEndsAt(tenant?.config) ??
+    (tenant?.trialEndsAt ? tenant.trialEndsAt.toISOString() : null);
+  const unlimited = planHasUnlimitedCoins(plan) || graceActive;
   const allowance = monthlyCoinAllowance(plan);
   const spent = unlimited ? 0 : await countCoinsSpentInPeriod(db, tenantId, periodYm);
   const remaining = unlimited || allowance == null ? null : Math.max(0, allowance - spent);
-  return { periodYm, allowance, spent, remaining, unlimited };
+  return { periodYm, allowance, spent, remaining, unlimited, graceActive, graceEndsAt };
 }
 
 export async function trySpendTenantCoinInTx(
@@ -74,7 +101,7 @@ export async function trySpendTenantCoinInTx(
   const amount = opts.amount ?? 1;
   const periodYm = opts.periodYm ?? kstPeriodYmFromDate();
 
-  if (planHasUnlimitedCoins(plan)) {
+  if (await tenantCoinUnlimited(tx, opts.tenantId, plan)) {
     return { charged: false, alreadyRecorded: false };
   }
 

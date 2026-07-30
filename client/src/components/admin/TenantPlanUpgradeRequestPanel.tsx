@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { TENANT_PLAN_PRESENTATIONS } from '@shared/tenantPlanCatalog';
-import { TENANT_SELF_SIGNUP_UPGRADE_PLAN_IDS } from '@shared/tenantSignup';
+import { TENANT_SELF_SIGNUP_UPGRADE_PLAN_IDS, TENANT_SIGNUP_GRACE_DAYS } from '@shared/tenantSignup';
 import type { TenantPlanId } from '@shared/tenantFeatureModules';
 import {
   cancelTenantPlanUpgradeRequest,
@@ -89,7 +89,7 @@ export function TenantPlanUpgradeRequestPanel({ currentPlan, onChanged }: Props)
     <section className="rounded-xl border border-sky-200 bg-sky-50/60 p-4">
       <h2 className="text-fluid-sm font-semibold text-sky-950">유료 플랜 전환 신청</h2>
       <p className="mt-1 text-fluid-2xs leading-relaxed text-sky-900/80">
-        현재 <strong>Free</strong> 플랜입니다. Standard 이상은 플랫폼 승인 후 7일 체험·정식 이용이 시작됩니다.
+        현재 <strong>Free</strong> 플랜입니다. Standard 이상은 플랫폼 승인 후 {TENANT_SIGNUP_GRACE_DAYS}일(약 2개월) 체험·정식 이용이 시작됩니다.
       </p>
 
       {loading ? <p className="mt-3 text-fluid-2xs text-slate-600">불러오는 중…</p> : null}

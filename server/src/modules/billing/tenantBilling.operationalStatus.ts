@@ -1,5 +1,6 @@
 import type { TenantSuspendReason } from '@prisma/client';
-import { TENANT_TRIAL_DAYS } from './tenantBilling.constants.js';
+import { TENANT_SIGNUP_GRACE_DAYS } from '../platform/tenantSignup.constants.js';
+import { normalizePlanId } from '../tenants/tenantFeatureCatalog.js';
 import type { BillingScheduleItemStatus } from './tenantBilling.schedule.js';
 
 function computeTrialDurationDays(
@@ -9,7 +10,7 @@ function computeTrialDurationDays(
   const startMs = new Date(prepaidConfirmedAt).getTime();
   const endMs = new Date(trialEndsAt).getTime();
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
-    return TENANT_TRIAL_DAYS;
+    return TENANT_SIGNUP_GRACE_DAYS;
   }
   return Math.max(1, Math.round((endMs - startMs) / (24 * 60 * 60 * 1000)));
 }
@@ -20,9 +21,6 @@ function formatTrialPaidOperationalDetail(input: {
   trialEndsAt: Date | string;
 }): string {
   const days = computeTrialDurationDays(input.prepaidConfirmedAt, input.trialEndsAt);
-  if (days <= TENANT_TRIAL_DAYS) {
-    return `${days}일 환불 가능 기간`;
-  }
   const endLabel = new Date(input.trialEndsAt).toLocaleDateString('ko-KR', {
     timeZone: 'Asia/Seoul',
     year: 'numeric',
@@ -33,7 +31,7 @@ function formatTrialPaidOperationalDetail(input: {
 }
 
 function formatTrialUnpaidOperationalDetail(): string {
-  return `체험 시작 후 ${TENANT_TRIAL_DAYS}일 이용`;
+  return '플랫폼에서 체험 시작 후 이용';
 }
 
 export type TenantBillingOperationalStatusCode =
@@ -68,6 +66,8 @@ export function resolveTenantBillingOperationalStatus(input: {
   billingFeeExempt?: boolean;
   currentPeriodStatus?: BillingScheduleItemStatus | null;
   currentPeriodAmountKrw?: number | null;
+  plan?: string | null;
+  coinGraceEndsAt?: string | null;
   now?: Date;
 }): TenantBillingOperationalStatus {
   const now = input.now ?? new Date();
@@ -136,6 +136,15 @@ export function resolveTenantBillingOperationalStatus(input: {
   }
 
   if (!input.prepaidConfirmedAt && !input.serviceStartedAt) {
+    if (input.status === 'ACTIVE' && normalizePlanId(input.plan ?? 'free') === 'free') {
+      const graceMs = input.coinGraceEndsAt ? new Date(input.coinGraceEndsAt).getTime() : null;
+      const inCoinGrace = graceMs != null && graceMs > now.getTime();
+      return {
+        code: 'ACTIVE_OK',
+        label: '무료 이용',
+        detail: inCoinGrace ? '가입 후 2개월 · 코인 제한 없음' : null,
+      };
+    }
     return {
       code: 'TRIAL_UNPAID',
       label: '체험 전',

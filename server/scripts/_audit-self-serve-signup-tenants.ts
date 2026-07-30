@@ -4,6 +4,7 @@
  */
 import { prisma } from '../src/lib/prisma.js';
 import { modulesForPlan } from '../src/modules/tenants/tenantFeatureCatalog.js';
+import { readSignupCoinGraceEndsAt } from '../src/modules/tenants/tenantSignupGrace.js';
 import { TENANT_SIGNUP_PAID_TRIAL_DAYS } from '../src/modules/platform/tenantSignup.constants.js';
 import { resolveTenantBillingOperationalStatus } from '../src/modules/billing/tenantBilling.operationalStatus.js';
 
@@ -13,6 +14,8 @@ type SignupConfig = {
   source?: string;
   selectedPlan?: string;
   paidTrialDays?: number | null;
+  coinGraceEndsAt?: string | null;
+  signupGraceDays?: number | null;
 };
 
 function readSignupConfig(raw: unknown): SignupConfig | null {
@@ -87,6 +90,16 @@ async function main() {
       }
       if (t.trialEndsAt) issues.push('Free인데 trialEndsAt 있음');
       if (t.prepaidConfirmedAt) issues.push('Free인데 prepaidConfirmedAt 있음');
+      const coinGraceEndsAt = readSignupCoinGraceEndsAt(t.config);
+      if (!coinGraceEndsAt) {
+        issues.push('coinGraceEndsAt 없음 (Free 가입 후 2개월 코인 grace)');
+      } else {
+        const graceDays = daysBetween(t.createdAt, new Date(coinGraceEndsAt));
+        const cfgDays = signup?.signupGraceDays ?? TENANT_SIGNUP_PAID_TRIAL_DAYS;
+        if (Math.abs(graceDays - cfgDays) > 1) {
+          issues.push(`코인 grace ${graceDays}일 (기대 ${cfgDays}일)`);
+        }
+      }
     }
 
     for (const m of expectedModules) {
@@ -96,23 +109,23 @@ async function main() {
       if (!expectedModules.has(m)) issues.push(`예상 외 모듈: ${m}`);
     }
 
+    const coinGraceEndsAt = readSignupCoinGraceEndsAt(t.config);
     const op = resolveTenantBillingOperationalStatus({
       status: t.status,
       suspendReason: t.suspendReason,
-      trialEndsAt: t.trialEndsAt,
-      prepaidConfirmedAt: t.prepaidConfirmedAt,
-      serviceStartedAt: t.serviceStartedAt,
-      billingStartDate: t.billingProfile?.billingStartDate ?? null,
-      billingAccessBlockedAt: t.billingAccessBlockedAt,
+      trialEndsAt: t.trialEndsAt?.toISOString() ?? null,
+      prepaidConfirmedAt: t.prepaidConfirmedAt?.toISOString() ?? null,
+      serviceStartedAt: t.serviceStartedAt?.toISOString() ?? null,
+      billingStartDate: t.billingProfile?.billingStartDate?.toISOString() ?? null,
+      billingAccessBlockedAt: t.billingAccessBlockedAt?.toISOString() ?? null,
       hasOpenInvoice: false,
       hasOverdueInvoice: false,
+      plan: t.plan,
+      coinGraceEndsAt,
     });
 
-    const trialDetailHas7Only =
-      op.code === 'TRIAL_PAID' && op.detail === '7일 환불 가능 기간' && isPaid;
-    if (trialDetailHas7Only && t.trialEndsAt && t.prepaidConfirmedAt) {
-      const d = daysBetween(t.prepaidConfirmedAt, t.trialEndsAt);
-      if (d > 7) issues.push(`과금 UI detail이 7일 고정 (${d}일 체험)`);
+    if (isPaid && !coinGraceEndsAt) {
+      issues.push('coinGraceEndsAt 없음 (유료 셀프 가입 grace)');
     }
 
     const level = issues.length === 0 ? 'OK' : issues.some((i) => i.includes('누락') || i.includes('없음')) ? 'FAIL' : 'WARN';

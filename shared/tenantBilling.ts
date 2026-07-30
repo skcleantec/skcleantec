@@ -4,8 +4,10 @@
 import type { TenantPlanId } from './tenantFeatureModules.js';
 import { TENANT_PLAN_MONTHLY_PRICE_KRW, premiumMonthlyPriceKrw } from './tenantPlanCatalog.js';
 import { normalizePlanId } from './tenantPlanNormalize.js';
+import { TENANT_SIGNUP_GRACE_DAYS } from './tenantSignup.js';
 
-export const TENANT_TRIAL_DAYS = 7;
+/** 유료 과금 체험·승인 체험 일수 — @see TENANT_SIGNUP_GRACE_DAYS */
+export const TENANT_TRIAL_DAYS = TENANT_SIGNUP_GRACE_DAYS;
 export const TENANT_PREPAID_SERVICE_DELAY_DAYS = 7;
 
 /** prepaidConfirmedAt ~ trialEndsAt 구간 일수 (과금 UI·상태 문구) */
@@ -16,20 +18,16 @@ export function computeTrialDurationDays(
   const startMs = new Date(prepaidConfirmedAt).getTime();
   const endMs = new Date(trialEndsAt).getTime();
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
-    return TENANT_TRIAL_DAYS;
+    return TENANT_SIGNUP_GRACE_DAYS;
   }
   return Math.max(1, Math.round((endMs - startMs) / (24 * 60 * 60 * 1000)));
 }
 
-/** 유료 전환·플랫폼 승인 체험(≤7일) vs 셀프 가입 장기 체험 문구 분기 */
 export function formatTrialPaidOperationalDetail(input: {
   prepaidConfirmedAt: string | Date;
   trialEndsAt: string | Date;
 }): string {
   const days = computeTrialDurationDays(input.prepaidConfirmedAt, input.trialEndsAt);
-  if (days <= TENANT_TRIAL_DAYS) {
-    return `${days}일 환불 가능 기간`;
-  }
   const endLabel = new Date(input.trialEndsAt).toLocaleDateString('ko-KR', {
     timeZone: 'Asia/Seoul',
     year: 'numeric',
@@ -40,8 +38,9 @@ export function formatTrialPaidOperationalDetail(input: {
 }
 
 export function formatTrialUnpaidOperationalDetail(): string {
-  return `체험 시작 후 ${TENANT_TRIAL_DAYS}일 이용`;
+  return '플랫폼에서 체험 시작 후 이용';
 }
+
 /** 연간 선납 할인율 (플랜 카탈로그·과금 공통 15%) */
 export const TENANT_BILLING_ANNUAL_DISCOUNT_RATE = 0.15;
 export const TENANT_BILLING_DEFAULT_GRACE_DAYS = 3;
@@ -222,6 +221,8 @@ export function resolveTenantBillingOperationalStatus(input: {
   billingFeeExempt?: boolean;
   currentPeriodStatus?: BillingScheduleItemStatus | null;
   currentPeriodAmountKrw?: number | null;
+  plan?: string | null;
+  coinGraceEndsAt?: string | null;
   now?: Date;
 }): TenantBillingOperationalStatus {
   const now = input.now ?? new Date();
@@ -290,6 +291,15 @@ export function resolveTenantBillingOperationalStatus(input: {
   }
 
   if (!input.prepaidConfirmedAt && !input.serviceStartedAt) {
+    if (input.status === 'ACTIVE' && normalizePlanId(input.plan ?? 'free') === 'free') {
+      const graceMs = input.coinGraceEndsAt ? new Date(input.coinGraceEndsAt).getTime() : null;
+      const inCoinGrace = graceMs != null && graceMs > now.getTime();
+      return {
+        code: 'ACTIVE_OK',
+        label: '무료 이용',
+        detail: inCoinGrace ? '가입 후 2개월 · 코인 제한 없음' : null,
+      };
+    }
     return {
       code: 'TRIAL_UNPAID',
       label: '체험 전',

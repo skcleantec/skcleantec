@@ -1,11 +1,13 @@
 import type { Prisma, TenantBillingCycle, TenantInvoiceSource, TenantInvoiceStatus, TenantSuspendReason } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { readSignupCoinGraceEndsAt } from '../tenants/tenantSignupGrace.js';
 import {
   calculateBillingAmountKrw,
   TENANT_BILLING_DEFAULT_GRACE_DAYS,
   TENANT_PREPAID_SERVICE_DELAY_DAYS,
   TENANT_TRIAL_DAYS,
 } from './tenantBilling.constants.js';
+import { TENANT_SIGNUP_GRACE_DAYS } from '../platform/tenantSignup.constants.js';
 import {
   addDaysUtc,
   billingPeriodForStart,
@@ -467,6 +469,7 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
         serviceStartedAt: true,
         suspendReason: true,
         billingAccessBlockedAt: true,
+        config: true,
       },
     }),
     ensurePlatformBillingSettings(),
@@ -504,6 +507,8 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     billingFeeExempt,
     currentPeriodStatus: currentPeriod?.status ?? null,
     currentPeriodAmountKrw: currentPeriod?.amountKrw ?? null,
+    plan: tenant.plan,
+    coinGraceEndsAt: readSignupCoinGraceEndsAt(tenant.config),
   });
 
   return {
@@ -577,6 +582,7 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       serviceStartedAt: true,
       suspendReason: true,
       billingAccessBlockedAt: true,
+      config: true,
       billingProfile: true,
       invoices: {
         where: { status: { in: ['ISSUED', 'OVERDUE'] } },
@@ -621,6 +627,8 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       billingFeeExempt,
       currentPeriodStatus: currentPeriod?.status ?? null,
       currentPeriodAmountKrw: currentPeriod?.amountKrw ?? null,
+      plan: t.plan,
+      coinGraceEndsAt: readSignupCoinGraceEndsAt(t.config),
     });
     rows.push({
       tenantId: t.id,
@@ -720,6 +728,13 @@ export async function confirmPrepaidForTenant(tenantId: string) {
 
   const now = new Date();
   const trialEndsAt = addDaysUtc(now, TENANT_TRIAL_DAYS);
+  const prevConfig =
+    tenant.config && typeof tenant.config === 'object' ? (tenant.config as Record<string, unknown>) : {};
+  const prevSignup =
+    prevConfig.signup && typeof prevConfig.signup === 'object'
+      ? (prevConfig.signup as Record<string, unknown>)
+      : {};
+
   const updated = await prisma.tenant.update({
     where: { id: tenantId },
     data: {
@@ -729,6 +744,15 @@ export async function confirmPrepaidForTenant(tenantId: string) {
       suspendReason: null,
       billingAccessBlockedAt: null,
       suspendedAt: null,
+      config: {
+        ...prevConfig,
+        signup: {
+          ...prevSignup,
+          signupGraceDays: TENANT_SIGNUP_GRACE_DAYS,
+          coinGraceEndsAt: trialEndsAt.toISOString(),
+          paidTrialDays: TENANT_SIGNUP_GRACE_DAYS,
+        },
+      },
     },
     select: {
       id: true,
