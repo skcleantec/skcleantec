@@ -50,22 +50,51 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 @media (max-width:720px){[data-ba-head],[data-ba-row]{grid-template-columns:minmax(0,1fr)!important}[data-ba-row]>div:nth-child(2){padding:0 28px;justify-content:flex-start!important;transform:rotate(90deg);transform-origin:left center;height:22px}[data-ba-row]>div:nth-child(1){padding-bottom:0!important}}
 @media (max-width:860px){[data-wf-head]{grid-template-columns:minmax(0,1fr)!important}}
 @media (max-width:1240px){[data-wf-pane]{grid-template-columns:minmax(0,1fr)!important}[data-wf-phone]{width:312px;max-width:min(312px,46vw);justify-self:center!important}}
+.landing-header{position:sticky;top:0;z-index:60;background:rgba(255,255,255,.82);backdrop-filter:blur(14px);border-bottom:1px solid #EAF0FF}
+.landing-header-inner{max-width:1200px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.landing-header-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;flex:1}
+.landing-header-logo{display:flex;align-items:center;gap:10px;min-width:0;flex-shrink:0}
+.landing-header-logo img{height:34px;width:auto;display:block}
+.landing-header-nav{display:flex;align-items:center;gap:28px;flex-wrap:wrap;justify-content:flex-end}
+.landing-header-nav a.landing-nav-link{color:#3A4761;font-size:15px;font-weight:600;white-space:nowrap}
+.landing-header-login{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:999px;background:#0f172a;color:#fff!important;font-size:15px;font-weight:700;box-shadow:0 8px 20px rgba(15,23,42,.22);white-space:nowrap;flex-shrink:0}
+.landing-header-login:hover{background:#1e293b;color:#fff!important}
+.landing-header-login--top{display:none}
+.landing-nav-signup{color:#2F6BFF!important;font-weight:700}
+.landing-nav-cta{background:#2F6BFF;color:#fff!important;padding:11px 20px;border-radius:999px;font-size:15px;font-weight:700;box-shadow:0 8px 20px rgba(47,107,255,.28);white-space:nowrap}
+.landing-nav-cta:hover{background:#1B4FD8;color:#fff!important}
+@media (max-width:768px){
+.landing-header-inner{flex-direction:column;align-items:stretch;padding:12px 16px 10px;gap:10px}
+.landing-header-top{width:100%;flex:none}
+.landing-header-login--top{display:inline-flex;padding:9px 16px;font-size:14px}
+.landing-header-nav{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;justify-content:stretch;flex-wrap:unset}
+.landing-header-nav a.landing-nav-link{font-size:14px;padding:8px 4px;text-align:center;justify-self:center}
+.landing-header-login--nav{display:none!important}
+.landing-nav-signup{grid-column:1/-1;justify-self:center}
+.landing-nav-cta{grid-column:1/-1;justify-self:stretch;text-align:center;padding:10px 16px;font-size:14px}
+}
 </style>
+<script>
+(function(){var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;if(s)window.location.replace('/login');})();
+</script>
 </helmet>
 
 
-<header style="position:sticky;top:0;z-index:60;background:rgba(255,255,255,.82);backdrop-filter:blur(14px);border-bottom:1px solid #EAF0FF">
-  <div style="max-width:1200px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px">
-    <a href="#top" style="display:flex;align-items:center;gap:10px"><img src="/marketing/assets/logo-blue.png" alt="청소비서 Clean Assistant" style="height:34px;width:auto;display:block"></a>
-    <nav style="display:flex;align-items:center;gap:28px;flex-wrap:wrap">
-      <a href="#workflow" style="color:#3A4761;font-size:15px;font-weight:600">워크플로우</a>
-      <a href="#features" style="color:#3A4761;font-size:15px;font-weight:600">기능</a>
-      <a href="#crm" style="color:#3A4761;font-size:15px;font-weight:600">CRM</a>
-      <a href="#pricing" style="color:#3A4761;font-size:15px;font-weight:600">요금제</a>
-      <a href="#faq" style="color:#3A4761;font-size:15px;font-weight:600">FAQ</a>
-      <a href="/login" style="color:#3A4761;font-size:15px;font-weight:600">로그인</a>
-      <a href="/signup" style="color:#2F6BFF;font-size:15px;font-weight:700">무료로 시작</a>
-      <a href="#contact" style="background:#2F6BFF;color:#fff;padding:11px 20px;border-radius:999px;font-size:15px;font-weight:700;box-shadow:0 8px 20px rgba(47,107,255,.28)" style-hover="background:#1B4FD8;color:#fff">도입 상담 신청</a>
+<header class="landing-header">
+  <div class="landing-header-inner">
+    <div class="landing-header-top">
+      <a href="#top" class="landing-header-logo"><img src="/marketing/assets/logo-blue.png" alt="청소비서 Clean Assistant"></a>
+      <a href="/login" class="landing-header-login landing-header-login--top">로그인</a>
+    </div>
+    <nav class="landing-header-nav">
+      <a href="#workflow" class="landing-nav-link">워크플로우</a>
+      <a href="#features" class="landing-nav-link">기능</a>
+      <a href="#crm" class="landing-nav-link">CRM</a>
+      <a href="#pricing" class="landing-nav-link">요금제</a>
+      <a href="#faq" class="landing-nav-link">FAQ</a>
+      <a href="/login" class="landing-header-login landing-header-login--nav">로그인</a>
+      <a href="/signup" class="landing-nav-link landing-nav-signup">무료로 시작</a>
+      <a href="#contact" class="landing-nav-cta">도입 상담 신청</a>
     </nav>
   </div>
 </header>
