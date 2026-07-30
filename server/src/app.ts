@@ -244,14 +244,21 @@ if (clientDir) {
   if (fs.existsSync(marketingDir)) {
     const marketingSlotsState = path.join(marketingDir, '.image-slots.state.json');
     if (fs.existsSync(marketingSlotsState)) {
+      let marketingSlotsStateJson = '{}';
+      try {
+        marketingSlotsStateJson = fs.readFileSync(marketingSlotsState, 'utf8');
+      } catch (err) {
+        console.warn('[app] marketing slots state read failed:', err);
+      }
       app.get('/marketing/.image-slots.state.json', (_req, res) => {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.type('json').sendFile(marketingSlotsState);
+        res.type('json').send(marketingSlotsStateJson);
       });
     }
     app.use(
       '/marketing',
       express.static(marketingDir, {
+        dotfiles: 'allow',
         setHeaders(res, filePath) {
           if (path.basename(filePath) === 'index.html') {
             res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

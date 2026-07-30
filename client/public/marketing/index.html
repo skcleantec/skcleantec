@@ -143,7 +143,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
           <span style="margin-left:14px;background:#fff;border:1px solid #E4EAF6;border-radius:999px;padding:4px 16px;font-size:12px;font-weight:600;color:#8B98B0">cbiseo.com</span>
         </div>
         <div style="aspect-ratio:1200/563;width:100%;background:#F7F9FE;position:relative">
-          <image-slot id="cb-hero-b-pc" shape="rect" fit="contain" placeholder="PC 관리자 화면 캡쳐" style="width:100%;height:100%"></image-slot>
+          <image-slot id="cb-hero-b-pc" src="/marketing/assets/slots/cb-hero-b-pc.webp" shape="rect" fit="contain" placeholder="PC 관리자 화면 캡쳐" style="width:100%;height:100%"></image-slot>
         </div>
       </div>
       <span style="position:absolute;top:9px;right:104px;z-index:6;color:#8B98B0;font-size:11px;font-weight:700;letter-spacing:-.01em">더블클릭 → 이동·확대</span>
@@ -255,7 +255,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
         <div style="position:relative;width:min(340px,100%)">
           <div style="filter:grayscale(.55) contrast(.92);drop-shadow:0">
             <div style="aspect-ratio:450/750;width:100%">
-              <image-slot id="cb-old-calendar" shape="rect" fit="contain" placeholder="기존에 쓰던 일반 캘린더 앱 캡쳐" style="width:100%;height:100%"></image-slot>
+              <image-slot id="cb-old-calendar" src="/marketing/assets/slots/cb-old-calendar.webp" shape="rect" fit="contain" placeholder="기존에 쓰던 일반 캘린더 앱 캡쳐" style="width:100%;height:100%"></image-slot>
             </div>
           </div>
           <svg viewBox="0 0 100 100" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
@@ -303,7 +303,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 </section>
 
 <section style="padding:126px 24px 80px;background:linear-gradient(135deg,#2F6BFF,#1B4FD8);color:#fff;position:relative;overflow:hidden">
-  <image-slot id="cb-stats-bg" shape="rect" placeholder="배경 일러스트 (2560×1600) — 왼쪽 정신없는 사람 / 오른쪽 여유로운 사람" style="position:absolute;inset:0;width:100%;height:100%;color:#0B1220"></image-slot>
+  <image-slot id="cb-stats-bg" src="/marketing/assets/slots/cb-stats-bg.webp" shape="rect" placeholder="배경 일러스트 (2560×1600) — 왼쪽 정신없는 사람 / 오른쪽 여유로운 사람" style="position:absolute;inset:0;width:100%;height:100%;color:#0B1220"></image-slot>
   <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(135deg,rgba(47,107,255,.82),rgba(27,79,216,.86))"></div>
   <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:88px;display:block;pointer-events:none"><path d="M0,0 L1440,0 L1440,4 C1080,110 360,110 0,4 Z" fill="#fff"></path></svg>
   <div style="max-width:1200px;margin:0 auto;position:relative;pointer-events:none">
@@ -423,7 +423,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
                   <span style="margin-left:10px;font-size:11px;font-weight:700;color:#9AA7C0">청소비서 · PC 관리자</span>
                 </div>
                 <div style="aspect-ratio:1200/563;width:100%;background:#F7F9FE;position:relative">
-                  <image-slot id="{{ s.pcId }}" shape="rect" fit="contain" placeholder="PC 화면" style="width:100%;height:100%"></image-slot>
+                  <image-slot id="{{ s.pcId }}" src="/marketing/assets/slots/{{ s.pcId }}.webp" shape="rect" fit="contain" placeholder="PC 화면" style="width:100%;height:100%"></image-slot>
                   <div style="position:absolute;right:12px;bottom:12px;z-index:3;display:flex;align-items:center;gap:8px">
                     <span style="background:rgba(255,255,255,.9);border:1px solid #E4EAF6;color:#6C7A96;font-size:11px;font-weight:700;padding:6px 11px;border-radius:999px">더블클릭 → 이동·확대</span>
                     <button onClick="{{ zoom }}" data-zoom-src="{{ s.pcId }}" title="크게 보기" style="border:none;cursor:pointer;background:rgba(11,18,32,.82);color:#fff;font-size:13px;font-weight:700;padding:9px 15px;border-radius:999px;backdrop-filter:blur(6px);transition:background .2s" style-hover="background:#2F6BFF">크게 보기</button>
@@ -434,7 +434,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
                 <div class="wf-phone-notch" aria-hidden="true"></div>
                 <div class="wf-phone-screen">
                   <div class="wf-phone-slot">
-                    <image-slot id="{{ s.moId }}" shape="rect" fit="cover" placeholder="모바일 화면"></image-slot>
+                    <image-slot id="{{ s.moId }}" src="/marketing/assets/slots/{{ s.moId }}.webp" shape="rect" fit="cover" placeholder="모바일 화면"></image-slot>
                   </div>
                 </div>
               </div>
@@ -466,7 +466,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
           <div class="wf-phone-notch" aria-hidden="true"></div>
           <div class="wf-phone-screen">
             <div class="wf-phone-slot">
-              <image-slot id="{{ role.slotId }}" shape="rect" fit="cover" placeholder="{{ role.slotHint }}"></image-slot>
+              <image-slot id="{{ role.slotId }}" src="/marketing/assets/slots/{{ role.slotId }}.webp" shape="rect" fit="cover" placeholder="{{ role.slotHint }}"></image-slot>
             </div>
           </div>
         </div>
@@ -513,7 +513,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
         <span style="margin-left:auto;color:#A9B6CE;font-size:11px;font-weight:700">더블클릭 → 이동·확대</span>
       </div>
       <div style="aspect-ratio:1200/563;width:100%;background:#F7F9FE;position:relative">
-        <image-slot id="cb-crm-pc" shape="rect" fit="contain" placeholder="CRM PC 화면 캡쳐" style="width:100%;height:100%"></image-slot>
+        <image-slot id="cb-crm-pc" src="/marketing/assets/slots/cb-crm-pc.webp" shape="rect" fit="contain" placeholder="CRM PC 화면 캡쳐" style="width:100%;height:100%"></image-slot>
         <button onClick="{{ zoom }}" data-zoom-src="cb-crm-pc" title="크게 보기" style="position:absolute;right:12px;bottom:12px;z-index:3;border:none;cursor:pointer;background:rgba(11,18,32,.82);color:#fff;font-size:13px;font-weight:700;padding:9px 15px;border-radius:999px;backdrop-filter:blur(6px);transition:background .2s" style-hover="background:#2F6BFF">크게 보기</button>
       </div>
     </div>
