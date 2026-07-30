@@ -5,6 +5,8 @@ import logging
 import re
 import time
 
+from automation.overlay_modals import dismiss_blocking_overlays
+from automation.mobile_viewport import apply_mobile_viewport
 from automation.selectors import NON_CHAT_PRO_PATH_HINTS, URLS
 
 logger = logging.getLogger(__name__)
@@ -49,18 +51,26 @@ def is_pro_session_url(url: str) -> bool:
 
 
 def _click_chat_nav(driver) -> bool:
-    """사이드/탭의 「채팅」 메뉴 클릭"""
+    """사이드/하단 탭의 「채팅」 메뉴 클릭"""
     try:
         clicked = driver.execute_script("""
             var candidates = document.querySelectorAll(
-              "a[href*='/pro/chats'], button, [role='tab'], nav a, aside a, li a"
+              "a[href*='/pro/chats'], button, [role='tab'], nav a, aside a, li a, "
+              + "footer a, nav button, [data-testid*='chat'], [aria-label*='채팅']"
             );
             for (var i = 0; i < candidates.length; i++) {
               var el = candidates[i];
               var text = (el.textContent || '').replace(/\\s+/g, ' ').trim();
               var href = (el.getAttribute('href') || '').toLowerCase();
-              if (text === '채팅' || text.indexOf('채팅 ') === 0 || href.indexOf('/pro/chats') >= 0) {
-                if (text.indexOf('받은') >= 0 || text.indexOf('요청') >= 0) continue;
+              var aria = (el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+              var label = text || aria;
+              if (
+                label === '채팅' ||
+                label.indexOf('채팅 ') === 0 ||
+                aria.indexOf('채팅') >= 0 ||
+                href.indexOf('/pro/chats') >= 0
+              ) {
+                if (label.indexOf('받은') >= 0 || label.indexOf('요청') >= 0) continue;
                 el.click();
                 return true;
               }
@@ -73,6 +83,15 @@ def _click_chat_nav(driver) -> bool:
         return False
 
 
+def _navigate_to_chat_list_direct(driver, delay: float) -> None:
+    driver.get(URLS['CHAT_LIST'])
+    time.sleep(delay * 1.5)
+
+
+def _on_chat_workspace(url: str) -> bool:
+    return is_on_chat_list_url(url) or is_in_chat_room_url(url)
+
+
 def ensure_chat_workspace(driver, delay: float = 1.0, force_list: bool = False) -> bool:
     """
     상담사 채팅 업무 화면으로 맞춘다.
@@ -80,6 +99,9 @@ def ensure_chat_workspace(driver, delay: float = 1.0, force_list: bool = False) 
     - 받은요청 등 다른 /pro 페이지면 채팅 목록으로 이동
     """
     try:
+        apply_mobile_viewport(driver)
+        dismiss_blocking_overlays(driver, 0.3, max_rounds=2)
+
         url = driver.current_url
         if not force_list and is_in_chat_room_url(url):
             logger.info('stay in chat room: %s', url)
@@ -91,22 +113,29 @@ def ensure_chat_workspace(driver, delay: float = 1.0, force_list: bool = False) 
 
         if is_on_non_chat_pro_page(url) or force_list or not is_on_chat_list_url(url):
             logger.info('navigate to chat list from %s', url)
-            driver.get(URLS['CHAT_LIST'])
-            time.sleep(delay * 1.5)
+            _navigate_to_chat_list_direct(driver, delay)
 
         url = driver.current_url
-        if is_on_chat_list_url(url) or is_in_chat_room_url(url):
+        if _on_chat_workspace(url):
             return True
 
         if _click_chat_nav(driver):
             time.sleep(delay * 1.2)
-            url = driver.current_url
-            if is_on_chat_list_url(url) or is_in_chat_room_url(url):
+            if _on_chat_workspace(driver.current_url):
                 return True
 
-        driver.get(URLS['CHAT_LIST'])
-        time.sleep(delay * 1.5)
-        return is_on_chat_list_url(driver.current_url) or is_in_chat_room_url(driver.current_url)
+        dismiss_blocking_overlays(driver, 0.3, max_rounds=2)
+        _navigate_to_chat_list_direct(driver, delay)
+        if _on_chat_workspace(driver.current_url):
+            return True
+
+        try:
+            driver.execute_script('window.location.href = arguments[0];', URLS['CHAT_LIST'])
+            time.sleep(delay * 1.2)
+        except Exception:
+            pass
+
+        return _on_chat_workspace(driver.current_url)
     except Exception as e:
         logger.error('ensure_chat_workspace: %s', e)
         return False

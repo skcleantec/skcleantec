@@ -44,6 +44,9 @@ def arrange_soomgo_right_half(driver, bounds: dict[str, Any] | None = None) -> b
         w = max(SOOMGO_SPLIT_MIN_WIDTH, int(bounds.get('soomgoWidth', soomgo_w) if bounds else soomgo_w))
         h = max(480, height)
         driver.set_window_rect(x=x, y=y, width=w, height=h)
+        from automation.mobile_viewport import apply_mobile_viewport
+
+        apply_mobile_viewport(driver)
         return True
     except Exception as e:
         logger.warning('arrange_soomgo_right_half: %s', e)

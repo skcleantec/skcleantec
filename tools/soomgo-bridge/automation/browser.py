@@ -210,6 +210,9 @@ class BrowserManager:
                 self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
                     'source': "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })"
                 })
+                from automation.mobile_viewport import apply_mobile_viewport
+
+                apply_mobile_viewport(self.driver)
                 self.wait = WebDriverWait(self.driver, 10)
                 return True
             except Exception as e:
@@ -217,6 +220,13 @@ class BrowserManager:
                 logger.error('browser start: %s', e)
 
         return False
+
+    def reapply_mobile_viewport(self) -> bool:
+        if not self.driver:
+            return False
+        from automation.mobile_viewport import apply_mobile_viewport
+
+        return apply_mobile_viewport(self.driver)
 
     def arrange_right_half(self, bounds: dict | None = None) -> bool:
         if not self.driver:

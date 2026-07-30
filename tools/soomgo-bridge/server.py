@@ -35,9 +35,11 @@ from automation.selectors import URLS
 from automation.sequence_sender import run_send_sequence
 from automation.http_download import download_bytes
 from automation.navigation import (
+    ensure_chat_workspace,
     is_in_chat_room_url,
     is_on_chat_list_url,
     is_on_non_chat_pro_page,
+    is_pro_session_url,
     open_chat_room_by_id,
 )
 
@@ -169,7 +171,11 @@ def _chat_watch_loop():
                 on_list = is_on_chat_list_url(url)
                 in_room = is_in_chat_room_url(url)
                 if not on_list and not in_room:
-                    _chat_watch_stop.wait(12.0)
+                    if is_pro_session_url(url):
+                        logger.info('chat watch: off workspace %s — recovering', url)
+                        dismiss_blocking_overlays(driver, 0.3, max_rounds=2)
+                        ensure_chat_workspace(driver, delay=0.8, force_list=False)
+                    _chat_watch_stop.wait(3.0)
                     continue
                 _chat_watcher.ensure_installed(driver)
                 _chat_watcher.poll_events(driver)
@@ -576,11 +582,21 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if not _sync_logged_in_from_browser():
                     _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
                     return
-                goto_chat_list(driver, force_list=False)
+                _browser.reapply_mobile_viewport()
+                nav_ok = goto_chat_list(driver, force_list=False)
+                if not nav_ok:
+                    dismiss_blocking_overlays(driver, 0.4, max_rounds=3)
+                    nav_ok = goto_chat_list(driver, force_list=True)
                 _arrange_soomgo_layout(body)
                 _chat_watcher.ensure_installed(driver)
                 _ensure_chat_watch()
-                _json_response(self, 200, _status_payload())
+                payload = {**_status_payload(), 'navigatedOk': nav_ok}
+                if not nav_ok:
+                    payload['warning'] = (
+                        '숨고 채팅 화면으로 이동하지 못했습니다. '
+                        'Chrome 창에서 「채팅」 탭을 눌러 주세요.'
+                    )
+                _json_response(self, 200, payload)
                 return
 
             if path == '/arrange-layout':
