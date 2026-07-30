@@ -21,6 +21,7 @@ import {
   type DbMarketplaceListingMessage,
   type DbMarketplaceMaskedItem,
 } from '../../api/dbMarketplace';
+import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { ModalCloseButton } from './ModalCloseButton';
@@ -127,6 +128,8 @@ export function DbMarketplaceListingDetailModal({
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const listingScrollRef = useRef<HTMLDivElement>(null);
+  const { onFieldFocus: onListingFieldFocus } = useModalScrollKeyboardAvoidance(listingScrollRef, true);
 
   const showQna =
     row.status === 'OPEN' || row.status === 'PENDING_SELLER' || row.status === 'CONFIRMED';
@@ -370,7 +373,12 @@ export function DbMarketplaceListingDetailModal({
           </h2>
           <ModalCloseButton onClick={onClose} />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4 space-y-3 text-fluid-xs" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div
+          ref={listingScrollRef}
+          onFocusCapture={onListingFieldFocus}
+          className="modal-form-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4 space-y-3 text-fluid-xs"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {loading && !detail ? <p className="text-gray-500">불러오는 중…</p> : null}
           {error ? <p className="text-red-600">{error}</p> : null}
 

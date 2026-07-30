@@ -78,6 +78,7 @@ import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGu
 import { OrderFormCompanyTrustFooter } from '../../components/orderform/OrderFormCompanyTrustFooter';
 import { OrderFormPlatformFooter } from '../../components/orderform/OrderFormPlatformFooter';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 import type { PublicOperatingCompanyBranding, PublicOrderFormCompanyTrust } from '../../api/orderform';
 import {
   composeBrandedOrderFormTitle,
@@ -153,6 +154,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const isEditor = Boolean(editor);
   const isCreate = Boolean(editor?.create);
   const isInline = Boolean(editor?.inline);
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   const [prefillSaving, setPrefillSaving] = useState(false);
   const [prefillSavedOpen, setPrefillSavedOpen] = useState(false);
   /** 발급(create) 모드 금액 입력 */
@@ -1222,7 +1224,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const moveLocked = lockKey('moveInDate') || lockKey('moveInDateUndecided');
 
   return (
-    <div className={isInline ? '' : `min-h-screen bg-gray-50 ${!isEditor && !isCreate ? 'pb-44' : 'pb-20'}`}>
+    <div
+      ref={isInline ? undefined : scrollRef}
+      className={
+        isInline
+          ? ''
+          : `login-surface min-h-dvh min-h-screen overflow-y-auto overscroll-y-contain bg-gray-50 ${!isEditor && !isCreate ? 'pb-44' : 'pb-20'}`
+      }
+    >
       <div className={isInline ? 'relative w-full' : 'max-w-lg mx-auto px-4 py-6 relative'}>
         {!isInline && (
           <div className="absolute top-4 right-4">
@@ -1387,7 +1396,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 pb-20">
+        <form
+          onSubmit={handleSubmit}
+          onFocusCapture={isInline ? undefined : onFieldFocus}
+          className="space-y-4 pb-20"
+        >
           {stdFieldOn('customerName') && (
           <div>
             <label className={reqLabelCls}>1. 성함 *</label>

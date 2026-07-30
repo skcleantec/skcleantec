@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { createOrderFollowup } from '../../api/orderFollowups';
 import { createInquiry, updateInquiry } from '../../api/inquiries';
 import { ModalCloseButton } from './ModalCloseButton';
@@ -51,6 +52,8 @@ export function AdminListIntakeModal({
   const [kind, setKind] = useState<Kind>('absent');
   const [goldDb, setGoldDb] = useState(false);
   const [saving, setSaving] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
 
   useEffect(() => {
     if (!open) return;
@@ -170,7 +173,11 @@ export function AdminListIntakeModal({
               : '부재·보류는 부재현황에서만 이어갑니다. 입금대기·입금완료는 서비스접수에 바로 나타납니다.'}
           </p>
         </div>
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain px-4 py-3">
+        <div
+          ref={scrollRef}
+          onFocusCapture={onFieldFocus}
+          className="modal-form-scroll-surface min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain px-4 py-3"
+        >
           <div>
             <label className="mb-1 block text-fluid-xs font-medium text-gray-700">고객명 *</label>
             <input

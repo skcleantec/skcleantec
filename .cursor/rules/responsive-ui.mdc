@@ -30,6 +30,7 @@ alwaysApply: true
 
 ## Flex·레이아웃
 
+- **모바일 키보드 — 입력 필드가 키보드 위에 보이게**: **`.cursor/rules/mobile-keyboard-input-visibility.mdc`** (필수). `useLoginScrollSurface` / `useModalScrollKeyboardAvoidance` + `onFocusCapture`.
 - 가로로 줄이 좁아질 때 내용이 밀려나가면 부모에 **`min-w-0`** 을 두어 flex/grid 자식이 축소·스크롤되도록 한다.
 - `AdminLayout` 의 `main` 은 `px-4` — **테이블만** 화면 가장자리까지 넓히려면 스크롤 래퍼에 **`-mx-4 px-4 sm:mx-0 sm:px-0`** 를 쓴다 (접수 목록·발주서 목록과 동일).
 

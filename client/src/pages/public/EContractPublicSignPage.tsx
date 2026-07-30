@@ -13,6 +13,7 @@ import { isCoreSignerToken, EC_SIGNER_ADDRESS_TOKEN } from '../../utils/eContrac
 import { splitEContractSignerAddressValue } from '../../components/e-contract/eContractSignerAddressValue';
 import { SignaturePad } from '../../components/e-contract/SignaturePad';
 import { getTeamToken } from '../../stores/teamAuth';
+import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 
 function TeamLeaderContractDocToolbar({
   onPreview,
@@ -67,6 +68,7 @@ export function EContractPublicSignPage() {
   const lastIssuanceIdRef = useRef('');
   const [pagedPreviewOpen, setPagedPreviewOpen] = useState(false);
   const [pagedAutoPdfDownload, setPagedAutoPdfDownload] = useState(false);
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface();
 
   const load = useCallback(async () => {
     if (!decoded) return;
@@ -288,7 +290,11 @@ export function EContractPublicSignPage() {
 
   return (
     <>
-      <div className="mx-auto min-h-[70vh] w-full max-w-lg px-4 py-8">
+      <div
+        ref={scrollRef}
+        onFocusCapture={onFieldFocus}
+        className="login-surface mx-auto min-h-dvh w-full max-w-lg overflow-y-auto overscroll-y-contain px-4 py-8"
+      >
       <h1 className="text-fluid-lg font-semibold text-gray-900">전자계약</h1>
       <p className="mt-1 text-fluid-sm text-gray-600">
         <span className="font-medium text-gray-800">{session.signerNameLabel}</span> 님 전용 체결 링크입니다.

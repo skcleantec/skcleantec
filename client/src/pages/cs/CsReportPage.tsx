@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { submitCsReport, uploadCsImage } from '../../api/cs';
+import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 import { ImageThumbLightbox } from '../../components/ui/ImageThumbLightbox';
 import { prepareImageFileForUpload } from '../../utils/imageResizeForUpload';
 import { resolveInitialTenantSlug } from '../../utils/tenantHostResolve';
@@ -27,6 +28,7 @@ export function CsReportPage() {
   const [error, setError] = useState<string | null>(null);
 
   const csHeaderTitle = composeBrandedCsTitle(brandDisplayName) || DEFAULT_CS_HEADER;
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface();
 
   useDocumentTitle(csHeaderTitle);
 
@@ -159,7 +161,10 @@ export function CsReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-200/80 flex flex-col">
+    <div
+      ref={scrollRef}
+      className="login-surface flex min-h-dvh min-h-screen flex-col overflow-y-auto overscroll-y-contain bg-gradient-to-b from-slate-100 to-slate-200/80"
+    >
       <header className="bg-slate-900 text-white shrink-0">
         <div className="max-w-lg mx-auto px-4 py-4 sm:py-5">
           <p className="text-fluid-xs text-slate-400 uppercase tracking-wider">고객 지원</p>
@@ -179,7 +184,7 @@ export function CsReportPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="px-5 sm:px-6 py-5 space-y-5">
+          <form onSubmit={handleSubmit} onFocusCapture={onFieldFocus} className="px-5 sm:px-6 py-5 space-y-5">
             <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-3 text-fluid-sm text-slate-700 leading-relaxed">
               <span className="font-medium text-slate-800">안내</span>
               {': '}
