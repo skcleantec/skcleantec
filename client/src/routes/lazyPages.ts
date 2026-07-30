@@ -299,6 +299,11 @@ export const PlatformPlanUpgradeRequestsPage = lazyWithRetry(() =>
     default: m.PlatformPlanUpgradeRequestsPage,
   }))
 );
+export const PlatformSignupInquiriesPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformSignupInquiriesPage').then((m) => ({
+    default: m.PlatformSignupInquiriesPage,
+  }))
+);
 export const PlatformBillingPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformBillingPage').then((m) => ({ default: m.PlatformBillingPage }))
 );

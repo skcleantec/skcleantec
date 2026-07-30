@@ -118,26 +118,25 @@ export const TENANT_PLAN_PRESENTATIONS: Record<TenantPlanId, TenantPlanPresentat
   standard_plus: {
     id: 'standard_plus',
     label: 'Standard+',
-    tagline: '성장형 본사 · 더 많은 팀·캘린더',
+    tagline: '전 기능 이용 · 사용량 한도형',
     monthlyPriceHint: monthlyPriceLabel('standard_plus'),
     annualPriceHint: annualPriceLabel('standard_plus'),
     features: [
-      '팀장 10명 · 맞춤 캘린더 5개',
-      '월 700코인',
-      'Standard 기능 전체',
-      '브랜드 추가 불가',
+      'Premium 업무 기능 전체 (텔레CRM 제외)',
+      '팀장 10명 · 맞춤 캘린더 5개 · 월 700코인',
+      '급여·정산 · 전자계약 · 파트너 연계 포함',
+      '브랜드 추가 불가 · 텔레CRM 별도 옵션',
     ],
   },
   premium: {
     id: 'premium',
     label: 'Premium',
-    tagline: '정산·계약·멀티브랜드',
+    tagline: '무제한 사용량 · 멀티브랜드',
     monthlyPriceHint: `${monthlyPriceLabel('premium')} (브랜드 기본+추가 총 2개 포함)`,
     annualPriceHint: annualPriceLabel('premium'),
     features: [
-      '코인·팀장·캘린더 무제한',
+      'Standard+ 업무 기능 + 코인·팀장·캘린더 무제한',
       '브랜드 기본 1 + 추가 1 (총 2개) · 3번째부터 +20만/월',
-      '급여·정산 · 전자계약 · 파트너 연계',
       '텔레CRM(별도 옵션)',
     ],
   },
@@ -148,4 +147,4 @@ export function planLimitsSummary(plan: string): string[] {
 }
 
 export const TENANT_BILLING_NOTE =
-  '월 정액 플랜(Free·Standard 10만·Standard+ 20만·Premium 30만 원+, VAT 별도)과 이용 코인(매월 1일 KST 리셋·이월 없음)을 기준으로 표시합니다. Premium은 영업 브랜드 기본 1개+추가 1개(총 2개)가 포함되며, 3번째 브랜드부터 월 20만 원(VAT 별도)입니다. 플랜 변경은 플랫폼 담당자에게 문의해 주세요.';
+  '월 정액 플랜(Free·Standard 10만·Standard+ 20만·Premium 30만 원+, VAT 별도)과 이용 코인(매월 1일 KST 리셋·이월 없음)을 기준으로 표시합니다. Standard+는 Premium과 동일한 업무 기능(텔레CRM 제외)에 사용량 한도가 있고, Premium은 코인·팀장·캘린더 무제한·브랜드 2개 포함(3번째부터 월 20만 원, VAT 별도)입니다. 텔레CRM은 모든 플랜에서 별도 옵션입니다. 플랜 변경은 플랫폼 담당자에게 문의해 주세요.';

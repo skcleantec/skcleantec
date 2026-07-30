@@ -24,6 +24,25 @@ export const TENANT_FEATURE_MODULES = {
 
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;
 
+/** Premium·Standard+ 공통 업무 모듈 (텔레CRM mod_telecrm 은 별도 옵션 — 미포함) */
+export const TENANT_PREMIUM_BUSINESS_MODULE_IDS = [
+  'core_inquiries',
+  'core_schedule',
+  'core_assignments',
+  'core_messages',
+  'mod_cs',
+  'mod_external_co',
+  'mod_tenant_exchange',
+  'mod_db_marketplace',
+  'mod_crew',
+  'mod_team_stats',
+  'mod_inspection',
+  'mod_advertising',
+  'mod_payroll',
+  'mod_e_contract',
+  'mod_landing_inquiry',
+] as const satisfies readonly TenantFeatureModuleId[];
+
 export const TENANT_PLANS = {
   free: {
     label: 'Free',
@@ -47,39 +66,11 @@ export const TENANT_PLANS = {
   },
   standard_plus: {
     label: 'Standard+',
-    modules: [
-      'core_inquiries',
-      'core_schedule',
-      'core_assignments',
-      'core_messages',
-      'mod_cs',
-      'mod_external_co',
-      'mod_crew',
-      'mod_team_stats',
-      'mod_inspection',
-      'mod_advertising',
-      'mod_db_marketplace',
-    ] as TenantFeatureModuleId[],
+    modules: [...TENANT_PREMIUM_BUSINESS_MODULE_IDS],
   },
   premium: {
     label: 'Premium',
-    modules: [
-      'core_inquiries',
-      'core_schedule',
-      'core_assignments',
-      'core_messages',
-      'mod_cs',
-      'mod_external_co',
-      'mod_tenant_exchange',
-      'mod_db_marketplace',
-      'mod_crew',
-      'mod_team_stats',
-      'mod_inspection',
-      'mod_advertising',
-      'mod_payroll',
-      'mod_e_contract',
-      'mod_landing_inquiry',
-    ] as TenantFeatureModuleId[],
+    modules: [...TENANT_PREMIUM_BUSINESS_MODULE_IDS],
   },
 } as const;
 
@@ -160,7 +151,7 @@ export function monthlyCoinAllowance(plan: string): number | null {
 
 /** @see shared/tenantPlanCatalog.ts — 동기화 */
 export const TENANT_BILLING_NOTE =
-  '월 정액 플랜(Free·Standard 10만·Standard+ 20만·Premium 30만 원+, VAT 별도)과 이용 코인(매월 1일 KST 리셋·이월 없음)을 기준으로 표시합니다. Premium은 영업 브랜드 기본 1개+추가 1개(총 2개)가 포함되며, 3번째 브랜드부터 월 20만 원(VAT 별도)입니다. 플랜 변경은 플랫폼 담당자에게 문의해 주세요.';
+  '월 정액 플랜(Free·Standard 10만·Standard+ 20만·Premium 30만 원+, VAT 별도)과 이용 코인(매월 1일 KST 리셋·이월 없음)을 기준으로 표시합니다. Standard+는 Premium과 동일한 업무 기능(텔레CRM 제외)에 사용량 한도가 있고, Premium은 코인·팀장·캘린더 무제한·브랜드 2개 포함(3번째부터 월 20만 원, VAT 별도)입니다. 텔레CRM은 모든 플랜에서 별도 옵션입니다. 플랜 변경은 플랫폼 담당자에게 문의해 주세요.';
 
 export function isKnownFeatureModuleId(id: string): id is TenantFeatureModuleId {
   return id in TENANT_FEATURE_MODULES;
