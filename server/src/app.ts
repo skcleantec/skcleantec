@@ -242,6 +242,13 @@ if (clientDir) {
   const marketingDir = path.join(clientDir, 'marketing');
   const marketingIndexPath = path.join(marketingDir, 'index.html');
   if (fs.existsSync(marketingDir)) {
+    const marketingSlotsState = path.join(marketingDir, '.image-slots.state.json');
+    if (fs.existsSync(marketingSlotsState)) {
+      app.get('/marketing/.image-slots.state.json', (_req, res) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.type('json').sendFile(marketingSlotsState);
+      });
+    }
     app.use(
       '/marketing',
       express.static(marketingDir, {
