@@ -96,3 +96,45 @@ export function useLoginScrollSurface(): {
 
   return { scrollRef, onFieldFocus };
 }
+
+/** 모달·시트 내부 스크롤 — 모바일 키보드가 입력칸을 가리지 않게 */
+export function useModalScrollKeyboardAvoidance(
+  scrollRef: RefObject<HTMLElement | null>,
+  enabled = true,
+): { onFieldFocus: (e: FocusEvent<HTMLElement>) => void } {
+  useEffect(() => {
+    if (!enabled) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const syncKeyboardInset = () => {
+      const root = scrollRef.current;
+      if (!root) return;
+      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      root.style.setProperty('--modal-keyboard-inset', `${Math.round(overlap)}px`);
+
+      const active = document.activeElement;
+      if (isFormField(active)) {
+        ensureInputVisibleAboveKeyboard(active, root, 'auto', 24);
+      }
+    };
+
+    vv.addEventListener('resize', syncKeyboardInset);
+    vv.addEventListener('scroll', syncKeyboardInset);
+    return () => {
+      vv.removeEventListener('resize', syncKeyboardInset);
+      vv.removeEventListener('scroll', syncKeyboardInset);
+      scrollRef.current?.style.removeProperty('--modal-keyboard-inset');
+    };
+  }, [enabled, scrollRef]);
+
+  const onFieldFocus = useCallback(
+    (e: FocusEvent<HTMLElement>) => {
+      if (!enabled) return;
+      scheduleEnsureVisible(e.currentTarget, scrollRef.current, 'smooth');
+    },
+    [enabled, scrollRef],
+  );
+
+  return { onFieldFocus };
+}

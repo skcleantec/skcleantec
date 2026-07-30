@@ -202,6 +202,18 @@ html, body {
   scroll-margin-bottom: 7rem;
 }
 
+/** 모달 폼 스크롤 — 키보드·하단 버튼 여유 */
+.modal-form-scroll-surface {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px), var(--modal-keyboard-inset, 0px));
+}
+
+.modal-form-scroll-surface input,
+.modal-form-scroll-surface textarea,
+.modal-form-scroll-surface select {
+  scroll-margin-top: 0.75rem;
+  scroll-margin-bottom: 5.5rem;
+}
+
 @media (max-height: 740px) {
   .login-brand-block {
     margin-bottom: 1rem !important;

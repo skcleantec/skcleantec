@@ -79,6 +79,7 @@ import { InquirySettlementPanel } from '../inquiry/InquirySettlementPanel';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ConfirmPasswordModal } from './ConfirmPasswordModal';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
 import { resolveTeamLeaderIdForCrewSpacing } from '../../utils/crewLeaderSpacing';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
@@ -557,6 +558,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [createIntakeLane, setCreateIntakeLane] = useState<CreateIntakeLane>('normal');
   const inquiryEditScrollRef = useRef<HTMLDivElement | null>(null);
   const inquiryEditNavBoundsRef = useRef<HTMLDivElement | null>(null);
+  const { onFieldFocus: onInquiryEditFieldFocus } = useModalScrollKeyboardAvoidance(
+    inquiryEditScrollRef,
+    !isPanel,
+  );
   const [poolTeamMembers, setPoolTeamMembers] = useState<TeamMemberItem[]>([]);
   const [crewSpacingByMemberName, setCrewSpacingByMemberName] = useState<Record<string, number | null>>({});
   const [occupiedCrewNamesByDate, setOccupiedCrewNamesByDate] = useState<Set<string>>(new Set());
@@ -2125,55 +2130,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               </label>
             ) : null}
           </div>
-          {isExternalIntakeMode && (
-            <div className="mt-2">
-              <label className="block text-sm text-gray-700 mb-1">수기 제목</label>
-              <input
-                value={editForm.scheduleMemo}
-                onChange={(e) => setEditForm((p) => ({ ...p, scheduleMemo: e.target.value }))}
-                className={inqEditInput}
-                placeholder="예: 4/25 송도 34평 오전, 엘베 O"
-              />
-            </div>
-          )}
-          {isCreate && externalIntake ? (
-            <p className="text-sm text-gray-500 mb-0">
-              수기등록을 선택하면 이름/연락처/주소가 비어 있어도 등록할 수 있습니다.
-            </p>
-          ) : null}
-          {isCreate && (
-            <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
-              <p className="font-medium text-gray-900">이 접수의 첫 단계</p>
-              <p className="mt-1 text-xs text-gray-600 leading-relaxed">
-                예약금·입금 대기는 접수 목록에만 두고 진행합니다. 부재·보류 후속은 같은 접수에 맞춰{' '}
-                <strong className="font-medium text-gray-800">부재현황</strong> 행을 함께 만듭니다.
-              </p>
-              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {(
-                  [
-                    { id: 'normal' as const, label: '일반 접수', hint: '접수 목록 · 번호는 입금대기 전환 시' },
-                    { id: 'deposit' as const, label: '예약금 대기', hint: '접수 목록 입금대기·번호 발급' },
-                    { id: 'absent' as const, label: '부재 후속', hint: '목록 접수 + 부재현황 부재' },
-                    { id: 'hold' as const, label: '보류 후속', hint: '목록 보류 + 부재현황 보류' },
-                  ] as const
-                ).map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setCreateIntakeLane(opt.id)}
-                    className={`rounded-lg border px-2 py-2 text-left text-xs transition sm:px-3 ${
-                      createIntakeLane === opt.id
-                        ? 'border-blue-500 bg-blue-50 text-blue-950 ring-1 ring-blue-200'
-                        : 'border-gray-200 bg-white text-gray-800 hover:border-gray-300'
-                    }`}
-                  >
-                    <span className="block font-medium">{opt.label}</span>
-                    <span className="mt-0.5 block text-[11px] font-normal text-gray-600">{opt.hint}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
           {!isCreate && item ? (
             <div
               className={
@@ -2326,9 +2282,59 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         <div ref={inquiryEditNavBoundsRef} className="relative isolate flex min-h-0 flex-1 flex-col">
         <div
           ref={inquiryEditScrollRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
+          className="modal-form-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
+          onFocusCapture={onInquiryEditFieldFocus}
         >
         <div className="space-y-4">
+        {isCreate && isExternalIntakeMode ? (
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">수기 제목</label>
+            <input
+              value={editForm.scheduleMemo}
+              onChange={(e) => setEditForm((p) => ({ ...p, scheduleMemo: e.target.value }))}
+              className={inqEditInput}
+              placeholder="예: 4/25 송도 34평 오전, 엘베 O"
+            />
+          </div>
+        ) : null}
+        {isCreate && externalIntake ? (
+          <p className="text-sm text-gray-500">
+            수기등록을 선택하면 이름/연락처/주소가 비어 있어도 등록할 수 있습니다.
+          </p>
+        ) : null}
+        {isCreate ? (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+            <p className="font-medium text-gray-900">이 접수의 첫 단계</p>
+            <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+              예약금·입금 대기는 접수 목록에만 두고 진행합니다. 부재·보류 후속은 같은 접수에 맞춰{' '}
+              <strong className="font-medium text-gray-800">부재현황</strong> 행을 함께 만듭니다.
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {(
+                [
+                  { id: 'normal' as const, label: '일반 접수', hint: '접수 목록 · 번호는 입금대기 전환 시' },
+                  { id: 'deposit' as const, label: '예약금 대기', hint: '접수 목록 입금대기·번호 발급' },
+                  { id: 'absent' as const, label: '부재 후속', hint: '목록 접수 + 부재현황 부재' },
+                  { id: 'hold' as const, label: '보류 후속', hint: '목록 보류 + 부재현황 보류' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setCreateIntakeLane(opt.id)}
+                  className={`rounded-lg border px-2 py-2 text-left text-xs transition sm:px-3 ${
+                    createIntakeLane === opt.id
+                      ? 'border-blue-500 bg-blue-50 text-blue-950 ring-1 ring-blue-200'
+                      : 'border-gray-200 bg-white text-gray-800 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="block font-medium">{opt.label}</span>
+                  <span className="mt-0.5 block text-[11px] font-normal text-gray-600">{opt.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {item?.orderForm?.customerAnswers ? (
           <OrderFormCustomAnswers template={item.orderForm.template} answers={item.orderForm.customerAnswers} />
         ) : null}
