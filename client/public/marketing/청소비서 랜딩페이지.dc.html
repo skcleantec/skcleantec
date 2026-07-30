@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<script src="./image-slot.js"></script>
+<style>
+*{box-sizing:border-box}
+html,body{height:auto!important;min-height:100%}
+#dc-root,#dc-root>.sc-host{height:auto!important;min-height:100%;overflow:visible!important}
+body{margin:0;background:#fff;color:#0B1220;font-family:"Pretendard Variable",Pretendard,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;word-break:keep-all}
+a{color:#2F6BFF;text-decoration:none}
+a:hover{color:#1B4FD8}
+input,textarea,select,button{font-family:inherit;font-size:16px}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+@keyframes floaty2{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-22px) rotate(1deg)}}
+@keyframes orb{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(40px,-30px) scale(1.12)}66%{transform:translate(-30px,25px) scale(.94)}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.55)}70%{box-shadow:0 0 0 12px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
+@keyframes shimmer{0%{background-position:-220% 0}100%{background-position:220% 0}}
+@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes riseIn{0%{opacity:0;transform:translateY(38px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@media (min-width:1000px){[data-steps-grid]{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+[data-pricing-grid]{align-items:stretch!important}
+[data-pricing-grid] > *{height:100%}
+.wf-shots-row{display:flex;justify-content:center;align-items:flex-end;gap:clamp(12px,1.2vw,20px);margin-top:40px;flex-wrap:wrap;width:100%}
+.wf-shot-wrap{flex-shrink:0;display:flex;flex-direction:column;align-items:center}
+.wf-shot-label{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;max-width:100%}
+.wf-shot-label span:last-child{white-space:nowrap;font-size:clamp(11px,1.1vw,14px)}
+.wf-phone{width:100%;position:relative;background:linear-gradient(165deg,#1c2433 0%,#0a0f17 100%);border-radius:28px;padding:6px;border:1px solid rgba(255,255,255,.1);box-shadow:0 26px 52px rgba(4,10,28,.48),inset 0 1px 0 rgba(255,255,255,.07)}
+.wf-phone-notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:24%;height:3px;border-radius:999px;background:#3a4356;z-index:2;pointer-events:none}
+.wf-phone-screen{border-radius:22px;overflow:hidden;background:#fff;line-height:0;width:100%}
+.wf-phone-screen img{width:100%;height:auto;display:block;vertical-align:top;image-rendering:auto}
+.wf-phone-slot{position:relative;aspect-ratio:512/1034;width:100%;background:#f7f9fe}
+.wf-phone-slot image-slot{position:absolute;inset:0;width:100%;height:100%;display:block}
+.wf-shot-stagger{margin-bottom:32px}
+@media (min-width:1024px){
+.wf-shots-row{flex-wrap:nowrap}
+.wf-shot-wrap{flex:1 1 0;min-width:0;max-width:300px}
+.wf-shot-stagger{margin-bottom:0;transform:translateY(22px)}
+}
+@media (max-width:1023px){
+.wf-shot-wrap{width:min(312px,46vw)}
+}
+@media (max-width:720px){[data-ba-head],[data-ba-row]{grid-template-columns:minmax(0,1fr)!important}[data-ba-row]>div:nth-child(2){padding:0 28px;justify-content:flex-start!important;transform:rotate(90deg);transform-origin:left center;height:22px}[data-ba-row]>div:nth-child(1){padding-bottom:0!important}}
+@media (max-width:860px){[data-wf-head]{grid-template-columns:minmax(0,1fr)!important}}
+@media (max-width:1240px){[data-wf-pane]{grid-template-columns:minmax(0,1fr)!important}[data-wf-phone]{max-width:300px;justify-self:center!important}}
+.landing-header{position:sticky;top:0;z-index:60;background:rgba(255,255,255,.82);backdrop-filter:blur(14px);border-bottom:1px solid #EAF0FF}
+.landing-header-inner{max-width:1200px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.landing-header-start{display:flex;align-items:center;gap:10px;min-width:0;flex-shrink:0}
+.landing-header-logo{display:flex;align-items:center;min-width:0}
+.landing-header-logo img{height:34px;width:auto;max-width:100%;display:block}
+.landing-header-sections{display:flex;align-items:center;gap:24px;flex:1;justify-content:center;flex-wrap:wrap;min-width:0}
+.landing-header-sections a{color:#3A4761;font-size:15px;font-weight:600;white-space:nowrap}
+.landing-header-cta{display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.landing-header-login{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:999px;background:#0f172a;color:#fff!important;font-size:15px;font-weight:700;box-shadow:0 8px 20px rgba(15,23,42,.22);white-space:nowrap}
+.landing-header-login:hover{background:#1e293b;color:#fff!important}
+.landing-nav-signup{color:#2F6BFF!important;font-size:15px;font-weight:700;white-space:nowrap;padding:10px 4px}
+.landing-nav-cta{background:#2F6BFF;color:#fff!important;padding:11px 18px;border-radius:999px;font-size:15px;font-weight:700;box-shadow:0 8px 20px rgba(47,107,255,.28);white-space:nowrap}
+.landing-nav-cta:hover{background:#1B4FD8;color:#fff!important}
+.landing-nav-contact{color:#2F6BFF!important;font-weight:700}
+.landing-header-toggle{display:none;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #DCE6FF;border-radius:8px;background:#fff;color:#3A4761;cursor:pointer;flex-shrink:0;padding:0;margin:0}
+.landing-header-toggle svg{width:18px;height:18px;display:block;pointer-events:none}
+.landing-nav-check{position:fixed;opacity:0;width:1px;height:1px;margin:0;padding:0;pointer-events:none;clip:rect(0,0,0,0);overflow:hidden;white-space:nowrap;border:0}
+.landing-header-drawer{display:none;position:fixed;inset:0;z-index:200}
+#landing-nav-check:checked~#landing-drawer{display:block}
+.landing-header-drawer-backdrop{position:absolute;inset:0;background:rgba(11,18,32,.42);cursor:pointer}
+.landing-header-drawer-panel{position:absolute;top:0;left:0;width:min(280px,86vw);height:100%;background:#fff;border-right:1px solid #EAF0FF;padding:max(14px,env(safe-area-inset-top)) 18px 24px;box-shadow:12px 0 40px rgba(4,10,28,.12);display:flex;flex-direction:column;gap:4px}
+.landing-header-drawer-panel a{display:block;padding:12px 10px;border-radius:10px;color:#3A4761;font-size:15px;font-weight:600}
+.landing-header-drawer-panel a:hover{background:#F4F7FF;color:#2F6BFF}
+.landing-drawer-cta{margin-top:8px;background:#2F6BFF!important;color:#fff!important;font-weight:700;text-align:center}
+.landing-drawer-cta:hover{background:#1B4FD8!important;color:#fff!important}
+@media (max-width:768px){
+.landing-header-inner{display:flex;flex-wrap:nowrap;align-items:center;padding:10px 12px;gap:6px}
+.landing-header-start{flex:1;min-width:0;gap:8px}
+.landing-header-logo img{height:28px}
+.landing-header-sections{display:none}
+.landing-header-toggle{display:inline-flex}
+.landing-header-cta{display:flex;flex-shrink:0;align-items:center;gap:6px;margin-left:0}
+.landing-header-cta .landing-nav-signup{padding:6px 10px;font-size:11px;font-weight:700;border:1px solid #DCE6FF;border-radius:999px;background:#F8FAFF;color:#2F6BFF!important;white-space:nowrap;line-height:1.2}
+.landing-header-cta .landing-header-login{padding:7px 12px;font-size:12px;box-shadow:0 4px 12px rgba(15,23,42,.16)}
+.landing-nav-contact{display:none!important}
+}
+@media (min-width:769px){
+.landing-header-toggle{display:none!important}
+}
+.hero-b-headline{margin:26px 0 0;font-weight:800;line-height:1.12;letter-spacing:-.04em;padding:0 4px}
+.hero-b-line1,.hero-b-line2{display:block;white-space:nowrap;margin-left:auto;margin-right:auto;width:max-content;max-width:100%}
+.hero-b-line1{font-size:min(74px,max(14px,calc((100vw - 32px)/16.5)))}
+.hero-b-line2{font-size:min(74px,max(12px,calc((100vw - 32px)/18)))}
+.crm-headline{white-space:nowrap;font-size:min(46px,max(13px,calc((100vw - 48px)/20.5)))}
+.crm-tags{display:flex;flex-wrap:nowrap;align-items:stretch;gap:clamp(4px,1vw,8px);margin-top:22px;width:100%}
+.crm-tag{flex:1 1 0;min-width:0;white-space:nowrap;text-align:center;font-size:min(14px,max(8px,calc((100vw - 48px - 16px)/28)));font-weight:700;line-height:1.2;padding:clamp(5px,1.5vw,9px) clamp(4px,1.8vw,16px);border-radius:999px}
+.crm-tag--outline{background:#fff;border:1px solid #DCE6FF;color:#2F6BFF}
+.crm-tag--solid{background:#2F6BFF;color:#fff}
+.footer-sb-logo{display:block;margin-top:12px;height:72px;width:auto;max-width:140px;object-fit:contain;background:transparent}
+</style>
+<script>
+(function(){var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;if(s)window.location.replace('/login');})();
+</script>
+</helmet>
+
+
+<header class="landing-header">
+  <div class="landing-header-inner">
+    <div class="landing-header-start">
+      <label for="landing-nav-check" class="landing-header-toggle" aria-label="메뉴 열기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </label>
+      <a href="#top" class="landing-header-logo"><img src="assets/logo-blue.png" alt="청소비서 Clean Assistant"></a>
+    </div>
+    <nav class="landing-header-sections" aria-label="페이지 섹션">
+      <a href="#workflow">워크플로우</a>
+      <a href="#features">기능</a>
+      <a href="#crm">CRM</a>
+      <a href="#pricing">요금제</a>
+      <a href="#faq">FAQ</a>
+      <a href="#contact" class="landing-nav-contact">도입 상담 신청</a>
+    </nav>
+    <div class="landing-header-cta">
+      <a href="/signup" class="landing-nav-signup">무료로 시작</a>
+      <a href="/login" class="landing-header-login">로그인</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+<sc-if value="{{ isA }}" hint-placeholder-val="{{ true }}">
+<section style="position:relative;background:linear-gradient(180deg,#F4F7FF 0%,#EDF3FF 60%,#FFFFFF 100%);padding:96px 24px 110px">
+  <div style="position:absolute;top:-140px;right:-120px;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(47,107,255,.18),rgba(47,107,255,0) 70%)"></div>
+  <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:56px;align-items:center;position:relative">
+    <div data-reveal="1" style="opacity:0;transform:translateY(28px);transition:opacity .8s cubic-bezier(.2,.7,.3,1),transform .8s cubic-bezier(.2,.7,.3,1)">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid #DCE6FF;color:#2F6BFF;font-size:14px;font-weight:700;padding:9px 16px;border-radius:999px;box-shadow:0 6px 18px rgba(47,107,255,.10)">
+        <span style="width:7px;height:7px;border-radius:50%;background:#2F6BFF;display:block"></span>청소업체 전용 올인원 업무관리
+      </div>
+      <h1 style="margin:22px 0 0;font-size:clamp(38px,5.4vw,66px);line-height:1.12;letter-spacing:-.035em;font-weight:800">접수부터 정산까지<br><span style="color:#2F6BFF">한 시스템에서 끝냅니다</span></h1>
+      <p style="margin:24px 0 0;font-size:clamp(17px,1.6vw,20px);line-height:1.7;color:#4A5877;max-width:520px">청소비서는 접수 · 배정 · 현장보고 · 정산 4단계를 자동화합니다. 마케터는 영업에, 팀장은 청소에만 집중하세요.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:36px">
+        <a href="#contact" style="background:#2F6BFF;color:#fff;padding:17px 32px;border-radius:14px;font-size:17px;font-weight:700;box-shadow:0 14px 30px rgba(47,107,255,.32)" style-hover="background:#1B4FD8;color:#fff">도입 상담 신청</a>
+        <a href="#workflow" style="background:#fff;color:#1B2740;padding:17px 32px;border-radius:14px;font-size:17px;font-weight:700;border:1px solid #DCE6FF" style-hover="border-color:#2F6BFF;color:#2F6BFF">기능 살펴보기</a>
+      </div>
+      <div style="display:flex;gap:32px;flex-wrap:wrap;margin-top:44px">
+        <div><div style="font-size:30px;font-weight:800;letter-spacing:-.03em">5분</div><div style="font-size:14px;color:#6C7A96;margin-top:4px;font-weight:600">팀장 배정 소요</div></div>
+        <div style="width:1px;background:#DDE5F7"></div>
+        <div><div style="font-size:30px;font-weight:800;letter-spacing:-.03em">0건</div><div style="font-size:14px;color:#6C7A96;margin-top:4px;font-weight:600">접수 누락</div></div>
+        <div style="width:1px;background:#DDE5F7"></div>
+        <div><div style="font-size:30px;font-weight:800;letter-spacing:-.03em">100%</div><div style="font-size:14px;color:#6C7A96;margin-top:4px;font-weight:600">모바일 처리</div></div>
+      </div>
+    </div>
+    <div data-reveal="1" style="opacity:0;transform:translateY(28px);transition:opacity .9s .15s cubic-bezier(.2,.7,.3,1),transform .9s .15s cubic-bezier(.2,.7,.3,1);display:flex;justify-content:center">
+      <div style="position:relative;animation:floaty 7s ease-in-out infinite">
+        <div style="width:312px;height:640px;border:11px solid #10151F;border-radius:46px;background:#10151F;box-shadow:0 40px 80px rgba(20,40,90,.28);overflow:hidden;position:relative">
+          <div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);width:104px;height:26px;background:#10151F;border-radius:999px;z-index:2"></div>
+          <image-slot id="cb-hero-app" shape="rect" placeholder="앱 화면 캡쳐를 올려주세요" style="width:100%;height:100%"></image-slot>
+        </div>
+        <div style="position:absolute;left:-52px;top:96px;background:#fff;border:1px solid #E6ECF9;border-radius:16px;padding:14px 18px;box-shadow:0 16px 34px rgba(20,40,90,.14)">
+          <div style="font-size:12px;color:#6C7A96;font-weight:700">신규 발주</div>
+          <div style="font-size:15px;font-weight:800;margin-top:3px">자동 접수 완료</div>
+        </div>
+        <div style="position:absolute;right:-46px;bottom:120px;background:#fff;border:1px solid #E6ECF9;border-radius:16px;padding:14px 18px;box-shadow:0 16px 34px rgba(20,40,90,.14)">
+          <div style="font-size:12px;color:#6C7A96;font-weight:700">정산</div>
+          <div style="font-size:15px;font-weight:800;margin-top:3px">수수료 자동 계산</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</sc-if>
+
+<sc-if value="{{ isB }}" hint-placeholder-val="{{ false }}">
+<section style="position:relative;background:linear-gradient(135deg,#2F6BFF 0%,#1B4FD8 100%);padding:96px 24px 64px;color:#fff;overflow:hidden">
+  <div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 10%,rgba(255,255,255,.20),rgba(255,255,255,0) 55%)"></div>
+  <div style="position:absolute;top:-160px;left:-100px;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22),rgba(255,255,255,0) 68%);animation:orb 18s ease-in-out infinite"></div>
+  <div style="position:absolute;bottom:-200px;right:-140px;width:620px;height:620px;border-radius:50%;background:radial-gradient(circle,rgba(120,180,255,.28),rgba(255,255,255,0) 68%);animation:orb 24s ease-in-out infinite reverse"></div>
+  <div style="max-width:1280px;margin:0 auto;position:relative;text-align:center">
+    <div style="animation:riseIn .9s cubic-bezier(.2,.75,.3,1) both">
+      <div style="display:inline-flex;align-items:center;gap:9px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.32);color:#fff;font-size:14px;font-weight:700;padding:9px 18px;border-radius:999px">
+        <span style="width:7px;height:7px;border-radius:50%;background:#fff;display:block;animation:pulse 2.2s ease-out infinite"></span>PC · 모바일 동시 지원 · 청소업체 전용 솔루션
+      </div>
+    </div>
+    <h1 class="hero-b-headline">
+      <span class="hero-b-line1" style="animation:riseIn .9s .12s cubic-bezier(.2,.75,.3,1) both">정신없이 여기저기 적던 일정!!</span>
+      <span class="hero-b-line2" style="animation:riseIn .9s .24s cubic-bezier(.2,.75,.3,1) both;background:linear-gradient(100deg,#fff 20%,#BBD4FF 40%,#fff 60%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation-name:riseIn,shimmer;animation-duration:.9s,5s;animation-delay:.24s,1s;animation-iteration-count:1,infinite;animation-timing-function:cubic-bezier(.2,.75,.3,1),linear;animation-fill-mode:both,none">청소비서에서 원스톱으로 한번에 해결</span>
+    </h1>
+    <p style="margin:24px auto 0;font-size:clamp(17px,1.6vw,20px);line-height:1.7;color:rgba(255,255,255,.86);max-width:620px;animation:riseIn .9s .36s cubic-bezier(.2,.75,.3,1) both">접수 → 배정 → 현장보고 → 정산. 사무실 PC에서도, 현장 모바일에서도 같은 데이터로 움직입니다.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:36px;animation:riseIn .9s .48s cubic-bezier(.2,.75,.3,1) both">
+      <a href="#contact" style="background:#fff;color:#1B4FD8;padding:17px 34px;border-radius:14px;font-size:17px;font-weight:800;box-shadow:0 16px 34px rgba(10,30,80,.28);transition:transform .25s,box-shadow .25s" style-hover="background:#EAF0FF;color:#1B4FD8;transform:translateY(-3px);box-shadow:0 22px 44px rgba(10,30,80,.34)">도입 상담 신청</a>
+      <a href="#workflow" style="border:1px solid rgba(255,255,255,.5);color:#fff;padding:17px 34px;border-radius:14px;font-size:17px;font-weight:700;transition:transform .25s,background .25s" style-hover="background:rgba(255,255,255,.14);color:#fff;transform:translateY(-3px)">기능 살펴보기</a>
+    </div>
+
+    <div style="position:relative;max-width:1240px;margin:76px auto 0">
+      <div style="border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 50px 100px rgba(6,20,60,.42)">
+        <div style="height:42px;background:#F2F5FB;border-bottom:1px solid #E4EAF6;display:flex;align-items:center;gap:8px;padding:0 16px">
+          <span style="width:11px;height:11px;border-radius:50%;background:#FF5F57;display:block"></span>
+          <span style="width:11px;height:11px;border-radius:50%;background:#FEBC2E;display:block"></span>
+          <span style="width:11px;height:11px;border-radius:50%;background:#28C840;display:block"></span>
+          <span style="margin-left:14px;background:#fff;border:1px solid #E4EAF6;border-radius:999px;padding:4px 16px;font-size:12px;font-weight:600;color:#8B98B0">cbiseo.com</span>
+        </div>
+        <div style="aspect-ratio:1200/563;width:100%;background:#F7F9FE;position:relative">
+          <image-slot id="cb-hero-b-pc" shape="rect" fit="contain" placeholder="PC 관리자 화면 캡쳐" style="width:100%;height:100%"></image-slot>
+        </div>
+      </div>
+      <span style="position:absolute;top:9px;right:104px;z-index:6;color:#8B98B0;font-size:11px;font-weight:700;letter-spacing:-.01em">더블클릭 → 이동·확대</span>
+      <button onClick="{{ zoom }}" data-zoom-src="cb-hero-b-pc" title="크게 보기" style="position:absolute;top:7px;right:14px;z-index:6;border:none;cursor:pointer;background:#0B1220;color:#fff;font-size:12px;font-weight:700;padding:7px 14px;border-radius:999px;transition:background .2s" style-hover="background:#2F6BFF">크게 보기</button>
+
+      <div style="position:absolute;left:calc(-1 * min(56px, max(0px, (100vw - 1048px) / 2)));top:70px;background:#fff;color:#0B1220;border-radius:14px;padding:13px 17px;box-shadow:0 18px 38px rgba(6,20,60,.3);text-align:left">
+        <div style="font-size:11px;color:#8B98B0;font-weight:800;letter-spacing:.04em">PC · 사무실</div>
+        <div style="font-size:14px;font-weight:800;margin-top:3px">배정 5분 완료</div>
+      </div>
+    </div>
+
+    <div style="max-width:1280px;margin:78px auto 0">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:16px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="height:1px;width:44px;background:rgba(255,255,255,.4);display:block"></span>
+          <span style="color:rgba(255,255,255,.82);font-size:13px;font-weight:800;letter-spacing:.1em">MOBILE WORKFLOW</span>
+          <span style="height:1px;width:44px;background:rgba(255,255,255,.4);display:block"></span>
+        </div>
+        <h2 style="margin:0;text-align:center;font-size:clamp(28px,4.4vw,54px);line-height:1.2;letter-spacing:-.04em;font-weight:800;color:#fff">이 모든 게 <span style="position:relative;display:inline-block;white-space:nowrap"><span style="position:relative;z-index:1">한 번에</span><span style="position:absolute;left:-4px;right:-4px;bottom:4px;height:38%;background:rgba(255,255,255,.24);border-radius:6px;z-index:0"></span></span><br>원스톱으로 이뤄집니다</h2>
+      </div>
+      <div class="wf-shots-row">
+        <div class="wf-shot-wrap">
+          <div class="wf-shot-label">
+            <span style="width:24px;height:24px;border-radius:50%;background:#fff;color:#1B4FD8;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">01</span>
+            <span style="color:#fff;font-size:14px;font-weight:800;letter-spacing:-.01em;white-space:nowrap">접수</span>
+          </div>
+          <div class="wf-phone">
+            <div class="wf-phone-notch" aria-hidden="true"></div>
+            <div class="wf-phone-screen">
+              <img src="assets/wf1.png" width="512" height="1034" alt="접수 화면" decoding="async">
+            </div>
+          </div>
+        </div>
+        <div class="wf-shot-wrap wf-shot-stagger">
+          <div class="wf-shot-label">
+            <span style="width:24px;height:24px;border-radius:50%;background:#fff;color:#1B4FD8;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">02</span>
+            <span style="color:#fff;font-size:14px;font-weight:800;letter-spacing:-.01em;white-space:nowrap">배정</span>
+          </div>
+          <div class="wf-phone">
+            <div class="wf-phone-notch" aria-hidden="true"></div>
+            <div class="wf-phone-screen">
+              <img src="assets/wf2.png" width="512" height="1028" alt="배정 화면" decoding="async">
+            </div>
+          </div>
+        </div>
+        <div class="wf-shot-wrap">
+          <div class="wf-shot-label">
+            <span style="width:24px;height:24px;border-radius:50%;background:#fff;color:#1B4FD8;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">03</span>
+            <span style="color:#fff;font-size:14px;font-weight:800;letter-spacing:-.01em;white-space:nowrap">일정확인 및 해피콜(팀장)</span>
+          </div>
+          <div class="wf-phone">
+            <div class="wf-phone-notch" aria-hidden="true"></div>
+            <div class="wf-phone-screen">
+              <img src="assets/wf3.png" width="512" height="1034" alt="일정확인 및 해피콜 화면" decoding="async">
+            </div>
+          </div>
+        </div>
+        <div class="wf-shot-wrap wf-shot-stagger">
+          <div class="wf-shot-label">
+            <span style="width:24px;height:24px;border-radius:50%;background:#fff;color:#1B4FD8;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">04</span>
+            <span style="color:#fff;font-size:14px;font-weight:800;letter-spacing:-.01em;white-space:nowrap">체크리스트 및 고객검수</span>
+          </div>
+          <div class="wf-phone">
+            <div class="wf-phone-notch" aria-hidden="true"></div>
+            <div class="wf-phone-screen">
+              <img src="assets/wf4.png" width="512" height="1028" alt="체크리스트 및 고객검수 화면" decoding="async">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</sc-if>
+
+<sc-if value="{{ isC }}" hint-placeholder-val="{{ false }}">
+<section style="position:relative;background:#fff;padding:88px 24px 0">
+  <div style="max-width:1100px;margin:0 auto;text-align:center">
+    <div data-reveal="1" style="opacity:0;transform:translateY(28px);transition:opacity .8s cubic-bezier(.2,.7,.3,1),transform .8s cubic-bezier(.2,.7,.3,1)">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:#F0F5FF;color:#2F6BFF;font-size:14px;font-weight:700;padding:9px 18px;border-radius:999px">접수 · 배정 · 현장보고 · 정산</div>
+      <h1 style="margin:26px 0 0;font-size:clamp(40px,6.4vw,78px);line-height:1.08;letter-spacing:-.045em;font-weight:800">청소업체 사무실에서<br>엑셀을 없앱니다</h1>
+      <p style="margin:24px auto 0;font-size:clamp(17px,1.6vw,20px);line-height:1.7;color:#4A5877;max-width:560px">청소비서 하나로 발주 접수부터 수수료 정산까지. 사람이 하던 반복 업무를 시스템이 대신합니다.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:34px">
+        <a href="#contact" style="background:#0B1220;color:#fff;padding:17px 34px;border-radius:14px;font-size:17px;font-weight:700" style-hover="background:#2F6BFF;color:#fff">도입 상담 신청</a>
+        <a href="#workflow" style="color:#1B2740;padding:17px 26px;border-radius:14px;font-size:17px;font-weight:700;border:1px solid #DCE6FF" style-hover="border-color:#2F6BFF;color:#2F6BFF">기능 살펴보기</a>
+      </div>
+    </div>
+  </div>
+  <div data-reveal="1" style="opacity:0;transform:translateY(40px);transition:opacity .9s .2s cubic-bezier(.2,.7,.3,1),transform .9s .2s cubic-bezier(.2,.7,.3,1);max-width:1160px;margin:64px auto 0;background:linear-gradient(180deg,#EDF3FF,#F7FAFF);border:1px solid #E1EAFF;border-radius:28px 28px 0 0;padding:28px 28px 0">
+    <div style="height:420px;border-radius:20px 20px 0 0;overflow:hidden;box-shadow:0 -10px 60px rgba(20,40,90,.10)">
+      <image-slot id="cb-hero-c" shape="rect" placeholder="관리자 웹 대시보드 화면을 올려주세요" style="width:100%;height:100%"></image-slot>
+    </div>
+  </div>
+</section>
+</sc-if>
+
+<section style="padding:132px 24px 110px;background:#fff;position:relative;overflow:hidden">
+  <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:84px;display:block"><path d="M0,0 C360,110 1080,110 1440,0 L1440,0 L0,0 Z" fill="#fff"></path></svg>
+  <div style="max-width:1200px;margin:0 auto;position:relative">
+    <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);max-width:660px">
+      <div style="color:#2F6BFF;font-size:15px;font-weight:800;letter-spacing:.02em">PROBLEM</div>
+      <h2 style="margin:14px 0 0;font-size:clamp(30px,3.6vw,46px);line-height:1.25;letter-spacing:-.035em;font-weight:800">지금 사무실에서<br>매일 반복되는 일들</h2>
+      <p style="margin:18px 0 0;font-size:18px;line-height:1.7;color:#5D6B85">업무가 아니라 잡무입니다. 사람이 붙어 있어야만 돌아가는 구조가 성장의 한계를 만듭니다.</p>
+    </div>
+
+    <div data-reveal="1" style="opacity:0;transform:translateY(28px);transition:opacity .8s cubic-bezier(.2,.7,.3,1),transform .8s cubic-bezier(.2,.7,.3,1);margin-top:52px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:44px;align-items:center;background:#FFF7F6;border:1px solid #FADCD9;border-radius:26px;padding:40px">
+      <div style="display:flex;justify-content:center">
+        <div style="position:relative;width:min(340px,100%)">
+          <div style="filter:grayscale(.55) contrast(.92);drop-shadow:0">
+            <div style="aspect-ratio:450/750;width:100%">
+              <image-slot id="cb-old-calendar" shape="rect" fit="contain" placeholder="기존에 쓰던 일반 캘린더 앱 캡쳐" style="width:100%;height:100%"></image-slot>
+            </div>
+          </div>
+          <svg viewBox="0 0 100 100" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
+            <line x1="14" y1="14" x2="86" y2="86" stroke="#E0574F" stroke-width="5" stroke-linecap="round" opacity=".88"></line>
+            <line x1="86" y1="14" x2="14" y2="86" stroke="#E0574F" stroke-width="5" stroke-linecap="round" opacity=".88"></line>
+          </svg>
+        </div>
+      </div>
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid #FADCD9;color:#E0574F;font-size:13px;font-weight:800;padding:8px 15px;border-radius:999px">BEFORE</div>
+        <h3 style="margin:18px 0 0;font-size:clamp(24px,2.8vw,36px);line-height:1.3;letter-spacing:-.03em;font-weight:800">일반 캘린더로<br>청소 일정을 굴리는 방식</h3>
+        <p style="margin:16px 0 0;font-size:17px;line-height:1.75;color:#5D6B85">색깔만 칠해둔 일정표에는 팀장 휴무도, 현장 사진도, 정산 정보도 없습니다. 결국 카톡·엑셀·전화를 계속 오가야 합니다.</p>
+        <div style="display:flex;flex-direction:column;gap:11px;margin-top:26px">
+          <div style="display:flex;align-items:center;gap:11px;font-size:16px;font-weight:600;color:#3A4761"><span style="width:22px;height:22px;border-radius:50%;background:#FBE3E1;color:#E0574F;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</span>누가 쉬는지 캘린더로는 알 수 없음</div>
+          <div style="display:flex;align-items:center;gap:11px;font-size:16px;font-weight:600;color:#3A4761"><span style="width:22px;height:22px;border-radius:50%;background:#FBE3E1;color:#E0574F;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</span>현장 사진·체크리스트가 연결되지 않음</div>
+          <div style="display:flex;align-items:center;gap:11px;font-size:16px;font-weight:600;color:#3A4761"><span style="width:22px;height:22px;border-radius:50%;background:#FBE3E1;color:#E0574F;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</span>고객 이름·연락처로 일정 검색이 불가능</div>
+          <div style="display:flex;align-items:center;gap:11px;font-size:16px;font-weight:600;color:#3A4761"><span style="width:22px;height:22px;border-radius:50%;background:#FBE3E1;color:#E0574F;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</span>정산은 월말에 처음부터 다시 계산</div>
+        </div>
+        <a href="#workflow" style="display:inline-block;margin-top:30px;background:#0B1220;color:#fff;padding:15px 28px;border-radius:12px;font-size:16px;font-weight:800;transition:background .2s" style-hover="background:#2F6BFF;color:#fff">청소비서는 어떻게 다른가요 →</a>
+      </div>
+    </div>
+    <div data-steps-grid="1" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:48px">
+      <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);background:#F7F9FE;border:1px solid #E9EEF9;border-radius:20px;padding:30px">
+        <div style="font-size:13px;font-weight:800;color:#E0574F;letter-spacing:.02em">접수</div>
+        <h3 style="margin:12px 0 10px;font-size:20px;font-weight:800;letter-spacing:-.02em">전화·카톡으로 받아 적는 발주</h3>
+        <p style="margin:0;font-size:15px;line-height:1.65;color:#6C7A96">받아 적다 놓치고, 다시 물어보고, 주소는 또 틀립니다.</p>
+      </div>
+      <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s .08s cubic-bezier(.2,.7,.3,1),transform .7s .08s cubic-bezier(.2,.7,.3,1);background:#F7F9FE;border:1px solid #E9EEF9;border-radius:20px;padding:30px">
+        <div style="font-size:13px;font-weight:800;color:#E0574F;letter-spacing:.02em">배정</div>
+        <h3 style="margin:12px 0 10px;font-size:20px;font-weight:800;letter-spacing:-.02em">누가 쉬는지 매번 확인</h3>
+        <p style="margin:0;font-size:15px;line-height:1.65;color:#6C7A96">팀장 휴무를 일일이 물어보고 카톡으로 전달하는 데만 30분.</p>
+      </div>
+      <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s .16s cubic-bezier(.2,.7,.3,1),transform .7s .16s cubic-bezier(.2,.7,.3,1);background:#F7F9FE;border:1px solid #E9EEF9;border-radius:20px;padding:30px">
+        <div style="font-size:13px;font-weight:800;color:#E0574F;letter-spacing:.02em">현장</div>
+        <h3 style="margin:12px 0 10px;font-size:20px;font-weight:800;letter-spacing:-.02em">사진은 단톡방에 흩어짐</h3>
+        <p style="margin:0;font-size:15px;line-height:1.65;color:#6C7A96">전·후 사진이 뒤섞여 분쟁이 생기면 증빙을 찾을 수 없습니다.</p>
+      </div>
+      <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s .24s cubic-bezier(.2,.7,.3,1),transform .7s .24s cubic-bezier(.2,.7,.3,1);background:#F7F9FE;border:1px solid #E9EEF9;border-radius:20px;padding:30px">
+        <div style="font-size:13px;font-weight:800;color:#E0574F;letter-spacing:.02em">일정 변경</div>
+        <h3 style="margin:12px 0 10px;font-size:20px;font-weight:800;letter-spacing:-.02em">고객 이름으로 검색이 안 됨</h3>
+        <p style="margin:0;font-size:15px;line-height:1.65;color:#6C7A96">"일정 좀 바꿔주세요" 전화 한 통에 캘린더를 한 달씩 넘겨가며 찾습니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding:126px 24px 80px;background:linear-gradient(135deg,#2F6BFF,#1B4FD8);color:#fff;position:relative;overflow:hidden">
+  <image-slot id="cb-stats-bg" shape="rect" placeholder="배경 일러스트 (2560×1600) — 왼쪽 정신없는 사람 / 오른쪽 여유로운 사람" style="position:absolute;inset:0;width:100%;height:100%;color:#0B1220"></image-slot>
+  <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(135deg,rgba(47,107,255,.82),rgba(27,79,216,.86))"></div>
+  <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:88px;display:block;pointer-events:none"><path d="M0,0 L1440,0 L1440,4 C1080,110 360,110 0,4 Z" fill="#fff"></path></svg>
+  <div style="max-width:1200px;margin:0 auto;position:relative;pointer-events:none">
+    <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);text-align:center;max-width:620px;margin:0 auto">
+      <h2 style="margin:0;font-size:clamp(30px,3.6vw,46px);line-height:1.25;letter-spacing:-.035em;font-weight:800">도입 후 달라지는 숫자</h2>
+      <p style="margin:16px 0 0;font-size:17px;line-height:1.7;color:rgba(255,255,255,.82)">청소비서 운영 데이터 기준</p>
+    </div>
+    <div data-steps-grid="1" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:52px">
+      <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:22px;padding:34px">
+        <div style="font-size:16px;color:rgba(255,255,255,.7);font-weight:700;text-decoration:line-through">30분</div>
+        <div data-count="5" data-suffix="분" style="font-size:clamp(42px,4.6vw,58px);font-weight:800;letter-spacing:-.04em;line-height:1.1;margin-top:6px">5분</div>
+        <div style="margin-top:10px;font-size:15px;font-weight:600;color:rgba(255,255,255,.86)">팀장 배정에 걸리는 시간</div>
+      </div>
+      <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s .08s cubic-bezier(.2,.7,.3,1),transform .7s .08s cubic-bezier(.2,.7,.3,1);background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:22px;padding:34px">
+        <div style="font-size:clamp(42px,4.6vw,58px);font-weight:800;letter-spacing:-.04em;line-height:1.1;margin-top:28px">0건</div>
+        <div style="margin-top:10px;font-size:15px;font-weight:600;color:rgba(255,255,255,.86)">링크 접수 후 누락 건수</div>
+      </div>
+      <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s .16s cubic-bezier(.2,.7,.3,1),transform .7s .16s cubic-bezier(.2,.7,.3,1);background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:22px;padding:34px">
+        <div data-count="20" data-suffix="%" style="font-size:clamp(42px,4.6vw,58px);font-weight:800;letter-spacing:-.04em;line-height:1.1;margin-top:28px">20%</div>
+        <div style="margin-top:10px;font-size:15px;font-weight:600;color:rgba(255,255,255,.86)">악성 리뷰 사전 흡수율</div>
+      </div>
+
+      <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s .24s cubic-bezier(.2,.7,.3,1),transform .7s .24s cubic-bezier(.2,.7,.3,1);background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:22px;padding:34px">
+        <div style="font-size:clamp(42px,4.6vw,58px);font-weight:800;letter-spacing:-.04em;line-height:1.1;margin-top:28px">1분</div>
+        <div style="margin-top:10px;font-size:15px;font-weight:600;color:rgba(255,255,255,.86)">견적서 · 전자계약서 자동 발송</div>
+      </div>
+    </div>
+
+    <div data-reveal="1" style="opacity:0;transform:translateY(28px);transition:opacity .8s cubic-bezier(.2,.7,.3,1),transform .8s cubic-bezier(.2,.7,.3,1);margin-top:64px">
+      <div style="text-align:center;max-width:760px;margin:0 auto">
+        <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:13px;font-weight:800;padding:8px 16px;border-radius:999px">그래서, 그 시간에 무엇을 하시겠어요?</div>
+        <h3 style="margin:20px 0 0;font-size:clamp(28px,3.6vw,46px);line-height:1.22;letter-spacing:-.04em;font-weight:800;color:#fff">같은 하루, 완전히 다른 사용법</h3>
+      </div>
+
+      <div style="margin-top:44px;background:#fff;border-radius:26px;overflow:hidden;box-shadow:0 30px 70px rgba(6,20,60,.3)">
+        <div data-ba-head="1" style="display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);align-items:center;background:#F4F6FB;border-bottom:1px solid #E6ECF9">
+          <div style="padding:20px 28px;display:flex;align-items:center;gap:10px">
+            <span style="background:#8B98B0;color:#fff;font-size:11px;font-weight:800;padding:6px 12px;border-radius:999px;letter-spacing:.06em">BEFORE</span>
+            <span style="font-size:16px;font-weight:800;color:#8B98B0;letter-spacing:-.02em">하루가 잡무로 다 지나갑니다</span>
+          </div>
+          <div></div>
+          <div style="padding:20px 28px;display:flex;align-items:center;gap:10px">
+            <span style="background:#2F6BFF;color:#fff;font-size:11px;font-weight:800;padding:6px 12px;border-radius:999px;letter-spacing:.06em">AFTER</span>
+            <span style="font-size:16px;font-weight:800;color:#0B1220;letter-spacing:-.02em">아낀 시간은 대표님 몫입니다</span>
+          </div>
+        </div>
+
+        <div data-ba-row="1" style="display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);align-items:center;border-bottom:1px solid #F1F4FA">
+          <div style="padding:26px 28px;font-size:clamp(15px,1.5vw,17px);font-weight:600;color:#A9B6CE;line-height:1.5;text-decoration:line-through;text-decoration-color:#E0574F">고객 발주서를 한 글자씩 타이핑</div>
+          <div style="display:flex;align-items:center;justify-content:center;color:#2F6BFF;font-size:22px;font-weight:800">→</div>
+          <div style="padding:26px 28px;font-size:clamp(17px,1.9vw,22px);font-weight:800;color:#0B1220;line-height:1.4;letter-spacing:-.025em">신규 광고 채널 하나 더 검토</div>
+        </div>
+        <div data-ba-row="1" style="display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);align-items:center;border-bottom:1px solid #F1F4FA;background:#FAFCFF">
+          <div style="padding:26px 28px;font-size:clamp(15px,1.5vw,17px);font-weight:600;color:#A9B6CE;line-height:1.5;text-decoration:line-through;text-decoration-color:#E0574F">일정 복사해서 팀장 카톡으로 하나씩 전송</div>
+          <div style="display:flex;align-items:center;justify-content:center;color:#2F6BFF;font-size:22px;font-weight:800">→</div>
+          <div style="padding:26px 28px;font-size:clamp(17px,1.9vw,22px);font-weight:800;color:#0B1220;line-height:1.4;letter-spacing:-.025em">커피 한 잔 천천히 마시기</div>
+        </div>
+        <div data-ba-row="1" style="display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);align-items:center;border-bottom:1px solid #F1F4FA">
+          <div style="padding:26px 28px;font-size:clamp(15px,1.5vw,17px);font-weight:600;color:#A9B6CE;line-height:1.5;text-decoration:line-through;text-decoration-color:#E0574F">안내전화 했는지 팀장마다 확인</div>
+          <div style="display:flex;align-items:center;justify-content:center;color:#2F6BFF;font-size:22px;font-weight:800">→</div>
+          <div style="padding:26px 28px;font-size:clamp(17px,1.9vw,22px);font-weight:800;color:#0B1220;line-height:1.4;letter-spacing:-.025em">잠깐 눈 붙이고 제대로 쉬기</div>
+        </div>
+        <div data-ba-row="1" style="display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);align-items:center;background:#FAFCFF">
+          <div style="padding:26px 28px;font-size:clamp(15px,1.5vw,17px);font-weight:600;color:#A9B6CE;line-height:1.5;text-decoration:line-through;text-decoration-color:#E0574F">엑셀 적는 직원 한 명 더 채용</div>
+          <div style="display:flex;align-items:center;justify-content:center;color:#2F6BFF;font-size:22px;font-weight:800">→</div>
+          <div style="padding:26px 28px;font-size:clamp(17px,1.9vw,22px);font-weight:800;color:#0B1220;line-height:1.4;letter-spacing:-.025em">그 인건비로 주말 취미 시작하기</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="workflow" style="padding:110px 24px 96px;background:#F7F9FE;position:relative;overflow:hidden">
+  <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:76px;display:block"><path d="M0,0 C360,104 1080,104 1440,0 L1440,0 L0,0 Z" fill="#F7F9FE"></path></svg>
+  <div style="max-width:1560px;margin:0 auto">
+    <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);text-align:center;max-width:660px;margin:0 auto">
+      <div style="color:#2F6BFF;font-size:15px;font-weight:800;letter-spacing:.02em">WORKFLOW</div>
+      <h2 style="margin:14px 0 0;font-size:clamp(30px,3.6vw,46px);line-height:1.25;letter-spacing:-.035em;font-weight:800">청소업체 운영의 핵심 4단계</h2>
+      <p style="margin:18px 0 0;font-size:18px;line-height:1.7;color:#5D6B85">단계를 눌러 실제 화면 흐름을 확인하세요.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:36px" data-steps-grid="1">
+      <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
+        <button onClick="{{ s.select }}" style="{{ s.cardStyle }}">
+          <div style="{{ s.numStyle }}">{{ s.n }}</div>
+          <div style="{{ s.titleStyle }}">{{ s.label }}</div>
+          <div style="{{ s.subStyle }}">{{ s.sub }}</div>
+        </button>
+      </sc-for>
+    </div>
+    <div style="margin-top:26px;background:#fff;border:1px solid #E6ECF9;border-radius:26px;padding:36px 28px;box-shadow:0 20px 50px rgba(20,40,90,.06)">
+      <div style="display:grid;grid-template-columns:minmax(0,4fr) minmax(0,5fr);gap:20px 48px;align-items:start" data-wf-head="1">
+        <div>
+          <div style="display:inline-flex;gap:5px;background:#F0F5FF;color:#2F6BFF;font-size:13px;font-weight:800;padding:7px 14px;border-radius:999px">STEP {{ active.n }}</div>
+          <h3 style="margin:18px 0 0;font-size:clamp(24px,2.6vw,34px);line-height:1.3;letter-spacing:-.03em;font-weight:800">{{ active.title }}</h3>
+        </div>
+        <div>
+        <p style="margin:0;font-size:17px;line-height:1.75;color:#5D6B85">{{ active.desc }}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:12px 28px;margin-top:22px">
+          <sc-for list="{{ active.bullets }}" as="b" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:24px;height:24px;border-radius:50%;background:#2F6BFF;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</span>
+              <span style="font-size:16px;font-weight:600;color:#1B2740">{{ b }}</span>
+            </div>
+          </sc-for>
+        </div>
+        </div>
+      </div>
+      <div style="position:relative;margin-top:40px">
+        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
+          <div style="{{ s.paneStyle }}">
+            <div data-wf-pane="1" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,268px);gap:28px;align-items:end">
+              <div style="border-radius:14px;overflow:hidden;background:#fff;border:1px solid #E6ECF9;box-shadow:0 26px 56px rgba(20,40,90,.16)">
+                <div style="height:34px;background:#F2F5FB;border-bottom:1px solid #E4EAF6;display:flex;align-items:center;gap:6px;padding:0 12px">
+                  <span style="width:9px;height:9px;border-radius:50%;background:#FF5F57;display:block"></span>
+                  <span style="width:9px;height:9px;border-radius:50%;background:#FEBC2E;display:block"></span>
+                  <span style="width:9px;height:9px;border-radius:50%;background:#28C840;display:block"></span>
+                  <span style="margin-left:10px;font-size:11px;font-weight:700;color:#9AA7C0">청소비서 · PC 관리자</span>
+                </div>
+                <div style="aspect-ratio:1200/563;width:100%;background:#F7F9FE;position:relative">
+                  <image-slot id="{{ s.pcId }}" shape="rect" fit="contain" placeholder="PC 화면" style="width:100%;height:100%"></image-slot>
+                  <div style="position:absolute;right:12px;bottom:12px;z-index:3;display:flex;align-items:center;gap:8px">
+                    <span style="background:rgba(255,255,255,.9);border:1px solid #E4EAF6;color:#6C7A96;font-size:11px;font-weight:700;padding:6px 11px;border-radius:999px">더블클릭 → 이동·확대</span>
+                    <button onClick="{{ zoom }}" data-zoom-src="{{ s.pcId }}" title="크게 보기" style="border:none;cursor:pointer;background:rgba(11,18,32,.82);color:#fff;font-size:13px;font-weight:700;padding:9px 15px;border-radius:999px;backdrop-filter:blur(6px);transition:background .2s" style-hover="background:#2F6BFF">크게 보기</button>
+                  </div>
+                </div>
+              </div>
+              <div data-wf-phone="1" style="width:100%;border:10px solid #10151F;border-radius:36px;background:#10151F;overflow:hidden;box-shadow:0 26px 52px rgba(20,40,90,.3);justify-self:end">
+                <div style="aspect-ratio:208/380;width:100%;background:#F7F9FE">
+                  <image-slot id="{{ s.moId }}" shape="rect" fit="contain" placeholder="모바일 화면" style="width:100%;height:100%"></image-slot>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features" style="padding:128px 24px 110px;background:#fff;position:relative;overflow:hidden">
+  <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:80px;display:block"><path d="M0,0 C360,104 1080,104 1440,0 L1440,0 L0,0 Z" fill="#fff"></path></svg>
+  <div style="max-width:1200px;margin:0 auto">
+    <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);text-align:center;max-width:660px;margin:0 auto">
+      <div style="color:#2F6BFF;font-size:15px;font-weight:800;letter-spacing:.02em">FEATURES</div>
+      <h2 style="margin:14px 0 0;font-size:clamp(30px,3.6vw,46px);line-height:1.25;letter-spacing:-.035em;font-weight:800">역할에 딱 맞는 화면</h2>
+      <p style="margin:18px 0 0;font-size:18px;line-height:1.7;color:#5D6B85">사무직과 현장직은 필요한 정보가 다릅니다.</p>
+    </div>
+    <div style="display:flex;justify-content:center;gap:8px;margin-top:36px">
+      <div style="display:flex;gap:6px;background:#F0F3FA;padding:6px;border-radius:999px">
+        <button onClick="{{ setMarketer }}" style="{{ tabMarketer }}">마케터 (사무직)</button>
+        <button onClick="{{ setLeader }}" style="{{ tabLeader }}">팀장 (현장직)</button>
+      </div>
+    </div>
+    <div style="margin-top:40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:44px;align-items:center">
+      <div style="display:flex;justify-content:center;order:0">
+        <div style="width:min(494px,100%);border:12px solid #10151F;border-radius:48px;background:#10151F;overflow:hidden;box-shadow:0 30px 60px rgba(20,40,90,.2)">
+          <div style="aspect-ratio:494/892;width:100%;background:#F7F9FE">
+            <image-slot id="{{ role.slotId }}" shape="rect" fit="contain" placeholder="{{ role.slotHint }}" style="width:100%;height:100%"></image-slot>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin:0;font-size:clamp(24px,2.6vw,34px);line-height:1.3;letter-spacing:-.03em;font-weight:800">{{ role.title }}</h3>
+        <p style="margin:14px 0 0;font-size:17px;line-height:1.75;color:#5D6B85">{{ role.desc }}</p>
+        <div style="display:flex;flex-direction:column;gap:16px;margin-top:30px">
+          <sc-for list="{{ role.items }}" as="it" hint-placeholder-count="4">
+            <div style="display:flex;gap:16px;padding:20px;background:#F7F9FE;border:1px solid #E9EEF9;border-radius:16px">
+              <div style="width:38px;height:38px;border-radius:11px;background:#2F6BFF;color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ it.k }}</div>
+              <div>
+                <div style="font-size:17px;font-weight:800;letter-spacing:-.02em">{{ it.t }}</div>
+                <div style="margin-top:6px;font-size:15px;line-height:1.6;color:#6C7A96">{{ it.d }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="crm" style="padding:124px 24px 96px;background:#F7F9FE;position:relative;overflow:hidden">
+  <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:80px;display:block"><path d="M0,0 C360,104 1080,104 1440,0 L1440,0 L0,0 Z" fill="#F7F9FE"></path></svg>
+  <div style="max-width:1200px;margin:0 auto">
+    <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);max-width:700px">
+      <div style="color:#2F6BFF;font-size:15px;font-weight:800;letter-spacing:.02em">CRM</div>
+      <h2 class="crm-headline" style="margin:14px 0 0;line-height:1.25;letter-spacing:-.035em;font-weight:800">초보 상담사도 CRM하나로 전문가처럼!!</h2>
+      <p style="margin:18px 0 0;font-size:18px;line-height:1.7;color:#5D6B85">주요 플랫폼이 자동 연동됩니다. 이 창 저 창 옮겨 다닐 필요 없이 <strong style="color:#0B1220;font-weight:800">고객 접수 · 메시지 발신 · 통화 · 발주서 발급 · 예약 변경</strong>을 한 화면에서 처리하는 실시간 업무 시스템입니다.</p>
+      <div class="crm-tags">
+        <span class="crm-tag crm-tag--outline">플랫폼 자동 연동</span>
+        <span class="crm-tag crm-tag--outline">창 전환 0회</span>
+        <span class="crm-tag crm-tag--solid">상담 업무효율 100%</span>
+      </div>
+    </div>
+
+    <div data-reveal="1" style="opacity:0;transform:translateY(28px);transition:opacity .8s .06s cubic-bezier(.2,.7,.3,1),transform .8s .06s cubic-bezier(.2,.7,.3,1);margin-top:44px;border-radius:16px;overflow:hidden;background:#fff;border:1px solid #E6ECF9;box-shadow:0 26px 56px rgba(20,40,90,.12);position:relative">
+      <div style="height:38px;background:#F2F5FB;border-bottom:1px solid #E4EAF6;display:flex;align-items:center;gap:7px;padding:0 14px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#FF5F57;display:block"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#FEBC2E;display:block"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#28C840;display:block"></span>
+        <span style="margin-left:12px;font-size:12px;font-weight:700;color:#9AA7C0">청소비서 · CRM 대시보드</span>
+        <span style="margin-left:auto;color:#A9B6CE;font-size:11px;font-weight:700">더블클릭 → 이동·확대</span>
+      </div>
+      <div style="aspect-ratio:1200/563;width:100%;background:#F7F9FE;position:relative">
+        <image-slot id="cb-crm-pc" shape="rect" fit="contain" placeholder="CRM PC 화면 캡쳐" style="width:100%;height:100%"></image-slot>
+        <button onClick="{{ zoom }}" data-zoom-src="cb-crm-pc" title="크게 보기" style="position:absolute;right:12px;bottom:12px;z-index:3;border:none;cursor:pointer;background:rgba(11,18,32,.82);color:#fff;font-size:13px;font-weight:700;padding:9px 15px;border-radius:999px;backdrop-filter:blur(6px);transition:background .2s" style-hover="background:#2F6BFF">크게 보기</button>
+      </div>
+    </div>
+
+    <div data-reveal="1" style="opacity:0;transform:translateY(28px);transition:opacity .8s .1s cubic-bezier(.2,.7,.3,1),transform .8s .1s cubic-bezier(.2,.7,.3,1);margin-top:26px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px" data-steps-grid="1">
+      <div style="background:#fff;border:1px solid #E6ECF9;border-radius:20px;padding:30px;transition:transform .3s cubic-bezier(.2,.7,.3,1),border-color .3s" style-hover="transform:translateY(-8px);border-color:#2F6BFF">
+        <div style="font-size:13px;font-weight:800;color:#2F6BFF;letter-spacing:.03em">플랫폼 연동</div>
+        <h3 style="margin:12px 0 10px;font-size:20px;font-weight:800;letter-spacing:-.02em">문의가 알아서 들어옵니다</h3>
+        <p style="margin:0;font-size:15px;line-height:1.65;color:#6C7A96">많이 쓰는 플랫폼이 자동 연동되어 각 사이트에 로그인해 확인할 일이 없습니다. 유입 채널도 그대로 기록됩니다.</p>
+      </div>
+      <div style="background:#fff;border:1px solid #E6ECF9;border-radius:20px;padding:30px;transition:transform .3s cubic-bezier(.2,.7,.3,1),border-color .3s" style-hover="transform:translateY(-8px);border-color:#2F6BFF">
+        <div style="font-size:13px;font-weight:800;color:#2F6BFF;letter-spacing:.03em">원-윈도우 상담</div>
+        <h3 style="margin:12px 0 10px;font-size:20px;font-weight:800;letter-spacing:-.02em">접수·메시지·통화를 한 창에서</h3>
+        <p style="margin:0;font-size:15px;line-height:1.65;color:#6C7A96">고객 접수부터 메시지 발신, 통화, 발주서 발급, 예약 변경 접수까지 화면을 옮기지 않고 그 자리에서 끝냅니다.</p>
+      </div>
+      <div style="background:#fff;border:1px solid #E6ECF9;border-radius:20px;padding:30px;transition:transform .3s cubic-bezier(.2,.7,.3,1),border-color .3s" style-hover="transform:translateY(-8px);border-color:#2F6BFF">
+        <div style="font-size:13px;font-weight:800;color:#2F6BFF;letter-spacing:.03em">텔레CRM</div>
+        <h3 style="margin:12px 0 10px;font-size:20px;font-weight:800;letter-spacing:-.02em">재택 상담사 실시간 관리</h3>
+        <p style="margin:0;font-size:15px;line-height:1.65;color:#6C7A96">누가 몇 건을 어떻게 처리했는지 실시간으로 확인해, 사무실 밖 인력도 관리 사각지대 없이 운영합니다.</p>
+      </div>
+      <div style="background:#fff;border:1px solid #E6ECF9;border-radius:20px;padding:30px;transition:transform .3s cubic-bezier(.2,.7,.3,1),border-color .3s" style-hover="transform:translateY(-8px);border-color:#2F6BFF">
+        <div style="font-size:13px;font-weight:800;color:#2F6BFF;letter-spacing:.03em">리뷰 방어</div>
+        <h3 style="margin:12px 0 10px;font-size:20px;font-weight:800;letter-spacing:-.02em">불만은 공개 전에 흡수</h3>
+        <p style="margin:0;font-size:15px;line-height:1.65;color:#6C7A96">완료 안내와 함께 불편접수 링크를 보내, 악성 리뷰가 올라가기 전에 먼저 받습니다.</p>
+      </div>
+    </div>
+
+    <div data-reveal="1" style="opacity:0;transform:translateY(28px);transition:opacity .8s .18s cubic-bezier(.2,.7,.3,1),transform .8s .18s cubic-bezier(.2,.7,.3,1);margin-top:26px;background:#0B1220;color:#fff;border-radius:24px;padding:36px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:28px;align-items:center">
+      <div>
+        <div style="font-size:13px;font-weight:800;color:#7BA3FF;letter-spacing:.03em">고객 이력</div>
+        <h3 style="margin:12px 0 0;font-size:clamp(22px,2.4vw,30px);line-height:1.3;letter-spacing:-.03em;font-weight:800">한 번 온 고객은<br>다시 찾아옵니다</h3>
+        <p style="margin:14px 0 0;font-size:16px;line-height:1.7;color:#9AA7C0">주소·평형·구조·이전 작업 이력이 고객별로 쌓여, 재문의 때 처음부터 다시 묻지 않아도 됩니다.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px;font-size:16px;font-weight:600;color:#C6D0E4"><span style="width:24px;height:24px;border-radius:50%;background:#1E2A42;color:#7BA3FF;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</span>고객 이름·연락처로 즉시 검색</div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:16px;font-weight:600;color:#C6D0E4"><span style="width:24px;height:24px;border-radius:50%;background:#1E2A42;color:#7BA3FF;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</span>이전 견적·현장 사진 그대로 조회</div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:16px;font-weight:600;color:#C6D0E4"><span style="width:24px;height:24px;border-radius:50%;background:#1E2A42;color:#7BA3FF;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</span>재청소 시기 도래 고객 자동 분류</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding:128px 24px 110px;background:#0B1220;color:#fff;position:relative;overflow:hidden">
+  <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:80px;display:block"><path d="M0,0 C360,104 1080,104 1440,0 L1440,0 L0,0 Z" fill="#0B1220"></path></svg>
+  <div style="max-width:1200px;margin:0 auto">
+    <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);max-width:660px">
+      <div style="color:#7BA3FF;font-size:15px;font-weight:800;letter-spacing:.02em">ALL-IN-ONE</div>
+      <h2 style="margin:14px 0 0;font-size:clamp(30px,3.6vw,46px);line-height:1.25;letter-spacing:-.035em;font-weight:800">엑셀 없이 돌아가는<br>운영 기능 전부</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:48px">
+      <sc-for list="{{ extras }}" as="e" hint-placeholder-count="6">
+        <div style="background:#141C2E;border:1px solid #222D45;border-radius:20px;padding:30px" style-hover="border-color:#2F6BFF">
+          <div style="font-size:13px;font-weight:800;color:#7BA3FF;letter-spacing:.03em">{{ e.tag }}</div>
+          <h3 style="margin:12px 0 10px;font-size:20px;font-weight:800;letter-spacing:-.02em">{{ e.t }}</h3>
+          <p style="margin:0;font-size:15px;line-height:1.65;color:#9AA7C0">{{ e.d }}</p>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section style="padding:128px 24px 110px;background:#F7F9FE;position:relative;overflow:hidden">
+  <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:80px;display:block"><path d="M0,0 C360,104 1080,104 1440,0 L1440,0 L0,0 Z" fill="#F7F9FE"></path></svg>
+  <div style="max-width:1200px;margin:0 auto;position:relative">
+    <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);text-align:center;max-width:620px;margin:0 auto">
+      <div style="color:#2F6BFF;font-size:15px;font-weight:800;letter-spacing:.02em">REVIEW</div>
+      <h2 style="margin:14px 0 0;font-size:clamp(30px,3.6vw,46px);line-height:1.25;letter-spacing:-.035em;font-weight:800">먼저 도입한 대표님들</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-top:48px">
+      <sc-for list="{{ reviews }}" as="r" hint-placeholder-count="3">
+        <div style="background:#fff;border:1px solid #E6ECF9;border-radius:22px;padding:32px;box-shadow:0 14px 34px rgba(20,40,90,.05);transition:transform .3s cubic-bezier(.2,.7,.3,1),box-shadow .3s" style-hover="transform:translateY(-8px);box-shadow:0 26px 54px rgba(20,40,90,.12)">
+          <div style="color:#FFB020;font-size:16px;letter-spacing:2px">★★★★★</div>
+          <p style="margin:18px 0 0;font-size:17px;line-height:1.75;color:#1B2740;font-weight:500">{{ r.q }}</p>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:26px;padding-top:22px;border-top:1px solid #EEF2FA">
+            <div style="width:42px;height:42px;border-radius:50%;background:#EAF0FF;color:#2F6BFF;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:15px">{{ r.i }}</div>
+            <div>
+              <div style="font-size:15px;font-weight:800">{{ r.n }}</div>
+              <div style="font-size:13px;color:#8B98B0;margin-top:2px">{{ r.c }}</div>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section id="pricing" style="padding:128px 24px 110px;background:#fff;position:relative;overflow:hidden">
+  <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:80px;display:block"><path d="M0,0 C360,104 1080,104 1440,0 L1440,0 L0,0 Z" fill="#fff"></path></svg>
+  <div style="max-width:1200px;margin:0 auto">
+    <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);text-align:center;max-width:640px;margin:0 auto">
+      <div style="color:#2F6BFF;font-size:15px;font-weight:800;letter-spacing:.02em">PRICING</div>
+      <h2 style="margin:14px 0 0;font-size:clamp(30px,3.6vw,46px);line-height:1.25;letter-spacing:-.035em;font-weight:800">규모에 맞춰 시작하세요</h2>
+      <p style="margin:18px 0 0;font-size:18px;line-height:1.7;color:#5D6B85">월 정액 + 이용 코인 방식. Free 플랜은 바로 가입할 수 있습니다.</p>
+    </div>
+
+    <div style="display:flex;justify-content:center;margin-top:32px">
+      <div style="display:flex;gap:6px;background:#F0F3FA;padding:6px;border-radius:999px">
+        <button onClick="{{ setMonthly }}" style="{{ cycleMonthly }}">월납</button>
+        <button onClick="{{ setYearly }}" style="{{ cycleYearly }}">연납 · 15% 할인</button>
+      </div>
+    </div>
+
+    <div data-steps-grid="1" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:36px;align-items:start">
+      <sc-for list="{{ plans }}" as="p" hint-placeholder-count="4">
+        <div style="{{ p.cardStyle }}">
+          <div style="{{ p.badgeStyle }}">{{ p.badge }}</div>
+          <div style="{{ p.nameStyle }}">{{ p.name }}</div>
+          <div style="{{ p.priceStyle }}">{{ p.price }}</div>
+          <div style="{{ p.unitStyle }}">{{ p.unit }}</div>
+          <div style="{{ p.coinStyle }}">월 {{ p.coins }} 코인</div>
+          <a href="#contact" style="{{ p.ctaStyle }}">{{ p.cta }}</a>
+          <div style="display:flex;flex-direction:column;gap:11px;margin-top:24px">
+            <sc-for list="{{ p.features }}" as="f" hint-placeholder-count="4">
+              <div style="display:flex;gap:10px;align-items:flex-start">
+                <span style="{{ p.checkStyle }}">✓</span>
+                <span style="{{ p.featStyle }}">{{ f }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="{{ p.limitWrapStyle }}">
+            <sc-for list="{{ p.limits }}" as="l" hint-placeholder-count="3">
+              <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px">
+                <span style="{{ p.limitKeyStyle }}">{{ l.k }}</span>
+                <span style="{{ p.limitValStyle }}">{{ l.v }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="margin-top:26px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px">
+      <div style="background:#F7F9FE;border:1px solid #E9EEF9;border-radius:18px;padding:26px">
+        <h3 style="margin:0 0 10px;font-size:17px;font-weight:800;letter-spacing:-.02em">이용 코인은 이렇게 쓰입니다</h3>
+        <p style="margin:0;font-size:15px;line-height:1.7;color:#6C7A96">접수 1건당 1코인, 정보공유(DB) 구매 1건당 1코인. 매월 1일 플랜 포함량으로 초기화되며 이월·환불은 없습니다.</p>
+      </div>
+      <div style="background:#F7F9FE;border:1px solid #E9EEF9;border-radius:18px;padding:26px">
+        <h3 style="margin:0 0 10px;font-size:17px;font-weight:800;letter-spacing:-.02em">Premium 브랜드 추가</h3>
+        <p style="margin:0;font-size:15px;line-height:1.7;color:#6C7A96">영업 브랜드 2개까지 30만 원에 포함. 3번째부터 브랜드당 +20만 원/월 (예: 3개 운영 시 50만 원/월).</p>
+      </div>
+      <div style="background:#F7F9FE;border:1px solid #E9EEF9;border-radius:18px;padding:26px">
+        <h3 style="margin:0 0 10px;font-size:17px;font-weight:800;letter-spacing:-.02em">시작 방법</h3>
+        <p style="margin:0;font-size:15px;line-height:1.7;color:#6C7A96">Free는 셀프 가입. 유료 전환은 플랫폼 승인 후 7일 체험이 시작됩니다. 플랜 변경은 담당자 문의.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:44px;background:#fff;border:1px solid #E6ECF9;border-radius:22px;overflow:hidden">
+      <div style="overflow-x:auto">
+        <table style="width:100%;min-width:720px;border-collapse:collapse;font-size:15px">
+          <thead>
+            <tr style="background:#F7F9FE">
+              <th style="text-align:left;padding:18px 22px;font-size:14px;font-weight:800;color:#3A4761;letter-spacing:-.01em;border-bottom:1px solid #E9EEF9">기능</th>
+              <th style="padding:18px 12px;font-size:14px;font-weight:800;color:#3A4761;border-bottom:1px solid #E9EEF9">Free</th>
+              <th style="padding:18px 12px;font-size:14px;font-weight:800;color:#2F6BFF;border-bottom:1px solid #E9EEF9">Standard</th>
+              <th style="padding:18px 12px;font-size:14px;font-weight:800;color:#3A4761;border-bottom:1px solid #E9EEF9">Standard+</th>
+              <th style="padding:18px 12px;font-size:14px;font-weight:800;color:#3A4761;border-bottom:1px solid #E9EEF9">Premium</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ compare }}" as="r" hint-placeholder-count="12">
+              <tr style="{{ r.rowStyle }}">
+                <td style="{{ r.labelStyle }}">{{ r.label }}</td>
+                <td style="{{ r.c0 }}">{{ r.v0 }}</td>
+                <td style="{{ r.c1 }}">{{ r.v1 }}</td>
+                <td style="{{ r.c2 }}">{{ r.v2 }}</td>
+                <td style="{{ r.c3 }}">{{ r.v3 }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p style="margin:22px 0 0;text-align:center;font-size:14px;color:#8B98B0">모든 금액은 업체(테넌트) 1곳 기준, 부가세 별도입니다. Standard+는 기능을 전부 개방하고 코인 한도로 구분되며, 팀장 계정 추가와 텔레CRM은 별도 옵션입니다.</p>
+  </div>
+</section>
+
+<section style="padding:128px 24px 110px;background:#F7F9FE;position:relative;overflow:hidden">
+  <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:80px;display:block"><path d="M0,0 C360,104 1080,104 1440,0 L1440,0 L0,0 Z" fill="#F7F9FE"></path></svg>
+  <div style="max-width:1100px;margin:0 auto;position:relative">
+    <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);text-align:center">
+      <div style="color:#2F6BFF;font-size:15px;font-weight:800;letter-spacing:.02em">ONBOARDING</div>
+      <h2 style="margin:14px 0 0;font-size:clamp(30px,3.6vw,46px);line-height:1.25;letter-spacing:-.035em;font-weight:800">신청부터 사용까지 3일</h2>
+    </div>
+    <div data-steps-grid="1" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:52px">
+      <sc-for list="{{ onboarding }}" as="o" hint-placeholder-count="4">
+        <div style="background:#fff;border:1px solid #E6ECF9;border-radius:20px;padding:30px;position:relative;transition:transform .3s cubic-bezier(.2,.7,.3,1),border-color .3s" style-hover="transform:translateY(-8px);border-color:#2F6BFF">
+          <div style="font-size:34px;font-weight:800;color:#DCE6FF;letter-spacing:-.03em;line-height:1">{{ o.n }}</div>
+          <h3 style="margin:14px 0 8px;font-size:19px;font-weight:800;letter-spacing:-.02em">{{ o.t }}</h3>
+          <p style="margin:0;font-size:15px;line-height:1.65;color:#6C7A96">{{ o.d }}</p>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="padding:128px 24px 110px;background:#fff;position:relative;overflow:hidden">
+  <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:80px;display:block"><path d="M0,0 C360,104 1080,104 1440,0 L1440,0 L0,0 Z" fill="#fff"></path></svg>
+  <div style="max-width:860px;margin:0 auto;position:relative">
+    <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);text-align:center">
+      <div style="color:#2F6BFF;font-size:15px;font-weight:800;letter-spacing:.02em">FAQ</div>
+      <h2 style="margin:14px 0 0;font-size:clamp(30px,3.6vw,46px);line-height:1.25;letter-spacing:-.035em;font-weight:800">자주 묻는 질문</h2>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:44px">
+      <sc-for list="{{ faqs }}" as="f" hint-placeholder-count="5">
+        <div style="{{ f.wrapStyle }}">
+          <button onClick="{{ f.toggle }}" style="width:100%;background:none;border:none;padding:24px 26px;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;text-align:left">
+            <span style="font-size:17px;font-weight:700;letter-spacing:-.02em;color:#0B1220">{{ f.q }}</span>
+            <span style="{{ f.iconStyle }}">+</span>
+          </button>
+          <div style="{{ f.bodyStyle }}">{{ f.a }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section id="contact" style="padding:138px 24px 110px;background:linear-gradient(135deg,#2F6BFF,#1B4FD8);color:#fff;position:relative;overflow:hidden">
+  <svg viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;top:-1px;left:0;width:100%;height:88px;display:block"><path d="M0,0 L1440,0 L1440,4 C1080,110 360,110 0,4 Z" fill="#fff"></path></svg>
+  <div style="max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:56px;align-items:center">
+    <div>
+      <h2 style="margin:0;font-size:clamp(32px,4vw,52px);line-height:1.2;letter-spacing:-.04em;font-weight:800">지금 도입 상담을<br>신청하세요</h2>
+      <p style="margin:20px 0 0;font-size:18px;line-height:1.75;color:rgba(255,255,255,.86)">담당자가 영업일 기준 1일 이내에 연락드립니다. 우리 회사에 맞는 세팅까지 함께 잡아드립니다.</p>
+      <div style="margin-top:34px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:12px;font-size:17px;font-weight:700">대표번호 <a href="tel:01039030007" style="color:#fff;text-decoration:underline">010-3903-0007</a></div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:17px;font-weight:700">이메일 <a href="mailto:cleanbiseo@gmail.com" style="color:#fff;text-decoration:underline">cleanbiseo@gmail.com</a></div>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:26px;padding:36px;box-shadow:0 30px 70px rgba(6,20,60,.28)">
+      <sc-if value="{{ sent }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;padding:40px 10px">
+          <div style="width:64px;height:64px;border-radius:50%;background:#EAF0FF;color:#2F6BFF;font-size:28px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto">✓</div>
+          <h3 style="margin:22px 0 8px;font-size:24px;font-weight:800;color:#0B1220;letter-spacing:-.02em">신청이 접수되었습니다</h3>
+          <p style="margin:0;font-size:16px;line-height:1.7;color:#6C7A96">영업일 기준 1일 이내에 연락드리겠습니다.</p>
+        </div>
+      </sc-if>
+      <sc-if value="{{ notSent }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <h3 style="margin:0 0 22px;font-size:22px;font-weight:800;color:#0B1220;letter-spacing:-.02em">도입 상담 신청</h3>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font-size:14px;font-weight:700;color:#3A4761">업체명</label>
+              <input type="text" placeholder="청소비서 클린" style="padding:15px 16px;border:1px solid #DDE4F2;border-radius:12px;outline:none;color:#0B1220" style-focus="border-color:#2F6BFF">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font-size:14px;font-weight:700;color:#3A4761">담당자명</label>
+              <input type="text" placeholder="홍길동" style="padding:15px 16px;border:1px solid #DDE4F2;border-radius:12px;outline:none;color:#0B1220" style-focus="border-color:#2F6BFF">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font-size:14px;font-weight:700;color:#3A4761">연락처</label>
+              <input type="tel" placeholder="010-0000-0000" style="padding:15px 16px;border:1px solid #DDE4F2;border-radius:12px;outline:none;color:#0B1220" style-focus="border-color:#2F6BFF">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font-size:14px;font-weight:700;color:#3A4761">운영 중인 팀장 수</label>
+              <select style="padding:15px 16px;border:1px solid #DDE4F2;border-radius:12px;outline:none;color:#0B1220;background:#fff">
+                <option>1~5명</option>
+                <option>6~15명</option>
+                <option>16~30명</option>
+                <option>31명 이상</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font-size:14px;font-weight:700;color:#3A4761">문의 내용</label>
+              <textarea rows="3" placeholder="궁금한 점을 남겨주세요" style="padding:15px 16px;border:1px solid #DDE4F2;border-radius:12px;outline:none;color:#0B1220;resize:vertical" style-focus="border-color:#2F6BFF"></textarea>
+            </div>
+            <button onClick="{{ submit }}" style="margin-top:6px;background:#2F6BFF;color:#fff;border:none;padding:17px;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 12px 26px rgba(47,107,255,.3)" style-hover="background:#1B4FD8">상담 신청하기</button>
+            <p style="margin:4px 0 0;font-size:13px;color:#8B98B0;line-height:1.6">신청 시 개인정보 수집·이용에 동의하는 것으로 간주됩니다.</p>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</section>
+
+<footer style="background:#0B1220;color:#8B98B0;padding:60px 24px">
+  <div data-steps-grid="1" style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;align-items:start">
+    <div>
+      <img src="assets/logo-white.png" alt="청소비서" style="height:34px;width:auto;display:block;opacity:.95">
+      <p style="margin:18px 0 0;font-size:14px;line-height:1.8">청소업체 전용 올인원 SaaS 업무관리 플랫폼<br>접수 · 배정 · 현장보고 · 정산을 하나로.</p>
+    </div>
+    <div style="font-size:14px;line-height:2">
+      <div style="color:#fff;font-weight:800;margin-bottom:10px">서비스</div>
+      <div><a href="#workflow" style="color:#8B98B0">워크플로우</a></div>
+      <div><a href="#features" style="color:#8B98B0">기능</a></div>
+      <div><a href="#pricing" style="color:#8B98B0">요금제</a></div>
+    </div>
+    <div style="font-size:14px;line-height:2">
+      <div style="color:#fff;font-weight:800;margin-bottom:10px">문의</div>
+      <div>대표번호 010-3903-0007</div>
+      <div>cleanbiseo@gmail.com</div>
+      <div>cbiseo.com</div>
+    </div>
+    <div style="font-size:14px;line-height:2">
+      <div style="color:#fff;font-weight:800;margin-bottom:10px">운영사</div>
+      <div>(주)서비스브릿지</div>
+      <img src="assets/logo-sb.png" alt="서비스브릿지 ServiceBridge" class="footer-sb-logo">
+    </div>
+  </div>
+  <div style="max-width:1200px;margin:40px auto 0;padding-top:24px;border-top:1px solid #1C2739;font-size:13px">© 2026 ServiceBridge Inc. All rights reserved.</div>
+</footer>
+
+</main>
+</x-dc>
+<input type="checkbox" id="landing-nav-check" class="landing-nav-check" aria-hidden="true" tabindex="-1">
+<div class="landing-header-drawer" id="landing-drawer">
+  <label for="landing-nav-check" class="landing-header-drawer-backdrop" aria-label="메뉴 닫기"></label>
+  <nav class="landing-header-drawer-panel" aria-label="섹션 메뉴">
+    <a href="#workflow">워크플로우</a>
+    <a href="#features">기능</a>
+    <a href="#crm">CRM</a>
+    <a href="#pricing">요금제</a>
+    <a href="#faq">FAQ</a>
+    <a href="#contact" class="landing-drawer-cta">도입 상담 신청</a>
+  </nav>
+</div>
+<script>
+(function(){
+  document.addEventListener('change',function(e){
+    if(!e.target||e.target.id!=='landing-nav-check')return;
+    document.body.style.overflow=e.target.checked?'hidden':'';
+  });
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('.landing-header-drawer-panel a'))return;
+    var c=document.getElementById('landing-nav-check');
+    if(!c||!c.checked)return;
+    c.checked=false;
+    document.body.style.overflow='';
+  });
+})();
+</script>
+<script type="text/x-dc" data-dc-script data-props="{&quot;heroVariant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;a&quot;,&quot;b&quot;,&quot;c&quot;],&quot;default&quot;:&quot;b&quot;,&quot;tsType&quot;:&quot;'a'|'b'|'c'&quot;,&quot;section&quot;:&quot;히어로&quot;}}">
+class Component extends DCLogic {
+  state = { hero: null, step: 0, role: 0, faq: 0, sent: false, cycle: 'monthly' };
+
+  componentDidMount() {
+    this.reveal();
+    this._onScroll = () => {
+      if (this._raf) return;
+      this._raf = requestAnimationFrame(() => {
+        this._raf = null;
+        const vh = window.innerHeight;
+        document.querySelectorAll('[data-parallax]').forEach(el => {
+          const r = el.getBoundingClientRect();
+          const p = (r.top + r.height / 2 - vh / 2) / vh;
+          el.style.setProperty('--p', '1');
+          el.style.translate = '0 ' + (p * parseFloat(el.getAttribute('data-parallax')) * 90).toFixed(1) + 'px';
+        });
+      });
+    };
+    window.addEventListener('scroll', this._onScroll, { passive: true });
+    this._onScroll();
+    [400, 1200, 2600].forEach(t => setTimeout(() => this.reveal(), t));
+    setTimeout(() => {
+      document.querySelectorAll('[data-reveal]').forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; });
+    }, 4000);
+  }
+  componentDidUpdate() { this.reveal(); }
+
+  reveal() {
+    if (!this._io) {
+      this._io = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.style.opacity = '1';
+            e.target.style.transform = 'none';
+            e.target.querySelectorAll('[data-count]').forEach(n => this.countUp(n));
+            this._io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    }
+    document.querySelectorAll('[data-reveal]:not([data-seen])').forEach(el => {
+      el.setAttribute('data-seen', '1');
+      this._io.observe(el);
+    });
+  }
+
+  openZoom(e) {
+    const slotId = e.currentTarget.getAttribute('data-zoom-src');
+    const slot = document.getElementById(slotId);
+    const img = slot && slot.shadowRoot && slot.shadowRoot.querySelector('img');
+    if (!img || !img.naturalWidth) return;
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(6,12,26,.92);display:flex;align-items:center;justify-content:center;padding:32px;cursor:zoom-out;overflow:auto;animation:riseIn .3s ease both';
+    const big = document.createElement('img');
+    big.src = img.src;
+    big.style.cssText = 'max-width:none;width:' + img.naturalWidth + 'px;height:auto;border-radius:10px;box-shadow:0 30px 80px rgba(0,0,0,.6);image-rendering:auto';
+    const hint = document.createElement('div');
+    hint.textContent = '원본 ' + img.naturalWidth + '×' + img.naturalHeight + ' · 아무 곳이나 클릭해 닫기';
+    hint.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);color:#93A4C4;font-size:13px;font-weight:700;background:rgba(11,18,32,.9);padding:9px 16px;border-radius:999px';
+    ov.appendChild(big); ov.appendChild(hint);
+    const close = () => { ov.remove(); document.removeEventListener('keydown', esc); };
+    const esc = ev => { if (ev.key === 'Escape') close(); };
+    ov.addEventListener('click', close);
+    document.addEventListener('keydown', esc);
+    document.body.appendChild(ov);
+  }
+
+  countUp(el) {
+    if (el.dataset.counted) return;
+    el.dataset.counted = '1';
+    const target = parseFloat(el.getAttribute('data-count'));
+    const suffix = el.getAttribute('data-suffix') || '';
+    const t0 = performance.now(), dur = 1200;
+    const tick = now => {
+      const k = Math.min(1, (now - t0) / dur);
+      const eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.round(target * eased) + suffix;
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  chip(on) {
+    return 'border:none;cursor:pointer;width:34px;height:30px;border-radius:999px;font-size:14px;font-weight:800;' +
+      (on ? 'background:#2F6BFF;color:#fff' : 'background:rgba(255,255,255,.10);color:#B9C6DE');
+  }
+  tab(on) {
+    return 'border:none;cursor:pointer;padding:13px 26px;border-radius:999px;font-size:16px;font-weight:700;letter-spacing:-.01em;transition:all .25s;' +
+      (on ? 'background:#2F6BFF;color:#fff;box-shadow:0 8px 20px rgba(47,107,255,.28)' : 'background:transparent;color:#6C7A96');
+  }
+
+  renderVals() {
+    const hero = this.state.hero || this.props.heroVariant || 'b';
+    const stepData = [
+      { n: '01', label: '접수', sub: '링크 하나로 자동 접수', title: '절대 누락 없는 발주 접수', desc: '고객에게 링크 하나만 보내면 주소·연락처·평형·일정이 그대로 시스템에 쌓입니다. 받아 적을 일이 없습니다.',
+        bullets: ['수기 접수 완전 제거', '주소 검색으로 오기입 차단', '접수 누락 · 시간 손실 제로'] },
+      { n: '02', label: '배정', sub: '휴무 확인 후 즉시 배정', title: '30분 걸리던 배정을 5분으로', desc: '스케줄 캘린더에서 근무 가능한 팀장만 자동으로 걸러 보여줍니다. 카톡 전달 없이 그 자리에서 배정이 끝납니다.',
+        bullets: ['근무 가능 팀장 자동 세팅', '가용 인원 · 시간 한눈에', '팀장 계정으로 즉시 전달'] },
+      { n: '03', label: '현장보고', sub: '구역별 전·후 사진', title: '증빙이 남는 현장 보고', desc: '팀장이 모바일 앱에서 구역별로 청소 전·후 사진을 올리고 체크리스트를 고객과 함께 처리합니다.',
+        bullets: ['일정표 안에서 구역별 촬영', '전·후 사진 자동 정리', '고객 동의 체크리스트 기록'] },
+      { n: '04', label: '정산', sub: '수수료 자동 계산', title: '월말 엑셀 야근을 없앱니다', desc: '완료된 건은 그대로 정산으로 넘어갑니다. 팀장 수수료, 협력사 수수료까지 시스템이 계산합니다.',
+        bullets: ['수동 엑셀 없이 자동 정산', '팀장 · 협력사 수수료 분리 계산', '광고비 회수 CRM 연동'] }
+    ];
+    const steps = stepData.map((s, i) => {
+      const on = i === this.state.step;
+      return Object.assign({}, s, {
+        select: () => this.setState({ step: i }),
+        pcId: 'cb-wf-pc-' + (i + 1),
+        moId: 'cb-wf-mo-' + (i + 1),
+        paneStyle: on ? 'display:block;animation:riseIn .6s cubic-bezier(.2,.75,.3,1) both' : 'display:none',
+        cardStyle: 'cursor:pointer;text-align:left;border-radius:20px;padding:24px;transition:all .25s;' +
+          (on ? 'background:#2F6BFF;border:1px solid #2F6BFF;box-shadow:0 16px 34px rgba(47,107,255,.28)' : 'background:#fff;border:1px solid #E6ECF9'),
+        numStyle: 'font-size:13px;font-weight:800;letter-spacing:.04em;' + (on ? 'color:rgba(255,255,255,.75)' : 'color:#A9B6CE'),
+        titleStyle: 'font-size:21px;font-weight:800;letter-spacing:-.02em;margin-top:10px;' + (on ? 'color:#fff' : 'color:#0B1220'),
+        subStyle: 'font-size:14px;margin-top:6px;font-weight:600;' + (on ? 'color:rgba(255,255,255,.82)' : 'color:#8B98B0')
+      });
+    });
+
+    const roles = [
+      { slotId: 'cb-role', slotHint: '마케터 화면 캡쳐', title: '마케터는 영업에만 집중합니다', desc: '접수부터 고객 안내까지 사무 업무를 시스템이 대신 처리합니다.',
+        items: [
+          { k: '01', t: '링크 자동 접수', d: '고객 발주서를 링크 하나로 받아 그대로 시스템에 등록' },
+          { k: '02', t: '스케줄 캘린더 배정', d: '팀장 휴무를 확인해 근무 가능한 인원에게 즉시 배정' },
+          { k: '03', t: '견적서 · 영수증 한 번에 발송', d: 'PC 엑셀·이메일 왕복 없이 모바일로 작성하고 고객에게 동시 전송' },
+          { k: '04', t: '안내 · 동의 자동화', d: '안내사항 링크를 보내고 동의 후에만 예약이 확정' },
+          { k: '05', t: '재택 상담사 현황 체크', d: '텔레CRM으로 상담 스크립트와 처리 건수를 실시간 확인' }
+        ] },
+      { slotId: 'cb-role-leader', slotHint: '팀장 화면 캡쳐', title: '팀장은 청소에만 집중합니다', desc: '현장에서 필요한 것만 모바일 앱 한 화면에 모았습니다.',
+        items: [
+          { k: '01', t: '배정 일정 확인', d: '내 일정과 현장 정보를 앱에서 바로 확인하고 출동' },
+          { k: '02', t: '구역별 사진 업로드', d: '현관·거실·주방·방 단위로 청소 전·후 사진 촬영' },
+          { k: '03', t: '고객 동반 체크리스트', d: '고객과 함께 항목을 확인하며 현장에서 마감 처리' },
+          { k: '04', t: '전자 근로계약서', d: '대면 서명 없이 1분이면 계약 체결 완료' }
+        ] }
+    ];
+
+    const yearly = this.state.cycle === 'yearly';
+    const plans = [
+      { name: 'FREE', m: '무료', y: '무료', unit: '', badge: '1인 사업자', hi: false, coins: '70',
+        cta: '무료로 시작하기',
+        features: ['서비스접수 · 발주서', '스케줄', '정보공유(DB) 구매'],
+        limits: [{ k: '팀장 계정', v: '0명' }, { k: '맞춤 캘린더', v: '0개' }, { k: '영업 브랜드', v: '1개' }] },
+      { name: 'STANDARD', m: '10만 원', y: '102만 원', unit: yearly ? '/ 년 (15% 할인)' : '/ 월', badge: '가장 많이 선택', hi: true, coins: '300',
+        cta: '도입 상담 신청',
+        features: ['접수 · 발주서 · 스케줄 · 배정', '메시지 발송', 'C/S 관리 · 현장 검수', '크루 · 팀장 통계', '타업체 · 외부정산', '광고비 관리 · 정보공유(DB)'],
+        limits: [{ k: '팀장 계정', v: '5명' }, { k: '맞춤 캘린더', v: '2개' }, { k: '영업 브랜드', v: '1개' }] },
+      { name: 'STANDARD+', m: '20만 원', y: '204만 원', unit: yearly ? '/ 년 (15% 할인)' : '/ 월', badge: '기능 전체 개방', hi: false, coins: '700',
+        cta: '도입 상담 신청',
+        features: ['모든 기능 전체 개방', '급여 · 정산 · 전자계약', '파트너 접수 연계 · 랜딩 문의내역', '코인 한도만 700코인', '팀장 계정 · 텔레CRM은 별도'],
+        limits: [{ k: '팀장 계정', v: '10명 (추가 별도)' }, { k: '맞춤 캘린더', v: '5개' }, { k: '텔레CRM', v: '별도 옵션' }] },
+      { name: 'PREMIUM', m: '30만 원', y: '306만 원', unit: yearly ? '/ 년부터 (15% 할인)' : '/ 월부터', badge: '멀티브랜드 · 정산', hi: false, coins: '무제한',
+        cta: '도입 상담 신청',
+        features: ['Standard+ 기능 전체', '급여 · 정산', '전자계약', '파트너 접수 연계', '랜딩 문의내역', '텔레CRM (별도 옵션)'],
+        limits: [{ k: '팀장 계정', v: '무제한' }, { k: '맞춤 캘린더', v: '무제한' }, { k: '영업 브랜드', v: '2개 포함' }] }
+    ];
+    const planVals = plans.map(p => ({
+      name: p.name, price: yearly ? p.y : p.m, unit: p.unit, badge: p.badge, features: p.features,
+      coins: p.coins, limits: p.limits, cta: p.cta,
+      cardStyle: 'border-radius:22px;padding:30px;' + (p.hi
+        ? 'background:#0B1220;color:#fff;border:1px solid #0B1220;box-shadow:0 26px 60px rgba(11,18,32,.28)'
+        : 'background:#fff;border:1px solid #E6ECF9'),
+      badgeStyle: 'display:inline-block;font-size:12px;font-weight:800;padding:6px 13px;border-radius:999px;' +
+        (p.hi ? 'background:#2F6BFF;color:#fff' : 'background:#F0F5FF;color:#2F6BFF'),
+      nameStyle: 'margin-top:18px;font-size:14px;font-weight:800;letter-spacing:.07em;' + (p.hi ? 'color:#7BA3FF' : 'color:#8B98B0'),
+      priceStyle: 'margin-top:8px;font-size:clamp(28px,2.8vw,36px);font-weight:800;letter-spacing:-.04em;line-height:1.1;' + (p.hi ? 'color:#fff' : 'color:#0B1220'),
+      unitStyle: 'margin-top:4px;font-size:14px;font-weight:600;min-height:20px;' + (p.hi ? 'color:#9AA7C0' : 'color:#8B98B0'),
+      coinStyle: 'margin-top:14px;display:inline-block;font-size:13px;font-weight:800;padding:6px 12px;border-radius:8px;' +
+        (p.hi ? 'background:#1E2A42;color:#7BA3FF' : 'background:#F0F5FF;color:#2F6BFF'),
+      ctaStyle: 'display:block;text-align:center;margin-top:20px;padding:14px;border-radius:12px;font-size:15px;font-weight:800;' +
+        (p.hi ? 'background:#2F6BFF;color:#fff' : 'background:#F0F5FF;color:#2F6BFF'),
+      checkStyle: 'flex-shrink:0;width:19px;height:19px;border-radius:50%;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:2px;' +
+        (p.hi ? 'background:#1E2A42;color:#7BA3FF' : 'background:#EAF0FF;color:#2F6BFF'),
+      featStyle: 'font-size:14px;line-height:1.6;font-weight:600;' + (p.hi ? 'color:#C6D0E4' : 'color:#4A5877'),
+      limitWrapStyle: 'display:flex;flex-direction:column;gap:9px;margin-top:22px;padding-top:20px;border-top:1px solid ' + (p.hi ? '#1E2A42' : '#EEF2FA'),
+      limitKeyStyle: 'font-weight:600;' + (p.hi ? 'color:#8B98B0' : 'color:#8B98B0'),
+      limitValStyle: 'font-weight:800;' + (p.hi ? 'color:#fff' : 'color:#0B1220')
+    }));
+
+    const cmpRows = [
+      ['접수 · 발주서 · 스케줄', '○', '○', '○', '○'],
+      ['배정', '✕', '○', '○', '○'],
+      ['메시지', '✕', '○', '○', '○'],
+      ['C/S · 크루 · 팀장 통계 · 현장 검수', '✕', '○', '○', '○'],
+      ['타업체 · 외부정산', '✕', '○', '○', '○'],
+      ['광고비 관리', '✕', '○', '○', '○'],
+      ['정보공유(DB)', '구매만', '○', '○', '○'],
+      ['급여 · 정산 · 전자계약', '✕', '✕', '○', '○'],
+      ['파트너 접수 연계', '✕', '✕', '○', '○'],
+      ['랜딩 문의내역', '✕', '✕', '○', '○'],
+      ['텔레CRM', '✕', '✕', '별도 옵션', '별도 옵션'],
+      ['월 코인', '70', '300', '700', '무제한'],
+      ['팀장 계정', '0명', '5명', '10명 (추가 별도)', '무제한'],
+      ['맞춤 캘린더', '0개', '2개', '5개', '무제한'],
+      ['영업 브랜드', '1개', '1개', '1개', '2개 포함']
+    ];
+    const cellStyle = v => {
+      const base = 'text-align:center;padding:15px 12px;border-bottom:1px solid #F1F4FA;font-weight:700;';
+      if (v === '○') return base + 'color:#2F6BFF;font-size:17px';
+      if (v === '✕') return base + 'color:#CFD7E6;font-size:15px';
+      return base + 'color:#3A4761;font-size:14px';
+    };
+    const compare = cmpRows.map((r, i) => ({
+      label: r[0],
+      v0: r[1], v1: r[2], v2: r[3], v3: r[4],
+      rowStyle: i >= 11 ? 'background:#FBFCFE' : '',
+      labelStyle: 'text-align:left;padding:15px 22px;font-size:14px;font-weight:700;color:#1B2740;border-bottom:1px solid #F1F4FA',
+      c0: cellStyle(r[1]), c1: cellStyle(r[2]) + ';background:#FAFCFF', c2: cellStyle(r[3]), c3: cellStyle(r[4])
+    }));
+
+    const faqData = [
+      { q: '기존에 쓰던 엑셀 자료도 옮길 수 있나요?', a: '가능합니다. 온보딩 단계에서 담당자가 기존 고객·팀장·일정 데이터를 정리해 그대로 이관해 드립니다.' },
+      { q: '팀장님들이 앱을 잘 쓸 수 있을까요?', a: '팀장 화면은 오늘 일정 확인과 사진 촬영 두 가지에 맞춰 설계했습니다. 별도 교육 없이 첫날부터 사용 가능하며, 온보딩 시 현장 교육 자료도 함께 제공합니다.' },
+      { q: '협력사에 오더를 넘길 때도 정산이 되나요?', a: '네. 양도할 오더를 장바구니에 담아 협력사에 한 번에 전달하고, 인계된 건의 수수료까지 자동으로 계산됩니다.' },
+      { q: '전자 근로계약서가 법적 효력이 있나요?', a: '회사 계약서 양식이 자동 삽입되고 본인 확인 서명으로 체결됩니다. 대면 서명 없이 1분이면 완료됩니다.' },
+      { q: '계약 기간 약정이 있나요?', a: '월 단위로 이용하실 수 있으며, 연 단위 계약 시 별도 할인이 적용됩니다. 자세한 조건은 상담 시 안내드립니다.' }
+    ];
+    const faqs = faqData.map((f, i) => {
+      const on = i === this.state.faq;
+      return {
+        q: f.q, a: f.a,
+        toggle: () => this.setState({ faq: on ? -1 : i }),
+        wrapStyle: 'background:#fff;border-radius:18px;overflow:hidden;transition:border-color .2s;border:1px solid ' + (on ? '#2F6BFF' : '#E6ECF9'),
+        iconStyle: 'flex-shrink:0;width:28px;height:28px;border-radius:50%;background:#F0F5FF;color:#2F6BFF;font-size:17px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:transform .25s;transform:rotate(' + (on ? '45deg' : '0deg') + ')',
+        bodyStyle: 'font-size:16px;line-height:1.8;color:#5D6B85;padding:0 26px 26px;' + (on ? '' : 'display:none')
+      };
+    });
+
+    return {
+      isA: hero === 'a', isB: hero === 'b', isC: hero === 'c',
+      setHeroA: () => this.setState({ hero: 'a' }),
+      setHeroB: () => this.setState({ hero: 'b' }),
+      setHeroC: () => this.setState({ hero: 'c' }),
+      chipA: this.chip(hero === 'a'), chipB: this.chip(hero === 'b'), chipC: this.chip(hero === 'c'),
+      zoom: e => this.openZoom(e),
+
+      steps, active: stepData[this.state.step],
+      role: roles[this.state.role],
+      setMarketer: () => this.setState({ role: 0 }),
+      setLeader: () => this.setState({ role: 1 }),
+      tabMarketer: this.tab(this.state.role === 0),
+      tabLeader: this.tab(this.state.role === 1),
+      extras: [
+        { tag: 'SETTLEMENT', t: '자동 정산 · 수수료 계산', d: '완료 건이 그대로 정산으로. 수동 엑셀 작업이 사라집니다.' },
+        { tag: 'REVIEW', t: '악성 리뷰 방어', d: '불편접수 링크를 동시 발송해 악성 리뷰를 사전에 흡수합니다.' },
+        { tag: 'CRM', t: '광고비 회수 CRM', d: '어떤 광고가 실제 매출로 이어졌는지 건별로 추적합니다.' },
+        { tag: 'PARTNER', t: '협력사 오더 양도 · 일괄 정산', d: '넘긴 만큼 수수료가 자동 합산됩니다. 15건을 넘겨도 한 번에 계산됩니다.' },
+        { tag: 'CONTRACT', t: '전자 근로계약서', d: '대면 서명 없이 1분. 회사 양식이 자동으로 삽입됩니다.' },
+        { tag: 'TELE-CRM', t: '재택 상담사 실시간 관리', d: '재택 상담사 현황과 처리 건수를 실시간으로 확인해 관리 사각지대를 없앱니다.' },
+        { tag: 'TRANSPARENCY', t: '투명한 오더 정보', d: '투입시간 · 지역 · 평수 · 구조를 공개해 딴소리를 막고, 개인정보는 안전하게 보호합니다.' },
+        { tag: 'MOBILE', t: '100% 모바일 대응', d: '견적서 작성부터 발송까지 사무실 밖에서도 그대로.' }
+      ],
+      reviews: [
+        { q: '접수 누락이 사라진 게 제일 큽니다. 링크만 보내면 되니까 전화로 받아 적던 시간이 통째로 없어졌어요.', i: '클', n: '클O느', c: '입주청소 · 팀장 12명' },
+        { q: '배정에 30분씩 쓰던 걸 이제 5분이면 끝냅니다. 팀장 휴무를 따로 물어볼 일이 없어요.', i: '치', n: '치우는사O들', c: '종합청소 · 팀장 8명' },
+        { q: '월말 정산 엑셀 야근이 없어졌습니다. 협력사 수수료까지 자동으로 잡히니 분쟁도 줄었어요.', i: '청', n: '청소는즐O워', c: '상가청소 · 팀장 20명' }
+      ],
+      plans: planVals, compare,
+      setMonthly: () => this.setState({ cycle: 'monthly' }),
+      setYearly: () => this.setState({ cycle: 'yearly' }),
+      cycleMonthly: this.tab(!yearly), cycleYearly: this.tab(yearly),
+      onboarding: [
+        { n: '01', t: '도입 상담 신청', d: '아래 폼을 남겨주시면 영업일 1일 이내 연락드립니다.' },
+        { n: '02', t: '업무 진단 · 데모', d: '현재 운영 방식을 듣고 맞춤 화면으로 데모를 보여드립니다.' },
+        { n: '03', t: '계정 · 데이터 세팅', d: '팀장 계정과 기존 고객·일정 데이터를 이관합니다.' },
+        { n: '04', t: '현장 적용', d: '팀장 교육 자료와 함께 바로 실전 운영을 시작합니다.' }
+      ],
+      faqs,
+      sent: this.state.sent, notSent: !this.state.sent,
+      submit: () => this.setState({ sent: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

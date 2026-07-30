@@ -25,6 +25,25 @@ export const TENANT_FEATURE_MODULES = {
 
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;
 
+/** Premium·Standard+ 공통 업무 모듈 (텔레CRM mod_telecrm 은 별도 옵션 — 미포함) */
+export const TENANT_PREMIUM_BUSINESS_MODULE_IDS = [
+  'core_inquiries',
+  'core_schedule',
+  'core_assignments',
+  'core_messages',
+  'mod_cs',
+  'mod_external_co',
+  'mod_tenant_exchange',
+  'mod_db_marketplace',
+  'mod_crew',
+  'mod_team_stats',
+  'mod_inspection',
+  'mod_advertising',
+  'mod_payroll',
+  'mod_e_contract',
+  'mod_landing_inquiry',
+] as const satisfies readonly TenantFeatureModuleId[];
+
 export const TENANT_PLANS = {
   free: {
     label: 'Free',
@@ -48,39 +67,11 @@ export const TENANT_PLANS = {
   },
   standard_plus: {
     label: 'Standard+',
-    modules: [
-      'core_inquiries',
-      'core_schedule',
-      'core_assignments',
-      'core_messages',
-      'mod_cs',
-      'mod_external_co',
-      'mod_crew',
-      'mod_team_stats',
-      'mod_inspection',
-      'mod_advertising',
-      'mod_db_marketplace',
-    ] as TenantFeatureModuleId[],
+    modules: [...TENANT_PREMIUM_BUSINESS_MODULE_IDS],
   },
   premium: {
     label: 'Premium',
-    modules: [
-      'core_inquiries',
-      'core_schedule',
-      'core_assignments',
-      'core_messages',
-      'mod_cs',
-      'mod_external_co',
-      'mod_tenant_exchange',
-      'mod_db_marketplace',
-      'mod_crew',
-      'mod_team_stats',
-      'mod_inspection',
-      'mod_advertising',
-      'mod_payroll',
-      'mod_e_contract',
-      'mod_landing_inquiry',
-    ] as TenantFeatureModuleId[],
+    modules: [...TENANT_PREMIUM_BUSINESS_MODULE_IDS],
   },
 } as const;
 

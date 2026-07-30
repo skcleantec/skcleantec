@@ -12,6 +12,7 @@ import {
 import {
   readTelecrmMetaForPreserve,
   restoreTelecrmMetaIfMissing,
+  getTelecrmFeatureRow,
 } from '../telecrm/telecrmTenantPolicy.service.js';
 import { ensureDefaultAdChannelsForTenant } from '../advertising/defaultAdChannels.js';
 import { customModulesForTenantSlug, isCustomModuleId, isRegisteredCustomModuleId } from '../custom/customModuleCatalog.js';
@@ -328,6 +329,8 @@ export async function resetTenantFeaturesFromPlan(tenantId: string) {
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) throw new TenantNotFoundError();
 
+  const telecrmRow = await getTelecrmFeatureRow(tenantId);
+  const telecrmWasLicensed = telecrmRow?.enabled === true;
   const preservedTelecrmMeta = await readTelecrmMetaForPreserve(tenantId);
 
   const planModules = modulesForPlan(tenant.plan);
@@ -339,7 +342,18 @@ export async function resetTenantFeaturesFromPlan(tenantId: string) {
     }),
   ]);
 
-  await restoreTelecrmMetaIfMissing(tenantId, preservedTelecrmMeta);
+  if (telecrmWasLicensed && !planModules.includes('mod_telecrm')) {
+    await prisma.tenantFeature.create({
+      data: {
+        tenantId,
+        moduleId: 'mod_telecrm',
+        enabled: true,
+        meta: preservedTelecrmMeta ?? undefined,
+      },
+    });
+  } else {
+    await restoreTelecrmMetaIfMissing(tenantId, preservedTelecrmMeta);
+  }
 }
 
 export async function updateTenantConfigForPlatform(tenantId: string, body: unknown) {

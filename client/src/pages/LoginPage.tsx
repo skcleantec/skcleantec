@@ -18,6 +18,7 @@ import {
   clearResumeLocation,
 } from '../api/sessionGate';
 import { useLoginScrollSurface } from '../hooks/useMobileInputVisibility';
+import { PwaAddToHomeButton } from '../components/auth/PwaAddToHomeButton';
 
 /** ProtectedRoute / TeamProtectedRoute / CrmPopupEntry 가 넘긴 `state.from` 만 안전하게 읽기 */
 function readResumeLocationFromState(state: unknown): RouterLocation | undefined {
@@ -600,15 +601,19 @@ export function LoginPage() {
                   '로그인'
                 )}
               </button>
+
+              <PwaAddToHomeButton />
             </form>
+
+            <Link
+              to="/signup"
+              className="mt-4 flex w-full items-center justify-center rounded-xl border-2 border-slate-900 bg-white py-3 text-fluid-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+            >
+              회원가입(무료)
+            </Link>
           </div>
 
           <p className="mt-6 text-center text-fluid-2xs text-slate-500">
-            청소 업체가 처음이신가요?{' '}
-            <Link to="/signup" className="font-medium text-slate-800 underline-offset-2 hover:underline">
-              회원가입(무료)
-            </Link>
-            {' · '}
             <Link to="/platform/login" className="hover:text-slate-700 underline-offset-2 hover:underline">
               {PLATFORM_NAME} 운영 콘솔
             </Link>

@@ -71,6 +71,8 @@ import platformLegalPublicRoutes from './modules/platform-legal/platformLegal.pu
 import tenantSignupPublicRoutes from './modules/platform/tenantSignup.public.routes.js';
 import tenantPasswordResetPublicRoutes from './modules/auth/tenantPasswordReset.public.routes.js';
 import platformPlanUpgradeRoutes from './modules/platform/platformPlanUpgrade.routes.js';
+import platformSignupInquiryPublicRoutes from './modules/platform-signup-inquiry/platformSignupInquiry.public.routes.js';
+import platformSignupInquiryRoutes from './modules/platform-signup-inquiry/platformSignupInquiry.routes.js';
 import tenantPlanUpgradeRoutes from './modules/tenants/tenantPlanUpgrade.routes.js';
 import { resolveHelpScreenshotFilePath } from './modules/help/helpScreenshotsPath.js';
 import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLeaderTraining.admin.routes.js';
@@ -103,6 +105,7 @@ app.use('/api/platform/db-marketplace', platformDbMarketplaceRoutes);
 app.use('/api/platform/help-inquiry', platformHelpInquiryRoutes);
 app.use('/api/platform/billing', platformBillingRoutes);
 app.use('/api/platform/plan-upgrade-requests', platformPlanUpgradeRoutes);
+app.use('/api/platform/signup-inquiries', platformSignupInquiryRoutes);
 app.use('/api/platform/legal', platformLegalRoutes);
 app.use('/api/platform/partner-promos', platformPartnerPromoRoutes);
 app.use('/api/admin/platform-promos', adminPlatformPromoRoutes);
@@ -182,6 +185,7 @@ app.use('/api/help', helpRoutes);
 app.use('/api/help/inquiry', helpInquiryPublicRoutes);
 app.use('/api/public/legal', platformLegalPublicRoutes);
 app.use('/api/public/tenant-signup', tenantSignupPublicRoutes);
+app.use('/api/public/signup-inquiries', platformSignupInquiryPublicRoutes);
 app.use('/api/public/password-reset', tenantPasswordResetPublicRoutes);
 mountCustomModuleRoutes(app);
 
@@ -232,8 +236,77 @@ const clientDistCandidates = [
   path.join(process.cwd(), '../client/dist'),
 ];
 const clientDir = clientDistCandidates.find((d) => fs.existsSync(d));
+
+function resolveMarketingPaths(): { marketingDir: string; marketingIndexPath: string } | null {
+  const candidates: string[] = [];
+  if (process.env.NODE_ENV !== 'production') {
+    candidates.push(
+      path.join(process.cwd(), 'client/public/marketing'),
+      path.join(__dirname, '../../client/public/marketing'),
+    );
+  }
+  if (clientDir) candidates.push(path.join(clientDir, 'marketing'));
+  for (const marketingDir of candidates) {
+    const marketingIndexPath = path.join(marketingDir, 'index.html');
+    if (fs.existsSync(marketingIndexPath)) return { marketingDir, marketingIndexPath };
+  }
+  return null;
+}
+
 if (clientDir) {
   console.info('[app] client 정적 파일:', clientDir);
+
+  const marketingPaths = resolveMarketingPaths();
+  const marketingDir = marketingPaths?.marketingDir;
+  const marketingIndexPath = marketingPaths?.marketingIndexPath;
+  if (marketingDir && marketingIndexPath) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('[app] marketing 랜딩:', marketingDir);
+    }
+    const marketingSlotsState = path.join(marketingDir, '.image-slots.state.json');
+    if (fs.existsSync(marketingSlotsState)) {
+      let marketingSlotsStateJson = '{}';
+      try {
+        marketingSlotsStateJson = fs.readFileSync(marketingSlotsState, 'utf8');
+      } catch (err) {
+        console.warn('[app] marketing slots state read failed:', err);
+      }
+      app.get('/marketing/.image-slots.state.json', (_req, res) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.type('json').send(marketingSlotsStateJson);
+      });
+    }
+    app.use(
+      '/marketing',
+      express.static(marketingDir, {
+        dotfiles: 'allow',
+        setHeaders(res, filePath) {
+          if (path.basename(filePath) === 'index.html') {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          }
+        },
+      }),
+    );
+  }
+  if (marketingIndexPath) {
+    const sendMarketingLanding = (
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      if (req.method === 'HEAD') {
+        res.status(200).end();
+        return;
+      }
+      res.sendFile(marketingIndexPath, (err) => {
+        if (err && !isBenignClientAbortError(err)) next(err);
+      });
+    };
+    app.get('/', sendMarketingLanding);
+    app.get('/index.html', sendMarketingLanding);
+  }
 
   /** 교체 스크린샷 — Volume·최신 파일 우선, 브라우저 캐시 방지 */
   app.get('/help/screenshots/:filename', (req, res, next) => {

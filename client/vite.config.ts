@@ -38,11 +38,31 @@ export default defineConfig(({ command, mode }) => {
 
   const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+  const marketingLandingPlugin = {
+    name: 'marketing-landing-root',
+    configureServer(server: import('vite').ViteDevServer) {
+      const marketingIndex = path.join(repoRoot, 'client/public/marketing/index.html');
+      if (!fs.existsSync(marketingIndex)) return;
+      server.middlewares.use((req, res, next) => {
+        const url = req.url?.split('?')[0] ?? '';
+        if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+        if (url !== '/' && url !== '/index.html') return next();
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        if (req.method === 'HEAD') {
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+        fs.createReadStream(marketingIndex).pipe(res);
+      });
+    },
+  };
+
   return {
     define: {
       'import.meta.env.VITE_INTERNAL_API_BASE': JSON.stringify(devInternalApiBase),
     },
-    plugins: [react()],
+    plugins: [react(), marketingLandingPlugin],
     resolve: {
       alias: {
         '@shared': path.join(repoRoot, 'shared'),
