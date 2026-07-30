@@ -6,7 +6,7 @@ import re
 import time
 
 from automation.overlay_modals import dismiss_blocking_overlays
-from automation.mobile_viewport import apply_mobile_viewport
+from automation.window_layout import apply_mobile_viewport
 from automation.selectors import NON_CHAT_SESSION_PATH_HINTS, URLS
 
 logger = logging.getLogger(__name__)

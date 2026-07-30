@@ -210,7 +210,7 @@ class BrowserManager:
                 self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
                     'source': "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })"
                 })
-                from automation.mobile_viewport import apply_mobile_viewport
+                from automation.window_layout import apply_mobile_viewport
 
                 apply_mobile_viewport(self.driver)
                 self.wait = WebDriverWait(self.driver, 10)
@@ -224,7 +224,7 @@ class BrowserManager:
     def reapply_mobile_viewport(self) -> bool:
         if not self.driver:
             return False
-        from automation.mobile_viewport import apply_mobile_viewport
+        from automation.window_layout import apply_mobile_viewport
 
         return apply_mobile_viewport(self.driver)
 
