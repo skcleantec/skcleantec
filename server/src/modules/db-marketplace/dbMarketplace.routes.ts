@@ -62,6 +62,10 @@ function mapError(res: import('express').Response, e: unknown): boolean {
     res.status(e.status).json({ error: e.message });
     return true;
   }
+  if (e && typeof e === 'object' && 'code' in e && (e as { code?: string }).code === 'P2003') {
+    res.status(409).json({ error: '연관 데이터 충돌로 처리할 수 없습니다. 새로고침 후 다시 시도해 주세요.' });
+    return true;
+  }
   return false;
 }
 
