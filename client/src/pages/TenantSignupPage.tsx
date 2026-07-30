@@ -27,7 +27,7 @@ const inputClass =
 
 export function TenantSignupPage() {
   const navigate = useNavigate();
-  const { scrollRef } = useLoginScrollSurface();
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
   const [adminLoginId, setAdminLoginId] = useState('admin');
@@ -201,6 +201,7 @@ export function TenantSignupPage() {
 
           <form
             onSubmit={handleComplete}
+            onFocusCapture={onFieldFocus}
             className="space-y-4 rounded-2xl border border-slate-200/90 bg-white/95 p-5 shadow-xl shadow-slate-900/5"
           >
             <div className="grid gap-4 sm:grid-cols-2">

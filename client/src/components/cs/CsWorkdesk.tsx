@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
@@ -422,6 +423,11 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
   }, [isAdmin, listTotal, listPageSize]);
 
   const lastCsWsRefreshRef = useRef(0);
+  const csDetailScrollRef = useRef<HTMLDivElement>(null);
+  const { onFieldFocus: onCsDetailFieldFocus } = useModalScrollKeyboardAvoidance(
+    csDetailScrollRef,
+    Boolean(selected),
+  );
   const refreshCsListFromWs = useCallback(() => {
     const now = Date.now();
     if (now - lastCsWsRefreshRef.current < 4000) return;
@@ -1037,7 +1043,14 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
       {selected
         ? createPortal(
         <div className={detailOverlayClass} onClick={closeDetail}>
-          <div className={detailPanelClass} onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={teamDetailMobile ? undefined : csDetailScrollRef}
+            onFocusCapture={teamDetailMobile ? undefined : onCsDetailFieldFocus}
+            className={
+              teamDetailMobile ? detailPanelClass : `${detailPanelClass} modal-form-scroll-surface`
+            }
+            onClick={(e) => e.stopPropagation()}
+          >
             <ModalCloseButton onClick={closeDetail} />
             <div className={detailHeaderClass}>
               <div className={`flex gap-2 ${teamDetailMobile ? 'items-start justify-between' : 'flex-col'}`}>
@@ -1061,7 +1074,15 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                 ) : null}
               </div>
             </div>
-            <div className={detailBodyClass}>
+          <div
+            ref={teamDetailMobile ? csDetailScrollRef : undefined}
+            onFocusCapture={teamDetailMobile ? onCsDetailFieldFocus : undefined}
+            className={
+              teamDetailMobile
+                ? `${detailBodyClass} modal-form-scroll-surface`
+                : detailBodyClass
+            }
+          >
               <div
                 className={`flex gap-2 ${teamDetailMobile ? 'items-center justify-between rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-2 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0' : 'flex-col sm:flex-row sm:items-center sm:justify-between'}`}
               >

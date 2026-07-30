@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { useStaffAppScrollPreserve } from '../../hooks/useStaffAppScrollPreserve';
+import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { beginListRefresh, shouldShowListBlockingLoading } from '../../utils/listRefreshDisplay';
 import {
   sortInquiryListRows,
@@ -877,6 +878,11 @@ export function AdminInquiriesPage() {
     item: InquiryItem;
   } | null>(null);
   const [editItem, setEditItem] = useState<InquiryItem | null>(null);
+  const inquiryListEditScrollRef = useRef<HTMLDivElement>(null);
+  const { onFieldFocus: onInquiryListEditFieldFocus } = useModalScrollKeyboardAvoidance(
+    inquiryListEditScrollRef,
+    Boolean(editItem && !token),
+  );
   /** 상세 API 로드 중 — 목록 행으로 모달을 먼저 띄우지 않음(금액 설정 패널 깜빡임 방지) */
   const [editOpeningId, setEditOpeningId] = useState<string | null>(null);
   const [inquiryEditPreferredCalOpen, setInquiryEditPreferredCalOpen] = useState(false);
@@ -4260,7 +4266,11 @@ export function AdminInquiriesPage() {
 
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6">
+            <div
+              ref={inquiryListEditScrollRef}
+              onFocusCapture={onInquiryListEditFieldFocus}
+              className="modal-form-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-3 sm:px-6"
+            >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
               <div className="sm:col-span-2">
                 <label className="block text-fluid-sm text-slate-600 mb-1">상태</label>

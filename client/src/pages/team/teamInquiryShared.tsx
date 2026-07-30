@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
+import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import type { OrderTimeSlotLabels } from '@shared/orderFormTimeSlotLabels';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
@@ -1095,6 +1096,8 @@ export function TeamInquiryDetailModal({
   const [happySaving, setHappySaving] = useState(false);
   const [viewerMe, setViewerMe] = useState<TeamViewerMe | null>(null);
   const [shareCopyHint, setShareCopyHint] = useState<string | null>(null);
+  const detailScrollRef = useRef<HTMLDivElement>(null);
+  const { onFieldFocus: onDetailFieldFocus } = useModalScrollKeyboardAvoidance(detailScrollRef, true);
 
   useEffect(() => {
     setItem(initialItem);
@@ -1472,7 +1475,9 @@ export function TeamInquiryDetailModal({
         </header>
 
         <div
-          className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain ${
+          ref={detailScrollRef}
+          onFocusCapture={onDetailFieldFocus}
+          className={`modal-form-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain ${
             isExternalCompact ? 'px-2.5 py-1.5' : 'px-4 py-4'
           }`}
         >

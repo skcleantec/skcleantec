@@ -1,0 +1,58 @@
+---
+description: 모바일 입력 필드 — 키보드가 필드를 가리지 않게 (필수)
+alwaysApply: true
+---
+
+# 모바일 키보드 — 입력 필드 가시성 (필수)
+
+> **배경**: iOS·Android에서 `fixed` 모달·`100dvh` 시트·풀페이지 폼은 소프트 키보드가 올라오면 **포커스된 input/textarea/select**가 가려진다. `scrollIntoView`만으로는 부족하고 **`visualViewport`** 기준 보정이 필요하다.
+
+## 원칙
+
+- **모든 사용자 입력 UI**(로그인·가입·공개 발주서·C/S·접수/스케줄 모달·프로필 온보딩 등)에서, 모바일 키보드가 열릴 때 **포커스 필드는 항상 키보드 위(가시 영역)** 에 있어야 한다.
+- 입력이 **한 줄 검색·GNB 필터**만 있는 경우는 예외 가능. **폼·모달·시트**는 예외 없음.
+
+## 단일 소스 (클라이언트)
+
+| 유형 | 훅 | 스크롤 루트 클래스 | 포커스 연결 |
+|------|-----|-------------------|-------------|
+| 풀페이지 폼 | `useLoginScrollSurface()` | `login-surface` + `overflow-y-auto` | `ref={scrollRef}` + **`onFocusCapture={onFieldFocus}`** on form 또는 scroll wrapper |
+| 모달·시트 내부 스크롤 | `useModalScrollKeyboardAvoidance(scrollRef, enabled)` | `modal-form-scroll-surface` + `overflow-y-auto` | `ref={scrollRef}` + **`onFocusCapture={onFieldFocus}`** |
+
+구현·CSS: `client/src/hooks/useMobileInputVisibility.ts`, `client/src/index.css` (`.login-surface`, `.modal-form-scroll-surface`).
+
+## 풀페이지 폼 체크리스트
+
+1. 루트에 `ref={scrollRef}` + `className="login-surface … overflow-y-auto overscroll-y-contain"`.
+2. 본문 래퍼에 `login-scroll-content`(하단 safe area·키보드 inset).
+3. **`onFocusCapture={onFieldFocus}`** — form 또는 scroll wrapper **한 곳** (input마다 `onFocus` 반복 금지·허용).
+4. 긴 입력란은 `login-field-input` + `scroll-margin-bottom` (CSS에 정의됨).
+
+**참고**: `LoginPage.tsx`, `TenantSignupPage.tsx`, `OrderFormPage.tsx`(공개 모드).
+
+## 모달·시트 체크리스트
+
+1. **`modal-mobile-safe-overlay`** + **`modal-mobile-fullscreen-panel`** (모바일 bottom sheet) 패턴 유지.
+2. **입력 필드가 있는 블록은 `shrink-0` 고정 헤더에 두지 않는다** — 안내·단계 선택(예: 「이 접수의 첫 단계」)은 **스크롤 본문**에 둔다.
+3. 스크롤 div: `ref` + `modal-form-scroll-surface` + `min-h-0 flex-1 overflow-y-auto` + `onFocusCapture`.
+4. `enabled`는 모달 `open`/`createPortal` 조건과 맞춘다.
+
+**참고**: `ScheduleInquiryDetailModal.tsx`, `AdminListIntakeModal.tsx`, `CsWorkdesk.tsx`(팀 C/S 상세), `TeamInquiryDetailModal` (`teamInquiryShared.tsx`).
+
+## 금지
+
+- 모바일 풀스크린 모달에서 **입력 많은 섹션을 `shrink-0` 헤더에 고정**만 하고 스크롤·키보드 회피 없이 두기.
+- `window.scrollTo` / `scrollIntoView` **만**으로 처리하고 `visualViewport`·스크롤 컨테이너 ref 미사용.
+- 새 입력 모달 추가 시 훅·클래스 **복붙 없이** 위 두 훅 중 하나만 사용.
+
+## 신규·수정 시 에이전트 체크
+
+1. `input`/`textarea`/`select`가 있는 **새 화면·모달**인가?
+2. 풀페이지면 `useLoginScrollSurface`, 모달이면 `useModalScrollKeyboardAvoidance` 적용했는가?
+3. `onFocusCapture`가 스크롤 컨테이너(또는 form)에 연결됐는가?
+4. 모바일에서 **키보드 올린 뒤** 포커스 필드·하단 CTA가 가려지지 않는가?
+
+## 관련
+
+- 반응형·모달 레이아웃: **`.cursor/rules/responsive-ui.mdc`**, **`.cursor/rules/team-mobile-compact-ui.mdc`**
+- UI 상세: `docs/UI_DESIGN_GUIDE.md` §6

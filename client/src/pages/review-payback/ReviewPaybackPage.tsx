@@ -17,6 +17,7 @@ import {
   KOREAN_BANK_OTHER,
   resolveBankNameFromSelect,
 } from '../../utils/koreanBankOptions';
+import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 
 const DEFAULT_BRAND = '리뷰 페이백 신청';
 
@@ -104,6 +105,7 @@ function PageShell({
   customerName?: string;
   children: ReactNode;
 }) {
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   useEffect(() => {
     const prevBody = document.body.style.backgroundColor;
     const prevHtml = document.documentElement.style.backgroundColor;
@@ -116,7 +118,11 @@ function PageShell({
   }, []);
 
   return (
-    <div className="flex min-h-dvh flex-1 flex-col w-full bg-slate-100">
+    <div
+      ref={scrollRef}
+      onFocusCapture={onFieldFocus}
+      className="login-surface flex min-h-dvh flex-1 w-full flex-col overflow-y-auto overscroll-y-contain bg-slate-100"
+    >
       <header className="bg-slate-900 text-white shrink-0">
         <div className="max-w-lg mx-auto px-4 py-4 sm:py-5">
           <p className="text-fluid-xs text-slate-400 uppercase tracking-wider">Review Payback</p>

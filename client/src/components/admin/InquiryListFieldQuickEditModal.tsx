@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import { updateInquiry } from '../../api/inquiries';
 import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ModalCloseButton } from './ModalCloseButton';
@@ -53,6 +54,8 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
   const [bathroomCount, setBathroomCount] = useState('');
   const [balconyCount, setBalconyCount] = useState('');
   const [calOpen, setCalOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
 
   useEffect(() => {
     if (!open || !item || !field) return;
@@ -162,15 +165,19 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
         aria-labelledby="inquiry-list-quick-edit-title"
       >
         <div className="absolute inset-0" aria-hidden onClick={saving ? undefined : onClose} />
-        <div className="relative w-full max-w-md rounded-t-2xl border border-slate-200 bg-white shadow-xl sm:rounded-2xl">
+        <div className="relative flex max-h-[min(90dvh,640px)] w-full max-w-md flex-col rounded-t-2xl border border-slate-200 bg-white shadow-xl sm:rounded-2xl">
           <ModalCloseButton onClick={onClose} disabled={saving} />
-          <div className="border-b border-slate-100 px-4 pb-3 pt-4 pr-12">
+          <div className="shrink-0 border-b border-slate-100 px-4 pb-3 pt-4 pr-12">
             <h2 id="inquiry-list-quick-edit-title" className="text-fluid-base font-semibold text-slate-900">
               {FIELD_TITLE[field]}
             </h2>
             <p className="mt-0.5 truncate text-fluid-xs text-slate-500">{item.customerName}</p>
           </div>
-          <div className="space-y-4 px-4 py-4">
+          <div
+            ref={scrollRef}
+            onFocusCapture={onFieldFocus}
+            className="modal-form-scroll-surface min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-y-contain px-4 py-4"
+          >
             {field === 'date' ? (
               <div>
                 <label className="mb-1 block text-fluid-xs font-medium text-slate-600">예약일 (청소 희망일)</label>

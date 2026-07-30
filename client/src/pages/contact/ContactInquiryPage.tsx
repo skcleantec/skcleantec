@@ -7,6 +7,7 @@ import {
   submitLandingContactInquiry,
   type LandingContactPublicForm,
 } from '../../api/landingContact';
+import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 import type { LandingContactCustomFieldDef } from '@shared/landingContactForm';
 
 const inputCls =
@@ -99,6 +100,7 @@ function PageShell({
   introLine?: string;
   children: ReactNode;
 }) {
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   useEffect(() => {
     const prevBody = document.body.style.backgroundColor;
     const prevHtml = document.documentElement.style.backgroundColor;
@@ -111,7 +113,11 @@ function PageShell({
   }, []);
 
   return (
-    <div className="flex min-h-dvh w-full flex-1 flex-col bg-slate-100">
+    <div
+      ref={scrollRef}
+      onFocusCapture={onFieldFocus}
+      className="login-surface flex min-h-dvh w-full flex-1 flex-col overflow-y-auto overscroll-y-contain bg-slate-100"
+    >
       <header className="shrink-0 bg-slate-900 text-white">
         <div className="mx-auto max-w-lg px-4 py-4 sm:py-5">
           <p className="text-fluid-xs uppercase tracking-wider text-slate-400">Service Inquiry</p>

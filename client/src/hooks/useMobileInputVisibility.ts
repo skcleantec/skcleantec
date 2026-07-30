@@ -57,7 +57,8 @@ function scheduleEnsureVisible(
 
 /**
  * 로그인·인증 등 풀페이지 폼 — 모바일 키보드가 입력칸을 가리지 않게 한다.
- * scrollRef 루트에 overflow-y-auto + login-surface 클래스를 둔다.
+ * scrollRef 루트: overflow-y-auto + login-surface.
+ * form 또는 scroll wrapper에 onFocusCapture={onFieldFocus} 한 번만 연결 (input마다 onFocus 불필요).
  */
 export function useLoginScrollSurface(): {
   scrollRef: RefObject<HTMLDivElement | null>;
@@ -97,7 +98,7 @@ export function useLoginScrollSurface(): {
   return { scrollRef, onFieldFocus };
 }
 
-/** 모달·시트 내부 스크롤 — 모바일 키보드가 입력칸을 가리지 않게 */
+/** 모달·시트 내부 스크롤 — 모바일 키보드가 입력칸을 가리지 않게. scroll div에 modal-form-scroll-surface + onFocusCapture. */
 export function useModalScrollKeyboardAvoidance(
   scrollRef: RefObject<HTMLElement | null>,
   enabled = true,

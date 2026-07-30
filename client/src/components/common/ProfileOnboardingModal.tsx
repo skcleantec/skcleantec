@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import {
   completeMyProfile,
   isAuthSessionExpiredError,
@@ -46,6 +47,8 @@ export function ProfileOnboardingModal({
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
 
   useEffect(() => {
     if (!open) return;
@@ -161,7 +164,11 @@ export function ProfileOnboardingModal({
           </p>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 sm:px-5">
+        <div
+          ref={scrollRef}
+          onFocusCapture={onFieldFocus}
+          className="modal-form-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 sm:px-5"
+        >
           {error ? (
             <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800">
               {error}

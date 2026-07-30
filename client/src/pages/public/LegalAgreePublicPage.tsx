@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 import {
   fetchPublicLegalSession,
   submitPublicLegalAgreement,
@@ -30,6 +31,7 @@ export function LegalAgreePublicPage() {
   const [signerPhone, setSignerPhone] = useState('');
   const [tenantSlug, setTenantSlug] = useState('');
   const [agreed, setAgreed] = useState(false);
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface();
 
   const load = useCallback(async () => {
     if (!decoded) return;
@@ -79,7 +81,11 @@ export function LegalAgreePublicPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-8">
+    <div
+      ref={scrollRef}
+      onFocusCapture={onFieldFocus}
+      className="login-surface min-h-dvh min-h-screen overflow-y-auto overscroll-y-contain bg-slate-100 px-4 py-8"
+    >
       <div className="mx-auto w-full max-w-lg">
         <header className="mb-6 text-center">
           <p className="text-xs font-medium text-slate-500">청소비서 · (주)서비스브릿지</p>

@@ -12,7 +12,7 @@ type Step = 'request' | 'confirm';
 
 export function TenantForgotPasswordPage() {
   const navigate = useNavigate();
-  const { scrollRef } = useLoginScrollSurface();
+  const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   const [step, setStep] = useState<Step>('request');
   const [tenantSlug, setTenantSlug] = useState('');
   const [recoveryEmail, setRecoveryEmail] = useState('');
@@ -89,7 +89,7 @@ export function TenantForgotPasswordPage() {
           </div>
 
           {step === 'request' ? (
-            <form onSubmit={handleSendCode} className="space-y-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xl">
+            <form onSubmit={handleSendCode} onFocusCapture={onFieldFocus} className="space-y-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xl">
               <label className="block">
                 <span className="mb-1 block text-fluid-xs font-medium text-slate-600">업체 코드</span>
                 <input
@@ -119,7 +119,7 @@ export function TenantForgotPasswordPage() {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleConfirm} className="space-y-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xl">
+            <form onSubmit={handleConfirm} onFocusCapture={onFieldFocus} className="space-y-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xl">
               {info ? (
                 <p className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-fluid-2xs text-sky-900">
                   {info}

@@ -84,6 +84,7 @@ alwaysApply: true
 
 ## 7. 디자인
 
+- **모바일 키보드 — 입력 필드 가시성**: **`.cursor/rules/mobile-keyboard-input-visibility.mdc`**
 - **슬레이트 프리미엄 SaaS**: 심플·간결, `slate` 계열 + 부드러운 shadow·`rounded-xl`/`rounded-2xl`
 - 전역 폰트 **Inter + Noto Sans KR** (`client/src/index.css`)
 - 관리·팀·크루 **다크 GNB** (`theme-dark-header`), 본문은 밝은 카드
