@@ -94,6 +94,12 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 .hero-b-line1,.hero-b-line2{display:block;white-space:nowrap;margin-left:auto;margin-right:auto;width:max-content;max-width:100%}
 .hero-b-line1{font-size:min(74px,max(14px,calc((100vw - 32px)/16.5)))}
 .hero-b-line2{font-size:min(74px,max(12px,calc((100vw - 32px)/18)))}
+.crm-headline{white-space:nowrap;font-size:min(46px,max(13px,calc((100vw - 48px)/20.5)))}
+.crm-tags{display:flex;flex-wrap:nowrap;align-items:stretch;gap:clamp(4px,1vw,8px);margin-top:22px;width:100%}
+.crm-tag{flex:1 1 0;min-width:0;white-space:nowrap;text-align:center;font-size:min(14px,max(8px,calc((100vw - 48px - 16px)/28)));font-weight:700;line-height:1.2;padding:clamp(5px,1.5vw,9px) clamp(4px,1.8vw,16px);border-radius:999px}
+.crm-tag--outline{background:#fff;border:1px solid #DCE6FF;color:#2F6BFF}
+.crm-tag--solid{background:#2F6BFF;color:#fff}
+.footer-sb-logo{display:block;margin-top:12px;height:72px;width:auto;max-width:140px;object-fit:contain;background:transparent}
 </style>
 <script>
 (function(){var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;if(s)window.location.replace('/login');})();
@@ -176,7 +182,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
   <div style="max-width:1280px;margin:0 auto;position:relative;text-align:center">
     <div style="animation:riseIn .9s cubic-bezier(.2,.75,.3,1) both">
       <div style="display:inline-flex;align-items:center;gap:9px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.32);color:#fff;font-size:14px;font-weight:700;padding:9px 18px;border-radius:999px">
-        <span style="width:7px;height:7px;border-radius:50%;background:#fff;display:block;animation:pulse 2.2s ease-out infinite"></span>PC · 모바일 동시 지원 · 청소업체 전용 SaaS
+        <span style="width:7px;height:7px;border-radius:50%;background:#fff;display:block;animation:pulse 2.2s ease-out infinite"></span>PC · 모바일 동시 지원 · 청소업체 전용 솔루션
       </div>
     </div>
     <h1 class="hero-b-headline">
@@ -544,12 +550,12 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
   <div style="max-width:1200px;margin:0 auto">
     <div data-reveal="1" style="opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1);max-width:700px">
       <div style="color:#2F6BFF;font-size:15px;font-weight:800;letter-spacing:.02em">CRM</div>
-      <h2 style="margin:14px 0 0;font-size:clamp(30px,3.6vw,46px);line-height:1.25;letter-spacing:-.035em;font-weight:800">창 하나로<br>상담이 끝납니다</h2>
+      <h2 class="crm-headline" style="margin:14px 0 0;line-height:1.25;letter-spacing:-.035em;font-weight:800">초보 상담사도 CRM하나로 전문가처럼!!</h2>
       <p style="margin:18px 0 0;font-size:18px;line-height:1.7;color:#5D6B85">주요 플랫폼이 자동 연동됩니다. 이 창 저 창 옮겨 다닐 필요 없이 <strong style="color:#0B1220;font-weight:800">고객 접수 · 메시지 발신 · 통화 · 발주서 발급 · 예약 변경</strong>을 한 화면에서 처리하는 실시간 업무 시스템입니다.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:22px">
-        <span style="background:#fff;border:1px solid #DCE6FF;color:#2F6BFF;font-size:14px;font-weight:700;padding:9px 16px;border-radius:999px">플랫폼 자동 연동</span>
-        <span style="background:#fff;border:1px solid #DCE6FF;color:#2F6BFF;font-size:14px;font-weight:700;padding:9px 16px;border-radius:999px">창 전환 0회</span>
-        <span style="background:#2F6BFF;color:#fff;font-size:14px;font-weight:700;padding:9px 16px;border-radius:999px">상담 업무효율 100%</span>
+      <div class="crm-tags">
+        <span class="crm-tag crm-tag--outline">플랫폼 자동 연동</span>
+        <span class="crm-tag crm-tag--outline">창 전환 0회</span>
+        <span class="crm-tag crm-tag--solid">상담 업무효율 100%</span>
       </div>
     </div>
 
@@ -857,9 +863,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
     <div style="font-size:14px;line-height:2">
       <div style="color:#fff;font-weight:800;margin-bottom:10px">운영사</div>
       <div>(주)서비스브릿지</div>
-      <div style="margin-top:12px;background:#fff;border-radius:12px;width:128px;height:128px;display:flex;align-items:center;justify-content:center">
-        <img src="assets/logo-sb.png" alt="서비스브릿지" style="width:120px;height:120px;object-fit:contain;display:block">
-      </div>
+      <img src="assets/logo-sb.png" alt="서비스브릿지 ServiceBridge" class="footer-sb-logo">
     </div>
   </div>
   <div style="max-width:1200px;margin:40px auto 0;padding-top:24px;border-top:1px solid #1C2739;font-size:13px">© 2026 ServiceBridge Inc. All rights reserved.</div>
