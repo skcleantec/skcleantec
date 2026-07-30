@@ -1,21 +1,28 @@
 import { SK_TAEGEUK_FLAG_ASSET } from '@shared/custom/skcleantecOpsUi';
 
-/** SK 스케줄 캘린더 — 태극기 + 자사 미배정 원/투룸 건수(타업체 이관 제외) */
+/** SK 스케줄 캘린더 — 태극기 + 자사 배정 원/투룸 건수(정보공유·타업체 이관 제외) */
 export function SkCleantecScheduleOneRoomIndicator({
   count,
+  unassignedCount = 0,
   oneRoomLabel = '원/투룸',
   className = '',
 }: {
   count: number;
+  unassignedCount?: number;
   oneRoomLabel?: string;
   className?: string;
 }) {
-  if (count <= 0) return null;
+  if (count <= 0 && unassignedCount <= 0) return null;
+
+  const title =
+    unassignedCount > 0
+      ? `${oneRoomLabel} 자사 배정 ${count}건 · 미배정 ${unassignedCount}건 (정보공유·타업체 이관 제외)`
+      : `${oneRoomLabel} 자사 배정 ${count}건 (정보공유·타업체 이관 제외)`;
 
   return (
     <div
       className={`flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-bold text-slate-800 leading-none shrink-0 ${className}`}
-      title={`${oneRoomLabel} 미배정 ${count}건 (타업체 이관 제외)`}
+      title={title}
     >
       <span className="flex items-center gap-0.5 min-w-0">
         <img
