@@ -12,6 +12,8 @@
 <script src="./image-slot.js"></script>
 <style>
 *{box-sizing:border-box}
+html,body{height:auto!important;min-height:100%}
+#dc-root,#dc-root>.sc-host{height:auto!important;min-height:100%;overflow:visible!important}
 body{margin:0;background:#fff;color:#0B1220;font-family:"Pretendard Variable",Pretendard,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;word-break:keep-all}
 a{color:#2F6BFF;text-decoration:none}
 a:hover{color:#1B4FD8}
@@ -125,7 +127,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
   </div>
 </header>
 
-<main id="top" style="overflow:hidden">
+<main id="top">
 
 <sc-if value="{{ isA }}" hint-placeholder-val="{{ true }}">
 <section style="position:relative;background:linear-gradient(180deg,#F4F7FF 0%,#EDF3FF 60%,#FFFFFF 100%);padding:96px 24px 110px">
