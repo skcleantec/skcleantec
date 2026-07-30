@@ -23,6 +23,20 @@ class StatusWindow:
         self._log_line_count = 0
         self._visible = False
         self._ready = threading.Event()
+        self._on_restart: Callable[[], None] | None = None
+        self._on_check_update: Callable[[], None] | None = None
+        self._on_quit: Callable[[], None] | None = None
+
+    def bind_actions(
+        self,
+        *,
+        on_restart: Callable[[], None] | None = None,
+        on_check_update: Callable[[], None] | None = None,
+        on_quit: Callable[[], None] | None = None,
+    ) -> None:
+        self._on_restart = on_restart
+        self._on_check_update = on_check_update
+        self._on_quit = on_quit
 
     def wait_ready(self, timeout: float = 15.0) -> bool:
         return self._ready.wait(timeout=timeout)
@@ -122,14 +136,36 @@ class StatusWindow:
 
         self.hint_var = tk.StringVar(value='텔레CRM에서 「숨고 연동」·「정보 갖고오기」를 사용하세요.')
         ttk.Label(root, textvariable=self.hint_var, wraplength=420, foreground='#475569').pack(
-            anchor='w', padx=12, pady=(0, 12)
+            anchor='w', padx=12, pady=(0, 8)
         )
+
+        btn_frame = ttk.Frame(root)
+        btn_frame.pack(fill='x', padx=12, pady=(0, 12))
+        ttk.Button(btn_frame, text='재시작', command=self._handle_restart, width=10).pack(
+            side='left', padx=(0, 6)
+        )
+        ttk.Button(btn_frame, text='업데이트 확인', command=self._handle_check_update, width=12).pack(
+            side='left', padx=(0, 6)
+        )
+        ttk.Button(btn_frame, text='종료', command=self._handle_quit, width=10).pack(side='right')
 
         self._append_log_line('프로그램을 시작했습니다.')
         root.withdraw()
         self._visible = False
         root.after(80, self._process_queue)
         self._ready.set()
+
+    def _handle_restart(self) -> None:
+        if self._on_restart:
+            self._on_restart()
+
+    def _handle_check_update(self) -> None:
+        if self._on_check_update:
+            self._on_check_update()
+
+    def _handle_quit(self) -> None:
+        if self._on_quit:
+            self._on_quit()
 
     def hide(self) -> None:
         if self.root:
