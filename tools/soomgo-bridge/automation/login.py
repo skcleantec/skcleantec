@@ -10,7 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
 
 from automation.selectors import URLS, LOGIN
-from automation.navigation import ensure_chat_workspace, is_pro_session_url
+from automation.navigation import ensure_chat_workspace, is_logged_in, is_pro_session_url
 from automation.overlay_modals import dismiss_blocking_overlays
 
 logger = logging.getLogger(__name__)
@@ -342,13 +342,6 @@ def login_to_soomgo(driver, email: str, password: str, delay: float = 1.0) -> bo
         return is_pro_session_url(driver.current_url)
     except Exception as e:
         logger.error('login error: %s', e)
-        return False
-
-
-def is_logged_in(driver) -> bool:
-    try:
-        return is_pro_session_url(driver.current_url)
-    except Exception:
         return False
 
 

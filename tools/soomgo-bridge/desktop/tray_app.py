@@ -100,6 +100,11 @@ class TrayApp:
         self._last_bg_download_at = 0.0
         self._bridge_failures = 0
         self._window = StatusWindow()
+        self._window.bind_actions(
+            on_restart=self._restart_bridge,
+            on_check_update=lambda: self._check_update_prompt(force=True),
+            on_quit=self._quit,
+        )
         self._icon_thread: threading.Thread | None = None
 
     def _subprocess_flags(self) -> int:
@@ -437,9 +442,12 @@ class TrayApp:
                 return
             required = is_update_required(manifest)
             available = is_update_available(manifest)
-            if not force and not required and not available:
+            if not required and not available:
                 if force:
-                    mb.showinfo('업데이트', f'현재 최신 버전입니다.\n\n{manifest_summary(manifest)}')
+                    mb.showinfo(
+                        '업데이트 확인',
+                        f'현재 최신 버전입니다.\n\n{manifest_summary(manifest)}',
+                    )
                 return
             if auto_install or required:
                 threading.Thread(target=lambda: self._run_update(manifest), daemon=True).start()
@@ -529,8 +537,13 @@ class TrayApp:
         self._start_bridge()
 
     def _quit(self, *_args) -> None:
-        """트레이 메뉴 종료 — Tk mainloop가 끝나면 run()에서 정리."""
-        self._window.run_on_ui(self._window.destroy)
+        """완전 종료 — 상태창·브릿지 서버·트레이 아이콘까지 종료."""
+        self._log('프로그램 종료…')
+
+        def _exit_ui() -> None:
+            self._window.destroy()
+
+        self._window.run_on_ui(_exit_ui)
 
     def _shutdown(self) -> None:
         self._stop.set()

@@ -6,8 +6,12 @@ URLS = {
     'PRO_HOME': 'https://soomgo.com/pro',
 }
 
-# 받은요청·견적 등 채팅이 아닌 고수 업무 경로 (로그인 후 기본 랜딩에 자주 나타남)
-NON_CHAT_PRO_PATH_HINTS = (
+# 로그인 후 채팅이 아닌 업무 경로 (/pro·/requests 등)
+NON_CHAT_SESSION_PATH_HINTS = (
+    '/requests/received',
+    '/requests',
+    '/request/received',
+    '/request',
     '/pro/requests',
     '/pro/request',
     '/pro/received',
@@ -15,7 +19,32 @@ NON_CHAT_PRO_PATH_HINTS = (
     '/pro/quote',
     '/pro/estimate',
     '/pro/incoming',
+    '/pro/home',
+    '/pro/dashboard',
+    '/pro/main',
+    '/pro/market',
+    '/pro/marketplace',
+    '/pro/profile',
+    '/pro/settings',
+    '/pro/notification',
+    '/pro/notifications',
+    '/pro/calendar',
+    '/pro/schedule',
+    '/pro/settlement',
+    '/pro/payment',
+    '/pro/review',
+    '/pro/reviews',
+    '/pro/ad',
+    '/pro/ads',
+    '/pro/store',
+    '/pro/guide',
+    '/pro/onboarding',
+    '/pro/welcome',
+    '/pro/feed',
 )
+
+# 하위 호환 — /pro 경로만 (navigation 내부에서 session hints 로 확장)
+NON_CHAT_PRO_PATH_HINTS = NON_CHAT_SESSION_PATH_HINTS
 
 LOGIN = {
     'EMAIL_INPUT': "input[type='email'], input[name='email'], input[placeholder*='이메일']",

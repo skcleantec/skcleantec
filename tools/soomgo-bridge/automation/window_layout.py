@@ -1,4 +1,4 @@
-"""숨고 Chrome 창 — 화면 우측(최소 폭) 배치"""
+"""숨고 Chrome 창 — 화면 우측(최소 폭) 배치 + 모바일 viewport (CDP)"""
 from __future__ import annotations
 
 import logging
@@ -7,6 +7,52 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 SOOMGO_SPLIT_MIN_WIDTH = 420
+
+MOBILE_VIEWPORT_WIDTH = 390
+MOBILE_VIEWPORT_HEIGHT = 844
+MOBILE_DEVICE_SCALE = 2
+
+MOBILE_USER_AGENT = (
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+    'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 '
+    'Mobile/15E148 Safari/604.1'
+)
+
+
+def apply_mobile_viewport(driver, width: int | None = None, height: int | None = None) -> bool:
+    """창 크기에 맞춰 모바일 레이아웃을 렌더링 — 좌우·하단 회색 여백 방지."""
+    try:
+        if width is None or height is None:
+            rect = driver.get_window_rect()
+            width = width if width is not None else int(rect.get('width', MOBILE_VIEWPORT_WIDTH))
+            height = height if height is not None else int(rect.get('height', MOBILE_VIEWPORT_HEIGHT))
+        width = max(SOOMGO_SPLIT_MIN_WIDTH, int(width))
+        height = max(480, int(height))
+
+        driver.execute_cdp_cmd(
+            'Emulation.setDeviceMetricsOverride',
+            {
+                'width': width,
+                'height': height,
+                'deviceScaleFactor': 1,
+                'mobile': True,
+            },
+        )
+        driver.execute_cdp_cmd(
+            'Emulation.setUserAgentOverride',
+            {
+                'userAgent': MOBILE_USER_AGENT,
+                'platform': 'iPhone',
+            },
+        )
+        driver.execute_cdp_cmd(
+            'Emulation.setTouchEmulationEnabled',
+            {'enabled': True},
+        )
+        return True
+    except Exception as e:
+        logger.warning('apply_mobile_viewport: %s', e)
+        return False
 
 
 def _split_widths(bounds: dict[str, Any] | None, screen_width: int) -> tuple[int, int]:
@@ -44,6 +90,7 @@ def arrange_soomgo_right_half(driver, bounds: dict[str, Any] | None = None) -> b
         w = max(SOOMGO_SPLIT_MIN_WIDTH, int(bounds.get('soomgoWidth', soomgo_w) if bounds else soomgo_w))
         h = max(480, height)
         driver.set_window_rect(x=x, y=y, width=w, height=h)
+        apply_mobile_viewport(driver, width=w, height=h)
         return True
     except Exception as e:
         logger.warning('arrange_soomgo_right_half: %s', e)

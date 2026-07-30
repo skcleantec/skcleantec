@@ -43,6 +43,23 @@ if ($LASTEXITCODE -ne 0) {
     throw 'Bundled runtime verification failed — tkinter or selenium missing'
 }
 
+Write-Host "Verify bridge pack imports..."
+$packCheck = @"
+import pathlib, sys
+root = pathlib.Path(r'$BridgeRoot')
+for rel in ('automation/window_layout.py', 'automation/navigation.py', 'server.py'):
+    if not (root / rel).is_file():
+        raise SystemExit('missing pack file: ' + rel)
+sys.path.insert(0, str(root))
+from automation.window_layout import apply_mobile_viewport
+from automation.navigation import ensure_chat_workspace, is_logged_in
+print('pack import ok')
+"@
+& $BundledPy -c $packCheck
+if ($LASTEXITCODE -ne 0) {
+    throw 'Bridge pack import verification failed'
+}
+
 Push-Location $BridgeRoot
 try {
     & $Iscc "/DMyAppVersion=$Version" $IssPath
