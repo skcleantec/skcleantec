@@ -297,27 +297,33 @@ export function InquiryDbMarketplaceSellPanel({
   };
 
   const completeRecall = async (password: string) => {
-    if (!token || !listing) return;
+    if (!token || !listing) {
+      throw new Error('세션이 만료되었거나 판매 정보를 찾을 수 없습니다.');
+    }
     const result = await completeRecallDbMarketplaceListing(token, listing.id, password);
     setListing(null);
-    setRecallModalOpen(false);
-    await notifyListingChange();
-    alert(
-      `완전 회수했습니다.\n` +
-        `정보공유 수수료 ${result.refundListingFee.toLocaleString('ko-KR')}원은 더 이상 받을 금액(미수)에 잡히지 않습니다.\n` +
-        `이미 파트너 정산에서 「결재받은금액」을 입력했다면, 누적 미수는 −${result.refundListingFee.toLocaleString('ko-KR')}원(상대 업체에 돌려줄 금액)으로 보이는 것이 맞습니다.\n` +
-        `실제로 돈을 돌려준 뒤에는 같은 금액을 마이너스(−) 결재로 입력해 0에 맞추세요.\n일반 접수로 복귀했습니다.`,
-    );
+    void notifyListingChange();
+    window.setTimeout(() => {
+      alert(
+        `완전 회수했습니다.\n` +
+          `정보공유 수수료 ${result.refundListingFee.toLocaleString('ko-KR')}원은 더 이상 받을 금액(미수)에 잡히지 않습니다.\n` +
+          `이미 파트너 정산에서 「결재받은금액」을 입력했다면, 누적 미수는 −${result.refundListingFee.toLocaleString('ko-KR')}원(상대 업체에 돌려줄 금액)으로 보이는 것이 맞습니다.\n` +
+          `실제로 돈을 돌려준 뒤에는 같은 금액을 마이너스(−) 결재로 입력해 0에 맞추세요.\n일반 접수로 복귀했습니다.`,
+      );
+    }, 0);
   };
 
   const cartRecall = async (password: string) => {
-    if (!token || !listing) return;
+    if (!token || !listing) {
+      throw new Error('세션이 만료되었거나 판매 정보를 찾을 수 없습니다.');
+    }
     await cartRecallDbMarketplaceListing(token, listing.id, password);
     const refreshed = await getDbListingByInquiry(token, inquiryId);
     setListing(refreshed);
-    setCartRecallModalOpen(false);
-    await notifyListingChange();
-    alert('장바구니 회수했습니다. 다시 게시할 수 있습니다.');
+    void notifyListingChange();
+    window.setTimeout(() => {
+      alert('장바구니 회수했습니다. 다시 게시할 수 있습니다.');
+    }, 0);
   };
 
   const canEdit = !disabled && listing?.status !== 'CONFIRMED' && listing?.status !== 'PENDING_SELLER';

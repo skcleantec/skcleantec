@@ -322,6 +322,20 @@ export async function stepRecallDbListing(opts: {
       });
     }
 
+    // listing 삭제 전에 기록 — complete 모드에서 delete 후 insert 시 FK 위반으로 회수가 항상 실패함
+    await appendDbMarketplaceEvent(tx, {
+      tenantId: opts.sellerTenantId,
+      listingId: listing.id,
+      eventType,
+      hopIndex: listing.hopIndex,
+      actorUserId: opts.sellerUserId,
+      payload: {
+        mode: opts.mode,
+        buyerKind: listing.buyerKind,
+        rootTenantName: listing.rootTenant?.name ?? null,
+      },
+    });
+
     if (isComplete) {
       await tx.inquiryDbListing.delete({ where: { id: listing.id } });
     } else {
@@ -345,19 +359,6 @@ export async function stepRecallDbListing(opts: {
         },
       });
     }
-
-    await appendDbMarketplaceEvent(tx, {
-      tenantId: opts.sellerTenantId,
-      listingId: listing.id,
-      eventType,
-      hopIndex: listing.hopIndex,
-      actorUserId: opts.sellerUserId,
-      payload: {
-        mode: opts.mode,
-        buyerKind: listing.buyerKind,
-        rootTenantName: listing.rootTenant?.name ?? null,
-      },
-    });
   });
 
   if (buyerTenantId) {
