@@ -236,12 +236,33 @@ const clientDistCandidates = [
   path.join(process.cwd(), '../client/dist'),
 ];
 const clientDir = clientDistCandidates.find((d) => fs.existsSync(d));
+
+function resolveMarketingPaths(): { marketingDir: string; marketingIndexPath: string } | null {
+  const candidates: string[] = [];
+  if (process.env.NODE_ENV !== 'production') {
+    candidates.push(
+      path.join(process.cwd(), 'client/public/marketing'),
+      path.join(__dirname, '../../client/public/marketing'),
+    );
+  }
+  if (clientDir) candidates.push(path.join(clientDir, 'marketing'));
+  for (const marketingDir of candidates) {
+    const marketingIndexPath = path.join(marketingDir, 'index.html');
+    if (fs.existsSync(marketingIndexPath)) return { marketingDir, marketingIndexPath };
+  }
+  return null;
+}
+
 if (clientDir) {
   console.info('[app] client 정적 파일:', clientDir);
 
-  const marketingDir = path.join(clientDir, 'marketing');
-  const marketingIndexPath = path.join(marketingDir, 'index.html');
-  if (fs.existsSync(marketingDir)) {
+  const marketingPaths = resolveMarketingPaths();
+  const marketingDir = marketingPaths?.marketingDir;
+  const marketingIndexPath = marketingPaths?.marketingIndexPath;
+  if (marketingDir && marketingIndexPath) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('[app] marketing 랜딩:', marketingDir);
+    }
     const marketingSlotsState = path.join(marketingDir, '.image-slots.state.json');
     if (fs.existsSync(marketingSlotsState)) {
       let marketingSlotsStateJson = '{}';
@@ -267,7 +288,7 @@ if (clientDir) {
       }),
     );
   }
-  if (fs.existsSync(marketingIndexPath)) {
+  if (marketingIndexPath) {
     const sendMarketingLanding = (
       req: express.Request,
       res: express.Response,

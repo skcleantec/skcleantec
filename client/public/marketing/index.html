@@ -66,11 +66,12 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 .landing-nav-cta{background:#2F6BFF;color:#fff!important;padding:11px 18px;border-radius:999px;font-size:15px;font-weight:700;box-shadow:0 8px 20px rgba(47,107,255,.28);white-space:nowrap}
 .landing-nav-cta:hover{background:#1B4FD8;color:#fff!important}
 .landing-nav-contact{color:#2F6BFF!important;font-weight:700}
-.landing-header-toggle{display:none;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #DCE6FF;border-radius:8px;background:#fff;color:#3A4761;cursor:pointer;flex-shrink:0;padding:0}
+.landing-header-toggle{display:none;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #DCE6FF;border-radius:8px;background:#fff;color:#3A4761;cursor:pointer;flex-shrink:0;padding:0;margin:0}
 .landing-header-toggle svg{width:18px;height:18px;display:block;pointer-events:none}
+.landing-nav-check{position:fixed;opacity:0;width:1px;height:1px;margin:0;padding:0;pointer-events:none;clip:rect(0,0,0,0);overflow:hidden;white-space:nowrap;border:0}
 .landing-header-drawer{display:none;position:fixed;inset:0;z-index:200}
-.landing-header-drawer.is-open{display:block}
-.landing-header-drawer-backdrop{position:absolute;inset:0;background:rgba(11,18,32,.42)}
+#landing-nav-check:checked~#landing-drawer{display:block}
+.landing-header-drawer-backdrop{position:absolute;inset:0;background:rgba(11,18,32,.42);cursor:pointer}
 .landing-header-drawer-panel{position:absolute;top:0;left:0;width:min(280px,86vw);height:100%;background:#fff;border-right:1px solid #EAF0FF;padding:max(14px,env(safe-area-inset-top)) 18px 24px;box-shadow:12px 0 40px rgba(4,10,28,.12);display:flex;flex-direction:column;gap:4px}
 .landing-header-drawer-panel a{display:block;padding:12px 10px;border-radius:10px;color:#3A4761;font-size:15px;font-weight:600}
 .landing-header-drawer-panel a:hover{background:#F4F7FF;color:#2F6BFF}
@@ -93,7 +94,6 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 </style>
 <script>
 (function(){var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;if(s)window.location.replace('/login');})();
-(function(){window.__landingNavOpen=false;function g(){return document.getElementById('landing-drawer')}function b(){return document.querySelector('.landing-header-toggle')}window.__landingNavClose=function(){var d=g();if(!d)return;d.classList.remove('is-open');window.__landingNavOpen=false;var t=b();if(t)t.setAttribute('aria-expanded','false');document.body.style.overflow=''};window.__landingNavToggle=function(e){if(e&&e.preventDefault)e.preventDefault();var d=g();if(!d)return;if(window.__landingNavOpen)window.__landingNavClose();else{d.classList.add('is-open');window.__landingNavOpen=true;var t=b();if(t)t.setAttribute('aria-expanded','true');document.body.style.overflow='hidden'}};document.addEventListener('click',function(e){if(e.target.closest('.landing-header-toggle')){window.__landingNavToggle(e);return}if(e.target.closest('.landing-header-drawer-backdrop')){window.__landingNavClose();return}if(e.target.closest('.landing-header-drawer-panel a')){window.__landingNavClose()}})})();
 </script>
 </helmet>
 
@@ -101,9 +101,9 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 <header class="landing-header">
   <div class="landing-header-inner">
     <div class="landing-header-start">
-      <button type="button" class="landing-header-toggle" onclick="window.__landingNavToggle&&window.__landingNavToggle(event)" aria-expanded="false" aria-controls="landing-drawer" aria-label="메뉴 열기">
+      <label for="landing-nav-check" class="landing-header-toggle" aria-label="메뉴 열기">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      </button>
+      </label>
       <a href="#top" class="landing-header-logo"><img src="/marketing/assets/logo-blue.png" alt="청소비서 Clean Assistant"></a>
     </div>
     <nav class="landing-header-sections" aria-label="페이지 섹션">
@@ -871,8 +871,9 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 
 </main>
 </x-dc>
+<input type="checkbox" id="landing-nav-check" class="landing-nav-check" aria-hidden="true" tabindex="-1">
 <div class="landing-header-drawer" id="landing-drawer">
-  <div class="landing-header-drawer-backdrop"></div>
+  <label for="landing-nav-check" class="landing-header-drawer-backdrop" aria-label="메뉴 닫기"></label>
   <nav class="landing-header-drawer-panel" aria-label="섹션 메뉴">
     <a href="#workflow">워크플로우</a>
     <a href="#features">기능</a>
@@ -882,6 +883,21 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
     <a href="#contact" class="landing-drawer-cta">도입 상담 신청</a>
   </nav>
 </div>
+<script>
+(function(){
+  document.addEventListener('change',function(e){
+    if(!e.target||e.target.id!=='landing-nav-check')return;
+    document.body.style.overflow=e.target.checked?'hidden':'';
+  });
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('.landing-header-drawer-panel a'))return;
+    var c=document.getElementById('landing-nav-check');
+    if(!c||!c.checked)return;
+    c.checked=false;
+    document.body.style.overflow='';
+  });
+})();
+</script>
 <script type="text/x-dc" data-dc-script data-props="{&quot;heroVariant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;a&quot;,&quot;b&quot;,&quot;c&quot;],&quot;default&quot;:&quot;b&quot;,&quot;tsType&quot;:&quot;'a'|'b'|'c'&quot;,&quot;section&quot;:&quot;히어로&quot;}}">
 class Component extends DCLogic {
   state = { hero: 'b', step: 0, role: 0, faq: 0, sent: false, submitting: false, cycle: 'monthly' };
