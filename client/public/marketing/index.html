@@ -25,9 +25,30 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 @keyframes riseIn{0%{opacity:0;transform:translateY(38px)}100%{opacity:1;transform:translateY(0)}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
 @media (min-width:1000px){[data-steps-grid]{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+[data-pricing-grid]{align-items:stretch!important}
+[data-pricing-grid] > *{height:100%}
+.wf-shots-row{display:flex;justify-content:center;align-items:flex-end;gap:clamp(12px,1.2vw,20px);margin-top:40px;flex-wrap:wrap;width:100%}
+.wf-shot-wrap{flex-shrink:0;display:flex;flex-direction:column;align-items:center}
+.wf-shot-label{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;max-width:100%}
+.wf-shot-label span:last-child{white-space:nowrap;font-size:clamp(11px,1.1vw,14px)}
+.wf-phone{width:100%;position:relative;background:linear-gradient(165deg,#1c2433 0%,#0a0f17 100%);border-radius:28px;padding:6px;border:1px solid rgba(255,255,255,.1);box-shadow:0 26px 52px rgba(4,10,28,.48),inset 0 1px 0 rgba(255,255,255,.07)}
+.wf-phone-notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:24%;height:3px;border-radius:999px;background:#3a4356;z-index:2;pointer-events:none}
+.wf-phone-screen{border-radius:22px;overflow:hidden;background:#fff;line-height:0;width:100%}
+.wf-phone-screen img{width:100%;height:auto;display:block;vertical-align:top;image-rendering:auto}
+.wf-phone-slot{position:relative;aspect-ratio:512/1034;width:100%;background:#f7f9fe}
+.wf-phone-slot image-slot{position:absolute;inset:0;width:100%;height:100%;display:block}
+.wf-shot-stagger{margin-bottom:32px}
+@media (min-width:1024px){
+.wf-shots-row{flex-wrap:nowrap}
+.wf-shot-wrap{flex:1 1 0;min-width:0;max-width:300px}
+.wf-shot-stagger{margin-bottom:0;transform:translateY(22px)}
+}
+@media (max-width:1023px){
+.wf-shot-wrap{width:min(312px,46vw)}
+}
 @media (max-width:720px){[data-ba-head],[data-ba-row]{grid-template-columns:minmax(0,1fr)!important}[data-ba-row]>div:nth-child(2){padding:0 28px;justify-content:flex-start!important;transform:rotate(90deg);transform-origin:left center;height:22px}[data-ba-row]>div:nth-child(1){padding-bottom:0!important}}
 @media (max-width:860px){[data-wf-head]{grid-template-columns:minmax(0,1fr)!important}}
-@media (max-width:1240px){[data-wf-pane]{grid-template-columns:minmax(0,1fr)!important}[data-wf-phone]{max-width:300px;justify-self:center!important}}
+@media (max-width:1240px){[data-wf-pane]{grid-template-columns:minmax(0,1fr)!important}[data-wf-phone]{width:312px;max-width:min(312px,46vw);justify-self:center!important}}
 </style>
 </helmet>
 
@@ -143,52 +164,52 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
         </div>
         <h2 style="margin:0;text-align:center;font-size:clamp(28px,4.4vw,54px);line-height:1.2;letter-spacing:-.04em;font-weight:800;color:#fff">이 모든 게 <span style="position:relative;display:inline-block;white-space:nowrap"><span style="position:relative;z-index:1">한 번에</span><span style="position:absolute;left:-4px;right:-4px;bottom:4px;height:38%;background:rgba(255,255,255,.24);border-radius:6px;z-index:0"></span></span><br>원스톱으로 이뤄집니다</h2>
       </div>
-      <div style="display:flex;justify-content:center;align-items:flex-end;gap:clamp(12px,1.8vw,26px);margin-top:40px;flex-wrap:wrap">
-        <div style="width:clamp(180px,21vw,256px)">
-          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px">
+      <div class="wf-shots-row">
+        <div class="wf-shot-wrap">
+          <div class="wf-shot-label">
             <span style="width:24px;height:24px;border-radius:50%;background:#fff;color:#1B4FD8;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">01</span>
             <span style="color:#fff;font-size:14px;font-weight:800;letter-spacing:-.01em;white-space:nowrap">접수</span>
           </div>
-          <div style="background:#10151F;border-radius:34px;padding:11px 8px 14px;position:relative;box-shadow:0 26px 50px rgba(6,20,60,.42)">
-            <div style="position:absolute;top:5px;left:50%;transform:translateX(-50%);width:34%;height:4px;border-radius:999px;background:#39404F"></div>
-            <div style="border-radius:26px;overflow:hidden;background:#10151F">
-            <img src="/marketing/assets/wf1.png" alt="접수 화면" style="width:100%;height:auto;display:block">
+          <div class="wf-phone">
+            <div class="wf-phone-notch" aria-hidden="true"></div>
+            <div class="wf-phone-screen">
+              <img src="/marketing/assets/wf1.png" srcset="/marketing/assets/wf1.png 512w" width="512" height="1034" alt="접수 화면" decoding="async">
             </div>
           </div>
         </div>
-        <div style="width:clamp(180px,21vw,256px);margin-bottom:40px">
-          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px">
+        <div class="wf-shot-wrap wf-shot-stagger">
+          <div class="wf-shot-label">
             <span style="width:24px;height:24px;border-radius:50%;background:#fff;color:#1B4FD8;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">02</span>
             <span style="color:#fff;font-size:14px;font-weight:800;letter-spacing:-.01em;white-space:nowrap">배정</span>
           </div>
-          <div style="background:#10151F;border-radius:34px;padding:11px 8px 14px;position:relative;box-shadow:0 26px 50px rgba(6,20,60,.42)">
-            <div style="position:absolute;top:5px;left:50%;transform:translateX(-50%);width:34%;height:4px;border-radius:999px;background:#39404F"></div>
-            <div style="border-radius:26px;overflow:hidden;background:#10151F">
-            <img src="/marketing/assets/wf2.png" alt="배정 화면" style="width:100%;height:auto;display:block">
+          <div class="wf-phone">
+            <div class="wf-phone-notch" aria-hidden="true"></div>
+            <div class="wf-phone-screen">
+              <img src="/marketing/assets/wf2.png" srcset="/marketing/assets/wf2.png 512w" width="512" height="1028" alt="배정 화면" decoding="async">
             </div>
           </div>
         </div>
-        <div style="width:clamp(180px,21vw,256px)">
-          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px">
+        <div class="wf-shot-wrap">
+          <div class="wf-shot-label">
             <span style="width:24px;height:24px;border-radius:50%;background:#fff;color:#1B4FD8;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">03</span>
             <span style="color:#fff;font-size:14px;font-weight:800;letter-spacing:-.01em;white-space:nowrap">일정확인 및 해피콜(팀장)</span>
           </div>
-          <div style="background:#10151F;border-radius:34px;padding:11px 8px 14px;position:relative;box-shadow:0 26px 50px rgba(6,20,60,.42)">
-            <div style="position:absolute;top:5px;left:50%;transform:translateX(-50%);width:34%;height:4px;border-radius:999px;background:#39404F"></div>
-            <div style="border-radius:26px;overflow:hidden;background:#10151F">
-            <img src="/marketing/assets/wf3.png" alt="일정확인 및 해피콜 화면" style="width:100%;height:auto;display:block">
+          <div class="wf-phone">
+            <div class="wf-phone-notch" aria-hidden="true"></div>
+            <div class="wf-phone-screen">
+              <img src="/marketing/assets/wf3.png" srcset="/marketing/assets/wf3.png 512w" width="512" height="1034" alt="일정확인 및 해피콜 화면" decoding="async">
             </div>
           </div>
         </div>
-        <div style="width:clamp(180px,21vw,256px);margin-bottom:40px">
-          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px">
+        <div class="wf-shot-wrap wf-shot-stagger">
+          <div class="wf-shot-label">
             <span style="width:24px;height:24px;border-radius:50%;background:#fff;color:#1B4FD8;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">04</span>
             <span style="color:#fff;font-size:14px;font-weight:800;letter-spacing:-.01em;white-space:nowrap">체크리스트 및 고객검수</span>
           </div>
-          <div style="background:#10151F;border-radius:34px;padding:11px 8px 14px;position:relative;box-shadow:0 26px 50px rgba(6,20,60,.42)">
-            <div style="position:absolute;top:5px;left:50%;transform:translateX(-50%);width:34%;height:4px;border-radius:999px;background:#39404F"></div>
-            <div style="border-radius:26px;overflow:hidden;background:#10151F">
-            <img src="/marketing/assets/wf4.png" alt="체크리스트 및 고객검수 화면" style="width:100%;height:auto;display:block">
+          <div class="wf-phone">
+            <div class="wf-phone-notch" aria-hidden="true"></div>
+            <div class="wf-phone-screen">
+              <img src="/marketing/assets/wf4.png" srcset="/marketing/assets/wf4.png 512w" width="512" height="1028" alt="체크리스트 및 고객검수 화면" decoding="async">
             </div>
           </div>
         </div>
@@ -409,9 +430,12 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
                   </div>
                 </div>
               </div>
-              <div data-wf-phone="1" style="width:100%;border:10px solid #10151F;border-radius:36px;background:#10151F;overflow:hidden;box-shadow:0 26px 52px rgba(20,40,90,.3);justify-self:end">
-                <div style="aspect-ratio:208/380;width:100%;background:#F7F9FE">
-                  <image-slot id="{{ s.moId }}" shape="rect" fit="contain" placeholder="모바일 화면" style="width:100%;height:100%"></image-slot>
+              <div class="wf-phone" data-wf-phone="1" style="width:100%;justify-self:end">
+                <div class="wf-phone-notch" aria-hidden="true"></div>
+                <div class="wf-phone-screen">
+                  <div class="wf-phone-slot">
+                    <image-slot id="{{ s.moId }}" shape="rect" fit="cover" placeholder="모바일 화면"></image-slot>
+                  </div>
                 </div>
               </div>
             </div>
@@ -438,9 +462,12 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
     </div>
     <div style="margin-top:40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:44px;align-items:center">
       <div style="display:flex;justify-content:center;order:0">
-        <div style="width:min(494px,100%);border:12px solid #10151F;border-radius:48px;background:#10151F;overflow:hidden;box-shadow:0 30px 60px rgba(20,40,90,.2)">
-          <div style="aspect-ratio:494/892;width:100%;background:#F7F9FE">
-            <image-slot id="{{ role.slotId }}" shape="rect" fit="contain" placeholder="{{ role.slotHint }}" style="width:100%;height:100%"></image-slot>
+        <div class="wf-phone" style="width:min(494px,100%)">
+          <div class="wf-phone-notch" aria-hidden="true"></div>
+          <div class="wf-phone-screen">
+            <div class="wf-phone-slot">
+              <image-slot id="{{ role.slotId }}" shape="rect" fit="cover" placeholder="{{ role.slotHint }}"></image-slot>
+            </div>
           </div>
         </div>
       </div>
@@ -589,7 +616,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
       </div>
     </div>
 
-    <div data-steps-grid="1" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:36px;align-items:start">
+    <div data-pricing-grid data-steps-grid="1" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:36px;align-items:stretch">
       <sc-for list="{{ plans }}" as="p" hint-placeholder-count="4">
         <div style="{{ p.cardStyle }}">
           <div style="{{ p.badgeStyle }}">{{ p.badge }}</div>
@@ -598,7 +625,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
           <div style="{{ p.unitStyle }}">{{ p.unit }}</div>
           <div style="{{ p.coinStyle }}">월 {{ p.coins }} 코인</div>
           <a href="{{ p.ctaHref }}" style="{{ p.ctaStyle }}">{{ p.cta }}</a>
-          <div style="display:flex;flex-direction:column;gap:11px;margin-top:24px">
+          <div style="display:flex;flex-direction:column;gap:11px;margin-top:24px;flex:1">
             <sc-for list="{{ p.features }}" as="f" hint-placeholder-count="4">
               <div style="display:flex;gap:10px;align-items:flex-start">
                 <span style="{{ p.checkStyle }}">✓</span>
@@ -952,7 +979,7 @@ class Component extends DCLogic {
       name: p.name, price: yearly ? p.y : p.m, unit: p.unit, badge: p.badge, features: p.features,
       coins: p.coins, limits: p.limits, cta: p.cta,
       ctaHref: p.name === 'FREE' ? '/signup' : '#contact',
-      cardStyle: 'border-radius:22px;padding:30px;' + (p.hi
+      cardStyle: 'box-sizing:border-box;height:100%;display:flex;flex-direction:column;border-radius:22px;padding:30px;' + (p.hi
         ? 'background:#0B1220;color:#fff;border:1px solid #0B1220;box-shadow:0 26px 60px rgba(11,18,32,.28)'
         : 'background:#fff;border:1px solid #E6ECF9'),
       badgeStyle: 'display:inline-block;font-size:12px;font-weight:800;padding:6px 13px;border-radius:999px;' +
@@ -967,7 +994,7 @@ class Component extends DCLogic {
       checkStyle: 'flex-shrink:0;width:19px;height:19px;border-radius:50%;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:2px;' +
         (p.hi ? 'background:#1E2A42;color:#7BA3FF' : 'background:#EAF0FF;color:#2F6BFF'),
       featStyle: 'font-size:14px;line-height:1.6;font-weight:600;' + (p.hi ? 'color:#C6D0E4' : 'color:#4A5877'),
-      limitWrapStyle: 'display:flex;flex-direction:column;gap:9px;margin-top:22px;padding-top:20px;border-top:1px solid ' + (p.hi ? '#1E2A42' : '#EEF2FA'),
+      limitWrapStyle: 'display:flex;flex-direction:column;gap:9px;margin-top:auto;padding-top:20px;border-top:1px solid ' + (p.hi ? '#1E2A42' : '#EEF2FA'),
       limitKeyStyle: 'font-weight:600;' + (p.hi ? 'color:#8B98B0' : 'color:#8B98B0'),
       limitValStyle: 'font-weight:800;' + (p.hi ? 'color:#fff' : 'color:#0B1220')
     }));
