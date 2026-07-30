@@ -71,16 +71,18 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 .landing-header-drawer-panel{position:absolute;top:0;left:0;width:min(280px,86vw);height:100%;background:#fff;border-right:1px solid #EAF0FF;padding:max(14px,env(safe-area-inset-top)) 18px 24px;box-shadow:12px 0 40px rgba(4,10,28,.12);display:flex;flex-direction:column;gap:4px}
 .landing-header-drawer-panel a{display:block;padding:12px 10px;border-radius:10px;color:#3A4761;font-size:15px;font-weight:600}
 .landing-header-drawer-panel a:hover{background:#F4F7FF;color:#2F6BFF}
+.landing-header-login--top{display:none}
 @media (max-width:768px){
-.landing-header-inner{flex-wrap:wrap;padding:10px 14px 8px;gap:8px;align-items:center}
-.landing-header-start{flex:1;min-width:0;gap:8px}
+.landing-header-inner{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;padding:10px 14px 8px;gap:8px;align-items:center}
+.landing-header-start{grid-column:1;grid-row:1;gap:8px;min-width:0}
 .landing-header-logo img{height:28px}
 .landing-header-sections{display:none}
 .landing-header-toggle{display:inline-flex}
-.landing-header-cta{width:100%;flex-basis:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-items:stretch}
-.landing-header-cta .landing-header-login{padding:8px 6px;font-size:12px;box-shadow:0 4px 12px rgba(15,23,42,.16);justify-content:center;text-align:center}
+.landing-header-login--top{grid-column:2;grid-row:1;display:inline-flex;padding:8px 14px;font-size:13px;box-shadow:0 4px 12px rgba(15,23,42,.16);align-self:center}
+.landing-header-cta{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;width:100%}
+.landing-header-cta .landing-header-login--inline{display:none!important}
 .landing-header-cta .landing-nav-signup{display:flex;align-items:center;justify-content:center;padding:8px 4px;font-size:12px;border:1px solid #DCE6FF;border-radius:999px;background:#F8FAFF}
-.landing-header-cta .landing-nav-cta{padding:8px 6px;font-size:11px;box-shadow:0 4px 12px rgba(47,107,255,.22);display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.25}
+.landing-header-cta .landing-nav-cta{padding:8px 6px;font-size:12px;box-shadow:0 4px 12px rgba(47,107,255,.22);display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.25}
 }
 </style>
 <script>
@@ -98,6 +100,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
       </button>
       <a href="#top" class="landing-header-logo"><img src="/marketing/assets/logo-blue.png" alt="청소비서 Clean Assistant"></a>
     </div>
+    <a href="/login" class="landing-header-login landing-header-login--top">로그인</a>
     <nav class="landing-header-sections" aria-label="페이지 섹션">
       <a href="#workflow">워크플로우</a>
       <a href="#features">기능</a>
@@ -106,7 +109,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
       <a href="#faq">FAQ</a>
     </nav>
     <div class="landing-header-cta">
-      <a href="/login" class="landing-header-login">로그인</a>
+      <a href="/login" class="landing-header-login landing-header-login--inline">로그인</a>
       <a href="/signup" class="landing-nav-signup">무료로 시작</a>
       <a href="#contact" class="landing-nav-cta">도입 상담 신청</a>
     </div>
