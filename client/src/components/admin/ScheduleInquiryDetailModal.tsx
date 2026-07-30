@@ -277,7 +277,7 @@ function buildPatchFromEditForm(
     professionalOptionIds: editForm.professionalOptionIds,
     collaborationMarketerId: editForm.collaborationMarketerId || null,
   };
-  if (editForm.leadSource.trim()) {
+  if (editForm.leadSource.trim() && !opts?.manualIntake) {
     patch.source = editForm.leadSource.trim();
   }
   if (opts?.includeCreatedById === true) {
@@ -348,6 +348,7 @@ function buildPatchFromEditForm(
   }
   if (opts?.manualIntake) {
     applyManualIntakeFieldDefaults(patch, editForm);
+    patch.source = MANUAL_INTAKE_SOURCE_VALUE;
   }
   return patch;
 }
@@ -356,8 +357,11 @@ function buildPatchFromEditForm(
 type CreateIntakeLane = 'normal' | 'deposit' | 'absent' | 'hold';
 
 /** POST /api/inquiries 본문 — 서버 create 스키마에 맞춤 */
-function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> {
-  const p = buildPatchFromEditForm(editForm);
+function buildCreatePostBody(
+  editForm: EditFormFields,
+  opts?: { manualIntake?: boolean },
+): Record<string, unknown> {
+  const p = buildPatchFromEditForm(editForm, { manualIntake: opts?.manualIntake });
   return {
     customerName: p.customerName,
     nickname: p.nickname,
@@ -379,9 +383,9 @@ function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> 
     preferredTimeDetail: p.preferredTimeDetail ? String(p.preferredTimeDetail) : null,
     callAttempt: null,
     memo: p.memo,
-    source: editForm.leadSource.trim(),
-    strictLeadSource: true,
-    intakeMeta: { channel: 'schedule' },
+    source: opts?.manualIntake ? MANUAL_INTAKE_SOURCE_VALUE : editForm.leadSource.trim(),
+    strictLeadSource: !opts?.manualIntake,
+    intakeMeta: { channel: opts?.manualIntake ? 'manual' : 'schedule' },
     status: p.status ?? 'RECEIVED',
     soloTeamLeaderIds: p.soloTeamLeaderIds,
     crewMemberCount: p.crewMemberCount,
@@ -394,17 +398,9 @@ function buildCreatePostBody(editForm: EditFormFields): Record<string, unknown> 
 
 function buildCreatePostBodyForMode(
   editForm: EditFormFields,
-  opts?: { externalIntake?: boolean }
+  manualIntake: boolean,
 ): Record<string, unknown> {
-  if (!opts?.externalIntake) return buildCreatePostBody(editForm);
-  const body = buildCreatePostBody(editForm);
-  applyManualIntakeFieldDefaults(body, editForm);
-  return {
-    ...body,
-    source: MANUAL_INTAKE_SOURCE_VALUE,
-    strictLeadSource: false,
-    intakeMeta: { channel: 'manual' },
-  };
+  return buildCreatePostBody(editForm, { manualIntake });
 }
 
 export type ScheduleInquiryDetailModalProps =
@@ -834,11 +830,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const [profCatOpen, setProfCatOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (!isCreate) return;
+    if (!isCreate || externalIntake) return;
     const def = defaultScheduleLeadSourceLabel(tenantSlug);
     if (!def) return;
     setEditForm((p) => (p.leadSource.trim() ? p : { ...p, leadSource: def }));
-  }, [isCreate, tenantSlug]);
+  }, [isCreate, tenantSlug, externalIntake]);
 
   useEffect(() => {
     setProfCatOpen({});
@@ -1920,7 +1916,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       if (isCreate) {
         const created = (await createInquiry(
           token,
-          buildCreatePostBodyForMode(editForm, { externalIntake })
+          buildCreatePostBodyForMode(editForm, isExternalIntakeMode),
         )) as { id: string };
         await updateInquiry(token, created.id, patch);
         const nameForFollowup = editForm.customerName.trim() || '미입력';
@@ -1931,7 +1927,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             customerPhone: phoneForFollowup,
             inquiryId: created.id,
           };
-          const followupLead = externalIntake
+          const followupLead = isExternalIntakeMode
             ? followupBase
             : {
                 ...followupBase,
@@ -2123,7 +2119,18 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 <input
                   type="checkbox"
                   checked={externalIntake}
-                  onChange={(e) => setExternalIntake(e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setExternalIntake(checked);
+                    if (checked) {
+                      setEditForm((p) => ({ ...p, leadSource: '' }));
+                      return;
+                    }
+                    const def = defaultScheduleLeadSourceLabel(tenantSlug);
+                    if (def) {
+                      setEditForm((p) => ({ ...p, leadSource: p.leadSource.trim() || def }));
+                    }
+                  }}
                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 수기등록
