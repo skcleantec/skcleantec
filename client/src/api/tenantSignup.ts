@@ -55,6 +55,7 @@ export async function completeTenantSignup(input: {
   challengeId: string;
   contactEmail: string;
   verificationCode: string;
+  memberTermsAgreed: boolean;
 }): Promise<TenantSignupResult> {
   const res = await fetch(`${API}/complete`, {
     method: 'POST',

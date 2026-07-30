@@ -75,12 +75,14 @@ router.post('/complete', async (req, res) => {
     contactEmail?: string;
     verificationCode?: string;
     code?: string;
+    memberTermsAgreed?: boolean;
   };
   try {
     const result = await completeTenantSignupWithVerification({
       challengeId: String(body.challengeId ?? ''),
       contactEmail: String(body.contactEmail ?? ''),
       code: String(body.verificationCode ?? body.code ?? ''),
+      memberTermsAgreed: Boolean(body.memberTermsAgreed),
     });
 
     res.status(201).json({

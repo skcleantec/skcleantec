@@ -93,7 +93,8 @@ export function TenantSignupPage() {
     return () => window.clearTimeout(t);
   }, [slug]);
 
-  const formPayload = useMemo(
+  /** 인증번호 발송 — 약관 동의 없이 전송 가능 */
+  const verificationSendPayload = useMemo(
     () => ({
       slug,
       name,
@@ -102,7 +103,7 @@ export function TenantSignupPage() {
       adminName,
       contactEmail,
       contactPhone,
-      memberTermsAgreed,
+      memberTermsAgreed: false,
       selectedPlan,
     }),
     [
@@ -113,7 +114,6 @@ export function TenantSignupPage() {
       adminName,
       contactEmail,
       contactPhone,
-      memberTermsAgreed,
       selectedPlan,
     ],
   );
@@ -133,7 +133,7 @@ export function TenantSignupPage() {
     setInfo('');
     setSendingCode(true);
     try {
-      const sent = await sendTenantSignupVerificationCode(formPayload);
+      const sent = await sendTenantSignupVerificationCode(verificationSendPayload);
       setChallengeId(sent.challengeId);
       setCodeSent(true);
       setInfo(`${contactEmail.trim()} 로 인증번호를 보냈습니다. 10분 이내에 아래 칸에 입력해 주세요.`);
@@ -154,6 +154,10 @@ export function TenantSignupPage() {
       setError('이메일 인증번호 6자리를 입력해 주세요.');
       return;
     }
+    if (!memberTermsAgreed) {
+      setError('회원사 이용약관에 동의해 주세요.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
@@ -161,6 +165,7 @@ export function TenantSignupPage() {
         challengeId,
         contactEmail,
         verificationCode,
+        memberTermsAgreed: true,
       });
       navigate(`/login?tenant=${encodeURIComponent(result.tenant.slug)}&signup=1`, { replace: true });
     } catch (err) {
@@ -397,7 +402,6 @@ export function TenantSignupPage() {
                 checked={memberTermsAgreed}
                 onChange={(e) => setMemberTermsAgreed(e.target.checked)}
                 className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                required
               />
               <span className="text-fluid-2xs leading-relaxed text-slate-700">
                 위{' '}
@@ -450,7 +454,9 @@ export function TenantSignupPage() {
 
             <button
               type="submit"
-              disabled={loading || verificationCode.length < 6 || !challengeId}
+              disabled={
+                loading || verificationCode.length < 6 || !challengeId || !memberTermsAgreed
+              }
               className="w-full rounded-xl bg-slate-900 py-3 text-fluid-sm font-semibold text-white disabled:opacity-60"
             >
               {loading ? '가입 처리 중…' : '인증 완료 · 업체 개설'}

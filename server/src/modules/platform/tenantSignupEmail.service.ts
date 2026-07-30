@@ -41,8 +41,11 @@ function parseSignupPlan(body: TenantSignupFormPayload): TenantPlanId {
   }
 }
 
-function parseSignupForm(body: TenantSignupFormPayload): SelfServeTenantSignupInput {
-  if (!body.memberTermsAgreed) {
+function parseSignupFormFields(
+  body: TenantSignupFormPayload,
+  opts: { requireTerms: boolean },
+): SelfServeTenantSignupInput {
+  if (opts.requireTerms && !body.memberTermsAgreed) {
     throw new EmailVerificationError('회원사 이용약관에 동의해 주세요.');
   }
   const contactPhone = normalizeSignupPhone(body.contactPhone);
@@ -61,16 +64,21 @@ function parseSignupForm(body: TenantSignupFormPayload): SelfServeTenantSignupIn
     adminName: body.adminName,
     contactEmail,
     contactPhone,
-    memberTermsAgreed: true,
+    memberTermsAgreed: opts.requireTerms,
     selectedPlan,
   };
+}
+
+/** 인증번호 발송 — 약관 동의는 최종 가입 시에만 확인 */
+function parseSignupFormForVerificationSend(body: TenantSignupFormPayload): SelfServeTenantSignupInput {
+  return parseSignupFormFields(body, { requireTerms: false });
 }
 
 export async function sendTenantSignupVerificationCode(
   body: TenantSignupFormPayload,
   requestIp?: string | null,
 ) {
-  const parsed = parseSignupForm(body);
+  const parsed = parseSignupFormForVerificationSend(body);
   const slugCheck = await isTenantSlugAvailableForSignup(parsed.slug);
   if (!slugCheck.available) {
     throw new TenantSignupError(slugCheck.reason ?? '업체 코드를 사용할 수 없습니다.', 409);
@@ -89,7 +97,6 @@ export async function sendTenantSignupVerificationCode(
       contactEmail: parsed.contactEmail,
       contactPhone: parsed.contactPhone,
       passwordHash,
-      memberTermsAgreedAt: new Date().toISOString(),
       selectedPlan: parsed.selectedPlan,
       signupIp: requestIp?.trim() || null,
     },
@@ -119,7 +126,7 @@ type StoredSignupPayload = {
   contactEmail: string;
   contactPhone: string;
   passwordHash: string;
-  memberTermsAgreedAt: string;
+  memberTermsAgreedAt?: string | null;
   selectedPlan: string;
   signupIp: string | null;
 };
@@ -128,7 +135,11 @@ export async function completeTenantSignupWithVerification(input: {
   challengeId: string;
   contactEmail: string;
   code: string;
+  memberTermsAgreed: boolean;
 }) {
+  if (!input.memberTermsAgreed) {
+    throw new EmailVerificationError('회원사 이용약관에 동의해 주세요.');
+  }
   const payload = (await consumeEmailVerificationChallenge({
     purpose: 'TENANT_SIGNUP',
     challengeId: input.challengeId,
@@ -136,18 +147,27 @@ export async function completeTenantSignupWithVerification(input: {
     code: input.code,
   })) as StoredSignupPayload;
 
-  const result = await provisionTenantSelfServeFromVerifiedPayload(payload);
+  const result = await provisionTenantSelfServeFromVerifiedPayload(payload, {
+    memberTermsAgreed: true,
+  });
   return result;
 }
 
 /** 인증 완료 payload — passwordHash 는 이미 bcrypt */
-export async function provisionTenantSelfServeFromVerifiedPayload(payload: StoredSignupPayload) {
+export async function provisionTenantSelfServeFromVerifiedPayload(
+  payload: StoredSignupPayload,
+  opts: { memberTermsAgreed: boolean },
+) {
+  if (!opts.memberTermsAgreed) {
+    throw new TenantSignupError('회원사 이용약관에 동의해 주세요.');
+  }
   let selectedPlan: TenantPlanId;
   try {
     selectedPlan = normalizeSignupPlanId(payload.selectedPlan);
   } catch {
     throw new TenantSignupError('올바른 이용 플랜을 선택해 주세요.');
   }
+  const agreedAt = new Date().toISOString();
   return provisionTenantSelfServe({
     slug: payload.slug,
     name: payload.name,
@@ -159,7 +179,7 @@ export async function provisionTenantSelfServeFromVerifiedPayload(payload: Store
     memberTermsAgreed: true,
     signupIp: payload.signupIp,
     passwordHash: payload.passwordHash,
-    emailVerifiedAt: payload.memberTermsAgreedAt,
+    emailVerifiedAt: agreedAt,
     selectedPlan,
   });
 }
