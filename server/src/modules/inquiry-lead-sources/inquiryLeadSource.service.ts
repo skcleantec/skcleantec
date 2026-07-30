@@ -139,12 +139,17 @@ function isStrictLeadSourceBody(body: Record<string, unknown>): boolean {
   );
 }
 
-/** 접수 생성 시 source — strict면 카탈로그 검증, 아니면 legacy(기본 전화) */
+/** 접수 생성 시 source — strict면 카탈로그 검증, manual·legacy는 생략 */
 export async function resolveInquirySourceForCreate(
   db: Db,
   tenantId: string,
   body: Record<string, unknown>,
 ): Promise<string> {
+  const intakeChannel = resolveInquiryIntakeChannelForCreate(body);
+  if (intakeChannel === 'manual') {
+    const s = body.source != null ? String(body.source).trim() : '';
+    return s || '수기등록';
+  }
   if (isStrictLeadSourceBody(body)) {
     return assertActiveLeadSourceLabel(db, tenantId, body.source);
   }

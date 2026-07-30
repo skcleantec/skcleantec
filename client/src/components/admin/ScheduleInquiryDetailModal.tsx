@@ -65,6 +65,8 @@ import {
   scheduleItemHasLeaderWithSingleSlotAssignmentOnDay,
 } from '../../utils/scheduleLeaderDayAssignmentBalance';
 import { isManualIntakeInquiry, MANUAL_INTAKE_SOURCE_VALUE } from '../../utils/manualIntakeInquiry';
+import { defaultScheduleLeadSourceLabel } from '@shared/inquiryLeadSourceDefaults';
+import { useTenantCapabilities, useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
 import { PropertyTypeSticker } from '../ui/PropertyTypeSticker';
@@ -100,7 +102,6 @@ import {
 } from '../../constants/internalCustomerTone';
 import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
 import { createTenantInquiryShare, patchTenantInquiryShareTransferFee, revokeTenantInquiryShare } from '../../api/tenantInquiryShare';
-import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
 import { TenantInquiryShareBadge } from './TenantInquiryShareBadge';
 import { formatPartnerAssignmentLabel, isActiveNativePartnerShareSource, isExternalLegacyShareSource } from '../../utils/tenantShareSettlement';
 import {
@@ -400,6 +401,7 @@ function buildCreatePostBodyForMode(
   return {
     ...body,
     source: MANUAL_INTAKE_SOURCE_VALUE,
+    strictLeadSource: false,
     intakeMeta: { channel: 'manual' },
   };
 }
@@ -489,6 +491,7 @@ function initialTeamLeaderIdsForEdit(assignments: ScheduleItem['assignments']): 
 
 export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProps) {
   const { enabled: skOpsUi, oneRoomLabel } = useSkCleantecOpsUi();
+  const { tenantSlug } = useTenantCapabilities();
   const { options: timeSlotOptions } = useOrderFormTimeSlotLabels();
   const isCreate = props.mode === 'create';
   const item = !isCreate ? props.item : null;
@@ -768,7 +771,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         consultationMemo: '',
         internalCustomerTone: DEFAULT_INTERNAL_CUSTOMER_TONE,
         professionalOptionIds: normalizeProfessionalOptionIds([], professionalCatalog),
-        leadSource: '',
+        leadSource: defaultScheduleLeadSourceLabel(tenantSlug),
       };
     }
     const it = props.item;
@@ -824,6 +827,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   });
 
   const [profCatOpen, setProfCatOpen] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!isCreate) return;
+    const def = defaultScheduleLeadSourceLabel(tenantSlug);
+    if (!def) return;
+    setEditForm((p) => (p.leadSource.trim() ? p : { ...p, leadSource: def }));
+  }, [isCreate, tenantSlug]);
 
   useEffect(() => {
     setProfCatOpen({});
@@ -1911,23 +1921,27 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         const nameForFollowup = editForm.customerName.trim() || '미입력';
         const phoneForFollowup = editForm.customerPhone.trim() || '';
         try {
+          const followupBase = {
+            customerName: nameForFollowup,
+            customerPhone: phoneForFollowup,
+            inquiryId: created.id,
+          };
+          const followupLead = externalIntake
+            ? followupBase
+            : {
+                ...followupBase,
+                leadSource: editForm.leadSource.trim(),
+                strictLeadSource: true,
+              };
           if (createIntakeLane === 'absent') {
             await createOrderFollowup(token, {
-              customerName: nameForFollowup,
-              customerPhone: phoneForFollowup,
+              ...followupLead,
               status: 'ABSENT',
-              inquiryId: created.id,
-              leadSource: editForm.leadSource.trim(),
-              strictLeadSource: true,
             });
           } else if (createIntakeLane === 'hold') {
             await createOrderFollowup(token, {
-              customerName: nameForFollowup,
-              customerPhone: phoneForFollowup,
+              ...followupLead,
               status: 'ON_HOLD',
-              inquiryId: created.id,
-              leadSource: editForm.leadSource.trim(),
-              strictLeadSource: true,
             });
           }
         } catch (fe) {
