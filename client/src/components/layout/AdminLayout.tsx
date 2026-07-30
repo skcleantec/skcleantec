@@ -523,7 +523,7 @@ export function AdminLayout() {
           phone: typeof u.phone === 'string' ? u.phone : null,
           externalCompany: u.externalCompany ?? null,
         });
-        /** 팀·크루 미리보기: 개발용 이메일 + SK 테넌트 ADMIN만. 그 외 업체 일반 관리자는 제외 */
+        /** 팀·크루 미리보기: 개발자(전 테넌트) + SK ADMIN. 그 외 업체 일반 관리자는 제외 */
         const tenantSlugForPreview =
           (typeof u.tenant?.slug === 'string' && u.tenant.slug.trim()) || null;
         const preview = shouldShowAdminDevPreviewLinks({
@@ -1377,6 +1377,7 @@ export function AdminLayout() {
             </DarkHeaderNavScroll>
           </div>
           <div className="hidden md:flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+            {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
             {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
             <UserProfileMenu
               token={adminToken}

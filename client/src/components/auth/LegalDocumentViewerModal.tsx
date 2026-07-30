@@ -12,11 +12,21 @@ function formatKst(iso: string) {
 export function LegalDocumentViewerModal({
   legalDocument,
   onClose,
+  onAgree,
+  agreeLabel = '동의합니다',
 }: {
   legalDocument: PublicLegalDocument | null;
   onClose: () => void;
+  /** 가입 등 — 하단 버튼으로 동의 처리 */
+  onAgree?: () => void;
+  agreeLabel?: string;
 }) {
   if (!legalDocument) return null;
+
+  const handlePrimary = () => {
+    if (onAgree) onAgree();
+    else onClose();
+  };
 
   return createPortal(
     <div
@@ -57,10 +67,10 @@ export function LegalDocumentViewerModal({
         <div className="shrink-0 border-t border-slate-100 px-4 py-3 sm:px-5">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handlePrimary}
             className="w-full rounded-xl bg-slate-900 py-2.5 text-fluid-xs font-semibold text-white hover:bg-slate-800"
           >
-            확인
+            {onAgree ? agreeLabel : '확인'}
           </button>
         </div>
       </div>

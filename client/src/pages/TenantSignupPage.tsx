@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PLATFORM_NAME, PLATFORM_NAME_EN } from '@shared/platformBrand';
 import {
@@ -49,6 +49,7 @@ export function TenantSignupPage() {
   const [legalDocs, setLegalDocs] = useState<PublicLegalDocument[]>([]);
   const [legalLoadErr, setLegalLoadErr] = useState('');
   const [viewerDoc, setViewerDoc] = useState<PublicLegalDocument | null>(null);
+  const termsSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +157,7 @@ export function TenantSignupPage() {
     }
     if (!memberTermsAgreed) {
       setError('회원사 이용약관에 동의해 주세요.');
+      termsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     setError('');
@@ -345,34 +347,19 @@ export function TenantSignupPage() {
               </label>
             </div>
 
-            <label className="block">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-fluid-xs font-medium text-slate-600">이메일 인증번호 (6자리)</span>
-                <button
-                  type="button"
-                  disabled={sendingCode || loading}
-                  onClick={() => void handleSendCode()}
-                  className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-fluid-2xs font-semibold text-slate-700 disabled:opacity-60"
-                >
-                  {sendingCode ? '발송 중…' : codeSent ? '재발송' : '인증번호 받기'}
-                </button>
-              </div>
-              <input
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className={`${inputClass} text-center font-mono tracking-[0.3em]`}
-                placeholder="000000"
-                required
-              />
-              {info ? <p className="mt-1 text-fluid-2xs text-sky-800">{info}</p> : null}
-            </label>
-
-            <section className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-3">
-              <p className="text-fluid-xs font-semibold text-slate-800">이용약관 확인</p>
+            <section
+              ref={termsSectionRef}
+              className={`space-y-2 rounded-xl border px-3 py-3 ${
+                memberTermsAgreed
+                  ? 'border-emerald-200 bg-emerald-50/70'
+                  : 'border-slate-200 bg-slate-50/70'
+              }`}
+            >
+              <p className="text-fluid-xs font-semibold text-slate-800">
+                이용약관 동의 <span className="text-red-600">(필수)</span>
+              </p>
               <p className="text-fluid-2xs leading-relaxed text-slate-600">
-                반드시 이용약관을 확인 후 확인 버튼을 눌러 주세요.
+                아래 문서를 확인한 뒤 「동의합니다」를 눌러 주세요.
               </p>
               {legalLoadErr ? (
                 <p className="text-fluid-2xs text-amber-800">{legalLoadErr}</p>
@@ -400,56 +387,100 @@ export function TenantSignupPage() {
                   <p className="text-fluid-2xs text-slate-500">약관 불러오는 중…</p>
                 ) : null}
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (memberTermsAgreed) {
+                    setMemberTermsAgreed(false);
+                    return;
+                  }
+                  if (termsDoc) {
+                    setViewerDoc(termsDoc);
+                    return;
+                  }
+                  setMemberTermsAgreed(true);
+                }}
+                className={`w-full rounded-xl py-2.5 text-fluid-xs font-semibold transition ${
+                  memberTermsAgreed
+                    ? 'border border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50'
+                    : 'bg-slate-900 text-white hover:bg-slate-800'
+                }`}
+              >
+                {memberTermsAgreed ? '동의함 · 다시 확인하려면 누르세요' : '약관 확인 후 동의합니다'}
+              </button>
+              <label className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white/80 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={memberTermsAgreed}
+                  onChange={(e) => setMemberTermsAgreed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300"
+                />
+                <span className="text-fluid-2xs leading-relaxed text-slate-700">
+                  위{' '}
+                  {termsDoc ? (
+                    <button
+                      type="button"
+                      className="font-semibold text-sky-800 underline-offset-2 hover:underline"
+                      onClick={() => setViewerDoc(termsDoc)}
+                    >
+                      {termsDoc.title}
+                    </button>
+                  ) : (
+                    <Link
+                      to={`/legal/${PLATFORM_LEGAL_MEMBER_TERMS_SLUG}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-sky-800 underline-offset-2 hover:underline"
+                    >
+                      회원사 이용약관
+                    </Link>
+                  )}
+                  및{' '}
+                  {privacyDoc ? (
+                    <button
+                      type="button"
+                      className="font-semibold text-sky-800 underline-offset-2 hover:underline"
+                      onClick={() => setViewerDoc(privacyDoc)}
+                    >
+                      {privacyDoc.title}
+                    </button>
+                  ) : (
+                    <Link
+                      to={`/legal/${PLATFORM_LEGAL_MEMBER_PRIVACY_SLUG}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-sky-800 underline-offset-2 hover:underline"
+                    >
+                      개인정보 처리방침
+                    </Link>
+                  )}
+                  을 확인하였으며 동의합니다.
+                </span>
+              </label>
             </section>
 
-            <label className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5">
+            <label className="block">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-fluid-xs font-medium text-slate-600">이메일 인증번호 (6자리)</span>
+                <button
+                  type="button"
+                  disabled={sendingCode || loading}
+                  onClick={() => void handleSendCode()}
+                  className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-fluid-2xs font-semibold text-slate-700 disabled:opacity-60"
+                >
+                  {sendingCode ? '발송 중…' : codeSent ? '재발송' : '인증번호 받기'}
+                </button>
+              </div>
               <input
-                type="checkbox"
-                checked={memberTermsAgreed}
-                onChange={(e) => setMemberTermsAgreed(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className={`${inputClass} text-center font-mono tracking-[0.3em]`}
+                placeholder="000000"
+                required
               />
-              <span className="text-fluid-2xs leading-relaxed text-slate-700">
-                위{' '}
-                {termsDoc ? (
-                  <button
-                    type="button"
-                    className="font-semibold text-sky-800 underline-offset-2 hover:underline"
-                    onClick={() => setViewerDoc(termsDoc)}
-                  >
-                    {termsDoc.title}
-                  </button>
-                ) : (
-                  <Link
-                    to={`/legal/${PLATFORM_LEGAL_MEMBER_TERMS_SLUG}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold text-sky-800 underline-offset-2 hover:underline"
-                  >
-                    회원사 이용약관
-                  </Link>
-                )}
-                및{' '}
-                {privacyDoc ? (
-                  <button
-                    type="button"
-                    className="font-semibold text-sky-800 underline-offset-2 hover:underline"
-                    onClick={() => setViewerDoc(privacyDoc)}
-                  >
-                    {privacyDoc.title}
-                  </button>
-                ) : (
-                  <Link
-                    to={`/legal/${PLATFORM_LEGAL_MEMBER_PRIVACY_SLUG}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold text-sky-800 underline-offset-2 hover:underline"
-                  >
-                    개인정보 처리방침
-                  </Link>
-                )}
-                을 확인하였으며 동의합니다.
-              </span>
+              {info ? <p className="mt-1 text-fluid-2xs text-sky-800">{info}</p> : null}
             </label>
 
             {error ? (
@@ -460,9 +491,7 @@ export function TenantSignupPage() {
 
             <button
               type="submit"
-              disabled={
-                loading || verificationCode.length < 6 || !challengeId || !memberTermsAgreed
-              }
+              disabled={loading || verificationCode.length < 6 || !challengeId}
               className="w-full rounded-xl bg-slate-900 py-3 text-fluid-sm font-semibold text-white disabled:opacity-60"
             >
               {loading ? '가입 처리 중…' : '인증 완료 · 업체 개설'}
@@ -480,7 +509,15 @@ export function TenantSignupPage() {
           </p>
         </div>
       </div>
-      <LegalDocumentViewerModal legalDocument={viewerDoc} onClose={() => setViewerDoc(null)} />
+      <LegalDocumentViewerModal
+        legalDocument={viewerDoc}
+        onClose={() => setViewerDoc(null)}
+        onAgree={() => {
+          setMemberTermsAgreed(true);
+          setViewerDoc(null);
+        }}
+        agreeLabel="동의합니다"
+      />
     </div>
   );
 }
