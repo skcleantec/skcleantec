@@ -1,6 +1,6 @@
 import type { TenantPlanUpgradeRequestStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { TENANT_TRIAL_DAYS } from '../billing/tenantBilling.constants.js';
+import { TENANT_SIGNUP_GRACE_DAYS } from './tenantSignup.constants.js';
 import { addDaysUtc } from '../billing/tenantBilling.dates.js';
 import { modulesForPlan, TENANT_PLAN_ID_SET } from '../tenants/tenantFeatureCatalog.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
@@ -152,7 +152,20 @@ export async function approveTenantPlanUpgradeRequest(input: {
   }
 
   const now = new Date();
-  const trialEndsAt = addDaysUtc(now, TENANT_TRIAL_DAYS);
+  const trialEndsAt = addDaysUtc(now, TENANT_SIGNUP_GRACE_DAYS);
+
+  const existingTenant = await prisma.tenant.findUnique({
+    where: { id: row.tenantId },
+    select: { config: true },
+  });
+  const prevConfig =
+    existingTenant?.config && typeof existingTenant.config === 'object'
+      ? (existingTenant.config as Record<string, unknown>)
+      : {};
+  const prevSignup =
+    prevConfig.signup && typeof prevConfig.signup === 'object'
+      ? (prevConfig.signup as Record<string, unknown>)
+      : {};
 
   await prisma.$transaction(async (tx) => {
     await tx.tenant.update({
@@ -165,6 +178,15 @@ export async function approveTenantPlanUpgradeRequest(input: {
         suspendedAt: null,
         suspendReason: null,
         billingAccessBlockedAt: null,
+        config: {
+          ...prevConfig,
+          signup: {
+            ...prevSignup,
+            signupGraceDays: TENANT_SIGNUP_GRACE_DAYS,
+            coinGraceEndsAt: trialEndsAt.toISOString(),
+            paidTrialDays: TENANT_SIGNUP_GRACE_DAYS,
+          },
+        },
       },
     });
 

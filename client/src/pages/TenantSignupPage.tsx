@@ -191,8 +191,9 @@ export function TenantSignupPage() {
             </div>
             <h1 className="mt-4 text-fluid-lg font-semibold text-slate-900">청소비서 가입하기</h1>
             <p className="mt-2 text-fluid-2xs leading-relaxed text-slate-500">
-              플랜을 선택한 뒤 이메일 인증으로 가입합니다. 유료 플랜은 가입 시{' '}
-              <strong>{TENANT_SIGNUP_PAID_TRIAL_DAYS}일(약 2개월)</strong> 무료 체험이 제공됩니다.
+              플랜을 선택한 뒤 이메일 인증으로 가입합니다. 가입 후{' '}
+              <strong>{TENANT_SIGNUP_PAID_TRIAL_DAYS}일(약 2개월)</strong> 동안 코인 제한 없이 이용할 수
+              있습니다. 유료 플랜은 같은 기간 요금 없이 체험됩니다.
             </p>
           </div>
 
@@ -229,7 +230,8 @@ export function TenantSignupPage() {
             <fieldset className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
               <legend className="px-1 text-fluid-xs font-semibold text-slate-800">이용 플랜</legend>
               <p className="text-fluid-2xs text-slate-600">
-                유료 플랜 선택 시 가입일부터 {TENANT_SIGNUP_PAID_TRIAL_DAYS}일간 요금 없이 이용할 수 있습니다.
+                가입 후 {TENANT_SIGNUP_PAID_TRIAL_DAYS}일(약 2개월) 동안 코인 제한 없이 이용할 수 있습니다. 유료
+                플랜은 같은 기간 요금 없이 체험됩니다.
               </p>
               <div className="space-y-2">
                 {TENANT_SELF_SIGNUP_PLAN_IDS.map((planId) => {
@@ -263,7 +265,11 @@ export function TenantSignupPage() {
                             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
                               {TENANT_SIGNUP_PAID_TRIAL_DAYS}일 무료
                             </span>
-                          ) : null}
+                          ) : (
+                            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-800">
+                              코인 {TENANT_SIGNUP_PAID_TRIAL_DAYS}일 무제한
+                            </span>
+                          )}
                           {presentation.recommended ? (
                             <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-800">
                               추천

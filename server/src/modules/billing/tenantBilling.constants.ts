@@ -13,7 +13,8 @@ const MONTHLY_PRICE_KRW: Record<TenantPlanId, number> = {
 
 export const TENANT_PREMIUM_EXTRA_BRAND_MONTHLY_KRW = 200_000;
 
-export const TENANT_TRIAL_DAYS = 7;
+/** @see shared/tenantSignup.ts TENANT_SIGNUP_GRACE_DAYS */
+export const TENANT_TRIAL_DAYS = 60;
 export const TENANT_PREPAID_SERVICE_DELAY_DAYS = 7;
 export const TENANT_BILLING_ANNUAL_DISCOUNT_RATE = 0.15;
 export const TENANT_BILLING_DEFAULT_GRACE_DAYS = 3;

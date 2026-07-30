@@ -8,7 +8,7 @@ import {
   assertValidTenantSlug,
   normalizeTenantSlug,
 } from './tenantProvisioning.service.js';
-import { isTenantSignupReservedSlug, normalizeSignupPlanId, TENANT_SIGNUP_PAID_TRIAL_DAYS } from './tenantSignup.constants.js';
+import { isTenantSignupReservedSlug, normalizeSignupPlanId, TENANT_SIGNUP_GRACE_DAYS } from './tenantSignup.constants.js';
 import {
   EmailVerificationError,
   normalizeSignupPhone,
@@ -117,9 +117,8 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
   const planModules = modulesForPlan(selectedPlan);
   const agreedAt = input.emailVerifiedAt;
   const signupStartedAt = new Date();
-  const trialEndsAt = isPaidSignup
-    ? addDaysUtc(signupStartedAt, TENANT_SIGNUP_PAID_TRIAL_DAYS)
-    : null;
+  const graceEndsAt = addDaysUtc(signupStartedAt, TENANT_SIGNUP_GRACE_DAYS);
+  const trialEndsAt = isPaidSignup ? graceEndsAt : null;
 
   const result = await prisma.$transaction(
     async (tx) => {
@@ -140,7 +139,9 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
               emailVerifiedAt: agreedAt,
               memberTermsAgreedAt: agreedAt,
               memberTermsAgreedIp: input.signupIp?.trim() || null,
-              paidTrialDays: isPaidSignup ? TENANT_SIGNUP_PAID_TRIAL_DAYS : null,
+              signupGraceDays: TENANT_SIGNUP_GRACE_DAYS,
+              coinGraceEndsAt: graceEndsAt.toISOString(),
+              paidTrialDays: isPaidSignup ? TENANT_SIGNUP_GRACE_DAYS : null,
             },
             subscription: {
               planUpdatedAt: agreedAt,

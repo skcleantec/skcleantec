@@ -1,3 +1,5 @@
+import { isSkCleantecTenantSlug } from './custom/skcleantecOpsUi.js';
+
 /** 테넌트 프로비저닝·마이그레이션 시드 — 표시명 = Inquiry.source / OrderFollowup.leadSource 저장값 */
 export const DEFAULT_INQUIRY_LEAD_SOURCE_LABELS = [
   '숨고',
@@ -8,6 +10,14 @@ export const DEFAULT_INQUIRY_LEAD_SOURCE_LABELS = [
 ] as const;
 
 export type DefaultInquiryLeadSourceLabel = (typeof DEFAULT_INQUIRY_LEAD_SOURCE_LABELS)[number];
+
+/** SK클린텍 — 스케줄 신규 접수 유입경로 기본값 */
+export function defaultScheduleLeadSourceLabel(
+  tenantSlug: string | null | undefined,
+): DefaultInquiryLeadSourceLabel | '' {
+  if (isSkCleantecTenantSlug(tenantSlug)) return '숨고';
+  return '';
+}
 
 /** 브릿지 extract → 카탈로그 label (테넌트가 이름을 바꾸면 수동 선택) */
 export const BRIDGE_INQUIRY_LEAD_SOURCE_LABEL = {

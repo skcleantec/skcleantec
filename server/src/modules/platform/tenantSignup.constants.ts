@@ -1,7 +1,10 @@
 /** 셀프 가입·유료 전환 — 서버 전용 상수 (client는 shared/tenantSignup.ts) */
 
-/** 셀프 가입 시 유료 플랜 — 무료 체험 일수 (client shared/tenantSignup.ts 와 동기화) */
-export const TENANT_SIGNUP_PAID_TRIAL_DAYS = 60;
+/** 셀프 가입·승인 체험 — grace 일수 (client shared/tenantSignup.ts TENANT_SIGNUP_GRACE_DAYS 와 동기화) */
+export const TENANT_SIGNUP_GRACE_DAYS = 60;
+
+/** @deprecated TENANT_SIGNUP_GRACE_DAYS 와 동일 */
+export const TENANT_SIGNUP_PAID_TRIAL_DAYS = TENANT_SIGNUP_GRACE_DAYS;
 
 export const TENANT_SELF_SIGNUP_PLAN_IDS = ['free', 'standard', 'standard_plus', 'premium'] as const;
 

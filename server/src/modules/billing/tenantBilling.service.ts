@@ -1,11 +1,13 @@
 import type { Prisma, TenantBillingCycle, TenantInvoiceSource, TenantInvoiceStatus, TenantSuspendReason } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { readSignupCoinGraceEndsAt } from '../tenants/tenantSignupGrace.js';
 import {
   calculateBillingAmountKrw,
   TENANT_BILLING_DEFAULT_GRACE_DAYS,
   TENANT_PREPAID_SERVICE_DELAY_DAYS,
   TENANT_TRIAL_DAYS,
 } from './tenantBilling.constants.js';
+import { TENANT_SIGNUP_GRACE_DAYS } from '../platform/tenantSignup.constants.js';
 import {
   addDaysUtc,
   billingPeriodForStart,
@@ -44,6 +46,17 @@ import {
   resolveTenantBillingOperationalStatus,
   type TenantBillingOperationalStatus,
 } from './tenantBilling.operationalStatus.js';
+import {
+  buildPlatformBillingActionQueue,
+  buildPlatformBillingKpi,
+  filterPlatformBillingRows,
+  paginatePlatformBillingRows,
+  parsePlatformBillingListQuery,
+  type PlatformBillingActionQueueItem,
+  type PlatformBillingKpi,
+  type PlatformBillingListQuery,
+  type PlatformTenantBillingRow,
+} from './tenantBilling.platformList.js';
 import { isPaymentConfirmationRequestEnabled } from './tenantBilling.paymentRequest.service.js';
 import {
   applyTenantBillingFeeExemptState,
@@ -467,6 +480,7 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
         serviceStartedAt: true,
         suspendReason: true,
         billingAccessBlockedAt: true,
+        config: true,
       },
     }),
     ensurePlatformBillingSettings(),
@@ -504,6 +518,8 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     billingFeeExempt,
     currentPeriodStatus: currentPeriod?.status ?? null,
     currentPeriodAmountKrw: currentPeriod?.amountKrw ?? null,
+    plan: tenant.plan,
+    coinGraceEndsAt: readSignupCoinGraceEndsAt(tenant.config),
   });
 
   return {
@@ -542,29 +558,72 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
   };
 }
 
-export type PlatformTenantBillingRow = {
-  tenantId: string;
-  slug: string;
-  name: string;
-  plan: string;
-  status: string;
-  billingCycle: TenantBillingCycle;
-  pricingMode: BillingProfileDto['pricingMode'];
-  contractAmountKrw: number;
-  billingDueDay: number;
-  serviceStartedAt: string | null;
-  nextDueDate: string | null;
-  trialEndsAt: string | null;
-  prepaidConfirmedAt: string | null;
-  suspendReason: TenantSuspendReason | null;
-  billingAccessBlockedAt: string | null;
-  openInvoiceStatus: TenantInvoiceStatus | null;
-  openInvoiceDueDate: string | null;
-  operationalStatus: TenantBillingOperationalStatus;
+export type {
+  PlatformBillingActionQueueItem,
+  PlatformBillingKpi,
+  PlatformBillingListQuery,
+  PlatformTenantBillingRow,
+} from './tenantBilling.platformList.js';
+export { parsePlatformBillingListQuery } from './tenantBilling.platformList.js';
+
+export type PlatformBillingTenantsListResult = {
+  items: PlatformTenantBillingRow[];
+  total: number;
+  limit: number;
+  offset: number;
+  page: number;
+  kpi: PlatformBillingKpi;
+  actionQueue: PlatformBillingActionQueueItem[];
 };
 
 export async function listTenantsBillingOverview(): Promise<PlatformTenantBillingRow[]> {
+  return buildAllPlatformTenantBillingRows({});
+}
+
+export async function listPlatformBillingTenants(
+  queryInput: Partial<PlatformBillingListQuery> | Record<string, unknown>,
+): Promise<PlatformBillingTenantsListResult> {
+  const query =
+    'page' in queryInput && typeof queryInput.page === 'number'
+      ? (queryInput as PlatformBillingListQuery)
+      : parsePlatformBillingListQuery(queryInput as Record<string, unknown>);
+
+  const dbWhere = buildPlatformBillingDbWhere(query);
+  const rows = await buildAllPlatformTenantBillingRows(dbWhere);
+  const kpi = buildPlatformBillingKpi(rows);
+  const actionQueue = buildPlatformBillingActionQueue(rows);
+  const filtered = filterPlatformBillingRows(rows, query);
+  const paged = paginatePlatformBillingRows(filtered, query.page, query.pageSize);
+
+  return {
+    items: paged.items,
+    total: paged.total,
+    limit: paged.limit,
+    offset: paged.offset,
+    page: paged.page,
+    kpi,
+    actionQueue,
+  };
+}
+
+function buildPlatformBillingDbWhere(query: PlatformBillingListQuery): Prisma.TenantWhereInput {
+  const dbWhere: Prisma.TenantWhereInput = {};
+  if (query.q) {
+    dbWhere.OR = [
+      { name: { contains: query.q, mode: 'insensitive' } },
+      { slug: { contains: query.q, mode: 'insensitive' } },
+    ];
+  }
+  if (query.plan) dbWhere.plan = query.plan;
+  if (query.status) dbWhere.status = query.status as Prisma.EnumTenantStatusFilter;
+  return dbWhere;
+}
+
+async function buildAllPlatformTenantBillingRows(
+  dbWhere: Prisma.TenantWhereInput,
+): Promise<PlatformTenantBillingRow[]> {
   const tenants = await prisma.tenant.findMany({
+    where: dbWhere,
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,
@@ -577,12 +636,13 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       serviceStartedAt: true,
       suspendReason: true,
       billingAccessBlockedAt: true,
+      config: true,
       billingProfile: true,
       invoices: {
         where: { status: { in: ['ISSUED', 'OVERDUE'] } },
         orderBy: { dueDate: 'asc' },
         take: 1,
-        select: { status: true, dueDate: true },
+        select: { id: true, status: true, dueDate: true, amountKrw: true },
       },
     },
   });
@@ -621,6 +681,8 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       billingFeeExempt,
       currentPeriodStatus: currentPeriod?.status ?? null,
       currentPeriodAmountKrw: currentPeriod?.amountKrw ?? null,
+      plan: t.plan,
+      coinGraceEndsAt: readSignupCoinGraceEndsAt(t.config),
     });
     rows.push({
       tenantId: t.id,
@@ -638,8 +700,13 @@ export async function listTenantsBillingOverview(): Promise<PlatformTenantBillin
       prepaidConfirmedAt: t.prepaidConfirmedAt?.toISOString() ?? null,
       suspendReason: t.suspendReason,
       billingAccessBlockedAt: t.billingAccessBlockedAt?.toISOString() ?? null,
-      openInvoiceStatus: t.invoices[0]?.status ?? null,
-      openInvoiceDueDate: t.invoices[0]?.dueDate.toISOString() ?? null,
+      openInvoiceId: openInv?.id ?? null,
+      openInvoiceStatus: openInv?.status ?? null,
+      openInvoiceDueDate: openInv?.dueDate.toISOString() ?? null,
+      openInvoiceAmountKrw: openInv?.amountKrw ?? null,
+      currentPeriodStart: currentPeriod?.periodStart ?? null,
+      currentPeriodDueDate: currentPeriod?.dueDate ?? null,
+      currentPeriodAmountKrw: currentPeriod?.amountKrw ?? null,
       operationalStatus,
     });
   }
@@ -720,6 +787,13 @@ export async function confirmPrepaidForTenant(tenantId: string) {
 
   const now = new Date();
   const trialEndsAt = addDaysUtc(now, TENANT_TRIAL_DAYS);
+  const prevConfig =
+    tenant.config && typeof tenant.config === 'object' ? (tenant.config as Record<string, unknown>) : {};
+  const prevSignup =
+    prevConfig.signup && typeof prevConfig.signup === 'object'
+      ? (prevConfig.signup as Record<string, unknown>)
+      : {};
+
   const updated = await prisma.tenant.update({
     where: { id: tenantId },
     data: {
@@ -729,6 +803,15 @@ export async function confirmPrepaidForTenant(tenantId: string) {
       suspendReason: null,
       billingAccessBlockedAt: null,
       suspendedAt: null,
+      config: {
+        ...prevConfig,
+        signup: {
+          ...prevSignup,
+          signupGraceDays: TENANT_SIGNUP_GRACE_DAYS,
+          coinGraceEndsAt: trialEndsAt.toISOString(),
+          paidTrialDays: TENANT_SIGNUP_GRACE_DAYS,
+        },
+      },
     },
     select: {
       id: true,
