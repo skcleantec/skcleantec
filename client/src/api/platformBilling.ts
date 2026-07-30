@@ -54,13 +54,61 @@ export type PlatformBillingTenantRow = {
   prepaidConfirmedAt: string | null;
   suspendReason: string | null;
   billingAccessBlockedAt: string | null;
+  openInvoiceId: string | null;
   openInvoiceStatus: string | null;
   openInvoiceDueDate: string | null;
+  openInvoiceAmountKrw: number | null;
+  currentPeriodStart: string | null;
+  currentPeriodDueDate: string | null;
+  currentPeriodAmountKrw: number | null;
   operationalStatus: {
     code: string;
     label: string;
     detail: string | null;
   };
+};
+
+export type PlatformBillingKpi = {
+  total: number;
+  healthy: number;
+  billingIssue: number;
+  actionRequired: number;
+};
+
+export type PlatformBillingActionQueueItem = {
+  tenantId: string;
+  slug: string;
+  name: string;
+  plan: string;
+  operationalCode: string;
+  operationalLabel: string;
+  operationalDetail: string | null;
+  actionKind: 'trial_start' | 'confirm_invoice' | 'confirm_schedule' | 'setup_required';
+  actionLabel: string;
+  openInvoiceId: string | null;
+  currentPeriodStart: string | null;
+  dueDate: string | null;
+  amountKrw: number | null;
+};
+
+export type PlatformBillingTenantsListQuery = {
+  q?: string;
+  plan?: string;
+  status?: string;
+  operationalCode?: string;
+  actionQueue?: boolean;
+  page?: number;
+  pageSize?: number;
+};
+
+export type PlatformBillingTenantsListResponse = {
+  items: PlatformBillingTenantRow[];
+  total: number;
+  limit: number;
+  offset: number;
+  page: number;
+  kpi: PlatformBillingKpi;
+  actionQueue: PlatformBillingActionQueueItem[];
 };
 
 export type TenantInvoiceRow = {
@@ -229,11 +277,24 @@ export async function patchPlatformBillingSettings(
   return res.json() as Promise<PlatformBillingSettings>;
 }
 
-export async function listPlatformBillingTenants(token: string) {
-  const res = await fetch(`${API}/platform/billing/tenants`, { headers: authHeaders(token) });
+export async function listPlatformBillingTenants(
+  token: string,
+  query: PlatformBillingTenantsListQuery = {},
+) {
+  const params = new URLSearchParams();
+  if (query.q?.trim()) params.set('q', query.q.trim());
+  if (query.plan) params.set('plan', query.plan);
+  if (query.status) params.set('status', query.status);
+  if (query.operationalCode) params.set('operationalCode', query.operationalCode);
+  if (query.actionQueue) params.set('actionQueue', '1');
+  if (query.page != null) params.set('page', String(query.page));
+  if (query.pageSize != null) params.set('pageSize', String(query.pageSize));
+  const qs = params.toString();
+  const res = await fetch(`${API}/platform/billing/tenants${qs ? `?${qs}` : ''}`, {
+    headers: authHeaders(token),
+  });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '목록 조회 실패'));
-  const data = (await res.json()) as { items: PlatformBillingTenantRow[] };
-  return data.items;
+  return res.json() as Promise<PlatformBillingTenantsListResponse>;
 }
 
 export async function getPlatformTenantBilling(token: string, tenantId: string) {

@@ -18,7 +18,8 @@ import {
   getTenantBillingDetailForPlatform,
   getTenantBillingSchedule,
   issueInvoiceForTenant,
-  listTenantsBillingOverview,
+  listPlatformBillingTenants,
+  parsePlatformBillingListQuery,
   previewNextInvoice,
   updatePlatformBillingSettings,
   updateTenantBillingProfileContract,
@@ -88,9 +89,15 @@ router.post('/smtp/test', platformSuperAdminOnly, async (req, res) => {
   }
 });
 
-router.get('/tenants', async (_req, res) => {
-  const items = await listTenantsBillingOverview();
-  res.json({ items });
+router.get('/tenants', async (req, res) => {
+  try {
+    const query = parsePlatformBillingListQuery(req.query as Record<string, unknown>);
+    const result = await listPlatformBillingTenants(query);
+    res.json(result);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '목록 조회에 실패했습니다.';
+    res.status(500).json({ error: msg });
+  }
 });
 
 router.get('/tenants/:tenantId', async (req, res) => {
