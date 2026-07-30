@@ -19,15 +19,22 @@ MOBILE_USER_AGENT = (
 )
 
 
-def apply_mobile_viewport(driver) -> bool:
-    """창을 넓혀도 숨고 UI가 모바일 폭으로 렌더링되게 한다."""
+def apply_mobile_viewport(driver, width: int | None = None, height: int | None = None) -> bool:
+    """창 크기에 맞춰 모바일 레이아웃을 렌더링 — 좌우·하단 회색 여백 방지."""
     try:
+        if width is None or height is None:
+            rect = driver.get_window_rect()
+            width = width if width is not None else int(rect.get('width', MOBILE_VIEWPORT_WIDTH))
+            height = height if height is not None else int(rect.get('height', MOBILE_VIEWPORT_HEIGHT))
+        width = max(SOOMGO_SPLIT_MIN_WIDTH, int(width))
+        height = max(480, int(height))
+
         driver.execute_cdp_cmd(
             'Emulation.setDeviceMetricsOverride',
             {
-                'width': MOBILE_VIEWPORT_WIDTH,
-                'height': MOBILE_VIEWPORT_HEIGHT,
-                'deviceScaleFactor': MOBILE_DEVICE_SCALE,
+                'width': width,
+                'height': height,
+                'deviceScaleFactor': 1,
                 'mobile': True,
             },
         )
@@ -83,7 +90,7 @@ def arrange_soomgo_right_half(driver, bounds: dict[str, Any] | None = None) -> b
         w = max(SOOMGO_SPLIT_MIN_WIDTH, int(bounds.get('soomgoWidth', soomgo_w) if bounds else soomgo_w))
         h = max(480, height)
         driver.set_window_rect(x=x, y=y, width=w, height=h)
-        apply_mobile_viewport(driver)
+        apply_mobile_viewport(driver, width=w, height=h)
         return True
     except Exception as e:
         logger.warning('arrange_soomgo_right_half: %s', e)
