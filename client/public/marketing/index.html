@@ -91,6 +91,10 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 @media (min-width:769px){
 .landing-header-toggle{display:none!important}
 }
+.hero-b-headline{margin:26px 0 0;font-weight:800;line-height:1.12;letter-spacing:-.04em;padding:0 4px}
+.hero-b-line1,.hero-b-line2{display:block;white-space:nowrap;margin-left:auto;margin-right:auto;width:max-content;max-width:100%}
+.hero-b-line1{font-size:min(74px,max(14px,calc((100vw - 32px)/16.5)))}
+.hero-b-line2{font-size:min(74px,max(12px,calc((100vw - 32px)/18)))}
 </style>
 <script>
 (function(){var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;if(s)window.location.replace('/login');})();
@@ -176,9 +180,9 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
         <span style="width:7px;height:7px;border-radius:50%;background:#fff;display:block;animation:pulse 2.2s ease-out infinite"></span>PC · 모바일 동시 지원 · 청소업체 전용 SaaS
       </div>
     </div>
-    <h1 style="margin:26px 0 0;font-size:clamp(40px,6vw,74px);line-height:1.1;letter-spacing:-.04em;font-weight:800">
-      <span style="display:block;animation:riseIn .9s .12s cubic-bezier(.2,.75,.3,1) both">정신없이 여기저기 적던 일정!!</span>
-      <span style="display:block;animation:riseIn .9s .24s cubic-bezier(.2,.75,.3,1) both;background:linear-gradient(100deg,#fff 20%,#BBD4FF 40%,#fff 60%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation-name:riseIn,shimmer;animation-duration:.9s,5s;animation-delay:.24s,1s;animation-iteration-count:1,infinite;animation-timing-function:cubic-bezier(.2,.75,.3,1),linear;animation-fill-mode:both,none">청소비서에서 원스톱으로 한번에 해결</span>
+    <h1 class="hero-b-headline">
+      <span class="hero-b-line1" style="animation:riseIn .9s .12s cubic-bezier(.2,.75,.3,1) both">정신없이 여기저기 적던 일정!!</span>
+      <span class="hero-b-line2" style="animation:riseIn .9s .24s cubic-bezier(.2,.75,.3,1) both;background:linear-gradient(100deg,#fff 20%,#BBD4FF 40%,#fff 60%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation-name:riseIn,shimmer;animation-duration:.9s,5s;animation-delay:.24s,1s;animation-iteration-count:1,infinite;animation-timing-function:cubic-bezier(.2,.75,.3,1),linear;animation-fill-mode:both,none">청소비서에서 원스톱으로 한번에 해결</span>
     </h1>
     <p style="margin:24px auto 0;font-size:clamp(17px,1.6vw,20px);line-height:1.7;color:rgba(255,255,255,.86);max-width:620px;animation:riseIn .9s .36s cubic-bezier(.2,.75,.3,1) both">접수 → 배정 → 현장보고 → 정산. 사무실 PC에서도, 현장 모바일에서도 같은 데이터로 움직입니다.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:36px;animation:riseIn .9s .48s cubic-bezier(.2,.75,.3,1) both">
