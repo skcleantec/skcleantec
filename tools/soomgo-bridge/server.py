@@ -25,7 +25,6 @@ from automation.chat_list_watcher import ChatListWatcher
 from automation.chat_room import ChatRoomManager
 from automation.login import (
     goto_chat_list,
-    is_logged_in,
     login_to_soomgo,
     login_via_kakao,
     wait_for_manual_login,
@@ -37,9 +36,11 @@ from automation.http_download import download_bytes
 from automation.navigation import (
     ensure_chat_workspace,
     is_in_chat_room_url,
+    is_logged_in,
     is_on_chat_list_url,
-    is_on_non_chat_pro_page,
+    is_on_non_chat_work_page,
     is_pro_session_url,
+    needs_chat_workspace,
     open_chat_room_by_id,
 )
 
@@ -171,7 +172,7 @@ def _chat_watch_loop():
                 on_list = is_on_chat_list_url(url)
                 in_room = is_in_chat_room_url(url)
                 if not on_list and not in_room:
-                    if is_pro_session_url(url):
+                    if is_logged_in(driver) and needs_chat_workspace(url):
                         logger.info('chat watch: off workspace %s — recovering', url)
                         dismiss_blocking_overlays(driver, 0.3, max_rounds=2)
                         ensure_chat_workspace(driver, delay=0.8, force_list=False)
@@ -330,7 +331,7 @@ def _page_mode(url: str, in_room: bool) -> str:
         return 'chat_room'
     if is_on_chat_list_url(url):
         return 'chat_list'
-    if is_on_non_chat_pro_page(url):
+    if is_on_non_chat_work_page(url):
         return 'requests'
     if '/pro/chats' in url.lower():
         return 'chat_list'
