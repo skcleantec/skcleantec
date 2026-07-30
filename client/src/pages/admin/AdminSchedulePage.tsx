@@ -2161,10 +2161,11 @@ export function AdminSchedulePage() {
                         </div>
                       )}
 
-                      {/* SK: 팀원 행 아래 — 태극기 + 자사 관리 원/투룸(타업체 이관 제외, 미배정 있을 때) */}
+                      {/* SK: 팀원 행 아래 — 태극기 + 자사 배정 원/투룸(정보공유·타업체 이관 제외) */}
                       {skOpsUi && skOneRoomTaegeuk.show ? (
                         <SkCleantecScheduleOneRoomIndicator
                           count={skOneRoomTaegeuk.count}
+                          unassignedCount={skOneRoomTaegeuk.unassignedOneRoomCount}
                           oneRoomLabel={oneRoomLabel}
                         />
                       ) : null}

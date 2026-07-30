@@ -44,16 +44,29 @@ export function scheduleItemHasExternalAssignmentOnly(
   return list.length > 0 && !scheduleItemHasInternalTeamLeaderAssignment(item);
 }
 
-/** 타업체에만 넘긴 원/투룸 — 자사 인원·태극기 집계에서 제외 */
-export function scheduleOneRoomExcludedFromInternalTaegeukCount(
+/** 타업체 배정(자사 팀장 없음) */
+export function scheduleItemHasExternalAssignment(
   item: Pick<ScheduleItem, 'assignments'>,
 ): boolean {
-  return scheduleItemHasExternalAssignmentOnly(item);
+  return (item.assignments ?? []).some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER');
 }
 
-/** 태극기·자사 인원 집계에 포함할 원/투룸(미배정 + 자사 팀장 배정) */
-export function scheduleOneRoomItemForInternalTaegeuk(
-  item: Pick<ScheduleItem, 'isOneRoom' | 'specialNotes' | 'assignments'> & {
+/** 송신 파트너 연계(활성) */
+export function scheduleItemHasActivePartnerShareSource(
+  item: Pick<ScheduleItem, 'tenantShare'>,
+): boolean {
+  return item.tenantShare?.role === 'SOURCE' && item.tenantShare?.syncStatus === 'ACTIVE';
+}
+
+export function scheduleItemHasDbMarketplaceListing(
+  item: Pick<ScheduleItem, 'dbListing'>,
+): boolean {
+  return item.dbListing != null;
+}
+
+/** 스케줄 목록·캘린더 공통 — 자사 관리 원/투룸(정보공유·파트너·타업체 이관 제외) */
+export function scheduleItemCountsAsOwnOneRoomSchedule(
+  item: Pick<ScheduleItem, 'isOneRoom' | 'specialNotes' | 'assignments' | 'dbListing' | 'tenantShare'> & {
     orderForm?: {
       customerSpecialNotes?: string | null;
       prefillAnswers?: Record<string, unknown> | null;
@@ -61,8 +74,29 @@ export function scheduleOneRoomItemForInternalTaegeuk(
   },
 ): boolean {
   if (!scheduleItemIsOneRoom(item)) return false;
-  if (scheduleOneRoomExcludedFromInternalTaegeukCount(item)) return false;
+  if (scheduleItemHasDbMarketplaceListing(item)) return false;
+  if (scheduleItemHasExternalAssignment(item)) return false;
+  if (scheduleItemHasActivePartnerShareSource(item)) return false;
   return true;
+}
+
+/** 타업체에만 넘긴 원/투룸 — 자사 인원·태극기 집계에서 제외 */
+export function scheduleOneRoomExcludedFromInternalTaegeukCount(
+  item: Pick<ScheduleItem, 'assignments'>,
+): boolean {
+  return scheduleItemHasExternalAssignmentOnly(item);
+}
+
+/** @deprecated scheduleItemCountsAsOwnOneRoomSchedule 사용 */
+export function scheduleOneRoomItemForInternalTaegeuk(
+  item: Pick<ScheduleItem, 'isOneRoom' | 'specialNotes' | 'assignments' | 'dbListing' | 'tenantShare'> & {
+    orderForm?: {
+      customerSpecialNotes?: string | null;
+      prefillAnswers?: Record<string, unknown> | null;
+    } | null;
+  },
+): boolean {
+  return scheduleItemCountsAsOwnOneRoomSchedule(item);
 }
 
 export function countScheduleOneRoomItems(items: readonly ScheduleItem[]): number {
@@ -71,25 +105,34 @@ export function countScheduleOneRoomItems(items: readonly ScheduleItem[]): numbe
 
 /**
  * SK 스케줄 캘린더 — 당일 원/투룸 태극기 집계.
- * - 타업체에만 넘긴 건은 제외(자사 인원·슬롯과 무관)
- * - count: 미배정 원/투룸(자사 관리 대상만)
- * - show: count > 0
+ * - 정보공유·파트너·타업체 이관 제외(목록 자사 일정과 동일)
+ * - count: 자사 **배정** 원/투룸 건수(목록 오전·오후·사이 자사 배정과 맞춤)
+ * - unassignedOneRoomCount: 같은 기준 미배정 건수(툴팁·강조용)
  */
 export function shouldShowSkOneRoomTaegeuk(items: readonly ScheduleItem[]): {
   show: boolean;
   count: number;
   highlighted: boolean;
   unassignedOneRoomCount: number;
+  assignedOneRoomCount: number;
 } {
-  const relevant = items.filter(scheduleOneRoomItemForInternalTaegeuk);
-  const unassignedOneRoomCount = relevant.filter((it) => !scheduleItemHasAnyAssignment(it)).length;
-  if (unassignedOneRoomCount === 0) {
-    return { show: false, count: 0, highlighted: false, unassignedOneRoomCount: 0 };
+  const ownOneRoom = items.filter(scheduleItemCountsAsOwnOneRoomSchedule);
+  const assignedOneRoomCount = ownOneRoom.filter((it) => scheduleItemHasAnyAssignment(it)).length;
+  const unassignedOneRoomCount = ownOneRoom.filter((it) => !scheduleItemHasAnyAssignment(it)).length;
+  if (assignedOneRoomCount === 0 && unassignedOneRoomCount === 0) {
+    return {
+      show: false,
+      count: 0,
+      highlighted: false,
+      unassignedOneRoomCount: 0,
+      assignedOneRoomCount: 0,
+    };
   }
   return {
     show: true,
-    count: unassignedOneRoomCount,
-    highlighted: true,
+    count: assignedOneRoomCount > 0 ? assignedOneRoomCount : unassignedOneRoomCount,
+    highlighted: unassignedOneRoomCount > 0,
     unassignedOneRoomCount,
+    assignedOneRoomCount,
   };
 }
