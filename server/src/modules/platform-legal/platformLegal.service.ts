@@ -153,6 +153,41 @@ export async function getPublishedLegalDocumentBySlug(slugRaw: string) {
   };
 }
 
+export type SignupLegalDocumentDto = {
+  slug: string;
+  title: string;
+  contentHtml: string;
+  version: number;
+  updatedAt: string;
+};
+
+/** 회원가입 화면 — 이용약관·개인정보 처리방침 (게시된 문서만) */
+export async function listSignupLegalDocuments(): Promise<SignupLegalDocumentDto[]> {
+  await ensureDefaultPlatformLegalDocuments();
+  const slugs = ['member-terms', 'member-privacy'];
+  const rows = await prisma.platformLegalDocument.findMany({
+    where: { slug: { in: slugs }, isPublished: true },
+    select: {
+      slug: true,
+      title: true,
+      contentHtml: true,
+      version: true,
+      updatedAt: true,
+    },
+  });
+  const bySlug = new Map(rows.map((r) => [r.slug, r]));
+  return slugs
+    .map((slug) => bySlug.get(slug))
+    .filter((r): r is NonNullable<typeof r> => r != null)
+    .map((r) => ({
+      slug: r.slug,
+      title: r.title,
+      contentHtml: r.contentHtml,
+      version: r.version,
+      updatedAt: r.updatedAt.toISOString(),
+    }));
+}
+
 export async function createPlatformLegalDocument(input: {
   title: string;
   documentType: PlatformLegalDocumentType;

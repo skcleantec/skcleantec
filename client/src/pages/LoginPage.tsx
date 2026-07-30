@@ -424,7 +424,7 @@ export function LoginPage() {
               >
                 <p>
                   업체 개설이 완료되었습니다. 인증한 이메일은 비밀번호 찾기에 사용됩니다. 아래에서 로그인해 주세요.
-                  (무료 Free 플랜 · 유료는 관리자 메뉴에서 신청·승인)
+                  (Free는 무료 이용 · 유료 플랜은 가입 시 2개월 무료 체험)
                 </p>
               </div>
             ) : null}
@@ -549,15 +549,20 @@ export function LoginPage() {
                 />
               </div>
 
-              <label className="flex cursor-pointer items-center gap-2.5 text-fluid-xs text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={rememberLogin}
-                  onChange={(e) => setRememberLogin(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-sky-500/30"
-                />
-                로그인 정보 저장
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+                <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-fluid-xs text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={rememberLogin}
+                    onChange={(e) => setRememberLogin(e.target.checked)}
+                    className="h-4 w-4 shrink-0 rounded border-slate-300 text-slate-900 focus:ring-sky-500/30"
+                  />
+                  로그인 정보 저장
+                </label>
+                <div className="shrink-0 md:hidden">
+                  <PwaAddToHomeButton compact />
+                </div>
+              </div>
 
               {error && (
                 <div
@@ -601,15 +606,13 @@ export function LoginPage() {
                   '로그인'
                 )}
               </button>
-
-              <PwaAddToHomeButton />
             </form>
 
             <Link
               to="/signup"
               className="mt-4 flex w-full items-center justify-center rounded-xl border-2 border-slate-900 bg-white py-3 text-fluid-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
             >
-              회원가입(무료)
+              회원가입
             </Link>
           </div>
 

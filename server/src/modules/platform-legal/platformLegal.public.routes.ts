@@ -2,6 +2,7 @@ import { Router, type Request } from 'express';
 import {
   getPublicLegalSession,
   getPublishedLegalDocumentBySlug,
+  listSignupLegalDocuments,
   submitPublicLegalAgreement,
 } from './platformLegal.service.js';
 
@@ -13,6 +14,17 @@ function clientIp(req: Request): string | undefined {
   const raw = xf || req.socket?.remoteAddress || '';
   return raw || undefined;
 }
+
+/** GET /api/public/legal/signup-documents — 회원가입용 이용약관·개인정보 처리방침 */
+router.get('/signup-documents', async (_req, res) => {
+  try {
+    const items = await listSignupLegalDocuments();
+    res.json({ items });
+  } catch (e) {
+    console.error('[platform legal public] GET signup-documents', e);
+    res.status(500).json({ error: '불러오지 못했습니다.' });
+  }
+});
 
 /** GET /api/public/legal/documents/:slug — 게시된 약관·개인정보 처리방침 */
 router.get('/documents/:slug', async (req, res) => {

@@ -22,8 +22,8 @@ export const PLATFORM_SETTINGS_TABS: PlatformSettingsTab[] = [
   },
   {
     id: 'legal',
-    label: '이용약관·계약',
-    description: '회원사(청소업체) 이용약관 관리 및 링크 체결 — 고객용 약관은 발주서 안내사항에서 편집',
+    label: '회원가입 약관',
+    description: '회원가입(/signup)에 표시되는 이용약관·개인정보 처리방침 — 수정·저장·삭제',
     ready: true,
   },
 ];

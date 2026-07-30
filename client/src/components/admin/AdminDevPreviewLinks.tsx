@@ -17,11 +17,20 @@ type Panel = 'tl' | 'ext' | 'crew' | null;
 
 const btn =
   'rounded px-1.5 py-0.5 font-medium text-[clamp(0.6rem,1.4vw,0.75rem)] transition-colors hover:bg-gray-200/80';
+const btnCompact =
+  'rounded px-1 py-px font-medium text-[9px] leading-tight transition-colors hover:bg-gray-200/80';
 
 const listBtn =
   'w-full min-h-[44px] touch-manipulation rounded border border-transparent px-2 py-2 text-left text-fluid-xs hover:border-gray-200 hover:bg-gray-50 active:bg-gray-100 disabled:pointer-events-none disabled:opacity-50';
 
-export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null }) {
+export function AdminDevPreviewLinks({
+  adminToken,
+  compact = false,
+}: {
+  adminToken: string | null;
+  /** 모바일 GNB — 더 작게 */
+  compact?: boolean;
+}) {
   const navigate = useNavigate();
   const [panel, setPanel] = useState<Panel>(null);
   const [loading, setLoading] = useState(false);
@@ -126,26 +135,33 @@ export function AdminDevPreviewLinks({ adminToken }: { adminToken: string | null
 
   if (!adminToken) return null;
 
+  const buttonClass = compact ? btnCompact : btn;
+  const wrapClass = compact
+    ? 'inline-flex max-w-full flex-wrap items-center gap-px rounded border border-gray-200/80 bg-gray-50/80 px-0.5 py-px text-gray-700 admin-preview-links admin-preview-links--compact'
+    : 'inline-flex max-w-full flex-wrap items-center gap-0.5 rounded border border-gray-200 bg-gray-50/90 px-0.5 py-0.5 text-gray-700 admin-preview-links';
+
   return (
     <>
       <div
-        className="inline-flex max-w-full flex-wrap items-center gap-0.5 rounded border border-gray-200 bg-gray-50/90 px-0.5 py-0.5 text-gray-700 admin-preview-links"
+        className={wrapClass}
         title="관리자용: 대상 선택 후 팀장·타업체·크루 화면으로 이동"
       >
-        <span className="shrink-0 pl-0.5 text-[9px] font-medium uppercase tracking-tight text-gray-400">
-          미리보기
-        </span>
-        <button type="button" className={`${btn} text-blue-700`} onClick={() => void openPanel('tl')}>
+        {!compact ? (
+          <span className="shrink-0 pl-0.5 text-[9px] font-medium uppercase tracking-tight text-gray-400">
+            미리보기
+          </span>
+        ) : null}
+        <button type="button" className={`${buttonClass} text-blue-700`} onClick={() => void openPanel('tl')}>
           팀장
         </button>
         <button
           type="button"
-          className={`${btn} text-indigo-700`}
+          className={`${buttonClass} text-indigo-700`}
           onClick={() => void openPanel('ext')}
         >
           타업체
         </button>
-        <button type="button" className={`${btn} text-emerald-800`} onClick={() => void openPanel('crew')}>
+        <button type="button" className={`${buttonClass} text-emerald-800`} onClick={() => void openPanel('crew')}>
           크루
         </button>
       </div>

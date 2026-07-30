@@ -162,7 +162,13 @@ export async function fetchPublicLegalDocument(slug: string) {
   const res = await fetch(`${API}/public/legal/documents/${encodeURIComponent(slug)}`);
   if (!res.ok) throw new Error(await apiErrorMessage(res, '문서를 불러오지 못했습니다.'));
   return (await res.json()) as { document: PublicLegalDocument };
-};
+}
+
+export async function fetchSignupLegalDocuments() {
+  const res = await fetch(`${API}/public/legal/signup-documents`);
+  if (!res.ok) throw new Error(await apiErrorMessage(res, '약관을 불러오지 못했습니다.'));
+  return (await res.json()) as { items: PublicLegalDocument[] };
+}
 
 export type PublicLegalSession =
   | {
