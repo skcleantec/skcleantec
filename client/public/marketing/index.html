@@ -37,6 +37,7 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 .wf-phone-screen img{width:100%;height:auto;display:block;vertical-align:top;image-rendering:auto}
 .wf-phone-slot{position:relative;aspect-ratio:512/1034;width:100%;background:#f7f9fe}
 .wf-phone-slot image-slot{position:absolute;inset:0;width:100%;height:100%;display:block}
+.wf-phone-slot--contain{aspect-ratio:494/892}
 .wf-shot-stagger{margin-bottom:32px}
 @media (min-width:1024px){
 .wf-shots-row{flex-wrap:nowrap}
@@ -465,8 +466,8 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
         <div class="wf-phone" style="width:min(494px,100%)">
           <div class="wf-phone-notch" aria-hidden="true"></div>
           <div class="wf-phone-screen">
-            <div class="wf-phone-slot">
-              <image-slot id="{{ role.slotId }}" src="/marketing/assets/slots/{{ role.slotId }}.webp" shape="rect" fit="cover" placeholder="{{ role.slotHint }}"></image-slot>
+            <div class="wf-phone-slot wf-phone-slot--contain">
+              <image-slot id="{{ role.slotId }}" src="/marketing/assets/slots/{{ role.slotId }}.webp" shape="rect" fit="contain" placeholder="{{ role.slotHint }}"></image-slot>
             </div>
           </div>
         </div>
