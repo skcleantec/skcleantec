@@ -96,6 +96,7 @@ import {
   ORDER_FORM_AC_LEGACY_COUNT_FIELD_KEYS,
 } from '@shared/orderFormAcUnits';
 import { OrderFormAcUnitsField } from '../../components/orderform/OrderFormAcUnitsField';
+import { OrderFormModalFormattedText } from '../../components/orderform/OrderFormModalFormattedText';
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -107,6 +108,23 @@ const PROPERTY_TYPE_OPTIONS = [
 
 const AREA_BASIS_COST_WARNING =
   '잘못된 평수기입으로 인한 서비스비용변동은 책임지지 않습니다.';
+
+const ORDER_FORM_SCHEDULE_STAR_SRC = '/order-form/schedule-highlight-star.png';
+
+/** 청소날짜·시간대 라벨 — 별은 번호 왼쪽·위쪽에서 살짝 겹쳐 표시 */
+function OrderFormScheduleHighlightLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="relative mb-1 block w-fit max-w-full text-sm font-bold leading-snug text-red-600">
+      <span className="relative z-0 block">{children}</span>
+      <img
+        src={ORDER_FORM_SCHEDULE_STAR_SRC}
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute left-0 top-0 z-10 h-10 w-10 -translate-x-[52%] -translate-y-[38%] bg-transparent object-contain sm:h-11 sm:w-11 sm:-translate-x-[50%] sm:-translate-y-[36%]"
+      />
+    </span>
+  );
+}
 
 function isOrderFormAreaLockedFromOrder(order: {
   areaBasis?: string | null;
@@ -202,7 +220,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     areaBasis: '',
     areaPyeong: '',
     exclusiveAreaSqm: '',
-    preferredDate: kstTodayYmd(),
+    preferredDate: editor?.create ? kstTodayYmd() : '',
     preferredTime: '',
     preferredTimeDetail: '',
     roomCount: '',
@@ -239,6 +257,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       timeSlotAckTitle?: string | null;
       timeSlotAckBody?: string | null;
       timeSlotAckConsentHint?: string | null;
+      serviceDateAckTitle?: string | null;
+      serviceDateAckBody?: string | null;
+      serviceDateAckConsentHint?: string | null;
       timeSlotLabels?: Record<'오전' | '오후' | '사이청소', string>;
       timeSlotLabelsJson?: Record<string, string> | null;
     };
@@ -301,6 +322,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const pendingAreaBasisAckRef = useRef<'공급' | '전용' | null>(null);
   const [timeSlotAckOpen, setTimeSlotAckOpen] = useState(false);
   const [pendingTimeSlot, setPendingTimeSlot] = useState<OrderTimeSlot | null>(null);
+  const [serviceDateAckOpen, setServiceDateAckOpen] = useState(false);
+  const [pendingServiceDate, setPendingServiceDate] = useState<string | null>(null);
+  const [serviceDateAcked, setServiceDateAcked] = useState('');
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   /** 마케터 작성 시 "특이사항 없음" 체크(필수 항목 충족) */
   const [noSpecialNotes, setNoSpecialNotes] = useState(false);
@@ -396,6 +420,39 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     setTimeSlotAckOpen(false);
   }, []);
 
+  const cancelServiceDateAck = useCallback(() => {
+    setPendingServiceDate(null);
+    setServiceDateAckOpen(false);
+    setServiceDateAcked('');
+    setForm((f) => ({ ...f, preferredDate: '', preferredTime: '' }));
+  }, []);
+
+  const confirmServiceDateAck = useCallback(() => {
+    const next = pendingServiceDate?.trim();
+    if (next) {
+      setServiceDateAcked(next);
+    }
+    setPendingServiceDate(null);
+    setServiceDateAckOpen(false);
+  }, [pendingServiceDate]);
+
+  const handleCustomerPreferredDateChange = useCallback(
+    (v: string) => {
+      if (!v.trim()) {
+        setServiceDateAcked('');
+        setPendingServiceDate(null);
+        setServiceDateAckOpen(false);
+        setForm((f) => ({ ...f, preferredDate: '', preferredTime: '' }));
+        return;
+      }
+      setForm((f) => ({ ...f, preferredDate: v, preferredTime: '' }));
+      if (v === serviceDateAcked) return;
+      setPendingServiceDate(v);
+      setServiceDateAckOpen(true);
+    },
+    [serviceDateAcked],
+  );
+
   const confirmAreaBasisAck = useCallback(() => {
     const b = pendingAreaBasisAckRef.current;
     pendingAreaBasisAckRef.current = null;
@@ -436,6 +493,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [timeSlotAckOpen, cancelTimeSlotAck]);
+
+  useEffect(() => {
+    if (!serviceDateAckOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') cancelServiceDateAck();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [serviceDateAckOpen, cancelServiceDateAck]);
 
   const toggleProfOption = useCallback(
     (id: string) => {
@@ -646,7 +712,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 return p?.areaPyeong != null ? String(p.areaPyeong) : '';
               })(),
           exclusiveAreaSqm: '',
-          preferredDate: p?.preferredDate ?? data.preferredDate ?? kstTodayYmd(),
+          preferredDate: (() => {
+            const pfDate = p?.preferredDate?.trim();
+            const dataDate = data.preferredDate?.trim();
+            if (pfDate) return pfDate;
+            if (dataDate) return dataDate;
+            return isCreate ? kstTodayYmd() : '';
+          })(),
           preferredTime: p?.preferredTime ?? data.preferredTime ?? '',
           preferredTimeDetail: p?.preferredTimeDetail ?? data.preferredTimeDetail ?? '',
           roomCount: pfStr('roomCount') ?? (p?.roomCount != null ? String(p.roomCount) : ''),
@@ -859,10 +931,21 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         : form.preferredTime.trim();
       const useTime = useTimeRaw.trim();
       if (stdFieldOn('preferredDate') || stdFieldOn('preferredTime')) {
-        if (!useDate || !useTime) throw new Error('청소 날짜와 시간을 확인해주세요.');
+        if (!useDate || !useTime) throw new Error('청소날짜(서비스받으실 날짜)와 시간을 확인해주세요.');
         if (!isValidOrderTimeSlot(useTime)) {
           throw new Error('시간대를 선택해주세요.');
         }
+      }
+      if (
+        !scheduleLockedByAdmin &&
+        stdFieldOn('preferredDate') &&
+        useDate &&
+        serviceDateAcked !== useDate
+      ) {
+        setPendingServiceDate(useDate);
+        setServiceDateAckOpen(true);
+        setSubmitting(false);
+        return;
       }
       const useTimeDetail = detailLockedByAdmin
         ? order!.preferredTimeDetail!.trim()
@@ -1703,7 +1786,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('preferredDate') && (
           <div>
-            <label className={reqLabelCls}>5. 청소 날짜{isCreate ? ' *' : ''}</label>
+            <OrderFormScheduleHighlightLabel>
+              5. 청소날짜(서비스받으실 날짜){isCreate ? ' *' : ''}
+            </OrderFormScheduleHighlightLabel>
             {isEditor && (
               <label className="mb-2 flex w-fit items-center gap-2 text-sm text-gray-700">
                 <input
@@ -1731,9 +1816,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               <YmdSelect
                 className={inputCls}
                 value={form.preferredDate}
-                onChange={(v) => setForm((f) => ({ ...f, preferredDate: v }))}
+                onChange={
+                  isEditor
+                    ? (v) => setForm((f) => ({ ...f, preferredDate: v }))
+                    : handleCustomerPreferredDateChange
+                }
                 minYmd={kstTodayYmd()}
                 idPrefix="orderform-pref"
+                allowEmpty={!isEditor}
+                emitOnCompleteOnly={!isEditor}
               />
             )}
           </div>
@@ -1741,7 +1832,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
           {stdFieldOn('preferredTime') && (
           <div>
-            <label className={reqLabelCls}>6. 시간대 선택{isCreate ? ' *' : ''}</label>
+            <OrderFormScheduleHighlightLabel>
+              6. 시간대 선택{isCreate ? ' *' : ''}
+            </OrderFormScheduleHighlightLabel>
             {scheduleLockedByAdmin ? (
               <div className="px-3 py-2 bg-gray-100 rounded text-gray-700 text-sm">
                 {labelForTimeSlot(order!.preferredTime, timeSlotLabels)}{' '}
@@ -2532,6 +2625,94 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           </div>
         ) : null}
 
+        {serviceDateAckOpen && pendingServiceDate ? (
+          <div
+            className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="service-date-ack-title"
+            aria-describedby="service-date-ack-desc"
+            onClick={() => cancelServiceDateAck()}
+          >
+            <div
+              className="w-full max-h-[min(92dvh,640px)] sm:max-h-[85vh] max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:rounded-2xl animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="max-h-[min(92dvh,640px)] sm:max-h-[85vh] overflow-y-auto overscroll-y-contain">
+                <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50/90 to-white px-5 pb-4 pt-5 sm:px-6">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 ring-1 ring-amber-100/80"
+                      aria-hidden
+                    >
+                      <svg
+                        className="h-6 w-6 text-amber-800"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M16 2v4M8 2v4M3 10h18" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2
+                        id="service-date-ack-title"
+                        className="text-base font-semibold leading-snug tracking-tight text-gray-900"
+                      >
+                        <OrderFormModalFormattedText
+                          text={ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckTitle}
+                          className="break-words leading-snug"
+                        />
+                      </h2>
+                      <p className="mt-1 text-fluid-xs text-gray-500">
+                        선택하신 날짜:{' '}
+                        <span className="font-medium text-gray-800 tabular-nums">
+                          {formatDateCompactWithWeekday(pendingServiceDate)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div id="service-date-ack-desc" className="px-5 py-4 text-fluid-sm leading-relaxed text-gray-700 sm:px-6">
+                  <OrderFormModalFormattedText
+                    text={orderFormConfigLine(
+                      order?.formConfig?.serviceDateAckBody,
+                      ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckBody,
+                    )}
+                  />
+                  <div className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 text-fluid-xs text-amber-950">
+                    <OrderFormModalFormattedText
+                      text={ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckConsentHint}
+                      className="break-words leading-relaxed"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-4 py-3 sm:flex-row sm:justify-end sm:gap-3 sm:px-5">
+                <button
+                  type="button"
+                  onClick={() => cancelServiceDateAck()}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-fluid-sm font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 active:scale-[0.99] sm:w-auto sm:min-w-[7rem] sm:py-2.5"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={() => confirmServiceDateAck()}
+                  className="w-full rounded-lg bg-gray-900 px-4 py-3 text-fluid-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99] sm:w-auto sm:min-w-[11rem] sm:py-2.5"
+                  autoFocus
+                >
+                  동의합니다
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {timeSlotAckOpen && pendingTimeSlot ? (
           <div
             className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
@@ -2570,10 +2751,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                         id="time-slot-ack-title"
                         className="text-base font-semibold leading-snug tracking-tight text-gray-900"
                       >
-                        {orderFormConfigLine(
-                          order?.formConfig?.timeSlotAckTitle,
-                          ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckTitle
-                        )}
+                        <OrderFormModalFormattedText
+                          text={ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckTitle}
+                          className="break-words leading-snug"
+                        />
                       </h2>
                       <p className="mt-1 text-fluid-xs text-gray-500">
                         선택 예정:{' '}
@@ -2585,18 +2766,18 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   </div>
                 </div>
                 <div id="time-slot-ack-desc" className="px-5 py-4 text-fluid-sm leading-relaxed text-gray-700 sm:px-6">
-                  <div className="whitespace-pre-wrap break-words">
-                    {orderFormConfigLine(
+                  <OrderFormModalFormattedText
+                    text={orderFormConfigLine(
                       order?.formConfig?.timeSlotAckBody,
-                      ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckBody
+                      ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckBody,
                     )}
+                  />
+                  <div className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 text-fluid-xs text-amber-950">
+                    <OrderFormModalFormattedText
+                      text={ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckConsentHint}
+                      className="break-words leading-relaxed"
+                    />
                   </div>
-                  <p className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 text-fluid-xs text-amber-950 whitespace-pre-wrap break-words">
-                    {orderFormConfigLine(
-                      order?.formConfig?.timeSlotAckConsentHint,
-                      ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckConsentHint
-                    )}
-                  </p>
                 </div>
               </div>
               <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-4 py-3 sm:flex-row sm:justify-end sm:gap-3 sm:px-5">

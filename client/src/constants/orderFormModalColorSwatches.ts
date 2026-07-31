@@ -1,0 +1,23 @@
+/** 발주서 모달 문구 — 글자·배경색 팔레트 */
+export const ORDER_FORM_MODAL_COLOR_SWATCHES: readonly string[] = [
+  '#111827',
+  '#374151',
+  '#6b7280',
+  '#dc2626',
+  '#ea580c',
+  '#d97706',
+  '#ca8a04',
+  '#16a34a',
+  '#059669',
+  '#2563eb',
+  '#1d4ed8',
+  '#7c3aed',
+  '#9333ea',
+  '#db2777',
+  '#e11d48',
+  '#ffffff',
+  '#fef3c7',
+  '#fee2e2',
+  '#dbeafe',
+  '#dcfce7',
+];

@@ -11,7 +11,7 @@ import {
 } from '@shared/orderFormCustomerLinkCopy';
 import {
   composeBrandedCsUrlLabel,
-  composeBrandedOrderFormTitle,
+  composeCustomerLinkMessageTitle,
 } from '@shared/publicBrandTitles';
 import { appendPublicQuery } from './publicTenantQuery';
 import { getReviewPaybackPublicUrl } from './reviewPaybackCustomerCopy';
@@ -56,6 +56,9 @@ export type FormMessagesState = Pick<
   | 'timeSlotAckTitle'
   | 'timeSlotAckBody'
   | 'timeSlotAckConsentHint'
+  | 'serviceDateAckTitle'
+  | 'serviceDateAckBody'
+  | 'serviceDateAckConsentHint'
   | 'timeSlotLabelsJson'
   | 'customerLinkTotalLine'
   | 'customerLinkBalanceLine'
@@ -85,6 +88,9 @@ export function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessa
     timeSlotAckTitle: withDefaultText(c.timeSlotAckTitle, 'timeSlotAckTitle'),
     timeSlotAckBody: withDefaultText(c.timeSlotAckBody, 'timeSlotAckBody'),
     timeSlotAckConsentHint: withDefaultText(c.timeSlotAckConsentHint, 'timeSlotAckConsentHint'),
+    serviceDateAckTitle: withDefaultText(c.serviceDateAckTitle, 'serviceDateAckTitle'),
+    serviceDateAckBody: withDefaultText(c.serviceDateAckBody, 'serviceDateAckBody'),
+    serviceDateAckConsentHint: withDefaultText(c.serviceDateAckConsentHint, 'serviceDateAckConsentHint'),
     ...linkCopy,
   };
 }
@@ -266,7 +272,7 @@ export function buildOrderFormCustomerMessage(
   };
 
   const formTitleResolved = tplLine(withDefaultText(msgConfig.formTitle, 'formTitle'), baseVars);
-  const title = composeBrandedOrderFormTitle(brandDisplayName, formTitleResolved);
+  const title = composeCustomerLinkMessageTitle(brandDisplayName, formTitleResolved);
 
   let msg = `${title}
 

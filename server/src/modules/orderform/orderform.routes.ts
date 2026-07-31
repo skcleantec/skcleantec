@@ -2111,6 +2111,17 @@ router.put('/form-config', authMiddleware, requireStaffPermission('orderform.for
         ...(body.timeSlotAckConsentHint != null && {
           timeSlotAckConsentHint: body.timeSlotAckConsentHint ? String(body.timeSlotAckConsentHint) : null,
         }),
+        ...(body.serviceDateAckTitle != null && {
+          serviceDateAckTitle: body.serviceDateAckTitle ? String(body.serviceDateAckTitle) : null,
+        }),
+        ...(body.serviceDateAckBody != null && {
+          serviceDateAckBody: body.serviceDateAckBody ? String(body.serviceDateAckBody) : null,
+        }),
+        ...(body.serviceDateAckConsentHint != null && {
+          serviceDateAckConsentHint: body.serviceDateAckConsentHint
+            ? String(body.serviceDateAckConsentHint)
+            : null,
+        }),
         ...(body.timeSlotLabelsJson !== undefined && {
           timeSlotLabelsJson:
             sanitizeOrderTimeSlotLabelsJsonForSave(body.timeSlotLabelsJson) ?? Prisma.DbNull,

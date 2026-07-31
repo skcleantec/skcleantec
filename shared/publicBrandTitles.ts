@@ -24,6 +24,27 @@ export function composeBrandedOrderFormTitle(
   return fallback || DEFAULT_PUBLIC_ORDER_FORM_TITLE;
 }
 
+/**
+ * 고객 링크 메시지 제목 — 1줄은 `composeBrandedOrderFormTitle`, 2줄째 이후는 설정 그대로 유지.
+ * (브랜드가 있으면 1줄만 `{brand} 발주서`로 바뀌어 2줄째 문구가 빠지던 문제 방지)
+ */
+export function composeCustomerLinkMessageTitle(
+  brandDisplayName: string | null | undefined,
+  formTitleResolved: string,
+): string {
+  const normalized = formTitleResolved.replace(/\r\n/g, '\n');
+  const lineBreak = normalized.indexOf('\n');
+  if (lineBreak === -1) {
+    return composeBrandedOrderFormTitle(brandDisplayName, normalized);
+  }
+
+  const firstLine = normalized.slice(0, lineBreak);
+  const rest = normalized.slice(lineBreak + 1);
+  const headline = composeBrandedOrderFormTitle(brandDisplayName, firstLine);
+  if (!rest.trim()) return headline;
+  return `${headline}\n${rest}`;
+}
+
 /** `/cs` 헤더·탭 제목 — `{brand} C/S` */
 export function composeBrandedCsTitle(brandDisplayName?: string | null): string {
   const brand = brandDisplayName?.trim();

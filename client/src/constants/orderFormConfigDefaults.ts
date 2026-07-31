@@ -2,6 +2,10 @@ import {
   ORDER_FORM_TIME_SLOT_ACK_BODY_DEFAULT,
   ORDER_FORM_TIME_SLOT_ACK_CONSENT_HINT_DEFAULT,
 } from './orderFormTimeSlotAckDefaults';
+import {
+  ORDER_FORM_SERVICE_DATE_ACK_BODY_DEFAULT,
+  ORDER_FORM_SERVICE_DATE_ACK_CONSENT_HINT_DEFAULT,
+} from './orderFormServiceDateAckDefaults';
 
 /** 서버 `orderform.routes` DEFAULT_FORM_CONFIG와 동일 — DB·API에 빈 문자열이 있어도 화면에 기본 문구 표시 */
 export const ORDER_FORM_CONFIG_DEFAULTS = {
@@ -16,6 +20,9 @@ export const ORDER_FORM_CONFIG_DEFAULTS = {
   timeSlotAckTitle: '시간대 선택 전 안내',
   timeSlotAckBody: ORDER_FORM_TIME_SLOT_ACK_BODY_DEFAULT,
   timeSlotAckConsentHint: ORDER_FORM_TIME_SLOT_ACK_CONSENT_HINT_DEFAULT,
+  serviceDateAckTitle: '청소날짜 확인',
+  serviceDateAckBody: ORDER_FORM_SERVICE_DATE_ACK_BODY_DEFAULT,
+  serviceDateAckConsentHint: ORDER_FORM_SERVICE_DATE_ACK_CONSENT_HINT_DEFAULT,
 } as const;
 
 /** null·undefined·공백만 있는 문자열이면 fallback (?? 는 빈 문자열을 대체하지 않음) */
