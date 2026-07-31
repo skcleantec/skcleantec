@@ -220,7 +220,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     areaBasis: '',
     areaPyeong: '',
     exclusiveAreaSqm: '',
-    preferredDate: editor?.create ? kstTodayYmd() : '',
+    preferredDate: '',
     preferredTime: '',
     preferredTimeDetail: '',
     roomCount: '',
@@ -717,7 +717,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             const dataDate = data.preferredDate?.trim();
             if (pfDate) return pfDate;
             if (dataDate) return dataDate;
-            return isCreate ? kstTodayYmd() : '';
+            return '';
           })(),
           preferredTime: p?.preferredTime ?? data.preferredTime ?? '',
           preferredTimeDetail: p?.preferredTimeDetail ?? data.preferredTimeDetail ?? '',
@@ -1823,8 +1823,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 }
                 minYmd={kstTodayYmd()}
                 idPrefix="orderform-pref"
-                allowEmpty={!isEditor}
-                emitOnCompleteOnly={!isEditor}
+                allowEmpty
+                emitOnCompleteOnly
               />
             )}
           </div>
