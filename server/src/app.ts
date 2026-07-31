@@ -255,6 +255,18 @@ function resolveMarketingPaths(): { marketingDir: string; marketingIndexPath: st
   return null;
 }
 
+/** 랜딩(`/`)만 검색 노출 — 로그인·앱 SPA 경로는 noindex */
+function shouldNoIndexSpaPath(pathname: string): boolean {
+  if (pathname === '/' || pathname === '/index.html') return false;
+  if (pathname.startsWith('/api')) return false;
+  if (pathname.startsWith('/marketing')) return false;
+  if (pathname.startsWith('/help')) return false;
+  if (pathname.startsWith('/brand')) return false;
+  if (pathname.startsWith('/icons')) return false;
+  if (/\.[a-z0-9]{2,5}$/i.test(pathname)) return false;
+  return true;
+}
+
 if (clientDir) {
   console.info('[app] client 정적 파일:', clientDir);
 
@@ -309,6 +321,14 @@ if (clientDir) {
     app.get('/', sendMarketingLanding);
     app.get('/index.html', sendMarketingLanding);
   }
+
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    if (shouldNoIndexSpaPath(req.path)) {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    }
+    next();
+  });
 
   /** 교체 스크린샷 — Volume·최신 파일 우선, 브라우저 캐시 방지 */
   app.get('/help/screenshots/:filename', (req, res, next) => {
