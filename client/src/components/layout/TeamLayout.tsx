@@ -14,6 +14,8 @@ import {
 } from '../common/ProfileOnboardingModal';
 import { RosterAckBanner } from '../common/RosterAckBanner';
 import { ChangeLogBell } from '../admin/ChangeLogBell';
+import { ScheduleAlertSiren } from '../admin/ScheduleAlertSiren';
+import { TeamScheduleAlertBanner } from '../team/TeamScheduleAlertBanner';
 import {
   getTeamUnseenChangeCount,
   markTeamChangeSeen,
@@ -757,6 +759,18 @@ export function TeamLayout() {
   }
   const teamTo = (path: string) => `${path}${previewQuery}`;
 
+  const [scheduleAlertRefreshKey, setScheduleAlertRefreshKey] = useState(0);
+  const openScheduleFromAlert = useCallback(
+    (inquiryId: string, preferredDate: string | null) => {
+      const base = teamTo('/team/schedule');
+      const sep = base.includes('?') ? '&' : '?';
+      const parts = [`openInquiry=${encodeURIComponent(inquiryId)}`];
+      if (preferredDate) parts.unshift(`day=${encodeURIComponent(preferredDate)}`);
+      navigate(`${base}${sep}${parts.join('&')}`);
+    },
+    [navigate, previewQuery],
+  );
+
   const navShared = {
     isExternalPartner,
     showHouseholdLedger,
@@ -910,6 +924,28 @@ export function TeamLayout() {
                       <TeamBiInline id="team.layout.previewTeamLeader" />
                     </span>
                   ) : null}
+                  {teamToken ? (
+                    <>
+                      <div className="sm:hidden">
+                        <ScheduleAlertSiren
+                          token={teamToken}
+                          team
+                          variant="gnb-chip"
+                          refreshKey={scheduleAlertRefreshKey}
+                          onOpenSchedule={openScheduleFromAlert}
+                        />
+                      </div>
+                      <div className="hidden sm:block">
+                        <ScheduleAlertSiren
+                          token={teamToken}
+                          team
+                          variant="header"
+                          refreshKey={scheduleAlertRefreshKey}
+                          onOpenSchedule={openScheduleFromAlert}
+                        />
+                      </div>
+                    </>
+                  ) : null}
                   <UserProfileMenu
                     token={teamToken}
                     tenantName={tenantName}
@@ -1006,6 +1042,13 @@ export function TeamLayout() {
           </div>
         ) : null}
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: null, tenantSlug, telecrm: null }}>
+          {teamToken && (userRole === 'TEAM_LEADER' || userRole === 'EXTERNAL_PARTNER') ? (
+            <TeamScheduleAlertBanner
+              token={teamToken}
+              onDismiss={() => setScheduleAlertRefreshKey((k) => k + 1)}
+              onOpenSchedule={openScheduleFromAlert}
+            />
+          ) : null}
           <Outlet />
         </TenantCapabilitiesProvider>
       </main>

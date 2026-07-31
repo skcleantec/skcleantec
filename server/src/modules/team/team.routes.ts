@@ -26,6 +26,12 @@ import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/na
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import {
+  ackAllScheduleAlerts,
+  ackScheduleAlert,
+  countPendingScheduleAlerts,
+  listPendingScheduleAlerts,
+} from '../schedule-alerts/scheduleAlerts.service.js';
+import {
   attachTenantShareMetaToInquiries,
   attachTenantShareMetaToInquiry,
 } from '../tenant-partners/tenantInquiryShare.service.js';
@@ -888,31 +894,40 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
     return;
   }
 
+  const dateLines = [`청소 희망일: ${beforeYmd ?? '(없음)'} → ${ymd}`];
   const updated = await prisma.$transaction(async (tx) => {
     await tx.inquiry.update({
       where: { id },
       data: { preferredDate },
     });
-    await tx.inquiryChangeLog.create({
+    const log = await tx.inquiryChangeLog.create({
       data: {
         inquiryId: id,
         customerName: inquiry.customerName,
         actorId: userId,
-        lines: [`청소 희망일: ${beforeYmd ?? '(없음)'} → ${ymd}`],
+        lines: dateLines,
+        scheduleAlertKind: 'date',
       },
     });
-    return tx.inquiry.findUnique({
+    return { inquiry: await tx.inquiry.findUnique({
       where: { id },
       include: teamInquiryInclude,
-    });
+    }), changeLogId: log.id };
   });
   notifyChangeLogToStaff({
     tenantId: inquiry.tenantId,
     customerName: inquiry.customerName,
     inquiryId: id,
-    lines: [`청소 희망일: ${beforeYmd ?? '(없음)'} → ${ymd}`],
+    lines: dateLines,
+    changeLogId: updated.changeLogId,
+    actorId: userId,
+    scheduleAlertKind: 'date',
   });
-  res.json(await attachCrewMembersOne(updated, inquiry.tenantId));
+  if (!updated.inquiry) {
+    res.status(500).json({ error: '예약일 변경 후 조회에 실패했습니다.' });
+    return;
+  }
+  res.json(await attachCrewMembersOne(updated.inquiry, inquiry.tenantId));
 });
 
 /** 팀장: 오전 희망 접수일 때만 크루 현장 일정에 노출할 미팅 시각(KST, HH:mm) — 공용 또는 팀원별 */
@@ -1192,19 +1207,24 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
       ...(snapCid ? { cancelFeeExternalCompany: { connect: { id: snapCid } } } : {}),
     },
   });
-  await prisma.inquiryChangeLog.create({
+  const cancelLines = ['관리자/마케터 취소 처리'];
+  const cancelLog = await prisma.inquiryChangeLog.create({
     data: {
       inquiryId: inquiry.id,
       customerName: inquiry.customerName,
       actorId,
-      lines: ['관리자/마케터 취소 처리'],
+      lines: cancelLines,
+      scheduleAlertKind: 'cancel',
     },
   });
   notifyChangeLogToStaff({
     tenantId,
     customerName: inquiry.customerName,
     inquiryId: inquiry.id,
-    lines: ['관리자/마케터 취소 처리'],
+    lines: cancelLines,
+    changeLogId: cancelLog.id,
+    actorId,
+    scheduleAlertKind: 'cancel',
   });
   const staff = await prisma.user.findMany({
     where: { tenantId, isActive: true, role: { in: ['ADMIN', 'MARKETER'] } },
@@ -1260,6 +1280,75 @@ router.post('/inquiry-change-logs/mark-seen', async (req, res) => {
   const now = new Date();
   await prisma.user.update({ where: { id: user.userId }, data: { changeLogSeenAt: now } });
   res.json({ ok: true, seenAt: now.toISOString() });
+});
+
+/** 팀장: 일정 긴급 알림(사이렌) 미확인 수 */
+router.get('/schedule-alerts/unseen-count', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await resolveTeamContextTenantId(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const count = await countPendingScheduleAlerts({
+    tenantId,
+    userId: user.userId,
+    teamLeaderOnly: true,
+  });
+  res.json({ count });
+});
+
+/** 팀장: 일정 긴급 알림 목록(배너·사이렌) */
+router.get('/schedule-alerts/pending', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await resolveTeamContextTenantId(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? '20'), 10) || 20));
+  const result = await listPendingScheduleAlerts({
+    tenantId,
+    userId: user.userId,
+    teamLeaderOnly: true,
+    limit,
+  });
+  res.json(result);
+});
+
+router.post('/schedule-alerts/ack-all', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await resolveTeamContextTenantId(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const acked = await ackAllScheduleAlerts({
+    tenantId,
+    userId: user.userId,
+    teamLeaderOnly: true,
+  });
+  res.json({ ok: true, acked });
+});
+
+router.post('/schedule-alerts/:changeLogId/ack', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await resolveTeamContextTenantId(user);
+  if (!tenantId) {
+    res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
+    return;
+  }
+  const ok = await ackScheduleAlert({
+    tenantId,
+    userId: user.userId,
+    changeLogId: String(req.params.changeLogId),
+    teamLeaderOnly: true,
+  });
+  if (!ok) {
+    res.status(404).json({ error: '알림을 찾을 수 없습니다.' });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 /** 팀장: 본인 담당 접수 변경 이력 목록(페이지) */

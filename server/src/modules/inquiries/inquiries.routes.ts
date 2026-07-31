@@ -117,6 +117,7 @@ import {
 } from '../crew/crewFieldRealtime.js';
 import { notifyStaffInboxRefresh } from '../realtime/navBadgeNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
+import { scheduleAlertKindForLines } from '../schedule-alerts/scheduleAlerts.service.js';
 import { queueHouseholdLedgerInquirySync } from '../team-leader-household-ledger/teamLeaderHouseholdLedgerAutoSync.service.js';
 import { inquiryDetailInclude, operatingCompanySummarySelect, orderFormTemplateListSelect } from './inquiryDetailInclude.js';
 import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
@@ -1492,6 +1493,8 @@ router.patch('/:id', async (req, res) => {
 
   try {
     let createdCsReport = false;
+    let createdChangeLogId: string | null = null;
+    let createdChangeLogAlertKind: ReturnType<typeof scheduleAlertKindForLines> = null;
     await prisma.$transaction(async (tx) => {
       const updateData: Prisma.InquiryUpdateInput = { ...data };
       const statusAfterPatch =
@@ -1579,14 +1582,18 @@ router.patch('/:id', async (req, res) => {
         }
       }
       if (lines.length > 0) {
-        await tx.inquiryChangeLog.create({
+        const alertKind = scheduleAlertKindForLines(lines);
+        const log = await tx.inquiryChangeLog.create({
           data: {
             inquiryId: id,
             customerName: inquiry.customerName,
             actorId: user?.userId ?? null,
             lines,
+            scheduleAlertKind: alertKind,
           },
         });
+        createdChangeLogId = log.id;
+        createdChangeLogAlertKind = alertKind;
       }
 
       /**
@@ -1631,7 +1638,15 @@ router.patch('/:id', async (req, res) => {
       void notifyStaffInboxRefresh(tenantId, [...leaderIds]);
     }
     if (lines.length > 0) {
-      notifyChangeLogToStaff({ tenantId, customerName: inquiry.customerName, inquiryId: id, lines });
+      notifyChangeLogToStaff({
+        tenantId,
+        customerName: inquiry.customerName,
+        inquiryId: id,
+        lines,
+        changeLogId: createdChangeLogId ?? undefined,
+        actorId: user?.userId ?? null,
+        scheduleAlertKind: createdChangeLogAlertKind,
+      });
     }
     queueHouseholdLedgerInquirySync(prisma, { tenantId, inquiryId: id });
   } catch (e) {
