@@ -1,0 +1,61 @@
+---
+description: 랜딩페이지 목업 — PC·모바일 테두리 프레임·2x Retina·PNG
+globs: client/public/marketing/**
+alwaysApply: false
+---
+
+# 랜딩 — 스크린샷·목업 (필수)
+
+`client/public/marketing/index.html` · `청소비서 랜딩페이지.dc.html` **항상 동기화**.
+
+## 화질 원칙 (뿌림 방지)
+
+1. **제품 스크린샷은 PNG** — WebP 압축·`image-slot` sidecar WebP 저장 금지(교체 시 PNG 파일 덮어쓰기).
+2. **Retina(2x)** — CSS 표시 폭 ≈ **원본 가로 ÷ 2**. `width`/`height` HTML 속성 = CSS 크기.
+3. **`object-fit: contain`** — 히어로·`#app-intro`·워크플로우 모바일 오버레이. **`cover` + `transform:scale()` 금지**(업스케일·GPU 블러).
+4. **3D tilt·perspective·Mac 크롬(●●●)·글로우** — 히어로 PC 금지.
+5. **모바일 오버레이** — PC 프레임 `overflow:hidden` **밖** 형제 배치 (`.hero-b-phone`).
+6. **`decoding="sync"`** — 히어로·`#app-intro` LCP 목업.
+
+## 에셋 맵 (교체 시 같은 경로·파일명 유지)
+
+| 용도 | 경로 | 권장 원본 | CSS 표시 |
+|------|------|-----------|----------|
+| 히어로 PC | `/images/dashboard-mockup@2x.png` | **1024×624** (2x) | max **1024px** |
+| 히어로 모바일 | `/images/app-mockup@2x.png` | **830×1800** (2x) | **300px** (260/240 반응형) |
+| `#app-intro` 모바일 | 동일 `app-mockup@2x.png` | 830×1800 | **415px** |
+| 히어로 하단 4장 | `/marketing/assets/wf1~4.png` | **512×~1034** (1x) 또는 1024 (2x) | 폰 프레임 **~300px** |
+| 워크플로우 PC×4 | `assets/slots/cb-wf-pc-1~4.png` | **~1900×900** | `wf-pc-screen` 내 축소 |
+| 워크플로우 MO×4 | `assets/slots/cb-wf-mo-1~4.png` | **471×1024** | `.wf-phone-on-pc` **320px** (300/280 반응형), `fit="contain"` |
+| 역할 탭 | `cb-role.png`, `cb-role-leader.png` | **494×892** 근처 | 폰 **494px** |
+| CRM | `cb-crm-pc.png` | **1908×957** | 섹션 내 축소 |
+| BEFORE 캘린더 | `cb-old-calendar.png` | **450×750** | ~340px |
+| 통계 배경 | `cb-stats-bg.png` | **1312×816**+ | full-bleed |
+
+## 히어로 B
+
+- **`.hero-b-pc-mockup`** — 얇은 다크 테두리만 (`padding:6px`, `border-radius:18px`)
+- **`.hero-b-pc-img`** — `object-fit:contain`, Mac UI 없음
+- **`.hero-b-phone`** — `width:300px`, 형제 오버레이, 모션 금지
+
+## `#app-intro`
+
+- **`.app-intro-retina-img`** — `contain`, **scale(1.2) 제거**
+- **`.app-mockup-retina`** — `width:415px`
+
+## 워크플로우 섹션
+
+- PC `image-slot`: **`fit="contain"`**
+- PC 위 모바일: **`fit="contain"`** (cover 금지)
+- `wf1~4`: **`landing-retina-img`**, srcset 불필요(원본 512면 300px 표시 OK)
+
+## 교체 절차
+
+1. 캡처 → PNG export (무손실 또는 고품질).
+2. 위 표 **동일 경로**에 덮어쓰기.
+3. 가로·세로 바뀌면 HTML `width`/`height`·관련 `aspect-ratio` CSS 같이 수정.
+4. `index.html` + `dc.html` 동시 반영.
+
+## 참고 클래스
+
+`.hero-b-pc-mockup`, `.hero-b-pc-img`, `.hero-b-phone`, `.hero-retina-img`, `.app-intro-retina-img`, `.landing-retina-img`, `.app-mockup-retina`, `.wf-phone-on-pc`
