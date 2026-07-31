@@ -163,7 +163,27 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 .crm-tag{flex:1 1 0;min-width:0;white-space:nowrap;text-align:center;font-size:min(14px,max(8px,calc((100vw - 48px - 16px)/28)));font-weight:700;line-height:1.2;padding:clamp(5px,1.5vw,9px) clamp(4px,1.8vw,16px);border-radius:999px}
 .crm-tag--outline{background:#fff;border:1px solid #DCE6FF;color:#2F6BFF}
 .crm-tag--solid{background:#2F6BFF;color:#fff}
-.footer-sb-logo{display:block;margin-top:12px;height:72px;width:auto;max-width:140px;object-fit:contain;background:transparent}
+.footer-sb-logo{display:block;height:36px;width:auto;max-width:96px;object-fit:contain;background:transparent;flex-shrink:0}
+.landing-footer{background:#0B1220;color:#8B98B0;padding:40px 24px 24px}
+.landing-footer-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.95fr) minmax(0,1.2fr);gap:24px 28px;align-items:start}
+.landing-footer-brand p{margin:10px 0 0;font-size:13px;line-height:1.6;color:#8B98B0;max-width:280px}
+.landing-footer-col h3{margin:0 0 8px;font-size:12px;font-weight:800;color:#fff;letter-spacing:.02em}
+.landing-footer-nav{display:flex;flex-wrap:wrap;gap:6px 10px;font-size:13px;line-height:1.4}
+.landing-footer-nav a{color:#8B98B0;white-space:nowrap}
+.landing-footer-nav a:hover{color:#fff}
+.landing-footer-contact{margin-top:12px;font-size:13px;line-height:1.55;color:#8B98B0}
+.landing-footer-contact a{color:#8B98B0;text-decoration:none}
+.landing-footer-operator{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.landing-footer-operator-name{font-size:13px;line-height:1.45;color:#8B98B0}
+.landing-footer-biz{font-size:11px;line-height:1.55;color:#5E6A7C;word-break:keep-all}
+.landing-footer-biz p{margin:0}
+.landing-footer-biz p+p{margin-top:3px}
+.landing-footer-copy{max-width:1200px;margin:20px auto 0;padding-top:14px;border-top:1px solid #1C2739;font-size:11px;color:#5A6678}
+@media (max-width:860px){
+.landing-footer-inner{grid-template-columns:1fr;gap:20px}
+.landing-footer-brand p{max-width:none}
+.landing-footer-operator{justify-content:flex-start}
+}
 </style>
 <script>
 (function(){var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;if(s)window.location.replace('/login');})();
@@ -963,32 +983,42 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
   </div>
 </section>
 
-<footer style="background:#0B1220;color:#8B98B0;padding:60px 24px">
-  <div data-steps-grid="1" style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;align-items:start">
-    <div>
-      <img src="/marketing/assets/logo-white.png" alt="청소비서" style="height:34px;width:auto;display:block;opacity:.95">
-      <p style="margin:18px 0 0;font-size:14px;line-height:1.8">청소업체 전용 올인원 SaaS 업무관리 플랫폼<br>접수 · 배정 · 현장보고 · 정산을 하나로.</p>
+<footer class="landing-footer">
+  <div class="landing-footer-inner">
+    <div class="landing-footer-brand">
+      <img src="/marketing/assets/logo-white.png" alt="청소비서" style="height:30px;width:auto;display:block;opacity:.95">
+      <p>청소업체 전용 올인원 SaaS · 접수 · 배정 · 현장보고 · 정산</p>
     </div>
-    <div style="font-size:14px;line-height:2">
-      <div style="color:#fff;font-weight:800;margin-bottom:10px">서비스</div>
-      <div><a href="#workflow" style="color:#8B98B0">워크플로우</a></div>
-      <div><a href="#app-intro" style="color:#8B98B0">모바일 앱</a></div>
-      <div><a href="#features" style="color:#8B98B0">기능</a></div>
-      <div><a href="#pricing" style="color:#8B98B0">요금제</a></div>
+    <div class="landing-footer-col">
+      <h3>바로가기 · 문의</h3>
+      <nav class="landing-footer-nav" aria-label="푸터 바로가기">
+        <a href="#workflow">워크플로우</a>
+        <a href="#app-intro">모바일 앱</a>
+        <a href="#features">기능</a>
+        <a href="#pricing">요금제</a>
+        <a href="#faq">FAQ</a>
+        <a href="#contact">도입 상담</a>
+      </nav>
+      <div class="landing-footer-contact">
+        <a href="tel:01039030007">010-3903-0007</a> · cleanbiseo@gmail.com · cbiseo.com
+      </div>
     </div>
-    <div style="font-size:14px;line-height:2">
-      <div style="color:#fff;font-weight:800;margin-bottom:10px">문의</div>
-      <div>대표번호 010-3903-0007</div>
-      <div>cleanbiseo@gmail.com</div>
-      <div>cbiseo.com</div>
-    </div>
-    <div style="font-size:14px;line-height:2">
-      <div style="color:#fff;font-weight:800;margin-bottom:10px">운영사</div>
-      <div>(주)서비스브릿지</div>
-      <img src="/marketing/assets/logo-sb.png" alt="서비스브릿지 ServiceBridge" class="footer-sb-logo">
+    <div class="landing-footer-col">
+      <div class="landing-footer-operator">
+        <div>
+          <h3>운영 · 사업자 정보</h3>
+          <div class="landing-footer-operator-name">주식회사 서비스브릿지</div>
+        </div>
+        <img src="/marketing/assets/logo-sb.png" alt="서비스브릿지" class="footer-sb-logo">
+      </div>
+      <div class="landing-footer-biz">
+        <p>대표 이정무 · 사업자등록번호 138-87-04035</p>
+        <p>인천광역시 연수구 송도미래로 30, 이동 801호, 엠46(송도동, 스마트밸리지식산업센터)</p>
+        <p>업종 정보통신업 · 종목 응용 소프트웨어 개발 및 공급업</p>
+      </div>
     </div>
   </div>
-  <div style="max-width:1200px;margin:40px auto 0;padding-top:24px;border-top:1px solid #1C2739;font-size:13px">© 2026 ServiceBridge Inc. All rights reserved.</div>
+  <div class="landing-footer-copy">© 2026 주식회사 서비스브릿지. All rights reserved.</div>
 </footer>
 
 </main>
