@@ -1,7 +1,21 @@
 User-agent: *
 Allow: /
+Disallow: /login
+Disallow: /signup
+Disallow: /admin/
+Disallow: /team/
+Disallow: /crew/
+Disallow: /platform/
+Disallow: /order/
+Disallow: /e-contract/
 
 User-agent: Yeti
 Allow: /
+Disallow: /login
+Disallow: /signup
+Disallow: /admin/
+Disallow: /team/
+Disallow: /crew/
+Disallow: /platform/
 
 Sitemap: https://www.cbiseo.com/sitemap.xml
