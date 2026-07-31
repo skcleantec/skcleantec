@@ -37,6 +37,7 @@ import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import type { OrderTimeSlotLabels } from '@shared/orderFormTimeSlotLabels';
 import { copyTextToClipboard } from '../../utils/clipboard';
+import { defaultScheduleLeadSourceLabel } from '@shared/inquiryLeadSourceDefaults';
 import {
   buildOrderFormCustomerMessage,
   customerLinkMsgConfigForBrand,
@@ -317,6 +318,13 @@ export function AdminOrderFormPage() {
   const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
   const [issueTemplateId, setIssueTemplateId] = useState('');
   const [issueLeadSource, setIssueLeadSource] = useState('');
+
+  useEffect(() => {
+    const def = defaultScheduleLeadSourceLabel(staffTenantSlug);
+    if (!def) return;
+    setIssueLeadSource((prev) => (prev.trim() ? prev : def));
+  }, [staffTenantSlug]);
+
   const [scheduleFabUnlinkedHint, setScheduleFabUnlinkedHint] = useState(false);
   const pendingInquiryFromUrlConsumed = useRef<string | null>(null);
 
@@ -494,6 +502,7 @@ export function AdminOrderFormPage() {
     pendingIssueScrollRef.current = false;
     setNewOrder(null);
     setPendingLinkId('');
+    setIssueLeadSource(defaultScheduleLeadSourceLabel(staffTenantSlug) || '');
     setIssueFormKey((k) => k + 1);
   };
 
