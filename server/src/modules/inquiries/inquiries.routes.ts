@@ -29,6 +29,7 @@ import {
   fetchInquiryListPageSorted,
   whereInquiryListPinnedPreReceive,
 } from './inquiryListSort.helpers.js';
+import { inquiryListSearchOrWhere } from './inquiryListSearchWhere.js';
 import { parseInquiryListSortQuery } from '../../lib/inquiryListSort.js';
 import {
   buildMarketerOverview,
@@ -372,14 +373,8 @@ router.get('/', async (req, res) => {
     }
   }
   if (search && typeof search === 'string' && search.trim()) {
-    const s = search.trim();
-    andClauses.push({
-      OR: [
-        { customerName: { contains: s } },
-        { customerPhone: { contains: s } },
-        { inquiryNumber: { contains: s } },
-      ],
-    });
+    const searchWhere = inquiryListSearchOrWhere(search);
+    if (searchWhere) andClauses.push(searchWhere);
   }
   /** 마케터: 본인 접수(또는 구 데이터 발주서 작성자)만. 관리자: 선택 시 해당 사용자 기준 또는 미지정 */
   if (!useMarketerStatsDay) {

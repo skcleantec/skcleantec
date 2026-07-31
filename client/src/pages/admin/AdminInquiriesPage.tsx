@@ -747,13 +747,14 @@ const INQUIRY_LIST_DATE_LABEL_CLASS =
   'shrink-0 text-[10px] leading-tight text-slate-600 sm:text-fluid-2xs';
 const INQUIRY_LIST_DATE_SELECT_CLASS =
   'rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] leading-tight text-slate-900 sm:text-fluid-2xs';
-const INQUIRY_LIST_SEARCH_ROW_CLASS = 'flex min-w-0 flex-row items-stretch gap-1 sm:gap-1.5';
+const INQUIRY_LIST_SEARCH_ROW_CLASS =
+  'relative z-[2] flex min-w-0 flex-row items-stretch gap-1 sm:gap-1.5';
 const INQUIRY_LIST_SEARCH_INPUT_CLASS =
   'min-h-8 min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-fluid-2xs text-slate-900 placeholder:text-slate-400';
 const INQUIRY_LIST_STATUS_FILTER_BTN_CLASS =
   'flex min-h-8 w-[6.75rem] shrink-0 items-center justify-between gap-0.5 rounded border border-slate-300 bg-white px-1.5 py-1 text-fluid-2xs text-slate-900 sm:min-w-[7.25rem] sm:px-2';
 const INQUIRY_LIST_SEARCH_SUBMIT_CLASS =
-  'min-h-8 shrink-0 rounded-lg bg-slate-900 px-2.5 py-1 text-fluid-2xs font-medium text-white hover:bg-slate-800';
+  'relative z-[2] min-h-8 shrink-0 rounded-lg bg-slate-900 px-2.5 py-1 text-fluid-2xs font-medium text-white hover:bg-slate-800 touch-manipulation';
 const INQUIRY_MOBILE_CARD_LIST_CLASS = 'flex flex-col gap-1.5 p-1.5 sm:gap-2 sm:p-2 lg:gap-3 lg:p-3';
 const INQUIRY_MOBILE_CARD_BODY_CLASS = 'cursor-pointer px-2 pt-2 pb-1.5 sm:px-3 sm:pt-3 sm:pb-2';
 const INQUIRY_MOBILE_CARD_FOOTER_CLASS =
@@ -866,8 +867,8 @@ export function AdminInquiriesPage() {
     return '';
   });
   const [statusFilterOpen, setStatusFilterOpen] = useState(false);
-  const [searchInput, setSearchInput] = useState('');
-  const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
+  const appliedSearchQuery = searchParams.get('q') ?? '';
+  const [searchInput, setSearchInput] = useState(() => searchParams.get('q') ?? '');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [promotedListFields, setPromotedListFields] = useState<Array<{ fieldKey: string; label: string }>>([]);
   const listTableWidthRem = (hasInspectionModule ? 90 : 84) + promotedListFields.length * 4;
@@ -1130,6 +1131,10 @@ export function AdminInquiriesPage() {
   }, [statusFilterOpen]);
 
   useEffect(() => {
+    setSearchInput(appliedSearchQuery);
+  }, [appliedSearchQuery]);
+
+  useEffect(() => {
     const pd = searchParams.get('preferredDate');
     if (!pd || !/^\d{4}-\d{2}-\d{2}$/.test(pd)) return;
     setCreateInquiryModalDate(pd);
@@ -1204,18 +1209,6 @@ export function AdminInquiriesPage() {
       setDateBasis('createdAt');
     } else if (!isFirst) {
       setMarketerStatsDay('');
-    }
-    if (
-      !isFirst &&
-      (searchParams.has('datePreset') ||
-        searchParams.has('month') ||
-        searchParams.has('day') ||
-        searchParams.has('status') ||
-        searchParams.has('createdById') ||
-        searchParams.has('marketerStatsDay'))
-    ) {
-      setSearchInput('');
-      setAppliedSearchQuery('');
     }
   }, [urlListFilterSig, searchParams]);
 
@@ -1617,7 +1610,6 @@ export function AdminInquiriesPage() {
         setDayKey(dayYmd);
         setStatusFilter('RECEIVED');
         setSearchInput('');
-        setAppliedSearchQuery('');
         setInquiryListBump((n) => n + 1);
       });
       patchInquiryListSearchParams((next) => {
@@ -1627,6 +1619,7 @@ export function AdminInquiriesPage() {
         next.set('createdById', marketerId);
         next.set('marketerStatsDay', dayYmd);
         next.delete('month');
+        next.delete('q');
       });
     },
     [patchInquiryListSearchParams]
@@ -1636,9 +1629,11 @@ export function AdminInquiriesPage() {
     (preset: 'today' | 'all' | 'month' | 'day') => {
       setMarketerStatsDay('');
       setDatePreset(preset);
+      datePresetBeforeSearchRef.current = null;
       patchInquiryListSearchParams((next) => {
         next.set('datePreset', preset);
         next.delete('marketerStatsDay');
+        next.delete('q');
         if (preset === 'month') {
           next.set('month', monthKey);
           next.delete('day');
@@ -1661,20 +1656,20 @@ export function AdminInquiriesPage() {
         if (!appliedSearchQuery.trim() && datePreset !== 'all') {
           datePresetBeforeSearchRef.current = datePreset;
         }
-        if (datePreset !== 'all') {
-          setMarketerStatsDay('');
-          setDatePreset('all');
-          patchInquiryListSearchParams((next) => {
-            next.set('datePreset', 'all');
-            next.delete('month');
-            next.delete('day');
-            next.delete('marketerStatsDay');
-          });
-        }
-        setAppliedSearchQuery(q);
+        setMarketerStatsDay('');
+        setDatePreset('all');
+        patchInquiryListSearchParams((next) => {
+          next.set('q', q);
+          next.set('datePreset', 'all');
+          next.delete('month');
+          next.delete('day');
+          next.delete('marketerStatsDay');
+        });
         return;
       }
-      setAppliedSearchQuery('');
+      patchInquiryListSearchParams((next) => {
+        next.delete('q');
+      });
       const restore = datePresetBeforeSearchRef.current;
       datePresetBeforeSearchRef.current = null;
       if (restore && datePreset === 'all') {
@@ -2827,17 +2822,18 @@ export function AdminInquiriesPage() {
                 ) : null}
               </div>
             </div>
-            <div className={INQUIRY_LIST_SEARCH_ROW_CLASS}>
+            <form
+              className={INQUIRY_LIST_SEARCH_ROW_CLASS}
+              onSubmit={(e) => {
+                e.preventDefault();
+                applySearchQuery(searchInput);
+              }}
+            >
               <input
-                type="text"
+                type="search"
+                enterKeyHint="search"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    applySearchQuery(searchInput);
-                  }
-                }}
                 placeholder="고객명·연락처·접수번호 검색"
                 className={INQUIRY_LIST_SEARCH_INPUT_CLASS}
               />
@@ -2876,6 +2872,7 @@ export function AdminInquiriesPage() {
                           patchInquiryListSearchParams((next) => {
                             next.delete('status');
                             next.delete('marketerStatsDay');
+                            next.delete('q');
                           });
                         }}
                         className={`flex items-center gap-1 rounded px-1.5 py-1 text-left text-fluid-2xs transition ${
@@ -2896,6 +2893,7 @@ export function AdminInquiriesPage() {
                             patchInquiryListSearchParams((next) => {
                               next.set('status', value);
                               next.delete('marketerStatsDay');
+                              next.delete('q');
                             });
                           }}
                           className={`flex items-center gap-1 rounded px-1.5 py-1 text-left text-fluid-2xs transition ${
@@ -2914,13 +2912,12 @@ export function AdminInquiriesPage() {
                 ) : null}
               </div>
               <button
-                type="button"
-                onClick={() => applySearchQuery(searchInput)}
+                type="submit"
                 className={INQUIRY_LIST_SEARCH_SUBMIT_CLASS}
               >
                 조회
               </button>
-            </div>
+            </form>
           </div>
           {!marketerStatsDay ? (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-slate-200/80 bg-slate-50/80 px-2 py-1 text-[10px] text-slate-600 sm:text-fluid-2xs">
