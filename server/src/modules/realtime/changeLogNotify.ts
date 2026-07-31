@@ -1,8 +1,12 @@
 import { prisma } from '../../lib/prisma.js';
 import { broadcastJsonToStaff, sendJsonToUser } from './realtimeHub.js';
 import type { ChangeLogCategory } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
-import { categorizeLines } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
+import {
+  categorizeLines,
+  resolveScheduleAlertKind,
+} from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import { filterMarketerOnlyChangeLogLines } from '../inquiries/internalCustomerTone.js';
+import type { ScheduleAlertKind } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 
 export type ChangeLogWsPayload = {
   type: 'changelog:new';
@@ -10,6 +14,15 @@ export type ChangeLogWsPayload = {
   inquiryId: string | null;
   summary: string;
   categories: ChangeLogCategory[];
+};
+
+export type ScheduleAlertWsPayload = {
+  type: 'schedule-alert:new';
+  changeLogId: string;
+  inquiryId: string | null;
+  customerName: string;
+  kind: ScheduleAlertKind;
+  summary: string;
 };
 
 function buildChangeLogWsPayload(
@@ -26,6 +39,53 @@ function buildChangeLogWsPayload(
   };
 }
 
+function buildScheduleAlertWsPayload(params: {
+  changeLogId: string;
+  inquiryId: string | null;
+  customerName: string;
+  kind: ScheduleAlertKind;
+  lines: string[];
+}): ScheduleAlertWsPayload {
+  const summary =
+    params.lines.length === 1 ? params.lines[0] : `${params.lines[0]} 외 ${params.lines.length - 1}건`;
+  return {
+    type: 'schedule-alert:new',
+    changeLogId: params.changeLogId,
+    inquiryId: params.inquiryId,
+    customerName: params.customerName,
+    kind: params.kind,
+    summary,
+  };
+}
+
+function notifyScheduleAlertToStaff(params: {
+  tenantId: string;
+  customerName: string;
+  inquiryId: string | null;
+  changeLogId: string;
+  kind: ScheduleAlertKind;
+  lines: string[];
+  actorId?: string | null;
+}): void {
+  const payload = buildScheduleAlertWsPayload(params);
+  broadcastJsonToStaff(payload, params.tenantId);
+
+  if (!params.inquiryId) return;
+  void (async () => {
+    const assigns = await prisma.assignment.findMany({
+      where: { inquiryId: params.inquiryId as string, tenantId: params.tenantId },
+      select: { teamLeaderId: true },
+    });
+    const seen = new Set<string>();
+    for (const a of assigns) {
+      if (!a.teamLeaderId || seen.has(a.teamLeaderId)) continue;
+      if (params.actorId && a.teamLeaderId === params.actorId) continue;
+      seen.add(a.teamLeaderId);
+      sendJsonToUser(a.teamLeaderId, payload, params.tenantId);
+    }
+  })().catch((e) => console.error('[schedule-alert-notify] team leaders', e));
+}
+
 /**
  * 접수 변경 이력이 생성되면 같은 테넌트의 ADMIN·MARKETER 탭 + 담당 팀장에게 알림.
  * 클라이언트는 종 아이콘 미확인 수 재조회 + (중요 변경) 토스트에 사용한다.
@@ -36,6 +96,9 @@ export function notifyChangeLogToStaff(params: {
   customerName: string;
   inquiryId: string | null;
   lines: string[];
+  changeLogId?: string;
+  actorId?: string | null;
+  scheduleAlertKind?: ScheduleAlertKind | null;
 }): void {
   const lines = params.lines.filter(Boolean);
   if (lines.length === 0) return;
@@ -44,6 +107,19 @@ export function notifyChangeLogToStaff(params: {
     buildChangeLogWsPayload({ customerName: params.customerName, inquiryId: params.inquiryId }, lines),
     params.tenantId,
   );
+
+  const kind = params.scheduleAlertKind ?? resolveScheduleAlertKind(lines);
+  if (kind && params.changeLogId) {
+    notifyScheduleAlertToStaff({
+      tenantId: params.tenantId,
+      customerName: params.customerName,
+      inquiryId: params.inquiryId,
+      changeLogId: params.changeLogId,
+      kind,
+      lines,
+      actorId: params.actorId,
+    });
+  }
 
   const teamLines = filterMarketerOnlyChangeLogLines(lines);
   if (teamLines.length === 0 || !params.inquiryId) return;

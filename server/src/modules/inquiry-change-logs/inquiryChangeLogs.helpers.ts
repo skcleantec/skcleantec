@@ -2,6 +2,7 @@ import type { InquiryChangeLog, Inquiry } from '@prisma/client';
 
 /** 변경 유형 — 클라이언트 색·아이콘·필터에 사용 */
 export type ChangeLogCategory = 'date' | 'cost' | 'extra' | 'team' | 'status' | 'etc';
+export type ScheduleAlertKind = 'date' | 'cancel';
 
 export type ChangeHistoryItemDto = {
   id: string;
@@ -31,6 +32,14 @@ export function categorizeChangeLine(line: string): ChangeLogCategory {
   if (/총액|예약금|잔금|수수료|금액|비용/.test(t)) return 'cost';
   if (/상태|취소|보류|완료|삭제/.test(t)) return 'status';
   return 'etc';
+}
+
+/** 일정 긴급 알림(사이렌) — 취소·날짜 변경만. 보류 등 제외 */
+export function resolveScheduleAlertKind(lines: string[]): ScheduleAlertKind | null {
+  if (lines.length === 0) return null;
+  if (categorizeLines(lines).includes('date')) return 'date';
+  if (lines.some((l) => /취소/.test(l))) return 'cancel';
+  return null;
 }
 
 /** 여러 줄에서 등장한 유형을 정의된 우선순위 순으로 중복 제거해 반환 */

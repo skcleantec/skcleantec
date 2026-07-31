@@ -52,6 +52,7 @@ import {
   type ProfileOnboardingInitial,
 } from '../common/ProfileOnboardingModal';
 import { ChangeLogBell } from '../admin/ChangeLogBell';
+import { ScheduleAlertSiren } from '../admin/ScheduleAlertSiren';
 import { getUnseenChangeCount, getChangeHistoryList, markChangeSeen } from '../../api/inquiryChangeLogs';
 import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
 import { AdminVolumeStatsButton } from '../admin/AdminVolumeStatsButton';
@@ -220,6 +221,15 @@ export function AdminLayout() {
     }
     navigate('/admin/dashboard');
   }, [navigate]);
+  const openScheduleFromAlert = useCallback(
+    (inquiryId: string, preferredDate: string | null) => {
+      const params = new URLSearchParams();
+      if (preferredDate) params.set('day', preferredDate);
+      params.set('openInquiry', inquiryId);
+      navigate(`/admin/schedule?${params.toString()}`);
+    },
+    [navigate],
+  );
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [csPendingCount, setCsPendingCount] = useState(0);
@@ -1373,12 +1383,28 @@ export function AdminLayout() {
                     </div>
                   );
                 })}
+                {adminToken ? (
+                  <div className="lg:hidden shrink-0">
+                    <ScheduleAlertSiren
+                      token={adminToken}
+                      variant="gnb-chip"
+                      onOpenSchedule={openScheduleFromAlert}
+                    />
+                  </div>
+                ) : null}
               </nav>
             </DarkHeaderNavScroll>
           </div>
           <div className="hidden md:flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
             {teamPreviewLink ? <AdminDevPreviewLinks adminToken={adminToken} /> : null}
             {showVolumeStatsMenu ? <AdminVolumeStatsButton adminToken={adminToken} /> : null}
+            {adminToken ? (
+              <ScheduleAlertSiren
+                token={adminToken}
+                variant="header"
+                onOpenSchedule={openScheduleFromAlert}
+              />
+            ) : null}
             <UserProfileMenu
               token={adminToken}
               tenantName={tenantName}

@@ -287,6 +287,7 @@ model Tenant {
   coinLedgerEntries TenantCoinLedgerEntry[]
   planUpgradeRequests TenantPlanUpgradeRequest[]
   convertedFromSignupInquiries PlatformSignupInquiry[]
+  inquiryScheduleAlertAcks InquiryScheduleAlertAck[]
 
   @@map("tenants")
 }
@@ -1110,6 +1111,7 @@ model User {
   staffIdCardUrl      String? @map("staff_id_card_url") @db.VarChar(2048)
   /// 접수 변경 이력 알림 — 이 사용자가 변경 이력을 마지막으로 확인한 시각. 이후 생성분이 미확인 알림.
   changeLogSeenAt     DateTime? @map("change_log_seen_at")
+  scheduleAlertAcks   InquiryScheduleAlertAck[]
   /// 플랫폼 지원 접속 — 테넌트별 자동 생성 ADMIN (목록·일반 로그인에서 숨김)
   platformSupportAccessId String? @map("platform_support_access_id")
   platformSupportAccess   TenantSupportAccess? @relation(fields: [platformSupportAccessId], references: [id], onDelete: SetNull)
@@ -2172,12 +2174,32 @@ model InquiryChangeLog {
   createdAt    DateTime @default(now()) @map("created_at")
   actorId      String?  @map("actor_id")
   lines        Json
+  scheduleAlertKind String? @map("schedule_alert_kind")
 
   inquiry Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
   actor   User?    @relation("InquiryChangeLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+  scheduleAlertAcks InquiryScheduleAlertAck[]
 
   @@index([inquiryId, createdAt(sort: Desc)])
+  @@index([scheduleAlertKind, createdAt(sort: Desc)])
   @@map("inquiry_change_logs")
+}
+
+model InquiryScheduleAlertAck {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  userId         String   @map("user_id")
+  changeLogId    String   @map("change_log_id")
+  acknowledgedAt DateTime @default(now()) @map("acknowledged_at")
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  changeLog InquiryChangeLog @relation(fields: [changeLogId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, changeLogId])
+  @@index([tenantId, userId])
+  @@index([changeLogId])
+  @@map("inquiry_schedule_alert_acks")
 }
 
 /// 접수 상태 전환 시각 — 운영 시간대·접수(RECEIVED) 피크 분석용

@@ -82,6 +82,31 @@ export type ChangeLogRtPayload = {
   categories: ChangeLogCategory[];
 };
 
+export type ScheduleAlertRtPayload = {
+  type: 'schedule-alert:new';
+  changeLogId: string;
+  inquiryId: string | null;
+  customerName: string;
+  kind: 'date' | 'cancel';
+  summary: string;
+};
+
+function parseScheduleAlertPayload(d: unknown): ScheduleAlertRtPayload | null {
+  if (!d || typeof d !== 'object') return null;
+  const o = d as Record<string, unknown>;
+  if (o.type !== 'schedule-alert:new') return null;
+  const kind = o.kind === 'date' || o.kind === 'cancel' ? o.kind : null;
+  if (!kind || typeof o.changeLogId !== 'string') return null;
+  return {
+    type: 'schedule-alert:new',
+    changeLogId: o.changeLogId,
+    inquiryId: typeof o.inquiryId === 'string' ? o.inquiryId : null,
+    customerName: typeof o.customerName === 'string' ? o.customerName : '',
+    kind,
+    summary: typeof o.summary === 'string' ? o.summary : '',
+  };
+}
+
 function parseChangeLogPayload(d: unknown): ChangeLogRtPayload | null {
   if (!d || typeof d !== 'object') return null;
   const o = d as Record<string, unknown>;
@@ -189,6 +214,7 @@ type Bucket = {
   celebrationListeners: Set<(p: InquiryCelebratePayload) => void>;
   rosterAckListeners: Set<(p: RosterAckPayload) => void>;
   changeLogListeners: Set<(p: ChangeLogRtPayload) => void>;
+  scheduleAlertListeners: Set<(p: ScheduleAlertRtPayload) => void>;
   reviewPaybackListeners: Set<(p: ReviewPaybackRtPayload) => void>;
   landingContactListeners: Set<(p: LandingContactRtPayload) => void>;
   scheduleDayMemoListeners: Set<(p: ScheduleDayMemoRtPayload) => void>;
@@ -203,6 +229,7 @@ function bucketHasSubscribers(bucket: Bucket): boolean {
     bucket.celebrationListeners.size > 0 ||
     bucket.rosterAckListeners.size > 0 ||
     bucket.changeLogListeners.size > 0 ||
+    bucket.scheduleAlertListeners.size > 0 ||
     bucket.reviewPaybackListeners.size > 0 ||
     bucket.landingContactListeners.size > 0 ||
     bucket.scheduleDayMemoListeners.size > 0 ||
@@ -273,6 +300,16 @@ function connectBucket(bucket: Bucket) {
         for (const fn of bucket.changeLogListeners) {
           try {
             fn(changeLog);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+      const scheduleAlert = parseScheduleAlertPayload(data);
+      if (scheduleAlert) {
+        for (const fn of bucket.scheduleAlertListeners) {
+          try {
+            fn(scheduleAlert);
           } catch {
             /* ignore */
           }
@@ -366,6 +403,7 @@ function destroyBucketIfIdle(token: string) {
     bucket.celebrationListeners.size > 0 ||
     bucket.rosterAckListeners.size > 0 ||
     bucket.changeLogListeners.size > 0 ||
+    bucket.scheduleAlertListeners.size > 0 ||
     bucket.reviewPaybackListeners.size > 0 ||
     bucket.landingContactListeners.size > 0 ||
     bucket.scheduleDayMemoListeners.size > 0 ||
@@ -418,6 +456,7 @@ export function useInboxRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
@@ -522,6 +561,7 @@ export function useInquiryCelebrateRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
@@ -602,6 +642,7 @@ export function useRosterAckRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
@@ -661,6 +702,7 @@ export function useChangeLogRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
@@ -681,6 +723,60 @@ export function useChangeLogRealtime(
       const bucket = buckets.get(token);
       if (bucket) {
         bucket.changeLogListeners.delete(listener);
+        bucket.connectionListeners.delete(noopConn);
+      }
+      destroyBucketIfIdle(token);
+    };
+  }, [token, enabled]);
+}
+
+/** 일정 긴급 알림(사이렌) — 취소·날짜 변경 WS */
+export function useScheduleAlertRealtime(
+  token: string | null,
+  onAlert: (p: ScheduleAlertRtPayload) => void,
+  enabled: boolean,
+): void {
+  const onRef = useRef(onAlert);
+  useEffect(() => {
+    onRef.current = onAlert;
+  });
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+
+    let b = buckets.get(token);
+    if (!b) {
+      b = {
+        token,
+        ws: null,
+        reconnectTimer: undefined,
+        tearDown: false,
+        refreshListeners: new Set(),
+        connectionListeners: new Set(),
+        celebrationListeners: new Set(),
+        rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
+        reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
+      };
+      buckets.set(token, b);
+    } else {
+      b.tearDown = false;
+    }
+
+    const listener = (p: ScheduleAlertRtPayload) => onRef.current(p);
+    b.scheduleAlertListeners.add(listener);
+    const noopConn = () => {};
+    b.connectionListeners.add(noopConn);
+    connectBucket(b);
+
+    return () => {
+      const bucket = buckets.get(token);
+      if (bucket) {
+        bucket.scheduleAlertListeners.delete(listener);
         bucket.connectionListeners.delete(noopConn);
       }
       destroyBucketIfIdle(token);
@@ -714,6 +810,7 @@ export function useReviewPaybackRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
@@ -767,6 +864,7 @@ export function useLandingContactRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
@@ -820,6 +918,7 @@ export function useDbMarketplaceHandoffConfirmedRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
@@ -873,6 +972,7 @@ export function useScheduleDayStaffMemoRealtime(
         celebrationListeners: new Set(),
         rosterAckListeners: new Set(),
         changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
