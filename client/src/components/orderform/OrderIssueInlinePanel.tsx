@@ -24,6 +24,7 @@ import {
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { scrollElementIntoNearestScrollContainer } from '../../utils/staffAppScrollRestore';
 import { HelpTooltip } from '../ui/HelpTooltip';
+import { defaultScheduleLeadSourceLabel } from '@shared/inquiryLeadSourceDefaults';
 
 export type CrmOrderIssueSeed = {
   customerName?: string;
@@ -71,6 +72,13 @@ export function OrderIssueInlinePanel({
   const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
   const [issueTemplateId, setIssueTemplateId] = useState('');
   const [issueLeadSource, setIssueLeadSource] = useState('');
+
+  useEffect(() => {
+    const def = defaultScheduleLeadSourceLabel(staffTenantSlug);
+    if (!def) return;
+    setIssueLeadSource((prev) => (prev.trim() ? prev : def));
+  }, [staffTenantSlug]);
+
   const [issueFormKey, setIssueFormKey] = useState(0);
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
   const { map: brandMsgConfigMap, tenantFallback: brandMsgTenantFallback } =
@@ -196,8 +204,9 @@ export function OrderIssueInlinePanel({
   const startNewIssue = useCallback(() => {
     setNewOrder(null);
     setPendingLinkId('');
+    setIssueLeadSource(defaultScheduleLeadSourceLabel(staffTenantSlug) || '');
     setIssueFormKey((k) => k + 1);
-  }, []);
+  }, [staffTenantSlug]);
 
   const copyMessage = async () => {
     if (!newOrder) return;
