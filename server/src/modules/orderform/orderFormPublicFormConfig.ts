@@ -23,6 +23,9 @@ export type PublicFormConfig = {
   timeSlotAckTitle: string;
   timeSlotAckBody: string;
   timeSlotAckConsentHint: string;
+  serviceDateAckTitle: string;
+  serviceDateAckBody: string;
+  serviceDateAckConsentHint: string;
   /** 고객 발주서 시간대 선택지 표시 라벨(저장값 3개 고정) */
   timeSlotLabels: OrderTimeSlotLabels;
 };
@@ -40,6 +43,9 @@ type FormConfigRow = {
   timeSlotAckTitle?: string | null;
   timeSlotAckBody?: string | null;
   timeSlotAckConsentHint?: string | null;
+  serviceDateAckTitle?: string | null;
+  serviceDateAckBody?: string | null;
+  serviceDateAckConsentHint?: string | null;
   timeSlotLabelsJson?: unknown;
 };
 
@@ -70,6 +76,9 @@ export function resolvedPublicFormConfig(row: FormConfigRow): PublicFormConfig {
     timeSlotAckTitle: line(row.timeSlotAckTitle, d.timeSlotAckTitle),
     timeSlotAckBody: line(row.timeSlotAckBody, d.timeSlotAckBody),
     timeSlotAckConsentHint: line(row.timeSlotAckConsentHint, d.timeSlotAckConsentHint),
+    serviceDateAckTitle: line(row.serviceDateAckTitle, d.serviceDateAckTitle),
+    serviceDateAckBody: line(row.serviceDateAckBody, d.serviceDateAckBody),
+    serviceDateAckConsentHint: line(row.serviceDateAckConsentHint, d.serviceDateAckConsentHint),
     timeSlotLabels: resolveOrderTimeSlotLabels(parseOrderTimeSlotLabelsJson(row.timeSlotLabelsJson)),
   };
 }
@@ -99,6 +108,9 @@ function brandOverlayOnTenantFormConfig(
     timeSlotAckTitle: tenantCfg.timeSlotAckTitle,
     timeSlotAckBody: tenantCfg.timeSlotAckBody,
     timeSlotAckConsentHint: tenantCfg.timeSlotAckConsentHint,
+    serviceDateAckTitle: tenantCfg.serviceDateAckTitle,
+    serviceDateAckBody: tenantCfg.serviceDateAckBody,
+    serviceDateAckConsentHint: tenantCfg.serviceDateAckConsentHint,
     timeSlotLabelsJson: tenantCfg.timeSlotLabelsJson,
   };
 }

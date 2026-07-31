@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   getFormConfig,
   updateFormConfig,
   getDesignerPreviewOrderToken,
+  type OrderFormConfigPublic,
 } from '../../api/orderform';
 import {
   getEstimateConfig,
@@ -16,7 +17,7 @@ import {
   type EstimateOption,
 } from '../../api/estimate';
 import { getToken } from '../../stores/auth';
-import { normalizeMsgConfigForEditor, type FormMessagesState } from '../../utils/orderFormCustomerCopy';
+import { normalizeMsgConfigForEditor, type FormMessagesState, withDefaultText } from '../../utils/orderFormCustomerCopy';
 import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults';
 import {
   DEFAULT_ORDER_TIME_SLOT_LABELS,
@@ -29,6 +30,8 @@ import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLin
 import { AdminOrderFormNoticePage } from './AdminOrderFormNoticePage';
 import { AdminOrderFormSpecialtySettingsPage } from './AdminOrderFormSpecialtySettingsPage';
 import { AdminOrderFormLeadSourceSettingsPage } from './AdminOrderFormLeadSourceSettingsPage';
+import { useStaffAppEditPanelKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
+import { OrderFormModalTextEditor } from '../../components/orderform/OrderFormModalTextEditor';
 
 /** 서버 미리보기 발주서와 동일 기준 (표시 안내용) */
 const DEMO_PYEONG = 32;
@@ -68,7 +71,7 @@ const PANEL_TAB_LABEL: Record<DesignerPanel, string> = {
   review: '리뷰',
   footer: '하단안내',
   success: '제출완료',
-  timeAck: '시간대확인',
+  timeAck: '시간·날짜확인',
   guide: '안내·동의',
   specialty: '전문시공',
   leadSource: '유입경로',
@@ -109,22 +112,14 @@ export function AdminOrderFormCustomerPreviewPage() {
   const [newOptionAmount, setNewOptionAmount] = useState('');
 
   const [msgConfig, setMsgConfig] = useState<FormMessagesState>(() =>
-    normalizeMsgConfigForEditor({
-      formTitle: '',
-      priceLabel: '',
-      reviewEventText: '',
-      footerNotice1: '',
-      footerNotice2: '',
-      infoContent: null,
-      infoLinkText: null,
-      submitSuccessTitle: '',
-      submitSuccessBody: '',
-    })
+    normalizeMsgConfigForEditor({} as unknown as OrderFormConfigPublic),
   );
-  const [msgSaving, setMsgSaving] = useState(false);
+  const [msgSavingKey, setMsgSavingKey] = useState<string | null>(null);
   const [timeSlotLabels, setTimeSlotLabels] = useState<OrderTimeSlotLabels>(() => ({
     ...DEFAULT_ORDER_TIME_SLOT_LABELS,
   }));
+  const editPanelScrollRef = useRef<HTMLDivElement>(null);
+  const { onFieldFocus: onEditPanelFieldFocus } = useStaffAppEditPanelKeyboardAvoidance(editPanelScrollRef);
 
   const refreshEstimate = useCallback(() => {
     if (!token) return;
@@ -213,9 +208,24 @@ export function AdminOrderFormCustomerPreviewPage() {
         })
       : '';
 
+  const saveMsgPartial = async (key: string, payload: Partial<OrderFormConfigPublic>) => {
+    if (!token) return;
+    setMsgSavingKey(key);
+    setError(null);
+    try {
+      await updateFormConfig(token, payload);
+      refreshMsg();
+      await bumpIframe();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '폼 메시지 저장에 실패했습니다.');
+    } finally {
+      setMsgSavingKey(null);
+    }
+  };
+
   const handleSaveMsg = async () => {
     if (!token) return;
-    setMsgSaving(true);
+    setMsgSavingKey('all');
     setError(null);
     try {
       await updateFormConfig(token, {
@@ -227,9 +237,8 @@ export function AdminOrderFormCustomerPreviewPage() {
         footerNotice2: msgConfig.footerNotice2 || undefined,
         submitSuccessTitle: msgConfig.submitSuccessTitle || undefined,
         submitSuccessBody: msgConfig.submitSuccessBody || undefined,
-        timeSlotAckTitle: msgConfig.timeSlotAckTitle || undefined,
         timeSlotAckBody: msgConfig.timeSlotAckBody || undefined,
-        timeSlotAckConsentHint: msgConfig.timeSlotAckConsentHint || undefined,
+        serviceDateAckBody: msgConfig.serviceDateAckBody || undefined,
         timeSlotLabelsJson: {
           오전: timeSlotLabels.오전,
           오후: timeSlotLabels.오후,
@@ -241,7 +250,7 @@ export function AdminOrderFormCustomerPreviewPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : '폼 메시지 저장에 실패했습니다.');
     } finally {
-      setMsgSaving(false);
+      setMsgSavingKey(null);
     }
   };
 
@@ -316,7 +325,7 @@ export function AdminOrderFormCustomerPreviewPage() {
     review: '리뷰 이벤트 문구',
     footer: '하단 안내 문구',
     success: '제출 완료 문구',
-    timeAck: '시간대 확인 모달',
+    timeAck: '시간대·청소날짜 확인 모달',
     guide: '안내사항·동의 링크',
     specialty: '전문 시공 옵션',
     leadSource: '유입경로(플랫폼)',
@@ -373,7 +382,7 @@ export function AdminOrderFormCustomerPreviewPage() {
                 key={iframeKey}
                 title="고객 발주서"
                 src={iframeSrc}
-                className="h-[min(78vh,920px)] w-full min-h-[420px] rounded border border-gray-200 bg-gray-50 sm:h-[min(82vh,960px)]"
+                className="h-[min(42vh,360px)] w-full min-h-[220px] rounded border border-gray-200 bg-gray-50 sm:h-[min(58vh,480px)] lg:h-[min(82vh,960px)] lg:min-h-[420px]"
               />
             ) : (
               <p className="p-4 text-fluid-sm text-gray-600">미리보기 주소를 불러오지 못했습니다.</p>
@@ -413,7 +422,11 @@ export function AdminOrderFormCustomerPreviewPage() {
             <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">편집</p>
             <h3 className="text-fluid-sm font-semibold text-gray-900">{panelTitle[activePanel]}</h3>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-3 sm:px-4 sm:py-4">
+          <div
+            ref={editPanelScrollRef}
+            className="modal-form-scroll-surface min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-3 sm:px-4 sm:py-4"
+            onFocusCapture={onEditPanelFieldFocus}
+          >
             {activePanel === 'title' && (
               <div className="space-y-3">
                 <p className="rounded border border-blue-100 bg-blue-50 px-2.5 py-2 text-[11px] leading-relaxed text-blue-900">
@@ -429,10 +442,10 @@ export function AdminOrderFormCustomerPreviewPage() {
                 <button
                   type="button"
                   onClick={() => void handleSaveMsg()}
-                  disabled={msgSaving}
+                  disabled={msgSavingKey !== null}
                   className="rounded bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white disabled:opacity-50"
                 >
-                  {msgSaving ? '저장 중…' : '저장'}
+                  {msgSavingKey === 'all' ? '저장 중…' : '저장'}
                 </button>
               </div>
             )}
@@ -495,7 +508,7 @@ export function AdminOrderFormCustomerPreviewPage() {
                   <button
                     type="button"
                     onClick={() => void handleSaveMsg()}
-                    disabled={msgSaving}
+                    disabled={msgSavingKey !== null}
                     className="mt-2 rounded border border-gray-300 bg-white px-3 py-1.5 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
                   >
                     문구 저장
@@ -567,10 +580,10 @@ export function AdminOrderFormCustomerPreviewPage() {
                 <button
                   type="button"
                   onClick={() => void handleSaveMsg()}
-                  disabled={msgSaving}
+                  disabled={msgSavingKey !== null}
                   className="rounded bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white disabled:opacity-50"
                 >
-                  {msgSaving ? '저장 중…' : '저장'}
+                  {msgSavingKey === 'all' ? '저장 중…' : '저장'}
                 </button>
               </div>
             )}
@@ -601,10 +614,10 @@ export function AdminOrderFormCustomerPreviewPage() {
                 <button
                   type="button"
                   onClick={() => void handleSaveMsg()}
-                  disabled={msgSaving}
+                  disabled={msgSavingKey !== null}
                   className="rounded bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white disabled:opacity-50"
                 >
-                  {msgSaving ? '저장 중…' : '저장'}
+                  {msgSavingKey === 'all' ? '저장 중…' : '저장'}
                 </button>
               </div>
             )}
@@ -612,34 +625,32 @@ export function AdminOrderFormCustomerPreviewPage() {
             {activePanel === 'success' && (
               <div className="space-y-3">
                 <p className="text-fluid-xs text-gray-600">
-                  제출 완료 후 화면 문구입니다. 저장 후 왼쪽에서 제출까지 확인하거나 새 탭으로만 볼 수 있습니다.
+                  제출 완료 후 화면 문구입니다. 굵기·색·크기·줄바꿈·이모지를 설정할 수 있습니다. 저장 후 왼쪽에서
+                  제출까지 확인하거나 새 탭으로만 볼 수 있습니다.
                 </p>
-                <div>
-                  <label className="block text-fluid-xs text-gray-700">제출 완료 제목</label>
-                  <textarea
-                    rows={3}
-                    className={`mt-1 ${MSG_TEXTAREA_CLS} min-h-[4rem]`}
-                    value={msgConfig.submitSuccessTitle ?? ''}
-                    onChange={(e) => setMsgConfig((c) => ({ ...c, submitSuccessTitle: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="block text-fluid-xs text-gray-700">제출 완료 안내</label>
-                  <textarea
-                    rows={6}
-                    className={`mt-1 ${MSG_TEXTAREA_CLS} min-h-[8rem]`}
-                    value={msgConfig.submitSuccessBody ?? ''}
-                    onChange={(e) => setMsgConfig((c) => ({ ...c, submitSuccessBody: e.target.value }))}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void handleSaveMsg()}
-                  disabled={msgSaving}
-                  className="rounded bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white disabled:opacity-50"
-                >
-                  {msgSaving ? '저장 중…' : '저장'}
-                </button>
+                <OrderFormModalTextEditor
+                  label="제출 완료 제목"
+                  minHeightClassName="min-h-[4rem]"
+                  value={withDefaultText(msgConfig.submitSuccessTitle, 'submitSuccessTitle')}
+                  onChange={(next) => setMsgConfig((c) => ({ ...c, submitSuccessTitle: next }))}
+                  onSave={(markup) =>
+                    saveMsgPartial('submitSuccessTitle', {
+                      submitSuccessTitle: markup || undefined,
+                    })
+                  }
+                  saving={msgSavingKey === 'submitSuccessTitle'}
+                />
+                <OrderFormModalTextEditor
+                  label="제출 완료 안내"
+                  value={withDefaultText(msgConfig.submitSuccessBody, 'submitSuccessBody')}
+                  onChange={(next) => setMsgConfig((c) => ({ ...c, submitSuccessBody: next }))}
+                  onSave={(markup) =>
+                    saveMsgPartial('submitSuccessBody', {
+                      submitSuccessBody: markup || undefined,
+                    })
+                  }
+                  saving={msgSavingKey === 'submitSuccessBody'}
+                />
               </div>
             )}
 
@@ -679,49 +690,59 @@ export function AdminOrderFormCustomerPreviewPage() {
                       />
                     </div>
                   ))}
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void saveMsgPartial('timeSlotLabels', {
+                          timeSlotLabelsJson: {
+                            오전: timeSlotLabels.오전,
+                            오후: timeSlotLabels.오후,
+                            사이청소: timeSlotLabels.사이청소,
+                          },
+                        })
+                      }
+                      disabled={msgSavingKey !== null}
+                      className="rounded bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white disabled:opacity-50"
+                    >
+                      {msgSavingKey === 'timeSlotLabels' ? '저장 중…' : '저장'}
+                    </button>
+                  </div>
                 </div>
-                <p className="text-fluid-xs text-gray-600">
-                  고객이 시간대(오전·오후·사이청소)를 바꿀 때 뜨는 확인 모달 문구입니다. 저장 후 미리보기에서
-                  드롭다운으로 확인하세요.
-                </p>
-                <div>
-                  <label className="block text-fluid-xs font-medium text-gray-700">모달 제목</label>
-                  <textarea
-                    rows={2}
-                    className={`mt-1 ${MSG_TEXTAREA_CLS} min-h-[3rem]`}
-                    value={msgConfig.timeSlotAckTitle ?? ''}
-                    onChange={(e) => setMsgConfig((c) => ({ ...c, timeSlotAckTitle: e.target.value }))}
-                    placeholder={ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckTitle}
+                <p className="text-fluid-xs font-medium text-slate-800">시간대 확인 모달 — 본문</p>
+                <OrderFormModalTextEditor
+                  label=""
+                  minHeightClassName="min-h-[180px]"
+                  value={withDefaultText(msgConfig.timeSlotAckBody, 'timeSlotAckBody')}
+                  onChange={(next) => setMsgConfig((c) => ({ ...c, timeSlotAckBody: next }))}
+                  onSave={(markup) =>
+                    saveMsgPartial('timeSlotAckBody', {
+                      timeSlotAckBody: markup || undefined,
+                    })
+                  }
+                  saving={msgSavingKey === 'timeSlotAckBody'}
+                />
+                <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                  <p className="text-fluid-xs font-semibold text-amber-950">
+                    청소날짜(서비스받으실 날짜) — 연·월·일 모두 선택 시 확인 모달
+                  </p>
+                  <p className="text-fluid-2xs text-amber-900/90">
+                    고객이 날짜를 모두 고르면 아래 문구로 동의 모달이 뜹니다. 굵기·색·크기·줄바꿈·이모지를 설정할 수
+                    있습니다. 저장 후 미리보기에서 날짜 선택으로 확인하세요.
+                  </p>
+                  <OrderFormModalTextEditor
+                    label=""
+                    minHeightClassName="min-h-[140px]"
+                    value={withDefaultText(msgConfig.serviceDateAckBody, 'serviceDateAckBody')}
+                    onChange={(next) => setMsgConfig((c) => ({ ...c, serviceDateAckBody: next }))}
+                    onSave={(markup) =>
+                      saveMsgPartial('serviceDateAckBody', {
+                        serviceDateAckBody: markup || undefined,
+                      })
+                    }
+                    saving={msgSavingKey === 'serviceDateAckBody'}
                   />
                 </div>
-                <div>
-                  <label className="block text-fluid-xs font-medium text-gray-700">본문</label>
-                  <textarea
-                    rows={12}
-                    className={`mt-1 min-h-[180px] ${MSG_TEXTAREA_CLS}`}
-                    value={msgConfig.timeSlotAckBody ?? ''}
-                    onChange={(e) => setMsgConfig((c) => ({ ...c, timeSlotAckBody: e.target.value }))}
-                    placeholder={ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckBody.slice(0, 80)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-fluid-xs font-medium text-gray-700">하단 안내(노란 박스)</label>
-                  <textarea
-                    rows={4}
-                    className={`mt-1 min-h-[72px] ${MSG_TEXTAREA_CLS}`}
-                    value={msgConfig.timeSlotAckConsentHint ?? ''}
-                    onChange={(e) => setMsgConfig((c) => ({ ...c, timeSlotAckConsentHint: e.target.value }))}
-                    placeholder={ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckConsentHint}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void handleSaveMsg()}
-                  disabled={msgSaving}
-                  className="rounded bg-gray-900 px-3 py-2 text-fluid-xs font-medium text-white disabled:opacity-50"
-                >
-                  {msgSaving ? '저장 중…' : '저장'}
-                </button>
               </div>
             )}
 

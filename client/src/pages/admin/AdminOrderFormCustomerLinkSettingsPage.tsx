@@ -185,6 +185,32 @@ function pickDefaultBrandId(
   return def?.id ?? brands[0]?.id ?? '';
 }
 
+const CUSTOMER_LINK_COPY_KEYS = new Set<LinkFieldKey>([
+  'customerLinkTotalLine',
+  'customerLinkBalanceLine',
+  'customerLinkScheduleLine',
+  'customerLinkTimeDetailLine',
+  'customerLinkOrderIntro',
+  'customerLinkCsNotice',
+  'customerLinkCsUrlLabel',
+  'customerLinkPaybackBlock',
+]);
+
+function savePayloadForGroup(group: FieldGroup, msgConfig: FormMessagesState) {
+  const linkCopy = customerLinkCopyPayloadFromEditor(msgConfig);
+  const payload: Record<string, string | null | undefined> = {};
+  for (const { key } of group.fields) {
+    if (key === 'reviewEventText') {
+      payload.reviewEventText = msgConfig.reviewEventText ?? '';
+    } else if (CUSTOMER_LINK_COPY_KEYS.has(key)) {
+      payload[key] = linkCopy[key as keyof typeof linkCopy];
+    } else {
+      payload[key] = msgConfig[key] || undefined;
+    }
+  }
+  return payload;
+}
+
 export function AdminOrderFormCustomerLinkSettingsPage() {
   const token = getToken();
   const staffTenantSlug = useStaffTenantSlugForLinks(token);
@@ -195,9 +221,9 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
 
   const [operatingCompanyId, setOperatingCompanyId] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [savedGroupAt, setSavedGroupAt] = useState<Record<string, number>>({});
   const [msgConfig, setMsgConfig] = useState<FormMessagesState>(() =>
     normalizeMsgConfigForEditor({
       formTitle: '',
@@ -236,6 +262,7 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setSavedGroupAt({});
     getBrandCustomerLinkConfig(token, operatingCompanyId)
       .then((c) => {
         if (cancelled) return;
@@ -275,26 +302,36 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
     );
   }, [msgConfig, staffTenantSlug, selectedBrand]);
 
-  const handleSave = async () => {
+  const handleSaveGroup = async (group: FieldGroup) => {
     if (!token || !operatingCompanyId) return;
-    setSaving(true);
+    setSavingGroupId(group.id);
     setError(null);
-    setSavedAt(null);
+    setSavedGroupAt((prev) => {
+      const next = { ...prev };
+      delete next[group.id];
+      return next;
+    });
     try {
-      await updateBrandCustomerLinkConfig(token, operatingCompanyId, {
-        formTitle: msgConfig.formTitle || undefined,
-        priceLabel: msgConfig.priceLabel || undefined,
-        reviewEventText: msgConfig.reviewEventText ?? '',
-        footerNotice1: msgConfig.footerNotice1 || undefined,
-        footerNotice2: msgConfig.footerNotice2 || undefined,
-        ...customerLinkCopyPayloadFromEditor(msgConfig),
-      });
+      const saved = await updateBrandCustomerLinkConfig(
+        token,
+        operatingCompanyId,
+        savePayloadForGroup(group, msgConfig),
+      );
+      setMsgConfig(
+        normalizeMsgConfigForEditor({
+          ...saved,
+          infoContent: null,
+          infoLinkText: null,
+          submitSuccessTitle: null,
+          submitSuccessBody: null,
+        }),
+      );
       invalidateOrderFormBrandCustomerLinkConfigCache();
-      setSavedAt(Date.now());
+      setSavedGroupAt((prev) => ({ ...prev, [group.id]: Date.now() }));
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
     } finally {
-      setSaving(false);
+      setSavingGroupId(null);
     }
   };
 
@@ -330,14 +367,6 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
             >
               발주서설정
             </Link>
-            <button
-              type="button"
-              onClick={() => void handleSave()}
-              disabled={saving || !operatingCompanyId}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              {saving ? '저장 중…' : '저장'}
-            </button>
           </div>
         </div>
 
@@ -367,11 +396,6 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
         {error ? (
           <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-fluid-xs text-red-800">
             {error}
-          </p>
-        ) : null}
-        {savedAt ? (
-          <p className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-fluid-xs text-emerald-900">
-            저장되었습니다. 새로 발급·복사하는 메시지부터 반영됩니다.
           </p>
         ) : null}
 
@@ -417,6 +441,21 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
                     }
                   />
                 ))}
+                <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveGroup(group)}
+                    disabled={savingGroupId === group.id || loading || !operatingCompanyId}
+                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {savingGroupId === group.id ? '저장 중…' : '저장'}
+                  </button>
+                  {savedGroupAt[group.id] ? (
+                    <span className="text-fluid-2xs text-emerald-700">
+                      저장되었습니다. 새로 발급·복사하는 메시지부터 반영됩니다.
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </details>
           ))}

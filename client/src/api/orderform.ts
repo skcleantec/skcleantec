@@ -155,6 +155,10 @@ export interface OrderFormConfigPublic {
   timeSlotAckTitle?: string | null;
   timeSlotAckBody?: string | null;
   timeSlotAckConsentHint?: string | null;
+  /** 고객 발주서 청소날짜 선택 확인 모달 */
+  serviceDateAckTitle?: string | null;
+  serviceDateAckBody?: string | null;
+  serviceDateAckConsentHint?: string | null;
   /** DB 원본 — 관리 설정용 partial */
   timeSlotLabelsJson?: Record<string, string> | null;
   /** 고객 API — resolve된 3키 라벨 */

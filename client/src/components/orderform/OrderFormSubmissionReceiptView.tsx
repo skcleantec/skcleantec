@@ -14,6 +14,7 @@ import type { PublicOrderFormCompanyTrust } from '../../api/orderform';
 import { OrderFormCompanyTrustFooter } from './OrderFormCompanyTrustFooter';
 import { OrderFormPlatformFooter } from './OrderFormPlatformFooter';
 import { OrderFormGuideAgreeModal } from './OrderFormGuideAgreeModal';
+import { OrderFormModalFormattedText } from './OrderFormModalFormattedText';
 import { OrderFormSubmissionSnapshotContent } from './orderFormSubmissionSnapshot';
 
 export function OrderFormSubmissionReceiptView(props: {
@@ -83,8 +84,12 @@ export function OrderFormSubmissionReceiptView(props: {
 
         <div className="mb-6 pr-16">
           <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">제출 확인서</p>
-          <h1 className="mt-1 text-lg font-semibold text-gray-900 whitespace-pre-line">{successTitle}</h1>
-          <p className="mt-2 text-sm text-gray-600 whitespace-pre-line">{successBody}</p>
+          <h1 className="mt-1 text-lg font-semibold text-gray-900">
+            <OrderFormModalFormattedText text={successTitle} className="break-words leading-snug" />
+          </h1>
+          <div className="mt-2 text-sm text-gray-600">
+            <OrderFormModalFormattedText text={successBody} className="break-words leading-relaxed" />
+          </div>
           {footerNotice1.trim() || footerNotice2.trim() ? (
             <div className="mt-4 space-y-1 text-center text-fluid-xs text-gray-500">
               {footerNotice1.trim() ? (

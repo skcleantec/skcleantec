@@ -2,6 +2,10 @@ import {
   ORDER_FORM_TIME_SLOT_ACK_BODY_DEFAULT,
   ORDER_FORM_TIME_SLOT_ACK_CONSENT_HINT_DEFAULT,
 } from './orderFormTimeSlotAckDefaults.js';
+import {
+  ORDER_FORM_SERVICE_DATE_ACK_BODY_DEFAULT,
+  ORDER_FORM_SERVICE_DATE_ACK_CONSENT_HINT_DEFAULT,
+} from './orderFormServiceDateAckDefaults.js';
 
 /** `orderform.routes` 기본 폼 설정과 동일해야 함 */
 export const ORDER_FORM_CONFIG_DEFAULTS = {
@@ -16,4 +20,7 @@ export const ORDER_FORM_CONFIG_DEFAULTS = {
   timeSlotAckTitle: '시간대 선택 전 안내',
   timeSlotAckBody: ORDER_FORM_TIME_SLOT_ACK_BODY_DEFAULT,
   timeSlotAckConsentHint: ORDER_FORM_TIME_SLOT_ACK_CONSENT_HINT_DEFAULT,
+  serviceDateAckTitle: '청소날짜 확인',
+  serviceDateAckBody: ORDER_FORM_SERVICE_DATE_ACK_BODY_DEFAULT,
+  serviceDateAckConsentHint: ORDER_FORM_SERVICE_DATE_ACK_CONSENT_HINT_DEFAULT,
 } as const;

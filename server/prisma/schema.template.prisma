@@ -2437,6 +2437,12 @@ model OrderFormConfig {
   timeSlotAckBody        String? @map("time_slot_ack_body") @db.Text
   /// 고객 발주서 — 동의 버튼 상단 안내(노란 박스)
   timeSlotAckConsentHint String? @map("time_slot_ack_consent_hint") @db.Text
+  /// 고객 발주서 — 청소날짜 선택 확인 모달 제목
+  serviceDateAckTitle       String? @map("service_date_ack_title")
+  /// 고객 발주서 — 청소날짜 안내 본문
+  serviceDateAckBody        String? @map("service_date_ack_body") @db.Text
+  /// 고객 발주서 — 청소날짜 동의 안내(노란 박스)
+  serviceDateAckConsentHint String? @map("service_date_ack_consent_hint") @db.Text
   /// 고객 발주서·접수 — 시간대(오전/오후/사이청소) 표시 라벨만 커스텀. 저장값은 고정 3개.
   timeSlotLabelsJson     Json?   @map("time_slot_labels_json")
   /// 고객 링크 메시지 — 금액·일정·안내 문구(링크 URL 제외). {{amount}} 등 치환
