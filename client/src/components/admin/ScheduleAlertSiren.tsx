@@ -171,14 +171,22 @@ export function ScheduleAlertSiren({
 
   const panel = open
     ? createPortal(
-        <div className="fixed inset-0 z-[650] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-          <div className="flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-              <div>
-                <h2 className="text-fluid-sm font-semibold text-slate-900">일정 긴급 알림</h2>
-                <p className="text-fluid-2xs text-slate-500">취소·날짜 변경 — 본인 확인 시에만 꺼집니다</p>
-              </div>
-              <ModalCloseButton onClick={() => setOpen(false)} />
+        <div
+          className="fixed inset-0 z-[650] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-labelledby="schedule-alert-modal-title"
+            className="relative flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalCloseButton onClick={() => setOpen(false)} />
+            <div className="border-b border-slate-100 px-4 py-3 pr-14">
+              <h2 id="schedule-alert-modal-title" className="text-fluid-sm font-semibold text-slate-900">
+                일정 긴급 알림
+              </h2>
+              <p className="text-fluid-2xs text-slate-500">취소·날짜 변경 — 본인 확인 시에만 꺼집니다</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
               {loading ? (
