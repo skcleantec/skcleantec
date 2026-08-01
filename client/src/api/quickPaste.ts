@@ -38,14 +38,27 @@ export type QuickPasteSoloAssignPreview = {
   teamLeaderName: string;
 };
 
+export type QuickPasteParseSnapshot = {
+  ruleDraft: QuickPasteDraft;
+  previewDraft: QuickPasteDraft;
+  aiApplied: boolean;
+  aiFilledFields: string[];
+};
+
 export type QuickPasteParseResponse = {
   draft: QuickPasteDraft;
+  ruleDraft: QuickPasteDraft;
   missingFields: QuickPasteFieldKey[];
+  missingAfterRule?: QuickPasteFieldKey[];
   fieldLabels: Record<QuickPasteFieldKey, string>;
   optionalFieldLabels: Record<QuickPasteOptionalFieldKey, string>;
   optionalAiHints: QuickPasteOptionalFieldKey[];
   duplicateMatches: QuickPasteDuplicateMatch[];
   soloAutoAssign: QuickPasteSoloAssignPreview | null;
+  tenantRulesApplied: number;
+  aiApplied: boolean;
+  aiAvailable: boolean;
+  aiFilledFields: string[];
   specialNotes: string;
   coinCost: number;
   coins: {
@@ -81,10 +94,12 @@ export async function commitQuickPaste(
   token: string,
   rawText: string,
   draft: Partial<QuickPasteDraft>,
+  parseSnapshot?: QuickPasteParseSnapshot,
 ): Promise<{
   inquiry: { id: string; customerName: string; preferredDate?: string | null };
   soloAutoAssign: QuickPasteSoloAssignPreview | null;
   duplicateMatches: QuickPasteDuplicateMatch[];
+  aiApplied?: boolean;
 }> {
   const res = await fetch(`${API}/commit`, {
     method: 'POST',
@@ -92,7 +107,7 @@ export async function commitQuickPaste(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ rawText, draft }),
+    body: JSON.stringify({ rawText, draft, parseSnapshot }),
   });
   return parseJson(res);
 }

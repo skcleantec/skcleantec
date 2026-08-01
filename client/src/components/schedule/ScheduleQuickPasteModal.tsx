@@ -7,6 +7,7 @@ import {
   type QuickPasteFieldKey,
   type QuickPasteOptionalFieldKey,
   type QuickPasteParseResponse,
+  type QuickPasteParseSnapshot,
 } from '../../api/quickPaste';
 import { INQUIRY_STATUS_LABELS } from '../inquiries/inquiriesUiParts';
 
@@ -43,6 +44,7 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [highlightMissing, setHighlightMissing] = useState(false);
+  const [parseSnapshot, setParseSnapshot] = useState<QuickPasteParseSnapshot | null>(null);
   const fieldRefs = useRef<Partial<Record<QuickPasteFieldKey, HTMLInputElement | null>>>({});
 
   const reset = useCallback(() => {
@@ -53,6 +55,7 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
     setError(null);
     setBusy(false);
     setHighlightMissing(false);
+    setParseSnapshot(null);
   }, []);
 
   useEffect(() => {
@@ -71,6 +74,12 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
       const result = await parseQuickPaste(token, rawText);
       setPreview(result);
       setDraft(result.draft);
+      setParseSnapshot({
+        ruleDraft: result.ruleDraft,
+        previewDraft: result.draft,
+        aiApplied: result.aiApplied,
+        aiFilledFields: result.aiFilledFields ?? [],
+      });
       setStep('review');
       setHighlightMissing(result.missingFields.length > 0);
     } catch (e) {
@@ -98,7 +107,7 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
     setBusy(true);
     setError(null);
     try {
-      await commitQuickPaste(token, rawText, draft);
+      await commitQuickPaste(token, rawText, draft, parseSnapshot ?? undefined);
       onSaved();
       onClose();
     } catch (e) {
@@ -201,6 +210,23 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                 </p>
               ) : null}
 
+              {preview.aiApplied ? (
+                <p className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-fluid-2xs text-violet-900">
+                  AI가 {preview.aiFilledFields.length > 0 ? preview.aiFilledFields.join(', ') : '일부 항목을'} 보조
+                  채웠습니다. 확인 후 등록해 주세요.
+                </p>
+              ) : preview.aiAvailable && preview.optionalAiHints.length > 0 ? (
+                <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-fluid-2xs text-slate-600">
+                  일부 선택 항목은 서식이 달라 직접 확인이 필요할 수 있습니다.
+                </p>
+              ) : null}
+
+              {preview.tenantRulesApplied > 0 ? (
+                <p className="text-fluid-2xs text-sky-700">
+                  저장된 서식 규칙 {preview.tenantRulesApplied}건이 적용되었습니다.
+                </p>
+              ) : null}
+
               {missingFields.length > 0 ? (
                 <p
                   className={`rounded-lg border px-2.5 py-2 text-fluid-2xs ${
@@ -217,6 +243,7 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
               {REQUIRED_FIELD_ORDER.map((key) => {
                 const isMissing = missingFields.includes(key);
                 const showAlert = highlightMissing && isMissing;
+                const aiFilled = preview.aiFilledFields?.includes(key);
                 return (
                   <label key={key} className="block space-y-1">
                     <span
@@ -224,6 +251,7 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                     >
                       {preview.fieldLabels[key]}
                       {isMissing ? <span className="ml-1 text-amber-700">(필수)</span> : null}
+                      {aiFilled ? <span className="ml-1 text-violet-600">(AI)</span> : null}
                     </span>
                     <input
                       ref={(el) => {
@@ -264,14 +292,19 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {OPTIONAL_FIELD_ORDER.map((key) => {
-                    const aiHint = preview.optionalAiHints?.includes(key);
+                    const aiFilled = preview.aiFilledFields?.includes(key);
+                    const aiHint = !aiFilled && preview.optionalAiHints?.includes(key);
                     return (
                       <label key={key} className="block space-y-1">
                         <span className="text-fluid-2xs font-medium text-slate-600">
                           {preview.optionalFieldLabels[key]}
-                          {aiHint ? (
+                          {aiFilled ? (
                             <span className="ml-0.5 block text-fluid-2xs font-normal text-violet-600">
-                              AI 보조 예정
+                              AI 추출
+                            </span>
+                          ) : aiHint ? (
+                            <span className="ml-0.5 block text-fluid-2xs font-normal text-slate-500">
+                              확인 필요
                             </span>
                           ) : null}
                         </span>

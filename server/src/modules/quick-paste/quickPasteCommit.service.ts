@@ -2,10 +2,16 @@ import { prisma } from '../../lib/prisma.js';
 import { createInquiryFromBody, InquiryCreateError } from '../inquiries/inquiryCreate.service.js';
 import { getTenantCoinSnapshot } from '../tenants/tenantCoin.service.js';
 import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
-import { parseQuickPasteText, mergeQuickPasteDraft, validateQuickPasteDraft } from './quickPasteParse.service.js';
+import { mergeQuickPasteDraft, validateQuickPasteDraft, type QuickPasteDraft } from './quickPasteParse.service.js';
 import { QUICK_PASTE_COIN_COST } from './quickPaste.constants.js';
 import { findQuickPastePhoneDuplicates } from './quickPasteDuplicate.service.js';
 import { previewQuickPasteSoloAutoAssign, tryQuickPasteSoloAutoAssign } from './quickPasteAutoAssign.service.js';
+import { parseQuickPasteForTenant } from './quickPasteOrchestrator.service.js';
+import {
+  diffQuickPasteDraftFields,
+  learnQuickPasteFromCommit,
+  logQuickPasteLearning,
+} from './quickPasteLearning.service.js';
 
 export class QuickPasteValidationError extends Error {
   constructor(
@@ -32,7 +38,7 @@ async function buildDuplicateAndSoloPreview(
 }
 
 export async function buildQuickPastePreview(rawText: string, tenantId: string, actorUserId: string) {
-  const parsed = parseQuickPasteText(rawText);
+  const parsed = await parseQuickPasteForTenant(prisma, tenantId, rawText);
   const plan = await getTenantPlan(tenantId);
   const coins = await getTenantCoinSnapshot(prisma, tenantId, plan);
   const { duplicateMatches, soloAutoAssign } = await buildDuplicateAndSoloPreview(
@@ -57,24 +63,39 @@ export async function buildQuickPastePreview(rawText: string, tenantId: string, 
   };
 }
 
+export type QuickPasteCommitSnapshot = {
+  ruleDraft?: QuickPasteDraft;
+  previewDraft?: QuickPasteDraft;
+  aiApplied?: boolean;
+  aiFilledFields?: string[];
+};
+
 export async function commitQuickPasteIntake(opts: {
   tenantId: string;
   userId: string;
   userRole: import('@prisma/client').UserRole;
   rawText: string;
   overrides: Record<string, unknown>;
+  parseSnapshot?: QuickPasteCommitSnapshot;
 }) {
   const rawText = opts.rawText.trim();
   if (!rawText) {
     throw new QuickPasteValidationError('붙여넣을 내용이 없습니다.');
   }
 
-  const parsed = parseQuickPasteText(rawText);
-  const draft = mergeQuickPasteDraft(parsed.draft, opts.overrides);
+  const enriched = await parseQuickPasteForTenant(prisma, opts.tenantId, rawText);
+  const ruleDraft = opts.parseSnapshot?.ruleDraft ?? enriched.ruleDraft;
+  const previewDraft = opts.parseSnapshot?.previewDraft ?? enriched.draft;
+  const aiApplied = opts.parseSnapshot?.aiApplied ?? enriched.aiApplied;
+  const aiFilledFields = opts.parseSnapshot?.aiFilledFields ?? enriched.aiFilledFields;
+
+  const draft = mergeQuickPasteDraft(enriched.draft, opts.overrides);
   const missing = validateQuickPasteDraft(draft);
   if (missing.length > 0) {
     throw new QuickPasteValidationError('필수 항목을 모두 입력해 주세요.', missing);
   }
+
+  const userEditedFields = diffQuickPasteDraftFields(previewDraft, draft);
 
   const body: Record<string, unknown> = {
     customerName: draft.customerName,
@@ -117,6 +138,33 @@ export async function commitQuickPasteIntake(opts: {
     assignedById: opts.userId,
   });
 
+  void (async () => {
+    try {
+      await logQuickPasteLearning(prisma, {
+        tenantId: opts.tenantId,
+        userId: opts.userId,
+        inquiryId: inquiry.id,
+        rawText,
+        ruleDraft,
+        previewDraft,
+        finalDraft: draft,
+        missingAfterRule: enriched.missingAfterRule,
+        aiApplied,
+        aiFilledFields,
+        userEditedFields,
+      });
+      await learnQuickPasteFromCommit(prisma, {
+        tenantId: opts.tenantId,
+        rawText,
+        ruleDraft,
+        previewDraft,
+        finalDraft: draft,
+      });
+    } catch (e) {
+      console.error('[quick-paste] learning log', e);
+    }
+  })();
+
   const duplicateMatches = draft.customerPhone
     ? (
         await findQuickPastePhoneDuplicates({
@@ -128,5 +176,5 @@ export async function commitQuickPasteIntake(opts: {
       ).filter((row) => row.id !== inquiry.id)
     : [];
 
-  return { inquiry, soloAutoAssign, duplicateMatches };
+  return { inquiry, soloAutoAssign, duplicateMatches, aiApplied, userEditedFields };
 }

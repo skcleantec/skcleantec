@@ -288,8 +288,53 @@ model Tenant {
   planUpgradeRequests TenantPlanUpgradeRequest[]
   convertedFromSignupInquiries PlatformSignupInquiry[]
   inquiryScheduleAlertAcks InquiryScheduleAlertAck[]
+  quickPasteLearningLogs QuickPasteLearningLog[]
+  quickPasteTenantRules QuickPasteTenantRule[]
 
   @@map("tenants")
+}
+
+/// 빠른등록 — 테넌트별 학습 규칙 (라벨·정규식)
+model QuickPasteTenantRule {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  fieldKey  String   @map("field_key") @db.VarChar(32)
+  ruleType  String   @map("rule_type") @db.VarChar(24)
+  pattern   String   @db.VarChar(512)
+  sortOrder Int      @default(0) @map("sort_order")
+  hitCount  Int      @default(0) @map("hit_count")
+  source    String   @default("learned") @db.VarChar(24)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, fieldKey, sortOrder])
+  @@map("quick_paste_tenant_rules")
+}
+
+/// 빠른등록 — parse/commit 학습 로그
+model QuickPasteLearningLog {
+  id                String   @id @default(uuid())
+  tenantId          String   @map("tenant_id")
+  userId            String?  @map("user_id")
+  inquiryId         String?  @map("inquiry_id")
+  textHash          String   @map("text_hash") @db.VarChar(64)
+  textLength        Int      @map("text_length")
+  ruleDraft         Json     @map("rule_draft")
+  previewDraft      Json     @map("preview_draft")
+  finalDraft        Json     @map("final_draft")
+  missingAfterRule  Json     @default("[]") @map("missing_after_rule")
+  aiApplied         Boolean  @default(false) @map("ai_applied")
+  aiFilledFields    Json     @default("[]") @map("ai_filled_fields")
+  userEditedFields  Json     @default("[]") @map("user_edited_fields")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, textHash])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("quick_paste_learning_logs")
 }
 
 /// Free 셀프 가입 업체 → 유료 플랜 전환 신청

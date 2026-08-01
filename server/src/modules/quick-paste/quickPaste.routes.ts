@@ -9,6 +9,7 @@ import {
   buildQuickPastePreview,
   commitQuickPasteIntake,
   QuickPasteValidationError,
+  type QuickPasteCommitSnapshot,
 } from './quickPasteCommit.service.js';
 
 const router = Router();
@@ -52,6 +53,24 @@ router.post('/commit', async (req, res) => {
       req.body?.draft && typeof req.body.draft === 'object'
         ? (req.body.draft as Record<string, unknown>)
         : {};
+    const snap = req.body?.parseSnapshot;
+    const parseSnapshot: QuickPasteCommitSnapshot | undefined =
+      snap && typeof snap === 'object'
+        ? {
+            ruleDraft:
+              snap.ruleDraft && typeof snap.ruleDraft === 'object'
+                ? (snap.ruleDraft as QuickPasteCommitSnapshot['ruleDraft'])
+                : undefined,
+            previewDraft:
+              snap.previewDraft && typeof snap.previewDraft === 'object'
+                ? (snap.previewDraft as QuickPasteCommitSnapshot['previewDraft'])
+                : undefined,
+            aiApplied: snap.aiApplied === true,
+            aiFilledFields: Array.isArray(snap.aiFilledFields)
+              ? snap.aiFilledFields.filter((x: unknown) => typeof x === 'string')
+              : undefined,
+          }
+        : undefined;
 
     const result = await commitQuickPasteIntake({
       tenantId,
@@ -59,6 +78,7 @@ router.post('/commit', async (req, res) => {
       userRole: user.role as UserRole,
       rawText,
       overrides,
+      parseSnapshot,
     });
     res.status(201).json(result);
   } catch (e) {

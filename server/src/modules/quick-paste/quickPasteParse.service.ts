@@ -242,6 +242,21 @@ function computeMissing(draft: QuickPasteDraft): QuickPasteFieldKey[] {
   return missing;
 }
 
+export function buildQuickPasteResult(rawText: string, draft: QuickPasteDraft): QuickPasteParseResult {
+  const text = rawText.trim();
+  return {
+    draft,
+    missingFields: computeMissing(draft),
+    fieldLabels: QUICK_PASTE_FIELD_LABELS,
+    optionalFieldLabels: QUICK_PASTE_OPTIONAL_FIELD_LABELS,
+    optionalAiHints: detectOptionalAiHints(text, {
+      roomCount: draft.roomCount,
+      bathroomCount: draft.bathroomCount,
+      balconyCount: draft.balconyCount,
+    }),
+  };
+}
+
 export function parseQuickPasteText(rawText: string): QuickPasteParseResult {
   const text = rawText.trim();
   const lines = iterLines(text);
@@ -261,13 +276,7 @@ export function parseQuickPasteText(rawText: string): QuickPasteParseResult {
     isOneRoom: /원룸|one\s*room/i.test(text),
   };
 
-  return {
-    draft,
-    missingFields: computeMissing(draft),
-    fieldLabels: QUICK_PASTE_FIELD_LABELS,
-    optionalFieldLabels: QUICK_PASTE_OPTIONAL_FIELD_LABELS,
-    optionalAiHints: detectOptionalAiHints(text, roomCounts),
-  };
+  return buildQuickPasteResult(text, draft);
 }
 
 
