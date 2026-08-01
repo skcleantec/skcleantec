@@ -244,48 +244,17 @@ export function CrmSoomgoDrawer({
       title="숨고 메시지"
       subtitle="Chrome 숨고 채팅방에 전송합니다."
       widthClass="w-[min(500px,94vw)]"
+      bodyLayout="split"
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4">
-        {/* 직접 입력 — 최상단 */}
-        <section className="shrink-0 rounded-2xl border border-sky-200/90 bg-gradient-to-b from-sky-50/80 to-white p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold text-sky-950">직접 보내기</p>
-            <span className="text-[10px] text-sky-700/80">채팅방 연결 후 전송</span>
-          </div>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={4}
-            placeholder="채팅방에 보낼 내용을 입력하세요"
-            className="min-h-[88px] w-full resize-y rounded-xl border border-sky-200/80 bg-white px-3 py-2 text-fluid-sm text-slate-800 shadow-inner placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200/60"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && message.trim()) {
-                e.preventDefault();
-                void handleSend();
-              }
-            }}
-          />
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[10px] text-slate-400">Ctrl+Enter로 전송</span>
-            <button
-              type="button"
-              disabled={sendDisabled || !message.trim()}
-              onClick={() => void handleSend()}
-              className="rounded-lg bg-sky-600 px-4 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-40"
-            >
-              {sending ? '전송 중…' : '메시지 보내기'}
-            </button>
-          </div>
-        </section>
-
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
         {error ? (
-          <p className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] text-rose-700">
+          <p className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] text-rose-700">
             {error}
           </p>
         ) : null}
 
-        {/* 프리셋 */}
-        <section className="min-h-0 flex-1 space-y-2">
+        {/* 프리셋 — 내부만 스크롤 */}
+        <section className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
           <div className="space-y-2 border-b border-slate-100 pb-2">
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -334,7 +303,7 @@ export function CrmSoomgoDrawer({
             <p className="py-4 text-center text-[11px] text-slate-400">프리셋 불러오는 중…</p>
           ) : activePresets.length > 0 ? (
             <PresetDragReorderList
-              className="max-h-[min(52vh,420px)] overflow-y-auto overscroll-contain pr-0.5"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5"
               items={activePresets}
               disabled={sendDisabled || presetView === 'shared'}
               onReorder={(dragId, slotIndex) => void handlePresetReorder(dragId, slotIndex)}
@@ -414,6 +383,38 @@ export function CrmSoomgoDrawer({
               프리셋(이미지·순차 전송)은 숨고 연동 v2.1.0 이상이 필요합니다. 위 「직접 보내기」는 사용할 수 있습니다.
             </p>
           ) : null}
+        </section>
+
+        {/* 직접 입력 — 하단 고정 (프리셋 스크롤과 분리) */}
+        <section className="shrink-0 rounded-2xl border border-sky-200/90 bg-gradient-to-b from-sky-50/80 to-white p-3 shadow-sm">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold text-sky-950">직접 보내기</p>
+            <span className="text-[10px] text-sky-700/80">채팅방 연결 후 전송</span>
+          </div>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={3}
+            placeholder="채팅방에 보낼 내용을 입력하세요"
+            className="min-h-[72px] w-full resize-y rounded-xl border border-sky-200/80 bg-white px-3 py-2 text-fluid-sm text-slate-800 shadow-inner placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200/60"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && message.trim()) {
+                e.preventDefault();
+                void handleSend();
+              }
+            }}
+          />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-[10px] text-slate-400">Ctrl+Enter로 전송</span>
+            <button
+              type="button"
+              disabled={sendDisabled || !message.trim()}
+              onClick={() => void handleSend()}
+              className="rounded-lg bg-sky-600 px-4 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-40"
+            >
+              {sending ? '전송 중…' : '메시지 보내기'}
+            </button>
+          </div>
         </section>
       </div>
     </CrmSlideDrawer>

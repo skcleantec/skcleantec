@@ -6,6 +6,7 @@ import re
 import time
 
 from automation.overlay_modals import dismiss_blocking_overlays
+from automation.chat_room import ensure_chat_composer_visible
 from automation.window_layout import apply_mobile_viewport
 from automation.selectors import NON_CHAT_SESSION_PATH_HINTS, URLS
 
@@ -169,6 +170,7 @@ def ensure_chat_workspace(driver, delay: float = 1.0, force_list: bool = False) 
         url = driver.current_url
         if not force_list and is_in_chat_room_url(url):
             logger.info('stay in chat room: %s', url)
+            ensure_chat_composer_visible(driver)
             return True
 
         if not force_list and is_on_chat_list_url(url):
@@ -177,11 +179,18 @@ def ensure_chat_workspace(driver, delay: float = 1.0, force_list: bool = False) 
 
         if needs_chat_workspace(url) or force_list:
             logger.info('navigate to chat list from %s', url)
-            return _recover_chat_list_from_work_page(driver, delay)
+            ok = _recover_chat_list_from_work_page(driver, delay)
+            if ok:
+                ensure_chat_composer_visible(driver)
+            return ok
 
         if not _on_chat_workspace(url):
-            return _recover_chat_list_from_work_page(driver, delay)
+            ok = _recover_chat_list_from_work_page(driver, delay)
+            if ok:
+                ensure_chat_composer_visible(driver)
+            return ok
 
+        ensure_chat_composer_visible(driver)
         return True
     except Exception as e:
         logger.error('ensure_chat_workspace: %s', e)

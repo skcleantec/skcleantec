@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Windows Chrome 탭·주소창 (outer rect → inner viewport 차이)
+_CHROME_UI_HEIGHT_FALLBACK = 96
 
 SOOMGO_SPLIT_MIN_WIDTH = 420
 
@@ -19,13 +23,28 @@ MOBILE_USER_AGENT = (
 )
 
 
+def read_viewport_content_size(driver) -> tuple[int, int]:
+    """CDP 뷰포트는 Chrome 툴바 밖 콘텐츠 영역 크기여야 한다 (outer rect 사용 시 하단 채팅 입력 잘림)."""
+    try:
+        size = driver.execute_script('return { w: window.innerWidth, h: window.innerHeight };')
+        if isinstance(size, dict):
+            w = int(size.get('w') or 0)
+            h = int(size.get('h') or 0)
+            if w >= SOOMGO_SPLIT_MIN_WIDTH and h >= 200:
+                return w, h
+    except Exception:
+        pass
+    rect = driver.get_window_rect()
+    w = max(SOOMGO_SPLIT_MIN_WIDTH, int(rect.get('width', MOBILE_VIEWPORT_WIDTH)))
+    h = max(480, int(rect.get('height', MOBILE_VIEWPORT_HEIGHT)) - _CHROME_UI_HEIGHT_FALLBACK)
+    return w, h
+
+
 def apply_mobile_viewport(driver, width: int | None = None, height: int | None = None) -> bool:
     """창 크기에 맞춰 모바일 레이아웃을 렌더링 — 좌우·하단 회색 여백 방지."""
     try:
         if width is None or height is None:
-            rect = driver.get_window_rect()
-            width = width if width is not None else int(rect.get('width', MOBILE_VIEWPORT_WIDTH))
-            height = height if height is not None else int(rect.get('height', MOBILE_VIEWPORT_HEIGHT))
+            width, height = read_viewport_content_size(driver)
         width = max(SOOMGO_SPLIT_MIN_WIDTH, int(width))
         height = max(480, int(height))
 
@@ -90,7 +109,8 @@ def arrange_soomgo_right_half(driver, bounds: dict[str, Any] | None = None) -> b
         w = max(SOOMGO_SPLIT_MIN_WIDTH, int(bounds.get('soomgoWidth', soomgo_w) if bounds else soomgo_w))
         h = max(480, height)
         driver.set_window_rect(x=x, y=y, width=w, height=h)
-        apply_mobile_viewport(driver, width=w, height=h)
+        time.sleep(0.08)
+        apply_mobile_viewport(driver)
         return True
     except Exception as e:
         logger.warning('arrange_soomgo_right_half: %s', e)
