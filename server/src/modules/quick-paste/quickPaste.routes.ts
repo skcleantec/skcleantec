@@ -3,6 +3,7 @@ import type { UserRole } from '@prisma/client';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { mapTenantCoinError } from '../tenants/tenantCoin.service.js';
 import {
   buildQuickPastePreview,
@@ -13,6 +14,7 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
+router.use(requireFeature('mod_quick_paste'));
 router.use(requireStaffPermission('inquiry.create'));
 
 router.post('/parse', async (req, res) => {
@@ -24,7 +26,7 @@ router.post('/parse', async (req, res) => {
       return;
     }
     const rawText = typeof req.body?.rawText === 'string' ? req.body.rawText : '';
-    const preview = await buildQuickPastePreview(rawText, tenantId);
+    const preview = await buildQuickPastePreview(rawText, tenantId, user.userId);
     res.json(preview);
   } catch (e) {
     const coinErr = mapTenantCoinError(e);
@@ -51,14 +53,14 @@ router.post('/commit', async (req, res) => {
         ? (req.body.draft as Record<string, unknown>)
         : {};
 
-    const inquiry = await commitQuickPasteIntake({
+    const result = await commitQuickPasteIntake({
       tenantId,
       userId: user.userId,
       userRole: user.role as UserRole,
       rawText,
       overrides,
     });
-    res.status(201).json({ inquiry });
+    res.status(201).json(result);
   } catch (e) {
     const coinErr = mapTenantCoinError(e);
     if (coinErr) {

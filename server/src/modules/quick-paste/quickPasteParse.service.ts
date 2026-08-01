@@ -1,7 +1,9 @@
 import {
   QUICK_PASTE_FIELD_LABELS,
+  QUICK_PASTE_OPTIONAL_FIELD_LABELS,
   QUICK_PASTE_REQUIRED_FIELDS,
   type QuickPasteFieldKey,
+  type QuickPasteOptionalFieldKey,
 } from './quickPaste.constants.js';
 
 const PHONE_RE = /01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/;
@@ -20,6 +22,15 @@ const ADMIN_ADDR_RE =
   /(?:[가-힣]+시\s+[가-힣]+(?:구|군)|[가-힣]+(?:시|군).*(?:동|로|길|읍|면|리)|[가-힣]+구\s+[가-힣]+(?:동|로|길))/;
 const MAN_WON_RE = /(\d+(?:\.\d+)?)\s*만\s*원?/i;
 const NON_NAME = new Set(['오전', '오후', '예약', '확인', '완료', '취소', '연락', '문의']);
+const ROOM_LINE_RE = /^방\s*(\d+)\s*$/i;
+const BATH_LINE_RE = /^(?:화장실|욕실)\s*(\d+)\s*$/i;
+const BALCONY_LINE_RE = /^베란다\s*(\d+)\s*$/i;
+const ROOM_INLINE_RE = /방\s*(\d+)/gi;
+const BATH_INLINE_RE = /(?:화장실|욕실)\s*(\d+)/gi;
+const BALCONY_INLINE_RE = /베란다\s*(\d+)/gi;
+/** (3,2,1) · 3,2,1 — 관례: 방·화장실·베란다 */
+const TRIPLE_GROUP_RE =
+  /(?:\(\s*(\d+)\s*[,，·/\s]\s*(\d+)\s*[,，·/\s]\s*(\d+)\s*\)|(?<![0-9])(\d+)\s*[,，·/]\s*(\d+)\s*[,，·/]\s*(\d+)(?![0-9]))/;
 
 export type QuickPasteDraft = {
   customerName: string | null;
@@ -29,6 +40,9 @@ export type QuickPasteDraft = {
   preferredTime: string | null;
   serviceBalanceAmount: number | null;
   areaPyeong: number | null;
+  roomCount: number | null;
+  bathroomCount: number | null;
+  balconyCount: number | null;
   isOneRoom: boolean;
 };
 
@@ -36,6 +50,9 @@ export type QuickPasteParseResult = {
   draft: QuickPasteDraft;
   missingFields: QuickPasteFieldKey[];
   fieldLabels: typeof QUICK_PASTE_FIELD_LABELS;
+  optionalFieldLabels: typeof QUICK_PASTE_OPTIONAL_FIELD_LABELS;
+  /** 규칙으로 못 채운 선택 항목 — Phase 3 AI 보조 대상 */
+  optionalAiHints: QuickPasteOptionalFieldKey[];
 };
 
 function iterLines(text: string): string[] {
@@ -43,6 +60,79 @@ function iterLines(text: string): string[] {
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter((l) => l && l.toLowerCase() !== 'reminder');
+}
+
+function clampCount(n: number): number | null {
+  if (!Number.isFinite(n) || n < 0 || n > 20) return null;
+  return Math.round(n);
+}
+
+function parseTripleGroup(text: string): Pick<QuickPasteDraft, 'roomCount' | 'bathroomCount' | 'balconyCount'> {
+  const m = text.match(TRIPLE_GROUP_RE);
+  if (!m) return { roomCount: null, bathroomCount: null, balconyCount: null };
+  const a = Number(m[1] ?? m[4]);
+  const b = Number(m[2] ?? m[5]);
+  const c = Number(m[3] ?? m[6]);
+  return {
+    roomCount: clampCount(a),
+    bathroomCount: clampCount(b),
+    balconyCount: clampCount(c),
+  };
+}
+
+function parseRoomCounts(text: string, lines: string[]): Pick<
+  QuickPasteDraft,
+  'roomCount' | 'bathroomCount' | 'balconyCount'
+> {
+  let roomCount: number | null = null;
+  let bathroomCount: number | null = null;
+  let balconyCount: number | null = null;
+
+  for (const line of lines) {
+    const r = line.match(ROOM_LINE_RE);
+    if (r) roomCount = clampCount(Number(r[1]));
+    const b = line.match(BATH_LINE_RE);
+    if (b) bathroomCount = clampCount(Number(b[1]));
+    const bl = line.match(BALCONY_LINE_RE);
+    if (bl) balconyCount = clampCount(Number(bl[1]));
+  }
+
+  if (roomCount == null) {
+    const m = ROOM_INLINE_RE.exec(text);
+    if (m) roomCount = clampCount(Number(m[1]));
+  }
+  if (bathroomCount == null) {
+    const m = BATH_INLINE_RE.exec(text);
+    if (m) bathroomCount = clampCount(Number(m[1]));
+  }
+  if (balconyCount == null) {
+    const m = BALCONY_INLINE_RE.exec(text);
+    if (m) balconyCount = clampCount(Number(m[1]));
+  }
+
+  const triple = parseTripleGroup(text);
+  if (roomCount == null && triple.roomCount != null) roomCount = triple.roomCount;
+  if (bathroomCount == null && triple.bathroomCount != null) bathroomCount = triple.bathroomCount;
+  if (balconyCount == null && triple.balconyCount != null) balconyCount = triple.balconyCount;
+
+  return { roomCount, bathroomCount, balconyCount };
+}
+
+function detectOptionalAiHints(
+  text: string,
+  counts: Pick<QuickPasteDraft, 'roomCount' | 'bathroomCount' | 'balconyCount'>,
+): QuickPasteOptionalFieldKey[] {
+  const hints: QuickPasteOptionalFieldKey[] = [];
+  const hasRoomSignal = /방|\(\s*\d+\s*,|^\d+\s*,\s*\d+\s*,\s*\d+/m.test(text);
+  const hasBathSignal = /화장실|욕실|화\s*\d/i.test(text);
+  const hasBalconySignal = /베란다|베\s*\d/i.test(text);
+  const triple = TRIPLE_GROUP_RE.test(text);
+
+  if ((hasRoomSignal || triple) && counts.roomCount == null) hints.push('roomCount');
+  if ((hasBathSignal || triple) && counts.bathroomCount == null) hints.push('bathroomCount');
+  if ((hasBalconySignal || triple) && counts.balconyCount == null) hints.push('balconyCount');
+
+  return hints;
 }
 
 function normalizePhone(raw: string): string | null {
@@ -155,14 +245,19 @@ function computeMissing(draft: QuickPasteDraft): QuickPasteFieldKey[] {
 export function parseQuickPasteText(rawText: string): QuickPasteParseResult {
   const text = rawText.trim();
   const lines = iterLines(text);
+  const roomCounts = parseRoomCounts(text, lines);
+
   const draft: QuickPasteDraft = {
     customerName: parseName(text, lines),
-    customerPhone: normalizePhone(text) ?? (text.match(LABEL_PHONE_RE)?.[1] ? normalizePhone(text.match(LABEL_PHONE_RE)![1]) : null),
+    customerPhone:
+      normalizePhone(text) ??
+      (text.match(LABEL_PHONE_RE)?.[1] ? normalizePhone(text.match(LABEL_PHONE_RE)![1]) : null),
     address: parseAddress(text, lines),
     preferredDate: parsePreferredDate(text),
     preferredTime: parsePreferredTime(text),
     serviceBalanceAmount: parseBalanceAmount(text),
     areaPyeong: parseAreaPyeong(text),
+    ...roomCounts,
     isOneRoom: /원룸|one\s*room/i.test(text),
   };
 
@@ -170,8 +265,11 @@ export function parseQuickPasteText(rawText: string): QuickPasteParseResult {
     draft,
     missingFields: computeMissing(draft),
     fieldLabels: QUICK_PASTE_FIELD_LABELS,
+    optionalFieldLabels: QUICK_PASTE_OPTIONAL_FIELD_LABELS,
+    optionalAiHints: detectOptionalAiHints(text, roomCounts),
   };
 }
+
 
 export function mergeQuickPasteDraft(
   parsed: QuickPasteDraft,
@@ -183,11 +281,17 @@ export function mergeQuickPasteDraft(
     const s = String(v).trim();
     return s || fallback;
   };
-  const pickNum = (key: 'serviceBalanceAmount' | 'areaPyeong', fallback: number | null) => {
+  const pickAmount = (key: 'serviceBalanceAmount' | 'areaPyeong', fallback: number | null) => {
     const v = overrides[key];
     if (v == null || v === '') return fallback;
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
+  };
+  const pickCount = (key: QuickPasteOptionalFieldKey, fallback: number | null) => {
+    const v = overrides[key];
+    if (v == null || v === '') return fallback;
+    const n = Number(v);
+    return Number.isFinite(n) ? clampCount(n) ?? fallback : fallback;
   };
 
   return {
@@ -196,8 +300,11 @@ export function mergeQuickPasteDraft(
     address: pickStr('address', parsed.address),
     preferredDate: pickStr('preferredDate', parsed.preferredDate),
     preferredTime: pickStr('preferredTime', parsed.preferredTime),
-    serviceBalanceAmount: pickNum('serviceBalanceAmount', parsed.serviceBalanceAmount),
-    areaPyeong: pickNum('areaPyeong', parsed.areaPyeong),
+    serviceBalanceAmount: pickAmount('serviceBalanceAmount', parsed.serviceBalanceAmount),
+    areaPyeong: pickAmount('areaPyeong', parsed.areaPyeong),
+    roomCount: pickCount('roomCount', parsed.roomCount),
+    bathroomCount: pickCount('bathroomCount', parsed.bathroomCount),
+    balconyCount: pickCount('balconyCount', parsed.balconyCount),
     isOneRoom: overrides.isOneRoom === true || parsed.isOneRoom,
   };
 }

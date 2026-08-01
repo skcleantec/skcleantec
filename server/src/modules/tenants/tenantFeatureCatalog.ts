@@ -20,6 +20,7 @@ export const TENANT_FEATURE_MODULES = {
   mod_inspection: { label: '현장 검수', tier: 'standard' as const, defaultOn: true },
   mod_telecrm: { label: '텔레CRM', tier: 'premium' as const, defaultOn: false },
   mod_landing_inquiry: { label: '랜딩 문의내역', tier: 'premium' as const, defaultOn: false },
+  mod_quick_paste: { label: '빠른등록', tier: 'standard' as const, defaultOn: false },
 } as const;
 
 export type TenantFeatureModuleId = keyof typeof TENANT_FEATURE_MODULES;
@@ -41,12 +42,13 @@ export const TENANT_PREMIUM_BUSINESS_MODULE_IDS = [
   'mod_payroll',
   'mod_e_contract',
   'mod_landing_inquiry',
+  'mod_quick_paste',
 ] as const satisfies readonly TenantFeatureModuleId[];
 
 export const TENANT_PLANS = {
   free: {
     label: 'Free',
-    modules: ['core_inquiries', 'core_schedule', 'mod_db_marketplace'] as TenantFeatureModuleId[],
+    modules: ['core_inquiries', 'core_schedule', 'mod_db_marketplace', 'mod_quick_paste'] as TenantFeatureModuleId[],
   },
   standard: {
     label: 'Standard',
@@ -62,6 +64,7 @@ export const TENANT_PLANS = {
       'mod_inspection',
       'mod_advertising',
       'mod_db_marketplace',
+      'mod_quick_paste',
     ] as TenantFeatureModuleId[],
   },
   standard_plus: {

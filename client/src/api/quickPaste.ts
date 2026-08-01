@@ -8,6 +8,8 @@ export type QuickPasteFieldKey =
   | 'serviceBalanceAmount'
   | 'areaPyeong';
 
+export type QuickPasteOptionalFieldKey = 'roomCount' | 'bathroomCount' | 'balconyCount';
+
 export type QuickPasteDraft = {
   customerName: string | null;
   customerPhone: string | null;
@@ -16,13 +18,34 @@ export type QuickPasteDraft = {
   preferredTime: string | null;
   serviceBalanceAmount: number | null;
   areaPyeong: number | null;
+  roomCount: number | null;
+  bathroomCount: number | null;
+  balconyCount: number | null;
   isOneRoom: boolean;
+};
+
+export type QuickPasteDuplicateMatch = {
+  id: string;
+  inquiryNumber: string | null;
+  customerName: string;
+  customerPhone: string;
+  preferredDate: string | null;
+  status: string;
+};
+
+export type QuickPasteSoloAssignPreview = {
+  teamLeaderId: string;
+  teamLeaderName: string;
 };
 
 export type QuickPasteParseResponse = {
   draft: QuickPasteDraft;
   missingFields: QuickPasteFieldKey[];
   fieldLabels: Record<QuickPasteFieldKey, string>;
+  optionalFieldLabels: Record<QuickPasteOptionalFieldKey, string>;
+  optionalAiHints: QuickPasteOptionalFieldKey[];
+  duplicateMatches: QuickPasteDuplicateMatch[];
+  soloAutoAssign: QuickPasteSoloAssignPreview | null;
   specialNotes: string;
   coinCost: number;
   coins: {
@@ -58,7 +81,11 @@ export async function commitQuickPaste(
   token: string,
   rawText: string,
   draft: Partial<QuickPasteDraft>,
-): Promise<{ inquiry: { id: string; customerName: string; preferredDate?: string | null } }> {
+): Promise<{
+  inquiry: { id: string; customerName: string; preferredDate?: string | null };
+  soloAutoAssign: QuickPasteSoloAssignPreview | null;
+  duplicateMatches: QuickPasteDuplicateMatch[];
+}> {
   const res = await fetch(`${API}/commit`, {
     method: 'POST',
     headers: {

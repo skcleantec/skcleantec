@@ -860,6 +860,7 @@ export function AdminSchedulePage() {
   >([]);
   const [partnerTenants, setPartnerTenants] = useState<Array<{ id: string; name: string }>>([]);
   const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
+  const hasQuickPaste = useHasTenantFeature('mod_quick_paste');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   const { ready, staffMe, role: meRole, userId, userName, userEmail } = useAdminStaffSession();
@@ -3700,7 +3701,7 @@ export function AdminSchedulePage() {
         onConfirm={handleConfirmDeleteCustomCalendar}
       />
 
-      {token ? (
+      {token && hasQuickPaste ? (
         <>
           <button
             type="button"

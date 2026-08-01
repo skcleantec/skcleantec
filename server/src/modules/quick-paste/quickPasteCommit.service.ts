@@ -4,6 +4,8 @@ import { getTenantCoinSnapshot } from '../tenants/tenantCoin.service.js';
 import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
 import { parseQuickPasteText, mergeQuickPasteDraft, validateQuickPasteDraft } from './quickPasteParse.service.js';
 import { QUICK_PASTE_COIN_COST } from './quickPaste.constants.js';
+import { findQuickPastePhoneDuplicates } from './quickPasteDuplicate.service.js';
+import { previewQuickPasteSoloAutoAssign, tryQuickPasteSoloAutoAssign } from './quickPasteAutoAssign.service.js';
 
 export class QuickPasteValidationError extends Error {
   constructor(
@@ -15,15 +17,36 @@ export class QuickPasteValidationError extends Error {
   }
 }
 
-export async function buildQuickPastePreview(rawText: string, tenantId: string) {
+async function buildDuplicateAndSoloPreview(
+  tenantId: string,
+  actorUserId: string,
+  customerPhone: string | null,
+) {
+  const [duplicateMatches, soloAutoAssign] = await Promise.all([
+    customerPhone
+      ? findQuickPastePhoneDuplicates({ db: prisma, tenantId, customerPhone })
+      : Promise.resolve([]),
+    previewQuickPasteSoloAutoAssign(prisma, tenantId, actorUserId),
+  ]);
+  return { duplicateMatches, soloAutoAssign };
+}
+
+export async function buildQuickPastePreview(rawText: string, tenantId: string, actorUserId: string) {
   const parsed = parseQuickPasteText(rawText);
   const plan = await getTenantPlan(tenantId);
   const coins = await getTenantCoinSnapshot(prisma, tenantId, plan);
+  const { duplicateMatches, soloAutoAssign } = await buildDuplicateAndSoloPreview(
+    tenantId,
+    actorUserId,
+    parsed.draft.customerPhone,
+  );
 
   return {
     ...parsed,
     specialNotes: rawText.trim(),
     coinCost: QUICK_PASTE_COIN_COST,
+    duplicateMatches,
+    soloAutoAssign,
     coins: {
       remaining: coins.remaining,
       unlimited: coins.unlimited,
@@ -61,6 +84,9 @@ export async function commitQuickPasteIntake(opts: {
     preferredTime: draft.preferredTime,
     areaPyeong: draft.areaPyeong,
     serviceBalanceAmount: draft.serviceBalanceAmount,
+    roomCount: draft.roomCount,
+    bathroomCount: draft.bathroomCount,
+    balconyCount: draft.balconyCount,
     specialNotes: rawText,
     status: 'RECEIVED',
     source: '카카오',
@@ -68,8 +94,9 @@ export async function commitQuickPasteIntake(opts: {
     isOneRoom: draft.isOneRoom,
   };
 
+  let inquiry;
   try {
-    return await createInquiryFromBody({
+    inquiry = await createInquiryFromBody({
       tenantId: opts.tenantId,
       userId: opts.userId,
       userRole: opts.userRole,
@@ -82,4 +109,24 @@ export async function commitQuickPasteIntake(opts: {
     }
     throw e;
   }
+
+  const soloAutoAssign = await tryQuickPasteSoloAutoAssign({
+    db: prisma,
+    tenantId: opts.tenantId,
+    inquiryId: inquiry.id,
+    assignedById: opts.userId,
+  });
+
+  const duplicateMatches = draft.customerPhone
+    ? (
+        await findQuickPastePhoneDuplicates({
+          db: prisma,
+          tenantId: opts.tenantId,
+          customerPhone: draft.customerPhone,
+          limit: 6,
+        })
+      ).filter((row) => row.id !== inquiry.id)
+    : [];
+
+  return { inquiry, soloAutoAssign, duplicateMatches };
 }
