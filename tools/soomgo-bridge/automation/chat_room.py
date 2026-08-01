@@ -25,6 +25,42 @@ _DATE_ISO_RE = re.compile(r'(\d{4}-\d{2}-\d{2})')
 _PHONE_CONSULT_PENDING_RE = re.compile(r'승인\s*시\s*전화\s*상담|전화상담이\s*가능', re.I)
 _PHONE_CONSULT_DONE_RE = re.compile(r'전화상담을\s*요청했습니다|전화상담\s*요청\s*완료', re.I)
 
+_ENSURE_COMPOSER_VISIBLE_JS = """
+(function() {
+  function isVisible(el) {
+    if (!el || !el.getBoundingClientRect) return false;
+    var r = el.getBoundingClientRect();
+    if (r.width < 20 || r.height < 8) return false;
+    var st = window.getComputedStyle(el);
+    return st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0';
+  }
+  var inputs = document.querySelectorAll(
+    'textarea[name="message-input"], textarea.message-input, textarea, '
+    + '[contenteditable="true"], [contenteditable=""], div[role="textbox"]'
+  );
+  var best = null;
+  var bestBottom = -1;
+  for (var i = 0; i < inputs.length; i++) {
+    var el = inputs[i];
+    if (!isVisible(el)) continue;
+    var r = el.getBoundingClientRect();
+    if (r.bottom >= bestBottom) {
+      bestBottom = r.bottom;
+      best = el;
+    }
+  }
+  if (!best) return false;
+  var root = best.closest('form, footer, [class*="composer"], [class*="input"], [class*="chat"]')
+    || best.parentElement;
+  if (root && root.scrollIntoView) {
+    root.scrollIntoView({ block: 'end', inline: 'nearest' });
+  } else {
+    best.scrollIntoView({ block: 'end', inline: 'nearest' });
+  }
+  return true;
+})();
+"""
+
 _INPUT_JS = """
 const elem = arguments[0];
 const message = String(arguments[1] ?? '');
@@ -218,6 +254,16 @@ def needs_phone_consult_request(texts: list[str]) -> bool:
     if _PHONE_CONSULT_DONE_RE.search(joined):
         return False
     return bool(_PHONE_CONSULT_PENDING_RE.search(joined))
+
+
+def ensure_chat_composer_visible(driver) -> bool:
+    """채팅 입력란·전송줄이 뷰포트 하단에 보이도록 스크롤."""
+    try:
+        result = driver.execute_script(_ENSURE_COMPOSER_VISIBLE_JS)
+        return bool(result)
+    except Exception as e:
+        logger.debug('ensure_chat_composer_visible: %s', e)
+        return False
 
 
 class ChatRoomManager:

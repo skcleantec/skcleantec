@@ -74,6 +74,7 @@ alwaysApply: false
 
 ## CRM 쪽 규칙 (유지)
 
+- **채팅 입력란 가시성 (필수)** — 「숨고 메시지」드로어·숨고 Chrome 하단 입력이 **스크롤·뷰포트 밖에 숨겨지면 안 됨**. 레이아웃·뷰포트 상세: **`.cursor/rules/telecrm-soomgo-chat-ui.mdc`**
 - `isSoomgoBridgeOutdated(status, manifest)` — **API 버전 + 앱 semver** 둘 다 검사
 - `openSoomgo` / 폴링: 구버전이면 로그인·추출 **시작하지 않음**, `requestSoomgoBridgeUpdate()` 호출
 - 상담사에게 **매니페스트 URL·서버 주소 입력 요구 금지** (Inno Setup 마법사에도 URL 단계 없음)

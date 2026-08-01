@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 /** 좌측에서 슬라이드되는 CRM 도구 패널 */
 export function CrmSlideDrawer({
@@ -8,6 +8,8 @@ export function CrmSlideDrawer({
   subtitle,
   onClose,
   widthClass = 'w-[min(420px,92vw)]',
+  /** body 전체 스크롤(기본) vs 본문 flex·내부 스크롤(숨고 메시지 등) */
+  bodyLayout = 'scroll',
   children,
 }: {
   open: boolean;
@@ -15,9 +17,21 @@ export function CrmSlideDrawer({
   subtitle?: string;
   onClose: () => void;
   widthClass?: string;
+  bodyLayout?: 'scroll' | 'split';
   children: ReactNode;
 }) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) bodyRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [open]);
+
   if (typeof document === 'undefined') return null;
+
+  const bodyClass =
+    bodyLayout === 'split'
+      ? 'flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain px-4 py-4'
+      : 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4';
 
   return createPortal(
     <div
@@ -64,7 +78,9 @@ export function CrmSlideDrawer({
             닫기
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">{children}</div>
+        <div ref={bodyRef} className={bodyClass}>
+          {children}
+        </div>
       </aside>
     </div>,
     document.body,
