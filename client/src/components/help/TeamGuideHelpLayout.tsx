@@ -3,11 +3,18 @@ import { useSearchParams } from 'react-router-dom';
 import type { HelpRole } from '../../types/helpContent';
 import {
   fetchTeamGuideToc,
-  resolveTeamGuideChapter,
   teamGuideIframeSrc,
   TEAM_GUIDE_HTML_URL,
   type TeamGuideChapter,
 } from '../../utils/teamGuideContent';
+import {
+  defaultHelpGuideChapter,
+  HELP_WORKFLOW_CHAPTER_ID,
+  resolveHelpGuideChapter,
+  type HelpGuideChapterItem,
+} from '../../utils/helpContent';
+import { useHelpWorkflowEntry } from '../../hooks/useHelpWorkflowEntry';
+import { HelpScreenCard } from './HelpScreenCard';
 import { TeamGuideMobileChapterSelect, TeamGuideSidebar } from './TeamGuideSidebar';
 
 type TeamGuideHelpLayoutProps = {
@@ -19,15 +26,38 @@ export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHel
   const [searchParams, setSearchParams] = useSearchParams();
   const chapterParam = searchParams.get('chapter');
   const [chapters, setChapters] = useState<TeamGuideChapter[]>([]);
-  const activeChapter = useMemo(
-    () => resolveTeamGuideChapter(chapterParam, chapters),
-    [chapterParam, chapters]
+  const {
+    entry: workflowEntry,
+    canEdit: canEditWorkflow,
+    loading: workflowLoading,
+    chapter: workflowChapter,
+    reload: reloadWorkflow,
+  } = useHelpWorkflowEntry('team');
+  const htmlChapters = useMemo<HelpGuideChapterItem[]>(
+    () => chapters.map((c) => ({ id: c.id, title: c.title, desc: c.desc })),
+    [chapters],
   );
+  const sidebarChapters = useMemo(() => {
+    const workflow: HelpGuideChapterItem = workflowChapter ?? {
+      id: HELP_WORKFLOW_CHAPTER_ID,
+      title: '배정 받은 후 (팀장)',
+      desc: '배정목록·스케줄·현장 업무',
+    };
+    return [workflow, ...htmlChapters];
+  }, [workflowChapter, htmlChapters]);
+  const activeChapter = useMemo(
+    () => resolveHelpGuideChapter(chapterParam, htmlChapters),
+    [chapterParam, htmlChapters],
+  );
+  const isWorkflowView = activeChapter === HELP_WORKFLOW_CHAPTER_ID;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const iframeSrc = useMemo(() => teamGuideIframeSrc(activeChapter), [activeChapter]);
+  const iframeSrc = useMemo(
+    () => teamGuideIframeSrc(isWorkflowView ? null : activeChapter),
+    [activeChapter, isWorkflowView],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -59,24 +89,24 @@ export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHel
           next.delete('chapter');
           return next;
         },
-        { replace: true }
+        { replace: true },
       );
     }
   }, [chapterParam, activeChapter, setSearchParams]);
 
   useEffect(() => {
-    if (selectedRole === 'team' && !activeChapter) {
+    if (selectedRole === 'team' && !activeChapter && !loading && !workflowLoading) {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
           next.set('role', 'team');
-          next.set('chapter', '01');
+          next.set('chapter', defaultHelpGuideChapter(workflowChapter));
           return next;
         },
-        { replace: true }
+        { replace: true },
       );
     }
-  }, [selectedRole, activeChapter, setSearchParams]);
+  }, [selectedRole, activeChapter, loading, workflowLoading, workflowChapter, setSearchParams]);
 
   const changeChapter = useCallback(
     (chapterId: string) => {
@@ -88,12 +118,12 @@ export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHel
         return next;
       });
     },
-    [setSearchParams]
+    [setSearchParams],
   );
 
   useEffect(() => {
     const iframe = iframeRef.current;
-    if (!iframe || !activeChapter) return;
+    if (!iframe || !activeChapter || isWorkflowView) return;
     const scrollToAnchor = () => {
       try {
         const doc = iframe.contentDocument;
@@ -105,7 +135,7 @@ export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHel
     };
     iframe.addEventListener('load', scrollToAnchor);
     return () => iframe.removeEventListener('load', scrollToAnchor);
-  }, [iframeSrc, activeChapter]);
+  }, [iframeSrc, activeChapter, isWorkflowView]);
 
   if (loading) {
     return (
@@ -126,47 +156,67 @@ export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHel
     );
   }
 
+  const sidebarProps = {
+    chapters: sidebarChapters,
+    activeChapter,
+    onChapterClick: changeChapter,
+    selectedRole,
+    onRoleChange,
+  };
+
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-3">
       <div className="hidden lg:block lg:w-44 xl:w-48 lg:shrink-0 lg:self-start">
-        <TeamGuideSidebar
-          chapters={chapters}
-          activeChapter={activeChapter}
-          onChapterClick={changeChapter}
-          selectedRole={selectedRole}
-          onRoleChange={onRoleChange}
-        />
+        <TeamGuideSidebar {...sidebarProps} />
       </div>
 
       <div className="min-w-0 flex-1 overflow-hidden">
-        <TeamGuideMobileChapterSelect
-          chapters={chapters}
-          activeChapter={activeChapter}
-          onChapterClick={changeChapter}
-          selectedRole={selectedRole}
-          onRoleChange={onRoleChange}
-        />
+        <TeamGuideMobileChapterSelect {...sidebarProps} />
 
-        <div className="mt-2 flex items-center justify-end lg:mt-0">
-          <a
-            href={activeChapter ? `${TEAM_GUIDE_HTML_URL}#slide-${activeChapter}` : TEAM_GUIDE_HTML_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-fluid-2xs font-medium text-sky-600 underline hover:text-sky-700"
-          >
-            새 창에서 열기
-          </a>
-        </div>
+        {!isWorkflowView ? (
+          <div className="mt-2 flex items-center justify-end lg:mt-0">
+            <a
+              href={
+                activeChapter ? `${TEAM_GUIDE_HTML_URL}#slide-${activeChapter}` : TEAM_GUIDE_HTML_URL
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-fluid-2xs font-medium text-sky-600 underline hover:text-sky-700"
+            >
+              새 창에서 열기
+            </a>
+          </div>
+        ) : null}
 
         <div className="mt-1 w-full min-w-0 overflow-x-hidden">
-          <iframe
-            ref={iframeRef}
-            key={iframeSrc}
-            src={iframeSrc}
-            title="청소비서 팀장 앱 사용설명서"
-            className="block w-full min-h-[calc(100dvh-11rem)] border-0 bg-[#eeecea] sm:min-h-[calc(100dvh-10rem)] lg:min-h-[calc(100dvh-9rem)]"
-            loading="lazy"
-          />
+          {isWorkflowView ? (
+            workflowLoading ? (
+              <div className="flex min-h-[40vh] items-center justify-center rounded-xl border border-slate-200 bg-white">
+                <p className="text-fluid-sm text-slate-600">이용 순서 불러오는 중…</p>
+              </div>
+            ) : workflowEntry ? (
+              <HelpScreenCard
+                entry={workflowEntry}
+                canEdit={canEditWorkflow}
+                onUpdated={reloadWorkflow}
+              />
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
+                <p className="text-fluid-sm font-semibold text-amber-900">
+                  이용 순서 도움말을 찾을 수 없습니다.
+                </p>
+              </div>
+            )
+          ) : (
+            <iframe
+              ref={iframeRef}
+              key={iframeSrc}
+              src={iframeSrc}
+              title="청소비서 팀장 앱 사용설명서"
+              className="block w-full min-h-[calc(100dvh-11rem)] border-0 bg-[#eeecea] sm:min-h-[calc(100dvh-10rem)] lg:min-h-[calc(100dvh-9rem)]"
+              loading="lazy"
+            />
+          )}
         </div>
       </div>
     </div>

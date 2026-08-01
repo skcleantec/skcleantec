@@ -3,6 +3,48 @@ import type { HelpModuleGroup, HelpRole, HelpScreenEntry } from '../types/helpCo
 export const HELP_DATA_URL = '/help/data.json';
 export const WORKFLOW_GUIDE_URL = '/help/workflow-guide.html';
 
+/** HTML 가이드 목차 앞에 붙는 「이용 순서」(data.json 단일 기준) */
+export const HELP_WORKFLOW_CHAPTER_ID = '00';
+
+export const ADMIN_WORKFLOW_HELP_PATH = '/help/guide/intake-to-assignment';
+export const TEAM_WORKFLOW_HELP_PATH = '/help/guide/team-assignment';
+
+export type HelpGuideChapterItem = {
+  id: string;
+  title: string;
+  desc: string;
+};
+
+export function findHelpWorkflowEntry(
+  entries: HelpScreenEntry[],
+  role: HelpRole,
+): HelpScreenEntry | undefined {
+  const path = role === 'team' ? TEAM_WORKFLOW_HELP_PATH : ADMIN_WORKFLOW_HELP_PATH;
+  return entries.find((item) => item.role === role && item.path === path);
+}
+
+export function helpWorkflowChapterItem(entry: HelpScreenEntry): HelpGuideChapterItem {
+  return {
+    id: HELP_WORKFLOW_CHAPTER_ID,
+    title: entry.title,
+    desc: entry.summary,
+  };
+}
+
+export function resolveHelpGuideChapter(
+  raw: string | null,
+  htmlChapters: HelpGuideChapterItem[],
+): string | null {
+  const trimmed = raw?.trim() ?? '';
+  if (!trimmed || !/^\d{2}$/.test(trimmed)) return null;
+  if (trimmed === HELP_WORKFLOW_CHAPTER_ID) return trimmed;
+  return htmlChapters.some((c) => c.id === trimmed) ? trimmed : null;
+}
+
+export function defaultHelpGuideChapter(workflowChapter: HelpGuideChapterItem | null): string {
+  return workflowChapter ? HELP_WORKFLOW_CHAPTER_ID : '01';
+}
+
 export const HELP_ROLE_LABELS: Record<HelpRole, string> = {
   admin: '관리자',
   team: '팀장',

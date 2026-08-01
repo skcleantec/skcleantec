@@ -11,6 +11,7 @@ import {
   filterHelpEntries,
   groupHelpByModule,
   HELP_ROLE_LABELS,
+  HELP_WORKFLOW_CHAPTER_ID,
   parseHelpRole,
   WORKFLOW_GUIDE_URL,
 } from '../utils/helpContent';
@@ -97,7 +98,7 @@ export function HelpPage() {
         next.set('role', newRole);
         next.delete('q');
         if (newRole === 'team' || newRole === 'admin') {
-          next.set('chapter', '01');
+          next.set('chapter', HELP_WORKFLOW_CHAPTER_ID);
         } else {
           next.delete('chapter');
         }

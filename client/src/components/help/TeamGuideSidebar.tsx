@@ -1,9 +1,9 @@
 import type { HelpRole } from '../../types/helpContent';
-import type { TeamGuideChapter } from '../../utils/teamGuideContent';
+import type { HelpGuideChapterItem } from '../../utils/helpContent';
 import { HELP_ROLE_LABELS } from '../../utils/helpContent';
 
-/** 팀장·관리자 HTML 가이드 공통 목차 항목 */
-export type GuideChapterItem = Pick<TeamGuideChapter, 'id' | 'title' | 'desc'>;
+/** 팀장·관리자 HTML 가이드 + 이용 순서(00) 목차 항목 */
+export type GuideChapterItem = HelpGuideChapterItem;
 
 type TeamGuideSidebarProps = {
   chapters: GuideChapterItem[];
