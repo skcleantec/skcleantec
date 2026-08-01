@@ -6,7 +6,7 @@ import { filterKeysByShareMask, normalizeShareFieldMask } from './tenantInquiryS
 
 export const TENANT_SHARE_SYNC_LOG_PREFIX = '[파트너연계동기화]';
 
-const SYNC_WHITELIST_KEYS = [
+export const SYNC_WHITELIST_KEYS = [
   'customerName',
   'nickname',
   'customerPhone',
@@ -40,7 +40,11 @@ const SYNC_WHITELIST_KEYS = [
   'memo',
 ] as const satisfies ReadonlyArray<keyof Inquiry>;
 
-const BIDIRECTIONAL_STATUSES: InquiryStatus[] = ['COMPLETED', 'CANCELLED'];
+export type TenantShareSyncWhitelistKey = (typeof SYNC_WHITELIST_KEYS)[number];
+
+export const BIDIRECTIONAL_SHARE_STATUSES: InquiryStatus[] = ['COMPLETED', 'CANCELLED'];
+
+const BIDIRECTIONAL_STATUSES = BIDIRECTIONAL_SHARE_STATUSES;
 
 type WhitelistKey = (typeof SYNC_WHITELIST_KEYS)[number];
 

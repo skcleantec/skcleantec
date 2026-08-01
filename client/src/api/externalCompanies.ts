@@ -238,6 +238,24 @@ export async function migrateExternalCompanyToPartner(
   return res.json();
 }
 
+export async function resyncExternalLegacyMigratedMirrors(
+  token: string,
+  externalCompanyId: string,
+): Promise<{ total: number; updated: number }> {
+  const res = await fetch(
+    `${API}/external-companies/${encodeURIComponent(externalCompanyId)}/resync-migrated-mirrors`,
+    {
+      method: 'POST',
+      headers: headers(token),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || 'mirror 재동기화에 실패했습니다.');
+  }
+  return res.json();
+}
+
 export type ExternalSettlementSummary = {
   from: string;
   to: string;

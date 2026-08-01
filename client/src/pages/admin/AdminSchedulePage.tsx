@@ -860,6 +860,7 @@ export function AdminSchedulePage() {
   >([]);
   const [partnerTenants, setPartnerTenants] = useState<Array<{ id: string; name: string }>>([]);
   const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
+  const hasExternalCo = useHasTenantFeature('mod_external_co');
   const hasQuickPaste = useHasTenantFeature('mod_quick_paste');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
@@ -1199,22 +1200,27 @@ export function AdminSchedulePage() {
         .then(setTeamLeadersWithZones)
         .catch(() => setTeamLeadersWithZones([]));
 
-      getUsers(token, 'EXTERNAL_PARTNER', { scope: 'management' })
-        .then((rows) => {
-          const map = new Map<string, string>();
-          for (const u of rows) {
-            const id = u.externalCompanyId?.trim();
-            const name = u.externalCompanyName?.trim();
-            if (!id || !name) continue;
-            if (!map.has(id)) map.set(id, name);
-          }
-          setExternalCompanies(Array.from(map.entries()).map(([id, name]) => ({ id, name })));
-        })
-        .catch(() => setExternalCompanies([]));
+      if (hasExternalCo) {
+        getUsers(token, 'EXTERNAL_PARTNER', { scope: 'management' })
+          .then((rows) => {
+            const map = new Map<string, string>();
+            for (const u of rows) {
+              const id = u.externalCompanyId?.trim();
+              const name = u.externalCompanyName?.trim();
+              if (!id || !name) continue;
+              if (!map.has(id)) map.set(id, name);
+            }
+            setExternalCompanies(Array.from(map.entries()).map(([id, name]) => ({ id, name })));
+          })
+          .catch(() => setExternalCompanies([]));
 
-      listSelectableExternalCompanies(token)
-        .then((r) => setSelectableExternalCompanies(r.items))
-        .catch(() => setSelectableExternalCompanies([]));
+        listSelectableExternalCompanies(token)
+          .then((r) => setSelectableExternalCompanies(r.items))
+          .catch(() => setSelectableExternalCompanies([]));
+      } else {
+        setExternalCompanies([]);
+        setSelectableExternalCompanies([]);
+      }
 
       if (hasTenantExchange) {
         listTenantPartnerships(token)
@@ -1248,7 +1254,7 @@ export function AdminSchedulePage() {
         setMarketers([]);
       }
     });
-  }, [token, effectiveStaffAdmin, operationalAdmin, fetchCustomCalendars, hasTenantExchange]);
+  }, [token, effectiveStaffAdmin, operationalAdmin, fetchCustomCalendars, hasTenantExchange, hasExternalCo]);
 
   /**
    * 활성 맞춤 캘린더 id — URL(`customCalendarRegionId` / `customCalendarCompanyId`) 동기화.
@@ -3065,7 +3071,7 @@ export function AdminSchedulePage() {
                       </details>
                     )}
 
-                    {extTotal > 0 && (
+                    {hasExternalCo && extTotal > 0 && (
                       <details
                         key={selectedDate ?? 'day'}
                         className="group min-w-0 rounded-lg border-2 border-indigo-300/90 bg-indigo-50/50 shadow-sm [&_summary::-webkit-details-marker]:hidden"
@@ -3662,7 +3668,7 @@ export function AdminSchedulePage() {
             : null
         }
         usedColors={usedCustomCalendarColors}
-        externalCompanies={selectableExternalCompanies}
+        externalCompanies={hasExternalCo ? selectableExternalCompanies : []}
         externalCompanyNames={externalCompanyNameById}
         partnerTenants={partnerTenants}
         serviceZones={serviceZones}

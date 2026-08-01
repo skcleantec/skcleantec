@@ -268,7 +268,14 @@ function App() {
                 </FeatureGate>
               }
             />
-            <Route path="external-companies" element={<SuspensePage><AdminExternalCompaniesPage /></SuspensePage>} />
+            <Route
+              path="external-companies"
+              element={
+                <FeatureGate module="mod_external_co">
+                  <SuspensePage><AdminExternalCompaniesPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
             <Route
               path="tenant-partners"
               element={
@@ -285,7 +292,14 @@ function App() {
                 </FeatureGate>
               }
             />
-            <Route path="external-settlement" element={<SuspensePage><AdminExternalSettlementPage /></SuspensePage>} />
+            <Route
+              path="external-settlement"
+              element={
+                <FeatureGate module="mod_external_co">
+                  <SuspensePage><AdminExternalSettlementPage /></SuspensePage>
+                </FeatureGate>
+              }
+            />
             <Route path="payroll" element={<FeatureGate module="mod_payroll"><SuspensePage><AdminPayrollPage /></SuspensePage></FeatureGate>} />
             <Route path="household-ledger" element={<SuspensePage><AdminHouseholdLedgerPage /></SuspensePage>} />
             <Route path="e-contracts" element={<FeatureGate module="mod_e_contract"><AdminEContractLayout /></FeatureGate>}>
@@ -415,7 +429,14 @@ function App() {
           <Route path="inspection/:inquiryId" element={<FeatureGate module="mod_inspection" redirectTo="/team/dashboard"><SuspensePage><TeamInspectionPage /></SuspensePage></FeatureGate>} />
           <Route path="schedule" element={<SuspensePage><TeamSchedulePage /></SuspensePage>} />
           <Route path="dayoffs" element={<SuspensePage><TeamDayOffsPage /></SuspensePage>} />
-          <Route path="settlement" element={<SuspensePage><TeamExternalSettlementPage /></SuspensePage>} />
+          <Route
+            path="settlement"
+            element={
+              <FeatureGate module="mod_external_co" redirectTo="/team/dashboard">
+                <SuspensePage><TeamExternalSettlementPage /></SuspensePage>
+              </FeatureGate>
+            }
+          />
           <Route path="household-ledger" element={<SuspensePage><TeamHouseholdLedgerPage /></SuspensePage>} />
           <Route
             path="db-marketplace"

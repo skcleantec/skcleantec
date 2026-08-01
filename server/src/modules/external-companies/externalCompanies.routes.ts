@@ -40,6 +40,7 @@ import {
   migrateExternalInquiriesToHybridPartner,
   getExternalCompanyMigrationStatus,
   countActiveExternalLegacySharesForCompany,
+  resyncExternalLegacyMigratedMirrors,
 } from './externalToPartnerMigration.service.js';
 import {
   getExternalSettlementPayableFeesCached,
@@ -69,7 +70,7 @@ function buildExternalSettlementOverviewItems(
 
 const router = Router();
 
-router.use(authMiddleware, staffMarketerRoleOnly);
+router.use(authMiddleware, staffMarketerRoleOnly, requireFeature('mod_external_co'));
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const YM = /^\d{4}-\d{2}$/;
@@ -481,6 +482,30 @@ router.post(
     }
     throw e;
   }
+  },
+);
+
+/** 이미 이관된 EXTERNAL_LEGACY share — 파트너 mirror 접수를 송신 접수와 재동기화 */
+router.post(
+  '/:id/resync-migrated-mirrors',
+  requireStaffPermission('admin.users'),
+  requireFeature('mod_tenant_exchange'),
+  async (req, res) => {
+    const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+    if (!tenantId) return;
+    try {
+      const result = await resyncExternalLegacyMigratedMirrors({
+        tenantId,
+        externalCompanyId: req.params.id,
+      });
+      res.json(result);
+    } catch (e) {
+      if (e instanceof ExternalToPartnerMigrationError) {
+        res.status(e.status).json({ error: e.message });
+        return;
+      }
+      throw e;
+    }
   },
 );
 

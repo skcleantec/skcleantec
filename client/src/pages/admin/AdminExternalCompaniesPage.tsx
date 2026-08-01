@@ -10,6 +10,7 @@ import {
   listExternalMigrationEligibleInquiries,
   migrateExternalCompanyToPartner,
   getExternalCompanyMigrationStatus,
+  resyncExternalLegacyMigratedMirrors,
   type ExternalCompanyListItem,
   type MigrationEligibleInquiry,
 } from '../../api/externalCompanies';
@@ -401,6 +402,31 @@ export function AdminExternalCompaniesPage() {
       }
     } catch (e) {
       setMigrationErr(e instanceof Error ? e.message : '이관 실패');
+    } finally {
+      setMigrationBusy(false);
+    }
+  };
+
+  const handleResyncMigratedMirrors = async () => {
+    if (!token || !migrating) return;
+    if (!migrationStatus?.migratedCount) {
+      alert('이관 완료 건이 없습니다.');
+      return;
+    }
+    if (
+      !window.confirm(
+        `"${migrating.name}" 이관 건 ${migrationStatus.migratedCount}건의 파트너 mirror 접수를 송신 접수 정보와 다시 맞출까요?`,
+      )
+    ) {
+      return;
+    }
+    setMigrationBusy(true);
+    setMigrationErr(null);
+    try {
+      const result = await resyncExternalLegacyMigratedMirrors(token, migrating.id);
+      alert(`재동기화 완료 — ${result.updated}/${result.total}건 mirror를 갱신했습니다.`);
+    } catch (e) {
+      setMigrationErr(e instanceof Error ? e.message : 'mirror 재동기화 실패');
     } finally {
       setMigrationBusy(false);
     }
@@ -913,11 +939,28 @@ export function AdminExternalCompaniesPage() {
                 </div>
               ) : null}
               {migrationStatus ? (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 tabular-nums">
-                  이관 완료 <strong>{migrationStatus.migratedCount}</strong>건 · 남은 대상{' '}
-                  <strong>{migrationStatus.eligibleCount}</strong>건
-                  {!migrationStatus.partnershipActive ? (
-                    <span className="block text-amber-800 mt-1">ACTIVE 파트너십이 없습니다. 파트너 연결 메뉴에서 승인해 주세요.</span>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 tabular-nums space-y-2">
+                  <p>
+                    이관 완료 <strong>{migrationStatus.migratedCount}</strong>건 · 남은 대상{' '}
+                    <strong>{migrationStatus.eligibleCount}</strong>건
+                    {!migrationStatus.partnershipActive ? (
+                      <span className="block text-amber-800 mt-1">ACTIVE 파트너십이 없습니다. 파트너 연결 메뉴에서 승인해 주세요.</span>
+                    ) : null}
+                  </p>
+                  {migrationStatus.migratedCount > 0 ? (
+                    <div>
+                      <p className="text-slate-600 mb-1.5">
+                        파트너 쪽 목록에 연락처·주소가 비어 있으면, 송신 접수 기준으로 mirror를 다시 맞춥니다.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={migrationBusy}
+                        onClick={() => void handleResyncMigratedMirrors()}
+                        className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-800 disabled:opacity-50"
+                      >
+                        이관 mirror 재동기화
+                      </button>
+                    </div>
                   ) : null}
                 </div>
               ) : null}

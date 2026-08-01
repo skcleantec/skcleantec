@@ -37,6 +37,7 @@ export type InquiryEditSettlementSectionProps = {
   externalPartnerOptions: UserItem[];
   hasTenantExchange: boolean;
   hasDbMarketplace: boolean;
+  hasExternalCo: boolean;
   handleRegisterViaMarketplace: () => void;
   tenantShareEditFee: string;
   setTenantShareEditFee: (v: string) => void;
@@ -74,6 +75,7 @@ export function InquiryEditSettlementSection({
   externalPartnerOptions,
   hasTenantExchange,
   hasDbMarketplace,
+  hasExternalCo,
   handleRegisterViaMarketplace,
   tenantShareEditFee,
   setTenantShareEditFee,
@@ -130,6 +132,7 @@ export function InquiryEditSettlementSection({
             />
           </div>
         </div>
+        {hasExternalCo ? (
         <div className={inqEditPartnerExternalRow}>
           <div>
             <label className={`${inqEditLabel} inline-flex items-center gap-1`}>
@@ -193,6 +196,7 @@ export function InquiryEditSettlementSection({
             />
           </div>
         </div>
+        ) : null}
         {!isCreate && hasTenantExchange && item ? (
           <details className="rounded-lg border border-indigo-200 bg-indigo-50/40 px-2 py-1.5">
             <summary className="cursor-pointer select-none text-fluid-2xs font-semibold text-indigo-900">

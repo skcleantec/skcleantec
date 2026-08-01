@@ -1,4 +1,8 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
+
+export const MSG_EXTERNAL_COMPANY_FEATURE_DISABLED =
+  '이 업체에서는 타업체 기능을 사용할 수 없습니다.';
 
 export const MSG_EXTERNAL_COMPANY_USAGE_DISABLED =
   '사용 중지된 타업체입니다. 새 배정·노출에는 선택할 수 없습니다.';
@@ -49,6 +53,12 @@ export async function assertNewExternalPartnerUsersSelectable(
   previousExternalUserIds: ReadonlySet<string>,
   assignees: ReadonlyArray<{ id: string; role: string; externalCompanyId: string | null }>,
 ): Promise<void> {
+  const hasNewExternal = assignees.some(
+    (a) => a.role === 'EXTERNAL_PARTNER' && !previousExternalUserIds.has(a.id),
+  );
+  if (hasNewExternal && !(await isFeatureEnabled(tenantId, 'mod_external_co'))) {
+    throw new ExternalCompanyUsageError(MSG_EXTERNAL_COMPANY_FEATURE_DISABLED);
+  }
   for (const a of assignees) {
     if (a.role !== 'EXTERNAL_PARTNER') continue;
     if (previousExternalUserIds.has(a.id)) continue;

@@ -835,6 +835,7 @@ export function AdminInquiriesPage() {
     [brandMsgTenantFallback],
   );
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
+  const hasExternalCo = useHasTenantFeature('mod_external_co');
   const isLgUp = useIsLgUp();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -1110,6 +1111,12 @@ export function AdminInquiriesPage() {
         .filter((t) => t.role === 'EXTERNAL_PARTNER')
         .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko')),
     [teamLeaders]
+  );
+
+  const filterableTeamLeaders = useMemo(
+    () =>
+      hasExternalCo ? teamLeaders : teamLeaders.filter((t) => t.role !== 'EXTERNAL_PARTNER'),
+    [teamLeaders, hasExternalCo],
   );
 
   const crewPickOptions = useMemo(
@@ -2700,7 +2707,7 @@ export function AdminInquiriesPage() {
                   htmlFor="inquiry-team-leader-filter"
                   className={INQUIRY_LIST_FILTER_LABEL_CLASS}
                 >
-                  팀장·타업체
+                  팀장{hasExternalCo ? '·타업체' : ''}
                 </label>
                 <select
                   id="inquiry-team-leader-filter"
@@ -2710,7 +2717,7 @@ export function AdminInquiriesPage() {
                 >
                   <option value="">전체</option>
                   <option value={TEAM_LEADER_FILTER_UNASSIGNED}>미배정</option>
-                  {teamLeaders.map((t) => (
+                  {filterableTeamLeaders.map((t) => (
                     <option key={t.id} value={t.id}>
                       {formatAssignableUserLabel(t)}
                     </option>
@@ -3159,7 +3166,7 @@ export function AdminInquiriesPage() {
                             className="min-h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-700 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10 sm:min-h-[34px] sm:px-2 sm:py-1 sm:text-fluid-2xs md:text-fluid-xs"
                           >
                             <option value="">미배정</option>
-                            {teamLeaders.map((tl) => (
+                            {filterableTeamLeaders.map((tl) => (
                               <option key={tl.id} value={tl.id}>
                                 {formatAssignableUserLabel(tl)}
                               </option>
@@ -3713,7 +3720,7 @@ export function AdminInquiriesPage() {
                         className="w-full min-w-0 max-w-full rounded-lg border border-slate-200 px-1 py-0.5 text-fluid-2xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 bg-white"
                       >
                         <option value="">미배정</option>
-                        {teamLeaders.map((tl) => (
+                        {filterableTeamLeaders.map((tl) => (
                           <option key={tl.id} value={tl.id}>
                             {formatAssignableUserLabel(tl)}
                           </option>
@@ -4747,6 +4754,8 @@ export function AdminInquiriesPage() {
                       />
                     </div>
                   </div>
+                  {hasExternalCo ? (
+                  <>
                   <div className="sm:col-span-2">
                     <label className="block text-fluid-sm text-slate-600 mb-1">타업체 담당</label>
                     <select
@@ -4804,6 +4813,8 @@ export function AdminInquiriesPage() {
                         : '타업체 담당으로 분배된 건에 대해 받는 수수료 (파트너 연계와 둘 중 하나만 선택)'}
                     </p>
                   </div>
+                  </>
+                  ) : null}
                 </div>
               </div>
               <div className="sm:col-span-2">
@@ -4833,10 +4844,14 @@ export function AdminInquiriesPage() {
                   담당 팀장 (여러 명 가능)
                   <HelpTooltip
                     className="ml-1 align-middle"
-                    text="타업체 분배는 위쪽 《타업체 담당》에서 선택합니다. 자사 팀장만 여러 명 선택할 수 있습니다."
+                    text={
+                      hasExternalCo
+                        ? '타업체 분배는 위쪽 《타업체 담당》에서 선택합니다. 자사 팀장만 여러 명 선택할 수 있습니다.'
+                        : '자사 팀장을 여러 명 선택할 수 있습니다.'
+                    }
                   />
                 </label>
-                {resolvedExternalLeadId ? (
+                {hasExternalCo && resolvedExternalLeadId ? (
                   <div
                     className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-fluid-sm text-amber-950"
                     role="status"

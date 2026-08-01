@@ -25,6 +25,7 @@ import {
 import type { DbMarketplaceBuyerContext } from './dbMarketplaceBuyerAccess.js';
 import { computeMarketplaceExpiresAt } from '../../lib/dbMarketplacePolicy.js';
 import { selectableExternalCompanyWhere } from '../external-companies/externalCompanyUsage.helpers.js';
+import { isFeatureEnabled } from '../tenants/tenantFeatures.service.js';
 import { clearInternalInquiryAssignments } from '../assignments/clearInternalInquiryAssignments.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import {
@@ -702,6 +703,7 @@ function resolveListRoleForViewer(
 
 /** 정보공유 노출 대상 선택 — ACTIVE 파트너·등록 타업체 (mod_db_marketplace 전용, tenant exchange API 불필요) */
 export async function listDbMarketplaceAudienceOptions(tenantId: string) {
+  const externalCoEnabled = await isFeatureEnabled(tenantId, 'mod_external_co');
   const partnerships = await prisma.tenantPartnership.findMany({
     where: {
       status: 'ACTIVE',
@@ -722,11 +724,13 @@ export async function listDbMarketplaceAudienceOptions(tenantId: string) {
     }
   }
 
-  const externalCompanies = await prisma.externalCompany.findMany({
-    where: selectableExternalCompanyWhere(tenantId),
-    select: { id: true, name: true },
-    orderBy: { name: 'asc' },
-  });
+  const externalCompanies = externalCoEnabled
+    ? await prisma.externalCompany.findMany({
+        where: selectableExternalCompanyWhere(tenantId),
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      })
+    : [];
 
   return {
     partners: [...partnerById.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko')),

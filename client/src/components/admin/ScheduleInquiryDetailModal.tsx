@@ -596,6 +596,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   >({ assignmentMode: 'relaxed', teamLeaderListMode: 'tenant_all_read' });
   const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
   const hasDbMarketplace = useHasTenantFeature('mod_db_marketplace');
+  const hasExternalCo = useHasTenantFeature('mod_external_co');
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const [tenantSharePartnerships, setTenantSharePartnerships] = useState<TenantPartnershipItem[]>([]);
   const [tenantSharePartnershipId, setTenantSharePartnershipId] = useState('');
@@ -2643,6 +2644,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           externalPartnerOptions={externalPartnerOptions}
           hasTenantExchange={hasTenantExchange}
           hasDbMarketplace={hasDbMarketplace}
+          hasExternalCo={hasExternalCo}
           handleRegisterViaMarketplace={handleRegisterViaMarketplace}
           tenantShareEditFee={tenantShareEditFee}
           setTenantShareEditFee={setTenantShareEditFee}

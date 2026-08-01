@@ -8,6 +8,11 @@ import {
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyTenantShareReceived } from '../tenant-partners/tenantInquiryShareNotify.js';
 import { noActiveSourceShareWhere } from '../tenant-partners/tenantInquirySharePick.helpers.js';
+import {
+  backfillSourceInquiryFromOrderFormForMigration,
+  fullSyncShareMirrorFromSourceInTransaction,
+  resyncExternalLegacyMigratedMirrors,
+} from '../tenant-partners/tenantInquiryShareMirrorSync.helpers.js';
 
 /** HTTP 타임아웃 방지 — 1회 요청당 최대 이관 건수 */
 export const EXTERNAL_MIGRATION_BATCH_MAX = 40;
@@ -273,6 +278,8 @@ async function migrateOneInquiryInTransaction(
     throw new ExternalToPartnerMigrationError('타업체 수수료가 없는 접수는 이관할 수 없습니다.');
   }
 
+  const sourceForMirror = await backfillSourceInquiryFromOrderFormForMigration(tx, source);
+
   const existingShare = await tx.tenantInquiryShare.findFirst({
     where: { sourceInquiryId: source.id, syncStatus: 'ACTIVE' },
   });
@@ -298,9 +305,9 @@ async function migrateOneInquiryInTransaction(
   const result = await createTenantInquiryShareInTransaction(tx, {
     viewerTenantId: opts.tenantId,
     viewerUserId: opts.userId,
-    inquiryId: source.id,
+    inquiryId: sourceForMirror.id,
     partnershipId: opts.partnershipId,
-    transferFee: source.externalTransferFee,
+    transferFee: sourceForMirror.externalTransferFee,
     settlementMode: 'EXTERNAL_LEGACY',
     settlementExternalCompanyId: opts.externalCompanyId,
     migratedFromExternalAt: now,
@@ -308,13 +315,25 @@ async function migrateOneInquiryInTransaction(
     skipExternalPartnerCheck: true,
   });
 
+  await fullSyncShareMirrorFromSourceInTransaction(
+    tx,
+    {
+      sourceInquiryId: sourceForMirror.id,
+      targetInquiryId: result.targetInquiryId,
+      syncFieldMask: result.shareRow.syncFieldMask,
+      settlementMode: result.shareRow.settlementMode,
+      transferFee: result.shareRow.transferFee,
+    },
+    { ignoreFieldMask: true },
+  );
+
   if (result.shareRow.settlementExternalCompanyId !== opts.externalCompanyId) {
     throw new ExternalToPartnerMigrationError('이관 share 정산 연결 검증에 실패했습니다.');
   }
   if (result.targetTenantId !== opts.partnerTenantId) {
     throw new ExternalToPartnerMigrationError('파트너 mirror 테넌트가 연결된 업체와 일치하지 않습니다.');
   }
-  if (result.shareRow.transferFee !== source.externalTransferFee) {
+  if (result.shareRow.transferFee !== sourceForMirror.externalTransferFee) {
     throw new ExternalToPartnerMigrationError('이관 수수료가 원본과 일치하지 않습니다.');
   }
 
@@ -334,18 +353,20 @@ async function migrateOneInquiryInTransaction(
     shareId: result.share.id,
     targetInquiryId: result.targetInquiryId,
     targetInquiryNumber: result.targetInquiryNumber,
-    transferFee: source.externalTransferFee,
+    transferFee: sourceForMirror.externalTransferFee,
     removedInternalLeaderIds: result.removedInternalLeaderIds,
     notify: {
       targetTenantId: opts.partnerTenantId,
       targetInquiryId: result.targetInquiryId,
-      customerName: source.customerName,
+      customerName: sourceForMirror.customerName,
       partnerName: result.partnerName,
-      sourceInquiryNumberSnapshot: source.inquiryNumber,
+      sourceInquiryNumberSnapshot: sourceForMirror.inquiryNumber,
       targetInquiryNumber: result.targetInquiryNumber,
     },
   };
 }
+
+export { resyncExternalLegacyMigratedMirrors };
 
 export async function migrateExternalInquiriesToHybridPartner(opts: {
   tenantId: string;

@@ -161,3 +161,24 @@ export function isKnownFeatureModuleId(id: string): id is TenantFeatureModuleId 
 }
 
 export { isCustomModuleId, isRegisteredCustomModuleId, customModulesForTenantSlug } from '../custom/customModuleCatalog.js';
+
+/** SK클린텍·cbiseo만 타업체(mod_external_co) 사용 — @see shared/externalCompanyTenantAccess.ts */
+export const EXTERNAL_COMPANY_TENANT_SLUGS = ['sk', 'skcleanteck', 'cbiseo'] as const;
+
+export function isExternalCompanyTenantSlug(slug: string | null | undefined): boolean {
+  const s = slug?.trim().toLowerCase();
+  if (!s) return false;
+  return (EXTERNAL_COMPANY_TENANT_SLUGS as readonly string[]).includes(s);
+}
+
+export function applyExternalCompanyModuleAccess(
+  modules: readonly string[],
+  tenantSlug: string | null | undefined,
+): string[] {
+  if (isExternalCompanyTenantSlug(tenantSlug)) {
+    const out = [...modules];
+    if (!out.includes('mod_external_co')) out.push('mod_external_co');
+    return out;
+  }
+  return modules.filter((m) => m !== 'mod_external_co');
+}

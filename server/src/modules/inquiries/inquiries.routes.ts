@@ -813,6 +813,17 @@ router.patch('/:id', async (req, res) => {
   const data = buildInquiryPatchData(body);
   if (
     data.externalTransferFee !== undefined &&
+    !(await isFeatureEnabled(tenantId, 'mod_external_co'))
+  ) {
+    res.status(403).json({
+      error: '이 업체에서는 타업체 기능을 사용할 수 없습니다.',
+      code: 'feature_disabled',
+      moduleId: 'mod_external_co',
+    });
+    return;
+  }
+  if (
+    data.externalTransferFee !== undefined &&
     data.externalTransferFee !== null &&
     (await inquiryHasActiveNativePartnerShareSource(prisma, inquiry.id))
   ) {
@@ -1008,6 +1019,14 @@ router.patch('/:id', async (req, res) => {
         return;
       }
       const assigningExternal = assignees.some((a) => a.role === 'EXTERNAL_PARTNER');
+      if (assigningExternal && !(await isFeatureEnabled(tenantId, 'mod_external_co'))) {
+        res.status(403).json({
+          error: '이 업체에서는 타업체 기능을 사용할 수 없습니다.',
+          code: 'feature_disabled',
+          moduleId: 'mod_external_co',
+        });
+        return;
+      }
       if (assigningExternal) {
         const hasInternalAssignee = assignees.some(
           (a) => a.role === 'TEAM_LEADER' || a.role === 'ADMIN',

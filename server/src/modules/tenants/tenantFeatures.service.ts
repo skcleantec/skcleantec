@@ -1,7 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import {
+  applyExternalCompanyModuleAccess,
   CORE_FEATURE_MODULE_IDS,
-  customModulesForTenantSlug,
   isCustomModuleId,
   isKnownFeatureModuleId,
   modulesForPlan,
@@ -15,7 +15,11 @@ export async function getTenantPlan(tenantId: string): Promise<string> {
 
 /** plan 기본 + TenantFeature 오버라이드 → effective enabled module ids (표준 + custom_*) */
 export async function getEffectiveEnabledModules(tenantId: string): Promise<string[]> {
-  const plan = await getTenantPlan(tenantId);
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { plan: true, slug: true },
+  });
+  const plan = tenant?.plan ?? 'standard';
   const base = new Set<string>(modulesForPlan(plan));
 
   const overrides = await prisma.tenantFeature.findMany({
@@ -40,7 +44,7 @@ export async function getEffectiveEnabledModules(tenantId: string): Promise<stri
     base.add(core);
   }
 
-  return [...base];
+  return applyExternalCompanyModuleAccess([...base], tenant?.slug);
 }
 
 export async function isFeatureEnabled(
