@@ -185,7 +185,8 @@ export function CrmSoomgoAlertDrawer({
       onClose={onClose}
       title="숨고 알림함"
       subtitle={bridgeHint}
-      widthClass="w-[min(720px,98vw)]"
+      widthClass="w-[min(720px,calc(98vw-3rem))]"
+      dockAfterToolNav
     >
       <div className="flex min-h-[min(72vh,640px)] flex-col gap-2">
         <div className="flex shrink-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">

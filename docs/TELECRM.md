@@ -22,6 +22,18 @@
 
 발주 전문시공 금액은 **발주서 설정 → 전문시공 옵션**에서 관리하며, 텔레CRM 가격 패널 「발주 전문시공」 탭에서 읽기 전용으로 표시됩니다.
 
+## 숨고 연동 · Chrome 2분할
+
+텔레CRM **「숨고 연동」** ON 시 CRM 팝업(좌·넓게) + 숨고 Chrome(우·최소 ~420px) 2분할. 브릿지 `arrange_soomgo_right_half` + CDP 모바일 viewport — **`window_layout.py`**.
+
+**정상 화면 기준** (상담사·QA·회귀 테스트 공통):
+
+- 채팅 목록·채팅방 입력이 Chrome 프레임 **안**에 보임 (가로 밀림·프레임 밖 없음)
+- 하단 검은/회색 여백 없음
+- CRM 「숨고 메시지」 **「직접 보내기」** 하단 고정
+
+개발 룰: `.cursor/rules/telecrm-soomgo-chat-ui.mdc` · 사용자 문구: `agent/product/HELP_GUIDE_MARKETER.md` §14 · `tools/soomgo-bridge/README.md` **정상 화면**
+
 ## UX
 
 - **설정·발주서** — CRM 헤더 또는 `?panel=settings|issue` 드로어 (솔루션 탭 이동 없이 처리) — 접수 입력은 `localStorage`에 저장됩니다. 창을 닫기 전 미저장 시 브라우저 경고가 뜰 수 있습니다. 저장 성공 시 초안은 삭제됩니다.

@@ -230,7 +230,8 @@ export function CrmSmsDrawer({
         onClose={onClose}
         title="문자 발송"
         subtitle="전송 · 클립보드 복사 · 문구 관리"
-        widthClass="w-[min(440px,94vw)]"
+        widthClass="w-[min(440px,calc(94vw-3rem))]"
+        dockAfterToolNav
       >
         <div className="space-y-4">
           <CrmSegment accent="script">

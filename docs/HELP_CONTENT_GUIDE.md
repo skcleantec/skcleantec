@@ -47,6 +47,7 @@
 
 | 경로 | 역할 |
 |------|------|
+| `scripts/help-content/workflow-intake-to-assignment.mjs` | **이용 순서** — 접수→배정 흐름·처리구분→메뉴 표 (**단일 기준**, 화면별 도움말과 동기화) |
 | `scripts/help-content/*.mjs` | 메뉴별 상세 markdown (`buildXxxMarkdown()` export) |
 | `scripts/help-content/registry.mjs` | `path` → markdown 함수 매핑 |
 | `scripts/build-help-data.mjs` | `ADMIN_PAGES` 목록·요약·`data.json` 생성 |

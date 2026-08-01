@@ -1,48 +1,101 @@
 ---
-description: 텔레CRM 숨고 연동 — 채팅 입력란·전송 UI는 항상 보여야 함 (필수)
+description: 텔레CRM 숨고 연동 — 2분할 Chrome 레이아웃·채팅 입력란 가시성 (필수, 단일 기준)
 globs:
-  - client/src/**/crm/**/soomgo/**
-  - client/src/components/crm/layout/CrmSlideDrawer.tsx
-  - tools/soomgo-bridge/automation/window_layout.py
-  - tools/soomgo-bridge/automation/chat_room.py
-  - tools/soomgo-bridge/automation/navigation.py
+  - client/src/**/crm/**
+  - client/src/utils/crmSoomgo*.ts
+  - client/src/api/soomgoBridge.ts
+  - client/src/api/telecrmSoomgo*.ts
+  - client/src/hooks/useCrmSoomgo*.ts
+  - shared/soomgoBridge.ts
+  - server/src/modules/telecrm/**/*
+  - tools/soomgo-bridge/**
 alwaysApply: false
 ---
 
-# 텔레CRM · 숨고 — 채팅 입력란 가시성 (필수)
+# 텔레CRM · 숨고 — Chrome 2분할 · 입력란 가시성 (필수)
 
-상담사가 **직접 타이핑해 보낼 수 있는 입력 UI**는 숨겨지면 안 된다. 프리셋·알림·상태 배지만 보이고 입력란이 스크롤 밖·뷰포트 밖에 있으면 **버그**로 본다.
+> **단일 기준:** 숨고 연동 코딩·QA·회귀는 **본 룰**을 따른다.  
+> 사용자 설명서 복사본: `agent/product/HELP_GUIDE_MARKETER.md` §14 · `tools/soomgo-bridge/README.md` **정상 화면**
 
-## 적용 범위
+상담사가 **직접 타이핑·목록·채팅**을 쓸 수 있어야 한다. 아래 **정상 화면**과 다르면 **버그**로 본다.
+
+---
+
+## 정상 화면 — 항상 이렇게 (2분할)
+
+텔레CRM **「숨고 연동」** ON → PC 화면 **2분할**:
+
+| 영역 | 내용 |
+|------|------|
+| **왼쪽 (넓게)** | 텔레CRM 팝업 — 접수·스크립트·가격 (`crmSoomgoSplitLayout`, `CrmPage`) |
+| **오른쪽 (좁게, ~420–480px)** | Google Chrome — 숨고 (모바일 레이아웃, `arrange_soomgo_right_half`) |
+
+### QA 체크리스트 (배포·수정 후 필수)
+
+- [ ] Chrome **안**에 숨고 **채팅 목록**이 온전히 보임 (가로 밀림·프레임 밖 없음)
+- [ ] Chrome **하단** 검은·회색 **빈 여백 없음**
+- [ ] 채팅방 **하단 입력·전송** 줄 보임
+- [ ] CRM **「숨고 메시지」** — **「직접 보내기」**·**「메시지 보내기」**가 프리셋 많아도 **항상** 보임 (스크롤 없이)
+- [ ] **숨고 연동 v2.2.28+** (v2.2.27 viewport 회귀 금지 — 목록 밀림·하단 검은 여백)
+
+### 이상 징후 → 원인·조치
+
+| 증상 | 조치 |
+|------|------|
+| 목록 가로 밀림 · 하단 검은 여백 | `innerWidth/innerHeight` CDP 사용 금지 → outer − 88px viewport 복구 · 브릿지 **v2.2.28+** |
+| CRM 「업데이트 필요」 | Setup 재설치 · 트레이 앱 재실행 · **숨고 연동** 다시 ON |
+| Chrome이 CRM에 가려짐 | **숨고 연동** OFF → ON (2분할 재배치) |
+
+**운영:** 작업 중 Chrome 숨고 창 **닫기·크기 변경 금지**. **「채팅 목록 열기」**로 목록 복귀.
+
+---
+
+## 적용 범위 (입력 UI)
 
 | 표면 | 입력 UI |
 |------|---------|
-| **CRM 「숨고 메시지」 드로어** | `CrmSoomgoDrawer` — 「직접 보내기」`textarea` + 「메시지 보내기」 |
-| **숨고 Chrome 창 (브릿지)** | 숨고 웹 채팅방 하단 **네이티브** 입력·전송줄 |
+| **CRM 「숨고 메시지」 드로어** | `CrmSoomgoDrawer` — 「직접 보내기」+ 「메시지 보내기」 |
+| **숨고 Chrome (브릿지)** | 숨고 웹 채팅방 하단 **네이티브** 입력·전송줄 |
 
-미소 연동(`CrmMisoDrawer`)도 동일 원칙 — 입력·전송 CTA는 드로어 안에서 **항상 접근 가능**.
+미소 연동(`CrmMisoDrawer`)도 동일 — 입력·전송 CTA는 드로어 안 **항상 접근 가능**.
+
+---
 
 ## CRM 드로어 레이아웃 (금지·필수)
 
-1. **프리셋 목록과 직접 입력을 한 덩어리 `overflow-y-auto`에 넣지 않는다.**  
-   프리셋만 스크롤하고, 「직접 보내기」는 **하단 `shrink-0` 고정** (또는 상단 고정 + 프리셋만 `flex-1 overflow-y-auto`).
-2. **`CrmSlideDrawer`** — 숨고·미소 메시지는 `bodyLayout="split"` (`flex flex-col overflow-hidden`). 드로어 **열릴 때 `scrollTop = 0`**.
-3. **금지:** 프리셋 `max-h`만으로 전체 높이를 채워 입력란이 첫 화면 밖으로 밀리는 구조, `hidden`/`opacity-0`/`h-0`으로 입력란 접기, 조건부 렌더로 입력란 제거(브릿지 미연결 안내는 별도 — 입력란 자체를 DOM에서 빼지 않음).
+1. **프리셋과 직접 입력을 한 덩어리 `overflow-y-auto`에 넣지 않는다.** 프리셋만 스크롤, 「직접 보내기」는 **하단 `shrink-0` 고정**.
+2. **`CrmSlideDrawer`** — 숨고·미소 메시지는 `bodyLayout="split"`. 드로어 **열릴 때 `scrollTop = 0`**.
+3. **금지:** 입력란을 스크롤 밖으로 밀기, `hidden`/`h-0`, DOM에서 입력란 제거(미연결 안내는 별도).
 
-참고 구현: `client/src/components/crm/soomgo/CrmSoomgoDrawer.tsx`, `client/src/components/crm/layout/CrmSlideDrawer.tsx`.
+참고: `CrmSoomgoDrawer.tsx`, `CrmSlideDrawer.tsx`.
 
-## 숨고 Chrome (브릿지)
+---
 
-1. CDP 모바일 뷰포트는 **`window.innerWidth/innerHeight` 직접 사용 금지** (CDP와 꼬여 가로 밀림·하단 검은 여백). **`get_window_rect` outer 폭·높이 − Chrome UI offset(~88px)** 으로 layout 크기를 맞춘다.
-2. **`arrange_soomgo_right_half` 직후** `apply_mobile_viewport(driver, width=w, height=h)` — 창 크기와 CDP를 한 세트로.
-3. 채팅방에서만 **`ensure_chat_composer_visible`** (목록 화면에서 호출 금지).
-3. 참고: `tools/soomgo-bridge/automation/window_layout.py`, `chat_room.py`, `navigation.py`.
+## CRM 2분할 (클라이언트)
+
+- `client/src/utils/crmSoomgoSplitLayout.ts` — CRM 넓게 · 숨고 최소 `SOOMGO_SPLIT_MIN_WIDTH`(420).
+- `readSoomgoSplitBoundsAfterCrmResize()` — CRM `outerWidth`/`screenX` 기준으로 Chrome `soomgoLeft` 계산 (이론값만 쓰면 Chrome이 CRM 뒤에 가려짐).
+- 브릿지에 bounds 전달: `CrmPage` / `useCrmSoomgoBridge`.
+
+---
+
+## 숨고 Chrome (브릿지) — 구현 필수
+
+1. **`window.innerWidth/innerHeight` CDP 직접 사용 금지** → 가로 밀림·하단 검은 여백.
+2. **`get_window_rect` outer − Chrome UI offset(88px)** → `viewport_metrics_from_outer`.
+3. **`arrange_soomgo_right_half` 직후** `apply_mobile_viewport(driver, width=w, height=h)` — 창·CDP 한 세트.
+4. CDP 적용 전 **`Emulation.clearDeviceMetricsOverride`**.
+5. **`ensure_chat_composer_visible`** — **채팅방에서만** (목록·`/open-chats`에서 호출 금지).
+6. `/open-chats` arrange **전** 불필요한 `reapply_mobile_viewport` 금지.
+
+참고: `tools/soomgo-bridge/automation/window_layout.py`, `navigation.py`, `chat_room.py`, `server.py`.
 
 데스크톱 브릿지 변경 시 **`.cursor/rules/soomgo-bridge-auto-update.mdc`** 릴리스 절차 따름.
 
-## 마무리 체크리스트
+---
 
-- [ ] 숨고 메시지 드로어: 프리셋 10개 이상이어도 **스크롤 없이** 하단 입력·전송 버튼 보임
-- [ ] 드로어 닫았다 다시 열어도 입력란이 **맨 위/맨 아래 고정 위치**에 있음
-- [ ] 2분할 + 숨고 Chrome: 채팅방에서 **하단 입력란**이 화면에 보임 (잘림·회색 여백만 보이지 않음)
+## 마무리 체크리스트 (코딩)
+
+- [ ] 위 **QA 체크리스트** 5항목 통과
 - [ ] `npx tsc -b --noEmit` (client 변경 시)
+- [ ] 사용자 가이드 복사본과 문구 불일치 시 `HELP_GUIDE_MARKETER.md` §14 동기화

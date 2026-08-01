@@ -45,6 +45,7 @@ export function CrmToolSideNav({ items }: { items: CrmToolNavItem[] }) {
     setCollapsed(next);
     try {
       window.localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
+      window.dispatchEvent(new Event('telecrm-tool-nav-layout'));
     } catch {
       /* ignore */
     }

@@ -14,6 +14,17 @@ const DATA_PATH = path.join(REPO, 'client', 'public', 'help', 'data.json');
 
 /** GNB·사이드 nav 와 path 동기화 — moduleOrder 는 GNB 순서 */
 const ADMIN_PAGES = [
+  // ── 이용 순서 (접수 → 배정 — 단일 기준 표) ──
+  {
+    module: '이용 순서',
+    moduleOrder: 0,
+    itemOrder: 1,
+    title: '접수부터 팀장 배정까지',
+    path: '/help/guide/intake-to-assignment',
+    screenshotFile: '',
+    hint: '일반 등록·처리구분별 메뉴(부재·보류 ↔ 접수 목록)·입금 완료·스케줄 배정 표준 흐름.',
+  },
+
   {
     module: '대시보드',
     moduleOrder: 1,
@@ -403,6 +414,15 @@ function teamEntry(page) {
 
 /** 팀장 GNB·라우트 — TeamLayout nav 순서 */
 const TEAM_PAGES = [
+  {
+    module: '이용 순서',
+    moduleOrder: 0,
+    itemOrder: 1,
+    title: '배정 받은 후 (팀장)',
+    path: '/help/guide/team-assignment',
+    screenshotFile: '',
+    hint: '배정목록·스케줄·대시보드에서 확인하고 현장 업무 시작.',
+  },
   {
     module: '일정·업무',
     moduleOrder: 1,

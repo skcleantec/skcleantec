@@ -51,9 +51,15 @@ import {
   buildQuotationsNewMarkdown,
   buildQuotationsSettingsMarkdown,
 } from './admin-service-inquiries.mjs';
+import {
+  buildWorkflowIntakeToAssignmentMarkdown,
+  buildWorkflowTeamAssignmentMarkdown,
+} from './workflow-intake-to-assignment.mjs';
 
 /** path → 상세 markdown 생성 함수 (없으면 null) */
 const DETAILED_BY_PATH = {
+  '/help/guide/intake-to-assignment': buildWorkflowIntakeToAssignmentMarkdown,
+  '/help/guide/team-assignment': buildWorkflowTeamAssignmentMarkdown,
   '/admin/dashboard': buildDashboardMarkdown,
   '/admin/inquiries': buildInquiriesDetailedMarkdown,
   '/admin/inquiries/followup': buildFollowupMarkdown,

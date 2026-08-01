@@ -243,18 +243,19 @@ export function CrmSoomgoDrawer({
       onClose={onClose}
       title="숨고 메시지"
       subtitle="Chrome 숨고 채팅방에 전송합니다."
-      widthClass="w-[min(500px,94vw)]"
+      widthClass="w-[min(500px,calc(94vw-3rem))]"
       bodyLayout="split"
+      dockAfterToolNav
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {error ? (
-          <p className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] text-rose-700">
+          <p className="mb-2 shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] text-rose-700">
             {error}
           </p>
         ) : null}
 
-        {/* 프리셋 — 내부만 스크롤 */}
-        <section className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+        {/* 프리셋 — 이 영역만 스크롤 (하단 직접 보내기는 항상 노출) */}
+        <section className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-0.5">
           <div className="space-y-2 border-b border-slate-100 pb-2">
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -303,7 +304,7 @@ export function CrmSoomgoDrawer({
             <p className="py-4 text-center text-[11px] text-slate-400">프리셋 불러오는 중…</p>
           ) : activePresets.length > 0 ? (
             <PresetDragReorderList
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5"
+              className="space-y-2"
               items={activePresets}
               disabled={sendDisabled || presetView === 'shared'}
               onReorder={(dragId, slotIndex) => void handlePresetReorder(dragId, slotIndex)}
@@ -386,7 +387,7 @@ export function CrmSoomgoDrawer({
         </section>
 
         {/* 직접 입력 — 하단 고정 (프리셋 스크롤과 분리) */}
-        <section className="shrink-0 rounded-2xl border border-sky-200/90 bg-gradient-to-b from-sky-50/80 to-white p-3 shadow-sm">
+        <section className="z-10 mt-2 shrink-0 rounded-2xl border border-sky-200/90 bg-gradient-to-b from-sky-50/80 to-white p-3 shadow-sm ring-1 ring-white/80">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-[11px] font-semibold text-sky-950">직접 보내기</p>
             <span className="text-[10px] text-sky-700/80">채팅방 연결 후 전송</span>
