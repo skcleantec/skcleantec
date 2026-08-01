@@ -59,6 +59,7 @@ import {
   ScheduleCustomCalendarMobileSheet,
 } from '../../components/admin/ScheduleCustomCalendarMobileSheet';
 import { ScheduleInquirySearchPanel } from '../../components/admin/ScheduleInquirySearchPanel';
+import { ScheduleQuickPasteModal } from '../../components/schedule/ScheduleQuickPasteModal';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
@@ -850,6 +851,7 @@ export function AdminSchedulePage() {
   const [memoModalItem, setMemoModalItem] = useState<ScheduleItem | null>(null);
   /** 신규 접수 모달 — 선택한 캘린더 날짜로 예약일 고정 */
   const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
+  const [quickPasteOpen, setQuickPasteOpen] = useState(false);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [teamLeadersWithZones, setTeamLeadersWithZones] = useState<UserItem[]>([]);
   const [externalCompanies, setExternalCompanies] = useState<Array<{ id: string; name: string }>>([]);
@@ -3697,6 +3699,24 @@ export function AdminSchedulePage() {
         onClose={() => setCustomCalendarDeleting(null)}
         onConfirm={handleConfirmDeleteCustomCalendar}
       />
+
+      {token ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setQuickPasteOpen(true)}
+            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-4 z-[70] flex min-h-11 items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2.5 text-fluid-xs font-semibold text-white shadow-lg hover:bg-slate-800 lg:bottom-6 lg:right-6"
+          >
+            빠른등록
+          </button>
+          <ScheduleQuickPasteModal
+            token={token}
+            open={quickPasteOpen}
+            onClose={() => setQuickPasteOpen(false)}
+            onSaved={() => fetchMonthData(false)}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

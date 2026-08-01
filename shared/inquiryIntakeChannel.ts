@@ -8,6 +8,7 @@ export const INQUIRY_INTAKE_CHANNEL_LABELS = {
   schedule: '스케줄 접수',
   phone: '전화 접수',
   manual: '수기등록',
+  quick_paste: '빠른등록',
 } as const;
 
 export type InquiryIntakeChannelId = keyof typeof INQUIRY_INTAKE_CHANNEL_LABELS;

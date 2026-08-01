@@ -198,6 +198,19 @@ async function inquiryCoinAlreadyRecordedInTx(
   return false;
 }
 
+export async function chargeQuickPasteCoinInTx(
+  tx: Prisma.TransactionClient,
+  opts: { tenantId: string; plan: string; inquiryId: string },
+): Promise<void> {
+  await trySpendTenantCoinInTx(tx, {
+    tenantId: opts.tenantId,
+    plan: opts.plan,
+    sourceType: 'QUICK_PASTE',
+    sourceId: opts.inquiryId,
+    amount: 2,
+  });
+}
+
 /** 접수 1건당 코인 1회(발주 발급·예약금 대기·이후 상태 공통). 취소 시 환불 없음. */
 export async function chargeInquiryCoinInTx(
   tx: Prisma.TransactionClient,

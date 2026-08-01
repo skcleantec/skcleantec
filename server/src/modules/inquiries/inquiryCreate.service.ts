@@ -16,6 +16,7 @@ import { inquiryDetailInclude } from './inquiryDetailInclude.js';
 import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
 import {
   chargeInquiryStatusCoinInTx,
+  chargeQuickPasteCoinInTx,
   isCoinChargeInquiryStatus,
 } from '../tenants/tenantCoin.service.js';
 import {
@@ -84,10 +85,12 @@ export type CreateInquiryParams = {
   /** 엑셀 등 외부 접수번호 — non-empty면 그대로 사용(DEPOSIT_PENDING 자동 발번 대신) */
   inquiryNumberOverride?: string | null;
   db?: PrismaClient;
+  /** 빠른등록: 접수 1코인 대신 QUICK_PASTE 2코인 1회 */
+  billingMode?: 'default' | 'quick_paste';
 };
 
 export async function createInquiryFromBody(params: CreateInquiryParams) {
-  const { tenantId, userId, userRole, body, inquiryNumberOverride } = params;
+  const { tenantId, userId, userRole, body, inquiryNumberOverride, billingMode = 'default' } = params;
   const db = params.db ?? prisma;
 
   const rawStatus = body.status != null ? String(body.status) : '';
@@ -245,7 +248,13 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
             : null,
       },
     });
-    if (isCoinChargeInquiryStatus(status)) {
+    if (billingMode === 'quick_paste') {
+      await chargeQuickPasteCoinInTx(tx, {
+        tenantId,
+        plan: tenantPlan,
+        inquiryId: created.id,
+      });
+    } else if (isCoinChargeInquiryStatus(status)) {
       await chargeInquiryStatusCoinInTx(tx, {
         tenantId,
         plan: tenantPlan,
