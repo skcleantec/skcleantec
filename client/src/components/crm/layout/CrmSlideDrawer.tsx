@@ -66,6 +66,13 @@ export function CrmSlideDrawer({
       ? 'flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain px-4 py-3'
       : 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4';
 
+  const dockLeft = dockAfterToolNav ? toolNavLeft : 0;
+  const panelTransform = open
+    ? 'translateX(0)'
+    : dockAfterToolNav
+      ? `translateX(calc(-100% - ${dockLeft}px))`
+      : 'translateX(-100%)';
+
   return createPortal(
     <div
       className={[
@@ -88,12 +95,12 @@ export function CrmSlideDrawer({
         className={[
           'fixed top-0 z-10 flex max-h-[100dvh] min-h-0 flex-col border-r border-gray-200 bg-white shadow-2xl',
           'transition-transform duration-300 ease-out motion-reduce:transition-none',
-          open ? 'translate-x-0' : '-translate-x-full',
           widthClass,
         ].join(' ')}
         style={{
-          left: dockAfterToolNav ? toolNavLeft : 0,
+          left: dockLeft,
           height: '100dvh',
+          transform: panelTransform,
         }}
         role="dialog"
         aria-modal="true"
