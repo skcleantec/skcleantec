@@ -33,8 +33,9 @@ alwaysApply: false
 
 ## 숨고 Chrome (브릿지)
 
-1. CDP 모바일 뷰포트는 **`window.innerWidth` / `window.innerHeight`**(콘텐츠 영역) 기준. **Chrome `outer` 창 높이만 쓰면 하단 채팅 입력이 잘린다.**
-2. 채팅방·레이아웃 배치 후 **`ensure_chat_composer_visible`** 로 입력·전송줄이 보이게 스크롤 보정.
+1. CDP 모바일 뷰포트는 **`window.innerWidth/innerHeight` 직접 사용 금지** (CDP와 꼬여 가로 밀림·하단 검은 여백). **`get_window_rect` outer 폭·높이 − Chrome UI offset(~88px)** 으로 layout 크기를 맞춘다.
+2. **`arrange_soomgo_right_half` 직후** `apply_mobile_viewport(driver, width=w, height=h)` — 창 크기와 CDP를 한 세트로.
+3. 채팅방에서만 **`ensure_chat_composer_visible`** (목록 화면에서 호출 금지).
 3. 참고: `tools/soomgo-bridge/automation/window_layout.py`, `chat_room.py`, `navigation.py`.
 
 데스크톱 브릿지 변경 시 **`.cursor/rules/soomgo-bridge-auto-update.mdc`** 릴리스 절차 따름.

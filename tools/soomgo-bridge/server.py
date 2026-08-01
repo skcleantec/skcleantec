@@ -583,7 +583,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if not _sync_logged_in_from_browser():
                     _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
                     return
-                _browser.reapply_mobile_viewport()
                 nav_ok = goto_chat_list(driver, force_list=False)
                 if not nav_ok:
                     dismiss_blocking_overlays(driver, 0.4, max_rounds=3)

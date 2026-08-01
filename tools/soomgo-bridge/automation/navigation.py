@@ -179,18 +179,11 @@ def ensure_chat_workspace(driver, delay: float = 1.0, force_list: bool = False) 
 
         if needs_chat_workspace(url) or force_list:
             logger.info('navigate to chat list from %s', url)
-            ok = _recover_chat_list_from_work_page(driver, delay)
-            if ok:
-                ensure_chat_composer_visible(driver)
-            return ok
+            return _recover_chat_list_from_work_page(driver, delay)
 
         if not _on_chat_workspace(url):
-            ok = _recover_chat_list_from_work_page(driver, delay)
-            if ok:
-                ensure_chat_composer_visible(driver)
-            return ok
+            return _recover_chat_list_from_work_page(driver, delay)
 
-        ensure_chat_composer_visible(driver)
         return True
     except Exception as e:
         logger.error('ensure_chat_workspace: %s', e)
