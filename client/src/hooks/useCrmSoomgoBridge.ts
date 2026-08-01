@@ -236,7 +236,7 @@ export function useCrmSoomgoBridge({
           watchBlockedRef.current = false;
           setError(null);
           notify('숨고 연동 업데이트가 반영되었습니다.');
-          if (pendingSoomgoReconnectRef.current || soomgoBarOpenRef.current) {
+          if (pendingSoomgoReconnectRef.current) {
             pendingSoomgoReconnectRef.current = false;
             window.setTimeout(() => {
               void openSoomgoRef.current?.();

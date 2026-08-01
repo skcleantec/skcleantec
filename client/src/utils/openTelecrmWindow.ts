@@ -10,6 +10,21 @@ function buildTelecrmPopupUrl(): string {
   return `${window.location.origin}/admin/crm?popup=1`;
 }
 
+/** 대시보드에서 CRM 재오픈 시 숨고·미소 연동 URL 상태를 초기화 (Chrome 자동 기동 방지) */
+function resetTelecrmPopupIntegrationParams(win: Window): void {
+  try {
+    const current = new URL(win.location.href);
+    if (!current.pathname.includes('/admin/crm')) return;
+    if (!current.searchParams.has('soomgoBar') && !current.searchParams.has('misoBar')) return;
+    current.searchParams.set('popup', '1');
+    current.searchParams.delete('soomgoBar');
+    current.searchParams.delete('misoBar');
+    win.location.replace(current.toString());
+  } catch {
+    /* navigation in progress */
+  }
+}
+
 function isStalePopupUrl(href: string): boolean {
   const t = href.trim();
   return !t || t === 'about:blank' || t.startsWith('data:');
@@ -92,6 +107,7 @@ export function openTelecrmWindow(): boolean {
       try {
         const href = telecrmPopupRef.location.href;
         if (!isStalePopupUrl(href) && href.includes('/admin/crm')) {
+          resetTelecrmPopupIntegrationParams(telecrmPopupRef);
           telecrmPopupRef.focus();
           return true;
         }

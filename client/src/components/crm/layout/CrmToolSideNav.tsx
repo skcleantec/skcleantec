@@ -4,9 +4,11 @@ const STORAGE_KEY = 'sk_telecrm_tool_nav_collapsed';
 
 function readCollapsed(): boolean {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === '1';
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored === null) return true;
+    return stored === '1';
   } catch {
-    return false;
+    return true;
   }
 }
 
