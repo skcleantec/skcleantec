@@ -38,6 +38,33 @@ export type QuickPasteSoloAssignPreview = {
   teamLeaderName: string;
 };
 
+export type QuickPasteLearnedRule = {
+  fieldKey: string;
+  pattern: string;
+  created: boolean;
+};
+
+export type QuickPasteLearnedRuleDetail = QuickPasteLearnedRule & {
+  id: string;
+  ruleType: string;
+  hitCount: number;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type QuickPasteLearningLogSummary = {
+  id: string;
+  inquiryId: string | null;
+  textHash: string;
+  textLength: number;
+  missingAfterRule: string[];
+  aiApplied: boolean;
+  aiFilledFields: string[];
+  userEditedFields: string[];
+  createdAt: string;
+};
+
 export type QuickPasteParseSnapshot = {
   ruleDraft: QuickPasteDraft;
   previewDraft: QuickPasteDraft;
@@ -59,6 +86,9 @@ export type QuickPasteParseResponse = {
   aiApplied: boolean;
   aiAvailable: boolean;
   aiFilledFields: string[];
+  aiReviewed: boolean;
+  aiCorrectedFields: string[];
+  aiWarnings: string[];
   specialNotes: string;
   coinCost: number;
   coins: {
@@ -100,6 +130,8 @@ export async function commitQuickPaste(
   soloAutoAssign: QuickPasteSoloAssignPreview | null;
   duplicateMatches: QuickPasteDuplicateMatch[];
   aiApplied?: boolean;
+  userEditedFields?: string[];
+  learnedRules?: QuickPasteLearnedRule[];
 }> {
   const res = await fetch(`${API}/commit`, {
     method: 'POST',
@@ -108,6 +140,90 @@ export async function commitQuickPaste(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ rawText, draft, parseSnapshot }),
+  });
+  return parseJson(res);
+}
+
+export type QuickPasteClarifyAskResponse = {
+  fieldKey: QuickPasteFieldKey;
+  fieldLabel: string;
+  question: string;
+  snippet: string | null;
+  sourceLabel: string | null;
+  aiAvailable: boolean;
+};
+
+export type QuickPasteClarifyRespondResponse = {
+  fieldKey: QuickPasteFieldKey;
+  confirmation: string;
+  learnedLabel: string | null;
+  value: string | number | null;
+  draft: QuickPasteDraft;
+  learnedRule: (QuickPasteLearnedRule & { id: string }) | null;
+};
+
+export async function askQuickPasteClarify(
+  token: string,
+  rawText: string,
+  draft: QuickPasteDraft,
+  fieldKey: QuickPasteFieldKey,
+): Promise<QuickPasteClarifyAskResponse> {
+  const res = await fetch(`${API}/clarify/ask`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ rawText, draft, fieldKey }),
+  });
+  return parseJson(res);
+}
+
+export async function respondQuickPasteClarify(
+  token: string,
+  body: {
+    rawText: string;
+    draft: QuickPasteDraft;
+    fieldKey: QuickPasteFieldKey;
+    userAnswer: string;
+    snippet?: string | null;
+    sourceLabel?: string | null;
+  },
+): Promise<QuickPasteClarifyRespondResponse> {
+  const res = await fetch(`${API}/clarify/respond`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  return parseJson(res);
+}
+
+export async function fetchQuickPasteLearnedRules(
+  token: string,
+  opts?: { limit?: number; source?: string },
+): Promise<{ rules: QuickPasteLearnedRuleDetail[]; total: number }> {
+  const params = new URLSearchParams();
+  if (opts?.limit != null) params.set('limit', String(opts.limit));
+  if (opts?.source) params.set('source', opts.source);
+  const qs = params.toString();
+  const res = await fetch(`${API}/learning/rules${qs ? `?${qs}` : ''}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return parseJson(res);
+}
+
+export async function fetchQuickPasteLearningLogs(
+  token: string,
+  opts?: { limit?: number },
+): Promise<{ logs: QuickPasteLearningLogSummary[]; total: number }> {
+  const params = new URLSearchParams();
+  if (opts?.limit != null) params.set('limit', String(opts.limit));
+  const qs = params.toString();
+  const res = await fetch(`${API}/learning/logs${qs ? `?${qs}` : ''}`, {
+    headers: { Authorization: `Bearer ${token}` },
   });
   return parseJson(res);
 }

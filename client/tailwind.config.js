@@ -69,6 +69,38 @@ export default {
               'inset 0 1px 0 rgba(255,255,255,0.75), 0 0 10px 1px rgba(217, 119, 6, 0.22)',
           },
         },
+        quickPasteScanLineMove: {
+          '0%': { top: '0%' },
+          '100%': { top: 'calc(100% - 3px)' },
+        },
+        quickPasteScanGlow: {
+          '0%, 100%': { opacity: '0.35' },
+          '50%': { opacity: '0.85' },
+        },
+        quickPasteReveal: {
+          from: { opacity: '0', transform: 'translateY(14px) scale(0.98)' },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        quickPasteAiBtnShimmer: {
+          '0%': { transform: 'translateX(-120%) skewX(-12deg)' },
+          '100%': { transform: 'translateX(220%) skewX(-12deg)' },
+        },
+        quickPasteOobeIn: {
+          from: { opacity: '0', transform: 'translateY(18px) scale(0.97)' },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        quickPasteOobeOut: {
+          from: { opacity: '1', transform: 'translateY(0) scale(1)' },
+          to: { opacity: '0', transform: 'translateY(-16px) scale(0.98)' },
+        },
+        quickPasteFieldSettle: {
+          from: { opacity: '1', transform: 'translateY(0) scale(1)' },
+          to: { opacity: '0', transform: 'translateY(-72px) scale(0.82)' },
+        },
+        quickPasteStackIn: {
+          from: { opacity: '0', transform: 'translateY(-10px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'login-title-shimmer': 'loginTitleShimmer 5.5s linear infinite',
@@ -82,6 +114,14 @@ export default {
         'staff-id-shine': 'staffIdCardShine 4s ease-in-out infinite',
         'staff-id-vignette': 'staffIdCardVignette 6s ease-in-out infinite',
         'honorific-cert-blink': 'honorificCertBlink 1.45s ease-in-out infinite',
+        'quick-paste-scan-line': 'quickPasteScanLineMove 2.2s ease-in-out infinite alternate',
+        'quick-paste-scan-glow': 'quickPasteScanGlow 2.2s ease-in-out infinite',
+        'quick-paste-reveal': 'quickPasteReveal 0.5s ease-out both',
+        'quick-paste-ai-btn-shimmer': 'quickPasteAiBtnShimmer 2.8s ease-in-out infinite',
+        'quick-paste-oobe-in': 'quickPasteOobeIn 0.85s ease-out both',
+        'quick-paste-oobe-out': 'quickPasteOobeOut 0.48s ease-in both',
+        'quick-paste-field-settle': 'quickPasteFieldSettle 0.72s ease-in both',
+        'quick-paste-stack-in': 'quickPasteStackIn 0.55s ease-out both',
       },
     },
   },

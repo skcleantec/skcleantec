@@ -5,6 +5,7 @@ import {
   type QuickPasteFieldKey,
   type QuickPasteOptionalFieldKey,
 } from './quickPaste.constants.js';
+import { applyLocalBalanceSanityCheck, parseBalanceAmountFromText } from './quickPasteAmount.helpers.js';
 
 const PHONE_RE = /01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/;
 const DATE_KR_RE = /(\d{1,2})\s*월\s*(\d{1,2})\s*일/;
@@ -15,12 +16,11 @@ const LABEL_PHONE_RE = /(?:연락처|전화|휴대폰|핸드폰)\s*[:：]\s*([0-
 const LABEL_ADDR_RE = /(?:주소|청소\s*주소|현장)\s*[:：]\s*(.+)/i;
 const LABEL_DATE_RE =
   /(?:희망일|청소\s*날짜|청소일|이사\s*날짜|입주\s*날짜|일정)\s*[:：]\s*(\d{1,2}\s*월\s*\d{1,2}\s*일|\d{4}[-./]\d{1,2}[-./]\d{1,2})/i;
-const LABEL_BALANCE_RE =
-  /(?:청소\s*잔금|잔금|당일\s*결제|잔)\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(?:만\s*원?|원)?/i;
+
 const NAME_ONLY_RE = /^[가-힣]{2,5}$/;
 const ADMIN_ADDR_RE =
   /(?:[가-힣]+시\s+[가-힣]+(?:구|군)|[가-힣]+(?:시|군).*(?:동|로|길|읍|면|리)|[가-힣]+구\s+[가-힣]+(?:동|로|길))/;
-const MAN_WON_RE = /(\d+(?:\.\d+)?)\s*만\s*원?/i;
+
 const NON_NAME = new Set(['오전', '오후', '예약', '확인', '완료', '취소', '연락', '문의']);
 const ROOM_LINE_RE = /^방\s*(\d+)\s*$/i;
 const BATH_LINE_RE = /^(?:화장실|욕실)\s*(\d+)\s*$/i;
@@ -28,6 +28,8 @@ const BALCONY_LINE_RE = /^베란다\s*(\d+)\s*$/i;
 const ROOM_INLINE_RE = /방\s*(\d+)/gi;
 const BATH_INLINE_RE = /(?:화장실|욕실)\s*(\d+)/gi;
 const BALCONY_INLINE_RE = /베란다\s*(\d+)/gi;
+/** 방3화5베1 · 방 3 화 5 베 1 — 방·화(장실)·베(란다) 줄임 */
+const COMPACT_RHB_RE = /방\s*(\d+)\s*화(?:장실|욕실)?\s*(\d+)\s*베(?:란다)?\s*(\d+)/i;
 /** (3,2,1) · 3,2,1 — 관례: 방·화장실·베란다 */
 const TRIPLE_GROUP_RE =
   /(?:\(\s*(\d+)\s*[,，·/\s]\s*(\d+)\s*[,，·/\s]\s*(\d+)\s*\)|(?<![0-9])(\d+)\s*[,，·/]\s*(\d+)\s*[,，·/]\s*(\d+)(?![0-9]))/;
@@ -67,6 +69,30 @@ function clampCount(n: number): number | null {
   return Math.round(n);
 }
 
+export function applyCompactRhbCounts(text: string, draft: QuickPasteDraft): QuickPasteDraft {
+  const compact = parseCompactRhb(text);
+  if (!compact) return draft;
+  return {
+    ...draft,
+    ...(compact.roomCount != null ? { roomCount: compact.roomCount } : {}),
+    ...(compact.bathroomCount != null ? { bathroomCount: compact.bathroomCount } : {}),
+    ...(compact.balconyCount != null ? { balconyCount: compact.balconyCount } : {}),
+  };
+}
+
+function parseCompactRhb(text: string): Pick<
+  QuickPasteDraft,
+  'roomCount' | 'bathroomCount' | 'balconyCount'
+> | null {
+  const m = text.match(COMPACT_RHB_RE);
+  if (!m) return null;
+  return {
+    roomCount: clampCount(Number(m[1])),
+    bathroomCount: clampCount(Number(m[2])),
+    balconyCount: clampCount(Number(m[3])),
+  };
+}
+
 function parseTripleGroup(text: string): Pick<QuickPasteDraft, 'roomCount' | 'bathroomCount' | 'balconyCount'> {
   const m = text.match(TRIPLE_GROUP_RE);
   if (!m) return { roomCount: null, bathroomCount: null, balconyCount: null };
@@ -98,16 +124,26 @@ function parseRoomCounts(text: string, lines: string[]): Pick<
   }
 
   if (roomCount == null) {
+    ROOM_INLINE_RE.lastIndex = 0;
     const m = ROOM_INLINE_RE.exec(text);
     if (m) roomCount = clampCount(Number(m[1]));
   }
   if (bathroomCount == null) {
+    BATH_INLINE_RE.lastIndex = 0;
     const m = BATH_INLINE_RE.exec(text);
     if (m) bathroomCount = clampCount(Number(m[1]));
   }
   if (balconyCount == null) {
+    BALCONY_INLINE_RE.lastIndex = 0;
     const m = BALCONY_INLINE_RE.exec(text);
     if (m) balconyCount = clampCount(Number(m[1]));
+  }
+
+  const compact = parseCompactRhb(text);
+  if (compact) {
+    if (compact.roomCount != null) roomCount = compact.roomCount;
+    if (compact.bathroomCount != null) bathroomCount = compact.bathroomCount;
+    if (compact.balconyCount != null) balconyCount = compact.balconyCount;
   }
 
   const triple = parseTripleGroup(text);
@@ -124,8 +160,8 @@ function detectOptionalAiHints(
 ): QuickPasteOptionalFieldKey[] {
   const hints: QuickPasteOptionalFieldKey[] = [];
   const hasRoomSignal = /방|\(\s*\d+\s*,|^\d+\s*,\s*\d+\s*,\s*\d+/m.test(text);
-  const hasBathSignal = /화장실|욕실|화\s*\d/i.test(text);
-  const hasBalconySignal = /베란다|베\s*\d/i.test(text);
+  const hasBathSignal = /화장실|욕실|화\s*\d|방\s*\d+\s*화/i.test(text);
+  const hasBalconySignal = /베란다|베\s*\d|베\s*\d/i.test(text);
   const triple = TRIPLE_GROUP_RE.test(text);
 
   if ((hasRoomSignal || triple) && counts.roomCount == null) hints.push('roomCount');
@@ -168,29 +204,10 @@ function parsePreferredDate(text: string, yearHint = new Date().getFullYear()): 
 }
 
 function parseBalanceAmount(text: string): number | null {
-  const label = text.match(LABEL_BALANCE_RE);
-  if (label) {
-    const n = parseWonFragment(label[1], `${label[0]} 만원`);
-    if (n != null) return n;
-  }
-  const manMatch = text.match(MAN_WON_RE);
-  if (manMatch && /잔|당일|결제|청소/.test(text)) {
-    return parseWonFragment(manMatch[1], '만원');
-  }
-  const shorthand = text.match(/(?:잔|청소\s*잔금)\s*(\d{1,3})/i);
-  if (shorthand) {
-    return parseWonFragment(shorthand[1], '만원');
-  }
-  return null;
-}
-
-function parseWonFragment(numRaw: string, context: string): number | null {
-  const n = Number(numRaw);
-  if (!Number.isFinite(n)) return null;
-  let value = n;
-  if (/만/.test(context) || n < 1000) value = Math.round(n * 10_000);
-  if (value >= 5_000 && value <= 50_000_000) return value;
-  return null;
+  const parsed = parseBalanceAmountFromText(text);
+  if (parsed == null) return null;
+  const sanity = applyLocalBalanceSanityCheck(text, parsed);
+  return sanity.value;
 }
 
 function parseAreaPyeong(text: string): number | null {

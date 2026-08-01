@@ -10,6 +10,7 @@ import {
   type QuickPasteParseSnapshot,
 } from '../../api/quickPaste';
 import { INQUIRY_STATUS_LABELS } from '../inquiries/inquiriesUiParts';
+import { QuickPasteMissingClarify } from './QuickPasteMissingClarify';
 
 type ScheduleQuickPasteModalProps = {
   token: string;
@@ -18,7 +19,9 @@ type ScheduleQuickPasteModalProps = {
   onSaved: () => void;
 };
 
-type Step = 'paste' | 'review';
+type Step = 'paste' | 'scanning' | 'review';
+
+const MIN_AI_SCAN_MS = 900;
 
 const REQUIRED_FIELD_ORDER: QuickPasteFieldKey[] = [
   'customerName',
@@ -34,6 +37,48 @@ const OPTIONAL_FIELD_ORDER: QuickPasteOptionalFieldKey[] = ['roomCount', 'bathro
 function fieldMissing(draft: QuickPasteDraft, key: QuickPasteFieldKey): boolean {
   const v = draft[key];
   return v == null || (typeof v === 'string' && !String(v).trim());
+}
+
+function waitMs(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function QuickPasteAiScannerPanel({ rawText }: { rawText: string }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2.5 rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-indigo-50 px-3 py-2.5">
+        <span className="relative flex h-3 w-3 shrink-0">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-70" />
+          <span className="relative inline-flex h-3 w-3 rounded-full bg-violet-600" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-fluid-xs font-semibold text-violet-900">AI가 원문을 스캔하는 중</p>
+          <p className="text-fluid-2xs text-violet-700/90 animate-pulse">고객 · 연락처 · 일정 · 금액 추출 중…</p>
+        </div>
+      </div>
+
+      <div className="relative min-h-[40vh] overflow-hidden rounded-xl border-2 border-violet-300/70 bg-slate-950/[0.02] shadow-inner lg:min-h-[280px]">
+        <span className="pointer-events-none absolute left-2 top-2 z-20 h-6 w-6 border-l-2 border-t-2 border-violet-500/80" />
+        <span className="pointer-events-none absolute right-2 top-2 z-20 h-6 w-6 border-r-2 border-t-2 border-violet-500/80" />
+        <span className="pointer-events-none absolute bottom-2 left-2 z-20 h-6 w-6 border-b-2 border-l-2 border-violet-500/80" />
+        <span className="pointer-events-none absolute bottom-2 right-2 z-20 h-6 w-6 border-b-2 border-r-2 border-violet-500/80" />
+
+        <div className="pointer-events-none absolute inset-0 z-[1] opacity-[0.08] bg-[linear-gradient(rgba(124,58,237,0.9)_1px,transparent_1px),linear-gradient(90deg,rgba(124,58,237,0.9)_1px,transparent_1px)] bg-[size:22px_22px]" />
+
+        <pre className="relative z-0 max-h-[50vh] overflow-hidden whitespace-pre-wrap p-3 text-fluid-2xs leading-relaxed text-slate-600/75">
+          {rawText}
+        </pre>
+
+        <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+          <div className="animate-quick-paste-scan-glow absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-violet-400/30 to-transparent" />
+          <div className="animate-quick-paste-scan-line absolute left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-violet-400 to-transparent shadow-[0_0_18px_3px_rgba(139,92,246,0.55)]" />
+          <div className="animate-quick-paste-scan-line absolute left-0 right-0 h-16 -translate-y-8 bg-gradient-to-b from-violet-500/25 to-transparent" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: ScheduleQuickPasteModalProps) {
@@ -70,8 +115,14 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
   const runParse = async () => {
     setBusy(true);
     setError(null);
+    setStep('scanning');
+    const startedAt = Date.now();
     try {
       const result = await parseQuickPaste(token, rawText);
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < MIN_AI_SCAN_MS) {
+        await waitMs(MIN_AI_SCAN_MS - elapsed);
+      }
       setPreview(result);
       setDraft(result.draft);
       setParseSnapshot({
@@ -83,7 +134,8 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
       setStep('review');
       setHighlightMissing(result.missingFields.length > 0);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '분석 실패');
+      setStep('paste');
+      setError(e instanceof Error ? e.message : 'AI 분석 실패');
     } finally {
       setBusy(false);
     }
@@ -145,7 +197,11 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
         <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-3 py-2.5 sm:px-4">
           <div>
             <h2 className="text-fluid-sm font-semibold text-slate-900">빠른등록</h2>
-            <p className="text-fluid-2xs text-slate-500">카톡·문자 내용 붙여넣기 → 예약완료 접수</p>
+            <p className="text-fluid-2xs text-slate-500">
+              {step === 'scanning'
+                ? 'AI가 카톡·문자 원문을 스캔하고 있습니다'
+                : '카톡·문자 내용 붙여넣기 → 예약완료 접수'}
+            </p>
           </div>
           <button
             type="button"
@@ -184,8 +240,20 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                 원문 전체는 등록 후 <strong>특이사항</strong>에 저장됩니다.
               </p>
             </>
-          ) : draft && preview ? (
+          ) : step === 'scanning' ? (
+            <QuickPasteAiScannerPanel rawText={rawText} />
+          ) : step === 'review' && draft && preview ? (
             <>
+              {missingFields.length > 0 ? (
+                <QuickPasteMissingClarify
+                  token={token}
+                  rawText={rawText}
+                  draft={draft}
+                  missingFields={missingFields}
+                  onDraftChange={setDraft}
+                />
+              ) : null}
+
               {preview.duplicateMatches.length > 0 ? (
                 <div className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-fluid-2xs text-rose-900 space-y-1">
                   <p className="font-medium">같은 연락처 접수가 {preview.duplicateMatches.length}건 있습니다.</p>
@@ -210,12 +278,34 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                 </p>
               ) : null}
 
-              {preview.aiApplied ? (
+              {preview.aiApplied || preview.aiReviewed ? (
                 <p className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-fluid-2xs text-violet-900">
-                  AI가 {preview.aiFilledFields.length > 0 ? preview.aiFilledFields.join(', ') : '일부 항목을'} 보조
-                  채웠습니다. 확인 후 등록해 주세요.
+                  {preview.aiFilledFields.length > 0
+                    ? `AI 보조: ${preview.aiFilledFields.join(', ')}`
+                    : null}
+                  {preview.aiCorrectedFields?.length > 0
+                    ? `${preview.aiFilledFields.length > 0 ? ' · ' : ''}AI 검토 수정: ${preview.aiCorrectedFields.join(', ')}`
+                    : null}
+                  {preview.aiFilledFields.length === 0 && !preview.aiCorrectedFields?.length
+                    ? 'AI가 원문을 검토했습니다. 값을 확인해 주세요.'
+                    : null}
                 </p>
-              ) : preview.aiAvailable && preview.optionalAiHints.length > 0 ? (
+              ) : preview.aiAvailable === false ? (
+                <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-fluid-2xs text-slate-600">
+                  AI 미연결 — <code className="text-fluid-2xs">server/.env</code>에{' '}
+                  <code className="text-fluid-2xs">OPENAI_API_KEY</code> 저장 후 서버를 재시작하세요.
+                </p>
+              ) : null}
+
+              {preview.aiWarnings && preview.aiWarnings.length > 0 ? (
+                <ul className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-fluid-2xs text-amber-900 space-y-0.5">
+                  {preview.aiWarnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              ) : null}
+
+              {preview.aiAvailable && preview.optionalAiHints.length > 0 && !preview.aiApplied && !preview.aiReviewed ? (
                 <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-fluid-2xs text-slate-600">
                   일부 선택 항목은 서식이 달라 직접 확인이 필요할 수 있습니다.
                 </p>
@@ -244,6 +334,7 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                 const isMissing = missingFields.includes(key);
                 const showAlert = highlightMissing && isMissing;
                 const aiFilled = preview.aiFilledFields?.includes(key);
+                const aiCorrected = preview.aiCorrectedFields?.includes(key);
                 return (
                   <label key={key} className="block space-y-1">
                     <span
@@ -251,7 +342,8 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                     >
                       {preview.fieldLabels[key]}
                       {isMissing ? <span className="ml-1 text-amber-700">(필수)</span> : null}
-                      {aiFilled ? <span className="ml-1 text-violet-600">(AI)</span> : null}
+                      {aiCorrected ? <span className="ml-1 text-violet-700">(AI 수정)</span> : null}
+                      {aiFilled && !aiCorrected ? <span className="ml-1 text-violet-600">(AI)</span> : null}
                     </span>
                     <input
                       ref={(el) => {
@@ -338,9 +430,26 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
               type="button"
               disabled={busy || !rawText.trim()}
               onClick={() => void runParse()}
-              className="flex-1 min-h-11 rounded-xl bg-slate-900 text-fluid-sm font-semibold text-white disabled:opacity-50"
+              className="relative flex-1 min-h-11 overflow-hidden rounded-xl bg-gradient-to-r from-violet-700 via-slate-900 to-indigo-800 text-fluid-sm font-semibold text-white shadow-md disabled:opacity-50"
             >
-              {busy ? '분석 중…' : '분석하기'}
+              <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-quick-paste-ai-btn-shimmer" />
+              <span className="relative flex items-center justify-center gap-1.5">
+                <span className="rounded-md bg-white/15 px-1.5 py-0.5 text-fluid-2xs font-bold tracking-wide">
+                  AI
+                </span>
+                분석하기
+              </span>
+            </button>
+          ) : step === 'scanning' ? (
+            <button
+              type="button"
+              disabled
+              className="flex-1 min-h-11 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-700 text-fluid-sm font-semibold text-white opacity-90"
+            >
+              <span className="inline-flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                AI 스캔 중…
+              </span>
             </button>
           ) : (
             <>

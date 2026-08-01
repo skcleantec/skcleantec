@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { QuickPasteOptionalFieldKey } from './quickPaste.constants.js';
 import type { QuickPasteDraft } from './quickPasteParse.service.js';
+import { parseKoreanWonFromMatch } from './quickPasteAmount.helpers.js';
 
 const PHONE_RE = /01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/;
 
@@ -54,8 +55,10 @@ function coerceFieldValue(
   if (fieldKey === 'serviceBalanceAmount' || fieldKey === 'areaPyeong') {
     const n = Number(s.replace(/,/g, '').replace(/[^\d.]/g, ''));
     if (!Number.isFinite(n)) return null;
-    if (fieldKey === 'serviceBalanceAmount' && /만/.test(s) && n < 1000) return Math.round(n * 10_000);
-    if (fieldKey === 'serviceBalanceAmount' && n < 1000 && !/만/.test(s)) return Math.round(n * 10_000);
+    if (fieldKey === 'serviceBalanceAmount') {
+      const won = parseKoreanWonFromMatch(s.replace(/[^\d,]/g, ''), s);
+      if (won != null) return won;
+    }
     return n;
   }
   if (fieldKey === 'roomCount' || fieldKey === 'bathroomCount' || fieldKey === 'balconyCount') {
@@ -162,11 +165,14 @@ export async function upsertLearnedQuickPasteRule(
   tenantId: string,
   fieldKey: string,
   label: string,
-): Promise<void> {
+): Promise<{ id: string; fieldKey: string; pattern: string; created: boolean } | null> {
   const pattern = label.trim();
-  if (!pattern) return;
+  if (!pattern) return null;
   const count = await db.quickPasteTenantRule.count({ where: { tenantId, fieldKey } });
-  if (count >= 30) return;
+  if (count >= 30) {
+    console.warn('[quick-paste] learn skip — tenant rule limit', { tenantId, fieldKey });
+    return null;
+  }
 
   const existing = await db.quickPasteTenantRule.findFirst({
     where: { tenantId, fieldKey, ruleType: 'label_value', pattern },
@@ -177,7 +183,14 @@ export async function upsertLearnedQuickPasteRule(
       where: { id: existing.id },
       data: { hitCount: { increment: 1 } },
     });
-    return;
+    console.info('[quick-paste] learn hit', {
+      tenantId,
+      fieldKey,
+      pattern,
+      ruleId: existing.id,
+      action: 'reinforced',
+    });
+    return { id: existing.id, fieldKey, pattern, created: false };
   }
 
   const maxSort = await db.quickPasteTenantRule.aggregate({
@@ -185,7 +198,7 @@ export async function upsertLearnedQuickPasteRule(
     _max: { sortOrder: true },
   });
 
-  await db.quickPasteTenantRule.create({
+  const row = await db.quickPasteTenantRule.create({
     data: {
       tenantId,
       fieldKey,
@@ -194,5 +207,14 @@ export async function upsertLearnedQuickPasteRule(
       sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
       source: 'learned',
     },
+    select: { id: true },
   });
+  console.info('[quick-paste] learn created', {
+    tenantId,
+    fieldKey,
+    pattern,
+    ruleId: row.id,
+    action: 'created',
+  });
+  return { id: row.id, fieldKey, pattern, created: true };
 }

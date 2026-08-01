@@ -72,6 +72,13 @@ export async function logQuickPasteLearning(
       userEditedFields: opts.userEditedFields,
     },
   });
+  console.info('[quick-paste] learning log saved', {
+    tenantId: opts.tenantId,
+    inquiryId: opts.inquiryId,
+    userEditedFields: opts.userEditedFields,
+    aiApplied: opts.aiApplied,
+    missingAfterRule: opts.missingAfterRule,
+  });
 }
 
 export async function learnQuickPasteFromCommit(
@@ -83,7 +90,8 @@ export async function learnQuickPasteFromCommit(
     previewDraft: QuickPasteDraft;
     finalDraft: QuickPasteDraft;
   },
-): Promise<void> {
+): Promise<Array<{ fieldKey: string; pattern: string; created: boolean }>> {
+  const learned: Array<{ fieldKey: string; pattern: string; created: boolean }> = [];
   const text = opts.rawText.trim();
   for (const key of ALL_TRACKED_KEYS) {
     const ruleVal = draftValue(opts.ruleDraft, key);
@@ -97,11 +105,106 @@ export async function learnQuickPasteFromCommit(
     const label = extractLabelNearValue(text, finalVal);
     if (!label) continue;
 
-    await upsertLearnedQuickPasteRule(
-      db,
-      opts.tenantId,
-      key,
-      label,
-    );
+    const row = await upsertLearnedQuickPasteRule(db, opts.tenantId, key, label);
+    if (row) learned.push({ fieldKey: row.fieldKey, pattern: row.pattern, created: row.created });
   }
+  if (learned.length > 0) {
+    console.info('[quick-paste] learn from commit', { tenantId: opts.tenantId, learned });
+  }
+  return learned;
+}
+
+export type QuickPasteLearnedRuleRow = {
+  id: string;
+  fieldKey: string;
+  ruleType: string;
+  pattern: string;
+  hitCount: number;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type QuickPasteLearningLogRow = {
+  id: string;
+  inquiryId: string | null;
+  textHash: string;
+  textLength: number;
+  missingAfterRule: string[];
+  aiApplied: boolean;
+  aiFilledFields: string[];
+  userEditedFields: string[];
+  createdAt: string;
+};
+
+export async function listQuickPasteLearnedRules(
+  db: PrismaClient,
+  tenantId: string,
+  opts?: { limit?: number; source?: string },
+): Promise<QuickPasteLearnedRuleRow[]> {
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
+  const rows = await db.quickPasteTenantRule.findMany({
+    where: {
+      tenantId,
+      ...(opts?.source ? { source: opts.source } : {}),
+    },
+    orderBy: [{ updatedAt: 'desc' }, { hitCount: 'desc' }],
+    take: limit,
+    select: {
+      id: true,
+      fieldKey: true,
+      ruleType: true,
+      pattern: true,
+      hitCount: true,
+      source: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+  return rows.map((row) => ({
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }));
+}
+
+export async function listQuickPasteLearningLogs(
+  db: PrismaClient,
+  tenantId: string,
+  opts?: { limit?: number },
+): Promise<QuickPasteLearningLogRow[]> {
+  const limit = Math.min(Math.max(opts?.limit ?? 30, 1), 100);
+  const rows = await db.quickPasteLearningLog.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    select: {
+      id: true,
+      inquiryId: true,
+      textHash: true,
+      textLength: true,
+      missingAfterRule: true,
+      aiApplied: true,
+      aiFilledFields: true,
+      userEditedFields: true,
+      createdAt: true,
+    },
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    inquiryId: row.inquiryId,
+    textHash: row.textHash,
+    textLength: row.textLength,
+    missingAfterRule: Array.isArray(row.missingAfterRule)
+      ? row.missingAfterRule.filter((x): x is string => typeof x === 'string')
+      : [],
+    aiApplied: row.aiApplied,
+    aiFilledFields: Array.isArray(row.aiFilledFields)
+      ? row.aiFilledFields.filter((x): x is string => typeof x === 'string')
+      : [],
+    userEditedFields: Array.isArray(row.userEditedFields)
+      ? row.userEditedFields.filter((x): x is string => typeof x === 'string')
+      : [],
+    createdAt: row.createdAt.toISOString(),
+  }));
 }

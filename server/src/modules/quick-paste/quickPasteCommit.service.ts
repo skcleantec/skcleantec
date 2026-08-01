@@ -138,32 +138,31 @@ export async function commitQuickPasteIntake(opts: {
     assignedById: opts.userId,
   });
 
-  void (async () => {
-    try {
-      await logQuickPasteLearning(prisma, {
-        tenantId: opts.tenantId,
-        userId: opts.userId,
-        inquiryId: inquiry.id,
-        rawText,
-        ruleDraft,
-        previewDraft,
-        finalDraft: draft,
-        missingAfterRule: enriched.missingAfterRule,
-        aiApplied,
-        aiFilledFields,
-        userEditedFields,
-      });
-      await learnQuickPasteFromCommit(prisma, {
-        tenantId: opts.tenantId,
-        rawText,
-        ruleDraft,
-        previewDraft,
-        finalDraft: draft,
-      });
-    } catch (e) {
-      console.error('[quick-paste] learning log', e);
-    }
-  })();
+  let learnedRules: Array<{ fieldKey: string; pattern: string; created: boolean }> = [];
+  try {
+    await logQuickPasteLearning(prisma, {
+      tenantId: opts.tenantId,
+      userId: opts.userId,
+      inquiryId: inquiry.id,
+      rawText,
+      ruleDraft,
+      previewDraft,
+      finalDraft: draft,
+      missingAfterRule: enriched.missingAfterRule,
+      aiApplied,
+      aiFilledFields,
+      userEditedFields,
+    });
+    learnedRules = await learnQuickPasteFromCommit(prisma, {
+      tenantId: opts.tenantId,
+      rawText,
+      ruleDraft,
+      previewDraft,
+      finalDraft: draft,
+    });
+  } catch (e) {
+    console.error('[quick-paste] learning log', e);
+  }
 
   const duplicateMatches = draft.customerPhone
     ? (
@@ -176,5 +175,5 @@ export async function commitQuickPasteIntake(opts: {
       ).filter((row) => row.id !== inquiry.id)
     : [];
 
-  return { inquiry, soloAutoAssign, duplicateMatches, aiApplied, userEditedFields };
+  return { inquiry, soloAutoAssign, duplicateMatches, aiApplied, userEditedFields, learnedRules };
 }
