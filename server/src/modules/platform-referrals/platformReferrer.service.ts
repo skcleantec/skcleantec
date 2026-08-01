@@ -7,8 +7,10 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
   PLATFORM_REFERRER_DEFAULT_COMMISSION_RATE_BPS,
+  buildReferrerSignupLinks,
   formatReferrerCommissionRateBps,
 } from './platformReferral.constants.js';
+import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
 import { assertValidReferrerCode, normalizeReferrerCode } from './platformReferralCode.helpers.js';
 
 export class PlatformReferrerError extends Error {
@@ -161,13 +163,16 @@ export async function getPlatformReferrerDetail(id: string) {
     else if (g.status === 'PENDING' || g.status === 'APPROVED') pendingCommissionKrw += amount;
   }
 
+  const links = buildReferrerSignupLinks(row.code, getPublicAppBaseUrl());
+
   return {
     ...mapReferrerRow(row),
     signupCount,
     paidTenantCount: paidTenantGroups.length,
     pendingCommissionKrw,
     paidCommissionKrw,
-    signupLink: `https://www.cbiseo.com/signup?ref=${encodeURIComponent(row.code)}`,
+    signupLink: links.shortLink,
+    signupLinkFull: links.fullLink,
   };
 }
 

@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { listPlatformTenants, type PlatformTenantRow } from '../../api/platformTenants';
 import {
   createPlatformReferrer,
   listPlatformReferrers,
   usePlatformTokenOrThrow,
   type PlatformReferrerListItem,
 } from '../../api/platformReferrers';
+import { PlatformTenantSelect } from '../../components/platform/PlatformTenantSelect';
+import { buildReferrerSignupLinks } from '@shared/platformReferral';
 import {
   PLATFORM_REFERRER_DEFAULT_COMMISSION_RATE_BPS,
   PLATFORM_REFERRER_STATUS_LABEL,
@@ -31,7 +34,16 @@ export function PlatformReferrersPage() {
   const [contactPhone, setContactPhone] = useState('');
   const [commissionPercent, setCommissionPercent] = useState('5');
   const [partnerTenantId, setPartnerTenantId] = useState('');
+  const [tenants, setTenants] = useState<PlatformTenantRow[]>([]);
+  const [tenantsLoading, setTenantsLoading] = useState(false);
   const [memo, setMemo] = useState('');
+
+  const previewLinks = useMemo(() => {
+    const trimmed = code.trim().toLowerCase();
+    if (trimmed.length < 2) return null;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.cbiseo.com';
+    return buildReferrerSignupLinks(trimmed, origin);
+  }, [code]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,6 +62,26 @@ export function PlatformReferrersPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!showCreate || type !== 'PARTNER') return;
+    let cancelled = false;
+    setTenantsLoading(true);
+    void (async () => {
+      try {
+        const token = usePlatformTokenOrThrow();
+        const items = await listPlatformTenants(token);
+        if (!cancelled) setTenants(items);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : '업체 목록을 불러오지 못했습니다.');
+      } finally {
+        if (!cancelled) setTenantsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showCreate, type]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,14 +149,22 @@ export function PlatformReferrersPage() {
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block text-fluid-xs text-slate-600">추천 코드 (slug)</span>
+              <span className="mb-1 block text-fluid-xs text-slate-600">추천 코드</span>
               <input
                 value={code}
                 onChange={(e) => setCode(e.target.value.toLowerCase())}
                 className={`${INPUT_BASE} font-mono`}
-                placeholder="예: partner-a"
+                placeholder="예: acme-intro"
                 required
               />
+              <p className="mt-1 text-fluid-2xs text-slate-500">
+                가입 링크에 쓰입니다. 업체 로그인 코드와 같을 필요는 없습니다.
+              </p>
+              {previewLinks ? (
+                <p className="mt-1 font-mono text-fluid-2xs text-sky-800">
+                  미리보기: {previewLinks.shortLink}
+                </p>
+              ) : null}
             </label>
             <label className="block sm:col-span-2">
               <span className="mb-1 block text-fluid-xs text-slate-600">표시 이름</span>
@@ -150,12 +190,12 @@ export function PlatformReferrersPage() {
             </label>
             {type === 'PARTNER' ? (
               <label className="block">
-                <span className="mb-1 block text-fluid-xs text-slate-600">연결 업체 ID</span>
-                <input
+                <span className="mb-1 block text-fluid-xs text-slate-600">연결 업체</span>
+                <PlatformTenantSelect
                   value={partnerTenantId}
-                  onChange={(e) => setPartnerTenantId(e.target.value)}
-                  className={`${INPUT_BASE} font-mono text-fluid-2xs`}
-                  placeholder="UUID"
+                  onChange={setPartnerTenantId}
+                  tenants={tenants}
+                  loading={tenantsLoading}
                   required
                 />
               </label>

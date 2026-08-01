@@ -29,6 +29,7 @@ export type PlatformReferrerListItem = {
 
 export type PlatformReferrerDetail = PlatformReferrerListItem & {
   signupLink: string;
+  signupLinkFull: string;
 };
 
 export type PlatformReferrerSignupRow = {

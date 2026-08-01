@@ -26,3 +26,15 @@ export function formatReferrerCommissionRateBps(bps: number): string {
   if (!Number.isFinite(bps)) return '—';
   return `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 1)}%`;
 }
+
+export const REFERRER_SIGNUP_SHORT_PATH = '/r';
+
+export function buildReferrerSignupLinks(code: string, baseUrl: string) {
+  const normalized = code.trim().toLowerCase();
+  const encoded = encodeURIComponent(normalized);
+  const origin = baseUrl.replace(/\/$/, '');
+  return {
+    shortLink: `${origin}${REFERRER_SIGNUP_SHORT_PATH}/${encoded}`,
+    fullLink: `${origin}/signup?ref=${encoded}`,
+  };
+}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { listPlatformTenants, type PlatformTenantRow } from '../../api/platformTenants';
 import {
   fetchPlatformReferrer,
   listPlatformReferrerCommissions,
@@ -11,6 +12,7 @@ import {
   type PlatformReferrerDetail,
   type PlatformReferrerSignupRow,
 } from '../../api/platformReferrers';
+import { PlatformTenantSelect } from '../../components/platform/PlatformTenantSelect';
 import {
   PLATFORM_REFERRER_COMMISSION_STATUS_LABEL,
   PLATFORM_REFERRER_STATUS_LABEL,
@@ -39,6 +41,9 @@ export function PlatformReferrerDetailPage() {
   const [info, setInfo] = useState('');
   const [commissionPercent, setCommissionPercent] = useState('5');
   const [status, setStatus] = useState<'ACTIVE' | 'SUSPENDED'>('ACTIVE');
+  const [partnerTenantId, setPartnerTenantId] = useState('');
+  const [tenants, setTenants] = useState<PlatformTenantRow[]>([]);
+  const [tenantsLoading, setTenantsLoading] = useState(false);
 
   const loadDetail = useCallback(async () => {
     if (!id) return;
@@ -50,6 +55,7 @@ export function PlatformReferrerDetailPage() {
       setItem(detail);
       setCommissionPercent(String(detail.commissionRateBps / 100));
       setStatus(detail.status);
+      setPartnerTenantId(detail.partnerTenantId ?? '');
     } catch (e) {
       setError(e instanceof Error ? e.message : '조회 실패');
     } finally {
@@ -89,11 +95,30 @@ export function PlatformReferrerDetailPage() {
     if (tab === 'commissions') void loadCommissions();
   }, [tab, loadSignups, loadCommissions]);
 
-  const copyLink = async () => {
-    if (!item?.signupLink) return;
+  useEffect(() => {
+    if (!item || item.type !== 'PARTNER') return;
+    let cancelled = false;
+    setTenantsLoading(true);
+    void (async () => {
+      try {
+        const token = usePlatformTokenOrThrow();
+        const rows = await listPlatformTenants(token);
+        if (!cancelled) setTenants(rows);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : '업체 목록을 불러오지 못했습니다.');
+      } finally {
+        if (!cancelled) setTenantsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [item?.id, item?.type]);
+
+  const copyLink = async (link: string, message: string) => {
     try {
-      await navigator.clipboard.writeText(item.signupLink);
-      setInfo('가입 링크를 복사했습니다.');
+      await navigator.clipboard.writeText(link);
+      setInfo(message);
     } catch {
       setError('링크 복사에 실패했습니다.');
     }
@@ -110,8 +135,14 @@ export function PlatformReferrerDetailPage() {
       const updated = await updatePlatformReferrer(token, id, {
         commissionRateBps: Number.isFinite(pct) ? Math.round(pct * 100) : item.commissionRateBps,
         status,
+        partnerTenantId: item.type === 'PARTNER' ? partnerTenantId || null : undefined,
       });
-      setItem({ ...item, ...updated, signupLink: item.signupLink });
+      setItem({
+        ...item,
+        ...updated,
+        signupLink: item.signupLink,
+        signupLinkFull: item.signupLinkFull,
+      });
       setInfo('저장했습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
@@ -187,10 +218,39 @@ export function PlatformReferrerDetailPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <section className={`${CARD_SECTION} space-y-3`}>
             <h2 className="text-fluid-sm font-semibold text-slate-900">가입 링크</h2>
-            <p className="break-all rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-fluid-2xs">{item.signupLink}</p>
-            <button type="button" className={BTN_SECONDARY} onClick={() => void copyLink()}>
-              링크 복사
-            </button>
+            <div>
+              <p className="mb-1 text-fluid-2xs font-medium text-slate-600">짧은 링크 (공유용)</p>
+              <p className="break-all rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-fluid-2xs">
+                {item.signupLink}
+              </p>
+            </div>
+            <div>
+              <p className="mb-1 text-fluid-2xs font-medium text-slate-600">전체 링크</p>
+              <p className="break-all rounded-lg border border-slate-100 bg-white px-3 py-2 font-mono text-fluid-2xs text-slate-600">
+                {item.signupLinkFull}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={BTN_PRIMARY}
+                onClick={() => void copyLink(item.signupLink, '짧은 가입 링크를 복사했습니다.')}
+              >
+                짧은 링크 복사
+              </button>
+              <button
+                type="button"
+                className={BTN_SECONDARY}
+                onClick={() => void copyLink(item.signupLinkFull, '전체 가입 링크를 복사했습니다.')}
+              >
+                전체 링크 복사
+              </button>
+            </div>
+            {item.partnerTenant ? (
+              <p className="text-fluid-2xs text-slate-500">
+                연결 업체: {item.partnerTenant.name} ({item.partnerTenant.slug})
+              </p>
+            ) : null}
             <dl className="grid grid-cols-2 gap-2 text-fluid-xs">
               <dt className="text-slate-500">가입 수</dt>
               <dd className="text-right tabular-nums">{item.signupCount}</dd>
@@ -216,6 +276,18 @@ export function PlatformReferrerDetailPage() {
                 <option value="SUSPENDED">중지</option>
               </select>
             </label>
+            {item.type === 'PARTNER' ? (
+              <label className="block">
+                <span className="mb-1 block text-fluid-xs text-slate-600">연결 업체</span>
+                <PlatformTenantSelect
+                  value={partnerTenantId}
+                  onChange={setPartnerTenantId}
+                  tenants={tenants}
+                  loading={tenantsLoading}
+                  required
+                />
+              </label>
+            ) : null}
             <button type="button" className={BTN_PRIMARY} disabled={busy} onClick={() => void saveSettings()}>
               저장
             </button>
