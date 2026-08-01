@@ -51,6 +51,8 @@ export function validateOutboundEmailForm(input: OutboundEmailValidationInput): 
     errors.sendEmail = '보낼 메일 주소를 입력해 주세요.';
   } else if (!EMAIL_RE.test(sendEmail)) {
     errors.sendEmail = '올바른 이메일 형식으로 입력해 주세요. (예: name@gmail.com)';
+  } else if (input.providerId === 'naver' && !sendEmail.trim().toLowerCase().endsWith('@naver.com')) {
+    errors.sendEmail = '네이버 메일은 @naver.com 주소 전체를 입력해 주세요.';
   }
 
   if (!displayName) {

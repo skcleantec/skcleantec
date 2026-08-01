@@ -31,20 +31,99 @@ function resolveSmtpAuthUser(user: string, from: string): string | null {
   return null;
 }
 
+function isNaverSmtpHost(host: string): boolean {
+  return host.trim().toLowerCase().includes('naver.com');
+}
+
+type SmtpProviderKind = 'gmail' | 'naver' | 'daum' | 'other';
+
+function inferSmtpProviderKind(ctx?: { smtpHost?: string; smtpUser?: string }): SmtpProviderKind {
+  const host = (ctx?.smtpHost ?? '').trim().toLowerCase();
+  const user = extractSmtpLoginEmail(ctx?.smtpUser ?? '').trim().toLowerCase();
+  if (host.includes('naver') || user.endsWith('@naver.com')) return 'naver';
+  if (host.includes('gmail') || user.endsWith('@gmail.com')) return 'gmail';
+  if (
+    host.includes('daum') ||
+    user.endsWith('@daum.net') ||
+    user.endsWith('@hanmail.net') ||
+    user.endsWith('@kakao.com')
+  ) {
+    return 'daum';
+  }
+  return 'other';
+}
+
+function smtpAuthFailureMessage(provider: SmtpProviderKind): string {
+  if (provider === 'naver') {
+    return '네이버 SMTP 인증에 실패했습니다. POP3/SMTP 사용 ON, 2단계 인증 시 애플리케이션 비밀번호, @naver.com 전체 주소·포트 465(SSL)를 확인해 주세요.';
+  }
+  if (provider === 'gmail') {
+    return 'Gmail 로그인이 거부되었습니다. SMTP 로그인 계정에 @gmail.com 전체 주소를 넣고, 일반 비밀번호가 아닌 앱 비밀번호를 사용했는지 확인해 주세요.';
+  }
+  if (provider === 'daum') {
+    return '다음·카카오 SMTP 인증에 실패했습니다. IMAP/SMTP 사용 ON, 로그인 비밀번호·포트 465(SSL) 설정을 확인해 주세요.';
+  }
+  return 'SMTP 인증에 실패했습니다. 로그인 주소·연동(앱) 비밀번호·포트·SSL 설정을 확인해 주세요.';
+}
+
+function enrichSmtpError(
+  e: unknown,
+  ctx: { smtpHost: string; smtpUser?: string },
+): Error & { smtpHost?: string; smtpUser?: string } {
+  const base = e instanceof Error ? e : new Error(String(e));
+  const err = base as Error & { smtpHost?: string; smtpUser?: string };
+  err.smtpHost = ctx.smtpHost;
+  if (ctx.smtpUser) err.smtpUser = ctx.smtpUser;
+  return err;
+}
+
+/** 네이버 SMTP: 공식 465+SSL, 발신(From)은 로그인 주소와 동일한 plain email만 허용 */
+function nodemailerTransportOptions(transport: ResolvedSmtpTransport) {
+  let { host, port, secure } = transport;
+  let from = transport.from;
+  const auth = transport.auth;
+
+  if (isNaverSmtpHost(host)) {
+    port = 465;
+    secure = true;
+    const login = auth?.user ?? extractSmtpLoginEmail(from);
+    if (login) from = login;
+  }
+
+  return {
+    host,
+    port,
+    secure,
+    requireTLS: !secure && port === 587,
+    auth,
+    from,
+  };
+}
+
 /** nodemailer 오류 → 화면용 짧은 메시지 (비밀번호 등은 노출하지 않음) */
-export function formatSmtpSendError(e: unknown): string {
+export function formatSmtpSendError(e: unknown, ctx?: { smtpHost?: string; smtpUser?: string }): string {
   const err = e as {
     message?: string;
     response?: string;
     responseCode?: number;
     code?: string;
+    smtpHost?: string;
+    smtpUser?: string;
   };
+  const mergedCtx = {
+    smtpHost: ctx?.smtpHost ?? err.smtpHost,
+    smtpUser: ctx?.smtpUser ?? err.smtpUser,
+  };
+  const provider = inferSmtpProviderKind(mergedCtx);
   const blob = `${err.response ?? ''} ${err.message ?? ''}`.toLowerCase();
-  if (blob.includes('username and password not accepted') || blob.includes('535')) {
-    return 'Gmail 로그인이 거부되었습니다. SMTP 로그인 계정에 @gmail.com 전체 주소를 넣고, 일반 비밀번호가 아닌 앱 비밀번호를 사용했는지 확인해 주세요.';
-  }
-  if (blob.includes('invalid login') || blob.includes('authentication')) {
-    return 'SMTP 인증에 실패했습니다. 로그인 계정·앱 비밀번호·포트(587/465)와 SSL 설정을 확인해 주세요.';
+  if (
+    blob.includes('username and password not accepted') ||
+    blob.includes('535') ||
+    blob.includes('invalid login') ||
+    blob.includes('authentication failed') ||
+    blob.includes('authentication')
+  ) {
+    return smtpAuthFailureMessage(provider);
   }
   if (blob.includes('self signed certificate') || blob.includes('certificate')) {
     return 'SMTP 서버 SSL 인증서 연결에 실패했습니다. 포트·SSL/TLS 설정을 확인해 주세요.';
@@ -182,21 +261,29 @@ export async function sendMailWithTransport(
   input: MailSendInput,
 ): Promise<void> {
   const nodemailer = await import('nodemailer');
+  const opts = nodemailerTransportOptions(transport);
   const tx = nodemailer.createTransport({
-    host: transport.host,
-    port: transport.port,
-    secure: transport.secure,
-    requireTLS: !transport.secure && transport.port === 587,
-    auth: transport.auth,
+    host: opts.host,
+    port: opts.port,
+    secure: opts.secure,
+    requireTLS: opts.requireTLS,
+    auth: opts.auth,
   });
-  await tx.sendMail({
-    from: transport.from,
-    to: input.to,
-    subject: input.subject,
-    html: input.html,
-    text: input.text,
-    attachments: input.attachments,
-  });
+  try {
+    await tx.sendMail({
+      from: opts.from,
+      to: input.to,
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+      attachments: input.attachments,
+    });
+  } catch (e) {
+    throw enrichSmtpError(e, {
+      smtpHost: opts.host,
+      smtpUser: opts.auth?.user ?? extractSmtpLoginEmail(opts.from),
+    });
+  }
 }
 
 /** 테스트 발송 — 지정 SMTP만 사용 (global fallback 없음) */
@@ -221,6 +308,25 @@ export async function sendTestMailWithTenantSmtp(
     text: '업체등록정보에 설정한 SMTP로 발송된 테스트 메일입니다.',
   });
   return true;
+}
+
+export async function resolveSmtpErrorContextForTenant(
+  tenantId: string,
+  operatingCompanyId?: string | null,
+): Promise<{ smtpHost?: string; smtpUser?: string }> {
+  let stored: TenantSmtpConfigStored | undefined;
+  if (operatingCompanyId) {
+    stored = await loadOperatingCompanySmtpStored(tenantId, operatingCompanyId);
+  } else {
+    const config = await getTenantConfig(tenantId);
+    stored = config.smtp;
+  }
+  const host = stored?.host?.trim() ?? '';
+  const user = stored?.user?.trim() || extractSmtpLoginEmail(stored?.from ?? '');
+  return {
+    smtpHost: host || undefined,
+    smtpUser: user || undefined,
+  };
 }
 
 /**

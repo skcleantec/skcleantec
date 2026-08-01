@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
+import { formatSmtpSendError, resolveSmtpErrorContextForTenant } from '../../lib/tenantSmtp.service.js';
 import { cloudinary, isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { tenantCompanySealFolder } from '../../lib/quotationSeal.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
@@ -100,7 +100,14 @@ router.post('/test-email', async (req, res) => {
       return;
     }
     console.error('[tenant-company-profile] test-email failed', e);
-    res.status(500).json({ error: formatSmtpSendError(e) });
+    const errMeta = e as { smtpHost?: string; smtpUser?: string };
+    const storedCtx = await resolveSmtpErrorContextForTenant(tenantId, operatingCompanyId);
+    res.status(500).json({
+      error: formatSmtpSendError(e, {
+        smtpHost: errMeta.smtpHost ?? storedCtx.smtpHost,
+        smtpUser: errMeta.smtpUser ?? storedCtx.smtpUser,
+      }),
+    });
   }
 });
 

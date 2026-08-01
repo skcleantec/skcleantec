@@ -36,7 +36,7 @@ export const OUTBOUND_EMAIL_COPY = {
   advancedHost: '메일 회사 서버 주소',
   advancedPort: '연결 번호',
   advancedSecure: '보안 연결(잠금) 사용',
-  advancedSecureHint: '다음·카카오 465는 켜기 · Gmail·네이버 587은 끄기',
+  advancedSecureHint: 'Gmail 587은 끄기 · 네이버·다음 465는 켜기',
   viewAllFields: '한 번에 보기 (고급)',
   viewWizard: '단계별로 설정하기',
   prev: '이전',

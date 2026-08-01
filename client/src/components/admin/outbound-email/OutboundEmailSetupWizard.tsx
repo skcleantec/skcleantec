@@ -9,6 +9,13 @@ import {
 } from '../../../utils/outboundEmailProviders';
 
 const GOOGLE_APP_PASSWORDS_URL = 'https://myaccount.google.com/apppasswords';
+const NAVER_SECURITY_URL = 'https://nid.naver.com/user2/help/myInfoV2?m=viewSecurity';
+
+function sendEmailPlaceholderForProvider(providerId: OutboundEmailProviderId): string {
+  if (providerId === 'naver') return 'your@naver.com';
+  if (providerId === 'daum') return 'your@daum.net';
+  return 'your@gmail.com';
+}
 
 const WIZARD_STEPS = [
   { id: 1, label: OUTBOUND_EMAIL_COPY.stepProvider },
@@ -101,7 +108,7 @@ export function OutboundEmailSetupWizard({
               value={sendEmail}
               onChange={(e) => onSendEmailChange(e.target.value)}
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              placeholder="your@gmail.com"
+              placeholder={sendEmailPlaceholderForProvider(providerId)}
               autoComplete="off"
             />
             {fieldErrors.sendEmail ? <p className="mt-1 text-xs text-rose-700">{fieldErrors.sendEmail}</p> : null}
@@ -218,7 +225,7 @@ export function OutboundEmailSetupWizard({
             value={sendEmail}
             onChange={(e) => onSendEmailChange(e.target.value)}
             className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm"
-            placeholder="your@gmail.com"
+            placeholder={sendEmailPlaceholderForProvider(providerId)}
             autoComplete="off"
           />
           {fieldErrors.sendEmail ? <p className="mt-1 text-xs text-rose-700">{fieldErrors.sendEmail}</p> : null}
@@ -257,6 +264,16 @@ export function OutboundEmailSetupWizard({
                 className="mt-2 inline-flex rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-900 hover:bg-indigo-50"
               >
                 Google 앱 비밀번호 발급 →
+              </a>
+            ) : null}
+            {providerId === 'naver' ? (
+              <a
+                href={NAVER_SECURITY_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex rounded-md border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-50"
+              >
+                네이버 보안설정(앱 비밀번호) →
               </a>
             ) : null}
           </div>
