@@ -16,6 +16,15 @@ export type TenantSignupPayload = {
   contactPhone: string;
   memberTermsAgreed: boolean;
   selectedPlan: string;
+  referrerCode?: string;
+  referrerFromLink?: boolean;
+};
+
+export type TenantReferrerValidation = {
+  valid: boolean;
+  code?: string;
+  displayName?: string;
+  reason?: string;
 };
 
 export type TenantSignupVerificationSent = {
@@ -35,6 +44,14 @@ export async function checkTenantSignupSlug(slug: string): Promise<TenantSlugAva
   const res = await fetch(`${API}/slug-available?${q}`);
   const data = (await res.json()) as TenantSlugAvailability & { error?: string };
   if (!res.ok) throw new Error(data.error ?? '업체 코드 확인에 실패했습니다.');
+  return data;
+}
+
+export async function validateTenantSignupReferrer(code: string): Promise<TenantReferrerValidation> {
+  const q = new URLSearchParams({ code });
+  const res = await fetch(`${API}/validate-referrer?${q}`);
+  const data = (await res.json()) as TenantReferrerValidation & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '추천인 코드 확인에 실패했습니다.');
   return data;
 }
 

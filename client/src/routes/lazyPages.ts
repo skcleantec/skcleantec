@@ -304,6 +304,16 @@ export const PlatformSignupInquiriesPage = lazyWithRetry(() =>
     default: m.PlatformSignupInquiriesPage,
   }))
 );
+export const PlatformReferrersPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformReferrersPage').then((m) => ({
+    default: m.PlatformReferrersPage,
+  }))
+);
+export const PlatformReferrerDetailPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformReferrerDetailPage').then((m) => ({
+    default: m.PlatformReferrerDetailPage,
+  }))
+);
 export const PlatformBillingPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformBillingPage').then((m) => ({ default: m.PlatformBillingPage }))
 );

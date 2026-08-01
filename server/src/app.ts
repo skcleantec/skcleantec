@@ -75,6 +75,7 @@ import tenantPasswordResetPublicRoutes from './modules/auth/tenantPasswordReset.
 import platformPlanUpgradeRoutes from './modules/platform/platformPlanUpgrade.routes.js';
 import platformSignupInquiryPublicRoutes from './modules/platform-signup-inquiry/platformSignupInquiry.public.routes.js';
 import platformSignupInquiryRoutes from './modules/platform-signup-inquiry/platformSignupInquiry.routes.js';
+import platformReferrersRoutes from './modules/platform-referrals/platformReferrers.routes.js';
 import tenantPlanUpgradeRoutes from './modules/tenants/tenantPlanUpgrade.routes.js';
 import { resolveHelpScreenshotFilePath } from './modules/help/helpScreenshotsPath.js';
 import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLeaderTraining.admin.routes.js';
@@ -108,6 +109,7 @@ app.use('/api/platform/help-inquiry', platformHelpInquiryRoutes);
 app.use('/api/platform/billing', platformBillingRoutes);
 app.use('/api/platform/plan-upgrade-requests', platformPlanUpgradeRoutes);
 app.use('/api/platform/signup-inquiries', platformSignupInquiryRoutes);
+app.use('/api/platform/referrers', platformReferrersRoutes);
 app.use('/api/platform/legal', platformLegalRoutes);
 app.use('/api/platform/partner-promos', platformPartnerPromoRoutes);
 app.use('/api/admin/platform-promos', adminPlatformPromoRoutes);

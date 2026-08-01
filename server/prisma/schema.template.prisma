@@ -85,6 +85,30 @@ enum TenantInvoiceSource {
   MANUAL
 }
 
+/// 플랫폼 추천인 유형 — 개인·파트너 업체
+enum PlatformReferrerType {
+  INDIVIDUAL
+  PARTNER
+}
+
+enum PlatformReferrerStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum TenantReferralSignupMethod {
+  REF_LINK
+  MANUAL_CODE
+  PLATFORM_ASSIGNED
+}
+
+enum PlatformReferrerCommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  REVERSED
+}
+
 /// 테넌트 간 DB 거래 파트너십 상태
 enum TenantPartnershipStatus {
   PENDING
@@ -290,6 +314,9 @@ model Tenant {
   inquiryScheduleAlertAcks InquiryScheduleAlertAck[]
   quickPasteLearningLogs QuickPasteLearningLog[]
   quickPasteTenantRules QuickPasteTenantRule[]
+  referralAttribution TenantReferralAttribution?
+  platformReferrersAsPartner PlatformReferrer[] @relation("PlatformReferrerPartnerTenant")
+  referrerCommissionAccruals PlatformReferrerCommissionAccrual[]
 
   @@map("tenants")
 }
@@ -511,6 +538,7 @@ model TenantInvoice {
   tenant                    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   adjustment                TenantBillingAdjustment? @relation(fields: [adjustmentId], references: [id], onDelete: SetNull)
   confirmedByPlatformUser   PlatformUser? @relation(fields: [confirmedByPlatformUserId], references: [id], onDelete: SetNull)
+  referrerCommissionAccruals PlatformReferrerCommissionAccrual[]
 
   @@index([tenantId, status])
   @@index([tenantId, dueDate])
@@ -825,6 +853,78 @@ model PlatformUser {
   reviewedSignupInquiries     PlatformSignupInquiry[]
 
   @@map("platform_users")
+}
+
+/// 플랫폼 추천인 — 셀프 가입 추천 코드(slug) · 수수료율
+model PlatformReferrer {
+  id               String               @id @default(uuid())
+  type             PlatformReferrerType
+  code             String               @unique @db.VarChar(48)
+  displayName      String               @map("display_name") @db.VarChar(128)
+  contactEmail     String?              @map("contact_email") @db.VarChar(256)
+  contactPhone     String?              @map("contact_phone") @db.VarChar(32)
+  partnerTenantId  String?              @map("partner_tenant_id")
+  commissionRateBps Int                 @default(500) @map("commission_rate_bps")
+  eligiblePlanIds  Json?                @map("eligible_plan_ids")
+  status           PlatformReferrerStatus @default(ACTIVE)
+  payoutBankInfo   Json?                @map("payout_bank_info")
+  memo             String?              @db.Text
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  partnerTenant Tenant? @relation("PlatformReferrerPartnerTenant", fields: [partnerTenantId], references: [id], onDelete: SetNull)
+  attributions  TenantReferralAttribution[]
+  accruals      PlatformReferrerCommissionAccrual[]
+
+  @@index([status])
+  @@index([partnerTenantId])
+  @@map("platform_referrers")
+}
+
+/// 업체당 1회 추천인 귀속 — 가입 후 변경 불가
+model TenantReferralAttribution {
+  id           String                    @id @default(uuid())
+  tenantId     String                    @unique @map("tenant_id")
+  referrerId   String                    @map("referrer_id")
+  signupMethod TenantReferralSignupMethod @map("signup_method")
+  refCodeUsed  String                    @map("ref_code_used") @db.VarChar(48)
+  attributedAt DateTime                  @default(now()) @map("attributed_at")
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  referrer PlatformReferrer @relation(fields: [referrerId], references: [id], onDelete: Restrict)
+  accruals PlatformReferrerCommissionAccrual[]
+
+  @@index([referrerId, attributedAt])
+  @@map("tenant_referral_attributions")
+}
+
+/// 추천 수수료 적립 — 유료 청구서 PAID마다 1행
+model PlatformReferrerCommissionAccrual {
+  id                 String                         @id @default(uuid())
+  referrerId         String                         @map("referrer_id")
+  tenantId           String                         @map("tenant_id")
+  attributionId      String                         @map("attribution_id")
+  invoiceId          String                         @map("invoice_id")
+  periodYm           String                         @map("period_ym") @db.VarChar(7)
+  invoicePaidAmount  Int                            @map("invoice_paid_amount")
+  commissionRateBps  Int                            @map("commission_rate_bps")
+  commissionAmount   Int                            @map("commission_amount")
+  status             PlatformReferrerCommissionStatus @default(PENDING)
+  paidAt             DateTime?                      @map("paid_at")
+  paidMemo           String?                        @map("paid_memo") @db.Text
+  createdAt          DateTime                       @default(now()) @map("created_at")
+  updatedAt          DateTime                       @updatedAt @map("updated_at")
+
+  referrer    PlatformReferrer          @relation(fields: [referrerId], references: [id], onDelete: Restrict)
+  tenant      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  attribution TenantReferralAttribution @relation(fields: [attributionId], references: [id], onDelete: Restrict)
+  invoice     TenantInvoice             @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@unique([referrerId, invoiceId])
+  @@index([referrerId, status])
+  @@index([tenantId])
+  @@index([periodYm])
+  @@map("platform_referrer_commission_accruals")
 }
 
 /// /help 고객문의 — 플랫폼 단일 설정 (카테고리·연락처·작성 도움말)

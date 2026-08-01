@@ -10,6 +10,7 @@ import {
 } from '../platform/tenantSignupEmail.service.js';
 import { TENANT_SELF_SIGNUP_PLAN_IDS } from './tenantSignup.constants.js';
 import { EmailVerificationError } from './emailVerification.service.js';
+import { validateReferrerCodeForPublic } from '../platform-referrals/platformReferralAttribution.service.js';
 
 const router = Router();
 
@@ -31,6 +32,8 @@ function readSignupBody(body: Record<string, unknown>): TenantSignupFormPayload 
     contactPhone: String(body.contactPhone ?? ''),
     memberTermsAgreed: Boolean(body.memberTermsAgreed),
     selectedPlan: String(body.selectedPlan ?? 'free'),
+    referrerCode: body.referrerCode != null ? String(body.referrerCode) : undefined,
+    referrerFromLink: Boolean(body.referrerFromLink),
   };
 }
 
@@ -42,6 +45,13 @@ function handleSignupError(e: unknown, res: import('express').Response) {
   const msg = e instanceof Error ? e.message : '처리에 실패했습니다.';
   res.status(400).json({ error: msg });
 }
+
+/** GET /api/public/tenant-signup/validate-referrer?code= */
+router.get('/validate-referrer', async (req, res) => {
+  const code = typeof req.query.code === 'string' ? req.query.code : '';
+  const result = await validateReferrerCodeForPublic(code);
+  res.json(result);
+});
 
 /** GET /api/public/tenant-signup/slug-available?slug= */
 router.get('/slug-available', async (req, res) => {

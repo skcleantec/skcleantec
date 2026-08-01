@@ -10,10 +10,14 @@ import {
 } from './tenantProvisioning.service.js';
 import { isTenantSignupReservedSlug, normalizeSignupPlanId, TENANT_SIGNUP_GRACE_DAYS } from './tenantSignup.constants.js';
 import {
-  EmailVerificationError,
   normalizeSignupPhone,
   normalizeVerificationEmail,
 } from './emailVerification.service.js';
+import {
+  createTenantReferralAttribution,
+  PlatformReferralAttributionError,
+} from '../platform-referrals/platformReferralAttribution.service.js';
+import { normalizeReferrerCode } from '../platform-referrals/platformReferralCode.helpers.js';
 
 export class TenantSignupError extends Error {
   constructor(
@@ -39,6 +43,8 @@ export type SelfServeTenantSignupInput = {
   /** 이메일 인증 완료 후 bcrypt 해시 직접 전달 */
   passwordHash?: string;
   emailVerifiedAt?: string;
+  referrerCode?: string | null;
+  referrerFromLink?: boolean;
 };
 
 export async function isTenantSlugAvailableForSignup(slugRaw: string): Promise<{
@@ -120,8 +126,10 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
   const graceEndsAt = addDaysUtc(signupStartedAt, TENANT_SIGNUP_GRACE_DAYS);
   const trialEndsAt = isPaidSignup ? graceEndsAt : null;
 
-  const result = await prisma.$transaction(
-    async (tx) => {
+  let result;
+  try {
+    result = await prisma.$transaction(
+      async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
           slug,
@@ -177,10 +185,25 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
       await seedTenantDefaults(tx, tenant.id, tenant.name);
       await ensureDefaultAdChannelsForTenant(tx, tenant.id);
 
+      const referrerCode = normalizeReferrerCode(input.referrerCode ?? '');
+      if (referrerCode) {
+        await createTenantReferralAttribution(tx, {
+          tenantId: tenant.id,
+          referrerCodeRaw: referrerCode,
+          signupMethod: input.referrerFromLink ? 'REF_LINK' : 'MANUAL_CODE',
+        });
+      }
+
       return { tenant, admin };
-    },
-    { maxWait: 15_000, timeout: 30_000 },
-  );
+      },
+      { maxWait: 15_000, timeout: 30_000 },
+    );
+  } catch (e) {
+    if (e instanceof PlatformReferralAttributionError) {
+      throw new TenantSignupError(e.message, e.statusCode === 404 ? 400 : e.statusCode);
+    }
+    throw e;
+  }
 
   return result;
 }

@@ -57,6 +57,7 @@ import {
   type PlatformBillingListQuery,
   type PlatformTenantBillingRow,
 } from './tenantBilling.platformList.js';
+import { createReferrerCommissionAccrualForInvoice } from '../platform-referrals/platformReferralCommission.service.js';
 import { isPaymentConfirmationRequestEnabled } from './tenantBilling.paymentRequest.service.js';
 import {
   applyTenantBillingFeeExemptState,
@@ -865,6 +866,8 @@ export async function confirmInvoicePayment(
         },
       });
     }
+
+    await createReferrerCommissionAccrualForInvoice(invoiceId, tx);
 
     return inv;
   });

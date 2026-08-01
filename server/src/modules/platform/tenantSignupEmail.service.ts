@@ -15,6 +15,7 @@ import {
 import { normalizeSignupPlanId } from './tenantSignup.constants.js';
 import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
 import type { TenantPlanId } from '../tenants/tenantFeatureCatalog.js';
+import { normalizeReferrerCode } from '../platform-referrals/platformReferralCode.helpers.js';
 import {
   buildPlatformVerificationEmailHtml,
   buildPlatformVerificationEmailSubject,
@@ -31,6 +32,8 @@ export type TenantSignupFormPayload = {
   contactPhone: string;
   memberTermsAgreed: boolean;
   selectedPlan: string;
+  referrerCode?: string;
+  referrerFromLink?: boolean;
 };
 
 function parseSignupPlan(body: TenantSignupFormPayload): TenantPlanId {
@@ -66,6 +69,8 @@ function parseSignupFormFields(
     contactPhone,
     memberTermsAgreed: opts.requireTerms,
     selectedPlan,
+    referrerCode: normalizeReferrerCode(body.referrerCode ?? '') || undefined,
+    referrerFromLink: Boolean(body.referrerFromLink),
   };
 }
 
@@ -99,6 +104,8 @@ export async function sendTenantSignupVerificationCode(
       passwordHash,
       selectedPlan: parsed.selectedPlan,
       signupIp: requestIp?.trim() || null,
+      referrerCode: parsed.referrerCode ?? null,
+      referrerFromLink: parsed.referrerFromLink ?? false,
     },
     mailSubject: buildPlatformVerificationEmailSubject('TENANT_SIGNUP'),
     mailHtml: (code) =>
@@ -129,6 +136,8 @@ type StoredSignupPayload = {
   memberTermsAgreedAt?: string | null;
   selectedPlan: string;
   signupIp: string | null;
+  referrerCode?: string | null;
+  referrerFromLink?: boolean;
 };
 
 export async function completeTenantSignupWithVerification(input: {
@@ -181,5 +190,7 @@ export async function provisionTenantSelfServeFromVerifiedPayload(
     passwordHash: payload.passwordHash,
     emailVerifiedAt: agreedAt,
     selectedPlan,
+    referrerCode: payload.referrerCode ?? null,
+    referrerFromLink: Boolean(payload.referrerFromLink),
   });
 }

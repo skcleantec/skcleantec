@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PLATFORM_NAME, PLATFORM_NAME_EN } from '@shared/platformBrand';
 import {
   PLATFORM_LEGAL_MEMBER_PRIVACY_SLUG,
@@ -18,6 +18,7 @@ import {
   checkTenantSignupSlug,
   completeTenantSignup,
   sendTenantSignupVerificationCode,
+  validateTenantSignupReferrer,
 } from '../api/tenantSignup';
 import { fetchSignupLegalDocuments, type PublicLegalDocument } from '../api/platformLegal';
 import { useLoginScrollSurface } from '../hooks/useMobileInputVisibility';
@@ -25,8 +26,11 @@ import { useLoginScrollSurface } from '../hooks/useMobileInputVisibility';
 const inputClass =
   'login-field-input w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-3.5 py-2.5 text-fluid-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-sky-500/80 focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-500/10';
 
+const SIGNUP_REF_STORAGE_KEY = 'cbiseo_signup_ref';
+
 export function TenantSignupPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
@@ -37,6 +41,10 @@ export function TenantSignupPage() {
   const [contactPhone, setContactPhone] = useState('');
   const [memberTermsAgreed, setMemberTermsAgreed] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<TenantPlanId>('free');
+  const [referrerCode, setReferrerCode] = useState('');
+  const [referrerFromLink, setReferrerFromLink] = useState(false);
+  const [referrerHint, setReferrerHint] = useState<string | null>(null);
+  const [referrerChecking, setReferrerChecking] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [challengeId, setChallengeId] = useState('');
   const [codeSent, setCodeSent] = useState(false);
@@ -66,6 +74,43 @@ export function TenantSignupPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const refFromUrl = searchParams.get('ref')?.trim().toLowerCase() ?? '';
+    if (refFromUrl) {
+      sessionStorage.setItem(SIGNUP_REF_STORAGE_KEY, refFromUrl);
+      setReferrerCode(refFromUrl);
+      setReferrerFromLink(true);
+      return;
+    }
+    const stored = sessionStorage.getItem(SIGNUP_REF_STORAGE_KEY)?.trim().toLowerCase() ?? '';
+    if (stored) {
+      setReferrerCode(stored);
+      setReferrerFromLink(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const code = referrerCode.trim().toLowerCase();
+    if (code.length < 2) {
+      setReferrerHint(null);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      setReferrerChecking(true);
+      validateTenantSignupReferrer(code)
+        .then((r) => {
+          if (r.valid) {
+            setReferrerHint(`${r.displayName ?? '추천인'} 코드가 확인되었습니다.`);
+          } else {
+            setReferrerHint(r.reason ?? '사용할 수 없는 코드입니다.');
+          }
+        })
+        .catch(() => setReferrerHint(null))
+        .finally(() => setReferrerChecking(false));
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [referrerCode]);
 
   const termsDoc =
     legalDocs.find((d) => d.slug === PLATFORM_LEGAL_MEMBER_TERMS_SLUG) ??
@@ -106,6 +151,8 @@ export function TenantSignupPage() {
       contactPhone,
       memberTermsAgreed: false,
       selectedPlan,
+      referrerCode: referrerCode.trim() || undefined,
+      referrerFromLink,
     }),
     [
       slug,
@@ -116,6 +163,8 @@ export function TenantSignupPage() {
       contactEmail,
       contactPhone,
       selectedPlan,
+      referrerCode,
+      referrerFromLink,
     ],
   );
 
@@ -347,6 +396,28 @@ export function TenantSignupPage() {
                 />
               </label>
             </div>
+
+            <label className="block">
+              <span className="mb-1 block text-fluid-xs font-medium text-slate-600">추천인 코드 (선택)</span>
+              <input
+                value={referrerCode}
+                onChange={(e) => {
+                  setReferrerCode(e.target.value.toLowerCase());
+                  setReferrerFromLink(false);
+                }}
+                className={`${inputClass} font-mono`}
+                placeholder="추천 링크로 들어오면 자동 입력됩니다"
+              />
+              {referrerHint ? (
+                <p
+                  className={`mt-1 text-fluid-2xs ${referrerHint.includes('확인') ? 'text-emerald-700' : 'text-amber-700'}`}
+                >
+                  {referrerChecking ? '확인 중…' : referrerHint}
+                </p>
+              ) : (
+                <p className="mt-1 text-fluid-2xs text-slate-500">입력 시 가입 업체에 추천인이 연결됩니다.</p>
+              )}
+            </label>
 
             <section
               ref={termsSectionRef}
