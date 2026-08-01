@@ -9,6 +9,9 @@ import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyTenantShareReceived } from '../tenant-partners/tenantInquiryShareNotify.js';
 import { noActiveSourceShareWhere } from '../tenant-partners/tenantInquirySharePick.helpers.js';
 
+/** HTTP 타임아웃 방지 — 1회 요청당 최대 이관 건수 */
+export const EXTERNAL_MIGRATION_BATCH_MAX = 40;
+
 export class ExternalToPartnerMigrationError extends Error {
   constructor(
     message: string,
@@ -16,6 +19,92 @@ export class ExternalToPartnerMigrationError extends Error {
   ) {
     super(message);
     this.name = 'ExternalToPartnerMigrationError';
+  }
+}
+
+export async function countActiveExternalLegacySharesForCompany(
+  tenantId: string,
+  externalCompanyId: string,
+): Promise<number> {
+  return prisma.tenantInquiryShare.count({
+    where: {
+      sourceTenantId: tenantId,
+      syncStatus: 'ACTIVE',
+      settlementMode: 'EXTERNAL_LEGACY',
+      settlementExternalCompanyId: externalCompanyId,
+    },
+  });
+}
+
+export async function getExternalCompanyMigrationStatus(opts: {
+  tenantId: string;
+  externalCompanyId: string;
+}) {
+  const company = await prisma.externalCompany.findFirst({
+    where: { id: opts.externalCompanyId, tenantId: opts.tenantId, isActive: true },
+    include: {
+      linkedPartnerTenant: { select: { id: true, name: true, slug: true } },
+    },
+  });
+  if (!company) {
+    throw new ExternalToPartnerMigrationError('타업체를 찾을 수 없습니다.', 404);
+  }
+
+  const [migratedCount, eligible, partnershipActive] = await Promise.all([
+    countActiveExternalLegacySharesForCompany(opts.tenantId, company.id),
+    listMigrationEligibleInquiries({
+      tenantId: opts.tenantId,
+      externalCompanyId: company.id,
+    }),
+    company.linkedPartnerTenantId
+      ? resolveActivePartnershipId(opts.tenantId, company.linkedPartnerTenantId).then(
+          (id) => ({ ok: true as const, partnershipId: id }),
+          () => ({ ok: false as const, partnershipId: null }),
+        )
+      : Promise.resolve({ ok: false as const, partnershipId: null }),
+  ]);
+
+  const mismatchedShareCount =
+    company.linkedPartnerTenantId != null
+      ? await prisma.tenantInquiryShare.count({
+          where: {
+            sourceTenantId: opts.tenantId,
+            syncStatus: 'ACTIVE',
+            settlementMode: 'EXTERNAL_LEGACY',
+            settlementExternalCompanyId: company.id,
+            targetTenantId: { not: company.linkedPartnerTenantId },
+          },
+        })
+      : 0;
+
+  return {
+    externalCompanyId: company.id,
+    externalCompanyName: company.name,
+    linkedPartnerTenant: company.linkedPartnerTenant,
+    promotedAt: company.promotedAt?.toISOString() ?? null,
+    usageDisabled: company.usageDisabledAt != null,
+    partnershipActive: partnershipActive.ok,
+    migratedCount,
+    eligibleCount: eligible.length,
+    mismatchedShareCount,
+  };
+}
+
+async function assertPartnerLinkChangeAllowed(
+  tenantId: string,
+  company: { id: string; linkedPartnerTenantId: string | null },
+  nextPartnerTenantId: string,
+): Promise<void> {
+  if (
+    company.linkedPartnerTenantId &&
+    company.linkedPartnerTenantId !== nextPartnerTenantId
+  ) {
+    const migratedCount = await countActiveExternalLegacySharesForCompany(tenantId, company.id);
+    if (migratedCount > 0) {
+      throw new ExternalToPartnerMigrationError(
+        `이미 ${migratedCount}건이 파트너 DB로 이관되었습니다. 연결된 파트너 업체를 바꿀 수 없습니다.`,
+      );
+    }
   }
 }
 
@@ -76,6 +165,7 @@ export async function linkExternalCompanyToPartnerTenant(opts: {
     throw new ExternalToPartnerMigrationError('파트너 업체(테넌트)를 찾을 수 없습니다.', 404);
   }
 
+  await assertPartnerLinkChangeAllowed(tenantId, company, partnerTenantId);
   await resolveActivePartnershipId(tenantId, partnerTenantId);
 
   const updated = await prisma.externalCompany.update({
@@ -218,10 +308,23 @@ async function migrateOneInquiryInTransaction(
     skipExternalPartnerCheck: true,
   });
 
+  if (result.shareRow.settlementExternalCompanyId !== opts.externalCompanyId) {
+    throw new ExternalToPartnerMigrationError('이관 share 정산 연결 검증에 실패했습니다.');
+  }
+  if (result.targetTenantId !== opts.partnerTenantId) {
+    throw new ExternalToPartnerMigrationError('파트너 mirror 테넌트가 연결된 업체와 일치하지 않습니다.');
+  }
+  if (result.shareRow.transferFee !== source.externalTransferFee) {
+    throw new ExternalToPartnerMigrationError('이관 수수료가 원본과 일치하지 않습니다.');
+  }
+
   await tx.assignment.deleteMany({
     where: {
       inquiryId: source.id,
-      teamLeader: { role: 'EXTERNAL_PARTNER' },
+      teamLeader: {
+        role: 'EXTERNAL_PARTNER',
+        externalCompanyId: opts.externalCompanyId,
+      },
     },
   });
 
@@ -251,6 +354,7 @@ export async function migrateExternalInquiriesToHybridPartner(opts: {
   inquiryIds?: string[];
   allEligible?: boolean;
   dryRun?: boolean;
+  batchLimit?: number;
 }) {
   const company = await prisma.externalCompany.findFirst({
     where: { id: opts.externalCompanyId, tenantId: opts.tenantId, isActive: true },
@@ -277,15 +381,35 @@ export async function migrateExternalInquiriesToHybridPartner(opts: {
     company.linkedPartnerTenantId,
   );
 
+  const mismatchedShareCount = await prisma.tenantInquiryShare.count({
+    where: {
+      sourceTenantId: opts.tenantId,
+      syncStatus: 'ACTIVE',
+      settlementMode: 'EXTERNAL_LEGACY',
+      settlementExternalCompanyId: company.id,
+      targetTenantId: { not: company.linkedPartnerTenantId },
+    },
+  });
+  if (mismatchedShareCount > 0) {
+    throw new ExternalToPartnerMigrationError(
+      `이관 이력 ${mismatchedShareCount}건이 현재 연결된 파트너와 다릅니다. 파트너 연결을 확인한 뒤 다시 시도해 주세요.`,
+    );
+  }
+
   const eligible = await listMigrationEligibleInquiries({
     tenantId: opts.tenantId,
     externalCompanyId: opts.externalCompanyId,
   });
   const eligibleIds = new Set(eligible.map((e) => e.id));
 
+  const batchLimit = Math.min(
+    EXTERNAL_MIGRATION_BATCH_MAX,
+    Math.max(1, Math.trunc(opts.batchLimit ?? EXTERNAL_MIGRATION_BATCH_MAX)),
+  );
+
   let targetIds: string[];
   if (opts.allEligible) {
-    targetIds = [...eligibleIds];
+    targetIds = [...eligibleIds].slice(0, batchLimit);
   } else {
     const requested = [...new Set((opts.inquiryIds ?? []).map((id) => id.trim()).filter(Boolean))];
     if (requested.length === 0) {
@@ -311,6 +435,13 @@ export async function migrateExternalInquiriesToHybridPartner(opts: {
       partnerTenant: company.linkedPartnerTenant,
       count: previewItems.length,
       feeTotal,
+      batchLimit,
+      totalEligibleCount: eligible.length,
+      remainingEligibleCount: Math.max(0, eligible.length - previewItems.length),
+      migratedShareCount: await countActiveExternalLegacySharesForCompany(
+        opts.tenantId,
+        company.id,
+      ),
       items: previewItems,
       migrated: [] as Array<{
         inquiryId: string;
@@ -371,6 +502,9 @@ export async function migrateExternalInquiriesToHybridPartner(opts: {
     }
   }
 
+  const migratedIds = new Set(migrated.map((m) => m.inquiryId));
+  const remainingEligibleCount = eligible.filter((e) => !migratedIds.has(e.id)).length;
+
   return {
     dryRun: false as const,
     externalCompanyId: company.id,
@@ -378,6 +512,10 @@ export async function migrateExternalInquiriesToHybridPartner(opts: {
     partnerTenant: company.linkedPartnerTenant,
     count: previewItems.length,
     feeTotal,
+    batchLimit,
+    totalEligibleCount: eligible.length,
+    remainingEligibleCount,
+    migratedShareCount: await countActiveExternalLegacySharesForCompany(opts.tenantId, company.id),
     items: previewItems,
     migrated,
     errors,

@@ -172,10 +172,35 @@ export async function listExternalMigrationEligibleInquiries(
   return res.json();
 }
 
+export async function getExternalCompanyMigrationStatus(
+  token: string,
+  externalCompanyId: string,
+): Promise<{
+  externalCompanyId: string;
+  externalCompanyName: string;
+  linkedPartnerTenant: { id: string; name: string; slug: string } | null;
+  promotedAt: string | null;
+  usageDisabled: boolean;
+  partnershipActive: boolean;
+  migratedCount: number;
+  eligibleCount: number;
+  mismatchedShareCount: number;
+}> {
+  const res = await fetch(
+    `${API}/external-companies/${encodeURIComponent(externalCompanyId)}/migration-status`,
+    { headers: headers(token), ...NO_STORE },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '이관 현황을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
 export async function migrateExternalCompanyToPartner(
   token: string,
   externalCompanyId: string,
-  body: { inquiryIds?: string[]; allEligible?: boolean; dryRun?: boolean },
+  body: { inquiryIds?: string[]; allEligible?: boolean; dryRun?: boolean; batchLimit?: number },
 ): Promise<{
   dryRun: boolean;
   externalCompanyId: string;
@@ -183,6 +208,10 @@ export async function migrateExternalCompanyToPartner(
   partnerTenant: { id: string; name: string; slug: string } | null;
   count: number;
   feeTotal: number;
+  batchLimit: number;
+  totalEligibleCount: number;
+  remainingEligibleCount: number;
+  migratedShareCount: number;
   items: MigrationEligibleInquiry[];
   migrated: Array<{
     inquiryId: string;

@@ -5,6 +5,7 @@ import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission, staffMarketerRoleOnly } from '../auth/marketerPermission.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
+import { requireFeature } from '../tenants/requireTenantFeature.js';
 import { resolveExternalSettlementPaidAt } from '../../lib/externalSettlementPaidAt.js';
 import { loadMarketplaceConfirmedInquiryIdSet, loadMarketplaceExternalBuyerByInquiry } from '../db-marketplace/dbMarketplaceSettlementMeta.js';
 import {
@@ -37,6 +38,8 @@ import {
   linkExternalCompanyToPartnerTenant,
   listMigrationEligibleInquiries,
   migrateExternalInquiriesToHybridPartner,
+  getExternalCompanyMigrationStatus,
+  countActiveExternalLegacySharesForCompany,
 } from './externalToPartnerMigration.service.js';
 import {
   getExternalSettlementPayableFeesCached,
@@ -336,6 +339,13 @@ router.post('/:id/deactivate', requireStaffPermission('admin.users'), async (req
   const { id } = req.params;
   const existing = await requireActiveExternalCompanyInTenant(res, tenantId, id);
   if (!existing) return;
+  const legacyShareCount = await countActiveExternalLegacySharesForCompany(tenantId, id);
+  if (legacyShareCount > 0) {
+    res.status(400).json({
+      error: `파트너 DB로 이관된 접수 ${legacyShareCount}건이 있어 삭제할 수 없습니다. 타업체 정산 연동이 유지됩니다.`,
+    });
+    return;
+  }
   await prisma.$transaction(async (tx) => {
     await tx.externalCompany.update({ where: { id }, data: { isActive: false } });
     await tx.user.updateMany({
@@ -347,7 +357,11 @@ router.post('/:id/deactivate', requireStaffPermission('admin.users'), async (req
 });
 
 /** 타업체 ↔ 정식 파트너 테넌트 연결 (승격) */
-router.post('/:id/link-partner-tenant', requireStaffPermission('admin.users'), async (req, res) => {
+router.post(
+  '/:id/link-partner-tenant',
+  requireStaffPermission('admin.users'),
+  requireFeature('mod_tenant_exchange'),
+  async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, authUser);
   if (!tenantId) return;
@@ -375,10 +389,39 @@ router.post('/:id/link-partner-tenant', requireStaffPermission('admin.users'), a
     }
     throw e;
   }
-});
+  },
+);
+
+/** 타업체 → 파트너 DB 이관 현황 */
+router.get(
+  '/:id/migration-status',
+  requireStaffPermission('admin.users'),
+  requireFeature('mod_tenant_exchange'),
+  async (req, res) => {
+    const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
+    if (!tenantId) return;
+    try {
+      const status = await getExternalCompanyMigrationStatus({
+        tenantId,
+        externalCompanyId: req.params.id,
+      });
+      res.json(status);
+    } catch (e) {
+      if (e instanceof ExternalToPartnerMigrationError) {
+        res.status(e.status).json({ error: e.message });
+        return;
+      }
+      throw e;
+    }
+  },
+);
 
 /** 타업체 → 파트너 DB 이관 대상 목록 */
-router.get('/:id/migration-eligible-inquiries', requireStaffPermission('admin.users'), async (req, res) => {
+router.get(
+  '/:id/migration-eligible-inquiries',
+  requireStaffPermission('admin.users'),
+  requireFeature('mod_tenant_exchange'),
+  async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
@@ -399,10 +442,15 @@ router.get('/:id/migration-eligible-inquiries', requireStaffPermission('admin.us
     }
     throw e;
   }
-});
+  },
+);
 
 /** 타업체 DB → 하이브리드 파트너 연계 일괄 이관 */
-router.post('/:id/migrate-to-partner', requireStaffPermission('admin.users'), async (req, res) => {
+router.post(
+  '/:id/migrate-to-partner',
+  requireStaffPermission('admin.users'),
+  requireFeature('mod_tenant_exchange'),
+  async (req, res) => {
   const authUser = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, authUser);
   if (!tenantId) return;
@@ -411,6 +459,7 @@ router.post('/:id/migrate-to-partner', requireStaffPermission('admin.users'), as
     inquiryIds?: string[];
     allEligible?: boolean;
     dryRun?: boolean;
+    batchLimit?: number;
   };
 
   try {
@@ -421,6 +470,7 @@ router.post('/:id/migrate-to-partner', requireStaffPermission('admin.users'), as
       inquiryIds: body.inquiryIds,
       allEligible: body.allEligible === true,
       dryRun: body.dryRun === true,
+      batchLimit: typeof body.batchLimit === 'number' ? body.batchLimit : undefined,
     });
     invalidateExternalSettlementOverviewPayableCache(tenantId);
     res.json(result);
@@ -431,7 +481,8 @@ router.post('/:id/migrate-to-partner', requireStaffPermission('admin.users'), as
     }
     throw e;
   }
-});
+  },
+);
 
 /** 업체·지급 누적만 (payable 집계 제외 — 목록 1차 렌더용) */
 router.get('/settlement/company-overview-shell', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
@@ -1161,7 +1212,7 @@ router.get('/settlement/company-detail', requireStaffPermission('admin.externalS
 
 /**
  * 업체별 수수료 누계(마지막 「정산완료」 이후 구간 + 예약일·정보공유 인계 확정일 기준 일·월·년)
- * 타업체(EXTERNAL_PARTNER) 배정 접수만, 수수료 입력 건만 합산
+ * 타업체 배정 + EXTERNAL_LEGACY 파트너 이관 share 귀속
  */
 router.get('/settlement/accruals', requireStaffPermission('admin.externalSettlement'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
@@ -1212,6 +1263,14 @@ router.get('/settlement/accruals', requireStaffPermission('admin.externalSettlem
         teamLeader: { select: { role: true, externalCompanyId: true } },
       },
     },
+    tenantSharesAsSource: {
+      select: {
+        syncStatus: true,
+        settlementMode: true,
+        settlementExternalCompanyId: true,
+        settlementExternalCompany: { select: { id: true, name: true } },
+      },
+    },
   };
 
   const activeInquiries = await prisma.inquiry.findMany({
@@ -1220,11 +1279,24 @@ router.get('/settlement/accruals', requireStaffPermission('admin.externalSettlem
       operatingCompanyId,
       externalTransferFee: { not: null },
       status: { notIn: ['CANCELLED', 'ON_HOLD'] },
-      assignments: {
-        some: {
-          teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: { not: null } },
+      OR: [
+        {
+          assignments: {
+            some: {
+              teamLeader: { role: 'EXTERNAL_PARTNER', externalCompanyId: { not: null } },
+            },
+          },
         },
-      },
+        {
+          tenantSharesAsSource: {
+            some: {
+              syncStatus: 'ACTIVE',
+              settlementMode: 'EXTERNAL_LEGACY',
+              settlementExternalCompanyId: { not: null },
+            },
+          },
+        },
+      ],
     },
     select: accrualSelect,
   });
@@ -1266,7 +1338,14 @@ router.get('/settlement/accruals', requireStaffPermission('admin.externalSettlem
 
   for (const inq of activeInquiries) {
     const attributed = resolveExternalSettlementCompanyAttribution(
-      inq,
+      {
+        id: inq.id,
+        cancelFeeExternalCompanyId: inq.cancelFeeExternalCompanyId,
+        assignments: inq.assignments,
+        hybridLegacySettlement: hybridLegacySettlementFromShare(
+          pickPrimaryShareAsSource(inq.tenantSharesAsSource),
+        ),
+      },
       false,
       marketplaceBuyerByInquiry.get(inq.id),
     );

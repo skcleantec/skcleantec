@@ -9,6 +9,7 @@ import {
   linkExternalCompanyPartnerTenant,
   listExternalMigrationEligibleInquiries,
   migrateExternalCompanyToPartner,
+  getExternalCompanyMigrationStatus,
   type ExternalCompanyListItem,
   type MigrationEligibleInquiry,
 } from '../../api/externalCompanies';
@@ -104,9 +105,16 @@ export function AdminExternalCompaniesPage() {
   const [partnerships, setPartnerships] = useState<TenantPartnershipItem[]>([]);
   const [linkPartnerTenantId, setLinkPartnerTenantId] = useState('');
   const [eligibleItems, setEligibleItems] = useState<MigrationEligibleInquiry[]>([]);
-  const [migrationPreview, setMigrationPreview] = useState<{ count: number; feeTotal: number } | null>(null);
+  const [migrationPreview, setMigrationPreview] = useState<{ count: number; feeTotal: number; totalEligibleCount: number; remainingEligibleCount: number } | null>(null);
   const [migrationBusy, setMigrationBusy] = useState(false);
   const [migrationErr, setMigrationErr] = useState<string | null>(null);
+  const [migrationStatus, setMigrationStatus] = useState<{
+    migratedCount: number;
+    eligibleCount: number;
+    partnershipActive: boolean;
+    mismatchedShareCount: number;
+  } | null>(null);
+  const [migrationResultErrors, setMigrationResultErrors] = useState<Array<{ inquiryId: string; error: string }>>([]);
   const [tenantSlug, setTenantSlug] = useState('');
   const [loginCopyOpen, setLoginCopyOpen] = useState(false);
   const [loginCopyCredentials, setLoginCopyCredentials] = useState<LoginCredentialsCopyInput | null>(null);
@@ -220,34 +228,58 @@ export function AdminExternalCompaniesPage() {
     }
   };
 
+  const refreshMigrationData = useCallback(
+    async (externalCompanyId: string, linkedPartnerTenantId?: string | null) => {
+      if (!token) return;
+      const [statusRes, eRes] = await Promise.all([
+        getExternalCompanyMigrationStatus(token, externalCompanyId),
+        linkedPartnerTenantId
+          ? listExternalMigrationEligibleInquiries(token, externalCompanyId)
+          : Promise.resolve({ items: [] as MigrationEligibleInquiry[] }),
+      ]);
+      setMigrationStatus({
+        migratedCount: statusRes.migratedCount,
+        eligibleCount: statusRes.eligibleCount,
+        partnershipActive: statusRes.partnershipActive,
+        mismatchedShareCount: statusRes.mismatchedShareCount,
+      });
+      setEligibleItems(eRes.items);
+      if (statusRes.mismatchedShareCount > 0) {
+        setMigrationErr(
+          `이관 이력 ${statusRes.mismatchedShareCount}건이 현재 연결 파트너와 다릅니다. 관리자에게 문의해 주세요.`,
+        );
+      }
+    },
+    [token],
+  );
+
   const openMigration = useCallback(
     async (row: ExternalCompanyListItem) => {
       if (!token) return;
       setMigrating(row);
       setMigrationErr(null);
       setMigrationPreview(null);
+      setMigrationResultErrors([]);
       setEligibleItems([]);
+      setMigrationStatus(null);
       setLinkPartnerTenantId(row.linkedPartnerTenant?.id ?? '');
       try {
-        const [pRes, eRes] = await Promise.all([
-          listTenantPartnerships(token),
-          row.linkedPartnerTenant
-            ? listExternalMigrationEligibleInquiries(token, row.id)
-            : Promise.resolve({ items: [] as MigrationEligibleInquiry[] }),
-        ]);
+        const pRes = await listTenantPartnerships(token);
         setPartnerships(pRes.items.filter((p) => p.status === 'ACTIVE'));
-        setEligibleItems(eRes.items);
+        await refreshMigrationData(row.id, row.linkedPartnerTenant?.id);
       } catch (e) {
         setMigrationErr(e instanceof Error ? e.message : '불러오기 실패');
       }
     },
-    [token],
+    [token, refreshMigrationData],
   );
 
   const closeMigration = () => {
     setMigrating(null);
     setMigrationErr(null);
     setMigrationPreview(null);
+    setMigrationResultErrors([]);
+    setMigrationStatus(null);
     setEligibleItems([]);
     setLinkPartnerTenantId('');
   };
@@ -271,8 +303,7 @@ export function AdminExternalCompaniesPage() {
             }
           : prev,
       );
-      const eRes = await listExternalMigrationEligibleInquiries(token, migrating.id);
-      setEligibleItems(eRes.items);
+      await refreshMigrationData(migrating.id, linked.linkedPartnerTenant?.id);
     } catch (e) {
       setMigrationErr(e instanceof Error ? e.message : '파트너 연결 실패');
     } finally {
@@ -288,9 +319,29 @@ export function AdminExternalCompaniesPage() {
       const result = await migrateExternalCompanyToPartner(token, migrating.id, {
         allEligible: true,
         dryRun: true,
+        batchLimit: 40,
       });
-      setMigrationPreview({ count: result.count, feeTotal: result.feeTotal });
+      setMigrationPreview({
+        count: result.count,
+        feeTotal: result.feeTotal,
+        totalEligibleCount: result.totalEligibleCount,
+        remainingEligibleCount: result.remainingEligibleCount,
+      });
       setEligibleItems(result.items);
+      setMigrationStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              migratedCount: result.migratedShareCount,
+              eligibleCount: result.totalEligibleCount,
+            }
+          : {
+              migratedCount: result.migratedShareCount,
+              eligibleCount: result.totalEligibleCount,
+              partnershipActive: true,
+              mismatchedShareCount: 0,
+            },
+      );
     } catch (e) {
       setMigrationErr(e instanceof Error ? e.message : '미리보기 실패');
     } finally {
@@ -304,32 +355,50 @@ export function AdminExternalCompaniesPage() {
       alert('이관할 접수가 없습니다.');
       return;
     }
+    if (migrationStatus?.mismatchedShareCount) {
+      alert('연결 파트너와 이관 이력이 맞지 않습니다. 이관을 진행할 수 없습니다.');
+      return;
+    }
+    const batchTotal = eligibleItems.length;
     if (
       !window.confirm(
-        `"${migrating.name}" 타업체 DB ${eligibleItems.length}건을 파트너 연계로 이관할까요?\n타업체 정산(수수료)은 그대로 유지됩니다.`,
+        `"${migrating.name}" 타업체 DB ${batchTotal}건(최대 40건씩)을 파트너 연계로 이관할까요?\n타업체 정산(수수료)은 그대로 유지됩니다.\n자사 팀장 배정은 해제됩니다.`,
       )
     ) {
       return;
     }
     setMigrationBusy(true);
     setMigrationErr(null);
+    setMigrationResultErrors([]);
+    let totalMigrated = 0;
+    const allErrors: Array<{ inquiryId: string; error: string }> = [];
     try {
-      const result = await migrateExternalCompanyToPartner(token, migrating.id, {
-        allEligible: true,
-        dryRun: false,
-      });
-      if (result.errors.length > 0) {
-        alert(
-          `완료 ${result.migrated.length}건 · 실패 ${result.errors.length}건\n${result.errors
-            .slice(0, 3)
-            .map((e) => e.error)
-            .join('\n')}`,
+      let remaining = batchTotal;
+      while (remaining > 0) {
+        const result = await migrateExternalCompanyToPartner(token, migrating.id, {
+          allEligible: true,
+          dryRun: false,
+          batchLimit: 40,
+        });
+        totalMigrated += result.migrated.length;
+        allErrors.push(...result.errors);
+        remaining = result.remainingEligibleCount;
+        if (result.migrated.length === 0 && result.errors.length > 0) {
+          break;
+        }
+        if (remaining <= 0) break;
+      }
+      setMigrationResultErrors(allErrors);
+      await refreshMigrationData(migrating.id, migrating.linkedPartnerTenant?.id);
+      load();
+      if (allErrors.length > 0) {
+        setMigrationErr(
+          `완료 ${totalMigrated}건 · 실패 ${allErrors.length}건 — 아래 오류를 확인한 뒤 남은 건을 다시 시도해 주세요.`,
         );
       } else {
-        alert(`${result.migrated.length}건을 파트너 DB로 이관했습니다.`);
+        alert(`${totalMigrated}건을 파트너 DB로 이관했습니다.`);
+        closeMigration();
       }
-      closeMigration();
-      load();
     } catch (e) {
       setMigrationErr(e instanceof Error ? e.message : '이관 실패');
     } finally {
@@ -821,13 +890,35 @@ export function AdminExternalCompaniesPage() {
                 DB 파트너 이관 — {migrating.name}
               </h3>
               <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                접수를 파트너 mirror로 옮깁니다. 타업체 정산·지급 이력은 그대로 유지됩니다.
+                접수를 파트너 mirror로 옮깁니다. 타업체 정산·지급 이력은 그대로 유지됩니다. 타업체 로그인·회사
+                레코드는 삭제되지 않습니다.
               </p>
             </div>
             <div className="px-5 py-4 overflow-y-auto space-y-4 text-sm flex-1 min-h-0">
               {migrationErr ? (
                 <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded px-3 py-2">
                   {migrationErr}
+                </div>
+              ) : null}
+              {migrationResultErrors.length > 0 ? (
+                <div className="text-xs text-rose-900 bg-rose-50 border border-rose-100 rounded px-3 py-2 space-y-1 max-h-32 overflow-y-auto">
+                  {migrationResultErrors.slice(0, 10).map((row) => (
+                    <p key={row.inquiryId}>
+                      {row.inquiryId.slice(0, 8)}… — {row.error}
+                    </p>
+                  ))}
+                  {migrationResultErrors.length > 10 ? (
+                    <p className="text-rose-700">외 {migrationResultErrors.length - 10}건…</p>
+                  ) : null}
+                </div>
+              ) : null}
+              {migrationStatus ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 tabular-nums">
+                  이관 완료 <strong>{migrationStatus.migratedCount}</strong>건 · 남은 대상{' '}
+                  <strong>{migrationStatus.eligibleCount}</strong>건
+                  {!migrationStatus.partnershipActive ? (
+                    <span className="block text-amber-800 mt-1">ACTIVE 파트너십이 없습니다. 파트너 연결 메뉴에서 승인해 주세요.</span>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -869,8 +960,12 @@ export function AdminExternalCompaniesPage() {
                   <p className="text-xs font-semibold text-gray-800">2. 이관 대상 ({eligibleItems.length}건)</p>
                   {migrationPreview ? (
                     <p className="text-xs text-gray-600 tabular-nums">
-                      미리보기: {migrationPreview.count}건 · 수수료 합{' '}
-                      {migrationPreview.feeTotal.toLocaleString('ko-KR')}원 (정산 변화 없음)
+                      미리보기(1회 최대 40건): {migrationPreview.count}건 · 수수료 합{' '}
+                      {migrationPreview.feeTotal.toLocaleString('ko-KR')}원 · 전체 대상{' '}
+                      {migrationPreview.totalEligibleCount}건
+                      {migrationPreview.remainingEligibleCount > 0
+                        ? ` (추가 ${migrationPreview.remainingEligibleCount}건은 이관 실행 시 연속 처리)`
+                        : ''}
                     </p>
                   ) : null}
                   {eligibleItems.length === 0 ? (
@@ -903,7 +998,12 @@ export function AdminExternalCompaniesPage() {
                     </button>
                     <button
                       type="button"
-                      disabled={migrationBusy || eligibleItems.length === 0 || !migrating.linkedPartnerTenant}
+                      disabled={
+                        migrationBusy ||
+                        eligibleItems.length === 0 ||
+                        !migrating.linkedPartnerTenant ||
+                        Boolean(migrationStatus?.mismatchedShareCount)
+                      }
                       onClick={() => void handleMigrationExecute()}
                       className="w-full sm:w-auto px-3 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-medium disabled:opacity-50 touch-manipulation"
                     >
