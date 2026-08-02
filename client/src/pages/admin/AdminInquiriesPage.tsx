@@ -52,6 +52,7 @@ import {
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { isActiveNativePartnerShareSource } from '../../utils/tenantShareSettlement';
+import { externalTransferFeeForInquiryPatch } from '../../utils/inquiryPatchExternalFee';
 import {
   MSG_PARTNER_SHARE_BLOCKS_EXTERNAL,
   partnerShareBlocksExternal,
@@ -2253,9 +2254,13 @@ export function AdminInquiriesPage() {
         serviceTotalAmount: parseWon(editForm.amountTotal),
         serviceDepositAmount: parseWon(editForm.amountDeposit),
         serviceBalanceAmount: parseWon(editForm.amountBalance),
-        externalTransferFee: parseWon(editForm.externalTransferFee),
         internalCustomerTone: editForm.internalCustomerTone,
       };
+      const extFee = externalTransferFeeForInquiryPatch(
+        editForm.externalTransferFee,
+        editItem.externalTransferFee,
+      );
+      if (extFee !== undefined) patch.externalTransferFee = extFee;
       if (omitSpecialNotesIfLegacyUnchangedRef.current && editForm.specialNotes.trim() === '') {
         delete patch.specialNotes;
       }

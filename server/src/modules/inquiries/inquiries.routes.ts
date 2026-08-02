@@ -812,7 +812,7 @@ router.patch('/:id', async (req, res) => {
 
   const data = buildInquiryPatchData(body);
   if (
-    data.externalTransferFee !== undefined &&
+    data.externalTransferFee != null &&
     !(await isFeatureEnabled(tenantId, 'mod_external_co'))
   ) {
     res.status(403).json({

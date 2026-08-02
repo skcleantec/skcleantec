@@ -34,6 +34,7 @@ import {
   type TeamLeaderAssignmentSurface,
 } from '../../utils/inquiryServiceZoneAssignment';
 import { mergeExternalPartnersFromAssignments } from '../../utils/externalCompanyUsage';
+import { externalTransferFeeForInquiryPatch } from '../../utils/inquiryPatchExternalFee';
 import { OrderFormTemplateBadge, OrderFormCustomAnswers } from '../orderform/OrderFormTemplateInfo';
 import { ProfOptionsAmountReviewApplyPanel } from '../inquiry/ProfOptionsAmountReviewNotice';
 import { AddressSearch } from '../forms/AddressSearch';
@@ -235,6 +236,7 @@ function buildPatchFromEditForm(
     includeCreatedById?: boolean;
     externalTeamLeaderId?: string | null;
     manualIntake?: boolean;
+    previousExternalTransferFee?: number | null;
   }
 ): Record<string, unknown> {
   const parseWon = (s: string) => {
@@ -269,7 +271,6 @@ function buildPatchFromEditForm(
     serviceTotalAmount: parseWon(editForm.amountTotal),
     serviceDepositAmount: parseWon(editForm.amountDeposit),
     serviceBalanceAmount: parseWon(editForm.amountBalance),
-    externalTransferFee: parseWon(editForm.externalTransferFee),
     scheduleMemo: editForm.scheduleMemo.trim() || null,
     specialNotes: editForm.specialNotes.trim() || null,
     consultationMemo: editForm.consultationMemo.trim() || null,
@@ -350,6 +351,11 @@ function buildPatchFromEditForm(
     applyManualIntakeFieldDefaults(patch, editForm);
     patch.source = MANUAL_INTAKE_SOURCE_VALUE;
   }
+  const extFee = externalTransferFeeForInquiryPatch(
+    editForm.externalTransferFee,
+    opts?.previousExternalTransferFee,
+  );
+  if (extFee !== undefined) patch.externalTransferFee = extFee;
   return patch;
 }
 
@@ -1871,6 +1877,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         includeCreatedById: canEditMarketer,
         externalTeamLeaderId: resolvedExternalLeadId,
         manualIntake: isExternalIntakeMode,
+        previousExternalTransferFee: item?.externalTransferFee,
       }) as Record<string, unknown>;
       const requestedStatus = String(patch.status ?? '');
       const isCancelConfirm = requestedStatus === 'CANCEL_CONFIRMED';
