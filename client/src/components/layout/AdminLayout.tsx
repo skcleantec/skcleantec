@@ -1116,15 +1116,24 @@ export function AdminLayout() {
       <header className="px-3 sm:px-4 lg:px-5 py-2.5 shadow-md theme-dark-header">
         <div className="w-full flex flex-col gap-2 min-w-0">
           <div className="md:hidden flex items-center justify-between gap-2 min-w-0">
-            <button
-              type="button"
-              onClick={goAdminHomeWithRefresh}
-              className="min-w-0 shrink-0 text-left hover:opacity-90 transition-opacity"
-              aria-label="청소비서 — 대시보드로 이동"
-              title="대시보드로 이동"
-            >
-              <TenantBrandLogo height={28} />
-            </button>
+            <div className="flex min-w-0 shrink items-center gap-1.5">
+              <button
+                type="button"
+                onClick={goAdminHomeWithRefresh}
+                className="min-w-0 shrink-0 text-left hover:opacity-90 transition-opacity"
+                aria-label="청소비서 — 대시보드로 이동"
+                title="대시보드로 이동"
+              >
+                <TenantBrandLogo height={28} />
+              </button>
+              {adminToken ? (
+                <ScheduleAlertSiren
+                  token={adminToken}
+                  variant="header"
+                  onOpenSchedule={openScheduleFromAlert}
+                />
+              ) : null}
+            </div>
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 shrink-0">
               {teamPreviewLink ? (
                 <AdminDevPreviewLinks adminToken={adminToken} compact />
@@ -1383,15 +1392,6 @@ export function AdminLayout() {
                     </div>
                   );
                 })}
-                {adminToken ? (
-                  <div className="lg:hidden shrink-0">
-                    <ScheduleAlertSiren
-                      token={adminToken}
-                      variant="gnb-chip"
-                      onOpenSchedule={openScheduleFromAlert}
-                    />
-                  </div>
-                ) : null}
               </nav>
             </DarkHeaderNavScroll>
           </div>

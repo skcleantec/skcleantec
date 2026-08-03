@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ScheduleStatsByDate } from '../../api/dayoffs';
 import { putScheduleSlotToAdjustment } from '../../api/dayoffs';
 import { ModalCloseButton } from './ModalCloseButton';
+import { Z_ABOVE_MOBILE_FLOATING_MENU } from '../layout/MobileFloatingMenuButton';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
 
 const SLOT_ADJ_LIMIT = 300;
@@ -63,7 +64,7 @@ export function ScheduleDaySlotToAdjustModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40"
+      className={`fixed inset-0 ${Z_ABOVE_MOBILE_FLOATING_MENU} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40`}
       role="dialog"
       aria-modal
       aria-labelledby="schedule-slot-to-adjust-title"

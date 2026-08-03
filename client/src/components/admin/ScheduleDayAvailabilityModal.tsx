@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalCloseButton } from './ModalCloseButton';
+import { Z_ABOVE_MOBILE_FLOATING_MENU } from '../layout/MobileFloatingMenuButton';
 import {
   getDayAvailability,
   putDayAvailability,
@@ -125,7 +126,7 @@ export function ScheduleDayAvailabilityModal({ open, date, token, onClose, onSav
 
   const modal = (
     <div
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-none"
+      className={`fixed inset-0 ${Z_ABOVE_MOBILE_FLOATING_MENU} flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-none`}
       role="dialog"
       aria-modal
       aria-labelledby="avail-modal-title"

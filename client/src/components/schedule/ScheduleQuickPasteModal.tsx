@@ -11,6 +11,7 @@ import {
 } from '../../api/quickPaste';
 import { INQUIRY_STATUS_LABELS } from '../inquiries/inquiriesUiParts';
 import { QuickPasteMissingClarify } from './QuickPasteMissingClarify';
+import { Z_ABOVE_MOBILE_FLOATING_MENU } from '../layout/MobileFloatingMenuButton';
 
 type ScheduleQuickPasteModalProps = {
   token: string;
@@ -191,7 +192,9 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[90] flex flex-col bg-white lg:items-center lg:justify-center lg:bg-black/40 lg:p-4">
+    <div
+      className={`fixed inset-0 ${Z_ABOVE_MOBILE_FLOATING_MENU} flex flex-col bg-white lg:items-center lg:justify-center lg:bg-black/40 lg:p-4`}
+    >
       <button type="button" className="absolute inset-0 hidden lg:block" aria-label="닫기" onClick={onClose} />
       <div className="relative flex min-h-0 flex-1 flex-col bg-white lg:max-h-[92vh] lg:min-h-0 lg:w-full lg:max-w-lg lg:rounded-2xl lg:shadow-xl lg:border lg:border-slate-200">
         <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-3 py-2.5 sm:px-4">

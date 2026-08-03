@@ -61,6 +61,7 @@ import {
 import { ScheduleInquirySearchPanel } from '../../components/admin/ScheduleInquirySearchPanel';
 import { ScheduleQuickPasteModal } from '../../components/schedule/ScheduleQuickPasteModal';
 import { ScheduleOrderIssueModal } from '../../components/schedule/ScheduleOrderIssueModal';
+import { Z_ABOVE_MOBILE_FLOATING_MENU } from '../../components/layout/MobileFloatingMenuButton';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
@@ -3519,7 +3520,7 @@ export function AdminSchedulePage() {
 
       {closureModalOpen && selectedDate && token && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40"
+          className={`fixed inset-0 ${Z_ABOVE_MOBILE_FLOATING_MENU} flex items-center justify-center p-4 bg-black/40`}
           role="dialog"
           aria-modal
           aria-labelledby="closure-scope-title"

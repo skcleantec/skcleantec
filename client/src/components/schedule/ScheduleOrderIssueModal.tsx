@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { OrderIssueInlinePanel } from '../orderform/OrderIssueInlinePanel';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
+import { Z_ABOVE_MOBILE_FLOATING_MENU } from '../layout/MobileFloatingMenuButton';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 import type { OrderForm } from '../../api/orderform';
 
@@ -18,7 +19,9 @@ export function ScheduleOrderIssueModal({ open, onClose, onIssued }: ScheduleOrd
   if (!open) return null;
 
   return createPortal(
-    <div className="modal-mobile-safe-overlay fixed inset-0 z-[90] flex flex-col bg-white lg:items-center lg:justify-center lg:bg-black/40 lg:p-4">
+    <div
+      className={`modal-mobile-safe-overlay fixed inset-0 ${Z_ABOVE_MOBILE_FLOATING_MENU} flex flex-col bg-white lg:items-center lg:justify-center lg:bg-black/40 lg:p-4`}
+    >
       <button type="button" className="absolute inset-0 hidden lg:block" aria-label="닫기" onClick={onClose} />
       <div className="modal-mobile-fullscreen-panel relative flex min-h-0 flex-1 flex-col bg-white lg:max-h-[92vh] lg:min-h-0 lg:w-full lg:max-w-2xl lg:rounded-2xl lg:border lg:border-slate-200 lg:shadow-xl">
         <ModalCloseButton onClick={onClose} className="right-2 top-2 sm:right-3 sm:top-3" />

@@ -4,6 +4,10 @@ import { useIsLgUp } from '../../hooks/useMediaQuery';
 
 const MOBILE_FLOATING_MENU_SIZE_PX = 40;
 
+/** viewport fixed 햄버거·스케줄 FAB — 그 위 포털 모달은 최소 `z-[120]` */
+export const Z_MOBILE_FLOATING_MENU = 118;
+export const Z_ABOVE_MOBILE_FLOATING_MENU = 'z-[120]';
+
 export type MobileFloatingMenuButtonProps = {
   onClick: () => void;
   'aria-label': string;
