@@ -10,6 +10,42 @@ export function normalizeSmtpPasswordInput(raw: string): string {
     .replace(/\s+/g, '');
 }
 
+/** Gmail 앱 비밀번호(16자)로 쓸 수 있는지 */
+export function isGmailAppPassword(normalized: string): boolean {
+  return /^[a-zA-Z0-9]{16}$/.test(normalized);
+}
+
+/**
+ * 저장·발송에 넣을 비밀번호.
+ * - 비어 있으면 기존 저장분 유지(빈 문자열 반환)
+ * - Gmail인데 16자가 아니면 자동완성(일반 비번)으로 보고, 이미 저장된 값이 있으면 무시
+ */
+export function resolveSmtpPasswordForSubmit(input: {
+  providerId: OutboundEmailProviderId;
+  smtpPassword: string;
+  passwordConfigured: boolean;
+}): { password: string; ignoredAutofill: boolean; error: string | null } {
+  const normalized = normalizeSmtpPasswordInput(input.smtpPassword);
+  if (!normalized) {
+    if (!input.passwordConfigured) {
+      return { password: '', ignoredAutofill: false, error: '메일 연동 비밀번호를 입력해 주세요.' };
+    }
+    return { password: '', ignoredAutofill: false, error: null };
+  }
+  if (input.providerId === 'gmail' && !isGmailAppPassword(normalized)) {
+    if (input.passwordConfigured) {
+      return { password: '', ignoredAutofill: true, error: null };
+    }
+    return {
+      password: '',
+      ignoredAutofill: false,
+      error:
+        'Gmail은 Google 「앱 비밀번호」 16자리만 됩니다. 브라우저 자동완성 값을 지운 뒤, 앱 비밀번호만 붙여 넣어 주세요.',
+    };
+  }
+  return { password: normalized, ignoredAutofill: false, error: null };
+}
+
 export function parseSmtpFrom(from: string): { displayName: string; email: string } {
   const trimmed = from.trim();
   const angle = trimmed.match(/^"([^"]*)"\s*<([^>]+)>$/);
@@ -83,12 +119,13 @@ export function validateOutboundEmailForm(input: OutboundEmailValidationInput): 
     errors.smtpPort = '연결 번호는 1~65535 사이로 입력해 주세요.';
   }
 
-  const passwordNormalized = normalizeSmtpPasswordInput(password);
-  if (!passwordNormalized && !input.passwordConfigured) {
-    errors.smtpPassword = '메일 연동 비밀번호를 입력해 주세요.';
-  } else if (passwordNormalized && input.providerId === 'gmail' && passwordNormalized.length !== 16) {
-    errors.smtpPassword =
-      'Gmail은 Google 「앱 비밀번호」 16자리만 됩니다. 브라우저 자동완성(일반 로그인 비밀번호)이 들어갔는지 확인하고, 앱 비밀번호를 직접 붙여 넣어 주세요.';
+  const resolved = resolveSmtpPasswordForSubmit({
+    providerId: input.providerId,
+    smtpPassword: password,
+    passwordConfigured: input.passwordConfigured,
+  });
+  if (resolved.error) {
+    errors.smtpPassword = resolved.error;
   }
 
   if (input.requireTestEmail && !testTo) {

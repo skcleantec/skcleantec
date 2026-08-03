@@ -120,6 +120,7 @@ export function AdminTenantCompanyOutboundEmailPage() {
           onDisplayNameChange={form.setDisplayName}
           smtpPassword={form.smtpPassword}
           onSmtpPasswordChange={form.setSmtpPassword}
+          onClearSmtpPassword={form.clearSmtpPasswordField}
           passwordConfigured={form.passwordConfigured}
           smtpHost={form.smtpHost}
           onSmtpHostChange={form.setSmtpHost}

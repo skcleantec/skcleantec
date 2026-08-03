@@ -24,8 +24,11 @@ export const OUTBOUND_EMAIL_COPY = {
   sendEmailHint: '메일함에 로그인할 때 쓰는 주소 전체 (@ 포함)',
   displayNameHint: '고객 메일함에 「발신: ○○」처럼 보이는 이름',
   passwordHint:
-    'Gmail은 Google 「앱 비밀번호」16자리만 됩니다(일반 로그인 비밀번호 불가). 「보낼 메일 주소」= 앱 비밀번호를 발급한 그 Google 계정이어야 합니다. 브라우저 자동완성이 넣지 않게, 발급 화면에서 복사해 붙여 넣으세요. 저장 후 칸이 비어도 「저장됨」이면 정상입니다.',
+    'Gmail은 Google 「앱 비밀번호」16자리만 됩니다. 이미 저장됐으면 칸을 비운 채 「연습 메일 보내기」만 누르면 됩니다. 칸에 긴 점이 보이면 브라우저 자동완성이니 「칸 비우기」를 누르세요.',
   passwordConfiguredPlaceholder: '●●●●●●●● 저장됨 (바꿀 때만 다시 입력)',
+  passwordClear: '칸 비우기',
+  passwordSavedHint:
+    '연동 비밀번호가 이미 저장되어 있습니다. 자동완성으로 긴 값이 보이면 「칸 비우기」 후 「연습 메일 보내기」를 누르세요.',
   testEmailHint: '저장 후 같은 설정으로 연습 메일을 보냅니다. 스팸함도 확인해 주세요.',
   testEmailLabel: '연습 보낼 내 메일',
   save: '저장',

@@ -13,7 +13,7 @@ import {
   parseSmtpFrom,
   validateOutboundEmailForm,
   firstOutboundEmailValidationMessage,
-  normalizeSmtpPasswordInput,
+  resolveSmtpPasswordForSubmit,
 } from '../../utils/outboundEmailFormHelpers';
 import {
   applyOutboundEmailProviderPreset,
@@ -191,9 +191,29 @@ export function useOutboundEmailSettingsForm() {
     [providerId, sendEmail, displayName, smtpHost, smtpPort, smtpPassword, passwordConfigured, testEmailTo],
   );
 
+  const clearSmtpPasswordField = useCallback(() => {
+    setSmtpPassword('');
+    setFieldErrors((prev) => {
+      if (!prev.smtpPassword) return prev;
+      const next = { ...prev };
+      delete next.smtpPassword;
+      return next;
+    });
+    setErr(null);
+  }, []);
+
   const handleSaveSmtp = async () => {
     if (!token) return;
-    const errors = validateOutboundEmailForm(validationInput);
+    const pwd = resolveSmtpPasswordForSubmit({
+      providerId,
+      smtpPassword,
+      passwordConfigured,
+    });
+    if (pwd.ignoredAutofill) clearSmtpPasswordField();
+    const errors = validateOutboundEmailForm({
+      ...validationInput,
+      smtpPassword: pwd.ignoredAutofill ? '' : smtpPassword,
+    });
     setFieldErrors(errors);
     const first = firstOutboundEmailValidationMessage(errors);
     if (first) {
@@ -203,7 +223,6 @@ export function useOutboundEmailSettingsForm() {
     setBusy(true);
     setErr(null);
     const portNum = parseInt(smtpPort, 10);
-    const passwordNormalized = normalizeSmtpPasswordInput(smtpPassword);
     try {
       const dto = await patchTenantCompanyProfile(token, {
         ...(smtpScope ? { operatingCompanyId: smtpScope } : {}),
@@ -213,7 +232,7 @@ export function useOutboundEmailSettingsForm() {
           secure: smtpSecure,
           user: sendEmail.trim().toLowerCase(),
           from: smtpFrom.trim(),
-          ...(passwordNormalized ? { password: passwordNormalized } : {}),
+          ...(pwd.password ? { password: pwd.password } : {}),
         },
       });
       hydrate(dto, smtpScope);
@@ -228,6 +247,27 @@ export function useOutboundEmailSettingsForm() {
 
   const handleTestEmail = async () => {
     if (!token) return;
+    // 이미 저장된 SMTP면 입력란(자동완성)과 무관하게 연습 발송만 수행
+    if (smtpReady) {
+      const testTo = testEmailTo.trim();
+      if (!testTo) {
+        setFieldErrors({ testEmailTo: '연습 보낼 내 메일 주소를 입력해 주세요.' });
+        setErr('연습 보낼 내 메일 주소를 입력해 주세요.');
+        return;
+      }
+      setBusy(true);
+      setErr(null);
+      try {
+        if (smtpPassword) clearSmtpPasswordField();
+        await sendTenantCompanyProfileTestEmail(token, testTo, smtpScope || null);
+        setSuccessModal(OUTBOUND_EMAIL_COPY.successTest);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : '연습 메일 보내기 실패');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const errors = validateOutboundEmailForm({ ...validationInput, requireTestEmail: true });
     setFieldErrors(errors);
     const first = firstOutboundEmailValidationMessage(errors);
@@ -235,25 +275,22 @@ export function useOutboundEmailSettingsForm() {
       setErr(first);
       return;
     }
-    if (!smtpReady) {
-      setErr('먼저 설정을 저장해 주세요.');
-      return;
-    }
-    setBusy(true);
-    setErr(null);
-    try {
-      await sendTenantCompanyProfileTestEmail(token, testEmailTo.trim(), smtpScope || null);
-      setSuccessModal(OUTBOUND_EMAIL_COPY.successTest);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : '연습 메일 보내기 실패');
-    } finally {
-      setBusy(false);
-    }
+    setErr('먼저 설정을 저장해 주세요.');
   };
 
   const handleSaveAndTest = async () => {
     if (!token) return;
-    const errors = validateOutboundEmailForm({ ...validationInput, requireTestEmail: true });
+    const pwd = resolveSmtpPasswordForSubmit({
+      providerId,
+      smtpPassword,
+      passwordConfigured,
+    });
+    if (pwd.ignoredAutofill) clearSmtpPasswordField();
+    const errors = validateOutboundEmailForm({
+      ...validationInput,
+      smtpPassword: pwd.ignoredAutofill ? '' : smtpPassword,
+      requireTestEmail: true,
+    });
     setFieldErrors(errors);
     const first = firstOutboundEmailValidationMessage(errors);
     if (first) {
@@ -263,7 +300,6 @@ export function useOutboundEmailSettingsForm() {
     setBusy(true);
     setErr(null);
     const portNum = parseInt(smtpPort, 10);
-    const passwordNormalized = normalizeSmtpPasswordInput(smtpPassword);
     try {
       const dto = await patchTenantCompanyProfile(token, {
         ...(smtpScope ? { operatingCompanyId: smtpScope } : {}),
@@ -273,7 +309,7 @@ export function useOutboundEmailSettingsForm() {
           secure: smtpSecure,
           user: sendEmail.trim().toLowerCase(),
           from: smtpFrom.trim(),
-          ...(passwordNormalized ? { password: passwordNormalized } : {}),
+          ...(pwd.password ? { password: pwd.password } : {}),
         },
       });
       hydrate(dto, smtpScope);
@@ -321,6 +357,7 @@ export function useOutboundEmailSettingsForm() {
     setDisplayName,
     smtpPassword,
     setSmtpPassword,
+    clearSmtpPasswordField,
     passwordConfigured,
     testEmailTo,
     setTestEmailTo,

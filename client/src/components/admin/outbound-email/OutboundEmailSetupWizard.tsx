@@ -33,6 +33,7 @@ export type OutboundEmailSetupWizardProps = {
   onDisplayNameChange: (v: string) => void;
   smtpPassword: string;
   onSmtpPasswordChange: (v: string) => void;
+  onClearSmtpPassword?: () => void;
   passwordConfigured: boolean;
   smtpHost: string;
   onSmtpHostChange: (v: string) => void;
@@ -67,6 +68,7 @@ export function OutboundEmailSetupWizard({
   onDisplayNameChange,
   smtpPassword,
   onSmtpPasswordChange,
+  onClearSmtpPassword,
   passwordConfigured,
   smtpHost,
   onSmtpHostChange,
@@ -125,25 +127,14 @@ export function OutboundEmailSetupWizard({
               <p className="mt-1 text-xs text-rose-700">{fieldErrors.displayName}</p>
             ) : null}
           </label>
-          <label className="block sm:col-span-2">
-            <TenantSmtpFieldLabel title={OUTBOUND_EMAIL_COPY.stepPassword} hint={OUTBOUND_EMAIL_COPY.passwordHint} />
-            <input
-              type="password"
-              name="cbiseo-smtp-app-password"
-              value={smtpPassword}
-              onChange={(e) => onSmtpPasswordChange(e.target.value)}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              placeholder={
-                passwordConfigured ? OUTBOUND_EMAIL_COPY.passwordConfiguredPlaceholder : '연동 비밀번호 (필수)'
-              }
-              autoComplete="off"
-              data-1p-ignore
-              data-lpignore="true"
-            />
-            {fieldErrors.smtpPassword ? (
-              <p className="mt-1 text-xs text-rose-700">{fieldErrors.smtpPassword}</p>
-            ) : null}
-          </label>
+          <SmtpPasswordField
+            smtpPassword={smtpPassword}
+            onSmtpPasswordChange={onSmtpPasswordChange}
+            onClearSmtpPassword={onClearSmtpPassword}
+            passwordConfigured={passwordConfigured}
+            fieldError={fieldErrors.smtpPassword}
+            className="sm:col-span-2"
+          />
         </div>
         <OutboundEmailAdvancedSettings
           open={showAdvanced}
@@ -280,25 +271,13 @@ export function OutboundEmailSetupWizard({
               </a>
             ) : null}
           </div>
-          <label className="block">
-            <TenantSmtpFieldLabel title={OUTBOUND_EMAIL_COPY.stepPassword} hint={OUTBOUND_EMAIL_COPY.passwordHint} />
-            <input
-              type="password"
-              name="cbiseo-smtp-app-password"
-              value={smtpPassword}
-              onChange={(e) => onSmtpPasswordChange(e.target.value)}
-              className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm"
-              placeholder={
-                passwordConfigured ? OUTBOUND_EMAIL_COPY.passwordConfiguredPlaceholder : '연동 비밀번호 (필수)'
-              }
-              autoComplete="off"
-              data-1p-ignore
-              data-lpignore="true"
-            />
-            {fieldErrors.smtpPassword ? (
-              <p className="mt-1 text-xs text-rose-700">{fieldErrors.smtpPassword}</p>
-            ) : null}
-          </label>
+          <SmtpPasswordField
+            smtpPassword={smtpPassword}
+            onSmtpPasswordChange={onSmtpPasswordChange}
+            onClearSmtpPassword={onClearSmtpPassword}
+            passwordConfigured={passwordConfigured}
+            fieldError={fieldErrors.smtpPassword}
+          />
           <OutboundEmailAdvancedSettings
             open={showAdvanced}
             onToggle={() => onShowAdvancedChange(!showAdvanced)}
@@ -347,6 +326,61 @@ export function OutboundEmailSetupWizard({
           </button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function SmtpPasswordField({
+  smtpPassword,
+  onSmtpPasswordChange,
+  onClearSmtpPassword,
+  passwordConfigured,
+  fieldError,
+  className = '',
+}: {
+  smtpPassword: string;
+  onSmtpPasswordChange: (v: string) => void;
+  onClearSmtpPassword?: () => void;
+  passwordConfigured: boolean;
+  fieldError?: string;
+  className?: string;
+}) {
+  return (
+    <div className={`block ${className}`.trim()}>
+      <TenantSmtpFieldLabel title={OUTBOUND_EMAIL_COPY.stepPassword} hint={OUTBOUND_EMAIL_COPY.passwordHint} />
+      {passwordConfigured ? (
+        <p className="mt-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-900 leading-snug">
+          {OUTBOUND_EMAIL_COPY.passwordSavedHint}
+        </p>
+      ) : null}
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          type="password"
+          name="cbiseo-smtp-app-password"
+          value={smtpPassword}
+          onChange={(e) => onSmtpPasswordChange(e.target.value)}
+          onFocus={(e) => e.currentTarget.removeAttribute('readOnly')}
+          readOnly
+          className="w-full min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2.5 text-sm"
+          placeholder={
+            passwordConfigured ? OUTBOUND_EMAIL_COPY.passwordConfiguredPlaceholder : '연동 비밀번호 (필수)'
+          }
+          autoComplete="off"
+          data-1p-ignore
+          data-lpignore="true"
+          data-form-type="other"
+        />
+        {onClearSmtpPassword && (passwordConfigured || smtpPassword) ? (
+          <button
+            type="button"
+            onClick={onClearSmtpPassword}
+            className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            {OUTBOUND_EMAIL_COPY.passwordClear}
+          </button>
+        ) : null}
+      </div>
+      {fieldError ? <p className="mt-1 text-xs text-rose-700">{fieldError}</p> : null}
     </div>
   );
 }
