@@ -44,6 +44,9 @@ export function inquiryCountsForInternalToSlot(item: ScheduleItem): boolean {
   return inquiryUsesInternalTeamLeaderSlot(item);
 }
 
+/** 지역별 캘린더 — 우리가 처리할 접수만 (TO 집계와 동일 기준) */
+export const inquiryBelongsOnRegionalCalendar = inquiryCountsForInternalToSlot;
+
 function internalLeaderIds(item: ScheduleItem): string[] {
   return (item.assignments ?? [])
     .filter((a) => a.teamLeader.role === 'TEAM_LEADER' || a.teamLeader.role === 'ADMIN')

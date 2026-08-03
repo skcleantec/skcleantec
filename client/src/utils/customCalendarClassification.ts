@@ -2,6 +2,7 @@ import type { UserCustomCalendarItem } from '../api/userCustomCalendars';
 import type { ScheduleItem } from '../api/schedule';
 import { matchesCustomCalendarFilter } from './customCalendarMatch';
 import { allKoreanSidoRegionValues, isAllKoreanRegionsSelected } from '../constants/koreanCities';
+import { inquiryBelongsOnRegionalCalendar } from './scheduleSlotOccupancy';
 
 export type CustomCalendarTabRow = 'region' | 'company' | 'partner';
 
@@ -65,6 +66,8 @@ export function filterItemsByCustomCalendars(
   if (regionCal || companyCal || partnerCal) {
     return items.filter((it) => {
       if (regionCal && !matchesCustomCalendarFilter(it, regionCal)) return false;
+      // 지역별 = 자사 처리 대상만 (파트너·타업체 인계·정보공유 인계 제외)
+      if (regionCal && !inquiryBelongsOnRegionalCalendar(it)) return false;
       if (companyCal && !matchesCustomCalendarFilter(it, companyCal)) return false;
       if (partnerCal && !matchesCustomCalendarFilter(it, partnerCal)) return false;
       return true;

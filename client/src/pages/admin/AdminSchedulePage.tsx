@@ -29,6 +29,7 @@ import {
 } from '../../utils/customCalendarClassification';
 import type { CustomCalendarCreateFocus } from '../../components/admin/CustomCalendarCreateModal';
 import { computeRegionalDaySlotStats } from '../../utils/regionalSlotStats';
+import { inquiryBelongsOnRegionalCalendar } from '../../utils/scheduleSlotOccupancy';
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { ScheduleDayStaffMemoPanel } from '../../components/admin/ScheduleDayStaffMemoPanel';
@@ -1517,6 +1518,8 @@ export function AdminSchedulePage() {
       for (const cal of customCalendars) {
         if (cal.isolateFromGlobal) continue;
         if (!matchesCustomCalendarFilter(it, cal)) continue;
+        // 순수 지역 배지 — 파트너·타업체·정보공유 인계 건 제외 (지역 탭과 동일)
+        if (isPureRegionCalendar(cal) && !inquiryBelongsOnRegionalCalendar(it)) continue;
         if (
           cal.hideAssignedInRegionBadge &&
           isPureRegionCalendar(cal) &&
