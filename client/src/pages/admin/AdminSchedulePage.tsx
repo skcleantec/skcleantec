@@ -1915,6 +1915,33 @@ export function AdminSchedulePage() {
 
         <div className="min-w-0 flex flex-col gap-3 lg:gap-5">
 
+          {/* 모바일: 캘린더 바로 위 등록 액션 (얇게) */}
+          <div className="lg:hidden flex items-stretch gap-1">
+            <button
+              type="button"
+              onClick={() => setCreateInquiryModalDate(selectedDate ?? kstTodayYmd())}
+              className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-slate-800 shadow-sm touch-manipulation active:bg-slate-50"
+            >
+              일반등록
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/inquiries/order-issue')}
+              className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-slate-800 shadow-sm touch-manipulation active:bg-slate-50"
+            >
+              발주서발급
+            </button>
+            {hasQuickPaste ? (
+              <button
+                type="button"
+                onClick={() => setQuickPasteOpen(true)}
+                className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-slate-800 shadow-sm touch-manipulation active:bg-slate-50"
+              >
+                빠른등록
+              </button>
+            ) : null}
+          </div>
+
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
           <div className="relative">
             {loading && items.length === 0 ? (
@@ -3709,10 +3736,11 @@ export function AdminSchedulePage() {
 
       {token && hasQuickPaste ? (
         <>
+          {/* PC만 FAB — 모바일은 캘린더 위 버튼 사용 */}
           <button
             type="button"
             onClick={() => setQuickPasteOpen(true)}
-            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-4 z-[70] flex min-h-11 items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2.5 text-fluid-xs font-semibold text-white shadow-lg hover:bg-slate-800 lg:bottom-6 lg:right-6"
+            className="fixed bottom-6 right-6 z-[70] hidden min-h-11 items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2.5 text-fluid-xs font-semibold text-white shadow-lg hover:bg-slate-800 lg:flex"
           >
             빠른등록
           </button>
