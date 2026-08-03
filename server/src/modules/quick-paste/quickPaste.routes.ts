@@ -9,6 +9,7 @@ import { mapTenantCoinError } from '../tenants/tenantCoin.service.js';
 import {
   buildQuickPastePreview,
   commitQuickPasteIntake,
+  normalizeCorrections,
   QuickPasteValidationError,
   type QuickPasteCommitSnapshot,
 } from './quickPasteCommit.service.js';
@@ -83,6 +84,7 @@ router.post('/commit', async (req, res) => {
           }
         : undefined;
 
+    const corrections = normalizeCorrections(req.body?.corrections);
     const result = await commitQuickPasteIntake({
       tenantId,
       userId: user.userId,
@@ -90,6 +92,7 @@ router.post('/commit', async (req, res) => {
       rawText,
       overrides,
       parseSnapshot,
+      corrections,
     });
     res.status(201).json(result);
   } catch (e) {

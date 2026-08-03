@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   commitQuickPaste,
   parseQuickPaste,
+  type QuickPasteCorrection,
   type QuickPasteDraft,
   type QuickPasteFieldKey,
   type QuickPasteOptionalFieldKey,
@@ -11,8 +12,22 @@ import {
 } from '../../api/quickPaste';
 import { INQUIRY_STATUS_LABELS } from '../inquiries/inquiriesUiParts';
 import { QuickPasteMissingClarify } from './QuickPasteMissingClarify';
+import {
+  formatAmountInput,
+  parseAmountInput,
+  QuickPasteReviewField,
+} from './QuickPasteReviewField';
+import { extractRhbRawSnippetFromText } from '../../utils/quickPasteRhbEvidence';
 import { Z_ABOVE_MOBILE_FLOATING_MENU } from '../layout/MobileFloatingMenuButton';
 import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
+
+type EditableFieldKey = QuickPasteFieldKey | QuickPasteOptionalFieldKey | 'preferredTime';
+
+const TIME_SLOT_OPTIONS = [
+  { value: '오전', label: '오전' },
+  { value: '오후', label: '오후' },
+  { value: '사이청소', label: '사이' },
+] as const;
 
 type ScheduleQuickPasteModalProps = {
   token: string;
@@ -133,15 +148,6 @@ function StepChip({
   );
 }
 
-function AiPill({ children }: { children: string }) {
-  return (
-    <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 px-1.5 py-px text-[10px] font-semibold leading-tight text-white shadow-sm">
-      <SparkleIcon className="h-2.5 w-2.5" />
-      {children}
-    </span>
-  );
-}
-
 export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: ScheduleQuickPasteModalProps) {
   const [step, setStep] = useState<Step>('paste');
   const [rawText, setRawText] = useState('');
@@ -151,6 +157,15 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
   const [error, setError] = useState<string | null>(null);
   const [highlightMissing, setHighlightMissing] = useState(false);
   const [parseSnapshot, setParseSnapshot] = useState<QuickPasteParseSnapshot | null>(null);
+  const [editingKey, setEditingKey] = useState<EditableFieldKey | null>(null);
+  const [editBuffer, setEditBuffer] = useState('');
+  const [wrongBaseline, setWrongBaseline] = useState<Partial<Record<EditableFieldKey, string | null>>>(
+    {},
+  );
+  const [pendingCorrections, setPendingCorrections] = useState<
+    Partial<Record<EditableFieldKey, QuickPasteCorrection>>
+  >({});
+  const [learnBanner, setLearnBanner] = useState<string | null>(null);
   const fieldRefs = useRef<Partial<Record<QuickPasteFieldKey, HTMLInputElement | null>>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
@@ -164,6 +179,11 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
     setBusy(false);
     setHighlightMissing(false);
     setParseSnapshot(null);
+    setEditingKey(null);
+    setEditBuffer('');
+    setWrongBaseline({});
+    setPendingCorrections({});
+    setLearnBanner(null);
   }, []);
 
   useEffect(() => {
@@ -194,6 +214,15 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
         aiApplied: result.aiApplied,
         aiFilledFields: result.aiFilledFields ?? [],
       });
+      setEditingKey(null);
+      setEditBuffer('');
+      setWrongBaseline({});
+      setPendingCorrections({});
+      setLearnBanner(
+        result.tenantRulesApplied > 0
+          ? `학습된 서식 ${result.tenantRulesApplied}건이 적용되었습니다`
+          : null,
+      );
       setStep('review');
       setHighlightMissing(result.missingFields.length > 0);
     } catch (e) {
@@ -211,8 +240,99 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
     fieldRefs.current[first]?.focus();
   };
 
+  const draftValueAsString = (key: EditableFieldKey, d: QuickPasteDraft): string | null => {
+    const v = d[key];
+    if (v == null) return null;
+    return String(v);
+  };
+
+  const beginMarkWrong = (key: EditableFieldKey) => {
+    if (!draft) return;
+    const current = draft[key];
+    setWrongBaseline((prev) => ({
+      ...prev,
+      [key]: current == null ? null : String(current),
+    }));
+    if (key === 'serviceBalanceAmount') {
+      setEditBuffer(formatAmountInput(typeof current === 'number' ? current : null));
+    } else {
+      setEditBuffer(current == null ? '' : String(current));
+    }
+    setEditingKey(key);
+    setLearnBanner('수정으로 표시했습니다. 고친 값을 저장하면 AI가 이 표기를 학습합니다.');
+  };
+
+  const cancelEdit = () => {
+    setEditingKey(null);
+    setEditBuffer('');
+  };
+
+  const confirmEdit = () => {
+    if (!draft || !editingKey) return;
+    const key = editingKey;
+    let nextVal: string | number | null = editBuffer.trim() || null;
+    if (key === 'serviceBalanceAmount') {
+      nextVal = parseAmountInput(editBuffer);
+    } else if (key === 'areaPyeong') {
+      const n = editBuffer.trim() === '' ? null : Number(editBuffer.replace(/,/g, ''));
+      nextVal = n != null && Number.isFinite(n) ? n : null;
+    } else if (key === 'roomCount' || key === 'bathroomCount' || key === 'balconyCount') {
+      const n = editBuffer.trim() === '' ? null : Number(editBuffer);
+      nextVal = n != null && Number.isFinite(n) ? Math.round(n) : null;
+    } else if (key === 'preferredTime') {
+      const t = editBuffer.trim();
+      nextVal = t === '오전' || t === '오후' || t === '사이청소' ? t : t || null;
+    }
+
+    const wrong = wrongBaseline[key] ?? draftValueAsString(key, draft);
+    const correctStr = nextVal == null ? '' : String(nextVal);
+    setDraft((prev) => (prev ? { ...prev, [key]: nextVal } : prev));
+
+    if (correctStr && wrong !== correctStr) {
+      const snippet = preview?.fieldEvidence?.[key]?.snippet ?? null;
+      setPendingCorrections((prev) => ({
+        ...prev,
+        [key]: {
+          fieldKey: key,
+          wrongValue: wrong,
+          correctValue: correctStr,
+          snippet,
+        },
+      }));
+      const label =
+        key === 'preferredTime'
+          ? '시간대'
+          : preview?.fieldLabels?.[key as QuickPasteFieldKey] ??
+            preview?.optionalFieldLabels?.[key as QuickPasteOptionalFieldKey] ??
+            key;
+      setLearnBanner(`「${label}」고친 표기를 등록 시 학습합니다`);
+    }
+
+    setEditingKey(null);
+    setEditBuffer('');
+  };
+
+  /** 빈 필수 필드 — 틀림 없이 바로 채움 (오답 학습 대상 아님) */
+  const updateEmptyRequiredField = (key: QuickPasteFieldKey, value: string) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      if (key === 'serviceBalanceAmount') {
+        return { ...prev, serviceBalanceAmount: parseAmountInput(value) };
+      }
+      if (key === 'areaPyeong') {
+        const n = value.trim() === '' ? null : Number(value.replace(/,/g, ''));
+        return { ...prev, areaPyeong: n != null && Number.isFinite(n) ? n : null };
+      }
+      return { ...prev, [key]: value.trim() || null };
+    });
+  };
+
   const runCommit = async () => {
     if (!draft) return;
+    if (editingKey) {
+      setError('편집 중인 필드의 「고친 값 저장」을 먼저 눌러 주세요.');
+      return;
+    }
     if (missingFields.length > 0) {
       setHighlightMissing(true);
       setError('필수 항목을 입력해 주세요.');
@@ -222,33 +342,32 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
     setBusy(true);
     setError(null);
     try {
-      await commitQuickPaste(token, rawText, draft, parseSnapshot ?? undefined);
+      const corrections = Object.values(pendingCorrections).filter(
+        (c): c is QuickPasteCorrection => Boolean(c),
+      );
+      const result = await commitQuickPaste(
+        token,
+        rawText,
+        draft,
+        parseSnapshot ?? undefined,
+        corrections,
+      );
+      const learnedN = result.learnedRules?.length ?? result.correctionsLearned ?? corrections.length;
+      if (learnedN > 0) {
+        // 닫히기 전 짧게 보이도록 — 부모 갱신 전에 alert 대신 배너 (모달 닫힘)
+        window.setTimeout(() => {}, 0);
+      }
       onSaved();
       onClose();
+      if (learnedN > 0) {
+        // 모달이 닫힌 뒤에도 안내
+        window.alert(`AI가 수정 ${learnedN}건의 표기를 학습했습니다.`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : '등록 실패');
     } finally {
       setBusy(false);
     }
-  };
-
-  const updateRequiredField = (key: QuickPasteFieldKey, value: string) => {
-    setDraft((prev) => {
-      if (!prev) return prev;
-      if (key === 'serviceBalanceAmount' || key === 'areaPyeong') {
-        const n = value.trim() === '' ? null : Number(value);
-        return { ...prev, [key]: Number.isFinite(n) ? n : null };
-      }
-      return { ...prev, [key]: value.trim() || null };
-    });
-  };
-
-  const updateOptionalField = (key: QuickPasteOptionalFieldKey, value: string) => {
-    setDraft((prev) => {
-      if (!prev) return prev;
-      const n = value.trim() === '' ? null : Number(value);
-      return { ...prev, [key]: n != null && Number.isFinite(n) ? Math.round(n) : null };
-    });
   };
 
   if (!open) return null;
@@ -283,7 +402,7 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                 <StepChip label="분석" active={step === 'scanning'} done={step === 'review'} />
                 <StepChip label="확인" active={step === 'review'} />
               </div>
-              <h2 className="text-fluid-sm font-semibold tracking-tight text-white">빠른등록</h2>
+              <h2 className="text-fluid-sm font-semibold tracking-tight text-white">AI 빠른등록</h2>
               <p className="mt-0.5 text-fluid-2xs text-slate-300">{subtitle}</p>
             </div>
             <button
@@ -392,23 +511,30 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                 </p>
               ) : null}
 
-              {preview.aiApplied || preview.aiReviewed ? (
+              {preview.aiApplied || preview.aiReviewed || preview.aiContextSummary ? (
                 <div className="relative overflow-hidden rounded-2xl border border-violet-200/80 bg-gradient-to-r from-violet-50 via-white to-cyan-50 px-3 py-2.5 text-fluid-2xs text-violet-950 shadow-sm">
                   <div className="flex items-start gap-2">
                     <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/25">
                       <SparkleIcon className="h-3.5 w-3.5" />
                     </span>
-                    <p className="min-w-0 leading-relaxed">
-                      {preview.aiFilledFields.length > 0
-                        ? `AI가 채운 항목: ${preview.aiFilledFields.join(', ')}`
-                        : null}
-                      {preview.aiCorrectedFields?.length > 0
-                        ? `${preview.aiFilledFields.length > 0 ? ' · ' : ''}AI 검토 수정: ${preview.aiCorrectedFields.join(', ')}`
-                        : null}
-                      {preview.aiFilledFields.length === 0 && !preview.aiCorrectedFields?.length
-                        ? 'AI가 원문을 검토했습니다. 값을 확인해 주세요.'
-                        : null}
-                    </p>
+                    <div className="min-w-0 space-y-1 leading-relaxed">
+                      {preview.aiContextSummary ? (
+                        <p className="font-medium text-violet-950">{preview.aiContextSummary}</p>
+                      ) : null}
+                      <p className="text-violet-900/90">
+                        {preview.aiFilledFields.length > 0
+                          ? `찾은 항목: ${preview.aiFilledFields.join(', ')}`
+                          : null}
+                        {preview.aiCorrectedFields?.length > 0
+                          ? `${preview.aiFilledFields.length > 0 ? ' · ' : ''}추가 교정: ${preview.aiCorrectedFields.join(', ')}`
+                          : null}
+                        {preview.aiFilledFields.length === 0 &&
+                        !preview.aiCorrectedFields?.length &&
+                        !preview.aiContextSummary
+                          ? '원문 전체를 읽고 항목을 확인했습니다.'
+                          : null}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ) : preview.aiAvailable === false ? (
@@ -432,11 +558,21 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                 </p>
               ) : null}
 
-              {preview.tenantRulesApplied > 0 ? (
-                <p className="text-fluid-2xs font-medium text-sky-700">
-                  저장된 서식 규칙 {preview.tenantRulesApplied}건이 적용되었습니다.
+              {learnBanner ? (
+                <p className="rounded-2xl border border-violet-200 bg-violet-50/90 px-3 py-2.5 text-fluid-2xs font-medium text-violet-950">
+                  {learnBanner}
                 </p>
               ) : null}
+
+              {Object.keys(pendingCorrections).length > 0 ? (
+                <p className="rounded-xl border border-emerald-200 bg-emerald-50/90 px-2.5 py-1.5 text-fluid-2xs text-emerald-900">
+                  수정 {Object.keys(pendingCorrections).length}건 — 등록 시 AI가 이 표기를 기억합니다.
+                </p>
+              ) : null}
+
+              <p className="text-fluid-2xs text-slate-500">
+                채워진 값은 <strong className="text-slate-700">수정</strong>을 누른 뒤 고칠 수 있습니다.
+              </p>
 
               {missingFields.length > 0 ? (
                 <p
@@ -446,110 +582,190 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                       : 'border-amber-200 bg-amber-50/80 text-amber-800'
                   }`}
                 >
-                  필수 {missingFields.length}항목이 비어 있습니다. 노란 칸을 채워 주세요.
+                  필수 {missingFields.length}항목이 비어 있습니다. 빈 칸은 바로 입력할 수 있습니다.
                 </p>
               ) : null}
 
-              <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
-                <div className="border-b border-slate-100 bg-slate-50/80 px-3 py-2">
+              <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm">
+                <div className="border-b border-slate-100 bg-slate-50/80 px-2.5 py-1.5">
                   <p className="text-fluid-xs font-semibold text-slate-800">필수 항목</p>
                 </div>
-                <div className="space-y-3 p-3">
+                <div className="space-y-1.5 p-2">
                   {REQUIRED_FIELD_ORDER.map((key) => {
                     const isMissing = missingFields.includes(key);
-                    const showAlert = highlightMissing && isMissing;
-                    const aiFilled = preview.aiFilledFields?.includes(key);
-                    const aiCorrected = preview.aiCorrectedFields?.includes(key);
+                    const isEmpty = fieldMissing(draft, key);
+                    const editing = editingKey === key;
+                    const kind =
+                      key === 'serviceBalanceAmount'
+                        ? 'amount'
+                        : key === 'preferredDate'
+                          ? 'date'
+                          : key === 'areaPyeong'
+                            ? 'number'
+                            : 'text';
                     return (
-                      <label key={key} className="block space-y-1">
-                        <span
-                          className={`flex flex-wrap items-center text-fluid-2xs font-medium ${
-                            showAlert ? 'text-amber-800' : 'text-slate-600'
-                          }`}
-                        >
-                          {preview.fieldLabels[key]}
-                          {isMissing ? <span className="ml-1 text-amber-700">(필수)</span> : null}
-                          {aiCorrected ? <AiPill>AI 수정</AiPill> : null}
-                          {aiFilled && !aiCorrected ? <AiPill>AI</AiPill> : null}
-                        </span>
-                        <input
-                          ref={(el) => {
-                            fieldRefs.current[key] = el;
-                          }}
-                          type={
+                      <div key={key} className="space-y-1">
+                        <QuickPasteReviewField
+                          label={preview.fieldLabels[key]}
+                          displayValue={draft[key]}
+                          kind={kind}
+                          evidence={preview.fieldEvidence?.[key]}
+                          aiFilled={preview.aiFilledFields?.includes(key)}
+                          aiCorrected={preview.aiCorrectedFields?.includes(key)}
+                          isMissing={isMissing}
+                          highlightMissing={highlightMissing}
+                          emptyEditable={isEmpty}
+                          editing={editing}
+                          markedWrong={Boolean(pendingCorrections[key])}
+                          editValue={
+                            editing
+                              ? editBuffer
+                              : key === 'serviceBalanceAmount'
+                                ? formatAmountInput(draft.serviceBalanceAmount)
+                                : draft[key] == null
+                                  ? ''
+                                  : String(draft[key])
+                          }
+                          inputType={
                             key === 'preferredDate'
                               ? 'date'
-                              : key === 'serviceBalanceAmount' || key === 'areaPyeong'
+                              : key === 'areaPyeong'
                                 ? 'number'
                                 : 'text'
                           }
-                          value={
-                            draft[key] == null
-                              ? ''
-                              : key === 'serviceBalanceAmount' || key === 'areaPyeong'
-                                ? String(draft[key])
-                                : String(draft[key])
-                          }
-                          onChange={(e) => updateRequiredField(key, e.target.value)}
-                          className={`w-full min-h-10 rounded-xl border px-3 text-fluid-sm focus:outline-none focus:ring-2 ${
-                            showAlert
-                              ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300 animate-pulse focus:ring-amber-500'
-                              : aiFilled || aiCorrected
-                                ? 'border-violet-200 bg-violet-50/40 focus:ring-violet-400'
-                                : 'border-slate-200 bg-white focus:ring-violet-400'
-                          }`}
+                          inputRef={(el) => {
+                            fieldRefs.current[key] = el;
+                          }}
+                          onMarkWrong={() => beginMarkWrong(key)}
+                          onCancelEdit={cancelEdit}
+                          onConfirmEdit={confirmEdit}
+                          onEditValueChange={(v) => {
+                            if (editing) setEditBuffer(v);
+                            else if (isEmpty) updateEmptyRequiredField(key, v);
+                          }}
                         />
-                      </label>
+                        {key === 'preferredDate' ? (
+                          <QuickPasteReviewField
+                            label="시간대"
+                            displayValue={draft.preferredTime}
+                            kind="time"
+                            evidence={preview.fieldEvidence?.preferredTime}
+                            aiFilled={
+                              preview.aiFilledFields?.includes('preferredTime') ||
+                              Boolean(draft.preferredTime && preview.aiApplied)
+                            }
+                            aiCorrected={preview.aiCorrectedFields?.includes('preferredTime')}
+                            emptyEditable={!draft.preferredTime}
+                            editing={editingKey === 'preferredTime'}
+                            markedWrong={Boolean(pendingCorrections.preferredTime)}
+                            editValue={
+                              editingKey === 'preferredTime'
+                                ? editBuffer
+                                : draft.preferredTime ?? ''
+                            }
+                            selectOptions={[...TIME_SLOT_OPTIONS]}
+                            onMarkWrong={() => beginMarkWrong('preferredTime')}
+                            onCancelEdit={cancelEdit}
+                            onConfirmEdit={confirmEdit}
+                            onEditValueChange={(v) => {
+                              if (editingKey === 'preferredTime') {
+                                setEditBuffer(v);
+                              } else if (!draft.preferredTime) {
+                                setDraft((prev) => (prev ? { ...prev, preferredTime: v } : prev));
+                              }
+                            }}
+                          />
+                        ) : null}
+                      </div>
                     );
                   })}
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
-                <div className="border-b border-slate-100 bg-slate-50/80 px-3 py-2">
-                  <p className="text-fluid-xs font-semibold text-slate-800">
-                    선택 — 방·화장실·베란다
-                    <span className="ml-1 font-normal text-slate-500">(없어도 등록 가능)</span>
+              <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm">
+                <div className="border-b border-slate-100 bg-slate-50/80 px-2.5 py-1">
+                  <p className="text-fluid-2xs font-semibold text-slate-800">
+                    방·화·베
+                    <span className="ml-1 font-normal text-slate-500">(선택)</span>
                   </p>
                 </div>
-                <div className="space-y-2 p-3">
-                  <p className="text-fluid-2xs text-slate-500">
-                    (3,2,1) · 3,2,1 형식은 방·화·베 순으로 자동 인식합니다. 특이 서식은 직접 입력하세요.
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {OPTIONAL_FIELD_ORDER.map((key) => {
-                      const aiFilled = preview.aiFilledFields?.includes(key);
-                      const aiHint = !aiFilled && preview.optionalAiHints?.includes(key);
-                      return (
-                        <label key={key} className="block space-y-1">
-                          <span className="text-fluid-2xs font-medium text-slate-600">
-                            {preview.optionalFieldLabels[key]}
-                            {aiFilled ? (
-                              <span className="mt-0.5 block">
-                                <AiPill>AI</AiPill>
-                              </span>
-                            ) : aiHint ? (
-                              <span className="mt-0.5 block text-fluid-2xs font-normal text-slate-500">
-                                확인 필요
-                              </span>
-                            ) : null}
-                          </span>
-                          <input
-                            type="number"
-                            min={0}
-                            max={20}
-                            value={draft[key] == null ? '' : String(draft[key])}
-                            onChange={(e) => updateOptionalField(key, e.target.value)}
-                            className={`w-full min-h-10 rounded-xl border px-2 text-center text-fluid-sm focus:outline-none focus:ring-2 focus:ring-violet-400 ${
-                              aiFilled
-                                ? 'border-violet-200 bg-violet-50/40'
-                                : 'border-slate-200 bg-white'
-                            }`}
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
+                {(() => {
+                  const hasRhbValue =
+                    draft.roomCount != null ||
+                    draft.bathroomCount != null ||
+                    draft.balconyCount != null;
+                  if (!hasRhbValue) return null;
+                  // 붙여넣은 rawText에 실제로 있는 표기만 인용 (가짜 방N화N베N 금지)
+                  const fromRaw = extractRhbRawSnippetFromText(rawText);
+                  const fromServer = [
+                    preview.fieldEvidence?.roomCount?.snippet,
+                    preview.fieldEvidence?.bathroomCount?.snippet,
+                    preview.fieldEvidence?.balconyCount?.snippet,
+                  ].find((s) => s && rawText.includes(s));
+                  const rhbSnippet = fromRaw || fromServer || null;
+                  return (
+                    <p className="border-b border-slate-100 bg-violet-50/60 px-2.5 py-1 text-[11px] leading-snug text-violet-900">
+                      <span className="font-semibold">원문 예시 </span>
+                      {rhbSnippet ? (
+                        <span>「{rhbSnippet}」</span>
+                      ) : (
+                        <span className="text-violet-700/80">원문에서 방·화·베 표기를 찾지 못함</span>
+                      )}
+                    </p>
+                  );
+                })()}
+                <div className="grid grid-cols-3 gap-1 p-1.5">
+                  {OPTIONAL_FIELD_ORDER.map((key) => {
+                    const isEmpty = draft[key] == null;
+                    const editing = editingKey === key;
+                    const rhbSnippet =
+                      extractRhbRawSnippetFromText(rawText) ||
+                      [
+                        preview.fieldEvidence?.roomCount?.snippet,
+                        preview.fieldEvidence?.bathroomCount?.snippet,
+                        preview.fieldEvidence?.balconyCount?.snippet,
+                      ].find((s) => s && rawText.includes(s)) ||
+                      null;
+                    return (
+                      <QuickPasteReviewField
+                        key={key}
+                        label={preview.optionalFieldLabels[key]}
+                        displayValue={draft[key]}
+                        kind="number"
+                        dense
+                        evidence={
+                          !isEmpty && rhbSnippet
+                            ? {
+                                snippet: rhbSnippet,
+                                source: preview.fieldEvidence?.[key]?.source ?? 'rule',
+                              }
+                            : undefined
+                        }
+                        aiFilled={preview.aiFilledFields?.includes(key)}
+                        emptyEditable={isEmpty}
+                        editing={editing}
+                        markedWrong={Boolean(pendingCorrections[key])}
+                        editValue={editing ? editBuffer : draft[key] == null ? '' : String(draft[key])}
+                        inputType="number"
+                        onMarkWrong={() => beginMarkWrong(key)}
+                        onCancelEdit={cancelEdit}
+                        onConfirmEdit={confirmEdit}
+                        onEditValueChange={(v) => {
+                          if (editing) setEditBuffer(v);
+                          else if (isEmpty) {
+                            setDraft((prev) => {
+                              if (!prev) return prev;
+                              const n = v.trim() === '' ? null : Number(v);
+                              return {
+                                ...prev,
+                                [key]: n != null && Number.isFinite(n) ? Math.round(n) : null,
+                              };
+                            });
+                          }
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               </div>
 

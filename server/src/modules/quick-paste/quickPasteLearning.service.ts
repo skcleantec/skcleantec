@@ -12,6 +12,7 @@ const ALL_TRACKED_KEYS = [
   'customerPhone',
   'address',
   'preferredDate',
+  'preferredTime',
   'serviceBalanceAmount',
   'areaPyeong',
   'roomCount',
@@ -81,6 +82,76 @@ export async function logQuickPasteLearning(
   });
 }
 
+export type QuickPasteCorrectionInput = {
+  fieldKey: string;
+  wrongValue: string | null;
+  correctValue: string;
+  snippet?: string | null;
+};
+
+/**
+ * 「틀림」교정 — 사용자가 AI/규칙 값이 틀렸다고 표시한 쌍을 학습.
+ * 라벨은 snippet 또는 correctValue 근처에서 추출.
+ */
+export async function learnQuickPasteFromCorrections(
+  db: PrismaClient,
+  opts: {
+    tenantId: string;
+    rawText: string;
+    corrections: QuickPasteCorrectionInput[];
+  },
+): Promise<Array<{ fieldKey: string; pattern: string; created: boolean; wrongValue: string | null }>> {
+  const learned: Array<{
+    fieldKey: string;
+    pattern: string;
+    created: boolean;
+    wrongValue: string | null;
+  }> = [];
+  const text = opts.rawText.trim();
+
+  for (const c of opts.corrections) {
+    const correct = String(c.correctValue ?? '').trim();
+    const wrong = c.wrongValue == null ? null : String(c.wrongValue).trim() || null;
+    if (!correct || !ALL_TRACKED_KEYS.includes(c.fieldKey as (typeof ALL_TRACKED_KEYS)[number])) {
+      continue;
+    }
+    if (wrong != null && wrong === correct) continue;
+
+    const snippet = (c.snippet ?? '').trim();
+    const label =
+      extractLabelNearValue(snippet || text, correct) ||
+      (snippet ? extractLabelNearValue(text, snippet.slice(0, 24)) : null) ||
+      extractLabelNearValue(text, wrong ?? '');
+    if (!label) {
+      console.info('[quick-paste] correction skip — no label', {
+        tenantId: opts.tenantId,
+        fieldKey: c.fieldKey,
+        wrong,
+        correct,
+      });
+      continue;
+    }
+
+    const row = await upsertLearnedQuickPasteRule(db, opts.tenantId, c.fieldKey, label);
+    if (row) {
+      learned.push({
+        fieldKey: row.fieldKey,
+        pattern: row.pattern,
+        created: row.created,
+        wrongValue: wrong,
+      });
+      console.info('[quick-paste] correction learned', {
+        tenantId: opts.tenantId,
+        fieldKey: c.fieldKey,
+        label: row.pattern,
+        wrong,
+        correct,
+      });
+    }
+  }
+  return learned;
+}
+
 export async function learnQuickPasteFromCommit(
   db: PrismaClient,
   opts: {
@@ -89,8 +160,19 @@ export async function learnQuickPasteFromCommit(
     ruleDraft: QuickPasteDraft;
     previewDraft: QuickPasteDraft;
     finalDraft: QuickPasteDraft;
+    /** 「틀림」으로 명시된 교정 — 있으면 이 경로를 우선 */
+    corrections?: QuickPasteCorrectionInput[];
   },
 ): Promise<Array<{ fieldKey: string; pattern: string; created: boolean }>> {
+  if (opts.corrections && opts.corrections.length > 0) {
+    const fromCorrections = await learnQuickPasteFromCorrections(db, {
+      tenantId: opts.tenantId,
+      rawText: opts.rawText,
+      corrections: opts.corrections,
+    });
+    return fromCorrections.map(({ fieldKey, pattern, created }) => ({ fieldKey, pattern, created }));
+  }
+
   const learned: Array<{ fieldKey: string; pattern: string; created: boolean }> = [];
   const text = opts.rawText.trim();
   for (const key of ALL_TRACKED_KEYS) {

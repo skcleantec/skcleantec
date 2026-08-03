@@ -11,6 +11,7 @@ import {
   diffQuickPasteDraftFields,
   learnQuickPasteFromCommit,
   logQuickPasteLearning,
+  type QuickPasteCorrectionInput,
 } from './quickPasteLearning.service.js';
 
 export class QuickPasteValidationError extends Error {
@@ -70,6 +71,30 @@ export type QuickPasteCommitSnapshot = {
   aiFilledFields?: string[];
 };
 
+function normalizeCorrections(raw: unknown): QuickPasteCorrectionInput[] {
+  if (!Array.isArray(raw)) return [];
+  const out: QuickPasteCorrectionInput[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const fieldKey = typeof (row as { fieldKey?: unknown }).fieldKey === 'string'
+      ? (row as { fieldKey: string }).fieldKey
+      : '';
+    const correctValue = (row as { correctValue?: unknown }).correctValue;
+    if (!fieldKey || correctValue == null || String(correctValue).trim() === '') continue;
+    const wrongRaw = (row as { wrongValue?: unknown }).wrongValue;
+    out.push({
+      fieldKey,
+      wrongValue: wrongRaw == null ? null : String(wrongRaw),
+      correctValue: String(correctValue).trim(),
+      snippet:
+        typeof (row as { snippet?: unknown }).snippet === 'string'
+          ? (row as { snippet: string }).snippet
+          : null,
+    });
+  }
+  return out;
+}
+
 export async function commitQuickPasteIntake(opts: {
   tenantId: string;
   userId: string;
@@ -77,6 +102,7 @@ export async function commitQuickPasteIntake(opts: {
   rawText: string;
   overrides: Record<string, unknown>;
   parseSnapshot?: QuickPasteCommitSnapshot;
+  corrections?: QuickPasteCorrectionInput[];
 }) {
   const rawText = opts.rawText.trim();
   if (!rawText) {
@@ -159,6 +185,7 @@ export async function commitQuickPasteIntake(opts: {
       ruleDraft,
       previewDraft,
       finalDraft: draft,
+      corrections: opts.corrections?.length ? opts.corrections : undefined,
     });
   } catch (e) {
     console.error('[quick-paste] learning log', e);
@@ -175,5 +202,15 @@ export async function commitQuickPasteIntake(opts: {
       ).filter((row) => row.id !== inquiry.id)
     : [];
 
-  return { inquiry, soloAutoAssign, duplicateMatches, aiApplied, userEditedFields, learnedRules };
+  return {
+    inquiry,
+    soloAutoAssign,
+    duplicateMatches,
+    aiApplied,
+    userEditedFields,
+    learnedRules,
+    correctionsLearned: opts.corrections?.length ?? 0,
+  };
 }
+
+export { normalizeCorrections };

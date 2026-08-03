@@ -6,16 +6,20 @@ import {
   type QuickPasteOptionalFieldKey,
 } from './quickPaste.constants.js';
 import { applyLocalBalanceSanityCheck, parseBalanceAmountFromText } from './quickPasteAmount.helpers.js';
+import {
+  normalizePreferredDateOrNull,
+  parsePreferredDateFromText,
+} from './quickPasteDate.helpers.js';
+import { dateLabelAlternation, nameLabelAlternation } from './quickPastePatterns.js';
 
 const PHONE_RE = /01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/;
-const DATE_KR_RE = /(\d{1,2})\s*월\s*(\d{1,2})\s*일/;
-const DATE_YMD_RE = /(\d{4})[-./](\d{1,2})[-./](\d{1,2})/;
 const AREA_PYEONG_RE = /(?:평수|평)\s*[:：]?\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*평(?:\b|형|수)?/;
-const LABEL_NAME_RE = /(?:성함|고객명|이름)\s*[:：]\s*([가-힣]{2,5})/i;
+const LABEL_NAME_RE = new RegExp(
+  `(?:${nameLabelAlternation()})\\s*[:：]?\\s*([가-힣]{2,5})`,
+  'i',
+);
 const LABEL_PHONE_RE = /(?:연락처|전화|휴대폰|핸드폰)\s*[:：]\s*([0-9\-.\s]+)/i;
 const LABEL_ADDR_RE = /(?:주소|청소\s*주소|현장)\s*[:：]\s*(.+)/i;
-const LABEL_DATE_RE =
-  /(?:희망일|청소\s*날짜|청소일|이사\s*날짜|입주\s*날짜|일정)\s*[:：]\s*(\d{1,2}\s*월\s*\d{1,2}\s*일|\d{4}[-./]\d{1,2}[-./]\d{1,2})/i;
 
 const NAME_ONLY_RE = /^[가-힣]{2,5}$/;
 const ADMIN_ADDR_RE =
@@ -181,26 +185,7 @@ function normalizePhone(raw: string): string | null {
 }
 
 function parsePreferredDate(text: string, yearHint = new Date().getFullYear()): string | null {
-  const label = text.match(LABEL_DATE_RE);
-  const chunk = label?.[1] ?? text;
-  const ymd = chunk.match(DATE_YMD_RE);
-  if (ymd) {
-    const y = Number(ymd[1]);
-    const mo = Number(ymd[2]);
-    const d = Number(ymd[3]);
-    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-      return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    }
-  }
-  const kr = chunk.match(DATE_KR_RE);
-  if (kr) {
-    const mo = Number(kr[1]);
-    const d = Number(kr[2]);
-    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-      return `${yearHint}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    }
-  }
-  return null;
+  return parsePreferredDateFromText(text, dateLabelAlternation(), yearHint).date;
 }
 
 function parseBalanceAmount(text: string): number | null {
@@ -244,9 +229,20 @@ function parseAddress(text: string, lines: string[]): string | null {
   return parts.join(' ').slice(0, 512);
 }
 
-function parsePreferredTime(text: string): string | null {
+/** 저장값: 오전 | 오후 | 사이청소 */
+export function parsePreferredTime(text: string): string | null {
+  if (/사이\s*청소|사이청소|사이\s*일정|between/i.test(text) || /(?:^|[\s:])사이(?:$|[\s:])/.test(text)) {
+    return '사이청소';
+  }
+  if (/오후|pm/i.test(text) && !/오전|am/i.test(text)) return '오후';
   if (/오전|am/i.test(text) && !/오후|pm/i.test(text)) return '오전';
+  // 같은 줄에 둘 다 있으면 날짜 옆 첫 표기 우선
+  const nearDate = text.match(
+    /(?:\d{4}[-./]\d{1,2}[-./]\d{1,2}|\d{2}[-./]\d{1,2}[-./]\d{1,2}|\d{6})\s*(오전|오후)/i,
+  );
+  if (nearDate?.[1]) return nearDate[1] === '오후' ? '오후' : '오전';
   if (/오후|pm/i.test(text)) return '오후';
+  if (/오전|am/i.test(text)) return '오전';
   return null;
 }
 
@@ -307,6 +303,7 @@ export function mergeQuickPasteDraft(
     const s = String(v).trim();
     return s || fallback;
   };
+  // preferredDate는 아래에서 normalizePreferredDateOrNull로 별도 처리
   const pickAmount = (key: 'serviceBalanceAmount' | 'areaPyeong', fallback: number | null) => {
     const v = overrides[key];
     if (v == null || v === '') return fallback;
@@ -320,11 +317,16 @@ export function mergeQuickPasteDraft(
     return Number.isFinite(n) ? clampCount(n) ?? fallback : fallback;
   };
 
+  const preferredDateOverride =
+    overrides.preferredDate != null && String(overrides.preferredDate).trim() !== ''
+      ? normalizePreferredDateOrNull(overrides.preferredDate)
+      : null;
+
   return {
     customerName: pickStr('customerName', parsed.customerName),
     customerPhone: pickStr('customerPhone', parsed.customerPhone),
     address: pickStr('address', parsed.address),
-    preferredDate: pickStr('preferredDate', parsed.preferredDate),
+    preferredDate: preferredDateOverride ?? parsed.preferredDate,
     preferredTime: pickStr('preferredTime', parsed.preferredTime),
     serviceBalanceAmount: pickAmount('serviceBalanceAmount', parsed.serviceBalanceAmount),
     areaPyeong: pickAmount('areaPyeong', parsed.areaPyeong),

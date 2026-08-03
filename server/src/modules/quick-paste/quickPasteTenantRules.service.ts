@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { QuickPasteOptionalFieldKey } from './quickPaste.constants.js';
 import type { QuickPasteDraft } from './quickPasteParse.service.js';
 import { parseKoreanWonFromMatch } from './quickPasteAmount.helpers.js';
+import { normalizePreferredDateOrNull } from './quickPasteDate.helpers.js';
 
 const PHONE_RE = /01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/;
 
@@ -67,15 +68,7 @@ function coerceFieldValue(
     return Math.round(n);
   }
   if (fieldKey === 'preferredDate') {
-    const ymd = s.match(/(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
-    if (ymd) {
-      return `${ymd[1]}-${String(Number(ymd[2])).padStart(2, '0')}-${String(Number(ymd[3])).padStart(2, '0')}`;
-    }
-    const kr = s.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
-    if (kr) {
-      const y = new Date().getFullYear();
-      return `${y}-${String(Number(kr[1])).padStart(2, '0')}-${String(Number(kr[2])).padStart(2, '0')}`;
-    }
+    return normalizePreferredDateOrNull(s);
   }
   return s.slice(0, fieldKey === 'address' ? 512 : 120);
 }

@@ -72,6 +72,24 @@ export type QuickPasteParseSnapshot = {
   aiFilledFields: string[];
 };
 
+export type QuickPasteEvidenceSource = 'rule' | 'tenant_rule' | 'ai' | 'user';
+
+export type QuickPasteFieldEvidence = {
+  snippet: string | null;
+  source: QuickPasteEvidenceSource;
+};
+
+export type QuickPasteFieldEvidenceMap = Partial<
+  Record<QuickPasteFieldKey | QuickPasteOptionalFieldKey | 'preferredTime', QuickPasteFieldEvidence>
+>;
+
+export type QuickPasteCorrection = {
+  fieldKey: string;
+  wrongValue: string | null;
+  correctValue: string;
+  snippet?: string | null;
+};
+
 export type QuickPasteParseResponse = {
   draft: QuickPasteDraft;
   ruleDraft: QuickPasteDraft;
@@ -89,6 +107,9 @@ export type QuickPasteParseResponse = {
   aiReviewed: boolean;
   aiCorrectedFields: string[];
   aiWarnings: string[];
+  /** AI가 원문 전체를 읽고 요약한 문맥 */
+  aiContextSummary?: string | null;
+  fieldEvidence?: QuickPasteFieldEvidenceMap;
   specialNotes: string;
   coinCost: number;
   coins: {
@@ -125,6 +146,7 @@ export async function commitQuickPaste(
   rawText: string,
   draft: Partial<QuickPasteDraft>,
   parseSnapshot?: QuickPasteParseSnapshot,
+  corrections?: QuickPasteCorrection[],
 ): Promise<{
   inquiry: { id: string; customerName: string; preferredDate?: string | null };
   soloAutoAssign: QuickPasteSoloAssignPreview | null;
@@ -132,6 +154,7 @@ export async function commitQuickPaste(
   aiApplied?: boolean;
   userEditedFields?: string[];
   learnedRules?: QuickPasteLearnedRule[];
+  correctionsLearned?: number;
 }> {
   const res = await fetch(`${API}/commit`, {
     method: 'POST',
@@ -139,7 +162,7 @@ export async function commitQuickPaste(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ rawText, draft, parseSnapshot }),
+    body: JSON.stringify({ rawText, draft, parseSnapshot, corrections }),
   });
   return parseJson(res);
 }

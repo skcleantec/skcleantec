@@ -698,6 +698,15 @@ function CirclePlusIcon({ className }: { className?: string }) {
   );
 }
 
+function AiSparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2.5l1.2 4.2a2 2 0 001.2 1.2L18.5 9l-4.1 1.1a2 2 0 00-1.2 1.2L12 15.5l-1.2-4.2a2 2 0 00-1.2-1.2L5.5 9l4.1-1.1a2 2 0 001.2-1.2L12 2.5z" />
+      <path d="M18.5 14.5l.55 1.9a1 1 0 00.6.6l1.85.5-1.85.5a1 1 0 00-.6.6l-.55 1.9-.55-1.9a1 1 0 00-.6-.6l-1.85-.5 1.85-.5a1 1 0 00.6-.6l.55-1.9z" opacity=".85" />
+    </svg>
+  );
+}
+
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -1713,6 +1722,17 @@ export function AdminSchedulePage() {
             </PageTitleWithFavorite>
             <HelpTooltip className="shrink-0 scale-90 origin-left" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
           </div>
+          {hasQuickPaste ? (
+            <button
+              type="button"
+              onClick={() => setQuickPasteOpen(true)}
+              className="hidden lg:inline-flex h-auto items-center gap-1.5 rounded-lg border border-violet-200/90 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 px-3 py-2 text-fluid-xs font-semibold text-white shadow-sm shadow-violet-500/20 transition hover:brightness-110 hover:shadow-md hover:shadow-violet-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80 focus-visible:ring-offset-1"
+              aria-label="AI 빠른등록"
+            >
+              <AiSparkleIcon className="h-3.5 w-3.5 shrink-0 opacity-95" />
+              <span>AI 빠른등록</span>
+            </button>
+          ) : null}
           <div className="inline-flex h-8 items-stretch rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden lg:h-auto lg:rounded-lg">
             <button
               type="button"
@@ -1938,9 +1958,9 @@ export function AdminSchedulePage() {
               <button
                 type="button"
                 onClick={() => setQuickPasteOpen(true)}
-                className="min-w-0 flex-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-violet-950 shadow-sm touch-manipulation active:bg-violet-100"
+                className="min-w-0 flex-1 rounded-md border border-violet-300 bg-gradient-to-r from-violet-50 to-cyan-50 px-1.5 py-1 text-center text-fluid-2xs font-semibold leading-tight text-violet-950 shadow-sm touch-manipulation active:from-violet-100 active:to-cyan-100"
               >
-                빠른등록
+                AI 빠른등록
               </button>
             ) : null}
           </div>
@@ -3744,22 +3764,12 @@ export function AdminSchedulePage() {
       />
 
       {token && hasQuickPaste ? (
-        <>
-          {/* PC만 FAB — 모바일은 캘린더 위 버튼 사용 */}
-          <button
-            type="button"
-            onClick={() => setQuickPasteOpen(true)}
-            className="fixed bottom-6 right-6 z-[70] hidden min-h-11 items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2.5 text-fluid-xs font-semibold text-white shadow-lg hover:bg-slate-800 lg:flex"
-          >
-            빠른등록
-          </button>
-          <ScheduleQuickPasteModal
-            token={token}
-            open={quickPasteOpen}
-            onClose={() => setQuickPasteOpen(false)}
-            onSaved={() => fetchMonthData(false)}
-          />
-        </>
+        <ScheduleQuickPasteModal
+          token={token}
+          open={quickPasteOpen}
+          onClose={() => setQuickPasteOpen(false)}
+          onSaved={() => fetchMonthData(false)}
+        />
       ) : null}
     </div>
   );
