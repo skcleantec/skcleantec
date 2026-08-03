@@ -5,6 +5,7 @@ import { listOrderFormTemplates, type OrderFormTemplate } from '../../api/orderF
 import type { OrderForm } from '../../api/orderform';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
+import { useOrderIssueOperatingCompanies } from '../../hooks/useOrderIssueOperatingCompanies';
 import { InternalCustomerToneRadio } from '../admin/InternalCustomerToneRadio';
 import { InquiryLeadSourceSelect } from '../inquiry/InquiryLeadSourceSelect';
 import {
@@ -47,24 +48,29 @@ export type CrmOrderIssueSeed = {
 export function OrderIssueInlinePanel({
   pendingInquiryId: pendingInquiryIdProp,
   crmSeed,
+  defaultOperatingCompanyId,
   onIssued,
   compact,
   hideTitle,
 }: {
   pendingInquiryId?: string;
   crmSeed?: CrmOrderIssueSeed;
+  /** CRM 작업 브랜드 등 — 초기 선택값 */
+  defaultOperatingCompanyId?: string | null;
   onIssued?: (order: OrderForm) => void;
   compact?: boolean;
   hideTitle?: boolean;
 }) {
   const token = getToken();
   const staffTenantSlug = useStaffTenantSlugForLinks(token);
+  const issueBrands = useOrderIssueOperatingCompanies(token);
   const [pendingLinkOptions, setPendingLinkOptions] = useState<
     Array<{
       id: string;
       customerName: string;
       customerPhone: string;
       internalCustomerTone?: InternalCustomerTone | null;
+      operatingCompanyId?: string | null;
     }>
   >([]);
   const [issueTemplatesLoaded, setIssueTemplatesLoaded] = useState(false);
@@ -74,12 +80,33 @@ export function OrderIssueInlinePanel({
   const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
   const [issueTemplateId, setIssueTemplateId] = useState('');
   const [issueLeadSource, setIssueLeadSource] = useState('');
+  const [issueOperatingCompanyId, setIssueOperatingCompanyId] = useState('');
+  const pendingLinkedBrandId =
+    pendingLinkOptions.find((o) => o.id === pendingLinkId)?.operatingCompanyId?.trim() || '';
+  const issueBrandLocked = Boolean(pendingLinkedBrandId);
+  const effectiveIssueOperatingCompanyId = issueBrandLocked
+    ? pendingLinkedBrandId
+    : issueOperatingCompanyId;
 
   useEffect(() => {
     const def = defaultScheduleLeadSourceLabel(staffTenantSlug);
     if (!def) return;
     setIssueLeadSource((prev) => (prev.trim() ? prev : def));
   }, [staffTenantSlug]);
+
+  useEffect(() => {
+    const preferred = defaultOperatingCompanyId?.trim() || '';
+    const fallback = issueBrands.defaultOperatingCompanyId;
+    const next =
+      preferred && issueBrands.items.some((oc) => oc.operatingCompanyId === preferred)
+        ? preferred
+        : fallback;
+    if (!next) return;
+    setIssueOperatingCompanyId((prev) => {
+      if (prev && issueBrands.items.some((oc) => oc.operatingCompanyId === prev)) return prev;
+      return next;
+    });
+  }, [defaultOperatingCompanyId, issueBrands.defaultOperatingCompanyId, issueBrands.items]);
 
   const [issueFormKey, setIssueFormKey] = useState(0);
   const [newOrder, setNewOrder] = useState<OrderForm | null>(null);
@@ -106,6 +133,7 @@ export function OrderIssueInlinePanel({
             customerName: string;
             customerPhone?: string | null;
             internalCustomerTone?: InternalCustomerTone | null;
+            operatingCompanyId?: string | null;
           }>;
         }) => {
           setPendingLinkOptions(
@@ -114,6 +142,7 @@ export function OrderIssueInlinePanel({
               customerName: i.customerName,
               customerPhone: (i.customerPhone ?? '').trim(),
               internalCustomerTone: i.internalCustomerTone ?? null,
+              operatingCompanyId: i.operatingCompanyId ?? null,
             })),
           );
         },
@@ -231,6 +260,7 @@ export function OrderIssueInlinePanel({
     pendingInquiryId: pendingLinkId || undefined,
     internalCustomerTone: issueInternalCustomerTone,
     leadSource: issueLeadSource,
+    operatingCompanyId: effectiveIssueOperatingCompanyId || undefined,
     onCreated: handleOrderCreated,
     crmSeed,
   };
@@ -291,6 +321,32 @@ export function OrderIssueInlinePanel({
             ))}
           </select>
         </label>
+
+        {issueBrands.items.length > 0 ? (
+          <label className="block space-y-1">
+            <span className="text-fluid-xs font-medium text-gray-700">영업 브랜드 *</span>
+            <select
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-sm disabled:bg-gray-50 disabled:text-gray-600"
+              value={effectiveIssueOperatingCompanyId}
+              disabled={issueBrandLocked || issueBrands.loading}
+              onChange={(e) => setIssueOperatingCompanyId(e.target.value)}
+            >
+              {issueBrands.items.map((oc) => (
+                <option key={oc.operatingCompanyId} value={oc.operatingCompanyId}>
+                  {oc.displayName}
+                  {oc.isPrimary ? ' (기본)' : ''}
+                </option>
+              ))}
+            </select>
+            <span className="block text-fluid-2xs text-gray-500">
+              {issueBrandLocked
+                ? '대기 접수에 연결된 영업 브랜드로 발급됩니다.'
+                : issueBrands.isAdmin
+                  ? '관리자는 지정 여부와 관계없이 브랜드를 선택할 수 있습니다.'
+                  : '본인에게 지정된 영업 브랜드만 선택할 수 있습니다.'}
+            </span>
+          </label>
+        ) : null}
 
         <label className="block space-y-1">
           <span className="text-fluid-xs font-medium text-gray-700">유입 경로 *</span>

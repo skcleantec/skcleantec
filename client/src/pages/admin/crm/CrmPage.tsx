@@ -1576,6 +1576,7 @@ export function CrmPage() {
             open={isIssueOpen}
             pendingInquiryId={issuePendingInquiryId || undefined}
             crmSeed={issueSeed}
+            operatingCompanyId={activeOperatingCompanyId}
             onClose={closePanel}
             onIssued={(order) => void handleOrderIssued(order)}
           />

@@ -6,12 +6,15 @@ export function CrmOrderIssueDrawer({
   open,
   pendingInquiryId,
   crmSeed,
+  operatingCompanyId,
   onClose,
   onIssued,
 }: {
   open: boolean;
   pendingInquiryId?: string;
   crmSeed?: CrmOrderIssueSeed;
+  /** CRM 현재 작업 브랜드 */
+  operatingCompanyId?: string | null;
   onClose: () => void;
   onIssued?: (order: OrderForm) => void;
 }) {
@@ -26,6 +29,7 @@ export function CrmOrderIssueDrawer({
       <OrderIssueInlinePanel
         pendingInquiryId={pendingInquiryId}
         crmSeed={crmSeed}
+        defaultOperatingCompanyId={operatingCompanyId}
         onIssued={onIssued}
         compact
       />

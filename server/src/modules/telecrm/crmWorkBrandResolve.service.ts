@@ -48,7 +48,8 @@ export async function resolveCrmWorkOperatingCompanyId(params: {
       tx: db,
       tenantId,
       userId,
-      userRole: isAdmin ? 'ADMIN' : userRole,
+      userRole,
+      isStaffAdmin: isAdmin,
       bodyOperatingCompanyId: params.operatingCompanyId.trim(),
     });
   }

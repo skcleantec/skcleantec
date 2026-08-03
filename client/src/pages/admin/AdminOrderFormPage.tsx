@@ -55,6 +55,7 @@ import {
 } from '../../constants/internalCustomerTone';
 import { OrderFormPage } from '../order/OrderFormPage';
 import { TenantCoinUsageBannerSection } from '../../components/tenant/TenantCoinUsageBannerSection';
+import { useOrderIssueOperatingCompanies } from '../../hooks/useOrderIssueOperatingCompanies';
 
 type Tab = 'issue' | 'followup' | 'list';
 
@@ -309,6 +310,7 @@ export function AdminOrderFormPage() {
       customerName: string;
       customerPhone: string;
       internalCustomerTone?: InternalCustomerTone | null;
+      operatingCompanyId?: string | null;
     }>
   >([]);
   const [issueTemplatesLoaded, setIssueTemplatesLoaded] = useState(false);
@@ -318,12 +320,28 @@ export function AdminOrderFormPage() {
   const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
   const [issueTemplateId, setIssueTemplateId] = useState('');
   const [issueLeadSource, setIssueLeadSource] = useState('');
+  const [issueOperatingCompanyId, setIssueOperatingCompanyId] = useState('');
+  const issueBrands = useOrderIssueOperatingCompanies(tab === 'issue' ? token : null);
+  const pendingLinkedBrandId =
+    pendingLinkOptions.find((o) => o.id === pendingLinkId)?.operatingCompanyId?.trim() || '';
+  const issueBrandLocked = Boolean(pendingLinkedBrandId);
+  const effectiveIssueOperatingCompanyId = issueBrandLocked
+    ? pendingLinkedBrandId
+    : issueOperatingCompanyId;
 
   useEffect(() => {
     const def = defaultScheduleLeadSourceLabel(staffTenantSlug);
     if (!def) return;
     setIssueLeadSource((prev) => (prev.trim() ? prev : def));
   }, [staffTenantSlug]);
+
+  useEffect(() => {
+    if (!issueBrands.defaultOperatingCompanyId) return;
+    setIssueOperatingCompanyId((prev) => {
+      if (prev && issueBrands.items.some((oc) => oc.operatingCompanyId === prev)) return prev;
+      return issueBrands.defaultOperatingCompanyId;
+    });
+  }, [issueBrands.defaultOperatingCompanyId, issueBrands.items]);
 
   const [scheduleFabUnlinkedHint, setScheduleFabUnlinkedHint] = useState(false);
   const pendingInquiryFromUrlConsumed = useRef<string | null>(null);
@@ -412,6 +430,7 @@ export function AdminOrderFormPage() {
             customerName: string;
             customerPhone?: string | null;
             internalCustomerTone?: InternalCustomerTone | null;
+            operatingCompanyId?: string | null;
           }>;
         }) => {
         setPendingLinkOptions(
@@ -420,6 +439,7 @@ export function AdminOrderFormPage() {
             customerName: i.customerName,
             customerPhone: (i.customerPhone ?? '').trim(),
             internalCustomerTone: i.internalCustomerTone ?? null,
+            operatingCompanyId: i.operatingCompanyId ?? null,
           }))
         );
       })
@@ -709,6 +729,36 @@ export function AdminOrderFormPage() {
                     ))}
                   </select>
                 </div>
+                {issueBrands.items.length > 0 ? (
+                  <div className="md:col-span-2 lg:col-span-12">
+                    <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
+                      영업 브랜드 *
+                    </label>
+                    <select
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2 disabled:bg-gray-50 disabled:text-gray-600"
+                      value={effectiveIssueOperatingCompanyId}
+                      disabled={issueBrandLocked || issueBrands.loading}
+                      onChange={(e) => setIssueOperatingCompanyId(e.target.value)}
+                    >
+                      {issueBrands.items.map((oc) => (
+                        <option key={oc.operatingCompanyId} value={oc.operatingCompanyId}>
+                          {oc.displayName}
+                          {oc.isPrimary ? ' (기본)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-fluid-2xs text-gray-500">
+                      {issueBrandLocked
+                        ? '대기 접수에 연결된 영업 브랜드로 발급됩니다.'
+                        : issueBrands.isAdmin
+                          ? '관리자는 지정 여부와 관계없이 브랜드를 선택할 수 있습니다.'
+                          : '본인에게 지정된 영업 브랜드만 선택할 수 있습니다.'}
+                    </p>
+                    {issueBrands.error ? (
+                      <p className="mt-1 text-fluid-2xs text-rose-700">{issueBrands.error}</p>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="md:col-span-2 lg:col-span-12">
                   <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
                     유입 경로 *
@@ -746,6 +796,7 @@ export function AdminOrderFormPage() {
                           pendingInquiryId: pendingLinkId || undefined,
                           internalCustomerTone: issueInternalCustomerTone,
                           leadSource: issueLeadSource,
+                          operatingCompanyId: effectiveIssueOperatingCompanyId || undefined,
                           onCreated: handleOrderCreated,
                         },
                       }}

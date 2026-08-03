@@ -36,8 +36,11 @@ import {
 } from './specialtyOptions.js';
 import { allocateNextInquiryNumber } from '../inquiries/inquiryNumber.js';
 import { parseInternalCustomerToneInput } from '../inquiries/internalCustomerTone.js';
-import { resolveInquiryOperatingCompanyId } from '../operating-companies/operatingCompanyResolve.service.js';
-import { getOperatingCompanyPolicy } from '../operating-companies/operatingCompanyPolicy.js';
+import {
+  mapOperatingCompanyResolveError,
+  resolveInquiryOperatingCompanyId,
+} from '../operating-companies/operatingCompanyResolve.service.js';
+import { userHasStaffAdminAccess } from '../auth/staffAdminAccess.service.js';
 import {
   operatingCompanySummarySelect,
   toOperatingCompanyPublicSummary,
@@ -1145,11 +1148,13 @@ router.get('/force-match-candidates', authMiddleware, requireStaffPermission('or
 /** 관리자/마케터: 발주서 발급 (고객명, 견적 입력 → 링크 생성). `pendingInquiryId` 있으면 대기 접수에 발주서 연결  
  * `POST /` 는 `POST /:id/delete` 보다 **먼저** 등록해야 루트 경로가 잘못 매칭되지 않습니다. */
 router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), async (req, res) => {
-  const { userId, role, tenantId: authTenantId } = (req as unknown as { user: AuthPayload }).user;
+  const authUser = (req as unknown as { user: AuthPayload }).user;
+  const { userId, role, tenantId: authTenantId } = authUser;
   if (!authTenantId) {
     res.status(403).json({ error: '테넌트 업무 세션이 필요합니다.' });
     return;
   }
+  const isStaffAdmin = await userHasStaffAdminAccess(authUser);
   const {
     customerName,
     customerPhone: customerPhoneRaw,
@@ -1286,25 +1291,14 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
       }
 
       const orderForm = await prisma.$transaction(async (tx) => {
-        const policy = await getOperatingCompanyPolicy(tx, authTenantId);
-        const ocResolveUserId =
-          policy.inquiryDefaultMode === 'creator_primary' && pending.createdById
-            ? pending.createdById
-            : userId;
-        let ocResolveRole = role as import('@prisma/client').UserRole;
-        if (ocResolveUserId !== userId) {
-          const creator = await tx.user.findFirst({
-            where: { id: ocResolveUserId, tenantId: authTenantId },
-            select: { role: true },
-          });
-          if (creator?.role) ocResolveRole = creator.role;
-        }
+        // 대기 접수 연결 시 접수의 영업 브랜드로 고정 (발급자가 임의 변경하지 않음)
         const resolvedOcId = await resolveInquiryOperatingCompanyId({
           tx,
           tenantId: authTenantId,
-          userId: ocResolveUserId,
-          userRole: ocResolveRole,
-          bodyOperatingCompanyId: bodyOperatingCompanyIdRaw,
+          userId,
+          userRole: role as import('@prisma/client').UserRole,
+          isStaffAdmin,
+          bodyOperatingCompanyId: pending.operatingCompanyId || bodyOperatingCompanyIdRaw,
         });
         const formOperatingCompanyId = resolvedOcId;
         const created = await tx.orderForm.create({
@@ -1396,6 +1390,7 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
         tenantId: authTenantId,
         userId,
         userRole: role as import('@prisma/client').UserRole,
+        isStaffAdmin,
         bodyOperatingCompanyId: bodyOperatingCompanyIdRaw,
       });
       const created = await tx.orderForm.create({
@@ -1472,6 +1467,11 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     });
     res.json(orderForm);
   } catch (e) {
+    const ocErr = mapOperatingCompanyResolveError(e);
+    if (ocErr) {
+      res.status(ocErr.status).json({ error: ocErr.message });
+      return;
+    }
     const coinErr = mapTenantCoinError(e);
     if (coinErr) {
       res.status(coinErr.status).json({ error: coinErr.message });

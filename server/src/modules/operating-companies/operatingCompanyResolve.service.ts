@@ -38,11 +38,13 @@ export async function resolveInquiryOperatingCompanyId(params: {
   tenantId: string;
   userId?: string | null;
   userRole?: UserRole;
+  /** ADMIN 또는 관리자급 마케터 — 소속 없이 브랜드 지정 가능 (`/operating-companies/my`와 동일) */
+  isStaffAdmin?: boolean;
   bodyOperatingCompanyId?: unknown;
   brandSlug?: string | null;
 }): Promise<string> {
   const { tx, tenantId, userId, userRole, bodyOperatingCompanyId, brandSlug } = params;
-  const isAdmin = userRole === 'ADMIN';
+  const isAdmin = params.isStaffAdmin === true || userRole === 'ADMIN';
 
   if (bodyOperatingCompanyId != null && bodyOperatingCompanyId !== '') {
     const ocId = String(bodyOperatingCompanyId);
@@ -80,11 +82,12 @@ export async function validateInquiryOperatingCompanyChange(params: {
   tenantId: string;
   userId: string;
   userRole: UserRole;
+  isStaffAdmin?: boolean;
   nextOperatingCompanyId: string;
 }): Promise<void> {
   const { tx, tenantId, userId, userRole, nextOperatingCompanyId } = params;
   await assertOperatingCompanyInTenant(tx, tenantId, nextOperatingCompanyId);
-  if (userRole === 'ADMIN') return;
+  if (params.isStaffAdmin === true || userRole === 'ADMIN') return;
   const membership = await tx.userOperatingCompany.findFirst({
     where: { tenantId, userId, operatingCompanyId: nextOperatingCompanyId },
   });

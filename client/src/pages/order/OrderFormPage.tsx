@@ -150,6 +150,8 @@ export interface OrderFormEditorContext {
     internalCustomerTone?: InternalCustomerTone;
     /** 발주서 발급 시 유입 플랫폼(필수) */
     leadSource?: string;
+    /** 영업 브랜드 — 일반 발급 시 필수. 대기 접수 연결 시 서버가 접수 브랜드 우선 */
+    operatingCompanyId?: string;
     onCreated: (order: OrderForm) => void;
     /** 텔레CRM — 발급 폼 초기값 */
     crmSeed?: CrmOrderIssueSeed;
@@ -1183,6 +1185,12 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         setPrefillSaving(false);
         return;
       }
+      const operatingCompanyId = editor.create.operatingCompanyId?.trim();
+      if (!editor.create.pendingInquiryId?.trim() && !operatingCompanyId) {
+        setSubmitErrorModal('영업 브랜드를 선택해 주세요.');
+        setPrefillSaving(false);
+        return;
+      }
       const hasDate = Boolean(form.preferredDate.trim());
       const order = await createOrderForm(editor.authToken, {
         customerName: name,
@@ -1199,6 +1207,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         internalCustomerTone: internalCustomerToneForApi(editor.create.internalCustomerTone),
         templateId: editor.create.templateId || undefined,
         leadSource,
+        ...(operatingCompanyId ? { operatingCompanyId } : {}),
       });
       await saveOrderFormPrefill(editor.authToken, order.id, buildPrefillPayload());
       editor.create.onCreated(order);
