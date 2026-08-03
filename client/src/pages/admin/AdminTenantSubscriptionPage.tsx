@@ -164,7 +164,7 @@ export function AdminTenantSubscriptionPage() {
           {
             label: '이용 코인 (이번 달)',
             value: data.coins.unlimited
-              ? '무제한'
+              ? `무제한 · 이번 달 ${data.coins.spent.toLocaleString()}코인 사용`
               : `${data.coins.spent.toLocaleString()} / ${data.coins.allowance?.toLocaleString() ?? '0'}코인 · 잔여 ${data.coins.remaining?.toLocaleString() ?? '0'} (매월 1일 리셋)`,
           },
         ]
@@ -281,7 +281,7 @@ export function AdminTenantSubscriptionPage() {
                 key: 'coins',
                 label: coin.label,
                 value: coin.unlimited
-                  ? '무제한'
+                  ? `무제한 · ${coin.used.toLocaleString()}${coin.unit}`
                   : formatUsageRatio(coin.used, coin.limit, coin.unit),
                 level: usageWarnLevel(coin.used, coin.unlimited ? null : coin.limit),
               },

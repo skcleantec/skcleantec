@@ -81,7 +81,8 @@ export async function getTenantCoinSnapshot(
     (tenant?.trialEndsAt ? tenant.trialEndsAt.toISOString() : null);
   const unlimited = planHasUnlimitedCoins(plan) || graceActive;
   const allowance = monthlyCoinAllowance(plan);
-  const spent = unlimited ? 0 : await countCoinsSpentInPeriod(db, tenantId, periodYm);
+  // Premium·가입 grace도 원장에 쌓인 실제 사용량을 집계 (플랫폼/운영 가시성)
+  const spent = await countCoinsSpentInPeriod(db, tenantId, periodYm);
   const remaining = unlimited || allowance == null ? null : Math.max(0, allowance - spent);
   return { periodYm, allowance, spent, remaining, unlimited, graceActive, graceEndsAt };
 }
@@ -101,10 +102,6 @@ export async function trySpendTenantCoinInTx(
   const amount = opts.amount ?? 1;
   const periodYm = opts.periodYm ?? kstPeriodYmFromDate();
 
-  if (await tenantCoinUnlimited(tx, opts.tenantId, plan)) {
-    return { charged: false, alreadyRecorded: false };
-  }
-
   const existing = await tx.tenantCoinLedgerEntry.findUnique({
     where: {
       tenantId_sourceType_sourceId: {
@@ -117,12 +114,16 @@ export async function trySpendTenantCoinInTx(
   });
   if (existing) return { charged: false, alreadyRecorded: true };
 
-  const allowance = monthlyCoinAllowance(plan);
-  if (allowance == null) return { charged: false, alreadyRecorded: false };
-
-  const spent = await countCoinsSpentInPeriod(tx, opts.tenantId, periodYm);
-  if (spent + amount > allowance) {
-    throw new TenantCoinInsufficientError();
+  const unlimited = await tenantCoinUnlimited(tx, opts.tenantId, plan);
+  // 무제한·grace는 한도 검사만 생략하고, 사용량 원장은 항상 기록한다.
+  if (!unlimited) {
+    const allowance = monthlyCoinAllowance(plan);
+    if (allowance != null) {
+      const spent = await countCoinsSpentInPeriod(tx, opts.tenantId, periodYm);
+      if (spent + amount > allowance) {
+        throw new TenantCoinInsufficientError();
+      }
+    }
   }
 
   await tx.tenantCoinLedgerEntry.create({

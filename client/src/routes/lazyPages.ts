@@ -317,6 +317,9 @@ export const PlatformReferrerDetailPage = lazyWithRetry(() =>
 export const PlatformBillingPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformBillingPage').then((m) => ({ default: m.PlatformBillingPage }))
 );
+export const PlatformCoinUsagePage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformCoinUsagePage').then((m) => ({ default: m.PlatformCoinUsagePage }))
+);
 export const PlatformSupportAccessPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformSupportAccessPage').then((m) => ({ default: m.PlatformSupportAccessPage }))
 );

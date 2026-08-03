@@ -125,7 +125,7 @@ export function PlatformTenantUsagePanel({ tenantId, compact }: Props) {
           {
             label: '이용 코인 (이번 달)',
             value: coins.unlimited
-              ? '무제한'
+              ? `무제한 · 이번 달 ${coins.spent.toLocaleString()}코인 사용 (${coins.periodYm})`
               : `${coins.spent.toLocaleString()} / ${coins.allowance?.toLocaleString() ?? '0'}코인 · 잔여 ${coins.remaining?.toLocaleString() ?? '0'} (${coins.periodYm}, 매월 1일 리셋)`,
           },
         ]

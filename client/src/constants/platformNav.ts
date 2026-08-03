@@ -9,6 +9,7 @@ export const PLATFORM_NAV_ITEMS: PlatformNavItem[] = [
   { label: '업체 관리', to: '/platform/tenants', icon: '🏢', children: [{ label: '유료 전환 신청', to: '/platform/plan-upgrade-requests' }, { label: '가입승인 게시판', to: '/platform/signup-inquiries' }] },
   { label: '추천인', to: '/platform/referrers', icon: '🤝' },
   { label: '결제 관리', to: '/platform/billing', icon: '💳' },
+  { label: '코인 사용량', to: '/platform/coin-usage', icon: '🪙' },
   {
     label: '안내팝업',
     to: '/platform/popups/unpaid',
@@ -33,6 +34,9 @@ export function isPlatformNavActive(pathname: string, to: string): boolean {
   }
   if (to === '/platform/billing') {
     return pathname === '/platform/billing' || pathname.startsWith('/platform/billing/');
+  }
+  if (to === '/platform/coin-usage') {
+    return pathname === '/platform/coin-usage' || pathname.startsWith('/platform/coin-usage/');
   }
   if (to === '/platform/referrers') {
     return pathname === '/platform/referrers' || pathname.startsWith('/platform/referrers/');
