@@ -3,6 +3,7 @@ import {
   clearTenantCompanySmtp,
   fetchTenantCompanyProfile,
   patchTenantCompanyProfile,
+  revealTenantCompanySmtpPassword,
   sendTenantCompanyProfileTestEmail,
   type OperatingCompanySmtpSetting,
   type TenantCompanyProfileDto,
@@ -277,6 +278,39 @@ export function useOutboundEmailSettingsForm() {
     setErr('먼저 설정을 저장해 주세요.');
   };
 
+  const handleRevealSmtpPassword = async (
+    actorPassword: string,
+  ): Promise<{ ok: true } | { ok: false; error: string }> => {
+    if (!token) return { ok: false, error: '로그인이 필요합니다.' };
+    const pwd = actorPassword.trim();
+    if (!pwd) {
+      return { ok: false, error: `${OUTBOUND_EMAIL_COPY.clearSmtpPasswordLabel}를 입력해 주세요.` };
+    }
+    if (!passwordConfigured) {
+      return { ok: false, error: '저장된 앱 비밀번호가 없습니다.' };
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const result = await revealTenantCompanySmtpPassword(token, pwd, smtpScope || null);
+      setSmtpPassword(result.password);
+      setFieldErrors((prev) => {
+        if (!prev.smtpPassword) return prev;
+        const next = { ...prev };
+        delete next.smtpPassword;
+        return next;
+      });
+      setSuccessModal(OUTBOUND_EMAIL_COPY.passwordRevealSuccess);
+      return { ok: true };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : '앱 비밀번호 조회 실패';
+      setErr(error);
+      return { ok: false, error };
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleClearSmtp = async (
     actorPassword: string,
   ): Promise<{ ok: true } | { ok: false; error: string }> => {
@@ -298,51 +332,6 @@ export function useOutboundEmailSettingsForm() {
       const error = e instanceof Error ? e.message : 'SMTP 삭제 실패';
       setErr(error);
       return { ok: false, error };
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleSaveAndTest = async () => {
-    if (!token) return;
-    const pwd = resolveSmtpPasswordForSubmit({
-      providerId,
-      smtpPassword,
-      passwordConfigured,
-    });
-    if (pwd.ignoredAutofill) clearSmtpPasswordField();
-    const errors = validateOutboundEmailForm({
-      ...validationInput,
-      smtpPassword: pwd.ignoredAutofill ? '' : smtpPassword,
-      requireTestEmail: true,
-    });
-    setFieldErrors(errors);
-    const first = firstOutboundEmailValidationMessage(errors);
-    if (first) {
-      setErr(first);
-      return;
-    }
-    setBusy(true);
-    setErr(null);
-    const portNum = parseInt(smtpPort, 10);
-    try {
-      const dto = await patchTenantCompanyProfile(token, {
-        ...(smtpScope ? { operatingCompanyId: smtpScope } : {}),
-        smtp: {
-          host: smtpHost.trim() || applyOutboundEmailProviderPreset(providerId).host,
-          port: Number.isFinite(portNum) ? portNum : 587,
-          secure: smtpSecure,
-          user: sendEmail.trim().toLowerCase(),
-          from: smtpFrom.trim(),
-          ...(pwd.password ? { password: pwd.password } : {}),
-        },
-      });
-      hydrate(dto, smtpScope);
-      await sendTenantCompanyProfileTestEmail(token, testEmailTo.trim(), smtpScope || null);
-      setSuccessModal(OUTBOUND_EMAIL_COPY.successSaveAndTest);
-      setFieldErrors({});
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : '저장 또는 연습 보내기 실패');
     } finally {
       setBusy(false);
     }
@@ -388,7 +377,7 @@ export function useOutboundEmailSettingsForm() {
     setTestEmailTo,
     handleSaveSmtp,
     handleTestEmail,
-    handleSaveAndTest,
+    handleRevealSmtpPassword,
     handleClearSmtp,
     smtpReady,
     effectiveConfigured,

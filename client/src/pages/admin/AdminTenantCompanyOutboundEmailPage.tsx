@@ -11,12 +11,14 @@ import { CompanyProfileSuccessModal } from './CompanyProfileSuccessModal';
 import { useOutboundEmailSettingsForm } from './useOutboundEmailSettingsForm';
 import { OUTBOUND_EMAIL_COPY } from '../../utils/outboundEmailCopy';
 
+type PasswordConfirmMode = 'clear' | 'reveal';
+
 export function AdminTenantCompanyOutboundEmailPage() {
   const form = useOutboundEmailSettingsForm();
   const [guideOpen, setGuideOpen] = useState(false);
-  const [clearModalOpen, setClearModalOpen] = useState(false);
-  const [clearPassword, setClearPassword] = useState('');
-  const [clearModalErr, setClearModalErr] = useState<string | null>(null);
+  const [passwordModal, setPasswordModal] = useState<PasswordConfirmMode | null>(null);
+  const [actorPassword, setActorPassword] = useState('');
+  const [passwordModalErr, setPasswordModalErr] = useState<string | null>(null);
 
   if (form.loading) {
     return <div className="p-8 text-center text-gray-500 text-sm">불러오는 중…</div>;
@@ -25,17 +27,28 @@ export function AdminTenantCompanyOutboundEmailPage() {
   const isBrandScope = Boolean(form.smtpScope);
   const canClearSmtp = form.passwordConfigured || form.smtpReady;
 
-  const closeClearModal = () => {
-    setClearModalOpen(false);
-    setClearPassword('');
-    setClearModalErr(null);
+  const openPasswordModal = (mode: PasswordConfirmMode) => {
+    form.setErr(null);
+    setPasswordModalErr(null);
+    setActorPassword('');
+    setPasswordModal(mode);
   };
 
-  const confirmClearSmtp = async () => {
-    setClearModalErr(null);
-    const result = await form.handleClearSmtp(clearPassword);
-    if (result.ok) closeClearModal();
-    else setClearModalErr(result.error);
+  const closePasswordModal = () => {
+    setPasswordModal(null);
+    setActorPassword('');
+    setPasswordModalErr(null);
+  };
+
+  const confirmPasswordModal = async () => {
+    if (!passwordModal) return;
+    setPasswordModalErr(null);
+    const result =
+      passwordModal === 'clear'
+        ? await form.handleClearSmtp(actorPassword)
+        : await form.handleRevealSmtpPassword(actorPassword);
+    if (result.ok) closePasswordModal();
+    else setPasswordModalErr(result.error);
   };
 
   return (
@@ -50,6 +63,9 @@ export function AdminTenantCompanyOutboundEmailPage() {
         testEmailTo={form.testEmailTo}
         onTestEmailToChange={form.setTestEmailTo}
         fieldError={form.fieldErrors.testEmailTo}
+        busy={form.busy}
+        canSend={form.smtpReady}
+        onSendTest={() => void form.handleTestEmail()}
       />
 
       <OutboundEmailStatusBanner
@@ -57,13 +73,6 @@ export function AdminTenantCompanyOutboundEmailPage() {
         effectiveConfigured={form.effectiveConfigured}
         scopeLabel={form.scopeLabel}
         onOpenGuide={() => setGuideOpen(true)}
-        canQuickTest={form.smtpReady}
-        onQuickTest={() => {
-          document.getElementById('outbound-email-test-receive')?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start',
-          });
-        }}
       />
 
       {form.hasOperatingCompanies ? (
@@ -134,12 +143,7 @@ export function AdminTenantCompanyOutboundEmailPage() {
               <button
                 type="button"
                 disabled={form.busy}
-                onClick={() => {
-                  form.setErr(null);
-                  setClearModalErr(null);
-                  setClearPassword('');
-                  setClearModalOpen(true);
-                }}
+                onClick={() => openPasswordModal('clear')}
                 className="rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-800 hover:bg-rose-100 disabled:opacity-50"
               >
                 {OUTBOUND_EMAIL_COPY.clearSmtp}
@@ -166,6 +170,9 @@ export function AdminTenantCompanyOutboundEmailPage() {
           smtpPassword={form.smtpPassword}
           onSmtpPasswordChange={form.setSmtpPassword}
           onClearSmtpPassword={form.clearSmtpPasswordField}
+          onRevealSmtpPassword={
+            form.passwordConfigured ? () => openPasswordModal('reveal') : undefined
+          }
           passwordConfigured={form.passwordConfigured}
           smtpHost={form.smtpHost}
           onSmtpHostChange={form.setSmtpHost}
@@ -185,8 +192,6 @@ export function AdminTenantCompanyOutboundEmailPage() {
           busy={form.busy}
           smtpReady={form.smtpReady}
           onSave={() => void form.handleSaveSmtp()}
-          onSaveAndTest={() => void form.handleSaveAndTest()}
-          onTestOnly={() => void form.handleTestEmail()}
         />
       </section>
 
@@ -196,24 +201,28 @@ export function AdminTenantCompanyOutboundEmailPage() {
 
       <CompanyProfileSuccessModal message={form.successModal} onClose={() => form.setSuccessModal(null)} />
 
-      {clearModalOpen
+      {passwordModal
         ? createPortal(
             <div
               className="modal-mobile-safe-overlay fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
               role="dialog"
               aria-modal="true"
-              aria-labelledby="clear-smtp-title"
-              onClick={closeClearModal}
+              aria-labelledby="smtp-password-confirm-title"
+              onClick={closePasswordModal}
             >
               <div
                 className="modal-mobile-fullscreen-panel w-full max-w-md rounded-t-2xl bg-white p-4 shadow-xl sm:rounded-2xl sm:p-5"
                 onClick={(e) => e.stopPropagation()}
               >
-                <h3 id="clear-smtp-title" className="text-base font-semibold text-gray-900">
-                  {OUTBOUND_EMAIL_COPY.clearSmtpConfirmTitle}
+                <h3 id="smtp-password-confirm-title" className="text-base font-semibold text-gray-900">
+                  {passwordModal === 'clear'
+                    ? OUTBOUND_EMAIL_COPY.clearSmtpConfirmTitle
+                    : OUTBOUND_EMAIL_COPY.passwordRevealTitle}
                 </h3>
                 <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                  {OUTBOUND_EMAIL_COPY.clearSmtpConfirmBody(form.scopeLabel)}
+                  {passwordModal === 'clear'
+                    ? OUTBOUND_EMAIL_COPY.clearSmtpConfirmBody(form.scopeLabel)
+                    : OUTBOUND_EMAIL_COPY.passwordRevealBody}
                 </p>
                 <label className="mt-4 block">
                   <span className="text-xs font-medium text-gray-700">
@@ -221,34 +230,46 @@ export function AdminTenantCompanyOutboundEmailPage() {
                   </span>
                   <input
                     type="password"
-                    value={clearPassword}
-                    onChange={(e) => setClearPassword(e.target.value)}
+                    value={actorPassword}
+                    onChange={(e) => setActorPassword(e.target.value)}
                     autoComplete="current-password"
                     className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm"
                     placeholder="로그인할 때 쓰는 비밀번호"
                   />
                 </label>
-                {clearModalErr ? (
+                {passwordModalErr ? (
                   <p className="mt-2 text-xs text-rose-700" role="alert">
-                    {clearModalErr}
+                    {passwordModalErr}
                   </p>
                 ) : null}
                 <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     disabled={form.busy}
-                    onClick={closeClearModal}
+                    onClick={closePasswordModal}
                     className="min-h-10 rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   >
-                    {OUTBOUND_EMAIL_COPY.clearSmtpCancel}
+                    {passwordModal === 'clear'
+                      ? OUTBOUND_EMAIL_COPY.clearSmtpCancel
+                      : OUTBOUND_EMAIL_COPY.passwordRevealCancel}
                   </button>
                   <button
                     type="button"
-                    disabled={form.busy || !clearPassword.trim()}
-                    onClick={() => void confirmClearSmtp()}
-                    className="min-h-10 rounded-md bg-rose-700 px-4 py-2 text-sm font-medium text-white hover:bg-rose-800 disabled:opacity-50"
+                    disabled={form.busy || !actorPassword.trim()}
+                    onClick={() => void confirmPasswordModal()}
+                    className={`min-h-10 rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${
+                      passwordModal === 'clear'
+                        ? 'bg-rose-700 hover:bg-rose-800'
+                        : 'bg-sky-800 hover:bg-sky-900'
+                    }`}
                   >
-                    {form.busy ? '삭제 중…' : OUTBOUND_EMAIL_COPY.clearSmtpSubmit}
+                    {form.busy
+                      ? passwordModal === 'clear'
+                        ? '삭제 중…'
+                        : '확인 중…'
+                      : passwordModal === 'clear'
+                        ? OUTBOUND_EMAIL_COPY.clearSmtpSubmit
+                        : OUTBOUND_EMAIL_COPY.passwordRevealSubmit}
                   </button>
                 </div>
               </div>

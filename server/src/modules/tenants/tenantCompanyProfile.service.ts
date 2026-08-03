@@ -7,6 +7,7 @@ import {
   sendTestMailWithTenantSmtp,
 } from '../../lib/tenantSmtp.service.js';
 import { mergeSmtpConfigStored } from '../../lib/smtpConfigStored.js';
+import { decryptTenantSecret } from '../../lib/tenantSecretCrypto.js';
 import { getTenantConfig, updateTenantConfig } from './tenantConfig.service.js';
 import {
   tenantConfigToJson,
@@ -19,6 +20,45 @@ import {
 } from '../operating-companies/operatingCompany.schema.js';
 import type { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+
+async function assertActorLoginPassword(params: {
+  tenantId: string;
+  actorUserId: string;
+  password: string;
+}): Promise<void> {
+  const password = params.password.trim();
+  if (!password) {
+    throw Object.assign(new Error('password_required'), {
+      code: 'bad_request' as const,
+      message: '본인 비밀번호를 입력해 주세요.',
+    });
+  }
+  const actor = await prisma.user.findFirst({
+    where: { id: params.actorUserId, tenantId: params.tenantId },
+    select: { id: true, passwordHash: true },
+  });
+  if (!actor?.passwordHash) {
+    throw Object.assign(new Error('unauthorized'), {
+      code: 'unauthorized' as const,
+      message: '사용자를 찾을 수 없습니다.',
+    });
+  }
+  const ok = await bcrypt.compare(password, actor.passwordHash);
+  if (!ok) {
+    throw Object.assign(new Error('invalid_password'), {
+      code: 'unauthorized' as const,
+      message: '비밀번호가 일치하지 않습니다.',
+    });
+  }
+}
+
+function formatSmtpAppPasswordForDisplay(plain: string): string {
+  const raw = plain.trim();
+  if (/^[a-zA-Z0-9]{16}$/.test(raw)) {
+    return `${raw.slice(0, 4)} ${raw.slice(4, 8)} ${raw.slice(8, 12)} ${raw.slice(12, 16)}`;
+  }
+  return raw;
+}
 
 export type TenantCompanyRegistration = TenantCompanyRegistrationConfig;
 
@@ -290,6 +330,57 @@ export async function sendTenantCompanyProfileTestEmail(
   return true;
 }
 
+/** 저장된 SMTP 앱 비밀번호 조회 — 본인 로그인 비밀번호 확인 필수 */
+export async function revealTenantCompanySmtpPassword(params: {
+  tenantId: string;
+  actorUserId: string;
+  password: string;
+  operatingCompanyId?: string | null;
+}): Promise<{ password: string }> {
+  await assertActorLoginPassword({
+    tenantId: params.tenantId,
+    actorUserId: params.actorUserId,
+    password: params.password,
+  });
+
+  const operatingCompanyId =
+    typeof params.operatingCompanyId === 'string' && params.operatingCompanyId.trim()
+      ? params.operatingCompanyId.trim()
+      : null;
+
+  let stored: TenantSmtpConfigStored | undefined;
+  if (operatingCompanyId) {
+    const row = await prisma.operatingCompany.findFirst({
+      where: { id: operatingCompanyId, tenantId: params.tenantId },
+    });
+    if (!row) {
+      throw Object.assign(new Error('operating_company_not_found'), {
+        code: 'not_found' as const,
+        message: '영업 브랜드를 찾을 수 없습니다.',
+      });
+    }
+    stored = parseOperatingCompanyConfig(row.config).smtp;
+  } else {
+    stored = (await getTenantConfig(params.tenantId)).smtp;
+  }
+
+  const passEnc = stored?.passEnc?.trim();
+  if (!passEnc) {
+    throw Object.assign(new Error('smtp_password_missing'), {
+      code: 'not_found' as const,
+      message: '저장된 앱 비밀번호가 없습니다.',
+    });
+  }
+  const plain = decryptTenantSecret(passEnc);
+  if (!plain) {
+    throw Object.assign(new Error('smtp_password_decrypt_failed'), {
+      code: 'bad_request' as const,
+      message: '저장된 앱 비밀번호를 읽지 못했습니다. 다시 저장해 주세요.',
+    });
+  }
+  return { password: formatSmtpAppPasswordForDisplay(plain) };
+}
+
 /** 업체 공통 또는 브랜드 SMTP 설정 삭제 — 본인 비밀번호 확인 필수 */
 export async function clearTenantCompanySmtp(params: {
   tenantId: string;
@@ -297,31 +388,11 @@ export async function clearTenantCompanySmtp(params: {
   password: string;
   operatingCompanyId?: string | null;
 }): Promise<TenantCompanyProfileDto> {
-  const password = params.password.trim();
-  if (!password) {
-    throw Object.assign(new Error('password_required'), {
-      code: 'bad_request' as const,
-      message: '본인 비밀번호를 입력해 주세요.',
-    });
-  }
-
-  const actor = await prisma.user.findFirst({
-    where: { id: params.actorUserId, tenantId: params.tenantId },
-    select: { id: true, passwordHash: true },
+  await assertActorLoginPassword({
+    tenantId: params.tenantId,
+    actorUserId: params.actorUserId,
+    password: params.password,
   });
-  if (!actor?.passwordHash) {
-    throw Object.assign(new Error('unauthorized'), {
-      code: 'unauthorized' as const,
-      message: '사용자를 찾을 수 없습니다.',
-    });
-  }
-  const ok = await bcrypt.compare(password, actor.passwordHash);
-  if (!ok) {
-    throw Object.assign(new Error('invalid_password'), {
-      code: 'unauthorized' as const,
-      message: '비밀번호가 일치하지 않습니다.',
-    });
-  }
 
   const operatingCompanyId =
     typeof params.operatingCompanyId === 'string' && params.operatingCompanyId.trim()

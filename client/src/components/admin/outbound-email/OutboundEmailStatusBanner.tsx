@@ -5,8 +5,6 @@ type Props = {
   effectiveConfigured: boolean;
   scopeLabel: string;
   onOpenGuide: () => void;
-  onQuickTest?: () => void;
-  canQuickTest?: boolean;
 };
 
 export function OutboundEmailStatusBanner({
@@ -14,8 +12,6 @@ export function OutboundEmailStatusBanner({
   effectiveConfigured,
   scopeLabel,
   onOpenGuide,
-  onQuickTest,
-  canQuickTest,
 }: Props) {
   const tone = smtpReady
     ? 'border-emerald-200 bg-emerald-50'
@@ -57,15 +53,6 @@ export function OutboundEmailStatusBanner({
           >
             {OUTBOUND_EMAIL_COPY.guideButton}
           </button>
-          {canQuickTest && onQuickTest ? (
-            <button
-              type="button"
-              onClick={onQuickTest}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50"
-            >
-              {OUTBOUND_EMAIL_COPY.testOnly}
-            </button>
-          ) : null}
         </div>
       </div>
     </section>

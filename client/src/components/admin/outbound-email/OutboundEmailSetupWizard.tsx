@@ -38,6 +38,8 @@ export type OutboundEmailSetupWizardProps = {
   smtpPassword: string;
   onSmtpPasswordChange: (v: string) => void;
   onClearSmtpPassword?: () => void;
+  /** 저장된 앱 비밀번호 보기(로그인 비밀번호 확인 모달 등) */
+  onRevealSmtpPassword?: () => void;
   passwordConfigured: boolean;
   smtpHost: string;
   onSmtpHostChange: (v: string) => void;
@@ -58,10 +60,10 @@ export type OutboundEmailSetupWizardProps = {
   fieldErrors: Record<string, string>;
   busy?: boolean;
   onSave?: () => void;
-  onSaveAndTest?: () => void;
+  /** platform 모드: 위저드 안 연습 발송. tenant는 OutboundEmailTestReceiveBox 사용 */
   onTestOnly?: () => void;
   smtpReady?: boolean;
-  /** tenant: 저장+연습 / platform: 저장은 부모, 연습만 */
+  /** tenant: 저장만 / platform: 저장은 부모, 연습만 */
   mode?: 'tenant' | 'platform';
 };
 
@@ -75,6 +77,7 @@ export function OutboundEmailSetupWizard({
   smtpPassword,
   onSmtpPasswordChange,
   onClearSmtpPassword,
+  onRevealSmtpPassword,
   passwordConfigured,
   smtpHost,
   onSmtpHostChange,
@@ -94,7 +97,6 @@ export function OutboundEmailSetupWizard({
   fieldErrors,
   busy = false,
   onSave,
-  onSaveAndTest,
   onTestOnly,
   smtpReady = false,
   mode = 'tenant',
@@ -139,6 +141,7 @@ export function OutboundEmailSetupWizard({
             smtpPassword={smtpPassword}
             onSmtpPasswordChange={onSmtpPasswordChange}
             onClearSmtpPassword={onClearSmtpPassword}
+            onRevealSmtpPassword={onRevealSmtpPassword}
             passwordConfigured={passwordConfigured}
             fieldError={fieldErrors.smtpPassword}
             className="sm:col-span-2"
@@ -163,15 +166,7 @@ export function OutboundEmailSetupWizard({
             fieldErrors={fieldErrors}
           />
         ) : null}
-        <ActionRow
-          mode={mode}
-          busy={busy}
-          smtpReady={smtpReady}
-          onSave={onSave}
-          onSaveAndTest={onSaveAndTest}
-          onTestOnly={onTestOnly}
-          showSaveOnly
-        />
+        <ActionRow mode={mode} busy={busy} smtpReady={smtpReady} onSave={onSave} onTestOnly={onTestOnly} />
       </div>
     );
   }
@@ -286,6 +281,7 @@ export function OutboundEmailSetupWizard({
             smtpPassword={smtpPassword}
             onSmtpPasswordChange={onSmtpPasswordChange}
             onClearSmtpPassword={onClearSmtpPassword}
+            onRevealSmtpPassword={onRevealSmtpPassword}
             passwordConfigured={passwordConfigured}
             fieldError={fieldErrors.smtpPassword}
           />
@@ -308,14 +304,7 @@ export function OutboundEmailSetupWizard({
               fieldErrors={fieldErrors}
             />
           ) : null}
-          <ActionRow
-            mode={mode}
-            busy={busy}
-            smtpReady={smtpReady}
-            onSave={onSave}
-            onSaveAndTest={onSaveAndTest}
-            onTestOnly={onTestOnly}
-          />
+          <ActionRow mode={mode} busy={busy} smtpReady={smtpReady} onSave={onSave} onTestOnly={onTestOnly} />
         </div>
       ) : null}
 
@@ -348,6 +337,7 @@ function SmtpPasswordField({
   smtpPassword,
   onSmtpPasswordChange,
   onClearSmtpPassword,
+  onRevealSmtpPassword,
   passwordConfigured,
   fieldError,
   className = '',
@@ -356,6 +346,7 @@ function SmtpPasswordField({
   smtpPassword: string;
   onSmtpPasswordChange: (v: string) => void;
   onClearSmtpPassword?: () => void;
+  onRevealSmtpPassword?: () => void;
   passwordConfigured: boolean;
   fieldError?: string;
   className?: string;
@@ -397,15 +388,26 @@ function SmtpPasswordField({
           data-lpignore="true"
           data-form-type="other"
         />
-        {onClearSmtpPassword && (passwordConfigured || smtpPassword) ? (
-          <button
-            type="button"
-            onClick={onClearSmtpPassword}
-            className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-          >
-            {OUTBOUND_EMAIL_COPY.passwordClear}
-          </button>
-        ) : null}
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {onRevealSmtpPassword && passwordConfigured ? (
+            <button
+              type="button"
+              onClick={onRevealSmtpPassword}
+              className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-900 hover:bg-sky-100"
+            >
+              {OUTBOUND_EMAIL_COPY.passwordReveal}
+            </button>
+          ) : null}
+          {onClearSmtpPassword && (passwordConfigured || smtpPassword) ? (
+            <button
+              type="button"
+              onClick={onClearSmtpPassword}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {OUTBOUND_EMAIL_COPY.passwordClear}
+            </button>
+          ) : null}
+        </div>
       </div>
       {gmailHint ? (
         <p className={`mt-1 text-xs ${gmailOk ? 'text-emerald-700' : 'text-amber-800'}`}>{gmailHint}</p>
@@ -453,11 +455,18 @@ export function OutboundEmailTestReceiveBox({
   onTestEmailToChange,
   fieldError,
   id = 'outbound-email-test-receive',
+  busy = false,
+  canSend = false,
+  onSendTest,
 }: {
   testEmailTo: string;
   onTestEmailToChange: (v: string) => void;
   fieldError?: string;
   id?: string;
+  busy?: boolean;
+  /** 메일 연결이 준비됐을 때만 활성화 */
+  canSend?: boolean;
+  onSendTest?: () => void;
 }) {
   return (
     <section
@@ -483,6 +492,23 @@ export function OutboundEmailTestReceiveBox({
         />
       </label>
       {fieldError ? <p className="text-xs text-rose-700">{fieldError}</p> : null}
+      {onSendTest ? (
+        <div className="pt-1">
+          <button
+            type="button"
+            disabled={busy || !canSend || !testEmailTo.trim()}
+            onClick={onSendTest}
+            className="min-h-10 w-full rounded-md bg-sky-800 px-4 py-2 text-sm font-medium text-white hover:bg-sky-900 disabled:opacity-50 sm:w-auto"
+          >
+            {busy ? OUTBOUND_EMAIL_COPY.testing : OUTBOUND_EMAIL_COPY.testOnly}
+          </button>
+          {!canSend ? (
+            <p className="mt-1.5 text-xs text-sky-900/70 leading-relaxed">
+              아래 메일 연결을 저장한 뒤에 연습 메일을 보낼 수 있습니다.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -527,17 +553,13 @@ function ActionRow({
   busy,
   smtpReady,
   onSave,
-  onSaveAndTest,
   onTestOnly,
-  showSaveOnly = false,
 }: {
   mode: 'tenant' | 'platform';
   busy: boolean;
   smtpReady: boolean;
   onSave?: () => void;
-  onSaveAndTest?: () => void;
   onTestOnly?: () => void;
-  showSaveOnly?: boolean;
 }) {
   if (mode === 'platform') {
     return onTestOnly ? (
@@ -552,38 +574,15 @@ function ActionRow({
     ) : null;
   }
 
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-      {onSaveAndTest ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onSaveAndTest}
-          className="min-h-10 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-        >
-          {busy ? OUTBOUND_EMAIL_COPY.saving : OUTBOUND_EMAIL_COPY.saveAndTest}
-        </button>
-      ) : null}
-      {onSave && showSaveOnly ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onSave}
-          className="min-h-10 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
-        >
-          {busy ? OUTBOUND_EMAIL_COPY.saving : OUTBOUND_EMAIL_COPY.save}
-        </button>
-      ) : null}
-      {onTestOnly && smtpReady ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onTestOnly}
-          className="min-h-10 rounded-md border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-900 hover:bg-indigo-100 disabled:opacity-50"
-        >
-          {busy ? OUTBOUND_EMAIL_COPY.testing : OUTBOUND_EMAIL_COPY.testOnly}
-        </button>
-      ) : null}
-    </div>
-  );
+  // 테넌트: 설정 영역은 「저장」만. 연습 메일은 OutboundEmailTestReceiveBox 한곳.
+  return onSave ? (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={onSave}
+      className="min-h-10 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+    >
+      {busy ? OUTBOUND_EMAIL_COPY.saving : OUTBOUND_EMAIL_COPY.save}
+    </button>
+  ) : null;
 }

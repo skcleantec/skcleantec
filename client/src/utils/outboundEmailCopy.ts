@@ -24,11 +24,18 @@ export const OUTBOUND_EMAIL_COPY = {
   sendEmailHint: '메일함에 로그인할 때 쓰는 주소 전체 (@ 포함)',
   displayNameHint: '고객 메일함에 「발신: ○○」처럼 보이는 이름',
   passwordHint:
-    'Gmail 앱 비밀번호는 Google이 「abcd efgh ijkl mnop」처럼 띄어 보여 줍니다. 띄어쓰기 있는 그대로 붙여넣어도 됩니다(공백은 자동 무시). 이미 저장됐으면 칸을 비운 채 「연습 메일 보내기」만 누르면 됩니다.',
+    'Gmail 앱 비밀번호는 Google이 「abcd efgh ijkl mnop」처럼 띄어 보여 줍니다. 띄어쓰기 있는 그대로 붙여넣어도 됩니다(공백은 자동 무시). 이미 저장됐으면 비밀번호 칸은 비운 채 위 「연습 메일 수신」에서 보내면 됩니다.',
   passwordConfiguredPlaceholder: '●●●●●●●● 저장됨 (바꿀 때만 다시 입력)',
   passwordClear: '칸 비우기',
+  passwordReveal: '저장된 앱 비밀번호 보기',
+  passwordRevealTitle: '저장된 앱 비밀번호 보기',
+  passwordRevealBody:
+    '보안을 위해 관리자 로그인 비밀번호를 확인한 뒤, 저장된 메일 연동(앱) 비밀번호를 입력란에 표시합니다.',
+  passwordRevealSubmit: '확인 후 보기',
+  passwordRevealCancel: '취소',
+  passwordRevealSuccess: '저장된 앱 비밀번호를 입력란에 표시했습니다.',
   passwordSavedHint:
-    '연동 비밀번호가 이미 저장되어 있습니다. 자동완성으로 긴 값이 보이면 「칸 비우기」 후 「연습 메일 보내기」를 누르세요.',
+    '연동 비밀번호가 이미 저장되어 있습니다. 보려면 「저장된 앱 비밀번호 보기」를 누르세요. 자동완성으로 긴 값이 보이면 「칸 비우기」 후, 위 「연습 메일 수신」에서 연습 메일을 보내세요.',
   passwordGmailReady: (n: number) =>
     n === 16
       ? '앱 비밀번호 16자리로 인식되었습니다. (띄어쓰기는 무시됨)'
