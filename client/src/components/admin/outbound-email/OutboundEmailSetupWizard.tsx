@@ -3,6 +3,10 @@ import { TenantSmtpFieldLabel } from '../TenantSmtpFieldLabel';
 import { OutboundEmailAdvancedSettings } from './OutboundEmailAdvancedSettings';
 import { OUTBOUND_EMAIL_COPY } from '../../../utils/outboundEmailCopy';
 import {
+  isGmailAppPassword,
+  normalizeSmtpPasswordInput,
+} from '../../../utils/outboundEmailFormHelpers';
+import {
   OUTBOUND_EMAIL_PROVIDERS,
   findOutboundEmailProvider,
   type OutboundEmailProviderId,
@@ -128,6 +132,7 @@ export function OutboundEmailSetupWizard({
             ) : null}
           </label>
           <SmtpPasswordField
+            providerId={providerId}
             smtpPassword={smtpPassword}
             onSmtpPasswordChange={onSmtpPasswordChange}
             onClearSmtpPassword={onClearSmtpPassword}
@@ -272,6 +277,7 @@ export function OutboundEmailSetupWizard({
             ) : null}
           </div>
           <SmtpPasswordField
+            providerId={providerId}
             smtpPassword={smtpPassword}
             onSmtpPasswordChange={onSmtpPasswordChange}
             onClearSmtpPassword={onClearSmtpPassword}
@@ -331,6 +337,7 @@ export function OutboundEmailSetupWizard({
 }
 
 function SmtpPasswordField({
+  providerId,
   smtpPassword,
   onSmtpPasswordChange,
   onClearSmtpPassword,
@@ -338,6 +345,7 @@ function SmtpPasswordField({
   fieldError,
   className = '',
 }: {
+  providerId: OutboundEmailProviderId;
   smtpPassword: string;
   onSmtpPasswordChange: (v: string) => void;
   onClearSmtpPassword?: () => void;
@@ -345,6 +353,13 @@ function SmtpPasswordField({
   fieldError?: string;
   className?: string;
 }) {
+  const normalized = normalizeSmtpPasswordInput(smtpPassword);
+  const gmailHint =
+    providerId === 'gmail' && normalized
+      ? OUTBOUND_EMAIL_COPY.passwordGmailReady(normalized.length)
+      : null;
+  const gmailOk = providerId === 'gmail' && isGmailAppPassword(normalized);
+
   return (
     <div className={`block ${className}`.trim()}>
       <TenantSmtpFieldLabel title={OUTBOUND_EMAIL_COPY.stepPassword} hint={OUTBOUND_EMAIL_COPY.passwordHint} />
@@ -355,15 +370,20 @@ function SmtpPasswordField({
       ) : null}
       <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
-          type="password"
+          type="text"
           name="cbiseo-smtp-app-password"
           value={smtpPassword}
           onChange={(e) => onSmtpPasswordChange(e.target.value)}
           onFocus={(e) => e.currentTarget.removeAttribute('readOnly')}
           readOnly
-          className="w-full min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2.5 text-sm"
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          className="w-full min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2.5 text-sm font-mono tracking-wide"
           placeholder={
-            passwordConfigured ? OUTBOUND_EMAIL_COPY.passwordConfiguredPlaceholder : '연동 비밀번호 (필수)'
+            passwordConfigured
+              ? OUTBOUND_EMAIL_COPY.passwordConfiguredPlaceholder
+              : '예: abcd efgh ijkl mnop (띄어쓰기 포함 OK)'
           }
           autoComplete="off"
           data-1p-ignore
@@ -380,6 +400,9 @@ function SmtpPasswordField({
           </button>
         ) : null}
       </div>
+      {gmailHint ? (
+        <p className={`mt-1 text-xs ${gmailOk ? 'text-emerald-700' : 'text-amber-800'}`}>{gmailHint}</p>
+      ) : null}
       {fieldError ? <p className="mt-1 text-xs text-rose-700">{fieldError}</p> : null}
     </div>
   );
