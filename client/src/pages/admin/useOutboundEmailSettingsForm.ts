@@ -13,6 +13,7 @@ import {
   parseSmtpFrom,
   validateOutboundEmailForm,
   firstOutboundEmailValidationMessage,
+  normalizeSmtpPasswordInput,
 } from '../../utils/outboundEmailFormHelpers';
 import {
   applyOutboundEmailProviderPreset,
@@ -202,6 +203,7 @@ export function useOutboundEmailSettingsForm() {
     setBusy(true);
     setErr(null);
     const portNum = parseInt(smtpPort, 10);
+    const passwordNormalized = normalizeSmtpPasswordInput(smtpPassword);
     try {
       const dto = await patchTenantCompanyProfile(token, {
         ...(smtpScope ? { operatingCompanyId: smtpScope } : {}),
@@ -209,9 +211,9 @@ export function useOutboundEmailSettingsForm() {
           host: smtpHost.trim() || applyOutboundEmailProviderPreset(providerId).host,
           port: Number.isFinite(portNum) ? portNum : 587,
           secure: smtpSecure,
-          user: sendEmail.trim(),
+          user: sendEmail.trim().toLowerCase(),
           from: smtpFrom.trim(),
-          ...(smtpPassword ? { password: smtpPassword } : {}),
+          ...(passwordNormalized ? { password: passwordNormalized } : {}),
         },
       });
       hydrate(dto, smtpScope);
@@ -261,6 +263,7 @@ export function useOutboundEmailSettingsForm() {
     setBusy(true);
     setErr(null);
     const portNum = parseInt(smtpPort, 10);
+    const passwordNormalized = normalizeSmtpPasswordInput(smtpPassword);
     try {
       const dto = await patchTenantCompanyProfile(token, {
         ...(smtpScope ? { operatingCompanyId: smtpScope } : {}),
@@ -268,9 +271,9 @@ export function useOutboundEmailSettingsForm() {
           host: smtpHost.trim() || applyOutboundEmailProviderPreset(providerId).host,
           port: Number.isFinite(portNum) ? portNum : 587,
           secure: smtpSecure,
-          user: sendEmail.trim(),
+          user: sendEmail.trim().toLowerCase(),
           from: smtpFrom.trim(),
-          ...(smtpPassword ? { password: smtpPassword } : {}),
+          ...(passwordNormalized ? { password: passwordNormalized } : {}),
         },
       });
       hydrate(dto, smtpScope);

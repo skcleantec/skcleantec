@@ -13,7 +13,6 @@ import {
   operatingCompanyConfigToJson,
   parseOperatingCompanyConfig,
 } from '../operating-companies/operatingCompany.schema.js';
-import { listOperatingCompanies } from '../operating-companies/operatingCompany.service.js';
 import type { Prisma } from '@prisma/client';
 
 export type TenantCompanyRegistration = TenantCompanyRegistrationConfig;
@@ -137,19 +136,29 @@ function validateSmtpPatch(
   }
 }
 
-function buildOperatingCompanySmtpSettings(
+/**
+ * 브랜드 SMTP 상태 — listOperatingCompanies 공개 config는 passEnc를 제거하므로
+ * DB raw config를 직접 읽어 passwordConfigured/hasOwnSmtp를 계산한다.
+ */
+async function loadOperatingCompanySmtpSettings(
+  tenantId: string,
   tenantSmtpStored: TenantSmtpConfigStored | undefined,
   globalAvailable: boolean,
-  companies: Awaited<ReturnType<typeof listOperatingCompanies>>,
-): OperatingCompanySmtpSetting[] {
-  return companies.map((oc) => {
-    const brandStored = oc.config.smtp;
+): Promise<OperatingCompanySmtpSetting[]> {
+  const rows = await prisma.operatingCompany.findMany({
+    where: { tenantId, isActive: true },
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    select: { id: true, name: true, config: true },
+  });
+  return rows.map((row) => {
+    const full = parseOperatingCompanyConfig(row.config);
+    const brandStored = full.smtp;
     const smtp = smtpPublicFromStored(brandStored);
     const hasOwnSmtp = smtp.configured;
     return {
-      id: oc.id,
-      name: oc.name,
-      displayName: oc.displayName,
+      id: row.id,
+      name: row.name,
+      displayName: full.branding?.displayName?.trim() || row.name,
       smtp,
       hasOwnSmtp,
       effectiveConfigured: resolveEffectiveSmtpConfigured(
@@ -164,15 +173,14 @@ function buildOperatingCompanySmtpSettings(
 export async function getTenantCompanyProfile(tenantId: string): Promise<TenantCompanyProfileDto> {
   const config = await getTenantConfig(tenantId);
   const globalAvailable = isGlobalSmtpConfigured();
-  const companies = await listOperatingCompanies(prisma, tenantId);
   return {
     companyRegistration: config.companyRegistration ?? {},
     smtp: smtpPublicFromStored(config.smtp),
     globalSmtpFallbackAvailable: globalAvailable,
-    operatingCompanySmtpSettings: buildOperatingCompanySmtpSettings(
+    operatingCompanySmtpSettings: await loadOperatingCompanySmtpSettings(
+      tenantId,
       config.smtp,
       globalAvailable,
-      companies,
     ),
   };
 }

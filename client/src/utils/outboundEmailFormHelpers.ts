@@ -2,6 +2,14 @@ import type { OutboundEmailProviderId } from './outboundEmailProviders';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** 서버 normalizeSmtpSecret 과 동일 — 공백·제로폭·전각 제거 */
+export function normalizeSmtpPasswordInput(raw: string): string {
+  return raw
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, '')
+    .replace(/\s+/g, '');
+}
+
 export function parseSmtpFrom(from: string): { displayName: string; email: string } {
   const trimmed = from.trim();
   const angle = trimmed.match(/^"([^"]*)"\s*<([^>]+)>$/);
@@ -53,6 +61,14 @@ export function validateOutboundEmailForm(input: OutboundEmailValidationInput): 
     errors.sendEmail = '올바른 이메일 형식으로 입력해 주세요. (예: name@gmail.com)';
   } else if (input.providerId === 'naver' && !sendEmail.trim().toLowerCase().endsWith('@naver.com')) {
     errors.sendEmail = '네이버 메일은 @naver.com 주소 전체를 입력해 주세요.';
+  } else if (input.providerId === 'gmail') {
+    const lower = sendEmail.toLowerCase();
+    if (!lower.endsWith('@gmail.com') && !lower.endsWith('@googlemail.com')) {
+      // Google Workspace(@회사도메인)도 smtp.gmail.com 사용 가능 — 전체 주소만 강제
+      if (!sendEmail.includes('@')) {
+        errors.sendEmail = 'Gmail/Google 로그인에 쓰는 이메일 주소 전체를 입력해 주세요.';
+      }
+    }
   }
 
   if (!displayName) {
@@ -67,8 +83,12 @@ export function validateOutboundEmailForm(input: OutboundEmailValidationInput): 
     errors.smtpPort = '연결 번호는 1~65535 사이로 입력해 주세요.';
   }
 
-  if (!password && !input.passwordConfigured) {
+  const passwordNormalized = normalizeSmtpPasswordInput(password);
+  if (!passwordNormalized && !input.passwordConfigured) {
     errors.smtpPassword = '메일 연동 비밀번호를 입력해 주세요.';
+  } else if (passwordNormalized && input.providerId === 'gmail' && passwordNormalized.length !== 16) {
+    errors.smtpPassword =
+      'Gmail은 Google 「앱 비밀번호」 16자리만 됩니다. 브라우저 자동완성(일반 로그인 비밀번호)이 들어갔는지 확인하고, 앱 비밀번호를 직접 붙여 넣어 주세요.';
   }
 
   if (input.requireTestEmail && !testTo) {

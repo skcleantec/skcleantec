@@ -129,13 +129,16 @@ export function OutboundEmailSetupWizard({
             <TenantSmtpFieldLabel title={OUTBOUND_EMAIL_COPY.stepPassword} hint={OUTBOUND_EMAIL_COPY.passwordHint} />
             <input
               type="password"
+              name="cbiseo-smtp-app-password"
               value={smtpPassword}
               onChange={(e) => onSmtpPasswordChange(e.target.value)}
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               placeholder={
                 passwordConfigured ? OUTBOUND_EMAIL_COPY.passwordConfiguredPlaceholder : '연동 비밀번호 (필수)'
               }
-              autoComplete="new-password"
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
             />
             {fieldErrors.smtpPassword ? (
               <p className="mt-1 text-xs text-rose-700">{fieldErrors.smtpPassword}</p>
@@ -281,13 +284,16 @@ export function OutboundEmailSetupWizard({
             <TenantSmtpFieldLabel title={OUTBOUND_EMAIL_COPY.stepPassword} hint={OUTBOUND_EMAIL_COPY.passwordHint} />
             <input
               type="password"
+              name="cbiseo-smtp-app-password"
               value={smtpPassword}
               onChange={(e) => onSmtpPasswordChange(e.target.value)}
               className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm"
               placeholder={
                 passwordConfigured ? OUTBOUND_EMAIL_COPY.passwordConfiguredPlaceholder : '연동 비밀번호 (필수)'
               }
-              autoComplete="new-password"
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
             />
             {fieldErrors.smtpPassword ? (
               <p className="mt-1 text-xs text-rose-700">{fieldErrors.smtpPassword}</p>

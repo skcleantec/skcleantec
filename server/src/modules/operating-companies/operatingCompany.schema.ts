@@ -287,7 +287,14 @@ export function mergeOperatingCompanyConfig(
       patch.companyRegistration !== undefined
         ? mergeCompanyRegistrationSection(existing.companyRegistration, patch.companyRegistration)
         : existing.companyRegistration,
-    smtp: patch.smtp !== undefined ? patch.smtp : existing.smtp,
+    smtp:
+      patch.smtp !== undefined
+        ? {
+            ...patch.smtp,
+            // 공개 API로 받은 smtp(passEnc 없음)로 덮어쓸 때 기존 암호문 유지
+            passEnc: patch.smtp.passEnc?.trim() || existing.smtp?.passEnc,
+          }
+        : existing.smtp,
     soomgo: patch.soomgo !== undefined ? patch.soomgo : existing.soomgo,
   };
   if (tenantId && merged.companyRegistration) {

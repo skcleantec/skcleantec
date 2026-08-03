@@ -21,9 +21,9 @@ export const OUTBOUND_EMAIL_PROVIDERS: OutboundEmailProviderPreset[] = [
     shortNote: 'Google 계정 · 앱 비밀번호(16자리) 필요',
     passwordHint: 'Google 계정 → 보안 → 2단계 인증 후 「앱 비밀번호」 발급',
     passwordSteps: [
-      'Google 계정에서 2단계 인증을 켭니다.',
-      '보안 → 「앱 비밀번호」에서 메일용 16자리 비밀번호를 발급합니다.',
-      '아래에 공백 없이 16자리를 입력합니다.',
+      '「보낼 메일 주소」에 쓸 Google 계정으로 로그인한 뒤 2단계 인증을 켭니다.',
+      '그 계정에서 보안 → 「앱 비밀번호」로 메일용 16자리를 발급합니다. (다른 Google 계정 비밀번호면 실패합니다)',
+      '아래에 붙여 넣습니다. 브라우저가 일반 비밀번호를 자동으로 넣지 않게 주의하세요.',
     ],
   },
   {

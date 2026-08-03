@@ -11,6 +11,14 @@ function trimOptionalString(raw: unknown, maxLen: number): string | undefined {
   return v.slice(0, maxLen);
 }
 
+/** 앱 비밀번호 붙여넣기 시 공백·제로폭·전각 문자 제거 */
+export function normalizeSmtpSecret(raw: string): string {
+  return raw
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, '')
+    .replace(/\s+/g, '');
+}
+
 export type SmtpConfigPatch = {
   host?: string;
   port?: number | null;
@@ -68,7 +76,8 @@ export function mergeSmtpConfigStored(
     next.secure = patch.secure;
   }
   if (typeof patch.password === 'string' && patch.password.length > 0) {
-    next.passEnc = encryptTenantSecret(patch.password);
+    const normalized = normalizeSmtpSecret(patch.password);
+    if (normalized) next.passEnc = encryptTenantSecret(normalized);
   }
 
   const hasAny =

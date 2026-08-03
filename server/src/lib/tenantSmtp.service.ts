@@ -4,7 +4,7 @@ import { isSmtpConfigured as isGlobalSmtpConfigured, type MailSendInput } from '
 import { getTenantConfig } from '../modules/tenants/tenantConfig.service.js';
 import { prisma } from './prisma.js';
 import { parseOperatingCompanyConfig } from '../modules/operating-companies/operatingCompany.schema.js';
-import { smtpConfigStoredComplete } from './smtpConfigStored.js';
+import { normalizeSmtpSecret, smtpConfigStoredComplete } from './smtpConfigStored.js';
 
 export type ResolvedSmtpTransport = {
   host: string;
@@ -35,6 +35,11 @@ function isNaverSmtpHost(host: string): boolean {
   return host.trim().toLowerCase().includes('naver.com');
 }
 
+function isGmailSmtpHost(host: string): boolean {
+  const h = host.trim().toLowerCase();
+  return h.includes('gmail.com') || h.includes('googlemail.com') || h.includes('googleapis.com');
+}
+
 type SmtpProviderKind = 'gmail' | 'naver' | 'daum' | 'other';
 
 function inferSmtpProviderKind(ctx?: { smtpHost?: string; smtpUser?: string }): SmtpProviderKind {
@@ -58,7 +63,7 @@ function smtpAuthFailureMessage(provider: SmtpProviderKind): string {
     return '네이버 SMTP 인증에 실패했습니다. POP3/SMTP 사용 ON, 2단계 인증 시 애플리케이션 비밀번호, @naver.com 전체 주소·포트 465(SSL)를 확인해 주세요.';
   }
   if (provider === 'gmail') {
-    return 'Gmail 로그인이 거부되었습니다. SMTP 로그인 계정에 @gmail.com 전체 주소를 넣고, 일반 비밀번호가 아닌 앱 비밀번호를 사용했는지 확인해 주세요.';
+    return 'Gmail SMTP 로그인이 거부되었습니다. 「보낼 메일 주소」가 앱 비밀번호를 발급한 Google 계정과 같은지, 브라우저가 일반 로그인 비밀번호를 자동완성하지 않았는지 확인해 주세요. Google 계정 → 보안 → 2단계 인증 ON 후 「앱 비밀번호」16자리를 새로 발급해 다시 저장해 보세요.';
   }
   if (provider === 'daum') {
     return '다음·카카오 SMTP 인증에 실패했습니다. IMAP/SMTP 사용 ON, 로그인 비밀번호·포트 465(SSL) 설정을 확인해 주세요.';
@@ -77,17 +82,39 @@ function enrichSmtpError(
   return err;
 }
 
-/** 네이버 SMTP: 공식 465+SSL, 발신(From)은 로그인 주소와 동일한 plain email만 허용 */
+/** 네이버·Gmail: 로그인 주소·포트 정규화. Gmail은 표시이름이 있어도 SMTP auth는 이메일만 사용 */
 function nodemailerTransportOptions(transport: ResolvedSmtpTransport) {
   let { host, port, secure } = transport;
   let from = transport.from;
-  const auth = transport.auth;
+  let auth = transport.auth
+    ? { user: transport.auth.user, pass: normalizeSmtpSecret(transport.auth.pass) }
+    : undefined;
 
   if (isNaverSmtpHost(host)) {
     port = 465;
     secure = true;
-    const login = auth?.user ?? extractSmtpLoginEmail(from);
-    if (login) from = login;
+    const login = (auth?.user ?? extractSmtpLoginEmail(from)).trim().toLowerCase();
+    if (login) {
+      from = login;
+      if (auth) auth = { ...auth, user: login };
+    }
+  }
+
+  if (isGmailSmtpHost(host)) {
+    // 587+STARTTLS 기본. 465로 저장된 경우만 SSL 유지
+    if (port !== 465) {
+      port = 587;
+      secure = false;
+    } else {
+      secure = true;
+    }
+    const login = (auth?.user ?? extractSmtpLoginEmail(from)).trim().toLowerCase();
+    if (login) {
+      if (auth) auth = { ...auth, user: login };
+      // 발신 주소의 이메일 부분을 로그인 계정과 강제 일치 (Gmail 거부 방지)
+      const display = from.match(/^"([^"]*)"\s*</)?.[1] ?? from.match(/^(.+?)\s*</)?.[1]?.replace(/^"|"$/g, '');
+      from = display?.trim() ? `"${display.trim().replace(/"/g, '')}" <${login}>` : login;
+    }
   }
 
   return {
@@ -115,24 +142,28 @@ export function formatSmtpSendError(e: unknown, ctx?: { smtpHost?: string; smtpU
     smtpUser: ctx?.smtpUser ?? err.smtpUser,
   };
   const provider = inferSmtpProviderKind(mergedCtx);
-  const blob = `${err.response ?? ''} ${err.message ?? ''}`.toLowerCase();
-  if (
+  const blob = `${err.response ?? ''} ${err.message ?? ''} ${err.code ?? ''}`.toLowerCase();
+  const loginHint = mergedCtx.smtpUser?.trim() ? ` (로그인 시도: ${mergedCtx.smtpUser.trim()})` : '';
+  // 'authentication' 단독 매칭은 TLS 등 다른 오류를 앱 비밀번호 안내로 오인하게 만들어 제외
+  const isAuthFailure =
+    /\b535\b/.test(blob) ||
+    /\b534\b/.test(blob) ||
     blob.includes('username and password not accepted') ||
-    blob.includes('535') ||
     blob.includes('invalid login') ||
-    blob.includes('authentication failed') ||
-    blob.includes('authentication')
-  ) {
-    return smtpAuthFailureMessage(provider);
+    blob.includes('bad credentials') ||
+    blob.includes('application-specific password') ||
+    blob.includes('authentication failed');
+  if (isAuthFailure) {
+    return `${smtpAuthFailureMessage(provider)}${loginHint}`;
   }
   if (blob.includes('self signed certificate') || blob.includes('certificate')) {
     return 'SMTP 서버 SSL 인증서 연결에 실패했습니다. 포트·SSL/TLS 설정을 확인해 주세요.';
   }
-  if (err.code === 'ECONNECTION' || err.code === 'ETIMEDOUT') {
+  if (err.code === 'ECONNECTION' || err.code === 'ETIMEDOUT' || err.code === 'ESOCKET') {
     return 'SMTP 서버에 연결하지 못했습니다. 호스트·포트·방화벽을 확인해 주세요.';
   }
-  if (err.message?.trim()) return err.message.trim();
-  return '메일 발송에 실패했습니다. SMTP 설정을 확인해 주세요.';
+  if (err.message?.trim()) return `${err.message.trim()}${loginHint}`;
+  return `메일 발송에 실패했습니다. SMTP 설정을 확인해 주세요.${loginHint}`;
 }
 
 function storedSmtpComplete(stored: TenantSmtpConfigStored | undefined): boolean {
@@ -162,12 +193,14 @@ export function resolveStoredSmtpTransport(
   stored: TenantSmtpConfigStored | undefined,
 ): ResolvedSmtpTransport | null {
   if (!storedSmtpComplete(stored)) return null;
-  const pass = decryptTenantSecret(stored!.passEnc!.trim());
+  const passRaw = decryptTenantSecret(stored!.passEnc!.trim());
+  if (!passRaw) return null;
+  const pass = normalizeSmtpSecret(passRaw);
   if (!pass) return null;
   const host = stored!.host!.trim();
   const from = stored!.from!.trim();
   const user = stored!.user?.trim() ?? '';
-  const authUser = resolveSmtpAuthUser(user, from);
+  const authUser = resolveSmtpAuthUser(user, from)?.toLowerCase() ?? null;
   if (!authUser) return null;
   const port = stored!.port ?? 587;
   const secure = stored!.secure === true || port === 465;
@@ -271,6 +304,13 @@ export async function sendMailWithTransport(
     secure: opts.secure,
     requireTLS: opts.requireTLS,
     auth: opts.auth,
+    tls: {
+      minVersion: 'TLSv1.2' as const,
+      servername: opts.host,
+    },
+    connectionTimeout: 20_000,
+    greetingTimeout: 20_000,
+    socketTimeout: 30_000,
   });
   try {
     await tx.sendMail({
