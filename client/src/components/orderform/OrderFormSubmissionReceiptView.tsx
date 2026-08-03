@@ -32,6 +32,9 @@ export function OrderFormSubmissionReceiptView(props: {
   publicCompanyTrust?: PublicOrderFormCompanyTrust | null;
   companyDisplayName?: string | null;
   headerRight?: React.ReactNode;
+  /** 상단·하단 닫기/확인 — 탭을 닫을 수 없을 때 부모에서 leaveHint 표시 */
+  onDismiss?: () => void;
+  leaveHint?: string | null;
 }) {
   const {
     token,
@@ -44,6 +47,8 @@ export function OrderFormSubmissionReceiptView(props: {
     publicCompanyTrust,
     companyDisplayName,
     headerRight,
+    onDismiss,
+    leaveHint,
   } = props;
   const [photos, setPhotos] = useState<OrderFormPhotoItem[]>([]);
   const [preview, setPreview] = useState<OrderFormPhotoItem | null>(null);
@@ -80,7 +85,16 @@ export function OrderFormSubmissionReceiptView(props: {
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       <div className="max-w-lg mx-auto px-4 py-6 relative">
-        {headerRight ? <div className="absolute top-4 right-4">{headerRight}</div> : null}
+        {headerRight ? <div className="absolute top-4 right-4 z-10">{headerRight}</div> : null}
+
+        {leaveHint ? (
+          <div
+            className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs leading-snug text-amber-900"
+            role="status"
+          >
+            {leaveHint}
+          </div>
+        ) : null}
 
         <div className="mb-6 pr-16">
           <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">제출 확인서</p>
@@ -171,6 +185,25 @@ export function OrderFormSubmissionReceiptView(props: {
           trust={publicCompanyTrust}
           displayNameFallback={companyDisplayName}
         />
+
+        {onDismiss ? (
+          <div className="mt-6 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="min-h-11 w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
+            >
+              확인했어요
+            </button>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+            >
+              닫기
+            </button>
+          </div>
+        ) : null}
 
         <div className="mt-6 border-t border-gray-200 pt-4">
           <OrderFormPlatformFooter />

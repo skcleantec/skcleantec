@@ -54,7 +54,6 @@ export function OrderFormSubmissionSnapshotContent(props: {
     );
   }
 
-  const tpl = snapshot.template ?? null;
   const tplAnswers = (snapshot.templateAnswers ?? []).filter(
     (a) =>
       a &&
@@ -64,16 +63,6 @@ export function OrderFormSubmissionSnapshotContent(props: {
 
   return (
     <div className="space-y-4">
-      {tpl ? (
-        <section className="rounded-lg border border-gray-100 bg-gray-50/80 p-3">
-          <h3 className="mb-1 text-fluid-xs font-semibold uppercase tracking-wide text-gray-500">발주서 양식</h3>
-          <p className="text-fluid-sm font-medium text-gray-900">
-            {tpl.icon ? `${tpl.icon} ` : ''}
-            {tpl.title}
-          </p>
-        </section>
-      ) : null}
-
       {tplAnswers.length > 0 ? (
         <section>
           <h3 className="mb-1 text-fluid-sm font-semibold text-gray-900">추가 정보</h3>

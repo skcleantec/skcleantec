@@ -4,6 +4,7 @@ import type { GuideSection } from '../../constants/orderInfoDefaultSections';
 import { ORDER_GUIDE_DEFAULT_SECTIONS } from '../../constants/orderInfoDefaultSections';
 import { postOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { OrderFormPartnerConsentBlock } from '../../components/orderform/OrderFormPartnerConsentBlock';
+import { tryLeavePublicPage } from '../../utils/publicPageLeave';
 
 function CircleXIcon({ className }: { className?: string }) {
   return (
@@ -40,12 +41,7 @@ export function OrderInfoPage() {
   }, []);
 
   const tryLeavePage = useCallback(() => {
-    window.close();
-    window.setTimeout(() => {
-      if (document.visibilityState === 'visible') {
-        window.history.back();
-      }
-    }, 200);
+    tryLeavePublicPage();
   }, []);
 
   const handleAgreeAndClose = useCallback(() => {

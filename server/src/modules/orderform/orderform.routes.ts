@@ -826,7 +826,7 @@ async function upsertDesignerPreviewOrderForm(createdById: string, tenantId: str
     await ensureDefaultOrderFormTemplate(
       prisma,
       tenantId,
-      `${tenantRow.name} 입주청소 발주서`,
+      ORDER_FORM_CONFIG_DEFAULTS.formTitle,
     );
     await ensureAirconOrderFormTemplate(prisma, tenantId);
   }
@@ -1518,7 +1518,7 @@ router.get('/issue-form', authMiddleware, requireStaffPermission('orderform.issu
       await ensureDefaultOrderFormTemplate(
         prisma,
         tenantId,
-        `${tenantRow.name} 입주청소 발주서`,
+        ORDER_FORM_CONFIG_DEFAULTS.formTitle,
       );
       await ensureAirconOrderFormTemplate(prisma, tenantId);
     }

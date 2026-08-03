@@ -174,7 +174,7 @@ router.patch('/:id', async (req, res) => {
   if (!tenantId) return;
   const owned = await prisma.orderFormTemplate.findFirst({
     where: { id: req.params.id, tenantId },
-    select: { id: true },
+    select: { id: true, isDefault: true },
   });
   if (!owned) {
     res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
@@ -187,6 +187,7 @@ router.patch('/:id', async (req, res) => {
     sortOrder?: unknown;
   };
   const data: Prisma.OrderFormTemplateUpdateInput = {};
+  let syncedFormTitle: string | null = null;
   if (body.title !== undefined) {
     const t = String(body.title).trim();
     if (!t || t.length > 128) {
@@ -194,6 +195,7 @@ router.patch('/:id', async (req, res) => {
       return;
     }
     data.title = t;
+    if (owned.isDefault) syncedFormTitle = t;
   }
   if (body.icon !== undefined) {
     data.icon = typeof body.icon === 'string' && body.icon.trim() ? body.icon.trim().slice(0, 32) : null;
@@ -207,10 +209,19 @@ router.patch('/:id', async (req, res) => {
   if (body.sortOrder !== undefined && Number.isFinite(Number(body.sortOrder))) {
     data.sortOrder = Math.round(Number(body.sortOrder));
   }
-  const row = await prisma.orderFormTemplate.update({
-    where: { id: owned.id },
-    data,
-    include: { fields: true },
+  const row = await prisma.$transaction(async (tx) => {
+    const updated = await tx.orderFormTemplate.update({
+      where: { id: owned.id },
+      data,
+      include: { fields: true },
+    });
+    if (syncedFormTitle) {
+      await tx.orderFormConfig.updateMany({
+        where: { tenantId },
+        data: { formTitle: syncedFormTitle },
+      });
+    }
+    return updated;
   });
   res.json({ template: serializeTemplate(row) });
 });

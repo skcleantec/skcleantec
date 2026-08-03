@@ -6,6 +6,7 @@ import { ensureAirconOrderFormTemplate } from '../orderform-templates/ensureAirc
 import { DEFAULT_TENANT_ID } from './tenant.constants.js';
 import { createDefaultOperatingCompanyForTenant } from '../operating-companies/operatingCompany.service.js';
 import { parseTenantConfig } from './tenantConfig.schema.js';
+import { ORDER_FORM_CONFIG_DEFAULTS } from '../../constants/orderFormConfigDefaults.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -143,12 +144,12 @@ export async function seedTenantDefaults(
   }
 
   await getOrCreateOrderFormConfig(tx, tenantId, {
-    formTitle: `${tenantName} 입주청소 발주서`,
+    formTitle: ORDER_FORM_CONFIG_DEFAULTS.formTitle,
   });
   await getOrCreateEstimateConfig(tx, tenantId);
   await seedInquiryLeadSourceDefaultsForTenant(tx, tenantId);
   await seedProfessionalDefaultsForTenant(tx, tenantId);
-  await ensureDefaultOrderFormTemplate(tx, tenantId, `${tenantName} 입주청소 발주서`);
+  await ensureDefaultOrderFormTemplate(tx, tenantId, ORDER_FORM_CONFIG_DEFAULTS.formTitle);
   await ensureAirconOrderFormTemplate(tx, tenantId);
 }
 

@@ -166,11 +166,6 @@ export function buildEmailDetailSections(
   const issued = snapshot.issuedSummary;
   const sections: { title: string; rows: EmailDetailRow[] }[] = [];
 
-  if (snapshot.template?.title) {
-    const tplTitle = `${snapshot.template.icon ? `${snapshot.template.icon} ` : ''}${snapshot.template.title}`.trim();
-    sections.push({ title: '발주서 양식', rows: [{ label: '양식명', value: tplTitle }] });
-  }
-
   const tplAnswers = (snapshot.templateAnswers ?? []).filter(
     (a) => a && renderAnswerValue(a.value).trim() !== '',
   );

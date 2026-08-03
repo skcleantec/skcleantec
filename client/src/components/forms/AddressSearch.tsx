@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { KakaoPostcodeEmbed, type Address as KakaoPostcodeAddress } from 'react-daum-postcode';
+import { captureDocumentScroll, restoreDocumentScroll } from '../../utils/preserveScrollAround';
 
 interface AddressSearchProps {
   value: string;
@@ -35,6 +36,19 @@ function addressLineFromPostcodeData(data: KakaoPostcodeAddress) {
  */
 export function AddressSearch({ value, onChange, placeholder, className = '', mobilePreferred = false, disabled = false }: AddressSearchProps) {
   const [layerOpen, setLayerOpen] = useState(false);
+  const scrollSnapshotRef = useRef<ReturnType<typeof captureDocumentScroll> | null>(null);
+
+  const closeLayer = () => {
+    setLayerOpen(false);
+    const saved = scrollSnapshotRef.current;
+    scrollSnapshotRef.current = null;
+    if (saved) restoreDocumentScroll(saved);
+  };
+
+  const openLayer = () => {
+    scrollSnapshotRef.current = captureDocumentScroll();
+    setLayerOpen(true);
+  };
 
   useEffect(() => {
     if (!layerOpen) return;
@@ -48,7 +62,7 @@ export function AddressSearch({ value, onChange, placeholder, className = '', mo
   useEffect(() => {
     if (!layerOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLayerOpen(false);
+      if (e.key === 'Escape') closeLayer();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -57,7 +71,7 @@ export function AddressSearch({ value, onChange, placeholder, className = '', mo
   const handleComplete: React.ComponentProps<typeof KakaoPostcodeEmbed>['onComplete'] = (data) => {
     if (!data) return;
     onChange(addressLineFromPostcodeData(data));
-    setLayerOpen(false);
+    closeLayer();
   };
 
   return (
@@ -73,7 +87,7 @@ export function AddressSearch({ value, onChange, placeholder, className = '', mo
         />
         <button
           type="button"
-          onClick={() => setLayerOpen(true)}
+          onClick={openLayer}
           disabled={disabled}
           className={`w-full touch-manipulation whitespace-nowrap rounded bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 sm:w-auto sm:shrink-0 ${mobilePreferred ? 'min-h-[44px] text-fluid-xs' : ''}`}
         >
@@ -95,7 +109,7 @@ export function AddressSearch({ value, onChange, placeholder, className = '', mo
                   ? 'flex min-h-0 flex-1 flex-col'
                   : 'flex min-h-0 flex-1 flex-col p-3 sm:p-4 sm:items-center sm:justify-center'
               }
-              onClick={() => setLayerOpen(false)}
+              onClick={closeLayer}
             >
               <div
                 className={
@@ -109,7 +123,7 @@ export function AddressSearch({ value, onChange, placeholder, className = '', mo
                   <span className={`font-medium text-gray-800 ${mobilePreferred ? 'text-fluid-sm' : 'text-sm'}`}>주소 검색</span>
                   <button
                     type="button"
-                    onClick={() => setLayerOpen(false)}
+                    onClick={closeLayer}
                     className="min-h-[44px] min-w-[44px] touch-manipulation rounded px-3 text-fluid-sm text-gray-600 hover:bg-gray-100"
                   >
                     닫기

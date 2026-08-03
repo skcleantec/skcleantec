@@ -97,6 +97,14 @@ import {
 } from '@shared/orderFormAcUnits';
 import { OrderFormAcUnitsField } from '../../components/orderform/OrderFormAcUnitsField';
 import { OrderFormModalFormattedText } from '../../components/orderform/OrderFormModalFormattedText';
+import { PUBLIC_PAGE_CLOSE_HINT, tryLeavePublicPage } from '../../utils/publicPageLeave';
+import { scrollToOrderFormField } from '../../utils/preserveScrollAround';
+
+type SubmitValidationIssue = { message: string; fieldId?: string };
+type SubmitErrorModalState = {
+  messages: string[];
+  fieldId?: string;
+} | null;
 
 const PROPERTY_TYPE_OPTIONS = [
   { value: '아파트', label: '아파트' },
@@ -318,7 +326,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     order?.formConfig?.infoLinkText ?? submittedReceipt?.formConfig?.infoLinkText,
     ORDER_FORM_CONFIG_DEFAULTS.infoLinkText,
   );
-  const [submitErrorModal, setSubmitErrorModal] = useState<string | null>(null);
+  const [submitErrorModal, setSubmitErrorModal] = useState<SubmitErrorModalState>(null);
+  const [leavePageHint, setLeavePageHint] = useState<string | null>(null);
   /** 면적 기준 선택 전 안내·확인 */
   const [areaBasisAckModal, setAreaBasisAckModal] = useState<null | '공급' | '전용'>(null);
   const pendingAreaBasisAckRef = useRef<'공급' | '전용' | null>(null);
@@ -836,6 +845,26 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
   }, [isEditor, addressConfirmedViaSearch, order?.prefillAnswers, form.addressDetail]);
 
+  const showSubmitIssues = (issues: SubmitValidationIssue[]) => {
+    if (issues.length === 0) return;
+    setSubmitErrorModal({
+      messages: issues.map((i) => i.message),
+      fieldId: issues.find((i) => i.fieldId)?.fieldId,
+    });
+  };
+
+  const showSubmitError = (message: string, fieldId?: string) => {
+    setSubmitErrorModal({ messages: [message], fieldId });
+  };
+
+  const dismissSubmitErrorModal = () => {
+    const fieldId = submitErrorModal?.fieldId;
+    setSubmitErrorModal(null);
+    if (fieldId) {
+      window.setTimeout(() => scrollToOrderFormField(fieldId), 50);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
@@ -853,23 +882,28 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         return false;
       };
 
+      const issues: SubmitValidationIssue[] = [];
+      const addIssue = (message: string, fieldId?: string) => {
+        issues.push({ message, fieldId });
+      };
+
       if (stdFieldOn('customerName') && !form.customerName?.trim()) {
-        throw new Error('성함을 입력해주세요.');
+        addIssue('성함을 입력해주세요.', 'order-field-customerName');
       }
       let addressViaSearchOk = true;
       if (stdFieldOn('address')) {
         if (!isRealCustomerAddress(form.address)) {
-          throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
+          addIssue('「주소 검색」 버튼으로 주소를 선택해 주세요.', 'order-field-address');
         }
         const addressLockedByPrefill =
           isMarketerLockedOrderFormAddress(prefillMap) &&
           isRealCustomerAddress(form.address);
         addressViaSearchOk = addressLockedByPrefill || addressConfirmedViaSearch;
-        if (!isEditor && !addressViaSearchOk) {
-          throw new Error('「주소 검색」 버튼으로 주소를 선택해 주세요.');
+        if (!isEditor && !addressViaSearchOk && isRealCustomerAddress(form.address)) {
+          addIssue('「주소 검색」 버튼으로 주소를 선택해 주세요.', 'order-field-address');
         }
         if (!prefillLocked('addressDetail') && !form.addressDetail.trim()) {
-          throw new Error('상세주소를 입력해 주세요.');
+          addIssue('상세주소를 입력해 주세요.', 'order-field-addressDetail');
         }
         if (
           !isEditor &&
@@ -877,26 +911,29 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           !addressLockedByPrefill &&
           form.addressDetail.trim()
         ) {
-          throw new Error('「주소 검색」으로 주소를 먼저 선택한 뒤 상세주소를 입력해 주세요.');
+          addIssue(
+            '「주소 검색」으로 주소를 먼저 선택한 뒤 상세주소를 입력해 주세요.',
+            'order-field-address',
+          );
         }
       }
       if (stdFieldOn('customerPhone') && !form.customerPhone?.trim()) {
-        throw new Error('대표 전화번호를 입력해주세요.');
+        addIssue('대표 전화번호를 입력해주세요.', 'order-field-customerPhone');
       }
       if (stdFieldOn('customerPhone2') && !form.customerPhoneSecondary?.trim()) {
-        throw new Error('보조 전화번호를 입력해주세요.');
+        addIssue('보조 전화번호를 입력해주세요.', 'order-field-customerPhone2');
       }
       const emailTrim = stdFieldOn('customerEmail')
         ? form.customerEmail.trim().toLowerCase()
         : '';
       if (stdFieldOn('customerEmail')) {
-        if (!emailTrim) throw new Error('이메일을 입력해 주세요.');
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
-          throw new Error('이메일 형식이 올바르지 않습니다.');
+        if (!emailTrim) addIssue('이메일을 입력해 주세요.', 'order-field-customerEmail');
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+          addIssue('이메일 형식이 올바르지 않습니다.', 'order-field-customerEmail');
         }
       }
       if (stdFieldOn('propertyType') && !hasOrderFormBuildingTypeChoice(form.propertyType, form.isOneRoom)) {
-        throw new Error(`건축물 유형 또는 ${oneRoomLabel}을 선택해주세요.`);
+        addIssue(`건축물 유형 또는 ${oneRoomLabel}을 선택해주세요.`, 'order-field-propertyType');
       }
       const areaLockedByAdmin = isOrderFormAreaLockedFromOrder(order);
       let submitAreaPyeong: number | null = null;
@@ -907,20 +944,22 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           submitAreaPyeong = order!.areaPyeong!;
           submitAreaBasis = String(order!.areaBasis).trim();
         } else if (!form.areaBasis || (form.areaBasis !== '공급' && form.areaBasis !== '전용')) {
-          throw new Error('면적 기준으로 공급면적 또는 전용면적을 선택해주세요.');
+          addIssue('면적 기준으로 공급면적 또는 전용면적을 선택해주세요.', 'order-field-area');
         } else if (form.areaBasis === '공급') {
           const area = parseFloat(form.areaPyeong.replace(/,/g, '').trim());
           if (Number.isNaN(area) || area <= 0) {
-            throw new Error('공급면적(분양평수)을 평 단위로 입력해 주세요.');
+            addIssue('공급면적(분양평수)을 평 단위로 입력해 주세요.', 'order-field-area');
+          } else {
+            submitAreaPyeong = area;
           }
-          submitAreaPyeong = area;
         } else {
           const area = parseFloat(form.areaPyeong.replace(/,/g, '').trim());
           if (Number.isNaN(area) || area <= 0) {
-            throw new Error('전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.');
+            addIssue('전용면적(실제 내 집 공간)을 평 단위로 입력해 주세요.', 'order-field-area');
+          } else {
+            submitAreaPyeong = area;
+            submitExclusiveSqm = null;
           }
-          submitAreaPyeong = area;
-          submitExclusiveSqm = null;
         }
       }
       const scheduleLockedByAdmin = Boolean(order?.preferredDate?.trim());
@@ -933,16 +972,18 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         : form.preferredTime.trim();
       const useTime = useTimeRaw.trim();
       if (stdFieldOn('preferredDate') || stdFieldOn('preferredTime')) {
-        if (!useDate || !useTime) throw new Error('청소날짜(서비스받으실 날짜)와 시간을 확인해주세요.');
-        if (!isValidOrderTimeSlot(useTime)) {
-          throw new Error('시간대를 선택해주세요.');
+        if (!useDate || !useTime) {
+          addIssue('청소날짜(서비스받으실 날짜)와 시간을 확인해주세요.', 'order-field-schedule');
+        } else if (!isValidOrderTimeSlot(useTime)) {
+          addIssue('시간대를 선택해주세요.', 'order-field-schedule');
         }
       }
       if (
         !scheduleLockedByAdmin &&
         stdFieldOn('preferredDate') &&
         useDate &&
-        serviceDateAcked !== useDate
+        serviceDateAcked !== useDate &&
+        issues.length === 0
       ) {
         setPendingServiceDate(useDate);
         setServiceDateAckOpen(true);
@@ -958,7 +999,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         isPreferredTimeDetailRequired(useTime) &&
         !useTimeDetail
       ) {
-        throw new Error('사이청소 선택 시 구체적 시각을 선택해 주세요.');
+        addIssue('사이청소 선택 시 구체적 시각을 선택해 주세요.', 'order-field-preferredTimeDetail');
       }
       if (
         stdFieldOn('preferredTimeDetail') &&
@@ -967,14 +1008,20 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         isValidOrderTimeSlot(useTime) &&
         !allowedPreferredTimeDetailValues(useTime).has(form.preferredTimeDetail.trim())
       ) {
-        throw new Error('구체적 시각을 해당 시간대 범위에서 선택해 주세요.');
+        addIssue('구체적 시각을 해당 시간대 범위에서 선택해 주세요.', 'order-field-preferredTimeDetail');
       }
       if (stdFieldOn('buildingType') && !form.buildingType) {
-        throw new Error('신축·구축·인테리어·거주(짐이있는상태) 중 하나를 선택해주세요.');
+        addIssue(
+          '신축·구축·인테리어·거주(짐이있는상태) 중 하나를 선택해주세요.',
+          'order-field-buildingType',
+        );
       }
       if (stdFieldOn('buildingType') && requiresMoveInDateOrUndecided(form.buildingType)) {
         if (!form.moveInDateUndecided && !form.moveInDate.trim()) {
-          throw new Error('신축·구축·인테리어 선택 시 이사 예정일을 입력하거나 「미정」을 선택해 주세요.');
+          addIssue(
+            '신축·구축·인테리어 선택 시 이사 예정일을 입력하거나 「미정」을 선택해 주세요.',
+            'order-field-moveInDate',
+          );
         }
       }
       const moveInMinYmd = kstTodayYmd();
@@ -984,7 +1031,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         form.moveInDate.trim() &&
         form.moveInDate.trim() < moveInMinYmd
       ) {
-        throw new Error('이사 예정일은 오늘(한국 기준) 이후 날짜만 선택할 수 있습니다.');
+        addIssue('이사 예정일은 오늘(한국 기준) 이후 날짜만 선택할 수 있습니다.', 'order-field-moveInDate');
       }
       if (stdFieldOn('roomCount')) {
         const spaceErr = validateOrderFormSpaceCounts({
@@ -993,20 +1040,29 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           bathroomCount: form.bathroomCount,
           kitchenCount: form.kitchenCount,
         });
-        if (spaceErr) throw new Error(spaceErr);
+        if (spaceErr) addIssue(spaceErr, 'order-field-roomCount');
       }
-      if (!agreeToTerms) throw new Error('[필수] 예약 안내 및 개인정보 제3자 제공 동의가 필요합니다.');
+      if (!agreeToTerms) {
+        addIssue('[필수] 예약 안내 및 개인정보 제3자 제공 동의가 필요합니다.', 'order-field-agree');
+      }
 
       const templateCustomFields = visibleOrderFormCustomFields;
       for (const cf of templateCustomFields) {
         if (!cf.required) continue;
         const v = customAnswers[cf.fieldKey];
+        const fieldId = `order-field-custom-${cf.fieldKey}`;
         if (cf.fieldKey === ORDER_FORM_AC_UNITS_FIELD_KEY) {
-          if (isAcUnitsAnswerEmpty(v)) throw new Error(`「${cf.label}」 항목을 입력해 주세요.`);
+          if (isAcUnitsAnswerEmpty(v)) addIssue(`「${cf.label}」 항목을 입력해 주세요.`, fieldId);
           continue;
         }
         const empty = v == null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && v.length === 0);
-        if (empty) throw new Error(`「${cf.label}」 항목을 입력해 주세요.`);
+        if (empty) addIssue(`「${cf.label}」 항목을 입력해 주세요.`, fieldId);
+      }
+
+      if (issues.length > 0) {
+        showSubmitIssues(issues);
+        setSubmitting(false);
+        return;
       }
 
       await submitOrderForm(token, {
@@ -1053,7 +1109,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         setSubmittedReceipt(receipt);
       }
     } catch (e) {
-      setSubmitErrorModal(e instanceof Error ? e.message : '제출에 실패했습니다.');
+      showSubmitError(e instanceof Error ? e.message : '제출에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
@@ -1104,7 +1160,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     if (!editor?.orderFormId) return;
     // 날짜를 지정했다면 시간대도 반드시 선택해야 함(날짜만 잠그고 시간 비는 상태 방지)
     if (form.preferredDate.trim() && !isValidOrderTimeSlot(form.preferredTime)) {
-      setSubmitErrorModal('청소 날짜를 선택했다면 시간대도 선택해 주세요.');
+      showSubmitError('청소 날짜를 선택했다면 시간대도 선택해 주세요.', 'order-field-schedule');
       return;
     }
     setPrefillSaving(true);
@@ -1112,7 +1168,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       await saveOrderFormPrefill(editor.authToken, editor.orderFormId, buildPrefillPayload());
       setPrefillSavedOpen(true);
     } catch (e) {
-      setSubmitErrorModal(e instanceof Error ? e.message : '저장에 실패했습니다.');
+      showSubmitError(e instanceof Error ? e.message : '저장에 실패했습니다.');
     } finally {
       setPrefillSaving(false);
     }
@@ -1123,24 +1179,24 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     if (!editor?.create || !editor.authToken) return;
     const name = form.customerName.trim();
     if (!name) {
-      setSubmitErrorModal('고객명을 입력해주세요.');
+      showSubmitError('고객명을 입력해주세요.', 'order-field-customerName');
       return;
     }
     const total = parseIssueAmountWon(issueAmounts.totalAmount);
     const totalErr = validateIssueAmountWon(total, '총 금액');
     if (totalErr) {
-      setSubmitErrorModal(totalErr);
+      showSubmitError(totalErr);
       return;
     }
     const basisOk = form.areaBasis === '공급' || form.areaBasis === '전용';
     if (stdFieldOn('areaPyeong')) {
       if (!basisOk) {
-        setSubmitErrorModal('면적 기준(공급/전용)을 선택하고 평수를 입력해 주세요.');
+        showSubmitError('면적 기준(공급/전용)을 선택하고 평수를 입력해 주세요.', 'order-field-area');
         return;
       }
       const py = parseFloat(form.areaPyeong.replace(/,/g, ''));
       if (!form.areaPyeong.trim() || !Number.isFinite(py) || py <= 0) {
-        setSubmitErrorModal('평수를 양수 숫자로 입력해 주세요.');
+        showSubmitError('평수를 양수 숫자로 입력해 주세요.', 'order-field-area');
         return;
       }
     }
@@ -1149,16 +1205,16 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         ? parseFloat(form.areaPyeong.replace(/,/g, ''))
         : null;
     if (stdFieldOn('specialNotes') && !noSpecialNotes && !form.specialNotes.trim()) {
-      setSubmitErrorModal('특이사항을 입력하거나 "특이사항 없음"을 체크해 주세요.');
+      showSubmitError('특이사항을 입력하거나 "특이사항 없음"을 체크해 주세요.');
       return;
     }
     if (stdFieldOn('preferredDate') && !dateByCustomer && !form.preferredDate.trim()) {
-      setSubmitErrorModal('청소 날짜를 선택하거나 "고객 작성"을 체크해 주세요.');
+      showSubmitError('청소 날짜를 선택하거나 "고객 작성"을 체크해 주세요.', 'order-field-schedule');
       return;
     }
     // 날짜를 선택했다면 시간대도 반드시 선택
     if (form.preferredDate.trim() && !isValidOrderTimeSlot(form.preferredTime)) {
-      setSubmitErrorModal('청소 날짜를 선택했다면 시간대도 선택해 주세요.');
+      showSubmitError('청소 날짜를 선택했다면 시간대도 선택해 주세요.', 'order-field-schedule');
       return;
     }
     const deposit = issueAmounts.depositAmount
@@ -1166,7 +1222,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       : 20000;
     const depositErr = validateIssueAmountWon(deposit, '예약금');
     if (depositErr) {
-      setSubmitErrorModal(depositErr);
+      showSubmitError(depositErr);
       return;
     }
     const balance = issueAmounts.balanceAmount
@@ -1174,20 +1230,20 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       : Math.max(0, total - deposit);
     const balanceErr = validateIssueAmountWon(balance, '잔금');
     if (balanceErr) {
-      setSubmitErrorModal(balanceErr);
+      showSubmitError(balanceErr);
       return;
     }
     setPrefillSaving(true);
     try {
       const leadSource = editor.create.leadSource?.trim();
       if (!leadSource) {
-        setSubmitErrorModal('유입 경로를 선택해 주세요.');
+        showSubmitError('유입 경로를 선택해 주세요.');
         setPrefillSaving(false);
         return;
       }
       const operatingCompanyId = editor.create.operatingCompanyId?.trim();
       if (!editor.create.pendingInquiryId?.trim() && !operatingCompanyId) {
-        setSubmitErrorModal('영업 브랜드를 선택해 주세요.');
+        showSubmitError('영업 브랜드를 선택해 주세요.');
         setPrefillSaving(false);
         return;
       }
@@ -1212,20 +1268,27 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       await saveOrderFormPrefill(editor.authToken, order.id, buildPrefillPayload());
       editor.create.onCreated(order);
     } catch (e) {
-      setSubmitErrorModal(e instanceof Error ? e.message : '발급에 실패했습니다.');
+      showSubmitError(e instanceof Error ? e.message : '발급에 실패했습니다.');
     } finally {
       setPrefillSaving(false);
+    }
+  };
+
+  const handleLeavePage = () => {
+    if (editor?.onClose) {
+      editor.onClose();
+      return;
+    }
+    const result = tryLeavePublicPage();
+    if (result === 'stayed') {
+      setLeavePageHint(PUBLIC_PAGE_CLOSE_HINT);
     }
   };
 
   const CloseButton = () => (
     <button
       type="button"
-      onClick={() => {
-        if (editor?.onClose) editor.onClose();
-        else if (window.opener) window.close();
-        else window.history.back();
-      }}
+      onClick={handleLeavePage}
       className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 border border-gray-300 rounded"
     >
       닫기
@@ -1261,6 +1324,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         publicCompanyTrust={submittedReceipt.publicCompanyTrust}
         companyDisplayName={submittedReceipt.publicBranding?.displayName}
         headerRight={<CloseButton />}
+        onDismiss={handleLeavePage}
+        leaveHint={leavePageHint}
       />
     );
   }
@@ -1321,16 +1386,30 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       className={
         isInline
           ? ''
-          : `login-surface min-h-dvh min-h-screen overflow-y-auto overscroll-y-contain bg-gray-50 ${!isEditor && !isCreate ? 'pb-44' : 'pb-20'}`
+          : `login-surface h-dvh min-h-0 overflow-y-auto overscroll-y-contain bg-gray-50 ${!isEditor && !isCreate ? 'pb-44' : 'pb-20'}`
       }
     >
-      <div className={isInline ? 'relative w-full' : 'max-w-lg mx-auto px-4 py-6 relative'}>
+      <div
+        className={
+          isInline
+            ? 'relative w-full'
+            : 'login-scroll-content max-w-lg mx-auto px-4 py-6 relative'
+        }
+      >
         {!isInline && (
-          <div className="absolute top-4 right-4">
+          <div className="absolute top-4 right-4 z-10">
             <CloseButton />
           </div>
         )}
-        <h1 className="text-lg font-semibold text-gray-900 mb-1 whitespace-pre-line">
+        {leavePageHint ? (
+          <div
+            className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs leading-snug text-amber-900"
+            role="status"
+          >
+            {leavePageHint}
+          </div>
+        ) : null}
+        <h1 className="text-lg font-semibold text-gray-900 mb-1 whitespace-pre-line pr-16">
           {orderFormHeadingTitle}
         </h1>
         {publicBranding?.publicSubtitle ? (
@@ -1489,12 +1568,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         )}
 
         <form
+          noValidate
           onSubmit={handleSubmit}
           onFocusCapture={isInline ? undefined : onFieldFocus}
           className="space-y-4 pb-20"
         >
           {stdFieldOn('customerName') && (
-          <div>
+          <div id="order-field-customerName">
             <label className={reqLabelCls}>1. 성함 *</label>
             <input
               type="text"
@@ -1508,7 +1588,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           )}
 
           {stdFieldOn('address') && (
-          <div>
+          <div id="order-field-address">
             <label className={labelCls}>2. 주소(청소해야할 위치) *</label>
             {isCreate ? (
               <p className="text-xs text-gray-500 mb-2 leading-relaxed">
@@ -1537,6 +1617,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             ) : null}
             <label className="block text-xs font-medium text-gray-700 mb-1">상세주소 *</label>
             <input
+              id="order-field-addressDetail"
               type="text"
               className={
                 addressDetailFieldDisabled
@@ -1567,7 +1648,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               전일 연락 두절시 서비스가 취소되오니 반드시 정확하게 기재 부탁드립니다.
             </p>
             {stdFieldOn('customerPhone') ? (
-            <>
+            <div id="order-field-customerPhone">
             <label className="block text-xs text-gray-600 mb-1">대표 연락처 *</label>
             <input
               type="tel"
@@ -1577,10 +1658,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               placeholder="010-0000-0000"
               disabled={lockKey('customerPhone')}
             />
-            </>
+            </div>
             ) : null}
             {stdFieldOn('customerPhone2') ? (
-            <>
+            <div id="order-field-customerPhone2">
             <label className="block text-xs text-gray-600 mb-1">보조 연락처 (필수) *</label>
             <input
               type="tel"
@@ -1590,10 +1671,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               placeholder="예: 배우자, 가족 연락처"
               disabled={lockKey('customerPhone2')}
             />
-            </>
+            </div>
             ) : null}
             {stdFieldOn('customerEmail') ? (
-            <>
+            <div id="order-field-customerEmail">
             <label className="block text-xs text-gray-600 mb-1 mt-3">이메일 (필수) *</label>
             <p className="text-xs text-gray-600 mb-2 leading-relaxed">
               접수 확인 메일을 보내드립니다. 정확한 주소를 입력해 주세요.
@@ -1607,7 +1688,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               autoComplete="email"
               disabled={lockKey('customerEmail')}
             />
-            </>
+            </div>
             ) : null}
           </div>
           )}
@@ -1615,7 +1696,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           {showPropertyAreaSection && (
           <div>
             {stdFieldOn('propertyType') ? (
-            <>
+            <div id="order-field-propertyType">
             <label className={labelCls}>4. 건축물 유형 및 면적 *</label>
             <p className="text-xs font-medium text-gray-700 mb-2">건축물 유형 (하나 선택) *</p>
             <div className={radioGroupCls} role="radiogroup" aria-label="건축물 유형">
@@ -1687,10 +1768,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 return nodes;
               })()}
             </div>
-            </>
+            </div>
             ) : null}
             {stdFieldOn('areaPyeong') ? (
-            <>
+            <div id="order-field-area">
             <p className={`text-xs mt-4 mb-2 ${isCreate ? 'font-bold text-red-600' : 'font-medium text-gray-700'}`}>면적 기준 (하나 선택) *</p>
             {areaLockedByAdmin ? (
               <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-700">
@@ -1788,13 +1869,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               표기된 경우에는 평으로 환산한 뒤 입력해 주세요. 복층은 층별로 기재해 주세요.
             </p>
             ) : null}
-            </>
+            </div>
             ) : null}
           </div>
           )}
 
           {stdFieldOn('preferredDate') && (
-          <div>
+          <div id="order-field-schedule">
             <OrderFormScheduleHighlightLabel>
               5. 청소날짜(서비스받으실 날짜){isCreate ? ' *' : ''}
             </OrderFormScheduleHighlightLabel>
@@ -1882,7 +1963,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           )}
 
           {stdFieldOn('preferredTimeDetail') && (
-          <div>
+          <div id="order-field-preferredTimeDetail">
             <label
               className={
                 !detailLockedByAdmin && isPreferredTimeDetailRequired(form.preferredTime)
@@ -1933,7 +2014,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           )}
 
           {stdFieldOn('roomCount') && (
-          <div>
+          <div id="order-field-roomCount">
             <p className={`${labelCls} mb-2`}>8. 방·베란다·화장실·주방 *</p>
             <p className="text-xs text-gray-500 mb-2 leading-relaxed">{ORDER_FORM_SPACE_COUNT_HINT}</p>
             <div className="grid grid-cols-4 gap-2">
@@ -1942,7 +2023,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               <input
                 type="number"
                 min={0}
-                required
                 className={clsWithLock('roomCount', inputCls)}
                 value={form.roomCount}
                 onChange={(e) => setForm((f) => ({ ...f, roomCount: e.target.value }))}
@@ -1955,7 +2035,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               <input
                 type="number"
                 min={0}
-                required
                 className={clsWithLock('balconyCount', inputCls)}
                 value={form.balconyCount}
                 onChange={(e) => setForm((f) => ({ ...f, balconyCount: e.target.value }))}
@@ -1968,7 +2047,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               <input
                 type="number"
                 min={0}
-                required
                 className={clsWithLock('bathroomCount', inputCls)}
                 value={form.bathroomCount}
                 onChange={(e) => setForm((f) => ({ ...f, bathroomCount: e.target.value }))}
@@ -1981,7 +2059,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               <input
                 type="number"
                 min={0}
-                required
                 className={clsWithLock('kitchenCount', inputCls)}
                 value={form.kitchenCount}
                 onChange={(e) => setForm((f) => ({ ...f, kitchenCount: e.target.value }))}
@@ -1997,7 +2074,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           )}
 
           {stdFieldOn('buildingType') && (
-          <div>
+          <div id="order-field-buildingType">
             <label className={labelCls}>9. 신축/구축/인테리어/거주 선택 *</label>
             <select
               className={clsWithLock('buildingType', inputCls)}
@@ -2024,7 +2101,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           )}
 
           {stdFieldOn('moveInDate') && (
-          <div>
+          <div id="order-field-moveInDate">
             <label className={labelCls}>
               10. 이사 날짜
               {requiresMoveInDateOrUndecided(form.buildingType) ? (
@@ -2114,7 +2191,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 const setVal = (v: unknown) => setCustomAnswers((prev) => ({ ...prev, [cf.fieldKey]: v }));
                 const cfLocked = lockKey(cf.fieldKey);
                 return (
-                  <div key={cf.fieldKey}>
+                  <div key={cf.fieldKey} id={`order-field-custom-${cf.fieldKey}`}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {cf.label}
                       {cf.required ? <span className="text-red-500"> *</span> : null}
@@ -2346,7 +2423,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           )}
 
           {!isEditor && (
-          <div className="py-4">
+          <div id="order-field-agree" className="py-4">
             <div className="mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-gradient-to-b from-gray-50/95 to-white px-4 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.03]">
               {agreeToTerms ? (
                 <div className="space-y-3 text-center">
@@ -2495,23 +2572,45 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   id="order-submit-error-title"
                   className="mt-4 text-base font-semibold tracking-tight text-gray-900"
                 >
-                  한 가지 확인이 필요해요
+                  {submitErrorModal.messages.length > 1
+                    ? '입력하지 않은 항목이 있어요'
+                    : '한 가지 확인이 필요해요'}
                 </h2>
-                <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-gray-700">
-                  {submitErrorModal}
-                </p>
+                {submitErrorModal.messages.length > 1 ? (
+                  <ul className="mt-3 w-full max-h-[40vh] space-y-1.5 overflow-y-auto text-left text-[15px] leading-relaxed text-gray-700">
+                    {submitErrorModal.messages.map((msg, idx) => (
+                      <li key={`${idx}-${msg.slice(0, 24)}`} className="flex gap-2">
+                        <span className="mt-0.5 shrink-0 text-amber-600" aria-hidden>
+                          •
+                        </span>
+                        <span className="min-w-0 break-words">{msg}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-gray-700">
+                    {submitErrorModal.messages[0]}
+                  </p>
+                )}
                 <p className="mt-3 text-xs text-gray-500">
-                  해당 항목을 채우신 뒤 다시 제출해 주세요.
+                  확인을 누르면 첫 번째 미입력 항목으로 이동합니다.
                 </p>
               </div>
-              <div className="flex justify-center border-t border-gray-100 bg-gray-50/60 px-4 py-3">
+              <div className="flex gap-2 border-t border-gray-100 bg-gray-50/60 px-4 py-3">
                 <button
                   type="button"
                   onClick={() => setSubmitErrorModal(null)}
-                  className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99]"
+                  className="min-h-11 flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+                >
+                  닫기
+                </button>
+                <button
+                  type="button"
+                  onClick={dismissSubmitErrorModal}
+                  className="min-h-11 flex-1 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99]"
                   autoFocus
                 >
-                  확인했어요
+                  확인
                 </button>
               </div>
             </div>
