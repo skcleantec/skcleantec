@@ -56,4 +56,12 @@ export const OUTBOUND_EMAIL_COPY = {
   successTest: '연습 메일을 보냈습니다. 받은편지함(스팸함)을 확인해 주세요.',
   successSaveAndTest:
     '설정을 저장하고 연습 메일을 보냈습니다. 받은편지함(스팸함)을 확인해 주세요.',
+  clearSmtp: '이 메일 연결 삭제',
+  clearSmtpConfirmTitle: '발송 이메일 연결을 삭제할까요?',
+  clearSmtpConfirmBody: (scope: string) =>
+    `${scope}에 저장된 SMTP(메일 서버·비밀번호)를 삭제합니다. 삭제 후에는 이 범위로는 고객 메일을 보낼 수 없습니다.`,
+  clearSmtpPasswordLabel: '본인 로그인 비밀번호',
+  clearSmtpSuccess: (scope: string) => `${scope} 메일 연결이 삭제되었습니다.`,
+  clearSmtpCancel: '취소',
+  clearSmtpSubmit: '삭제',
 } as const;

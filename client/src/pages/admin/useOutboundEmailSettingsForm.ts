@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  clearTenantCompanySmtp,
   fetchTenantCompanyProfile,
   patchTenantCompanyProfile,
   sendTenantCompanyProfileTestEmail,
@@ -276,6 +277,32 @@ export function useOutboundEmailSettingsForm() {
     setErr('먼저 설정을 저장해 주세요.');
   };
 
+  const handleClearSmtp = async (
+    actorPassword: string,
+  ): Promise<{ ok: true } | { ok: false; error: string }> => {
+    if (!token) return { ok: false, error: '로그인이 필요합니다.' };
+    const pwd = actorPassword.trim();
+    if (!pwd) {
+      return { ok: false, error: `${OUTBOUND_EMAIL_COPY.clearSmtpPasswordLabel}를 입력해 주세요.` };
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const dto = await clearTenantCompanySmtp(token, pwd, smtpScope || null);
+      hydrate(dto, smtpScope);
+      setSmtpPassword('');
+      setSuccessModal(OUTBOUND_EMAIL_COPY.clearSmtpSuccess(scopeLabel));
+      setFieldErrors({});
+      return { ok: true };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : 'SMTP 삭제 실패';
+      setErr(error);
+      return { ok: false, error };
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleSaveAndTest = async () => {
     if (!token) return;
     const pwd = resolveSmtpPasswordForSubmit({
@@ -362,6 +389,7 @@ export function useOutboundEmailSettingsForm() {
     handleSaveSmtp,
     handleTestEmail,
     handleSaveAndTest,
+    handleClearSmtp,
     smtpReady,
     effectiveConfigured,
     companyName,

@@ -102,6 +102,25 @@ export async function sendTenantCompanyProfileTestEmail(
   if (!res.ok) throw new Error(data.error ?? '테스트 메일 발송에 실패했습니다.');
 }
 
+/** 업체 공통 또는 브랜드 SMTP 설정 삭제(본인 로그인 비밀번호 확인) */
+export async function clearTenantCompanySmtp(
+  token: string,
+  password: string,
+  operatingCompanyId?: string | null,
+): Promise<TenantCompanyProfileDto> {
+  const res = await fetch(`${API}/admin/tenant-company-profile/clear-smtp`, {
+    method: 'POST',
+    headers: adminHeaders(token),
+    body: JSON.stringify({
+      password,
+      ...(operatingCompanyId ? { operatingCompanyId } : {}),
+    }),
+  });
+  const data = (await res.json()) as TenantCompanyProfileDto & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? 'SMTP 설정을 삭제하지 못했습니다.');
+  return data;
+}
+
 export type {
   TenantCompanyRegistration,
   TenantCompanyProfileDto,

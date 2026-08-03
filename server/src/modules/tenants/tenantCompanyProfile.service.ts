@@ -8,12 +8,17 @@ import {
 } from '../../lib/tenantSmtp.service.js';
 import { mergeSmtpConfigStored } from '../../lib/smtpConfigStored.js';
 import { getTenantConfig, updateTenantConfig } from './tenantConfig.service.js';
-import type { TenantCompanyRegistrationConfig, TenantSmtpConfigStored } from './tenantConfig.schema.js';
+import {
+  tenantConfigToJson,
+  type TenantCompanyRegistrationConfig,
+  type TenantSmtpConfigStored,
+} from './tenantConfig.schema.js';
 import {
   operatingCompanyConfigToJson,
   parseOperatingCompanyConfig,
 } from '../operating-companies/operatingCompany.schema.js';
 import type { Prisma } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 export type TenantCompanyRegistration = TenantCompanyRegistrationConfig;
 
@@ -283,4 +288,77 @@ export async function sendTenantCompanyProfileTestEmail(
     throw Object.assign(new Error('smtp_not_configured'), { code: 'bad_request' as const });
   }
   return true;
+}
+
+/** 업체 공통 또는 브랜드 SMTP 설정 삭제 — 본인 비밀번호 확인 필수 */
+export async function clearTenantCompanySmtp(params: {
+  tenantId: string;
+  actorUserId: string;
+  password: string;
+  operatingCompanyId?: string | null;
+}): Promise<TenantCompanyProfileDto> {
+  const password = params.password.trim();
+  if (!password) {
+    throw Object.assign(new Error('password_required'), {
+      code: 'bad_request' as const,
+      message: '본인 비밀번호를 입력해 주세요.',
+    });
+  }
+
+  const actor = await prisma.user.findFirst({
+    where: { id: params.actorUserId, tenantId: params.tenantId },
+    select: { id: true, passwordHash: true },
+  });
+  if (!actor?.passwordHash) {
+    throw Object.assign(new Error('unauthorized'), {
+      code: 'unauthorized' as const,
+      message: '사용자를 찾을 수 없습니다.',
+    });
+  }
+  const ok = await bcrypt.compare(password, actor.passwordHash);
+  if (!ok) {
+    throw Object.assign(new Error('invalid_password'), {
+      code: 'unauthorized' as const,
+      message: '비밀번호가 일치하지 않습니다.',
+    });
+  }
+
+  const operatingCompanyId =
+    typeof params.operatingCompanyId === 'string' && params.operatingCompanyId.trim()
+      ? params.operatingCompanyId.trim()
+      : null;
+
+  if (operatingCompanyId) {
+    const row = await prisma.operatingCompany.findFirst({
+      where: { id: operatingCompanyId, tenantId: params.tenantId },
+    });
+    if (!row) {
+      throw Object.assign(new Error('operating_company_not_found'), {
+        code: 'not_found' as const,
+        message: '영업 브랜드를 찾을 수 없습니다.',
+      });
+    }
+    const existingConfig = parseOperatingCompanyConfig(row.config);
+    if (!existingConfig.smtp) {
+      return getTenantCompanyProfile(params.tenantId);
+    }
+    const merged = { ...existingConfig };
+    delete merged.smtp;
+    await prisma.operatingCompany.update({
+      where: { id: operatingCompanyId },
+      data: { config: operatingCompanyConfigToJson(merged) as Prisma.InputJsonValue },
+    });
+    return getTenantCompanyProfile(params.tenantId);
+  }
+
+  const config = await getTenantConfig(params.tenantId);
+  if (!config.smtp) {
+    return getTenantCompanyProfile(params.tenantId);
+  }
+  const cleared = { ...config, smtp: undefined };
+  await prisma.tenant.update({
+    where: { id: params.tenantId },
+    data: { config: tenantConfigToJson(cleared) as Prisma.InputJsonValue },
+  });
+  return getTenantCompanyProfile(params.tenantId);
 }

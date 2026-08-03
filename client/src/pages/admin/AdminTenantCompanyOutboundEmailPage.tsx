@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { TenantSmtpSetupGuideModal } from '../../components/admin/TenantSmtpSetupGuideModal';
 import { OutboundEmailStatusBanner } from '../../components/admin/outbound-email/OutboundEmailStatusBanner';
@@ -13,12 +14,29 @@ import { OUTBOUND_EMAIL_COPY } from '../../utils/outboundEmailCopy';
 export function AdminTenantCompanyOutboundEmailPage() {
   const form = useOutboundEmailSettingsForm();
   const [guideOpen, setGuideOpen] = useState(false);
+  const [clearModalOpen, setClearModalOpen] = useState(false);
+  const [clearPassword, setClearPassword] = useState('');
+  const [clearModalErr, setClearModalErr] = useState<string | null>(null);
 
   if (form.loading) {
     return <div className="p-8 text-center text-gray-500 text-sm">불러오는 중…</div>;
   }
 
   const isBrandScope = Boolean(form.smtpScope);
+  const canClearSmtp = form.passwordConfigured || form.smtpReady;
+
+  const closeClearModal = () => {
+    setClearModalOpen(false);
+    setClearPassword('');
+    setClearModalErr(null);
+  };
+
+  const confirmClearSmtp = async () => {
+    setClearModalErr(null);
+    const result = await form.handleClearSmtp(clearPassword);
+    if (result.ok) closeClearModal();
+    else setClearModalErr(result.error);
+  };
 
   return (
     <div className="min-w-0 w-full max-w-3xl space-y-6 pb-8">
@@ -111,13 +129,30 @@ export function AdminTenantCompanyOutboundEmailPage() {
               </p>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={() => form.setCompactGrid((v) => !v)}
-            className="shrink-0 text-xs font-medium text-slate-600 underline underline-offset-2 hover:text-slate-900"
-          >
-            {form.compactGrid ? OUTBOUND_EMAIL_COPY.viewWizard : OUTBOUND_EMAIL_COPY.viewAllFields}
-          </button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {canClearSmtp ? (
+              <button
+                type="button"
+                disabled={form.busy}
+                onClick={() => {
+                  form.setErr(null);
+                  setClearModalErr(null);
+                  setClearPassword('');
+                  setClearModalOpen(true);
+                }}
+                className="rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-800 hover:bg-rose-100 disabled:opacity-50"
+              >
+                {OUTBOUND_EMAIL_COPY.clearSmtp}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => form.setCompactGrid((v) => !v)}
+              className="text-xs font-medium text-slate-600 underline underline-offset-2 hover:text-slate-900"
+            >
+              {form.compactGrid ? OUTBOUND_EMAIL_COPY.viewWizard : OUTBOUND_EMAIL_COPY.viewAllFields}
+            </button>
+          </div>
         </div>
 
         <OutboundEmailSetupWizard
@@ -160,6 +195,67 @@ export function AdminTenantCompanyOutboundEmailPage() {
       ) : null}
 
       <CompanyProfileSuccessModal message={form.successModal} onClose={() => form.setSuccessModal(null)} />
+
+      {clearModalOpen
+        ? createPortal(
+            <div
+              className="modal-mobile-safe-overlay fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="clear-smtp-title"
+              onClick={closeClearModal}
+            >
+              <div
+                className="modal-mobile-fullscreen-panel w-full max-w-md rounded-t-2xl bg-white p-4 shadow-xl sm:rounded-2xl sm:p-5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 id="clear-smtp-title" className="text-base font-semibold text-gray-900">
+                  {OUTBOUND_EMAIL_COPY.clearSmtpConfirmTitle}
+                </h3>
+                <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+                  {OUTBOUND_EMAIL_COPY.clearSmtpConfirmBody(form.scopeLabel)}
+                </p>
+                <label className="mt-4 block">
+                  <span className="text-xs font-medium text-gray-700">
+                    {OUTBOUND_EMAIL_COPY.clearSmtpPasswordLabel}
+                  </span>
+                  <input
+                    type="password"
+                    value={clearPassword}
+                    onChange={(e) => setClearPassword(e.target.value)}
+                    autoComplete="current-password"
+                    className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm"
+                    placeholder="로그인할 때 쓰는 비밀번호"
+                  />
+                </label>
+                {clearModalErr ? (
+                  <p className="mt-2 text-xs text-rose-700" role="alert">
+                    {clearModalErr}
+                  </p>
+                ) : null}
+                <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    disabled={form.busy}
+                    onClick={closeClearModal}
+                    className="min-h-10 rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {OUTBOUND_EMAIL_COPY.clearSmtpCancel}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={form.busy || !clearPassword.trim()}
+                    onClick={() => void confirmClearSmtp()}
+                    className="min-h-10 rounded-md bg-rose-700 px-4 py-2 text-sm font-medium text-white hover:bg-rose-800 disabled:opacity-50"
+                  >
+                    {form.busy ? '삭제 중…' : OUTBOUND_EMAIL_COPY.clearSmtpSubmit}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

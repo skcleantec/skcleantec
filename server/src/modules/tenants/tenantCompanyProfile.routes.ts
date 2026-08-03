@@ -6,6 +6,7 @@ import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
 import { requireTenantIdFromAuth } from './tenantScope.helpers.js';
 import {
+  clearTenantCompanySmtp,
   getTenantCompanyProfile,
   patchTenantCompanyProfile,
   sendTenantCompanyProfileTestEmail,
@@ -76,6 +77,40 @@ router.post('/seal-upload-sign', async (req, res) => {
   } catch (e) {
     console.error('[tenant-company-profile] seal upload-sign', e);
     res.status(500).json({ error: '업로드 서명에 실패했습니다.' });
+  }
+});
+
+/** POST /api/admin/tenant-company-profile/clear-smtp — SMTP 설정 삭제(본인 비밀번호) */
+router.post('/clear-smtp', async (req, res) => {
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const tenantId = await requireTenantIdFromAuth(res, user);
+  if (!tenantId) return;
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const operatingCompanyId =
+    typeof req.body?.operatingCompanyId === 'string' ? req.body.operatingCompanyId : null;
+  try {
+    const profile = await clearTenantCompanySmtp({
+      tenantId,
+      actorUserId: user.userId,
+      password,
+      operatingCompanyId,
+    });
+    res.json(profile);
+  } catch (e) {
+    const err = e as { code?: string; message?: string };
+    if (err.code === 'not_found') {
+      res.status(404).json({ error: err.message ?? '영업 브랜드를 찾을 수 없습니다.' });
+      return;
+    }
+    if (err.code === 'unauthorized') {
+      res.status(401).json({ error: err.message ?? '비밀번호가 일치하지 않습니다.' });
+      return;
+    }
+    if (err.code === 'bad_request') {
+      res.status(400).json({ error: err.message ?? '요청을 처리할 수 없습니다.' });
+      return;
+    }
+    throw e;
   }
 });
 
