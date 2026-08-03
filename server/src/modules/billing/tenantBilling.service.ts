@@ -7,7 +7,8 @@ import {
   TENANT_PREPAID_SERVICE_DELAY_DAYS,
   TENANT_TRIAL_DAYS,
 } from './tenantBilling.constants.js';
-import { TENANT_SIGNUP_GRACE_DAYS } from '../platform/tenantSignup.constants.js';
+import { resolveManualTrialDays } from '../platform/signupTrialEvent.service.js';
+import { normalizePlanId } from '../tenants/tenantFeatureCatalog.js';
 import {
   addDaysUtc,
   billingPeriodForStart,
@@ -785,9 +786,14 @@ export async function confirmPrepaidForTenant(tenantId: string) {
   if (tenant.status !== 'TRIAL' && tenant.status !== 'SUSPENDED') {
     throw new Error('체험·중지 상태에서만 선납 확인이 가능합니다.');
   }
+  if (normalizePlanId(tenant.plan) === 'free') {
+    throw new Error('Free 플랜은 체험을 시작하지 않습니다.');
+  }
 
   const now = new Date();
-  const trialEndsAt = addDaysUtc(now, TENANT_TRIAL_DAYS);
+  const manual = await resolveManualTrialDays(prisma, now);
+  const trialDays = manual.trialDays;
+  const trialEndsAt = addDaysUtc(now, trialDays);
   const prevConfig =
     tenant.config && typeof tenant.config === 'object' ? (tenant.config as Record<string, unknown>) : {};
   const prevSignup =
@@ -808,9 +814,12 @@ export async function confirmPrepaidForTenant(tenantId: string) {
         ...prevConfig,
         signup: {
           ...prevSignup,
-          signupGraceDays: TENANT_SIGNUP_GRACE_DAYS,
-          coinGraceEndsAt: trialEndsAt.toISOString(),
-          paidTrialDays: TENANT_SIGNUP_GRACE_DAYS,
+          signupGraceDays: trialDays,
+          coinGraceEndsAt: manual.includeCoinGrace ? trialEndsAt.toISOString() : null,
+          paidTrialDays: trialDays,
+          trialEventId: manual.eventId,
+          trialEventName: manual.eventName,
+          trialStartedManuallyAt: now.toISOString(),
         },
       },
     },
@@ -826,7 +835,7 @@ export async function confirmPrepaidForTenant(tenantId: string) {
   return {
     prepaidConfirmedAt: updated.prepaidConfirmedAt!.toISOString(),
     serviceStartsAt,
-    message: `체험이 시작되었습니다. ${TENANT_TRIAL_DAYS}일 후 정식 이용·과금이 시작됩니다.`,
+    message: `체험이 시작되었습니다. ${trialDays}일 후 정식 이용·과금이 시작됩니다.`,
   };
 }
 

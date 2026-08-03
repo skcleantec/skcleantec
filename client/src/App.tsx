@@ -114,6 +114,7 @@ import {
   PlatformReferrerDetailPage,
   PlatformBillingPage,
   PlatformCoinUsagePage,
+  PlatformSignupTrialEventsPage,
   PlatformSupportAccessPage,
   PlatformDbMarketplacePage,
   PlatformHelpInquirySettingsPage,
@@ -166,6 +167,7 @@ function App() {
           <Route path="referrers/:id" element={<SuspensePage><PlatformReferrerDetailPage /></SuspensePage>} />
           <Route path="billing" element={<SuspensePage><PlatformBillingPage /></SuspensePage>} />
           <Route path="coin-usage" element={<SuspensePage><PlatformCoinUsagePage /></SuspensePage>} />
+          <Route path="signup-trial-events" element={<SuspensePage><PlatformSignupTrialEventsPage /></SuspensePage>} />
           <Route path="support-access" element={<SuspensePage><PlatformSupportAccessPage /></SuspensePage>} />
           <Route path="db-marketplace" element={<SuspensePage><PlatformDbMarketplacePage /></SuspensePage>} />
           <Route path="help-inquiry" element={<SuspensePage><PlatformHelpInquirySettingsPage /></SuspensePage>} />

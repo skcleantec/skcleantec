@@ -1,12 +1,14 @@
-import type { TenantPlanUpgradeRequestStatus } from '@prisma/client';
+import type { Prisma, TenantPlanUpgradeRequestStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { TENANT_SIGNUP_GRACE_DAYS } from './tenantSignup.constants.js';
-import { addDaysUtc } from '../billing/tenantBilling.dates.js';
 import { modulesForPlan, TENANT_PLAN_ID_SET } from '../tenants/tenantFeatureCatalog.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { normalizePlanId } from '../tenants/tenantFeatureCatalog.js';
 import { TENANT_SELF_SIGNUP_UPGRADE_PLAN_IDS } from './tenantSignup.constants.js';
 import { resetTenantFeaturesFromPlan } from './tenantProvisioning.service.js';
+import {
+  buildSignupConfigPatch,
+  resolveSignupTrialApplication,
+} from './signupTrialEvent.service.js';
 
 export class TenantPlanUpgradeRequestError extends Error {
   constructor(
@@ -152,7 +154,11 @@ export async function approveTenantPlanUpgradeRequest(input: {
   }
 
   const now = new Date();
-  const trialEndsAt = addDaysUtc(now, TENANT_SIGNUP_GRACE_DAYS);
+  const trialApp = await resolveSignupTrialApplication({
+    plan: requestedPlan,
+    source: 'plan_upgrade',
+    now,
+  });
 
   const existingTenant = await prisma.tenant.findUnique({
     where: { id: row.tenantId },
@@ -172,21 +178,19 @@ export async function approveTenantPlanUpgradeRequest(input: {
       where: { id: row.tenantId },
       data: {
         plan: requestedPlan,
-        status: 'TRIAL',
-        trialEndsAt,
-        prepaidConfirmedAt: now,
+        status: trialApp.status,
+        trialEndsAt: trialApp.trialEndsAt,
+        prepaidConfirmedAt: trialApp.prepaidConfirmedAt,
         suspendedAt: null,
         suspendReason: null,
         billingAccessBlockedAt: null,
         config: {
           ...prevConfig,
-          signup: {
-            ...prevSignup,
-            signupGraceDays: TENANT_SIGNUP_GRACE_DAYS,
-            coinGraceEndsAt: trialEndsAt.toISOString(),
-            paidTrialDays: TENANT_SIGNUP_GRACE_DAYS,
-          },
-        },
+          signup: buildSignupConfigPatch(prevSignup, trialApp, {
+            upgradeApprovedAt: now.toISOString(),
+            selectedPlan: requestedPlan,
+          }),
+        } as Prisma.InputJsonValue,
       },
     });
 
@@ -208,8 +212,9 @@ export async function approveTenantPlanUpgradeRequest(input: {
     ok: true as const,
     tenantId: row.tenantId,
     plan: requestedPlan,
-    status: 'TRIAL' as const,
-    trialEndsAt: trialEndsAt.toISOString(),
+    status: trialApp.status,
+    trialEndsAt: trialApp.trialEndsAt?.toISOString() ?? null,
+    trialStarted: trialApp.applyTrial,
     enabledModuleCount: modules.length,
   };
 }

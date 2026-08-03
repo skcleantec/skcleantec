@@ -24,6 +24,10 @@ import {
 } from './tenantAdmins.service.js';
 import { trialEndsAtFromCreated } from '../billing/tenantBilling.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
+import {
+  buildSignupConfigPatch,
+  resolveSignupTrialApplication,
+} from './signupTrialEvent.service.js';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
@@ -53,7 +57,14 @@ export async function provisionTenant(input: ProvisionTenantInput) {
   const adminLoginId = assertValidTenantLoginId(input.adminLoginId);
   const adminName = (input.adminName?.trim() || '관리자').slice(0, 64);
   const plan = input.plan in TENANT_PLAN_ID_SET ? input.plan : 'free';
-  const status = input.status ?? 'TRIAL';
+  const now = new Date();
+  const trialApp = await resolveSignupTrialApplication({
+    plan,
+    source: 'platform_provision',
+    now,
+  });
+  // Free=체험 없음 / 유료=이벤트 ON이면 자동 체험, OFF면 체험 전
+  const status = trialApp.status;
 
   assertValidTenantSlug(slug);
   if (!name) throw new Error('업체명을 입력해주세요.');
@@ -75,6 +86,14 @@ export async function provisionTenant(input: ProvisionTenantInput) {
           name,
           plan,
           status,
+          trialEndsAt: trialApp.trialEndsAt,
+          prepaidConfirmedAt: trialApp.prepaidConfirmedAt,
+          config: {
+            signup: buildSignupConfigPatch({}, trialApp, {
+              source: 'platform_provision',
+              selectedPlan: plan,
+            }),
+          } as Prisma.InputJsonValue,
         },
       });
 

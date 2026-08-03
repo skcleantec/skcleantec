@@ -952,6 +952,26 @@ enum PlatformPromoOrderModeOverride {
   RANDOM
 }
 
+/// 플랫폼 — 가입 시 유료 플랜 자동 체험 이벤트
+model PlatformSignupTrialEvent {
+  id                     String    @id @default(uuid())
+  name                   String    @db.VarChar(128)
+  isActive               Boolean   @default(true) @map("is_active")
+  trialDays              Int       @default(60) @map("trial_days")
+  startsAt               DateTime? @map("starts_at")
+  endsAt                 DateTime? @map("ends_at")
+  applySelfServe         Boolean   @default(true) @map("apply_self_serve")
+  applyPlatformProvision Boolean   @default(true) @map("apply_platform_provision")
+  includeCoinGrace       Boolean   @default(true) @map("include_coin_grace")
+  priority               Int       @default(0)
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  createdByPlatformUserId String?  @map("created_by_platform_user_id") @db.VarChar(64)
+
+  @@index([isActive, priority, createdAt])
+  @@map("platform_signup_trial_events")
+}
+
 /// 플랫폼 — 홍보 배너 전역 표시 순서 (싱글톤)
 model PlatformPartnerPromoSettings {
   id                        String               @id @default("default")

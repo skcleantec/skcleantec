@@ -3,12 +3,16 @@ import { seedTenantDefaults } from '../tenants/tenantConfigSeed.service.js';
 import { modulesForPlan, type TenantPlanId } from '../tenants/tenantFeatureCatalog.js';
 import { ensureDefaultAdChannelsForTenant } from '../advertising/defaultAdChannels.js';
 import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
-import { addDaysUtc } from '../billing/tenantBilling.dates.js';
 import {
   assertValidTenantSlug,
   normalizeTenantSlug,
 } from './tenantProvisioning.service.js';
-import { isTenantSignupReservedSlug, normalizeSignupPlanId, TENANT_SIGNUP_GRACE_DAYS } from './tenantSignup.constants.js';
+import { isTenantSignupReservedSlug, normalizeSignupPlanId } from './tenantSignup.constants.js';
+import type { Prisma } from '@prisma/client';
+import {
+  buildSignupConfigPatch,
+  resolveSignupTrialApplication,
+} from './signupTrialEvent.service.js';
 import {
   normalizeSignupPhone,
   normalizeVerificationEmail,
@@ -76,7 +80,7 @@ function assertSignupContact(email: string, phone: string) {
   normalizeSignupPhone(phone);
 }
 
-/** 셀프 가입 — 선택 플랜 · Free=ACTIVE / 유료=2개월 TRIAL */
+/** 셀프 가입 — Free=체험 없음 / 유료=활성 체험 이벤트 있을 때만 자동 체험 */
 export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput) {
   if (!input.memberTermsAgreed) {
     throw new TenantSignupError('회원사 이용약관에 동의해 주세요.');
@@ -91,7 +95,6 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
   } catch {
     throw new TenantSignupError('올바른 이용 플랜을 선택해 주세요.');
   }
-  const isPaidSignup = selectedPlan !== 'free';
 
   const slugCheck = await isTenantSlugAvailableForSignup(input.slug);
   if (!slugCheck.available) {
@@ -123,8 +126,11 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
   const planModules = modulesForPlan(selectedPlan);
   const agreedAt = input.emailVerifiedAt;
   const signupStartedAt = new Date();
-  const graceEndsAt = addDaysUtc(signupStartedAt, TENANT_SIGNUP_GRACE_DAYS);
-  const trialEndsAt = isPaidSignup ? graceEndsAt : null;
+  const trialApp = await resolveSignupTrialApplication({
+    plan: selectedPlan,
+    source: 'self_serve',
+    now: signupStartedAt,
+  });
 
   let result;
   try {
@@ -135,26 +141,27 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
           slug,
           name,
           plan: selectedPlan,
-          status: isPaidSignup ? 'TRIAL' : 'ACTIVE',
-          trialEndsAt,
-          prepaidConfirmedAt: isPaidSignup ? signupStartedAt : null,
+          status: trialApp.status,
+          trialEndsAt: trialApp.trialEndsAt,
+          prepaidConfirmedAt: trialApp.prepaidConfirmedAt,
           config: {
-            signup: {
-              source: 'self_serve',
-              selectedPlan,
-              contactEmail,
-              contactPhone,
-              emailVerifiedAt: agreedAt,
-              memberTermsAgreedAt: agreedAt,
-              memberTermsAgreedIp: input.signupIp?.trim() || null,
-              signupGraceDays: TENANT_SIGNUP_GRACE_DAYS,
-              coinGraceEndsAt: graceEndsAt.toISOString(),
-              paidTrialDays: isPaidSignup ? TENANT_SIGNUP_GRACE_DAYS : null,
-            },
+            signup: buildSignupConfigPatch(
+              {},
+              trialApp,
+              {
+                source: 'self_serve',
+                selectedPlan,
+                contactEmail,
+                contactPhone,
+                emailVerifiedAt: agreedAt,
+                memberTermsAgreedAt: agreedAt,
+                memberTermsAgreedIp: input.signupIp?.trim() || null,
+              },
+            ),
             subscription: {
               planUpdatedAt: agreedAt,
             },
-          },
+          } as Prisma.InputJsonValue,
         },
       });
 

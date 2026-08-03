@@ -320,6 +320,11 @@ export const PlatformBillingPage = lazyWithRetry(() =>
 export const PlatformCoinUsagePage = lazyWithRetry(() =>
   import('../pages/platform/PlatformCoinUsagePage').then((m) => ({ default: m.PlatformCoinUsagePage }))
 );
+export const PlatformSignupTrialEventsPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformSignupTrialEventsPage').then((m) => ({
+    default: m.PlatformSignupTrialEventsPage,
+  }))
+);
 export const PlatformSupportAccessPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformSupportAccessPage').then((m) => ({ default: m.PlatformSupportAccessPage }))
 );
