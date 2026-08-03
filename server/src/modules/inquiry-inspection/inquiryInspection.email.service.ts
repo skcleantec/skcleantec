@@ -31,6 +31,7 @@ function assertCustomerEmail(row: ChecklistRow): string {
 
 export async function sendInspectionCompletionEmail(params: {
   tenantId: string;
+  operatingCompanyId?: string | null;
   row: ChecklistRow;
   inquiry: {
     customerName: string;
@@ -38,16 +39,20 @@ export async function sendInspectionCompletionEmail(params: {
     preferredDate: Date | null;
     address: string;
   };
+  /** 제목·발신 표시에 쓰는 브랜드/업체명 (브랜드 접수면 해당 브랜드명) */
   tenantDisplayName: string;
   pdfBuffer: Buffer | null;
   pdfUrl: string | null;
   customerViewUrl?: string | null;
 }): Promise<boolean> {
   const email = assertCustomerEmail(params.row);
-  if (!(await isSmtpConfiguredForTenant(params.tenantId))) {
+  const operatingCompanyId = params.operatingCompanyId ?? null;
+  if (!(await isSmtpConfiguredForTenant(params.tenantId, operatingCompanyId))) {
     throw Object.assign(new Error('smtp_not_configured'), {
       code: 'smtp_not_configured' as const,
-      message: 'SMTP가 설정되지 않았습니다. 업체등록정보에서 SMTP를 설정해 주세요.',
+      message: operatingCompanyId
+        ? '이 접수 브랜드의 발송 이메일이 설정되지 않았습니다. 업체등록정보 → 발송 이메일에서 해당 브랜드 SMTP를 설정해 주세요. (다른 업체 메일로 보내지 않습니다)'
+        : 'SMTP가 설정되지 않았습니다. 업체등록정보에서 SMTP를 설정해 주세요.',
     });
   }
 
@@ -77,7 +82,7 @@ export async function sendInspectionCompletionEmail(params: {
 
   if (attachment) {
     try {
-      await sendMailForTenant(params.tenantId, { ...mailInput, attachments: [attachment] });
+      await sendMailForTenant(params.tenantId, { ...mailInput, attachments: [attachment] }, operatingCompanyId);
       return true;
     } catch (e) {
       console.warn(
@@ -93,6 +98,6 @@ export async function sendInspectionCompletionEmail(params: {
     );
   }
 
-  await sendMailForTenant(params.tenantId, mailInput);
+  await sendMailForTenant(params.tenantId, mailInput, operatingCompanyId);
   return true;
 }

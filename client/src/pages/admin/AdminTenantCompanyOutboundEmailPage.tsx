@@ -95,8 +95,8 @@ export function AdminTenantCompanyOutboundEmailPage() {
             {form.profile?.globalSmtpFallbackAvailable && !isBrandScope ? (
               <p className="mt-1 text-xs text-amber-800 leading-relaxed">{OUTBOUND_EMAIL_COPY.fallbackPlatform}</p>
             ) : null}
-            {isBrandScope && !form.smtpReady && form.effectiveConfigured ? (
-              <p className="mt-1 text-xs text-sky-800 leading-relaxed">
+            {isBrandScope && !form.smtpReady ? (
+              <p className="mt-1 text-xs text-amber-800 leading-relaxed">
                 {OUTBOUND_EMAIL_COPY.fallbackBrandEffective(form.scopeLabel)}
               </p>
             ) : null}

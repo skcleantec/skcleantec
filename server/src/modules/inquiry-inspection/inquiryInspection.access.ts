@@ -35,7 +35,7 @@ export async function findInquiryForStaff(params: {
   if (user.role === 'ADMIN' || user.role === 'MARKETER') {
     return prisma.inquiry.findFirst({
       where: { id: inquiryId, tenantId },
-      select: { id: true, tenantId: true },
+      select: { id: true, tenantId: true, operatingCompanyId: true },
     });
   }
   return null;

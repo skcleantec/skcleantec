@@ -35,7 +35,7 @@ export type OperatingCompanySmtpSetting = {
   smtp: TenantSmtpSettingsPublic;
   /** 브랜드 전용 SMTP가 완전히 설정됨 */
   hasOwnSmtp: boolean;
-  /** 브랜드 → 테넌트 기본 → 서버 fallback 순으로 발송 가능 */
+  /** 브랜드 전용 SMTP가 있어 해당 브랜드 이름으로 발송 가능 */
   effectiveConfigured: boolean;
 };
 

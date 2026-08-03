@@ -199,14 +199,17 @@ export function resolveGlobalSmtpTransport(): ResolvedSmtpTransport | null {
   };
 }
 
+/**
+ * 브랜드 스코프 고객 메일 발송 가능 여부.
+ * 브랜드가 있으면 해당 브랜드 SMTP만 인정한다(테넌트 공통·전역 폴백 금지).
+ * `tenantStored`/`globalAvailable`는 하위 호환용으로 받으며 사용하지 않는다.
+ */
 export function resolveEffectiveSmtpConfigured(
   brandStored: TenantSmtpConfigStored | undefined,
-  tenantStored: TenantSmtpConfigStored | undefined,
-  globalAvailable: boolean,
+  _tenantStored?: TenantSmtpConfigStored | undefined,
+  _globalAvailable?: boolean,
 ): boolean {
-  if (storedSmtpComplete(brandStored)) return true;
-  if (storedSmtpComplete(tenantStored)) return true;
-  return globalAvailable;
+  return storedSmtpComplete(brandStored);
 }
 
 async function loadOperatingCompanySmtpStored(
@@ -225,14 +228,14 @@ export async function resolveSmtpTransportForTenant(
   tenantId: string,
   operatingCompanyId?: string | null,
 ): Promise<ResolvedSmtpTransport | null> {
-  const config = await getTenantConfig(tenantId);
-
+  // 브랜드가 지정된 고객 메일: 해당 브랜드 SMTP만 사용. 공통/전역으로 폴백하면
+  // 다른 업체(브랜드) 이름으로 나갈 수 있으므로 금지한다.
   if (operatingCompanyId) {
     const brandStored = await loadOperatingCompanySmtpStored(tenantId, operatingCompanyId);
-    const brand = resolveStoredSmtpTransport(brandStored);
-    if (brand) return brand;
+    return resolveStoredSmtpTransport(brandStored);
   }
 
+  const config = await getTenantConfig(tenantId);
   const tenant = resolveStoredSmtpTransport(config.smtp);
   if (tenant) return tenant;
   return resolveGlobalSmtpTransport();
@@ -330,7 +333,8 @@ export async function resolveSmtpErrorContextForTenant(
 }
 
 /**
- * 고객 발주서 제출 확인 메일 — 견적서와 동일: 브랜드 SMTP 우선, 비어 있으면 공통(테넌트) → 전역.
+ * 고객 발주서 제출 확인 메일 — 견적서와 동일.
+ * 브랜드 지정 시 브랜드 SMTP만, 없으면 테넌트 공통 → 전역.
  */
 export async function resolveSmtpTransportForOrderFormCustomerEmail(
   tenantId: string,

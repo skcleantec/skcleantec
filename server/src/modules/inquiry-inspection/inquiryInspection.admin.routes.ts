@@ -52,7 +52,10 @@ router.get('/', async (req, res) => {
     return;
   }
   const checklist = await loadInspectionChecklist({ inquiryId, tenantId });
-  res.json({ checklist, smtpConfigured: await isSmtpConfiguredForTenant(tenantId) });
+  res.json({
+    checklist,
+    smtpConfigured: await isSmtpConfiguredForTenant(tenantId, inquiry.operatingCompanyId),
+  });
 });
 
 /** GET /pdf — 완료본 PDF 다운로드 */
@@ -146,9 +149,15 @@ router.post('/resend-email', async (req, res) => {
     res.status(404).json({ error: '검수 체크리스트가 없습니다.' });
     return;
   }
-  if (!(await isSmtpConfiguredForTenant(tenantId))) {
+  const inquiryForSmtp = await prisma.inquiry.findFirst({
+    where: { id: inquiryId, tenantId },
+    select: { operatingCompanyId: true },
+  });
+  if (!(await isSmtpConfiguredForTenant(tenantId, inquiryForSmtp?.operatingCompanyId))) {
     res.status(503).json({
-      error: 'SMTP가 설정되지 않았습니다. 관리자 전용 → 업체등록정보 → 발송이메일에서 SMTP를 설정하세요.',
+      error: inquiryForSmtp?.operatingCompanyId
+        ? '이 접수 브랜드의 발송 이메일이 설정되지 않았습니다. 관리자 전용 → 업체등록정보 → 발송 이메일에서 해당 브랜드 SMTP를 설정하세요. (다른 업체 메일로 보내지 않습니다)'
+        : 'SMTP가 설정되지 않았습니다. 관리자 전용 → 업체등록정보 → 발송이메일에서 SMTP를 설정하세요.',
     });
     return;
   }

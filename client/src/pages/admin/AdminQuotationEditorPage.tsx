@@ -423,7 +423,8 @@ export function AdminQuotationEditorPage() {
     );
   }
 
-  const canEmail = smtpReady || globalSmtpFallback;
+  // 브랜드 선택 시 해당 브랜드 SMTP만 허용(공통·전역 폴백으로 다른 업체 이름 발송 금지)
+  const canEmail = operatingCompanyId ? smtpReady : smtpReady || globalSmtpFallback;
 
   return (
     <div className={`${qUi.pageRoot} ${qUi.stickyActionBarSpacer}`}>
@@ -459,7 +460,8 @@ export function AdminQuotationEditorPage() {
       <QuotationPreconditionBanner
         companyNameMissing={companyNameMissing}
         smtpReady={smtpReady}
-        globalSmtpFallback={globalSmtpFallback}
+        globalSmtpFallback={operatingCompanyId ? false : globalSmtpFallback}
+        brandScoped={Boolean(operatingCompanyId)}
       />
 
       {error && (

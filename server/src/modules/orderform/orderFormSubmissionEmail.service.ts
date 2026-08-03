@@ -100,7 +100,9 @@ export async function sendOrderFormSubmissionConfirmationEmail(
       operatingCompanyId: input.operatingCompanyId,
       toEmail,
       status: 'SKIPPED_NO_SMTP',
-      lastError: '발송 SMTP가 설정되지 않았습니다. (영업 브랜드 또는 공통 기본)',
+      lastError: input.operatingCompanyId
+        ? '해당 영업 브랜드 발송 이메일이 설정되지 않아 메일을 보내지 않았습니다. (다른 업체 메일로 대체 발송하지 않습니다)'
+        : '발송 SMTP가 설정되지 않았습니다. (업체 공통 또는 기본)',
       sentAt: null,
       incrementAttempt: true,
     });

@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import { getTenantConfig } from '../tenants/tenantConfig.service.js';
 import { resolveTenantCustomerFacingBrandName } from '../tenants/tenantConfig.schema.js';
+import { resolveQuotationBrandDisplayName } from '../quotations/quotationDocumentTitle.service.js';
 import { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import { buildInspectionPdfBuffer } from './inquiryInspection.pdf.service.js';
 import { uploadInspectionPdfBuffer } from './inquiryInspection.pdfUpload.service.js';
@@ -9,6 +10,46 @@ import { isCloudinaryConfigured } from '../../lib/cloudinary.js';
 import { formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
 import { ensureInspectionCustomerViewToken } from './inquiryInspection.customerView.service.js';
 import { buildInspectionCustomerViewUrl } from './inquiryInspection.publicUrl.js';
+
+const inquiryEmailSelect = {
+  customerName: true,
+  inquiryNumber: true,
+  preferredDate: true,
+  address: true,
+  addressDetail: true,
+  operatingCompanyId: true,
+  operatingCompany: { select: { slug: true, name: true, config: true } },
+} as const;
+
+async function resolveInspectionMailIdentity(params: {
+  tenantId: string;
+  operatingCompanyId: string | null;
+  operatingCompany: { slug: string; name: string; config: unknown } | null;
+}): Promise<{
+  displayName: string;
+  tenantSlug: string | null;
+  brandSlug: string | null;
+}> {
+  const [tenantConfig, tenantRow] = await Promise.all([
+    getTenantConfig(params.tenantId),
+    prisma.tenant.findUnique({
+      where: { id: params.tenantId },
+      select: { slug: true, name: true },
+    }),
+  ]);
+  const tenantFallback = resolveTenantCustomerFacingBrandName(
+    tenantConfig,
+    tenantRow?.name ?? '',
+  );
+  const displayName = params.operatingCompanyId
+    ? resolveQuotationBrandDisplayName(params.operatingCompany, tenantFallback) || tenantFallback
+    : tenantFallback;
+  return {
+    displayName,
+    tenantSlug: tenantRow?.slug ?? null,
+    brandSlug: params.operatingCompany?.slug ?? null,
+  };
+}
 
 /** 검수 완료 직후 PDF 생성·Cloudinary 저장·고객 이메일 발송 */
 export async function finalizeInspectionAfterComplete(params: {
@@ -24,14 +65,7 @@ export async function finalizeInspectionAfterComplete(params: {
 
   const inquiry = await prisma.inquiry.findFirst({
     where: { id: params.inquiryId, tenantId: params.tenantId },
-    select: {
-      customerName: true,
-      inquiryNumber: true,
-      preferredDate: true,
-      address: true,
-      addressDetail: true,
-      operatingCompany: { select: { slug: true } },
-    },
+    select: inquiryEmailSelect,
   });
   if (!inquiry) return;
 
@@ -69,24 +103,18 @@ export async function finalizeInspectionAfterComplete(params: {
     console.error('[inspection-finalize] PDF generation/upload failed', e);
   }
 
-  const [tenantConfig, tenantRow] = await Promise.all([
-    getTenantConfig(params.tenantId),
-    prisma.tenant.findUnique({
-      where: { id: params.tenantId },
-      select: { slug: true, name: true },
-    }),
-  ]);
-  const tenantDisplayName = resolveTenantCustomerFacingBrandName(
-    tenantConfig,
-    tenantRow?.name ?? '',
-  );
+  const identity = await resolveInspectionMailIdentity({
+    tenantId: params.tenantId,
+    operatingCompanyId: inquiry.operatingCompanyId,
+    operatingCompany: inquiry.operatingCompany,
+  });
 
   let customerViewUrl: string | null = null;
   try {
     const viewToken = await ensureInspectionCustomerViewToken(prisma, row.id, params.tenantId);
     customerViewUrl = buildInspectionCustomerViewUrl(viewToken, {
-      tenantSlug: tenantRow?.slug ?? null,
-      brandSlug: inquiry.operatingCompany?.slug ?? null,
+      tenantSlug: identity.tenantSlug,
+      brandSlug: identity.brandSlug,
     });
   } catch (e) {
     console.error('[inspection-finalize] customer view token failed', e);
@@ -96,9 +124,10 @@ export async function finalizeInspectionAfterComplete(params: {
   try {
     emailSent = await sendInspectionCompletionEmail({
       tenantId: params.tenantId,
+      operatingCompanyId: inquiry.operatingCompanyId,
       row,
       inquiry: inquiryPayload,
-      tenantDisplayName,
+      tenantDisplayName: identity.displayName,
       pdfBuffer,
       pdfUrl,
       customerViewUrl,
@@ -131,14 +160,7 @@ export async function resendInspectionCompletionEmail(params: {
 
   const inquiry = await prisma.inquiry.findFirst({
     where: { id: params.inquiryId, tenantId: params.tenantId },
-    select: {
-      customerName: true,
-      inquiryNumber: true,
-      preferredDate: true,
-      address: true,
-      addressDetail: true,
-      operatingCompany: { select: { slug: true } },
-    },
+    select: inquiryEmailSelect,
   });
   if (!inquiry) throw Object.assign(new Error('not_found'), { code: 'not_found' as const });
 
@@ -170,23 +192,18 @@ export async function resendInspectionCompletionEmail(params: {
     }
   }
 
-  const [tenantConfig, tenantRow] = await Promise.all([
-    getTenantConfig(params.tenantId),
-    prisma.tenant.findUnique({
-      where: { id: params.tenantId },
-      select: { slug: true, name: true },
-    }),
-  ]);
-  const tenantDisplayName = resolveTenantCustomerFacingBrandName(
-    tenantConfig,
-    tenantRow?.name ?? '',
-  );
+  const identity = await resolveInspectionMailIdentity({
+    tenantId: params.tenantId,
+    operatingCompanyId: inquiry.operatingCompanyId,
+    operatingCompany: inquiry.operatingCompany,
+  });
+
   let customerViewUrl: string | null = null;
   try {
     const viewToken = await ensureInspectionCustomerViewToken(prisma, row.id, params.tenantId);
     customerViewUrl = buildInspectionCustomerViewUrl(viewToken, {
-      tenantSlug: tenantRow?.slug ?? null,
-      brandSlug: inquiry.operatingCompany?.slug ?? null,
+      tenantSlug: identity.tenantSlug,
+      brandSlug: identity.brandSlug,
     });
   } catch (e) {
     console.error('[inspection-resend] customer view token failed', e);
@@ -194,9 +211,10 @@ export async function resendInspectionCompletionEmail(params: {
 
   const emailSent = await sendInspectionCompletionEmail({
     tenantId: params.tenantId,
+    operatingCompanyId: inquiry.operatingCompanyId,
     row,
     inquiry: inquiryPayload,
-    tenantDisplayName,
+    tenantDisplayName: identity.displayName,
     pdfBuffer,
     pdfUrl,
     customerViewUrl,

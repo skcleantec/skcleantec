@@ -75,7 +75,9 @@ export async function executeQuotationEmailSend(
       pdfBuffer,
     });
     if (!sent) {
-      errorMessage = 'SMTP가 설정되지 않았습니다.';
+      errorMessage = row.operatingCompanyId
+        ? '이 브랜드 발송 이메일이 설정되지 않았습니다. 다른 업체 메일로 대신 보내지 않습니다.'
+        : 'SMTP가 설정되지 않았습니다.';
     }
   } catch (e) {
     errorMessage = e instanceof Error ? e.message : '이메일 발송에 실패했습니다.';

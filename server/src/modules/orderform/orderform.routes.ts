@@ -1011,7 +1011,7 @@ router.get('/:id/customer-submission', authMiddleware, requireStaffPermission('o
   });
 });
 
-/** 관리자/마케터: 고객 제출 확인 메일 재발송(브랜드 → 공통 SMTP) */
+/** 관리자/마케터: 고객 제출 확인 메일 재발송(브랜드 SMTP 필수, 공통 폴백 없음) */
 router.post('/:id/resend-submission-email', authMiddleware, requireStaffPermission('orderform.edit'), async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = await requireTenantIdFromAuth(res, user);

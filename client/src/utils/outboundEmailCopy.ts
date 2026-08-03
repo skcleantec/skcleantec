@@ -5,12 +5,12 @@ export const OUTBOUND_EMAIL_COPY = {
   scopeTitle: '이 설정은 누구 메일로 보내나요?',
   scopeCommon: '업체 공통',
   scopeBrandHint: (brand: string) =>
-    `${brand}만 다른 메일을 쓰려면 여기서 설정하세요. 비우면 업체 공통 설정을 사용합니다.`,
-  scopeCommonHint: '브랜드별 설정이 없을 때 쓰는 기본 메일 연결입니다.',
+    `${brand} 고객 메일은 여기서 연결한 메일로만 보냅니다. 비워 두면 해당 브랜드로는 메일을 보내지 않습니다(다른 업체 메일로 대체하지 않음).`,
+  scopeCommonHint: '브랜드가 없는 접수·공통 안내용 기본 메일 연결입니다.',
   fallbackPlatform:
     '아래를 비워 두면 청소비서 기본 메일로 보낼 수 있습니다. 고객에게 우리 업체 이름·메일로 보이게 하려면 여기서 설정하세요.',
   fallbackBrandEffective: (brand: string) =>
-    `${brand} 전용 설정은 없지만, 업체 공통(또는 기본) 메일로 보낼 수 있습니다.`,
+    `${brand} 전용 발송 이메일이 없습니다. 이 브랜드 메일은 보낼 수 없으며, 다른 업체 메일로 대신 보내지 않습니다.`,
   statusReady: '메일 보내기 준비됨',
   statusFallback: '다른 설정으로 메일을 보냅니다',
   statusMissing: '아직 메일을 보낼 수 없습니다',
