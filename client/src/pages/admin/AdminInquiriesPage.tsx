@@ -2393,6 +2393,15 @@ export function AdminInquiriesPage() {
         return;
       }
       patch.teamLeaderIds = leaderIdsForSave;
+      /** 화면 표시 금액(service* ?? 발주서)과 같으면 PATCH에서 제외 — 금액 확정 대기 플래그 오해제 방지 */
+      {
+        const effTotal = editItem.serviceTotalAmount ?? editItem.orderForm?.totalAmount ?? null;
+        const effDeposit = editItem.serviceDepositAmount ?? editItem.orderForm?.depositAmount ?? null;
+        const effBalance = editItem.serviceBalanceAmount ?? editItem.orderForm?.balanceAmount ?? null;
+        if (patch.serviceTotalAmount === effTotal) delete patch.serviceTotalAmount;
+        if (patch.serviceDepositAmount === effDeposit) delete patch.serviceDepositAmount;
+        if (patch.serviceBalanceAmount === effBalance) delete patch.serviceBalanceAmount;
+      }
       await updateInquiry(token, editItem.id, patch);
       setEditItem(null);
       refresh(true);

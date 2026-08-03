@@ -305,6 +305,12 @@ export function shouldClearProfOptionsAmountReviewOnPatch(
     serviceTotalAmount: number | null;
     serviceDepositAmount: number | null;
     serviceBalanceAmount: number | null;
+    /** 접수 금액이 null일 때 UI·대기는 발주서 원금을 기준으로 본다 */
+    orderForm?: {
+      totalAmount: number | null;
+      depositAmount: number | null;
+      balanceAmount: number | null;
+    } | null;
   },
   data: Prisma.InquiryUpdateInput,
 ): boolean {
@@ -315,12 +321,17 @@ export function shouldClearProfOptionsAmountReviewOnPatch(
     const n = Number(v);
     return Number.isFinite(n) ? Math.trunc(n) : undefined;
   };
+  /** 화면·대기 판단과 동일: service* ?? 발주서 금액 */
+  const baselineTotal = inquiry.serviceTotalAmount ?? inquiry.orderForm?.totalAmount ?? null;
+  const baselineDeposit = inquiry.serviceDepositAmount ?? inquiry.orderForm?.depositAmount ?? null;
+  const baselineBalance = inquiry.serviceBalanceAmount ?? inquiry.orderForm?.balanceAmount ?? null;
   const nextTotal = num(data.serviceTotalAmount);
   const nextDeposit = num(data.serviceDepositAmount);
   const nextBalance = num(data.serviceBalanceAmount);
-  if (nextTotal !== undefined && nextTotal !== inquiry.serviceTotalAmount) return true;
-  if (nextDeposit !== undefined && nextDeposit !== inquiry.serviceDepositAmount) return true;
-  if (nextBalance !== undefined && nextBalance !== inquiry.serviceBalanceAmount) return true;
+  // null → 발주서와 같은 숫자로 "처음 채우는" 저장은 금액 확정으로 보지 않는다
+  if (nextTotal !== undefined && nextTotal !== baselineTotal) return true;
+  if (nextDeposit !== undefined && nextDeposit !== baselineDeposit) return true;
+  if (nextBalance !== undefined && nextBalance !== baselineBalance) return true;
   return false;
 }
 

@@ -3498,6 +3498,32 @@ export function AdminSchedulePage() {
               void fetchMonthData(false);
             }
           }}
+          onProfOptionsApplied={async (result) => {
+            if (!detailItem) return;
+            const mergedArc = [...(detailItem.additionalReceipts ?? [])];
+            const arcIds = new Set(mergedArc.map((r) => r.id));
+            for (const row of result.createdAdditionalReceipts) {
+              if (arcIds.has(row.id)) continue;
+              mergedArc.push({
+                id: row.id,
+                description: row.description,
+                amount: row.amount,
+                settlementChannel:
+                  row.settlementChannel === 'FIELD_RECEIVED' ? 'FIELD_RECEIVED' : 'COMPANY_DEPOSIT',
+                sortOrder: row.sortOrder,
+                createdAt: row.createdAt,
+                updatedAt: row.updatedAt,
+                createdBy: row.createdBy,
+              });
+            }
+            setDetailItem({
+              ...detailItem,
+              profOptionsAmountReviewPending: result.profOptionsAmountReviewPending,
+              profOptionsAmountReviewCompleted: result.profOptionsAmountReviewCompleted,
+              additionalReceipts: mergedArc,
+            });
+            void fetchMonthData(false);
+          }}
         />
         </Suspense>
       )}

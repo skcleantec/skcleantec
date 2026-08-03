@@ -132,7 +132,9 @@ export function ProfOptionsAmountReviewApplyPanel(props: {
       <p className="font-semibold">추가 시공 옵션 — 금액 설정 필요</p>
       <p className="mt-1.5 text-fluid-xs leading-relaxed text-amber-900/90">
         발주서·카탈로그 금액은 <span className="font-medium">표준가</span>입니다. 할인·협의가 있으면{' '}
-        <span className="font-medium">청구 금액</span>을 수정한 뒤 반영하세요. 반영 위치는 아래{' '}
+        <span className="font-medium">청구 금액</span>을 수정한 뒤{' '}
+        <span className="font-medium">아래 「추가 시공 금액 저장」</span>으로만 반영하세요. 하단 접수{' '}
+        <span className="font-medium">저장</span>과는 별개입니다. 반영 위치는{' '}
         <span className="font-medium">결제 금액 내역 → 추가결재</span>입니다.
       </p>
 
@@ -212,7 +214,7 @@ export function ProfOptionsAmountReviewApplyPanel(props: {
           onClick={() => void handleApply()}
           className="mt-3 rounded-lg bg-amber-800 px-3.5 py-2 text-fluid-xs font-semibold text-white hover:bg-amber-900 disabled:opacity-50"
         >
-          {applying ? '반영 중…' : '입력한 청구 금액 반영'}
+          {applying ? '저장 중…' : '추가 시공 금액 저장'}
         </button>
       ) : null}
     </div>

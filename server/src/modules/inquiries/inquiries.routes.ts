@@ -768,7 +768,15 @@ router.patch('/:id', async (req, res) => {
     where: { id, tenantId, ...inquiryActiveOnlyWhere() },
     include: {
       orderForm: {
-        select: { id: true, createdById: true, submittedAt: true, customerSpecialNotes: true },
+        select: {
+          id: true,
+          createdById: true,
+          submittedAt: true,
+          customerSpecialNotes: true,
+          totalAmount: true,
+          depositAmount: true,
+          balanceAmount: true,
+        },
       },
       assignments: {
         orderBy: { sortOrder: 'asc' },

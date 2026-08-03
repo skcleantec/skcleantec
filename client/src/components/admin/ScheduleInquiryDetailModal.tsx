@@ -46,6 +46,9 @@ import {
 } from '../../constants/orderFormBuilding';
 import {
   normalizeProfessionalOptionIds,
+  parseProfessionalOptionSelections,
+  selectionIdsFromSelections,
+  serializeProfessionalOptionSelections,
   type ProfessionalSpecialtyOption,
 } from '../../constants/professionalSpecialtyOptions';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
@@ -829,7 +832,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
       consultationMemo: it.consultationMemo ?? '',
       internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
-      professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
+      // 카탈로그 미로드 시 id를 버리지 않음(빈 catalog normalize → [] PATCH 회귀 방지)
+      professionalOptionIds: selectionIdsFromSelections(
+        parseProfessionalOptionSelections(it.professionalOptionIds),
+      ),
       leadSource: inquiryEditLeadSourceFromItem(it.source),
     };
   });
@@ -1246,7 +1252,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
       consultationMemo: it.consultationMemo ?? '',
       internalCustomerTone: normalizeInternalCustomerTone(it.internalCustomerTone),
-      professionalOptionIds: normalizeProfessionalOptionIds(it.professionalOptionIds, professionalCatalog),
+      professionalOptionIds: selectionIdsFromSelections(
+        parseProfessionalOptionSelections(it.professionalOptionIds),
+      ),
       leadSource: inquiryEditLeadSourceFromItem(it.source),
     });
     setMarketerQuickValue(it.createdBy?.id ?? '');
@@ -1920,6 +1928,51 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         editForm.specialNotes.trim() === ''
       ) {
         delete patch.specialNotes;
+      }
+      /**
+       * 추가 시공 금액 설정(상단 전용 반영)과 접수 저장을 분리한다.
+       * - 화면에 보이던 발주서 원금과 같으면 service* 필드를 PATCH에 넣지 않음
+       *   (null → 원금 숫자로 쓰이며 금액 확정 대기가 꺼지던 회귀 방지)
+       * - 전문 시공 선택을 안 바꿨으면 professionalOptionIds 도 보내지 않음
+       */
+      if (!isCreate && item) {
+        const effTotal = item.serviceTotalAmount ?? item.orderForm?.totalAmount ?? null;
+        const effDeposit = item.serviceDepositAmount ?? item.orderForm?.depositAmount ?? null;
+        const effBalance = item.serviceBalanceAmount ?? item.orderForm?.balanceAmount ?? null;
+        if (patch.serviceTotalAmount === effTotal) delete patch.serviceTotalAmount;
+        if (patch.serviceDepositAmount === effDeposit) delete patch.serviceDepositAmount;
+        if (patch.serviceBalanceAmount === effBalance) delete patch.serviceBalanceAmount;
+        const prevProfIds = selectionIdsFromSelections(
+          parseProfessionalOptionSelections(item.professionalOptionIds),
+        );
+        const nextProfIds = editForm.professionalOptionIds;
+        const sameProf =
+          prevProfIds.length === nextProfIds.length &&
+          [...prevProfIds].sort().join('\0') === [...nextProfIds].sort().join('\0');
+        if (sameProf) {
+          delete patch.professionalOptionIds;
+        } else if (
+          nextProfIds.length === 0 &&
+          prevProfIds.length > 0 &&
+          (professionalCatalog.length === 0 ||
+            prevProfIds.every((id) => !professionalCatalog.some((c) => c.id === id)))
+        ) {
+          // 카탈로그 미로드로 폼 선택이 비어 보이는 경우 — 고객 전문시공 선택 유지
+          delete patch.professionalOptionIds;
+        }
+      }
+      /** 선택 변경 시에만 전송 — 기존 quantity·unitAmount 유지 */
+      if (patch.professionalOptionIds !== undefined) {
+        const prevById = new Map(
+          parseProfessionalOptionSelections(
+            !isCreate && item ? item.professionalOptionIds : undefined,
+          ).map((s) => [s.id, s]),
+        );
+        patch.professionalOptionIds = serializeProfessionalOptionSelections(
+          editForm.professionalOptionIds.map(
+            (id) => prevById.get(id) ?? { id, quantity: 1, unitAmount: null },
+          ),
+        );
       }
       if (isCreate) {
         const created = (await createInquiry(
