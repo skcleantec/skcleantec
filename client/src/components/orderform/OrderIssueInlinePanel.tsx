@@ -49,11 +49,13 @@ export function OrderIssueInlinePanel({
   crmSeed,
   onIssued,
   compact,
+  hideTitle,
 }: {
   pendingInquiryId?: string;
   crmSeed?: CrmOrderIssueSeed;
   onIssued?: (order: OrderForm) => void;
   compact?: boolean;
+  hideTitle?: boolean;
 }) {
   const token = getToken();
   const staffTenantSlug = useStaffTenantSlugForLinks(token);
@@ -235,13 +237,15 @@ export function OrderIssueInlinePanel({
 
   return (
     <div className={compact ? 'space-y-4' : 'min-w-0 w-full max-w-full space-y-4'}>
-      <div className="flex items-center gap-2">
-        <h3 className="text-fluid-sm font-semibold text-gray-900">발주서 발급</h3>
-        <HelpTooltip
-          className="shrink-0"
-          text="대기 접수를 연결하면 고객 제출 시 같은 접수로 전환됩니다. CRM 접수 저장 직후 연결하는 것을 권장합니다."
-        />
-      </div>
+      {hideTitle ? null : (
+        <div className="flex items-center gap-2">
+          <h3 className="text-fluid-sm font-semibold text-gray-900">발주서 발급</h3>
+          <HelpTooltip
+            className="shrink-0"
+            text="대기 접수를 연결하면 고객 제출 시 같은 접수로 전환됩니다. CRM 접수 저장 직후 연결하는 것을 권장합니다."
+          />
+        </div>
+      )}
 
       <div className="space-y-4">
         {orderTemplates.length > 0 ? (

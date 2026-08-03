@@ -60,6 +60,7 @@ import {
 } from '../../components/admin/ScheduleCustomCalendarMobileSheet';
 import { ScheduleInquirySearchPanel } from '../../components/admin/ScheduleInquirySearchPanel';
 import { ScheduleQuickPasteModal } from '../../components/schedule/ScheduleQuickPasteModal';
+import { ScheduleOrderIssueModal } from '../../components/schedule/ScheduleOrderIssueModal';
 import { OperatingCompanyBadge } from '../../components/admin/OperatingCompanyBadge';
 import { TenantInquiryShareBadge } from '../../components/admin/TenantInquiryShareBadge';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
@@ -852,6 +853,7 @@ export function AdminSchedulePage() {
   /** 신규 접수 모달 — 선택한 캘린더 날짜로 예약일 고정 */
   const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
   const [quickPasteOpen, setQuickPasteOpen] = useState(false);
+  const [orderIssueOpen, setOrderIssueOpen] = useState(false);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [teamLeadersWithZones, setTeamLeadersWithZones] = useState<UserItem[]>([]);
   const [externalCompanies, setExternalCompanies] = useState<Array<{ id: string; name: string }>>([]);
@@ -1920,14 +1922,14 @@ export function AdminSchedulePage() {
             <button
               type="button"
               onClick={() => setCreateInquiryModalDate(selectedDate ?? kstTodayYmd())}
-              className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-slate-800 shadow-sm touch-manipulation active:bg-slate-50"
+              className="min-w-0 flex-1 rounded-md border border-sky-300 bg-sky-50 px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-sky-950 shadow-sm touch-manipulation active:bg-sky-100"
             >
               일반등록
             </button>
             <button
               type="button"
-              onClick={() => navigate('/admin/inquiries/order-issue')}
-              className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-slate-800 shadow-sm touch-manipulation active:bg-slate-50"
+              onClick={() => setOrderIssueOpen(true)}
+              className="min-w-0 flex-1 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-amber-950 shadow-sm touch-manipulation active:bg-amber-100"
             >
               발주서발급
             </button>
@@ -1935,7 +1937,7 @@ export function AdminSchedulePage() {
               <button
                 type="button"
                 onClick={() => setQuickPasteOpen(true)}
-                className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-slate-800 shadow-sm touch-manipulation active:bg-slate-50"
+                className="min-w-0 flex-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-violet-950 shadow-sm touch-manipulation active:bg-violet-100"
               >
                 빠른등록
               </button>
@@ -3732,6 +3734,12 @@ export function AdminSchedulePage() {
         confirmLabel="삭제"
         onClose={() => setCustomCalendarDeleting(null)}
         onConfirm={handleConfirmDeleteCustomCalendar}
+      />
+
+      <ScheduleOrderIssueModal
+        open={orderIssueOpen}
+        onClose={() => setOrderIssueOpen(false)}
+        onIssued={() => fetchMonthData(false)}
       />
 
       {token && hasQuickPaste ? (
