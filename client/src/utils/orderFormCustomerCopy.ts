@@ -6,9 +6,17 @@ import {
 } from '../constants/orderFormConfigDefaults';
 import {
   applyCustomerLinkTemplate,
+  buildDefaultCustomerLinkMessageTemplate,
+  finalizeCustomerLinkMessage,
   resolveCustomerLinkCopy,
   type CustomerLinkCopyConfig,
 } from '@shared/orderFormCustomerLinkCopy';
+import {
+  joinCustomerLinkMessageChunks,
+  normalizeCustomerLinkBlockOrder,
+  ORDER_FORM_CUSTOMER_LINK_BLOCK_META,
+  type OrderFormCustomerLinkBlockId,
+} from '@shared/orderFormCustomerLinkBlocks';
 import {
   composeBrandedCsUrlLabel,
   composeCustomerLinkMessageTitle,
@@ -68,21 +76,27 @@ export type FormMessagesState = Pick<
   | 'customerLinkCsNotice'
   | 'customerLinkCsUrlLabel'
   | 'customerLinkPaybackBlock'
+  | 'customerLinkBlockOrder'
+  | 'customerLinkMessageTemplate'
 >;
 
 /** API 응답을 편집용 상태로: 비어 있는 항목은 기본 문구로 채워 placeholder 없이 바로 수정 가능 */
 export function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessagesState {
   const linkCopy = resolveCustomerLinkCopy(c);
+  const reviewEventText =
+    c.reviewEventText == null
+      ? ORDER_FORM_CONFIG_DEFAULTS.reviewEventText
+      : c.reviewEventText;
+  const footerNotice1 = withDefaultText(c.footerNotice1, 'footerNotice1');
+  const footerNotice2 = footerNotice2ForMessage(c.footerNotice2);
+  const templateRaw = c.customerLinkMessageTemplate?.trim() ?? '';
   return {
     formTitle: withDefaultText(c.formTitle, 'formTitle'),
     priceLabel: withDefaultText(c.priceLabel, 'priceLabel'),
     // 리뷰 문구는 "비우면 숨김" 가능 — null/undefined(미설정)만 기본 문구, ''(명시적 비움)은 그대로 둠
-    reviewEventText:
-      c.reviewEventText == null
-        ? ORDER_FORM_CONFIG_DEFAULTS.reviewEventText
-        : c.reviewEventText,
-    footerNotice1: withDefaultText(c.footerNotice1, 'footerNotice1'),
-    footerNotice2: footerNotice2ForMessage(c.footerNotice2),
+    reviewEventText,
+    footerNotice1,
+    footerNotice2,
     submitSuccessTitle: withDefaultText(c.submitSuccessTitle, 'submitSuccessTitle'),
     submitSuccessBody: withDefaultText(c.submitSuccessBody, 'submitSuccessBody'),
     timeSlotAckTitle: withDefaultText(c.timeSlotAckTitle, 'timeSlotAckTitle'),
@@ -92,6 +106,16 @@ export function normalizeMsgConfigForEditor(c: OrderFormConfigPublic): FormMessa
     serviceDateAckBody: withDefaultText(c.serviceDateAckBody, 'serviceDateAckBody'),
     serviceDateAckConsentHint: withDefaultText(c.serviceDateAckConsentHint, 'serviceDateAckConsentHint'),
     ...linkCopy,
+    customerLinkBlockOrder: normalizeCustomerLinkBlockOrder(c.customerLinkBlockOrder),
+    customerLinkMessageTemplate:
+      templateRaw ||
+      buildDefaultCustomerLinkMessageTemplate({
+        formTitle: c.formTitle,
+        ...linkCopy,
+        reviewEventText,
+        footerNotice1,
+        footerNotice2,
+      }),
   };
 }
 
@@ -141,6 +165,8 @@ export function brandCustomerLinkConfigMapFromItems(
       | 'customerLinkCsNotice'
       | 'customerLinkCsUrlLabel'
       | 'customerLinkPaybackBlock'
+      | 'customerLinkBlockOrder'
+      | 'customerLinkMessageTemplate'
     > & { operatingCompanyId: string }
   >,
 ): BrandCustomerLinkMsgConfigMap {
@@ -230,6 +256,95 @@ function tplLine(text: string, vars: Record<string, string>): string {
   return applyCustomerLinkTemplate(text, vars);
 }
 
+/** 페이백 토큰 없을 때 자유 본문의 페이백 안내 단락 제거 */
+function stripEmptyPaybackFreeform(text: string): string {
+  const lines = text.split('\n');
+  const out: string[] = [];
+  let skipping = false;
+  for (const line of lines) {
+    const t = line.trim();
+    if (!skipping && (/\u2605\s*리뷰\s*페이백|리뷰\s*페이백\s*신청|페이백\s*신청\s*:/i.test(t) || /^★/.test(t) && /페이백/.test(t))) {
+      skipping = true;
+      continue;
+    }
+    if (skipping) {
+      if (t === '') {
+        skipping = false;
+      }
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
+function renderCustomerLinkBlockText(
+  blockId: OrderFormCustomerLinkBlockId,
+  ctx: {
+    msgConfig: FormMessagesState;
+    order: OrderFormCustomerMessageInput;
+    origin?: string;
+    tenantSlug?: string | null;
+    brandSlug?: string | null;
+    brandDisplayName?: string | null;
+    linkCopy: ReturnType<typeof resolveCustomerLinkCopy>;
+    baseVars: Record<string, string>;
+    link: string;
+    csLink: string;
+    csUrlLabel: string;
+    reviewText: string;
+    footer1: string;
+    footer2: string;
+    paybackToken: string;
+  },
+): string | null {
+  const { linkCopy, baseVars, order } = ctx;
+  switch (blockId) {
+    case 'title': {
+      const formTitleResolved = tplLine(withDefaultText(ctx.msgConfig.formTitle, 'formTitle'), baseVars);
+      return composeCustomerLinkMessageTitle(ctx.brandDisplayName, formTitleResolved);
+    }
+    case 'total':
+      return tplLine(linkCopy.customerLinkTotalLine, baseVars);
+    case 'balance':
+      return tplLine(linkCopy.customerLinkBalanceLine, baseVars);
+    case 'review':
+      return ctx.reviewText ? tplLine(ctx.reviewText, baseVars) : null;
+    case 'schedule':
+      return order.preferredDate && order.preferredTime
+        ? tplLine(linkCopy.customerLinkScheduleLine, baseVars)
+        : null;
+    case 'timeDetail':
+      return order.preferredTimeDetail?.trim()
+        ? tplLine(linkCopy.customerLinkTimeDetailLine, baseVars)
+        : null;
+    case 'optionNote': {
+      const note = order.optionNote?.trim();
+      return note || null;
+    }
+    case 'order':
+      return `${tplLine(linkCopy.customerLinkOrderIntro, baseVars)}\n${ctx.link}`;
+    case 'cs':
+      return `${tplLine(linkCopy.customerLinkCsNotice, baseVars)}\n${ctx.csUrlLabel} ${ctx.csLink}`;
+    case 'payback': {
+      if (!ctx.paybackToken) return null;
+      const paybackLink = getReviewPaybackPublicUrl(
+        ctx.paybackToken,
+        ctx.origin,
+        ctx.tenantSlug,
+        ctx.brandSlug,
+      );
+      return tplLine(linkCopy.customerLinkPaybackBlock, { ...baseVars, paybackLink });
+    }
+    case 'footer1':
+      return tplLine(ctx.footer1, baseVars);
+    case 'footer2':
+      return tplLine(ctx.footer2, baseVars);
+    default:
+      return null;
+  }
+}
+
 export function buildOrderFormCustomerMessage(
   msgConfig: FormMessagesState,
   order: OrderFormCustomerMessageInput,
@@ -243,11 +358,10 @@ export function buildOrderFormCustomerMessage(
   const linkCopy = resolveCustomerLinkCopy(msgConfig);
   const csUrlLabel = composeBrandedCsUrlLabel(brandDisplayName, linkCopy.customerLinkCsUrlLabel);
   const priceLabel = withDefaultText(msgConfig.priceLabel, 'priceLabel');
-  // 리뷰 문구는 비우면 숨김 (normalizeMsgConfigForEditor에서 ''는 그대로 유지)
   const reviewText = (msgConfig.reviewEventText ?? '').trim();
   const footer1 = withDefaultText(msgConfig.footerNotice1, 'footerNotice1');
   const footer2 = footerNotice2ForMessage(msgConfig.footerNotice2);
-  const paybackToken = order.reviewPaybackToken?.trim();
+  const paybackToken = order.reviewPaybackToken?.trim() ?? '';
   const amountFmt = order.totalAmount.toLocaleString('ko-KR');
   const balanceFmt = order.balanceAmount.toLocaleString('ko-KR');
   const depositFmt = order.depositAmount.toLocaleString('ko-KR');
@@ -259,7 +373,10 @@ export function buildOrderFormCustomerMessage(
           msgConfig.timeSlotLabelsJson ?? undefined,
         )
       : '';
-  const baseVars: Record<string, string> = {
+  const paybackLink = paybackToken
+    ? getReviewPaybackPublicUrl(paybackToken, origin, tenantSlug, brandSlug)
+    : '';
+  const formTitleResolved = tplLine(withDefaultText(msgConfig.formTitle, 'formTitle'), {
     ...nameVars,
     amount: amountFmt,
     priceLabel,
@@ -268,44 +385,107 @@ export function buildOrderFormCustomerMessage(
     date: order.preferredDate ?? '',
     timeSlot: slotLabel,
     timeDetail: order.preferredTimeDetail?.trim() ?? '',
-    paybackLink: '',
+  });
+  const messageTitle = composeCustomerLinkMessageTitle(brandDisplayName, formTitleResolved);
+  const brandName = brandDisplayName?.trim() ?? '';
+
+  const hasSchedule = Boolean(order.preferredDate && order.preferredTime);
+  const timeDetailRaw = order.preferredTimeDetail?.trim() ?? '';
+  const scheduleLine = hasSchedule
+    ? tplLine(linkCopy.customerLinkScheduleLine, {
+        ...nameVars,
+        amount: amountFmt,
+        priceLabel,
+        balance: balanceFmt,
+        deposit: depositFmt,
+        date: order.preferredDate ?? '',
+        timeSlot: slotLabel,
+        timeDetail: timeDetailRaw,
+      })
+    : '';
+  const timeDetailLine = timeDetailRaw
+    ? tplLine(linkCopy.customerLinkTimeDetailLine, {
+        ...nameVars,
+        date: order.preferredDate ?? '',
+        timeSlot: slotLabel,
+        timeDetail: timeDetailRaw,
+      })
+    : '';
+  const paybackSection = paybackToken
+    ? tplLine(linkCopy.customerLinkPaybackBlock, {
+        ...nameVars,
+        amount: amountFmt,
+        priceLabel,
+        balance: balanceFmt,
+        deposit: depositFmt,
+        paybackLink,
+      })
+    : '';
+
+  const baseVars: Record<string, string> = {
+    ...nameVars,
+    messageTitle,
+    brandName,
+    amount: amountFmt,
+    priceLabel,
+    balance: balanceFmt,
+    deposit: depositFmt,
+    date: hasSchedule ? (order.preferredDate ?? '') : '',
+    timeSlot: hasSchedule ? slotLabel : '',
+    timeDetail: timeDetailRaw,
+    scheduleLine,
+    timeDetailLine,
+    optionNote: order.optionNote?.trim() ?? '',
+    reviewEvent: reviewText,
+    orderLink: link,
+    csLink,
+    csUrlLabel,
+    paybackLink,
+    paybackSection,
+    footer1,
+    footer2,
   };
 
-  const formTitleResolved = tplLine(withDefaultText(msgConfig.formTitle, 'formTitle'), baseVars);
-  const title = composeCustomerLinkMessageTitle(brandDisplayName, formTitleResolved);
-
-  let msg = `${title}
-
-${tplLine(linkCopy.customerLinkTotalLine, baseVars)}
-${tplLine(linkCopy.customerLinkBalanceLine, baseVars)}`;
-  if (reviewText) msg += `\n${tplLine(reviewText, baseVars)}`;
-
-  if (order.preferredDate && order.preferredTime) {
-    msg += `\n${tplLine(linkCopy.customerLinkScheduleLine, baseVars)}`;
-  }
-  if (order.preferredTimeDetail?.trim()) {
-    msg += `\n${tplLine(linkCopy.customerLinkTimeDetailLine, baseVars)}`;
-  }
-  if (order.optionNote) {
-    msg += `\n${order.optionNote}`;
+  const freeform = (msgConfig.customerLinkMessageTemplate ?? '').trim();
+  if (freeform) {
+    let rendered = applyCustomerLinkTemplate(freeform, baseVars);
+    // 「{{brandName}} 발주서」인데 브랜드가 없으면 설정 제목으로 대체
+    if (!brandName) {
+      rendered = rendered.replace(/^\s*발주서\s*$/m, formTitleResolved);
+    }
+    if (!paybackToken) {
+      rendered = stripEmptyPaybackFreeform(rendered);
+    }
+    return finalizeCustomerLinkMessage(rendered);
   }
 
-  msg += `
+  const ctx = {
+    msgConfig,
+    order,
+    origin,
+    tenantSlug,
+    brandSlug,
+    brandDisplayName,
+    linkCopy,
+    baseVars,
+    link,
+    csLink,
+    csUrlLabel,
+    reviewText,
+    footer1,
+    footer2,
+    paybackToken,
+  };
 
-${tplLine(linkCopy.customerLinkOrderIntro, baseVars)}
-${link}
-
-${tplLine(linkCopy.customerLinkCsNotice, baseVars)}
-${csUrlLabel} ${csLink}`;
-  if (paybackToken) {
-    const paybackLink = getReviewPaybackPublicUrl(paybackToken, origin, tenantSlug, brandSlug);
-    msg += `\n\n${tplLine(linkCopy.customerLinkPaybackBlock, { ...baseVars, paybackLink })}`;
+  const orderIds = normalizeCustomerLinkBlockOrder(msgConfig.customerLinkBlockOrder);
+  const chunks: Array<{ spacing: 'line' | 'section'; text: string }> = [];
+  for (const blockId of orderIds) {
+    const text = renderCustomerLinkBlockText(blockId, ctx);
+    if (!text) continue;
+    chunks.push({
+      spacing: ORDER_FORM_CUSTOMER_LINK_BLOCK_META[blockId].spacing,
+      text,
+    });
   }
-
-  msg += `
-
-${tplLine(footer1, baseVars)}
-${tplLine(footer2, baseVars)}`;
-
-  return msg;
+  return finalizeCustomerLinkMessage(joinCustomerLinkMessageChunks(chunks));
 }

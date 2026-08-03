@@ -172,6 +172,10 @@ export interface OrderFormConfigPublic {
   customerLinkCsNotice?: string | null;
   customerLinkCsUrlLabel?: string | null;
   customerLinkPaybackBlock?: string | null;
+  /** 메시지 블록 순서 (없으면 기본 순서) */
+  customerLinkBlockOrder?: string[] | null;
+  /** 자유 편집 본문 — 있으면 조각 필드보다 우선 */
+  customerLinkMessageTemplate?: string | null;
 }
 
 export interface ProfessionalSpecialtyOptionDto {
@@ -644,6 +648,8 @@ export type OrderFormBrandCustomerLinkConfigPublic = Pick<
   | 'customerLinkCsNotice'
   | 'customerLinkCsUrlLabel'
   | 'customerLinkPaybackBlock'
+  | 'customerLinkBlockOrder'
+  | 'customerLinkMessageTemplate'
 > & {
   operatingCompanyId: string;
   updatedAt?: string;

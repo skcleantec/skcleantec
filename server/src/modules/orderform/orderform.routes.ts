@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { prisma } from '../../lib/prisma.js';
+import { normalizeCustomerLinkBlockOrder } from '../../lib/orderFormCustomerLinkBlocks.js';
 import { computeEstimateTotalFromPyeong } from '../../lib/estimateTotal.js';
 import { authMiddleware, adminOrMarketerOrTeamLeader } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
@@ -2151,6 +2152,9 @@ router.put('/form-config', authMiddleware, requireStaffPermission('orderform.for
         }),
         ...(body.customerLinkPaybackBlock != null && {
           customerLinkPaybackBlock: body.customerLinkPaybackBlock ? String(body.customerLinkPaybackBlock) : null,
+        }),
+        ...(body.customerLinkBlockOrder !== undefined && {
+          customerLinkBlockOrder: normalizeCustomerLinkBlockOrder(body.customerLinkBlockOrder),
         }),
       },
     });

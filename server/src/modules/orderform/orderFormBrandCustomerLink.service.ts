@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { normalizeCustomerLinkBlockOrder } from '../../lib/orderFormCustomerLinkBlocks.js';
 import { assertOperatingCompanyForTenant } from '../telecrm/telecrmBrand.helpers.js';
 import { getOrCreateOrderFormConfig } from '../tenants/tenantConfigSeed.service.js';
 
@@ -19,6 +20,8 @@ export type OrderFormBrandCustomerLinkConfigPublic = {
   customerLinkCsNotice: string | null;
   customerLinkCsUrlLabel: string | null;
   customerLinkPaybackBlock: string | null;
+  customerLinkBlockOrder: string[];
+  customerLinkMessageTemplate: string | null;
   updatedAt: string;
 };
 
@@ -37,6 +40,8 @@ type BrandCustomerLinkRow = {
   customerLinkCsNotice: string | null;
   customerLinkCsUrlLabel: string | null;
   customerLinkPaybackBlock: string | null;
+  customerLinkBlockOrder: Prisma.JsonValue | null;
+  customerLinkMessageTemplate: string | null;
   updatedAt: Date;
 };
 
@@ -56,6 +61,8 @@ function serializeBrandCustomerLinkRow(row: BrandCustomerLinkRow): OrderFormBran
     customerLinkCsNotice: row.customerLinkCsNotice,
     customerLinkCsUrlLabel: row.customerLinkCsUrlLabel,
     customerLinkPaybackBlock: row.customerLinkPaybackBlock,
+    customerLinkBlockOrder: normalizeCustomerLinkBlockOrder(row.customerLinkBlockOrder),
+    customerLinkMessageTemplate: row.customerLinkMessageTemplate,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -75,6 +82,8 @@ const brandCustomerLinkSelect = {
   customerLinkCsNotice: true,
   customerLinkCsUrlLabel: true,
   customerLinkPaybackBlock: true,
+  customerLinkBlockOrder: true,
+  customerLinkMessageTemplate: true,
   updatedAt: true,
 } as const;
 
@@ -99,6 +108,11 @@ function tenantDefaultToBrandData(
     customerLinkCsNotice: tenantCfg.customerLinkCsNotice,
     customerLinkCsUrlLabel: tenantCfg.customerLinkCsUrlLabel,
     customerLinkPaybackBlock: tenantCfg.customerLinkPaybackBlock,
+    customerLinkBlockOrder:
+      tenantCfg.customerLinkBlockOrder === null || tenantCfg.customerLinkBlockOrder === undefined
+        ? undefined
+        : (tenantCfg.customerLinkBlockOrder as Prisma.InputJsonValue),
+    customerLinkMessageTemplate: tenantCfg.customerLinkMessageTemplate,
   };
 }
 
@@ -169,6 +183,15 @@ export async function upsertOrderFormBrandCustomerLinkConfig(
   await assertOperatingCompanyForTenant(tenantId, operatingCompanyId);
   await getOrCreateOrderFormBrandCustomerLinkConfig(db, tenantId, operatingCompanyId);
 
+  const blockOrderPatch =
+    body.customerLinkBlockOrder !== undefined
+      ? {
+          customerLinkBlockOrder: normalizeCustomerLinkBlockOrder(
+            body.customerLinkBlockOrder,
+          ) as unknown as Prisma.InputJsonValue,
+        }
+      : {};
+
   const updated = await db.orderFormBrandCustomerLinkConfig.update({
     where: { tenantId_operatingCompanyId: { tenantId, operatingCompanyId } },
     data: {
@@ -205,6 +228,13 @@ export async function upsertOrderFormBrandCustomerLinkConfig(
       ...(body.customerLinkPaybackBlock != null && {
         customerLinkPaybackBlock: body.customerLinkPaybackBlock ? String(body.customerLinkPaybackBlock) : null,
       }),
+      ...(body.customerLinkMessageTemplate !== undefined && {
+        customerLinkMessageTemplate:
+          body.customerLinkMessageTemplate == null || !String(body.customerLinkMessageTemplate).trim()
+            ? null
+            : String(body.customerLinkMessageTemplate),
+      }),
+      ...blockOrderPatch,
     },
     select: brandCustomerLinkSelect,
   });
@@ -242,6 +272,8 @@ export async function resolveOrderFormCustomerLinkMessageConfig(
     customerLinkCsNotice: tenantCfg.customerLinkCsNotice,
     customerLinkCsUrlLabel: tenantCfg.customerLinkCsUrlLabel,
     customerLinkPaybackBlock: tenantCfg.customerLinkPaybackBlock,
+    customerLinkBlockOrder: normalizeCustomerLinkBlockOrder(tenantCfg.customerLinkBlockOrder),
+    customerLinkMessageTemplate: tenantCfg.customerLinkMessageTemplate,
     updatedAt: tenantCfg.updatedAt.toISOString(),
   };
 }

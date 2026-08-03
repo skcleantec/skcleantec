@@ -2600,6 +2600,10 @@ model OrderFormConfig {
   customerLinkCsNotice       String? @map("customer_link_cs_notice") @db.Text
   customerLinkCsUrlLabel     String? @map("customer_link_cs_url_label") @db.Text
   customerLinkPaybackBlock   String? @map("customer_link_payback_block") @db.Text
+  /// 고객 링크 메시지 블록 순서 (string[]). null이면 기본 순서
+  customerLinkBlockOrder     Json?   @map("customer_link_block_order")
+  /// 고객 링크 메시지 전체 본문(자유 편집). 있으면 조각 필드·순서보다 우선
+  customerLinkMessageTemplate String? @map("customer_link_message_template") @db.Text
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("order_form_config")
@@ -2625,6 +2629,10 @@ model OrderFormBrandCustomerLinkConfig {
   customerLinkCsNotice       String?          @map("customer_link_cs_notice") @db.Text
   customerLinkCsUrlLabel     String?          @map("customer_link_cs_url_label") @db.Text
   customerLinkPaybackBlock   String?          @map("customer_link_payback_block") @db.Text
+  /// 고객 링크 메시지 블록 순서 (string[]). null이면 기본 순서
+  customerLinkBlockOrder     Json?            @map("customer_link_block_order")
+  /// 고객 링크 메시지 전체 본문(자유 편집). 있으면 조각 필드·순서보다 우선
+  customerLinkMessageTemplate String?         @map("customer_link_message_template") @db.Text
   createdAt                  DateTime         @default(now()) @map("created_at")
   updatedAt                  DateTime         @updatedAt @map("updated_at")
 
