@@ -118,9 +118,7 @@ export function useOutboundEmailSettingsForm() {
         const dto = await fetchTenantCompanyProfile(token);
         if (!cancelled) {
           hydrate(dto, '');
-          if (dto.companyRegistration.contactEmail?.trim()) {
-            setTestEmailTo(dto.companyRegistration.contactEmail.trim());
-          }
+          // 연습 수신 메일은 자동 채우지 않음(업체 대표 메일이 섞여 들어가면 안 됨)
         }
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : '불러오기 실패');

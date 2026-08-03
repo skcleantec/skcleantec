@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { TenantSmtpSetupGuideModal } from '../../components/admin/TenantSmtpSetupGuideModal';
 import { OutboundEmailStatusBanner } from '../../components/admin/outbound-email/OutboundEmailStatusBanner';
-import { OutboundEmailSetupWizard } from '../../components/admin/outbound-email/OutboundEmailSetupWizard';
+import {
+  OutboundEmailSetupWizard,
+  OutboundEmailTestReceiveBox,
+} from '../../components/admin/outbound-email/OutboundEmailSetupWizard';
 import { CompanyProfileSuccessModal } from './CompanyProfileSuccessModal';
 import { useOutboundEmailSettingsForm } from './useOutboundEmailSettingsForm';
 import { OUTBOUND_EMAIL_COPY } from '../../utils/outboundEmailCopy';
@@ -25,6 +28,12 @@ export function AdminTenantCompanyOutboundEmailPage() {
         </PageTitleWithFavorite>
       </div>
 
+      <OutboundEmailTestReceiveBox
+        testEmailTo={form.testEmailTo}
+        onTestEmailToChange={form.setTestEmailTo}
+        fieldError={form.fieldErrors.testEmailTo}
+      />
+
       <OutboundEmailStatusBanner
         smtpReady={form.smtpReady}
         effectiveConfigured={form.effectiveConfigured}
@@ -32,9 +41,10 @@ export function AdminTenantCompanyOutboundEmailPage() {
         onOpenGuide={() => setGuideOpen(true)}
         canQuickTest={form.smtpReady}
         onQuickTest={() => {
-          form.setWizardStep(4);
-          form.setCompactGrid(false);
-          document.getElementById('outbound-email-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          document.getElementById('outbound-email-test-receive')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          });
         }}
       />
 
@@ -130,7 +140,7 @@ export function AdminTenantCompanyOutboundEmailPage() {
           onSmtpSecureChange={form.setSmtpSecure}
           testEmailTo={form.testEmailTo}
           onTestEmailToChange={form.setTestEmailTo}
-          testEmailPlaceholder={form.contactEmail || undefined}
+          showTestEmail={false}
           wizardStep={form.wizardStep}
           onWizardStepChange={form.setWizardStep}
           showAdvanced={form.showAdvanced}

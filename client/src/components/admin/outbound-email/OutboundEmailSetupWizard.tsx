@@ -48,6 +48,8 @@ export type OutboundEmailSetupWizardProps = {
   testEmailTo: string;
   onTestEmailToChange: (v: string) => void;
   testEmailPlaceholder?: string;
+  /** false면 연습 수신 칸을 숨김(페이지 상단 등에서 따로 둘 때) */
+  showTestEmail?: boolean;
   wizardStep: number;
   onWizardStepChange: (step: number) => void;
   showAdvanced: boolean;
@@ -83,6 +85,7 @@ export function OutboundEmailSetupWizard({
   testEmailTo,
   onTestEmailToChange,
   testEmailPlaceholder,
+  showTestEmail = true,
   wizardStep,
   onWizardStepChange,
   showAdvanced,
@@ -152,12 +155,14 @@ export function OutboundEmailSetupWizard({
           onSmtpSecureChange={onSmtpSecureChange}
           fieldErrors={fieldErrors}
         />
-        <TestEmailRow
-          testEmailTo={testEmailTo}
-          onTestEmailToChange={onTestEmailToChange}
-          testEmailPlaceholder={testEmailPlaceholder}
-          fieldErrors={fieldErrors}
-        />
+        {showTestEmail ? (
+          <TestEmailRow
+            testEmailTo={testEmailTo}
+            onTestEmailToChange={onTestEmailToChange}
+            testEmailPlaceholder={testEmailPlaceholder}
+            fieldErrors={fieldErrors}
+          />
+        ) : null}
         <ActionRow
           mode={mode}
           busy={busy}
@@ -295,12 +300,14 @@ export function OutboundEmailSetupWizard({
             onSmtpSecureChange={onSmtpSecureChange}
             fieldErrors={fieldErrors}
           />
-          <TestEmailRow
-            testEmailTo={testEmailTo}
-            onTestEmailToChange={onTestEmailToChange}
-            testEmailPlaceholder={testEmailPlaceholder}
-            fieldErrors={fieldErrors}
-          />
+          {showTestEmail ? (
+            <TestEmailRow
+              testEmailTo={testEmailTo}
+              onTestEmailToChange={onTestEmailToChange}
+              testEmailPlaceholder={testEmailPlaceholder}
+              fieldErrors={fieldErrors}
+            />
+          ) : null}
           <ActionRow
             mode={mode}
             busy={busy}
@@ -441,6 +448,45 @@ function ProviderPicker({
   );
 }
 
+export function OutboundEmailTestReceiveBox({
+  testEmailTo,
+  onTestEmailToChange,
+  fieldError,
+  id = 'outbound-email-test-receive',
+}: {
+  testEmailTo: string;
+  onTestEmailToChange: (v: string) => void;
+  fieldError?: string;
+  id?: string;
+}) {
+  return (
+    <section
+      id={id}
+      className="rounded-lg border border-sky-200 bg-sky-50/70 p-3 sm:p-4 space-y-2"
+    >
+      <div>
+        <h2 className="text-sm font-semibold text-sky-950">{OUTBOUND_EMAIL_COPY.testEmailSectionTitle}</h2>
+        <p className="mt-1 text-xs text-sky-900/80 leading-relaxed">{OUTBOUND_EMAIL_COPY.testEmailHint}</p>
+      </div>
+      <label className="block">
+        <span className="text-xs font-medium text-sky-950">{OUTBOUND_EMAIL_COPY.testEmailLabel}</span>
+        <input
+          type="email"
+          name="cbiseo-smtp-test-receive"
+          value={testEmailTo}
+          onChange={(e) => onTestEmailToChange(e.target.value)}
+          autoComplete="off"
+          data-1p-ignore
+          data-lpignore="true"
+          className="mt-1.5 w-full rounded-md border border-sky-200 bg-white px-3 py-2.5 text-sm"
+          placeholder={OUTBOUND_EMAIL_COPY.testEmailPlaceholder}
+        />
+      </label>
+      {fieldError ? <p className="text-xs text-rose-700">{fieldError}</p> : null}
+    </section>
+  );
+}
+
 function TestEmailRow({
   testEmailTo,
   onTestEmailToChange,
@@ -460,10 +506,14 @@ function TestEmailRow({
       />
       <input
         type="email"
+        name="cbiseo-smtp-test-receive-inline"
         value={testEmailTo}
         onChange={(e) => onTestEmailToChange(e.target.value)}
+        autoComplete="off"
+        data-1p-ignore
+        data-lpignore="true"
         className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-        placeholder={testEmailPlaceholder || 'my@email.com'}
+        placeholder={testEmailPlaceholder || OUTBOUND_EMAIL_COPY.testEmailPlaceholder}
       />
       {fieldErrors.testEmailTo ? (
         <p className="mt-1 text-xs text-rose-700">{fieldErrors.testEmailTo}</p>

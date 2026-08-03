@@ -33,8 +33,11 @@ export const OUTBOUND_EMAIL_COPY = {
     n === 16
       ? '앱 비밀번호 16자리로 인식되었습니다. (띄어쓰기는 무시됨)'
       : `공백 제외 ${n}자리 — 앱 비밀번호는 공백 없이 16자리여야 합니다.`,
-  testEmailHint: '저장 후 같은 설정으로 연습 메일을 보냅니다. 스팸함도 확인해 주세요.',
-  testEmailLabel: '연습 보낼 내 메일',
+  testEmailHint:
+    '연습 메일을 받을 본인 주소를 직접 입력하세요. 업체 대표 메일·브랜드 메일이 자동으로 들어가지 않습니다.',
+  testEmailLabel: '연습 받을 내 메일',
+  testEmailPlaceholder: '받을 내 메일 주소 입력',
+  testEmailSectionTitle: '연습 메일 수신',
   save: '저장',
   saveAndTest: '저장하고 연습 메일 보내기',
   testOnly: '연습 메일 보내기',
