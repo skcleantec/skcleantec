@@ -12,6 +12,7 @@ import {
 import { INQUIRY_STATUS_LABELS } from '../inquiries/inquiriesUiParts';
 import { QuickPasteMissingClarify } from './QuickPasteMissingClarify';
 import { Z_ABOVE_MOBILE_FLOATING_MENU } from '../layout/MobileFloatingMenuButton';
+import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisibility';
 
 type ScheduleQuickPasteModalProps = {
   token: string;
@@ -46,39 +47,98 @@ function waitMs(ms: number) {
   });
 }
 
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2.5l1.2 5.1L18 8.7l-4.2 2.4L12 16l-1.8-4.9L6 8.7l4.8-1.1L12 2.5z" opacity="0.95" />
+      <path d="M19 13l.7 2.6L22 16l-2.3 1.2L19 20l-.7-2.8L16 16l2.3-.4L19 13z" opacity="0.7" />
+      <path d="M5.5 14l.55 2L8 16.4l-1.7.9L5.5 19.5l-.55-2.2L3 16.4l1.95-.4L5.5 14z" opacity="0.55" />
+    </svg>
+  );
+}
+
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function QuickPasteAiScannerPanel({ rawText }: { rawText: string }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2.5 rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-indigo-50 px-3 py-2.5">
-        <span className="relative flex h-3 w-3 shrink-0">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-70" />
-          <span className="relative inline-flex h-3 w-3 rounded-full bg-violet-600" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-fluid-xs font-semibold text-violet-900">AI가 원문을 스캔하는 중</p>
-          <p className="text-fluid-2xs text-violet-700/90 animate-pulse">고객 · 연락처 · 일정 · 금액 추출 중…</p>
+    <div className="space-y-3 animate-quick-paste-reveal">
+      <div className="relative overflow-hidden rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-cyan-50 px-3.5 py-3 shadow-sm">
+        <div className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-violet-400/20 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-8 -left-4 h-20 w-20 rounded-full bg-cyan-400/20 blur-2xl" />
+        <div className="relative flex items-center gap-3">
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/30">
+            <SparkleIcon className="h-5 w-5 animate-pulse" />
+            <span className="absolute inset-0 rounded-xl ring-2 ring-violet-400/40 animate-ping opacity-40" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-fluid-xs font-semibold text-slate-900">AI가 원문을 읽는 중</p>
+            <p className="text-fluid-2xs text-slate-600 animate-pulse">고객 · 연락처 · 일정 · 금액 추출…</p>
+          </div>
         </div>
       </div>
 
-      <div className="relative min-h-[40vh] overflow-hidden rounded-xl border-2 border-violet-300/70 bg-slate-950/[0.02] shadow-inner lg:min-h-[280px]">
-        <span className="pointer-events-none absolute left-2 top-2 z-20 h-6 w-6 border-l-2 border-t-2 border-violet-500/80" />
-        <span className="pointer-events-none absolute right-2 top-2 z-20 h-6 w-6 border-r-2 border-t-2 border-violet-500/80" />
-        <span className="pointer-events-none absolute bottom-2 left-2 z-20 h-6 w-6 border-b-2 border-l-2 border-violet-500/80" />
-        <span className="pointer-events-none absolute bottom-2 right-2 z-20 h-6 w-6 border-b-2 border-r-2 border-violet-500/80" />
+      <div className="relative min-h-[40vh] overflow-hidden rounded-2xl border border-violet-300/60 bg-slate-950 shadow-inner lg:min-h-[280px]">
+        <div className="pointer-events-none absolute inset-0 opacity-[0.12] bg-[linear-gradient(rgba(167,139,250,0.9)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.55)_1px,transparent_1px)] bg-[size:20px_20px]" />
+        <span className="pointer-events-none absolute left-2.5 top-2.5 z-20 h-5 w-5 border-l-2 border-t-2 border-cyan-300/80" />
+        <span className="pointer-events-none absolute right-2.5 top-2.5 z-20 h-5 w-5 border-r-2 border-t-2 border-cyan-300/80" />
+        <span className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 h-5 w-5 border-b-2 border-l-2 border-violet-300/80" />
+        <span className="pointer-events-none absolute bottom-2.5 right-2.5 z-20 h-5 w-5 border-b-2 border-r-2 border-violet-300/80" />
 
-        <div className="pointer-events-none absolute inset-0 z-[1] opacity-[0.08] bg-[linear-gradient(rgba(124,58,237,0.9)_1px,transparent_1px),linear-gradient(90deg,rgba(124,58,237,0.9)_1px,transparent_1px)] bg-[size:22px_22px]" />
-
-        <pre className="relative z-0 max-h-[50vh] overflow-hidden whitespace-pre-wrap p-3 text-fluid-2xs leading-relaxed text-slate-600/75">
+        <pre className="relative z-0 max-h-[50vh] overflow-hidden whitespace-pre-wrap p-4 font-mono text-fluid-2xs leading-relaxed text-violet-100/70">
           {rawText}
         </pre>
 
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
-          <div className="animate-quick-paste-scan-glow absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-violet-400/30 to-transparent" />
-          <div className="animate-quick-paste-scan-line absolute left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-violet-400 to-transparent shadow-[0_0_18px_3px_rgba(139,92,246,0.55)]" />
-          <div className="animate-quick-paste-scan-line absolute left-0 right-0 h-16 -translate-y-8 bg-gradient-to-b from-violet-500/25 to-transparent" />
+          <div className="animate-quick-paste-scan-glow absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-cyan-400/25 via-violet-400/15 to-transparent" />
+          <div className="animate-quick-paste-scan-line absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-300 to-transparent shadow-[0_0_22px_4px_rgba(34,211,238,0.55)]" />
+          <div className="animate-quick-paste-scan-line absolute left-0 right-0 h-20 -translate-y-10 bg-gradient-to-b from-violet-400/30 to-transparent" />
         </div>
       </div>
     </div>
+  );
+}
+
+function StepChip({
+  label,
+  active,
+  done,
+}: {
+  label: string;
+  active?: boolean;
+  done?: boolean;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-fluid-2xs font-medium ${
+        active
+          ? 'bg-white/20 text-white ring-1 ring-white/30'
+          : done
+            ? 'bg-emerald-400/20 text-emerald-100'
+            : 'bg-white/5 text-white/45'
+      }`}
+    >
+      {done ? (
+        <span className="text-emerald-300" aria-hidden>
+          ✓
+        </span>
+      ) : null}
+      {label}
+    </span>
+  );
+}
+
+function AiPill({ children }: { children: string }) {
+  return (
+    <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 px-1.5 py-px text-[10px] font-semibold leading-tight text-white shadow-sm">
+      <SparkleIcon className="h-2.5 w-2.5" />
+      {children}
+    </span>
   );
 }
 
@@ -92,6 +152,8 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
   const [highlightMissing, setHighlightMissing] = useState(false);
   const [parseSnapshot, setParseSnapshot] = useState<QuickPasteParseSnapshot | null>(null);
   const fieldRefs = useRef<Partial<Record<QuickPasteFieldKey, HTMLInputElement | null>>>({});
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
 
   const reset = useCallback(() => {
     setStep('paste');
@@ -191,62 +253,110 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
 
   if (!open) return null;
 
+  const subtitle =
+    step === 'scanning'
+      ? '원문에서 핵심 정보를 추출하고 있습니다'
+      : step === 'review'
+        ? '추출 결과를 확인한 뒤 예약완료로 등록하세요'
+        : '카톡·문자를 붙여넣으면 AI가 접수로 정리합니다';
+
   return createPortal(
     <div
-      className={`fixed inset-0 ${Z_ABOVE_MOBILE_FLOATING_MENU} flex flex-col bg-white lg:items-center lg:justify-center lg:bg-black/40 lg:p-4`}
+      className={`modal-mobile-safe-overlay fixed inset-0 ${Z_ABOVE_MOBILE_FLOATING_MENU} flex flex-col bg-slate-950/40 lg:items-center lg:justify-center lg:p-4`}
     >
       <button type="button" className="absolute inset-0 hidden lg:block" aria-label="닫기" onClick={onClose} />
-      <div className="relative flex min-h-0 flex-1 flex-col bg-white lg:max-h-[92vh] lg:min-h-0 lg:w-full lg:max-w-lg lg:rounded-2xl lg:shadow-xl lg:border lg:border-slate-200">
-        <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-3 py-2.5 sm:px-4">
-          <div>
-            <h2 className="text-fluid-sm font-semibold text-slate-900">빠른등록</h2>
-            <p className="text-fluid-2xs text-slate-500">
-              {step === 'scanning'
-                ? 'AI가 카톡·문자 원문을 스캔하고 있습니다'
-                : '카톡·문자 내용 붙여넣기 → 예약완료 접수'}
-            </p>
+      <div className="modal-mobile-fullscreen-panel relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white lg:max-h-[92vh] lg:min-h-0 lg:w-full lg:max-w-lg lg:rounded-2xl lg:border lg:border-slate-200/80 lg:shadow-2xl">
+        {/* Aurora header */}
+        <header className="relative shrink-0 overflow-hidden bg-slate-950 px-3 pb-3 pt-3 text-white sm:px-4">
+          <div className="pointer-events-none absolute -left-10 -top-16 h-40 w-40 rounded-full bg-violet-500/40 blur-3xl" />
+          <div className="pointer-events-none absolute -right-8 top-0 h-36 w-36 rounded-full bg-cyan-400/30 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-0 left-1/3 h-16 w-40 rounded-full bg-fuchsia-500/20 blur-2xl" />
+
+          <div className="relative flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white shadow-sm">
+                  <SparkleIcon className="h-3 w-3" />
+                  AI
+                </span>
+                <StepChip label="붙여넣기" active={step === 'paste'} done={step !== 'paste'} />
+                <StepChip label="분석" active={step === 'scanning'} done={step === 'review'} />
+                <StepChip label="확인" active={step === 'review'} />
+              </div>
+              <h2 className="text-fluid-sm font-semibold tracking-tight text-white">빠른등록</h2>
+              <p className="mt-0.5 text-fluid-2xs text-slate-300">{subtitle}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white/90 backdrop-blur-sm hover:bg-white/20"
+            >
+              <CloseIcon className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-fluid-xs text-slate-600 hover:bg-slate-100"
-          >
-            닫기
-          </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
+        <div
+          ref={scrollRef}
+          onFocusCapture={onFieldFocus}
+          className="modal-form-scroll-surface min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain bg-gradient-to-b from-slate-50 to-white p-3 sm:p-4"
+        >
           {preview?.coins && !preview.coins.unlimited ? (
-            <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-fluid-2xs text-slate-600">
+            <p className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-fluid-2xs text-amber-900">
               이번 등록 시 코인 <strong>{preview.coinCost}개</strong> · 잔여{' '}
               <strong>{preview.coins.remaining ?? 0}개</strong>
             </p>
           ) : null}
 
           {error ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-fluid-xs text-red-700">{error}</p>
+            <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-fluid-xs text-rose-700">
+              {error}
+            </p>
           ) : null}
 
           {step === 'paste' ? (
-            <>
-              <label className="block space-y-1">
-                <span className="text-fluid-xs font-medium text-slate-700">확정 일감 내용 붙여넣기</span>
-                <textarea
-                  value={rawText}
-                  onChange={(e) => setRawText(e.target.value)}
-                  rows={12}
-                  placeholder="카카오톡·문자에서 복사한 내용을 그대로 붙여넣으세요."
-                  className="w-full min-h-[40vh] rounded-xl border border-slate-200 px-3 py-2 text-fluid-sm focus:outline-none focus:ring-2 focus:ring-sky-500 lg:min-h-[280px]"
-                />
+            <div className="space-y-3 animate-quick-paste-reveal">
+              <div className="flex flex-wrap gap-1.5">
+                {['카톡 붙여넣기', '자동 추출', '바로 등록'].map((chip) => (
+                  <span
+                    key={chip}
+                    className="rounded-full border border-violet-200/80 bg-white px-2.5 py-1 text-fluid-2xs font-medium text-violet-800 shadow-sm"
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
+
+              <label className="group relative block">
+                <span className="mb-1.5 flex items-center gap-1.5 text-fluid-xs font-semibold text-slate-800">
+                  <SparkleIcon className="h-3.5 w-3.5 text-violet-600" />
+                  확정 일감 내용 붙여넣기
+                </span>
+                <div
+                  className={`relative rounded-2xl bg-gradient-to-br from-violet-500/25 via-cyan-400/20 to-fuchsia-400/20 p-[1.5px] shadow-sm transition-shadow focus-within:shadow-[0_0_0_3px_rgba(139,92,246,0.2)] ${
+                    rawText.trim() ? 'from-violet-500/40 via-cyan-400/30 to-fuchsia-400/30' : ''
+                  }`}
+                >
+                  <textarea
+                    value={rawText}
+                    onChange={(e) => setRawText(e.target.value)}
+                    rows={12}
+                    placeholder={
+                      '카카오톡·문자에서 복사한 내용을 그대로 붙여넣으세요.\n\n예)\n홍길동 / 010-1234-5678\n서울 강남구 …\n3/15 오전 / 25평 / 잔금 20만'
+                    }
+                    className="w-full min-h-[40vh] resize-none rounded-[14px] border-0 bg-white px-3.5 py-3 text-fluid-sm text-slate-800 placeholder:text-slate-400 focus:outline-none lg:min-h-[280px]"
+                  />
+                </div>
               </label>
-              <p className="text-fluid-2xs text-slate-500">
-                원문 전체는 등록 후 <strong>특이사항</strong>에 저장됩니다.
+              <p className="text-fluid-2xs leading-relaxed text-slate-500">
+                원문 전체는 등록 후 <span className="font-medium text-slate-700">특이사항</span>에 저장됩니다.
               </p>
-            </>
+            </div>
           ) : step === 'scanning' ? (
             <QuickPasteAiScannerPanel rawText={rawText} />
           ) : step === 'review' && draft && preview ? (
-            <>
+            <div className="space-y-3 animate-quick-paste-stack-in">
               {missingFields.length > 0 ? (
                 <QuickPasteMissingClarify
                   token={token}
@@ -258,8 +368,8 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
               ) : null}
 
               {preview.duplicateMatches.length > 0 ? (
-                <div className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-fluid-2xs text-rose-900 space-y-1">
-                  <p className="font-medium">같은 연락처 접수가 {preview.duplicateMatches.length}건 있습니다.</p>
+                <div className="rounded-2xl border border-rose-200 bg-rose-50/90 px-3 py-2.5 text-fluid-2xs text-rose-900 space-y-1">
+                  <p className="font-semibold">같은 연락처 접수가 {preview.duplicateMatches.length}건 있습니다</p>
                   <ul className="space-y-0.5 text-rose-800">
                     {preview.duplicateMatches.slice(0, 3).map((row) => (
                       <li key={row.id}>
@@ -276,32 +386,40 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
               ) : null}
 
               {preview.soloAutoAssign ? (
-                <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-fluid-2xs text-emerald-900">
-                  등록 시 <strong>{preview.soloAutoAssign.teamLeaderName}</strong> 팀장에게 1인(solo) 자동 배정됩니다.
+                <p className="rounded-2xl border border-emerald-200 bg-emerald-50/90 px-3 py-2.5 text-fluid-2xs text-emerald-900">
+                  등록 시 <strong>{preview.soloAutoAssign.teamLeaderName}</strong> 팀장에게 1인(solo) 자동
+                  배정됩니다.
                 </p>
               ) : null}
 
               {preview.aiApplied || preview.aiReviewed ? (
-                <p className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-fluid-2xs text-violet-900">
-                  {preview.aiFilledFields.length > 0
-                    ? `AI 보조: ${preview.aiFilledFields.join(', ')}`
-                    : null}
-                  {preview.aiCorrectedFields?.length > 0
-                    ? `${preview.aiFilledFields.length > 0 ? ' · ' : ''}AI 검토 수정: ${preview.aiCorrectedFields.join(', ')}`
-                    : null}
-                  {preview.aiFilledFields.length === 0 && !preview.aiCorrectedFields?.length
-                    ? 'AI가 원문을 검토했습니다. 값을 확인해 주세요.'
-                    : null}
-                </p>
+                <div className="relative overflow-hidden rounded-2xl border border-violet-200/80 bg-gradient-to-r from-violet-50 via-white to-cyan-50 px-3 py-2.5 text-fluid-2xs text-violet-950 shadow-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/25">
+                      <SparkleIcon className="h-3.5 w-3.5" />
+                    </span>
+                    <p className="min-w-0 leading-relaxed">
+                      {preview.aiFilledFields.length > 0
+                        ? `AI가 채운 항목: ${preview.aiFilledFields.join(', ')}`
+                        : null}
+                      {preview.aiCorrectedFields?.length > 0
+                        ? `${preview.aiFilledFields.length > 0 ? ' · ' : ''}AI 검토 수정: ${preview.aiCorrectedFields.join(', ')}`
+                        : null}
+                      {preview.aiFilledFields.length === 0 && !preview.aiCorrectedFields?.length
+                        ? 'AI가 원문을 검토했습니다. 값을 확인해 주세요.'
+                        : null}
+                    </p>
+                  </div>
+                </div>
               ) : preview.aiAvailable === false ? (
-                <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-fluid-2xs text-slate-600">
+                <p className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-fluid-2xs text-slate-600">
                   AI 미연결 — <code className="text-fluid-2xs">server/.env</code>에{' '}
                   <code className="text-fluid-2xs">OPENAI_API_KEY</code> 저장 후 서버를 재시작하세요.
                 </p>
               ) : null}
 
               {preview.aiWarnings && preview.aiWarnings.length > 0 ? (
-                <ul className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-fluid-2xs text-amber-900 space-y-0.5">
+                <ul className="rounded-2xl border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-fluid-2xs text-amber-900 space-y-0.5">
                   {preview.aiWarnings.map((w) => (
                     <li key={w}>{w}</li>
                   ))}
@@ -309,20 +427,20 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
               ) : null}
 
               {preview.aiAvailable && preview.optionalAiHints.length > 0 && !preview.aiApplied && !preview.aiReviewed ? (
-                <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-fluid-2xs text-slate-600">
+                <p className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-fluid-2xs text-slate-600">
                   일부 선택 항목은 서식이 달라 직접 확인이 필요할 수 있습니다.
                 </p>
               ) : null}
 
               {preview.tenantRulesApplied > 0 ? (
-                <p className="text-fluid-2xs text-sky-700">
+                <p className="text-fluid-2xs font-medium text-sky-700">
                   저장된 서식 규칙 {preview.tenantRulesApplied}건이 적용되었습니다.
                 </p>
               ) : null}
 
               {missingFields.length > 0 ? (
                 <p
-                  className={`rounded-lg border px-2.5 py-2 text-fluid-2xs ${
+                  className={`rounded-2xl border px-3 py-2.5 text-fluid-2xs ${
                     highlightMissing
                       ? 'border-amber-400 bg-amber-50 text-amber-900 animate-pulse'
                       : 'border-amber-200 bg-amber-50/80 text-amber-800'
@@ -332,84 +450,54 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                 </p>
               ) : null}
 
-              <p className="text-fluid-xs font-medium text-slate-800">필수 항목</p>
-              {REQUIRED_FIELD_ORDER.map((key) => {
-                const isMissing = missingFields.includes(key);
-                const showAlert = highlightMissing && isMissing;
-                const aiFilled = preview.aiFilledFields?.includes(key);
-                const aiCorrected = preview.aiCorrectedFields?.includes(key);
-                return (
-                  <label key={key} className="block space-y-1">
-                    <span
-                      className={`text-fluid-2xs font-medium ${showAlert ? 'text-amber-800' : 'text-slate-600'}`}
-                    >
-                      {preview.fieldLabels[key]}
-                      {isMissing ? <span className="ml-1 text-amber-700">(필수)</span> : null}
-                      {aiCorrected ? <span className="ml-1 text-violet-700">(AI 수정)</span> : null}
-                      {aiFilled && !aiCorrected ? <span className="ml-1 text-violet-600">(AI)</span> : null}
-                    </span>
-                    <input
-                      ref={(el) => {
-                        fieldRefs.current[key] = el;
-                      }}
-                      type={
-                        key === 'preferredDate'
-                          ? 'date'
-                          : key === 'serviceBalanceAmount' || key === 'areaPyeong'
-                            ? 'number'
-                            : 'text'
-                      }
-                      value={
-                        draft[key] == null
-                          ? ''
-                          : key === 'serviceBalanceAmount' || key === 'areaPyeong'
-                            ? String(draft[key])
-                            : String(draft[key])
-                      }
-                      onChange={(e) => updateRequiredField(key, e.target.value)}
-                      className={`w-full min-h-10 rounded-lg border px-3 text-fluid-sm focus:outline-none focus:ring-2 ${
-                        showAlert
-                          ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300 animate-pulse focus:ring-amber-500'
-                          : 'border-slate-200 focus:ring-sky-500'
-                      }`}
-                    />
-                  </label>
-                );
-              })}
-
-              <div className="pt-1 space-y-2">
-                <p className="text-fluid-xs font-medium text-slate-700">
-                  선택 — 방·화장실·베란다
-                  <span className="ml-1 font-normal text-slate-500">(없어도 등록 가능)</span>
-                </p>
-                <p className="text-fluid-2xs text-slate-500">
-                  (3,2,1) · 3,2,1 형식은 방·화·베 순으로 자동 인식합니다. 특이 서식은 직접 입력하세요.
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {OPTIONAL_FIELD_ORDER.map((key) => {
+              <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+                <div className="border-b border-slate-100 bg-slate-50/80 px-3 py-2">
+                  <p className="text-fluid-xs font-semibold text-slate-800">필수 항목</p>
+                </div>
+                <div className="space-y-3 p-3">
+                  {REQUIRED_FIELD_ORDER.map((key) => {
+                    const isMissing = missingFields.includes(key);
+                    const showAlert = highlightMissing && isMissing;
                     const aiFilled = preview.aiFilledFields?.includes(key);
-                    const aiHint = !aiFilled && preview.optionalAiHints?.includes(key);
+                    const aiCorrected = preview.aiCorrectedFields?.includes(key);
                     return (
                       <label key={key} className="block space-y-1">
-                        <span className="text-fluid-2xs font-medium text-slate-600">
-                          {preview.optionalFieldLabels[key]}
-                          {aiFilled ? (
-                            <span className="ml-0.5 block text-fluid-2xs font-normal text-violet-600">
-                              AI 추출
-                            </span>
-                          ) : aiHint ? (
-                            <span className="ml-0.5 block text-fluid-2xs font-normal text-slate-500">
-                              확인 필요
-                            </span>
-                          ) : null}
+                        <span
+                          className={`flex flex-wrap items-center text-fluid-2xs font-medium ${
+                            showAlert ? 'text-amber-800' : 'text-slate-600'
+                          }`}
+                        >
+                          {preview.fieldLabels[key]}
+                          {isMissing ? <span className="ml-1 text-amber-700">(필수)</span> : null}
+                          {aiCorrected ? <AiPill>AI 수정</AiPill> : null}
+                          {aiFilled && !aiCorrected ? <AiPill>AI</AiPill> : null}
                         </span>
                         <input
-                          type="number"
-                          min={0}
-                          max={20}
-                          value={draft[key] == null ? '' : String(draft[key])}
-                          onChange={(e) => updateOptionalField(key, e.target.value)}
-                          className="w-full min-h-10 rounded-lg border border-slate-200 px-2 text-fluid-sm text-center focus:outline-none focus:ring-2 focus:ring-sky-500"
+                          ref={(el) => {
+                            fieldRefs.current[key] = el;
+                          }}
+                          type={
+                            key === 'preferredDate'
+                              ? 'date'
+                              : key === 'serviceBalanceAmount' || key === 'areaPyeong'
+                                ? 'number'
+                                : 'text'
+                          }
+                          value={
+                            draft[key] == null
+                              ? ''
+                              : key === 'serviceBalanceAmount' || key === 'areaPyeong'
+                                ? String(draft[key])
+                                : String(draft[key])
+                          }
+                          onChange={(e) => updateRequiredField(key, e.target.value)}
+                          className={`w-full min-h-10 rounded-xl border px-3 text-fluid-sm focus:outline-none focus:ring-2 ${
+                            showAlert
+                              ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300 animate-pulse focus:ring-amber-500'
+                              : aiFilled || aiCorrected
+                                ? 'border-violet-200 bg-violet-50/40 focus:ring-violet-400'
+                                : 'border-slate-200 bg-white focus:ring-violet-400'
+                          }`}
                         />
                       </label>
                     );
@@ -417,50 +505,101 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                 </div>
               </div>
 
-              <details className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-                <summary className="cursor-pointer text-fluid-2xs font-medium text-slate-600">원문 미리보기</summary>
-                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-fluid-2xs text-slate-700">
+              <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+                <div className="border-b border-slate-100 bg-slate-50/80 px-3 py-2">
+                  <p className="text-fluid-xs font-semibold text-slate-800">
+                    선택 — 방·화장실·베란다
+                    <span className="ml-1 font-normal text-slate-500">(없어도 등록 가능)</span>
+                  </p>
+                </div>
+                <div className="space-y-2 p-3">
+                  <p className="text-fluid-2xs text-slate-500">
+                    (3,2,1) · 3,2,1 형식은 방·화·베 순으로 자동 인식합니다. 특이 서식은 직접 입력하세요.
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {OPTIONAL_FIELD_ORDER.map((key) => {
+                      const aiFilled = preview.aiFilledFields?.includes(key);
+                      const aiHint = !aiFilled && preview.optionalAiHints?.includes(key);
+                      return (
+                        <label key={key} className="block space-y-1">
+                          <span className="text-fluid-2xs font-medium text-slate-600">
+                            {preview.optionalFieldLabels[key]}
+                            {aiFilled ? (
+                              <span className="mt-0.5 block">
+                                <AiPill>AI</AiPill>
+                              </span>
+                            ) : aiHint ? (
+                              <span className="mt-0.5 block text-fluid-2xs font-normal text-slate-500">
+                                확인 필요
+                              </span>
+                            ) : null}
+                          </span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={20}
+                            value={draft[key] == null ? '' : String(draft[key])}
+                            onChange={(e) => updateOptionalField(key, e.target.value)}
+                            className={`w-full min-h-10 rounded-xl border px-2 text-center text-fluid-sm focus:outline-none focus:ring-2 focus:ring-violet-400 ${
+                              aiFilled
+                                ? 'border-violet-200 bg-violet-50/40'
+                                : 'border-slate-200 bg-white'
+                            }`}
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <details className="group rounded-2xl border border-slate-200/90 bg-white shadow-sm open:shadow-md">
+                <summary className="cursor-pointer list-none px-3 py-2.5 text-fluid-2xs font-semibold text-slate-600 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <span className="inline-flex items-center gap-1.5">
+                    원문 미리보기
+                    <span className="text-slate-400 transition group-open:rotate-90">›</span>
+                  </span>
+                </summary>
+                <pre className="mx-3 mb-3 max-h-40 overflow-auto rounded-xl border border-slate-100 bg-slate-50 p-2.5 whitespace-pre-wrap text-fluid-2xs text-slate-700">
                   {rawText}
                 </pre>
               </details>
-            </>
+            </div>
           ) : null}
         </div>
 
-        <footer className="shrink-0 border-t border-slate-200 p-3 sm:p-4 flex gap-2">
+        <footer className="shrink-0 border-t border-slate-200/80 bg-white/95 p-3 backdrop-blur-sm sm:p-4">
           {step === 'paste' ? (
             <button
               type="button"
               disabled={busy || !rawText.trim()}
               onClick={() => void runParse()}
-              className="relative flex-1 min-h-11 overflow-hidden rounded-xl bg-gradient-to-r from-violet-700 via-slate-900 to-indigo-800 text-fluid-sm font-semibold text-white shadow-md disabled:opacity-50"
+              className="relative flex min-h-11 w-full items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 text-fluid-sm font-semibold text-white shadow-lg shadow-violet-500/30 disabled:opacity-45 disabled:shadow-none"
             >
-              <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-quick-paste-ai-btn-shimmer" />
-              <span className="relative flex items-center justify-center gap-1.5">
-                <span className="rounded-md bg-white/15 px-1.5 py-0.5 text-fluid-2xs font-bold tracking-wide">
-                  AI
-                </span>
-                분석하기
+              <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-quick-paste-ai-btn-shimmer" />
+              <span className="relative inline-flex items-center gap-2">
+                <SparkleIcon className="h-4 w-4" />
+                AI로 분석하기
               </span>
             </button>
           ) : step === 'scanning' ? (
             <button
               type="button"
               disabled
-              className="flex-1 min-h-11 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-700 text-fluid-sm font-semibold text-white opacity-90"
+              className="flex min-h-11 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-700 text-fluid-sm font-semibold text-white opacity-95"
             >
-              <span className="inline-flex items-center justify-center gap-2">
+              <span className="inline-flex items-center gap-2">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                 AI 스캔 중…
               </span>
             </button>
           ) : (
-            <>
+            <div className="flex gap-2">
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => setStep('paste')}
-                className="min-h-11 rounded-xl border border-slate-200 px-4 text-fluid-sm text-slate-700"
+                className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3.5 text-fluid-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 다시 붙여넣기
               </button>
@@ -468,11 +607,12 @@ export function ScheduleQuickPasteModal({ token, open, onClose, onSaved }: Sched
                 type="button"
                 disabled={busy}
                 onClick={() => void runCommit()}
-                className="flex-1 min-h-11 rounded-xl bg-blue-600 text-fluid-sm font-semibold text-white disabled:opacity-50"
+                className="relative flex min-h-11 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-violet-800 to-indigo-700 text-fluid-sm font-semibold text-white shadow-md disabled:opacity-50"
               >
-                {busy ? '등록 중…' : '예약완료로 등록 (코인 2)'}
+                <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent animate-quick-paste-ai-btn-shimmer" />
+                <span className="relative">{busy ? '등록 중…' : '예약완료로 등록 (코인 2)'}</span>
               </button>
-            </>
+            </div>
           )}
         </footer>
       </div>
