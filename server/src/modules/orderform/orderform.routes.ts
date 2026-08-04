@@ -106,6 +106,7 @@ import {
   listOrderFormBrandCustomerLinkConfigs,
   upsertOrderFormBrandCustomerLinkConfig,
 } from './orderFormBrandCustomerLink.service.js';
+import { notifyOrderFormCustomerLinkConfigRefresh } from './orderFormCustomerLinkNotify.js';
 import { resolvePublicFormConfigForOrderForm } from './orderFormPublicFormConfig.js';
 import { isAllowedPreferredTimeDetail } from './preferredTimeDetail.validation.js';
 import {
@@ -135,6 +136,22 @@ import {
   orderFormListSnapshotToPrisma,
   resolveOrderFormListSnapshotForSubmit,
 } from './orderFormListSnapshot.service.js';
+
+const CUSTOMER_LINK_FORM_CONFIG_KEYS = [
+  'customerLinkTotalLine',
+  'customerLinkBalanceLine',
+  'customerLinkScheduleLine',
+  'customerLinkTimeDetailLine',
+  'customerLinkOrderIntro',
+  'customerLinkCsNotice',
+  'customerLinkCsUrlLabel',
+  'customerLinkPaybackBlock',
+  'customerLinkBlockOrder',
+] as const;
+
+function formConfigBodyTouchesCustomerLink(body: Record<string, unknown>): boolean {
+  return CUSTOMER_LINK_FORM_CONFIG_KEYS.some((key) => body[key] !== undefined);
+}
 
 const router = Router();
 
@@ -2067,7 +2084,11 @@ router.get('/time-slot-labels', authMiddleware, async (req, res) => {
 });
 
 /** 관리자/마케터: 폼 메시지 설정 조회 (by-token보다 먼저 선언) */
-router.get('/form-config', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {
+router.get(
+  '/form-config',
+  authMiddleware,
+  requireStaffPermission('orderform.formConfig', 'orderform.issue'),
+  async (req, res) => {
   try {
     const user = (req as unknown as { user: AuthPayload }).user;
     const tenantId = await requireTenantIdFromAuth(res, user);
@@ -2158,6 +2179,9 @@ router.put('/form-config', authMiddleware, requireStaffPermission('orderform.for
         }),
       },
     });
+    if (formConfigBodyTouchesCustomerLink(body)) {
+      notifyOrderFormCustomerLinkConfigRefresh(tenantId);
+    }
     res.json(updated);
   } catch (err) {
     console.error('form-config put error:', err);
@@ -2174,7 +2198,7 @@ router.put('/form-config', authMiddleware, requireStaffPermission('orderform.for
 router.get(
   '/customer-link-configs',
   authMiddleware,
-  requireStaffPermission('orderform.formConfig'),
+  requireStaffPermission('orderform.formConfig', 'orderform.issue'),
   async (req, res) => {
     try {
       const user = (req as unknown as { user: AuthPayload }).user;
@@ -2193,7 +2217,7 @@ router.get(
 router.get(
   '/customer-link-config',
   authMiddleware,
-  requireStaffPermission('orderform.formConfig'),
+  requireStaffPermission('orderform.formConfig', 'orderform.issue'),
   async (req, res) => {
     const operatingCompanyId =
       typeof req.query.operatingCompanyId === 'string' ? req.query.operatingCompanyId.trim() : '';
@@ -2245,6 +2269,7 @@ router.put(
         operatingCompanyId,
         body,
       );
+      notifyOrderFormCustomerLinkConfigRefresh(tenantId, operatingCompanyId);
       res.json(updated);
     } catch (err) {
       if (err instanceof Error && err.message === 'INVALID_BRAND') {

@@ -9,6 +9,7 @@ import {
   type BrandCustomerLinkMsgConfigMap,
   type FormMessagesState,
 } from '../utils/orderFormCustomerCopy';
+import { useOrderFormCustomerLinkConfigRealtime } from './useInboxRealtime';
 
 type CacheEntry = {
   token: string;
@@ -35,41 +36,48 @@ export function useOrderFormBrandCustomerLinkConfigs(token: string | null): {
   );
   const [loading, setLoading] = useState(false);
 
-  const load = useCallback(() => {
-    if (!token) {
-      setMap({});
-      setTenantFallback(null);
-      return;
-    }
-    if (cache?.token === token && Date.now() - cache.loadedAt < CACHE_TTL_MS) {
-      setMap(cache.map);
-      setTenantFallback(cache.tenantFallback);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    void Promise.all([listBrandCustomerLinkConfigs(token), getFormConfig(token)])
-      .then(([listRes, tenantCfg]) => {
-        if (cancelled) return;
-        const nextMap = brandCustomerLinkConfigMapFromItems(listRes.items);
-        const fallback = normalizeMsgConfigForEditor(tenantCfg);
-        cache = { token, map: nextMap, tenantFallback: fallback, loadedAt: Date.now() };
-        setMap(nextMap);
-        setTenantFallback(fallback);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setMap({});
-          setTenantFallback(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
+  const load = useCallback(
+    (opts?: { force?: boolean }) => {
+      if (!token) {
+        setMap({});
+        setTenantFallback(null);
+        return;
+      }
+      if (
+        !opts?.force &&
+        cache?.token === token &&
+        Date.now() - cache.loadedAt < CACHE_TTL_MS
+      ) {
+        setMap(cache.map);
+        setTenantFallback(cache.tenantFallback);
+        return;
+      }
+      let cancelled = false;
+      setLoading(true);
+      void Promise.all([listBrandCustomerLinkConfigs(token), getFormConfig(token)])
+        .then(([listRes, tenantCfg]) => {
+          if (cancelled) return;
+          const nextMap = brandCustomerLinkConfigMapFromItems(listRes.items);
+          const fallback = normalizeMsgConfigForEditor(tenantCfg);
+          cache = { token, map: nextMap, tenantFallback: fallback, loadedAt: Date.now() };
+          setMap(nextMap);
+          setTenantFallback(fallback);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setMap({});
+            setTenantFallback(null);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    },
+    [token],
+  );
 
   useEffect(() => {
     const cleanup = load();
@@ -78,8 +86,16 @@ export function useOrderFormBrandCustomerLinkConfigs(token: string | null): {
 
   const refresh = useCallback(() => {
     if (token) cache = null;
-    load();
+    load({ force: true });
   }, [load, token]);
+
+  useOrderFormCustomerLinkConfigRealtime(
+    token,
+    () => {
+      refresh();
+    },
+    Boolean(token),
+  );
 
   return { map, tenantFallback, loading, refresh };
 }
