@@ -16,13 +16,21 @@ import {
 import { useHelpWorkflowEntry } from '../../hooks/useHelpWorkflowEntry';
 import { HelpScreenCard } from './HelpScreenCard';
 import { TeamGuideMobileChapterSelect, TeamGuideSidebar } from './TeamGuideSidebar';
+import type { HelpCmsCategory } from '../../api/platformHelpCms';
 
 type TeamGuideHelpLayoutProps = {
   selectedRole: HelpRole;
   onRoleChange: (role: HelpRole) => void;
+  cmsCategories?: HelpCmsCategory[];
+  onCmsSectionSelect?: (slug: string) => void;
 };
 
-export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHelpLayoutProps) {
+export function TeamGuideHelpLayout({
+  selectedRole,
+  onRoleChange,
+  cmsCategories = [],
+  onCmsSectionSelect,
+}: TeamGuideHelpLayoutProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const chapterParam = searchParams.get('chapter');
   const [chapters, setChapters] = useState<TeamGuideChapter[]>([]);
@@ -162,6 +170,8 @@ export function TeamGuideHelpLayout({ selectedRole, onRoleChange }: TeamGuideHel
     onChapterClick: changeChapter,
     selectedRole,
     onRoleChange,
+    cmsCategories,
+    onCmsSectionSelect,
   };
 
   return (

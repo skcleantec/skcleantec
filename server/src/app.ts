@@ -72,6 +72,8 @@ import platformLegalRoutes from './modules/platform-legal/platformLegal.routes.j
 import platformPartnerPromoRoutes from './modules/platform-partner-promo/platformPartnerPromo.routes.js';
 import adminPlatformPromoRoutes from './modules/platform-partner-promo/adminPlatformPromo.routes.js';
 import platformLegalPublicRoutes from './modules/platform-legal/platformLegal.public.routes.js';
+import platformHelpCmsRoutes from './modules/help-cms/platformHelpCms.routes.js';
+import publicHelpCmsRoutes from './modules/help-cms/publicHelpCms.routes.js';
 import tenantSignupPublicRoutes from './modules/platform/tenantSignup.public.routes.js';
 import tenantPasswordResetPublicRoutes from './modules/auth/tenantPasswordReset.public.routes.js';
 import platformPlanUpgradeRoutes from './modules/platform/platformPlanUpgrade.routes.js';
@@ -114,6 +116,7 @@ app.use('/api/platform/billing', platformBillingRoutes);
 app.use('/api/platform/plan-upgrade-requests', platformPlanUpgradeRoutes);
 app.use('/api/platform/signup-inquiries', platformSignupInquiryRoutes);
 app.use('/api/platform/referrers', platformReferrersRoutes);
+app.use('/api/platform/help-cms', platformHelpCmsRoutes);
 app.use('/api/platform/legal', platformLegalRoutes);
 app.use('/api/platform/partner-promos', platformPartnerPromoRoutes);
 app.use('/api/admin/platform-promos', adminPlatformPromoRoutes);
@@ -193,6 +196,7 @@ app.get('/telecrm-app/', sendTelecrmAppInstallPage);
 
 app.use('/api/help', helpRoutes);
 app.use('/api/help/inquiry', helpInquiryPublicRoutes);
+app.use('/api/public/help-cms', publicHelpCmsRoutes);
 app.use('/api/public/legal', platformLegalPublicRoutes);
 app.use('/api/public/tenant-signup', tenantSignupPublicRoutes);
 app.use('/api/public/signup-inquiries', platformSignupInquiryPublicRoutes);

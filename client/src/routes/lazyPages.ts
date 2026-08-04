@@ -336,6 +336,19 @@ export const PlatformHelpInquirySettingsPage = lazyWithRetry(() =>
     default: m.PlatformHelpInquirySettingsPage,
   }))
 );
+export const PlatformHelpCmsPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformHelpCmsPage').then((m) => ({ default: m.PlatformHelpCmsPage }))
+);
+export const PlatformHelpCmsCategoriesPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformHelpCmsCategoriesPage').then((m) => ({
+    default: m.PlatformHelpCmsCategoriesPage,
+  }))
+);
+export const PlatformHelpCmsArticleEditPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformHelpCmsArticleEditPage').then((m) => ({
+    default: m.PlatformHelpCmsArticleEditPage,
+  }))
+);
 export const PlatformUnpaidPopupSettingsPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformUnpaidPopupSettingsPage').then((m) => ({
     default: m.PlatformUnpaidPopupSettingsPage,

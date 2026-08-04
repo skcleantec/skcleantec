@@ -851,6 +851,7 @@ model PlatformUser {
   billingAdjustmentsCreated TenantBillingAdjustment[]
   reviewedPlanUpgradeRequests TenantPlanUpgradeRequest[]
   reviewedSignupInquiries     PlatformSignupInquiry[]
+  helpCmsArticles             HelpCmsArticle[]
 
   @@map("platform_users")
 }
@@ -1090,6 +1091,47 @@ model HelpInquiryPost {
 
   @@index([createdAt(sort: Desc)])
   @@map("help_inquiry_posts")
+}
+
+/// /help 도움말 CMS — 카테고리 (플랫폼 전역)
+model HelpCmsCategory {
+  id          String   @id @default(uuid())
+  slug        String   @unique @db.VarChar(64)
+  label       String   @db.VarChar(128)
+  description String?  @db.Text
+  tabGroup    String   @map("tab_group") @db.VarChar(32)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isPublished Boolean  @default(true) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  articles    HelpCmsArticle[]
+
+  @@index([tabGroup, isPublished, sortOrder])
+  @@map("help_cms_categories")
+}
+
+/// /help 도움말 CMS — 게시글 (플랫폼 전역)
+model HelpCmsArticle {
+  id                   String          @id @default(uuid())
+  categoryId           String          @map("category_id")
+  category             HelpCmsCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  slug                 String          @unique @db.VarChar(128)
+  title                String          @db.VarChar(256)
+  excerpt              String?         @db.VarChar(500)
+  coverImageUrl        String?         @map("cover_image_url") @db.VarChar(512)
+  bodyHtml             String          @map("body_html") @db.Text
+  bodyMarkdown         String?         @map("body_markdown") @db.Text
+  contentFormat        String          @default("html") @map("content_format") @db.VarChar(16)
+  sortOrder            Int             @default(0) @map("sort_order")
+  isPublished          Boolean         @default(false) @map("is_published")
+  publishedAt          DateTime?       @map("published_at")
+  authorPlatformUserId String?         @map("author_platform_user_id")
+  author               PlatformUser?     @relation(fields: [authorPlatformUserId], references: [id], onDelete: SetNull)
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+
+  @@index([categoryId, isPublished, sortOrder])
+  @@map("help_cms_articles")
 }
 
 /// 플랫폼 운영 — 모든 테넌트 관리자(/admin) 로그인용 글로벌 지원 계정

@@ -118,6 +118,9 @@ import {
   PlatformSupportAccessPage,
   PlatformDbMarketplacePage,
   PlatformHelpInquirySettingsPage,
+  PlatformHelpCmsPage,
+  PlatformHelpCmsCategoriesPage,
+  PlatformHelpCmsArticleEditPage,
   PlatformUnpaidPopupSettingsPage,
   PlatformPartnerPromoSettingsPage,
   PlatformSettingsPage,
@@ -171,6 +174,10 @@ function App() {
           <Route path="support-access" element={<SuspensePage><PlatformSupportAccessPage /></SuspensePage>} />
           <Route path="db-marketplace" element={<SuspensePage><PlatformDbMarketplacePage /></SuspensePage>} />
           <Route path="help-inquiry" element={<SuspensePage><PlatformHelpInquirySettingsPage /></SuspensePage>} />
+          <Route path="help-cms" element={<SuspensePage><PlatformHelpCmsPage /></SuspensePage>} />
+          <Route path="help-cms/categories" element={<SuspensePage><PlatformHelpCmsCategoriesPage /></SuspensePage>} />
+          <Route path="help-cms/articles/new" element={<SuspensePage><PlatformHelpCmsArticleEditPage /></SuspensePage>} />
+          <Route path="help-cms/articles/:id/edit" element={<SuspensePage><PlatformHelpCmsArticleEditPage /></SuspensePage>} />
           <Route path="popups/unpaid" element={<SuspensePage><PlatformUnpaidPopupSettingsPage /></SuspensePage>} />
           <Route path="popups/partner-promo" element={<SuspensePage><PlatformPartnerPromoSettingsPage /></SuspensePage>} />
           <Route path="popups" element={<Navigate to="unpaid" replace />} />

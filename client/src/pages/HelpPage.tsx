@@ -17,6 +17,9 @@ import {
 } from '../utils/helpContent';
 import { checkHelpEditPermission } from '../api/help';
 import { HelpInquiryBoard } from '../components/help/HelpInquiryBoard';
+import { HelpCmsBrowseView } from '../components/help-cms/HelpCmsBrowseView';
+import { fetchPublicHelpCmsCategories } from '../api/publicHelpCms';
+import type { HelpCmsCategory } from '../api/platformHelpCms';
 
 type MainCategory = 'usage' | 'inquiry' | 'notice';
 
@@ -31,6 +34,8 @@ export function HelpPage() {
   const categoryParam = (searchParams.get('category') || 'usage') as MainCategory;
   const roleParam = searchParams.get('role') || '';
   const searchQuery = searchParams.get('q') || '';
+  const sectionParam = searchParams.get('section') || '';
+  const articleParam = searchParams.get('article') || '';
 
   const [mainCategory, setMainCategory] = useState<MainCategory>(categoryParam);
   const [entries, setEntries] = useState<Awaited<ReturnType<typeof fetchHelpContent>>>([]);
@@ -38,6 +43,7 @@ export function HelpPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(false);
+  const [cmsCategories, setCmsCategories] = useState<HelpCmsCategory[]>([]);
 
   const selectedRole = useMemo(() => parseHelpRole(roleParam), [roleParam]);
 
@@ -68,6 +74,52 @@ export function HelpPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (mainCategory !== 'usage' && mainCategory !== 'notice') return;
+    let cancelled = false;
+    fetchPublicHelpCmsCategories(mainCategory)
+      .then((items) => {
+        if (!cancelled) setCmsCategories(items);
+      })
+      .catch(() => {
+        if (!cancelled) setCmsCategories([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mainCategory]);
+
+  const setCmsSection = useCallback(
+    (section: string | null) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (section) {
+          next.set('section', section);
+          next.delete('role');
+          next.delete('chapter');
+          next.delete('q');
+        } else {
+          next.delete('section');
+        }
+        next.delete('article');
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
+
+  const setCmsArticle = useCallback(
+    (article: string | null) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (article) next.set('article', article);
+        else next.delete('article');
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
+
   const refreshEntries = useCallback(() => {
     fetchHelpContent()
       .then(setEntries)
@@ -83,6 +135,10 @@ export function HelpPage() {
         if (newCategory !== 'usage') {
           next.delete('role');
           next.delete('q');
+        }
+        if (newCategory !== 'usage' && newCategory !== 'notice') {
+          next.delete('section');
+          next.delete('article');
         }
         return next;
       });
@@ -135,6 +191,7 @@ export function HelpPage() {
   const isTeamGuideView = mainCategory === 'usage' && selectedRole === 'team';
   const isAdminGuideView = mainCategory === 'usage' && selectedRole === 'admin';
   const isHtmlGuideView = isTeamGuideView || isAdminGuideView;
+  const isCmsUsageView = mainCategory === 'usage' && Boolean(sectionParam) && !isHtmlGuideView;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -216,10 +273,28 @@ export function HelpPage() {
         }`}
       >
         {mainCategory === 'usage' ? (
-          isAdminGuideView ? (
-            <AdminGuideHelpLayout selectedRole={selectedRole} onRoleChange={changeRole} />
+          isCmsUsageView ? (
+            <HelpCmsBrowseView
+              tabGroup="usage"
+              sectionSlug={sectionParam || null}
+              articleSlug={articleParam || null}
+              onSectionChange={setCmsSection}
+              onArticleChange={setCmsArticle}
+            />
+          ) : isAdminGuideView ? (
+            <AdminGuideHelpLayout
+              selectedRole={selectedRole}
+              onRoleChange={changeRole}
+              cmsCategories={cmsCategories}
+              onCmsSectionSelect={setCmsSection}
+            />
           ) : isTeamGuideView ? (
-            <TeamGuideHelpLayout selectedRole={selectedRole} onRoleChange={changeRole} />
+            <TeamGuideHelpLayout
+              selectedRole={selectedRole}
+              onRoleChange={changeRole}
+              cmsCategories={cmsCategories}
+              onCmsSectionSelect={setCmsSection}
+            />
           ) : loading ? (
             <div className="flex min-h-[40vh] items-center justify-center">
               <div className="text-center">
@@ -242,6 +317,26 @@ export function HelpPage() {
                   selectedRole={selectedRole}
                   onRoleChange={changeRole}
                 />
+                {cmsCategories.length > 0 ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <p className="mb-2 text-fluid-2xs font-semibold text-slate-500">카테고리 글</p>
+                    <ul className="space-y-1">
+                      {cmsCategories.map((cat) => (
+                        <li key={cat.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCmsSection(cat.slug);
+                            }}
+                            className="w-full rounded-md px-2 py-1.5 text-left text-fluid-2xs text-slate-700 hover:bg-slate-100"
+                          >
+                            {cat.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
 
               {/* 메인 콘텐츠 */}
@@ -322,27 +417,13 @@ export function HelpPage() {
             <HelpInquiryBoard />
           </div>
         ) : (
-          <div className="mx-auto max-w-3xl">
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">공지사항</h2>
-              <div className="space-y-4">
-                <div className="border-b border-slate-200 pb-4">
-                  <p className="text-fluid-sm text-slate-500 mb-1">2026.06.23</p>
-                  <h3 className="font-semibold text-slate-900">헬프 페이지 편집 기능 추가</h3>
-                  <p className="text-slate-600 mt-2">
-                    관리자가 헬프 페이지에서 직접 스크린샷과 내용을 편집할 수 있습니다.
-                  </p>
-                </div>
-                <div className="border-b border-slate-200 pb-4">
-                  <p className="text-fluid-sm text-slate-500 mb-1">2026.06.22</p>
-                  <h3 className="font-semibold text-slate-900">DB 장터 장바구니 기능 추가</h3>
-                  <p className="text-slate-600 mt-2">
-                    여러 접수를 한 번에 선택하여 게시하거나 갖고가기할 수 있습니다.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <HelpCmsBrowseView
+            tabGroup="notice"
+            sectionSlug={sectionParam || null}
+            articleSlug={articleParam || null}
+            onSectionChange={setCmsSection}
+            onArticleChange={setCmsArticle}
+          />
         )}
       </div>
     </div>

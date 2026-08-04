@@ -109,6 +109,27 @@ export function SimpleMarkdown({ source }: { source: string }) {
 
         const first = lines[0] ?? '';
 
+        // --- 구분선
+        if (lines.length === 1 && /^-{3,}$/.test(first)) {
+          return <hr key={`hr-${blockIdx}`} className="border-slate-200" />;
+        }
+
+        // > 인용
+        if (lines.every((line) => line.startsWith('>'))) {
+          return (
+            <blockquote
+              key={`bq-${blockIdx}`}
+              className="border-l-4 border-slate-300 pl-4 text-slate-700 not-italic"
+            >
+              {lines.map((line, lineIdx) => (
+                <p key={`bql-${blockIdx}-${lineIdx}`} className={lineIdx > 0 ? 'mt-2' : undefined}>
+                  {renderHelpInline(line.replace(/^>\s?/, ''), `bq-${blockIdx}-${lineIdx}`)}
+                </p>
+              ))}
+            </blockquote>
+          );
+        }
+
         // {{ui:token}} — 단독 블록
         const uiBlockMatch = first.match(/^\{\{ui:([^}|]+)(?:\|([^}]+))?\}\}$/);
         if (uiBlockMatch && lines.length === 1) {

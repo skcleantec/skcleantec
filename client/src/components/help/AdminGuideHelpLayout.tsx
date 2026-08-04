@@ -17,13 +17,21 @@ import { useHelpWorkflowEntry } from '../../hooks/useHelpWorkflowEntry';
 import { HelpScreenCard } from './HelpScreenCard';
 import { TeamGuideMobileChapterSelect, TeamGuideSidebar } from './TeamGuideSidebar';
 import { MarketerGuideScreenshotEditor } from './MarketerGuideScreenshotEditor';
+import type { HelpCmsCategory } from '../../api/platformHelpCms';
 
 type AdminGuideHelpLayoutProps = {
   selectedRole: HelpRole;
   onRoleChange: (role: HelpRole) => void;
+  cmsCategories?: HelpCmsCategory[];
+  onCmsSectionSelect?: (slug: string) => void;
 };
 
-export function AdminGuideHelpLayout({ selectedRole, onRoleChange }: AdminGuideHelpLayoutProps) {
+export function AdminGuideHelpLayout({
+  selectedRole,
+  onRoleChange,
+  cmsCategories = [],
+  onCmsSectionSelect,
+}: AdminGuideHelpLayoutProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const chapterParam = searchParams.get('chapter');
   const [chapters, setChapters] = useState<MarketerGuideChapter[]>([]);
@@ -163,6 +171,8 @@ export function AdminGuideHelpLayout({ selectedRole, onRoleChange }: AdminGuideH
     selectedRole,
     onRoleChange,
     navAriaLabel: '관리자·마케터 가이드 목차',
+    cmsCategories,
+    onCmsSectionSelect,
   };
 
   return (

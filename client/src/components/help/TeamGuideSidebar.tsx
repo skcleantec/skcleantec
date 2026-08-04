@@ -1,6 +1,7 @@
 import type { HelpRole } from '../../types/helpContent';
 import type { HelpGuideChapterItem } from '../../utils/helpContent';
 import { HELP_ROLE_LABELS } from '../../utils/helpContent';
+import type { HelpCmsCategory } from '../../api/platformHelpCms';
 
 /** 팀장·관리자 HTML 가이드 + 이용 순서(00) 목차 항목 */
 export type GuideChapterItem = HelpGuideChapterItem;
@@ -13,6 +14,8 @@ type TeamGuideSidebarProps = {
   onRoleChange: (role: HelpRole) => void;
   /** 접근성 — 가이드 종류별 목차 라벨 */
   navAriaLabel?: string;
+  cmsCategories?: HelpCmsCategory[];
+  onCmsSectionSelect?: (slug: string) => void;
 };
 
 export function TeamGuideSidebar({
@@ -22,6 +25,8 @@ export function TeamGuideSidebar({
   selectedRole,
   onRoleChange,
   navAriaLabel = '팀장 가이드 목차',
+  cmsCategories = [],
+  onCmsSectionSelect,
 }: TeamGuideSidebarProps) {
   return (
     <aside className="sticky top-[7.5rem] z-20 flex max-h-[calc(100dvh-8.5rem)] min-h-0 w-full flex-col self-start overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -85,6 +90,28 @@ export function TeamGuideSidebar({
           })}
         </ul>
       </nav>
+
+      {cmsCategories.length > 0 && onCmsSectionSelect ? (
+        <div className="shrink-0 border-t border-slate-200 p-1.5">
+          <p className="px-2 py-1 text-[10px] font-semibold text-slate-500">카테고리 글</p>
+          <ul className="space-y-0.5">
+            {cmsCategories.map((cat) => (
+              <li key={cat.id}>
+                <button
+                  type="button"
+                  onClick={() => onCmsSectionSelect(cat.slug)}
+                  className="w-full rounded-md px-2 py-1.5 text-left text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                >
+                  {cat.label}
+                  {cat.articleCount > 0 ? (
+                    <span className="ml-1 tabular-nums text-slate-400">{cat.articleCount}</span>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </aside>
   );
 }
