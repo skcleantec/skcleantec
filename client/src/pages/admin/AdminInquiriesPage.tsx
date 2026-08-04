@@ -2544,10 +2544,14 @@ export function AdminInquiriesPage() {
               {marketerOverview && (
                 <span className="min-w-0 truncate text-slate-500">
                   · {formatMonthKeyLabel(marketerOverview.monthKey)} · 오늘 {marketerOverview.todayYmd}
+                  · 확정 {marketerOverview.todayTotals.received}건
+                  · 부재 {marketerOverview.todayTotals.absent}건
+                  · 보류 {marketerOverview.todayTotals.hold}건
+                  · 요청 {marketerOverview.todayTotals.requested}건
                 </span>
               )}
               <HelpTooltip
-                text="서비스접수 목록과 동일합니다. 접수일(createdAt)·상태 예약완료(RECEIVED)·접수자 기준 건수입니다. 분배완료·진행중 등 다른 상태는 포함하지 않습니다."
+                text="당일(KST) 기준입니다. 확정=서비스접수 예약완료(RECEIVED·접수일·접수자). 부재·보류·요청=부재현황 등록일·등록자·현재 상태(ABSENT·보류·요청) 건수입니다."
                 className="shrink-0"
               />
               <span className="ml-auto shrink-0 text-slate-500" aria-hidden>
@@ -2570,12 +2574,15 @@ export function AdminInquiriesPage() {
               </div>
             ) : marketerOverview ? (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[320px] border-collapse text-fluid-2xs">
+                <table className="w-full min-w-[420px] border-collapse text-fluid-2xs">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-600">
                       <th className="py-1 pr-2 text-center font-medium">이름</th>
                       <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">이번 달</th>
-                      <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">오늘</th>
+                      <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">확정</th>
+                      <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">부재</th>
+                      <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">보류</th>
+                      <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">요청</th>
                       <th className="w-14 whitespace-nowrap py-1 pl-1.5 text-center font-medium">일별</th>
                     </tr>
                   </thead>
@@ -2617,6 +2624,9 @@ export function AdminInquiriesPage() {
                         <td className="py-1 pr-2">{m.name}</td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.monthCount}건</td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.todayCount}건</td>
+                        <td className="px-1.5 py-1 text-right tabular-nums">{m.todayAbsentCount}건</td>
+                        <td className="px-1.5 py-1 text-right tabular-nums">{m.todayHoldCount}건</td>
+                        <td className="px-1.5 py-1 text-right tabular-nums">{m.todayRequestedCount}건</td>
                         <td className="py-1 pl-1.5 text-center">
                           <InquiryMarketerDailyButton
                             onClick={(e) => {

@@ -218,7 +218,7 @@ router.use(authMiddleware);
 router.use('/trash', inquiryTrashRoutes);
 router.use(requireStaffPermission('inquiry.view'));
 
-/** 마케터별 이번 달·오늘 예약완료(RECEIVED) — 서비스접수와 동일(접수일·접수자, KST) */
+/** 마케터별 이번 달·당일 예약완료·부재·보류·요청 — 서비스접수·부재현황과 동일(KST) */
 router.get('/marketer-overview', async (req, res) => {
   const user = (req as unknown as { user: AuthPayload }).user;
   const tenantId = getTenantIdFromAuth(user);

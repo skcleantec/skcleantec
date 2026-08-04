@@ -7,14 +7,25 @@ function headers(token: string) {
   };
 }
 
+export type MarketerOverviewTodayTotals = {
+  received: number;
+  absent: number;
+  hold: number;
+  requested: number;
+};
+
 export type MarketerOverviewResponse = {
   monthKey: string;
   todayYmd: string;
+  todayTotals: MarketerOverviewTodayTotals;
   marketers: Array<{
     marketerId: string;
     name: string;
     monthCount: number;
     todayCount: number;
+    todayAbsentCount: number;
+    todayHoldCount: number;
+    todayRequestedCount: number;
   }>;
 };
 

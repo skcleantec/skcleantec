@@ -4,11 +4,29 @@ import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from './inquiryListDateRange.js';
 import { inquiryActiveOnlyWhere } from './inquiryTrash.helpers.js';
 
+export type MarketerOverviewTodayTotals = {
+  /** 당일 예약완료(RECEIVED) — 접수일 KST */
+  received: number;
+  /** 당일 부재현황(ABSENT) — 등록일 KST */
+  absent: number;
+  /** 당일 부재현황(ON_HOLD) — 등록일 KST */
+  hold: number;
+  /** 당일 부재현황(REQUESTED) — 등록일 KST */
+  requested: number;
+};
+
 export type MarketerOverviewRow = {
   marketerId: string;
   name: string;
   monthCount: number;
+  /** 당일 예약완료(RECEIVED) */
   todayCount: number;
+  /** 당일 부재현황 ABSENT */
+  todayAbsentCount: number;
+  /** 당일 부재현황 ON_HOLD */
+  todayHoldCount: number;
+  /** 당일 부재현황 REQUESTED */
+  todayRequestedCount: number;
 };
 
 export type MarketerOverviewResult = {
@@ -16,6 +34,8 @@ export type MarketerOverviewResult = {
   monthKey: string;
   /** 오늘 날짜 YYYY-MM-DD (KST) */
   todayYmd: string;
+  /** 당일 전체 합계(마케터별 합) */
+  todayTotals: MarketerOverviewTodayTotals;
   marketers: MarketerOverviewRow[];
 };
 
@@ -123,6 +143,56 @@ async function countReceivedInquiriesByMarketerMonthAndToday(
   return { month, today };
 }
 
+type FollowupMarketerCountMaps = {
+  absent: Map<string, number>;
+  hold: Map<string, number>;
+  requested: Map<string, number>;
+};
+
+/** 당일 부재·보류·요청 — 부재현황 목록과 동일(등록일 createdAt KST · 등록자 createdById · 현재 상태) */
+async function countFollowupsByMarketerToday(
+  tenantId: string,
+  todayGte: Date,
+  todayLte: Date,
+  marketerIds: string[],
+): Promise<FollowupMarketerCountMaps> {
+  const emptyMaps = (): FollowupMarketerCountMaps => ({
+    absent: new Map(marketerIds.map((id) => [id, 0])),
+    hold: new Map(marketerIds.map((id) => [id, 0])),
+    requested: new Map(marketerIds.map((id) => [id, 0])),
+  });
+  if (marketerIds.length === 0) return emptyMaps();
+
+  const rows = await prisma.orderFollowup.groupBy({
+    by: ['createdById', 'status'],
+    where: {
+      tenantId,
+      createdAt: { gte: todayGte, lte: todayLte },
+      createdById: { in: marketerIds },
+      status: { in: ['ABSENT', 'ON_HOLD', 'REQUESTED'] },
+    },
+    _count: { _all: true },
+  });
+
+  const absent = new Map<string, number>();
+  const hold = new Map<string, number>();
+  const requested = new Map<string, number>();
+  for (const id of marketerIds) {
+    absent.set(id, 0);
+    hold.set(id, 0);
+    requested.set(id, 0);
+  }
+  for (const row of rows) {
+    const uid = row.createdById;
+    if (!absent.has(uid)) continue;
+    const n = row._count._all;
+    if (row.status === 'ABSENT') absent.set(uid, (absent.get(uid) ?? 0) + n);
+    else if (row.status === 'ON_HOLD') hold.set(uid, (hold.get(uid) ?? 0) + n);
+    else if (row.status === 'REQUESTED') requested.set(uid, (requested.get(uid) ?? 0) + n);
+  }
+  return { absent, hold, requested };
+}
+
 /**
  * 마케터 일별·오늘 집계와 동일한 접수 목록 필터 (KST 하루).
  * 서비스접수: 상태 RECEIVED + 접수일(createdAt) + 접수자
@@ -149,10 +219,17 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
   const monthKey = todayYmd.slice(0, 7);
   const monthRange = kstMonthRangeYm(monthKey);
   const todayRange = kstDayRangeYmd(todayYmd);
+  const emptyTotals = (): MarketerOverviewTodayTotals => ({
+    received: 0,
+    absent: 0,
+    hold: 0,
+    requested: 0,
+  });
   if (!monthRange || !todayRange) {
     return {
       monthKey,
       todayYmd,
+      todayTotals: emptyTotals(),
       marketers: [],
     };
   }
@@ -166,25 +243,47 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
   const marketers = staff.filter((u) => !isTeamPreviewAdminEmail(u.email));
   const marketerIds = marketers.map((m) => m.id);
 
-  const { month: monthCounts, today: todayCounts } = await countReceivedInquiriesByMarketerMonthAndToday(
-    tenantId,
-    monthRange.gte,
-    monthRange.lte,
-    todayRange.gte,
-    todayRange.lte,
-    marketerIds,
-  );
+  const [{ month: monthCounts, today: todayCounts }, followupToday] = await Promise.all([
+    countReceivedInquiriesByMarketerMonthAndToday(
+      tenantId,
+      monthRange.gte,
+      monthRange.lte,
+      todayRange.gte,
+      todayRange.lte,
+      marketerIds,
+    ),
+    countFollowupsByMarketerToday(
+      tenantId,
+      todayRange.gte,
+      todayRange.lte,
+      marketerIds,
+    ),
+  ]);
 
   const rows: MarketerOverviewRow[] = marketers.map((m) => ({
     marketerId: m.id,
     name: m.name,
     monthCount: monthCounts.get(m.id) ?? 0,
     todayCount: todayCounts.get(m.id) ?? 0,
+    todayAbsentCount: followupToday.absent.get(m.id) ?? 0,
+    todayHoldCount: followupToday.hold.get(m.id) ?? 0,
+    todayRequestedCount: followupToday.requested.get(m.id) ?? 0,
   }));
+
+  const todayTotals: MarketerOverviewTodayTotals = rows.reduce(
+    (acc, r) => ({
+      received: acc.received + r.todayCount,
+      absent: acc.absent + r.todayAbsentCount,
+      hold: acc.hold + r.todayHoldCount,
+      requested: acc.requested + r.todayRequestedCount,
+    }),
+    emptyTotals(),
+  );
 
   return {
     monthKey,
     todayYmd,
+    todayTotals,
     marketers: rows,
   };
 }
