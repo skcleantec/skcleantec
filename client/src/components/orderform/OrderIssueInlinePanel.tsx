@@ -74,6 +74,7 @@ export function OrderIssueInlinePanel({
     }>
   >([]);
   const [issueTemplatesLoaded, setIssueTemplatesLoaded] = useState(false);
+  const [issueTemplatesError, setIssueTemplatesError] = useState<string | null>(null);
   const [pendingLinkId, setPendingLinkId] = useState(pendingInquiryIdProp?.trim() ?? '');
   const [issueInternalCustomerTone, setIssueInternalCustomerTone] =
     useState<InternalCustomerTone>(DEFAULT_INTERNAL_CUSTOMER_TONE);
@@ -154,6 +155,7 @@ export function OrderIssueInlinePanel({
     if (!token) return;
     let cancelled = false;
     setIssueTemplatesLoaded(false);
+    setIssueTemplatesError(null);
     void listOrderFormTemplates(token)
       .then((items) => {
         if (cancelled) return;
@@ -165,8 +167,13 @@ export function OrderIssueInlinePanel({
           return def?.id ?? '';
         });
       })
-      .catch(() => {
-        if (!cancelled) setOrderTemplates([]);
+      .catch((e) => {
+        if (!cancelled) {
+          setOrderTemplates([]);
+          setIssueTemplatesError(
+            e instanceof Error ? e.message : '발주서 양식 목록을 불러올 수 없습니다.',
+          );
+        }
       })
       .finally(() => {
         if (!cancelled) setIssueTemplatesLoaded(true);
@@ -278,22 +285,29 @@ export function OrderIssueInlinePanel({
       )}
 
       <div className="space-y-4">
-        {orderTemplates.length > 0 ? (
+        {issueTemplatesLoaded ? (
           <label className="block space-y-1">
             <span className="text-fluid-xs font-medium text-gray-700">발주서 양식</span>
-            <select
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-sm"
-              value={issueTemplateId}
-              onChange={(e) => setIssueTemplateId(e.target.value)}
-            >
-              {orderTemplates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.icon ? `${t.icon} ` : ''}
-                  {t.title}
-                  {t.isDefault ? ' (기본)' : ''}
-                </option>
-              ))}
-            </select>
+            {orderTemplates.length > 0 ? (
+              <select
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-sm"
+                value={issueTemplateId}
+                onChange={(e) => setIssueTemplateId(e.target.value)}
+              >
+                {orderTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.icon ? `${t.icon} ` : ''}
+                    {t.title}
+                    {t.isDefault ? ' (기본)' : ''}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-fluid-xs text-amber-950">
+                {issueTemplatesError ??
+                  '발행된 발주서 양식이 없습니다. 「발주서 양식」 메뉴에서 발행 후 다시 시도해 주세요.'}
+              </p>
+            )}
           </label>
         ) : null}
 

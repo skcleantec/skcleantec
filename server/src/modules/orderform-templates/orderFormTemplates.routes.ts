@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
-import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
+import { requireStaffPermission, staffHasPermission } from '../auth/marketerPermission.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
   ORDER_FORM_SYSTEM_FIELDS,
@@ -19,7 +19,7 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware, requireStaffPermission('orderform.templates'));
+router.use(authMiddleware);
 
 function authUser(req: unknown): AuthPayload {
   return (req as { user: AuthPayload }).user;
@@ -93,16 +93,21 @@ function serializeTemplate(
 }
 
 /** 시스템 필드 카탈로그(빌더 매핑 드롭다운용) */
-router.get('/system-fields', (_req, res) => {
+router.get('/system-fields', requireStaffPermission('orderform.templates'), (_req, res) => {
   res.json({ items: ORDER_FORM_SYSTEM_FIELDS });
 });
 
-/** 템플릿 목록 */
-router.get('/', async (req, res) => {
-  const tenantId = await requireTenantIdFromAuth(res, authUser(req));
+/** 템플릿 목록 — 발급(issue)은 발행(PUBLISHED)만, 템플릿 관리 권한은 전체 */
+router.get('/', requireStaffPermission('orderform.templates', 'orderform.issue'), async (req, res) => {
+  const user = authUser(req);
+  const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
+  const canManageTemplates = await staffHasPermission(user, 'orderform.templates');
   const rows = await prisma.orderFormTemplate.findMany({
-    where: { tenantId },
+    where: {
+      tenantId,
+      ...(canManageTemplates ? {} : { status: 'PUBLISHED' }),
+    },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     include: { fields: true },
   });
@@ -110,7 +115,7 @@ router.get('/', async (req, res) => {
 });
 
 /** 테넌트 접수 목록 노출 대상 추가 항목(최대 3 fieldKey) */
-router.get('/promoted-list-fields', async (req, res) => {
+router.get('/promoted-list-fields', requireStaffPermission('orderform.templates'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, authUser(req));
   if (!tenantId) return;
   const items = await listTenantPromotedListFields(prisma, tenantId);
@@ -118,7 +123,7 @@ router.get('/promoted-list-fields', async (req, res) => {
 });
 
 /** 단건(필드 포함) */
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireStaffPermission('orderform.templates'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, authUser(req));
   if (!tenantId) return;
   const row = await prisma.orderFormTemplate.findFirst({
@@ -133,7 +138,7 @@ router.get('/:id', async (req, res) => {
 });
 
 /** 템플릿 생성(초안) */
-router.post('/', async (req, res) => {
+router.post('/', requireStaffPermission('orderform.templates'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, authUser(req));
   if (!tenantId) return;
   const body = req.body as { title?: unknown; icon?: unknown; description?: unknown };
@@ -169,7 +174,7 @@ router.post('/', async (req, res) => {
 });
 
 /** 템플릿 메타 수정 */
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireStaffPermission('orderform.templates'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, authUser(req));
   if (!tenantId) return;
   const owned = await prisma.orderFormTemplate.findFirst({
@@ -227,7 +232,7 @@ router.patch('/:id', async (req, res) => {
 });
 
 /** 필드 일괄 저장(빌더) — 전체 교체. 버전 +1. */
-router.put('/:id/fields', async (req, res) => {
+router.put('/:id/fields', requireStaffPermission('orderform.templates'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, authUser(req));
   if (!tenantId) return;
   const owned = await prisma.orderFormTemplate.findFirst({
@@ -365,7 +370,7 @@ router.put('/:id/fields', async (req, res) => {
 });
 
 /** 발행 — 필수 코어 필드 검증 후 PUBLISHED */
-router.post('/:id/publish', async (req, res) => {
+router.post('/:id/publish', requireStaffPermission('orderform.templates'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, authUser(req));
   if (!tenantId) return;
   const row = await prisma.orderFormTemplate.findFirst({
@@ -395,7 +400,7 @@ router.post('/:id/publish', async (req, res) => {
 });
 
 /** 발행 해제(초안으로) — 발급 목록에서 숨김 */
-router.post('/:id/unpublish', async (req, res) => {
+router.post('/:id/unpublish', requireStaffPermission('orderform.templates'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, authUser(req));
   if (!tenantId) return;
   const owned = await prisma.orderFormTemplate.findFirst({
@@ -419,7 +424,7 @@ router.post('/:id/unpublish', async (req, res) => {
 });
 
 /** 복제 — 새 초안으로 */
-router.post('/:id/duplicate', async (req, res) => {
+router.post('/:id/duplicate', requireStaffPermission('orderform.templates'), async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, authUser(req));
   if (!tenantId) return;
   const src = await prisma.orderFormTemplate.findFirst({
@@ -475,7 +480,7 @@ router.post('/:id/duplicate', async (req, res) => {
 });
 
 /** 삭제 — 기본 템플릿 불가, 본인 비밀번호 확인 필수(발급 건은 FK SET NULL) */
-router.post('/:id/delete', async (req, res) => {
+router.post('/:id/delete', requireStaffPermission('orderform.templates'), async (req, res) => {
   const user = authUser(req);
   const tenantId = await requireTenantIdFromAuth(res, user);
   if (!tenantId) return;
