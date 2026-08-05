@@ -92,6 +92,7 @@ alwaysApply: true
 - **PC와 모바일을 항상 함께 고려**해 구현한다. 목록·상세는 **서식을 맞춘 깔끔한 레이아웃**(표/카드 분기, 섹션 정리, 말줄임·요약)으로 만든다.
 - **공개 고객 페이지·폼 UI** (페이백, C/S 접수 등): **`docs/UI_DESIGN_GUIDE.md` §4**
 - **표·반응형·금액 표기·목록/상세 서식**: **`docs/UI_DESIGN_GUIDE.md` §6** (요약 트리거: `responsive-ui.mdc`)
+- **색상 토큰·`components/ui` 재사용·버튼 hover/focus/disabled**: **`.cursor/rules/client-ui-tailwind.mdc`**
 - **DB 목록 — 기간 필터·페이지당 30건 기본·하단 페이지 분할**: **`docs/UI_DESIGN_GUIDE.md` §7** (요약 트리거: `admin-list-filters-pagination.mdc`)
 - **로그인·인증 화면**: **`docs/UI_DESIGN_GUIDE.md` §5** (Primary `slate-900`, 포커스 `sky-500`)
 - **기간 조회 UI**(보고·집계): **`docs/UI_DESIGN_GUIDE.md` §8** — `dateRangePresets.ts`

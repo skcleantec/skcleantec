@@ -239,7 +239,7 @@ export function DashboardChangeHistory({ token, variant = 'default', compact = f
               </div>
               <button
                 type="button"
-                className="px-4 py-2 text-fluid-sm bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50"
+                className="px-4 py-2 text-fluid-sm bg-slate-900 text-white rounded-xl hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none transition-colors shadow-sm"
                 onClick={() => void applyFilter()}
                 disabled={fullLoading}
               >

@@ -22,6 +22,9 @@ import type { StaffDesktopDockDragHandlers } from '../layout/staffRightRailStyle
 const PAGE_SIZE = 50;
 const BELL_POS_STORAGE_KEY = 'changeLogBellTopPx';
 
+const BTN_PRIMARY_SM =
+  'shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-fluid-xs font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+
 /** lg 미만 — AdminLayout 모바일 FAB 스택 안에 embed */
 export type ChangeLogBellMobileStackProps = {
   onPointerDown: (evt: React.PointerEvent<HTMLButtonElement>) => void;
@@ -300,14 +303,12 @@ export function ChangeLogBell({
 
   useEffect(() => {
     if (!open) return;
-    const t = window.setTimeout(() => setSearchQuery(searchInput.trim()), 300);
-    return () => window.clearTimeout(t);
-  }, [open, searchInput]);
-
-  useEffect(() => {
-    if (!open) return;
     void loadPage(0, false, searchQuery);
   }, [open, searchQuery, loadPage]);
+
+  const applySearch = useCallback(() => {
+    setSearchQuery(searchInput.trim());
+  }, [searchInput]);
 
   const openModal = useCallback(async () => {
     setOpen(true);
@@ -513,20 +514,37 @@ export function ChangeLogBell({
               <p className="mt-0.5 text-fluid-xs text-gray-500">
                 항목을 누르면 해당 접수로 이동합니다 · 총 {total}건
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-end gap-2">
                 <input
                   type="search"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      applySearch();
+                    }
+                  }}
                   placeholder="고객명 또는 연락처"
-                  className="min-h-9 min-w-0 flex-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-fluid-xs sm:max-w-xs"
+                  className="min-h-9 min-w-0 flex-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-fluid-xs focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/30 sm:max-w-xs"
                   aria-label="변경 이력 검색"
                 />
-                {searchInput.trim() ? (
+                <button
+                  type="button"
+                  onClick={applySearch}
+                  disabled={loading}
+                  className={BTN_PRIMARY_SM}
+                >
+                  검색
+                </button>
+                {searchQuery ? (
                   <button
                     type="button"
-                    onClick={() => setSearchInput('')}
-                    className="shrink-0 text-fluid-xs text-gray-500 underline hover:text-gray-700"
+                    onClick={() => {
+                      setSearchInput('');
+                      setSearchQuery('');
+                    }}
+                    className="shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-fluid-xs text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     검색 지우기
                   </button>
@@ -543,7 +561,7 @@ export function ChangeLogBell({
                     key={c}
                     type="button"
                     onClick={() => toggleFilter(c)}
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-fluid-xs transition-colors ${
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-fluid-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
                       on ? `${m.chip} ring-1 ring-inset ring-current` : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                     }`}
                   >
@@ -607,7 +625,7 @@ export function ChangeLogBell({
                     type="button"
                     onClick={() => void loadPage(offset + PAGE_SIZE, true, searchQuery)}
                     disabled={loading}
-                    className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-fluid-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                    className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-fluid-sm text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {loading ? '불러오는 중…' : '과거 이력 더 보기'}
                   </button>
