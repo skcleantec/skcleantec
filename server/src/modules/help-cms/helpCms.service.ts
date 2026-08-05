@@ -370,6 +370,52 @@ export async function getHelpCmsArticlePublic(slug: string): Promise<HelpCmsArti
   return getHelpCmsArticleBySlugPlatform(slug, false);
 }
 
+export type HelpCmsRssArticle = {
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  coverImageUrl: string | null;
+  bodyHtml: string;
+  publishedAt: Date | null;
+  updatedAt: Date;
+  categorySlug: string;
+  tabGroup: string;
+};
+
+/** 공개 RSS — 최신 게시글 (플랫폼 전역, 카테고리·글 모두 published) */
+export async function listHelpCmsArticlesForRss(limit = 50): Promise<HelpCmsRssArticle[]> {
+  const take = Math.min(100, Math.max(1, limit));
+  const rows = await prisma.helpCmsArticle.findMany({
+    where: {
+      isPublished: true,
+      category: { isPublished: true },
+    },
+    orderBy: [{ publishedAt: 'desc' }, { updatedAt: 'desc' }],
+    take,
+    select: {
+      slug: true,
+      title: true,
+      excerpt: true,
+      coverImageUrl: true,
+      bodyHtml: true,
+      publishedAt: true,
+      updatedAt: true,
+      category: { select: { slug: true, tabGroup: true } },
+    },
+  });
+  return rows.map((row) => ({
+    slug: row.slug,
+    title: row.title,
+    excerpt: row.excerpt,
+    coverImageUrl: row.coverImageUrl,
+    bodyHtml: row.bodyHtml,
+    publishedAt: row.publishedAt,
+    updatedAt: row.updatedAt,
+    categorySlug: row.category.slug,
+    tabGroup: row.category.tabGroup,
+  }));
+}
+
 async function resolveUniqueArticleSlug(base: string, excludeId?: string): Promise<string> {
   let candidate = base.slice(0, 120);
   let n = 0;

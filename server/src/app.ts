@@ -74,6 +74,7 @@ import adminPlatformPromoRoutes from './modules/platform-partner-promo/adminPlat
 import platformLegalPublicRoutes from './modules/platform-legal/platformLegal.public.routes.js';
 import platformHelpCmsRoutes from './modules/help-cms/platformHelpCms.routes.js';
 import publicHelpCmsRoutes from './modules/help-cms/publicHelpCms.routes.js';
+import publicRssRoutes from './modules/public-seo/publicRss.routes.js';
 import tenantSignupPublicRoutes from './modules/platform/tenantSignup.public.routes.js';
 import tenantPasswordResetPublicRoutes from './modules/auth/tenantPasswordReset.public.routes.js';
 import platformPlanUpgradeRoutes from './modules/platform/platformPlanUpgrade.routes.js';
@@ -197,6 +198,7 @@ app.get('/telecrm-app/', sendTelecrmAppInstallPage);
 app.use('/api/help', helpRoutes);
 app.use('/api/help/inquiry', helpInquiryPublicRoutes);
 app.use('/api/public/help-cms', publicHelpCmsRoutes);
+app.use(publicRssRoutes);
 app.use('/api/public/legal', platformLegalPublicRoutes);
 app.use('/api/public/tenant-signup', tenantSignupPublicRoutes);
 app.use('/api/public/signup-inquiries', platformSignupInquiryPublicRoutes);
