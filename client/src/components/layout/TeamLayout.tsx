@@ -161,10 +161,10 @@ function TeamNavLinks({
 
   if (drawer) {
     return (
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-0.5">
         {wrap(
           <NavLink to={teamTo('/team/dashboard')} className={navClass} {...linkProps}>
-            <TeamNavIcon type="dashboard" className="mr-3 h-5 w-5 shrink-0" />
+            <TeamNavIcon type="dashboard" className="mr-3 h-4 w-4 shrink-0" />
             <TeamBiInline id="team.layout.nav.dashboard" />
           </NavLink>,
         )}
@@ -175,21 +175,21 @@ function TeamNavLinks({
             aria-label={teamAriaAssignNav(newAssignmentCount)}
             {...linkProps}
           >
-            <TeamNavIcon type="assignments" className="mr-3 h-5 w-5 shrink-0" />
+            <TeamNavIcon type="assignments" className="mr-3 h-4 w-4 shrink-0" />
             <TeamBiInline id="team.layout.nav.assignments" />
           </NavLink>,
           assignBadge,
         )}
         {wrap(
           <NavLink to={teamTo('/team/schedule')} className={navClass} {...linkProps}>
-            <TeamNavIcon type="schedule" className="mr-3 h-5 w-5 shrink-0" />
+            <TeamNavIcon type="schedule" className="mr-3 h-4 w-4 shrink-0" />
             <TeamBiInline id="team.layout.nav.schedule" />
           </NavLink>,
         )}
         {isExternalPartner
           ? wrap(
               <NavLink to={teamTo('/team/settlement')} className={navClass} {...linkProps}>
-                <TeamNavIcon type="settlement" className="mr-3 h-5 w-5 shrink-0" />
+                <TeamNavIcon type="settlement" className="mr-3 h-4 w-4 shrink-0" />
                 <TeamBiInline id="team.layout.nav.settlement" />
               </NavLink>,
             )
@@ -197,7 +197,7 @@ function TeamNavLinks({
         {showHouseholdLedger
           ? wrap(
               <NavLink to={teamTo('/team/household-ledger')} className={navClass} {...linkProps}>
-                <TeamNavIcon type="household-ledger" className="mr-3 h-5 w-5 shrink-0" />
+                <TeamNavIcon type="household-ledger" className="mr-3 h-4 w-4 shrink-0" />
                 <TeamBiInline id="team.layout.nav.householdLedger" />
               </NavLink>,
             )
@@ -205,7 +205,7 @@ function TeamNavLinks({
         {showDbMarketplace
           ? wrap(
               <NavLink to={teamTo('/team/db-marketplace')} className={navClass} {...linkProps}>
-                <TeamNavIcon type="marketplace" className="mr-3 h-5 w-5 shrink-0" />
+                <TeamNavIcon type="marketplace" className="mr-3 h-4 w-4 shrink-0" />
                 <TeamBiInline id="team.layout.nav.marketplace" />
               </NavLink>,
               marketplaceBadge,
@@ -214,7 +214,7 @@ function TeamNavLinks({
         {!hideTeamDayoffs
           ? wrap(
               <NavLink to={teamTo('/team/dayoffs')} className={navClass} {...linkProps}>
-                <TeamNavIcon type="dayoffs" className="mr-3 h-5 w-5 shrink-0" />
+                <TeamNavIcon type="dayoffs" className="mr-3 h-4 w-4 shrink-0" />
                 <TeamBiInline id="team.layout.nav.dayoffs" />
               </NavLink>,
             )
@@ -226,7 +226,7 @@ function TeamNavLinks({
             aria-label={teamAriaCs(csPendingCount)}
             {...linkProps}
           >
-            <TeamNavIcon type="cs" className="mr-3 h-5 w-5 shrink-0" />
+            <TeamNavIcon type="cs" className="mr-3 h-4 w-4 shrink-0" />
             <TeamBiInline id="team.layout.nav.cs" />
           </NavLink>,
           csBadge,
@@ -238,7 +238,7 @@ function TeamNavLinks({
             aria-label={teamAriaMessages(unreadCount)}
             {...linkProps}
           >
-            <TeamNavIcon type="messages" className="mr-3 h-5 w-5 shrink-0" />
+            <TeamNavIcon type="messages" className="mr-3 h-4 w-4 shrink-0" />
             <TeamBiInline id="team.layout.nav.messages" />
           </NavLink>,
           messagesBadge,
@@ -787,10 +787,10 @@ export function TeamLayout() {
   }, [location.pathname, location.search]);
 
   const drawerNavClass = ({ isActive }: { isActive: boolean }) =>
-    `flex min-w-0 flex-1 items-center rounded-xl px-3 py-2.5 text-fluid-sm font-semibold touch-manipulation ${
+    `group flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition-all touch-manipulation ${
       isActive
-        ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/20'
-        : 'text-slate-200 hover:bg-white/10 hover:text-white'
+        ? 'bg-blue-600 font-semibold text-white shadow-sm shadow-blue-900/20'
+        : 'text-slate-300 hover:bg-white/10 hover:text-white'
     }`;
 
   const showStaffIdCardDrawer =
@@ -991,28 +991,28 @@ export function TeamLayout() {
         <>
           <button
             type="button"
-            className="fixed inset-0 z-[45] bg-black/50 sm:hidden"
+            className="fixed inset-0 z-[45] bg-slate-900/30 backdrop-blur-sm transition-opacity duration-300 sm:hidden"
             aria-label={teamT('team.layout.nav.menuClose')}
             onClick={() => setMobileNavOpen(false)}
           />
           <aside
-            className="theme-dark-header fixed inset-y-0 left-0 z-[46] flex w-[min(18rem,88vw)] flex-col border-r border-white/10 bg-slate-900 shadow-2xl sm:hidden"
+            className="theme-dark-header fixed inset-y-0 left-0 z-[46] flex w-[min(16rem,82vw)] flex-col border-r border-white/10 bg-slate-900 shadow-2xl transform transition-transform duration-300 ease-out sm:hidden"
             aria-label="팀장 메뉴"
           >
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <span className="text-fluid-sm font-semibold text-white">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
+              <span className="text-fluid-base font-bold text-white">
                 <TeamBiInline id="team.layout.nav.menuTitle" />
               </span>
               <button
                 type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white touch-manipulation"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white touch-manipulation transition-colors"
                 aria-label={teamT('team.layout.nav.menuClose')}
                 onClick={() => setMobileNavOpen(false)}
               >
-                <TeamCloseIcon className="h-5 w-5" />
+                <TeamCloseIcon className="h-4 w-4" />
               </button>
             </div>
-            <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-3">
+            <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-2 pb-6 space-y-1">
               <TeamNavFavoriteDrawerStrip
                 teamTo={teamTo}
                 visibility={teamNavFavoriteVisibility}

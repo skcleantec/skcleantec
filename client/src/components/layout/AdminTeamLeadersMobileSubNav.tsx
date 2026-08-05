@@ -31,8 +31,10 @@ function CloseIcon({ className }: { className?: string }) {
 
 function mobileNavLinkClass(isActive: boolean): string {
   return [
-    'flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-fluid-sm transition-colors touch-manipulation',
-    isActive ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-700 hover:bg-slate-50',
+    'group flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition-all touch-manipulation',
+    isActive
+      ? 'bg-blue-50/80 font-semibold text-blue-700'
+      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
   ].join(' ');
 }
 
@@ -112,7 +114,7 @@ function AdminTeamLeadersMobileMenuSheet({
       <button
         type="button"
         aria-label="메뉴 닫기"
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${
+        className={`absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity duration-300 ${
           slideIn ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={onClose}
@@ -122,27 +124,27 @@ function AdminTeamLeadersMobileMenuSheet({
         role="dialog"
         aria-modal
         aria-labelledby="admin-team-leaders-drawer-title"
-        className={`absolute inset-y-0 left-0 flex w-[min(17.5rem,82vw)] max-w-full flex-col bg-white shadow-2xl border-r border-slate-200 transform transition-transform duration-200 ease-out ${
+        className={`absolute inset-y-0 left-0 flex w-[min(16rem,82vw)] max-w-full flex-col bg-white shadow-2xl transform transition-transform duration-300 ease-out ${
           slideIn ? 'translate-x-0' : '-translate-x-full'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="shrink-0 flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
-          <h2 id="admin-team-leaders-drawer-title" className="font-semibold text-slate-900 text-fluid-sm">
+        <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-3">
+          <h2 id="admin-team-leaders-drawer-title" className="font-bold text-slate-800 text-fluid-base">
             관리자 전용
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 touch-manipulation"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 touch-manipulation transition-colors"
             aria-label="닫기"
           >
             <CloseIcon className="h-4 w-4" />
           </button>
         </div>
 
-        <nav aria-label="관리자 전용 하위 메뉴" className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-2">
-          <ul className="space-y-1 px-2">
+        <nav aria-label="관리자 전용 하위 메뉴" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2 pb-4">
+          <ul className="space-y-0.5">
             {items.map((item) => {
               if (item.type === 'link') {
                 const icon = item.icon ?? resolveAdminSideNavIcon(item.to);
@@ -155,8 +157,17 @@ function AdminTeamLeadersMobileMenuSheet({
                       className={({ isActive }) => mobileNavLinkClass(isActive)}
                       onClick={onClose}
                     >
-                      <AdminSideNavIcon id={icon} className="h-4 w-4 shrink-0 text-slate-500" />
-                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {({ isActive }) => (
+                        <>
+                          <AdminSideNavIcon
+                            id={icon}
+                            className={`h-4 w-4 shrink-0 transition-colors ${
+                              isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-500'
+                            }`}
+                          />
+                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        </>
+                      )}
                     </NavLink>
                   </li>
                 );
@@ -164,7 +175,7 @@ function AdminTeamLeadersMobileMenuSheet({
 
               return (
                 <li key={item.label} className="pt-1">
-                  <div className="px-2.5 pb-1 text-[11px] font-semibold tracking-tight text-slate-500">
+                  <div className="mb-0.5 mt-1 px-2.5 text-[11px] font-bold tracking-wider text-slate-400/80 uppercase">
                     {item.label}
                   </div>
                   <ul className="space-y-0.5">
@@ -179,8 +190,17 @@ function AdminTeamLeadersMobileMenuSheet({
                             className={({ isActive }) => mobileNavLinkClass(isActive)}
                             onClick={onClose}
                           >
-                            <AdminSideNavIcon id={icon} className="h-4 w-4 shrink-0 text-slate-500" />
-                            <span className="min-w-0 flex-1 truncate">{child.label}</span>
+                            {({ isActive }) => (
+                              <>
+                                <AdminSideNavIcon
+                                  id={icon}
+                                  className={`h-4 w-4 shrink-0 transition-colors ${
+                                    isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-500'
+                                  }`}
+                                />
+                                <span className="min-w-0 flex-1 truncate">{child.label}</span>
+                              </>
+                            )}
                           </NavLink>
                         </li>
                       );
