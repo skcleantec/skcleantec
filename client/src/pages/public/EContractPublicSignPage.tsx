@@ -62,7 +62,6 @@ export function EContractPublicSignPage() {
   const [selfieGuideOpen, setSelfieGuideOpen] = useState(false);
   const [sigUploaded, setSigUploaded] = useState<{ publicId: string; secureUrl: string } | null>(null);
 
-  const [challengeInput, setChallengeInput] = useState('');
   const [agree, setAgree] = useState(false);
   const [signerFieldValues, setSignerFieldValues] = useState<Record<string, string>>({});
 
@@ -184,7 +183,7 @@ export function EContractPublicSignPage() {
         ...(signerFieldValues['[[EC_SIGNER_FREETEXT]]']?.trim()
           ? { signerFreeTextNotes: signerFieldValues['[[EC_SIGNER_FREETEXT]]'] }
           : {}),
-        challengeEntered: challengeInput,
+        challengeEntered: session.challengeDigits, // UI input removed, submit the challenge digits directly
         agree,
         selfiePublicId: selfieUploaded.publicId,
         selfieUrl: selfieUploaded.secureUrl,
@@ -382,23 +381,6 @@ export function EContractPublicSignPage() {
           <p className="text-[12px] font-semibold leading-snug text-gray-950">
             위 번호와 얼굴이 함께 보이도록 셀카를 촬영해 업로드해 주세요. 이 번호는 계약서 부록에도 기록됩니다.
           </p>
-        </div>
-
-        <div className="mt-6">
-          <label htmlFor="e-contract-challenge" className="block text-fluid-xs font-medium text-gray-800">
-            번호 확인 입력
-          </label>
-          <input
-            id="e-contract-challenge"
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            value={challengeInput}
-            maxLength={6}
-            onChange={(ev) => setChallengeInput(ev.target.value.replace(/[^\d]/g, '').slice(0, 6))}
-            placeholder="표시된 6자리"
-            className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-center text-fluid-lg tabular-nums"
-          />
         </div>
 
         <div className="mt-6">
