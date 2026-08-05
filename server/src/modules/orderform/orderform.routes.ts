@@ -61,6 +61,13 @@ import {
 } from '../inquiries/inquiryStatusEvent.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
+import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
+import {
+  buildCustomerOrderFormSubmitChangeLines,
+  createInquiryChangeLogInTx,
+  type CustomerOrderFormSubmitSnap,
+} from '../inquiry-change-logs/inquiryChangeLogWrite.service.js';
+import type { ScheduleAlertKind } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
 import { tenantIdForUserId } from '../tenants/tenant.service.js';
 import { getTenantPlan } from '../tenants/tenantFeatures.service.js';
 import {
@@ -2787,11 +2794,42 @@ router.post('/submit/:token', async (req, res) => {
   });
 
   let changedInquiryId: string | null = null;
+  type SubmitChangeLogRef = {
+    id: string;
+    scheduleAlertKind: ScheduleAlertKind | null;
+    lines: string[];
+  };
+  const submitChangeLogRef: { value: SubmitChangeLogRef | null } = { value: null };
   const submitTenantPlan = await getTenantPlan(submitTenantId);
+  const afterSubmitSnap = (): CustomerOrderFormSubmitSnap => ({
+    status: 'RECEIVED',
+    preferredDate,
+    preferredTime: useTimeStr,
+    preferredTimeDetail: useDetailStr,
+    serviceTotalAmount: form.totalAmount,
+    serviceDepositAmount: form.depositAmount,
+    serviceBalanceAmount: form.balanceAmount,
+  });
+  const submitCustomerName = String(body.customerName || form.customerName).trim() || form.customerName;
   try {
   if (existingPending) {
     const submittedAt = new Date();
     await prisma.$transaction(async (tx) => {
+      const beforeRow = await tx.inquiry.findUnique({
+        where: { id: existingPending.id },
+        select: {
+          status: true,
+          preferredDate: true,
+          preferredTime: true,
+          preferredTimeDetail: true,
+          serviceTotalAmount: true,
+          serviceDepositAmount: true,
+          serviceBalanceAmount: true,
+        },
+      });
+      if (!beforeRow) {
+        throw new Error('SUBMIT_INQUIRY_NOT_FOUND');
+      }
       const inquiryNumber =
         existingPending.inquiryNumber ??
         (await allocateNextInquiryNumber(tx, submitTenantId, existingPending.operatingCompanyId));
@@ -2860,6 +2898,14 @@ router.post('/submit/:token', async (req, res) => {
           ...customAnswersData,
         },
       });
+      const changeLines = buildCustomerOrderFormSubmitChangeLines(beforeRow, afterSubmitSnap());
+      const log = await createInquiryChangeLogInTx(tx, {
+        inquiryId: existingPending.id,
+        customerName: submitCustomerName,
+        actorId: null,
+        lines: changeLines,
+      });
+      submitChangeLogRef.value = { id: log.id, scheduleAlertKind: log.scheduleAlertKind, lines: changeLines };
     });
     changedInquiryId = existingPending.id;
   } else {
@@ -2948,6 +2994,14 @@ router.post('/submit/:token', async (req, res) => {
           ...customAnswersData,
         },
       });
+      const changeLines = buildCustomerOrderFormSubmitChangeLines(null, afterSubmitSnap());
+      const log = await createInquiryChangeLogInTx(tx, {
+        inquiryId: createdInquiry.id,
+        customerName: submitCustomerName,
+        actorId: null,
+        lines: changeLines,
+      });
+      submitChangeLogRef.value = { id: log.id, scheduleAlertKind: log.scheduleAlertKind, lines: changeLines };
       changedInquiryId = createdInquiry.id;
     });
   }
@@ -2978,6 +3032,16 @@ router.post('/submit/:token', async (req, res) => {
       source: true,
     },
   });
+  if (submitChangeLogRef.value && changedInquiryId) {
+    notifyChangeLogToStaff({
+      tenantId: submitTenantId,
+      customerName: submitCustomerName,
+      inquiryId: changedInquiryId,
+      lines: submitChangeLogRef.value.lines,
+      changeLogId: submitChangeLogRef.value.id,
+      scheduleAlertKind: submitChangeLogRef.value.scheduleAlertKind ?? undefined,
+    });
+  }
   if (celebrateRow) {
     void notifyInquiryCelebrate({
       tenantId: submitTenantId,

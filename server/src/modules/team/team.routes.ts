@@ -25,6 +25,7 @@ import { buildCsReportUpdateData } from '../cs/csReport.patch.js';
 import { notifyCsReportNavBadges, getEmployedStaffUserIds } from '../realtime/navBadgeNotify.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
+import { formatInquiryStatusLabel } from '../inquiry-change-logs/inquiryChangeLogWrite.service.js';
 import {
   ackAllScheduleAlerts,
   ackScheduleAlert,
@@ -40,6 +41,7 @@ import {
   attachMarketplaceHandoffBuyerMetaToInquiry,
 } from '../db-marketplace/dbMarketplaceHandoffBuyerMeta.js';
 import { toChangeHistoryItemDto } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
+import { buildChangeLogSearchFilter } from '../inquiry-change-logs/inquiryChangeLogQuery.helpers.js';
 import {
   filterMarketerOnlyChangeLogLines,
   sanitizeInquiriesForRestrictedViewer,
@@ -1207,7 +1209,10 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
       ...(snapCid ? { cancelFeeExternalCompany: { connect: { id: snapCid } } } : {}),
     },
   });
-  const cancelLines = ['관리자/마케터 취소 처리'];
+  const cancelLines = [
+    '관리자/마케터 취소 처리',
+    `상태: ${formatInquiryStatusLabel(inquiry.status)} → 취소`,
+  ];
   const cancelLog = await prisma.inquiryChangeLog.create({
     data: {
       inquiryId: inquiry.id,
@@ -1362,8 +1367,16 @@ router.get('/inquiry-change-logs', async (req, res) => {
   }
   const take = Math.min(500, Math.max(1, parseInt(String(req.query.limit ?? '50'), 10) || 50));
   const skip = Math.max(0, parseInt(String(req.query.offset ?? '0'), 10) || 0);
+  const searchText = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+  const teamInquiryScope: Prisma.InquiryWhereInput = {
+    assignments: { some: { teamLeaderId: userId } },
+  };
+  const searchFilter = buildChangeLogSearchFilter(tenantId, searchText, teamInquiryScope);
   const where: Prisma.InquiryChangeLogWhereInput = {
-    inquiry: { tenantId, assignments: { some: { teamLeaderId: userId } } },
+    AND: [
+      { inquiry: { tenantId, ...teamInquiryScope } },
+      ...(searchFilter ? [searchFilter] : []),
+    ],
   };
   const [rows, total] = await Promise.all([
     prisma.inquiryChangeLog.findMany({

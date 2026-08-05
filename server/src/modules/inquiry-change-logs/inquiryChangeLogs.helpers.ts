@@ -27,7 +27,7 @@ export function parseLinesJson(lines: unknown): string[] {
 export function categorizeChangeLine(line: string): ChangeLogCategory {
   const t = line ?? '';
   if (/추가\s?청소|추가\s?비용|추가\s?금액|추가\s?항목|추가결재/.test(t)) return 'extra';
-  if (/희망일|청소일|미팅|이사일|시간대|사이청소|일정/.test(t)) return 'date';
+  if (/희망일|청소일|미팅|이사일|시간대|희망\s?시간|시간상세|예약일|사이청소|일정/.test(t)) return 'date';
   if (/팀장|팀원|배정|담당/.test(t)) return 'team';
   if (/총액|예약금|잔금|수수료|금액|비용/.test(t)) return 'cost';
   if (/상태|취소|보류|완료|삭제/.test(t)) return 'status';
@@ -38,7 +38,7 @@ export function categorizeChangeLine(line: string): ChangeLogCategory {
 export function resolveScheduleAlertKind(lines: string[]): ScheduleAlertKind | null {
   if (lines.length === 0) return null;
   if (categorizeLines(lines).includes('date')) return 'date';
-  if (lines.some((l) => /취소/.test(l))) return 'cancel';
+  if (lines.some((l) => /취소|CANCELLED/.test(l))) return 'cancel';
   return null;
 }
 

@@ -49,7 +49,7 @@ export const inquiryDetailInclude = {
   },
   changeLogs: {
     orderBy: { createdAt: 'desc' as const },
-    take: 30,
+    take: 100,
     select: {
       id: true,
       createdAt: true,

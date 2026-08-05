@@ -77,7 +77,7 @@ type Props = {
   /** 변경 이력 목록 (페이지) */
   fetchList: (
     token: string,
-    opts: { limit: number; offset: number }
+    opts: { limit: number; offset: number; search?: string }
   ) => Promise<{ items: ChangeHistoryItem[]; total: number }>;
   /** 확인(읽음) 처리 */
   markSeen: (token: string) => Promise<unknown>;
@@ -120,6 +120,8 @@ export function ChangeLogBell({
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<ChangeLogCategory>>(new Set());
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // 길게 눌러 위아래로만 위치 조정 (드래그). 위치는 localStorage에 기억.
   const [posTop, setPosTop] = useState<number | null>(() => {
@@ -276,10 +278,14 @@ export function ChangeLogBell({
   }, []);
 
   const loadPage = useCallback(
-    async (nextOffset: number, append: boolean) => {
+    async (nextOffset: number, append: boolean, search?: string) => {
       setLoading(true);
       try {
-        const r = await fetchList(token, { limit: PAGE_SIZE, offset: nextOffset });
+        const r = await fetchList(token, {
+          limit: PAGE_SIZE,
+          offset: nextOffset,
+          search: search?.trim() || undefined,
+        });
         setTotal(r.total);
         setOffset(nextOffset);
         setItems((prev) => (append ? [...prev, ...r.items] : r.items));
@@ -292,19 +298,31 @@ export function ChangeLogBell({
     [token, fetchList],
   );
 
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => setSearchQuery(searchInput.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [open, searchInput]);
+
+  useEffect(() => {
+    if (!open) return;
+    void loadPage(0, false, searchQuery);
+  }, [open, searchQuery, loadPage]);
+
   const openModal = useCallback(async () => {
     setOpen(true);
     setBlink(false);
     setToast(null);
     setActiveFilters(new Set());
-    await loadPage(0, false);
+    setSearchInput('');
+    setSearchQuery('');
     try {
       await markSeen(token);
       setUnseen(0);
     } catch {
       /* ignore */
     }
-  }, [loadPage, markSeen, token]);
+  }, [markSeen, token]);
 
   const toggleFilter = (c: ChangeLogCategory) => {
     setActiveFilters((prev) => {
@@ -495,6 +513,25 @@ export function ChangeLogBell({
               <p className="mt-0.5 text-fluid-xs text-gray-500">
                 항목을 누르면 해당 접수로 이동합니다 · 총 {total}건
               </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="고객명 또는 연락처"
+                  className="min-h-9 min-w-0 flex-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-fluid-xs sm:max-w-xs"
+                  aria-label="변경 이력 검색"
+                />
+                {searchInput.trim() ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchInput('')}
+                    className="shrink-0 text-fluid-xs text-gray-500 underline hover:text-gray-700"
+                  >
+                    검색 지우기
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             <div className="flex shrink-0 flex-wrap gap-1.5 border-b border-gray-100 p-3">
@@ -568,7 +605,7 @@ export function ChangeLogBell({
                 <div className="mt-3 text-center">
                   <button
                     type="button"
-                    onClick={() => void loadPage(offset + PAGE_SIZE, true)}
+                    onClick={() => void loadPage(offset + PAGE_SIZE, true, searchQuery)}
                     disabled={loading}
                     className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-fluid-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                   >

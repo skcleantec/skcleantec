@@ -75,7 +75,7 @@ export function DashboardChangeHistory({ token, variant = 'default', compact = f
     setFullLoading(true);
     try {
       const r = await getChangeHistoryList(token, {
-        customerName: filterName || undefined,
+        search: filterName || undefined,
         limit: 200,
         offset: 0,
       });
@@ -234,7 +234,7 @@ export function DashboardChangeHistory({ token, variant = 'default', compact = f
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-fluid-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/15"
                   value={filterName}
                   onChange={(e) => setFilterName(e.target.value)}
-                  placeholder="이름 일부 입력"
+                  placeholder="고객명 또는 연락처"
                 />
               </div>
               <button

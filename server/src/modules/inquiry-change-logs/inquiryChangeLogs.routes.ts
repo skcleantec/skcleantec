@@ -10,6 +10,7 @@ import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
   toChangeHistoryItemDto,
 } from './inquiryChangeLogs.helpers.js';
+import { buildChangeLogSearchFilter } from './inquiryChangeLogQuery.helpers.js';
 
 const router = Router();
 
@@ -113,17 +114,21 @@ router.get('/', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
-  const { customerName, limit = '100', offset = '0' } = req.query;
+  const { customerName, search, limit = '100', offset = '0' } = req.query;
   const take = Math.min(500, Math.max(1, parseInt(String(limit), 10) || 100));
   const skip = Math.max(0, parseInt(String(offset), 10) || 0);
 
-  const nameFilter =
-    typeof customerName === 'string' && customerName.trim()
-      ? { inquiry: { customerName: { contains: customerName.trim() }, tenantId } }
-      : {};
+  const searchText =
+    typeof search === 'string' && search.trim()
+      ? search.trim()
+      : typeof customerName === 'string' && customerName.trim()
+        ? customerName.trim()
+        : '';
+
+  const searchFilter = buildChangeLogSearchFilter(tenantId, searchText);
 
   const where: Prisma.InquiryChangeLogWhereInput = {
-    AND: [tenantChangeLogWhere(tenantId), nameFilter],
+    AND: [tenantChangeLogWhere(tenantId), ...(searchFilter ? [searchFilter] : [])],
   };
 
   const [rows, total] = await Promise.all([

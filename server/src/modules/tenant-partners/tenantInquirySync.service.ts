@@ -3,6 +3,12 @@ import { prisma } from '../../lib/prisma.js';
 import { stampTenantShareCancelFeeDirection } from './tenantPartnerSettlement.service.js';
 import { computeTargetMirrorBalanceAmount } from './tenantInquiryShareBalance.helpers.js';
 import { filterKeysByShareMask, normalizeShareFieldMask } from './tenantInquiryShareFields.js';
+import {
+  formatInquiryStatusLabel,
+  createInquiryChangeLogInTx,
+} from '../inquiry-change-logs/inquiryChangeLogWrite.service.js';
+import type { ScheduleAlertKind } from '../inquiry-change-logs/inquiryChangeLogs.helpers.js';
+import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 
 export const TENANT_SHARE_SYNC_LOG_PREFIX = '[파트너연계동기화]';
 
@@ -82,6 +88,7 @@ const FIELD_LABELS: Partial<Record<WhitelistKey | 'status', string>> = {
 
 function fmtVal(key: WhitelistKey | 'status', v: unknown): string {
   if (v == null || v === '') return '(비움)';
+  if (key === 'status') return formatInquiryStatusLabel(v);
   if (key === 'preferredDate' && v instanceof Date) {
     return v.toISOString().slice(0, 10);
   }
@@ -232,6 +239,13 @@ export async function syncTenantShareAfterInquiryPatch(opts: {
     }
   }
 
+  type SyncChangeLogRef = {
+    id: string;
+    scheduleAlertKind: ScheduleAlertKind | null;
+    lines: string[];
+  };
+  const createdLogRef: { value: SyncChangeLogRef | null } = { value: null };
+
   await prisma.$transaction(async (tx) => {
     const peerBefore = await tx.inquiry.findUnique({ where: { id: peerId } });
     if (!peerBefore) return;
@@ -255,13 +269,31 @@ export async function syncTenantShareAfterInquiryPatch(opts: {
       }
     }
 
-    await tx.inquiryChangeLog.create({
-      data: {
-        inquiryId: peerId,
-        customerName: peerBefore.customerName,
-        actorId: opts.actorId ?? null,
-        lines: lines.map((line) => `${TENANT_SHARE_SYNC_LOG_PREFIX} ${line}`),
-      },
+    const prefixedLines = lines.map((line) => `${TENANT_SHARE_SYNC_LOG_PREFIX} ${line}`);
+    const log = await createInquiryChangeLogInTx(tx, {
+      inquiryId: peerId,
+      customerName: peerBefore.customerName,
+      actorId: opts.actorId ?? null,
+      lines: prefixedLines,
     });
+    createdLogRef.value = { id: log.id, scheduleAlertKind: log.scheduleAlertKind, lines: prefixedLines };
   });
+
+  if (createdLogRef.value) {
+    const peerTenantId =
+      share.sourceInquiryId === inquiryId ? share.targetTenantId : share.sourceTenantId;
+    const peerInquiry = await prisma.inquiry.findUnique({
+      where: { id: peerId },
+      select: { customerName: true },
+    });
+    notifyChangeLogToStaff({
+      tenantId: peerTenantId,
+      customerName: peerInquiry?.customerName ?? inquiryAfter.customerName,
+      inquiryId: peerId,
+      lines: createdLogRef.value.lines,
+      changeLogId: createdLogRef.value.id,
+      actorId: opts.actorId ?? undefined,
+      scheduleAlertKind: createdLogRef.value.scheduleAlertKind ?? undefined,
+    });
+  }
 }

@@ -68,11 +68,13 @@ export async function markTeamChangeSeen(token: string): Promise<{ ok: boolean; 
 
 export async function getTeamChangeHistoryList(
   token: string,
-  opts: { limit?: number; offset?: number }
+  opts: { limit?: number; offset?: number; search?: string; customerName?: string }
 ): Promise<{ items: ChangeHistoryItem[]; total: number }> {
   const q = new URLSearchParams();
   if (opts.limit != null) q.set('limit', String(opts.limit));
   if (opts.offset != null) q.set('offset', String(opts.offset));
+  const search = opts.search?.trim() || opts.customerName?.trim();
+  if (search) q.set('search', search);
   const res = await fetch(`${API}/team/inquiry-change-logs?${q}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -96,10 +98,12 @@ export async function getRecentChangeHistory(token: string, limit = 10): Promise
 
 export async function getChangeHistoryList(
   token: string,
-  opts: { customerName?: string; limit?: number; offset?: number }
+  opts: { customerName?: string; search?: string; limit?: number; offset?: number }
 ): Promise<{ items: ChangeHistoryItem[]; total: number }> {
   const q = new URLSearchParams();
-  if (opts.customerName?.trim()) q.set('customerName', opts.customerName.trim());
+  const search = opts.search?.trim() || opts.customerName?.trim();
+  if (search) q.set('search', search);
+  else if (opts.customerName?.trim()) q.set('customerName', opts.customerName.trim());
   if (opts.limit != null) q.set('limit', String(opts.limit));
   if (opts.offset != null) q.set('offset', String(opts.offset));
   const res = await fetch(`${API}/inquiry-change-logs?${q}`, {
