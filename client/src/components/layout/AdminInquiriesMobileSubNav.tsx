@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import type { AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSideNavIcon, resolveAdminSideNavIcon } from './adminSideNavIcons';
-import { MobileFloatingMenuButton } from './MobileFloatingMenuButton';
+import { MobileInlineMenuButton } from './MobileFloatingMenuButton';
 
 function BarsIcon({ className }: { className?: string }) {
   return (
@@ -55,18 +55,19 @@ export function useAdminInquiriesMobileMenu(): AdminInquiriesMobileMenuContextVa
   return ctx;
 }
 
-/** 모바일 플로팅 햄버거는 Provider에서 렌더. PC는 사이드 메뉴 사용 */
-function AdminInquiriesMobileFloatingMenuButton() {
+/** 모바일 — 페이지 제목 왼쪽 인라인 햄버거 (fixed FAB 대신) */
+export function AdminInquiriesMobileInlineMenuButton({ className = '' }: { className?: string }) {
   const { openMenu, showBadgeDot } = useAdminInquiriesMobileMenu();
   return (
-    <MobileFloatingMenuButton
+    <MobileInlineMenuButton
       onClick={openMenu}
       aria-label="서비스접수 하위 메뉴"
       title="서비스접수 하위 메뉴"
       showBadgeDot={showBadgeDot}
+      className={className}
     >
       <BarsIcon className="h-5 w-5" />
-    </MobileFloatingMenuButton>
+    </MobileInlineMenuButton>
   );
 }
 
@@ -208,10 +209,11 @@ function AdminInquiriesMobileMenuSheet({
   );
 }
 
-/** 레이아웃 — 접수목록 외 하위 페이지 모바일 제목(플로팅 햄버거는 Provider) */
+/** 레이아웃 — 접수목록 외 하위 페이지 모바일 제목 + 인라인 햄버거 */
 export function AdminInquiriesMobileSubNavBar() {
   return (
-    <div className="mb-2 flex min-w-0 items-center gap-2 pl-12 lg:pl-0 lg:hidden">
+    <div className="mb-2 flex min-w-0 items-center gap-1.5 lg:hidden">
+      <AdminInquiriesMobileInlineMenuButton />
       <span className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900">서비스접수</span>
     </div>
   );
@@ -239,7 +241,6 @@ export function AdminInquiriesMobileMenuProvider({
   return (
     <AdminInquiriesMobileMenuContext.Provider value={value}>
       {children}
-      <AdminInquiriesMobileFloatingMenuButton />
       <AdminInquiriesMobileMenuSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}

@@ -716,23 +716,25 @@ function ScheduleQuickPasteTriggerButton({
 }: {
   onClick: () => void;
   className?: string;
-  size?: 'default' | 'compact';
+  size?: 'default' | 'compact' | 'row';
 }) {
   const sizeClass =
     size === 'compact'
-      ? 'min-h-9 gap-1.5 rounded-lg px-3 py-2 text-fluid-xs shadow-sm shadow-violet-500/20'
-      : 'min-h-11 gap-2 rounded-xl px-4 py-2.5 text-fluid-sm shadow-md shadow-violet-500/25';
+      ? 'h-auto w-auto gap-1.5 rounded-lg px-3 py-2 text-fluid-xs shadow-sm shadow-violet-500/20'
+      : size === 'row'
+        ? 'min-h-9 min-w-0 flex-1 gap-1 rounded-md px-1.5 py-1 text-fluid-2xs shadow-sm shadow-violet-500/20'
+        : 'min-h-11 w-full gap-2 rounded-xl px-4 py-2.5 text-fluid-sm shadow-md shadow-violet-500/25';
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative inline-flex w-full items-center justify-center overflow-hidden border border-violet-200/90 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 font-semibold text-white transition hover:brightness-110 hover:shadow-lg hover:shadow-violet-500/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80 focus-visible:ring-offset-1 touch-manipulation active:scale-[0.99] ${sizeClass} ${className}`}
+      className={`relative inline-flex items-center justify-center overflow-hidden border border-violet-200/90 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 font-semibold text-white transition hover:brightness-110 hover:shadow-lg hover:shadow-violet-500/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80 focus-visible:ring-offset-1 touch-manipulation active:scale-[0.99] ${sizeClass} ${className}`}
       aria-label="AI 빠른등록"
     >
       <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-quick-paste-ai-btn-shimmer" />
-      <span className="relative inline-flex items-center gap-2">
-        <AiSparkleIcon className={`shrink-0 opacity-95 ${size === 'compact' ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
-        <span>AI 빠른등록</span>
+      <span className={`relative inline-flex min-w-0 items-center justify-center ${size === 'default' ? 'gap-2' : 'gap-1'}`}>
+        <AiSparkleIcon className={`shrink-0 opacity-95 ${size === 'default' ? 'h-4 w-4' : 'h-3 w-3'}`} />
+        <span className="truncate">AI 빠른등록</span>
       </span>
     </button>
   );
@@ -1728,26 +1730,25 @@ export function AdminSchedulePage() {
   };
 
   return (
-    <div className="flex flex-col gap-3 lg:gap-5 min-w-0">
-      <ScheduleCustomCalendarMobileMenuButton
-          onClick={() => setCustomCalendarMenuOpen(true)}
-          hasActiveFilter={hasActiveCustomCalendarFilter(
-            activeRegionCalendar,
-            activeCompanyCalendar,
-            activePartnerCalendar,
-          )}
-        />
+    <div className="flex flex-col gap-2 lg:gap-5 min-w-0">
       <div className="flex flex-col gap-1 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
-        <div className="hidden lg:block">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <PageTitleWithFavorite label="스케쥴">
-              <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
-            </PageTitleWithFavorite>
-            <HelpTooltip className="shrink-0" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
-          </div>
+        <div className="hidden lg:flex items-center gap-1.5 shrink-0">
+          <PageTitleWithFavorite label="스케쥴">
+            <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
+          </PageTitleWithFavorite>
+          <HelpTooltip className="shrink-0" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
         </div>
         <div className="flex flex-wrap items-center gap-1 lg:gap-2 min-w-0 w-full lg:w-auto lg:justify-end">
-          <div className="flex lg:hidden items-center gap-1 min-w-0 shrink mr-0.5 pl-12">
+          <div className="flex lg:hidden items-center gap-1.5 min-w-0 shrink mr-0.5">
+            <ScheduleCustomCalendarMobileMenuButton
+              placement="inline"
+              onClick={() => setCustomCalendarMenuOpen(true)}
+              hasActiveFilter={hasActiveCustomCalendarFilter(
+                activeRegionCalendar,
+                activeCompanyCalendar,
+                activePartnerCalendar,
+              )}
+            />
             <PageTitleWithFavorite label="스케쥴" compact>
               <h1 className="text-fluid-base font-semibold text-slate-900 tracking-tight leading-none truncate">
                 스케쥴
@@ -1758,11 +1759,11 @@ export function AdminSchedulePage() {
           {hasQuickPaste ? (
             <ScheduleQuickPasteTriggerButton
               size="compact"
-              className="hidden lg:inline-flex w-auto shrink-0"
+              className="hidden lg:inline-flex shrink-0"
               onClick={() => setQuickPasteOpen(true)}
             />
           ) : null}
-          <div className="inline-flex h-8 items-stretch rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden lg:h-auto lg:rounded-lg">
+          <div className="inline-flex h-8 items-stretch rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden lg:h-auto lg:rounded-lg shrink-0">
             <button
               type="button"
               onClick={goPrevMonth}
@@ -1847,9 +1848,9 @@ export function AdminSchedulePage() {
             compact
             title="캘린더 셀 표시"
             className="border-0 bg-white shadow-none text-[10px] leading-snug text-slate-600"
-            bodyClassName="px-2.5 pb-2 pt-0"
+            bodyClassName="px-2 pb-1.5 pt-0"
           >
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
+            <div className="flex flex-wrap gap-x-2.5 gap-y-0.5">
               <span>
                 <span className="font-semibold text-amber-900">오전</span>·
                 <span className="font-semibold text-sky-900">오후</span> 숫자 = 잔여 슬롯
@@ -1965,29 +1966,30 @@ export function AdminSchedulePage() {
           ) : null}
         </aside>
 
-        <div className="min-w-0 flex flex-col gap-3 lg:gap-5">
+        <div className="min-w-0 flex flex-col gap-2 lg:gap-5">
 
           {/* 모바일: 캘린더 바로 위 — AI는 PC처럼 강조, 일반·발주는 보조 */}
-          <div className="lg:hidden flex flex-col gap-2">
+          <div className="lg:hidden flex items-stretch gap-1">
             {hasQuickPaste ? (
-              <ScheduleQuickPasteTriggerButton onClick={() => setQuickPasteOpen(true)} />
+              <ScheduleQuickPasteTriggerButton
+                size="row"
+                onClick={() => setQuickPasteOpen(true)}
+              />
             ) : null}
-            <div className="flex items-stretch gap-1.5">
-              <button
-                type="button"
-                onClick={() => setCreateInquiryModalDate(selectedDate ?? kstTodayYmd())}
-                className="min-w-0 flex-1 rounded-lg border border-sky-300 bg-sky-50 px-2 py-2 text-center text-fluid-xs font-medium leading-tight text-sky-950 shadow-sm touch-manipulation active:bg-sky-100 min-h-10"
-              >
-                일반등록
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrderIssueOpen(true)}
-                className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-2 text-center text-fluid-xs font-medium leading-tight text-amber-950 shadow-sm touch-manipulation active:bg-amber-100 min-h-10"
-              >
-                발주서발급
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setCreateInquiryModalDate(selectedDate ?? kstTodayYmd())}
+              className="min-w-0 flex-1 rounded-md border border-sky-300 bg-sky-50 px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-sky-950 shadow-sm touch-manipulation active:bg-sky-100 min-h-9"
+            >
+              일반등록
+            </button>
+            <button
+              type="button"
+              onClick={() => setOrderIssueOpen(true)}
+              className="min-w-0 flex-1 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-amber-950 shadow-sm touch-manipulation active:bg-amber-100 min-h-9"
+            >
+              발주서발급
+            </button>
           </div>
 
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}

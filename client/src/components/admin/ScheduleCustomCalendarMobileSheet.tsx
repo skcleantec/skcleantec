@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import type { UserCustomCalendarItem } from '../../api/userCustomCalendars';
-import { MobileFloatingMenuButton } from '../layout/MobileFloatingMenuButton';
+import { MobileFloatingMenuButton, MobileInlineMenuButton } from '../layout/MobileFloatingMenuButton';
 import { ScheduleCustomCalendarListSection } from './ScheduleCustomCalendarListSection';
 
 function BarsIcon({ className }: { className?: string }) {
@@ -52,23 +52,29 @@ export function ScheduleCustomCalendarMobileMenuButton({
   onClick,
   hasActiveFilter,
   className = '',
+  placement = 'floating',
 }: {
   onClick: () => void;
   hasActiveFilter: boolean;
   className?: string;
+  /** `inline` — 페이지 제목 왼쪽에 붙임 (스케줄 모바일) */
+  placement?: 'floating' | 'inline';
 }) {
-  return (
-    <MobileFloatingMenuButton
-      onClick={onClick}
-      aria-label="맞춤 캘린더 메뉴"
-      title="맞춤 캘린더 메뉴"
-      showBadgeDot={hasActiveFilter}
-      badgeClassName="bg-sky-600"
-      className={className}
-    >
-      <BarsIcon className="h-5 w-5" />
-    </MobileFloatingMenuButton>
-  );
+  const shared = {
+    onClick,
+    'aria-label': '맞춤 캘린더 메뉴' as const,
+    title: '맞춤 캘린더 메뉴',
+    showBadgeDot: hasActiveFilter,
+    badgeClassName: 'bg-sky-600',
+    className,
+    children: <BarsIcon className="h-5 w-5" />,
+  };
+
+  if (placement === 'inline') {
+    return <MobileInlineMenuButton {...shared} />;
+  }
+
+  return <MobileFloatingMenuButton {...shared} />;
 }
 
 export function ScheduleCustomCalendarDesktopMenuTrigger({

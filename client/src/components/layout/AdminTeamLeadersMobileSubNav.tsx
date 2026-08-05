@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import type { AdminSideNavItem } from './AdminSectionSideNav';
 import { AdminSideNavIcon, resolveAdminSideNavIcon } from './adminSideNavIcons';
-import { MobileFloatingMenuButton } from './MobileFloatingMenuButton';
+import { MobileInlineMenuButton } from './MobileFloatingMenuButton';
 
 function BarsIcon({ className }: { className?: string }) {
   return (
@@ -50,16 +50,18 @@ export function useAdminTeamLeadersMobileMenu(): AdminTeamLeadersMobileMenuConte
   return ctx;
 }
 
-function AdminTeamLeadersMobileFloatingMenuButton() {
+/** 모바일 — 페이지 제목 왼쪽 인라인 햄버거 (fixed FAB 대신) */
+export function AdminTeamLeadersMobileInlineMenuButton({ className = '' }: { className?: string }) {
   const { openMenu } = useAdminTeamLeadersMobileMenu();
   return (
-    <MobileFloatingMenuButton
+    <MobileInlineMenuButton
       onClick={openMenu}
       aria-label="관리자 전용 하위 메뉴"
       title="관리자 전용 하위 메뉴"
+      className={className}
     >
       <BarsIcon className="h-5 w-5" />
-    </MobileFloatingMenuButton>
+    </MobileInlineMenuButton>
   );
 }
 
@@ -195,10 +197,11 @@ function AdminTeamLeadersMobileMenuSheet({
   );
 }
 
-/** 레이아웃 — 사용자 등록(index) 외 하위 페이지 모바일 제목(플로팅 햄버거는 Provider) */
+/** 레이아웃 — 사용자 등록(index) 외 하위 페이지 모바일 제목 + 인라인 햄버거 */
 export function AdminTeamLeadersMobileSubNavBar() {
   return (
-    <div className="mb-2 flex min-w-0 items-center gap-2 pl-12 lg:pl-0 lg:hidden">
+    <div className="mb-2 flex min-w-0 items-center gap-1.5 lg:hidden">
+      <AdminTeamLeadersMobileInlineMenuButton />
       <span className="min-w-0 truncate text-fluid-sm font-semibold text-slate-900">관리자 전용</span>
     </div>
   );
@@ -219,7 +222,6 @@ export function AdminTeamLeadersMobileMenuProvider({
   return (
     <AdminTeamLeadersMobileMenuContext.Provider value={value}>
       {children}
-      <AdminTeamLeadersMobileFloatingMenuButton />
       <AdminTeamLeadersMobileMenuSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}

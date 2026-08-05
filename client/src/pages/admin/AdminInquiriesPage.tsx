@@ -36,6 +36,7 @@ import {
 } from '../../api/orderform';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { AdminInquiriesMobileInlineMenuButton } from '../../components/layout/AdminInquiriesMobileSubNav';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
 import { getUserCustomCalendars, type UserCustomCalendarItem } from '../../api/userCustomCalendars';
 import { CustomerNameWithInternalTone } from '../../components/admin/CustomerNameWithInternalTone';
@@ -2449,7 +2450,8 @@ export function AdminInquiriesPage() {
     <div className="min-w-0 space-y-2 lg:space-y-6">
       <div className="flex flex-col gap-1.5 lg:gap-2">
         <div className="flex items-center justify-between gap-3 min-w-0">
-          <div className="flex min-w-0 flex-1 items-center gap-2 pl-12 lg:pl-0">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 lg:gap-2">
+            <AdminInquiriesMobileInlineMenuButton />
             <PageTitleWithFavorite label="서비스접수">
               <h1 className="text-slate-900">서비스접수</h1>
             </PageTitleWithFavorite>
