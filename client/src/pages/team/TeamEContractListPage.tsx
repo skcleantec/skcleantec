@@ -69,6 +69,7 @@ function TeamIssuanceDocActions({
   tableRow,
   onPreview,
   onPdfSave,
+  children,
 }: {
   row: TeamLeaderEContractIssuanceItem;
   busy: boolean;
@@ -77,18 +78,20 @@ function TeamIssuanceDocActions({
   tableRow?: boolean;
   onPreview: () => void;
   onPdfSave: () => void;
+  children?: React.ReactNode;
 }) {
   if (row.definitionArchived) return null;
   const btn =
     compact === true
       ? 'shrink-0 inline-flex rounded-md border px-2 py-1 text-fluid-2xs font-medium disabled:opacity-50 touch-manipulation whitespace-nowrap'
-      : 'inline-flex rounded-md border px-3 py-2 text-fluid-xs font-medium disabled:opacity-50 touch-manipulation';
+      : 'inline-flex rounded-md border px-3 py-2 text-fluid-xs font-medium disabled:opacity-50 touch-manipulation whitespace-nowrap';
   const rowClass =
     tableRow === true
       ? 'inline-flex shrink-0 flex-nowrap items-center gap-1'
-      : `flex flex-wrap gap-1 ${compact ? 'justify-center' : ''}`;
+      : `flex flex-wrap items-center gap-1.5 ${compact ? 'justify-center' : ''}`;
   return (
     <div className={rowClass}>
+      {children}
       <button type="button" disabled={busy} className={`${btn} border-blue-600 bg-white text-blue-900 hover:bg-blue-50`} onClick={onPreview}>
         미리보기
       </button>
@@ -439,35 +442,34 @@ export function TeamEContractListPage() {
                       </div>
                     )}
                   </dl>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {signOk ? (
-                      <Link
-                        to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-md bg-blue-600 px-3 py-2 text-fluid-sm font-medium text-white hover:bg-blue-700 touch-manipulation"
-                      >
-                        계약하기 (서명)
-                      </Link>
-                    ) : null}
-                    {row.hasSigned || row.status === 'SIGNED' ? (
-                      <Link
-                        to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-md border border-gray-300 bg-white px-3 py-2 text-fluid-sm text-gray-800 hover:bg-gray-50 touch-manipulation"
-                      >
-                        체결 내용 보기
-                      </Link>
-                    ) : null}
-                  </div>
-                  <div className="mt-2">
+                  <div className="mt-3">
                     <TeamIssuanceDocActions
                       row={row}
                       busy={docFetchRowId === row.id}
                       onPreview={() => onDocPreview(row)}
                       onPdfSave={() => onDocPrint(row)}
-                    />
+                    >
+                      {signOk ? (
+                        <Link
+                          to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex rounded-md bg-blue-600 px-3 py-2 text-fluid-xs font-medium text-white hover:bg-blue-700 touch-manipulation whitespace-nowrap"
+                        >
+                          계약하기 (서명)
+                        </Link>
+                      ) : null}
+                      {row.hasSigned || row.status === 'SIGNED' ? (
+                        <Link
+                          to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex rounded-md border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-800 hover:bg-gray-50 touch-manipulation whitespace-nowrap"
+                        >
+                          체결 내용 보기
+                        </Link>
+                      ) : null}
+                    </TeamIssuanceDocActions>
                   </div>
                 </div>
               );
@@ -537,29 +539,6 @@ export function TeamEContractListPage() {
                           </td>
                           <td className="border-b border-gray-100 px-1 py-2 text-center">
                             <div className="mx-auto flex min-w-0 max-w-full flex-nowrap items-center justify-center gap-1 overflow-x-auto overscroll-x-contain py-0.5 [scrollbar-width:thin]" style={{ WebkitOverflowScrolling: 'touch' }}>
-                              {signOk ? (
-                                <Link
-                                  to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="shrink-0 inline-flex whitespace-nowrap rounded-md bg-blue-600 px-2 py-1 text-fluid-2xs font-medium text-white hover:bg-blue-700 touch-manipulation"
-                                >
-                                  계약하기
-                                </Link>
-                              ) : null}
-                              {signed ? (
-                                <Link
-                                  to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="shrink-0 inline-flex whitespace-nowrap rounded-md border border-gray-300 bg-white px-2 py-1 text-fluid-2xs text-gray-800 hover:bg-gray-50 touch-manipulation"
-                                >
-                                  체결 확인
-                                </Link>
-                              ) : null}
-                              {!signOk && !signed ? (
-                                <span className="shrink-0 text-fluid-2xs text-gray-500">—</span>
-                              ) : null}
                               <TeamIssuanceDocActions
                                 row={row}
                                 busy={docFetchRowId === row.id}
@@ -567,7 +546,31 @@ export function TeamEContractListPage() {
                                 tableRow
                                 onPreview={() => onDocPreview(row)}
                                 onPdfSave={() => onDocPrint(row)}
-                              />
+                              >
+                                {signOk ? (
+                                  <Link
+                                    to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="shrink-0 inline-flex whitespace-nowrap rounded-md bg-blue-600 px-2 py-1 text-fluid-2xs font-medium text-white hover:bg-blue-700 touch-manipulation"
+                                  >
+                                    계약하기
+                                  </Link>
+                                ) : null}
+                                {signed ? (
+                                  <Link
+                                    to={`/e-contract/sign/${encodeURIComponent(row.token)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="shrink-0 inline-flex whitespace-nowrap rounded-md border border-gray-300 bg-white px-2 py-1 text-fluid-2xs text-gray-800 hover:bg-gray-50 touch-manipulation"
+                                  >
+                                    체결 확인
+                                  </Link>
+                                ) : null}
+                                {!signOk && !signed ? (
+                                  <span className="shrink-0 text-fluid-2xs text-gray-500">—</span>
+                                ) : null}
+                              </TeamIssuanceDocActions>
                             </div>
                           </td>
                         </tr>
