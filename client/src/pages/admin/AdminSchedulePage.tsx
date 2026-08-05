@@ -708,6 +708,36 @@ function AiSparkleIcon({ className }: { className?: string }) {
   );
 }
 
+/** PC·모바일 공통 — AI 빠른등록 트리거 (모달 CTA와 동일 톤) */
+function ScheduleQuickPasteTriggerButton({
+  onClick,
+  className = '',
+  size = 'default',
+}: {
+  onClick: () => void;
+  className?: string;
+  size?: 'default' | 'compact';
+}) {
+  const sizeClass =
+    size === 'compact'
+      ? 'min-h-9 gap-1.5 rounded-lg px-3 py-2 text-fluid-xs shadow-sm shadow-violet-500/20'
+      : 'min-h-11 gap-2 rounded-xl px-4 py-2.5 text-fluid-sm shadow-md shadow-violet-500/25';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative inline-flex w-full items-center justify-center overflow-hidden border border-violet-200/90 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 font-semibold text-white transition hover:brightness-110 hover:shadow-lg hover:shadow-violet-500/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80 focus-visible:ring-offset-1 touch-manipulation active:scale-[0.99] ${sizeClass} ${className}`}
+      aria-label="AI 빠른등록"
+    >
+      <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-quick-paste-ai-btn-shimmer" />
+      <span className="relative inline-flex items-center gap-2">
+        <AiSparkleIcon className={`shrink-0 opacity-95 ${size === 'compact' ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
+        <span>AI 빠른등록</span>
+      </span>
+    </button>
+  );
+}
+
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -1726,15 +1756,11 @@ export function AdminSchedulePage() {
             <HelpTooltip className="shrink-0 scale-90 origin-left" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
           </div>
           {hasQuickPaste ? (
-            <button
-              type="button"
+            <ScheduleQuickPasteTriggerButton
+              size="compact"
+              className="hidden lg:inline-flex w-auto shrink-0"
               onClick={() => setQuickPasteOpen(true)}
-              className="hidden lg:inline-flex h-auto items-center gap-1.5 rounded-lg border border-violet-200/90 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 px-3 py-2 text-fluid-xs font-semibold text-white shadow-sm shadow-violet-500/20 transition hover:brightness-110 hover:shadow-md hover:shadow-violet-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80 focus-visible:ring-offset-1"
-              aria-label="AI 빠른등록"
-            >
-              <AiSparkleIcon className="h-3.5 w-3.5 shrink-0 opacity-95" />
-              <span>AI 빠른등록</span>
-            </button>
+            />
           ) : null}
           <div className="inline-flex h-8 items-stretch rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden lg:h-auto lg:rounded-lg">
             <button
@@ -1941,31 +1967,27 @@ export function AdminSchedulePage() {
 
         <div className="min-w-0 flex flex-col gap-3 lg:gap-5">
 
-          {/* 모바일: 캘린더 바로 위 등록 액션 (얇게) */}
-          <div className="lg:hidden flex items-stretch gap-1">
-            <button
-              type="button"
-              onClick={() => setCreateInquiryModalDate(selectedDate ?? kstTodayYmd())}
-              className="min-w-0 flex-1 rounded-md border border-sky-300 bg-sky-50 px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-sky-950 shadow-sm touch-manipulation active:bg-sky-100"
-            >
-              일반등록
-            </button>
-            <button
-              type="button"
-              onClick={() => setOrderIssueOpen(true)}
-              className="min-w-0 flex-1 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-1 text-center text-fluid-2xs font-medium leading-tight text-amber-950 shadow-sm touch-manipulation active:bg-amber-100"
-            >
-              발주서발급
-            </button>
+          {/* 모바일: 캘린더 바로 위 — AI는 PC처럼 강조, 일반·발주는 보조 */}
+          <div className="lg:hidden flex flex-col gap-2">
             {hasQuickPaste ? (
+              <ScheduleQuickPasteTriggerButton onClick={() => setQuickPasteOpen(true)} />
+            ) : null}
+            <div className="flex items-stretch gap-1.5">
               <button
                 type="button"
-                onClick={() => setQuickPasteOpen(true)}
-                className="min-w-0 flex-1 rounded-md border border-violet-300 bg-gradient-to-r from-violet-50 to-cyan-50 px-1.5 py-1 text-center text-fluid-2xs font-semibold leading-tight text-violet-950 shadow-sm touch-manipulation active:from-violet-100 active:to-cyan-100"
+                onClick={() => setCreateInquiryModalDate(selectedDate ?? kstTodayYmd())}
+                className="min-w-0 flex-1 rounded-lg border border-sky-300 bg-sky-50 px-2 py-2 text-center text-fluid-xs font-medium leading-tight text-sky-950 shadow-sm touch-manipulation active:bg-sky-100 min-h-10"
               >
-                AI 빠른등록
+                일반등록
               </button>
-            ) : null}
+              <button
+                type="button"
+                onClick={() => setOrderIssueOpen(true)}
+                className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-2 text-center text-fluid-xs font-medium leading-tight text-amber-950 shadow-sm touch-manipulation active:bg-amber-100 min-h-10"
+              >
+                발주서발급
+              </button>
+            </div>
           </div>
 
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
