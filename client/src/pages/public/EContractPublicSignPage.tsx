@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import {
   fetchEContractPublicSession,
@@ -58,6 +59,7 @@ export function EContractPublicSignPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [selfieFileName, setSelfieFileName] = useState<string | null>(null);
   const [selfieUploaded, setSelfieUploaded] = useState<{ publicId: string; secureUrl: string } | null>(null);
+  const [selfieGuideOpen, setSelfieGuideOpen] = useState(false);
   const [sigUploaded, setSigUploaded] = useState<{ publicId: string; secureUrl: string } | null>(null);
 
   const [challengeInput, setChallengeInput] = useState('');
@@ -411,7 +413,7 @@ export function EContractPublicSignPage() {
           <button
             type="button"
             disabled={busy}
-            onClick={() => selfInputRef.current?.click()}
+            onClick={() => setSelfieGuideOpen(true)}
             className="w-full rounded-lg border border-gray-300 bg-gray-50 py-3 text-fluid-sm font-medium text-gray-900 disabled:opacity-50"
           >
             셀카 촬영·업로드
@@ -465,6 +467,43 @@ export function EContractPublicSignPage() {
           autoDownloadPdfOnReady={pagedAutoPdfDownload}
           onAutoDownloadPdfConsumed={() => setPagedAutoPdfDownload(false)}
         />
+      ) : null}
+
+      {selfieGuideOpen ? createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <h3 className="text-fluid-base font-bold text-gray-900">본인 확인 셀카 촬영</h3>
+              <button type="button" onClick={() => setSelfieGuideOpen(false)} className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="mb-4 text-center">
+                <p className="text-fluid-sm font-medium text-gray-800">아래 번호와 얼굴이 함께 나오게 찍어주세요</p>
+                <div className="mt-2 inline-block rounded-lg border-2 border-dashed border-blue-400 bg-blue-50 px-6 py-3">
+                  <span className="text-fluid-3xl font-bold tracking-widest text-blue-900">{session?.challengeDigits}</span>
+                </div>
+              </div>
+              <div className="rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                <img src="/images/e-contract-selfie-guide.png" alt="셀카 촬영 가이드" className="w-full h-auto object-contain" />
+              </div>
+            </div>
+            <div className="mt-5 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelfieGuideOpen(false);
+                  selfInputRef.current?.click();
+                }}
+                className="w-full rounded-xl bg-blue-600 py-3.5 text-fluid-sm font-semibold text-white shadow-sm hover:bg-blue-700 touch-manipulation"
+              >
+                촬영하기
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       ) : null}
     </>
   );
