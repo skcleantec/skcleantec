@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import {
   type ChangeHistoryItem,
   type ChangeLogCategory,
@@ -94,6 +95,8 @@ type Props = {
   desktopDock?: (StaffDesktopDockDragHandlers & { mountNode: HTMLElement | null }) | null;
   /** desktop 전용 fixed (기본). mobileStack·desktopDock(lg) 있으면 fixed 비활성 */
   desktopFixed?: boolean;
+  /** 관리자 전용 전체 이력 페이지 (ADMIN만) */
+  archivePageHref?: string;
 };
 
 /**
@@ -111,6 +114,7 @@ export function ChangeLogBell({
   mobileStack,
   desktopDock = null,
   desktopFixed = true,
+  archivePageHref,
 }: Props) {
   const [unseen, setUnseen] = useState(0);
   const [blink, setBlink] = useState(false);
@@ -510,10 +514,23 @@ export function ChangeLogBell({
           >
             <ModalCloseButton onClick={() => setOpen(false)} />
             <div className="shrink-0 border-b border-gray-200 p-4 pr-12">
-              <h2 className="text-base font-semibold text-gray-900">접수 변경 이력</h2>
-              <p className="mt-0.5 text-fluid-xs text-gray-500">
-                항목을 누르면 해당 접수로 이동합니다 · 총 {total}건
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">접수 변경 이력</h2>
+                  <p className="mt-0.5 text-fluid-xs text-gray-500">
+                    항목을 누르면 해당 접수로 이동합니다 · 총 {total}건
+                  </p>
+                </div>
+                {archivePageHref ? (
+                  <Link
+                    to={archivePageHref}
+                    onClick={() => setOpen(false)}
+                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-fluid-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    전체 이력 보기 →
+                  </Link>
+                ) : null}
+              </div>
               <div className="mt-2 flex flex-wrap items-end gap-2">
                 <input
                   type="search"

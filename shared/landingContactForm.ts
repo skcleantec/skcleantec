@@ -59,3 +59,9 @@ export const LANDING_CONTACT_STATUS_LABELS: Record<LandingContactInquiryStatus, 
   CONVERTED: '접수전환',
   CLOSED: '종료',
 };
+
+/** 공개 문의 폼 헤더·브라우저 탭 — 설정 제목만 사용, 없으면 「문의하기」 */
+export function resolveLandingContactPublicTitle(title: string | null | undefined): string {
+  const t = title?.trim();
+  return t || '문의하기';
+}

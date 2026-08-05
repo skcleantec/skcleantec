@@ -139,6 +139,11 @@ export const ADMIN_TEAM_LEADERS_NAV_ITEMS: AdminSideNavItem[] = [
         title: '삭제된 접수 보관·복구',
       },
       {
+        to: '/admin/team-leaders/change-history',
+        label: '변경 이력',
+        title: '접수 변경 이력 전체 조회',
+      },
+      {
         to: '/admin/team-leaders/inquiry-delete',
         label: '접수 삭제',
         title: '접수 일괄 휴지통 이동',

@@ -38,6 +38,7 @@ export type AdminPathPermissionRule = {
 
 /** `/admin/*` 하위 경로 — 긴 prefix 가 위에 오도록 정렬 유지 */
 export const ADMIN_PATH_PERMISSION_RULES: AdminPathPermissionRule[] = [
+  { prefix: '/admin/team-leaders/change-history', permissions: [], adminRoleOnly: true },
   { prefix: '/admin/team-leaders/inquiry-trash', permissions: ['admin.users'] },
   { prefix: '/admin/team-leaders/inquiry-delete', permissions: ['inquiry.bulkDelete'] },
   { prefix: '/admin/team-leaders/staff-access', permissions: [], adminRoleOnly: true },

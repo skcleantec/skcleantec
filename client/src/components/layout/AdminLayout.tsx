@@ -1558,6 +1558,7 @@ export function AdminLayout() {
           fetchUnseen={getUnseenChangeCount}
           fetchList={(t, opts) => getChangeHistoryList(t, opts)}
           markSeen={markChangeSeen}
+          archivePageHref={meRole === 'ADMIN' ? '/admin/team-leaders/change-history' : undefined}
           onOpenInquiry={(inquiryId) =>
             navigate(`/admin/inquiries?openInquiry=${encodeURIComponent(inquiryId)}`)
           }

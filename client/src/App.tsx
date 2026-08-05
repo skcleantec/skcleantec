@@ -74,6 +74,7 @@ import {
   AdminTeamsPage,
   AdminTeamHolidayCalendarPage,
   AdminTeamLeaderStatsPage,
+  AdminChangeHistoryArchivePage,
   AdminExternalCompaniesPage,
   AdminTenantPartnersPage,
   AdminTenantPartnerSettlementPage,
@@ -254,6 +255,7 @@ function App() {
             <Route path="team-members" element={<SuspensePage><AdminTeamsPage /></SuspensePage>} />
             <Route path="holiday-calendar" element={<SuspensePage><AdminTeamHolidayCalendarPage /></SuspensePage>} />
             <Route path="leader-stats" element={<SuspensePage><AdminTeamLeaderStatsPage /></SuspensePage>} />
+            <Route path="change-history" element={<SuspensePage><AdminChangeHistoryArchivePage /></SuspensePage>} />
             <Route path="page-settings" element={<SuspensePage><AdminPageSettingsPage /></SuspensePage>} />
             <Route
               path="team-leader-training"

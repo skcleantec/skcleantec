@@ -170,6 +170,11 @@ export const AdminTeamHolidayCalendarPage = lazyWithRetry(() =>
 export const AdminTeamLeaderStatsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminTeamLeaderStatsPage').then((m) => ({ default: m.AdminTeamLeaderStatsPage }))
 );
+export const AdminChangeHistoryArchivePage = lazyWithRetry(() =>
+  import('../pages/admin/AdminChangeHistoryArchivePage').then((m) => ({
+    default: m.AdminChangeHistoryArchivePage,
+  }))
+);
 export const AdminExternalCompaniesPage = lazyWithRetry(() =>
   import('../pages/admin/AdminExternalCompaniesPage').then((m) => ({ default: m.AdminExternalCompaniesPage }))
 );

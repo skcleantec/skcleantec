@@ -98,7 +98,15 @@ export async function getRecentChangeHistory(token: string, limit = 10): Promise
 
 export async function getChangeHistoryList(
   token: string,
-  opts: { customerName?: string; search?: string; limit?: number; offset?: number }
+  opts: {
+    customerName?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+    datePreset?: string;
+    month?: string;
+    day?: string;
+  }
 ): Promise<{ items: ChangeHistoryItem[]; total: number }> {
   const q = new URLSearchParams();
   const search = opts.search?.trim() || opts.customerName?.trim();
@@ -106,7 +114,39 @@ export async function getChangeHistoryList(
   else if (opts.customerName?.trim()) q.set('customerName', opts.customerName.trim());
   if (opts.limit != null) q.set('limit', String(opts.limit));
   if (opts.offset != null) q.set('offset', String(opts.offset));
+  if (opts.datePreset) q.set('datePreset', opts.datePreset);
+  if (opts.month) q.set('month', opts.month);
+  if (opts.day) q.set('day', opts.day);
   const res = await fetch(`${API}/inquiry-change-logs?${q}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as { error?: string }).error || '변경 이력을 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+/** 관리자 전용 — 테넌트 전체 변경 이력 아카이브 */
+export async function getAdminChangeHistoryArchive(
+  token: string,
+  opts: {
+    search?: string;
+    limit?: number;
+    offset?: number;
+    datePreset?: string;
+    month?: string;
+    day?: string;
+  },
+): Promise<{ items: ChangeHistoryItem[]; total: number }> {
+  const q = new URLSearchParams();
+  if (opts.search?.trim()) q.set('search', opts.search.trim());
+  if (opts.limit != null) q.set('limit', String(opts.limit));
+  if (opts.offset != null) q.set('offset', String(opts.offset));
+  if (opts.datePreset) q.set('datePreset', opts.datePreset);
+  if (opts.month) q.set('month', opts.month);
+  if (opts.day) q.set('day', opts.day);
+  const res = await fetch(`${API}/admin/inquiry-change-logs?${q}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {

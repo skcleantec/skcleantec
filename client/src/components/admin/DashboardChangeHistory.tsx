@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
   getRecentChangeHistory,
   getChangeHistoryList,
@@ -29,8 +30,9 @@ type Props = {
 export function DashboardChangeHistory({ token, variant = 'default', compact = false }: Props) {
   const isSidebar = variant === 'sidebar';
   const isCompact = compact || isSidebar;
-  const { isTenantOwner, isSuperAdmin } = useAdminStaffSession();
+  const { isTenantOwner, isSuperAdmin, role } = useAdminStaffSession();
   const isTenantOwnerOrSuper = isTenantOwner || isSuperAdmin;
+  const showArchiveLink = role === 'ADMIN';
   const [recent, setRecent] = useState<ChangeHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -125,7 +127,21 @@ export function DashboardChangeHistory({ token, variant = 'default', compact = f
             접수 변경 이력
           </h2>
           <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-inset ring-slate-500/10 shrink-0">
-            {isSidebar ? '전체 보기' : isCompact ? '전체 보기' : '클릭 시 전체 기록 조회'}
+            {showArchiveLink ? (
+              <Link
+                to="/admin/team-leaders/change-history"
+                onClick={(e) => e.stopPropagation()}
+                className="hover:text-slate-800"
+              >
+                전체 이력 →
+              </Link>
+            ) : isSidebar ? (
+              '전체 보기'
+            ) : isCompact ? (
+              '전체 보기'
+            ) : (
+              '클릭 시 최근 기록'
+            )}
           </span>
         </div>
         <div className={isSidebar ? 'min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]' : undefined}>

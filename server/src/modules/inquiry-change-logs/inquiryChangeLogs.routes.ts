@@ -8,39 +8,15 @@ import { requireStaffPermission } from '../auth/marketerPermission.middleware.js
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { requireTenantIdFromAuth } from '../tenants/tenantScope.helpers.js';
 import {
-  toChangeHistoryItemDto,
-} from './inquiryChangeLogs.helpers.js';
-import { buildChangeLogSearchFilter } from './inquiryChangeLogQuery.helpers.js';
+  fetchInquiryChangeLogListPage,
+  fetchRecentInquiryChangeLogs,
+  tenantChangeLogWhere,
+} from './inquiryChangeLogList.service.js';
 
 const router = Router();
 
 router.use(authMiddleware);
 router.use(requireStaffPermission('inquiry.changeLog.view'));
-
-const logInclude = {
-  inquiry: { select: { customerName: true } },
-} as const;
-
-function tenantChangeLogWhere(tenantId: string): Prisma.InquiryChangeLogWhereInput {
-  return {
-    OR: [
-      { inquiry: { tenantId } },
-      { inquiryId: null, actor: { tenantId } },
-    ],
-  };
-}
-
-async function attachActorNames<T extends { actorId: string | null }>(
-  rows: T[]
-): Promise<Map<string, string>> {
-  const ids = [...new Set(rows.map((r) => r.actorId).filter(Boolean))] as string[];
-  if (ids.length === 0) return new Map();
-  const users = await prisma.user.findMany({
-    where: { id: { in: ids } },
-    select: { id: true, name: true },
-  });
-  return new Map(users.map((u) => [u.id, u.name]));
-}
 
 /** 미확인 변경 이력 수 (마지막 확인 시각 이후 생성분) — 알림 종 아이콘용 */
 router.get('/unseen-count', async (req, res) => {
@@ -96,57 +72,28 @@ router.get('/recent', async (req, res) => {
 
   const { limit = '10' } = req.query;
   const take = Math.min(50, Math.max(1, parseInt(String(limit), 10) || 10));
-  const rows = await prisma.inquiryChangeLog.findMany({
-    where: tenantChangeLogWhere(tenantId),
-    orderBy: { createdAt: 'desc' },
-    take,
-    include: logInclude,
-  });
-  const actorMap = await attachActorNames(rows);
-  const items = rows.map((r) =>
-    toChangeHistoryItemDto(r, r.actorId ? actorMap.get(r.actorId) ?? null : null)
-  );
+  const items = await fetchRecentInquiryChangeLogs(tenantId, take);
   res.json({ items });
 });
 
-/** 전체 목록 (필터·페이지) */
+/** 전체 목록 (필터·페이지) — FAB·대시보드용 */
 router.get('/', async (req, res) => {
   const tenantId = await requireTenantIdFromAuth(res, (req as unknown as { user: AuthPayload }).user);
   if (!tenantId) return;
 
-  const { customerName, search, limit = '100', offset = '0' } = req.query;
-  const take = Math.min(500, Math.max(1, parseInt(String(limit), 10) || 100));
-  const skip = Math.max(0, parseInt(String(offset), 10) || 0);
+  const { customerName, search, limit, offset, datePreset, month, day } = req.query;
 
-  const searchText =
-    typeof search === 'string' && search.trim()
-      ? search.trim()
-      : typeof customerName === 'string' && customerName.trim()
-        ? customerName.trim()
-        : '';
+  const result = await fetchInquiryChangeLogListPage(tenantId, {
+    search: typeof search === 'string' ? search : undefined,
+    customerName: typeof customerName === 'string' ? customerName : undefined,
+    limit: limit != null ? parseInt(String(limit), 10) : 100,
+    offset: offset != null ? parseInt(String(offset), 10) : 0,
+    datePreset: typeof datePreset === 'string' ? datePreset : undefined,
+    month: typeof month === 'string' ? month : undefined,
+    day: typeof day === 'string' ? day : undefined,
+  });
 
-  const searchFilter = buildChangeLogSearchFilter(tenantId, searchText);
-
-  const where: Prisma.InquiryChangeLogWhereInput = {
-    AND: [tenantChangeLogWhere(tenantId), ...(searchFilter ? [searchFilter] : [])],
-  };
-
-  const [rows, total] = await Promise.all([
-    prisma.inquiryChangeLog.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take,
-      skip,
-      include: logInclude,
-    }),
-    prisma.inquiryChangeLog.count({ where }),
-  ]);
-
-  const actorMap = await attachActorNames(rows);
-  const items = rows.map((r) =>
-    toChangeHistoryItemDto(r, r.actorId ? actorMap.get(r.actorId) ?? null : null)
-  );
-  res.json({ items, total });
+  res.json(result);
 });
 
 /** 최고 관리자만 — 비밀번호 확인 후 삭제 */

@@ -9,6 +9,7 @@ import {
 } from '../../api/landingContact';
 import { useLoginScrollSurface } from '../../hooks/useMobileInputVisibility';
 import type { LandingContactCustomFieldDef } from '@shared/landingContactForm';
+import { resolveLandingContactPublicTitle } from '@shared/landingContactForm';
 
 const inputCls =
   'w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-fluid-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/15 touch-manipulation';
@@ -151,8 +152,7 @@ export function ContactInquiryPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const brandTitle =
-    formConfig?.title?.trim() || (formConfig ? `${formConfig.displayName} 문의` : '문의하기');
+  const brandTitle = resolveLandingContactPublicTitle(formConfig?.title);
   useDocumentTitle(brandTitle);
 
   useEffect(() => {

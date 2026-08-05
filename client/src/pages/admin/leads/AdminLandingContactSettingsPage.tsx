@@ -190,6 +190,9 @@ export function AdminLandingContactSettingsPage() {
                     onChange={(e) => updateDraft(item.operatingCompanyId, { title: e.target.value || null })}
                     placeholder={`${item.displayName} 문의하기`}
                   />
+                  <p className="mt-1 text-fluid-2xs text-gray-500">
+                    비워 두면 고객 화면 상단에는 「문의하기」만 표시됩니다. 브랜드명을 넣으려면 직접 입력하세요.
+                  </p>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-fluid-xs font-medium text-gray-700">안내 문구</label>
