@@ -124,8 +124,12 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 .hero-ai-badge-text{text-align:left;line-height:1.15;min-width:0}
 .hero-ai-badge-kicker{display:block;font-size:10px;font-weight:700;opacity:.92;letter-spacing:.04em}
 .hero-ai-badge-title{display:block;font-size:14px;margin-top:1px;font-weight:800;letter-spacing:-.02em}
-.hero-ai-badge--phone{position:relative;left:auto;top:auto;transform:none;margin-bottom:14px;z-index:5;flex-shrink:0;max-width:calc(100% + 8px)}
-.hero-ai-badge--phone:hover{transform:translateY(-2px) scale(1.03)}
+.hero-ai-badge{display:inline-flex;align-items:center;gap:10px;padding:11px 18px;border-radius:999px;background:linear-gradient(105deg,#7C3AED 0%,#2563EB 55%,#06B6D4 100%);color:#fff!important;text-decoration:none;font-weight:800;letter-spacing:-.02em;animation:aiGlow 2.8s ease-in-out infinite;border:1px solid rgba(255,255,255,.35);white-space:nowrap;z-index:5}
+.hero-b-pc-col>.hero-ai-badge{position:absolute;left:50%;top:-18px;transform:translateX(-50%)}
+.hero-b-pc-col>.hero-ai-badge:hover{color:#fff!important;transform:translateX(-50%) translateY(-2px) scale(1.03)}
+.hero-ai-badge--phone,.hero-ai-badge--cta{position:relative;left:auto;top:auto;transform:none}
+.hero-ai-badge--phone{margin-bottom:14px;flex-shrink:0;max-width:calc(100% + 8px)}
+.hero-ai-badge--phone:hover,.hero-ai-badge--cta:hover{color:#fff!important;transform:translateY(-2px) scale(1.03)}
 .hero-b-device{width:300px;max-width:100%;animation:none!important;box-shadow:0 28px 48px rgba(4,10,28,.42)}
 .hero-b-device,.hero-b-device *{animation:none!important}
 .hero-b-device .wf-phone-screen{overflow:hidden;border-radius:22px}
@@ -239,10 +243,8 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
 .landing-footer-operator{justify-content:flex-start}
 }
 @keyframes aiGlow{0%,100%{box-shadow:0 12px 28px rgba(109,40,217,.35),0 0 0 0 rgba(34,211,238,.35)}50%{box-shadow:0 16px 36px rgba(109,40,217,.45),0 0 0 10px rgba(34,211,238,0)}}
-.hero-ai-badge{position:absolute;left:50%;top:-18px;transform:translateX(-50%);z-index:5;display:inline-flex;align-items:center;gap:10px;padding:11px 18px;border-radius:999px;background:linear-gradient(105deg,#7C3AED 0%,#2563EB 55%,#06B6D4 100%);color:#fff!important;text-decoration:none;font-weight:800;letter-spacing:-.02em;animation:aiGlow 2.8s ease-in-out infinite;border:1px solid rgba(255,255,255,.35);white-space:nowrap}
-.hero-ai-badge:hover{color:#fff!important;transform:translateX(-50%) translateY(-2px) scale(1.03)}
 @media (max-width:820px){
-.hero-ai-badge{top:-14px}
+.hero-b-pc-col>.hero-ai-badge{top:-14px}
 .hero-b-stage .hero-b-phone-col--left,.hero-b-stage .hero-b-phone-col--right{display:inline-flex}
 }
 .ai-carousel{width:min(340px,100%);margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:16px}
@@ -369,8 +371,12 @@ input,textarea,select,button{font-family:inherit;font-size:16px}
     <p style="margin:24px auto 0;font-size:clamp(17px,1.6vw,20px);line-height:1.7;color:rgba(255,255,255,.86);max-width:620px;animation:riseIn .9s .36s cubic-bezier(.2,.75,.3,1) both">접수 → 배정 → 현장보고 → 정산. 사무실 PC에서도, 현장 모바일에서도 같은 데이터로 움직입니다.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:36px;animation:riseIn .9s .48s cubic-bezier(.2,.75,.3,1) both">
       <a href="#contact" style="background:#fff;color:#1B4FD8;padding:17px 34px;border-radius:14px;font-size:17px;font-weight:800;box-shadow:0 16px 34px rgba(10,30,80,.28);transition:transform .25s,box-shadow .25s" style-hover="background:#EAF0FF;color:#1B4FD8;transform:translateY(-3px);box-shadow:0 22px 44px rgba(10,30,80,.34)">도입 상담 신청</a>
-      <a href="#ai-quick" style="display:inline-flex;align-items:center;gap:8px;padding:17px 28px;border-radius:14px;font-size:17px;font-weight:800;color:#fff;background:linear-gradient(105deg,#7C3AED 0%,#2563EB 50%,#06B6D4 100%);border:1px solid rgba(255,255,255,.35);box-shadow:0 14px 28px rgba(109,40,217,.35);transition:transform .25s,box-shadow .25s" style-hover="color:#fff;transform:translateY(-3px);box-shadow:0 20px 36px rgba(109,40,217,.45)">
-        <span style="font-size:15px">✦</span> AI 빠른등록
+      <a href="#ai-quick" class="hero-ai-badge hero-ai-badge--cta" aria-label="AI 빠른등록 소개로 이동">
+        <span class="hero-ai-badge-icon" aria-hidden="true">✦</span>
+        <span class="hero-ai-badge-text">
+          <span class="hero-ai-badge-kicker">AI POWERED</span>
+          <span class="hero-ai-badge-title">AI 빠른등록</span>
+        </span>
       </a>
       <a href="#workflow" style="border:1px solid rgba(255,255,255,.5);color:#fff;padding:17px 34px;border-radius:14px;font-size:17px;font-weight:700;transition:transform .25s,background .25s" style-hover="background:rgba(255,255,255,.14);color:#fff;transform:translateY(-3px)">기능 살펴보기</a>
     </div>
