@@ -13,7 +13,17 @@ export type InquiryDbListingMeta = {
   status: Exclude<DbMarketplaceListingStatus, 'WITHDRAWN'>;
 };
 
-export type DbMarketplaceListTab = 'available' | 'cart' | 'my_sales' | 'pending' | 'confirmed';
+export type DbMarketplaceListTab =
+  | 'available'
+  | 'cart'
+  | 'my_sales'
+  | 'share_open'
+  | 'pending'
+  | 'pending_out'
+  | 'pending_in'
+  | 'confirmed'
+  | 'confirmed_share'
+  | 'confirmed_receive';
 
 export type DbMarketplaceAudienceOptionPartner = { id: string; name: string; slug: string };
 export type DbMarketplaceAudienceOptionExternal = { id: string; name: string };
@@ -584,7 +594,7 @@ export async function declineDbMarketplaceSeller(
   return data.listing;
 }
 
-export type TeamDbMarketplaceListTab = 'available' | 'pending' | 'confirmed';
+export type TeamDbMarketplaceListTab = 'browse' | 'pending' | 'done';
 
 export async function listTeamDbMarketplace(
   token: string,

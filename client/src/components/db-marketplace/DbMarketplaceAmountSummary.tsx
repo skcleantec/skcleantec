@@ -91,7 +91,7 @@ export function marketplaceAmountSummaryRows(row: MarketplaceAmountRow): Array<{
   const balance = resolveMarketplaceServiceBalance(row);
   const priorFees = resolveMarketplacePriorFees(row);
   const feeValue =
-    priorFees > 0 ? `${formatWon(fee)} (앞선 판매 ${formatWon(priorFees)} 포함)` : formatWon(fee);
+    priorFees > 0 ? `${formatWon(fee)} (앞선 공유 ${formatWon(priorFees)} 포함)` : formatWon(fee);
 
   return [
     { label: '총액', value: formatWon(total), valueClassName: 'font-semibold text-slate-900' },

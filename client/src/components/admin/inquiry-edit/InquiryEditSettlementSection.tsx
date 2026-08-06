@@ -214,7 +214,7 @@ export function InquiryEditSettlementSection({
                 <div className="space-y-2 rounded-lg border border-violet-200 bg-violet-50/60 p-2.5">
                   <p className="text-fluid-2xs leading-relaxed text-violet-900">
                     특정 파트너 한 곳이 아니라 여러 업체에 공개하려면{' '}
-                    <strong>정보공유(마켓)</strong>를 이용하세요. 구매자가 선택한 뒤 양쪽 확정됩니다.
+                    <strong>정보공유(마켓)</strong>를 이용하세요. 인수 업체가 선택한 뒤 양쪽 확정됩니다.
                   </p>
                   <button
                     type="button"

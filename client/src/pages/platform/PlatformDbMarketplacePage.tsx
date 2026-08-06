@@ -9,9 +9,9 @@ import { getPlatformToken } from '../../stores/platformAuth';
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY } from '../../utils/platformUi';
 
 const STATUS_LABEL: Record<string, string> = {
-  OPEN: '게시 중',
+  OPEN: '공유 중',
   PENDING_SELLER: '인계 대기',
-  CONFIRMED: '확정',
+  CONFIRMED: '인계 완료',
   EXPIRED: '만료',
 };
 
@@ -74,7 +74,7 @@ export function PlatformDbMarketplacePage() {
 
   const runSuspend = async (row: PlatformDbMarketplaceListItem) => {
     const token = getPlatformToken();
-    if (!token || !window.confirm(`「${row.tenantName}」 게시 건을 플랫폼 중지할까요?`)) return;
+    if (!token || !window.confirm(`「${row.tenantName}」 공유 건을 플랫폼 중지할까요?`)) return;
     setBusyId(row.id);
     try {
       await platformSuspendDbListing(token, row.id);
@@ -88,7 +88,7 @@ export function PlatformDbMarketplacePage() {
 
   const runResume = async (row: PlatformDbMarketplaceListItem) => {
     const token = getPlatformToken();
-    if (!token || !window.confirm(`「${row.tenantName}」 게시 건의 플랫폼 중지를 해제할까요?`)) return;
+    if (!token || !window.confirm(`「${row.tenantName}」 공유 건의 플랫폼 중지를 해제할까요?`)) return;
     setBusyId(row.id);
     try {
       await platformResumeDbListing(token, row.id);
@@ -108,14 +108,14 @@ export function PlatformDbMarketplacePage() {
       <div>
         <h1 className="text-xl font-bold text-gray-900">정보공유 관리</h1>
         <p className="mt-0.5 text-sm text-gray-500">
-          업체별 DB 마켓 게시 현황입니다. 고객 PII는 표시하지 않습니다.
+          회원사 간 접수 정보 공유·인계 현황입니다. 고객 PII는 표시하지 않으며, 플랫폼은 거래 당사자가 아닙니다.
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <div className="text-2xl font-bold text-emerald-600 tabular-nums">{stats.open}</div>
-          <div className="mt-1 text-xs text-gray-500">게시 중</div>
+          <div className="mt-1 text-xs text-gray-500">공유 중</div>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <div className="text-2xl font-bold text-amber-600 tabular-nums">{stats.pending}</div>
@@ -146,9 +146,9 @@ export function PlatformDbMarketplacePage() {
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">전체</option>
-            <option value="OPEN">게시 중</option>
+            <option value="OPEN">공유 중</option>
             <option value="PENDING_SELLER">인계 대기</option>
-            <option value="CONFIRMED">확정</option>
+            <option value="CONFIRMED">인계 완료</option>
             <option value="EXPIRED">만료</option>
           </select>
         </label>
@@ -163,11 +163,11 @@ export function PlatformDbMarketplacePage() {
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50 text-center text-xs text-gray-600">
-              <th className="px-3 py-2.5 font-medium">판매 업체</th>
+              <th className="px-3 py-2.5 font-medium">공유 업체</th>
               <th className="px-3 py-2.5 font-medium">상태</th>
               <th className="px-3 py-2.5 font-medium">표시금액</th>
-              <th className="px-3 py-2.5 font-medium">게시일</th>
-              <th className="px-3 py-2.5 font-medium">구매자</th>
+              <th className="px-3 py-2.5 font-medium">공유일</th>
+              <th className="px-3 py-2.5 font-medium">인수 업체</th>
               <th className="px-3 py-2.5 font-medium">플랫폼</th>
               <th className="px-3 py-2.5 font-medium">조치</th>
             </tr>

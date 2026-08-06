@@ -366,7 +366,7 @@ export function AdminLayout() {
   }, [marketplaceSellerPendingCount]);
 
   const openMarketplaceHandoffPending = useCallback(() => {
-    navigate('/admin/db-marketplace?tab=pending');
+    navigate('/admin/db-marketplace?side=share&tab=pending');
   }, [navigate]);
 
   const [marketplaceHandoffConfirmedAlert, setMarketplaceHandoffConfirmedAlert] =
@@ -400,7 +400,7 @@ export function AdminLayout() {
       navigate(`/admin/inquiries?openInquiry=${encodeURIComponent(inquiryId)}`);
       return;
     }
-    navigate('/admin/db-marketplace?tab=pending');
+    navigate('/admin/db-marketplace?side=share&tab=pending');
   }, [closeMarketplaceHandoffConfirmedStrip, marketplaceHandoffConfirmedAlert, navigate]);
 
   useInquiryCelebrateRealtime(
@@ -1311,15 +1311,15 @@ export function AdminLayout() {
                               marketplaceOpenCount > 0 ||
                               marketplaceSellerPendingCount > 0 ||
                               marketplaceBuyerPendingCount > 0
-                                ? `${def.label}, 장바구니 ${marketplaceDraftCount}건${
-                                    marketplaceOpenCount > 0 ? `, 게시 중 ${marketplaceOpenCount}건` : ''
+                                ? `${def.label}, 준비 ${marketplaceDraftCount}건${
+                                    marketplaceOpenCount > 0 ? `, 공유 중 ${marketplaceOpenCount}건` : ''
                                   }${
                                     marketplaceSellerPendingCount > 0
                                       ? `, 인계 대기 ${marketplaceSellerPendingCount}건`
                                       : ''
                                   }${
                                     marketplaceBuyerPendingCount > 0
-                                      ? `, 구매 대기 ${marketplaceBuyerPendingCount}건`
+                                      ? `, 인수 진행 ${marketplaceBuyerPendingCount}건`
                                       : ''
                                   }`
                                 : def.label
@@ -1329,40 +1329,40 @@ export function AdminLayout() {
                           </NavLink>
                           {marketplaceSellerPendingCount > 0 ? (
                             <Link
-                              to="/admin/db-marketplace?tab=pending"
+                              to="/admin/db-marketplace?side=share&tab=pending"
                               className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums motion-safe:animate-pulse motion-reduce:animate-none sm:-ml-3 hover:bg-amber-300"
                               aria-label={`인계 대기 ${marketplaceSellerPendingCount}건`}
-                              title="인계 대기 — 진행 중 탭"
+                              title="인계 대기 — 공유 · 대기 탭"
                             >
                               {marketplaceSellerPendingCount > 99 ? '99+' : marketplaceSellerPendingCount}
                             </Link>
                           ) : null}
                           {marketplaceBuyerPendingCount > 0 ? (
                             <Link
-                              to="/admin/db-marketplace?tab=pending"
+                              to="/admin/db-marketplace?side=receive&tab=pending"
                               className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sky-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums sm:-ml-3 hover:bg-sky-300"
-                              aria-label={`구매 신청 대기 ${marketplaceBuyerPendingCount}건`}
-                              title="구매 신청 대기 — 진행 중 탭"
+                              aria-label={`인수 진행 ${marketplaceBuyerPendingCount}건`}
+                              title="인수 진행 — 받기 · 진행 탭"
                             >
                               {marketplaceBuyerPendingCount > 99 ? '99+' : marketplaceBuyerPendingCount}
                             </Link>
                           ) : null}
                           {marketplaceOpenCount > 0 ? (
                             <Link
-                              to="/admin/db-marketplace?tab=my_sales"
+                              to="/admin/db-marketplace?side=share&tab=open"
                               className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sky-500 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-white tabular-nums sm:-ml-3 hover:bg-sky-400"
-                              aria-label={`게시 중 ${marketplaceOpenCount}건`}
-                              title="게시 중 — 내 판매 탭"
+                              aria-label={`공유 중 ${marketplaceOpenCount}건`}
+                              title="공유 중 — 공유 · 공유중 탭"
                             >
                               {marketplaceOpenCount > 99 ? '99+' : marketplaceOpenCount}
                             </Link>
                           ) : null}
                           {marketplaceDraftCount > 0 ? (
                             <Link
-                              to="/admin/db-marketplace?tab=cart"
+                              to="/admin/db-marketplace?side=share&tab=draft"
                               className="-ml-2 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-violet-400 px-1.5 py-0.5 text-center text-[clamp(0.55rem,1.2vw,0.75rem)] font-bold leading-none text-slate-950 tabular-nums sm:-ml-3 hover:bg-violet-300"
-                              aria-label={`장바구니 ${marketplaceDraftCount}건`}
-                              title="장바구니 — 장바구니 탭"
+                              aria-label={`공유 준비 ${marketplaceDraftCount}건`}
+                              title="공유 준비 — 공유 · 준비 탭"
                             >
                               {marketplaceDraftCount}
                             </Link>

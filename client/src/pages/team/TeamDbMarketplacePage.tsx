@@ -16,6 +16,8 @@ import {
   DbMarketplaceBulkActionBar,
   DbMarketplaceRowCard,
   DbMarketplaceTabBar,
+  DbMarketplaceHintBanner,
+  DbMarketplaceLegalNotice,
   MarketplaceTableCheckboxCol,
   MarketplaceBulkSelectCheckbox,
   DbMarketplaceMobilePageSelectBar,
@@ -25,6 +27,8 @@ import {
 import {
   DbMarketplaceBuyBulkButton,
   DbMarketplaceBuyerDeclineBulkButton,
+  MARKETPLACE_STATUS_CLASS,
+  MARKETPLACE_STATUS_LABEL,
 } from '../../components/db-marketplace/marketplaceUiParts';
 import {
   formatMarketplaceCleaningSummary,
@@ -48,29 +52,14 @@ import {
 } from '../../utils/listPagination';
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
-
-const TAB_OPTIONS: { id: TeamDbMarketplaceListTab; label: string }[] = [
-  { id: 'available', label: '구매 가능' },
-  { id: 'pending', label: '인계 대기' },
-  { id: 'confirmed', label: '확정 완료' },
-];
-
-const STATUS_LABEL: Record<string, string> = {
-  OPEN: '게시 중',
-  PENDING_SELLER: '인계 대기',
-  CONFIRMED: '확정 완료',
-};
-
-const STATUS_CLASS: Record<string, string> = {
-  OPEN: 'bg-sky-100 text-sky-800',
-  PENDING_SELLER: 'bg-amber-100 text-amber-800',
-  CONFIRMED: 'bg-emerald-100 text-emerald-800',
-};
-
-function parseTeamTab(raw: string | null): TeamDbMarketplaceListTab {
-  if (raw === 'pending' || raw === 'confirmed') return raw;
-  return 'available';
-}
+import {
+  legacyTeamTabRedirect,
+  MARKETPLACE_TEAM_TAB_OPTIONS,
+  MARKETPLACE_LEGAL_NOTICE_TEAM,
+  marketplaceEmptyTitleForTeam,
+  marketplaceHintForTeamTab,
+  parseTeamUiTab,
+} from '../../utils/dbMarketplaceNav';
 
 function cleaningSummary(row: DbMarketplaceMaskedItem): string {
   return formatMarketplaceCleaningSummary(row);
@@ -79,9 +68,17 @@ function cleaningSummary(row: DbMarketplaceMaskedItem): string {
 export function TeamDbMarketplacePage() {
   const teamToken = useSyncExternalStore(subscribeTeamAuth, getTeamToken, () => null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = parseTeamTab(searchParams.get('tab'));
+  const tab = parseTeamUiTab(searchParams.get('tab'));
   const page = parseListPage(searchParams.get('page'));
   const pageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
+
+  useEffect(() => {
+    const legacy = legacyTeamTabRedirect(searchParams.get('tab'));
+    if (!legacy) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('tab', legacy);
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const [items, setItems] = useState<DbMarketplaceMaskedItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -97,7 +94,7 @@ export function TeamDbMarketplacePage() {
     failed: Array<{ id: string; error: string }>;
   } | null>(null);
 
-  const selectable = tab === 'available';
+  const selectable = tab === 'browse';
 
   const offset = (page - 1) * pageSize;
 
@@ -174,7 +171,8 @@ export function TeamDbMarketplacePage() {
     setSearchParams(nextParams, { replace: true });
   };
 
-  const tabLabel = useMemo(() => TAB_OPTIONS.find((t) => t.id === tab)?.label ?? '', [tab]);
+  const emptyTitle = useMemo(() => marketplaceEmptyTitleForTeam(tab), [tab]);
+  const hintText = useMemo(() => marketplaceHintForTeamTab(tab), [tab]);
 
   const selectableOnPage = useMemo(() => items.filter(canBulkBuyMarketplaceItem), [items]);
   const allPageSelected =
@@ -219,7 +217,7 @@ export function TeamDbMarketplacePage() {
     }
     if (
       !window.confirm(
-        `선택 ${selectedCount}건에 구매를 신청(갖고가기)합니다. 발주 업체 인계 확정 후 전체 DB가 공개됩니다. 계속할까요?`,
+        `선택 ${selectedCount}건에 인수를 신청합니다. 상대 업체가 인계 확정하면 연락처 등 전체 정보가 공개됩니다. 계속할까요?`,
       )
     ) {
       return;
@@ -229,14 +227,14 @@ export function TeamDbMarketplacePage() {
       const result = await bulkTeamBuyerConfirmDbMarketplace(teamToken, [...selectedIds]);
       setSelectedIds(new Set());
       setBulkResult({
-        title: '일괄 갖고가기 결과',
-        successLabel: '구매 신청 완료',
+        title: '일괄 인수 신청 결과',
+        successLabel: '인수 신청 완료',
         successCount: result.requested.length,
         failed: result.failed,
       });
       load({ silent: true });
     } catch (e) {
-      alert(e instanceof Error ? e.message : '일괄 갖고가기 실패');
+      alert(e instanceof Error ? e.message : '일괄 인수 신청 실패');
     } finally {
       setBulkBusy(false);
     }
@@ -282,7 +280,9 @@ export function TeamDbMarketplacePage() {
 
   return (
     <div className={`min-w-0 w-full max-w-full space-y-2 sm:space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
-      <DbMarketplaceTabBar options={TAB_OPTIONS} active={tab} onChange={setTab} />
+      <DbMarketplaceLegalNotice text={MARKETPLACE_LEGAL_NOTICE_TEAM} />
+      <DbMarketplaceTabBar options={MARKETPLACE_TEAM_TAB_OPTIONS} active={tab} onChange={setTab} />
+      <DbMarketplaceHintBanner text={hintText} />
 
       <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm sm:rounded-2xl sm:p-4">
         <ListPaginationBar
@@ -302,7 +302,7 @@ export function TeamDbMarketplacePage() {
 
         {!loading && items.length === 0 ? (
           <p className="mt-4 p-6 text-center text-fluid-2xs text-gray-500 sm:mt-6 sm:p-8 sm:text-fluid-sm">
-            {tabLabel} 항목이 없습니다.
+            {emptyTitle}
           </p>
         ) : null}
 
@@ -381,8 +381,8 @@ export function TeamDbMarketplacePage() {
                     {formatWon(resolveMarketplaceServiceBalance(row))}
                   </td>
                   <td className="px-2 py-2 text-center">
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${STATUS_CLASS[row.status] ?? ''}`}>
-                      {STATUS_LABEL[row.status] ?? row.status}
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${MARKETPLACE_STATUS_CLASS[row.status] ?? ''}`}>
+                      {MARKETPLACE_STATUS_LABEL[row.status] ?? row.status}
                     </span>
                   </td>
                 </tr>
@@ -411,6 +411,7 @@ export function TeamDbMarketplacePage() {
               onToggleSelect={() => toggleRow(row.id)}
               bulkMode={selectable ? 'buy' : null}
               showSeller={false}
+              compactAmount={tab === 'browse'}
             />
           ))}
         </div>

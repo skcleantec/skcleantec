@@ -225,7 +225,7 @@ export function DbMarketplaceMySalesFilters({
 
         <div className="flex min-w-0 flex-row flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain xl:min-w-0 xl:flex-1 xl:gap-4 [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]">
           <CompactDatePreset
-            label="판매"
+            label="공유"
             preset={filters.soldDatePreset}
             month={filters.soldMonth}
             day={filters.soldDay}

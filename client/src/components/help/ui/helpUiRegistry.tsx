@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { HelpUiTokenId } from '@shared/helpUiTokens';
-import { DbMarketplaceTabBar } from '../../db-marketplace/DbMarketplaceListUi';
+import { DbMarketplaceSideSegment, DbMarketplaceTabBar } from '../../db-marketplace/DbMarketplaceListUi';
 import {
   DbMarketplaceBuyBulkButton,
   DbMarketplaceCartAddButton,
@@ -47,12 +47,16 @@ import {
   UserRegisterTabBar,
 } from '../../team-leaders/teamLeadersUiParts';
 
+const DB_SIDE_OPTIONS = [
+  { id: 'share', shortLabel: '공유', longLabel: '내가 공유하는 접수' },
+  { id: 'receive', shortLabel: '받기', longLabel: '받을 수 있는 접수' },
+] as const;
+
 const DB_TAB_OPTIONS = [
-  { id: 'cart', label: '장바구니' },
-  { id: 'browse', label: '구매 가능' },
-  { id: 'my_sales', label: '내 판매' },
-  { id: 'pending', label: '진행 중' },
-  { id: 'confirmed', label: '확정 완료' },
+  { id: 'draft', shortLabel: '준비', longLabel: '공유 준비' },
+  { id: 'open', shortLabel: '공유중', longLabel: '공유 중' },
+  { id: 'pending', shortLabel: '대기', longLabel: '인계 대기' },
+  { id: 'done', shortLabel: '완료', longLabel: '인계 완료' },
 ] as const;
 
 function previewProps(disabled = true) {
@@ -145,8 +149,9 @@ export const HELP_UI_REGISTRY: Record<HelpUiTokenId, () => ReactNode> = {
   ),
   'db-tabs': () => (
     <HelpUiShell block>
-      <div className="w-full max-w-xl">
-        <DbMarketplaceTabBar options={[...DB_TAB_OPTIONS]} active="cart" onChange={() => {}} />
+      <div className="w-full max-w-xl space-y-2">
+        <DbMarketplaceSideSegment options={[...DB_SIDE_OPTIONS]} active="share" onChange={() => {}} />
+        <DbMarketplaceTabBar options={[...DB_TAB_OPTIONS]} active="draft" onChange={() => {}} />
       </div>
     </HelpUiShell>
   ),

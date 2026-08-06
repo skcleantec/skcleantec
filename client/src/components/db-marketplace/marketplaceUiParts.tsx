@@ -3,10 +3,10 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 type BtnProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & { children?: ReactNode };
 
 export const MARKETPLACE_STATUS_LABEL: Record<string, string> = {
-  DRAFT: '장바구니',
-  OPEN: '게시 중',
-  PENDING_SELLER: '인계 대기',
-  CONFIRMED: '확정 완료',
+  DRAFT: '준비',
+  OPEN: '공유중',
+  PENDING_SELLER: '인계대기',
+  CONFIRMED: '완료',
   WITHDRAWN: '철회',
   EXPIRED: '만료',
 };
@@ -70,8 +70,8 @@ export const marketplaceRevertToCartButtonClass =
 export function DbMarketplacePublishBulkButton(props: BtnProps) {
   return (
     <MarketplaceActionButton className={marketplacePublishBulkButtonClass} {...props}>
-      <span className="sm:hidden">노출 지정 · 게시</span>
-      <span className="hidden sm:inline">노출 업체 지정 · 게시하기</span>
+      <span className="sm:hidden">게시</span>
+      <span className="hidden sm:inline">공유 게시</span>
     </MarketplaceActionButton>
   );
 }
@@ -87,7 +87,8 @@ export function DbMarketplaceRevertBulkButton(props: BtnProps) {
 export function DbMarketplaceBuyBulkButton(props: BtnProps) {
   return (
     <MarketplaceActionButton className={marketplaceBuyBulkButtonClass} {...props}>
-      갖고가기
+      <span className="sm:hidden">인수</span>
+      <span className="hidden sm:inline">인수 신청</span>
     </MarketplaceActionButton>
   );
 }
@@ -103,7 +104,8 @@ export function DbMarketplaceBuyerDeclineBulkButton(props: BtnProps) {
 export function DbMarketplaceConfirmBulkButton(props: BtnProps) {
   return (
     <MarketplaceActionButton className={marketplaceConfirmBulkButtonClass} {...props}>
-      인계 확정
+      <span className="sm:hidden">인계</span>
+      <span className="hidden sm:inline">인계 확정</span>
     </MarketplaceActionButton>
   );
 }
@@ -111,7 +113,8 @@ export function DbMarketplaceConfirmBulkButton(props: BtnProps) {
 export function DbMarketplaceDeclineBulkButton(props: BtnProps) {
   return (
     <MarketplaceActionButton className={marketplaceDeclineBulkButtonClass} {...props}>
-      구매 신청 거절
+      <span className="sm:hidden">거절</span>
+      <span className="hidden sm:inline">신청 거절</span>
     </MarketplaceActionButton>
   );
 }
@@ -119,8 +122,8 @@ export function DbMarketplaceDeclineBulkButton(props: BtnProps) {
 export function DbMarketplaceCartAddButton(props: BtnProps) {
   return (
     <MarketplaceActionButton className={marketplaceCartAddButtonClass} {...props}>
-      <span className="sm:hidden">담기</span>
-      <span className="hidden sm:inline">장바구니 담기</span>
+      <span className="sm:hidden">준비</span>
+      <span className="hidden sm:inline">공유 준비</span>
     </MarketplaceActionButton>
   );
 }
@@ -128,7 +131,8 @@ export function DbMarketplaceCartAddButton(props: BtnProps) {
 export function DbMarketplaceRevertToCartButton(props: BtnProps) {
   return (
     <MarketplaceActionButton className={marketplaceRevertToCartButtonClass} {...props}>
-      장바구니로 되돌리기
+      <span className="sm:hidden">준비로</span>
+      <span className="hidden sm:inline">공유 준비로</span>
     </MarketplaceActionButton>
   );
 }

@@ -166,7 +166,7 @@ const SCHEDULE_UNASSIGNED_SECTION_HELP =
   '팀장이 아직 배정되지 않은 자사 접수입니다. 사이청소·일반 접수 모두 오전·오후 확정(또는 희망 시간대)에 따라 미배정 오전/오후/사이·미확정으로 나뉩니다. 팀장 배정 후에는 아래 오전·오후·사이 일정 구역으로 이동합니다.';
 
 const SCHEDULE_MARKETPLACE_SECTION_HELP =
-  '정보공유(장바구니·게시·인계)에 올린 자사 접수입니다. 팀장 미배정·자사 TO 집계에서는 제외되지만, 스케줄에서 확인·관리할 수 있습니다. 카드의 장바구니 아이콘에 마우스를 올리면 현재 단계가 표시됩니다.';
+  '정보공유(준비·공유·인계)에 올린 자사 접수입니다. 팀장 미배정·자사 TO 집계에서는 제외되지만, 스케줄에서 확인·관리할 수 있습니다. 카드 아이콘에 마우스를 올리면 현재 단계가 표시됩니다.';
 
 function groupScheduleItemsByKstDate(items: ScheduleItem[]) {
   return items.reduce<Record<string, ScheduleItem[]>>((acc, item) => {
@@ -275,7 +275,7 @@ function inquiryCountsAsOwnTeamAssignment(item: ScheduleItem): boolean {
   );
 }
 
-/** 정보공유(장바구니~확정) 자사 접수 — 타업체·파트너 구역과 겹치지 않는 건만 별도 표시 */
+/** 정보공유(준비~인계 완료) 자사 접수 — 타업체·파트너 구역과 겹치지 않는 건만 별도 표시 */
 function inquiryCountsAsDbMarketplaceOwnSchedule(item: ScheduleItem): boolean {
   return (
     inquiryHasDbMarketplaceListing(item) &&
@@ -1421,6 +1421,22 @@ export function AdminSchedulePage() {
     [patchCustomCalendarSearch],
   );
 
+  const selectCustomCalendarTab = useCallback(
+    (cal: UserCustomCalendarItem | null) => {
+      if (!cal) {
+        patchCustomCalendarSearch({ regionId: null, companyId: null, partnerId: null });
+        return;
+      }
+      const row = customCalendarTabRow(cal);
+      patchCustomCalendarSearch({
+        regionId: row === 'region' ? cal.id : null,
+        companyId: row === 'company' ? cal.id : null,
+        partnerId: row === 'partner' ? cal.id : null,
+      });
+    },
+    [patchCustomCalendarSearch],
+  );
+
   const filteredItems = useMemo(
     () =>
       filterItemsByCustomCalendars(
@@ -1947,54 +1963,52 @@ export function AdminSchedulePage() {
             </button>
           </div>
 
-          {/* 달력 탭 */}
-          {customCalendars.length > 0 ? (
-            <div className="flex items-end overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden border-b border-slate-300 pt-2 px-1 gap-1 lg:mb-[-0.5rem]">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveRegionCalendarId(null);
-                  setActiveCompanyCalendarId(null);
-                  setActivePartnerCalendarId(null);
-                }}
-                className={`shrink-0 rounded-t-lg border px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-fluid-sm font-medium transition-colors whitespace-nowrap ${
-                  !activeRegionCalendar && !activeCompanyCalendar && !activePartnerCalendar
-                    ? 'bg-white border-slate-300 border-b-0 text-slate-900 relative top-[1px] pb-[7px]'
-                    : 'bg-slate-100 border-slate-200 border-b-slate-300 text-slate-500 hover:bg-slate-50'
-                }`}
-              >
-                <span className="sm:hidden">전체</span>
-                <span className="hidden sm:inline">전체 캘린더</span>
-              </button>
-              {customCalendars.map((cal) => {
-                const isActive =
-                  activeRegionCalendarId === cal.id ||
-                  activeCompanyCalendarId === cal.id ||
-                  activePartnerCalendarId === cal.id;
-                const tokens = customCalendarColorTokens[cal.color as CustomCalendarColorKey] || customCalendarColorTokens.slate;
-                return (
-                  <button
-                    key={cal.id}
-                    type="button"
-                    onClick={() => {
-                      const row = customCalendarTabRow(cal);
-                      setActiveRegionCalendarId(row === 'region' ? cal.id : null);
-                      setActiveCompanyCalendarId(row === 'company' ? cal.id : null);
-                      setActivePartnerCalendarId(row === 'partner' ? cal.id : null);
-                    }}
-                    className={`shrink-0 rounded-t-lg border px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-fluid-sm font-medium transition-colors whitespace-nowrap ${
-                      isActive
-                        ? `${tokens.tabActive} border-b-0 relative top-[1px] pb-[7px]`
-                        : `${tokens.tabIdle} border-b-slate-300`
-                    }`}
-                  >
-                    <span className="sm:hidden">{cal.name.length > 2 ? cal.name.slice(0, 2) : cal.name}</span>
-                    <span className="hidden sm:inline">{cal.name.length > 4 ? cal.name.slice(0, 4) : cal.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
+          {/* 캘린더 + 탭 (통합 카드) */}
+          <div
+            className={
+              customCalendars.length > 0
+                ? 'overflow-hidden rounded-xl border border-slate-200 shadow-sm'
+                : undefined
+            }
+          >
+            {customCalendars.length > 0 ? (
+              <div className="flex items-end overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden bg-slate-100 px-1 pt-1 gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => selectCustomCalendarTab(null)}
+                  className={`shrink-0 rounded-t-md border px-1.5 sm:px-2 py-0.5 text-[10px] font-medium leading-tight transition-colors whitespace-nowrap ${
+                    !activeRegionCalendar && !activeCompanyCalendar && !activePartnerCalendar
+                      ? 'relative z-10 -mb-px border-slate-200 border-b-white bg-white text-slate-900'
+                      : 'border-transparent border-b-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  전체
+                </button>
+                {customCalendars.map((cal) => {
+                  const isActive =
+                    activeRegionCalendarId === cal.id ||
+                    activeCompanyCalendarId === cal.id ||
+                    activePartnerCalendarId === cal.id;
+                  const tokens = customCalendarColorTokens(cal.colorKey);
+                  return (
+                    <button
+                      key={cal.id}
+                      type="button"
+                      title={cal.name}
+                      onClick={() => selectCustomCalendarTab(cal)}
+                      className={`shrink-0 rounded-t-md border px-1.5 sm:px-2 py-0.5 text-[10px] font-medium leading-tight transition-colors whitespace-nowrap ${
+                        isActive
+                          ? `${tokens.tabActive} relative z-10 -mb-px border-b-transparent`
+                          : `${tokens.tabIdle} border-transparent border-b-slate-200`
+                      }`}
+                    >
+                      <span className="sm:hidden">{cal.name.length > 2 ? cal.name.slice(0, 2) : cal.name}</span>
+                      <span className="hidden sm:inline">{cal.name.length > 4 ? cal.name.slice(0, 4) : cal.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
 
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
           <div className="relative">
@@ -2007,9 +2021,9 @@ export function AdminSchedulePage() {
               </div>
             ) : null}
             <div
-              className={`rounded-xl border border-slate-200 bg-slate-200/90 p-px shadow-sm overflow-hidden max-lg:[touch-action:pan-y] ${
-                loading && items.length > 0 ? 'opacity-70 pointer-events-none' : ''
-              }`}
+              className={`bg-slate-200/90 p-px overflow-hidden max-lg:[touch-action:pan-y] ${
+                customCalendars.length > 0 ? '' : 'rounded-xl border border-slate-200 shadow-sm'
+              } ${loading && items.length > 0 ? 'opacity-70 pointer-events-none' : ''}`}
             onTouchStart={onCalendarSwipeTouchStart}
             onTouchEnd={onCalendarSwipeTouchEnd}
             onTouchCancel={() => {
@@ -2328,6 +2342,7 @@ export function AdminSchedulePage() {
                 );
               })}
             </div>
+          </div>
           </div>
           </div>
 

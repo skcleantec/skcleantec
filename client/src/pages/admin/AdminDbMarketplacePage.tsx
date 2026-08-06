@@ -15,7 +15,6 @@ import {
   listDbMarketplaceAudienceOptions,
   type DbMarketplaceAudienceInput,
   type DbMarketplaceOfferMode,
-  type DbMarketplaceListTab,
   type DbMarketplaceMaskedItem,
 } from '../../api/dbMarketplace';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
@@ -27,6 +26,9 @@ import {
   DbMarketplaceBulkActionBar,
   DbMarketplaceRowCard,
   DbMarketplaceTabBar,
+  DbMarketplaceSideSegment,
+  DbMarketplaceHintBanner,
+  DbMarketplaceLegalNotice,
   MarketplaceTableCheckboxCol,
   MarketplaceBulkSelectCheckbox,
   DbMarketplaceMobilePageSelectBar,
@@ -41,6 +43,8 @@ import {
   DbMarketplacePublishBulkButton,
   DbMarketplaceRevertBulkButton,
   DbMarketplaceRevertToCartButton,
+  MARKETPLACE_STATUS_CLASS,
+  MARKETPLACE_STATUS_LABEL,
 } from '../../components/db-marketplace/marketplaceUiParts';
 import {
   DbMarketplaceMySalesFilters,
@@ -74,45 +78,20 @@ import {
 import { useInboxRealtime } from '../../hooks/useInboxRealtime';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { DB_MARKETPLACE_BULK_MAX } from '@shared/dbMarketplacePolicy';
-
-const TAB_OPTIONS: { id: DbMarketplaceListTab; label: string }[] = [
-  { id: 'cart', label: '장바구니' },
-  { id: 'available', label: '구매 가능' },
-  { id: 'my_sales', label: '내 판매' },
-  { id: 'pending', label: '진행 중' },
-  { id: 'confirmed', label: '확정 완료' },
-];
-
-const STATUS_LABEL: Record<string, string> = {
-  DRAFT: '장바구니',
-  OPEN: '게시 중',
-  PENDING_SELLER: '인계 대기',
-  CONFIRMED: '확정 완료',
-  WITHDRAWN: '철회',
-  EXPIRED: '만료',
-};
-
-const STATUS_CLASS: Record<string, string> = {
-  DRAFT: 'bg-slate-100 text-slate-700',
-  OPEN: 'bg-sky-100 text-sky-800',
-  PENDING_SELLER: 'bg-amber-100 text-amber-800',
-  CONFIRMED: 'bg-emerald-100 text-emerald-800',
-  WITHDRAWN: 'bg-gray-200 text-gray-600',
-  EXPIRED: 'bg-gray-100 text-gray-700',
-};
-
-function parseAdminTab(raw: string | null): DbMarketplaceListTab {
-  if (raw === 'cart' || raw === 'available' || raw === 'my_sales' || raw === 'pending' || raw === 'confirmed') {
-    return raw;
-  }
-  return 'cart';
-}
-
-const TABS_WITH_LIST_FILTERS: DbMarketplaceListTab[] = ['cart', 'my_sales', 'confirmed'];
-
-function tabUsesListFilters(tab: DbMarketplaceListTab): boolean {
-  return TABS_WITH_LIST_FILTERS.includes(tab);
-}
+import {
+  adminTabUsesListFilters,
+  adminUiTabToApiTab,
+  legacyAdminTabToNav,
+  marketplaceAdminTabsForSide,
+  marketplaceEmptyTitle,
+  marketplaceHintForAdminTab,
+  MARKETPLACE_SIDE_OPTIONS,
+  MARKETPLACE_LEGAL_NOTICE,
+  parseMarketplaceAdminUiTab,
+  parseMarketplaceSide,
+  type MarketplaceAdminUiTab,
+  type MarketplaceSide,
+} from '../../utils/dbMarketplaceNav';
 
 function cleaningSummary(row: DbMarketplaceMaskedItem): string {
   return formatMarketplaceCleaningSummary(row);
@@ -121,15 +100,35 @@ function cleaningSummary(row: DbMarketplaceMaskedItem): string {
 export function AdminDbMarketplacePage() {
   const token = getToken();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = parseAdminTab(searchParams.get('tab'));
+  const nav = useMemo(() => {
+    const legacy = legacyAdminTabToNav(searchParams.get('tab'));
+    if (legacy && !searchParams.get('side')) {
+      return { ...legacy, needsLegacyRedirect: true as const };
+    }
+    const side = parseMarketplaceSide(searchParams.get('side'));
+    const uiTab = parseMarketplaceAdminUiTab(side, searchParams.get('tab'));
+    return { side, uiTab, needsLegacyRedirect: false as const };
+  }, [searchParams]);
+  const { side, uiTab } = nav;
+  const apiTab = adminUiTabToApiTab(side, uiTab);
   const page = parseListPage(searchParams.get('page'));
   const pageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
+
+  useEffect(() => {
+    if (!nav.needsLegacyRedirect) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('side', nav.side);
+    nextParams.set('tab', nav.uiTab);
+    setSearchParams(nextParams, { replace: true });
+  }, [nav, searchParams, setSearchParams]);
 
   const [items, setItems] = useState<DbMarketplaceMaskedItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sellerPendingCount, setSellerPendingCount] = useState(0);
+  const [buyerPendingCount, setBuyerPendingCount] = useState(0);
+  const [draftCount, setDraftCount] = useState(0);
   const [selectedRow, setSelectedRow] = useState<DbMarketplaceMaskedItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -142,32 +141,33 @@ export function AdminDbMarketplacePage() {
   } | null>(null);
 
   const bulkMode: DbMarketplaceBulkMode | null =
-    tab === 'cart'
+    apiTab === 'cart'
       ? 'publish'
-      : tab === 'available'
+      : apiTab === 'available'
         ? 'buy'
-        : tab === 'my_sales'
+        : apiTab === 'share_open'
           ? 'revert_cart'
-          : tab === 'pending'
+          : apiTab === 'pending_out'
             ? 'seller_confirm'
             : null;
   const selectable = bulkMode != null;
-  const showSellerColumn = tab === 'available';
-  const showMySalesMeta = tab === 'my_sales';
-  const showConfirmedMeta = tab === 'confirmed';
-  const showPendingMeta = tab === 'pending';
-  const showListFilters = tabUsesListFilters(tab);
+  const showSellerColumn = apiTab === 'available' || apiTab === 'pending_in' || apiTab === 'confirmed_receive';
+  const showMySalesMeta = apiTab === 'share_open';
+  const showConfirmedMeta = apiTab === 'confirmed_share' || apiTab === 'confirmed_receive';
+  const showPendingMeta = apiTab === 'pending_out' || apiTab === 'pending_in';
+  const showListFilters = adminTabUsesListFilters(apiTab);
+  const compactAmountMobile = side === 'receive';
   const mySalesFilters = useMemo(
     () => parseMySalesFiltersFromSearchParams(searchParams),
     [searchParams],
   );
 
   const displayGroups = useMemo(() => {
-    if (showListFilters && mySalesFilters.groupByCompany && tab !== 'cart') {
+    if (showListFilters && mySalesFilters.groupByCompany && apiTab !== 'cart') {
       return groupMySalesByCompany(items);
     }
     return [{ label: null as string | null, items }];
-  }, [items, showListFilters, mySalesFilters.groupByCompany, tab]);
+  }, [items, showListFilters, mySalesFilters.groupByCompany, apiTab]);
 
   const tableColSpan = useMemo(() => {
     let n = 4;
@@ -203,7 +203,11 @@ export function AdminDbMarketplacePage() {
   const loadNavCounts = useCallback(() => {
     if (!token) return;
     void getDbMarketplaceNavCounts(token)
-      .then(({ sellerPendingCount: count }) => setSellerPendingCount(count))
+      .then(({ sellerPendingCount: seller, buyerPendingCount: buyer, draftCount: draft }) => {
+        setSellerPendingCount(seller);
+        setBuyerPendingCount(buyer);
+        setDraftCount(draft);
+      })
       .catch(() => {});
   }, [token]);
 
@@ -213,7 +217,7 @@ export function AdminDbMarketplacePage() {
       if (!opts?.silent) setLoading(true);
       setError(null);
       void listDbMarketplace(token, {
-        tab,
+        tab: apiTab,
         limit: pageSize,
         offset,
         ...(showListFilters ? mySalesFiltersToApiParams(mySalesFilters) : {}),
@@ -227,7 +231,7 @@ export function AdminDbMarketplacePage() {
           if (!opts?.silent) setLoading(false);
         });
     },
-    [token, tab, pageSize, offset, mySalesFilters],
+    [token, apiTab, pageSize, offset, showListFilters, mySalesFilters],
   );
 
   useEffect(() => {
@@ -240,7 +244,7 @@ export function AdminDbMarketplacePage() {
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [tab, page, pageSize]);
+  }, [apiTab, page, pageSize]);
 
   const openListingId = searchParams.get('openListing')?.trim() ?? '';
 
@@ -270,8 +274,18 @@ export function AdminDbMarketplacePage() {
   const { connected: wsConnected } = useInboxRealtime(token, silentRefresh, Boolean(token));
   useVisibilityInterval(silentRefresh, token && !wsConnected ? 20000 : 0);
 
-  const setTab = (next: DbMarketplaceListTab) => {
+  const setSide = (next: MarketplaceSide) => {
     const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('side', next);
+    const defaultTab: MarketplaceAdminUiTab = next === 'share' ? 'draft' : 'browse';
+    nextParams.set('tab', defaultTab);
+    nextParams.set('page', '1');
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const setUiTab = (next: MarketplaceAdminUiTab) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('side', side);
     nextParams.set('tab', next);
     nextParams.set('page', '1');
     setSearchParams(nextParams, { replace: true });
@@ -296,17 +310,38 @@ export function AdminDbMarketplacePage() {
     setSearchParams(nextParams, { replace: true });
   };
 
-  const tabLabel = useMemo(() => TAB_OPTIONS.find((t) => t.id === tab)?.label ?? '', [tab]);
+  const sideOptionsWithBadges = useMemo(
+    () =>
+      MARKETPLACE_SIDE_OPTIONS.map((opt) => {
+        if (opt.id === 'share') {
+          const badge = draftCount + sellerPendingCount;
+          return badge > 0 ? { ...opt, badge } : opt;
+        }
+        const badge = buyerPendingCount;
+        return badge > 0 ? { ...opt, badge } : opt;
+      }),
+    [draftCount, sellerPendingCount, buyerPendingCount],
+  );
 
   const tabOptionsWithBadges = useMemo(
     () =>
-      TAB_OPTIONS.map((opt) =>
-        opt.id === 'pending' && sellerPendingCount > 0
-          ? { ...opt, badge: sellerPendingCount }
-          : opt,
-      ),
-    [sellerPendingCount],
+      marketplaceAdminTabsForSide(side).map((opt) => {
+        if (side === 'share' && opt.id === 'pending' && sellerPendingCount > 0) {
+          return { ...opt, badge: sellerPendingCount };
+        }
+        if (side === 'receive' && opt.id === 'pending' && buyerPendingCount > 0) {
+          return { ...opt, badge: buyerPendingCount };
+        }
+        if (side === 'share' && opt.id === 'draft' && draftCount > 0) {
+          return { ...opt, badge: draftCount };
+        }
+        return opt;
+      }),
+    [side, sellerPendingCount, buyerPendingCount, draftCount],
   );
+
+  const hintText = marketplaceHintForAdminTab(side, uiTab);
+  const emptyTitle = marketplaceEmptyTitle(side, uiTab);
 
   const refreshAfterChange = useCallback(() => {
     load({ silent: true });
@@ -364,7 +399,7 @@ export function AdminDbMarketplacePage() {
   }) => {
     if (!token || selectedCount === 0) return;
     if (selectedCount > DB_MARKETPLACE_BULK_MAX) {
-      alert(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 게시할 수 있습니다.`);
+      alert(`한 번에 최대 ${DB_MARKETPLACE_BULK_MAX}건까지 공유할 수 있습니다.`);
       return;
     }
     setBulkBusy(true);
@@ -378,14 +413,14 @@ export function AdminDbMarketplacePage() {
       setAudienceModalOpen(false);
       setSelectedIds(new Set());
       setBulkResult({
-        title: '일괄 게시 결과',
-        successLabel: '게시 완료',
+        title: '일괄 공유 결과',
+        successLabel: '공유 완료',
         successCount: result.published.length,
         failed: result.failed,
       });
       refreshAfterChange();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '일괄 게시 실패');
+      alert(e instanceof Error ? e.message : '일괄 공유 실패');
     } finally {
       setBulkBusy(false);
     }
@@ -399,7 +434,7 @@ export function AdminDbMarketplacePage() {
     }
     if (
       !window.confirm(
-        `선택 ${selectedCount}건에 구매를 신청(갖고가기)합니다. 판매자 인계 확정 후 전체 DB가 공개됩니다. 계속할까요?`,
+        `선택 ${selectedCount}건에 인수를 신청합니다. 상대 업체가 인계 확정하면 연락처 등 전체 정보가 공개됩니다. 계속할까요?`,
       )
     ) {
       return;
@@ -409,14 +444,14 @@ export function AdminDbMarketplacePage() {
       const result = await bulkBuyerConfirmDbMarketplace(token, [...selectedIds]);
       setSelectedIds(new Set());
       setBulkResult({
-        title: '일괄 갖고가기 결과',
-        successLabel: '구매 신청 완료',
+        title: '일괄 인수 신청 결과',
+        successLabel: '인수 신청 완료',
         successCount: result.requested.length,
         failed: result.failed,
       });
       refreshAfterChange();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '일괄 갖고가기 실패');
+      alert(e instanceof Error ? e.message : '일괄 인수 신청 실패');
     } finally {
       setBulkBusy(false);
     }
@@ -499,7 +534,7 @@ export function AdminDbMarketplacePage() {
     }
     if (
       !window.confirm(
-        `선택 ${selectedCount}건을 게시에서 장바구니로 되돌립니다. 노출 업체 설정은 유지됩니다. 계속할까요?`,
+        `선택 ${selectedCount}건을 공유 중에서 공유 준비로 되돌립니다. 노출 업체 설정은 유지됩니다. 계속할까요?`,
       )
     ) {
       return;
@@ -509,14 +544,14 @@ export function AdminDbMarketplacePage() {
       const result = await bulkRevertToCartDbMarketplace(token, [...selectedIds]);
       setSelectedIds(new Set());
       setBulkResult({
-        title: '일괄 장바구니 되돌리기 결과',
-        successLabel: '장바구니 이동 완료',
+        title: '일괄 공유 준비 되돌리기 결과',
+        successLabel: '공유 준비 이동 완료',
         successCount: result.reverted.length,
         failed: result.failed,
       });
       refreshAfterChange();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '일괄 장바구니 되돌리기 실패');
+      alert(e instanceof Error ? e.message : '일괄 공유 준비 되돌리기 실패');
     } finally {
       setBulkBusy(false);
     }
@@ -530,7 +565,7 @@ export function AdminDbMarketplacePage() {
     }
     if (
       !window.confirm(
-        `선택 ${selectedCount}건을 구매자에게 인계 확정합니다. 확정 후 취소·환불할 수 없습니다. 계속할까요?`,
+        `선택 ${selectedCount}건을 인수 업체에 인계 확정합니다. 확정 후 취소·환불할 수 없습니다. 계속할까요?`,
       )
     ) {
       return;
@@ -560,7 +595,7 @@ export function AdminDbMarketplacePage() {
       return;
     }
     if (
-      !window.confirm(`선택 ${selectedCount}건의 구매 신청을 거절하고 다시 게시 상태로 되돌릴까요?`)
+      !window.confirm(`선택 ${selectedCount}건의 인수 신청을 거절하고 다시 공유 중 상태로 되돌릴까요?`)
     ) {
       return;
     }
@@ -569,7 +604,7 @@ export function AdminDbMarketplacePage() {
       const result = await bulkSellerDeclineDbMarketplace(token, [...selectedIds]);
       setSelectedIds(new Set());
       setBulkResult({
-        title: '일괄 구매 신청 거절 결과',
+        title: '일괄 인수 신청 거절 결과',
         successLabel: '거절 완료',
         successCount: result.declined.length,
         failed: result.failed,
@@ -582,33 +617,19 @@ export function AdminDbMarketplacePage() {
     }
   };
 
-  const tabDescription = useMemo(() => {
-    switch (tab) {
-      case 'cart':
-        return '장바구니(DRAFT)에 담은 DB를 선택해 노출 업체를 지정하고 한 번에 게시할 수 있습니다. 이미 게시한 건은 「내 판매」 탭에서 확인하세요.';
-      case 'available':
-        return '여러 건을 선택해 한 번에 갖고갈 수 있습니다. 구매 전에는 시·구 주소와 표시금액(잔금−수수료)만 노출됩니다.';
-      case 'my_sales':
-        return '게시 중·인계대기·확정 등 우리 업체가 올린 DB입니다. 관리자가 게시한 건도 모든 마케터가 여기서 볼 수 있습니다.';
-      case 'pending':
-        return '인계 대기(판매) 건을 선택해 일괄 인계 확정 또는 구매 신청 거절할 수 있습니다.';
-      default:
-        return '확정 후 전체 DB가 공개됩니다.';
-    }
-  }, [tab]);
-
   return (
-    <div className={`min-w-0 w-full max-w-full space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
-      <div>
+    <div className={`min-w-0 w-full max-w-full space-y-2 sm:space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
+      <div className="space-y-2">
         <PageTitleWithFavorite label="정보공유">
           <h1 className="text-fluid-lg font-semibold text-slate-900">정보공유</h1>
         </PageTitleWithFavorite>
-        <p className="mt-1 text-fluid-xs text-gray-600">{tabDescription}</p>
+        <DbMarketplaceLegalNotice text={MARKETPLACE_LEGAL_NOTICE} />
+        <DbMarketplaceSideSegment options={sideOptionsWithBadges} active={side} onChange={setSide} />
+        <DbMarketplaceTabBar options={tabOptionsWithBadges} active={uiTab} onChange={setUiTab} />
+        <DbMarketplaceHintBanner text={hintText} />
       </div>
 
-      <DbMarketplaceTabBar options={tabOptionsWithBadges} active={tab} onChange={setTab} />
-
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-gray-200 bg-white p-2 sm:p-4 shadow-sm">
         {showListFilters ? (
           <DbMarketplaceMySalesFilters
             filters={mySalesFilters}
@@ -634,7 +655,7 @@ export function AdminDbMarketplacePage() {
         ) : null}
 
         {!loading && items.length === 0 ? (
-          <p className="mt-6 p-8 text-center text-fluid-sm text-gray-500">{tabLabel} 항목이 없습니다.</p>
+          <p className="mt-6 p-8 text-center text-fluid-sm text-gray-500">{emptyTitle}</p>
         ) : null}
 
         <div className="mt-4 hidden lg:block overflow-x-auto overscroll-x-contain -mx-4 px-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -683,11 +704,11 @@ export function AdminDbMarketplacePage() {
                 <th className="px-2 py-2 text-center">청소 요약</th>
                 <th className="px-2 py-2 text-center">일정</th>
                 <th className="px-2 py-2 text-center">총액</th>
-                <th className="px-2 py-2 text-center">수수료</th>
+                <th className="px-2 py-2 text-center">공유수수료</th>
                 <th className="px-2 py-2 text-center">잔금</th>
                 {showMySalesMeta ? (
                   <>
-                    <th className="px-2 py-2 text-center">판매날짜</th>
+                    <th className="px-2 py-2 text-center">공유일</th>
                     <th className="px-2 py-2 text-center">인계날짜</th>
                     <th className="px-2 py-2 text-center">인계업체</th>
                   </>
@@ -699,7 +720,7 @@ export function AdminDbMarketplacePage() {
                   </>
                 ) : null}
                 {showPendingMeta ? <th className="px-2 py-2 text-center">인계 요청 업체</th> : null}
-                {showSellerColumn ? <th className="px-2 py-2 text-center">판매 업체</th> : null}
+                {showSellerColumn ? <th className="px-2 py-2 text-center">공유 업체</th> : null}
                 <th className="px-2 py-2 text-center">상태</th>
               </tr>
             </thead>
@@ -806,9 +827,9 @@ export function AdminDbMarketplacePage() {
                         ) : null}
                         <td className="px-2 py-2 text-center">
                           <span
-                            className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${STATUS_CLASS[row.status] ?? ''}`}
+                            className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${MARKETPLACE_STATUS_CLASS[row.status] ?? ''}`}
                           >
-                            {STATUS_LABEL[row.status] ?? row.status}
+                            {MARKETPLACE_STATUS_LABEL[row.status] ?? row.status}
                           </span>
                         </td>
                       </tr>
@@ -850,6 +871,7 @@ export function AdminDbMarketplacePage() {
                   showMySalesMeta={showMySalesMeta}
                   showConfirmedMeta={showConfirmedMeta}
                   showPendingMeta={showPendingMeta}
+                  compactAmount={compactAmountMobile}
                 />
               ))}
             </Fragment>
@@ -899,8 +921,8 @@ export function AdminDbMarketplacePage() {
         onClose={() => setAudienceModalOpen(false)}
         busy={bulkBusy}
         title="일괄 노출 대상"
-        description={`선택 ${selectedCount}건에 동일한 노출 업체를 적용한 뒤 게시합니다.`}
-        confirmLabel="게시하기"
+        description={`선택 ${selectedCount}건에 동일한 노출 업체를 적용한 뒤 공유합니다.`}
+        confirmLabel="공유하기"
         onConfirm={runBulkPublish}
       />
 

@@ -137,8 +137,8 @@ function TeamNavLinks({
       <Link
         to={teamTo('/team/db-marketplace?tab=pending')}
         className={drawer ? drawerNavBadgeClass : navBadgeClass}
-        aria-label={`인계 대기 ${marketplacePendingCount}건`}
-        title="인계 대기 — 진행 중 탭"
+        aria-label={`인수 진행 ${marketplacePendingCount}건`}
+        title="인수 진행 — 진행 탭"
         onClick={onNavigate}
       >
         {marketplacePendingCount > 99 ? '99+' : marketplacePendingCount}
@@ -294,8 +294,8 @@ function TeamNavLinks({
             <Link
               to={teamTo('/team/db-marketplace?tab=pending')}
               className={navBadgeClass}
-              aria-label={`인계 대기 ${marketplacePendingCount}건`}
-              title="인계 대기 — 진행 중 탭"
+              aria-label={`인수 진행 ${marketplacePendingCount}건`}
+              title="인수 진행 — 진행 탭"
             >
               {marketplacePendingCount > 99 ? '99+' : marketplacePendingCount}
             </Link>

@@ -5,7 +5,7 @@ import { DbMarketplaceDetailKeyValueTable } from '../db-marketplace/DbMarketplac
 /** 정보공유 상세 — 판매·금액·고객 요약 (구매 전) */
 export function DbMarketplaceListingSummaryCard({ row }: { row: DbMarketplaceListingDetail }) {
   const rows = [
-    { label: '판매 업체', value: row.sellerTenantName },
+    { label: '공유 업체', value: row.sellerTenantName },
     ...marketplaceAmountSummaryRows({
       serviceTotalAmount: row.serviceTotalAmount ?? row.inquiryFull?.serviceTotalAmount,
       serviceDepositAmount: row.serviceDepositAmount ?? row.inquiryFull?.serviceDepositAmount,
@@ -22,7 +22,7 @@ export function DbMarketplaceListingSummaryCard({ row }: { row: DbMarketplaceLis
   ];
 
   if (row.buyerName) {
-    rows.push({ label: '구매 신청', value: row.buyerName });
+    rows.push({ label: '인수 신청', value: row.buyerName });
   }
 
   return <DbMarketplaceDetailKeyValueTable rows={rows} tone="slate" />;

@@ -8,15 +8,15 @@ type Props = {
   dbListing: InquiryDbListingMeta;
   className?: string;
   compact?: boolean;
-  /** 스케줄·목록 — 장바구니 아이콘 + 툴팁(상태) */
+  /** 스케줄·목록 — 정보공유 아이콘 + 툴팁(상태) */
   iconOnly?: boolean;
 };
 
 const STATUS_LABEL: Record<InquiryDbListingMeta['status'], string> = {
-  DRAFT: '정보공유 장바구니',
-  OPEN: '정보공유 게시 중',
-  PENDING_SELLER: '정보공유 인계대기',
-  CONFIRMED: '정보공유 확정',
+  DRAFT: '정보공유 준비',
+  OPEN: '정보공유 공유 중',
+  PENDING_SELLER: '정보공유 인계 대기',
+  CONFIRMED: '정보공유 인계 완료',
   EXPIRED: '정보공유 만료',
 };
 

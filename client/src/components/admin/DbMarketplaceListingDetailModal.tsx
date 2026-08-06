@@ -201,7 +201,7 @@ export function DbMarketplaceListingDetailModal({
   useVisibilityInterval(silentRefresh, token && !wsConnected ? 20000 : 0);
 
   const runBuyerConfirm = async () => {
-    if (!token || !window.confirm('구매신청하시겠습니까? 먼저 신청한 업체가 구매됩니다. 판매자 인계 확정 후 전체 정보가 공개됩니다.')) return;
+    if (!token || !window.confirm('인수를 신청하시겠습니까? 상대 업체가 인계 확정하면 연락처 등 전체 정보가 공개됩니다.')) return;
     setBusy(true);
     try {
       await (apiMode === 'team'
@@ -210,7 +210,7 @@ export function DbMarketplaceListingDetailModal({
       onChanged();
       onClose();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '구매 신청 실패');
+      alert(e instanceof Error ? e.message : '인수 신청 실패');
     } finally {
       setBusy(false);
     }
@@ -222,7 +222,7 @@ export function DbMarketplaceListingDetailModal({
       !token ||
       !window.confirm(
         rank === 3
-          ? '이 DB를 거절할까요? 3순위까지 거절되면 판매자 장바구니로 돌아갑니다.'
+          ? '이 DB를 거절할까요? 3순위까지 거절되면 공유 준비로 돌아갑니다.'
           : '이 DB를 거절할까요?',
       )
     ) {
@@ -243,12 +243,12 @@ export function DbMarketplaceListingDetailModal({
   };
 
   const runSellerConfirm = async () => {
-    if (!token || !window.confirm('구매자에게 DB를 인계 확정할까요? 확정 후 취소·환불할 수 없습니다.')) return;
+    if (!token || !window.confirm('인수 업체에 인계를 확정할까요? 확정 후 취소·환불할 수 없습니다.')) return;
     setBusy(true);
     try {
       const result = await confirmDbMarketplaceSeller(token, row.id);
       if (result.targetInquiryId) {
-        alert(`인계가 완료되었습니다.${result.listing.buyerKind === 'PARTNER_TENANT' ? ' 구매자 접수가 생성되었습니다.' : ''}`);
+        alert(`인계가 완료되었습니다.${result.listing.buyerKind === 'PARTNER_TENANT' ? ' 인수 업체 접수가 생성되었습니다.' : ''}`);
       } else {
         alert('인계가 완료되었습니다.');
       }
@@ -262,7 +262,7 @@ export function DbMarketplaceListingDetailModal({
   };
 
   const runSellerDecline = async () => {
-    if (!token || !window.confirm('구매 신청을 거절하고 다시 게시 상태로 되돌릴까요?')) return;
+    if (!token || !window.confirm('인수 신청을 거절하고 다시 공유 중 상태로 되돌릴까요?')) return;
     setBusy(true);
     try {
       await declineDbMarketplaceSeller(token, row.id);
@@ -297,7 +297,7 @@ export function DbMarketplaceListingDetailModal({
   const runRevertToCart = async () => {
     if (
       !token ||
-      !window.confirm('게시를 중단하고 장바구니로 되돌립니다. 노출 업체 설정은 유지됩니다. 계속할까요?')
+      !window.confirm('공유를 중단하고 공유 준비로 되돌립니다. 노출 업체 설정은 유지됩니다. 계속할까요?')
     ) {
       return;
     }
@@ -307,7 +307,7 @@ export function DbMarketplaceListingDetailModal({
       onChanged();
       onClose();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '장바구니 되돌리기 실패');
+      alert(e instanceof Error ? e.message : '공유 준비 되돌리기 실패');
     } finally {
       setBusy(false);
     }
@@ -384,13 +384,13 @@ export function DbMarketplaceListingDetailModal({
 
           {d.platformSuspended ? (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800">
-              플랫폼에 의해 일시 중지된 건입니다. 구매 신청할 수 없습니다.
+              플랫폼에 의해 일시 중지된 건입니다. 인수 신청할 수 없습니다.
             </p>
           ) : null}
 
           {canBuyerDecline ? (
             <p className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-900">
-              순위 노출 — 현재 {d.currentPriorityRank}순위 구매 후보입니다. 구매하지 않으면 「거절하기」를
+              순위 노출 — 현재 {d.currentPriorityRank}순위 인수 후보입니다. 인수하지 않으면 「거절하기」를
               이용하세요.
             </p>
           ) : null}
@@ -416,12 +416,12 @@ export function DbMarketplaceListingDetailModal({
               {(() => {
                 const linkedLabel = d.targetInquiryId
                   ? linkedInquiryPath
-                    ? `연결 접수 보기${d.role === 'SELLER' ? ' (판매 접수)' : ''}${
+                    ? `연결 접수 보기${d.role === 'SELLER' ? ' (공유 접수)' : ''}${
                         d.inquiryFull?.inquiryNumber ? ` (${d.inquiryFull.inquiryNumber})` : ''
                       }`
                     : null
                   : linkedInquiryPath
-                    ? `판매 접수 보기${
+                    ? `공유 접수 보기${
                         d.inquiryFull?.inquiryNumber ? ` (${d.inquiryFull.inquiryNumber})` : ''
                       }`
                     : null;
@@ -463,7 +463,7 @@ export function DbMarketplaceListingDetailModal({
                 );
               })()}
               <p className="text-[10px] text-emerald-800/80">
-                정보공유 수수료는 인계 확정 시 파트너·타업체 정산에 반영됩니다. 재판매 건은 앞선 판매 수수료가 합산됩니다.
+                정보공유 수수료는 인계 확정 시 파트너·타업체 정산에 반영됩니다. 연쇄 공유 건은 앞선 공유 수수료가 합산됩니다.
               </p>
             </div>
           ) : (
@@ -472,9 +472,9 @@ export function DbMarketplaceListingDetailModal({
 
           {showQna ? (
             <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2">
-              <p className="text-fluid-xs font-semibold text-slate-900">구매 전 문의</p>
+              <p className="text-fluid-xs font-semibold text-slate-900">인수 전 문의</p>
               <p className="text-[10px] text-gray-500 leading-relaxed">
-                전화·이메일·주소 전체 등 연락처는 적지 마세요. 갖고가기 전 질문·답변만 남겨 주세요.
+                전화·이메일·주소 전체 등 연락처는 적지 마세요. 인수 신청 전 질문·답변만 남겨 주세요.
               </p>
               {messagesLoading && messages.length === 0 ? (
                 <p className="text-[11px] text-gray-500">문의 불러오는 중…</p>
@@ -484,7 +484,7 @@ export function DbMarketplaceListingDetailModal({
                 {messages.map((m) => (
                   <div key={m.id} className="text-[11px]">
                     <p className="font-medium text-slate-800">
-                      {m.authorRole === 'SELLER' ? '판매' : '구매'} · {m.authorName}
+                      {m.authorRole === 'SELLER' ? '공유' : '인수'} · {m.authorName}
                       <span className="ml-2 font-normal text-gray-400">
                         {new Date(m.createdAt).toLocaleString('ko-KR')}
                       </span>
@@ -531,7 +531,7 @@ export function DbMarketplaceListingDetailModal({
                   onClick={() => void runBuyerConfirm()}
                   className="min-h-[2.75rem] w-full rounded-lg bg-violet-700 px-4 py-2 text-fluid-xs font-medium text-white hover:bg-violet-800 disabled:opacity-50 sm:w-auto sm:min-h-0"
                 >
-                  구매신청
+                  인수 신청
                 </button>
                 {canBuyerDecline ? (
                   <button
@@ -561,7 +561,7 @@ export function DbMarketplaceListingDetailModal({
                   onClick={() => void runSellerDecline()}
                   className="min-h-[2.75rem] w-full rounded-lg border border-amber-300 px-4 py-2 text-fluid-xs font-medium text-amber-900 hover:bg-amber-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
                 >
-                  구매 신청 거절
+                  인수 신청 거절
                 </button>
               </>
             ) : null}
@@ -582,7 +582,7 @@ export function DbMarketplaceListingDetailModal({
                 onClick={() => void runRevertToCart()}
                 className="min-h-[2.75rem] w-full rounded-lg border border-violet-300 px-4 py-2 text-fluid-xs font-medium text-violet-900 hover:bg-violet-50 disabled:opacity-50 sm:w-auto sm:min-h-0"
               >
-                장바구니로 되돌리기
+                공유 준비로 되돌리기
               </button>
             ) : null}
             <button

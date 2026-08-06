@@ -30,7 +30,9 @@ function mapError(res: import('express').Response, e: unknown): boolean {
 }
 
 function parseExternalTab(raw: unknown): DbMarketplaceListTab {
-  if (raw === 'pending' || raw === 'confirmed') return raw;
+  if (raw === 'pending' || raw === 'pending_in') return 'pending_in';
+  if (raw === 'confirmed' || raw === 'confirmed_receive') return 'confirmed_receive';
+  if (raw === 'browse') return 'available';
   return 'available';
 }
 

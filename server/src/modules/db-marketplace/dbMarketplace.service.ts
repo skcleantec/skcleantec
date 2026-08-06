@@ -76,10 +76,33 @@ const LISTING_INCLUDE = {
   buyerExternalCompany: { select: { id: true, name: true } },
 } as const;
 
-export type DbMarketplaceListTab = 'available' | 'cart' | 'my_sales' | 'pending' | 'confirmed';
+export type DbMarketplaceListTab =
+  | 'available'
+  | 'cart'
+  | 'my_sales'
+  | 'share_open'
+  | 'pending'
+  | 'pending_out'
+  | 'pending_in'
+  | 'confirmed'
+  | 'confirmed_share'
+  | 'confirmed_receive';
 
 function parseTab(raw: unknown): DbMarketplaceListTab {
-  if (raw === 'cart' || raw === 'my_sales' || raw === 'pending' || raw === 'confirmed') return raw;
+  if (
+    raw === 'cart' ||
+    raw === 'my_sales' ||
+    raw === 'share_open' ||
+    raw === 'pending' ||
+    raw === 'pending_out' ||
+    raw === 'pending_in' ||
+    raw === 'confirmed' ||
+    raw === 'confirmed_share' ||
+    raw === 'confirmed_receive'
+  ) {
+    return raw;
+  }
+  if (raw === 'available') return 'available';
   return 'available';
 }
 
@@ -769,8 +792,10 @@ function buildExternalPartnerListWhere(
   ];
   switch (tab) {
     case 'pending':
+    case 'pending_in':
       return { tenantId, status: 'PENDING_SELLER', buyerExternalCompanyId: externalCompanyId };
     case 'confirmed':
+    case 'confirmed_receive':
       return { tenantId, status: 'CONFIRMED', buyerExternalCompanyId: externalCompanyId };
     case 'available':
     default:
@@ -789,8 +814,14 @@ function buildListWhere(
   switch (tab) {
     case 'cart':
       return { tenantId, status: 'DRAFT' };
+    case 'share_open':
+      return { tenantId, status: 'OPEN' };
     case 'my_sales':
       return { tenantId, status: { not: 'DRAFT' } };
+    case 'pending_out':
+      return { tenantId, status: 'PENDING_SELLER' };
+    case 'pending_in':
+      return { buyerTenantId: tenantId, status: 'PENDING_SELLER' };
     case 'pending':
       return {
         OR: [
@@ -798,6 +829,10 @@ function buildListWhere(
           { buyerTenantId: tenantId, status: 'PENDING_SELLER' },
         ],
       };
+    case 'confirmed_share':
+      return { tenantId, status: 'CONFIRMED' };
+    case 'confirmed_receive':
+      return { buyerTenantId: tenantId, status: 'CONFIRMED' };
     case 'confirmed':
       return {
         OR: [
@@ -852,17 +887,33 @@ export async function listDbMarketplaceListings(
   let where: Prisma.InquiryDbListingWhereInput;
 
   if (opts?.viewerExternalCompanyId) {
-    if (tab === 'my_sales' || tab === 'cart') {
+    if (
+      tab === 'my_sales' ||
+      tab === 'cart' ||
+      tab === 'share_open' ||
+      tab === 'pending_out' ||
+      tab === 'confirmed_share'
+    ) {
       return { items: [], total: 0, limit, offset };
     }
     where = buildExternalPartnerListWhere(tenantId, tab, opts.viewerExternalCompanyId);
   } else {
     where = buildListWhere(tenantId, tab);
     if (
-      (tab === 'my_sales' || tab === 'cart' || tab === 'confirmed') &&
+      (tab === 'my_sales' ||
+        tab === 'cart' ||
+        tab === 'confirmed' ||
+        tab === 'share_open' ||
+        tab === 'confirmed_share') &&
       opts?.filters
     ) {
-      where = applyDbMarketplaceListFilters(where, opts.filters, tab);
+      const filterTab =
+        tab === 'cart'
+          ? ('cart' as const)
+          : tab === 'confirmed' || tab === 'confirmed_share'
+            ? ('confirmed' as const)
+            : ('my_sales' as const);
+      where = applyDbMarketplaceListFilters(where, opts.filters, filterTab);
     }
   }
 

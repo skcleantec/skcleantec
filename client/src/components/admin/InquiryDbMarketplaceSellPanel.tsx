@@ -16,7 +16,7 @@ import {
   type DbMarketplaceOfferMode,
   type DbMarketplaceSellerListing,
 } from '../../api/dbMarketplace';
-import { DbMarketplaceCartAddButton } from '../db-marketplace/marketplaceUiParts';
+import { DbMarketplaceCartAddButton, MARKETPLACE_STATUS_LABEL } from '../db-marketplace/marketplaceUiParts';
 import { computeMarketplaceFeeAmounts, parseListingFeeInput } from '@shared/dbMarketplaceAmount';
 import { DbMarketplaceAmountSummaryBlock, DbMarketplaceResaleFeeBreakdown } from '../db-marketplace/DbMarketplaceAmountSummary';
 import { DbMarketplaceAudiencePickerModal } from './DbMarketplaceAudiencePickerModal';
@@ -38,17 +38,14 @@ type Props = {
   disabled?: boolean;
   /** 파트너 직접 연계 폼 → 정보공유 등록 시 1회 적용 */
   exchangePrefill?: DbMarketplaceExchangePrefill | null;
-  /** 장바구니·게시·확정 등 listing 변경 후 스케줄 목록·상세 갱신 */
+  /** 공유 준비·게시·확정 등 listing 변경 후 스케줄 목록·상세 갱신 */
   onListingChange?: () => void | Promise<void>;
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  DRAFT: '장바구니',
-  OPEN: '게시 중',
-  PENDING_SELLER: '구매자 확정 · 인계 대기',
-  CONFIRMED: '확정 완료',
-  WITHDRAWN: '철회됨',
-  EXPIRED: '만료',
+  ...MARKETPLACE_STATUS_LABEL,
+  PENDING_SELLER: '인수 확인 · 인계 대기',
+  CONFIRMED: '인계 완료',
 };
 
 function priorityKeysFromAudiences(
@@ -191,7 +188,7 @@ export function InquiryDbMarketplaceSellPanel({
       const row = await upsertDbMarketplaceDraft(token, inquiryId, fee);
       setListing(row);
       await notifyListingChange();
-      alert('판매 장바구니에 담았습니다.');
+      alert('공유 준비에 저장했습니다.');
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장 실패');
     } finally {
@@ -238,7 +235,7 @@ export function InquiryDbMarketplaceSellPanel({
 
   const publish = async () => {
     if (!token || !listing) return;
-    if (!window.confirm('정보공유 마켓에 게시할까요?')) return;
+    if (!window.confirm('정보공유에 공유할까요?')) return;
     setBusy(true);
     try {
       const row = await publishDbMarketplaceListing(token, listing.id);
@@ -253,7 +250,7 @@ export function InquiryDbMarketplaceSellPanel({
 
   const withdraw = async () => {
     if (!token || !listing) return;
-    if (!window.confirm('게시를 철회할까요?')) return;
+    if (!window.confirm('공유를 철회할까요?')) return;
     setBusy(true);
     try {
       const row = await withdrawDbMarketplaceListing(token, listing.id);
@@ -267,7 +264,7 @@ export function InquiryDbMarketplaceSellPanel({
 
   const sellerConfirm = async () => {
     if (!token || !listing) return;
-    if (!window.confirm('구매자에게 DB 인계를 확정할까요?')) return;
+    if (!window.confirm('인수 업체에 인계를 확정할까요?')) return;
     setBusy(true);
     try {
       const result = await confirmDbMarketplaceSeller(token, listing.id);
@@ -283,12 +280,12 @@ export function InquiryDbMarketplaceSellPanel({
 
   const sellerDecline = async () => {
     if (!token || !listing) return;
-    if (!window.confirm('구매 신청을 거절하고 다시 게시 상태로 되돌릴까요?')) return;
+    if (!window.confirm('인수 신청을 거절하고 다시 공유 중 상태로 되돌릴까요?')) return;
     setBusy(true);
     try {
       const updated = await declineDbMarketplaceSeller(token, listing.id);
       setListing(updated);
-      alert('구매 신청을 거절했습니다. 다시 게시 중입니다.');
+      alert('인수 신청을 거절했습니다. 다시 공유 중입니다.');
     } catch (e) {
       alert(e instanceof Error ? e.message : '거절 실패');
     } finally {
@@ -298,7 +295,7 @@ export function InquiryDbMarketplaceSellPanel({
 
   const completeRecall = async (password: string) => {
     if (!token || !listing) {
-      throw new Error('세션이 만료되었거나 판매 정보를 찾을 수 없습니다.');
+      throw new Error('세션이 만료되었거나 공유 정보를 찾을 수 없습니다.');
     }
     const result = await completeRecallDbMarketplaceListing(token, listing.id, password);
     setListing(null);
@@ -315,14 +312,14 @@ export function InquiryDbMarketplaceSellPanel({
 
   const cartRecall = async (password: string) => {
     if (!token || !listing) {
-      throw new Error('세션이 만료되었거나 판매 정보를 찾을 수 없습니다.');
+      throw new Error('세션이 만료되었거나 공유 정보를 찾을 수 없습니다.');
     }
     await cartRecallDbMarketplaceListing(token, listing.id, password);
     const refreshed = await getDbListingByInquiry(token, inquiryId);
     setListing(refreshed);
     void notifyListingChange();
     window.setTimeout(() => {
-      alert('장바구니 회수했습니다. 다시 게시할 수 있습니다.');
+      alert('공유 준비로 되돌렸습니다. 다시 공유할 수 있습니다.');
     }, 0);
   };
 
@@ -350,13 +347,13 @@ export function InquiryDbMarketplaceSellPanel({
     <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-2 space-y-1.5 sm:rounded-xl sm:p-3 sm:space-y-2">
       <div className="flex items-center gap-1">
         <p className="text-[10px] font-semibold leading-tight text-violet-900 sm:text-xs">
-          <span className="sm:hidden">DB 마켓 판매</span>
-          <span className="hidden sm:inline">정보공유(DB 마켓) 판매</span>
+          <span className="sm:hidden">정보공유</span>
+          <span className="hidden sm:inline">정보공유 — 공유 등록</span>
         </p>
         <HelpTooltip
           text={
-            '파트너·타업체가 선택해 가져갈 수 있도록 게시합니다. 구매자에게는 총액·예약금·수수료·잔금이 각각 표시됩니다.\n' +
-            '재판매 시 앞선 판매 수수료는 자동 합산됩니다. 「이번 판매 수수료」에는 본인이 추가로 받을 금액만 입력하세요.\n' +
+            '파트너·타업체가 인수할 수 있도록 공유합니다. 인수 업체에는 총액·예약금·수수료·잔금이 각각 표시됩니다.\n' +
+            '재공유 시 앞선 공유 수수료는 자동 합산됩니다. 「이번 공유 수수료」에는 본인이 추가로 받을 금액만 입력하세요.\n' +
             '파트너 직접 연계와 별도입니다. 인계 확정 시 정산에 반영됩니다.'
           }
         />
@@ -393,7 +390,7 @@ export function InquiryDbMarketplaceSellPanel({
 
       {listing?.platformSuspendedAt ? (
         <p className={`${panelMetaText} font-medium text-red-700`}>
-          플랫폼에 의해 일시 중지되었습니다. 구매 신청이 차단됩니다.
+          플랫폼에 의해 일시 중지되었습니다. 인수 신청이 차단됩니다.
         </p>
       ) : null}
 
@@ -407,17 +404,17 @@ export function InquiryDbMarketplaceSellPanel({
       ) : null}
 
       {listing?.status === 'EXPIRED' ? (
-        <p className={panelMetaText}>게시 기간이 만료되었습니다. 다시 게시할 수 있습니다.</p>
+        <p className={panelMetaText}>공유 기간이 만료되었습니다. 다시 공유할 수 있습니다.</p>
       ) : null}
 
       {listing?.buyerName ? (
         <p className={`${panelMetaText} text-amber-800`}>
-          구매: {listing.buyerName}
+          인수: {listing.buyerName}
           {listing.buyerConfirmedAt ? (
             <span className="sm:hidden"> (확정)</span>
           ) : null}
           {listing.buyerConfirmedAt ? (
-            <span className="hidden sm:inline"> (구매자 확정 완료)</span>
+            <span className="hidden sm:inline"> (인수 신청 완료)</span>
           ) : null}
         </p>
       ) : null}
@@ -425,7 +422,7 @@ export function InquiryDbMarketplaceSellPanel({
       {listing ? (
         <div className="flex flex-wrap gap-x-2 gap-y-0.5 sm:gap-x-3 sm:gap-y-1">
           <Link
-            to={`/admin/db-marketplace?tab=${listing.status === 'DRAFT' ? 'cart' : 'my_sales'}&openListing=${encodeURIComponent(listing.id)}`}
+            to={`/admin/db-marketplace?side=share&tab=${listing.status === 'DRAFT' ? 'draft' : 'open'}&openListing=${encodeURIComponent(listing.id)}`}
             className="inline-block text-[10px] font-medium text-violet-800 underline hover:text-violet-950 sm:text-[11px]"
           >
             <span className="sm:hidden">목록</span>
@@ -458,14 +455,14 @@ export function InquiryDbMarketplaceSellPanel({
             className={`${panelBtn} flex-1 min-w-[6.5rem] border-amber-300 bg-white text-amber-900 hover:bg-amber-50`}
           >
             <span className="sm:hidden">거절</span>
-            <span className="hidden sm:inline">구매 신청 거절</span>
+            <span className="hidden sm:inline">인수 신청 거절</span>
           </button>
         </div>
       ) : null}
 
       {listing?.rootTenantName && (listing.resaleStep ?? listing.hopIndex ?? 0) > 0 ? (
         <p className={`${panelMetaText} text-violet-900`}>
-          최초 업체: {listing.rootTenantName} · {listing.resaleStep ?? listing.hopIndex}번째 재판매
+          최초 업체: {listing.rootTenantName} · {listing.resaleStep ?? listing.hopIndex}번째 재공유
         </p>
       ) : null}
 
@@ -477,7 +474,7 @@ export function InquiryDbMarketplaceSellPanel({
 
       {listing?.offerMode === 'PRIORITY' && listing.status === 'DRAFT' ? (
         <p className={`${panelMetaText} text-amber-900`}>
-          순위 노출 설정됨 — 게시 시 1순위부터 표시됩니다. 현재 순위 업체가 거절하면 다음 순위로 넘어가며, 3순위까지 거절되면 장바구니로
+          순위 노출 설정됨 — 공유 시 1순위부터 표시됩니다. 현재 순위 업체가 거절하면 다음 순위로 넘어가며, 3순위까지 거절되면 공유 준비로
           돌아옵니다.
         </p>
       ) : null}
@@ -486,7 +483,7 @@ export function InquiryDbMarketplaceSellPanel({
         <div className="rounded-md border border-rose-200 bg-rose-50/80 p-2 space-y-1.5 sm:rounded-lg sm:p-2.5 sm:space-y-2">
           <p className={`${panelMetaText} text-rose-950`}>
             인계가 완료된 DB입니다. <strong>완전 회수</strong>는 일반 접수(TO 포함)로,
-            <strong> 장바구니 회수</strong>는 정보공유 장바구니로 돌아갑니다(TO 제외). 하위 재판매가
+            <strong> 공유 준비로 되돌리기</strong>는 정보공유 준비 상태로 돌아갑니다(TO 제외). 하위 재공유가
             있으면 함께 되돌립니다.
           </p>
           <div className="flex flex-col gap-1.5 sm:flex-row">
@@ -504,7 +501,7 @@ export function InquiryDbMarketplaceSellPanel({
               onClick={() => setCartRecallModalOpen(true)}
               className={`${panelBtn} w-full border-violet-400 bg-white text-violet-950 hover:bg-violet-50`}
             >
-              장바구니 회수
+              공유 준비로
             </button>
           </div>
         </div>
@@ -516,7 +513,7 @@ export function InquiryDbMarketplaceSellPanel({
             <label className="mb-0 shrink-0 text-[10px] text-gray-600 sm:mb-1 sm:block sm:text-[11px]">
               <span className="sm:hidden">{isResale ? '이번 수수료' : '수수료'}</span>
               <span className="hidden sm:inline">
-                {isResale ? '이번 판매 수수료 (원)' : '수수료 (원)'}
+                {isResale ? '이번 공유 수수료 (원)' : '수수료 (원)'}
               </span>{' '}
               <span className="text-red-600">*</span>
             </label>
@@ -539,14 +536,14 @@ export function InquiryDbMarketplaceSellPanel({
           ) : null}
           {isResale && !listing?.priorFeesTotal ? (
             <p className={`${panelMetaText} text-amber-800`}>
-              재판매 건입니다. 장바구니 저장 후 앞선 판매 수수료가 자동 반영됩니다.
+              재공유 건입니다. 공유 준비 저장 후 앞선 공유 수수료가 자동 반영됩니다.
             </p>
           ) : null}
           {resaleFeeBreakdown ? (
             <DbMarketplaceResaleFeeBreakdown {...resaleFeeBreakdown} compact />
           ) : null}
           <div className={`rounded-md border border-violet-100 bg-white/80 p-2 ${panelMetaText}`}>
-            <p className="mb-1 font-medium text-violet-900">구매자에게 보이는 금액</p>
+            <p className="mb-1 font-medium text-violet-900">인수 업체에 보이는 금액</p>
             <DbMarketplaceAmountSummaryBlock
               row={{
                 serviceTotalAmount,
@@ -585,9 +582,9 @@ export function InquiryDbMarketplaceSellPanel({
                     onClick={() => void publish()}
                     className={`${panelBtn} border-transparent bg-slate-900 text-white hover:bg-slate-800`}
                   >
-                    <span className="sm:hidden">게시</span>
+                    <span className="sm:hidden">공유</span>
                     <span className="hidden sm:inline">
-                      {listing.status === 'EXPIRED' ? '다시 게시' : '정보공유 게시'}
+                      {listing.status === 'EXPIRED' ? '다시 공유' : '정보공유 게시'}
                     </span>
                   </button>
                 )}
@@ -599,7 +596,7 @@ export function InquiryDbMarketplaceSellPanel({
                     className={`${panelBtn} border-gray-300 bg-white text-gray-700 hover:bg-gray-50`}
                   >
                     <span className="sm:hidden">철회</span>
-                    <span className="hidden sm:inline">게시 철회</span>
+                    <span className="hidden sm:inline">공유 철회</span>
                   </button>
                 )}
               </>
@@ -632,7 +629,7 @@ export function InquiryDbMarketplaceSellPanel({
               confirmLabel="완전 회수"
               description={
                 <>
-                  구매자 DB가 종료되고 일반 접수로 돌아갑니다. 되돌릴 수 없습니다.
+                  인수 업체 연계가 종료되고 일반 접수로 돌아갑니다. 되돌릴 수 없습니다.
                   <br />
                   정보공유 수수료{' '}
                   <strong>
@@ -646,7 +643,7 @@ export function InquiryDbMarketplaceSellPanel({
                   {listing?.buyerName ? (
                     <>
                       <br />
-                      구매: {listing.buyerName}
+                      인수: {listing.buyerName}
                     </>
                   ) : null}
                 </>
@@ -662,13 +659,13 @@ export function InquiryDbMarketplaceSellPanel({
         ? createPortal(
             <ConfirmPasswordModal
               open={cartRecallModalOpen}
-              title="장바구니 회수 확인"
+              title="공유 준비로 되돌리기 확인"
               zIndexClassName="z-[560]"
-              confirmLabel="장바구니 회수"
+              confirmLabel="공유 준비로"
               description={
                 <>
-                  구매자 연계를 해제하고 이 DB를 정보공유 <strong>장바구니</strong>로 되돌립니다. TO는
-                  소모하지 않습니다. 하위 재판매가 있으면 함께 되돌립니다.
+                  인수 업체 연계를 해제하고 이 DB를 정보공유 <strong>준비</strong> 상태로 되돌립니다. TO는
+                  소모하지 않습니다. 하위 재공유가 있으면 함께 되돌립니다.
                 </>
               }
               onClose={() => setCartRecallModalOpen(false)}
