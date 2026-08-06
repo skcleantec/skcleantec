@@ -4625,7 +4625,7 @@ export function AdminInquiriesPage() {
                         <select
                           value={editForm.preferredTime}
                           onChange={(e) => setEditForm((p) => ({ ...p, preferredTime: e.target.value }))}
-                          className="w-1/2 min-w-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-fluid-sm text-slate-900"
+                          className="w-1/2 min-w-0 rounded border border-gray-300 bg-white px-1 py-0.5 text-fluid-2xs text-slate-900"
                         >
                           <option value="">선택 안 함</option>
                           {timeSlotOptions.map((o) => (
@@ -4635,7 +4635,7 @@ export function AdminInquiriesPage() {
                         <input
                           value={editForm.preferredTimeDetail}
                           onChange={(e) => setEditForm((p) => ({ ...p, preferredTimeDetail: e.target.value }))}
-                          className="w-1/2 min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
+                          className="w-1/2 min-w-0 rounded border border-gray-300 bg-white px-2 py-0.5 text-fluid-2xs text-slate-900"
                           placeholder="구체적 시각 (예: 10:30)"
                         />
                       </div>
@@ -4703,7 +4703,7 @@ export function AdminInquiriesPage() {
                             ...(v === ORDER_BUILDING_TYPE_RESIDING ? { moveInDateUndecided: false } : {}),
                           }));
                         }}
-                        className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
+                        className="w-full min-w-0 rounded border border-gray-300 bg-white px-1 py-0.5 text-fluid-2xs text-slate-900"
                       >
                         <option value="">선택 안 함</option>
                         {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
