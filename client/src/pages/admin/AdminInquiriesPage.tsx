@@ -893,6 +893,7 @@ export function AdminInquiriesPage() {
   /** 상세 API 로드 중 — 목록 행으로 모달을 먼저 띄우지 않음(금액 설정 패널 깜빡임 방지) */
   const [editOpeningId, setEditOpeningId] = useState<string | null>(null);
   const [inquiryEditPreferredCalOpen, setInquiryEditPreferredCalOpen] = useState(false);
+  const [expandedTextarea, setExpandedTextarea] = useState<'specialNotes' | 'memo' | null>(null);
   const [editForm, setEditForm] = useState({
     customerName: '',
     nickname: '',
@@ -4737,14 +4738,23 @@ export function AdminInquiriesPage() {
                     </div>
                   ) : null}
                   <div>
-                    <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">
-                      특이사항 (관리자·팀장 공유)
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-fluid-sm font-semibold text-slate-700">
+                        특이사항 (관리자·팀장 공유)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedTextarea('specialNotes')}
+                        className="text-[12px] font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        크게보기 &rarr;
+                      </button>
+                    </div>
                     <textarea
                       value={editForm.specialNotes}
                       onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
                       rows={2}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-fluid-sm"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-fluid-sm min-h-[3.25rem] resize-y"
                       placeholder="현장·일정 전달, 내부 공유 메모 등 (팀장 화면에도 표시)"
                     />
                   </div>
@@ -5103,12 +5113,21 @@ export function AdminInquiriesPage() {
               </>
               ) : null}
               <div className="sm:col-span-2">
-                <label className="block text-fluid-sm text-slate-600 mb-1">메모 (발주서 요약·관리자 메모)</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-fluid-sm font-semibold text-slate-700">메모 (발주서 요약·관리자 메모)</label>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedTextarea('memo')}
+                    className="text-[12px] font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    크게보기 &rarr;
+                  </button>
+                </div>
                 <textarea
                   value={editForm.memo}
                   onChange={(e) => setEditForm((p) => ({ ...p, memo: e.target.value }))}
                   rows={3}
-                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-fluid-sm min-h-[4.5rem] resize-y"
                   placeholder="접수 메모"
                 />
               </div>
@@ -5179,6 +5198,45 @@ export function AdminInquiriesPage() {
           </div>,
           document.body
         )}
+
+      {expandedTextarea && createPortal(
+        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <h3 className="text-fluid-sm font-semibold text-slate-800">
+                {expandedTextarea === 'specialNotes' ? '특이사항 크게보기' : '메모 크게보기'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setExpandedTextarea(null)}
+                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 flex-1 min-h-0">
+              <textarea
+                value={expandedTextarea === 'specialNotes' ? editForm.specialNotes : editForm.memo}
+                onChange={(e) => setEditForm((p) => ({ ...p, [expandedTextarea]: e.target.value }))}
+                className="h-full min-h-[300px] w-full resize-none rounded-lg border border-slate-300 p-3 text-fluid-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder={expandedTextarea === 'specialNotes' ? "현장·일정 전달, 내부 공유 메모 등 (팀장 화면에도 표시)" : "접수 메모"}
+              />
+            </div>
+            <div className="border-t border-slate-200 px-4 py-3 text-right bg-slate-50 rounded-b-xl">
+              <button
+                type="button"
+                onClick={() => setExpandedTextarea(null)}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-sm font-medium text-white hover:bg-slate-800"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {editOpeningId ? (
         <div
@@ -5368,10 +5426,9 @@ export function AdminInquiriesPage() {
         <ScheduleQuickPasteModal
           open={quickPasteOpen}
           onClose={() => setQuickPasteOpen(false)}
-          onSuccess={(inquiryId) => {
+          onSaved={() => {
             setQuickPasteOpen(false);
-            setEditTargetId(inquiryId);
-            void loadInquiries();
+            refresh(true);
           }}
           token={token}
         />
