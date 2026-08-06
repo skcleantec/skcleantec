@@ -1695,15 +1695,6 @@ export function AdminSchedulePage() {
           <PageTitleWithFavorite label="스케쥴">
             <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
           </PageTitleWithFavorite>
-          {activeRegionCalendar || activeCompanyCalendar || activePartnerCalendar ? (
-            <span className="shrink-0 inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-fluid-2xs font-medium text-indigo-800">
-              {activeRegionCalendar?.name || activeCompanyCalendar?.name || activePartnerCalendar?.name}
-            </span>
-          ) : (
-            <span className="shrink-0 inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-fluid-2xs font-medium text-slate-600">
-              전체 캘린더
-            </span>
-          )}
           <HelpTooltip className="shrink-0" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
         </div>
         <div className="flex flex-wrap items-center gap-1 lg:gap-2 min-w-0 w-full lg:w-auto lg:justify-end">
@@ -1722,11 +1713,6 @@ export function AdminSchedulePage() {
                 스케쥴
               </h1>
             </PageTitleWithFavorite>
-            {activeRegionCalendar || activeCompanyCalendar || activePartnerCalendar ? (
-              <span className="shrink-0 inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
-                {activeRegionCalendar?.name || activeCompanyCalendar?.name || activePartnerCalendar?.name}
-              </span>
-            ) : null}
             <HelpTooltip className="shrink-0 scale-90 origin-left" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
           </div>
             <InquiryQuickPasteTriggerButton
@@ -1960,6 +1946,52 @@ export function AdminSchedulePage() {
               발주서발급
             </button>
           </div>
+
+          {/* 달력 탭 */}
+          {customCalendars.length > 0 ? (
+            <div className="flex items-center overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden gap-1.5 sm:gap-2 pb-1 lg:mb-[-0.5rem]">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveRegionCalendarId(null);
+                  setActiveCompanyCalendarId(null);
+                  setActivePartnerCalendarId(null);
+                }}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-fluid-sm font-medium transition-colors whitespace-nowrap ${
+                  !activeRegionCalendar && !activeCompanyCalendar && !activePartnerCalendar
+                    ? 'bg-slate-800 text-white'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                전체 캘린더
+              </button>
+              {customCalendars.map((cal) => {
+                const isActive =
+                  activeRegionCalendarId === cal.id ||
+                  activeCompanyCalendarId === cal.id ||
+                  activePartnerCalendarId === cal.id;
+                return (
+                  <button
+                    key={cal.id}
+                    type="button"
+                    onClick={() => {
+                      const row = customCalendarTabRow(cal);
+                      setActiveRegionCalendarId(row === 'region' ? cal.id : null);
+                      setActiveCompanyCalendarId(row === 'company' ? cal.id : null);
+                      setActivePartnerCalendarId(row === 'partner' ? cal.id : null);
+                    }}
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-fluid-sm font-medium transition-colors whitespace-nowrap ${
+                      isActive
+                        ? 'bg-slate-800 text-white'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {cal.name}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
           {/* 달력 그리드 — gap-px로 격자선 정리 (모바일: 왼쪽 스와이프 다음 달·오른쪽 전 달) */}
           <div className="relative">
