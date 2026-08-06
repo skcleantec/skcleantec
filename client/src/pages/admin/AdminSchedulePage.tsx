@@ -1949,7 +1949,7 @@ export function AdminSchedulePage() {
 
           {/* 달력 탭 */}
           {customCalendars.length > 0 ? (
-            <div className="flex items-center overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden gap-1.5 sm:gap-2 pb-1 lg:mb-[-0.5rem]">
+            <div className="flex items-end overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden border-b border-slate-300 pt-2 px-1 gap-1 lg:mb-[-0.5rem]">
               <button
                 type="button"
                 onClick={() => {
@@ -1957,19 +1957,21 @@ export function AdminSchedulePage() {
                   setActiveCompanyCalendarId(null);
                   setActivePartnerCalendarId(null);
                 }}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-fluid-sm font-medium transition-colors whitespace-nowrap ${
+                className={`shrink-0 rounded-t-lg border px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-fluid-sm font-medium transition-colors whitespace-nowrap ${
                   !activeRegionCalendar && !activeCompanyCalendar && !activePartnerCalendar
-                    ? 'bg-slate-800 text-white'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ? 'bg-white border-slate-300 border-b-0 text-slate-900 relative top-[1px] pb-[7px]'
+                    : 'bg-slate-100 border-slate-200 border-b-slate-300 text-slate-500 hover:bg-slate-50'
                 }`}
               >
-                전체 캘린더
+                <span className="sm:hidden">전체</span>
+                <span className="hidden sm:inline">전체 캘린더</span>
               </button>
               {customCalendars.map((cal) => {
                 const isActive =
                   activeRegionCalendarId === cal.id ||
                   activeCompanyCalendarId === cal.id ||
                   activePartnerCalendarId === cal.id;
+                const tokens = customCalendarColorTokens[cal.color as CustomCalendarColorKey] || customCalendarColorTokens.slate;
                 return (
                   <button
                     key={cal.id}
@@ -1980,13 +1982,14 @@ export function AdminSchedulePage() {
                       setActiveCompanyCalendarId(row === 'company' ? cal.id : null);
                       setActivePartnerCalendarId(row === 'partner' ? cal.id : null);
                     }}
-                    className={`shrink-0 rounded-full px-3 py-1.5 text-fluid-sm font-medium transition-colors whitespace-nowrap ${
+                    className={`shrink-0 rounded-t-lg border px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-fluid-sm font-medium transition-colors whitespace-nowrap ${
                       isActive
-                        ? 'bg-slate-800 text-white'
-                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        ? `${tokens.tabActive} border-b-0 relative top-[1px] pb-[7px]`
+                        : `${tokens.tabIdle} border-b-slate-300`
                     }`}
                   >
-                    {cal.name}
+                    <span className="sm:hidden">{cal.name.length > 2 ? cal.name.slice(0, 2) : cal.name}</span>
+                    <span className="hidden sm:inline">{cal.name.length > 4 ? cal.name.slice(0, 4) : cal.name}</span>
                   </button>
                 );
               })}
