@@ -2528,7 +2528,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                       emitOnCompleteOnly
                       minYmd={kstTodayYmd()}
                       idPrefix="sched-detail-pref"
-                      className={`flex-1 min-w-0 px-3 py-2 border border-slate-300 rounded-md bg-white text-fluid-sm ${
+                      compact
+                      className={`flex-1 min-w-0 ${
                         isCreate && preferredDateLocked ? 'opacity-90' : ''
                       }`}
                     />
@@ -2636,7 +2637,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     allowEmpty
                     emitOnCompleteOnly
                     idPrefix="sched-detail-move"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-fluid-sm disabled:opacity-50"
+                    compact
+                    className="w-full disabled:opacity-50"
                   />
                 </div>
 

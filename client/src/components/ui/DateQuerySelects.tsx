@@ -74,7 +74,7 @@ export function YearMonthSelect({
   const wrapGap = compact ? 'gap-0.5' : 'gap-1';
 
   return (
-    <div className={`inline-flex flex-wrap items-center ${wrapGap} ${className}`}>
+    <div className={`inline-flex items-center ${wrapGap} ${className}`}>
       <select
         id={`${idPrefix}-y`}
         className={selectCls}
@@ -245,7 +245,7 @@ export function YmdSelect({
   const wrapGap = compact ? 'gap-0.5' : 'gap-1';
 
   return (
-    <div className={`inline-flex flex-wrap items-center ${wrapGap} ${className}`}>
+    <div className={`inline-flex items-center ${wrapGap} ${className}`}>
       <select
         id={`${idPrefix}-y`}
         className={selectCls}

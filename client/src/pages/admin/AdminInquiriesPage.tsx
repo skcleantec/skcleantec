@@ -4613,7 +4613,8 @@ export function AdminInquiriesPage() {
                           allowEmpty
                           emitOnCompleteOnly
                           minYmd={kstTodayYmd()}
-                          className="flex-1 min-w-0 px-3 py-2 border border-slate-300 rounded-md bg-white text-fluid-sm"
+                          compact
+                          className="flex-1 min-w-0"
                         />
                       </div>
                     </div>
@@ -4685,7 +4686,8 @@ export function AdminInquiriesPage() {
                         idPrefix="inq-edit-move"
                         allowEmpty
                         emitOnCompleteOnly
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-fluid-sm disabled:opacity-50"
+                        compact
+                        className="w-full disabled:opacity-50"
                       />
                     </div>
 
