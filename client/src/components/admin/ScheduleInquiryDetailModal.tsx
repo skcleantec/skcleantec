@@ -89,10 +89,13 @@ import {
   allTeamLeadersSolo,
   applyCrewFieldsToInquiryPatch,
   adminCrewPreviewLabel,
-  initCrewMemberLeaderIdsFromInquiry,
   initSoloTeamLeaderIdsFromAssignments,
-  nonSoloLeaderIds,
 } from '../../utils/inquiryNoCrewMembers';
+import {
+  buildLeaderCrewFormFieldsFromInquiry,
+  defaultLeaderCrewSet,
+} from '../../utils/leaderCrewSets';
+import { applyLeaderCrewSetsToEditForm } from './inquiry-edit/InquiryLeaderCrewSetsEditor';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
   effectiveAdminTeamSpecialNotes,
@@ -757,6 +760,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         preferredTimeDetail: '',
         memo: '',
         teamLeaderIds: [''],
+        leaderCrewSets: [defaultLeaderCrewSet()],
         crewMemberCount: 0,
         crewMemberNames: [],
         crewMemberLeaderIds: [],
@@ -790,6 +794,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     const it = props.item;
     const amt = effectiveAmounts(it);
     const notesCtx = { specialNotes: it.specialNotes, orderForm: it.orderForm };
+    const leaderIds = initialTeamLeaderIdsForEdit(it.assignments);
+    const soloIds = initSoloTeamLeaderIdsFromAssignments(it.assignments);
+    const leaderCrew = buildLeaderCrewFormFieldsFromInquiry({
+      teamLeaderIds: leaderIds,
+      soloTeamLeaderIds: soloIds,
+      crewMemberNote: it.crewMemberNote,
+      crewMemberCount: it.crewMemberCount,
+      crewLeaderAssignments: it.crewLeaderAssignments,
+    });
     return {
       customerName: it.customerName,
       nickname: it.nickname || '',
@@ -804,17 +817,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       betweenScheduleSlot: it.betweenScheduleSlot ?? '',
       preferredTimeDetail: it.preferredTimeDetail || '',
       memo: it.memo || '',
-      teamLeaderIds: initialTeamLeaderIdsForEdit(it.assignments),
-      crewMemberCount: it.crewMemberCount ?? 0,
-      crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
-      crewMemberLeaderIds: initCrewMemberLeaderIdsFromInquiry(
-        parseCrewMemberNoteToNames(it.crewMemberNote),
-        it.crewLeaderAssignments,
-        initialTeamLeaderIdsForEdit(it.assignments),
-        initSoloTeamLeaderIdsFromAssignments(it.assignments),
-        undefined,
-      ),
-      soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(it.assignments),
+      ...leaderCrew,
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
       collaborationMarketerId: it.collaborationMarketer?.id ?? '',
@@ -978,9 +981,12 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const leaderOptionsForRow = useMemo(() => {
     return (rowIndex: number) => {
       const ids = assignableLeaderIdsForSlot;
-      const curId = editForm.teamLeaderIds[rowIndex] ?? '';
+      const curId = editForm.leaderCrewSets[rowIndex]?.teamLeaderId ?? '';
       const otherSelected = new Set(
-        editForm.teamLeaderIds.filter((lid, i) => i !== rowIndex && lid.trim() !== '')
+        editForm.leaderCrewSets
+          .filter((_, i) => i !== rowIndex)
+          .map((s) => s.teamLeaderId.trim())
+          .filter(Boolean),
       );
       const bucket = getScheduleTimeBucket({
         preferredTime: editForm.preferredTime || null,
@@ -1023,7 +1029,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   }, [
     assignableTeamLeaders,
     assignableLeaderIdsForSlot,
-    editForm.teamLeaderIds,
+    editForm.leaderCrewSets,
     editForm.preferredTime,
     editForm.betweenScheduleSlot,
     meUser,
@@ -1217,6 +1223,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     omitSpecialNotesIfLegacyUnchangedRef.current =
       effectiveCustomerOrderNotes(notesCtx).trim() !== '' &&
       effectiveAdminTeamSpecialNotes(notesCtx) === '';
+    const leaderIds = initialTeamLeaderIdsForEdit(it.assignments);
+    const soloIds = initSoloTeamLeaderIdsFromAssignments(it.assignments);
+    const leaderCrew = buildLeaderCrewFormFieldsFromInquiry({
+      teamLeaderIds: leaderIds,
+      soloTeamLeaderIds: soloIds,
+      crewMemberNote: it.crewMemberNote,
+      crewMemberCount: it.crewMemberCount,
+      crewLeaderAssignments: it.crewLeaderAssignments,
+    });
     setEditForm({
       customerName: it.customerName,
       nickname: it.nickname || '',
@@ -1231,17 +1246,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       betweenScheduleSlot: it.betweenScheduleSlot ?? '',
       preferredTimeDetail: it.preferredTimeDetail || '',
       memo: it.memo || '',
-      teamLeaderIds: initialTeamLeaderIdsForEdit(it.assignments),
-      crewMemberCount: it.crewMemberCount ?? 0,
-      crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
-      crewMemberLeaderIds: initCrewMemberLeaderIdsFromInquiry(
-        parseCrewMemberNoteToNames(it.crewMemberNote),
-        it.crewLeaderAssignments,
-        initialTeamLeaderIdsForEdit(it.assignments),
-        initSoloTeamLeaderIdsFromAssignments(it.assignments),
-        undefined,
-      ),
-      soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(it.assignments),
+      ...leaderCrew,
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
       collaborationMarketerId: it.collaborationMarketer?.id ?? '',
@@ -1351,10 +1356,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     resolvedExternalLeadId,
   );
 
-  const effectiveCrewSlots = hideCrewInputs ? 0 : Math.max(0, editForm.crewMemberCount);
-
   const canUseCrewPartnerSwap = useMemo(() => {
-    if (isCreate || !item || effectiveCrewSlots <= 0) return false;
+    if (isCreate || !item || editForm.crewMemberCount <= 0) return false;
     if (isBlockedForCrewPartnerSwapStatus(editForm.status)) return false;
     if (!(editForm.preferredDate || '').trim()) return false;
     const lids = resolvedExternalLeadId
@@ -1365,7 +1368,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   }, [
     isCreate,
     item,
-    effectiveCrewSlots,
+    editForm.crewMemberCount,
     editForm.status,
     editForm.preferredDate,
     editForm.teamLeaderIds,
@@ -1580,59 +1583,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     }
   }, [leaderSwapModalOpen, leaderSwapPartnerId, leaderSwapPartnerOptions]);
 
-  useEffect(() => {
-    setEditForm((prev) => {
-      const cur = prev.crewMemberNames;
-      if (effectiveCrewSlots === cur.length) return prev;
-      if (effectiveCrewSlots < cur.length) {
-        return {
-          ...prev,
-          crewMemberNames: cur.slice(0, effectiveCrewSlots),
-          crewMemberLeaderIds: prev.crewMemberLeaderIds.slice(0, effectiveCrewSlots),
-        };
-      }
-      const next = [...cur];
-      while (next.length < effectiveCrewSlots) next.push('');
-      const nonSolo = nonSoloLeaderIds(
-        prev.teamLeaderIds,
-        prev.soloTeamLeaderIds,
-        resolvedExternalLeadId || undefined,
-      );
-      const fallback = nonSolo[0] ?? '';
-      const nextLeaders = [...prev.crewMemberLeaderIds];
-      while (nextLeaders.length < effectiveCrewSlots) nextLeaders.push(fallback);
-      return { ...prev, crewMemberNames: next, crewMemberLeaderIds: nextLeaders };
-    });
-  }, [effectiveCrewSlots, resolvedExternalLeadId]);
-
-  useEffect(() => {
-    setEditForm((prev) => {
-      const nonSolo = nonSoloLeaderIds(
-        prev.teamLeaderIds,
-        prev.soloTeamLeaderIds,
-        resolvedExternalLeadId || undefined,
-      );
-      const fallback = nonSolo[0] ?? '';
-      const next = [...prev.crewMemberLeaderIds];
-      while (next.length < prev.crewMemberNames.length) next.push(fallback);
-      if (next.length > prev.crewMemberNames.length) next.length = prev.crewMemberNames.length;
-      let changed = next.length !== prev.crewMemberLeaderIds.length;
-      for (let i = 0; i < next.length; i++) {
-        if (!nonSolo.includes(next[i] ?? '')) {
-          next[i] = fallback;
-          changed = true;
-        }
-      }
-      if (!changed) return prev;
-      return { ...prev, crewMemberLeaderIds: next };
-    });
-  }, [
-    editForm.teamLeaderIds,
-    editForm.soloTeamLeaderIds,
-    editForm.crewMemberNames.length,
-    resolvedExternalLeadId,
-  ]);
-
   const handleCrewPartnerSwapConfirm = useCallback(async () => {
     if (!token || !item || !crewSwapPartnerId.trim()) return;
     const myOpts = editForm.crewMemberNames.map((x) => x.trim()).filter(Boolean);
@@ -1678,18 +1628,17 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const noteVal = raw.crewMemberNote;
       const noteStr =
         noteVal == null ? '' : typeof noteVal === 'string' ? noteVal : String(noteVal);
-      setEditForm((p) => ({
-        ...p,
-        crewMemberCount: safeCount,
-        crewMemberNames: parseCrewMemberNoteToNames(noteStr),
-        crewMemberLeaderIds: initCrewMemberLeaderIdsFromInquiry(
-          parseCrewMemberNoteToNames(noteStr),
-          (raw as { crewLeaderAssignments?: ScheduleItem['crewLeaderAssignments'] }).crewLeaderAssignments,
-          p.teamLeaderIds,
-          p.soloTeamLeaderIds,
-          resolvedExternalLeadId || undefined,
-        ),
-      }));
+      setEditForm((p) => {
+        const rebuilt = buildLeaderCrewFormFieldsFromInquiry({
+          teamLeaderIds: p.teamLeaderIds,
+          soloTeamLeaderIds: p.soloTeamLeaderIds,
+          crewMemberNote: noteStr,
+          crewMemberCount: safeCount,
+          crewLeaderAssignments: (raw as { crewLeaderAssignments?: ScheduleItem['crewLeaderAssignments'] })
+            .crewLeaderAssignments,
+        });
+        return { ...p, ...rebuilt };
+      });
       setCrewSwapModalOpen(false);
       setCrewSwapPartnerId('');
       await onInquiryRefresh?.();
@@ -1746,18 +1695,19 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         assignments?: ScheduleItem['assignments'];
       };
       const assignments = Array.isArray(raw.assignments) ? raw.assignments : [];
-      setEditForm((p) => ({
-        ...p,
-        teamLeaderIds: initialTeamLeaderIdsForEdit(assignments),
-        soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(assignments),
-        crewMemberLeaderIds: initCrewMemberLeaderIdsFromInquiry(
-          p.crewMemberNames,
-          (raw as { crewLeaderAssignments?: ScheduleItem['crewLeaderAssignments'] }).crewLeaderAssignments,
-          initialTeamLeaderIdsForEdit(assignments),
-          initSoloTeamLeaderIdsFromAssignments(assignments),
-          resolvedExternalLeadId || undefined,
-        ),
-      }));
+      const leaderIds = initialTeamLeaderIdsForEdit(assignments);
+      const soloIds = initSoloTeamLeaderIdsFromAssignments(assignments);
+      setEditForm((p) => {
+        const rebuilt = buildLeaderCrewFormFieldsFromInquiry({
+          teamLeaderIds: leaderIds,
+          soloTeamLeaderIds: soloIds,
+          crewMemberNote: p.crewMemberNames.filter((n) => n.trim()).join('/'),
+          crewMemberCount: p.crewMemberCount,
+          crewLeaderAssignments: (raw as { crewLeaderAssignments?: ScheduleItem['crewLeaderAssignments'] })
+            .crewLeaderAssignments,
+        });
+        return { ...p, ...rebuilt };
+      });
       setLeaderSwapModalOpen(false);
       setLeaderSwapPartnerId('');
       await onInquiryRefresh?.();
@@ -2800,8 +2750,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           onLeaderSwap={() => setLeaderSwapModalOpen(true)}
           onCrewSwap={() => setCrewSwapModalOpen(true)}
           leaderOptionsForRow={leaderOptionsForRow}
-          hideCrewInputs={hideCrewInputs}
-          effectiveCrewSlots={effectiveCrewSlots}
           crewPickOptions={crewPickOptions}
           occupiedCrewNamesByDate={occupiedCrewNamesByDate}
           crewSpacingByMemberName={crewSpacingByMemberName}
@@ -3016,8 +2964,10 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           onSave={() => void handleSave({ closeParent: false })}
           assignment={
             <InquiryCopyAssignmentPanel
-              teamLeaderIds={editForm.teamLeaderIds}
-              soloTeamLeaderIds={editForm.soloTeamLeaderIds}
+              leaderCrewSets={editForm.leaderCrewSets}
+              onLeaderCrewSetsChange={(sets) =>
+                setEditForm((p) => applyLeaderCrewSetsToEditForm(p, sets))
+              }
               leaderOptionsForRow={leaderOptionsForRow}
               teamLeaderBlocked={teamLeaderZoneBlock.blocked}
               teamLeaderBlockedMessage={teamLeaderZoneBlock.message}
@@ -3029,59 +2979,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               }
               activeNativePartnerShare={Boolean(activeNativePartnerShareSource)}
               partnerShareName={item.tenantShare?.partnerName}
-              onTeamLeaderChange={(idx, v) =>
-                setEditForm((p) => {
-                  const prevId = p.teamLeaderIds[idx]?.trim() ?? '';
-                  const next = [...p.teamLeaderIds];
-                  next[idx] = v;
-                  let solo = p.soloTeamLeaderIds;
-                  if (prevId && prevId !== v.trim()) {
-                    solo = solo.filter((id) => id !== prevId);
-                  }
-                  return { ...p, teamLeaderIds: next, soloTeamLeaderIds: solo };
-                })
-              }
-              onAddTeamLeader={() =>
-                setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
-              }
-              onRemoveTeamLeader={(idx) =>
-                setEditForm((p) => ({
-                  ...p,
-                  teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
-                  soloTeamLeaderIds: p.soloTeamLeaderIds.filter(
-                    (id) => id !== (p.teamLeaderIds[idx]?.trim() ?? ''),
-                  ),
-                }))
-              }
+              soloTeamLeaderIds={editForm.soloTeamLeaderIds}
               onSoloTeamLeaderIdsChange={(ids) =>
                 setEditForm((p) => ({ ...p, soloTeamLeaderIds: ids }))
               }
-              hideCrewInputs={hideCrewInputs}
-              crewMemberCount={editForm.crewMemberCount}
-              onCrewMemberCountChange={(count) =>
-                setEditForm((p) => ({ ...p, crewMemberCount: count }))
-              }
-              crewMemberNames={editForm.crewMemberNames}
-              crewMemberLeaderIds={editForm.crewMemberLeaderIds}
-              onCrewMemberNameChange={(idx, name) =>
-                setEditForm((p) => {
-                  const next = [...p.crewMemberNames];
-                  next[idx] = name;
-                  return { ...p, crewMemberNames: next };
-                })
-              }
-              onCrewMemberLeaderIdChange={(idx, leaderId) =>
-                setEditForm((p) => {
-                  const next = [...p.crewMemberLeaderIds];
-                  next[idx] = leaderId;
-                  return { ...p, crewMemberLeaderIds: next };
-                })
-              }
-              assignableTeamLeaders={assignableTeamLeaders}
               crewPickOptions={crewPickOptions}
               occupiedCrewNamesByDate={occupiedCrewNamesByDate}
               crewSpacingByMemberName={crewSpacingByMemberName}
-              effectiveCrewSlots={effectiveCrewSlots}
               showLeaderSwap={showLeaderPartnerSwapEntry}
               showCrewSwap={showCrewPartnerSwapEntry}
               onLeaderSwap={() => setLeaderSwapModalOpen(true)}

@@ -117,20 +117,23 @@ import { useSkCleantecOpsUi } from '../../hooks/useSkCleantecOpsUi';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useIsLgUp } from '../../hooks/useMediaQuery';
 import { getPoolTeamMembers, getCrewLeaderMemberSpacing, type TeamMemberItem } from '../../api/teams';
-import { TeamMemberSearchSelect } from '../../components/admin/TeamMemberSearchSelect';
 import { mergeCrewPickPoolWithSelections } from '../../utils/crewPickPool';
 import { resolveTeamLeaderIdForCrewSpacing } from '../../utils/crewLeaderSpacing';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import {
-  allTeamLeadersSolo,
   applyCrewFieldsToInquiryPatch,
-  initCrewMemberLeaderIdsFromInquiry,
   initSoloTeamLeaderIdsFromAssignments,
-  needsExplicitCrewLeaderPick,
-  nonSoloLeaderIds,
   SOLO_LEADER_CREW_LABEL,
   toggleSoloTeamLeaderId,
 } from '../../utils/inquiryNoCrewMembers';
+import {
+  buildLeaderCrewFormFieldsFromInquiry,
+  defaultLeaderCrewSet,
+} from '../../utils/leaderCrewSets';
+import {
+  applyLeaderCrewSetsToEditForm,
+  InquiryLeaderCrewSetsEditor,
+} from '../../components/admin/inquiry-edit/InquiryLeaderCrewSetsEditor';
 import { formatDateCompactWithWeekday, formatPreferredDateInputYmd } from '../../utils/dateFormat';
 import { opsDrillBannerLabel } from '../../utils/opsDrillDown';
 import {
@@ -916,6 +919,7 @@ export function AdminInquiriesPage() {
     preferredTimeDetail: '',
     memo: '',
     teamLeaderIds: [''] as string[],
+    leaderCrewSets: [defaultLeaderCrewSet()],
     crewMemberCount: 0 as number,
     /** 등록 팀원 목록에서 선택한 이름들(슬롯 순서 유지). 저장 시 `/`로 합쳐 crewMemberNote로 전송. */
     crewMemberNames: [] as string[],
@@ -1080,9 +1084,12 @@ export function AdminInquiriesPage() {
 
   const leaderOptionsForRow = useMemo(() => {
     return (rowIndex: number) => {
-      const curId = editForm.teamLeaderIds[rowIndex] ?? '';
+      const curId = editForm.leaderCrewSets[rowIndex]?.teamLeaderId ?? '';
       const otherSelected = new Set(
-        editForm.teamLeaderIds.filter((lid, i) => i !== rowIndex && lid.trim() !== '')
+        editForm.leaderCrewSets
+          .filter((_, i) => i !== rowIndex)
+          .map((s) => s.teamLeaderId.trim())
+          .filter(Boolean),
       );
       const base = teamLeaders.filter((t) => t.role !== 'EXTERNAL_PARTNER');
       const allowed = base.filter((t) => !otherSelected.has(t.id) || t.id === curId);
@@ -1093,7 +1100,7 @@ export function AdminInquiriesPage() {
       }
       return allowed;
     };
-  }, [teamLeaders, editForm.teamLeaderIds]);
+  }, [teamLeaders, editForm.leaderCrewSets]);
 
   const resolvedExternalLeadId = useMemo(() => {
     for (const id of editForm.teamLeaderIds) {
@@ -1112,12 +1119,6 @@ export function AdminInquiriesPage() {
   const externalBlockedByPartnerShare = useMemo(
     () => partnerShareBlocksExternal(editItem?.tenantShare),
     [editItem?.tenantShare],
-  );
-
-  const hideCrewInputs = useMemo(
-    () =>
-      allTeamLeadersSolo(editForm.teamLeaderIds, editForm.soloTeamLeaderIds, resolvedExternalLeadId),
-    [editForm.teamLeaderIds, editForm.soloTeamLeaderIds, resolvedExternalLeadId],
   );
 
   const externalPartnerOptions = useMemo(
@@ -1305,86 +1306,6 @@ export function AdminInquiriesPage() {
       cancelled = true;
     };
   }, [editItem, token, editForm.preferredDate, editItem?.preferredDate]);
-
-  // 슬롯(crewMemberCount)에 맞게 crewMemberNames 배열 길이를 동기화한다.
-  useEffect(() => {
-    if (!editItem) return;
-    const slots = allTeamLeadersSolo(
-      editForm.teamLeaderIds,
-      editForm.soloTeamLeaderIds,
-      resolvedExternalLeadId,
-    )
-      ? 0
-      : Math.max(0, editForm.crewMemberCount);
-    setEditForm((prev) => {
-      const cur = prev.crewMemberNames;
-      if (slots === cur.length) return prev;
-      const nonSolo = nonSoloLeaderIds(
-        prev.teamLeaderIds,
-        prev.soloTeamLeaderIds,
-        resolvedExternalLeadId,
-      );
-      const fallback = nonSolo[0] ?? '';
-      if (slots < cur.length) {
-        return {
-          ...prev,
-          crewMemberNames: cur.slice(0, slots),
-          crewMemberLeaderIds: prev.crewMemberLeaderIds.slice(0, slots),
-        };
-      }
-      const next = [...cur];
-      while (next.length < slots) next.push('');
-      const nextLeaders = [...prev.crewMemberLeaderIds];
-      while (nextLeaders.length < slots) nextLeaders.push(fallback);
-      return { ...prev, crewMemberNames: next, crewMemberLeaderIds: nextLeaders };
-    });
-  }, [editItem, editForm.crewMemberCount, editForm.soloTeamLeaderIds, editForm.teamLeaderIds, resolvedExternalLeadId]);
-
-  const showCrewLeaderPickInList =
-    !!editItem &&
-    !allTeamLeadersSolo(editForm.teamLeaderIds, editForm.soloTeamLeaderIds, resolvedExternalLeadId) &&
-    needsExplicitCrewLeaderPick(
-      editForm.teamLeaderIds,
-      editForm.soloTeamLeaderIds,
-      resolvedExternalLeadId,
-    );
-  const crewLeaderPickOptions = nonSoloLeaderIds(
-    editForm.teamLeaderIds,
-    editForm.soloTeamLeaderIds,
-    resolvedExternalLeadId,
-  )
-    .map((id) => teamLeaders.find((u) => u.id === id))
-    .filter((u): u is UserItem => Boolean(u));
-
-  useEffect(() => {
-    if (!editItem) return;
-    setEditForm((prev) => {
-      const nonSolo = nonSoloLeaderIds(
-        prev.teamLeaderIds,
-        prev.soloTeamLeaderIds,
-        resolvedExternalLeadId,
-      );
-      const fallback = nonSolo[0] ?? '';
-      const next = [...prev.crewMemberLeaderIds];
-      while (next.length < prev.crewMemberNames.length) next.push(fallback);
-      if (next.length > prev.crewMemberNames.length) next.length = prev.crewMemberNames.length;
-      let changed = next.length !== prev.crewMemberLeaderIds.length;
-      for (let i = 0; i < next.length; i++) {
-        if (!nonSolo.includes(next[i] ?? '')) {
-          next[i] = fallback;
-          changed = true;
-        }
-      }
-      if (!changed) return prev;
-      return { ...prev, crewMemberLeaderIds: next };
-    });
-  }, [
-    editItem,
-    editForm.teamLeaderIds,
-    editForm.soloTeamLeaderIds,
-    editForm.crewMemberNames.length,
-    resolvedExternalLeadId,
-  ]);
 
   useEffect(() => {
     if (!token || (me?.role !== 'ADMIN' && me?.role !== 'MARKETER')) {
@@ -1902,6 +1823,15 @@ export function AdminInquiriesPage() {
       effectiveCustomerOrderNotes(notesCtx).trim() !== '' &&
       effectiveAdminTeamSpecialNotes(notesCtx) === '';
     const a = effectiveInquiryAmounts(item);
+    const leaderIds = initialTeamLeaderIdsForEdit(item.assignments);
+    const soloIds = initSoloTeamLeaderIdsFromAssignments(item.assignments);
+    const leaderCrew = buildLeaderCrewFormFieldsFromInquiry({
+      teamLeaderIds: leaderIds,
+      soloTeamLeaderIds: soloIds,
+      crewMemberNote: item.crewMemberNote,
+      crewMemberCount: item.crewMemberCount,
+      crewLeaderAssignments: item.crewLeaderAssignments,
+    });
     setEditForm({
       customerName: item.customerName,
       nickname: item.nickname || '',
@@ -1915,17 +1845,7 @@ export function AdminInquiriesPage() {
       preferredTime: item.preferredTime || '',
       preferredTimeDetail: item.preferredTimeDetail || '',
       memo: item.memo || '',
-      teamLeaderIds: initialTeamLeaderIdsForEdit(item.assignments),
-      crewMemberCount: item.crewMemberCount ?? 0,
-      crewMemberNames: parseCrewMemberNoteToNames(item.crewMemberNote),
-      crewMemberLeaderIds: initCrewMemberLeaderIdsFromInquiry(
-        parseCrewMemberNoteToNames(item.crewMemberNote),
-        item.crewLeaderAssignments,
-        initialTeamLeaderIdsForEdit(item.assignments),
-        initSoloTeamLeaderIdsFromAssignments(item.assignments),
-        undefined,
-      ),
-      soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(item.assignments),
+      ...leaderCrew,
       status: item.status,
       customerPhone2: item.customerPhone2 || '',
       propertyType: item.propertyType || '',
@@ -4975,13 +4895,13 @@ export function AdminInquiriesPage() {
               </div>
               <div className="sm:col-span-2 space-y-2">
                 <label className="block text-fluid-sm text-slate-600 mb-1">
-                  담당 팀장 (여러 명 가능)
+                  담당 팀장 · 팀원
                   <HelpTooltip
                     className="ml-1 align-middle"
                     text={
                       hasExternalCo
-                        ? '타업체 분배는 위쪽 《타업체 담당》에서 선택합니다. 자사 팀장만 여러 명 선택할 수 있습니다.'
-                        : '자사 팀장을 여러 명 선택할 수 있습니다.'
+                        ? '타업체 분배는 위쪽 《타업체 담당》에서 선택합니다. 자사 팀장은 팀장·팀원 세트로 여러 명 지정할 수 있습니다.'
+                        : '팀장을 추가하면 해당 팀장의 팀원 인원·선택란이 함께 생깁니다. 「팀장 단독 · 크루 없음」으로 크루 없이 나갈 팀장을 지정할 수 있습니다.'
                     }
                   />
                 </label>
@@ -5023,195 +4943,25 @@ export function AdminInquiriesPage() {
                     })()}
                   </div>
                 ) : (
-                  <>
-                    {editForm.teamLeaderIds.map((lid, idx) => (
-                      <div key={idx} className="flex flex-wrap gap-2 items-center">
-                        <select
-                          value={lid}
-                          disabled={
-                            editForm.status === 'PENDING' ||
-                            editForm.status === 'DEPOSIT_PENDING' ||
-                            editForm.status === 'DEPOSIT_COMPLETED' ||
-                            editForm.status === 'ORDER_FORM_PENDING' ||
-                            editForm.status === 'ON_HOLD'
-                          }
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setEditForm((p) => {
-                              const prevId = p.teamLeaderIds[idx]?.trim() ?? '';
-                              const next = [...p.teamLeaderIds];
-                              next[idx] = v;
-                              let solo = p.soloTeamLeaderIds;
-                              if (prevId && prevId !== v.trim()) {
-                                solo = solo.filter((id) => id !== prevId);
-                              }
-                              return { ...p, teamLeaderIds: next, soloTeamLeaderIds: solo };
-                            });
-                          }}
-                          className="flex-1 min-w-0 px-3 py-2 border border-slate-300 rounded text-fluid-sm disabled:bg-slate-100"
-                        >
-                          <option value="">선택 안 함</option>
-                          {leaderOptionsForRow(idx).map((tl) => (
-                            <option key={tl.id} value={tl.id}>
-                              {formatAssignableUserLabel(tl)}
-                            </option>
-                          ))}
-                        </select>
-                        {lid.trim() ? (
-                          <label className="inline-flex shrink-0 items-center gap-1.5 text-fluid-xs text-slate-700">
-                            <input
-                              type="checkbox"
-                              className="h-3.5 w-3.5 rounded border-slate-300"
-                              checked={editForm.soloTeamLeaderIds.includes(lid.trim())}
-                              onChange={(e) =>
-                                setEditForm((p) => ({
-                                  ...p,
-                                  soloTeamLeaderIds: toggleSoloTeamLeaderId(
-                                    p.soloTeamLeaderIds,
-                                    lid.trim(),
-                                    e.target.checked,
-                                  ),
-                                }))
-                              }
-                            />
-                            {SOLO_LEADER_CREW_LABEL}
-                          </label>
-                        ) : null}
-                        {editForm.teamLeaderIds.length > 1 && (
-                          <button
-                            type="button"
-                            className="shrink-0 px-2 py-1 text-xs text-slate-600 border border-slate-200 rounded"
-                            onClick={() =>
-                              setEditForm((p) => ({
-                                ...p,
-                                teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
-                                soloTeamLeaderIds: p.soloTeamLeaderIds.filter(
-                                  (id) => id !== (p.teamLeaderIds[idx]?.trim() ?? ''),
-                                ),
-                              }))
-                            }
-                          >
-                            제거
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      className="text-fluid-sm text-blue-600 hover:underline disabled:opacity-50"
-                      disabled={
-                        editForm.status === 'PENDING' ||
-                        editForm.status === 'DEPOSIT_PENDING' ||
-                        editForm.status === 'DEPOSIT_COMPLETED' ||
-                        editForm.status === 'ORDER_FORM_PENDING' ||
-                        editForm.status === 'ON_HOLD'
-                      }
-                      onClick={() =>
-                        setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
-                      }
-                    >
-                      + 팀장 추가
-                    </button>
-                  </>
+                  <InquiryLeaderCrewSetsEditor
+                    sets={editForm.leaderCrewSets}
+                    onSetsChange={(sets) =>
+                      setEditForm((p) => applyLeaderCrewSetsToEditForm(p, sets))
+                    }
+                    leaderOptionsForRow={leaderOptionsForRow}
+                    teamLeaderBlocked={
+                      editForm.status === 'PENDING' ||
+                      editForm.status === 'DEPOSIT_PENDING' ||
+                      editForm.status === 'DEPOSIT_COMPLETED' ||
+                      editForm.status === 'ORDER_FORM_PENDING' ||
+                      editForm.status === 'ON_HOLD'
+                    }
+                    crewPickOptions={crewPickOptions}
+                    occupiedCrewNamesByDate={occupiedCrewNamesByDate}
+                    crewSpacingByMemberName={crewSpacingByMemberName}
+                  />
                 )}
               </div>
-              {!hideCrewInputs ? (
-              <>
-              <div className="sm:col-span-2">
-                <label className="block text-fluid-sm text-slate-600 mb-1">팀원 투입</label>
-                <p className="text-fluid-xs text-slate-500 mb-2">
-                  인원 수를 선택하면 아래 "투입 팀원 선택" 슬롯이 그만큼 늘어납니다. 이름 일부나 초성(예: ㄱㅁ)으로 빠르게 검색할 수 있습니다.
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <select
-                    value={String(editForm.crewMemberCount)}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      setEditForm((p) => ({
-                        ...p,
-                        crewMemberCount: Number.isFinite(v) ? v : 0,
-                      }));
-                    }}
-                    className="px-3 py-2 border border-slate-300 rounded text-fluid-sm min-w-[8rem]"
-                  >
-                    {Array.from({ length: 21 }, (_, i) => (
-                      <option key={i} value={String(i)}>
-                        {i}명
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {editForm.crewMemberCount > 0 && (
-                <div className="sm:col-span-2">
-                  <label className="block text-fluid-sm text-slate-600 mb-1">투입 팀원 선택</label>
-                  {showCrewLeaderPickInList ? (
-                    <p className="mb-1.5 text-fluid-2xs text-slate-600">
-                      팀장이 여러 명일 때는 팀원마다 함께 나가는 담당 팀장을 지정해 주세요.
-                    </p>
-                  ) : null}
-                  <div className="flex flex-wrap gap-2">
-                    {editForm.crewMemberNames.map((name, idx) => {
-                      const duplicateSet = new Set(
-                        editForm.crewMemberNames
-                          .map((x, i) => (i === idx ? '' : x.trim()))
-                          .filter(Boolean)
-                      );
-                      const disabled = new Set<string>([
-                        ...occupiedCrewNamesByDate,
-                        ...duplicateSet,
-                      ]);
-                      return (
-                        <div key={`crew-pick-${idx}`} className="min-w-[11rem] flex-1 space-y-1">
-                          <TeamMemberSearchSelect
-                            options={crewPickOptions}
-                            value={name}
-                            disabledNames={disabled}
-                            crewSpacingDaysByMemberName={crewSpacingByMemberName}
-                            onChange={(v) =>
-                              setEditForm((p) => {
-                                const next = [...p.crewMemberNames];
-                                next[idx] = v;
-                                return { ...p, crewMemberNames: next };
-                              })
-                            }
-                            placeholder={`${idx + 1}번 팀원 검색`}
-                          />
-                          {showCrewLeaderPickInList && name.trim() ? (
-                            <select
-                              value={editForm.crewMemberLeaderIds[idx] ?? ''}
-                              onChange={(e) =>
-                                setEditForm((p) => {
-                                  const next = [...p.crewMemberLeaderIds];
-                                  next[idx] = e.target.value;
-                                  return { ...p, crewMemberLeaderIds: next };
-                                })
-                              }
-                              className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-fluid-2xs text-slate-900"
-                            >
-                              <option value="">담당 팀장…</option>
-                              {crewLeaderPickOptions.map((u) => (
-                                <option key={u.id} value={u.id}>
-                                  {formatAssignableUserLabel(u)}
-                                </option>
-                              ))}
-                            </select>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <p className="mt-1 text-fluid-xs text-slate-500">
-                    크루 그룹에서 「집계·일자 명단」모드를 쓰는 경우, 해당 예약일에 가용한 팀원만 목록에 나옵니다. 같은 창에서 이미
-                    선택했거나, 해당 예약일에 다른 접수에 배정된 팀원은 회색으로 표시되며 선택할 수 없습니다. 첫 번째 자사 담당
-                    팀장(타업체 제외)을 기준으로, 목록에{' '}
-                    <span className="tabular-nums">+N일</span>이 붙은 팀원은 그 팀장과 마지막으로 같은 예약일에 들어간 뒤
-                    현재 편집 예약일까지 며칠이 지났는지(날짜 차이, 참고 표시만)입니다. 간격과 관계없이 선택은 가능합니다.
-                  </p>
-                </div>
-              )}
-              </>
-              ) : null}
               <div className="sm:col-span-2">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-fluid-sm font-semibold text-slate-700">메모 (발주서 요약·관리자 메모)</label>

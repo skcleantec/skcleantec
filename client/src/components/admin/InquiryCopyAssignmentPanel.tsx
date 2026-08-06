@@ -1,16 +1,12 @@
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
 import type { TeamMemberItem } from '../../api/teams';
-import { SOLO_LEADER_CREW_LABEL, needsExplicitCrewLeaderPick, nonSoloLeaderIds, toggleSoloTeamLeaderId } from '../../utils/inquiryNoCrewMembers';
-import { TeamMemberSearchSelect } from './TeamMemberSearchSelect';
-import { SelectWithChevron } from '../ui/SelectWithChevron';
-import { InquiryCrossSwapActionButtons } from './InquiryCrossSwapActionButtons';
-
-const compactSelectClass =
-  'w-full min-w-0 rounded border border-gray-300 bg-white px-2 py-1 text-fluid-2xs text-gray-900';
+import { SOLO_LEADER_CREW_LABEL, toggleSoloTeamLeaderId } from '../../utils/inquiryNoCrewMembers';
+import type { LeaderCrewSet } from '../../utils/leaderCrewSets';
+import { InquiryLeaderCrewSetsEditor } from './inquiry-edit/InquiryLeaderCrewSetsEditor';
 
 export function InquiryCopyAssignmentPanel({
-  teamLeaderIds,
-  soloTeamLeaderIds,
+  leaderCrewSets,
+  onLeaderCrewSetsChange,
   leaderOptionsForRow,
   teamLeaderBlocked,
   teamLeaderBlockedMessage,
@@ -18,29 +14,18 @@ export function InquiryCopyAssignmentPanel({
   externalLeadUser,
   activeNativePartnerShare,
   partnerShareName,
-  onTeamLeaderChange,
-  onAddTeamLeader,
-  onRemoveTeamLeader,
   onSoloTeamLeaderIdsChange,
-  hideCrewInputs,
-  crewMemberCount,
-  onCrewMemberCountChange,
-  crewMemberNames,
-  crewMemberLeaderIds,
-  onCrewMemberNameChange,
-  onCrewMemberLeaderIdChange,
-  assignableTeamLeaders,
+  soloTeamLeaderIds,
   crewPickOptions,
   occupiedCrewNamesByDate,
   crewSpacingByMemberName,
-  effectiveCrewSlots,
   showLeaderSwap,
   showCrewSwap,
   onLeaderSwap,
   onCrewSwap,
 }: {
-  teamLeaderIds: string[];
-  soloTeamLeaderIds: string[];
+  leaderCrewSets: LeaderCrewSet[];
+  onLeaderCrewSetsChange: (sets: LeaderCrewSet[]) => void;
   leaderOptionsForRow: (rowIndex: number) => UserItem[];
   teamLeaderBlocked: boolean;
   teamLeaderBlockedMessage?: string;
@@ -48,38 +33,16 @@ export function InquiryCopyAssignmentPanel({
   externalLeadUser?: UserItem | null;
   activeNativePartnerShare: boolean;
   partnerShareName?: string | null;
-  onTeamLeaderChange: (rowIndex: number, value: string) => void;
-  onAddTeamLeader: () => void;
-  onRemoveTeamLeader: (rowIndex: number) => void;
   onSoloTeamLeaderIdsChange: (ids: string[]) => void;
-  hideCrewInputs: boolean;
-  crewMemberCount: number;
-  onCrewMemberCountChange: (count: number) => void;
-  crewMemberNames: string[];
-  crewMemberLeaderIds: string[];
-  onCrewMemberNameChange: (rowIndex: number, name: string) => void;
-  onCrewMemberLeaderIdChange: (rowIndex: number, leaderId: string) => void;
-  assignableTeamLeaders: UserItem[];
+  soloTeamLeaderIds: string[];
   crewPickOptions: TeamMemberItem[];
   occupiedCrewNamesByDate: Set<string>;
   crewSpacingByMemberName: Record<string, number | null>;
-  effectiveCrewSlots: number;
   showLeaderSwap: boolean;
   showCrewSwap: boolean;
   onLeaderSwap: () => void;
   onCrewSwap: () => void;
 }) {
-  const showCrewLeaderPick =
-    !hideCrewInputs &&
-    needsExplicitCrewLeaderPick(teamLeaderIds, soloTeamLeaderIds, resolvedExternalLeadId || undefined);
-  const crewLeaderPickOptions = nonSoloLeaderIds(
-    teamLeaderIds,
-    soloTeamLeaderIds,
-    resolvedExternalLeadId || undefined,
-  )
-    .map((id) => assignableTeamLeaders.find((u) => u.id === id))
-    .filter((u): u is UserItem => Boolean(u));
-
   return (
     <section className="border-b border-gray-100 pb-2 mb-2">
       <h3 className="mb-1 text-fluid-2xs font-semibold text-slate-500">배정</h3>
@@ -117,145 +80,21 @@ export function InquiryCopyAssignmentPanel({
           </label>
         </div>
       ) : (
-        <div className="space-y-1">
-          {teamLeaderIds.map((lid, idx) => (
-            <div key={`copy-assign-leader-${idx}`} className="flex min-w-0 items-center gap-1">
-              <span className="w-7 shrink-0 text-fluid-2xs text-gray-500">팀장</span>
-              <SelectWithChevron
-                value={lid}
-                disabled={teamLeaderBlocked}
-                onChange={(e) => onTeamLeaderChange(idx, e.target.value)}
-                className={`${compactSelectClass} min-w-0 flex-1`}
-                wrapperClassName="min-w-0 flex-1"
-              >
-                <option value="">선택</option>
-                {leaderOptionsForRow(idx).map((tl) => (
-                  <option key={tl.id} value={tl.id}>
-                    {formatAssignableUserLabel(tl)}
-                  </option>
-                ))}
-              </SelectWithChevron>
-              {lid.trim() ? (
-                <label
-                  className="inline-flex shrink-0 items-center gap-0.5 text-fluid-2xs text-gray-600"
-                  title={SOLO_LEADER_CREW_LABEL}
-                >
-                  <input
-                    type="checkbox"
-                    className="h-3 w-3 rounded border-gray-300"
-                    checked={soloTeamLeaderIds.includes(lid.trim())}
-                    onChange={(e) =>
-                      onSoloTeamLeaderIdsChange(
-                        toggleSoloTeamLeaderId(soloTeamLeaderIds, lid.trim(), e.target.checked),
-                      )
-                    }
-                  />
-                  <span className="max-w-[8.5rem] leading-snug sm:max-w-none">{SOLO_LEADER_CREW_LABEL}</span>
-                </label>
-              ) : null}
-              {teamLeaderIds.length > 1 ? (
-                <button
-                  type="button"
-                  className="shrink-0 px-1 text-fluid-2xs text-gray-500 hover:text-gray-800"
-                  onClick={() => onRemoveTeamLeader(idx)}
-                  aria-label="팀장 제거"
-                >
-                  ×
-                </button>
-              ) : null}
-            </div>
-          ))}
-          {!teamLeaderBlocked ? (
-            <button
-              type="button"
-              className="text-fluid-2xs font-medium text-blue-600 hover:underline"
-              onClick={onAddTeamLeader}
-            >
-              + 팀장
-            </button>
-          ) : null}
-          <InquiryCrossSwapActionButtons
-            compact
-            showLeaderSwap={showLeaderSwap}
-            showCrewSwap={false}
-            onLeaderSwap={onLeaderSwap}
-            onCrewSwap={onCrewSwap}
-          />
-        </div>
+        <InquiryLeaderCrewSetsEditor
+          compact
+          sets={leaderCrewSets}
+          onSetsChange={onLeaderCrewSetsChange}
+          leaderOptionsForRow={leaderOptionsForRow}
+          teamLeaderBlocked={teamLeaderBlocked}
+          crewPickOptions={crewPickOptions}
+          occupiedCrewNamesByDate={occupiedCrewNamesByDate}
+          crewSpacingByMemberName={crewSpacingByMemberName}
+          showLeaderPartnerSwapEntry={showLeaderSwap}
+          showCrewPartnerSwapEntry={showCrewSwap}
+          onLeaderSwap={onLeaderSwap}
+          onCrewSwap={onCrewSwap}
+        />
       )}
-
-      {!hideCrewInputs ? (
-        <div className="mt-1.5 space-y-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="w-7 shrink-0 text-fluid-2xs text-gray-500">팀원</span>
-            <SelectWithChevron
-              value={String(crewMemberCount)}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                onCrewMemberCountChange(Number.isFinite(v) ? v : 0);
-              }}
-              className={`${compactSelectClass} w-16 shrink-0`}
-              wrapperClassName="w-16 shrink-0"
-            >
-              {Array.from({ length: 21 }, (_, i) => (
-                <option key={i} value={String(i)}>
-                  {i}명
-                </option>
-              ))}
-            </SelectWithChevron>
-          </div>
-          {effectiveCrewSlots > 0 ? (
-            <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-              {showCrewLeaderPick ? (
-                <p className="sm:col-span-2 text-fluid-2xs text-indigo-900/90">
-                  팀장이 여러 명일 때는 팀원마다 담당 팀장을 지정해 주세요.
-                </p>
-              ) : null}
-              {crewMemberNames.map((name, idx) => {
-                const duplicateSet = new Set(
-                  crewMemberNames.map((x, i) => (i === idx ? '' : x.trim())).filter(Boolean),
-                );
-                const disabled = new Set<string>([...occupiedCrewNamesByDate, ...duplicateSet]);
-                return (
-                  <div key={`copy-crew-${idx}`} className="space-y-1">
-                    <TeamMemberSearchSelect
-                      compact
-                      options={crewPickOptions}
-                      value={name}
-                      disabledNames={disabled}
-                      crewSpacingDaysByMemberName={crewSpacingByMemberName}
-                      onChange={(v) => onCrewMemberNameChange(idx, v)}
-                      placeholder={`${idx + 1}번`}
-                    />
-                    {showCrewLeaderPick && name.trim() ? (
-                      <SelectWithChevron
-                        value={crewMemberLeaderIds[idx] ?? ''}
-                        onChange={(e) => onCrewMemberLeaderIdChange(idx, e.target.value)}
-                        className={compactSelectClass}
-                        wrapperClassName="w-full"
-                      >
-                        <option value="">담당 팀장…</option>
-                        {crewLeaderPickOptions.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {formatAssignableUserLabel(u)}
-                          </option>
-                        ))}
-                      </SelectWithChevron>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-          <InquiryCrossSwapActionButtons
-            compact
-            showLeaderSwap={false}
-            showCrewSwap={showCrewSwap}
-            onLeaderSwap={onLeaderSwap}
-            onCrewSwap={onCrewSwap}
-          />
-        </div>
-      ) : null}
     </section>
   );
 }

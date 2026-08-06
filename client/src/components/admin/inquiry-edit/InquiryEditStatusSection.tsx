@@ -4,18 +4,18 @@ import type { ScheduleItem } from '../../../api/schedule';
 import type { UserItem } from '../../../api/users';
 import { formatAssignableUserLabel } from '../../../api/users';
 import { HelpTooltip } from '../../ui/HelpTooltip';
-import { SelectWithChevron } from '../../ui/SelectWithChevron';
 import type { TeamMemberItem } from '../../../api/teams';
 import { OperatingCompanyBadge } from '../OperatingCompanyBadge';
 import { InquiryCrossSwapActionButtons } from '../InquiryCrossSwapActionButtons';
 import { InquiryOrderForceMatchPanel } from '../InquiryOrderForceMatchPanel';
-import { TeamMemberSearchSelect } from '../TeamMemberSearchSelect';
 import {
   SOLO_LEADER_CREW_LABEL,
-  needsExplicitCrewLeaderPick,
-  nonSoloLeaderIds,
   toggleSoloTeamLeaderId,
 } from '../../../utils/inquiryNoCrewMembers';
+import {
+  applyLeaderCrewSetsToEditForm,
+  InquiryLeaderCrewSetsEditor,
+} from './InquiryLeaderCrewSetsEditor';
 import { AdminScheduleDetailSection } from './AdminScheduleDetailSection';
 import { INQUIRY_EDIT_STATUS_LABELS } from './inquiryEditConstants';
 import {
@@ -66,8 +66,6 @@ export type InquiryEditStatusSectionProps = {
   onLeaderSwap: () => void;
   onCrewSwap: () => void;
   leaderOptionsForRow: (idx: number) => AssignableUser[];
-  hideCrewInputs: boolean;
-  effectiveCrewSlots: number;
   crewPickOptions: TeamMemberItem[];
   occupiedCrewNamesByDate: Set<string>;
   crewSpacingByMemberName: Record<string, number | null>;
@@ -102,28 +100,12 @@ export function InquiryEditStatusSection({
   onLeaderSwap,
   onCrewSwap,
   leaderOptionsForRow,
-  hideCrewInputs,
-  effectiveCrewSlots,
   crewPickOptions,
   occupiedCrewNamesByDate,
   crewSpacingByMemberName,
   onInquiryRefresh,
 }: InquiryEditStatusSectionProps) {
   const [expandedTextarea, setExpandedTextarea] = useState<'specialNotes' | 'memo' | null>(null);
-  const showCrewLeaderPick =
-    !hideCrewInputs &&
-    needsExplicitCrewLeaderPick(
-      editForm.teamLeaderIds,
-      editForm.soloTeamLeaderIds,
-      resolvedExternalLeadId || undefined,
-    );
-  const crewLeaderPickOptions = nonSoloLeaderIds(
-    editForm.teamLeaderIds,
-    editForm.soloTeamLeaderIds,
-    resolvedExternalLeadId || undefined,
-  )
-    .map((id) => assignableTeamLeaders.find((u) => u.id === id))
-    .filter((u): u is AssignableUser => Boolean(u));
 
   return (
     <AdminScheduleDetailSection title="상태 · 배정 · 팀원 · 메모" sectionAnchor="status">
@@ -332,183 +314,20 @@ export function InquiryEditStatusSection({
               })()}
             </div>
           ) : (
-            <div className="space-y-1.5">
-              <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">담당 팀장</label>
-              {editForm.teamLeaderIds.filter((id) => id.trim()).length > 1 ? (
-                <p className="text-fluid-2xs leading-snug text-slate-600">
-                  팀장이 여러 명이면 팀장마다 「{SOLO_LEADER_CREW_LABEL}」로 크루 없이 나갈 팀장을 지정할 수
-                  있습니다. 투입 팀원은 단독이 아닌 팀장과 함께 배정됩니다.
-                </p>
-              ) : null}
-              {editForm.teamLeaderIds.map((lid, idx) => (
-                <div key={idx} className="flex flex-wrap items-center gap-1.5">
-                  <SelectWithChevron
-                    value={lid}
-                    disabled={teamLeaderZoneBlock.blocked}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setEditForm((p) => {
-                        const prevId = p.teamLeaderIds[idx]?.trim() ?? '';
-                        const next = [...p.teamLeaderIds];
-                        next[idx] = v;
-                        let solo = p.soloTeamLeaderIds;
-                        if (prevId && prevId !== v.trim()) {
-                          solo = solo.filter((id) => id !== prevId);
-                        }
-                        return { ...p, teamLeaderIds: next, soloTeamLeaderIds: solo };
-                      });
-                    }}
-                    className={`${inqEditInput} min-w-0 flex-1`}
-                    wrapperClassName="min-w-0 flex-1"
-                  >
-                    <option value="">선택 안 함</option>
-                    {leaderOptionsForRow(idx).map((tl) => (
-                      <option key={tl.id} value={tl.id}>
-                        {formatAssignableUserLabel(tl)}
-                      </option>
-                    ))}
-                  </SelectWithChevron>
-                  {lid.trim() ? (
-                    <label className="inline-flex max-w-[min(100%,14rem)] shrink-0 items-start gap-1.5 text-fluid-2xs leading-snug text-gray-700">
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-gray-300"
-                        checked={editForm.soloTeamLeaderIds.includes(lid.trim())}
-                        onChange={(e) =>
-                          setEditForm((p) => ({
-                            ...p,
-                            soloTeamLeaderIds: toggleSoloTeamLeaderId(
-                              p.soloTeamLeaderIds,
-                              lid.trim(),
-                              e.target.checked,
-                            ),
-                          }))
-                        }
-                      />
-                      <span>{SOLO_LEADER_CREW_LABEL}</span>
-                    </label>
-                  ) : null}
-                  {editForm.teamLeaderIds.length > 1 ? (
-                    <button
-                      type="button"
-                      className="shrink-0 rounded border border-gray-200 px-1.5 py-0.5 text-fluid-2xs text-gray-600 hover:bg-gray-50"
-                      onClick={() =>
-                        setEditForm((p) => ({
-                          ...p,
-                          teamLeaderIds: p.teamLeaderIds.filter((_, i) => i !== idx),
-                          soloTeamLeaderIds: p.soloTeamLeaderIds.filter(
-                            (id) => id !== (p.teamLeaderIds[idx]?.trim() ?? ''),
-                          ),
-                        }))
-                      }
-                    >
-                      제거
-                    </button>
-                  ) : null}
-                </div>
-              ))}
-              <button
-                type="button"
-                className="text-fluid-xs text-blue-600 hover:underline disabled:opacity-40 disabled:no-underline"
-                disabled={teamLeaderZoneBlock.blocked}
-                onClick={() =>
-                  setEditForm((p) => ({ ...p, teamLeaderIds: [...p.teamLeaderIds, ''] }))
-                }
-              >
-                + 팀장 추가
-              </button>
-            </div>
+            <InquiryLeaderCrewSetsEditor
+              sets={editForm.leaderCrewSets}
+              onSetsChange={(sets) => setEditForm((p) => applyLeaderCrewSetsToEditForm(p, sets))}
+              leaderOptionsForRow={leaderOptionsForRow}
+              teamLeaderBlocked={teamLeaderZoneBlock.blocked}
+              crewPickOptions={crewPickOptions}
+              occupiedCrewNamesByDate={occupiedCrewNamesByDate}
+              crewSpacingByMemberName={crewSpacingByMemberName}
+              showLeaderPartnerSwapEntry={showLeaderPartnerSwapEntry}
+              showCrewPartnerSwapEntry={showCrewPartnerSwapEntry}
+              onLeaderSwap={onLeaderSwap}
+              onCrewSwap={onCrewSwap}
+            />
           )}
-          {!hideCrewInputs ? (
-            <div className="space-y-1.5 border-t border-indigo-200/80 pt-3 mt-3">
-              {showCrewLeaderPick ? (
-                <p className="text-fluid-2xs text-indigo-900/90">
-                  팀장이 여러 명일 때는 팀원마다 함께 나가는 담당 팀장을 지정해 주세요. 팀장 화면에서는
-                  본인 세트 팀원만 미팅 시각·장소를 정합니다.
-                </p>
-              ) : null}
-              <div className="flex flex-wrap items-end gap-1.5">
-                <div className="shrink-0">
-                  <label className="mb-1.5 inline-flex items-center gap-1 text-fluid-sm font-semibold text-slate-700">
-                    팀원
-                    <HelpTooltip text="팀원 인원 수에 맞게 선택칸이 늘어납니다. 검색창에 이름·초성(예: ㄱㅁ)으로 필터링할 수 있습니다. 첫 번째 자사 담당 팀장 기준 +N일은 마지막 함께 투입 후 예약일까지 일수(참고만)입니다. 크루 그룹 집계 모드 사용 시 해당 예약일 가용 팀원만 표시되며, 이미 선택했거나 다른 접수에 배정된 팀원은 선택할 수 없습니다." />
-                  </label>
-                  <SelectWithChevron
-                    value={String(editForm.crewMemberCount)}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      setEditForm((prev) => ({
-                        ...prev,
-                        crewMemberCount: Number.isFinite(v) ? v : 0,
-                      }));
-                    }}
-                    className="w-full min-w-[5rem] rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
-                    wrapperClassName="min-w-[5rem]"
-                  >
-                    {Array.from({ length: 21 }, (_, i) => (
-                      <option key={i} value={String(i)}>
-                        {i}명
-                      </option>
-                    ))}
-                  </SelectWithChevron>
-                </div>
-                {effectiveCrewSlots > 0
-                  ? editForm.crewMemberNames.map((name, idx) => (
-                      <div key={`crew-pick-${idx}`} className="min-w-[9rem] flex-1 space-y-1">
-                        {(() => {
-                          const duplicateSet = new Set(
-                            editForm.crewMemberNames
-                              .map((x, i) => (i === idx ? '' : x.trim()))
-                              .filter(Boolean),
-                          );
-                          const disabled = new Set<string>([
-                            ...occupiedCrewNamesByDate,
-                            ...duplicateSet,
-                          ]);
-                          return (
-                            <TeamMemberSearchSelect
-                              options={crewPickOptions}
-                              value={name}
-                              disabledNames={disabled}
-                              crewSpacingDaysByMemberName={crewSpacingByMemberName}
-                              onChange={(v) =>
-                                setEditForm((p) => {
-                                  const next = [...p.crewMemberNames];
-                                  next[idx] = v;
-                                  return { ...p, crewMemberNames: next };
-                                })
-                              }
-                              placeholder={`${idx + 1}번`}
-                            />
-                          );
-                        })()}
-                        {showCrewLeaderPick && name.trim() ? (
-                          <SelectWithChevron
-                            value={editForm.crewMemberLeaderIds[idx] ?? ''}
-                            onChange={(e) =>
-                              setEditForm((p) => {
-                                const next = [...p.crewMemberLeaderIds];
-                                next[idx] = e.target.value;
-                                return { ...p, crewMemberLeaderIds: next };
-                              })
-                            }
-                            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-fluid-2xs text-slate-900"
-                            wrapperClassName="w-full"
-                          >
-                            <option value="">담당 팀장…</option>
-                            {crewLeaderPickOptions.map((u) => (
-                              <option key={u.id} value={u.id}>
-                                {formatAssignableUserLabel(u)}
-                              </option>
-                            ))}
-                          </SelectWithChevron>
-                        ) : null}
-                      </div>
-                    ))
-                  : null}
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">

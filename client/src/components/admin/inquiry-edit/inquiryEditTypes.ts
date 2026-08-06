@@ -1,4 +1,5 @@
 import type { InternalCustomerTone } from '../../../constants/internalCustomerTone';
+import type { LeaderCrewSet } from '../../../utils/leaderCrewSets';
 
 /** 접수 수정 모달 폼 필드 (ScheduleInquiryDetailModal 공통) */
 export type InquiryEditFormFields = {
@@ -16,6 +17,8 @@ export type InquiryEditFormFields = {
   preferredTimeDetail: string;
   memo: string;
   teamLeaderIds: string[];
+  /** 담당 팀장 + 팀원 세트 (UI 원본) */
+  leaderCrewSets: LeaderCrewSet[];
   crewMemberCount: number;
   crewMemberNames: string[];
   /** 팀원 슬롯별 담당 팀장 id (복수 비단독 팀장일 때) */
