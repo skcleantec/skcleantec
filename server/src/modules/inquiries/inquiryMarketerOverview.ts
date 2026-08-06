@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { isTeamPreviewAdminEmail } from '../auth/teamPreview.helpers.js';
 import { kstDayRangeYmd, kstMonthRangeYm, kstTodayYmd } from './inquiryListDateRange.js';
 import { inquiryActiveOnlyWhere } from './inquiryTrash.helpers.js';
+import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 
 export type MarketerOverviewTodayTotals = {
   /** 당일 예약완료(RECEIVED) — 접수일 KST */
@@ -236,11 +237,11 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
 
   const staff = await prisma.user.findMany({
     where: { tenantId, role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, hireDate: true, resignationDate: true },
     orderBy: { name: 'asc' },
   });
-  /** 개발용 team-preview 관리자 계정은 집계·필터 대상에서 제외 */
-  const marketers = staff.filter((u) => !isTeamPreviewAdminEmail(u.email));
+  /** 개발용 team-preview 관리자 계정은 집계·필터 대상에서 제외, 그리고 퇴사자는 제외 */
+  const marketers = staff.filter((u) => !isTeamPreviewAdminEmail(u.email) && isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd));
   const marketerIds = marketers.map((m) => m.id);
 
   const [{ month: monthCounts, today: todayCounts }, followupToday] = await Promise.all([
@@ -309,9 +310,9 @@ export async function buildMarketerDailyOverview(
 
   const user = await prisma.user.findFirst({
     where: { id: marketerId, tenantId, role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, hireDate: true, resignationDate: true },
   });
-  if (!user || isTeamPreviewAdminEmail(user.email)) return null;
+  if (!user || isTeamPreviewAdminEmail(user.email) || !isUserEmployedOnYmd(user.hireDate, user.resignationDate, kstTodayYmd())) return null;
 
   const y = Number(monthKey.slice(0, 4));
   const mo = Number(monthKey.slice(5, 7));

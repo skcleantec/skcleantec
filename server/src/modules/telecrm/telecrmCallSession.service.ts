@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { isUserEmployedOnYmd } from '../users/userEmployment.js';
 import { kstDayRangeYmd } from '../inquiries/inquiryListDateRange.js';
 import {
   classifyCallSessionStatus,
@@ -513,15 +514,16 @@ export async function getTelecrmCallSessionTeamSummary(
   fromYmd: string,
   toYmd: string,
 ): Promise<{ from: string; to: string; connectedMinSec: number; items: TelecrmCallSessionTeamRow[] }> {
-  const staff = await prisma.user.findMany({
+  const staffRaw = await prisma.user.findMany({
     where: {
       tenantId,
       isActive: true,
       role: { in: ['MARKETER', 'ADMIN'] },
     },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, hireDate: true, resignationDate: true },
     orderBy: [{ name: 'asc' }, { email: 'asc' }],
   });
+  const staff = staffRaw.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, toYmd));
 
   const rows = await prisma.telecrmCallSession.findMany({
     where: rangeWhere(tenantId, fromYmd, toYmd),
