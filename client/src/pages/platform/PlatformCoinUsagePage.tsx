@@ -22,6 +22,7 @@ const EMPTY_KPI: PlatformCoinUsageKpi = {
   limitedTenantCount: 0,
   nearLimitCount: 0,
   zeroSpentCount: 0,
+  totalAiUsageCount: 0,
 };
 
 function kstYmNow(): string {
@@ -162,7 +163,7 @@ export function PlatformCoinUsagePage() {
 
       {error ? <PlatformAlert variant="error" message={error} /> : null}
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 sm:gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7 sm:gap-3">
         <div className="rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
           <div className="text-xl font-bold tabular-nums text-gray-900 sm:text-2xl">
             {kpi.tenantCount}
@@ -174,6 +175,12 @@ export function PlatformCoinUsagePage() {
             {kpi.totalSpent.toLocaleString('ko-KR')}
           </div>
           <div className="mt-1 text-fluid-2xs text-indigo-700/80">총 사용 코인</div>
+        </div>
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 sm:p-4">
+          <div className="text-xl font-bold tabular-nums text-emerald-800 sm:text-2xl">
+            {kpi.totalAiUsageCount.toLocaleString('ko-KR')}
+          </div>
+          <div className="mt-1 text-fluid-2xs text-emerald-700/80">총 AI 사용</div>
         </div>
         <div className="rounded-xl border border-purple-100 bg-white p-3 sm:p-4">
           <div className="text-xl font-bold tabular-nums text-purple-700 sm:text-2xl">
@@ -293,8 +300,9 @@ export function PlatformCoinUsagePage() {
                     <col className="w-[12%]" />
                     <col className="w-[10%]" />
                     <col className="w-[14%]" />
-                    <col className="w-[28%]" />
-                    <col className="w-[14%]" />
+                    <col className="w-[24%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[8%]" />
                   </colgroup>
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-100 text-center text-fluid-2xs font-semibold text-gray-600">
@@ -304,6 +312,7 @@ export function PlatformCoinUsagePage() {
                       <th className="px-2 py-2.5 text-center">사용</th>
                       <th className="px-3 py-2.5 text-center">사용 비중</th>
                       <th className="px-2 py-2.5 text-center">잔여</th>
+                      <th className="px-2 py-2.5 text-center">AI</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -342,6 +351,9 @@ export function PlatformCoinUsagePage() {
                           ) : (
                             '—'
                           )}
+                        </td>
+                        <td className="px-2 py-2.5 text-center tabular-nums font-medium text-emerald-700">
+                          {row.aiUsageCount.toLocaleString('ko-KR')}
                         </td>
                       </tr>
                     ))}

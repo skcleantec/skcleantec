@@ -16,6 +16,7 @@ export type PlatformCoinUsageRow = {
   spent: number;
   remaining: number | null;
   pctUsed: number | null;
+  aiUsageCount: number;
 };
 
 export type PlatformCoinUsageKpi = {
@@ -25,6 +26,7 @@ export type PlatformCoinUsageKpi = {
   limitedTenantCount: number;
   nearLimitCount: number;
   zeroSpentCount: number;
+  totalAiUsageCount: number;
 };
 
 export type PlatformCoinUsageListResult = {

@@ -7,6 +7,7 @@ import {
 } from '../tenants/tenantFeatureCatalog.js';
 import { isSignupCoinGraceActive } from '../tenants/tenantSignupGrace.js';
 import { kstPeriodYmFromDate } from '../tenants/tenantCoin.service.js';
+import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 
 export type PlatformCoinUsageRow = {
   tenantId: string;
@@ -20,6 +21,7 @@ export type PlatformCoinUsageRow = {
   spent: number;
   remaining: number | null;
   pctUsed: number | null;
+  aiUsageCount: number;
 };
 
 export type PlatformCoinUsageKpi = {
@@ -29,6 +31,7 @@ export type PlatformCoinUsageKpi = {
   limitedTenantCount: number;
   nearLimitCount: number;
   zeroSpentCount: number;
+  totalAiUsageCount: number;
 };
 
 export type PlatformCoinUsageListResult = {
@@ -75,7 +78,9 @@ export async function listPlatformCoinUsage(
 ): Promise<PlatformCoinUsageListResult> {
   const { periodYm, q, plan, status, sort, page, pageSize } = parsePlatformCoinUsageListQuery(query);
 
-  const [tenants, spentGroups] = await Promise.all([
+  const monthRange = kstMonthRangeYm(periodYm);
+
+  const [tenants, spentGroups, aiUsageGroups] = await Promise.all([
     prisma.tenant.findMany({
       select: {
         id: true,
@@ -93,11 +98,24 @@ export async function listPlatformCoinUsage(
       where: { periodYm },
       _sum: { amount: true },
     }),
+    prisma.quickPasteLearningLog.groupBy({
+      by: ['tenantId'],
+      where: {
+        aiApplied: true,
+        ...(monthRange ? { createdAt: monthRange } : {}),
+      },
+      _count: { aiApplied: true },
+    }),
   ]);
 
   const spentByTenant = new Map<string, number>();
   for (const g of spentGroups) {
     spentByTenant.set(g.tenantId, g._sum.amount ?? 0);
+  }
+
+  const aiUsageByTenant = new Map<string, number>();
+  for (const g of aiUsageGroups) {
+    aiUsageByTenant.set(g.tenantId, g._count.aiApplied ?? 0);
   }
 
   let rows: PlatformCoinUsageRow[] = tenants.map((t) => {
@@ -106,6 +124,7 @@ export async function listPlatformCoinUsage(
     const unlimited = planHasUnlimitedCoins(planId) || graceActive;
     const allowance = monthlyCoinAllowance(planId);
     const spent = spentByTenant.get(t.id) ?? 0;
+    const aiUsageCount = aiUsageByTenant.get(t.id) ?? 0;
     const remaining = unlimited || allowance == null ? null : Math.max(0, allowance - spent);
     const pctUsed =
       unlimited || allowance == null || allowance <= 0
@@ -123,6 +142,7 @@ export async function listPlatformCoinUsage(
       spent,
       remaining,
       pctUsed,
+      aiUsageCount,
     };
   });
 
@@ -150,6 +170,7 @@ export async function listPlatformCoinUsage(
       (r) => !r.unlimited && r.pctUsed != null && r.pctUsed >= 80,
     ).length,
     zeroSpentCount: rows.filter((r) => r.spent === 0).length,
+    totalAiUsageCount: rows.reduce((s, r) => s + r.aiUsageCount, 0),
   };
 
   if (sort === 'spent_asc') {
