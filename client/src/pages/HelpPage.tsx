@@ -16,7 +16,7 @@ import {
   WORKFLOW_GUIDE_URL,
 } from '../utils/helpContent';
 import { checkHelpEditPermission } from '../api/help';
-import { HelpInquiryBoard } from '../components/help/HelpInquiryBoard';
+import { HelpCustomerBoardView } from '../components/customer-board/HelpCustomerBoardView';
 import { HelpCmsBrowseView } from '../components/help-cms/HelpCmsBrowseView';
 import { fetchPublicHelpCmsCategories } from '../api/publicHelpCms';
 import type { HelpCmsCategory } from '../api/platformHelpCms';
@@ -36,6 +36,7 @@ export function HelpPage() {
   const searchQuery = searchParams.get('q') || '';
   const sectionParam = searchParams.get('section') || '';
   const articleParam = searchParams.get('article') || '';
+  const postParam = searchParams.get('post') || '';
 
   const [mainCategory, setMainCategory] = useState<MainCategory>(categoryParam);
   const [entries, setEntries] = useState<Awaited<ReturnType<typeof fetchHelpContent>>>([]);
@@ -108,6 +109,18 @@ export function HelpPage() {
     [setSearchParams],
   );
 
+  const setCustomerBoardPost = useCallback(
+    (postId: string | null) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (postId) next.set('post', postId);
+        else next.delete('post');
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
+
   const setCmsArticle = useCallback(
     (article: string | null) => {
       setSearchParams((prev) => {
@@ -139,6 +152,9 @@ export function HelpPage() {
         if (newCategory !== 'usage' && newCategory !== 'notice') {
           next.delete('section');
           next.delete('article');
+        }
+        if (newCategory !== 'inquiry' && newCategory !== 'notice') {
+          next.delete('post');
         }
         return next;
       });
@@ -413,16 +429,16 @@ export function HelpPage() {
             </div>
           )
         ) : mainCategory === 'inquiry' ? (
-          <div className="mx-auto max-w-3xl">
-            <HelpInquiryBoard />
-          </div>
+          <HelpCustomerBoardView
+            boardSlug="inquiry"
+            postIdFromUrl={postParam || null}
+            onPostIdChange={setCustomerBoardPost}
+          />
         ) : (
-          <HelpCmsBrowseView
-            tabGroup="notice"
-            sectionSlug={sectionParam || null}
-            articleSlug={articleParam || null}
-            onSectionChange={setCmsSection}
-            onArticleChange={setCmsArticle}
+          <HelpCustomerBoardView
+            boardSlug="notice"
+            postIdFromUrl={postParam || null}
+            onPostIdChange={setCustomerBoardPost}
           />
         )}
       </div>

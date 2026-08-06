@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   listPlatformCoinUsage,
+  type PlatformAiUsageUserBreakdown,
   type PlatformCoinUsageKpi,
   type PlatformCoinUsageRow,
 } from '../../api/platformCoinUsage';
@@ -75,6 +76,52 @@ function UsageBar({ row }: { row: PlatformCoinUsageRow }) {
   );
 }
 
+function AiUsageUnderBar({ row }: { row: PlatformCoinUsageRow }) {
+  if (row.aiUsageCount <= 0) {
+    return (
+      <div className="mt-2 border-t border-dashed border-slate-200 pt-2 text-fluid-2xs text-slate-400">
+        AI 사용 없음
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 border-t border-dashed border-emerald-200/80 pt-2">
+      <div className="mb-1 flex items-center justify-between gap-2 text-fluid-2xs">
+        <span className="font-semibold text-emerald-800">AI 사용</span>
+        <span className="tabular-nums font-semibold text-emerald-700">
+          {row.aiUsageCount.toLocaleString('ko-KR')}회
+        </span>
+      </div>
+      {row.aiUsers.length > 0 ? (
+        <ul className="space-y-0.5">
+          {row.aiUsers.map((u: PlatformAiUsageUserBreakdown, idx: number) => (
+            <li
+              key={`${row.tenantId}-ai-${u.userId ?? 'unknown'}-${idx}`}
+              className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-fluid-2xs"
+            >
+              <span className="min-w-0 text-slate-700">
+                <span className="font-medium text-slate-900">{u.name}</span>
+                {u.roleLabel !== '—' ? (
+                  <span className="text-slate-500"> · {u.roleLabel}</span>
+                ) : null}
+                {u.email !== '—' ? (
+                  <span className="text-slate-400"> · {u.email}</span>
+                ) : null}
+              </span>
+              <span className="shrink-0 tabular-nums font-medium text-emerald-700">
+                {u.count.toLocaleString('ko-KR')}회
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-fluid-2xs text-slate-400">사용자 정보 없음</p>
+      )}
+    </div>
+  );
+}
+
 export function PlatformCoinUsagePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<PlatformCoinUsageRow[]>([]);
@@ -87,7 +134,12 @@ export function PlatformCoinUsagePage() {
   const q = searchParams.get('q') ?? '';
   const filterPlan = searchParams.get('plan') ?? '';
   const filterStatus = searchParams.get('status') ?? '';
-  const sort = (searchParams.get('sort') ?? 'spent_desc') as 'spent_desc' | 'spent_asc' | 'name';
+  const sort = (searchParams.get('sort') ?? 'spent_desc') as
+    | 'spent_desc'
+    | 'spent_asc'
+    | 'name'
+    | 'ai_desc'
+    | 'ai_asc';
   const page = parseListPage(searchParams.get('page'));
   const pageSize = parseInquiryListPageSize(searchParams.get('pageSize'));
   const urlPeriod = searchParams.get('periodYm') ?? '';
@@ -157,7 +209,7 @@ export function PlatformCoinUsagePage() {
       <div>
         <h1 className="text-xl font-bold text-gray-900">코인 사용량</h1>
         <p className="mt-0.5 text-sm text-gray-500">
-          전 업체의 월별 코인 사용량입니다. Premium·가입 체험(무제한)도 실제 사용 코인을 집계합니다.
+          전 업체의 월별 코인·AI(빠른등록) 사용량입니다. Premium·가입 체험(무제한)도 실제 사용 코인을 집계합니다.
         </p>
       </div>
 
@@ -265,6 +317,8 @@ export function PlatformCoinUsagePage() {
             >
               <option value="spent_desc">사용량 많은 순</option>
               <option value="spent_asc">사용량 적은 순</option>
+              <option value="ai_desc">AI 많은 순</option>
+              <option value="ai_asc">AI 적은 순</option>
               <option value="name">업체명</option>
             </select>
           </label>
@@ -296,13 +350,12 @@ export function PlatformCoinUsagePage() {
               >
                 <table className="w-full min-w-[720px] table-fixed border-collapse text-fluid-xs">
                   <colgroup>
-                    <col className="w-[22%]" />
+                    <col className="w-[20%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[9%]" />
                     <col className="w-[12%]" />
-                    <col className="w-[10%]" />
-                    <col className="w-[14%]" />
-                    <col className="w-[24%]" />
-                    <col className="w-[10%]" />
-                    <col className="w-[8%]" />
+                    <col className="w-[36%]" />
+                    <col className="w-[12%]" />
                   </colgroup>
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-100 text-center text-fluid-2xs font-semibold text-gray-600">
@@ -310,14 +363,13 @@ export function PlatformCoinUsagePage() {
                       <th className="px-2 py-2.5 text-center">플랜</th>
                       <th className="px-2 py-2.5 text-center">상태</th>
                       <th className="px-2 py-2.5 text-center">사용</th>
-                      <th className="px-3 py-2.5 text-center">사용 비중</th>
+                      <th className="px-3 py-2.5 text-center">코인 · AI 사용</th>
                       <th className="px-2 py-2.5 text-center">잔여</th>
-                      <th className="px-2 py-2.5 text-center">AI</th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.map((row) => (
-                      <tr key={row.tenantId} className="border-b border-gray-100 hover:bg-gray-50">
+                      <tr key={row.tenantId} className="border-b border-gray-100 hover:bg-gray-50 align-top">
                         <td className="px-3 py-2.5 text-center">
                           <Link
                             to={`/platform/tenants/${row.tenantId}`}
@@ -342,6 +394,7 @@ export function PlatformCoinUsagePage() {
                         </td>
                         <td className="px-3 py-2.5 text-left">
                           <UsageBar row={row} />
+                          <AiUsageUnderBar row={row} />
                         </td>
                         <td className="px-2 py-2.5 text-center tabular-nums text-gray-600">
                           {row.unlimited ? (
@@ -351,9 +404,6 @@ export function PlatformCoinUsagePage() {
                           ) : (
                             '—'
                           )}
-                        </td>
-                        <td className="px-2 py-2.5 text-center tabular-nums font-medium text-emerald-700">
-                          {row.aiUsageCount.toLocaleString('ko-KR')}
                         </td>
                       </tr>
                     ))}
@@ -388,6 +438,7 @@ export function PlatformCoinUsagePage() {
                   </div>
                   <div className="mt-2">
                     <UsageBar row={row} />
+                    <AiUsageUnderBar row={row} />
                   </div>
                 </Link>
               ))}

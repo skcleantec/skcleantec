@@ -354,6 +354,21 @@ export const PlatformHelpCmsArticleEditPage = lazyWithRetry(() =>
     default: m.PlatformHelpCmsArticleEditPage,
   }))
 );
+export const PlatformCustomerBoardsPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformCustomerBoardsPage').then((m) => ({
+    default: m.PlatformCustomerBoardsPage,
+  }))
+);
+export const PlatformCustomerBoardPostEditPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformCustomerBoardPostEditPage').then((m) => ({
+    default: m.PlatformCustomerBoardPostEditPage,
+  }))
+);
+export const PlatformCustomerBoardCategoriesPage = lazyWithRetry(() =>
+  import('../pages/platform/PlatformCustomerBoardCategoriesPage').then((m) => ({
+    default: m.PlatformCustomerBoardCategoriesPage,
+  }))
+);
 export const PlatformUnpaidPopupSettingsPage = lazyWithRetry(() =>
   import('../pages/platform/PlatformUnpaidPopupSettingsPage').then((m) => ({
     default: m.PlatformUnpaidPopupSettingsPage,

@@ -9,6 +9,15 @@ import { isSignupCoinGraceActive } from '../tenants/tenantSignupGrace.js';
 import { kstPeriodYmFromDate } from '../tenants/tenantCoin.service.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
 
+export type PlatformAiUsageUserBreakdown = {
+  userId: string | null;
+  name: string;
+  email: string;
+  role: string;
+  roleLabel: string;
+  count: number;
+};
+
 export type PlatformCoinUsageRow = {
   tenantId: string;
   slug: string;
@@ -22,6 +31,7 @@ export type PlatformCoinUsageRow = {
   remaining: number | null;
   pctUsed: number | null;
   aiUsageCount: number;
+  aiUsers: PlatformAiUsageUserBreakdown[];
 };
 
 export type PlatformCoinUsageKpi = {
@@ -44,6 +54,18 @@ export type PlatformCoinUsageListResult = {
   kpi: PlatformCoinUsageKpi;
 };
 
+const USER_ROLE_LABEL: Record<string, string> = {
+  ADMIN: '관리자',
+  MARKETER: '마케터',
+  TEAM_LEADER: '팀장',
+  OFFICE_STAFF: '사무직',
+  EXTERNAL_PARTNER: '타업체',
+};
+
+function roleLabel(role: string): string {
+  return USER_ROLE_LABEL[role] ?? role;
+}
+
 function parsePeriodYm(raw: unknown): string {
   const s = String(raw ?? '').trim();
   if (/^\d{4}-\d{2}$/.test(s)) return s;
@@ -55,7 +77,7 @@ export function parsePlatformCoinUsageListQuery(query: Record<string, unknown>):
   q: string;
   plan: string;
   status: string;
-  sort: 'spent_desc' | 'spent_asc' | 'name';
+  sort: 'spent_desc' | 'spent_asc' | 'name' | 'ai_desc' | 'ai_asc';
   page: number;
   pageSize: number;
 } {
@@ -65,7 +87,12 @@ export function parsePlatformCoinUsageListQuery(query: Record<string, unknown>):
   const status = String(query.status ?? '').trim();
   const sortRaw = String(query.sort ?? 'spent_desc');
   const sort =
-    sortRaw === 'spent_asc' || sortRaw === 'name' ? sortRaw : ('spent_desc' as const);
+    sortRaw === 'spent_asc' ||
+    sortRaw === 'name' ||
+    sortRaw === 'ai_desc' ||
+    sortRaw === 'ai_asc'
+      ? sortRaw
+      : ('spent_desc' as const);
   const pageSizeRaw = Number(query.pageSize ?? query.limit ?? 30);
   const pageSize = [30, 50, 80, 100].includes(pageSizeRaw) ? pageSizeRaw : 30;
   const pageRaw = Number(query.page ?? 1);
@@ -80,7 +107,7 @@ export async function listPlatformCoinUsage(
 
   const monthRange = kstMonthRangeYm(periodYm);
 
-  const [tenants, spentGroups, aiUsageGroups] = await Promise.all([
+  const [tenants, spentGroups, aiUsageGroups, aiUserGroups] = await Promise.all([
     prisma.tenant.findMany({
       select: {
         id: true,
@@ -106,6 +133,14 @@ export async function listPlatformCoinUsage(
       },
       _count: { aiApplied: true },
     }),
+    prisma.quickPasteLearningLog.groupBy({
+      by: ['tenantId', 'userId'],
+      where: {
+        aiApplied: true,
+        ...(monthRange ? { createdAt: monthRange } : {}),
+      },
+      _count: { aiApplied: true },
+    }),
   ]);
 
   const spentByTenant = new Map<string, number>();
@@ -116,6 +151,57 @@ export async function listPlatformCoinUsage(
   const aiUsageByTenant = new Map<string, number>();
   for (const g of aiUsageGroups) {
     aiUsageByTenant.set(g.tenantId, g._count.aiApplied ?? 0);
+  }
+
+  const aiUserIds = [
+    ...new Set(
+      aiUserGroups.map((g) => g.userId).filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ),
+  ];
+  const aiUsersById = new Map<
+    string,
+    { id: string; name: string; email: string; role: string }
+  >();
+  if (aiUserIds.length > 0) {
+    const userRows = await prisma.user.findMany({
+      where: { id: { in: aiUserIds } },
+      select: { id: true, name: true, email: true, role: true },
+    });
+    for (const u of userRows) {
+      aiUsersById.set(u.id, u);
+    }
+  }
+
+  const aiUsersByTenant = new Map<string, PlatformAiUsageUserBreakdown[]>();
+  for (const g of aiUserGroups) {
+    const count = g._count.aiApplied ?? 0;
+    if (count <= 0) continue;
+    const list = aiUsersByTenant.get(g.tenantId) ?? [];
+    if (g.userId) {
+      const u = aiUsersById.get(g.userId);
+      list.push({
+        userId: g.userId,
+        name: u?.name ?? '(삭제된 사용자)',
+        email: u?.email ?? '—',
+        role: u?.role ?? '—',
+        roleLabel: u ? roleLabel(u.role) : '—',
+        count,
+      });
+    } else {
+      list.push({
+        userId: null,
+        name: '사용자 미기록',
+        email: '—',
+        role: '—',
+        roleLabel: '—',
+        count,
+      });
+    }
+    aiUsersByTenant.set(g.tenantId, list);
+  }
+  for (const [tenantId, list] of aiUsersByTenant) {
+    list.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'));
+    aiUsersByTenant.set(tenantId, list);
   }
 
   let rows: PlatformCoinUsageRow[] = tenants.map((t) => {
@@ -143,6 +229,7 @@ export async function listPlatformCoinUsage(
       remaining,
       pctUsed,
       aiUsageCount,
+      aiUsers: aiUsersByTenant.get(t.id) ?? [],
     };
   });
 
@@ -177,6 +264,10 @@ export async function listPlatformCoinUsage(
     rows.sort((a, b) => a.spent - b.spent || a.name.localeCompare(b.name, 'ko'));
   } else if (sort === 'name') {
     rows.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  } else if (sort === 'ai_asc') {
+    rows.sort((a, b) => a.aiUsageCount - b.aiUsageCount || a.name.localeCompare(b.name, 'ko'));
+  } else if (sort === 'ai_desc') {
+    rows.sort((a, b) => b.aiUsageCount - a.aiUsageCount || a.name.localeCompare(b.name, 'ko'));
   } else {
     rows.sort((a, b) => b.spent - a.spent || a.name.localeCompare(b.name, 'ko'));
   }

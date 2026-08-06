@@ -317,6 +317,7 @@ model Tenant {
   referralAttribution TenantReferralAttribution?
   platformReferrersAsPartner PlatformReferrer[] @relation("PlatformReferrerPartnerTenant")
   referrerCommissionAccruals PlatformReferrerCommissionAccrual[]
+  platformBoardPosts         PlatformBoardPost[]
 
   @@map("tenants")
 }
@@ -852,6 +853,7 @@ model PlatformUser {
   reviewedPlanUpgradeRequests TenantPlanUpgradeRequest[]
   reviewedSignupInquiries     PlatformSignupInquiry[]
   helpCmsArticles             HelpCmsArticle[]
+  platformBoardPosts          PlatformBoardPost[]
 
   @@map("platform_users")
 }
@@ -1134,6 +1136,89 @@ model HelpCmsArticle {
   @@map("help_cms_articles")
 }
 
+/// 플랫폼 고객센터 — 보드 종류 (공지·문의 등)
+enum PlatformBoardType {
+  NOTICE
+  INQUIRY
+}
+
+enum PlatformBoardPostStatus {
+  OPEN
+  ANSWERED
+  HIDDEN
+}
+
+/// 플랫폼 고객센터 — 게시판 정의 (공지·문의 등, 플랫폼 전역)
+model PlatformBoard {
+  id          String            @id @default(uuid())
+  slug        String            @unique @db.VarChar(64)
+  label       String            @db.VarChar(128)
+  boardType   PlatformBoardType @map("board_type")
+  sortOrder   Int               @default(0) @map("sort_order")
+  isPublished Boolean           @default(true) @map("is_published")
+  /// listPublic: 목록 공개 여부 (문의는 true + 이름 마스킹·비밀글)
+  listPublic  Boolean           @default(true) @map("list_public")
+  settings    Json              @default("{}")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  categories  PlatformBoardCategory[]
+  posts       PlatformBoardPost[]
+
+  @@index([isPublished, sortOrder])
+  @@map("platform_boards")
+}
+
+model PlatformBoardCategory {
+  id        String        @id @default(uuid())
+  boardId   String        @map("board_id")
+  board     PlatformBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  slug      String        @db.VarChar(64)
+  label     String        @db.VarChar(128)
+  sortOrder Int           @default(0) @map("sort_order")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  posts     PlatformBoardPost[]
+
+  @@unique([boardId, slug])
+  @@index([boardId, sortOrder])
+  @@map("platform_board_categories")
+}
+
+model PlatformBoardPost {
+  id                   String                  @id @default(uuid())
+  boardId              String                  @map("board_id")
+  board                PlatformBoard           @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  categoryId           String?                 @map("category_id")
+  category             PlatformBoardCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  slug                 String?                 @db.VarChar(128)
+  title                String                  @db.VarChar(256)
+  excerpt              String?                 @db.VarChar(500)
+  bodyHtml             String                  @map("body_html") @db.Text
+  authorName           String?                 @map("author_name") @db.VarChar(64)
+  authorEmail          String?                 @map("author_email") @db.VarChar(256)
+  authorUserId         String?                 @map("author_user_id")
+  authorUser           User?                   @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  tenantId             String?                 @map("tenant_id")
+  tenant               Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  isSecret             Boolean                 @default(false) @map("is_secret")
+  status               PlatformBoardPostStatus @default(OPEN)
+  isPinned             Boolean                 @default(false) @map("is_pinned")
+  isPublished          Boolean                 @default(true) @map("is_published")
+  publishedAt          DateTime?               @map("published_at")
+  viewCount            Int                     @default(0) @map("view_count")
+  authorPlatformUserId String?                 @map("author_platform_user_id")
+  authorPlatformUser   PlatformUser?           @relation(fields: [authorPlatformUserId], references: [id], onDelete: SetNull)
+  legacyHelpInquiryId  String?                 @unique @map("legacy_help_inquiry_id") @db.VarChar(64)
+  legacyHelpCmsSlug    String?                 @unique @map("legacy_help_cms_slug") @db.VarChar(128)
+  createdAt            DateTime                @default(now()) @map("created_at")
+  updatedAt            DateTime                @updatedAt @map("updated_at")
+
+  @@index([boardId, isPublished, isPinned, createdAt(sort: Desc)])
+  @@index([boardId, categoryId, createdAt(sort: Desc)])
+  @@index([boardId, status, createdAt(sort: Desc)])
+  @@map("platform_board_posts")
+}
+
 /// 플랫폼 운영 — 모든 테넌트 관리자(/admin) 로그인용 글로벌 지원 계정
 model TenantSupportAccess {
   id           String    @id @default(uuid())
@@ -1411,6 +1496,7 @@ model User {
   telecrmConsultationQuotesUpdated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteUpdatedBy")
   telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
   planUpgradeRequestsRequested TenantPlanUpgradeRequest[] @relation("TenantPlanUpgradeRequestRequester")
+  platformBoardPosts           PlatformBoardPost[]
 
   @@unique([tenantId, email])
   @@unique([tenantId, platformSupportAccessId])

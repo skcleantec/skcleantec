@@ -4,6 +4,15 @@ function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
+export type PlatformAiUsageUserBreakdown = {
+  userId: string | null;
+  name: string;
+  email: string;
+  role: string;
+  roleLabel: string;
+  count: number;
+};
+
 export type PlatformCoinUsageRow = {
   tenantId: string;
   slug: string;
@@ -17,6 +26,7 @@ export type PlatformCoinUsageRow = {
   remaining: number | null;
   pctUsed: number | null;
   aiUsageCount: number;
+  aiUsers: PlatformAiUsageUserBreakdown[];
 };
 
 export type PlatformCoinUsageKpi = {
@@ -44,7 +54,7 @@ export type ListPlatformCoinUsageParams = {
   q?: string;
   plan?: string;
   status?: string;
-  sort?: 'spent_desc' | 'spent_asc' | 'name';
+  sort?: 'spent_desc' | 'spent_asc' | 'name' | 'ai_desc' | 'ai_asc';
   page?: number;
   pageSize?: number;
 };

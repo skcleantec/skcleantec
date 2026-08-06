@@ -118,10 +118,12 @@ import {
   PlatformSignupTrialEventsPage,
   PlatformSupportAccessPage,
   PlatformDbMarketplacePage,
-  PlatformHelpInquirySettingsPage,
   PlatformHelpCmsPage,
   PlatformHelpCmsCategoriesPage,
   PlatformHelpCmsArticleEditPage,
+  PlatformCustomerBoardsPage,
+  PlatformCustomerBoardPostEditPage,
+  PlatformCustomerBoardCategoriesPage,
   PlatformUnpaidPopupSettingsPage,
   PlatformPartnerPromoSettingsPage,
   PlatformSettingsPage,
@@ -174,7 +176,11 @@ function App() {
           <Route path="signup-trial-events" element={<SuspensePage><PlatformSignupTrialEventsPage /></SuspensePage>} />
           <Route path="support-access" element={<SuspensePage><PlatformSupportAccessPage /></SuspensePage>} />
           <Route path="db-marketplace" element={<SuspensePage><PlatformDbMarketplacePage /></SuspensePage>} />
-          <Route path="help-inquiry" element={<SuspensePage><PlatformHelpInquirySettingsPage /></SuspensePage>} />
+          <Route path="help-inquiry" element={<Navigate to="/platform/customer-boards?board=inquiry" replace />} />
+          <Route path="customer-boards" element={<SuspensePage><PlatformCustomerBoardsPage /></SuspensePage>} />
+          <Route path="customer-boards/categories" element={<SuspensePage><PlatformCustomerBoardCategoriesPage /></SuspensePage>} />
+          <Route path="customer-boards/:boardSlug/posts/new" element={<SuspensePage><PlatformCustomerBoardPostEditPage /></SuspensePage>} />
+          <Route path="customer-boards/posts/:id/edit" element={<SuspensePage><PlatformCustomerBoardPostEditPage /></SuspensePage>} />
           <Route path="help-cms" element={<SuspensePage><PlatformHelpCmsPage /></SuspensePage>} />
           <Route path="help-cms/categories" element={<SuspensePage><PlatformHelpCmsCategoriesPage /></SuspensePage>} />
           <Route path="help-cms/articles/new" element={<SuspensePage><PlatformHelpCmsArticleEditPage /></SuspensePage>} />
