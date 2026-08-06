@@ -2468,7 +2468,7 @@ export function AdminInquiriesPage() {
                 <button
                   type="button"
                   onClick={openListIntakeModal}
-                  className="inline-flex min-h-8 items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2 sm:px-2.5 py-1 text-[11px] sm:text-fluid-2xs lg:text-fluid-xs font-medium text-sky-800 shadow-sm transition-colors hover:border-sky-300 hover:bg-sky-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-1 whitespace-nowrap"
+                  className="inline-flex min-h-8 items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2 sm:px-2.5 py-1 text-[11px] sm:text-fluid-2xs lg:text-fluid-xs font-medium text-sky-700 shadow-sm transition-all hover:border-sky-300 hover:bg-sky-100 hover:text-sky-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-1 whitespace-nowrap"
                   title="일반 워크플로우(부재/보류/입금)로 신규 등록"
                 >
                   일반 등록
