@@ -2206,8 +2206,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   : 'mt-1.5 space-y-1 sm:mt-2 sm:space-y-1.5'
               }
             >
-              <div className="flex items-center gap-1 min-w-0 sm:flex-col sm:items-stretch sm:gap-2">
-                <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden sm:flex-wrap sm:gap-x-1.5 sm:gap-y-1 sm:overflow-visible">
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
                   <CustomerNameWithInternalTone
                     name={item.customerName}
                     tone={editForm.internalCustomerTone}
@@ -2218,19 +2218,19 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     propertyType={editForm.propertyType?.trim() || item.propertyType}
                     isOneRoom={editForm.isOneRoom}
                     oneRoomTitle={oneRoomLabel}
-                    className="shrink-0"
+                    className="shrink-0 hidden sm:inline-flex"
                   />
                   {item.orderForm?.template && !item.orderForm.template.isDefault ? (
-                    <OrderFormTemplateBadge template={item.orderForm.template} className="shrink-0" />
+                    <OrderFormTemplateBadge template={item.orderForm.template} className="shrink-0 hidden sm:inline-flex" />
                   ) : null}
-                  <div className="flex shrink-0 items-center sm:hidden">
+                  <div className="flex shrink-0 items-center">
                     {item.happyCallCompletedAt ? (
-                      <span className="inline-flex items-center rounded border border-green-200 bg-green-50 px-1 py-px text-[10px] font-semibold leading-tight text-green-800">
+                      <span className="inline-flex items-center rounded border border-green-200 bg-green-50 px-1 py-px text-[10px] sm:px-1.5 sm:py-0.5 sm:text-fluid-2xs font-semibold leading-tight text-green-800">
                         HC완료
                       </span>
                     ) : detailHappyCallEligible ? (
                       <span
-                        className={`inline-flex items-center rounded border px-1 py-px text-[10px] font-semibold leading-tight ${
+                        className={`inline-flex items-center rounded border px-1 py-px text-[10px] sm:px-1.5 sm:py-0.5 sm:text-fluid-2xs font-semibold leading-tight ${
                           detailHappyTone === 'overdue'
                             ? 'border-red-300 bg-red-50 text-red-700'
                             : 'border-amber-200 bg-amber-50 text-amber-900'
@@ -2239,103 +2239,40 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                         {detailHappyTone === 'overdue' ? 'HC초과' : 'HC미완'}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center rounded border border-gray-200 bg-gray-50 px-1 py-px text-[10px] font-medium leading-tight text-gray-500">
+                      <span className="inline-flex items-center rounded border border-gray-200 bg-gray-50 px-1 py-px text-[10px] sm:px-1.5 sm:py-0.5 sm:text-fluid-2xs font-medium leading-tight text-gray-500">
                         HC—
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+                <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
                   <button
                     type="button"
                     onClick={() => setCopyInfoViewOpen(true)}
-                    className="inline-flex items-center rounded-md border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-slate-800 hover:bg-slate-100 active:bg-slate-200 sm:gap-1 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
+                    className="inline-flex items-center rounded-md border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-slate-800 hover:bg-slate-100 active:bg-slate-200 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                     title="고객·현장·일정·금액 요약을 한 화면에서 봅니다."
                   >
-                    <span className="sm:hidden">보기</span>
-                    <span className="hidden sm:inline">정보 보기</span>
+                    보기
                   </button>
                   <button
                     type="button"
                     onClick={() => void copyInquiryInfo()}
-                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium leading-tight text-gray-700 hover:bg-gray-50 active:bg-gray-100 sm:gap-1 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
+                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium leading-tight text-gray-700 hover:bg-gray-50 active:bg-gray-100 sm:px-2.5 sm:py-1 sm:text-fluid-xs"
                     title="접수번호와 고객·현장·일정 정보를 텍스트로 복사합니다. 타업체 공유에 사용하세요."
                     aria-live="polite"
                   >
-                    <span className="sm:hidden">{copyHint ?? '복사'}</span>
-                    <span className="hidden sm:inline">{copyHint ?? '정보 복사'}</span>
+                    복사
                   </button>
-                </div>
-              </div>
-              <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-2">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-                  <span className="shrink-0 text-fluid-2xs font-medium text-gray-500">해피콜</span>
-                  {item.happyCallCompletedAt ? (
-                    <span className="shrink-0 inline-flex items-center rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-fluid-2xs font-semibold text-green-800">
-                      완료
-                    </span>
-                  ) : detailHappyCallEligible ? (
-                    <span
-                      className={`shrink-0 inline-flex items-center rounded-md border px-2 py-0.5 text-fluid-2xs font-semibold ${
-                        detailHappyTone === 'overdue'
-                          ? 'border-red-300 bg-red-50 text-red-700'
-                          : 'border-amber-200 bg-amber-50 text-amber-900'
-                      }`}
-                    >
-                      {detailHappyTone === 'overdue' ? '미완(마감초과)' : '미완'}
-                    </span>
-                  ) : (
-                    <span className="shrink-0 inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-fluid-2xs font-medium text-gray-500">
-                      대상 아님
-                    </span>
-                  )}
                 </div>
               </div>
               {detailHeaderMetaCompact ? (
                 <p
-                  className="truncate text-[10px] leading-tight text-gray-500 sm:hidden"
+                  className="truncate text-[10px] leading-tight text-gray-500 sm:text-fluid-2xs"
                   title={detailHeaderMetaCompact}
                 >
                   {detailHeaderMetaCompact}
                 </p>
               ) : null}
-              <p className="hidden text-fluid-2xs text-gray-500 leading-relaxed sm:flex sm:flex-wrap sm:items-center sm:gap-x-1 sm:gap-y-1 sm:text-xs">
-                {item.inquiryNumber ? <span>접수번호 {item.inquiryNumber}</span> : null}
-                {distanceJuanLabel ? <span>· 주안 기준 {distanceJuanLabel}</span> : null}
-                {detailHeaderAreaShort !== '—' ? <span>· {detailHeaderAreaShort}</span> : null}
-                {isManualIntakeInquiry(item.source) ? <span>· 수기</span> : null}
-                <span className="hidden sm:inline">
-                  ·{' '}
-                  <InquiryIntakeMetaLabels
-                    source={item.source}
-                    intakeChannel={item.intakeChannel}
-                    orderFormSubmitted={Boolean(item.orderForm?.submittedAt)}
-                  />
-                </span>
-                <span className="sm:hidden">
-                  ·{' '}
-                  <InquiryIntakeMetaLabels
-                    source={item.source}
-                    intakeChannel={item.intakeChannel}
-                    orderFormSubmitted={Boolean(item.orderForm?.submittedAt)}
-                    className="inline-block max-w-full truncate"
-                  />
-                </span>
-                <span>
-                  · 담당 마케터: {item.createdBy?.name ?? item.orderForm?.createdBy?.name ?? '-'}
-                  {item.collaborationMarketer?.name?.trim()
-                    ? ` · 협업: ${item.collaborationMarketer.name.trim()}`
-                    : ''}
-                </span>
-                {item.operatingCompany ? (
-                  <>
-                    <span>·</span>
-                    <OperatingCompanyBadge company={item.operatingCompany} />
-                  </>
-                ) : null}
-                {item.callAttempt != null ? <span>· 통화 시도: {item.callAttempt}</span> : null}
-                {item.claimMemo?.trim() ? <span>· 클레임 등록됨</span> : null}
-              </p>
               {detailLeaderSingleSlotAssignment ? (
                 <p className="text-[11px] font-semibold text-slate-700 leading-snug">
                   배정된 팀장 중 이날 오전 또는 오후 한 슬롯에만 1건 있는 사람이 있습니다. 반대 슬롯·사이 추가
