@@ -2503,176 +2503,184 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         />
 
         <AdminScheduleDetailSection title="일정" sectionAnchor="schedule">
-        <div className={inqEditFormGrid}>
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <label className="block text-gray-600">예약일 (청소 희망일)</label>
-            </div>
-            <div className="flex items-stretch gap-2">
-              <YmdSelect
-                value={editForm.preferredDate}
-                onChange={(v) => setEditForm((p) => ({ ...p, preferredDate: v }))}
-                readOnly={isCreate && preferredDateLocked}
-                allowEmpty
-                emitOnCompleteOnly
-                minYmd={kstTodayYmd()}
-                idPrefix="sched-detail-pref"
-                className={`flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded bg-white ${
-                  isCreate && preferredDateLocked ? 'opacity-90' : ''
-                }`}
-              />
-              {isCreate && preferredDateLocked && (
-                <button
-                  type="button"
-                  onClick={() => setPreferredDateLocked(false)}
-                  className="shrink-0 px-3 py-2 rounded border border-blue-200 bg-blue-50 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                >
-                  날짜 변경
-                </button>
-              )}
-            </div>
-            <div className="mt-2">
-              <button
-                type="button"
-                disabled={isCreate && preferredDateLocked}
-                onClick={() => setPreferredDateCalOpen(true)}
-                className="w-full px-3 py-2 rounded border border-gray-300 bg-gray-50 text-fluid-sm font-medium text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none"
-              >
-                달력·분배 가능일
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className={inqEditLabel}>희망 시간대</label>
-            <select
-              value={editForm.preferredTime}
-              onChange={(e) => {
-                const v = e.target.value;
-                setEditForm((p) => ({
-                  ...p,
-                  preferredTime: v,
-                  betweenScheduleSlot: (v || '').includes('사이청소') ? p.betweenScheduleSlot : '',
-                }));
-              }}
-              className={inqEditInput}
-            >
-              <option value="">선택 안 함</option>
-              {timeSlotOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          {isSideCleaningTime(editForm.preferredTime) && (
-            <div>
-              <label className={inqEditLabel}>사이청소 일정 확정</label>
-              <select
-                value={editForm.betweenScheduleSlot}
-                onChange={(e) =>
-                  setEditForm((p) => ({ ...p, betweenScheduleSlot: e.target.value }))
-                }
-                className={inqEditInput}
-              >
-                <option value="">미확정 (오전/오후 중 미정)</option>
-                <option value="오전">오전에 청소</option>
-                <option value="오후">오후에 청소</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                확정 시 해당 시간대 청소 가능 인원에서 1건을 사용합니다.
-              </p>
-            </div>
-          )}
-          <div>
-            <label className={inqEditLabel}>구체적 시각</label>
-            <input
-              value={editForm.preferredTimeDetail}
-              onChange={(e) => setEditForm((p) => ({ ...p, preferredTimeDetail: e.target.value }))}
-              className={inqEditInput}
-            />
-          </div>
-          <div>
-            <label className={inqEditLabel}>신축/구축/인테리어/거주</label>
-            <select
-              value={editForm.buildingType}
-              onChange={(e) => {
-                const v = e.target.value;
-                setEditForm((p) => ({
-                  ...p,
-                  buildingType: v,
-                  ...(v === ORDER_BUILDING_TYPE_RESIDING ? { moveInDateUndecided: false } : {}),
-                }));
-              }}
-              className={inqEditInput}
-            >
-              <option value="">선택 안 함</option>
-              {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={inqEditLabel}>
-              이사 날짜
-              {requiresMoveInDateOrUndecided(editForm.buildingType) ? (
-                <span className="text-red-600"> *</span>
-              ) : (
-                <span className="text-gray-500"> (선택)</span>
-              )}
-            </label>
-            <YmdSelect
-              value={editForm.moveInDate}
-              onChange={(v) =>
-                setEditForm((p) => ({
-                  ...p,
-                  moveInDate: v,
-                  moveInDateUndecided: v.trim() ? false : p.moveInDateUndecided,
-                }))
-              }
-              disabled={editForm.moveInDateUndecided}
-              allowEmpty
-              emitOnCompleteOnly
-              idPrefix="sched-detail-move"
-              className="w-full px-3 py-2 border border-gray-300 rounded bg-white"
-            />
-            {requiresMoveInDateOrUndecided(editForm.buildingType) ? (
-              <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-gray-800">
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300"
-                  checked={editForm.moveInDateUndecided}
-                  onChange={(e) => {
-                    const c = e.target.checked;
-                    setEditForm((p) => ({
-                      ...p,
-                      moveInDateUndecided: c,
-                      ...(c ? { moveInDate: '' } : {}),
-                    }));
-                  }}
-                />
-                미정 (이사일 추후 확정)
-              </label>
-            ) : null}
-          </div>
-          {!isCreate &&
-          item &&
-          effectiveCustomerOrderNotes({
-            specialNotes: item.specialNotes,
-            orderForm: item.orderForm,
-          }).trim() !== '' ? (
-            <div className="sm:col-span-2 space-y-1">
-              <label className={inqEditLabel}>고객 발주서 특이사항 (읽기 전용)</label>
-              <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 px-3 py-2 text-fluid-xs text-gray-800 sm:text-fluid-sm">
-                {effectiveCustomerOrderNotes({
-                  specialNotes: item.specialNotes,
-                  orderForm: item.orderForm,
-                })}
+          <div className="space-y-4">
+            {/* 예약일시 그룹 */}
+            <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-3 sm:p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-fluid-sm font-semibold text-slate-700">예약일 (청소 희망일)</label>
+                    <button
+                      type="button"
+                      disabled={isCreate && preferredDateLocked}
+                      onClick={() => setPreferredDateCalOpen(true)}
+                      className="text-[12px] font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                    >
+                      달력·분배 가능일 &rarr;
+                    </button>
+                  </div>
+                  <div className="flex items-stretch gap-2">
+                    <YmdSelect
+                      value={editForm.preferredDate}
+                      onChange={(v) => setEditForm((p) => ({ ...p, preferredDate: v }))}
+                      readOnly={isCreate && preferredDateLocked}
+                      allowEmpty
+                      emitOnCompleteOnly
+                      minYmd={kstTodayYmd()}
+                      idPrefix="sched-detail-pref"
+                      className={`flex-1 min-w-0 px-3 py-2 border border-slate-300 rounded-md bg-white text-fluid-sm ${
+                        isCreate && preferredDateLocked ? 'opacity-90' : ''
+                      }`}
+                    />
+                    {isCreate && preferredDateLocked && (
+                      <button
+                        type="button"
+                        onClick={() => setPreferredDateLocked(false)}
+                        className="shrink-0 px-3 py-2 rounded-md border border-blue-200 bg-blue-50 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                      >
+                        날짜 변경
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">희망 시간대 및 시각</label>
+                  <div className="flex items-stretch gap-2">
+                    <select
+                      value={editForm.preferredTime}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setEditForm((p) => ({
+                          ...p,
+                          preferredTime: v,
+                          betweenScheduleSlot: (v || '').includes('사이청소') ? p.betweenScheduleSlot : '',
+                        }));
+                      }}
+                      className="w-1/2 min-w-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-fluid-sm text-slate-900"
+                    >
+                      <option value="">선택 안 함</option>
+                      {timeSlotOptions.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      value={editForm.preferredTimeDetail}
+                      onChange={(e) => setEditForm((p) => ({ ...p, preferredTimeDetail: e.target.value }))}
+                      className="w-1/2 min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
+                      placeholder="구체적 시각 (예: 10:30)"
+                    />
+                  </div>
+                </div>
+
+                {isSideCleaningTime(editForm.preferredTime) && (
+                  <div className="sm:col-span-2 pt-1">
+                    <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">사이청소 일정 확정</label>
+                    <div className="flex items-center gap-3">
+                      <select
+                        value={editForm.betweenScheduleSlot}
+                        onChange={(e) => setEditForm((p) => ({ ...p, betweenScheduleSlot: e.target.value }))}
+                        className="w-full sm:w-1/2 min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
+                      >
+                        <option value="">미확정 (오전/오후 중 미정)</option>
+                        <option value="오전">오전에 청소</option>
+                        <option value="오후">오후에 청소</option>
+                      </select>
+                      <p className="text-[12px] text-slate-500">확정 시 해당 시간대 청소 가능 인원에서 1건을 사용합니다.</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          ) : null}
-        </div>
+
+            {/* 이사 & 현장 정보 그룹 */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-fluid-sm font-semibold text-slate-700">
+                      이사 날짜
+                      {requiresMoveInDateOrUndecided(editForm.buildingType) ? (
+                        <span className="text-red-500 ml-1">*</span>
+                      ) : (
+                        <span className="text-slate-400 font-normal ml-1 text-[12px]">(선택)</span>
+                      )}
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-slate-600 hover:text-slate-900">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        checked={editForm.moveInDateUndecided}
+                        onChange={(e) => {
+                          const c = e.target.checked;
+                          setEditForm((p) => ({
+                            ...p,
+                            moveInDateUndecided: c,
+                            ...(c ? { moveInDate: '' } : {}),
+                          }));
+                        }}
+                      />
+                      미정 (추후 확정)
+                    </label>
+                  </div>
+                  <YmdSelect
+                    value={editForm.moveInDate}
+                    onChange={(v) =>
+                      setEditForm((p) => ({
+                        ...p,
+                        moveInDate: v,
+                        moveInDateUndecided: v.trim() ? false : p.moveInDateUndecided,
+                      }))
+                    }
+                    disabled={editForm.moveInDateUndecided}
+                    allowEmpty
+                    emitOnCompleteOnly
+                    idPrefix="sched-detail-move"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-fluid-sm disabled:opacity-50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">신축/구축/인테리어/거주</label>
+                  <select
+                    value={editForm.buildingType}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setEditForm((p) => ({
+                        ...p,
+                        buildingType: v,
+                        ...(v === ORDER_BUILDING_TYPE_RESIDING ? { moveInDateUndecided: false } : {}),
+                      }));
+                    }}
+                    className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
+                  >
+                    <option value="">선택 안 함</option>
+                    {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 특이사항 */}
+            {!isCreate &&
+            item &&
+            effectiveCustomerOrderNotes({
+              specialNotes: item.specialNotes,
+              orderForm: item.orderForm,
+            }).trim() !== '' ? (
+              <div className="pt-1">
+                <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">고객 발주서 특이사항 (읽기 전용)</label>
+                <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-fluid-sm text-slate-700">
+                  {effectiveCustomerOrderNotes({
+                    specialNotes: item.specialNotes,
+                    orderForm: item.orderForm,
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </AdminScheduleDetailSection>
 
         {!isCreate && item && item.status !== 'CANCELLED' && customCalendars && customCalendars.length > 0 && onCustomCalendarsChange ? (

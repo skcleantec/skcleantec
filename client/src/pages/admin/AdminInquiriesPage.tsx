@@ -4589,149 +4589,163 @@ export function AdminInquiriesPage() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-fluid-sm text-slate-600 mb-1">예약일 (청소 희망일)</label>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-2">
-                  <YmdSelect
-                    value={editForm.preferredDate}
-                    onChange={(v) => setEditForm((p) => ({ ...p, preferredDate: v }))}
-                    idPrefix="inq-edit-pref"
-                    allowEmpty
-                    emitOnCompleteOnly
-                    minYmd={kstTodayYmd()}
-                    className="flex-1 min-w-0 px-2 py-2 border border-slate-300 rounded bg-white"
-                  />
-                  <button
-                    type="button"
-                    disabled={!token}
-                    onClick={() => setInquiryEditPreferredCalOpen(true)}
-                    className="shrink-0 px-3 py-2 rounded border border-slate-300 bg-slate-50 text-fluid-sm font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap"
-                  >
-                    달력·분배 가능일
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-fluid-sm text-slate-600 mb-1">희망 시간대</label>
-                <select
-                  value={editForm.preferredTime}
-                  onChange={(e) => setEditForm((p) => ({ ...p, preferredTime: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
-                >
-                  <option value="">선택 안 함</option>
-                  {timeSlotOptions.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-fluid-sm text-slate-600 mb-1">구체적 시각</label>
-                <input
-                  value={editForm.preferredTimeDetail}
-                  onChange={(e) => setEditForm((p) => ({ ...p, preferredTimeDetail: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
-                  placeholder="예: 10:30"
-                />
-              </div>
-              <div>
-                <label className="block text-fluid-sm text-slate-600 mb-1">신축/구축/인테리어/거주</label>
-                <select
-                  value={editForm.buildingType}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setEditForm((p) => ({
-                      ...p,
-                      buildingType: v,
-                      ...(v === ORDER_BUILDING_TYPE_RESIDING ? { moveInDateUndecided: false } : {}),
-                    }));
-                  }}
-                  className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
-                >
-                  <option value="">선택 안 함</option>
-                  {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-fluid-sm text-slate-600 mb-1">
-                  이사 날짜
-                  {requiresMoveInDateOrUndecided(editForm.buildingType) ? (
-                    <span className="text-red-600"> *</span>
-                  ) : (
-                    <span className="text-slate-500"> (선택)</span>
-                  )}
-                </label>
-                <YmdSelect
-                  value={editForm.moveInDate}
-                  onChange={(v) =>
-                    setEditForm((p) => ({
-                      ...p,
-                      moveInDate: v,
-                      moveInDateUndecided: v.trim() ? false : p.moveInDateUndecided,
-                    }))
-                  }
-                  disabled={editForm.moveInDateUndecided}
-                  idPrefix="inq-edit-move"
-                  allowEmpty
-                  emitOnCompleteOnly
-                  className="w-full px-2 py-2 border border-slate-300 rounded bg-white"
-                />
-                {requiresMoveInDateOrUndecided(editForm.buildingType) ? (
-                  <label className="mt-2 flex cursor-pointer items-center gap-2 text-fluid-xs text-slate-800">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300"
-                      checked={editForm.moveInDateUndecided}
-                      onChange={(e) => {
-                        const c = e.target.checked;
-                        setEditForm((p) => ({
-                          ...p,
-                          moveInDateUndecided: c,
-                          ...(c ? { moveInDate: '' } : {}),
-                        }));
-                      }}
-                    />
-                    미정 (이사일 추후 확정)
-                  </label>
-                ) : null}
-              </div>
-              <div className="sm:col-span-2 space-y-2">
-                {editItem &&
-                effectiveCustomerOrderNotes({
-                  specialNotes: editItem.specialNotes,
-                  orderForm: editItem.orderForm,
-                }).trim() !== '' ? (
-                  <div>
-                    <label className="block text-fluid-sm text-slate-600 mb-1">
-                      고객 발주서 특이사항 (읽기 전용)
-                    </label>
-                    <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded border border-slate-200 bg-slate-50 px-3 py-2 text-fluid-sm text-slate-800">
-                      {effectiveCustomerOrderNotes({
-                        specialNotes: editItem.specialNotes,
-                        orderForm: editItem.orderForm,
-                      })}
+              <div className="sm:col-span-2 space-y-4">
+                {/* 예약일시 그룹 */}
+                <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-3 sm:p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-fluid-sm font-semibold text-slate-700">예약일 (청소 희망일)</label>
+                        <button
+                          type="button"
+                          disabled={!token}
+                          onClick={() => setInquiryEditPreferredCalOpen(true)}
+                          className="text-[12px] font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                        >
+                          달력·분배 가능일 &rarr;
+                        </button>
+                      </div>
+                      <div className="flex items-stretch gap-2">
+                        <YmdSelect
+                          value={editForm.preferredDate}
+                          onChange={(v) => setEditForm((p) => ({ ...p, preferredDate: v }))}
+                          idPrefix="inq-edit-pref"
+                          allowEmpty
+                          emitOnCompleteOnly
+                          minYmd={kstTodayYmd()}
+                          className="flex-1 min-w-0 px-3 py-2 border border-slate-300 rounded-md bg-white text-fluid-sm"
+                        />
+                      </div>
                     </div>
-                    <p className="mt-1 text-fluid-2xs text-slate-500">
-                      고객이 발주서 11항에 작성한 내용입니다. 서식·금액 등은 발주서 본문에서 확인하세요.
-                    </p>
+
+                    <div>
+                      <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">희망 시간대 및 시각</label>
+                      <div className="flex items-stretch gap-2">
+                        <select
+                          value={editForm.preferredTime}
+                          onChange={(e) => setEditForm((p) => ({ ...p, preferredTime: e.target.value }))}
+                          className="w-1/2 min-w-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-fluid-sm text-slate-900"
+                        >
+                          <option value="">선택 안 함</option>
+                          {timeSlotOptions.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                        <input
+                          value={editForm.preferredTimeDetail}
+                          onChange={(e) => setEditForm((p) => ({ ...p, preferredTimeDetail: e.target.value }))}
+                          className="w-1/2 min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
+                          placeholder="구체적 시각 (예: 10:30)"
+                        />
+                      </div>
+                    </div>
                   </div>
-                ) : null}
-                <div>
-                  <label className="block text-fluid-sm text-slate-600 mb-1">
-                    특이사항 (관리자·팀장 공유)
-                  </label>
-                  <textarea
-                    value={editForm.specialNotes}
-                    onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-slate-300 rounded text-fluid-sm"
-                    placeholder="현장·일정 전달, 내부 공유 메모 등 (팀장 화면에도 표시)"
-                  />
+                </div>
+
+                {/* 이사 & 현장 정보 그룹 */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-fluid-sm font-semibold text-slate-700">
+                          이사 날짜
+                          {requiresMoveInDateOrUndecided(editForm.buildingType) ? (
+                            <span className="text-red-500 ml-1">*</span>
+                          ) : (
+                            <span className="text-slate-400 font-normal ml-1 text-[12px]">(선택)</span>
+                          )}
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-slate-600 hover:text-slate-900">
+                          <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            checked={editForm.moveInDateUndecided}
+                            onChange={(e) => {
+                              const c = e.target.checked;
+                              setEditForm((p) => ({
+                                ...p,
+                                moveInDateUndecided: c,
+                                ...(c ? { moveInDate: '' } : {}),
+                              }));
+                            }}
+                          />
+                          미정 (추후 확정)
+                        </label>
+                      </div>
+                      <YmdSelect
+                        value={editForm.moveInDate}
+                        onChange={(v) =>
+                          setEditForm((p) => ({
+                            ...p,
+                            moveInDate: v,
+                            moveInDateUndecided: v.trim() ? false : p.moveInDateUndecided,
+                          }))
+                        }
+                        disabled={editForm.moveInDateUndecided}
+                        idPrefix="inq-edit-move"
+                        allowEmpty
+                        emitOnCompleteOnly
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-fluid-sm disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">신축/구축/인테리어/거주</label>
+                      <select
+                        value={editForm.buildingType}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setEditForm((p) => ({
+                            ...p,
+                            buildingType: v,
+                            ...(v === ORDER_BUILDING_TYPE_RESIDING ? { moveInDateUndecided: false } : {}),
+                          }));
+                        }}
+                        className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
+                      >
+                        <option value="">선택 안 함</option>
+                        {ORDER_BUILDING_TYPE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 특이사항 */}
+                <div className="space-y-3 pt-1">
+                  {editItem &&
+                  effectiveCustomerOrderNotes({
+                    specialNotes: editItem.specialNotes,
+                    orderForm: editItem.orderForm,
+                  }).trim() !== '' ? (
+                    <div>
+                      <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">
+                        고객 발주서 특이사항 (읽기 전용)
+                      </label>
+                      <div className="min-h-[2.5rem] whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-fluid-sm text-slate-700">
+                        {effectiveCustomerOrderNotes({
+                          specialNotes: editItem.specialNotes,
+                          orderForm: editItem.orderForm,
+                        })}
+                      </div>
+                      <p className="mt-1.5 text-[12px] text-slate-500">
+                        고객이 발주서 11항에 작성한 내용입니다. 서식·금액 등은 발주서 본문에서 확인하세요.
+                      </p>
+                    </div>
+                  ) : null}
+                  <div>
+                    <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">
+                      특이사항 (관리자·팀장 공유)
+                    </label>
+                    <textarea
+                      value={editForm.specialNotes}
+                      onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-fluid-sm"
+                      placeholder="현장·일정 전달, 내부 공유 메모 등 (팀장 화면에도 표시)"
+                    />
+                  </div>
                 </div>
               </div>
 
