@@ -102,6 +102,13 @@ import {
   clearInquiryCrewMemberMeetingTimes,
   inquiryHasAnyCrewMeetingTime,
 } from './inquiryCrewMemberMeetingTime.service.js';
+import {
+  buildCrewLeaderAssignmentRows,
+  clearAssignmentCrewMeetingTimes,
+  hasCrewMemberLeaderIdsField,
+  parseCrewMemberLeaderIds,
+  syncInquiryCrewLeaderAssignments,
+} from './inquiryCrewLeaderAssignment.helpers.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { notifyCsReportNavBadges } from '../realtime/navBadgeNotify.js';
 import { notifyInquiryCelebrate } from '../realtime/inquiryCelebrateNotify.js';
@@ -1217,6 +1224,29 @@ router.patch('/:id', async (req, res) => {
     effectiveTeamLeaderIds,
     mergedSoloTeamLeaderIds,
   );
+  const parsedCrewMemberLeaderIds = hasCrewMemberLeaderIdsField(body)
+    ? parseCrewMemberLeaderIds(body.crewMemberLeaderIds)
+    : undefined;
+  const wantsCrewLeaderSync =
+    effectiveTeamLeaderIds.length > 0 &&
+    !allTeamLeadersSolo(effectiveTeamLeaderIds, mergedSoloTeamLeaderIds) &&
+    (Boolean(finalMergedCrewNote?.trim()) ||
+      data.crewMemberNote !== undefined ||
+      hasCrewMemberLeaderIdsField(body) ||
+      wantsTeamSync ||
+      soloFlagChanged);
+  if (wantsCrewLeaderSync) {
+    const crewLeaderBuild = buildCrewLeaderAssignmentRows({
+      crewMemberNote: finalMergedCrewNote,
+      crewMemberLeaderIds: parsedCrewMemberLeaderIds,
+      teamLeaderIds: effectiveTeamLeaderIds,
+      soloTeamLeaderIds: mergedSoloTeamLeaderIds,
+    });
+    if (crewLeaderBuild.error) {
+      res.status(400).json({ error: crewLeaderBuild.error });
+      return;
+    }
+  }
   const crewRosterChanged =
     isCrewRosterChanged(
       inquiry.crewMemberNote,
@@ -1561,6 +1591,23 @@ router.patch('/:id', async (req, res) => {
       }
       if (crewRosterChanged) {
         await clearInquiryCrewMemberMeetingTimes(tx, id);
+        await clearAssignmentCrewMeetingTimes(tx, tenantId, id);
+      }
+      if (wantsCrewLeaderSync) {
+        const syncResult = await syncInquiryCrewLeaderAssignments(tx, tenantId, id, {
+          crewMemberNote: finalMergedCrewNote,
+          crewMemberLeaderIds: parsedCrewMemberLeaderIds,
+          teamLeaderIds: effectiveTeamLeaderIds,
+          soloTeamLeaderIds: mergedSoloTeamLeaderIds,
+        });
+        if (syncResult.error) {
+          throw new Error(syncResult.error);
+        }
+      } else if (
+        allTeamLeadersSolo(effectiveTeamLeaderIds, mergedSoloTeamLeaderIds) &&
+        effectiveTeamLeaderIds.length > 0
+      ) {
+        await tx.inquiryCrewLeaderAssignment.deleteMany({ where: { tenantId, inquiryId: id } });
       }
         if (mergedStatus !== inquiry.status) {
           await recordInquiryStatusTransition(tx, {
@@ -1742,6 +1789,7 @@ router.patch('/:id', async (req, res) => {
     data.crewMemberCount !== undefined ||
     hasSoloTeamLeaderIdsField(body) ||
     hasNoCrewMembersField(body) ||
+    hasCrewMemberLeaderIdsField(body) ||
     data.status !== undefined ||
     wantsTeamSync;
   if (crewFieldNotify) {

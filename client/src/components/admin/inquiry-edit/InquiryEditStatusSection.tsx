@@ -12,6 +12,8 @@ import { InquiryOrderForceMatchPanel } from '../InquiryOrderForceMatchPanel';
 import { TeamMemberSearchSelect } from '../TeamMemberSearchSelect';
 import {
   SOLO_LEADER_CREW_LABEL,
+  needsExplicitCrewLeaderPick,
+  nonSoloLeaderIds,
   toggleSoloTeamLeaderId,
 } from '../../../utils/inquiryNoCrewMembers';
 import { AdminScheduleDetailSection } from './AdminScheduleDetailSection';
@@ -108,6 +110,20 @@ export function InquiryEditStatusSection({
   onInquiryRefresh,
 }: InquiryEditStatusSectionProps) {
   const [expandedTextarea, setExpandedTextarea] = useState<'specialNotes' | 'memo' | null>(null);
+  const showCrewLeaderPick =
+    !hideCrewInputs &&
+    needsExplicitCrewLeaderPick(
+      editForm.teamLeaderIds,
+      editForm.soloTeamLeaderIds,
+      resolvedExternalLeadId || undefined,
+    );
+  const crewLeaderPickOptions = nonSoloLeaderIds(
+    editForm.teamLeaderIds,
+    editForm.soloTeamLeaderIds,
+    resolvedExternalLeadId || undefined,
+  )
+    .map((id) => assignableTeamLeaders.find((u) => u.id === id))
+    .filter((u): u is AssignableUser => Boolean(u));
 
   return (
     <AdminScheduleDetailSection title="상태 · 배정 · 팀원 · 메모" sectionAnchor="status">
@@ -293,10 +309,10 @@ export function InquiryEditStatusSection({
                 return u ? (
                   <span className="mt-1 flex flex-wrap items-center gap-2">
                     <span className="text-amber-900/95">{formatAssignableUserLabel(u)}</span>
-                    <label className="inline-flex items-center gap-1 text-amber-950">
+                    <label className="inline-flex max-w-[min(100%,14rem)] items-start gap-1.5 text-fluid-2xs text-amber-950">
                       <input
                         type="checkbox"
-                        className="h-3.5 w-3.5 rounded border-amber-300"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-amber-300"
                         checked={editForm.soloTeamLeaderIds.includes(resolvedExternalLeadId)}
                         onChange={(e) =>
                           setEditForm((p) => ({
@@ -309,7 +325,7 @@ export function InquiryEditStatusSection({
                           }))
                         }
                       />
-                      <span title={SOLO_LEADER_CREW_LABEL}>단독</span>
+                      <span className="leading-snug">{SOLO_LEADER_CREW_LABEL}</span>
                     </label>
                   </span>
                 ) : null;
@@ -318,6 +334,12 @@ export function InquiryEditStatusSection({
           ) : (
             <div className="space-y-1.5">
               <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">담당 팀장</label>
+              {editForm.teamLeaderIds.filter((id) => id.trim()).length > 1 ? (
+                <p className="text-fluid-2xs leading-snug text-slate-600">
+                  팀장이 여러 명이면 팀장마다 「{SOLO_LEADER_CREW_LABEL}」로 크루 없이 나갈 팀장을 지정할 수
+                  있습니다. 투입 팀원은 단독이 아닌 팀장과 함께 배정됩니다.
+                </p>
+              ) : null}
               {editForm.teamLeaderIds.map((lid, idx) => (
                 <div key={idx} className="flex flex-wrap items-center gap-1.5">
                   <SelectWithChevron
@@ -347,10 +369,10 @@ export function InquiryEditStatusSection({
                     ))}
                   </SelectWithChevron>
                   {lid.trim() ? (
-                    <label className="inline-flex shrink-0 items-center gap-1 text-fluid-2xs text-gray-700">
+                    <label className="inline-flex max-w-[min(100%,14rem)] shrink-0 items-start gap-1.5 text-fluid-2xs leading-snug text-gray-700">
                       <input
                         type="checkbox"
-                        className="h-3.5 w-3.5 rounded border-gray-300"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-gray-300"
                         checked={editForm.soloTeamLeaderIds.includes(lid.trim())}
                         onChange={(e) =>
                           setEditForm((p) => ({
@@ -363,7 +385,7 @@ export function InquiryEditStatusSection({
                           }))
                         }
                       />
-                      <span title={SOLO_LEADER_CREW_LABEL}>단독</span>
+                      <span>{SOLO_LEADER_CREW_LABEL}</span>
                     </label>
                   ) : null}
                   {editForm.teamLeaderIds.length > 1 ? (
@@ -399,6 +421,12 @@ export function InquiryEditStatusSection({
           )}
           {!hideCrewInputs ? (
             <div className="space-y-1.5 border-t border-indigo-200/80 pt-3 mt-3">
+              {showCrewLeaderPick ? (
+                <p className="text-fluid-2xs text-indigo-900/90">
+                  팀장이 여러 명일 때는 팀원마다 함께 나가는 담당 팀장을 지정해 주세요. 팀장 화면에서는
+                  본인 세트 팀원만 미팅 시각·장소를 정합니다.
+                </p>
+              ) : null}
               <div className="flex flex-wrap items-end gap-1.5">
                 <div className="shrink-0">
                   <label className="mb-1.5 inline-flex items-center gap-1 text-fluid-sm font-semibold text-slate-700">
@@ -426,7 +454,7 @@ export function InquiryEditStatusSection({
                 </div>
                 {effectiveCrewSlots > 0
                   ? editForm.crewMemberNames.map((name, idx) => (
-                      <div key={`crew-pick-${idx}`} className="min-w-[9rem] flex-1">
+                      <div key={`crew-pick-${idx}`} className="min-w-[9rem] flex-1 space-y-1">
                         {(() => {
                           const duplicateSet = new Set(
                             editForm.crewMemberNames
@@ -454,6 +482,27 @@ export function InquiryEditStatusSection({
                             />
                           );
                         })()}
+                        {showCrewLeaderPick && name.trim() ? (
+                          <SelectWithChevron
+                            value={editForm.crewMemberLeaderIds[idx] ?? ''}
+                            onChange={(e) =>
+                              setEditForm((p) => {
+                                const next = [...p.crewMemberLeaderIds];
+                                next[idx] = e.target.value;
+                                return { ...p, crewMemberLeaderIds: next };
+                              })
+                            }
+                            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-fluid-2xs text-slate-900"
+                            wrapperClassName="w-full"
+                          >
+                            <option value="">담당 팀장…</option>
+                            {crewLeaderPickOptions.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {formatAssignableUserLabel(u)}
+                              </option>
+                            ))}
+                          </SelectWithChevron>
+                        ) : null}
                       </div>
                     ))
                   : null}

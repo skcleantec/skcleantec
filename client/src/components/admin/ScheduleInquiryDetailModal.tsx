@@ -89,7 +89,9 @@ import {
   allTeamLeadersSolo,
   applyCrewFieldsToInquiryPatch,
   adminCrewPreviewLabel,
+  initCrewMemberLeaderIdsFromInquiry,
   initSoloTeamLeaderIdsFromAssignments,
+  nonSoloLeaderIds,
 } from '../../utils/inquiryNoCrewMembers';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
@@ -345,6 +347,7 @@ function buildPatchFromEditForm(
       soloTeamLeaderIds: editForm.soloTeamLeaderIds,
       crewMemberCount: editForm.crewMemberCount,
       crewMemberNames: editForm.crewMemberNames,
+      crewMemberLeaderIds: editForm.crewMemberLeaderIds,
       externalTeamLeaderId: opts?.externalTeamLeaderId,
     });
   }
@@ -756,6 +759,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         teamLeaderIds: [''],
         crewMemberCount: 0,
         crewMemberNames: [],
+        crewMemberLeaderIds: [],
         soloTeamLeaderIds: [],
         status: 'RECEIVED',
         createdById: '',
@@ -803,6 +807,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       teamLeaderIds: initialTeamLeaderIdsForEdit(it.assignments),
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
+      crewMemberLeaderIds: initCrewMemberLeaderIdsFromInquiry(
+        parseCrewMemberNoteToNames(it.crewMemberNote),
+        it.crewLeaderAssignments,
+        initialTeamLeaderIdsForEdit(it.assignments),
+        initSoloTeamLeaderIdsFromAssignments(it.assignments),
+        undefined,
+      ),
       soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(it.assignments),
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
@@ -1223,6 +1234,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       teamLeaderIds: initialTeamLeaderIdsForEdit(it.assignments),
       crewMemberCount: it.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(it.crewMemberNote),
+      crewMemberLeaderIds: initCrewMemberLeaderIdsFromInquiry(
+        parseCrewMemberNoteToNames(it.crewMemberNote),
+        it.crewLeaderAssignments,
+        initialTeamLeaderIdsForEdit(it.assignments),
+        initSoloTeamLeaderIdsFromAssignments(it.assignments),
+        undefined,
+      ),
       soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(it.assignments),
       status: statusValueForEdit(it),
       createdById: it.createdBy?.id ?? '',
@@ -1567,13 +1585,53 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       const cur = prev.crewMemberNames;
       if (effectiveCrewSlots === cur.length) return prev;
       if (effectiveCrewSlots < cur.length) {
-        return { ...prev, crewMemberNames: cur.slice(0, effectiveCrewSlots) };
+        return {
+          ...prev,
+          crewMemberNames: cur.slice(0, effectiveCrewSlots),
+          crewMemberLeaderIds: prev.crewMemberLeaderIds.slice(0, effectiveCrewSlots),
+        };
       }
       const next = [...cur];
       while (next.length < effectiveCrewSlots) next.push('');
-      return { ...prev, crewMemberNames: next };
+      const nonSolo = nonSoloLeaderIds(
+        prev.teamLeaderIds,
+        prev.soloTeamLeaderIds,
+        resolvedExternalLeadId || undefined,
+      );
+      const fallback = nonSolo[0] ?? '';
+      const nextLeaders = [...prev.crewMemberLeaderIds];
+      while (nextLeaders.length < effectiveCrewSlots) nextLeaders.push(fallback);
+      return { ...prev, crewMemberNames: next, crewMemberLeaderIds: nextLeaders };
     });
-  }, [effectiveCrewSlots]);
+  }, [effectiveCrewSlots, resolvedExternalLeadId]);
+
+  useEffect(() => {
+    setEditForm((prev) => {
+      const nonSolo = nonSoloLeaderIds(
+        prev.teamLeaderIds,
+        prev.soloTeamLeaderIds,
+        resolvedExternalLeadId || undefined,
+      );
+      const fallback = nonSolo[0] ?? '';
+      const next = [...prev.crewMemberLeaderIds];
+      while (next.length < prev.crewMemberNames.length) next.push(fallback);
+      if (next.length > prev.crewMemberNames.length) next.length = prev.crewMemberNames.length;
+      let changed = next.length !== prev.crewMemberLeaderIds.length;
+      for (let i = 0; i < next.length; i++) {
+        if (!nonSolo.includes(next[i] ?? '')) {
+          next[i] = fallback;
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
+      return { ...prev, crewMemberLeaderIds: next };
+    });
+  }, [
+    editForm.teamLeaderIds,
+    editForm.soloTeamLeaderIds,
+    editForm.crewMemberNames.length,
+    resolvedExternalLeadId,
+  ]);
 
   const handleCrewPartnerSwapConfirm = useCallback(async () => {
     if (!token || !item || !crewSwapPartnerId.trim()) return;
@@ -1624,6 +1682,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         ...p,
         crewMemberCount: safeCount,
         crewMemberNames: parseCrewMemberNoteToNames(noteStr),
+        crewMemberLeaderIds: initCrewMemberLeaderIdsFromInquiry(
+          parseCrewMemberNoteToNames(noteStr),
+          (raw as { crewLeaderAssignments?: ScheduleItem['crewLeaderAssignments'] }).crewLeaderAssignments,
+          p.teamLeaderIds,
+          p.soloTeamLeaderIds,
+          resolvedExternalLeadId || undefined,
+        ),
       }));
       setCrewSwapModalOpen(false);
       setCrewSwapPartnerId('');
@@ -1685,6 +1750,13 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
         ...p,
         teamLeaderIds: initialTeamLeaderIdsForEdit(assignments),
         soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(assignments),
+        crewMemberLeaderIds: initCrewMemberLeaderIdsFromInquiry(
+          p.crewMemberNames,
+          (raw as { crewLeaderAssignments?: ScheduleItem['crewLeaderAssignments'] }).crewLeaderAssignments,
+          initialTeamLeaderIdsForEdit(assignments),
+          initSoloTeamLeaderIdsFromAssignments(assignments),
+          resolvedExternalLeadId || undefined,
+        ),
       }));
       setLeaderSwapModalOpen(false);
       setLeaderSwapPartnerId('');
@@ -2990,6 +3062,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                 setEditForm((p) => ({ ...p, crewMemberCount: count }))
               }
               crewMemberNames={editForm.crewMemberNames}
+              crewMemberLeaderIds={editForm.crewMemberLeaderIds}
               onCrewMemberNameChange={(idx, name) =>
                 setEditForm((p) => {
                   const next = [...p.crewMemberNames];
@@ -2997,6 +3070,14 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   return { ...p, crewMemberNames: next };
                 })
               }
+              onCrewMemberLeaderIdChange={(idx, leaderId) =>
+                setEditForm((p) => {
+                  const next = [...p.crewMemberLeaderIds];
+                  next[idx] = leaderId;
+                  return { ...p, crewMemberLeaderIds: next };
+                })
+              }
+              assignableTeamLeaders={assignableTeamLeaders}
               crewPickOptions={crewPickOptions}
               occupiedCrewNamesByDate={occupiedCrewNamesByDate}
               crewSpacingByMemberName={crewSpacingByMemberName}

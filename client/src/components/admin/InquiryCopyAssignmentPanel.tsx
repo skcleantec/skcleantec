@@ -1,6 +1,6 @@
 import { formatAssignableUserLabel, type UserItem } from '../../api/users';
 import type { TeamMemberItem } from '../../api/teams';
-import { SOLO_LEADER_CREW_LABEL, toggleSoloTeamLeaderId } from '../../utils/inquiryNoCrewMembers';
+import { SOLO_LEADER_CREW_LABEL, needsExplicitCrewLeaderPick, nonSoloLeaderIds, toggleSoloTeamLeaderId } from '../../utils/inquiryNoCrewMembers';
 import { TeamMemberSearchSelect } from './TeamMemberSearchSelect';
 import { SelectWithChevron } from '../ui/SelectWithChevron';
 import { InquiryCrossSwapActionButtons } from './InquiryCrossSwapActionButtons';
@@ -26,7 +26,10 @@ export function InquiryCopyAssignmentPanel({
   crewMemberCount,
   onCrewMemberCountChange,
   crewMemberNames,
+  crewMemberLeaderIds,
   onCrewMemberNameChange,
+  onCrewMemberLeaderIdChange,
+  assignableTeamLeaders,
   crewPickOptions,
   occupiedCrewNamesByDate,
   crewSpacingByMemberName,
@@ -53,7 +56,10 @@ export function InquiryCopyAssignmentPanel({
   crewMemberCount: number;
   onCrewMemberCountChange: (count: number) => void;
   crewMemberNames: string[];
+  crewMemberLeaderIds: string[];
   onCrewMemberNameChange: (rowIndex: number, name: string) => void;
+  onCrewMemberLeaderIdChange: (rowIndex: number, leaderId: string) => void;
+  assignableTeamLeaders: UserItem[];
   crewPickOptions: TeamMemberItem[];
   occupiedCrewNamesByDate: Set<string>;
   crewSpacingByMemberName: Record<string, number | null>;
@@ -63,6 +69,17 @@ export function InquiryCopyAssignmentPanel({
   onLeaderSwap: () => void;
   onCrewSwap: () => void;
 }) {
+  const showCrewLeaderPick =
+    !hideCrewInputs &&
+    needsExplicitCrewLeaderPick(teamLeaderIds, soloTeamLeaderIds, resolvedExternalLeadId || undefined);
+  const crewLeaderPickOptions = nonSoloLeaderIds(
+    teamLeaderIds,
+    soloTeamLeaderIds,
+    resolvedExternalLeadId || undefined,
+  )
+    .map((id) => assignableTeamLeaders.find((u) => u.id === id))
+    .filter((u): u is UserItem => Boolean(u));
+
   return (
     <section className="border-b border-gray-100 pb-2 mb-2">
       <h3 className="mb-1 text-fluid-2xs font-semibold text-slate-500">배정</h3>
@@ -133,8 +150,7 @@ export function InquiryCopyAssignmentPanel({
                       )
                     }
                   />
-                  <span className="sr-only">{SOLO_LEADER_CREW_LABEL}</span>
-                  <span aria-hidden>단독</span>
+                  <span className="max-w-[8.5rem] leading-snug sm:max-w-none">{SOLO_LEADER_CREW_LABEL}</span>
                 </label>
               ) : null}
               {teamLeaderIds.length > 1 ? (
@@ -190,22 +206,43 @@ export function InquiryCopyAssignmentPanel({
           </div>
           {effectiveCrewSlots > 0 ? (
             <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+              {showCrewLeaderPick ? (
+                <p className="sm:col-span-2 text-fluid-2xs text-indigo-900/90">
+                  팀장이 여러 명일 때는 팀원마다 담당 팀장을 지정해 주세요.
+                </p>
+              ) : null}
               {crewMemberNames.map((name, idx) => {
                 const duplicateSet = new Set(
                   crewMemberNames.map((x, i) => (i === idx ? '' : x.trim())).filter(Boolean),
                 );
                 const disabled = new Set<string>([...occupiedCrewNamesByDate, ...duplicateSet]);
                 return (
-                  <TeamMemberSearchSelect
-                    key={`copy-crew-${idx}`}
-                    compact
-                    options={crewPickOptions}
-                    value={name}
-                    disabledNames={disabled}
-                    crewSpacingDaysByMemberName={crewSpacingByMemberName}
-                    onChange={(v) => onCrewMemberNameChange(idx, v)}
-                    placeholder={`${idx + 1}번`}
-                  />
+                  <div key={`copy-crew-${idx}`} className="space-y-1">
+                    <TeamMemberSearchSelect
+                      compact
+                      options={crewPickOptions}
+                      value={name}
+                      disabledNames={disabled}
+                      crewSpacingDaysByMemberName={crewSpacingByMemberName}
+                      onChange={(v) => onCrewMemberNameChange(idx, v)}
+                      placeholder={`${idx + 1}번`}
+                    />
+                    {showCrewLeaderPick && name.trim() ? (
+                      <SelectWithChevron
+                        value={crewMemberLeaderIds[idx] ?? ''}
+                        onChange={(e) => onCrewMemberLeaderIdChange(idx, e.target.value)}
+                        className={compactSelectClass}
+                        wrapperClassName="w-full"
+                      >
+                        <option value="">담당 팀장…</option>
+                        {crewLeaderPickOptions.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {formatAssignableUserLabel(u)}
+                          </option>
+                        ))}
+                      </SelectWithChevron>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>

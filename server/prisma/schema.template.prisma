@@ -1331,6 +1331,7 @@ model User {
   profileCompletedAt DateTime? @map("profile_completed_at")
 
   assignmentsAssigned Assignment[] @relation("TeamLeaderAssignments")
+  inquiryCrewLeaderAssignmentsLed InquiryCrewLeaderAssignment[] @relation("InquiryCrewLeaderAssignmentLeader")
   assignmentsGiven     Assignment[] @relation("AdminAssignments")
   sentMessages        Message[]    @relation("SentMessages")
   receivedMessages    Message[]    @relation("ReceivedMessages")
@@ -2017,6 +2018,7 @@ model Inquiry {
   tenantShareAsTarget TenantInquiryShare? @relation("ShareTargetInquiry")
   dbListing           InquiryDbListing?
   crewMemberMeetingTimes InquiryCrewMemberMeetingTime[]
+  crewLeaderAssignments InquiryCrewLeaderAssignment[]
   customCalendarInquiryPins UserCustomCalendarInquiryPin[]
   telecrmCallSessions       TelecrmCallSession[]
   telecrmCallNotes          TelecrmCallNote[]
@@ -2054,6 +2056,26 @@ model InquiryCrewMemberMeetingTime {
   @@unique([inquiryId, teamMemberId])
   @@index([tenantId, inquiryId])
   @@map("inquiry_crew_member_meeting_times")
+}
+
+/// 접수·팀원별 담당 팀장(복수 팀장·오전/오후 분리 등)
+model InquiryCrewLeaderAssignment {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  inquiryId      String   @map("inquiry_id")
+  teamLeaderId   String   @map("team_leader_id")
+  crewMemberName String   @map("crew_member_name") @db.VarChar(64)
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  inquiry    Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  teamLeader User    @relation("InquiryCrewLeaderAssignmentLeader", fields: [teamLeaderId], references: [id], onDelete: Cascade)
+
+  @@unique([inquiryId, crewMemberName])
+  @@index([tenantId, inquiryId])
+  @@index([inquiryId, teamLeaderId])
+  @@map("inquiry_crew_leader_assignments")
 }
 
 enum CleaningPhotoPhase {
@@ -3232,6 +3254,9 @@ model Assignment {
   sortOrder     Int      @default(0) @map("sort_order")
   /// true: 이 팀장만 단독 현장(크루 없음). 접수 팀원 정보는 공유.
   noCrewMembers Boolean  @default(false) @map("no_crew_members")
+  /// 복수 팀장·팀원 세트 배정 시 이 팀장 크루의 공용 미팅 시각(KST HH:mm)
+  crewMeetingTime String? @map("crew_meeting_time") @db.VarChar(5)
+  crewMeetingTimeUpdatedAt DateTime? @map("crew_meeting_time_updated_at")
 
   inquiry     Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
   teamLeader  User    @relation("TeamLeaderAssignments", fields: [teamLeaderId], references: [id])

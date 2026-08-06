@@ -18,6 +18,8 @@ export type InquiryEditFormFields = {
   teamLeaderIds: string[];
   crewMemberCount: number;
   crewMemberNames: string[];
+  /** 팀원 슬롯별 담당 팀장 id (복수 비단독 팀장일 때) */
+  crewMemberLeaderIds: string[];
   soloTeamLeaderIds: string[];
   status: string;
   createdById: string;

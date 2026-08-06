@@ -70,6 +70,11 @@ import {
   resolveCrewTeamMemberIdsFromNote,
   upsertInquiryMemberMeetingTimes,
 } from '../inquiries/inquiryCrewMemberMeetingTime.service.js';
+import {
+  filterCrewNamesForLeader,
+  resolveSharedCrewMeetingForLeader,
+  usesPerLeaderCrewMeeting,
+} from '../inquiries/inquiryCrewLeaderAssignment.helpers.js';
 import { notifyAllActiveCrewGroupsRefresh } from '../crew/crewFieldRealtime.js';
 import { tenantActiveTeamMemberWhere } from '../inquiries/crewMemberCapacity.helpers.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
@@ -234,9 +239,15 @@ const teamInquiryInclude = {
       detailViewedAt: true,
       sortOrder: true,
       noCrewMembers: true,
+      crewMeetingTime: true,
+      crewMeetingTimeUpdatedAt: true,
       teamLeader: { select: assignmentTeamLeaderSelect },
       assignedBy: { select: { id: true, name: true } },
     },
+  },
+  crewLeaderAssignments: {
+    orderBy: { sortOrder: 'asc' as const },
+    select: { crewMemberName: true, teamLeaderId: true, sortOrder: true },
   },
   extraCharges: {
     orderBy: { sortOrder: 'asc' as const },
@@ -310,8 +321,14 @@ const teamScheduleInquirySelect = {
       detailViewedAt: true,
       sortOrder: true,
       noCrewMembers: true,
+      crewMeetingTime: true,
+      crewMeetingTimeUpdatedAt: true,
       teamLeader: { select: assignmentTeamLeaderSelect },
     },
+  },
+  crewLeaderAssignments: {
+    orderBy: { sortOrder: 'asc' as const },
+    select: { crewMemberName: true, teamLeaderId: true, sortOrder: true },
   },
   crewMemberMeetingTimes: {
     select: { teamMemberId: true, meetingTime: true },
@@ -343,14 +360,24 @@ async function resolveTeamContextTenantId(user: AuthPayload): Promise<string | n
 
 async function attachCrewMembers<
   T extends {
+    id?: string;
     crewMemberNote: string | null;
     crewMeetingTimeShared?: boolean;
     crewMeetingTime?: string | null;
+    crewMeetingTimeUpdatedAt?: Date | null;
     crewMemberMeetingTimes?: Array<{ teamMemberId: string; meetingTime: string }>;
+    assignments?: Array<{
+      teamLeaderId: string;
+      noCrewMembers: boolean;
+      crewMeetingTime?: string | null;
+      crewMeetingTimeUpdatedAt?: Date | null;
+    }>;
+    crewLeaderAssignments?: Array<{ crewMemberName: string; teamLeaderId: string }>;
   },
 >(
   items: T[],
   tenantId: string,
+  viewerTeamLeaderId?: string,
 ): Promise<
   Array<
     T & {
@@ -361,16 +388,63 @@ async function attachCrewMembers<
         homeAddress: string | null;
         homeAddressDetail: string | null;
         meetingTime: string | null;
+        assignedTeamLeaderId: string | null;
       }>;
+      crewMeetingTime?: string | null;
+      crewMeetingTimeUpdatedAt?: Date | null;
     }
   >
 > {
+  const inquiryIds = items.map((it) => it.id).filter((id): id is string => Boolean(id));
+  let leaderAssignmentsByInquiry = new Map<
+    string,
+    Array<{ crewMemberName: string; teamLeaderId: string }>
+  >();
+  if (inquiryIds.length > 0) {
+    const missing = items.some((it) => !it.crewLeaderAssignments);
+    if (missing) {
+      const rows = await prisma.inquiryCrewLeaderAssignment.findMany({
+        where: { tenantId, inquiryId: { in: inquiryIds } },
+        select: { inquiryId: true, crewMemberName: true, teamLeaderId: true, sortOrder: true },
+        orderBy: { sortOrder: 'asc' },
+      });
+      leaderAssignmentsByInquiry = new Map();
+      for (const r of rows) {
+        const list = leaderAssignmentsByInquiry.get(r.inquiryId) ?? [];
+        list.push({ crewMemberName: r.crewMemberName, teamLeaderId: r.teamLeaderId });
+        leaderAssignmentsByInquiry.set(r.inquiryId, list);
+      }
+    }
+  }
+
   const allNames = new Set<string>();
   for (const it of items) {
-    for (const n of parseCrewNames(it.crewMemberNote)) allNames.add(n);
+    const leaderAssignments =
+      it.crewLeaderAssignments ?? (it.id ? leaderAssignmentsByInquiry.get(it.id) : undefined) ?? [];
+    const names = filterCrewNamesForLeader(
+      parseCrewNames(it.crewMemberNote),
+      viewerTeamLeaderId,
+      leaderAssignments,
+    );
+    for (const n of names) allNames.add(n);
   }
   if (allNames.size === 0) {
-    return sanitizeInquiriesForRestrictedViewer(items.map((it) => ({ ...it, crewMembers: [] })));
+    return sanitizeInquiriesForRestrictedViewer(
+      items.map((it) => {
+        const leaderAssignments =
+          it.crewLeaderAssignments ?? (it.id ? leaderAssignmentsByInquiry.get(it.id) : undefined) ?? [];
+        const sharedTime = resolveSharedCrewMeetingForLeader(
+          it,
+          leaderAssignments,
+          viewerTeamLeaderId,
+        );
+        return {
+          ...it,
+          crewMembers: [],
+          crewMeetingTime: sharedTime,
+        };
+      }),
+    );
   }
   const members = await prisma.teamMember.findMany({
     where: {
@@ -411,18 +485,34 @@ async function attachCrewMembers<
     }
   }
   const enriched = items.map((it) => {
+    const leaderAssignments =
+      it.crewLeaderAssignments ?? (it.id ? leaderAssignmentsByInquiry.get(it.id) : undefined) ?? [];
     const shared = it.crewMeetingTimeShared !== false;
+    const sharedTime = resolveSharedCrewMeetingForLeader(
+      it,
+      leaderAssignments,
+      viewerTeamLeaderId,
+    );
     const timeByMember = new Map(
       (it.crewMemberMeetingTimes ?? []).map((r) => [r.teamMemberId, r.meetingTime] as const),
     );
+    const leaderByName = new Map(
+      leaderAssignments.map((a) => [a.crewMemberName, a.teamLeaderId] as const),
+    );
+    const visibleNames = filterCrewNamesForLeader(
+      parseCrewNames(it.crewMemberNote),
+      viewerTeamLeaderId,
+      leaderAssignments,
+    );
     return {
       ...it,
-      crewMembers: parseCrewNames(it.crewMemberNote).map((name) => {
+      crewMeetingTime: sharedTime,
+      crewMembers: visibleNames.map((name) => {
         const mem = memberByName.get(name);
         const teamMemberId = mem?.id ?? null;
         let meetingTime: string | null = null;
         if (shared) {
-          meetingTime = it.crewMeetingTime ?? null;
+          meetingTime = sharedTime;
         } else if (teamMemberId) {
           meetingTime = timeByMember.get(teamMemberId) ?? null;
         }
@@ -433,6 +523,7 @@ async function attachCrewMembers<
           homeAddress: mem?.homeAddress ?? null,
           homeAddressDetail: mem?.homeAddressDetail ?? null,
           meetingTime,
+          assignedTeamLeaderId: leaderByName.get(name) ?? null,
         };
       }),
     };
@@ -440,12 +531,13 @@ async function attachCrewMembers<
   return sanitizeInquiriesForRestrictedViewer(enriched);
 }
 
-async function attachCrewMembersOne<T extends { crewMemberNote: string | null } | null>(
+async function attachCrewMembersOne<T extends { id?: string; crewMemberNote: string | null } | null>(
   item: T,
   tenantId: string,
+  viewerTeamLeaderId?: string,
 ) {
   if (!item) return null;
-  const [enriched] = await attachCrewMembers([item], tenantId);
+  const [enriched] = await attachCrewMembers([item], tenantId, viewerTeamLeaderId);
   if (!enriched) return null;
   if ('inspectionChecklist' in enriched) {
     return attachInspectionSummaryToInquiry(
@@ -853,7 +945,7 @@ router.post('/inquiries/:id/inspection-missed', async (req, res) => {
     where: { id: inquiry.id },
     include: teamInquiryInclude,
   });
-  res.json(await attachCrewMembersOne(refreshed, inquiry.tenantId));
+  res.json(await attachCrewMembersOne(refreshed, inquiry.tenantId, userId));
 });
 
 /** 팀장: 본인 배정 건 예약일 변경 */
@@ -892,7 +984,7 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
       where: { id },
       include: teamInquiryInclude,
     });
-    res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId));
+    res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId, userId));
     return;
   }
 
@@ -929,7 +1021,7 @@ router.patch('/inquiries/:id/preferred-date', async (req, res) => {
     res.status(500).json({ error: '예약일 변경 후 조회에 실패했습니다.' });
     return;
   }
-  res.json(await attachCrewMembersOne(updated.inquiry, inquiry.tenantId));
+  res.json(await attachCrewMembersOne(updated.inquiry, inquiry.tenantId, userId));
 });
 
 /** 팀장: 오전 희망 접수일 때만 크루 현장 일정에 노출할 미팅 시각(KST, HH:mm) — 공용 또는 팀원별 */
@@ -958,7 +1050,21 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
         crewMemberNote: true,
         crewMeetingTime: true,
         crewMeetingTimeShared: true,
-        crewMemberMeetingTimes: { select: { teamMemberId: true, meetingTime: true, teamMember: { select: { name: true } } } },
+        crewMeetingTimeUpdatedAt: true,
+        assignments: {
+          select: {
+            teamLeaderId: true,
+            noCrewMembers: true,
+            crewMeetingTime: true,
+            crewMeetingTimeUpdatedAt: true,
+          },
+        },
+        crewLeaderAssignments: {
+          select: { crewMemberName: true, teamLeaderId: true },
+        },
+        crewMemberMeetingTimes: {
+          select: { teamMemberId: true, meetingTime: true, teamMember: { select: { name: true } } },
+        },
       },
     });
     if (!inquiry) {
@@ -973,6 +1079,26 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
     const fmt = (v: string | null) => v ?? '(미지정)';
     const logLines: string[] = [];
 
+    const perLeaderMeeting = usesPerLeaderCrewMeeting(
+      inquiry.assignments,
+      inquiry.crewLeaderAssignments,
+    );
+
+    const resolveViewerAllowedCrew = async () => {
+      const all = await resolveCrewTeamMemberIdsFromNote(
+        prisma,
+        inquiry.tenantId,
+        inquiry.crewMemberNote,
+      );
+      if (!perLeaderMeeting) return all;
+      const myNames = new Set(
+        inquiry.crewLeaderAssignments
+          .filter((a) => a.teamLeaderId === userId)
+          .map((a) => a.crewMemberName),
+      );
+      return all.filter((x) => myNames.has(x.name));
+    };
+
     if (patch.mode === 'shared') {
       const chk = validateCrewMeetingTimeForInquiry(
         inquiry.preferredTime,
@@ -984,30 +1110,56 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
         return;
       }
       const next = patch.crewMeetingTime;
+      const viewerAssignment = inquiry.assignments.find((a) => a.teamLeaderId === userId);
+      const prevShared = perLeaderMeeting
+        ? (viewerAssignment?.crewMeetingTime ?? null)
+        : inquiry.crewMeetingTime;
       const modeChanged = inquiry.crewMeetingTimeShared === false;
-      if (!modeChanged && inquiry.crewMeetingTime === next && inquiry.crewMemberMeetingTimes.length === 0) {
+      if (!modeChanged && prevShared === next && inquiry.crewMemberMeetingTimes.length === 0) {
         const unchanged = await prisma.inquiry.findUnique({
           where: { id },
           include: teamInquiryInclude,
         });
-        res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId));
+        res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId, userId));
         return;
       }
       if (modeChanged) {
         logLines.push('현장 미팅(크루): 개별 → 공용');
       }
-      logLines.push(`현장 미팅(크루·공용): ${fmt(inquiry.crewMeetingTime)} → ${fmt(next)}`);
+      logLines.push(`현장 미팅(크루·공용): ${fmt(prevShared)} → ${fmt(next)}`);
 
       const updated = await prisma.$transaction(async (tx) => {
         await clearInquiryCrewMemberMeetingTimes(tx, id);
-        await tx.inquiry.update({
-          where: { id },
-          data: {
-            crewMeetingTimeShared: true,
-            crewMeetingTime: next,
-            crewMeetingTimeUpdatedAt: new Date(),
-          },
-        });
+        if (perLeaderMeeting) {
+          await tx.assignment.updateMany({
+            where: { tenantId: inquiry.tenantId, inquiryId: id, teamLeaderId: userId },
+            data: {
+              crewMeetingTime: next,
+              crewMeetingTimeUpdatedAt: new Date(),
+            },
+          });
+          await tx.inquiry.update({
+            where: { id },
+            data: {
+              crewMeetingTimeShared: true,
+              crewMeetingTime: null,
+              crewMeetingTimeUpdatedAt: null,
+            },
+          });
+        } else {
+          await tx.assignment.updateMany({
+            where: { tenantId: inquiry.tenantId, inquiryId: id },
+            data: { crewMeetingTime: null, crewMeetingTimeUpdatedAt: null },
+          });
+          await tx.inquiry.update({
+            where: { id },
+            data: {
+              crewMeetingTimeShared: true,
+              crewMeetingTime: next,
+              crewMeetingTimeUpdatedAt: new Date(),
+            },
+          });
+        }
         await tx.inquiryChangeLog.create({
           data: {
             inquiryId: id,
@@ -1033,16 +1185,12 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
         inquiryId: id,
         lines: logLines,
       });
-      res.json(await attachCrewMembersOne(updated, inquiry.tenantId));
+      res.json(await attachCrewMembersOne(updated, inquiry.tenantId, userId));
       return;
     }
 
     // individual mode
-    const allowed = await resolveCrewTeamMemberIdsFromNote(
-      prisma,
-      inquiry.tenantId,
-      inquiry.crewMemberNote,
-    );
+    const allowed = await resolveViewerAllowedCrew();
     if (allowed.length === 0) {
       res.status(400).json({ error: '투입 팀원이 없습니다. 접수에 팀원을 먼저 지정해 주세요.' });
       return;
@@ -1090,7 +1238,7 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
         where: { id },
         include: teamInquiryInclude,
       });
-      res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId));
+      res.json(await attachCrewMembersOne(unchanged, inquiry.tenantId, userId));
       return;
     }
 
@@ -1103,6 +1251,12 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
           crewMeetingTimeUpdatedAt: new Date(),
         },
       });
+      if (perLeaderMeeting) {
+        await tx.assignment.updateMany({
+          where: { tenantId: inquiry.tenantId, inquiryId: id, teamLeaderId: userId },
+          data: { crewMeetingTime: null, crewMeetingTimeUpdatedAt: null },
+        });
+      }
       await upsertInquiryMemberMeetingTimes(tx, inquiry.tenantId, id, patch.memberTimes);
       await tx.inquiryChangeLog.create({
         data: {
@@ -1129,7 +1283,7 @@ router.patch('/inquiries/:id/crew-meeting-time', async (req, res) => {
       inquiryId: id,
       lines: logLines,
     });
-    res.json(await attachCrewMembersOne(updated, inquiry.tenantId));
+    res.json(await attachCrewMembersOne(updated, inquiry.tenantId, userId));
   } catch (e: unknown) {
     console.error('[PATCH /team/inquiries/:id/crew-meeting-time]', e);
     const msg = e instanceof Error ? e.message : String(e);
@@ -1428,7 +1582,10 @@ router.get('/inquiries/:id', async (req, res) => {
     res.status(404).json({ error: '담당 접수를 찾을 수 없습니다.' });
     return;
   }
-  const [item] = await attachProfessionalOptions(await attachCrewMembers([row], tenantId), tenantId);
+  const [item] = await attachProfessionalOptions(
+    await attachCrewMembers([row], tenantId, userId),
+    tenantId,
+  );
   const handoffOpts = await marketplaceHandoffViewerOptions(user);
   const withShare = await attachTenantShareMetaToInquiry(tenantId, item);
   const withHandoff = await attachMarketplaceHandoffBuyerMetaToInquiry(tenantId, withShare, handoffOpts);
@@ -1463,7 +1620,10 @@ router.get('/inquiries', async (req, res) => {
       orderBy: { preferredDate: 'asc' },
       include: teamInquiryInclude,
     });
-    const items = await attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId);
+    const items = await attachProfessionalOptions(
+      await attachCrewMembers(rows, tenantId, userId),
+      tenantId,
+    );
     const handoffOpts = await marketplaceHandoffViewerOptions(user);
     const withShare = await attachTenantShareMetaToInquiries(tenantId, items);
     const withHandoff = await attachMarketplaceHandoffBuyerMetaToInquiries(tenantId, withShare, handoffOpts);
@@ -1488,7 +1648,7 @@ router.get('/inquiries', async (req, res) => {
       {
         teamInquiryInclude,
         attachCrewMembers: async (rows) =>
-          attachProfessionalOptions(await attachCrewMembers(rows, tenantId), tenantId),
+          attachProfessionalOptions(await attachCrewMembers(rows, tenantId, userId), tenantId),
       },
       extraInquiryWhere,
       user.role,
@@ -1555,7 +1715,7 @@ router.get('/schedule', async (req, res) => {
     orderBy: [{ preferredDate: 'asc' }, { preferredTime: 'asc' }],
     select: teamScheduleInquirySelect,
   });
-  const withCrew = await attachCrewMembers(rows, tenantId);
+  const withCrew = await attachCrewMembers(rows, tenantId, userId);
   const items = attachInspectionSummaries(withCrew);
   res.json({
     items: serializeTeamInquiryOperatingCompanies(items),

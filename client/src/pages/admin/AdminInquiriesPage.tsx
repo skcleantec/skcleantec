@@ -124,7 +124,10 @@ import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 import {
   allTeamLeadersSolo,
   applyCrewFieldsToInquiryPatch,
+  initCrewMemberLeaderIdsFromInquiry,
   initSoloTeamLeaderIdsFromAssignments,
+  needsExplicitCrewLeaderPick,
+  nonSoloLeaderIds,
   SOLO_LEADER_CREW_LABEL,
   toggleSoloTeamLeaderId,
 } from '../../utils/inquiryNoCrewMembers';
@@ -526,6 +529,11 @@ interface InquiryItem {
   }>;
   crewMemberCount?: number | null;
   crewMemberNote?: string | null;
+  crewLeaderAssignments?: Array<{
+    crewMemberName: string;
+    teamLeaderId: string;
+    sortOrder?: number;
+  }>;
   externalTransferFee?: number | null;
   tenantShare?: import('../../api/tenantInquiryShare').TenantInquiryShareMeta | null;
   dbListing?: import('../../api/dbMarketplace').InquiryDbListingMeta | null;
@@ -911,6 +919,7 @@ export function AdminInquiriesPage() {
     crewMemberCount: 0 as number,
     /** 등록 팀원 목록에서 선택한 이름들(슬롯 순서 유지). 저장 시 `/`로 합쳐 crewMemberNote로 전송. */
     crewMemberNames: [] as string[],
+    crewMemberLeaderIds: [] as string[],
     soloTeamLeaderIds: [] as string[],
     status: '',
     customerPhone2: '',
@@ -1310,14 +1319,72 @@ export function AdminInquiriesPage() {
     setEditForm((prev) => {
       const cur = prev.crewMemberNames;
       if (slots === cur.length) return prev;
+      const nonSolo = nonSoloLeaderIds(
+        prev.teamLeaderIds,
+        prev.soloTeamLeaderIds,
+        resolvedExternalLeadId,
+      );
+      const fallback = nonSolo[0] ?? '';
       if (slots < cur.length) {
-        return { ...prev, crewMemberNames: cur.slice(0, slots) };
+        return {
+          ...prev,
+          crewMemberNames: cur.slice(0, slots),
+          crewMemberLeaderIds: prev.crewMemberLeaderIds.slice(0, slots),
+        };
       }
       const next = [...cur];
       while (next.length < slots) next.push('');
-      return { ...prev, crewMemberNames: next };
+      const nextLeaders = [...prev.crewMemberLeaderIds];
+      while (nextLeaders.length < slots) nextLeaders.push(fallback);
+      return { ...prev, crewMemberNames: next, crewMemberLeaderIds: nextLeaders };
     });
   }, [editItem, editForm.crewMemberCount, editForm.soloTeamLeaderIds, editForm.teamLeaderIds, resolvedExternalLeadId]);
+
+  const showCrewLeaderPickInList =
+    !!editItem &&
+    !allTeamLeadersSolo(editForm.teamLeaderIds, editForm.soloTeamLeaderIds, resolvedExternalLeadId) &&
+    needsExplicitCrewLeaderPick(
+      editForm.teamLeaderIds,
+      editForm.soloTeamLeaderIds,
+      resolvedExternalLeadId,
+    );
+  const crewLeaderPickOptions = nonSoloLeaderIds(
+    editForm.teamLeaderIds,
+    editForm.soloTeamLeaderIds,
+    resolvedExternalLeadId,
+  )
+    .map((id) => teamLeaders.find((u) => u.id === id))
+    .filter((u): u is UserItem => Boolean(u));
+
+  useEffect(() => {
+    if (!editItem) return;
+    setEditForm((prev) => {
+      const nonSolo = nonSoloLeaderIds(
+        prev.teamLeaderIds,
+        prev.soloTeamLeaderIds,
+        resolvedExternalLeadId,
+      );
+      const fallback = nonSolo[0] ?? '';
+      const next = [...prev.crewMemberLeaderIds];
+      while (next.length < prev.crewMemberNames.length) next.push(fallback);
+      if (next.length > prev.crewMemberNames.length) next.length = prev.crewMemberNames.length;
+      let changed = next.length !== prev.crewMemberLeaderIds.length;
+      for (let i = 0; i < next.length; i++) {
+        if (!nonSolo.includes(next[i] ?? '')) {
+          next[i] = fallback;
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
+      return { ...prev, crewMemberLeaderIds: next };
+    });
+  }, [
+    editItem,
+    editForm.teamLeaderIds,
+    editForm.soloTeamLeaderIds,
+    editForm.crewMemberNames.length,
+    resolvedExternalLeadId,
+  ]);
 
   useEffect(() => {
     if (!token || (me?.role !== 'ADMIN' && me?.role !== 'MARKETER')) {
@@ -1851,6 +1918,13 @@ export function AdminInquiriesPage() {
       teamLeaderIds: initialTeamLeaderIdsForEdit(item.assignments),
       crewMemberCount: item.crewMemberCount ?? 0,
       crewMemberNames: parseCrewMemberNoteToNames(item.crewMemberNote),
+      crewMemberLeaderIds: initCrewMemberLeaderIdsFromInquiry(
+        parseCrewMemberNoteToNames(item.crewMemberNote),
+        item.crewLeaderAssignments,
+        initialTeamLeaderIdsForEdit(item.assignments),
+        initSoloTeamLeaderIdsFromAssignments(item.assignments),
+        undefined,
+      ),
       soloTeamLeaderIds: initSoloTeamLeaderIdsFromAssignments(item.assignments),
       status: item.status,
       customerPhone2: item.customerPhone2 || '',
@@ -2390,6 +2464,7 @@ export function AdminInquiriesPage() {
           soloTeamLeaderIds: editForm.soloTeamLeaderIds,
           crewMemberCount: editForm.crewMemberCount,
           crewMemberNames: editForm.crewMemberNames,
+          crewMemberLeaderIds: editForm.crewMemberLeaderIds,
           externalTeamLeaderId: resolvedExternalLeadId,
         });
       } catch (err) {
@@ -5070,6 +5145,11 @@ export function AdminInquiriesPage() {
               {editForm.crewMemberCount > 0 && (
                 <div className="sm:col-span-2">
                   <label className="block text-fluid-sm text-slate-600 mb-1">투입 팀원 선택</label>
+                  {showCrewLeaderPickInList ? (
+                    <p className="mb-1.5 text-fluid-2xs text-slate-600">
+                      팀장이 여러 명일 때는 팀원마다 함께 나가는 담당 팀장을 지정해 주세요.
+                    </p>
+                  ) : null}
                   <div className="flex flex-wrap gap-2">
                     {editForm.crewMemberNames.map((name, idx) => {
                       const duplicateSet = new Set(
@@ -5082,7 +5162,7 @@ export function AdminInquiriesPage() {
                         ...duplicateSet,
                       ]);
                       return (
-                        <div key={`crew-pick-${idx}`} className="min-w-[11rem] flex-1">
+                        <div key={`crew-pick-${idx}`} className="min-w-[11rem] flex-1 space-y-1">
                           <TeamMemberSearchSelect
                             options={crewPickOptions}
                             value={name}
@@ -5097,6 +5177,26 @@ export function AdminInquiriesPage() {
                             }
                             placeholder={`${idx + 1}번 팀원 검색`}
                           />
+                          {showCrewLeaderPickInList && name.trim() ? (
+                            <select
+                              value={editForm.crewMemberLeaderIds[idx] ?? ''}
+                              onChange={(e) =>
+                                setEditForm((p) => {
+                                  const next = [...p.crewMemberLeaderIds];
+                                  next[idx] = e.target.value;
+                                  return { ...p, crewMemberLeaderIds: next };
+                                })
+                              }
+                              className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-fluid-2xs text-slate-900"
+                            >
+                              <option value="">담당 팀장…</option>
+                              {crewLeaderPickOptions.map((u) => (
+                                <option key={u.id} value={u.id}>
+                                  {formatAssignableUserLabel(u)}
+                                </option>
+                              ))}
+                            </select>
+                          ) : null}
                         </div>
                       );
                     })}

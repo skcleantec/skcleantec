@@ -42,6 +42,43 @@ export function toggleSoloTeamLeaderId(ids: string[], leaderId: string, solo: bo
   return [...set];
 }
 
+export function nonSoloLeaderIds(
+  teamLeaderIds: string[],
+  soloTeamLeaderIds: string[],
+  externalTeamLeaderId?: string | null,
+): string[] {
+  const ids = effectiveLeaderIds(teamLeaderIds, externalTeamLeaderId);
+  const solo = new Set(soloTeamLeaderIds);
+  return ids.filter((id) => !solo.has(id));
+}
+
+export function needsExplicitCrewLeaderPick(
+  teamLeaderIds: string[],
+  soloTeamLeaderIds: string[],
+  externalTeamLeaderId?: string | null,
+): boolean {
+  return nonSoloLeaderIds(teamLeaderIds, soloTeamLeaderIds, externalTeamLeaderId).length >= 2;
+}
+
+export function initCrewMemberLeaderIdsFromInquiry(
+  names: string[],
+  crewLeaderAssignments: Array<{ crewMemberName: string; teamLeaderId: string }> | undefined,
+  teamLeaderIds: string[],
+  soloTeamLeaderIds: string[],
+  externalTeamLeaderId?: string | null,
+): string[] {
+  const nonSolo = nonSoloLeaderIds(teamLeaderIds, soloTeamLeaderIds, externalTeamLeaderId);
+  const fallback = nonSolo[0] ?? '';
+  const byName = new Map(
+    (crewLeaderAssignments ?? []).map((a) => [a.crewMemberName, a.teamLeaderId] as const),
+  );
+  return names.map((raw) => {
+    const name = raw.trim();
+    if (!name) return fallback;
+    return byName.get(name) ?? fallback;
+  });
+}
+
 export function applyCrewFieldsToInquiryPatch(
   patch: Record<string, unknown>,
   form: {
@@ -49,6 +86,7 @@ export function applyCrewFieldsToInquiryPatch(
     soloTeamLeaderIds: string[];
     crewMemberCount: number;
     crewMemberNames: string[];
+    crewMemberLeaderIds: string[];
     externalTeamLeaderId?: string | null;
   },
 ): void {
@@ -68,6 +106,36 @@ export function applyCrewFieldsToInquiryPatch(
   patch.crewMemberCount = Math.floor(c);
   const pickedNames = form.crewMemberNames.map((n) => n.trim()).filter(Boolean);
   patch.crewMemberNote = pickedNames.length > 0 ? pickedNames.join('/') : null;
+
+  if (
+    needsExplicitCrewLeaderPick(
+      form.teamLeaderIds,
+      form.soloTeamLeaderIds,
+      form.externalTeamLeaderId,
+    ) &&
+    pickedNames.length > 0
+  ) {
+    const nonSolo = nonSoloLeaderIds(
+      form.teamLeaderIds,
+      form.soloTeamLeaderIds,
+      form.externalTeamLeaderId,
+    );
+    const nonSoloSet = new Set(nonSolo);
+    const leaderIdsForNote: string[] = [];
+    for (let i = 0; i < form.crewMemberNames.length; i++) {
+      const name = form.crewMemberNames[i]?.trim() ?? '';
+      if (!name) continue;
+      const lid = (form.crewMemberLeaderIds[i] ?? '').trim() || nonSolo[0] || '';
+      if (!nonSoloSet.has(lid)) {
+        throw new Error('팀원마다 크루와 함께 나가는 담당 팀장을 선택해 주세요.');
+      }
+      leaderIdsForNote.push(lid);
+    }
+    if (leaderIdsForNote.length !== pickedNames.length) {
+      throw new Error('팀원마다 담당 팀장을 지정해 주세요.');
+    }
+    patch.crewMemberLeaderIds = leaderIdsForNote;
+  }
 }
 
 export function adminCrewPreviewLabel(

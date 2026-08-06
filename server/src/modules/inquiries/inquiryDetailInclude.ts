@@ -33,6 +33,10 @@ export const inquiryDetailInclude = {
     orderBy: { sortOrder: 'asc' as const },
     include: { teamLeader: { select: assignmentTeamLeaderSelect } },
   },
+  crewLeaderAssignments: {
+    orderBy: { sortOrder: 'asc' as const },
+    select: { crewMemberName: true, teamLeaderId: true, sortOrder: true },
+  },
   orderForm: {
     select: {
       id: true,

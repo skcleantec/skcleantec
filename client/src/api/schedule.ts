@@ -121,6 +121,11 @@ export interface ScheduleItem {
       externalCompany?: { id: string; name: string } | null;
     };
   }>;
+  crewLeaderAssignments?: Array<{
+    crewMemberName: string;
+    teamLeaderId: string;
+    sortOrder?: number;
+  }>;
   /** 팀장 해피콜 완료 시각 (ISO) */
   happyCallCompletedAt?: string | null;
   changeLogs?: InquiryChangeLogEntry[];
