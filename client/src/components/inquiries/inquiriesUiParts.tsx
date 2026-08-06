@@ -38,7 +38,7 @@ export function InquiryDatePresetBar({
 }
 
 export const inquiryManualIntakeButtonClass =
-  'inline-flex min-h-8 items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-fluid-2xs font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50';
+  'inline-flex min-h-8 items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-slate-200 bg-white px-2 sm:px-2.5 py-1 text-[11px] sm:text-fluid-2xs lg:text-fluid-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 whitespace-nowrap';
 
 export function InquiryManualIntakeButton({
   children,

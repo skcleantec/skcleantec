@@ -2468,7 +2468,7 @@ export function AdminInquiriesPage() {
                 <button
                   type="button"
                   onClick={openListIntakeModal}
-                  className="inline-flex min-h-8 items-center justify-center rounded-lg border border-sky-600 bg-sky-50 px-1.5 sm:px-2 py-1 text-[11px] sm:text-fluid-2xs font-medium text-sky-900 hover:bg-sky-100 whitespace-nowrap"
+                  className="inline-flex min-h-8 items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2 sm:px-2.5 py-1 text-[11px] sm:text-fluid-2xs lg:text-fluid-xs font-medium text-sky-800 shadow-sm transition-colors hover:border-sky-300 hover:bg-sky-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-1 whitespace-nowrap"
                   title="일반 워크플로우(부재/보류/입금)로 신규 등록"
                 >
                   일반 등록
@@ -2478,7 +2478,7 @@ export function AdminInquiriesPage() {
                   title="수동접수 버튼 (스케줄 상세 폼)"
                   aria-label="수동접수 버튼"
                 >
-                  <CirclePlusIcon className="h-4 w-4" />
+                  <CirclePlusIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </InquiryManualIntakeButton>
               </div>
             )}
