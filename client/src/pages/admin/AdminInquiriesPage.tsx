@@ -2462,7 +2462,7 @@ export function AdminInquiriesPage() {
             {token && (
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 <InquiryQuickPasteTriggerButton
-                  size="compact"
+                  size="responsive-compact"
                   onClick={() => setQuickPasteOpen(true)}
                 />
                 <button
