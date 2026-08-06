@@ -2460,7 +2460,7 @@ export function AdminInquiriesPage() {
             </PageTitleWithFavorite>
           </div>
             {token && (
-              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
                 <InquiryQuickPasteTriggerButton
                   size="responsive-compact"
                   onClick={() => setQuickPasteOpen(true)}
@@ -2468,7 +2468,7 @@ export function AdminInquiriesPage() {
                 <button
                   type="button"
                   onClick={openListIntakeModal}
-                  className="inline-flex min-h-8 items-center justify-center rounded-lg border border-sky-600 bg-sky-50 px-2 py-1 text-fluid-2xs font-medium text-sky-900 hover:bg-sky-100"
+                  className="inline-flex min-h-8 items-center justify-center rounded-lg border border-sky-600 bg-sky-50 px-1.5 sm:px-2 py-1 text-[11px] sm:text-fluid-2xs font-medium text-sky-900 hover:bg-sky-100 whitespace-nowrap"
                   title="일반 워크플로우(부재/보류/입금)로 신규 등록"
                 >
                   일반 등록
