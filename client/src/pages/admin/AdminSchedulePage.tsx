@@ -1695,6 +1695,15 @@ export function AdminSchedulePage() {
           <PageTitleWithFavorite label="스케쥴">
             <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
           </PageTitleWithFavorite>
+          {activeRegionCalendar || activeCompanyCalendar || activePartnerCalendar ? (
+            <span className="shrink-0 inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-fluid-2xs font-medium text-indigo-800">
+              {activeRegionCalendar?.name || activeCompanyCalendar?.name || activePartnerCalendar?.name}
+            </span>
+          ) : (
+            <span className="shrink-0 inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-fluid-2xs font-medium text-slate-600">
+              전체 캘린더
+            </span>
+          )}
           <HelpTooltip className="shrink-0" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
         </div>
         <div className="flex flex-wrap items-center gap-1 lg:gap-2 min-w-0 w-full lg:w-auto lg:justify-end">
@@ -1713,6 +1722,11 @@ export function AdminSchedulePage() {
                 스케쥴
               </h1>
             </PageTitleWithFavorite>
+            {activeRegionCalendar || activeCompanyCalendar || activePartnerCalendar ? (
+              <span className="shrink-0 inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
+                {activeRegionCalendar?.name || activeCompanyCalendar?.name || activePartnerCalendar?.name}
+              </span>
+            ) : null}
             <HelpTooltip className="shrink-0 scale-90 origin-left" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
           </div>
             <InquiryQuickPasteTriggerButton
