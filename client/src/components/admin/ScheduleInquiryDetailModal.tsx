@@ -18,7 +18,6 @@ import { getPoolTeamMembers, getCrewLeaderMemberSpacing, type TeamMemberItem } f
 import { getSchedule, type InquiryChangeLogEntry, type ScheduleItem } from '../../api/schedule';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { getMe } from '../../api/auth';
-import { OperatingCompanyBadge } from './OperatingCompanyBadge';
 import { InquiryChangeHistoryBlock } from './InquiryChangeHistoryBlock';
 import { InquiryEditSectionNav } from './InquiryEditSectionNav';
 import { ModalCloseButton } from './ModalCloseButton';
@@ -56,7 +55,6 @@ import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleT
 import { buildSlotOccupiedLeaderIdsForDay } from '../../utils/scheduleSlotOccupancy';
 import { formatPreferredDateInputYmd, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquiryLeadPlatformLabel, inquiryEditFormAddress, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
-import { InquiryIntakeMetaLabels } from '../inquiry/InquiryIntakeMetaLabels';
 import { shouldShowInquiryLeadPlatform } from '@shared/inquiryIntakeChannel';
 import { isRealCustomerAddress, MANUAL_INTAKE_PLACEHOLDER_ADDRESS } from '@shared/orderFormPendingAddress';
 import {
@@ -2261,7 +2259,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                     title="접수번호와 고객·현장·일정 정보를 텍스트로 복사합니다. 타업체 공유에 사용하세요."
                     aria-live="polite"
                   >
-                    복사
+                    {copyHint ?? '복사'}
                   </button>
                 </div>
               </div>
