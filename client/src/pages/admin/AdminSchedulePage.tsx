@@ -45,6 +45,7 @@ import {
   type UserItem,
 } from '../../api/users';
 import { kstTodayYmd } from '../../utils/dateFormat';
+import { InquiryQuickPasteTriggerButton } from '../../components/inquiry/InquiryQuickPasteTriggerButton';
 import { formatInquiryListAreaOrServiceLabel } from '../../utils/inquiryAreaDisplay';
 import { isAirconOrderFormTemplate } from '@shared/orderFormServiceKind';
 import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
@@ -699,47 +700,6 @@ function CirclePlusIcon({ className }: { className?: string }) {
   );
 }
 
-function AiSparkleIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 2.5l1.2 4.2a2 2 0 001.2 1.2L18.5 9l-4.1 1.1a2 2 0 00-1.2 1.2L12 15.5l-1.2-4.2a2 2 0 00-1.2-1.2L5.5 9l4.1-1.1a2 2 0 001.2-1.2L12 2.5z" />
-      <path d="M18.5 14.5l.55 1.9a1 1 0 00.6.6l1.85.5-1.85.5a1 1 0 00-.6.6l-.55 1.9-.55-1.9a1 1 0 00-.6-.6l-1.85-.5 1.85-.5a1 1 0 00.6-.6l.55-1.9z" opacity=".85" />
-    </svg>
-  );
-}
-
-/** PC·모바일 공통 — AI 빠른등록 트리거 (모달 CTA와 동일 톤) */
-function ScheduleQuickPasteTriggerButton({
-  onClick,
-  className = '',
-  size = 'default',
-}: {
-  onClick: () => void;
-  className?: string;
-  size?: 'default' | 'compact' | 'row';
-}) {
-  const sizeClass =
-    size === 'compact'
-      ? 'h-auto w-auto gap-1.5 rounded-lg px-3 py-2 text-fluid-xs shadow-sm shadow-violet-500/20'
-      : size === 'row'
-        ? 'min-h-9 min-w-0 flex-1 gap-1 rounded-md px-1.5 py-1 text-fluid-2xs shadow-sm shadow-violet-500/20'
-        : 'min-h-11 w-full gap-2 rounded-xl px-4 py-2.5 text-fluid-sm shadow-md shadow-violet-500/25';
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`relative inline-flex items-center justify-center overflow-hidden border border-violet-200/90 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 font-semibold text-white transition hover:brightness-110 hover:shadow-lg hover:shadow-violet-500/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/80 focus-visible:ring-offset-1 touch-manipulation active:scale-[0.99] ${sizeClass} ${className}`}
-      aria-label="AI 빠른등록"
-    >
-      <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-quick-paste-ai-btn-shimmer" />
-      <span className={`relative inline-flex min-w-0 items-center justify-center ${size === 'default' ? 'gap-2' : 'gap-1'}`}>
-        <AiSparkleIcon className={`shrink-0 opacity-95 ${size === 'default' ? 'h-4 w-4' : 'h-3 w-3'}`} />
-        <span className="truncate">AI 빠른등록</span>
-      </span>
-    </button>
-  );
-}
-
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -906,7 +866,6 @@ export function AdminSchedulePage() {
   const [partnerTenants, setPartnerTenants] = useState<Array<{ id: string; name: string }>>([]);
   const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
   const hasExternalCo = useHasTenantFeature('mod_external_co');
-  const hasQuickPaste = useHasTenantFeature('mod_quick_paste');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
   const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
   const { ready, staffMe, role: meRole, userId, userName, userEmail } = useAdminStaffSession();
@@ -1756,13 +1715,11 @@ export function AdminSchedulePage() {
             </PageTitleWithFavorite>
             <HelpTooltip className="shrink-0 scale-90 origin-left" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
           </div>
-          {hasQuickPaste ? (
-            <ScheduleQuickPasteTriggerButton
+            <InquiryQuickPasteTriggerButton
               size="compact"
               className="hidden lg:inline-flex shrink-0"
               onClick={() => setQuickPasteOpen(true)}
             />
-          ) : null}
           <div className="inline-flex h-8 items-stretch rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden lg:h-auto lg:rounded-lg shrink-0">
             <button
               type="button"
@@ -1970,12 +1927,10 @@ export function AdminSchedulePage() {
 
           {/* 모바일: 캘린더 바로 위 — AI는 PC처럼 강조, 일반·발주는 보조 */}
           <div className="lg:hidden flex items-stretch gap-1">
-            {hasQuickPaste ? (
-              <ScheduleQuickPasteTriggerButton
+              <InquiryQuickPasteTriggerButton
                 size="row"
                 onClick={() => setQuickPasteOpen(true)}
               />
-            ) : null}
             <button
               type="button"
               onClick={() => setCreateInquiryModalDate(selectedDate ?? kstTodayYmd())}
@@ -3816,7 +3771,7 @@ export function AdminSchedulePage() {
         onIssued={() => fetchMonthData(false)}
       />
 
-      {token && hasQuickPaste ? (
+      {token ? (
         <ScheduleQuickPasteModal
           token={token}
           open={quickPasteOpen}

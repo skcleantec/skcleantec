@@ -34,6 +34,8 @@ import {
   type ForceMatchOrderFormCandidate,
   type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
+import { InquiryQuickPasteTriggerButton } from '../../components/inquiry/InquiryQuickPasteTriggerButton';
+import { ScheduleQuickPasteModal } from '../../components/schedule/ScheduleQuickPasteModal';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { AdminInquiriesMobileInlineMenuButton } from '../../components/layout/AdminInquiriesMobileSubNav';
@@ -838,6 +840,7 @@ export function AdminInquiriesPage() {
   );
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const hasExternalCo = useHasTenantFeature('mod_external_co');
+  const [quickPasteOpen, setQuickPasteOpen] = useState(false);
   const isLgUp = useIsLgUp();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -2458,6 +2461,10 @@ export function AdminInquiriesPage() {
           </div>
             {token && (
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <InquiryQuickPasteTriggerButton
+                  size="compact"
+                  onClick={() => setQuickPasteOpen(true)}
+                />
                 <button
                   type="button"
                   onClick={openListIntakeModal}
@@ -5340,6 +5347,19 @@ export function AdminInquiriesPage() {
           </div>,
           document.body
         )}
+
+      {token ? (
+        <ScheduleQuickPasteModal
+          open={quickPasteOpen}
+          onClose={() => setQuickPasteOpen(false)}
+          onSuccess={(inquiryId) => {
+            setQuickPasteOpen(false);
+            setEditTargetId(inquiryId);
+            void loadInquiries();
+          }}
+          token={token}
+        />
+      ) : null}
     </div>
   );
 }

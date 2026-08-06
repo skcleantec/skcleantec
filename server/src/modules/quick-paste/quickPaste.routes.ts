@@ -27,7 +27,6 @@ import { QUICK_PASTE_REQUIRED_FIELDS } from './quickPaste.constants.js';
 const router = Router();
 
 router.use(authMiddleware);
-router.use(requireFeature('mod_quick_paste'));
 router.use(requireStaffPermission('inquiry.create'));
 
 router.post('/parse', async (req, res) => {
