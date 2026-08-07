@@ -30,6 +30,10 @@ export type PlatformCoinUsageRow = {
 };
 
 export type PlatformCoinUsageKpi = {
+  totalAllTenants: number;
+  activeCount: number;
+  trialCount: number;
+  suspendedCount: number;
   tenantCount: number;
   totalSpent: number;
   unlimitedTenantCount: number;
@@ -54,6 +58,7 @@ export type ListPlatformCoinUsageParams = {
   q?: string;
   plan?: string;
   status?: string;
+  focus?: '' | 'near_limit' | 'zero' | 'unlimited' | 'limited' | 'ai';
   sort?: 'spent_desc' | 'spent_asc' | 'name' | 'ai_desc' | 'ai_asc';
   page?: number;
   pageSize?: number;
@@ -68,6 +73,7 @@ export async function listPlatformCoinUsage(
   if (params.q) qs.set('q', params.q);
   if (params.plan) qs.set('plan', params.plan);
   if (params.status) qs.set('status', params.status);
+  if (params.focus) qs.set('focus', params.focus);
   if (params.sort) qs.set('sort', params.sort);
   if (params.page != null) qs.set('page', String(params.page));
   if (params.pageSize != null) qs.set('pageSize', String(params.pageSize));

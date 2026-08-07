@@ -35,6 +35,10 @@ export type PlatformCoinUsageRow = {
 };
 
 export type PlatformCoinUsageKpi = {
+  totalAllTenants: number;
+  activeCount: number;
+  trialCount: number;
+  suspendedCount: number;
   tenantCount: number;
   totalSpent: number;
   unlimitedTenantCount: number;
@@ -77,6 +81,7 @@ export function parsePlatformCoinUsageListQuery(query: Record<string, unknown>):
   q: string;
   plan: string;
   status: string;
+  focus: '' | 'near_limit' | 'zero' | 'unlimited' | 'limited' | 'ai';
   sort: 'spent_desc' | 'spent_asc' | 'name' | 'ai_desc' | 'ai_asc';
   page: number;
   pageSize: number;
@@ -85,6 +90,15 @@ export function parsePlatformCoinUsageListQuery(query: Record<string, unknown>):
   const q = String(query.q ?? '').trim().slice(0, 80);
   const plan = String(query.plan ?? '').trim();
   const status = String(query.status ?? '').trim();
+  const focusRaw = String(query.focus ?? '').trim();
+  const focus =
+    focusRaw === 'near_limit' ||
+    focusRaw === 'zero' ||
+    focusRaw === 'unlimited' ||
+    focusRaw === 'limited' ||
+    focusRaw === 'ai'
+      ? focusRaw
+      : ('' as const);
   const sortRaw = String(query.sort ?? 'spent_desc');
   const sort =
     sortRaw === 'spent_asc' ||
@@ -97,13 +111,33 @@ export function parsePlatformCoinUsageListQuery(query: Record<string, unknown>):
   const pageSize = [30, 50, 80, 100].includes(pageSizeRaw) ? pageSizeRaw : 30;
   const pageRaw = Number(query.page ?? 1);
   const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
-  return { periodYm, q, plan, status, sort, page, pageSize };
+  return { periodYm, q, plan, status, focus, sort, page, pageSize };
+}
+
+function applyCoinUsageFocusFilter(
+  rows: PlatformCoinUsageRow[],
+  focus: '' | 'near_limit' | 'zero' | 'unlimited' | 'limited' | 'ai',
+): PlatformCoinUsageRow[] {
+  switch (focus) {
+    case 'near_limit':
+      return rows.filter((r) => !r.unlimited && r.pctUsed != null && r.pctUsed >= 80);
+    case 'zero':
+      return rows.filter((r) => r.spent === 0);
+    case 'unlimited':
+      return rows.filter((r) => r.unlimited);
+    case 'limited':
+      return rows.filter((r) => !r.unlimited);
+    case 'ai':
+      return rows.filter((r) => r.aiUsageCount > 0);
+    default:
+      return rows;
+  }
 }
 
 export async function listPlatformCoinUsage(
   query: Record<string, unknown>,
 ): Promise<PlatformCoinUsageListResult> {
-  const { periodYm, q, plan, status, sort, page, pageSize } = parsePlatformCoinUsageListQuery(query);
+  const { periodYm, q, plan, status, focus, sort, page, pageSize } = parsePlatformCoinUsageListQuery(query);
 
   const monthRange = kstMonthRangeYm(periodYm);
 
@@ -249,6 +283,10 @@ export async function listPlatformCoinUsage(
   }
 
   const kpi: PlatformCoinUsageKpi = {
+    totalAllTenants: tenants.length,
+    activeCount: tenants.filter((t) => t.status === 'ACTIVE').length,
+    trialCount: tenants.filter((t) => t.status === 'TRIAL').length,
+    suspendedCount: tenants.filter((t) => t.status === 'SUSPENDED').length,
     tenantCount: rows.length,
     totalSpent: rows.reduce((s, r) => s + r.spent, 0),
     unlimitedTenantCount: rows.filter((r) => r.unlimited).length,
@@ -259,6 +297,8 @@ export async function listPlatformCoinUsage(
     zeroSpentCount: rows.filter((r) => r.spent === 0).length,
     totalAiUsageCount: rows.reduce((s, r) => s + r.aiUsageCount, 0),
   };
+
+  rows = applyCoinUsageFocusFilter(rows, focus);
 
   if (sort === 'spent_asc') {
     rows.sort((a, b) => a.spent - b.spent || a.name.localeCompare(b.name, 'ko'));

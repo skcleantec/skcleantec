@@ -71,7 +71,7 @@ export function DashboardTelecrmBlock({ variant = 'card' }: { variant?: Dashboar
                 {openError}
               </p>
             ) : (
-              <p className="truncate text-[11px] text-slate-500">전화 상담·접수·문자 발송</p>
+              <p className="truncate text-[11px] text-slate-500">숨고·미소 연동 · 한 창 상담·마케팅</p>
             )}
           </div>
           <button
@@ -104,8 +104,11 @@ export function DashboardTelecrmBlock({ variant = 'card' }: { variant?: Dashboar
           </span>
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold text-violet-950">텔레CRM</h2>
-            <p className="mt-1.5 flex-1 text-fluid-xs leading-snug text-slate-600">
-              전화 상담·접수·스크립트·문자 발송을 한 화면에서 처리합니다.
+            <p className="mt-1.5 flex-1 text-fluid-xs leading-relaxed text-slate-600">
+              <span className="font-semibold text-violet-900">숨고·미소 연동</span>
+              으로 문의가 한 창에 모입니다. 전화 상담·접수·스크립트·문자까지 —
+              <span className="font-medium text-slate-800"> 초보 마케터도 쉽게 고객 마케팅</span>
+              을 이어갈 수 있는 똑똑한 프로그램입니다.
             </p>
           </div>
         </div>
