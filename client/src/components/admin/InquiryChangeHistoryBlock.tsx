@@ -17,6 +17,7 @@ export function InquiryChangeHistoryBlock({
   emptyHintText,
   /** 팀장·타업체 화면 — 마케터 전용(내부 표시) 이력 줄 숨김 */
   hideMarketerOnlyLines = false,
+  hideSectionHeading = false,
 }: {
   logs: InquiryChangeLogEntry[] | undefined;
   /** 기본은 카드형 여백. 접기 안쪽 등에서는 `mb-0 p-0 border-0 bg-transparent` 등으로 조정 */
@@ -28,6 +29,7 @@ export function InquiryChangeHistoryBlock({
   /** 이력 없음 안내(미지정 시 기본 한 문구 사용) */
   emptyHintText?: string;
   hideMarketerOnlyLines?: boolean;
+  hideSectionHeading?: boolean;
 }) {
   const entries =
     logs
@@ -43,7 +45,9 @@ export function InquiryChangeHistoryBlock({
   }
   return (
     <div className={`mb-6 p-4 bg-amber-50/80 border border-amber-100 rounded-lg ${className}`}>
-      <h3 className="text-sm font-medium text-amber-900 mb-3">{sectionHeading}</h3>
+      {hideSectionHeading ? null : (
+        <h3 className="text-sm font-medium text-amber-900 mb-3">{sectionHeading}</h3>
+      )}
       <ul className="space-y-3 text-sm">
         {entries.map((log) => (
           <li key={log.id} className="border-l-2 border-amber-300 pl-3">

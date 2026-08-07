@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { getInquiryEditSectionNumber } from '../../../constants/inquiryEditSectionOrder';
 import {
   inqEditSectionBody,
@@ -12,6 +12,7 @@ export function AdminScheduleDetailSection({
   sectionAnchor,
   collapsible = false,
   defaultOpen = true,
+  resetKey,
 }: {
   title: string;
   children: ReactNode;
@@ -20,10 +21,23 @@ export function AdminScheduleDetailSection({
   /** true면 summary로 접기·펼치기 (기본 defaultOpen) */
   collapsible?: boolean;
   defaultOpen?: boolean;
+  /** 바뀌면 사용자 토글을 초기화하고 defaultOpen으로 맞춤 (접수 전환 등) */
+  resetKey?: string | number | null;
 }) {
   const sectionNo = getInquiryEditSectionNumber(sectionAnchor);
   const displayTitle = sectionNo != null ? `${sectionNo}. ${title}` : title;
   const [open, setOpen] = useState(defaultOpen);
+  const userToggledRef = useRef(false);
+
+  useEffect(() => {
+    userToggledRef.current = false;
+    setOpen(defaultOpen);
+  }, [resetKey]);
+
+  useEffect(() => {
+    if (userToggledRef.current) return;
+    setOpen(defaultOpen);
+  }, [defaultOpen]);
 
   if (!collapsible) {
     return (
@@ -46,7 +60,10 @@ export function AdminScheduleDetailSection({
     >
       <details
         open={open}
-        onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+        onToggle={(e) => {
+          userToggledRef.current = true;
+          setOpen((e.target as HTMLDetailsElement).open);
+        }}
         className="group [&_summary::-webkit-details-marker]:hidden"
       >
         <summary className={`cursor-pointer list-none touch-manipulation ${inqEditSectionHeader}`}>

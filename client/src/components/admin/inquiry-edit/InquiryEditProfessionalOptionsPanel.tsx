@@ -16,6 +16,9 @@ type Props = {
   setProfCatOpen: Dispatch<SetStateAction<Record<string, boolean>>>;
   editForm: InquiryEditFormFields;
   setEditForm: Dispatch<SetStateAction<InquiryEditFormFields>>;
+  catalogLoading?: boolean;
+  catalogLoadError?: boolean;
+  onRetryCatalog?: () => void;
 };
 
 export function InquiryEditProfessionalOptionsPanel({
@@ -24,12 +27,46 @@ export function InquiryEditProfessionalOptionsPanel({
   setProfCatOpen,
   editForm,
   setEditForm,
+  catalogLoading = false,
+  catalogLoadError = false,
+  onRetryCatalog,
 }: Props) {
+  const rootNodes = listProfRootNodes(professionalCatalog);
+  const visibleRootCount = rootNodes.filter((root) => {
+    const kids = listProfChildren(professionalCatalog, root.id).filter((c) => c.isActive);
+    const showAsSection = root.isGroup || kids.length > 0;
+    if (showAsSection) return kids.length > 0;
+    return root.isActive && isSelectableProfOption(professionalCatalog, root);
+  }).length;
+
   return (
     <div>
       <label className={inqEditLabel}>전문 시공 옵션</label>
+      {catalogLoadError ? (
+        <div className="rounded border border-amber-200 bg-amber-50 px-2.5 py-2 text-fluid-2xs text-amber-900">
+          <p>옵션 목록을 불러오지 못했습니다. 네트워크·광고 차단·로그인 상태를 확인한 뒤 다시 시도해 주세요.</p>
+          {onRetryCatalog ? (
+            <button
+              type="button"
+              onClick={onRetryCatalog}
+              disabled={catalogLoading}
+              className="mt-1.5 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-fluid-2xs font-medium text-amber-900 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {catalogLoading ? '불러오는 중…' : '다시 불러오기'}
+            </button>
+          ) : null}
+        </div>
+      ) : catalogLoading && professionalCatalog.length === 0 ? (
+        <div className="rounded border border-gray-200 bg-gray-50 px-2.5 py-2 text-fluid-2xs text-gray-600">
+          옵션 목록 불러오는 중…
+        </div>
+      ) : visibleRootCount === 0 ? (
+        <div className="rounded border border-dashed border-gray-200 bg-gray-50 px-2.5 py-2 text-fluid-2xs text-gray-600">
+          표시할 전문 시공 옵션이 없습니다. 발주서 설정에서 항목을 등록·활성화했는지 확인해 주세요.
+        </div>
+      ) : (
       <div className="max-h-44 space-y-1.5 overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2">
-        {listProfRootNodes(professionalCatalog).map((root) => {
+        {rootNodes.map((root) => {
           const kids = listProfChildren(professionalCatalog, root.id).filter((c) => c.isActive);
           const showAsSection = root.isGroup || kids.length > 0;
           if (showAsSection) {
@@ -226,6 +263,7 @@ export function InquiryEditProfessionalOptionsPanel({
           );
         })}
       </div>
+      )}
       {editForm.professionalOptionIds.some((id) => {
         const o = professionalCatalog.find((c) => c.id === id);
         return Boolean(o && !o.isActive);

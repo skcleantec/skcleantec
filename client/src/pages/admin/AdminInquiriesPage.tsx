@@ -30,9 +30,7 @@ import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
 import {
   forceMatchOrderFormToInquiry,
   getForceMatchOrderFormCandidates,
-  getAllProfessionalOptions,
   type ForceMatchOrderFormCandidate,
-  type ProfessionalSpecialtyOptionDto,
 } from '../../api/orderform';
 import { InquiryQuickPasteTriggerButton } from '../../components/inquiry/InquiryQuickPasteTriggerButton';
 import { ScheduleQuickPasteModal } from '../../components/schedule/ScheduleQuickPasteModal';
@@ -90,6 +88,7 @@ import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { useDebouncedCallback } from '../../utils/debounceCallback';
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
+import { useProfessionalOptionsCatalog } from '../../hooks/useProfessionalOptionsCatalog';
 import {
   InquiryDatePresetBar,
   InquiryManualIntakeButton,
@@ -1004,7 +1003,12 @@ export function AdminInquiriesPage() {
   const datePresetBeforeSearchRef = useRef<'today' | 'all' | 'month' | 'day' | null>(null);
   /** 스케줄과 동일한 신규 접수 모달 — 예약일(YYYY-MM-DD) */
   const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
-  const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
+  const {
+    catalog: profCatalog,
+    loadError: profCatalogLoadError,
+    loading: profCatalogLoading,
+    refetch: refetchProfCatalog,
+  } = useProfessionalOptionsCatalog(token);
   const [scheduleStatsForModal, setScheduleStatsForModal] = useState<Record<string, ScheduleStatsByDate>>({});
   const [marketerOverview, setMarketerOverview] = useState<MarketerOverviewResponse | null>(null);
   const [marketerOverviewLoading, setMarketerOverviewLoading] = useState(() => Boolean(getToken()));
@@ -1175,12 +1179,6 @@ export function AdminInquiriesPage() {
       .catch(() => setScheduleStatsForModal({}));
   }, [token, createInquiryModalDate]);
 
-  useEffect(() => {
-    if (!token) return;
-    getAllProfessionalOptions(token)
-      .then(setProfCatalog)
-      .catch(() => setProfCatalog([]));
-  }, [token]);
 
   /** URL의 목록 필터 — page·pageSize 변경만으로는 실행하지 않음 */
   const urlListFilterSig = useMemo(
@@ -4748,8 +4746,7 @@ export function AdminInquiriesPage() {
                     <textarea
                       value={editForm.specialNotes}
                       onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
-                      rows={2}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-fluid-sm min-h-[3.25rem] resize-y"
+                      className="h-[182px] min-h-[182px] w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-fluid-sm"
                       placeholder="현장·일정 전달, 내부 공유 메모 등 (팀장 화면에도 표시)"
                     />
                   </div>
@@ -4976,8 +4973,7 @@ export function AdminInquiriesPage() {
                 <textarea
                   value={editForm.memo}
                   onChange={(e) => setEditForm((p) => ({ ...p, memo: e.target.value }))}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-fluid-sm min-h-[4.5rem] resize-y"
+                  className="h-[182px] min-h-[182px] w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-fluid-sm"
                   placeholder="접수 메모"
                 />
               </div>
@@ -5108,6 +5104,9 @@ export function AdminInquiriesPage() {
           item={editItem as unknown as import('../../api/schedule').ScheduleItem}
           teamLeaders={teamLeaders}
           professionalCatalog={profCatalog}
+          professionalCatalogLoading={profCatalogLoading}
+          professionalCatalogLoadError={profCatalogLoadError}
+          onRefetchProfessionalCatalog={refetchProfCatalog}
           currentUserRole={me?.role ?? null}
           currentUserOperationalAdmin={operationalAdmin}
           currentUserCanEditMarketer={canEditMarketerField}
@@ -5197,6 +5196,9 @@ export function AdminInquiriesPage() {
           initialPreferredDate={createInquiryModalDate}
           teamLeaders={teamLeaders}
           professionalCatalog={profCatalog}
+          professionalCatalogLoading={profCatalogLoading}
+          professionalCatalogLoadError={profCatalogLoadError}
+          onRefetchProfessionalCatalog={refetchProfCatalog}
           scheduleStatsByDate={scheduleStatsForModal}
           currentUserRole={me?.role ?? null}
           currentUserOperationalAdmin={operationalAdmin}

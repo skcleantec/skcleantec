@@ -48,7 +48,8 @@ import { kstTodayYmd } from '../../utils/dateFormat';
 import { InquiryQuickPasteTriggerButton } from '../../components/inquiry/InquiryQuickPasteTriggerButton';
 import { formatInquiryListAreaOrServiceLabel } from '../../utils/inquiryAreaDisplay';
 import { isAirconOrderFormTemplate } from '@shared/orderFormServiceKind';
-import { getAllProfessionalOptions, type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
+import { type ProfessionalSpecialtyOptionDto } from '../../api/orderform';
+import { useProfessionalOptionsCatalog } from '../../hooks/useProfessionalOptionsCatalog';
 import { getInquiry } from '../../api/inquiries';
 import { getToken } from '../../stores/auth';
 import { listSelectableExternalCompanies } from '../../api/externalCompanies';
@@ -867,7 +868,12 @@ export function AdminSchedulePage() {
   const hasTenantExchange = useHasTenantFeature('mod_tenant_exchange');
   const hasExternalCo = useHasTenantFeature('mod_external_co');
   const [marketers, setMarketers] = useState<UserItem[]>([]);
-  const [profCatalog, setProfCatalog] = useState<ProfessionalSpecialtyOptionDto[]>([]);
+  const {
+    catalog: profCatalog,
+    loadError: profCatalogLoadError,
+    loading: profCatalogLoading,
+    refetch: refetchProfCatalog,
+  } = useProfessionalOptionsCatalog(token);
   const { ready, staffMe, role: meRole, userId, userName, userEmail } = useAdminStaffSession();
   const effectiveStaffAdmin = useMemo(
     () => resolveEffectiveStaffAdminFromMe(staffMe),
@@ -1194,7 +1200,6 @@ export function AdminSchedulePage() {
       setExternalCompanies([]);
       setSelectableExternalCompanies([]);
       setPartnerTenants([]);
-      setProfCatalog([]);
       setServiceZones([]);
       setMarketers([]);
       return;
@@ -1239,10 +1244,6 @@ export function AdminSchedulePage() {
       } else {
         setPartnerTenants([]);
       }
-
-      getAllProfessionalOptions(token)
-        .then(setProfCatalog)
-        .catch(() => setProfCatalog([]));
 
       void listServiceZones(token)
         .then(setServiceZones)
@@ -3514,6 +3515,9 @@ export function AdminSchedulePage() {
           item={detailItem}
           teamLeaders={teamLeaders}
           professionalCatalog={profCatalog}
+          professionalCatalogLoading={profCatalogLoading}
+          professionalCatalogLoadError={profCatalogLoadError}
+          onRefetchProfessionalCatalog={refetchProfCatalog}
           scheduleStatsByDate={stats}
           currentUserRole={meRole}
           currentUserStaffAdmin={effectiveStaffAdmin}
@@ -3593,6 +3597,9 @@ export function AdminSchedulePage() {
           initialPreferredDate={createInquiryModalDate}
           teamLeaders={teamLeaders}
           professionalCatalog={profCatalog}
+          professionalCatalogLoading={profCatalogLoading}
+          professionalCatalogLoadError={profCatalogLoadError}
+          onRefetchProfessionalCatalog={refetchProfCatalog}
           scheduleStatsByDate={stats}
           currentUserRole={meRole}
           currentUserStaffAdmin={effectiveStaffAdmin}

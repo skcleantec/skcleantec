@@ -346,8 +346,7 @@ export function InquiryEditStatusSection({
               <textarea
                 value={editForm.specialNotes}
                 onChange={(e) => setEditForm((p) => ({ ...p, specialNotes: e.target.value }))}
-                rows={2}
-                className="w-full min-w-0 resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900 min-h-[3.25rem]"
+                className="h-[182px] min-h-[182px] w-full min-w-0 resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
                 placeholder="현장·일정 전달, 내부 공유 메모 등 (팀장 화면에도 표시)"
               />
             </div>
@@ -365,8 +364,7 @@ export function InquiryEditStatusSection({
               <textarea
                 value={editForm.memo}
                 onChange={(e) => setEditForm((p) => ({ ...p, memo: e.target.value }))}
-                rows={2}
-                className="w-full min-w-0 resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900 min-h-[3.25rem]"
+                className="h-[182px] min-h-[182px] w-full min-w-0 resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
                 placeholder="접수 메모"
               />
             </div>

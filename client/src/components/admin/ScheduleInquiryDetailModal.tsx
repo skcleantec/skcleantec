@@ -126,6 +126,7 @@ import { AdminScheduleDetailSection } from './inquiry-edit/AdminScheduleDetailSe
 import { InquiryEditPropertySection } from './inquiry-edit/InquiryEditPropertySection';
 import { InquiryEditSettlementSection } from './inquiry-edit/InquiryEditSettlementSection';
 import { InquiryEditStatusSection } from './inquiry-edit/InquiryEditStatusSection';
+import { useInquiryEditSectionDefaultOpen } from './inquiry-edit/useInquiryEditSectionDefaultOpen';
 import { buildInquiryEditAssignmentHints } from './inquiry-edit/InquiryEditStatusAssignmentHints';
 import type { InquiryEditFormFields } from './inquiry-edit/inquiryEditTypes';
 import { InquiryLeadSourceSelect } from '../inquiry/InquiryLeadSourceSelect';
@@ -423,6 +424,9 @@ export type ScheduleInquiryDetailModalProps =
       item: ScheduleItem;
       teamLeaders: UserItem[];
       professionalCatalog: ProfessionalSpecialtyOption[];
+      professionalCatalogLoading?: boolean;
+      professionalCatalogLoadError?: boolean;
+      onRefetchProfessionalCatalog?: () => void;
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
       currentUserRole?: string | null;
       /** ADMIN 또는 마케터 관리자 승격(FULL) */
@@ -466,6 +470,9 @@ export type ScheduleInquiryDetailModalProps =
       initialPreferredDate: string;
       teamLeaders: UserItem[];
       professionalCatalog: ProfessionalSpecialtyOption[];
+      professionalCatalogLoading?: boolean;
+      professionalCatalogLoadError?: boolean;
+      onRefetchProfessionalCatalog?: () => void;
       scheduleStatsByDate?: Record<string, ScheduleStatsByDate>;
       currentUserRole?: string | null;
       /** ADMIN 또는 마케터 관리자 승격(FULL) */
@@ -510,6 +517,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     token,
     teamLeaders,
     professionalCatalog,
+    professionalCatalogLoading,
+    professionalCatalogLoadError,
+    onRefetchProfessionalCatalog,
     scheduleStatsByDate,
     currentUserRole,
     currentUserStaffAdmin,
@@ -611,6 +621,15 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const hasDbMarketplace = useHasTenantFeature('mod_db_marketplace');
   const hasExternalCo = useHasTenantFeature('mod_external_co');
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
+  const sectionDefaultOpen = useInquiryEditSectionDefaultOpen(
+    token,
+    item?.id,
+    item?.consultationMemo,
+    orderFormPhotoId,
+    hasInspectionModule,
+    historyLogs,
+    historyLogsLoading,
+  );
   const [tenantSharePartnerships, setTenantSharePartnerships] = useState<TenantPartnershipItem[]>([]);
   const [tenantSharePartnershipId, setTenantSharePartnershipId] = useState('');
   const [tenantShareTransferFee, setTenantShareTransferFee] = useState('');
@@ -864,6 +883,25 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   useEffect(() => {
     setProfCatOpen({});
   }, [item?.id]);
+
+  const profCatalogAutoFetchAttemptedRef = useRef(false);
+  useEffect(() => {
+    profCatalogAutoFetchAttemptedRef.current = false;
+  }, [item?.id]);
+
+  useEffect(() => {
+    if (professionalCatalog.length > 0) return;
+    if (professionalCatalogLoading || professionalCatalogLoadError) return;
+    if (profCatalogAutoFetchAttemptedRef.current) return;
+    profCatalogAutoFetchAttemptedRef.current = true;
+    onRefetchProfessionalCatalog?.();
+  }, [
+    item?.id,
+    professionalCatalog.length,
+    professionalCatalogLoading,
+    professionalCatalogLoadError,
+    onRefetchProfessionalCatalog,
+  ]);
 
   useEffect(() => {
     const auto: Record<string, boolean> = {};
@@ -2694,6 +2732,9 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           professionalCatalog={professionalCatalog}
           profCatOpen={profCatOpen}
           setProfCatOpen={setProfCatOpen}
+          professionalCatalogLoading={professionalCatalogLoading}
+          professionalCatalogLoadError={professionalCatalogLoadError}
+          onRefetchProfessionalCatalog={onRefetchProfessionalCatalog}
         />
 
         {!isCreate && item ? (
@@ -2761,7 +2802,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             title="상담·참고"
             sectionAnchor="consultation-photos"
             collapsible
-            defaultOpen={false}
+            defaultOpen={sectionDefaultOpen.consultationPhotos}
+            resetKey={item.id}
           >
             <div className="min-w-0 space-y-4">
               <div>
@@ -2804,7 +2846,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             title="발주서 첨부 사진 (고객 업로드)"
             sectionAnchor="order-photos"
             collapsible
-            defaultOpen={false}
+            defaultOpen={sectionDefaultOpen.orderPhotos}
+            resetKey={item?.id}
           >
             <AdminOrderFormPhotosPanel orderFormId={orderFormPhotoId} token={token} />
           </AdminScheduleDetailSection>
@@ -2831,7 +2874,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             title="현장 검수·완료"
             sectionAnchor="inspection"
             collapsible
-            defaultOpen={false}
+            defaultOpen={sectionDefaultOpen.inspection}
+            resetKey={item.id}
           >
             <AdminInspectionPanel inquiryId={item.id} token={token} />
           </AdminScheduleDetailSection>
@@ -2842,7 +2886,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             title="현장 사진 (청소 전·후)"
             sectionAnchor="site-photos"
             collapsible
-            defaultOpen={false}
+            defaultOpen={sectionDefaultOpen.sitePhotos}
+            resetKey={item.id}
           >
             <div className="min-w-0">
               <InquiryCleaningPhotosPanel inquiryId={item.id} variant="admin" token={token} />
@@ -2855,24 +2900,19 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
             title="날짜·금액 변경 이력"
             sectionAnchor="history"
             collapsible
-            defaultOpen={false}
+            defaultOpen={sectionDefaultOpen.history}
+            resetKey={item.id}
           >
-            <details className="overflow-hidden rounded-lg border border-gray-200">
-              <summary className="cursor-pointer select-none bg-gray-50 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-100">
-                이력 펼치기 / 접기
-              </summary>
-              <div className="border-t border-gray-100 bg-white p-3">
-                {historyLogsLoading ? (
-                  <p className="text-fluid-xs text-gray-500">이력을 불러오는 중…</p>
-                ) : (
-                  <InquiryChangeHistoryBlock
-                    logs={historyLogs}
-                    className="mb-0 border-0 bg-transparent p-0"
-                    showEmptyHint
-                  />
-                )}
-              </div>
-            </details>
+            {historyLogsLoading ? (
+              <p className="text-fluid-xs text-gray-500">이력을 불러오는 중…</p>
+            ) : (
+              <InquiryChangeHistoryBlock
+                logs={historyLogs}
+                className="mb-0 border-0 bg-transparent p-0"
+                showEmptyHint
+                hideSectionHeading
+              />
+            )}
           </AdminScheduleDetailSection>
         )}
 

@@ -387,23 +387,34 @@ router.get('/professional-options', async (req, res) => {
   }
 });
 
-/** 관리자/마케터: 전문 시공 옵션 전체 (비활성 포함) */
-router.get('/professional-options/all', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {
-  try {
-    const user = (req as unknown as { user: AuthPayload }).user;
-    const tenantId = await requireTenantIdFromAuth(res, user);
-    if (!tenantId) return;
-    const items = await prisma.professionalSpecialtyOption.findMany({
-      where: { tenantId },
-      orderBy: profOptionOrderBy,
-      select: profOptionSelectListRow,
-    });
-    res.json({ items });
-  } catch (err) {
-    console.error('professional-options/all error:', err);
-    res.status(500).json({ error: '전문 시공 옵션을 불러올 수 없습니다.' });
-  }
-});
+/** 관리자/마케터: 전문 시공 옵션 전체 (비활성 포함) — 접수 수정·발주에도 필요 */
+router.get(
+  '/professional-options/all',
+  authMiddleware,
+  requireStaffPermission(
+    'inquiry.view',
+    'inquiry.edit.basic',
+    'inquiry.edit.marketer',
+    'orderform.issue',
+    'orderform.formConfig',
+  ),
+  async (req, res) => {
+    try {
+      const user = (req as unknown as { user: AuthPayload }).user;
+      const tenantId = await requireTenantIdFromAuth(res, user);
+      if (!tenantId) return;
+      const items = await prisma.professionalSpecialtyOption.findMany({
+        where: { tenantId },
+        orderBy: profOptionOrderBy,
+        select: profOptionSelectListRow,
+      });
+      res.json({ items });
+    } catch (err) {
+      console.error('professional-options/all error:', err);
+      res.status(500).json({ error: '전문 시공 옵션을 불러올 수 없습니다.' });
+    }
+  },
+);
 
 /** 관리자/마케터: 전문 시공 옵션 추가 */
 router.post('/professional-options', authMiddleware, requireStaffPermission('orderform.formConfig'), async (req, res) => {

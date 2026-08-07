@@ -60,6 +60,9 @@ export type InquiryEditSettlementSectionProps = {
   professionalCatalog: ProfessionalSpecialtyOption[];
   profCatOpen: Record<string, boolean>;
   setProfCatOpen: Dispatch<SetStateAction<Record<string, boolean>>>;
+  professionalCatalogLoading?: boolean;
+  professionalCatalogLoadError?: boolean;
+  onRefetchProfessionalCatalog?: () => void;
 };
 
 export function InquiryEditSettlementSection({
@@ -98,6 +101,9 @@ export function InquiryEditSettlementSection({
   professionalCatalog,
   profCatOpen,
   setProfCatOpen,
+  professionalCatalogLoading,
+  professionalCatalogLoadError,
+  onRefetchProfessionalCatalog,
 }: InquiryEditSettlementSectionProps) {
   return (
     <AdminScheduleDetailSection title="정산 · 옵션" sectionAnchor="settlement">
@@ -377,6 +383,9 @@ export function InquiryEditSettlementSection({
           setProfCatOpen={setProfCatOpen}
           editForm={editForm}
           setEditForm={setEditForm}
+          catalogLoading={professionalCatalogLoading}
+          catalogLoadError={professionalCatalogLoadError}
+          onRetryCatalog={onRefetchProfessionalCatalog}
         />
       </div>
     </AdminScheduleDetailSection>
