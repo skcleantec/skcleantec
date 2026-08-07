@@ -1080,9 +1080,8 @@ export function AdminInquiriesPage() {
   >([]);
   const [operatingCompanies, setOperatingCompanies] = useState<OperatingCompanyItem[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<InquiryItem | null>(null);
-  /** 미제출 행 — 고객 메시지·링크 미리보기(접수 목록에 모달, 발주서 목록으로 이동하지 않음) */
+  /** 미제출 행 — 고객 메시지·링크·새 창(접수 목록 통합 모달) */
   const [orderCustomerPreview, setOrderCustomerPreview] = useState<null | {
-    kind: 'message' | 'link';
     inquiry: InquiryItem;
     order: {
       token: string;
@@ -2096,7 +2095,7 @@ export function AdminInquiriesPage() {
     setOrderCustomerPreview(null);
   };
 
-  const openOrderCustomerPreviewModal = (item: InquiryItem, kind: 'message' | 'link') => {
+  const openOrderCustomerShareModal = (item: InquiryItem) => {
     const tk = item.orderForm?.token?.trim();
     if (!tk) {
       alert('발주서 토큰이 없습니다. 발주서를 먼저 발급해 주세요.');
@@ -2108,7 +2107,6 @@ export function AdminInquiriesPage() {
       return;
     }
     setOrderCustomerPreview({
-      kind,
       inquiry: item,
       order: {
         token: tk,
@@ -2160,49 +2158,75 @@ export function AdminInquiriesPage() {
     );
   };
 
-  const handleCopyOrderCustomerPreview = async () => {
-    if (!orderCustomerPreview) return;
-    if (orderCustomerPreview.kind === 'message') {
-      if (brandMsgConfigLoading) {
-        alert('폼 설정을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
-        return;
-      }
-      const { brandSlug, brandDisplayName } = orderFormBrandFromOperatingCompany(
-        orderCustomerPreview.inquiry.operatingCompany,
-      );
-      const text = buildOrderFormCustomerMessage(
+  const orderCustomerSharePreviewContent = useMemo(() => {
+    if (!orderCustomerPreview) return null;
+    const { brandSlug, brandDisplayName } = orderFormBrandFromOperatingCompany(
+      orderCustomerPreview.inquiry.operatingCompany,
+    );
+    return {
+      message: buildOrderFormCustomerMessage(
         resolveOrderCustomerPreviewMsgConfig(orderCustomerPreview.inquiry.operatingCompany?.id),
         orderCustomerPreview.order,
         undefined,
         staffTenantSlug || null,
         brandSlug,
         brandDisplayName,
-      );
-      const ok = await copyTextToClipboard(text);
-      alert(
-        ok
-          ? '클립보드에 복사했습니다.'
-          : '복사에 실패했습니다. 화면의 텍스트를 직접 선택해 복사해 주세요.'
-      );
-      return;
-    }
-    const { brandSlug } = orderFormBrandFromOperatingCompany(
-      orderCustomerPreview.inquiry.operatingCompany,
-    );
-    const ok = await copyTextToClipboard(
-      getOrderFormPublicUrl(
+      ),
+      url: getOrderFormPublicUrl(
         orderCustomerPreview.order.token,
         undefined,
         staffTenantSlug || null,
         brandSlug,
       ),
-    );
+    };
+  }, [orderCustomerPreview, resolveOrderCustomerPreviewMsgConfig, staffTenantSlug]);
+
+  const copyClipboardWithAlert = async (text: string) => {
+    const ok = await copyTextToClipboard(text);
     alert(
       ok
         ? '클립보드에 복사했습니다.'
-        : '복사에 실패했습니다. 화면의 텍스트를 직접 선택해 복사해 주세요.'
+        : '복사에 실패했습니다. 화면의 텍스트를 직접 선택해 복사해 주세요.',
     );
   };
+
+  const handleCopyOrderCustomerShareMessage = async () => {
+    if (!orderCustomerSharePreviewContent) return;
+    if (brandMsgConfigLoading) {
+      alert('폼 설정을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    await copyClipboardWithAlert(orderCustomerSharePreviewContent.message);
+  };
+
+  const handleCopyOrderCustomerShareLink = async () => {
+    if (!orderCustomerSharePreviewContent) return;
+    await copyClipboardWithAlert(orderCustomerSharePreviewContent.url);
+  };
+
+  const renderOrderFormPendingRowActions = (item: InquiryItem) => (
+    <>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          openOrderCustomerShareModal(item);
+        }}
+        className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
+      >
+        고객 발송
+      </button>
+      {canDeleteInquiry ? (
+        <button
+          type="button"
+          onClick={() => setDeleteTarget(item)}
+          className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
+        >
+          삭제
+        </button>
+      ) : null}
+    </>
+  );
 
   const handleSaveEdit = async () => {
     if (!editItem) return;
@@ -3248,47 +3272,7 @@ export function AdminInquiriesPage() {
                             )}
                           </>
                         ) : item.status === 'ORDER_FORM_PENDING' ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openOrderCustomerPreviewModal(item, 'message');
-                              }}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
-                            >
-                              메시지
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openOrderCustomerPreviewModal(item, 'link');
-                              }}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
-                            >
-                              링크
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openOrderFormNewTab(item);
-                              }}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
-                            >
-                              새창
-                            </button>
-                            {canDeleteInquiry && (
-                              <button
-                                type="button"
-                                onClick={() => setDeleteTarget(item)}
-                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
-                              >
-                                삭제
-                              </button>
-                            )}
-                          </>
+                          renderOrderFormPendingRowActions(item)
                         ) : item.status === 'DEPOSIT_COMPLETED' ? (
                           <>
                             <button
@@ -3820,47 +3804,7 @@ export function AdminInquiriesPage() {
                             )}
                           </>
                         ) : item.status === 'ORDER_FORM_PENDING' ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openOrderCustomerPreviewModal(item, 'message');
-                              }}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
-                            >
-                              메시지
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openOrderCustomerPreviewModal(item, 'link');
-                              }}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-blue-700`}
-                            >
-                              링크
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openOrderFormNewTab(item);
-                              }}
-                              className={`${INQUIRY_LIST_ACTION_BTN} text-slate-700`}
-                            >
-                              새창
-                            </button>
-                            {canDeleteInquiry && (
-                              <button
-                                type="button"
-                                onClick={() => setDeleteTarget(item)}
-                                className={`${INQUIRY_LIST_ACTION_BTN} text-red-600`}
-                              >
-                                삭제
-                              </button>
-                            )}
-                          </>
+                          renderOrderFormPendingRowActions(item)
                         ) : item.status === 'DEPOSIT_COMPLETED' ? (
                           <>
                             <button
@@ -4083,7 +4027,7 @@ export function AdminInquiriesPage() {
               <ModalCloseButton onClick={() => closeOrderCustomerPreviewModal()} />
               <div className="shrink-0 border-b border-slate-200 px-4 pb-3 pt-4 pr-14">
                 <h2 id="inquiry-order-preview-modal-title" className="text-lg font-semibold text-slate-900">
-                  {orderCustomerPreview.kind === 'message' ? '고객 발송용 메시지' : '발주서 링크'}
+                  고객 발송 · 발주서
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   {orderCustomerPreview.order.customerName} · 총액{' '}
@@ -4095,63 +4039,62 @@ export function AdminInquiriesPage() {
                   ) : null}
                 </p>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                {orderCustomerPreview.kind === 'message' ? (
-                  brandMsgConfigLoading ? (
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+                <section>
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <h3 className="text-fluid-sm font-semibold text-slate-800">발송용 메시지</h3>
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyOrderCustomerShareMessage()}
+                      disabled={brandMsgConfigLoading || !orderCustomerSharePreviewContent}
+                      className="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-fluid-2xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      메시지 복사
+                    </button>
+                  </div>
+                  {brandMsgConfigLoading ? (
                     <p className="text-sm text-slate-600">불러오는 중…</p>
                   ) : (
-                    <pre className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-slate-50 p-3 font-sans text-sm text-slate-800">
-                      {(() => {
-                        const { brandSlug, brandDisplayName } = orderFormBrandFromOperatingCompany(
-                          orderCustomerPreview.inquiry.operatingCompany,
-                        );
-                        return buildOrderFormCustomerMessage(
-                          resolveOrderCustomerPreviewMsgConfig(
-                            orderCustomerPreview.inquiry.operatingCompany?.id,
-                          ),
-                          orderCustomerPreview.order,
-                          undefined,
-                          staffTenantSlug || null,
-                          brandSlug,
-                          brandDisplayName,
-                        );
-                      })()}
+                    <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded border border-slate-200 bg-slate-50 p-3 font-sans text-sm text-slate-800">
+                      {orderCustomerSharePreviewContent?.message ?? ''}
                     </pre>
-                  )
-                ) : (
-                  <label className="block">
-                    <span className="mb-1 block text-xs text-slate-500">고객에게 보낼 URL</span>
-                    <textarea
-                      readOnly
-                      rows={4}
-                      className="w-full resize-none rounded border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900"
-                      value={(() => {
-                        const { brandSlug } = orderFormBrandFromOperatingCompany(
-                          orderCustomerPreview.inquiry.operatingCompany,
-                        );
-                        return getOrderFormPublicUrl(
-                          orderCustomerPreview.order.token,
-                          undefined,
-                          staffTenantSlug || null,
-                          brandSlug,
-                        );
-                      })()}
-                      onFocus={(e) => e.target.select()}
-                    />
-                  </label>
-                )}
+                  )}
+                </section>
+                <section>
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <h3 className="text-fluid-sm font-semibold text-slate-800">발주서 링크</h3>
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyOrderCustomerShareLink()}
+                      disabled={!orderCustomerSharePreviewContent}
+                      className="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-fluid-2xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      링크 복사
+                    </button>
+                  </div>
+                  <textarea
+                    readOnly
+                    rows={3}
+                    className="w-full resize-none rounded border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900"
+                    value={orderCustomerSharePreviewContent?.url ?? ''}
+                    onFocus={(e) => e.target.select()}
+                  />
+                </section>
               </div>
-              <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-200 px-4 py-3">
                 <button
                   type="button"
-                  onClick={() => void handleCopyOrderCustomerPreview()}
-                  disabled={
-                    brandMsgConfigLoading ||
-                    (orderCustomerPreview.kind === 'message' && brandMsgConfigLoading)
-                  }
-                  className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                  onClick={() => openOrderFormNewTab(orderCustomerPreview.inquiry)}
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                 >
-                  클립보드에 복사
+                  새 창에서 열기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => closeOrderCustomerPreviewModal()}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                >
+                  닫기
                 </button>
               </div>
             </div>
