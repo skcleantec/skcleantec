@@ -625,6 +625,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     item?.consultationMemo,
     historyLogs,
     historyLogsLoading,
+    item?.orderFormPhotoCount,
   );
   const [tenantSharePartnerships, setTenantSharePartnerships] = useState<TenantPartnershipItem[]>([]);
   const [tenantSharePartnershipId, setTenantSharePartnershipId] = useState('');
@@ -2839,7 +2840,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
         {!isCreate && orderFormPhotoId && (
           <AdminScheduleDetailSection
-            title="발주서 첨부 사진 (고객 업로드)"
+            title={
+              (item?.orderFormPhotoCount ?? 0) > 0
+                ? `발주서 첨부 사진 (고객 업로드 · ${item!.orderFormPhotoCount}장)`
+                : '발주서 첨부 사진 (고객 업로드)'
+            }
             sectionAnchor="order-photos"
             collapsible
             defaultOpen={sectionDefaultOpen.orderPhotos}

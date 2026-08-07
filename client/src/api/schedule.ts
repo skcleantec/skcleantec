@@ -110,6 +110,8 @@ export interface ScheduleItem {
     } | null;
     createdBy?: { id: string; name: string };
   } | null;
+  /** 목록·상세 API — 발주서 고객 첨부 사진 건수 */
+  orderFormPhotoCount?: number;
   assignments: Array<{
     sortOrder?: number;
     noCrewMembers?: boolean;

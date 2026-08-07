@@ -128,6 +128,7 @@ import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
 import { scheduleAlertKindForLines } from '../schedule-alerts/scheduleAlerts.service.js';
 import { queueHouseholdLedgerInquirySync } from '../team-leader-household-ledger/teamLeaderHouseholdLedgerAutoSync.service.js';
 import { inquiryDetailInclude, operatingCompanySummarySelect, orderFormTemplateListSelect } from './inquiryDetailInclude.js';
+import { attachOrderFormPhotoCount, attachOrderFormPhotoCounts } from './inquiryOrderFormPhotoCount.js';
 import { inspectionChecklistListInclude } from '../inquiry-inspection/inquiryInspection.listInclude.js';
 import {
   attachInspectionSummaries,
@@ -477,6 +478,7 @@ router.get('/', async (req, res) => {
         customerSpecialNotes: true,
         template: { select: orderFormTemplateListSelect },
         createdBy: { select: { id: true, name: true, role: true } },
+        _count: { select: { photos: true } },
       },
     },
     // changeLogs·extraCharges·additionalReceipts 는 편집 모달에서만 쓰므로 목록에서 제외(경량화).
@@ -546,7 +548,10 @@ router.get('/', async (req, res) => {
     itemsWithInspection,
   );
   res.json({
-    items: mapInquiriesInternalToneForRole(itemsWithProfReview, user.role),
+    items: mapInquiriesInternalToneForRole(
+      attachOrderFormPhotoCounts(itemsWithProfReview),
+      user.role,
+    ),
     total,
   });
   scheduleBackgroundGeoHydrate(prisma, itemsWithPaybackToken, { maxUniqueQueries: 18 });
@@ -633,11 +638,13 @@ router.get('/:id', async (req, res) => {
     ),
   );
   res.json(
-    await attachDbListingMetaToInquiry(
-      tenantId,
-      await attachMarketplaceHandoffBuyerMetaToInquiry(
+    attachOrderFormPhotoCount(
+      await attachDbListingMetaToInquiry(
         tenantId,
-        await attachTenantShareMetaToInquiry(tenantId, detail),
+        await attachMarketplaceHandoffBuyerMetaToInquiry(
+          tenantId,
+          await attachTenantShareMetaToInquiry(tenantId, detail),
+        ),
       ),
     ),
   );

@@ -4,6 +4,7 @@ import {
   getAdminOrderFormPhotos,
   type OrderFormPhotoItem,
 } from '../../api/orderform';
+import { cloudinaryThumbnailUrl } from '../../utils/cloudinaryImageUrl';
 
 interface Props {
   /** 발주서 id — 있을 때만 렌더를 시도한다 */
@@ -168,9 +169,10 @@ export function AdminOrderFormPhotosPanel({
                     aria-label={`${idx + 1}번째 사진 크게 보기`}
                   >
                     <img
-                      src={p.secureUrl}
+                      src={cloudinaryThumbnailUrl(p.secureUrl, 200, 200)}
                       alt="발주서 현장 사진"
                       loading="lazy"
+                      decoding="async"
                       className="h-full w-full object-cover transition hover:scale-105"
                     />
                     {showMoreOverlay ? (

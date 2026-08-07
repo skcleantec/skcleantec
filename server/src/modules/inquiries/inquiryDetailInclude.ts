@@ -49,6 +49,7 @@ export const inquiryDetailInclude = {
       customerAnswers: true,
       template: { select: orderFormTemplateSelect },
       createdBy: { select: { id: true, name: true } },
+      _count: { select: { photos: true } },
     },
   },
   changeLogs: {

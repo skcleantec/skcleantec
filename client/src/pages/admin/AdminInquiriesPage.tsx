@@ -59,7 +59,6 @@ import {
   partnerShareBlocksExternal,
 } from '../../utils/inquiryExternalPartnerShareMutex';
 import { InquiryDbMarketplaceBadge } from '../../components/admin/InquiryDbMarketplaceBadge';
-import { getPromotedOrderFormListFields } from '../../api/orderFormTemplates';
 import type { OrderFormListSnapshot } from '@shared/orderFormListSnapshot';
 import { listOperatingCompanies, type OperatingCompanyItem } from '../../api/operatingCompanies';
 import { listInquiryLeadSources } from '../../api/inquiryLeadSources';
@@ -161,6 +160,10 @@ import {
   effectiveAdminTeamSpecialNotes,
   effectiveCustomerOrderNotes,
 } from '../../utils/inquirySpecialNotesDisplay';
+import {
+  inquiryListHasCustomerSpecialNotes,
+  inquiryListHasOrderFormPhotos,
+} from '../../utils/inquiryListAttachmentFlags';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import {
@@ -597,10 +600,8 @@ interface InquiryItem {
   distanceFromJuanKm?: number | null;
   /** 목록 API — 현장 검수 진행률 요약 */
   inspectionSummary?: import('../../api/inquiryInspection').InspectionListSummary | null;
-}
-
-function inquiryListPromotedCellValue(item: InquiryItem, fieldKey: string): string {
-  return item.orderFormListSnapshot?.[fieldKey]?.value?.trim() ?? '';
+  /** 목록·상세 API — 발주서 고객 첨부 사진 건수 */
+  orderFormPhotoCount?: number;
 }
 
 /** 발주서 링크 발급됨·고객 미제출 — 툴팁·배정 안내 */
@@ -621,6 +622,25 @@ function InquiryProfOptionsReviewListBadge({ item }: { item: InquiryItem }) {
   if (item.profOptionsAmountReviewPending) return <ProfOptionsAmountReviewBadge />;
   if (item.profOptionsAmountReviewCompleted) return <ProfOptionsAmountReviewCompletedBadge />;
   return null;
+}
+
+function InquiryListAttachmentOx({
+  yes,
+  shortLabel,
+}: {
+  yes: boolean;
+  shortLabel: string;
+}) {
+  return (
+    <span
+      className={`inline-flex min-w-[1.125rem] items-center justify-center rounded px-0.5 py-px text-[10px] font-bold tabular-nums xl:min-w-[1.25rem] xl:text-fluid-2xs ${
+        yes ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-400'
+      }`}
+      title={`${shortLabel}: ${yes ? '있음' : '없음'}`}
+    >
+      {yes ? 'O' : 'X'}
+    </span>
+  );
 }
 
 /** 모바일 카드 목록 — pin tier·해피콜 강조 */
@@ -886,8 +906,7 @@ export function AdminInquiriesPage() {
   const appliedSearchQuery = searchParams.get('q') ?? '';
   const [searchInput, setSearchInput] = useState(() => searchParams.get('q') ?? '');
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
-  const [promotedListFields, setPromotedListFields] = useState<Array<{ fieldKey: string; label: string }>>([]);
-  const listTableWidthRem = (hasInspectionModule ? 90 : 84) + promotedListFields.length * 4;
+  const listTableWidthRem = (hasInspectionModule ? 90 : 84) + 8;
   const [serviceZones, setServiceZones] = useState<ServiceZoneItem[]>([]);
   const [customCalendars, setCustomCalendars] = useState<UserCustomCalendarItem[]>([]);
   const [listQuickEdit, setListQuickEdit] = useState<{
@@ -1554,9 +1573,6 @@ export function AdminInquiriesPage() {
     void getUserCustomCalendars(token)
       .then(setCustomCalendars)
       .catch(() => setCustomCalendars([]));
-    void getPromotedOrderFormListFields(token)
-      .then(setPromotedListFields)
-      .catch(() => setPromotedListFields([]));
   }, [token]);
 
   const patchInquiryListSearchParams = useCallback(
@@ -3126,25 +3142,24 @@ export function AdminInquiriesPage() {
                         >
                             {inquiryListStatusBadgeText(item)}
                             </span>
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-0.5 text-fluid-2xs text-slate-600 ring-1 ring-slate-200/80"
+                          title="고객 발주 특이사항 · 발주서 첨부 사진"
+                        >
+                          특이사항{' '}
+                          <InquiryListAttachmentOx
+                            yes={inquiryListHasCustomerSpecialNotes(item)}
+                            shortLabel="특이사항"
+                          />
+                          <span className="text-slate-300">·</span>
+                          사진첨부{' '}
+                          <InquiryListAttachmentOx
+                            yes={inquiryListHasOrderFormPhotos(item.orderFormPhotoCount)}
+                            shortLabel="사진첨부"
+                          />
+                        </span>
                           </div>
-                      {promotedListFields.length > 0 ? (
-                        <div className="mt-1 flex flex-wrap gap-1 text-fluid-2xs text-slate-600 sm:mt-1.5 sm:gap-1.5">
-                          {promotedListFields.map((f) => {
-                            const v = inquiryListPromotedCellValue(item, f.fieldKey);
-                            if (!v) return null;
-                            return (
-                              <span
-                                key={f.fieldKey}
-                                className="rounded-md bg-slate-100 px-2 py-0.5"
-                                title={`${f.label}: ${v}`}
-                              >
-                                {f.label}: {v}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                    </div>
+                      </div>
                     <div
                       className={INQUIRY_MOBILE_CARD_FOOTER_CLASS}
                       onClick={(e) => e.stopPropagation()}
@@ -3404,12 +3419,11 @@ export function AdminInquiriesPage() {
                     <col className="w-[6%]" />
                     <col className="w-[6%]" />
                     <col className="w-[6%]" />
-                    {promotedListFields.map((f) => (
-                      <col key={f.fieldKey} className="w-[5%]" />
-                    ))}
+                    <col className="w-[3%]" />
+                    <col className="w-[3%]" />
                     <col className="w-[5%]" />
                     <col className="w-[7%]" />
-                    <col style={{ width: `${Math.max(14, 20 - promotedListFields.length * 2)}%` }} />
+                    <col style={{ width: '14%' }} />
                   </>
                 ) : (
                   <>
@@ -3424,11 +3438,10 @@ export function AdminInquiriesPage() {
                     <col className="w-[7%]" />
                     <col className="w-[6%]" />
                     <col className="w-[7%]" />
-                    {promotedListFields.map((f) => (
-                      <col key={f.fieldKey} className="w-[5%]" />
-                    ))}
+                    <col className="w-[3%]" />
+                    <col className="w-[3%]" />
                     <col className="w-[8%]" />
-                    <col style={{ width: `${Math.max(12, 18 - promotedListFields.length * 2)}%` }} />
+                    <col style={{ width: '12%' }} />
                   </>
                 )}
               </colgroup>
@@ -3473,15 +3486,18 @@ export function AdminInquiriesPage() {
                     onSort={handleListSort}
                     className="px-1 py-1.5 text-center text-fluid-2xs font-semibold xl:px-1.5 2xl:text-fluid-xs"
                   />
-                  {promotedListFields.map((f) => (
-                    <th
-                      key={f.fieldKey}
-                      className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs"
-                      title={f.label}
-                    >
-                      <span className="line-clamp-2 break-keep leading-tight">{f.label}</span>
-                    </th>
-                  ))}
+                  <th
+                    className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
+                    title="고객 발주 특이사항"
+                  >
+                    <span className="line-clamp-2 break-keep leading-tight">특이사항</span>
+                  </th>
+                  <th
+                    className="px-0.5 py-1.5 text-center text-[10px] font-semibold leading-tight text-slate-500 xl:px-1 2xl:text-fluid-xs"
+                    title="발주서 고객 첨부 사진"
+                  >
+                    <span className="line-clamp-2 break-keep leading-tight">사진첨부</span>
+                  </th>
                   {hasInspectionModule ? (
                     <th className="px-1 py-1.5 text-center text-fluid-2xs font-semibold text-slate-500 xl:px-1.5 2xl:text-fluid-xs">현장검수</th>
                   ) : null}
@@ -3700,18 +3716,32 @@ export function AdminInquiriesPage() {
                         </div>
                       ) : null}
                     </td>
-                    {promotedListFields.map((f) => {
-                      const cell = inquiryListPromotedCellValue(item, f.fieldKey);
-                      return (
-                        <td
-                          key={f.fieldKey}
-                          className={`min-w-0 truncate px-1 py-0.5 align-middle text-center text-fluid-2xs text-slate-700 xl:px-1.5 xl:text-fluid-xs ${pBorder}`}
-                          title={cell || undefined}
-                        >
-                          {cell || '—'}
-                        </td>
-                      );
-                    })}
+                    <td
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center xl:px-1 ${pBorder}`}
+                      title={
+                        inquiryListHasCustomerSpecialNotes(item)
+                          ? '고객 발주 특이사항 있음'
+                          : '고객 발주 특이사항 없음'
+                      }
+                    >
+                      <InquiryListAttachmentOx
+                        yes={inquiryListHasCustomerSpecialNotes(item)}
+                        shortLabel="특이사항"
+                      />
+                    </td>
+                    <td
+                      className={`min-w-0 px-0.5 py-0.5 align-middle text-center xl:px-1 ${pBorder}`}
+                      title={
+                        inquiryListHasOrderFormPhotos(item.orderFormPhotoCount)
+                          ? `발주서 첨부 사진 ${item.orderFormPhotoCount ?? 0}장`
+                          : '발주서 첨부 사진 없음'
+                      }
+                    >
+                      <InquiryListAttachmentOx
+                        yes={inquiryListHasOrderFormPhotos(item.orderFormPhotoCount)}
+                        shortLabel="사진첨부"
+                      />
+                    </td>
                     {hasInspectionModule ? (
                       <td className={`min-w-0 px-1 py-0.5 align-middle text-center xl:px-1.5 ${pBorder}`}>
                         <InspectionProgressBadge summary={item.inspectionSummary} variant="list" />

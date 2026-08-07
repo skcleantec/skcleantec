@@ -6,15 +6,16 @@ export function useInquiryEditSectionDefaultOpen(
   consultationMemo: string | null | undefined,
   historyLogs: InquiryChangeLogEntry[],
   historyLogsLoading: boolean,
+  orderFormPhotoCount?: number | null,
 ) {
   return useMemo(
     () => ({
       consultationPhotos: Boolean(consultationMemo?.trim()),
-      orderPhotos: false,
+      orderPhotos: (orderFormPhotoCount ?? 0) > 0,
       inspection: false,
       sitePhotos: false,
       history: !historyLogsLoading && historyLogs.length > 0,
     }),
-    [consultationMemo, historyLogs, historyLogsLoading],
+    [consultationMemo, historyLogs, historyLogsLoading, orderFormPhotoCount],
   );
 }
