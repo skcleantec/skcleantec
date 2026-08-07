@@ -34,6 +34,8 @@ import {
 } from '../../components/quotations/quotationBrandResolve';
 import { QuotationStatusBadge, qUi } from '../../components/quotations/quotationUi';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { QuotationHelpModal } from '../../components/admin/quotation-help/QuotationHelpModal';
+import { QuotationHelpTrigger } from '../../components/admin/quotation-help/QuotationHelpTrigger';
 import { computeQuotationVatAmounts } from '@shared/quotationVat';
 import type { QuotationDocumentType } from '@shared/quotationDocument';
 import { resolveDocumentFooterNotice } from '@shared/quotationDocument';
@@ -115,6 +117,7 @@ export function AdminQuotationEditorPage() {
   });
   const [smtpReady, setSmtpReady] = useState(false);
   const [globalSmtpFallback, setGlobalSmtpFallback] = useState(false);
+  const [quotationHelpOpen, setQuotationHelpOpen] = useState(false);
   const defaultsRequestRef = useRef(0);
 
   const applyEditorDefaults = useCallback(
@@ -442,6 +445,7 @@ export function AdminQuotationEditorPage() {
               {isNew ? '새 견적서' : quoteNumber ?? '견적서'}
             </h1>
           </PageTitleWithFavorite>
+          <QuotationHelpTrigger className="shrink-0" onClick={() => setQuotationHelpOpen(true)} />
           {!isNew && (status === 'SENT' || status === 'FINALIZED') && (
             <QuotationStatusBadge status={status} />
           )}
@@ -552,6 +556,7 @@ export function AdminQuotationEditorPage() {
           )}
         </div>
       </div>
+      <QuotationHelpModal open={quotationHelpOpen} onClose={() => setQuotationHelpOpen(false)} />
     </div>
   );
 }

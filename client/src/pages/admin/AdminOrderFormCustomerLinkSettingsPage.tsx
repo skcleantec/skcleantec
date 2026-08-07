@@ -12,7 +12,8 @@ import {
 import { useStaffTenantSlugForLinks } from '../../hooks/useStaffTenantSlugForLinks';
 import { useOperatingCompanies } from '../../hooks/useOperatingCompanies';
 import { invalidateOrderFormBrandCustomerLinkConfigCache } from '../../hooks/useOrderFormBrandCustomerLinkConfigs';
-import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { CustomerLinkHelpModal } from '../../components/admin/customer-link-help/CustomerLinkHelpModal';
+import { CustomerLinkHelpTrigger } from '../../components/admin/customer-link-help/CustomerLinkHelpTrigger';
 import { CustomerLinkMessagePreviewEditor } from '../../components/orderform/CustomerLinkMessagePreviewEditor';
 
 const PREVIEW_SAMPLE_ORDER = {
@@ -27,11 +28,6 @@ const PREVIEW_SAMPLE_ORDER = {
   preferredTimeDetail: '09:00',
   optionNote: '냉장고 내부 청소 포함',
 } as const;
-
-const HELP =
-  '발주서 발급·목록에서 「메시지 복사」할 때 고객에게 보내는 안내 문구입니다.\n' +
-  '라벨(청소일시·페이백 신청 등)은 글자로 쓰고, 값만 {{date}}·{{paybackLink}}처럼 넣으세요.\n' +
-  '{{scheduleLine}}처럼 문장 통째 치환은 라벨을 고치기 어렵습니다.';
 
 function pickDefaultBrandId(
   brands: Array<{ id: string; isDefault?: boolean }>,
@@ -70,6 +66,7 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [msgConfig, setMsgConfig] = useState<FormMessagesState>(emptyEditorState);
+  const [customerLinkHelpOpen, setCustomerLinkHelpOpen] = useState(false);
 
   const selectedBrand = useMemo(
     () => activeBrands.find((b) => b.id === operatingCompanyId) ?? null,
@@ -200,7 +197,10 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
             </PageTitleWithFavorite>
             <div className="mt-1 flex flex-wrap items-start gap-1 text-fluid-xs leading-relaxed text-gray-600">
               <span>고객 발송 메시지를 한 칸에서 자유롭게 편집합니다.</span>
-              <HelpTooltip text={HELP} className="shrink-0 align-middle" />
+              <CustomerLinkHelpTrigger
+                className="shrink-0 align-middle"
+                onClick={() => setCustomerLinkHelpOpen(true)}
+              />
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -273,6 +273,7 @@ export function AdminOrderFormCustomerLinkSettingsPage() {
           )}
         </div>
       </div>
+      <CustomerLinkHelpModal open={customerLinkHelpOpen} onClose={() => setCustomerLinkHelpOpen(false)} />
     </div>
   );
 }

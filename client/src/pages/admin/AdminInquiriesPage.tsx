@@ -35,6 +35,8 @@ import {
 import { InquiryQuickPasteTriggerButton } from '../../components/inquiry/InquiryQuickPasteTriggerButton';
 import { ScheduleQuickPasteModal } from '../../components/schedule/ScheduleQuickPasteModal';
 import { ScheduleInquiryDetailModal } from '../../components/admin/ScheduleInquiryDetailModal';
+import { InquiryHelpModal } from '../../components/admin/inquiry-help/InquiryHelpModal';
+import { InquiryHelpTrigger } from '../../components/admin/inquiry-help/InquiryHelpTrigger';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { AdminInquiriesMobileInlineMenuButton } from '../../components/layout/AdminInquiriesMobileSubNav';
 import { listServiceZones, type ServiceZoneItem } from '../../api/serviceZones';
@@ -871,6 +873,7 @@ export function AdminInquiriesPage() {
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const hasExternalCo = useHasTenantFeature('mod_external_co');
   const [quickPasteOpen, setQuickPasteOpen] = useState(false);
+  const [inquiryHelpOpen, setInquiryHelpOpen] = useState(false);
   const isLgUp = useIsLgUp();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -2492,6 +2495,7 @@ export function AdminInquiriesPage() {
             <PageTitleWithFavorite label="서비스접수">
               <h1 className="text-slate-900">서비스접수</h1>
             </PageTitleWithFavorite>
+            <InquiryHelpTrigger className="shrink-0" onClick={() => setInquiryHelpOpen(true)} />
           </div>
             {token && (
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
@@ -5258,6 +5262,7 @@ export function AdminInquiriesPage() {
           token={token}
         />
       ) : null}
+      <InquiryHelpModal open={inquiryHelpOpen} onClose={() => setInquiryHelpOpen(false)} />
     </div>
   );
 }

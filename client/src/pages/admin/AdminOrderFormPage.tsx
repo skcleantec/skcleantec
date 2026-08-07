@@ -6,7 +6,8 @@ import { createPortal } from 'react-dom';
 import { Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { ModalCloseButton } from '../../components/admin/ModalCloseButton';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
-import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { OrderIssueHelpModal } from '../../components/admin/order-issue-help/OrderIssueHelpModal';
+import { OrderIssueHelpTrigger } from '../../components/admin/order-issue-help/OrderIssueHelpTrigger';
 import { SyncHorizontalScroll } from '../../components/ui/SyncHorizontalScroll';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { usePaginatedListQuery } from '../../hooks/usePaginatedListQuery';
@@ -132,6 +133,7 @@ export function AdminOrderFormPage() {
   const [previewModal, setPreviewModal] = useState<null | { kind: 'message' | 'link'; order: OrderForm }>(
     null
   );
+  const [orderIssueHelpOpen, setOrderIssueHelpOpen] = useState(false);
   const [submissionViewer, setSubmissionViewer] = useState<null | { id: string; customerName: string }>(
     null
   );
@@ -659,10 +661,7 @@ export function AdminOrderFormPage() {
               <PageTitleWithFavorite label="발주서 발급">
                 <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">발주서 발급</h2>
               </PageTitleWithFavorite>
-              <HelpTooltip
-                className="shrink-0"
-                text="「대기 접수 연결」에서 개별 접수로 등록한 대기 건을 선택하면, 같은 건에 링크가 붙고 고객이 제출 시 접수로 전환됩니다."
-              />
+              <OrderIssueHelpTrigger className="shrink-0" onClick={() => setOrderIssueHelpOpen(true)} />
             </div>
           </div>
           <div className="border-b border-gray-100 px-4 py-3 sm:px-6">
@@ -1476,6 +1475,7 @@ export function AdminOrderFormPage() {
           </div>,
           document.body
         )}
+      <OrderIssueHelpModal open={orderIssueHelpOpen} onClose={() => setOrderIssueHelpOpen(false)} />
     </div>
   );
 }

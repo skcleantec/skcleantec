@@ -61,6 +61,7 @@ apps/telecrm-android/app/release/
 # 로컬 에이전트 — product/help 빌더 소스만 저장소 포함
 /agent/*
 !/agent/product/
+!/agent/ADMIN_SCREEN_HELP_AGENT.md
 /agent/product/node_modules/
 /agent/product/output/assets/
 malgun.ttf

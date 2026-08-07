@@ -93,8 +93,14 @@ import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleT
 import { formatScheduleLeaderSummary } from '../../utils/scheduleAssigneeDisplay';
 import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
-import { DEFAULT_CREW_UNITS_PER_INQUIRY } from '../../constants/crewCapacity';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { ScheduleHelpModal } from '../../components/admin/schedule-help/ScheduleHelpModal';
+import { ScheduleHelpTrigger } from '../../components/admin/schedule-help/ScheduleHelpTrigger';
+import { ScheduleLegendItems } from '../../components/admin/schedule-help/ScheduleLegendItems';
+import {
+  SCHEDULE_MARKETPLACE_SECTION_HELP,
+  SCHEDULE_UNASSIGNED_SECTION_HELP,
+} from '../../components/admin/schedule-help/scheduleHelpShared';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import { isManualIntakeInquiry } from '../../utils/manualIntakeInquiry';
@@ -155,19 +161,6 @@ const CS_AS_STATUS_LABEL: Record<string, string> = {
   PROCESSING: '처리중',
   DONE: '완료',
 };
-
-const SCHEDULE_PAGE_OVERVIEW_HELP =
-  '월별 배정·슬롯 현황을 한눈에 확인합니다.';
-
-function scheduleLegendSlotHelpText(crewUnits: number): string {
-  return `오전·오후는 팀장 슬롯 잔여(휴무 반영)입니다. 0보다 작으면 해당 구간이 소진 건수보다 많이 잡혀 있다는 뜻입니다. 팀원은 그날 휴무를 제외한 가용 인원 기준 잔여(명)입니다. 표준 접수는 팀원 ${crewUnits}명 단위로 집계합니다. ⚡ 사이는 팀장 미배정이면서 오전·오후가 아직 확정되지 않은 사이청소 건수입니다. 오전 또는 오후를 확정하면 ⚡는 사라지고 해당 슬롯 잔여가 줄어듭니다(미배정 건수는 유지).`;
-}
-
-const SCHEDULE_UNASSIGNED_SECTION_HELP =
-  '팀장이 아직 배정되지 않은 자사 접수입니다. 사이청소·일반 접수 모두 오전·오후 확정(또는 희망 시간대)에 따라 미배정 오전/오후/사이·미확정으로 나뉩니다. 팀장 배정 후에는 아래 오전·오후·사이 일정 구역으로 이동합니다.';
-
-const SCHEDULE_MARKETPLACE_SECTION_HELP =
-  '정보공유(준비·공유·인계)에 올린 자사 접수입니다. 팀장 미배정·자사 TO 집계에서는 제외되지만, 스케줄에서 확인·관리할 수 있습니다. 카드 아이콘에 마우스를 올리면 현재 단계가 표시됩니다.';
 
 function groupScheduleItemsByKstDate(items: ScheduleItem[]) {
   return items.reduce<Record<string, ScheduleItem[]>>((acc, item) => {
@@ -760,61 +753,6 @@ function MobileCollapsePanel({
   );
 }
 
-function ScheduleLegendItems({ compact = false }: { compact?: boolean }) {
-  return (
-    <div
-      className={`flex flex-wrap items-center text-slate-600 ${
-        compact ? 'gap-x-3 gap-y-1 text-[10px] leading-snug' : 'gap-x-5 gap-y-2 text-fluid-xs leading-relaxed'
-      }`}
-    >
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-2 w-2.5 shrink-0 rounded-sm border-2 border-slate-400 bg-slate-100 ring-1 ring-slate-200" />
-        <span>
-          팀장 <span className="font-semibold text-slate-800">오전·오후 1건</span>
-          {compact ? '' : ' (추가 배정 검토)'}
-        </span>
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-2 w-2 shrink-0 rounded-full border-2 border-rose-500 bg-white" />
-        <span>
-          {compact ? '미배정' : (
-            <>
-              빈 슬롯·<span className="font-bold text-red-600">미배정</span>
-            </>
-          )}
-        </span>
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-2 w-2 shrink-0 rounded-full bg-rose-100 ring-2 ring-rose-400" />
-        대기
-      </span>
-      <span className="inline-flex items-center gap-1.5" title="발주서 미제출·대기 접수가 있는 날">
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
-        미제출
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-2 w-2 shrink-0 rounded-md bg-slate-200" />
-        마감
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-2 w-2 shrink-0 rounded-full bg-slate-900" />
-        선택한 날
-      </span>
-      <span className="inline-flex items-center gap-1.5" title={SON_EOMNEUNG_NAL_HELP}>
-        <SonEomneungNalIcon />
-        손없는날
-      </span>
-      {!compact ? (
-        <div className="flex w-full min-w-0 justify-end min-[520px]:w-auto min-[520px]:flex-1 min-[520px]:basis-0">
-          <HelpTooltip className="shrink-0" text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)} />
-        </div>
-      ) : (
-        <HelpTooltip className="shrink-0" text={scheduleLegendSlotHelpText(DEFAULT_CREW_UNITS_PER_INQUIRY)} />
-      )}
-    </div>
-  );
-}
-
 /** 브라우저 로컬 날짜 기준 오늘 여부 */
 function isTodayYmd(year: number, month: number, day: number): boolean {
   const t = new Date();
@@ -857,6 +795,7 @@ export function AdminSchedulePage() {
   /** 신규 접수 모달 — 선택한 캘린더 날짜로 예약일 고정 */
   const [createInquiryModalDate, setCreateInquiryModalDate] = useState<string | null>(null);
   const [quickPasteOpen, setQuickPasteOpen] = useState(false);
+  const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
   const [orderIssueOpen, setOrderIssueOpen] = useState(false);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [teamLeadersWithZones, setTeamLeadersWithZones] = useState<UserItem[]>([]);
@@ -1712,7 +1651,7 @@ export function AdminSchedulePage() {
           <PageTitleWithFavorite label="스케쥴">
             <h1 className="text-fluid-lg font-semibold text-slate-900 tracking-tight">스케쥴</h1>
           </PageTitleWithFavorite>
-          <HelpTooltip className="shrink-0" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
+          <ScheduleHelpTrigger className="shrink-0" onClick={() => setScheduleHelpOpen(true)} />
         </div>
         <div className="flex flex-wrap items-center gap-1 lg:gap-2 min-w-0 w-full lg:w-auto lg:justify-end">
           <div className="flex lg:hidden items-center gap-1.5 min-w-0 shrink mr-0.5">
@@ -1730,7 +1669,10 @@ export function AdminSchedulePage() {
                 스케쥴
               </h1>
             </PageTitleWithFavorite>
-            <HelpTooltip className="shrink-0 scale-90 origin-left" text={SCHEDULE_PAGE_OVERVIEW_HELP} />
+            <ScheduleHelpTrigger
+              className="shrink-0 scale-90 origin-left"
+              onClick={() => setScheduleHelpOpen(true)}
+            />
           </div>
             <InquiryQuickPasteTriggerButton
               size="compact"
@@ -3850,6 +3792,8 @@ export function AdminSchedulePage() {
           onSaved={() => fetchMonthData(false)}
         />
       ) : null}
+
+      <ScheduleHelpModal open={scheduleHelpOpen} onClose={() => setScheduleHelpOpen(false)} />
     </div>
   );
 }
