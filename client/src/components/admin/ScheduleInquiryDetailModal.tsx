@@ -622,11 +622,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   const hasExternalCo = useHasTenantFeature('mod_external_co');
   const hasInspectionModule = useHasTenantFeature('mod_inspection');
   const sectionDefaultOpen = useInquiryEditSectionDefaultOpen(
-    token,
-    item?.id,
     item?.consultationMemo,
-    orderFormPhotoId,
-    hasInspectionModule,
     historyLogs,
     historyLogsLoading,
   );

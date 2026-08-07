@@ -74,7 +74,7 @@ export function AdminScheduleDetailSection({
             </span>
           </span>
         </summary>
-        <div className={inqEditSectionBody}>{children}</div>
+        {open ? <div className={inqEditSectionBody}>{children}</div> : null}
       </details>
     </section>
   );

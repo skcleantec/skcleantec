@@ -41,11 +41,11 @@ function scrollToPrev(scroller: HTMLElement, sections: HTMLElement[]) {
     const s = sections[i]!;
     const y = getScrollYForSection(s, scroller);
     if (y < st - margin) {
-      s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      s.scrollIntoView({ behavior: 'auto', block: 'start' });
       return;
     }
   }
-  scroller.scrollTo({ top: 0, behavior: 'smooth' });
+  scroller.scrollTo({ top: 0, behavior: 'auto' });
 }
 
 function scrollToNext(scroller: HTMLElement, sections: HTMLElement[]) {
@@ -55,11 +55,11 @@ function scrollToNext(scroller: HTMLElement, sections: HTMLElement[]) {
   for (const s of sections) {
     const y = getScrollYForSection(s, scroller);
     if (y > st + margin) {
-      s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      s.scrollIntoView({ behavior: 'auto', block: 'start' });
       return;
     }
   }
-  scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
+  scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'auto' });
 }
 
 /** 고정 번호 N → `#inq-edit-sec-{anchor}` (없으면 무시) */
@@ -69,7 +69,7 @@ function scrollToCanonicalSection(sc: HTMLElement, oneBased: number) {
   const anchor = INQUIRY_EDIT_SECTION_ANCHOR_ORDER[i]!;
   const el = sc.querySelector(`#${CSS.escape(inquiryEditSecDomId(anchor))}`) as HTMLElement | null;
   if (!el) return;
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  el.scrollIntoView({ behavior: 'auto', block: 'start' });
 }
 
 const SECTION_JUMP_COUNT = INQUIRY_EDIT_SECTION_ANCHOR_ORDER.length;
