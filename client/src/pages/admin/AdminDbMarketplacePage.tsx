@@ -19,6 +19,8 @@ import {
 } from '../../api/dbMarketplace';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { DbMarketplaceHelpModal } from '../../components/admin/db-marketplace-help/DbMarketplaceHelpModal';
+import { DbMarketplaceHelpTrigger } from '../../components/admin/db-marketplace-help/DbMarketplaceHelpTrigger';
 import { DbMarketplaceListingDetailModal } from '../../components/admin/DbMarketplaceListingDetailModal';
 import { DbMarketplaceAudiencePickerModal } from '../../components/admin/DbMarketplaceAudiencePickerModal';
 import { DbMarketplaceBulkResultModal } from '../../components/admin/DbMarketplaceBulkResultModal';
@@ -133,6 +135,7 @@ export function AdminDbMarketplacePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [audienceModalOpen, setAudienceModalOpen] = useState(false);
+  const [marketplaceHelpOpen, setMarketplaceHelpOpen] = useState(false);
   const [bulkResult, setBulkResult] = useState<{
     title: string;
     successLabel: string;
@@ -620,9 +623,12 @@ export function AdminDbMarketplacePage() {
   return (
     <div className={`min-w-0 w-full max-w-full space-y-2 sm:space-y-4 ${dbMarketplacePageBottomClass(selectedCount > 0 && selectable)}`}>
       <div className="space-y-2">
-        <PageTitleWithFavorite label="정보공유">
-          <h1 className="text-fluid-lg font-semibold text-slate-900">정보공유</h1>
-        </PageTitleWithFavorite>
+        <div className="flex min-w-0 shrink-0 items-center gap-1">
+          <PageTitleWithFavorite label="정보공유">
+            <h1 className="text-fluid-lg font-semibold text-slate-900">정보공유</h1>
+          </PageTitleWithFavorite>
+          <DbMarketplaceHelpTrigger className="shrink-0" onClick={() => setMarketplaceHelpOpen(true)} />
+        </div>
         <DbMarketplaceLegalNotice text={MARKETPLACE_LEGAL_NOTICE} />
         <DbMarketplaceSideSegment options={sideOptionsWithBadges} active={side} onChange={setSide} />
         <DbMarketplaceTabBar options={tabOptionsWithBadges} active={uiTab} onChange={setUiTab} />
@@ -945,6 +951,8 @@ export function AdminDbMarketplacePage() {
           onChanged={refreshAfterChange}
         />
       ) : null}
+
+      <DbMarketplaceHelpModal open={marketplaceHelpOpen} onClose={() => setMarketplaceHelpOpen(false)} />
     </div>
   );
 }

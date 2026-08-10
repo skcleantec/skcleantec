@@ -8,7 +8,7 @@ import { InquiryDbMarketplaceSellPanel } from '../InquiryDbMarketplaceSellPanel'
 import { PartnerReceivedBanner } from '../PartnerReceivedBanner';
 import { MarketplaceHandoffBuyerBanner } from '../MarketplaceHandoffBuyerBanner';
 import { TenantInquiryShareBadge } from '../TenantInquiryShareBadge';
-import type { ProfessionalSpecialtyOption } from '../../../constants/professionalSpecialtyOptions';
+import type { ProfessionalSpecialtyOption, ProfessionalOptionSelection } from '../../../constants/professionalSpecialtyOptions';
 import { AdminScheduleDetailSection } from './AdminScheduleDetailSection';
 import { InquiryEditProfessionalOptionsPanel } from './InquiryEditProfessionalOptionsPanel';
 import {
@@ -58,6 +58,7 @@ export type InquiryEditSettlementSectionProps = {
   marketplaceExchangePrefill: DbMarketplaceExchangePrefill | null | undefined;
   onInquiryRefresh?: () => void;
   professionalCatalog: ProfessionalSpecialtyOption[];
+  savedProfSelections?: ProfessionalOptionSelection[];
   profCatOpen: Record<string, boolean>;
   setProfCatOpen: Dispatch<SetStateAction<Record<string, boolean>>>;
   professionalCatalogLoading?: boolean;
@@ -99,6 +100,7 @@ export function InquiryEditSettlementSection({
   marketplaceExchangePrefill,
   onInquiryRefresh,
   professionalCatalog,
+  savedProfSelections,
   profCatOpen,
   setProfCatOpen,
   professionalCatalogLoading,
@@ -377,9 +379,10 @@ export function InquiryEditSettlementSection({
             />
           </div>
         ) : null}
-        <InquiryEditProfessionalOptionsPanel
-          professionalCatalog={professionalCatalog}
-          profCatOpen={profCatOpen}
+            <InquiryEditProfessionalOptionsPanel
+              professionalCatalog={professionalCatalog}
+              savedProfSelections={savedProfSelections}
+              profCatOpen={profCatOpen}
           setProfCatOpen={setProfCatOpen}
           editForm={editForm}
           setEditForm={setEditForm}

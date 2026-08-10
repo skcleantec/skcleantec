@@ -1,10 +1,13 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { ProfOptionSelectionSummary } from '../../orderform/ProfOptionSelectionSummary';
 import {
   collectSubtreeOptionIds,
+  computeProfSelectionDisplayRows,
   formatProfOptionPriceDisplay,
   isSelectableProfOption,
   listProfChildren,
   listProfRootNodes,
+  type ProfessionalOptionSelection,
   type ProfessionalSpecialtyOption,
 } from '../../../constants/professionalSpecialtyOptions';
 import { inqEditLabel } from './inquiryEditFormClasses';
@@ -12,6 +15,8 @@ import type { InquiryEditFormFields } from './inquiryEditTypes';
 
 type Props = {
   professionalCatalog: ProfessionalSpecialtyOption[];
+  /** 접수에 저장된 선택(quantity·단가 포함) — 트리 접힘과 무관하게 상단에 표시 */
+  savedProfSelections?: ProfessionalOptionSelection[];
   profCatOpen: Record<string, boolean>;
   setProfCatOpen: Dispatch<SetStateAction<Record<string, boolean>>>;
   editForm: InquiryEditFormFields;
@@ -23,6 +28,7 @@ type Props = {
 
 export function InquiryEditProfessionalOptionsPanel({
   professionalCatalog,
+  savedProfSelections = [],
   profCatOpen,
   setProfCatOpen,
   editForm,
@@ -39,9 +45,24 @@ export function InquiryEditProfessionalOptionsPanel({
     return root.isActive && isSelectableProfOption(professionalCatalog, root);
   }).length;
 
+  const savedDisplay = computeProfSelectionDisplayRows(savedProfSelections, professionalCatalog);
+
   return (
     <div>
       <label className={inqEditLabel}>전문 시공 옵션</label>
+      {savedDisplay.rows.length > 0 ? (
+        <div className="mb-2 rounded-lg border border-violet-200 bg-violet-50/70 p-2.5">
+          <p className="mb-1.5 text-fluid-2xs font-semibold text-violet-950">저장된 선택 (고객 발주·접수)</p>
+          <ProfOptionSelectionSummary
+            rows={savedDisplay.rows}
+            sum={savedDisplay.sum}
+            className="text-fluid-2xs text-violet-950"
+          />
+          <p className="mt-1.5 text-[10px] leading-snug text-violet-800/90">
+            아래 체크 목록은 수정용입니다. 대분류를 펼쳐야 세부 항목이 보일 수 있습니다.
+          </p>
+        </div>
+      ) : null}
       {catalogLoadError ? (
         <div className="rounded border border-amber-200 bg-amber-50 px-2.5 py-2 text-fluid-2xs text-amber-900">
           <p>옵션 목록을 불러오지 못했습니다. 네트워크·광고 차단·로그인 상태를 확인한 뒤 다시 시도해 주세요.</p>

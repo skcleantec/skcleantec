@@ -82,13 +82,20 @@ export async function filterActiveProfessionalOptionIds(
       parentId: true,
       isGroup: true,
       parent: { select: { isActive: true, id: true } },
-      _count: { select: { children: true } },
     },
   });
+  /** 비활성 자식만 남은 중간 노드는 고객 UI에서 leaf처럼 보이므로, 활성 자식 유무로만 판단 */
+  const activeChildRows = await prisma.professionalSpecialtyOption.findMany({
+    where: { tenantId, parentId: { in: ids }, isActive: true },
+    select: { parentId: true },
+  });
+  const parentsWithActiveChildren = new Set(
+    activeChildRows.map((r) => r.parentId).filter((x): x is string => x != null),
+  );
   const allowed = new Set(
     rows
       .filter((r) => {
-        if (r._count.children > 0) return false;
+        if (parentsWithActiveChildren.has(r.id)) return false;
         if (r.parentId) {
           return r.parent?.isActive === true;
         }

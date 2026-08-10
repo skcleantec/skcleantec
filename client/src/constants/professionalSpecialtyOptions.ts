@@ -10,6 +10,14 @@ export function hasChildrenInCatalog(
   return catalog.some((o) => o.parentId === id);
 }
 
+/** 활성 자식이 있으면 leaf 선택 불가 — 고객·관리 UI와 서버 filterActive 동일 기준 */
+export function hasActiveChildrenInCatalog(
+  catalog: ProfessionalSpecialtyOptionDto[],
+  id: string,
+): boolean {
+  return catalog.some((o) => o.parentId === id && o.isActive !== false);
+}
+
 /** 루트에서의 깊이 (루트=0, 직계 자식=1, …) */
 export function profDepthFromRoot(
   catalog: ProfessionalSpecialtyOptionDto[],
@@ -31,7 +39,7 @@ export function isSelectableProfOption(
   catalog: ProfessionalSpecialtyOptionDto[],
   o: ProfessionalSpecialtyOptionDto
 ): boolean {
-  if (hasChildrenInCatalog(catalog, o.id)) return false;
+  if (hasActiveChildrenInCatalog(catalog, o.id)) return false;
   if (!o.parentId && o.isGroup) return false;
   return true;
 }
@@ -194,6 +202,46 @@ export type ProfSelectionSummaryRow = {
   unitAmount: number;
   lineTotal: number;
 };
+
+/** 접수 상세 — 저장된 선택 전체 표시(비활성·트리 밖 항목 포함) */
+export function computeProfSelectionDisplayRows(
+  selections: ProfessionalOptionSelection[],
+  catalog: ProfessionalSpecialtyOption[],
+): { rows: ProfSelectionSummaryRow[]; sum: number } {
+  const rows: ProfSelectionSummaryRow[] = [];
+  let sum = 0;
+  for (const sel of selections) {
+    const o = catalog.find((x) => x.id === sel.id);
+    if (!o) {
+      const qtyPart = sel.quantity > 1 ? ` × ${sel.quantity}` : '';
+      rows.push({
+        key: sel.id,
+        text: `알 수 없는 옵션${qtyPart}`,
+        quantity: sel.quantity,
+        unitAmount: 0,
+        lineTotal: 0,
+      });
+      continue;
+    }
+    const unitAmount = resolveSelectionUnitAmount(sel, catalog);
+    const lineTotal = unitAmount > 0 ? unitAmount * sel.quantity : 0;
+    sum += lineTotal;
+    const qtyPart = sel.quantity > 1 ? ` × ${sel.quantity}대` : '';
+    const unitPart =
+      unitAmount > 0 ? ` · 건당 ${unitAmount.toLocaleString('ko-KR')}원` : '';
+    const totalPart = lineTotal > 0 ? ` · ${lineTotal.toLocaleString('ko-KR')}원` : '';
+    const hint = !unitAmount && o.priceHint ? ` (${o.priceHint})` : '';
+    const inactiveTag = o.isActive === false ? ' [비활성]' : '';
+    rows.push({
+      key: sel.id,
+      text: `${o.emoji ? `${o.emoji} ` : ''}${o.label}${inactiveTag}${qtyPart}${unitPart}${totalPart}${hint}`,
+      quantity: sel.quantity,
+      unitAmount,
+      lineTotal,
+    });
+  }
+  return { rows, sum };
+}
 
 export function computeProfSelectionSummary(
   selections: ProfessionalOptionSelection[],

@@ -870,6 +870,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
 
   const [profCatOpen, setProfCatOpen] = useState<Record<string, boolean>>({});
 
+  const savedProfSelections = useMemo(
+    () => parseProfessionalOptionSelections(item?.professionalOptionIds),
+    [item?.professionalOptionIds],
+  );
+
   useEffect(() => {
     if (!isCreate || externalIntake) return;
     const def = defaultScheduleLeadSourceLabel(tenantSlug);
@@ -878,8 +883,18 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
   }, [isCreate, tenantSlug, externalIntake]);
 
   useEffect(() => {
-    setProfCatOpen({});
-  }, [item?.id]);
+    const auto: Record<string, boolean> = {};
+    for (const sid of editForm.professionalOptionIds) {
+      let cur = professionalCatalog.find((x) => x.id === sid);
+      while (cur) {
+        const pid = cur.parentId;
+        if (!pid) break;
+        auto[pid] = true;
+        cur = professionalCatalog.find((x) => x.id === pid);
+      }
+    }
+    setProfCatOpen(auto);
+  }, [item?.id, editForm.professionalOptionIds, professionalCatalog]);
 
   const profCatalogAutoFetchAttemptedRef = useRef(false);
   useEffect(() => {
@@ -899,20 +914,6 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     professionalCatalogLoadError,
     onRefetchProfessionalCatalog,
   ]);
-
-  useEffect(() => {
-    const auto: Record<string, boolean> = {};
-    for (const sid of editForm.professionalOptionIds) {
-      let cur = professionalCatalog.find((x) => x.id === sid);
-      while (cur) {
-        const pid = cur.parentId;
-        if (!pid) break;
-        auto[pid] = true;
-        cur = professionalCatalog.find((x) => x.id === pid);
-      }
-    }
-    setProfCatOpen((p) => ({ ...p, ...auto }));
-  }, [editForm.professionalOptionIds, professionalCatalog]);
 
   useEffect(() => {
     if (!isCreate) return;
@@ -2727,6 +2728,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
           marketplaceExchangePrefill={marketplaceExchangePrefill}
           onInquiryRefresh={onInquiryRefresh}
           professionalCatalog={professionalCatalog}
+          savedProfSelections={savedProfSelections}
           profCatOpen={profCatOpen}
           setProfCatOpen={setProfCatOpen}
           professionalCatalogLoading={professionalCatalogLoading}
