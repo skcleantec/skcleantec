@@ -54,16 +54,10 @@ export function formatOrderFormConsentKst(iso: string): string {
   }
 }
 
-export function orderFormConsentStampLabel(kind: OrderFormConsentKind, agreedAt: string): string {
+/** 고객 동의 배너 — 모듈 구분 없이 동일 문구 */
+export function orderFormConsentStampLabel(_kind: OrderFormConsentKind, agreedAt: string): string {
   const when = formatOrderFormConsentKst(agreedAt);
-  switch (kind) {
-    case 'serviceDate':
-      return `${when}에 고객님께서 청소날짜·변경·위약금 안내에 동의하셨습니다.`;
-    case 'timeSlot':
-      return `${when}에 고객님께서 시간대·오입력 안내에 동의하셨습니다.`;
-    case 'guideTerms':
-      return `${when}에 고객님께서 서비스 안내사항 전체에 동의하셨습니다.`;
-  }
+  return `${when}에 고객님께서는 모든 내용을 이해하셨고, 직접 동의하셨습니다.`;
 }
 
 export function isOrderFormSubmissionConsents(x: unknown): x is OrderFormSubmissionConsents {

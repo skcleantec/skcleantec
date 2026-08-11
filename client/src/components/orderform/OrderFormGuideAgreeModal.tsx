@@ -9,7 +9,6 @@ import { OrderFormPartnerConsentBlock } from './OrderFormPartnerConsentBlock';
 import {
   OrderFormConsentStamp,
   OrderFormConsentsSummary,
-  OrderFormSnapshotAckBlock,
 } from './OrderFormConsentUi';
 
 export function OrderFormGuideAgreeModal(props: {
@@ -133,20 +132,13 @@ export function OrderFormGuideAgreeModal(props: {
                             </li>
                           ))}
                         </ul>
-                        {section.title.includes('취소') && section.title.includes('변경') ? (
-                          <div className="mt-4 space-y-2">
-                            {consents?.serviceDate?.ackBody ? (
-                              <OrderFormSnapshotAckBlock
-                                ackBody={consents.serviceDate.ackBody}
-                                consentKind="serviceDate"
-                                agreedAt={consents.serviceDate.agreedAt}
-                              />
-                            ) : consents?.serviceDate?.agreedAt ? (
-                              <OrderFormConsentStamp
-                                kind="serviceDate"
-                                agreedAt={consents.serviceDate.agreedAt}
-                              />
-                            ) : null}
+                        {section.title.includes('취소') && section.title.includes('변경') &&
+                        consents?.serviceDate?.agreedAt ? (
+                          <div className="mt-4">
+                            <OrderFormConsentStamp
+                              kind="serviceDate"
+                              agreedAt={consents.serviceDate.agreedAt}
+                            />
                           </div>
                         ) : null}
                       </section>
@@ -168,12 +160,8 @@ export function OrderFormGuideAgreeModal(props: {
                 <p className="mt-2 font-bold text-red-800">기재 누락 시 본사에서 책임지지 않습니다.</p>
                 {isViewMode && consents ? (
                   <div className="mt-4 space-y-2 border-t border-amber-200/80 pt-3">
-                    {consents.timeSlot?.ackBody || consents.timeSlot?.agreedAt ? (
-                      <OrderFormSnapshotAckBlock
-                        ackBody={consents.timeSlot?.ackBody}
-                        consentKind="timeSlot"
-                        agreedAt={consents.timeSlot?.agreedAt}
-                      />
+                    {consents.timeSlot?.agreedAt ? (
+                      <OrderFormConsentStamp kind="timeSlot" agreedAt={consents.timeSlot.agreedAt} />
                     ) : null}
                     {consents.guideTerms?.agreedAt ? (
                       <OrderFormConsentStamp kind="guideTerms" agreedAt={consents.guideTerms.agreedAt} />

@@ -1,7 +1,5 @@
 import type { OrderFormConsentKind, OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { orderFormConsentStampLabel } from '@shared/orderFormConsents';
-import { OrderFormModalFormattedText } from './OrderFormModalFormattedText';
-
 export function OrderFormConsentStamp(props: {
   kind: OrderFormConsentKind;
   agreedAt: string;
@@ -14,25 +12,6 @@ export function OrderFormConsentStamp(props: {
       role="status"
     >
       {orderFormConsentStampLabel(kind, agreedAt)}
-    </div>
-  );
-}
-
-/** 5·6번 섹션 하단 — 경고 본문 + (동의 후) 시각 배너 */
-export function OrderFormSectionAckWarning(props: {
-  body: string;
-  consentKind?: OrderFormConsentKind;
-  agreedAt?: string | null;
-  className?: string;
-}) {
-  const { body, consentKind, agreedAt, className = '' } = props;
-  if (!body.trim()) return null;
-  return (
-    <div className={`mt-2 space-y-2 ${className}`.trim()}>
-      <div className="rounded-lg border-2 border-amber-300 bg-amber-50 px-3 py-3 text-fluid-xs leading-relaxed text-amber-950">
-        <OrderFormModalFormattedText text={body} className="break-words whitespace-pre-line" />
-      </div>
-      {consentKind && agreedAt ? <OrderFormConsentStamp kind={consentKind} agreedAt={agreedAt} /> : null}
     </div>
   );
 }
@@ -67,22 +46,14 @@ export function OrderFormConsentsSummary(props: {
 }
 
 export function OrderFormSnapshotAckBlock(props: {
-  ackBody?: string | null;
   consentKind?: OrderFormConsentKind;
   agreedAt?: string | null;
 }) {
-  const { ackBody, consentKind, agreedAt } = props;
-  if (!ackBody?.trim() && !(consentKind && agreedAt)) return null;
+  const { consentKind, agreedAt } = props;
+  if (!consentKind || !agreedAt) return null;
   return (
-    <div className="mt-1.5 space-y-1.5">
-      {ackBody?.trim() ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50/90 px-2.5 py-2 text-fluid-2xs leading-relaxed text-amber-950">
-          <OrderFormModalFormattedText text={ackBody} className="break-words whitespace-pre-line" />
-        </div>
-      ) : null}
-      {consentKind && agreedAt ? (
-        <OrderFormConsentStamp kind={consentKind} agreedAt={agreedAt} className="text-fluid-2xs" />
-      ) : null}
+    <div className="mt-1.5">
+      <OrderFormConsentStamp kind={consentKind} agreedAt={agreedAt} className="text-fluid-2xs" />
     </div>
   );
 }

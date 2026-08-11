@@ -157,7 +157,6 @@ export function OrderFormSubmissionSnapshotContent(props: {
             <div>
               {formatDateCompactWithWeekday(snapshot.fields.preferredDate)}
               <OrderFormSnapshotAckBlock
-                ackBody={consents?.serviceDate?.ackBody}
                 consentKind="serviceDate"
                 agreedAt={consents?.serviceDate?.agreedAt}
               />
@@ -167,7 +166,6 @@ export function OrderFormSubmissionSnapshotContent(props: {
             <div>
               {slotLabelForOrderForm(snapshot.fields.preferredTime)}
               <OrderFormSnapshotAckBlock
-                ackBody={consents?.timeSlot?.ackBody}
                 consentKind="timeSlot"
                 agreedAt={consents?.timeSlot?.agreedAt}
               />

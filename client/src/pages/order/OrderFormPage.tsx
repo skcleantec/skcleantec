@@ -76,7 +76,6 @@ import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhoto
 import { OrderFormSubmissionReceiptView } from '../../components/orderform/OrderFormSubmissionReceiptView';
 import {
   OrderFormConsentStamp,
-  OrderFormSectionAckWarning,
 } from '../../components/orderform/OrderFormConsentUi';
 import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
@@ -400,14 +399,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const timeSlotOptions = useMemo(
     () => buildOrderTimeSlotOptions(timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson),
     [timeSlotLabels, order?.formConfig?.timeSlotLabelsJson],
-  );
-  const serviceDateAckBody = orderFormConfigLine(
-    order?.formConfig?.serviceDateAckBody,
-    ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckBody,
-  );
-  const timeSlotAckBody = orderFormConfigLine(
-    order?.formConfig?.timeSlotAckBody,
-    ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckBody,
   );
 
   /** 상단 금액 카드 — 선택한 전문 시공 리프만 요약 */
@@ -1980,11 +1971,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 emitOnCompleteOnly
               />
             )}
-            {!isEditor && !scheduleLockedByAdmin ? (
-              <OrderFormSectionAckWarning
-                body={serviceDateAckBody}
-                consentKind="serviceDate"
-                agreedAt={serviceDateConsent?.at}
+            {!isEditor && !scheduleLockedByAdmin && serviceDateConsent?.at ? (
+              <OrderFormConsentStamp
+                kind="serviceDate"
+                agreedAt={serviceDateConsent.at}
+                className="mt-2"
               />
             ) : null}
           </div>
@@ -2031,12 +2022,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               </select>
             )}
             <p className="text-xs text-gray-500 mt-1">* 청소 중 이사 들어오는 스케줄, 서비스 불가</p>
-            {!isEditor && !scheduleLockedByAdmin ? (
-              <OrderFormSectionAckWarning
-                body={timeSlotAckBody}
-                consentKind="timeSlot"
-                agreedAt={timeSlotConsent?.at}
-              />
+            {!isEditor && !scheduleLockedByAdmin && timeSlotConsent?.at ? (
+              <OrderFormConsentStamp kind="timeSlot" agreedAt={timeSlotConsent.at} className="mt-2" />
             ) : null}
           </div>
           )}
@@ -2506,7 +2493,6 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             <div className="mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-gradient-to-b from-gray-50/95 to-white px-4 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.03]">
               {guideTermsConsent ? (
                 <div className="space-y-3 text-center">
-                  <p className="text-fluid-base font-semibold text-emerald-800">모든사항에 동의하였습니다.</p>
                   <OrderFormConsentStamp kind="guideTerms" agreedAt={guideTermsConsent.at} className="text-left" />
                   <button
                     type="button"
