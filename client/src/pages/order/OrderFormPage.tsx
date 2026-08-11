@@ -74,6 +74,11 @@ import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadca
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
 import { OrderFormPhotoSection } from '../../components/orderform/OrderFormPhotoSection';
 import { OrderFormSubmissionReceiptView } from '../../components/orderform/OrderFormSubmissionReceiptView';
+import {
+  OrderFormConsentStamp,
+  OrderFormSectionAckWarning,
+} from '../../components/orderform/OrderFormConsentUi';
+import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { OrderFormGuideAgreeModal } from '../../components/orderform/OrderFormGuideAgreeModal';
 import { OrderFormCompanyTrustFooter } from '../../components/orderform/OrderFormCompanyTrustFooter';
 import { OrderFormPlatformFooter } from '../../components/orderform/OrderFormPlatformFooter';
@@ -335,8 +340,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const [pendingTimeSlot, setPendingTimeSlot] = useState<OrderTimeSlot | null>(null);
   const [serviceDateAckOpen, setServiceDateAckOpen] = useState(false);
   const [pendingServiceDate, setPendingServiceDate] = useState<string | null>(null);
-  const [serviceDateAcked, setServiceDateAcked] = useState('');
-  const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [serviceDateConsent, setServiceDateConsent] = useState<{ at: string; date: string } | null>(
+    null,
+  );
+  const [timeSlotConsent, setTimeSlotConsent] = useState<{
+    at: string;
+    slot: string;
+  } | null>(null);
+  const [guideTermsConsent, setGuideTermsConsent] = useState<{ at: string } | null>(null);
   /** 마케터 작성 시 "특이사항 없음" 체크(필수 항목 충족) */
   const [noSpecialNotes, setNoSpecialNotes] = useState(false);
   /** 마케터 작성 시 "청소 날짜 고객 작성" 체크(비워 두면 고객이 직접 선택) */
@@ -390,6 +401,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     () => buildOrderTimeSlotOptions(timeSlotLabels ?? order?.formConfig?.timeSlotLabelsJson),
     [timeSlotLabels, order?.formConfig?.timeSlotLabelsJson],
   );
+  const serviceDateAckBody = orderFormConfigLine(
+    order?.formConfig?.serviceDateAckBody,
+    ORDER_FORM_CONFIG_DEFAULTS.serviceDateAckBody,
+  );
+  const timeSlotAckBody = orderFormConfigLine(
+    order?.formConfig?.timeSlotAckBody,
+    ORDER_FORM_CONFIG_DEFAULTS.timeSlotAckBody,
+  );
 
   /** 상단 금액 카드 — 선택한 전문 시공 리프만 요약 */
   const profSelectionSummary = useMemo(
@@ -434,14 +453,15 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const cancelServiceDateAck = useCallback(() => {
     setPendingServiceDate(null);
     setServiceDateAckOpen(false);
-    setServiceDateAcked('');
+    setServiceDateConsent(null);
+    setTimeSlotConsent(null);
     setForm((f) => ({ ...f, preferredDate: '', preferredTime: '' }));
   }, []);
 
   const confirmServiceDateAck = useCallback(() => {
     const next = pendingServiceDate?.trim();
     if (next) {
-      setServiceDateAcked(next);
+      setServiceDateConsent({ at: new Date().toISOString(), date: next });
     }
     setPendingServiceDate(null);
     setServiceDateAckOpen(false);
@@ -450,18 +470,20 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const handleCustomerPreferredDateChange = useCallback(
     (v: string) => {
       if (!v.trim()) {
-        setServiceDateAcked('');
+        setServiceDateConsent(null);
         setPendingServiceDate(null);
         setServiceDateAckOpen(false);
+        setTimeSlotConsent(null);
         setForm((f) => ({ ...f, preferredDate: '', preferredTime: '' }));
         return;
       }
       setForm((f) => ({ ...f, preferredDate: v, preferredTime: '' }));
-      if (v === serviceDateAcked) return;
+      setTimeSlotConsent(null);
+      if (v === serviceDateConsent?.date) return;
       setPendingServiceDate(v);
       setServiceDateAckOpen(true);
     },
-    [serviceDateAcked],
+    [serviceDateConsent?.date],
   );
 
   const confirmAreaBasisAck = useCallback(() => {
@@ -491,6 +513,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const confirmTimeSlotAck = useCallback(() => {
     if (pendingTimeSlot) {
       setForm((f) => ({ ...f, preferredTime: pendingTimeSlot }));
+      setTimeSlotConsent({
+        at: new Date().toISOString(),
+        slot: pendingTimeSlot,
+      });
     }
     setPendingTimeSlot(null);
     setTimeSlotAckOpen(false);
@@ -814,7 +840,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     };
   }, [token, isCreate, editorAuthToken, editorOrderFormId, createTemplateId, createPendingInquiryId, createCrmSeed]);
 
-  useEffect(() => subscribeOrderGuideAgreeTerms(() => setAgreeToTerms(true)), []);
+  useEffect(
+    () =>
+      subscribeOrderGuideAgreeTerms(() => {
+        setGuideTermsConsent({ at: new Date().toISOString() });
+      }),
+    [],
+  );
 
   /** 시간대 변경 시 구체적 시각을 허용 목록에 맞게 유지 */
   useEffect(() => {
@@ -982,7 +1014,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         !scheduleLockedByAdmin &&
         stdFieldOn('preferredDate') &&
         useDate &&
-        serviceDateAcked !== useDate &&
+        serviceDateConsent?.date !== useDate &&
         issues.length === 0
       ) {
         setPendingServiceDate(useDate);
@@ -993,6 +1025,19 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       const useTimeDetail = detailLockedByAdmin
         ? order!.preferredTimeDetail!.trim()
         : form.preferredTimeDetail.trim() || undefined;
+      if (
+        !scheduleLockedByAdmin &&
+        stdFieldOn('preferredTime') &&
+        useTime &&
+        isValidOrderTimeSlot(useTime) &&
+        timeSlotConsent?.slot !== useTime &&
+        issues.length === 0
+      ) {
+        setPendingTimeSlot(useTime as OrderTimeSlot);
+        setTimeSlotAckOpen(true);
+        setSubmitting(false);
+        return;
+      }
       if (
         stdFieldOn('preferredTimeDetail') &&
         !detailLockedByAdmin &&
@@ -1042,7 +1087,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         });
         if (spaceErr) addIssue(spaceErr, 'order-field-roomCount');
       }
-      if (!agreeToTerms) {
+      if (!guideTermsConsent) {
         addIssue('[필수] 예약 안내 및 개인정보 제3자 제공 동의가 필요합니다.', 'order-field-agree');
       }
 
@@ -1063,6 +1108,23 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         showSubmitIssues(issues);
         setSubmitting(false);
         return;
+      }
+
+      const submitConsents: OrderFormSubmissionConsents = {
+        guideTerms: guideTermsConsent ? { agreedAt: guideTermsConsent.at } : undefined,
+      };
+      if (!scheduleLockedByAdmin && stdFieldOn('preferredDate') && serviceDateConsent) {
+        submitConsents.serviceDate = {
+          agreedAt: serviceDateConsent.at,
+          preferredDate: serviceDateConsent.date,
+        };
+      }
+      if (!scheduleLockedByAdmin && stdFieldOn('preferredTime') && timeSlotConsent) {
+        submitConsents.timeSlot = {
+          agreedAt: timeSlotConsent.at,
+          preferredTime: timeSlotConsent.slot,
+          preferredTimeDetail: useTimeDetail ?? null,
+        };
       }
 
       await submitOrderForm(token, {
@@ -1103,6 +1165,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             ? serializeProfessionalOptionSelections(profSelections)
             : undefined,
         answers: Object.keys(customAnswers).length ? customAnswers : undefined,
+        consents: submitConsents,
       });
       const receipt = await getOrderFormByToken(token);
       if (isOrderFormPublicSubmitted(receipt)) {
@@ -1917,6 +1980,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 emitOnCompleteOnly
               />
             )}
+            {!isEditor && !scheduleLockedByAdmin ? (
+              <OrderFormSectionAckWarning
+                body={serviceDateAckBody}
+                consentKind="serviceDate"
+                agreedAt={serviceDateConsent?.at}
+              />
+            ) : null}
           </div>
           )}
 
@@ -1941,11 +2011,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === '') {
+                    setTimeSlotConsent(null);
                     setForm((f) => ({ ...f, preferredTime: '' }));
                     return;
                   }
                   if (!isValidOrderTimeSlot(v)) return;
                   if (v === form.preferredTime) return;
+                  setTimeSlotConsent(null);
                   setPendingTimeSlot(v);
                   setTimeSlotAckOpen(true);
                 }}
@@ -1959,6 +2031,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               </select>
             )}
             <p className="text-xs text-gray-500 mt-1">* 청소 중 이사 들어오는 스케줄, 서비스 불가</p>
+            {!isEditor && !scheduleLockedByAdmin ? (
+              <OrderFormSectionAckWarning
+                body={timeSlotAckBody}
+                consentKind="timeSlot"
+                agreedAt={timeSlotConsent?.at}
+              />
+            ) : null}
           </div>
           )}
 
@@ -2425,9 +2504,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           {!isEditor && (
           <div id="order-field-agree" className="py-4">
             <div className="mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-gradient-to-b from-gray-50/95 to-white px-4 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.03]">
-              {agreeToTerms ? (
+              {guideTermsConsent ? (
                 <div className="space-y-3 text-center">
                   <p className="text-fluid-base font-semibold text-emerald-800">모든사항에 동의하였습니다.</p>
+                  <OrderFormConsentStamp kind="guideTerms" agreedAt={guideTermsConsent.at} className="text-left" />
                   <button
                     type="button"
                     onClick={() => setGuideAgreeModalOpen(true)}
@@ -2458,7 +2538,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           <OrderFormGuideAgreeModal
             open={guideAgreeModalOpen}
             onClose={() => setGuideAgreeModalOpen(false)}
-            onAgree={() => setAgreeToTerms(true)}
+            onAgree={() => {
+              setGuideTermsConsent({ at: new Date().toISOString() });
+            }}
           />
           )}
 

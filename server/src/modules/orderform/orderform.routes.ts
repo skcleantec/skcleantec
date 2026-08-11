@@ -143,6 +143,7 @@ import {
   orderFormListSnapshotToPrisma,
   resolveOrderFormListSnapshotForSubmit,
 } from './orderFormListSnapshot.service.js';
+import { validateOrderFormSubmitConsents } from './orderFormConsents.helpers.js';
 
 const CUSTOMER_LINK_FORM_CONFIG_KEYS = [
   'customerLinkTotalLine',
@@ -2403,6 +2404,7 @@ router.post('/submit/:token', async (req, res) => {
     answers?: unknown;
     /** 마케터 주소 잠금이 아닐 때 true — 고객이 「주소 검색」으로 선택했음을 표시 */
     addressSelectedViaSearch?: boolean | string;
+    consents?: unknown;
   };
 
   const form = await prisma.orderForm.findUnique({ where: { token } });
@@ -2729,9 +2731,31 @@ router.post('/submit/:token', async (req, res) => {
       value: customAnswers[cf.fieldKey] as Prisma.InputJsonValue,
     }));
 
+  const submitFormConfig = await resolvePublicFormConfigForOrderForm(
+    prisma,
+    submitTenantId,
+    form.operatingCompanyId,
+  );
+  const needsServiceDateConsent = !adminDateLocked && tplOn('preferredDate') && Boolean(useDateStr);
+  const needsTimeSlotConsent = !adminDateLocked && tplOn('preferredTime') && Boolean(useTimeStr);
+  const consentResult = validateOrderFormSubmitConsents({
+    consentsRaw: body.consents,
+    needsServiceDateConsent,
+    needsTimeSlotConsent,
+    useDateStr,
+    useTimeStr,
+    useDetailStr,
+    formConfig: submitFormConfig,
+  });
+  if (!consentResult.ok) {
+    res.status(400).json({ error: consentResult.error });
+    return;
+  }
+
   const customerSubmissionSnapshot = {
     version: 1,
     capturedAt: new Date().toISOString(),
+    consents: consentResult.consents,
     template: submitTemplate
       ? {
           id: submitTemplate.id,

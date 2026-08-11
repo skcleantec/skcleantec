@@ -76,9 +76,13 @@ export interface OrderFormSnapshotTemplateAnswer {
   value: unknown;
 }
 
+import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
+
 export interface OrderFormCustomerSubmissionSnapshotV1 {
   version: 1;
   capturedAt: string;
+  /** 모듈별 동의 시각·당시 경고문구 */
+  consents?: OrderFormSubmissionConsents | null;
   /** 제출 시점 사용 양식(템플릿) 정체성 — 이후 변경/삭제와 무관하게 보존 */
   template?: {
     id: string;
@@ -731,6 +735,7 @@ export async function submitOrderForm(
     exclusiveAreaSqm?: number | null;
     /** 동적 템플릿 추가 항목 답변 {fieldKey: value} */
     answers?: Record<string, unknown>;
+    consents?: OrderFormSubmissionConsents;
   }
 ): Promise<void> {
   const res = await fetch(appendPublicQuery(`${API}/orderforms/submit/${encodeURIComponent(token)}`), {

@@ -1,6 +1,11 @@
 import type { OrderFormCustomerSubmissionSnapshotV1 } from '../../api/orderform';
 import { TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY } from '@shared/telecrmConsultationQuote';
+import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import {
+  OrderFormConsentsSummary,
+  OrderFormSnapshotAckBlock,
+} from './OrderFormConsentUi';
 import {
   ORDER_FORM_PROFESSIONAL_OPTIONS_MULTILINE_LABEL,
 } from '../../constants/orderFormProfessionalOptions';
@@ -61,8 +66,12 @@ export function OrderFormSubmissionSnapshotContent(props: {
       String(renderSnapshotAnswerValue(a.value)).trim() !== '',
   );
 
+  const consents = (snapshot.consents ?? null) as OrderFormSubmissionConsents | null;
+
   return (
     <div className="space-y-4">
+      <OrderFormConsentsSummary consents={consents} />
+
       {tplAnswers.length > 0 ? (
         <section>
           <h3 className="mb-1 text-fluid-sm font-semibold text-gray-900">추가 정보</h3>
@@ -145,9 +154,25 @@ export function OrderFormSubmissionSnapshotContent(props: {
                 : '—'}
           </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="청소 희망일">
-            {formatDateCompactWithWeekday(snapshot.fields.preferredDate)}
+            <div>
+              {formatDateCompactWithWeekday(snapshot.fields.preferredDate)}
+              <OrderFormSnapshotAckBlock
+                ackBody={consents?.serviceDate?.ackBody}
+                consentKind="serviceDate"
+                agreedAt={consents?.serviceDate?.agreedAt}
+              />
+            </div>
           </OrderFormSnapshotRow>
-          <OrderFormSnapshotRow label="시간대">{slotLabelForOrderForm(snapshot.fields.preferredTime)}</OrderFormSnapshotRow>
+          <OrderFormSnapshotRow label="시간대">
+            <div>
+              {slotLabelForOrderForm(snapshot.fields.preferredTime)}
+              <OrderFormSnapshotAckBlock
+                ackBody={consents?.timeSlot?.ackBody}
+                consentKind="timeSlot"
+                agreedAt={consents?.timeSlot?.agreedAt}
+              />
+            </div>
+          </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="구체적 시각">
             {snapshot.fields.preferredTimeDetail?.trim() ? snapshot.fields.preferredTimeDetail : '—'}
           </OrderFormSnapshotRow>

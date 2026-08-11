@@ -15,7 +15,11 @@ import { OrderFormCompanyTrustFooter } from './OrderFormCompanyTrustFooter';
 import { OrderFormPlatformFooter } from './OrderFormPlatformFooter';
 import { OrderFormGuideAgreeModal } from './OrderFormGuideAgreeModal';
 import { OrderFormModalFormattedText } from './OrderFormModalFormattedText';
-import { OrderFormSubmissionSnapshotContent } from './orderFormSubmissionSnapshot';
+import {
+  isOrderFormSubmissionSnapshotV1,
+  OrderFormSubmissionSnapshotContent,
+} from './orderFormSubmissionSnapshot';
+import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 
 export function OrderFormSubmissionReceiptView(props: {
   token: string;
@@ -53,6 +57,11 @@ export function OrderFormSubmissionReceiptView(props: {
   const [photos, setPhotos] = useState<OrderFormPhotoItem[]>([]);
   const [preview, setPreview] = useState<OrderFormPhotoItem | null>(null);
   const [guideModalOpen, setGuideModalOpen] = useState(false);
+
+  const submissionConsents: OrderFormSubmissionConsents | null =
+    snapshot != null && isOrderFormSubmissionSnapshotV1(snapshot)
+      ? (snapshot.consents ?? null)
+      : null;
 
   const guideLinkLabel = orderFormConfigLine(
     formConfig?.infoLinkText,
@@ -228,6 +237,7 @@ export function OrderFormSubmissionReceiptView(props: {
       <OrderFormGuideAgreeModal
         open={guideModalOpen}
         mode="view"
+        consents={submissionConsents}
         onClose={() => setGuideModalOpen(false)}
       />
     </div>

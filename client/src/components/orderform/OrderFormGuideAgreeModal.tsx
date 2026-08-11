@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { getPublicOrderGuide } from '../../api/orderform';
 import { ORDER_GUIDE_DEFAULT_SECTIONS, type GuideSection } from '../../constants/orderInfoDefaultSections';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { OrderFormGuideSections } from './OrderFormGuideSections';
 import { OrderFormPartnerConsentBlock } from './OrderFormPartnerConsentBlock';
+import {
+  OrderFormConsentStamp,
+  OrderFormConsentsSummary,
+  OrderFormSnapshotAckBlock,
+} from './OrderFormConsentUi';
 
 export function OrderFormGuideAgreeModal(props: {
   open: boolean;
@@ -12,8 +18,10 @@ export function OrderFormGuideAgreeModal(props: {
   /** agree: 제출 전 동의(스크롤·동의 버튼) · view: 제출 확인서 등 재열람 */
   mode?: 'agree' | 'view';
   onAgree?: () => void;
+  /** view 모드 — 제출 스냅샷 동의 이력 */
+  consents?: OrderFormSubmissionConsents | null;
 }) {
-  const { open, onClose, mode = 'agree', onAgree } = props;
+  const { open, onClose, mode = 'agree', onAgree, consents = null } = props;
   const isViewMode = mode === 'view';
   const scrollRef = useRef<HTMLDivElement>(null);
   const [sections, setSections] = useState<GuideSection[]>(ORDER_GUIDE_DEFAULT_SECTIONS);
@@ -105,9 +113,48 @@ export function OrderFormGuideAgreeModal(props: {
             <p className="text-center text-fluid-sm text-gray-500">불러오는 중…</p>
           ) : (
             <>
+              {isViewMode && consents ? (
+                <OrderFormConsentsSummary consents={consents} className="mb-6" />
+              ) : null}
               <OrderFormPartnerConsentBlock />
               <div className="mt-8">
-                <OrderFormGuideSections sections={sections} />
+                {isViewMode ? (
+                  <div className="space-y-8">
+                    {sections.map((section, i) => (
+                      <section key={i}>
+                        <h2 className="mb-3 border-b border-gray-200 pb-2 text-sm font-semibold whitespace-pre-line text-gray-900">
+                          {section.title}
+                        </h2>
+                        <ul className="space-y-3">
+                          {section.items.map((item, j) => (
+                            <li key={j} className="flex gap-2.5 text-sm leading-relaxed text-gray-600">
+                              <span className="shrink-0 text-gray-400">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {section.title.includes('취소') && section.title.includes('변경') ? (
+                          <div className="mt-4 space-y-2">
+                            {consents?.serviceDate?.ackBody ? (
+                              <OrderFormSnapshotAckBlock
+                                ackBody={consents.serviceDate.ackBody}
+                                consentKind="serviceDate"
+                                agreedAt={consents.serviceDate.agreedAt}
+                              />
+                            ) : consents?.serviceDate?.agreedAt ? (
+                              <OrderFormConsentStamp
+                                kind="serviceDate"
+                                agreedAt={consents.serviceDate.agreedAt}
+                              />
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </section>
+                    ))}
+                  </div>
+                ) : (
+                  <OrderFormGuideSections sections={sections} />
+                )}
               </div>
               <div className="mt-8 rounded-lg border-2 border-amber-300 bg-amber-50 px-4 py-3.5 text-fluid-sm leading-relaxed shadow-sm">
                 <p className="font-bold text-amber-950">
@@ -119,6 +166,20 @@ export function OrderFormGuideAgreeModal(props: {
                   <span className="font-bold text-red-700">특이사항</span>이 있는 경우 꼭 적어주세요.
                 </p>
                 <p className="mt-2 font-bold text-red-800">기재 누락 시 본사에서 책임지지 않습니다.</p>
+                {isViewMode && consents ? (
+                  <div className="mt-4 space-y-2 border-t border-amber-200/80 pt-3">
+                    {consents.timeSlot?.ackBody || consents.timeSlot?.agreedAt ? (
+                      <OrderFormSnapshotAckBlock
+                        ackBody={consents.timeSlot?.ackBody}
+                        consentKind="timeSlot"
+                        agreedAt={consents.timeSlot?.agreedAt}
+                      />
+                    ) : null}
+                    {consents.guideTerms?.agreedAt ? (
+                      <OrderFormConsentStamp kind="guideTerms" agreedAt={consents.guideTerms.agreedAt} />
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
               <p className="mt-6 text-center text-fluid-xs text-gray-500">
                 문의사항은 예약 번호로 연락 부탁드립니다.
