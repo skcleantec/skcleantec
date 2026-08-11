@@ -63,7 +63,7 @@ function smtpAuthFailureMessage(provider: SmtpProviderKind): string {
     return '네이버 SMTP 인증에 실패했습니다. POP3/SMTP 사용 ON, 2단계 인증 시 애플리케이션 비밀번호, @naver.com 전체 주소·포트 465(SSL)를 확인해 주세요.';
   }
   if (provider === 'gmail') {
-    return 'Gmail SMTP 로그인이 거부되었습니다. 「보낼 메일 주소」가 앱 비밀번호를 발급한 Google 계정과 같은지, 브라우저가 일반 로그인 비밀번호를 자동완성하지 않았는지 확인해 주세요. Google 계정 → 보안 → 2단계 인증 ON 후 「앱 비밀번호」16자리를 새로 발급해 다시 저장해 보세요.';
+    return 'Gmail SMTP 로그인이 거부되었습니다. 「Gmail 로그인 계정」이 앱 비밀번호를 발급한 Google 계정과 같은지, 일반 로그인 비밀번호가 아닌 16자리 앱 비밀번호인지 확인해 주세요. noreply 발신 주소는 로그인 계정과 달라도 됩니다. Google 계정 → 보안 → 2단계 인증 ON 후 앱 비밀번호를 새로 발급해 저장해 보세요.';
   }
   if (provider === 'daum') {
     return '다음·카카오 SMTP 인증에 실패했습니다. IMAP/SMTP 사용 ON, 로그인 비밀번호·포트 465(SSL) 설정을 확인해 주세요.';

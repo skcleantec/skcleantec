@@ -17,8 +17,10 @@ import {
   resolveStoredSmtpTransport,
   sendMailWithTransport,
   smtpPublicFromStored,
+  formatSmtpSendError,
   type ResolvedSmtpTransport,
 } from '../../lib/tenantSmtp.service.js';
+import { normalizeSmtpSecret } from '../../lib/smtpConfigStored.js';
 
 export type PlatformSmtpProfilePublic = {
   id: string;
@@ -90,6 +92,19 @@ function normalizeSlug(raw: string): string {
     throw new Error('slug는 영문·숫자·하이픈 64자 이내로 입력해 주세요.');
   }
   return s;
+}
+
+function validatePlatformSmtpMerged(merged: TenantSmtpConfigStored): void {
+  const login = merged.user?.trim().toLowerCase() ?? '';
+  const fromEmail = extractSmtpLoginEmail(merged.from?.trim() ?? '').toLowerCase();
+  if (!login.includes('@')) {
+    throw new Error('Gmail 로그인 계정(앱 비밀번호를 발급한 Google 계정)을 입력해 주세요.');
+  }
+  if (fromEmail && login === fromEmail && fromEmail.includes('noreply')) {
+    throw new Error(
+      'noreply 주소는 SMTP 로그인 계정으로 쓸 수 없습니다. Gmail 로그인 계정에는 앱 비밀번호를 발급한 실제 Google 계정을 입력하고, noreply는 「고객 발신 주소」에만 두세요.',
+    );
+  }
 }
 
 async function assertPurposeUniqueness(
@@ -213,6 +228,17 @@ export async function createPlatformSmtpProfile(
   if (merged && merged.host && merged.from && !merged.passEnc?.trim()) {
     throw new Error('SMTP 비밀번호(앱 비밀번호)를 입력해 주세요.');
   }
+  if (merged && smtpConfigStoredComplete(merged)) {
+    validatePlatformSmtpMerged(merged);
+    if (typeof input.smtp?.password === 'string' && input.smtp.password.length > 0) {
+      const normalized = normalizeSmtpSecret(input.smtp.password);
+      if (normalized.length !== 16) {
+        throw new Error(
+          'Gmail 앱 비밀번호는 공백 제외 16자리입니다. Google 계정 → 보안 → 앱 비밀번호에서 새로 발급해 붙여 넣어 주세요.',
+        );
+      }
+    }
+  }
 
   const row = await prisma.platformSmtpProfile.create({
     data: {
@@ -243,6 +269,17 @@ export async function updatePlatformSmtpProfile(
 
   const existingStored = smtpStoredFromRow(row);
   const merged = input.smtp ? mergeSmtpConfigStored(existingStored, input.smtp) : existingStored;
+  if (merged && smtpConfigStoredComplete(merged)) {
+    validatePlatformSmtpMerged(merged);
+    if (typeof input.smtp?.password === 'string' && input.smtp.password.length > 0) {
+      const normalized = normalizeSmtpSecret(input.smtp.password);
+      if (normalized.length !== 16) {
+        throw new Error(
+          'Gmail 앱 비밀번호는 공백 제외 16자리입니다. Google 계정 → 보안 → 앱 비밀번호에서 새로 발급해 붙여 넣어 주세요.',
+        );
+      }
+    }
+  }
   if (merged && smtpConfigStoredComplete(merged) === false && input.smtp) {
     const touched =
       input.smtp.host !== undefined ||
@@ -300,6 +337,17 @@ export async function sendPlatformSmtpProfileTestMail(profileId: string, to: str
     subject: `[청소비서] SMTP 프로필 테스트 — ${row.label}`,
     html: `<p>플랫폼 SMTP 프로필 「${row.label}」 연습 메일입니다.</p>`,
     text: `플랫폼 SMTP 프로필 「${row.label}」 연습 메일입니다.`,
+  });
+}
+
+export function formatPlatformSmtpProfileTestError(
+  e: unknown,
+  row: PlatformSmtpProfile,
+): string {
+  const login = resolvePlatformSmtpLoginEmail(row);
+  return formatSmtpSendError(e, {
+    smtpHost: row.smtpHost?.trim() ?? undefined,
+    smtpUser: login ?? undefined,
   });
 }
 

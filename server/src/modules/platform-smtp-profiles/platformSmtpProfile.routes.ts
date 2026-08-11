@@ -6,6 +6,7 @@ import {
 import {
   createPlatformSmtpProfile,
   deletePlatformSmtpProfile,
+  formatPlatformSmtpProfileTestError,
   getPlatformSmtpProfileById,
   listOutboundEmailPurposeCatalog,
   listPlatformSmtpProfiles,
@@ -13,6 +14,7 @@ import {
   updatePlatformSmtpProfile,
 } from './platformSmtpProfile.service.js';
 import { parseOutboundEmailPurposes } from '../../lib/outboundEmailPurpose.js';
+import { prisma } from '../../lib/prisma.js';
 
 const router = Router();
 
@@ -127,7 +129,13 @@ router.post('/:id/test', platformSuperAdminOnly, async (req, res) => {
     await sendPlatformSmtpProfileTestMail(req.params.id, to);
     res.json({ ok: true, message: '테스트 메일을 발송했습니다.' });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : '테스트 발송에 실패했습니다.';
+    const row = await prisma.platformSmtpProfile.findUnique({ where: { id: req.params.id } });
+    const msg =
+      row != null
+        ? formatPlatformSmtpProfileTestError(e, row)
+        : e instanceof Error
+          ? e.message
+          : '테스트 발송에 실패했습니다.';
     res.status(400).json({ error: msg });
   }
 });
