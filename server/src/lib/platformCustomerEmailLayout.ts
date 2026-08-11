@@ -61,6 +61,7 @@ export function wrapPlatformCustomerEmailHtml(input: PlatformCustomerEmailLayout
             <td style="padding:28px 28px 20px;background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);">
               <p style="margin:0;font-size:12px;font-weight:600;letter-spacing:0.28em;text-transform:uppercase;color:#94a3b8;">Clean Assistant</p>
               <p style="margin:8px 0 0;font-size:24px;font-weight:700;line-height:1.25;color:#ffffff;">청소비서</p>
+              <p style="margin:6px 0 0;font-size:13px;font-weight:500;line-height:1.45;color:#cbd5e1;">고객관리 솔루션</p>
             </td>
           </tr>
           <tr>

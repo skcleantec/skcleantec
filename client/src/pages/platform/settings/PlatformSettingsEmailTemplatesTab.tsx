@@ -5,6 +5,7 @@ import {
   getPlatformEmailTemplateBrandDefaults,
   getPlatformEmailTemplateCatalog,
   listPlatformEmailTemplates,
+  openPlatformEmailTemplatePreview,
   patchPlatformEmailTemplate,
   type PlatformEmailPlaceholderDef,
   type PlatformEmailTemplateDto,
@@ -79,6 +80,7 @@ export function PlatformSettingsEmailTemplatesTab() {
   const [form, setForm] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -121,6 +123,27 @@ export function PlatformSettingsEmailTemplatesTab() {
 
   const insertIntoSubject = (token: string) => {
     setForm((f) => (f ? { ...f, subjectTemplate: `${f.subjectTemplate}${token}` } : f));
+  };
+
+  const openPreview = async () => {
+    const token = getPlatformToken();
+    if (!token || !form) return;
+    setPreviewing(true);
+    setError('');
+    try {
+      await openPlatformEmailTemplatePreview(token, purpose, {
+        subjectTemplate: form.subjectTemplate,
+        headline: form.headline,
+        preheader: form.preheader.trim() || null,
+        introHtml: form.introHtml,
+        footerHtml: form.footerHtml,
+        noreplyNoticeHtml: form.noreplyNoticeHtml,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '미리보기 실패');
+    } finally {
+      setPreviewing(false);
+    }
   };
 
   const applyBrandDefaults = async () => {
@@ -272,8 +295,9 @@ export function PlatformSettingsEmailTemplatesTab() {
               <span className="text-fluid-2xs text-gray-500">WYSIWYG — 보이는 그대로 저장</span>
             </div>
             <p className="text-fluid-2xs text-gray-500">
-              slate·sky 브랜드 컬러 인라인 HTML(강조 카드·본문 단계)로 작성합니다. 동적 표·링크는 아래
-              자동 삽입됩니다.
+              slate·sky 브랜드 컬러 인라인 HTML(강조 카드·본문 단계)로 작성합니다.{' '}
+              <strong className="font-medium text-gray-600">{'{{brandDisplayName}}'}</strong>는 발송 시
+              운영사(업체) 표시명으로 치환됩니다. 동적 표·링크는 아래 자동 삽입됩니다.
             </p>
             <PlaceholderChips
               items={bodyPh.filter((p) => !['detailSections', 'inspectionBody'].includes(p.key))}
@@ -329,6 +353,14 @@ export function PlatformSettingsEmailTemplatesTab() {
         ) : null}
 
         <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            disabled={previewing}
+            onClick={() => void openPreview()}
+            className={BTN_SECONDARY}
+          >
+            {previewing ? '미리보기 생성 중…' : '메일 미리보기'}
+          </button>
           <button type="button" onClick={() => void applyBrandDefaults()} className={BTN_SECONDARY}>
             브랜드 기본 서식
           </button>

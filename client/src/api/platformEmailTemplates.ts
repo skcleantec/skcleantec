@@ -91,3 +91,34 @@ export async function patchPlatformEmailTemplate(
     body: JSON.stringify(patch),
   });
 }
+
+export async function openPlatformEmailTemplatePreview(
+  token: string,
+  purpose: OutboundEmailPurpose,
+  draft?: Pick<
+    PlatformEmailTemplatePatch,
+    'subjectTemplate' | 'headline' | 'preheader' | 'introHtml' | 'footerHtml' | 'noreplyNoticeHtml'
+  >,
+): Promise<void> {
+  const res = await fetch(`/api/platform/email-templates/${purpose}/preview`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(draft ?? {}),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `미리보기 실패 (${res.status})`);
+  }
+  const html = await res.text();
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const tab = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!tab) {
+    URL.revokeObjectURL(url);
+    throw new Error('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.');
+  }
+  tab.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+}

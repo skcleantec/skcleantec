@@ -12,6 +12,7 @@ import {
   upsertPlatformEmailTemplate,
 } from './platformEmailTemplate.service.js';
 import { listPlatformEmailTemplatePurposeMeta } from './platformCustomerEmailRender.service.js';
+import { buildPlatformEmailTemplatePreview } from './platformEmailTemplatePreview.service.js';
 import {
   PLATFORM_EMAIL_BODY_PLACEHOLDERS,
   PLATFORM_EMAIL_SUBJECT_PLACEHOLDERS,
@@ -35,6 +36,41 @@ router.get('/', async (_req, res) => {
     res.json({ items });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : '목록 조회 실패' });
+  }
+});
+
+router.get('/:purpose/preview', async (req, res) => {
+  const { purpose } = req.params;
+  if (!isOutboundEmailPurpose(purpose)) {
+    res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
+    return;
+  }
+  try {
+    const preview = await buildPlatformEmailTemplatePreview({ purpose });
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(preview.html);
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : '미리보기 생성 실패' });
+  }
+});
+
+router.post('/:purpose/preview', async (req, res) => {
+  const { purpose } = req.params;
+  if (!isOutboundEmailPurpose(purpose)) {
+    res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
+    return;
+  }
+  try {
+    const preview = await buildPlatformEmailTemplatePreview({
+      purpose,
+      override: req.body ?? {},
+    });
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(preview.html);
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : '미리보기 생성 실패' });
   }
 });
 
