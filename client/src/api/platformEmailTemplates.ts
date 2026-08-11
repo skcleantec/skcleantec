@@ -63,6 +63,24 @@ export async function getPlatformEmailTemplateCatalog(token: string): Promise<{
   return platformFetch(token, '/purposes');
 }
 
+export type PlatformEmailTemplateBrandDefaults = {
+  purpose: OutboundEmailPurpose;
+  label: string;
+  subjectTemplate: string;
+  headline: string;
+  preheader: string;
+  introHtml: string;
+  footerHtml: string;
+  noreplyNoticeHtml: string;
+};
+
+export async function getPlatformEmailTemplateBrandDefaults(
+  token: string,
+  purpose: OutboundEmailPurpose,
+): Promise<PlatformEmailTemplateBrandDefaults> {
+  return platformFetch(token, `/${purpose}/brand-defaults`);
+}
+
 export async function patchPlatformEmailTemplate(
   token: string,
   purpose: OutboundEmailPurpose,

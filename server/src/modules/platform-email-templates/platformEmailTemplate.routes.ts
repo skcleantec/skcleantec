@@ -4,6 +4,8 @@ import {
   platformSuperAdminOnly,
   type PlatformScopedRequest,
 } from '../platform/platformAuth.middleware.js';
+import { isOutboundEmailPurpose } from '../../lib/outboundEmailPurpose.js';
+import { getPlatformEmailTemplateDefaults } from './platformEmailTemplate.defaults.js';
 import {
   getPlatformEmailTemplate,
   listPlatformEmailTemplates,
@@ -34,6 +36,15 @@ router.get('/', async (_req, res) => {
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : '목록 조회 실패' });
   }
+});
+
+router.get('/:purpose/brand-defaults', (req, res) => {
+  const { purpose } = req.params;
+  if (!isOutboundEmailPurpose(purpose)) {
+    res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
+    return;
+  }
+  res.json(getPlatformEmailTemplateDefaults(purpose));
 });
 
 router.get('/:purpose', async (req, res) => {

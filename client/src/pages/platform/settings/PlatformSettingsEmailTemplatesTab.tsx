@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { OutboundEmailPurpose } from '@shared/outboundEmailPurpose';
 import { OUTBOUND_EMAIL_PURPOSE_LABELS } from '@shared/outboundEmailPurpose';
 import {
+  getPlatformEmailTemplateBrandDefaults,
   getPlatformEmailTemplateCatalog,
   listPlatformEmailTemplates,
   patchPlatformEmailTemplate,
@@ -120,6 +121,36 @@ export function PlatformSettingsEmailTemplatesTab() {
 
   const insertIntoSubject = (token: string) => {
     setForm((f) => (f ? { ...f, subjectTemplate: `${f.subjectTemplate}${token}` } : f));
+  };
+
+  const applyBrandDefaults = async () => {
+    const token = getPlatformToken();
+    if (!token || !form) return;
+    if (
+      !window.confirm(
+        '인트로·하단·noreply 안내를 청소비서 브랜드 기본 HTML 서식으로 되돌립니다. 저장 전까지 DB에는 반영되지 않습니다.',
+      )
+    ) {
+      return;
+    }
+    setError('');
+    setMessage('');
+    try {
+      const defaults = await getPlatformEmailTemplateBrandDefaults(token, purpose);
+      setForm((f) =>
+        f
+          ? {
+              ...f,
+              introHtml: defaults.introHtml,
+              footerHtml: defaults.footerHtml,
+              noreplyNoticeHtml: defaults.noreplyNoticeHtml,
+            }
+          : f,
+      );
+      setMessage('브랜드 기본 서식을 불러왔습니다. 확인 후 저장하세요.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '기본 서식 불러오기 실패');
+    }
   };
 
   const save = async () => {
@@ -241,7 +272,8 @@ export function PlatformSettingsEmailTemplatesTab() {
               <span className="text-fluid-2xs text-gray-500">WYSIWYG — 보이는 그대로 저장</span>
             </div>
             <p className="text-fluid-2xs text-gray-500">
-              동적 표·링크는 아래 자동 삽입됩니다. 칩은 본문에 넣을 수 있는 치환 문자입니다.
+              slate·sky 브랜드 컬러 인라인 HTML(강조 카드·본문 단계)로 작성합니다. 동적 표·링크는 아래
+              자동 삽입됩니다.
             </p>
             <PlaceholderChips
               items={bodyPh.filter((p) => !['detailSections', 'inspectionBody'].includes(p.key))}
@@ -297,6 +329,9 @@ export function PlatformSettingsEmailTemplatesTab() {
         ) : null}
 
         <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <button type="button" onClick={() => void applyBrandDefaults()} className={BTN_SECONDARY}>
+            브랜드 기본 서식
+          </button>
           <button type="button" onClick={() => currentRow && setForm(dtoToForm(currentRow))} className={BTN_SECONDARY}>
             되돌리기
           </button>
