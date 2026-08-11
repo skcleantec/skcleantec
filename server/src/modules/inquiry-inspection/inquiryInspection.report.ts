@@ -141,6 +141,116 @@ export function buildInspectionCompletionEmailPlainText(
   return lines.join('\n');
 }
 
+function inspectionMetaTableHtml(
+  row: ChecklistRow,
+  inquiry: {
+    customerName: string;
+    inquiryNumber: string | null;
+    preferredDate: Date | null;
+    address: string;
+  },
+): string {
+  const cell = 'padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;vertical-align:top';
+  const th = `${cell};background:#f8fafc;font-weight:600;color:#475569;width:28%`;
+  const td = `${cell};color:#0f172a`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:12px;border-collapse:separate;overflow:hidden;margin:0 0 16px">
+<tr><th align="left" style="${th}">고객명</th><td style="${td}">${escapeHtml(inquiry.customerName)}</td></tr>
+${inquiry.inquiryNumber ? `<tr><th align="left" style="${th}">접수번호</th><td style="${td}">${escapeHtml(inquiry.inquiryNumber)}</td></tr>` : ''}
+<tr><th align="left" style="${th}">서비스일</th><td style="${td}">${escapeHtml(inquiry.preferredDate?.toISOString().slice(0, 10) ?? '—')}</td></tr>
+<tr><th align="left" style="${th}">주소</th><td style="${td}">${escapeHtml(inquiry.address)}</td></tr>
+<tr><th align="left" style="${th}">담당 팀장</th><td style="${td}">${escapeHtml(row.teamLeader.name)}</td></tr>
+<tr><th align="left" style="${th}">완료 일시</th><td style="${td}">${row.completedAt ? escapeHtml(row.completedAt.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })) : '—'}</td></tr>
+</table>`;
+}
+
+function inspectionBasicTableHtml(row: ChecklistRow): string {
+  const basic = parseBasicAnswers(row.basicAnswersJson);
+  const basicRows = INSPECTION_BASIC_QUESTIONS.map(
+    (q) =>
+      `<tr><td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;color:#0f172a">${escapeHtml(q.text)}</td><td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center">${yn(basic[q.id].leader)}</td><td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center">${yn(basic[q.id].customer)}</td></tr>`,
+  ).join('');
+  return `<h3 style="margin:0 0 8px;font-size:15px;font-weight:700;color:#0f172a">기본사항</h3>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;border-collapse:separate;overflow:hidden;margin:0 0 16px;font-size:13px">
+<thead><tr><th style="padding:8px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:left">확인 내용</th><th style="padding:8px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:center">팀장</th><th style="padding:8px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:center">고객</th></tr></thead>
+<tbody>${basicRows}</tbody></table>`;
+}
+
+function inspectionPhotoPdfBlocksHtml(opts: InspectionCompletionEmailContentOptions): string {
+  const photoViewBlock = opts.customerViewUrl?.trim()
+    ? `<div style="margin:16px 0;padding:16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px">
+<p style="margin:0 0 8px;font-size:15px;font-weight:600;color:#1e3a8a">검수 사진 확인</p>
+<p style="margin:0 0 12px;font-size:13px;color:#334155">청소 전·후 현장 사진은 웹에서 구역별로 확인하실 수 있습니다.</p>
+<p style="margin:0"><a href="${escapeHtml(opts.customerViewUrl.trim())}" style="font-size:14px;font-weight:600;color:#1d4ed8;text-decoration:none">검수 사진 웹에서 확인하기</a></p>
+</div>`
+    : '';
+  const pdfBlock = opts.pdfUrl?.trim()
+    ? `<p style="margin:12px 0 0;font-size:13px"><a href="${escapeHtml(opts.pdfUrl.trim())}" style="color:#0284c7;font-weight:600">완료본 PDF 다운로드</a></p>`
+    : '';
+  return `${photoViewBlock}${pdfBlock}`;
+}
+
+export function buildInspectionCompletionEmailDynamicPlainText(
+  row: ChecklistRow,
+  inquiry: {
+    customerName: string;
+    inquiryNumber: string | null;
+    preferredDate: Date | null;
+    address: string;
+  },
+  opts: InspectionCompletionEmailContentOptions = {},
+): string {
+  const basic = parseBasicAnswers(row.basicAnswersJson);
+  const lines: string[] = [
+    `고객명: ${inquiry.customerName}`,
+    inquiry.inquiryNumber ? `접수번호: ${inquiry.inquiryNumber}` : '',
+    `서비스일: ${inquiry.preferredDate?.toISOString().slice(0, 10) ?? '—'}`,
+    `주소: ${inquiry.address}`,
+    `담당 팀장: ${row.teamLeader.name}`,
+    '',
+    '— 기본사항 —',
+  ].filter(Boolean);
+
+  for (const q of INSPECTION_BASIC_QUESTIONS) {
+    const slot = basic[q.id];
+    lines.push(`${q.text}`);
+    lines.push(`  팀장: ${yn(slot.leader)} / 고객: ${yn(slot.customer)}`);
+  }
+
+  if (row.leaderNotes?.trim()) {
+    lines.push('', '— 특이사항 —', row.leaderNotes.trim());
+  }
+
+  lines.push('', INSPECTION_FINAL_CONFIRM_NOTICE);
+
+  if (opts.customerViewUrl?.trim()) {
+    lines.push('', '검수 사진 웹에서 확인하기:', opts.customerViewUrl.trim());
+  }
+  if (opts.pdfUrl?.trim()) {
+    lines.push('', '완료본 PDF 다운로드:', opts.pdfUrl.trim());
+  }
+  if (row.completedAt) {
+    lines.push('', `완료 일시: ${row.completedAt.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`);
+  }
+  return lines.join('\n');
+}
+
+export function buildInspectionCompletionEmailDynamicHtml(
+  row: ChecklistRow,
+  inquiry: {
+    customerName: string;
+    inquiryNumber: string | null;
+    preferredDate: Date | null;
+    address: string;
+  },
+  opts: InspectionCompletionEmailContentOptions = {},
+): string {
+  const notesBlock = row.leaderNotes?.trim()
+    ? `<h3 style="margin:0 0 8px;font-size:15px;font-weight:700;color:#0f172a">특이사항</h3><p style="margin:0 0 16px;line-height:1.6;color:#334155">${escapeHtml(row.leaderNotes.trim())}</p>`
+    : '';
+  const confirmBlock = `<p style="margin:0 0 16px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;font-size:12px;line-height:1.6;color:#334155">${escapeHtml(INSPECTION_FINAL_CONFIRM_NOTICE)}</p>`;
+  return `${inspectionMetaTableHtml(row, inquiry)}${inspectionBasicTableHtml(row)}${notesBlock}${confirmBlock}${inspectionPhotoPdfBlocksHtml(opts)}`;
+}
+
 export function buildInspectionCompletionEmailHtml(
   row: ChecklistRow,
   inquiry: {

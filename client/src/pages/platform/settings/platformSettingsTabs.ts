@@ -1,4 +1,4 @@
-export type PlatformSettingsTabId = 'smtp' | 'business' | 'legal';
+export type PlatformSettingsTabId = 'smtp' | 'email-templates' | 'business' | 'legal';
 
 export type PlatformSettingsTab = {
   id: PlatformSettingsTabId;
@@ -12,6 +12,12 @@ export const PLATFORM_SETTINGS_TABS: PlatformSettingsTab[] = [
     id: 'smtp',
     label: 'SMTP',
     description: '고객·기능별 SMTP 프로필 · 플랫폼 알림 메일',
+    ready: true,
+  },
+  {
+    id: 'email-templates',
+    label: '고객 메일',
+    description: '발주서·검수 완료 메일 제목·본문 (청소비서 브랜드 서식)',
     ready: true,
   },
   {

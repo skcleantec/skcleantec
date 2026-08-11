@@ -7,9 +7,8 @@ import {
   resolvePlatformCustomerMailTransport,
 } from '../../lib/outboundEmailRouter.js';
 import {
-  buildInspectionCompletionEmailHtml,
-  buildInspectionCompletionEmailPlainText,
-} from './inquiryInspection.report.js';
+  buildInspectionCompletionEmailContent,
+} from '../platform-email-templates/platformCustomerEmailRender.service.js';
 import type { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import type { Prisma } from '@prisma/client';
 
@@ -74,13 +73,16 @@ export async function sendInspectionCompletionEmail(params: {
     });
   }
 
-  const subject = `[${params.tenantDisplayName}] ${params.inquiry.customerName}님 현장 검수 체크리스트 완료본`;
   const contentOpts = {
     customerViewUrl: params.customerViewUrl,
     pdfUrl: params.pdfUrl,
   };
-  const plain = buildInspectionCompletionEmailPlainText(params.row, params.inquiry, contentOpts);
-  const html = buildInspectionCompletionEmailHtml(params.row, params.inquiry, contentOpts);
+  const { subject, plain: text, html } = await buildInspectionCompletionEmailContent({
+    tenantDisplayName: params.tenantDisplayName,
+    row: params.row,
+    inquiry: params.inquiry,
+    opts: contentOpts,
+  }).then((r) => ({ subject: r.subject, plain: r.text, html: r.html }));
 
   const attachment =
     params.pdfBuffer && params.pdfBuffer.length > 0 && params.pdfBuffer.length <= GMAIL_SAFE_ATTACHMENT_BYTES
@@ -95,7 +97,7 @@ export async function sendInspectionCompletionEmail(params: {
     to: email,
     subject,
     html,
-    text: plain,
+    text: text,
   };
 
   const send = async (withAttachment: boolean) => {

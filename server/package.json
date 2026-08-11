@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/sync-inquiry-list-sort.mjs && node scripts/sync-inquiry-inspection-shared.mjs && node scripts/sync-marketer-permissions.mjs && node scripts/sync-tenant-host.mjs && node scripts/sync-region-match.mjs && node scripts/sync-outbound-email-purpose.mjs && node scripts/prepare-schema.js && prisma generate && tsx watch src/index.ts",
-    "build": "node scripts/sync-inquiry-list-sort.mjs && node scripts/sync-inquiry-inspection-shared.mjs && node scripts/sync-marketer-permissions.mjs && node scripts/sync-tenant-host.mjs && node scripts/sync-region-match.mjs && node scripts/sync-outbound-email-purpose.mjs && node scripts/prepare-schema.js && prisma generate && tsc",
+    "dev": "node scripts/sync-inquiry-list-sort.mjs && node scripts/sync-inquiry-inspection-shared.mjs && node scripts/sync-marketer-permissions.mjs && node scripts/sync-tenant-host.mjs && node scripts/sync-region-match.mjs && node scripts/sync-outbound-email-purpose.mjs && node scripts/sync-platform-email-template-placeholders.mjs && node scripts/prepare-schema.js && prisma generate && tsx watch src/index.ts",
+    "build": "node scripts/sync-inquiry-list-sort.mjs && node scripts/sync-inquiry-inspection-shared.mjs && node scripts/sync-marketer-permissions.mjs && node scripts/sync-tenant-host.mjs && node scripts/sync-region-match.mjs && node scripts/sync-outbound-email-purpose.mjs && node scripts/sync-platform-email-template-placeholders.mjs && node scripts/prepare-schema.js && prisma generate && tsc",
     "start": "node dist/index.js",
     "sync:inquiry-list-sort": "node scripts/sync-inquiry-list-sort.mjs",
     "sync:inquiry-inspection-shared": "node scripts/sync-inquiry-inspection-shared.mjs",
@@ -12,6 +12,7 @@
     "sync:region-match": "node scripts/sync-region-match.mjs",
     "sync:marketer-permissions": "node scripts/sync-marketer-permissions.mjs",
     "sync:outbound-email-purpose": "node scripts/sync-outbound-email-purpose.mjs",
+    "sync:platform-email-template-placeholders": "node scripts/sync-platform-email-template-placeholders.mjs",
     "db:generate": "node scripts/prepare-schema.js && prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

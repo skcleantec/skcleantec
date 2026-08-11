@@ -3185,6 +3185,26 @@ model PlatformSmtpProfile {
   @@map("platform_smtp_profiles")
 }
 
+/// 플랫폼 고객 메일 템플릿 — purpose별 제목·본문 (CMS)
+model PlatformEmailTemplate {
+  id                String   @id @default(uuid())
+  /// ORDER_FORM_SUBMISSION | INSPECTION_COMPLETION
+  purpose           String   @unique @db.VarChar(64)
+  label             String   @db.VarChar(128)
+  enabled           Boolean  @default(true)
+  subjectTemplate   String   @map("subject_template") @db.VarChar(500)
+  headline          String   @db.VarChar(128)
+  preheader         String?  @db.VarChar(256)
+  introHtml         String   @map("intro_html") @db.Text
+  footerHtml        String   @map("footer_html") @db.Text
+  noreplyNoticeHtml String   @map("noreply_notice_html") @db.Text
+  updatedByEmail    String?  @map("updated_by_email") @db.VarChar(320)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_email_templates")
+}
+
 model OrderFormSubmissionEmailLog {
   id                 String                         @id @default(uuid())
   tenantId           String                         @map("tenant_id")

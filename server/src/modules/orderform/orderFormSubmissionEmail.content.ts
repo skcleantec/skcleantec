@@ -47,6 +47,26 @@ function sectionsForEmail(input: OrderFormSubmissionEmailContentInput) {
   return [{ title: '접수 요약', rows }];
 }
 
+export function buildOrderFormSubmissionEmailDynamicPlainText(
+  input: OrderFormSubmissionEmailContentInput,
+): string {
+  const lines: string[] = [];
+  for (const section of sectionsForEmail(input)) {
+    lines.push(`— ${section.title} —`);
+    for (const row of section.rows) {
+      const valueLines = row.value.split('\n');
+      if (valueLines.length === 1) {
+        lines.push(`${row.label}: ${row.value}`);
+      } else {
+        lines.push(`${row.label}:`);
+        for (const vl of valueLines) lines.push(`  ${vl}`);
+      }
+    }
+    lines.push('');
+  }
+  return lines.join('\n').trim();
+}
+
 export function buildOrderFormSubmissionEmailPlainText(
   input: OrderFormSubmissionEmailContentInput,
 ): string {
@@ -96,6 +116,12 @@ function renderSectionHtml(section: { title: string; rows: EmailDetailRow[] }): 
     )
     .join('');
   return `<h3 style="margin:20px 0 8px;font-size:15px;font-weight:700;color:#0f172a">${escapeHtml(section.title)}</h3><table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;font-size:14px;table-layout:fixed">${rows}</table>`;
+}
+
+export function buildOrderFormSubmissionEmailDynamicHtml(
+  input: OrderFormSubmissionEmailContentInput,
+): string {
+  return sectionsForEmail(input).map(renderSectionHtml).join('');
 }
 
 export function buildOrderFormSubmissionEmailHtml(input: OrderFormSubmissionEmailContentInput): string {

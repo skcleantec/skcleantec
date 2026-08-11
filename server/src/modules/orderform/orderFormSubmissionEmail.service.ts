@@ -11,10 +11,8 @@ import {
 } from '../../lib/outboundEmailRouter.js';
 import { resolveQuotationBrandDisplayName } from '../quotations/quotationDocumentTitle.service.js';
 import {
-  buildOrderFormSubmissionEmailHtml,
-  buildOrderFormSubmissionEmailPlainText,
-  buildOrderFormSubmissionEmailSubject,
-} from './orderFormSubmissionEmail.content.js';
+  buildOrderFormSubmissionEmailContent,
+} from '../platform-email-templates/platformCustomerEmailRender.service.js';
 
 export type OrderFormSubmissionEmailSendInput = {
   tenantId: string;
@@ -138,9 +136,7 @@ export async function sendOrderFormSubmissionConfirmationEmail(
       balanceAmount: input.balanceAmount,
     },
   };
-  const subject = buildOrderFormSubmissionEmailSubject(contentInput);
-  const text = buildOrderFormSubmissionEmailPlainText(contentInput);
-  const html = buildOrderFormSubmissionEmailHtml(contentInput);
+  const { subject, text, html } = await buildOrderFormSubmissionEmailContent(contentInput);
 
   try {
     await sendMailWithTransport(transport, { to: toEmail, subject, text, html });
