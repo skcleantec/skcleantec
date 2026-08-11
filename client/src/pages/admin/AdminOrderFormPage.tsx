@@ -76,6 +76,8 @@ function orderFormSubmissionEmailColumnTitle(o: OrderForm): string | undefined {
   if (!o.submissionEmail) return '제출 확인 메일 발송 기록이 없습니다.';
   if (o.submissionEmail.status === 'FAILED') return '메일 발송에 실패했습니다.';
   if (o.submissionEmail.status === 'SKIPPED_NO_SMTP') return '발송 SMTP가 설정되지 않았습니다.';
+  if (o.submissionEmail.status === 'SKIPPED_NO_PLATFORM_SMTP')
+    return '플랫폼 발송 메일이 설정되지 않아 확인 메일을 보내지 못했습니다.';
   return '확인 메일이 아직 발송되지 않았습니다.';
 }
 

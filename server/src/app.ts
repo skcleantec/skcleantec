@@ -69,6 +69,7 @@ import helpInquiryPublicRoutes from './modules/help-inquiry/helpInquiry.public.r
 import quickPasteRoutes from './modules/quick-paste/quickPaste.routes.js';
 import platformHelpInquiryRoutes from './modules/help-inquiry/platformHelpInquiry.routes.js';
 import platformBillingRoutes from './modules/platform/platformBilling.routes.js';
+import platformSmtpProfileRoutes from './modules/platform-smtp-profiles/platformSmtpProfile.routes.js';
 import platformLegalRoutes from './modules/platform-legal/platformLegal.routes.js';
 import platformPartnerPromoRoutes from './modules/platform-partner-promo/platformPartnerPromo.routes.js';
 import adminPlatformPromoRoutes from './modules/platform-partner-promo/adminPlatformPromo.routes.js';
@@ -117,6 +118,7 @@ app.use('/api/platform/tenant-partnerships', platformTenantPartnershipsRoutes);
 app.use('/api/platform/db-marketplace', platformDbMarketplaceRoutes);
 app.use('/api/platform/help-inquiry', platformHelpInquiryRoutes);
 app.use('/api/platform/billing', platformBillingRoutes);
+app.use('/api/platform/smtp-profiles', platformSmtpProfileRoutes);
 app.use('/api/platform/plan-upgrade-requests', platformPlanUpgradeRoutes);
 app.use('/api/platform/signup-inquiries', platformSignupInquiryRoutes);
 app.use('/api/platform/referrers', platformReferrersRoutes);

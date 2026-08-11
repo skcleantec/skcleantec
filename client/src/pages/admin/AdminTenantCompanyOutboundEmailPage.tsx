@@ -59,6 +59,10 @@ export function AdminTenantCompanyOutboundEmailPage() {
         </PageTitleWithFavorite>
       </div>
 
+      <section className="rounded-xl border border-sky-200 bg-sky-50/90 px-4 py-3 text-fluid-xs text-sky-950 leading-relaxed">
+        {OUTBOUND_EMAIL_COPY.platformCustomerMailNote}
+      </section>
+
       <OutboundEmailTestReceiveBox
         testEmailTo={form.testEmailTo}
         onTestEmailToChange={form.setTestEmailTo}

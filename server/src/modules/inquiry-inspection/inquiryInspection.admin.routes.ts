@@ -10,7 +10,8 @@ import { buildInspectionPhotosZipBuffer } from './inquiryInspection.zip.service.
 import { buildInspectionPdfBuffer } from './inquiryInspection.pdf.service.js';
 import { inspectionChecklistInclude } from './inquiryInspection.include.js';
 import { prisma } from '../../lib/prisma.js';
-import { isSmtpConfiguredForTenant, formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
+import { formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
+import { isPlatformCustomerMailConfigured } from '../platform-smtp-profiles/platformSmtpProfile.service.js';
 import { notifyInspectionChecklistRefresh } from './inquiryInspectionNotify.js';
 
 const router = Router({ mergeParams: true });
@@ -54,7 +55,7 @@ router.get('/', async (req, res) => {
   const checklist = await loadInspectionChecklist({ inquiryId, tenantId });
   res.json({
     checklist,
-    smtpConfigured: await isSmtpConfiguredForTenant(tenantId, inquiry.operatingCompanyId),
+    smtpConfigured: await isPlatformCustomerMailConfigured('INSPECTION_COMPLETION'),
   });
 });
 
@@ -149,15 +150,10 @@ router.post('/resend-email', async (req, res) => {
     res.status(404).json({ error: '검수 체크리스트가 없습니다.' });
     return;
   }
-  const inquiryForSmtp = await prisma.inquiry.findFirst({
-    where: { id: inquiryId, tenantId },
-    select: { operatingCompanyId: true },
-  });
-  if (!(await isSmtpConfiguredForTenant(tenantId, inquiryForSmtp?.operatingCompanyId))) {
+  if (!(await isPlatformCustomerMailConfigured('INSPECTION_COMPLETION'))) {
     res.status(503).json({
-      error: inquiryForSmtp?.operatingCompanyId
-        ? '이 접수 브랜드의 발송 이메일이 설정되지 않았습니다. 관리자 전용 → 업체등록정보 → 발송 이메일에서 해당 브랜드 SMTP를 설정하세요. (다른 업체 메일로 보내지 않습니다)'
-        : 'SMTP가 설정되지 않았습니다. 관리자 전용 → 업체등록정보 → 발송이메일에서 SMTP를 설정하세요.',
+      error:
+        '플랫폼 현장검수 발송 메일이 설정되지 않았습니다. 청소비서 운영(플랫폼 설정 → SMTP)에서 INSPECTION_COMPLETION 프로필을 확인해 주세요.',
     });
     return;
   }
@@ -184,7 +180,7 @@ router.post('/resend-email', async (req, res) => {
       res.status(400).json({ error: err.message ?? '고객 이메일을 확인해 주세요.' });
       return;
     }
-    if (err.code === 'smtp_not_configured') {
+    if (err.code === 'smtp_not_configured' || err.code === 'platform_smtp_not_configured') {
       res.status(503).json({ error: err.message ?? 'SMTP가 설정되지 않았습니다.' });
       return;
     }

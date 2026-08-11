@@ -1,4 +1,11 @@
-import { sendMailForTenant, isSmtpConfiguredForTenant, formatSmtpSendError } from '../../lib/tenantSmtp.service.js';
+import {
+  formatSmtpSendError,
+  sendMailWithTransport,
+} from '../../lib/tenantSmtp.service.js';
+import {
+  isPlatformCustomerMailConfigured,
+  resolvePlatformCustomerMailTransport,
+} from '../../lib/outboundEmailRouter.js';
 import {
   buildInspectionCompletionEmailHtml,
   buildInspectionCompletionEmailPlainText,
@@ -46,13 +53,24 @@ export async function sendInspectionCompletionEmail(params: {
   customerViewUrl?: string | null;
 }): Promise<boolean> {
   const email = assertCustomerEmail(params.row);
-  const operatingCompanyId = params.operatingCompanyId ?? null;
-  if (!(await isSmtpConfiguredForTenant(params.tenantId, operatingCompanyId))) {
-    throw Object.assign(new Error('smtp_not_configured'), {
-      code: 'smtp_not_configured' as const,
-      message: operatingCompanyId
-        ? '이 접수 브랜드의 발송 이메일이 설정되지 않았습니다. 업체등록정보 → 발송 이메일에서 해당 브랜드 SMTP를 설정해 주세요. (다른 업체 메일로 보내지 않습니다)'
-        : 'SMTP가 설정되지 않았습니다. 업체등록정보에서 SMTP를 설정해 주세요.',
+
+  if (!(await isPlatformCustomerMailConfigured('INSPECTION_COMPLETION'))) {
+    throw Object.assign(new Error('platform_smtp_not_configured'), {
+      code: 'platform_smtp_not_configured' as const,
+      message:
+        '플랫폼 고객 발송 SMTP(noreply)가 설정되지 않았습니다. 플랫폼 설정 → SMTP 프로필을 확인해 주세요.',
+    });
+  }
+
+  const transport = await resolvePlatformCustomerMailTransport({
+    purpose: 'INSPECTION_COMPLETION',
+    brandDisplayName: params.tenantDisplayName,
+  });
+  if (!transport) {
+    throw Object.assign(new Error('platform_smtp_not_configured'), {
+      code: 'platform_smtp_not_configured' as const,
+      message:
+        '플랫폼 고객 발송 SMTP(noreply)가 설정되지 않았습니다. 플랫폼 설정 → SMTP 프로필을 확인해 주세요.',
     });
   }
 
@@ -80,9 +98,16 @@ export async function sendInspectionCompletionEmail(params: {
     text: plain,
   };
 
+  const send = async (withAttachment: boolean) => {
+    await sendMailWithTransport(
+      transport,
+      withAttachment && attachment ? { ...mailInput, attachments: [attachment] } : mailInput,
+    );
+  };
+
   if (attachment) {
     try {
-      await sendMailForTenant(params.tenantId, { ...mailInput, attachments: [attachment] }, operatingCompanyId);
+      await send(true);
       return true;
     } catch (e) {
       console.warn(
@@ -98,6 +123,6 @@ export async function sendInspectionCompletionEmail(params: {
     );
   }
 
-  await sendMailForTenant(params.tenantId, mailInput, operatingCompanyId);
+  await send(false);
   return true;
 }

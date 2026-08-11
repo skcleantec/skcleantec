@@ -3159,6 +3159,30 @@ enum OrderFormSubmissionEmailStatus {
   SENT
   FAILED
   SKIPPED_NO_SMTP
+  SKIPPED_NO_PLATFORM_SMTP
+}
+
+/// 플랫폼 SMTP 프로필 — purpose별 고객·기능 메일 발송 (목록 관리)
+model PlatformSmtpProfile {
+  id                 String   @id @default(uuid())
+  slug               String   @unique @db.VarChar(64)
+  label              String   @db.VarChar(128)
+  enabled            Boolean  @default(true)
+  /// OutboundEmailPurpose 문자열 배열 JSON — shared/outboundEmailPurpose.ts
+  purposes           Json     @default("[]")
+  smtpHost           String?  @map("smtp_host") @db.VarChar(256)
+  smtpPort           Int?     @map("smtp_port")
+  smtpSecure         Boolean? @map("smtp_secure")
+  smtpUser           String?  @map("smtp_user") @db.VarChar(256)
+  smtpFrom           String?  @map("smtp_from") @db.VarChar(256)
+  smtpPassEnc        String?  @map("smtp_pass_enc") @db.Text
+  defaultDisplayName String?  @map("default_display_name") @db.VarChar(128)
+  sortOrder          Int      @default(0) @map("sort_order")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([enabled, sortOrder])
+  @@map("platform_smtp_profiles")
 }
 
 model OrderFormSubmissionEmailLog {

@@ -3,9 +3,12 @@ import { prisma } from '../../lib/prisma.js';
 import { assertValidCustomerEmail } from '../../lib/customerEmail.js';
 import {
   formatSmtpSendError,
-  resolveSmtpTransportForOrderFormCustomerEmail,
   sendMailWithTransport,
 } from '../../lib/tenantSmtp.service.js';
+import {
+  isPlatformCustomerMailConfigured,
+  resolvePlatformCustomerMailTransport,
+} from '../../lib/outboundEmailRouter.js';
 import { resolveQuotationBrandDisplayName } from '../quotations/quotationDocumentTitle.service.js';
 import {
   buildOrderFormSubmissionEmailHtml,
@@ -88,10 +91,15 @@ export async function sendOrderFormSubmissionConfirmationEmail(
   input: OrderFormSubmissionEmailSendInput,
 ): Promise<OrderFormSubmissionEmailStatus> {
   const toEmail = assertValidCustomerEmail(input.customerEmail);
-  const transport = await resolveSmtpTransportForOrderFormCustomerEmail(
-    input.tenantId,
-    input.operatingCompanyId,
-  );
+  const brandDisplayName = await resolveBrandDisplayName(input.tenantId, input.operatingCompanyId);
+
+  const platformConfigured = await isPlatformCustomerMailConfigured('ORDER_FORM_SUBMISSION');
+  const transport = platformConfigured
+    ? await resolvePlatformCustomerMailTransport({
+        purpose: 'ORDER_FORM_SUBMISSION',
+        brandDisplayName,
+      })
+    : null;
 
   if (!transport) {
     await upsertSubmissionEmailLog({
@@ -99,17 +107,14 @@ export async function sendOrderFormSubmissionConfirmationEmail(
       orderFormId: input.orderFormId,
       operatingCompanyId: input.operatingCompanyId,
       toEmail,
-      status: 'SKIPPED_NO_SMTP',
-      lastError: input.operatingCompanyId
-        ? '해당 영업 브랜드 발송 이메일이 설정되지 않아 메일을 보내지 않았습니다. (다른 업체 메일로 대체 발송하지 않습니다)'
-        : '발송 SMTP가 설정되지 않았습니다. (업체 공통 또는 기본)',
+      status: 'SKIPPED_NO_PLATFORM_SMTP',
+      lastError:
+        '플랫폼 고객 발송 SMTP(noreply)가 설정되지 않았습니다. 플랫폼 설정 → SMTP 프로필을 확인해 주세요.',
       sentAt: null,
       incrementAttempt: true,
     });
-    return 'SKIPPED_NO_SMTP';
+    return 'SKIPPED_NO_PLATFORM_SMTP';
   }
-
-  const brandDisplayName = await resolveBrandDisplayName(input.tenantId, input.operatingCompanyId);
 
   let snapshot = input.customerSubmissionSnapshot;
   if (snapshot == null) {

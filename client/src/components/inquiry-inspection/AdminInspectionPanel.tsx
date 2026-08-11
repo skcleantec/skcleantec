@@ -115,7 +115,7 @@ export function AdminInspectionPanel({
           <span className="text-fluid-2xs text-amber-700">
             {smtpConfigured
               ? '이메일 발송 대기/실패'
-              : '발송 이메일 미설정 (이 브랜드 전용 SMTP 필요)'}
+              : '플랫폼 발송 메일 미설정 (청소비서 운영팀 문의)'}
           </span>
         ) : null}
         {checklist.status === 'COMPLETED' && (

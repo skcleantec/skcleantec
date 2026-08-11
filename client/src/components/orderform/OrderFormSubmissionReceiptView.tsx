@@ -29,7 +29,7 @@ export function OrderFormSubmissionReceiptView(props: {
   snapshot: unknown | null;
   formConfig?: OrderFormConfigPublic;
   submissionEmail?: {
-    status: 'SENT' | 'FAILED' | 'SKIPPED_NO_SMTP';
+    status: 'SENT' | 'FAILED' | 'SKIPPED_NO_SMTP' | 'SKIPPED_NO_PLATFORM_SMTP';
     toEmail: string;
     lastError?: string | null;
   } | null;
@@ -141,7 +141,9 @@ export function OrderFormSubmissionReceiptView(props: {
                 ? `입력하신 이메일(${submissionEmail.toEmail})로 접수 확인 메일을 발송했습니다.`
                 : submissionEmail.status === 'FAILED'
                   ? `접수는 완료되었으나 확인 메일 발송에 실패했습니다. 스팸함을 확인하거나 업체에 문의해 주세요.`
-                  : `접수는 완료되었습니다. 확인 메일은 업체 메일 설정 후 발송됩니다.`}
+                  : submissionEmail.status === 'SKIPPED_NO_PLATFORM_SMTP'
+                    ? `접수는 완료되었습니다. 확인 메일은 잠시 후 다시 시도되거나, 업체에 문의해 주세요.`
+                    : `접수는 완료되었습니다. 확인 메일은 업체 메일 설정 후 발송됩니다.`}
             </p>
           ) : (
             <p className="mt-2 text-fluid-xs text-gray-600">

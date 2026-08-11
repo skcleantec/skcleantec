@@ -12,7 +12,7 @@ export type ResolvedSmtpTransport = {
   secure: boolean;
   auth?: { user: string; pass: string };
   from: string;
-  source: 'tenant' | 'global';
+  source: 'tenant' | 'global' | 'platform';
 };
 
 /** `"회사명" <a@b.com>` 또는 `a@b.com` 에서 로그인용 이메일만 추출 */
@@ -111,9 +111,11 @@ function nodemailerTransportOptions(transport: ResolvedSmtpTransport) {
     const login = (auth?.user ?? extractSmtpLoginEmail(from)).trim().toLowerCase();
     if (login) {
       if (auth) auth = { ...auth, user: login };
-      // 발신 주소의 이메일 부분을 로그인 계정과 강제 일치 (Gmail 거부 방지)
-      const display = from.match(/^"([^"]*)"\s*</)?.[1] ?? from.match(/^(.+?)\s*</)?.[1]?.replace(/^"|"$/g, '');
-      from = display?.trim() ? `"${display.trim().replace(/"/g, '')}" <${login}>` : login;
+      // 플랫폼 noreply Send-as: From 이메일 유지. 테넌트 Gmail만 로그인 계정과 From 일치
+      if (transport.source !== 'platform') {
+        const display = from.match(/^"([^"]*)"\s*</)?.[1] ?? from.match(/^(.+?)\s*</)?.[1]?.replace(/^"|"$/g, '');
+        from = display?.trim() ? `"${display.trim().replace(/"/g, '')}" <${login}>` : login;
+      }
     }
   }
 

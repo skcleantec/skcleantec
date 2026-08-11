@@ -17,6 +17,7 @@ import {
   validatePlatformSmtpForm,
   type PlatformSmtpFormState,
 } from '../../../components/platform/PlatformSmtpSettingsSection';
+import { PlatformSmtpProfilesSection } from '../../../components/platform/PlatformSmtpProfilesSection';
 
 export function PlatformSettingsSmtpTab() {
   const [smtpForm, setSmtpForm] = useState<PlatformSmtpFormState | null>(null);
@@ -104,6 +105,8 @@ export function PlatformSettingsSmtpTab() {
     <div className="space-y-4">
       {error ? <PlatformAlert variant="error" message={error} /> : null}
       {message ? <PlatformAlert variant="success" message={message} /> : null}
+
+      <PlatformSmtpProfilesSection />
 
       <section className={CARD_SECTION}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">

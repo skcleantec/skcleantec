@@ -15,7 +15,11 @@ export interface OrderFormCreatedBy {
   role: string;
 }
 
-export type OrderFormSubmissionEmailStatus = 'SENT' | 'FAILED' | 'SKIPPED_NO_SMTP';
+export type OrderFormSubmissionEmailStatus =
+  | 'SENT'
+  | 'FAILED'
+  | 'SKIPPED_NO_SMTP'
+  | 'SKIPPED_NO_PLATFORM_SMTP';
 
 export interface OrderFormSubmissionEmailInfo {
   status: OrderFormSubmissionEmailStatus;

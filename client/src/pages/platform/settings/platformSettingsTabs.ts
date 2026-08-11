@@ -11,7 +11,7 @@ export const PLATFORM_SETTINGS_TABS: PlatformSettingsTab[] = [
   {
     id: 'smtp',
     label: 'SMTP',
-    description: '플랫폼 알림·입금 확인 요청 메일 발송',
+    description: '고객·기능별 SMTP 프로필 · 플랫폼 알림 메일',
     ready: true,
   },
   {

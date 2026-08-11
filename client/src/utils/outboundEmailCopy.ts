@@ -1,7 +1,9 @@
 export const OUTBOUND_EMAIL_COPY = {
   pageTitle: '발송 이메일 설정',
   pageIntro:
-    '견적서·현장 완료본 등 고객에게 보내는 메일을, 우리 업체 메일 주소로 보내도록 연결합니다.',
+    '견적서·영수증 등 고객에게 보내는 메일을, 우리 업체 메일 주소로 보내도록 연결합니다.',
+  platformCustomerMailNote:
+    '발주서 제출 확인·현장검수 완료본 메일은 청소비서 플랫폼(noreply)에서 자동 발송됩니다. 여기서는 견적서·영수증 발송용 SMTP만 설정하면 됩니다.',
   scopeTitle: '이 설정은 누구 메일로 보내나요?',
   scopeCommon: '업체 공통',
   scopeBrandHint: (brand: string) =>
