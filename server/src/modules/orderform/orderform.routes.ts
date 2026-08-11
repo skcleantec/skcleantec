@@ -135,6 +135,9 @@ import { parseIsOneRoomFlag, resolveOneRoomSpecialNotes, hasOrderFormBuildingTyp
 import { isSkCleantecOpsUiEnabled, oneRoomLabelWhenSkOpsEnabled } from '../custom/skcleantecOpsUi.js';
 import { assertValidCustomerEmail } from '../../lib/customerEmail.js';
 import {
+  buildOrderFormSubmissionEmailSendInput,
+} from './orderFormSubmissionEmail.helpers.js';
+import {
   queueOrderFormSubmissionConfirmationEmail,
   sendOrderFormSubmissionConfirmationEmail,
   serializeSubmissionEmailLog,
@@ -1093,7 +1096,7 @@ router.post('/:id/resend-submission-email', authMiddleware, requireStaffPermissi
     orderBy: { createdAt: 'desc' },
     select: { inquiryNumber: true },
   });
-  const status = await sendOrderFormSubmissionConfirmationEmail({
+  const result = await sendOrderFormSubmissionConfirmationEmail({
     tenantId,
     orderFormId: form.id,
     operatingCompanyId: form.operatingCompanyId,
@@ -1111,9 +1114,10 @@ router.post('/:id/resend-submission-email', authMiddleware, requireStaffPermissi
     select: { status: true, toEmail: true, lastError: true, sentAt: true },
   });
   res.json({
-    ok: status === 'SENT',
-    status,
+    ok: result.status === 'SENT',
+    status: result.status,
     submissionEmail: serializeSubmissionEmailLog(log),
+    additionalResults: result.additionalResults,
   });
 });
 
@@ -2304,6 +2308,104 @@ router.put(
   },
 );
 
+/** 공개: 제출 확인서 — 접수 확인 메일 재발송 */
+router.post('/by-token/:token/resend-submission-email', async (req, res) => {
+  const { token } = req.params;
+  const body = req.body as { additionalEmail?: string | null };
+  const form = await prisma.orderForm.findUnique({
+    where: { token },
+    select: {
+      id: true,
+      tenantId: true,
+      submittedAt: true,
+      customerEmail: true,
+    },
+  });
+  if (!form) {
+    res.status(404).json({ error: '발주서를 찾을 수 없습니다.' });
+    return;
+  }
+  try {
+    await assertPublicOrderFormAccess(form.tenantId, req);
+  } catch (e) {
+    if (respondPublicTenantAccessError(res, e)) return;
+    throw e;
+  }
+  if (!form.submittedAt) {
+    res.status(400).json({ error: '제출 완료 후에만 확인 메일을 받을 수 있습니다.' });
+    return;
+  }
+
+  const existingLog = await prisma.orderFormSubmissionEmailLog.findFirst({
+    where: { tenantId: form.tenantId, orderFormId: form.id },
+    select: { updatedAt: true },
+  });
+  if (existingLog && Date.now() - existingLog.updatedAt.getTime() < 45_000) {
+    res.status(429).json({ error: '잠시 후 다시 시도해 주세요. (45초 간격)' });
+    return;
+  }
+
+  const primaryRaw = form.customerEmail?.trim() ?? '';
+  const additionalRaw = typeof body.additionalEmail === 'string' ? body.additionalEmail.trim() : '';
+  let additionalEmail: string | null = null;
+  if (additionalRaw) {
+    try {
+      additionalEmail = assertValidCustomerEmail(additionalRaw);
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : '추가 이메일 형식을 확인해 주세요.' });
+      return;
+    }
+  }
+
+  let primaryEmail: string;
+  try {
+    if (primaryRaw) {
+      primaryEmail = assertValidCustomerEmail(primaryRaw);
+    } else if (additionalEmail) {
+      primaryEmail = additionalEmail;
+    } else {
+      res.status(400).json({ error: '받을 이메일 주소를 입력해 주세요.' });
+      return;
+    }
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '이메일 형식을 확인해 주세요.' });
+    return;
+  }
+
+  const sendInput = await buildOrderFormSubmissionEmailSendInput({
+    tenantId: form.tenantId,
+    orderFormId: form.id,
+    customerEmail: primaryEmail,
+  });
+  if (!sendInput) {
+    res.status(400).json({ error: '접수 확인 메일을 보낼 수 없습니다. 업체에 문의해 주세요.' });
+    return;
+  }
+
+  const additionalEmails =
+    additionalEmail && additionalEmail !== primaryEmail ? [additionalEmail] : [];
+
+  try {
+    const result = await sendOrderFormSubmissionConfirmationEmail({
+      ...sendInput,
+      customerEmail: primaryEmail,
+      additionalEmails,
+    });
+    const log = await prisma.orderFormSubmissionEmailLog.findFirst({
+      where: { tenantId: form.tenantId, orderFormId: form.id },
+      select: { status: true, toEmail: true, lastError: true, sentAt: true },
+    });
+    res.json({
+      ok: result.status === 'SENT',
+      status: result.status,
+      submissionEmail: serializeSubmissionEmailLog(log),
+      additionalResults: result.additionalResults,
+    });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '메일 발송에 실패했습니다.' });
+  }
+});
+
 /** 공개: 토큰으로 발주서 조회 (인증 불필요) */
 router.get('/by-token/:token', async (req, res) => {
   const { token } = req.params;
@@ -2358,6 +2460,7 @@ router.get('/by-token/:token', async (req, res) => {
       id: form.id,
       token: form.token,
       customerName: form.customerName,
+      customerEmail: form.customerEmail,
       submittedAt: form.submittedAt.toISOString(),
       inquiryNumber: linkedInquiry?.inquiryNumber ?? null,
       customerSubmissionSnapshot: form.customerSubmissionSnapshot ?? null,

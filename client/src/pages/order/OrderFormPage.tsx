@@ -1370,6 +1370,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       <OrderFormSubmissionReceiptView
         token={token}
         customerName={submittedReceipt.customerName}
+        customerEmail={submittedReceipt.customerEmail}
         submittedAt={submittedReceipt.submittedAt}
         inquiryNumber={submittedReceipt.inquiryNumber}
         snapshot={submittedReceipt.customerSubmissionSnapshot}

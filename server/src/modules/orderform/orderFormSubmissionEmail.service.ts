@@ -28,6 +28,13 @@ export type OrderFormSubmissionEmailSendInput = {
   balanceAmount: number;
   /** 제출 직후 전달(없으면 DB 스냅샷 조회) */
   customerSubmissionSnapshot?: unknown;
+  /** 추가 수신(재발송·다른 메일함) — 로그는 customerEmail 기준 */
+  additionalEmails?: string[];
+};
+
+export type OrderFormSubmissionEmailSendResult = {
+  status: OrderFormSubmissionEmailStatus;
+  additionalResults: Array<{ email: string; ok: boolean; error?: string }>;
 };
 
 async function resolveBrandDisplayName(
@@ -85,10 +92,20 @@ async function upsertSubmissionEmailLog(params: {
   });
 }
 
+function uniqueEmails(primary: string, extras: string[]): string[] {
+  const out: string[] = [primary];
+  for (const raw of extras) {
+    const email = assertValidCustomerEmail(raw);
+    if (!out.includes(email)) out.push(email);
+  }
+  return out;
+}
+
 export async function sendOrderFormSubmissionConfirmationEmail(
   input: OrderFormSubmissionEmailSendInput,
-): Promise<OrderFormSubmissionEmailStatus> {
-  const toEmail = assertValidCustomerEmail(input.customerEmail);
+): Promise<OrderFormSubmissionEmailSendResult> {
+  const primaryEmail = assertValidCustomerEmail(input.customerEmail);
+  const recipients = uniqueEmails(primaryEmail, input.additionalEmails ?? []);
   const brandDisplayName = await resolveBrandDisplayName(input.tenantId, input.operatingCompanyId);
 
   const platformConfigured = await isPlatformCustomerMailConfigured('ORDER_FORM_SUBMISSION');
@@ -104,14 +121,14 @@ export async function sendOrderFormSubmissionConfirmationEmail(
       tenantId: input.tenantId,
       orderFormId: input.orderFormId,
       operatingCompanyId: input.operatingCompanyId,
-      toEmail,
+      toEmail: primaryEmail,
       status: 'SKIPPED_NO_PLATFORM_SMTP',
       lastError:
         '플랫폼 고객 발송 SMTP(noreply)가 설정되지 않았습니다. 플랫폼 설정 → SMTP 프로필을 확인해 주세요.',
       sentAt: null,
       incrementAttempt: true,
     });
-    return 'SKIPPED_NO_PLATFORM_SMTP';
+    return { status: 'SKIPPED_NO_PLATFORM_SMTP', additionalResults: [] };
   }
 
   let snapshot = input.customerSubmissionSnapshot;
@@ -138,34 +155,44 @@ export async function sendOrderFormSubmissionConfirmationEmail(
   };
   const { subject, text, html } = await buildOrderFormSubmissionEmailContent(contentInput);
 
-  try {
-    await sendMailWithTransport(transport, { to: toEmail, subject, text, html });
-    await upsertSubmissionEmailLog({
-      tenantId: input.tenantId,
-      orderFormId: input.orderFormId,
-      operatingCompanyId: input.operatingCompanyId,
-      toEmail,
-      status: 'SENT',
-      lastError: null,
-      sentAt: new Date(),
-      incrementAttempt: true,
-    });
-    return 'SENT';
-  } catch (e) {
-    const msg = formatSmtpSendError(e);
-    console.error('[orderform-submission-email] send failed', msg, e);
-    await upsertSubmissionEmailLog({
-      tenantId: input.tenantId,
-      orderFormId: input.orderFormId,
-      operatingCompanyId: input.operatingCompanyId,
-      toEmail,
-      status: 'FAILED',
-      lastError: msg,
-      sentAt: null,
-      incrementAttempt: true,
-    });
-    return 'FAILED';
+  let primaryStatus: OrderFormSubmissionEmailStatus = 'FAILED';
+  let primaryError: string | null = '발송에 실패했습니다.';
+  const additionalResults: Array<{ email: string; ok: boolean; error?: string }> = [];
+
+  for (const recipient of recipients) {
+    try {
+      await sendMailWithTransport(transport, { to: recipient, subject, text, html });
+      if (recipient === primaryEmail) {
+        primaryStatus = 'SENT';
+        primaryError = null;
+      } else {
+        additionalResults.push({ email: recipient, ok: true });
+      }
+    } catch (e) {
+      const msg = formatSmtpSendError(e);
+      if (recipient === primaryEmail) {
+        primaryStatus = 'FAILED';
+        primaryError = msg;
+        console.error('[orderform-submission-email] send failed', msg, e);
+      } else {
+        additionalResults.push({ email: recipient, ok: false, error: msg });
+        console.error('[orderform-submission-email] additional send failed', recipient, msg, e);
+      }
+    }
   }
+
+  await upsertSubmissionEmailLog({
+    tenantId: input.tenantId,
+    orderFormId: input.orderFormId,
+    operatingCompanyId: input.operatingCompanyId,
+    toEmail: primaryEmail,
+    status: primaryStatus,
+    lastError: primaryError,
+    sentAt: primaryStatus === 'SENT' ? new Date() : null,
+    incrementAttempt: true,
+  });
+
+  return { status: primaryStatus, additionalResults };
 }
 
 export async function loadOrderFormSubmissionEmailStatus(

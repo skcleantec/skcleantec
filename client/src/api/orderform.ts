@@ -310,6 +310,7 @@ export interface OrderFormPublicSubmitted {
   id: string;
   token: string;
   customerName: string;
+  customerEmail?: string | null;
   submittedAt: string;
   inquiryNumber: string | null;
   customerSubmissionSnapshot: unknown | null;
@@ -751,6 +752,35 @@ export async function submitOrderForm(
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || '제출에 실패했습니다.');
   }
+}
+
+export async function resendOrderFormSubmissionEmailByToken(
+  token: string,
+  body?: { additionalEmail?: string | null },
+): Promise<{
+  ok: boolean;
+  status: OrderFormSubmissionEmailStatus;
+  submissionEmail: OrderFormSubmissionEmailInfo | null;
+  additionalResults?: Array<{ email: string; ok: boolean; error?: string }>;
+}> {
+  const res = await fetch(
+    appendPublicQuery(`${API}/orderforms/by-token/${encodeURIComponent(token)}/resend-submission-email`),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    },
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((data as { error?: string }).error || '확인 메일 재발송에 실패했습니다.');
+  }
+  return data as {
+    ok: boolean;
+    status: OrderFormSubmissionEmailStatus;
+    submissionEmail: OrderFormSubmissionEmailInfo | null;
+    additionalResults?: Array<{ email: string; ok: boolean; error?: string }>;
+  };
 }
 
 export async function resendOrderFormSubmissionEmail(
