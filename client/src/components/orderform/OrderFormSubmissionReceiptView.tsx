@@ -173,13 +173,10 @@ export function OrderFormSubmissionReceiptView(props: {
           setResendError(`추가 메일 일부 실패: ${extraFail.map((r) => r.email).join(', ')}`);
         }
       } else {
-        setResendError(
-          result.submissionEmail?.lastError ||
-            '메일 발송에 실패했습니다. 스팸함을 확인하거나 잠시 후 다시 시도해 주세요.',
-        );
+        setResendError('메일 발송에 실패했습니다. 스팸함을 확인하거나 잠시 후 다시 시도해 주세요.');
       }
-    } catch (e) {
-      setResendError(e instanceof Error ? e.message : '메일 발송에 실패했습니다.');
+    } catch {
+      setResendError('메일 발송에 실패했습니다. 스팸함을 확인하거나 잠시 후 다시 시도해 주세요.');
     } finally {
       setResending(false);
     }
@@ -244,11 +241,6 @@ export function OrderFormSubmissionReceiptView(props: {
             <p className="mt-1.5 text-fluid-xs leading-relaxed text-gray-600">
               {submissionEmailStatusMessage(submissionEmail, storedEmail || customerEmail)}
             </p>
-            {submissionEmail?.lastError && submissionEmail.status !== 'SENT' ? (
-              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs text-amber-900">
-                {submissionEmail.lastError}
-              </p>
-            ) : null}
             {storedEmail ? (
               <p className="mt-2 text-fluid-2xs text-gray-500">
                 제출 시 입력한 이메일: <span className="font-medium text-gray-700">{storedEmail}</span>

@@ -108,7 +108,11 @@ function nodemailerTransportOptions(transport: ResolvedSmtpTransport) {
     } else {
       secure = true;
     }
-    const login = (auth?.user ?? extractSmtpLoginEmail(from)).trim().toLowerCase();
+    const loginFromAuth = auth?.user?.trim().toLowerCase() ?? '';
+    const login =
+      transport.source === 'platform'
+        ? loginFromAuth
+        : (loginFromAuth || extractSmtpLoginEmail(from).trim().toLowerCase());
     if (login) {
       if (auth) auth = { ...auth, user: login };
       // 플랫폼 noreply Send-as: From 이메일 유지. 테넌트 Gmail만 로그인 계정과 From 일치

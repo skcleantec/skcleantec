@@ -20,6 +20,15 @@ export const OUTBOUND_EMAIL_COPY = {
   guideButton: '자세한 설명 보기',
   stepProvider: '어떤 메일을 쓰시나요?',
   stepEmail: '보낼 메일 주소',
+  /** 플랫폼 고객 SMTP 프로필 — wizard 2단계 (로그인 ≠ 발신 표시) */
+  platformStepLoginEmail: 'Gmail 로그인 계정',
+  platformLoginEmailHint:
+    '앱 비밀번호를 발급한 Google 계정입니다. 메일함 로그인용이며, 아래 「고객 발신 주소」와 다릅니다.',
+  platformCustomerFromLabel: '고객에게 보이는 발신 주소 (noreply)',
+  platformCustomerFromHint:
+    '발주서·검수 완료 메일 수신함에 표시되는 주소입니다. Gmail 「다른 주소로 보내기」에 등록한 noreply를 입력하세요.',
+  platformProfilesVsBillingNote:
+    '아래 「알림 메일 보내기」 연습 메일과는 별개입니다. 발주서 제출 확인 메일은 이 프로필(customer-noreply)로만 발송됩니다.',
   stepName: '받는 사람에게 보이는 이름',
   stepPassword: '메일 연동 비밀번호',
   stepTest: '연습 보내기',

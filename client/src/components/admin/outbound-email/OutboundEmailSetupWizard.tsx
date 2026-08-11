@@ -103,6 +103,17 @@ export function OutboundEmailSetupWizard({
 }: OutboundEmailSetupWizardProps) {
   const provider = useMemo(() => findOutboundEmailProvider(providerId), [providerId]);
   const maxStep = 4;
+  const stepEmailLabel =
+    mode === 'platform' ? OUTBOUND_EMAIL_COPY.platformStepLoginEmail : OUTBOUND_EMAIL_COPY.stepEmail;
+  const stepEmailHint =
+    mode === 'platform' ? OUTBOUND_EMAIL_COPY.platformLoginEmailHint : OUTBOUND_EMAIL_COPY.sendEmailHint;
+  const wizardSteps = useMemo(
+    () =>
+      WIZARD_STEPS.map((s) =>
+        s.id === 2 ? { ...s, label: stepEmailLabel } : s,
+      ),
+    [stepEmailLabel],
+  );
 
   const goNext = () => onWizardStepChange(Math.min(maxStep, wizardStep + 1));
   const goPrev = () => onWizardStepChange(Math.max(1, wizardStep - 1));
@@ -113,7 +124,7 @@ export function OutboundEmailSetupWizard({
         <ProviderPicker providerId={providerId} onSelect={onProviderIdChange} />
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block sm:col-span-2">
-            <TenantSmtpFieldLabel title={OUTBOUND_EMAIL_COPY.stepEmail} hint={OUTBOUND_EMAIL_COPY.sendEmailHint} />
+            <TenantSmtpFieldLabel title={stepEmailLabel} hint={stepEmailHint} />
             <input
               type="email"
               value={sendEmail}
@@ -174,7 +185,7 @@ export function OutboundEmailSetupWizard({
   return (
     <div className="space-y-4">
       <nav aria-label="설정 단계" className="flex flex-wrap gap-1.5">
-        {WIZARD_STEPS.map((step) => {
+        {wizardSteps.map((step) => {
           const active = wizardStep === step.id;
           const done = wizardStep > step.id;
           return (
@@ -218,7 +229,7 @@ export function OutboundEmailSetupWizard({
 
       {wizardStep === 2 ? (
         <label className="block">
-          <TenantSmtpFieldLabel title={OUTBOUND_EMAIL_COPY.stepEmail} hint={OUTBOUND_EMAIL_COPY.sendEmailHint} />
+          <TenantSmtpFieldLabel title={stepEmailLabel} hint={stepEmailHint} />
           <input
             type="email"
             value={sendEmail}

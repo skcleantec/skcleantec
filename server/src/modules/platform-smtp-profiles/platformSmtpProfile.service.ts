@@ -168,14 +168,23 @@ export async function findEnabledPlatformSmtpProfileForPurpose(
   return null;
 }
 
+export function resolvePlatformSmtpLoginEmail(row: PlatformSmtpProfile): string | null {
+  const user = row.smtpUser?.trim() ?? '';
+  if (user.includes('@')) return user.toLowerCase();
+  return null;
+}
+
 export function resolvePlatformSmtpProfileTransport(
   row: PlatformSmtpProfile,
   fromOverride?: string,
 ): ResolvedSmtpTransport | null {
   const base = resolveStoredSmtpTransport(smtpStoredFromRow(row));
   if (!base) return null;
+  const loginEmail = resolvePlatformSmtpLoginEmail(row);
+  if (!loginEmail || !base.auth) return null;
   return {
     ...base,
+    auth: { ...base.auth, user: loginEmail },
     from: fromOverride?.trim() || base.from,
     source: 'platform',
   };
@@ -186,7 +195,8 @@ export async function isPlatformCustomerMailConfigured(
 ): Promise<boolean> {
   const row = await findEnabledPlatformSmtpProfileForPurpose(purpose);
   if (!row) return false;
-  return smtpConfigStoredComplete(smtpStoredFromRow(row));
+  if (!smtpConfigStoredComplete(smtpStoredFromRow(row))) return false;
+  return resolvePlatformSmtpLoginEmail(row) != null;
 }
 
 export async function createPlatformSmtpProfile(
@@ -275,11 +285,15 @@ export async function sendPlatformSmtpProfileTestMail(profileId: string, to: str
   const row = await prisma.platformSmtpProfile.findUnique({ where: { id: profileId } });
   if (!row) throw new Error('SMTP 프로필을 찾을 수 없습니다.');
   const display = row.defaultDisplayName?.trim() || '청소비서';
-  const fromEmail = extractSmtpLoginEmail(row.smtpFrom?.trim() || '');
-  const from = fromEmail ? `"${display}" <${fromEmail}>` : display;
+  const from = buildPlatformCustomerFromAddress({
+    profile: row,
+    brandDisplayName: display,
+  });
   const transport = resolvePlatformSmtpProfileTransport(row, from);
   if (!transport) {
-    throw new Error('SMTP가 설정되지 않았습니다. 호스트·보내는 주소·앱 비밀번호를 저장해 주세요.');
+    throw new Error(
+      'SMTP가 설정되지 않았습니다. Gmail 로그인 계정(앱 비밀번호 발급 계정)·보내는 주소(noreply)·앱 비밀번호를 저장해 주세요.',
+    );
   }
   await sendMailWithTransport(transport, {
     to: email,

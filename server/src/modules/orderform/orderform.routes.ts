@@ -141,6 +141,7 @@ import {
   queueOrderFormSubmissionConfirmationEmail,
   sendOrderFormSubmissionConfirmationEmail,
   serializeSubmissionEmailLog,
+  serializeSubmissionEmailLogPublic,
 } from './orderFormSubmissionEmail.service.js';
 import {
   orderFormListSnapshotToPrisma,
@@ -2398,11 +2399,11 @@ router.post('/by-token/:token/resend-submission-email', async (req, res) => {
     res.json({
       ok: result.status === 'SENT',
       status: result.status,
-      submissionEmail: serializeSubmissionEmailLog(log),
-      additionalResults: result.additionalResults,
+      submissionEmail: serializeSubmissionEmailLogPublic(log),
+      additionalResults: result.additionalResults?.map(({ email, ok }) => ({ email, ok })),
     });
   } catch (e) {
-    res.status(400).json({ error: e instanceof Error ? e.message : '메일 발송에 실패했습니다.' });
+    res.status(400).json({ error: '메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
   }
 });
 
@@ -2467,7 +2468,7 @@ router.get('/by-token/:token', async (req, res) => {
       formConfig,
       publicBranding,
       publicCompanyTrust,
-      submissionEmail: serializeSubmissionEmailLog(emailLog),
+      submissionEmail: serializeSubmissionEmailLogPublic(emailLog),
     });
     return;
   }

@@ -107,7 +107,8 @@ export function PlatformSmtpProfilesSection() {
   const isNew = editingId === null;
 
   const parsedFrom = useMemo(() => parseSmtpFrom(form.smtpFrom), [form.smtpFrom]);
-  const sendEmail = form.smtpUser || parsedFrom.email;
+  /** Gmail SMTP 로그인(앱 비밀번호 계정). noreply 발신 주소와 분리 */
+  const sendEmail = form.smtpUser.trim();
   const displayName = form.defaultDisplayName || parsedFrom.displayName || '청소비서';
 
   const patchFromWizard = (patch: {
@@ -121,7 +122,7 @@ export function PlatformSmtpProfilesSection() {
   }) => {
     if (patch.providerId) setProviderId(patch.providerId);
     setForm((prev) => {
-      const nextSend = patch.sendEmail ?? (prev.smtpUser || parseSmtpFrom(prev.smtpFrom).email);
+      const nextSend = patch.sendEmail ?? prev.smtpUser;
       const nextName = patch.displayName ?? prev.defaultDisplayName;
       const preset = patch.providerId ? applyOutboundEmailProviderPreset(patch.providerId) : null;
       const next: ProfileFormState = {
@@ -133,9 +134,6 @@ export function PlatformSmtpProfilesSection() {
         ...(patch.displayName !== undefined ? { defaultDisplayName: nextName } : {}),
         ...(patch.smtpPassword !== undefined ? { smtpPassword: patch.smtpPassword } : {}),
       };
-      if (patch.displayName !== undefined || patch.sendEmail !== undefined) {
-        next.smtpFrom = buildSmtpFrom(nextName, nextSend);
-      }
       return next;
     });
     setFieldErrors({});
@@ -202,11 +200,20 @@ export function PlatformSmtpProfilesSection() {
   const saveProfile = async () => {
     const token = getPlatformToken();
     if (!token) return;
-    const smtpFrom = buildSmtpFrom(displayName, sendEmail) || form.smtpFrom.trim();
+    const loginEmail = sendEmail.trim();
+    if (!loginEmail.includes('@')) {
+      setError('Gmail 로그인 계정(앱 비밀번호를 발급한 Google 계정)을 입력해 주세요.');
+      return;
+    }
+    if (!form.smtpFrom.trim().includes('@')) {
+      setError('고객에게 보이는 발신 주소(noreply)를 입력해 주세요.');
+      return;
+    }
+    const smtpFrom = form.smtpFrom.trim() || buildSmtpFrom(displayName, loginEmail);
     const validationError = firstOutboundEmailValidationMessage(
       validateOutboundEmailForm({
         providerId,
-        sendEmail,
+        sendEmail: loginEmail,
         displayName,
         smtpHost: form.smtpHost,
         smtpPort: form.smtpPort,
@@ -235,7 +242,7 @@ export function PlatformSmtpProfilesSection() {
         host: form.smtpHost.trim(),
         port: Number(form.smtpPort) || 587,
         secure: form.smtpSecure,
-        user: form.smtpUser.trim(),
+        user: loginEmail,
         from: smtpFrom,
         ...(form.smtpPassword.trim() ? { password: form.smtpPassword } : {}),
       };
@@ -321,6 +328,9 @@ export function PlatformSmtpProfilesSection() {
             <p className="mt-1 text-xs text-gray-500 leading-relaxed">
               모든 테넌트의 발주서 제출 확인·현장검수 완료본 등 purpose별 발송 계정을 관리합니다.
               견적서·영수증은 업체별 발송 이메일 설정을 그대로 사용합니다.
+            </p>
+            <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-amber-950">
+              {OUTBOUND_EMAIL_COPY.platformProfilesVsBillingNote}
             </p>
           </div>
           <button type="button" onClick={openCreate} className={BTN_PRIMARY}>
@@ -478,6 +488,22 @@ export function PlatformSmtpProfilesSection() {
                       ))}
                     </div>
                   </fieldset>
+                  <label className="block text-fluid-xs">
+                    <span className="font-medium text-gray-800">
+                      {OUTBOUND_EMAIL_COPY.platformCustomerFromLabel}
+                    </span>
+                    <p className="mt-0.5 text-fluid-2xs text-gray-500 leading-snug">
+                      {OUTBOUND_EMAIL_COPY.platformCustomerFromHint}
+                    </p>
+                    <input
+                      type="text"
+                      value={form.smtpFrom}
+                      onChange={(e) => setForm((f) => ({ ...f, smtpFrom: e.target.value }))}
+                      placeholder="noreply@service-bridges.com"
+                      className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-fluid-xs"
+                      autoComplete="off"
+                    />
+                  </label>
                   <div className="flex flex-wrap justify-end gap-2">
                     <button
                       type="button"
@@ -522,7 +548,8 @@ export function PlatformSmtpProfilesSection() {
                     busy={testing}
                     smtpReady={Boolean(
                       form.smtpHost.trim() &&
-                        (buildSmtpFrom(displayName, sendEmail) || form.smtpFrom.trim()) &&
+                        sendEmail.includes('@') &&
+                        form.smtpFrom.trim() &&
                         (form.smtpPasswordConfigured || form.smtpPassword.trim()),
                     )}
                     onTestOnly={!isNew && editingId ? () => void testProfile() : undefined}

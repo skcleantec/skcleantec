@@ -234,3 +234,18 @@ export function serializeSubmissionEmailLog(row: {
     sentAt: row.sentAt?.toISOString() ?? null,
   };
 }
+
+/** 공개 발주서 확인서 — SMTP·내부 오류 노출 금지 */
+export function serializeSubmissionEmailLogPublic(row: {
+  status: OrderFormSubmissionEmailStatus;
+  toEmail: string;
+  lastError: string | null;
+  sentAt: Date | null;
+} | null | undefined) {
+  if (!row) return null;
+  return {
+    status: row.status,
+    toEmail: row.toEmail,
+    sentAt: row.sentAt?.toISOString() ?? null,
+  };
+}
