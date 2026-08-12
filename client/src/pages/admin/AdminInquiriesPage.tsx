@@ -83,6 +83,7 @@ import {
   getInquiryCreatorOptions,
   type UserItem,
 } from '../../api/users';
+import { formatStaffAttributionLabel } from '@shared/staffAttributionLabel';
 import { resolveMarketerOperationalAdminFromMe, hasStaffPermission, canDeleteInquiryFromMe } from '../../utils/staffAdminAccess';
 import { getToken } from '../../stores/auth';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
@@ -799,13 +800,27 @@ const INQUIRY_MOBILE_CARD_FOOTER_CLASS =
 
 function labelForMarketerFilter(
   filterId: string,
-  me: { id: string; name: string } | null,
+  me: { id: string; name: string; email?: string; role?: string } | null,
   marketerList: UserItem[]
 ): string {
   if (!filterId) return '';
   if (filterId === CREATED_BY_FILTER_UNASSIGNED) return '미지정';
-  if (me && filterId === me.id) return `관리자 (${me.name})`;
-  return marketerList.find((u) => u.id === filterId)?.name ?? filterId;
+  const fromList = marketerList.find((u) => u.id === filterId);
+  if (fromList) {
+    return formatStaffAttributionLabel({
+      name: fromList.name,
+      loginId: fromList.email,
+      role: fromList.role,
+    });
+  }
+  if (me && filterId === me.id) {
+    return formatStaffAttributionLabel({
+      name: me.name,
+      loginId: me.email ?? '',
+      role: me.role ?? 'ADMIN',
+    });
+  }
+  return filterId;
 }
 
 function effectiveInquiryAmounts(it: InquiryItem) {
@@ -2669,7 +2684,13 @@ export function AdminInquiriesPage() {
                             : undefined
                         }
                       >
-                        <td className="py-1 pr-2">{m.name}</td>
+                        <td className="py-1 pr-2">
+                          {formatStaffAttributionLabel({
+                            name: m.name,
+                            loginId: m.loginId,
+                            role: m.role,
+                          })}
+                        </td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.monthCount}건</td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.todayCount}건</td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.todayAbsentCount}건</td>
@@ -2727,14 +2748,22 @@ export function AdminInquiriesPage() {
                   >
                     <option value="">전체</option>
                     <option value={CREATED_BY_FILTER_UNASSIGNED}>미지정</option>
-                    {me && (
+                    {me && !marketers.some((u) => u.id === me.id) ? (
                       <option value={me.id}>
-                        관리자 ({me.name})
+                        {formatStaffAttributionLabel({
+                          name: me.name,
+                          loginId: me.email ?? '',
+                          role: me.role ?? 'ADMIN',
+                        })}
                       </option>
-                    )}
+                    ) : null}
                     {marketers.map((m) => (
                       <option key={m.id} value={m.id}>
-                        {m.name}
+                        {formatStaffAttributionLabel({
+                          name: m.name,
+                          loginId: m.email,
+                          role: m.role,
+                        })}
                       </option>
                     ))}
                   </select>

@@ -455,10 +455,42 @@ router.patch('/me', authMiddleware, async (req, res) => {
   }
 
   if (body.name !== undefined) {
+    const existingForName = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, isTenantOwner: true, email: true, tenantId: true },
+    });
+    if (
+      existingForName?.role === 'ADMIN' &&
+      existingForName.isTenantOwner &&
+      !isTeamPreviewAdminEmail(existingForName.email)
+    ) {
+      res.status(403).json({
+        error:
+          '업체 대표 관리자(admin) 표시 이름은 여기서 바꿀 수 없습니다. 잘못 변경된 경우 플랫폼·내부 관리자에게 복구를 요청해 주세요.',
+      });
+      return;
+    }
     const name = String(body.name).trim();
     if (!name) {
       res.status(400).json({ error: '이름을 입력해주세요.' });
       return;
+    }
+    if (existingForName?.tenantId) {
+      const duplicateName = await prisma.user.findFirst({
+        where: {
+          tenantId: existingForName.tenantId,
+          name,
+          isActive: true,
+          NOT: { id: userId },
+        },
+        select: { email: true },
+      });
+      if (duplicateName) {
+        res.status(400).json({
+          error: `같은 표시 이름「${name}」이(가) 이미 있습니다 (${duplicateName.email}). 팀장·마케터·관리자가 헷갈리지 않도록 다른 이름을 써 주세요.`,
+        });
+        return;
+      }
     }
     data.name = name;
   }

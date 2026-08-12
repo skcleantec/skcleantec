@@ -19,6 +19,9 @@ export type MarketerOverviewTodayTotals = {
 export type MarketerOverviewRow = {
   marketerId: string;
   name: string;
+  /** 로그인 아이디 — 동명이인(팀장 vs 관리자) 구분용 */
+  loginId: string;
+  role: 'MARKETER' | 'ADMIN';
   monthCount: number;
   /** 당일 예약완료(RECEIVED) */
   todayCount: number;
@@ -237,7 +240,7 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
 
   const staff = await prisma.user.findMany({
     where: { tenantId, role: { in: ['MARKETER', 'ADMIN'] }, isActive: true },
-    select: { id: true, name: true, email: true, hireDate: true, resignationDate: true },
+    select: { id: true, name: true, email: true, role: true, hireDate: true, resignationDate: true },
     orderBy: { name: 'asc' },
   });
   /** 개발용 team-preview 관리자 계정은 집계·필터 대상에서 제외, 그리고 퇴사자는 제외 */
@@ -264,6 +267,8 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
   const rows: MarketerOverviewRow[] = marketers.map((m) => ({
     marketerId: m.id,
     name: m.name,
+    loginId: m.email,
+    role: m.role as 'MARKETER' | 'ADMIN',
     monthCount: monthCounts.get(m.id) ?? 0,
     todayCount: todayCounts.get(m.id) ?? 0,
     todayAbsentCount: followupToday.absent.get(m.id) ?? 0,

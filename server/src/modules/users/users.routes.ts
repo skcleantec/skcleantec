@@ -470,6 +470,18 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
     return;
   }
 
+  const trimmedName = String(name).trim();
+  const duplicateName = await prisma.user.findFirst({
+    where: { tenantId, name: trimmedName, isActive: true },
+    select: { email: true },
+  });
+  if (duplicateName) {
+    res.status(400).json({
+      error: `같은 표시 이름「${trimmedName}」이(가) 이미 있습니다 (${duplicateName.email}). 팀장·마케터·관리자가 헷갈리지 않도록 다른 이름을 써 주세요.`,
+    });
+    return;
+  }
+
   if (userRole === 'TEAM_LEADER') {
     try {
       const tenantPlan = await getTenantPlan(tenantId);
@@ -600,7 +612,7 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
         tenantId,
         email: loginId,
         passwordHash,
-        name,
+        name: trimmedName,
         phone: phone || null,
         role: userRole,
         ...(payrollMonthlySalary !== undefined ? { payrollMonthlySalary } : {}),
@@ -874,6 +886,21 @@ router.patch('/:id', requireStaffPermission('admin.users'), async (req, res) => 
     const name = String(body.name).trim();
     if (!name) {
       res.status(400).json({ error: '이름을 입력해주세요.' });
+      return;
+    }
+    const duplicateName = await prisma.user.findFirst({
+      where: {
+        tenantId,
+        name,
+        isActive: true,
+        NOT: { id: existing.id },
+      },
+      select: { email: true, role: true },
+    });
+    if (duplicateName) {
+      res.status(400).json({
+        error: `같은 표시 이름「${name}」이(가) 이미 있습니다 (${duplicateName.email}). 팀장·마케터·관리자가 헷갈리지 않도록 다른 이름을 써 주세요.`,
+      });
       return;
     }
     data.name = name;

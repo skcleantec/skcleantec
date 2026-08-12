@@ -17,6 +17,7 @@ import {
 } from '../../api/users';
 import type { MarketerAdminLevel } from '@shared/marketerAdminLevel';
 import { MARKETER_ADMIN_LEVEL_LABEL } from '@shared/marketerAdminLevel';
+import { formatAdminRosterLabel } from '@shared/staffAttributionLabel';
 import { getToken } from '../../stores/auth';
 import { getMe } from '../../api/auth';
 import { LoginCredentialsCopySheet } from '../../components/admin/LoginCredentialsCopySheet';
@@ -227,6 +228,7 @@ export function AdminTeamLeadersPage() {
   const [isTenantOwner, setIsTenantOwner] = useState(false);
   const [teamLeaders, setTeamLeaders] = useState<UserItem[]>([]);
   const [marketers, setMarketers] = useState<UserItem[]>([]);
+  const [adminUsers, setAdminUsers] = useState<UserItem[]>([]);
   const [officeStaff, setOfficeStaff] = useState<UserItem[]>([]);
   const [resignedUsers, setResignedUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -293,14 +295,16 @@ export function AdminTeamLeadersPage() {
     return Promise.all([
       getUsers(token, 'TEAM_LEADER', { scope: 'management', employmentStatus: 'active' }),
       getUsers(token, 'MARKETER', { scope: 'management', employmentStatus: 'active' }),
+      getUsers(token, 'ADMIN', { scope: 'management', employmentStatus: 'active' }),
       getUsers(token, 'OFFICE_STAFF', { scope: 'management', employmentStatus: 'active' }),
       getUsers(token, 'TEAM_LEADER', { scope: 'management', employmentStatus: 'resigned' }),
       getUsers(token, 'MARKETER', { scope: 'management', employmentStatus: 'resigned' }),
       getUsers(token, 'OFFICE_STAFF', { scope: 'management', employmentStatus: 'resigned' }),
     ])
-      .then(([teamRes, marketerRes, officeRes, resignedTl, resignedMk, resignedOf]) => {
+      .then(([teamRes, marketerRes, adminRes, officeRes, resignedTl, resignedMk, resignedOf]) => {
         setTeamLeaders(teamRes);
         setMarketers(marketerRes);
+        setAdminUsers(adminRes);
         setOfficeStaff(officeRes);
         const merged = [...resignedTl, ...resignedMk, ...resignedOf].sort((a, b) => {
           const da = a.resignationDate ?? '';
@@ -314,6 +318,7 @@ export function AdminTeamLeadersPage() {
       .catch((err) => {
         setTeamLeaders([]);
         setMarketers([]);
+        setAdminUsers([]);
         setOfficeStaff([]);
         setResignedUsers([]);
         setApiError(err instanceof Error ? err.message : '서버에 연결할 수 없습니다.');
@@ -988,7 +993,9 @@ export function AdminTeamLeadersPage() {
         {userTab === 'marketer' ? (
         <div className="min-w-0 text-left">
           <div className="flex flex-row items-center justify-between gap-2 px-4 py-3 bg-gray-50/80 border-b border-gray-100 text-left">
-            <h3 className="font-medium text-gray-800">마케터 ({marketers.length}명)</h3>
+            <h3 className="font-medium text-gray-800">
+              마케터 · 관리자 (마케터 {marketers.length}명 · 관리자 {adminUsers.length}명)
+            </h3>
             <button
               type="button"
               onClick={() => {
@@ -1007,10 +1014,38 @@ export function AdminTeamLeadersPage() {
           </div>
           {loading ? (
             <div className="p-8 text-left text-gray-500 lg:text-center">로딩 중...</div>
-          ) : marketers.length === 0 && !apiError ? (
-            <div className="p-8 text-left text-gray-500 lg:text-center">등록된 마케터가 없습니다.</div>
+          ) : marketers.length === 0 && adminUsers.length === 0 && !apiError ? (
+            <div className="p-8 text-left text-gray-500 lg:text-center">등록된 마케터·관리자가 없습니다.</div>
           ) : (
             <>
+              {adminUsers.length > 0 ? (
+                <div className="border-b border-gray-100 bg-slate-50/60 px-4 py-3 text-left">
+                  <p className="text-fluid-xs font-medium text-slate-800">관리자 계정</p>
+                  <p className="mt-0.5 text-fluid-2xs text-slate-600">
+                    접수·마케터별 집계에 포함됩니다. 이 화면에서는 등록·삭제하지 않으며, 아래 「마케터」와 아이디로 구분합니다.
+                  </p>
+                  <ul className="mt-2 space-y-1.5">
+                    {adminUsers.map((item) => (
+                      <li
+                        key={item.id}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-fluid-xs text-slate-800"
+                      >
+                        <span className="font-semibold">
+                          {formatAdminRosterLabel({ name: item.name, loginId: item.email })}
+                        </span>
+                        {item.phone ? (
+                          <span className="ml-2 text-slate-600 tabular-nums">{item.phone}</span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {marketers.length === 0 ? (
+                <div className="p-6 text-left text-fluid-sm text-gray-500 lg:text-center">
+                  등록된 마케터가 없습니다. 우측 + 로 마케터를 등록할 수 있습니다.
+                </div>
+              ) : null}
               <div className="flex flex-col gap-3 p-3 text-left lg:hidden">
                 {marketers.map((item) => (
                   <div key={item.id} className={userMobileCardShell}>

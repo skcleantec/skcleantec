@@ -21,6 +21,8 @@ export type MarketerOverviewResponse = {
   marketers: Array<{
     marketerId: string;
     name: string;
+    loginId: string;
+    role: 'MARKETER' | 'ADMIN';
     monthCount: number;
     todayCount: number;
     todayAbsentCount: number;
