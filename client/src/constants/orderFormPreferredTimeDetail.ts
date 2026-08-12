@@ -20,8 +20,9 @@ function halfHourRange(startMin: number, endMin: number): string[] {
   return out;
 }
 
-/** 오전·사이청소는 30분 단위 HH:mm, 오후는 고정 문구 한 가지만 */
+/** 오전·사이청소는 30분 단위 HH:mm, 오후는 고정 문구 한 가지만. 조율은 구체적 시각 불필요 */
 export function allowedPreferredTimeDetailValues(slot: OrderTimeSlot): Set<string> {
+  if (slot === '조율') return new Set();
   if (slot === '오전') return new Set(halfHourRange(M(8, 0), M(9, 0)));
   if (slot === '오후') return new Set([ORDER_FORM_AFTERNOON_TIME_DETAIL_VALUE]);
   return new Set(halfHourRange(M(10, 0), M(13, 0)));
@@ -88,5 +89,6 @@ export function coercePreferredTimeDetailForSlot(raw: string, slot: OrderTimeSlo
 export function preferredTimeDetailRangeHint(slot: OrderTimeSlot): string {
   if (slot === '오전') return '오전 8시~9시 사이, 30분 단위로 선택할 수 있습니다.';
   if (slot === '오후') return '오후는 12시~2시 사이 일정만 선택할 수 있으며, 세부 시각은 협의입니다.';
+  if (slot === '조율') return '조율은 오전·오후·사이와 무관합니다. 구체적 시각은 입력하지 않아도 됩니다.';
   return '오전 10시~오후 1시 사이, 30분 단위로 선택할 수 있습니다.';
 }

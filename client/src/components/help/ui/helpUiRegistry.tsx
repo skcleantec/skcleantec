@@ -137,6 +137,11 @@ export const HELP_UI_REGISTRY: Record<HelpUiTokenId, () => ReactNode> = {
       <ScheduleSlotBadge label="사이" isSide />
     </HelpUiShell>
   ),
+  'schedule-badge-coordination': () => (
+    <HelpUiShell>
+      <ScheduleSlotBadge label="조율" isCoordination />
+    </HelpUiShell>
+  ),
   'schedule-badge-unassigned': () => (
     <HelpUiShell>
       <ScheduleUnassignedChip />

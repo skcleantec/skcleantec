@@ -10,6 +10,7 @@ export const HELP_UI_TOKENS = [
   'schedule-badge-am',
   'schedule-badge-pm',
   'schedule-badge-side',
+  'schedule-badge-coordination',
   'schedule-badge-unassigned',
   'schedule-marketplace-cart',
   // 정보공유 — 탭·상태

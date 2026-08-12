@@ -51,7 +51,7 @@ import {
   type ProfessionalSpecialtyOption,
 } from '../../constants/professionalSpecialtyOptions';
 import { getScheduleStats, type ScheduleStatsByDate } from '../../api/dayoffs';
-import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
+import { getScheduleTimeBucket, isBetweenSlotTime, isCoordinationTime } from '../../utils/scheduleTimeBucket';
 import { buildSlotOccupiedLeaderIdsForDay } from '../../utils/scheduleSlotOccupancy';
 import { formatPreferredDateInputYmd, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquiryLeadPlatformLabel, inquiryEditFormAddress, isInquirySourceHiddenFromUi } from '../../utils/inquiryListDisplay';
@@ -291,7 +291,7 @@ function buildPatchFromEditForm(
   if (opts?.includeCreatedById === true) {
     patch.createdById = editForm.createdById || null;
   }
-  patch.betweenScheduleSlot = isSideCleaningTime(editForm.preferredTime)
+  patch.betweenScheduleSlot = isBetweenSlotTime(editForm.preferredTime)
     ? editForm.betweenScheduleSlot === ''
       ? null
       : editForm.betweenScheduleSlot
@@ -2548,7 +2548,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                         setEditForm((p) => ({
                           ...p,
                           preferredTime: v,
-                          betweenScheduleSlot: (v || '').includes('사이청소') ? p.betweenScheduleSlot : '',
+                          betweenScheduleSlot: isBetweenSlotTime(v) ? p.betweenScheduleSlot : '',
                         }));
                       }}
                       className="w-1/2 min-w-0 rounded border border-gray-300 bg-white px-1 py-0.5 text-fluid-2xs text-slate-900"
@@ -2567,9 +2567,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                   </div>
                 </div>
 
-                {isSideCleaningTime(editForm.preferredTime) && (
+                {isBetweenSlotTime(editForm.preferredTime) && (
                   <div className="sm:col-span-2 pt-1">
-                    <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">사이청소 일정 확정</label>
+                    <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">
+                      {isCoordinationTime(editForm.preferredTime) ? '조율 일정 확정' : '사이청소 일정 확정'}
+                    </label>
                     <div className="flex items-center gap-3">
                       <select
                         value={editForm.betweenScheduleSlot}
@@ -2580,7 +2582,11 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
                         <option value="오전">오전에 청소</option>
                         <option value="오후">오후에 청소</option>
                       </select>
-                      <p className="text-[12px] text-slate-500">확정 시 해당 시간대 청소 가능 인원에서 1건을 사용합니다.</p>
+                      <p className="text-[12px] text-slate-500">
+                        {isCoordinationTime(editForm.preferredTime)
+                          ? '조율은 시간대와 무관하게 마지막에 배치하기 쉽습니다. 확정 시 해당 시간대 청소 가능 인원에서 1건을 사용합니다.'
+                          : '확정 시 해당 시간대 청소 가능 인원에서 1건을 사용합니다.'}
+                      </p>
                     </div>
                   </div>
                 )}

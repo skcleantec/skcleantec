@@ -56,7 +56,7 @@ import {
   mapInquiriesInternalToneForRole,
   parseInternalCustomerToneInput,
 } from './internalCustomerTone.js';
-import { isSideCleaningPreferredTime } from '../schedule/scheduleSlot.helpers.js';
+import { isBetweenSlotPreferredTime } from '../schedule/scheduleSlot.helpers.js';
 import {
   filterExistingProfessionalOptionSelections,
   parseProfessionalOptionSelectionsRaw,
@@ -1281,11 +1281,11 @@ router.patch('/:id', async (req, res) => {
     data.preferredTime !== undefined
       ? String(data.preferredTime)
       : String(inquiry.preferredTime ?? '');
-  if (!isSideCleaningPreferredTime(mergedTime)) {
+  if (!isBetweenSlotPreferredTime(mergedTime)) {
     data.betweenScheduleSlot = null;
   }
-  if (data.betweenScheduleSlot != null && !isSideCleaningPreferredTime(mergedTime)) {
-    res.status(400).json({ error: '사이청소 접수만 오전/오후 일정을 확정할 수 있습니다.' });
+  if (data.betweenScheduleSlot != null && !isBetweenSlotPreferredTime(mergedTime)) {
+    res.status(400).json({ error: '사이청소·조율 접수만 오전/오후 일정을 확정할 수 있습니다.' });
     return;
   }
 
@@ -1322,11 +1322,11 @@ router.patch('/:id', async (req, res) => {
     data.betweenScheduleSlot !== undefined
       ? (data.betweenScheduleSlot as string | null)
       : inquiry.betweenScheduleSlot;
-  if (!isSideCleaningPreferredTime(mergedTime)) {
+  if (!isBetweenSlotPreferredTime(mergedTime)) {
     mergedBetween = null;
   }
   if (fmtBetween(inquiry.betweenScheduleSlot) !== fmtBetween(mergedBetween)) {
-    lines.push(`사이청소 일정 확정: ${fmtBetween(inquiry.betweenScheduleSlot)} → ${fmtBetween(mergedBetween)}`);
+    lines.push(`일정 확정(오전/오후): ${fmtBetween(inquiry.betweenScheduleSlot)} → ${fmtBetween(mergedBetween)}`);
   }
   const fmtText = (v: unknown) => (v == null || v === '' ? '(없음)' : String(v));
   const fmtNum = (v: unknown) => (v == null || v === '' ? '(없음)' : String(v));

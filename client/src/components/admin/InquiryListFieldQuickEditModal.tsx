@@ -6,6 +6,8 @@ import { PreferredDateCalendarModal } from './PreferredDateCalendarModal';
 import { ModalCloseButton } from './ModalCloseButton';
 import { YmdSelect } from '../ui/DateQuerySelects';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
+import { isPreferredTimeDetailRequired } from '../../constants/orderFormSchedule';
+import { isBetweenSlotTime, isCoordinationTime } from '../../utils/scheduleTimeBucket';
 import { inquiryAreaEditFormStringsFromItem } from '../../utils/inquiryAreaDisplay';
 import { kstTodayYmd } from '../../utils/dateFormat';
 
@@ -19,6 +21,7 @@ export type InquiryListQuickEditItem = {
   preferredDate: string | null;
   preferredTime: string | null;
   preferredTimeDetail?: string | null;
+  betweenScheduleSlot?: string | null;
   areaBasis?: string | null;
   areaPyeong?: number | null;
   exclusiveAreaSqm?: number | null;
@@ -48,6 +51,7 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
   const [preferredDate, setPreferredDate] = useState('');
   const [preferredTime, setPreferredTime] = useState('');
   const [preferredTimeDetail, setPreferredTimeDetail] = useState('');
+  const [betweenScheduleSlot, setBetweenScheduleSlot] = useState('');
   const [areaBasis, setAreaBasis] = useState('');
   const [areaPyeong, setAreaPyeong] = useState('');
   const [roomCount, setRoomCount] = useState('');
@@ -62,6 +66,7 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
     setPreferredDate(item.preferredDate ? item.preferredDate.slice(0, 10) : '');
     setPreferredTime(item.preferredTime || '');
     setPreferredTimeDetail(item.preferredTimeDetail?.trim() || '');
+    setBetweenScheduleSlot(item.betweenScheduleSlot?.trim() || '');
     const area = inquiryAreaEditFormStringsFromItem(item);
     setAreaBasis(item.areaBasis?.trim() || '');
     setAreaPyeong(area.areaPyeong);
@@ -77,10 +82,16 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
       return { preferredDate: preferredDate.trim() || null };
     }
     if (field === 'time') {
-      return {
+      const patch: Record<string, unknown> = {
         preferredTime: preferredTime.trim(),
         preferredTimeDetail: preferredTimeDetail.trim(),
       };
+      if (isBetweenSlotTime(preferredTime)) {
+        patch.betweenScheduleSlot = betweenScheduleSlot.trim() || null;
+      } else {
+        patch.betweenScheduleSlot = null;
+      }
+      return patch;
     }
     const patch: Record<string, unknown> = {
       areaBasis: areaBasis.trim(),
@@ -131,6 +142,7 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
     preferredDate,
     preferredTime,
     preferredTimeDetail,
+    betweenScheduleSlot,
     areaBasis,
     areaPyeong,
     roomCount,
@@ -155,6 +167,9 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
   };
 
   if (!open || !field || !item) return null;
+
+  const detailRequired = isPreferredTimeDetailRequired(preferredTime);
+  const showBetweenSlot = isBetweenSlotTime(preferredTime);
 
   return createPortal(
     <>
@@ -208,7 +223,11 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
                   <label className="mb-1 block text-fluid-xs font-medium text-slate-600">희망 시간대</label>
                   <select
                     value={preferredTime}
-                    onChange={(e) => setPreferredTime(e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setPreferredTime(v);
+                      if (!isBetweenSlotTime(v)) setBetweenScheduleSlot('');
+                    }}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-sm"
                   >
                     <option value="">선택 안 함</option>
@@ -220,14 +239,44 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-fluid-xs font-medium text-slate-600">구체적 시각 (선택)</label>
+                  <label className="mb-1 block text-fluid-xs font-medium text-slate-600">
+                    구체적 시각 {detailRequired ? '' : '(선택)'}
+                  </label>
                   <input
                     value={preferredTimeDetail}
                     onChange={(e) => setPreferredTimeDetail(e.target.value)}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-sm"
-                    placeholder="예: 10:30"
+                    placeholder={
+                      isCoordinationTime(preferredTime)
+                        ? '조율은 입력하지 않아도 됩니다'
+                        : '예: 10:30'
+                    }
                   />
+                  {isCoordinationTime(preferredTime) ? (
+                    <p className="mt-1 text-fluid-2xs text-slate-500">
+                      조율은 오전·오후·사이와 무관합니다. 마지막에 배치하기 쉽도록 스케줄에서 깜빡여 표시됩니다.
+                    </p>
+                  ) : null}
                 </div>
+                {showBetweenSlot ? (
+                  <div>
+                    <label className="mb-1 block text-fluid-xs font-medium text-slate-600">
+                      {isCoordinationTime(preferredTime) ? '조율 일정 확정' : '사이청소 일정 확정'}
+                    </label>
+                    <select
+                      value={betweenScheduleSlot}
+                      onChange={(e) => setBetweenScheduleSlot(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-fluid-sm"
+                    >
+                      <option value="">미확정 (오전/오후 중 미정)</option>
+                      <option value="오전">오전에 청소</option>
+                      <option value="오후">오후에 청소</option>
+                    </select>
+                    <p className="mt-1 text-fluid-2xs text-slate-500">
+                      확정 시 해당 시간대 청소 가능 인원에서 1건을 사용합니다.
+                    </p>
+                  </div>
+                ) : null}
               </>
             ) : null}
             {field === 'area' ? (
@@ -313,7 +362,7 @@ export function InquiryListFieldQuickEditModal({ open, field, item, token, onClo
               type="button"
               onClick={() => void handleSave()}
               disabled={saving}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-fluid-xs font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
             >
               {saving ? '저장 중…' : '저장'}
             </button>

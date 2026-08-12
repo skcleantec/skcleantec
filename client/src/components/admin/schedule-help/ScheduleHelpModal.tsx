@@ -111,10 +111,21 @@ function ScheduleHelpCalendarCellDemo() {
           </span>
           <span className="font-bold">1</span>
         </div>
-        <div className="flex items-center justify-between text-[9px] font-semibold text-violet-700">
+        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-semibold text-violet-700 leading-none shrink-0">
           <span className="flex items-center gap-0.5">
-            <span aria-hidden>⚡</span>
+            <span className="text-[9px]" aria-hidden>
+              ⚡
+            </span>
             <span>사이</span>
+          </span>
+          <span className="font-bold">1</span>
+        </div>
+        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-semibold text-teal-800 leading-none shrink-0 motion-safe:animate-pulse">
+          <span className="flex items-center gap-0.5">
+            <span className="text-[9px]" aria-hidden>
+              ◇
+            </span>
+            <span>조율</span>
           </span>
           <span className="font-bold">1</span>
         </div>
@@ -165,6 +176,9 @@ function ScheduleHelpCalendarTab() {
               <strong className="text-slate-800">⚡ 사이</strong> — 사이청소인데 오전/오후가 아직 확정되지 않은 미배정 건입니다.
             </li>
             <li>
+              <strong className="text-slate-800">◇ 조율</strong> — 조율인데 오전/오후가 아직 확정되지 않은 미배정 건입니다. 달력에서 깜빡입니다.
+            </li>
+            <li>
               <strong className="text-slate-800">색 칩 + 숫자</strong> — 맞춤 캘린더·지역 필터에 맞는 접수 건수입니다.
             </li>
             <li>
@@ -177,7 +191,7 @@ function ScheduleHelpCalendarTab() {
       <HelpSection title="범례 (실제 화면과 동일)">
         <ScheduleLegendItems />
         <p className="text-fluid-2xs text-slate-500 leading-snug">
-          범례 옆 <span className="font-semibold">?</span> 에서 슬롯·사이청소 설명을 더 볼 수 있습니다.
+          범례 옆 <span className="font-semibold">?</span> 에서 슬롯·사이청소·조율 설명을 더 볼 수 있습니다.
         </p>
       </HelpSection>
 
@@ -191,7 +205,7 @@ function ScheduleHelpCalendarTab() {
                   <span className="border-l border-slate-200 bg-sky-50 px-1.5 py-0.5 text-sky-900">PM 1</span>
                 </span>
               ),
-              meaning: '오전·오후 팀장 배정 가능 잔여. 사이청소를 오전/오후로 확정하면 해당 숫자가 줄어듭니다.',
+              meaning: '오전·오후 팀장 배정 가능 잔여. 사이청소·조율을 오전/오후로 확정하면 해당 숫자가 줄어듭니다.',
             },
             {
               sample: (
@@ -233,7 +247,8 @@ function ScheduleHelpListTab() {
   const scheduleUiRows = [
     HelpUiRow({ tokenId: 'schedule-badge-am', meaning: '오전 시간대 접수' }),
     HelpUiRow({ tokenId: 'schedule-badge-pm', meaning: '오후 시간대 접수' }),
-    HelpUiRow({ tokenId: 'schedule-badge-side', meaning: '사이청소 또는 시간 미확정' }),
+    HelpUiRow({ tokenId: 'schedule-badge-side', meaning: '사이청소 (오전·오후 확정 전)' }),
+    HelpUiRow({ tokenId: 'schedule-badge-coordination', meaning: '조율 (오전·오후 확정 전, 목록에서 깜빡임)' }),
     HelpUiRow({ tokenId: 'schedule-badge-unassigned', meaning: '2행 요약 — 팀장 없음' }),
     HelpUiRow({ tokenId: 'schedule-marketplace-cart', meaning: '정보공유 등록 중 — 마우스를 올리면 단계 표시' }),
   ];
@@ -252,7 +267,7 @@ function ScheduleHelpListTab() {
       <HelpSection title="목록 구역 순서 (위 → 아래)">
         <ol className="list-decimal space-y-1 pl-4 text-fluid-2xs sm:text-fluid-xs text-slate-600 leading-snug">
           <li>
-            <span className="font-semibold text-rose-800">팀장 미배정</span> — 미배정·오전 / ·오후 / ·사이·미확정
+            <span className="font-semibold text-rose-800">팀장 미배정</span> — 미배정·오전 / ·오후 / ·사이·조율·미확정
           </li>
           <li>
             <span className="font-semibold text-violet-800">정보공유</span> — 정보공유에 올린 접수 (기능 사용 시)
@@ -260,7 +275,7 @@ function ScheduleHelpListTab() {
           <li>
             <span className="font-semibold text-amber-800">오전 일정</span> ·{' '}
             <span className="font-semibold text-sky-800">오후 일정</span> ·{' '}
-            <span className="font-semibold text-violet-800">사이 · 일정 미확정</span>
+            <span className="font-semibold text-violet-800">사이/조율 · 일정 미확정</span>
           </li>
           <li>
             <span className="font-semibold text-indigo-800">파트너 / 타업체</span> — 접기로 업체별 묶음
@@ -350,7 +365,7 @@ function ScheduleHelpListTab() {
         </div>
         <HelpTable
           rows={[
-            HelpUiRow({ tokenId: 'schedule-btn-staff-adjust', meaning: '그날 접수 오전↔오후↔사이 시간대 변경' }),
+            HelpUiRow({ tokenId: 'schedule-btn-staff-adjust', meaning: '그날 접수 오전↔오후↔사이·조율 시간대 변경' }),
             HelpUiRow({ tokenId: 'schedule-btn-leader-adjust', meaning: '팀장 배정·교체' }),
             HelpUiRow({ tokenId: 'schedule-btn-close', meaning: '선택한 날(또는 오전/오후만) 신규 배정 막기' }),
             HelpUiRow({ tokenId: 'schedule-btn-close-release', meaning: '일정마감 해제' }),

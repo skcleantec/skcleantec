@@ -2,16 +2,16 @@
  * 오전 희망(스케줄과 동일 기준)일 때만 크루 미팅 시각을 둘 수 있다.
  * `client/src/utils/scheduleTimeBucket.ts` 의 getScheduleTimeBucket 과 동일 규칙.
  */
+import { isBetweenSlotPreferredTime } from '../../lib/scheduleBetweenSlotTime.js';
+
 export function isMorningPreferenceForCrewMeeting(preferredTime: string | null, betweenScheduleSlot: string | null): boolean {
   const t = preferredTime || '';
   const bss =
     betweenScheduleSlot && String(betweenScheduleSlot).trim() !== ''
       ? String(betweenScheduleSlot).trim()
       : null;
-  if (t.includes('사이청소')) {
-    if (bss === '오전') return true;
-    if (bss === '오후') return false;
-    return false;
+  if (isBetweenSlotPreferredTime(t)) {
+    return bss === '오전';
   }
   if (t.includes('오전')) return true;
   if (t.includes('오후')) return false;

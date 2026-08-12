@@ -63,10 +63,14 @@ export interface ScheduleStatsByDate {
   morningOccupied?: number;
   /** 오후 슬롯 소진 건수 */
   afternoonOccupied?: number;
-  /** 사이청소 중 팀장·타업체 미배정 건수(캘린더 ⚡) */
+  /** 사이청소 중 팀장·타업체 미배정 건수(캘린더 ⚡ 사이) */
   sideCleaningOrderCount?: number;
   /** 위 미배정 사이청소 중 오전/오후 미확정 건수 */
   sideCleaningUnconfirmedCount?: number;
+  /** 조율 중 팀장·타업체 미배정 건수(캘린더 조율 배지) */
+  coordinationOrderCount?: number;
+  /** 위 미배정 조율 중 오전/오후 미확정 건수 */
+  coordinationUnconfirmedCount?: number;
   /** 남은 슬롯 합: 오전+오후 (휴무 반영) */
   unassignedTotal?: number;
   assignableMorning?: number;

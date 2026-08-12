@@ -15,6 +15,7 @@ import { dateToYmdKst, employmentOverlapsMonthKst, isUserEmployedOnYmd } from '.
 import {
   consumesAfternoonSlot,
   consumesMorningSlot,
+  countsForCoordinationCalendarBadge,
   countsForSideCleaningCalendarBadge,
   inquiryCountsForInternalToSlot,
 } from '../schedule/scheduleSlot.helpers.js';
@@ -427,10 +428,14 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
       morningOccupied: number;
       /** 오후 슬롯 소진 건수 */
       afternoonOccupied: number;
-      /** 사이청소 중 팀장·타업체 미배정 건수(캘린더 ⚡ 표시용) */
+      /** 사이청소 중 팀장·타업체 미배정 건수(캘린더 ⚡ 사이) */
       sideCleaningOrderCount: number;
       /** 위 미배정 사이청소 중 오전/오후 미확정 건수 */
       sideCleaningUnconfirmedCount: number;
+      /** 조율 중 팀장·타업체 미배정 건수(캘린더 조율 배지) */
+      coordinationOrderCount: number;
+      /** 위 미배정 조율 중 오전/오후 미확정 건수 */
+      coordinationUnconfirmedCount: number;
       unassignedTotal: number;
       assignableMorning: number;
       assignableAfternoonSlot: number;
@@ -517,11 +522,19 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
     let afternoonOccupied = 0;
     let sideCleaningOrderCount = 0;
     let sideCleaningUnconfirmedCount = 0;
+    let coordinationOrderCount = 0;
+    let coordinationUnconfirmedCount = 0;
     for (const inv of dayInquiries) {
       if (countsForSideCleaningCalendarBadge(inv) && inquiryCountsForTo(inv)) {
         sideCleaningOrderCount += 1;
         if (inv.betweenScheduleSlot == null || inv.betweenScheduleSlot === '') {
           sideCleaningUnconfirmedCount += 1;
+        }
+      }
+      if (countsForCoordinationCalendarBadge(inv) && inquiryCountsForTo(inv)) {
+        coordinationOrderCount += 1;
+        if (inv.betweenScheduleSlot == null || inv.betweenScheduleSlot === '') {
+          coordinationUnconfirmedCount += 1;
         }
       }
       if (!inquiryCountsForTo(inv)) continue;
@@ -598,6 +611,8 @@ router.get('/schedule-stats', authMiddleware, requireStaffPermission('schedule.e
       afternoonOccupied,
       sideCleaningOrderCount,
       sideCleaningUnconfirmedCount,
+      coordinationOrderCount,
+      coordinationUnconfirmedCount,
       unassignedTotal,
       assignableMorning,
       assignableAfternoonSlot,

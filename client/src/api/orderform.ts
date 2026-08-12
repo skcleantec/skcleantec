@@ -169,8 +169,8 @@ export interface OrderFormConfigPublic {
   serviceDateAckConsentHint?: string | null;
   /** DB 원본 — 관리 설정용 partial */
   timeSlotLabelsJson?: Record<string, string> | null;
-  /** 고객 API — resolve된 3키 라벨 */
-  timeSlotLabels?: Record<'오전' | '오후' | '사이청소', string>;
+  /** 고객 API — resolve된 4키 라벨 */
+  timeSlotLabels?: Record<'오전' | '오후' | '사이청소' | '조율', string>;
   /** 고객 링크 메시지 문구(링크 URL 제외) */
   customerLinkTotalLine?: string | null;
   customerLinkBalanceLine?: string | null;
@@ -614,7 +614,7 @@ export async function getOrderFormByToken(token: string): Promise<OrderFormPubli
 /** 테넌트 로그인 — 시간대 표시 라벨(오전·오후·사이청소) */
 export async function getOrderFormTimeSlotLabels(
   authToken: string,
-): Promise<{ labels: Record<'오전' | '오후' | '사이청소', string> }> {
+): Promise<{ labels: Record<'오전' | '오후' | '사이청소' | '조율', string> }> {
   const res = await fetch(`${API}/orderforms/time-slot-labels`, { headers: headers(authToken) });
   if (!res.ok) throw new Error('시간대 표시 문구를 불러올 수 없습니다.');
   return res.json();

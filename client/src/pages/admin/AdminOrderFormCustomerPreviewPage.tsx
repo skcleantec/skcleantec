@@ -243,6 +243,7 @@ export function AdminOrderFormCustomerPreviewPage() {
           오전: timeSlotLabels.오전,
           오후: timeSlotLabels.오후,
           사이청소: timeSlotLabels.사이청소,
+          조율: timeSlotLabels.조율,
         },
       });
       refreshMsg();
@@ -657,7 +658,7 @@ export function AdminOrderFormCustomerPreviewPage() {
             {activePanel === 'timeAck' && (
               <div className="space-y-3">
                 <p className="text-fluid-xs text-gray-600">
-                  고객 발주서·접수 화면에 보이는 시간대 문구입니다. 저장값(오전·오후·사이청소)은 고정이며 표시
+                  고객 발주서·접수 화면에 보이는 시간대 문구입니다. 저장값(오전·오후·사이청소·조율)은 고정이며 표시
                   라벨만 바꿀 수 있습니다.
                 </p>
                 <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -699,6 +700,7 @@ export function AdminOrderFormCustomerPreviewPage() {
                             오전: timeSlotLabels.오전,
                             오후: timeSlotLabels.오후,
                             사이청소: timeSlotLabels.사이청소,
+                            조율: timeSlotLabels.조율,
                           },
                         })
                       }

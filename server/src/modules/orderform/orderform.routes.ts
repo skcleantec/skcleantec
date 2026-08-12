@@ -188,7 +188,7 @@ function respondPublicTenantAccessError(res: import('express').Response, e: unkn
   return false;
 }
 
-const VALID_ORDER_TIME_SLOTS = new Set(['오전', '오후', '사이청소']);
+const VALID_ORDER_TIME_SLOTS = new Set(['오전', '오후', '사이청소', '조율']);
 
 /** 목록 연동용 접수 생성 시 주소 미수집 표시. 미제출 발주서 삭제 시 해당 접수는 삭제한다. */
 const STANDALONE_ORDER_INQUIRY_ADDRESS_MARKER = ORDER_FORM_PENDING_PLACEHOLDER_ADDRESS;

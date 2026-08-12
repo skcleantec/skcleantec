@@ -140,7 +140,7 @@ const ALLOWED_INPUT_TYPES = new Set<OrderFormFieldInputType>(INPUT_TYPE_OPTIONS.
 
 /** 표준 발주서와 동일한 선택지를 기본 제공하는 시스템 필드(빌더에서 추가·편집 가능) */
 const SYSTEM_FIELD_DEFAULT_OPTIONS: Record<string, string[]> = {
-  preferredTime: ['오전', '오후', '사이청소'],
+  preferredTime: ['오전', '오후', '사이청소', '조율'],
   propertyType: ['아파트', '오피스텔', '빌라(연립)', '상가', '기타'],
   buildingType: ['신축', '구축', '인테리어', '거주(짐이있는상태)'],
 };

@@ -500,6 +500,7 @@ interface InquiryItem {
   preferredDate: string | null;
   preferredTime: string | null;
   preferredTimeDetail?: string | null;
+  betweenScheduleSlot?: string | null;
   status: string;
   source: string | null;
   intakeChannel?: string | null;

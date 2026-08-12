@@ -229,8 +229,9 @@ function parseAddress(text: string, lines: string[]): string | null {
   return parts.join(' ').slice(0, 512);
 }
 
-/** 저장값: 오전 | 오후 | 사이청소 */
+/** 저장값: 오전 | 오후 | 사이청소 | 조율 */
 export function parsePreferredTime(text: string): string | null {
+  if (/조율|coordination/i.test(text)) return '조율';
   if (/사이\s*청소|사이청소|사이\s*일정|between/i.test(text) || /(?:^|[\s:])사이(?:$|[\s:])/.test(text)) {
     return '사이청소';
   }

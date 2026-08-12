@@ -94,7 +94,7 @@ export const DEFAULT_ORDER_FORM_TEMPLATE_FIELDS: DefaultTemplateFieldSeed[] = [
   { fieldKey: 'areaPyeong', label: '평수', inputType: 'NUMBER', systemField: 'areaPyeong', options: [], sortOrder: 3 },
   { fieldKey: 'totalAmount', label: '금액(총액)', inputType: 'MONEY', systemField: 'totalAmount', options: [], sortOrder: 4 },
   { fieldKey: 'preferredDate', label: '희망일', inputType: 'DATE', systemField: 'preferredDate', options: [], sortOrder: 5 },
-  { fieldKey: 'preferredTime', label: '시간대', inputType: 'SELECT', systemField: 'preferredTime', options: ['오전', '오후', '사이청소'], sortOrder: 6 },
+  { fieldKey: 'preferredTime', label: '시간대', inputType: 'SELECT', systemField: 'preferredTime', options: ['오전', '오후', '사이청소', '조율'], sortOrder: 6 },
   // 선택 표준 항목(빌더에서 숨김 가능 — 공개 폼 표준 섹션과 연결)
   { fieldKey: 'preferredTimeDetail', label: '구체적 시각', inputType: 'TEXT', systemField: 'preferredTimeDetail', options: [], sortOrder: 7 },
   { fieldKey: 'roomCount', label: '방 개수', inputType: 'NUMBER', systemField: 'roomCount', options: [], sortOrder: 8 },

@@ -45,7 +45,12 @@ export function ScheduleReleaseDayButton(props: Omit<PreviewButtonProps, 'classN
   );
 }
 
-export function scheduleSlotBadgeClass(bucket: 'morning' | 'afternoon' | 'other', isSide: boolean): string {
+export function scheduleSlotBadgeClass(
+  bucket: 'morning' | 'afternoon' | 'other',
+  isSide: boolean,
+  isCoordination = false,
+): string {
+  if (isCoordination) return 'bg-teal-100 text-teal-950 border border-teal-400';
   if (isSide) return 'bg-violet-100 text-violet-950 border border-violet-300';
   if (bucket === 'morning') return 'bg-amber-200/90 text-amber-950 border border-amber-400';
   if (bucket === 'afternoon') return 'bg-sky-200/90 text-sky-950 border border-sky-500';
@@ -56,16 +61,18 @@ export function ScheduleSlotBadge({
   label,
   bucket,
   isSide = label === '사이',
+  isCoordination = label === '조율',
 }: {
-  label: '오전' | '오후' | '사이';
+  label: '오전' | '오후' | '사이' | '조율';
   bucket?: 'morning' | 'afternoon' | 'other';
   isSide?: boolean;
+  isCoordination?: boolean;
 }) {
   const resolvedBucket =
     bucket ?? (label === '오전' ? 'morning' : label === '오후' ? 'afternoon' : 'other');
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center min-w-[2.25rem] px-1.5 py-0.5 text-fluid-2xs font-bold leading-none rounded-lg ${scheduleSlotBadgeClass(resolvedBucket, isSide || label === '사이')}`}
+      className={`inline-flex shrink-0 items-center justify-center min-w-[2.25rem] px-1.5 py-0.5 text-fluid-2xs font-bold leading-none rounded-lg ${scheduleSlotBadgeClass(resolvedBucket, isSide || label === '사이', isCoordination || label === '조율')}${isCoordination || label === '조율' ? ' motion-safe:animate-pulse' : ''}`}
     >
       {label}
     </span>

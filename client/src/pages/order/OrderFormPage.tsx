@@ -1042,6 +1042,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         !detailLockedByAdmin &&
         form.preferredTimeDetail.trim() &&
         isValidOrderTimeSlot(useTime) &&
+        useTime !== '조율' &&
         !allowedPreferredTimeDetailValues(useTime).has(form.preferredTimeDetail.trim())
       ) {
         addIssue('구체적 시각을 해당 시간대 범위에서 선택해 주세요.', 'order-field-preferredTimeDetail');

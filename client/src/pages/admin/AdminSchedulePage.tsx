@@ -89,7 +89,7 @@ import {
   formatPreferredDateInputYmd,
   weekdayKoFromYmd,
 } from '../../utils/dateFormat';
-import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
+import { getScheduleTimeBucket, isCoordinationTime, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { formatScheduleLeaderSummary } from '../../utils/scheduleAssigneeDisplay';
 import { listTenantPartnerships, type TenantPartnershipItem } from '../../api/tenantPartners';
 import { useHasTenantFeature } from '../../hooks/useTenantCapabilities';
@@ -409,6 +409,8 @@ function ScheduleDayListItem({
   const isCancelled = item.status === 'CANCELLED';
   const bucket = getScheduleTimeBucket(item);
   const isSide = isSideCleaningTime(item.preferredTime);
+  const isCoord = isCoordinationTime(item.preferredTime);
+  const isCoordUnconfirmed = isCoord && bucket === 'other';
   /** 왼쪽 띠만 — 오전/오후/사이 구분 유지 */
   const slotLeftBorder =
     bucket === 'morning'
@@ -426,15 +428,18 @@ function ScheduleDayListItem({
   /** 사이청소는 오전·오후로 분류돼도 배지는 항상 「사이」(보라) 유지 */
   const slotBadgeClass = scheduleSlotBadgeClass(
     bucket === 'morning' ? 'morning' : bucket === 'afternoon' ? 'afternoon' : 'other',
-    isSide
+    isSide,
+    isCoord,
   );
-  const slotLabelShort = isSide
-    ? '사이'
-    : bucket === 'morning'
-      ? '오전'
-      : bucket === 'afternoon'
-        ? '오후'
-        : '기타';
+  const slotLabelShort = isCoord
+    ? '조율'
+    : isSide
+      ? '사이'
+      : bucket === 'morning'
+        ? '오전'
+        : bucket === 'afternoon'
+          ? '오후'
+          : '기타';
   const leaderNamesJoined = formatScheduleLeaderSummary(item);
   const crewN = item.crewMemberCount ?? 0;
   const crewNote = item.crewMemberNote?.trim() ?? '';
@@ -485,7 +490,9 @@ function ScheduleDayListItem({
         isOnHold
           ? `ring-1 ring-amber-500${!leaderSingleSlotAssignment ? ' bg-amber-50/40' : ''}`
           : ''
-      } ${isCancelled ? 'opacity-[0.88] saturate-[0.65]' : ''}`}
+      } ${isCancelled ? 'opacity-[0.88] saturate-[0.65]' : ''}${
+        isCoordUnconfirmed ? ' motion-safe:animate-pulse' : ''
+      }`}
     >
       <div className="shrink-0 self-center flex flex-col items-center gap-0.5">
         <span
@@ -2015,6 +2022,8 @@ export function AdminSchedulePage() {
                 const regionalToLabel = activeServiceZoneName ? `${activeServiceZoneName} 권역 · ` : '';
                 const sideOrderCount = dayStats?.sideCleaningOrderCount ?? 0;
                 const sideUnconfirmed = dayStats?.sideCleaningUnconfirmedCount ?? 0;
+                const coordinationOrderCount = dayStats?.coordinationOrderCount ?? 0;
+                const coordinationUnconfirmed = dayStats?.coordinationUnconfirmedCount ?? 0;
                 const workingCount = dayStats?.workingCount ?? 0;
                 const unassignedCount = activeScheduleItems.filter(inquiryCountsAsUnassignedOwn).length;
                 const skOneRoomTaegeuk = shouldShowSkOneRoomTaegeuk(activeScheduleItems);
@@ -2029,7 +2038,8 @@ export function AdminSchedulePage() {
                   (unassignedCount > 0 ||
                     morningRem > 0 ||
                     afternoonRem > 0 ||
-                    sideUnconfirmed > 0);
+                    sideUnconfirmed > 0 ||
+                    coordinationUnconfirmed > 0);
                 const leaderSlotDeficit =
                   Boolean(dayStats) &&
                   !isFullDayClosure(dayStats) &&
@@ -2238,6 +2248,17 @@ export function AdminSchedulePage() {
                             <span className="hidden sm:inline">사이청소</span>
                           </span>
                           <span className="tabular-nums font-bold ml-0.5 sm:ml-0">{sideOrderCount}</span>
+                        </div>
+                      )}
+                      {coordinationOrderCount > 0 && (
+                        <div className="flex justify-center sm:justify-between items-center text-[9px] sm:text-[10px] font-semibold text-teal-800 leading-none shrink-0 motion-safe:animate-pulse">
+                          <span className="flex items-center gap-0.5">
+                            <span className="text-[9px]" aria-hidden>
+                              ◇
+                            </span>
+                            <span>조율</span>
+                          </span>
+                          <span className="tabular-nums font-bold ml-0.5 sm:ml-0">{coordinationOrderCount}</span>
                         </div>
                       )}
                     </div>
@@ -2509,6 +2530,19 @@ export function AdminSchedulePage() {
                         )}
                       </div>
                     )}
+                    {(stats[selectedDate].coordinationOrderCount ?? 0) > 0 && (
+                      <div>
+                        <span className="text-slate-500">조율 미배정</span>
+                        <span className="ml-1 font-medium text-teal-800 motion-safe:animate-pulse">
+                          {stats[selectedDate].coordinationOrderCount}건
+                        </span>
+                        {(stats[selectedDate].coordinationUnconfirmedCount ?? 0) > 0 && (
+                          <span className="ml-2 text-teal-900">
+                            (일정 미확정 {stats[selectedDate].coordinationUnconfirmedCount}건)
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {(() => {
                       const s = stats[selectedDate];
                       const regional = regionalSlotStatsByDate?.get(selectedDate);
@@ -2541,7 +2575,7 @@ export function AdminSchedulePage() {
                             </span>
                           ) : (
                           <span className="block text-fluid-xs text-slate-500 mt-1">
-                            휴무 팀장은 근무 인원에서 제외됩니다. 사이청소는 확정 시 오전 또는 오후 중 하나를 사용합니다.
+                            휴무 팀장은 근무 인원에서 제외됩니다. 사이청소·조율은 확정 시 오전 또는 오후 중 하나를 사용합니다.
                           </span>
                           )}
                         </div>
@@ -2755,13 +2789,13 @@ export function AdminSchedulePage() {
                           {unassignedOwnOther.length > 0 && (
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 mb-2 border-b border-violet-500/70 pb-1">
-                                <span className="text-fluid-xs font-bold text-violet-950">미배정 · 사이 · 일정 미확정</span>
+                                <span className="text-fluid-xs font-bold text-violet-950">미배정 · 사이/조율 · 일정 미확정</span>
                                 <span className="text-fluid-2xs text-violet-900/80 tabular-nums">
                                   {unassignedOwnOther.length}건
                                 </span>
                               </div>
                               <p className="text-fluid-xs text-slate-500 mb-2 px-0.5">
-                                사이청소인데 오전/오후가 아직 정해지지 않았거나, 시간대가 비어 있는 접수입니다.
+                                사이청소·조율인데 오전/오후가 아직 정해지지 않았거나, 시간대가 비어 있는 접수입니다. 조율은 마지막에 배치하기 쉽도록 깜빡여 표시됩니다.
                               </p>
                               <div className="flex flex-col gap-1.5">
                                 {unassignedOwnOther.map((item) => (
@@ -2868,7 +2902,7 @@ export function AdminSchedulePage() {
                           {marketplaceOwnOther.length > 0 && (
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 mb-2 border-b border-violet-500/70 pb-1">
-                                <span className="text-fluid-xs font-bold text-violet-950">정보공유 · 사이 · 미확정</span>
+                                <span className="text-fluid-xs font-bold text-violet-950">정보공유 · 사이/조율 · 미확정</span>
                                 <span className="text-fluid-2xs text-violet-900/80 tabular-nums">
                                   {marketplaceOwnOther.length}건
                                 </span>
@@ -2970,7 +3004,7 @@ export function AdminSchedulePage() {
                           <span className="text-[10px] font-bold text-violet-700 bg-violet-100/80 px-1.5 py-0.5 rounded-md tabular-nums shrink-0">{otherOwn.length}건</span>
                         </div>
                         <p className="text-fluid-xs text-slate-500 mb-2 px-1">
-                          사이청소인데 오전/오후가 아직 정해지지 않았거나, 시간대가 비어 있는 접수입니다.
+                          사이청소·조율인데 오전/오후가 아직 정해지지 않았거나, 시간대가 비어 있는 접수입니다.
                         </p>
                         <div className="flex flex-col gap-1.5">
                           {otherOwn.map((item) => (

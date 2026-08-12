@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import type { ScheduleItem } from '../../api/schedule';
 import type { GeocodeBatchMeta, GeocodeBatchResultRow } from '../../api/geocode';
 import { geocodeAddressBatch } from '../../api/geocode';
-import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
+import { getScheduleTimeBucket, isBetweenSlotTime } from '../../utils/scheduleTimeBucket';
 import { ModalCloseButton } from './ModalCloseButton';
 
 const MAX_GEOCODE = 35;
@@ -84,7 +84,7 @@ function scheduleSlotKindForMap(item: ScheduleItem): 'morning' | 'afternoon' | '
   const bucket = getScheduleTimeBucket(item);
   if (bucket === 'morning') return 'morning';
   if (bucket === 'afternoon') return 'afternoon';
-  if (isSideCleaningTime(item.preferredTime)) return 'between';
+  if (isBetweenSlotTime(item.preferredTime) && bucket === 'other') return 'between';
   return 'other';
 }
 

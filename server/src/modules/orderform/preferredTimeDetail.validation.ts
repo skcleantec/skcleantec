@@ -23,12 +23,13 @@ function allowedValuesForSlot(slot: string): Set<string> | null {
   if (slot === '오전') return new Set(halfHourRange(M(8, 0), M(9, 0)));
   if (slot === '오후') return new Set([AFTERNOON_NEGOTIABLE_DETAIL]);
   if (slot === '사이청소') return new Set(halfHourRange(M(10, 0), M(13, 0)));
+  if (slot === '조율') return null;
   return null;
 }
 
 /** 고객이 수정 가능한 경우에만 검증 — 값이 있으면 허용 목록에 있어야 함 */
 export function isAllowedPreferredTimeDetail(preferredTime: string, detail: string): boolean {
   const allowed = allowedValuesForSlot(preferredTime.trim());
-  if (!allowed) return false;
+  if (!allowed) return true;
   return allowed.has(detail.trim());
 }

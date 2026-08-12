@@ -1,6 +1,6 @@
-/** 발주서·접수 시간대 — 저장값 3개 고정, 표시 라벨만 테넌트별 설정 */
+/** 발주서·접수 시간대 — 저장값 4개 고정, 표시 라벨만 테넌트별 설정 */
 
-export const ORDER_TIME_SLOT_VALUES = ['오전', '오후', '사이청소'] as const;
+export const ORDER_TIME_SLOT_VALUES = ['오전', '오후', '사이청소', '조율'] as const;
 
 export type OrderTimeSlot = (typeof ORDER_TIME_SLOT_VALUES)[number];
 
@@ -8,11 +8,12 @@ export const DEFAULT_ORDER_TIME_SLOT_LABELS: Record<OrderTimeSlot, string> = {
   오전: '오전 (8시~9시 시작)',
   오후: '오후 (12시~14시 시작)',
   사이청소: '사이청소(상담내용 동일기재)',
+  조율: '조율 (오전·오후·사이 무관, 마지막 배치)',
 };
 
 export type OrderTimeSlotLabels = Record<OrderTimeSlot, string>;
 
-/** DB `time_slot_labels_json` — 키는 3값 중 일부만 있어도 됨 */
+/** DB `time_slot_labels_json` — 키는 4값 중 일부만 있어도 됨 */
 export type OrderTimeSlotLabelsJson = Partial<Record<OrderTimeSlot, string>>;
 
 export function isOrderTimeSlotValue(value: string): value is OrderTimeSlot {
@@ -50,16 +51,19 @@ export function labelForTimeSlotFromLabels(
   return value;
 }
 
-/** 목록용 짧은 표기: 오전 / 오후 / 사이 */
+/** 목록용 짧은 표기: 오전 / 오후 / 사이 / 조율 */
 export function shortTimeSlotLabelFromLabels(
   value: string | null | undefined,
   _labels?: OrderTimeSlotLabelsJson | OrderTimeSlotLabels | null,
 ): string {
   if (value == null || value === '') return '-';
   if (value === '사이청소') return '사이';
+  if (value === '조율') return '조율';
   if (value === '오전' || value === '오후') return value;
   if (isOrderTimeSlotValue(value)) {
-    return value === '사이청소' ? '사이' : value;
+    if (value === '사이청소') return '사이';
+    if (value === '조율') return '조율';
+    return value;
   }
   return value;
 }
@@ -76,7 +80,7 @@ export function parseOrderTimeSlotLabelsJson(raw: unknown): OrderTimeSlotLabelsJ
   return Object.keys(out).length > 0 ? out : null;
 }
 
-/** PUT 저장용 — 3키 모두 non-empty, 기본값과 동일하면 null(미설정) */
+/** PUT 저장용 — 4키 모두 non-empty, 기본값과 동일하면 null(미설정) */
 export function sanitizeOrderTimeSlotLabelsJsonForSave(raw: unknown): OrderTimeSlotLabelsJson | null {
   if (raw == null) return null;
   if (typeof raw !== 'object' || Array.isArray(raw)) {
@@ -117,6 +121,7 @@ export function resolvePreferredTimeFromExcelWithLabels(
   }
 
   const lower = s.toLowerCase();
+  if (s.includes('조율') || lower === 'coordination') return '조율';
   if (s.includes('사이') || lower === 'between') return '사이청소';
   if (s.includes('오전') || lower === 'am' || s.includes('上午')) return '오전';
   if (s.includes('오후') || lower === 'pm' || s.includes('下午')) return '오후';

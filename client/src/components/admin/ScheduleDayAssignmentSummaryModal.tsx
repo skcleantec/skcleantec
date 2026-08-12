@@ -4,10 +4,16 @@ import type { ScheduleItem } from '../../api/schedule';
 import { ModalCloseButton } from './ModalCloseButton';
 import { Z_ABOVE_MOBILE_FLOATING_MENU } from '../layout/MobileFloatingMenuButton';
 import { weekdayKoFromYmd } from '../../utils/dateFormat';
-import { getScheduleTimeBucket, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
+import { getScheduleTimeBucket, isCoordinationTime, isSideCleaningTime } from '../../utils/scheduleTimeBucket';
 import { parseCrewMemberNoteToNames } from '../../utils/crewMemberNote';
 
 function itemSlotLabelKo(item: ScheduleItem): string {
+  if (isCoordinationTime(item.preferredTime)) {
+    const bss = item.betweenScheduleSlot?.trim();
+    if (bss === '오전') return '오전(조율)';
+    if (bss === '오후') return '오후(조율)';
+    return '조율(미확정)';
+  }
   if (isSideCleaningTime(item.preferredTime)) {
     const bss = item.betweenScheduleSlot?.trim();
     if (bss === '오전') return '오전(사이)';

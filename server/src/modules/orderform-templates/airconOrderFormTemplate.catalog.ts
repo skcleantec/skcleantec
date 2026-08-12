@@ -60,7 +60,7 @@ export const AIRCON_ORDER_FORM_TEMPLATE_FIELDS: AirconOrderFormTemplateFieldSeed
     label: '희망 시간대',
     inputType: 'SELECT',
     systemField: 'preferredTime',
-    options: ['오전', '오후', '사이청소'],
+    options: ['오전', '오후', '사이청소', '조율'],
     optionStyle: 'DROPDOWN',
     required: true,
     sortOrder: 5,

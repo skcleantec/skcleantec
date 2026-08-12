@@ -1,9 +1,22 @@
 import type { ScheduleItem } from '../api/schedule';
+import {
+  isBetweenSlotPreferredTime,
+  isCoordinationPreferredTime,
+  isSideCleaningPreferredTime,
+} from '@shared/scheduleBetweenSlotTime';
 
 export type ScheduleTimeBucket = 'morning' | 'afternoon' | 'other';
 
 export function isSideCleaningTime(t: string | null | undefined): boolean {
-  return (t || '').includes('사이청소');
+  return isSideCleaningPreferredTime(t);
+}
+
+export function isCoordinationTime(t: string | null | undefined): boolean {
+  return isCoordinationPreferredTime(t);
+}
+
+export function isBetweenSlotTime(t: string | null | undefined): boolean {
+  return isBetweenSlotPreferredTime(t);
 }
 
 /** 서버 `scheduleSlot.helpers` 와 동일 — 목록 구분·팀장 슬롯 필터에 사용 */
@@ -15,7 +28,7 @@ export function getScheduleTimeBucket(
     item.betweenScheduleSlot && String(item.betweenScheduleSlot).trim() !== ''
       ? String(item.betweenScheduleSlot).trim()
       : null;
-  if (isSideCleaningTime(item.preferredTime)) {
+  if (isBetweenSlotPreferredTime(item.preferredTime)) {
     if (bss === '오전') return 'morning';
     if (bss === '오후') return 'afternoon';
     return 'other';

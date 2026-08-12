@@ -55,6 +55,7 @@ const TIME_SLOT_LABELS: Record<string, string> = {
   오전: '오전',
   오후: '오후',
   사이청소: '사이청소',
+  조율: '조율',
 };
 
 function isSnapshotV1(x: unknown): x is OrderFormSubmissionSnapshotV1 {

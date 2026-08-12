@@ -102,7 +102,7 @@ function mergeAiPatch(
   }
   {
     const t = patch.preferredTime == null ? null : String(patch.preferredTime).trim();
-    if (t === '오전' || t === '오후' || t === '사이청소' || t === '사이') {
+    if (t === '오전' || t === '오후' || t === '사이청소' || t === '조율' || t === '사이') {
       apply('preferredTime', t === '사이' ? '사이청소' : t);
     }
   }
@@ -143,7 +143,7 @@ export async function understandAndExtractQuickPasteWithAi(params: {
     '- preferredDate: YYYY-MM-DD only. Never YYMMDD like 260406.',
     `- Date examples: ${QUICK_PASTE_DATE_AI_EXAMPLES}`,
     `- Name examples: ${QUICK_PASTE_NAME_AI_EXAMPLES}`,
-    '- preferredTime: only 오전 | 오후 | 사이청소. "사이" → 사이청소.',
+    '- preferredTime: only 오전 | 오후 | 사이청소 | 조율. "사이" → 사이청소.',
     '- areaPyeong + rooms: "25평(3/2/1)" means pyeong=25, room=3, bathroom=2, balcony=1. Do NOT invent "방3화2베1" unless that exact text exists.',
     '- 방3화5베1 (only if written that way): room 3, bathroom 5, balcony 1.',
     'The hint draft may be wrong — if your reading of the full text disagrees, overwrite the hint.',

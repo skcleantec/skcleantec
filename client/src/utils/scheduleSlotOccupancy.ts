@@ -1,6 +1,6 @@
 import type { ScheduleItem } from '../api/schedule';
 import { inquiryExcludedFromInternalToByDbListing } from '@shared/dbMarketplaceSchedule';
-import { isSideCleaningTime } from './scheduleTimeBucket';
+import { isBetweenSlotPreferredTime } from '@shared/scheduleBetweenSlotTime';
 
 /** server `scheduleSlot.helpers` 와 동일 — 슬롯 점유·팀장 드롭다운 필터 */
 function isPlainPreferredTimeUnset(preferredTime: string | null | undefined): boolean {
@@ -9,7 +9,7 @@ function isPlainPreferredTimeUnset(preferredTime: string | null | undefined): bo
 
 function isPlainMorningSlot(t: string | null | undefined): boolean {
   const s = t || '';
-  if (s.includes('사이청소')) return false;
+  if (isBetweenSlotPreferredTime(s)) return false;
   if (s.includes('오전')) return true;
   if (s.includes('오후')) return false;
   const n = parseInt(s, 10);
@@ -17,7 +17,7 @@ function isPlainMorningSlot(t: string | null | undefined): boolean {
 }
 
 export function consumesMorningSlot(item: Pick<ScheduleItem, 'preferredTime' | 'betweenScheduleSlot'>): boolean {
-  if (isSideCleaningTime(item.preferredTime)) {
+  if (isBetweenSlotPreferredTime(item.preferredTime)) {
     return item.betweenScheduleSlot === '오전';
   }
   if (isPlainPreferredTimeUnset(item.preferredTime)) return false;
@@ -25,7 +25,7 @@ export function consumesMorningSlot(item: Pick<ScheduleItem, 'preferredTime' | '
 }
 
 export function consumesAfternoonSlot(item: Pick<ScheduleItem, 'preferredTime' | 'betweenScheduleSlot'>): boolean {
-  if (isSideCleaningTime(item.preferredTime)) {
+  if (isBetweenSlotPreferredTime(item.preferredTime)) {
     return item.betweenScheduleSlot === '오후';
   }
   if (isPlainPreferredTimeUnset(item.preferredTime)) return false;

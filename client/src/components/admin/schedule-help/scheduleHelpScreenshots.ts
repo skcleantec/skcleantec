@@ -13,7 +13,7 @@ export const SCHEDULE_HELP_CALENDAR_CALLOUTS: ScheduleHelpCalloutDef[] = [
   { id: 2, label: 'PC 왼쪽 — 접수 검색·맞춤 캘린더(좁은 화면 ≡ 메뉴)', anchorX: 6, anchorY: 28 },
   { id: 3, label: 'AM · PM 남은 자리', anchorX: 14, anchorY: 50 },
   { id: 4, label: '👥 팀원 가용', anchorX: 14, anchorY: 55 },
-  { id: 5, label: '⚠️ 미배정 · ⚡ 사이', anchorX: 16, anchorY: 60 },
+  { id: 5, label: '⚠️ 미배정 · ⚡ 사이 · ◇ 조율', anchorX: 16, anchorY: 60 },
   { id: 6, label: '하단 점 — 대기·보류·취소', anchorX: 14, anchorY: 65 },
 ];
 
