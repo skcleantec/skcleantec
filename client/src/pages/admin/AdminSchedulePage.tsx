@@ -33,6 +33,7 @@ import { inquiryBelongsOnRegionalCalendar } from '../../utils/scheduleSlotOccupa
 import { customCalendarColorTokens } from '../../constants/customCalendarColors';
 import { ConfirmPasswordModal } from '../../components/admin/ConfirmPasswordModal';
 import { ScheduleDayStaffMemoPanel } from '../../components/admin/ScheduleDayStaffMemoPanel';
+import { ScheduleStaffNoticeBoardPanel } from '../../components/admin/ScheduleStaffNoticeBoardPanel';
 import { resolveEffectiveStaffAdminFromMe, resolveMarketerOperationalAdminFromMe, hasStaffPermission, canDeleteInquiryFromMe } from '../../utils/staffAdminAccess';
 import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import { runWhenIdle } from '../../utils/deferWhenIdle';
@@ -843,6 +844,7 @@ export function AdminSchedulePage() {
   const canManageClosures = hasStaffPermission(staffMe, 'schedule.closures');
   const canManageDayAvailability = hasStaffPermission(staffMe, 'schedule.dayAvailability');
   const canManageCustomCalendar = hasStaffPermission(staffMe, 'schedule.customCalendar');
+  const canEditStaffMemo = hasStaffPermission(staffMe, 'schedule.staffMemo');
   const [closureBusy, setClosureBusy] = useState(false);
   const [assignmentSummaryOpen, setAssignmentSummaryOpen] = useState(false);
   const [slotToAdjustOpen, setSlotToAdjustOpen] = useState(false);
@@ -1738,6 +1740,11 @@ export function AdminSchedulePage() {
         </div>
       )}
       {/* 범례·안내 — 모바일: 접기 카드 / PC: 캘린더 왼쪽 세로 박스 */}
+      {token && (meRole === 'ADMIN' || meRole === 'MARKETER') ? (
+        <div className="lg:hidden mb-2">
+          <ScheduleStaffNoticeBoardPanel token={token} canEdit={canEditStaffMemo} />
+        </div>
+      ) : null}
       <div className="lg:hidden rounded-lg border border-slate-200 bg-slate-50/80 overflow-hidden divide-y divide-slate-200/70 shadow-sm">
           <MobileCollapsePanel title="범례 · 기호" compact className="border-0 bg-transparent shadow-none">
             <ScheduleLegendItems compact />
@@ -1811,6 +1818,9 @@ export function AdminSchedulePage() {
 
       <div className="lg:grid lg:grid-cols-[minmax(210px,260px)_minmax(0,1fr)] lg:gap-3 lg:items-start">
         <aside className="hidden lg:flex lg:flex-col lg:gap-2 lg:min-w-0">
+          {token && (meRole === 'ADMIN' || meRole === 'MARKETER') ? (
+            <ScheduleStaffNoticeBoardPanel token={token} canEdit={canEditStaffMemo} />
+          ) : null}
           <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 shadow-sm">
             <ScheduleLegendItems compact />
           </div>

@@ -23,6 +23,7 @@ import {
 } from '../db-marketplace/dbMarketplaceHandoffBuyerMeta.js';
 import { attachDbListingMetaToInquiries } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
 import { notifyScheduleDayStaffMemoRefresh } from '../realtime/scheduleDayMemoNotify.js';
+import { notifyScheduleStaffNoticeBoardRefresh } from '../realtime/scheduleNoticeBoardNotify.js';
 import { orderFormTemplateListSelect } from '../inquiries/inquiryDetailInclude.js';
 import {
   clampScheduleSearchLimit,
@@ -45,6 +46,7 @@ router.use(requireStaffPermission('schedule.edit.inquiry'));
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_STAFF_MEMO_MAX_LEN = 4000;
+const NOTICE_BOARD_MAX_LEN = 4000;
 
 function scheduleDayDateFromYmd(date: string): Date {
   return new Date(`${date}T12:00:00+09:00`);
@@ -119,6 +121,68 @@ router.put('/day-memo', requireStaffPermission('schedule.staffMemo'), async (req
 
   res.json({
     date,
+    body: saved.body,
+    updatedAt: saved.updatedAt.toISOString(),
+    updatedBy: saved.updatedBy,
+  });
+});
+
+/** 관리자·마케터: 스케줄 좌측 공유 메모판 조회(테넌트당 1건) */
+router.get('/notice-board', async (req, res) => {
+  const tenantId = await tenantFromReq(req, res);
+  if (!tenantId) return;
+  const row = await prisma.scheduleStaffNoticeBoard.findUnique({
+    where: { tenantId },
+    select: {
+      body: true,
+      updatedAt: true,
+      updatedBy: { select: { id: true, name: true } },
+    },
+  });
+  res.json({
+    body: row?.body ?? '',
+    updatedAt: row?.updatedAt?.toISOString() ?? null,
+    updatedBy: row?.updatedBy ?? null,
+  });
+});
+
+/** 관리자·마케터: 스케줄 좌측 공유 메모판 저장 */
+router.put('/notice-board', requireStaffPermission('schedule.staffMemo'), async (req, res) => {
+  const tenantId = await tenantFromReq(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { body } = req.body as { body?: unknown };
+  if (typeof body !== 'string') {
+    res.status(400).json({ error: '메모 본문이 필요합니다.' });
+    return;
+  }
+  const trimmed = body.trim();
+  if (trimmed.length > NOTICE_BOARD_MAX_LEN) {
+    res.status(400).json({ error: `메모는 ${NOTICE_BOARD_MAX_LEN}자 이내로 입력해 주세요.` });
+    return;
+  }
+
+  const saved = await prisma.scheduleStaffNoticeBoard.upsert({
+    where: { tenantId },
+    create: {
+      tenantId,
+      body: trimmed,
+      updatedById: user.userId,
+    },
+    update: {
+      body: trimmed,
+      updatedById: user.userId,
+    },
+    select: {
+      body: true,
+      updatedAt: true,
+      updatedBy: { select: { id: true, name: true } },
+    },
+  });
+
+  notifyScheduleStaffNoticeBoardRefresh({ tenantId });
+
+  res.json({
     body: saved.body,
     updatedAt: saved.updatedAt.toISOString(),
     updatedBy: saved.updatedBy,

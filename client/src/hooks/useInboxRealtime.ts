@@ -204,6 +204,17 @@ function parseScheduleDayMemoPayload(d: unknown): ScheduleDayMemoRtPayload | nul
   return { type: 'schedule-day-memo:refresh', date: o.date };
 }
 
+export type ScheduleNoticeBoardRtPayload = {
+  type: 'schedule-notice-board:refresh';
+};
+
+function parseScheduleNoticeBoardPayload(d: unknown): ScheduleNoticeBoardRtPayload | null {
+  if (!d || typeof d !== 'object') return null;
+  const o = d as Record<string, unknown>;
+  if (o.type !== 'schedule-notice-board:refresh') return null;
+  return { type: 'schedule-notice-board:refresh' };
+}
+
 export type OrderFormCustomerLinkConfigRtPayload = {
   type: 'orderform:customerLinkConfigRefresh';
   operatingCompanyId?: string | null;
@@ -240,6 +251,7 @@ type Bucket = {
   reviewPaybackListeners: Set<(p: ReviewPaybackRtPayload) => void>;
   landingContactListeners: Set<(p: LandingContactRtPayload) => void>;
   scheduleDayMemoListeners: Set<(p: ScheduleDayMemoRtPayload) => void>;
+  scheduleNoticeBoardListeners: Set<(p: ScheduleNoticeBoardRtPayload) => void>;
   marketplaceHandoffConfirmedListeners: Set<(p: DbMarketplaceHandoffConfirmedRtPayload) => void>;
   customerLinkConfigListeners: Set<(p: OrderFormCustomerLinkConfigRtPayload) => void>;
 };
@@ -256,6 +268,7 @@ function bucketHasSubscribers(bucket: Bucket): boolean {
     bucket.reviewPaybackListeners.size > 0 ||
     bucket.landingContactListeners.size > 0 ||
     bucket.scheduleDayMemoListeners.size > 0 ||
+    bucket.scheduleNoticeBoardListeners.size > 0 ||
     bucket.marketplaceHandoffConfirmedListeners.size > 0 ||
     bucket.customerLinkConfigListeners.size > 0
   );
@@ -379,6 +392,16 @@ function connectBucket(bucket: Bucket) {
           }
         }
       }
+      const scheduleNoticeBoard = parseScheduleNoticeBoardPayload(data);
+      if (scheduleNoticeBoard) {
+        for (const fn of bucket.scheduleNoticeBoardListeners) {
+          try {
+            fn(scheduleNoticeBoard);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
       const customerLinkConfig = parseOrderFormCustomerLinkConfigPayload(data);
       if (customerLinkConfig) {
         for (const fn of bucket.customerLinkConfigListeners) {
@@ -441,6 +464,7 @@ function destroyBucketIfIdle(token: string) {
     bucket.reviewPaybackListeners.size > 0 ||
     bucket.landingContactListeners.size > 0 ||
     bucket.scheduleDayMemoListeners.size > 0 ||
+    bucket.scheduleNoticeBoardListeners.size > 0 ||
     bucket.marketplaceHandoffConfirmedListeners.size > 0 ||
     bucket.customerLinkConfigListeners.size > 0
   )
@@ -495,6 +519,7 @@ export function useInboxRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
       };
@@ -601,6 +626,7 @@ export function useInquiryCelebrateRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
       };
@@ -683,6 +709,7 @@ export function useRosterAckRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
       };
@@ -744,6 +771,7 @@ export function useChangeLogRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
       };
@@ -799,6 +827,7 @@ export function useScheduleAlertRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
       };
@@ -854,6 +883,7 @@ export function useReviewPaybackRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
       };
@@ -909,6 +939,7 @@ export function useLandingContactRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
       };
@@ -964,6 +995,7 @@ export function useDbMarketplaceHandoffConfirmedRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
       };
@@ -1019,6 +1051,7 @@ export function useScheduleDayStaffMemoRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
       };
@@ -1037,6 +1070,62 @@ export function useScheduleDayStaffMemoRealtime(
       const bucket = buckets.get(token);
       if (bucket) {
         bucket.scheduleDayMemoListeners.delete(listener);
+        bucket.connectionListeners.delete(noopConn);
+      }
+      destroyBucketIfIdle(token);
+    };
+  }, [token, enabled]);
+}
+
+/** 스태프: 스케줄 공유 메모판 갱신 */
+export function useScheduleStaffNoticeBoardRealtime(
+  token: string | null,
+  onRefresh: (p: ScheduleNoticeBoardRtPayload) => void,
+  enabled: boolean,
+): void {
+  const onRef = useRef(onRefresh);
+  useEffect(() => {
+    onRef.current = onRefresh;
+  });
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+
+    let b = buckets.get(token);
+    if (!b) {
+      b = {
+        token,
+        ws: null,
+        reconnectTimer: undefined,
+        tearDown: false,
+        refreshListeners: new Set(),
+        connectionListeners: new Set(),
+        celebrationListeners: new Set(),
+        rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
+        reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
+        customerLinkConfigListeners: new Set(),
+      };
+      buckets.set(token, b);
+    } else {
+      b.tearDown = false;
+    }
+
+    const listener = (_p: ScheduleNoticeBoardRtPayload) => onRef.current(_p);
+    b.scheduleNoticeBoardListeners.add(listener);
+    const noopConn = () => {};
+    b.connectionListeners.add(noopConn);
+    connectBucket(b);
+
+    return () => {
+      const bucket = buckets.get(token);
+      if (bucket) {
+        bucket.scheduleNoticeBoardListeners.delete(listener);
         bucket.connectionListeners.delete(noopConn);
       }
       destroyBucketIfIdle(token);
@@ -1074,6 +1163,7 @@ export function useOrderFormCustomerLinkConfigRealtime(
         reviewPaybackListeners: new Set(),
         landingContactListeners: new Set(),
         scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
       };

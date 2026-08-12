@@ -360,3 +360,39 @@ export async function putScheduleDayStaffMemo(
   }
   return res.json();
 }
+
+export type ScheduleStaffNoticeBoardDto = {
+  body: string;
+  updatedAt: string | null;
+  updatedBy: { id: string; name: string } | null;
+};
+
+export async function getScheduleStaffNoticeBoard(token: string): Promise<ScheduleStaffNoticeBoardDto> {
+  const res = await fetch(`${API}/schedule/notice-board`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '공유 메모를 불러올 수 없습니다.');
+  }
+  return res.json();
+}
+
+export async function putScheduleStaffNoticeBoard(
+  token: string,
+  payload: { body: string },
+): Promise<ScheduleStaffNoticeBoardDto> {
+  const res = await fetch(`${API}/schedule/notice-board`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers(token),
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || '공유 메모 저장에 실패했습니다.');
+  }
+  return res.json();
+}
