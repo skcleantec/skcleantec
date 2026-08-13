@@ -10,6 +10,7 @@ import {
 import {
   getPlatformBillingSettings,
   patchPlatformBillingSettings,
+  sendPlatformPaymentNotifyTest,
   type PlatformBillingSettings,
 } from '../../api/platformBilling';
 import { getPlatformToken } from '../../stores/platformAuth';
@@ -158,6 +159,7 @@ export function PlatformUnpaidPopupSettingsPage() {
   const [savedBankSummary, setSavedBankSummary] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [previewDaysUntilBlock, setPreviewDaysUntilBlock] = useState(2);
@@ -244,6 +246,28 @@ export function PlatformUnpaidPopupSettingsPage() {
       { dunningPaymentNotifyEmail: notifyEmail },
       '입금 확인 알림 이메일이 저장되었습니다.',
     );
+  };
+
+  const testNotifyEmail = async () => {
+    if (!form) return;
+    const token = getPlatformToken();
+    if (!token) return;
+    const notifyEmail = form.dunningPaymentNotifyEmail.trim() || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
+      setError('입금 확인 알림 이메일 형식을 확인해 주세요.');
+      return;
+    }
+    setTestingEmail(true);
+    setError('');
+    setMessage('');
+    try {
+      const result = await sendPlatformPaymentNotifyTest(token, notifyEmail);
+      setMessage(result.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '테스트 발송 실패');
+    } finally {
+      setTestingEmail(false);
+    }
   };
 
   const savePopupSection = async () => {
@@ -409,6 +433,8 @@ export function PlatformUnpaidPopupSettingsPage() {
           onEmailChange={(value) => setForm((f) => (f ? { ...f, dunningPaymentNotifyEmail: value } : f))}
           onSave={saveNotifySection}
           saving={saving}
+          onTestEmail={testNotifyEmail}
+          testingEmail={testingEmail}
         />
         <p className="text-xs text-gray-500">
           상세·그룹 연동 안내는{' '}

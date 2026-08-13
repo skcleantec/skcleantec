@@ -13,6 +13,8 @@ type Props = {
   onEmailChange: (value: string) => void;
   onSave: () => void | Promise<void>;
   saving: boolean;
+  onTestEmail?: () => void | Promise<void>;
+  testingEmail?: boolean;
   /** 미결재 팝업 페이지 등에서 SMTP 링크 문구만 다를 때 */
   compactIntro?: boolean;
 };
@@ -22,6 +24,8 @@ export function PlatformBillingNotifySettingsSection({
   onEmailChange,
   onSave,
   saving,
+  onTestEmail,
+  testingEmail = false,
   compactIntro = false,
 }: Props) {
   const usingDefault =
@@ -80,18 +84,39 @@ export function PlatformBillingNotifySettingsSection({
       </label>
 
       <div className="mt-4 flex flex-wrap gap-2 justify-end">
+        {onTestEmail ? (
+          <button
+            type="button"
+            disabled={saving || testingEmail}
+            onClick={() => void onTestEmail()}
+            className={BTN_SECONDARY}
+          >
+            {testingEmail ? '보내는 중…' : '테스트 메일 보내기'}
+          </button>
+        ) : null}
         <button
           type="button"
-          disabled={saving}
+          disabled={saving || testingEmail}
           onClick={() => onEmailChange(PLATFORM_BILLING_NOTIFY_GROUP_EMAIL)}
           className={BTN_SECONDARY}
         >
           그룹 메일로 채우기
         </button>
-        <button type="button" disabled={saving} onClick={() => void onSave()} className={BTN_PRIMARY}>
+        <button
+          type="button"
+          disabled={saving || testingEmail}
+          onClick={() => void onSave()}
+          className={BTN_PRIMARY}
+        >
           {saving ? '저장 중…' : '알림 이메일 저장'}
         </button>
       </div>
+      {onTestEmail ? (
+        <p className="mt-2 text-right text-xs text-gray-500">
+          위 입력란 주소로 실제 입금 확인 알림과 같은 형식의 연습 메일을 보냅니다. SMTP는 설정 → SMTP를
+          사용합니다.
+        </p>
+      ) : null}
     </section>
   );
 }

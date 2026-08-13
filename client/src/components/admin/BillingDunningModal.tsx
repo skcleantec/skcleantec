@@ -168,18 +168,18 @@ export function BillingDunningModal({ open, token, tenantId, attemptKey, onClose
             </>
           ) : null}
 
-          <div className="flex flex-wrap gap-2 justify-end pt-1">
+          <div className="flex flex-nowrap items-center justify-end gap-2 pt-1">
             <Link
               to="/admin/team-leaders/company-profile/subscription"
               onClick={handleDismiss}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              className="shrink-0 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             >
-              이용료 상세 보기
+              이용료 상세
             </Link>
             <button
               type="button"
               onClick={handleDismiss}
-              className="rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+              className="shrink-0 whitespace-nowrap rounded-lg bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             >
               확인
             </button>

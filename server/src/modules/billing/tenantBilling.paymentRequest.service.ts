@@ -2,7 +2,10 @@ import { prisma } from '../../lib/prisma.js';
 import { ensurePlatformBillingSettings } from './tenantBilling.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { notifyPaymentConfirmationRequestByEmail } from './tenantBilling.paymentRequest.email.js';
-import { resolvePlatformBillingNotifyEmail } from '../../lib/platformWorkspace.constants.js';
+import {
+  PLATFORM_SYSTEM_MAIL_FROM,
+  resolvePlatformBillingNotifyEmail,
+} from '../../lib/platformWorkspace.constants.js';
 
 const REQUEST_COOLDOWN_MS = 60 * 60 * 1000;
 
@@ -122,4 +125,54 @@ export function isPaymentConfirmationRequestEnabled(
 ): boolean {
   const email = resolvePlatformBillingNotifyEmail(notifyEmail);
   return isValidEmail(email);
+}
+
+const PAYMENT_NOTIFY_TEST_TENANT_NAME = '연습·테스트';
+
+function smtpNotConfiguredMessage(reason: string | undefined): string {
+  if (reason === 'SMTP_NOT_CONFIGURED') {
+    return 'SMTP가 설정되지 않았습니다. 플랫폼 설정 → SMTP에서 알림 메일 보내기를 저장한 뒤 다시 시도해 주세요.';
+  }
+  return '알림 메일 발송에 실패했습니다.';
+}
+
+/** 플랫폼 — 입금 확인 요청 알림 연습 메일 (청구·요청 기록 없음) */
+export async function sendPaymentConfirmationNotifyTestEmail(input?: {
+  notifyEmail?: string | null;
+}): Promise<{ ok: true; message: string }> {
+  const settings = await ensurePlatformBillingSettings();
+  const notifyEmail = resolvePlatformBillingNotifyEmail(
+    input?.notifyEmail?.trim() || settings.dunningPaymentNotifyEmail,
+  );
+  if (!notifyEmail) {
+    throw new PaymentConfirmationRequestError('알림 받을 이메일을 입력해 주세요.', 400);
+  }
+  if (!isValidEmail(notifyEmail)) {
+    throw new PaymentConfirmationRequestError('알림 받을 이메일 형식을 확인해 주세요.', 400);
+  }
+
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + 7);
+
+  const mailResult = await notifyPaymentConfirmationRequestByEmail({
+    notifyEmail,
+    tenantName: PAYMENT_NOTIFY_TEST_TENANT_NAME,
+    tenantSlug: 'test',
+    tenantId: '00000000-0000-0000-0000-000000000000',
+    invoiceId: '00000000-0000-0000-0000-000000000001',
+    amountKrw: 99000,
+    dueDate: dueDate.toISOString(),
+    invoiceStatus: 'OVERDUE',
+    requesterName: '연습 발송',
+    requesterEmail: PLATFORM_SYSTEM_MAIL_FROM,
+  });
+
+  if (!mailResult.sent) {
+    throw new PaymentConfirmationRequestError(smtpNotConfiguredMessage(mailResult.reason), 503);
+  }
+
+  return {
+    ok: true,
+    message: `${notifyEmail}로 연습 메일을 보냈습니다. 제목: [${PAYMENT_NOTIFY_TEST_TENANT_NAME}] 입금확인요청`,
+  };
 }

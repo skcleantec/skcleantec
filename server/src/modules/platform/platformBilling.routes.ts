@@ -89,6 +89,29 @@ router.post('/smtp/test', platformSuperAdminOnly, async (req, res) => {
   }
 });
 
+router.post('/payment-notify/test', platformSuperAdminOnly, async (req, res) => {
+  try {
+    const body = req.body as { notifyEmail?: string | null };
+    const { sendPaymentConfirmationNotifyTestEmail, PaymentConfirmationRequestError } = await import(
+      '../billing/tenantBilling.paymentRequest.service.js'
+    );
+    const result = await sendPaymentConfirmationNotifyTestEmail({
+      notifyEmail: typeof body.notifyEmail === 'string' ? body.notifyEmail : undefined,
+    });
+    res.json(result);
+  } catch (e) {
+    const { PaymentConfirmationRequestError } = await import(
+      '../billing/tenantBilling.paymentRequest.service.js'
+    );
+    if (e instanceof PaymentConfirmationRequestError) {
+      res.status(e.statusCode).json({ error: e.message });
+      return;
+    }
+    const msg = e instanceof Error ? e.message : '테스트 발송에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
 router.get('/tenants', async (req, res) => {
   try {
     const query = parsePlatformBillingListQuery(req.query as Record<string, unknown>);

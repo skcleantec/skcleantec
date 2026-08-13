@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getPlatformBillingSettings, patchPlatformBillingSettings } from '../../../api/platformBilling';
+import { getPlatformBillingSettings, patchPlatformBillingSettings, sendPlatformPaymentNotifyTest } from '../../../api/platformBilling';
 import { PlatformBillingNotifySettingsSection } from '../../../components/platform/PlatformBillingNotifySettingsSection';
 import { getPlatformToken } from '../../../stores/platformAuth';
 import { CARD_SECTION, PlatformAlert } from '../../../utils/platformUi';
@@ -10,6 +10,7 @@ export function PlatformSettingsBillingNotifyTab() {
   const [notifyEmail, setNotifyEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -60,6 +61,30 @@ export function PlatformSettingsBillingNotifyTab() {
     }
   };
 
+  const testNotifyEmail = async () => {
+    const token = getPlatformToken();
+    if (!token) return;
+    const trimmed = notifyEmail.trim();
+    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError('입금 확인 알림 이메일 형식을 확인해 주세요.');
+      return;
+    }
+    setTestingEmail(true);
+    setError('');
+    setMessage('');
+    try {
+      const result = await sendPlatformPaymentNotifyTest(
+        token,
+        trimmed || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
+      );
+      setMessage(result.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '테스트 발송 실패');
+    } finally {
+      setTestingEmail(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-8 text-center text-sm text-gray-500">불러오는 중…</div>;
   }
@@ -74,6 +99,8 @@ export function PlatformSettingsBillingNotifyTab() {
         onEmailChange={setNotifyEmail}
         onSave={save}
         saving={saving}
+        onTestEmail={testNotifyEmail}
+        testingEmail={testingEmail}
       />
 
       <section className={`${CARD_SECTION} text-sm text-gray-600 space-y-2`}>
