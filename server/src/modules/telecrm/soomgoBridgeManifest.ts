@@ -17,6 +17,9 @@ const SETUP_SHA256_BY_VERSION: Record<string, string> = {
   '2.2.28': '8ecdc4d900cae7783d30db8e04081dd82f397f586c28c6a7a23f84600129b7e4',
   '2.2.29': '946f86b810b51d626caf76f84f956ba3e25f8229391488242029164a45b05643',
   '2.2.30': '9f74265713aac7e8bf3fbde8509dc787d23de0fa79c2f38edaf2f69ce9f54681',
+  '2.2.31': 'b36831fa1e1a36059dd1ae24923550377b17ff87d53f3142ef425529ba17d0a4',
+  '2.2.32': 'f1e817fa19a3b6499ad483dcd3fb30e40edb2b54e7753345fae1446d387f0c2f',
+  '2.2.33': '9295c4bd8b5b2241fab1606c00d5d917656694311e9b8c4f33ae451cec4cf264',
 };
 
 export type SoomgoBridgeManifest = {
@@ -78,7 +81,10 @@ function normalizeManifestFields(
   }
 
   let resolvedSha = sha256.trim();
-  if (urlMismatch || !resolvedSha) {
+  const knownSha = SETUP_SHA256_BY_VERSION[resolvedLatest];
+  if (knownSha) {
+    resolvedSha = knownSha;
+  } else if (urlMismatch || !resolvedSha) {
     resolvedSha = SETUP_SHA256_BY_VERSION[resolvedLatest] ?? resolvedSha;
   }
 
