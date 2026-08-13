@@ -47,11 +47,11 @@ export function normalizeSoomgoPreferredDate(raw: string | null | undefined): st
   return `${m[1]}-${mm}-${dd}`;
 }
 
-/** 브릿지 preferredDate + 메모·채팅 fallback */
+/** 브릿지 preferredDate + 요청 메모에서만 희망일 해석 (채팅 타임스탬프 제외) */
 export function resolveSoomgoPreferredDate(data: SoomgoExtractedChat): string {
   const direct = normalizeSoomgoPreferredDate(data.preferredDate);
   if (direct) return direct;
-  const memo = [data.requestMemo, data.memo, ...(data.customerMessages ?? [])].filter(Boolean).join('\n');
+  const memo = [data.requestMemo, data.memo].filter(Boolean).join('\n');
   return normalizeSoomgoPreferredDate(memo);
 }
 

@@ -218,19 +218,22 @@ def is_garbage_request_extract(data: dict | None) -> bool:
         return True
     pairs = data.get('requestPairs')
     if isinstance(pairs, list):
-        clean_pairs = 0
-        for item in pairs:
-            if not isinstance(item, dict):
-                continue
-            a = str(item.get('answer', '')).strip()
-            q = str(item.get('question', '')).strip()
-            if is_soomgo_boilerplate_line(a) and is_soomgo_boilerplate_line(q):
-                continue
-            clean_pairs += 1
-        if clean_pairs == 0 and (memo or region):
+        clean_pairs = count_clean_request_pairs(data)
+        if clean_pairs == 0 and memo and is_soomgo_sidebar_nav_memo(memo):
             return True
     if count_clean_request_pairs(data) == 0 and not any(
-        data.get(key) for key in ('pyeong', 'region', 'customerName', 'serviceType', 'roomCount')
+        data.get(key)
+        for key in (
+            'pyeong',
+            'region',
+            'customerName',
+            'serviceType',
+            'roomCount',
+            'preferredDate',
+            'buildingType',
+            'bathroomCount',
+            'verandaCount',
+        )
     ):
         return True
     return False

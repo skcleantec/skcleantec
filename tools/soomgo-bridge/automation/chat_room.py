@@ -16,6 +16,7 @@ from automation.customer_request import (
     CustomerRequestManager,
     REQUEST_MODAL_DELAY,
     build_request_memo_from_payload,
+    parse_preferred_date_from_request_texts,
     parse_soomgo_count,
 )
 from automation.call_modal import CallModalManager
@@ -34,7 +35,6 @@ logger = logging.getLogger(__name__)
 _PHONE_RE = re.compile(r'01[016789][-\s]?\d{3,4}[-\s]?\d{4}')
 _PYEONG_RE = re.compile(r'(\d{1,4})\s*평')
 _ADDRESS_HINT = re.compile(r'[가-힣]{2,}(?:시|군|구|동|로|길|아파트|APT|apt|빌라|타운)')
-_DATE_ISO_RE = re.compile(r'(\d{4}-\d{2}-\d{2})')
 _PHONE_CONSULT_PENDING_RE = re.compile(r'승인\s*시\s*전화\s*상담|전화상담이\s*가능', re.I)
 _PHONE_CONSULT_DONE_RE = re.compile(r'전화상담을\s*요청했습니다|전화상담\s*요청\s*완료', re.I)
 
@@ -252,19 +252,8 @@ def parse_fields_from_texts(texts: list[str]) -> dict[str, Any]:
 
 
 def parse_preferred_date_from_texts(texts: list[str]) -> str | None:
-    """채팅·모달 텍스트에서 YYYY-MM-DD 추출 (원하는 날짜가 있어요. : 2026-09-17 등)."""
-    for raw in texts:
-        if not raw:
-            continue
-        for line in str(raw).split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-            if '날짜' in line or '희망' in line or _DATE_ISO_RE.search(line):
-                m = re.search(r'[:：]\s*(\d{4}-\d{2}-\d{2})', line) or _DATE_ISO_RE.search(line)
-                if m:
-                    return m.group(1) if m.lastindex else m.group(0)
-    return None
+    """레거시 alias — 고객 요청 모달 텍스트 전용."""
+    return parse_preferred_date_from_request_texts(texts)
 
 
 def needs_phone_consult_request(texts: list[str]) -> bool:
@@ -508,7 +497,7 @@ class ChatRoomManager:
 
         preferred_date = request_data.get('preferredDate')
         if not preferred_date:
-            date_sources = list(customer_messages)
+            date_sources: list[str] = []
             if request_data.get('requestMemo'):
                 date_sources.append(str(request_data['requestMemo']))
             if request_data.get('requestPairs'):
@@ -516,7 +505,7 @@ class ChatRoomManager:
                     if isinstance(pair, dict):
                         date_sources.append(str(pair.get('question', '')))
                         date_sources.append(str(pair.get('answer', '')))
-            preferred_date = parse_preferred_date_from_texts(date_sources)
+            preferred_date = parse_preferred_date_from_request_texts(date_sources)
 
         phone = mobile_phone or safe_phone
         last_message = customer_messages[-1] if customer_messages else None

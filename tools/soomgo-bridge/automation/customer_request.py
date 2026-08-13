@@ -30,8 +30,46 @@ REQUEST_MODAL_EXTRACT_SETTLE_SEC = 0.55
 REQUEST_MODAL_READ_ATTEMPTS = 6
 
 _DATE_RE = re.compile(r'(\d{4}-\d{2}-\d{2})')
+_DATE_QUESTION_RE = re.compile(
+    r'희망일|원하는\s*날짜|청소\s*날짜|이사\s*날짜|입주\s*날짜|날짜|언제|일정|희망\s*하|원하시는\s*날|원하는\s*날',
+)
 _PYEONG_ANSWER_RE = re.compile(r'(\d{1,4})\s*평')
 _COUNT_ANSWER_RE = re.compile(r'(\d{1,2})')
+
+
+def parse_preferred_date_from_request_texts(texts: list[str]) -> str | None:
+    """고객 요청 모달 Q&A·메모에서만 희망일 추출 (채팅 타임스탬프·무관 ISO 제외)."""
+    for raw in texts:
+        if not raw:
+            continue
+        for line in str(raw).split('\n'):
+            line = line.strip()
+            if not line or is_soomgo_boilerplate_line(line):
+                continue
+            if re.match(r'^\d{1,2}:\d{2}', line):
+                continue
+            if not _DATE_QUESTION_RE.search(line) and '날짜' not in line and '희망' not in line:
+                continue
+            m = re.search(r'[:：]\s*(\d{4}-\d{2}-\d{2})', line) or _DATE_RE.search(line)
+            if m:
+                return m.group(1) if m.lastindex else m.group(0)
+    return None
+
+
+def pick_preferred_date_from_pairs(pairs: list[dict[str, str]]) -> str | None:
+    for item in pairs:
+        q = str(item.get('question', '')).strip()
+        a = str(item.get('answer', '')).strip()
+        if not q and not a:
+            continue
+        if not _DATE_QUESTION_RE.search(q) and not _DATE_QUESTION_RE.search(a):
+            if '날짜' not in q and '희망' not in q:
+                continue
+        combined = f'{q} {a}'.strip()
+        m = _DATE_RE.search(combined)
+        if m:
+            return m.group(1)
+    return None
 
 
 def parse_soomgo_count(raw: Any) -> int | None:
@@ -240,9 +278,43 @@ function findModalBody() {
 }
 var body = findModalBody();
 if (!body) return null;
-var requestSection = body.querySelector('[data-type="request"]');
+var requestSection = body.querySelector('[data-type="request"], .request-view');
 if (!requestSection || !visible(requestSection)) return null;
 var requestBlock = requestSection;
+function isDateQuestion(text) {
+  if (!text) return false;
+  return /날짜|희망|원하는|언제|일정|청소.*날|입주.*날|이사.*날/.test(text);
+}
+function pickIsoFromDateContext(text) {
+  if (!text || !isDateQuestion(text)) return null;
+  var iso = text.match(/(\\d{4}-\\d{2}-\\d{2})/);
+  return iso ? iso[1] : null;
+}
+function pushPair(q, a) {
+  q = (q || '').replace(/\\s+/g, ' ').trim();
+  a = (a || '').replace(/\\s+/g, ' ').trim();
+  if (!a || (q && q === a)) return;
+  pairs.push({ question: q, answer: a });
+}
+function readRowPair(row) {
+  if (!row || !visible(row)) return null;
+  var labelEl = row.querySelector('dt, th, [class*="label"], [class*="question"], .col:first-child, :scope > div:first-child');
+  var valueEl = row.querySelector('dd, td, [class*="value"], [class*="answer"], .col:last-child, :scope > div:last-child');
+  if (labelEl && valueEl && labelEl !== valueEl) {
+    return { q: (labelEl.textContent || '').replace(/\\s+/g, ' ').trim(), a: (valueEl.textContent || '').replace(/\\s+/g, ' ').trim() };
+  }
+  var kids = [];
+  for (var c = 0; c < row.children.length; c++) {
+    if (visible(row.children[c])) kids.push(row.children[c]);
+  }
+  if (kids.length >= 2) {
+    return {
+      q: (kids[0].textContent || '').replace(/\\s+/g, ' ').trim(),
+      a: (kids[kids.length - 1].textContent || '').replace(/\\s+/g, ' ').trim()
+    };
+  }
+  return null;
+}
 
 var userBlock = body.querySelector('[data-type="user"]');
 var customerName = null;
@@ -263,34 +335,27 @@ if (userBlock) {
 }
 
 var pairs = [];
-var rows = requestSection.querySelectorAll('.row.no-gutters, .row, dl, li, [class*="detail-row"]');
+var rows = requestSection.querySelectorAll(
+  '.row.no-gutters, .row, dl, li, [class*="detail-row"], [class*="request-item"], [class*="RequestItem"]'
+);
 for (var r = 0; r < rows.length; r++) {
   var row = rows[r];
   if (!visible(row)) continue;
   if (row.closest('[data-type="user"]')) continue;
-  var kids = [];
-  for (var c = 0; c < row.children.length; c++) {
-    if (visible(row.children[c])) kids.push(row.children[c]);
-  }
-  if (kids.length >= 2) {
-    var q = (kids[0].textContent || '').replace(/\\s+/g, ' ').trim();
-    var a = (kids[kids.length - 1].textContent || '').replace(/\\s+/g, ' ').trim();
-    if (q && a && q !== a) pairs.push({ question: q, answer: a });
+  var rp = readRowPair(row);
+  if (rp) {
+    pushPair(rp.q, rp.a);
     continue;
   }
-  var cells = row.querySelectorAll('dt, dd, th, td, div, span, p');
+  var cells = row.querySelectorAll('dt, dd, th, td');
   if (cells.length >= 2) {
-    var q2 = (cells[0].textContent || '').replace(/\\s+/g, ' ').trim();
-    var a2 = (cells[cells.length - 1].textContent || '').replace(/\\s+/g, ' ').trim();
-    if (q2 && a2 && q2 !== a2) pairs.push({ question: q2, answer: a2 });
+    pushPair(cells[0].textContent, cells[cells.length - 1].textContent);
     continue;
   }
   var rowText = (row.textContent || '').replace(/\\s+/g, ' ').trim();
   if (rowText.indexOf(':') >= 0) {
     var parts = rowText.split(':');
-    var rq = parts.shift().trim();
-    var ra = parts.join(':').trim();
-    if (rq && ra) pairs.push({ question: rq, answer: ra });
+    pushPair(parts.shift(), parts.join(':'));
   }
 }
 
@@ -311,15 +376,25 @@ if (pairs.length === 0) {
   }
 }
 
-var text = (body.innerText || '').trim();
+var requestText = (requestSection.innerText || requestSection.textContent || '').trim();
+var text = (body.innerText || body.textContent || '').trim();
 var preferredDate = null;
-var dateM = text.match(/\\d{4}-\\d{2}-\\d{2}/);
-if (dateM) preferredDate = dateM[0];
+for (var pi = 0; pi < pairs.length; pi++) {
+  var pd = pickIsoFromDateContext((pairs[pi].question || '') + ' ' + (pairs[pi].answer || ''));
+  if (pd) { preferredDate = pd; break; }
+}
+if (!preferredDate) {
+  var reqLines = requestText.split('\\n');
+  for (var rl = 0; rl < reqLines.length; rl++) {
+    var pd2 = pickIsoFromDateContext(reqLines[rl]);
+    if (pd2) { preferredDate = pd2; break; }
+  }
+}
 var pyeong = null;
-var pyeongM = text.match(/(\\d{1,4})\\s*평(?:형|수)?/);
+var pyeongM = requestText.match(/(\\d{1,4})\\s*평(?:형|수)?/);
 if (pyeongM) pyeong = pyeongM[1];
 
-if (pairs.length === 0 && !pyeong && !region && !customerName) return null;
+if (pairs.length === 0 && !pyeong && !region && !customerName && !preferredDate) return null;
 return {
   customerName: customerName,
   region: region,
@@ -449,9 +524,14 @@ for (var k = 0; k < Math.min(lines.length, 24); k++) {
   if (!region && isPlausibleRegion(cand)) region = cand;
 }
 var preferredDate = null;
+for (var pi = 0; pi < pairs.length; pi++) {
+  var pq = pairs[pi].question || '';
+  var pa = pairs[pi].answer || '';
+  if (!/날짜|희망|원하는|언제|일정/.test(pq) && !/날짜|희망|원하는|언제|일정/.test(pa)) continue;
+  var dm = (pq + ' ' + pa).match(/(\\d{4}-\\d{2}-\\d{2})/);
+  if (dm) { preferredDate = dm[1]; break; }
+}
 var pyeong = null;
-var dateM = text.match(/\\d{4}-\\d{2}-\\d{2}/);
-if (dateM) preferredDate = dateM[0];
 var pyeongM = text.match(/(\\d{1,4})\\s*평/);
 if (pyeongM) pyeong = pyeongM[1];
 return { customerName: customerName, region: region, preferredDate: preferredDate, pyeong: pyeong, pairs: pairs, rawText: text };
@@ -564,17 +644,19 @@ return true;
 
 
 def is_request_extract_complete(data: dict | None) -> bool:
-    """모달 Q&A가 실제로 채워졌는지 — 평수만으로는 True가 되지 않게."""
+    """모달 Q&A·핵심 필드가 실제로 채워졌는지 — 평수 regex만으로는 True가 되지 않게."""
     if not data:
         return False
     pairs = count_clean_request_pairs(data)
-    if pairs >= 3:
+    if pairs >= 2:
         return True
-    if pairs >= 2 and (data.get('customerName') or data.get('region')):
+    if pairs >= 1 and any(
+        data.get(key) for key in ('pyeong', 'roomCount', 'serviceType', 'preferredDate', 'region', 'buildingType')
+    ):
         return True
-    if data.get('roomCount') and data.get('pyeong') and (data.get('region') or pairs >= 1):
+    if data.get('customerName') and data.get('region') and data.get('pyeong'):
         return True
-    if data.get('serviceType') and data.get('buildingType') and data.get('pyeong') and pairs >= 1:
+    if pairs >= 1 and data.get('customerName'):
         return True
     return False
 
@@ -687,10 +769,10 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
                 pm = _PYEONG_ANSWER_RE.search(a)
                 if pm:
                     result['pyeong'] = pm.group(1)
-            elif _DATE_RE.search(a) and not result.get('preferredDate'):
-                dm = _DATE_RE.search(a)
-                if dm:
-                    result['preferredDate'] = dm.group(1)
+
+    pair_date = pick_preferred_date_from_pairs(pairs)
+    if pair_date and not result.get('preferredDate'):
+        result['preferredDate'] = pair_date
 
     if memo_lines:
         result['requestMemo'] = '\n\n'.join(filter_soomgo_memo_lines(memo_lines))[:3000]
@@ -710,9 +792,11 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
             if not result.get('serviceType') and re.search(r'입주|이사|청소', a):
                 result['serviceType'] = a
             if not result.get('preferredDate'):
-                dm = _DATE_RE.search(a)
-                if dm:
-                    result['preferredDate'] = dm.group(1)
+                q = str(item.get('question', '')).strip()
+                if _DATE_QUESTION_RE.search(q) or '날짜' in q or '희망' in q:
+                    dm = _DATE_RE.search(a) or _DATE_RE.search(q)
+                    if dm:
+                        result['preferredDate'] = dm.group(1)
             if not result.get('pyeong'):
                 pm = _PYEONG_ANSWER_RE.search(a)
                 if pm:
@@ -898,8 +982,15 @@ class CustomerRequestManager:
                 parsed['pyeong'] = str(py)
             parsed['requestPairs'] = pairs
             parsed['requestRawText'] = str(raw.get('rawText', ''))[:4000]
+            if not parsed.get('preferredDate'):
+                pair_date = pick_preferred_date_from_pairs(pairs)
+                if pair_date:
+                    parsed['preferredDate'] = pair_date
             if is_garbage_request_extract(parsed):
-                return None
+                if has_meaningful_request_fields(parsed) or parsed.get('customerName') or parsed.get('pyeong'):
+                    logger.warning('keeping partial request extract despite garbage filter')
+                else:
+                    return None
             return parsed
         except Exception as e:
             logger.error('extract_request_modal: %s', e)
