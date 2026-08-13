@@ -9,21 +9,25 @@ from typing import Any
 from automation.overlay_modals import dismiss_blocking_overlays
 from automation.selectors import SOOMGO_DISPLAY_NAME_JS
 from automation.soomgo_text_filters import (
+    count_clean_request_pairs,
     filter_soomgo_memo_lines,
     has_meaningful_request_fields,
     is_garbage_request_extract,
     is_plausible_soomgo_region,
     is_soomgo_boilerplate_line,
+    is_soomgo_chat_scrape_memo,
+    is_soomgo_sidebar_nav_memo,
 )
 
 logger = logging.getLogger(__name__)
 
 REQUEST_MODAL_DELAY = 0.45
-REQUEST_MODAL_READY_TIMEOUT = 5.0
-REQUEST_MODAL_POLL_SEC = 0.08
-REQUEST_MODAL_OPEN_WAIT_SEC = 3.2
-REQUEST_MODAL_RETRY_WAIT_SEC = 2.0
-REQUEST_MODAL_EXTRACT_SETTLE_SEC = 0.35
+REQUEST_MODAL_READY_TIMEOUT = 8.0
+REQUEST_MODAL_POLL_SEC = 0.1
+REQUEST_MODAL_OPEN_WAIT_SEC = 4.0
+REQUEST_MODAL_RETRY_WAIT_SEC = 2.5
+REQUEST_MODAL_EXTRACT_SETTLE_SEC = 0.55
+REQUEST_MODAL_READ_ATTEMPTS = 6
 
 _DATE_RE = re.compile(r'(\d{4}-\d{2}-\d{2})')
 _PYEONG_ANSWER_RE = re.compile(r'(\d{1,4})\s*평')
@@ -236,8 +240,9 @@ function findModalBody() {
 }
 var body = findModalBody();
 if (!body) return null;
-var requestBlock = body.querySelector('[data-type="request"]') || body.querySelector('.request-view');
-if (!requestBlock || !visible(requestBlock)) return null;
+var requestSection = body.querySelector('[data-type="request"]');
+if (!requestSection || !visible(requestSection)) return null;
+var requestBlock = requestSection;
 
 var userBlock = body.querySelector('[data-type="user"]');
 var customerName = null;
@@ -249,18 +254,35 @@ if (userBlock) {
     if (!customerName && isSoomgoDisplayName(ul)) customerName = normalizeSoomgoDisplayNameLine(ul);
     if (!region && isPlausibleRegion(ul)) region = ul;
   }
+  if (!region) {
+    for (var u2 = 0; u2 < userLines.length; u2++) {
+      var cand = userLines[u2];
+      if (isPlausibleRegion(cand)) { region = cand; break; }
+    }
+  }
 }
 
 var pairs = [];
-var rows = requestBlock.querySelectorAll('.row.no-gutters, .row, dl, [class*="detail-row"], li');
+var rows = requestSection.querySelectorAll('.row.no-gutters, .row, dl, li, [class*="detail-row"]');
 for (var r = 0; r < rows.length; r++) {
   var row = rows[r];
   if (!visible(row)) continue;
-  var cells = row.querySelectorAll(':scope > div, :scope > span, :scope > p, dt, dd, th, td');
-  if (cells.length >= 2) {
-    var q = (cells[0].textContent || '').replace(/\\s+/g, ' ').trim();
-    var a = (cells[1].textContent || '').replace(/\\s+/g, ' ').trim();
+  if (row.closest('[data-type="user"]')) continue;
+  var kids = [];
+  for (var c = 0; c < row.children.length; c++) {
+    if (visible(row.children[c])) kids.push(row.children[c]);
+  }
+  if (kids.length >= 2) {
+    var q = (kids[0].textContent || '').replace(/\\s+/g, ' ').trim();
+    var a = (kids[kids.length - 1].textContent || '').replace(/\\s+/g, ' ').trim();
     if (q && a && q !== a) pairs.push({ question: q, answer: a });
+    continue;
+  }
+  var cells = row.querySelectorAll('dt, dd, th, td, div, span, p');
+  if (cells.length >= 2) {
+    var q2 = (cells[0].textContent || '').replace(/\\s+/g, ' ').trim();
+    var a2 = (cells[cells.length - 1].textContent || '').replace(/\\s+/g, ' ').trim();
+    if (q2 && a2 && q2 !== a2) pairs.push({ question: q2, answer: a2 });
     continue;
   }
   var rowText = (row.textContent || '').replace(/\\s+/g, ' ').trim();
@@ -273,7 +295,7 @@ for (var r = 0; r < rows.length; r++) {
 }
 
 if (pairs.length === 0) {
-  var lines = (requestBlock.innerText || '').split('\\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+  var lines = (requestSection.innerText || '').split('\\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
   var pendingQ = null;
   for (var j = 0; j < lines.length; j++) {
     var line = lines[j];
@@ -294,10 +316,10 @@ var preferredDate = null;
 var dateM = text.match(/\\d{4}-\\d{2}-\\d{2}/);
 if (dateM) preferredDate = dateM[0];
 var pyeong = null;
-var pyeongM = text.match(/(\\d{1,4})\\s*평/);
+var pyeongM = text.match(/(\\d{1,4})\\s*평(?:형|수)?/);
 if (pyeongM) pyeong = pyeongM[1];
 
-if (pairs.length === 0 && !pyeong && !region) return null;
+if (pairs.length === 0 && !pyeong && !region && !customerName) return null;
 return {
   customerName: customerName,
   region: region,
@@ -541,6 +563,63 @@ return true;
 """
 
 
+def is_request_extract_complete(data: dict | None) -> bool:
+    """모달 Q&A가 실제로 채워졌는지 — 평수만으로는 True가 되지 않게."""
+    if not data:
+        return False
+    pairs = count_clean_request_pairs(data)
+    if pairs >= 3:
+        return True
+    if pairs >= 2 and (data.get('customerName') or data.get('region')):
+        return True
+    if data.get('roomCount') and data.get('pyeong') and (data.get('region') or pairs >= 1):
+        return True
+    if data.get('serviceType') and data.get('buildingType') and data.get('pyeong') and pairs >= 1:
+        return True
+    return False
+
+
+def merge_request_payload(base: dict[str, Any], newer: dict[str, Any]) -> dict[str, Any]:
+    out = dict(base)
+    for key, value in newer.items():
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        if key == 'requestPairs' and isinstance(value, list):
+            if count_clean_request_pairs({'requestPairs': value}) >= count_clean_request_pairs(out):
+                out[key] = value
+            continue
+        out[key] = value
+    return out
+
+
+def build_request_memo_from_payload(data: dict[str, Any] | None) -> str | None:
+    if not data:
+        return None
+    memo = str(data.get('requestMemo') or '').strip()
+    if memo and not is_soomgo_sidebar_nav_memo(memo) and not is_soomgo_chat_scrape_memo(memo):
+        return memo
+    pairs = data.get('requestPairs')
+    if not isinstance(pairs, list):
+        return None
+    lines: list[str] = []
+    for item in pairs:
+        if not isinstance(item, dict):
+            continue
+        q = str(item.get('question', '')).strip()
+        a = str(item.get('answer', '')).strip()
+        if not a or is_soomgo_boilerplate_line(a):
+            continue
+        if q and is_soomgo_boilerplate_line(q):
+            continue
+        lines.append(f'{q}\n{a}' if q else a)
+    filtered = filter_soomgo_memo_lines(lines)
+    if not filtered:
+        return None
+    return '\n\n'.join(filtered)[:3000]
+
+
 def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
     result: dict[str, Any] = {
         'serviceType': None,
@@ -583,9 +662,9 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
             result['spaceItems'] = a
         elif '추가' in q and '서비스' in q:
             result['extraServices'] = a
-        elif '평수' in q or '공급면적' in q or '평형' in q:
+        elif '평수' in q or '공급면적' in q or '평형' in q or ('평' in q and '희망' not in q):
             pm = _PYEONG_ANSWER_RE.search(a)
-            result['pyeong'] = pm.group(1) if pm else a.replace('평', '').strip()
+            result['pyeong'] = pm.group(1) if pm else a.replace('평', '').replace('형', '').strip()
         elif '희망일' in q or '날짜' in q or '원하는 날짜' in q:
             combined = f'{q} {a}'.strip()
             dm = _DATE_RE.search(combined)
@@ -615,6 +694,10 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
 
     if memo_lines:
         result['requestMemo'] = '\n\n'.join(filter_soomgo_memo_lines(memo_lines))[:3000]
+    elif pairs:
+        built = build_request_memo_from_payload({'requestPairs': pairs})
+        if built:
+            result['requestMemo'] = built
 
     if not result.get('region'):
         for item in pairs:
@@ -649,25 +732,37 @@ class CustomerRequestManager:
             return False
 
     def _modal_has_content(self) -> bool:
-        if not self._modal_ready_light():
+        if not self.is_request_modal_open():
             return False
         data = self.extract_request_modal()
-        return bool(data and has_meaningful_request_fields(data))
+        return bool(data and is_request_extract_complete(data))
 
     def wait_for_request_modal_ready(self, timeout: float = REQUEST_MODAL_READY_TIMEOUT) -> bool:
         deadline = time.time() + timeout
+        stable_hits = 0
+        last_pair_count = -1
         while time.time() < deadline:
             if not self.is_request_modal_open():
                 time.sleep(REQUEST_MODAL_POLL_SEC)
+                stable_hits = 0
                 continue
-            if self._modal_has_content():
-                return True
-            if self._modal_ready_light():
-                time.sleep(REQUEST_MODAL_EXTRACT_SETTLE_SEC)
-                if self._modal_has_content():
+            data = self.extract_request_modal() or {}
+            pair_count = count_clean_request_pairs(data)
+            if is_request_extract_complete(data):
+                if pair_count == last_pair_count and pair_count > 0:
+                    stable_hits += 1
+                else:
+                    stable_hits = 1
+                last_pair_count = pair_count
+                if stable_hits >= 2:
                     return True
-            time.sleep(REQUEST_MODAL_POLL_SEC)
-        return self._modal_has_content()
+                time.sleep(REQUEST_MODAL_EXTRACT_SETTLE_SEC)
+            else:
+                stable_hits = 0
+                last_pair_count = -1
+                time.sleep(REQUEST_MODAL_POLL_SEC)
+        data = self.extract_request_modal() or {}
+        return is_request_extract_complete(data)
 
     def _try_open_via_script(self, script: str, wait_timeout: float) -> bool:
         try:
@@ -751,17 +846,32 @@ class CustomerRequestManager:
         return data
 
     def _read_request_payload(self, header_name: str | None) -> dict[str, Any]:
-        time.sleep(REQUEST_MODAL_EXTRACT_SETTLE_SEC)
-        data = self.extract_request_modal() or {}
-        data = self._merge_header_name(data, header_name)
-        if has_meaningful_request_fields(data):
-            return data
-        time.sleep(self.delay * 0.25)
-        retry = self.extract_request_modal() or {}
-        retry = self._merge_header_name(retry, header_name)
-        if has_meaningful_request_fields(retry):
-            return retry
-        return data
+        best: dict[str, Any] = {}
+        for attempt in range(REQUEST_MODAL_READ_ATTEMPTS):
+            if attempt == 0:
+                time.sleep(REQUEST_MODAL_EXTRACT_SETTLE_SEC)
+            else:
+                time.sleep(0.45)
+            if not self.is_request_modal_open():
+                break
+            data = self.extract_request_modal() or {}
+            data = self._merge_header_name(data, header_name)
+            best = merge_request_payload(best, data)
+            memo = build_request_memo_from_payload(best)
+            if memo:
+                best['requestMemo'] = memo
+            if is_request_extract_complete(best):
+                logger.info(
+                    'request payload ready attempt=%s pairs=%s',
+                    attempt + 1,
+                    count_clean_request_pairs(best),
+                )
+                return best
+        if best:
+            memo = build_request_memo_from_payload(best)
+            if memo:
+                best['requestMemo'] = memo
+        return merge_request_payload({}, self._merge_header_name(best, header_name))
 
     def extract_request_modal(self) -> dict[str, Any] | None:
         try:
@@ -843,9 +953,14 @@ class CustomerRequestManager:
             logger.warning('customer request modal content not ready; header=%s', header_name)
 
         data = self._read_request_payload(header_name)
-        if not has_meaningful_request_fields(data):
-            logger.warning('customer request extract empty/garbage; header=%s', header_name)
-            data = self._merge_header_name({}, header_name)
+        if not data.get('customerName') and header_name:
+            data = self._merge_header_name(data, header_name)
+        if not is_request_extract_complete(data):
+            logger.warning(
+                'customer request extract incomplete; header=%s pairs=%s',
+                header_name,
+                count_clean_request_pairs(data),
+            )
 
         self.close_request_modal()
         time.sleep(self.delay * 0.12)

@@ -12,13 +12,17 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
 from automation.selectors import URLS
-from automation.customer_request import CustomerRequestManager, REQUEST_MODAL_DELAY, parse_soomgo_count
+from automation.customer_request import (
+    CustomerRequestManager,
+    REQUEST_MODAL_DELAY,
+    build_request_memo_from_payload,
+    parse_soomgo_count,
+)
 from automation.call_modal import CallModalManager
 from automation.overlay_modals import dismiss_blocking_overlays
 from automation.selectors import SOOMGO_DISPLAY_NAME_JS
 from automation.soomgo_text_filters import (
     filter_soomgo_memo_lines,
-    has_meaningful_request_fields,
     is_plausible_soomgo_region,
     is_soomgo_boilerplate_line,
     is_soomgo_chat_scrape_memo,
@@ -439,33 +443,33 @@ class ChatRoomManager:
         req_mgr = CustomerRequestManager(self.driver, self.delay)
         request_data = req_mgr.extract_customer_request()
 
+        header_name = req_mgr.get_header_customer_name()
         customer_name = (
             request_data.get('customerName')
-            or req_mgr.get_header_customer_name()
+            or header_name
             or self.get_nickname()
         )
         region = request_data.get('region')
+        if region and not is_plausible_soomgo_region(str(region)):
+            region = None
 
         customer_messages = self.get_customer_messages()
         parsed = parse_fields_from_texts(customer_messages)
         parsed['memo'] = None
 
-        request_ok = has_meaningful_request_fields(request_data)
         if request_data.get('pyeong'):
             parsed['pyeong'] = str(request_data['pyeong'])
-        elif not request_ok:
-            pass
-        if region and is_plausible_soomgo_region(str(region)):
+        if region:
             parsed['address'] = str(region)
-        elif request_data.get('region') and is_plausible_soomgo_region(str(request_data.get('region'))):
-            parsed['address'] = str(request_data['region'])
-        elif not request_ok:
-            parsed['address'] = None
+        elif request_data.get('region'):
+            candidate = str(request_data['region']).strip()
+            if candidate and is_plausible_soomgo_region(candidate):
+                parsed['address'] = candidate
+                region = candidate
 
-        request_memo = str(request_data.get('requestMemo') or '').strip()
+        request_memo = build_request_memo_from_payload(request_data) or ''
         if (
-            request_ok
-            and request_memo
+            request_memo
             and not is_soomgo_boilerplate_line(request_memo)
             and not is_soomgo_sidebar_nav_memo(request_memo)
             and not is_soomgo_chat_scrape_memo(request_memo)
@@ -534,7 +538,7 @@ class ChatRoomManager:
             'serviceType': request_data.get('serviceType'),
             'buildingType': request_data.get('buildingType'),
             'region': region or request_data.get('region'),
-            'requestMemo': request_data.get('requestMemo'),
+            'requestMemo': request_memo or parsed.get('memo'),
             'requestPairs': request_data.get('requestPairs', []),
             'roomCount': parse_soomgo_count(request_data.get('roomCount')),
             'bathroomCount': parse_soomgo_count(request_data.get('bathroomCount')),

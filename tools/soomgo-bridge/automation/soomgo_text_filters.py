@@ -149,19 +149,31 @@ def filter_soomgo_memo_lines(lines: list[str]) -> list[str]:
     return out
 
 
+def count_clean_request_pairs(data: dict | None) -> int:
+    if not data:
+        return 0
+    pairs = data.get('requestPairs')
+    if not isinstance(pairs, list):
+        return 0
+    count = 0
+    for item in pairs:
+        if not isinstance(item, dict):
+            continue
+        q = str(item.get('question', '')).strip()
+        a = str(item.get('answer', '')).strip()
+        if is_soomgo_boilerplate_line(a) and is_soomgo_boilerplate_line(q):
+            continue
+        if not a:
+            continue
+        count += 1
+    return count
+
+
 def has_meaningful_request_fields(data: dict | None) -> bool:
     if not data:
         return False
-    if data.get('pyeong') or data.get('region') or data.get('roomCount'):
-        return True
-    if data.get('serviceType') or data.get('buildingType') or data.get('preferredDate'):
-        return True
-    if data.get('bathroomCount') or data.get('verandaCount'):
-        return True
-    memo = str(data.get('requestMemo') or '').strip()
-    if memo and not is_soomgo_sidebar_nav_memo(memo) and _REQUEST_SIGNAL_RE.search(memo):
-        return True
     pairs = data.get('requestPairs')
+    clean_pairs = 0
     if isinstance(pairs, list):
         for item in pairs:
             if not isinstance(item, dict):
@@ -170,10 +182,21 @@ def has_meaningful_request_fields(data: dict | None) -> bool:
             a = str(item.get('answer', '')).strip()
             if is_soomgo_boilerplate_line(a) and is_soomgo_boilerplate_line(q):
                 continue
-            if q and _REQUEST_SIGNAL_RE.search(q):
-                return True
-            if a and _REQUEST_SIGNAL_RE.search(a) and not is_soomgo_boilerplate_line(a):
-                return True
+            if not a:
+                continue
+            clean_pairs += 1
+    if clean_pairs >= 2:
+        return True
+    if data.get('roomCount') and data.get('pyeong'):
+        return True
+    if data.get('region') and data.get('customerName') and clean_pairs >= 1:
+        return True
+    if data.get('serviceType') and data.get('buildingType') and clean_pairs >= 1:
+        return True
+    memo = str(data.get('requestMemo') or '').strip()
+    if memo and not is_soomgo_sidebar_nav_memo(memo) and not is_soomgo_chat_scrape_memo(memo):
+        if _REQUEST_SIGNAL_RE.search(memo):
+            return True
     return False
 
 
@@ -206,6 +229,8 @@ def is_garbage_request_extract(data: dict | None) -> bool:
             clean_pairs += 1
         if clean_pairs == 0 and (memo or region):
             return True
-    if not has_meaningful_request_fields(data):
+    if count_clean_request_pairs(data) == 0 and not any(
+        data.get(key) for key in ('pyeong', 'region', 'customerName', 'serviceType', 'roomCount')
+    ):
         return True
     return False
