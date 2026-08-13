@@ -33,7 +33,8 @@ import type { SoomgoExtractedChat, SoomgoBridgeManifest, SoomgoChatAlert, Soomgo
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
 import { useCrmMisoBridge } from '../../../hooks/useCrmMisoBridge';
 import { useSoomgoBridgeManifestRefresh } from '../../../hooks/useSoomgoBridgeManifestRefresh';
-import { isSoomgoBridgeUpdateNoticeVisible } from '../../../api/soomgoBridge';
+import { isMisoBridgeReachable } from '../../../api/misoBridge';
+import { isSoomgoBridgeUpdateNoticeVisible, isSoomgoBridgeReachable, isSoomgoBridgeUseBlocked, SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE, soomgoBridgeOutdatedMessage } from '../../../api/soomgoBridge';
 import { useTenantCapabilities } from '../../../hooks/useTenantCapabilities';
 import { canAccessTelecrm, telecrmHasPlatform } from '../../../utils/telecrmDashboardAccess';
 import { TelecrmAccessModal } from '../../../components/admin/TelecrmAccessModal';
@@ -766,20 +767,26 @@ export function CrmPage() {
   } = misoBridge;
 
   const extractFromBridge = useCallback(async () => {
-    if (misoBarOpen && misoBridgeUp) {
-      await extractMiso();
-      return;
-    }
-    if (soomgoBarOpen && soomgoBridgeUp) {
-      await extract();
-      return;
-    }
     if (misoBarOpen) {
+      const miso = await refreshMisoStatus();
+      if (isMisoBridgeReachable(miso)) {
+        await extractMiso();
+        return;
+      }
       showDispatchNotice('미소 연동 프로그램이 실행 중이 아닙니다. run-bridge.bat을 실행해 주세요.');
       return;
     }
     if (soomgoBarOpen) {
-      showDispatchNotice('숨고 연동 프로그램이 실행 중이 아닙니다.');
+      const s = await refreshSoomgoStatus({ lite: true });
+      if (isSoomgoBridgeUseBlocked(s, soomgoBridgeManifest)) {
+        showDispatchNotice(soomgoBridgeOutdatedMessage(s, soomgoBridgeManifest));
+        return;
+      }
+      if (isSoomgoBridgeReachable(s)) {
+        await extract();
+        return;
+      }
+      showDispatchNotice(SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE);
       return;
     }
     showDispatchNotice('GNB에서 「미소 연동」 또는 「숨고 연동」을 켠 뒤 정보 갖고오기를 눌러 주세요.');
@@ -787,10 +794,11 @@ export function CrmPage() {
     extract,
     extractMiso,
     misoBarOpen,
-    misoBridgeUp,
+    refreshMisoStatus,
+    refreshSoomgoStatus,
     showDispatchNotice,
     soomgoBarOpen,
-    soomgoBridgeUp,
+    soomgoBridgeManifest,
   ]);
 
   const bridgeExtractBusy =

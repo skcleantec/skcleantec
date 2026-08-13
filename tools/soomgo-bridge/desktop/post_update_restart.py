@@ -76,10 +76,13 @@ def main() -> None:
     try:
         from desktop.bridge_pack_integrity import ensure_bridge_pack_integrity
         from desktop.manifest_client import fetch_manifest_for_update
+        from desktop.update_manager import clear_stale_update_phase_if_current, write_update_state
 
         manifest = fetch_manifest_for_update()
         if manifest:
             ensure_bridge_pack_integrity(manifest)
+            clear_stale_update_phase_if_current(manifest)
+        write_update_state(phase='idle', message=None, latest_version=None, artifact=None)
     except Exception:
         pass
     wait_until_single_instance_free(timeout_sec=MUTEX_WAIT_SEC)

@@ -79,6 +79,17 @@ def build_update_status_fields() -> dict[str, Any]:
     update_state = read_update_state()
     phase = str(update_state.get('phase', 'idle')).strip() or 'idle'
     message = str(update_state.get('message', '')).strip() or None
+    updated_at_raw = update_state.get('updatedAt')
+    try:
+        updated_at_ms = int(updated_at_raw) if updated_at_raw is not None else None
+    except (TypeError, ValueError):
+        updated_at_ms = None
+
+    if phase == 'installing' and updated_at_ms:
+        age_sec = max(0.0, (time.time() * 1000 - updated_at_ms) / 1000.0)
+        if age_sec > 180:
+            phase = 'idle'
+            message = '이전 업데이트 설치가 중단되었습니다. 「지금 업데이트」로 다시 시도해 주세요.'
 
     update_available = False
     update_required = False
@@ -97,4 +108,5 @@ def build_update_status_fields() -> dict[str, Any]:
         'updateRequired': update_required,
         'updatePhase': phase if phase in ('idle', 'downloading', 'ready', 'installing') else 'idle',
         'updateMessage': message,
+        'updateStateUpdatedAt': updated_at_ms,
     }

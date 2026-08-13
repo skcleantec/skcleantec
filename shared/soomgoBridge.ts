@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.30';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.31';
 
 /** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
@@ -99,6 +99,10 @@ export function isSoomgoBridgeUpdateInstalling(
 ): boolean {
   if (status?.updatePhase !== 'installing') return false;
   if (isSoomgoBridgeAppAtLatest(status, manifest)) return false;
+  // installing 플래그만 남고 Chrome·숨고 세션이 이미 살아 있으면 차단하지 않음
+  if (status.bridgeRunning && (status.browserRunning || status.loggedIn || status.inChatRoom)) {
+    return false;
+  }
   return true;
 }
 
@@ -211,6 +215,8 @@ export type SoomgoBridgeStatus = {
   /** idle | downloading | ready | installing */
   updatePhase?: 'idle' | 'downloading' | 'ready' | 'installing' | null;
   updateMessage?: string | null;
+  /** update.state.json updatedAt (ms) — stale installing 판별 */
+  updateStateUpdatedAt?: number | null;
 };
 
 export type SoomgoRequestPair = {

@@ -118,6 +118,23 @@ def clear_stale_update_phase_if_current(manifest: dict[str, Any] | None) -> None
     phase = str(state.get('phase', 'idle')).strip()
     if phase not in ('installing', 'ready', 'downloading'):
         return
+
+    updated_at = state.get('updatedAt')
+    try:
+        updated_at_ms = int(updated_at) if updated_at is not None else 0
+    except (TypeError, ValueError):
+        updated_at_ms = 0
+    if phase == 'installing' and updated_at_ms:
+        age_sec = max(0.0, (time.time() * 1000 - updated_at_ms) / 1000.0)
+        if age_sec > 180:
+            write_update_state(
+                phase='idle',
+                message='이전 업데이트 설치가 중단되었습니다. 「지금 업데이트」로 다시 시도해 주세요.',
+                latest_version=str(state.get('latestVersion', '')).strip() or None,
+                artifact=None,
+            )
+            return
+
     try:
         from desktop.manifest_client import is_update_available, is_update_required, parse_version_tuple
     except ImportError:
