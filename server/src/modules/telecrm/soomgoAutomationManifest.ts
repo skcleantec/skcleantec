@@ -4,7 +4,7 @@ const SOOMGO_AUTOMATION_APP_VERSION = '1.0.1';
 
 /** Release ZIP sha256 — Railway 변수 누락·구버전 URL일 때 폴백 */
 const ZIP_SHA256_BY_VERSION: Record<string, string> = {
-  '1.0.1': 'e0bc77698e71d143f1c5bb91bbce4c6f02c3c363bac6924f768adf59d8ac0e46',
+  '1.0.1': 'ae5296f956db06d35af29c60be6594d3c7a615efe0e34762513cbf8f74f14dee',
 };
 
 export type SoomgoAutomationManifest = {
@@ -65,7 +65,7 @@ function normalizeManifestFields(
   }
 
   let resolvedSha = sha256.trim();
-  if (urlMismatch || !resolvedSha) {
+  if (!resolvedSha) {
     resolvedSha = ZIP_SHA256_BY_VERSION[resolvedLatest] ?? resolvedSha;
   }
 
