@@ -16,6 +16,7 @@ const SETUP_SHA256_BY_VERSION: Record<string, string> = {
   '2.2.27': '65a2fa531f9974e88870d43d5f77ba4681fec070d913e98751f3dc48be75b147',
   '2.2.28': '8ecdc4d900cae7783d30db8e04081dd82f397f586c28c6a7a23f84600129b7e4',
   '2.2.29': '946f86b810b51d626caf76f84f956ba3e25f8229391488242029164a45b05643',
+  '2.2.30': '9f74265713aac7e8bf3fbde8509dc787d23de0fa79c2f38edaf2f69ce9f54681',
 };
 
 export type SoomgoBridgeManifest = {
