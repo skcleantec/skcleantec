@@ -72,6 +72,11 @@ import {
 } from '../../lib/platformSmtp.service.js';
 import type { SmtpConfigPatch } from '../../lib/smtpConfigStored.js';
 import { PLATFORM_SYSTEM_MAIL_FROM } from '../../lib/platformWorkspace.constants.js';
+import {
+  normalizePaymentNotifyEmails,
+  parsePaymentNotifyEmailsFromSettings,
+  validatePaymentNotifyEmailInput,
+} from '../../lib/platformBillingNotifyEmails.js';
 
 export type BillingSettingsDto = {
   bankName: string | null;
@@ -84,6 +89,8 @@ export type BillingSettingsDto = {
   dunningPopupBody: string | null;
   dunningBlockSoonText: string | null;
   dunningBlockTodayText: string | null;
+  dunningPaymentNotifyEmails: string[];
+  /** @deprecated 첫 번째 수신 이메일 (하위 호환) */
   dunningPaymentNotifyEmail: string | null;
   smtp: PlatformSmtpSettingsPublic;
   updatedAt: string;
@@ -412,7 +419,8 @@ export async function getPlatformBillingSettings(): Promise<BillingSettingsDto> 
     dunningPopupBody: row.dunningPopupBody,
     dunningBlockSoonText: row.dunningBlockSoonText,
     dunningBlockTodayText: row.dunningBlockTodayText,
-    dunningPaymentNotifyEmail: row.dunningPaymentNotifyEmail?.trim() || null,
+    dunningPaymentNotifyEmails: parsePaymentNotifyEmailsFromSettings(row),
+    dunningPaymentNotifyEmail: parsePaymentNotifyEmailsFromSettings(row)[0] ?? null,
     smtp: buildPlatformSmtpPublic(row),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -429,18 +437,28 @@ export async function updatePlatformBillingSettings(input: {
   dunningPopupBody?: string | null;
   dunningBlockSoonText?: string | null;
   dunningBlockTodayText?: string | null;
+  dunningPaymentNotifyEmails?: string[];
+  /** @deprecated dunningPaymentNotifyEmails 사용 */
   dunningPaymentNotifyEmail?: string | null;
   smtp?: SmtpConfigPatch;
 }): Promise<BillingSettingsDto> {
   const row = await ensurePlatformBillingSettings();
   const trimOrNull = (v: string | null | undefined) =>
     v === undefined ? undefined : v?.trim() || null;
-  if (input.dunningPaymentNotifyEmail !== undefined) {
+
+  let notifyEmailsPatch: string[] | undefined;
+  if (input.dunningPaymentNotifyEmails !== undefined) {
+    const validationError = validatePaymentNotifyEmailInput(input.dunningPaymentNotifyEmails);
+    if (validationError) throw new Error(validationError);
+    notifyEmailsPatch = normalizePaymentNotifyEmails(input.dunningPaymentNotifyEmails);
+  } else if (input.dunningPaymentNotifyEmail !== undefined) {
     const email = trimOrNull(input.dunningPaymentNotifyEmail);
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new Error('입금 확인 알림 받을 이메일 형식을 확인해 주세요.');
     }
+    notifyEmailsPatch = email ? [email.toLowerCase()] : [];
   }
+
   const data: Prisma.PlatformBillingSettingsUpdateInput = {
     ...(input.bankName !== undefined ? { bankName: trimOrNull(input.bankName) ?? null } : {}),
     ...(input.accountNumber !== undefined ? { accountNumber: trimOrNull(input.accountNumber) ?? null } : {}),
@@ -454,8 +472,11 @@ export async function updatePlatformBillingSettings(input: {
     ...(input.dunningPopupBody !== undefined ? { dunningPopupBody: trimOrNull(input.dunningPopupBody) ?? null } : {}),
     ...(input.dunningBlockSoonText !== undefined ? { dunningBlockSoonText: trimOrNull(input.dunningBlockSoonText) ?? null } : {}),
     ...(input.dunningBlockTodayText !== undefined ? { dunningBlockTodayText: trimOrNull(input.dunningBlockTodayText) ?? null } : {}),
-    ...(input.dunningPaymentNotifyEmail !== undefined
-      ? { dunningPaymentNotifyEmail: trimOrNull(input.dunningPaymentNotifyEmail) ?? null }
+    ...(notifyEmailsPatch !== undefined
+      ? {
+          dunningPaymentNotifyEmails: notifyEmailsPatch,
+          dunningPaymentNotifyEmail: notifyEmailsPatch[0] ?? null,
+        }
       : {}),
   };
   if (input.smtp !== undefined) {
@@ -566,7 +587,7 @@ export async function getTenantBillingSummaryForAdmin(tenantId: string): Promise
     currentPeriodAmountKrw: currentPeriod?.amountKrw ?? null,
     currentPeriodDueDate: currentPeriod?.dueDate ?? null,
     operationalStatus,
-    paymentConfirmationEnabled: isPaymentConfirmationRequestEnabled(settings.dunningPaymentNotifyEmail),
+    paymentConfirmationEnabled: isPaymentConfirmationRequestEnabled(settings),
   };
 }
 

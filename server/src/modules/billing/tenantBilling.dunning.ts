@@ -91,7 +91,7 @@ export async function getTenantBillingDunningForAdmin(tenantId: string): Promise
       invoice: null,
       bank: emptyBank,
       popup: resolveTenantBillingDunningPopupContent(settings),
-      paymentConfirmationEnabled: isPaymentConfirmationRequestEnabled(settings.dunningPaymentNotifyEmail),
+      paymentConfirmationEnabled: isPaymentConfirmationRequestEnabled(settings),
     };
   }
 
@@ -103,7 +103,7 @@ export async function getTenantBillingDunningForAdmin(tenantId: string): Promise
     paymentGuideText: settings.paymentGuideText,
   };
   const popup = resolveTenantBillingDunningPopupContent(settings);
-  const paymentConfirmationEnabled = isPaymentConfirmationRequestEnabled(settings.dunningPaymentNotifyEmail);
+  const paymentConfirmationEnabled = isPaymentConfirmationRequestEnabled(settings);
 
   if (tenant.billingAccessBlockedAt) {
     return {

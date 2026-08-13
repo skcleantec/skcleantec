@@ -58,6 +58,8 @@ router.patch('/settings', platformSuperAdminOnly, async (req, res) => {
       dunningPopupBody?: string | null;
       dunningBlockSoonText?: string | null;
       dunningBlockTodayText?: string | null;
+      dunningPaymentNotifyEmails?: string[];
+      /** @deprecated dunningPaymentNotifyEmails 사용 */
       dunningPaymentNotifyEmail?: string | null;
       smtp?: {
         host?: string;
@@ -91,11 +93,19 @@ router.post('/smtp/test', platformSuperAdminOnly, async (req, res) => {
 
 router.post('/payment-notify/test', platformSuperAdminOnly, async (req, res) => {
   try {
-    const body = req.body as { notifyEmail?: string | null; testTo?: string | null };
+    const body = req.body as {
+      notifyEmails?: string[];
+      notifyEmail?: string | null;
+      testTo?: string | null;
+    };
     const { sendPaymentConfirmationNotifyTestEmail, PaymentConfirmationRequestError } = await import(
       '../billing/tenantBilling.paymentRequest.service.js'
     );
+    const notifyEmails = Array.isArray(body.notifyEmails)
+      ? body.notifyEmails.filter((e): e is string => typeof e === 'string')
+      : undefined;
     const result = await sendPaymentConfirmationNotifyTestEmail({
+      notifyEmails,
       notifyEmail: typeof body.notifyEmail === 'string' ? body.notifyEmail : undefined,
       testTo: typeof body.testTo === 'string' ? body.testTo : undefined,
     });

@@ -23,6 +23,10 @@ import {
 } from '../../utils/platformUi';
 import { PlatformBillingNotifySettingsSection } from '../../components/platform/PlatformBillingNotifySettingsSection';
 import { platformSettingsTabPath } from './settings/platformSettingsTabs';
+import {
+  normalizePaymentNotifyEmails,
+  validatePaymentNotifyEmailInput,
+} from '@shared/platformBillingNotifyEmails';
 import { KoreanBankNameField } from '../../components/ui/KoreanBankNameField';
 
 type FormState = {
@@ -30,7 +34,7 @@ type FormState = {
   accountNumber: string;
   accountHolder: string;
   paymentGuideText: string;
-  dunningPaymentNotifyEmail: string;
+  dunningPaymentNotifyEmails: string[];
   dunningPopupTitle: string;
   dunningPopupSubtitle: string;
   dunningPopupBody: string;
@@ -50,7 +54,11 @@ function formFromSettings(s: PlatformBillingSettings): FormState {
     accountNumber: s.accountNumber?.trim() ?? '',
     accountHolder: s.accountHolder?.trim() ?? '',
     paymentGuideText: s.paymentGuideText?.trim() ?? '',
-    dunningPaymentNotifyEmail: s.dunningPaymentNotifyEmail?.trim() ?? '',
+    dunningPaymentNotifyEmails: s.dunningPaymentNotifyEmails?.length
+      ? [...s.dunningPaymentNotifyEmails]
+      : s.dunningPaymentNotifyEmail?.trim()
+        ? [s.dunningPaymentNotifyEmail.trim()]
+        : [],
     dunningPopupTitle: s.dunningPopupTitle?.trim() || popup.title,
     dunningPopupSubtitle: s.dunningPopupSubtitle?.trim() || popup.subtitle,
     dunningPopupBody: s.dunningPopupBody?.trim() || popup.body,
@@ -233,14 +241,17 @@ export function PlatformUnpaidPopupSettingsPage() {
 
   const saveNotifySection = async () => {
     if (!form) return;
-    const notifyEmail = form.dunningPaymentNotifyEmail.trim();
-    if (!notifyEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
-      setError('알림 받을 이메일을 입력해 주세요.');
+    const validationError = validatePaymentNotifyEmailInput(form.dunningPaymentNotifyEmails);
+    if (validationError) {
+      setError(validationError);
       return;
     }
+    const normalized = normalizePaymentNotifyEmails(form.dunningPaymentNotifyEmails);
     await patchSettings(
-      { dunningPaymentNotifyEmail: notifyEmail },
-      '입금 확인 알림 이메일이 저장되었습니다.',
+      { dunningPaymentNotifyEmails: normalized },
+      normalized.length > 0
+        ? `입금 확인 알림 이메일 ${normalized.length}개가 저장되었습니다.`
+        : '입금 확인 알림 수신 이메일이 비워졌습니다.',
     );
   };
 
@@ -248,8 +259,13 @@ export function PlatformUnpaidPopupSettingsPage() {
     if (!form) return;
     const token = getPlatformToken();
     if (!token) return;
-    const notifyEmail = form.dunningPaymentNotifyEmail.trim();
-    if (!notifyEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
+    const validationError = validatePaymentNotifyEmailInput(form.dunningPaymentNotifyEmails);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    const normalized = normalizePaymentNotifyEmails(form.dunningPaymentNotifyEmails);
+    if (normalized.length === 0) {
       setError('알림 받을 이메일을 먼저 입력·저장해 주세요.');
       return;
     }
@@ -261,7 +277,7 @@ export function PlatformUnpaidPopupSettingsPage() {
     setError('');
     setMessage('');
     try {
-      const result = await sendPlatformPaymentNotifyTest(token, notifyEmail, testTo);
+      const result = await sendPlatformPaymentNotifyTest(token, normalized, testTo);
       setMessage(result.message);
     } catch (e) {
       setError(e instanceof Error ? e.message : '테스트 발송 실패');
@@ -297,9 +313,10 @@ export function PlatformUnpaidPopupSettingsPage() {
       setError('접속 제한 유예일은 0~30 사이로 입력해 주세요.');
       return;
     }
-    const notifyEmail = form.dunningPaymentNotifyEmail.trim();
-    if (!notifyEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
-      setError('알림 받을 이메일을 입력해 주세요.');
+    const notifyEmails = normalizePaymentNotifyEmails(form.dunningPaymentNotifyEmails);
+    const notifyValidationError = validatePaymentNotifyEmailInput(form.dunningPaymentNotifyEmails);
+    if (notifyValidationError) {
+      setError(notifyValidationError);
       return;
     }
     await patchSettings(
@@ -308,7 +325,7 @@ export function PlatformUnpaidPopupSettingsPage() {
         accountNumber: form.accountNumber.trim() || null,
         accountHolder: form.accountHolder.trim() || null,
         paymentGuideText: form.paymentGuideText.trim() || null,
-        dunningPaymentNotifyEmail: notifyEmail,
+        dunningPaymentNotifyEmails: notifyEmails,
         dunningPopupTitle: form.dunningPopupTitle.trim() || null,
         dunningPopupSubtitle: form.dunningPopupSubtitle.trim() || null,
         dunningPopupBody: form.dunningPopupBody.trim() || null,
@@ -429,8 +446,10 @@ export function PlatformUnpaidPopupSettingsPage() {
 
         <PlatformBillingNotifySettingsSection
           compactIntro
-          email={form.dunningPaymentNotifyEmail}
-          onEmailChange={(value) => setForm((f) => (f ? { ...f, dunningPaymentNotifyEmail: value } : f))}
+          emails={form.dunningPaymentNotifyEmails}
+          onEmailsChange={(emails) =>
+            setForm((f) => (f ? { ...f, dunningPaymentNotifyEmails: emails } : f))
+          }
           onSave={saveNotifySection}
           saving={saving}
           onTestEmail={testNotifyEmail}

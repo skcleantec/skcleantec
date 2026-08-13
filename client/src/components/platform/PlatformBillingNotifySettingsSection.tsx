@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  isPaymentNotifyEmailValid,
+  normalizePaymentNotifyEmails,
+} from '@shared/platformBillingNotifyEmails';
 import { PLATFORM_SYSTEM_MAIL_FROM } from '@shared/platformWorkspace';
 import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
 import { platformSettingsTabPath } from '../../pages/platform/settings/platformSettingsTabs';
 
 type Props = {
-  email: string;
-  onEmailChange: (value: string) => void;
+  emails: string[];
+  onEmailsChange: (emails: string[]) => void;
   onSave: () => void | Promise<void>;
   saving: boolean;
   onTestEmail?: (testTo?: string) => void | Promise<void>;
@@ -15,11 +19,14 @@ type Props = {
   compactIntro?: boolean;
 };
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function rowHasInvalidEmail(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.length > 0 && !isPaymentNotifyEmailValid(trimmed);
+}
 
 export function PlatformBillingNotifySettingsSection({
-  email,
-  onEmailChange,
+  emails,
+  onEmailsChange,
   onSave,
   saving,
   onTestEmail,
@@ -27,8 +34,24 @@ export function PlatformBillingNotifySettingsSection({
   compactIntro = false,
 }: Props) {
   const [testTo, setTestTo] = useState('');
-  const trimmed = email.trim();
-  const emailValid = trimmed.length > 0 && EMAIL_PATTERN.test(trimmed);
+  const normalized = normalizePaymentNotifyEmails(emails);
+  const hasInvalidRow = emails.some(rowHasInvalidEmail);
+  const canSave = !hasInvalidRow;
+  const canTest = normalized.length > 0 && !hasInvalidRow;
+
+  const updateRow = (index: number, value: string) => {
+    onEmailsChange(emails.map((row, i) => (i === index ? value : row)));
+  };
+
+  const removeRow = (index: number) => {
+    onEmailsChange(emails.filter((_, i) => i !== index));
+  };
+
+  const addRow = () => {
+    onEmailsChange([...emails, '']);
+  };
+
+  const displayRows = emails.length > 0 ? emails : [''];
 
   return (
     <section className={CARD_SECTION}>
@@ -50,31 +73,50 @@ export function PlatformBillingNotifySettingsSection({
         ) : null}
       </p>
 
-      <label className="mt-4 block text-sm">
-        <span className="text-gray-600">
+      <div className="mt-4 space-y-2">
+        <span className="block text-sm text-gray-600">
           알림 받을 이메일 <span className="text-red-600">*</span>
         </span>
-        <input
-          type="email"
-          required
-          className={`mt-1 ${INPUT_BASE}`}
-          value={email}
-          onChange={(e) => onEmailChange(e.target.value)}
-          placeholder="운영팀 수신 메일 (예: billing@service-bridges.com 또는 개인 Gmail)"
-          autoComplete="email"
-        />
-        {!trimmed ? (
-          <p className="mt-1 text-xs text-amber-800">
+        {displayRows.map((email, index) => (
+          <div key={index} className="flex flex-wrap items-start gap-2">
+            <input
+              type="email"
+              className={`min-w-0 flex-1 ${INPUT_BASE}`}
+              value={email}
+              onChange={(e) => updateRow(index, e.target.value)}
+              placeholder="운영팀 수신 메일"
+              autoComplete="email"
+            />
+            {displayRows.length > 1 || email.trim() ? (
+              <button
+                type="button"
+                onClick={() => removeRow(index)}
+                className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                삭제
+              </button>
+            ) : null}
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={addRow}
+          className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-fluid-xs font-medium text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+        >
+          + 이메일 추가
+        </button>
+        {hasInvalidRow ? (
+          <p className="text-xs text-red-700">이메일 형식을 확인해 주세요.</p>
+        ) : normalized.length === 0 ? (
+          <p className="text-xs text-amber-800">
             저장된 수신 이메일이 없으면 업체의 「입금 확인 요청」 버튼이 비활성화됩니다.
           </p>
-        ) : !emailValid ? (
-          <p className="mt-1 text-xs text-red-700">이메일 형식을 확인해 주세요.</p>
         ) : (
-          <p className="mt-1 text-xs text-emerald-800">
-            저장 후 업체 입금 확인 요청 알림이 이 주소로 발송됩니다.
+          <p className="text-xs text-emerald-800">
+            저장 후 업체 입금 확인 요청 알림이 {normalized.length}개 주소로 발송됩니다.
           </p>
         )}
-      </label>
+      </div>
 
       {onTestEmail ? (
         <label className="mt-3 block text-sm">
@@ -84,7 +126,7 @@ export function PlatformBillingNotifySettingsSection({
             className={`mt-1 ${INPUT_BASE}`}
             value={testTo}
             onChange={(e) => setTestTo(e.target.value)}
-            placeholder="비우면 위 알림 이메일로 발송"
+            placeholder="비우면 저장된 모든 알림 이메일로 발송"
             autoComplete="email"
           />
           <p className="mt-1 text-xs text-gray-500">
@@ -98,7 +140,7 @@ export function PlatformBillingNotifySettingsSection({
         {onTestEmail ? (
           <button
             type="button"
-            disabled={saving || testingEmail || !emailValid}
+            disabled={saving || testingEmail || !canTest}
             onClick={() => void onTestEmail(testTo.trim() || undefined)}
             className={BTN_SECONDARY}
           >
@@ -107,7 +149,7 @@ export function PlatformBillingNotifySettingsSection({
         ) : null}
         <button
           type="button"
-          disabled={saving || testingEmail || !emailValid}
+          disabled={saving || testingEmail || !canSave}
           onClick={() => void onSave()}
           className={BTN_PRIMARY}
         >

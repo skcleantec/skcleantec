@@ -462,6 +462,7 @@ model PlatformBillingSettings {
   dunningBlockSoonText String? @map("dunning_block_soon_text") @db.VarChar(256)
   dunningBlockTodayText String? @map("dunning_block_today_text") @db.VarChar(256)
   dunningPaymentNotifyEmail String? @map("dunning_payment_notify_email") @db.VarChar(256)
+  dunningPaymentNotifyEmails Json @default("[]") @map("dunning_payment_notify_emails")
   smtpHost             String?  @map("smtp_host") @db.VarChar(256)
   smtpPort             Int?     @map("smtp_port")
   smtpSecure           Boolean? @map("smtp_secure")

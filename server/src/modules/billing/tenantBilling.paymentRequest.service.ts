@@ -2,10 +2,13 @@ import { prisma } from '../../lib/prisma.js';
 import { ensurePlatformBillingSettings } from './tenantBilling.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { notifyPaymentConfirmationRequestByEmail } from './tenantBilling.paymentRequest.email.js';
+import { PLATFORM_SYSTEM_MAIL_FROM } from '../../lib/platformWorkspace.constants.js';
 import {
-  PLATFORM_SYSTEM_MAIL_FROM,
-  resolvePlatformBillingNotifyEmail,
-} from '../../lib/platformWorkspace.constants.js';
+  isPaymentNotifyEmailValid,
+  normalizePaymentNotifyEmails,
+  parsePaymentNotifyEmailsFromSettings,
+  type PaymentNotifyEmailSettingsRow,
+} from '../../lib/platformBillingNotifyEmails.js';
 
 const REQUEST_COOLDOWN_MS = 60 * 60 * 1000;
 
@@ -25,10 +28,6 @@ export type PaymentConfirmationRequestResult = {
   message: string;
 };
 
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
 /** ADMIN — 미결재 청구서 입금 확인 요청 (플랫폼 알림 이메일) */
 export async function requestTenantPaymentConfirmation(input: {
   tenantId: string;
@@ -38,12 +37,12 @@ export async function requestTenantPaymentConfirmation(input: {
   requesterEmail: string;
 }): Promise<PaymentConfirmationRequestResult> {
   const settings = await ensurePlatformBillingSettings();
-  const notifyEmail = resolvePlatformBillingNotifyEmail(settings.dunningPaymentNotifyEmail);
-  if (!notifyEmail) {
-    throw new PaymentConfirmationRequestError('알림 받을 이메일이 설정되지 않았습니다. 플랫폼 설정 → 이용료 알림에서 저장해 주세요.', 503);
-  }
-  if (!isValidEmail(notifyEmail)) {
-    throw new PaymentConfirmationRequestError('입금 확인 알림 이메일 형식이 올바르지 않습니다.', 503);
+  const notifyEmails = parsePaymentNotifyEmailsFromSettings(settings);
+  if (notifyEmails.length === 0) {
+    throw new PaymentConfirmationRequestError(
+      '알림 받을 이메일이 설정되지 않았습니다. 플랫폼 설정 → 이용료 알림에서 저장해 주세요.',
+      503,
+    );
   }
 
   const tenant = await prisma.tenant.findUnique({
@@ -81,8 +80,7 @@ export async function requestTenantPaymentConfirmation(input: {
     );
   }
 
-  const mailResult = await notifyPaymentConfirmationRequestByEmail({
-    notifyEmail,
+  const mailPayload = {
     tenantName: tenant.name,
     tenantSlug: tenant.slug,
     tenantId: tenant.id,
@@ -92,39 +90,50 @@ export async function requestTenantPaymentConfirmation(input: {
     invoiceStatus: invoice.status,
     requesterName: input.requesterName.trim() || input.requesterEmail,
     requesterEmail: input.requesterEmail,
-  });
+  };
+
+  const mailResults = await Promise.all(
+    notifyEmails.map((notifyEmail) =>
+      notifyPaymentConfirmationRequestByEmail({ ...mailPayload, notifyEmail }),
+    ),
+  );
 
   await prisma.tenantInvoice.update({
     where: { id: invoice.id },
     data: { paymentConfirmationRequestedAt: new Date() },
   });
 
-  if (!mailResult.sent) {
-    if (mailResult.reason === 'SMTP_NOT_CONFIGURED') {
+  const anySent = mailResults.some((r) => r.sent);
+  if (!anySent) {
+    const firstFail = mailResults.find((r) => !r.sent);
+    if (firstFail?.reason === 'SMTP_NOT_CONFIGURED') {
       throw new PaymentConfirmationRequestError(
         '메일 발송 설정이 되어 있지 않아 요청을 전달하지 못했습니다. 플랫폼 관리자에게 직접 연락해 주세요.',
         503,
       );
     }
     throw new PaymentConfirmationRequestError(
-      smtpNotConfiguredMessage(mailResult.reason, mailResult.detail),
+      smtpNotConfiguredMessage(firstFail?.reason, firstFail?.detail),
       503,
     );
   }
 
+  const recipientHint =
+    notifyEmails.length > 1
+      ? `운영팀 ${notifyEmails.length}곳에 입금 확인 알림을 보냈습니다.`
+      : '운영팀에 입금 확인 알림을 보냈습니다.';
+
   return {
     ok: true,
     emailSent: true,
-    message:
-      '운영팀에 입금 확인 알림을 보냈습니다. 반영까지 시간이 걸릴 수 있으며, 업체 이메일로는 발송되지 않습니다.',
+    message: `${recipientHint} 반영까지 시간이 걸릴 수 있으며, 업체 이메일로는 발송되지 않습니다.`,
   };
 }
 
 export function isPaymentConfirmationRequestEnabled(
-  notifyEmail: string | null | undefined,
+  settings: PaymentNotifyEmailSettingsRow,
 ): boolean {
-  const email = resolvePlatformBillingNotifyEmail(notifyEmail);
-  return isValidEmail(email);
+  return parsePaymentNotifyEmailsFromSettings(settings).length > 0;
 }
 
 const PAYMENT_NOTIFY_TEST_TENANT_NAME = '연습·테스트';
@@ -142,8 +151,11 @@ function smtpNotConfiguredMessage(reason: string | undefined, detail?: string): 
 
 /** 플랫폼 — 입금 확인 요청 알림 연습 메일 (청구·요청 기록 없음) */
 export async function sendPaymentConfirmationNotifyTestEmail(input?: {
+  /** 저장 전 폼 상태 — 비우면 DB 저장값 사용 */
+  notifyEmails?: string[] | null;
+  /** @deprecated notifyEmails 사용 */
   notifyEmail?: string | null;
-  /** 비우면 notifyEmail로 발송. billing@ 그룹 대신 개인 메일로 SMTP만 확인할 때 사용 */
+  /** 비우면 저장된 모든 알림 이메일로 발송. 다른 주소로 SMTP만 확인할 때 사용 */
   testTo?: string | null;
 }): Promise<{
   ok: true;
@@ -155,42 +167,52 @@ export async function sendPaymentConfirmationNotifyTestEmail(input?: {
   messageId?: string;
 }> {
   const settings = await ensurePlatformBillingSettings();
-  const notifyEmail = (
-    input?.notifyEmail?.trim() || settings.dunningPaymentNotifyEmail?.trim() || ''
-  ).trim();
-  const to = (input?.testTo?.trim() || notifyEmail).trim();
-  if (!notifyEmail) {
+  const notifyEmails = input?.notifyEmails?.length
+    ? normalizePaymentNotifyEmails(input.notifyEmails)
+    : input?.notifyEmail?.trim()
+      ? normalizePaymentNotifyEmails([input.notifyEmail])
+      : parsePaymentNotifyEmailsFromSettings(settings);
+
+  if (notifyEmails.length === 0) {
     throw new PaymentConfirmationRequestError(
       '알림 받을 이메일을 먼저 저장해 주세요. (플랫폼 설정 → 이용료 알림)',
       400,
     );
   }
-  if (!isValidEmail(notifyEmail)) {
-    throw new PaymentConfirmationRequestError('알림 받을 이메일 형식을 확인해 주세요.', 400);
-  }
-  if (!to || !isValidEmail(to)) {
-    throw new PaymentConfirmationRequestError('수신 이메일 형식을 확인해 주세요.', 400);
+
+  const testTo = input?.testTo?.trim() || '';
+  const targets = testTo ? [testTo] : notifyEmails;
+  for (const to of targets) {
+    if (!isPaymentNotifyEmailValid(to)) {
+      throw new PaymentConfirmationRequestError('수신 이메일 형식을 확인해 주세요.', 400);
+    }
   }
 
   const dueDate = new Date();
   dueDate.setDate(dueDate.getDate() + 7);
 
-  const mailResult = await notifyPaymentConfirmationRequestByEmail({
-    notifyEmail: to,
-    tenantName: PAYMENT_NOTIFY_TEST_TENANT_NAME,
-    tenantSlug: 'test',
-    tenantId: '00000000-0000-0000-0000-000000000000',
-    invoiceId: '00000000-0000-0000-0000-000000000001',
-    amountKrw: 99000,
-    dueDate: dueDate.toISOString(),
-    invoiceStatus: 'OVERDUE',
-    requesterName: '연습 발송',
-    requesterEmail: PLATFORM_SYSTEM_MAIL_FROM,
-  });
+  const mailResults = await Promise.all(
+    targets.map((to) =>
+      notifyPaymentConfirmationRequestByEmail({
+        notifyEmail: to,
+        tenantName: PAYMENT_NOTIFY_TEST_TENANT_NAME,
+        tenantSlug: 'test',
+        tenantId: '00000000-0000-0000-0000-000000000000',
+        invoiceId: '00000000-0000-0000-0000-000000000001',
+        amountKrw: 99000,
+        dueDate: dueDate.toISOString(),
+        invoiceStatus: 'OVERDUE',
+        requesterName: '연습 발송',
+        requesterEmail: PLATFORM_SYSTEM_MAIL_FROM,
+      }),
+    ),
+  );
 
-  if (!mailResult.sent) {
+  const anySent = mailResults.some((r) => r.sent);
+  if (!anySent) {
+    const firstFail = mailResults.find((r) => !r.sent);
     throw new PaymentConfirmationRequestError(
-      smtpNotConfiguredMessage(mailResult.reason, mailResult.detail),
+      smtpNotConfiguredMessage(firstFail?.reason, firstFail?.detail),
       503,
     );
   }
@@ -198,19 +220,21 @@ export async function sendPaymentConfirmationNotifyTestEmail(input?: {
   const subject = `[${PAYMENT_NOTIFY_TEST_TENANT_NAME}] 입금확인요청`;
   const { getPlatformSmtpSendDiagnostics } = await import('../../lib/platformSmtp.service.js');
   const smtpDiag = await getPlatformSmtpSendDiagnostics();
-  const deliverySuffix = mailResult.deliveryNote ? ` ${mailResult.deliveryNote}` : '';
+  const lastSuccess = mailResults.find((r) => r.sent);
+  const deliverySuffix = lastSuccess?.deliveryNote ? ` ${lastSuccess.deliveryNote}` : '';
+  const toLabel = targets.length > 1 ? `${targets.join(', ')} (${targets.length}곳)` : targets[0]!;
 
   return {
     ok: true,
-    message: `${to}로 연습 메일을 보냈습니다. 제목: ${subject}. 발신 SMTP: ${smtpDiag.authUser ?? '(미설정)'} → From ${smtpDiag.from ?? '(미설정)'}.${deliverySuffix}`,
-    to,
+    message: `${toLabel}로 연습 메일을 보냈습니다. 제목: ${subject}. 발신 SMTP: ${smtpDiag.authUser ?? '(미설정)'} → From ${smtpDiag.from ?? '(미설정)'}.${deliverySuffix}`,
+    to: toLabel,
     subject,
     smtp: {
       authUser: smtpDiag.authUser,
       from: smtpDiag.from,
       host: smtpDiag.host,
     },
-    deliveryNote: mailResult.deliveryNote,
-    messageId: mailResult.messageId,
+    deliveryNote: lastSuccess?.deliveryNote,
+    messageId: lastSuccess?.messageId,
   };
 }

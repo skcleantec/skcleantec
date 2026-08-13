@@ -33,6 +33,8 @@ export type PlatformBillingSettings = {
   dunningPopupBody: string | null;
   dunningBlockSoonText: string | null;
   dunningBlockTodayText: string | null;
+  dunningPaymentNotifyEmails: string[];
+  /** @deprecated 첫 번째 수신 이메일 */
   dunningPaymentNotifyEmail: string | null;
   smtp: PlatformSmtpSettingsPublic;
   updatedAt: string;
@@ -259,14 +261,14 @@ export async function sendPlatformBillingSmtpTest(token: string, to: string) {
 
 export async function sendPlatformPaymentNotifyTest(
   token: string,
-  notifyEmail?: string,
+  notifyEmails?: string[],
   testTo?: string,
 ) {
   const res = await fetch(`${API}/platform/billing/payment-notify/test`, {
     method: 'POST',
     headers: authHeaders(token),
     body: JSON.stringify({
-      notifyEmail: notifyEmail?.trim() || undefined,
+      notifyEmails: notifyEmails?.length ? notifyEmails : undefined,
       testTo: testTo?.trim() || undefined,
     }),
   });

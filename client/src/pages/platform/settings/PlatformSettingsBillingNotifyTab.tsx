@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  normalizePaymentNotifyEmails,
+  validatePaymentNotifyEmailInput,
+} from '@shared/platformBillingNotifyEmails';
 import { getPlatformBillingSettings, patchPlatformBillingSettings, sendPlatformPaymentNotifyTest } from '../../../api/platformBilling';
 import { PlatformBillingNotifySettingsSection } from '../../../components/platform/PlatformBillingNotifySettingsSection';
 import { getPlatformToken } from '../../../stores/platformAuth';
 import { CARD_SECTION, PlatformAlert } from '../../../utils/platformUi';
 import { PLATFORM_SYSTEM_MAIL_FROM } from '@shared/platformWorkspace';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export function PlatformSettingsBillingNotifyTab() {
-  const [notifyEmail, setNotifyEmail] = useState('');
+  const [notifyEmails, setNotifyEmails] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
@@ -27,7 +29,12 @@ export function PlatformSettingsBillingNotifyTab() {
     setError('');
     try {
       const s = await getPlatformBillingSettings(token);
-      setNotifyEmail(s.dunningPaymentNotifyEmail?.trim() ?? '');
+      const emails = s.dunningPaymentNotifyEmails?.length
+        ? s.dunningPaymentNotifyEmails
+        : s.dunningPaymentNotifyEmail?.trim()
+          ? [s.dunningPaymentNotifyEmail.trim()]
+          : [];
+      setNotifyEmails(emails);
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
     } finally {
@@ -42,20 +49,25 @@ export function PlatformSettingsBillingNotifyTab() {
   const save = async () => {
     const token = getPlatformToken();
     if (!token) return;
-    const trimmed = notifyEmail.trim();
-    if (!trimmed || !EMAIL_PATTERN.test(trimmed)) {
-      setError('알림 받을 이메일을 입력해 주세요.');
+    const validationError = validatePaymentNotifyEmailInput(notifyEmails);
+    if (validationError) {
+      setError(validationError);
       return;
     }
+    const normalized = normalizePaymentNotifyEmails(notifyEmails);
     setSaving(true);
     setError('');
     setMessage('');
     try {
       await patchPlatformBillingSettings(token, {
-        dunningPaymentNotifyEmail: trimmed,
+        dunningPaymentNotifyEmails: normalized,
       });
       await load();
-      setMessage('입금 확인 알림 수신 이메일이 저장되었습니다.');
+      setMessage(
+        normalized.length > 0
+          ? `입금 확인 알림 수신 이메일 ${normalized.length}개가 저장되었습니다.`
+          : '입금 확인 알림 수신 이메일이 비워졌습니다. 업체 요청 버튼이 비활성화됩니다.',
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
     } finally {
@@ -66,12 +78,17 @@ export function PlatformSettingsBillingNotifyTab() {
   const testNotifyEmail = async (testTo?: string) => {
     const token = getPlatformToken();
     if (!token) return;
-    const trimmed = notifyEmail.trim();
-    if (!trimmed || !EMAIL_PATTERN.test(trimmed)) {
+    const validationError = validatePaymentNotifyEmailInput(notifyEmails);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    const normalized = normalizePaymentNotifyEmails(notifyEmails);
+    if (normalized.length === 0) {
       setError('알림 받을 이메일을 먼저 입력·저장해 주세요.');
       return;
     }
-    if (testTo && !EMAIL_PATTERN.test(testTo)) {
+    if (testTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testTo)) {
       setError('연습 수신 이메일 형식을 확인해 주세요.');
       return;
     }
@@ -79,7 +96,7 @@ export function PlatformSettingsBillingNotifyTab() {
     setError('');
     setMessage('');
     try {
-      const result = await sendPlatformPaymentNotifyTest(token, trimmed, testTo);
+      const result = await sendPlatformPaymentNotifyTest(token, normalized, testTo);
       setMessage(result.message);
     } catch (e) {
       setError(e instanceof Error ? e.message : '테스트 발송 실패');
@@ -92,7 +109,7 @@ export function PlatformSettingsBillingNotifyTab() {
     return <div className="p-8 text-center text-sm text-gray-500">불러오는 중…</div>;
   }
 
-  const savedEmail = notifyEmail.trim();
+  const savedEmails = normalizePaymentNotifyEmails(notifyEmails);
 
   return (
     <div className="space-y-4">
@@ -100,8 +117,8 @@ export function PlatformSettingsBillingNotifyTab() {
       {message ? <PlatformAlert variant="success" message={message} /> : null}
 
       <PlatformBillingNotifySettingsSection
-        email={notifyEmail}
-        onEmailChange={setNotifyEmail}
+        emails={notifyEmails}
+        onEmailsChange={setNotifyEmails}
         onSave={save}
         saving={saving}
         onTestEmail={testNotifyEmail}
@@ -119,10 +136,17 @@ export function PlatformSettingsBillingNotifyTab() {
           </li>
           <li>
             수신: 위에 <strong>저장한 알림 이메일</strong>
-            {savedEmail ? (
+            {savedEmails.length > 0 ? (
               <>
                 {' '}
-                (<span className="font-mono text-gray-800">{savedEmail}</span>)
+                (
+                {savedEmails.map((email) => (
+                  <span key={email} className="font-mono text-gray-800">
+                    {email}
+                    {savedEmails.indexOf(email) < savedEmails.length - 1 ? ', ' : ''}
+                  </span>
+                ))}
+                )
               </>
             ) : (
               ' (미설정 — 저장 전까지 업체 요청 버튼 비활성)'
