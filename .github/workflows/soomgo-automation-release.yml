@@ -46,7 +46,10 @@ jobs:
         run: |
           $root = Get-Location
           $sourceDir = Get-ChildItem -Path $root -Directory -Recurse -Depth 2 -ErrorAction SilentlyContinue |
-            Where-Object { Test-Path (Join-Path $_.FullName 'scripts/build-release.ps1') } |
+            Where-Object {
+              (Test-Path (Join-Path $_.FullName 'scripts/build-release.ps1')) -and
+              (Test-Path (Join-Path $_.FullName 'SoomgoAutomation.spec'))
+            } |
             Select-Object -First 1
           if (-not $sourceDir) {
             throw 'Soomgo automation source_project folder not found (scripts/build-release.ps1)'
