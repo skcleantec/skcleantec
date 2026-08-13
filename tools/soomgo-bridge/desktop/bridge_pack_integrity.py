@@ -18,6 +18,7 @@ REQUIRED_PACK_FILES: tuple[str, ...] = (
     'automation/customer_request.py',
     'automation/chat_room.py',
     'automation/overlay_modals.py',
+    'automation/soomgo_text_filters.py',
     'automation/chat_list_watcher.py',
     'desktop/bridge_pack_integrity.py',
     'server.py',

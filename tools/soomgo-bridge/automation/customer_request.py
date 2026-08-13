@@ -8,6 +8,12 @@ from typing import Any
 
 from automation.overlay_modals import dismiss_blocking_overlays
 from automation.selectors import SOOMGO_DISPLAY_NAME_JS
+from automation.soomgo_text_filters import (
+    filter_soomgo_memo_lines,
+    is_garbage_request_extract,
+    is_plausible_soomgo_region,
+    is_soomgo_boilerplate_line,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +108,16 @@ if (best && bestScore >= 50) {
   target.click();
   return true;
 }
+var viewNodes = document.querySelectorAll('button, a, [role="button"]');
+for (var v = 0; v < viewNodes.length; v++) {
+  var btn = viewNodes[v];
+  if (!visible(btn)) continue;
+  var label = (btn.textContent || '').trim();
+  if (label.indexOf('고객 요청') >= 0 && (label.indexOf('보기') >= 0 || label === '고객 요청')) {
+    btn.click();
+    return true;
+  }
+}
 return false;
 """
 
@@ -113,8 +129,23 @@ function visible(el) {
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
 }
+function isBoilerplateLine(line) {
+  if (!line) return true;
+  if (line === '고객 요청' || line === '고객 요청 보기' || line === '요청 상세') return true;
+  if (line === '알림 끄기' || line === '신고하기' || line.indexOf('채팅방 나가기') >= 0) return true;
+  if (line.indexOf('브레이브모바일') >= 0 || line.indexOf('통신판매중개자') >= 0) return true;
+  if (line.indexOf('100% 사기') >= 0 || line.indexOf('전자세금계산서') >= 0) return true;
+  if (line.indexOf('거래당사자') >= 0 && line.length > 40) return true;
+  return false;
+}
+function isPlausibleRegion(line) {
+  if (!line || line.length < 4 || line.length > 40) return false;
+  if (isBoilerplateLine(line)) return false;
+  if (/브레이브|통신판매|사기|기관|주식|거래당|세금계산서/.test(line)) return false;
+  return /[가-힣]+(?:시|군|구)/.test(line);
+}
 function isQuestion(line) {
-  if (!line) return false;
+  if (!line || isBoilerplateLine(line)) return false;
   return /[?？]$/.test(line)
     || line.indexOf('선택해') >= 0
     || line.indexOf('입력해') >= 0
@@ -128,20 +159,28 @@ function isQuestion(line) {
 }
 function findRequestModal() {
   var best = null;
-  var bestArea = 0;
-  var selectors = '[role="dialog"], [class*="modal"], [class*="Modal"], [class*="drawer"], [class*="Drawer"], [class*="sheet"], [class*="Sheet"], [class*="panel"], [class*="Panel"], aside, section, div';
+  var bestScore = -1;
+  var selectors = '[role="dialog"], [class*="modal"], [class*="Modal"], [class*="drawer"], [class*="Drawer"], [class*="sheet"], [class*="Sheet"], [class*="panel"], [class*="Panel"], aside, section';
   var roots = document.querySelectorAll(selectors);
   for (var i = 0; i < roots.length; i++) {
     var el = roots[i];
     if (!visible(el)) continue;
     var t = (el.innerText || el.textContent || '');
-    if (t.indexOf('고객 요청') < 0 && t.indexOf('요청 상세') < 0) continue;
+    if (t.indexOf('고객 요청') < 0 || t.indexOf('요청 상세') < 0) continue;
     if (t.indexOf('숨고전화') >= 0 || t.indexOf('안심번호로 통화') >= 0) continue;
+    if (t.indexOf('브레이브모바일') >= 0 && t.indexOf('?') < 0 && t.indexOf('평') < 0) continue;
+    var score = 0;
+    if (el.getAttribute('role') === 'dialog') score += 80;
+    var cls = (el.className || '').toString();
+    if (/modal|drawer|sheet|panel/i.test(cls)) score += 40;
     var r = el.getBoundingClientRect();
     var area = r.width * r.height;
-    if (area > bestArea) { bestArea = area; best = el; }
+    if (area > 80000) score -= 30;
+    if (area < 120000) score += 20;
+    if (t.indexOf('?') >= 0 || t.indexOf('평') >= 0 || /\\d{4}-\\d{2}-\\d{2}/.test(t)) score += 35;
+    if (score > bestScore) { bestScore = score; best = el; }
   }
-  return best;
+  return bestScore >= 20 ? best : null;
 }
 var modal = findRequestModal();
 if (!modal) return null;
@@ -152,14 +191,15 @@ var pendingQ = null;
 var inDetail = false;
 for (var j = 0; j < lines.length; j++) {
   var line = lines[j];
+  if (isBoilerplateLine(line)) continue;
   if (line === '요청 상세') { inDetail = true; continue; }
   if (line === '고객 요청' || line.indexOf('인터넷') >= 0) continue;
   if (isQuestion(line)) {
     pendingQ = line;
   } else if (pendingQ) {
-    pairs.push({ question: pendingQ, answer: line });
+    if (!isBoilerplateLine(line)) pairs.push({ question: pendingQ, answer: line });
     pendingQ = null;
-  } else if (inDetail && line.length > 0 && line.length < 80) {
+  } else if (inDetail && line.length > 0 && line.length < 80 && !isBoilerplateLine(line)) {
     pairs.push({ question: '', answer: line });
   }
 }
@@ -168,9 +208,10 @@ var region = null;
 var skipWords = ['고객 요청', '요청 상세', '인터넷', '선택', '입력', '알려', '이사/입주', '청소업체'];
 for (var k = 0; k < Math.min(lines.length, 24); k++) {
   var cand = lines[k];
+  if (isBoilerplateLine(cand)) continue;
   if (skipWords.some(function(w){ return cand.indexOf(w) >= 0; })) continue;
   if (!customerName && isSoomgoDisplayName(cand)) customerName = normalizeSoomgoDisplayNameLine(cand);
-  if (!region && /[가-힣]+(?:시|군|구)(?:\\s+[가-힣]+(?:구|동|읍|면|리))?/.test(cand) && cand.length <= 40) region = cand;
+  if (!region && isPlausibleRegion(cand)) region = cand;
 }
 var preferredDate = null;
 var pyeong = null;
@@ -279,7 +320,9 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
     for item in pairs:
         q = str(item.get('question', '')).strip()
         a = str(item.get('answer', '')).strip()
-        if not a:
+        if not a or is_soomgo_boilerplate_line(a):
+            continue
+        if q and is_soomgo_boilerplate_line(q):
             continue
         if q:
             memo_lines.append(f'{q}\n{a}')
@@ -311,7 +354,8 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
             if dm:
                 result['preferredDate'] = dm.group(1)
         elif '지역' in q or '주소' in q or '위치' in q or '어디' in q or '거주' in q:
-            result['region'] = a
+            if is_plausible_soomgo_region(a):
+                result['region'] = a
         elif '문의' in q:
             result['inquiryNote'] = a
         elif not q:
@@ -329,14 +373,14 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
                     result['preferredDate'] = dm.group(1)
 
     if memo_lines:
-        result['requestMemo'] = '\n\n'.join(memo_lines)[:3000]
+        result['requestMemo'] = '\n\n'.join(filter_soomgo_memo_lines(memo_lines))[:3000]
 
     if not result.get('region'):
         for item in pairs:
             a = str(item.get('answer', '')).strip()
-            if not a:
+            if not a or is_soomgo_boilerplate_line(a):
                 continue
-            if re.search(r'[가-힣]+(?:시|군|구)', a) and len(a) >= 4 and len(a) <= 40:
+            if is_plausible_soomgo_region(a):
                 result['region'] = a
                 break
             if not result.get('serviceType') and re.search(r'입주|이사|청소', a):
@@ -440,7 +484,9 @@ class CustomerRequestManager:
                 parsed['customerName'] = customer_name.strip()
             region = raw.get('region')
             if isinstance(region, str) and region.strip() and not parsed.get('region'):
-                parsed['region'] = region.strip()
+                cleaned = region.strip()
+                if is_plausible_soomgo_region(cleaned):
+                    parsed['region'] = cleaned
             pref = raw.get('preferredDate')
             if isinstance(pref, str) and pref.strip() and not parsed.get('preferredDate'):
                 parsed['preferredDate'] = pref.strip()
@@ -449,6 +495,8 @@ class CustomerRequestManager:
                 parsed['pyeong'] = str(py)
             parsed['requestPairs'] = pairs
             parsed['requestRawText'] = str(raw.get('rawText', ''))[:4000]
+            if is_garbage_request_extract(parsed):
+                return None
             return parsed
         except Exception as e:
             logger.error('extract_request_modal: %s', e)

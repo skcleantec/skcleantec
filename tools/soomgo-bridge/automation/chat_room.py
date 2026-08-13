@@ -16,6 +16,11 @@ from automation.customer_request import CustomerRequestManager, REQUEST_MODAL_DE
 from automation.call_modal import CallModalManager
 from automation.overlay_modals import dismiss_blocking_overlays
 from automation.selectors import SOOMGO_DISPLAY_NAME_JS
+from automation.soomgo_text_filters import (
+    filter_soomgo_memo_lines,
+    is_plausible_soomgo_region,
+    is_soomgo_boilerplate_line,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -219,11 +224,16 @@ def parse_fields_from_texts(texts: list[str]) -> dict[str, Any]:
 
     address = None
     for line in texts:
-        if _ADDRESS_HINT.search(line) and len(line) >= 6:
+        if is_soomgo_boilerplate_line(line):
+            continue
+        if _ADDRESS_HINT.search(line) and len(line) >= 6 and is_plausible_soomgo_region(line):
+            address = line.strip()[:200]
+            break
+        if _ADDRESS_HINT.search(line) and len(line) >= 6 and len(line) <= 40:
             address = line.strip()[:200]
             break
 
-    memo_lines = [t.strip() for t in texts if t.strip() and len(t.strip()) > 2]
+    memo_lines = filter_soomgo_memo_lines([t.strip() for t in texts if t.strip() and len(t.strip()) > 2])
     memo = '\n'.join(memo_lines[-8:])[:2000] if memo_lines else None
 
     return {
@@ -437,11 +447,11 @@ class ChatRoomManager:
         parsed = parse_fields_from_texts(customer_messages)
         if request_data.get('pyeong'):
             parsed['pyeong'] = str(request_data['pyeong'])
-        if region:
+        if region and is_plausible_soomgo_region(str(region)):
             parsed['address'] = str(region)
-        elif request_data.get('region'):
+        elif request_data.get('region') and is_plausible_soomgo_region(str(request_data.get('region'))):
             parsed['address'] = str(request_data['region'])
-        if request_data.get('requestMemo'):
+        if request_data.get('requestMemo') and not is_soomgo_boilerplate_line(str(request_data.get('requestMemo'))):
             parsed['memo'] = str(request_data['requestMemo'])
 
         consult_texts = list(customer_messages)

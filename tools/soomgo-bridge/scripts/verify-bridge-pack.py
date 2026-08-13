@@ -12,6 +12,7 @@ REQUIRED_FILES: tuple[str, ...] = (
     'bridge_status_extras.py',
     'automation/selectors.py',
     'automation/soomgo_display_name.py',
+    'automation/soomgo_text_filters.py',
     'automation/customer_request.py',
     'automation/chat_room.py',
     'automation/chat_list_watcher.py',
@@ -35,7 +36,7 @@ def verify_imports(root: Path) -> None:
     from automation.overlay_modals import dismiss_blocking_overlays  # noqa: F401
     from automation.customer_request import CustomerRequestManager  # noqa: F401
     from automation.chat_room import ChatRoomManager  # noqa: F401
-    from automation.chat_list_watcher import ChatListWatcher  # noqa: F401
+    from automation.soomgo_text_filters import is_plausible_soomgo_region  # noqa: F401
     from automation.navigation import ensure_chat_workspace, is_logged_in  # noqa: F401
     from automation.window_layout import apply_mobile_viewport  # noqa: F401
     if not SOOMGO_DISPLAY_NAME_JS.strip():
