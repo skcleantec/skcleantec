@@ -4,7 +4,7 @@ import {
   platformSuperAdminOnly,
   type PlatformScopedRequest,
 } from '../platform/platformAuth.middleware.js';
-import { isOutboundEmailPurpose } from '../../lib/outboundEmailPurpose.js';
+import { isCustomerOutboundEmailPurpose } from '../../lib/outboundEmailPurpose.js';
 import { getPlatformEmailTemplateDefaults } from './platformEmailTemplate.defaults.js';
 import {
   getPlatformEmailTemplate,
@@ -41,7 +41,7 @@ router.get('/', async (_req, res) => {
 
 router.get('/:purpose/preview', async (req, res) => {
   const { purpose } = req.params;
-  if (!isOutboundEmailPurpose(purpose)) {
+  if (!isCustomerOutboundEmailPurpose(purpose)) {
     res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
     return;
   }
@@ -57,7 +57,7 @@ router.get('/:purpose/preview', async (req, res) => {
 
 router.post('/:purpose/preview', async (req, res) => {
   const { purpose } = req.params;
-  if (!isOutboundEmailPurpose(purpose)) {
+  if (!isCustomerOutboundEmailPurpose(purpose)) {
     res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
     return;
   }
@@ -76,7 +76,7 @@ router.post('/:purpose/preview', async (req, res) => {
 
 router.get('/:purpose/brand-defaults', (req, res) => {
   const { purpose } = req.params;
-  if (!isOutboundEmailPurpose(purpose)) {
+  if (!isCustomerOutboundEmailPurpose(purpose)) {
     res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
     return;
   }

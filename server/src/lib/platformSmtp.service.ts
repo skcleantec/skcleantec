@@ -16,6 +16,28 @@ import {
 } from './smtpConfigStored.js';
 import { prisma } from './prisma.js';
 import type { MailSendInput } from './mailer.js';
+import { resolvePlatformMailFromForRecipient } from './platformSmtpDelivery.helpers.js';
+import {
+  buildPlatformCustomerFromAddress,
+  findEnabledPlatformSmtpProfileForPurpose,
+  resolvePlatformSmtpProfileTransport,
+} from '../modules/platform-smtp-profiles/platformSmtpProfile.service.js';
+
+async function resolvePlatformSystemNotifyTransport(): Promise<{
+  transport: ResolvedSmtpTransport | null;
+  viaProfile: boolean;
+}> {
+  const row = await findEnabledPlatformSmtpProfileForPurpose('PLATFORM_SYSTEM_NOTIFY');
+  if (row) {
+    const from = buildPlatformCustomerFromAddress({
+      profile: row,
+      brandDisplayName: row.defaultDisplayName?.trim() || '청소비서',
+    });
+    const transport = resolvePlatformSmtpProfileTransport(row, from);
+    if (transport) return { transport, viaProfile: true };
+  }
+  return { transport: null, viaProfile: false };
+}
 
 async function ensurePlatformBillingRow(): Promise<PlatformBillingSettings> {
   return prisma.platformBillingSettings.upsert({
@@ -144,6 +166,12 @@ export async function updatePlatformSmtpSettings(
 }
 
 export async function resolvePlatformSmtpTransport(): Promise<ResolvedSmtpTransport | null> {
+  const profileResult = await resolvePlatformSystemNotifyTransport();
+  if (profileResult.transport) return profileResult.transport;
+  return resolveLegacyPlatformBillingSmtpTransport();
+}
+
+async function resolveLegacyPlatformBillingSmtpTransport(): Promise<ResolvedSmtpTransport | null> {
   const row = await ensurePlatformBillingRow();
   const db = resolveStoredSmtpTransport(smtpStoredFromRow(row), 'platform');
   if (db) return db;
@@ -159,6 +187,17 @@ export type PlatformSmtpSendDiagnostics = {
 };
 
 export async function getPlatformSmtpSendDiagnostics(): Promise<PlatformSmtpSendDiagnostics> {
+  const profileResult = await resolvePlatformSystemNotifyTransport();
+  if (profileResult.transport) {
+    return {
+      authUser: profileResult.transport.auth?.user ?? null,
+      from: profileResult.transport.from ?? null,
+      host: profileResult.transport.host ?? null,
+      source: profileResult.transport.source ?? null,
+      passwordDecryptOk: true,
+    };
+  }
+
   const row = await ensurePlatformBillingRow();
   const stored = smtpStoredFromRow(row);
   const passEnc = stored.passEnc?.trim();
@@ -184,8 +223,16 @@ export async function isPlatformSmtpConfigured(): Promise<boolean> {
 
 export async function sendPlatformMail(
   input: MailSendInput,
-): Promise<{ sent: boolean; reason?: string; detail?: string }> {
-  const transport = await resolvePlatformSmtpTransport();
+): Promise<{ sent: boolean; reason?: string; detail?: string; deliveryNote?: string; messageId?: string }> {
+  const profileResult = await resolvePlatformSystemNotifyTransport();
+  let transport = profileResult.transport;
+  let viaProfile = profileResult.viaProfile;
+
+  if (!transport) {
+    transport = await resolveLegacyPlatformBillingSmtpTransport();
+    viaProfile = false;
+  }
+
   if (!transport) {
     const diag = await getPlatformSmtpSendDiagnostics();
     if (diag.passwordDecryptOk === false) {
@@ -193,14 +240,32 @@ export async function sendPlatformMail(
         sent: false,
         reason: 'SMTP_NOT_CONFIGURED',
         detail:
-          '저장된 SMTP 앱 비밀번호를 읽을 수 없습니다. 설정 → SMTP에서 앱 비밀번호를 다시 입력·저장해 주세요.',
+          '저장된 SMTP 앱 비밀번호를 읽을 수 없습니다. 설정 → SMTP의 「플랫폼 알림 (cbiseo)」 프로필에서 앱 비밀번호를 다시 입력·저장해 주세요.',
       };
     }
-    return { sent: false, reason: 'SMTP_NOT_CONFIGURED' };
+    return {
+      sent: false,
+      reason: 'SMTP_NOT_CONFIGURED',
+      detail:
+        'SMTP가 설정되지 않았습니다. 설정 → SMTP에서 「플랫폼 알림 (cbiseo)」 프로필의 Gmail 로그인·앱 비밀번호·발신 주소를 저장해 주세요.',
+    };
   }
+
+  const delivery = viaProfile
+    ? { from: transport.from, fromAdjusted: false as const }
+    : resolvePlatformMailFromForRecipient(transport, input.to);
+  const payload: MailSendInput = {
+    ...input,
+    from: delivery.from,
+    replyTo: 'replyTo' in delivery ? delivery.replyTo : undefined,
+  };
   try {
-    await sendMailWithTransport(transport, input);
-    return { sent: true };
+    const result = await sendMailWithTransport(transport, payload);
+    return {
+      sent: true,
+      deliveryNote: delivery.fromAdjusted ? delivery.note : undefined,
+      messageId: result.messageId,
+    };
   } catch (e) {
     return {
       sent: false,

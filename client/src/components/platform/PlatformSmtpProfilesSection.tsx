@@ -32,6 +32,11 @@ import {
   PlatformAlert,
 } from '../../utils/platformUi';
 import type { OutboundEmailPurpose } from '@shared/outboundEmailPurpose';
+import {
+  isReservedPlatformSmtpProfileSlug,
+  PLATFORM_SMTP_PROFILE_SLUG,
+} from '@shared/platformSmtpProfileSlugs';
+import { PLATFORM_SYSTEM_MAIL_FROM, PLATFORM_WORKSPACE_DOMAIN } from '@shared/platformWorkspace';
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 
 type ProfileFormState = {
@@ -105,6 +110,27 @@ export function PlatformSmtpProfilesSection() {
   const [testEmail, setTestEmail] = useState('');
 
   const isNew = editingId === null;
+
+  const isReservedEditing =
+    !isNew && form.slug ? isReservedPlatformSmtpProfileSlug(form.slug) : false;
+
+  const fromFieldCopy = useMemo(() => {
+    const isSystemProfile =
+      form.slug === PLATFORM_SMTP_PROFILE_SLUG.PLATFORM_CBISEO ||
+      form.purposes.includes('PLATFORM_SYSTEM_NOTIFY');
+    if (isSystemProfile) {
+      return {
+        label: OUTBOUND_EMAIL_COPY.platformSystemFromLabel,
+        hint: OUTBOUND_EMAIL_COPY.platformSystemFromHint,
+        placeholder: PLATFORM_SYSTEM_MAIL_FROM,
+      };
+    }
+    return {
+      label: OUTBOUND_EMAIL_COPY.platformCustomerFromLabel,
+      hint: OUTBOUND_EMAIL_COPY.platformCustomerFromHint,
+      placeholder: `noreply@${PLATFORM_WORKSPACE_DOMAIN}`,
+    };
+  }, [form.slug, form.purposes]);
 
   const parsedFrom = useMemo(() => parseSmtpFrom(form.smtpFrom), [form.smtpFrom]);
   /** Gmail SMTP 로그인(앱 비밀번호 계정). noreply 발신 주소와 분리 */
@@ -206,7 +232,7 @@ export function PlatformSmtpProfilesSection() {
       return;
     }
     if (!form.smtpFrom.trim().includes('@')) {
-      setError('고객에게 보이는 발신 주소(noreply)를 입력해 주세요.');
+      setError(`${fromFieldCopy.label}을(를) 입력해 주세요.`);
       return;
     }
     const smtpFrom = form.smtpFrom.trim() || buildSmtpFrom(displayName, loginEmail);
@@ -324,9 +350,9 @@ export function PlatformSmtpProfilesSection() {
       <section className={CARD_SECTION}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">고객·기능별 SMTP 프로필</h2>
+            <h2 className="text-sm font-semibold text-gray-900">SMTP 발송 프로필</h2>
             <p className="mt-1 text-xs text-gray-500 leading-relaxed">
-              모든 테넌트의 발주서 제출 확인·현장검수 완료본 등 purpose별 발송 계정을 관리합니다.
+              {OUTBOUND_EMAIL_COPY.platformProfilesIntro}
               견적서·영수증은 업체별 발송 이메일 설정을 그대로 사용합니다.
             </p>
             <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-fluid-2xs leading-snug text-amber-950">
@@ -409,13 +435,15 @@ export function PlatformSmtpProfilesSection() {
                         >
                           편집
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => void removeProfile(row)}
-                          className="rounded-md border border-red-200 px-2 py-1 text-fluid-2xs text-red-700 hover:bg-red-50"
-                        >
-                          삭제
-                        </button>
+                        {!isReservedPlatformSmtpProfileSlug(row.slug) ? (
+                          <button
+                            type="button"
+                            onClick={() => void removeProfile(row)}
+                            className="rounded-md border border-red-200 px-2 py-1 text-fluid-2xs text-red-700 hover:bg-red-50"
+                          >
+                            삭제
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -474,32 +502,36 @@ export function PlatformSmtpProfilesSection() {
                     <legend className="px-1 text-fluid-xs font-medium text-gray-800">
                       연결 기능 (purpose)
                     </legend>
-                    <div className="mt-2 space-y-2">
-                      {purposeCatalog.map((p) => (
-                        <label key={p.id} className="flex items-start gap-2 text-fluid-xs">
-                          <input
-                            type="checkbox"
-                            checked={form.purposes.includes(p.id)}
-                            onChange={() => togglePurpose(p.id)}
-                            className="mt-0.5"
-                          />
-                          <span>{p.label}</span>
-                        </label>
-                      ))}
-                    </div>
+                    {isReservedEditing ? (
+                      <p className="mt-1 text-fluid-2xs text-gray-600 leading-snug">
+                        {form.purposes.map((p) => purposeLabelMap.get(p) ?? p).join(' · ')}
+                      </p>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {purposeCatalog.map((p) => (
+                          <label key={p.id} className="flex items-start gap-2 text-fluid-xs">
+                            <input
+                              type="checkbox"
+                              checked={form.purposes.includes(p.id)}
+                              onChange={() => togglePurpose(p.id)}
+                              className="mt-0.5"
+                            />
+                            <span>{p.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </fieldset>
                   <label className="block text-fluid-xs">
-                    <span className="font-medium text-gray-800">
-                      {OUTBOUND_EMAIL_COPY.platformCustomerFromLabel}
-                    </span>
+                    <span className="font-medium text-gray-800">{fromFieldCopy.label}</span>
                     <p className="mt-0.5 text-fluid-2xs text-gray-500 leading-snug">
-                      {OUTBOUND_EMAIL_COPY.platformCustomerFromHint}
+                      {fromFieldCopy.hint}
                     </p>
                     <input
                       type="text"
                       value={form.smtpFrom}
                       onChange={(e) => setForm((f) => ({ ...f, smtpFrom: e.target.value }))}
-                      placeholder="cbiseo@service-bridges.com"
+                      placeholder={fromFieldCopy.placeholder}
                       className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-fluid-xs"
                       autoComplete="off"
                     />

@@ -6,9 +6,18 @@
 export const OUTBOUND_EMAIL_PURPOSES = [
   'ORDER_FORM_SUBMISSION',
   'INSPECTION_COMPLETION',
+  'PLATFORM_SYSTEM_NOTIFY',
 ] as const;
 
 export type OutboundEmailPurpose = (typeof OUTBOUND_EMAIL_PURPOSES)[number];
+
+/** 고객 메일 템플릿 편집 대상 purpose (플랫폼 시스템 알림 제외) */
+export const CUSTOMER_OUTBOUND_EMAIL_PURPOSES = [
+  'ORDER_FORM_SUBMISSION',
+  'INSPECTION_COMPLETION',
+] as const satisfies readonly OutboundEmailPurpose[];
+
+export type CustomerOutboundEmailPurpose = (typeof CUSTOMER_OUTBOUND_EMAIL_PURPOSES)[number];
 
 /** 테넌트 SMTP 유지 (견적서·영수증 등) — 플랫폼 프로필 목록에는 넣지 않음 */
 export const TENANT_SMTP_PURPOSES = ['QUOTATION'] as const;
@@ -18,12 +27,20 @@ export type TenantSmtpPurpose = (typeof TENANT_SMTP_PURPOSES)[number];
 export const OUTBOUND_EMAIL_PURPOSE_LABELS: Record<OutboundEmailPurpose, string> = {
   ORDER_FORM_SUBMISSION: '발주서 제출 확인 (고객)',
   INSPECTION_COMPLETION: '현장검수 완료본 (고객)',
+  PLATFORM_SYSTEM_NOTIFY: '플랫폼 알림 (입금 확인·시스템)',
 };
 
 export function isOutboundEmailPurpose(raw: unknown): raw is OutboundEmailPurpose {
   return (
     typeof raw === 'string' &&
     (OUTBOUND_EMAIL_PURPOSES as readonly string[]).includes(raw)
+  );
+}
+
+export function isCustomerOutboundEmailPurpose(raw: unknown): raw is CustomerOutboundEmailPurpose {
+  return (
+    typeof raw === 'string' &&
+    (CUSTOMER_OUTBOUND_EMAIL_PURPOSES as readonly string[]).includes(raw)
   );
 }
 

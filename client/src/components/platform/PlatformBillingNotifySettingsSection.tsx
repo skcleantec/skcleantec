@@ -39,11 +39,11 @@ export function PlatformBillingNotifySettingsSection({
       <p className="mt-1 text-xs text-gray-500">
         업체(ADMIN)는 <strong>팝업만</strong> 보고 「입금 확인 요청」을 누릅니다. 이때{' '}
         <strong>업체에게 메일은 가지 않고</strong>, 아래 운영팀 그룹 메일로만 시스템 알림이 발송됩니다.
-        발송(SMTP) 설정은{' '}
+        발송(SMTP)은{' '}
         <Link to={platformSettingsTabPath('smtp')} className="text-blue-600 hover:underline">
           설정 → SMTP
         </Link>
-        입니다.
+        의 「플랫폼 알림 (cbiseo)」 프로필에서 설정합니다.
       </p>
 
       <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 space-y-1">
@@ -97,8 +97,10 @@ export function PlatformBillingNotifySettingsSection({
             autoComplete="email"
           />
           <p className="mt-1 text-xs text-amber-900 leading-snug">
-            billing@ 그룹으로 안 오면, 먼저 본인 Gmail 등 개인 주소로 SMTP만 확인한 뒤 그룹 설정(외부 발신·승인
-            대기)을 점검하세요. 같은 주소로 보내는 것과는 무관합니다.
+            billing@ 로 안 오고 개인 Gmail만 온다면, 원인은 그룹 설정이 아니라{' '}
+            <strong>개인 Gmail SMTP + cbiseo@ From</strong> 조합입니다. Workspace 그룹은 SPF/DMARC
+            때문에 차단할 수 있어, 서버가 billing@ 발송 시 From을 SMTP 로그인 주소로 자동 맞춥니다.
+            연습 수신 칸으로 개인 메일 SMTP만 먼저 확인할 수 있습니다.
           </p>
         </label>
       ) : null}

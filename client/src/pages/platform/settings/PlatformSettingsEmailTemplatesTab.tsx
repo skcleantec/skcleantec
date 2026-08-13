@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { OutboundEmailPurpose } from '@shared/outboundEmailPurpose';
+import type { CustomerOutboundEmailPurpose } from '@shared/outboundEmailPurpose';
 import { OUTBOUND_EMAIL_PURPOSE_LABELS } from '@shared/outboundEmailPurpose';
 import {
   getPlatformEmailTemplateBrandDefaults,
@@ -20,7 +20,7 @@ import {
   PlatformAlert,
 } from '../../../utils/platformUi';
 
-const PURPOSES: OutboundEmailPurpose[] = ['ORDER_FORM_SUBMISSION', 'INSPECTION_COMPLETION'];
+const PURPOSES: CustomerOutboundEmailPurpose[] = ['ORDER_FORM_SUBMISSION', 'INSPECTION_COMPLETION'];
 
 type FormState = {
   label: string;
@@ -71,11 +71,11 @@ function PlaceholderChips({
 }
 
 export function PlatformSettingsEmailTemplatesTab() {
-  const [purpose, setPurpose] = useState<OutboundEmailPurpose>('ORDER_FORM_SUBMISSION');
+  const [purpose, setPurpose] = useState<CustomerOutboundEmailPurpose>('ORDER_FORM_SUBMISSION');
   const [templates, setTemplates] = useState<PlatformEmailTemplateDto[]>([]);
   const [subjectPlaceholders, setSubjectPlaceholders] = useState<PlatformEmailPlaceholderDef[]>([]);
   const [bodyPlaceholders, setBodyPlaceholders] = useState<
-    Record<OutboundEmailPurpose, PlatformEmailPlaceholderDef[]>
+    Record<CustomerOutboundEmailPurpose, PlatformEmailPlaceholderDef[]>
   >({ ORDER_FORM_SUBMISSION: [], INSPECTION_COMPLETION: [] });
   const [form, setForm] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(true);

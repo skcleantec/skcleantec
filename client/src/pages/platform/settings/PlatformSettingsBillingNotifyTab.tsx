@@ -115,11 +115,11 @@ export function PlatformSettingsBillingNotifyTab() {
             업체 ADMIN: 미결재 팝업만 표시 · 「입금확인 요청 (운영팀 알림)」 — <strong>업체 이메일 발송 없음</strong>
           </li>
           <li>
-            발신: <strong>{PLATFORM_SYSTEM_MAIL_FROM}</strong> (설정 → SMTP) · 수신:{' '}
+            발신: <strong>{PLATFORM_SYSTEM_MAIL_FROM}</strong> (설정 → SMTP · 「플랫폼 알림 (cbiseo)」) · 수신:{' '}
             <strong>{PLATFORM_BILLING_NOTIFY_GROUP_EMAIL}</strong>
           </li>
           <li>메일 제목: [업체명] 입금확인요청 (업체에게는 메일 발송 없음)</li>
-          <li>SMTP(발송)는 설정 → SMTP, 수신 그룹은 이 탭에서 관리</li>
+          <li>SMTP 발송 계정은 설정 → SMTP, 수신 그룹은 이 탭에서 관리</li>
           <li>
             팝업 문구·입금 계좌는{' '}
             <Link to="/platform/popups/unpaid" className="text-blue-600 hover:underline">

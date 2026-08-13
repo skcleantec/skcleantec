@@ -154,6 +154,8 @@ export async function sendPaymentConfirmationNotifyTestEmail(input?: {
   to: string;
   subject: string;
   smtp: { authUser: string | null; from: string | null; host: string | null };
+  deliveryNote?: string;
+  messageId?: string;
 }> {
   const settings = await ensurePlatformBillingSettings();
   const notifyEmail = resolvePlatformBillingNotifyEmail(
@@ -196,10 +198,11 @@ export async function sendPaymentConfirmationNotifyTestEmail(input?: {
   const subject = `[${PAYMENT_NOTIFY_TEST_TENANT_NAME}] 입금확인요청`;
   const { getPlatformSmtpSendDiagnostics } = await import('../../lib/platformSmtp.service.js');
   const smtpDiag = await getPlatformSmtpSendDiagnostics();
+  const deliverySuffix = mailResult.deliveryNote ? ` ${mailResult.deliveryNote}` : '';
 
   return {
     ok: true,
-    message: `${to}로 연습 메일을 보냈습니다. 제목: ${subject}. 발신 SMTP: ${smtpDiag.authUser ?? '(미설정)'} → From ${smtpDiag.from ?? '(미설정)'}`,
+    message: `${to}로 연습 메일을 보냈습니다. 제목: ${subject}. 발신 SMTP: ${smtpDiag.authUser ?? '(미설정)'} → From ${smtpDiag.from ?? '(미설정)'}.${deliverySuffix}`,
     to,
     subject,
     smtp: {
@@ -207,5 +210,7 @@ export async function sendPaymentConfirmationNotifyTestEmail(input?: {
       from: smtpDiag.from,
       host: smtpDiag.host,
     },
+    deliveryNote: mailResult.deliveryNote,
+    messageId: mailResult.messageId,
   };
 }

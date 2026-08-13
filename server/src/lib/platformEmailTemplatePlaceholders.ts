@@ -2,7 +2,7 @@
  * @generated-sync from shared/platformEmailTemplatePlaceholders.ts — 직접 수정하지 마세요.
  */
 
-import type { OutboundEmailPurpose } from './outboundEmailPurpose.js';
+import type { CustomerOutboundEmailPurpose } from './outboundEmailPurpose.js';
 
 export type PlatformEmailTemplatePlaceholder = {
   key: string;
@@ -17,7 +17,7 @@ export const PLATFORM_EMAIL_SUBJECT_PLACEHOLDERS: PlatformEmailTemplatePlacehold
 ];
 
 export const PLATFORM_EMAIL_BODY_PLACEHOLDERS: Record<
-  OutboundEmailPurpose,
+  CustomerOutboundEmailPurpose,
   PlatformEmailTemplatePlaceholder[]
 > = {
   ORDER_FORM_SUBMISSION: [

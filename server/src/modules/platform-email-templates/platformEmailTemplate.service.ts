@@ -1,9 +1,9 @@
 import type { PlatformEmailTemplate } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
-  isOutboundEmailPurpose,
-  OUTBOUND_EMAIL_PURPOSES,
-  type OutboundEmailPurpose,
+  CUSTOMER_OUTBOUND_EMAIL_PURPOSES,
+  isCustomerOutboundEmailPurpose,
+  type CustomerOutboundEmailPurpose,
 } from '../../lib/outboundEmailPurpose.js';
 import { stripDangerousHtml } from '../help-cms/helpCms.helpers.js';
 import {
@@ -12,7 +12,7 @@ import {
 } from './platformEmailTemplate.defaults.js';
 
 export type PlatformEmailTemplatePublic = {
-  purpose: OutboundEmailPurpose;
+  purpose: CustomerOutboundEmailPurpose;
   label: string;
   enabled: boolean;
   subjectTemplate: string;
@@ -38,7 +38,7 @@ export type PlatformEmailTemplatePatchInput = {
 };
 
 function serialize(row: PlatformEmailTemplate): PlatformEmailTemplatePublic {
-  const purpose = row.purpose as OutboundEmailPurpose;
+  const purpose = row.purpose as CustomerOutboundEmailPurpose;
   return {
     purpose,
     label: row.label,
@@ -55,7 +55,7 @@ function serialize(row: PlatformEmailTemplate): PlatformEmailTemplatePublic {
   };
 }
 
-function defaultsPublic(purpose: OutboundEmailPurpose): PlatformEmailTemplatePublic {
+function defaultsPublic(purpose: CustomerOutboundEmailPurpose): PlatformEmailTemplatePublic {
   const d = getPlatformEmailTemplateDefaults(purpose);
   return {
     purpose,
@@ -78,7 +78,7 @@ export async function listPlatformEmailTemplates(): Promise<PlatformEmailTemplat
     orderBy: { purpose: 'asc' },
   });
   const byPurpose = new Map(rows.map((r) => [r.purpose, r]));
-  return OUTBOUND_EMAIL_PURPOSES.map((purpose) => {
+  return CUSTOMER_OUTBOUND_EMAIL_PURPOSES.map((purpose) => {
     const row = byPurpose.get(purpose);
     return row ? serialize(row) : defaultsPublic(purpose);
   });
@@ -87,14 +87,14 @@ export async function listPlatformEmailTemplates(): Promise<PlatformEmailTemplat
 export async function getPlatformEmailTemplate(
   purposeRaw: string,
 ): Promise<PlatformEmailTemplatePublic | null> {
-  if (!isOutboundEmailPurpose(purposeRaw)) return null;
+  if (!isCustomerOutboundEmailPurpose(purposeRaw)) return null;
   const row = await prisma.platformEmailTemplate.findUnique({ where: { purpose: purposeRaw } });
   return row ? serialize(row) : defaultsPublic(purposeRaw);
 }
 
 /** 발송용 — enabled=false 또는 미존재 시 null */
 export async function loadActivePlatformEmailTemplate(
-  purpose: OutboundEmailPurpose,
+  purpose: CustomerOutboundEmailPurpose,
 ): Promise<PlatformEmailTemplatePublic | null> {
   const row = await prisma.platformEmailTemplate.findUnique({ where: { purpose } });
   if (!row || !row.enabled) return null;
@@ -102,7 +102,7 @@ export async function loadActivePlatformEmailTemplate(
 }
 
 export function resolveTemplateFields(
-  purpose: OutboundEmailPurpose,
+  purpose: CustomerOutboundEmailPurpose,
   row: PlatformEmailTemplatePublic | null,
 ): PlatformEmailTemplatePublic {
   if (row?.isConfigured && row.enabled) return row;
@@ -132,7 +132,7 @@ export async function upsertPlatformEmailTemplate(
   input: PlatformEmailTemplatePatchInput,
   updatedByEmail: string | null,
 ): Promise<PlatformEmailTemplatePublic> {
-  if (!isOutboundEmailPurpose(purposeRaw)) {
+  if (!isCustomerOutboundEmailPurpose(purposeRaw)) {
     throw new Error('지원하지 않는 메일 유형입니다.');
   }
   const defaults = PLATFORM_EMAIL_TEMPLATE_DEFAULTS[purposeRaw];

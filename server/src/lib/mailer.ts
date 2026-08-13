@@ -6,6 +6,9 @@ export type MailSendInput = {
   subject: string;
   html: string;
   text?: string;
+  /** transport.from 대신 사용 (Workspace 그룹 수신 보정 등) */
+  from?: string;
+  replyTo?: string;
   attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>;
 };
 

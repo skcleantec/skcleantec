@@ -302,7 +302,7 @@ export async function sendMailForTenant(
 export async function sendMailWithTransport(
   transport: ResolvedSmtpTransport,
   input: MailSendInput,
-): Promise<void> {
+): Promise<{ messageId?: string }> {
   const nodemailer = await import('nodemailer');
   const opts = nodemailerTransportOptions(transport);
   const tx = nodemailer.createTransport({
@@ -319,19 +319,22 @@ export async function sendMailWithTransport(
     greetingTimeout: 20_000,
     socketTimeout: 30_000,
   });
+  const from = input.from?.trim() || opts.from;
   try {
-    await tx.sendMail({
-      from: opts.from,
+    const info = await tx.sendMail({
+      from,
       to: input.to,
+      replyTo: input.replyTo?.trim() || undefined,
       subject: input.subject,
       html: input.html,
       text: input.text,
       attachments: input.attachments,
     });
+    return { messageId: typeof info.messageId === 'string' ? info.messageId : undefined };
   } catch (e) {
     throw enrichSmtpError(e, {
       smtpHost: opts.host,
-      smtpUser: opts.auth?.user ?? extractSmtpLoginEmail(opts.from),
+      smtpUser: opts.auth?.user ?? extractSmtpLoginEmail(from),
     });
   }
 }

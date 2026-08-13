@@ -1,4 +1,4 @@
-import type { OutboundEmailPurpose } from '../../lib/outboundEmailPurpose.js';
+import type { CustomerOutboundEmailPurpose } from '../../lib/outboundEmailPurpose.js';
 import { applyPlatformEmailTemplatePlaceholders } from '../../lib/platformEmailTemplatePlaceholders.js';
 import {
   wrapPlatformCustomerEmailHtml,
@@ -77,7 +77,7 @@ function buildInspectionPreviewRow(): ChecklistRow {
 }
 
 function mergePreviewTemplate(
-  purpose: OutboundEmailPurpose,
+  purpose: CustomerOutboundEmailPurpose,
   row: PlatformEmailTemplatePublic | null,
   override?: PlatformEmailTemplatePatchInput,
 ): PlatformEmailTemplatePublic {
@@ -114,7 +114,7 @@ function applyTemplateStrings(template: PlatformEmailTemplatePublic, vars: Platf
 }
 
 export async function buildPlatformEmailTemplatePreview(params: {
-  purpose: OutboundEmailPurpose;
+  purpose: CustomerOutboundEmailPurpose;
   override?: PlatformEmailTemplatePatchInput;
 }): Promise<{ subject: string; html: string; text: string }> {
   const row = await getPlatformEmailTemplate(params.purpose);

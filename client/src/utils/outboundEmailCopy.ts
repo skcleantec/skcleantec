@@ -27,8 +27,13 @@ export const OUTBOUND_EMAIL_COPY = {
   platformCustomerFromLabel: '고객에게 보이는 발신 주소 (noreply)',
   platformCustomerFromHint:
     '발주서·검수 완료 메일 수신함에 표시되는 주소입니다. Gmail 「다른 주소로 보내기」에 등록한 noreply를 입력하세요.',
+  platformSystemFromLabel: '시스템 알림 발신 주소 (cbiseo)',
+  platformSystemFromHint:
+    '입금 확인 요청 등 운영팀 알림에 표시되는 From입니다. Gmail 「다른 주소로 보내기」에 등록한 cbiseo@service-bridges.com 을 입력하세요. SMTP 로그인은 앱 비밀번호를 발급한 Google 계정(예: cleanbiseo@gmail.com)입니다.',
+  platformProfilesIntro:
+    'Gmail 「다른 주소로 보내기」와 같이 프로필마다 로그인 계정·발신 주소를 따로 둡니다. 고객 자동발송(noreply)과 플랫폼 알림(cbiseo)은 아래 기본 행에서 각각 설정하세요.',
   platformProfilesVsBillingNote:
-    '아래 「알림 메일 보내기」 연습 메일과는 별개입니다. 발주서 제출 확인 메일은 이 프로필(customer-noreply)로만 발송됩니다.',
+    '입금 확인 알림 수신 주소(billing@)는 설정 → 이용료 알림 탭에서 지정합니다. 발송(SMTP)은 「플랫폼 알림 (cbiseo)」 행에서 설정합니다.',
   stepName: '받는 사람에게 보이는 이름',
   stepPassword: '메일 연동 비밀번호',
   stepTest: '연습 보내기',

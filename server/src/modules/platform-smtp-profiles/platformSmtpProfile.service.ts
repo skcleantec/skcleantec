@@ -5,6 +5,10 @@ import {
   parseOutboundEmailPurposes,
   type OutboundEmailPurpose,
 } from '../../lib/outboundEmailPurpose.js';
+import {
+  isReservedPlatformSmtpProfileSlug,
+  RESERVED_PLATFORM_SMTP_PROFILE_PURPOSES,
+} from '../../lib/platformSmtpProfileSlugs.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   mergeSmtpConfigStored,
@@ -84,6 +88,20 @@ function prismaSmtpDataFromStored(stored: TenantSmtpConfigStored) {
     smtpFrom: stored.from?.trim() || null,
     smtpPassEnc: stored.passEnc?.trim() || null,
   };
+}
+
+function purposesForProfile(row: PlatformSmtpProfile, inputPurposes?: OutboundEmailPurpose[]): OutboundEmailPurpose[] {
+  if (isReservedPlatformSmtpProfileSlug(row.slug)) {
+    return [...RESERVED_PLATFORM_SMTP_PROFILE_PURPOSES[row.slug]];
+  }
+  return inputPurposes ?? parseOutboundEmailPurposes(row.purposes);
+}
+
+function assertReservedProfileMutable(row: PlatformSmtpProfile, nextSlug?: string): void {
+  if (!isReservedPlatformSmtpProfileSlug(row.slug)) return;
+  if (nextSlug !== undefined && normalizeSlug(nextSlug) !== row.slug) {
+    throw new Error('기본 SMTP 프로필의 slug는 변경할 수 없습니다.');
+  }
 }
 
 function normalizeSlug(raw: string): string {
@@ -218,6 +236,9 @@ export async function createPlatformSmtpProfile(
   input: PlatformSmtpProfileCreateInput,
 ): Promise<PlatformSmtpProfilePublic> {
   const slug = normalizeSlug(input.slug);
+  if (isReservedPlatformSmtpProfileSlug(slug)) {
+    throw new Error('이 slug는 시스템 기본 프로필로 이미 사용 중입니다.');
+  }
   const label = input.label.trim();
   if (!label) throw new Error('표시 이름을 입력해 주세요.');
   const purposes = input.purposes ?? [];
@@ -261,8 +282,11 @@ export async function updatePlatformSmtpProfile(
   const row = await prisma.platformSmtpProfile.findUnique({ where: { id } });
   if (!row) throw new Error('SMTP 프로필을 찾을 수 없습니다.');
 
-  const purposes =
-    input.purposes !== undefined ? input.purposes : parseOutboundEmailPurposes(row.purposes);
+  if (input.slug !== undefined) {
+    assertReservedProfileMutable(row, input.slug);
+  }
+
+  const purposes = purposesForProfile(row, input.purposes);
   if (input.enabled !== false) {
     await assertPurposeUniqueness(purposes, id);
   }
@@ -311,6 +335,9 @@ export async function updatePlatformSmtpProfile(
 export async function deletePlatformSmtpProfile(id: string): Promise<void> {
   const row = await prisma.platformSmtpProfile.findUnique({ where: { id } });
   if (!row) throw new Error('SMTP 프로필을 찾을 수 없습니다.');
+  if (isReservedPlatformSmtpProfileSlug(row.slug)) {
+    throw new Error('기본 SMTP 프로필은 삭제할 수 없습니다. 편집에서 SMTP만 비활성화하거나 연결을 해제하세요.');
+  }
   await prisma.platformSmtpProfile.delete({ where: { id } });
 }
 

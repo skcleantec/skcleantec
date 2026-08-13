@@ -1,4 +1,4 @@
-import type { OutboundEmailPurpose } from '../../lib/outboundEmailPurpose.js';
+import type { CustomerOutboundEmailPurpose } from '../../lib/outboundEmailPurpose.js';
 import { OUTBOUND_EMAIL_PURPOSE_LABELS } from '../../lib/outboundEmailPurpose.js';
 import {
   INSPECTION_FOOTER_HTML_DEFAULT,
@@ -9,7 +9,7 @@ import {
 } from './platformEmailTemplateHtml.defaults.js';
 
 export type PlatformEmailTemplateDefaults = {
-  purpose: OutboundEmailPurpose;
+  purpose: CustomerOutboundEmailPurpose;
   label: string;
   subjectTemplate: string;
   headline: string;
@@ -22,7 +22,7 @@ export type PlatformEmailTemplateDefaults = {
 const NOREPLY_DEFAULT = NOREPLY_NOTICE_HTML_DEFAULT;
 
 export const PLATFORM_EMAIL_TEMPLATE_DEFAULTS: Record<
-  OutboundEmailPurpose,
+  CustomerOutboundEmailPurpose,
   PlatformEmailTemplateDefaults
 > = {
   ORDER_FORM_SUBMISSION: {
@@ -48,7 +48,7 @@ export const PLATFORM_EMAIL_TEMPLATE_DEFAULTS: Record<
 };
 
 export function getPlatformEmailTemplateDefaults(
-  purpose: OutboundEmailPurpose,
+  purpose: CustomerOutboundEmailPurpose,
 ): PlatformEmailTemplateDefaults {
   return PLATFORM_EMAIL_TEMPLATE_DEFAULTS[purpose];
 }

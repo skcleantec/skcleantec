@@ -1,4 +1,4 @@
-import type { OutboundEmailPurpose } from './outboundEmailPurpose.js';
+import type { CustomerOutboundEmailPurpose } from './outboundEmailPurpose.js';
 
 export type PlatformEmailTemplatePlaceholder = {
   key: string;
@@ -13,7 +13,7 @@ export const PLATFORM_EMAIL_SUBJECT_PLACEHOLDERS: PlatformEmailTemplatePlacehold
 ];
 
 export const PLATFORM_EMAIL_BODY_PLACEHOLDERS: Record<
-  OutboundEmailPurpose,
+  CustomerOutboundEmailPurpose,
   PlatformEmailTemplatePlaceholder[]
 > = {
   ORDER_FORM_SUBMISSION: [
