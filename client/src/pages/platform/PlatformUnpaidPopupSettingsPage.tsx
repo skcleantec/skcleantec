@@ -248,7 +248,7 @@ export function PlatformUnpaidPopupSettingsPage() {
     );
   };
 
-  const testNotifyEmail = async () => {
+  const testNotifyEmail = async (testTo?: string) => {
     if (!form) return;
     const token = getPlatformToken();
     if (!token) return;
@@ -257,11 +257,15 @@ export function PlatformUnpaidPopupSettingsPage() {
       setError('입금 확인 알림 이메일 형식을 확인해 주세요.');
       return;
     }
+    if (testTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testTo)) {
+      setError('연습 수신 이메일 형식을 확인해 주세요.');
+      return;
+    }
     setTestingEmail(true);
     setError('');
     setMessage('');
     try {
-      const result = await sendPlatformPaymentNotifyTest(token, notifyEmail);
+      const result = await sendPlatformPaymentNotifyTest(token, notifyEmail, testTo);
       setMessage(result.message);
     } catch (e) {
       setError(e instanceof Error ? e.message : '테스트 발송 실패');

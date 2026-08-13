@@ -61,12 +61,16 @@ export function PlatformSettingsBillingNotifyTab() {
     }
   };
 
-  const testNotifyEmail = async () => {
+  const testNotifyEmail = async (testTo?: string) => {
     const token = getPlatformToken();
     if (!token) return;
     const trimmed = notifyEmail.trim();
     if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       setError('입금 확인 알림 이메일 형식을 확인해 주세요.');
+      return;
+    }
+    if (testTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testTo)) {
+      setError('연습 수신 이메일 형식을 확인해 주세요.');
       return;
     }
     setTestingEmail(true);
@@ -76,6 +80,7 @@ export function PlatformSettingsBillingNotifyTab() {
       const result = await sendPlatformPaymentNotifyTest(
         token,
         trimmed || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
+        testTo,
       );
       setMessage(result.message);
     } catch (e) {

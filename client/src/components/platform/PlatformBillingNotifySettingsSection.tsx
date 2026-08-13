@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
@@ -13,7 +14,7 @@ type Props = {
   onEmailChange: (value: string) => void;
   onSave: () => void | Promise<void>;
   saving: boolean;
-  onTestEmail?: () => void | Promise<void>;
+  onTestEmail?: (testTo?: string) => void | Promise<void>;
   testingEmail?: boolean;
   /** 미결재 팝업 페이지 등에서 SMTP 링크 문구만 다를 때 */
   compactIntro?: boolean;
@@ -28,6 +29,7 @@ export function PlatformBillingNotifySettingsSection({
   testingEmail = false,
   compactIntro = false,
 }: Props) {
+  const [testTo, setTestTo] = useState('');
   const usingDefault =
     !email.trim() || email.trim().toLowerCase() === PLATFORM_BILLING_NOTIFY_GROUP_EMAIL.toLowerCase();
 
@@ -83,12 +85,30 @@ export function PlatformBillingNotifySettingsSection({
         ) : null}
       </label>
 
+      {onTestEmail ? (
+        <label className="mt-3 block text-sm">
+          <span className="text-gray-600">연습 수신 (선택)</span>
+          <input
+            type="email"
+            className={`mt-1 ${INPUT_BASE}`}
+            value={testTo}
+            onChange={(e) => setTestTo(e.target.value)}
+            placeholder="비우면 위 알림 주소로 발송 (예: billing@service-bridges.com)"
+            autoComplete="email"
+          />
+          <p className="mt-1 text-xs text-amber-900 leading-snug">
+            billing@ 그룹으로 안 오면, 먼저 본인 Gmail 등 개인 주소로 SMTP만 확인한 뒤 그룹 설정(외부 발신·승인
+            대기)을 점검하세요. 같은 주소로 보내는 것과는 무관합니다.
+          </p>
+        </label>
+      ) : null}
+
       <div className="mt-4 flex flex-wrap gap-2 justify-end">
         {onTestEmail ? (
           <button
             type="button"
             disabled={saving || testingEmail}
-            onClick={() => void onTestEmail()}
+            onClick={() => void onTestEmail(testTo.trim() || undefined)}
             className={BTN_SECONDARY}
           >
             {testingEmail ? '보내는 중…' : '테스트 메일 보내기'}

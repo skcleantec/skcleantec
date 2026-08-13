@@ -257,14 +257,27 @@ export async function sendPlatformBillingSmtpTest(token: string, to: string) {
   return res.json() as Promise<{ ok: true; message: string }>;
 }
 
-export async function sendPlatformPaymentNotifyTest(token: string, notifyEmail?: string) {
+export async function sendPlatformPaymentNotifyTest(
+  token: string,
+  notifyEmail?: string,
+  testTo?: string,
+) {
   const res = await fetch(`${API}/platform/billing/payment-notify/test`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ notifyEmail: notifyEmail?.trim() || undefined }),
+    body: JSON.stringify({
+      notifyEmail: notifyEmail?.trim() || undefined,
+      testTo: testTo?.trim() || undefined,
+    }),
   });
   if (!res.ok) throw new Error(await apiErrorMessage(res, '테스트 발송 실패'));
-  return res.json() as Promise<{ ok: true; message: string }>;
+  return res.json() as Promise<{
+    ok: true;
+    message: string;
+    to: string;
+    subject: string;
+    smtp: { authUser: string | null; from: string | null; host: string | null };
+  }>;
 }
 
 export async function patchPlatformBillingSettings(

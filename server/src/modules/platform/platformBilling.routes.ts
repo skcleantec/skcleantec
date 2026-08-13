@@ -91,12 +91,13 @@ router.post('/smtp/test', platformSuperAdminOnly, async (req, res) => {
 
 router.post('/payment-notify/test', platformSuperAdminOnly, async (req, res) => {
   try {
-    const body = req.body as { notifyEmail?: string | null };
+    const body = req.body as { notifyEmail?: string | null; testTo?: string | null };
     const { sendPaymentConfirmationNotifyTestEmail, PaymentConfirmationRequestError } = await import(
       '../billing/tenantBilling.paymentRequest.service.js'
     );
     const result = await sendPaymentConfirmationNotifyTestEmail({
       notifyEmail: typeof body.notifyEmail === 'string' ? body.notifyEmail : undefined,
+      testTo: typeof body.testTo === 'string' ? body.testTo : undefined,
     });
     res.json(result);
   } catch (e) {

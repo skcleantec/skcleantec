@@ -40,12 +40,16 @@ const EMPTY_SMTP_PUBLIC: PlatformSmtpSettingsPublic = {
 
 export function smtpFormFromSettings(smtp: PlatformSmtpSettingsPublic | null | undefined): PlatformSmtpFormState {
   const s = smtp ?? EMPTY_SMTP_PUBLIC;
+  const parsed = parseSmtpFrom(s.from ?? '');
+  const loginEmail = s.user?.trim() || parsed.email || PLATFORM_SYSTEM_MAIL_FROM;
+  const emailForFrom = parsed.email.includes('@') ? parsed.email : loginEmail;
+  const from = buildSmtpFrom(parsed.displayName || '청소비서', emailForFrom);
   return {
     smtpHost: s.host ?? '',
     smtpPort: String(s.port || 587),
     smtpSecure: s.secure,
-    smtpUser: s.user ?? '',
-    smtpFrom: s.from?.trim() || PLATFORM_SYSTEM_MAIL_FROM,
+    smtpUser: loginEmail,
+    smtpFrom: from,
     smtpPassword: '',
     smtpPasswordConfigured: s.passwordConfigured,
   };
@@ -210,6 +214,13 @@ export function PlatformSmtpSettingsSection({
 /** 플랫폼 저장 전 검증 — PlatformSettingsSmtpTab에서 사용 */
 export function validatePlatformSmtpForm(form: PlatformSmtpFormState): string | null {
   const parsed = parseSmtpFrom(form.smtpFrom);
+  const sendEmail = form.smtpUser.trim() || parsed.email.trim();
+  if (!sendEmail.includes('@')) {
+    return 'Gmail 로그인 계정(이메일)을 입력해 주세요.';
+  }
+  if (!parsed.email.includes('@') && !form.smtpFrom.trim().includes('@')) {
+    return '보내는 사람(From)에 이메일 주소가 필요합니다.';
+  }
   const errors = validateOutboundEmailForm({
     providerId: inferOutboundEmailProvider(form.smtpHost),
     sendEmail: form.smtpUser || parsed.email,

@@ -6,6 +6,8 @@ import {
   resolveStoredSmtpTransport,
   sendMailWithTransport,
   smtpPublicFromStored,
+  formatSmtpSendError,
+  extractSmtpLoginEmail,
   type ResolvedSmtpTransport,
 } from './tenantSmtp.service.js';
 import {
@@ -36,12 +38,18 @@ export type PlatformSmtpSettingsPublic = {
 };
 
 function smtpStoredFromRow(row: PlatformBillingSettings): TenantSmtpConfigStored {
+  const user = row.smtpUser?.trim() || undefined;
+  let from = row.smtpFrom?.trim() || undefined;
+  // 레거시: from에 이메일 없이 표시명만 저장된 경우 로그인 계정으로 보정
+  if (from && !extractSmtpLoginEmail(from).includes('@') && user?.includes('@')) {
+    from = user;
+  }
   return {
     host: row.smtpHost?.trim() || undefined,
     port: row.smtpPort ?? undefined,
     secure: row.smtpSecure === true ? true : row.smtpSecure === false ? false : undefined,
-    user: row.smtpUser?.trim() || undefined,
-    from: row.smtpFrom?.trim() || undefined,
+    user,
+    from,
     passEnc: row.smtpPassEnc?.trim() || undefined,
   };
 }
@@ -137,22 +145,72 @@ export async function updatePlatformSmtpSettings(
 
 export async function resolvePlatformSmtpTransport(): Promise<ResolvedSmtpTransport | null> {
   const row = await ensurePlatformBillingRow();
-  const db = resolveStoredSmtpTransport(smtpStoredFromRow(row));
+  const db = resolveStoredSmtpTransport(smtpStoredFromRow(row), 'platform');
   if (db) return db;
   return resolveGlobalSmtpTransport();
+}
+
+export type PlatformSmtpSendDiagnostics = {
+  authUser: string | null;
+  from: string | null;
+  host: string | null;
+  source: ResolvedSmtpTransport['source'] | null;
+  passwordDecryptOk: boolean;
+};
+
+export async function getPlatformSmtpSendDiagnostics(): Promise<PlatformSmtpSendDiagnostics> {
+  const row = await ensurePlatformBillingRow();
+  const stored = smtpStoredFromRow(row);
+  const passEnc = stored.passEnc?.trim();
+  let passwordDecryptOk = false;
+  if (passEnc) {
+    const { decryptTenantSecret } = await import('./tenantSecretCrypto.js');
+    const raw = decryptTenantSecret(passEnc);
+    passwordDecryptOk = Boolean(raw?.trim());
+  }
+  const transport = await resolvePlatformSmtpTransport();
+  return {
+    authUser: transport?.auth?.user ?? null,
+    from: transport?.from ?? null,
+    host: transport?.host ?? null,
+    source: transport?.source ?? null,
+    passwordDecryptOk: !passEnc || passwordDecryptOk,
+  };
 }
 
 export async function isPlatformSmtpConfigured(): Promise<boolean> {
   return (await resolvePlatformSmtpTransport()) != null;
 }
 
-export async function sendPlatformMail(input: MailSendInput): Promise<{ sent: boolean; reason?: string }> {
+export async function sendPlatformMail(
+  input: MailSendInput,
+): Promise<{ sent: boolean; reason?: string; detail?: string }> {
   const transport = await resolvePlatformSmtpTransport();
   if (!transport) {
+    const diag = await getPlatformSmtpSendDiagnostics();
+    if (diag.passwordDecryptOk === false) {
+      return {
+        sent: false,
+        reason: 'SMTP_NOT_CONFIGURED',
+        detail:
+          '저장된 SMTP 앱 비밀번호를 읽을 수 없습니다. 설정 → SMTP에서 앱 비밀번호를 다시 입력·저장해 주세요.',
+      };
+    }
     return { sent: false, reason: 'SMTP_NOT_CONFIGURED' };
   }
-  await sendMailWithTransport(transport, input);
-  return { sent: true };
+  try {
+    await sendMailWithTransport(transport, input);
+    return { sent: true };
+  } catch (e) {
+    return {
+      sent: false,
+      reason: 'SMTP_SEND_FAILED',
+      detail: formatSmtpSendError(e, {
+        smtpHost: transport.host,
+        smtpUser: transport.auth?.user ?? extractSmtpLoginEmail(transport.from),
+      }),
+    };
+  }
 }
 
 export async function sendPlatformSmtpTestMail(to: string): Promise<void> {
@@ -167,6 +225,9 @@ export async function sendPlatformSmtpTestMail(to: string): Promise<void> {
     text: '플랫폼 SMTP 설정으로 발송된 테스트 메일입니다.',
   });
   if (!result.sent) {
-    throw new Error('SMTP가 설정되지 않았습니다. 아래 항목을 저장하거나 서버 환경변수를 확인해 주세요.');
+    throw new Error(
+      result.detail ??
+        'SMTP가 설정되지 않았습니다. 아래 항목을 저장하거나 서버 환경변수를 확인해 주세요.',
+    );
   }
 }

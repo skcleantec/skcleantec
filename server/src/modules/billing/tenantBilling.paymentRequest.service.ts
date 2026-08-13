@@ -109,7 +109,10 @@ export async function requestTenantPaymentConfirmation(input: {
         503,
       );
     }
-    throw new PaymentConfirmationRequestError('알림 메일 발송에 실패했습니다.', 503);
+    throw new PaymentConfirmationRequestError(
+      smtpNotConfiguredMessage(mailResult.reason, mailResult.detail),
+      503,
+    );
   }
 
   return {
@@ -129,9 +132,13 @@ export function isPaymentConfirmationRequestEnabled(
 
 const PAYMENT_NOTIFY_TEST_TENANT_NAME = '연습·테스트';
 
-function smtpNotConfiguredMessage(reason: string | undefined): string {
+function smtpNotConfiguredMessage(reason: string | undefined, detail?: string): string {
+  if (detail?.trim()) return detail.trim();
   if (reason === 'SMTP_NOT_CONFIGURED') {
     return 'SMTP가 설정되지 않았습니다. 플랫폼 설정 → SMTP에서 알림 메일 보내기를 저장한 뒤 다시 시도해 주세요.';
+  }
+  if (reason === 'SMTP_SEND_FAILED') {
+    return 'SMTP 발송에 실패했습니다.';
   }
   return '알림 메일 발송에 실패했습니다.';
 }
@@ -139,13 +146,25 @@ function smtpNotConfiguredMessage(reason: string | undefined): string {
 /** 플랫폼 — 입금 확인 요청 알림 연습 메일 (청구·요청 기록 없음) */
 export async function sendPaymentConfirmationNotifyTestEmail(input?: {
   notifyEmail?: string | null;
-}): Promise<{ ok: true; message: string }> {
+  /** 비우면 notifyEmail로 발송. billing@ 그룹 대신 개인 메일로 SMTP만 확인할 때 사용 */
+  testTo?: string | null;
+}): Promise<{
+  ok: true;
+  message: string;
+  to: string;
+  subject: string;
+  smtp: { authUser: string | null; from: string | null; host: string | null };
+}> {
   const settings = await ensurePlatformBillingSettings();
   const notifyEmail = resolvePlatformBillingNotifyEmail(
     input?.notifyEmail?.trim() || settings.dunningPaymentNotifyEmail,
   );
-  if (!notifyEmail) {
+  const to = (input?.testTo?.trim() || notifyEmail).trim();
+  if (!to) {
     throw new PaymentConfirmationRequestError('알림 받을 이메일을 입력해 주세요.', 400);
+  }
+  if (!isValidEmail(to)) {
+    throw new PaymentConfirmationRequestError('수신 이메일 형식을 확인해 주세요.', 400);
   }
   if (!isValidEmail(notifyEmail)) {
     throw new PaymentConfirmationRequestError('알림 받을 이메일 형식을 확인해 주세요.', 400);
@@ -155,7 +174,7 @@ export async function sendPaymentConfirmationNotifyTestEmail(input?: {
   dueDate.setDate(dueDate.getDate() + 7);
 
   const mailResult = await notifyPaymentConfirmationRequestByEmail({
-    notifyEmail,
+    notifyEmail: to,
     tenantName: PAYMENT_NOTIFY_TEST_TENANT_NAME,
     tenantSlug: 'test',
     tenantId: '00000000-0000-0000-0000-000000000000',
@@ -168,11 +187,25 @@ export async function sendPaymentConfirmationNotifyTestEmail(input?: {
   });
 
   if (!mailResult.sent) {
-    throw new PaymentConfirmationRequestError(smtpNotConfiguredMessage(mailResult.reason), 503);
+    throw new PaymentConfirmationRequestError(
+      smtpNotConfiguredMessage(mailResult.reason, mailResult.detail),
+      503,
+    );
   }
+
+  const subject = `[${PAYMENT_NOTIFY_TEST_TENANT_NAME}] 입금확인요청`;
+  const { getPlatformSmtpSendDiagnostics } = await import('../../lib/platformSmtp.service.js');
+  const smtpDiag = await getPlatformSmtpSendDiagnostics();
 
   return {
     ok: true,
-    message: `${notifyEmail}로 연습 메일을 보냈습니다. 제목: [${PAYMENT_NOTIFY_TEST_TENANT_NAME}] 입금확인요청`,
+    message: `${to}로 연습 메일을 보냈습니다. 제목: ${subject}. 발신 SMTP: ${smtpDiag.authUser ?? '(미설정)'} → From ${smtpDiag.from ?? '(미설정)'}`,
+    to,
+    subject,
+    smtp: {
+      authUser: smtpDiag.authUser,
+      from: smtpDiag.from,
+      host: smtpDiag.host,
+    },
   };
 }

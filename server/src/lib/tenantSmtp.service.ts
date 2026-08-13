@@ -197,6 +197,7 @@ export function smtpPublicFromStored(stored: TenantSmtpConfigStored | undefined)
 
 export function resolveStoredSmtpTransport(
   stored: TenantSmtpConfigStored | undefined,
+  source: ResolvedSmtpTransport['source'] = 'tenant',
 ): ResolvedSmtpTransport | null {
   if (!storedSmtpComplete(stored)) return null;
   const passRaw = decryptTenantSecret(stored!.passEnc!.trim());
@@ -216,7 +217,7 @@ export function resolveStoredSmtpTransport(
     secure,
     from,
     auth: { user: authUser, pass },
-    source: 'tenant',
+    source,
   };
 }
 

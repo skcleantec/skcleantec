@@ -29,7 +29,7 @@ export type PaymentConfirmationEmailInput = {
 
 export async function notifyPaymentConfirmationRequestByEmail(
   input: PaymentConfirmationEmailInput,
-): Promise<{ sent: boolean; reason?: string }> {
+): Promise<{ sent: boolean; reason?: string; detail?: string }> {
   const to = input.notifyEmail.trim();
   if (!to) return { sent: false, reason: 'NO_NOTIFY_EMAIL' };
 
