@@ -4,7 +4,7 @@ const SOOMGO_AUTOMATION_APP_VERSION = '1.0.1';
 
 /** Release ZIP sha256 — Railway 변수 누락·구버전 URL일 때 폴백 */
 const ZIP_SHA256_BY_VERSION: Record<string, string> = {
-  '1.0.1': 'ae5296f956db06d35af29c60be6594d3c7a615efe0e34762513cbf8f74f14dee',
+  '1.0.1': '887a1790771761552f58979d682d2926cb2d33fa8eeace5109e05cb7c213a532',
 };
 
 export type SoomgoAutomationManifest = {
