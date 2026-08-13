@@ -15,6 +15,7 @@ import {
   addYearsClamped,
   billingPeriodForStart,
   dueDateForPeriodStart,
+  kstEndOfDayUtc,
   kstStartOfDayUtc,
   kstYmdFromDate,
   nextPeriodStartAfter,
@@ -246,12 +247,17 @@ export function findAutoIssueScheduleItems(
   schedule: BillingScheduleItem[],
   now = new Date(),
 ): BillingScheduleItem[] {
-  const todayStart = kstStartOfDayUtc(kstYmdFromDate(now));
+  const todayYmd = kstYmdFromDate(now);
+  const todayStart = kstStartOfDayUtc(todayYmd);
+  const todayEnd = kstEndOfDayUtc(todayYmd);
   return schedule.filter((item) => {
     if (item.invoiceId) return false;
     if (item.status === 'SKIPPED' || item.status === 'DEFERRED') return false;
     if (item.amountKrw <= 0) return false;
-    return new Date(item.periodStart).getTime() <= todayStart.getTime();
+    const periodStarted = new Date(item.periodStart).getTime() <= todayStart.getTime();
+    /** 납부기한 당일(periodStart 시각이 정오 등으로 밀려도) 청구서 자동 발행 */
+    const dueReached = new Date(item.dueDate).getTime() <= todayEnd.getTime();
+    return periodStarted || dueReached;
   });
 }
 

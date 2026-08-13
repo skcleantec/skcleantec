@@ -1,4 +1,4 @@
-export type PlatformSettingsTabId = 'smtp' | 'email-templates' | 'business' | 'legal';
+export type PlatformSettingsTabId = 'smtp' | 'billing-notify' | 'email-templates' | 'business' | 'legal';
 
 export type PlatformSettingsTab = {
   id: PlatformSettingsTabId;
@@ -11,7 +11,13 @@ export const PLATFORM_SETTINGS_TABS: PlatformSettingsTab[] = [
   {
     id: 'smtp',
     label: 'SMTP',
-    description: '고객·기능별 SMTP 프로필 · 플랫폼 알림 메일',
+    description: '고객·기능별 SMTP 프로필 · 플랫폼 알림 메일 발송',
+    ready: true,
+  },
+  {
+    id: 'billing-notify',
+    label: '이용료 알림',
+    description: '업체 입금 확인 요청 → billing@service-bridges.com 그룹 메일',
     ready: true,
   },
   {

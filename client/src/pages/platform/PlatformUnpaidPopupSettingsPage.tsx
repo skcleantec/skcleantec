@@ -20,6 +20,11 @@ import {
   INPUT_BASE,
   PlatformAlert,
 } from '../../utils/platformUi';
+import {
+  PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
+} from '@shared/platformWorkspace';
+import { PlatformBillingNotifySettingsSection } from '../../components/platform/PlatformBillingNotifySettingsSection';
+import { platformSettingsTabPath } from './settings/platformSettingsTabs';
 import { KoreanBankNameField } from '../../components/ui/KoreanBankNameField';
 
 type FormState = {
@@ -47,7 +52,8 @@ function formFromSettings(s: PlatformBillingSettings): FormState {
     accountNumber: s.accountNumber?.trim() ?? '',
     accountHolder: s.accountHolder?.trim() ?? '',
     paymentGuideText: s.paymentGuideText?.trim() ?? '',
-    dunningPaymentNotifyEmail: s.dunningPaymentNotifyEmail?.trim() ?? '',
+    dunningPaymentNotifyEmail:
+      s.dunningPaymentNotifyEmail?.trim() || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
     dunningPopupTitle: s.dunningPopupTitle?.trim() || popup.title,
     dunningPopupSubtitle: s.dunningPopupSubtitle?.trim() || popup.subtitle,
     dunningPopupBody: s.dunningPopupBody?.trim() || popup.body,
@@ -229,13 +235,13 @@ export function PlatformUnpaidPopupSettingsPage() {
 
   const saveNotifySection = async () => {
     if (!form) return;
-    const notifyEmail = form.dunningPaymentNotifyEmail.trim();
-    if (notifyEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
+    const notifyEmail = form.dunningPaymentNotifyEmail.trim() || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
       setError('입금 확인 알림 이메일 형식을 확인해 주세요.');
       return;
     }
     await patchSettings(
-      { dunningPaymentNotifyEmail: notifyEmail || null },
+      { dunningPaymentNotifyEmail: notifyEmail },
       '입금 확인 알림 이메일이 저장되었습니다.',
     );
   };
@@ -267,8 +273,8 @@ export function PlatformUnpaidPopupSettingsPage() {
       setError('접속 제한 유예일은 0~30 사이로 입력해 주세요.');
       return;
     }
-    const notifyEmail = form.dunningPaymentNotifyEmail.trim();
-    if (notifyEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
+    const notifyEmail = form.dunningPaymentNotifyEmail.trim() || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
       setError('입금 확인 알림 이메일 형식을 확인해 주세요.');
       return;
     }
@@ -278,7 +284,7 @@ export function PlatformUnpaidPopupSettingsPage() {
         accountNumber: form.accountNumber.trim() || null,
         accountHolder: form.accountHolder.trim() || null,
         paymentGuideText: form.paymentGuideText.trim() || null,
-        dunningPaymentNotifyEmail: notifyEmail || null,
+        dunningPaymentNotifyEmail: notifyEmail,
         dunningPopupTitle: form.dunningPopupTitle.trim() || null,
         dunningPopupSubtitle: form.dunningPopupSubtitle.trim() || null,
         dunningPopupBody: form.dunningPopupBody.trim() || null,
@@ -318,7 +324,7 @@ export function PlatformUnpaidPopupSettingsPage() {
         <p className="text-xs font-medium text-gray-500">안내팝업</p>
         <h1 className="text-xl font-semibold text-gray-900">미결재 팝업</h1>
         <p className="mt-1 text-sm text-gray-500">
-          납부기한이 지난 이용료가 있을 때 업체 <strong>관리자(ADMIN)</strong> 로그인 직후 표시되는
+          납부기한이 도래했거나 지난 이용료가 있을 때 업체 <strong>관리자(ADMIN)</strong> 로그인·메뉴 이동 시 표시되는
           팝업입니다. 세션마다 한 번 닫을 수 있습니다.
         </p>
       </div>
@@ -397,31 +403,20 @@ export function PlatformUnpaidPopupSettingsPage() {
           </div>
         </section>
 
-        <section className={CARD_SECTION}>
-          <h2 className="text-sm font-semibold text-gray-900">입금 확인 요청 알림</h2>
-          <p className="mt-1 text-xs text-gray-500">
-            업체 관리자가 「입금확인 요청」을 누르면 아래 이메일로 알림이 발송됩니다. 메일 발송(SMTP)은{' '}
-            <Link to="/platform/settings/smtp" className="text-blue-600 hover:underline">
-              설정
-            </Link>
-            에서 구성합니다.
-          </p>
-          <label className="mt-3 block text-sm">
-            <span className="text-gray-600">알림 받을 이메일</span>
-            <input
-              type="email"
-              className={`mt-1 ${INPUT_BASE}`}
-              value={form.dunningPaymentNotifyEmail}
-              onChange={(e) => setForm((f) => (f ? { ...f, dunningPaymentNotifyEmail: e.target.value } : f))}
-              placeholder="you@example.com"
-            />
-          </label>
-          <div className="mt-4 flex justify-end">
-            <button type="button" disabled={saving} onClick={() => void saveNotifySection()} className={BTN_PRIMARY}>
-              {saving ? '저장 중…' : '알림 이메일 저장'}
-            </button>
-          </div>
-        </section>
+        <PlatformBillingNotifySettingsSection
+          compactIntro
+          email={form.dunningPaymentNotifyEmail}
+          onEmailChange={(value) => setForm((f) => (f ? { ...f, dunningPaymentNotifyEmail: value } : f))}
+          onSave={saveNotifySection}
+          saving={saving}
+        />
+        <p className="text-xs text-gray-500">
+          상세·그룹 연동 안내는{' '}
+          <Link to={platformSettingsTabPath('billing-notify')} className="text-blue-600 hover:underline">
+            설정 → 이용료 알림
+          </Link>
+          에서 확인할 수 있습니다.
+        </p>
 
         <section className={CARD_SECTION}>
           <h2 className="text-sm font-semibold text-gray-900">팝업 문구</h2>
@@ -529,8 +524,8 @@ export function PlatformUnpaidPopupSettingsPage() {
         <h2 className="text-sm font-semibold text-gray-900">표시 조건</h2>
         <ul className="list-disc pl-5 space-y-1 text-xs sm:text-sm">
           <li>업체 관리자(ADMIN)로 로그인했을 때</li>
-          <li>납부기한이 지난 ISSUED/OVERDUE 청구서가 있고, 아직 접속 차단 전일 때</li>
-          <li>같은 청구서는 브라우저 세션에서 「확인」으로 한 번 닫을 수 있음</li>
+          <li>납부기한이 오늘이거나 지난 ISSUED/OVERDUE 청구서가 있고, 아직 접속 차단 전일 때</li>
+          <li>관리 메뉴를 이동할 때마다 다시 표시 (「확인」은 해당 화면에서만 닫힘)</li>
           <li>유예일 경과 후에는 팝업 대신 로그인 차단(입금 안내 배너)</li>
         </ul>
       </section>

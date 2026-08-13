@@ -7,13 +7,14 @@ import {
 import {
   billingAccessBlockStartsAt,
   kstCalendarDaysUntil,
-  kstStartOfDayUtc,
+  kstEndOfDayUtc,
   kstYmdFromDate,
 } from './tenantBilling.dates.js';
 import { ensurePlatformBillingSettings, type InvoiceDto } from './tenantBilling.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { isPaymentConfirmationRequestEnabled } from './tenantBilling.paymentRequest.service.js';
 import { isTenantBillingFeeExemptByTenantId } from './tenantBilling.feeExempt.js';
+import { autoIssueInvoicesForTenant } from './tenantBilling.service.js';
 
 export type TenantBillingDunningDto = {
   showDunning: boolean;
@@ -70,7 +71,7 @@ const emptyBank = {
   paymentGuideText: null as string | null,
 };
 
-/** ADMIN 로그인 독촉 — 납부기한 경과·차단 전 연체 청구서 */
+/** ADMIN 로그인 독촉 — 납부기한 당일·경과·차단 전 미납 청구서 */
 export async function getTenantBillingDunningForAdmin(tenantId: string): Promise<TenantBillingDunningDto> {
   const [tenant, settings] = await Promise.all([
     prisma.tenant.findUnique({
@@ -117,12 +118,18 @@ export async function getTenantBillingDunningForAdmin(tenantId: string): Promise
     };
   }
 
-  const todayStart = kstStartOfDayUtc(kstYmdFromDate(new Date()));
+  const todayYmd = kstYmdFromDate(new Date());
+  const todayEnd = kstEndOfDayUtc(todayYmd);
+
+  /** 납부기한 당일인데 cron·periodStart 시각 때문에 미발행된 청구서 보정 */
+  await autoIssueInvoicesForTenant(tenantId, false);
+
   const invoiceRow = await prisma.tenantInvoice.findFirst({
     where: {
       tenantId,
       status: { in: ['ISSUED', 'OVERDUE'] },
-      dueDate: { lt: todayStart },
+      /** dueDate는 KST 해당일 23:59:59 — lt 오늘 00:00 이면 당일 납부분이 빠짐 */
+      dueDate: { lte: todayEnd },
     },
     orderBy: { dueDate: 'asc' },
   });

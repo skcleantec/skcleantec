@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma.js';
 import { ensurePlatformBillingSettings } from './tenantBilling.service.js';
 import { TenantNotFoundError } from '../tenants/tenant.service.js';
 import { notifyPaymentConfirmationRequestByEmail } from './tenantBilling.paymentRequest.email.js';
+import { resolvePlatformBillingNotifyEmail } from '../../lib/platformWorkspace.constants.js';
 
 const REQUEST_COOLDOWN_MS = 60 * 60 * 1000;
 
@@ -34,7 +35,7 @@ export async function requestTenantPaymentConfirmation(input: {
   requesterEmail: string;
 }): Promise<PaymentConfirmationRequestResult> {
   const settings = await ensurePlatformBillingSettings();
-  const notifyEmail = settings.dunningPaymentNotifyEmail?.trim() ?? '';
+  const notifyEmail = resolvePlatformBillingNotifyEmail(settings.dunningPaymentNotifyEmail);
   if (!notifyEmail) {
     throw new PaymentConfirmationRequestError(
       '입금 확인 알림 이메일이 설정되지 않았습니다. 플랫폼 관리자에게 문의해 주세요.',
@@ -111,13 +112,14 @@ export async function requestTenantPaymentConfirmation(input: {
   return {
     ok: true,
     emailSent: true,
-    message: '입금 확인 요청이 접수되었습니다. 확인 후 반영까지 시간이 걸릴 수 있습니다.',
+    message:
+      '운영팀에 입금 확인 알림을 보냈습니다. 반영까지 시간이 걸릴 수 있으며, 업체 이메일로는 발송되지 않습니다.',
   };
 }
 
 export function isPaymentConfirmationRequestEnabled(
   notifyEmail: string | null | undefined,
 ): boolean {
-  const email = notifyEmail?.trim() ?? '';
-  return Boolean(email && isValidEmail(email));
+  const email = resolvePlatformBillingNotifyEmail(notifyEmail);
+  return isValidEmail(email);
 }

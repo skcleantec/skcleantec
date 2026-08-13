@@ -4,28 +4,6 @@ import { fetchTenantBillingDunning, type TenantBillingDunning } from '../../api/
 import { TENANT_INVOICE_STATUS_LABEL, formatDunningBlockSoonText } from '@shared/tenantBilling';
 import { BillingPaymentConfirmationRequestButton } from './BillingPaymentConfirmationRequestButton';
 
-const DISMISS_KEY_PREFIX = 'billing-dunning-dismissed:';
-
-function dismissStorageKey(tenantId: string, invoiceId: string) {
-  return `${DISMISS_KEY_PREFIX}${tenantId}:${invoiceId}`;
-}
-
-function isDismissedForSession(tenantId: string, invoiceId: string): boolean {
-  try {
-    return sessionStorage.getItem(dismissStorageKey(tenantId, invoiceId)) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function markDismissedForSession(tenantId: string, invoiceId: string) {
-  try {
-    sessionStorage.setItem(dismissStorageKey(tenantId, invoiceId), '1');
-  } catch {
-    /* ignore */
-  }
-}
-
 function formatKoDate(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
 }
@@ -38,10 +16,12 @@ type Props = {
   open: boolean;
   token: string | null;
   tenantId: string | null;
+  /** 메뉴(pathname) 이동마다 재조회·재표시 */
+  attemptKey: number;
   onClose: () => void;
 };
 
-export function BillingDunningModal({ open, token, tenantId, onClose }: Props) {
+export function BillingDunningModal({ open, token, tenantId, attemptKey, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [dunning, setDunning] = useState<TenantBillingDunning | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,11 +39,7 @@ export function BillingDunningModal({ open, token, tenantId, onClose }: Props) {
     void fetchTenantBillingDunning(token)
       .then((data) => {
         if (cancelled) return;
-        if (
-          !data.showDunning ||
-          !data.invoice ||
-          isDismissedForSession(tenantId, data.invoice.id)
-        ) {
+        if (!data.showDunning || !data.invoice) {
           onClose();
           return;
         }
@@ -79,12 +55,9 @@ export function BillingDunningModal({ open, token, tenantId, onClose }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [open, token, tenantId, onClose]);
+  }, [open, token, tenantId, attemptKey, onClose]);
 
   const handleDismiss = () => {
-    if (tenantId && dunning?.invoice) {
-      markDismissedForSession(tenantId, dunning.invoice.id);
-    }
     onClose();
   };
 

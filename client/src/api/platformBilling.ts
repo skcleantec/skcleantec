@@ -58,6 +58,7 @@ export type PlatformBillingTenantRow = {
   openInvoiceStatus: string | null;
   openInvoiceDueDate: string | null;
   openInvoiceAmountKrw: number | null;
+  openInvoicePaymentConfirmationRequestedAt: string | null;
   currentPeriodStart: string | null;
   currentPeriodDueDate: string | null;
   currentPeriodAmountKrw: number | null;
@@ -89,6 +90,7 @@ export type PlatformBillingActionQueueItem = {
   currentPeriodStart: string | null;
   dueDate: string | null;
   amountKrw: number | null;
+  paymentConfirmationRequestedAt: string | null;
 };
 
 export type PlatformBillingTenantsListQuery = {

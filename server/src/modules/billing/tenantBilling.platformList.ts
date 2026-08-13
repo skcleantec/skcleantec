@@ -19,10 +19,12 @@ export type PlatformTenantBillingRow = {
   prepaidConfirmedAt: string | null;
   suspendReason: TenantSuspendReason | null;
   billingAccessBlockedAt: string | null;
-  openInvoiceId: string | null;
+      openInvoiceId: string | null;
   openInvoiceStatus: TenantInvoiceStatus | null;
   openInvoiceDueDate: string | null;
   openInvoiceAmountKrw: number | null;
+  /** 업체 ADMIN 「입금확인 요청」 시각 (미납 청구 기준) */
+  openInvoicePaymentConfirmationRequestedAt: string | null;
   currentPeriodStart: string | null;
   currentPeriodDueDate: string | null;
   currentPeriodAmountKrw: number | null;
@@ -70,6 +72,7 @@ export type PlatformBillingActionQueueItem = {
   currentPeriodStart: string | null;
   dueDate: string | null;
   amountKrw: number | null;
+  paymentConfirmationRequestedAt: string | null;
 };
 
 const OPERATIONAL_CODE_SET = new Set<TenantBillingOperationalStatusCode>([
@@ -198,9 +201,13 @@ export function buildPlatformBillingActionQueue(
       currentPeriodStart: row.currentPeriodStart,
       dueDate: row.openInvoiceDueDate ?? row.currentPeriodDueDate,
       amountKrw: row.openInvoiceAmountKrw ?? row.currentPeriodAmountKrw,
+      paymentConfirmationRequestedAt: row.openInvoicePaymentConfirmationRequestedAt,
     });
   }
   queue.sort((a, b) => {
+    const aRequested = a.paymentConfirmationRequestedAt ? 0 : 1;
+    const bRequested = b.paymentConfirmationRequestedAt ? 0 : 1;
+    if (aRequested !== bRequested) return aRequested - bRequested;
     const pa = ACTION_PRIORITY[a.operationalCode] ?? 50;
     const pb = ACTION_PRIORITY[b.operationalCode] ?? 50;
     if (pa !== pb) return pa - pb;

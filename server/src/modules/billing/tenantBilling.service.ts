@@ -71,6 +71,10 @@ import {
   type PlatformSmtpSettingsPublic,
 } from '../../lib/platformSmtp.service.js';
 import type { SmtpConfigPatch } from '../../lib/smtpConfigStored.js';
+import {
+  PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
+  resolvePlatformBillingNotifyEmail,
+} from '../../lib/platformWorkspace.constants.js';
 
 export type BillingSettingsDto = {
   bankName: string | null;
@@ -390,7 +394,10 @@ export async function autoIssueInvoicesForTenant(
 export async function ensurePlatformBillingSettings() {
   return prisma.platformBillingSettings.upsert({
     where: { id: 'default' },
-    create: { id: 'default' },
+    create: {
+      id: 'default',
+      dunningPaymentNotifyEmail: PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
+    },
     update: {},
   });
 }
@@ -408,7 +415,7 @@ export async function getPlatformBillingSettings(): Promise<BillingSettingsDto> 
     dunningPopupBody: row.dunningPopupBody,
     dunningBlockSoonText: row.dunningBlockSoonText,
     dunningBlockTodayText: row.dunningBlockTodayText,
-    dunningPaymentNotifyEmail: row.dunningPaymentNotifyEmail,
+    dunningPaymentNotifyEmail: resolvePlatformBillingNotifyEmail(row.dunningPaymentNotifyEmail),
     smtp: buildPlatformSmtpPublic(row),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -644,7 +651,7 @@ async function buildAllPlatformTenantBillingRows(
         where: { status: { in: ['ISSUED', 'OVERDUE'] } },
         orderBy: { dueDate: 'asc' },
         take: 1,
-        select: { id: true, status: true, dueDate: true, amountKrw: true },
+        select: { id: true, status: true, dueDate: true, amountKrw: true, paymentConfirmationRequestedAt: true },
       },
     },
   });
@@ -706,6 +713,8 @@ async function buildAllPlatformTenantBillingRows(
       openInvoiceStatus: openInv?.status ?? null,
       openInvoiceDueDate: openInv?.dueDate.toISOString() ?? null,
       openInvoiceAmountKrw: openInv?.amountKrw ?? null,
+      openInvoicePaymentConfirmationRequestedAt:
+        openInv?.paymentConfirmationRequestedAt?.toISOString() ?? null,
       currentPeriodStart: currentPeriod?.periodStart ?? null,
       currentPeriodDueDate: currentPeriod?.dueDate ?? null,
       currentPeriodAmountKrw: currentPeriod?.amountKrw ?? null,

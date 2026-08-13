@@ -1,0 +1,28 @@
+---
+description: Service Bridges Google Workspace 도메인·플랫폼 알림 메일 (service-bridges.com)
+alwaysApply: true
+---
+
+# Service Bridges Google Workspace
+
+## 도메인 (고정)
+
+- 플랫폼 운영·내부 알림용 **Google Workspace 도메인**은 **`service-bridges.com`** 이다.
+- 문서·코드·UI placeholder·SMTP·그룹메일 안내 시 이 도메인을 기준으로 한다. (고객 대면 SaaS URL·브랜드는 여전히 **cbiseo.com / 청소비서** — `.cursor/rules/no-skcleantec-branding.mdc`)
+
+## 이용료 입금 확인 알림 그룹
+
+| 항목 | 값 |
+|---|---|
+| **그룹 주소** | `billing@service-bridges.com` |
+| **표시 이름** | 청소비서 · 이용료 입금확인 |
+| **용도** | 업체 ADMIN이 「입금 확인 요청」 클릭 시 플랫폼 운영팀 알림 |
+| **코드 상수** | `shared/platformWorkspace.ts` · `server/src/lib/platformWorkspace.constants.ts` |
+| **DB 필드** | `PlatformBillingSettings.dunningPaymentNotifyEmail` |
+| **설정 UI** | 플랫폼 **설정 → 이용료 알림** (`/platform/settings/billing-notify`) |
+
+## 에이전트·개발 시
+
+- 새 플랫폼 알림·운영 메일 주소를 제안할 때 **@service-bridges.com** 을 우선한다.
+- `billing@service-bridges.com` 은 입금 확인 요청의 **기본 수신 주소**다. DB가 비어 있어도 서버·UI는 이 값으로 동작한다.
+- SMTP 발송 설정은 **설정 → SMTP** (`/platform/settings/smtp`) — 수신 그룹과 발송 계정은 별개.

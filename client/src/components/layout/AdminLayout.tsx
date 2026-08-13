@@ -273,6 +273,7 @@ export function AdminLayout() {
   useDocumentTitle(tenantName);
   const [stagingDbImportModalOpen, setStagingDbImportModalOpen] = useState(false);
   const [billingDunningOpen, setBillingDunningOpen] = useState(false);
+  const [billingDunningAttemptKey, setBillingDunningAttemptKey] = useState(0);
   const closeBillingDunning = useCallback(() => setBillingDunningOpen(false), []);
   const [profileOnboardingRequired, setProfileOnboardingRequired] = useState(false);
   const [profileOnboardingInitial, setProfileOnboardingInitial] = useState<ProfileOnboardingInitial>({
@@ -599,6 +600,15 @@ export function AdminLayout() {
       cancelled = true;
     };
   }, [adminToken]);
+
+  /** ADMIN — 로그인·메뉴(pathname) 이동마다 미결재 독촉 팝업 재시도 */
+  useEffect(() => {
+    if (meRole !== 'ADMIN' || !meTenantId || !adminToken) return;
+    setBillingDunningOpen(false);
+    setBillingDunningAttemptKey((k) => k + 1);
+    const timer = window.setTimeout(() => setBillingDunningOpen(true), 0);
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, meRole, meTenantId, adminToken]);
 
   useEffect(() => {
     if (!meRole) return;
@@ -1524,6 +1534,7 @@ export function AdminLayout() {
         open={billingDunningOpen}
         token={adminToken}
         tenantId={meTenantId}
+        attemptKey={billingDunningAttemptKey}
         onClose={closeBillingDunning}
       />
       {adminToken && profileOnboardingRequired && meRole === 'MARKETER' ? (

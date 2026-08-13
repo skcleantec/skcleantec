@@ -49,6 +49,18 @@ function formatYmd(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
 }
 
+function PaymentConfirmationRequestedBadge({ at }: { at: string | null | undefined }) {
+  if (!at) return null;
+  return (
+    <span
+      className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-900"
+      title={`업체 입금 확인 요청: ${formatKoDate(at)}`}
+    >
+      입금 확인 요청
+    </span>
+  );
+}
+
 type RowAction =
   | { kind: 'trial_start'; label: string }
   | { kind: 'confirm_invoice'; label: string; invoiceId: string }
@@ -326,9 +338,12 @@ export function PlatformBillingPage() {
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900">
-                      {item.name}{' '}
-                      <span className="font-mono text-xs font-normal text-gray-500">({item.slug})</span>
+                    <p className="text-sm font-medium text-gray-900 flex flex-wrap items-center gap-1.5">
+                      <span>
+                        {item.name}{' '}
+                        <span className="font-mono text-xs font-normal text-gray-500">({item.slug})</span>
+                      </span>
+                      <PaymentConfirmationRequestedBadge at={item.paymentConfirmationRequestedAt} />
                     </p>
                     <p className="text-xs text-gray-600">
                       {item.operationalLabel}
@@ -534,6 +549,11 @@ export function PlatformBillingPage() {
                       <td className="py-2 text-center">
                         <div className="font-medium text-gray-900">{row.name}</div>
                         <div className="text-xs font-mono text-gray-500">{row.slug}</div>
+                        <div className="mt-1 flex justify-center">
+                          <PaymentConfirmationRequestedBadge
+                            at={row.openInvoicePaymentConfirmationRequestedAt}
+                          />
+                        </div>
                       </td>
                       <td className="py-2 text-center">
                         <PlanBadge plan={row.plan} />

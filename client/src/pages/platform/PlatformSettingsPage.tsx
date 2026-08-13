@@ -6,6 +6,7 @@ import {
   type PlatformSettingsTabId,
 } from './settings/platformSettingsTabs';
 import { PlatformSettingsSmtpTab } from './settings/PlatformSettingsSmtpTab';
+import { PlatformSettingsBillingNotifyTab } from './settings/PlatformSettingsBillingNotifyTab';
 import { PlatformSettingsEmailTemplatesTab } from './settings/PlatformSettingsEmailTemplatesTab';
 import { PlatformSettingsLegalTab } from './settings/PlatformSettingsLegalTab';
 import { CARD_SECTION } from '../../utils/platformUi';
@@ -23,6 +24,7 @@ function PlatformSettingsBusinessTab() {
 
 function TabPanel({ tab }: { tab: PlatformSettingsTabId }) {
   if (tab === 'smtp') return <PlatformSettingsSmtpTab />;
+  if (tab === 'billing-notify') return <PlatformSettingsBillingNotifyTab />;
   if (tab === 'email-templates') return <PlatformSettingsEmailTemplatesTab />;
   if (tab === 'business') return <PlatformSettingsBusinessTab />;
   if (tab === 'legal') return <PlatformSettingsLegalTab />;
