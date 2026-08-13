@@ -65,8 +65,7 @@ function Get-SetupSha256FromGitHub([string]$ver) {
 }
 
 function Test-RailwayAccountAuth {
-    if (-not $env:RAILWAY_API_TOKEN) { return $false }
-    $saved = $env:RAILWAY_TOKEN
+    $savedToken = $env:RAILWAY_TOKEN
     $env:RAILWAY_TOKEN = $null
     try {
         $out = npx @railway/cli@latest whoami 2>&1
@@ -74,7 +73,7 @@ function Test-RailwayAccountAuth {
         Write-Host "Railway account: $out"
         return $true
     } finally {
-        if ($saved) { $env:RAILWAY_TOKEN = $saved }
+        if ($savedToken) { $env:RAILWAY_TOKEN = $savedToken } else { Remove-Item Env:RAILWAY_TOKEN -ErrorAction SilentlyContinue }
     }
 }
 
@@ -82,7 +81,7 @@ function Set-RailwaySoomgoVars([string]$Environment, [string]$Svc) {
     Write-Host "`n=== Railway environment: $Environment (service: $Svc) ===" -ForegroundColor Cyan
     $useAccount = Test-RailwayAccountAuth
     if (-not $useAccount -and -not $env:RAILWAY_TOKEN) {
-        throw "RAILWAY_TOKEN 또는 RAILWAY_API_TOKEN 이 server/.env 에 필요합니다."
+        throw "Railway CLI 로그인(npx @railway/cli login) 또는 server/.env 의 RAILWAY_TOKEN / RAILWAY_API_TOKEN 이 필요합니다."
     }
     if (-not $useAccount -and $Environment -ne 'production') {
         Write-Host "  skip: Project Token은 production 만. staging 은 RAILWAY_API_TOKEN 필요." -ForegroundColor Yellow
