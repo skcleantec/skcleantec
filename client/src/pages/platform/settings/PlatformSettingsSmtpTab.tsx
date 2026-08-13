@@ -113,7 +113,8 @@ export function PlatformSettingsSmtpTab() {
           <div>
             <h2 className="text-sm font-semibold text-gray-900">알림 메일 보내기</h2>
             <p className="mt-1 text-xs text-gray-500">
-              입금 확인 요청·도움말 문의 등 플랫폼에서 보내는 알림 메일에 사용합니다.
+              입금 확인 요청 등 플랫폼 시스템 알림 발송에 사용합니다. 보내는 사람(From)은{' '}
+              <span className="font-mono text-gray-700">cbiseo@service-bridges.com</span> 을 권장합니다.
               <span className="mt-1 block text-amber-800">
                 발주서 제출 확인 메일은 위 「고객·기능별 SMTP 프로필」에서 따로 설정합니다. 여기 연습 메일이
                 되어도 발주서 메일과는 무관합니다.

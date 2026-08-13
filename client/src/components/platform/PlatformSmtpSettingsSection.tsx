@@ -14,6 +14,7 @@ import {
 } from '../../utils/outboundEmailProviders';
 import { OUTBOUND_EMAIL_COPY } from '../../utils/outboundEmailCopy';
 import type { PlatformSmtpSettingsPublic } from '../../api/platformBilling';
+import { PLATFORM_SYSTEM_MAIL_FROM } from '@shared/platformWorkspace';
 
 export type PlatformSmtpFormState = {
   smtpHost: string;
@@ -44,7 +45,7 @@ export function smtpFormFromSettings(smtp: PlatformSmtpSettingsPublic | null | u
     smtpPort: String(s.port || 587),
     smtpSecure: s.secure,
     smtpUser: s.user ?? '',
-    smtpFrom: s.from ?? '',
+    smtpFrom: s.from?.trim() || PLATFORM_SYSTEM_MAIL_FROM,
     smtpPassword: '',
     smtpPasswordConfigured: s.passwordConfigured,
   };

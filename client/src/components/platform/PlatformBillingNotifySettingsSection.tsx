@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import {
   PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
   PLATFORM_BILLING_NOTIFY_GROUP_LABEL,
+  PLATFORM_SYSTEM_MAIL_FROM,
   PLATFORM_WORKSPACE_DOMAIN,
 } from '@shared/platformWorkspace';
 import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
@@ -51,8 +52,13 @@ export function PlatformBillingNotifySettingsSection({
           <span className="font-medium">{PLATFORM_BILLING_NOTIFY_GROUP_LABEL}</span>
         </p>
         <p>
-          <span className="text-slate-500">그룹 메일</span>{' '}
+          <span className="text-slate-500">수신 (그룹)</span>{' '}
           <span className="font-mono text-slate-900">{PLATFORM_BILLING_NOTIFY_GROUP_EMAIL}</span>
+        </p>
+        <p>
+          <span className="text-slate-500">발신 (시스템)</span>{' '}
+          <span className="font-mono text-slate-900">{PLATFORM_SYSTEM_MAIL_FROM}</span>
+          <span className="text-slate-500"> · 제목 예: [업체명] 입금확인요청</span>
         </p>
       </div>
 

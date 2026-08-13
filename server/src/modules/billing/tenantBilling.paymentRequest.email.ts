@@ -1,5 +1,6 @@
 import { sendPlatformMail } from '../../lib/platformSmtp.service.js';
 import { getPublicAppBaseUrl } from '../../lib/publicAppBaseUrl.js';
+import { formatTenantPaymentConfirmationRequestSubject } from '../../lib/platformWorkspace.constants.js';
 
 function escapeHtml(s: string): string {
   return s
@@ -47,8 +48,9 @@ export async function notifyPaymentConfirmationRequestByEmail(
     <p style="color:#64748b;font-size:12px;">청구서 ID: ${escapeHtml(input.invoiceId)} · 테넌트 ID: ${escapeHtml(input.tenantId)}</p>
   `.trim();
 
+  const subject = formatTenantPaymentConfirmationRequestSubject(input.tenantName);
   const text = [
-    '[청소비서 이용료 입금 확인 요청]',
+    subject,
     `업체: ${input.tenantName} (${input.tenantSlug})`,
     `청구 금액: ${input.amountKrw.toLocaleString('ko-KR')}원 (VAT 별도)`,
     `납부기한: ${formatKoDate(input.dueDate)}`,
@@ -61,7 +63,7 @@ export async function notifyPaymentConfirmationRequestByEmail(
 
   return sendPlatformMail({
     to,
-    subject: `[청소비서] 입금 확인 요청 — ${input.tenantName}`,
+    subject,
     html,
     text,
   });

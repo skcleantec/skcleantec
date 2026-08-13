@@ -499,7 +499,7 @@ export function PlatformSmtpProfilesSection() {
                       type="text"
                       value={form.smtpFrom}
                       onChange={(e) => setForm((f) => ({ ...f, smtpFrom: e.target.value }))}
-                      placeholder="noreply@service-bridges.com"
+                      placeholder="cbiseo@service-bridges.com"
                       className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-fluid-xs"
                       autoComplete="off"
                     />

@@ -73,6 +73,7 @@ import {
 import type { SmtpConfigPatch } from '../../lib/smtpConfigStored.js';
 import {
   PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
+  PLATFORM_SYSTEM_MAIL_FROM,
   resolvePlatformBillingNotifyEmail,
 } from '../../lib/platformWorkspace.constants.js';
 
@@ -397,6 +398,7 @@ export async function ensurePlatformBillingSettings() {
     create: {
       id: 'default',
       dunningPaymentNotifyEmail: PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
+      smtpFrom: PLATFORM_SYSTEM_MAIL_FROM,
     },
     update: {},
   });

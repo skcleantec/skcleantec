@@ -10,19 +10,23 @@ alwaysApply: true
 - 플랫폼 운영·내부 알림용 **Google Workspace 도메인**은 **`service-bridges.com`** 이다.
 - 문서·코드·UI placeholder·SMTP·그룹메일 안내 시 이 도메인을 기준으로 한다. (고객 대면 SaaS URL·브랜드는 여전히 **cbiseo.com / 청소비서** — `.cursor/rules/no-skcleantec-branding.mdc`)
 
-## 이용료 입금 확인 알림 그룹
+## 이용료 입금 확인 알림
 
 | 항목 | 값 |
 |---|---|
-| **그룹 주소** | `billing@service-bridges.com` |
-| **표시 이름** | 청소비서 · 이용료 입금확인 |
-| **용도** | 업체 ADMIN이 「입금 확인 요청」 클릭 시 플랫폼 운영팀 알림 |
+| **수신 (그룹)** | `billing@service-bridges.com` |
+| **발신 (시스템 SMTP)** | `cbiseo@service-bridges.com` |
+| **제목 형식** | `[업체명] 입금확인요청` (예: `[클린느] 입금확인요청`) |
+| **그룹 표시 이름** | 청소비서 · 이용료 입금확인 |
+| **용도** | 업체 ADMIN 「입금 확인 요청」 → 운영팀 그룹 수신 (업체에게 메일 없음) |
 | **코드 상수** | `shared/platformWorkspace.ts` · `server/src/lib/platformWorkspace.constants.ts` |
-| **DB 필드** | `PlatformBillingSettings.dunningPaymentNotifyEmail` |
-| **설정 UI** | 플랫폼 **설정 → 이용료 알림** (`/platform/settings/billing-notify`) |
+| **수신 DB** | `PlatformBillingSettings.dunningPaymentNotifyEmail` |
+| **발신 DB** | `PlatformBillingSettings.smtpFrom` (+ SMTP 호스트·계정) |
+| **설정 UI** | 수신: **설정 → 이용료 알림** · 발신: **설정 → SMTP** |
 
 ## 에이전트·개발 시
 
 - 새 플랫폼 알림·운영 메일 주소를 제안할 때 **@service-bridges.com** 을 우선한다.
-- `billing@service-bridges.com` 은 입금 확인 요청의 **기본 수신 주소**다. DB가 비어 있어도 서버·UI는 이 값으로 동작한다.
-- SMTP 발송 설정은 **설정 → SMTP** (`/platform/settings/smtp`) — 수신 그룹과 발송 계정은 별개.
+- **수신** 기본: `billing@service-bridges.com` · **발신 From** 기본: `cbiseo@service-bridges.com`
+- 입금 확인 요청 메일 제목은 **`formatTenantPaymentConfirmationRequestSubject`** — `[업체명] 입금확인요청`
+- SMTP 발송(호스트·앱 비밀번호)은 **설정 → SMTP** — From 은 `cbiseo@` 계정과 일치해야 한다.
