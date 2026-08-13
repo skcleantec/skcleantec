@@ -205,9 +205,6 @@ for (var v = 0; v < viewNodes.length; v++) {
 return false;
 """
 
-return false;
-"""
-
 _EXTRACT_BV_REQUEST_MODAL_JS = SOOMGO_DISPLAY_NAME_JS + """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
