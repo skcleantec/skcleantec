@@ -10,6 +10,7 @@ from automation.overlay_modals import dismiss_blocking_overlays
 from automation.selectors import SOOMGO_DISPLAY_NAME_JS
 from automation.soomgo_text_filters import (
     filter_soomgo_memo_lines,
+    has_meaningful_request_fields,
     is_garbage_request_extract,
     is_plausible_soomgo_region,
     is_soomgo_boilerplate_line,
@@ -18,10 +19,11 @@ from automation.soomgo_text_filters import (
 logger = logging.getLogger(__name__)
 
 REQUEST_MODAL_DELAY = 0.45
-REQUEST_MODAL_READY_TIMEOUT = 3.0
-REQUEST_MODAL_POLL_SEC = 0.05
-REQUEST_MODAL_OPEN_WAIT_SEC = 1.8
-REQUEST_MODAL_RETRY_WAIT_SEC = 1.2
+REQUEST_MODAL_READY_TIMEOUT = 5.0
+REQUEST_MODAL_POLL_SEC = 0.08
+REQUEST_MODAL_OPEN_WAIT_SEC = 3.2
+REQUEST_MODAL_RETRY_WAIT_SEC = 2.0
+REQUEST_MODAL_EXTRACT_SETTLE_SEC = 0.35
 
 _DATE_RE = re.compile(r'(\d{4}-\d{2}-\d{2})')
 _PYEONG_ANSWER_RE = re.compile(r'(\d{1,4})\s*평')
@@ -67,6 +69,63 @@ for (var i = 0; i < nodes.length; i++) {
   return normalizeSoomgoDisplayNameLine(t);
 }
 return null;
+"""
+
+_OPEN_INLINE_REQUEST_VIEW_JS = """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
+}
+var best = null;
+var bestScore = -1;
+var nodes = document.querySelectorAll('button, a, [role="button"], span, div');
+for (var i = 0; i < nodes.length; i++) {
+  var el = nodes[i];
+  if (!visible(el)) continue;
+  var label = ((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('title') || '')).replace(/\\s+/g, ' ').trim();
+  if (label.indexOf('전체보기') < 0) continue;
+  var host = el.closest('div, section, article, li, main') || el;
+  var hostText = (host.innerText || host.textContent || '').replace(/\\s+/g, ' ').trim();
+  var score = 0;
+  if (/요청서|고객\\s*요청|요청\\s*상세/.test(hostText)) score += 90;
+  if (hostText.indexOf('평') >= 0 || hostText.indexOf('방') >= 0) score += 40;
+  var r = el.getBoundingClientRect();
+  if (r.top > 120 && r.top < 720) score += 25;
+  if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button') score += 20;
+  if (score > bestScore) { bestScore = score; best = el; }
+}
+if (best && bestScore >= 70) {
+  var target = best.closest('button, a, [role="button"]') || best;
+  target.click();
+  return true;
+}
+return false;
+"""
+
+_CLICK_REQUEST_DETAIL_TAB_JS = """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden';
+}
+var tabs = document.querySelectorAll('button, a, [role="tab"], [role="button"], span, div');
+for (var i = 0; i < tabs.length; i++) {
+  var el = tabs[i];
+  if (!visible(el)) continue;
+  var t = (el.textContent || '').replace(/\\s+/g, ' ').trim();
+  if (t !== '요청 상세' && t !== '고객 요청') continue;
+  var r = el.getBoundingClientRect();
+  if (r.top > 260) continue;
+  var target = el.closest('button, a, [role="tab"], [role="button"]') || el;
+  target.click();
+  return true;
+}
+return false;
 """
 
 _OPEN_REQUEST_MODAL_JS = SOOMGO_DISPLAY_NAME_JS + """
@@ -133,10 +192,26 @@ function isBoilerplateLine(line) {
   if (!line) return true;
   if (line === '고객 요청' || line === '고객 요청 보기' || line === '요청 상세') return true;
   if (line === '알림 끄기' || line === '신고하기' || line.indexOf('채팅방 나가기') >= 0) return true;
+  if (line === '프로필 관리' || line === '받은 견적' || line === '마이페이지') return true;
+  if (line === '전체보기' || line === '고용 요청' || line === '숨고페이 요청' || line === '일정 등록') return true;
+  if (line.indexOf('고객님이 견적') >= 0) return true;
+  if (/^\\d{4}년\\s*\\d{1,2}월\\s*\\d{1,2}일/.test(line)) return true;
   if (line.indexOf('브레이브모바일') >= 0 || line.indexOf('통신판매중개자') >= 0) return true;
   if (line.indexOf('100% 사기') >= 0 || line.indexOf('전자세금계산서') >= 0) return true;
   if (line.indexOf('거래당사자') >= 0 && line.length > 40) return true;
   return false;
+}
+function hasRequestContentSignals(text) {
+  if (!text) return false;
+  if (text.indexOf('?') >= 0 || text.indexOf('？') >= 0) return true;
+  if (/\\d{1,4}\\s*평/.test(text)) return true;
+  if (/방\\s*개수|화장실|베란다/.test(text)) return true;
+  if (/[가-힣]+(?:시|군|구)/.test(text) && text.indexOf('마이페이지') < 0) return true;
+  return false;
+}
+function isSidebarDrawer(text) {
+  if (!text) return false;
+  return text.indexOf('프로필 관리') >= 0 && text.indexOf('마이페이지') >= 0 && !hasRequestContentSignals(text);
 }
 function isPlausibleRegion(line) {
   if (!line || line.length < 4 || line.length > 40) return false;
@@ -167,6 +242,8 @@ function findRequestModal() {
     if (!visible(el)) continue;
     var t = (el.innerText || el.textContent || '');
     if (t.indexOf('고객 요청') < 0 || t.indexOf('요청 상세') < 0) continue;
+    if (isSidebarDrawer(t)) continue;
+    if (!hasRequestContentSignals(t)) continue;
     if (t.indexOf('숨고전화') >= 0 || t.indexOf('안심번호로 통화') >= 0) continue;
     if (t.indexOf('브레이브모바일') >= 0 && t.indexOf('?') < 0 && t.indexOf('평') < 0) continue;
     var score = 0;
@@ -230,11 +307,23 @@ function visible(el) {
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden';
 }
+function hasRequestContentSignals(text) {
+  if (!text) return false;
+  if (text.indexOf('?') >= 0 || text.indexOf('？') >= 0) return true;
+  if (/\\d{1,4}\\s*평/.test(text)) return true;
+  if (/방\\s*개수|화장실|베란다/.test(text)) return true;
+  if (/[가-힣]+(?:시|군|구)/.test(text) && text.indexOf('마이페이지') < 0) return true;
+  return false;
+}
+function isSidebarDrawer(text) {
+  if (!text) return false;
+  return text.indexOf('프로필 관리') >= 0 && text.indexOf('마이페이지') >= 0 && !hasRequestContentSignals(text);
+}
 var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="drawer"], [class*="Drawer"], [class*="sheet"], [class*="Sheet"], aside, section, div');
 for (var i = 0; i < roots.length; i++) {
   if (!visible(roots[i])) continue;
   var t = (roots[i].innerText || '');
-  if (t.indexOf('고객 요청') >= 0 && t.indexOf('요청 상세') >= 0) return true;
+  if (t.indexOf('고객 요청') >= 0 && t.indexOf('요청 상세') >= 0 && !isSidebarDrawer(t) && hasRequestContentSignals(t)) return true;
 }
 return false;
 """
@@ -247,11 +336,23 @@ function visible(el) {
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden';
 }
+function hasRequestContentSignals(text) {
+  if (!text) return false;
+  if (text.indexOf('?') >= 0 || text.indexOf('？') >= 0) return true;
+  if (/\\d{1,4}\\s*평/.test(text)) return true;
+  if (/방\\s*개수|화장실|베란다/.test(text)) return true;
+  if (/[가-힣]+(?:시|군|구)/.test(text) && text.indexOf('마이페이지') < 0) return true;
+  return false;
+}
+function isSidebarDrawer(text) {
+  if (!text) return false;
+  return text.indexOf('프로필 관리') >= 0 && text.indexOf('마이페이지') >= 0 && !hasRequestContentSignals(text);
+}
 var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="drawer"], [class*="Drawer"], [class*="sheet"], [class*="Sheet"], aside, section, div');
 for (var i = 0; i < roots.length; i++) {
   if (!visible(roots[i])) continue;
   var t = (roots[i].innerText || '');
-  if (t.indexOf('고객 요청') >= 0 && t.indexOf('요청 상세') >= 0 && t.length > 72) return true;
+  if (t.indexOf('고객 요청') >= 0 && t.indexOf('요청 상세') >= 0 && t.length > 72 && !isSidebarDrawer(t) && hasRequestContentSignals(t)) return true;
 }
 return false;
 """
@@ -411,17 +512,7 @@ class CustomerRequestManager:
         if not self._modal_ready_light():
             return False
         data = self.extract_request_modal()
-        if not data:
-            return False
-        pairs = data.get('requestPairs')
-        if isinstance(pairs, list) and len(pairs) >= 2:
-            return True
-        if data.get('customerName') and (data.get('region') or data.get('preferredDate') or data.get('pyeong')):
-            return True
-        if isinstance(pairs, list) and len(pairs) >= 1 and data.get('customerName'):
-            return True
-        raw = str(data.get('requestRawText', ''))
-        return '요청 상세' in raw and len(raw) > 60
+        return bool(data and has_meaningful_request_fields(data))
 
     def wait_for_request_modal_ready(self, timeout: float = REQUEST_MODAL_READY_TIMEOUT) -> bool:
         deadline = time.time() + timeout
@@ -429,10 +520,33 @@ class CustomerRequestManager:
             if not self.is_request_modal_open():
                 time.sleep(REQUEST_MODAL_POLL_SEC)
                 continue
-            if self._modal_ready_light():
+            if self._modal_has_content():
                 return True
+            if self._modal_ready_light():
+                time.sleep(REQUEST_MODAL_EXTRACT_SETTLE_SEC)
+                if self._modal_has_content():
+                    return True
             time.sleep(REQUEST_MODAL_POLL_SEC)
-        return self.is_request_modal_open() and self._modal_ready_light()
+        return self._modal_has_content()
+
+    def _try_open_via_script(self, script: str, wait_timeout: float) -> bool:
+        try:
+            clicked = self.driver.execute_script(script)
+        except Exception as e:
+            logger.debug('try_open script failed: %s', e)
+            return False
+        if not clicked:
+            return False
+        time.sleep(self.delay * 0.35)
+        self.driver.execute_script(_CLICK_REQUEST_DETAIL_TAB_JS)
+        time.sleep(self.delay * 0.25)
+        return self.wait_for_request_modal_ready(timeout=wait_timeout)
+
+    def is_request_modal_open(self) -> bool:
+        try:
+            return bool(self.driver.execute_script(_IS_REQUEST_MODAL_OPEN_JS))
+        except Exception:
+            return False
 
     def get_header_customer_name(self) -> str | None:
         try:
@@ -443,34 +557,60 @@ class CustomerRequestManager:
             logger.debug('get_header_customer_name: %s', e)
         return None
 
-    def is_request_modal_open(self) -> bool:
-        try:
-            return bool(self.driver.execute_script(_IS_REQUEST_MODAL_OPEN_JS))
-        except Exception:
-            return False
-
     def open_request_modal(self) -> bool:
         dismiss_blocking_overlays(self.driver, self.delay * 0.25, max_rounds=2)
-        if self.is_request_modal_open() and self._modal_ready_light():
+        if self._modal_has_content():
             return True
-        try:
-            for attempt in range(2):
-                dismiss_blocking_overlays(self.driver, self.delay * 0.2, max_rounds=2)
-                clicked = self.driver.execute_script(_OPEN_REQUEST_MODAL_JS)
-                if clicked:
-                    time.sleep(self.delay * 0.28)
-                    if self.wait_for_request_modal_ready(timeout=REQUEST_MODAL_OPEN_WAIT_SEC):
-                        return True
-                if self.is_request_modal_open():
-                    time.sleep(self.delay * 0.25)
-                    if self.wait_for_request_modal_ready(timeout=REQUEST_MODAL_RETRY_WAIT_SEC):
-                        return True
+
+        strategies: tuple[tuple[str, str, float], ...] = (
+            ('inline_view', _OPEN_INLINE_REQUEST_VIEW_JS, REQUEST_MODAL_OPEN_WAIT_SEC),
+            ('header_name', _OPEN_REQUEST_MODAL_JS, REQUEST_MODAL_OPEN_WAIT_SEC),
+        )
+
+        for name, script, wait_timeout in strategies:
+            dismiss_blocking_overlays(self.driver, self.delay * 0.2, max_rounds=2)
+            if self._try_open_via_script(script, wait_timeout):
+                logger.info('open_request_modal ok via %s', name)
+                return True
+            if self.is_request_modal_open() and not self._modal_has_content():
+                self.close_request_modal()
                 time.sleep(self.delay * 0.2)
-                logger.debug('open_request_modal retry %s', attempt + 1)
-            return self.is_request_modal_open()
+
+        try:
+            dismiss_blocking_overlays(self.driver, self.delay * 0.2, max_rounds=2)
+            clicked = self.driver.execute_script(_OPEN_REQUEST_MODAL_JS)
+            if clicked:
+                time.sleep(self.delay * 0.35)
+                self.driver.execute_script(_CLICK_REQUEST_DETAIL_TAB_JS)
+                time.sleep(self.delay * 0.25)
+                if self.wait_for_request_modal_ready(timeout=REQUEST_MODAL_RETRY_WAIT_SEC):
+                    return True
         except Exception as e:
-            logger.error('open_request_modal: %s', e)
-            return False
+            logger.error('open_request_modal fallback: %s', e)
+
+        return self._modal_has_content()
+
+    def _merge_header_name(self, data: dict[str, Any], header_name: str | None) -> dict[str, Any]:
+        if not header_name:
+            return data
+        if not data.get('customerName'):
+            data['customerName'] = header_name
+        else:
+            data['customerName'] = str(data.get('customerName') or header_name).strip() or header_name
+        return data
+
+    def _read_request_payload(self, header_name: str | None) -> dict[str, Any]:
+        time.sleep(REQUEST_MODAL_EXTRACT_SETTLE_SEC)
+        data = self.extract_request_modal() or {}
+        data = self._merge_header_name(data, header_name)
+        if has_meaningful_request_fields(data):
+            return data
+        time.sleep(self.delay * 0.25)
+        retry = self.extract_request_modal() or {}
+        retry = self._merge_header_name(retry, header_name)
+        if has_meaningful_request_fields(retry):
+            return retry
+        return data
 
     def extract_request_modal(self) -> dict[str, Any] | None:
         try:
@@ -521,7 +661,7 @@ class CustomerRequestManager:
             return False
 
     def extract_customer_request(self) -> dict[str, Any]:
-        """순차: 채팅 기본화 → 좌상단 이름 클릭 → 대기 → 파싱 → X 닫기."""
+        """순차: 전체보기/이름 클릭 → 요청 상세 대기 → 파싱 → 닫기."""
         empty: dict[str, Any] = {}
         dismiss_blocking_overlays(self.driver, self.delay * 0.25, max_rounds=2)
 
@@ -539,39 +679,23 @@ class CustomerRequestManager:
         if header_name:
             empty['customerName'] = header_name
 
-        if self.is_request_modal_open() and self._modal_ready_light():
-            if self.wait_for_request_modal_ready(timeout=min(2.5, REQUEST_MODAL_READY_TIMEOUT)):
-                time.sleep(self.delay * 0.1)
-                data = self.extract_request_modal() or {}
-                if header_name and not data.get('customerName'):
-                    data['customerName'] = header_name
-                elif header_name:
-                    data['customerName'] = str(data.get('customerName') or header_name).strip() or header_name
-                self.close_request_modal()
-                time.sleep(self.delay * 0.15)
-                return data
-            self.close_request_modal()
-            time.sleep(self.delay * 0.15)
-        else:
-            self.close_request_modal()
-            time.sleep(self.delay * 0.18)
+        self.close_request_modal()
+        time.sleep(self.delay * 0.15)
 
         if not self.open_request_modal():
             logger.warning('open_request_modal failed; header=%s', header_name)
             return empty
 
         if not self.wait_for_request_modal_ready(timeout=REQUEST_MODAL_READY_TIMEOUT):
-            logger.warning('customer request modal content not ready')
+            logger.warning('customer request modal content not ready; header=%s', header_name)
 
-        time.sleep(self.delay * 0.08)
-        data = self.extract_request_modal() or {}
-        if header_name and not data.get('customerName'):
-            data['customerName'] = header_name
-        elif header_name:
-            data['customerName'] = str(data.get('customerName') or header_name).strip() or header_name
+        data = self._read_request_payload(header_name)
+        if not has_meaningful_request_fields(data):
+            logger.warning('customer request extract empty/garbage; header=%s', header_name)
+            data = self._merge_header_name({}, header_name)
 
         self.close_request_modal()
-        time.sleep(self.delay * 0.08)
+        time.sleep(self.delay * 0.12)
         if self.is_request_modal_open():
             self.close_request_modal()
         return data

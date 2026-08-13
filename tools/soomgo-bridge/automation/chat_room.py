@@ -20,6 +20,7 @@ from automation.soomgo_text_filters import (
     filter_soomgo_memo_lines,
     is_plausible_soomgo_region,
     is_soomgo_boilerplate_line,
+    is_soomgo_sidebar_nav_memo,
 )
 
 logger = logging.getLogger(__name__)
@@ -451,7 +452,9 @@ class ChatRoomManager:
             parsed['address'] = str(region)
         elif request_data.get('region') and is_plausible_soomgo_region(str(request_data.get('region'))):
             parsed['address'] = str(request_data['region'])
-        if request_data.get('requestMemo') and not is_soomgo_boilerplate_line(str(request_data.get('requestMemo'))):
+        if request_data.get('requestMemo') and not is_soomgo_boilerplate_line(
+            str(request_data.get('requestMemo'))
+        ) and not is_soomgo_sidebar_nav_memo(str(request_data.get('requestMemo'))):
             parsed['memo'] = str(request_data['requestMemo'])
 
         consult_texts = list(customer_messages)
