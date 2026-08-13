@@ -10,6 +10,8 @@ import time
 import uuid
 from typing import Any
 
+from automation.soomgo_display_name import SOOMGO_DISPLAY_NAME_JS
+
 logger = logging.getLogger(__name__)
 
 DEDUPE_TTL_MS = 60_000
@@ -19,7 +21,7 @@ MAX_PENDING = 50
 SCAN_INTERVAL_MS = 2000
 WATCH_SCAN_INTERVAL_MS = 1000
 
-_INSTALL_WATCHER_JS = """
+_INSTALL_WATCHER_JS = SOOMGO_DISPLAY_NAME_JS + """
 if (!window.__soomgoBridgeChatListWatch) {
   window.__soomgoBridgeChatListWatch = {
     installed: true,
@@ -67,22 +69,17 @@ if (!window.__soomgoBridgeChatListWatch) {
       return false;
     }
     function isNameText(t) {
-      var s = stripDecor(t);
-      if (!s || s.length > 16) return false;
-      if (isRegionLine(s) || isSmart(s)) return false;
-      if (/^[가-힣]{2,6}$/.test(s)) return true;
-      if (/^\\d{5,12}$/.test(s)) return true;
-      return false;
+      return isSoomgoDisplayName(t);
     }
     function splitHiredMeName(raw) {
       var t = stripDecor(raw);
       if (!t) return { name: null, hiredMe: false };
       if (!/^내\\s*고용/.test(t)) {
-        return { name: isNameText(t) ? t : (t.length <= 12 ? t : null), hiredMe: false };
+        return { name: isSoomgoDisplayName(t) ? normalizeSoomgoDisplayNameLine(t) : null, hiredMe: false };
       }
       var rest = stripDecor(t.replace(/^내\\s*고용/, ''));
       if (!rest) return { name: null, hiredMe: true };
-      var nm = /^[가-힣]{2,6}$/.test(rest) ? rest : (rest.length <= 8 ? rest : null);
+      var nm = isSoomgoDisplayName(rest) ? normalizeSoomgoDisplayNameLine(rest) : null;
       return { name: nm, hiredMe: true };
     }
     function readPreviewFromEl(el) {
@@ -232,10 +229,10 @@ if (!window.__soomgoBridgeChatListWatch) {
     }
     function splitHeader(line) {
       var t = stripDecor(line);
-      var m = t.match(/^([가-힣]{2,6})\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$/)
-        || t.match(/^([가-힣]{2,6})(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$/)
-        || t.match(/^([가-힣]{2,6})\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$/)
-        || t.match(/^([가-힣]{2,6})(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$/);
+      var m = t.match(new RegExp('^' + SOOMGO_NAME_CAPTURE + '\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$'))
+        || t.match(new RegExp('^' + SOOMGO_NAME_CAPTURE + '(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$'))
+        || t.match(new RegExp('^' + SOOMGO_NAME_CAPTURE + '\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$'))
+        || t.match(new RegExp('^' + SOOMGO_NAME_CAPTURE + '(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$'));
       if (m) {
         var peeled = splitRegionMsg(m[3]);
         return { name: m[1], region: fmtRegion(m[2], peeled.region), trailingMessage: peeled.message };
@@ -261,18 +258,14 @@ if (!window.__soomgoBridgeChatListWatch) {
       return /정상|누적\\s*시공|건\\s*이상|프로\\s*모드|상담\\s*(전|중|완료)|🟠|🟡|🔴/.test(t);
     }
     function isNameOnly(line) {
-      var t = stripDecor(line);
-      if (!t || t.length > 12) return false;
-      if (/^[가-힣]{2,6}$/.test(t)) return true;
-      if (/^\\d{5,12}$/.test(t)) return true;
-      return false;
+      return isSoomgoDisplayName(line);
     }
     function pickNameOnly(line) {
       var t = stripDecor(line);
       if (!t) return null;
       var h = splitHeader(t);
       if (h && h.name) return h.name;
-      if (isNameOnly(t) && !isRegionLine(t) && !isStatusLine(t)) return t;
+      if (isNameOnly(t) && !isRegionLine(t) && !isStatusLine(t)) return normalizeSoomgoDisplayNameLine(t);
       return null;
     }
     function buildLines(linesIn, block) {

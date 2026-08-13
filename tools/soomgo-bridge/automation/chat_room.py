@@ -14,7 +14,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from automation.selectors import URLS
 from automation.customer_request import CustomerRequestManager, REQUEST_MODAL_DELAY, parse_soomgo_count
 from automation.call_modal import CallModalManager
-from automation.overlay_modals import dismiss_blocking_overlays
+from automation.soomgo_display_name import SOOMGO_DISPLAY_NAME_JS
 
 logger = logging.getLogger(__name__)
 
@@ -381,13 +381,13 @@ class ChatRoomManager:
             name = req.get_header_customer_name()
             if name:
                 return name
-            name = self.driver.execute_script("""
+            name = self.driver.execute_script(SOOMGO_DISPLAY_NAME_JS + """
                 var selectors = ['h1','h2','h3','header h2','header h3','[class*="nickname"]','[class*="user-name"]'];
                 for (var i = 0; i < selectors.length; i++) {
                     var el = document.querySelector(selectors[i]);
                     if (!el) continue;
-                    var t = (el.textContent || '').trim().split('\\n')[0];
-                    if (t && t.length < 40 && !t.includes('채팅') && t !== '접속 중') return t;
+                    var t = (el.textContent || '').trim();
+                    if (isSoomgoDisplayName(t)) return normalizeSoomgoDisplayNameLine(t);
                 }
                 return null;
             """)
@@ -428,6 +428,7 @@ class ChatRoomManager:
         customer_name = (
             request_data.get('customerName')
             or req_mgr.get_header_customer_name()
+            or self.get_nickname()
         )
         region = request_data.get('region')
 

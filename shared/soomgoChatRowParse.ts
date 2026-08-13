@@ -9,6 +9,12 @@ import {
   normalizeSoomgoMessageForRules,
   sanitizeSoomgoMessagePreview,
 } from './soomgoChatPreview';
+import {
+  isSoomgoDisplayName,
+  normalizeSoomgoDisplayNameLine,
+  SOOMGO_DISPLAY_NAME_MAX_LEN,
+  SOOMGO_NAME_CAPTURE,
+} from './soomgoDisplayName';
 
 export type SoomgoChatRowParseInput = {
   rawLines?: string[] | null;
@@ -39,15 +45,19 @@ const TIME_ONLY =
 const SMART_QUOTE = /스마트\s*견적|총\s*[\d,]+\s*원\s*부터|부터\s*•\s*스마트|총\s*[\d,]+\s*원/;
 const SYSTEM_LINE = /🏆|숨고\s*고용|숨고패스|자동\s*응답|숨고\s*알림/;
 /** 이름 + 서비스 + •/· + 지역 (공백 유무) */
-const MERGED_HEADER =
-  /^([가-힣]{2,6})\s*(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*[•·]\s*(.+)$/;
-const MERGED_HEADER_TIGHT =
-  /^([가-힣]{2,6})(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*[•·]\s*(.+)$/;
+const MERGED_HEADER = new RegExp(
+  `^${SOOMGO_NAME_CAPTURE}\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$`,
+);
+const MERGED_HEADER_TIGHT = new RegExp(
+  `^${SOOMGO_NAME_CAPTURE}(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)\\s*[•·]\\s*(.+)$`,
+);
 /** • 없이 한 줄로 붙은 경우 — 김현아 + 이사/입주 청소업체 + 인천 서구 당하동 + 메시지 */
-const MERGED_NO_BULLET =
-  /^([가-힣]{2,6})\s*(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)(.+)$/;
-const MERGED_NO_BULLET_TIGHT =
-  /^([가-힣]{2,6})(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)(.+)$/;
+const MERGED_NO_BULLET = new RegExp(
+  `^${SOOMGO_NAME_CAPTURE}\\s*(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$`,
+);
+const MERGED_NO_BULLET_TIGHT = new RegExp(
+  `^${SOOMGO_NAME_CAPTURE}(이사\\/입주(?:\\s*청소업체)?|입주\\/이사(?:\\s*청소업체)?)(.+)$`,
+);
 const SERVICE_ONLY = /^(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)\s*[•·]\s*(.+)$/;
 const SERVICE_ONLY_NO_BULLET = /^(이사\/입주(?:\s*청소업체)?|입주\/이사(?:\s*청소업체)?)(.+)$/;
 const REGION_TAIL = /청소업체|[•·]|[시군구읍면]/;
@@ -160,10 +170,8 @@ function isStatusLine(line: string): boolean {
 
 function isNameOnly(line: string): boolean {
   const t = stripDecor(line);
-  if (!t || t.length > 12) return false;
-  if (/^[가-힣]{2,6}$/.test(t)) return true;
-  if (/^\d{5,12}$/.test(t)) return true;
-  return false;
+  if (!t || t.length > SOOMGO_DISPLAY_NAME_MAX_LEN) return false;
+  return isSoomgoDisplayName(t);
 }
 
 function pickNameOnly(line: string): string | null {
@@ -192,7 +200,7 @@ export function splitSoomgoHiredMeName(raw: string | null | undefined): {
   if (!rest) return { customerName: null, hiredMe: true };
   const name =
     pickNameOnly(rest) ??
-    (isNameOnly(rest) ? rest : /^[가-힣]{2,6}$/.test(rest) ? rest : null);
+    (isSoomgoDisplayName(rest) ? normalizeSoomgoDisplayNameLine(rest) : null);
   return { customerName: name, hiredMe: true };
 }
 

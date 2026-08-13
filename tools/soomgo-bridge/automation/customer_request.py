@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 from automation.overlay_modals import dismiss_blocking_overlays
+from automation.soomgo_display_name import SOOMGO_DISPLAY_NAME_JS
 
 logger = logging.getLogger(__name__)
 
@@ -36,20 +37,13 @@ def parse_soomgo_count(raw: Any) -> int | None:
     n = int(m.group(1))
     return n if 0 <= n <= 99 else None
 
-_GET_HEADER_NAME_JS = """
+_GET_HEADER_NAME_JS = SOOMGO_DISPLAY_NAME_JS + """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
   var r = el.getBoundingClientRect();
   if (r.width < 2 || r.height < 2) return false;
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden';
-}
-function isName(t) {
-  if (!t) return false;
-  t = t.split('\\n')[0].trim();
-  if (t === '접속 중' || t.indexOf('채팅') >= 0 || t === '고객 요청' || t === '요청 상세') return false;
-  if (t.length < 2 || t.length > 12) return false;
-  return /^[가-힣]{2,12}$/.test(t) || /^[가-힣]{2,8}[0-9]?$/.test(t);
 }
 var header = document.querySelector('header, [class*="chat-header"], [class*="ChatHeader"], [class*="room-header"]');
 if (!header) {
@@ -61,15 +55,15 @@ for (var i = 0; i < nodes.length; i++) {
   var el = nodes[i];
   if (!visible(el)) continue;
   var t = (el.textContent || '').trim();
-  if (!isName(t)) continue;
+  if (!isSoomgoDisplayName(t)) continue;
   var r = el.getBoundingClientRect();
   if (r.top > 220) continue;
-  return t.split('\\n')[0].trim();
+  return normalizeSoomgoDisplayNameLine(t);
 }
 return null;
 """
 
-_OPEN_REQUEST_MODAL_JS = """
+_OPEN_REQUEST_MODAL_JS = SOOMGO_DISPLAY_NAME_JS + """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
   var r = el.getBoundingClientRect();
@@ -77,19 +71,11 @@ function visible(el) {
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
 }
-function isName(t) {
-  if (!t) return false;
-  t = t.split('\\n')[0].trim();
-  if (t === '접속 중' || t.indexOf('채팅') >= 0 || t === '고객 요청' || t === '요청 상세') return false;
-  if (t.indexOf('시간') >= 0 && t.indexOf('전') >= 0) return false;
-  if (t.length < 2 || t.length > 12) return false;
-  return /^[가-힣]{2,12}$/.test(t) || /^[가-힣]{2,8}[0-9]?$/.test(t);
-}
 function scoreNameClick(el) {
   if (!visible(el)) return -1;
   var t = (el.textContent || '').trim();
   var first = t.split('\\n')[0].trim();
-  if (!isName(first)) return -1;
+  if (!isSoomgoDisplayName(first)) return -1;
   var r = el.getBoundingClientRect();
   var score = 0;
   if (r.top < 130) score += 60;
@@ -119,7 +105,7 @@ if (best && bestScore >= 50) {
 return false;
 """
 
-_EXTRACT_REQUEST_MODAL_JS = """
+_EXTRACT_REQUEST_MODAL_JS = SOOMGO_DISPLAY_NAME_JS + """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
   var r = el.getBoundingClientRect();
@@ -183,7 +169,7 @@ var skipWords = ['고객 요청', '요청 상세', '인터넷', '선택', '입�
 for (var k = 0; k < Math.min(lines.length, 24); k++) {
   var cand = lines[k];
   if (skipWords.some(function(w){ return cand.indexOf(w) >= 0; })) continue;
-  if (!customerName && /^[가-힣]{2,12}$/.test(cand)) customerName = cand;
+  if (!customerName && isSoomgoDisplayName(cand)) customerName = normalizeSoomgoDisplayNameLine(cand);
   if (!region && /[가-힣]+(?:시|군|구)(?:\\s+[가-힣]+(?:구|동|읍|면|리))?/.test(cand) && cand.length <= 40) region = cand;
 }
 var preferredDate = null;
