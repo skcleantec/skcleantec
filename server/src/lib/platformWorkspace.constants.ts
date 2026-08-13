@@ -14,6 +14,5 @@ export function formatTenantPaymentConfirmationRequestSubject(tenantName: string
 }
 
 export function resolvePlatformBillingNotifyEmail(stored: string | null | undefined): string {
-  const trimmed = stored?.trim();
-  return trimmed || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL;
+  return stored?.trim() ?? '';
 }

@@ -1,11 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
-  PLATFORM_BILLING_NOTIFY_GROUP_LABEL,
-  PLATFORM_SYSTEM_MAIL_FROM,
-  PLATFORM_WORKSPACE_DOMAIN,
-} from '@shared/platformWorkspace';
+import { PLATFORM_SYSTEM_MAIL_FROM } from '@shared/platformWorkspace';
 import { BTN_PRIMARY, BTN_SECONDARY, CARD_SECTION, INPUT_BASE } from '../../utils/platformUi';
 import { platformSettingsTabPath } from '../../pages/platform/settings/platformSettingsTabs';
 
@@ -20,6 +15,8 @@ type Props = {
   compactIntro?: boolean;
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function PlatformBillingNotifySettingsSection({
   email,
   onEmailChange,
@@ -30,59 +27,53 @@ export function PlatformBillingNotifySettingsSection({
   compactIntro = false,
 }: Props) {
   const [testTo, setTestTo] = useState('');
-  const usingDefault =
-    !email.trim() || email.trim().toLowerCase() === PLATFORM_BILLING_NOTIFY_GROUP_EMAIL.toLowerCase();
+  const trimmed = email.trim();
+  const emailValid = trimmed.length > 0 && EMAIL_PATTERN.test(trimmed);
 
   return (
     <section className={CARD_SECTION}>
       <h2 className="text-sm font-semibold text-gray-900">입금 확인 요청 알림</h2>
-      <p className="mt-1 text-xs text-gray-500">
-        업체(ADMIN)는 <strong>팝업만</strong> 보고 「입금 확인 요청」을 누릅니다. 이때{' '}
-        <strong>업체에게 메일은 가지 않고</strong>, 아래 운영팀 그룹 메일로만 시스템 알림이 발송됩니다.
-        발송(SMTP)은{' '}
+      <p className="mt-1 text-xs text-gray-500 leading-relaxed">
+        업체(ADMIN)가 미결재 팝업에서 「입금 확인 요청」을 누르면,{' '}
+        <strong>업체에게는 메일이 가지 않고</strong> 아래에 저장한 운영팀 메일로만 알림이
+        발송됩니다. 발송(SMTP)은{' '}
         <Link to={platformSettingsTabPath('smtp')} className="text-blue-600 hover:underline">
           설정 → SMTP
         </Link>
-        의 「플랫폼 알림 (cbiseo)」 프로필에서 설정합니다.
+        의 「플랫폼 알림 (cbiseo)」 프로필을 사용합니다.
+        {!compactIntro ? (
+          <>
+            {' '}
+            발신 From: <span className="font-mono text-gray-700">{PLATFORM_SYSTEM_MAIL_FROM}</span>
+            · 제목 예: [업체명] 입금확인요청
+          </>
+        ) : null}
       </p>
 
-      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 space-y-1">
-        <p>
-          <span className="font-medium text-slate-900">Google Workspace 그룹</span>
-          {!compactIntro ? (
-            <span className="text-slate-500"> · 도메인 {PLATFORM_WORKSPACE_DOMAIN}</span>
-          ) : null}
-        </p>
-        <p>
-          <span className="text-slate-500">표시 이름</span>{' '}
-          <span className="font-medium">{PLATFORM_BILLING_NOTIFY_GROUP_LABEL}</span>
-        </p>
-        <p>
-          <span className="text-slate-500">수신 (그룹)</span>{' '}
-          <span className="font-mono text-slate-900">{PLATFORM_BILLING_NOTIFY_GROUP_EMAIL}</span>
-        </p>
-        <p>
-          <span className="text-slate-500">발신 (시스템)</span>{' '}
-          <span className="font-mono text-slate-900">{PLATFORM_SYSTEM_MAIL_FROM}</span>
-          <span className="text-slate-500"> · 제목 예: [업체명] 입금확인요청</span>
-        </p>
-      </div>
-
-      <label className="mt-3 block text-sm">
-        <span className="text-gray-600">알림 받을 이메일</span>
+      <label className="mt-4 block text-sm">
+        <span className="text-gray-600">
+          알림 받을 이메일 <span className="text-red-600">*</span>
+        </span>
         <input
           type="email"
+          required
           className={`mt-1 ${INPUT_BASE}`}
           value={email}
           onChange={(e) => onEmailChange(e.target.value)}
-          placeholder={PLATFORM_BILLING_NOTIFY_GROUP_EMAIL}
+          placeholder="운영팀 수신 메일 (예: billing@service-bridges.com 또는 개인 Gmail)"
           autoComplete="email"
         />
-        {usingDefault ? (
-          <p className="mt-1 text-xs text-emerald-800">
-            기본 그룹 메일({PLATFORM_BILLING_NOTIFY_GROUP_EMAIL})로 연동됩니다.
+        {!trimmed ? (
+          <p className="mt-1 text-xs text-amber-800">
+            저장된 수신 이메일이 없으면 업체의 「입금 확인 요청」 버튼이 비활성화됩니다.
           </p>
-        ) : null}
+        ) : !emailValid ? (
+          <p className="mt-1 text-xs text-red-700">이메일 형식을 확인해 주세요.</p>
+        ) : (
+          <p className="mt-1 text-xs text-emerald-800">
+            저장 후 업체 입금 확인 요청 알림이 이 주소로 발송됩니다.
+          </p>
+        )}
       </label>
 
       {onTestEmail ? (
@@ -93,14 +84,12 @@ export function PlatformBillingNotifySettingsSection({
             className={`mt-1 ${INPUT_BASE}`}
             value={testTo}
             onChange={(e) => setTestTo(e.target.value)}
-            placeholder="비우면 위 알림 주소로 발송 (예: billing@service-bridges.com)"
+            placeholder="비우면 위 알림 이메일로 발송"
             autoComplete="email"
           />
-          <p className="mt-1 text-xs text-amber-900 leading-snug">
-            billing@ 로 안 오고 개인 Gmail만 온다면, 원인은 그룹 설정이 아니라{' '}
-            <strong>개인 Gmail SMTP + cbiseo@ From</strong> 조합입니다. Workspace 그룹은 SPF/DMARC
-            때문에 차단할 수 있어, 서버가 billing@ 발송 시 From을 SMTP 로그인 주소로 자동 맞춥니다.
-            연습 수신 칸으로 개인 메일 SMTP만 먼저 확인할 수 있습니다.
+          <p className="mt-1 text-xs text-gray-500">
+            실제 입금 확인 알림과 같은 형식으로 연습 메일을 보냅니다. 다른 주소로 SMTP만 확인하려면
+            여기에 입력하세요.
           </p>
         </label>
       ) : null}
@@ -109,7 +98,7 @@ export function PlatformBillingNotifySettingsSection({
         {onTestEmail ? (
           <button
             type="button"
-            disabled={saving || testingEmail}
+            disabled={saving || testingEmail || !emailValid}
             onClick={() => void onTestEmail(testTo.trim() || undefined)}
             className={BTN_SECONDARY}
           >
@@ -118,27 +107,13 @@ export function PlatformBillingNotifySettingsSection({
         ) : null}
         <button
           type="button"
-          disabled={saving || testingEmail}
-          onClick={() => onEmailChange(PLATFORM_BILLING_NOTIFY_GROUP_EMAIL)}
-          className={BTN_SECONDARY}
-        >
-          그룹 메일로 채우기
-        </button>
-        <button
-          type="button"
-          disabled={saving || testingEmail}
+          disabled={saving || testingEmail || !emailValid}
           onClick={() => void onSave()}
           className={BTN_PRIMARY}
         >
           {saving ? '저장 중…' : '알림 이메일 저장'}
         </button>
       </div>
-      {onTestEmail ? (
-        <p className="mt-2 text-right text-xs text-gray-500">
-          위 입력란 주소로 실제 입금 확인 알림과 같은 형식의 연습 메일을 보냅니다. SMTP는 설정 → SMTP를
-          사용합니다.
-        </p>
-      ) : null}
     </section>
   );
 }

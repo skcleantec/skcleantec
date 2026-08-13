@@ -71,11 +71,7 @@ import {
   type PlatformSmtpSettingsPublic,
 } from '../../lib/platformSmtp.service.js';
 import type { SmtpConfigPatch } from '../../lib/smtpConfigStored.js';
-import {
-  PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
-  PLATFORM_SYSTEM_MAIL_FROM,
-  resolvePlatformBillingNotifyEmail,
-} from '../../lib/platformWorkspace.constants.js';
+import { PLATFORM_SYSTEM_MAIL_FROM } from '../../lib/platformWorkspace.constants.js';
 
 export type BillingSettingsDto = {
   bankName: string | null;
@@ -397,7 +393,6 @@ export async function ensurePlatformBillingSettings() {
     where: { id: 'default' },
     create: {
       id: 'default',
-      dunningPaymentNotifyEmail: PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
       smtpFrom: PLATFORM_SYSTEM_MAIL_FROM,
     },
     update: {},
@@ -417,7 +412,7 @@ export async function getPlatformBillingSettings(): Promise<BillingSettingsDto> 
     dunningPopupBody: row.dunningPopupBody,
     dunningBlockSoonText: row.dunningBlockSoonText,
     dunningBlockTodayText: row.dunningBlockTodayText,
-    dunningPaymentNotifyEmail: resolvePlatformBillingNotifyEmail(row.dunningPaymentNotifyEmail),
+    dunningPaymentNotifyEmail: row.dunningPaymentNotifyEmail?.trim() || null,
     smtp: buildPlatformSmtpPublic(row),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -440,6 +435,12 @@ export async function updatePlatformBillingSettings(input: {
   const row = await ensurePlatformBillingSettings();
   const trimOrNull = (v: string | null | undefined) =>
     v === undefined ? undefined : v?.trim() || null;
+  if (input.dunningPaymentNotifyEmail !== undefined) {
+    const email = trimOrNull(input.dunningPaymentNotifyEmail);
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error('입금 확인 알림 받을 이메일 형식을 확인해 주세요.');
+    }
+  }
   const data: Prisma.PlatformBillingSettingsUpdateInput = {
     ...(input.bankName !== undefined ? { bankName: trimOrNull(input.bankName) ?? null } : {}),
     ...(input.accountNumber !== undefined ? { accountNumber: trimOrNull(input.accountNumber) ?? null } : {}),

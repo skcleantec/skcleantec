@@ -21,9 +21,6 @@ import {
   INPUT_BASE,
   PlatformAlert,
 } from '../../utils/platformUi';
-import {
-  PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
-} from '@shared/platformWorkspace';
 import { PlatformBillingNotifySettingsSection } from '../../components/platform/PlatformBillingNotifySettingsSection';
 import { platformSettingsTabPath } from './settings/platformSettingsTabs';
 import { KoreanBankNameField } from '../../components/ui/KoreanBankNameField';
@@ -53,8 +50,7 @@ function formFromSettings(s: PlatformBillingSettings): FormState {
     accountNumber: s.accountNumber?.trim() ?? '',
     accountHolder: s.accountHolder?.trim() ?? '',
     paymentGuideText: s.paymentGuideText?.trim() ?? '',
-    dunningPaymentNotifyEmail:
-      s.dunningPaymentNotifyEmail?.trim() || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
+    dunningPaymentNotifyEmail: s.dunningPaymentNotifyEmail?.trim() ?? '',
     dunningPopupTitle: s.dunningPopupTitle?.trim() || popup.title,
     dunningPopupSubtitle: s.dunningPopupSubtitle?.trim() || popup.subtitle,
     dunningPopupBody: s.dunningPopupBody?.trim() || popup.body,
@@ -237,9 +233,9 @@ export function PlatformUnpaidPopupSettingsPage() {
 
   const saveNotifySection = async () => {
     if (!form) return;
-    const notifyEmail = form.dunningPaymentNotifyEmail.trim() || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
-      setError('입금 확인 알림 이메일 형식을 확인해 주세요.');
+    const notifyEmail = form.dunningPaymentNotifyEmail.trim();
+    if (!notifyEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
+      setError('알림 받을 이메일을 입력해 주세요.');
       return;
     }
     await patchSettings(
@@ -252,9 +248,9 @@ export function PlatformUnpaidPopupSettingsPage() {
     if (!form) return;
     const token = getPlatformToken();
     if (!token) return;
-    const notifyEmail = form.dunningPaymentNotifyEmail.trim() || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
-      setError('입금 확인 알림 이메일 형식을 확인해 주세요.');
+    const notifyEmail = form.dunningPaymentNotifyEmail.trim();
+    if (!notifyEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
+      setError('알림 받을 이메일을 먼저 입력·저장해 주세요.');
       return;
     }
     if (testTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testTo)) {
@@ -301,9 +297,9 @@ export function PlatformUnpaidPopupSettingsPage() {
       setError('접속 제한 유예일은 0~30 사이로 입력해 주세요.');
       return;
     }
-    const notifyEmail = form.dunningPaymentNotifyEmail.trim() || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
-      setError('입금 확인 알림 이메일 형식을 확인해 주세요.');
+    const notifyEmail = form.dunningPaymentNotifyEmail.trim();
+    if (!notifyEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
+      setError('알림 받을 이메일을 입력해 주세요.');
       return;
     }
     await patchSettings(

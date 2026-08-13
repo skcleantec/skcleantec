@@ -4,7 +4,9 @@ import { getPlatformBillingSettings, patchPlatformBillingSettings, sendPlatformP
 import { PlatformBillingNotifySettingsSection } from '../../../components/platform/PlatformBillingNotifySettingsSection';
 import { getPlatformToken } from '../../../stores/platformAuth';
 import { CARD_SECTION, PlatformAlert } from '../../../utils/platformUi';
-import { PLATFORM_BILLING_NOTIFY_GROUP_EMAIL, PLATFORM_SYSTEM_MAIL_FROM } from '@shared/platformWorkspace';
+import { PLATFORM_SYSTEM_MAIL_FROM } from '@shared/platformWorkspace';
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function PlatformSettingsBillingNotifyTab() {
   const [notifyEmail, setNotifyEmail] = useState('');
@@ -25,7 +27,7 @@ export function PlatformSettingsBillingNotifyTab() {
     setError('');
     try {
       const s = await getPlatformBillingSettings(token);
-      setNotifyEmail(s.dunningPaymentNotifyEmail?.trim() || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL);
+      setNotifyEmail(s.dunningPaymentNotifyEmail?.trim() ?? '');
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
     } finally {
@@ -41,8 +43,8 @@ export function PlatformSettingsBillingNotifyTab() {
     const token = getPlatformToken();
     if (!token) return;
     const trimmed = notifyEmail.trim();
-    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setError('입금 확인 알림 이메일 형식을 확인해 주세요.');
+    if (!trimmed || !EMAIL_PATTERN.test(trimmed)) {
+      setError('알림 받을 이메일을 입력해 주세요.');
       return;
     }
     setSaving(true);
@@ -50,10 +52,10 @@ export function PlatformSettingsBillingNotifyTab() {
     setMessage('');
     try {
       await patchPlatformBillingSettings(token, {
-        dunningPaymentNotifyEmail: trimmed || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
+        dunningPaymentNotifyEmail: trimmed,
       });
       await load();
-      setMessage('입금 확인 알림 이메일이 저장되었습니다.');
+      setMessage('입금 확인 알림 수신 이메일이 저장되었습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장 실패');
     } finally {
@@ -65,11 +67,11 @@ export function PlatformSettingsBillingNotifyTab() {
     const token = getPlatformToken();
     if (!token) return;
     const trimmed = notifyEmail.trim();
-    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setError('입금 확인 알림 이메일 형식을 확인해 주세요.');
+    if (!trimmed || !EMAIL_PATTERN.test(trimmed)) {
+      setError('알림 받을 이메일을 먼저 입력·저장해 주세요.');
       return;
     }
-    if (testTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testTo)) {
+    if (testTo && !EMAIL_PATTERN.test(testTo)) {
       setError('연습 수신 이메일 형식을 확인해 주세요.');
       return;
     }
@@ -77,11 +79,7 @@ export function PlatformSettingsBillingNotifyTab() {
     setError('');
     setMessage('');
     try {
-      const result = await sendPlatformPaymentNotifyTest(
-        token,
-        trimmed || PLATFORM_BILLING_NOTIFY_GROUP_EMAIL,
-        testTo,
-      );
+      const result = await sendPlatformPaymentNotifyTest(token, trimmed, testTo);
       setMessage(result.message);
     } catch (e) {
       setError(e instanceof Error ? e.message : '테스트 발송 실패');
@@ -93,6 +91,8 @@ export function PlatformSettingsBillingNotifyTab() {
   if (loading) {
     return <div className="p-8 text-center text-sm text-gray-500">불러오는 중…</div>;
   }
+
+  const savedEmail = notifyEmail.trim();
 
   return (
     <div className="space-y-4">
@@ -112,14 +112,23 @@ export function PlatformSettingsBillingNotifyTab() {
         <h2 className="text-sm font-semibold text-gray-900">연동 확인</h2>
         <ul className="list-disc pl-5 space-y-1 text-xs sm:text-sm">
           <li>
-            업체 ADMIN: 미결재 팝업만 표시 · 「입금확인 요청 (운영팀 알림)」 — <strong>업체 이메일 발송 없음</strong>
+            업체 ADMIN: 미결재 팝업 · 「입금확인 요청 (운영팀 알림)」 — <strong>업체 이메일 발송 없음</strong>
           </li>
           <li>
-            발신: <strong>{PLATFORM_SYSTEM_MAIL_FROM}</strong> (설정 → SMTP · 「플랫폼 알림 (cbiseo)」) · 수신:{' '}
-            <strong>{PLATFORM_BILLING_NOTIFY_GROUP_EMAIL}</strong>
+            발신: <strong>{PLATFORM_SYSTEM_MAIL_FROM}</strong> (설정 → SMTP · 「플랫폼 알림 (cbiseo)」)
           </li>
-          <li>메일 제목: [업체명] 입금확인요청 (업체에게는 메일 발송 없음)</li>
-          <li>SMTP 발송 계정은 설정 → SMTP, 수신 그룹은 이 탭에서 관리</li>
+          <li>
+            수신: 위에 <strong>저장한 알림 이메일</strong>
+            {savedEmail ? (
+              <>
+                {' '}
+                (<span className="font-mono text-gray-800">{savedEmail}</span>)
+              </>
+            ) : (
+              ' (미설정 — 저장 전까지 업체 요청 버튼 비활성)'
+            )}
+          </li>
+          <li>메일 제목: [업체명] 입금확인요청</li>
           <li>
             팝업 문구·입금 계좌는{' '}
             <Link to="/platform/popups/unpaid" className="text-blue-600 hover:underline">

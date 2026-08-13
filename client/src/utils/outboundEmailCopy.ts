@@ -33,7 +33,7 @@ export const OUTBOUND_EMAIL_COPY = {
   platformProfilesIntro:
     'Gmail 「다른 주소로 보내기」와 같이 프로필마다 로그인 계정·발신 주소를 따로 둡니다. 고객 자동발송(noreply)과 플랫폼 알림(cbiseo)은 아래 기본 행에서 각각 설정하세요.',
   platformProfilesVsBillingNote:
-    '입금 확인 알림 수신 주소(billing@)는 설정 → 이용료 알림 탭에서 지정합니다. 발송(SMTP)은 「플랫폼 알림 (cbiseo)」 행에서 설정합니다.',
+    '입금 확인 알림 수신 이메일은 설정 → 이용료 알림 탭에서 저장합니다. 발송(SMTP)은 「플랫폼 알림 (cbiseo)」 행에서 설정합니다.',
   stepName: '받는 사람에게 보이는 이름',
   stepPassword: '메일 연동 비밀번호',
   stepTest: '연습 보내기',

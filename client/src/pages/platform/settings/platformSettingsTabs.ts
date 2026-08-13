@@ -17,7 +17,7 @@ export const PLATFORM_SETTINGS_TABS: PlatformSettingsTab[] = [
   {
     id: 'billing-notify',
     label: '이용료 알림',
-    description: '업체 입금 확인 요청 → billing@service-bridges.com 그룹 메일',
+    description: '업체 입금 확인 요청 알림 — 수신 이메일 저장',
     ready: true,
   },
   {

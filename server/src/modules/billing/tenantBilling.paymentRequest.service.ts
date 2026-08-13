@@ -40,10 +40,7 @@ export async function requestTenantPaymentConfirmation(input: {
   const settings = await ensurePlatformBillingSettings();
   const notifyEmail = resolvePlatformBillingNotifyEmail(settings.dunningPaymentNotifyEmail);
   if (!notifyEmail) {
-    throw new PaymentConfirmationRequestError(
-      '입금 확인 알림 이메일이 설정되지 않았습니다. 플랫폼 관리자에게 문의해 주세요.',
-      503,
-    );
+    throw new PaymentConfirmationRequestError('알림 받을 이메일이 설정되지 않았습니다. 플랫폼 설정 → 이용료 알림에서 저장해 주세요.', 503);
   }
   if (!isValidEmail(notifyEmail)) {
     throw new PaymentConfirmationRequestError('입금 확인 알림 이메일 형식이 올바르지 않습니다.', 503);
@@ -135,7 +132,7 @@ const PAYMENT_NOTIFY_TEST_TENANT_NAME = '연습·테스트';
 function smtpNotConfiguredMessage(reason: string | undefined, detail?: string): string {
   if (detail?.trim()) return detail.trim();
   if (reason === 'SMTP_NOT_CONFIGURED') {
-    return 'SMTP가 설정되지 않았습니다. 플랫폼 설정 → SMTP에서 알림 메일 보내기를 저장한 뒤 다시 시도해 주세요.';
+    return 'SMTP가 설정되지 않았습니다. 플랫폼 설정 → SMTP의 「플랫폼 알림 (cbiseo)」 프로필을 저장한 뒤 다시 시도해 주세요.';
   }
   if (reason === 'SMTP_SEND_FAILED') {
     return 'SMTP 발송에 실패했습니다.';
@@ -158,18 +155,21 @@ export async function sendPaymentConfirmationNotifyTestEmail(input?: {
   messageId?: string;
 }> {
   const settings = await ensurePlatformBillingSettings();
-  const notifyEmail = resolvePlatformBillingNotifyEmail(
-    input?.notifyEmail?.trim() || settings.dunningPaymentNotifyEmail,
-  );
+  const notifyEmail = (
+    input?.notifyEmail?.trim() || settings.dunningPaymentNotifyEmail?.trim() || ''
+  ).trim();
   const to = (input?.testTo?.trim() || notifyEmail).trim();
-  if (!to) {
-    throw new PaymentConfirmationRequestError('알림 받을 이메일을 입력해 주세요.', 400);
-  }
-  if (!isValidEmail(to)) {
-    throw new PaymentConfirmationRequestError('수신 이메일 형식을 확인해 주세요.', 400);
+  if (!notifyEmail) {
+    throw new PaymentConfirmationRequestError(
+      '알림 받을 이메일을 먼저 저장해 주세요. (플랫폼 설정 → 이용료 알림)',
+      400,
+    );
   }
   if (!isValidEmail(notifyEmail)) {
     throw new PaymentConfirmationRequestError('알림 받을 이메일 형식을 확인해 주세요.', 400);
+  }
+  if (!to || !isValidEmail(to)) {
+    throw new PaymentConfirmationRequestError('수신 이메일 형식을 확인해 주세요.', 400);
   }
 
   const dueDate = new Date();
