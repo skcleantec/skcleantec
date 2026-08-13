@@ -40,15 +40,35 @@ jobs:
           "version=$v" >> $env:GITHUB_OUTPUT
           Write-Host "Packaging version: $v"
 
+      - name: Resolve source paths
+        id: paths
+        shell: pwsh
+        run: |
+          $root = Get-Location
+          $sourceDir = Get-ChildItem -Path $root -Directory -Recurse -Depth 2 -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path (Join-Path $_.FullName 'scripts/build-release.ps1') } |
+            Select-Object -First 1
+          if (-not $sourceDir) {
+            throw 'Soomgo automation source_project folder not found (scripts/build-release.ps1)'
+          }
+          $projectRoot = Split-Path $sourceDir.FullName -Parent
+          $distRoot = Join-Path $projectRoot 'dist-release'
+          "source_dir=$($sourceDir.FullName)" >> $env:GITHUB_OUTPUT
+          "project_root=$($projectRoot.FullName)" >> $env:GITHUB_OUTPUT
+          "dist_root=$distRoot" >> $env:GITHUB_OUTPUT
+          Write-Host "Source: $($sourceDir.FullName)"
+          Write-Host "Dist: $distRoot"
+
       - name: Install dependencies
         shell: pwsh
         run: |
-          pip install -r "숨고 크롤링 프로그램/source_project/requirements.txt"
+          pip install -r "${{ steps.paths.outputs.source_dir }}/requirements.txt"
           pip install pyinstaller
 
       - name: Build release ZIP
         shell: pwsh
-        run: ./숨고 크롤링 프로그램/source_project/scripts/build-release.ps1 -Version ${{ steps.ver.outputs.version }}
+        run: |
+          & "${{ steps.paths.outputs.source_dir }}/scripts/build-release.ps1" -Version ${{ steps.ver.outputs.version }}
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
@@ -63,8 +83,8 @@ jobs:
 
             Railway: `railway-env-*.txt` → Variables (SOOMGO_AUTOMATION_*)
           files: |
-            숨고 크롤링 프로그램/dist-release/SoomgoAutomation-${{ steps.ver.outputs.version }}.zip
-            숨고 크롤링 프로그램/dist-release/railway-env-${{ steps.ver.outputs.version }}.txt
+            ${{ steps.paths.outputs.dist_root }}/SoomgoAutomation-${{ steps.ver.outputs.version }}.zip
+            ${{ steps.paths.outputs.dist_root }}/railway-env-${{ steps.ver.outputs.version }}.txt
           draft: false
           prerelease: false
         env:
