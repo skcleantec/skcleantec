@@ -14,7 +14,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from automation.selectors import URLS
 from automation.customer_request import CustomerRequestManager, REQUEST_MODAL_DELAY, parse_soomgo_count
 from automation.call_modal import CallModalManager
-from automation.soomgo_display_name import SOOMGO_DISPLAY_NAME_JS
+from automation.selectors import SOOMGO_DISPLAY_NAME_JS
 
 logger = logging.getLogger(__name__)
 

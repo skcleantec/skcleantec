@@ -10,7 +10,7 @@ import time
 import uuid
 from typing import Any
 
-from automation.soomgo_display_name import SOOMGO_DISPLAY_NAME_JS
+from automation.selectors import SOOMGO_DISPLAY_NAME_JS
 
 logger = logging.getLogger(__name__)
 

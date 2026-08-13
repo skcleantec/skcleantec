@@ -73,6 +73,15 @@ def main() -> None:
             installer_pid = 0
 
     _wait_for_installer(installer_pid)
+    try:
+        from desktop.bridge_pack_integrity import ensure_bridge_pack_integrity
+        from desktop.manifest_client import fetch_manifest_for_update
+
+        manifest = fetch_manifest_for_update()
+        if manifest:
+            ensure_bridge_pack_integrity(manifest)
+    except Exception:
+        pass
     wait_until_single_instance_free(timeout_sec=MUTEX_WAIT_SEC)
     time.sleep(1.5)
     _launch_tray(bridge_dir)

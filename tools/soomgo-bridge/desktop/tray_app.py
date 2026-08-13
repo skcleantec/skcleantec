@@ -576,8 +576,10 @@ class TrayApp:
         self._start_bridge()
         self._manifest = fetch_manifest()
         if self._manifest:
+            from desktop.bridge_pack_integrity import ensure_bridge_pack_integrity
             from desktop.update_manager import clear_stale_update_phase_if_current
 
+            ensure_bridge_pack_integrity(self._manifest)
             clear_stale_update_phase_if_current(self._manifest)
         if self._manifest and is_update_required(self._manifest):
             threading.Thread(target=lambda: self._check_update_prompt(force=True), daemon=True).start()

@@ -47,10 +47,11 @@ Write-Host "Verify bridge pack imports..."
 $packCheck = @"
 import pathlib, sys
 root = pathlib.Path(r'$BridgeRoot')
-for rel in ('automation/window_layout.py', 'automation/navigation.py', 'server.py'):
+for rel in ('automation/window_layout.py', 'automation/navigation.py', 'automation/selectors.py', 'automation/soomgo_display_name.py', 'server.py'):
     if not (root / rel).is_file():
         raise SystemExit('missing pack file: ' + rel)
 sys.path.insert(0, str(root))
+from automation.selectors import SOOMGO_DISPLAY_NAME_JS
 from automation.window_layout import apply_mobile_viewport
 from automation.navigation import ensure_chat_workspace, is_logged_in
 print('pack import ok')

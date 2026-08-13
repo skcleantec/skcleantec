@@ -228,6 +228,9 @@ def perform_tray_handoff_update(
         )
         on_before_install()
         if apply_zip_update(dest):
+            from desktop.bridge_pack_integrity import ensure_bridge_pack_integrity
+
+            ensure_bridge_pack_integrity(manifest)
             from desktop.config import clear_pending_update_manifest
 
             clear_pending_update_manifest()
@@ -298,6 +301,9 @@ def install_cached_artifact(manifest: dict[str, Any]) -> tuple[bool, str]:
 
     if lower.endswith('.zip'):
         if apply_zip_update(dest):
+            from desktop.bridge_pack_integrity import ensure_bridge_pack_integrity
+
+            ensure_bridge_pack_integrity(manifest)
             write_update_state(phase='idle', message='ZIP 업데이트 적용 완료', latest_version=latest or None)
             return True, f'ZIP 업데이트를 적용했습니다. (현재 {APP_VERSION} → 재시작 필요)'
         write_update_state(phase='ready', message='ZIP 업데이트 적용 실패', latest_version=latest or None, artifact=str(dest))
