@@ -113,6 +113,35 @@ for (var i = 0; i < nodes.length; i++) {
 return null;
 """
 
+_OPEN_PROFILE_REQUEST_MODAL_JS = SOOMGO_DISPLAY_NAME_JS + """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
+}
+var best = null;
+var bestScore = -1;
+var buttons = document.querySelectorAll('button[aria-label*="프로필 보기"], button[aria-label*="프로필"]');
+for (var i = 0; i < buttons.length; i++) {
+  var btn = buttons[i];
+  if (!visible(btn)) continue;
+  var aria = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.textContent || '')).replace(/\\s+/g, ' ').trim();
+  if (aria.indexOf('프로필') < 0) continue;
+  var r = btn.getBoundingClientRect();
+  var score = 100;
+  if (r.top < 180) score += 40;
+  if (r.left < 420) score += 30;
+  if (score > bestScore) { bestScore = score; best = btn; }
+}
+if (best && bestScore >= 100) {
+  best.click();
+  return true;
+}
+return false;
+"""
+
 _OPEN_CUSTOMER_REQUEST_VIEW_JS = """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
@@ -260,27 +289,29 @@ function isPlausibleRegion(line) {
   return /[가-힣]+(?:시|군|구)/.test(line);
 }
 function findModalBody() {
-  var selectors = [
-    '.modal.show .modal-body',
-    '.modal-body.content-modal-body',
-    '[id*="BV_modal_body"]',
-    '[role="dialog"] .modal-body'
-  ];
-  for (var s = 0; s < selectors.length; s++) {
-    var bodies = document.querySelectorAll(selectors[s]);
-    for (var i = 0; i < bodies.length; i++) {
-      var body = bodies[i];
-      if (!visible(body)) continue;
-      if (body.querySelector('[data-type="request"], .request-view')) return body;
+  var candidates = document.querySelectorAll(
+    '.modal.show .modal-body, [id*="BV_modal_body"], .modal-body'
+  );
+  for (var i = 0; i < candidates.length; i++) {
+    var body = candidates[i];
+    if (!visible(body)) continue;
+    if (body.querySelector('li[data-name="request-item"], [data-type="request"] li[data-name="request-item"]')) {
+      return body;
+    }
+    if (body.querySelector('.content-modal-body [data-type="request"], .request-view [data-type="request"]')) {
+      return body;
     }
   }
   return null;
 }
 var body = findModalBody();
 if (!body) return null;
-var requestSection = body.querySelector('[data-type="request"], .request-view');
-if (!requestSection || !visible(requestSection)) return null;
-var requestBlock = requestSection;
+var requestRoot = body.querySelector('[data-type="request"]');
+if (!requestRoot || !visible(requestRoot)) {
+  requestRoot = body.querySelector('.request-view [data-type="request"]');
+}
+if (!requestRoot || !visible(requestRoot)) return null;
+var requestSection = requestRoot;
 function isDateQuestion(text) {
   if (!text) return false;
   return /날짜|희망|원하는|언제|일정|청소.*날|입주.*날|이사.*날/.test(text);
@@ -320,45 +351,38 @@ var userBlock = body.querySelector('[data-type="user"]');
 var customerName = null;
 var region = null;
 if (userBlock) {
-  var userLines = (userBlock.innerText || '').split('\\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
-  for (var u = 0; u < userLines.length; u++) {
-    var ul = userLines[u];
-    if (!customerName && isSoomgoDisplayName(ul)) customerName = normalizeSoomgoDisplayNameLine(ul);
-    if (!region && isPlausibleRegion(ul)) region = ul;
+  var nameEl = userBlock.querySelector('[data-type="user-info"] h4, h4.headline2, h4');
+  if (nameEl) {
+    var nm = normalizeSoomgoDisplayNameLine(nameEl.textContent || '');
+    if (isSoomgoDisplayName(nm)) customerName = nm;
   }
-  if (!region) {
-    for (var u2 = 0; u2 < userLines.length; u2++) {
-      var cand = userLines[u2];
-      if (isPlausibleRegion(cand)) { region = cand; break; }
+  var regionEls = userBlock.querySelectorAll('h6, [data-type="user-info"] h6');
+  for (var re = 0; re < regionEls.length; re++) {
+    var rl = (regionEls[re].textContent || '').replace(/\\s+/g, ' ').trim();
+    if (!rl || rl.indexOf('청소업체') >= 0 || rl.indexOf('이사') >= 0 && rl.indexOf('입주') >= 0) continue;
+    if (!region && isPlausibleRegion(rl)) region = rl;
+  }
+  if (!customerName || !region) {
+    var userLines = (userBlock.innerText || '').split('\\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+    for (var u = 0; u < userLines.length; u++) {
+      var ul = userLines[u];
+      if (!customerName && isSoomgoDisplayName(ul)) customerName = normalizeSoomgoDisplayNameLine(ul);
+      if (!region && isPlausibleRegion(ul)) region = ul;
     }
   }
 }
 
 var pairs = [];
-var rows = requestSection.querySelectorAll(
-  '.row.no-gutters, .row, dl, li, [class*="detail-row"], [class*="request-item"], [class*="RequestItem"]'
-);
-for (var r = 0; r < rows.length; r++) {
-  var row = rows[r];
-  if (!visible(row)) continue;
-  if (row.closest('[data-type="user"]')) continue;
-  var rp = readRowPair(row);
-  if (rp) {
-    pushPair(rp.q, rp.a);
-    continue;
-  }
-  var cells = row.querySelectorAll('dt, dd, th, td');
-  if (cells.length >= 2) {
-    pushPair(cells[0].textContent, cells[cells.length - 1].textContent);
-    continue;
-  }
-  var rowText = (row.textContent || '').replace(/\\s+/g, ' ').trim();
-  if (rowText.indexOf(':') >= 0) {
-    var parts = rowText.split(':');
-    pushPair(parts.shift(), parts.join(':'));
+var requestItems = requestRoot.querySelectorAll('li[data-name="request-item"]');
+for (var ri = 0; ri < requestItems.length; ri++) {
+  var item = requestItems[ri];
+  if (!visible(item)) continue;
+  var qEl = item.querySelector('[data-name="question"], p[data-name="question"]');
+  var aEl = item.querySelector('[data-name="answer"], p[data-name="answer"]');
+  if (qEl && aEl) {
+    pushPair(qEl.textContent, aEl.textContent);
   }
 }
-
 if (pairs.length === 0) {
   var lines = (requestSection.innerText || '').split('\\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
   var pendingQ = null;
@@ -376,7 +400,7 @@ if (pairs.length === 0) {
   }
 }
 
-var requestText = (requestSection.innerText || requestSection.textContent || '').trim();
+var requestText = (requestRoot.innerText || requestRoot.textContent || '').trim();
 var text = (body.innerText || body.textContent || '').trim();
 var preferredDate = null;
 for (var pi = 0; pi < pairs.length; pi++) {
@@ -545,7 +569,11 @@ function visible(el) {
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden';
 }
-var bvReq = document.querySelector('.modal.show [data-type="request"], .modal-body.content-modal-body [data-type="request"], [id*="BV_modal_body"] [data-type="request"]');
+var bvReq = document.querySelector(
+  '.modal.show li[data-name="request-item"], ' +
+  '[id*="BV_modal_body"] li[data-name="request-item"], ' +
+  '.content-modal-body [data-type="request"] li[data-name="request-item"]'
+);
 if (bvReq && visible(bvReq)) return true;
 function hasRequestContentSignals(text) {
   if (!text) return false;
@@ -576,7 +604,11 @@ function visible(el) {
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden';
 }
-var bvReq = document.querySelector('.modal.show [data-type="request"], .modal-body.content-modal-body [data-type="request"], [id*="BV_modal_body"] [data-type="request"]');
+var bvReq = document.querySelector(
+  '.modal.show li[data-name="request-item"], ' +
+  '[id*="BV_modal_body"] li[data-name="request-item"], ' +
+  '.content-modal-body [data-type="request"] li[data-name="request-item"]'
+);
 if (bvReq && visible(bvReq)) return true;
 function hasRequestContentSignals(text) {
   if (!text) return false;
@@ -892,6 +924,7 @@ class CustomerRequestManager:
             return True
 
         strategies: tuple[tuple[str, str, float], ...] = (
+            ('profile_button', _OPEN_PROFILE_REQUEST_MODAL_JS, REQUEST_MODAL_OPEN_WAIT_SEC),
             ('customer_request_view', _OPEN_CUSTOMER_REQUEST_VIEW_JS, REQUEST_MODAL_OPEN_WAIT_SEC),
             ('inline_view', _OPEN_INLINE_REQUEST_VIEW_JS, REQUEST_MODAL_OPEN_WAIT_SEC),
             ('header_name', _OPEN_REQUEST_MODAL_JS, REQUEST_MODAL_OPEN_WAIT_SEC),
