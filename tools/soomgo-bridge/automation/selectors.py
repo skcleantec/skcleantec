@@ -38,7 +38,7 @@ function isSoomgoDisplayName(t) {
 function isName(t) {
   return isSoomgoDisplayName(t);
 }
-var SOOMGO_NAME_CAPTURE = '([\\uAC00-\\uD7A3A-Za-z\\u4E00-\\u9FFF][\\uAC00-\\uD7A3A-Za-z0-9\\u4E00-\\u9FFF\\s\\-'.·]{1,11})';
+var SOOMGO_NAME_CAPTURE = "([\\uAC00-\\uD7A3A-Za-z\\u4E00-\\u9FFF][\\uAC00-\\uD7A3A-Za-z0-9\\u4E00-\\u9FFF\\s\\-'.·]{1,11})";
 """
 
 

@@ -886,11 +886,11 @@ class CustomerRequestManager:
         try:
             return bool(
                 self.driver.execute_script(
-                    'return document.querySelectorAll('
-                    '".modal.show li[data-name=\\"request-item\\"], '
-                    '[id*=\\"BV_modal_body\\"] li[data-name=\\"request-item\\"], '
-                    '.mobile-full-modal li[data-name=\\"request-item\\"]"'
-                    ').length > 0;'
+                    "return document.querySelectorAll("
+                    "\".modal.show li[data-name='request-item'], "
+                    "[id*='BV_modal_body'] li[data-name='request-item'], "
+                    ".mobile-full-modal li[data-name='request-item']\""
+                    ").length > 0;"
                 )
             )
         except Exception:
@@ -941,11 +941,11 @@ class CustomerRequestManager:
         try:
             bv_open = bool(
                 self.driver.execute_script(
-                    'return document.querySelectorAll('
-                    '".modal.show li[data-name=\\"request-item\\"], '
-                    '[id*=\\"BV_modal_body\\"] li[data-name=\\"request-item\\"], '
-                    '.mobile-full-modal li[data-name=\\"request-item\\"]"'
-                    ').length > 0;'
+                    "return document.querySelectorAll("
+                    "\".modal.show li[data-name='request-item'], "
+                    "[id*='BV_modal_body'] li[data-name='request-item'], "
+                    ".mobile-full-modal li[data-name='request-item']\""
+                    ").length > 0;"
                 )
             )
         except Exception:
