@@ -76,6 +76,9 @@ export default defineConfig(({ command, mode }) => {
     },
     server: {
       host: true, // 모바일에서 같은 Wi-Fi로 접속 가능
+      headers: {
+        'Permissions-Policy': 'local-network-access=(self)',
+      },
       proxy: {
         '/api': {
           target: proxyTarget,

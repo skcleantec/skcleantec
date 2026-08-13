@@ -108,6 +108,10 @@ app.set('trust proxy', 1);
 // 조합에 따라 리다이렉트 루프나 Location 오류(https:///path)로 빈 화면이 날 수 있어 두지 않습니다.
 
 app.use(cors({ origin: true, credentials: true }));
+app.use((_req, res, next) => {
+  res.setHeader('Permissions-Policy', 'local-network-access=(self)');
+  next();
+});
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);

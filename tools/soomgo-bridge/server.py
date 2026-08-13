@@ -292,14 +292,23 @@ def _is_client_disconnect(exc: BaseException) -> bool:
     return False
 
 
+def _send_cors_headers(handler: BaseHTTPRequestHandler) -> None:
+    handler.send_header('Access-Control-Allow-Origin', '*')
+    handler.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    handler.send_header(
+        'Access-Control-Allow-Headers',
+        'Content-Type, Authorization, Access-Control-Request-Private-Network',
+    )
+    handler.send_header('Access-Control-Allow-Private-Network', 'true')
+    handler.send_header('Access-Control-Max-Age', '86400')
+
+
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]):
     body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
     try:
         handler.send_response(status)
         handler.send_header('Content-Type', 'application/json; charset=utf-8')
-        handler.send_header('Access-Control-Allow-Origin', '*')
-        handler.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        handler.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        _send_cors_headers(handler)
         handler.send_header('Content-Length', str(len(body)))
         handler.end_headers()
         handler.wfile.write(body)
@@ -437,9 +446,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):  # noqa: N802
         self.send_response(204)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        _send_cors_headers(self)
         self.end_headers()
 
     def do_GET(self):  # noqa: N802
