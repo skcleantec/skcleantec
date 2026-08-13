@@ -30,6 +30,9 @@ _SOOMGO_UI_CHROME_LINES: frozenset[str] = frozenset(
         '일정 등록',
         '전체보기',
         '고수 프로필 보기',
+        '프로필',
+        '채팅 메시지 검색하기',
+        '보낸견적 확인하러 가기',
     }
 )
 
@@ -41,6 +44,14 @@ _SOOMGO_SIDEBAR_NAV_MARKERS: tuple[str, ...] = (
     '고객님이 견적을 읽었습니다',
     '고객님이 견적을 확인',
     '견적을 읽었습니다',
+    '채팅 메시지 검색하기',
+    '숨고 알리미',
+    '직접 거래는 사기',
+    '피싱 위험',
+)
+
+_CHAT_MESSAGE_LINE_RE = re.compile(
+    r'^\d{1,2}:\d{2}$|^\d{1,2}:\d{2}\s*$|채팅\d+\+|^\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}',
 )
 
 _REQUEST_SIGNAL_RE = re.compile(
@@ -67,9 +78,40 @@ def is_soomgo_boilerplate_line(text: str | None) -> bool:
         return True
     if re.fullmatch(r'\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s*(?:월|화|수|목|금|토|일)?요일?', t):
         return True
+    if _CHAT_MESSAGE_LINE_RE.search(t):
+        return True
+    if re.search(r'\d{1,2}:\d{2}\s*$', t) and len(t) < 48:
+        return True
     if len(t) > 100 and ('통신판매' in t or '사기입니다' in t):
         return True
     return False
+
+
+def is_soomgo_chat_scrape_memo(text: str | None) -> bool:
+    """채팅 li 스크랩(가격 협상·전화번호·알리미) 여부."""
+    t = (text or '').strip()
+    if not t:
+        return False
+    lines = [line.strip() for line in t.splitlines() if line.strip()]
+    if len(lines) < 2:
+        return False
+    chat_hits = 0
+    for line in lines:
+        if is_soomgo_boilerplate_line(line):
+            chat_hits += 1
+            continue
+        if _CHAT_MESSAGE_LINE_RE.search(line):
+            chat_hits += 1
+            continue
+        if re.search(r'\d{1,2}:\d{2}', line) and len(line) < 64:
+            chat_hits += 1
+            continue
+        if re.search(r'010[-\s]?\d{4}', line):
+            chat_hits += 1
+            continue
+        if any(marker in line for marker in ('백만원', '현금가', '전화한번', '숨고 알리미', '피싱')):
+            chat_hits += 1
+    return chat_hits >= 2
 
 
 def is_soomgo_sidebar_nav_memo(text: str | None) -> bool:

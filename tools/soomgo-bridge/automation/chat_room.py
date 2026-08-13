@@ -18,8 +18,10 @@ from automation.overlay_modals import dismiss_blocking_overlays
 from automation.selectors import SOOMGO_DISPLAY_NAME_JS
 from automation.soomgo_text_filters import (
     filter_soomgo_memo_lines,
+    has_meaningful_request_fields,
     is_plausible_soomgo_region,
     is_soomgo_boilerplate_line,
+    is_soomgo_chat_scrape_memo,
     is_soomgo_sidebar_nav_memo,
 )
 
@@ -235,7 +237,7 @@ def parse_fields_from_texts(texts: list[str]) -> dict[str, Any]:
             break
 
     memo_lines = filter_soomgo_memo_lines([t.strip() for t in texts if t.strip() and len(t.strip()) > 2])
-    memo = '\n'.join(memo_lines[-8:])[:2000] if memo_lines else None
+    memo = None
 
     return {
         'phone': phone,
@@ -446,16 +448,29 @@ class ChatRoomManager:
 
         customer_messages = self.get_customer_messages()
         parsed = parse_fields_from_texts(customer_messages)
+        parsed['memo'] = None
+
+        request_ok = has_meaningful_request_fields(request_data)
         if request_data.get('pyeong'):
             parsed['pyeong'] = str(request_data['pyeong'])
+        elif not request_ok:
+            pass
         if region and is_plausible_soomgo_region(str(region)):
             parsed['address'] = str(region)
         elif request_data.get('region') and is_plausible_soomgo_region(str(request_data.get('region'))):
             parsed['address'] = str(request_data['region'])
-        if request_data.get('requestMemo') and not is_soomgo_boilerplate_line(
-            str(request_data.get('requestMemo'))
-        ) and not is_soomgo_sidebar_nav_memo(str(request_data.get('requestMemo'))):
-            parsed['memo'] = str(request_data['requestMemo'])
+        elif not request_ok:
+            parsed['address'] = None
+
+        request_memo = str(request_data.get('requestMemo') or '').strip()
+        if (
+            request_ok
+            and request_memo
+            and not is_soomgo_boilerplate_line(request_memo)
+            and not is_soomgo_sidebar_nav_memo(request_memo)
+            and not is_soomgo_chat_scrape_memo(request_memo)
+        ):
+            parsed['memo'] = request_memo
 
         consult_texts = list(customer_messages)
         if request_data.get('requestMemo'):

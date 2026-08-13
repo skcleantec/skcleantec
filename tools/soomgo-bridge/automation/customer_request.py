@@ -71,6 +71,31 @@ for (var i = 0; i < nodes.length; i++) {
 return null;
 """
 
+_OPEN_CUSTOMER_REQUEST_VIEW_JS = """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
+}
+var nodes = document.querySelectorAll('button, a, [role="button"], span, div');
+for (var i = 0; i < nodes.length; i++) {
+  var el = nodes[i];
+  if (!visible(el)) continue;
+  var label = ((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || '')).replace(/\\s+/g, ' ').trim();
+  if (label === '고객 요청 보기') {
+    (el.closest('button, a, [role="button"]') || el).click();
+    return true;
+  }
+  if (label.indexOf('고객 요청') >= 0 && label.indexOf('보기') >= 0 && label.length < 24) {
+    (el.closest('button, a, [role="button"]') || el).click();
+    return true;
+  }
+}
+return false;
+"""
+
 _OPEN_INLINE_REQUEST_VIEW_JS = """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
@@ -180,6 +205,113 @@ for (var v = 0; v < viewNodes.length; v++) {
 return false;
 """
 
+return false;
+"""
+
+_EXTRACT_BV_REQUEST_MODAL_JS = SOOMGO_DISPLAY_NAME_JS + """
+function visible(el) {
+  if (!el || !el.getBoundingClientRect) return false;
+  var r = el.getBoundingClientRect();
+  if (r.width < 40 || r.height < 40) return false;
+  var st = window.getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
+}
+function isPlausibleRegion(line) {
+  if (!line || line.length < 4 || line.length > 40) return false;
+  return /[가-힣]+(?:시|군|구)/.test(line);
+}
+function findModalBody() {
+  var selectors = [
+    '.modal.show .modal-body',
+    '.modal-body.content-modal-body',
+    '[id*="BV_modal_body"]',
+    '[role="dialog"] .modal-body'
+  ];
+  for (var s = 0; s < selectors.length; s++) {
+    var bodies = document.querySelectorAll(selectors[s]);
+    for (var i = 0; i < bodies.length; i++) {
+      var body = bodies[i];
+      if (!visible(body)) continue;
+      if (body.querySelector('[data-type="request"], .request-view')) return body;
+    }
+  }
+  return null;
+}
+var body = findModalBody();
+if (!body) return null;
+var requestBlock = body.querySelector('[data-type="request"]') || body.querySelector('.request-view');
+if (!requestBlock || !visible(requestBlock)) return null;
+
+var userBlock = body.querySelector('[data-type="user"]');
+var customerName = null;
+var region = null;
+if (userBlock) {
+  var userLines = (userBlock.innerText || '').split('\\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+  for (var u = 0; u < userLines.length; u++) {
+    var ul = userLines[u];
+    if (!customerName && isSoomgoDisplayName(ul)) customerName = normalizeSoomgoDisplayNameLine(ul);
+    if (!region && isPlausibleRegion(ul)) region = ul;
+  }
+}
+
+var pairs = [];
+var rows = requestBlock.querySelectorAll('.row.no-gutters, .row, dl, [class*="detail-row"], li');
+for (var r = 0; r < rows.length; r++) {
+  var row = rows[r];
+  if (!visible(row)) continue;
+  var cells = row.querySelectorAll(':scope > div, :scope > span, :scope > p, dt, dd, th, td');
+  if (cells.length >= 2) {
+    var q = (cells[0].textContent || '').replace(/\\s+/g, ' ').trim();
+    var a = (cells[1].textContent || '').replace(/\\s+/g, ' ').trim();
+    if (q && a && q !== a) pairs.push({ question: q, answer: a });
+    continue;
+  }
+  var rowText = (row.textContent || '').replace(/\\s+/g, ' ').trim();
+  if (rowText.indexOf(':') >= 0) {
+    var parts = rowText.split(':');
+    var rq = parts.shift().trim();
+    var ra = parts.join(':').trim();
+    if (rq && ra) pairs.push({ question: rq, answer: ra });
+  }
+}
+
+if (pairs.length === 0) {
+  var lines = (requestBlock.innerText || '').split('\\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+  var pendingQ = null;
+  for (var j = 0; j < lines.length; j++) {
+    var line = lines[j];
+    if (line === '요청 상세' || line === '고객 요청') continue;
+    if (/[?？]$/.test(line) || line.indexOf('몇') >= 0 || line.indexOf('원하') >= 0 || line.indexOf('어떤') >= 0) {
+      pendingQ = line;
+    } else if (pendingQ) {
+      pairs.push({ question: pendingQ, answer: line });
+      pendingQ = null;
+    } else if (/입주|이사|아파트|빌라|\\d+\\s*평|\\d+개/.test(line)) {
+      pairs.push({ question: '', answer: line });
+    }
+  }
+}
+
+var text = (body.innerText || '').trim();
+var preferredDate = null;
+var dateM = text.match(/\\d{4}-\\d{2}-\\d{2}/);
+if (dateM) preferredDate = dateM[0];
+var pyeong = null;
+var pyeongM = text.match(/(\\d{1,4})\\s*평/);
+if (pyeongM) pyeong = pyeongM[1];
+
+if (pairs.length === 0 && !pyeong && !region) return null;
+return {
+  customerName: customerName,
+  region: region,
+  preferredDate: preferredDate,
+  pyeong: pyeong,
+  pairs: pairs,
+  rawText: text,
+  source: 'bv-modal'
+};
+"""
+
 _EXTRACT_REQUEST_MODAL_JS = SOOMGO_DISPLAY_NAME_JS + """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
@@ -233,14 +365,21 @@ function isQuestion(line) {
     || line.indexOf('있어요') >= 0 && line.indexOf('날짜') >= 0;
 }
 function findRequestModal() {
+  var bvBody = document.querySelector('.modal.show .modal-body [data-type="request"], .modal-body.content-modal-body [data-type="request"]');
+  if (bvBody && visible(bvBody.closest('.modal-body') || bvBody)) {
+    return bvBody.closest('.modal-body, .content-modal-body, .request-view, [role="dialog"]') || bvBody;
+  }
   var best = null;
   var bestScore = -1;
-  var selectors = '[role="dialog"], [class*="modal"], [class*="Modal"], [class*="drawer"], [class*="Drawer"], [class*="sheet"], [class*="Sheet"], [class*="panel"], [class*="Panel"], aside, section';
+  var selectors = '[role="dialog"], .modal.show, [class*="modal"], [class*="Modal"], [class*="drawer"], [class*="Drawer"], [class*="sheet"], [class*="Sheet"], [class*="panel"], [class*="Panel"], aside, section';
   var roots = document.querySelectorAll(selectors);
   for (var i = 0; i < roots.length; i++) {
     var el = roots[i];
     if (!visible(el)) continue;
     var t = (el.innerText || el.textContent || '');
+    if (el.querySelector('[data-type="request"]') && visible(el.querySelector('[data-type="request"]'))) {
+      return el.querySelector('.modal-body, .content-modal-body, .request-view, [role="dialog"]') || el;
+    }
     if (t.indexOf('고객 요청') < 0 || t.indexOf('요청 상세') < 0) continue;
     if (isSidebarDrawer(t)) continue;
     if (!hasRequestContentSignals(t)) continue;
@@ -303,10 +442,12 @@ _IS_REQUEST_MODAL_OPEN_JS = """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
   var r = el.getBoundingClientRect();
-  if (r.width < 80 || r.height < 80) return false;
+  if (r.width < 40 || r.height < 40) return false;
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden';
 }
+var bvReq = document.querySelector('.modal.show [data-type="request"], .modal-body.content-modal-body [data-type="request"], [id*="BV_modal_body"] [data-type="request"]');
+if (bvReq && visible(bvReq)) return true;
 function hasRequestContentSignals(text) {
   if (!text) return false;
   if (text.indexOf('?') >= 0 || text.indexOf('？') >= 0) return true;
@@ -332,10 +473,12 @@ _MODAL_READY_LIGHT_JS = """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
   var r = el.getBoundingClientRect();
-  if (r.width < 80 || r.height < 80) return false;
+  if (r.width < 40 || r.height < 40) return false;
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden';
 }
+var bvReq = document.querySelector('.modal.show [data-type="request"], .modal-body.content-modal-body [data-type="request"], [id*="BV_modal_body"] [data-type="request"]');
+if (bvReq && visible(bvReq)) return true;
 function hasRequestContentSignals(text) {
   if (!text) return false;
   if (text.indexOf('?') >= 0 || text.indexOf('？') >= 0) return true;
@@ -429,21 +572,21 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
             memo_lines.append(f'{q}\n{a}')
         else:
             memo_lines.append(a)
-        if '서비스' in q and '원하' in q:
+        if '서비스' in q and ('원하' in q or '종류' in q):
             result['serviceType'] = a
-        elif '건물' in q:
+        elif '건물' in q or '주거' in q:
             result['buildingType'] = a
-        elif '방 개수' in q:
+        elif '방 개수' in q or (q.endswith('방') and '화' not in q):
             result['roomCount'] = a
         elif '화장실' in q:
             result['bathroomCount'] = a
-        elif '베란다 개수' in q:
+        elif '베란다' in q:
             result['verandaCount'] = a
-        elif '공간' in q and '항목' in q:
+        elif '공간' in q and ('항목' in q or '카테고리' in q):
             result['spaceItems'] = a
         elif '추가' in q and '서비스' in q:
             result['extraServices'] = a
-        elif '평수' in q or '공급면적' in q:
+        elif '평수' in q or '공급면적' in q or '평형' in q:
             pm = _PYEONG_ANSWER_RE.search(a)
             result['pyeong'] = pm.group(1) if pm else a.replace('평', '').strip()
         elif '희망일' in q or '날짜' in q or '원하는 날짜' in q:
@@ -538,8 +681,18 @@ class CustomerRequestManager:
         if not clicked:
             return False
         time.sleep(self.delay * 0.35)
-        self.driver.execute_script(_CLICK_REQUEST_DETAIL_TAB_JS)
-        time.sleep(self.delay * 0.25)
+        try:
+            bv_open = bool(
+                self.driver.execute_script(
+                    'return !!document.querySelector(\'.modal.show [data-type="request"], '
+                    '.modal-body.content-modal-body [data-type="request"]\');'
+                )
+            )
+        except Exception:
+            bv_open = False
+        if not bv_open:
+            self.driver.execute_script(_CLICK_REQUEST_DETAIL_TAB_JS)
+            time.sleep(self.delay * 0.25)
         return self.wait_for_request_modal_ready(timeout=wait_timeout)
 
     def is_request_modal_open(self) -> bool:
@@ -563,6 +716,7 @@ class CustomerRequestManager:
             return True
 
         strategies: tuple[tuple[str, str, float], ...] = (
+            ('customer_request_view', _OPEN_CUSTOMER_REQUEST_VIEW_JS, REQUEST_MODAL_OPEN_WAIT_SEC),
             ('inline_view', _OPEN_INLINE_REQUEST_VIEW_JS, REQUEST_MODAL_OPEN_WAIT_SEC),
             ('header_name', _OPEN_REQUEST_MODAL_JS, REQUEST_MODAL_OPEN_WAIT_SEC),
         )
@@ -614,7 +768,9 @@ class CustomerRequestManager:
 
     def extract_request_modal(self) -> dict[str, Any] | None:
         try:
-            raw = self.driver.execute_script(_EXTRACT_REQUEST_MODAL_JS)
+            raw = self.driver.execute_script(_EXTRACT_BV_REQUEST_MODAL_JS)
+            if not raw or not isinstance(raw, dict):
+                raw = self.driver.execute_script(_EXTRACT_REQUEST_MODAL_JS)
             if not raw or not isinstance(raw, dict):
                 return None
             pairs = raw.get('pairs') if isinstance(raw.get('pairs'), list) else []
