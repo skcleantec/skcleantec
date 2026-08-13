@@ -95,6 +95,16 @@ function visible(el) {
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden';
 }
+var profileButtons = document.querySelectorAll('button[aria-label*="프로필 보기"], button[aria-label*="프로필"]');
+for (var pb = 0; pb < profileButtons.length; pb++) {
+  var pbtn = profileButtons[pb];
+  if (!visible(pbtn)) continue;
+  var aria = (pbtn.getAttribute('aria-label') || '').trim();
+  var ariaName = aria.replace(/\\s*프로필.*$/, '').trim();
+  if (ariaName && isSoomgoDisplayName(ariaName)) return normalizeSoomgoDisplayNameLine(ariaName);
+  var btnText = normalizeSoomgoDisplayNameLine(pbtn.textContent || '');
+  if (isSoomgoDisplayName(btnText)) return btnText;
+}
 var header = document.querySelector('header, [class*="chat-header"], [class*="ChatHeader"], [class*="room-header"]');
 if (!header) {
   var leftPane = document.querySelector('[class*="chat-room"], main');
@@ -280,38 +290,56 @@ _EXTRACT_BV_REQUEST_MODAL_JS = SOOMGO_DISPLAY_NAME_JS + """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
   var r = el.getBoundingClientRect();
-  if (r.width < 40 || r.height < 40) return false;
+  if (r.width < 2 || r.height < 2) return false;
   var st = window.getComputedStyle(el);
-  return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
+  return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.01;
 }
 function isPlausibleRegion(line) {
   if (!line || line.length < 4 || line.length > 40) return false;
   return /[가-힣]+(?:시|군|구)/.test(line);
 }
+function findRequestItems() {
+  var selectors = [
+    '.modal.show li[data-name="request-item"]',
+    '[id*="BV_modal_body"] li[data-name="request-item"]',
+    '[id*="BV_modal_outer"] li[data-name="request-item"]',
+    '.mobile-full-modal li[data-name="request-item"]',
+    '.request-view li[data-name="request-item"]'
+  ];
+  for (var si = 0; si < selectors.length; si++) {
+    var nodes = document.querySelectorAll(selectors[si]);
+    if (nodes.length > 0) return nodes;
+  }
+  return document.querySelectorAll('li[data-name="request-item"]');
+}
 function findModalBody() {
+  var items = findRequestItems();
+  if (items.length > 0) {
+    var host = items[0].closest('.modal-body, [id*="BV_modal_body"], .modal-content, .request-view, .content-modal-body');
+    if (host) return host;
+  }
   var candidates = document.querySelectorAll(
     '.modal.show .modal-body, [id*="BV_modal_body"], .modal-body'
   );
   for (var i = 0; i < candidates.length; i++) {
     var body = candidates[i];
     if (!visible(body)) continue;
-    if (body.querySelector('li[data-name="request-item"], [data-type="request"] li[data-name="request-item"]')) {
-      return body;
-    }
-    if (body.querySelector('.content-modal-body [data-type="request"], .request-view [data-type="request"]')) {
-      return body;
-    }
+    if (body.querySelector('li[data-name="request-item"], [data-type="request"]')) return body;
   }
   return null;
 }
+var requestItems = findRequestItems();
 var body = findModalBody();
-if (!body) return null;
-var requestRoot = body.querySelector('[data-type="request"]');
-if (!requestRoot || !visible(requestRoot)) {
-  requestRoot = body.querySelector('.request-view [data-type="request"]');
+if (!body && requestItems.length > 0) {
+  body = requestItems[0].closest('.modal-body, [id*="BV_modal_body"], .modal-content, .request-view, .content-modal-body')
+    || requestItems[0].parentElement;
 }
-if (!requestRoot || !visible(requestRoot)) return null;
-var requestSection = requestRoot;
+if (!body && requestItems.length === 0) return null;
+var requestRoot = body ? body.querySelector('[data-type="request"]') : null;
+if (!requestRoot && requestItems.length > 0) {
+  requestRoot = requestItems[0].closest('[data-type="request"]') || requestItems[0].parentElement;
+}
+var requestSection = requestRoot || body;
 function isDateQuestion(text) {
   if (!text) return false;
   return /날짜|희망|원하는|언제|일정|청소.*날|입주.*날|이사.*날/.test(text);
@@ -373,10 +401,8 @@ if (userBlock) {
 }
 
 var pairs = [];
-var requestItems = requestRoot.querySelectorAll('li[data-name="request-item"]');
 for (var ri = 0; ri < requestItems.length; ri++) {
   var item = requestItems[ri];
-  if (!visible(item)) continue;
   var qEl = item.querySelector('[data-name="question"], p[data-name="question"]');
   var aEl = item.querySelector('[data-name="answer"], p[data-name="answer"]');
   if (qEl && aEl) {
@@ -400,8 +426,17 @@ if (pairs.length === 0) {
   }
 }
 
-var requestText = (requestRoot.innerText || requestRoot.textContent || '').trim();
-var text = (body.innerText || body.textContent || '').trim();
+var requestText = requestRoot
+  ? (requestRoot.innerText || requestRoot.textContent || '').trim()
+  : '';
+if (!requestText && requestItems.length > 0) {
+  var chunks = [];
+  for (var rt = 0; rt < requestItems.length; rt++) {
+    chunks.push((requestItems[rt].innerText || requestItems[rt].textContent || '').trim());
+  }
+  requestText = chunks.join('\\n').trim();
+}
+var text = body ? (body.innerText || body.textContent || '').trim() : requestText;
 var preferredDate = null;
 for (var pi = 0; pi < pairs.length; pi++) {
   var pd = pickIsoFromDateContext((pairs[pi].question || '') + ' ' + (pairs[pi].answer || ''));
@@ -565,7 +600,7 @@ _IS_REQUEST_MODAL_OPEN_JS = """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
   var r = el.getBoundingClientRect();
-  if (r.width < 40 || r.height < 40) return false;
+  if (r.width < 2 || r.height < 2) return false;
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden';
 }
@@ -600,7 +635,7 @@ _MODAL_READY_LIGHT_JS = """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
   var r = el.getBoundingClientRect();
-  if (r.width < 40 || r.height < 40) return false;
+  if (r.width < 2 || r.height < 2) return false;
   var st = window.getComputedStyle(el);
   return st.display !== 'none' && st.visibility !== 'hidden';
 }
@@ -847,6 +882,20 @@ class CustomerRequestManager:
         except Exception:
             return False
 
+    def _modal_has_request_items(self) -> bool:
+        try:
+            return bool(
+                self.driver.execute_script(
+                    'return document.querySelectorAll('
+                    '".modal.show li[data-name=\\"request-item\\"], '
+                    '[id*=\\"BV_modal_body\\"] li[data-name=\\"request-item\\"], '
+                    '.mobile-full-modal li[data-name=\\"request-item\\"]"'
+                    ').length > 0;'
+                )
+            )
+        except Exception:
+            return False
+
     def _modal_has_content(self) -> bool:
         if not self.is_request_modal_open():
             return False
@@ -892,8 +941,11 @@ class CustomerRequestManager:
         try:
             bv_open = bool(
                 self.driver.execute_script(
-                    'return !!document.querySelector(\'.modal.show [data-type="request"], '
-                    '.modal-body.content-modal-body [data-type="request"]\');'
+                    'return document.querySelectorAll('
+                    '".modal.show li[data-name=\\"request-item\\"], '
+                    '[id*=\\"BV_modal_body\\"] li[data-name=\\"request-item\\"], '
+                    '.mobile-full-modal li[data-name=\\"request-item\\"]"'
+                    ').length > 0;'
                 )
             )
         except Exception:
@@ -901,6 +953,9 @@ class CustomerRequestManager:
         if not bv_open:
             self.driver.execute_script(_CLICK_REQUEST_DETAIL_TAB_JS)
             time.sleep(self.delay * 0.25)
+        if self._modal_has_request_items():
+            time.sleep(REQUEST_MODAL_EXTRACT_SETTLE_SEC)
+            return True
         return self.wait_for_request_modal_ready(timeout=wait_timeout)
 
     def is_request_modal_open(self) -> bool:
@@ -935,9 +990,13 @@ class CustomerRequestManager:
             if self._try_open_via_script(script, wait_timeout):
                 logger.info('open_request_modal ok via %s', name)
                 return True
+            if self.is_request_modal_open() and self._modal_has_request_items():
+                logger.info('open_request_modal items visible via %s', name)
+                return True
             if self.is_request_modal_open() and not self._modal_has_content():
-                self.close_request_modal()
-                time.sleep(self.delay * 0.2)
+                if not self._modal_has_request_items():
+                    self.close_request_modal()
+                    time.sleep(self.delay * 0.2)
 
         try:
             dismiss_blocking_overlays(self.driver, self.delay * 0.2, max_rounds=2)
@@ -951,6 +1010,8 @@ class CustomerRequestManager:
         except Exception as e:
             logger.error('open_request_modal fallback: %s', e)
 
+        if self.is_request_modal_open() and self._modal_has_request_items():
+            return True
         return self._modal_has_content()
 
     def _merge_header_name(self, data: dict[str, Any], header_name: str | None) -> dict[str, Any]:
@@ -1023,7 +1084,19 @@ class CustomerRequestManager:
                 if has_meaningful_request_fields(parsed) or parsed.get('customerName') or parsed.get('pyeong'):
                     logger.warning('keeping partial request extract despite garbage filter')
                 else:
+                    logger.warning(
+                        'discarding request extract pairs=%s region=%s name=%s',
+                        count_clean_request_pairs(parsed),
+                        parsed.get('region'),
+                        parsed.get('customerName'),
+                    )
                     return None
+            logger.info(
+                'extract_request_modal ok pairs=%s pyeong=%s region=%s',
+                count_clean_request_pairs(parsed),
+                parsed.get('pyeong'),
+                parsed.get('region'),
+            )
             return parsed
         except Exception as e:
             logger.error('extract_request_modal: %s', e)
@@ -1070,8 +1143,11 @@ class CustomerRequestManager:
         time.sleep(self.delay * 0.15)
 
         if not self.open_request_modal():
-            logger.warning('open_request_modal failed; header=%s', header_name)
-            return empty
+            if self.is_request_modal_open() and self._modal_has_request_items():
+                logger.info('open_request_modal soft-fail but request items present; header=%s', header_name)
+            else:
+                logger.warning('open_request_modal failed; header=%s', header_name)
+                return empty
 
         if not self.wait_for_request_modal_ready(timeout=REQUEST_MODAL_READY_TIMEOUT):
             logger.warning('customer request modal content not ready; header=%s', header_name)
