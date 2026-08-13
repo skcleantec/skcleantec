@@ -1,0 +1,71 @@
+# 숨고 크롤링 자동화(SoomgoAutomation) — GitHub Release ZIP
+
+name: Soomgo Automation Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver (예: 1.0.1)'
+        required: true
+        default: '1.0.1'
+  push:
+    tags:
+      - 'soomgo-automation-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'
+          if ($tag -match '^soomgo-automation-v(.+)$') {
+            $v = $Matches[1]
+          } else {
+            $v = '${{ inputs.version }}'
+            if (-not $v) { $v = '1.0.1' }
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Packaging version: $v"
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          pip install -r "숨고 크롤링 프로그램/source_project/requirements.txt"
+          pip install pyinstaller
+
+      - name: Build release ZIP
+        shell: pwsh
+        run: ./숨고 크롤링 프로그램/source_project/scripts/build-release.ps1 -Version ${{ steps.ver.outputs.version }}
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: soomgo-automation-v${{ steps.ver.outputs.version }}
+          name: Soomgo Automation v${{ steps.ver.outputs.version }}
+          body: |
+            숨고 크롤링 자동화 v${{ steps.ver.outputs.version }}
+
+            **사용자 PC:** 프로그램에서 「업데이트」 버튼 → 자동 다운로드·교체·재시작
+            **수동:** `SoomgoAutomation-*.zip` 압축 해제 후 `SoomgoAutomation.exe` 실행
+
+            Railway: `railway-env-*.txt` → Variables (SOOMGO_AUTOMATION_*)
+          files: |
+            숨고 크롤링 프로그램/dist-release/SoomgoAutomation-${{ steps.ver.outputs.version }}.zip
+            숨고 크롤링 프로그램/dist-release/railway-env-${{ steps.ver.outputs.version }}.txt
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

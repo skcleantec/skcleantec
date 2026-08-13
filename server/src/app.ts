@@ -92,6 +92,7 @@ import teamLeaderTrainingAdminRoutes from './modules/team-leader-training/teamLe
 import marketerPermissionsRoutes from './modules/marketer-permissions/marketerPermissions.routes.js';
 import { telecrmRoutes } from './modules/telecrm/telecrm.routes.js';
 import { getSoomgoBridgeManifest } from './modules/telecrm/soomgoBridgeManifest.js';
+import { getSoomgoAutomationManifest } from './modules/telecrm/soomgoAutomationManifest.js';
 import { getTelecrmAppManifest } from './modules/telecrm/telecrmAppManifest.js';
 import { renderTelecrmAppInstallPageHtml } from './modules/telecrm/telecrmAppInstallPageHtml.js';
 import { mountCustomModuleRoutes } from './modules/custom/index.js';
@@ -188,6 +189,9 @@ app.use('/api/e-contract', eContractPublicRoutes);
 app.use('/api/crm', telecrmRoutes);
 app.get('/api/public/soomgo-bridge/manifest', (_req, res) => {
   res.json(getSoomgoBridgeManifest());
+});
+app.get('/api/public/soomgo-automation/manifest', (_req, res) => {
+  res.json(getSoomgoAutomationManifest());
 });
 app.get('/api/public/telecrm-app/manifest', (_req, res) => {
   res.json(getTelecrmAppManifest());

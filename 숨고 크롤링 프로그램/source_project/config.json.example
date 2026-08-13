@@ -1,0 +1,74 @@
+{
+  "email": "",
+  "password": "",
+  "save_credentials": false,
+  "delay_seconds": 1.5,
+  "feature1": {
+    "keyword": "",
+    "message": ""
+  },
+  "feature2": {
+    "emoji": "",
+    "images": [],
+    "text1": "",
+    "text2": ""
+  },
+  "feature3": {
+    "images": [],
+    "text": ""
+  },
+  "recontact": {
+    "keyword": "",
+    "message": "",
+    "period": "3일전",
+    "texts": {
+      "텍스트1": ""
+    },
+    "send_order": [
+      "텍스트1"
+    ],
+    "hired_me_enabled": true,
+    "hired_me_filter_text": "내 고용",
+    "hired_other_enabled": false,
+    "hired_other_system_message": "다른 고수를 고용함",
+    "hired_other_texts": {
+      "텍스트1": ""
+    },
+    "hired_other_send_order": [
+      "텍스트1"
+    ]
+  },
+  "combined": {
+    "emoji_enabled": true,
+    "emoji": "",
+    "emoji_texts": {
+      "텍스트1": "",
+      "텍스트2": "",
+      "텍스트3": "",
+      "텍스트4": "",
+      "텍스트5": "",
+      "텍스트6": "",
+      "텍스트7": ""
+    },
+    "emoji_send_order": [
+      "이미지폴더1",
+      "이미지폴더2",
+      "텍스트1"
+    ],
+    "quote_enabled": true,
+    "quote_system_message": "고객님이 견적을 조회하였습니다",
+    "quote_texts": {
+      "텍스트1": "",
+      "텍스트2": ""
+    },
+    "quote_send_order": [
+      "이미지폴더1",
+      "텍스트1"
+    ],
+    "max_count": 100
+  },
+  "leave_hired_other": {
+    "detection_text": "다른 고수를 고용함",
+    "max_scrolls": 100
+  }
+}
