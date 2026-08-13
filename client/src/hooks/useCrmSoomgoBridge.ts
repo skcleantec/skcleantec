@@ -22,7 +22,6 @@ import {
   isSoomgoAppUpdateAvailable,
   isSoomgoBridgeAppAtLatest,
   isSoomgoBridgeUseBlocked,
-  isSoomgoBridgeCrmManifestPassthroughSupported,
   installSoomgoBridgeFromCrmManifest,
   loginSoomgoBridge,
   openSoomgoBridgeInstaller,
@@ -30,8 +29,6 @@ import {
   openSoomgoChatRoom,
   openSoomgoChats,
   requestSoomgoBridgeRestart,
-  requestSoomgoBridgeUpdate,
-  requestSoomgoBridgeUpdateFresh,
   SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE,
   SOOMGO_BRIDGE_OUTDATED_MESSAGE,
   SOOMGO_BUSY_LABELS,
@@ -61,7 +58,7 @@ export function useCrmSoomgoBridge({
   bridgeManifest = null,
   operatingCompanyId = null,
   refreshManifest,
-  soomgoBarOpen = false,
+  soomgoBarOpen: _soomgoBarOpen = false,
   soomgoAlertDrawerOpen = false,
   inboxWatchChatIds = [],
 }: {
@@ -77,7 +74,7 @@ export function useCrmSoomgoBridge({
   bridgeManifest?: SoomgoBridgeManifest | null;
   operatingCompanyId?: string | null;
   refreshManifest?: () => Promise<SoomgoBridgeManifest | null>;
-  /** 업데이트 완료 후 숨고 바가 열려 있으면 자동 재연결 */
+  /** 숨고 메시지 바 열림 (URL `soomgoBar=1`) — 레이아웃·폴링 연동용 */
   soomgoBarOpen?: boolean;
   /** 알림함 드로어 열림 — 폴링 가속 */
   soomgoAlertDrawerOpen?: boolean;
@@ -101,16 +98,11 @@ export function useCrmSoomgoBridge({
   const outdatedNotifiedRef = useRef(false);
   const softUpdateNotifiedRef = useRef(false);
   const useBlockedRef = useRef(false);
-  const pendingSoomgoReconnectRef = useRef(false);
-  const soomgoBarOpenRef = useRef(soomgoBarOpen);
-  soomgoBarOpenRef.current = soomgoBarOpen;
   const soomgoAlertDrawerOpenRef = useRef(soomgoAlertDrawerOpen);
   soomgoAlertDrawerOpenRef.current = soomgoAlertDrawerOpen;
   const inboxWatchChatIdsRef = useRef(inboxWatchChatIds);
   inboxWatchChatIdsRef.current = inboxWatchChatIds;
   const lastSyncedWatchKeyRef = useRef('');
-  const openSoomgoRef = useRef<(() => Promise<boolean>) | null>(null);
-
   const notify = useCallback((msg: string) => onDispatchNotice?.(msg), [onDispatchNotice]);
 
   const prevOperatingCompanyIdRef = useRef(operatingCompanyId);
@@ -188,35 +180,6 @@ export function useCrmSoomgoBridge({
     [onChatAlerts],
   );
 
-  const triggerBridgeUpdate = useCallback(
-    (mode: 'prompt' | 'background' | 'install', statusForGate?: SoomgoBridgeStatus | null) => {
-      if (
-        statusForGate &&
-        isSoomgoBridgeAppAtLatest(statusForGate, bridgeManifest) &&
-        !isSoomgoBridgeOutdated(statusForGate, bridgeManifest)
-      ) {
-        return;
-      }
-      if (statusForGate && !isSoomgoBridgeCrmManifestPassthroughSupported(statusForGate)) {
-        openSoomgoBridgeInstaller(bridgeManifest);
-        return;
-      }
-      const run = async () => {
-        try {
-          if (refreshManifest) {
-            await requestSoomgoBridgeUpdateFresh(refreshManifest, mode);
-          } else {
-            await requestSoomgoBridgeUpdate(mode, bridgeManifest);
-          }
-        } catch {
-          openSoomgoBridgeInstaller(bridgeManifest);
-        }
-      };
-      void run();
-    },
-    [bridgeManifest, refreshManifest],
-  );
-
   const refreshStatusInFlightRef = useRef<Promise<SoomgoBridgeStatus> | null>(null);
 
   const refreshStatus = useCallback(async (options?: { lite?: boolean }) => {
@@ -235,13 +198,7 @@ export function useCrmSoomgoBridge({
           softUpdateNotifiedRef.current = false;
           watchBlockedRef.current = false;
           setError(null);
-          notify('숨고 연동 업데이트가 반영되었습니다.');
-          if (pendingSoomgoReconnectRef.current) {
-            pendingSoomgoReconnectRef.current = false;
-            window.setTimeout(() => {
-              void openSoomgoRef.current?.();
-            }, 800);
-          }
+          notify('숨고 연동 업데이트가 반영되었습니다. 「채팅 열기」를 눌러 연결해 주세요.');
         } else {
           watchBlockedRef.current = false;
           outdatedNotifiedRef.current = false;
@@ -261,18 +218,15 @@ export function useCrmSoomgoBridge({
           watchBlockedRef.current = true;
           setError(outdatedMsg);
           notify(outdatedMsg);
-          void triggerBridgeUpdate('install', s);
         }
       } else if (
         isSoomgoAppUpdateAvailable(s, bridgeManifest) &&
         !softUpdateNotifiedRef.current &&
-        !isSoomgoBridgeOutdated(s, bridgeManifest) &&
-        !s.browserRunning
+        !isSoomgoBridgeOutdated(s, bridgeManifest)
       ) {
         softUpdateNotifiedRef.current = true;
         const softMsg = soomgoBridgeSoftUpdateMessage(s, bridgeManifest);
         if (softMsg) notify(softMsg);
-        void triggerBridgeUpdate('background', s);
       }
       if (s.pendingCallPhone && s.pendingCallAt != null && !blocked) {
         void handlePendingCall(s);
@@ -296,7 +250,7 @@ export function useCrmSoomgoBridge({
         refreshStatusInFlightRef.current = null;
       }
     }
-  }, [bridgeManifest, handleChatAlerts, handlePendingCall, notify, onChatAlerts, onChatListSnapshot, triggerBridgeUpdate]);
+  }, [bridgeManifest, handleChatAlerts, handlePendingCall, notify, onChatAlerts, onChatListSnapshot]);
 
   const ensureChatWatch = useCallback(
     async (s: SoomgoBridgeStatus) => {
@@ -408,7 +362,6 @@ export function useCrmSoomgoBridge({
           /* stale installing 등 — 숨고 연동 계속 */
         } else {
         const outdatedMsg = soomgoBridgeOutdatedMessage(current, bridgeManifest);
-        pendingSoomgoReconnectRef.current = true;
         let manifest = bridgeManifest;
         if (refreshManifest) {
           manifest = (await refreshManifest()) ?? manifest;
@@ -425,7 +378,6 @@ export function useCrmSoomgoBridge({
         throw new Error(outdatedMsg);
         }
       }
-      pendingSoomgoReconnectRef.current = false;
       if (isPopup) arrangeCrmPopupLeftHalf();
       await new Promise((resolve) => window.setTimeout(resolve, 80));
       const screen = readSoomgoSplitBoundsAfterCrmResize();
@@ -470,8 +422,6 @@ export function useCrmSoomgoBridge({
     }
   }, [applySplitLayout, bridgeManifest, ensureCallWatch, ensureChatWatch, isPopup, notify, operatingCompanyId, refreshManifest, refreshStatus]);
 
-  openSoomgoRef.current = openSoomgo;
-
   const requestBridgeUpdate = useCallback(
     async (mode: 'prompt' | 'background' | 'install' = 'install') => {
       if (updateInFlightRef.current) {
@@ -480,7 +430,6 @@ export function useCrmSoomgoBridge({
       }
       updateInFlightRef.current = true;
       setUpdateBusy(true);
-      if (soomgoBarOpenRef.current) pendingSoomgoReconnectRef.current = true;
       notify('숨고 연동 업데이트를 요청하는 중입니다…');
 
       try {
@@ -592,6 +541,13 @@ export function useCrmSoomgoBridge({
     setBusyAction('extract');
     setError(null);
     try {
+      const current = await refreshStatus({ lite: true });
+      if (!isSoomgoBridgeReachable(current)) {
+        throw new Error(SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE);
+      }
+      if (isSoomgoBridgeUseBlocked(current, bridgeManifest)) {
+        throw new Error(soomgoBridgeOutdatedMessage(current, bridgeManifest));
+      }
       notify('숨고에서 고객 정보를 가져오는 중입니다. Chrome 창을 건드리지 마세요.');
       const data = await extractSoomgoCurrentChat();
       setPreview(data);
@@ -611,7 +567,7 @@ export function useCrmSoomgoBridge({
     } finally {
       setBusyAction(null);
     }
-  }, [notify, onImport, onImportNotice]);
+  }, [bridgeManifest, notify, onImport, onImportNotice, refreshStatus]);
 
   const callFromChat = useCallback(async () => {
     setBusyAction('call');

@@ -80,6 +80,9 @@ def main() -> None:
 
         manifest = fetch_manifest_for_update()
         if manifest:
+            from desktop.bridge_pack_integrity import apply_zip_overlay_for_manifest, ensure_bridge_pack_integrity
+
+            apply_zip_overlay_for_manifest(manifest)
             ensure_bridge_pack_integrity(manifest)
             clear_stale_update_phase_if_current(manifest)
         write_update_state(phase='idle', message=None, latest_version=None, artifact=None)

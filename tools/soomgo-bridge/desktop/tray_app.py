@@ -573,14 +573,17 @@ class TrayApp:
             self._log(f'브릿지 Python 환경 오류:\n{detail}', level='error')
         else:
             self._log(f'브릿지 Python 확인: {detail}')
-        self._start_bridge()
         self._manifest = fetch_manifest()
         if self._manifest:
-            from desktop.bridge_pack_integrity import ensure_bridge_pack_integrity
+            from desktop.bridge_pack_integrity import ensure_bridge_pack_integrity, verify_bridge_pack_imports
             from desktop.update_manager import clear_stale_update_phase_if_current
 
             ensure_bridge_pack_integrity(self._manifest)
+            pack_ok, pack_err = verify_bridge_pack_imports()
+            if not pack_ok:
+                self._log(f'브릿지 패키지 검증 실패: {pack_err}', level='error')
             clear_stale_update_phase_if_current(self._manifest)
+        self._start_bridge()
         if self._manifest and is_update_required(self._manifest):
             threading.Thread(target=lambda: self._check_update_prompt(force=True), daemon=True).start()
         poll = threading.Thread(target=self._poll_loop, daemon=True)

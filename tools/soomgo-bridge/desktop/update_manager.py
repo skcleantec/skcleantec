@@ -245,9 +245,18 @@ def perform_tray_handoff_update(
         )
         on_before_install()
         if apply_zip_update(dest):
-            from desktop.bridge_pack_integrity import ensure_bridge_pack_integrity
+            from desktop.bridge_pack_integrity import ensure_bridge_pack_integrity, verify_bridge_pack_imports
 
             ensure_bridge_pack_integrity(manifest)
+            ok, err = verify_bridge_pack_imports()
+            if not ok:
+                write_update_state(
+                    phase='ready',
+                    message=f'업데이트 후 검증 실패: {err or "import"}',
+                    latest_version=latest or None,
+                    artifact=str(dest),
+                )
+                return False, 'ZIP 업데이트 후 패키 검증에 실패했습니다.', None
             from desktop.config import clear_pending_update_manifest
 
             clear_pending_update_manifest()
@@ -262,13 +271,31 @@ def perform_tray_handoff_update(
         return False, 'ZIP 업데이트 적용에 실패했습니다.', None
 
     if lower.endswith('.exe'):
+        from desktop.bridge_pack_integrity import apply_zip_overlay_for_manifest, verify_bridge_pack_imports
+
         write_update_state(
             phase='installing',
-            message='업데이트 설치 중…',
+            message='업데이트 적용 중…',
             latest_version=latest or None,
             artifact=str(dest),
         )
         on_before_install()
+        if apply_zip_overlay_for_manifest(manifest):
+            ok, err = verify_bridge_pack_imports()
+            if ok:
+                from desktop.config import clear_pending_update_manifest
+
+                clear_pending_update_manifest()
+                write_update_state(phase='idle', message='업데이트 적용 완료', latest_version=latest or None)
+                return True, f'업데이트를 적용했습니다. (v{latest or APP_VERSION})', 'restart_tray'
+            logger.warning('zip overlay ok but import verify failed: %s', err)
+
+        write_update_state(
+            phase='installing',
+            message='Setup 설치 프로그램 실행 중…',
+            latest_version=latest or None,
+            artifact=str(dest),
+        )
         proc = run_installer_process(dest)
         if not proc:
             write_update_state(
