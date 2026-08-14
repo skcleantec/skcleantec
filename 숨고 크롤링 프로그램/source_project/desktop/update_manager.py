@@ -272,14 +272,19 @@ def launch_update_handoff(zip_path: Path, latest: str) -> tuple[bool, str]:
             str(UPDATE_LOG_PATH),
         ]
         append_update_log(f'helper: {helper}')
-        creationflags = getattr(subprocess, 'CREATE_NEW_CONSOLE', 0)
+        creationflags = 0
+        if sys.platform == 'win32':
+            detached = getattr(subprocess, 'DETACHED_PROCESS', 0)
+            new_group = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
+            creationflags = detached | new_group
         subprocess.Popen(
             cmd,
             creationflags=creationflags,
             close_fds=True,
+            cwd=str(app_dir),
         )
         append_update_log('helper launched, exiting app')
-        os._exit(0)
+        return True, '업데이트 적용 중…'
 
     if apply_zip_update_dev(zip_path):
         write_update_state(phase='idle', message='업데이트 완료 — 재시작 필요', latest_version=latest or None)

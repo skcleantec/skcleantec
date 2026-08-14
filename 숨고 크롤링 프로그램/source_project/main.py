@@ -51,6 +51,7 @@ from gui_widgets import (
 )
 from version_info import APP_DISPLAY_NAME, APP_VERSION
 from desktop.manifest_client import fetch_manifest, is_update_available, is_update_required, manifest_summary
+from desktop.update_progress_ui import UpdateProgressDialog
 from desktop.update_manager import (
     clear_failed_update_state,
     download_update_artifact,
@@ -277,14 +278,21 @@ class SoomgoAutomationApp:
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _prepare_for_update_exit(self):
+    def _prepare_for_update_exit(self, progress: UpdateProgressDialog | None = None):
+        if progress:
+            progress.set_status('브라우저·설정 저장 중…', percent=85)
         if self.current_feature:
             self.current_feature.stop()
         if hasattr(self, 'delete_feature') and self.delete_feature:
             self.delete_feature.stop()
         if hasattr(self, 'leave_hired_other_feature') and self.leave_hired_other_feature:
             self.leave_hired_other_feature.stop()
-        self.browser.stop()
+        if self.browser.is_running():
+            stop_thread = threading.Thread(target=self.browser.stop, daemon=True)
+            stop_thread.start()
+            stop_thread.join(timeout=4.0)
+        else:
+            self.browser.stop()
         self.config['delay_seconds'] = self.get_delay()
         self.config['recontact'] = self.recontact_settings.copy() if self.recontact_settings else { }
         self.config['combined'] = self.combined_settings.copy() if self.combined_settings else { }
@@ -334,13 +342,13 @@ class SoomgoAutomationApp:
             return
 
         self._set_update_ui_busy(True)
-        self._show_update_progress(True)
-        self._set_update_progress(0, None, f'v{latest} 다운로드 준비…')
+        progress = UpdateProgressDialog(self.root, title='업데이트')
+        progress.set_status(f'v{latest} 다운로드 준비…', percent=0)
         self.log(f'v{latest} 업데이트 시작…')
 
         def on_progress(downloaded: int, total, message: str):
             def ui():
-                self._set_update_progress(downloaded, total, message)
+                progress.set_progress(downloaded, total, message)
             self.root.after(0, ui)
 
         def worker():
@@ -348,7 +356,7 @@ class SoomgoAutomationApp:
 
             def on_downloaded():
                 if not ok:
-                    self._show_update_progress(False)
+                    progress.close()
                     self._set_update_ui_busy(False)
                     self.log(msg)
                     messagebox.showerror('업데이트', msg)
@@ -358,29 +366,41 @@ class SoomgoAutomationApp:
                 artifact = str(state.get('artifact', '')).strip()
                 zip_path = __import__('pathlib').Path(artifact) if artifact else None
                 if not zip_path or not zip_path.is_file():
-                    self._show_update_progress(False)
+                    progress.close()
                     self._set_update_ui_busy(False)
                     messagebox.showerror('업데이트', '설치 파일을 찾을 수 없습니다.')
                     return
 
-                self._set_update_progress(1, 1, '업데이트 적용 중… 곧 재시작됩니다.')
+                progress.set_status('업데이트 적용 중… 곧 자동 재시작됩니다.', percent=100)
                 self.log('다운로드 완료 — 파일 교체·재시작 준비')
-                self.root.update_idletasks()
                 try:
-                    self._prepare_for_update_exit()
+                    self._prepare_for_update_exit(progress)
                 except Exception as e:
-                    self._show_update_progress(False)
+                    progress.close()
                     self._set_update_ui_busy(False)
                     self.log(f'업데이트 준비 실패: {e}')
                     messagebox.showerror('업데이트', f'업데이트 준비 실패: {e}')
                     return
 
+                progress.set_status('업데이트 설치 프로그램 실행…', percent=100)
+                for _ in range(8):
+                    progress.pump()
+                    self.root.update()
+                    __import__('time').sleep(0.12)
+
                 ok2, msg2 = launch_update_handoff(zip_path, latest)
-                self._show_update_progress(False)
+                if ok2:
+                    progress.set_status('잠시 후 자동으로 다시 시작됩니다…', percent=100)
+                    for _ in range(6):
+                        progress.pump()
+                        self.root.update()
+                        __import__('time').sleep(0.1)
+                    __import__('os')._exit(0)
+
+                progress.close()
                 self._set_update_ui_busy(False)
                 self.log(msg2)
-                if not ok2:
-                    messagebox.showerror('업데이트', msg2)
+                messagebox.showerror('업데이트', msg2)
 
             self.root.after(0, on_downloaded)
 

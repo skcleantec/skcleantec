@@ -70,6 +70,7 @@ def materialize_update_helper_script() -> pathlib.Path | None:
         if src.is_file():
             import shutil
 
-            shutil.copy2(src, runtime)
+            content = src.read_text(encoding='utf-8')
+            runtime.write_text(content, encoding='utf-8-sig')
             return runtime
     return None

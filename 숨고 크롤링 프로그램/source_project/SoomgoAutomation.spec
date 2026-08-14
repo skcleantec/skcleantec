@@ -33,6 +33,7 @@ a = Analysis(
         'desktop.config',
         'desktop.manifest_client',
         'desktop.update_manager',
+        'desktop.update_progress_ui',
         'version_info',
         'selenium.webdriver.chrome.webdriver',
         'selenium.webdriver.chrome.service',
