@@ -75,7 +75,46 @@ def read_update_state() -> dict[str, Any]:
         return {}
 
 
+def read_stale_installing_message() -> str | None:
+    """helper 미기동·중단으로 installing 상태가 남은 경우."""
+    state = read_update_state()
+    if str(state.get('phase', '')).strip() != 'installing':
+        return None
+    updated_ms = int(state.get('updatedAt', 0) or 0)
+    if updated_ms <= 0:
+        return '이전 업데이트가 중단되었습니다. 다시 시도해 주세요.'
+    age_sec = (time.time() * 1000 - updated_ms) / 1000.0
+    if age_sec >= 0 and age_sec < 90:
+        return None
+    msg = str(state.get('message', '')).strip() or '업데이트 적용 중'
+    return f'이전 업데이트({msg})가 완료되지 않았습니다. 설치 폴더: {resolve_app_dir()}'
+
+
+def clear_stale_installing_state() -> None:
+    state = read_update_state()
+    if str(state.get('phase', '')).strip() == 'installing':
+        write_update_state(phase='failed', message='업데이트가 중단되었습니다. 다시 시도해 주세요.')
+
+
+def _helper_started_within(timeout_sec: float = 20.0) -> bool:
+    deadline = time.time() + timeout_sec
+    markers = ('=== script entry ===', '=== 업데이트 시작 ===')
+    while time.time() < deadline:
+        try:
+            if UPDATE_LOG_PATH.is_file():
+                text = UPDATE_LOG_PATH.read_text(encoding='utf-8', errors='ignore')
+                if any(m in text for m in markers):
+                    return True
+        except OSError:
+            pass
+        time.sleep(0.25)
+    return False
+
+
 def read_failed_update_message() -> str | None:
+    stale = read_stale_installing_message()
+    if stale:
+        return stale
     state = read_update_state()
     if str(state.get('phase', '')).strip() != 'failed':
         return None
@@ -85,7 +124,8 @@ def read_failed_update_message() -> str | None:
 
 def clear_failed_update_state() -> None:
     state = read_update_state()
-    if str(state.get('phase', '')).strip() == 'failed':
+    phase = str(state.get('phase', '')).strip()
+    if phase in ('failed', 'installing'):
         write_update_state(phase='idle', message=None)
 
 
@@ -251,6 +291,16 @@ def launch_update_handoff(zip_path: Path, latest: str) -> tuple[bool, str]:
 
         app_dir = resolve_app_dir()
         exe_path = Path(sys.executable).resolve()
+        append_update_log(f'AppDir={app_dir}')
+        append_update_log(f'ExePath={exe_path}')
+
+        try:
+            app_helper = app_dir / 'apply_zip_update.ps1'
+            shutil.copy2(helper, app_helper)
+            append_update_log(f'helper copied to app dir: {app_helper}')
+        except OSError as e:
+            append_update_log(f'helper copy to app dir skipped: {e}')
+
         cmd = [
             'powershell.exe',
             '-NoProfile',
@@ -274,16 +324,50 @@ def launch_update_handoff(zip_path: Path, latest: str) -> tuple[bool, str]:
         append_update_log(f'helper: {helper}')
         creationflags = 0
         if sys.platform == 'win32':
-            detached = getattr(subprocess, 'DETACHED_PROCESS', 0)
-            new_group = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
-            creationflags = detached | new_group
-        subprocess.Popen(
-            cmd,
-            creationflags=creationflags,
-            close_fds=True,
-            cwd=str(app_dir),
-        )
-        append_update_log('helper launched, exiting app')
+            creationflags = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                creationflags=creationflags,
+                close_fds=False,
+                cwd=str(app_dir),
+            )
+        except OSError as e:
+            write_update_state(
+                phase='failed',
+                message=f'업데이트 설치 프로그램 실행 실패: {e}',
+                latest_version=latest or None,
+            )
+            return False, f'업데이트 설치 프로그램을 실행하지 못했습니다: {e}'
+
+        if proc.poll() is not None:
+            code = proc.returncode
+            write_update_state(
+                phase='failed',
+                message=f'업데이트 설치 프로그램 즉시 종료 (code={code})',
+                latest_version=latest or None,
+            )
+            return False, f'업데이트 설치 프로그램이 바로 종료되었습니다 (code={code}).'
+
+        if not _helper_started_within(25.0):
+            if proc.poll() is not None and proc.returncode not in (None, 0):
+                write_update_state(
+                    phase='failed',
+                    message=f'업데이트 설치 실패 (code={proc.returncode})',
+                    latest_version=latest or None,
+                )
+                return False, f'업데이트 설치 프로그램 오류 (code={proc.returncode}).'
+            write_update_state(
+                phase='failed',
+                message='업데이트 설치 프로그램 응답 없음',
+                latest_version=latest or None,
+            )
+            return False, (
+                '업데이트 설치 프로그램이 시작되지 않았습니다. '
+                f'설치 폴더: {app_dir} — PowerShell 실행·바이러스 백신 예외를 확인해 주세요.'
+            )
+
+        append_update_log('helper confirmed running')
         return True, '업데이트 적용 중…'
 
     if apply_zip_update_dev(zip_path):

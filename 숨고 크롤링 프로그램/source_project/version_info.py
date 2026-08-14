@@ -1,4 +1,4 @@
 ﻿"""숨고 크롤링 자동화 — 앱 버전 (릴리스·매니페스트 단일 소스)"""
 
 APP_DISPLAY_NAME = '숨고 채팅 자동화'
-APP_VERSION = '1.0.5'
+APP_VERSION = '1.0.6'

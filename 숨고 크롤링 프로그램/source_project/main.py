@@ -338,6 +338,7 @@ class SoomgoAutomationApp:
             detail += f'\n\n{notes}'
         detail += '\n\n① 다운로드 진행률이 표시됩니다.'
         detail += '\n② 적용 단계에서 잠시 종료 후 자동으로 다시 시작됩니다.'
+        detail += f'\n③ 설치 위치: {__import__("desktop.config", fromlist=["resolve_app_dir"]).resolve_app_dir()}'
         if not force and not messagebox.askyesno('업데이트', detail):
             return
 
