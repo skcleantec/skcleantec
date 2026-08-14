@@ -6,6 +6,7 @@ const SOOMGO_AUTOMATION_APP_VERSION = '1.0.3';
 const ZIP_SHA256_BY_VERSION: Record<string, string> = {
   '1.0.1': '887a1790771761552f58979d682d2926cb2d33fa8eeace5109e05cb7c213a532',
   '1.0.2': '49835aa027c667072ae15ad2bbc64cfdff731ba9551b9a5fcdb98ada9e1b5640',
+  '1.0.3': 'a53a3693da1ed48a739ea568d9fa7a7a879c36b406cd3c31072b7d70022c3834',
 };
 
 export type SoomgoAutomationManifest = {
