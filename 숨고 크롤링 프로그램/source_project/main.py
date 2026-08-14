@@ -51,7 +51,13 @@ from gui_widgets import (
 )
 from version_info import APP_DISPLAY_NAME, APP_VERSION
 from desktop.manifest_client import fetch_manifest, is_update_available, is_update_required, manifest_summary
-from desktop.update_manager import perform_automation_update
+from desktop.update_manager import (
+    clear_failed_update_state,
+    download_update_artifact,
+    launch_update_handoff,
+    read_failed_update_message,
+    read_update_state,
+)
 
 
 class SoomgoAutomationApp:
@@ -78,8 +84,28 @@ class SoomgoAutomationApp:
         self.load_saved_credentials()
         self.root.protocol('WM_DELETE_WINDOW', self.on_closing)
         self.root.after(1500, self.check_update_in_background)
+        self.root.after(800, self.show_failed_update_notice_if_any)
 
     
+    def show_failed_update_notice_if_any(self):
+        failed = read_failed_update_message()
+        if not failed:
+            return
+        log_hint = ''
+        try:
+            from desktop.config import UPDATE_LOG_PATH
+            if UPDATE_LOG_PATH.is_file():
+                log_hint = f'\n\n로그: {UPDATE_LOG_PATH}'
+        except Exception:
+            pass
+        if messagebox.askyesno(
+            '업데이트 실패',
+            f'{failed}{log_hint}\n\n업데이트를 다시 시도하시겠습니까?',
+        ):
+            clear_failed_update_state()
+            self.run_apply_update(force=True)
+        else:
+            clear_failed_update_state()
     def create_widgets(self):
         '''GUI 위젯 생성'''
         container = ttk.Frame(self.root)
@@ -144,6 +170,43 @@ class SoomgoAutomationApp:
             btn_frame, text='업데이트', command=self.run_apply_update, width=10, state='disabled'
         )
         self.update_btn.pack(side='left', padx=2)
+        progress_wrap = ttk.Frame(parent)
+        progress_wrap.pack(fill='x', pady=(0, 4))
+        self.update_progress = ttk.Progressbar(progress_wrap, mode='determinate', maximum=100)
+        self.update_progress.pack(fill='x')
+        self.update_progress.pack_forget()
+
+    def _show_update_progress(self, visible: bool):
+        try:
+            if visible:
+                self.update_progress.pack(fill='x')
+            else:
+                try:
+                    self.update_progress.stop()
+                except tk.TclError:
+                    pass
+                self.update_progress.pack_forget()
+                self.update_progress['value'] = 0
+        except tk.TclError:
+            pass
+
+    def _set_update_progress(self, downloaded: int, total, message: str):
+        try:
+            if total and total > 0:
+                try:
+                    self.update_progress.stop()
+                except tk.TclError:
+                    pass
+                self.update_progress.configure(mode='determinate', maximum=100)
+                pct = min(100, int(downloaded * 100 / total))
+                self.update_progress['value'] = pct
+            else:
+                if str(self.update_progress.cget('mode')) != 'indeterminate':
+                    self.update_progress.configure(mode='indeterminate')
+                    self.update_progress.start(12)
+            self.update_status_var.set(message)
+        except tk.TclError:
+            pass
 
     def _set_update_ui_busy(self, busy: bool):
         self.update_busy = busy
@@ -239,7 +302,7 @@ class SoomgoAutomationApp:
             self.config['password'] = ''
         save_config(self.config)
 
-    def run_apply_update(self):
+    def run_apply_update(self, force: bool = False):
         if self.update_busy:
             return
         if self.current_feature or getattr(self, 'delete_feature', None) or getattr(
@@ -252,7 +315,11 @@ class SoomgoAutomationApp:
         if not manifest:
             self.run_check_update()
             return
-        if not is_update_available(manifest) and not is_update_required(manifest):
+        if (
+            not force
+            and not is_update_available(manifest)
+            and not is_update_required(manifest)
+        ):
             messagebox.showinfo('업데이트', f'현재 v{APP_VERSION} 이(가) 최신입니다.')
             return
 
@@ -261,23 +328,61 @@ class SoomgoAutomationApp:
         detail = f'v{APP_VERSION} → v{latest} 으로 업데이트합니다.'
         if notes:
             detail += f'\n\n{notes}'
-        detail += '\n\n업데이트 중 프로그램이 잠시 종료되었다가 자동으로 다시 시작됩니다.'
-        if not messagebox.askyesno('업데이트', detail):
+        detail += '\n\n① 다운로드 진행률이 표시됩니다.'
+        detail += '\n② 적용 단계에서 잠시 종료 후 자동으로 다시 시작됩니다.'
+        if not force and not messagebox.askyesno('업데이트', detail):
             return
 
         self._set_update_ui_busy(True)
+        self._show_update_progress(True)
+        self._set_update_progress(0, None, f'v{latest} 다운로드 준비…')
         self.log(f'v{latest} 업데이트 시작…')
 
+        def on_progress(downloaded: int, total, message: str):
+            def ui():
+                self._set_update_progress(downloaded, total, message)
+            self.root.after(0, ui)
+
         def worker():
-            ok, msg = perform_automation_update(manifest, on_before_exit=self._prepare_for_update_exit)
+            ok, msg = download_update_artifact(manifest, force=True, on_progress=on_progress)
 
-            def on_done():
-                self._set_update_ui_busy(False)
-                self.log(msg)
+            def on_downloaded():
                 if not ok:
+                    self._show_update_progress(False)
+                    self._set_update_ui_busy(False)
+                    self.log(msg)
                     messagebox.showerror('업데이트', msg)
+                    return
 
-            self.root.after(0, on_done)
+                state = read_update_state()
+                artifact = str(state.get('artifact', '')).strip()
+                zip_path = __import__('pathlib').Path(artifact) if artifact else None
+                if not zip_path or not zip_path.is_file():
+                    self._show_update_progress(False)
+                    self._set_update_ui_busy(False)
+                    messagebox.showerror('업데이트', '설치 파일을 찾을 수 없습니다.')
+                    return
+
+                self._set_update_progress(1, 1, '업데이트 적용 중… 곧 재시작됩니다.')
+                self.log('다운로드 완료 — 파일 교체·재시작 준비')
+                self.root.update_idletasks()
+                try:
+                    self._prepare_for_update_exit()
+                except Exception as e:
+                    self._show_update_progress(False)
+                    self._set_update_ui_busy(False)
+                    self.log(f'업데이트 준비 실패: {e}')
+                    messagebox.showerror('업데이트', f'업데이트 준비 실패: {e}')
+                    return
+
+                ok2, msg2 = launch_update_handoff(zip_path, latest)
+                self._show_update_progress(False)
+                self._set_update_ui_busy(False)
+                self.log(msg2)
+                if not ok2:
+                    messagebox.showerror('업데이트', msg2)
+
+            self.root.after(0, on_downloaded)
 
         threading.Thread(target=worker, daemon=True).start()
 

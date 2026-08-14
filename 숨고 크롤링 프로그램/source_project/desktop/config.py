@@ -16,6 +16,7 @@ def _local_appdata() -> pathlib.Path:
 
 APP_DATA_DIR = _local_appdata() / _APP_BRAND_DIR / _APP_MODULE_DIR
 UPDATE_STATE_PATH = APP_DATA_DIR / 'update.state.json'
+UPDATE_LOG_PATH = APP_DATA_DIR / 'update.log'
 UPDATE_CACHE_DIR = APP_DATA_DIR / 'update-cache'
 
 MANIFEST_URL_CANDIDATES: tuple[str, ...] = (
@@ -51,4 +52,24 @@ def resolve_update_helper_script() -> pathlib.Path | None:
     ):
         if candidate.is_file():
             return candidate
+    return None
+
+
+def materialize_update_helper_script() -> pathlib.Path | None:
+    """EXE 내장·소스 스크립트를 APP_DATA로 복사 — 구버전 apply 스크립트 우회."""
+    ensure_app_data()
+    runtime = APP_DATA_DIR / 'apply_zip_update.ps1'
+    candidates: list[pathlib.Path] = []
+    if getattr(__import__('sys'), 'frozen', False) and hasattr(__import__('sys'), '_MEIPASS'):
+        candidates.append(pathlib.Path(__import__('sys')._MEIPASS) / 'scripts' / 'apply_zip_update.ps1')
+    candidates.append(SOURCE_DIR / 'scripts' / 'apply_zip_update.ps1')
+    resolved = resolve_update_helper_script()
+    if resolved:
+        candidates.append(resolved)
+    for src in candidates:
+        if src.is_file():
+            import shutil
+
+            shutil.copy2(src, runtime)
+            return runtime
     return None

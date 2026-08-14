@@ -16,7 +16,11 @@ a = Analysis(
         (
             os.path.join(spec_dir, 'build_bundle_config.json'),
             '.',
-        )
+        ),
+        (
+            os.path.join(spec_dir, 'scripts', 'apply_zip_update.ps1'),
+            'scripts',
+        ),
     ],
     hiddenimports=[
         'tkinter',
