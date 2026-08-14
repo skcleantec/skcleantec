@@ -427,7 +427,7 @@ class RecontactSettingsDialog(tk.Toplevel):
         period_combo.pack(side='left', padx=10)
         ttk.Label(
             period_frame,
-            text='(오늘·N일전·전체 — 목록을 위에서부터 스캔하며 기간 밖이면 종료)',
+            text='(오늘·N일전·전체 — 위에서부터 스크롤하며 기간 밖 채팅이 연속되면 종료)',
             font=('', 9),
         ).pack(side='left')
 

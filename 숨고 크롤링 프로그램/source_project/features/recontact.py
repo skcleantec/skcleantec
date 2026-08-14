@@ -11,7 +11,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from logging.handlers import RotatingFileHandler
 from typing import Callable, List, Dict, Optional
 
@@ -60,6 +60,11 @@ PERIOD_LABEL_TO_DAYS = {
     '전체': PERIOD_UNLIMITED,
 }
 PERIOD_CHOICES = tuple(PERIOD_LABEL_TO_DAYS.keys())
+
+KST = timezone(timedelta(hours=9))
+# 가상 스크롤 목록에서 연속 N건이 기간 밖일 때만 수집 종료 (1건 오판으로 조기 종료 방지)
+CONSECUTIVE_OUT_OF_PERIOD_STOP = 8
+DEFAULT_MAX_SCROLLS = 150
 
 
 def resolve_recontact_period(settings: dict) -> tuple[int, str]:
@@ -167,32 +172,80 @@ class RecontactFeature:
         self.running = False
         self.log('재접촉 기능 중지 요청됨')
 
+    def _kst_today(self) -> date:
+        return datetime.now(KST).date()
+
+    def _days_ago_from_date(self, message_date: date, period_days: int) -> bool:
+        """message_date가 period_days(0=오늘 … N=N일전 포함) 범위 밖이면 True"""
+        days_ago = (self._kst_today() - message_date).days
+        return days_ago > period_days
+
+    def _extract_time_from_row_text(self, row_text: str) -> str:
+        """목록 행 text에서 시간 라벨 추출 (fiber updated_at 보조)"""
+        if not row_text:
+            return ''
+        for line in reversed(row_text.splitlines()):
+            candidate = line.strip()
+            if not candidate:
+                continue
+            if re.match(r'^(오전|오후)\s*\d{1,2}:\d{2}$', candidate):
+                return candidate
+            if candidate in ('어제', '방금', '금방'):
+                return candidate
+            if re.match(r'^\d+일\s*전$', candidate):
+                return candidate
+            date_match = re.match(r'^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?$', candidate)
+            if date_match:
+                y, m, d = date_match.groups()
+                return f'{y}. {m.zfill(2)}. {d.zfill(2)}'
+        return ''
+
+    def _resolve_message_time(self, item: dict) -> str:
+        updated_at = (item.get('message_time') or item.get('updated_at') or '').strip()
+        if updated_at:
+            return updated_at
+        return self._extract_time_from_row_text(item.get('text', '') or '')
+
     def _is_out_of_period(self, message_time: str, period_days: int) -> bool:
         if period_days < 0:
             return False
         if not message_time:
             return False
 
-        iso_match = re.match(r'^(\d{4})-(\d{2})-(\d{2})T', message_time)
+        iso_match = re.match(r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?)(Z|[+-]\d{2}:\d{2})?$', message_time)
         if iso_match:
             try:
-                message_date = date(int(iso_match.group(1)), int(iso_match.group(2)), int(iso_match.group(3)))
-                days_ago = (date.today() - message_date).days
-                return days_ago > period_days
+                iso_text = iso_match.group(1)
+                tz_suffix = iso_match.group(2)
+                if tz_suffix:
+                    dt = datetime.fromisoformat(iso_text + tz_suffix.replace('Z', '+00:00'))
+                    message_date = dt.astimezone(KST).date()
+                else:
+                    message_date = datetime.fromisoformat(iso_text).replace(tzinfo=KST).date()
+                return self._days_ago_from_date(message_date, period_days)
+            except ValueError:
+                pass
+            # 레거시: 타임존 없이 날짜 부분만
+            try:
+                message_date = date(int(message_time[0:4]), int(message_time[5:7]), int(message_time[8:10]))
+                return self._days_ago_from_date(message_date, period_days)
             except ValueError:
                 return False
 
         if re.match(r'^(오전|오후)\s*\d{1,2}:\d{2}$', message_time):
             return False
-        if message_time == '어제':
+        if message_time in ('어제', '방금', '금방'):
             return period_days < PERIOD_1_DAY
 
-        date_match = re.match(r'^(\d{4})\.\s*(\d{2})\.\s*(\d{2})$', message_time)
+        date_match = re.match(r'^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?$', message_time)
         if date_match:
             try:
-                message_date = date(int(date_match.group(1)), int(date_match.group(2)), int(date_match.group(3)))
-                days_ago = (date.today() - message_date).days
-                return days_ago > period_days
+                message_date = date(
+                    int(date_match.group(1)),
+                    int(date_match.group(2)),
+                    int(date_match.group(3)),
+                )
+                return self._days_ago_from_date(message_date, period_days)
             except ValueError:
                 return False
 
@@ -201,6 +254,13 @@ class RecontactFeature:
             return int(day_match.group(1)) > period_days
 
         return False
+
+    def _max_scrolls_for_period(self, period_days: int) -> int:
+        if period_days < 0:
+            return DEFAULT_MAX_SCROLLS
+        if period_days == PERIOD_TODAY:
+            return 40
+        return min(DEFAULT_MAX_SCROLLS, max(60, period_days * 30))
 
     def _parse_keywords(self, keyword_input: str) -> List[str]:
         keywords = []
@@ -226,25 +286,23 @@ class RecontactFeature:
                 return kw
         return ''
 
-    def _scroll_and_wait_for_load(self, max_scroll_attempts: int = 30, max_consecutive_failures: int = 1) -> bool:
+    def _scroll_and_wait_for_load(self, max_scroll_attempts: int = 40) -> bool:
+        """가상 스크롤 목록 — li 개수가 아니라 새 chat_id 등장으로 로딩 판단"""
         try:
             before_ids = self.chat_list.get_visible_chat_ids()
-            consecutive_failures = 0
             for attempt in range(max_scroll_attempts):
                 if not self.running:
                     return False
-                scroll_success = self.chat_list.scroll_down(500)
-                if not scroll_success:
-                    consecutive_failures += 1
-                    if consecutive_failures >= max_consecutive_failures:
-                        return False
+                if not self.chat_list.scroll_down(500):
                     continue
-                consecutive_failures = 0
-                time.sleep(0.3)
+                time.sleep(0.35)
                 after_ids = self.chat_list.get_visible_chat_ids()
                 new_ids = after_ids - before_ids
                 if new_ids:
-                    self.log(f'[스크롤] 로딩 감지! 새 {len(new_ids)}개 ({attempt + 1}회 스크롤)', gui=False)
+                    self.log(
+                        f'[스크롤] 로딩 감지! 새 {len(new_ids)}개 ({attempt + 1}회 스크롤)',
+                        gui=False,
+                    )
                     return True
             return False
         except Exception as e:
@@ -333,6 +391,9 @@ class RecontactFeature:
         checked_chat_ids = set()
         previous_chat_ids = set()
         loop_count = 0
+        scroll_count = 0
+        consecutive_out_of_period = 0
+        max_scrolls = self._max_scrolls_for_period(period_days)
 
         try:
             self.chat_list.scroll_to_top()
@@ -340,9 +401,12 @@ class RecontactFeature:
         except Exception as e:
             self.log(f'[수집] 초기화 중 오류: {type(e).__name__}')
 
-        self.log(f'[1단계] 키워드 매칭 채팅방 수집 시작 (기간: {period_text})')
+        self.log(
+            f'[1단계] 키워드 매칭 채팅방 수집 시작 (기간: {period_text}, '
+            f'최대 스크롤 {max_scrolls}회)'
+        )
 
-        while self.running:
+        while self.running and scroll_count <= max_scrolls:
             loop_count += 1
             if loop_count > 1000:
                 self.log('[수집] 루프 한계 도달, 수집 종료')
@@ -363,6 +427,7 @@ class RecontactFeature:
                 if checked_chat_ids and self.chat_list.get_chat_count() > 0:
                     try:
                         if self._scroll_and_wait_for_load():
+                            scroll_count += 1
                             continue
                     except Exception as e:
                         self.log(f'[수집 중단] 스크롤 중 오류: {type(e).__name__}')
@@ -388,10 +453,11 @@ class RecontactFeature:
 
             if not new_chat_ids and loop_count > 1:
                 try:
-                    if not self._scroll_and_wait_for_load():
-                        self.log('[스캔] 더 이상 로드할 채팅방 없음')
-                        break
-                    continue
+                    if self._scroll_and_wait_for_load():
+                        scroll_count += 1
+                        continue
+                    self.log('[스캔] 더 이상 로드할 채팅방 없음')
+                    break
                 except Exception as e:
                     self.log(f'[수집 중단] 스크롤 중 오류: {type(e).__name__}')
                     break
@@ -415,14 +481,27 @@ class RecontactFeature:
                 text = item.get('text', '')
                 last_message = item.get('last_message', '')
                 last_message_type = item.get('last_message_type', '')
-                message_time = item.get('message_time', '')
+                message_time = self._resolve_message_time(item)
                 display_name = nickname or f'ID:{chat_id}'
                 row_text = text or ''
 
                 if self._is_out_of_period(message_time, period_days):
-                    self.log(f'[기간 종료] {display_name} 범위 벗어남 (시간: {message_time}) - 수집 종료')
-                    period_ended = True
-                    break
+                    consecutive_out_of_period += 1
+                    self.log(
+                        f'[기간 스킵] {display_name} 범위 밖 '
+                        f'(시간: {message_time or "미상"}, 연속 {consecutive_out_of_period}건)',
+                        gui=False,
+                    )
+                    if consecutive_out_of_period >= CONSECUTIVE_OUT_OF_PERIOD_STOP:
+                        self.log(
+                            f'[기간 종료] 연속 {consecutive_out_of_period}건이 '
+                            f'기간({period_text}) 밖 — 수집 종료'
+                        )
+                        period_ended = True
+                        break
+                    continue
+
+                consecutive_out_of_period = 0
 
                 if (
                     hired_me_enabled
@@ -492,12 +571,18 @@ class RecontactFeature:
             if period_ended:
                 break
 
-            if not self._scroll_and_wait_for_load():
+            if self._scroll_and_wait_for_load():
+                scroll_count += 1
+            else:
+                self.log('[스캔] 더 이상 로드할 채팅방 없음')
                 break
 
         if hired_me_skip_count:
             self.log(f'[1단계] 내 고용 스킵: {hired_me_skip_count}건', gui=False)
-        self.log(f'[1단계 완료] {checked_count}개 스캔, {len(matching_chats)}개 매칭됨')
+        self.log(
+            f'[1단계 완료] {checked_count}개 스캔, {len(matching_chats)}개 매칭됨 '
+            f'(스크롤 {scroll_count}회)'
+        )
         return matching_chats
 
     def _process_collected_chats(
@@ -632,7 +717,7 @@ class RecontactFeature:
 
             keywords_display = ', '.join(keywords[:5]) + ('...' if len(keywords) > 5 else '')
             self.log(
-                f'재접촉 기능 시작 [v3.4] - 키워드: [{keywords_display}] '
+                f'재접촉 기능 시작 [v3.5] - 키워드: [{keywords_display}] '
                 f'({len(keywords)}개), 기간: {period_text}'
             )
             self.log(f'[키워드 전체 목록] {keywords}', gui=False)
