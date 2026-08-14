@@ -1,0 +1,158 @@
+---
+description: 숨고 크롤링 자동화(SoomgoAutomation) — 가상 스크롤·재접촉·자동 업데이트·릴리스 (회귀 방지)
+globs: 숨고 크롤링 프로그램/**,shared/soomgoAutomation.ts,server/src/modules/telecrm/soomgoAutomationManifest.ts,.github/workflows/soomgo-automation-release.yml
+alwaysApply: false
+---
+
+# 숨고 크롤링 자동화 (SoomgoAutomation)
+
+**경로:** `숨고 크롤링 프로그램/source_project/` · EXE `숨고 크롤링 프로그램/SoomgoAutomation.exe`  
+**원본 참고:** `숨고 크롤링 프로그램/원본파일/` · `decompiled_source/` (exe 역컴파일)
+
+데스크톱·채팅 목록·재접촉·릴리스를 수정할 때 아래 **회귀 원인**과 **올바른 패턴**을 따른다. 숨고 연동 브릿지(`tools/soomgo-bridge`)와 **별 제품** — 릴리스 태그·변수 접두사가 다르다.
+
+---
+
+## 1) 재접촉 — ~20개에서 멈춤 (v1.0.5~1.0.6 회귀)
+
+### 증상
+
+- 기간 **전체**여도 약 **20건**만 스캔 후 종료
+- 로그: `[스캔] 더 이상 로드할 채팅방 없음`, `(스크롤 0회)` 또는 스크롤 후에도 목록 변화 없음
+
+### 잘못됐던 것
+
+| 실수 | 결과 |
+|------|------|
+| JS `scrollTop`만 조작 (`_JS_SCROLL_CHAT_LIST`) | 숨고 **가상 목록**의 실제 스크롤 컨테이너를 못 찾음 → 화면이 안 움직임 |
+| `scroll_down`이 항상 `True` 반환 | 스크롤 실패를 성공으로 오인 |
+| 로딩 감지 = `after_ids - before_ids`(신규 ID만) | 가상 스크롤은 **같은 20칸**에서 ID만 교체됨 → 신규 ID 0개로 **변화 없음** 처리 |
+| 기간 밖 1건 만나면 즉시 종료 (초기 v1.0.5) | 3일/전체와 무관하게 조기 종료 (v1.0.5에서 연속 8건으로 완화) |
+
+### 원본(동작)과의 차이
+
+- **원본 `scroll_down`:** `ActionChains(driver).scroll_by_amount(0, amount)` **만** 사용 (`decompiled_source/automation/chat_list.dis.txt`)
+- **원본 `_scroll_and_wait_for_load`:** 스크롤 후 `get_visible_chat_ids()` **집합 비교** (신규 ID뿐 아니라 목록 변화)
+
+### 올바른 패턴 (v1.0.7+ — 유지 필수)
+
+**`automation/chat_list.py`**
+
+1. **스크롤 우선순위:** (1) overflow 컨테이너 `scrollTop` + `wheel` + 마지막 `li` `scrollIntoView` → (2) 목록 중앙 `move_to_element` 후 **ActionChains `scroll_by_amount`** (원본과 동일)
+2. **`get_visible_chat_id_list()`** — 순서 유지 목록 제공 (집합만 쓰지 말 것)
+
+**`features/recontact.py` · `leave_hired_other_chats.py`**
+
+3. **`_scroll_and_wait_for_load` 성공 조건:**
+   - `after_ids != before_ids` **또는** `after_list != before_list`
+   - `new_ids`만으로 판단 **금지**
+4. **수집 루프:** 신규 ID 없을 때 `previous_chat_ids`가 있으면 스크롤 (`loop_count > 1` 단독 조건 **금지**)
+5. **기간 종료:** `CONSECUTIVE_OUT_OF_PERIOD_STOP`(8) — 1건 오판으로 전체 중단 **금지**
+6. **전체 기간:** `PERIOD_UNLIMITED(-1)` → `_is_out_of_period` 항상 False
+
+### 검증 로그
+
+- `[1단계 완료] N개 스캔 … (스크롤 M회)` — **N > 20**, **M > 0** (채팅이 20개 넘을 때)
+- `log/recontact_debug_*.log` — `[스크롤] 목록 변경` 또는 `로딩 감지`
+
+---
+
+## 2) 자동 업데이트 — 로딩 후 꺼지고 재시작·버전 미반영 (v1.0.6)
+
+### 증상
+
+- 「업데이트」 후 Tkinter 로딩만 보이다 종료, 재시작 없음, 버전 그대로
+- `%LOCALAPPDATA%\Cbiseo\SoomgoAutomation\update.state.json` 이 **`installing`에 stuck**
+
+### 잘못됐던 것
+
+| 실수 | 결과 |
+|------|------|
+| `apply_zip_update.ps1` 미기동·PID 버그 | ZIP 교체·재시작 never |
+| `DETACHED_PROCESS` 등으로 helper 추적 불가 | 실패 시 로그 없음 |
+| EXE만 교체, **`apply_zip_update.ps1` 폴더 누락** | in-app 업데이트 불가 |
+| Railway `SOOMGO_AUTOMATION_SHA256` ≠ GitHub Release ZIP | 다운로드 후 SHA256 검증 실패 |
+| Variables만 바꾸고 **서버 재배포 없음** | 매니페스트가 구버전 유지 |
+
+### 올바른 패턴
+
+**사용자 PC 폴더 (한 디렉터리):**
+
+- `SoomgoAutomation.exe`
+- `_internal/` (전체)
+- **`apply_zip_update.ps1`** (EXE와 **같은 폴더** — 바탕화면 폴더도 OK)
+
+**업데이트 흐름:** 매니페스트 → ZIP 다운로드 → SHA256 검증 → helper 기동 확인 → 앱 종료 → helper가 MIR/선택 복사·`config.json` 보존 → 재시작
+
+**stuck 복구:** `%LOCALAPPDATA%\Cbiseo\SoomgoAutomation\` 의 `update.state.json` 삭제 후 [Release ZIP](https://github.com/skcleantec/skcleantec/releases) 수동 덮어쓰기 또는 「업데이트」 재시도
+
+**릴리스 후:** `set-railway-vars.ps1` 실행 **+** `GET /api/public/soomgo-automation/manifest` 에서 `latestVersion`·`sha256` 일치 확인. 구버전이면 production **redeploy**.
+
+---
+
+## 3) 릴리스 파이프라인 (에이전트 의무)
+
+`숨고 크롤링 프로그램/**` 또는 매니페스트를 **의미 있게** 바꾼 작업 완료 시, 사용자 재요청 없이 아래를 **직접** 수행 (명령만 안내 금지).
+
+**예외:** 사용자가 「릴리스하지 마」 명시, 또는 주석만 변경.
+
+### semver 한 세트
+
+- `source_project/version_info.py` — `APP_VERSION`
+- `shared/soomgoAutomation.ts`
+- `server/src/modules/telecrm/soomgoAutomationManifest.ts`
+
+### 체크리스트
+
+1. semver bump → **`staging` 커밋·푸시**
+2. 태그 **`soomgo-automation-v{semver}`** 푸시 → Actions **Soomgo Automation Release** → `SoomgoAutomation-{semver}.zip` · `railway-env-{semver}.txt` 업로드 확인
+3. Railway (staging·production):
+   ```powershell
+   cd "숨고 크롤링 프로그램\source_project\scripts"
+   .\set-railway-vars.ps1 -Target both -Version {semver}
+   ```
+4. **매니페스트 HTTP 확인:** `https://www.cbiseo.com/api/public/soomgo-automation/manifest` — `latestVersion`·`downloadUrl`·`sha256` = Release와 일치
+5. 운영만 구버전이면: `npx @railway/cli redeploy --environment production --service "clean solution" --yes`
+
+**운영 `main` 머지**는 사용자가 명시했을 때만 (`.cursor/rules/git-staging-main-push.mdc`).
+
+### 단일 소스
+
+| 계층 | 역할 |
+|------|------|
+| GitHub Release | `SoomgoAutomation-{ver}.zip` (CI 빌드 — **로컬 exe와 sha256 다를 수 있음**) |
+| Railway | `SOOMGO_AUTOMATION_LATEST_VERSION`, `DOWNLOAD_URL`, `SHA256`, `RELEASE_NOTES` |
+| 공개 API | `GET /api/public/soomgo-automation/manifest` |
+| PC | 「업데이트 확인」→ 「업데이트」 — **Release ZIP 기준** |
+
+---
+
+## 4) 채팅 목록·fiber 추출 (공통)
+
+- **`get_chat_items(exclude_ids=…)`** — visible ~20개에서 exclude 후 빈 목록 → **스크롤 분기** (정상). 빈 목록 = DOM 실패와 구분 (`get_chat_count()`, `last_extraction_debug`)
+- **React fiber:** `_JS_EXTRACT_CHAT_ITEMS` · `findGlobalChatArrays` — li fiber 실패 시 global cache 폴백
+- **새 목록 기능** 추가 시 `scroll_down` / `_scroll_and_wait_for_load` **복사하지 말고** `ChatListManager` 재사용
+
+---
+
+## 5) 금지
+
+- 가상 스크롤에 **`window.scrollBy` / JS `scrollTop`만** 쓰고 ActionChains fallback 제거
+- 스크롤 성공을 **`new_ids` nonempty** 로만 판단
+- ZIP·SHA256·Railway **셋 중 하나만** 갱신
+- 로컬 PyInstaller exe sha256을 Railway에 넣기 ( **GitHub Release CI ZIP** digest 사용)
+- 브랜드·경로에 SKCleantec 노출 (`.cursor/rules/no-skcleantec-branding.mdc` — **청소비서** / `%LOCALAPPDATA%\Cbiseo\SoomgoAutomation`)
+
+---
+
+## 6) 참고 파일
+
+| 항목 | 경로 |
+|------|------|
+| 채팅 목록·스크롤 | `source_project/automation/chat_list.py` |
+| 재접촉 | `source_project/features/recontact.py` |
+| 다른 고수 고용 나가기 | `source_project/features/leave_hired_other_chats.py` |
+| 업데이트 | `source_project/desktop/update_manager.py`, `scripts/apply_zip_update.ps1` |
+| 빌드·릴리스 | `source_project/scripts/build-release.ps1`, `set-railway-vars.ps1` |
+| CI | `.github/workflows/soomgo-automation-release.yml` |
+| 매니페스트 | `server/src/modules/telecrm/soomgoAutomationManifest.ts` |
