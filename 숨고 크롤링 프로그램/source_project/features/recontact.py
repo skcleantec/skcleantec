@@ -286,24 +286,56 @@ class RecontactFeature:
                 return kw
         return ''
 
-    def _scroll_and_wait_for_load(self, max_scroll_attempts: int = 40) -> bool:
-        """가상 스크롤 목록 — li 개수가 아니라 새 chat_id 등장으로 로딩 판단"""
+    def _scroll_and_wait_for_load(self, max_scroll_attempts: int = 30) -> bool:
+        """
+        동적 로딩 감지 스크롤.
+        가상 스크롤은 새 ID 추가뿐 아니라 visible ID 집합·순서가 바뀌면 성공으로 본다.
+        """
         try:
             before_ids = self.chat_list.get_visible_chat_ids()
+            before_list = self.chat_list.get_visible_chat_id_list()
+
+            self.log(
+                f'[스크롤] 현재 {len(before_ids)}개, 동적 스크롤 시작...',
+                gui=False,
+            )
+
             for attempt in range(max_scroll_attempts):
                 if not self.running:
                     return False
-                if not self.chat_list.scroll_down(500):
-                    continue
+
+                self.chat_list.scroll_down(500)
                 time.sleep(0.35)
+
                 after_ids = self.chat_list.get_visible_chat_ids()
-                new_ids = after_ids - before_ids
-                if new_ids:
+                after_list = self.chat_list.get_visible_chat_id_list()
+
+                if after_ids != before_ids or after_list != before_list:
+                    new_ids = after_ids - before_ids
                     self.log(
-                        f'[스크롤] 로딩 감지! 새 {len(new_ids)}개 ({attempt + 1}회 스크롤)',
+                        f'[스크롤] 로딩 감지! '
+                        f'새 {len(new_ids)}개 / 목록 변경 ({attempt + 1}회 스크롤)',
                         gui=False,
                     )
                     return True
+
+            try:
+                li_elements = self.chat_list._find_chat_list_elements()
+                if li_elements:
+                    self.driver.execute_script(
+                        "arguments[0].scrollIntoView({block: 'end', behavior: 'auto'});",
+                        li_elements[-1],
+                    )
+                    time.sleep(0.45)
+                    after_ids = self.chat_list.get_visible_chat_ids()
+                    after_list = self.chat_list.get_visible_chat_id_list()
+                    if after_ids != before_ids or after_list != before_list:
+                        self.log('[스크롤] scrollIntoView 후 목록 변경 감지', gui=False)
+                        return True
+            except Exception:
+                pass
+
+            self.log(f'[스크롤] {max_scroll_attempts}회 시도 후 추가 로딩 없음', gui=False)
             return False
         except Exception as e:
             self._debug(f'[_scroll_and_wait_for_load] 오류: {type(e).__name__}: {e}', 'ERROR')
@@ -451,7 +483,7 @@ class RecontactFeature:
             current_chat_ids = {item.get('chat_id') for item in chat_items if item.get('chat_id')}
             new_chat_ids = current_chat_ids - previous_chat_ids
 
-            if not new_chat_ids and loop_count > 1:
+            if not new_chat_ids and previous_chat_ids:
                 try:
                     if self._scroll_and_wait_for_load():
                         scroll_count += 1

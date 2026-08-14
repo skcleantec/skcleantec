@@ -469,27 +469,96 @@ return (function(deltaY, toTop) {
         }
         return best;
     }
+    function isScrollable(el) {
+        if (!el) return false;
+        var st = window.getComputedStyle(el);
+        var oy = st.overflowY;
+        return (
+            (oy === 'auto' || oy === 'scroll' || oy === 'overlay') &&
+            el.scrollHeight > el.clientHeight + 4
+        );
+    }
     function findScrollable(start) {
         var el = start;
         while (el) {
-            if (el.scrollHeight > el.clientHeight + 8) return el;
+            if (isScrollable(el)) return el;
             el = el.parentElement;
+        }
+        var main = document.querySelector('main');
+        if (main) {
+            var nodes = main.querySelectorAll('div, section, aside, nav');
+            var best = null;
+            var bestExtra = 0;
+            for (var i = 0; i < nodes.length; i++) {
+                var n = nodes[i];
+                if (!isScrollable(n)) continue;
+                var extra = n.scrollHeight - n.clientHeight;
+                if (extra > bestExtra) {
+                    bestExtra = extra;
+                    best = n;
+                }
+            }
+            if (best) return best;
         }
         return null;
     }
+    function snapshot(target, ul) {
+        var lis = ul ? ul.querySelectorAll(':scope > li') : [];
+        var lastId = '';
+        if (lis.length) {
+            var last = lis[lis.length - 1];
+            var links = last.querySelectorAll('a[href*="/pro/chats/"]');
+            for (var j = 0; j < links.length; j++) {
+                var m = (links[j].getAttribute('href') || links[j].href || '').match(/\\/pro\\/chats\\/(\\d+)/);
+                if (m) { lastId = m[1]; break; }
+            }
+        }
+        return {
+            scrollTop: target ? target.scrollTop : window.scrollY,
+            lastId: lastId,
+            liCount: lis.length
+        };
+    }
     var ul = pickUl();
+    if (!ul) {
+        if (toTop) { window.scrollTo(0, 0); return { ok: true, moved: true }; }
+        window.scrollBy(0, deltaY);
+        return { ok: true, moved: true };
+    }
     var target = findScrollable(ul) || ul;
     if (toTop) {
-        if (target) { target.scrollTop = 0; return true; }
+        if (target && target.scrollTop !== undefined) target.scrollTop = 0;
         window.scrollTo(0, 0);
-        return true;
+        return { ok: true, moved: true };
+    }
+    var before = snapshot(target, ul);
+    var prevTop = target && target.scrollTop !== undefined ? target.scrollTop : window.scrollY;
+    if (target && target.scrollTop !== undefined) {
+        target.scrollTop = Math.min(target.scrollTop + deltaY, target.scrollHeight);
     }
     if (target) {
-        target.scrollTop += deltaY;
-        return true;
+        try {
+            target.dispatchEvent(new WheelEvent('wheel', {
+                deltaY: deltaY,
+                bubbles: true,
+                cancelable: true
+            }));
+        } catch (e) {}
     }
-    window.scrollBy(0, deltaY);
-    return true;
+    var lis = ul.querySelectorAll(':scope > li');
+    if (lis.length) {
+        try {
+            lis[lis.length - 1].scrollIntoView({ block: 'end', behavior: 'auto' });
+        } catch (e2) {}
+    }
+    var afterTop = target && target.scrollTop !== undefined ? target.scrollTop : window.scrollY;
+    var after = snapshot(target, ul);
+    var moved = (
+        afterTop !== prevTop ||
+        after.lastId !== before.lastId ||
+        after.liCount !== before.liCount
+    );
+    return { ok: true, moved: moved, before: before, after: after };
 })(arguments[0], arguments[1]);
 """
 
@@ -631,11 +700,17 @@ class ChatListManager:
 
     def get_visible_chat_ids(self) -> set:
         """현재 DOM에 보이는 채팅방 ID 세트 반환"""
+        return set(self.get_visible_chat_id_list())
+
+    def get_visible_chat_id_list(self) -> List[str]:
+        """현재 DOM에 보이는 채팅방 ID 목록 (순서 유지)"""
         try:
             result = self.driver.execute_script(_JS_VISIBLE_CHAT_IDS)
-            return set(result) if result else set()
+            if not result:
+                return []
+            return [str(chat_id) for chat_id in result if chat_id]
         except Exception:
-            return set()
+            return []
 
     def get_chat_count(self) -> int:
         """채팅방 개수만 빠르게 반환"""
@@ -758,25 +833,50 @@ class ChatListManager:
     def is_yesterday_message(self, text: str) -> bool:
         return SYSTEM_MESSAGES['YESTERDAY'] in text
 
-    def scroll_down(self, scroll_amount: int = 300) -> bool:
+    def _focus_chat_list_for_scroll(self) -> None:
+        """원본 프로그램과 동일하게 목록 영역에 포커스 후 휠 스크롤이 먹게 한다."""
+        li_elements = self._find_chat_list_elements()
+        if not li_elements:
+            return
         try:
-            ok = self.driver.execute_script(_JS_SCROLL_CHAT_LIST, scroll_amount, False)
-            time.sleep(0.1)
-            return bool(ok)
+            target_idx = min(len(li_elements) - 1, max(0, len(li_elements) // 2))
+            ActionChains(self.driver).move_to_element(li_elements[target_idx]).perform()
+            time.sleep(0.05)
         except Exception:
+            pass
+
+    def scroll_down(self, scroll_amount: int = 500) -> bool:
+        """
+        채팅 목록 아래로 스크롤.
+        원본: ActionChains scroll_by_amount 우선. 가상 목록은 JS wheel + scrollIntoView 보조.
+        """
+        moved = False
+        try:
+            result = self.driver.execute_script(_JS_SCROLL_CHAT_LIST, scroll_amount, False)
+            if isinstance(result, dict):
+                moved = bool(result.get('moved'))
+            elif result:
+                moved = True
+        except Exception as e:
+            logger.debug(f'[scroll_down] JS 스크롤 실패: {type(e).__name__}')
+
+        if not moved:
             try:
+                self._focus_chat_list_for_scroll()
                 ActionChains(self.driver).scroll_by_amount(0, scroll_amount).perform()
-                time.sleep(0.1)
-                return True
+                moved = True
             except Exception as e:
                 logger.error(f'스크롤 오류: {e}')
                 return False
 
+        time.sleep(0.12)
+        return moved
+
     def scroll_to_top(self) -> bool:
         try:
-            ok = self.driver.execute_script(_JS_SCROLL_CHAT_LIST, 0, True)
+            self.driver.execute_script(_JS_SCROLL_CHAT_LIST, 0, True)
             time.sleep(self.delay * 0.5)
-            return bool(ok)
+            return True
         except Exception:
             try:
                 self.driver.execute_script('window.scrollTo(0, 0);')

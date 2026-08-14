@@ -1,6 +1,6 @@
 ﻿/** @see shared/soomgoAutomation.ts — 클라이언트·문서와 값 동기화 */
 
-const SOOMGO_AUTOMATION_APP_VERSION = '1.0.6';
+const SOOMGO_AUTOMATION_APP_VERSION = '1.0.7';
 
 /** Release ZIP sha256 — Railway 변수 누락·구버전 URL일 때 폴백 */
 const ZIP_SHA256_BY_VERSION: Record<string, string> = {

@@ -79,18 +79,19 @@ class LeaveHiredOtherChatsFeature:
             return False
 
     def _scroll_and_wait_for_load(self, max_scroll_attempts: int = 30) -> bool:
-        """가상 스크롤 목록 — li 개수가 아니라 새 chat_id 등장으로 로딩 판단"""
+        """가상 스크롤 목록 — visible ID 집합·순서 변화로 로딩 판단"""
         try:
             before_ids = self.chat_list.get_visible_chat_ids()
+            before_list = self.chat_list.get_visible_chat_id_list()
             for attempt in range(max_scroll_attempts):
                 if not self.running:
                     return False
-                if not self.chat_list.scroll_down(500):
-                    return False
+                self.chat_list.scroll_down(500)
                 time.sleep(0.35)
                 after_ids = self.chat_list.get_visible_chat_ids()
-                new_ids = after_ids - before_ids
-                if new_ids:
+                after_list = self.chat_list.get_visible_chat_id_list()
+                if after_ids != before_ids or after_list != before_list:
+                    new_ids = after_ids - before_ids
                     self.log(
                         f'[스크롤] 로딩 감지! 새 {len(new_ids)}개 ({attempt + 1}회 스크롤)'
                     )
