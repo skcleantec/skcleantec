@@ -31,6 +31,25 @@ def contains_hired_me(*texts: str, marker: str = None) -> bool:
     return False
 
 
+def contains_hired_other(*texts: str, marker: str = None) -> bool:
+    """띄어쓰기 무시하고 '다른 고수 고용' 배지/시스템 문구 포함 여부"""
+    normalized_marker = normalize_hired_me_marker(
+        marker if marker is not None else SYSTEM_MESSAGES['HIRED_OTHER']
+    )
+    if not normalized_marker:
+        return False
+    for text in texts:
+        if not text:
+            continue
+        normalized_text = normalize_hired_me_marker(text)
+        if normalized_marker in normalized_text:
+            return True
+        # UI 변형: "다른 고수를 고용함" / "다른고수고용" 등
+        if '다른고수' in normalized_text and '고용' in normalized_text:
+            return True
+    return False
+
+
 def normalize_hired_me_settings(settings: dict) -> tuple[str, bool]:
     """내 고용 제외 필터 설정 정규화"""
     enabled = bool(settings.get('hired_me_enabled', True))

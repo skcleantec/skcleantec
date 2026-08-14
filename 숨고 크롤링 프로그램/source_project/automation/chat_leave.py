@@ -5,6 +5,8 @@ import time
 from typing import Callable, Optional
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 logger = logging.getLogger(__name__)
 
@@ -26,31 +28,41 @@ class ChatLeaveHelper:
         try:
             clicked = self.driver.execute_script("""
                 var selectors = [
+                    'button[aria-label*="더보기"]',
+                    'button[aria-label*="메뉴"]',
                     'button.dropdown-toggle',
                     'button[aria-haspopup="true"]',
                     'button[aria-haspopup="menu"]',
                     'header button',
                     '[class*="chat"] button'
                 ];
+                function visible(el) {
+                    if (!el) return false;
+                    var rect = el.getBoundingClientRect();
+                    return rect.width >= 5 && rect.height >= 5;
+                }
+                function tryClick(btn) {
+                    if (!visible(btn)) return false;
+                    btn.click();
+                    return true;
+                }
                 for (var s = 0; s < selectors.length; s++) {
                     var buttons = document.querySelectorAll(selectors[s]);
                     for (var i = 0; i < buttons.length; i++) {
                         var btn = buttons[i];
                         var rect = btn.getBoundingClientRect();
                         if (rect.width < 5 || rect.height < 5) continue;
-                        if (rect.top < 120 && rect.right > window.innerWidth * 0.55) {
-                            btn.click();
-                            return true;
+                        if (rect.top < 140 && rect.right > window.innerWidth * 0.5) {
+                            if (tryClick(btn)) return true;
                         }
                     }
                 }
-                var allButtons = document.querySelectorAll('button');
+                var allButtons = document.querySelectorAll('header button, button');
                 for (var j = 0; j < allButtons.length; j++) {
                     var b = allButtons[j];
                     var r = b.getBoundingClientRect();
-                    if (r.top < 80 && r.right > window.innerWidth * 0.7 && r.width < 60) {
-                        b.click();
-                        return true;
+                    if (r.top < 100 && r.right > window.innerWidth * 0.65 && r.width < 72) {
+                        if (tryClick(b)) return true;
                     }
                 }
                 return false;
@@ -60,6 +72,8 @@ class ChatLeaveHelper:
                 return True
 
             for selector in (
+                'button[aria-label*="더보기"]',
+                'button[aria-label*="메뉴"]',
                 'button.dropdown-toggle',
                 "button[aria-haspopup='true']",
                 "button[aria-haspopup='menu']",
@@ -76,14 +90,19 @@ class ChatLeaveHelper:
 
     def click_leave_menu(self) -> bool:
         try:
+            time.sleep(0.25)
             clicked = self.driver.execute_script("""
                 var menuItems = document.querySelectorAll(
-                    'a.dropdown-item, button.dropdown-item, [role="menuitem"], li button, li a'
+                    '.dropdown-menu.show a, .dropdown-menu.show button, ' +
+                    'a.dropdown-item, button.dropdown-item, [role="menuitem"]'
                 );
                 for (var i = menuItems.length - 1; i >= 0; i--) {
-                    var text = (menuItems[i].textContent || '').trim();
-                    if (text.includes('채팅방 나가기')) {
-                        menuItems[i].click();
+                    var el = menuItems[i];
+                    var rect = el.getBoundingClientRect();
+                    if (rect.width < 2 || rect.height < 2) continue;
+                    var text = (el.textContent || '').trim();
+                    if (text.indexOf('채팅방 나가기') >= 0 || text === '나가기') {
+                        el.click();
                         return true;
                     }
                 }
@@ -94,9 +113,11 @@ class ChatLeaveHelper:
                 return True
 
             for item in self.driver.find_elements(
-                By.CSS_SELECTOR, 'a.dropdown-item, button.dropdown-item'
+                By.CSS_SELECTOR,
+                '.dropdown-menu.show a, .dropdown-menu.show button, a.dropdown-item, button.dropdown-item',
             ):
-                if '채팅방 나가기' in (item.text or ''):
+                label = (item.text or '').strip()
+                if '채팅방 나가기' in label or label == '나가기':
                     item.click()
                     self._log("'채팅방 나가기' 메뉴 클릭 완료 (CSS)")
                     return True
@@ -107,15 +128,45 @@ class ChatLeaveHelper:
 
     def confirm_leave(self) -> bool:
         try:
+            try:
+                WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((
+                        By.CSS_SELECTOR,
+                        '[role="dialog"], .modal.show, .modal-dialog, [class*="Modal"]',
+                    ))
+                )
+            except Exception:
+                pass
+
             clicked = self.driver.execute_script("""
-                var buttons = document.querySelectorAll(
-                    'button, .modal button, [role="dialog"] button'
-                );
-                for (var i = 0; i < buttons.length; i++) {
-                    var text = (buttons[i].textContent || '').trim();
-                    if ((text === '채팅방 나가기' || text.includes('나가기')) && !text.includes('취소')) {
-                        buttons[i].click();
-                        return true;
+                function visible(el) {
+                    var rect = el.getBoundingClientRect();
+                    return rect.width > 0 && rect.height > 0;
+                }
+                function isLeaveConfirm(text) {
+                    if (!text) return false;
+                    if (text.indexOf('취소') >= 0) return false;
+                    return text === '채팅방 나가기' || text === '나가기' || text.indexOf('나가기') >= 0;
+                }
+                var scopes = [
+                    document.querySelector('[role="dialog"]'),
+                    document.querySelector('.modal.show'),
+                    document.querySelector('.modal-dialog'),
+                    document.body
+                ];
+                for (var s = 0; s < scopes.length; s++) {
+                    var root = scopes[s];
+                    if (!root) continue;
+                    var buttons = root.querySelectorAll('button, a.btn, [role="button"]');
+                    for (var i = 0; i < buttons.length; i++) {
+                        var btn = buttons[i];
+                        if (!visible(btn)) continue;
+                        if (btn.closest('.dropdown-menu')) continue;
+                        var text = (btn.textContent || '').trim();
+                        if (isLeaveConfirm(text)) {
+                            btn.click();
+                            return true;
+                        }
                     }
                 }
                 return false;
@@ -124,8 +175,13 @@ class ChatLeaveHelper:
                 self._log('나가기 확인 버튼 클릭 완료')
                 return True
 
-            for btn in self.driver.find_elements(By.CSS_SELECTOR, 'button'):
-                if btn.is_displayed() and '채팅방 나가기' in (btn.text or ''):
+            for btn in self.driver.find_elements(By.CSS_SELECTOR, '[role="dialog"] button, .modal.show button'):
+                if not btn.is_displayed():
+                    continue
+                label = (btn.text or '').strip()
+                if '취소' in label:
+                    continue
+                if '채팅방 나가기' in label or label == '나가기':
                     btn.click()
                     self._log('나가기 확인 버튼 클릭 완료 (대기 후)')
                     return True

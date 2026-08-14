@@ -451,6 +451,48 @@ return (function() {
 })()
 """
 
+_JS_SCROLL_CHAT_LIST = """
+return (function(deltaY, toTop) {
+    function pickUl() {
+        var selectors = ['ul.css-19wxjby', 'main ul', 'ul[class*="css-"]'];
+        var best = null;
+        var bestScore = 0;
+        for (var s = 0; s < selectors.length; s++) {
+            var nodes = document.querySelectorAll(selectors[s]);
+            for (var n = 0; n < nodes.length; n++) {
+                var lis = nodes[n].querySelectorAll(':scope > li');
+                if (lis.length > bestScore) {
+                    bestScore = lis.length;
+                    best = nodes[n];
+                }
+            }
+        }
+        return best;
+    }
+    function findScrollable(start) {
+        var el = start;
+        while (el) {
+            if (el.scrollHeight > el.clientHeight + 8) return el;
+            el = el.parentElement;
+        }
+        return null;
+    }
+    var ul = pickUl();
+    var target = findScrollable(ul) || ul;
+    if (toTop) {
+        if (target) { target.scrollTop = 0; return true; }
+        window.scrollTo(0, 0);
+        return true;
+    }
+    if (target) {
+        target.scrollTop += deltaY;
+        return true;
+    }
+    window.scrollBy(0, deltaY);
+    return true;
+})(arguments[0], arguments[1]);
+"""
+
 
 class ChatListManager:
     """채팅 목록 관리 클래스"""
@@ -718,21 +760,31 @@ class ChatListManager:
 
     def scroll_down(self, scroll_amount: int = 300) -> bool:
         try:
-            ActionChains(self.driver).scroll_by_amount(0, scroll_amount).perform()
+            ok = self.driver.execute_script(_JS_SCROLL_CHAT_LIST, scroll_amount, False)
             time.sleep(0.1)
-            return True
-        except Exception as e:
-            logger.error(f'스크롤 오류: {e}')
-            return False
+            return bool(ok)
+        except Exception:
+            try:
+                ActionChains(self.driver).scroll_by_amount(0, scroll_amount).perform()
+                time.sleep(0.1)
+                return True
+            except Exception as e:
+                logger.error(f'스크롤 오류: {e}')
+                return False
 
     def scroll_to_top(self) -> bool:
         try:
-            self.driver.execute_script('window.scrollTo(0, 0);')
+            ok = self.driver.execute_script(_JS_SCROLL_CHAT_LIST, 0, True)
             time.sleep(self.delay * 0.5)
-            return True
-        except Exception as e:
-            logger.error(f'최상단 스크롤 오류: {e}')
-            return False
+            return bool(ok)
+        except Exception:
+            try:
+                self.driver.execute_script('window.scrollTo(0, 0);')
+                time.sleep(self.delay * 0.5)
+                return True
+            except Exception as e:
+                logger.error(f'최상단 스크롤 오류: {e}')
+                return False
 
     def click_chat_item(self, chat_item: dict) -> bool:
         """채팅방 클릭하여 입장"""
