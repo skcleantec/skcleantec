@@ -1396,9 +1396,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     if (isCreate || !item || editForm.crewMemberCount <= 0) return false;
     if (isBlockedForCrewPartnerSwapStatus(editForm.status)) return false;
     if (!(editForm.preferredDate || '').trim()) return false;
-    const lids = resolvedExternalLeadId
-      ? [resolvedExternalLeadId]
-      : editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
+    if (activeNativePartnerShareSource || resolvedExternalLeadId) return false;
+    const lids = editForm.teamLeaderIds.filter((lid) => lid.trim() !== '');
     if (lids.length === 0) return false;
     return true;
   }, [
@@ -1408,6 +1407,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     editForm.status,
     editForm.preferredDate,
     editForm.teamLeaderIds,
+    activeNativePartnerShareSource,
     resolvedExternalLeadId,
   ]);
 
@@ -1456,6 +1456,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       if (!(it.assignments?.length ?? 0)) return false;
       const st = partnerSwapStatusForRow(it);
       if (isBlockedForCrewPartnerSwapStatus(st)) return false;
+      if (isActiveNativePartnerShareSource(it.tenantShare)) return false;
+      if ((it.assignments ?? []).some((a) => a.teamLeader.role === 'EXTERNAL_PARTNER')) return false;
       return true;
     });
   }, [crewSwapDayItems, crewSwapModalOpen, item]);

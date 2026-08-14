@@ -658,7 +658,11 @@ router.use('/:inquiryId/extra-charges', inquiryExtraChargesAdminRoutes);
 router.use('/:inquiryId/additional-receipts', inquiryAdditionalReceiptsAdminRoutes);
 
 /** 같은 예약일 다른 접수와 팀원 투입(인원·이름) 맞바꿈 */
-router.post('/:id/swap-crew-with-partner', handlePostSwapCrewWithPartner);
+router.post(
+  '/:id/swap-crew-with-partner',
+  requireStaffPermission('inquiry.edit.assignment'),
+  handlePostSwapCrewWithPartner,
+);
 
 /** 같은 예약일 다른 접수와 자사 팀장 1쌍 맞바꿈 */
 router.post(

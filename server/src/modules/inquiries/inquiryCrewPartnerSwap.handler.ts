@@ -5,9 +5,14 @@ import type { AuthPayload } from '../auth/auth.middleware.js';
 import { assignmentTeamLeaderSelect } from './assignmentTeamLeaderSelect.js';
 import { isCrewRosterChanged } from './crewMemberNoteCompare.js';
 import {
+  clearAssignmentCrewMeetingTimes,
+  inquiryHasAnyCrewMeetingTimeExtended,
+  syncInquiryCrewLeaderAssignments,
+} from './inquiryCrewLeaderAssignment.helpers.js';
+import {
   clearInquiryCrewMemberMeetingTimes,
-  inquiryHasAnyCrewMeetingTime,
 } from './inquiryCrewMemberMeetingTime.service.js';
+import { allTeamLeadersSolo } from './inquiryNoCrewMembers.helpers.js';
 import { dateToYmdKst } from '../users/userEmployment.js';
 import { notifyInboxRefresh } from '../realtime/inboxNotify.js';
 import { notifyChangeLogToStaff } from '../realtime/changeLogNotify.js';
@@ -20,6 +25,10 @@ import {
 import { attachDistanceFromJuanForInquiry } from './inquiryJuanDistance.js';
 import { inquiryDetailInclude } from './inquiryDetailInclude.js';
 import { crewPairScheduleChangedAckMessages } from './crewRosterAckMessages.js';
+import {
+  inquiryHasActivePartnerShareSource,
+  inquiryHasExternalPartnerAssignment,
+} from './inquiryExternalPartnerShareMutex.js';
 
 const swapInclude = {
   assignments: {
@@ -27,6 +36,8 @@ const swapInclude = {
     include: { teamLeader: { select: assignmentTeamLeaderSelect } },
   },
 } as const;
+
+type SwapInquiryRow = Prisma.InquiryGetPayload<{ include: typeof swapInclude }>;
 
 /** 클라이언트 `parseCrewMemberNoteToNames` 및 `crewFieldSchedule` 과 동일 규칙 */
 const NOTE_SPLIT = /[,·/|]/g;
@@ -46,6 +57,42 @@ function joinCrewMemberNote(names: string[]): string | null {
 
 function fmtNum(v: unknown) {
   return v == null || v === '' ? '(없음)' : String(v);
+}
+
+function leaderIdsFromAssignments(row: SwapInquiryRow): {
+  teamLeaderIds: string[];
+  soloTeamLeaderIds: string[];
+} {
+  const teamLeaderIds = row.assignments.map((a) => a.teamLeaderId);
+  const soloTeamLeaderIds = row.assignments
+    .filter((a) => a.noCrewMembers)
+    .map((a) => a.teamLeaderId);
+  return { teamLeaderIds, soloTeamLeaderIds };
+}
+
+async function syncCrewLeaderAssignmentsAfterSwap(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  row: SwapInquiryRow,
+  crewMemberNote: string | null,
+): Promise<void> {
+  const { teamLeaderIds, soloTeamLeaderIds } = leaderIdsFromAssignments(row);
+  if (teamLeaderIds.length === 0) return;
+  if (allTeamLeadersSolo(teamLeaderIds, soloTeamLeaderIds)) {
+    await tx.inquiryCrewLeaderAssignment.deleteMany({
+      where: { tenantId, inquiryId: row.id },
+    });
+    return;
+  }
+  if (!String(crewMemberNote ?? '').trim()) return;
+  const syncResult = await syncInquiryCrewLeaderAssignments(tx, tenantId, row.id, {
+    crewMemberNote,
+    teamLeaderIds,
+    soloTeamLeaderIds,
+  });
+  if (syncResult.error) {
+    throw new Error(syncResult.error);
+  }
 }
 
 const BLOCKED_SWAP_STATUSES = new Set([
@@ -98,6 +145,22 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
       error:
         '대기·입금·미제출·보류·취소 등의 상태인 접수는 팀원 맞바꿈을 할 수 없습니다. 분배·진행 중인 건끼리만 가능합니다.',
     });
+    return;
+  }
+
+  if (
+    (await inquiryHasActivePartnerShareSource(prisma, a.id)) ||
+    (await inquiryHasActivePartnerShareSource(prisma, b.id))
+  ) {
+    res.status(400).json({ error: '파트너 연계 접수는 팀원 맞바꿈을 할 수 없습니다.' });
+    return;
+  }
+
+  if (
+    (await inquiryHasExternalPartnerAssignment(prisma, tenantId, a.id)) ||
+    (await inquiryHasExternalPartnerAssignment(prisma, tenantId, b.id))
+  ) {
+    res.status(400).json({ error: '타업체 담당 접수는 팀원 맞바꿈을 할 수 없습니다.' });
     return;
   }
 
@@ -175,9 +238,17 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
   const bChanged = isCrewRosterChanged(bNote, bCount, bNoteNext, bCount);
 
   const aHadMeeting =
-    aChanged && (await inquiryHasAnyCrewMeetingTime(prisma, a.id, a.crewMeetingTime));
+    aChanged &&
+    (await inquiryHasAnyCrewMeetingTimeExtended(prisma, a.id, {
+      crewMeetingTime: a.crewMeetingTime,
+      assignments: a.assignments,
+    }));
   const bHadMeeting =
-    bChanged && (await inquiryHasAnyCrewMeetingTime(prisma, b.id, b.crewMeetingTime));
+    bChanged &&
+    (await inquiryHasAnyCrewMeetingTimeExtended(prisma, b.id, {
+      crewMeetingTime: b.crewMeetingTime,
+      assignments: b.assignments,
+    }));
 
   const labelOther = (row: typeof a) =>
     `${String(row.customerName ?? '').trim() || '고객'}${row.inquiryNumber != null ? ` (#${row.inquiryNumber})` : ''}`;
@@ -217,10 +288,27 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.inquiry.update({ where: { id: a.id }, data: dataA });
-      await tx.inquiry.update({ where: { id: b.id }, data: dataB });
-      if (aChanged) await clearInquiryCrewMemberMeetingTimes(tx, a.id);
-      if (bChanged) await clearInquiryCrewMemberMeetingTimes(tx, b.id);
+      const updatedA = await tx.inquiry.updateMany({
+        where: { id: a.id, tenantId },
+        data: dataA,
+      });
+      const updatedB = await tx.inquiry.updateMany({
+        where: { id: b.id, tenantId },
+        data: dataB,
+      });
+      if (updatedA.count !== 1 || updatedB.count !== 1) {
+        throw new Error('NOT_FOUND');
+      }
+      if (aChanged) {
+        await clearInquiryCrewMemberMeetingTimes(tx, a.id);
+        await clearAssignmentCrewMeetingTimes(tx, tenantId, a.id);
+      }
+      if (bChanged) {
+        await clearInquiryCrewMemberMeetingTimes(tx, b.id);
+        await clearAssignmentCrewMeetingTimes(tx, tenantId, b.id);
+      }
+      await syncCrewLeaderAssignmentsAfterSwap(tx, tenantId, a, aNoteNext);
+      await syncCrewLeaderAssignmentsAfterSwap(tx, tenantId, b, bNoteNext);
       await tx.inquiryChangeLog.create({
         data: {
           inquiryId: a.id,
@@ -239,6 +327,16 @@ export async function handlePostSwapCrewWithPartner(req: Request, res: Response)
       });
     });
   } catch (e) {
+    if (e instanceof Error) {
+      if (e.message === 'NOT_FOUND') {
+        res.status(404).json({ error: '접수를 찾을 수 없습니다.' });
+        return;
+      }
+      if (e.message.includes('팀장') || e.message.includes('팀원')) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
+    }
     console.error('swap-crew-with-partner transaction:', e);
     res.status(500).json({ error: '저장 중 오류가 발생했습니다.' });
     return;
