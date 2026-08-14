@@ -9,6 +9,7 @@ const ZIP_SHA256_BY_VERSION: Record<string, string> = {
   '1.0.3': 'a53a3693da1ed48a739ea568d9fa7a7a879c36b406cd3c31072b7d70022c3834',
   '1.0.4': '712187b578899ba8b2860b6c71c1826f81f73a52095c8e37cc21a98f4365013f',
   '1.0.5': 'f4d4a6b9b800df189ab39444daefb52bc0a9486b4bc38b9d7cf10e8e56c539ed',
+  '1.0.6': '172db2d5a79241501736fb97fd208204aeb1cdedcd18e49f1bc5d822ccf9dbe8',
 };
 
 export type SoomgoAutomationManifest = {
