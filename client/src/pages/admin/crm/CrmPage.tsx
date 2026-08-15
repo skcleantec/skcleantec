@@ -173,6 +173,11 @@ export function CrmPage() {
   const [pricePerPyeong, setPricePerPyeong] = useState(0);
   const [minimumTotalAmount, setMinimumTotalAmount] = useState(0);
   const [baseEstimateOverrideWon, setBaseEstimateOverrideWon] = useState<number | null>(null);
+  const [intakeStructure, setIntakeStructure] = useState({
+    roomCount: '',
+    bathroomCount: '',
+    balconyCount: '',
+  });
   const [pricingResetKey, setPricingResetKey] = useState(0);
   const [depositAmount, setDepositAmount] = useState(0);
   const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
@@ -435,6 +440,11 @@ export function CrmPage() {
   const handleFormChange = useCallback(
     (snapshot: CrmIntakeFormSnapshot) => {
       formSnapshotRef.current = snapshot;
+      setIntakeStructure({
+        roomCount: snapshot.roomCount,
+        bathroomCount: snapshot.bathroomCount,
+        balconyCount: snapshot.balconyCount,
+      });
       setIntakeIdentity({
         customerName: snapshot.customerName,
         nickname: snapshot.nickname,
@@ -640,6 +650,11 @@ export function CrmPage() {
         goldDb: false,
         leadSource: BRIDGE_INQUIRY_LEAD_SOURCE_LABEL.soomgo,
         extractPlatform: 'soomgo',
+      });
+      setIntakeStructure({
+        roomCount: formatSoomgoCountForCrm(data.roomCount),
+        bathroomCount: formatSoomgoCountForCrm(data.bathroomCount),
+        balconyCount: formatSoomgoCountForCrm(data.balconyCount),
       });
       setIntakeIdentity({
         customerName: name,
@@ -1579,6 +1594,19 @@ export function CrmPage() {
               onSendSoomgoQuote={() => void handleSendSoomgoQuote()}
               soomgoQuoteSending={soomgoQuoteSending}
               pricingResetKey={pricingResetKey}
+              learningContext={{
+                pyeong,
+                roomCount: intakeStructure.roomCount,
+                bathroomCount: intakeStructure.bathroomCount,
+                balconyCount: intakeStructure.balconyCount,
+              }}
+              onOpenLearningSettings={
+                canOpenSettings
+                  ? () => {
+                      window.open('/admin/crm/settings/quote-learning', '_blank', 'noopener,noreferrer');
+                    }
+                  : undefined
+              }
             />
           }
         />

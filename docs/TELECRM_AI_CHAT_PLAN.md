@@ -400,6 +400,25 @@ model TelecrmAiSummary {
 
 ---
 
+### Phase 10 — 견적·인원 학습 (예약확정 기반 · 가시화)
+
+**목표:** `RECEIVED` 접수의 평수·건축물·방/화/베·확정 금액·팀장 수·팀원 수를 테넌트별로 누적하고, 상담 견적 패널·설정 화면에서 **눈으로 확인**.
+
+| 계층 | 내용 |
+|------|------|
+| **학습 원천** | `Inquiry` 예약확정 + `Assignment` 팀장 수 + `crewMemberCount` |
+| **저장** | `TelecrmQuoteCrewLearningSnapshot` (1접수 1행) |
+| **동기화** | 접수 PATCH 성공 후 자동 upsert · 설정 「전체 동기화」 backfill |
+| **힌트** | `GET /api/crm/quote-learning/hints` — 유사 N건 · median 금액 · 팀장/팀원 |
+| **가시화** | **텔레CRM 설정 → 견적·인원 학습** — 총 건수·7일/30일·진행 바·상위 조건·최근 반영 목록 |
+| **상담 UI** | `CrmPricingPanel` 상단 배너 — 「유사 예약 N건 · 보통 X원 · 팀장/팀원」 |
+
+**원칙:** OpenAI 파인튜닝 X · Phase 7 RAG(답변 저장)와 **별 트랙**. 데이터 많을수록 `readiness` 단계 상승.
+
+**파일:** `telecrmQuoteCrewLearning.service.ts` · `TelecrmQuoteLearningSettingsPage.tsx` · `shared/telecrmQuoteCrewLearning.ts`
+
+---
+
 ## 7. 로컬 개발 체크리스트 (배포 전 공통)
 
 - [ ] `npm run dev` — API `:3000`, CRM 팝업

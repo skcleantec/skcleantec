@@ -97,14 +97,21 @@ export async function callOpenAiJson(params: {
         usage.promptTokens,
         usage.completionTokens,
       );
-      await persistAiUsageLog({
-        product: params.product,
-        context: params.logContext,
-        model,
-        promptTokens: usage.promptTokens,
-        completionTokens: usage.completionTokens,
-        estimatedCostUsdMicros,
-      });
+      try {
+        await persistAiUsageLog({
+          product: params.product,
+          context: params.logContext,
+          model,
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          estimatedCostUsdMicros,
+        });
+      } catch (e) {
+        console.error(
+          `${logTag} usage log persist failed`,
+          e instanceof Error ? e.message : 'unknown',
+        );
+      }
     }
 
     return { json, usage, failed: false };

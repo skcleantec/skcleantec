@@ -301,6 +301,7 @@ model Tenant {
   telecrmSmsTemplates TelecrmSmsTemplate[]
   telecrmCallNotes    TelecrmCallNote[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
+  telecrmQuoteCrewLearningSnapshots TelecrmQuoteCrewLearningSnapshot[]
   telecrmSoomgoConfig       TelecrmSoomgoConfig?
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
@@ -2140,6 +2141,7 @@ model Inquiry {
   telecrmCallSessions       TelecrmCallSession[]
   telecrmCallNotes          TelecrmCallNote[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
+  telecrmQuoteCrewLearningSnapshot TelecrmQuoteCrewLearningSnapshot?
   telecrmAiUsageLogs        TelecrmAiUsageLog[]
   telecrmAiSummaries        TelecrmAiSummary[]
   quickPasteAiUsageLogs     QuickPasteAiUsageLog[]
@@ -4061,6 +4063,37 @@ model TelecrmConsultationQuote {
   @@index([tenantId, followupId])
   @@index([tenantId, inquiryId])
   @@map("telecrm_consultation_quotes")
+}
+
+/// 텔레CRM — 예약확정 접수 기반 견적·인원 학습 스냅샷 (1접수 1행)
+model TelecrmQuoteCrewLearningSnapshot {
+  id                     String   @id @default(uuid())
+  tenantId               String   @map("tenant_id")
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inquiryId              String   @unique @map("inquiry_id")
+  inquiry                Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  inquiryNumber          String?  @map("inquiry_number") @db.VarChar(24)
+  customerName           String?  @map("customer_name") @db.VarChar(120)
+  areaPyeong             Float?   @map("area_pyeong")
+  propertyType           String?  @map("property_type") @db.VarChar(64)
+  buildingType           String?  @map("building_type") @db.VarChar(64)
+  isOneRoom              Boolean  @default(false) @map("is_one_room")
+  roomCount              Int?     @map("room_count")
+  bathroomCount          Int?     @map("bathroom_count")
+  balconyCount           Int?     @map("balcony_count")
+  serviceTotalAmount     Int?     @map("service_total_amount")
+  teamLeaderCount        Int      @default(0) @map("team_leader_count")
+  crewMemberCount        Int?     @map("crew_member_count")
+  featureKey             String   @map("feature_key") @db.VarChar(128)
+  featureLabel           String   @map("feature_label") @db.VarChar(256)
+  sourceInquiryUpdatedAt DateTime @map("source_inquiry_updated_at")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId, updatedAt(sort: Desc)])
+  @@index([tenantId, featureKey])
+  @@index([tenantId, sourceInquiryUpdatedAt(sort: Desc)])
+  @@map("telecrm_quote_crew_learning_snapshots")
 }
 
 /// 텔레CRM AI 요약 — 사용량 로그 (원문 미저장)

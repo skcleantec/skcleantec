@@ -10,6 +10,7 @@ import { PageTitleWithFavorite } from '../../../../components/layout/NavFavorite
 const NAV = [
   { to: '/admin/crm/settings/scripts', label: '스크립트' },
   { to: '/admin/crm/settings/pricing', label: '가격' },
+  { to: '/admin/crm/settings/quote-learning', label: '견적·인원 학습' },
   { to: '/admin/crm/settings/general', label: '기본 단가' },
   {
     to: '/admin/crm/settings/lead-sources',

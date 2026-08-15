@@ -146,6 +146,7 @@ import {
   attachDbListingMetaToInquiries,
   attachDbListingMetaToInquiry,
 } from '../db-marketplace/dbMarketplaceInquiryMeta.js';
+import { syncTelecrmQuoteCrewLearningFromInquiry } from '../telecrm/telecrmQuoteCrewLearning.service.js';
 import {
   attachMarketplaceHandoffBuyerMetaToInquiries,
   attachMarketplaceHandoffBuyerMetaToInquiry,
@@ -1827,6 +1828,9 @@ router.patch('/:id', async (req, res) => {
   const patched = attachInternalCustomerToneForRole(
     attachDistanceFromJuanForInquiry(updated),
     user.role,
+  );
+  void syncTelecrmQuoteCrewLearningFromInquiry(prisma, tenantId, id).catch((e) =>
+    console.error('[telecrm-quote-learning] sync after inquiry patch', e),
   );
   res.json(
     await attachDbListingMetaToInquiry(

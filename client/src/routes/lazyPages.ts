@@ -412,6 +412,11 @@ export const TelecrmPricingSettingsPage = lazyWithRetry(() =>
     default: m.TelecrmPricingSettingsPage,
   }))
 );
+export const TelecrmQuoteLearningSettingsPage = lazyWithRetry(() =>
+  import('../pages/admin/crm/settings/TelecrmQuoteLearningSettingsPage').then((m) => ({
+    default: m.TelecrmQuoteLearningSettingsPage,
+  }))
+);
 export const TelecrmGeneralSettingsPage = lazyWithRetry(() =>
   import('../pages/admin/crm/settings/TelecrmGeneralSettingsPage').then((m) => ({
     default: m.TelecrmGeneralSettingsPage,

@@ -8,6 +8,7 @@ import {
   type TelecrmPriceItemDto,
 } from '../../../api/telecrm';
 import { formatWon, partitionTelecrmCategories } from '../settings/telecrmSettingsUi';
+import { CrmQuoteLearningHintBanner } from './CrmQuoteLearningHintBanner';
 import { CrmColumn } from '../layout/CrmShell';
 import {
   CrmActionButton,
@@ -174,6 +175,8 @@ export function CrmPricingPanel({
   soomgoQuoteSending = false,
   pricingResetKey = 0,
   compact = false,
+  learningContext,
+  onOpenLearningSettings,
 }: {
   pyeong: string;
   onPyeongChange: (v: string) => void;
@@ -202,6 +205,8 @@ export function CrmPricingPanel({
   soomgoQuoteSending?: boolean;
   pricingResetKey?: number;
   compact?: boolean;
+  learningContext?: import('./CrmQuoteLearningHintBanner').CrmQuoteLearningContext;
+  onOpenLearningSettings?: () => void;
 }) {
   const token = getToken();
   const [categories, setCategories] = useState<TelecrmPriceCategoryDto[]>([]);
@@ -531,6 +536,14 @@ export function CrmPricingPanel({
         ) : null}
         {quoteFinalizeError ? (
           <p className="shrink-0 border-b border-red-100 bg-red-50 px-2 py-1 text-[10px] text-red-700">{quoteFinalizeError}</p>
+        ) : null}
+        {learningContext ? (
+          <div className="shrink-0 border-b border-amber-100/80 px-2 py-1.5">
+            <CrmQuoteLearningHintBanner
+              context={learningContext}
+              onOpenLearningSettings={onOpenLearningSettings}
+            />
+          </div>
         ) : null}
         <div className={`shrink-0 space-y-1.5 border-b border-amber-100/80 px-2 py-1.5 ${CRM_ACCENT.pricing.panel}`}>
           <div className="relative">
