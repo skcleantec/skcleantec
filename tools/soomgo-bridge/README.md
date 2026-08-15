@@ -101,6 +101,8 @@ GitHub Actions: 태그 `soomgo-bridge-v*` 푸시 시 Setup+ZIP 자동 빌드
 
 **정보 갖고오기**는 고객 요청 모달 파싱 → 모달 닫기 → 안심번호 추출까지 한 번에 수행합니다.
 
+**장애·DOM·JS 문법 이슈 정리 (2026-08):** `docs/SOOMGO_BRIDGE_CRM_EXTRACT.md`
+
 ## 정상 화면 (상담사 · QA — **항상 이렇게**)
 
 텔레CRM **「숨고 연동」**을 켜면 PC 화면이 **2분할**됩니다.

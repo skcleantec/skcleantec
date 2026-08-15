@@ -69,6 +69,7 @@ export async function parseQuickPasteForTenant(
   db: PrismaClient,
   tenantId: string,
   rawText: string,
+  userId?: string | null,
 ): Promise<QuickPasteEnrichedParseResult> {
   const trimmed = rawText.trim();
   const ruleResult = parseQuickPasteText(trimmed);
@@ -104,6 +105,8 @@ export async function parseQuickPasteForTenant(
     const understood = await understandAndExtractQuickPasteWithAi({
       rawText: trimmed,
       draft,
+      tenantId,
+      userId,
     });
     draft = guardPreferredDate(understood.draft);
     aiContextSummary = understood.contextSummary;
@@ -142,7 +145,12 @@ export async function parseQuickPasteForTenant(
 
   // 2차: 금액·날짜 등 명확한 오류만
   if (aiAvailable) {
-    const review = await reviewQuickPasteDraftWithAi({ rawText: trimmed, draft });
+    const review = await reviewQuickPasteDraftWithAi({
+      rawText: trimmed,
+      draft,
+      tenantId,
+      userId,
+    });
     draft = guardPreferredDate(review.draft);
     aiReviewed = review.reviewed;
     aiCorrectedFields = [...new Set([...aiCorrectedFields, ...review.correctedFields])];

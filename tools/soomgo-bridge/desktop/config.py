@@ -30,6 +30,7 @@ UPDATE_MANIFEST_PATH = APP_DATA_DIR / 'update.manifest.json'
 RESTART_FLAG_PATH = APP_DATA_DIR / 'restart.request'
 UPDATE_STATE_PATH = APP_DATA_DIR / 'update.state.json'
 UPDATE_CACHE_DIR = APP_DATA_DIR / 'update-cache'
+CHAT_TRANSCRIPTS_DIR = APP_DATA_DIR / 'chat-transcripts'
 BRIDGE_STATUS_URL = 'http://127.0.0.1:17890/status'
 BRIDGE_REQUEST_UPDATE_URL = 'http://127.0.0.1:17890/request-update'
 BRIDGE_RESTART_URL = 'http://127.0.0.1:17890/restart-bridge'
@@ -68,6 +69,12 @@ def _migrate_legacy_app_data() -> None:
 def ensure_app_data() -> None:
     APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
     _migrate_legacy_app_data()
+
+
+def resolve_chat_transcripts_dir() -> pathlib.Path:
+    ensure_app_data()
+    CHAT_TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
+    return CHAT_TRANSCRIPTS_DIR
 
 
 def resolve_restart_flag_path() -> pathlib.Path:

@@ -39,7 +39,7 @@ async function buildDuplicateAndSoloPreview(
 }
 
 export async function buildQuickPastePreview(rawText: string, tenantId: string, actorUserId: string) {
-  const parsed = await parseQuickPasteForTenant(prisma, tenantId, rawText);
+  const parsed = await parseQuickPasteForTenant(prisma, tenantId, rawText, actorUserId);
   const plan = await getTenantPlan(tenantId);
   const coins = await getTenantCoinSnapshot(prisma, tenantId, plan);
   const { duplicateMatches, soloAutoAssign } = await buildDuplicateAndSoloPreview(
@@ -109,7 +109,7 @@ export async function commitQuickPasteIntake(opts: {
     throw new QuickPasteValidationError('붙여넣을 내용이 없습니다.');
   }
 
-  const enriched = await parseQuickPasteForTenant(prisma, opts.tenantId, rawText);
+  const enriched = await parseQuickPasteForTenant(prisma, opts.tenantId, rawText, opts.userId);
   const ruleDraft = opts.parseSnapshot?.ruleDraft ?? enriched.ruleDraft;
   const previewDraft = opts.parseSnapshot?.previewDraft ?? enriched.draft;
   const aiApplied = opts.parseSnapshot?.aiApplied ?? enriched.aiApplied;

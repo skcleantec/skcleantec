@@ -1,5 +1,6 @@
 import type { TelecrmContactTimelineItemDto } from '../../../api/telecrm';
 import { extractCrmRegionKey } from '@shared/crmContactIdentity';
+import { humanizeContactTimelineRow } from '@shared/followupLogDisplay';
 import { CrmRightSlideDrawer } from '../layout/CrmRightSlideDrawer';
 
 function fmtWhen(iso: string): string {
@@ -28,6 +29,7 @@ function kindBadgeClass(kind: string, active: boolean): string {
 }
 
 function TimelineRow({ row }: { row: TelecrmContactTimelineItemDto }) {
+  const display = humanizeContactTimelineRow(row);
   return (
     <li
       className={`rounded-xl border px-3 py-2 ${
@@ -41,14 +43,14 @@ function TimelineRow({ row }: { row: TelecrmContactTimelineItemDto }) {
           {row.active ? '진행' : '이력'}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-fluid-xs font-semibold text-slate-900">{row.title}</p>
+          <p className="text-fluid-xs font-semibold text-slate-900">{display.title}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-500">
             <span className="tabular-nums">{fmtWhen(row.at)}</span>
             {row.actorName ? <span className="font-medium text-slate-700">{row.actorName}</span> : null}
           </p>
-          {row.detail ? (
-            <p className="mt-1 text-[11px] leading-snug text-slate-600 line-clamp-3" title={row.detail}>
-              {row.detail}
+          {display.detail ? (
+            <p className="mt-1 text-[11px] leading-snug text-slate-600 line-clamp-3" title={display.detail}>
+              {display.detail}
             </p>
           ) : null}
         </div>

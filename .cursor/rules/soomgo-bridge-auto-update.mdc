@@ -33,8 +33,22 @@ alwaysApply: false
    - 스크립트가 GitHub Release에서 Setup.exe **SHA256 자동 조회**, `version_info.py` 버전 사용
    - 인증: `npx @railway/cli login` **또는** `server/.env`의 `RAILWAY_TOKEN=` (에이전트가 매 릴리스마다 실행)
    - **운영(production)** 은 `main` 반영 시 `-Target both` 로 staging·production 동시 갱신 (사용자가 Railway 수동 갱신 요청하지 않아도 에이전트 의무)
-5. **매니페스트 확인** — 스테이징·(운영 반영 시) 운영 URL에서 `latestVersion`·`downloadUrl`·`sha256` 일치
-6. 작업 보고에 **릴리스 semver·Release URL·Railway 반영 환경(staging/production)** 를 한 줄로 남긴다
+5. **`soomgoBridgeManifest.ts` sha256 폴백** — 새 semver면 `SETUP_SHA256_BY_VERSION`에 Release Setup.exe sha256 한 줄 추가·`staging` 커밋
+6. **환경변수·매니페스트 최종 확인 (필수 — 릴리스 마지막 단계, 생략 금지)**
+   - **`set-railway-vars.ps1` 실행만으로 끝내지 않는다.** 변수 저장과 **실제 API 응답**이 같아야 한다.
+   - 확인 대상 **5개** (`SOOMGO_BRIDGE_REQUIRED_VERSION`, `LATEST_VERSION`, `DOWNLOAD_URL`, `SHA256`, `RELEASE_NOTES`) — staging·production **둘 다**
+   - **매니페스트 HTTP 확인** (에이전트가 직접 호출):
+     - 스테이징: `https://clean-solution-staging.up.railway.app/api/public/soomgo-bridge/manifest`
+     - 운영: `https://www.cbiseo.com/api/public/soomgo-bridge/manifest`
+   - 각 응답에서 **`latestVersion` = 이번 semver**, **`downloadUrl` = GitHub Setup URL**, **`sha256` = Release digest** 일치 확인
+   - **운영이 구버전으로 남으면:** `set-railway-vars.ps1`는 `--skip-deploys`라 **재배포 전까지** 프로세스 env가 갱신되지 않을 수 있다. Railway Variables는 2.2.x인데 매니페스트만 구버전이면 **production redeploy** 후 다시 확인:
+     ```powershell
+     cd server
+     npx @railway/cli redeploy --environment production --service "clean solution" --yes
+     ```
+   - (선택) `npx @railway/cli variables --environment production --service "clean solution"` 로 `SOOMGO_BRIDGE_*` 값 재확인
+   - **최종 확인 전에는 작업 완료·사용자 안내를 하지 않는다.**
+7. 작업 보고에 **릴리스 semver·Release URL·Railway 반영 환경(staging/production)·매니페스트 최종 확인 결과**를 한 줄로 남긴다
 
 **`main` 머지·운영 Railway**는 사용자가 운영 배포를 명시했을 때만 (git-staging-main-push).
 
@@ -64,8 +78,9 @@ alwaysApply: false
 1. `staging`에 커밋·푸시
 2. 태그 **`soomgo-bridge-v{semver}`** 푸시 → Actions **Soomgo Bridge Release** → Setup.exe·ZIP·`railway-env-*.txt` 업로드
 3. `main` fast-forward 머지(**운영 반영 시**, 사용자 명시)
-4. **Railway** — 기본 **staging**; production은 운영 배포 요청 시
-5. 매니페스트 확인: 스테이징 / `https://www.cbiseo.com/api/public/soomgo-bridge/manifest`
+4. **Railway** — `set-railway-vars.ps1 -Target both` (staging·production)
+5. **환경변수·매니페스트 최종 확인** — staging·운영 manifest URL에서 semver·sha256 일치; 운영만 구버전이면 production redeploy 후 재확인 (**릴리스 마지막 단계, 생략 금지**)
+6. 매니페스트 확인: 스테이징 / `https://www.cbiseo.com/api/public/soomgo-bridge/manifest`
 
 ## 데스크톱 Setup 빌드 (Python 번들)
 

@@ -1,4 +1,9 @@
 import type { Prisma } from '@prisma/client';
+import {
+  formatCsTimelineTitle,
+  formatFollowupLogDetail,
+  formatFollowupLogTitle,
+} from '../../lib/followupLogDisplay.js';
 import { prisma } from '../../lib/prisma.js';
 import { normalizeKrPhoneDigits } from '../cs/matchInquiryForCs.js';
 
@@ -369,14 +374,16 @@ export async function listTelecrmContactTimeline(
   }
 
   for (const row of followupLogs) {
+    const detail = formatFollowupLogDetail(row.action, row.detail);
+    if (!detail && row.action.toUpperCase() === 'MEMO') continue;
     items.push({
       id: `followup-log:${row.id}`,
       kind: 'followup_log',
       at: row.createdAt.toISOString(),
       actorId: row.actor.id,
       actorName: actorLabel(row.actor),
-      title: `부재·보류 · ${row.action}`,
-      detail: row.detail?.trim() || null,
+      title: formatFollowupLogTitle(row.action),
+      detail,
       active: false,
     });
   }
@@ -388,7 +395,7 @@ export async function listTelecrmContactTimeline(
       at: row.createdAt.toISOString(),
       actorId: null,
       actorName: null,
-      title: `C/S · ${row.status}`,
+      title: formatCsTimelineTitle(row.status),
       detail: row.content?.trim() || row.memo?.trim() || row.customerName?.trim() || null,
       active: false,
     });

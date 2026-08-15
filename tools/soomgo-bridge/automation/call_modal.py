@@ -10,6 +10,7 @@ from selenium.webdriver.common.by import By
 
 from automation.customer_request import REQUEST_MODAL_DELAY
 from automation.overlay_modals import dismiss_blocking_overlays
+from automation.selectors import SOOMGO_FAVORITE_GUARD_JS
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ for (var i = 0; i < dialogs.length; i++) {
 return null;
 """
 
-_OPEN_MODAL_JS = """
+_OPEN_MODAL_JS = SOOMGO_FAVORITE_GUARD_JS + """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
   var r = el.getBoundingClientRect();
@@ -61,12 +62,15 @@ function visible(el) {
 }
 function hasPhoneIcon(el) {
   if (!el) return false;
-  if (el.querySelector('svg, img, [class*="phone"], [class*="Phone"], [class*="call"], [class*="Call"]')) return true;
+  if (isFavoriteButton(el)) return false;
   var label = ((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '') + ' ' + (el.getAttribute('title') || '')).trim();
-  return /전화|통화|call/i.test(label);
+  if (/전화|통화|call/i.test(label)) return true;
+  if (el.querySelector('[class*="phone"], [class*="Phone"], [class*="call"], [class*="Call"], [data-testid*="phone"], [data-testid*="call"]')) return true;
+  /* 하트(찜)도 prisma-icon svg — svg만으로는 전화로 보지 않음 */
+  return false;
 }
 function scorePhoneButton(el) {
-  if (!visible(el)) return -1;
+  if (!visible(el) || isFavoriteButton(el)) return -1;
   var r = el.getBoundingClientRect();
   if (r.top > 140) return -1;
   var vw = window.innerWidth || 1200;
@@ -79,6 +83,31 @@ function scorePhoneButton(el) {
   if (/안심번호|채팅|메시지|더보기|설정/i.test(label)) score -= 80;
   if (el.closest('footer, [class*="composer"], [class*="input"]')) score -= 100;
   return score;
+}
+var quickContainers = document.querySelectorAll('.quick-btn-container, [class*="quick-btn"]');
+for (var qc = 0; qc < quickContainers.length; qc++) {
+  var qbtns = quickContainers[qc].querySelectorAll('button, a[role="button"], [role="button"]');
+  var phoneBtn = null;
+  var phoneScore = -1;
+  for (var qb = 0; qb < qbtns.length; qb++) {
+    var qbtn = qbtns[qb];
+    if (isFavoriteButton(qbtn) || !visible(qbtn)) continue;
+    if (!hasPhoneIcon(qbtn)) continue;
+    var sc = scorePhoneButton(qbtn);
+    if (sc > phoneScore) { phoneScore = sc; phoneBtn = qbtn; }
+  }
+  if (phoneBtn && phoneScore >= 0) {
+    phoneBtn.click();
+    return true;
+  }
+  if (qbtns.length >= 1) {
+    for (var qb2 = 0; qb2 < qbtns.length; qb2++) {
+      var fallbackBtn = qbtns[qb2];
+      if (isFavoriteButton(fallbackBtn) || !visible(fallbackBtn)) continue;
+      fallbackBtn.click();
+      return true;
+    }
+  }
 }
 var best = null;
 var bestScore = -1;
@@ -364,6 +393,19 @@ class CallModalManager:
                     for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
                         if not elem.is_displayed():
                             continue
+                        try:
+                            skip = self.driver.execute_script(
+                                "var el=arguments[0];"
+                                "var label=((el.getAttribute('aria-label')||'')+' '+(el.textContent||'')).trim();"
+                                "if(/찜|즐겨|관심|하트|favorite|like|bookmark|scrap|heart/i.test(label)) return true;"
+                                "if(el.querySelector('[class*=\"heart\"],[class*=\"favorite\"],[class*=\"like\"],[class*=\"scrap\"]')) return true;"
+                                "return false;",
+                                elem,
+                            )
+                            if skip:
+                                continue
+                        except Exception:
+                            pass
                         try:
                             rect = elem.rect
                             if rect.get('y', 999) > 160:

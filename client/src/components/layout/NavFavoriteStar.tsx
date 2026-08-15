@@ -57,7 +57,7 @@ export function NavFavoriteStar({ navKey, label, onDark = false, compact = false
   const size = compact ? 'h-3.5 w-3.5' : 'h-4 w-4';
   const btnClass = [
     'inline-flex shrink-0 items-center justify-center rounded-md touch-manipulation transition-colors',
-    compact ? 'min-h-8 min-w-8' : 'min-h-9 min-w-9',
+    compact ? 'min-h-7 min-w-7' : 'min-h-9 min-w-9',
     onDark
       ? active
         ? 'text-amber-300 hover:text-amber-200'

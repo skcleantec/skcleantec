@@ -99,6 +99,8 @@ export async function saveTelecrmPolicyForPlatform(
     additionalSeats: input.additionalSeats ?? current.additionalSeats,
     allowedUserIds: input.allowedUserIds ?? current.allowedUserIds,
     platforms: input.platforms ?? current.platforms,
+    aiSummaryEnabled: current.aiSummaryEnabled,
+    aiMonthlyLimit: current.aiMonthlyLimit,
   };
 
   const validated = validateTelecrmPolicyMeta(draft, { licensed: input.licensed });

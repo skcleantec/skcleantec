@@ -32,6 +32,8 @@ export type PlatformCoinUsageRow = {
   pctUsed: number | null;
   aiUsageCount: number;
   aiUsers: PlatformAiUsageUserBreakdown[];
+  telecrmAiUsageCount: number;
+  telecrmAiUsers: PlatformAiUsageUserBreakdown[];
 };
 
 export type PlatformCoinUsageKpi = {
@@ -46,6 +48,7 @@ export type PlatformCoinUsageKpi = {
   nearLimitCount: number;
   zeroSpentCount: number;
   totalAiUsageCount: number;
+  totalTelecrmAiUsageCount: number;
 };
 
 export type PlatformCoinUsageListResult = {
@@ -128,7 +131,7 @@ function applyCoinUsageFocusFilter(
     case 'limited':
       return rows.filter((r) => !r.unlimited);
     case 'ai':
-      return rows.filter((r) => r.aiUsageCount > 0);
+      return rows.filter((r) => r.aiUsageCount > 0 || r.telecrmAiUsageCount > 0);
     default:
       return rows;
   }
@@ -141,7 +144,8 @@ export async function listPlatformCoinUsage(
 
   const monthRange = kstMonthRangeYm(periodYm);
 
-  const [tenants, spentGroups, aiUsageGroups, aiUserGroups] = await Promise.all([
+  const [tenants, spentGroups, aiUsageGroups, aiUserGroups, telecrmAiUsageGroups, telecrmAiUserGroups] =
+    await Promise.all([
     prisma.tenant.findMany({
       select: {
         id: true,
@@ -175,6 +179,16 @@ export async function listPlatformCoinUsage(
       },
       _count: { aiApplied: true },
     }),
+    prisma.telecrmAiUsageLog.groupBy({
+      by: ['tenantId'],
+      where: monthRange ? { createdAt: monthRange } : {},
+      _count: { id: true },
+    }),
+    prisma.telecrmAiUsageLog.groupBy({
+      by: ['tenantId', 'userId'],
+      where: monthRange ? { createdAt: monthRange } : {},
+      _count: { id: true },
+    }),
   ]);
 
   const spentByTenant = new Map<string, number>();
@@ -187,10 +201,18 @@ export async function listPlatformCoinUsage(
     aiUsageByTenant.set(g.tenantId, g._count.aiApplied ?? 0);
   }
 
+  const telecrmAiUsageByTenant = new Map<string, number>();
+  for (const g of telecrmAiUsageGroups) {
+    telecrmAiUsageByTenant.set(g.tenantId, g._count.id ?? 0);
+  }
+
   const aiUserIds = [
-    ...new Set(
-      aiUserGroups.map((g) => g.userId).filter((id): id is string => typeof id === 'string' && id.length > 0),
-    ),
+    ...new Set([
+      ...aiUserGroups.map((g) => g.userId).filter((id): id is string => typeof id === 'string' && id.length > 0),
+      ...telecrmAiUserGroups
+        .map((g) => g.userId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ]),
   ];
   const aiUsersById = new Map<
     string,
@@ -238,6 +260,38 @@ export async function listPlatformCoinUsage(
     aiUsersByTenant.set(tenantId, list);
   }
 
+  const telecrmAiUsersByTenant = new Map<string, PlatformAiUsageUserBreakdown[]>();
+  for (const g of telecrmAiUserGroups) {
+    const count = g._count.id ?? 0;
+    if (count <= 0) continue;
+    const list = telecrmAiUsersByTenant.get(g.tenantId) ?? [];
+    if (g.userId) {
+      const u = aiUsersById.get(g.userId);
+      list.push({
+        userId: g.userId,
+        name: u?.name ?? '(삭제된 사용자)',
+        email: u?.email ?? '—',
+        role: u?.role ?? '—',
+        roleLabel: u ? roleLabel(u.role) : '—',
+        count,
+      });
+    } else {
+      list.push({
+        userId: null,
+        name: '사용자 미기록',
+        email: '—',
+        role: '—',
+        roleLabel: '—',
+        count,
+      });
+    }
+    telecrmAiUsersByTenant.set(g.tenantId, list);
+  }
+  for (const [tenantId, list] of telecrmAiUsersByTenant) {
+    list.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'));
+    telecrmAiUsersByTenant.set(tenantId, list);
+  }
+
   let rows: PlatformCoinUsageRow[] = tenants.map((t) => {
     const planId = normalizePlanId(t.plan);
     const graceActive = isSignupCoinGraceActive(t);
@@ -245,6 +299,7 @@ export async function listPlatformCoinUsage(
     const allowance = monthlyCoinAllowance(planId);
     const spent = spentByTenant.get(t.id) ?? 0;
     const aiUsageCount = aiUsageByTenant.get(t.id) ?? 0;
+    const telecrmAiUsageCount = telecrmAiUsageByTenant.get(t.id) ?? 0;
     const remaining = unlimited || allowance == null ? null : Math.max(0, allowance - spent);
     const pctUsed =
       unlimited || allowance == null || allowance <= 0
@@ -264,6 +319,8 @@ export async function listPlatformCoinUsage(
       pctUsed,
       aiUsageCount,
       aiUsers: aiUsersByTenant.get(t.id) ?? [],
+      telecrmAiUsageCount,
+      telecrmAiUsers: telecrmAiUsersByTenant.get(t.id) ?? [],
     };
   });
 
@@ -296,6 +353,7 @@ export async function listPlatformCoinUsage(
     ).length,
     zeroSpentCount: rows.filter((r) => r.spent === 0).length,
     totalAiUsageCount: rows.reduce((s, r) => s + r.aiUsageCount, 0),
+    totalTelecrmAiUsageCount: rows.reduce((s, r) => s + r.telecrmAiUsageCount, 0),
   };
 
   rows = applyCoinUsageFocusFilter(rows, focus);
@@ -305,9 +363,17 @@ export async function listPlatformCoinUsage(
   } else if (sort === 'name') {
     rows.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   } else if (sort === 'ai_asc') {
-    rows.sort((a, b) => a.aiUsageCount - b.aiUsageCount || a.name.localeCompare(b.name, 'ko'));
+    rows.sort(
+      (a, b) =>
+        a.aiUsageCount + a.telecrmAiUsageCount - (b.aiUsageCount + b.telecrmAiUsageCount) ||
+        a.name.localeCompare(b.name, 'ko'),
+    );
   } else if (sort === 'ai_desc') {
-    rows.sort((a, b) => b.aiUsageCount - a.aiUsageCount || a.name.localeCompare(b.name, 'ko'));
+    rows.sort(
+      (a, b) =>
+        b.aiUsageCount + b.telecrmAiUsageCount - (a.aiUsageCount + a.telecrmAiUsageCount) ||
+        a.name.localeCompare(b.name, 'ko'),
+    );
   } else {
     rows.sort((a, b) => b.spent - a.spent || a.name.localeCompare(b.name, 'ko'));
   }

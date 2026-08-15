@@ -41,6 +41,42 @@ function isName(t) {
 var SOOMGO_NAME_CAPTURE = "([\\uAC00-\\uD7A3A-Za-z\\u4E00-\\u9FFF][\\uAC00-\\uD7A3A-Za-z0-9\\u4E00-\\u9FFF\\s\\-'.·]{1,11})";
 """
 
+# call_modal·customer_request 등 — 찜(하트) 버튼 클릭 방지 (visible() 정의 후 붙여 사용)
+SOOMGO_FAVORITE_GUARD_JS = """
+function isFavoriteButton(el) {
+  if (!el) return false;
+  var label = ((el.getAttribute('aria-label') || '') + ' ' + (el.textContent || '') + ' ' + (el.getAttribute('title') || '')).trim();
+  if (/찜|즐겨|관심|하트|favorite|like|bookmark|scrap|heart/i.test(label)) return true;
+  if (el.querySelector('[class*="heart"], [class*="Heart"], [class*="favorite"], [class*="Favorite"], [class*="like"], [class*="Like"], [class*="scrap"], [class*="Scrap"], [class*="bookmark"], [class*="Bookmark"]')) return true;
+  var quick = el.closest('.quick-btn-container, [class*="quick-btn"]');
+  if (quick) {
+    var qlist = quick.querySelectorAll('button, a[role="button"], [role="button"]');
+    if (qlist.length >= 2 && qlist[qlist.length - 1] === el && !/전화|통화|call/i.test(label)) return true;
+  }
+  try {
+    var header = el.closest('[class*="chat-header"], [class*="ChatHeader"], header, [class*="info-area"]');
+    if (header && (el.querySelector('svg') || el.querySelector('img'))) {
+      var er = el.getBoundingClientRect();
+      if (er.width >= 8 && er.height >= 8 && er.top < 160) {
+        var iconBtns = [];
+        var nodes = header.querySelectorAll('button, [role="button"]');
+        for (var hi = 0; hi < nodes.length; hi++) {
+          var b = nodes[hi];
+          var br = b.getBoundingClientRect();
+          if (br.width < 8 || br.height < 8 || br.top > 160) continue;
+          if (b.querySelector('svg, img')) iconBtns.push(b);
+        }
+        if (iconBtns.length >= 2) {
+          iconBtns.sort(function(a, b) { return a.getBoundingClientRect().right - b.getBoundingClientRect().right; });
+          if (iconBtns[iconBtns.length - 1] === el && !/전화|통화|call/i.test(label)) return true;
+        }
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+"""
+
 
 def normalize_soomgo_display_name_line(raw: str | None) -> str:
     if not raw:

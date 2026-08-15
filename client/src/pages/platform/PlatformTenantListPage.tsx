@@ -28,6 +28,7 @@ const EMPTY_KPI: PlatformCoinUsageKpi = {
   nearLimitCount: 0,
   zeroSpentCount: 0,
   totalAiUsageCount: 0,
+  totalTelecrmAiUsageCount: 0,
 };
 
 function kstYmNow(): string {
@@ -155,7 +156,9 @@ function UsageBar({ row }: { row: PlatformCoinUsageRow }) {
 }
 
 function AiUsageUnderBar({ row }: { row: PlatformCoinUsageRow }) {
-  if (row.aiUsageCount <= 0) {
+  const hasQuickPaste = row.aiUsageCount > 0;
+  const hasTelecrm = row.telecrmAiUsageCount > 0;
+  if (!hasQuickPaste && !hasTelecrm) {
     return (
       <div className="mt-2 border-t border-dashed border-slate-200 pt-2 text-fluid-2xs text-slate-400">
         AI 사용 없음
@@ -164,38 +167,67 @@ function AiUsageUnderBar({ row }: { row: PlatformCoinUsageRow }) {
   }
 
   return (
-    <div className="mt-2 border-t border-dashed border-emerald-200/80 pt-2">
-      <div className="mb-1 flex items-center justify-between gap-2 text-fluid-2xs">
-        <span className="font-semibold text-emerald-800">AI 사용</span>
-        <span className="tabular-nums font-semibold text-emerald-700">
-          {row.aiUsageCount.toLocaleString('ko-KR')}회
-        </span>
-      </div>
-      {row.aiUsers.length > 0 ? (
-        <ul className="space-y-0.5">
-          {row.aiUsers.map((u: PlatformAiUsageUserBreakdown, idx: number) => (
-            <li
-              key={`${row.tenantId}-ai-${u.userId ?? 'unknown'}-${idx}`}
-              className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-fluid-2xs"
-            >
-              <span className="min-w-0 text-slate-700">
-                <span className="font-medium text-slate-900">{u.name}</span>
-                {u.roleLabel !== '—' ? (
-                  <span className="text-slate-500"> · {u.roleLabel}</span>
-                ) : null}
-                {u.email !== '—' ? (
-                  <span className="text-slate-400"> · {u.email}</span>
-                ) : null}
-              </span>
-              <span className="shrink-0 tabular-nums font-medium text-emerald-700">
-                {u.count.toLocaleString('ko-KR')}회
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-fluid-2xs text-slate-400">사용자 정보 없음</p>
-      )}
+    <div className="mt-2 space-y-2 border-t border-dashed border-emerald-200/80 pt-2">
+      {hasQuickPaste ? (
+        <div>
+          <div className="mb-1 flex items-center justify-between gap-2 text-fluid-2xs">
+            <span className="font-semibold text-emerald-800">퀵붙여넣기 AI</span>
+            <span className="tabular-nums font-semibold text-emerald-700">
+              {row.aiUsageCount.toLocaleString('ko-KR')}회
+            </span>
+          </div>
+          {row.aiUsers.length > 0 ? (
+            <ul className="space-y-0.5">
+              {row.aiUsers.map((u: PlatformAiUsageUserBreakdown, idx: number) => (
+                <li
+                  key={`${row.tenantId}-qp-ai-${u.userId ?? 'unknown'}-${idx}`}
+                  className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-fluid-2xs"
+                >
+                  <span className="min-w-0 text-slate-700">
+                    <span className="font-medium text-slate-900">{u.name}</span>
+                    {u.roleLabel !== '—' ? (
+                      <span className="text-slate-500"> · {u.roleLabel}</span>
+                    ) : null}
+                  </span>
+                  <span className="shrink-0 tabular-nums font-medium text-emerald-700">
+                    {u.count.toLocaleString('ko-KR')}회
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+      {hasTelecrm ? (
+        <div>
+          <div className="mb-1 flex items-center justify-between gap-2 text-fluid-2xs">
+            <span className="font-semibold text-sky-800">텔레CRM AI 정리</span>
+            <span className="tabular-nums font-semibold text-sky-700">
+              {row.telecrmAiUsageCount.toLocaleString('ko-KR')}회
+            </span>
+          </div>
+          {row.telecrmAiUsers.length > 0 ? (
+            <ul className="space-y-0.5">
+              {row.telecrmAiUsers.map((u: PlatformAiUsageUserBreakdown, idx: number) => (
+                <li
+                  key={`${row.tenantId}-crm-ai-${u.userId ?? 'unknown'}-${idx}`}
+                  className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-fluid-2xs"
+                >
+                  <span className="min-w-0 text-slate-700">
+                    <span className="font-medium text-slate-900">{u.name}</span>
+                    {u.roleLabel !== '—' ? (
+                      <span className="text-slate-500"> · {u.roleLabel}</span>
+                    ) : null}
+                  </span>
+                  <span className="shrink-0 tabular-nums font-medium text-sky-700">
+                    {u.count.toLocaleString('ko-KR')}회
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -363,7 +395,7 @@ export function PlatformTenantListPage() {
           </button>
           <button type="button" className={kpiTileClass(focus === 'ai', 'emerald')} onClick={() => setFocus('ai')}>
             <div className={kpiValueClass(focus === 'ai', 'emerald')}>
-              {kpi.totalAiUsageCount.toLocaleString('ko-KR')}
+              {(kpi.totalAiUsageCount + kpi.totalTelecrmAiUsageCount).toLocaleString('ko-KR')}
             </div>
             <div className={kpiLabelClass(focus === 'ai', 'emerald')}>총 AI 사용</div>
           </button>

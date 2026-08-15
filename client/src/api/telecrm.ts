@@ -537,3 +537,51 @@ export async function fetchTelecrmContactTimeline(
   const res = await fetch(`${API}/contact-timeline?${qs}`, { headers: authHeaders(token) });
   return parseJson(res);
 }
+
+export type TelecrmAiUsageSnapshotDto = {
+  count: number;
+  limit: number | null;
+  remaining: number | null;
+  unlimited: boolean;
+  enabled: boolean;
+};
+
+export type TelecrmAiNextActionDto = {
+  action: string;
+  suggestedReply: string;
+};
+
+export type TelecrmChatSummaryDto = {
+  summary: string;
+  customerQuestions: string[];
+  nextActions: TelecrmAiNextActionDto[];
+  suggestedReply?: string;
+  warnings?: string[];
+  usage: { promptTokens: number; completionTokens: number; model: string };
+  monthUsage: TelecrmAiUsageSnapshotDto;
+};
+
+export async function fetchTelecrmAiChatSummary(
+  token: string,
+  body: {
+    source?: 'soomgo';
+    chatId: string;
+    inquiryId?: string | null;
+    customerName?: string | null;
+    messages: Array<{ role: 'customer' | 'pro' | 'system'; text: string; at?: string | null }>;
+    contentHash?: string | null;
+    persistSummary?: boolean;
+  },
+): Promise<TelecrmChatSummaryDto> {
+  const res = await fetch(`${API}/ai/chat-summary`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  return parseJson(res);
+}
+
+export async function fetchTelecrmAiUsageMonth(token: string): Promise<TelecrmAiUsageSnapshotDto> {
+  const res = await fetch(`${API}/ai/usage-month`, { headers: authHeaders(token) });
+  return parseJson(res);
+}

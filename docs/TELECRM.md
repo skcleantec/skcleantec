@@ -32,7 +32,7 @@
 - 하단 검은/회색 여백 없음
 - CRM 「숨고 메시지」 **「직접 보내기」** 하단 고정
 
-개발 룰: `.cursor/rules/telecrm-soomgo-chat-ui.mdc` · 사용자 문구: `agent/product/HELP_GUIDE_MARKETER.md` §14 · `tools/soomgo-bridge/README.md` **정상 화면**
+개발 룰: `.cursor/rules/telecrm-soomgo-chat-ui.mdc` · 사용자 문구: `agent/product/HELP_GUIDE_MARKETER.md` §14 · **정보 갖고오기 장애 정리:** `docs/SOOMGO_BRIDGE_CRM_EXTRACT.md`
 
 ## UX
 
@@ -47,6 +47,8 @@
 | 경로 | 설명 |
 |---|---|
 | `/api/crm/*` | 스크립트·가격·lookup 등 |
+| `/api/crm/ai/chat-summary` | 숨고 대화 AI 정리 (POST, `mod_telecrm` + 숨고 플랫폼) |
+| `/api/crm/ai/usage-month` | 테넌트 이번 달 AI 사용량 (GET — `count`, `limit`, `remaining`, `unlimited`, `enabled`) |
 | `/api/crm/customer-lookup?phone=` \| `?name=` | 기존 고객 검색·동명이인 pick·접수 brief |
 | `/api/crm/order-options` | 발주 전문시공 옵션(금액 리프) |
 
@@ -67,6 +69,10 @@
 ## 배포·DB
 
 스키마는 Prisma migrate로만 반영합니다. 공유 DB에 `db push` 금지.
+
+## AI 대화 정리 (계획)
+
+- **전체 플랜:** `docs/TELECRM_AI_CHAT_PLAN.md` — 브릿지 로컬 저장 → CRM 「AI 정리」탭 → 서버 요약 API, 로컬 검증 후 배포
 
 ## 미구현 (선택)
 

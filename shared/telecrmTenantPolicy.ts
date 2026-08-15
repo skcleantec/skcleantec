@@ -14,6 +14,10 @@ export type TelecrmTenantPolicyMeta = {
   allowedUserIds: string[];
   /** 연동 플랫폼 (숨고·미소) */
   platforms: TelecrmPlatformId[];
+  /** AI 대화 정리 사용 (기본 true) */
+  aiSummaryEnabled?: boolean;
+  /** 월 AI 정리 한도 — 미설정 시 서버 env 기본, 0 = 무제한 */
+  aiMonthlyLimit?: number;
 };
 
 export type TelecrmAccessDenyReason = 'not_licensed' | 'not_allowed';
@@ -67,7 +71,12 @@ export function parseTelecrmPolicyMeta(raw: unknown): TelecrmTenantPolicyMeta {
   const platforms = Array.isArray(o.platforms)
     ? [...new Set(o.platforms.filter(isTelecrmPlatformId))]
     : base.platforms;
-  return { includedSeats, additionalSeats, allowedUserIds, platforms };
+  const aiSummaryEnabled = typeof o.aiSummaryEnabled === 'boolean' ? o.aiSummaryEnabled : true;
+  const aiMonthlyLimit =
+    typeof o.aiMonthlyLimit === 'number' && Number.isFinite(o.aiMonthlyLimit) && o.aiMonthlyLimit >= 0
+      ? Math.floor(o.aiMonthlyLimit)
+      : undefined;
+  return { includedSeats, additionalSeats, allowedUserIds, platforms, aiSummaryEnabled, aiMonthlyLimit };
 }
 
 export type TelecrmPolicyValidationResult =
@@ -107,6 +116,10 @@ export function validateTelecrmPolicyMeta(
     if (!isTelecrmPlatformId(p)) {
       return { ok: false, error: '연동 플랫폼 값이 올바르지 않습니다.' };
     }
+  }
+
+  if (merged.aiMonthlyLimit != null && merged.aiMonthlyLimit < 0) {
+    return { ok: false, error: 'AI 월 한도는 0 이상이어야 합니다. (0 = 무제한)' };
   }
 
   return { ok: true, meta: merged };

@@ -27,6 +27,8 @@ export type PlatformCoinUsageRow = {
   pctUsed: number | null;
   aiUsageCount: number;
   aiUsers: PlatformAiUsageUserBreakdown[];
+  telecrmAiUsageCount: number;
+  telecrmAiUsers: PlatformAiUsageUserBreakdown[];
 };
 
 export type PlatformCoinUsageKpi = {
@@ -41,6 +43,7 @@ export type PlatformCoinUsageKpi = {
   nearLimitCount: number;
   zeroSpentCount: number;
   totalAiUsageCount: number;
+  totalTelecrmAiUsageCount: number;
 };
 
 export type PlatformCoinUsageListResult = {

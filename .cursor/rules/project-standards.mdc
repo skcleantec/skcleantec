@@ -113,7 +113,7 @@ alwaysApply: true
 ## 8.2 숨고 연동(데스크톱) — 릴리스 (에이전트 필수)
 
 - **`tools/soomgo-bridge/**`** 또는 상담사 PC 배포에 영향 주는 CRM·매니페스트 변경 시: **`.cursor/rules/soomgo-bridge-auto-update.mdc`**
-- 작업 마무리 시 에이전트가 **semver bump → GitHub Release 태그 → Railway(staging) 변수**까지 **직접** 수행 (사용자가 릴리스 금지하지 않은 경우).
+- 작업 마무리 시 에이전트가 **semver bump → GitHub Release 태그 → Railway 변수 → 매니페스트 최종 확인(환경변수·sha256, 운영 redeploy 필요 시)** 까지 **직접** 수행 (사용자가 릴리스 금지하지 않은 경우). **변수 설정만 하고 끝내지 않는다.**
 
 ## 9. 배포 (운영)
 

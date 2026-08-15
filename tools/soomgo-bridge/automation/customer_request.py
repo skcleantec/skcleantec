@@ -7,7 +7,7 @@ import time
 from typing import Any
 
 from automation.overlay_modals import dismiss_blocking_overlays
-from automation.selectors import SOOMGO_DISPLAY_NAME_JS
+from automation.selectors import SOOMGO_DISPLAY_NAME_JS, SOOMGO_FAVORITE_GUARD_JS
 from automation.soomgo_text_filters import (
     count_clean_request_pairs,
     filter_soomgo_memo_lines,
@@ -234,7 +234,7 @@ for (var i = 0; i < tabs.length; i++) {
 return false;
 """
 
-_OPEN_REQUEST_MODAL_JS = SOOMGO_DISPLAY_NAME_JS + """
+_OPEN_REQUEST_MODAL_JS = SOOMGO_DISPLAY_NAME_JS + SOOMGO_FAVORITE_GUARD_JS + """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
   var r = el.getBoundingClientRect();
@@ -243,7 +243,7 @@ function visible(el) {
   return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
 }
 function scoreNameClick(el) {
-  if (!visible(el)) return -1;
+  if (!visible(el) || isFavoriteButton(el)) return -1;
   var t = (el.textContent || '').trim();
   var first = t.split('\\n')[0].trim();
   if (!isSoomgoDisplayName(first)) return -1;
@@ -596,20 +596,18 @@ if (pyeongM) pyeong = pyeongM[1];
 return { customerName: customerName, region: region, preferredDate: preferredDate, pyeong: pyeong, pairs: pairs, rawText: text };
 """
 
-_IS_REQUEST_MODAL_OPEN_JS = """
+_REQUEST_MODAL_DOM_JS = (
+    """
 function visible(el) {
   if (!el || !el.getBoundingClientRect) return false;
   var r = el.getBoundingClientRect();
   if (r.width < 2 || r.height < 2) return false;
   var st = window.getComputedStyle(el);
-  return st.display !== 'none' && st.visibility !== 'hidden';
+  return st.display !== 'none' && st.visibility !== 'hidden' && parseFloat(st.opacity || '1') > 0.05;
 }
-var bvReq = document.querySelector(
-  '.modal.show li[data-name="request-item"], ' +
-  '[id*="BV_modal_body"] li[data-name="request-item"], ' +
-  '.content-modal-body [data-type="request"] li[data-name="request-item"]'
-);
-if (bvReq && visible(bvReq)) return true;
+"""
+    + SOOMGO_FAVORITE_GUARD_JS
+    + """
 function hasRequestContentSignals(text) {
   if (!text) return false;
   if (text.indexOf('?') >= 0 || text.indexOf('？') >= 0) return true;
@@ -622,14 +620,100 @@ function isSidebarDrawer(text) {
   if (!text) return false;
   return text.indexOf('프로필 관리') >= 0 && text.indexOf('마이페이지') >= 0 && !hasRequestContentSignals(text);
 }
-var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="drawer"], [class*="Drawer"], [class*="sheet"], [class*="Sheet"], aside, section, div');
-for (var i = 0; i < roots.length; i++) {
-  if (!visible(roots[i])) continue;
-  var t = (roots[i].innerText || '');
-  if (t.indexOf('고객 요청') >= 0 && t.indexOf('요청 상세') >= 0 && !isSidebarDrawer(t) && hasRequestContentSignals(t)) return true;
+function findCustomerRequestModalRoot() {
+  var bvReq = document.querySelector(
+    '.modal.show li[data-name="request-item"], ' +
+    '[id*="BV_modal_body"] li[data-name="request-item"], ' +
+    '.content-modal-body [data-type="request"] li[data-name="request-item"]'
+  );
+  if (bvReq && visible(bvReq)) {
+    var host = bvReq.closest('[role="dialog"], .modal.show, [id*="BV_modal_outer"], .mobile-full-modal, [class*="modal"]');
+    if (host && visible(host)) return host;
+  }
+  var preferred = document.querySelector('.modal.show, [id*="BV_modal_outer"].show, .mobile-full-modal.show, [class*="content-modal"].show');
+  if (preferred && visible(preferred)) {
+    var pt = (preferred.innerText || '');
+    if ((pt.indexOf('고객 요청') >= 0 || pt.indexOf('요청 상세') >= 0) && !isSidebarDrawer(pt)) return preferred;
+  }
+  var best = null;
+  var bestArea = Infinity;
+  var roots = document.querySelectorAll('[role="dialog"], .modal.show, [class*="modal"], [class*="Modal"], [class*="mobile-full-modal"], [class*="content-modal"]');
+  for (var i = 0; i < roots.length; i++) {
+    var el = roots[i];
+    if (!visible(el)) continue;
+    var t = (el.innerText || '');
+    if (t.indexOf('고객 요청') < 0 && t.indexOf('요청 상세') < 0) continue;
+    if (isSidebarDrawer(t)) continue;
+    var r = el.getBoundingClientRect();
+    if (r.width < 120 || r.height < 120) continue;
+    var area = r.width * r.height;
+    if (area < bestArea) { bestArea = area; best = el; }
+  }
+  return best;
 }
-return false;
+function findRequestModalCloseButton(modal) {
+  if (!modal) return null;
+  var modalRect = modal.getBoundingClientRect();
+  var explicit = modal.querySelector('[aria-label*="닫기"], [aria-label*="Close"], .btn-close, [class*="CloseButton"], [class*="close-button"], [data-dismiss="modal"]');
+  if (explicit && visible(explicit) && !isFavoriteButton(explicit)) {
+    return explicit.closest('button, [role="button"]') || explicit;
+  }
+  var best = null;
+  var bestScore = -1;
+  var buttons = modal.querySelectorAll('button, [role="button"]');
+  for (var i = 0; i < buttons.length; i++) {
+    var btn = buttons[i];
+    if (!visible(btn) || isFavoriteButton(btn)) continue;
+    var r = btn.getBoundingClientRect();
+    if (r.top > modalRect.top + 96) continue;
+    if (r.right > modalRect.right + 8) continue;
+    if (r.left < modalRect.left - 8) continue;
+    var label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.textContent || '') + ' ' + (btn.getAttribute('title') || '')).trim();
+    if (/보낸견적|확인하러|견적|고용|숨고페이|일정/.test(label)) continue;
+    var score = 0;
+    if (/닫기|close/i.test(label)) score += 120;
+    if (label === '' || label === '×' || label === '✕' || label === 'X') score += 90;
+    if (btn.querySelector('svg, img')) score += 25;
+    score += Math.max(0, 120 - (r.right - modalRect.left));
+    if (score > bestScore) { bestScore = score; best = btn; }
+  }
+  return bestScore >= 40 ? best : null;
+}
 """
+)
+
+_IS_REQUEST_MODAL_OPEN_JS = (
+    _REQUEST_MODAL_DOM_JS
+    + """
+var modal = findCustomerRequestModalRoot();
+if (!modal) return false;
+var t = (modal.innerText || '');
+return hasRequestContentSignals(t) || modal.querySelector('li[data-name="request-item"], [data-type="request"]');
+"""
+)
+
+_CLOSE_REQUEST_MODAL_JS = (
+    _REQUEST_MODAL_DOM_JS
+    + """
+var modal = findCustomerRequestModalRoot();
+if (!modal) {
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+  return 'escape_no_modal';
+}
+var closeBtn = findRequestModalCloseButton(modal);
+if (closeBtn) {
+  closeBtn.click();
+  return 'close_button';
+}
+var backdrop = document.querySelector('.modal-backdrop.show, .modal-backdrop, [class*="Backdrop"].show, [class*="backdrop"].show');
+if (backdrop && visible(backdrop)) {
+  backdrop.click();
+  return 'backdrop';
+}
+document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+return 'escape';
+"""
+)
 
 _MODAL_READY_LIGHT_JS = """
 function visible(el) {
@@ -664,49 +748,6 @@ for (var i = 0; i < roots.length; i++) {
   if (t.indexOf('고객 요청') >= 0 && t.indexOf('요청 상세') >= 0 && t.length > 72 && !isSidebarDrawer(t) && hasRequestContentSignals(t)) return true;
 }
 return false;
-"""
-
-_CLOSE_REQUEST_MODAL_JS = """
-function visible(el) {
-  if (!el || !el.getBoundingClientRect) return false;
-  var r = el.getBoundingClientRect();
-  if (r.width < 8 || r.height < 8) return false;
-  var st = window.getComputedStyle(el);
-  return st.display !== 'none' && st.visibility !== 'hidden';
-}
-function findRequestModal() {
-  var roots = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="drawer"], [class*="Drawer"]');
-  for (var i = 0; i < roots.length; i++) {
-    var t = (roots[i].innerText || '');
-    if (t.indexOf('고객 요청') >= 0 || t.indexOf('요청 상세') >= 0) return roots[i];
-  }
-  return null;
-}
-var modal = findRequestModal();
-if (!modal) return false;
-var modalRect = modal.getBoundingClientRect();
-var best = null;
-var bestScore = -1;
-var buttons = modal.querySelectorAll('button, [role="button"], a');
-for (var i = 0; i < buttons.length; i++) {
-  var btn = buttons[i];
-  if (!visible(btn)) continue;
-  var r = btn.getBoundingClientRect();
-  var label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.textContent || '') + ' ' + (btn.getAttribute('title') || '')).trim();
-  var score = 0;
-  if (r.top <= modalRect.top + 72) score += 25;
-  if (r.right >= modalRect.right - 72) score += 35;
-  if (/닫기|close|취소/i.test(label)) score += 50;
-  if (label === '' || label === '×' || label === '✕' || label === 'X') score += 30;
-  if (btn.querySelector('svg, img')) score += 15;
-  if (score > bestScore) { bestScore = score; best = btn; }
-}
-if (best && bestScore >= 35) {
-  best.click();
-  return true;
-}
-document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-return true;
 """
 
 
@@ -1104,18 +1145,22 @@ class CustomerRequestManager:
 
     def close_request_modal(self) -> bool:
         try:
-            if not self.is_request_modal_open():
-                return True
-            for _ in range(2):
-                self.driver.execute_script(_CLOSE_REQUEST_MODAL_JS)
-                time.sleep(self.delay * 0.22)
+            for attempt in range(5):
+                if not self.is_request_modal_open():
+                    return True
+                result = self.driver.execute_script(_CLOSE_REQUEST_MODAL_JS)
+                logger.debug('close_request_modal attempt=%s via=%s', attempt + 1, result)
+                time.sleep(self.delay * 0.28)
                 if not self.is_request_modal_open():
                     return True
             self.driver.execute_script(
                 "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));"
             )
-            time.sleep(self.delay * 0.18)
-            return not self.is_request_modal_open()
+            time.sleep(self.delay * 0.22)
+            still_open = self.is_request_modal_open()
+            if still_open:
+                logger.warning('close_request_modal failed after retries')
+            return not still_open
         except Exception as e:
             logger.debug('close_request_modal: %s', e)
             return False
@@ -1166,4 +1211,7 @@ class CustomerRequestManager:
         time.sleep(self.delay * 0.12)
         if self.is_request_modal_open():
             self.close_request_modal()
+            time.sleep(self.delay * 0.12)
+        if self.is_request_modal_open():
+            logger.warning('customer request modal still open after extract')
         return data

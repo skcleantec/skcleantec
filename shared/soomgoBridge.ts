@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.42';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.44';
 
 /** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
@@ -15,6 +15,9 @@ export const SOOMGO_BRIDGE_CHAT_ALERTS_MIN_VERSION = '2.2.0';
 
 /** 순차 메시지 매크로(`/send-sequence`) 최소 앱 버전 */
 export const SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION = '2.1.0';
+
+/** AI 대화 수집(`/extract-transcript`) 최소 앱 버전 */
+export const SOOMGO_BRIDGE_AI_TRANSCRIPT_MIN_VERSION = '2.2.43';
 
 /** semver → 정수 배열 (비교용) */
 export function parseSoomgoSemver(version: string): number[] {
@@ -217,6 +220,8 @@ export type SoomgoBridgeStatus = {
   updateMessage?: string | null;
   /** update.state.json updatedAt (ms) — stale installing 판별 */
   updateStateUpdatedAt?: number | null;
+  /** /extract · /extract-transcript 진행 중 */
+  extractInProgress?: boolean;
 };
 
 export type SoomgoRequestPair = {
@@ -255,4 +260,36 @@ export type SoomgoExtractedChat = {
   roomCount?: number | null;
   bathroomCount?: number | null;
   balconyCount?: number | null;
+};
+
+export type SoomgoChatTranscriptRole = 'customer' | 'pro';
+
+export type SoomgoChatTranscriptMessage = {
+  role: SoomgoChatTranscriptRole;
+  text: string;
+  at: string | null;
+};
+
+/** 브릿지 로컬 `%LOCALAPPDATA%\\Cbiseo\\SoomgoBridge\\chat-transcripts\\` JSON */
+export type SoomgoChatTranscript = {
+  version: number;
+  tenantSlug: string;
+  chatId: string;
+  nickname: string | null;
+  extractedAt: string;
+  messageCount: number;
+  messages: SoomgoChatTranscriptMessage[];
+  contentHash: string;
+  scrollSteps: number;
+  sourceUrl?: string | null;
+};
+
+export type SoomgoChatTranscriptStatus = {
+  chatId: string;
+  tenantSlug: string;
+  extractedAt: string;
+  messageCount: number;
+  contentHash: string;
+  nickname?: string | null;
+  filePath: string;
 };

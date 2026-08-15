@@ -51,3 +51,41 @@ if (process.env.NODE_ENV !== 'production' && databaseUrl.includes('@localhost:54
     );
   }
 }
+
+const telecrmAiLimitRaw = (process.env.TELECRM_AI_MONTHLY_LIMIT ?? '0').trim();
+const telecrmAiLimitN = Number(telecrmAiLimitRaw);
+
+function describeOpenAiKeySource(
+  dedicatedEnv: string,
+  dedicatedSet: boolean,
+  fallbackSet: boolean,
+): string {
+  if (dedicatedSet) return `${dedicatedEnv} (전용)`;
+  if (fallbackSet) return 'OPENAI_API_KEY (폴백 — 운영에서는 전용 키 권장)';
+  return '미설정';
+}
+
+if (process.env.NODE_ENV !== 'production') {
+  const quickPasteDedicated = Boolean((process.env.QUICK_PASTE_OPENAI_API_KEY || '').trim());
+  const telecrmDedicated = Boolean((process.env.TELECRM_AI_OPENAI_API_KEY || '').trim());
+  const openAiFallback = Boolean((process.env.OPENAI_API_KEY || '').trim());
+  console.log(
+    `[env] QUICK_PASTE OpenAI → ${describeOpenAiKeySource(
+      'QUICK_PASTE_OPENAI_API_KEY',
+      quickPasteDedicated,
+      openAiFallback,
+    )}`,
+  );
+  console.log(
+    `[env] TELECRM_AI OpenAI → ${describeOpenAiKeySource(
+      'TELECRM_AI_OPENAI_API_KEY',
+      telecrmDedicated,
+      openAiFallback,
+    )}`,
+  );
+  console.log(
+    `[env] TELECRM_AI_MONTHLY_LIMIT=${telecrmAiLimitRaw} → ${
+      Number.isFinite(telecrmAiLimitN) && telecrmAiLimitN > 0 ? `${Math.floor(telecrmAiLimitN)}회/월` : '무제한'
+    } (변경 후 API 재시작 필요 · 테넌트 meta aiMonthlyLimit 가 있으면 env보다 우선)`,
+  );
+}

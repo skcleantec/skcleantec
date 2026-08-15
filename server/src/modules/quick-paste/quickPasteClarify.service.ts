@@ -76,6 +76,7 @@ export async function askQuickPasteMissingField(
   rawText: string,
   draft: QuickPasteDraft,
   fieldKey: QuickPasteFieldKey,
+  log?: { tenantId: string; userId?: string | null },
 ): Promise<ClarifyAskResult> {
   const fieldLabel = QUICK_PASTE_FIELD_LABELS[fieldKey];
   const text = rawText.trim();
@@ -92,6 +93,7 @@ export async function askQuickPasteMissingField(
     const raw = await callQuickPasteOpenAiJson(
       system,
       ['Draft:', JSON.stringify(draft), '--- raw ---', text.slice(0, 6000)].join('\n'),
+      log ? { context: { tenantId: log.tenantId, userId: log.userId ?? null }, operation: 'clarify_ask' } : undefined,
     );
 
     if (raw) {
@@ -131,6 +133,7 @@ export async function respondQuickPasteMissingField(
     userAnswer: string;
     snippet?: string | null;
     sourceLabel?: string | null;
+    userId?: string | null;
   },
 ): Promise<ClarifyRespondResult> {
   const text = params.rawText.trim();
@@ -160,6 +163,10 @@ export async function respondQuickPasteMissingField(
       ]
         .filter(Boolean)
         .join('\n'),
+      {
+        context: { tenantId, userId: params.userId ?? null },
+        operation: 'clarify_respond',
+      },
     );
 
     if (raw) {

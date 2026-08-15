@@ -304,6 +304,8 @@ model Tenant {
   telecrmSoomgoConfig       TelecrmSoomgoConfig?
   telecrmSoomgoMessagePresets TelecrmSoomgoMessagePreset[]
   telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
+  telecrmAiUsageLogs TelecrmAiUsageLog[]
+  telecrmAiSummaries TelecrmAiSummary[]
   landingContactFormConfigs LandingContactFormConfig[]
   landingContactInquiries   LandingContactInquiry[]
   billingProfile TenantBillingProfile?
@@ -315,6 +317,7 @@ model Tenant {
   inquiryScheduleAlertAcks InquiryScheduleAlertAck[]
   quickPasteLearningLogs QuickPasteLearningLog[]
   quickPasteTenantRules QuickPasteTenantRule[]
+  quickPasteAiUsageLogs QuickPasteAiUsageLog[]
   referralAttribution TenantReferralAttribution?
   platformReferrersAsPartner PlatformReferrer[] @relation("PlatformReferrerPartnerTenant")
   referrerCommissionAccruals PlatformReferrerCommissionAccrual[]
@@ -364,6 +367,28 @@ model QuickPasteLearningLog {
   @@index([tenantId, textHash])
   @@index([tenantId, createdAt(sort: Desc)])
   @@map("quick_paste_learning_logs")
+}
+
+/// 빠른등록 AI — OpenAI 토큰·추정 원가 (제품별 OpenAI 키 집계용)
+model QuickPasteAiUsageLog {
+  id                     String   @id @default(uuid())
+  tenantId               String   @map("tenant_id")
+  userId                 String?  @map("user_id")
+  inquiryId              String?  @map("inquiry_id")
+  operation              String   @default("understand") @db.VarChar(32)
+  model                  String   @db.VarChar(64)
+  promptTokens           Int      @map("prompt_tokens")
+  completionTokens       Int      @map("completion_tokens")
+  estimatedCostUsdMicros Int      @default(0) @map("estimated_cost_usd_micros")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  inquiry Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, userId, createdAt])
+  @@map("quick_paste_ai_usage_logs")
 }
 
 /// Free 셀프 가입 업체 → 유료 플랜 전환 신청
@@ -1498,6 +1523,9 @@ model User {
   telecrmConsultationQuotesCreated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteCreatedBy")
   telecrmConsultationQuotesUpdated TelecrmConsultationQuote[] @relation("TelecrmConsultationQuoteUpdatedBy")
   telecrmMobileDispatchPending TelecrmMobileDispatchPending[]
+  telecrmAiUsageLogs           TelecrmAiUsageLog[]
+  telecrmAiSummaries           TelecrmAiSummary[]
+  quickPasteAiUsageLogs        QuickPasteAiUsageLog[]
   planUpgradeRequestsRequested TenantPlanUpgradeRequest[] @relation("TenantPlanUpgradeRequestRequester")
   platformBoardPosts           PlatformBoardPost[]
 
@@ -2112,6 +2140,9 @@ model Inquiry {
   telecrmCallSessions       TelecrmCallSession[]
   telecrmCallNotes          TelecrmCallNote[]
   telecrmConsultationQuotes TelecrmConsultationQuote[]
+  telecrmAiUsageLogs        TelecrmAiUsageLog[]
+  telecrmAiSummaries        TelecrmAiSummary[]
+  quickPasteAiUsageLogs     QuickPasteAiUsageLog[]
   landingContactInquiries   LandingContactInquiry[]
   householdLedgerEntries    TeamLeaderHouseholdLedgerEntry[]
 
@@ -4030,4 +4061,47 @@ model TelecrmConsultationQuote {
   @@index([tenantId, followupId])
   @@index([tenantId, inquiryId])
   @@map("telecrm_consultation_quotes")
+}
+
+/// 텔레CRM AI 요약 — 사용량 로그 (원문 미저장)
+model TelecrmAiUsageLog {
+  id               String   @id @default(uuid())
+  tenantId         String   @map("tenant_id")
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId           String   @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatId           String?  @map("chat_id") @db.VarChar(64)
+  inquiryId        String?  @map("inquiry_id")
+  inquiry          Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  source           String   @db.VarChar(20)
+  productKey       String   @default("telecrm_summary") @map("product_key") @db.VarChar(32)
+  model            String   @db.VarChar(64)
+  promptTokens     Int      @map("prompt_tokens")
+  completionTokens Int      @map("completion_tokens")
+  estimatedCostUsdMicros Int @default(0) @map("estimated_cost_usd_micros")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, userId, createdAt])
+  @@map("telecrm_ai_usage_logs")
+}
+
+/// 텔레CRM AI 요약 — 구조화 결과 (원문 messages[] 미저장)
+model TelecrmAiSummary {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatId      String   @map("chat_id") @db.VarChar(64)
+  inquiryId   String?  @map("inquiry_id")
+  inquiry     Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  contentHash String?  @map("content_hash") @db.VarChar(128)
+  summary     String   @db.Text
+  payloadJson Json     @map("payload_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, chatId, contentHash])
+  @@index([tenantId, inquiryId])
+  @@map("telecrm_ai_summaries")
 }

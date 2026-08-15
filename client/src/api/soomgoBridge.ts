@@ -1,8 +1,15 @@
-import type { SoomgoBridgeStatus, SoomgoExtractedChat, SoomgoBridgeManifest } from '@shared/soomgoBridge';
+import type {
+  SoomgoBridgeStatus,
+  SoomgoExtractedChat,
+  SoomgoBridgeManifest,
+  SoomgoChatTranscript,
+  SoomgoChatTranscriptStatus,
+} from '@shared/soomgoBridge';
 import {
   SOOMGO_BRIDGE_BASE_URL,
   SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION,
   SOOMGO_BRIDGE_CHAT_ALERTS_MIN_VERSION,
+  SOOMGO_BRIDGE_AI_TRANSCRIPT_MIN_VERSION,
   compareSoomgoSemver,
   isSoomgoAppOutdated,
   isSoomgoAppUpdateAvailable,
@@ -112,7 +119,12 @@ function withBridgeFetchQueue<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
-async function bridgeFetch<T>(path: string, init?: RequestInit, timeoutMs?: number): Promise<T> {
+async function bridgeFetch<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs?: number,
+  options?: { allow404?: boolean },
+): Promise<T> {
   return withBridgeFetchQueue(async () => {
     let res: Response;
     const controller = timeoutMs != null && timeoutMs > 0 ? new AbortController() : null;
@@ -142,6 +154,9 @@ async function bridgeFetch<T>(path: string, init?: RequestInit, timeoutMs?: numb
     }
     const data = (await res.json()) as T & { error?: string; ok?: boolean };
     if (res.status === 404) {
+      if (options?.allow404) {
+        throw new Error('404');
+      }
       throw bridgeOutdatedError();
     }
     if (!res.ok) {
@@ -289,6 +304,74 @@ export async function openSoomgoChats(screen?: SoomgoSplitScreenBounds): Promise
     method: 'POST',
     body: JSON.stringify(screen ? { screen } : {}),
   });
+}
+
+export function isSoomgoBridgeAiTranscriptSupported(status: SoomgoBridgeStatus | null | undefined): boolean {
+  const current = status?.appVersion?.trim();
+  if (!current) return false;
+  return compareSoomgoSemver(current, SOOMGO_BRIDGE_AI_TRANSCRIPT_MIN_VERSION) >= 0;
+}
+
+export const SOOMGO_BRIDGE_AI_TRANSCRIPT_OUTDATED_MESSAGE =
+  '숨고 연동 v2.2.43 이상이 필요합니다. 설정에서 프로그램을 업데이트한 뒤 AI 대화 가져오기를 사용해 주세요.';
+
+export async function extractSoomgoChatTranscript(options?: {
+  tenantSlug?: string;
+  maxScrollSteps?: number;
+}): Promise<SoomgoChatTranscript> {
+  const body: Record<string, unknown> = {};
+  if (options?.tenantSlug?.trim()) body.tenantSlug = options.tenantSlug.trim();
+  if (options?.maxScrollSteps != null) body.maxScrollSteps = options.maxScrollSteps;
+  const res = await bridgeFetch<{ ok: boolean; data: SoomgoChatTranscript; tenantSlug?: string }>(
+    '/extract-transcript',
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+    180_000,
+  );
+  return res.data;
+}
+
+export async function fetchSoomgoChatTranscript(
+  chatId: string,
+  tenantSlug?: string,
+): Promise<SoomgoChatTranscript | null> {
+  const params = new URLSearchParams();
+  if (tenantSlug?.trim()) params.set('tenantSlug', tenantSlug.trim());
+  const qs = params.toString();
+  try {
+    const res = await bridgeFetch<{ ok: boolean; data: SoomgoChatTranscript }>(
+      `/chat-transcript/${encodeURIComponent(chatId)}${qs ? `?${qs}` : ''}`,
+      undefined,
+      undefined,
+      { allow404: true },
+    );
+    return res.data;
+  } catch (e) {
+    if (e instanceof Error && e.message === '404') return null;
+    throw e;
+  }
+}
+
+export async function fetchSoomgoChatTranscriptStatus(
+  chatId: string,
+  tenantSlug?: string,
+): Promise<SoomgoChatTranscriptStatus | null> {
+  const params = new URLSearchParams({ chatId });
+  if (tenantSlug?.trim()) params.set('tenantSlug', tenantSlug.trim());
+  try {
+    const res = await bridgeFetch<{ ok: boolean; data: SoomgoChatTranscriptStatus }>(
+      `/chat-transcript/status?${params.toString()}`,
+      undefined,
+      undefined,
+      { allow404: true },
+    );
+    return res.data;
+  } catch (e) {
+    if (e instanceof Error && e.message === '404') return null;
+    throw e;
+  }
 }
 
 export async function extractSoomgoCurrentChat(): Promise<SoomgoExtractedChat> {

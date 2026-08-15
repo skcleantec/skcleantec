@@ -8,13 +8,12 @@ import type {
   QuickPasteFieldKey,
   QuickPasteOptionalFieldKey,
 } from './quickPaste.constants.js';
-
-const OPENAI_API_KEY = () =>
-  (process.env.QUICK_PASTE_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '').trim();
-const OPENAI_MODEL = () => process.env.QUICK_PASTE_AI_MODEL?.trim() || 'gpt-4o-mini';
+import { callOpenAiJson, isAiProductConfigured } from '../ai/aiProvider.service.js';
+import type { AiUsageLogContext } from '../ai/aiUsageLog.service.js';
+import type { QuickPasteAiOperation } from '../ai/aiProduct.constants.js';
 
 export function isQuickPasteAiConfigured(): boolean {
-  return OPENAI_API_KEY().length > 0;
+  return isAiProductConfigured('quick_paste');
 }
 
 type AiDraftJson = {
@@ -40,39 +39,18 @@ type AiUnderstandJson = AiDraftJson & {
 export async function callQuickPasteOpenAiJson(
   system: string,
   user: string,
+  log?: { context: AiUsageLogContext; operation: QuickPasteAiOperation | string },
 ): Promise<Record<string, unknown> | null> {
   if (!isQuickPasteAiConfigured()) return null;
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY()}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL(),
-        temperature: 0.1,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-      }),
-    });
-    if (!res.ok) {
-      console.error('[quick-paste] AI HTTP', res.status, await res.text().catch(() => ''));
-      return null;
-    }
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) return null;
-    return JSON.parse(content) as Record<string, unknown>;
-  } catch (e) {
-    console.error('[quick-paste] AI error', e);
-    return null;
-  }
+  const { json, failed } = await callOpenAiJson({
+    product: 'quick_paste',
+    system,
+    user,
+    temperature: 0.1,
+    logContext: log ? { ...log.context, operation: log.operation } : null,
+  });
+  if (failed || !json) return null;
+  return json;
 }
 
 function mergeAiPatch(
@@ -122,6 +100,8 @@ function mergeAiPatch(
 export async function understandAndExtractQuickPasteWithAi(params: {
   rawText: string;
   draft: QuickPasteDraft;
+  tenantId?: string;
+  userId?: string | null;
 }): Promise<{
   draft: QuickPasteDraft;
   applied: boolean;
@@ -159,7 +139,15 @@ export async function understandAndExtractQuickPasteWithAi(params: {
     params.rawText.slice(0, 6000),
   ].join('\n');
 
-  const raw = await callQuickPasteOpenAiJson(system, user);
+  const log =
+    params.tenantId != null
+      ? {
+          context: { tenantId: params.tenantId, userId: params.userId ?? null },
+          operation: 'understand' as const,
+        }
+      : undefined;
+
+  const raw = await callQuickPasteOpenAiJson(system, user, log);
   if (!raw) {
     return {
       draft: params.draft,
@@ -197,12 +185,16 @@ export async function enhanceQuickPasteWithAi(params: {
   draft: QuickPasteDraft;
   missingFields: QuickPasteFieldKey[];
   optionalAiHints: QuickPasteOptionalFieldKey[];
+  tenantId?: string;
+  userId?: string | null;
 }): Promise<{ draft: QuickPasteDraft; applied: boolean; filledFields: string[] }> {
   void params.missingFields;
   void params.optionalAiHints;
   const r = await understandAndExtractQuickPasteWithAi({
     rawText: params.rawText,
     draft: params.draft,
+    tenantId: params.tenantId,
+    userId: params.userId,
   });
   return { draft: r.draft, applied: r.applied, filledFields: r.filledFields };
 }
@@ -211,6 +203,8 @@ export async function enhanceQuickPasteWithAi(params: {
 export async function reviewQuickPasteDraftWithAi(params: {
   rawText: string;
   draft: QuickPasteDraft;
+  tenantId?: string;
+  userId?: string | null;
 }): Promise<{
   draft: QuickPasteDraft;
   reviewed: boolean;
@@ -233,7 +227,15 @@ export async function reviewQuickPasteDraftWithAi(params: {
     params.rawText.slice(0, 6000),
   ].join('\n');
 
-  const raw = await callQuickPasteOpenAiJson(system, user);
+  const log =
+    params.tenantId != null
+      ? {
+          context: { tenantId: params.tenantId, userId: params.userId ?? null },
+          operation: 'review' as const,
+        }
+      : undefined;
+
+  const raw = await callQuickPasteOpenAiJson(system, user, log);
   if (!raw) {
     return { draft: params.draft, reviewed: false, reviewFailed: true, correctedFields: [], warnings: [] };
   }

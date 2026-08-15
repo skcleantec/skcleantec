@@ -15,7 +15,7 @@ import {
 } from '@shared/crmContactIdentity';
 import { CrmIntakePanel, type CrmCustomerMode } from '../../../components/crm/intake/CrmIntakePanel';
 import type { CrmIntakeSavedMeta } from '../../../components/crm/intake/CrmIntakeForm';
-import { CrmScriptPanel } from '../../../components/crm/scripts/CrmScriptPanel';
+import { CrmScriptAiCenterPanel } from '../../../components/crm/scripts/CrmScriptAiCenterPanel';
 import { CrmPricingPanel } from '../../../components/crm/pricing/CrmPricingPanel';
 import { CrmSessionBar } from '../../../components/crm/session/CrmSessionBar';
 import { CrmHeaderStats } from '../../../components/crm/session/CrmHeaderStats';
@@ -145,7 +145,7 @@ export function CrmPage() {
     permissions.me?.role === 'ADMIN' ||
     canAccessAdminPath(permissions.me?.role, permissions.permissions, '/admin/crm');
 
-  const { telecrm, features } = useTenantCapabilities();
+  const { telecrm, features, tenantSlug } = useTenantCapabilities();
   const soomgoPlatformEnabled = telecrmHasPlatform(telecrm, 'soomgo');
   const misoPlatformEnabled = telecrmHasPlatform(telecrm, 'miso');
 
@@ -1282,11 +1282,20 @@ export function CrmPage() {
           }
           header={
             <header className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-2 border-b border-white/10 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-3 py-2.5 text-white shadow-lg sm:gap-x-3 sm:px-4 sm:py-3 lg:flex-nowrap">
-              <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 shadow-md shadow-indigo-900/40">
+              <div className="flex min-w-0 shrink-0 items-center gap-3 sm:gap-3.5">
+                <span
+                  className="inline-flex h-9 w-9 shrink-0 select-none items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 shadow-md shadow-indigo-900/40 pointer-events-none"
+                  aria-hidden
+                >
                   <CrmIconPhone className="h-5 w-5" />
                 </span>
-                <PageTitleWithFavorite label="텔레CRM" onDark compact className="flex shrink-0 min-w-0 items-center gap-1">
+                <span className="hidden h-6 w-px shrink-0 bg-white/15 sm:block" aria-hidden />
+                <PageTitleWithFavorite
+                  label="텔레CRM"
+                  onDark
+                  compact
+                  className="relative z-10 flex shrink-0 items-center gap-1.5 pl-0.5"
+                >
                   <h1 className="shrink-0 text-fluid-sm font-bold tracking-tight whitespace-nowrap">텔레CRM</h1>
                 </PageTitleWithFavorite>
               </div>
@@ -1518,7 +1527,7 @@ export function CrmPage() {
             </div>
           }
           center={
-            <CrmScriptPanel
+            <CrmScriptAiCenterPanel
               customerName={customerName || undefined}
               pyeong={pyeong || undefined}
               estimateWon={scriptEstimateWon}
@@ -1528,6 +1537,14 @@ export function CrmPage() {
                   ? () => openSettings('scripts', canPersonalCatalog ? 'personal' : 'shared')
                   : undefined
               }
+              soomgoEnabled={soomgoPlatformEnabled}
+              tenantSlug={tenantSlug}
+              bridgeStatus={soomgoStatus}
+              bridgeManifest={soomgoBridgeManifest}
+              bridgeUp={soomgoBridgeUp}
+              bridgeBusy={soomgoBusy}
+              onDispatchNotice={showDispatchNotice}
+              inquiryId={crmContext.inquiryId}
             />
           }
           right={

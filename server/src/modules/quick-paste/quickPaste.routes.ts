@@ -124,7 +124,10 @@ router.post('/clarify/ask', async (req, res) => {
       res.status(400).json({ error: '요청 형식이 올바르지 않습니다.' });
       return;
     }
-    const result = await askQuickPasteMissingField(rawText, draft as never, fieldKey);
+    const result = await askQuickPasteMissingField(rawText, draft as never, fieldKey, {
+      tenantId,
+      userId: user.userId,
+    });
     res.json(result);
   } catch (e) {
     console.error('[quick-paste] clarify ask', e);
@@ -157,6 +160,7 @@ router.post('/clarify/respond', async (req, res) => {
       userAnswer,
       snippet,
       sourceLabel,
+      userId: user.userId,
     });
     res.json(result);
   } catch (e) {

@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sys
 import pathlib
 import shutil
@@ -17,12 +18,13 @@ import time
 import atexit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from automation.browser import BrowserManager
 from automation.call_modal import CallModalManager
 from automation.chat_list_watcher import ChatListWatcher
 from automation.chat_room import ChatRoomManager
+from automation.chat_transcript import ChatTranscriptExtractor, ChatTranscriptStore, normalize_tenant_slug
 from automation.login import (
     goto_chat_list,
     login_to_soomgo,
@@ -84,6 +86,7 @@ _chat_watch_stop = threading.Event()
 _chat_watch_thread: threading.Thread | None = None
 _chat_watcher = ChatListWatcher()
 _extract_in_progress = False
+_EXTRACT_BUSY_MESSAGE = '숨고 정보를 가져오는 중입니다. 완료 후 다시 시도해 주세요.'
 _status_nickname_cache: str | None = None
 _login_in_progress = threading.Event()
 
@@ -319,6 +322,17 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[s
         raise
 
 
+def _reject_extract_if_busy(handler: BaseHTTPRequestHandler) -> bool:
+    if _extract_in_progress:
+        _json_response(handler, 409, {
+            'ok': False,
+            'error': _EXTRACT_BUSY_MESSAGE,
+            'code': 'extract_in_progress',
+        })
+        return True
+    return False
+
+
 def _read_json(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     length = int(handler.headers.get('Content-Length', 0))
     if length <= 0:
@@ -450,10 +464,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):  # noqa: N802
-        path = urlparse(self.path).path
-        query = urlparse(self.path).query
+        parsed = urlparse(self.path)
+        path = parsed.path
+        query = parse_qs(parsed.query)
         if path == '/status':
-            lite = 'lite=1' in query or 'lite=true' in query
+            lite = 'lite=1' in parsed.query or 'lite=true' in parsed.query
             with _lock:
                 payload = _status_payload(lite=lite)
             _json_response(self, 200, payload)
@@ -461,10 +476,36 @@ class BridgeHandler(BaseHTTPRequestHandler):
         if path == '/health':
             _json_response(self, 200, {'ok': True, 'bridgeVersion': BRIDGE_VERSION})
             return
+        if path == '/chat-transcript/status':
+            chat_id = (query.get('chatId') or query.get('chat_id') or [''])[0].strip()
+            tenant_slug = (query.get('tenantSlug') or query.get('tenant_slug') or [''])[0].strip()
+            if not chat_id or not re.fullmatch(r'\d+', chat_id):
+                _json_response(self, 400, {'ok': False, 'error': 'chatId required'})
+                return
+            store = ChatTranscriptStore()
+            status = store.status(tenant_slug, chat_id)
+            if not status:
+                _json_response(self, 404, {'ok': False, 'error': 'not_found', 'chatId': chat_id})
+                return
+            _json_response(self, 200, {'ok': True, 'data': status})
+            return
+        if path.startswith('/chat-transcript/'):
+            chat_id = path[len('/chat-transcript/'):].strip('/')
+            tenant_slug = (query.get('tenantSlug') or query.get('tenant_slug') or [''])[0].strip()
+            if not chat_id or not re.fullmatch(r'\d+', chat_id):
+                _json_response(self, 400, {'ok': False, 'error': 'invalid chatId'})
+                return
+            store = ChatTranscriptStore()
+            data = store.load(tenant_slug, chat_id)
+            if not data:
+                _json_response(self, 404, {'ok': False, 'error': 'not_found', 'chatId': chat_id})
+                return
+            _json_response(self, 200, {'ok': True, 'data': data})
+            return
         _json_response(self, 404, {'ok': False, 'error': 'not found'})
 
     def do_POST(self):  # noqa: N802
-        global _logged_in, _last_error
+        global _logged_in, _last_error, _extract_in_progress
         path = urlparse(self.path).path
         body = _read_json(self)
 
@@ -611,8 +652,57 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 _json_response(self, 200, {**_status_payload(), 'layoutOk': ok})
                 return
 
+            if path == '/extract-transcript':
+                if _reject_extract_if_busy(self):
+                    return
+                room = ChatRoomManager(driver)
+                if not room.is_in_chat_room():
+                    _json_response(self, 400, {
+                        'ok': False,
+                        'error': '숨고 Chrome 창에서 채팅방을 연 뒤 다시 시도해 주세요.',
+                    })
+                    return
+                chat_id = room.get_current_chat_id()
+                if not chat_id:
+                    _json_response(self, 400, {'ok': False, 'error': 'chatId not found in URL'})
+                    return
+                tenant_slug = str(
+                    body.get('tenantSlug') or body.get('tenant_slug') or ''
+                ).strip()
+                max_steps_raw = body.get('maxScrollSteps') or body.get('max_scroll_steps') or 90
+                try:
+                    max_steps = int(max_steps_raw)
+                except (TypeError, ValueError):
+                    max_steps = 90
+                max_steps = max(10, min(max_steps, 200))
+                _extract_in_progress = True
+                try:
+                    nickname = room.get_nickname()
+                    data = ChatTranscriptExtractor(driver).extract_and_store(
+                        chat_id=chat_id,
+                        nickname=nickname,
+                        tenant_slug=tenant_slug or None,
+                        max_scroll_steps=max_steps,
+                    )
+                except ValueError as e:
+                    _json_response(self, 400, {'ok': False, 'error': str(e)})
+                    return
+                except Exception as e:
+                    logger.exception('extract-transcript failed')
+                    _json_response(self, 500, {'ok': False, 'error': str(e) or 'extract-transcript failed'})
+                    return
+                finally:
+                    _extract_in_progress = False
+                _json_response(self, 200, {
+                    'ok': True,
+                    'data': data,
+                    'tenantSlug': normalize_tenant_slug(tenant_slug or None),
+                })
+                return
+
             if path == '/extract':
-                global _extract_in_progress
+                if _reject_extract_if_busy(self):
+                    return
                 room = ChatRoomManager(driver)
                 if not room.is_in_chat_room():
                     _json_response(self, 400, {
