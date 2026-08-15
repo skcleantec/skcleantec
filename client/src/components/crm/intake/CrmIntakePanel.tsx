@@ -188,7 +188,9 @@ export function CrmIntakePanel({
   const searchText = searchMode === 'phone' ? outboundPhone : nameSearch;
   const lookupEnabled =
     mode === 'existing' &&
+    Boolean(operatingCompanyId) &&
     (searchMode === 'phone' ? outboundPhone.trim().length >= 4 : nameSearch.trim().length >= 2);
+  const lookupBlockedByBrand = mode === 'existing' && !operatingCompanyId;
 
   const { data, loading, error, refresh, resolveByPhone } = useCrmCustomerLookup(
     searchMode,
@@ -222,7 +224,7 @@ export function CrmIntakePanel({
     onSafePhoneChange(s.safePhone);
     onContactUnknownChange(false);
     onCustomerNameChange(s.customerName);
-    if (s.pyeong) onPyeongChange(s.pyeong);
+    onPyeongChange(s.pyeong);
     setFormSeed({
       customerName: s.customerName,
       nickname: s.nickname,
@@ -231,13 +233,13 @@ export function CrmIntakePanel({
       address: s.address,
     });
     setLastInquiryId(s.inquiryId);
-    autoFilledKeyRef.current = null;
+    autoFilledKeyRef.current = `followup:${followupImport.key}`;
     const dial = s.contactPhone.trim() || s.safePhone.trim();
     if (dial.replace(/\D/g, '').length >= 4) {
       setSearchMode('phone');
-      void resolveByPhone(dial);
+      if (operatingCompanyId) void resolveByPhone(dial);
     }
-  }, [followupImport?.key]);
+  }, [followupImport?.key, operatingCompanyId, resolveByPhone]);
 
   useEffect(() => {
     if (mode !== 'new') return;
@@ -266,10 +268,10 @@ export function CrmIntakePanel({
   );
 
   useEffect(() => {
-    if (soomgoImportFlashKey <= 0) return;
+    if (soomgoImportFlashKey <= 0 || mode !== 'new') return;
     setFormSeed({ customerName: '', nickname: '', phone: '', memo: '', address: '' });
     autoFilledKeyRef.current = null;
-  }, [soomgoImportFlashKey]);
+  }, [soomgoImportFlashKey, mode]);
 
   const applyCustomer = (
     customer: TelecrmCustomerLookupDto['customer'],
@@ -291,11 +293,13 @@ export function CrmIntakePanel({
 
   useEffect(() => {
     if (mode !== 'existing' || loading || !data || data.match !== 'existing') return;
+    if (followupImport?.snapshot) return;
+    if (autoFilledKeyRef.current?.startsWith('followup:')) return;
     const key = `${searchMode}:${data.customer.phone.trim()}`;
     if (!key || autoFilledKeyRef.current === key) return;
     autoFilledKeyRef.current = key;
     applyCustomer(data.customer, data.inquiries[0]);
-  }, [mode, loading, data, searchMode]);
+  }, [mode, loading, data, searchMode, followupImport?.key]);
 
   const handleSelectCandidate = (row: TelecrmCustomerCandidateDto) => {
     onPricingReset?.();
@@ -473,6 +477,12 @@ export function CrmIntakePanel({
               </label>
             )}
 
+            {lookupBlockedByBrand ? (
+              <p className="rounded-xl border border-dashed border-amber-200 bg-amber-50/80 px-3 py-2 text-fluid-2xs leading-snug text-amber-900">
+                작업 브랜드를 선택한 뒤 고객 이력을 조회할 수 있습니다.
+              </p>
+            ) : null}
+
             <CrmCustomerHistoryPanel
               data={lookupEnabled ? data : null}
               loading={lookupEnabled && loading}
@@ -530,6 +540,7 @@ export function CrmIntakePanel({
           <CrmIntakeForm
             seed={intakeSeed}
             initialFormDraft={initialFormDraft}
+            seedSyncDisabled={Boolean(followupImport?.snapshot)}
             contactPhone={contactPhone}
             safePhone={safePhone}
             contactUnknown={contactUnknown}

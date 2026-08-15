@@ -144,16 +144,20 @@ export function CrmCustomerHistoryPanel({
             : '이 연락처로 등록된 이력이 없습니다. 신규 접수를 진행하세요.'}
         </div>
         {data.latestQuote ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] text-amber-950">
-            <p className="font-semibold">저장된 견적 · {fmtDate(data.latestQuote.updatedAt)}</p>
+          <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-[11px] text-sky-950">
+            <p className="font-semibold">보낸 견적 · {fmtDate(data.latestQuote.updatedAt)}</p>
             {data.latestQuote.payload.grandTotalWon != null ? (
               <p className="tabular-nums">{formatTelecrmQuoteWon(data.latestQuote.payload.grandTotalWon)}</p>
             ) : null}
             {data.latestQuote.updatedByName ? (
-              <p className="text-amber-800/70">작성: {data.latestQuote.updatedByName}</p>
+              <p className="text-sky-800/70">전송: {data.latestQuote.updatedByName}</p>
             ) : null}
           </div>
-        ) : null}
+        ) : (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2 text-[11px] text-slate-600">
+            보낸 견적 없음 — 견적보내기를 한 적이 없습니다.
+          </p>
+        )}
       </div>
     );
   }
@@ -184,17 +188,21 @@ export function CrmCustomerHistoryPanel({
       </div>
 
       {data.latestQuote ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] text-amber-950">
-          <p className="font-semibold">최근 견적 · {fmtDate(data.latestQuote.updatedAt)}</p>
+        <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-[11px] text-sky-950">
+          <p className="font-semibold">보낸 견적 · {fmtDate(data.latestQuote.updatedAt)}</p>
           {data.latestQuote.payload.grandTotalWon != null ? (
             <p className="tabular-nums">{formatTelecrmQuoteWon(data.latestQuote.payload.grandTotalWon)}</p>
           ) : null}
           {data.latestQuote.updatedByName ? (
-            <p className="text-amber-800/70">작성: {data.latestQuote.updatedByName}</p>
+            <p className="text-sky-800/70">전송: {data.latestQuote.updatedByName}</p>
           ) : null}
-          <p className="mt-0.5 text-amber-800/70">가격 안내 패널에서 불러오기할 수 있습니다.</p>
+          <p className="mt-0.5 text-sky-800/70">견적보내기로 고객에게 전송한 금액입니다.</p>
         </div>
-      ) : null}
+      ) : (
+        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2 text-[11px] text-slate-600">
+          보낸 견적 없음 — 견적보내기를 한 적이 없습니다.
+        </p>
+      )}
 
       {selectedInquiry ? (
         <CrmInquiryBriefPanel

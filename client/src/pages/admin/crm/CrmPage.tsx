@@ -7,7 +7,7 @@ import { useMarketerPermissions } from '../../../hooks/useMarketerPermissions';
 import { useCrmInquiryEdit } from '../../../hooks/useCrmInquiryEdit';
 import { fetchTelecrmPricingCatalog } from '../../../api/telecrm';
 import { CrmShell } from '../../../components/crm/layout/CrmShell';
-import { CrmContactHistoryDrawer, CrmContactHistoryReopenChip } from '../../../components/crm/contact/CrmContactHistoryDrawer';
+import { CrmContactHistoryDrawer } from '../../../components/crm/contact/CrmContactHistoryDrawer';
 import { useCrmContactTimeline } from '../../../hooks/useCrmContactTimeline';
 import {
   crmContactIdentityKey,
@@ -35,6 +35,7 @@ import { useCrmMisoBridge } from '../../../hooks/useCrmMisoBridge';
 import { useSoomgoBridgeManifestRefresh } from '../../../hooks/useSoomgoBridgeManifestRefresh';
 import { isMisoBridgeReachable } from '../../../api/misoBridge';
 import { isSoomgoBridgeUpdateNoticeVisible, isSoomgoBridgeReachable, isSoomgoBridgeUseBlocked, SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE, soomgoBridgeOutdatedMessage } from '../../../api/soomgoBridge';
+import { waitForSoomgoInChatRoom } from '../../../utils/crmSoomgoBridgeWait';
 import { useTenantCapabilities } from '../../../hooks/useTenantCapabilities';
 import { canAccessTelecrm, telecrmHasPlatform } from '../../../utils/telecrmDashboardAccess';
 import { TelecrmAccessModal } from '../../../components/admin/TelecrmAccessModal';
@@ -61,6 +62,8 @@ import { isTelecrmNativeApp } from '../../../utils/telecrmNativeBridge';
 import {
   deriveSoomgoIntakeDefaults,
   formatSoomgoCountForCrm,
+  parseSoomgoPyeongForCrm,
+  resolveSoomgoAddress,
   resolveSoomgoPreferredDate,
   soomgoImportNoticeText,
   summarizeSoomgoImport,
@@ -85,7 +88,7 @@ import {
   crmQuoteProfessionalOptionIdsFromLines,
   type CrmPricingQuoteLine,
 } from '../../../utils/crmConsultationQuoteMap';
-import { linkTelecrmConsultationQuoteInquiry } from '../../../api/telecrmConsultationQuote';
+import { linkTelecrmConsultationQuoteInquiry, recordTelecrmConsultationQuoteSent } from '../../../api/telecrmConsultationQuote';
 import type { OrderForm } from '../../../api/orderform';
 import { fitCrmPopupWindow, applyTelecrmSoomgoSplitLayout } from '../../../utils/crmSoomgoSplitLayout';
 import { parseJwtPayload } from '../../../utils/jwtPayload';
@@ -115,6 +118,8 @@ import { CrmWorkBrandBar } from '../../../components/crm/workBrand/CrmWorkBrandB
 import {
   crmFollowupApplyFromItem,
   crmFollowupApplyFromLookupRow,
+  followupIntakeExtrasNeedsSoomgoFill,
+  mergeSoomgoIntoFollowupSnapshot,
   type CrmFollowupApplySnapshot,
 } from '../../../utils/crmFollowupApply';
 import type { OrderFollowupItem } from '../../../api/orderFollowups';
@@ -246,6 +251,11 @@ export function CrmPage() {
     key: number;
     snapshot: CrmFollowupApplySnapshot;
   } | null>(null);
+  const followupSoomgoAutoRef = useRef(0);
+  const followupSoomgoMergeRef = useRef<CrmFollowupApplySnapshot | null>(null);
+  const applyFollowupFieldsRef = useRef<
+    (snapshot: CrmFollowupApplySnapshot, opts?: { closeDrawer?: boolean; notice?: string; extractPlatform?: 'soomgo' }) => void
+  >(() => {});
   const dispatchNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const draftReadyRef = useRef(false);
   const formSnapshotRef = useRef<CrmIntakeFormSnapshot | null>(null);
@@ -605,6 +615,7 @@ export function CrmPage() {
       });
       setSoomgoImportBanner(null);
       setSoomgoImportFlashKey(0);
+      setFollowupImport(null);
       clearCrmIntakeDraft();
       setHasUnsavedDraft(false);
       formSnapshotRef.current = null;
@@ -620,6 +631,33 @@ export function CrmPage() {
 
   const handleSoomgoImport = useCallback(
     (data: SoomgoExtractedChat) => {
+      const mergeBase = followupSoomgoMergeRef.current;
+      if (mergeBase) {
+        followupSoomgoMergeRef.current = null;
+        const merged = mergeSoomgoIntoFollowupSnapshot(mergeBase, data);
+        const summary = summarizeSoomgoImport(data);
+        setSoomgoImportBanner(
+          summary.lines.length > 0
+            ? `부재·보류 + 숨고\n${summary.lines.join('\n')}`
+            : '숨고에서 가져온 추가 필드를 반영했습니다.',
+        );
+        setIntakeStructure({
+          roomCount: merged.roomCount,
+          bathroomCount: merged.bathroomCount,
+          balconyCount: merged.balconyCount,
+        });
+        applyFollowupFieldsRef.current(merged, {
+          closeDrawer: false,
+          notice: soomgoImportNoticeText(summary, {
+            safePhoneSkipped: data.safePhoneSkipped,
+            phoneConsultPending: data.phoneConsultPending,
+            phoneConsultAction: data.phoneConsultAction,
+          }),
+          extractPlatform: 'soomgo',
+        });
+        return;
+      }
+
       resetQuotePricingState();
       const split = splitSoomgoPhones(data);
       const intakeDefaults = deriveSoomgoIntakeDefaults(data);
@@ -632,7 +670,7 @@ export function CrmPage() {
       setSafePhone(split.safePhone ?? '');
       setContactUnknown(intakeDefaults.contactUnknown);
       setCustomerName(name);
-      setPyeong(data.pyeong ? String(data.pyeong) : '');
+      setPyeong(parseSoomgoPyeongForCrm(data.pyeong));
       setMode('new');
       setIntakeKind(intakeDefaults.kind);
       setSoomgoImportBanner(summary.lines.join('\n'));
@@ -640,7 +678,7 @@ export function CrmPage() {
       setInitialFormDraft({
         customerName: name,
         nickname: name,
-        address: (data.region || data.address)?.trim() || '',
+        address: resolveSoomgoAddress(data),
         preferredMoveInCleanYmd: preferredYmd,
         requestMemo,
         roomCount: formatSoomgoCountForCrm(data.roomCount),
@@ -746,6 +784,7 @@ export function CrmPage() {
     extract,
     callFromChat,
     restartBridge,
+    openChatByNickname,
     openChatRoomAndExtract,
     busy: soomgoBusy,
     busyAction: soomgoBusyAction,
@@ -781,6 +820,15 @@ export function CrmPage() {
     startEmulator: startMisoEmulator,
   } = misoBridge;
 
+  const openSoomgoChatForNickname = useCallback(
+    async (nickname: string) => {
+      const query = nickname.trim();
+      if (query.length < 2 || !soomgoBarOpen) return false;
+      return openChatByNickname(query);
+    },
+    [openChatByNickname, soomgoBarOpen],
+  );
+
   const extractFromBridge = useCallback(async () => {
     if (misoBarOpen) {
       const miso = await refreshMisoStatus();
@@ -798,6 +846,10 @@ export function CrmPage() {
         return;
       }
       if (isSoomgoBridgeReachable(s)) {
+        const nick = intakeIdentity.nickname.trim();
+        if (nick.length >= 2) {
+          await openSoomgoChatForNickname(nick);
+        }
         await extract();
         return;
       }
@@ -808,7 +860,9 @@ export function CrmPage() {
   }, [
     extract,
     extractMiso,
+    intakeIdentity.nickname,
     misoBarOpen,
+    openSoomgoChatForNickname,
     refreshMisoStatus,
     refreshSoomgoStatus,
     showDispatchNotice,
@@ -818,6 +872,36 @@ export function CrmPage() {
 
   const bridgeExtractBusy =
     misoBusyAction === 'extract' || soomgoBusyAction === 'extract';
+
+  const importSoomgoForAiSummary = useCallback(async () => {
+    if (!soomgoBarOpen) {
+      showDispatchNotice('숨고 연동을 켠 뒤 AI 정리를 사용해 주세요.');
+      return false;
+    }
+    const s = await refreshSoomgoStatus({ lite: true });
+    if (isSoomgoBridgeUseBlocked(s, soomgoBridgeManifest)) {
+      showDispatchNotice(soomgoBridgeOutdatedMessage(s, soomgoBridgeManifest));
+      return false;
+    }
+    if (!isSoomgoBridgeReachable(s)) {
+      showDispatchNotice(SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE);
+      return false;
+    }
+    const nick = intakeIdentity.nickname.trim();
+    if (nick.length >= 2) {
+      await openSoomgoChatForNickname(nick);
+    }
+    const data = await extract();
+    return data != null;
+  }, [
+    extract,
+    intakeIdentity.nickname,
+    openSoomgoChatForNickname,
+    refreshSoomgoStatus,
+    showDispatchNotice,
+    soomgoBarOpen,
+    soomgoBridgeManifest,
+  ]);
 
   const soomgoUpdateNoticeVisible = useMemo(
     () => isSoomgoBridgeUpdateNoticeVisible(soomgoStatus, soomgoBridgeManifest),
@@ -935,6 +1019,7 @@ export function CrmPage() {
 
   const {
     pendingQuote,
+    latestSentQuote,
     dismissPendingQuote,
     startFreshQuote,
     saveError: quoteSaveError,
@@ -942,6 +1027,7 @@ export function CrmPage() {
     finalizing: quoteFinalizing,
     finalizeError: quoteFinalizeError,
     finalizeQuoteHold,
+    reloadQuotes,
   } = useCrmConsultationQuote({
     phone: outboundPhone,
     pyeong,
@@ -1036,6 +1122,22 @@ export function CrmPage() {
       });
       const notice = noticeForSoomgoQuoteAutoSend(result);
       if (notice) showDispatchNotice(notice);
+      if (result.sent && telecrmQuotePayloadHasContent(quotePayload)) {
+        const digits = outboundPhone.replace(/\D/g, '');
+        if (digits.length >= 4 && activeOperatingCompanyId) {
+          try {
+            await recordTelecrmConsultationQuoteSent(
+              t,
+              { phone: digits, payload: quotePayload },
+              activeOperatingCompanyId,
+            );
+            reloadQuotes();
+            setLookupRefreshKey((k) => k + 1);
+          } catch {
+            showDispatchNotice('숨고 전송은 완료됐으나 보낸 견적 기록에 실패했습니다.');
+          }
+        }
+      }
     } finally {
       setSoomgoQuoteSending(false);
     }
@@ -1045,30 +1147,56 @@ export function CrmPage() {
     contactPhone,
     safePhone,
     quoteGrandTotal,
+    quotePayload,
+    outboundPhone,
     pyeong,
+    reloadQuotes,
     showDispatchNotice,
   ]);
 
-  const applyFollowupToCrm = useCallback(
-    (snapshot: CrmFollowupApplySnapshot, opts?: { closeDrawer?: boolean }) => {
+  const applyFollowupFieldsToCrm = useCallback(
+    (
+      snapshot: CrmFollowupApplySnapshot,
+      opts?: {
+        closeDrawer?: boolean;
+        notice?: string;
+        extractPlatform?: 'soomgo';
+      },
+    ) => {
       resetQuotePricingState();
       setMode('existing');
       setContactPhone(snapshot.contactPhone);
       setSafePhone(snapshot.safePhone);
       setContactUnknown(false);
       setCustomerName(snapshot.customerName);
-      if (snapshot.pyeong) setPyeong(snapshot.pyeong);
+      setPyeong(snapshot.pyeong);
       setIntakeKind(snapshot.kind);
+      setIntakeStructure({
+        roomCount: snapshot.roomCount,
+        bathroomCount: snapshot.bathroomCount,
+        balconyCount: snapshot.balconyCount,
+      });
+      const extractPlatform = opts?.extractPlatform;
+      const leadSource =
+        snapshot.leadSource.trim() ||
+        (extractPlatform === 'soomgo' ? BRIDGE_INQUIRY_LEAD_SOURCE_LABEL.soomgo : '');
       setInitialFormDraft({
         customerName: snapshot.customerName,
         nickname: snapshot.nickname,
         address: snapshot.address,
         preferredMoveInCleanYmd: snapshot.preferredMoveInCleanYmd,
         requestMemo: snapshot.requestMemo,
+        roomCount: snapshot.roomCount,
+        bathroomCount: snapshot.bathroomCount,
+        balconyCount: snapshot.balconyCount,
         kind: snapshot.kind,
         goldDb: snapshot.goldDb,
+        leadSource,
+        ...(extractPlatform ? { extractPlatform } : {}),
       });
-      setFormResetKey((k) => k + 1);
+      if (extractPlatform === 'soomgo') {
+        setSoomgoImportFlashKey((k) => k + 1);
+      }
       const nextKey = followupImportKey + 1;
       setFollowupImportKey(nextKey);
       setFollowupImport({ key: nextKey, snapshot });
@@ -1076,10 +1204,108 @@ export function CrmPage() {
         inquiryId: snapshot.inquiryId,
         customerMatch: snapshot.inquiryId ? 'existing' : 'unknown',
       });
-      showDispatchNotice('부재·보류 정보를 CRM 접수란으로 가져왔습니다.');
+      setIntakeIdentity({
+        customerName: snapshot.customerName,
+        nickname: snapshot.nickname,
+        address: snapshot.address,
+      });
+      showDispatchNotice(opts?.notice ?? '부재·보류 정보를 CRM 접수란으로 가져왔습니다.');
       if (opts?.closeDrawer !== false) closePanel();
     },
-    [followupImportKey, closePanel, resetQuotePricingState, showDispatchNotice],
+    [closePanel, followupImportKey, resetQuotePricingState, showDispatchNotice],
+  );
+
+  const autoFillFollowupExtrasFromSoomgo = useCallback(
+    async (snapshot: CrmFollowupApplySnapshot) => {
+      if (!followupIntakeExtrasNeedsSoomgoFill(snapshot)) return;
+      if (!soomgoPlatformEnabled || !soomgoBarOpen || isMobileApp) return;
+      const nick = (snapshot.nickname || snapshot.customerName).trim();
+      if (nick.length < 2) return;
+
+      const runId = followupSoomgoAutoRef.current + 1;
+      followupSoomgoAutoRef.current = runId;
+
+      try {
+        const s = await refreshSoomgoStatus({ lite: true });
+        if (runId !== followupSoomgoAutoRef.current) return;
+        if (isSoomgoBridgeUseBlocked(s, soomgoBridgeManifest)) {
+          showDispatchNotice(soomgoBridgeOutdatedMessage(s, soomgoBridgeManifest));
+          return;
+        }
+        if (!isSoomgoBridgeReachable(s)) {
+          showDispatchNotice(SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE);
+          return;
+        }
+
+        followupSoomgoMergeRef.current = snapshot;
+        const opened = await openSoomgoChatForNickname(nick);
+        if (runId !== followupSoomgoAutoRef.current) return;
+        if (!opened) {
+          followupSoomgoMergeRef.current = null;
+          return;
+        }
+
+        const ready = await waitForSoomgoInChatRoom(soomgoBridgeManifest);
+        if (runId !== followupSoomgoAutoRef.current) return;
+        if (!ready) {
+          followupSoomgoMergeRef.current = null;
+          showDispatchNotice('숨고 채팅방이 열리지 않았습니다. 「정보 갖고오기」를 직접 눌러 주세요.');
+          return;
+        }
+
+        await new Promise((r) => window.setTimeout(r, 800));
+
+        showDispatchNotice('추가 필드가 비어 있어 숨고에서 정보를 가져오는 중…');
+        const data = await extract();
+        if (runId !== followupSoomgoAutoRef.current) return;
+        if (!data) {
+          followupSoomgoMergeRef.current = null;
+        }
+      } catch (e) {
+        followupSoomgoMergeRef.current = null;
+        if (runId !== followupSoomgoAutoRef.current) return;
+        const msg = e instanceof Error ? e.message : '숨고 추가 정보를 가져오지 못했습니다.';
+        showDispatchNotice(`${msg} 「정보 갖고오기」를 직접 눌러 주세요.`);
+      }
+    },
+    [
+      extract,
+      isMobileApp,
+      openSoomgoChatForNickname,
+      refreshSoomgoStatus,
+      showDispatchNotice,
+      soomgoBarOpen,
+      soomgoBridgeManifest,
+      soomgoPlatformEnabled,
+    ],
+  );
+
+  applyFollowupFieldsRef.current = applyFollowupFieldsToCrm;
+
+  const applyFollowupToCrm = useCallback(
+    (snapshot: CrmFollowupApplySnapshot, opts?: { closeDrawer?: boolean }) => {
+      const needsSoomgoFill = followupIntakeExtrasNeedsSoomgoFill(snapshot);
+      applyFollowupFieldsToCrm(snapshot, {
+        ...opts,
+        ...(needsSoomgoFill ? { extractPlatform: 'soomgo' as const } : {}),
+      });
+      const nick = snapshot.nickname.trim();
+      if (nick && soomgoBarOpen && !needsSoomgoFill) {
+        void openSoomgoChatForNickname(nick);
+      } else if (nick && !soomgoBarOpen) {
+        showDispatchNotice('숨고 연동을 켜면 닉네임으로 채팅방을 자동으로 찾아 이동합니다.');
+      }
+      if (needsSoomgoFill) {
+        void autoFillFollowupExtrasFromSoomgo(snapshot);
+      }
+    },
+    [
+      applyFollowupFieldsToCrm,
+      autoFillFollowupExtrasFromSoomgo,
+      openSoomgoChatForNickname,
+      showDispatchNotice,
+      soomgoBarOpen,
+    ],
   );
 
   const handleApplyFollowupItem = useCallback(
@@ -1560,6 +1786,7 @@ export function CrmPage() {
               bridgeBusy={soomgoBusy}
               onDispatchNotice={showDispatchNotice}
               inquiryId={crmContext.inquiryId}
+              onImportSoomgo={soomgoPlatformEnabled ? importSoomgoForAiSummary : undefined}
             />
           }
           right={
@@ -1575,9 +1802,25 @@ export function CrmPage() {
               quoteLines={quoteLines}
               onQuoteLinesChange={setQuoteLines}
               pendingQuote={pendingQuote}
+              latestSentQuote={latestSentQuote}
               onLoadPendingQuote={applyPendingQuote}
               onDismissPendingQuote={dismissPendingQuote}
               onStartFreshQuote={() => void handleStartFreshQuote()}
+              contactHistoryAction={
+                contactTimelineItems.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      contactHistoryDismissedKeyRef.current = null;
+                      setContactHistoryOpen(true);
+                    }}
+                    className="rounded-lg border border-emerald-300/80 bg-white px-2 py-1 text-[10px] font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1"
+                  >
+                    접촉 이력 {contactTimelineItems.length}건
+                    {contactTimelineActiveCount > 0 ? ` · 진행 ${contactTimelineActiveCount}` : ''}
+                  </button>
+                ) : null
+              }
               quoteSaveError={quoteSaveError}
               quoteSaving={quoteSaving}
               canFinalizeHold={canFinalizeQuoteHold}
@@ -1723,16 +1966,6 @@ export function CrmPage() {
           loading={contactTimelineLoading}
           error={contactTimelineError}
         />
-        {!contactHistoryOpen && contactTimelineItems.length > 0 ? (
-          <CrmContactHistoryReopenChip
-            count={contactTimelineItems.length}
-            activeCount={contactTimelineActiveCount}
-            onOpen={() => {
-              contactHistoryDismissedKeyRef.current = null;
-              setContactHistoryOpen(true);
-            }}
-          />
-        ) : null}
       </div>
   );
 }

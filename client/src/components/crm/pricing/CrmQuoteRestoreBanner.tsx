@@ -30,10 +30,9 @@ export function CrmQuoteRestoreBanner({
   return (
     <div className="shrink-0 border-b border-amber-200/80 bg-amber-50/90 px-2 py-1.5 text-[10px] text-amber-950">
       <p className="font-semibold">
-        저장된 견적 · {fmtWhen(quote.updatedAt)}
+        편집 중 견적(미전송) · {fmtWhen(quote.updatedAt)}
         {who ? ` · ${who}` : ''}
         {total != null ? ` · ${formatTelecrmQuoteWon(total)}` : ''}
-        {quote.status === 'QUOTED' ? ' · 확정' : ''}
       </p>
       <div className="mt-1 flex flex-wrap gap-2">
         <button

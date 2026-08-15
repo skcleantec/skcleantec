@@ -121,6 +121,14 @@ export type TelecrmCustomerLookupDto = {
     customerPhone: string;
     memo: string | null;
     inquiryId: string | null;
+    goldDb: boolean;
+    preferredMoveInCleaningDate: string | null;
+    address: string | null;
+    areaPyeong: number | null;
+    roomCount: number | null;
+    bathroomCount: number | null;
+    balconyCount: number | null;
+    leadSource: string | null;
   }[];
   csReports: {
     id: string;

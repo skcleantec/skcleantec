@@ -23,6 +23,10 @@ import {
   serializeLog,
 } from './orderFollowups.service.js';
 import {
+  followupIntakeExtrasToPrismaData,
+  parseFollowupIntakeExtrasFromBody,
+} from './orderFollowupIntakeExtras.js';
+import {
   assertActiveLeadSourceLabel,
   mapLeadSourceValidationError,
 } from '../inquiry-lead-sources/inquiryLeadSource.service.js';
@@ -489,6 +493,8 @@ router.post('/', async (req, res) => {
     }
     preferredMoveInCleaningDate = parsed;
   }
+  const intakeExtras = parseFollowupIntakeExtrasFromBody(body);
+  const intakeExtrasData = followupIntakeExtrasToPrismaData(intakeExtras);
   let connectInquiryId: string | undefined;
   if (typeof body.inquiryId === 'string' && body.inquiryId.trim()) {
     const iid = body.inquiryId.trim();
@@ -557,6 +563,7 @@ router.post('/', async (req, res) => {
         handledBy: { connect: { id: user.userId } },
         ...(resolvedLeadSource != null ? { leadSource: resolvedLeadSource } : {}),
         ...(preferredMoveInCleaningDate !== undefined ? { preferredMoveInCleaningDate } : {}),
+        ...intakeExtrasData,
         ...(connectInquiryId && !existing.inquiryId ? { inquiry: { connect: { id: connectInquiryId } } } : {}),
       };
 
@@ -597,6 +604,7 @@ router.post('/', async (req, res) => {
           ...(preferredMoveInCleaningDate !== undefined
             ? { preferredMoveInCleaningDate: preferredMoveInCleaningDate ?? null }
             : {}),
+          ...intakeExtras,
         }),
       });
 
@@ -636,6 +644,7 @@ router.post('/', async (req, res) => {
       ...(preferredMoveInCleaningDate !== undefined
         ? { preferredMoveInCleaningDate }
         : {}),
+      ...intakeExtrasData,
       ...(connectInquiryId ? { inquiryId: connectInquiryId } : {}),
     },
     include: FOLLOWUP_INCLUDE,
@@ -654,6 +663,7 @@ router.post('/', async (req, res) => {
       ...(preferredMoveInCleaningDate !== undefined
         ? { preferredMoveInCleaningDate: preferredMoveInCleaningDate ?? null }
         : {}),
+      ...intakeExtras,
     }),
   });
   const full = await prisma.orderFollowup.findUniqueOrThrow({
@@ -840,6 +850,15 @@ router.patch('/:id', async (req, res) => {
         action: 'PREFERRED_MOVE_IN_CLEANING_DATE',
         detail: JSON.stringify({ from: prevP, to: p }),
       });
+    }
+  }
+
+  const patchIntakeExtras = parseFollowupIntakeExtrasFromBody(body);
+  const patchIntakeData = followupIntakeExtrasToPrismaData(patchIntakeExtras);
+  for (const [key, val] of Object.entries(patchIntakeData)) {
+    const prevVal = (prev as Record<string, unknown>)[key] ?? null;
+    if (val !== prevVal) {
+      (data as Record<string, unknown>)[key] = val;
     }
   }
 

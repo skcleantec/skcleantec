@@ -14,6 +14,10 @@ export type CrmQuoteLearningContext = {
   isOneRoom?: boolean;
 };
 
+const FETCH_DEBOUNCE_MS = 400;
+const LOADING_UI_DELAY_MS = 280;
+const FETCH_TIMEOUT_MS = 12000;
+
 function buildHintLine(hints: TelecrmQuoteCrewLearningHints): string | null {
   if (hints.confidence === 'none') return null;
   const parts: string[] = [`유사 예약 ${hints.matchCount}건`];
@@ -29,6 +33,21 @@ function buildHintLine(hints: TelecrmQuoteCrewLearningHints): string | null {
   return parts.join(' · ');
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('timeout')), ms);
+    promise
+      .then((value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        window.clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 export function CrmQuoteLearningHintBanner({
   context,
   onOpenLearningSettings,
@@ -38,7 +57,7 @@ export function CrmQuoteLearningHintBanner({
 }) {
   const token = getToken();
   const [hints, setHints] = useState<TelecrmQuoteCrewLearningHints | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [showLoadingUi, setShowLoadingUi] = useState(false);
 
   const queryKey = useMemo(
     () =>
@@ -64,21 +83,32 @@ export function CrmQuoteLearningHintBanner({
       Boolean(context.balconyCount?.trim());
     if (!hasSignal) {
       setHints(null);
+      setShowLoadingUi(false);
       return;
     }
 
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      setLoading(true);
-      fetchTelecrmQuoteCrewLearningHints(token, {
-        pyeong: context.pyeong,
-        roomCount: context.roomCount,
-        bathroomCount: context.bathroomCount,
-        balconyCount: context.balconyCount,
-        propertyType: context.propertyType,
-        buildingType: context.buildingType,
-        isOneRoom: context.isOneRoom,
-      })
+    setHints(null);
+    setShowLoadingUi(false);
+
+    const debounceTimer = window.setTimeout(() => {
+      let loadingUiTimer: number | undefined;
+      loadingUiTimer = window.setTimeout(() => {
+        if (!cancelled) setShowLoadingUi(true);
+      }, LOADING_UI_DELAY_MS);
+
+      void withTimeout(
+        fetchTelecrmQuoteCrewLearningHints(token, {
+          pyeong: context.pyeong,
+          roomCount: context.roomCount,
+          bathroomCount: context.bathroomCount,
+          balconyCount: context.balconyCount,
+          propertyType: context.propertyType,
+          buildingType: context.buildingType,
+          isOneRoom: context.isOneRoom,
+        }),
+        FETCH_TIMEOUT_MS,
+      )
         .then((data) => {
           if (!cancelled) setHints(data);
         })
@@ -86,18 +116,20 @@ export function CrmQuoteLearningHintBanner({
           if (!cancelled) setHints(null);
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (loadingUiTimer != null) window.clearTimeout(loadingUiTimer);
+          if (!cancelled) setShowLoadingUi(false);
         });
-    }, 400);
+    }, FETCH_DEBOUNCE_MS);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      window.clearTimeout(debounceTimer);
+      setShowLoadingUi(false);
     };
   }, [token, queryKey, context]);
 
   const line = hints ? buildHintLine(hints) : null;
-  if (!loading && !line) return null;
+  if (!showLoadingUi && !line) return null;
 
   const tone =
     hints?.confidence === 'high'
@@ -108,9 +140,9 @@ export function CrmQuoteLearningHintBanner({
 
   return (
     <div
-      className={`rounded-lg border px-2.5 py-1.5 text-fluid-2xs leading-snug ${loading ? 'border-slate-200 bg-slate-50 text-slate-600' : tone}`}
+      className={`rounded-lg border px-2.5 py-1.5 text-fluid-2xs leading-snug ${showLoadingUi ? 'border-slate-200 bg-slate-50 text-slate-600' : tone}`}
     >
-      {loading ? (
+      {showLoadingUi ? (
         <span>예약 학습 데이터 조회 중…</span>
       ) : (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

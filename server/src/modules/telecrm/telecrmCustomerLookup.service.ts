@@ -52,6 +52,13 @@ export type TelecrmCustomerLookupResult = {
     customerPhone: string;
     memo: string | null;
     inquiryId: string | null;
+    goldDb: boolean;
+    preferredMoveInCleaningDate: string | null;
+    address: string | null;
+    areaPyeong: number | null;
+    roomCount: number | null;
+    bathroomCount: number | null;
+    balconyCount: number | null;
   }[];
   csReports: {
     id: string;
@@ -169,6 +176,14 @@ async function resolveTelecrmCustomerByPhone(
         customerPhone: true,
         memo: true,
         inquiryId: true,
+        goldDb: true,
+        preferredMoveInCleaningDate: true,
+        address: true,
+        areaPyeong: true,
+        roomCount: true,
+        bathroomCount: true,
+        balconyCount: true,
+        leadSource: true,
       },
     }),
     prisma.csReport.findMany({
@@ -214,6 +229,14 @@ async function resolveTelecrmCustomerByPhone(
       customerPhone: row.customerPhone,
       memo: row.memo,
       inquiryId: row.inquiryId,
+      goldDb: row.goldDb,
+      preferredMoveInCleaningDate: row.preferredMoveInCleaningDate ?? null,
+      address: row.address ?? null,
+      areaPyeong: row.areaPyeong ?? null,
+      roomCount: row.roomCount ?? null,
+      bathroomCount: row.bathroomCount ?? null,
+      balconyCount: row.balconyCount ?? null,
+      leadSource: row.leadSource ?? null,
     }));
 
   const csReports = csRows

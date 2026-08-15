@@ -21,8 +21,16 @@ router.get(
       res.status(400).json({ error: 'phone 또는 name(2자 이상)이 필요합니다.' });
       return;
     }
-    const result = await searchTelecrmCustomer(tenantId, operatingCompanyId, { phone, name });
-    res.json(result);
+    try {
+      const result = await searchTelecrmCustomer(tenantId, operatingCompanyId, { phone, name });
+      res.json(result);
+    } catch (e) {
+      console.error('[telecrm/customer-lookup]', e);
+      res.status(500).json({
+        error:
+          '고객 이력 조회에 실패했습니다. API 서버를 재시작한 뒤(prisma generate 포함) 다시 시도해 주세요.',
+      });
+    }
   },
 );
 

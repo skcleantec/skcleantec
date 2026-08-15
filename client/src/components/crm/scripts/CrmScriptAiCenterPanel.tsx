@@ -34,6 +34,7 @@ export function CrmScriptAiCenterPanel({
   bridgeBusy = false,
   onDispatchNotice,
   inquiryId = null,
+  onImportSoomgo,
 }: {
   customerName?: string;
   pyeong?: string;
@@ -48,6 +49,7 @@ export function CrmScriptAiCenterPanel({
   bridgeBusy?: boolean;
   onDispatchNotice?: (message: string) => void;
   inquiryId?: string | null;
+  onImportSoomgo?: () => Promise<boolean>;
 }) {
   const [tab, setTab] = useState<CenterTab>(() => readCenterTab());
   const [fontScale, setFontScale] = useCrmAiFontScale();
@@ -118,6 +120,7 @@ export function CrmScriptAiCenterPanel({
           bridgeBusy={bridgeBusy}
           onDispatchNotice={onDispatchNotice}
           fontScale={fontScale}
+          onImportSoomgo={onImportSoomgo}
         />
       ) : (
         <CrmScriptPanel

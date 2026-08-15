@@ -8,9 +8,11 @@ import {
   listTelecrmConsultationQuotesForPhone,
   normalizeTelecrmQuotePhone,
   parseTelecrmConsultationQuotePayload,
+  recordTelecrmConsultationQuoteSent,
   supersedeTelecrmConsultationQuotesForPhone,
   upsertTelecrmConsultationQuoteDraft,
 } from './telecrmConsultationQuote.service.js';
+import { parseFollowupIntakeExtrasFromBody } from '../order-followups/orderFollowupIntakeExtras.js';
 import { mapLeadSourceValidationError } from '../inquiry-lead-sources/inquiryLeadSource.service.js';
 
 const router = Router();
@@ -74,6 +76,37 @@ router.post('/supersede-active', requireStaffPermission('crm.view', 'crm.setting
   res.json({ ok: true });
 });
 
+router.post('/sent', requireStaffPermission('crm.view', 'crm.settings'), async (req, res) => {
+  const tenantId = requireTelecrmTenant(req, res);
+  if (!tenantId) return;
+  const operatingCompanyId = await requireCrmWorkOperatingCompanyId(req, res);
+  if (!operatingCompanyId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const { phone: phoneRaw, payload } = req.body as { phone?: string; payload?: unknown };
+  const phone = normalizeTelecrmQuotePhone(typeof phoneRaw === 'string' ? phoneRaw : '');
+  if (phone.length < 4) {
+    res.status(400).json({ error: '전화번호(4자 이상)가 필요합니다.' });
+    return;
+  }
+  const parsed = parseTelecrmConsultationQuotePayload(payload);
+  if (!parsed) {
+    res.status(400).json({ error: '저장할 견적 내용이 없습니다.' });
+    return;
+  }
+  try {
+    const quote = await recordTelecrmConsultationQuoteSent(
+      tenantId,
+      operatingCompanyId,
+      user.userId,
+      phone,
+      parsed,
+    );
+    res.status(201).json({ quote });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : '견적 전송 기록 실패' });
+  }
+});
+
 router.post('/finalize', requireStaffPermission('followup.edit', 'crm.view', 'crm.settings'), async (req, res) => {
   const tenantId = requireTelecrmTenant(req, res);
   if (!tenantId) return;
@@ -122,6 +155,7 @@ router.post('/finalize', requireStaffPermission('followup.edit', 'crm.view', 'cr
   try {
     const strictLeadSource =
       body.strictLeadSource === true || body.strictLeadSource === 'true';
+    const intakeExtras = parseFollowupIntakeExtrasFromBody(body);
     const result = await finalizeTelecrmConsultationQuote(tenantId, operatingCompanyId, user.userId, {
       phone,
       payload: parsed,
@@ -129,6 +163,7 @@ router.post('/finalize', requireStaffPermission('followup.edit', 'crm.view', 'cr
       nickname: typeof body.nickname === 'string' ? body.nickname : null,
       goldDb: body.goldDb === true,
       preferredMoveInCleaningDate,
+      ...intakeExtras,
       followupStatus: statusRaw,
       extraMemo: typeof body.extraMemo === 'string' ? body.extraMemo : null,
       actorName: typeof body.actorName === 'string' ? body.actorName : null,

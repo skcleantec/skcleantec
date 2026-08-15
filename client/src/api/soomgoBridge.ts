@@ -240,7 +240,11 @@ export async function fetchSoomgoBridgeStatus(
 ): Promise<SoomgoBridgeStatus> {
   try {
     const lite = options?.lite ? '?lite=1' : '';
-    const status = await bridgeFetch<SoomgoBridgeStatus>(`/status${lite}`);
+    const status = await bridgeFetch<SoomgoBridgeStatus>(
+      `/status${lite}`,
+      undefined,
+      options?.lite ? 8_000 : 15_000,
+    );
     if (isSoomgoBridgeOutdated(status, manifest)) {
       return { ...status, lastError: soomgoBridgeOutdatedMessage(status, manifest) };
     }
@@ -299,10 +303,16 @@ export async function loginSoomgoBridge(
   }, mode === 'kakao' ? 200_000 : undefined);
 }
 
-export async function openSoomgoChats(screen?: SoomgoSplitScreenBounds): Promise<SoomgoBridgeStatus> {
+export async function openSoomgoChats(
+  screen?: SoomgoSplitScreenBounds,
+  options?: { preserveRoom?: boolean },
+): Promise<SoomgoBridgeStatus> {
   return bridgeFetch<SoomgoBridgeStatus>('/open-chats', {
     method: 'POST',
-    body: JSON.stringify(screen ? { screen } : {}),
+    body: JSON.stringify({
+      ...(screen ? { screen } : {}),
+      ...(options?.preserveRoom ? { preserveRoom: true } : {}),
+    }),
   });
 }
 
@@ -441,6 +451,27 @@ export async function openSoomgoChatRoom(chatId: string): Promise<SoomgoBridgeSt
     method: 'POST',
     body: JSON.stringify({ chatId }),
   });
+}
+
+export type SoomgoOpenChatByNicknameResult = {
+  chatId: string;
+  nickname: string | null;
+  match?: string;
+};
+
+export async function openSoomgoChatByNickname(nickname: string): Promise<SoomgoOpenChatByNicknameResult> {
+  const res = await bridgeFetch<{
+    ok: boolean;
+    data?: SoomgoOpenChatByNicknameResult;
+    error?: string;
+  }>('/open-chat-by-nickname', {
+    method: 'POST',
+    body: JSON.stringify({ nickname: nickname.trim() }),
+  });
+  if (!res.ok || !res.data?.chatId) {
+    throw new Error(res.error || '숨고 채팅방을 찾지 못했습니다.');
+  }
+  return res.data;
 }
 
 export async function watchSoomgoCallButton(): Promise<SoomgoBridgeStatus> {

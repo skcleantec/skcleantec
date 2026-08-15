@@ -26,7 +26,12 @@ export type TelecrmConsultationQuotePayload = {
   copyText: string;
 };
 
-export type TelecrmConsultationQuoteStatus = 'DRAFT' | 'QUOTED' | 'ORDER_ISSUED' | 'SUPERSEDED';
+export type TelecrmConsultationQuoteStatus =
+  | 'DRAFT'
+  | 'SENT'
+  | 'QUOTED'
+  | 'ORDER_ISSUED'
+  | 'SUPERSEDED';
 
 /** 발주서 커스텀 필드 — CRM 견적 항목별 내역 prefill */
 export const TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY = 'crmQuoteBreakdown' as const;

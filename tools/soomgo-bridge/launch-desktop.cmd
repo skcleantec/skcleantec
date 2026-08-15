@@ -4,7 +4,8 @@ cd /d "%~dp0"
 
 set "LOGDIR=%LOCALAPPDATA%\Cbiseo\SoomgoBridge"
 if not exist "%LOGDIR%" mkdir "%LOGDIR%" >nul 2>&1
-set "LOG=%LOGDIR%\launch.log"
+rem tray_app도 launch.log에 쓰므로 cmd 부트스트랩은 별도 파일 (동시 실행 시 잠금 방지)
+set "LOG=%LOGDIR%\launch-cmd.log"
 set "PYTHONPATH=%~dp0"
 
 >>"%LOG%" echo === %date% %time% launch-desktop.cmd ===
@@ -47,12 +48,13 @@ if not defined PY (
 
 :launch
 if not defined PYW (
-  >>"%LOG%" echo FATAL: tkinter 없는 Python만 발견됨 — Setup 2.1.14 이상 재설치 필요
+  >>"%LOG%" echo FATAL: tkinter 없는 Python만 발견됨 — Setup 2.1.14 이상 재설치 또는 run-desktop-debug.bat
+  mshta "javascript:alert('Python(tkinter) 환경이 없어 숨고 연동을 시작할 수 없습니다.\n\nSetup 2.1.14 이상을 설치하거나,\n개발 PC에서는 run-desktop-debug.bat 으로 오류를 확인하세요.');close()"
   exit /b 1
 )
 
-"%PYW%" -u -m desktop.tray_app >>"%LOG%" 2>&1
+"%PYW%" -u -m desktop.tray_app >>"%LOGDIR%\launch.log" 2>&1
 if not errorlevel 1 exit /b 0
 
 >>"%LOG%" echo pythonw failed — retry with python.exe
-start "" /min /D "%~dp0" "%PY%" -u -m desktop.tray_app
+start "" /min /D "%~dp0" "%PY%" -u -m desktop.tray_app >>"%LOGDIR%\launch.log" 2>&1

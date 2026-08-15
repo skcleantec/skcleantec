@@ -33,6 +33,7 @@ export function useCrmConsultationQuote({
   enabled?: boolean;
 }) {
   const [pendingQuote, setPendingQuote] = useState<TelecrmConsultationQuoteDto | null>(null);
+  const [latestSentQuote, setLatestSentQuote] = useState<TelecrmConsultationQuoteDto | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
@@ -58,14 +59,17 @@ export function useCrmConsultationQuote({
       const token = getToken();
       if (!token || !operatingCompanyId || phoneDigits.length < 4) {
         setPendingQuote(null);
+        setLatestSentQuote(null);
         return;
       }
       try {
         const res = await fetchTelecrmConsultationQuotes(token, phoneDigits, operatingCompanyId);
-        const candidate = res.draft ?? res.latestQuoted;
+        setLatestSentQuote(res.latestSent);
+        const candidate = res.draft;
         setPendingQuote(candidate && !hasLocalContent ? candidate : null);
       } catch {
         setPendingQuote(null);
+        setLatestSentQuote(null);
       }
     },
     [hasLocalContent, operatingCompanyId],
@@ -74,6 +78,7 @@ export function useCrmConsultationQuote({
   useEffect(() => {
     if (!enabled || !operatingCompanyId || digits.length < 4) {
       setPendingQuote(null);
+      setLatestSentQuote(null);
       return;
     }
     if (hasLocalContent) {
@@ -158,6 +163,7 @@ export function useCrmConsultationQuote({
 
   return {
     pendingQuote,
+    latestSentQuote,
     dismissPendingQuote,
     startFreshQuote,
     saveError,

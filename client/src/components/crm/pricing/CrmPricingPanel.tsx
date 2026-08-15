@@ -26,6 +26,7 @@ import {
 } from './crmOrderOptionTree';
 import type { CrmPricingQuoteLine } from '../../../utils/crmConsultationQuoteMap';
 import { CrmQuoteRestoreBanner } from './CrmQuoteRestoreBanner';
+import { CrmQuoteSentBanner } from './CrmQuoteSentBanner';
 import type { TelecrmConsultationQuoteDto } from '../../../api/telecrmConsultationQuote';
 
 /** 업체 공통에 표시하는 가상 카테고리 — 발주 전문시공 옵션 */
@@ -159,9 +160,11 @@ export function CrmPricingPanel({
   quoteLines,
   onQuoteLinesChange,
   pendingQuote = null,
+  latestSentQuote = null,
   onLoadPendingQuote,
   onDismissPendingQuote,
   onStartFreshQuote,
+  contactHistoryAction = null,
   quoteSaveError = null,
   quoteSaving = false,
   canFinalizeHold = false,
@@ -189,9 +192,11 @@ export function CrmPricingPanel({
   quoteLines: CrmPricingQuoteLine[];
   onQuoteLinesChange: (lines: CrmPricingQuoteLine[]) => void;
   pendingQuote?: TelecrmConsultationQuoteDto | null;
+  latestSentQuote?: TelecrmConsultationQuoteDto | null;
   onLoadPendingQuote?: () => void;
   onDismissPendingQuote?: () => void;
   onStartFreshQuote?: () => void;
+  contactHistoryAction?: ReactNode;
   quoteSaveError?: string | null;
   quoteSaving?: boolean;
   canFinalizeHold?: boolean;
@@ -518,8 +523,10 @@ export function CrmPricingPanel({
       disableBodyScroll
       bodyClassName="p-0"
       className={compact ? 'min-h-0' : undefined}
+      headerAction={contactHistoryAction}
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {latestSentQuote ? <CrmQuoteSentBanner quote={latestSentQuote} /> : null}
         {pendingQuote && onLoadPendingQuote && onDismissPendingQuote && onStartFreshQuote ? (
           <CrmQuoteRestoreBanner
             quote={pendingQuote}

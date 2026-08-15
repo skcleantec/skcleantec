@@ -34,6 +34,7 @@ _DATE_QUESTION_RE = re.compile(
     r'희망일|원하는\s*날짜|청소\s*날짜|이사\s*날짜|입주\s*날짜|날짜|언제|일정|희망\s*하|원하시는\s*날|원하는\s*날',
 )
 _PYEONG_ANSWER_RE = re.compile(r'(\d{1,4})\s*평')
+_PYEONG_BARE_RE = re.compile(r'^(\d{1,4}(?:\.\d+)?)$')
 _COUNT_ANSWER_RE = re.compile(r'(\d{1,2})')
 
 
@@ -854,7 +855,11 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
             result['extraServices'] = a
         elif '평수' in q or '공급면적' in q or '평형' in q or ('평' in q and '희망' not in q):
             pm = _PYEONG_ANSWER_RE.search(a)
-            result['pyeong'] = pm.group(1) if pm else a.replace('평', '').replace('형', '').strip()
+            if pm:
+                result['pyeong'] = pm.group(1)
+            else:
+                bare = _PYEONG_BARE_RE.match(a)
+                result['pyeong'] = bare.group(1) if bare else a.replace('평', '').replace('형', '').strip()
         elif '희망일' in q or '날짜' in q or '원하는 날짜' in q:
             combined = f'{q} {a}'.strip()
             dm = _DATE_RE.search(combined)
@@ -906,6 +911,11 @@ def _parse_request_pairs(pairs: list[dict[str, str]]) -> dict[str, Any]:
                     if dm:
                         result['preferredDate'] = dm.group(1)
             if not result.get('pyeong'):
+                q = str(item.get('question', '')).strip()
+                a = str(item.get('answer', '')).strip()
+                if ('평수' in q or '공급면적' in q or '평형' in q) and _PYEONG_BARE_RE.match(a):
+                    result['pyeong'] = a
+                    continue
                 pm = _PYEONG_ANSWER_RE.search(a)
                 if pm:
                     result['pyeong'] = pm.group(1)

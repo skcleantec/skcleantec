@@ -63,7 +63,7 @@ function resolveFetchBlockReason(
     return SOOMGO_BRIDGE_AI_TRANSCRIPT_OUTDATED_MESSAGE;
   }
   if (!bridgeStatus?.inChatRoom) {
-    return '숨고 Chrome에서 채팅방을 연 뒤 「대화 가져오기」를 눌러 주세요.';
+    return '숨고 Chrome에서 채팅방을 연 뒤 「AI 정리」를 눌러 주세요.';
   }
   return null;
 }
@@ -114,6 +114,28 @@ function SummaryCard({
       </div>
     </div>
   );
+}
+
+function alignNextActionsToCustomerQuestions(
+  customerQuestions: string[],
+  nextActions: TelecrmAiNextActionDto[],
+): TelecrmAiNextActionDto[] {
+  if (customerQuestions.length === 0) return nextActions.filter((a) => a.suggestedReply.trim());
+
+  const aligned: TelecrmAiNextActionDto[] = [];
+  for (let i = 0; i < customerQuestions.length; i += 1) {
+    const question = customerQuestions[i]!.trim();
+    const fromAi = nextActions[i];
+    const action =
+      fromAi?.action?.trim() ||
+      (question.length > 36 ? `${question.slice(0, 34)}…` : question) ||
+      `질문 ${i + 1}`;
+    aligned.push({
+      action: formatCrmAiActionLabel(action),
+      suggestedReply: fromAi?.suggestedReply?.trim() ?? '',
+    });
+  }
+  return aligned;
 }
 
 function normalizeNextActions(raw: TelecrmAiNextActionDto[] | string[] | undefined): TelecrmAiNextActionDto[] {
@@ -287,6 +309,7 @@ export function CrmAiSummaryPanel({
   bridgeBusy = false,
   onDispatchNotice,
   fontScale,
+  onImportSoomgo,
 }: {
   tenantSlug?: string | null;
   chatId?: string | null;
@@ -298,6 +321,8 @@ export function CrmAiSummaryPanel({
   bridgeBusy?: boolean;
   onDispatchNotice?: (message: string) => void;
   fontScale: number;
+  /** AI 정리 전 숨고 「정보 갖고오기」(고객요청 창 닫기·접수 필드 반영) */
+  onImportSoomgo?: () => Promise<boolean>;
 }) {
   const token = getToken();
   const [transcript, setTranscript] = useState<SoomgoChatTranscript | null>(null);
@@ -388,7 +413,7 @@ export function CrmAiSummaryPanel({
         onDispatchNotice?.(`숨고 대화 ${data.messageCount}건을 PC에 저장했습니다.`);
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '대화 가져오기에 실패했습니다.';
+      const msg = e instanceof Error ? e.message : '대화 수집에 실패했습니다.';
       setError(msg);
       onDispatchNotice?.(msg);
     } finally {
@@ -396,28 +421,53 @@ export function CrmAiSummaryPanel({
     }
   };
 
-  const handleSummarize = async () => {
+  const handleAiSummarize = async () => {
     if (!token) return;
-    if (!transcript || transcript.messages.length === 0) {
-      onDispatchNotice?.('먼저 「대화 가져오기」로 대화를 수집해 주세요.');
+    if (aiLimitReached || aiDisabled) return;
+    if (extractBusy || summarizing) return;
+    if (blockReason) {
+      onDispatchNotice?.(blockReason);
       return;
     }
+
     setSummarizing(true);
     setError(null);
+    const prevHash = transcript?.contentHash ?? null;
+
     try {
-      const data = await fetchTelecrmAiChatSummary(token, {
+      if (onImportSoomgo) {
+        onDispatchNotice?.('숨고 정보를 가져오고 고객요청 창을 닫는 중…');
+        const imported = await onImportSoomgo();
+        if (!imported) return;
+      }
+
+      onDispatchNotice?.('숨고 대화를 수집하는 중…');
+      const data = await extractSoomgoChatTranscript({ tenantSlug: slug });
+      setTranscript(data);
+      if (prevHash && prevHash !== data.contentHash) {
+        setSummary(null);
+        setSummaryContentHash(null);
+        clearCrmAiSummarySession(slug, data.chatId, prevHash);
+      }
+      if (!data.messages.length) {
+        onDispatchNotice?.('수집된 대화가 없습니다.');
+        return;
+      }
+
+      onDispatchNotice?.('AI 정리 중…');
+      const summaryData = await fetchTelecrmAiChatSummary(token, {
         source: 'soomgo',
-        chatId: transcript.chatId,
+        chatId: data.chatId,
         inquiryId: inquiryId ?? null,
-        customerName: customerName ?? transcript.nickname,
-        messages: transcript.messages,
-        contentHash: transcript.contentHash,
+        customerName: customerName ?? data.nickname,
+        messages: data.messages,
+        contentHash: data.contentHash,
       });
-      setSummary(data);
-      setSummaryContentHash(transcript.contentHash);
+      setSummary(summaryData);
+      setSummaryContentHash(data.contentHash);
       setSelectedActionReset((n) => n + 1);
-      saveCrmAiSummarySession(slug, transcript.chatId, transcript.contentHash, data);
-      setMonthUsage(data.monthUsage);
+      saveCrmAiSummarySession(slug, data.chatId, data.contentHash, summaryData);
+      setMonthUsage(summaryData.monthUsage);
       onDispatchNotice?.('AI 정리를 완료했습니다.');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'AI 정리에 실패했습니다.';
@@ -452,7 +502,9 @@ export function CrmAiSummaryPanel({
       : 'AI 정리';
 
   const statusLabel = extractBusy
-    ? '추출 중…'
+    ? summarizing
+      ? 'AI 정리 진행 중…'
+      : '추출 중…'
     : summarizing
       ? '정리 중…'
       : transcript
@@ -462,10 +514,16 @@ export function CrmAiSummaryPanel({
           : '채팅방 미연결';
 
   const suggestedReplyCopy = summary?.suggestedReply?.trim() || '';
-  const nextActions = useMemo(
-    () => normalizeNextActions(summary?.nextActions as TelecrmAiNextActionDto[] | string[] | undefined),
-    [summary?.nextActions],
-  );
+  const nextActions = useMemo(() => {
+    const questions = summary?.customerQuestions ?? [];
+    const parsed = normalizeNextActions(
+      summary?.nextActions as TelecrmAiNextActionDto[] | string[] | undefined,
+    );
+    return alignNextActionsToCustomerQuestions(questions, parsed);
+  }, [summary?.nextActions, summary?.customerQuestions]);
+  const missingActionReplies =
+    (summary?.customerQuestions.length ?? 0) > 0 &&
+    nextActions.some((a, i) => i < (summary?.customerQuestions.length ?? 0) && !a.suggestedReply.trim());
   const previewMessages = useMemo(
     () => (transcript ? filterSoomgoChatMessages(transcript.messages) : []),
     [transcript],
@@ -502,17 +560,8 @@ export function CrmAiSummaryPanel({
         <div className="flex shrink-0 flex-wrap gap-1">
           <button
             type="button"
-            onClick={() => void handleFetchTranscript()}
-            disabled={extractBusy || summarizing || Boolean(blockReason)}
-            className="rounded-lg border border-sky-300/80 bg-gradient-to-r from-sky-500 to-cyan-500 px-2.5 py-1 font-semibold text-white shadow-md shadow-sky-400/30 transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50"
-            style={{ fontSize: `${fontScale}rem` }}
-          >
-            {extractBusy ? '가져오는 중…' : '📥 대화 가져오기'}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSummarize()}
-            disabled={extractBusy || summarizing || !transcript || aiLimitReached || aiDisabled}
+            onClick={() => void handleAiSummarize()}
+            disabled={extractBusy || summarizing || Boolean(blockReason) || aiLimitReached || aiDisabled}
             className={`rounded-lg border border-violet-300/80 px-2.5 py-1 font-semibold text-white shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 ${
               summarizing
                 ? 'crm-ai-shimmer bg-gradient-to-r from-violet-600 via-fuchsia-500 to-sky-500 shadow-violet-400/40'
@@ -528,7 +577,7 @@ export function CrmAiSummaryPanel({
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain px-2 py-1.5">
         {extractBlockedByPeer ? (
           <p className="rounded-lg border border-sky-200 bg-sky-50/80 px-2 py-1.5 text-[11px] leading-snug text-sky-900">
-            숨고 정보 가져오기가 진행 중입니다. 완료 후 대화 가져오기를 실행해 주세요.
+            다른 숨고 추출이 진행 중입니다. 잠시 후 「AI 정리」를 다시 눌러 주세요.
           </p>
         ) : null}
         {blockReason ? (
@@ -558,7 +607,7 @@ export function CrmAiSummaryPanel({
 
         {!blockReason && !transcript && !loadingCache && !error ? (
           <p className="text-[11px] leading-snug text-gray-500">
-            숨고 채팅방을 연 뒤 「대화 가져오기」→ 「AI 정리」 순서로 사용합니다.
+            숨고 채팅방을 연 뒤 「AI 정리」 한 번으로 정보 수집·고객요청 창 닫기·대화 수집·요약이 진행됩니다.
           </p>
         ) : null}
 
@@ -599,6 +648,11 @@ export function CrmAiSummaryPanel({
                 fontScale={fontScale}
               />
             ) : null}
+            {missingActionReplies ? (
+              <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-2 py-1.5 text-[11px] leading-snug text-amber-900">
+                일부 질문에 대한 추천 답장이 비어 있습니다. 「AI 재정리」를 실행해 주세요.
+              </p>
+            ) : null}
             {suggestedReplyCopy && nextActions.every((a) => !a.suggestedReply.trim()) ? (
               <SummaryCard
                 title="답장 초안"
@@ -623,6 +677,16 @@ export function CrmAiSummaryPanel({
             >
               대화 미리보기 ({previewMessages.length}건)
             </summary>
+            <div className="border-t border-sky-100/80 px-2 py-1.5">
+              <button
+                type="button"
+                onClick={() => void handleFetchTranscript()}
+                disabled={extractBusy || summarizing || Boolean(blockReason)}
+                className="mb-1.5 rounded-lg border border-sky-200 bg-white/90 px-2 py-1 text-[10px] font-medium text-sky-800 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50"
+              >
+                대화만 다시 수집
+              </button>
+            </div>
             <div className="max-h-[min(280px,40vh)] space-y-1 overflow-y-auto border-t border-sky-100/80 px-2 py-1.5">
               {previewMessages.map((msg, idx) => (
                 <div

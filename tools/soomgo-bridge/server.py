@@ -35,6 +35,7 @@ from automation.overlay_modals import dismiss_blocking_overlays
 from automation.selectors import URLS
 from automation.sequence_sender import run_send_sequence
 from automation.http_download import download_bytes
+from automation.chat_list_search import open_chat_room_by_nickname
 from automation.navigation import (
     ensure_chat_workspace,
     is_in_chat_room_url,
@@ -631,7 +632,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if not _sync_logged_in_from_browser():
                     _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
                     return
-                nav_ok = goto_chat_list(driver, force_list=False)
+                preserve_room = body.get('preserveRoom') is True
+                force_list = not preserve_room
+                nav_ok = goto_chat_list(driver, force_list=force_list)
                 if not nav_ok:
                     dismiss_blocking_overlays(driver, 0.4, max_rounds=3)
                     nav_ok = goto_chat_list(driver, force_list=True)
@@ -828,6 +831,28 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     })
                     return
                 _json_response(self, 200, _status_payload())
+                return
+
+            if path == '/open-chat-by-nickname':
+                if not _sync_logged_in_from_browser():
+                    _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
+                    return
+                nickname = str(body.get('nickname', '')).strip()
+                if len(nickname) < 2:
+                    _json_response(self, 400, {'ok': False, 'error': 'nickname required (min 2 chars)'})
+                    return
+                if not goto_chat_list(driver, force_list=True):
+                    dismiss_blocking_overlays(driver, 0.4, max_rounds=3)
+                    goto_chat_list(driver, force_list=True)
+                result = open_chat_room_by_nickname(driver, nickname)
+                if not result.get('ok'):
+                    _json_response(self, 400, {
+                        'ok': False,
+                        'error': result.get('error') or '숨고 채팅방을 찾지 못했습니다.',
+                        'data': result,
+                    })
+                    return
+                _json_response(self, 200, {'ok': True, 'data': result, **_status_payload()})
                 return
 
             if path == '/watch-call-button':

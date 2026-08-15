@@ -20,6 +20,35 @@ export function formatSoomgoCountForCrm(value: number | null | undefined): strin
   return String(value);
 }
 
+/** 숨고 추출 평수 — "24", "24평", 24 등 */
+export function parseSoomgoPyeongForCrm(raw: string | number | null | undefined): string {
+  if (raw == null) return '';
+  const t = String(raw).trim();
+  if (!t) return '';
+  const plain = t.match(/^(\d{1,4}(?:\.\d+)?)$/);
+  if (plain) return plain[1];
+  const withUnit = t.match(/(\d{1,4}(?:\.\d+)?)\s*평(?:형|수)?/);
+  if (withUnit) return withUnit[1];
+  const n = parseFloat(t.replace(/,/g, ''));
+  if (Number.isFinite(n) && n > 0 && n <= 9999) return String(n);
+  return t;
+}
+
+export function resolveSoomgoAddress(data: SoomgoExtractedChat): string {
+  return (data.region || data.address)?.trim() || '';
+}
+
+/** 부재·보류 메모 + 숨고 요청 상세 — 짧은 쪽만 덮어쓰지 않음 */
+export function pickRicherSoomgoRequestMemo(existing: string, incoming: string): string {
+  const a = existing.trim();
+  const b = incoming.trim();
+  if (!b) return a;
+  if (!a) return b;
+  if (b.includes(a)) return b;
+  if (a.includes(b)) return a;
+  return `${a}\n\n${b}`;
+}
+
 /** CRM·접수 API용 — 빈 문자열이면 undefined */
 export function parseCrmRoomCountInput(raw: string): number | undefined {
   const t = raw.trim();
@@ -27,6 +56,12 @@ export function parseCrmRoomCountInput(raw: string): number | undefined {
   const n = parseInt(t, 10);
   if (!Number.isFinite(n) || n < 0 || n > 99) return undefined;
   return n;
+}
+
+/** 부재·보류 저장 — 빈 값은 null로 명시 전송 */
+export function parseCrmRoomCountOrNull(raw: string): number | null {
+  const parsed = parseCrmRoomCountInput(raw);
+  return parsed === undefined ? null : parsed;
 }
 
 export type SoomgoImportSummary = {
@@ -95,12 +130,12 @@ export function summarizeSoomgoImport(data: SoomgoExtractedChat): SoomgoImportSu
 
   if (data.pyeong) {
     filled.push('pyeong');
-    lines.push(`평수 → 추가 필드 (${data.pyeong}평)`);
+    lines.push(`평수 → 추가 필드 (${parseSoomgoPyeongForCrm(data.pyeong)}평)`);
   } else {
     empty.push('평수');
   }
 
-  const region = (data.region || data.address)?.trim() || '';
+  const region = resolveSoomgoAddress(data);
   if (region) {
     filled.push('address');
     lines.push(`주소/지역 → 추가 필드`);

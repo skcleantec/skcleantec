@@ -145,16 +145,17 @@ export async function listTelecrmConsultationQuotesForPhone(
 ): Promise<{
   draft: TelecrmConsultationQuoteDto | null;
   latestQuoted: TelecrmConsultationQuoteDto | null;
+  latestSent: TelecrmConsultationQuoteDto | null;
   active: TelecrmConsultationQuoteDto | null;
   history: TelecrmConsultationQuoteDto[];
 }> {
   const phone = normalizeTelecrmQuotePhone(phoneRaw);
   if (phone.length < 4) {
-    return { draft: null, latestQuoted: null, active: null, history: [] };
+    return { draft: null, latestQuoted: null, latestSent: null, active: null, history: [] };
   }
   const historyLimit = Math.min(20, Math.max(1, opts?.historyLimit ?? 5));
 
-  const [draftRow, quotedRow, historyRows] = await Promise.all([
+  const [draftRow, quotedRow, sentRow, sentHistoryRows] = await Promise.all([
     prisma.telecrmConsultationQuote.findFirst({
       where: { tenantId, operatingCompanyId, phone, status: 'DRAFT' },
       orderBy: { updatedAt: 'desc' },
@@ -165,13 +166,13 @@ export async function listTelecrmConsultationQuotesForPhone(
       orderBy: { updatedAt: 'desc' },
       select: quoteSelect,
     }),
+    prisma.telecrmConsultationQuote.findFirst({
+      where: { tenantId, operatingCompanyId, phone, status: 'SENT' },
+      orderBy: { updatedAt: 'desc' },
+      select: quoteSelect,
+    }),
     prisma.telecrmConsultationQuote.findMany({
-      where: {
-        tenantId,
-        operatingCompanyId,
-        phone,
-        status: { in: ['DRAFT', 'QUOTED', 'ORDER_ISSUED'] },
-      },
+      where: { tenantId, operatingCompanyId, phone, status: 'SENT' },
       orderBy: { updatedAt: 'desc' },
       take: historyLimit,
       select: quoteSelect,
@@ -180,12 +181,13 @@ export async function listTelecrmConsultationQuotesForPhone(
 
   const draft = draftRow ? serializeQuoteRow(draftRow) : null;
   const latestQuoted = quotedRow ? serializeQuoteRow(quotedRow) : null;
-  const active = draft ?? latestQuoted;
+  const latestSent = sentRow ? serializeQuoteRow(sentRow) : null;
   return {
     draft,
     latestQuoted,
-    active,
-    history: historyRows.map(serializeQuoteRow),
+    latestSent,
+    active: draft,
+    history: sentHistoryRows.map(serializeQuoteRow),
   };
 }
 
@@ -254,13 +256,48 @@ export async function getLatestTelecrmConsultationQuoteSummary(
   operatingCompanyId: string,
   phoneRaw: string,
 ): Promise<TelecrmConsultationQuoteDto | null> {
-  const { active } = await listTelecrmConsultationQuotesForPhone(
+  const { latestSent } = await listTelecrmConsultationQuotesForPhone(
     tenantId,
     operatingCompanyId,
     phoneRaw,
     { historyLimit: 1 },
   );
-  return active;
+  return latestSent;
+}
+
+export async function recordTelecrmConsultationQuoteSent(
+  tenantId: string,
+  operatingCompanyId: string,
+  userId: string,
+  phoneRaw: string,
+  payload: TelecrmConsultationQuotePayload,
+): Promise<TelecrmConsultationQuoteDto> {
+  const phone = normalizeTelecrmQuotePhone(phoneRaw);
+  if (phone.length < 4) throw new Error('전화번호(4자 이상)가 필요합니다.');
+  if (!telecrmQuotePayloadHasContent(payload)) throw new Error('저장할 견적 내용이 없습니다.');
+
+  const jsonPayload = payload as unknown as Prisma.InputJsonValue;
+
+  return prisma.$transaction(async (tx) => {
+    await tx.telecrmConsultationQuote.updateMany({
+      where: { tenantId, operatingCompanyId, phone, status: 'SENT' },
+      data: { status: 'SUPERSEDED', updatedById: userId },
+    });
+
+    const row = await tx.telecrmConsultationQuote.create({
+      data: {
+        tenantId,
+        operatingCompanyId,
+        phone,
+        status: 'SENT',
+        payload: jsonPayload,
+        createdById: userId,
+        updatedById: userId,
+      },
+      select: quoteSelect,
+    });
+    return serializeQuoteRow(row);
+  });
 }
 
 export type FinalizeTelecrmConsultationQuoteInput = {
@@ -270,6 +307,11 @@ export type FinalizeTelecrmConsultationQuoteInput = {
   nickname?: string | null;
   goldDb?: boolean;
   preferredMoveInCleaningDate?: string | null;
+  address?: string | null;
+  areaPyeong?: number | null;
+  roomCount?: number | null;
+  bathroomCount?: number | null;
+  balconyCount?: number | null;
   followupStatus: 'ABSENT' | 'ON_HOLD';
   extraMemo?: string | null;
   actorName?: string | null;
@@ -335,6 +377,13 @@ export async function finalizeTelecrmConsultationQuote(
   });
   const followupMemo = extraMemo ? `${autoMemo}\n${extraMemo}` : autoMemo;
 
+  const intakeExtrasData: Record<string, string | number | null> = {};
+  if (input.address !== undefined) intakeExtrasData.address = input.address;
+  if (input.areaPyeong !== undefined) intakeExtrasData.areaPyeong = input.areaPyeong;
+  if (input.roomCount !== undefined) intakeExtrasData.roomCount = input.roomCount;
+  if (input.bathroomCount !== undefined) intakeExtrasData.bathroomCount = input.bathroomCount;
+  if (input.balconyCount !== undefined) intakeExtrasData.balconyCount = input.balconyCount;
+
   return prisma.$transaction(async (tx) => {
     const existing = await findOpenFollowupForPhones(tx, {
       tenantId,
@@ -359,6 +408,7 @@ export async function finalizeTelecrmConsultationQuote(
           ...(preferredMoveInCleaningDate !== undefined
             ? { preferredMoveInCleaningDate }
             : {}),
+          ...intakeExtrasData,
         },
         select: { id: true },
       });
@@ -385,6 +435,7 @@ export async function finalizeTelecrmConsultationQuote(
           ...(preferredMoveInCleaningDate !== undefined
             ? { preferredMoveInCleaningDate }
             : {}),
+          ...intakeExtrasData,
         },
         select: { id: true },
       });

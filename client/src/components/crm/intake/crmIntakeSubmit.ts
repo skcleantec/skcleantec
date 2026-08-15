@@ -6,7 +6,7 @@ import {
   telecrmQuotePayloadHasContent,
   type TelecrmConsultationQuotePayload,
 } from '@shared/telecrmConsultationQuote';
-import { parseCrmRoomCountInput } from '../../../utils/crmSoomgoImport';
+import { parseCrmRoomCountInput, parseCrmRoomCountOrNull } from '../../../utils/crmSoomgoImport';
 import {
   resolveCrmOutboundPhone,
   resolveCrmStoredPhones,
@@ -77,6 +77,18 @@ function inquiryExtras(
   };
 }
 
+function followupIntakeExtras(values: CrmIntakeFormValues, pyeong: string) {
+  const pmd = values.preferredMoveInCleanYmd.trim();
+  return {
+    preferredMoveInCleaningDate: pmd || null,
+    address: values.address.trim() || null,
+    areaPyeong: parseCrmIntakePyeong(pyeong),
+    roomCount: parseCrmRoomCountOrNull(values.roomCount),
+    bathroomCount: parseCrmRoomCountOrNull(values.bathroomCount),
+    balconyCount: parseCrmRoomCountOrNull(values.balconyCount),
+  };
+}
+
 export async function submitCrmIntake(
   token: string,
   values: CrmIntakeFormValues,
@@ -93,13 +105,12 @@ export async function submitCrmIntake(
   if (!operatingCompanyId) throw new Error('작업 브랜드가 선택되지 않았습니다.');
 
   const n = resolveCrmIntakeCustomerName(values);
-  const pmd = values.preferredMoveInCleanYmd.trim();
-  const pmdBody = pmd ? { preferredMoveInCleaningDate: pmd } : {};
+  const followupMemo = values.requestMemo.trim() || null;
+  const followupExtras = followupIntakeExtras(values, pyeong);
   const extras = inquiryExtras(pyeong, values.preferredMoveInCleanYmd, values);
   const brandBody = { operatingCompanyId };
   const stored = resolveCrmStoredPhones(values.contactPhone, values.safePhone);
   const outbound = resolveCrmOutboundPhone(values.contactPhone, values.safePhone);
-  const followupMemo = values.requestMemo.trim() || null;
   const intakeMeta = {
     channel: 'telecrm' as const,
     ...(values.extractPlatform ? { extractPlatform: values.extractPlatform } : {}),
@@ -129,11 +140,11 @@ export async function submitCrmIntake(
           customerName: n,
           nickname: values.nickname.trim() || null,
           goldDb: values.goldDb,
-          ...(pmd ? { preferredMoveInCleaningDate: pmd } : {}),
           followupStatus: status as 'ABSENT' | 'ON_HOLD',
           extraMemo: followupMemo,
           leadSource: values.leadSource.trim(),
           strictLeadSource: true,
+          ...followupExtras,
         },
         operatingCompanyId,
       );
@@ -149,7 +160,7 @@ export async function submitCrmIntake(
       goldDb: values.goldDb,
       leadSource: values.leadSource.trim(),
       strictLeadSource: true,
-      ...pmdBody,
+      ...followupExtras,
       ...brandBody,
     });
     return { kind: 'followup', ...submitMeta(values) };
@@ -198,7 +209,7 @@ export async function submitCrmIntake(
     inquiryId: created.id,
     leadSource: values.leadSource.trim(),
     strictLeadSource: true,
-    ...pmdBody,
+    ...followupExtras,
     ...brandBody,
   });
   return { kind: 'inquiry', inquiryId: created.id, status: inqSt, ...submitMeta(values) };

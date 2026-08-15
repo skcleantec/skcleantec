@@ -50,6 +50,11 @@ export interface OrderFollowupItem {
   memo: string | null;
   /** 입주청소 희망일 YYYY-MM-DD (선택, 구 API는 없을 수 있음) */
   preferredMoveInCleaningDate?: string | null;
+  address?: string | null;
+  areaPyeong?: number | null;
+  roomCount?: number | null;
+  bathroomCount?: number | null;
+  balconyCount?: number | null;
   nextContactAt: string | null;
   depositReceivedAt: string | null;
   createdAt: string;
@@ -163,6 +168,11 @@ export async function createOrderFollowup(
     nextContactAt?: string | null;
     /** 입주청소 희망일 YYYY-MM-DD (선택) */
     preferredMoveInCleaningDate?: string | null;
+    address?: string | null;
+    areaPyeong?: number | null;
+    roomCount?: number | null;
+    bathroomCount?: number | null;
+    balconyCount?: number | null;
     goldDb?: boolean;
     inquiryId?: string;
     operatingCompanyId?: string;
@@ -195,6 +205,11 @@ export async function patchOrderFollowup(
     nextContactAt?: string | null;
     /** 입주청소 희망일 YYYY-MM-DD (선택·비우면 제거) */
     preferredMoveInCleaningDate?: string | null;
+    address?: string | null;
+    areaPyeong?: number | null;
+    roomCount?: number | null;
+    bathroomCount?: number | null;
+    balconyCount?: number | null;
     goldDb?: boolean;
     /** `null` 이면 접수 연결 해제 */
     inquiryId?: string | null;

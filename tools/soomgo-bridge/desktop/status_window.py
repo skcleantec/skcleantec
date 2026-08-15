@@ -59,7 +59,12 @@ class StatusWindow:
                     self._append_log_line(f'UI 오류: {exc}', level='error')
         except queue.Empty:
             pass
-        self.root.after(80, self._process_queue)
+        if self.root is None:
+            return
+        try:
+            self.root.after(80, self._process_queue)
+        except tk.TclError:
+            return
 
     def _append_log_line(self, line: str, *, level: str = 'info') -> None:
         if not self._log_text:

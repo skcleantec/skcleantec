@@ -3329,6 +3329,12 @@ model OrderFollowup {
   preferredMoveInCleaningDate String?     @map("preferred_move_in_cleaning_date") @db.VarChar(10)
   /// 유입 플랫폼(접수 전 부재·보류) — Inquiry.source 와 동일 라벨 체계
   leadSource         String?              @map("lead_source") @db.VarChar(64)
+  /// CRM 추가 필드 — 접수 전 부재·보류 스냅샷
+  address            String?              @map("address") @db.Text
+  areaPyeong         Float?               @map("area_pyeong")
+  roomCount          Int?                 @map("room_count")
+  bathroomCount      Int?                 @map("bathroom_count")
+  balconyCount       Int?                 @map("balcony_count")
   memo               String?              @map("memo") @db.Text
   nextContactAt      DateTime?            @map("next_contact_at")
   depositReceivedAt  DateTime?            @map("deposit_received_at")
@@ -4030,6 +4036,7 @@ model TelecrmSoomgoMessagePreset {
 
 enum TelecrmConsultationQuoteStatus {
   DRAFT
+  SENT
   QUOTED
   ORDER_ISSUED
   SUPERSEDED

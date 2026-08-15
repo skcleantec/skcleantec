@@ -128,6 +128,30 @@ function parseNextActions(raw: unknown): TelecrmAiNextAction[] {
   return out.slice(0, 5);
 }
 
+/** 고객 핵심 질문 수와 nextActions·suggestedReply 1:1 정렬 */
+export function alignNextActionsToCustomerQuestions(
+  customerQuestions: string[],
+  nextActions: TelecrmAiNextAction[],
+): TelecrmAiNextAction[] {
+  if (customerQuestions.length === 0) return nextActions.filter((a) => a.suggestedReply.trim());
+
+  const aligned: TelecrmAiNextAction[] = [];
+  for (let i = 0; i < customerQuestions.length; i += 1) {
+    const question = customerQuestions[i]!.trim();
+    const fromAi = nextActions[i];
+    const action =
+      fromAi?.action?.trim() ||
+      (question.length > 36 ? `${question.slice(0, 34)}…` : question) ||
+      `질문 ${i + 1}`;
+    const suggestedReply = fromAi?.suggestedReply?.trim() ?? '';
+    aligned.push({
+      action: formatCrmAiActionLabel(action).slice(0, 500),
+      suggestedReply: suggestedReply.slice(0, 2000),
+    });
+  }
+  return aligned;
+}
+
 export async function summarizeTelecrmChat(params: {
   tenantId: string;
   userId: string;
@@ -206,7 +230,9 @@ export async function summarizeTelecrmChat(params: {
     'Return JSON only with keys:',
     'summary (Korean, 1-3 sentences),',
     'customerQuestions (string array, max 5 — real customer questions from the transcript only),',
-    'nextActions (array of objects { action: string, suggestedReply: string }, max 5).',
+    'nextActions (array of objects { action: string, suggestedReply: string }).',
+    'CRITICAL: nextActions.length MUST equal customerQuestions.length (same order).',
+    'nextActions[i] must directly answer customerQuestions[i] with a complete suggestedReply.',
     'Each nextActions item: action = short Korean task label for the agent (examples: "가격 안내", "팀 구성 설명", "입주·준공 차이 설명", "예약금 안내") — NEVER English camelCase codes like confirmPrice.',
     'Each nextActions item: suggestedReply = complete Korean message the pro can paste into Soomgo chat.',
     'CRITICAL — suggestedReply must DIRECTLY answer the related customer question when the customer asked something (e.g. 입주청소 vs 준공청소 차이, 가격, 일정, 외국인 작업자, 청소 범위).',
@@ -264,22 +290,34 @@ export async function summarizeTelecrmChat(params: {
   }
 
   const customerQuestions = parseStringArray(json.customerQuestions);
-  let nextActions = parseNextActions(json.nextActions);
+  let nextActions = alignNextActionsToCustomerQuestions(
+    customerQuestions,
+    parseNextActions(json.nextActions),
+  );
   const legacySuggestedReply =
     typeof json.suggestedReply === 'string' && json.suggestedReply.trim()
       ? json.suggestedReply.trim().slice(0, 2000)
       : undefined;
-  const suggestedReply =
-    legacySuggestedReply ||
-    nextActions.find((a) => a.suggestedReply.trim())?.suggestedReply ||
-    undefined;
-  for (const item of nextActions) {
-    if (!item.suggestedReply.trim() && suggestedReply) {
-      item.suggestedReply = suggestedReply;
+  if (customerQuestions.length === 0 && legacySuggestedReply && nextActions.length === 0) {
+    nextActions = [{ action: '추천 답장', suggestedReply: legacySuggestedReply }];
+  } else if (customerQuestions.length > 0) {
+    for (let i = 0; i < nextActions.length; i += 1) {
+      if (!nextActions[i]!.suggestedReply.trim() && legacySuggestedReply && customerQuestions.length === 1) {
+        nextActions[i]!.suggestedReply = legacySuggestedReply;
+      }
     }
   }
+  const suggestedReply =
+    nextActions.find((a) => a.suggestedReply.trim())?.suggestedReply || legacySuggestedReply || undefined;
+  const missingReplies =
+    customerQuestions.length > 0 &&
+    nextActions.some((a, i) => i < customerQuestions.length && !a.suggestedReply.trim());
   const aiWarnings = parseStringArray(json.warnings, 5);
-  const warnings = [...truncateWarnings, ...aiWarnings];
+  const warnings = [
+    ...truncateWarnings,
+    ...aiWarnings,
+    ...(missingReplies ? ['일부 질문에 대한 추천 답장이 비어 있습니다. AI 재정리를 권장합니다.'] : []),
+  ];
 
   const payloadJson = {
     summary,

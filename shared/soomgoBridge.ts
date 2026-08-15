@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.44';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.45';
 
 /** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
@@ -18,6 +18,9 @@ export const SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION = '2.1.0';
 
 /** AI 대화 수집(`/extract-transcript`) 최소 앱 버전 */
 export const SOOMGO_BRIDGE_AI_TRANSCRIPT_MIN_VERSION = '2.2.43';
+
+/** 닉네임으로 채팅방 열기(`/open-chat-by-nickname`) 최소 앱 버전 */
+export const SOOMGO_BRIDGE_OPEN_CHAT_BY_NICKNAME_MIN_VERSION = '2.2.45';
 
 /** semver → 정수 배열 (비교용) */
 export function parseSoomgoSemver(version: string): number[] {

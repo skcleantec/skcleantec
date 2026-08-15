@@ -26,6 +26,7 @@ import {
   loginSoomgoBridge,
   openSoomgoBridgeInstaller,
   openSoomgoCallModal,
+  openSoomgoChatByNickname,
   openSoomgoChatRoom,
   openSoomgoChats,
   requestSoomgoBridgeRestart,
@@ -304,6 +305,7 @@ export function useCrmSoomgoBridge({
     if (!pollEnabled) return;
     let cancelled = false;
     let timer: ReturnType<typeof window.setTimeout> | undefined;
+    let failStreak = 0;
     const poll = async () => {
       if (cancelled) return;
       const busy = busyActionRef.current;
@@ -313,6 +315,8 @@ export function useCrmSoomgoBridge({
       }
       const s = await refreshStatus({ lite: true });
       if (cancelled) return;
+      if (!s.bridgeRunning) failStreak = Math.min(failStreak + 1, 6);
+      else failStreak = 0;
       if (s.inChatRoom && s.bridgeRunning && !isSoomgoBridgeUseBlocked(s, bridgeManifest) && !watchBlockedRef.current) {
         void ensureCallWatch(s);
       } else if (!s.inChatRoom) {
@@ -325,7 +329,8 @@ export function useCrmSoomgoBridge({
         soomgoAlertDrawerOpenRef.current ||
         inboxWatchChatIdsRef.current.length > 0 ||
         busy === 'open';
-      const interval = fastPoll ? 2200 : busy === 'open' ? 5000 : s.bridgeRunning ? 5000 : 12000;
+      const baseInterval = fastPoll ? 2200 : busy === 'open' ? 5000 : s.bridgeRunning ? 5000 : 12000;
+      const interval = failStreak > 0 ? Math.min(60_000, baseInterval * 2 ** failStreak) : baseInterval;
       timer = window.setTimeout(poll, interval);
     };
     void poll();
@@ -397,7 +402,8 @@ export function useCrmSoomgoBridge({
       if (loginRes.reusedSession) {
         notify('저장된 숨고 세션으로 연결했습니다.');
       }
-      await openSoomgoChats(screen);
+      const preOpen = await refreshStatus({ lite: true });
+      await openSoomgoChats(screen, { preserveRoom: Boolean(preOpen.inChatRoom) });
       await applySplitLayout();
       const finalStatus = await refreshStatus();
       await ensureChatWatch(finalStatus);
@@ -527,6 +533,37 @@ export function useCrmSoomgoBridge({
         return true;
       } catch (e) {
         const msg = e instanceof Error ? e.message : '채팅방을 열지 못했습니다.';
+        setError(msg);
+        notify(msg);
+        return false;
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [bridgeManifest, notify, refreshStatus],
+  );
+
+  const openChatByNickname = useCallback(
+    async (nickname: string) => {
+      const query = nickname.trim();
+      if (query.length < 2) return false;
+      setBusyAction('open');
+      setError(null);
+      try {
+        const current = await refreshStatus({ lite: true });
+        if (!isSoomgoBridgeReachable(current)) {
+          throw new Error(SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE);
+        }
+        if (isSoomgoBridgeUseBlocked(current, bridgeManifest)) {
+          throw new Error(soomgoBridgeOutdatedMessage(current, bridgeManifest));
+        }
+        notify(`숨고에서 「${query}」 채팅방을 찾는 중…`);
+        await openSoomgoChatByNickname(query);
+        await refreshStatus();
+        notify(`숨고 채팅방「${query}」으로 이동했습니다.`);
+        return true;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '채팅방을 찾지 못했습니다.';
         setError(msg);
         notify(msg);
         return false;
@@ -693,6 +730,7 @@ export function useCrmSoomgoBridge({
     callFromChat,
     restartBridge,
     openChatRoom,
+    openChatByNickname,
     openChatRoomAndExtract,
     requestBridgeUpdate,
     chatAlertsSupported: isSoomgoBridgeChatAlertsSupported(status),

@@ -44,6 +44,7 @@ export type TelecrmConsultationQuoteDto = {
 export type TelecrmConsultationQuotesListDto = {
   draft: TelecrmConsultationQuoteDto | null;
   latestQuoted: TelecrmConsultationQuoteDto | null;
+  latestSent: TelecrmConsultationQuoteDto | null;
   active: TelecrmConsultationQuoteDto | null;
   history: TelecrmConsultationQuoteDto[];
 };
@@ -93,6 +94,11 @@ export type FinalizeTelecrmConsultationQuoteBody = {
   nickname?: string | null;
   goldDb?: boolean;
   preferredMoveInCleaningDate?: string | null;
+  address?: string | null;
+  areaPyeong?: number | null;
+  roomCount?: number | null;
+  bathroomCount?: number | null;
+  balconyCount?: number | null;
   followupStatus: 'ABSENT' | 'ON_HOLD';
   extraMemo?: string | null;
   actorName?: string | null;
@@ -117,6 +123,20 @@ export async function finalizeTelecrmConsultationQuote(
     body: JSON.stringify({ ...body, operatingCompanyId: operatingCompanyId ?? undefined }),
   });
   return parseJson<FinalizeTelecrmConsultationQuoteResult>(res);
+}
+
+export async function recordTelecrmConsultationQuoteSent(
+  token: string,
+  body: { phone: string; payload: TelecrmConsultationQuotePayload },
+  operatingCompanyId?: string | null,
+): Promise<TelecrmConsultationQuoteDto> {
+  const res = await fetch(`${API}/sent`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ ...body, operatingCompanyId: operatingCompanyId ?? undefined }),
+  });
+  const data = await parseJson<{ quote: TelecrmConsultationQuoteDto }>(res);
+  return data.quote;
 }
 
 export async function linkTelecrmConsultationQuoteInquiry(

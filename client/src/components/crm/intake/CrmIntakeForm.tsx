@@ -46,10 +46,12 @@ export function CrmIntakeForm({
   formResetKey = 0,
   quotePayload = null,
   soomgoImportFlashKey = 0,
+  seedSyncDisabled = false,
   operatingCompanyId = null,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
+  seedSyncDisabled?: boolean;
   contactPhone: string;
   safePhone: string;
   contactUnknown: boolean;
@@ -86,12 +88,30 @@ export function CrmIntakeForm({
   const canSave = canSubmitKind(kind);
 
   useEffect(() => {
+    if (seedSyncDisabled) return;
     setCustomerName(seed.customerName ?? '');
     setNickname(seed.nickname ?? '');
     setAddress(seed.address ?? '');
-  }, [seed.customerName, seed.nickname, seed.address]);
+  }, [seed.customerName, seed.nickname, seed.address, seedSyncDisabled]);
 
   const appliedDraftRef = useRef(0);
+
+  useEffect(() => {
+    setCustomerName('');
+    setNickname('');
+    setPreferredMoveInCleanYmd('');
+    setAddress('');
+    setRequestMemo('');
+    setRoomCount('');
+    setBathroomCount('');
+    setBalconyCount('');
+    setKind('absent');
+    setGoldDb(false);
+    setLeadSource('');
+    setExtractPlatform(undefined);
+    setShowMore(false);
+    appliedDraftRef.current = 0;
+  }, [formResetKey]);
 
   useEffect(() => {
     if (!initialFormDraft) return;
@@ -110,6 +130,9 @@ export function CrmIntakeForm({
     if (initialFormDraft.leadSource != null) setLeadSource(initialFormDraft.leadSource);
     if (initialFormDraft.extractPlatform != null) setExtractPlatform(initialFormDraft.extractPlatform);
     if (
+      initialFormDraft.extractPlatform === 'soomgo' ||
+      initialFormDraft.extractPlatform === 'miso' ||
+      initialFormDraft.leadSource?.trim() ||
       initialFormDraft.address ||
       initialFormDraft.preferredMoveInCleanYmd ||
       initialFormDraft.requestMemo ||
@@ -121,28 +144,11 @@ export function CrmIntakeForm({
       setShowMore(true);
     }
     appliedDraftRef.current = soomgoImportFlashKey;
-  }, [initialFormDraft, soomgoImportFlashKey, pyeong]);
+  }, [initialFormDraft, soomgoImportFlashKey, pyeong, formResetKey]);
 
   useEffect(() => {
     if (kind === 'received') setShowMore(true);
   }, [kind]);
-
-  useEffect(() => {
-    setCustomerName('');
-    setNickname('');
-    setPreferredMoveInCleanYmd('');
-    setAddress('');
-    setRequestMemo('');
-    setRoomCount('');
-    setBathroomCount('');
-    setBalconyCount('');
-    setKind('absent');
-    setGoldDb(false);
-    setLeadSource('');
-    setExtractPlatform(undefined);
-    setShowMore(false);
-    appliedDraftRef.current = 0;
-  }, [formResetKey]);
 
   useEffect(() => {
     if (!onFormChange) return;
