@@ -13,7 +13,7 @@ import { getAdminNavBadges } from '../../api/adminNavBadges';
 import { notifyInquiriesSubNavBadgesRefresh } from '../../utils/adminInquiriesNavBadges';
 import { useVisibilityInterval } from '../../hooks/useVisibilityInterval';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { resolveEffectiveStaffAdminFromMe, type StaffAdminMeFields } from '../../utils/staffAdminAccess';
+import { type StaffAdminMeFields } from '../../utils/staffAdminAccess';
 import { useDebouncedCallback } from '../../utils/debounceCallback';
 import {
   adminNavPrefetchHandlers,
@@ -33,6 +33,11 @@ import {
   type DbMarketplaceHandoffConfirmedRtPayload,
 } from '../../hooks/useInboxRealtime';
 import { getMe, isAuthSessionExpiredError, isAuthBillingAccessBlockedError } from '../../api/auth';
+import {
+  hydrateAdminSessionFromAuthMe,
+  readInitialAdminSession,
+} from '../../utils/adminAuthMeHydration';
+import { bootstrapAuthMeFromLocal } from '../../api/authMeSnapshot';
 import {
   ADMIN_NAV_DEF,
   type AdminNavId,
@@ -56,14 +61,11 @@ import { ScheduleAlertSiren } from '../admin/ScheduleAlertSiren';
 import { getUnseenChangeCount, getChangeHistoryList, markChangeSeen } from '../../api/inquiryChangeLogs';
 import { AdminDevPreviewLinks } from '../admin/AdminDevPreviewLinks';
 import { AdminVolumeStatsButton } from '../admin/AdminVolumeStatsButton';
-import { isTeamPreviewAdminEmail, shouldShowAdminDevPreviewLinks } from '../../utils/teamPreview';
 import { getScheduleDetailInquiryIdForOrderFab } from '../../utils/adminScheduleOrderFab';
 import { TenantCapabilitiesProvider } from '../../hooks/useTenantCapabilities';
 import type { TelecrmUserCapabilities } from '@shared/telecrmTenantPolicy';
-import { parseTelecrmCapabilitiesFromMe } from '../../utils/telecrmCapabilities';
 import {
   AdminStaffSessionProvider,
-  resolveCanCrmSettingsFromMe,
 } from '../../hooks/useAdminStaffSession';
 import { hasFeature } from '@shared/tenantFeatureModules';
 import { getDbMarketplaceNavCounts } from '../../api/dbMarketplace';
@@ -209,6 +211,7 @@ function AdminGnbItemContent({ id, label }: { id: string; label: string }) {
 
 export function AdminLayout() {
   const adminToken = useSyncExternalStore(subscribeAdminAuth, getToken, () => null);
+  const [initialSession] = useState(readInitialAdminSession);
   const navigate = useNavigate();
   const navigateRef = useRef(navigate);
   useEffect(() => {
@@ -241,44 +244,64 @@ export function AdminLayout() {
   const [marketplaceBuyerPendingCount, setMarketplaceBuyerPendingCount] = useState(0);
   const [reviewPaybackToast, setReviewPaybackToast] = useState<string | null>(null);
   const reviewPaybackToastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [meRole, setMeRole] = useState<string | null>(null);
-  const [effectiveStaffAdmin, setEffectiveStaffAdmin] = useState(false);
-  const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(null);
-  const [meUserId, setMeUserId] = useState<string | null>(null);
-  const [meName, setMeName] = useState<string | null>(null);
-  const [meEmail, setMeEmail] = useState<string | null>(null);
-  const [mePhone, setMePhone] = useState<string | null>(null);
-  const [meVehicleNumber, setMeVehicleNumber] = useState<string | null>(null);
-  const [meProfileLoading, setMeProfileLoading] = useState(() => Boolean(adminToken));
-  const [teamPreviewLink, setTeamPreviewLink] = useState(false);
+  const [meRole, setMeRole] = useState<string | null>(() => initialSession?.role ?? null);
+  const [effectiveStaffAdmin, setEffectiveStaffAdmin] = useState(
+    () => initialSession?.effectiveStaffAdmin ?? false,
+  );
+  const [staffMe, setStaffMe] = useState<StaffAdminMeFields | null>(() => initialSession?.staffMe ?? null);
+  const [meUserId, setMeUserId] = useState<string | null>(() => initialSession?.meUserId ?? null);
+  const [meName, setMeName] = useState<string | null>(() => initialSession?.meName ?? null);
+  const [meEmail, setMeEmail] = useState<string | null>(() => initialSession?.meEmail ?? null);
+  const [mePhone, setMePhone] = useState<string | null>(() => initialSession?.mePhone ?? null);
+  const [meVehicleNumber, setMeVehicleNumber] = useState<string | null>(
+    () => initialSession?.meVehicleNumber ?? null,
+  );
+  const [meProfileLoading, setMeProfileLoading] = useState(
+    () => Boolean(adminToken) && !initialSession?.role,
+  );
+  const [teamPreviewLink, setTeamPreviewLink] = useState(() => initialSession?.teamPreviewLink ?? false);
   const [navOrder, setNavOrder] = useState<AdminNavId[]>(() => loadAdminNavOrder(false));
   const [draggingNavId, setDraggingNavId] = useState<AdminNavId | null>(null);
   const [fabTop, setFabTop] = useState<number | null>(null);
   const fabTopRef = useRef<number | null>(null);
   const [changelogRailMount, setChangelogRailMount] = useState<HTMLDivElement | null>(null);
   const [desktopDockDrag, setDesktopDockDrag] = useState<StaffDesktopDockDragHandlers | null>(null);
-  const [showStagingDbImportMenu, setShowStagingDbImportMenu] = useState(false);
-  const [showVolumeStatsMenu, setShowVolumeStatsMenu] = useState(false);
-  const [isPlatformSupportAccess, setIsPlatformSupportAccess] = useState(false);
-  const [suppressCelebrateBar, setSuppressCelebrateBar] = useState(false);
-  const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(null);
-  const [tenantTelecrm, setTenantTelecrm] = useState<TelecrmUserCapabilities | null>(null);
-  const [tenantPlan, setTenantPlan] = useState<string | null>(null);
-  const [tenantSlug, setTenantSlug] = useState<string | null>(null);
-  const [tenantName, setTenantName] = useState<string | null>(null);
-  const [meTenantId, setMeTenantId] = useState<string | null>(null);
-  const [isTenantOwner, setIsTenantOwner] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [canCrmSettings, setCanCrmSettings] = useState(false);
+  const [showStagingDbImportMenu, setShowStagingDbImportMenu] = useState(
+    () => initialSession?.showStagingDbImportMenu ?? false,
+  );
+  const [showVolumeStatsMenu, setShowVolumeStatsMenu] = useState(
+    () => initialSession?.showVolumeStatsMenu ?? false,
+  );
+  const [isPlatformSupportAccess, setIsPlatformSupportAccess] = useState(
+    () => initialSession?.isPlatformSupportAccess ?? false,
+  );
+  const [suppressCelebrateBar, setSuppressCelebrateBar] = useState(
+    () => initialSession?.suppressCelebrateBar ?? false,
+  );
+  const [tenantFeatures, setTenantFeatures] = useState<readonly string[] | null>(
+    () => initialSession?.tenantFeatures ?? null,
+  );
+  const [tenantTelecrm, setTenantTelecrm] = useState<TelecrmUserCapabilities | null>(
+    () => initialSession?.tenantTelecrm ?? null,
+  );
+  const [tenantPlan, setTenantPlan] = useState<string | null>(() => initialSession?.tenantPlan ?? null);
+  const [tenantSlug, setTenantSlug] = useState<string | null>(() => initialSession?.tenantSlug ?? null);
+  const [tenantName, setTenantName] = useState<string | null>(() => initialSession?.tenantName ?? null);
+  const [meTenantId, setMeTenantId] = useState<string | null>(() => initialSession?.meTenantId ?? null);
+  const [isTenantOwner, setIsTenantOwner] = useState(() => initialSession?.isTenantOwner ?? false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(() => initialSession?.isSuperAdmin ?? false);
+  const [canCrmSettings, setCanCrmSettings] = useState(() => initialSession?.canCrmSettings ?? false);
   useDocumentTitle(tenantName);
   const [stagingDbImportModalOpen, setStagingDbImportModalOpen] = useState(false);
   const [billingDunningOpen, setBillingDunningOpen] = useState(false);
   const [billingDunningAttemptKey, setBillingDunningAttemptKey] = useState(0);
   const closeBillingDunning = useCallback(() => setBillingDunningOpen(false), []);
-  const [profileOnboardingRequired, setProfileOnboardingRequired] = useState(false);
-  const [profileOnboardingInitial, setProfileOnboardingInitial] = useState<ProfileOnboardingInitial>({
-    role: 'MARKETER',
-  });
+  const [profileOnboardingRequired, setProfileOnboardingRequired] = useState(
+    () => initialSession?.profileOnboardingRequired ?? false,
+  );
+  const [profileOnboardingInitial, setProfileOnboardingInitial] = useState<ProfileOnboardingInitial>(
+    () => initialSession?.profileOnboardingInitial ?? { role: 'MARKETER' },
+  );
   const [fabDragging, setFabDragging] = useState(false);
   const fabPointerIdRef = useRef<number | null>(null);
   const fabHoldTimerRef = useRef<number | null>(null);
@@ -459,94 +482,43 @@ export function AdminLayout() {
       setMeProfileLoading(false);
       return;
     }
-    setMeProfileLoading(true);
+    const boot = bootstrapAuthMeFromLocal(token);
+    if (!boot?.role) {
+      setMeProfileLoading(true);
+    }
     let cancelled = false;
     getMe(token)
-      .then((u: {
-        id?: string;
-        role?: string;
-        email?: string;
-        name?: string;
-        phone?: string | null;
-        vehicleNumber?: string | null;
-        showStagingDbImport?: boolean;
-        showVolumeStats?: boolean;
-        isPlatformSupportAccess?: boolean;
-        isTenantOwner?: boolean;
-        isSuperAdmin?: boolean;
-        effectiveStaffAdminAccess?: boolean;
-        marketerAdminAccess?: boolean;
-        marketerPermissions?: StaffAdminMeFields['marketerPermissions'];
-        features?: string[];
-        profileOnboardingRequired?: boolean;
-        externalCompany?: ProfileOnboardingInitial['externalCompany'];
-        tenant?: { id?: string; plan?: string; name?: string; displayName?: string; slug?: string } | null;
-        tenantId?: string;
-      }) => {
+      .then((u) => {
         if (cancelled) return;
-        const role = typeof u.role === 'string' ? u.role : null;
-        setMeRole(role);
-        setStaffMe({
-          role,
-          effectiveStaffAdminAccess: u.effectiveStaffAdminAccess,
-          marketerAdminLevel: (u as { marketerAdminLevel?: StaffAdminMeFields['marketerAdminLevel'] }).marketerAdminLevel,
-          marketerPermissions: u.marketerPermissions ?? null,
-          marketerOperationalAdminAccess: Boolean(
-            (u as { marketerOperationalAdminAccess?: boolean }).marketerOperationalAdminAccess,
-          ),
-        });
-        setEffectiveStaffAdmin(resolveEffectiveStaffAdminFromMe(u));
-        setMeUserId(typeof u.id === 'string' ? u.id : null);
-        setMeName(typeof u.name === 'string' && u.name.trim() ? u.name.trim() : null);
-        setMeEmail(typeof u.email === 'string' && u.email.trim() ? u.email.trim() : null);
-        setMePhone(typeof u.phone === 'string' && u.phone.trim() ? u.phone.trim() : null);
-        setMeVehicleNumber(typeof u.vehicleNumber === 'string' && u.vehicleNumber.trim() ? u.vehicleNumber.trim() : null);
-        setShowStagingDbImportMenu(Boolean(u.showStagingDbImport));
-        setShowVolumeStatsMenu(Boolean(u.showVolumeStats));
-        setIsPlatformSupportAccess(Boolean(u.isPlatformSupportAccess));
-        const email = typeof u.email === 'string' ? u.email : '';
-        setSuppressCelebrateBar(
-          Boolean(u.isPlatformSupportAccess) || isTeamPreviewAdminEmail(email),
-        );
-        setTenantFeatures(Array.isArray(u.features) ? u.features : []);
-        setTenantTelecrm(parseTelecrmCapabilitiesFromMe((u as { telecrm?: unknown }).telecrm));
-        const tid =
-          (typeof u.tenantId === 'string' && u.tenantId.trim()) ||
-          (typeof u.tenant?.id === 'string' && u.tenant.id.trim()) ||
-          null;
-        setMeTenantId(tid);
-        setTenantPlan(typeof u.tenant?.plan === 'string' ? u.tenant.plan : null);
-        setTenantSlug(typeof u.tenant?.slug === 'string' ? u.tenant.slug : null);
-        setTenantName(
-          (typeof u.tenant?.displayName === 'string' && u.tenant.displayName.trim()) ||
-            (typeof u.tenant?.name === 'string' && u.tenant.name.trim()) ||
-            null,
-        );
-        setIsTenantOwner(Boolean(u.isTenantOwner));
-        setIsSuperAdmin(Boolean(u.isSuperAdmin));
-        setCanCrmSettings(resolveCanCrmSettingsFromMe(u));
-        setProfileOnboardingRequired(
-          Boolean(u.profileOnboardingRequired) && role === 'MARKETER',
-        );
-        setProfileOnboardingInitial({
-          role: role ?? 'MARKETER',
-          name: typeof u.name === 'string' ? u.name : null,
-          phone: typeof u.phone === 'string' ? u.phone : null,
-          externalCompany: u.externalCompany ?? null,
-        });
-        /** 팀·크루 미리보기: 개발자(전 테넌트) + SK ADMIN. 그 외 업체 일반 관리자는 제외 */
-        const tenantSlugForPreview =
-          (typeof u.tenant?.slug === 'string' && u.tenant.slug.trim()) || null;
-        const preview = shouldShowAdminDevPreviewLinks({
-          email,
-          role,
-          tenantSlug: tenantSlugForPreview,
-        });
-        setTeamPreviewLink(preview);
-        if (preview && !getTeamToken()) {
+        const h = hydrateAdminSessionFromAuthMe(u);
+        setMeRole(h.role);
+        setStaffMe(h.staffMe);
+        setEffectiveStaffAdmin(h.effectiveStaffAdmin);
+        setMeUserId(h.meUserId);
+        setMeName(h.meName);
+        setMeEmail(h.meEmail);
+        setMePhone(h.mePhone);
+        setMeVehicleNumber(h.meVehicleNumber);
+        setShowStagingDbImportMenu(h.showStagingDbImportMenu);
+        setShowVolumeStatsMenu(h.showVolumeStatsMenu);
+        setIsPlatformSupportAccess(h.isPlatformSupportAccess);
+        setSuppressCelebrateBar(h.suppressCelebrateBar);
+        setTenantFeatures(h.tenantFeatures);
+        setTenantTelecrm(h.tenantTelecrm);
+        setTenantPlan(h.tenantPlan);
+        setTenantSlug(h.tenantSlug);
+        setTenantName(h.tenantName);
+        setMeTenantId(h.meTenantId);
+        setIsTenantOwner(h.isTenantOwner);
+        setIsSuperAdmin(h.isSuperAdmin);
+        setCanCrmSettings(h.canCrmSettings);
+        setProfileOnboardingRequired(h.profileOnboardingRequired);
+        setProfileOnboardingInitial(h.profileOnboardingInitial);
+        setTeamPreviewLink(h.teamPreviewLink);
+        if (h.teamPreviewLink && !getTeamToken()) {
           setTeamToken(token);
         }
-        if (role === 'ADMIN' && tid) {
+        if (h.role === 'ADMIN' && h.meTenantId) {
           setBillingDunningOpen(true);
         } else {
           setBillingDunningOpen(false);
@@ -1449,7 +1421,7 @@ export function AdminLayout() {
         <TenantCapabilitiesProvider value={{ features: tenantFeatures, plan: tenantPlan, tenantSlug, telecrm: tenantTelecrm }}>
           <AdminStaffSessionProvider
             value={{
-              ready: !meProfileLoading && Boolean(meRole),
+              ready: Boolean(meRole),
               tenantName,
               role: meRole,
               staffMe,

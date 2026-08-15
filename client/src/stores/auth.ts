@@ -1,4 +1,6 @@
 import { clearCrmWorkBrandStoredSlug } from '../utils/crmWorkBrandQuery';
+import { clearAuthMeSnapshot } from '../api/authMeSnapshot';
+import { invalidateAuthMeCache } from '../api/auth';
 
 const TOKEN_KEY = 'sk_admin_token';
 const AUTH_CHANGE_EVENT = 'sk_admin_auth';
@@ -67,5 +69,7 @@ export function clearToken() {
     /* ignore */
   }
   clearCrmWorkBrandStoredSlug();
+  clearAuthMeSnapshot();
+  invalidateAuthMeCache();
   notifyAuthChange();
 }

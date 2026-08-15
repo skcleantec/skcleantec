@@ -60,17 +60,22 @@ export function useCrmInquiryEditSupport(enabled: boolean) {
         setServiceZones(zones);
         setCustomCalendars(calendars);
         const staff: StaffAdminMeFields = {
-          role: rawMe.role,
-          effectiveStaffAdminAccess: rawMe.effectiveStaffAdminAccess,
-          marketerAdminLevel: rawMe.marketerAdminLevel,
-          marketerPermissions: rawMe.marketerPermissions ?? null,
-          marketerOperationalAdminAccess: rawMe.marketerOperationalAdminAccess,
+          role: typeof rawMe.role === 'string' ? rawMe.role : undefined,
+          effectiveStaffAdminAccess:
+            typeof rawMe.effectiveStaffAdminAccess === 'boolean'
+              ? rawMe.effectiveStaffAdminAccess
+              : undefined,
+          marketerAdminLevel:
+            rawMe.marketerAdminLevel as StaffAdminMeFields['marketerAdminLevel'],
+          marketerPermissions:
+            (rawMe.marketerPermissions as StaffAdminMeFields['marketerPermissions']) ?? null,
+          marketerOperationalAdminAccess: Boolean(rawMe.marketerOperationalAdminAccess),
         };
         setStaffMe(staff);
         setMe({
-          id: rawMe.id,
-          role: rawMe.role,
-          name: rawMe.name,
+          id: typeof rawMe.id === 'string' ? rawMe.id : '',
+          role: typeof rawMe.role === 'string' ? rawMe.role : '',
+          name: typeof rawMe.name === 'string' ? rawMe.name : '',
           email: typeof rawMe.email === 'string' ? rawMe.email : undefined,
         });
       })

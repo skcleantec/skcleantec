@@ -1602,9 +1602,7 @@ export function CrmPage() {
               }}
               onOpenLearningSettings={
                 canOpenSettings
-                  ? () => {
-                      window.open('/admin/crm/settings/quote-learning', '_blank', 'noopener,noreferrer');
-                    }
+                  ? () => openSettings('quote-learning', 'shared')
                   : undefined
               }
             />

@@ -9,12 +9,14 @@ export type CrmSettingsTab =
   | 'leadSource'
   | 'sms'
   | 'soomgo'
-  | 'soomgo-presets';
+  | 'soomgo-presets'
+  | 'quote-learning';
 export type CrmCatalogScope = 'shared' | 'personal';
 
 const SETTINGS_TABS: CrmSettingsTab[] = [
   'scripts',
   'pricing',
+  'quote-learning',
   'general',
   'leadSource',
   'sms',
@@ -63,7 +65,9 @@ export function useCrmPanelUrl() {
         next.set('tab', tab);
         next.set(
           'catalog',
-          tab === 'soomgo' || tab === 'general' || tab === 'leadSource' ? 'shared' : catalog,
+          tab === 'soomgo' || tab === 'general' || tab === 'leadSource' || tab === 'quote-learning'
+            ? 'shared'
+            : catalog,
         );
         next.delete('pendingInquiryId');
         next.delete('followupId');
@@ -123,7 +127,7 @@ export function useCrmPanelUrl() {
       patchParams((next) => {
         next.set('panel', 'settings');
         next.set('tab', tab);
-        if (tab === 'soomgo' || tab === 'general' || tab === 'leadSource') {
+        if (tab === 'soomgo' || tab === 'general' || tab === 'leadSource' || tab === 'quote-learning') {
           next.set('catalog', 'shared');
         }
       });

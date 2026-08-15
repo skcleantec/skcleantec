@@ -149,7 +149,7 @@ export function buildInquiryCopySections(
     effectiveCustomerOrderNotes({ specialNotes: item.specialNotes, orderForm: item.orderForm }),
   );
   addRow(
-    '특이사항 (팀장·타업체 공유)',
+    '특이사항(전달용)',
     effectiveTeamSharedAdminNotes({
       memo: editForm.memo,
       specialNotes: editForm.specialNotes,

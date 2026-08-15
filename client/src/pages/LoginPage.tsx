@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link, type Location as RouterLocation } from 'react-router-dom';
 import { login, getMe, isAuthSessionExpiredError } from '../api/auth';
+import { persistAuthMeSnapshot } from '../api/authMeSnapshot';
 import { loginCrew, getCrewMe } from '../api/crew';
 import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
@@ -334,6 +335,14 @@ export function LoginPage() {
         clearCrewToken();
         setToken(token);
         setTeamToken(token);
+        persistAuthMeSnapshot(token, {
+          ...(data.user as Record<string, unknown>),
+          tenant: data.tenant,
+          tenantId: (data.tenant as { id?: string } | undefined)?.id,
+          effectiveStaffAdminAccess: role === 'ADMIN',
+          marketerOperationalAdminAccess: role === 'ADMIN',
+        });
+        void getMe(token);
         clearResumeLocation();
         navigate(resolveAdminResumePath(resumeFrom), { replace: true });
       } else {

@@ -1,5 +1,52 @@
 import { API, apiErrorMessage } from './apiPrefix';
 import { isLikelyNetworkFailure } from './fetchNetwork';
+import { persistAuthMeSnapshot, type AuthMeSnapshot } from './authMeSnapshot';
+
+const meCache = new Map<
+  string,
+  { at: number; data?: AuthMeSnapshot; inFlight?: Promise<AuthMeSnapshot> }
+>();
+const ME_CACHE_TTL_MS = 60_000;
+
+export function invalidateAuthMeCache(token?: string): void {
+  if (token) {
+    meCache.delete(token);
+    return;
+  }
+  meCache.clear();
+}
+
+async function fetchMeUncached(token: string): Promise<AuthMeSnapshot> {
+  let res: Response;
+  try {
+    res = await fetch(`${API}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (e) {
+    if (isLikelyNetworkFailure(e)) {
+      throw apiUnreachableMessage();
+    }
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  if (res.status === 401) {
+    throw new AuthSessionExpiredError();
+  }
+  if (res.status === 403) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+    if (data.code === 'billing_access_blocked') {
+      throw new AuthBillingAccessBlockedError(
+        typeof data.error === 'string' ? data.error : undefined,
+      );
+    }
+  }
+  if (!res.ok) {
+    if (res.status === 502 || res.status === 503) {
+      throw apiUnreachableMessage();
+    }
+    throw new Error(await apiErrorMessage(res, '인증 정보를 불러올 수 없습니다.'));
+  }
+  return res.json() as Promise<AuthMeSnapshot>;
+}
 
 /** `/api/auth/me` 401 — 만료·JWT_SECRET 불일치·손상된 토큰 */
 export class AuthSessionExpiredError extends Error {
@@ -56,36 +103,29 @@ export async function login(tenantSlug: string, email: string, password: string)
   return res.json();
 }
 
-export async function getMe(token: string) {
-  let res: Response;
-  try {
-    res = await fetch(`${API}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
+export async function getMe(token: string): Promise<AuthMeSnapshot> {
+  const now = Date.now();
+  const cached = meCache.get(token);
+  if (cached?.data && now - cached.at < ME_CACHE_TTL_MS) {
+    return cached.data;
+  }
+  if (cached?.inFlight) {
+    return cached.inFlight;
+  }
+
+  const inFlight = fetchMeUncached(token)
+    .then((data) => {
+      meCache.set(token, { at: Date.now(), data });
+      persistAuthMeSnapshot(token, data);
+      return data;
+    })
+    .catch((e) => {
+      meCache.delete(token);
+      throw e;
     });
-  } catch (e) {
-    if (isLikelyNetworkFailure(e)) {
-      throw apiUnreachableMessage();
-    }
-    throw e instanceof Error ? e : new Error(String(e));
-  }
-  if (res.status === 401) {
-    throw new AuthSessionExpiredError();
-  }
-  if (res.status === 403) {
-    const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
-    if (data.code === 'billing_access_blocked') {
-      throw new AuthBillingAccessBlockedError(
-        typeof data.error === 'string' ? data.error : undefined,
-      );
-    }
-  }
-  if (!res.ok) {
-    if (res.status === 502 || res.status === 503) {
-      throw apiUnreachableMessage();
-    }
-    throw new Error(await apiErrorMessage(res, '인증 정보를 불러올 수 없습니다.'));
-  }
-  return res.json();
+
+  meCache.set(token, { at: cached?.at ?? 0, data: cached?.data, inFlight });
+  return inFlight;
 }
 
 export async function updateMyProfile(
@@ -123,6 +163,7 @@ export async function updateMyProfile(
     }
     throw new Error(await apiErrorMessage(res, '개인정보를 수정하지 못했습니다.'));
   }
+  invalidateAuthMeCache(token);
   return res.json();
 }
 
@@ -183,5 +224,6 @@ export async function completeMyProfile(token: string, body: CompleteProfilePayl
     }
     throw new Error(await apiErrorMessage(res, '프로필 저장에 실패했습니다.'));
   }
+  invalidateAuthMeCache(token);
   return res.json();
 }

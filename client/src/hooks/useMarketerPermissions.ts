@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getToken } from '../stores/auth';
 import { getMe } from '../api/auth';
+import { bootstrapAuthMeFromLocal } from '../api/authMeSnapshot';
 import type { MarketerPermissionId, MarketerPermissionMap } from '@shared/marketerPermissions';
 import { hasStaffPermission, type StaffAdminMeFields } from '../utils/staffAdminAccess';
+import { useAdminStaffSession } from './useAdminStaffSession';
 
 export type MarketerPermissionsState = {
   loading: boolean;
@@ -12,9 +14,36 @@ export type MarketerPermissionsState = {
   refresh: () => void;
 };
 
+function staffMeFromAuthMe(raw: Record<string, unknown>): StaffAdminMeFields {
+  return {
+    role: typeof raw.role === 'string' ? raw.role : undefined,
+    effectiveStaffAdminAccess: raw.effectiveStaffAdminAccess as boolean | undefined,
+    marketerAdminLevel: raw.marketerAdminLevel as StaffAdminMeFields['marketerAdminLevel'],
+    marketerPermissions: (raw.marketerPermissions as StaffAdminMeFields['marketerPermissions']) ?? null,
+    marketerOperationalAdminAccess: Boolean(raw.marketerOperationalAdminAccess),
+  };
+}
+
+function bootstrapStaffMe(token: string): StaffAdminMeFields | null {
+  const boot = bootstrapAuthMeFromLocal(token);
+  if (!boot?.role) return null;
+  return staffMeFromAuthMe(boot);
+}
+
 export function useMarketerPermissions(enabled = true): MarketerPermissionsState {
-  const [loading, setLoading] = useState(enabled);
-  const [me, setMe] = useState<StaffAdminMeFields | null>(null);
+  const session = useAdminStaffSession();
+  const [loading, setLoading] = useState(() => {
+    if (!enabled) return false;
+    const token = getToken();
+    if (!token) return false;
+    return !bootstrapStaffMe(token);
+  });
+  const [me, setMe] = useState<StaffAdminMeFields | null>(() => {
+    if (!enabled) return null;
+    const token = getToken();
+    if (!token) return null;
+    return bootstrapStaffMe(token);
+  });
   const [tick, setTick] = useState(0);
 
   const refresh = useCallback(() => setTick((n) => n + 1), []);
@@ -24,27 +53,31 @@ export function useMarketerPermissions(enabled = true): MarketerPermissionsState
       setLoading(false);
       return;
     }
+    if (session.ready && session.staffMe) {
+      setMe(session.staffMe);
+      setLoading(false);
+      return;
+    }
     const token = getToken();
     if (!token) {
       setLoading(false);
       setMe(null);
       return;
     }
-    setLoading(true);
+    const boot = bootstrapStaffMe(token);
+    if (boot) {
+      setMe(boot);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     void getMe(token)
       .then((raw) => {
-        const next: StaffAdminMeFields = {
-          role: raw.role,
-          effectiveStaffAdminAccess: raw.effectiveStaffAdminAccess,
-          marketerAdminLevel: raw.marketerAdminLevel,
-          marketerPermissions: raw.marketerPermissions ?? null,
-          marketerOperationalAdminAccess: raw.marketerOperationalAdminAccess,
-        };
-        setMe(next);
+        setMe(staffMeFromAuthMe(raw));
       })
-      .catch(() => setMe(null))
+      .catch(() => setMe(boot))
       .finally(() => setLoading(false));
-  }, [enabled, tick]);
+  }, [enabled, tick, session.ready, session.staffMe]);
 
   const has = useCallback(
     (id: MarketerPermissionId) => hasStaffPermission(me, id),

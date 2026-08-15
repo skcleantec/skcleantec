@@ -1,7 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { subscribeAdminAuth, getToken } from '../../stores/auth';
-import { API } from '../../api/apiPrefix';
+import { getMe, isAuthSessionExpiredError } from '../../api/auth';
 import { notifyAuthRejected } from '../../api/sessionGate';
 
 /**
@@ -19,14 +19,11 @@ async function verifyAdminToken(token: string): Promise<void> {
   if (now - last < VERIFY_MIN_INTERVAL_MS) return;
   lastVerified.set(token, now);
   try {
-    const res = await fetch(`${API}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
+    await getMe(token);
+  } catch (e) {
+    if (isAuthSessionExpiredError(e)) {
       notifyAuthRejected('me_check', 401, 'admin');
     }
-  } catch {
-    /** 네트워크 실패 등은 무시 — 로그인 자체는 유지 */
   }
 }
 
