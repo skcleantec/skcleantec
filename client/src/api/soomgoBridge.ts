@@ -459,14 +459,20 @@ export type SoomgoOpenChatByNicknameResult = {
   match?: string;
 };
 
-export async function openSoomgoChatByNickname(nickname: string): Promise<SoomgoOpenChatByNicknameResult> {
+export async function openSoomgoChatByNickname(
+  nickname: string,
+  address?: string | null,
+): Promise<SoomgoOpenChatByNicknameResult> {
+  const payload: { nickname: string; address?: string } = { nickname: nickname.trim() };
+  const addr = address?.trim();
+  if (addr) payload.address = addr;
   const res = await bridgeFetch<{
     ok: boolean;
     data?: SoomgoOpenChatByNicknameResult;
     error?: string;
   }>('/open-chat-by-nickname', {
     method: 'POST',
-    body: JSON.stringify({ nickname: nickname.trim() }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok || !res.data?.chatId) {
     throw new Error(res.error || '숨고 채팅방을 찾지 못했습니다.');

@@ -544,7 +544,7 @@ export function useCrmSoomgoBridge({
   );
 
   const openChatByNickname = useCallback(
-    async (nickname: string) => {
+    async (nickname: string, address?: string | null) => {
       const query = nickname.trim();
       if (query.length < 2) return false;
       setBusyAction('open');
@@ -558,7 +558,7 @@ export function useCrmSoomgoBridge({
           throw new Error(soomgoBridgeOutdatedMessage(current, bridgeManifest));
         }
         notify(`숨고에서 「${query}」 채팅방을 찾는 중…`);
-        await openSoomgoChatByNickname(query);
+        await openSoomgoChatByNickname(query, address);
         await refreshStatus();
         notify(`숨고 채팅방「${query}」으로 이동했습니다.`);
         return true;

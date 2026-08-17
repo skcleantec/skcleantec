@@ -841,10 +841,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if len(nickname) < 2:
                     _json_response(self, 400, {'ok': False, 'error': 'nickname required (min 2 chars)'})
                     return
+                address_raw = body.get('address')
+                address = str(address_raw).strip() if address_raw is not None else ''
+                address = address or None
                 if not goto_chat_list(driver, force_list=True):
                     dismiss_blocking_overlays(driver, 0.4, max_rounds=3)
                     goto_chat_list(driver, force_list=True)
-                result = open_chat_room_by_nickname(driver, nickname)
+                result = open_chat_room_by_nickname(driver, nickname, address=address)
                 if not result.get('ok'):
                     _json_response(self, 400, {
                         'ok': False,

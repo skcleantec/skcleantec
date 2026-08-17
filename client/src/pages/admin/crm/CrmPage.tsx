@@ -836,10 +836,10 @@ export function CrmPage() {
   } = misoBridge;
 
   const openSoomgoChatForNickname = useCallback(
-    async (nickname: string) => {
+    async (nickname: string, address?: string | null) => {
       const query = nickname.trim();
       if (query.length < 2 || !soomgoBarOpen) return false;
-      return openChatByNickname(query);
+      return openChatByNickname(query, address);
     },
     [openChatByNickname, soomgoBarOpen],
   );
@@ -863,7 +863,7 @@ export function CrmPage() {
       if (isSoomgoBridgeReachable(s)) {
         const nick = intakeIdentity.nickname.trim();
         if (nick.length >= 2) {
-          await openSoomgoChatForNickname(nick);
+          await openSoomgoChatForNickname(nick, intakeIdentity.address);
         }
         await extract();
         return;
@@ -876,6 +876,7 @@ export function CrmPage() {
     extract,
     extractMiso,
     intakeIdentity.nickname,
+    intakeIdentity.address,
     misoBarOpen,
     openSoomgoChatForNickname,
     refreshMisoStatus,
@@ -904,13 +905,14 @@ export function CrmPage() {
     }
     const nick = intakeIdentity.nickname.trim();
     if (nick.length >= 2) {
-      await openSoomgoChatForNickname(nick);
+      await openSoomgoChatForNickname(nick, intakeIdentity.address);
     }
     const data = await extract();
     return data != null;
   }, [
     extract,
     intakeIdentity.nickname,
+    intakeIdentity.address,
     openSoomgoChatForNickname,
     refreshSoomgoStatus,
     showDispatchNotice,
@@ -1253,7 +1255,7 @@ export function CrmPage() {
         }
 
         followupSoomgoMergeRef.current = snapshot;
-        const opened = await openSoomgoChatForNickname(nick);
+        const opened = await openSoomgoChatForNickname(nick, snapshot.address);
         if (runId !== followupSoomgoAutoRef.current) return;
         if (!opened) {
           followupSoomgoMergeRef.current = null;
@@ -1306,7 +1308,7 @@ export function CrmPage() {
       });
       const nick = snapshot.nickname.trim();
       if (nick && soomgoBarOpen && !needsSoomgoFill) {
-        void openSoomgoChatForNickname(nick);
+        void openSoomgoChatForNickname(nick, snapshot.address);
       } else if (nick && !soomgoBarOpen) {
         showDispatchNotice('숨고 연동을 켜면 닉네임으로 채팅방을 자동으로 찾아 이동합니다.');
       }
