@@ -172,6 +172,10 @@ export function summarizeSoomgoImport(data: SoomgoExtractedChat): SoomgoImportSu
     lines.push(`베란다 ${data.balconyCount}개 → 추가 필드`);
   }
 
+  if (data.hiredOther) {
+    lines.push('다른 고수 고용 → 접수란 경고 표시');
+  }
+
   return { filled, lines, empty };
 }
 

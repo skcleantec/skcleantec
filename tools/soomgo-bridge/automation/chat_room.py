@@ -29,6 +29,7 @@ from automation.soomgo_text_filters import (
     is_soomgo_chat_scrape_memo,
     is_soomgo_sidebar_nav_memo,
 )
+from automation.soomgo_hired_other import hired_other_js_helpers
 
 logger = logging.getLogger(__name__)
 
@@ -424,6 +425,29 @@ class ChatRoomManager:
             logger.error('get_customer_messages: %s', e)
             return []
 
+    def detect_hired_other(self) -> bool:
+        """채팅방·목록 DOM에서 「다른 고수를 고용함」 마커 감지."""
+        try:
+            script = hired_other_js_helpers() + """
+            function scanRoot(root) {
+              if (!root) return false;
+              if (containsSoomgoHiredOther(root.innerText || root.textContent || '')) return true;
+              var nodes = root.querySelectorAll('p, span, div, strong');
+              for (var i = 0; i < nodes.length; i++) {
+                var t = (nodes[i].textContent || '').trim();
+                if (containsSoomgoHiredOther(t)) return true;
+              }
+              return false;
+            }
+            var header = document.querySelector('header, [class*="header" i], [class*="Header" i]');
+            if (scanRoot(header)) return true;
+            return scanRoot(document.body);
+            """
+            return bool(self.driver.execute_script(script))
+        except Exception as e:
+            logger.debug('detect_hired_other: %s', e)
+            return False
+
     def extract_current_chat(self, known_safe_phone: str | None = None) -> dict[str, Any]:
         """① 이름 클릭→고객요청 파싱→닫기 ② 전화→번호→취소 (순차 매크로)."""
         chat_id = self.get_current_chat_id()
@@ -535,6 +559,7 @@ class ChatRoomManager:
             'lastMessage': last_message,
             'customerMessages': customer_messages[-12:],
             'currentUrl': self.driver.current_url,
+            'hiredOther': self.detect_hired_other(),
         }
 
     def _click_attachment_and_find_file_input(self):

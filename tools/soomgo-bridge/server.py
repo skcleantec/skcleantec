@@ -717,6 +717,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 _extract_in_progress = True
                 try:
                     data = room.extract_current_chat(known_safe_phone=known_phone)
+                    chat_id = str(data.get('chatId') or '').strip()
+                    if chat_id and not data.get('hiredOther'):
+                        for row in _chat_watcher.list_snapshot(driver):
+                            if str(row.get('chatId') or '') == chat_id and row.get('hiredOther'):
+                                data['hiredOther'] = True
+                                break
                 finally:
                     _extract_in_progress = False
                 _json_response(self, 200, {'ok': True, 'data': data})

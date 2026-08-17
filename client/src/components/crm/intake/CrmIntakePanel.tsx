@@ -139,6 +139,7 @@ export function CrmIntakePanel({
   quotePayload = null,
   soomgoImportBanner = null,
   soomgoImportFlashKey = 0,
+  soomgoHiredOther = false,
   onIntakeReset,
   operatingCompanyId = null,
   followupImport = null,
@@ -172,6 +173,7 @@ export function CrmIntakePanel({
   quotePayload?: TelecrmConsultationQuotePayload | null;
   soomgoImportBanner?: string | null;
   soomgoImportFlashKey?: number;
+  soomgoHiredOther?: boolean;
   onIntakeReset?: () => void;
   operatingCompanyId?: string | null;
   followupImport?: { key: number; snapshot: CrmFollowupApplySnapshot } | null;
@@ -349,6 +351,12 @@ export function CrmIntakePanel({
 
   const handleCall = async () => {
     if (!canDial || !token) return;
+    if (soomgoHiredOther) {
+      const ok = window.confirm(
+        '숨고에서 「다른 고수를 고용함」 상태입니다. 재연락·통화는 권장하지 않습니다.\n\n그래도 통화하시겠습니까?',
+      );
+      if (!ok) return;
+    }
     const matchedInquiry = data?.inquiries?.find((inq) => inq.id === activeInquiryId);
     const dispatchInquiryId =
       resolveTelecrmDispatchInquiryId(
@@ -555,6 +563,7 @@ export function CrmIntakePanel({
             formResetKey={formResetKey}
             quotePayload={quotePayload}
             soomgoImportFlashKey={soomgoImportFlashKey}
+            soomgoHiredOther={soomgoHiredOther}
             operatingCompanyId={operatingCompanyId}
           />
         </div>

@@ -428,6 +428,28 @@ export function useCrmSoomgoBridge({
     }
   }, [applySplitLayout, bridgeManifest, ensureCallWatch, ensureChatWatch, isPopup, notify, operatingCompanyId, refreshManifest, refreshStatus]);
 
+  const returnToChatList = useCallback(async () => {
+    setBusyAction('open');
+    setError(null);
+    try {
+      const current = await refreshStatus({ lite: true });
+      if (!isSoomgoBridgeReachable(current)) return false;
+      if (isSoomgoBridgeUseBlocked(current, bridgeManifest)) return false;
+      const screen = readSoomgoSplitBoundsAfterCrmResize();
+      await openSoomgoChats(screen, { preserveRoom: false });
+      await applySplitLayout();
+      await refreshStatus();
+      notify('숨고 채팅 목록으로 돌아갔습니다.');
+      return true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '채팅 목록으로 돌아가지 못했습니다.';
+      notify(msg);
+      return false;
+    } finally {
+      setBusyAction(null);
+    }
+  }, [applySplitLayout, bridgeManifest, notify, refreshStatus]);
+
   const requestBridgeUpdate = useCallback(
     async (mode: 'prompt' | 'background' | 'install' = 'install') => {
       if (updateInFlightRef.current) {
@@ -738,6 +760,7 @@ export function useCrmSoomgoBridge({
     openChatRoom,
     openChatByNickname,
     openChatRoomAndExtract,
+    returnToChatList,
     requestBridgeUpdate,
     chatAlertsSupported: isSoomgoBridgeChatAlertsSupported(status),
   };

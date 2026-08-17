@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.47';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.48';
 
 /** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
@@ -140,6 +140,8 @@ export type SoomgoChatAlert = {
   customerName: string | null;
   /** 숨고 「내 고용」 — 고객이 프로를 고용한 상태 */
   hiredMe?: boolean;
+  /** 숨고 「다른 고수를 고용함」 — 타 고수 고용으로 재연락 비권장 */
+  hiredOther?: boolean;
   /** 채팅 목록 2번째 줄 — 종류·지역 (예: 이사/입주 청소업체 • 서울 …) */
   serviceRegion?: string | null;
   /** 목록 UI·레거시 호환 표시 텍스트 */
@@ -160,6 +162,8 @@ export type SoomgoChatListSnapshotRow = {
   chatId: string;
   customerName: string | null;
   hiredMe?: boolean;
+  /** 숨고 「다른 고수를 고용함」 — 타 고수 고용으로 재연락 비권장 */
+  hiredOther?: boolean;
   serviceRegion?: string | null;
   previewText: string;
   messagePreview?: string | null;
@@ -263,6 +267,8 @@ export type SoomgoExtractedChat = {
   roomCount?: number | null;
   bathroomCount?: number | null;
   balconyCount?: number | null;
+  /** 채팅 목록·방에서 「다른 고수를 고용함」 감지 */
+  hiredOther?: boolean;
 };
 
 export type SoomgoChatTranscriptRole = 'customer' | 'pro';

@@ -47,6 +47,7 @@ export function CrmIntakeForm({
   formResetKey = 0,
   quotePayload = null,
   soomgoImportFlashKey = 0,
+  soomgoHiredOther = false,
   seedSyncDisabled = false,
   operatingCompanyId = null,
 }: {
@@ -68,6 +69,7 @@ export function CrmIntakeForm({
   formResetKey?: number;
   quotePayload?: TelecrmConsultationQuotePayload | null;
   soomgoImportFlashKey?: number;
+  soomgoHiredOther?: boolean;
 }) {
   const [customerName, setCustomerName] = useState('');
   const [nickname, setNickname] = useState('');
@@ -252,6 +254,13 @@ export function CrmIntakeForm({
 
   return (
     <div className="space-y-2.5">
+      {soomgoHiredOther ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-950">
+          <span className="font-semibold text-amber-900">다른 고수 고용</span>
+          {' '}
+          — 숨고 채팅 목록에 「다른 고수를 고용함」이 표시됩니다. 재연락·통화를 권장하지 않습니다.
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-2">
         <label className="block min-w-0 space-y-0.5">
           <span className="text-[11px] font-medium text-slate-600">닉네임 · 호칭</span>
@@ -265,7 +274,14 @@ export function CrmIntakeForm({
           />
         </label>
         <label className="block min-w-0 space-y-0.5">
-          <span className="text-[11px] font-medium text-slate-600">고객명</span>
+          <span className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-slate-600">
+            <span>고객명</span>
+            {soomgoHiredOther ? (
+              <span className="rounded border border-amber-200 bg-amber-100 px-1.5 py-0 text-[10px] font-semibold text-amber-900">
+                다른 고수 고용
+              </span>
+            ) : null}
+          </span>
           <input
             type="text"
             value={customerName}

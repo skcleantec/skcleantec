@@ -235,6 +235,7 @@ export function CrmPage() {
   const [formResetKey, setFormResetKey] = useState(0);
   const [soomgoImportBanner, setSoomgoImportBanner] = useState<string | null>(null);
   const [soomgoImportFlashKey, setSoomgoImportFlashKey] = useState(0);
+  const [soomgoHiredOther, setSoomgoHiredOther] = useState(false);
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [smsDrawerOpen, setSmsDrawerOpen] = useState(false);
   const [soomgoDrawerOpen, setSoomgoDrawerOpen] = useState(false);
@@ -632,6 +633,7 @@ export function CrmPage() {
       });
       setSoomgoImportBanner(null);
       setSoomgoImportFlashKey(0);
+      setSoomgoHiredOther(false);
       setFollowupImport(null);
       clearCrmIntakeDraft();
       setHasUnsavedDraft(false);
@@ -672,6 +674,7 @@ export function CrmPage() {
           }),
           extractPlatform: 'soomgo',
         });
+        setSoomgoHiredOther(data.hiredOther === true);
         return;
       }
 
@@ -692,6 +695,7 @@ export function CrmPage() {
       setIntakeKind(intakeDefaults.kind);
       setSoomgoImportBanner(summary.lines.join('\n'));
       setSoomgoImportFlashKey((k) => k + 1);
+      setSoomgoHiredOther(data.hiredOther === true);
       setInitialFormDraft({
         customerName: name,
         nickname: name,
@@ -803,6 +807,7 @@ export function CrmPage() {
     restartBridge,
     openChatByNickname,
     openChatRoomAndExtract,
+    returnToChatList,
     busy: soomgoBusy,
     busyAction: soomgoBusyAction,
     busyLabel: soomgoBusyLabel,
@@ -1028,10 +1033,11 @@ export function CrmPage() {
       if (!meta?.freshStart) return;
       resetIntakeFormState(null);
       if (soomgoBarOpen) {
+        void returnToChatList();
         void applyTelecrmSoomgoSplitLayout(arrangeSoomgoBridgeLayout, { resizeCrm: isPopup });
       }
     },
-    [isPopup, resetIntakeFormState, soomgoBarOpen],
+    [isPopup, resetIntakeFormState, returnToChatList, soomgoBarOpen],
   );
 
   const pyeongNum = parseFloat(pyeong.replace(/,/g, ''));
@@ -1788,6 +1794,7 @@ export function CrmPage() {
                 quotePayload={telecrmQuotePayloadHasContent(quotePayload) ? quotePayload : null}
                 soomgoImportBanner={soomgoImportBanner}
                 soomgoImportFlashKey={soomgoImportFlashKey}
+                soomgoHiredOther={soomgoHiredOther}
                 onIntakeReset={handleIntakeReset}
                 onPricingReset={resetQuotePricingState}
                 followupImport={followupImport}

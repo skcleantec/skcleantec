@@ -11,6 +11,7 @@ import uuid
 from typing import Any
 
 from automation.selectors import SOOMGO_DISPLAY_NAME_JS
+from automation.soomgo_hired_other import hired_other_js_helpers
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ MAX_PENDING = 50
 SCAN_INTERVAL_MS = 2000
 WATCH_SCAN_INTERVAL_MS = 1000
 
-_INSTALL_WATCHER_JS = SOOMGO_DISPLAY_NAME_JS + """
+_INSTALL_WATCHER_JS = SOOMGO_DISPLAY_NAME_JS + hired_other_js_helpers() + """
 if (!window.__soomgoBridgeChatListWatch) {
   window.__soomgoBridgeChatListWatch = {
     installed: true,
@@ -158,6 +159,14 @@ if (!window.__soomgoBridgeChatListWatch) {
     }
     if (!name) return null;
     var hiredMe = hiredSplit.hiredMe;
+    var rowRoot = anchorEl;
+    for (var ru = 0; ru < 12 && rowRoot; ru++) {
+      var rtag = (rowRoot.tagName || '').toLowerCase();
+      if (rtag === 'li' || rtag === 'article' || rowRoot.getAttribute('role') === 'listitem') break;
+      rowRoot = rowRoot.parentElement;
+    }
+    var rowText = rowRoot ? (rowRoot.innerText || rowRoot.textContent || '') : (anchorEl.innerText || '');
+    var hiredOther = containsSoomgoHiredOther(rowText) || containsSoomgoHiredOther(nameLine);
 
     var messageEl = null;
     var messageRaw = '';
@@ -184,6 +193,7 @@ if (!window.__soomgoBridgeChatListWatch) {
     return {
       customerName: name,
       hiredMe: hiredMe,
+      hiredOther: hiredOther,
       serviceRegion: null,
       messagePreview: messagePreview || null,
       parseQuality: 'dom',
@@ -373,8 +383,14 @@ if (!window.__soomgoBridgeChatListWatch) {
     }
 
     if (previewKind === 'unknown' && messagePreview) previewKind = 'message';
+    var hiredOther = containsSoomgoHiredOther(rawBlock || '')
+      || (rawLines || []).some(function(l) { return containsSoomgoHiredOther(l); });
+    if (rowEl) {
+      hiredOther = hiredOther || containsSoomgoHiredOther(rowEl.innerText || rowEl.textContent || '');
+    }
     return {
       customerName: customerName,
+      hiredOther: hiredOther,
       serviceRegion: null,
       messagePreview: messagePreview || null,
       parseQuality: parseQuality,
@@ -465,6 +481,7 @@ if (!window.__soomgoBridgeChatListWatch) {
         chatId: chatId,
         customerName: parsed.customerName,
         hiredMe: parsed.hiredMe === true,
+        hiredOther: parsed.hiredOther === true,
         serviceRegion: parsed.serviceRegion,
         previewText: previewText.slice(0, 500),
         messagePreview: messagePreview ? messagePreview.slice(0, 500) : null,
@@ -661,6 +678,7 @@ class ChatListWatcher:
             'chatId': chat_id,
             'customerName': (row.get('customerName') or None),
             'hiredMe': bool(row.get('hiredMe')),
+            'hiredOther': bool(row.get('hiredOther')),
             'serviceRegion': (row.get('serviceRegion') or None),
             'previewText': str(row.get('previewText') or '').strip() or '(내용 없음)',
             'messagePreview': (str(row.get('messagePreview') or '').strip() or None),
@@ -679,6 +697,7 @@ class ChatListWatcher:
             'chatId': chat_id,
             'customerName': (row.get('customerName') or None),
             'hiredMe': bool(row.get('hiredMe')),
+            'hiredOther': bool(row.get('hiredOther')),
             'serviceRegion': (row.get('serviceRegion') or None),
             'previewText': str(row.get('previewText') or '').strip() or '(내용 없음)',
             'messagePreview': (str(row.get('messagePreview') or '').strip() or None),
