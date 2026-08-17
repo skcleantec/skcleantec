@@ -1,4 +1,4 @@
-import { createOrderFollowup } from '../../../api/orderFollowups';
+import { createOrderFollowup, deferOrderFollowup } from '../../../api/orderFollowups';
 import { createInquiry } from '../../../api/inquiries';
 import { finalizeTelecrmConsultationQuote } from '../../../api/telecrmConsultationQuote';
 import type { OrderFollowupStatus } from '../../../constants/orderFollowupStatus';
@@ -46,9 +46,13 @@ export type CrmIntakeSubmitResult = {
   customerName: string;
   nickname: string;
 } & (
-  | { kind: 'followup' }
+  | { kind: 'followup'; followupId?: string; deferIncremented?: boolean }
   | { kind: 'inquiry'; inquiryId: string; status: string }
 );
+
+const CRM_INTAKE_FOLLOWUP_DEFER_KINDS = new Set<CrmIntakeKind>(['requested', 'absent', 'hold']);
+
+export { CRM_INTAKE_FOLLOWUP_DEFER_KINDS };
 
 function submitMeta(values: CrmIntakeFormValues): Pick<CrmIntakeSubmitResult, 'intakeKind' | 'customerName' | 'nickname'> {
   return {
@@ -96,8 +100,14 @@ export async function submitCrmIntake(
   opts: {
     operatingCompanyId: string;
     quotePayload?: TelecrmConsultationQuotePayload | null;
+    /** 저장 후 부재 횟수 +1 (`POST …/defer`) */
+    incrementDefer?: boolean;
   },
 ): Promise<CrmIntakeSubmitResult> {
+  if (opts.incrementDefer && !CRM_INTAKE_FOLLOWUP_DEFER_KINDS.has(values.kind)) {
+    throw new Error('부재+1은 요청·부재·보류 처리 구분에서만 사용할 수 있습니다.');
+  }
+
   const validationError = validateCrmIntakeForm(values, pyeong);
   if (validationError) throw new Error(validationError);
 
@@ -132,7 +142,7 @@ export async function submitCrmIntake(
       !values.contactUnknown &&
       outbound.replace(/\D/g, '').length >= 4
     ) {
-      await finalizeTelecrmConsultationQuote(
+      const finalized = await finalizeTelecrmConsultationQuote(
         token,
         {
           phone: outbound,
@@ -148,9 +158,18 @@ export async function submitCrmIntake(
         },
         operatingCompanyId,
       );
-      return { kind: 'followup', ...submitMeta(values) };
+      const followupId = finalized.followupId;
+      if (opts.incrementDefer) {
+        await deferOrderFollowup(token, followupId);
+      }
+      return {
+        kind: 'followup',
+        followupId,
+        deferIncremented: Boolean(opts.incrementDefer),
+        ...submitMeta(values),
+      };
     }
-    await createOrderFollowup(token, {
+    const created = await createOrderFollowup(token, {
       customerName: n,
       nickname: values.nickname.trim() || null,
       customerPhone: stored.customerPhone,
@@ -163,7 +182,16 @@ export async function submitCrmIntake(
       ...followupExtras,
       ...brandBody,
     });
-    return { kind: 'followup', ...submitMeta(values) };
+    const followupId = created.item.id;
+    if (opts.incrementDefer) {
+      await deferOrderFollowup(token, followupId);
+    }
+    return {
+      kind: 'followup',
+      followupId,
+      deferIncremented: Boolean(opts.incrementDefer),
+      ...submitMeta(values),
+    };
   }
 
   if (values.kind === 'received') {

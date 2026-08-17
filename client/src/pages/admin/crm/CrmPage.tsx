@@ -471,6 +471,18 @@ export function CrmPage() {
     (next: CrmCustomerMode) => {
       if (next === 'new') {
         resetQuotePricingState();
+        setContactPhone('');
+        setSafePhone('');
+        setContactUnknown(false);
+        setFollowupImport(null);
+        setIntakeKind('absent');
+        setIntakeStructure({
+          roomCount: '',
+          bathroomCount: '',
+          balconyCount: '',
+        });
+        clearCrmIntakeDraft();
+        setHasUnsavedDraft(false);
         setFormResetKey((k) => k + 1);
         setCustomerName('');
         setPyeong('');
@@ -480,6 +492,9 @@ export function CrmPage() {
           address: '',
           preferredMoveInCleanYmd: '',
           requestMemo: '',
+          roomCount: '',
+          bathroomCount: '',
+          balconyCount: '',
           kind: 'absent',
           goldDb: false,
           leadSource: '',

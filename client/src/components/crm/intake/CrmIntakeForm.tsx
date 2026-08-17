@@ -5,6 +5,7 @@ import { INQUIRY_STATUS_LABELS } from '../../inquiries/inquiriesUiParts';
 import type { TelecrmConsultationQuotePayload } from '@shared/telecrmConsultationQuote';
 import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
 import {
+  CRM_INTAKE_FOLLOWUP_DEFER_KINDS,
   submitCrmIntake,
   type CrmIntakeFormValues,
   type CrmIntakeKind,
@@ -110,6 +111,8 @@ export function CrmIntakeForm({
     setLeadSource('');
     setExtractPlatform(undefined);
     setShowMore(false);
+    setMsg(null);
+    setErr(null);
     appliedDraftRef.current = 0;
   }, [formResetKey]);
 
@@ -185,7 +188,8 @@ export function CrmIntakeForm({
     onFormChange,
   ]);
 
-  const submit = async (keepForm: boolean) => {
+  const submit = async (opts: { keepForm: boolean; incrementDefer?: boolean }) => {
+    const { keepForm, incrementDefer = false } = opts;
     const token = getToken();
     if (!token) return;
     if (!canSubmitKind(kind)) {
@@ -194,6 +198,10 @@ export function CrmIntakeForm({
     }
     if (!operatingCompanyId) {
       setErr('작업 브랜드가 선택되지 않았습니다. 상단에서 브랜드를 선택해 주세요.');
+      return;
+    }
+    if (incrementDefer && !CRM_INTAKE_FOLLOWUP_DEFER_KINDS.has(kind)) {
+      setErr('부재+1은 요청·부재·보류 처리 구분에서만 사용할 수 있습니다.');
       return;
     }
     setSaving(true);
@@ -220,17 +228,22 @@ export function CrmIntakeForm({
           extractPlatform,
         },
         pyeong,
-        { operatingCompanyId, quotePayload },
+        { operatingCompanyId, quotePayload, incrementDefer },
       );
-      onSaved(result, { freshStart: !keepForm });
-      setMsg('저장했습니다.');
-      window.setTimeout(() => setMsg(null), 2500);
+      const freshStart = incrementDefer || !keepForm;
+      onSaved(result, { freshStart });
+      setMsg(incrementDefer ? '저장했습니다. 부재+1 반영' : '저장했습니다.');
+      if (!freshStart) {
+        window.setTimeout(() => setMsg(null), 2500);
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : '저장 실패');
     } finally {
       setSaving(false);
     }
   };
+
+  const canDeferIncrement = CRM_INTAKE_FOLLOWUP_DEFER_KINDS.has(kind);
 
   const flashRing =
     soomgoImportFlashKey > 0
@@ -428,15 +441,26 @@ export function CrmIntakeForm({
         <button
           type="button"
           disabled={saving || permissionsLoading || !canSave}
-          onClick={() => void submit(false)}
+          onClick={() => void submit({ keepForm: false })}
           className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {saving ? '저장 중…' : '저장'}
         </button>
+        {canDeferIncrement ? (
+          <button
+            type="button"
+            disabled={saving || permissionsLoading || !canSave}
+            onClick={() => void submit({ keepForm: false, incrementDefer: true })}
+            title="저장 후 부재 횟수 +1"
+            className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+          >
+            {saving ? '저장 중…' : '부재+1'}
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={saving || permissionsLoading || !canSave}
-          onClick={() => void submit(true)}
+          onClick={() => void submit({ keepForm: true })}
           className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
         >
           저장 후 계속
