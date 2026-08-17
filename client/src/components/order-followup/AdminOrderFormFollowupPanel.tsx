@@ -33,6 +33,15 @@ import {
   FollowupCallNotesHistory,
   FollowupDetailTabBar,
 } from './FollowupCallNotesHistory';
+import { FollowupIntakeExtrasFields } from './FollowupIntakeExtrasFields';
+import {
+  buildFollowupIntakeExtrasPayload,
+  emptyFollowupIntakeExtrasForm,
+  followupIntakeExtrasFormFromItem,
+  summarizeFollowupIntakeExtras,
+  validateFollowupIntakeExtrasPyeong,
+  type FollowupIntakeExtrasForm,
+} from '../../utils/orderFollowupIntakeExtras';
 
 function toLocalDatetimeValue(iso: string | null): string {
   if (!iso) return '';
@@ -437,6 +446,9 @@ export function AdminOrderFormFollowupPanel({
   const [editMemo, setEditMemo] = useState('');
   const [editNext, setEditNext] = useState('');
   const [editPreferredYmd, setEditPreferredYmd] = useState('');
+  const [editIntakeExtras, setEditIntakeExtras] = useState<FollowupIntakeExtrasForm>(() =>
+    emptyFollowupIntakeExtrasForm(),
+  );
   const [editGoldDb, setEditGoldDb] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [connectInqQ, setConnectInqQ] = useState('');
@@ -630,6 +642,7 @@ export function AdminOrderFormFollowupPanel({
     setEditMemo(edit.memo ?? '');
     setEditNext(toLocalDatetimeValue(edit.nextContactAt));
     setEditPreferredYmd(edit.preferredMoveInCleaningDate?.trim() ?? '');
+    setEditIntakeExtras(followupIntakeExtrasFormFromItem(edit));
     setEditGoldDb(edit.goldDb ?? false);
     /** 편집 열자마자 자동 검색 요청을 보내면 입력·드롭다운 체감이 끊겨 보여 수동 검색으로 변경 */
     setConnectInqQ('');
@@ -690,6 +703,11 @@ export function AdminOrderFormFollowupPanel({
       alert('고객명은 비워둘 수 없습니다.');
       return;
     }
+    const pyeongErr = validateFollowupIntakeExtrasPyeong(editIntakeExtras.pyeong);
+    if (pyeongErr) {
+      alert(pyeongErr);
+      return;
+    }
     setSavingEdit(true);
     try {
       await patchOrderFollowup(token, edit.id, {
@@ -701,6 +719,7 @@ export function AdminOrderFormFollowupPanel({
         nextContactAt: fromLocalDatetimeValue(editNext),
         preferredMoveInCleaningDate: editPreferredYmd.trim() || null,
         goldDb: editGoldDb,
+        ...buildFollowupIntakeExtrasPayload(editIntakeExtras),
       });
       preserveScroll();
       setEdit(null);
@@ -1064,6 +1083,14 @@ export function AdminOrderFormFollowupPanel({
                             </span>
                           </>
                         ) : null}
+                        {summarizeFollowupIntakeExtras(row) ? (
+                          <p
+                            className="mt-0.5 text-[10px] font-normal text-slate-500 truncate"
+                            title={summarizeFollowupIntakeExtras(row)}
+                          >
+                            {summarizeFollowupIntakeExtras(row)}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="py-2.5 px-2 tabular-nums text-slate-800 font-medium">{displayPhone(row.customerPhone)}</td>
                       <td className="py-2.5 px-2">
@@ -1180,6 +1207,14 @@ export function AdminOrderFormFollowupPanel({
                         : '—'}
                     </span>
                   </p>
+                  {summarizeFollowupIntakeExtras(row) ? (
+                    <p
+                      className="mt-0.5 text-[10px] leading-snug text-slate-600 truncate"
+                      title={summarizeFollowupIntakeExtras(row)}
+                    >
+                      {summarizeFollowupIntakeExtras(row)}
+                    </p>
+                  ) : null}
                   {row.memo?.trim() ? (
                     <div className="mt-1">
                       <FollowupMemoCell row={row} onOpenMemo={setMemoView} />
@@ -1495,6 +1530,12 @@ export function AdminOrderFormFollowupPanel({
                     </div>
                   </div>
                 ) : null}
+                <FollowupIntakeExtrasFields
+                  compact
+                  disabled={edit.status === 'FULFILLED' || savingEdit}
+                  value={editIntakeExtras}
+                  onChange={(patch) => setEditIntakeExtras((prev) => ({ ...prev, ...patch }))}
+                />
                 <div>
                   <label className="block text-fluid-2xs font-medium text-gray-500 mb-1">
                     입주청소 희망날짜 (선택)
@@ -1640,6 +1681,14 @@ export function AdminOrderFormFollowupPanel({
                     <span className="tabular-nums">· {memoView.customerPhone}</span>
                   ) : null}
                 </div>
+                {summarizeFollowupIntakeExtras(memoView) ? (
+                  <p
+                    className="mt-1 text-fluid-2xs text-gray-600 leading-snug"
+                    title={summarizeFollowupIntakeExtras(memoView)}
+                  >
+                    {summarizeFollowupIntakeExtras(memoView)}
+                  </p>
+                ) : null}
               </div>
               <div className="shrink-0 border-b border-gray-100 px-4 pb-2">
                 <FollowupDetailTabBar tab={memoViewTab} onChange={setMemoViewTab} />

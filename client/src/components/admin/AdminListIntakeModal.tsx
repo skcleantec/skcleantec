@@ -5,6 +5,13 @@ import { createOrderFollowup } from '../../api/orderFollowups';
 import { createInquiry, updateInquiry } from '../../api/inquiries';
 import { ModalCloseButton } from './ModalCloseButton';
 import { ORDER_FOLLOWUP_STATUS_LABEL, type OrderFollowupStatus } from '../../constants/orderFollowupStatus';
+import { FollowupIntakeExtrasFields } from '../order-followup/FollowupIntakeExtrasFields';
+import {
+  buildFollowupIntakeExtrasPayload,
+  emptyFollowupIntakeExtrasForm,
+  validateFollowupIntakeExtrasPyeong,
+  type FollowupIntakeExtrasForm,
+} from '../../utils/orderFollowupIntakeExtras';
 
 export type AdminListIntakeResult =
   | { kind: 'absent_or_hold' }
@@ -51,6 +58,9 @@ export function AdminListIntakeModal({
   const [preferredMoveInCleanYmd, setPreferredMoveInCleanYmd] = useState('');
   const [kind, setKind] = useState<Kind>('absent');
   const [goldDb, setGoldDb] = useState(false);
+  const [intakeExtras, setIntakeExtras] = useState<FollowupIntakeExtrasForm>(() =>
+    emptyFollowupIntakeExtrasForm(),
+  );
   const [saving, setSaving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onFieldFocus } = useModalScrollKeyboardAvoidance(scrollRef, open);
@@ -65,6 +75,7 @@ export function AdminListIntakeModal({
       setPreferredMoveInCleanYmd('');
       setKind(editSeed.depositPending ? 'deposit' : 'reserved');
       setGoldDb(false);
+      setIntakeExtras(emptyFollowupIntakeExtrasForm());
       return;
     }
     const z = emptyForm();
@@ -75,6 +86,7 @@ export function AdminListIntakeModal({
     setPreferredMoveInCleanYmd(z.preferredMoveInCleanYmd);
     setKind(z.kind);
     setGoldDb(false);
+    setIntakeExtras(emptyFollowupIntakeExtrasForm());
   }, [open, editMode, editInquiryId, editSeed]);
 
   const submit = async () => {
@@ -84,6 +96,12 @@ export function AdminListIntakeModal({
       alert('고객명을 입력해 주세요.');
       return;
     }
+    const pyeongErr = validateFollowupIntakeExtrasPyeong(intakeExtras.pyeong);
+    if (pyeongErr) {
+      alert(pyeongErr);
+      return;
+    }
+    const extrasPayload = buildFollowupIntakeExtrasPayload(intakeExtras);
     setSaving(true);
     try {
       const pmd = preferredMoveInCleanYmd.trim();
@@ -99,6 +117,7 @@ export function AdminListIntakeModal({
           memo: memo.trim() || null,
           goldDb,
           ...pmdBody,
+          ...extrasPayload,
         });
         onCommitted({ kind: 'absent_or_hold' });
         onClose();
@@ -138,6 +157,7 @@ export function AdminListIntakeModal({
         goldDb,
         inquiryId: created.id,
         ...pmdBody,
+        ...extrasPayload,
       });
       onCommitted({
         kind: 'created_deposit_reserved',
@@ -227,6 +247,11 @@ export function AdminListIntakeModal({
               선택 시 부재현황 목록에 등록일 옆으로 희망일이 함께 표시됩니다.
             </p>
           </div>
+          <FollowupIntakeExtrasFields
+            value={intakeExtras}
+            onChange={(patch) => setIntakeExtras((prev) => ({ ...prev, ...patch }))}
+            disabled={saving}
+          />
           <fieldset>
             <legend className="mb-2 text-fluid-xs font-medium text-gray-700">처리 구분 *</legend>
             <div className={`space-y-2 text-fluid-2xs sm:text-fluid-xs ${editMode ? 'pointer-events-none opacity-60' : ''}`}>
