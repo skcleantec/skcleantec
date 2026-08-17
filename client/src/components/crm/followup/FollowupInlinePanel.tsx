@@ -22,6 +22,13 @@ import { ListPaginationBar } from '../../ui/ListPaginationBar';
 import { getToken } from '../../../stores/auth';
 import { useCrmFollowupListFilters } from '../../../hooks/useCrmFollowupListFilters';
 import { crmFollowupApplyFromItem } from '../../../utils/crmFollowupApply';
+import {
+  buildFollowupIntakeExtrasPayload,
+  followupIntakeExtrasFormFromItem,
+  validateFollowupIntakeExtrasPyeong,
+  type FollowupIntakeExtrasForm,
+} from '../../../utils/orderFollowupIntakeExtras';
+import { FollowupIntakeExtrasFields } from '../../order-followup/FollowupIntakeExtrasFields';
 import { runTelecrmCallWithSoomgoAuto } from '../../../utils/soomgoCallAutoSend';
 import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
 import { resolveCrmOutboundPhone } from '../../../utils/crmContactPhone';
@@ -36,6 +43,7 @@ type DetailDraft = {
   memo: string;
   preferredMoveInCleanYmd: string;
   goldDb: boolean;
+  intakeExtras: FollowupIntakeExtrasForm;
 };
 
 function itemToDraft(item: OrderFollowupItem): DetailDraft {
@@ -49,6 +57,7 @@ function itemToDraft(item: OrderFollowupItem): DetailDraft {
     memo: item.memo?.trim() ?? '',
     preferredMoveInCleanYmd: item.preferredMoveInCleaningDate?.trim() ?? '',
     goldDb: item.goldDb,
+    intakeExtras: followupIntakeExtrasFormFromItem(item),
   };
 }
 
@@ -178,6 +187,11 @@ export function FollowupInlinePanel({
       setError('고객명을 입력해 주세요.');
       return;
     }
+    const pyeongErr = validateFollowupIntakeExtrasPyeong(draft.intakeExtras.pyeong);
+    if (pyeongErr) {
+      setError(pyeongErr);
+      return;
+    }
     setBusy(true);
     setError(null);
     setMsg(null);
@@ -193,6 +207,7 @@ export function FollowupInlinePanel({
         memo: draft.memo.trim() || null,
         preferredMoveInCleaningDate: draft.preferredMoveInCleanYmd.trim() || null,
         goldDb: draft.goldDb,
+        ...buildFollowupIntakeExtrasPayload(draft.intakeExtras),
       });
       setSelected(res.item);
       setDraft(itemToDraft(res.item));
@@ -446,6 +461,18 @@ export function FollowupInlinePanel({
               />
               <span className="text-fluid-xs font-medium text-gray-700">골드DB</span>
             </label>
+            <div className="sm:col-span-2">
+              <FollowupIntakeExtrasFields
+                compact
+                disabled={busy}
+                value={draft.intakeExtras}
+                onChange={(patch) =>
+                  setDraft((d) =>
+                    d ? { ...d, intakeExtras: { ...d.intakeExtras, ...patch } } : d,
+                  )
+                }
+              />
+            </div>
             <label className="block space-y-0.5 sm:col-span-2">
               <span className="text-[11px] font-medium text-gray-700">메모</span>
               <textarea
