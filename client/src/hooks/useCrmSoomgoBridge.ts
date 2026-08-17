@@ -544,9 +544,11 @@ export function useCrmSoomgoBridge({
   );
 
   const openChatByNickname = useCallback(
-    async (nickname: string, address?: string | null) => {
+    async (nickname: string, address?: string | null, customerName?: string | null) => {
       const query = nickname.trim();
-      if (query.length < 2) return false;
+      const customer = customerName?.trim() ?? '';
+      if (query.length < 2 && customer.length < 2) return null;
+      const label = query.length >= 2 ? query : customer;
       setBusyAction('open');
       setError(null);
       try {
@@ -557,16 +559,20 @@ export function useCrmSoomgoBridge({
         if (isSoomgoBridgeUseBlocked(current, bridgeManifest)) {
           throw new Error(soomgoBridgeOutdatedMessage(current, bridgeManifest));
         }
-        notify(`숨고에서 「${query}」 채팅방을 찾는 중…`);
-        await openSoomgoChatByNickname(query, address);
+        notify(`숨고에서 「${label}」 채팅방을 찾는 중…`);
+        const opened = await openSoomgoChatByNickname(
+          query.length >= 2 ? query : customer,
+          address,
+          customer || null,
+        );
         await refreshStatus();
-        notify(`숨고 채팅방「${query}」으로 이동했습니다.`);
-        return true;
+        notify(`숨고 채팅방「${opened.nickname?.trim() || label}」으로 이동했습니다.`);
+        return opened;
       } catch (e) {
         const msg = e instanceof Error ? e.message : '채팅방을 찾지 못했습니다.';
         setError(msg);
         notify(msg);
-        return false;
+        return null;
       } finally {
         setBusyAction(null);
       }

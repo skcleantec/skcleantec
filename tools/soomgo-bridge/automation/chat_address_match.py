@@ -4,6 +4,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from automation.chat_name_match import is_auto_entry_match
+
 _SIDO_COMPACT: tuple[tuple[str, str], ...] = (
     ('경기', '경기도'),
     ('충북', '충청북도'),
@@ -74,7 +76,10 @@ def pick_best_by_address(candidates: list[dict[str, Any]], address: str | None) 
     if not candidates:
         return None
     if len(candidates) == 1:
-        return candidates[0]
+        only = candidates[0]
+        if is_auto_entry_match(str(only.get('match') or '')):
+            return only
+        return None
 
     addr = (address or '').strip()
     if not addr:

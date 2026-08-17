@@ -838,8 +838,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
                     return
                 nickname = str(body.get('nickname', '')).strip()
-                if len(nickname) < 2:
-                    _json_response(self, 400, {'ok': False, 'error': 'nickname required (min 2 chars)'})
+                customer_name = str(body.get('customerName', '') or body.get('customer_name', '')).strip()
+                if len(nickname) < 2 and len(customer_name) < 2:
+                    _json_response(self, 400, {'ok': False, 'error': 'nickname or customerName required (min 2 chars)'})
                     return
                 address_raw = body.get('address')
                 address = str(address_raw).strip() if address_raw is not None else ''
@@ -847,7 +848,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if not goto_chat_list(driver, force_list=True):
                     dismiss_blocking_overlays(driver, 0.4, max_rounds=3)
                     goto_chat_list(driver, force_list=True)
-                result = open_chat_room_by_nickname(driver, nickname, address=address)
+                result = open_chat_room_by_nickname(
+                    driver,
+                    nickname or customer_name,
+                    address=address,
+                    customer_name=customer_name or None,
+                )
                 if not result.get('ok'):
                     _json_response(self, 400, {
                         'ok': False,

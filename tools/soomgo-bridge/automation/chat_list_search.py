@@ -7,6 +7,12 @@ import time
 from typing import Any
 
 from automation.chat_address_match import pick_best_by_address
+from automation.chat_name_match import (
+    build_chat_query_aliases,
+    classify_name_match,
+    is_auto_entry_match,
+    normalize_chat_query,
+)
 from automation.chat_list_watcher import _INSTALL_WATCHER_JS, _SNAPSHOT_JS
 from automation.navigation import ensure_chat_workspace, open_chat_room_by_id
 from automation.selectors import SOOMGO_DISPLAY_NAME_JS
@@ -15,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 _MAX_SCROLL_ROUNDS = 14
 _SCROLL_AMOUNT = 480
-_SEARCH_RESULT_ROUNDS = 6
+_SEARCH_RESULT_ROUNDS = 14
+_SEARCH_RESULT_POLL_SEC = 0.55
 
 _FILL_SEARCH_JS = """
 function setNativeInputValue(el, value) {
@@ -172,9 +179,18 @@ function rowRegionFromAnchor(a) {
   }
   return '';
 }
-function findAllNickInDom(target) {
-  var want = normNick(target);
-  if (!want) return { ok: false, reason: 'empty_target', items: [] };
+function findAllNickInDom(targets) {
+  var wants = [];
+  if (Array.isArray(targets)) {
+    for (var ti = 0; ti < targets.length; ti++) {
+      var w = normNick(targets[ti]);
+      if (w && wants.indexOf(w) < 0) wants.push(w);
+    }
+  } else {
+    var single = normNick(targets);
+    if (single) wants.push(single);
+  }
+  if (!wants.length) return { ok: false, reason: 'empty_target', items: [] };
   var anchors = document.querySelectorAll('a[href*="/pro/chats/"]');
   var items = [];
   var seen = {};
@@ -187,12 +203,19 @@ function findAllNickInDom(target) {
     var name = rowNameFromAnchor(anchors[i]);
     var nn = normNick(name);
     if (!nn) continue;
-    if (nn !== want && nn.indexOf(want) < 0 && want.indexOf(nn) < 0) continue;
+    var matchType = null;
+    for (var wi = 0; wi < wants.length; wi++) {
+      if (nn === wants[wi]) {
+        matchType = 'exact';
+        break;
+      }
+    }
+    if (!matchType) continue;
     seen[chatId] = true;
     items.push({
       chatId: chatId,
       nickname: name,
-      match: nn === want ? 'exact' : 'partial',
+      match: matchType,
       serviceRegion: rowRegionFromAnchor(anchors[i]) || null
     });
   }
@@ -228,17 +251,17 @@ _SCROLL_LIST_JS = """
 
 
 def _normalize_nickname(nickname: str) -> str:
-    s = re.sub(r'\s+', ' ', nickname.strip())
-    s = re.sub(r'^내\s*고용\s*', '', s, flags=re.I)
-    return s.lower()
+    return normalize_chat_query(nickname)
 
 
-def _find_all_in_snapshot(driver, nickname: str) -> list[dict[str, Any]]:
+def _find_all_in_snapshot(
+    query_aliases: list[str],
+    driver,
+) -> list[dict[str, Any]]:
     try:
         rows = driver.execute_script(_SNAPSHOT_JS) or []
     except Exception:
         return []
-    want = _normalize_nickname(nickname)
     results: list[dict[str, Any]] = []
     seen: set[str] = set()
     for row in rows:
@@ -247,10 +270,8 @@ def _find_all_in_snapshot(driver, nickname: str) -> list[dict[str, Any]]:
         name = str(row.get('customerName') or '').strip()
         if not name:
             continue
-        nn = _normalize_nickname(name)
-        if not nn:
-            continue
-        if nn != want and want not in nn and nn not in want:
+        match = classify_name_match(query_aliases, name)
+        if not is_auto_entry_match(match):
             continue
         chat_id = str(row.get('chatId') or '').strip()
         if not chat_id.isdigit() or chat_id in seen:
@@ -260,16 +281,16 @@ def _find_all_in_snapshot(driver, nickname: str) -> list[dict[str, Any]]:
             {
                 'chatId': chat_id,
                 'nickname': name,
-                'match': 'exact' if nn == want else 'partial',
+                'match': match or 'exact',
                 'serviceRegion': row.get('serviceRegion'),
             }
         )
     return results
 
 
-def _find_all_in_dom(driver, query: str) -> list[dict[str, Any]]:
+def _find_all_in_dom(driver, query_aliases: list[str]) -> list[dict[str, Any]]:
     try:
-        dom_hit = driver.execute_script(_FIND_ALL_IN_ROWS_JS, query)
+        dom_hit = driver.execute_script(_FIND_ALL_IN_ROWS_JS, query_aliases)
     except Exception as e:
         logger.debug('find all nick in dom: %s', e)
         return []
@@ -285,15 +306,26 @@ def _find_all_in_dom(driver, query: str) -> list[dict[str, Any]]:
     return out
 
 
-def _find_all_hits(driver, query: str) -> list[dict[str, Any]]:
+def _find_all_hits(
+    driver,
+    query_aliases: list[str],
+    *,
+    search_used: bool = False,
+) -> list[dict[str, Any]]:
     merged: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for row in _find_all_in_snapshot(driver, query) + _find_all_in_dom(driver, query):
-        chat_id = str(row.get('chatId') or '').strip()
-        if not chat_id.isdigit() or chat_id in seen:
-            continue
-        seen.add(chat_id)
-        merged.append(row)
+    sources = (
+        [_find_all_in_dom(driver, query_aliases)]
+        if search_used
+        else [_find_all_in_snapshot(driver, query_aliases), _find_all_in_dom(driver, query_aliases)]
+    )
+    for rows in sources:
+        for row in rows:
+            chat_id = str(row.get('chatId') or '').strip()
+            if not chat_id.isdigit() or chat_id in seen:
+                continue
+            seen.add(chat_id)
+            merged.append(row)
     return merged
 
 
@@ -307,7 +339,10 @@ def _resolve_candidate(
     picked = pick_best_by_address(candidates, address)
     if picked:
         return picked
-    if len(candidates) == 1:
+    exact_only = [row for row in candidates if is_auto_entry_match(str(row.get('match') or ''))]
+    if len(exact_only) == 1:
+        return exact_only[0]
+    if len(candidates) == 1 and is_auto_entry_match(str(candidates[0].get('match') or '')):
         return candidates[0]
     addr = (address or '').strip()
     if not addr:
@@ -329,9 +364,16 @@ def _resolve_candidate(
     }
 
 
-def _find_hit(driver, query: str, address: str | None = None) -> dict[str, Any] | None:
-    candidates = _find_all_hits(driver, query)
-    resolved = _resolve_candidate(candidates, query, address)
+def _find_hit(
+    driver,
+    query_aliases: list[str],
+    address: str | None = None,
+    *,
+    search_used: bool = False,
+) -> dict[str, Any] | None:
+    candidates = _find_all_hits(driver, query_aliases, search_used=search_used)
+    primary_query = query_aliases[0] if query_aliases else ''
+    resolved = _resolve_candidate(candidates, primary_query, address)
     if not resolved:
         return None
     if resolved.get('ok') is False:
@@ -351,10 +393,12 @@ def find_chat_by_nickname(
     nickname: str,
     delay: float = 1.0,
     address: str | None = None,
+    customer_name: str | None = None,
 ) -> dict[str, Any]:
-    query = (nickname or '').strip()
-    if len(query) < 2:
+    query_aliases = build_chat_query_aliases(nickname, customer_name)
+    if not query_aliases:
         return {'ok': False, 'error': '닉네임이 너무 짧습니다.'}
+    query = (nickname or customer_name or '').strip()
 
     if not ensure_chat_workspace(driver, delay=delay, force_list=True):
         return {'ok': False, 'error': '숨고 채팅 목록으로 이동하지 못했습니다.'}
@@ -367,42 +411,50 @@ def find_chat_by_nickname(
         pass
 
     search_used = False
+    search_query = (nickname or customer_name or '').strip()
     try:
-        search_res = driver.execute_script(_FILL_SEARCH_JS, query)
+        search_res = driver.execute_script(_FILL_SEARCH_JS, search_query)
         if isinstance(search_res, dict) and search_res.get('ok'):
             search_used = True
             logger.info('chat list search filled query=%s via=%s', query, search_res.get('method'))
-            time.sleep(delay * 1.1)
+            time.sleep(delay * 2.0)
     except Exception as e:
         logger.debug('chat list search fill: %s', e)
 
     if search_used:
+        last_error: dict[str, Any] | None = None
         for round_i in range(_SEARCH_RESULT_ROUNDS):
-            hit = _find_hit(driver, query, address)
+            hit = _find_hit(driver, query_aliases, address, search_used=True)
             if hit:
                 if hit.get('ok') is False:
-                    return hit
-                chat_id = str(hit.get('chatId') or '')
-                if chat_id.isdigit():
-                    return {
-                        'ok': True,
-                        'chatId': chat_id,
-                        'nickname': hit.get('nickname'),
-                        'match': hit.get('match', 'exact'),
-                        'searchUsed': True,
-                        'scrollRounds': 0,
-                        'addressMatch': hit.get('addressMatch'),
-                    }
+                    last_error = hit
+                else:
+                    chat_id = str(hit.get('chatId') or '')
+                    if chat_id.isdigit():
+                        return {
+                            'ok': True,
+                            'chatId': chat_id,
+                            'nickname': hit.get('nickname'),
+                            'match': hit.get('match', 'exact'),
+                            'searchUsed': True,
+                            'scrollRounds': 0,
+                            'addressMatch': hit.get('addressMatch'),
+                        }
             if round_i + 1 < _SEARCH_RESULT_ROUNDS:
-                time.sleep(delay * 0.45)
+                time.sleep(_SEARCH_RESULT_POLL_SEC)
+        if last_error:
+            return last_error
         return {
             'ok': False,
-            'error': f'검색창으로 「{query}」을(를) 찾지 못했습니다. 닉네임·검색어를 확인해 주세요.',
+            'error': (
+                f'검색창으로 「{query}」을(를) 찾지 못했습니다. '
+                '숨고 검색 결과가 나올 때까지 기다린 뒤 「정보 갖고오기」를 다시 눌러 주세요.'
+            ),
             'searchUsed': True,
         }
 
     for round_i in range(_MAX_SCROLL_ROUNDS + 1):
-        hit = _find_hit(driver, query, address)
+        hit = _find_hit(driver, query_aliases, address, search_used=False)
         if hit:
             if hit.get('ok') is False:
                 return hit
@@ -437,8 +489,15 @@ def open_chat_room_by_nickname(
     nickname: str,
     delay: float = 1.0,
     address: str | None = None,
+    customer_name: str | None = None,
 ) -> dict[str, Any]:
-    found = find_chat_by_nickname(driver, nickname, delay=delay, address=address)
+    found = find_chat_by_nickname(
+        driver,
+        nickname,
+        delay=delay,
+        address=address,
+        customer_name=customer_name,
+    )
     if not found.get('ok'):
         return found
     chat_id = str(found['chatId'])

@@ -120,6 +120,8 @@ import {
   crmFollowupApplyFromLookupRow,
   followupIntakeExtrasNeedsSoomgoFill,
   mergeSoomgoIntoFollowupSnapshot,
+  resolveSoomgoChatSearchLabel,
+  resolveSoomgoChatSearchQuery,
   type CrmFollowupApplySnapshot,
 } from '../../../utils/crmFollowupApply';
 import type { OrderFollowupItem } from '../../../api/orderFollowups';
@@ -836,10 +838,15 @@ export function CrmPage() {
   } = misoBridge;
 
   const openSoomgoChatForNickname = useCallback(
-    async (nickname: string, address?: string | null) => {
-      const query = nickname.trim();
-      if (query.length < 2 || !soomgoBarOpen) return false;
-      return openChatByNickname(query, address);
+    async (snapshot: Pick<CrmFollowupApplySnapshot, 'nickname' | 'customerName' | 'address'>) => {
+      const label = resolveSoomgoChatSearchLabel(snapshot);
+      if (label.length < 2 || !soomgoBarOpen) return null;
+      const { nickname, customerName } = resolveSoomgoChatSearchQuery(snapshot);
+      return openChatByNickname(
+        nickname.length >= 2 ? nickname : customerName,
+        snapshot.address,
+        customerName,
+      );
     },
     [openChatByNickname, soomgoBarOpen],
   );
@@ -862,8 +869,13 @@ export function CrmPage() {
       }
       if (isSoomgoBridgeReachable(s)) {
         const nick = intakeIdentity.nickname.trim();
-        if (nick.length >= 2) {
-          await openSoomgoChatForNickname(nick, intakeIdentity.address);
+        const customerName = intakeIdentity.customerName.trim();
+        if (nick.length >= 2 || customerName.length >= 2) {
+          await openSoomgoChatForNickname({
+            nickname: intakeIdentity.nickname,
+            customerName: intakeIdentity.customerName,
+            address: intakeIdentity.address,
+          });
         }
         await extract();
         return;
@@ -876,6 +888,7 @@ export function CrmPage() {
     extract,
     extractMiso,
     intakeIdentity.nickname,
+    intakeIdentity.customerName,
     intakeIdentity.address,
     misoBarOpen,
     openSoomgoChatForNickname,
@@ -904,14 +917,20 @@ export function CrmPage() {
       return false;
     }
     const nick = intakeIdentity.nickname.trim();
-    if (nick.length >= 2) {
-      await openSoomgoChatForNickname(nick, intakeIdentity.address);
+    const customerName = intakeIdentity.customerName.trim();
+    if (nick.length >= 2 || customerName.length >= 2) {
+      await openSoomgoChatForNickname({
+        nickname: intakeIdentity.nickname,
+        customerName: intakeIdentity.customerName,
+        address: intakeIdentity.address,
+      });
     }
     const data = await extract();
     return data != null;
   }, [
     extract,
     intakeIdentity.nickname,
+    intakeIdentity.customerName,
     intakeIdentity.address,
     openSoomgoChatForNickname,
     refreshSoomgoStatus,
@@ -1236,8 +1255,8 @@ export function CrmPage() {
     async (snapshot: CrmFollowupApplySnapshot) => {
       if (!followupIntakeExtrasNeedsSoomgoFill(snapshot)) return;
       if (!soomgoPlatformEnabled || !soomgoBarOpen || isMobileApp) return;
-      const nick = (snapshot.nickname || snapshot.customerName).trim();
-      if (nick.length < 2) return;
+      const label = resolveSoomgoChatSearchLabel(snapshot);
+      if (label.length < 2) return;
 
       const runId = followupSoomgoAutoRef.current + 1;
       followupSoomgoAutoRef.current = runId;
@@ -1255,14 +1274,17 @@ export function CrmPage() {
         }
 
         followupSoomgoMergeRef.current = snapshot;
-        const opened = await openSoomgoChatForNickname(nick, snapshot.address);
+        const opened = await openSoomgoChatForNickname(snapshot);
         if (runId !== followupSoomgoAutoRef.current) return;
         if (!opened) {
           followupSoomgoMergeRef.current = null;
           return;
         }
 
-        const ready = await waitForSoomgoInChatRoom(soomgoBridgeManifest);
+        const ready = await waitForSoomgoInChatRoom(soomgoBridgeManifest, {
+          chatId: opened.chatId,
+          timeoutMs: 20000,
+        });
         if (runId !== followupSoomgoAutoRef.current) return;
         if (!ready) {
           followupSoomgoMergeRef.current = null;
@@ -1306,11 +1328,11 @@ export function CrmPage() {
         ...opts,
         ...(needsSoomgoFill ? { extractPlatform: 'soomgo' as const } : {}),
       });
-      const nick = snapshot.nickname.trim();
-      if (nick && soomgoBarOpen && !needsSoomgoFill) {
-        void openSoomgoChatForNickname(nick, snapshot.address);
-      } else if (nick && !soomgoBarOpen) {
-        showDispatchNotice('숨고 연동을 켜면 닉네임으로 채팅방을 자동으로 찾아 이동합니다.');
+      const label = resolveSoomgoChatSearchLabel(snapshot);
+      if (label && soomgoBarOpen && !needsSoomgoFill) {
+        void openSoomgoChatForNickname(snapshot);
+      } else if (label && !soomgoBarOpen) {
+        showDispatchNotice('숨고 연동을 켜면 닉네임·고객명으로 채팅방을 자동으로 찾아 이동합니다.');
       }
       if (needsSoomgoFill) {
         void autoFillFollowupExtrasFromSoomgo(snapshot);

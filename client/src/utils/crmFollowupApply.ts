@@ -32,6 +32,24 @@ export type CrmFollowupApplySnapshot = {
 };
 
 /** 부재·보류 스냅샷에 추가 필드(주소·평수·구조·희망일)가 비어 있으면 true */
+export function resolveSoomgoChatSearchQuery(snapshot: {
+  nickname?: string | null;
+  customerName?: string | null;
+}): { nickname: string; customerName: string } {
+  const nickname = snapshot.nickname?.trim() ?? '';
+  const customerName = snapshot.customerName?.trim() ?? '';
+  return { nickname, customerName };
+}
+
+/** 숨고 채팅 검색에 쓸 표시 이름 (닉네임 우선, 없으면 고객명) */
+export function resolveSoomgoChatSearchLabel(snapshot: {
+  nickname?: string | null;
+  customerName?: string | null;
+}): string {
+  const { nickname, customerName } = resolveSoomgoChatSearchQuery(snapshot);
+  return nickname.length >= 2 ? nickname : customerName;
+}
+
 export function followupIntakeExtrasNeedsSoomgoFill(snapshot: CrmFollowupApplySnapshot): boolean {
   const hasAddress = Boolean(snapshot.address.trim());
   const hasPyeong = Boolean(snapshot.pyeong.trim());
