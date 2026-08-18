@@ -107,6 +107,7 @@ import {
   buildCrewLeaderAssignmentRows,
   clearAssignmentCrewMeetingTimes,
   hasCrewMemberLeaderIdsField,
+  InquiryCrewLeaderSyncError,
   parseCrewMemberLeaderIds,
   syncInquiryCrewLeaderAssignments,
 } from './inquiryCrewLeaderAssignment.helpers.js';
@@ -1644,7 +1645,7 @@ router.patch('/:id', async (req, res) => {
           soloTeamLeaderIds: mergedSoloTeamLeaderIds,
         });
         if (syncResult.error) {
-          throw new Error(syncResult.error);
+          throw new InquiryCrewLeaderSyncError(syncResult.error);
         }
       } else if (
         allTeamLeadersSolo(effectiveTeamLeaderIds, mergedSoloTeamLeaderIds) &&
@@ -1765,6 +1766,10 @@ router.patch('/:id', async (req, res) => {
     const coinErr = mapTenantCoinError(e);
     if (coinErr) {
       res.status(coinErr.status).json({ error: coinErr.message });
+      return;
+    }
+    if (e instanceof InquiryCrewLeaderSyncError) {
+      res.status(400).json({ error: e.message });
       return;
     }
     console.error('PATCH inquiry transaction:', e);

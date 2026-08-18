@@ -3,6 +3,15 @@ import { parseCrewMemberNoteToNames } from './inquiryCrewMemberMeetingTime.servi
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
+export class InquiryCrewLeaderSyncError extends Error {
+  readonly status = 400 as const;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'InquiryCrewLeaderSyncError';
+  }
+}
+
 export type CrewLeaderAssignmentRow = {
   crewMemberName: string;
   teamLeaderId: string;
@@ -89,6 +98,26 @@ export function buildCrewLeaderAssignmentRows(params: {
   return { rows };
 }
 
+/** DB에 남은 팀원→팀장 매핑을 현재 teamLeaderIds에 맞게 재매핑 (팀장 교체 시 구 id 제거) */
+export function resolveCrewMemberLeaderIdsFromExisting(params: {
+  names: string[];
+  existing: Array<{ crewMemberName: string; teamLeaderId: string }>;
+  teamLeaderIds: string[];
+  soloTeamLeaderIds: string[];
+}): string[] {
+  const nonSolo = nonSoloLeaderIds(params.teamLeaderIds, params.soloTeamLeaderIds);
+  const fallback = nonSolo[0] ?? '';
+  const nonSoloSet = new Set(nonSolo);
+  const byName = new Map(params.existing.map((r) => [r.crewMemberName, r.teamLeaderId] as const));
+  return params.names
+    .map((name) => {
+      const prev = byName.get(name);
+      if (prev && nonSoloSet.has(prev)) return prev;
+      return fallback;
+    })
+    .filter(Boolean);
+}
+
 export async function syncInquiryCrewLeaderAssignments(
   db: Db,
   tenantId: string,
@@ -109,10 +138,12 @@ export async function syncInquiryCrewLeaderAssignments(
       select: { crewMemberName: true, teamLeaderId: true },
     });
     if (existing.length > 0) {
-      const nonSolo = nonSoloLeaderIds(params.teamLeaderIds, params.soloTeamLeaderIds);
-      const fallback = nonSolo[0] ?? '';
-      const byName = new Map(existing.map((r) => [r.crewMemberName, r.teamLeaderId] as const));
-      leaderIds = names.map((name) => byName.get(name) ?? fallback).filter(Boolean);
+      leaderIds = resolveCrewMemberLeaderIdsFromExisting({
+        names,
+        existing,
+        teamLeaderIds: params.teamLeaderIds,
+        soloTeamLeaderIds: params.soloTeamLeaderIds,
+      });
     }
   }
 
