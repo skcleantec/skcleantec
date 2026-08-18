@@ -36,6 +36,7 @@ import {
   buildMarketerDailyOverview,
   whereInquiryAttributedToMarketer,
   whereMarketerStatsInquiriesOnDay,
+  whereCollaborationMarketerStatsInquiriesOnDay,
 } from './inquiryMarketerOverview.js';
 import {
   applyProfOptionAmountsToInquiry,
@@ -158,6 +159,7 @@ import {
   createInquiryFromBody,
   InquiryCreateError,
 } from './inquiryCreate.service.js';
+import { resolveCollaborationMarketerIdForWrite } from './collaborationMarketer.helpers.js';
 import inquiryTrashRoutes from './inquiryTrash.routes.js';
 import { inquiryActiveOnlyWhere } from './inquiryTrash.helpers.js';
 import {
@@ -306,6 +308,8 @@ router.get('/', async (req, res) => {
     day,
     createdById,
     marketerStatsDay,
+    collaborationMarketerId: collaborationMarketerIdQuery,
+    collaborationStatsDay,
     teamLeaderId,
     operatingCompanyId,
     scheduleMonth,
@@ -324,13 +328,23 @@ router.get('/', async (req, res) => {
     typeof marketerStatsDay === 'string' ? marketerStatsDay.trim() : '';
   const statsMarketerId =
     typeof createdById === 'string' ? createdById.trim() : '';
+  const collabStatsDayRaw =
+    typeof collaborationStatsDay === 'string' ? collaborationStatsDay.trim() : '';
+  const collabStatsMarketerId =
+    typeof collaborationMarketerIdQuery === 'string' ? collaborationMarketerIdQuery.trim() : '';
   const useMarketerStatsDay =
     /^\d{4}-\d{2}-\d{2}$/.test(statsDayRaw) &&
     Boolean(statsMarketerId) &&
     statsMarketerId !== CREATED_BY_FILTER_UNASSIGNED &&
     (user.role === 'ADMIN' || user.role === 'MARKETER');
+  const useCollaborationStatsDay =
+    /^\d{4}-\d{2}-\d{2}$/.test(collabStatsDayRaw) &&
+    Boolean(collabStatsMarketerId) &&
+    collabStatsMarketerId !== CREATED_BY_FILTER_UNASSIGNED &&
+    (user.role === 'ADMIN' || user.role === 'MARKETER');
+  const useStatsDayFilter = useMarketerStatsDay || useCollaborationStatsDay;
 
-  const range = useMarketerStatsDay
+  const range = useStatsDayFilter
     ? null
     : createdAtRangeFromListQuery({
         datePreset: typeof datePreset === 'string' ? datePreset : undefined,
@@ -350,10 +364,18 @@ router.get('/', async (req, res) => {
     if (statsWhere) {
       andClauses.push(statsWhere);
     }
+  } else if (useCollaborationStatsDay) {
+    const statsWhere = whereCollaborationMarketerStatsInquiriesOnDay(
+      collabStatsMarketerId,
+      collabStatsDayRaw,
+    );
+    if (statsWhere) {
+      andClauses.push(statsWhere);
+    }
   } else if (range) {
     andClauses.push({ createdAt: { gte: range.gte, lte: range.lte } });
   }
-  if (!useMarketerStatsDay && statusEventFilter && kstHour !== undefined && range) {
+  if (!useStatsDayFilter && statusEventFilter && kstHour !== undefined && range) {
     const matchedIds = await inquiryIdsMatchingStatusEventKstHour({
       tenantId,
       gte: range.gte,
@@ -365,7 +387,7 @@ router.get('/', async (req, res) => {
       id: { in: matchedIds.length > 0 ? matchedIds : ['00000000-0000-0000-0000-000000000000'] },
     });
   }
-  if (!useMarketerStatsDay && status && typeof status === 'string') {
+  if (!useStatsDayFilter && status && typeof status === 'string') {
     const raw = status.trim();
     if (raw.includes(',')) {
       const parts = raw
@@ -386,7 +408,7 @@ router.get('/', async (req, res) => {
     if (searchWhere) andClauses.push(searchWhere);
   }
   /** 마케터: 본인 접수(또는 구 데이터 발주서 작성자)만. 관리자: 선택 시 해당 사용자 기준 또는 미지정 */
-  if (!useMarketerStatsDay) {
+  if (!useStatsDayFilter) {
     if (
       (user.role === 'ADMIN' || user.role === 'MARKETER') &&
       typeof createdById === 'string' &&
@@ -435,7 +457,7 @@ router.get('/', async (req, res) => {
 
   /** 예약일(희망일 preferredDate) — KST. scheduleDay가 있으면 월보다 우선. 처리 전 4종은 pinPreReceiveWhere 로 상단 고정. */
   if (
-    !useMarketerStatsDay &&
+    !useStatsDayFilter &&
     typeof scheduleDay === 'string' &&
     /^\d{4}-\d{2}-\d{2}$/.test(scheduleDay.trim())
   ) {
@@ -446,7 +468,7 @@ router.get('/', async (req, res) => {
       });
     }
   } else if (
-    !useMarketerStatsDay &&
+    !useStatsDayFilter &&
     typeof scheduleMonth === 'string' &&
     /^\d{4}-\d{2}$/.test(scheduleMonth.trim())
   ) {
@@ -496,7 +518,7 @@ router.get('/', async (req, res) => {
 
   /** 마케터 집계 drill-down 제외 — 접수일·예약일·상태 등 어떤 필터여도 처리 전 4종은 목록 최상단 고정 */
   let pinPreReceiveWhere: Prisma.InquiryWhereInput | null = null;
-  if (!useMarketerStatsDay) {
+  if (!useStatsDayFilter) {
     const pinClauses: Prisma.InquiryWhereInput[] = [
       { tenantId, ...inquiryActiveOnlyWhere() },
       whereInquiryListPinnedPreReceive(),
@@ -927,16 +949,25 @@ router.patch('/:id', async (req, res) => {
     const nextCollaborationMarketerId =
       rawCm == null || rawCm === '' ? null : String(rawCm);
     const currentCollaborationMarketerId = inquiry.collaborationMarketerId ?? null;
+    const nextPrimaryMarketerId = Object.prototype.hasOwnProperty.call(body, 'createdById')
+      ? body.createdById == null || body.createdById === ''
+        ? null
+        : String(body.createdById)
+      : inquiry.createdById ?? null;
     if (nextCollaborationMarketerId !== currentCollaborationMarketerId) {
-      if (nextCollaborationMarketerId) {
-        const collab = await prisma.user.findFirst({
-          where: { id: nextCollaborationMarketerId, tenantId },
-          select: { id: true, role: true, isActive: true },
-        });
-        if (!collab || !collab.isActive || (collab.role !== 'ADMIN' && collab.role !== 'MARKETER')) {
-          res.status(400).json({ error: '추가 마케터는 활성 관리자/마케터만 선택할 수 있습니다.' });
+      try {
+        await resolveCollaborationMarketerIdForWrite(
+          prisma,
+          tenantId,
+          nextCollaborationMarketerId,
+          nextPrimaryMarketerId,
+        );
+      } catch (e) {
+        if (e instanceof InquiryCreateError) {
+          res.status(e.statusCode).json({ error: e.message });
           return;
         }
+        throw e;
       }
     } else {
       delete data.collaborationMarketer;

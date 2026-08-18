@@ -25,6 +25,8 @@ export type MarketerOverviewResponse = {
     role: 'MARKETER' | 'ADMIN';
     monthCount: number;
     todayCount: number;
+    monthCollaborationCount: number;
+    todayCollaborationCount: number;
     todayAbsentCount: number;
     todayHoldCount: number;
     todayRequestedCount: number;
@@ -88,6 +90,9 @@ export async function getInquiries(
     createdById?: string;
     /** 마케터 일별 집계와 동일 기준(KST 하루). createdById와 함께 사용 */
     marketerStatsDay?: string;
+    /** 협업 마케터 집계 drill-down — collaborationStatsDay와 함께 */
+    collaborationMarketerId?: string;
+    collaborationStatsDay?: string;
     /** 배정 팀장. `__unassigned__`는 미배정만 */
     teamLeaderId?: string;
     /** 영업 브랜드(Operating Company) UUID */
@@ -128,6 +133,8 @@ export async function getInquiries(
   if (params?.offset != null) q.set('offset', String(params.offset));
   if (params?.createdById) q.set('createdById', params.createdById);
   if (params?.marketerStatsDay) q.set('marketerStatsDay', params.marketerStatsDay);
+  if (params?.collaborationMarketerId) q.set('collaborationMarketerId', params.collaborationMarketerId);
+  if (params?.collaborationStatsDay) q.set('collaborationStatsDay', params.collaborationStatsDay);
   if (params?.teamLeaderId) q.set('teamLeaderId', params.teamLeaderId);
   if (params?.operatingCompanyId) q.set('operatingCompanyId', params.operatingCompanyId);
   if (params?.source?.trim()) q.set('source', params.source.trim());

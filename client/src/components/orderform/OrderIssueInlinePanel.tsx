@@ -8,6 +8,9 @@ import { useOrderFormBrandCustomerLinkConfigs } from '../../hooks/useOrderFormBr
 import { useOrderIssueOperatingCompanies } from '../../hooks/useOrderIssueOperatingCompanies';
 import { InternalCustomerToneRadio } from '../admin/InternalCustomerToneRadio';
 import { InquiryLeadSourceSelect } from '../inquiry/InquiryLeadSourceSelect';
+import { CollaborationMarketerSelect } from '../inquiry/CollaborationMarketerSelect';
+import { useCollaborationMarketerOptions } from '../../hooks/useCollaborationMarketerOptions';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import {
   DEFAULT_INTERNAL_CUSTOMER_TONE,
   normalizeInternalCustomerTone,
@@ -71,6 +74,7 @@ export function OrderIssueInlinePanel({
       customerPhone: string;
       internalCustomerTone?: InternalCustomerTone | null;
       operatingCompanyId?: string | null;
+      createdById?: string | null;
     }>
   >([]);
   const [issueTemplatesLoaded, setIssueTemplatesLoaded] = useState(false);
@@ -81,13 +85,20 @@ export function OrderIssueInlinePanel({
   const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
   const [issueTemplateId, setIssueTemplateId] = useState('');
   const [issueLeadSource, setIssueLeadSource] = useState('');
+  const [issueCollaborationMarketerId, setIssueCollaborationMarketerId] = useState('');
   const [issueOperatingCompanyId, setIssueOperatingCompanyId] = useState('');
+  const collaborationMarketerOptions = useCollaborationMarketerOptions(token);
+  const { userId: issueUserId, userName: issueUserName, role: issueUserRole } = useAdminStaffSession();
   const pendingLinkedBrandId =
     pendingLinkOptions.find((o) => o.id === pendingLinkId)?.operatingCompanyId?.trim() || '';
   const issueBrandLocked = Boolean(pendingLinkedBrandId);
   const effectiveIssueOperatingCompanyId = issueBrandLocked
     ? pendingLinkedBrandId
     : issueOperatingCompanyId;
+  const issuePrimaryMarketerId =
+    pendingLinkOptions.find((o) => o.id === pendingLinkId)?.createdById?.trim() ||
+    issueUserId ||
+    '';
 
   useEffect(() => {
     const def = defaultScheduleLeadSourceLabel(staffTenantSlug);
@@ -135,6 +146,7 @@ export function OrderIssueInlinePanel({
             customerPhone?: string | null;
             internalCustomerTone?: InternalCustomerTone | null;
             operatingCompanyId?: string | null;
+            createdBy?: { id: string } | null;
           }>;
         }) => {
           setPendingLinkOptions(
@@ -144,6 +156,7 @@ export function OrderIssueInlinePanel({
               customerPhone: (i.customerPhone ?? '').trim(),
               internalCustomerTone: i.internalCustomerTone ?? null,
               operatingCompanyId: i.operatingCompanyId ?? null,
+              createdById: i.createdBy?.id ?? null,
             })),
           );
         },
@@ -243,6 +256,7 @@ export function OrderIssueInlinePanel({
     setNewOrder(null);
     setPendingLinkId('');
     setIssueLeadSource(defaultScheduleLeadSourceLabel(staffTenantSlug) || '');
+    setIssueCollaborationMarketerId('');
     setIssueFormKey((k) => k + 1);
   }, [staffTenantSlug]);
 
@@ -268,6 +282,7 @@ export function OrderIssueInlinePanel({
     internalCustomerTone: issueInternalCustomerTone,
     leadSource: issueLeadSource,
     operatingCompanyId: effectiveIssueOperatingCompanyId || undefined,
+    collaborationMarketerId: issueCollaborationMarketerId.trim() || null,
     onCreated: handleOrderCreated,
     crmSeed,
   };
@@ -361,6 +376,20 @@ export function OrderIssueInlinePanel({
             </span>
           </label>
         ) : null}
+
+        <CollaborationMarketerSelect
+          value={issueCollaborationMarketerId}
+          onChange={setIssueCollaborationMarketerId}
+          marketerOptions={collaborationMarketerOptions}
+          excludeMarketerId={issuePrimaryMarketerId}
+          meUser={
+            issueUserId && issueUserName
+              ? { id: issueUserId, name: issueUserName, role: issueUserRole ?? undefined }
+              : null
+          }
+          labelClassName="text-fluid-xs font-medium text-gray-700"
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-fluid-sm"
+        />
 
         <label className="block space-y-1">
           <span className="text-fluid-xs font-medium text-gray-700">유입 경로 *</span>

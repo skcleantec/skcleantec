@@ -15,6 +15,9 @@ import { crmIntakePermissionLabel } from './crmIntakeValidation';
 import { crmFieldCompactClass } from '../crmUi';
 import { CrmRequestMemoField } from './CrmRequestMemoField';
 import { InquiryLeadSourceSelect } from '../../inquiry/InquiryLeadSourceSelect';
+import { CollaborationMarketerSelect } from '../../inquiry/CollaborationMarketerSelect';
+import { useCollaborationMarketerOptions } from '../../../hooks/useCollaborationMarketerOptions';
+import { useAdminStaffSession } from '../../../hooks/useAdminStaffSession';
 
 const KIND_OPTIONS: { value: CrmIntakeKind; label: string; hint: string }[] = [
   { value: 'absent', label: ORDER_FOLLOWUP_STATUS_LABEL.ABSENT, hint: '부재현황' },
@@ -82,7 +85,10 @@ export function CrmIntakeForm({
   const [kind, setKind] = useState<CrmIntakeKind>('absent');
   const [goldDb, setGoldDb] = useState(false);
   const [leadSource, setLeadSource] = useState('');
+  const [collaborationMarketerId, setCollaborationMarketerId] = useState('');
   const [extractPlatform, setExtractPlatform] = useState<'miso' | 'soomgo' | undefined>(undefined);
+  const collaborationMarketerOptions = useCollaborationMarketerOptions(getToken());
+  const { userId: crmUserId, userName: crmUserName, role: crmUserRole } = useAdminStaffSession();
   const [showMore, setShowMore] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -111,6 +117,7 @@ export function CrmIntakeForm({
     setKind('absent');
     setGoldDb(false);
     setLeadSource('');
+    setCollaborationMarketerId('');
     setExtractPlatform(undefined);
     setShowMore(false);
     setMsg(null);
@@ -227,6 +234,7 @@ export function CrmIntakeForm({
           kind,
           goldDb,
           leadSource,
+          collaborationMarketerId: collaborationMarketerId.trim() || undefined,
           extractPlatform,
         },
         pyeong,
@@ -317,6 +325,22 @@ export function CrmIntakeForm({
           ))}
         </div>
       </fieldset>
+
+      <CollaborationMarketerSelect
+        value={collaborationMarketerId}
+        onChange={setCollaborationMarketerId}
+        marketerOptions={collaborationMarketerOptions}
+        excludeMarketerId={crmUserId}
+        meUser={
+          crmUserId && crmUserName
+            ? { id: crmUserId, name: crmUserName, role: crmUserRole ?? undefined }
+            : null
+        }
+        disabled={saving}
+        labelClassName="text-[11px] font-medium text-slate-600"
+        className={`${crmFieldCompactClass} ${soomgoImportFlashKey > 0 ? '' : ''}`}
+        showHelp
+      />
 
       <label className="block space-y-0.5">
         <span className="text-[11px] font-medium text-slate-600">유입 경로 *</span>

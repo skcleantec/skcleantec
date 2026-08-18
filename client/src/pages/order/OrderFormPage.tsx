@@ -164,6 +164,8 @@ export interface OrderFormEditorContext {
     leadSource?: string;
     /** 영업 브랜드 — 일반 발급 시 필수. 대기 접수 연결 시 서버가 접수 브랜드 우선 */
     operatingCompanyId?: string;
+    /** 협업 마케터(선택) */
+    collaborationMarketerId?: string | null;
     onCreated: (order: OrderForm) => void;
     /** 텔레CRM — 발급 폼 초기값 */
     crmSeed?: CrmOrderIssueSeed;
@@ -1319,6 +1321,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         templateId: editor.create.templateId || undefined,
         leadSource,
         ...(operatingCompanyId ? { operatingCompanyId } : {}),
+        ...(editor.create.collaborationMarketerId !== undefined
+          ? { collaborationMarketerId: editor.create.collaborationMarketerId }
+          : {}),
       });
       await saveOrderFormPrefill(editor.authToken, order.id, buildPrefillPayload());
       editor.create.onCreated(order);

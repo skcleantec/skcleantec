@@ -130,6 +130,7 @@ import { useInquiryEditSectionDefaultOpen } from './inquiry-edit/useInquiryEditS
 import { buildInquiryEditAssignmentHints } from './inquiry-edit/InquiryEditStatusAssignmentHints';
 import type { InquiryEditFormFields } from './inquiry-edit/inquiryEditTypes';
 import { InquiryLeadSourceSelect } from '../inquiry/InquiryLeadSourceSelect';
+import { CollaborationMarketerSelect } from '../inquiry/CollaborationMarketerSelect';
 import {
   inqEditFormGrid,
   inqEditInput,
@@ -406,6 +407,9 @@ function buildCreatePostBody(
     crewMemberNote: p.crewMemberNote,
     ...(editForm.operatingCompanyId.trim()
       ? { operatingCompanyId: editForm.operatingCompanyId.trim() }
+      : {}),
+    ...(editForm.collaborationMarketerId.trim()
+      ? { collaborationMarketerId: editForm.collaborationMarketerId.trim() }
       : {}),
   };
 }
@@ -2428,6 +2432,22 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               onChange={(e) => setEditForm((p) => ({ ...p, nickname: e.target.value }))}
               className={inqEditInput}
               placeholder="숨고 아이디, 닉네임"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <CollaborationMarketerSelect
+              value={editForm.collaborationMarketerId}
+              onChange={(v) => setEditForm((p) => ({ ...p, collaborationMarketerId: v }))}
+              marketerOptions={marketerOptions ?? []}
+              excludeMarketerId={
+                isCreate
+                  ? meUser?.id
+                  : editForm.createdById.trim() || item?.createdBy?.id || meUser?.id
+              }
+              meUser={meUser}
+              disabled={saving}
+              className={inqEditInput}
+              labelClassName={inqEditLabel}
             />
           </div>
           <div className="sm:col-span-2">

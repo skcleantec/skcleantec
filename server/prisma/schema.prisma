@@ -2105,7 +2105,7 @@ model Inquiry {
   orderFormId  String?       @map("order_form_id")
   /// 접수 등록자(마케터 등). 발주서 제출 시 발주서 생성 마케터 기준.
   createdById  String?       @map("created_by_id")
-  /// 협업 마케터(기록용). 광고비·마케터 건수 집계와 무관.
+  /// 협업 마케터. 마케터별 확정 예약 집계 「협업」열에 반영. 광고비와 무관.
   collaborationMarketerId String? @map("collaboration_marketer_id")
   /// 내부 고객 등급(😊/😐/😠) — 마케터·관리자만 조회·수정
   internalCustomerTone InternalCustomerTone @default(NORMAL) @map("internal_customer_tone")

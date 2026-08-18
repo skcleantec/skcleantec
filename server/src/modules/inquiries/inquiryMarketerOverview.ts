@@ -25,6 +25,10 @@ export type MarketerOverviewRow = {
   monthCount: number;
   /** 당일 예약완료(RECEIVED) */
   todayCount: number;
+  /** 이번 달 협업(RECEIVED·collaborationMarketerId) */
+  monthCollaborationCount: number;
+  /** 당일 협업(RECEIVED·collaborationMarketerId) */
+  todayCollaborationCount: number;
   /** 당일 부재현황 ABSENT */
   todayAbsentCount: number;
   /** 당일 부재현황 ON_HOLD */
@@ -147,6 +151,64 @@ async function countReceivedInquiriesByMarketerMonthAndToday(
   return { month, today };
 }
 
+/** 협업 마케터 — RECEIVED + 접수일 + collaborationMarketerId */
+function whereReceivedInquiryCollaboratedByMarketers(
+  marketerIds: string[],
+): Prisma.InquiryWhereInput | null {
+  if (marketerIds.length === 0) return null;
+  return {
+    status: 'RECEIVED',
+    collaborationMarketerId: { in: marketerIds },
+  };
+}
+
+/** 이번 달·오늘 마케터별 협업 RECEIVED 건수 */
+async function countCollaborationReceivedByMarketerMonthAndToday(
+  tenantId: string,
+  monthGte: Date,
+  monthLte: Date,
+  todayGte: Date,
+  todayLte: Date,
+  marketerIds: string[],
+): Promise<ReceivedMarketerCountMaps> {
+  const empty = (): ReceivedMarketerCountMaps => ({
+    month: new Map(marketerIds.map((id) => [id, 0])),
+    today: new Map(marketerIds.map((id) => [id, 0])),
+  });
+  const collab = whereReceivedInquiryCollaboratedByMarketers(marketerIds);
+  if (!collab) return empty();
+
+  const rows = await prisma.inquiry.findMany({
+    where: {
+      tenantId,
+      createdAt: { gte: monthGte, lte: monthLte },
+      ...inquiryActiveOnlyWhere(),
+      ...collab,
+    },
+    select: {
+      createdAt: true,
+      collaborationMarketerId: true,
+    },
+  });
+
+  const month = new Map<string, number>();
+  const today = new Map<string, number>();
+  for (const id of marketerIds) {
+    month.set(id, 0);
+    today.set(id, 0);
+  }
+  for (const row of rows) {
+    const uid = row.collaborationMarketerId;
+    if (!uid || !month.has(uid)) continue;
+    month.set(uid, (month.get(uid) ?? 0) + 1);
+    const t = row.createdAt.getTime();
+    if (t >= todayGte.getTime() && t <= todayLte.getTime()) {
+      today.set(uid, (today.get(uid) ?? 0) + 1);
+    }
+  }
+  return { month, today };
+}
+
 type FollowupMarketerCountMaps = {
   absent: Map<string, number>;
   hold: Map<string, number>;
@@ -217,6 +279,23 @@ export function whereMarketerStatsInquiriesOnDay(
   };
 }
 
+/** 협업 마케터 집계 drill-down — RECEIVED + 접수일 + collaborationMarketerId */
+export function whereCollaborationMarketerStatsInquiriesOnDay(
+  collaborationMarketerId: string,
+  dayYmd: string,
+): Prisma.InquiryWhereInput | null {
+  const dayRange = kstDayRangeYmd(dayYmd);
+  if (!dayRange) return null;
+  return {
+    AND: [
+      inquiryActiveOnlyWhere(),
+      { status: 'RECEIVED' },
+      { createdAt: { gte: dayRange.gte, lte: dayRange.lte } },
+      { collaborationMarketerId },
+    ],
+  };
+}
+
 /** 마케터별 이번 달·오늘 예약완료 — 서비스접수와 동일(접수일·RECEIVED·접수자) */
 export async function buildMarketerOverview(tenantId: string): Promise<MarketerOverviewResult> {
   const todayYmd = kstTodayYmd();
@@ -247,8 +326,20 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
   const marketers = staff.filter((u) => !isTeamPreviewAdminEmail(u.email) && isUserEmployedOnYmd(u.hireDate, u.resignationDate, todayYmd));
   const marketerIds = marketers.map((m) => m.id);
 
-  const [{ month: monthCounts, today: todayCounts }, followupToday] = await Promise.all([
+  const [
+    { month: monthCounts, today: todayCounts },
+    { month: monthCollabCounts, today: todayCollabCounts },
+    followupToday,
+  ] = await Promise.all([
     countReceivedInquiriesByMarketerMonthAndToday(
+      tenantId,
+      monthRange.gte,
+      monthRange.lte,
+      todayRange.gte,
+      todayRange.lte,
+      marketerIds,
+    ),
+    countCollaborationReceivedByMarketerMonthAndToday(
       tenantId,
       monthRange.gte,
       monthRange.lte,
@@ -271,6 +362,8 @@ export async function buildMarketerOverview(tenantId: string): Promise<MarketerO
     role: m.role as 'MARKETER' | 'ADMIN',
     monthCount: monthCounts.get(m.id) ?? 0,
     todayCount: todayCounts.get(m.id) ?? 0,
+    monthCollaborationCount: monthCollabCounts.get(m.id) ?? 0,
+    todayCollaborationCount: todayCollabCounts.get(m.id) ?? 0,
     todayAbsentCount: followupToday.absent.get(m.id) ?? 0,
     todayHoldCount: followupToday.hold.get(m.id) ?? 0,
     todayRequestedCount: followupToday.requested.get(m.id) ?? 0,

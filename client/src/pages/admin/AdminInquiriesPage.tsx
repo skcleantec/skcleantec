@@ -1084,6 +1084,14 @@ export function AdminInquiriesPage() {
     if (msd && /^\d{4}-\d{2}-\d{2}$/.test(msd)) return msd;
     return '';
   });
+  const [collaborationFilterId, setCollaborationFilterId] = useState(
+    () => searchParams.get('collaborationMarketerId') ?? '',
+  );
+  const [collaborationStatsDay, setCollaborationStatsDay] = useState(() => {
+    const csd = searchParams.get('collaborationStatsDay');
+    if (csd && /^\d{4}-\d{2}-\d{2}$/.test(csd)) return csd;
+    return '';
+  });
   /** 빈 값이면 전체, 미배정·특정 팀장 */
   const [teamLeaderFilterId, setTeamLeaderFilterId] = useState('');
   /** 관리자: 현장 검수 상태 필터 NONE|IN_PROGRESS|COMPLETED|VOID */
@@ -1227,6 +1235,8 @@ export function AdminInquiriesPage() {
         searchParams.get('status') ?? '',
         searchParams.get('createdById') ?? '',
         searchParams.get('marketerStatsDay') ?? '',
+        searchParams.get('collaborationMarketerId') ?? '',
+        searchParams.get('collaborationStatsDay') ?? '',
       ].join('\0'),
     [searchParams]
   );
@@ -1267,6 +1277,18 @@ export function AdminInquiriesPage() {
       setDateBasis('createdAt');
     } else if (!isFirst) {
       setMarketerStatsDay('');
+    }
+    if (searchParams.has('collaborationMarketerId')) {
+      setCollaborationFilterId(searchParams.get('collaborationMarketerId') ?? '');
+    } else if (!isFirst) {
+      setCollaborationFilterId('');
+    }
+    const csd = searchParams.get('collaborationStatsDay') ?? '';
+    if (csd && /^\d{4}-\d{2}-\d{2}$/.test(csd)) {
+      setCollaborationStatsDay(csd);
+      setDateBasis('createdAt');
+    } else if (!isFirst) {
+      setCollaborationStatsDay('');
     }
   }, [urlListFilterSig, searchParams]);
 
@@ -1455,6 +1477,8 @@ export function AdminInquiriesPage() {
       statusEvent?: string;
       createdById?: string;
       marketerStatsDay?: string;
+      collaborationMarketerId?: string;
+      collaborationStatsDay?: string;
       teamLeaderId?: string;
       operatingCompanyId?: string;
       source?: string;
@@ -1485,6 +1509,12 @@ export function AdminInquiriesPage() {
       params.createdById = marketerFilterId.trim();
       if (marketerStatsDay.trim()) {
         params.marketerStatsDay = marketerStatsDay.trim();
+      }
+    }
+    if ((me?.role === 'ADMIN' || me?.role === 'MARKETER') && collaborationFilterId.trim()) {
+      params.collaborationMarketerId = collaborationFilterId.trim();
+      if (collaborationStatsDay.trim()) {
+        params.collaborationStatsDay = collaborationStatsDay.trim();
       }
     }
     if (teamLeaderFilterId.trim()) {
@@ -1638,6 +1668,8 @@ export function AdminInquiriesPage() {
       flushSync(() => {
         setMarketerFilterId(marketerId);
         setMarketerStatsDay(dayYmd);
+        setCollaborationFilterId('');
+        setCollaborationStatsDay('');
         setDateBasis('createdAt');
         setDatePreset('day');
         setDayKey(dayYmd);
@@ -1653,6 +1685,37 @@ export function AdminInquiriesPage() {
         next.set('marketerStatsDay', dayYmd);
         next.delete('month');
         next.delete('q');
+        next.delete('collaborationMarketerId');
+        next.delete('collaborationStatsDay');
+      });
+    },
+    [patchInquiryListSearchParams]
+  );
+
+  const applyCollaborationStatsListFilter = useCallback(
+    (marketerId: string, dayYmd: string) => {
+      flushSync(() => {
+        setCollaborationFilterId(marketerId);
+        setCollaborationStatsDay(dayYmd);
+        setMarketerFilterId('');
+        setMarketerStatsDay('');
+        setDateBasis('createdAt');
+        setDatePreset('day');
+        setDayKey(dayYmd);
+        setStatusFilter('RECEIVED');
+        setSearchInput('');
+        setInquiryListBump((n) => n + 1);
+      });
+      patchInquiryListSearchParams((next) => {
+        next.set('datePreset', 'day');
+        next.set('day', dayYmd);
+        next.set('status', 'RECEIVED');
+        next.set('collaborationMarketerId', marketerId);
+        next.set('collaborationStatsDay', dayYmd);
+        next.delete('month');
+        next.delete('q');
+        next.delete('createdById');
+        next.delete('marketerStatsDay');
       });
     },
     [patchInquiryListSearchParams]
@@ -1757,6 +1820,8 @@ export function AdminInquiriesPage() {
         dayKey,
         marketerFilterId,
         marketerStatsDay,
+        collaborationFilterId,
+        collaborationStatsDay,
         teamLeaderFilterId,
         operatingCompanyFilterId,
         sourceFilterId,
@@ -1774,6 +1839,8 @@ export function AdminInquiriesPage() {
       dayKey,
       marketerFilterId,
       marketerStatsDay,
+      collaborationFilterId,
+      collaborationStatsDay,
       teamLeaderFilterId,
       operatingCompanyFilterId,
       sourceFilterId,
@@ -2614,7 +2681,7 @@ export function AdminInquiriesPage() {
                 </span>
               )}
               <HelpTooltip
-                text="당일(KST) 기준입니다. 확정=서비스접수 예약완료(RECEIVED·접수일·접수자). 부재·보류·요청=부재현황 등록일·등록자·현재 상태(ABSENT·보류·요청) 건수입니다."
+                text="당일(KST) 기준입니다. 확정=담당 마케터·예약완료(RECEIVED·접수일). 협업=협업 마케터 지정·예약완료·접수일(앞: 이번 달·뒤: 오늘). 부재·보류·요청=부재현황 등록일·등록자·현재 상태 건수입니다."
                 className="shrink-0"
               />
               <span className="ml-auto shrink-0 text-slate-500" aria-hidden>
@@ -2637,12 +2704,18 @@ export function AdminInquiriesPage() {
               </div>
             ) : marketerOverview ? (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[420px] border-collapse text-fluid-2xs">
+                <table className="w-full min-w-[480px] border-collapse text-fluid-2xs">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-600">
                       <th className="py-1 pr-2 text-center font-medium">이름</th>
                       <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">이번 달</th>
                       <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">확정</th>
+                      <th
+                        className="whitespace-nowrap px-1.5 py-1 text-center font-medium"
+                        title="협업 — 이번 달 · 오늘"
+                      >
+                        협업
+                      </th>
                       <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">부재</th>
                       <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">보류</th>
                       <th className="whitespace-nowrap px-1.5 py-1 text-center font-medium">요청</th>
@@ -2677,10 +2750,16 @@ export function AdminInquiriesPage() {
                           me?.role === 'ADMIN' || me?.role === 'MARKETER'
                             ? 'cursor-pointer hover:bg-slate-100 focus-visible:outline focus-visible:ring-2 focus-visible:ring-slate-400'
                             : ''
-                        } ${marketerFilterId === m.marketerId ? 'bg-blue-50/80' : ''}`}
+                        } ${
+                          marketerFilterId === m.marketerId && marketerStatsDay
+                            ? 'bg-blue-50/80'
+                            : collaborationFilterId === m.marketerId && collaborationStatsDay
+                              ? 'bg-violet-50/80'
+                              : ''
+                        }`}
                         title={
                           me?.role === 'ADMIN' || me?.role === 'MARKETER'
-                            ? '클릭하면 오늘 집계 기준으로 목록 필터'
+                            ? '행 클릭: 오늘 확정(담당) 목록 · 협업 열: 오늘 협업 목록'
                             : undefined
                         }
                       >
@@ -2693,6 +2772,40 @@ export function AdminInquiriesPage() {
                         </td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.monthCount}건</td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.todayCount}건</td>
+                        <td
+                          className={`px-1.5 py-1 text-right tabular-nums ${
+                            me?.role === 'ADMIN' || me?.role === 'MARKETER'
+                              ? 'cursor-pointer hover:bg-violet-100/80'
+                              : ''
+                          }`}
+                          title="협업 — 이번 달 · 오늘 (클릭: 오늘 협업 목록)"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (me?.role === 'ADMIN' || me?.role === 'MARKETER') {
+                              applyCollaborationStatsListFilter(
+                                m.marketerId,
+                                marketerOverview?.todayYmd ?? kstTodayYmd(),
+                              );
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (me?.role !== 'ADMIN' && me?.role !== 'MARKETER') return;
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              applyCollaborationStatsListFilter(
+                                m.marketerId,
+                                marketerOverview?.todayYmd ?? kstTodayYmd(),
+                              );
+                            }
+                          }}
+                          role={
+                            me?.role === 'ADMIN' || me?.role === 'MARKETER' ? 'button' : undefined
+                          }
+                          tabIndex={me?.role === 'ADMIN' || me?.role === 'MARKETER' ? 0 : undefined}
+                        >
+                          {m.monthCollaborationCount} · {m.todayCollaborationCount}
+                        </td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.todayAbsentCount}건</td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.todayHoldCount}건</td>
                         <td className="px-1.5 py-1 text-right tabular-nums">{m.todayRequestedCount}건</td>
@@ -2792,7 +2905,23 @@ export function AdminInquiriesPage() {
                       }}
                       className="shrink-0 whitespace-nowrap text-[11px] text-blue-700 underline hover:text-blue-900 sm:text-fluid-xs"
                     >
-                      집계 기준 해제
+                      확정 집계 해제
+                    </button>
+                  ) : null}
+                  {collaborationStatsDay ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCollaborationStatsDay('');
+                        setCollaborationFilterId('');
+                        patchInquiryListSearchParams((next) => {
+                          next.delete('collaborationStatsDay');
+                          next.delete('collaborationMarketerId');
+                        });
+                      }}
+                      className="shrink-0 whitespace-nowrap text-[11px] text-violet-700 underline hover:text-violet-900 sm:text-fluid-xs"
+                    >
+                      협업 집계 해제
                     </button>
                   ) : null}
                 </div>
@@ -3027,7 +3156,7 @@ export function AdminInquiriesPage() {
               </button>
             </form>
           </div>
-          {!marketerStatsDay ? (
+          {!marketerStatsDay && !collaborationStatsDay ? (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-slate-200/80 bg-slate-50/80 px-2 py-1 text-[10px] text-slate-600 sm:text-fluid-2xs">
               <span className="font-medium text-slate-700">목록 상단 고정</span>
               <span className="hidden text-slate-500 md:inline">(날짜·상태 필터와 무관)</span>
@@ -3954,10 +4083,15 @@ export function AdminInquiriesPage() {
         {!shouldShowListBlockingLoading(loading, items.length) ? (
           <>
             <div className="border-t border-slate-100 px-2 py-1.5 text-fluid-2xs text-slate-600 sm:px-4 sm:py-2 sm:text-fluid-xs">
-              {marketerStatsDay ? (
+              {collaborationStatsDay ? (
+                <>
+                  협업 · 집계 기준 {collaborationStatsDay}
+                  <span className="text-slate-500"> (예약완료·접수일·협업 마케터)</span>
+                </>
+              ) : marketerStatsDay ? (
                 <>
                   예약완료 · 집계 기준 {marketerStatsDay}
-                  <span className="text-slate-500"> (접수일·서비스접수와 동일)</span>
+                  <span className="text-slate-500"> (접수일·담당 마케터)</span>
                 </>
               ) : datePreset === 'today' ? (
                 '오늘 접수'
@@ -3974,7 +4108,13 @@ export function AdminInquiriesPage() {
                   접수자: {labelForMarketerFilter(marketerFilterId, me, marketers)}
                 </>
               ) : null}
-              {marketerStatsDay && total >= 0 ? (
+              {(me?.role === 'ADMIN' || me?.role === 'MARKETER') && collaborationFilterId ? (
+                <>
+                  {' · '}
+                  협업: {labelForMarketerFilter(collaborationFilterId, me, marketers)}
+                </>
+              ) : null}
+              {(collaborationStatsDay || marketerStatsDay) && total >= 0 ? (
                 <>
                   {' · '}
                   <span className="font-medium tabular-nums text-slate-800">{total}건</span>

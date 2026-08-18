@@ -474,6 +474,8 @@ export async function createOrderForm(
     leadSource?: string;
     /** 영업 브랜드 — 관리자는 소속 없이 선택 가능. 대기 접수 연결 시 서버가 접수 브랜드로 고정 */
     operatingCompanyId?: string;
+    /** 협업 마케터(선택) — 담당과 동일 불가 */
+    collaborationMarketerId?: string | null;
   }
 ): Promise<OrderForm> {
   const res = await fetch(`${API}/orderforms`, {

@@ -49,6 +49,9 @@ import {
 } from '../../utils/orderFormCustomerCopy';
 import { InternalCustomerToneRadio } from '../../components/admin/InternalCustomerToneRadio';
 import { InquiryLeadSourceSelect } from '../../components/inquiry/InquiryLeadSourceSelect';
+import { CollaborationMarketerSelect } from '../../components/inquiry/CollaborationMarketerSelect';
+import { useCollaborationMarketerOptions } from '../../hooks/useCollaborationMarketerOptions';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import {
   DEFAULT_INTERNAL_CUSTOMER_TONE,
   normalizeInternalCustomerTone,
@@ -315,6 +318,7 @@ export function AdminOrderFormPage() {
       customerPhone: string;
       internalCustomerTone?: InternalCustomerTone | null;
       operatingCompanyId?: string | null;
+      createdById?: string | null;
     }>
   >([]);
   const [issueTemplatesLoaded, setIssueTemplatesLoaded] = useState(false);
@@ -325,14 +329,21 @@ export function AdminOrderFormPage() {
   const [orderTemplates, setOrderTemplates] = useState<OrderFormTemplate[]>([]);
   const [issueTemplateId, setIssueTemplateId] = useState('');
   const [issueLeadSource, setIssueLeadSource] = useState('');
+  const [issueCollaborationMarketerId, setIssueCollaborationMarketerId] = useState('');
   const [issueOperatingCompanyId, setIssueOperatingCompanyId] = useState('');
   const issueBrands = useOrderIssueOperatingCompanies(tab === 'issue' ? token : null);
+  const collaborationMarketerOptions = useCollaborationMarketerOptions(tab === 'issue' ? token : null);
+  const { userId: issueUserId, userName: issueUserName, role: issueUserRole } = useAdminStaffSession();
   const pendingLinkedBrandId =
     pendingLinkOptions.find((o) => o.id === pendingLinkId)?.operatingCompanyId?.trim() || '';
   const issueBrandLocked = Boolean(pendingLinkedBrandId);
   const effectiveIssueOperatingCompanyId = issueBrandLocked
     ? pendingLinkedBrandId
     : issueOperatingCompanyId;
+  const issuePrimaryMarketerId =
+    pendingLinkOptions.find((o) => o.id === pendingLinkId)?.createdById?.trim() ||
+    issueUserId ||
+    '';
 
   useEffect(() => {
     const def = defaultScheduleLeadSourceLabel(staffTenantSlug);
@@ -436,6 +447,7 @@ export function AdminOrderFormPage() {
             customerPhone?: string | null;
             internalCustomerTone?: InternalCustomerTone | null;
             operatingCompanyId?: string | null;
+            createdBy?: { id: string } | null;
           }>;
         }) => {
         setPendingLinkOptions(
@@ -445,6 +457,7 @@ export function AdminOrderFormPage() {
             customerPhone: (i.customerPhone ?? '').trim(),
             internalCustomerTone: i.internalCustomerTone ?? null,
             operatingCompanyId: i.operatingCompanyId ?? null,
+            createdById: i.createdBy?.id ?? null,
           }))
         );
       })
@@ -777,6 +790,20 @@ export function AdminOrderFormPage() {
                   </div>
                 ) : null}
                 <div className="md:col-span-2 lg:col-span-12">
+                  <CollaborationMarketerSelect
+                    value={issueCollaborationMarketerId}
+                    onChange={setIssueCollaborationMarketerId}
+                    marketerOptions={collaborationMarketerOptions}
+                    excludeMarketerId={issuePrimaryMarketerId}
+                    meUser={
+                      issueUserId && issueUserName
+                        ? { id: issueUserId, name: issueUserName, role: issueUserRole ?? undefined }
+                        : null
+                    }
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-fluid-sm text-gray-900 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-200/80 sm:py-2"
+                  />
+                </div>
+                <div className="md:col-span-2 lg:col-span-12">
                   <label className="mb-1.5 block text-fluid-sm font-medium text-gray-700">
                     유입 경로 *
                   </label>
@@ -814,6 +841,7 @@ export function AdminOrderFormPage() {
                           internalCustomerTone: issueInternalCustomerTone,
                           leadSource: issueLeadSource,
                           operatingCompanyId: effectiveIssueOperatingCompanyId || undefined,
+                          collaborationMarketerId: issueCollaborationMarketerId.trim() || null,
                           onCreated: handleOrderCreated,
                         },
                       }}

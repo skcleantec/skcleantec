@@ -37,6 +37,8 @@ export type CrmIntakeFormValues = {
   goldDb: boolean;
   /** 유입 플랫폼 — 카탈로그 label, 저장 전 필수(브릿지 extract 시 자동) */
   leadSource: string;
+  /** 협업 마케터(선택) */
+  collaborationMarketerId?: string;
   /** 텔레CRM 정보 갖고오기 출처(변경 이력용) */
   extractPlatform?: 'miso' | 'soomgo';
 };
@@ -129,6 +131,9 @@ export async function submitCrmIntake(
     strictLeadSource: true,
     intakeMeta,
     source: values.leadSource.trim(),
+    ...(values.collaborationMarketerId?.trim()
+      ? { collaborationMarketerId: values.collaborationMarketerId.trim() }
+      : {}),
   };
 
   if (values.kind === 'requested' || values.kind === 'absent' || values.kind === 'hold') {

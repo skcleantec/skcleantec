@@ -19,6 +19,7 @@ alwaysApply: true
 | **상태** | `status = 'RECEIVED'` (서비스접수 UI의 **예약완료**) |
 | **날짜** | **`createdAt`** 을 **KST(Asia/Seoul)** 로 잘라 **접수일**로 본다. `submittedAt`·발주서 발급일·스케줄일 등 **다른 날짜 필드 사용 금지** |
 | **마케터 귀속** | `whereInquiryAttributedToMarketer(marketerId)` — 접수 등록자(`createdById`) 우선, 없으면 `orderForm.createdById` 보조. 미제출 링크만 발급된 건은 발주서 작성자로 동일 규칙 |
+| **협업 귀속** | `collaborationMarketerId = marketerId` (동일 상태·접수일). 담당과 동일인 불가 |
 
 - **전화·수기 접수**도 위와 같다. 별도 분기로 다른 상태·날짜를 쓰지 않는다.
 - 집계 대상 스태프: `role IN ('MARKETER', 'ADMIN')` 이고 `isActive`, **team-preview 개발용 관리자 이메일은 제외** (`isTeamPreviewAdminEmail`).
@@ -30,7 +31,9 @@ alwaysApply: true
 | 월·오늘 요약 표 | `buildMarketerOverview` |
 | 마케터 일별 모달 | `buildMarketerDailyOverview` |
 | 집계 숫자 클릭 → 목록 | 클라 `applyMarketerStatsListFilter` + API `marketerStatsDay` |
+| 협업 집계 클릭 → 목록 | 클라 `applyCollaborationStatsListFilter` + API `collaborationStatsDay` + `collaborationMarketerId` |
 | 목록 API 필터 | `whereMarketerStatsInquiriesOnDay` (`GET /inquiries` 쿼리 `createdById` + `marketerStatsDay`) |
+| 협업 목록 API | `whereCollaborationMarketerStatsInquiriesOnDay` (`collaborationMarketerId` + `collaborationStatsDay`) |
 
 **단일 소스**: `server/src/modules/inquiries/inquiryMarketerOverview.ts`
 

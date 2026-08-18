@@ -34,6 +34,7 @@ import {
   resolveInquirySourceForCreate,
   resolveInquiryIntakeChannelForCreate,
 } from '../inquiry-lead-sources/inquiryLeadSource.service.js';
+import { resolveCollaborationMarketerIdForWrite } from './collaborationMarketer.helpers.js';
 
 export const CREATE_INQUIRY_STATUSES: InquiryStatus[] = [
   'PENDING',
@@ -183,6 +184,9 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
   const intakeMeta = parseIntakeMeta(body.intakeMeta);
   const intakeChannel = resolveInquiryIntakeChannelForCreate(body);
   const tenantPlan = await getTenantPlan(tenantId);
+  const collaborationMarketerId = Object.prototype.hasOwnProperty.call(body, 'collaborationMarketerId')
+    ? await resolveCollaborationMarketerIdForWrite(db, tenantId, body.collaborationMarketerId, userId ?? null)
+    : null;
 
   const inquiry = await db.$transaction(async (tx) => {
     let inquiryNumber: string | null = null;
@@ -239,6 +243,7 @@ export async function createInquiryFromBody(params: CreateInquiryParams) {
           body.serviceBalanceAmount != null ? Number(body.serviceBalanceAmount) : null,
         source: resolvedSource,
         ...(intakeChannel ? { intakeChannel } : {}),
+        ...(collaborationMarketerId ? { collaborationMarketerId } : {}),
         status,
         crewMemberCount,
         crewMemberNote: createAllSolo

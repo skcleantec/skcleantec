@@ -109,6 +109,10 @@ import {
   mapLeadSourceValidationError,
 } from '../inquiry-lead-sources/inquiryLeadSource.service.js';
 import {
+  resolveCollaborationMarketerIdForWrite,
+} from '../inquiries/collaborationMarketer.helpers.js';
+import { InquiryCreateError } from '../inquiries/inquiryCreate.service.js';
+import {
   getOrCreateOrderFormBrandCustomerLinkConfig,
   listOrderFormBrandCustomerLinkConfigs,
   upsertOrderFormBrandCustomerLinkConfig,
@@ -1288,6 +1292,11 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
   }
   const issueLogLines = buildIntakeCreateChangeLogLines(leadSourceLabel, { channel: 'order_issue' });
 
+  const hasCollaborationField = Object.prototype.hasOwnProperty.call(req.body, 'collaborationMarketerId');
+  const collaborationRaw = hasCollaborationField
+    ? (req.body as { collaborationMarketerId?: unknown }).collaborationMarketerId
+    : undefined;
+
   const resolvedTemplate = await resolveIssueTemplate(prisma, authTenantId, templateIdRaw);
   if (resolvedTemplate === 'invalid') {
     res.status(400).json({ error: '선택한 발주서 양식을 찾을 수 없거나 발행되지 않았습니다.' });
@@ -1329,6 +1338,24 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
       if (role === 'MARKETER' && pending.createdById !== userId) {
         res.status(403).json({ error: '본인이 등록한 대기 접수만 연결할 수 있습니다.' });
         return;
+      }
+
+      let resolvedCollaborationMarketerId: string | null | undefined;
+      if (hasCollaborationField) {
+        try {
+          resolvedCollaborationMarketerId = await resolveCollaborationMarketerIdForWrite(
+            prisma,
+            authTenantId,
+            collaborationRaw,
+            pending.createdById ?? userId,
+          );
+        } catch (e) {
+          if (e instanceof InquiryCreateError) {
+            res.status(e.statusCode).json({ error: e.message });
+            return;
+          }
+          throw e;
+        }
       }
 
       const orderForm = await prisma.$transaction(async (tx) => {
@@ -1378,6 +1405,9 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
             intakeChannel: 'order_issue',
             operatingCompanyId: formOperatingCompanyId,
             internalCustomerTone: linkedTone,
+            ...(resolvedCollaborationMarketerId !== undefined
+              ? { collaborationMarketerId: resolvedCollaborationMarketerId }
+              : {}),
             ...(issueAreaPyeong != null && issueAreaBasis
               ? { areaPyeong: issueAreaPyeong, areaBasis: issueAreaBasis, exclusiveAreaSqm: null }
               : {}),
@@ -1423,6 +1453,24 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
     if (preferredTimeDetail?.trim()) memoParts.push(`시간 상세: ${preferredTimeDetail.trim()}`);
     const inquiryMemo = memoParts.length ? memoParts.join('\n') : null;
     const inquiryPreferredDate = preferredDateYmdToKstNoon(prefDateStr ?? undefined);
+
+    let resolvedCollaborationMarketerId: string | null | undefined;
+    if (hasCollaborationField) {
+      try {
+        resolvedCollaborationMarketerId = await resolveCollaborationMarketerIdForWrite(
+          prisma,
+          authTenantId,
+          collaborationRaw,
+          userId,
+        );
+      } catch (e) {
+        if (e instanceof InquiryCreateError) {
+          res.status(e.statusCode).json({ error: e.message });
+          return;
+        }
+        throw e;
+      }
+    }
 
     const standaloneTone = parseInternalCustomerToneInput(internalCustomerToneRaw) ?? 'NORMAL';
     const orderForm = await prisma.$transaction(async (tx) => {
@@ -1472,6 +1520,9 @@ router.post('/', authMiddleware, requireStaffPermission('orderform.issue'), asyn
           orderFormId: created.id,
           createdById: userId,
           internalCustomerTone: standaloneTone,
+          ...(resolvedCollaborationMarketerId !== undefined
+            ? { collaborationMarketerId: resolvedCollaborationMarketerId }
+            : {}),
           serviceTotalAmount: totalAmount,
           serviceDepositAmount: deposit,
           serviceBalanceAmount: balance,

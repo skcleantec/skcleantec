@@ -151,29 +151,6 @@ export function InquiryEditStatusSection({
                 </select>
               </div>
             ) : null}
-            {!isCreate ? (
-              <div>
-                <label className="mb-1.5 inline-flex items-center gap-1 text-fluid-sm font-semibold text-slate-700">
-                  추가 마케터
-                  <HelpTooltip text="협업 기록용입니다. 광고비·마케터 건수 집계에는 포함되지 않습니다." />
-                </label>
-                <select
-                  value={editForm.collaborationMarketerId}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, collaborationMarketerId: e.target.value }))
-                  }
-                  className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-fluid-sm text-slate-900"
-                >
-                  <option value="">없음</option>
-                  {meUser ? <option value={meUser.id}>관리자 ({meUser.name})</option> : null}
-                  {(marketerOptions ?? []).map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
             {operatingCompanyOptions.length > 0 ? (
               <div>
                 <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">영업 브랜드</label>

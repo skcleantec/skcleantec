@@ -6,6 +6,9 @@ import { createInquiry, updateInquiry } from '../../api/inquiries';
 import { ModalCloseButton } from './ModalCloseButton';
 import { ORDER_FOLLOWUP_STATUS_LABEL, type OrderFollowupStatus } from '../../constants/orderFollowupStatus';
 import { FollowupIntakeExtrasFields } from '../order-followup/FollowupIntakeExtrasFields';
+import { CollaborationMarketerSelect } from '../inquiry/CollaborationMarketerSelect';
+import { useCollaborationMarketerOptions } from '../../hooks/useCollaborationMarketerOptions';
+import { useAdminStaffSession } from '../../hooks/useAdminStaffSession';
 import {
   buildFollowupIntakeExtrasPayload,
   emptyFollowupIntakeExtrasForm,
@@ -58,6 +61,9 @@ export function AdminListIntakeModal({
   const [preferredMoveInCleanYmd, setPreferredMoveInCleanYmd] = useState('');
   const [kind, setKind] = useState<Kind>('absent');
   const [goldDb, setGoldDb] = useState(false);
+  const [collaborationMarketerId, setCollaborationMarketerId] = useState('');
+  const collaborationMarketerOptions = useCollaborationMarketerOptions(open ? token : null);
+  const { userId: intakeUserId, userName: intakeUserName, role: intakeUserRole } = useAdminStaffSession();
   const [intakeExtras, setIntakeExtras] = useState<FollowupIntakeExtrasForm>(() =>
     emptyFollowupIntakeExtrasForm(),
   );
@@ -75,6 +81,7 @@ export function AdminListIntakeModal({
       setPreferredMoveInCleanYmd('');
       setKind(editSeed.depositPending ? 'deposit' : 'reserved');
       setGoldDb(false);
+      setCollaborationMarketerId('');
       setIntakeExtras(emptyFollowupIntakeExtrasForm());
       return;
     }
@@ -86,6 +93,7 @@ export function AdminListIntakeModal({
     setPreferredMoveInCleanYmd(z.preferredMoveInCleanYmd);
     setKind(z.kind);
     setGoldDb(false);
+    setCollaborationMarketerId('');
     setIntakeExtras(emptyFollowupIntakeExtrasForm());
   }, [open, editMode, editInquiryId, editSeed]);
 
@@ -146,6 +154,9 @@ export function AdminListIntakeModal({
         memo: memo.trim() || null,
         source: '전화',
         status: inqSt,
+        ...(collaborationMarketerId.trim()
+          ? { collaborationMarketerId: collaborationMarketerId.trim() }
+          : {}),
       })) as { id: string };
       const fuSt: OrderFollowupStatus = kind === 'deposit' ? 'DEPOSIT_PENDING' : 'RESERVED';
       await createOrderFollowup(token, {
@@ -252,6 +263,22 @@ export function AdminListIntakeModal({
             onChange={(patch) => setIntakeExtras((prev) => ({ ...prev, ...patch }))}
             disabled={saving}
           />
+          {!editMode ? (
+            <CollaborationMarketerSelect
+              value={collaborationMarketerId}
+              onChange={setCollaborationMarketerId}
+              marketerOptions={collaborationMarketerOptions}
+              excludeMarketerId={intakeUserId}
+              meUser={
+                intakeUserId && intakeUserName
+                  ? { id: intakeUserId, name: intakeUserName, role: intakeUserRole ?? undefined }
+                  : null
+              }
+              disabled={saving}
+              labelClassName="mb-1 block text-fluid-xs font-medium text-gray-700"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-fluid-sm"
+            />
+          ) : null}
           <fieldset>
             <legend className="mb-2 text-fluid-xs font-medium text-gray-700">처리 구분 *</legend>
             <div className={`space-y-2 text-fluid-2xs sm:text-fluid-xs ${editMode ? 'pointer-events-none opacity-60' : ''}`}>
