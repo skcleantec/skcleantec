@@ -48,6 +48,8 @@ import {
   addIssueTotalWon,
   applyManwonUnitZeros,
   parseIssueAmountWon,
+  resolveIssueBalanceWon,
+  resolveIssueDepositWon,
   sanitizeIssueTotalWonInput,
   validateIssueAmountWon,
 } from '../../utils/orderFormIssueAmountInput';
@@ -198,6 +200,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     balanceAmount: '',
     optionNote: '',
   });
+  /** 예약금 없음 — 잔금 = 총액(현장 일시 수령) */
+  const [noDeposit, setNoDeposit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<{
@@ -813,11 +817,20 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
             balconyCount: createCrmSeed.balconyCount?.trim() || f.balconyCount,
           }));
           if (createCrmSeed.totalAmount?.trim() || createCrmSeed.depositAmount?.trim()) {
-            setIssueAmounts((a) => ({
-              ...a,
-              totalAmount: createCrmSeed.totalAmount?.trim() || a.totalAmount,
-              depositAmount: createCrmSeed.depositAmount?.trim() || a.depositAmount,
-            }));
+            const seedTotal = createCrmSeed.totalAmount?.trim() || '';
+            const seedDeposit = createCrmSeed.depositAmount?.trim() || '';
+            const seedNoDeposit = seedDeposit === '0';
+            setNoDeposit(seedNoDeposit);
+            setIssueAmounts((a) => {
+              const totalRaw = seedTotal || a.totalAmount;
+              const total = parseIssueAmountWon(totalRaw);
+              return {
+                ...a,
+                totalAmount: totalRaw,
+                depositAmount: seedNoDeposit ? '0' : seedDeposit || a.depositAmount,
+                balanceAmount: seedNoDeposit && total > 0 ? String(total) : a.balanceAmount,
+              };
+            });
           }
         }
         setError(null);
@@ -1274,17 +1287,13 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       showSubmitError('청소 날짜를 선택했다면 시간대도 선택해 주세요.', 'order-field-schedule');
       return;
     }
-    const deposit = issueAmounts.depositAmount
-      ? parseIssueAmountWon(issueAmounts.depositAmount)
-      : 20000;
+    const deposit = noDeposit ? 0 : resolveIssueDepositWon(issueAmounts.depositAmount);
     const depositErr = validateIssueAmountWon(deposit, '예약금');
     if (depositErr) {
       showSubmitError(depositErr);
       return;
     }
-    const balance = issueAmounts.balanceAmount
-      ? parseIssueAmountWon(issueAmounts.balanceAmount)
-      : Math.max(0, total - deposit);
+    const balance = resolveIssueBalanceWon(total, deposit, issueAmounts.balanceAmount);
     const balanceErr = validateIssueAmountWon(balance, '잔금');
     if (balanceErr) {
       showSubmitError(balanceErr);
@@ -1496,12 +1505,18 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   className={inputCls}
                   placeholder="240000"
                   value={issueAmounts.totalAmount}
-                  onChange={(e) =>
-                    setIssueAmounts((a) => ({
-                      ...a,
-                      totalAmount: sanitizeIssueTotalWonInput(e.target.value),
-                    }))
-                  }
+                  onChange={(e) => {
+                    const totalAmount = sanitizeIssueTotalWonInput(e.target.value);
+                    setIssueAmounts((a) => {
+                      if (!noDeposit) return { ...a, totalAmount };
+                      const total = parseIssueAmountWon(totalAmount);
+                      return {
+                        ...a,
+                        totalAmount,
+                        balanceAmount: total > 0 ? String(total) : '',
+                      };
+                    });
+                  }}
                 />
                 <p className="mt-1 text-fluid-2xs text-gray-500 sm:hidden">
                   예: 24만원 → <span className="font-medium">24</span> 입력 후 「단위만원」 →{' '}
@@ -1542,14 +1557,48 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">예약금 (원)</label>
+                <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <label className="text-xs font-medium text-gray-700">예약금 (원)</label>
+                  <label className="inline-flex items-center gap-1.5 text-fluid-2xs text-gray-600">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300"
+                      checked={noDeposit}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setNoDeposit(checked);
+                        setIssueAmounts((a) => {
+                          const total = parseIssueAmountWon(a.totalAmount);
+                          if (checked) {
+                            return {
+                              ...a,
+                              depositAmount: '0',
+                              balanceAmount: total > 0 ? String(total) : '',
+                            };
+                          }
+                          return {
+                            ...a,
+                            depositAmount: a.depositAmount === '0' ? '' : a.depositAmount,
+                          };
+                        });
+                      }}
+                    />
+                    예약금 없음 (잔금 = 총액)
+                  </label>
+                </div>
                 <input
                   type="text"
                   inputMode="numeric"
                   className={inputCls}
                   placeholder="20000"
                   value={issueAmounts.depositAmount}
-                  onChange={(e) => setIssueAmounts((a) => ({ ...a, depositAmount: e.target.value }))}
+                  disabled={noDeposit}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    const parsed = parseIssueAmountWon(next.replace(/,/g, '').trim() || '0');
+                    setNoDeposit(parsed === 0 && next.replace(/,/g, '').trim() !== '');
+                    setIssueAmounts((a) => ({ ...a, depositAmount: next }));
+                  }}
                 />
               </div>
               <div>
@@ -1558,8 +1607,9 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   type="text"
                   inputMode="numeric"
                   className={inputCls}
-                  placeholder="비어 있으면 자동 계산"
+                  placeholder={noDeposit ? '총액과 동일' : '비어 있으면 자동 계산'}
                   value={issueAmounts.balanceAmount}
+                  disabled={noDeposit}
                   onChange={(e) => setIssueAmounts((a) => ({ ...a, balanceAmount: e.target.value }))}
                 />
               </div>
@@ -1597,8 +1647,14 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
               </p>
             ) : null}
             <p className="text-gray-600 mt-1">
-              잔금 {(order.balanceAmount ?? 0).toLocaleString()}원, 예약금{' '}
-              {(order.depositAmount ?? 0).toLocaleString()}원
+              잔금 {(order.balanceAmount ?? 0).toLocaleString()}원
+              {(order.depositAmount ?? 0) > 0 ? (
+                <>
+                  , 예약금 {(order.depositAmount ?? 0).toLocaleString()}원
+                </>
+              ) : (
+                <span className="text-gray-500"> · 예약금 없음</span>
+              )}
             </p>
             {order.formConfig?.reviewEventText?.trim() ? (
               <p className="text-gray-600 text-xs mt-1 whitespace-pre-line">

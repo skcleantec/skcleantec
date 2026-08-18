@@ -8,6 +8,26 @@ export function parseIssueAmountWon(raw: string): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
+/** 발급 금액 입력란 — 비어 있으면 null, `"0"` 은 0 */
+export function parseOptionalIssueAmountWon(raw: string): number | null {
+  const trimmed = raw.replace(/,/g, '').trim();
+  if (!trimmed) return null;
+  return parseIssueAmountWon(trimmed);
+}
+
+/** 예약금 — 비어 있으면 기본 20,000원, `"0"` 은 예약금 없음 */
+export function resolveIssueDepositWon(raw: string, defaultWon = 20_000): number {
+  const parsed = parseOptionalIssueAmountWon(raw);
+  return parsed != null ? parsed : defaultWon;
+}
+
+/** 잔금 — 비어 있으면 총액−예약금 (예약금 0이면 총액) */
+export function resolveIssueBalanceWon(total: number, deposit: number, raw: string): number {
+  const parsed = parseOptionalIssueAmountWon(raw);
+  if (parsed != null) return parsed;
+  return Math.max(0, total - deposit);
+}
+
 export function validateIssueAmountWon(won: number, label = '금액'): string | null {
   if (!Number.isFinite(won) || won < 0) return `${label}을(를) 입력해 주세요.`;
   if (won > ORDER_FORM_ISSUE_AMOUNT_MAX_WON) {
