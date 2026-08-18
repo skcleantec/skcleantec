@@ -41,4 +41,6 @@ SYSTEM_MESSAGES = {
     'QUOTE_VIEW': '고객님이 견적을 조회하였습니다',
     'HIRED_OTHER': '다른 고수를 고용함',
     'HIRED_ME': '내 고용',
-    'YESTERDAY': '어제' }
+    'YESTERDAY': '어제',
+    'WITHDRAWN_CUSTOMER': '탈퇴한 고객',
+    'PEER_LEFT_CHAT': '상대방이 채팅방을 나갔습니다' }

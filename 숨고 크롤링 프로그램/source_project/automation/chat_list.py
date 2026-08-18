@@ -154,17 +154,6 @@ return (function() {
                 var m = (links[j].getAttribute('href') || links[j].href || '').match(/\\/pro\\/chats\\/(\\d+)/);
                 if (m) return m[1];
             }
-            var html = li.outerHTML || '';
-            var patterns = [
-                /\\/pro\\/chats\\/(\\d+)/,
-                /chat[_-]?id["'\\s:=]+(\\d{5,})/i,
-                /chatId["'\\s:=]+(\\d{5,})/i,
-                /"id"\\s*:\\s*(\\d{6,})/
-            ];
-            for (var p = 0; p < patterns.length; p++) {
-                var m2 = html.match(patterns[p]);
-                if (m2) return m2[1];
-            }
             return null;
         }
         function findChatItemInLi(li, fiberKey) {
@@ -387,8 +376,7 @@ return (function() {
             var m = (links[j].getAttribute('href') || links[j].href || '').match(/\\/pro\\/chats\\/(\\d+)/);
             if (m) return m[1];
         }
-        var m2 = (li.innerHTML || '').match(/\\/pro\\/chats\\/(\\d+)/);
-        return m2 ? m2[1] : null;
+        return null;
     }
     var ul = document.querySelector('ul.css-19wxjby');
     if (!ul) {
@@ -558,8 +546,87 @@ return (function(deltaY, toTop) {
         after.lastId !== before.lastId ||
         after.liCount !== before.liCount
     );
-    return { ok: true, moved: moved, before: before, after: after };
+    var atBottom = false;
+    if (target && target.scrollTop !== undefined) {
+        atBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 12;
+    }
+    return { ok: true, moved: moved, atBottom: atBottom, before: before, after: after };
 })(arguments[0], arguments[1]);
+"""
+
+_JS_CHAT_LIST_SCROLL_STATE = """
+return (function() {
+    function pickUl() {
+        var selectors = ['ul.css-19wxjby', 'main ul', 'ul[class*="css-"]'];
+        var best = null;
+        var bestScore = 0;
+        for (var s = 0; s < selectors.length; s++) {
+            var nodes = document.querySelectorAll(selectors[s]);
+            for (var n = 0; n < nodes.length; n++) {
+                var lis = nodes[n].querySelectorAll(':scope > li');
+                if (lis.length > bestScore) {
+                    bestScore = lis.length;
+                    best = nodes[n];
+                }
+            }
+        }
+        return best;
+    }
+    function isScrollable(el) {
+        if (!el) return false;
+        var st = window.getComputedStyle(el);
+        var oy = st.overflowY;
+        return (
+            (oy === 'auto' || oy === 'scroll' || oy === 'overlay') &&
+            el.scrollHeight > el.clientHeight + 4
+        );
+    }
+    function findScrollable(start) {
+        var el = start;
+        while (el) {
+            if (isScrollable(el)) return el;
+            el = el.parentElement;
+        }
+        var main = document.querySelector('main');
+        if (main) {
+            var nodes = main.querySelectorAll('div, section, aside, nav');
+            var best = null;
+            var bestExtra = 0;
+            for (var i = 0; i < nodes.length; i++) {
+                var n = nodes[i];
+                if (!isScrollable(n)) continue;
+                var extra = n.scrollHeight - n.clientHeight;
+                if (extra > bestExtra) {
+                    bestExtra = extra;
+                    best = n;
+                }
+            }
+            if (best) return best;
+        }
+        return null;
+    }
+    var ul = pickUl();
+    if (!ul) {
+        return { ok: false, atBottom: true, scrollTop: 0, scrollHeight: 0, clientHeight: 0, remaining: 0 };
+    }
+    var target = findScrollable(ul) || ul;
+    if (!target || target.scrollTop === undefined) {
+        return { ok: false, atBottom: true, scrollTop: 0, scrollHeight: 0, clientHeight: 0, remaining: 0 };
+    }
+    var scrollTop = target.scrollTop;
+    var scrollHeight = target.scrollHeight;
+    var clientHeight = target.clientHeight;
+    var remaining = scrollHeight - scrollTop - clientHeight;
+    var atBottom = remaining <= 12;
+    return {
+        ok: true,
+        atBottom: atBottom,
+        scrollTop: scrollTop,
+        scrollHeight: scrollHeight,
+        clientHeight: clientHeight,
+        remaining: remaining
+    };
+})();
 """
 
 
@@ -845,32 +912,59 @@ class ChatListManager:
         except Exception:
             pass
 
+    def get_scroll_state(self) -> dict:
+        """채팅 목록 스크롤 위치·바닥 여부."""
+        try:
+            result = self.driver.execute_script(_JS_CHAT_LIST_SCROLL_STATE)
+            if isinstance(result, dict):
+                return result
+        except Exception as e:
+            logger.debug('[get_scroll_state] %s', e)
+        return {'ok': False, 'atBottom': True, 'remaining': 0}
+
+    def is_at_bottom(self, tolerance: int = 12) -> bool:
+        state = self.get_scroll_state()
+        if not state.get('ok'):
+            return True
+        if state.get('atBottom'):
+            return True
+        remaining = state.get('remaining')
+        if isinstance(remaining, (int, float)) and remaining <= tolerance:
+            return True
+        return False
+
+    def scroll_down_detailed(self, scroll_amount: int = 500) -> dict:
+        """아래로 스크롤 — moved·atBottom 포함."""
+        result: dict = {'ok': False, 'moved': False, 'atBottom': True}
+        try:
+            raw = self.driver.execute_script(_JS_SCROLL_CHAT_LIST, scroll_amount, False)
+            if isinstance(raw, dict):
+                result = raw
+        except Exception as e:
+            logger.debug('[scroll_down_detailed] JS: %s', e)
+
+        if not result.get('moved') and not result.get('atBottom'):
+            try:
+                self._focus_chat_list_for_scroll()
+                ActionChains(self.driver).scroll_by_amount(0, scroll_amount).perform()
+                time.sleep(0.08)
+                state = self.get_scroll_state()
+                result['atBottom'] = bool(state.get('atBottom'))
+                result['moved'] = not result['atBottom'] and bool(state.get('ok'))
+            except Exception as e:
+                logger.debug('[scroll_down_detailed] fallback: %s', e)
+
+        time.sleep(0.12)
+        result['ok'] = True
+        return result
+
     def scroll_down(self, scroll_amount: int = 500) -> bool:
         """
         채팅 목록 아래로 스크롤.
         원본: ActionChains scroll_by_amount 우선. 가상 목록은 JS wheel + scrollIntoView 보조.
         """
-        moved = False
-        try:
-            result = self.driver.execute_script(_JS_SCROLL_CHAT_LIST, scroll_amount, False)
-            if isinstance(result, dict):
-                moved = bool(result.get('moved'))
-            elif result:
-                moved = True
-        except Exception as e:
-            logger.debug(f'[scroll_down] JS 스크롤 실패: {type(e).__name__}')
-
-        if not moved:
-            try:
-                self._focus_chat_list_for_scroll()
-                ActionChains(self.driver).scroll_by_amount(0, scroll_amount).perform()
-                moved = True
-            except Exception as e:
-                logger.error(f'스크롤 오류: {e}')
-                return False
-
-        time.sleep(0.12)
-        return moved
+        info = self.scroll_down_detailed(scroll_amount)
+        return bool(info.get('moved'))
 
     def scroll_to_top(self) -> bool:
         try:

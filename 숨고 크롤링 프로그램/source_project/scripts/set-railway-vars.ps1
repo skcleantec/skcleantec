@@ -56,7 +56,7 @@ $vars = @{
     SOOMGO_AUTOMATION_LATEST_VERSION     = $Version
     SOOMGO_AUTOMATION_DOWNLOAD_URL       = $DownloadUrl
     SOOMGO_AUTOMATION_SHA256             = $Sha256
-    SOOMGO_AUTOMATION_RELEASE_NOTES      = "v$Version 자동 업데이트"
+    SOOMGO_AUTOMATION_RELEASE_NOTES      = "오래된 채팅 정리·탈퇴/상대방 나감 처리·희망일 판정·나가기 팝업 속도 (v$Version)"
 }
 
 function Set-RailwayVars([string]$Environment) {

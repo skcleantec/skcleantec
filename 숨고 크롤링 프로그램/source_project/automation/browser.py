@@ -23,6 +23,8 @@ from selenium.webdriver.chrome.webdriver import WebDriver as ChromeWebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from automation.window_layout import apply_mobile_viewport, arrange_soomgo_window, ensure_soomgo_mobile_layout
+
 logger = logging.getLogger(__name__)
 
 _CHROME_START_TIMEOUT = 90
@@ -330,7 +332,7 @@ class BrowserManager:
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-gpu')
-            options.add_argument('--window-size=1920,1080')
+            options.add_argument('--window-size=480,920')
             options.add_argument('--disable-blink-features=AutomationControlled')
             options.add_experimental_option('excludeSwitches', ['enable-automation'])
             options.add_experimental_option('useAutomationExtension', False)
@@ -372,13 +374,20 @@ class BrowserManager:
                     })
                 """
             })
+            arrange_soomgo_window(self.driver)
             self.wait = WebDriverWait(self.driver, 10)
-            logger.info('브라우저가 성공적으로 시작되었습니다.')
+            logger.info('브라우저가 성공적으로 시작되었습니다. (모바일 viewport)')
             return True
         except Exception as e:
             self.last_start_error = format_browser_start_error(e, chrome_info)
             logger.error('브라우저 시작 실패: %s', e)
             return False
+
+    def reapply_mobile_viewport(self) -> bool:
+        """창 크기 변경·페이지 이동 후 모바일 UI 재적용."""
+        if not self.driver:
+            return False
+        return apply_mobile_viewport(self.driver)
 
     def stop(self):
         """브라우저 종료"""
@@ -409,6 +418,7 @@ class BrowserManager:
             return False
         try:
             self.driver.get(url)
+            ensure_soomgo_mobile_layout(self.driver)
             return True
         except Exception as e:
             logger.error('URL 이동 실패: %s', e)

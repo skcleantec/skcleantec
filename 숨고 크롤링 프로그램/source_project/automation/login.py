@@ -8,8 +8,18 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from automation.selectors import URLS, LOGIN
+from automation.window_layout import ensure_soomgo_mobile_layout
+from automation.overlay_modals import dismiss_blocking_overlays
 
 logger = logging.getLogger(__name__)
+
+
+def _dismiss_login_popups(driver, delay: float) -> int:
+    """로그인 페이지 시스템 점검·공지 팝업 닫기."""
+    closed = dismiss_blocking_overlays(driver, delay * 0.5, max_rounds=4)
+    if closed:
+        logger.info('로그인 페이지 방해 팝업 %s개 닫음', closed)
+    return closed
 
 
 def _find_first(driver, selectors_str: str, wait=None):
@@ -31,10 +41,15 @@ def login_to_soomgo(driver, email: str, password: str, delay: float = 1.0) -> bo
     """숨고 로그인 수행"""
     try:
         driver.get(URLS['LOGIN'])
+        ensure_soomgo_mobile_layout(driver)
         time.sleep(delay)
+        _dismiss_login_popups(driver, delay)
         wait = WebDriverWait(driver, 15)
 
         email_input = _find_first(driver, LOGIN['EMAIL_INPUT'], wait)
+        if not email_input:
+            _dismiss_login_popups(driver, delay)
+            email_input = _find_first(driver, LOGIN['EMAIL_INPUT'], wait)
         if not email_input:
             logger.error('이메일 입력 필드를 찾을 수 없습니다.')
             return False
@@ -61,7 +76,10 @@ def login_to_soomgo(driver, email: str, password: str, delay: float = 1.0) -> bo
         time.sleep(delay * 2)
 
         driver.get(URLS['CHAT_LIST'])
-        time.sleep(delay * 2)
+        ensure_soomgo_mobile_layout(driver)
+        time.sleep(delay)
+        _dismiss_login_popups(driver, delay)
+        time.sleep(delay)
 
         current_url = driver.current_url.lower()
         if 'login' in current_url or '/sign' in current_url:
@@ -98,7 +116,10 @@ def goto_chat_list(driver, delay: float = 1.0) -> bool:
     """채팅 목록 페이지로 이동"""
     try:
         driver.get(URLS['CHAT_LIST'])
-        time.sleep(delay * 2)
+        ensure_soomgo_mobile_layout(driver)
+        time.sleep(delay)
+        dismiss_blocking_overlays(driver, delay * 0.5, max_rounds=2)
+        time.sleep(delay)
         return True
     except Exception as e:
         logger.error(f'채팅 목록 이동 실패: {e}')

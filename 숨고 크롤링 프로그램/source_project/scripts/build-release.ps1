@@ -66,7 +66,7 @@ $RailwayEnv = @"
 SOOMGO_AUTOMATION_LATEST_VERSION=$Version
 SOOMGO_AUTOMATION_DOWNLOAD_URL=https://github.com/skcleantec/skcleantec/releases/download/soomgo-automation-v$Version/$ZipName
 SOOMGO_AUTOMATION_SHA256=$sha
-SOOMGO_AUTOMATION_RELEASE_NOTES=재접촉·목록 가상 스크롤 전체 스캔 수정 (ActionChains+wheel, 목록 변경 감지)
+SOOMGO_AUTOMATION_RELEASE_NOTES=오래된 채팅 정리(3단계·이어하기), 탈퇴·상대방 나감 자동 나가기, 희망일 남으면 30일 규칙 제외, 확인 팝업 속도 개선
 "@
 
 $RailwayPath = Join-Path $DistRoot "railway-env-$Version.txt"

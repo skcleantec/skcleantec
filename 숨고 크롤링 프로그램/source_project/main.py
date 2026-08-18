@@ -40,6 +40,7 @@ from features.recontact import RecontactFeature, resolve_recontact_period
 from features.combined_feature import CombinedFeature
 from features.delete_left_chats import DeleteLeftChatsFeature
 from features.leave_hired_other_chats import LeaveHiredOtherChatsFeature
+from features.leave_stale_chats import LeaveStaleChatsFeature
 logging.basicConfig(level = logging.INFO, format = '%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ class SoomgoAutomationApp:
         self.current_feature = None
         self.delete_feature = None
         self.leave_hired_other_feature = None
+        self.leave_stale_feature = None
         self.feature_thread = None
         self.recontact_settings = { }
         self.combined_settings = { }
@@ -287,6 +289,8 @@ class SoomgoAutomationApp:
             self.delete_feature.stop()
         if hasattr(self, 'leave_hired_other_feature') and self.leave_hired_other_feature:
             self.leave_hired_other_feature.stop()
+        if hasattr(self, 'leave_stale_feature') and self.leave_stale_feature:
+            self.leave_stale_feature.stop()
         if self.browser.is_running():
             stop_thread = threading.Thread(target=self.browser.stop, daemon=True)
             stop_thread.start()
@@ -300,6 +304,11 @@ class SoomgoAutomationApp:
             'detection_text': self.leave_hired_other_text_var.get().strip(),
             'max_scrolls': self.config.get('leave_hired_other', {}).get('max_scrolls', 100),
         }
+        if hasattr(self, 'leave_stale_dry_run_var'):
+            self.config['leave_stale'] = {
+                'dry_run': bool(self.leave_stale_dry_run_var.get()),
+                'max_scrolls': self.config.get('leave_stale', {}).get('max_scrolls', 100),
+            }
         if self.save_credentials_var.get():
             self.config['save_credentials'] = True
             self.config['email'] = self.email_var.get().strip()
@@ -315,7 +324,7 @@ class SoomgoAutomationApp:
             return
         if self.current_feature or getattr(self, 'delete_feature', None) or getattr(
             self, 'leave_hired_other_feature', None
-        ):
+        ) or getattr(self, 'leave_stale_feature', None):
             messagebox.showwarning('업데이트', '기능 실행 중에는 업데이트할 수 없습니다.')
             return
 
@@ -446,6 +455,7 @@ class SoomgoAutomationApp:
         self.create_recontact_card(cards_frame)
         self.create_combined_card(cards_frame)
         self.create_leave_management_row(cards_frame)
+        self.create_leave_stale_card(cards_frame)
 
     def create_leave_management_row(self, parent):
         '''나간 채팅 삭제 / 다른 고수 고용 방 나가기 - 좌우 한 줄 배치'''
@@ -585,6 +595,56 @@ class SoomgoAutomationApp:
             btn_frame, text='실행', command=self.run_leave_hired_other, width=10
         )
         self.leave_hired_other_run_btn.pack(side='right')
+
+    def create_leave_stale_card(self, parent):
+        '''오래된 채팅 정리 (희망일·30일) 카드'''
+        card = ttk.LabelFrame(parent, text='오래된 채팅 정리', padding='12')
+        card.pack(fill='x', pady=5)
+        ttk.Label(
+            card,
+            text='① 스크롤로 목록 수집 → ② 검색 입장·판정 (오래된 순) · 이어하기 지원',
+            font=('', 8),
+        ).pack(anchor='w', pady=(0, 6))
+        leave_stale_cfg = self.config.get('leave_stale', {})
+        self.leave_stale_dry_run_var = tk.BooleanVar(
+            value=bool(leave_stale_cfg.get('dry_run', True))
+        )
+        ttk.Checkbutton(
+            card,
+            text='미리보기만 (실제로 나가지 않음)',
+            variable=self.leave_stale_dry_run_var,
+        ).pack(anchor='w', pady=(0, 6))
+        stats_frame = ttk.Frame(card)
+        stats_frame.pack(fill='x', pady=(0, 8))
+        self.leave_stale_status_var = tk.StringVar(value='대기 중')
+        ttk.Label(
+            stats_frame, textvariable=self.leave_stale_status_var, foreground='gray'
+        ).pack(side='left')
+        self.leave_stale_count_var = tk.StringVar(value='예정: 0 · 유지: 0')
+        ttk.Label(stats_frame, textvariable=self.leave_stale_count_var).pack(side='right')
+        btn_frame = ttk.Frame(card)
+        btn_frame.pack(fill='x')
+        self.leave_stale_stop_btn = ttk.Button(
+            btn_frame,
+            text='중지',
+            command=self.stop_leave_stale,
+            width=10,
+            state='disabled',
+        )
+        self.leave_stale_stop_btn.pack(side='right', padx=(5, 0))
+        self.leave_stale_resume_btn = ttk.Button(
+            btn_frame,
+            text='이어하기',
+            command=self.run_leave_stale_resume,
+            width=10,
+            state='disabled',
+        )
+        self.leave_stale_resume_btn.pack(side='right', padx=(5, 0))
+        self.leave_stale_run_btn = ttk.Button(
+            btn_frame, text='시작', command=self.run_leave_stale, width=10
+        )
+        self.leave_stale_run_btn.pack(side='right')
+        self.refresh_leave_stale_resume_button()
 
     
     def create_log_section(self, parent):
@@ -864,7 +924,7 @@ class SoomgoAutomationApp:
         '''로그아웃 - 브라우저 종료'''
         if self.current_feature or getattr(self, 'delete_feature', None) or getattr(
             self, 'leave_hired_other_feature', None
-        ):
+        ) or getattr(self, 'leave_stale_feature', None):
             messagebox.showwarning('경고', '기능 실행 중에는 로그아웃할 수 없습니다.')
             return None
         self.browser.stop()
@@ -1184,6 +1244,118 @@ class SoomgoAutomationApp:
             state='normal' if running else 'disabled'
         )
 
+    def refresh_leave_stale_resume_button(self):
+        '''저장된 큐 pending 있으면 이어하기 활성화'''
+        try:
+            from features.stale_chat_queue import get_queue_summary, has_resumable_queue
+
+            if has_resumable_queue():
+                self.leave_stale_resume_btn.config(state='normal')
+                if getattr(self, 'leave_stale_status_var', None):
+                    current = self.leave_stale_status_var.get()
+                    if current in ('대기 중', '완료', '오류', '중단'):
+                        self.leave_stale_status_var.set(
+                            f'이어하기 가능 · {get_queue_summary()}'
+                        )
+            else:
+                self.leave_stale_resume_btn.config(state='disabled')
+        except Exception:
+            pass
+
+    def run_leave_stale(self, *, resume: bool = False):
+        '''오래된 채팅 정리 실행 (미리보기 또는 실제 나가기)'''
+        if not self.check_login():
+            return
+        dry_run = bool(self.leave_stale_dry_run_var.get())
+        if not dry_run:
+            if not messagebox.askyesno(
+                '확인',
+                '실제로 채팅방을 나갑니다. 되돌릴 수 없습니다.\n계속하시겠습니까?',
+            ):
+                return
+
+        mode_label = '미리보기' if dry_run else '실행'
+        self.set_leave_stale_buttons_state(True)
+        self.leave_stale_status_var.set(f'{mode_label} 중...' if not resume else '이어하기 중...')
+        self.leave_stale_count_var.set('예정: 0 · 유지: 0')
+        if resume:
+            self.log(f'오래된 채팅 정리 {mode_label} — 이어하기')
+        else:
+            self.log(f'오래된 채팅 정리 {mode_label} 시작')
+
+        settings = {
+            'dry_run': dry_run,
+            'max_scrolls': self.config.get('leave_stale', {}).get('max_scrolls', 100),
+            'resume': resume,
+            'fresh': not resume,
+        }
+
+        def stale_thread():
+            try:
+                delay = self.get_delay()
+                feature = LeaveStaleChatsFeature(self.browser.driver, delay)
+                feature.set_log_callback(
+                    lambda msg: self.root.after(0, lambda m=msg: self.log(m))
+                )
+                self.leave_stale_feature = feature
+                result = feature.run(settings)
+                left = result.get('left', 0)
+                would = result.get('would_leave', 0)
+                skip = result.get('skip', 0)
+                if dry_run:
+                    count_text = f'예정: {would} · 유지: {skip}'
+                else:
+                    count_text = f'나감: {left} · 유지: {skip}'
+                self.root.after(0, lambda: self.leave_stale_count_var.set(count_text))
+                self.root.after(0, lambda: self.leave_stale_status_var.set('완료'))
+                self.root.after(
+                    0,
+                    lambda: self.log(
+                        f'오래된 채팅 정리 {mode_label} 완료 — {count_text}'
+                    ),
+                )
+            except Exception as e:
+                self.root.after(0, lambda: self.log(f'오래된 채팅 정리 오류: {e}'))
+                self.root.after(0, lambda: self.leave_stale_status_var.set('오류'))
+            finally:
+                self.leave_stale_feature = None
+                self.root.after(0, lambda: self.set_leave_stale_buttons_state(False))
+                self.root.after(0, self.refresh_leave_stale_resume_button)
+
+        threading.Thread(target=stale_thread, daemon=True).start()
+
+    def run_leave_stale_resume(self):
+        '''중단된 오래된 채팅 정리 이어하기'''
+        if not self.check_login():
+            return
+        from features.stale_chat_queue import has_resumable_queue, get_queue_summary
+
+        if not has_resumable_queue():
+            messagebox.showinfo('이어하기', '이어할 작업이 없습니다.')
+            self.refresh_leave_stale_resume_button()
+            return
+        if not messagebox.askyesno(
+            '이어하기',
+            f'저장된 작업을 이어합니다.\n{get_queue_summary()}\n\n계속하시겠습니까?',
+        ):
+            return
+        self.run_leave_stale(resume=True)
+
+    def stop_leave_stale(self):
+        '''오래된 채팅 정리 중지'''
+        if getattr(self, 'leave_stale_feature', None):
+            self.leave_stale_feature.stop()
+            self.log('오래된 채팅 정리 중지 요청됨')
+
+    def set_leave_stale_buttons_state(self, running: bool):
+        '''오래된 채팅 정리 버튼 상태'''
+        self.leave_stale_run_btn.config(state='disabled' if running else 'normal')
+        self.leave_stale_stop_btn.config(state='normal' if running else 'disabled')
+        if running:
+            self.leave_stale_resume_btn.config(state='disabled')
+        else:
+            self.refresh_leave_stale_resume_button()
+
     def on_closing(self):
         '''창 닫기 이벤트 처리'''
         if self.current_feature:
@@ -1192,6 +1364,8 @@ class SoomgoAutomationApp:
             self.delete_feature.stop()
         if hasattr(self, 'leave_hired_other_feature') and self.leave_hired_other_feature:
             self.leave_hired_other_feature.stop()
+        if hasattr(self, 'leave_stale_feature') and self.leave_stale_feature:
+            self.leave_stale_feature.stop()
         self.browser.stop()
         self.config['delay_seconds'] = self.get_delay()
         self.config['recontact'] = self.recontact_settings.copy() if self.recontact_settings else { }
@@ -1199,6 +1373,10 @@ class SoomgoAutomationApp:
         self.config['leave_hired_other'] = {
             'detection_text': self.leave_hired_other_text_var.get().strip(),
             'max_scrolls': self.config.get('leave_hired_other', {}).get('max_scrolls', 100),
+        }
+        self.config['leave_stale'] = {
+            'dry_run': bool(getattr(self, 'leave_stale_dry_run_var', tk.BooleanVar(value=True)).get()),
+            'max_scrolls': self.config.get('leave_stale', {}).get('max_scrolls', 100),
         }
         if self.save_credentials_var.get():
             self.config['save_credentials'] = True

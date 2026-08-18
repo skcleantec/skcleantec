@@ -48,6 +48,10 @@ DEFAULT_CONFIG = {
         'detection_text': '다른 고수를 고용함',
         'max_scrolls': 100,
     },
+    'leave_stale': {
+        'dry_run': True,
+        'max_scrolls': 100,
+    },
 }
 
 
