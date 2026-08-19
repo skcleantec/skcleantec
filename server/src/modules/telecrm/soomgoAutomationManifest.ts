@@ -11,6 +11,7 @@ const ZIP_SHA256_BY_VERSION: Record<string, string> = {
   '1.0.5': 'f4d4a6b9b800df189ab39444daefb52bc0a9486b4bc38b9d7cf10e8e56c539ed',
   '1.0.6': '172db2d5a79241501736fb97fd208204aeb1cdedcd18e49f1bc5d822ccf9dbe8',
   '1.0.10': 'b0478ad2901ad7866ea05f64297e5ac0eea6b50292add88b2b2dc79f8d44fc05',
+  '1.0.11': 'c5ff57d5bd87123112c07ed6df9d2b3e8b635cd6235fc9a3e0fcf87dd527d89a',
 };
 
 export type SoomgoAutomationManifest = {
@@ -71,8 +72,9 @@ function normalizeManifestFields(
   }
 
   let resolvedSha = sha256.trim();
-  if (!resolvedSha) {
-    resolvedSha = ZIP_SHA256_BY_VERSION[resolvedLatest] ?? resolvedSha;
+  const tableSha = ZIP_SHA256_BY_VERSION[resolvedLatest] ?? '';
+  if (!resolvedSha || (tableSha && resolvedSha !== tableSha)) {
+    resolvedSha = tableSha || resolvedSha;
   }
 
   return {

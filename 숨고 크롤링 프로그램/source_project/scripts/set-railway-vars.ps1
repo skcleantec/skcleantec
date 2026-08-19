@@ -25,6 +25,19 @@ function Import-RailwayEnvFromFile {
     }
 }
 
+function Test-RailwayAccountAuth {
+    $savedToken = $env:RAILWAY_TOKEN
+    $env:RAILWAY_TOKEN = $null
+    try {
+        $out = npx @railway/cli@latest whoami 2>&1
+        if ($LASTEXITCODE -ne 0) { return $false }
+        Write-Host "Railway account: $out"
+        return $true
+    } finally {
+        if ($savedToken) { $env:RAILWAY_TOKEN = $savedToken } else { Remove-Item Env:RAILWAY_TOKEN -ErrorAction SilentlyContinue }
+    }
+}
+
 function Get-DefaultVersion {
     $versionFile = Join-Path $SourceDir 'version_info.py'
     $content = Get-Content $versionFile -Raw -Encoding UTF8
@@ -56,13 +69,29 @@ $vars = @{
     SOOMGO_AUTOMATION_LATEST_VERSION     = $Version
     SOOMGO_AUTOMATION_DOWNLOAD_URL       = $DownloadUrl
     SOOMGO_AUTOMATION_SHA256             = $Sha256
-    SOOMGO_AUTOMATION_RELEASE_NOTES      = "오래된 채팅 정리·탈퇴/상대방 나감 처리·희망일 판정·나가기 팝업 속도 (v$Version)"
+    SOOMGO_AUTOMATION_RELEASE_NOTES      = "이모지/견적조회 마지막 텍스트 미전송 수정 — 긴 본문 전송 확인·이미지 전송 버튼 (v$Version)"
 }
 
 function Set-RailwayVars([string]$Environment) {
     Write-Host "Setting Railway variables ($Environment) ..."
+    $useAccount = Test-RailwayAccountAuth
+    if (-not $useAccount -and -not $env:RAILWAY_TOKEN) {
+        throw "Railway CLI 로그인(npx @railway/cli login) 또는 server/.env 의 RAILWAY_TOKEN / RAILWAY_API_TOKEN 이 필요합니다."
+    }
+    if (-not $useAccount -and $Environment -ne 'production') {
+        Write-Host "  skip: Project Token은 production 만. staging 은 RAILWAY_API_TOKEN 또는 CLI 로그인 필요." -ForegroundColor Yellow
+        return
+    }
+
+    $cliArgs = @('variable', 'set')
+    if ($useAccount) {
+        $env:RAILWAY_TOKEN = $null
+        $cliArgs += @('--environment', $Environment)
+    }
+    $cliArgs += @('--service', $ServiceName)
+
     foreach ($entry in $vars.GetEnumerator()) {
-        npx @railway/cli@latest variables set "$($entry.Key)=$($entry.Value)" --service $ServiceName --environment $Environment
+        & npx @railway/cli@latest @cliArgs "$($entry.Key)=$($entry.Value)"
         if ($LASTEXITCODE -ne 0) { throw "Railway variables set failed ($Environment): $($entry.Key)" }
     }
 }
