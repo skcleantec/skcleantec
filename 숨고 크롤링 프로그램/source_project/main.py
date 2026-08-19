@@ -1391,11 +1391,32 @@ class SoomgoAutomationApp:
 
 
 
+def _write_startup_crash_log(exc: BaseException) -> None:
+    import traceback
+
+    try:
+        from desktop.config import APP_DATA_DIR, ensure_app_data
+
+        ensure_app_data()
+        log_path = APP_DATA_DIR / 'startup.log'
+        log_path.write_text(
+            traceback.format_exc(),
+            encoding='utf-8',
+        )
+    except Exception:
+        pass
+
+
 def main():
     '''메인 함수'''
-    root = tk.Tk()
-    app = SoomgoAutomationApp(root)
-    root.mainloop()
+    try:
+        root = tk.Tk()
+        app = SoomgoAutomationApp(root)
+        root.mainloop()
+    except Exception as exc:
+        _write_startup_crash_log(exc)
+        raise
+
 
 if __name__ == '__main__':
     main()

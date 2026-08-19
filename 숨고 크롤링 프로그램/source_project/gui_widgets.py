@@ -746,13 +746,25 @@ class CombinedSettingsDialog(tk.Toplevel):
         items += self.quote_text_editor.get_text_keys()
         return items
 
+    def _append_missing_texts_to_send_order(self, send_order_frame: 'SendOrderFrame', text_keys: list):
+        """새로 추가된 텍스트를 전송 순서 맨 끝에 자동 반영"""
+        current_order = send_order_frame.get_order()
+        for key in sorted(text_keys, key=_text_sort_key):
+            if key.startswith('텍스트') and key not in current_order:
+                send_order_frame.add_order_item(default_value=key)
+                current_order.append(key)
+
     def on_emoji_texts_changed(self, text_keys: list):
         """이모지 텍스트 변경 시 전송 순서 업데이트"""
-        self.emoji_send_order.update_available_items()
+        if hasattr(self, 'emoji_send_order'):
+            self.emoji_send_order.update_available_items()
+            self._append_missing_texts_to_send_order(self.emoji_send_order, text_keys)
 
     def on_quote_texts_changed(self, text_keys: list):
         """견적조회 텍스트 변경 시 전송 순서 업데이트"""
-        self.quote_send_order.update_available_items()
+        if hasattr(self, 'quote_send_order'):
+            self.quote_send_order.update_available_items()
+            self._append_missing_texts_to_send_order(self.quote_send_order, text_keys)
 
     def load_images_info(self):
         """images 폴더의 이미지 정보 로드"""

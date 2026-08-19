@@ -1,6 +1,6 @@
 ﻿/** @see shared/soomgoAutomation.ts — 클라이언트·문서와 값 동기화 */
 
-const SOOMGO_AUTOMATION_APP_VERSION = '1.0.9';
+const SOOMGO_AUTOMATION_APP_VERSION = '1.0.11';
 
 /** Release ZIP sha256 — Railway 변수 누락·구버전 URL일 때 폴백 */
 const ZIP_SHA256_BY_VERSION: Record<string, string> = {
@@ -10,6 +10,7 @@ const ZIP_SHA256_BY_VERSION: Record<string, string> = {
   '1.0.4': '712187b578899ba8b2860b6c71c1826f81f73a52095c8e37cc21a98f4365013f',
   '1.0.5': 'f4d4a6b9b800df189ab39444daefb52bc0a9486b4bc38b9d7cf10e8e56c539ed',
   '1.0.6': '172db2d5a79241501736fb97fd208204aeb1cdedcd18e49f1bc5d822ccf9dbe8',
+  '1.0.10': 'b0478ad2901ad7866ea05f64297e5ac0eea6b50292add88b2b2dc79f8d44fc05',
 };
 
 export type SoomgoAutomationManifest = {

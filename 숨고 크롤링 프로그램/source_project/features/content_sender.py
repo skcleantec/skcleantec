@@ -165,9 +165,6 @@ def process_send_order(
     try:
         success = True
         for item_name in send_order:
-            if not success and not test_mode:
-                break
-
             if item_name.startswith('이미지폴더'):
                 try:
                     folder_num = int(item_name.replace('이미지폴더', ''))
@@ -200,9 +197,12 @@ def process_send_order(
                 continue
 
             if not chat_room.send_message(text_content):
-                log(f'{item_name} 전송 실패')
+                log(f'{item_name} 전송 실패 ({len(text_content)}자)')
                 success = False
-            time.sleep(1)
+            else:
+                log(f'{item_name} 전송 완료 ({len(text_content)}자)')
+            extra = min(3.0, len(text_content) / 350.0)
+            time.sleep(max(1.0, delay * 0.6) + extra)
 
         return success
     except Exception as e:

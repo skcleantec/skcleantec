@@ -184,13 +184,18 @@ class CombinedFeature:
         time.sleep(self.delay)
         return True
 
+    def _post_send_delay(self, text_content: str = '') -> None:
+        """연속 전송 간 숨고 입력창 안정화 대기"""
+        if text_content:
+            extra = min(3.0, len(text_content) / 350.0)
+            time.sleep(max(1.0, self.delay * 0.6) + extra)
+            return
+        time.sleep(max(0.8, self.delay * 0.5))
+
     def _process_chat_content(self, texts: Dict[str, str], send_order: List[str]) -> bool:
         try:
             success = True
             for item_name in send_order:
-                if not success and not self.test_mode:
-                    break
-
                 if item_name.startswith('이미지폴더'):
                     try:
                         folder_num = int(item_name.replace('이미지폴더', ''))
@@ -217,9 +222,11 @@ class CombinedFeature:
                     continue
 
                 if not self.chat_room.send_message(text_content):
-                    self.log(f'{item_name} 전송 실패')
+                    self.log(f'{item_name} 전송 실패 ({len(text_content)}자)')
                     success = False
-                time.sleep(1)
+                else:
+                    self.log(f'{item_name} 전송 완료 ({len(text_content)}자)', gui=False)
+                self._post_send_delay(text_content)
 
             if self.test_mode:
                 self.log('[테스트] 즐겨찾기 추가 예정')

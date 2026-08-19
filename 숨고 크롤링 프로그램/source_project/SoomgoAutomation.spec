@@ -12,6 +12,7 @@ a = Analysis(
     pathex=[spec_dir],
     binaries=[],
     datas=collect_data_files('selenium')
+    + collect_data_files('tzdata')
     + [
         (
             os.path.join(spec_dir, 'build_bundle_config.json'),
@@ -35,6 +36,8 @@ a = Analysis(
         'desktop.update_manager',
         'desktop.update_progress_ui',
         'version_info',
+        'tzdata',
+        'tzdata.zoneinfo',
         'selenium.webdriver.chrome.webdriver',
         'selenium.webdriver.chrome.service',
         'selenium.webdriver.chrome.options',

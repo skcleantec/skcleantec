@@ -12,8 +12,6 @@ import time
 from typing import List, Optional
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 
 from automation.selectors import URLS
@@ -23,13 +21,37 @@ logger = logging.getLogger(__name__)
 _INPUT_JS = """
 const elem = arguments[0];
 const message = arguments[1];
-if (elem.tagName.toLowerCase() === 'textarea' || elem.tagName.toLowerCase() === 'input') {
+elem.focus();
+const tag = elem.tagName.toLowerCase();
+const isEditable = elem.isContentEditable || elem.getAttribute('contenteditable') === 'true';
+if (tag === 'textarea' || tag === 'input') {
+    elem.value = '';
     elem.value = message;
-} else if (elem.hasAttribute('contenteditable')) {
-    elem.textContent = message;
+} else if (isEditable) {
+    elem.textContent = '';
+    elem.innerHTML = '';
+    if (document.execCommand) {
+        document.execCommand('insertText', false, message);
+    } else {
+        elem.textContent = message;
+    }
 }
-elem.dispatchEvent(new Event('input', { bubbles: true }));
+elem.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: message }));
 elem.dispatchEvent(new Event('change', { bubbles: true }));
+"""
+
+_CLEAR_INPUT_JS = """
+const elem = arguments[0];
+elem.focus();
+const tag = elem.tagName.toLowerCase();
+const isEditable = elem.isContentEditable || elem.getAttribute('contenteditable') === 'true';
+if (tag === 'textarea' || tag === 'input') {
+    elem.value = '';
+} else if (isEditable) {
+    elem.textContent = '';
+    elem.innerHTML = '';
+}
+elem.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }));
 """
 
 _FAVORITE_JS = """
@@ -67,6 +89,18 @@ for (var j = 0; j < allSvgs.length; j++) {
 return { status: 'not_found', message: 'heart button not found' };
 """
 
+_SEND_BUTTON_SELECTORS = [
+    '.btn-submit',
+    'img.btn-submit',
+    "button[type='submit']",
+    "[class*='send']",
+]
+
+
+def _normalize_message_signature(message: str, max_len: int = 40) -> str:
+    compact = re.sub(r'\s+', ' ', (message or '').strip())
+    return compact[:max_len]
+
 
 class ChatRoomManager:
     """채팅방 내 동작 관리 클래스"""
@@ -75,73 +109,138 @@ class ChatRoomManager:
         self.driver = driver
         self.delay = delay
 
-    def send_message(self, message: str) -> bool:
-        """메시지 전송"""
+    def _find_message_input(self):
+        input_selectors = [
+            'textarea',
+            "[contenteditable='true']",
+            "input[placeholder*='메시지']",
+            '.message-input textarea',
+            "div[role='textbox']",
+        ]
+        for selector in input_selectors:
+            try:
+                for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
+                    if elem.is_displayed():
+                        logger.info(f'[메시지 전송] 입력 필드 발견: {selector}')
+                        return elem
+            except Exception as e:
+                logger.debug(f"[메시지 전송] 셀렉터 '{selector}' 검색 실패: {e}")
+        return None
+
+    def _find_send_button(self):
+        for selector in _SEND_BUTTON_SELECTORS:
+            for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
+                if elem.is_displayed():
+                    return elem
+        return None
+
+    def _click_send_button(self) -> bool:
+        send_btn = self._find_send_button()
+        if send_btn:
+            send_btn.click()
+            logger.info('[전송] 전송 버튼 클릭 완료')
+            return True
+        logger.warning('[전송] 전송 버튼 못찾음, Enter 키로 전송 시도')
+        return False
+
+    def _wait_for_outgoing_message(self, message: str, timeout: float = 12.0) -> bool:
+        signature = _normalize_message_signature(message)
+        if not signature:
+            time.sleep(self.delay * 0.5)
+            return True
+
+        before_count = len(self.get_my_sent_messages())
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            messages = self.get_my_sent_messages()
+            if len(messages) > before_count:
+                for recent in messages[-3:]:
+                    if signature in recent or recent.startswith(signature[:20]):
+                        logger.info(f'[메시지 전송] 채팅 반영 확인: {signature[:20]}...')
+                        return True
+            for recent in messages[-3:]:
+                if signature in recent or recent.startswith(signature[:20]):
+                    logger.info(f'[메시지 전송] 채팅 반영 확인: {signature[:20]}...')
+                    return True
+            time.sleep(0.5)
+
+        logger.warning(f'[메시지 전송] 채팅 반영 확인 실패: {signature[:20]}...')
+        return False
+
+    def _wait_for_composer_idle(self, timeout: float = 8.0) -> None:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                pending = self.driver.execute_script("""
+                    const input = document.querySelector(
+                        "textarea, [contenteditable='true'], div[role='textbox']"
+                    );
+                    if (!input) return false;
+                    const text = (input.value || input.textContent || '').trim();
+                    const uploading = !!document.querySelector(
+                        "[class*='upload'], [class*='preview'], [class*='attachment']"
+                    );
+                    return text.length > 0 || uploading;
+                """)
+                if not pending:
+                    return
+            except Exception:
+                return
+            time.sleep(0.4)
+
+    def send_message(self, message: str, max_attempts: int = 2) -> bool:
+        """메시지 전송 (입력·전송·채팅 반영까지 확인)"""
+        if not (message or '').strip():
+            return True
+
         try:
             logger.info(f'[메시지 전송] 현재 URL: {self.driver.current_url}')
-            input_selectors = [
-                'textarea',
-                "[contenteditable='true']",
-                "input[placeholder*='메시지']",
-                '.message-input textarea',
-                "div[role='textbox']",
-            ]
-            input_elem = None
-            for selector in input_selectors:
+            self._wait_for_composer_idle()
+
+            for attempt in range(1, max_attempts + 1):
+                input_elem = self._find_message_input()
+                if not input_elem:
+                    logger.error('[메시지 전송 실패] 입력 필드를 찾을 수 없습니다.')
+                    return False
+
+                input_elem.click()
+                time.sleep(self.delay * 0.3)
                 try:
-                    for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
-                        if elem.is_displayed() and input_elem is None:
-                            input_elem = elem
-                            logger.info(f'[메시지 전송] 입력 필드 발견: {selector}')
-                    if input_elem:
-                        break
-                except Exception as e:
-                    logger.debug(f"[메시지 전송] 셀렉터 '{selector}' 검색 실패: {e}")
+                    input_elem.clear()
+                except Exception:
+                    pass
+                self.driver.execute_script(_CLEAR_INPUT_JS, input_elem)
+                time.sleep(0.2)
+                self.driver.execute_script(_INPUT_JS, input_elem, message)
+                logger.info(
+                    f'[메시지 전송] 메시지 입력 완료 ({len(message)}자, 시도 {attempt}/{max_attempts}): '
+                    f'{message[:30]}...'
+                )
+                time.sleep(self.delay * (0.8 if len(message) > 400 else 0.5))
 
-            if not input_elem:
-                logger.error('[메시지 전송 실패] 입력 필드를 찾을 수 없습니다.')
-                return False
+                if self._click_send_button():
+                    pass
+                else:
+                    input_elem.send_keys(Keys.RETURN)
 
-            input_elem.click()
-            time.sleep(self.delay * 0.3)
-            try:
-                input_elem.clear()
-            except Exception:
-                pass
-            self.driver.execute_script(_INPUT_JS, input_elem, message)
-            logger.info(f'[메시지 전송] 메시지 입력 완료: {message[:30]}...')
-            time.sleep(self.delay * 0.5)
+                wait_timeout = max(8.0, min(20.0, 6.0 + len(message) / 120.0))
+                if self._wait_for_outgoing_message(message, timeout=wait_timeout):
+                    time.sleep(max(0.8, self.delay * 0.4))
+                    return True
 
-            send_selectors = [
-                '.btn-submit',
-                'img.btn-submit',
-                "button[type='submit']",
-                "[class*='send']",
-            ]
-            send_btn = None
-            for selector in send_selectors:
-                for elem in self.driver.find_elements(By.CSS_SELECTOR, selector):
-                    if elem.is_displayed() and send_btn is None:
-                        send_btn = elem
-                if send_btn:
-                    break
+                logger.warning(
+                    f'[메시지 전송] 반영 확인 실패 — 재시도 ({attempt}/{max_attempts})'
+                )
+                time.sleep(self.delay)
 
-            if send_btn:
-                send_btn.click()
-                logger.info('[메시지 전송] 전송 버튼 클릭 완료')
-            else:
-                logger.warning('[메시지 전송] 전송 버튼 못찾음, Enter 키로 전송 시도')
-                input_elem.send_keys(Keys.RETURN)
-
-            time.sleep(self.delay)
-            logger.info(f'[메시지 전송] 완료: {message[:30]}...')
-            return True
+            logger.error('[메시지 전송 실패] 전송 후 채팅에 메시지가 보이지 않습니다.')
+            return False
         except Exception as e:
             logger.error(f'[메시지 전송 실패] 예외 발생: {type(e).__name__}: {e}')
             return False
 
     def upload_images(self, image_paths: List[str]) -> bool:
-        """이미지 업로드"""
+        """이미지 업로드 후 전송 버튼까지 클릭"""
         try:
             logger.info(f'[이미지 업로드] 시작: {len(image_paths)}개 파일')
             valid_paths = [
@@ -189,9 +288,30 @@ class ChatRoomManager:
                 logger.error('[이미지 업로드 실패] 파일 입력 필드를 찾을 수 없습니다.')
                 return False
 
+            before_count = len(self.get_my_sent_messages())
             file_input.send_keys('\n'.join(valid_paths))
-            time.sleep(self.delay * 2)
-            logger.info(f'[이미지 업로드] 완료: {len(valid_paths)}개')
+            time.sleep(self.delay * 1.5)
+
+            if not self._click_send_button():
+                input_elem = self._find_message_input()
+                if input_elem:
+                    input_elem.send_keys(Keys.RETURN)
+
+            deadline = time.time() + max(12.0, self.delay * 6)
+            while time.time() < deadline:
+                self._wait_for_composer_idle(timeout=1.0)
+                if len(self.get_my_sent_messages()) > before_count:
+                    logger.info(f'[이미지 업로드] 전송 완료: {len(valid_paths)}개')
+                    time.sleep(self.delay * 0.5)
+                    return True
+                if not self._find_send_button():
+                    logger.info(f'[이미지 업로드] 전송 완료(버튼 없음): {len(valid_paths)}개')
+                    time.sleep(self.delay * 0.5)
+                    return True
+                time.sleep(0.5)
+
+            logger.warning('[이미지 업로드] 전송 확인은 못했지만 업로드는 시도됨')
+            time.sleep(self.delay)
             return True
         except Exception as e:
             logger.error(f'[이미지 업로드 실패] 예외 발생: {type(e).__name__}: {e}')
