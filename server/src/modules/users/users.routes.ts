@@ -24,7 +24,7 @@ import {
 } from '../staff-id-card/staffIdCard.service.js';
 import {
   dateToYmdKst,
-  filterByEmploymentStatus,
+  filterByManagementEmploymentStatus,
   isUserEmployedOnYmd,
   kstTodayYmd,
   parseYmdToUtcDate,
@@ -281,7 +281,7 @@ router.get('/', staffMarketerRoleOnly, async (req, res) => {
 
   let out = users;
   if (management) {
-    out = filterByEmploymentStatus(users, employmentStatus, kstTodayYmd());
+    out = filterByManagementEmploymentStatus(users, employmentStatus, kstTodayYmd());
   } else {
     out = users.filter((u) => isUserEmployedOnYmd(u.hireDate, u.resignationDate, employedOn));
   }
@@ -447,6 +447,7 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
     operatingCompanyIds?: unknown;
     primaryOperatingCompanyId?: unknown;
     serviceZoneIds?: unknown;
+    hireDate?: string | null;
   };
   const { email, password, name, phone, role } = body;
   if (!email || !password || !name) {
@@ -606,6 +607,25 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
+
+  let hireDateForCreate: Date | null | undefined;
+  if (body.hireDate !== undefined) {
+    if (!isTenantOwnerAdmin(authUser)) {
+      res.status(403).json({ error: '입사일은 최고 관리자만 설정할 수 있습니다.' });
+      return;
+    }
+    if (body.hireDate === null || String(body.hireDate).trim() === '') {
+      hireDateForCreate = null;
+    } else {
+      const d = parseYmdToUtcDate(String(body.hireDate).trim());
+      if (!d) {
+        res.status(400).json({ error: '입사일은 YYYY-MM-DD 형식이어야 합니다.' });
+        return;
+      }
+      hireDateForCreate = d;
+    }
+  }
+
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
       data: {
@@ -615,6 +635,7 @@ router.post('/', requireStaffPermission('admin.users'), async (req, res) => {
         name: trimmedName,
         phone: phone || null,
         role: userRole,
+        ...(hireDateForCreate !== undefined ? { hireDate: hireDateForCreate } : {}),
         ...(payrollMonthlySalary !== undefined ? { payrollMonthlySalary } : {}),
         ...(payrollPayDay !== undefined ? { payrollPayDay } : {}),
         ...(userRole === 'TEAM_LEADER' && teamLeaderGeneralSettlementMode !== undefined

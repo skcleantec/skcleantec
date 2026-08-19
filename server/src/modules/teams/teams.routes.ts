@@ -16,7 +16,7 @@ import {
   poolMemberInTenantWhere,
 } from '../inquiries/crewMemberCapacity.helpers.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
-import { dateToYmdKst, employmentOverlapsMonthKst, filterByEmploymentStatus, isUserEmployedOnYmd, kstTodayYmd, parseYmdToUtcDate, serializeUserDates, type EmploymentStatusFilter } from '../users/userEmployment.js';
+import { dateToYmdKst, employmentOverlapsMonthKst, filterByEmploymentStatus, filterByManagementEmploymentStatus, isUserEmployedOnYmd, kstTodayYmd, parseYmdToUtcDate, serializeUserDates, type EmploymentStatusFilter } from '../users/userEmployment.js';
 import {
   countMatchedWorkUnits,
   payrollCycleBoundsKst,
@@ -128,7 +128,10 @@ router.get('/members', requireStaffPermission('inquiry.edit.assignment'), async 
     const todayYmd = kstTodayYmd();
     /** 예약일 배정 풀 — 재직·가용 모두 동일 YMD 기준(getAvailableFieldStaffMemberIdsOnDate와 맞춤) */
     const employmentOnYmd = preferredDate ?? todayYmd;
-    const filteredMembers = filterByEmploymentStatus(members, employmentStatus, employmentOnYmd);
+    const filteredMembers =
+      !preferredDate && employmentStatus !== 'all'
+        ? filterByManagementEmploymentStatus(members, employmentStatus, todayYmd)
+        : filterByEmploymentStatus(members, employmentStatus, employmentOnYmd);
 
     type CycleCache = {
       startYmd: string;

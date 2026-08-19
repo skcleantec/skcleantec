@@ -4,12 +4,14 @@ import type {
   SoomgoBridgeManifest,
   SoomgoChatTranscript,
   SoomgoChatTranscriptStatus,
+  SoomgoStaleChatScanResult,
 } from '@shared/soomgoBridge';
 import {
   SOOMGO_BRIDGE_BASE_URL,
   SOOMGO_BRIDGE_SEQUENCE_MIN_VERSION,
   SOOMGO_BRIDGE_CHAT_ALERTS_MIN_VERSION,
   SOOMGO_BRIDGE_AI_TRANSCRIPT_MIN_VERSION,
+  SOOMGO_BRIDGE_STALE_LEAVE_MIN_VERSION,
   compareSoomgoSemver,
   isSoomgoAppOutdated,
   isSoomgoAppUpdateAvailable,
@@ -21,12 +23,13 @@ import {
 import type { SoomgoMessageStep } from '@shared/soomgoMessagePresets';
 import type { SoomgoSplitScreenBounds } from '../utils/crmSoomgoSplitLayout';
 
-export type SoomgoBusyAction = 'open' | 'extract' | 'call';
+export type SoomgoBusyAction = 'open' | 'extract' | 'call' | 'stale-cleanup';
 
 export const SOOMGO_BUSY_LABELS: Record<SoomgoBusyAction, string> = {
   open: '숨고 연결 중…',
   extract: '숨고 정보 가져오는 중…',
   call: '숨고 안심번호 가져오는 중…',
+  'stale-cleanup': '오래된 채팅 정리 중…',
 };
 
 export const SOOMGO_BRIDGE_NOT_RUNNING_MESSAGE =
@@ -547,5 +550,31 @@ export async function requestSoomgoBridgeRestart(mode: 'bridge' | 'desktop' = 'b
   await bridgeFetch<{ ok: boolean }>('/restart-bridge', {
     method: 'POST',
     body: JSON.stringify({ mode }),
+  });
+}
+
+export const SOOMGO_BRIDGE_STALE_LEAVE_OUTDATED_MESSAGE =
+  '숨고 연동 v2.2.49 이상이 필요합니다. 설정에서 프로그램을 업데이트한 뒤 「오래된 채팅 정리」를 사용해 주세요.';
+
+export function isSoomgoBridgeStaleLeaveSupported(status: SoomgoBridgeStatus | null | undefined): boolean {
+  const current = status?.appVersion?.trim();
+  if (!current) return false;
+  return compareSoomgoSemver(current, SOOMGO_BRIDGE_STALE_LEAVE_MIN_VERSION) >= 0;
+}
+
+export async function scanSoomgoStaleChats(options?: {
+  dryRun?: boolean;
+  execute?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<SoomgoStaleChatScanResult> {
+  return bridgeFetch<SoomgoStaleChatScanResult>('/scan-stale-chats', {
+    method: 'POST',
+    body: JSON.stringify({
+      dryRun: options?.dryRun ?? !options?.execute,
+      execute: options?.execute === true,
+      limit: options?.limit,
+      offset: options?.offset ?? 0,
+    }),
   });
 }

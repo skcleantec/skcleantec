@@ -33,7 +33,7 @@ from automation.login import (
 )
 from automation.overlay_modals import dismiss_blocking_overlays
 from automation.selectors import URLS
-from automation.sequence_sender import run_send_sequence
+from automation.stale_chat_cleanup import leave_current_if_stale, scan_stale_chats
 from automation.http_download import download_bytes
 from automation.chat_list_search import open_chat_room_by_nickname
 from automation.navigation import (
@@ -87,7 +87,9 @@ _chat_watch_stop = threading.Event()
 _chat_watch_thread: threading.Thread | None = None
 _chat_watcher = ChatListWatcher()
 _extract_in_progress = False
+_stale_cleanup_in_progress = False
 _EXTRACT_BUSY_MESSAGE = '숨고 정보를 가져오는 중입니다. 완료 후 다시 시도해 주세요.'
+_STALE_CLEANUP_BUSY_MESSAGE = '오래된 채팅 정리가 진행 중입니다. 완료 후 다시 시도해 주세요.'
 _status_nickname_cache: str | None = None
 _login_in_progress = threading.Event()
 
@@ -331,6 +333,31 @@ def _reject_extract_if_busy(handler: BaseHTTPRequestHandler) -> bool:
             'code': 'extract_in_progress',
         })
         return True
+    if _stale_cleanup_in_progress:
+        _json_response(handler, 409, {
+            'ok': False,
+            'error': _STALE_CLEANUP_BUSY_MESSAGE,
+            'code': 'stale_cleanup_in_progress',
+        })
+        return True
+    return False
+
+
+def _reject_stale_cleanup_if_busy(handler: BaseHTTPRequestHandler) -> bool:
+    if _stale_cleanup_in_progress:
+        _json_response(handler, 409, {
+            'ok': False,
+            'error': _STALE_CLEANUP_BUSY_MESSAGE,
+            'code': 'stale_cleanup_in_progress',
+        })
+        return True
+    if _extract_in_progress:
+        _json_response(handler, 409, {
+            'ok': False,
+            'error': _EXTRACT_BUSY_MESSAGE,
+            'code': 'extract_in_progress',
+        })
+        return True
     return False
 
 
@@ -434,6 +461,7 @@ def _status_payload(*, lite: bool = False) -> dict[str, Any]:
             else []
         ),
         'extractInProgress': _extract_in_progress,
+        'staleCleanupInProgress': _stale_cleanup_in_progress,
         'lastError': _last_error,
         'port': PORT,
         'appVersion': os.environ.get('SOOMGO_APP_VERSION', APP_VERSION),
@@ -924,6 +952,92 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     })
                     return
                 _json_response(self, 200, {'ok': True, 'phone': phone, **_status_payload()})
+                return
+
+            if path == '/evaluate-stale-chat':
+                if _reject_stale_cleanup_if_busy(self):
+                    return
+                if not _sync_logged_in_from_browser():
+                    _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
+                    return
+                room = ChatRoomManager(driver)
+                if not room.is_in_chat_room():
+                    _json_response(self, 400, {
+                        'ok': False,
+                        'error': '숨고 Chrome 창에서 채팅방을 연 뒤 다시 시도해 주세요.',
+                    })
+                    return
+                global _stale_cleanup_in_progress
+                _stale_cleanup_in_progress = True
+                try:
+                    result = leave_current_if_stale(driver, dry_run=True)
+                finally:
+                    _stale_cleanup_in_progress = False
+                status = 200 if result.get('ok') is not False else 400
+                _json_response(self, status, result)
+                return
+
+            if path == '/leave-stale-chat':
+                if _reject_stale_cleanup_if_busy(self):
+                    return
+                if not _sync_logged_in_from_browser():
+                    _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
+                    return
+                room = ChatRoomManager(driver)
+                if not room.is_in_chat_room():
+                    _json_response(self, 400, {
+                        'ok': False,
+                        'error': '숨고 Chrome 창에서 채팅방을 연 뒤 다시 시도해 주세요.',
+                    })
+                    return
+                dry_run = body.get('dryRun') is not False and body.get('dry_run') is not False
+                global _stale_cleanup_in_progress
+                _stale_cleanup_in_progress = True
+                try:
+                    result = leave_current_if_stale(driver, dry_run=dry_run)
+                finally:
+                    _stale_cleanup_in_progress = False
+                status = 200 if result.get('ok') is not False else 400
+                _json_response(self, status, result)
+                return
+
+            if path == '/scan-stale-chats':
+                if _reject_stale_cleanup_if_busy(self):
+                    return
+                if not _sync_logged_in_from_browser():
+                    _json_response(self, 401, {'ok': False, 'error': '먼저 숨고 로그인을 해 주세요.'})
+                    return
+                dry_run = body.get('dryRun') is not False and body.get('dry_run') is not False
+                if body.get('execute') is True or body.get('execute') == '1':
+                    dry_run = False
+                limit_raw = body.get('limit')
+                limit: int | None
+                try:
+                    limit = int(limit_raw) if limit_raw is not None else None
+                except (TypeError, ValueError):
+                    limit = None
+                offset_raw = body.get('offset', 0)
+                try:
+                    offset = int(offset_raw)
+                except (TypeError, ValueError):
+                    offset = 0
+                global _stale_cleanup_in_progress
+                _stale_cleanup_in_progress = True
+                try:
+                    result = scan_stale_chats(
+                        driver,
+                        dry_run=dry_run,
+                        limit=limit,
+                        offset=max(0, offset),
+                    )
+                except Exception as e:
+                    logger.exception('scan-stale-chats failed')
+                    _json_response(self, 500, {'ok': False, 'error': str(e) or 'scan-stale-chats failed'})
+                    return
+                finally:
+                    _stale_cleanup_in_progress = False
+                status = 200 if result.get('ok') else 400
+                _json_response(self, status, result)
                 return
 
             if path == '/request-update':

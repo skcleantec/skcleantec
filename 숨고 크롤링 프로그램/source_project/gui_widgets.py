@@ -101,7 +101,7 @@ class TextEditorFrame(ttk.Frame):
         self.on_select_change()
 
         if self.on_texts_changed:
-            self.on_texts_changed(list(self.texts.keys()))
+            self.on_texts_changed('add', new_key)
 
     def delete_text(self):
         """현재 선택된 텍스트 삭제 (최소 1개는 유지)"""
@@ -111,6 +111,7 @@ class TextEditorFrame(ttk.Frame):
             )
             return
 
+        deleted_key = self.current_key
         del self.texts[self.current_key]
         self.update_combo()
 
@@ -121,7 +122,7 @@ class TextEditorFrame(ttk.Frame):
         self.text_widget.insert('1.0', self.texts.get(first_key, ''))
 
         if self.on_texts_changed:
-            self.on_texts_changed(list(self.texts.keys()))
+            self.on_texts_changed('delete', deleted_key)
 
     def update_combo(self):
         """드롭다운 목록 업데이트"""
@@ -277,13 +278,38 @@ class SendOrderFrame(ttk.Frame):
             label.config(text=f'{i + 1}.')
 
     def update_available_items(self):
-        """드롭다운 선택지 업데이트"""
+        """드롭다운 선택지 업데이트 (기존 선택 유지, 삭제된 텍스트만 비움)"""
         items = self.get_available_items()
         for frame, combo, var, label in self.order_rows:
             current = var.get()
             combo['values'] = items
-            if current not in items and items:
-                var.set(items[0])
+            if current and current not in items:
+                var.set('')
+
+    def append_item_if_absent(self, item: str) -> None:
+        """전송 순서 맨 끝에 항목 1개만 추가 (이미 있으면 유지)"""
+        if not item or item in self.get_order():
+            return
+        self.add_order_item(default_value=item)
+
+    def remove_items_with_value(self, value: str) -> None:
+        """삭제된 텍스트 키와 연결된 순서 행 제거"""
+        if not value:
+            return
+        targets = [
+            frame
+            for frame, combo, var, label in self.order_rows
+            if var.get() == value
+        ]
+        for frame in targets:
+            if len(self.order_rows) <= 1:
+                for f, combo, var, label in self.order_rows:
+                    if f is frame:
+                        var.set('')
+                        combo['values'] = self.get_available_items()
+                        break
+                break
+            self.delete_order_item(frame)
 
     def get_order(self) -> list:
         """['이미지폴더1', '텍스트1', ...] 반환"""
@@ -316,6 +342,15 @@ class SendOrderFrame(ttk.Frame):
         for item in available:
             self.add_order_item(default_value=item)
         self._refresh_scroll()
+
+
+def sync_send_order_on_text_change(send_order_frame: 'SendOrderFrame', action: str, key: str):
+    """텍스트 추가/삭제 시 전송 순서 — 새 항목만 맨 끝 추가, 삭제 시 해당 행만 제거"""
+    send_order_frame.update_available_items()
+    if action == 'add':
+        send_order_frame.append_item_if_absent(key)
+    elif action == 'delete':
+        send_order_frame.remove_items_with_value(key)
 
 
 class RecontactSettingsDialog(tk.Toplevel):
@@ -362,11 +397,13 @@ class RecontactSettingsDialog(tk.Toplevel):
         items += self.hired_other_text_editor.get_text_keys()
         return items
 
-    def on_general_texts_changed(self, text_keys: list):
-        self.general_send_order.update_available_items()
+    def on_general_texts_changed(self, action: str, key: str):
+        if hasattr(self, 'general_send_order'):
+            sync_send_order_on_text_change(self.general_send_order, action, key)
 
-    def on_hired_other_texts_changed(self, text_keys: list):
-        self.hired_other_send_order.update_available_items()
+    def on_hired_other_texts_changed(self, action: str, key: str):
+        if hasattr(self, 'hired_other_send_order'):
+            sync_send_order_on_text_change(self.hired_other_send_order, action, key)
 
     def load_images_info(self):
         info_parts = []
@@ -746,25 +783,15 @@ class CombinedSettingsDialog(tk.Toplevel):
         items += self.quote_text_editor.get_text_keys()
         return items
 
-    def _append_missing_texts_to_send_order(self, send_order_frame: 'SendOrderFrame', text_keys: list):
-        """새로 추가된 텍스트를 전송 순서 맨 끝에 자동 반영"""
-        current_order = send_order_frame.get_order()
-        for key in sorted(text_keys, key=_text_sort_key):
-            if key.startswith('텍스트') and key not in current_order:
-                send_order_frame.add_order_item(default_value=key)
-                current_order.append(key)
-
-    def on_emoji_texts_changed(self, text_keys: list):
-        """이모지 텍스트 변경 시 전송 순서 업데이트"""
+    def on_emoji_texts_changed(self, action: str, key: str):
+        """이모지 텍스트 추가/삭제 시 — 전송 순서는 해당 항목만 반영"""
         if hasattr(self, 'emoji_send_order'):
-            self.emoji_send_order.update_available_items()
-            self._append_missing_texts_to_send_order(self.emoji_send_order, text_keys)
+            sync_send_order_on_text_change(self.emoji_send_order, action, key)
 
-    def on_quote_texts_changed(self, text_keys: list):
-        """견적조회 텍스트 변경 시 전송 순서 업데이트"""
+    def on_quote_texts_changed(self, action: str, key: str):
+        """견적조회 텍스트 추가/삭제 시 — 전송 순서는 해당 항목만 반영"""
         if hasattr(self, 'quote_send_order'):
-            self.quote_send_order.update_available_items()
-            self._append_missing_texts_to_send_order(self.quote_send_order, text_keys)
+            sync_send_order_on_text_change(self.quote_send_order, action, key)
 
     def load_images_info(self):
         """images 폴더의 이미지 정보 로드"""

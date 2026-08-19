@@ -5,10 +5,17 @@ import re
 import time
 from typing import Callable, Dict, List, Optional
 
-from automation.chat_room import ChatRoomManager
+from automation.chat_room import ChatRoomManager, _should_use_cdp_input
 from automation.selectors import SYSTEM_MESSAGES
 
 IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp')
+SEND_ORDER_MAX_ATTEMPTS = 3
+
+
+def normalize_message_for_send(text: str) -> str:
+    """숨고 입력창용 — 마크다운 볼드(**) 등은 표시되지 않으므로 제거"""
+    cleaned = re.sub(r'\*\*([^*]+)\*\*', r'\1', text or '')
+    return cleaned.strip()
 
 
 def normalize_hired_me_marker(text: str) -> str:
@@ -44,7 +51,6 @@ def contains_hired_other(*texts: str, marker: str = None) -> bool:
         normalized_text = normalize_hired_me_marker(text)
         if normalized_marker in normalized_text:
             return True
-        # UI 변형: "다른 고수를 고용함" / "다른고수고용" 등
         if '다른고수' in normalized_text and '고용' in normalized_text:
             return True
     return False
@@ -152,6 +158,38 @@ def has_sendable_content(
     return False
 
 
+def get_last_send_order_text(
+    texts: Dict[str, str], send_order: List[str]
+) -> Optional[tuple[str, str]]:
+    for item_name in reversed(send_order):
+        if not item_name.startswith('텍스트'):
+            continue
+        text_content = texts.get(item_name, '').strip()
+        if text_content:
+            return item_name, text_content
+    return None
+
+
+def _send_order_text(
+    chat_room: ChatRoomManager,
+    item_name: str,
+    send_body: str,
+    log: Callable[[str], None],
+) -> bool:
+    """짧은 글: send_message / 긴·다줄: CDP 순차 전송 우선"""
+    log(f'{item_name} 전송 시도 ({len(send_body)}자)...')
+
+    if _should_use_cdp_input(send_body):
+        log(f'{item_name} CDP 입력 방식 ({send_body.count(chr(10)) + 1}줄)')
+        if chat_room.send_message_sequential(
+            send_body, max_attempts=SEND_ORDER_MAX_ATTEMPTS
+        ):
+            return True
+        log(f'{item_name} CDP 순차 전송 실패 — 일반 방식 재시도')
+
+    return chat_room.send_message(send_body, max_attempts=SEND_ORDER_MAX_ATTEMPTS)
+
+
 def process_send_order(
     chat_room: ChatRoomManager,
     texts: Dict[str, str],
@@ -189,19 +227,26 @@ def process_send_order(
 
             text_content = texts.get(item_name, '').strip()
             if not text_content:
+                log(f'{item_name} 내용 없음 — 건너뜀')
                 continue
 
+            send_body = normalize_message_for_send(text_content)
             if test_mode:
-                preview = text_content[:30] + '...' if len(text_content) > 30 else text_content
+                preview = send_body[:30] + '...' if len(send_body) > 30 else send_body
                 log(f'[테스트] {item_name} 전송 예정: "{preview}"')
                 continue
 
-            if not chat_room.send_message(text_content):
-                log(f'{item_name} 전송 실패 ({len(text_content)}자)')
+            sent_ok = _send_order_text(chat_room, item_name, send_body, log)
+            if not sent_ok:
+                log(
+                    f'{item_name} 전송 실패 ({len(send_body)}자, '
+                    f'최대 {SEND_ORDER_MAX_ATTEMPTS}회 시도)'
+                )
                 success = False
             else:
-                log(f'{item_name} 전송 완료 ({len(text_content)}자)')
-            extra = min(3.0, len(text_content) / 350.0)
+                log(f'{item_name} 전송 완료 ({len(send_body)}자)')
+
+            extra = min(3.0, len(send_body) / 350.0)
             time.sleep(max(1.0, delay * 0.6) + extra)
 
         return success

@@ -309,7 +309,7 @@ export function useCrmSoomgoBridge({
     const poll = async () => {
       if (cancelled) return;
       const busy = busyActionRef.current;
-      if (busy === 'extract' || busy === 'call' || busy === 'open') {
+      if (busy === 'extract' || busy === 'call' || busy === 'open' || busy === 'stale-cleanup') {
         timer = window.setTimeout(poll, 6000);
         return;
       }

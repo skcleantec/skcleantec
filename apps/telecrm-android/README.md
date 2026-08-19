@@ -50,6 +50,8 @@ Android Studio → `apps/telecrm-android` → Run ▶
 
 Play Store 없이 **설치 페이지 + GitHub Releases APK + Railway 매니페스트**로 배포합니다.
 
+**Google Play 등록:** `docs/GOOGLE_PLAY_TELECRM.md` · AAB 빌드 `scripts/build-play-bundle.ps1`
+
 ### 상담사 배포 (항상 이 방식)
 
 **고정 설치 페이지** — 주소는 바뀌지 않으며, 매니페스트가 가리키는 **최신 APK**만 갱신됩니다.

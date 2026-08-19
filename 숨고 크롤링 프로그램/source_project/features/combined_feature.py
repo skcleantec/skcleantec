@@ -20,6 +20,7 @@ from urllib3.exceptions import ReadTimeoutError, MaxRetryError, ProtocolError, N
 from automation.chat_list import ChatListManager
 from automation.chat_room import ChatRoomManager
 from automation.processed_tracker import ProcessedTracker
+from features.content_sender import process_send_order
 from automation.selectors import URLS, SYSTEM_MESSAGES
 
 logger = logging.getLogger(__name__)
@@ -194,39 +195,25 @@ class CombinedFeature:
 
     def _process_chat_content(self, texts: Dict[str, str], send_order: List[str]) -> bool:
         try:
-            success = True
-            for item_name in send_order:
-                if item_name.startswith('이미지폴더'):
-                    try:
-                        folder_num = int(item_name.replace('이미지폴더', ''))
-                    except ValueError:
-                        self.log(f'잘못된 이미지 폴더 이름: {item_name}')
-                        continue
-                    imgs = self._get_folder_images(folder_num)
-                    if self.test_mode:
-                        self.log(f'[테스트] {item_name} 전송 예정: {len(imgs)}장')
-                    elif imgs and not self._send_folder_images(folder_num):
-                        success = False
-                    continue
-
-                if not item_name.startswith('텍스트'):
-                    continue
-
-                text_content = texts.get(item_name, '').strip()
-                if not text_content:
-                    continue
-
-                if self.test_mode:
-                    preview = text_content[:30] + '...' if len(text_content) > 30 else text_content
-                    self.log(f'[테스트] {item_name} 전송 예정: "{preview}"')
-                    continue
-
-                if not self.chat_room.send_message(text_content):
-                    self.log(f'{item_name} 전송 실패 ({len(text_content)}자)')
-                    success = False
-                else:
-                    self.log(f'{item_name} 전송 완료 ({len(text_content)}자)', gui=False)
-                self._post_send_delay(text_content)
+            success = process_send_order(
+                self.chat_room,
+                texts,
+                send_order,
+                self.images_folder,
+                self.delay,
+                lambda msg: self.log(
+                    msg,
+                    gui=(
+                        '전송 시도' in msg
+                        or '전송 실패' in msg
+                        or '건너뜀' in msg
+                        or '마지막 점검' in msg
+                        or '업로드 실패' in msg
+                        or ('전송 완료' not in msg)
+                    ),
+                ),
+                test_mode=self.test_mode,
+            )
 
             if self.test_mode:
                 self.log('[테스트] 즐겨찾기 추가 예정')

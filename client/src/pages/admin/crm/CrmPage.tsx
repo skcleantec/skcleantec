@@ -22,12 +22,13 @@ import { CrmHeaderStats } from '../../../components/crm/session/CrmHeaderStats';
 import { CrmToolSideNav, CrmIconMessage } from '../../../components/crm/layout/CrmToolSideNav';
 import { CrmSmsDrawer } from '../../../components/crm/sms/CrmSmsDrawer';
 import { CrmSoomgoDrawer } from '../../../components/crm/soomgo/CrmSoomgoDrawer';
+import { CrmSoomgoStaleCleanupModal } from '../../../components/crm/soomgo/CrmSoomgoStaleCleanupModal';
 import { CrmSoomgoAlertDrawer, CrmIconBell } from '../../../components/crm/soomgo/CrmSoomgoAlertDrawer';
 import { CrmSoomgoTopBar } from '../../../components/crm/soomgo/CrmSoomgoTopBar';
 import { CrmSoomgoUpdateStrip } from '../../../components/crm/soomgo/CrmSoomgoUpdateStrip';
 import { CrmMisoTopBar } from '../../../components/crm/miso/CrmMisoTopBar';
 import { CrmMisoDrawer } from '../../../components/crm/miso/CrmMisoDrawer';
-import { CrmIconPhone, CrmIconMiso, CrmIconSoomgo } from '../../../components/crm/crmUi';
+import { CrmIconPhone, CrmIconMiso, CrmIconSoomgo, CrmIconReset } from '../../../components/crm/crmUi';
 import { PageTitleWithFavorite } from '../../../components/layout/NavFavoritePageTitle';
 import type { SoomgoExtractedChat, SoomgoBridgeManifest, SoomgoChatAlert, SoomgoChatListSnapshotRow } from '@shared/soomgoBridge';
 import { useCrmSoomgoBridge } from '../../../hooks/useCrmSoomgoBridge';
@@ -241,6 +242,8 @@ export function CrmPage() {
   const [soomgoDrawerOpen, setSoomgoDrawerOpen] = useState(false);
   const [misoDrawerOpen, setMisoDrawerOpen] = useState(false);
   const [soomgoAlertDrawerOpen, setSoomgoAlertDrawerOpen] = useState(false);
+  const [soomgoStaleCleanupOpen, setSoomgoStaleCleanupOpen] = useState(false);
+  const [soomgoStaleCleanupRunning, setSoomgoStaleCleanupRunning] = useState(false);
   const [soomgoInboxItems, setSoomgoInboxItems] = useState<CrmSoomgoInboxItem[]>([]);
   const [soomgoInboxRefreshing, setSoomgoInboxRefreshing] = useState(false);
   const [soomgoInboxDismissals, setSoomgoInboxDismissals] = useState<
@@ -819,6 +822,11 @@ export function CrmPage() {
     requestBridgeUpdate,
     updateBusy: soomgoUpdateBusy,
   } = soomgoBridge;
+
+  const soomgoPanelBusy = soomgoBusy || soomgoStaleCleanupRunning;
+  const soomgoPanelBusyLabel = soomgoStaleCleanupRunning
+    ? '오래된 채팅 정리 중…'
+    : soomgoBusyLabel;
 
   const misoBridge = useCrmMisoBridge({
     misoBarOpen,
@@ -1523,8 +1531,8 @@ export function CrmPage() {
                 status={soomgoStatus}
                 preview={soomgoPreview}
                 bridgeUp={soomgoBridgeUp}
-                busy={soomgoBusy}
-                busyLabel={soomgoBusyLabel}
+                busy={soomgoPanelBusy}
+                busyLabel={soomgoPanelBusyLabel}
                 error={soomgoError}
                 onOpenSoomgo={() => void openSoomgo()}
                 onRefresh={() => {
@@ -1701,7 +1709,7 @@ export function CrmPage() {
                     label: '문자 발송',
                     icon: <CrmIconMessage />,
                     active: smsDrawerOpen,
-                    disabled: soomgoBusy,
+                    disabled: soomgoPanelBusy,
                     onClick: () => setSmsDrawerOpen(true),
                   },
                   ...(misoPlatformEnabled && misoBarOpen
@@ -1725,7 +1733,7 @@ export function CrmPage() {
                           icon: misoBarOpen && !soomgoBarOpen ? <CrmIconMiso /> : <CrmIconSoomgo />,
                           active: false,
                           loading: bridgeExtractBusy,
-                          disabled: (misoBusy || soomgoBusy) && !bridgeExtractBusy,
+                          disabled: (misoBusy || soomgoPanelBusy) && !bridgeExtractBusy,
                           onClick: () => void extractFromBridge(),
                         },
                       ]
@@ -1738,7 +1746,7 @@ export function CrmPage() {
                           icon: <CrmIconPhone />,
                           active: false,
                           loading: soomgoBusyAction === 'call',
-                          disabled: soomgoBusy && soomgoBusyAction !== 'call',
+                          disabled: soomgoPanelBusy && soomgoBusyAction !== 'call',
                           onClick: () => void callFromChat(),
                         },
                         {
@@ -1747,7 +1755,7 @@ export function CrmPage() {
                           icon: <CrmIconBell className="h-[18px] w-[18px]" />,
                           active: soomgoAlertDrawerOpen,
                           badgeCount: soomgoInboxPendingCountValue,
-                          disabled: soomgoBusy,
+                          disabled: soomgoPanelBusy,
                           onClick: () => setSoomgoAlertDrawerOpen(true),
                         },
                         {
@@ -1755,8 +1763,16 @@ export function CrmPage() {
                           label: '숨고 메시지',
                           icon: <CrmIconMessage />,
                           active: soomgoDrawerOpen,
-                          disabled: soomgoBusy,
+                          disabled: soomgoPanelBusy,
                           onClick: () => setSoomgoDrawerOpen(true),
+                        },
+                        {
+                          id: 'soomgo-stale-cleanup',
+                          label: '채팅 정리',
+                          icon: <CrmIconReset className="h-[18px] w-[18px]" />,
+                          active: soomgoStaleCleanupOpen,
+                          disabled: soomgoPanelBusy && !soomgoStaleCleanupRunning,
+                          onClick: () => setSoomgoStaleCleanupOpen(true),
                         },
                       ]
                     : []),
@@ -1985,6 +2001,14 @@ export function CrmPage() {
                         }
                       : undefined
                   }
+                />
+                <CrmSoomgoStaleCleanupModal
+                  open={soomgoStaleCleanupOpen}
+                  onClose={() => setSoomgoStaleCleanupOpen(false)}
+                  status={soomgoStatus}
+                  busy={soomgoPanelBusy}
+                  onStart={() => setSoomgoStaleCleanupRunning(true)}
+                  onFinish={() => setSoomgoStaleCleanupRunning(false)}
                 />
               </>
             ) : null}

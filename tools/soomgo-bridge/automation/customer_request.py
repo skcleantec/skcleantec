@@ -57,6 +57,39 @@ def parse_preferred_date_from_request_texts(texts: list[str]) -> str | None:
     return None
 
 
+def pick_preferred_date_raw_from_request(data: dict[str, Any]) -> str | None:
+    """고객요청 모달 — 희망일 원문 (ISO·한글·협의 문구 포함)."""
+    pref = data.get('preferredDate')
+    if isinstance(pref, str) and pref.strip():
+        return pref.strip()
+    pairs = data.get('requestPairs') or []
+    if isinstance(pairs, list):
+        for item in pairs:
+            if not isinstance(item, dict):
+                continue
+            q = str(item.get('question', '')).strip()
+            a = str(item.get('answer', '')).strip()
+            if not q and not a:
+                continue
+            if not _DATE_QUESTION_RE.search(q) and '날짜' not in q and '희망' not in q:
+                if '청소' not in q or '날짜' not in q:
+                    continue
+            if a:
+                return a
+            if q and _DATE_QUESTION_RE.search(q):
+                return q
+    memo = data.get('requestMemo')
+    if isinstance(memo, str) and memo.strip():
+        parsed = parse_preferred_date_from_request_texts([memo])
+        if parsed:
+            return parsed
+        for line in memo.split('\n'):
+            line = line.strip()
+            if _DATE_QUESTION_RE.search(line) or ('날짜' in line and '희망' in line):
+                return line
+    return pick_preferred_date_from_pairs(pairs if isinstance(pairs, list) else [])
+
+
 def pick_preferred_date_from_pairs(pairs: list[dict[str, str]]) -> str | None:
     for item in pairs:
         q = str(item.get('question', '')).strip()

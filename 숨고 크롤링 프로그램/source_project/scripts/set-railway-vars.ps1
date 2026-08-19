@@ -25,17 +25,57 @@ function Import-RailwayEnvFromFile {
     }
 }
 
-function Test-RailwayAccountAuth {
+function Import-RailwayEnvFromOs {
+    foreach ($name in @('RAILWAY_API_TOKEN', 'RAILWAY_TOKEN', 'RAILWAY_SERVICE_NAME')) {
+        if ([string]::IsNullOrWhiteSpace((Get-Item -Path "Env:$name" -ErrorAction SilentlyContinue).Value)) {
+            foreach ($scope in @('User', 'Machine')) {
+                $val = [Environment]::GetEnvironmentVariable($name, $scope)
+                if ($val) {
+                    Set-Item -Path "Env:$name" -Value $val
+                    break
+                }
+            }
+        }
+    }
+}
+
+function Initialize-RailwayAuth {
+    Import-RailwayEnvFromFile
+    Import-RailwayEnvFromOs
+
+    if ($env:RAILWAY_API_TOKEN) {
+        Remove-Item Env:RAILWAY_TOKEN -ErrorAction SilentlyContinue
+        Write-Host 'Railway auth: RAILWAY_API_TOKEN (account — staging·production)' -ForegroundColor DarkGray
+        return 'account'
+    }
+    if ($env:RAILWAY_TOKEN) {
+        Write-Host 'Railway auth: RAILWAY_TOKEN (project — production only)' -ForegroundColor DarkGray
+        return 'project'
+    }
+
     $savedToken = $env:RAILWAY_TOKEN
     $env:RAILWAY_TOKEN = $null
     try {
         $out = npx @railway/cli@latest whoami 2>&1
-        if ($LASTEXITCODE -ne 0) { return $false }
-        Write-Host "Railway account: $out"
-        return $true
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Railway auth: CLI login ($out)"
+            return 'account'
+        }
     } finally {
         if ($savedToken) { $env:RAILWAY_TOKEN = $savedToken } else { Remove-Item Env:RAILWAY_TOKEN -ErrorAction SilentlyContinue }
     }
+
+    throw @"
+Railway 인증 정보가 없습니다.
+
+1) Railway 웹 → 우측 프로필 → Account Settings → Tokens → Create Token
+2) server/.env 에 한 줄 추가 (git·채팅에 토큰 붙여넣기 금지):
+   RAILWAY_API_TOKEN=여기에_토큰
+   RAILWAY_SERVICE_NAME=clean solution
+3) 이 스크립트 다시 실행
+
+Windows '환경 변수'에만 넣었다면 Cursor/터미널을 완전히 재시작하거나, server/.env 를 쓰는 편이 에이전트·스크립트에 더 확실합니다.
+"@
 }
 
 function Get-DefaultVersion {
@@ -57,7 +97,7 @@ function Get-ZipSha256FromGitHub([string]$ver) {
     throw 'ZIP sha256 digest 를 GitHub Release에서 찾지 못했습니다.'
 }
 
-Import-RailwayEnvFromFile
+$authMode = Initialize-RailwayAuth
 if (-not $Version) { $Version = Get-DefaultVersion }
 if (-not $Sha256) { $Sha256 = Get-ZipSha256FromGitHub $Version }
 if (-not $ServiceName) { $ServiceName = $env:RAILWAY_SERVICE_NAME; if (-not $ServiceName) { $ServiceName = $DefaultServiceName } }
@@ -74,18 +114,14 @@ $vars = @{
 
 function Set-RailwayVars([string]$Environment) {
     Write-Host "Setting Railway variables ($Environment) ..."
-    $useAccount = Test-RailwayAccountAuth
-    if (-not $useAccount -and -not $env:RAILWAY_TOKEN) {
-        throw "Railway CLI 로그인(npx @railway/cli login) 또는 server/.env 의 RAILWAY_TOKEN / RAILWAY_API_TOKEN 이 필요합니다."
-    }
-    if (-not $useAccount -and $Environment -ne 'production') {
-        Write-Host "  skip: Project Token은 production 만. staging 은 RAILWAY_API_TOKEN 또는 CLI 로그인 필요." -ForegroundColor Yellow
+    if ($authMode -eq 'project' -and $Environment -ne 'production') {
+        Write-Host "  skip: RAILWAY_TOKEN(project)은 production 만. staging 은 RAILWAY_API_TOKEN 필요." -ForegroundColor Yellow
         return
     }
 
     $cliArgs = @('variable', 'set')
-    if ($useAccount) {
-        $env:RAILWAY_TOKEN = $null
+    if ($authMode -eq 'account') {
+        Remove-Item Env:RAILWAY_TOKEN -ErrorAction SilentlyContinue
         $cliArgs += @('--environment', $Environment)
     }
     $cliArgs += @('--service', $ServiceName)

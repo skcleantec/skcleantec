@@ -139,6 +139,8 @@ export async function createUser(
     /** 등록 시 선택 — 마케터·팀장 월 급여표 반영 */
     payrollMonthlySalary?: number | null;
     payrollPayDay?: number | null;
+    /** 최고 관리자만 — yyyy-mm-dd 또는 빈 문자열로 미설정 */
+    hireDate?: string | null;
     /** 팀장만 — 건당 정산·일반 서비스 비율 */
     teamLeaderGeneralSettlementMode?: TeamLeaderGeneralSettlementModeApi | null;
     teamLeaderGeneralSettlementValue?: number | null;

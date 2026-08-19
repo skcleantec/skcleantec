@@ -39,3 +39,14 @@ export function filterByEmploymentStatus<
   }
   return users.filter((u) => isResignedAsOfYmd(u.hireDate, u.resignationDate, ymd));
 }
+
+/** 사용자등록 — 퇴사만 제외(미래 입사 포함) */
+export function filterByManagementEmploymentStatus<
+  T extends { hireDate?: string | null; resignationDate?: string | null },
+>(users: T[], status: EmploymentStatusFilter, ymd: string = kstTodayYmd()): T[] {
+  if (status === 'all') return users;
+  if (status === 'active') {
+    return users.filter((u) => !isResignedAsOfYmd(u.hireDate, u.resignationDate, ymd));
+  }
+  return users.filter((u) => isResignedAsOfYmd(u.hireDate, u.resignationDate, ymd));
+}

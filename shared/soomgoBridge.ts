@@ -5,7 +5,7 @@ export const SOOMGO_BRIDGE_BASE_URL = 'http://127.0.0.1:17890';
 export const SOOMGO_BRIDGE_MIN_VERSION = 2;
 
 /** 데스크톱 설치 프로그램 표시 버전 (semver) */
-export const SOOMGO_BRIDGE_APP_VERSION = '2.2.48';
+export const SOOMGO_BRIDGE_APP_VERSION = '2.2.49';
 
 /** CRM manifest → `/request-update` 전달 지원 최소 앱 버전 */
 export const SOOMGO_BRIDGE_CRM_MANIFEST_PASSTHROUGH_MIN_VERSION = '2.2.3';
@@ -21,6 +21,9 @@ export const SOOMGO_BRIDGE_AI_TRANSCRIPT_MIN_VERSION = '2.2.43';
 
 /** 닉네임으로 채팅방 열기(`/open-chat-by-nickname`) 최소 앱 버전 */
 export const SOOMGO_BRIDGE_OPEN_CHAT_BY_NICKNAME_MIN_VERSION = '2.2.45';
+
+/** 오래된 채팅 정리·방 나가기(`/scan-stale-chats`) 최소 앱 버전 */
+export const SOOMGO_BRIDGE_STALE_LEAVE_MIN_VERSION = '2.2.49';
 
 /** semver → 정수 배열 (비교용) */
 export function parseSoomgoSemver(version: string): number[] {
@@ -229,6 +232,8 @@ export type SoomgoBridgeStatus = {
   updateStateUpdatedAt?: number | null;
   /** /extract · /extract-transcript 진행 중 */
   extractInProgress?: boolean;
+  /** /scan-stale-chats 등 오래된 채팅 정리 진행 중 */
+  staleCleanupInProgress?: boolean;
 };
 
 export type SoomgoRequestPair = {
@@ -301,4 +306,43 @@ export type SoomgoChatTranscriptStatus = {
   contentHash: string;
   nickname?: string | null;
   filePath: string;
+};
+
+export type SoomgoStaleChatAction =
+  | 'would_leave'
+  | 'left'
+  | 'skip'
+  | 'leave'
+  | 'failed';
+
+export type SoomgoStaleChatScanItem = {
+  chatId: string;
+  nickname?: string | null;
+  action: SoomgoStaleChatAction;
+  reasons: string[];
+  skipReason?: string | null;
+  preferredDateRaw?: string | null;
+  preferredDeadline?: string | null;
+  preferredKind?: string | null;
+  preferredConfidence?: string | null;
+  preferredReason?: string | null;
+  roomOpenedAt?: string | null;
+  error?: string | null;
+};
+
+export type SoomgoStaleChatScanResult = {
+  ok: boolean;
+  dryRun?: boolean;
+  today?: string;
+  totalListed?: number;
+  offset?: number;
+  processed?: number;
+  summary?: {
+    left: number;
+    wouldLeave: number;
+    skipped: number;
+    failed: number;
+  };
+  items?: SoomgoStaleChatScanItem[];
+  error?: string;
 };
