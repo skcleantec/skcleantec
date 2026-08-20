@@ -55,7 +55,7 @@
 | **Play 트랙** | **비공개 테스트** 업로드용 · `REQUEST_INSTALL_PACKAGES` 제거 |
 | **AAB** | `dist/telecrm-play-0.7.7-internal-27.aab` |
 | **SHA256** | `20f61a7b6a36e2b20331f5bcb8fda964582896218f5aaad89607ba4c4a3c6506` |
-| **Git** | (staging 푸시 후 기록) |
+| **Git** | `aa57a695` — feat(telecrm-android): Play flavor v27 — REQUEST_INSTALL_PACKAGES 제거 |
 | **변경 요약** | `play`/`sideload` flavor · Play AAB sideload 업데이트·설치 권한 제거 · UI 숨김 |
 | **검증** | merged manifest에 `REQUEST_INSTALL_PACKAGES` 없음 확인 |
 | **메모** | Play Console 「패키지 설치 요청」 양식 해소 목표 |
