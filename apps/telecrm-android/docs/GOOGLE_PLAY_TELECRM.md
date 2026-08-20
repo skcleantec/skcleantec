@@ -119,4 +119,5 @@ Play Console → **테스트 → 내부 테스트** → **새 버전 만들기**
 | applicationId · 버전 | `app/build.gradle.kts` |
 | 런처 표시명 | `app/src/main/res/values/strings.xml` → `app_name` |
 | AAB 빌드 | `scripts/build-play-bundle.ps1` |
+| **버전별 진행 기록 (필수)** | `apps/telecrm-android/docs/RELEASE_PROGRESS.md` |
 | sideload (레거시) | `README.md` — 패키지 변경 전 APK와 별개 |

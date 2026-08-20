@@ -1,13 +1,22 @@
 ---
 description: 청소비서 전화 Android sideload — 릴리스 시 Railway TELECRM_APP_* 환경변수 필수 갱신
-globs: apps/telecrm-android/**,server/src/modules/telecrm/telecrmAppManifest.ts,.github/workflows/telecrm-android-release.yml
+globs: apps/telecrm-android/**,apps/telecrm-android/docs/RELEASE_PROGRESS.md,server/src/modules/telecrm/telecrmAppManifest.ts,.github/workflows/telecrm-android-release.yml
 alwaysApply: false
 ---
 
 # 청소비서 전화(텔레CRM) Android — 릴리스 · Railway Variables (필수)
 
 **Play Store 없이** GitHub Release APK + **Railway 매니페스트** + 고정 설치 페이지 `/telecrm-app` 로 배포한다.  
+**Play (`com.cbiseo.marketer`)** 진행·버전 이력은 **`apps/telecrm-android/docs/RELEASE_PROGRESS.md`** 에 버전별로 누적 기록한다.  
 APK·`versionCode`·GitHub Release만 올리고 **Railway Variables를 안 바꾸면** 앱 자동 업데이트·설치 페이지가 **옛 APK**를 가리킨다 — **우회 금지**.
+
+## 에이전트 의무 — 진행 기록 (필수)
+
+`versionCode`/`versionName` bump, AAB·APK 빌드, Play 트랙 업로드, 출시 관련 기능·아이콘·권한 변경을 **완료**할 때:
+
+1. **`apps/telecrm-android/docs/RELEASE_PROGRESS.md`** 최상단 **「현재 상태」** 표와 **「버전 로그」** 에 **새 항목 추가** (최신 first). AAB 경로·SHA256·Play 트랙·git 커밋·변경 요약·미완료 TODO 포함.
+2. 템플릿은 해당 MD 파일 **「새 버전 항목 템플릿」** 절을 따른다.
+3. 기록만 하고 **끝내지 않는다** — 아래 Railway·릴리스 체크리스트도 이어서 수행.
 
 ## 에이전트 의무 — 릴리스 완료 = Variables 갱신까지
 
@@ -40,6 +49,7 @@ cd apps\telecrm-android
 
 ## 릴리스 체크리스트 (순서)
 
+0. **`docs/RELEASE_PROGRESS.md`** — 현재 상태·버전 로그 갱신 (Play 트랙·AAB·SHA256·커밋)
 1. `app/build.gradle.kts` — `versionCode` +1, `versionName` 갱신
 2. `server/src/modules/telecrm/telecrmAppManifest.ts` — **fallback** `TELECRM_APP_FALLBACK_*` 동기화
 3. signed release APK 빌드 → GitHub Release (`telecrm-v{versionName}`) 업로드
@@ -59,6 +69,7 @@ cd apps\telecrm-android
 
 | 항목 | 경로 |
 |------|------|
+| **버전별 진행 기록 (필수)** | `apps/telecrm-android/docs/RELEASE_PROGRESS.md` |
 | Variables 스크립트 | `apps/telecrm-android/scripts/set-railway-vars.ps1` |
 | 매니페스트 서버 | `server/src/modules/telecrm/telecrmAppManifest.ts` |
 | CI 릴리스 | `.github/workflows/telecrm-android-release.yml` |
