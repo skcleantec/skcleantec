@@ -78,14 +78,14 @@ jobs:
           keyPassword=${KEY_PASSWORD}
           EOF
 
-      - name: Build release APK
-        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+      - name: Build sideload release APK
+        run: chmod +x gradlew && ./gradlew assembleSideloadRelease --no-daemon
 
       - name: Rename APK and compute SHA256
         id: apk
         shell: bash
         run: |
-          SRC="app/build/outputs/apk/release/app-release.apk"
+          SRC="app/build/outputs/apk/sideload/release/app-sideload-release.apk"
           OUT="dist/telecrm-release-${{ steps.ver.outputs.versionName }}.apk"
           mkdir -p dist
           cp "$SRC" "$OUT"

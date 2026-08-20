@@ -147,6 +147,7 @@
     <string name="update_already_latest">이미 최신 버전입니다.</string>
     <string name="update_tap_to_check">버전을 길게 눌러 업데이트 확인</string>
     <string name="update_check_button">업데이트 확인</string>
+    <string name="update_play_store_hint">Play 스토어 버전은 스토어에서 업데이트해 주세요.</string>
     <string name="open_install_page">설치 페이지 열기</string>
     <string name="update_install_help">설치가 차단될 때</string>
     <string name="update_install_blocked_title">악성 앱으로 차단될 때</string>

@@ -31,13 +31,13 @@ if (-not $env:JAVA_HOME) {
     throw 'JAVA_HOME not found. Install Android Studio or set JAVA_HOME.'
 }
 
-Write-Host 'Building Play AAB (bundleRelease)...' -ForegroundColor Cyan
+Write-Host 'Building Play AAB (bundlePlayRelease)...' -ForegroundColor Cyan
 Write-Host "JAVA_HOME=$env:JAVA_HOME" -ForegroundColor DarkGray
 Write-Host 'Tip: Close Android Studio if clean/build fails (file lock).' -ForegroundColor DarkGray
-& .\gradlew.bat bundleRelease --no-daemon
+& .\gradlew.bat bundlePlayRelease --no-daemon
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$src = Join-Path $Root 'app\build\outputs\bundle\release\app-release.aab'
+$src = Join-Path $Root 'app\build\outputs\bundle\playRelease\app-play-release.aab'
 if (-not (Test-Path $src)) {
     throw "AAB not found: $src"
 }

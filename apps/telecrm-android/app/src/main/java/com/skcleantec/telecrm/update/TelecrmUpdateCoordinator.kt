@@ -19,11 +19,14 @@ import kotlinx.coroutines.withContext
  * 매니페스트: {apiBaseUrl}/api/public/telecrm-app/manifest
  */
 object TelecrmUpdateCoordinator {
+    private fun sideloadUpdatesEnabled(): Boolean = TelecrmDistribution.sideloadUpdateEnabled
+
     private var pendingManifest: TelecrmAppManifest? = null
     private var pendingApiBaseUrl: String? = null
     private var progressDialog: AlertDialog? = null
 
     suspend fun checkOnLogin(activity: AppCompatActivity, apiBaseUrl: String): Boolean {
+        if (!sideloadUpdatesEnabled()) return false
         val manifest = fetchManifestOrNull(apiBaseUrl) ?: return false
         TelecrmUpdatePrefs.markChecked(activity)
         val current = BuildConfig.VERSION_CODE
@@ -38,6 +41,7 @@ object TelecrmUpdateCoordinator {
     }
 
     suspend fun checkOnMain(activity: AppCompatActivity, apiBaseUrl: String) {
+        if (!sideloadUpdatesEnabled()) return
         if (!TelecrmUpdatePrefs.shouldCheckToday(activity)) return
         val manifest = fetchManifestOrNull(apiBaseUrl) ?: return
         TelecrmUpdatePrefs.markChecked(activity)
@@ -51,6 +55,10 @@ object TelecrmUpdateCoordinator {
     }
 
     fun checkManually(activity: AppCompatActivity, apiBaseUrl: String) {
+        if (!sideloadUpdatesEnabled()) {
+            showInfo(activity, activity.getString(R.string.update_play_store_hint))
+            return
+        }
         activity.lifecycleScope.launch {
             val manifest = withContext(Dispatchers.IO) {
                 TelecrmManifestClient.fetch(apiBaseUrl).getOrNull()
@@ -75,6 +83,7 @@ object TelecrmUpdateCoordinator {
     }
 
     fun onInstallPermissionResult(activity: AppCompatActivity) {
+        if (!sideloadUpdatesEnabled()) return
         val manifest = pendingManifest ?: return
         if (TelecrmApkInstall.canInstallPackages(activity)) {
             startDownloadAndInstall(activity, manifest, pendingApiBaseUrl.orEmpty())

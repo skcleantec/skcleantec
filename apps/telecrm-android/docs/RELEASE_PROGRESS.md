@@ -10,12 +10,12 @@
 
 | 항목 | 값 |
 |------|-----|
-| **최신 versionCode** | 26 |
-| **최신 versionName** | `0.7.6-internal` |
+| **최신 versionCode** | 27 |
+| **최신 versionName** | `0.7.7-internal` |
 | **Play 내부 테스트** | v25 (`0.7.5-internal`) 업로드됨 |
-| **Play 비공개 테스트** | v26 AAB 빌드 완료 · 업로드 대기 |
+| **Play 비공개 테스트** | v27 AAB 빌드 완료 · 업로드 대기 |
 | **Play 프로덕션** | 미출시 |
-| **sideload (`/telecrm-app`)** | 레거시 `com.skcleantec.telecrm.internal` — Play 앱과 **별도 패키지** |
+| **sideload (`/telecrm-app`)** | `sideload` flavor · 레거시 패키지와 별도 |
 
 ---
 
@@ -47,6 +47,20 @@
 ---
 
 ## 버전 로그 (최신 → 과거)
+
+### v27 · `0.7.7-internal` — 2026-08-20
+
+| 항목 | 내용 |
+|------|------|
+| **Play 트랙** | **비공개 테스트** 업로드용 · `REQUEST_INSTALL_PACKAGES` 제거 |
+| **AAB** | `dist/telecrm-play-0.7.7-internal-27.aab` |
+| **SHA256** | `20f61a7b6a36e2b20331f5bcb8fda964582896218f5aaad89607ba4c4a3c6506` |
+| **Git** | (staging 푸시 후 기록) |
+| **변경 요약** | `play`/`sideload` flavor · Play AAB sideload 업데이트·설치 권한 제거 · UI 숨김 |
+| **검증** | merged manifest에 `REQUEST_INSTALL_PACKAGES` 없음 확인 |
+| **메모** | Play Console 「패키지 설치 요청」 양식 해소 목표 |
+
+---
 
 ### v26 · `0.7.6-internal` — 2026-08-20
 
@@ -132,9 +146,10 @@
 - [x] Play Console 앱 생성 (`com.cbiseo.marketer`)
 - [x] 스토어 아이콘 512 등록
 - [x] 내부 테스트 AAB (v25)
-- [ ] 비공개 테스트 AAB (v26) 업로드·테스터 초대
+- [ ] 비공개 테스트 AAB (v27) 업로드·테스터 초대
 - [ ] SMS·통화기록 권한 양식 저장 (`GOOGLE_PLAY_TELECRM.md` §5)
 - [ ] 앱 콘텐츠 §6 — 개인정보처리방침 URL · 데이터 보안 · 앱 액세스 (`GOOGLE_PLAY_TELECRM.md` §6 복붙)
+- [x] Play AAB — `REQUEST_INSTALL_PACKAGES` 제거 (v27 `play` flavor)
 - [ ] 프로덕션 심사·출시
 - [ ] (선택) sideload `/telecrm-app` 안내를 Play 설치로 전환
 

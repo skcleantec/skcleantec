@@ -27,6 +27,9 @@
 | | 구버전 sideload | Play (신규) |
 |--|-----------------|---------------|
 | 패키지 | `com.skcleantec.telecrm.internal` | **`com.cbiseo.marketer`** |
+| Gradle flavor | `sideload` (`assembleSideloadRelease`) | **`play`** (`bundlePlayRelease`) |
+| APK 자동 업데이트 | `/api/public/telecrm-app/manifest` | **없음** (Play Store) |
+| `REQUEST_INSTALL_PACKAGES` | sideload APK에 포함 | **Play AAB에서 제거** (`app/src/play/AndroidManifest.xml`) |
 | 표시명 | 청소비서 전화 | **청소비서(마케터)** |
 | 덮어쓰기 | — | **불가** (패키지가 다름 → 기존 앱 삭제 후 새로 설치) |
 
@@ -44,10 +47,14 @@ Play 등록 **전**에 Gradle `applicationId`를 `com.cbiseo.marketer`로 맞춘
 
 ## 3. AAB 빌드 · 업로드
 
+Play 배포본은 **`play` product flavor** 로 빌드합니다. sideload APK 자동 업데이트·`REQUEST_INSTALL_PACKAGES` 권한은 **Play AAB에 포함되지 않습니다** (업데이트는 Play Store).
+
 ```powershell
 cd apps\telecrm-android
 .\scripts\build-play-bundle.ps1
 ```
+
+Gradle 직접 실행: `.\gradlew.bat bundlePlayRelease`
 
 출력: `dist/telecrm-play-{versionName}-{versionCode}.aab`
 
@@ -266,7 +273,7 @@ YouTube **비공개(unlisted)** 업로드 후 URL을 Play에 붙여넣기.
 ## 7. 테스트 트랙
 
 1. **내부 테스트** — 사무실 Gmail
-2. **비공개 테스트** — 상담사 (현재 v26 AAB)
+2. **비공개 테스트** — 상담사 (현재 v27 AAB)
 3. **프로덕션** — 심사 후 공개
 
 > **versionCode**는 트랙 간 **전역 유일** — 내부에 올린 번호와 같으면 비공개 업로드 거부 → 매번 +1.
@@ -277,7 +284,8 @@ YouTube **비공개(unlisted)** 업로드 후 URL을 Play에 붙여넣기.
 
 | 항목 | 경로 |
 |------|------|
-| applicationId · 버전 | `app/build.gradle.kts` |
+| applicationId · 버전 · flavor | `app/build.gradle.kts` (`play` / `sideload`) |
+| Play 권한 오버레이 | `app/src/play/AndroidManifest.xml` |
 | 런처 표시명 | `app/src/main/res/values/strings.xml` → `app_name` |
 | AAB 빌드 | `scripts/build-play-bundle.ps1` |
 | **버전별 진행 기록 (필수)** | `apps/telecrm-android/docs/RELEASE_PROGRESS.md` |

@@ -28,10 +28,22 @@ android {
         applicationId = "com.cbiseo.marketer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "0.7.6-internal"
+        versionCode = 27
+        versionName = "0.7.7-internal"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "ADMIN_TOKEN_KEY", "\"sk_admin_token\"")
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("boolean", "ENABLE_SIDELOAD_UPDATE", "false")
+        }
+        create("sideload") {
+            dimension = "distribution"
+            buildConfigField("boolean", "ENABLE_SIDELOAD_UPDATE", "true")
+        }
     }
 
     buildFeatures {
