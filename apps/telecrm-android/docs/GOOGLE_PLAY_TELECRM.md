@@ -16,6 +16,7 @@
 | **앱 / 게임** | 앱 |
 | **무료 / 유료** | 무료 |
 | **카테고리** | 비즈니스 |
+| **앱 아이콘 (512)** | `apps/telecrm-android/brand/marketer-app-icon-512.png` — Play·`ic_launcher` 공통 원본 |
 
 > 패키지명은 **한 번 정하면 변경 불가**. AAB의 `applicationId`와 **완전히 동일**해야 합니다.
 

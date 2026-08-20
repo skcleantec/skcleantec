@@ -28,8 +28,8 @@ android {
         applicationId = "com.cbiseo.marketer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 24
-        versionName = "0.7.4-internal"
+        versionCode = 25
+        versionName = "0.7.5-internal"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "ADMIN_TOKEN_KEY", "\"sk_admin_token\"")
     }
