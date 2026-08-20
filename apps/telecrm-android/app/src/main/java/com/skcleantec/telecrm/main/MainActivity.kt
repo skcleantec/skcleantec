@@ -47,16 +47,20 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_PREFILL_PHONE = "extra_prefill_phone"
         const val EXTRA_PREFILL_INQUIRY_ID = "extra_prefill_inquiry_id"
         const val EXTRA_PREFILL_CUSTOMER_MATCH = "extra_prefill_customer_match"
+        const val EXTRA_PREFILL_ACTION = "extra_prefill_action"
         private const val PREFS_SETUP = "telecrm_setup_hints"
         private const val KEY_HINT_SHOWN = "galaxy_hints_shown"
 
         fun prefillIntent(context: Context, payload: TelecrmDispatchPayload): Intent {
             val digits = payload.phone.filter { it.isDigit() }
             return Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(EXTRA_PREFILL_PHONE, digits)
                 putExtra(EXTRA_PREFILL_INQUIRY_ID, payload.inquiryId)
                 putExtra(EXTRA_PREFILL_CUSTOMER_MATCH, payload.customerMatch)
+                putExtra(EXTRA_PREFILL_ACTION, payload.action)
             }
         }
     }
@@ -168,24 +172,47 @@ class MainActivity : AppCompatActivity() {
         AppEventBus.addConnectionListener(connectionListener)
         AppEventBus.addToastListener(toastListener)
         AppEventBus.addDispatchListener(dispatchListener)
-        handlePrefillIntent(intent)
+        binding.root.post {
+            val hadPrefillExtras =
+                intent.getStringExtra(EXTRA_PREFILL_PHONE)?.filter { it.isDigit() }?.length ?: 0 >= 4
+            handlePrefillIntent(intent)
+            if (!hadPrefillExtras) {
+                consumePendingDispatchIfNeeded()
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handlePrefillIntent(intent)
+        binding.root.post {
+            val hadPrefillExtras =
+                intent.getStringExtra(EXTRA_PREFILL_PHONE)?.filter { it.isDigit() }?.length ?: 0 >= 4
+            handlePrefillIntent(intent)
+            if (!hadPrefillExtras) {
+                consumePendingDispatchIfNeeded()
+            }
+        }
+    }
+
+    private fun consumePendingDispatchIfNeeded() {
+        if (!::dispatchExecutor.isInitialized) return
+        val pending = com.skcleantec.telecrm.dispatch.TelecrmDispatchPendingStore.consume(this) ?: return
+        dispatchExecutor.execute(pending)
     }
 
     private fun handlePrefillIntent(intent: Intent?) {
         val source = intent ?: return
         val phone = source.getStringExtra(EXTRA_PREFILL_PHONE)?.filter { it.isDigit() }.orEmpty()
         if (phone.length < 4 || !::dispatchExecutor.isInitialized) return
+        val action = source.getStringExtra(EXTRA_PREFILL_ACTION)?.takeIf { it.isNotBlank() } ?: "prefill"
         source.removeExtra(EXTRA_PREFILL_PHONE)
+        source.removeExtra(EXTRA_PREFILL_ACTION)
+        com.skcleantec.telecrm.dispatch.TelecrmDispatchPendingStore.discard(this)
         dispatchExecutor.execute(
             TelecrmDispatchPayload(
                 id = null,
-                action = "prefill",
+                action = action,
                 phone = phone,
                 body = null,
                 imageUrl = null,
@@ -202,6 +229,9 @@ class MainActivity : AppCompatActivity() {
             Thread { CallLogSync.syncRecent(applicationContext, 24) }.start()
         }
         syncIncomingCallMonitor()
+        if (::dispatchExecutor.isInitialized) {
+            consumePendingDispatchIfNeeded()
+        }
         if (::apiBaseUrl.isInitialized) {
             lifecycleScope.launch {
                 TelecrmUpdateCoordinator.checkOnMain(this@MainActivity, apiBaseUrl)

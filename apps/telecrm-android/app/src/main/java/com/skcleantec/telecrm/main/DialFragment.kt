@@ -339,6 +339,10 @@ class DialFragment : Fragment() {
 
         loadSmsTemplates()
 
+        pendingPrefill?.let { prefill ->
+            applyPrefill(prefill.phone, prefill.inquiryId, prefill.customerMatch)
+        }
+
     }
 
 

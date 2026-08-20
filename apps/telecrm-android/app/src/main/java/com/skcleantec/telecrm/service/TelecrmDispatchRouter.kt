@@ -3,6 +3,7 @@ package com.skcleantec.telecrm.service
 import android.content.Context
 import com.skcleantec.telecrm.auth.TokenStore
 import com.skcleantec.telecrm.dispatch.TelecrmDispatchDeduper
+import com.skcleantec.telecrm.dispatch.TelecrmDispatchPendingStore
 import com.skcleantec.telecrm.dispatch.TelecrmDispatchPayload
 import com.skcleantec.telecrm.realtime.AppEventBus
 
@@ -41,6 +42,8 @@ object TelecrmDispatchRouter {
             customerMatch = payload.customerMatch,
         )
         if (!TelecrmDispatchDeduper.shouldRun(item.id)) return
+
+        TelecrmDispatchPendingStore.save(context.applicationContext, item)
 
         if (TelecrmAppState.isMainInForeground) {
             AppEventBus.emitDispatch(payload)

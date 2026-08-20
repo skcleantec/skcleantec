@@ -110,26 +110,20 @@ object TelecrmNotificationHelper {
         if (digits.length < 4) return
 
         val notificationId = NOTIFICATION_CALL_BASE + (payload.id?.hashCode()?.and(0xFFFF) ?: digits.hashCode().and(0xFFFF))
+        com.skcleantec.telecrm.dispatch.TelecrmDispatchPendingStore.save(context.applicationContext, payload)
+        val dispatchIntent = buildCallDispatchIntent(context, payload)
 
-        val fullScreenIntent = Intent(context, CallDispatchActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(CallDispatchActivity.EXTRA_PHONE, digits)
-            putExtra(CallDispatchActivity.EXTRA_INQUIRY_ID, payload.inquiryId)
-            putExtra(CallDispatchActivity.EXTRA_CUSTOMER_MATCH, payload.customerMatch)
-            putExtra(CallDispatchActivity.EXTRA_DISPATCH_ID, payload.id)
-            putExtra(CallDispatchActivity.EXTRA_ACTION, payload.action)
-        }
         val fullScreenPending = PendingIntent.getActivity(
             context,
             notificationId,
-            fullScreenIntent,
+            dispatchIntent,
             pendingIntentFlags(),
         )
 
-        val contentIntent = PendingIntent.getActivity(
+        val contentPending = PendingIntent.getActivity(
             context,
             notificationId + 1,
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            dispatchIntent,
             pendingIntentFlags(),
         )
 
@@ -144,7 +138,7 @@ object TelecrmNotificationHelper {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
-            .setContentIntent(contentIntent)
+            .setContentIntent(contentPending)
             .setFullScreenIntent(fullScreenPending, true)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -273,10 +267,12 @@ object TelecrmNotificationHelper {
         val digits = payload.phone.filter { it.isDigit() }
         if (digits.isEmpty()) return
 
+        com.skcleantec.telecrm.dispatch.TelecrmDispatchPendingStore.save(context.applicationContext, payload)
+
         val openApp = PendingIntent.getActivity(
             context,
             7200,
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            MainActivity.prefillIntent(context, payload),
             pendingIntentFlags(),
         )
 
@@ -295,6 +291,20 @@ object TelecrmNotificationHelper {
     fun cancelCallNotification(context: Context, dispatchId: String?) {
         val id = NOTIFICATION_CALL_BASE + (dispatchId?.hashCode()?.and(0xFFFF) ?: 0)
         NotificationManagerCompat.from(context).cancel(id)
+    }
+
+    private fun buildCallDispatchIntent(context: Context, payload: TelecrmDispatchPayload): Intent {
+        val digits = payload.phone.filter { it.isDigit() }
+        return Intent(context, CallDispatchActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(CallDispatchActivity.EXTRA_PHONE, digits)
+            putExtra(CallDispatchActivity.EXTRA_INQUIRY_ID, payload.inquiryId)
+            putExtra(CallDispatchActivity.EXTRA_CUSTOMER_MATCH, payload.customerMatch)
+            putExtra(CallDispatchActivity.EXTRA_DISPATCH_ID, payload.id)
+            putExtra(CallDispatchActivity.EXTRA_ACTION, payload.action)
+        }
     }
 
     private fun formatPhone(digits: String): String {

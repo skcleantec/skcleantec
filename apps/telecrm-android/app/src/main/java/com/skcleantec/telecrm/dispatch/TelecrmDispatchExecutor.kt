@@ -56,7 +56,7 @@ class TelecrmDispatchExecutor(
                 )
             }
             pendingAutoCall = runnable
-            callHandler.post(runnable)
+            callHandler.postDelayed(runnable, 400)
         }
     }
 

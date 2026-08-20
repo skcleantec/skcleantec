@@ -1,5 +1,6 @@
 package com.skcleantec.telecrm.dispatch
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -7,12 +8,12 @@ import android.os.Handler
 import android.os.Looper
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.skcleantec.telecrm.api.ApiClient
 import com.skcleantec.telecrm.auth.TokenStore
 import com.skcleantec.telecrm.databinding.ActivityCallDispatchBinding
 import com.skcleantec.telecrm.dispatch.TelecrmDispatchPayload
+import com.skcleantec.telecrm.dispatch.TelecrmDispatchPendingStore
 import com.skcleantec.telecrm.service.TelecrmNotificationHelper
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 
@@ -84,6 +85,7 @@ class CallDispatchActivity : AppCompatActivity() {
         if (callFlowStarted) return
         callFlowStarted = true
         TelecrmNotificationHelper.cancelCallNotification(this, dispatchId)
+        TelecrmDispatchPendingStore.discard(this)
         if (!autoCall) {
             startActivity(
                 com.skcleantec.telecrm.main.MainActivity.prefillIntent(
@@ -97,7 +99,7 @@ class CallDispatchActivity : AppCompatActivity() {
                         inquiryId = inquiryId,
                         customerMatch = customerMatch,
                     ),
-                ),
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
             finish()
             return
@@ -106,15 +108,7 @@ class CallDispatchActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CALL_PHONE)
             != PackageManager.PERMISSION_GRANTED
         ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(
-                    android.Manifest.permission.CALL_PHONE,
-                    android.Manifest.permission.READ_PHONE_STATE,
-                ),
-                REQUEST_CALL_PHONE,
-            )
-            TelecrmCallHelper.dial(this, phone)
+            openMainWithDispatch(phone, inquiryId, customerMatch, dispatchId, autoCall)
             finish()
             return
         }
@@ -130,17 +124,26 @@ class CallDispatchActivity : AppCompatActivity() {
         finish()
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray,
+    private fun openMainWithDispatch(
+        phone: String,
+        inquiryId: String?,
+        customerMatch: String?,
+        dispatchId: String?,
+        autoCall: Boolean,
     ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CALL_PHONE) {
-            val phone = pendingPhone ?: return
-            TelecrmCallHelper.onCallPermissionGranted(this, phone)
-            finish()
-        }
+        val payload = TelecrmDispatchPayload(
+            id = dispatchId,
+            action = if (autoCall) "call" else "prefill",
+            phone = phone,
+            body = null,
+            imageUrl = null,
+            inquiryId = inquiryId,
+            customerMatch = customerMatch,
+        )
+        startActivity(
+            com.skcleantec.telecrm.main.MainActivity.prefillIntent(this, payload)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
     }
 
     private fun formatPhone(digits: String): String {
@@ -156,6 +159,5 @@ class CallDispatchActivity : AppCompatActivity() {
         const val EXTRA_CUSTOMER_MATCH = "extra_customer_match"
         const val EXTRA_DISPATCH_ID = "extra_dispatch_id"
         const val EXTRA_ACTION = "extra_action"
-        private const val REQUEST_CALL_PHONE = 9201
     }
 }
