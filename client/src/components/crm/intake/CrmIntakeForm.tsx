@@ -51,11 +51,13 @@ export function CrmIntakeForm({
   quotePayload = null,
   soomgoImportFlashKey = 0,
   soomgoHiredOther = false,
+  lookupImportKey = 0,
   seedSyncDisabled = false,
   operatingCompanyId = null,
 }: {
   seed: Partial<CrmIntakeFormValues> & { pyeong?: string };
   initialFormDraft?: Partial<CrmIntakeFormSnapshot> | null;
+  lookupImportKey?: number;
   seedSyncDisabled?: boolean;
   contactPhone: string;
   safePhone: string;
@@ -156,7 +158,7 @@ export function CrmIntakeForm({
       setShowMore(true);
     }
     appliedDraftRef.current = soomgoImportFlashKey;
-  }, [initialFormDraft, soomgoImportFlashKey, pyeong, formResetKey]);
+  }, [initialFormDraft, soomgoImportFlashKey, lookupImportKey, pyeong, formResetKey]);
 
   useEffect(() => {
     if (kind === 'received') setShowMore(true);

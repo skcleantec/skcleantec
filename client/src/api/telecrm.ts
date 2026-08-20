@@ -77,11 +77,16 @@ export type TelecrmInquiryBriefDto = {
   customerName: string;
   nickname: string | null;
   customerPhone: string;
+  customerPhone2: string | null;
   memo: string | null;
   specialNotes: string | null;
   claimMemo: string | null;
   address: string;
   areaPyeong: number | null;
+  roomCount: number | null;
+  bathroomCount: number | null;
+  balconyCount: number | null;
+  source: string | null;
   preferredDate: string | null;
   preferredTime: string | null;
   orderFormTemplate: {

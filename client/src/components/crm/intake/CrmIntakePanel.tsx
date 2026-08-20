@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type {
-  TelecrmCustomerCandidateDto,
-  TelecrmCustomerLookupDto,
-  TelecrmInquiryBriefDto,
-} from '../../../api/telecrm';
+import type { TelecrmCustomerCandidateDto, TelecrmCustomerLookupDto } from '../../../api/telecrm';
 import type { CrmIntakeFormSnapshot } from '../../../utils/crmIntakeDraft';
+import { buildCrmLookupApply } from '../../../utils/crmLookupApply';
 import type { TelecrmConsultationQuotePayload } from '@shared/telecrmConsultationQuote';
 import type { CrmIntakeSubmitResult } from './crmIntakeSubmit';
 import { CrmColumn } from '../layout/CrmShell';
@@ -107,11 +104,6 @@ function CrmPhoneField({
   );
 }
 
-function formatPyeongValue(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n) || n <= 0) return '';
-  return String(n);
-}
-
 export function CrmIntakePanel({
   mode,
   onModeChange,
@@ -145,6 +137,7 @@ export function CrmIntakePanel({
   followupImport = null,
   onSelectFollowup,
   onPricingReset,
+  onLookupApplied,
   workBrandBar = null,
 }: {
   mode: CrmCustomerMode;
@@ -179,6 +172,12 @@ export function CrmIntakePanel({
   followupImport?: { key: number; snapshot: CrmFollowupApplySnapshot } | null;
   onSelectFollowup?: (row: TelecrmCustomerLookupDto['followups'][number]) => void;
   onPricingReset?: () => void;
+  onLookupApplied?: (payload: {
+    customerName: string;
+    nickname: string;
+    address: string;
+    inquiryId: string | null;
+  }) => void;
   /** 멀티 브랜드 — 패널 헤더 하단 */
   workBrandBar?: ReactNode;
 }) {
@@ -209,13 +208,20 @@ export function CrmIntakePanel({
     address: '',
   });
   const autoFilledKeyRef = useRef<string | null>(null);
+  const [lookupImport, setLookupImport] = useState<{
+    key: number;
+    draft: Partial<CrmIntakeFormSnapshot>;
+  } | null>(null);
 
   useEffect(() => {
     if (skipAutoFillPhone) autoFilledKeyRef.current = skipAutoFillPhone;
   }, [skipAutoFillPhone]);
 
   useEffect(() => {
-    if (lookupRefreshKey > 0 && mode === 'existing') refresh();
+    if (lookupRefreshKey > 0 && mode === 'existing') {
+      autoFilledKeyRef.current = null;
+      refresh();
+    }
   }, [lookupRefreshKey, mode, refresh]);
 
   useEffect(() => {
@@ -249,6 +255,7 @@ export function CrmIntakePanel({
     setNameSearch('');
     setFormSeed({ customerName: '', nickname: '', phone: '', memo: '', address: '' });
     setLastInquiryId(null);
+    setLookupImport(null);
   }, [mode]);
 
   const activeInquiryId = lastInquiryId ?? data?.inquiries?.[0]?.id ?? null;
@@ -275,33 +282,41 @@ export function CrmIntakePanel({
     autoFilledKeyRef.current = null;
   }, [soomgoImportFlashKey, mode]);
 
-  const applyCustomer = (
-    customer: TelecrmCustomerLookupDto['customer'],
-    latestInquiry?: TelecrmInquiryBriefDto,
-  ) => {
+  const applyLookupData = (lookupData: TelecrmCustomerLookupDto, inquiryIndex = 0) => {
+    const applied = buildCrmLookupApply(lookupData, inquiryIndex);
+    if (!applied) return;
     onPricingReset?.();
     setFormSeed({
-      customerName: customer.name ?? '',
-      nickname: customer.nickname ?? '',
-      phone: customer.phone,
-      memo: '',
-      address: customer.lastAddress ?? latestInquiry?.address ?? '',
+      customerName: applied.customerName,
+      nickname: applied.nickname,
+      phone: applied.contactPhone,
+      memo: applied.formDraft.requestMemo ?? '',
+      address: applied.address,
     });
-    onContactPhoneChange(customer.phone);
-    onSafePhoneChange('');
-    onCustomerNameChange(customer.name ?? '');
-    onPyeongChange(formatPyeongValue(latestInquiry?.areaPyeong));
+    onContactPhoneChange(applied.contactPhone);
+    onSafePhoneChange(applied.safePhone);
+    onCustomerNameChange(applied.customerName);
+    onPyeongChange(applied.pyeong);
+    setLastInquiryId(applied.inquiryId);
+    setLookupImport({ key: Date.now(), draft: applied.formDraft });
+    onLookupApplied?.({
+      customerName: applied.customerName,
+      nickname: applied.nickname,
+      address: applied.address,
+      inquiryId: applied.inquiryId,
+    });
+    autoFilledKeyRef.current = `${searchMode}:${applied.contactPhone.replace(/\D/g, '')}`;
   };
 
   useEffect(() => {
     if (mode !== 'existing' || loading || !data || data.match !== 'existing') return;
     if (followupImport?.snapshot) return;
     if (autoFilledKeyRef.current?.startsWith('followup:')) return;
-    const key = `${searchMode}:${data.customer.phone.trim()}`;
-    if (!key || autoFilledKeyRef.current === key) return;
-    autoFilledKeyRef.current = key;
-    applyCustomer(data.customer, data.inquiries[0]);
-  }, [mode, loading, data, searchMode, followupImport?.key]);
+    const dialKey = outboundPhone.replace(/\D/g, '');
+    const key = `${searchMode}:${dialKey}`;
+    if (!dialKey || autoFilledKeyRef.current === key) return;
+    applyLookupData(data);
+  }, [mode, loading, data, searchMode, outboundPhone, followupImport?.key]);
 
   const handleSelectCandidate = (row: TelecrmCustomerCandidateDto) => {
     onPricingReset?.();
@@ -499,7 +514,7 @@ export function CrmIntakePanel({
               onSelectCandidate={handleSelectCandidate}
               onSelectInquiry={(row) => onOpenInquiryEdit(row.id)}
               onNewForCustomer={() => {
-                if (data?.customer) applyCustomer(data.customer, data.inquiries[0]);
+                if (data) applyLookupData(data);
               }}
               onDispatchNotice={onDispatchNotice}
               onSelectFollowup={onSelectFollowup}
@@ -547,7 +562,8 @@ export function CrmIntakePanel({
           ) : null}
           <CrmIntakeForm
             seed={intakeSeed}
-            initialFormDraft={initialFormDraft}
+            initialFormDraft={lookupImport?.draft ?? initialFormDraft}
+            lookupImportKey={lookupImport?.key ?? 0}
             seedSyncDisabled={Boolean(followupImport?.snapshot)}
             contactPhone={contactPhone}
             safePhone={safePhone}

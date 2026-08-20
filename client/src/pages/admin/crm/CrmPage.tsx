@@ -1843,6 +1843,17 @@ export function CrmPage() {
                 soomgoHiredOther={soomgoHiredOther}
                 onIntakeReset={handleIntakeReset}
                 onPricingReset={resetQuotePricingState}
+                onLookupApplied={(payload) => {
+                  setIntakeIdentity({
+                    customerName: payload.customerName,
+                    nickname: payload.nickname,
+                    address: payload.address,
+                  });
+                  setCrmContext((prev) => ({
+                    inquiryId: payload.inquiryId ?? prev.inquiryId,
+                    customerMatch: payload.inquiryId ? 'existing' : prev.customerMatch,
+                  }));
+                }}
                 followupImport={followupImport}
                 onSelectFollowup={canFollowupEdit ? handleSelectFollowupFromLookup : undefined}
                 workBrandBar={

@@ -56,6 +56,10 @@ export const telecrmInquiryBriefSelect = {
   claimMemo: true,
   address: true,
   areaPyeong: true,
+  roomCount: true,
+  bathroomCount: true,
+  balconyCount: true,
+  source: true,
   preferredDate: true,
   preferredTime: true,
   orderForm: {
@@ -90,11 +94,16 @@ export function serializeTelecrmInquiryBrief(row: {
   customerName: string;
   nickname: string | null;
   customerPhone: string;
+  customerPhone2: string | null;
   memo: string | null;
   specialNotes: string | null;
   claimMemo: string | null;
   address: string;
   areaPyeong: number | null;
+  roomCount: number | null;
+  bathroomCount: number | null;
+  balconyCount: number | null;
+  source: string | null;
   preferredDate: Date | null;
   preferredTime: string | null;
   orderForm: Parameters<typeof formatTelecrmOrderFormBrief>[0];
@@ -106,11 +115,16 @@ export function serializeTelecrmInquiryBrief(row: {
     customerName: row.customerName,
     nickname: row.nickname,
     customerPhone: row.customerPhone,
+    customerPhone2: row.customerPhone2,
     memo: row.memo,
     specialNotes: row.specialNotes,
     claimMemo: row.claimMemo,
     address: row.address,
     areaPyeong: row.areaPyeong,
+    roomCount: row.roomCount,
+    bathroomCount: row.bathroomCount,
+    balconyCount: row.balconyCount,
+    source: row.source,
     preferredDate: row.preferredDate?.toISOString() ?? null,
     preferredTime: row.preferredTime,
     orderFormTemplate: row.orderForm?.template
