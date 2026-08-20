@@ -55,9 +55,9 @@
 | **Play 트랙** | **비공개 테스트** 업로드용 (내부 v25와 versionCode 중복 방지) |
 | **AAB** | `dist/telecrm-play-0.7.6-internal-26.aab` |
 | **SHA256** | `f13f1e79a3d81d426a43e661a2fd0c67645c546979cda78320b824ce90e2f82d` |
-| **Git** | (로컬 — `build.gradle.kts` bump, staging 푸시 전) |
-| **변경 요약** | versionCode만 +1 (코드 변경 없음) |
-| **메모** | Play는 **트랙 간 versionCode 전역 유일** — 같은 번호 재업로드 불가 |
+| **Git** | `cd8de1ff` — docs(telecrm-android): RELEASE_PROGRESS 버전 기록 및 v26 bump |
+| **변경 요약** | versionCode만 +1 (코드 변경 없음) · `RELEASE_PROGRESS.md` 신설 |
+| **staging** | 푸시 완료 |
 
 ---
 
