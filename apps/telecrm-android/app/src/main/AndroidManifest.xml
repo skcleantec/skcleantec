@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -32,6 +34,15 @@
         </provider>
 
         <service
+            android:name=".telephony.TelecrmCallScreeningService"
+            android:exported="true"
+            android:permission="android.permission.BIND_SCREENING_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.CallScreeningService" />
+            </intent-filter>
+        </service>
+
+        <service
             android:name=".service.TelecrmRealtimeService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
@@ -49,6 +60,18 @@
             android:name=".messages.MessageThreadActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".incoming.IncomingCallActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Telecrm.CallDispatch"
+            android:turnScreenOn="true" />
+        <activity
+            android:name=".inquiry.InquiryDetailActivity"
+            android:exported="false" />
         <activity
             android:name=".main.MainActivity"
             android:exported="false"

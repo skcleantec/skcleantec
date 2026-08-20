@@ -116,6 +116,11 @@ export function sendJsonToTelecrmApp(userId: string, data: object, tenantId?: st
   return sendJsonToMatchingSockets(userId, data, tenantId, 'telecrm-app');
 }
 
+/** 휴대폰 SIM 수신 → 동일 계정 PC CRM 브라우저 탭 (telecrm-app 제외) */
+export function sendJsonToWebStaff(userId: string, data: object, tenantId?: string): boolean {
+  return sendJsonToMatchingSockets(userId, data, tenantId, 'web');
+}
+
 /** 업체 내 연결된 모든 텔레CRM 앱 소켓 (ADMIN PC → 사무실 휴대폰) */
 export function broadcastJsonToTelecrmAppsInTenant(tenantId: string, data: object): boolean {
   const prefix = `${tenantId}:`;

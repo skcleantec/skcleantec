@@ -25,11 +25,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.skcleantec.telecrm.internal"
+        applicationId = "com.cbiseo.marketer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.6.8-internal"
+        versionCode = 23
+        versionName = "0.7.3-internal"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "ADMIN_TOKEN_KEY", "\"sk_admin_token\"")
     }

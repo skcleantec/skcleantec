@@ -69,6 +69,7 @@ object CustomerLookupUi {
         state: CustomerLookupState,
         onPickSearch: (phone: String, name: String) -> Unit,
         onInquirySelected: (() -> Unit)? = null,
+        onOpenDetail: ((lookup: JSONObject, inquiryIndex: Int) -> Unit)? = null,
     ) {
         state.match = json.optString("match", "unknown")
         val customer = json.optJSONObject("customer")
@@ -79,7 +80,15 @@ object CustomerLookupUi {
             "pick" -> renderCandidates(context, json.optJSONArray("candidates"), candidatesContainer, onPickSearch)
             else -> {
                 candidatesContainer.visibility = View.GONE
-                renderInquiries(context, json.optJSONArray("inquiries"), inquiriesContainer, state, onInquirySelected)
+                renderInquiries(
+                    context,
+                    json,
+                    json.optJSONArray("inquiries"),
+                    inquiriesContainer,
+                    state,
+                    onInquirySelected,
+                    onOpenDetail,
+                )
             }
         }
         if (state.selectedPhone.isNotBlank()) actionRow.visibility = View.VISIBLE
@@ -110,6 +119,8 @@ object CustomerLookupUi {
                     c.optString("nickname").takeIf { it.isNotBlank() }?.let { append(" ($it)") }
                     append("\n")
                     append(c.optString("customerPhone"))
+                    val count = c.optInt("inquiryCount", 0)
+                    if (count > 0) append("\n접수 ${count}건")
                 }
                 gravity = Gravity.START
                 setTextColor(color(context, R.color.slate_700))
@@ -125,10 +136,12 @@ object CustomerLookupUi {
 
     private fun renderInquiries(
         context: Context,
+        lookup: JSONObject,
         inquiries: JSONArray?,
         container: LinearLayout,
         state: CustomerLookupState,
         onInquirySelected: (() -> Unit)? = null,
+        onOpenDetail: ((lookup: JSONObject, inquiryIndex: Int) -> Unit)? = null,
     ) {
         container.removeAllViews()
         val label = when (state.match) {
@@ -151,16 +164,30 @@ object CustomerLookupUi {
         for (i in 0 until inquiries.length()) {
             val inq = inquiries.getJSONObject(i)
             if (i == 0) applyInquiryToState(state, inq)
-            container.addView(buildInquiryCard(context, inq, i == 0, state, onInquirySelected))
+            container.addView(
+                buildInquiryCard(
+                    context,
+                    lookup,
+                    inq,
+                    i,
+                    i == 0,
+                    state,
+                    onInquirySelected,
+                    onOpenDetail,
+                ),
+            )
         }
     }
 
     private fun buildInquiryCard(
         context: Context,
+        lookup: JSONObject,
         inq: JSONObject,
+        inquiryIndex: Int,
         selected: Boolean,
         state: CustomerLookupState,
         onInquirySelected: (() -> Unit)? = null,
+        onOpenDetail: ((lookup: JSONObject, inquiryIndex: Int) -> Unit)? = null,
     ): MaterialCardView {
         return MaterialCardView(context).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -171,8 +198,8 @@ object CustomerLookupUi {
             setCardBackgroundColor(
                 color(context, if (selected) R.color.blue_50 else R.color.white),
             )
-            strokeColor = color(context, R.color.slate_200)
-            strokeWidth = dp(context, 1)
+            strokeColor = color(context, if (selected) R.color.blue_600 else R.color.slate_200)
+            strokeWidth = dp(context, if (selected) 2 else 1)
             setContentPadding(dp(context, 14), dp(context, 14), dp(context, 14), dp(context, 14))
             setOnClickListener {
                 applyInquiryToState(state, inq)
@@ -188,15 +215,25 @@ object CustomerLookupUi {
                 setTypeface(typeface, Typeface.BOLD)
             })
             col.addView(TextView(context).apply {
-                text = "${inq.optString("customerPhone")} · ${inq.optString("status")}"
+                text = buildString {
+                    append(inq.optString("customerPhone"))
+                    append(" · ")
+                    append(TelecrmInquiryLabels.statusLabel(inq.optString("status")))
+                    TelecrmDateFormat.dateTime(inq.optString("createdAt")).takeIf { it.isNotBlank() }?.let {
+                        append("\n접수 ")
+                        append(it)
+                    }
+                }
                 setTextColor(color(context, R.color.slate_500))
                 textSize = 12f
+                setLineSpacing(dp(context, 2).toFloat(), 1f)
             })
-            inq.optString("address").takeIf { it.isNotBlank() }?.let {
+            TelecrmLookupDetailRenderer.summaryLines(inq, lookup).forEach { line ->
                 col.addView(TextView(context).apply {
-                    text = it
+                    text = line
                     setTextColor(color(context, R.color.slate_600))
                     textSize = 12f
+                    maxLines = 2
                 })
             }
             inq.optJSONObject("orderForm")?.optInt("totalAmount", 0)?.takeIf { it > 0 }?.let { total ->
@@ -204,15 +241,25 @@ object CustomerLookupUi {
                     text = "견적 ${NumberFormat.getNumberInstance(Locale.KOREA).format(total)}원"
                     setTextColor(color(context, R.color.emerald_600))
                     textSize = 13f
+                    setTypeface(typeface, Typeface.BOLD)
                 })
             }
-            inq.optString("memo").takeIf { it.isNotBlank() }?.let {
-                col.addView(TextView(context).apply {
-                    text = it
-                    setTextColor(color(context, R.color.slate_700))
-                    textSize = 13f
-                    maxLines = 3
-                })
+            if (onOpenDetail != null) {
+                col.addView(
+                    MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                        ).apply { topMargin = dp(context, 8) }
+                        text = context.getString(R.string.inquiry_detail_button)
+                        setTextColor(color(context, R.color.slate_800))
+                        strokeColor = ColorStateList.valueOf(color(context, R.color.slate_300))
+                        cornerRadius = dp(context, 10)
+                        setOnClickListener {
+                            onOpenDetail.invoke(lookup, inquiryIndex)
+                        }
+                    },
+                )
             }
             addView(col)
         }

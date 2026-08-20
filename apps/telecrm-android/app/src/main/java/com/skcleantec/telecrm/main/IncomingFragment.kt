@@ -13,6 +13,7 @@ import com.skcleantec.telecrm.api.ApiClient
 import com.skcleantec.telecrm.api.SmsTemplateDto
 import com.skcleantec.telecrm.auth.TokenStore
 import com.skcleantec.telecrm.databinding.FragmentIncomingBinding
+import com.skcleantec.telecrm.inquiry.InquiryDetailActivity
 import com.skcleantec.telecrm.telephony.CallLogReader
 import com.skcleantec.telecrm.telephony.CallLogRow
 import com.skcleantec.telecrm.telephony.CallLogSync
@@ -21,6 +22,8 @@ import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 import com.skcleantec.telecrm.ui.SimpleRow
 import com.skcleantec.telecrm.ui.SimpleRowAdapter
 import com.skcleantec.telecrm.ui.SmsTemplateHelper
+import com.skcleantec.telecrm.ui.TelecrmInquiryLabels
+import com.skcleantec.telecrm.ui.TelecrmLookupDetailRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -67,6 +70,10 @@ class IncomingFragment : Fragment() {
             TelecrmCallHelper.logCall(requireContext(), apiClient, token, phone, "INBOUND", inquiryId, match)
         }
         binding.detailSms.setOnClickListener { TelecrmCallHelper.openSms(requireContext(), selectedPhone) }
+        binding.detailInquiryButton.setOnClickListener {
+            val lookup = selectedLookup ?: return@setOnClickListener
+            InquiryDetailActivity.open(requireContext(), lookup, 0)
+        }
         loadSmsTemplates()
         ensurePermission()
     }
@@ -145,6 +152,7 @@ class IncomingFragment : Fragment() {
         binding.detailPanel.visibility = View.VISIBLE
         binding.detailTitle.text = row.number
         binding.detailBody.text = "조회 중…"
+        binding.detailInquiryButton.visibility = View.GONE
         bindIncomingTemplateChips()
         val token = tokenStore.getToken() ?: return
         lifecycleScope.launch {
@@ -158,18 +166,18 @@ class IncomingFragment : Fragment() {
                 val name = inq?.optString("customerName")
                     ?: customer?.optString("name")
                     ?: "미등록"
-                val match = when (json.optString("match")) {
-                    "existing" -> "기존 고객"
-                    "new" -> "신규"
-                    else -> json.optString("match")
-                }
-                val memo = inq?.optString("memo").orEmpty()
+                val match = TelecrmInquiryLabels.matchLabel(json.optString("match"))
                 binding.detailTitle.text = "$name · $match"
-                binding.detailBody.text = buildString {
-                    append(selectedPhone)
-                    inq?.optString("address")?.takeIf { it.isNotBlank() }?.let { append("\n$it") }
-                    if (memo.isNotBlank()) append("\n$memo")
+                binding.detailBody.text = if (inq != null) {
+                    TelecrmLookupDetailRenderer.summaryLines(inq, json).joinToString("\n")
+                } else {
+                    buildString {
+                        append(selectedPhone)
+                        append("\n접수 이력 없음")
+                    }
                 }
+                binding.detailInquiryButton.visibility =
+                    if (inq != null) View.VISIBLE else View.GONE
                 val logRow = CallLogRow(row.id, row.number, row.dateMs, row.durationSec, android.provider.CallLog.Calls.INCOMING_TYPE)
                 CallLogSync.syncKnownRow(
                     requireContext(),

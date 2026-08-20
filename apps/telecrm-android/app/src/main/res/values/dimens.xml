@@ -11,5 +11,6 @@
     <dimen name="telecrm_header_padding_v">12dp</dimen>
     <dimen name="telecrm_login_logo_top">16dp</dimen>
     <dimen name="telecrm_login_hero_height">200dp</dimen>
+    <dimen name="telecrm_login_keyboard_scroll_extra">80dp</dimen>
     <dimen name="telecrm_dial_key_height">52dp</dimen>
 </resources>

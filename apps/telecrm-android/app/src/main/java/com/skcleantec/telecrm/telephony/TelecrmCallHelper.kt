@@ -139,6 +139,33 @@ object TelecrmCallHelper {
         }.start()
     }
 
+    /** 수신 벨 — TelecomManager.acceptRingingCall (ANSWER_PHONE_CALLS) */
+    fun answerIncomingCall(context: Context): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return false
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ANSWER_PHONE_CALLS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            return false
+        }
+        val telecom = context.getSystemService(android.telecom.TelecomManager::class.java) ?: return false
+        return runCatching {
+            telecom.acceptRingingCall()
+            true
+        }.getOrDefault(false)
+    }
+
+    /** 수신 거절 — 기기·OS에 따라 동작 차이 있음 */
+    fun rejectIncomingCall(context: Context): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P) return false
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ANSWER_PHONE_CALLS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            return false
+        }
+        val telecom = context.getSystemService(android.telecom.TelecomManager::class.java) ?: return false
+        return runCatching { telecom.endCall() }.getOrDefault(false)
+    }
+
     fun logOutboundCall(
         context: Context,
         apiClient: ApiClient,

@@ -194,6 +194,27 @@ class ApiClient(private val baseUrl: String) {
         }
     }
 
+    /** SIM 수신 — PC CRM(브라우저)에 고객 lookup 실시간 전달 */
+    fun notifyMobileIncomingRing(token: String, phone: String): Result<Unit> {
+        return runCatching {
+            val digits = phone.filter { it.isDigit() }
+            if (digits.length < 4) return Result.success(Unit)
+            val body = JSONObject().put("phone", digits).toString().toRequestBody(jsonMedia)
+            val request = Request.Builder()
+                .url("$baseUrl/api/crm/mobile-incoming-ring")
+                .addHeader("Authorization", "Bearer $token")
+                .post(body)
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    val raw = response.body?.string().orEmpty()
+                    val err = runCatching { JSONObject(raw).optString("error") }.getOrNull()
+                    throw IllegalStateException(err ?: "PC CRM 수신 알림 실패")
+                }
+            }
+        }
+    }
+
     private fun authorizedGetArray(path: String, token: String): Result<JSONArray> {
         return authorizedGetRaw(path, token).map { raw ->
             JSONArray(raw)

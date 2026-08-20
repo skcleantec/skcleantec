@@ -2,7 +2,7 @@
 
 <resources>
 
-    <string name="app_name">청소비서 전화</string>
+    <string name="app_name">청소비서(마케터)</string>
 
     <string name="login_title">로그인</string>
 
@@ -59,6 +59,10 @@
 
     <string name="search_button">검색</string>
 
+    <string name="inquiry_detail_title">접수 상세</string>
+
+    <string name="inquiry_detail_button">접수 상세</string>
+
     <string name="call_button">통화</string>
 
     <string name="sms_button">문자</string>
@@ -91,12 +95,12 @@
     <string name="no_conversations">대화 상대가 없습니다.</string>
 
     <string name="notification_channel_ongoing">PC 연결 유지</string>
-    <string name="notification_channel_ongoing_desc">청소비서 전화 앱이 PC CRM과 연결을 유지합니다.</string>
+    <string name="notification_channel_ongoing_desc">청소비서(마케터) 앱이 PC CRM과 연결을 유지합니다.</string>
     <string name="notification_channel_call">PC 통화 요청</string>
     <string name="notification_channel_call_desc">PC CRM에서 보낸 통화 요청 알림</string>
     <string name="notification_channel_sms">PC 문자 요청</string>
     <string name="notification_channel_sms_desc">PC CRM에서 보낸 문자 요청 알림</string>
-    <string name="notification_ongoing_title">청소비서 전화 · PC 연결</string>
+    <string name="notification_ongoing_title">청소비서(마케터) · PC 연결</string>
     <string name="notification_ongoing_connected">PC CRM과 연결됨</string>
     <string name="notification_ongoing_reconnecting">다시 연결 중…</string>
     <string name="notification_call_title">PC 통화 요청</string>
@@ -111,8 +115,22 @@
     <string name="call_dispatch_prefill_hint">다이얼에 번호를 넣었습니다.</string>
     <string name="call_dispatch_button">지금 통화</string>
 
+    <string name="incoming_call_title">수신 전화</string>
+    <string name="incoming_call_answer">받기</string>
+    <string name="incoming_call_decline">거절</string>
+    <string name="incoming_call_lookup_loading">고객 조회 중…</string>
+    <string name="incoming_call_unknown_customer">고객</string>
+    <string name="incoming_call_no_inquiry">접수 이력 없음</string>
+    <string name="incoming_call_answer_fallback">전화 앱에서 받기를 눌러 주세요.</string>
+    <string name="notification_channel_incoming">수신 CRM 알림</string>
+    <string name="notification_channel_incoming_desc">고객 전화 수신 시 CRM 정보와 받기 화면</string>
+    <string name="notification_incoming_title">수신 전화</string>
+    <string name="notification_incoming_title_named">%1$s · %2$s</string>
+    <string name="notification_incoming_body">%1$s · CRM에서 확인</string>
+
     <string name="galaxy_setup_title">갤럭시 설정 안내</string>
-    <string name="galaxy_setup_message">잠금 화면·다른 앱 사용 중에도 PC 통화를 받으려면 아래 설정을 권장합니다.\n\n· 전체 화면 알림 허용\n· 배터리 사용량 「제한 없음」(설정 → 배터리 → 백그라운드 사용 제한)</string>
+    <string name="galaxy_setup_message">고객 전화가 올 때 CRM 정보를 보려면 아래 설정이 필요합니다.\n\n1. 「발신번호·스팸 앱」→ 청소비서(마케터) 선택 (필수)\n2. PC CRM 화면을 켜 두면 휴대폰 수신 시 PC에 고객 정보가 자동 표시됩니다\n3. 전체 화면 알림·배터리 「제한 없음」 (휴대폰 CRM 화면용)</string>
+    <string name="galaxy_setup_call_screening">발신번호·스팸 앱</string>
     <string name="galaxy_setup_fullscreen">전체 화면 알림</string>
     <string name="galaxy_setup_battery">배터리 설정</string>
 

@@ -26,6 +26,7 @@ import com.skcleantec.telecrm.databinding.FragmentDialBinding
 
 import com.skcleantec.telecrm.realtime.AppEventBus
 
+import com.skcleantec.telecrm.inquiry.InquiryDetailActivity
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 
 import com.skcleantec.telecrm.ui.CustomerLookupState
@@ -87,6 +88,10 @@ class DialFragment : Fragment() {
         lookupState.match = customerMatch?.takeIf { it.isNotBlank() } ?: "unknown"
         updatePhoneClearUi()
         updateActionRowVisibility()
+        val digits = phone.filter { it.isDigit() }
+        if (digits.length >= 8) {
+            searchCustomer()
+        }
     }
 
     /** lookup·접수 선택 결과를 다이얼 입력란과 맞춤 */
@@ -425,6 +430,9 @@ class DialFragment : Fragment() {
                     onInquirySelected = {
                         syncPhoneFieldFromLookup()
                         updateActionRowVisibility()
+                    },
+                    onOpenDetail = { lookup, index ->
+                        InquiryDetailActivity.open(requireContext(), lookup, index)
                     },
                 )
 

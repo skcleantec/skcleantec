@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/slate_900"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/incomingCallTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="@string/incoming_call_title"
+        android:textColor="@color/slate_300"
+        android:textSize="14sp"
+        app:layout_constraintBottom_toTopOf="@id/incomingCallCustomerName"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_chainStyle="packed" />
+
+    <TextView
+        android:id="@+id/incomingCallCustomerName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:textColor="@color/white"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/incomingCallPhone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/incomingCallTitle"
+        tools:text="홍길동 · 예약완료" />
+
+    <TextView
+        android:id="@+id/incomingCallPhone"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:textColor="@color/white"
+        android:textSize="30sp"
+        app:layout_constraintBottom_toTopOf="@id/incomingCallSummary"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/incomingCallCustomerName"
+        tools:text="010-1234-5678" />
+
+    <TextView
+        android:id="@+id/incomingCallSummary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:textColor="@color/slate_300"
+        android:textSize="13sp"
+        app:layout_constraintBottom_toTopOf="@id/incomingCallDetailButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/incomingCallPhone"
+        tools:text="서울 강남구…\n견적 350,000원" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/incomingCallDetailButton"
+        style="@style/Widget.Telecrm.Button.Outlined"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/inquiry_detail_button"
+        android:textColor="@color/white"
+        android:visibility="gone"
+        app:strokeColor="@color/slate_500"
+        app:layout_constraintBottom_toTopOf="@id/incomingCallActions"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/incomingCallSummary"
+        tools:visibility="visible" />
+
+    <LinearLayout
+        android:id="@+id/incomingCallActions"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/incomingCallDetailButton">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/incomingCallDeclineButton"
+            style="@style/Widget.Telecrm.Button.Outlined"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="@string/incoming_call_decline"
+            android:textColor="@color/white"
+            app:strokeColor="@color/slate_500" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/incomingCallAnswerButton"
+            style="@style/Widget.Telecrm.Button.Primary"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/incoming_call_answer"
+            android:textColor="@color/slate_900"
+            app:backgroundTint="@color/emerald_600" />
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

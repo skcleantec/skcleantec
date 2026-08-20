@@ -1,6 +1,7 @@
 package com.skcleantec.telecrm.auth
 
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -10,7 +11,9 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
+import kotlin.math.max
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.skcleantec.telecrm.R
 import com.skcleantec.telecrm.api.ApiClient
@@ -41,6 +44,7 @@ class LoginActivity : AppCompatActivity() {
             true
         }
         applyLoginWindowInsets()
+        setupLoginKeyboardScroll()
 
         tokenStore.getTenantSlug()?.let { binding.inputTenantSlug.setText(it) }
         tokenStore.getLoginId()?.let { binding.inputLoginId.setText(it) }
@@ -144,6 +148,9 @@ class LoginActivity : AppCompatActivity() {
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            binding.root.updatePadding(bottom = max(imeBottom, navBottom))
 
             val heroLp = binding.loginHero.layoutParams
             heroLp.height = baseHeroHeight + top
@@ -153,9 +160,34 @@ class LoginActivity : AppCompatActivity() {
             logoLp.topMargin = top + logoTopExtra
             binding.loginLogo.layoutParams = logoLp
 
+            if (imeBottom > 0) {
+                binding.root.findFocus()?.let { scrollLoginFieldIntoView(it) }
+            }
+
             insets
         }
         ViewCompat.requestApplyInsets(binding.root)
+    }
+
+    private fun setupLoginKeyboardScroll() {
+        val inputs = listOf(
+            binding.inputTenantSlug,
+            binding.inputLoginId,
+            binding.inputPassword,
+        )
+        inputs.forEach { field ->
+            field.setOnFocusChangeListener { view, hasFocus ->
+                if (hasFocus) scrollLoginFieldIntoView(view)
+            }
+        }
+    }
+
+    private fun scrollLoginFieldIntoView(target: View) {
+        binding.root.post {
+            val extra = resources.getDimensionPixelSize(R.dimen.telecrm_login_keyboard_scroll_extra)
+            val rect = Rect(0, 0, target.width, target.height + extra)
+            target.requestRectangleOnScreen(rect, true)
+        }
     }
 
     private fun attemptLogin() {

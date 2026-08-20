@@ -220,6 +220,33 @@ export type OrderFormCustomerLinkConfigRtPayload = {
   operatingCompanyId?: string | null;
 };
 
+export type TelecrmIncomingRingRtPayload = {
+  type: 'telecrm:incoming-ring';
+  phone: string;
+  match?: string;
+  customerName?: string | null;
+  inquiryId?: string | null;
+  inquiryStatus?: string | null;
+  address?: string | null;
+};
+
+function parseTelecrmIncomingRingPayload(d: unknown): TelecrmIncomingRingRtPayload | null {
+  if (!d || typeof d !== 'object') return null;
+  const o = d as Record<string, unknown>;
+  if (o.type !== 'telecrm:incoming-ring') return null;
+  const phone = typeof o.phone === 'string' ? o.phone.replace(/\D/g, '') : '';
+  if (phone.length < 4) return null;
+  return {
+    type: 'telecrm:incoming-ring',
+    phone,
+    match: typeof o.match === 'string' ? o.match : undefined,
+    customerName: typeof o.customerName === 'string' ? o.customerName : o.customerName == null ? null : undefined,
+    inquiryId: typeof o.inquiryId === 'string' ? o.inquiryId : o.inquiryId == null ? null : undefined,
+    inquiryStatus: typeof o.inquiryStatus === 'string' ? o.inquiryStatus : o.inquiryStatus == null ? null : undefined,
+    address: typeof o.address === 'string' ? o.address : o.address == null ? null : undefined,
+  };
+}
+
 function parseOrderFormCustomerLinkConfigPayload(
   d: unknown,
 ): OrderFormCustomerLinkConfigRtPayload | null {
@@ -254,6 +281,7 @@ type Bucket = {
   scheduleNoticeBoardListeners: Set<(p: ScheduleNoticeBoardRtPayload) => void>;
   marketplaceHandoffConfirmedListeners: Set<(p: DbMarketplaceHandoffConfirmedRtPayload) => void>;
   customerLinkConfigListeners: Set<(p: OrderFormCustomerLinkConfigRtPayload) => void>;
+  telecrmIncomingRingListeners: Set<(p: TelecrmIncomingRingRtPayload) => void>;
 };
 
 const buckets = new Map<string, Bucket>();
@@ -270,7 +298,8 @@ function bucketHasSubscribers(bucket: Bucket): boolean {
     bucket.scheduleDayMemoListeners.size > 0 ||
     bucket.scheduleNoticeBoardListeners.size > 0 ||
     bucket.marketplaceHandoffConfirmedListeners.size > 0 ||
-    bucket.customerLinkConfigListeners.size > 0
+    bucket.customerLinkConfigListeners.size > 0 ||
+    bucket.telecrmIncomingRingListeners.size > 0
   );
 }
 
@@ -412,6 +441,16 @@ function connectBucket(bucket: Bucket) {
           }
         }
       }
+      const telecrmIncomingRing = parseTelecrmIncomingRingPayload(data);
+      if (telecrmIncomingRing) {
+        for (const fn of bucket.telecrmIncomingRingListeners) {
+          try {
+            fn(telecrmIncomingRing);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -522,6 +561,7 @@ export function useInboxRealtime(
         scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -629,6 +669,7 @@ export function useInquiryCelebrateRealtime(
         scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -712,6 +753,7 @@ export function useRosterAckRealtime(
         scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -774,6 +816,7 @@ export function useChangeLogRealtime(
         scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -830,6 +873,7 @@ export function useScheduleAlertRealtime(
         scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -886,6 +930,7 @@ export function useReviewPaybackRealtime(
         scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -942,6 +987,7 @@ export function useLandingContactRealtime(
         scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -998,6 +1044,7 @@ export function useDbMarketplaceHandoffConfirmedRealtime(
         scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -1054,6 +1101,7 @@ export function useScheduleDayStaffMemoRealtime(
         scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -1110,6 +1158,7 @@ export function useScheduleStaffNoticeBoardRealtime(
         scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -1166,6 +1215,7 @@ export function useOrderFormCustomerLinkConfigRealtime(
         scheduleNoticeBoardListeners: new Set(),
         marketplaceHandoffConfirmedListeners: new Set(),
         customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
       };
       buckets.set(token, b);
     } else {
@@ -1182,6 +1232,63 @@ export function useOrderFormCustomerLinkConfigRealtime(
       const bucket = buckets.get(token);
       if (bucket) {
         bucket.customerLinkConfigListeners.delete(listener);
+        bucket.connectionListeners.delete(noopConn);
+      }
+      destroyBucketIfIdle(token);
+    };
+  }, [token, enabled]);
+}
+
+/** 휴대폰 SIM 수신 → PC CRM 고객 lookup 자동 반영 */
+export function useTelecrmIncomingRingRealtime(
+  token: string | null,
+  onIncomingRing: (p: TelecrmIncomingRingRtPayload) => void,
+  enabled: boolean,
+): void {
+  const onRef = useRef(onIncomingRing);
+  useEffect(() => {
+    onRef.current = onIncomingRing;
+  });
+
+  useEffect(() => {
+    if (!enabled || !token) return;
+
+    let b = buckets.get(token);
+    if (!b) {
+      b = {
+        token,
+        ws: null,
+        reconnectTimer: undefined,
+        tearDown: false,
+        refreshListeners: new Set(),
+        connectionListeners: new Set(),
+        celebrationListeners: new Set(),
+        rosterAckListeners: new Set(),
+        changeLogListeners: new Set(),
+        scheduleAlertListeners: new Set(),
+        reviewPaybackListeners: new Set(),
+        landingContactListeners: new Set(),
+        scheduleDayMemoListeners: new Set(),
+        scheduleNoticeBoardListeners: new Set(),
+        marketplaceHandoffConfirmedListeners: new Set(),
+        customerLinkConfigListeners: new Set(),
+        telecrmIncomingRingListeners: new Set(),
+      };
+      buckets.set(token, b);
+    } else {
+      b.tearDown = false;
+    }
+
+    const listener = (p: TelecrmIncomingRingRtPayload) => onRef.current(p);
+    b.telecrmIncomingRingListeners.add(listener);
+    const noopConn = () => {};
+    b.connectionListeners.add(noopConn);
+    connectBucket(b);
+
+    return () => {
+      const bucket = buckets.get(token);
+      if (bucket) {
+        bucket.telecrmIncomingRingListeners.delete(listener);
         bucket.connectionListeners.delete(noopConn);
       }
       destroyBucketIfIdle(token);

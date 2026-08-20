@@ -22,6 +22,7 @@ import {
   parseTelecrmMobileDispatchBody,
 } from './telecrmMobileDispatch.service.js';
 import { countTelecrmAppsInTenant } from '../realtime/realtimeHub.js';
+import { notifyTelecrmMobileIncomingRing } from './telecrmMobileIncoming.service.js';
 import { resolveTelecrmOrderFormLink } from './telecrmOrderLink.service.js';
 import { getTelecrmWorkdeskStats } from './telecrmWorkdeskStats.service.js';
 import { listTelecrmContactTimeline } from './telecrmContactTimeline.service.js';
@@ -57,6 +58,25 @@ router.get('/mobile-config', requireStaffPermission('crm.view', 'crm.settings'),
       connectedMinSec: TELECRM_CONNECTED_MIN_SEC,
     },
   });
+});
+
+/** SIM 수신 벨 — 동일 마케터 PC CRM에 고객 lookup 실시간 반영 */
+router.post('/mobile-incoming-ring', async (req, res) => {
+  const tenantId = await requireTelecrmTenantAsync(req, res);
+  if (!tenantId) return;
+  const user = (req as unknown as { user: AuthPayload }).user;
+  const phone = typeof req.body?.phone === 'string' ? req.body.phone : '';
+  if (phone.replace(/\D/g, '').length < 4) {
+    res.status(400).json({ error: '전화번호(4자 이상)가 필요합니다.' });
+    return;
+  }
+  try {
+    const { wsDelivered, skipped } = await notifyTelecrmMobileIncomingRing(tenantId, user, phone);
+    res.status(201).json({ ok: true, wsDelivered, skipped: Boolean(skipped) });
+  } catch (e) {
+    console.error('[telecrm/mobile-incoming-ring]', e);
+    res.status(500).json({ error: '수신 알림 처리에 실패했습니다.' });
+  }
 });
 
 /** PC CRM → 동일 마케터 휴대폰 앱 (통화·문자 큐) */

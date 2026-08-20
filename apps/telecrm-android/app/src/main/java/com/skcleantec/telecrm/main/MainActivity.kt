@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -30,6 +31,8 @@ import com.skcleantec.telecrm.service.TelecrmRealtimeService
 import com.skcleantec.telecrm.telephony.CallLogReader
 import com.skcleantec.telecrm.telephony.CallLogSync
 import com.skcleantec.telecrm.telephony.CallReturnMonitor
+import com.skcleantec.telecrm.telephony.IncomingCallMonitor
+import com.skcleantec.telecrm.telephony.TelecrmCallScreeningSetup
 import com.skcleantec.telecrm.telephony.TelecrmCallHelper
 import com.skcleantec.telecrm.ui.AppVersion
 import com.skcleantec.telecrm.update.TelecrmApkInstall
@@ -104,6 +107,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val callScreeningLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        syncIncomingCallMonitor()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val token = intent.getStringExtra(EXTRA_JWT) ?: tokenStore.getToken()
@@ -154,6 +163,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.root.post {
             TelecrmRealtimeService.start(this@MainActivity)
+            syncIncomingCallMonitor()
         }
         AppEventBus.addConnectionListener(connectionListener)
         AppEventBus.addToastListener(toastListener)
@@ -191,6 +201,7 @@ class MainActivity : AppCompatActivity() {
         if (CallLogReader.hasCallLogPermission(this)) {
             Thread { CallLogSync.syncRecent(applicationContext, 24) }.start()
         }
+        syncIncomingCallMonitor()
         if (::apiBaseUrl.isInitialized) {
             lifecycleScope.launch {
                 TelecrmUpdateCoordinator.checkOnMain(this@MainActivity, apiBaseUrl)
@@ -231,6 +242,11 @@ class MainActivity : AppCompatActivity() {
             TelecrmCallHelper.onCallPermissionGranted(this, pendingCallPhone)
             pendingCallPhone = null
         }
+        syncIncomingCallMonitor()
+    }
+
+    private fun syncIncomingCallMonitor() {
+        IncomingCallMonitor.restart(applicationContext)
     }
 
     private fun bindUserHeader() {
@@ -274,6 +290,16 @@ class MainActivity : AppCompatActivity() {
         if (checkSelfPermission(Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
             needed.add(Manifest.permission.READ_CALL_LOG)
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            checkSelfPermission(Manifest.permission.ANSWER_PHONE_CALLS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed.add(Manifest.permission.ANSWER_PHONE_CALLS)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            checkSelfPermission(Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed.add(Manifest.permission.READ_PHONE_NUMBERS)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -286,26 +312,41 @@ class MainActivity : AppCompatActivity() {
 
     private fun maybeShowGalaxySetupHints() {
         val prefs = getSharedPreferences(PREFS_SETUP, MODE_PRIVATE)
-        if (prefs.getBoolean(KEY_HINT_SHOWN, false)) return
-
         val needsFullScreen = TelecrmDeviceHints.shouldPromptFullScreenIntent(this)
-        if (!needsFullScreen) {
-            prefs.edit { putBoolean(KEY_HINT_SHOWN, true) }
+        val needsCallScreening = TelecrmCallScreeningSetup.shouldPrompt(this)
+        if (!needsFullScreen && !needsCallScreening) {
+            syncIncomingCallMonitor()
+            return
+        }
+        if (prefs.getBoolean(KEY_HINT_SHOWN, false)) {
+            syncIncomingCallMonitor()
             return
         }
 
         AlertDialog.Builder(this)
             .setTitle(R.string.galaxy_setup_title)
             .setMessage(R.string.galaxy_setup_message)
-            .setPositiveButton(R.string.galaxy_setup_fullscreen) { _, _ ->
+            .setPositiveButton(R.string.galaxy_setup_call_screening) { _, _ ->
+                requestCallScreeningRole()
+            }
+            .setNeutralButton(R.string.galaxy_setup_fullscreen) { _, _ ->
                 TelecrmDeviceHints.openFullScreenIntentSettings(this)
             }
-            .setNeutralButton(R.string.galaxy_setup_battery) { _, _ ->
+            .setNegativeButton(R.string.galaxy_setup_battery) { _, _ ->
                 TelecrmDeviceHints.openBatteryOptimizationSettings(this)
             }
-            .setNegativeButton(android.R.string.ok, null)
             .show()
         prefs.edit { putBoolean(KEY_HINT_SHOWN, true) }
+        syncIncomingCallMonitor()
+    }
+
+    private fun requestCallScreeningRole() {
+        val intent = TelecrmCallScreeningSetup.createRoleRequestIntent(this)
+        if (intent != null) {
+            callScreeningLauncher.launch(intent)
+        } else {
+            TelecrmCallScreeningSetup.openCallScreeningSettings(this)
+        }
     }
 
     private fun logout() {

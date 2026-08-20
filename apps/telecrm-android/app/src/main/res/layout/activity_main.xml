@@ -34,7 +34,7 @@
                 android:adjustViewBounds="true"
                 android:contentDescription="@string/logo_content_description"
                 android:scaleType="fitStart"
-                android:src="@drawable/clean_secretary_logo" />
+                android:src="@drawable/clean_secretary_logo_on_dark" />
 
             <TextView
                 android:id="@+id/userNameText"

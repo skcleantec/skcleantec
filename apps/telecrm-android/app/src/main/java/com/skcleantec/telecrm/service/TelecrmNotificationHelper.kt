@@ -12,15 +12,21 @@ import androidx.core.app.NotificationManagerCompat
 import com.skcleantec.telecrm.R
 import com.skcleantec.telecrm.dispatch.CallDispatchActivity
 import com.skcleantec.telecrm.dispatch.TelecrmDispatchPayload
+import com.skcleantec.telecrm.incoming.IncomingCallActivity
 import com.skcleantec.telecrm.main.MainActivity
+import com.skcleantec.telecrm.ui.TelecrmInquiryLabels
+import com.skcleantec.telecrm.ui.TelecrmLookupDetailRenderer
+import org.json.JSONObject
 
 object TelecrmNotificationHelper {
     const val CHANNEL_ONGOING = "telecrm_ongoing"
     const val CHANNEL_CALL_DISPATCH = "telecrm_call_dispatch"
+    const val CHANNEL_INCOMING_CALL = "telecrm_incoming_call"
     const val CHANNEL_SMS_DISPATCH = "telecrm_sms_dispatch"
 
     const val NOTIFICATION_ONGOING = 7001
     const val NOTIFICATION_CALL_BASE = 7100
+    const val NOTIFICATION_INCOMING_CALL = 7150
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -44,6 +50,18 @@ object TelecrmNotificationHelper {
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = context.getString(R.string.notification_channel_call_desc)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                enableVibration(true)
+            },
+        )
+
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_INCOMING_CALL,
+                context.getString(R.string.notification_channel_incoming),
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = context.getString(R.string.notification_channel_incoming_desc)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 enableVibration(true)
             },
@@ -137,6 +155,89 @@ object TelecrmNotificationHelper {
         }
 
         NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+    }
+
+    fun showIncomingCall(context: Context, phone: String, lookup: JSONObject?) {
+        ensureChannels(context)
+        val digits = phone.filter { it.isDigit() }
+        if (digits.length < 4) return
+
+        val activityIntent = IncomingCallActivity.intent(context, digits)
+        val fullScreenPending = PendingIntent.getActivity(
+            context,
+            NOTIFICATION_INCOMING_CALL,
+            activityIntent,
+            pendingIntentFlags(),
+        )
+        val contentPending = PendingIntent.getActivity(
+            context,
+            NOTIFICATION_INCOMING_CALL + 1,
+            activityIntent,
+            pendingIntentFlags(),
+        )
+
+        val inq = lookup?.optJSONArray("inquiries")?.optJSONObject(0)
+        val title = if (inq != null) {
+            val name = inq.optString("customerName").ifBlank {
+                lookup.optJSONObject("customer")?.optString("name").orEmpty()
+            }
+            if (name.isNotBlank()) {
+                context.getString(
+                    R.string.notification_incoming_title_named,
+                    name,
+                    TelecrmInquiryLabels.statusLabel(inq.optString("status")),
+                )
+            } else {
+                context.getString(R.string.notification_incoming_title)
+            }
+        } else {
+            context.getString(R.string.notification_incoming_title)
+        }
+        val body = buildIncomingBody(context, digits, lookup, inq)
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_INCOMING_CALL)
+            .setSmallIcon(R.drawable.ic_notification_phone)
+            .setContentTitle(title)
+            .setContentText(body.lines().firstOrNull() ?: body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setContentIntent(contentPending)
+            .setFullScreenIntent(fullScreenPending, true)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val nm = context.getSystemService(NotificationManager::class.java)
+            if (nm?.canUseFullScreenIntent() != true) {
+                builder.setFullScreenIntent(null, false)
+            }
+        }
+
+        NotificationManagerCompat.from(context).notify(NOTIFICATION_INCOMING_CALL, builder.build())
+    }
+
+    fun cancelIncomingCall(context: Context) {
+        NotificationManagerCompat.from(context).cancel(NOTIFICATION_INCOMING_CALL)
+    }
+
+    private fun buildIncomingBody(
+        context: Context,
+        digits: String,
+        lookup: JSONObject?,
+        inq: org.json.JSONObject?,
+    ): String {
+        val phoneLine = formatPhone(digits)
+        if (inq == null || lookup == null) {
+            return context.getString(R.string.notification_incoming_body, phoneLine)
+        }
+        val summary = TelecrmLookupDetailRenderer.summaryLines(inq, lookup).joinToString("\n")
+        return if (summary.isBlank()) {
+            context.getString(R.string.notification_incoming_body, phoneLine)
+        } else {
+            "$phoneLine\n$summary"
+        }
     }
 
     fun showPrefillDispatch(context: Context, payload: TelecrmDispatchPayload) {

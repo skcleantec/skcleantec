@@ -44,10 +44,12 @@ import { CrmSettingsDrawer } from '../../../components/crm/settings/CrmSettingsD
 import { CrmOrderIssueDrawer } from '../../../components/crm/issue/CrmOrderIssueDrawer';
 import { CrmFollowupDrawer } from '../../../components/crm/followup/CrmFollowupDrawer';
 import { useCrmPanelUrl } from '../../../hooks/useCrmPanelUrl';
+import { useTelecrmIncomingRingRealtime } from '../../../hooks/useInboxRealtime';
 import type { CrmOrderIssueSeed } from '../../../components/orderform/OrderIssueInlinePanel';
 import { crmIntakeRequiredPermission, resolveCrmIntakeCustomerName } from '../../../components/crm/intake/crmIntakeValidation';
 import {
   isCrmSafePhone,
+  isCrmMobilePhone,
   resolveCrmOutboundPhone,
   splitSoomgoPhones,
 } from '../../../utils/crmContactPhone';
@@ -516,6 +518,34 @@ export function CrmPage() {
     if (dispatchNoticeTimer.current) clearTimeout(dispatchNoticeTimer.current);
     dispatchNoticeTimer.current = setTimeout(() => setDispatchNotice(null), 4000);
   }, []);
+
+  const applyMobileIncomingRing = useCallback(
+    (payload: { phone: string; customerName?: string | null; inquiryStatus?: string | null }) => {
+      const digits = payload.phone.replace(/\D/g, '');
+      if (digits.length < 4) return;
+      resetQuotePricingState();
+      setMode('existing');
+      const formatted =
+        digits.length === 11 && digits.startsWith('010')
+          ? `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
+          : digits;
+      setContactPhone(isCrmMobilePhone(digits) || isCrmSafePhone(digits) ? formatted : digits);
+      setSafePhone('');
+      setContactUnknown(false);
+      setLookupRefreshKey((k) => k + 1);
+      const name = payload.customerName?.trim();
+      const noticeParts = ['휴대폰 수신', name || formatted];
+      if (payload.inquiryStatus) noticeParts.push(payload.inquiryStatus);
+      showDispatchNotice(noticeParts.join(' · '));
+    },
+    [resetQuotePricingState, showDispatchNotice],
+  );
+
+  useTelecrmIncomingRingRealtime(
+    getToken(),
+    applyMobileIncomingRing,
+    Boolean(canView && telecrm && canAccessTelecrm(telecrm)),
+  );
 
   const authUserId = useMemo(() => {
     const token = getToken();
