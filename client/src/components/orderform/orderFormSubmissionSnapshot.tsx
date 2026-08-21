@@ -1,4 +1,5 @@
 import type { OrderFormCustomerSubmissionSnapshotV1 } from '../../api/orderform';
+import { labelForMoveInTiming } from '@shared/orderFormMoveInTiming';
 import { TELECRM_ORDER_FORM_QUOTE_BREAKDOWN_FIELD_KEY } from '@shared/telecrmConsultationQuote';
 import type { OrderFormSubmissionConsents } from '@shared/orderFormConsents';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
@@ -146,8 +147,13 @@ export function OrderFormSubmissionSnapshotContent(props: {
           <OrderFormSnapshotRow label="건축 형태">
             {snapshot.fields.buildingType?.trim() ? snapshot.fields.buildingType : '—'}
           </OrderFormSnapshotRow>
+          <OrderFormSnapshotRow label="이사 구분">
+            {labelForMoveInTiming(snapshot.fields.moveInTiming)}
+          </OrderFormSnapshotRow>
           <OrderFormSnapshotRow label="입주일">
-            {snapshot.fields.moveInDateUndecided
+            {snapshot.fields.moveInTiming === 'NOT_APPLICABLE'
+              ? '해당없음'
+              : snapshot.fields.moveInDateUndecided
               ? '미정'
               : snapshot.fields.moveInDate?.trim()
                 ? formatDateCompactWithWeekday(snapshot.fields.moveInDate)

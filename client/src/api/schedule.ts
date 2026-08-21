@@ -1,5 +1,6 @@
 import { API } from './apiPrefix';
 import type { TenantInquiryShareMeta } from './tenantInquiryShare';
+import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
 
 export type { TenantInquiryShareMeta };
 
@@ -59,6 +60,7 @@ export interface ScheduleItem {
   claimMemo?: string | null;
   callAttempt?: number | null;
   buildingType?: string | null;
+  moveInTiming?: MoveInTiming | null;
   moveInDate?: string | null;
   moveInDateUndecided?: boolean;
   specialNotes?: string | null;

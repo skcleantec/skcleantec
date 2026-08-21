@@ -31,6 +31,7 @@ import {
 } from './inquiryListSort.helpers.js';
 import { inquiryListSearchOrWhere } from './inquiryListSearchWhere.js';
 import { parseInquiryListSortQuery } from '../../lib/inquiryListSort.js';
+import { labelForMoveInTiming } from '../../lib/orderFormMoveInTiming.js';
 import {
   buildMarketerOverview,
   buildMarketerDailyOverview,
@@ -1421,6 +1422,14 @@ router.patch('/:id', async (req, res) => {
   if (data.preferredTimeDetail !== undefined)
     pushIfChanged('희망 시간 상세', inquiry.preferredTimeDetail, data.preferredTimeDetail);
   if (data.buildingType !== undefined) pushIfChanged('건물 구분', inquiry.buildingType, data.buildingType);
+  if (data.moveInTiming !== undefined) {
+    pushIfChanged(
+      '이사 구분',
+      inquiry.moveInTiming,
+      data.moveInTiming,
+      (v) => labelForMoveInTiming(v as string | null),
+    );
+  }
   if (data.moveInDate !== undefined) pushIfChanged('이사일', inquiry.moveInDate, data.moveInDate, fmtDate);
   if (data.moveInDateUndecided !== undefined) {
     const fmtU = (v: unknown) => (v ? '미정' : '일자 지정');

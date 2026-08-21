@@ -1,5 +1,8 @@
 /** 고객 제출 스냅샷(v1) → 확인 메일 본문 행 */
 
+import type { MoveInTiming } from '@prisma/client';
+import { labelForMoveInTiming } from '../../lib/orderFormMoveInTiming.js';
+
 export type OrderFormSubmissionSnapshotV1 = {
   version: 1;
   capturedAt: string;
@@ -24,6 +27,7 @@ export type OrderFormSubmissionSnapshotV1 = {
     balconyCount: number | null;
     kitchenCount: number | null;
     buildingType: string | null;
+    moveInTiming?: MoveInTiming | null;
     moveInDate: string | null;
     moveInDateUndecided?: boolean;
     specialNotes: string | null;
@@ -131,6 +135,7 @@ function areaExclusiveText(f: OrderFormSubmissionSnapshotV1['fields']): string {
 }
 
 function moveInText(f: OrderFormSubmissionSnapshotV1['fields']): string {
+  if (f.moveInTiming === 'NOT_APPLICABLE') return '해당없음';
   if (f.moveInDateUndecided) return '미정';
   if (f.moveInDate?.trim()) return formatYmdWithWeekday(f.moveInDate);
   return '—';
@@ -199,6 +204,7 @@ export function buildEmailDetailSections(
       { label: '화장실', value: f.bathroomCount != null ? String(f.bathroomCount) : '—' },
       { label: '주방', value: f.kitchenCount != null ? String(f.kitchenCount) : '—' },
       { label: '건축 형태', value: dashIfEmpty(f.buildingType) },
+      { label: '이사 구분', value: labelForMoveInTiming(f.moveInTiming) },
       { label: '입주일', value: moveInText(f) },
       { label: '청소 희망일', value: formatYmdWithWeekday(f.preferredDate) },
       { label: '시간대', value: TIME_SLOT_LABELS[f.preferredTime] ?? f.preferredTime },

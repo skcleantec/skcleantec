@@ -2013,6 +2013,13 @@ model DailyInquiryCounter {
   @@map("daily_inquiry_counters")
 }
 
+/// 발주서·접수 — 이사 구분(10번)
+enum MoveInTiming {
+  SAME_DAY
+  PLANNED
+  NOT_APPLICABLE
+}
+
 /// 마케터·관리자 내부용 고객 등급(접수 단위) — 고객·외부 노출 금지
 enum InternalCustomerTone {
   GOOD
@@ -2080,6 +2087,8 @@ model Inquiry {
   extraCharges  InquiryExtraCharge[]
   additionalReceipts InquiryAdditionalReceipt[]
   buildingType String?       @map("building_type")
+  /// 발주서 10번 — 당일이사 / 이사예정 / 해당없음
+  moveInTiming MoveInTiming? @map("move_in_timing")
   moveInDate   DateTime?     @map("move_in_date")
   /// 거주 외 선택 시 이사일 미입력 대신 「미정」 표시(발주서·접수 동기화)
   moveInDateUndecided Boolean @default(false) @map("move_in_date_undecided")

@@ -1,5 +1,6 @@
 import { API } from './apiPrefix';
 import { appendPublicQuery } from '../utils/publicTenantQuery';
+import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
 
 function headers(token: string) {
   return {
@@ -116,6 +117,7 @@ export interface OrderFormCustomerSubmissionSnapshotV1 {
     balconyCount: number | null;
     kitchenCount: number | null;
     buildingType: string | null;
+    moveInTiming?: MoveInTiming | null;
     moveInDate: string | null;
     /** 거주 외이고 이사일 미입력 시 */
     moveInDateUndecided?: boolean;
@@ -223,6 +225,7 @@ export interface PendingInquiryPrefill {
   preferredTime: string | null;
   preferredTimeDetail: string | null;
   buildingType: string | null;
+  moveInTiming?: MoveInTiming | null;
   moveInDate: string | null;
   moveInDateUndecided?: boolean;
   memo: string | null;
@@ -509,6 +512,7 @@ export interface OrderFormPrefillPayload {
   bathroomCount?: number | string;
   kitchenCount?: number | string;
   buildingType?: string;
+  moveInTiming?: MoveInTiming;
   moveInDate?: string;
   moveInDateUndecided?: boolean;
   isOneRoom?: boolean;
@@ -733,6 +737,7 @@ export async function submitOrderForm(
     bathroomCount?: number;
     kitchenCount?: number;
     buildingType?: string;
+    moveInTiming?: MoveInTiming;
     moveInDate?: string;
     moveInDateUndecided?: boolean;
     isOneRoom?: boolean;

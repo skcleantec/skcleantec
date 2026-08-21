@@ -65,8 +65,14 @@ function isValidOrderTimeSlot(v: string): v is OrderTimeSlot {
 import {
   ORDER_BUILDING_TYPE_OPTIONS,
   ORDER_BUILDING_TYPE_RESIDING,
-  requiresMoveInDateOrUndecided,
 } from '../../constants/orderFormBuilding';
+import {
+  parseMoveInTiming,
+  shouldWarnMoveInDateMismatch,
+  validateMoveInTimingFields,
+  type MoveInTiming,
+} from '@shared/orderFormMoveInTiming';
+import { MoveInTimingFieldGroup } from '../../components/orderform/MoveInTimingFieldGroup';
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
 import { applyOneRoomToSpecialNotes, detectOneRoomFromNotes, hasOrderFormBuildingTypeChoice } from '../../utils/orderFormOneRoom';
@@ -224,6 +230,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     bathroomCount: string;
     kitchenCount: string;
     buildingType: string;
+    moveInTiming: MoveInTiming | '';
     moveInDate: string;
     /** 신축·구축·인테리어 시 이사일 대신 */
     moveInDateUndecided: boolean;
@@ -248,6 +255,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     bathroomCount: '',
     kitchenCount: '',
     buildingType: '',
+    moveInTiming: '',
     moveInDate: '',
     moveInDateUndecided: false,
     isOneRoom: false,
@@ -345,6 +353,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const [pendingTimeSlot, setPendingTimeSlot] = useState<OrderTimeSlot | null>(null);
   const [serviceDateAckOpen, setServiceDateAckOpen] = useState(false);
   const [pendingServiceDate, setPendingServiceDate] = useState<string | null>(null);
+  const [moveDateMismatchWarnOpen, setMoveDateMismatchWarnOpen] = useState(false);
+  const submitAfterValidationRef = useRef<(() => Promise<void>) | null>(null);
   const [serviceDateConsent, setServiceDateConsent] = useState<{ at: string; date: string } | null>(
     null,
   );
@@ -696,7 +706,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         // 커스텀 항목 선입력 오버레이(표준 키 제외)
         const STD = new Set([
           'customerName', 'customerPhone', 'customerEmail', 'customerPhone2', 'address', 'addressDetail',
-          'propertyType', 'buildingType', 'moveInDate', 'moveInDateUndecided',
+          'propertyType', 'buildingType', 'moveInTiming', 'moveInDate', 'moveInDateUndecided',
           'roomCount', 'balconyCount', 'bathroomCount', 'kitchenCount', 'specialNotes', 'isOneRoom',
           'professionalOptionIds',
         ]);
@@ -760,6 +770,10 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           balconyCount: pfStr('balconyCount') ?? (p?.balconyCount != null ? String(p.balconyCount) : ''),
           kitchenCount: pfStr('kitchenCount') ?? (p?.kitchenCount != null ? String(p.kitchenCount) : ''),
           buildingType: pfStr('buildingType') ?? p?.buildingType ?? '',
+          moveInTiming:
+            parseMoveInTiming(pf['moveInTiming']) ??
+            parseMoveInTiming(p?.moveInTiming) ??
+            '',
           moveInDate: (() => {
             const pfMove = pfStr('moveInDate');
             if (pf['moveInDateUndecided'] === true) return '';
@@ -1068,13 +1082,16 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           'order-field-buildingType',
         );
       }
-      if (stdFieldOn('buildingType') && requiresMoveInDateOrUndecided(form.buildingType)) {
-        if (!form.moveInDateUndecided && !form.moveInDate.trim()) {
-          addIssue(
-            '신축·구축·인테리어 선택 시 이사 예정일을 입력하거나 「미정」을 선택해 주세요.',
-            'order-field-moveInDate',
-          );
-        }
+      if (stdFieldOn('moveInDate')) {
+        const moveInErr = validateMoveInTimingFields(
+          {
+            moveInTiming: form.moveInTiming || null,
+            moveInDate: form.moveInDate,
+            moveInDateUndecided: form.moveInDateUndecided,
+          },
+          { requireTiming: true },
+        );
+        if (moveInErr) addIssue(moveInErr, 'order-field-moveInDate');
       }
       const moveInMinYmd = kstTodayYmd();
       if (
@@ -1117,6 +1134,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         return;
       }
 
+      const finishSubmit = async () => {
       const submitConsents: OrderFormSubmissionConsents = {
         guideTerms: guideTermsConsent ? { agreedAt: guideTermsConsent.at } : undefined,
       };
@@ -1162,6 +1180,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           ? parseOrderFormSpaceCount(form.kitchenCount) ?? undefined
           : undefined,
         buildingType: stdFieldOn('buildingType') ? form.buildingType : undefined,
+        moveInTiming:
+          stdFieldOn('moveInDate') && form.moveInTiming ? form.moveInTiming : undefined,
         moveInDate:
           stdFieldOn('moveInDate') && !form.moveInDateUndecided ? form.moveInDate || undefined : undefined,
         moveInDateUndecided: stdFieldOn('moveInDate') ? form.moveInDateUndecided : undefined,
@@ -1178,6 +1198,19 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       if (isOrderFormPublicSubmitted(receipt)) {
         setSubmittedReceipt(receipt);
       }
+      };
+
+      if (
+        stdFieldOn('moveInDate') &&
+        shouldWarnMoveInDateMismatch(form.moveInTiming || null, useDate, form.moveInDate)
+      ) {
+        submitAfterValidationRef.current = finishSubmit;
+        setMoveDateMismatchWarnOpen(true);
+        setSubmitting(false);
+        return;
+      }
+
+      await finishSubmit();
     } catch (e) {
       showSubmitError(e instanceof Error ? e.message : '제출에 실패했습니다.');
     } finally {
@@ -1214,6 +1247,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       bathroomCount: form.bathroomCount.trim() || undefined,
       kitchenCount: form.kitchenCount.trim() || undefined,
       buildingType: form.buildingType || undefined,
+      moveInTiming: form.moveInTiming || undefined,
       moveInDate: form.moveInDateUndecided ? undefined : form.moveInDate.trim() || undefined,
       moveInDateUndecided: form.moveInDateUndecided || undefined,
       isOneRoom: form.isOneRoom || undefined,
@@ -1448,7 +1482,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const addressDetailFieldDisabled =
     lockKey('addressDetail') || (!isEditor && !addressConfirmedViaSearch);
   const profLocked = lockKey('professionalOptionIds');
-  const moveLocked = lockKey('moveInDate') || lockKey('moveInDateUndecided');
+  const moveLocked =
+    lockKey('moveInTiming') || lockKey('moveInDate') || lockKey('moveInDateUndecided');
 
   return (
     <div
@@ -2233,50 +2268,40 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           <div id="order-field-moveInDate">
             <label className={labelCls}>
               10. 이사 날짜
-              {requiresMoveInDateOrUndecided(form.buildingType) ? (
-                <span className="text-red-600"> *</span>
-              ) : (
-                <span className="text-gray-500"> (선택)</span>
-              )}
+              <span className="text-red-600"> *</span>
             </label>
-            <YmdSelect
-              className={inputCls}
-              value={form.moveInDate}
-              onChange={(v) =>
+            <MoveInTimingFieldGroup
+              moveInTiming={form.moveInTiming}
+              moveInDate={form.moveInDate}
+              moveInDateUndecided={form.moveInDateUndecided}
+              onTimingChange={(timing) =>
                 setForm((f) => ({
                   ...f,
-                  moveInDate: v,
-                  moveInDateUndecided: v.trim() ? false : f.moveInDateUndecided,
+                  moveInTiming: timing,
+                  ...(timing === 'NOT_APPLICABLE'
+                    ? { moveInDate: '', moveInDateUndecided: false }
+                    : timing === 'SAME_DAY'
+                      ? { moveInDateUndecided: false }
+                      : {}),
                 }))
               }
-              disabled={form.moveInDateUndecided || moveLocked}
+              onDateChange={(v) => setForm((f) => ({ ...f, moveInDate: v }))}
+              onUndecidedChange={(c) =>
+                setForm((f) => ({
+                  ...f,
+                  moveInDateUndecided: c,
+                  ...(c ? { moveInDate: '' } : {}),
+                }))
+              }
+              fieldsLocked={moveLocked}
+              timingLocked={lockKey('moveInTiming')}
               minYmd={kstTodayYmd()}
-              allowEmpty
-              emitOnCompleteOnly
-              idPrefix="orderform-move"
+              idPrefix="orderform"
+              dateInputClassName={inputCls}
             />
-            {requiresMoveInDateOrUndecided(form.buildingType) ? (
-              <label className="mt-2 flex cursor-pointer items-center gap-2 text-fluid-sm text-gray-800">
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300"
-                  checked={form.moveInDateUndecided}
-                  disabled={moveLocked}
-                  onChange={(e) => {
-                    const c = e.target.checked;
-                    setForm((f) => ({
-                      ...f,
-                      moveInDateUndecided: c,
-                      ...(c ? { moveInDate: '' } : {}),
-                    }));
-                  }}
-                />
-                미정 (이사일 추후 확정)
-              </label>
-            ) : null}
             <p className="text-xs text-gray-500 mt-1">
-              * 거주가 아닌 경우 일자 입력 또는 미정 중 하나는 필수입니다. 이사일은 오늘(한국 기준) 이후만 선택할 수
-              있습니다.
+              * 이사 구분을 선택한 뒤 날짜를 입력해 주세요. 이사예정은 「미정」 선택 가능. 이사일은 오늘(한국
+              기준) 이후만 선택할 수 있습니다.
             </p>
           </div>
           )}
@@ -2946,6 +2971,66 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
                   autoFocus
                 >
                   동의합니다
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {moveDateMismatchWarnOpen ? (
+          <div
+            className="fixed inset-0 z-[1001] flex items-end justify-center bg-black/50 backdrop-blur-[2px] p-0 sm:items-center sm:p-4 animate-[fadeIn_150ms_ease-out]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="move-date-mismatch-title"
+            onClick={() => {
+              setMoveDateMismatchWarnOpen(false);
+              submitAfterValidationRef.current = null;
+            }}
+          >
+            <div
+              className="w-full max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:rounded-2xl animate-[popIn_180ms_cubic-bezier(0.2,0.7,0.2,1.2)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="border-b border-gray-100 bg-gradient-to-b from-amber-50/90 to-white px-5 pb-4 pt-5 sm:px-6">
+                <h2 id="move-date-mismatch-title" className="text-base font-semibold text-gray-900">
+                  일정 확인
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                  청소일과 이사일이 다릅니다. 일정을 확인해주세요.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 px-5 py-4 sm:px-6">
+                <button
+                  type="button"
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                  onClick={() => {
+                    setMoveDateMismatchWarnOpen(false);
+                    submitAfterValidationRef.current = null;
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+                  disabled={submitting}
+                  onClick={async () => {
+                    setMoveDateMismatchWarnOpen(false);
+                    const run = submitAfterValidationRef.current;
+                    submitAfterValidationRef.current = null;
+                    if (!run) return;
+                    setSubmitting(true);
+                    try {
+                      await run();
+                    } catch (e) {
+                      showSubmitError(e instanceof Error ? e.message : '제출에 실패했습니다.');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                >
+                  확인
                 </button>
               </div>
             </div>

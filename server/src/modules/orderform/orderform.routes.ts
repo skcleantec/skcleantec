@@ -95,6 +95,11 @@ import {
   validateOrderFormSpaceCounts,
 } from '../../lib/orderFormSpaceCounts.js';
 import {
+  labelForMoveInTiming,
+  parseMoveInTiming,
+  validateMoveInTimingFields,
+} from '../../lib/orderFormMoveInTiming.js';
+import {
   ensureDefaultOrderFormTemplate,
   getOrCreateEstimateConfig,
   getOrCreateOrderFormConfig,
@@ -227,6 +232,7 @@ type ForceMatchInquirySnapshot = {
   preferredTimeDetail: string | null;
   memo: string | null;
   buildingType: string | null;
+  moveInTiming: import('@prisma/client').MoveInTiming | null;
   moveInDate: Date | null;
   moveInDateUndecided: boolean;
   specialNotes: string | null;
@@ -719,6 +725,7 @@ function mapPendingInquiry(row: {
   preferredTime: string | null;
   preferredTimeDetail: string | null;
   buildingType: string | null;
+  moveInTiming: import('@prisma/client').MoveInTiming | null;
   moveInDate: Date | null;
   moveInDateUndecided: boolean;
   memo: string | null;
@@ -744,6 +751,7 @@ function mapPendingInquiry(row: {
     preferredTime: row.preferredTime,
     preferredTimeDetail: row.preferredTimeDetail,
     buildingType: row.buildingType,
+    moveInTiming: row.moveInTiming,
     moveInDate: row.moveInDate ? row.moveInDate.toISOString().slice(0, 10) : null,
     moveInDateUndecided: row.moveInDateUndecided,
     memo: row.memo,
@@ -1911,6 +1919,7 @@ router.post('/:id/force-match-inquiry', authMiddleware, requireStaffPermission('
       preferredTimeDetail: true,
       memo: true,
       buildingType: true,
+      moveInTiming: true,
       moveInDate: true,
       moveInDateUndecided: true,
       specialNotes: true,
@@ -1952,6 +1961,7 @@ router.post('/:id/force-match-inquiry', authMiddleware, requireStaffPermission('
       data.preferredTime = source.preferredTime;
       data.preferredTimeDetail = source.preferredTimeDetail;
       data.buildingType = source.buildingType;
+      data.moveInTiming = source.moveInTiming;
       data.moveInDate = source.moveInDate;
       data.moveInDateUndecided = source.moveInDateUndecided;
       data.specialNotes = source.specialNotes;
@@ -2550,6 +2560,7 @@ router.post('/submit/:token', async (req, res) => {
     bathroomCount?: number;
     kitchenCount?: number;
     buildingType: string;
+    moveInTiming?: string;
     moveInDate?: string;
     /** 거주 외일 때 날짜 대신 미정 선택 */
     moveInDateUndecided?: boolean | string;
@@ -2774,13 +2785,9 @@ router.post('/submit/:token', async (req, res) => {
 
   const preferredDate = useDateStr ? new Date(useDateStr + 'T12:00:00') : null;
 
-  const RESIDING_BT = '거주(짐이있는상태)';
-  const buildingTypeTrim =
-    body.buildingType != null && String(body.buildingType).trim()
-      ? String(body.buildingType).trim()
-      : '';
+  const moveInTimingParsed = tplOn('moveInDate') ? parseMoveInTiming(body.moveInTiming) : null;
   const moveInUndecidedRaw = body.moveInDateUndecided;
-  const moveInUndecided =
+  let moveInUndecided =
     moveInUndecidedRaw === true ||
     moveInUndecidedRaw === 'true' ||
     String(moveInUndecidedRaw ?? '') === '1';
@@ -2790,7 +2797,9 @@ router.post('/submit/:token', async (req, res) => {
       ? String(body.moveInDate).trim()
       : null;
 
-  if (moveInUndecided) {
+  if (moveInTimingParsed === 'NOT_APPLICABLE') {
+    moveInDateStr = null;
+  } else if (moveInUndecided) {
     moveInDateStr = null;
   } else if (moveInDateStr && !/^\d{4}-\d{2}-\d{2}$/.test(moveInDateStr)) {
     res.status(400).json({ error: '이사 예정일 형식이 올바르지 않습니다.' });
@@ -2805,12 +2814,23 @@ router.post('/submit/:token', async (req, res) => {
     }
   }
 
-  if (tplOn('buildingType') && buildingTypeTrim && buildingTypeTrim !== RESIDING_BT) {
-    if (!moveInUndecided && !moveInDateStr) {
-      res.status(400).json({
-        error: '신축·구축·인테리어 선택 시 이사 예정일을 입력하거나 「미정」을 선택해 주세요.',
-      });
+  if (tplOn('moveInDate')) {
+    const moveInErr = validateMoveInTimingFields(
+      {
+        moveInTiming: moveInTimingParsed,
+        moveInDate: moveInDateStr,
+        moveInDateUndecided: moveInUndecided,
+      },
+      { requireTiming: true },
+    );
+    if (moveInErr) {
+      res.status(400).json({ error: moveInErr });
       return;
+    }
+    if (moveInTimingParsed === 'NOT_APPLICABLE') {
+      moveInUndecided = false;
+    } else if (moveInTimingParsed === 'SAME_DAY') {
+      moveInUndecided = false;
     }
   }
 
@@ -2945,6 +2965,7 @@ router.post('/submit/:token', async (req, res) => {
         body.buildingType != null && String(body.buildingType).trim()
           ? String(body.buildingType).trim()
           : null,
+      moveInTiming: moveInTimingParsed,
       moveInDate: moveInDateStr,
       moveInDateUndecided: moveInUndecided,
       specialNotes: customerSpecialNotes,
@@ -3046,6 +3067,7 @@ router.post('/submit/:token', async (req, res) => {
           preferredTime: useTimeStr,
           preferredTimeDetail: useDetailStr,
           buildingType: body.buildingType || null,
+          moveInTiming: moveInTimingParsed,
           moveInDate,
           moveInDateUndecided: moveInUndecided,
           serviceTotalAmount: form.totalAmount,
@@ -3142,6 +3164,7 @@ router.post('/submit/:token', async (req, res) => {
           preferredTime: useTimeStr,
           preferredTimeDetail: useDetailStr,
           buildingType: body.buildingType || null,
+          moveInTiming: moveInTimingParsed,
           moveInDate,
           moveInDateUndecided: moveInUndecided,
           serviceTotalAmount: form.totalAmount,

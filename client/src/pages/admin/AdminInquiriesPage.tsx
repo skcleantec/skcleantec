@@ -100,9 +100,13 @@ import { AddressSearch } from '../../components/forms/AddressSearch';
 import { useOrderFormTimeSlotLabels } from '../../hooks/useOrderFormTimeSlotLabels';
 import {
   ORDER_BUILDING_TYPE_OPTIONS,
-  ORDER_BUILDING_TYPE_RESIDING,
-  requiresMoveInDateOrUndecided,
 } from '../../constants/orderFormBuilding';
+import {
+  parseMoveInTiming,
+  validateMoveInTimingFields,
+  type MoveInTiming,
+} from '@shared/orderFormMoveInTiming';
+import { MoveInTimingFieldGroup } from '../../components/orderform/MoveInTimingFieldGroup';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { getSchedule } from '../../api/schedule';
 import { InquiryChangeHistoryBlock } from '../../components/admin/InquiryChangeHistoryBlock';
@@ -512,6 +516,7 @@ interface InquiryItem {
   consultationMemo?: string | null;
   claimMemo: string | null;
   buildingType: string | null;
+  moveInTiming?: MoveInTiming | null;
   moveInDate: string | null;
   moveInDateUndecided?: boolean | null;
   specialNotes: string | null;
@@ -970,6 +975,7 @@ export function AdminInquiriesPage() {
     areaPyeong: '',
     exclusiveAreaSqm: '',
     buildingType: '',
+    moveInTiming: '' as MoveInTiming | '',
     moveInDate: '',
     moveInDateUndecided: false,
     specialNotes: '',
@@ -1956,6 +1962,7 @@ export function AdminInquiriesPage() {
       areaBasis: item.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(item),
       buildingType: item.buildingType || '',
+      moveInTiming: parseMoveInTiming(item.moveInTiming) ?? '',
       moveInDate: item.moveInDateUndecided ? '' : item.moveInDate ? item.moveInDate.slice(0, 10) : '',
       moveInDateUndecided: Boolean(item.moveInDateUndecided),
       specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
@@ -2346,12 +2353,16 @@ export function AdminInquiriesPage() {
         setSaving(false);
         return;
       }
-      if (
-        requiresMoveInDateOrUndecided(editForm.buildingType) &&
-        !editForm.moveInDateUndecided &&
-        !editForm.moveInDate.trim()
-      ) {
-        alert('신축·구축·인테리어 선택 시 이사 예정일을 입력하거나 「미정」을 선택해 주세요.');
+      const moveInErr = validateMoveInTimingFields(
+        {
+          moveInTiming: editForm.moveInTiming || null,
+          moveInDate: editForm.moveInDate,
+          moveInDateUndecided: editForm.moveInDateUndecided,
+        },
+        { requireTiming: true },
+      );
+      if (moveInErr) {
+        alert(moveInErr);
         setSaving(false);
         return;
       }
@@ -2371,6 +2382,7 @@ export function AdminInquiriesPage() {
         isOneRoom: editForm.isOneRoom,
         areaBasis: editForm.areaBasis.trim(),
         buildingType: editForm.buildingType.trim(),
+        moveInTiming: editForm.moveInTiming || null,
         moveInDateUndecided: editForm.moveInDateUndecided,
         moveInDate: editForm.moveInDateUndecided ? null : editForm.moveInDate.trim() || null,
         specialNotes: editForm.specialNotes.trim(),
@@ -4788,47 +4800,36 @@ export function AdminInquiriesPage() {
                 <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-fluid-sm font-semibold text-slate-700">
-                          이사 날짜
-                          {requiresMoveInDateOrUndecided(editForm.buildingType) ? (
-                            <span className="text-red-500 ml-1">*</span>
-                          ) : (
-                            <span className="text-slate-400 font-normal ml-1 text-[12px]">(선택)</span>
-                          )}
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-slate-600 hover:text-slate-900">
-                          <input
-                            type="checkbox"
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                            checked={editForm.moveInDateUndecided}
-                            onChange={(e) => {
-                              const c = e.target.checked;
-                              setEditForm((p) => ({
-                                ...p,
-                                moveInDateUndecided: c,
-                                ...(c ? { moveInDate: '' } : {}),
-                              }));
-                            }}
-                          />
-                          미정 (추후 확정)
-                        </label>
-                      </div>
-                      <YmdSelect
-                        value={editForm.moveInDate}
-                        onChange={(v) =>
+                      <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">
+                        이사 날짜
+                        <span className="text-red-500 ml-1">*</span>
+                      </label>
+                      <MoveInTimingFieldGroup
+                        moveInTiming={editForm.moveInTiming}
+                        moveInDate={editForm.moveInDate}
+                        moveInDateUndecided={editForm.moveInDateUndecided}
+                        onTimingChange={(timing) =>
                           setEditForm((p) => ({
                             ...p,
-                            moveInDate: v,
-                            moveInDateUndecided: v.trim() ? false : p.moveInDateUndecided,
+                            moveInTiming: timing,
+                            ...(timing === 'NOT_APPLICABLE'
+                              ? { moveInDate: '', moveInDateUndecided: false }
+                              : timing === 'SAME_DAY'
+                                ? { moveInDateUndecided: false }
+                                : {}),
                           }))
                         }
-                        disabled={editForm.moveInDateUndecided}
-                        idPrefix="inq-edit-move"
-                        allowEmpty
-                        emitOnCompleteOnly
+                        onDateChange={(v) => setEditForm((p) => ({ ...p, moveInDate: v }))}
+                        onUndecidedChange={(c) =>
+                          setEditForm((p) => ({
+                            ...p,
+                            moveInDateUndecided: c,
+                            ...(c ? { moveInDate: '' } : {}),
+                          }))
+                        }
+                        idPrefix="inq-edit"
                         compact
-                        className="w-full disabled:opacity-50"
+                        undecidedLabel="미정 (추후 확정)"
                       />
                     </div>
 
@@ -4841,7 +4842,6 @@ export function AdminInquiriesPage() {
                           setEditForm((p) => ({
                             ...p,
                             buildingType: v,
-                            ...(v === ORDER_BUILDING_TYPE_RESIDING ? { moveInDateUndecided: false } : {}),
                           }));
                         }}
                         className="w-full min-w-0 rounded border border-gray-300 bg-white px-1 py-0.5 text-fluid-2xs text-slate-900"

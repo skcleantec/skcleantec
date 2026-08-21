@@ -1,5 +1,6 @@
 import type { Inquiry } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import { parseMoveInTiming } from '../../lib/orderFormMoveInTiming.js';
 
 /** PATCH body → Prisma update data (inquiries.routes 와 동일 조건) */
 export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.InquiryUpdateInput {
@@ -77,6 +78,16 @@ export function buildInquiryPatchData(body: Record<string, unknown>): Prisma.Inq
   }
   if (body.buildingType !== undefined) {
     data.buildingType = body.buildingType ? String(body.buildingType) : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'moveInTiming')) {
+    const parsed = parseMoveInTiming(body.moveInTiming);
+    data.moveInTiming = parsed;
+    if (parsed === 'NOT_APPLICABLE') {
+      data.moveInDate = null;
+      data.moveInDateUndecided = false;
+    } else if (parsed === 'SAME_DAY') {
+      data.moveInDateUndecided = false;
+    }
   }
   if (body.moveInDate !== undefined) {
     data.moveInDate = body.moveInDate ? new Date(String(body.moveInDate)) : null;

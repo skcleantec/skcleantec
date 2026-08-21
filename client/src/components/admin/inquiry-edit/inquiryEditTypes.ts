@@ -1,5 +1,6 @@
 import type { InternalCustomerTone } from '../../../constants/internalCustomerTone';
 import type { LeaderCrewSet } from '../../../utils/leaderCrewSets';
+import type { MoveInTiming } from '@shared/orderFormMoveInTiming';
 
 /** 접수 수정 모달 폼 필드 (ScheduleInquiryDetailModal 공통) */
 export type InquiryEditFormFields = {
@@ -35,6 +36,7 @@ export type InquiryEditFormFields = {
   areaPyeong: string;
   exclusiveAreaSqm: string;
   buildingType: string;
+  moveInTiming: MoveInTiming | '';
   moveInDate: string;
   moveInDateUndecided: boolean;
   kitchenCount: string;

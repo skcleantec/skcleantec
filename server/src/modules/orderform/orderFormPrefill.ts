@@ -18,6 +18,7 @@ import {
 } from './specialtyOptions.js';
 import { isRealCustomerAddress } from '../../lib/orderFormPendingAddress.js';
 import { parseIsOneRoomFlag } from './orderFormOneRoom.js';
+import { parseMoveInTiming } from '../../lib/orderFormMoveInTiming.js';
 
 /** prefillAnswers 로 다루는 표준(시스템) 항목 키 — 제출 body 필드명과 동일하게 맞춘다 */
 export const PREFILL_STANDARD_KEYS = [
@@ -29,6 +30,7 @@ export const PREFILL_STANDARD_KEYS = [
   'addressDetail',
   'propertyType',
   'buildingType',
+  'moveInTiming',
   'moveInDate',
   'moveInDateUndecided',
   'roomCount',
@@ -251,10 +253,22 @@ export function inquiryUpdateDataFromPrefillMap(prefill: PrefillMap): Prisma.Inq
   if (prefill.moveInDateUndecided === true) {
     data.moveInDateUndecided = true;
     data.moveInDate = null;
+    data.moveInTiming = 'PLANNED';
   } else if (prefill.moveInDate != null) {
     const moveInDate = parsePrefillMoveInDate(prefill.moveInDate);
     if (moveInDate) {
       data.moveInDate = moveInDate;
+      data.moveInDateUndecided = false;
+    }
+  }
+
+  const prefillTiming = parseMoveInTiming(prefill.moveInTiming);
+  if (prefillTiming) {
+    data.moveInTiming = prefillTiming;
+    if (prefillTiming === 'NOT_APPLICABLE') {
+      data.moveInDate = null;
+      data.moveInDateUndecided = false;
+    } else if (prefillTiming === 'SAME_DAY') {
       data.moveInDateUndecided = false;
     }
   }
