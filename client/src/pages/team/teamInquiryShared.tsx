@@ -6,6 +6,7 @@ import { useModalScrollKeyboardAvoidance } from '../../hooks/useMobileInputVisib
 import { labelForTimeSlot } from '../../constants/orderFormSchedule';
 import type { OrderTimeSlotLabels } from '@shared/orderFormTimeSlotLabels';
 import { formatDateCompactWithWeekday } from '../../utils/dateFormat';
+import { formatInquiryMoveInSummary } from '../../utils/orderFormMoveInDisplay';
 import { happyCallRowTone, isHappyCallEligible } from '../../utils/happyCall';
 import {
   effectiveCustomerOrderNotes,
@@ -225,6 +226,10 @@ export interface InquiryItem {
   exclusiveAreaSqm?: number | null;
   propertyType?: string | null;
   isOneRoom?: boolean | null;
+  buildingType?: string | null;
+  moveInTiming?: import('@shared/orderFormMoveInTiming').MoveInTiming | null;
+  moveInDate?: string | null;
+  moveInDateUndecided?: boolean | null;
   /** 고객/마케터가 발주서에서 선택한 전문 시공 옵션 — 서버가 테넌트 카탈로그 라벨로 해석해 첨부 */
   professionalOptions?: Array<{ id: string; label: string; emoji?: string | null; color?: string | null }>;
   roomCount: number | null;
@@ -271,6 +276,7 @@ export interface InquiryItem {
     balanceAmount?: number | null;
     customerSpecialNotes?: string | null;
     customerAnswers?: Record<string, unknown> | null;
+    customerSubmissionSnapshot?: unknown;
     template?: {
       id: string;
       title: string;
@@ -678,6 +684,10 @@ export function buildTeamInquiryShareClipText(
     } catch {
       addRow('예약일', item.preferredDate.trim());
     }
+  }
+  const moveInSummary = formatInquiryMoveInSummary(item);
+  if (moveInSummary !== '—') {
+    addRow('이사 구분 · 날짜', moveInSummary);
   }
   let hopeTime = formatScheduleLine(item, timeSlotLabels);
   const slot = item.betweenScheduleSlot?.trim();
@@ -1767,6 +1777,15 @@ export function TeamInquiryDetailModal({
                   label={<TeamBiLine id="team.modal.row.buildingType" koClassName="text-fluid-xs font-medium text-gray-500" />}
                 >
                   <span className="text-gray-800">{item.propertyType}</span>
+                </TeamModalRow>
+              ) : null}
+              {formatInquiryMoveInSummary(item) !== '—' ? (
+                <TeamModalRow
+                  label={
+                    <span className="text-fluid-xs font-medium text-gray-500">이사 구분 · 날짜</span>
+                  }
+                >
+                  <span className="text-gray-800">{formatInquiryMoveInSummary(item)}</span>
                 </TeamModalRow>
               ) : null}
               {item.professionalOptions && item.professionalOptions.length > 0 ? (

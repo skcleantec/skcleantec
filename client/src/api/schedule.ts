@@ -102,6 +102,7 @@ export interface ScheduleItem {
     prefillAnswers?: Record<string, unknown> | null;
     /** 동적 발주서 추가 항목 답변 {fieldKey: value} */
     customerAnswers?: Record<string, unknown> | null;
+    customerSubmissionSnapshot?: unknown;
     /** 발주서 양식(카테고리) — 배지·추가정보 라벨 */
     template?: {
       id: string;

@@ -42,10 +42,10 @@ import {
   ORDER_BUILDING_TYPE_OPTIONS,
 } from '../../constants/orderFormBuilding';
 import {
-  parseMoveInTiming,
   validateMoveInTimingFields,
   type MoveInTiming,
 } from '@shared/orderFormMoveInTiming';
+import { inquiryMoveInEditFormFields } from '../../utils/orderFormMoveInDisplay';
 import { MoveInTimingFieldGroup } from '../orderform/MoveInTimingFieldGroup';
 import {
   normalizeProfessionalOptionIds,
@@ -858,9 +858,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       areaBasis: it.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(it),
       buildingType: it.buildingType || '',
-      moveInTiming: parseMoveInTiming(it.moveInTiming) ?? '',
-      moveInDate: it.moveInDateUndecided ? '' : formatPreferredDateInputYmd(it.moveInDate),
-      moveInDateUndecided: Boolean(it.moveInDateUndecided),
+      ...inquiryMoveInEditFormFields(it),
       kitchenCount: it.kitchenCount != null ? String(it.kitchenCount) : '',
       amountTotal: amt.total != null ? String(amt.total) : '',
       amountDeposit: amt.deposit != null ? String(amt.deposit) : '',
@@ -1308,9 +1306,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
       areaBasis: it.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(it),
       buildingType: it.buildingType || '',
-      moveInTiming: parseMoveInTiming(it.moveInTiming) ?? '',
-      moveInDate: it.moveInDateUndecided ? '' : formatPreferredDateInputYmd(it.moveInDate),
-      moveInDateUndecided: Boolean(it.moveInDateUndecided),
+      ...inquiryMoveInEditFormFields(it),
       kitchenCount: it.kitchenCount != null ? String(it.kitchenCount) : '',
       amountTotal: a.total != null ? String(a.total) : '',
       amountDeposit: a.deposit != null ? String(a.deposit) : '',
@@ -2631,7 +2627,7 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                 <div>
                   <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">
-                    이사 날짜
+                    이사 구분 · 날짜
                     <span className="text-red-500 ml-1">*</span>
                   </label>
                   <MoveInTimingFieldGroup

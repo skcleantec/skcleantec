@@ -16,6 +16,7 @@ import {
   type CsReport,
 } from '../../api/cs';
 import { formatInquiryListAreaLabel } from '../../utils/inquiryAreaDisplay';
+import { formatInquiryMoveInSummary } from '../../utils/orderFormMoveInDisplay';
 import { getMe } from '../../api/auth';
 import { acknowledgeTeamCsReport, getTeamCsReports, patchTeamCsReport } from '../../api/team';
 import { getToken } from '../../stores/auth';
@@ -1560,10 +1561,10 @@ export function CsWorkdesk({ mode }: CsWorkdeskProps) {
                   <p className="truncate text-slate-800">{connectedInquiryModal.buildingType || '-'}</p>
                 </div>
               </div>
-              {connectedInquiryModal.moveInDate ? (
+              {formatInquiryMoveInSummary(connectedInquiryModal) !== '—' ? (
                 <div>
-                  <span className={inquiryFieldLabelClass}>이사 날짜</span>
-                  <p className="text-slate-800">{formatDateCompactWithWeekday(connectedInquiryModal.moveInDate)}</p>
+                  <span className={inquiryFieldLabelClass}>이사 구분 · 날짜</span>
+                  <p className="text-slate-800">{formatInquiryMoveInSummary(connectedInquiryModal)}</p>
                 </div>
               ) : null}
               <div className={`grid grid-cols-1 gap-2 ${teamDetailMobile ? 'sm:grid-cols-2 lg:gap-3' : 'md:grid-cols-2 gap-3'}`}>

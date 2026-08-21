@@ -2,6 +2,7 @@ import { YmdSelect } from '../ui/DateQuerySelects';
 import {
   MOVE_IN_TIMING_OPTIONS,
   applyMoveInTimingSideEffects,
+  formatMoveInFieldSummary,
   isMoveInDateInputDisabled,
   showMoveInUndecidedOption,
   type MoveInTiming,
@@ -43,9 +44,21 @@ export function MoveInTimingFieldGroup({
   const dateDisabled =
     fieldsLocked || isMoveInDateInputDisabled(moveInTiming || null) || moveInDateUndecided;
   const showUndecided = showMoveInUndecidedOption(moveInTiming || null);
+  const summary = moveInTiming
+    ? formatMoveInFieldSummary({
+        moveInTiming,
+        moveInDate,
+        moveInDateUndecided,
+      })
+    : null;
 
   return (
     <div className="space-y-2">
+      {summary ? (
+        <p className="text-fluid-xs font-medium text-slate-700" aria-live="polite">
+          선택: {summary}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {MOVE_IN_TIMING_OPTIONS.map((opt) => (
           <label

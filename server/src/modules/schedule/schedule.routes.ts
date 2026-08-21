@@ -218,6 +218,7 @@ const scheduleListSelectLite = {
   balconyCount: true,
   kitchenCount: true,
   buildingType: true,
+  moveInTiming: true,
   moveInDate: true,
   moveInDateUndecided: true,
   preferredDate: true,

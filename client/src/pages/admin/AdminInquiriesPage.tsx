@@ -102,10 +102,10 @@ import {
   ORDER_BUILDING_TYPE_OPTIONS,
 } from '../../constants/orderFormBuilding';
 import {
-  parseMoveInTiming,
   validateMoveInTimingFields,
   type MoveInTiming,
 } from '@shared/orderFormMoveInTiming';
+import { inquiryMoveInEditFormFields } from '../../utils/orderFormMoveInDisplay';
 import { MoveInTimingFieldGroup } from '../../components/orderform/MoveInTimingFieldGroup';
 import type { InquiryChangeLogEntry } from '../../api/schedule';
 import { getSchedule } from '../../api/schedule';
@@ -566,6 +566,7 @@ interface InquiryItem {
     submittedAt?: string | null;
     /** 발주서 「고객 특이사항」란(관리자·팀 공유 specialNotes와 별도) */
     customerSpecialNotes?: string | null;
+    customerSubmissionSnapshot?: unknown;
     template?: {
       id: string;
       title: string;
@@ -1962,9 +1963,7 @@ export function AdminInquiriesPage() {
       areaBasis: item.areaBasis || '',
       ...inquiryAreaEditFormStringsFromItem(item),
       buildingType: item.buildingType || '',
-      moveInTiming: parseMoveInTiming(item.moveInTiming) ?? '',
-      moveInDate: item.moveInDateUndecided ? '' : item.moveInDate ? item.moveInDate.slice(0, 10) : '',
-      moveInDateUndecided: Boolean(item.moveInDateUndecided),
+      ...inquiryMoveInEditFormFields(item),
       specialNotes: effectiveAdminTeamSpecialNotes(notesCtx),
       kitchenCount: item.kitchenCount != null ? String(item.kitchenCount) : '',
       amountTotal: a.total != null ? String(a.total) : '',
@@ -4801,7 +4800,7 @@ export function AdminInquiriesPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                     <div>
                       <label className="block text-fluid-sm font-semibold text-slate-700 mb-1.5">
-                        이사 날짜
+                        이사 구분 · 날짜
                         <span className="text-red-500 ml-1">*</span>
                       </label>
                       <MoveInTimingFieldGroup

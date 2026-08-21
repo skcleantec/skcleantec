@@ -23,6 +23,31 @@ export function labelForMoveInTiming(value: MoveInTiming | string | null | undef
   return MOVE_IN_TIMING_OPTIONS.find((o) => o.value === parsed)?.label ?? parsed;
 }
 
+/** 접수 상세·팀 모달 등 읽기 전용 한 줄 요약 */
+export function formatMoveInFieldSummary(input: {
+  moveInTiming?: MoveInTiming | string | null;
+  moveInDate?: string | Date | null;
+  moveInDateUndecided?: boolean | null;
+}): string {
+  const timing = parseMoveInTiming(input.moveInTiming);
+  if (!timing) return '—';
+  const label = labelForMoveInTiming(timing);
+  if (timing === 'NOT_APPLICABLE') return label;
+  if (input.moveInDateUndecided === true) return `${label} · 미정`;
+  const raw =
+    input.moveInDate instanceof Date
+      ? input.moveInDate.toISOString().slice(0, 10)
+      : normalizeOrderFormYmd(input.moveInDate);
+  return raw ? `${label} · ${raw}` : label;
+}
+
+export function resolveMoveInTimingFromSources(
+  inquiryTiming: unknown,
+  snapshotTiming: unknown,
+): MoveInTiming | null {
+  return parseMoveInTiming(inquiryTiming) ?? parseMoveInTiming(snapshotTiming);
+}
+
 export function isMoveInDateInputDisabled(timing: MoveInTiming | null | undefined): boolean {
   return timing === 'NOT_APPLICABLE';
 }

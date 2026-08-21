@@ -225,6 +225,7 @@ const teamInquiryInclude = {
       balanceAmount: true,
       customerSpecialNotes: true,
       customerAnswers: true,
+      customerSubmissionSnapshot: true,
       template: { select: orderFormTemplateSelect },
       createdBy: { select: { id: true, name: true, phone: true } },
     },
