@@ -22,8 +22,15 @@ import {
   OperatingCompanySoomgoFields,
   type OperatingCompanySoomgoForm,
 } from '../../components/admin/OperatingCompanySoomgoFields';
+import { OperatingCompanyCancellationPolicyFields } from '../../components/admin/OperatingCompanyCancellationPolicyFields';
+import {
+  resolveOperatingCompanyCancellationPolicy,
+  type OperatingCompanyCancellationPolicy,
+} from '@shared/operatingCompanyCancellationPolicy';
 import { DeletePasswordModal } from '../../components/crm/settings/DeletePasswordModal';
 import type { TenantCompanyRegistration } from '@shared/tenantCompanyProfile';
+
+type EditModalTab = 'basic' | 'soomgo' | 'cancellation';
 
 type BrandForm = {
   name: string;
@@ -34,6 +41,7 @@ type BrandForm = {
   badgeColorKey: OperatingCompanyBadgeColorKey | '';
   companyRegistration: TenantCompanyRegistration;
   soomgo: OperatingCompanySoomgoForm;
+  cancellationPolicy: OperatingCompanyCancellationPolicy;
 };
 
 function emptyCreateForm(): BrandForm {
@@ -46,6 +54,7 @@ function emptyCreateForm(): BrandForm {
     badgeColorKey: '',
     companyRegistration: emptyCompanyRegistrationForm(),
     soomgo: emptyOperatingCompanySoomgoForm(),
+    cancellationPolicy: resolveOperatingCompanyCancellationPolicy(undefined),
   };
 }
 
@@ -108,6 +117,7 @@ export function AdminOperatingCompaniesPage() {
   const [pwdModalMode, setPwdModalMode] = useState<'create' | 'edit'>('edit');
   const [actorPassword, setActorPassword] = useState('');
   const [pwdModalError, setPwdModalError] = useState<string | null>(null);
+  const [editTab, setEditTab] = useState<EditModalTab>('basic');
 
   const load = () => {
     if (!token) return;
@@ -125,6 +135,7 @@ export function AdminOperatingCompaniesPage() {
 
   const openEdit = (row: OperatingCompanyItem) => {
     setEditing(row);
+    setEditTab('basic');
     setEditForm({
       name: row.name,
       slug: row.slug,
@@ -134,6 +145,7 @@ export function AdminOperatingCompaniesPage() {
       badgeColorKey: row.config.branding?.badgeColorKey ?? '',
       companyRegistration: emptyCompanyRegistrationForm(row.config.companyRegistration),
       soomgo: emptyOperatingCompanySoomgoForm(row.config.soomgo),
+      cancellationPolicy: resolveOperatingCompanyCancellationPolicy(row.config.cancellationPolicy),
     });
   };
 
@@ -148,6 +160,7 @@ export function AdminOperatingCompaniesPage() {
       orderForm: { publicSubtitle: f.publicSubtitle.trim() },
       inquiry: { numberPrefix: f.numberPrefix.trim() },
       companyRegistration,
+      cancellationPolicy: f.cancellationPolicy,
       ...(soomgo ? { soomgo } : {}),
     };
   };
@@ -595,6 +608,31 @@ export function AdminOperatingCompaniesPage() {
               <ModalCloseButton onClick={() => setEditing(null)} />
             </div>
             <form onSubmit={handleEditSave} className="p-4 space-y-3">
+              <div className="inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+                {(
+                  [
+                    ['basic', '기본정보'],
+                    ['soomgo', '숨고'],
+                    ['cancellation', '위약금'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setEditTab(id)}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                      editTab === id
+                        ? 'bg-slate-900 text-white'
+                        : 'text-gray-700 hover:bg-white'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {editTab === 'basic' ? (
+                <>
               <label className="block text-sm">
                 <span className="font-medium text-gray-800">표시명</span>
                 <input
@@ -661,11 +699,26 @@ export function AdminOperatingCompaniesPage() {
                 value={editForm.companyRegistration}
                 onChange={(companyRegistration) => setEditForm((f) => ({ ...f, companyRegistration }))}
               />
+                </>
+              ) : null}
+
+              {editTab === 'soomgo' ? (
               <OperatingCompanySoomgoFields
                 idPrefix="edit"
                 value={editForm.soomgo}
                 onChange={(soomgo) => setEditForm((f) => ({ ...f, soomgo }))}
               />
+              ) : null}
+
+              {editTab === 'cancellation' ? (
+                <OperatingCompanyCancellationPolicyFields
+                  value={editForm.cancellationPolicy}
+                  onChange={(cancellationPolicy) =>
+                    setEditForm((f) => ({ ...f, cancellationPolicy }))
+                  }
+                />
+              ) : null}
+
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"

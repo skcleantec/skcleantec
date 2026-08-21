@@ -7,6 +7,7 @@ import { ORDER_GUIDE_DEFAULT_SECTIONS } from '../../constants/orderInfoDefaultSe
 import { parseGuideFromStoredContent } from '../../utils/orderGuideParse';
 import { ORDER_FORM_CONFIG_DEFAULTS, orderFormConfigLine } from '../../constants/orderFormConfigDefaults';
 import { PageTitleWithFavorite } from '../../components/layout/NavFavoritePageTitle';
+import { ORDER_FORM_GUIDE_PLACEHOLDERS } from '@shared/orderFormGuidePlaceholders';
 
 function cloneSections(s: GuideSection[]): GuideSection[] {
   return s.map((sec) => ({ title: sec.title, items: [...sec.items] }));
@@ -171,6 +172,25 @@ export function AdminOrderFormNoticePage({ embedded = false }: { embedded?: bool
             <p className="text-xs text-gray-500 mt-2">
               고객 발주서 하단 체크박스 옆에 표시됩니다.
             </p>
+          </section>
+
+          <section className="p-4 bg-slate-50 border border-slate-200 rounded space-y-2">
+            <h2 className="text-sm font-medium text-gray-900">치환코드 (브랜드별 자동 반영)</h2>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              아래 코드를 안내 항목에 넣으면, 고객이 보는 화면에서{' '}
+              <strong>영업 브랜드 → 위약금</strong> 탭에 설정한 문구로 바뀝니다. 브랜드는 발주 링크·/info 의{' '}
+              <code className="rounded bg-white px-1 font-mono text-[11px]">?brand=</code> 기준입니다.
+            </p>
+            <ul className="space-y-1.5">
+              {ORDER_FORM_GUIDE_PLACEHOLDERS.map((p) => (
+                <li key={p.token} className="text-xs text-gray-700">
+                  <code className="rounded bg-white border border-gray-200 px-1.5 py-0.5 font-mono">
+                    {p.token}
+                  </code>{' '}
+                  — {p.description}
+                </li>
+              ))}
+            </ul>
           </section>
 
           <div className="flex items-center justify-between">

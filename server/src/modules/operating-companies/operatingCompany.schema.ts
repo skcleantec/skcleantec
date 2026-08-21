@@ -9,6 +9,11 @@ import {
   type OperatingCompanySoomgoStored,
 } from '../../lib/operatingCompanySoomgoConfig.js';
 import { resolveQuotationSealDisplayWidth, tenantCompanySealLooksValid } from '../../lib/quotationSeal.js';
+import {
+  parseOperatingCompanyCancellationPolicy,
+  validateOperatingCompanyCancellationPolicy,
+  type OperatingCompanyCancellationPolicy,
+} from '../../lib/operatingCompanyCancellationPolicyCore.js';
 import type {
   TenantCompanyRegistrationConfig,
   TenantSmtpConfigStored,
@@ -52,6 +57,7 @@ export type OperatingCompanyConfig = {
   smtp?: TenantSmtpConfigStored;
   /** 텔레CRM 숨고 — 브랜드별 계정 (DB 저장 · passwordEnc) */
   soomgo?: OperatingCompanySoomgoStored;
+  cancellationPolicy?: OperatingCompanyCancellationPolicy;
 };
 
 /** API 응답용 — 비밀번호 암호문 제외 */
@@ -235,6 +241,18 @@ function mergeCompanyRegistrationSection(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
+function parseCancellationPolicy(raw: unknown): OperatingCompanyConfig['cancellationPolicy'] | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null) return undefined;
+  const parsed = parseOperatingCompanyCancellationPolicy(raw);
+  if (!parsed) {
+    throw new Error('cancellationPolicy 형식이 올바르지 않습니다.');
+  }
+  const v = validateOperatingCompanyCancellationPolicy(parsed);
+  if (!v.ok) throw new Error(v.error);
+  return parsed;
+}
+
 export function parseOperatingCompanyConfig(raw: unknown): OperatingCompanyConfig {
   if (raw == null) return {};
   if (typeof raw !== 'object' || Array.isArray(raw)) {
@@ -260,6 +278,9 @@ export function parseOperatingCompanyConfig(raw: unknown): OperatingCompanyConfi
   if (smtp) out.smtp = smtp;
   const soomgo = parseOperatingCompanySoomgoStored(o.soomgo);
   if (soomgo) out.soomgo = soomgo;
+  if ('cancellationPolicy' in o) {
+    out.cancellationPolicy = parseCancellationPolicy(o.cancellationPolicy);
+  }
   return out;
 }
 
@@ -296,6 +317,10 @@ export function mergeOperatingCompanyConfig(
           }
         : existing.smtp,
     soomgo: patch.soomgo !== undefined ? patch.soomgo : existing.soomgo,
+    cancellationPolicy:
+      patch.cancellationPolicy !== undefined
+        ? patch.cancellationPolicy
+        : existing.cancellationPolicy,
   };
   if (tenantId && merged.companyRegistration) {
     merged.companyRegistration = finalizeCompanyRegistrationSection(merged.companyRegistration, tenantId);
@@ -316,6 +341,9 @@ export function operatingCompanyConfigToJson(config: OperatingCompanyConfig): Re
   }
   if (config.soomgo && Object.keys(config.soomgo).length > 0) {
     out.soomgo = config.soomgo;
+  }
+  if (config.cancellationPolicy) {
+    out.cancellationPolicy = config.cancellationPolicy;
   }
   return out;
 }

@@ -601,8 +601,16 @@ export interface PublicOrderGuideResponse {
 }
 
 /** 공개: 고객 안내사항 (`/info`) — 인증 없음 */
-export async function getPublicOrderGuide(): Promise<PublicOrderGuideResponse> {
-  const res = await fetch(appendPublicQuery(`${API}/orderforms/public-guide`));
+export async function getPublicOrderGuide(opts?: {
+  tenantSlug?: string | null;
+  brandSlug?: string | null;
+}): Promise<PublicOrderGuideResponse> {
+  const res = await fetch(
+    appendPublicQuery(`${API}/orderforms/public-guide`, {
+      tenantSlug: opts?.tenantSlug,
+      brandSlug: opts?.brandSlug,
+    }),
+  );
   if (!res.ok) throw new Error('안내를 불러올 수 없습니다.');
   return res.json();
 }

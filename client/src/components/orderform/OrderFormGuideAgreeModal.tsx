@@ -6,6 +6,7 @@ import { ORDER_GUIDE_DEFAULT_SECTIONS, type GuideSection } from '../../constants
 import { ModalCloseButton } from '../admin/ModalCloseButton';
 import { OrderFormGuideSections } from './OrderFormGuideSections';
 import { OrderFormPartnerConsentBlock } from './OrderFormPartnerConsentBlock';
+import { resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
 import {
   OrderFormConsentStamp,
   OrderFormConsentsSummary,
@@ -19,8 +20,10 @@ export function OrderFormGuideAgreeModal(props: {
   onAgree?: () => void;
   /** view 모드 — 제출 스냅샷 동의 이력 */
   consents?: OrderFormSubmissionConsents | null;
+  /** 브랜드 slug — 미전달 시 URL ?brand= */
+  brandSlug?: string | null;
 }) {
-  const { open, onClose, mode = 'agree', onAgree, consents = null } = props;
+  const { open, onClose, mode = 'agree', onAgree, consents = null, brandSlug } = props;
   const isViewMode = mode === 'view';
   const scrollRef = useRef<HTMLDivElement>(null);
   const [sections, setSections] = useState<GuideSection[]>(ORDER_GUIDE_DEFAULT_SECTIONS);
@@ -42,7 +45,9 @@ export function OrderFormGuideAgreeModal(props: {
     }
     setLoading(true);
     setLoadError(false);
-    void getPublicOrderGuide()
+    void getPublicOrderGuide({
+      brandSlug: brandSlug ?? (resolvePublicBrandSlug() || undefined),
+    })
       .then((data) => {
         if (data.sections?.length) setSections(data.sections);
         else setSections(ORDER_GUIDE_DEFAULT_SECTIONS);
@@ -53,7 +58,7 @@ export function OrderFormGuideAgreeModal(props: {
         setSections(ORDER_GUIDE_DEFAULT_SECTIONS);
       })
       .finally(() => setLoading(false));
-  }, [open]);
+  }, [open, brandSlug]);
 
   useEffect(() => {
     if (!open || loading) return;

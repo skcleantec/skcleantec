@@ -77,7 +77,7 @@ import { MoveInTimingFieldGroup } from '../../components/orderform/MoveInTimingF
 import { formatDateCompactWithWeekday, kstTodayYmd } from '../../utils/dateFormat';
 import { formatInquiryAreaKoLine } from '../../utils/inquiryAreaDisplay';
 import { applyOneRoomToSpecialNotes, detectOneRoomFromNotes, hasOrderFormBuildingTypeChoice } from '../../utils/orderFormOneRoom';
-import { resolvePublicTenantSlug } from '../../utils/publicTenantQuery';
+import { resolvePublicTenantSlug, resolvePublicBrandSlug } from '../../utils/publicTenantQuery';
 import { oneRoomLabelForOpsUi, skCleantecOpsUiEnabled } from '@shared/custom/skcleantecOpsUi';
 import { subscribeOrderGuideAgreeTerms } from '../../utils/orderFormGuideBroadcast';
 import { YmdSelect } from '../../components/ui/DateQuerySelects';
@@ -2630,6 +2630,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
           <OrderFormGuideAgreeModal
             open={guideAgreeModalOpen}
             onClose={() => setGuideAgreeModalOpen(false)}
+            brandSlug={resolvePublicBrandSlug() || undefined}
             onAgree={() => {
               setGuideTermsConsent({ at: new Date().toISOString() });
             }}

@@ -5,8 +5,7 @@ export const ORDER_GUIDE_DEFAULT_SECTIONS: GuideSection[] = [
   {
     title: '취소·변경 안내',
     items: [
-      '고객님 사정으로 전일 청소 예약 취소 또는 변경 시 청소비 위약금 30%가 적용됩니다.',
-      '당일 취소 또는 변경 시 위약금 50%가 적용됩니다.',
+      '{{cancellationPolicy}}',
       '예약일 14일 이내 취소 시 예약금은 반환되지 않음을 양해 부탁드립니다.',
     ],
   },

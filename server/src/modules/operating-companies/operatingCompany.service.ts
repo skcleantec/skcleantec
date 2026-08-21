@@ -67,8 +67,17 @@ function applyConfigPatchFromBody(
   try {
     return mergeOperatingCompanyConfig(existingConfig, patch, tenantId);
   } catch (e) {
-    if (e instanceof Error && e.message.includes('companyRegistration.seal')) {
-      throw new OperatingCompanyValidationError(e.message);
+    if (e instanceof Error) {
+      if (e.message.includes('companyRegistration.seal')) {
+        throw new OperatingCompanyValidationError(e.message);
+      }
+      if (
+        e.message.includes('cancellationPolicy') ||
+        e.message.includes('위약') ||
+        e.message.includes('구간')
+      ) {
+        throw new OperatingCompanyValidationError(e.message);
+      }
     }
     throw e;
   }

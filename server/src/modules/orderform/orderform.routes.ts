@@ -90,6 +90,8 @@ import {
   validateOptionalPublicTenantSlug,
 } from '../tenants/publicTenantAccess.js';
 import { resolvePublicTenantIdFromRequest } from '../tenants/publicRequestTenant.js';
+import { loadCancellationPolicyTextForBrand } from '../../lib/operatingCompanyCancellationPolicy.js';
+import { expandGuideSections } from '../../lib/orderFormGuidePlaceholders.js';
 import {
   parseOrderFormSpaceCount,
   validateOrderFormSpaceCounts,
@@ -368,8 +370,14 @@ const profOptionSelectListRow = {
 router.get('/public-guide', async (req, res) => {
   try {
     const tenantId = await resolvePublicTenantIdFromRequest(req);
+    const brandSlug =
+      typeof req.query.brand === 'string' ? req.query.brand.trim().toLowerCase() : '';
     const cfg = await getOrCreateOrderFormConfig(prisma, tenantId);
-    const sections = parseGuideSectionsFromDb(cfg.infoContent);
+    const sectionsRaw = parseGuideSectionsFromDb(cfg.infoContent);
+    const cancellationPolicyText = await loadCancellationPolicyTextForBrand(prisma, tenantId, {
+      brandSlug: brandSlug || undefined,
+    });
+    const sections = expandGuideSections(sectionsRaw, { cancellationPolicyText });
     const infoLinkText =
       cfg.infoLinkText?.trim() || '[필수] 예약 안내 및 개인정보 제3자 제공 동의';
     res.json({ sections, infoLinkText });

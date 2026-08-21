@@ -5,6 +5,8 @@ import {
   resolveOrderTimeSlotLabels,
   type OrderTimeSlotLabels,
 } from '../../lib/orderFormTimeSlotLabels.js';
+import { expandGuidePlaceholders } from '../../lib/orderFormGuidePlaceholders.js';
+import { loadCancellationPolicyTextForBrand } from '../../lib/operatingCompanyCancellationPolicy.js';
 import { getOrCreateOrderFormConfig } from '../tenants/tenantConfigSeed.service.js';
 import { getOrCreateOrderFormBrandCustomerLinkConfig } from './orderFormBrandCustomerLink.service.js';
 
@@ -123,11 +125,24 @@ export async function resolvePublicFormConfigForOrderForm(
 ): Promise<PublicFormConfig> {
   const tenantCfg = await getOrCreateOrderFormConfig(db, tenantId);
   const ocId = operatingCompanyId?.trim();
-  if (!ocId) return resolvedPublicFormConfig(tenantCfg);
-  try {
-    const brandCfg = await getOrCreateOrderFormBrandCustomerLinkConfig(db, tenantId, ocId);
-    return resolvedPublicFormConfig(brandOverlayOnTenantFormConfig(tenantCfg, brandCfg));
-  } catch {
-    return resolvedPublicFormConfig(tenantCfg);
+  let row: FormConfigRow = tenantCfg;
+  if (ocId) {
+    try {
+      const brandCfg = await getOrCreateOrderFormBrandCustomerLinkConfig(db, tenantId, ocId);
+      row = brandOverlayOnTenantFormConfig(tenantCfg, brandCfg);
+    } catch {
+      row = tenantCfg;
+    }
   }
+  const resolved = resolvedPublicFormConfig(row);
+  const cancellationPolicyText = await loadCancellationPolicyTextForBrand(db, tenantId, {
+    operatingCompanyId: ocId,
+  });
+  const ctx = { cancellationPolicyText };
+  return {
+    ...resolved,
+    serviceDateAckBody: expandGuidePlaceholders(resolved.serviceDateAckBody, ctx),
+    timeSlotAckBody: expandGuidePlaceholders(resolved.timeSlotAckBody, ctx),
+    submitSuccessBody: expandGuidePlaceholders(resolved.submitSuccessBody, ctx),
+  };
 }

@@ -34,12 +34,16 @@ export type OperatingCompanyInquiryConfig = {
   numberPrefix?: string;
 };
 
+import type { OperatingCompanyCancellationPolicy } from './operatingCompanyCancellationPolicy.js';
+
 export type OperatingCompanyConfig = {
   branding?: OperatingCompanyBrandingConfig;
   orderForm?: OperatingCompanyOrderFormConfig;
   inquiry?: OperatingCompanyInquiryConfig;
   /** 견적서 등 공급자 표시 — 미입력 필드는 테넌트 기본 사업자 정보로 보완 */
   companyRegistration?: Partial<TenantCompanyRegistration>;
+  /** 브랜드별 취소·변경 위약금 — `{{cancellationPolicy}}` 치환 */
+  cancellationPolicy?: OperatingCompanyCancellationPolicy;
 };
 
 export const EMPTY_OPERATING_COMPANY_CONFIG: OperatingCompanyConfig = {};

@@ -9,6 +9,7 @@ function headers(token: string) {
 
 import type { OperatingCompanyBadgeColorKey } from '../../../shared/operatingCompanyConfig';
 import type { TenantCompanyRegistration } from '../../../shared/tenantCompanyProfile';
+import type { OperatingCompanyCancellationPolicy } from '../../../shared/operatingCompanyCancellationPolicy';
 
 export type OperatingCompanyConfig = {
   branding?: {
@@ -19,6 +20,7 @@ export type OperatingCompanyConfig = {
   orderForm?: { publicSubtitle?: string };
   inquiry?: { numberPrefix?: string };
   companyRegistration?: Partial<TenantCompanyRegistration>;
+  cancellationPolicy?: OperatingCompanyCancellationPolicy;
   soomgo?: {
     email?: string;
     enabled?: boolean;
