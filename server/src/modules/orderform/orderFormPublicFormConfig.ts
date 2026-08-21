@@ -6,7 +6,7 @@ import {
   type OrderTimeSlotLabels,
 } from '../../lib/orderFormTimeSlotLabels.js';
 import { expandGuidePlaceholders } from '../../lib/orderFormGuidePlaceholders.js';
-import { loadCancellationPolicyTextForBrand } from '../../lib/operatingCompanyCancellationPolicy.js';
+import { loadGuidePlaceholderContextForBrand } from '../../lib/operatingCompanyCancellationPolicy.js';
 import { getOrCreateOrderFormConfig } from '../tenants/tenantConfigSeed.service.js';
 import { getOrCreateOrderFormBrandCustomerLinkConfig } from './orderFormBrandCustomerLink.service.js';
 
@@ -135,14 +135,13 @@ export async function resolvePublicFormConfigForOrderForm(
     }
   }
   const resolved = resolvedPublicFormConfig(row);
-  const cancellationPolicyText = await loadCancellationPolicyTextForBrand(db, tenantId, {
+  const guideCtx = await loadGuidePlaceholderContextForBrand(db, tenantId, {
     operatingCompanyId: ocId,
   });
-  const ctx = { cancellationPolicyText };
   return {
     ...resolved,
-    serviceDateAckBody: expandGuidePlaceholders(resolved.serviceDateAckBody, ctx),
-    timeSlotAckBody: expandGuidePlaceholders(resolved.timeSlotAckBody, ctx),
-    submitSuccessBody: expandGuidePlaceholders(resolved.submitSuccessBody, ctx),
+    serviceDateAckBody: expandGuidePlaceholders(resolved.serviceDateAckBody, guideCtx),
+    timeSlotAckBody: expandGuidePlaceholders(resolved.timeSlotAckBody, guideCtx),
+    submitSuccessBody: expandGuidePlaceholders(resolved.submitSuccessBody, guideCtx),
   };
 }

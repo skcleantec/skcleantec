@@ -2,11 +2,15 @@ import {
   createCancellationPolicyTierId,
   formatCancellationDaysBeforeLabel,
   renderCancellationPolicyLines,
+  renderFreeChangeDaysBeforeLine,
   type CancellationPenaltyKind,
   type CancellationPolicyTier,
   type OperatingCompanyCancellationPolicy,
 } from '@shared/operatingCompanyCancellationPolicy';
-import { GUIDE_PLACEHOLDER_CANCELLATION_POLICY } from '@shared/orderFormGuidePlaceholders';
+import {
+  GUIDE_PLACEHOLDER_CANCELLATION_POLICY,
+  GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE,
+} from '@shared/orderFormGuidePlaceholders';
 
 const KIND_OPTIONS: { value: CancellationPenaltyKind; label: string }[] = [
   { value: 'percent', label: '위약금 %' },
@@ -30,6 +34,7 @@ export function OperatingCompanyCancellationPolicyFields(props: {
 }) {
   const { value, onChange } = props;
   const previewLines = renderCancellationPolicyLines(value);
+  const freeChangePreview = renderFreeChangeDaysBeforeLine(value.freeChangeDaysBefore);
 
   const updateTier = (index: number, patch: Partial<CancellationPolicyTier>) => {
     onChange({
@@ -89,25 +94,44 @@ export function OperatingCompanyCancellationPolicyFields(props: {
         <span className="font-medium text-gray-800">위약금 정책 사용</span>
       </label>
 
-      <label className="block text-sm">
-        <span className="font-medium text-gray-800">위약 없이 변경 가능 (청소일 기준, 일)</span>
-        <p className="mt-0.5 text-xs text-gray-500">비우면 해당 안내 줄을 생성하지 않습니다.</p>
-        <input
-          type="number"
-          min={0}
-          max={365}
-          value={value.freeChangeDaysBefore ?? ''}
-          onChange={(e) => {
-            const raw = e.target.value.trim();
-            onChange({
-              ...value,
-              freeChangeDaysBefore: raw === '' ? null : Math.max(0, Number(raw) || 0),
-            });
-          }}
-          className="mt-1 w-full max-w-[8rem] border border-gray-300 rounded px-3 py-2 text-sm"
-          placeholder="예: 2"
-        />
-      </label>
+      <section className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 space-y-2">
+        <h3 className="text-sm font-semibold text-gray-900">날짜 변경 가능 기준일</h3>
+        <p className="text-xs text-gray-600 leading-relaxed">
+          청소일 며칠 <strong>전</strong>까지 위약금 없이 변경·취소할 수 있는지 설정합니다. 청소날짜 확인
+          모달·안내사항에 아래 문장이 반영됩니다.
+        </p>
+        <label className="block text-sm">
+          <span className="font-medium text-gray-800">기준일 (일)</span>
+          <input
+            type="number"
+            min={0}
+            max={365}
+            value={value.freeChangeDaysBefore ?? ''}
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              onChange({
+                ...value,
+                freeChangeDaysBefore: raw === '' ? null : Math.max(0, Number(raw) || 0),
+              });
+            }}
+            className="mt-1 w-full max-w-[8rem] border border-gray-300 rounded px-3 py-2 text-sm bg-white"
+            placeholder="예: 2"
+          />
+          <p className="mt-1 text-xs text-gray-500">비우면 해당 안내를 표시하지 않습니다.</p>
+        </label>
+        {freeChangePreview ? (
+          <div className="rounded-md border border-emerald-200 bg-white px-2.5 py-2 text-xs text-gray-800 leading-relaxed">
+            {freeChangePreview}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">기준일을 입력하면 미리보기가 표시됩니다.</p>
+        )}
+        <p className="text-xs text-gray-500">
+          청소날짜 확인 문구 편집 시{' '}
+          <code className="rounded bg-white px-1 font-mono text-[11px]">{GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE}</code>{' '}
+          치환코드를 쓸 수 있습니다.
+        </p>
+      </section>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">

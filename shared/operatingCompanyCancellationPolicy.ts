@@ -181,6 +181,14 @@ export function formatCancellationDaysBeforeLabel(daysBefore: number): string {
   return `${daysBefore}일 전`;
 }
 
+/** 위약 없이 날짜 변경 가능 기준 — 청소날짜 ACK·안내 치환용 */
+export function renderFreeChangeDaysBeforeLine(
+  freeChangeDaysBefore: number | null | undefined,
+): string | null {
+  if (freeChangeDaysBefore == null || freeChangeDaysBefore <= 0) return null;
+  return `날짜 변경은 청소일 기준 ${freeChangeDaysBefore}일 전까지 신청하셔야 위약금 없이 변경 가능합니다.`;
+}
+
 function renderTierLine(tier: CancellationPolicyTier): string {
   const when = formatCancellationDaysBeforeLabel(tier.daysBefore);
   let line = '';
@@ -212,11 +220,8 @@ export function renderCancellationPolicyLines(
     return fb ? [fb] : [];
   }
   const lines: string[] = [];
-  if (policy.freeChangeDaysBefore != null && policy.freeChangeDaysBefore > 0) {
-    lines.push(
-      `날짜 변경은 청소일 기준 ${policy.freeChangeDaysBefore}일 전까지 신청하셔야 위약금 없이 변경 가능합니다.`,
-    );
-  }
+  const freeChangeLine = renderFreeChangeDaysBeforeLine(policy.freeChangeDaysBefore);
+  if (freeChangeLine) lines.push(freeChangeLine);
   const tiers = [...policy.tiers].sort(
     (a, b) => b.daysBefore - a.daysBefore || a.sortOrder - b.sortOrder,
   );

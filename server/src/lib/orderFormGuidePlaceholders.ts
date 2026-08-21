@@ -1,14 +1,37 @@
 /** 고객 안내·ACK 본문 치환코드 — server mirror (shared/orderFormGuidePlaceholders.ts 와 동기화) */
 
+import {
+  renderCancellationPolicyText,
+  renderFreeChangeDaysBeforeLine,
+  resolveOperatingCompanyCancellationPolicy,
+  type OperatingCompanyCancellationPolicy,
+} from './operatingCompanyCancellationPolicyCore.js';
+
 export const GUIDE_PLACEHOLDER_CANCELLATION_POLICY = '{{cancellationPolicy}}';
 export const GUIDE_PLACEHOLDER_CANCELLATION_POLICY_BULLETS = '{{cancellationPolicyBullets}}';
+export const GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE = '{{freeChangeDaysLine}}';
 
 export type GuidePlaceholderContext = {
   cancellationPolicyText?: string;
+  freeChangeDaysLine?: string;
 };
+
+export function buildGuidePlaceholderContextFromPolicy(
+  policy: OperatingCompanyCancellationPolicy,
+): GuidePlaceholderContext {
+  return {
+    cancellationPolicyText: renderCancellationPolicyText(policy),
+    freeChangeDaysLine: renderFreeChangeDaysBeforeLine(policy.freeChangeDaysBefore) ?? '',
+  };
+}
+
+export function buildGuidePlaceholderContextFromPolicyRaw(raw: unknown): GuidePlaceholderContext {
+  return buildGuidePlaceholderContextFromPolicy(resolveOperatingCompanyCancellationPolicy(raw));
+}
 
 export function expandGuidePlaceholders(text: string, ctx: GuidePlaceholderContext): string {
   const policyText = ctx.cancellationPolicyText ?? '';
+  const freeChangeDaysLine = ctx.freeChangeDaysLine ?? '';
   const bulletText = policyText
     ? policyText
         .split('\n')
@@ -18,6 +41,8 @@ export function expandGuidePlaceholders(text: string, ctx: GuidePlaceholderConte
         .join('\n')
     : '';
   return text
+    .split(GUIDE_PLACEHOLDER_FREE_CHANGE_DAYS_LINE)
+    .join(freeChangeDaysLine)
     .split(GUIDE_PLACEHOLDER_CANCELLATION_POLICY_BULLETS)
     .join(bulletText)
     .split(GUIDE_PLACEHOLDER_CANCELLATION_POLICY)
