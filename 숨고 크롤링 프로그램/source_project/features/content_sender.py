@@ -202,23 +202,31 @@ def process_send_order(
     """전송 순서에 따라 이미지 폴더·텍스트를 순차 전송"""
     try:
         success = True
+        sent_any = False
         for item_name in send_order:
             if item_name.startswith('이미지폴더'):
                 try:
                     folder_num = int(item_name.replace('이미지폴더', ''))
                 except ValueError:
                     log(f'잘못된 이미지 폴더 이름: {item_name}')
+                    success = False
                     continue
 
                 images = get_folder_images(images_folder, folder_num)
                 if test_mode:
                     log(f'[테스트] {item_name} 전송 예정: {len(images)}장')
+                    if images:
+                        sent_any = True
                     continue
                 if not images:
+                    log(f'{item_name} 이미지 없음 — 실패')
+                    success = False
                     continue
                 if not chat_room.upload_images(images):
                     log(f'이미지 폴더{folder_num} 업로드 실패')
                     success = False
+                else:
+                    sent_any = True
                 time.sleep(delay)
                 continue
 
@@ -234,6 +242,7 @@ def process_send_order(
             if test_mode:
                 preview = send_body[:30] + '...' if len(send_body) > 30 else send_body
                 log(f'[테스트] {item_name} 전송 예정: "{preview}"')
+                sent_any = True
                 continue
 
             sent_ok = _send_order_text(chat_room, item_name, send_body, log)
@@ -245,9 +254,14 @@ def process_send_order(
                 success = False
             else:
                 log(f'{item_name} 전송 완료 ({len(send_body)}자)')
+                sent_any = True
 
             extra = min(3.0, len(send_body) / 350.0)
             time.sleep(max(1.0, delay * 0.6) + extra)
+
+        if not test_mode and not sent_any:
+            log('전송된 항목 없음 — 처리 실패')
+            return False
 
         return success
     except Exception as e:

@@ -708,6 +708,12 @@ class ChatRoomManager:
         if not (message or '').strip():
             return True
 
+        if self._message_already_sent(message):
+            logger.info(
+                f'[순차 전송] 동일 본문이 이미 채팅에 있음 — 스킵 ({len(message)}자)'
+            )
+            return True
+
         attempts = max(1, int(max_attempts))
         use_cdp = _should_use_cdp_input(message)
         wait_after_send = max(2.2, min(6.0, 1.8 + len(message) / 100.0))
@@ -765,11 +771,11 @@ class ChatRoomManager:
                     time.sleep(self.delay)
                     continue
 
-                logger.info(
-                    f'[순차 전송] 전송 클릭·대기 완료 — 성공 처리 ({len(message)}자)'
+                logger.warning(
+                    f'[순차 전송] 입력창 잔류({remaining}자) — 최종 실패 ({len(message)}자)'
                 )
                 self._clear_composer()
-                return True
+                return False
 
             logger.error(
                 f'[순차 전송] 실패 ({attempts}회, {len(message)}자)'
@@ -1028,9 +1034,9 @@ class ChatRoomManager:
                     return True
                 time.sleep(0.5)
 
-            logger.warning('[이미지 업로드] 전송 확인은 못했지만 업로드는 시도됨')
+            logger.warning('[이미지 업로드] 전송 확인 실패 — 업로드 미완료로 처리')
             time.sleep(self.delay)
-            return True
+            return False
         except Exception as e:
             logger.error(f'[이미지 업로드 실패] 예외 발생: {type(e).__name__}: {e}')
             return False
