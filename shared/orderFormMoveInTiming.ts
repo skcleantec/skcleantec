@@ -73,14 +73,23 @@ export function validateMoveInTimingFields(
   return null;
 }
 
+/** API·폼 혼합 값(ISO·YMD)을 YYYY-MM-DD 로 맞춘다 */
+export function normalizeOrderFormYmd(raw: string | null | undefined): string {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m?.[1] ?? s;
+}
+
 export function shouldWarnMoveInDateMismatch(
   timing: MoveInTiming | null | undefined,
   preferredDate: string | null | undefined,
   moveInDate: string | null | undefined,
 ): boolean {
   if (timing !== 'SAME_DAY') return false;
-  const pref = preferredDate?.trim() ?? '';
-  const move = moveInDate?.trim() ?? '';
+  const pref = normalizeOrderFormYmd(preferredDate);
+  const move = normalizeOrderFormYmd(moveInDate);
   if (!pref || !move) return false;
   return pref !== move;
 }

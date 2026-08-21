@@ -67,6 +67,7 @@ import {
   ORDER_BUILDING_TYPE_RESIDING,
 } from '../../constants/orderFormBuilding';
 import {
+  normalizeOrderFormYmd,
   parseMoveInTiming,
   shouldWarnMoveInDateMismatch,
   validateMoveInTimingFields,
@@ -355,6 +356,8 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
   const [pendingServiceDate, setPendingServiceDate] = useState<string | null>(null);
   const [moveDateMismatchWarnOpen, setMoveDateMismatchWarnOpen] = useState(false);
   const submitAfterValidationRef = useRef<(() => Promise<void>) | null>(null);
+  const submitFormElRef = useRef<HTMLFormElement | null>(null);
+  const resumeSubmitAfterAckRef = useRef(false);
   const [serviceDateConsent, setServiceDateConsent] = useState<{ at: string; date: string } | null>(
     null,
   );
@@ -472,6 +475,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
     setPendingServiceDate(null);
     setServiceDateAckOpen(false);
+    resumeSubmitAfterAckRef.current = true;
   }, [pendingServiceDate]);
 
   const handleCustomerPreferredDateChange = useCallback(
@@ -527,7 +531,17 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
     }
     setPendingTimeSlot(null);
     setTimeSlotAckOpen(false);
+    resumeSubmitAfterAckRef.current = true;
   }, [pendingTimeSlot]);
+
+  useEffect(() => {
+    if (!resumeSubmitAfterAckRef.current) return;
+    resumeSubmitAfterAckRef.current = false;
+    const t = window.setTimeout(() => {
+      submitFormElRef.current?.requestSubmit();
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [serviceDateConsent, timeSlotConsent]);
 
   useEffect(() => {
     if (!timeSlotAckOpen) return;
@@ -1016,47 +1030,22 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       }
       const scheduleLockedByAdmin = Boolean(order?.preferredDate?.trim());
       const detailLockedByAdmin = Boolean(order?.preferredTimeDetail?.trim());
-      const useDate = scheduleLockedByAdmin
-        ? order!.preferredDate!.trim()
-        : form.preferredDate.trim();
+      const useDate = normalizeOrderFormYmd(
+        scheduleLockedByAdmin ? order!.preferredDate : form.preferredDate,
+      );
       const useTimeRaw = scheduleLockedByAdmin
         ? (order!.preferredTime?.trim() || form.preferredTime)
         : form.preferredTime.trim();
       const useTime = useTimeRaw.trim();
+      const useTimeDetail = detailLockedByAdmin
+        ? order!.preferredTimeDetail!.trim()
+        : form.preferredTimeDetail.trim() || undefined;
       if (stdFieldOn('preferredDate') || stdFieldOn('preferredTime')) {
         if (!useDate || !useTime) {
           addIssue('청소날짜(서비스받으실 날짜)와 시간을 확인해주세요.', 'order-field-schedule');
         } else if (!isValidOrderTimeSlot(useTime)) {
           addIssue('시간대를 선택해주세요.', 'order-field-schedule');
         }
-      }
-      if (
-        !scheduleLockedByAdmin &&
-        stdFieldOn('preferredDate') &&
-        useDate &&
-        serviceDateConsent?.date !== useDate &&
-        issues.length === 0
-      ) {
-        setPendingServiceDate(useDate);
-        setServiceDateAckOpen(true);
-        setSubmitting(false);
-        return;
-      }
-      const useTimeDetail = detailLockedByAdmin
-        ? order!.preferredTimeDetail!.trim()
-        : form.preferredTimeDetail.trim() || undefined;
-      if (
-        !scheduleLockedByAdmin &&
-        stdFieldOn('preferredTime') &&
-        useTime &&
-        isValidOrderTimeSlot(useTime) &&
-        timeSlotConsent?.slot !== useTime &&
-        issues.length === 0
-      ) {
-        setPendingTimeSlot(useTime as OrderTimeSlot);
-        setTimeSlotAckOpen(true);
-        setSubmitting(false);
-        return;
       }
       if (
         stdFieldOn('preferredTimeDetail') &&
@@ -1085,7 +1074,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
       if (stdFieldOn('moveInDate')) {
         const moveInErr = validateMoveInTimingFields(
           {
-            moveInTiming: form.moveInTiming || null,
+            moveInTiming: parseMoveInTiming(form.moveInTiming),
             moveInDate: form.moveInDate,
             moveInDateUndecided: form.moveInDateUndecided,
           },
@@ -1130,6 +1119,30 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
       if (issues.length > 0) {
         showSubmitIssues(issues);
+        setSubmitting(false);
+        return;
+      }
+
+      if (
+        !scheduleLockedByAdmin &&
+        stdFieldOn('preferredDate') &&
+        useDate &&
+        normalizeOrderFormYmd(serviceDateConsent?.date) !== useDate
+      ) {
+        setPendingServiceDate(useDate);
+        setServiceDateAckOpen(true);
+        setSubmitting(false);
+        return;
+      }
+      if (
+        !scheduleLockedByAdmin &&
+        stdFieldOn('preferredTime') &&
+        useTime &&
+        isValidOrderTimeSlot(useTime) &&
+        timeSlotConsent?.slot !== useTime
+      ) {
+        setPendingTimeSlot(useTime as OrderTimeSlot);
+        setTimeSlotAckOpen(true);
         setSubmitting(false);
         return;
       }
@@ -1202,7 +1215,11 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
 
       if (
         stdFieldOn('moveInDate') &&
-        shouldWarnMoveInDateMismatch(form.moveInTiming || null, useDate, form.moveInDate)
+        shouldWarnMoveInDateMismatch(
+          parseMoveInTiming(form.moveInTiming),
+          useDate,
+          form.moveInDate,
+        )
       ) {
         submitAfterValidationRef.current = finishSubmit;
         setMoveDateMismatchWarnOpen(true);
@@ -1720,6 +1737,7 @@ export function OrderFormPage({ editor }: { editor?: OrderFormEditorContext } = 
         )}
 
         <form
+          ref={submitFormElRef}
           noValidate
           onSubmit={handleSubmit}
           onFocusCapture={isInline ? undefined : onFieldFocus}
