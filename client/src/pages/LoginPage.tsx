@@ -515,14 +515,14 @@ export function LoginPage() {
   return (
     <div
       ref={scrollRef}
-      className="login-surface relative min-h-dvh min-h-screen overflow-y-auto overscroll-y-contain bg-[#f8f7f4]"
+      className="login-surface relative flex min-h-dvh min-h-screen w-full flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[#f8f7f4]"
     >
       <div
-        className="pointer-events-none absolute inset-0 bg-[#f8f7f4] bg-left-top bg-repeat bg-[length:320px_auto]"
+        className="pointer-events-none fixed inset-0 z-0 bg-[#f8f7f4] bg-left-top bg-repeat bg-[length:320px_auto]"
         style={{ backgroundImage: `url(${LOGIN_BACKGROUND_SRC})` }}
         aria-hidden
       />
-      <div className="relative flex min-h-dvh min-h-screen flex-col items-stretch justify-start px-4 pt-[max(1.25rem,env(safe-area-inset-top))] sm:items-center sm:justify-center sm:py-14">
+      <div className="relative z-10 flex min-h-dvh min-h-screen flex-col items-stretch justify-start px-4 pt-[max(1.25rem,env(safe-area-inset-top))] sm:items-center sm:justify-center sm:py-14">
         <div className="login-scroll-content mx-auto w-full max-w-[420px] pb-4 sm:pb-0">
           <div className="login-brand-block relative mb-5 text-center sm:mb-8">
             <div
