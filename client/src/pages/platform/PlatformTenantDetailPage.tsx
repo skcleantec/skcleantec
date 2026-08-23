@@ -33,6 +33,7 @@ import {
   INPUT_BASE,
   PlanBadge,
   PlatformAlert,
+  SignupAuthMethodBadge,
   StatusBadge,
 } from '../../utils/platformUi';
 import {
@@ -424,6 +425,15 @@ export function PlatformTenantDetailPage() {
                 </div>
               </div>
               <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">가입 경로</label>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                  <SignupAuthMethodBadge
+                    label={detail.signupAuthLabel}
+                    category={detail.signupAuthCategory}
+                  />
+                </div>
+              </div>
+              <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">현재 플랜</label>
                 <div className="pt-0.5">
                   <PlanBadge plan={detail.tenant.plan} />
@@ -442,7 +452,11 @@ export function PlatformTenantDetailPage() {
             </div>
           </section>
 
-          <PlatformTenantSignupBusinessSection signupBusiness={detail.signupBusiness} />
+          <PlatformTenantSignupBusinessSection
+            signupBusiness={detail.signupBusiness}
+            signupAuthLabel={detail.signupAuthLabel}
+            signupAuthCategory={detail.signupAuthCategory}
+          />
         </div>
       ) : null}
 

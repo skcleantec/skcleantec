@@ -1,3 +1,7 @@
+import type {
+  TenantSignupAuthCategory,
+  TenantSignupAuthMethod,
+} from '@shared/tenantSignupAuthMethod';
 import { API, apiErrorMessage } from './apiPrefix';
 
 function authHeaders(token: string) {
@@ -29,6 +33,9 @@ export type PlatformCoinUsageRow = {
   aiUsers: PlatformAiUsageUserBreakdown[];
   telecrmAiUsageCount: number;
   telecrmAiUsers: PlatformAiUsageUserBreakdown[];
+  signupAuthMethod: TenantSignupAuthMethod;
+  signupAuthLabel: string;
+  signupAuthCategory: TenantSignupAuthCategory;
 };
 
 export type PlatformCoinUsageKpi = {

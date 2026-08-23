@@ -29,6 +29,10 @@ import {
   buildSignupConfigPatch,
   resolveSignupTrialApplication,
 } from './signupTrialEvent.service.js';
+import {
+  loadOwnerAuthProvidersByTenant,
+  resolveTenantSignupAuthMethodForPlatform,
+} from './tenantSignupAuthMethod.helpers.js';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
@@ -132,21 +136,30 @@ export async function provisionTenant(input: ProvisionTenantInput) {
 }
 
 export async function listTenantsForPlatform() {
-  const rows = await prisma.tenant.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      plan: true,
-      status: true,
-      createdAt: true,
-      _count: { select: { users: true, inquiries: true } },
-    },
-  });
+  const [rows, ownerAuthProvidersByTenant] = await Promise.all([
+    prisma.tenant.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        plan: true,
+        status: true,
+        createdAt: true,
+        config: true,
+        _count: { select: { users: true, inquiries: true } },
+      },
+    }),
+    loadOwnerAuthProvidersByTenant(),
+  ]);
   const adminMap = await adminLoginIdsSummaryForTenants(rows.map((r) => r.id));
   return rows.map((r) => {
     const adminLoginIds = adminMap.get(r.id) ?? [];
+    const signupAuth = resolveTenantSignupAuthMethodForPlatform(
+      r.config,
+      ownerAuthProvidersByTenant,
+      r.id,
+    );
     return {
       id: r.id,
       slug: r.slug,
@@ -158,6 +171,9 @@ export async function listTenantsForPlatform() {
       inquiryCount: r._count.inquiries,
       adminLoginIds,
       ownerLoginId: adminLoginIds[0] ?? null,
+      signupAuthMethod: signupAuth.method,
+      signupAuthLabel: signupAuth.label,
+      signupAuthCategory: signupAuth.category,
     };
   });
 }
@@ -225,7 +241,7 @@ export async function getTenantDetailForPlatform(tenantId: string) {
   const config = await getTenantConfig(tenantId);
   const admins = await listTenantAdminsForPlatform(tenantId);
 
-  const [signupBusinessRow, ownerContact] = await Promise.all([
+  const [signupBusinessRow, ownerContact, ownerAuthProvidersByTenant] = await Promise.all([
     prisma.tenantSignupBusiness.findUnique({
       where: { tenantId },
       select: {
@@ -244,11 +260,18 @@ export async function getTenantDetailForPlatform(tenantId: string) {
       where: { tenantId, role: 'ADMIN', isTenantOwner: true },
       select: { recoveryEmail: true, phone: true },
     }),
+    loadOwnerAuthProvidersByTenant(),
   ]);
 
   const signupBusiness = signupBusinessRow
     ? serializeTenantSignupBusinessForPlatform(signupBusinessRow, ownerContact)
     : null;
+
+  const signupAuth = resolveTenantSignupAuthMethodForPlatform(
+    tenant.config,
+    ownerAuthProvidersByTenant,
+    tenantId,
+  );
 
   return {
     tenant,
@@ -258,6 +281,9 @@ export async function getTenantDetailForPlatform(tenantId: string) {
     planModules: [...planModules],
     config,
     signupBusiness,
+    signupAuthMethod: signupAuth.method,
+    signupAuthLabel: signupAuth.label,
+    signupAuthCategory: signupAuth.category,
   };
 }
 

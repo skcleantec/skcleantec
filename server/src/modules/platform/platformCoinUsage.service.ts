@@ -8,6 +8,12 @@ import {
 import { isSignupCoinGraceActive } from '../tenants/tenantSignupGrace.js';
 import { kstPeriodYmFromDate } from '../tenants/tenantCoin.service.js';
 import { kstMonthRangeYm } from '../inquiries/inquiryListDateRange.js';
+import {
+  loadOwnerAuthProvidersByTenant,
+  resolveTenantSignupAuthMethodForPlatform,
+  type TenantSignupAuthCategory,
+  type TenantSignupAuthMethod,
+} from './tenantSignupAuthMethod.helpers.js';
 
 export type PlatformAiUsageUserBreakdown = {
   userId: string | null;
@@ -34,6 +40,9 @@ export type PlatformCoinUsageRow = {
   aiUsers: PlatformAiUsageUserBreakdown[];
   telecrmAiUsageCount: number;
   telecrmAiUsers: PlatformAiUsageUserBreakdown[];
+  signupAuthMethod: TenantSignupAuthMethod;
+  signupAuthLabel: string;
+  signupAuthCategory: TenantSignupAuthCategory;
 };
 
 export type PlatformCoinUsageKpi = {
@@ -144,7 +153,7 @@ export async function listPlatformCoinUsage(
 
   const monthRange = kstMonthRangeYm(periodYm);
 
-  const [tenants, spentGroups, aiUsageGroups, aiUserGroups, telecrmAiUsageGroups, telecrmAiUserGroups] =
+  const [tenants, spentGroups, aiUsageGroups, aiUserGroups, telecrmAiUsageGroups, telecrmAiUserGroups, ownerAuthProvidersByTenant] =
     await Promise.all([
     prisma.tenant.findMany({
       select: {
@@ -189,6 +198,7 @@ export async function listPlatformCoinUsage(
       where: monthRange ? { createdAt: monthRange } : {},
       _count: { id: true },
     }),
+    loadOwnerAuthProvidersByTenant(),
   ]);
 
   const spentByTenant = new Map<string, number>();
@@ -305,6 +315,11 @@ export async function listPlatformCoinUsage(
       unlimited || allowance == null || allowance <= 0
         ? null
         : Math.min(999, Math.round((spent / allowance) * 100));
+    const signupAuth = resolveTenantSignupAuthMethodForPlatform(
+      t.config,
+      ownerAuthProvidersByTenant,
+      t.id,
+    );
     return {
       tenantId: t.id,
       slug: t.slug,
@@ -321,6 +336,9 @@ export async function listPlatformCoinUsage(
       aiUsers: aiUsersByTenant.get(t.id) ?? [],
       telecrmAiUsageCount,
       telecrmAiUsers: telecrmAiUsersByTenant.get(t.id) ?? [],
+      signupAuthMethod: signupAuth.method,
+      signupAuthLabel: signupAuth.label,
+      signupAuthCategory: signupAuth.category,
     };
   });
 

@@ -7,7 +7,7 @@ import {
   type PlatformCoinUsageRow,
 } from '../../api/platformCoinUsage';
 import { getPlatformToken } from '../../stores/platformAuth';
-import { PlanBadge, PlatformAlert, StatusBadge, CARD_SECTION, BTN_PRIMARY, BTN_SECONDARY } from '../../utils/platformUi';
+import { PlanBadge, PlatformAlert, SignupAuthMethodBadge, StatusBadge, CARD_SECTION, BTN_PRIMARY, BTN_SECONDARY } from '../../utils/platformUi';
 import { YearMonthSelect } from '../../components/ui/DateQuerySelects';
 import { ListPaginationBar } from '../../components/ui/ListPaginationBar';
 import {
@@ -545,19 +545,21 @@ export function PlatformTenantListPage() {
                 className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain"
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
-                <table className="w-full min-w-[780px] table-fixed border-collapse text-fluid-xs">
+                <table className="w-full min-w-[860px] table-fixed border-collapse text-fluid-xs">
                   <colgroup>
-                    <col className="w-[18%]" />
-                    <col className="w-[10%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[9%]" />
                     <col className="w-[8%]" />
-                    <col className="w-[10%]" />
-                    <col className="w-[32%]" />
-                    <col className="w-[10%]" />
-                    <col className="w-[12%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[28%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[11%]" />
                   </colgroup>
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-100 text-center text-fluid-2xs font-semibold text-gray-600">
                       <th className="px-3 py-2.5 text-center">업체</th>
+                      <th className="px-2 py-2.5 text-center">가입</th>
                       <th className="px-2 py-2.5 text-center">플랜</th>
                       <th className="px-2 py-2.5 text-center">상태</th>
                       <th className="px-2 py-2.5 text-center">사용</th>
@@ -581,6 +583,12 @@ export function PlatformTenantListPage() {
                             {row.slug}
                             {row.graceActive ? ' · 가입 grace' : ''}
                           </span>
+                        </td>
+                        <td className="px-2 py-2.5 text-center">
+                          <SignupAuthMethodBadge
+                            label={row.signupAuthLabel}
+                            category={row.signupAuthCategory}
+                          />
                         </td>
                         <td className="px-2 py-2.5 text-center">
                           <PlanBadge plan={row.plan} />
@@ -630,6 +638,10 @@ export function PlatformTenantListPage() {
                       <div className="truncate text-fluid-xs font-semibold text-gray-900">{row.name}</div>
                       <div className="mt-0.5 truncate font-mono text-fluid-2xs text-gray-400">{row.slug}</div>
                       <div className="mt-1 flex flex-wrap items-center gap-1">
+                        <SignupAuthMethodBadge
+                          label={row.signupAuthLabel}
+                          category={row.signupAuthCategory}
+                        />
                         <PlanBadge plan={row.plan} />
                         <StatusBadge status={row.status} />
                       </div>

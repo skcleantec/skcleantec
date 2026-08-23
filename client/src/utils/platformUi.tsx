@@ -61,6 +61,38 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
+export function getSignupAuthBadgeClass(category: string): string {
+  switch (category) {
+    case 'simple':
+      return 'bg-sky-50 text-sky-800 ring-1 ring-sky-200';
+    case 'standard':
+      return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200';
+    case 'platform':
+      return 'bg-violet-50 text-violet-800 ring-1 ring-violet-200';
+    default:
+      return 'bg-gray-100 text-gray-600 ring-1 ring-gray-200';
+  }
+}
+
+export function SignupAuthMethodBadge({
+  label,
+  category,
+  title,
+}: {
+  label: string;
+  category: string;
+  title?: string;
+}) {
+  return (
+    <span
+      className={`inline-block max-w-full truncate rounded px-2 py-0.5 text-[11px] font-semibold ${getSignupAuthBadgeClass(category)}`}
+      title={title ?? label}
+    >
+      {label}
+    </span>
+  );
+}
+
 const OPERATIONAL_BADGE: Record<string, string> = {
   TRIAL_PAID: 'bg-sky-50 text-sky-800',
   TRIAL_UNPAID: 'bg-amber-50 text-amber-800',

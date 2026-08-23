@@ -1,4 +1,8 @@
 import type { SignupBusinessType } from '@shared/authSignup';
+import type {
+  TenantSignupAuthCategory,
+  TenantSignupAuthMethod,
+} from '@shared/tenantSignupAuthMethod';
 import { API, apiErrorMessage } from './apiPrefix';
 import type { TenantSubscriptionDto } from './tenantSubscription';
 
@@ -35,6 +39,12 @@ function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
+export type PlatformTenantSignupAuth = {
+  signupAuthMethod: TenantSignupAuthMethod;
+  signupAuthLabel: string;
+  signupAuthCategory: TenantSignupAuthCategory;
+};
+
 export type PlatformTenantRow = {
   id: string;
   slug: string;
@@ -46,7 +56,7 @@ export type PlatformTenantRow = {
   inquiryCount: number;
   ownerLoginId?: string | null;
   adminLoginIds?: string[];
-};
+} & PlatformTenantSignupAuth;
 
 export async function listPlatformTenants(token: string) {
   const res = await fetch(`${API}/platform/tenants`, { headers: authHeaders(token) });
@@ -131,7 +141,7 @@ export type PlatformTenantDetail = {
   planModules: string[];
   config?: Record<string, unknown>;
   signupBusiness?: PlatformTenantSignupBusiness | null;
-};
+} & PlatformTenantSignupAuth;
 
 export function normalizePlatformTenantAdmins(detail: PlatformTenantDetail): PlatformTenantAdmin[] {
   if (detail.admins && detail.admins.length > 0) return detail.admins;

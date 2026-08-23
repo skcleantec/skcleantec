@@ -3,9 +3,10 @@ import {
   signupBusinessTypeLabel,
   type SignupBusinessType,
 } from '@shared/authSignup';
+import type { TenantSignupAuthCategory } from '@shared/tenantSignupAuthMethod';
 import type { PlatformTenantSignupBusiness } from '../../api/platformTenants';
 import { ImageThumbLightbox } from '../ui/ImageThumbLightbox';
-import { CARD_SECTION } from '../../utils/platformUi';
+import { CARD_SECTION, SignupAuthMethodBadge } from '../../utils/platformUi';
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   const text = value?.trim() || '—';
@@ -19,8 +20,12 @@ function Field({ label, value }: { label: string; value: string | null | undefin
 
 export function PlatformTenantSignupBusinessSection({
   signupBusiness,
+  signupAuthLabel,
+  signupAuthCategory,
 }: {
   signupBusiness: PlatformTenantSignupBusiness | null | undefined;
+  signupAuthLabel?: string;
+  signupAuthCategory?: TenantSignupAuthCategory;
 }) {
   return (
     <section className={CARD_SECTION}>
@@ -30,6 +35,11 @@ export function PlatformTenantSignupBusinessSection({
           <p className="mt-1 text-xs text-gray-500">
             셀프 가입 시 제출한 사업자·담당자 정보입니다. 세금계산서·청구 연동 시 참고합니다.
           </p>
+          {signupAuthLabel && signupAuthCategory ? (
+            <div className="mt-2">
+              <SignupAuthMethodBadge label={signupAuthLabel} category={signupAuthCategory} />
+            </div>
+          ) : null}
         </div>
         {signupBusiness ? (
           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
