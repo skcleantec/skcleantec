@@ -16,6 +16,7 @@ import { PlatformTenantBillingPanel } from './PlatformTenantBillingPanel';
 import { PlatformTenantTelecrmPanel } from './PlatformTenantTelecrmPanel';
 import { PlatformTenantUsagePanel } from '../../components/platform/PlatformTenantUsagePanel';
 import { PlatformTenantFeatureCatalog } from '../../components/platform/PlatformTenantFeatureCatalog';
+import { PlatformTenantSignupBusinessSection } from '../../components/platform/PlatformTenantSignupBusinessSection';
 import { getPlatformToken } from '../../stores/platformAuth';
 import {
   EMPTY_TENANT_CONFIG_FORM,
@@ -440,6 +441,8 @@ export function PlatformTenantDetailPage() {
               </button>
             </div>
           </section>
+
+          <PlatformTenantSignupBusinessSection signupBusiness={detail.signupBusiness} />
         </div>
       ) : null}
 

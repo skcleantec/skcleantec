@@ -81,3 +81,52 @@ export async function createTenantSignupBusiness(
     data: buildTenantSignupBusinessCreateData(input),
   });
 }
+
+export type PlatformTenantSignupBusinessPublic = {
+  businessType: SignupBusinessInput['businessType'];
+  bizNumber: string | null;
+  businessName: string | null;
+  representativeName: string | null;
+  addressLine: string | null;
+  businessRegistrationImageUrl: string | null;
+  individualConfirmedAt: string | null;
+  individualUsageNote: string | null;
+  submittedAt: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+};
+
+type SignupBusinessRow = {
+  businessType: string;
+  bizNumber: string | null;
+  businessName: string | null;
+  representativeName: string | null;
+  addressLine: string | null;
+  businessRegistrationImageUrl: string | null;
+  individualConfirmedAt: Date | null;
+  individualUsageNote: string | null;
+  submittedAt: Date;
+};
+
+export function serializeTenantSignupBusinessForPlatform(
+  row: SignupBusinessRow,
+  contact?: { recoveryEmail?: string | null; phone?: string | null } | null,
+): PlatformTenantSignupBusinessPublic {
+  const businessType = normalizeSignupBusinessType(row.businessType);
+  if (!businessType) {
+    throw new Error('invalid_signup_business_type');
+  }
+  return {
+    businessType,
+    bizNumber: row.bizNumber?.trim() || null,
+    businessName: row.businessName?.trim() || null,
+    representativeName: row.representativeName?.trim() || null,
+    addressLine: row.addressLine?.trim() || null,
+    businessRegistrationImageUrl: row.businessRegistrationImageUrl?.trim() || null,
+    individualConfirmedAt: row.individualConfirmedAt?.toISOString() ?? null,
+    individualUsageNote: row.individualUsageNote?.trim() || null,
+    submittedAt: row.submittedAt.toISOString(),
+    contactEmail: contact?.recoveryEmail?.trim() || null,
+    contactPhone: contact?.phone?.trim() || null,
+  };
+}

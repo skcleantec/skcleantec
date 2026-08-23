@@ -5,7 +5,7 @@ import {
   PLATFORM_LEGAL_MEMBER_PRIVACY_SLUG,
   PLATFORM_LEGAL_MEMBER_TERMS_SLUG,
 } from '@shared/platformLegalSlugs';
-import { tenantLoginIdErrorMessage } from '@shared/tenantLoginId';
+import { isValidTenantLoginId, normalizeTenantLoginId, tenantLoginIdErrorMessage } from '@shared/tenantLoginId';
 import type { TenantPlanId } from '@shared/tenantFeatureModules';
 import { TENANT_PLAN_PRESENTATIONS } from '@shared/tenantPlanCatalog';
 import {
@@ -41,7 +41,7 @@ export function TenantSignupPage() {
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
-  const [adminLoginId, setAdminLoginId] = useState('admin');
+  const [adminLoginId, setAdminLoginId] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminName, setAdminName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
@@ -65,6 +65,7 @@ export function TenantSignupPage() {
   const [legalLoadErr, setLegalLoadErr] = useState('');
   const [viewerDoc, setViewerDoc] = useState<PublicLegalDocument | null>(null);
   const termsSectionRef = useRef<HTMLElement | null>(null);
+  const verificationSectionRef = useRef<HTMLDivElement | null>(null);
   const [businessType, setBusinessType] = useState<SignupBusinessType | ''>('');
   const [bizNumber, setBizNumber] = useState('');
   const [businessName, setBusinessName] = useState('');
@@ -235,9 +236,48 @@ export function TenantSignupPage() {
     }
   };
 
+  const showVerificationError = (message: string) => {
+    setError(message);
+    verificationSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const validateBeforeSendCode = (): string | null => {
+    const normalizedSlug = slug.trim().toLowerCase();
+    if (normalizedSlug.length < 2) {
+      return '업체 코드를 2자 이상 입력해 주세요.';
+    }
+    if (slugHint && !slugHint.includes('사용 가능')) {
+      return slugHint;
+    }
+    if (!name.trim()) {
+      return '업체명을 입력해 주세요.';
+    }
+    const loginId = normalizeTenantLoginId(adminLoginId);
+    if (!isValidTenantLoginId(loginId)) {
+      return tenantLoginIdErrorMessage();
+    }
+    if (adminPassword.trim().length < 4) {
+      return '관리자 비밀번호를 4자 이상 입력한 뒤 인증번호를 받아 주세요.';
+    }
+    const email = contactEmail.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return '담당자 이메일 주소를 확인해 주세요.';
+    }
+    const phoneDigits = contactPhone.replace(/\D/g, '');
+    if (!/^01[016789]\d{7,8}$/.test(phoneDigits)) {
+      return '담당자 휴대폰 번호를 확인해 주세요. (예: 01012345678)';
+    }
+    return null;
+  };
+
   const handleSendCode = async () => {
     setError('');
     setInfo('');
+    const validationError = validateBeforeSendCode();
+    if (validationError) {
+      showVerificationError(validationError);
+      return;
+    }
     setSendingCode(true);
     try {
       const sent = await sendTenantSignupVerificationCode(verificationSendPayload);
@@ -245,7 +285,7 @@ export function TenantSignupPage() {
       setCodeSent(true);
       setInfo(`${contactEmail.trim()} 로 인증번호를 보냈습니다. 10분 이내에 아래 칸에 입력해 주세요.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '인증번호 발송에 실패했습니다.');
+      showVerificationError(err instanceof Error ? err.message : '인증번호 발송에 실패했습니다.');
     } finally {
       setSendingCode(false);
     }
@@ -270,11 +310,11 @@ export function TenantSignupPage() {
   const handleComplete = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!challengeId) {
-      setError('먼저 「이메일 인증번호 받기」를 눌러 인증번호를 받아 주세요.');
+      showVerificationError('먼저 「이메일 인증번호 받기」를 눌러 인증번호를 받아 주세요.');
       return;
     }
     if (verificationCode.length < 6) {
-      setError('이메일 인증번호 6자리를 입력해 주세요.');
+      showVerificationError('이메일 인증번호 6자리를 입력해 주세요.');
       return;
     }
     if (!memberTermsAgreed) {
@@ -609,29 +649,45 @@ export function TenantSignupPage() {
               </label>
             </section>
 
-            <label className="block">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-fluid-xs font-medium text-slate-600">이메일 인증번호 (6자리)</span>
-                <button
-                  type="button"
-                  disabled={sendingCode || loading}
-                  onClick={() => void handleSendCode()}
-                  className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-fluid-2xs font-semibold text-slate-700 disabled:opacity-60"
+            <div ref={verificationSectionRef} className="space-y-2">
+              <label className="block">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="text-fluid-xs font-medium text-slate-600">이메일 인증번호 (6자리)</span>
+                  <button
+                    type="button"
+                    disabled={sendingCode || loading}
+                    onClick={() => void handleSendCode()}
+                    className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-fluid-2xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 disabled:pointer-events-none disabled:opacity-60"
+                  >
+                    {sendingCode ? '발송 중…' : codeSent ? '재발송' : '인증번호 받기'}
+                  </button>
+                </div>
+                <input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className={`${inputClass} text-center font-mono tracking-[0.3em]`}
+                  placeholder="000000"
+                  required
+                />
+              </label>
+              {error ? (
+                <p
+                  className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-800"
+                  role="alert"
                 >
-                  {sendingCode ? '발송 중…' : codeSent ? '재발송' : '인증번호 받기'}
-                </button>
-              </div>
-              <input
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className={`${inputClass} text-center font-mono tracking-[0.3em]`}
-                placeholder="000000"
-                required
-              />
-              {info ? <p className="mt-1 text-fluid-2xs text-sky-800">{info}</p> : null}
-            </label>
+                  {error}
+                </p>
+              ) : null}
+              {info ? <p className="text-fluid-2xs text-sky-800">{info}</p> : null}
+              {!error && !info && !codeSent ? (
+                <p className="text-fluid-2xs text-slate-500">
+                  업체 코드·비밀번호·이메일·휴대폰을 입력한 뒤 「인증번호 받기」를 눌러 주세요. 재발송은 60초
+                  후 가능합니다.
+                </p>
+              ) : null}
+            </div>
 
             <fieldset className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
               <legend className="px-1 text-fluid-xs font-semibold text-slate-800">
@@ -761,7 +817,7 @@ export function TenantSignupPage() {
               ) : null}
             </fieldset>
 
-            {error ? (
+            {error && challengeId ? (
               <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-800" role="alert">
                 {error}
               </p>

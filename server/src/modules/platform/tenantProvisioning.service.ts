@@ -17,6 +17,7 @@ import {
 import { ensureDefaultAdChannelsForTenant } from '../advertising/defaultAdChannels.js';
 import { customModulesForTenantSlug, isCustomModuleId, isRegisteredCustomModuleId } from '../custom/customModuleCatalog.js';
 import { getTenantConfig, updateTenantConfig } from '../tenants/tenantConfig.service.js';
+import { serializeTenantSignupBusinessForPlatform } from '../auth-signup/signupBusiness.service.js';
 import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
 import {
   adminLoginIdsSummaryForTenants,
@@ -224,6 +225,31 @@ export async function getTenantDetailForPlatform(tenantId: string) {
   const config = await getTenantConfig(tenantId);
   const admins = await listTenantAdminsForPlatform(tenantId);
 
+  const [signupBusinessRow, ownerContact] = await Promise.all([
+    prisma.tenantSignupBusiness.findUnique({
+      where: { tenantId },
+      select: {
+        businessType: true,
+        bizNumber: true,
+        businessName: true,
+        representativeName: true,
+        addressLine: true,
+        businessRegistrationImageUrl: true,
+        individualConfirmedAt: true,
+        individualUsageNote: true,
+        submittedAt: true,
+      },
+    }),
+    prisma.user.findFirst({
+      where: { tenantId, role: 'ADMIN', isTenantOwner: true },
+      select: { recoveryEmail: true, phone: true },
+    }),
+  ]);
+
+  const signupBusiness = signupBusinessRow
+    ? serializeTenantSignupBusinessForPlatform(signupBusinessRow, ownerContact)
+    : null;
+
   return {
     tenant,
     admins,
@@ -231,6 +257,7 @@ export async function getTenantDetailForPlatform(tenantId: string) {
     features: [...baseCatalog, ...customCatalog],
     planModules: [...planModules],
     config,
+    signupBusiness,
   };
 }
 

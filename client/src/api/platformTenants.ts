@@ -1,3 +1,4 @@
+import type { SignupBusinessType } from '@shared/authSignup';
 import { API, apiErrorMessage } from './apiPrefix';
 import type { TenantSubscriptionDto } from './tenantSubscription';
 
@@ -99,6 +100,20 @@ export type PlatformTenantAdmin = {
 /** @deprecated 단일 owner — admins 사용 */
 export type PlatformTenantOwner = PlatformTenantAdmin;
 
+export type PlatformTenantSignupBusiness = {
+  businessType: SignupBusinessType;
+  bizNumber: string | null;
+  businessName: string | null;
+  representativeName: string | null;
+  addressLine: string | null;
+  businessRegistrationImageUrl: string | null;
+  individualConfirmedAt: string | null;
+  individualUsageNote: string | null;
+  submittedAt: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+};
+
 export type PlatformTenantDetail = {
   tenant: {
     id: string;
@@ -115,6 +130,7 @@ export type PlatformTenantDetail = {
   features: PlatformTenantFeatureRow[];
   planModules: string[];
   config?: Record<string, unknown>;
+  signupBusiness?: PlatformTenantSignupBusiness | null;
 };
 
 export function normalizePlatformTenantAdmins(detail: PlatformTenantDetail): PlatformTenantAdmin[] {

@@ -41,6 +41,16 @@ export function isValidBizNumber(raw: unknown): boolean {
   return normalizeBizNumber(raw).length === 10;
 }
 
+export function formatBizNumberDisplay(raw: unknown): string {
+  const digits = normalizeBizNumber(raw);
+  if (digits.length !== 10) return digits || '—';
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}
+
+export function signupBusinessTypeLabel(type: SignupBusinessType): string {
+  return type === 'registered_business' ? '사업자' : '비사업자(개인)';
+}
+
 /** ADMIN 실명 — 로그인 아이디만으로 사람 구분 불가 (`docs/auth-signup/POLICY.md`) */
 export function adminRealNameError(raw: unknown): string | null {
   const name = String(raw ?? '').trim();
