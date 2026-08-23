@@ -6,6 +6,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import { prisma } from '../../lib/prisma.js';
 import { config } from '../../config/index.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
@@ -480,7 +481,7 @@ router.post('/staging-db-import/start', authMiddleware, adminOnly, async (req: R
     res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
-  const ok = await bcrypt.compare(password, dbUser.passwordHash);
+  const ok = await compareUserPasswordHash(dbUser.passwordHash, password);
   if (!ok) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;

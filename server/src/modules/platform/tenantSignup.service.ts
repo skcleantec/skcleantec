@@ -22,6 +22,12 @@ import {
   PlatformReferralAttributionError,
 } from '../platform-referrals/platformReferralAttribution.service.js';
 import { normalizeReferrerCode } from '../platform-referrals/platformReferralCode.helpers.js';
+import {
+  assertValidSignupBusinessInput,
+  createTenantSignupBusiness,
+  parseSignupBusinessPayload,
+} from '../auth-signup/signupBusiness.service.js';
+import type { SignupBusinessInput } from '../auth-signup/signupBusiness.validation.js';
 
 export class TenantSignupError extends Error {
   constructor(
@@ -49,6 +55,8 @@ export type SelfServeTenantSignupInput = {
   emailVerifiedAt?: string;
   referrerCode?: string | null;
   referrerFromLink?: boolean;
+  /** Phase 2 — 사업자 구분 (complete 시 필수) */
+  signupBusiness?: SignupBusinessInput;
 };
 
 export async function isTenantSlugAvailableForSignup(slugRaw: string): Promise<{
@@ -108,6 +116,11 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
   const adminLoginId = assertValidTenantLoginId(input.adminLoginId);
   const adminName = (input.adminName?.trim() || '관리자').slice(0, 64);
   assertSignupContact(input.contactEmail, input.contactPhone);
+  const signupBusiness = input.signupBusiness;
+  if (!signupBusiness) {
+    throw new TenantSignupError('사업자 여부를 선택해 주세요.');
+  }
+  assertValidSignupBusinessInput(signupBusiness);
 
   const contactEmail = normalizeVerificationEmail(input.contactEmail);
   const contactPhone = normalizeSignupPhone(input.contactPhone);
@@ -201,6 +214,11 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
         });
       }
 
+      await createTenantSignupBusiness(tx, {
+        tenantId: tenant.id,
+        ...signupBusiness,
+      });
+
       return { tenant, admin };
       },
       { maxWait: 15_000, timeout: 30_000 },
@@ -208,6 +226,9 @@ export async function provisionTenantSelfServe(input: SelfServeTenantSignupInput
   } catch (e) {
     if (e instanceof PlatformReferralAttributionError) {
       throw new TenantSignupError(e.message, e.statusCode === 404 ? 400 : e.statusCode);
+    }
+    if (e instanceof Error && e.name === 'SignupBusinessValidationError') {
+      throw new TenantSignupError(e.message);
     }
     throw e;
   }

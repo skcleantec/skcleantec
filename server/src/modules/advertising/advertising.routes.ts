@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import type { InquiryStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
@@ -305,7 +306,7 @@ router.delete('/channels/:id', authMiddleware, superAdminOnly, async (req, res) 
     res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
-  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  const valid = await compareUserPasswordHash(dbUser.passwordHash, password);
   if (!valid) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;

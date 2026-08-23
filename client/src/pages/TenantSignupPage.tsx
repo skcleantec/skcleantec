@@ -12,12 +12,19 @@ import {
   TENANT_SELF_SIGNUP_PLAN_IDS,
   TENANT_SIGNUP_PAID_TRIAL_DAYS,
 } from '@shared/tenantSignup';
+import {
+  normalizeBizNumber,
+  validateSignupBusinessInput,
+  type SignupBusinessType,
+} from '@shared/authSignup';
 import { TenantBrandLogo } from '../components/brand/TenantBrandLogo';
 import { LegalDocumentViewerModal } from '../components/auth/LegalDocumentViewerModal';
+import { ImageThumbLightbox } from '../components/ui/ImageThumbLightbox';
 import {
   checkTenantSignupSlug,
   completeTenantSignup,
   sendTenantSignupVerificationCode,
+  uploadTenantSignupBusinessRegistration,
   validateTenantSignupReferrer,
 } from '../api/tenantSignup';
 import { fetchSignupLegalDocuments, type PublicLegalDocument } from '../api/platformLegal';
@@ -58,6 +65,17 @@ export function TenantSignupPage() {
   const [legalLoadErr, setLegalLoadErr] = useState('');
   const [viewerDoc, setViewerDoc] = useState<PublicLegalDocument | null>(null);
   const termsSectionRef = useRef<HTMLElement | null>(null);
+  const [businessType, setBusinessType] = useState<SignupBusinessType | ''>('');
+  const [bizNumber, setBizNumber] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [representativeName, setRepresentativeName] = useState('');
+  const [addressLine, setAddressLine] = useState('');
+  const [businessRegistrationImageUrl, setBusinessRegistrationImageUrl] = useState('');
+  const [businessRegistrationImagePublicId, setBusinessRegistrationImagePublicId] = useState('');
+  const [individualConfirmed, setIndividualConfirmed] = useState(false);
+  const [individualUsageNote, setIndividualUsageNote] = useState('');
+  const [businessUploading, setBusinessUploading] = useState(false);
+  const businessFileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,6 +157,45 @@ export function TenantSignupPage() {
     return () => window.clearTimeout(t);
   }, [slug]);
 
+  useEffect(() => {
+    if (businessType !== 'registered_business') return;
+    if (!businessName.trim() && name.trim()) setBusinessName(name.trim());
+    if (!representativeName.trim() && adminName.trim()) setRepresentativeName(adminName.trim());
+  }, [businessType, name, adminName, businessName, representativeName]);
+
+  const signupBusinessPayload = useMemo(
+    () =>
+      businessType
+        ? {
+            businessType,
+            bizNumber: bizNumber || null,
+            businessName: businessName || null,
+            representativeName: representativeName || null,
+            addressLine: addressLine || null,
+            businessRegistrationImageUrl: businessRegistrationImageUrl || null,
+            businessRegistrationImagePublicId: businessRegistrationImagePublicId || null,
+            individualConfirmed,
+            individualUsageNote: individualUsageNote || null,
+          }
+        : null,
+    [
+      businessType,
+      bizNumber,
+      businessName,
+      representativeName,
+      addressLine,
+      businessRegistrationImageUrl,
+      businessRegistrationImagePublicId,
+      individualConfirmed,
+      individualUsageNote,
+    ],
+  );
+
+  const businessValidationError = useMemo(
+    () => (signupBusinessPayload ? validateSignupBusinessInput(signupBusinessPayload) : '사업자 여부를 선택해 주세요.'),
+    [signupBusinessPayload],
+  );
+
   /** 인증번호 발송 — 약관 동의 없이 전송 가능 */
   const verificationSendPayload = useMemo(
     () => ({
@@ -194,6 +251,22 @@ export function TenantSignupPage() {
     }
   };
 
+  const handleBusinessFile = async (file: File | null) => {
+    if (!file) return;
+    setError('');
+    setBusinessUploading(true);
+    try {
+      const uploaded = await uploadTenantSignupBusinessRegistration(file);
+      setBusinessRegistrationImageUrl(uploaded.businessRegistrationImageUrl);
+      setBusinessRegistrationImagePublicId(uploaded.businessRegistrationImagePublicId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '사업자등록증 업로드에 실패했습니다.');
+    } finally {
+      setBusinessUploading(false);
+      if (businessFileRef.current) businessFileRef.current.value = '';
+    }
+  };
+
   const handleComplete = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!challengeId) {
@@ -209,6 +282,10 @@ export function TenantSignupPage() {
       termsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    if (!signupBusinessPayload || businessValidationError) {
+      setError(businessValidationError ?? '사업자 정보를 확인해 주세요.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
@@ -217,6 +294,7 @@ export function TenantSignupPage() {
         contactEmail,
         verificationCode,
         memberTermsAgreed: true,
+        ...signupBusinessPayload,
       });
       navigate(`/login?tenant=${encodeURIComponent(result.tenant.slug)}&signup=1`, { replace: true });
     } catch (err) {
@@ -340,7 +418,7 @@ export function TenantSignupPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-1 block text-fluid-xs font-medium text-slate-600">관리자 이름</span>
+                <span className="mb-1 block text-fluid-xs font-medium text-slate-600">관리자 실명</span>
                 <input
                   value={adminName}
                   onChange={(e) => setAdminName(e.target.value)}
@@ -555,6 +633,134 @@ export function TenantSignupPage() {
               {info ? <p className="mt-1 text-fluid-2xs text-sky-800">{info}</p> : null}
             </label>
 
+            <fieldset className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+              <legend className="px-1 text-fluid-xs font-semibold text-slate-800">
+                사업자 구분 <span className="text-red-600">(필수)</span>
+              </legend>
+              <div className="inline-flex w-full flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-0.5">
+                {(
+                  [
+                    ['registered_business', '사업자입니다'],
+                    ['individual', '사업자가 아닙니다'],
+                  ] as const
+                ).map(([value, label]) => {
+                  const checked = businessType === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setBusinessType(value)}
+                      className={`min-h-9 flex-1 rounded-md px-2 py-1.5 text-fluid-2xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 ${
+                        checked ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {businessType === 'registered_business' ? (
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="mb-1 block text-fluid-xs font-medium text-slate-600">사업자등록번호</span>
+                    <input
+                      value={bizNumber}
+                      onChange={(e) => setBizNumber(normalizeBizNumber(e.target.value))}
+                      className={`${inputClass} font-mono`}
+                      placeholder="0000000000"
+                      inputMode="numeric"
+                      required
+                    />
+                    <p className="mt-1 text-fluid-2xs text-slate-500">숫자 10자리 (하이픈 없이 입력)</p>
+                  </label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-1 block text-fluid-xs font-medium text-slate-600">상호</span>
+                      <input
+                        value={businessName}
+                        onChange={(e) => setBusinessName(e.target.value)}
+                        className={inputClass}
+                        required
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-fluid-xs font-medium text-slate-600">대표자명</span>
+                      <input
+                        value={representativeName}
+                        onChange={(e) => setRepresentativeName(e.target.value)}
+                        className={inputClass}
+                        required
+                      />
+                    </label>
+                  </div>
+                  <label className="block">
+                    <span className="mb-1 block text-fluid-xs font-medium text-slate-600">사업장 주소 (선택)</span>
+                    <input
+                      value={addressLine}
+                      onChange={(e) => setAddressLine(e.target.value)}
+                      className={inputClass}
+                    />
+                  </label>
+                  <div>
+                    <span className="mb-1 block text-fluid-xs font-medium text-slate-600">사업자등록증</span>
+                    <input
+                      ref={businessFileRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="block w-full text-fluid-2xs text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-fluid-2xs file:font-semibold"
+                      onChange={(e) => void handleBusinessFile(e.target.files?.[0] ?? null)}
+                    />
+                    {businessUploading ? (
+                      <p className="mt-1 text-fluid-2xs text-slate-500">업로드 중…</p>
+                    ) : null}
+                    {businessRegistrationImageUrl ? (
+                      <div className="mt-2">
+                        <ImageThumbLightbox
+                          src={businessRegistrationImageUrl}
+                          alt="사업자등록증 미리보기"
+                          thumbClassName="h-24 w-auto rounded-lg border border-slate-200 object-cover"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {businessType === 'individual' ? (
+                <div className="space-y-3">
+                  <label className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white/80 px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={individualConfirmed}
+                      onChange={(e) => setIndividualConfirmed(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300"
+                    />
+                    <span className="text-fluid-2xs leading-relaxed text-slate-700">
+                      사업자등록 없이 청소비서를 이용합니다. 입력 정보는 약관에 따라 처리됩니다.
+                    </span>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-fluid-xs font-medium text-slate-600">이용 형태 (선택)</span>
+                    <select
+                      value={individualUsageNote}
+                      onChange={(e) => setIndividualUsageNote(e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">선택</option>
+                      <option value="개인">개인</option>
+                      <option value="프리랜서">프리랜서</option>
+                      <option value="기타">기타</option>
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+
+              {businessType && businessValidationError ? (
+                <p className="text-fluid-2xs text-amber-800">{businessValidationError}</p>
+              ) : null}
+            </fieldset>
+
             {error ? (
               <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-fluid-sm text-red-800" role="alert">
                 {error}
@@ -563,10 +769,16 @@ export function TenantSignupPage() {
 
             <button
               type="submit"
-              disabled={loading || verificationCode.length < 6 || !challengeId}
-              className="w-full rounded-xl bg-slate-900 py-3 text-fluid-sm font-semibold text-white disabled:opacity-60"
+              disabled={
+                loading ||
+                verificationCode.length < 6 ||
+                !challengeId ||
+                !businessType ||
+                Boolean(businessValidationError)
+              }
+              className="w-full rounded-xl bg-slate-900 py-3 text-fluid-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
             >
-              {loading ? '가입 처리 중…' : '인증 완료 · 업체 개설'}
+              {loading ? '가입 처리 중…' : '가입 완료 · 업체 개설'}
             </button>
           </form>
 

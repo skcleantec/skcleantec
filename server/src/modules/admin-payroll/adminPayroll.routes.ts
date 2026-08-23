@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import { InquiryStatus, PayrollAccountLedgerManualDirection, PayrollLedgerManualPayrollLinkKind, Prisma, TeamLeaderPayrollPaymentBucket, TeamLeaderGeneralSettlementMode } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOnly, type AuthPayload } from '../auth/auth.middleware.js';
@@ -488,7 +489,7 @@ router.delete('/account-ledger/manual/:entryId', async (req: Request, res: Respo
     res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
-  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  const valid = await compareUserPasswordHash(dbUser.passwordHash, password);
   if (!valid) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;
@@ -1448,7 +1449,7 @@ router.delete('/team-leader/payment/:paymentId', async (req: Request, res: Respo
     res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
-  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  const valid = await compareUserPasswordHash(dbUser.passwordHash, password);
   if (!valid) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;
@@ -1964,7 +1965,7 @@ router.delete('/admin-personal-expenses/:expenseId', async (req: Request, res: R
     res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
-  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  const valid = await compareUserPasswordHash(dbUser.passwordHash, password);
   if (!valid) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;
@@ -2094,7 +2095,7 @@ router.delete('/admin-shared-expenses/:expenseId', async (req: Request, res: Res
     res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
-  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  const valid = await compareUserPasswordHash(dbUser.passwordHash, password);
   if (!valid) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;
@@ -2233,7 +2234,7 @@ router.delete('/income-deposits/:depositId', async (req: Request, res: Response)
     res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
-  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  const valid = await compareUserPasswordHash(dbUser.passwordHash, password);
   if (!valid) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;

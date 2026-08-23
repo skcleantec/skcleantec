@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import type { Response } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
@@ -56,7 +57,7 @@ export async function requireTelecrmActorPassword(
     res.status(403).json({ error: '세션이 유효하지 않습니다.' });
     return false;
   }
-  const ok = await bcrypt.compare(raw, actor.passwordHash);
+  const ok = await compareUserPasswordHash(actor.passwordHash, raw);
   if (!ok) {
     res.status(400).json({ error: '비밀번호가 일치하지 않습니다.' });
     return false;

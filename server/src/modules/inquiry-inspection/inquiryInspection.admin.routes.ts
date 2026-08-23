@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
 import { requireFeature } from '../tenants/requireTenantFeature.js';
@@ -224,7 +225,7 @@ router.post('/void', async (req, res) => {
     where: { id: user.userId, tenantId },
     select: { passwordHash: true },
   });
-  if (!admin || !(await bcrypt.compare(password, admin.passwordHash))) {
+  if (!admin || !(await compareUserPasswordHash(admin.passwordHash, password))) {
     res.status(401).json({ error: '비밀번호가 올바르지 않습니다.' });
     return;
   }

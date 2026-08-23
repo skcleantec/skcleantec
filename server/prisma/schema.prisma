@@ -55,6 +55,18 @@ enum EmailVerificationPurpose {
   PASSWORD_RESET
 }
 
+/// 셀프 가입 — 사업자 / 비사업자 구분 (`docs/auth-signup/POLICY.md`)
+enum SignupBusinessType {
+  registered_business
+  individual
+}
+
+/// ADMIN SNS 로그인·가입 (`docs/auth-signup/POLICY.md`)
+enum AuthIdentityProvider {
+  google
+  kakao
+}
+
 enum TenantBillingCycle {
   MONTHLY
   ANNUAL
@@ -324,6 +336,8 @@ model Tenant {
   referrerCommissionAccruals PlatformReferrerCommissionAccrual[]
   platformBoardPosts         PlatformBoardPost[]
   staffAppFcmTokens          StaffAppFcmToken[]
+  signupBusiness             TenantSignupBusiness?
+  userAuthIdentities         UserAuthIdentity[]
 
   @@map("tenants")
 }
@@ -473,6 +487,47 @@ model EmailVerificationChallenge {
   @@index([email, purpose, createdAt(sort: Desc)])
   @@index([purpose, expiresAt])
   @@map("email_verification_challenges")
+}
+
+/// 셀프 가입 complete 시 사업자/비사업자 스냅샷 — 테넌트 1:1
+model TenantSignupBusiness {
+  id                                String              @id @default(uuid())
+  tenantId                          String              @unique @map("tenant_id")
+  tenant                            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessType                      SignupBusinessType  @map("business_type")
+  bizNumber                         String?             @map("biz_number") @db.VarChar(64)
+  businessName                      String?             @map("business_name") @db.VarChar(128)
+  representativeName                String?             @map("representative_name") @db.VarChar(128)
+  addressLine                       String?             @map("address_line") @db.Text
+  businessRegistrationImageUrl      String?             @map("business_registration_image_url") @db.VarChar(2048)
+  businessRegistrationImagePublicId String?             @map("business_registration_image_public_id") @db.VarChar(512)
+  individualConfirmedAt             DateTime?           @map("individual_confirmed_at")
+  individualUsageNote               String?             @map("individual_usage_note") @db.VarChar(256)
+  submittedAt                       DateTime            @map("submitted_at")
+  createdAt                         DateTime            @default(now()) @map("created_at")
+  updatedAt                         DateTime            @updatedAt @map("updated_at")
+
+  @@index([bizNumber])
+  @@map("tenant_signup_businesses")
+}
+
+/// SNS ↔ User 연결 — (provider, providerSub) 전역 unique
+model UserAuthIdentity {
+  id            String               @id @default(uuid())
+  tenantId      String               @map("tenant_id")
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId        String               @map("user_id")
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider      AuthIdentityProvider
+  providerSub   String               @map("provider_sub") @db.VarChar(128)
+  providerEmail String?              @map("provider_email") @db.VarChar(256)
+  linkedAt      DateTime             @map("linked_at")
+  createdAt     DateTime             @default(now()) @map("created_at")
+
+  @@unique([provider, providerSub])
+  @@unique([tenantId, userId, provider])
+  @@index([tenantId, userId])
+  @@map("user_auth_identities")
 }
 
 /// 플랫폼 SaaS 과금 — 전역 입금 안내 (싱글톤)
@@ -1396,7 +1451,8 @@ model User {
   tenantId     String   @map("tenant_id")
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   email        String
-  passwordHash String   @map("password_hash")
+  /// null — SNS-only ADMIN (비밀번호 로그인 불가, OAuth·이메일 OTP 설정 후 가능)
+  passwordHash String?  @map("password_hash")
   name         String
   /// 크루 현장 일정 등 표시용 로마자 이름 (선택)
   nameEn       String?  @map("name_en") @db.VarChar(128)
@@ -1472,6 +1528,7 @@ model User {
   inquiryStatusEventsAsActor      InquiryStatusEvent[]   @relation("InquiryStatusEventActor")
   teamLeaderWebPushSubscriptions TeamLeaderWebPushSubscription[]
   staffAppFcmTokens            StaffAppFcmToken[]
+  authIdentities               UserAuthIdentity[]
   orderFollowupsCreated         OrderFollowup[]        @relation("OrderFollowupCreatedBy")
   orderFollowupsHandled         OrderFollowup[]        @relation("OrderFollowupHandledBy")
   quotationsCreated             Quotation[]            @relation("QuotationCreatedBy")

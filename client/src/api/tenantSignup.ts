@@ -1,3 +1,5 @@
+import type { SignupBusinessInput } from '@shared/authSignup';
+
 const API = '/api/public/tenant-signup';
 
 export type TenantSlugAvailability = {
@@ -68,12 +70,31 @@ export async function sendTenantSignupVerificationCode(
   return data;
 }
 
+export type TenantSignupBusinessUpload = {
+  businessRegistrationImageUrl: string;
+  businessRegistrationImagePublicId: string;
+};
+
+export async function uploadTenantSignupBusinessRegistration(
+  file: File,
+): Promise<TenantSignupBusinessUpload> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(`${API}/upload-business-registration`, {
+    method: 'POST',
+    body: fd,
+  });
+  const data = (await res.json()) as TenantSignupBusinessUpload & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '사업자등록증 업로드에 실패했습니다.');
+  return data;
+}
+
 export async function completeTenantSignup(input: {
   challengeId: string;
   contactEmail: string;
   verificationCode: string;
   memberTermsAgreed: boolean;
-}): Promise<TenantSignupResult> {
+} & SignupBusinessInput): Promise<TenantSignupResult> {
   const res = await fetch(`${API}/complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

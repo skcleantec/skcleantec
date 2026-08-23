@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../lib/prisma.js';
 import { config } from '../../config/index.js';
@@ -22,7 +23,7 @@ router.post('/login', async (req, res) => {
     return;
   }
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
+  const valid = await compareUserPasswordHash(user.passwordHash, password);
   if (!valid) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;

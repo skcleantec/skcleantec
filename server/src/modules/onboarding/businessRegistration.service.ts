@@ -9,7 +9,7 @@ export function assertBusinessRegistrationImageMime(mimetype: string): void {
   }
 }
 
-async function uploadBusinessRegistrationBuffer(params: {
+export async function uploadBusinessRegistrationBuffer(params: {
   folder: string;
   buffer: Buffer;
   mimetype: string;

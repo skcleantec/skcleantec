@@ -1,5 +1,4 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, type AuthPayload } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
@@ -115,7 +114,6 @@ router.delete(
         req.params.id,
         actor.passwordHash,
         password,
-        bcrypt.compare,
       );
       res.json({ ok: true });
     } catch (e) {

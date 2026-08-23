@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import type { User } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { DEFAULT_TENANT_SLUG } from '../tenants/tenant.constants.js';
@@ -106,7 +107,7 @@ export async function tryDeveloperUniversalLogin(
   if (!canonical) {
     return { kind: 'no_canonical' };
   }
-  const valid = await bcrypt.compare(password, canonical.passwordHash);
+  const valid = await compareUserPasswordHash(canonical.passwordHash, password);
   if (!valid) {
     return { kind: 'wrong_password' };
   }

@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import { parseServiceZoneRegionsJson, sanitizeServiceZoneRegions } from './serviceZoneRegions.js';
 
 export class ServiceZoneValidationError extends Error {
@@ -150,11 +151,10 @@ export async function deleteServiceZoneWithPassword(
   db: PrismaClient,
   tenantId: string,
   id: string,
-  actorPasswordHash: string,
+  actorPasswordHash: string | null,
   password: string,
-  bcryptCompare: (plain: string, hash: string) => Promise<boolean>,
 ): Promise<void> {
-  const ok = await bcryptCompare(password, actorPasswordHash);
+  const ok = await compareUserPasswordHash(actorPasswordHash, password);
   if (!ok) throw new ServiceZoneValidationError('비밀번호가 일치하지 않습니다.');
 
   const existing = await db.serviceZone.findFirst({ where: { id, tenantId } });

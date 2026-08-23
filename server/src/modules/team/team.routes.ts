@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Prisma, UserRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import { teamAuthMiddleware } from '../auth/auth.middleware.team.js';
 import type { AuthPayload } from '../auth/auth.middleware.js';
 import { happyCallDeadlineEnd, isHappyCallEligible } from '../inquiries/happyCall.helpers.js';
@@ -1334,7 +1335,7 @@ router.post('/inquiries/:id/cancel', async (req, res) => {
     where: { id: actorId },
     select: { passwordHash: true },
   });
-  if (!me || !(await bcrypt.compare(password, me.passwordHash))) {
+  if (!me || !(await compareUserPasswordHash(me.passwordHash, password))) {
     res.status(403).json({ error: '비밀번호가 올바르지 않습니다.' });
     return;
   }

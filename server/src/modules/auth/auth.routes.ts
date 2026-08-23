@@ -207,6 +207,13 @@ async function loginWithPassword(req: Request, res: Response) {
     res.status(401).json({ error: '로그인할 수 없는 계정입니다.' });
     return;
   }
+  if (!user.passwordHash) {
+    res.status(401).json({
+      error:
+        '비밀번호가 설정되지 않은 계정입니다. Google·카카오 로그인 또는 비밀번호 찾기(이메일 인증)를 이용해 주세요.',
+    });
+    return;
+  }
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });

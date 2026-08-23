@@ -6,6 +6,7 @@ import {
 } from '../review-payback/reviewPaybackOrderForm.js';
 import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import multer from 'multer';
 import { prisma } from '../../lib/prisma.js';
 import { normalizeCustomerLinkBlockOrder } from '../../lib/orderFormCustomerLinkBlocks.js';
@@ -2054,7 +2055,7 @@ router.post('/:id/delete', authMiddleware, requireStaffPermission('orderform.edi
     res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
     return;
   }
-  const valid = await bcrypt.compare(password, dbUser.passwordHash);
+  const valid = await compareUserPasswordHash(dbUser.passwordHash, password);
   if (!valid) {
     res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
     return;

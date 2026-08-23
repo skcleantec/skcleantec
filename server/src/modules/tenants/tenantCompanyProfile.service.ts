@@ -20,6 +20,7 @@ import {
 } from '../operating-companies/operatingCompany.schema.js';
 import type { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 
 async function assertActorLoginPassword(params: {
   tenantId: string;
@@ -43,7 +44,7 @@ async function assertActorLoginPassword(params: {
       message: '사용자를 찾을 수 없습니다.',
     });
   }
-  const ok = await bcrypt.compare(password, actor.passwordHash);
+  const ok = await compareUserPasswordHash(actor.passwordHash, password);
   if (!ok) {
     throw Object.assign(new Error('invalid_password'), {
       code: 'unauthorized' as const,

@@ -1,6 +1,7 @@
 import { EContractAudience, EContractVersionStatus } from '@prisma/client';
 import { Router, type Request } from 'express';
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import {
   authMiddleware,
   type AuthPayload,
@@ -324,7 +325,7 @@ router.delete('/definitions/:id', async (req, res) => {
       res.status(403).json({ error: '비밀번호 확인에 실패했습니다.' });
       return;
     }
-    const ok = await bcrypt.compare(password, dbUser.passwordHash);
+    const ok = await compareUserPasswordHash(dbUser.passwordHash, password);
     if (!ok) {
       res.status(403).json({ error: '비밀번호가 일치하지 않습니다.' });
       return;
@@ -479,7 +480,7 @@ router.delete('/versions/:vid', async (req, res) => {
       res.status(403).json({ error: '비밀번호 확인에 실패했습니다.' });
       return;
     }
-    const ok = await bcrypt.compare(password, dbUser.passwordHash);
+    const ok = await compareUserPasswordHash(dbUser.passwordHash, password);
     if (!ok) {
       res.status(403).json({ error: '비밀번호가 일치하지 않습니다.' });
       return;
@@ -676,7 +677,7 @@ router.patch('/submissions/:submissionId/media', async (req, res) => {
       res.status(403).json({ error: '비밀번호 확인에 실패했습니다.' });
       return;
     }
-    const ok = await bcrypt.compare(password, dbUser.passwordHash);
+    const ok = await compareUserPasswordHash(dbUser.passwordHash, password);
     if (!ok) {
       res.status(403).json({ error: '비밀번호가 일치하지 않습니다.' });
       return;

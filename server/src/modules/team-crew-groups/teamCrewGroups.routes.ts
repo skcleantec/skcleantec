@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
@@ -38,7 +39,7 @@ async function verifyAdminPassword(req: Request, password: unknown): Promise<boo
   const tenantId = (req as unknown as TenantScopedRequest).tenantId;
   const dbUser = await prisma.user.findFirst({ where: { id: user.userId, tenantId } });
   if (!dbUser) return false;
-  return bcrypt.compare(p, dbUser.passwordHash);
+  return compareUserPasswordHash(dbUser.passwordHash, p);
 }
 
 async function findGroupForTenant(groupId: string, tenantId: string) {

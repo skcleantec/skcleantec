@@ -1,4 +1,5 @@
 import { Router, type Request } from 'express';
+import multer from 'multer';
 import {
   isTenantSlugAvailableForSignup,
   TenantSignupError,
@@ -11,8 +12,14 @@ import {
 import { TENANT_SELF_SIGNUP_PLAN_IDS } from './tenantSignup.constants.js';
 import { EmailVerificationError } from './emailVerification.service.js';
 import { validateReferrerCodeForPublic } from '../platform-referrals/platformReferralAttribution.service.js';
+import { parseSignupBusinessPayload } from '../auth-signup/signupBusiness.service.js';
+import { uploadSignupBusinessRegistrationImage } from '../auth-signup/signupBusinessUpload.service.js';
 
 const router = Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
 
 function clientIp(req: Request): string | undefined {
   const xfRaw = req.headers['x-forwarded-for'];
@@ -78,21 +85,44 @@ router.post('/send-verification-code', async (req, res) => {
   }
 });
 
+/** POST /api/public/tenant-signup/upload-business-registration */
+router.post('/upload-business-registration', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file?.buffer?.length) {
+      res.status(400).json({ error: '사업자등록증 이미지를 선택해 주세요.' });
+      return;
+    }
+    const result = await uploadSignupBusinessRegistrationImage(file.buffer, file.mimetype);
+    res.json(result);
+  } catch (e) {
+    const msg =
+      e instanceof Error && e.message === 'business_registration_image_invalid_type'
+        ? 'jpg, png, webp, gif 이미지만 업로드할 수 있습니다.'
+        : e instanceof Error && e.message === 'cloudinary_not_configured'
+          ? '이미지 업로드 설정이 되어 있지 않습니다. 잠시 후 다시 시도해 주세요.'
+          : e instanceof Error
+            ? e.message
+            : '이미지 업로드에 실패했습니다.';
+    res.status(400).json({ error: msg });
+  }
+});
+
 /** POST /api/public/tenant-signup/complete — 인증번호 확인 후 가입 */
 router.post('/complete', async (req, res) => {
-  const body = req.body as {
-    challengeId?: string;
-    contactEmail?: string;
-    verificationCode?: string;
-    code?: string;
-    memberTermsAgreed?: boolean;
-  };
+  const body = req.body as Record<string, unknown>;
   try {
+    const signupBusiness = parseSignupBusinessPayload(body);
+    if (!signupBusiness) {
+      res.status(400).json({ error: '사업자 여부를 선택해 주세요.' });
+      return;
+    }
     const result = await completeTenantSignupWithVerification({
       challengeId: String(body.challengeId ?? ''),
       contactEmail: String(body.contactEmail ?? ''),
       code: String(body.verificationCode ?? body.code ?? ''),
       memberTermsAgreed: Boolean(body.memberTermsAgreed),
+      signupBusiness,
     });
 
     res.status(201).json({

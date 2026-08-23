@@ -1,6 +1,7 @@
 import { Router, type Request } from 'express';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
+import { compareUserPasswordHash } from '../../lib/userPassword.js';
 import { prisma } from '../../lib/prisma.js';
 import { authMiddleware, adminOrOperationalMarketer } from '../auth/auth.middleware.js';
 import { requireStaffPermission } from '../auth/marketerPermission.middleware.js';
@@ -322,7 +323,7 @@ async function verifyAdminPassword(req: Request, password: unknown): Promise<boo
   const user = (req as unknown as { user: AuthPayload }).user;
   const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
   if (!dbUser) return false;
-  return bcrypt.compare(p, dbUser.passwordHash);
+  return compareUserPasswordHash(dbUser.passwordHash, p);
 }
 
 /** 팀 목록 (팀장·팀원·휴무 일부 메타는 별도 조회) */

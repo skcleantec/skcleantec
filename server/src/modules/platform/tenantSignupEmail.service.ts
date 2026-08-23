@@ -16,6 +16,7 @@ import { normalizeSignupPlanId } from './tenantSignup.constants.js';
 import { assertValidTenantLoginId } from '../auth/tenantLoginId.js';
 import type { TenantPlanId } from '../tenants/tenantFeatureCatalog.js';
 import { normalizeReferrerCode } from '../platform-referrals/platformReferralCode.helpers.js';
+import type { SignupBusinessInput } from '../auth-signup/signupBusiness.validation.js';
 import {
   buildPlatformVerificationEmailHtml,
   buildPlatformVerificationEmailSubject,
@@ -145,6 +146,7 @@ export async function completeTenantSignupWithVerification(input: {
   contactEmail: string;
   code: string;
   memberTermsAgreed: boolean;
+  signupBusiness: SignupBusinessInput;
 }) {
   if (!input.memberTermsAgreed) {
     throw new EmailVerificationError('회원사 이용약관에 동의해 주세요.');
@@ -158,6 +160,7 @@ export async function completeTenantSignupWithVerification(input: {
 
   const result = await provisionTenantSelfServeFromVerifiedPayload(payload, {
     memberTermsAgreed: true,
+    signupBusiness: input.signupBusiness,
   });
   return result;
 }
@@ -165,7 +168,7 @@ export async function completeTenantSignupWithVerification(input: {
 /** 인증 완료 payload — passwordHash 는 이미 bcrypt */
 export async function provisionTenantSelfServeFromVerifiedPayload(
   payload: StoredSignupPayload,
-  opts: { memberTermsAgreed: boolean },
+  opts: { memberTermsAgreed: boolean; signupBusiness: SignupBusinessInput },
 ) {
   if (!opts.memberTermsAgreed) {
     throw new TenantSignupError('회원사 이용약관에 동의해 주세요.');
@@ -192,5 +195,6 @@ export async function provisionTenantSelfServeFromVerifiedPayload(
     selectedPlan,
     referrerCode: payload.referrerCode ?? null,
     referrerFromLink: Boolean(payload.referrerFromLink),
+    signupBusiness: opts.signupBusiness,
   });
 }

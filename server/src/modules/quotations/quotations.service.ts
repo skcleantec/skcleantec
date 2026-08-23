@@ -187,10 +187,10 @@ export function serializeQuotationEmailLog(row: {
 }
 
 export async function verifyActorPassword(
-  passwordHash: string,
+  passwordHash: string | null | undefined,
   password: string,
   compare: (plain: string, hash: string) => Promise<boolean>,
 ): Promise<boolean> {
-  if (!password.trim()) return false;
+  if (!passwordHash || !password.trim()) return false;
   return compare(password, passwordHash);
 }
