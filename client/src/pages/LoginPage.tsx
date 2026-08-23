@@ -22,7 +22,6 @@ import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { getCrewToken, setCrewToken, clearCrewToken } from '../stores/crewAuth';
 import { PLATFORM_NAME, PLATFORM_NAME_EN } from '@shared/platformBrand';
-import { isCbiseoStaffNativeApp } from '../utils/cbiseoNativeApp';
 import { resolveTenantSlugForLoginForm, sanitizeLoginTenantSlug } from '../utils/loginTenantSlug';
 import { saveTenantSlug } from '../utils/tenantSlug';
 import {
@@ -143,10 +142,8 @@ export function LoginPage() {
   const [kakaoRestApiKey, setKakaoRestApiKey] = useState('');
   const [oauthVerifying, setOauthVerifying] = useState(false);
   const kakaoLoginCallbackHandledRef = useRef(false);
-  const staffNativeApp = isCbiseoStaffNativeApp();
-  const showGoogleOAuthLogin = googleOAuthEnabled && !!googleClientId && !staffNativeApp;
+  const showGoogleOAuthLogin = googleOAuthEnabled && !!googleClientId;
   const showKakaoOAuthLogin = kakaoOAuthEnabled && !!kakaoRestApiKey;
-  /** 팀원(크루) 모드·앱 WebView(Google GSI 불가)에서는 해당 SNS만 숨김 — 카카오 redirect는 앱에서 가능 */
   const showSnsOAuthSection = !crewLoginMode && (showGoogleOAuthLogin || showKakaoOAuthLogin);
   const [tenantBrand, setTenantBrand] = useState<{ displayName: string; loginSubtitle: string | null } | null>(null);
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
@@ -182,20 +179,18 @@ export function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!staffNativeApp) {
-      void fetchGoogleSignupOAuthConfig()
-        .then((cfg) => {
-          if (cancelled) return;
-          setGoogleOAuthEnabled(cfg.enabled);
-          setGoogleClientId(cfg.clientId);
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setGoogleOAuthEnabled(false);
-            setGoogleClientId('');
-          }
-        });
-    }
+    void fetchGoogleSignupOAuthConfig()
+      .then((cfg) => {
+        if (cancelled) return;
+        setGoogleOAuthEnabled(cfg.enabled);
+        setGoogleClientId(cfg.clientId);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGoogleOAuthEnabled(false);
+          setGoogleClientId('');
+        }
+      });
     void fetchKakaoSignupOAuthConfig()
       .then((cfg) => {
         if (cancelled) return;
@@ -211,7 +206,7 @@ export function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [staffNativeApp]);
+  }, []);
 
   useEffect(() => {
     const tenantFromQuery = new URLSearchParams(location.search).get('tenant')?.trim().toLowerCase();
@@ -694,11 +689,6 @@ export function LoginPage() {
                       />
                     ) : null}
                   </div>
-                  {staffNativeApp && showKakaoOAuthLogin && !showGoogleOAuthLogin ? (
-                    <p className="text-fluid-2xs text-slate-500">
-                      Google 로그인은 PC 브라우저에서 이용해 주세요.
-                    </p>
-                  ) : null}
                   {oauthVerifying ? (
                     <p className="text-center text-fluid-2xs text-slate-500">카카오 로그인 확인 중…</p>
                   ) : null}
