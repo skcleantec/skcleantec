@@ -126,6 +126,8 @@
 
 **완료 기준**
 
+- [x] `POST /api/auth/oauth/google|kakao` · ADMIN JWT 발급
+- [x] `/login` Google·카카오 버튼 (업체 코드 후)
 - [ ] 가입한 ADMIN — 업체 코드 + SNS → `/admin/dashboard`
 - [ ] 다른 업체 slug + 같은 SNS → 401/403
 - [ ] 팀장 계정 + SNS 시도 → 거부
@@ -168,4 +170,4 @@ Phase 0 (문서)
                 → Phase 8 (Android·플랫폼)
 ```
 
-**다음 착수**: **Phase 1 — 마이그레이션**
+**다음 착수**: **Phase 6 E2E (staging)** → Phase 7 (비밀번호 fallback)

@@ -53,6 +53,11 @@ import {
 } from '../onboarding/profileOnboarding.service.js';
 import { replaceBusinessRegistrationForCompany } from '../onboarding/businessRegistration.service.js';
 import { getTenantIdFromAuth } from '../tenants/tenant.middleware.js';
+import { AuthSignupOAuthError } from '../auth-signup/signupOAuth.errors.js';
+import {
+  loginAdminWithGoogleOAuth,
+  loginAdminWithKakaoOAuth,
+} from '../auth-signup/signupOAuthLogin.service.js';
 
 const profileOnboardingUpload = multer({
   storage: multer.memoryStorage(),
@@ -231,12 +236,30 @@ async function loginWithPassword(req: Request, res: Response) {
       throw e;
     }
   }
+  await sendStaffLoginSuccess(res, user, tenant, loginId);
+}
+
+type StaffLoginUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  isTenantOwner?: boolean | null;
+  platformSupportAccessId?: string | null;
+};
+
+async function sendStaffLoginSuccess(
+  res: Response,
+  user: StaffLoginUser,
+  tenant: Awaited<ReturnType<typeof resolveTenantBySlug>>,
+  displayLoginId?: string,
+) {
   const payload: AuthPayload = {
     userId: user.id,
     email: user.email,
     role: user.role,
     tenantId: tenant.id,
-    isTenantOwner: user.role === 'ADMIN' ? user.isTenantOwner : undefined,
+    isTenantOwner: user.role === 'ADMIN' ? user.isTenantOwner ?? undefined : undefined,
     isPlatformSupportAccess: user.platformSupportAccessId ? true : undefined,
   };
   const token = jwt.sign(payload, config.jwtSecret, {
@@ -248,7 +271,7 @@ async function loginWithPassword(req: Request, res: Response) {
     token,
     user: {
       id: user.id,
-      email: isSupport ? loginId : user.email,
+      email: isSupport ? (displayLoginId?.trim() || user.email) : user.email,
       name: user.name,
       role: user.role,
       isPlatformSupportAccess: isSupport || undefined,
@@ -262,6 +285,47 @@ router.post('/login', loginWithPassword);
 
 /** 하위 호환: 기존 팀장 전용 URL — 동일 처리 */
 router.post('/team-login', loginWithPassword);
+
+router.post('/oauth/google', async (req, res) => {
+  try {
+    const body = req.body as { tenantSlug?: string; idToken?: string };
+    const tenantSlug = typeof body.tenantSlug === 'string' ? body.tenantSlug : '';
+    const idToken = typeof body.idToken === 'string' ? body.idToken : '';
+    if (!tenantSlug.trim() || !idToken.trim()) {
+      res.status(400).json({ error: '업체 코드와 Google 인증 정보가 필요합니다.' });
+      return;
+    }
+    const { user, tenant } = await loginAdminWithGoogleOAuth(tenantSlug, idToken);
+    await sendStaffLoginSuccess(res, user, tenant);
+  } catch (e) {
+    if (e instanceof AuthSignupOAuthError) {
+      res.status(e.statusCode).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.post('/oauth/kakao', async (req, res) => {
+  try {
+    const body = req.body as { tenantSlug?: string; code?: string; redirectUri?: string };
+    const tenantSlug = typeof body.tenantSlug === 'string' ? body.tenantSlug : '';
+    const code = typeof body.code === 'string' ? body.code : '';
+    const redirectUri = typeof body.redirectUri === 'string' ? body.redirectUri : '';
+    if (!tenantSlug.trim() || !code.trim() || !redirectUri.trim()) {
+      res.status(400).json({ error: '업체 코드와 카카오 인증 정보가 필요합니다.' });
+      return;
+    }
+    const { user, tenant } = await loginAdminWithKakaoOAuth(tenantSlug, code, redirectUri);
+    await sendStaffLoginSuccess(res, user, tenant);
+  } catch (e) {
+    if (e instanceof AuthSignupOAuthError) {
+      res.status(e.statusCode).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+});
 
 router.get('/me', authMiddleware, async (req, res) => {
   const auth = (req as unknown as { user: AuthPayload }).user;

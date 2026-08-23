@@ -99,10 +99,10 @@ async function fetchKakaoUserProfile(accessToken: string): Promise<{ sub: string
   return { sub: String(data.id), providerEmail };
 }
 
-export async function verifyKakaoSignupAuthorizationCode(codeRaw: string, redirectUriRaw: string) {
+export async function resolveKakaoOAuthCredentialsFromCode(codeRaw: string, redirectUriRaw: string) {
   if (!isKakaoSignupOAuthConfigured()) {
     throw new AuthSignupOAuthError(
-      '카카오 가입이 아직 설정되지 않았습니다. 이메일·비밀번호로 가입해 주세요.',
+      '카카오 로그인이 아직 설정되지 않았습니다. 아이디·비밀번호로 로그인해 주세요.',
       503,
     );
   }
@@ -117,7 +117,18 @@ export async function verifyKakaoSignupAuthorizationCode(codeRaw: string, redire
   }
 
   const accessToken = await exchangeKakaoAuthorizationCode(code, redirectUri);
-  const { sub, providerEmail } = await fetchKakaoUserProfile(accessToken);
+  return fetchKakaoUserProfile(accessToken);
+}
+
+export async function verifyKakaoSignupAuthorizationCode(codeRaw: string, redirectUriRaw: string) {
+  if (!isKakaoSignupOAuthConfigured()) {
+    throw new AuthSignupOAuthError(
+      '카카오 가입이 아직 설정되지 않았습니다. 이메일·비밀번호로 가입해 주세요.',
+      503,
+    );
+  }
+
+  const { sub, providerEmail } = await resolveKakaoOAuthCredentialsFromCode(codeRaw, redirectUriRaw);
 
   await assertOAuthProviderSubAvailableForSignup('kakao', sub);
 

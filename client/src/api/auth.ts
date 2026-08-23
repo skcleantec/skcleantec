@@ -79,12 +79,22 @@ function apiUnreachableMessage(): Error {
 }
 
 export async function login(tenantSlug: string, email: string, password: string) {
+  return postStaffLogin(`${API}/auth/login`, { tenantSlug, email, password });
+}
+
+export type StaffLoginResponse = {
+  token: string;
+  user: { id: string; email: string; name: string; role: string; isPlatformSupportAccess?: boolean };
+  tenant: Record<string, unknown>;
+};
+
+async function postStaffLogin(url: string, body: Record<string, string>) {
   let res: Response;
   try {
-    res = await fetch(`${API}/auth/login`, {
+    res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenantSlug, email, password }),
+      body: JSON.stringify(body),
     });
   } catch (e) {
     if (isLikelyNetworkFailure(e)) {
@@ -100,7 +110,15 @@ export async function login(tenantSlug: string, email: string, password: string)
     const msg = typeof data.error === 'string' && data.error.trim() ? data.error.trim() : null;
     throw new Error(msg ?? `로그인에 실패했습니다. (HTTP ${res.status})`);
   }
-  return res.json();
+  return res.json() as Promise<StaffLoginResponse>;
+}
+
+export async function loginWithGoogleOAuth(tenantSlug: string, idToken: string) {
+  return postStaffLogin(`${API}/auth/oauth/google`, { tenantSlug, idToken });
+}
+
+export async function loginWithKakaoOAuth(tenantSlug: string, code: string, redirectUri: string) {
+  return postStaffLogin(`${API}/auth/oauth/kakao`, { tenantSlug, code, redirectUri });
 }
 
 export async function getMe(token: string): Promise<AuthMeSnapshot> {

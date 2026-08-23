@@ -43,11 +43,17 @@ OFF면 `KOE004` 에러.
 
 ```text
 https://clean-solution-staging.up.railway.app/signup
+https://clean-solution-staging.up.railway.app/login
 https://www.cbiseo.com/signup
+https://www.cbiseo.com/login
 https://cbiseo.com/signup
+https://cbiseo.com/login
 https://skcleantec.com/signup
+https://skcleantec.com/login
 https://www.skcleantec.com/signup
+https://www.skcleantec.com/login
 http://localhost:5173/signup
+http://localhost:5173/login
 http://localhost:5174/signup
 ```
 

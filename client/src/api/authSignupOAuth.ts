@@ -3,6 +3,8 @@ import type { AuthIdentityProvider } from '@shared/authSignup';
 const API = '/api/public/auth-signup';
 
 export const KAKAO_SIGNUP_OAUTH_STATE_KEY = 'cbiseo_signup_kakao_oauth_state';
+export const KAKAO_LOGIN_OAUTH_STATE_KEY = 'cbiseo_login_kakao_oauth_state';
+export const KAKAO_LOGIN_OAUTH_TENANT_KEY = 'cbiseo_login_kakao_oauth_tenant';
 
 export type GoogleSignupOAuthConfig = {
   enabled: boolean;
@@ -46,16 +48,30 @@ export async function verifyGoogleSignupIdToken(idToken: string): Promise<Signup
   return data;
 }
 
-/** 카카오 로그인 redirect_uri — Kakao Developers·authorize 요청·verify body가 동일해야 함 */
+/** 카카오 가입 redirect_uri — Kakao Developers·authorize 요청·verify body가 동일해야 함 */
 export function getSignupKakaoRedirectUri(): string {
   if (typeof window === 'undefined') return '';
   return `${window.location.origin}/signup`;
 }
 
+/** 카카오 로그인 redirect_uri */
+export function getLoginKakaoRedirectUri(): string {
+  if (typeof window === 'undefined') return '';
+  return `${window.location.origin}/login`;
+}
+
 export function buildKakaoSignupAuthorizeUrl(restApiKey: string, state: string): string {
+  return buildKakaoAuthorizeUrl(restApiKey, state, getSignupKakaoRedirectUri());
+}
+
+export function buildKakaoLoginAuthorizeUrl(restApiKey: string, state: string): string {
+  return buildKakaoAuthorizeUrl(restApiKey, state, getLoginKakaoRedirectUri());
+}
+
+function buildKakaoAuthorizeUrl(restApiKey: string, state: string, redirectUri: string): string {
   const params = new URLSearchParams({
     client_id: restApiKey,
-    redirect_uri: getSignupKakaoRedirectUri(),
+    redirect_uri: redirectUri,
     response_type: 'code',
     state,
   });

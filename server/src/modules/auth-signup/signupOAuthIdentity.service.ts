@@ -20,6 +20,60 @@ export async function assertOAuthProviderSubAvailableForSignup(
   }
 }
 
+const oauthLoginUserSelect = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  isActive: true,
+  isTenantOwner: true,
+  platformSupportAccessId: true,
+  tenantId: true,
+} as const;
+
+export async function findAdminUserForOAuthLogin(
+  tenantId: string,
+  provider: AuthIdentityProvider,
+  providerSub: string,
+) {
+  const identity = await prisma.userAuthIdentity.findUnique({
+    where: {
+      provider_providerSub: { provider, providerSub },
+    },
+    include: {
+      user: { select: oauthLoginUserSelect },
+    },
+  });
+
+  if (!identity) {
+    throw new AuthSignupOAuthError(
+      '연결된 Google·카카오 계정이 없습니다. 가입하거나 아이디·비밀번호로 로그인해 주세요.',
+      401,
+    );
+  }
+
+  if (identity.tenantId !== tenantId) {
+    throw new AuthSignupOAuthError(
+      '이 Google·카카오 계정은 다른 업체 코드로 가입되어 있습니다. 업체 코드를 확인해 주세요.',
+      401,
+    );
+  }
+
+  const user = identity.user;
+  if (!user.isActive) {
+    throw new AuthSignupOAuthError('계정을 찾을 수 없거나 비활성입니다.', 401);
+  }
+
+  if (user.role !== 'ADMIN') {
+    throw new AuthSignupOAuthError(
+      '관리자(ADMIN) 계정만 Google·카카오 로그인을 이용할 수 있습니다.',
+      401,
+    );
+  }
+
+  return user;
+}
+
 export async function createUserAuthIdentity(
   tx: Prisma.TransactionClient,
   input: {

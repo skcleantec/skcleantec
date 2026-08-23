@@ -59,11 +59,18 @@ function loadGoogleIdentityScript(): Promise<void> {
 type Props = {
   clientId: string;
   disabled?: boolean;
+  mode?: 'signup' | 'login';
   onCredential: (idToken: string) => void;
   onError?: (message: string) => void;
 };
 
-export function GoogleSignupButton({ clientId, disabled, onCredential, onError }: Props) {
+export function GoogleSignupButton({
+  clientId,
+  disabled,
+  mode = 'signup',
+  onCredential,
+  onError,
+}: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -105,7 +112,7 @@ export function GoogleSignupButton({ clientId, disabled, onCredential, onError }
         type: 'standard',
         theme: 'outline',
         size: 'large',
-        text: 'signup_with',
+        text: mode === 'login' ? 'signin_with' : 'signup_with',
         shape: 'rectangular',
         width: Math.min(400, host.parentElement?.clientWidth ?? 320),
         locale: 'ko',
@@ -113,13 +120,17 @@ export function GoogleSignupButton({ clientId, disabled, onCredential, onError }
     } catch (e) {
       onError?.(e instanceof Error ? e.message : 'Google 버튼을 표시하지 못했습니다.');
     }
-  }, [ready, clientId, disabled, onCredential, onError]);
+  }, [ready, clientId, disabled, mode, onCredential, onError]);
 
   if (!clientId) return null;
 
   return (
     <div className="flex min-h-10 w-full justify-center">
-      <div ref={hostRef} className="min-h-10" aria-label="Google로 가입" />
+      <div
+        ref={hostRef}
+        className="min-h-10"
+        aria-label={mode === 'login' ? 'Google로 로그인' : 'Google로 가입'}
+      />
     </div>
   );
 }

@@ -1,8 +1,24 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation, Link, type Location as RouterLocation } from 'react-router-dom';
-import { login, getMe, isAuthSessionExpiredError } from '../api/auth';
+import {
+  login,
+  getMe,
+  isAuthSessionExpiredError,
+  loginWithGoogleOAuth,
+  loginWithKakaoOAuth,
+  type StaffLoginResponse,
+} from '../api/auth';
 import { persistAuthMeSnapshot } from '../api/authMeSnapshot';
 import { loginCrew, getCrewMe } from '../api/crew';
+import {
+  fetchGoogleSignupOAuthConfig,
+  fetchKakaoSignupOAuthConfig,
+  getLoginKakaoRedirectUri,
+  KAKAO_LOGIN_OAUTH_STATE_KEY,
+  KAKAO_LOGIN_OAUTH_TENANT_KEY,
+} from '../api/authSignupOAuth';
+import { GoogleSignupButton } from '../components/auth/GoogleSignupButton';
+import { KakaoSignupButton } from '../components/auth/KakaoSignupButton';
 import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { getCrewToken, setCrewToken, clearCrewToken } from '../stores/crewAuth';
@@ -120,6 +136,13 @@ export function LoginPage() {
   const [crewLoginMode, setCrewLoginMode] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleOAuthEnabled, setGoogleOAuthEnabled] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState('');
+  const [kakaoOAuthEnabled, setKakaoOAuthEnabled] = useState(false);
+  const [kakaoRestApiKey, setKakaoRestApiKey] = useState('');
+  const [oauthVerifying, setOauthVerifying] = useState(false);
+  const kakaoLoginCallbackHandledRef = useRef(false);
+  const snsOAuthEnabled = googleOAuthEnabled || kakaoOAuthEnabled;
   const [tenantBrand, setTenantBrand] = useState<{ displayName: string; loginSubtitle: string | null } | null>(null);
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
 
@@ -151,6 +174,44 @@ export function LoginPage() {
       clearTimeout(timer);
     };
   }, [tenantSlug]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchGoogleSignupOAuthConfig()
+      .then((cfg) => {
+        if (cancelled) return;
+        setGoogleOAuthEnabled(cfg.enabled);
+        setGoogleClientId(cfg.clientId);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGoogleOAuthEnabled(false);
+          setGoogleClientId('');
+        }
+      });
+    void fetchKakaoSignupOAuthConfig()
+      .then((cfg) => {
+        if (cancelled) return;
+        setKakaoOAuthEnabled(cfg.enabled);
+        setKakaoRestApiKey(cfg.restApiKey);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setKakaoOAuthEnabled(false);
+          setKakaoRestApiKey('');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const tenantFromQuery = new URLSearchParams(location.search).get('tenant')?.trim().toLowerCase();
+    if (tenantFromQuery && /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/.test(tenantFromQuery)) {
+      setTenantSlug((prev) => (prev.trim() ? prev : tenantFromQuery));
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (loginFormInitRef.current) return;
@@ -292,6 +353,117 @@ export function LoginPage() {
     };
   }, [navigate, location.state, location.search]);
 
+  const applyAdminStaffLogin = useCallback(
+    (data: StaffLoginResponse) => {
+      const resumeFrom = resolveLoginResumeLocation(location.state);
+      persistLoginCredentials(false);
+      const token = data.token;
+      const user = data.user;
+      const role = user?.role;
+      if (role === 'ADMIN' || role === 'MARKETER') {
+        clearTeamToken();
+        clearCrewToken();
+        setToken(token);
+        setTeamToken(token);
+        persistAuthMeSnapshot(token, {
+          ...(user as Record<string, unknown>),
+          tenant: data.tenant,
+          tenantId: (data.tenant as { id?: string } | undefined)?.id,
+          effectiveStaffAdminAccess: role === 'ADMIN',
+          marketerOperationalAdminAccess: role === 'ADMIN',
+        });
+        void getMe(token);
+        clearResumeLocation();
+        navigate(resolveAdminResumePath(resumeFrom), { replace: true });
+        return;
+      }
+      setError('지원하지 않는 계정 유형입니다.');
+    },
+    [location.state, navigate, persistLoginCredentials],
+  );
+
+  useEffect(() => {
+    if (kakaoLoginCallbackHandledRef.current) return;
+    const searchParams = new URLSearchParams(location.search);
+    const oauthError = searchParams.get('error')?.trim();
+    const code = searchParams.get('code')?.trim();
+    if (!oauthError && !code) return;
+
+    kakaoLoginCallbackHandledRef.current = true;
+    const nextParams = new URLSearchParams(location.search);
+    nextParams.delete('code');
+    nextParams.delete('state');
+    nextParams.delete('error');
+    nextParams.delete('error_description');
+    const nextSearch = nextParams.toString();
+    navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ''}`, {
+      replace: true,
+      state: location.state,
+    });
+
+    if (oauthError) {
+      setError('카카오 로그인이 취소되었거나 실패했습니다.');
+      return;
+    }
+    if (!code) return;
+
+    const savedState = sessionStorage.getItem(KAKAO_LOGIN_OAUTH_STATE_KEY)?.trim() ?? '';
+    const returnedState = searchParams.get('state')?.trim() ?? '';
+    sessionStorage.removeItem(KAKAO_LOGIN_OAUTH_STATE_KEY);
+    const savedTenant = sessionStorage.getItem(KAKAO_LOGIN_OAUTH_TENANT_KEY)?.trim().toLowerCase() ?? '';
+    sessionStorage.removeItem(KAKAO_LOGIN_OAUTH_TENANT_KEY);
+
+    if (!savedState || savedState !== returnedState) {
+      setError('카카오 인증 상태가 올바르지 않습니다. 다시 시도해 주세요.');
+      return;
+    }
+
+    const slug =
+      savedTenant ||
+      searchParams.get('tenant')?.trim().toLowerCase() ||
+      tenantSlug.trim().toLowerCase();
+    if (!slug) {
+      setError('업체 코드를 입력한 뒤 카카오 로그인을 다시 시도해 주세요.');
+      return;
+    }
+    if (slug !== tenantSlug.trim().toLowerCase()) {
+      setTenantSlug(slug);
+    }
+
+    setOauthVerifying(true);
+    setError('');
+    sessionProbeGen.current += 1;
+    void loginWithKakaoOAuth(slug, code, getLoginKakaoRedirectUri())
+      .then((data) => {
+        applyAdminStaffLogin(data);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : '카카오 로그인에 실패했습니다.');
+      })
+      .finally(() => {
+        setOauthVerifying(false);
+      });
+  }, [applyAdminStaffLogin, location.pathname, location.search, location.state, navigate, tenantSlug]);
+
+  const handleGoogleLogin = async (idToken: string) => {
+    const slug = tenantSlug.trim();
+    if (!slug) {
+      setError('업체 코드를 입력한 뒤 Google 로그인을 이용해 주세요.');
+      return;
+    }
+    sessionProbeGen.current += 1;
+    setError('');
+    setLoading(true);
+    try {
+      const data = await loginWithGoogleOAuth(slug, idToken);
+      applyAdminStaffLogin(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google 로그인에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     sessionProbeGen.current += 1;
@@ -322,35 +494,22 @@ export function LoginPage() {
       }
 
       const data = await login(tenantSlug, email, password);
-      persistLoginCredentials(false);
-      const token = data.token as string;
-      const user = data.user as { role?: string; email?: string };
-      const role = user?.role;
+      const role = (data.user as { role?: string })?.role;
 
       if (role === 'TEAM_LEADER' || role === 'EXTERNAL_PARTNER') {
         clearToken();
         clearCrewToken();
-        setTeamToken(token);
+        setTeamToken(data.token);
+        persistLoginCredentials(false);
         clearResumeLocation();
         navigate(resolveTeamResumePath(resumeFrom), { replace: true });
-      } else if (role === 'ADMIN' || role === 'MARKETER') {
-        clearTeamToken();
-        clearCrewToken();
-        setToken(token);
-        setTeamToken(token);
-        persistAuthMeSnapshot(token, {
-          ...(data.user as Record<string, unknown>),
-          tenant: data.tenant,
-          tenantId: (data.tenant as { id?: string } | undefined)?.id,
-          effectiveStaffAdminAccess: role === 'ADMIN',
-          marketerOperationalAdminAccess: role === 'ADMIN',
-        });
-        void getMe(token);
-        clearResumeLocation();
-        navigate(resolveAdminResumePath(resumeFrom), { replace: true });
-      } else {
-        setError('지원하지 않는 계정 유형입니다.');
+        return;
       }
+      if (role === 'ADMIN' || role === 'MARKETER') {
+        applyAdminStaffLogin(data);
+        return;
+      }
+      setError('지원하지 않는 계정 유형입니다.');
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
     } finally {
@@ -432,8 +591,8 @@ export function LoginPage() {
                 role="status"
               >
                 <p>
-                  카카오로 업체 개설이 완료되었습니다. 카카오 로그인은 곧 제공될 예정입니다. 그 전까지는
-                  로그인할 수 없습니다. 담당자 이메일은 비밀번호 찾기·복구용으로 저장됩니다.
+                  카카오로 업체 개설이 완료되었습니다. 아래에서 업체 코드를 확인한 뒤 「카카오로 로그인」으로
+                  접속해 주세요.
                 </p>
               </div>
             ) : signupGoogleComplete ? (
@@ -442,8 +601,8 @@ export function LoginPage() {
                 role="status"
               >
                 <p>
-                  Google로 업체 개설이 완료되었습니다. Google 로그인은 곧 제공될 예정입니다. 그 전까지는
-                  로그인할 수 없습니다. 담당자 이메일은 비밀번호 찾기·복구용으로 저장됩니다.
+                  Google로 업체 개설이 완료되었습니다. 아래에서 업체 코드를 확인한 뒤 「Google로 로그인」으로
+                  접속해 주세요.
                 </p>
               </div>
             ) : signupComplete ? (
@@ -533,6 +692,45 @@ export function LoginPage() {
                 />
               </div>
 
+              {!crewLoginMode && snsOAuthEnabled ? (
+                <div className="space-y-2">
+                  <p className="text-fluid-2xs text-slate-500">
+                    관리자(ADMIN) — Google·카카오 로그인
+                    {!tenantSlug.trim() ? ' · 업체 코드 입력 후 이용' : ''}
+                  </p>
+                  <div className="space-y-2">
+                    {googleOAuthEnabled && googleClientId ? (
+                      <GoogleSignupButton
+                        mode="login"
+                        clientId={googleClientId}
+                        disabled={!tenantSlug.trim() || loading || oauthVerifying}
+                        onCredential={handleGoogleLogin}
+                        onError={setError}
+                      />
+                    ) : null}
+                    {kakaoOAuthEnabled && kakaoRestApiKey ? (
+                      <KakaoSignupButton
+                        mode="login"
+                        restApiKey={kakaoRestApiKey}
+                        tenantSlug={tenantSlug}
+                        disabled={loading || oauthVerifying}
+                      />
+                    ) : null}
+                  </div>
+                  {oauthVerifying ? (
+                    <p className="text-center text-fluid-2xs text-slate-500">카카오 로그인 확인 중…</p>
+                  ) : null}
+                  <div className="relative py-1">
+                    <div className="absolute inset-0 flex items-center" aria-hidden>
+                      <div className="w-full border-t border-slate-200" />
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="bg-white px-2 text-fluid-2xs text-slate-400">또는 아이디·비밀번호</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="space-y-1.5">
                 <label htmlFor="login-id" className="block text-fluid-xs font-medium text-slate-600">
                   {crewLoginMode ? '크루 로그인 ID' : '아이디'}
@@ -604,10 +802,10 @@ export function LoginPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || oauthVerifying}
                 className="w-full rounded-xl bg-slate-900 py-3 text-fluid-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
               >
-                {loading ? (
+                {loading || oauthVerifying ? (
                   <span className="inline-flex items-center justify-center gap-2">
                     <svg
                       className="h-4 w-4 animate-spin"
@@ -629,7 +827,7 @@ export function LoginPage() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       />
                     </svg>
-                    로그인 중…
+                    {oauthVerifying ? '카카오 확인 중…' : '로그인 중…'}
                   </span>
                 ) : (
                   '로그인'
