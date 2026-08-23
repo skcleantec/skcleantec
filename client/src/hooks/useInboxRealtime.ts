@@ -574,12 +574,16 @@ export function useInboxRealtime(
     b.refreshListeners.add(refresh);
     b.connectionListeners.add(onConn);
 
+    const onStaffAppFcm = () => onRefreshRef.current();
+    window.addEventListener('cbiseo:inbox-refresh', onStaffAppFcm);
+
     connectBucket(b);
     if (b.ws?.readyState === WebSocket.OPEN) {
       setConnected(true);
     }
 
     return () => {
+      window.removeEventListener('cbiseo:inbox-refresh', onStaffAppFcm);
       const bucket = buckets.get(token);
       if (bucket) {
         bucket.refreshListeners.delete(refresh);

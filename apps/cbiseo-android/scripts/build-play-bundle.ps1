@@ -1,4 +1,5 @@
 # Google Play upload AAB build — 청소비서 업무 앱 (com.cbiseo.app)
+# 사전: app/google-services.json (FIREBASE_SETUP.md) · keystore.properties (Play 서명)
 param(
     [switch]$SkipBuild
 )

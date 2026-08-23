@@ -108,13 +108,13 @@
 
 | Phase | 내용 | 상태 |
 |-------|------|------|
-| **0** | 정책·문서·`shared` 정책 상수 | ✅ 본 문서 |
-| **1** | `apps/cbiseo-android` WebView 셸 + 로그인 + JS 브릿지 | 🚧 진행 |
-| **1b** | 클라이언트 `isCbiseoStaffNativeApp` + CRM PC 전용 차단 | 🚧 진행 |
-| **2** | FCM 토큰 register API + `StaffAppFcmToken` 마이그레이션 | 🚧 진행 |
-| **3** | Firebase Admin + `notifyInboxRefresh` → FCM 발송 | 예정 |
-| **4** | Play 내부 테스트 · 스토어 등록 (`GOOGLE_PLAY_CBISEO.md`) | 예정 |
-| **5** | 푸시 딥링크·채널·해피콜 cron 연동 | 예정 |
+| **0** | 정책·문서·`shared` 정책 상수 | ✅ |
+| **1** | `apps/cbiseo-android` WebView 셸 + 로그인 + JS 브릿지 | ✅ |
+| **1b** | 클라이언트 `isCbiseoStaffNativeApp` + CRM PC 전용 차단 | ✅ |
+| **2** | FCM 토큰 register API + `StaffAppFcmToken` 마이그레이션 | ✅ |
+| **3** | Firebase Admin 발송 + Android FCM SDK (코드) | ✅ — **Console·Railway 설정 필요** |
+| **4** | Play 내부 테스트 · 스토어 등록 | [`FIREBASE_SETUP.md`](../apps/cbiseo-android/docs/FIREBASE_SETUP.md) |
+| **5** | 푸시 딥링크·문구 세분화 | 예정 |
 
 ---
 
@@ -123,6 +123,7 @@
 | 영역 | 경로 |
 |------|------|
 | Android 셸 | `apps/cbiseo-android/` |
+| **Firebase·FCM 설정** | [`apps/cbiseo-android/docs/FIREBASE_SETUP.md`](../apps/cbiseo-android/docs/FIREBASE_SETUP.md) |
 | Play 가이드 | `apps/cbiseo-android/docs/GOOGLE_PLAY_CBISEO.md` |
 | 정책 상수 | `shared/cbiseoStaffAppPolicy.ts` |
 | 클라이언트 감지 | `client/src/utils/cbiseoNativeApp.ts` |

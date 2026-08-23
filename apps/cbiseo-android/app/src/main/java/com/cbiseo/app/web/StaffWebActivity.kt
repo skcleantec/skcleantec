@@ -10,12 +10,28 @@ import androidx.appcompat.app.AppCompatActivity
 import com.cbiseo.app.auth.TokenStore
 import com.cbiseo.app.bridge.CbiseoAppBridge
 import com.cbiseo.app.databinding.ActivityStaffWebBinding
+import com.cbiseo.app.push.StaffFcmRegistrar
 import com.cbiseo.app.session.StaffRoleResolver
 
 class StaffWebActivity : AppCompatActivity() {
     private lateinit var binding: ActivityStaffWebBinding
     private val tokenStore by lazy { TokenStore.get(this) }
     private var sessionInjected = false
+    private var fcmRegistered = false
+
+    companion object {
+        @Volatile
+        private var activeWebView: WebView? = null
+
+        fun dispatchInboxRefreshToWebView() {
+            activeWebView?.post {
+                activeWebView?.evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('cbiseo:inbox-refresh'));",
+                    null,
+                )
+            }
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,6 +50,7 @@ class StaffWebActivity : AppCompatActivity() {
         }
 
         val webView = binding.staffWebView
+        activeWebView = webView
         CookieManager.getInstance().setAcceptCookie(true)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -50,16 +67,40 @@ class StaffWebActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 val current = url ?: return
                 if (!current.startsWith(apiBaseUrl)) return
-                if (sessionInjected) return
-                sessionInjected = true
-                injectWebSession(webView, token, role)
-                if (!current.contains(homePath)) {
-                    webView.loadUrl("$apiBaseUrl$homePath")
+
+                if (!sessionInjected) {
+                    sessionInjected = true
+                    injectWebSession(webView, token, role)
+                    if (!current.contains(homePath)) {
+                        webView.loadUrl("$apiBaseUrl$homePath")
+                        return
+                    }
+                }
+
+                if (!fcmRegistered && current.contains(homePath)) {
+                    fcmRegistered = true
+                    StaffFcmRegistrar.requestPermissionAndRegister(this@StaffWebActivity)
                 }
             }
         }
 
         webView.loadUrl("$apiBaseUrl/login")
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        StaffFcmRegistrar.onRequestPermissionsResult(this, requestCode)
+    }
+
+    override fun onDestroy() {
+        if (activeWebView === binding.staffWebView) {
+            activeWebView = null
+        }
+        super.onDestroy()
     }
 
     private fun injectWebSession(webView: WebView, token: String, role: String?) {

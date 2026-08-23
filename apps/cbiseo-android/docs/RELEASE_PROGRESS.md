@@ -13,9 +13,9 @@
 |------|-----|
 | **최신 versionCode** | 1 |
 | **최신 versionName** | `1.0.0` |
-| **Play 내부 테스트** | 미업로드 |
-| **FCM 발송** | Phase 3 (register API만) |
-| **WebView 셸** | Phase 1 스캐폴드 |
+| **Play 내부 테스트** | 미업로드 — [`FIREBASE_SETUP.md`](./FIREBASE_SETUP.md) |
+| **FCM 발송** | 코드 ✅ · Firebase Console·Railway **설정 대기** |
+| **WebView 셸** | Phase 1 ✅ |
 
 ---
 
