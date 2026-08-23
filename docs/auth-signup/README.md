@@ -45,11 +45,14 @@
 | 항목 | 상태 |
 |------|------|
 | 비밀번호 셀프 가입 (`/signup`) | ✅ 운영 중 |
-| Google/Kakao OAuth | ❌ 미구현 |
-| 가입 시 사업자 구분 | ❌ 미구현 |
-| `User.passwordHash` nullable | ❌ → ✅ Phase 1 |
+| Google OAuth 가입 (Phase 4) | ✅ 구현 — Console 동의 화면·origins 설정 필요 |
+| Kakao OAuth 가입 (Phase 5) | ✅ 구현 — Kakao Developers Redirect URI 필요 |
+| Google/Kakao ADMIN 로그인 (Phase 6) | ✅ `/login` |
+| 가입 시 사업자 구분 (Phase 2) | ✅ |
+| `User.passwordHash` nullable (Phase 1) | ✅ |
 | SNS 1계정 = 1업체 1사용자 | 📋 POLICY 확정 |
-| 서버 모듈 `auth-signup/` | ✅ Phase 1 스캐폴드 |
+| Phase 7 비밀번호 복구 (SNS-only) | 📋 예정 |
+| 서버 모듈 `auth-signup/` | ✅ |
 
 ---
 

@@ -1,12 +1,14 @@
 package com.cbiseo.app.web
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Bundle
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
+import com.cbiseo.app.auth.LoginActivity
 import com.cbiseo.app.auth.TokenStore
 import com.cbiseo.app.bridge.CbiseoAppBridge
 import com.cbiseo.app.databinding.ActivityStaffWebBinding
@@ -16,8 +18,9 @@ import com.cbiseo.app.session.StaffRoleResolver
 class StaffWebActivity : AppCompatActivity() {
     private lateinit var binding: ActivityStaffWebBinding
     private val tokenStore by lazy { TokenStore.get(this) }
-    private var sessionInjected = false
+    private var sessionBootstrapDone = false
     private var fcmRegistered = false
+    private var openingLoginScreen = false
 
     companion object {
         @Volatile
@@ -45,7 +48,7 @@ class StaffWebActivity : AppCompatActivity() {
         val homePath = StaffRoleResolver.homePathForRole(role)
 
         if (token.isNullOrBlank() || apiBaseUrl.isNullOrBlank() || homePath == null) {
-            finish()
+            openLoginScreen(clearSession = false)
             return
         }
 
@@ -60,21 +63,31 @@ class StaffWebActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString().orEmpty()
+                if (StaffWebSessionSync.isStaffWebLoginUrl(url, apiBaseUrl)) {
+                    openLoginScreen(clearSession = true)
+                    return true
+                }
                 if (url.startsWith("http://") || url.startsWith("https://")) return false
                 return true
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 val current = url ?: return
+
+                if (!sessionBootstrapDone) {
+                    if (current == "about:blank") {
+                        sessionBootstrapDone = true
+                        injectWebSession(webView, token, role)
+                        webView.loadUrl("$apiBaseUrl$homePath")
+                    }
+                    return
+                }
+
                 if (!current.startsWith(apiBaseUrl)) return
 
-                if (!sessionInjected) {
-                    sessionInjected = true
-                    injectWebSession(webView, token, role)
-                    if (!current.contains(homePath)) {
-                        webView.loadUrl("$apiBaseUrl$homePath")
-                        return
-                    }
+                if (StaffWebSessionSync.isStaffWebLoginUrl(current, apiBaseUrl)) {
+                    openLoginScreen(clearSession = true)
+                    return
                 }
 
                 if (!fcmRegistered && current.contains(homePath)) {
@@ -84,7 +97,19 @@ class StaffWebActivity : AppCompatActivity() {
             }
         }
 
-        webView.loadUrl("$apiBaseUrl/login")
+        webView.loadUrl("about:blank")
+    }
+
+    private fun openLoginScreen(clearSession: Boolean) {
+        if (openingLoginScreen || isFinishing) return
+        openingLoginScreen = true
+        if (clearSession) tokenStore.clearSession()
+        startActivity(
+            Intent(this, LoginActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            },
+        )
+        finish()
     }
 
     override fun onRequestPermissionsResult(

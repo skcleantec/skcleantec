@@ -16,6 +16,7 @@
 | **Play 내부 테스트** | 미업로드 — [`FIREBASE_SETUP.md`](./FIREBASE_SETUP.md) |
 | **FCM 발송** | 코드 ✅ · Firebase Console·Railway **설정 대기** |
 | **WebView 셸** | Phase 1 ✅ |
+| **SNS(Google/카카오) 로그인** | WebView ❌ — 네이티브 `LoginActivity`(아이디·비밀번호) 또는 PC 브라우저 |
 
 ---
 

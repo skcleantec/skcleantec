@@ -22,6 +22,7 @@ import { getToken, setToken, clearToken } from '../stores/auth';
 import { getTeamToken, setTeamToken, clearTeamToken } from '../stores/teamAuth';
 import { getCrewToken, setCrewToken, clearCrewToken } from '../stores/crewAuth';
 import { PLATFORM_NAME, PLATFORM_NAME_EN } from '@shared/platformBrand';
+import { isCbiseoStaffNativeApp } from '../utils/cbiseoNativeApp';
 import { resolveTenantSlugForLoginForm, sanitizeLoginTenantSlug } from '../utils/loginTenantSlug';
 import { saveTenantSlug } from '../utils/tenantSlug';
 import {
@@ -142,7 +143,10 @@ export function LoginPage() {
   const [kakaoRestApiKey, setKakaoRestApiKey] = useState('');
   const [oauthVerifying, setOauthVerifying] = useState(false);
   const kakaoLoginCallbackHandledRef = useRef(false);
-  const snsOAuthEnabled = googleOAuthEnabled || kakaoOAuthEnabled;
+  const staffNativeApp = isCbiseoStaffNativeApp();
+  const oauthAvailable = googleOAuthEnabled || kakaoOAuthEnabled;
+  /** GSI·카카오 redirect는 Android WebView에서 불안정 — 업무 앱은 네이티브 로그인 사용 */
+  const showSnsOAuthLogin = oauthAvailable && !staffNativeApp;
   const [tenantBrand, setTenantBrand] = useState<{ displayName: string; loginSubtitle: string | null } | null>(null);
   const { scrollRef, onFieldFocus } = useLoginScrollSurface();
 
@@ -176,6 +180,7 @@ export function LoginPage() {
   }, [tenantSlug]);
 
   useEffect(() => {
+    if (staffNativeApp) return;
     let cancelled = false;
     void fetchGoogleSignupOAuthConfig()
       .then((cfg) => {
@@ -204,7 +209,7 @@ export function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [staffNativeApp]);
 
   useEffect(() => {
     const tenantFromQuery = new URLSearchParams(location.search).get('tenant')?.trim().toLowerCase();
@@ -666,7 +671,7 @@ export function LoginPage() {
                 </button>
               </div>
 
-              {!crewLoginMode && snsOAuthEnabled ? (
+              {!crewLoginMode && showSnsOAuthLogin ? (
                 <div className="space-y-2">
                   <p className="text-fluid-2xs text-slate-500">SNS로 가입한 관리자 — 업체 코드 없이 로그인</p>
                   <div className="space-y-2">
@@ -714,7 +719,7 @@ export function LoginPage() {
                   placeholder="업체코드를 넣어주세요"
                   autoComplete="organization"
                   enterKeyHint="next"
-                  required={crewLoginMode || !snsOAuthEnabled}
+                  required={crewLoginMode || !showSnsOAuthLogin}
                 />
               </div>
 

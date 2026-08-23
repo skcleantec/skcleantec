@@ -1,7 +1,8 @@
-# Google OAuth — ADMIN 가입 (Phase 4)
+# Google OAuth — ADMIN 가입·로그인 (Phase 4·6)
 
 > **대상**: Railway staging·production 운영자, 로컬 개발자  
-> **코드**: `server/src/modules/auth-signup/` · `/signup` `GoogleSignupButton`
+> **코드**: `server/src/modules/auth-signup/` · `/signup` `GoogleSignupButton` · `/login` Google 로그인  
+> **Play 앱 등록(별도)**: [`docs/GOOGLE_PLAY_CONSOLE.md`](../GOOGLE_PLAY_CONSOLE.md) · [`apps/cbiseo-android/docs/GOOGLE_PLAY_CBISEO.md`](../../apps/cbiseo-android/docs/GOOGLE_PLAY_CBISEO.md)
 
 ---
 
@@ -9,23 +10,92 @@
 
 | 항목 | 설명 |
 |------|------|
-| **Google Cloud OAuth 클라이언트 (Web)** | 브라우저에서 Google Identity Services(GSI)로 `id_token` 발급 |
-| **Railway Variables** | 서버가 `id_token` 검증 + `/signup`에 clientId 노출 |
-| **Authorized JavaScript origins** | `/signup`이 열리는 **프로토콜+호스트+포트** (redirect URI 아님) |
+| **OAuth 동의 화면 (Consent screen)** | Google 로그인 팝업에 **「청소비서」** 이름·로고·개인정보 URL 표시 |
+| **Google Cloud OAuth 클라이언트 (Web)** | GSI `id_token`(가입) + code flow(로그인) |
+| **Railway Variables** | `GOOGLE_OAUTH_CLIENT_ID` (+ Phase 6 code flow 시 `GOOGLE_OAUTH_CLIENT_SECRET`) |
+| **Authorized JavaScript origins** | `/signup`·`/login`이 열리는 **프로토콜+호스트+포트** |
 
 클라이언트는 **빌드타임 `VITE_` 변수 없음**. 페이지 로드 시  
 `GET /api/public/auth-signup/oauth/google/config` 로 `clientId`를 받는다.
 
+**현재 Railway**: staging·production 모두 `GOOGLE_OAUTH_CLIENT_ID` 설정됨 → **Console 동의 화면·origins만 맞추면** `/signup`·`/login` Google 버튼 동작.
+
 ---
 
-## 2. Google Cloud Console 설정
+## 2. OAuth 동의 화면 — 「청소비서」 등록 (필수)
 
-1. [Google Cloud Console](https://console.cloud.google.com/) → 프로젝트 선택(또는 생성)
-2. **APIs & Services → OAuth consent screen**
-   - User type: **External** (내부 테스트는 Testing + 테스트 사용자 추가)
-   - 앱 이름·지원 이메일·개발자 연락처 입력
-   - Scopes: 기본 `email`, `profile`, `openid` (GSI One Tap/버튼 기본)
-3. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
+> **Google Play 앱 등록과 다름.** 여기는 **Google Cloud → OAuth consent screen** 이다.  
+> Play Console 앱 생성은 [`GOOGLE_PLAY_CBISEO.md`](../../apps/cbiseo-android/docs/GOOGLE_PLAY_CBISEO.md) 참고.
+
+### Step 1 — 프로젝트·동의 화면 진입
+
+1. [Google Cloud Console](https://console.cloud.google.com/) 로그인
+2. 상단에서 **OAuth Web client가 있는 프로젝트** 선택 (없으면 **새 프로젝트** 생성 — 예: `CBISEO Production`)
+3. **APIs & Services → OAuth consent screen** (한국어: **Google Auth Platform → 브랜딩** / **대상** 메뉴로 이름이 바뀌었을 수 있음)
+
+### Step 2 — User type
+
+| 선택 | 용도 |
+|------|------|
+| **External** | 일반 Google 계정(업체 ADMIN) 가입·로그인 — **필수** |
+| Internal | Google Workspace 조직 내부만 — **사용 안 함** |
+
+External 선택 후 **만들기** → 앱 정보 입력.
+
+### Step 3 — 앱 정보 (브랜딩) — 복사·붙여넣기
+
+| 필드 | 입력값 |
+|------|--------|
+| **앱 이름** | `청소비서` |
+| **사용자 지원 이메일** | Play·운영 담당 Google 계정 이메일 (Console 로그인 계정) |
+| **앱 로고** | `client/public/brand/clean-secretary-logo.png` 업로드 (120×120 권장, PNG) |
+| **앱 도메인 → 홈페이지** | `https://www.cbiseo.com` |
+| **앱 도메인 → 개인정보처리방침** | `https://www.cbiseo.com/legal/member-privacy` |
+| **앱 도메인 → 서비스 약관** | `https://www.cbiseo.com/legal/member-terms` |
+| **승인된 도메인** | `cbiseo.com` 추가 (www·apex는 자동 연관) |
+| **개발자 연락처 이메일** | 팀 공용 이메일 1개 (Console 알림 수신) |
+
+> 약관·개인정보는 공개 URL: `GET /api/public/legal/documents/member-privacy` 등으로도 제공됨. slug: `shared/platformLegalSlugs.ts`
+
+### Step 4 — 범위(Scopes)
+
+**Add or remove scopes** 에서 아래만 유지 (GSI·로그인 기본):
+
+| Scope | 용도 |
+|-------|------|
+| `…/auth/userinfo.email` | Google 이메일 (계정 연결) |
+| `…/auth/userinfo.profile` | 이름·프로필 |
+| `openid` | OpenID Connect |
+
+**민감·제한 범위(Drive, Gmail 등) 추가 금지** — 심사·검증 지연.
+
+### Step 5 — 테스트 사용자 (Publishing 전)
+
+동의 화면 **게시 상태 = Testing** 일 때:
+
+- **Test users** 에 팀 Google 계정 **이메일** 추가
+- Testing 상태에서는 **목록에 있는 계정만** Google 가입·로그인 가능
+
+### Step 6 — 게시 (Production) — 운영 오픈 시
+
+1. **OAuth consent screen → Publish app** (또는 **앱 게시**)
+2. **모든 Google 사용자**에게 「청소비서」 동의 화면 표시
+3. Google이 **브랜드 확인·앱 검증**을 요청할 수 있음 (홈페이지·개인정보 URL이 실제로 열리는지, 로고와 앱명 일치 등)
+
+| 상태 | 누가 로그인 가능 |
+|------|------------------|
+| **Testing** | 테스트 사용자만 |
+| **In production** | 모든 Google 계정 |
+
+> **스테이징만** 팀 내부 검증: Testing + 테스트 사용자로 충분.  
+> **www.cbiseo.com** 일반 업체 ADMIN 오픈: **Production 게시** 필요.
+
+---
+
+## 3. OAuth 클라이언트 (Web) — Credentials
+
+1. **APIs & Services → Credentials → Create Credentials → OAuth client ID**  
+   (이미 Web client가 있으면 **편집**만 하면 됨)
    - Application type: **Web application**
    - Name: 예) `CBISEO signup staging`
 
@@ -99,13 +169,13 @@ http://localhost:5174/login
 
 ---
 
-## 3. Railway / server `.env` Variables
+## 4. Railway / server `.env` Variables
 
 | 변수 | 필수 | 설명 |
 |------|------|------|
 | `GOOGLE_OAUTH_CLIENT_ID` | ✅ | Web client ID (`….apps.googleusercontent.com`) |
 | `AUTH_SIGNUP_OAUTH_STATE_SECRET` | 권장 | `signupToken` JWT 서명용. **미설정 시 `JWT_SECRET` 폴백** |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Phase 4 ❌ | Phase 6 Google **code exchange** 시 |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Phase 4 ❌ | Phase 6 Google **code exchange** 시 ✅ |
 
 **설정 위치**: Railway → API 서비스 → Variables (staging·production 각각)  
 로컬: `server/.env` (gitignore)
@@ -119,7 +189,7 @@ GOOGLE_OAUTH_CLIENT_ID="123456789-xxxx.apps.googleusercontent.com"
 
 ---
 
-## 4. 동작 확인 (config)
+## 5. 동작 확인 (config)
 
 브라우저 또는 curl:
 
@@ -138,7 +208,7 @@ GET /api/public/auth-signup/oauth/google/config
 
 ---
 
-## 5. E2E 테스트 체크리스트 (staging)
+## 6. E2E 테스트 체크리스트 (staging)
 
 ### A. Google 가입 (Happy path)
 
@@ -161,14 +231,14 @@ GET /api/public/auth-signup/oauth/google/config
 | `signupToken` 15분 초과 후 OTP 발송 | 재인증 안내 |
 | `GOOGLE_OAUTH_CLIENT_ID` 없음 | 버튼 숨김, config `enabled: false` |
 
-### C. Phase 4 한계 (의도)
+### C. Google-only ADMIN (Phase 6 이후)
 
-- 가입 직후 **Google 로그인 불가** — Phase 6 전
-- **아이디+비밀번호 로그인도 불가** (`passwordHash` null) — Phase 6 SNS 로그인 또는 Phase 7 비밀번호 설정
+- Google 가입 직후 **`/login` Google 로그인**으로 진입 가능 (Phase 6)
+- **아이디+비밀번호 로그인 불가** (`passwordHash` null) — Google 로그인 또는 Phase 7 비밀번호 설정
 
 ---
 
-## 6. 트러블슈팅
+## 7. 트러블슈팅
 
 | 증상 | 원인·조치 |
 |------|-----------|
@@ -176,11 +246,13 @@ GET /api/public/auth-signup/oauth/google/config
 | 버튼 없음 | `GET …/config` → `enabled` / Railway Variable / 재배포 |
 | verify 401/400 | clientId 불일치, 만료된 id_token, 시계 skew |
 | OTP 발송 「Google 인증이 만료」 | 15분 내 complete — Google 버튼 다시 |
-| 가입 후 로그인 실패 | **정상(Phase 4)** — Phase 6까지 로그인 미제공 |
+| `access_denied` · 「앱이 확인되지 않음」 | 동의 화면 **Testing** 인데 테스트 사용자에 본인 Gmail 미등록 |
+| 가입 후 로그인 실패 | `/login` Google 버튼·redirect URI·`GOOGLE_OAUTH_CLIENT_SECRET` 확인 (Phase 6) |
+| 심사·검증 요청 메일 | 홈·개인정보 URL 404 없는지, 앱명 **청소비서**·로고 일치 확인 |
 
 ---
 
-## 7. 관련 문서
+## 8. 관련 문서
 
 - [API.md](./API.md) — verify·signupToken 계약
 - [UI_FLOW.md](./UI_FLOW.md) — `/signup` 화면
