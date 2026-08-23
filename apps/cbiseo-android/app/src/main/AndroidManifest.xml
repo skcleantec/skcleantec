@@ -27,15 +27,20 @@
         </activity>
 
         <activity
-            android:name=".auth.LoginActivity"
+            android:name=".auth.SplashActivity"
             android:exported="true"
-            android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.CbiseoApp">
+            android:theme="@style/Theme.CbiseoApp.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".auth.LoginActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.CbiseoApp.Login" />
 
         <service
             android:name=".push.CbiseoFirebaseMessagingService"
