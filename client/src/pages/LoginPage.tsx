@@ -515,10 +515,10 @@ export function LoginPage() {
   return (
     <div
       ref={scrollRef}
-      className="login-surface relative min-h-dvh min-h-screen overflow-y-auto overscroll-y-contain bg-slate-100"
+      className="login-surface relative min-h-dvh min-h-screen overflow-y-auto overscroll-y-contain bg-[#f8f7f4]"
     >
       <div
-        className="pointer-events-none absolute inset-0 bg-left-top bg-repeat bg-[length:320px_auto]"
+        className="pointer-events-none absolute inset-0 bg-[#f8f7f4] bg-left-top bg-repeat bg-[length:320px_auto]"
         style={{ backgroundImage: `url(${LOGIN_BACKGROUND_SRC})` }}
         aria-hidden
       />
