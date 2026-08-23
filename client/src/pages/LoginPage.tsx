@@ -36,6 +36,7 @@ import {
 import { useLoginScrollSurface } from '../hooks/useMobileInputVisibility';
 import { PwaAddToHomeButton } from '../components/auth/PwaAddToHomeButton';
 import { LOGIN_BACKGROUND_SRC } from '@shared/brandLogo';
+import { ORDER_FORM_PLATFORM_FOOTER } from '@shared/orderFormPlatformFooter';
 
 /** ProtectedRoute / TeamProtectedRoute / CrmPopupEntry 가 넘긴 `state.from` 만 안전하게 읽기 */
 function readResumeLocationFromState(state: unknown): RouterLocation | undefined {
@@ -827,15 +828,19 @@ export function LoginPage() {
             </Link>
           </div>
 
-          <p className="login-page-footer mt-3 text-center text-fluid-2xs text-slate-500 sm:mt-6">
-            <Link to="/platform/login" className="hover:text-slate-700 underline-offset-2 hover:underline">
-              {PLATFORM_NAME} 운영 콘솔
-            </Link>
-            <span className="mx-1.5 text-slate-300" aria-hidden>
-              ·
-            </span>
-            <span className="text-slate-400">© {new Date().getFullYear()} {PLATFORM_NAME}</span>
-          </p>
+          <div className="login-page-footer mt-3 space-y-1 text-center sm:mt-6">
+            <p className="text-fluid-2xs text-slate-500">
+              <Link to="/platform/login" className="hover:text-slate-700 underline-offset-2 hover:underline">
+                {PLATFORM_NAME} 운영 콘솔
+              </Link>
+            </p>
+            <p className="text-fluid-2xs text-slate-400">
+              서비스는 {ORDER_FORM_PLATFORM_FOOTER.operatorName}에서 제공합니다.
+            </p>
+            <p className="text-fluid-2xs text-slate-400">
+              © {new Date().getFullYear()} {PLATFORM_NAME}
+            </p>
+          </div>
         </div>
       </div>
     </div>
