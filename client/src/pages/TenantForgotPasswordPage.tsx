@@ -82,9 +82,11 @@ export function TenantForgotPasswordPage() {
             <div className="mt-3 flex justify-center">
               <TenantBrandLogo surface="on-light" className="h-10" />
             </div>
-            <h1 className="mt-4 text-fluid-lg font-semibold text-slate-900">비밀번호 찾기</h1>
+            <h1 className="mt-4 text-fluid-lg font-semibold text-slate-900">비밀번호 찾기 · 설정</h1>
             <p className="mt-2 text-fluid-2xs leading-relaxed text-slate-500">
-              업체 개설 시 인증한 담당자 이메일로 인증번호를 보냅니다.
+              업체 개설 시 OTP로 인증한 담당자 이메일로 인증번호를 보냅니다. Google·카카오로 가입한
+              관리자도 여기서 <span className="font-medium text-slate-700">최초 비밀번호</span>를
+              설정할 수 있습니다.
             </p>
           </div>
 
@@ -163,7 +165,7 @@ export function TenantForgotPasswordPage() {
                 disabled={loading || verificationCode.length < 6}
                 className="w-full rounded-xl bg-slate-900 py-3 text-fluid-sm font-semibold text-white disabled:opacity-60"
               >
-                {loading ? '변경 중…' : '비밀번호 변경'}
+                {loading ? '저장 중…' : '비밀번호 저장'}
               </button>
               <button
                 type="button"

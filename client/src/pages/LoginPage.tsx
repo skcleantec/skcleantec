@@ -578,7 +578,10 @@ export function LoginPage() {
                 className="mb-6 flex gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3.5 py-3 text-fluid-sm text-emerald-950"
                 role="status"
               >
-                <p>비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요.</p>
+                <p>
+                  비밀번호가 설정되었습니다. 업체 코드·아이디와 새 비밀번호로 로그인하거나, Google·카카오
+                  로그인을 이용해 주세요.
+                </p>
               </div>
             ) : null}
             {signupKakaoComplete ? (
@@ -747,7 +750,7 @@ export function LoginPage() {
                       to="/forgot-password"
                       className="text-fluid-2xs font-medium text-sky-700 underline-offset-2 hover:underline"
                     >
-                      비밀번호 찾기
+                      비밀번호 찾기 · 설정
                     </Link>
                   ) : null}
                 </div>
@@ -783,7 +786,18 @@ export function LoginPage() {
                   className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-fluid-sm text-red-800"
                   role="alert"
                 >
-                  {error}
+                  <p>{error}</p>
+                  {error.includes('비밀번호가 설정되지 않은') ? (
+                    <p className="mt-2 text-fluid-2xs text-red-900/90">
+                      <Link
+                        to="/forgot-password"
+                        className="font-semibold underline underline-offset-2"
+                      >
+                        비밀번호 찾기 · 설정
+                      </Link>
+                      에서 가입 시 인증한 이메일로 비밀번호를 설정할 수 있습니다.
+                    </p>
+                  ) : null}
                 </div>
               )}
 

@@ -58,7 +58,7 @@ class StaffWebActivity : AppCompatActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.mediaPlaybackRequiresUserGesture = false
-        webView.addJavascriptInterface(CbiseoAppBridge(), "CbiseoApp")
+        webView.addJavascriptInterface(CbiseoAppBridge(onRequestGoogleLogin = {}), "CbiseoApp")
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {

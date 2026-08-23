@@ -234,7 +234,20 @@ GET /api/public/auth-signup/oauth/google/config
 ### C. Google-only ADMIN (Phase 6 이후)
 
 - Google 가입 직후 **`/login` Google 로그인**으로 진입 가능 (Phase 6)
-- **아이디+비밀번호 로그인 불가** (`passwordHash` null) — Google 로그인 또는 Phase 7 비밀번호 설정
+- **아이디+비밀번호 로그인 불가** (`passwordHash` null) — Google·카카오 로그인 또는 [`/forgot-password`](../forgot-password) 이메일 OTP로 비밀번호 **설정** (Phase 7)
+
+### D. Android 앱 (Phase 8)
+
+WebView에서는 Google GSI가 막히므로 **네이티브 Google Sign-In**을 사용한다.
+
+| 항목 | 값 |
+|------|-----|
+| 코드 | `apps/cbiseo-android/.../NativeGoogleSignInHelper.kt` |
+| Web client ID | `GET /api/public/auth-signup/oauth/google/config` → `requestIdToken` |
+| 로그인 API | 웹과 동일 `POST /api/auth/oauth/google` (WebView 콜백) |
+| Console | **동일 Web OAuth client** — 별도 Android client 불필요 (Web client ID로 id_token 발급) |
+
+앱 `/login`에서 Google 버튼 탭 → 네이티브 계정 선택 → 업체 코드 없이 ADMIN JWT.
 
 ---
 
