@@ -106,6 +106,7 @@ export function LoginPage() {
     '이용료 미납으로 업무 접속이 제한되었습니다. 관리자에게 문의해 주세요.';
   const signupComplete = new URLSearchParams(location.search).get('signup') === '1';
   const signupGoogleComplete = new URLSearchParams(location.search).get('signup') === 'google';
+  const signupKakaoComplete = new URLSearchParams(location.search).get('signup') === 'kakao';
   const passwordResetComplete = new URLSearchParams(location.search).get('passwordReset') === '1';
   /** 로그인 제출 시 증가 — 진행 중인 자동 `getMe`가 새 토큰·저장소를 덮어쓰지 않도록 */
   const sessionProbeGen = useRef(0);
@@ -425,7 +426,17 @@ export function LoginPage() {
                 <p>비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요.</p>
               </div>
             ) : null}
-            {signupGoogleComplete ? (
+            {signupKakaoComplete ? (
+              <div
+                className="mb-6 flex gap-3 rounded-xl border border-sky-200/80 bg-sky-50/90 px-3.5 py-3 text-fluid-sm text-sky-950"
+                role="status"
+              >
+                <p>
+                  카카오로 업체 개설이 완료되었습니다. 카카오 로그인은 곧 제공될 예정입니다. 그 전까지는
+                  로그인할 수 없습니다. 담당자 이메일은 비밀번호 찾기·복구용으로 저장됩니다.
+                </p>
+              </div>
+            ) : signupGoogleComplete ? (
               <div
                 className="mb-6 flex gap-3 rounded-xl border border-sky-200/80 bg-sky-50/90 px-3.5 py-3 text-fluid-sm text-sky-950"
                 role="status"

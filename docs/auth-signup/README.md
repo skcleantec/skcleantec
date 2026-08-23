@@ -17,6 +17,7 @@
 | **[API.md](./API.md)** | 공개·인증 API 계약 |
 | **[UI_FLOW.md](./UI_FLOW.md)** | `/signup` 위저드 화면·필드·검증 |
 | **[GOOGLE_SETUP.md](./GOOGLE_SETUP.md)** | Google Cloud Console · Railway Variables · E2E |
+| **[KAKAO_SETUP.md](./KAKAO_SETUP.md)** | Kakao Developers · Redirect URI · REST API 키 |
 
 ---
 

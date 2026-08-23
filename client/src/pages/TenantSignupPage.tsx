@@ -15,10 +15,12 @@ import {
 import {
   normalizeBizNumber,
   validateSignupBusinessInput,
+  type AuthIdentityProvider,
   type SignupBusinessType,
 } from '@shared/authSignup';
 import { TenantBrandLogo } from '../components/brand/TenantBrandLogo';
 import { GoogleSignupButton } from '../components/auth/GoogleSignupButton';
+import { KakaoSignupButton } from '../components/auth/KakaoSignupButton';
 import { LegalDocumentViewerModal } from '../components/auth/LegalDocumentViewerModal';
 import { ImageThumbLightbox } from '../components/ui/ImageThumbLightbox';
 import {
@@ -28,7 +30,15 @@ import {
   uploadTenantSignupBusinessRegistration,
   validateTenantSignupReferrer,
 } from '../api/tenantSignup';
-import { fetchGoogleSignupOAuthConfig, verifyGoogleSignupIdToken } from '../api/authSignupOAuth';
+import {
+  fetchGoogleSignupOAuthConfig,
+  fetchKakaoSignupOAuthConfig,
+  getSignupKakaoRedirectUri,
+  KAKAO_SIGNUP_OAUTH_STATE_KEY,
+  verifyGoogleSignupIdToken,
+  verifyKakaoSignupAuthorizationCode,
+  type SignupOAuthVerifyResult,
+} from '../api/authSignupOAuth';
 import { fetchSignupLegalDocuments, type PublicLegalDocument } from '../api/platformLegal';
 import { useLoginScrollSurface } from '../hooks/useMobileInputVisibility';
 
@@ -81,11 +91,17 @@ export function TenantSignupPage() {
   const businessFileRef = useRef<HTMLInputElement | null>(null);
   const [googleOAuthEnabled, setGoogleOAuthEnabled] = useState(false);
   const [googleClientId, setGoogleClientId] = useState('');
+  const [kakaoOAuthEnabled, setKakaoOAuthEnabled] = useState(false);
+  const [kakaoRestApiKey, setKakaoRestApiKey] = useState('');
   const [signupToken, setSignupToken] = useState('');
+  const [oauthProvider, setOauthProvider] = useState<AuthIdentityProvider | null>(null);
   const [oauthProviderEmail, setOauthProviderEmail] = useState<string | null>(null);
   const [oauthVerifying, setOauthVerifying] = useState(false);
+  const kakaoCallbackHandledRef = useRef(false);
 
   const oauthActive = signupToken.trim().length > 0;
+  const snsOAuthEnabled = googleOAuthEnabled || kakaoOAuthEnabled;
+  const oauthProviderLabel = oauthProvider === 'kakao' ? '카카오' : 'Google';
 
   const resetVerificationProgress = useCallback(() => {
     setCodeSent(false);
@@ -95,10 +111,27 @@ export function TenantSignupPage() {
 
   const clearSignupOAuth = useCallback(() => {
     setSignupToken('');
+    setOauthProvider(null);
     setOauthProviderEmail(null);
     resetVerificationProgress();
-    setInfo('Google 연결을 해제했습니다. 이메일·비밀번호로 가입할 수 있습니다.');
+    setInfo('SNS 연결을 해제했습니다. 이메일·비밀번호로 가입할 수 있습니다.');
   }, [resetVerificationProgress]);
+
+  const applyOAuthVerifyResult = useCallback(
+    (verified: SignupOAuthVerifyResult) => {
+      setSignupToken(verified.signupToken);
+      setOauthProvider(verified.provider);
+      setOauthProviderEmail(verified.providerEmail);
+      resetVerificationProgress();
+      const label = verified.provider === 'kakao' ? '카카오' : 'Google';
+      setInfo(
+        verified.providerEmail
+          ? `${label} 계정(${verified.providerEmail})이 연결되었습니다. 담당자 이메일 인증을 이어서 진행해 주세요.`
+          : `${label} 계정이 연결되었습니다. 담당자 이메일 인증을 이어서 진행해 주세요.`,
+      );
+    },
+    [resetVerificationProgress],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -133,6 +166,69 @@ export function TenantSignupPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchKakaoSignupOAuthConfig()
+      .then((cfg) => {
+        if (cancelled) return;
+        setKakaoOAuthEnabled(cfg.enabled && cfg.restApiKey.trim().length > 0);
+        setKakaoRestApiKey(cfg.restApiKey.trim());
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setKakaoOAuthEnabled(false);
+        setKakaoRestApiKey('');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (kakaoCallbackHandledRef.current) return;
+
+    const oauthError = searchParams.get('error')?.trim();
+    const code = searchParams.get('code')?.trim();
+    if (!oauthError && !code) return;
+
+    kakaoCallbackHandledRef.current = true;
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('code');
+    nextParams.delete('state');
+    nextParams.delete('error');
+    nextParams.delete('error_description');
+    const nextSearch = nextParams.toString();
+    navigate({ pathname: '/signup', search: nextSearch ? `?${nextSearch}` : '' }, { replace: true });
+
+    if (oauthError) {
+      setError('카카오 인증이 취소되었습니다.');
+      sessionStorage.removeItem(KAKAO_SIGNUP_OAUTH_STATE_KEY);
+      return;
+    }
+    if (!code) return;
+
+    const state = searchParams.get('state')?.trim() ?? '';
+    const savedState = sessionStorage.getItem(KAKAO_SIGNUP_OAUTH_STATE_KEY)?.trim() ?? '';
+    sessionStorage.removeItem(KAKAO_SIGNUP_OAUTH_STATE_KEY);
+    if (!savedState || state !== savedState) {
+      setError('카카오 인증 상태가 올바르지 않습니다. 다시 「카카오로 시작」을 눌러 주세요.');
+      return;
+    }
+
+    setError('');
+    setInfo('');
+    setOauthVerifying(true);
+    void verifyKakaoSignupAuthorizationCode(code, getSignupKakaoRedirectUri())
+      .then(applyOAuthVerifyResult)
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : '카카오 인증에 실패했습니다.');
+      })
+      .finally(() => {
+        setOauthVerifying(false);
+      });
+  }, [applyOAuthVerifyResult, navigate, searchParams]);
 
   useEffect(() => {
     const refFromUrl = searchParams.get('ref')?.trim().toLowerCase() ?? '';
@@ -277,7 +373,7 @@ export function TenantSignupPage() {
       } else {
         resetVerificationProgress();
       }
-      setInfo('플랜을 변경했습니다. Google 인증·이메일 인증번호를 다시 진행해 주세요.');
+      setInfo('플랜을 변경했습니다. SNS 인증·이메일 인증번호를 다시 진행해 주세요.');
     }
   };
 
@@ -287,14 +383,7 @@ export function TenantSignupPage() {
     setOauthVerifying(true);
     try {
       const verified = await verifyGoogleSignupIdToken(idToken);
-      setSignupToken(verified.signupToken);
-      setOauthProviderEmail(verified.providerEmail);
-      resetVerificationProgress();
-      setInfo(
-        verified.providerEmail
-          ? `Google 계정(${verified.providerEmail})이 연결되었습니다. 담당자 이메일 인증을 이어서 진행해 주세요.`
-          : 'Google 계정이 연결되었습니다. 담당자 이메일 인증을 이어서 진행해 주세요.',
-      );
+      applyOAuthVerifyResult(verified);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google 인증에 실패했습니다.');
     } finally {
@@ -328,7 +417,7 @@ export function TenantSignupPage() {
     }
     if (oauthActive) {
       if (!signupToken.trim()) {
-        return 'Google 인증이 만료되었습니다. 「Google로 시작」을 다시 눌러 주세요.';
+        return `${oauthProviderLabel} 인증이 만료되었습니다. 다시 SNS로 시작해 주세요.`;
       }
     } else if (adminPassword.trim().length < 4) {
       return '관리자 비밀번호를 4자 이상 입력한 뒤 인증번호를 받아 주세요.';
@@ -410,10 +499,11 @@ export function TenantSignupPage() {
         memberTermsAgreed: true,
         ...signupBusinessPayload,
       });
-      navigate(
-        `/login?tenant=${encodeURIComponent(result.tenant.slug)}&signup=${oauthActive ? 'google' : '1'}`,
-        { replace: true },
-      );
+      const signupQuery =
+        oauthProvider === 'kakao' ? 'kakao' : oauthProvider === 'google' ? 'google' : '1';
+      navigate(`/login?tenant=${encodeURIComponent(result.tenant.slug)}&signup=${signupQuery}`, {
+        replace: true,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : '가입에 실패했습니다.');
     } finally {
@@ -437,7 +527,7 @@ export function TenantSignupPage() {
             </div>
             <h1 className="mt-4 text-fluid-lg font-semibold text-slate-900">청소비서 가입하기</h1>
             <p className="mt-2 text-fluid-2xs leading-relaxed text-slate-500">
-              Google 또는 이메일·비밀번호로 시작한 뒤 담당자 이메일 인증으로 가입을 완료합니다. 가입 후{' '}
+              Google·카카오 또는 이메일·비밀번호로 시작한 뒤 담당자 이메일 인증으로 가입을 완료합니다. 가입 후{' '}
               <strong>{TENANT_SIGNUP_PAID_TRIAL_DAYS}일(약 2개월)</strong> 동안 코인 제한 없이 이용할 수
               있습니다. 유료 플랜은 같은 기간 요금 없이 체험됩니다.
             </p>
@@ -448,11 +538,13 @@ export function TenantSignupPage() {
             onFocusCapture={onFieldFocus}
             className="space-y-4 rounded-2xl border border-slate-200/90 bg-white/95 p-5 shadow-xl shadow-slate-900/5"
           >
-            {googleOAuthEnabled && googleClientId ? (
+            {snsOAuthEnabled ? (
               <div className="space-y-3">
                 {oauthActive ? (
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2.5">
-                    <p className="text-fluid-xs font-semibold text-emerald-900">Google 계정 연결됨</p>
+                    <p className="text-fluid-xs font-semibold text-emerald-900">
+                      {oauthProviderLabel} 계정 연결됨
+                    </p>
                     {oauthProviderEmail ? (
                       <p className="mt-0.5 text-fluid-2xs text-emerald-800">{oauthProviderEmail}</p>
                     ) : null}
@@ -471,18 +563,28 @@ export function TenantSignupPage() {
                 ) : (
                   <>
                     <p className="text-fluid-2xs leading-relaxed text-slate-600">
-                      업체 최고 관리자(ADMIN) 계정만 Google로 개설할 수 있습니다.
+                      업체 최고 관리자(ADMIN) 계정만 Google·카카오로 개설할 수 있습니다.
                     </p>
-                    <GoogleSignupButton
-                      clientId={googleClientId}
-                      disabled={oauthVerifying || loading || sendingCode}
-                      onCredential={(credential) => {
-                        void handleGoogleCredential(credential);
-                      }}
-                      onError={handleGoogleButtonError}
-                    />
+                    <div className="space-y-2">
+                      {googleOAuthEnabled && googleClientId ? (
+                        <GoogleSignupButton
+                          clientId={googleClientId}
+                          disabled={oauthVerifying || loading || sendingCode}
+                          onCredential={(credential) => {
+                            void handleGoogleCredential(credential);
+                          }}
+                          onError={handleGoogleButtonError}
+                        />
+                      ) : null}
+                      {kakaoOAuthEnabled && kakaoRestApiKey ? (
+                        <KakaoSignupButton
+                          restApiKey={kakaoRestApiKey}
+                          disabled={oauthVerifying || loading || sendingCode}
+                        />
+                      ) : null}
+                    </div>
                     {oauthVerifying ? (
-                      <p className="text-center text-fluid-2xs text-slate-500">Google 계정 확인 중…</p>
+                      <p className="text-center text-fluid-2xs text-slate-500">SNS 계정 확인 중…</p>
                     ) : null}
                   </>
                 )}
@@ -630,7 +732,7 @@ export function TenantSignupPage() {
                 />
                 {oauthActive ? (
                   <p className="mt-1 text-fluid-2xs leading-relaxed text-slate-500">
-                    Google에 등록된 이메일과 다를 수 있습니다. 본인 확인용 이메일을 인증해 주세요.
+                    SNS에 등록된 이메일과 다를 수 있습니다. 본인 확인용 이메일을 인증해 주세요.
                   </p>
                 ) : null}
               </label>

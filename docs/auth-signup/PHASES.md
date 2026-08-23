@@ -99,11 +99,19 @@
 
 | 작업 | 내용 |
 |------|------|
-| Kakao Developers 앱·REST API 키 | Railway Variables |
-| Kakao OAuth 콜백·토큰 교환 | `auth-signup` 모듈 |
-| `/signup` 카카오 버튼 | TenantSignupPage |
+| Kakao Developers 앱·REST API 키 | Railway Variables — [KAKAO_SETUP.md](./KAKAO_SETUP.md) |
+| `GET/POST /api/public/auth-signup/oauth/kakao/*` | config + code exchange → `signupToken` |
+| `/signup` 카카오 버튼 | `KakaoSignupButton` + redirect `/signup?code=` |
+| complete · `UserAuthIdentity` | Phase 4와 동일 |
 
-**완료 기준**: Phase 4와 동일 (Kakao 분기)
+**완료 기준**
+
+- [x] 서버 verify·signupToken·complete 연동
+- [x] `/signup` 카카오 버튼·redirect 처리
+- [x] `KAKAO_SETUP.md`
+- [ ] Kakao Redirect URI + Railway `KAKAO_REST_API_KEY` + staging E2E
+- [ ] 카카오로 가입 → 사업자 단계 → 테넌트 생성
+- [ ] 동일 카카오 id 재가입 → 409
 
 ---
 

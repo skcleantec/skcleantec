@@ -2,9 +2,16 @@ import type { AuthIdentityProvider } from '@shared/authSignup';
 
 const API = '/api/public/auth-signup';
 
+export const KAKAO_SIGNUP_OAUTH_STATE_KEY = 'cbiseo_signup_kakao_oauth_state';
+
 export type GoogleSignupOAuthConfig = {
   enabled: boolean;
   clientId: string;
+};
+
+export type KakaoSignupOAuthConfig = {
+  enabled: boolean;
+  restApiKey: string;
 };
 
 export type SignupOAuthVerifyResult = {
@@ -21,6 +28,13 @@ export async function fetchGoogleSignupOAuthConfig(): Promise<GoogleSignupOAuthC
   return data;
 }
 
+export async function fetchKakaoSignupOAuthConfig(): Promise<KakaoSignupOAuthConfig> {
+  const res = await fetch(`${API}/oauth/kakao/config`);
+  const data = (await res.json()) as KakaoSignupOAuthConfig & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '카카오 가입 설정을 불러오지 못했습니다.');
+  return data;
+}
+
 export async function verifyGoogleSignupIdToken(idToken: string): Promise<SignupOAuthVerifyResult> {
   const res = await fetch(`${API}/oauth/google/verify`, {
     method: 'POST',
@@ -29,5 +43,35 @@ export async function verifyGoogleSignupIdToken(idToken: string): Promise<Signup
   });
   const data = (await res.json()) as SignupOAuthVerifyResult & { error?: string };
   if (!res.ok) throw new Error(data.error ?? 'Google 인증에 실패했습니다.');
+  return data;
+}
+
+/** 카카오 로그인 redirect_uri — Kakao Developers·authorize 요청·verify body가 동일해야 함 */
+export function getSignupKakaoRedirectUri(): string {
+  if (typeof window === 'undefined') return '';
+  return `${window.location.origin}/signup`;
+}
+
+export function buildKakaoSignupAuthorizeUrl(restApiKey: string, state: string): string {
+  const params = new URLSearchParams({
+    client_id: restApiKey,
+    redirect_uri: getSignupKakaoRedirectUri(),
+    response_type: 'code',
+    state,
+  });
+  return `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
+}
+
+export async function verifyKakaoSignupAuthorizationCode(
+  code: string,
+  redirectUri: string,
+): Promise<SignupOAuthVerifyResult> {
+  const res = await fetch(`${API}/oauth/kakao/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, redirectUri }),
+  });
+  const data = (await res.json()) as SignupOAuthVerifyResult & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? '카카오 인증에 실패했습니다.');
   return data;
 }

@@ -29,24 +29,71 @@
    - Application type: **Web application**
    - Name: 예) `CBISEO signup staging`
 
-### Authorized JavaScript origins (필수)
+### Authorized JavaScript origins (필수 — Phase 4 가입·Phase 6 GSI 로그인)
 
-GSI는 **페이지 origin**만 검사한다. 아래를 **각 환경마다** 추가한다.
+GSI는 **페이지 origin**만 검사한다. **한 번에 전부 등록**해 두면 스테이징→운영·로컬 전환 시 Console 재작업·전파 대기를 줄일 수 있다.
 
-| 환경 | Origin 예시 |
-|------|-------------|
-| 로컬 Vite | `http://localhost:5173` (포트 바뀌면 해당 포트도 추가) |
-| 로컬 API 직접 | `http://localhost:3000` (프록시 없이 테스트할 때) |
-| 스테이징 | `https://clean-solution-staging.up.railway.app` |
-| 운영 | `https://www.cbiseo.com` · `https://cbiseo.com` |
+**Google Console → Credentials → Web client → 「승인된 JavaScript 원본」** 에 아래 **6개**를 각각 한 줄씩 추가:
 
-### Authorized redirect URIs
+```text
+https://clean-solution-staging.up.railway.app
+https://www.cbiseo.com
+https://cbiseo.com
+https://skcleantec.com
+https://www.skcleantec.com
+http://localhost:5173
+http://localhost:5174
+http://localhost:3000
+```
+
+| Origin | 용도 |
+|--------|------|
+| `https://clean-solution-staging.up.railway.app` | Railway **staging** `/signup` · `/login` |
+| `https://www.cbiseo.com` | **운영(main)** canonical |
+| `https://cbiseo.com` | 운영 apex (www 없이 접속 시) |
+| `https://skcleantec.com` | **레거시 alias apex** — 여기서 `/signup` 열면 Google이 이 origin 검사 |
+| `https://www.skcleantec.com` | alias www (리다이렉트·직접 접속 대비) |
+| `http://localhost:5173` | 로컬 Vite 기본 |
+| `http://localhost:5174` | Vite 포트 충돌 시 자동 증가 |
+| `http://localhost:3000` | API 직접·프록시 없이 테스트할 때 |
+
+> **형식**: `https://호스트` 또는 `http://localhost:포트` — **끝에 `/`·경로(`/signup`) 금지**
+
+### Authorized redirect URIs (Phase 6 로그인 code flow — 미리 등록 권장)
 
 **Phase 4 가입(GSI `id_token`)만** 쓸 때는 redirect URI가 **필수는 아니다**.  
-Phase 6 **로그인(code flow)** 를 같은 클라이언트로 쓸 계획이면 미리 추가:
+Phase 6 **로그인**·code exchange를 같은 Web client로 쓸 계획이면 **지금 함께** 넣어 둔다.
 
-- `https://www.cbiseo.com/login` (또는 콜백 전용 경로 — Phase 6 설계 시 확정)
-- 스테이징 동일 패턴
+**「승인된 리디렉션 URI」** 에 아래 **5개**:
+
+```text
+https://www.cbiseo.com/login
+https://cbiseo.com/login
+https://skcleantec.com/login
+https://www.skcleantec.com/login
+https://clean-solution-staging.up.railway.app/login
+http://localhost:5173/login
+http://localhost:5174/login
+```
+
+| URI | 용도 |
+|-----|------|
+| `https://www.cbiseo.com/login` | 운영 Google 로그인 콜백(Phase 6) |
+| `https://cbiseo.com/login` | apex 도메인 |
+| `https://clean-solution-staging.up.railway.app/login` | 스테이징 |
+| `http://localhost:5173/login` · `5174` | 로컬 |
+
+> Phase 6에서 콜백 경로를 `/auth/google/callback` 등으로 바꾸면 **그때 URI 한 줄 추가**하면 된다. `/login` 은 현재 UI 기준 placeholder.
+
+### Railway Variables (환경별 Client ID)
+
+| 환경 | `GOOGLE_OAUTH_CLIENT_ID` |
+|------|---------------------------|
+| **staging** | 동일 Web client ID (위 origins에 staging 포함) |
+| **production (main)** | **같은 ID** 써도 됨 — origins에 `cbiseo.com` 이미 있으면 추가 Console 작업 없음 |
+| **로컬** `server/.env` | 동일 ID |
+
+운영·스테이징을 **OAuth 클라이언트 파일로 분리**하고 싶으면 staging용·prod용 Web client 2개를 만들고, 각 Railway 환경에 **다른** `GOOGLE_OAUTH_CLIENT_ID`를 넣는다. (Console origins는 각 client에 해당 환경만 넣어도 됨)
 
 4. 생성 후 **Client ID** 복사 (Client Secret은 Phase 4 verify에는 불필요, Phase 6 code flow 시 필요)
 
@@ -125,7 +172,7 @@ GET /api/public/auth-signup/oauth/google/config
 
 | 증상 | 원인·조치 |
 |------|-----------|
-| Google 팝업 후 「origin mismatch」 | Console **JavaScript origins**에 현재 URL origin 추가 |
+| Google 팝업 `origin_mismatch` · `origin=https://skcleantec.com` | **JavaScript origins**에 `https://skcleantec.com` (및 `www`) 추가 — cbiseo만 넣고 skcleantec에서 테스트한 경우 |
 | 버튼 없음 | `GET …/config` → `enabled` / Railway Variable / 재배포 |
 | verify 401/400 | clientId 불일치, 만료된 id_token, 시계 skew |
 | OTP 발송 「Google 인증이 만료」 | 15분 내 complete — Google 버튼 다시 |
