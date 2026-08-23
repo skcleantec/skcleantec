@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { isCbiseoStaffNativeApp } from '../../utils/cbiseoNativeApp';
 
 declare global {
   interface Window {
@@ -75,6 +76,7 @@ export function GoogleSignupButton({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (isCbiseoStaffNativeApp()) return;
     let cancelled = false;
     void loadGoogleIdentityScript()
       .then(() => {

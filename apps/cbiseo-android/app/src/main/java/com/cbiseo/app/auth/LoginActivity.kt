@@ -1,64 +1,56 @@
 package com.cbiseo.app.auth
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.View
+import android.webkit.CookieManager
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
-import com.cbiseo.app.BuildConfig
 import com.cbiseo.app.R
-import com.cbiseo.app.api.ApiClient
 import com.cbiseo.app.api.ApiEnvironment
+import com.cbiseo.app.bridge.CbiseoAppBridge
 import com.cbiseo.app.databinding.ActivityLoginBinding
 import com.cbiseo.app.session.StaffRoleResolver
 import com.cbiseo.app.web.StaffWebActivity
+import com.cbiseo.app.web.StaffWebSessionSync
 import com.google.android.material.button.MaterialButtonToggleGroup
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
+/**
+ * PC와 동일한 `/login` 웹 UI(WebView).
+ * Google GSI는 웹에서 앱 WebView일 때 숨김 — 카카오·아이디 로그인은 웹과 동일.
+ */
 class LoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLoginBinding
     private val tokenStore by lazy { TokenStore.get(this) }
     private var serverPresetBound = false
+    private var loginPageBootstrapped = false
+    private var finishingAfterAuth = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.appVersionText.text = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
-        tokenStore.getTenantSlug()?.let { binding.inputTenantSlug.setText(it) }
-        tokenStore.getLoginId()?.let { binding.inputLoginId.setText(it) }
-
-        refreshServerPresetVisibility()
-        binding.inputLoginId.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-            override fun afterTextChanged(s: Editable?) {
-                refreshServerPresetVisibility()
-            }
-        })
-        binding.loginButton.setOnClickListener { attemptLogin() }
-
-        tryAutoLogin()
+        setupServerPresetForPyo()
+        setupLoginWebView()
+        loadLoginPage()
     }
 
-    private fun tryAutoLogin() {
-        val token = tokenStore.getToken()
-        val role = tokenStore.getRole()
-        if (!token.isNullOrBlank() && StaffRoleResolver.homePathForRole(role) != null) {
-            openStaffWeb()
+    private fun setupServerPresetForPyo() {
+        val storedLoginId = tokenStore.getLoginId().orEmpty()
+        if (!ApiEnvironment.canChooseServer(storedLoginId)) {
+            binding.serverPresetSection.visibility = View.GONE
+            return
         }
-    }
-
-    private fun refreshServerPresetVisibility() {
-        val loginId = binding.inputLoginId.text?.toString().orEmpty().trim()
-        val show = ApiEnvironment.canChooseServer(loginId)
-        binding.serverPresetSection.visibility = if (show) View.VISIBLE else View.GONE
-        if (show) ensureServerPresetBound()
+        binding.serverPresetSection.visibility = View.VISIBLE
+        ensureServerPresetBound()
+        binding.serverPresetGroup.addOnButtonCheckedListener { _: MaterialButtonToggleGroup, _: Int, isChecked: Boolean ->
+            if (!isChecked || !loginPageBootstrapped) return@addOnButtonCheckedListener
+            loadLoginPage(reload = true)
+        }
     }
 
     private fun ensureServerPresetBound() {
@@ -71,73 +63,95 @@ class LoginActivity : AppCompatActivity() {
                 ApiEnvironment.Preset.STAGING -> R.id.serverPresetStaging
             },
         )
-        binding.serverPresetGroup.addOnButtonCheckedListener { _: MaterialButtonToggleGroup, checkedId: Int, isChecked: Boolean ->
-            if (!isChecked) return@addOnButtonCheckedListener
-        }
     }
 
-    private fun selectedApiBaseUrlForPyo(): String =
-        when (binding.serverPresetGroup.checkedButtonId) {
-            R.id.serverPresetStaging -> ApiEnvironment.STAGING_URL
-            else -> ApiEnvironment.PRODUCTION_URL
-        }
-
-    private fun attemptLogin() {
-        val tenantSlug = binding.inputTenantSlug.text?.toString().orEmpty().trim()
-        val loginId = binding.inputLoginId.text?.toString().orEmpty().trim()
-        val password = binding.inputPassword.text?.toString().orEmpty()
-        val apiBaseUrl = if (ApiEnvironment.canChooseServer(loginId)) {
-            selectedApiBaseUrlForPyo()
-        } else {
-            ApiEnvironment.PRODUCTION_URL
-        }
-        binding.loginError.visibility = View.GONE
-
-        if (tenantSlug.isBlank() || loginId.isBlank() || password.isBlank()) {
-            showError("업체 코드, 아이디, 비밀번호를 입력해 주세요.")
-            return
-        }
-
-        binding.loginButton.isEnabled = false
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                ApiClient(apiBaseUrl).login(tenantSlug, loginId, password)
+    private fun selectedApiBaseUrl(): String {
+        if (binding.serverPresetSection.visibility == View.VISIBLE) {
+            return when (binding.serverPresetGroup.checkedButtonId) {
+                R.id.serverPresetStaging -> ApiEnvironment.STAGING_URL
+                else -> ApiEnvironment.PRODUCTION_URL
             }
-            binding.loginButton.isEnabled = true
-            result.onSuccess { login ->
-                var role = login.role ?: JwtPayload.roleFromToken(login.token)
-                if (role.isNullOrBlank()) {
-                    role = withContext(Dispatchers.IO) {
-                        ApiClient(apiBaseUrl).fetchMe(login.token).getOrNull()
+        }
+        return ApiEnvironment.presetForUrl(tokenStore.getApiBaseUrl())?.url
+            ?: ApiEnvironment.PRODUCTION_URL
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setupLoginWebView() {
+        val webView = binding.loginWebView
+        CookieManager.getInstance().setAcceptCookie(true)
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.addJavascriptInterface(CbiseoAppBridge(), "CbiseoApp")
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val url = request?.url?.toString().orEmpty()
+                if (url.startsWith("http://") || url.startsWith("https://")) return false
+                return true
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                val current = url ?: return
+                val apiBaseUrl = selectedApiBaseUrl()
+
+                if (!loginPageBootstrapped) {
+                    if (current == "about:blank") {
+                        loginPageBootstrapped = true
+                        injectStaffAppFlag(webView)
+                        webView.loadUrl("$apiBaseUrl/login")
                     }
+                    return
                 }
-                if (StaffRoleResolver.homePathForRole(role) == null) {
-                    showError(getString(R.string.role_not_supported))
-                    return@launch
+
+                if (!current.startsWith(apiBaseUrl)) return
+
+                if (StaffWebSessionSync.isStaffAppHomeUrl(current, apiBaseUrl)) {
+                    tryFinishLoginFromWeb(webView, apiBaseUrl)
                 }
-                tokenStore.saveSession(
-                    token = login.token,
-                    tenantSlug = tenantSlug,
-                    loginId = loginId,
-                    userName = login.userName,
-                    userId = login.userId,
-                    role = role,
-                    apiBaseUrl = apiBaseUrl,
-                )
-                openStaffWeb()
-            }.onFailure { err ->
-                showError(err.message ?: "로그인에 실패했습니다.")
             }
         }
     }
 
-    private fun showError(message: String) {
-        binding.loginError.text = message
-        binding.loginError.visibility = View.VISIBLE
+    private fun loadLoginPage(reload: Boolean = false) {
+        if (reload) loginPageBootstrapped = false
+        binding.loginWebView.loadUrl("about:blank")
     }
 
-    private fun openStaffWeb() {
-        startActivity(Intent(this, StaffWebActivity::class.java))
-        finish()
+    private fun injectStaffAppFlag(webView: WebView) {
+        webView.evaluateJavascript(
+            "try{localStorage.setItem('cbiseo_staff_app','1');}catch(e){}",
+            null,
+        )
+    }
+
+    private fun tryFinishLoginFromWeb(webView: WebView, apiBaseUrl: String) {
+        if (finishingAfterAuth) return
+        StaffWebSessionSync.captureFromWebView(webView) { captured ->
+            val token = captured?.token
+            val role = captured?.role ?: JwtPayload.roleFromToken(token)
+            if (token.isNullOrBlank() || StaffRoleResolver.homePathForRole(role) == null) return@captureFromWebView
+            finishingAfterAuth = true
+            tokenStore.saveSession(
+                token = token,
+                tenantSlug = captured.tenantSlug.orEmpty(),
+                loginId = tokenStore.getLoginId().orEmpty(),
+                userName = null,
+                userId = null,
+                role = role,
+                apiBaseUrl = apiBaseUrl,
+            )
+            startActivity(Intent(this, StaffWebActivity::class.java))
+            finish()
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (binding.loginWebView.canGoBack()) {
+            binding.loginWebView.goBack()
+        } else {
+            super.onBackPressed()
+        }
     }
 }

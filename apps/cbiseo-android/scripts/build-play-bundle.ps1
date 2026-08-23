@@ -11,6 +11,12 @@ if (-not (Test-Path 'local.properties')) {
     Write-Host 'Tip: copy local.properties.example -> local.properties (sdk.dir)' -ForegroundColor Yellow
 }
 
+$keystoreProps = Join-Path $PSScriptRoot '..\keystore.properties'
+if (-not (Test-Path $keystoreProps)) {
+    Write-Host 'Missing keystore.properties — Android Studio에서 release keystore 생성 후:' -ForegroundColor Yellow
+    Write-Host '  .\scripts\init-keystore-properties.ps1' -ForegroundColor Yellow
+}
+
 if (-not $SkipBuild) {
     & .\gradlew.bat bundlePlayRelease
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -23,7 +29,8 @@ if ($content -match 'versionCode\s*=\s*(\d+)') { $versionCode = $Matches[1] } el
 
 $dist = Join-Path $PSScriptRoot '..\dist'
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
-$src = Join-Path $PSScriptRoot "..\app\build\outputs\bundle\playRelease\app-play-release.aab"
+. (Join-Path $PSScriptRoot 'build-paths.ps1')
+$src = Get-CbiseoPlayReleaseAabPath
 $dest = Join-Path $dist "cbiseo-play-$versionName-$versionCode.aab"
 if (Test-Path $src) {
     Copy-Item -Force $src $dest
