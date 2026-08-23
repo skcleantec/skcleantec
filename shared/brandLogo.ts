@@ -3,3 +3,6 @@ export const CLEAN_SECRETARY_LOGO_SRC = '/brand/clean-secretary-logo.png';
 
 /** img alt · aria-label */
 export const CLEAN_SECRETARY_LOGO_ALT = '청소비서 Clean Assistant';
+
+/** 로그인 화면 배경 (웹·Android 공통) */
+export const LOGIN_BACKGROUND_SRC = '/brand/login-background.jpg';
