@@ -134,25 +134,38 @@
 
 ---
 
-## Phase 7 — 비밀번호 fallback
+## Phase 7 — 비밀번호 fallback ✅
 
 | 작업 | 내용 |
 |------|------|
 | SNS-only ADMIN — forgot-password | `tenantPasswordReset` — recoveryEmail OTP |
 | OTP 후 `passwordHash` 설정 | login dual path |
+| 로그인·복구 UI 안내 | `/forgot-password` · `/login` 링크·오류 안내 |
 
-**완료 기준**: SNS-only 계정이 이메일 OTP로 비밀번호 설정 후 ID+PW 로그인 가능
+**완료 기준**
+
+- [x] SNS-only ADMIN — recoveryEmail OTP로 `passwordHash` 설정 (`tenantPasswordReset.service.ts`)
+- [x] 설정 후 업체 코드 + 아이디 + 비밀번호 로그인 (`auth.routes.ts`)
+- [x] `/forgot-password` · `/login` SNS-only 안내 문구
+- [ ] staging E2E — SNS-only 계정 OTP → ID+PW 로그인
 
 ---
 
-## Phase 8 — Android · 플랫폼 · 문서
+## Phase 8 — Android · 플랫폼 · 문서 ✅ (코드)
 
 | 작업 | 내용 |
 |------|------|
-| Android Google Sign-In | `apps/cbiseo-android` (선택) |
-| 플랫폼 테넌트 상세 — 사업자 정보 표시 | `/platform/tenants` |
+| Android Google Sign-In | `NativeGoogleSignInHelper` · `CbiseoApp.requestGoogleLogin` |
+| 플랫폼 테넌트 상세 — 사업자 정보 표시 | `PlatformTenantSignupBusinessSection` |
 | `MULTI_TENANT_PLATFORM.md` §16 self-signup 문구 정정 | obsolete 제거 |
 | agent 가이드 (필요 시) | 회원가입 흐름 |
+
+**완료 기준**
+
+- [x] 앱 WebView Google 버튼 → 네이티브 Sign-In → `POST /api/auth/oauth/google`
+- [x] 플랫폼 `/platform/tenants/:id` 가입 사업자 정보
+- [x] §16 비목표 문구 정정
+- [ ] 실기기 Google 로그인 E2E (staging)
 
 ---
 
@@ -170,4 +183,4 @@ Phase 0 (문서)
                 → Phase 8 (Android·플랫폼)
 ```
 
-**다음 착수**: **Phase 6 E2E (staging)** → Phase 7 (비밀번호 fallback)
+**다음 착수**: **Phase 7·8 staging E2E** — SNS-only 비밀번호 설정 · 앱 Google 로그인

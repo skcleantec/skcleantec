@@ -9,9 +9,14 @@ declare global {
     CbiseoApp?: {
       isNativeApp: () => boolean;
       getPlatform: () => 'android';
+      /** 앱 WebView — 네이티브 Google Sign-In (Phase 8) */
+      requestGoogleLogin?: () => void;
       /** FCM 토큰을 서버 register API로 전달 (네이티브가 호출) */
       onFcmToken?: (token: string) => void;
     };
+    /** Android 네이티브 Google 로그인 콜백 — LoginPage/GoogleSignupButton에서 등록 */
+    __cbiseoNativeGoogleLogin?: (idToken: string) => void;
+    __cbiseoNativeGoogleLoginError?: (message: string) => void;
   }
 }
 

@@ -34,7 +34,7 @@
 | **클라이언트** | `client/src/pages/TenantSignupPage.tsx` | 위저드 UI |
 | **클라이언트** | `client/src/pages/LoginPage.tsx` | SNS 로그인 버튼(ADMIN, Phase 6) |
 | **공유** | `shared/authSignup.ts` (예정) | businessType enum·검증 메시지 |
-| **Android** | `apps/cbiseo-android/.../auth/` | Phase 7 — 동일 API |
+| **Android** | `apps/cbiseo-android/.../auth/` | Phase 8 — 네이티브 Google Sign-In + 동일 OAuth API |
 
 > **원칙**: `auth.routes.ts`·`tenantSignup.service.ts`에 로직을 무한히 붙이지 않고, **`auth-signup` 모듈**로 모은 뒤 기존 파일은 thin wrapper 또는 re-export.
 
@@ -51,7 +51,8 @@
 | 가입 시 사업자 구분 (Phase 2) | ✅ |
 | `User.passwordHash` nullable (Phase 1) | ✅ |
 | SNS 1계정 = 1업체 1사용자 | 📋 POLICY 확정 |
-| Phase 7 비밀번호 복구 (SNS-only) | 📋 예정 |
+| Phase 7 비밀번호 복구 (SNS-only) | ✅ `/forgot-password` · OTP → `passwordHash` |
+| Phase 8 Android Google · 플랫폼 사업자 | ✅ 네이티브 Sign-In · `PlatformTenantSignupBusinessSection` |
 | 서버 모듈 `auth-signup/` | ✅ |
 
 ---

@@ -138,7 +138,7 @@ export async function confirmTenantPasswordReset(input: {
 
   return {
     ok: true as const,
-    message: '비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요.',
+    message: '비밀번호가 저장되었습니다. 새 비밀번호로 로그인해 주세요.',
     loginId: payload.loginId,
     tenantSlug: payload.tenantSlug,
   };

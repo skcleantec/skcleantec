@@ -179,15 +179,30 @@ export function GoogleSignupButton({
   const label = mode === 'login' ? 'Google로 로그인' : 'Google로 가입';
 
   if (staticFallback) {
+    const handleNativeGoogleLogin = () => {
+      if (typeof window.CbiseoApp?.requestGoogleLogin === 'function') {
+        window.__cbiseoNativeGoogleLogin = (token) => {
+          const credential = token.trim();
+          if (!credential) {
+            onError?.('Google 인증이 취소되었습니다.');
+            return;
+          }
+          onCredential(credential);
+        };
+        window.__cbiseoNativeGoogleLoginError = (message) => {
+          onError?.(message || 'Google 로그인에 실패했습니다.');
+        };
+        window.CbiseoApp.requestGoogleLogin();
+        return;
+      }
+      onError?.(
+        '앱에서 Google 로그인을 사용할 수 없습니다. 카카오·아이디 로그인 또는 PC 브라우저를 이용해 주세요.',
+      );
+    };
+
     return (
       <div className="flex min-h-10 w-full justify-center">
-        <GoogleStaticFallbackButton
-          mode={mode}
-          disabled={disabled}
-          onClick={() =>
-            onError?.('앱 WebView에서는 Google 로그인 연동 테스트만 가능합니다. 실제 로그인은 PC 브라우저를 이용해 주세요.')
-          }
-        />
+        <GoogleStaticFallbackButton mode={mode} disabled={disabled} onClick={handleNativeGoogleLogin} />
       </div>
     );
   }

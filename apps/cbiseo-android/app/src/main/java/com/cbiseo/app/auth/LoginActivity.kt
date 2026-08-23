@@ -20,7 +20,7 @@ import com.google.android.material.button.MaterialButtonToggleGroup
 
 /**
  * PC와 동일한 `/login` 웹 UI(WebView).
- * Google GSI는 웹에서 앱 WebView일 때 숨김 — 카카오·아이디 로그인은 웹과 동일.
+ * Google GSI는 WebView에서 실패 → 네이티브 Google Sign-In(Phase 8) 또는 카카오·아이디 로그인.
  */
 class LoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLoginBinding
@@ -28,11 +28,18 @@ class LoginActivity : AppCompatActivity() {
     private var serverPresetBound = false
     private var loginPageBootstrapped = false
     private var finishingAfterAuth = false
+    private lateinit var nativeGoogleSignIn: NativeGoogleSignInHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        nativeGoogleSignIn = NativeGoogleSignInHelper(
+            activity = this,
+            webView = binding.loginWebView,
+            apiBaseUrlProvider = { selectedApiBaseUrl() },
+        )
 
         setupServerPresetForPyo()
         setupLoginWebView()
@@ -82,7 +89,10 @@ class LoginActivity : AppCompatActivity() {
         CookieManager.getInstance().setAcceptCookie(true)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
-        webView.addJavascriptInterface(CbiseoAppBridge(), "CbiseoApp")
+        webView.addJavascriptInterface(
+            CbiseoAppBridge(onRequestGoogleLogin = { nativeGoogleSignIn.requestGoogleLogin() }),
+            "CbiseoApp",
+        )
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {

@@ -568,7 +568,7 @@ Plan 적용: [Standard ▾]  [플랜 기본값으로 재설정]
 
 - 업체별 별도 DB / 별도 배포 파이프라인
 - 과금·결제 (plan 필드만预留)
-- 테넌트 self-signup (플랫폼에서만 개설)
+- 테넌트 self-signup (~~플랫폼에서만 개설~~ → **2026-08** `/signup` 셀프 가입 — `docs/auth-signup/`)
 - 플러그인 동적 로드 (L3는 코드 배포 + feature flag)
 
 ---
