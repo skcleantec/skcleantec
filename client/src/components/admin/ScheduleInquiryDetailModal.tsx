@@ -996,8 +996,8 @@ export function ScheduleInquiryDetailModal(props: ScheduleInquiryDetailModalProp
     });
     if (bucket === 'morning') return m;
     if (bucket === 'afternoon') return a;
-    /** 사이·시간 미확정 — 오전+오후 가용 목록 합집합 시 이미 오전 배정된 팀장이 오후 가용으로 다시 노출됨 */
-    return null;
+    /** 사이·조율 미확정 — 휴무 팀장 제외. 오전·오후 가용 ID 합집합(중복 제거). null이면 휴무 포함 전원 노출됨 */
+    return [...new Set([...m, ...a])];
   }, [dayStat, editForm.preferredTime, editForm.betweenScheduleSlot]);
 
   const slotOccupiedLeaderIds = useMemo(() => {
