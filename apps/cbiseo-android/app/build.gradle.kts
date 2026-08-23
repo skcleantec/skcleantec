@@ -5,6 +5,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// Windows — repo 내 app/build 잠금(Defender·동기화·IDE) 회피
+if (System.getProperty("os.name").contains("Windows", ignoreCase = true)) {
+    System.getenv("LOCALAPPDATA")?.let { localAppData ->
+        layout.buildDirectory.set(file("$localAppData/CbiseoAndroidBuild/app"))
+    }
+}
+
 val localProps = Properties()
 val localFile = rootProject.file("local.properties")
 if (localFile.exists()) {
@@ -68,7 +75,8 @@ android {
             }
         }
         debug {
-            applicationIdSuffix = ".debug"
+            // Firebase google-services.json 은 com.cbiseo.app 만 등록 — debug suffix 사용 시 빌드 실패
+            isDebuggable = true
         }
     }
 
@@ -84,6 +92,7 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")

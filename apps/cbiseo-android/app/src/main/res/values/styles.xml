@@ -8,8 +8,14 @@
         <item name="android:navigationBarColor">#FFFFFF</item>
     </style>
 
-    <!-- 앱 시작 프리뷰 — 1번 스플래시 이미지 전체 -->
+    <!-- API 30 이하 cold start + 스플래시 Activity 본문 -->
     <style name="Theme.CbiseoApp.Splash" parent="Theme.CbiseoApp">
+        <item name="android:windowBackground">@drawable/splash_screen</item>
+        <item name="android:statusBarColor">@color/splash_window_bg</item>
+        <item name="android:navigationBarColor">@color/splash_window_bg</item>
+    </style>
+
+    <style name="Theme.CbiseoApp.SplashContent" parent="Theme.CbiseoApp">
         <item name="android:windowBackground">@drawable/splash_screen</item>
         <item name="android:statusBarColor">@color/splash_window_bg</item>
         <item name="android:navigationBarColor">@color/splash_window_bg</item>
@@ -17,7 +23,9 @@
 
     <!-- 로그인 — 2번 패턴 배경 -->
     <style name="Theme.CbiseoApp.Login" parent="Theme.CbiseoApp">
-        <item name="android:windowBackground">@drawable/login_background_drawable</item>
+        <item name="android:windowBackground">@drawable/login_background</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+        <item name="colorSurface">@android:color/transparent</item>
         <item name="android:statusBarColor">#B8D9F2</item>
         <item name="android:navigationBarColor">#FFFFFF</item>
         <item name="android:windowLightStatusBar">true</item>
